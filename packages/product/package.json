@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-product",
+  "version": "4.0.0",
+  "description": "Product management agents and workflows (PRD creation, analysis)",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "product",
+    "prd",
+    "planning",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/product"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-core": "^4.0.0"
+  }
+}

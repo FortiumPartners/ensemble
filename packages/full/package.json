@@ -1,0 +1,48 @@
+{
+  "name": "@fortium/ai-mesh-full",
+  "version": "4.0.0",
+  "description": "Complete ai-mesh ecosystem (meta-package with all plugins)",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "full",
+    "complete",
+    "meta",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/full"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-core": "^4.0.0",
+    "@fortium/ai-mesh-product": "^4.0.0",
+    "@fortium/ai-mesh-development": "^4.0.0",
+    "@fortium/ai-mesh-quality": "^4.0.0",
+    "@fortium/ai-mesh-infrastructure": "^4.0.0",
+    "@fortium/ai-mesh-git": "^4.0.0",
+    "@fortium/ai-mesh-e2e-testing": "^4.0.0",
+    "@fortium/ai-mesh-metrics": "^4.0.0",
+    "@fortium/ai-mesh-pane-viewer": "^0.1.0",
+    "@fortium/ai-mesh-react": "^4.0.0",
+    "@fortium/ai-mesh-nestjs": "^4.0.0",
+    "@fortium/ai-mesh-rails": "^4.0.0",
+    "@fortium/ai-mesh-phoenix": "^4.0.0",
+    "@fortium/ai-mesh-blazor": "^4.0.0",
+    "@fortium/ai-mesh-jest": "^4.0.0",
+    "@fortium/ai-mesh-pytest": "^4.0.0",
+    "@fortium/ai-mesh-rspec": "^4.0.0",
+    "@fortium/ai-mesh-xunit": "^4.0.0",
+    "@fortium/ai-mesh-exunit": "^4.0.0"
+  }
+}

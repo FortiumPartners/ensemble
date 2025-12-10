@@ -1,0 +1,27 @@
+{
+  "name": "@fortium/ai-mesh-pane-viewer",
+  "version": "0.1.0",
+  "description": "Real-time subagent monitoring in terminal panes",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "monitoring",
+    "terminal",
+    "panes",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/pane-viewer"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-react",
+  "version": "4.0.0",
+  "description": "React framework skills and component development",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "react",
+    "frontend",
+    "components",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/react"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-development": "^4.0.0"
+  }
+}

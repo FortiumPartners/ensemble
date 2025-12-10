@@ -1,0 +1,24 @@
+{
+  "name": "ai-mesh-react",
+  "version": "4.0.0",
+  "description": "React framework skills and component development",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "frontend",
+    "components",
+    "ai-mesh"
+  ],
+  "agents": "./agents",
+  "commands": "./commands",
+  "skills": "./skills",
+  "dependencies": [
+    "ai-mesh-development@4.0.0"
+  ]
+}

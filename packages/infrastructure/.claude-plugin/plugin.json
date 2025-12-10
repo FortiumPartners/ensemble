@@ -1,0 +1,25 @@
+{
+  "name": "ai-mesh-infrastructure",
+  "version": "4.0.0",
+  "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "license": "MIT",
+  "keywords": [
+    "infrastructure",
+    "devops",
+    "kubernetes",
+    "aws",
+    "ai-mesh"
+  ],
+  "agents": "./agents",
+  "commands": "./commands",
+  "skills": "./skills",
+  "dependencies": [
+    "ai-mesh-core@4.0.0"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-exunit",
+  "version": "4.0.0",
+  "description": "ExUnit testing framework integration for Elixir",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "exunit",
+    "testing",
+    "elixir",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/exunit"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-quality": "^4.0.0"
+  }
+}

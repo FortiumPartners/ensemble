@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-jest",
+  "version": "4.0.0",
+  "description": "Jest testing framework integration",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "jest",
+    "testing",
+    "javascript",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-quality": "^4.0.0"
+  }
+}

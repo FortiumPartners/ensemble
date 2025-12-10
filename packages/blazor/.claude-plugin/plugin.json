@@ -1,0 +1,24 @@
+{
+  "name": "ai-mesh-blazor",
+  "version": "4.0.0",
+  "description": "Blazor framework skills for .NET applications",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "license": "MIT",
+  "keywords": [
+    "blazor",
+    "dotnet",
+    "frontend",
+    "ai-mesh"
+  ],
+  "agents": "./agents",
+  "commands": "./commands",
+  "skills": "./skills",
+  "dependencies": [
+    "ai-mesh-development@4.0.0"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-nestjs",
+  "version": "4.0.0",
+  "description": "NestJS backend framework skills",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "nestjs",
+    "backend",
+    "nodejs",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/nestjs"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-development": "^4.0.0"
+  }
+}

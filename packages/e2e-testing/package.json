@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ai-mesh-e2e-testing",
+  "version": "4.0.0",
+  "description": "End-to-end testing with Playwright integration",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testing",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/e2e-testing"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ai-mesh-core": "^4.0.0"
+  }
+}

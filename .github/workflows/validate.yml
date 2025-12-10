@@ -1,0 +1,50 @@
+name: Validate Plugins
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate marketplace.json
+        run: npx ajv validate -s schemas/marketplace-schema.json -d marketplace.json
+
+      - name: Validate all plugin.json files
+        run: |
+          for plugin in packages/*/; do
+            if [ -f "$plugin.claude-plugin/plugin.json" ]; then
+              echo "Validating $plugin.claude-plugin/plugin.json"
+              npx ajv validate -s schemas/plugin-schema.json -d "$plugin.claude-plugin/plugin.json"
+            fi
+          done
+
+      - name: Validate agent YAML files
+        run: |
+          for yaml in packages/*/agents/*.yaml; do
+            if [ -f "$yaml" ]; then
+              echo "Validating $yaml"
+              npx js-yaml "$yaml" > /dev/null
+            fi
+          done
+
+      - name: Check package.json consistency
+        run: |
+          for pkg in packages/*/package.json; do
+            if [ -f "$pkg" ]; then
+              echo "Checking $pkg"
+              node -e "const p = require('./$pkg'); if (!p.name.startsWith('@fortium/ai-mesh-')) process.exit(1);"
+            fi
+          done

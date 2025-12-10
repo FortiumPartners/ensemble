@@ -1,0 +1,27 @@
+{
+  "name": "@fortium/ai-mesh-core",
+  "version": "4.0.0",
+  "description": "Core orchestration and utilities for ai-mesh ecosystem",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "orchestration",
+    "agents",
+    "core",
+    "ai-mesh"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "directory": "packages/core"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
