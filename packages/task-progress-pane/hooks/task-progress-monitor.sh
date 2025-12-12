@@ -86,6 +86,10 @@ SEARCH_MODE=false
 RUNNING=true
 LAST_STATE_MTIME=""
 
+# Multi-session state
+declare -a SESSION_IDS=()
+declare -i CURRENT_SESSION_IDX=0
+
 # Task data (populated from state file)
 declare -a TASKS=()
 declare -a TASK_STATUSES=()
@@ -325,42 +329,103 @@ get_status_icon() {
 # Render task list (scrollable)
 render_task_list() {
     local visible_start=$SCROLL_OFFSET
-    local visible_end=$((SCROLL_OFFSET + BODY_HEIGHT))
     local task_count=${#TASKS[@]}
+    local rendered_row=0
+    local task_idx=$visible_start
 
-    for ((row = 0; row < BODY_HEIGHT; row++)); do
-        local task_idx=$((visible_start + row))
-        move_to $((HEADER_HEIGHT + row + 1)) 1
+    while ((rendered_row < BODY_HEIGHT && task_idx < task_count)); do
+        move_to $((HEADER_HEIGHT + rendered_row + 1)) 1
         clear_line
 
-        if ((task_idx < task_count)); then
-            local content="${TASKS[$task_idx]}"
-            local status="${TASK_STATUSES[$task_idx]}"
-            local icon
-            icon=$(get_status_icon "$status")
+        local content="${TASKS[$task_idx]}"
+        local status="${TASK_STATUSES[$task_idx]}"
+        local task_id="${TASK_IDS[$task_idx]}"
 
-            # Truncate content to fit
-            local max_len=$((TERM_COLS - 6))
-            local truncated="${content:0:$max_len}"
-
-            # Highlight current line if cursor is here
-            if ((task_idx == CURSOR_POS)); then
-                printf "${BG_WHITE}${BLACK}"
-            fi
-
-            # Highlight search matches
-            if [[ "$SEARCH_MODE" == true && -n "$SEARCH_QUERY" ]]; then
-                if [[ "$content" == *"$SEARCH_QUERY"* ]]; then
-                    truncated="${truncated//$SEARCH_QUERY/${BOLD}${YELLOW}${SEARCH_QUERY}${RESET}}"
+        # Check if this section is collapsed
+        if is_section_collapsed "$status"; then
+            # Skip tasks with this status (only show first as header)
+            local section_first=true
+            for ((i = 0; i < task_idx; i++)); do
+                if [[ "${TASK_STATUSES[$i]}" == "$status" ]]; then
+                    section_first=false
+                    break
                 fi
+            done
+
+            if [[ "$section_first" == true ]]; then
+                # Show collapsed section header
+                local section_count=0
+                for s in "${TASK_STATUSES[@]}"; do
+                    if [[ "$s" == "$status" ]]; then
+                        ((section_count++))
+                    fi
+                done
+
+                local icon
+                icon=$(get_status_icon "$status")
+
+                if ((task_idx == CURSOR_POS)); then
+                    printf "${BG_WHITE}${BLACK}"
+                fi
+                printf " %b %s [%d items collapsed]" "$ICON_COLLAPSED" "$status" "$section_count"
+                if ((task_idx == CURSOR_POS)); then
+                    printf "${RESET}"
+                fi
+                ((rendered_row++))
             fi
+            ((task_idx++))
+            continue
+        fi
 
-            printf " %b %s" "$icon" "$truncated"
+        local icon
+        icon=$(get_status_icon "$status")
 
-            if ((task_idx == CURSOR_POS)); then
-                printf "${RESET}"
+        # Truncate content to fit
+        local max_len=$((TERM_COLS - 6))
+        local truncated="${content:0:$max_len}"
+
+        # Check if task is expanded
+        local expand_icon=""
+        if is_task_expanded "$task_id"; then
+            expand_icon="$ICON_EXPANDED "
+        fi
+
+        # Highlight current line if cursor is here
+        if ((task_idx == CURSOR_POS)); then
+            printf "${BG_WHITE}${BLACK}"
+        fi
+
+        # Highlight search matches
+        if [[ "$SEARCH_MODE" == true && -n "$SEARCH_QUERY" ]]; then
+            if [[ "$content" == *"$SEARCH_QUERY"* ]]; then
+                truncated="${truncated//$SEARCH_QUERY/${BOLD}${YELLOW}${SEARCH_QUERY}${RESET}}"
             fi
         fi
+
+        printf " %b%s %s" "$expand_icon" "$icon" "$truncated"
+
+        if ((task_idx == CURSOR_POS)); then
+            printf "${RESET}"
+        fi
+
+        ((rendered_row++))
+
+        # If task is expanded, show additional details
+        if is_task_expanded "$task_id" && ((rendered_row < BODY_HEIGHT)); then
+            move_to $((HEADER_HEIGHT + rendered_row + 1)) 1
+            clear_line
+            printf "   ${DIM}Status: %s | ID: %s${RESET}" "$status" "$task_id"
+            ((rendered_row++))
+        fi
+
+        ((task_idx++))
+    done
+
+    # Clear remaining rows
+    while ((rendered_row < BODY_HEIGHT)); do
+        move_to $((HEADER_HEIGHT + rendered_row + 1)) 1
+        clear_line
+        ((rendered_row++))
     done
 }
 
@@ -372,7 +437,12 @@ render_help_bar() {
     if [[ "$SEARCH_MODE" == true ]]; then
         printf "${BG_YELLOW}${BLACK} /%s${RESET}" "$SEARCH_QUERY"
     else
-        printf "${DIM} j/k:move  gg/G:jump  /:search  q:quit${RESET}"
+        local session_count=${#SESSION_IDS[@]}
+        if ((session_count > 1)); then
+            printf "${DIM} j/k:move  Enter:expand  zc/zo:fold  Tab:session  q:quit${RESET}"
+        else
+            printf "${DIM} j/k:move  gg/G:jump  Enter:expand  zc/zo:fold  /:search  q:quit${RESET}"
+        fi
     fi
 }
 
@@ -580,6 +650,116 @@ prev_match() {
     fi
 }
 
+# Toggle expand/collapse for task at cursor
+toggle_task_expand() {
+    local task_count=${#TASKS[@]}
+    if ((CURSOR_POS >= 0 && CURSOR_POS < task_count)); then
+        local task_id="${TASK_IDS[$CURSOR_POS]}"
+
+        # Check if task is expanded
+        local is_expanded=false
+        local idx=0
+        for id in "${EXPANDED_TASKS[@]}"; do
+            if [[ "$id" == "$task_id" ]]; then
+                is_expanded=true
+                break
+            fi
+            ((idx++))
+        done
+
+        if [[ "$is_expanded" == true ]]; then
+            # Remove from expanded list
+            unset 'EXPANDED_TASKS[idx]'
+            EXPANDED_TASKS=("${EXPANDED_TASKS[@]}")
+        else
+            # Add to expanded list
+            EXPANDED_TASKS+=("$task_id")
+        fi
+    fi
+}
+
+# Check if task is expanded
+is_task_expanded() {
+    local task_id="$1"
+    for id in "${EXPANDED_TASKS[@]}"; do
+        if [[ "$id" == "$task_id" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Collapse section at cursor (zc)
+collapse_section() {
+    local task_count=${#TASKS[@]}
+    if ((CURSOR_POS >= 0 && CURSOR_POS < task_count)); then
+        local status="${TASK_STATUSES[$CURSOR_POS]}"
+
+        # Check if section already collapsed
+        local is_collapsed=false
+        for s in "${COLLAPSED_SECTIONS[@]}"; do
+            if [[ "$s" == "$status" ]]; then
+                is_collapsed=true
+                break
+            fi
+        done
+
+        if [[ "$is_collapsed" == false ]]; then
+            COLLAPSED_SECTIONS+=("$status")
+        fi
+    fi
+}
+
+# Expand section at cursor (zo)
+expand_section() {
+    local task_count=${#TASKS[@]}
+    if ((CURSOR_POS >= 0 && CURSOR_POS < task_count)); then
+        local status="${TASK_STATUSES[$CURSOR_POS]}"
+
+        # Remove from collapsed list
+        local new_collapsed=()
+        for s in "${COLLAPSED_SECTIONS[@]}"; do
+            if [[ "$s" != "$status" ]]; then
+                new_collapsed+=("$s")
+            fi
+        done
+        COLLAPSED_SECTIONS=("${new_collapsed[@]}")
+    fi
+}
+
+# Check if section is collapsed
+is_section_collapsed() {
+    local status="$1"
+    for s in "${COLLAPSED_SECTIONS[@]}"; do
+        if [[ "$s" == "$status" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Navigate to next session (Tab)
+next_session() {
+    local session_count=${#SESSION_IDS[@]}
+    if ((session_count > 1)); then
+        CURRENT_SESSION_IDX=$(( (CURRENT_SESSION_IDX + 1) % session_count ))
+        # Reset cursor and scroll when switching sessions
+        CURSOR_POS=0
+        SCROLL_OFFSET=0
+    fi
+}
+
+# Navigate to previous session (Shift+Tab)
+prev_session() {
+    local session_count=${#SESSION_IDS[@]}
+    if ((session_count > 1)); then
+        CURRENT_SESSION_IDX=$(( (CURRENT_SESSION_IDX - 1 + session_count) % session_count ))
+        # Reset cursor and scroll when switching sessions
+        CURSOR_POS=0
+        SCROLL_OFFSET=0
+    fi
+}
+
 # Handle input (single character)
 handle_input() {
     local key="$1"
@@ -622,6 +802,26 @@ handle_input() {
                 ;;
             $'\x15')  # Ctrl+U
                 page_up
+                ;;
+            $'\x0a')  # Enter - toggle expand/collapse task
+                toggle_task_expand
+                ;;
+            z)
+                # Wait for second character (c or o)
+                read -rsn1 -t 0.5 next_key
+                case "$next_key" in
+                    c) collapse_section ;;
+                    o) expand_section ;;
+                esac
+                ;;
+            $'\x09')  # Tab - next session
+                next_session
+                ;;
+            $'\x1b')  # ESC sequence - check for Shift+Tab
+                read -rsn2 -t 0.1 seq
+                if [[ "$seq" == "[Z" ]]; then
+                    prev_session
+                fi
                 ;;
             q)
                 RUNNING=false
