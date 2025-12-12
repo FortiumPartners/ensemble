@@ -35,5 +35,15 @@
       "description": "Productivity and monitoring tools"
     }
   ],
-  "plugins": []
+  "plugins": [
+    {
+      "name": "task-progress-pane",
+      "version": "1.0.0",
+      "source": "./packages/task-progress-pane",
+      "description": "Real-time task progress visualization for Claude Code TodoWrite operations",
+      "category": "utilities",
+      "tags": ["progress", "todowrite", "terminal", "vim"],
+      "author": "AI Mesh Team"
+    }
+  ]
 }
