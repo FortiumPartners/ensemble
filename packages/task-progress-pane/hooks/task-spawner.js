@@ -15,6 +15,7 @@ const DEBOUNCE_MS = 50;
 let debounceTimer = null;
 let pendingUpdate = null;
 let paneManager = null;
+let processingUpdate = false;
 
 /**
  * Read JSON input from stdin
@@ -123,8 +124,13 @@ function scheduleUpdate(updateData) {
     const data = pendingUpdate;
     pendingUpdate = null;
     debounceTimer = null;
+    processingUpdate = true;
 
-    await processUpdate(data);
+    try {
+      await processUpdate(data);
+    } finally {
+      processingUpdate = false;
+    }
   }, DEBOUNCE_MS);
 }
 
@@ -158,10 +164,10 @@ async function main() {
       config
     });
 
-    // Wait for debounce to complete before exiting
+    // Wait for debounce and processing to complete before exiting
     await new Promise(resolve => {
       const checkComplete = () => {
-        if (!debounceTimer) {
+        if (!debounceTimer && !processingUpdate) {
           resolve();
         } else {
           setTimeout(checkComplete, 10);

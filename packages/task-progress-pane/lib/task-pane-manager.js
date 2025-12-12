@@ -91,7 +91,7 @@ class TaskPaneManager {
     this.signalFile = path.join(os.tmpdir(), `task-progress-signal-${signalId}`);
 
     // Spawn new pane with monitor script
-    const monitorPath = path.join(__dirname, '..', 'hooks', 'task-progress-monitor.sh');
+    const monitorPath = path.join(__dirname, '..', 'hooks', 'task-progress-monitor-v2.sh');
     const command = [
       monitorPath,
       STATE_PATH,

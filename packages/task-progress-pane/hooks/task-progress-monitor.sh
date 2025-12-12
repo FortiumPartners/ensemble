@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/run/current-system/sw/bin/bash
 #
 # task-progress-monitor.sh
 # Terminal UI for task progress visualization
@@ -16,7 +16,7 @@
 #   - Search mode (/, n/N)
 #   - State watching (inotifywait + polling fallback)
 
-set -euo pipefail
+set -uo pipefail
 
 # =============================================================================
 # SECTION 1: CONFIGURATION & CONSTANTS
@@ -370,7 +370,7 @@ load_current_session_data() {
         IFS='|' read -ra TASK_ACTIVE_FORMS <<< "$activeforms_str"
 
         # Remove empty trailing elements
-        while (( ${#TASKS[@]} > 0 && -z "${TASKS[-1]}" )); do
+        while (( ${#TASKS[@]} > 0 )) && [[ -z "${TASKS[-1]:-}" ]]; do
             unset 'TASKS[-1]'
         done
 
