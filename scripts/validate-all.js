@@ -37,7 +37,7 @@ function validatePlugin(pluginDir) {
 
   // Validate package.json structure
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-  if (!packageJson.name.startsWith('@fortium/ai-mesh-')) {
+  if (!packageJson.name.startsWith('@fortium/ensemble-')) {
     throw new Error(`Invalid package name for ${pluginName}: ${packageJson.name}`);
   }
 
@@ -63,7 +63,7 @@ function validatePlugin(pluginDir) {
 }
 
 function main() {
-  console.log('AI Mesh Plugin Validation');
+  console.log('Ensemble Plugin Validation');
   console.log('========================\n');
 
   // Validate marketplace.json

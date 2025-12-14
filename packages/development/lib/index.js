@@ -1,6 +1,6 @@
 /**
  * Development Plugin
- * @fortium/ai-mesh-development
+ * @fortium/ensemble-development
  *
  * Technical documentation, API docs, guides, and examples
  */

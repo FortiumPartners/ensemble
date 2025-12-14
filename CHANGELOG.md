@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the AI Mesh Plugins ecosystem will be documented in this file.
+All notable changes to the Ensemble Plugins ecosystem will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### In Progress
-- Plugin extraction from ai-mesh v3.x monolith
+- Plugin extraction from ensemble v3.x monolith
 - Individual plugin population with agents, commands, skills
 - Testing framework for plugin validation
 - NPM package publishing setup
@@ -24,26 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Marketplace integration** for plugin discovery and installation
 
 #### Plugin Ecosystem
-- **ai-mesh-core** (4.0.0) - Core orchestration and utilities
-- **ai-mesh-product** (4.0.0) - Product management workflows
-- **ai-mesh-development** (4.0.0) - Development agents
-- **ai-mesh-quality** (4.0.0) - Quality assurance and code review
-- **ai-mesh-infrastructure** (4.0.0) - Infrastructure automation (AWS/K8s/Docker/Helm/Fly.io)
-- **ai-mesh-git** (4.0.0) - Git workflow automation
-- **ai-mesh-e2e-testing** (4.0.0) - Playwright E2E testing
-- **ai-mesh-metrics** (4.0.0) - Productivity analytics
-- **ai-mesh-pane-viewer** (0.1.0) - Real-time monitoring
-- **ai-mesh-react** (4.0.0) - React framework skills
-- **ai-mesh-nestjs** (4.0.0) - NestJS backend skills
-- **ai-mesh-rails** (4.0.0) - Rails backend skills
-- **ai-mesh-phoenix** (4.0.0) - Phoenix LiveView skills
-- **ai-mesh-blazor** (4.0.0) - Blazor .NET skills
-- **ai-mesh-jest** (4.0.0) - Jest testing integration
-- **ai-mesh-pytest** (4.0.0) - Pytest testing integration
-- **ai-mesh-rspec** (4.0.0) - RSpec testing integration
-- **ai-mesh-xunit** (4.0.0) - xUnit testing integration
-- **ai-mesh-exunit** (4.0.0) - ExUnit testing integration
-- **ai-mesh-full** (4.0.0) - Complete ecosystem meta-package
+- **ensemble-core** (4.0.0) - Core orchestration and utilities
+- **ensemble-product** (4.0.0) - Product management workflows
+- **ensemble-development** (4.0.0) - Development agents
+- **ensemble-quality** (4.0.0) - Quality assurance and code review
+- **ensemble-infrastructure** (4.0.0) - Infrastructure automation (AWS/K8s/Docker/Helm/Fly.io)
+- **ensemble-git** (4.0.0) - Git workflow automation
+- **ensemble-e2e-testing** (4.0.0) - Playwright E2E testing
+- **ensemble-metrics** (4.0.0) - Productivity analytics
+- **ensemble-pane-viewer** (0.1.0) - Real-time monitoring
+- **ensemble-react** (4.0.0) - React framework skills
+- **ensemble-nestjs** (4.0.0) - NestJS backend skills
+- **ensemble-rails** (4.0.0) - Rails backend skills
+- **ensemble-phoenix** (4.0.0) - Phoenix LiveView skills
+- **ensemble-blazor** (4.0.0) - Blazor .NET skills
+- **ensemble-jest** (4.0.0) - Jest testing integration
+- **ensemble-pytest** (4.0.0) - Pytest testing integration
+- **ensemble-rspec** (4.0.0) - RSpec testing integration
+- **ensemble-xunit** (4.0.0) - xUnit testing integration
+- **ensemble-exunit** (4.0.0) - ExUnit testing integration
+- **ensemble-full** (4.0.0) - Complete ecosystem meta-package
 
 #### Infrastructure
 - **NPM workspace** configuration for monorepo management
@@ -56,8 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### From v3.x Monolith
 - **Breaking**: Modular installation replaces single-package install
-- **Breaking**: Plugin names now prefixed with `ai-mesh-` (e.g., `ai-mesh-core`)
-- **Breaking**: NPM scope changed to `@fortium/` (e.g., `@fortium/ai-mesh-core`)
+- **Breaking**: Plugin names now prefixed with `ensemble-` (e.g., `ensemble-core`)
+- **Breaking**: NPM scope changed to `@fortium/` (e.g., `@fortium/ensemble-core`)
 - **Improved**: Pay-what-you-need model (install only required plugins)
 - **Improved**: Independent plugin versioning for framework-specific modules
 - **Improved**: Reduced installation size (average 90% reduction per plugin)
@@ -69,16 +69,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 1. **Installation Method**
    ```bash
    # v3.x (monolith)
-   npx @fortium/ai-mesh install --global
+   npx @fortium/ensemble install --global
 
    # v4.0 (modular)
-   claude plugin install @fortium/ai-mesh-core
-   claude plugin install @fortium/ai-mesh-product  # optional
+   claude plugin install @fortium/ensemble-core
+   claude plugin install @fortium/ensemble-product  # optional
    ```
 
 2. **Agent References**
    - Old: `infrastructure-management-subagent`
-   - New: Provided by `ai-mesh-infrastructure` plugin
+   - New: Provided by `ensemble-infrastructure` plugin
 
 3. **Command Availability**
    - Commands now provided by specific plugins
@@ -124,5 +124,5 @@ This is the last version before the v4.0.0 plugin architecture migration. See v3
 
 - [v4.0.0 Migration Guide](docs/MIGRATION_v4.md)
 - [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md)
-- [Repository](https://github.com/FortiumPartners/ai-mesh-plugins)
+- [Repository](https://github.com/FortiumPartners/ensemble)
 - [NPM Organization](https://www.npmjs.com/org/fortium)

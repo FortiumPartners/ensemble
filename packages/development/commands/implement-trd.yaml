@@ -1,17 +1,17 @@
 metadata:
   name: implement-trd
-  description: Complete TRD implementation using git-town workflow with ai-mesh-orchestrator delegation and TDD methodology
+  description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: implementation
-  output_path: ai-mesh/implement-trd.md
+  output_path: ensemble/implement-trd.md
   source: fortium
 
 mission:
   summary: |
     This command implements a complete Technical Requirements Document (TRD) using modern
     git-town feature branch workflow. It creates a feature branch and delegates to
-    ai-mesh-orchestrator which routes to tech-lead-orchestrator for structured TDD-based
+    ensemble-orchestrator which routes to tech-lead-orchestrator for structured TDD-based
     development including planning, implementation, testing, and quality gates.
 
 workflow:
@@ -48,14 +48,14 @@ workflow:
           title: Resource Assessment
           description: Identify required specialist agents and tools
     
-    - name: AI Mesh Orchestrator Delegation
+    - name: Ensemble Orchestrator Delegation
       order: 2
       steps:
         - order: 1
           title: Strategic Request Analysis
-          description: ai-mesh-orchestrator analyzes TRD requirements
+          description: ensemble-orchestrator analyzes TRD requirements
           delegation:
-            agent: ai-mesh-orchestrator
+            agent: ensemble-orchestrator
             context: Complete TRD with task breakdown and acceptance criteria
         
         - order: 2

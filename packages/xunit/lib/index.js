@@ -1,6 +1,6 @@
 /**
  * xUnit Testing Skill
- * @fortium/ai-mesh-xunit
+ * @fortium/ensemble-xunit
  *
  * Provides xUnit test generation and execution for C#/.NET projects
  */

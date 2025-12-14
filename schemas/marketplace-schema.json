@@ -5,7 +5,7 @@
   "properties": {
     "name": {
       "type": "string",
-      "const": "ai-mesh"
+      "const": "ensemble"
     },
     "version": {
       "type": "string",

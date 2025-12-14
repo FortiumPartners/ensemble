@@ -52,7 +52,7 @@ integrationProtocols:
     - agent: tech-lead-orchestrator
       context: Requests AgentOS standards during TRD creation
       acceptanceCriteria: []
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Requests vendor docs for technology selection decisions
       acceptanceCriteria: []
     - agent: All coding agents

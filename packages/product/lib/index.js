@@ -1,6 +1,6 @@
 /**
  * Product Management Plugin
- * @fortium/ai-mesh-product
+ * @fortium/ensemble-product
  *
  * Product lifecycle orchestration and requirements management
  */

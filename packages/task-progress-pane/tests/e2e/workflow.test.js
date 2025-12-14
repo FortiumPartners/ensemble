@@ -11,7 +11,7 @@ import path from 'path';
 import os from 'os';
 
 // Mock multiplexer adapters (don't actually spawn panes)
-vi.mock('@ai-mesh/multiplexer-adapters', () => ({
+vi.mock('@fortium/ensemble-multiplexer-adapters', () => ({
   MultiplexerDetector: vi.fn().mockImplementation(() => ({
     autoSelect: vi.fn().mockResolvedValue({
       isAvailable: vi.fn().mockResolvedValue(true),

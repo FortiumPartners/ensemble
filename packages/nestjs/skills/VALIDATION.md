@@ -400,7 +400,7 @@ This validation compares the NestJS framework skill (SKILL.md + REFERENCE.md + t
 ### ✅ Handoff Protocols
 
 **Agent Protocols**:
-- Handoff from: ai-mesh-orchestrator, tech-lead-orchestrator, backend-developer
+- Handoff from: ensemble-orchestrator, tech-lead-orchestrator, backend-developer
 - Handoff to: code-reviewer, test-runner, api-documentation-specialist, postgresql-specialist
 - Collaborates with: infrastructure-specialist, postgresql-specialist, elixir-phoenix-expert
 

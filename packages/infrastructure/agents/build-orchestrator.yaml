@@ -40,7 +40,7 @@ responsibilities:
     description: Coordinate builds with testing, security scanning, and deployment processes
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Build system requirements with performance and integration specifications
       acceptanceCriteria: []
     - agent: tech-lead-orchestrator

@@ -11,7 +11,7 @@ const crypto = require('crypto');
 
 class UserProfileManager {
     constructor() {
-        this.profileDir = path.join(os.homedir(), '.ai-mesh', 'profile');
+        this.profileDir = path.join(os.homedir(), '.ensemble', 'profile');
         this.profileFile = path.join(this.profileDir, 'user.json');
     }
 

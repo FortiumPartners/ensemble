@@ -719,7 +719,7 @@ integrationProtocols:
       context: "TRD with infrastructure specifications"
     - agent: backend-developer
       context: "Application requirements for infrastructure provisioning"
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: "Infrastructure tasks with cloud provider context"
 
   handoffTo:

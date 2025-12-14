@@ -61,7 +61,7 @@ function publishPackage(packageName) {
 }
 
 function main() {
-  console.log('AI Mesh Plugin Publisher');
+  console.log('Ensemble Plugin Publisher');
   console.log('========================\n');
 
   const changedPackages = getChangedPackages();

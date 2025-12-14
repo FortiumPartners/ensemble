@@ -1,7 +1,7 @@
 /**
  * Configuration loader for task-progress-pane
  *
- * Loads and manages plugin configuration from ~/.ai-mesh-task-progress/config.json
+ * Loads and manages plugin configuration from ~/.ensemble/plugins/task-progress-pane/config.json
  */
 
 const fs = require('fs');
@@ -26,7 +26,7 @@ const DEFAULT_CONFIG = {
   pollingIntervalMs: 200
 };
 
-const CONFIG_DIR = path.join(os.homedir(), '.ai-mesh-task-progress');
+const CONFIG_DIR = path.join(os.homedir(), '.ensemble/plugins/task-progress-pane');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 
 /**

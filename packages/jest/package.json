@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-jest",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-jest",
+  "version": "5.0.0",
   "description": "Jest testing framework integration",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "jest",
     "testing",
     "javascript",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/jest"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-quality": "^4.0.0"
+    "@fortium/ensemble-quality": "^4.0.0"
   }
 }

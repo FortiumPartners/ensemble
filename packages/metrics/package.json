@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-metrics",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-metrics",
+  "version": "5.0.0",
   "description": "Productivity metrics and analytics dashboard",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "metrics",
     "analytics",
     "dashboard",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/metrics"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-core": "^4.0.0"
+    "@fortium/ensemble-core": "^4.0.0"
   }
 }

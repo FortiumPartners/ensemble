@@ -45,6 +45,6 @@ jobs:
           for pkg in packages/*/package.json; do
             if [ -f "$pkg" ]; then
               echo "Checking $pkg"
-              node -e "const p = require('./$pkg'); if (!p.name.startsWith('@fortium/ai-mesh-')) process.exit(1);"
+              node -e "const p = require('./$pkg'); if (!p.name.startsWith('@fortium/ensemble-')) process.exit(1);"
             fi
           done

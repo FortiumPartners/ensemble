@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-pane-viewer",
+  "name": "ensemble-pane-viewer",
   "version": "0.1.0",
   "description": "Real-time subagent monitoring in terminal panes",
   "author": {
@@ -7,13 +7,13 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "monitoring",
     "terminal",
     "panes",
-    "ai-mesh"
+    "ensemble"
   ],
   "agents": "./agents",
   "commands": "./commands",

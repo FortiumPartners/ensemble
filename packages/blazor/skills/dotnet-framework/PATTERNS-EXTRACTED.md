@@ -653,7 +653,7 @@ public class OrdersApiTests : IClassFixture<WebApplicationFactory<Program>>
 
 ### Receives Tasks From
 1. **tech-lead-orchestrator**: .NET-specific implementation from TRD
-2. **ai-mesh-orchestrator**: .NET backend tasks requiring expertise
+2. **ensemble-orchestrator**: .NET backend tasks requiring expertise
 3. **backend-developer**: Tasks specifically requiring .NET patterns
 
 ### Delegates Tasks To

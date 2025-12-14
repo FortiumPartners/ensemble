@@ -41,7 +41,7 @@ responsibilities:
     description: Monitor deployments, manage incidents, and ensure production system health
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives deployment requests with requirements and constraints
       acceptanceCriteria: []
     - agent: build-orchestrator

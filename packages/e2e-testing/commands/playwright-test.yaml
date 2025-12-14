@@ -4,7 +4,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: testing
-  output_path: ai-mesh/playwright-test.md
+  output_path: ensemble/playwright-test.md
   source: fortium
 
 mission:

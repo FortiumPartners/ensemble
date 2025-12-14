@@ -28,7 +28,7 @@
 
 ### Purpose
 
-This Technical Requirements Document (TRD) provides the implementation blueprint for the AI Mesh Task Progress Pane plugin. It translates product requirements from PRD v1.1.0 into actionable development tasks with dependencies, estimates, and acceptance criteria.
+This Technical Requirements Document (TRD) provides the implementation blueprint for the Ensemble Task Progress Pane plugin. It translates product requirements from PRD v1.1.0 into actionable development tasks with dependencies, estimates, and acceptance criteria.
 
 ### Scope
 
@@ -43,8 +43,8 @@ This Technical Requirements Document (TRD) provides the implementation blueprint
 
 | Aspect | Specification |
 |--------|---------------|
-| Package Name | `@ai-mesh/task-progress-pane` |
-| Shared Package | `@ai-mesh/multiplexer-adapters` (new) |
+| Package Name | `@fortium/ensemble-task-progress-pane` |
+| Shared Package | `@fortium/ensemble-multiplexer-adapters` (new) |
 | Language | JavaScript (Node.js) + Bash |
 | Runtime | Node.js 20+ (LTS) |
 | Test Framework | Vitest |
@@ -85,7 +85,7 @@ Format: `TPP-{sprint}-{category}-{number}`
 
 | Task ID | Description | Priority | Depends On | Status |
 |---------|-------------|----------|------------|--------|
-| TPP-S1-PKG-001 | Create @ai-mesh/multiplexer-adapters package structure | P0 | - | [ ] |
+| TPP-S1-PKG-001 | Create @fortium/ensemble-multiplexer-adapters package structure | P0 | - | [ ] |
 | TPP-S1-PKG-002 | Extract base-adapter.js to shared package | P0 | TPP-S1-PKG-001 | [ ] |
 | TPP-S1-PKG-003 | Extract wezterm-adapter.js to shared package | P0 | TPP-S1-PKG-002 | [ ] |
 | TPP-S1-PKG-004 | Extract zellij-adapter.js to shared package | P0 | TPP-S1-PKG-002 | [ ] |
@@ -252,7 +252,7 @@ Format: `TPP-{sprint}-{category}-{number}`
 │  ┌───────────────────────────────┼──────────────────────────────────────┼──┐│
 │  │                               ▼    Shared Package                    │  ││
 │  │                    ┌─────────────────────────────────────────┐       │  ││
-│  │                    │  @ai-mesh/multiplexer-adapters          │       │  ││
+│  │                    │  @fortium/ensemble-multiplexer-adapters          │       │  ││
 │  │                    │  packages/multiplexer-adapters/         │       │  ││
 │  │                    ├─────────────────────────────────────────┤       │  ││
 │  │                    │  MultiplexerDetector                    │       │  ││
@@ -315,7 +315,7 @@ Format: `TPP-{sprint}-{category}-{number}`
 └─────────────────────────────────────────────────────────────────────────────┘
 
                     ┌────────────────────────────────┐
-                    │ @ai-mesh/multiplexer-adapters  │
+                    │ @fortium/ensemble-multiplexer-adapters  │
                     │ packages/multiplexer-adapters/ │
                     │                                │
                     │ Exports:                       │
@@ -330,7 +330,7 @@ Format: `TPP-{sprint}-{category}-{number}`
               │                                     │
               ▼                                     ▼
 ┌─────────────────────────────┐     ┌─────────────────────────────┐
-│   @ai-mesh/pane-viewer      │     │ @ai-mesh/task-progress-pane │
+│   @fortium/ensemble-pane-viewer      │     │ @fortium/ensemble-task-progress-pane │
 │   packages/pane-viewer/     │     │ packages/task-progress-pane/│
 │                             │     │                             │
 │   Uses: MultiplexerDetector │     │   Uses: MultiplexerDetector │
@@ -384,7 +384,7 @@ Format: `TPP-{sprint}-{category}-{number}`
                                                  ▼
    ┌────────────────────────┐         ┌────────────────────────┐
    │ time-tracker.js        │────────▶│ State File             │
-   │ - Start task timer     │         │ ~/.ai-mesh-task-progress/│
+   │ - Start task timer     │         │ ~/.ensemble/plugins/task-progress-pane/│
    │ - Stop task timer      │         │ state.json             │
    │ - Calculate elapsed    │         │ {                      │
    └────────────────────────┘         │   sessions: [...],     │
@@ -406,7 +406,7 @@ Format: `TPP-{sprint}-{category}-{number}`
               ▼
 5. MULTIPLEXER SPLIT (via shared package)
    ┌────────────────────────┐
-   │ @ai-mesh/multiplexer-  │
+   │ @fortium/ensemble-multiplexer-  │
    │ adapters               │
    │ - Auto-detect mux      │
    │ - WezTerm: wezterm cli │
@@ -509,7 +509,7 @@ Estimated Lines of Code:
 
 ## Component Specifications
 
-### Component 0: @ai-mesh/multiplexer-adapters (Shared Package)
+### Component 0: @fortium/ensemble-multiplexer-adapters (Shared Package)
 
 **Purpose:** Shared terminal multiplexer detection and control
 
@@ -852,7 +852,7 @@ interface Session {
 **Interface:**
 
 ```javascript
-const { MultiplexerDetector } = require('@ai-mesh/multiplexer-adapters');
+const { MultiplexerDetector } = require('@fortium/ensemble-multiplexer-adapters');
 
 class TaskPaneManager {
   constructor(config) {
@@ -1083,7 +1083,7 @@ const DEFAULT_CONFIG = {
 };
 ```
 
-**Config File Location:** `~/.ai-mesh-task-progress/config.json`
+**Config File Location:** `~/.ensemble/plugins/task-progress-pane/config.json`
 
 ---
 
@@ -1091,7 +1091,7 @@ const DEFAULT_CONFIG = {
 
 ### State File Format
 
-**Location:** `~/.ai-mesh-task-progress/state.json`
+**Location:** `~/.ensemble/plugins/task-progress-pane/state.json`
 
 ```json
 {
@@ -1257,7 +1257,7 @@ export default defineConfig({
 **Goal:** Extract shared adapters, establish plugin structure, and core data flow
 
 **Deliverables:**
-- [ ] @ai-mesh/multiplexer-adapters package created and working
+- [ ] @fortium/ensemble-multiplexer-adapters package created and working
 - [ ] pane-viewer updated to use shared package
 - [ ] task-progress-pane package structure created
 - [ ] task-parser.js complete with tests (Vitest)
@@ -1468,7 +1468,7 @@ export default defineConfig({
 
 | Standard | Requirement |
 |----------|-------------|
-| Linting | ESLint with AI Mesh config |
+| Linting | ESLint with Ensemble config |
 | Formatting | Prettier (2-space indent) |
 | Documentation | JSDoc for all public APIs |
 | Error Handling | Silent failure pattern |
@@ -1532,7 +1532,7 @@ export default defineConfig({
 
 | Dependency | Risk | Mitigation |
 |------------|------|------------|
-| @ai-mesh/multiplexer-adapters | Internal package changes | Version pinning, integration tests |
+| @fortium/ensemble-multiplexer-adapters | Internal package changes | Version pinning, integration tests |
 | Claude Code hook system | API changes | Follow documented patterns |
 | Terminal multiplexers | Version differences | Test across versions |
 | Node.js | Version compatibility | Require Node 20 LTS |
@@ -1626,8 +1626,8 @@ TPP-S1-PKG-001 (Shared package structure)
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0.0 | 2025-12-12 | AI Mesh Team | Initial TRD |
-| 1.1.0 | 2025-12-12 | AI Mesh Team | Refined based on technical review: Added shared @ai-mesh/multiplexer-adapters package (7 new tasks), inotifywait + polling fallback for state watching, 50ms debounce for rapid updates, tool_use_id as session identifier, failed tasks included in progress calculation (reduce %), Vitest as test framework, Node.js 20 LTS requirement, CI/CD out of scope |
+| 1.0.0 | 2025-12-12 | Ensemble Team | Initial TRD |
+| 1.1.0 | 2025-12-12 | Ensemble Team | Refined based on technical review: Added shared @fortium/ensemble-multiplexer-adapters package (7 new tasks), inotifywait + polling fallback for state watching, 50ms debounce for rapid updates, tool_use_id as session identifier, failed tasks included in progress calculation (reduce %), Vitest as test framework, Node.js 20 LTS requirement, CI/CD out of scope |
 
 ---
 
@@ -1635,7 +1635,7 @@ TPP-S1-PKG-001 (Shared package structure)
 
 **Technical Decisions Summary:**
 - State watching: inotifywait with 200ms polling fallback
-- Adapter sharing: New @ai-mesh/multiplexer-adapters package
+- Adapter sharing: New @fortium/ensemble-multiplexer-adapters package
 - Test framework: Vitest
 - Session ID: tool_use_id from hook input
 - Debouncing: 50ms window for rapid updates
@@ -1649,7 +1649,7 @@ TPP-S1-PKG-001 (Shared package structure)
 - [ ] Security Review
 
 **Next Steps:**
-1. Create @ai-mesh/multiplexer-adapters package (TPP-S1-PKG-001)
+1. Create @fortium/ensemble-multiplexer-adapters package (TPP-S1-PKG-001)
 2. Extract adapters from pane-viewer
 3. Update pane-viewer to use shared package
 4. Begin task-progress-pane implementation

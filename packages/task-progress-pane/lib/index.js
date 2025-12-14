@@ -1,5 +1,5 @@
 /**
- * @ai-mesh/task-progress-pane
+ * @fortium/ensemble-task-progress-pane
  *
  * Real-time task progress visualization for Claude Code TodoWrite operations.
  */

@@ -1,6 +1,6 @@
 {
-  "name": "@ai-mesh/task-progress-pane",
-  "version": "1.0.0",
+  "name": "@fortium/ensemble-task-progress-pane",
+  "version": "5.0.0",
   "description": "Real-time task progress visualization for Claude Code TodoWrite operations",
   "main": "lib/index.js",
   "files": [
@@ -10,14 +10,14 @@
     ".claude-plugin"
   ],
   "keywords": [
-    "ai-mesh",
+    "ensemble",
     "claude-code",
     "todowrite",
     "progress",
     "terminal",
     "vim"
   ],
-  "author": "AI Mesh Team",
+  "author": "Fortium Partners",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
@@ -28,7 +28,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@ai-mesh/multiplexer-adapters": "file:../multiplexer-adapters"
+    "@fortium/ensemble-multiplexer-adapters": "file:../multiplexer-adapters"
   },
   "devDependencies": {
     "vitest": "^2.1.0",

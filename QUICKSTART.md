@@ -1,8 +1,8 @@
-# Quick Start Guide - AI Mesh Plugins Monorepo
+# Quick Start Guide - Ensemble Plugins Monorepo
 
 ## What Was Created
 
-Complete monorepo structure for ai-mesh v4.0.0 plugin ecosystem:
+Complete monorepo structure for ensemble v4.0.0 plugin ecosystem:
 
 - ✅ **20 plugin packages** ready for content extraction
 - ✅ **197 total files** created with consistent structure
@@ -14,7 +14,7 @@ Complete monorepo structure for ai-mesh v4.0.0 plugin ecosystem:
 ## Directory Overview
 
 ```
-ai-mesh-plugins/
+ensemble/
 ├── packages/           # 20 plugin packages (core, product, development, etc.)
 ├── .github/workflows/  # CI/CD automation (validate, test, release)
 ├── schemas/           # JSON validation schemas
@@ -29,7 +29,7 @@ ai-mesh-plugins/
 ### 1. Verify Structure (Already Done ✅)
 
 ```bash
-cd /Users/ldangelo/Development/Fortium/ai-mesh-plugins
+cd /Users/ldangelo/Development/Fortium/ensemble
 ./verify-structure.sh
 ```
 
@@ -62,25 +62,25 @@ This validates:
 
 ### 4. Begin Plugin Extraction
 
-Extract content from ai-mesh v3.x monolith:
+Extract content from ensemble v3.x monolith:
 
 #### Core Plugin (Start Here)
 ```bash
-# From ai-mesh v3.x repository
-cp agents/ai-mesh-orchestrator.yaml packages/core/agents/
+# From ensemble v3.x repository
+cp agents/ensemble-orchestrator.yaml packages/core/agents/
 cp agents/general-purpose.yaml packages/core/agents/
 cp agents/context-fetcher.yaml packages/core/agents/
-cp commands/ai-mesh/create-trd.* packages/core/commands/
-cp commands/ai-mesh/implement-trd.* packages/core/commands/
-cp commands/ai-mesh/fold-prompt.* packages/core/commands/
+cp commands/ensemble/create-trd.* packages/core/commands/
+cp commands/ensemble/implement-trd.* packages/core/commands/
+cp commands/ensemble/fold-prompt.* packages/core/commands/
 ```
 
 #### Product Plugin
 ```bash
 cp agents/product-management-orchestrator.yaml packages/product/agents/
-cp commands/ai-mesh/create-prd.* packages/product/commands/
-cp commands/ai-mesh/plan-product.* packages/product/commands/
-cp commands/ai-mesh/analyze-product.* packages/product/commands/
+cp commands/ensemble/create-prd.* packages/product/commands/
+cp commands/ensemble/plan-product.* packages/product/commands/
+cp commands/ensemble/analyze-product.* packages/product/commands/
 ```
 
 #### Development Plugin
@@ -106,10 +106,10 @@ Add tests to each plugin's `tests/` directory:
 
 ```javascript
 // packages/core/tests/core.test.js
-describe('ai-mesh-core', () => {
-  it('should have ai-mesh-orchestrator agent', () => {
+describe('ensemble-core', () => {
+  it('should have ensemble-orchestrator agent', () => {
     const fs = require('fs');
-    expect(fs.existsSync('agents/ai-mesh-orchestrator.yaml')).toBe(true);
+    expect(fs.existsSync('agents/ensemble-orchestrator.yaml')).toBe(true);
   });
 });
 ```
@@ -125,7 +125,7 @@ npm run test:coverage
 
 ```bash
 git add .
-git commit -m "chore: initialize ai-mesh-plugins monorepo with 20 packages
+git commit -m "chore: initialize ensemble monorepo with 20 packages
 
 - Complete structure for v4.0.0 plugin architecture
 - 20 packages across 4 tiers (Core, Workflow, Frameworks, Testing)
@@ -138,25 +138,25 @@ git commit -m "chore: initialize ai-mesh-plugins monorepo with 20 packages
 ## Plugin Extraction Priority
 
 ### Phase 1: Core Foundation (Week 1)
-1. **ai-mesh-core** - Core orchestration (highest priority)
-2. **ai-mesh-product** - Product management
-3. **ai-mesh-development** - Development agents
+1. **ensemble-core** - Core orchestration (highest priority)
+2. **ensemble-product** - Product management
+3. **ensemble-development** - Development agents
 
 ### Phase 2: Workflow Essentials (Week 2)
-4. **ai-mesh-quality** - Code review and testing
-5. **ai-mesh-git** - Git workflows
-6. **ai-mesh-infrastructure** - Infrastructure automation
+4. **ensemble-quality** - Code review and testing
+5. **ensemble-git** - Git workflows
+6. **ensemble-infrastructure** - Infrastructure automation
 
 ### Phase 3: Framework Skills (Week 3)
-7. **ai-mesh-react** - React skills
-8. **ai-mesh-nestjs** - NestJS skills
-9. **ai-mesh-rails** - Rails skills
+7. **ensemble-react** - React skills
+8. **ensemble-nestjs** - NestJS skills
+9. **ensemble-rails** - Rails skills
 
 ### Phase 4: Testing & Utilities (Week 4)
-10. **ai-mesh-jest** - Jest testing
-11. **ai-mesh-pytest** - Pytest testing
-12. **ai-mesh-metrics** - Analytics dashboard
-13. **ai-mesh-pane-viewer** - Terminal monitoring
+10. **ensemble-jest** - Jest testing
+11. **ensemble-pytest** - Pytest testing
+12. **ensemble-metrics** - Analytics dashboard
+13. **ensemble-pane-viewer** - Terminal monitoring
 
 ### Phase 5: Remaining Plugins (Week 5)
 14-20. Complete all remaining framework and testing plugins
@@ -179,23 +179,23 @@ npm run publish:changed   # Publish changed plugins to NPM
 ## File Locations
 
 **Key Configuration:**
-- Root package.json: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/package.json`
-- Marketplace: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/marketplace.json`
-- Validation schemas: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/schemas/`
+- Root package.json: `/Users/ldangelo/Development/Fortium/ensemble/package.json`
+- Marketplace: `/Users/ldangelo/Development/Fortium/ensemble/marketplace.json`
+- Validation schemas: `/Users/ldangelo/Development/Fortium/ensemble/schemas/`
 
 **Plugin Packages:**
-- All in: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/packages/`
+- All in: `/Users/ldangelo/Development/Fortium/ensemble/packages/`
 
 **Documentation:**
-- Main README: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/README.md`
-- Setup Summary: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/SETUP_SUMMARY.md`
-- Contributing: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/CONTRIBUTING.md`
+- Main README: `/Users/ldangelo/Development/Fortium/ensemble/README.md`
+- Setup Summary: `/Users/ldangelo/Development/Fortium/ensemble/SETUP_SUMMARY.md`
+- Contributing: `/Users/ldangelo/Development/Fortium/ensemble/CONTRIBUTING.md`
 
 ## Current Status
 
 ✅ **COMPLETE** - Monorepo structure fully scaffolded
 📦 **READY** - All 20 packages created with proper structure
-⏭️ **NEXT** - Begin plugin extraction from ai-mesh v3.x
+⏭️ **NEXT** - Begin plugin extraction from ensemble v3.x
 
 ## Resources
 

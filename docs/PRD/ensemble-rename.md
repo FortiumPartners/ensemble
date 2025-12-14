@@ -5,7 +5,7 @@
 **Created**: 2025-12-12
 **Last Updated**: 2025-12-12
 **Author**: Product Management Orchestrator
-**Project**: ai-mesh-plugins → ensemble
+**Project**: ensemble → ensemble
 **Stakeholder Sign-off**: Pending
 
 ---
@@ -21,12 +21,12 @@
 
 ## Executive Summary
 
-This PRD defines the complete rename of the "ai-mesh" project to "ensemble" including:
-- Renaming all 23 NPM packages from `@fortium/ai-mesh-*` to `@fortium/ensemble-*`
-- Renaming the GitHub repository from `ai-mesh-plugins` to `ensemble`
+This PRD defines the complete rename of the "ensemble" project to "ensemble" including:
+- Renaming all 23 NPM packages from `@fortium/ensemble-*` to `@fortium/ensemble-*`
+- Renaming the GitHub repository from `ensemble` to `ensemble`
 - Renaming the local project directory
 - Consolidating all configuration under `~/.ensemble/` (with XDG fallback)
-- Updating all slash commands from `/ai-mesh:*` to `/ensemble:*`
+- Updating all slash commands from `/ensemble:*` to `/ensemble:*`
 - **Hard cutover** with no backward compatibility period
 - **Unpublishing** old NPM packages after migration
 
@@ -36,16 +36,16 @@ This PRD defines the complete rename of the "ai-mesh" project to "ensemble" incl
 
 ### 1.1 Problem Statement
 
-The current project naming ("ai-mesh") and scattered configuration structure present several challenges:
+The current project naming ("ensemble") and scattered configuration structure present several challenges:
 
-1. **Brand Clarity**: "ai-mesh" doesn't clearly communicate the product's value proposition of orchestrating AI agents working together harmoniously
-2. **Configuration Fragmentation**: Settings, state, and configuration are spread across multiple locations (`~/.ai-mesh-task-progress/`, individual plugin configs)
+1. **Brand Clarity**: "ensemble" doesn't clearly communicate the product's value proposition of orchestrating AI agents working together harmoniously
+2. **Configuration Fragmentation**: Settings, state, and configuration are spread across multiple locations (`~/.ensemble/plugins/task-progress-pane/`, individual plugin configs)
 3. **Discoverability**: Users struggle to find and manage configuration files scattered across the filesystem
-4. **Maintenance Overhead**: Multiple naming conventions (@fortium/ai-mesh-*, @ai-mesh/*) create confusion
+4. **Maintenance Overhead**: Multiple naming conventions (@fortium/ensemble-*, @fortium/ensemble-*) create confusion
 
 ### 1.2 Proposed Solution
 
-Rename the project from "ai-mesh" to "ensemble" and consolidate all configuration under a unified `.ensemble` directory structure:
+Rename the project from "ensemble" to "ensemble" and consolidate all configuration under a unified `.ensemble` directory structure:
 
 - **New Name**: "Ensemble" - Evokes the concept of multiple AI agents working together in harmony, like musicians in an orchestra
 - **Unified Config**: All settings, state, and configuration consolidated under `~/.ensemble/` (with XDG support)
@@ -95,12 +95,12 @@ Rename the project from "ai-mesh" to "ensemble" and consolidate all configuratio
 ### 2.3 User Journey
 
 **Current State (Pain Points)**:
-1. User installs ai-mesh plugins
-2. Config files appear in `~/.ai-mesh-task-progress/`
+1. User installs ensemble plugins
+2. Config files appear in `~/.ensemble/plugins/task-progress-pane/`
 3. User doesn't know where other plugin configs live
 4. User struggles to backup/migrate configuration
-5. User confused by @fortium/ai-mesh-* vs @ai-mesh/* naming
-6. Slash commands use inconsistent `/ai-mesh:` prefix
+5. User confused by @fortium/ensemble-* vs @fortium/ensemble-* naming
+6. Slash commands use inconsistent `/ensemble:` prefix
 
 **Future State (With Ensemble)**:
 1. User installs ensemble plugins
@@ -135,22 +135,22 @@ The following decisions were made during PRD refinement:
 
 | ID | Goal | Success Metric |
 |----|------|----------------|
-| G1 | Rename all "ai-mesh" references to "ensemble" | 100% of references updated |
+| G1 | Rename all "ensemble" references to "ensemble" | 100% of references updated |
 | G2 | Rename GitHub repository to "ensemble" | Repository accessible at `FortiumPartners/ensemble` |
 | G3 | Rename local directory to "ensemble" | `/Users/ldangelo/Development/Fortium/ensemble` |
 | G4 | Consolidate config under XDG-compliant paths | Single config directory with XDG support |
 | G5 | Update all NPM package names | All packages published as `@fortium/ensemble-*` |
 | G6 | Update all slash commands | Commands use `/ensemble:*` prefix |
-| G7 | Unpublish old NPM packages | Old `@fortium/ai-mesh-*` packages removed from registry |
+| G7 | Unpublish old NPM packages | Old `@fortium/ensemble-*` packages removed from registry |
 
 ### 4.2 Success Criteria
 
-- [ ] All 23 plugin packages renamed from `@fortium/ai-mesh-*` to `@fortium/ensemble-*`
-- [ ] Internal packages renamed from `@ai-mesh/*` to `@fortium/ensemble-*` (unified scope)
-- [ ] GitHub repository renamed from `ai-mesh-plugins` to `ensemble`
-- [ ] Local directory renamed from `ai-mesh-plugins` to `ensemble`
+- [ ] All 23 plugin packages renamed from `@fortium/ensemble-*` to `@fortium/ensemble-*`
+- [ ] Internal packages renamed from `@fortium/ensemble-*` to `@fortium/ensemble-*` (unified scope)
+- [ ] GitHub repository renamed from `ensemble` to `ensemble`
+- [ ] Local directory renamed from `ensemble` to `ensemble`
 - [ ] All configuration consolidated under `~/.ensemble/` or `$XDG_CONFIG_HOME/ensemble/`
-- [ ] All slash commands updated from `/ai-mesh:*` to `/ensemble:*`
+- [ ] All slash commands updated from `/ensemble:*` to `/ensemble:*`
 - [ ] Migration documentation provided for existing users
 - [ ] Documentation fully updated
 - [ ] All tests passing with new names
@@ -180,58 +180,58 @@ The following decisions were made during PRD refinement:
 
 | Current Name | New Name |
 |--------------|----------|
-| `@fortium/ai-mesh-core` | `@fortium/ensemble-core` |
-| `@fortium/ai-mesh-product` | `@fortium/ensemble-product` |
-| `@fortium/ai-mesh-development` | `@fortium/ensemble-development` |
-| `@fortium/ai-mesh-quality` | `@fortium/ensemble-quality` |
-| `@fortium/ai-mesh-infrastructure` | `@fortium/ensemble-infrastructure` |
-| `@fortium/ai-mesh-git` | `@fortium/ensemble-git` |
-| `@fortium/ai-mesh-e2e-testing` | `@fortium/ensemble-e2e-testing` |
-| `@fortium/ai-mesh-metrics` | `@fortium/ensemble-metrics` |
-| `@fortium/ai-mesh-react` | `@fortium/ensemble-react` |
-| `@fortium/ai-mesh-nestjs` | `@fortium/ensemble-nestjs` |
-| `@fortium/ai-mesh-rails` | `@fortium/ensemble-rails` |
-| `@fortium/ai-mesh-phoenix` | `@fortium/ensemble-phoenix` |
-| `@fortium/ai-mesh-blazor` | `@fortium/ensemble-blazor` |
-| `@fortium/ai-mesh-jest` | `@fortium/ensemble-jest` |
-| `@fortium/ai-mesh-pytest` | `@fortium/ensemble-pytest` |
-| `@fortium/ai-mesh-rspec` | `@fortium/ensemble-rspec` |
-| `@fortium/ai-mesh-xunit` | `@fortium/ensemble-xunit` |
-| `@fortium/ai-mesh-exunit` | `@fortium/ensemble-exunit` |
-| `@fortium/ai-mesh-full` | `@fortium/ensemble-full` |
-| `@fortium/ai-mesh-pane-viewer` | `@fortium/ensemble-pane-viewer` |
-| `@ai-mesh/task-progress-pane` | `@fortium/ensemble-task-progress-pane` |
-| `@ai-mesh/multiplexer-adapters` | `@fortium/ensemble-multiplexer-adapters` |
+| `@fortium/ensemble-core` | `@fortium/ensemble-core` |
+| `@fortium/ensemble-product` | `@fortium/ensemble-product` |
+| `@fortium/ensemble-development` | `@fortium/ensemble-development` |
+| `@fortium/ensemble-quality` | `@fortium/ensemble-quality` |
+| `@fortium/ensemble-infrastructure` | `@fortium/ensemble-infrastructure` |
+| `@fortium/ensemble-git` | `@fortium/ensemble-git` |
+| `@fortium/ensemble-e2e-testing` | `@fortium/ensemble-e2e-testing` |
+| `@fortium/ensemble-metrics` | `@fortium/ensemble-metrics` |
+| `@fortium/ensemble-react` | `@fortium/ensemble-react` |
+| `@fortium/ensemble-nestjs` | `@fortium/ensemble-nestjs` |
+| `@fortium/ensemble-rails` | `@fortium/ensemble-rails` |
+| `@fortium/ensemble-phoenix` | `@fortium/ensemble-phoenix` |
+| `@fortium/ensemble-blazor` | `@fortium/ensemble-blazor` |
+| `@fortium/ensemble-jest` | `@fortium/ensemble-jest` |
+| `@fortium/ensemble-pytest` | `@fortium/ensemble-pytest` |
+| `@fortium/ensemble-rspec` | `@fortium/ensemble-rspec` |
+| `@fortium/ensemble-xunit` | `@fortium/ensemble-xunit` |
+| `@fortium/ensemble-exunit` | `@fortium/ensemble-exunit` |
+| `@fortium/ensemble-full` | `@fortium/ensemble-full` |
+| `@fortium/ensemble-pane-viewer` | `@fortium/ensemble-pane-viewer` |
+| `@fortium/ensemble-task-progress-pane` | `@fortium/ensemble-task-progress-pane` |
+| `@fortium/ensemble-multiplexer-adapters` | `@fortium/ensemble-multiplexer-adapters` |
 
-**Note**: All packages unified under `@fortium` scope - no more `@ai-mesh` secondary scope.
+**Note**: All packages unified under `@fortium` scope - no more `@ensemble` secondary scope.
 
 #### 5.1.2 Slash Command Renames
 
 | Current Command | New Command |
 |-----------------|-------------|
-| `/ai-mesh:create-prd` | `/ensemble:create-prd` |
-| `/ai-mesh:refine-prd` | `/ensemble:refine-prd` |
-| `/ai-mesh:create-trd` | `/ensemble:create-trd` |
-| `/ai-mesh:pane-config` | `/ensemble:pane-config` |
-| All `/ai-mesh:*` commands | `/ensemble:*` |
+| `/ensemble:create-prd` | `/ensemble:create-prd` |
+| `/ensemble:refine-prd` | `/ensemble:refine-prd` |
+| `/ensemble:create-trd` | `/ensemble:create-trd` |
+| `/ensemble:pane-config` | `/ensemble:pane-config` |
+| All `/ensemble:*` commands | `/ensemble:*` |
 
 #### 5.1.3 GitHub Repository Rename
 
 | Current | New |
 |---------|-----|
-| `https://github.com/FortiumPartners/ai-mesh-plugins` | `https://github.com/FortiumPartners/ensemble` |
+| `https://github.com/FortiumPartners/ensemble` | `https://github.com/FortiumPartners/ensemble` |
 
 #### 5.1.4 Local Directory Rename
 
 | Current | New |
 |---------|-----|
-| `/Users/ldangelo/Development/Fortium/ai-mesh-plugins` | `/Users/ldangelo/Development/Fortium/ensemble` |
+| `/Users/ldangelo/Development/Fortium/ensemble` | `/Users/ldangelo/Development/Fortium/ensemble` |
 
 #### 5.1.5 Plugin Name Pattern
 
 | Current Pattern | New Pattern |
 |-----------------|-------------|
-| `^ai-mesh-[a-z0-9-]+$` | `^ensemble-[a-z0-9-]+$` |
+| `^ensemble-[a-z0-9-]+$` | `^ensemble-[a-z0-9-]+$` |
 
 ### 5.2 Configuration Consolidation
 
@@ -274,9 +274,9 @@ $CONFIG_ROOT/ensemble/          # ~/.ensemble or $XDG_CONFIG_HOME/ensemble
 
 | Current Location | New Location |
 |------------------|--------------|
-| `~/.ai-mesh-task-progress/config.json` | `$CONFIG_ROOT/ensemble/plugins/task-progress-pane/config.json` |
-| `~/.ai-mesh-task-progress/state.json` | `$CONFIG_ROOT/ensemble/plugins/task-progress-pane/state.json` |
-| `~/.ai-mesh-task-progress/logs/` | `$CONFIG_ROOT/ensemble/logs/task-progress-pane/` |
+| `~/.ensemble/plugins/task-progress-pane/config.json` | `$CONFIG_ROOT/ensemble/plugins/task-progress-pane/config.json` |
+| `~/.ensemble/plugins/task-progress-pane/state.json` | `$CONFIG_ROOT/ensemble/plugins/task-progress-pane/state.json` |
+| `~/.ensemble/plugins/task-progress-pane/logs/` | `$CONFIG_ROOT/ensemble/logs/task-progress-pane/` |
 
 ### 5.3 File Updates Required
 
@@ -297,7 +297,7 @@ $CONFIG_ROOT/ensemble/          # ~/.ensemble or $XDG_CONFIG_HOME/ensemble
 | File | Changes Required |
 |------|------------------|
 | `schemas/plugin-schema.json` | Update name pattern regex to `^ensemble-[a-z0-9-]+$` |
-| `schemas/marketplace-schema.json` | Update any ai-mesh references |
+| `schemas/marketplace-schema.json` | Update any ensemble references |
 
 #### 5.3.3 Script Files
 
@@ -319,24 +319,24 @@ $CONFIG_ROOT/ensemble/          # ~/.ensemble or $XDG_CONFIG_HOME/ensemble
 Each plugin requires updates to:
 
 **package.json**:
-- `name`: `@fortium/ai-mesh-*` → `@fortium/ensemble-*`
+- `name`: `@fortium/ensemble-*` → `@fortium/ensemble-*`
 - `repository.url`: Update to new GitHub URL
-- `keywords`: Replace `ai-mesh` with `ensemble`
+- `keywords`: Replace `ensemble` with `ensemble`
 - `dependencies`: Update any cross-plugin references
 
 **.claude-plugin/plugin.json**:
-- `name`: `ai-mesh-*` → `ensemble-*`
+- `name`: `ensemble-*` → `ensemble-*`
 - `repository`: Update to new GitHub URL
-- `keywords`: Replace `ai-mesh` with `ensemble`
+- `keywords`: Replace `ensemble` with `ensemble`
 - `dependencies`: Update plugin dependency names
 
 **commands/*.md** (where applicable):
-- Update `@ai-mesh-command` to `@ensemble-command`
-- Update command names from `/ai-mesh:*` to `/ensemble:*`
+- Update `@ensemble-command` to `@ensemble-command`
+- Update command names from `/ensemble:*` to `/ensemble:*`
 
 **Source files** (lib/*.js):
-- Update hardcoded paths from `~/.ai-mesh-*` to XDG-compliant paths
-- Update any string references to "ai-mesh"
+- Update hardcoded paths from `~/.ensemble-*` to XDG-compliant paths
+- Update any string references to "ensemble"
 
 **Documentation**:
 - `README.md`: Update all references
@@ -352,7 +352,7 @@ Each plugin requires updates to:
 |-------------|---------|
 | NFR-1 | Provide migration script to move old configs to new locations |
 | NFR-2 | Document migration path clearly in MIGRATION.md |
-| NFR-3 | Script should detect and migrate `~/.ai-mesh-*` directories |
+| NFR-3 | Script should detect and migrate `~/.ensemble-*` directories |
 | NFR-4 | Script should respect XDG_CONFIG_HOME if set |
 
 ### 6.2 Performance
@@ -389,7 +389,7 @@ Each plugin requires updates to:
 |----|----------|-------------|
 | AC-1 | All package.json files contain `@fortium/ensemble-*` names | Automated validation |
 | AC-2 | All plugin.json files contain `ensemble-*` plugin names | Automated validation |
-| AC-3 | No remaining references to "ai-mesh" in any source files | `grep -r "ai-mesh"` returns 0 results |
+| AC-3 | No remaining references to "ensemble" in any source files | `grep -r "ensemble"` returns 0 results |
 | AC-4 | GitHub repository accessible at `FortiumPartners/ensemble` | Manual verification |
 | AC-5 | NPM packages published under new names | NPM registry check |
 | AC-6 | Old NPM packages unpublished | NPM registry check returns 404 |
@@ -482,8 +482,8 @@ const os = require('os');
 const { getEnsembleConfigRoot, getPluginConfigPath, getLogsPath } = require('../lib/config-path');
 
 const OLD_CONFIG_PATTERNS = [
-  { pattern: '.ai-mesh-task-progress', plugin: 'task-progress-pane' },
-  { pattern: '.ai-mesh-pane-viewer', plugin: 'pane-viewer' },
+  { pattern: '.ensemble/plugins/task-progress-pane', plugin: 'task-progress-pane' },
+  { pattern: '.ensemble/plugins/pane-viewer', plugin: 'pane-viewer' },
 ];
 
 function migrate() {
@@ -568,13 +568,13 @@ migrate();
 # For older packages, use npm deprecate instead
 
 # Deprecate first (always works)
-npm deprecate "@fortium/ai-mesh-core@*" "Package renamed to @fortium/ensemble-core"
-npm deprecate "@fortium/ai-mesh-product@*" "Package renamed to @fortium/ensemble-product"
+npm deprecate "@fortium/ensemble-core@*" "Package renamed to @fortium/ensemble-core"
+npm deprecate "@fortium/ensemble-product@*" "Package renamed to @fortium/ensemble-product"
 # ... repeat for all packages
 
 # Unpublish if within 72 hours (or contact NPM support for older packages)
-npm unpublish @fortium/ai-mesh-core --force
-npm unpublish @fortium/ai-mesh-product --force
+npm unpublish @fortium/ensemble-core --force
+npm unpublish @fortium/ensemble-product --force
 # ... repeat for all packages
 ```
 
@@ -589,17 +589,17 @@ npm unpublish @fortium/ai-mesh-product --force
 - [ ] Back up current state
 
 ### Phase 2: Local Code Changes
-- [ ] Rename local directory from `ai-mesh-plugins` to `ensemble`
+- [ ] Rename local directory from `ensemble` to `ensemble`
 - [ ] Update all package.json files (name, repository, keywords, dependencies)
 - [ ] Update all plugin.json files (name, repository, keywords, dependencies)
 - [ ] Update schema validation patterns
 - [ ] Update config path constants to use XDG-compliant paths
-- [ ] Update all slash commands from `/ai-mesh:*` to `/ensemble:*`
+- [ ] Update all slash commands from `/ensemble:*` to `/ensemble:*`
 - [ ] Update documentation files
 - [ ] Run all tests to verify
 
 ### Phase 3: GitHub Repository
-- [ ] Rename repository in GitHub settings (ai-mesh-plugins → ensemble)
+- [ ] Rename repository in GitHub settings (ensemble → ensemble)
 - [ ] Update all repository URL references in code
 - [ ] Update CI/CD workflows
 - [ ] Verify GitHub Actions work with new repo name
@@ -645,7 +645,7 @@ npm unpublish @fortium/ai-mesh-product --force
 
 | Metric | Target | Measurement Method |
 |--------|--------|-------------------|
-| Zero "ai-mesh" references in codebase | 0 | `grep -r "ai-mesh"` |
+| Zero "ensemble" references in codebase | 0 | `grep -r "ensemble"` |
 | All tests passing | 100% | CI pipeline |
 | All packages published | 23 packages | NPM registry |
 | Old packages deprecated/unpublished | 23 packages | NPM registry |
@@ -672,20 +672,20 @@ npm unpublish @fortium/ai-mesh-product --force
 ### B. Search Patterns for Verification
 
 ```bash
-# Find all ai-mesh references (should return 0 after completion)
-grep -r "ai-mesh" --include="*.json" --include="*.js" --include="*.md" --include="*.yml" --include="*.yaml"
+# Find all ensemble references (should return 0 after completion)
+grep -r "ensemble" --include="*.json" --include="*.js" --include="*.md" --include="*.yml" --include="*.yaml"
 
 # Find all old config path references
-grep -r "\.ai-mesh" --include="*.js"
+grep -r "\.ensemble" --include="*.js"
 
 # Find all old GitHub URL references
-grep -r "FortiumPartners/ai-mesh" --include="*.json" --include="*.md"
+grep -r "FortiumPartners/ensemble" --include="*.json" --include="*.md"
 
 # Find all old command references
-grep -r "/ai-mesh:" --include="*.md"
+grep -r "/ensemble:" --include="*.md"
 
-# Find all @ai-mesh scope references
-grep -r "@ai-mesh/" --include="*.json"
+# Find all @ensemble scope references
+grep -r "@fortium/ensemble-" --include="*.json"
 ```
 
 ### C. NPM Package Verification
@@ -700,11 +700,11 @@ npm view @fortium/ensemble-product 2>&1 | grep -q "404" && echo "Available" || e
 ### D. Post-Migration User Instructions
 
 ```markdown
-## Migrating from ai-mesh to ensemble
+## Migrating from ensemble to ensemble
 
 1. **Uninstall old packages**:
    ```bash
-   npm uninstall @fortium/ai-mesh-core @fortium/ai-mesh-product # etc.
+   npm uninstall @fortium/ensemble-core @fortium/ensemble-product # etc.
    ```
 
 2. **Install new packages**:
@@ -720,14 +720,14 @@ npm view @fortium/ensemble-product 2>&1 | grep -q "404" && echo "Available" || e
    ```
 
 4. **Update slash commands**:
-   - Change `/ai-mesh:create-prd` to `/ensemble:create-prd`
-   - Change `/ai-mesh:refine-prd` to `/ensemble:refine-prd`
+   - Change `/ensemble:create-prd` to `/ensemble:create-prd`
+   - Change `/ensemble:refine-prd` to `/ensemble:refine-prd`
    - etc.
 
 5. **Remove old config directories** (after verifying migration):
    ```bash
-   rm -rf ~/.ai-mesh-task-progress
-   rm -rf ~/.ai-mesh-pane-viewer
+   rm -rf ~/.ensemble/plugins/task-progress-pane
+   rm -rf ~/.ensemble/plugins/pane-viewer
    ```
 ```
 

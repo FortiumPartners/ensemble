@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Complete NestJS Framework Skill Extraction** from ai-mesh v3.x monolith
+- **Complete NestJS Framework Skill Extraction** from ensemble v3.x monolith
 - **Skills Documentation** (102KB total)
   - `SKILL.md` (13KB) - Quick reference with essential patterns
   - `REFERENCE.md` (72KB) - Comprehensive guide with advanced patterns
@@ -37,10 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration Notes
 
-This release represents the extraction of NestJS framework expertise from the ai-mesh monolith (v3.x) to a standalone plugin. All content is sourced from:
+This release represents the extraction of NestJS framework expertise from the ensemble monolith (v3.x) to a standalone plugin. All content is sourced from:
 
-- **Source**: `/Users/ldangelo/Development/Fortium/ai-mesh/skills/nestjs-framework/`
-- **Target**: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/packages/nestjs/`
+- **Source**: `/Users/ldangelo/Development/Fortium/ensemble/skills/nestjs-framework/`
+- **Target**: `/Users/ldangelo/Development/Fortium/ensemble/packages/nestjs/`
 
 ### Features
 
@@ -68,7 +68,7 @@ This release represents the extraction of NestJS framework expertise from the ai
 - **NestJS**: 8.0+ (recommended 10.4+)
 - **Node.js**: 18+
 - **TypeScript**: 5.0+
-- **Dependencies**: @fortium/ai-mesh-development ^4.0.0
+- **Dependencies**: @fortium/ensemble-development ^4.0.0
 
 ### Known Issues
 

@@ -1,8 +1,8 @@
 /**
  * AI-Mesh Core Plugin
- * @fortium/ai-mesh-core
+ * @fortium/ensemble-core
  *
- * Core utilities including framework detection
+ * Core utilities including framework detection and configuration management
  */
 
 const path = require('path');
@@ -10,6 +10,9 @@ const path = require('path');
 // Framework Detector
 const detectFramework = require('./detect-framework');
 const frameworkPatterns = require('./framework-patterns.json');
+
+// Configuration Path Management (XDG-compliant)
+const configPath = require('./config-path');
 
 const skill = {
   name: 'Framework Detector',
@@ -71,5 +74,17 @@ module.exports = {
   frameworkPatterns,
 
   // Direct access to detector module
-  FrameworkDetector: detectFramework
+  FrameworkDetector: detectFramework,
+
+  // Configuration path utilities (XDG-compliant)
+  configPath,
+  getEnsembleConfigRoot: configPath.getEnsembleConfigRoot,
+  getPluginConfigPath: configPath.getPluginConfigPath,
+  getLogsPath: configPath.getLogsPath,
+  getCachePath: configPath.getCachePath,
+  getSessionsPath: configPath.getSessionsPath,
+  ensureDir: configPath.ensureDir,
+  initializeConfigStructure: configPath.initializeConfigStructure,
+  getLegacyPaths: configPath.getLegacyPaths,
+  hasLegacyConfig: configPath.hasLegacyConfig,
 };

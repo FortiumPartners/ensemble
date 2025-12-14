@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-pytest",
+  "name": "ensemble-pytest",
   "version": "4.0.0",
   "description": "Pytest testing framework integration - Execute and generate Python tests with fixtures, parametrization, and mocking support",
   "author": {
@@ -7,13 +7,13 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "pytest",
     "testing",
     "python",
-    "ai-mesh",
+    "ensemble",
     "fixtures",
     "mocking",
     "parametrization",
@@ -36,6 +36,6 @@
     }
   },
   "dependencies": [
-    "ai-mesh-quality@4.0.0"
+    "ensemble-quality@4.0.0"
   ]
 }

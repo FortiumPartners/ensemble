@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-react",
+  "name": "ensemble-react",
   "version": "4.0.0",
   "description": "React framework skills and component development for Claude Code",
   "author": {
@@ -7,7 +7,7 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "react",
@@ -16,14 +16,14 @@
     "hooks",
     "typescript",
     "state-management",
-    "ai-mesh"
+    "ensemble"
   ],
   "main": "./lib/index.js",
   "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
-    "ai-mesh-development@4.0.0"
+    "ensemble-development@4.0.0"
   ],
   "skillDefinitions": [
     {
@@ -133,7 +133,7 @@
     }
   ],
   "metadata": {
-    "extractedFrom": "ai-mesh v3.x monolith",
+    "extractedFrom": "ensemble v3.x monolith",
     "extractionDate": "2025-12-10",
     "skillVersion": "1.0.0",
     "pluginVersion": "4.0.0"

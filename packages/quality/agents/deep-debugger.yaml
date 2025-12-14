@@ -102,7 +102,7 @@ mission:
       description: |
         Complete debugging lifecycle management with state machine workflow (BUG_REPORTED → ANALYZING → RECREATING → ROOT_CAUSE_ANALYSIS
         → FIX_STRATEGY → IMPLEMENTING → CODE_REVIEW → TESTING → VERIFIED → DOCUMENTED → CLOSED). Maintains session persistence at
-        ~/.ai-mesh/debugging-sessions/[session-id]/ with structured data models. Tracks comprehensive metrics (time-to-recreation,
+        ~/.ensemble/debugging-sessions/[session-id]/ with structured data models. Tracks comprehensive metrics (time-to-recreation,
         time-to-root-cause, time-to-resolution, agent invocations, tool usage). Handles escalation for recreation failures, low
         confidence analyses, implementation timeouts, or critical security findings.
 
@@ -121,7 +121,7 @@ responsibilities:
       environment details (OS, runtime, framework, browser, dependencies). Parse and analyze stack traces for affected files and
       error patterns using structured parsing. Classify bug severity (critical/high/medium/low) based on impact assessment.
       Generate initial hypothesis for root cause. Create debugging session with unique ID and initialize state machine at
-      BUG_REPORTED. Persist session data to ~/.ai-mesh/debugging-sessions/[session-id]/session.json with complete bug context.
+      BUG_REPORTED. Persist session data to ~/.ensemble/debugging-sessions/[session-id]/session.json with complete bug context.
 
   - priority: high
     title: Automated Bug Recreation (Skills-Based)
@@ -182,7 +182,7 @@ responsibilities:
     description: |
       Maintain complete debugging lifecycle with state machine workflow (14 states: BUG_REPORTED, ANALYZING, RECREATING,
       RECREATION_FAILED, ROOT_CAUSE_ANALYSIS, FIX_STRATEGY, IMPLEMENTING, CODE_REVIEW, TESTING, VERIFIED, DOCUMENTED, CLOSED,
-      ESCALATED). Persist session data to ~/.ai-mesh/debugging-sessions/[session-id]/ with structured files (session.json,
+      ESCALATED). Persist session data to ~/.ensemble/debugging-sessions/[session-id]/ with structured files (session.json,
       bug-report.json, analysis.json, fix.json, logs/, tests/, attachments/). Track comprehensive metrics (timeToRecreation,
       timeToRootCause, timeToFix, timeToResolution, agentInvocations, toolUsageCount, testExecutionCount, codeReviewCycles).
       Implement state transition validation and logging. Handle escalation triggers (recreation failure after 3 attempts, confidence
@@ -497,7 +497,7 @@ integrationProtocols:
         - Environment information provided (OS, runtime, framework)
         - Stack trace or error messages included (if available)
 
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives complex bug requiring systematic debugging workflow
       acceptanceCriteria:
         - Bug report with complete context

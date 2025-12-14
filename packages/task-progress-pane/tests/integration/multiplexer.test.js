@@ -26,7 +26,7 @@ const mockWeztermAdapter = createMockAdapter('wezterm');
 const mockZellijAdapter = createMockAdapter('zellij');
 const mockTmuxAdapter = createMockAdapter('tmux');
 
-vi.mock('@ai-mesh/multiplexer-adapters', () => ({
+vi.mock('@fortium/ensemble-multiplexer-adapters', () => ({
   MultiplexerDetector: vi.fn().mockImplementation(() => ({
     autoSelect: vi.fn().mockResolvedValue(mockWeztermAdapter),
     getAdapter: vi.fn().mockImplementation((name) => {

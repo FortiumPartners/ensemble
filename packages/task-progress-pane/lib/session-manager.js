@@ -8,7 +8,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
 
-const STATE_DIR = path.join(os.homedir(), '.ai-mesh-task-progress');
+const STATE_DIR = path.join(os.homedir(), '.ensemble/plugins/task-progress-pane');
 const STATE_PATH = path.join(STATE_DIR, 'state.json');
 const LOGS_DIR = path.join(STATE_DIR, 'logs');
 

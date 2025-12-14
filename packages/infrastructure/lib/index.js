@@ -1,6 +1,6 @@
 /**
  * Infrastructure Plugin
- * @fortium/ai-mesh-infrastructure
+ * @fortium/ensemble-infrastructure
  *
  * Cloud-agnostic infrastructure automation with deployment orchestration
  */

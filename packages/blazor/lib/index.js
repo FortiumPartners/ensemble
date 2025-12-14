@@ -1,6 +1,6 @@
 /**
  * Blazor Framework Plugin
- * @fortium/ai-mesh-blazor
+ * @fortium/ensemble-blazor
  *
  * Blazor and .NET framework skills for web development
  */

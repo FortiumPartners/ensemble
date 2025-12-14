@@ -83,7 +83,7 @@ Increment MAJOR when introducing changes that require user action:
 **Plugin-Specific Examples:**
 
 ```javascript
-// @fortium/ai-mesh-core: MAJOR bump
+// @fortium/ensemble-core: MAJOR bump
 // Before (v3.x.x):
 orchestrator.delegate(agentName, task)
 
@@ -92,7 +92,7 @@ orchestrator.delegate({ agent: agentName, task, priority: 'normal' })
 ```
 
 ```yaml
-# @fortium/ai-mesh-pane-viewer: MAJOR bump
+# @fortium/ensemble-pane-viewer: MAJOR bump
 # Before (v0.x.x):
 hooks:
   pre_tool_use: true
@@ -127,14 +127,14 @@ Increment MINOR when adding backward-compatible functionality:
 **Plugin-Specific Examples:**
 
 ```javascript
-// @fortium/ai-mesh-infrastructure: MINOR bump (v2.2.0)
+// @fortium/ensemble-infrastructure: MINOR bump (v2.2.0)
 // Added: Fly.io detection without breaking existing AWS/K8s detection
 skills.detect.flyio()  // NEW
 skills.detect.aws()    // UNCHANGED
 ```
 
 ```yaml
-# @fortium/ai-mesh-nestjs: MINOR bump (v1.5.0)
+# @fortium/ensemble-nestjs: MINOR bump (v1.5.0)
 # Added: GraphQL federation support
 features:
   rest_api: true        # EXISTING
@@ -167,13 +167,13 @@ Increment PATCH for backward-compatible fixes:
 **Plugin-Specific Examples:**
 
 ```javascript
-// @fortium/ai-mesh-jest: PATCH bump (v1.2.3)
+// @fortium/ensemble-jest: PATCH bump (v1.2.3)
 // Fixed: Test file detection now handles .test.ts files
 // Impact: No API changes, just correct behavior
 ```
 
 ```yaml
-# @fortium/ai-mesh-react: PATCH bump (v2.1.4)
+# @fortium/ensemble-react: PATCH bump (v2.1.4)
 # Fixed: Hook dependency detection for React 18.3+
 # Impact: Silent fix, no user action required
 ```
@@ -198,13 +198,13 @@ Pre-release versions follow this progression:
 **Usage:**
 ```bash
 # Install latest stable
-npm install @fortium/ai-mesh-core
+npm install @fortium/ensemble-core
 
 # Opt-in to beta testing
-npm install @fortium/ai-mesh-core@beta
+npm install @fortium/ensemble-core@beta
 
 # Install specific pre-release
-npm install @fortium/ai-mesh-core@4.0.0-rc.1
+npm install @fortium/ensemble-core@4.0.0-rc.1
 ```
 
 ### 2.4 Special Cases
@@ -214,7 +214,7 @@ npm install @fortium/ai-mesh-core@4.0.0-rc.1
 Per SemVer, `0.y.z` indicates initial development where anything may change:
 
 - **0.y.z**: APIs unstable, breaking changes allowed in MINOR versions
-- **Applies to**: New experimental plugins (e.g., `@fortium/ai-mesh-pane-viewer@0.1.0`)
+- **Applies to**: New experimental plugins (e.g., `@fortium/ensemble-pane-viewer@0.1.0`)
 - **Graduation**: Once stable, bump to 1.0.0 with compatibility guarantees
 
 #### Pre-1.0 Version Strategy
@@ -239,14 +239,14 @@ Plugins declare peer dependencies for cross-plugin compatibility:
 
 ```json
 {
-  "name": "@fortium/ai-mesh-react",
+  "name": "@fortium/ensemble-react",
   "version": "2.3.0",
   "peerDependencies": {
-    "@fortium/ai-mesh-core": "^4.0.0",
-    "@fortium/ai-mesh-development": "^3.0.0"
+    "@fortium/ensemble-core": "^4.0.0",
+    "@fortium/ensemble-development": "^3.0.0"
   },
   "peerDependenciesMeta": {
-    "@fortium/ai-mesh-development": {
+    "@fortium/ensemble-development": {
       "optional": true
     }
   }
@@ -258,7 +258,7 @@ Plugins declare peer dependencies for cross-plugin compatibility:
 **Caret Ranges (^) - Default for Peer Dependencies:**
 
 ```json
-"@fortium/ai-mesh-core": "^4.0.0"
+"@fortium/ensemble-core": "^4.0.0"
 ```
 
 **Accepts**: 4.0.0, 4.1.0, 4.9.9
@@ -268,7 +268,7 @@ Plugins declare peer dependencies for cross-plugin compatibility:
 **Tilde Ranges (~) - Conservative Updates:**
 
 ```json
-"@fortium/ai-mesh-metrics": "~2.3.0"
+"@fortium/ensemble-metrics": "~2.3.0"
 ```
 
 **Accepts**: 2.3.0, 2.3.1, 2.3.9
@@ -278,7 +278,7 @@ Plugins declare peer dependencies for cross-plugin compatibility:
 **Exact Versions - Maximum Stability:**
 
 ```json
-"@fortium/ai-mesh-orchestrator": "3.2.1"
+"@fortium/ensemble-orchestrator": "3.2.1"
 ```
 
 **Accepts**: 3.2.1 only
@@ -287,7 +287,7 @@ Plugins declare peer dependencies for cross-plugin compatibility:
 **Wildcard Ranges (*) - Maximum Flexibility:**
 
 ```json
-"@fortium/ai-mesh-exunit": "*"
+"@fortium/ensemble-exunit": "*"
 ```
 
 **Accepts**: Any version
@@ -307,7 +307,7 @@ The monorepo maintains a compatibility matrix in `COMPATIBILITY.md`:
 
 **Compatibility Rules:**
 
-1. **Core Plugin**: All other plugins declare `@fortium/ai-mesh-core` as peer dependency
+1. **Core Plugin**: All other plugins declare `@fortium/ensemble-core` as peer dependency
 2. **Orchestrators**: Must be compatible with current core version
 3. **Specialists**: Can lag one MAJOR version behind core
 4. **Framework Plugins**: Independent versioning, declare core peer dependency
@@ -317,14 +317,14 @@ The monorepo maintains a compatibility matrix in `COMPATIBILITY.md`:
 
 When a plugin introduces breaking changes, downstream impact follows this protocol:
 
-**Scenario**: `@fortium/ai-mesh-core` releases v5.0.0 with breaking API changes
+**Scenario**: `@fortium/ensemble-core` releases v5.0.0 with breaking API changes
 
 **Immediate Impact (Within 1 week):**
-- `@fortium/ai-mesh-orchestrator` → v4.0.0 (adapts to new core API)
-- `@fortium/ai-mesh-development` → v4.0.0 (adapts to new core API)
+- `@fortium/ensemble-orchestrator` → v4.0.0 (adapts to new core API)
+- `@fortium/ensemble-development` → v4.0.0 (adapts to new core API)
 
 **Short-term Impact (Within 1 month):**
-- `@fortium/ai-mesh-quality` → v3.0.0 (adapts to new orchestrator API)
+- `@fortium/ensemble-quality` → v3.0.0 (adapts to new orchestrator API)
 - All specialist plugins → MINOR version bumps (transparent adaptation)
 
 **Long-term Impact (Within 3 months):**
@@ -334,9 +334,9 @@ When a plugin introduces breaking changes, downstream impact follows this protoc
 **Communication:**
 ```bash
 # Users receive clear upgrade guidance:
-npm WARN @fortium/ai-mesh-core@5.0.0 requires @fortium/ai-mesh-orchestrator@^4.0.0
-npm WARN Current: @fortium/ai-mesh-orchestrator@3.5.2
-npm WARN Run: npm update @fortium/ai-mesh-orchestrator
+npm WARN @fortium/ensemble-core@5.0.0 requires @fortium/ensemble-orchestrator@^4.0.0
+npm WARN Current: @fortium/ensemble-orchestrator@3.5.2
+npm WARN Run: npm update @fortium/ensemble-orchestrator
 ```
 
 ---
@@ -368,7 +368,7 @@ AI-Mesh plugins implement intelligent auto-update with user safety:
 }
 ```
 
-**User Configuration** (`~/.ai-mesh/config.json`):
+**User Configuration** (`~/.ensemble/config.json`):
 ```json
 {
   "autoUpdate": {
@@ -425,39 +425,39 @@ async function shouldAutoUpdate(plugin, currentVersion, latestVersion) {
 **Step 1: Detection**
 ```bash
 # On Claude Code startup or scheduled check
-[ai-mesh] Checking for updates...
-[ai-mesh] Found 3 available updates:
-  - @fortium/ai-mesh-core: 4.2.0 → 4.2.1 (patch, security)
-  - @fortium/ai-mesh-react: 2.5.0 → 2.6.0 (minor, features)
-  - @fortium/ai-mesh-nestjs: 3.0.0 → 4.0.0 (major, breaking)
+[ensemble] Checking for updates...
+[ensemble] Found 3 available updates:
+  - @fortium/ensemble-core: 4.2.0 → 4.2.1 (patch, security)
+  - @fortium/ensemble-react: 2.5.0 → 2.6.0 (minor, features)
+  - @fortium/ensemble-nestjs: 3.0.0 → 4.0.0 (major, breaking)
 ```
 
 **Step 2: Analysis**
 ```bash
-[ai-mesh] Auto-update policy applied:
-  ✓ @fortium/ai-mesh-core: Installing 4.2.1 (security patch)
-  ✓ @fortium/ai-mesh-react: Installing 2.6.0 (new features)
-  ! @fortium/ai-mesh-nestjs: Manual upgrade required (breaking changes)
+[ensemble] Auto-update policy applied:
+  ✓ @fortium/ensemble-core: Installing 4.2.1 (security patch)
+  ✓ @fortium/ensemble-react: Installing 2.6.0 (new features)
+  ! @fortium/ensemble-nestjs: Manual upgrade required (breaking changes)
 ```
 
 **Step 3: Installation**
 ```bash
-[ai-mesh] Installing updates...
-  ✓ @fortium/ai-mesh-core@4.2.1 (completed in 1.2s)
-  ✓ @fortium/ai-mesh-react@2.6.0 (completed in 0.8s)
+[ensemble] Installing updates...
+  ✓ @fortium/ensemble-core@4.2.1 (completed in 1.2s)
+  ✓ @fortium/ensemble-react@2.6.0 (completed in 0.8s)
 
-[ai-mesh] ✓ 2 plugins updated successfully
-[ai-mesh] ! 1 plugin requires manual upgrade (see upgrade guide)
+[ensemble] ✓ 2 plugins updated successfully
+[ensemble] ! 1 plugin requires manual upgrade (see upgrade guide)
 ```
 
 **Step 4: Verification**
 ```bash
-[ai-mesh] Running post-update health checks...
+[ensemble] Running post-update health checks...
   ✓ Plugin compatibility verified
   ✓ Configuration schema validated
   ✓ Integration tests passed
 
-[ai-mesh] System ready. Run `/help` to see new features.
+[ensemble] System ready. Run `/help` to see new features.
 ```
 
 ### 4.5 Rollback Mechanism
@@ -470,37 +470,37 @@ async function shouldAutoUpdate(plugin, currentVersion, latestVersion) {
 
 **Rollback Process:**
 ```bash
-[ai-mesh] ERROR: @fortium/ai-mesh-core@4.2.1 failed health check
-[ai-mesh] Initiating automatic rollback...
-  ✓ Restored @fortium/ai-mesh-core@4.2.0
+[ensemble] ERROR: @fortium/ensemble-core@4.2.1 failed health check
+[ensemble] Initiating automatic rollback...
+  ✓ Restored @fortium/ensemble-core@4.2.0
   ✓ Configuration reverted
   ✓ System stable
 
-[ai-mesh] Rollback successful. Issue reported to maintainers.
-[ai-mesh] You can opt-out of this update: ai-mesh config block-version 4.2.1
+[ensemble] Rollback successful. Issue reported to maintainers.
+[ensemble] You can opt-out of this update: ensemble config block-version 4.2.1
 ```
 
 **Manual Rollback:**
 ```bash
 # User-initiated rollback
-ai-mesh rollback @fortium/ai-mesh-core
+ensemble rollback @fortium/ensemble-core
 
 # Rollback to specific version
-ai-mesh install @fortium/ai-mesh-core@4.1.5
+ensemble install @fortium/ensemble-core@4.1.5
 
 # Rollback all updates from today
-ai-mesh rollback --since today
+ensemble rollback --since today
 ```
 
 ### 4.6 Update Caching
 
 **Cache Strategy:**
 ```javascript
-// ~/.ai-mesh/cache/update-registry.json
+// ~/.ensemble/cache/update-registry.json
 {
   "lastCheck": "2025-12-10T14:30:00Z",
   "cache": {
-    "@fortium/ai-mesh-core": {
+    "@fortium/ensemble-core": {
       "current": "4.2.0",
       "latest": "4.2.1",
       "latestMajor": "4.2.1",
@@ -669,7 +669,7 @@ For plugins requiring manual release (e.g., experimental features):
 git status
 
 # Step 2: Run tests
-npm test --workspace=@fortium/ai-mesh-core
+npm test --workspace=@fortium/ensemble-core
 
 # Step 3: Version bump
 cd packages/core
@@ -681,7 +681,7 @@ npm version minor  # or major/patch
 # Step 5: Commit and tag
 git add .
 git commit -m "chore(core): release v4.3.0"
-git tag @fortium/ai-mesh-core@4.3.0
+git tag @fortium/ensemble-core@4.3.0
 
 # Step 6: Publish
 npm publish --access public
@@ -690,7 +690,7 @@ npm publish --access public
 git push --follow-tags
 
 # Step 8: Create GitHub Release
-gh release create @fortium/ai-mesh-core@4.3.0 \
+gh release create @fortium/ensemble-core@4.3.0 \
   --title "Core v4.3.0: Advanced Delegation" \
   --notes-file packages/core/CHANGELOG.md
 ```
@@ -700,7 +700,7 @@ gh release create @fortium/ai-mesh-core@4.3.0 \
 **Automated Changelog Format:**
 
 ```markdown
-# @fortium/ai-mesh-core
+# @fortium/ensemble-core
 
 ## [4.3.0] - 2025-12-10
 
@@ -729,17 +729,17 @@ gh release create @fortium/ai-mesh-core@4.3.0 \
   // After (v4.x)
   orchestrator.delegate({ agent: 'backend-developer', task, priority: 'normal' })
   ```
-  **Migration**: Run codemod: `npx @fortium/ai-mesh-codemod v3-to-v4-delegate`
+  **Migration**: Run codemod: `npx @fortium/ensemble-codemod v3-to-v4-delegate`
 
-[4.3.0]: https://github.com/FortiumPartners/ai-mesh-plugins/compare/@fortium/ai-mesh-core@4.2.0...@fortium/ai-mesh-core@4.3.0
+[4.3.0]: https://github.com/FortiumPartners/ensemble/compare/@fortium/ensemble-core@4.2.0...@fortium/ensemble-core@4.3.0
 ```
 
 ### 5.5 GitHub Release Automation
 
 **Release Asset Structure:**
 ```
-Release @fortium/ai-mesh-core@4.3.0
-├── ai-mesh-core-4.3.0.tgz          # npm package tarball
+Release @fortium/ensemble-core@4.3.0
+├── ensemble-core-4.3.0.tgz          # npm package tarball
 ├── CHANGELOG.md                    # Full changelog
 ├── MIGRATION-v3-to-v4.md          # Migration guide
 ├── checksums.txt                   # SHA256 checksums
@@ -809,8 +809,8 @@ Plugins support **Active LTS and Current** Node.js releases:
 - **22.x (Current)**: Supported (becomes LTS 2025-10-01)
 
 **Upgrade Timeline:**
-- Drop Node 18 support: 2025-06-01 (in ai-mesh v5.0.0)
-- Add Node 24 support: 2025-11-01 (in ai-mesh v5.x.x)
+- Drop Node 18 support: 2025-06-01 (in ensemble v5.0.0)
+- Add Node 24 support: 2025-11-01 (in ensemble v5.x.x)
 
 ### 6.4 Cross-Plugin Compatibility Windows
 
@@ -818,29 +818,29 @@ Plugins maintain compatibility across version ranges:
 
 **Tier 1: Core Plugins** (strict compatibility)
 ```
-@fortium/ai-mesh-core@4.0.0 requires:
-  - @fortium/ai-mesh-orchestrator@^3.0.0
-  - @fortium/ai-mesh-development@^3.0.0
-  - @fortium/ai-mesh-quality@^2.0.0
+@fortium/ensemble-core@4.0.0 requires:
+  - @fortium/ensemble-orchestrator@^3.0.0
+  - @fortium/ensemble-development@^3.0.0
+  - @fortium/ensemble-quality@^2.0.0
 ```
 
 **Tier 2: Workflow Plugins** (flexible compatibility)
 ```
-@fortium/ai-mesh-product@2.0.0 requires:
-  - @fortium/ai-mesh-core@^3.5.0 || ^4.0.0
+@fortium/ensemble-product@2.0.0 requires:
+  - @fortium/ensemble-core@^3.5.0 || ^4.0.0
 ```
 
 **Tier 3: Framework Plugins** (loose compatibility)
 ```
-@fortium/ai-mesh-react@2.5.0 requires:
-  - @fortium/ai-mesh-core@^4.0.0
-  - @fortium/ai-mesh-development@* (optional)
+@fortium/ensemble-react@2.5.0 requires:
+  - @fortium/ensemble-core@^4.0.0
+  - @fortium/ensemble-development@* (optional)
 ```
 
 **Tier 4: Testing Plugins** (maximum compatibility)
 ```
-@fortium/ai-mesh-jest@1.4.0 requires:
-  - @fortium/ai-mesh-core@^3.0.0 || ^4.0.0
+@fortium/ensemble-jest@1.4.0 requires:
+  - @fortium/ensemble-core@^3.0.0 || ^4.0.0
   - jest@^27.0.0 || ^28.0.0 || ^29.0.0
 ```
 
@@ -864,7 +864,7 @@ function delegate(agent, task) {
   console.warn(
     'DEPRECATED: delegate(agent, task) will be removed in v5.0.0. ' +
     'Use delegate({ agent, task }) instead. ' +
-    'See migration guide: https://docs.ai-mesh.dev/migrations/v4-to-v5'
+    'See migration guide: https://docs.ensemble.dev/migrations/v4-to-v5'
   );
   return delegateNew({ agent, task });
 }
@@ -873,7 +873,7 @@ function delegate(agent, task) {
 function delegate(agent, task) {
   console.error(
     'DEPRECATED (Removal in v5.0.0): delegate(agent, task) is deprecated. ' +
-    'Auto-migrate with: npx @fortium/ai-mesh-codemod v4-to-v5-delegate'
+    'Auto-migrate with: npx @fortium/ensemble-codemod v4-to-v5-delegate'
   );
   return delegateNew({ agent, task });
 }
@@ -922,13 +922,13 @@ module.exports = function transformer(file, api) {
 **Usage:**
 ```bash
 # Dry run (preview changes)
-npx @fortium/ai-mesh-codemod v4-to-v5-delegate --dry
+npx @fortium/ensemble-codemod v4-to-v5-delegate --dry
 
 # Apply migration
-npx @fortium/ai-mesh-codemod v4-to-v5-delegate
+npx @fortium/ensemble-codemod v4-to-v5-delegate
 
 # Apply to specific directory
-npx @fortium/ai-mesh-codemod v4-to-v5-delegate --path ./src
+npx @fortium/ensemble-codemod v4-to-v5-delegate --path ./src
 ```
 
 ### 7.3 Migration Guides
@@ -960,7 +960,7 @@ orchestrator.delegate({ agent: 'backend-developer', task, priority: 'normal' });
 
 **Migration:**
 ```bash
-npx @fortium/ai-mesh-codemod v4-to-v5-delegate
+npx @fortium/ensemble-codemod v4-to-v5-delegate
 ```
 
 ### 2. Configuration Schema (Power Users)
@@ -991,47 +991,47 @@ npx @fortium/ai-mesh-codemod v4-to-v5-delegate
 **Migration:**
 Run validation script to identify incompatible configurations:
 ```bash
-ai-mesh validate-config --migration-mode v4-to-v5
+ensemble validate-config --migration-mode v4-to-v5
 ```
 
 ## Step-by-Step Migration
 
 ### Step 1: Update Dependencies
 ```bash
-npm install @fortium/ai-mesh-core@^5.0.0
-npm install @fortium/ai-mesh-orchestrator@^4.0.0
+npm install @fortium/ensemble-core@^5.0.0
+npm install @fortium/ensemble-orchestrator@^4.0.0
 ```
 
 ### Step 2: Run Codemods
 ```bash
-npx @fortium/ai-mesh-codemod v4-to-v5 --all
+npx @fortium/ensemble-codemod v4-to-v5 --all
 ```
 
 ### Step 3: Update Configuration
 ```bash
-ai-mesh migrate-config v4-to-v5
+ensemble migrate-config v4-to-v5
 ```
 
 ### Step 4: Test
 ```bash
 npm test
-ai-mesh health-check
+ensemble health-check
 ```
 
 ### Step 5: Rollback (if needed)
 ```bash
-ai-mesh rollback --to v4
+ensemble rollback --to v4
 ```
 
 ## Compatibility Layer
 For gradual migration, install compatibility layer:
 ```bash
-npm install @fortium/ai-mesh-compat-v4
+npm install @fortium/ensemble-compat-v4
 ```
 
 ## Support
-- Migration issues: https://github.com/FortiumPartners/ai-mesh-plugins/discussions
-- Documentation: https://docs.ai-mesh.dev/migrations/v4-to-v5
+- Migration issues: https://github.com/FortiumPartners/ensemble/discussions
+- Documentation: https://docs.ensemble.dev/migrations/v4-to-v5
 - Support: support@fortiumpartners.com
 ```
 
@@ -1063,7 +1063,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 
 ### 8.1 Tier 1: Core Plugins
 
-**Plugins**: `@fortium/ai-mesh-core`, `@fortium/ai-mesh-orchestrator`, `@fortium/ai-mesh-development`, `@fortium/ai-mesh-quality`
+**Plugins**: `@fortium/ensemble-core`, `@fortium/ensemble-orchestrator`, `@fortium/ensemble-development`, `@fortium/ensemble-quality`
 
 **Versioning Policy:**
 - **Stability First**: Breaking changes require RFC (Request for Comments) process
@@ -1074,7 +1074,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 **Example:**
 ```json
 {
-  "name": "@fortium/ai-mesh-core",
+  "name": "@fortium/ensemble-core",
   "version": "4.5.2",
   "releasePolicy": {
     "stabilityIndex": "stable",
@@ -1087,7 +1087,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 
 ### 8.2 Tier 2: Workflow Plugins
 
-**Plugins**: `@fortium/ai-mesh-product`, `@fortium/ai-mesh-git`, `@fortium/ai-mesh-infrastructure`
+**Plugins**: `@fortium/ensemble-product`, `@fortium/ensemble-git`, `@fortium/ensemble-infrastructure`
 
 **Versioning Policy:**
 - **Iterative Development**: Faster release cycle (monthly)
@@ -1098,7 +1098,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 **Example:**
 ```json
 {
-  "name": "@fortium/ai-mesh-product",
+  "name": "@fortium/ensemble-product",
   "version": "2.8.0",
   "releasePolicy": {
     "stabilityIndex": "stable",
@@ -1110,7 +1110,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 
 ### 8.3 Tier 3: Framework Plugins
 
-**Plugins**: `@fortium/ai-mesh-react`, `@fortium/ai-mesh-nestjs`, `@fortium/ai-mesh-phoenix`, etc.
+**Plugins**: `@fortium/ensemble-react`, `@fortium/ensemble-nestjs`, `@fortium/ensemble-phoenix`, etc.
 
 **Versioning Policy:**
 - **Framework-Aligned**: Versions track supported framework versions
@@ -1121,7 +1121,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 **Example:**
 ```json
 {
-  "name": "@fortium/ai-mesh-react",
+  "name": "@fortium/ensemble-react",
   "version": "2.5.3",
   "releasePolicy": {
     "stabilityIndex": "stable",
@@ -1134,7 +1134,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 
 ### 8.4 Tier 4: Testing Plugins
 
-**Plugins**: `@fortium/ai-mesh-jest`, `@fortium/ai-mesh-playwright`, `@fortium/ai-mesh-e2e-testing`
+**Plugins**: `@fortium/ensemble-jest`, `@fortium/ensemble-playwright`, `@fortium/ensemble-e2e-testing`
 
 **Versioning Policy:**
 - **Test Framework Compatibility**: Support multiple framework versions
@@ -1145,7 +1145,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 **Example:**
 ```json
 {
-  "name": "@fortium/ai-mesh-jest",
+  "name": "@fortium/ensemble-jest",
   "version": "1.6.0",
   "releasePolicy": {
     "stabilityIndex": "stable",
@@ -1174,7 +1174,7 @@ Example: A feature deprecated in v4.0.0 must remain functional (with warnings) t
 
 ```bash
 # Hour 0: Vulnerability disclosed
-[SECURITY] CVE-2025-XXXX: Critical RCE in @fortium/ai-mesh-core@4.5.0-4.5.2
+[SECURITY] CVE-2025-XXXX: Critical RCE in @fortium/ensemble-core@4.5.0-4.5.2
 
 # Hour 1: Fix developed and tested
 git checkout -b hotfix/CVE-2025-XXXX
@@ -1189,8 +1189,8 @@ git push --tags
 
 # Hour 3: User notification
 # All users receive immediate notification on next Claude Code startup
-[SECURITY ALERT] Critical update available for @fortium/ai-mesh-core
-[SECURITY ALERT] Installing @fortium/ai-mesh-core@4.5.3 (fixes CVE-2025-XXXX)
+[SECURITY ALERT] Critical update available for @fortium/ensemble-core
+[SECURITY ALERT] Installing @fortium/ensemble-core@4.5.3 (fixes CVE-2025-XXXX)
 [SECURITY ALERT] Update completed. System secure.
 
 # Hour 4: Post-mortem and disclosure
@@ -1250,7 +1250,7 @@ In rare cases, a hotfix may include breaking changes (e.g., disabling insecure f
 
 **Example:**
 ```javascript
-// @fortium/ai-mesh-core@4.5.3 (hotfix with breaking change)
+// @fortium/ensemble-core@4.5.3 (hotfix with breaking change)
 
 // BREAKING: Insecure delegateUnsafe() method removed due to CVE-2025-XXXX
 // Migration: Use delegate() with proper authentication
@@ -1324,7 +1324,7 @@ Development → Alpha → Beta → RC → Stable → LTS → Security-Only → E
 ### 10.3 Version Support Timeline Example
 
 ```
-Timeline for @fortium/ai-mesh-core:
+Timeline for @fortium/ensemble-core:
 
 2024-01-01: v3.0.0 released (Stable)
 2024-07-01: v4.0.0 released (Stable) → v3.x.x enters LTS
@@ -1356,7 +1356,7 @@ v5.x.x:                         [====Stable====][======LTS======][Security]
 
 ### User Configuration File
 
-Location: `~/.ai-mesh/config.json`
+Location: `~/.ensemble/config.json`
 
 ```json
 {
@@ -1429,4 +1429,4 @@ Is this a breaking change?
 **Last Updated**: 2025-12-10
 **Next Review**: 2025-03-10 (Quarterly)
 **Maintained By**: Fortium Partners Engineering Team
-**Feedback**: https://github.com/FortiumPartners/ai-mesh-plugins/discussions
+**Feedback**: https://github.com/FortiumPartners/ensemble/discussions

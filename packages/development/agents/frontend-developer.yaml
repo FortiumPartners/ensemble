@@ -462,7 +462,7 @@ integrationProtocols:
         - Accessibility requirements defined (WCAG 2.1 AA)
         - Performance targets specified
     
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Individual frontend tasks requiring UI implementation
       acceptanceCriteria:
         - Component functionality clearly defined

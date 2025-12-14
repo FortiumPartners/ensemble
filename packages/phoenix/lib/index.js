@@ -1,6 +1,6 @@
 /**
  * Phoenix Framework Plugin
- * @fortium/ai-mesh-phoenix
+ * @fortium/ensemble-phoenix
  *
  * Phoenix LiveView and Elixir framework skills
  */

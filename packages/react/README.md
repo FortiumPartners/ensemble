@@ -1,4 +1,4 @@
-# @fortium/ai-mesh-react
+# @fortium/ensemble-react
 
 **Version**: 4.0.0
 **Framework**: React 18+
@@ -9,7 +9,7 @@ React framework skills and component development plugin for Claude Code. Provide
 
 ## Overview
 
-This plugin extracts React framework skills from the ai-mesh monolith into a modular, reusable package. It provides progressive disclosure documentation, code generation templates, and real-world examples for building modern React applications.
+This plugin extracts React framework skills from the ensemble monolith into a modular, reusable package. It provides progressive disclosure documentation, code generation templates, and real-world examples for building modern React applications.
 
 ### Key Features
 
@@ -26,15 +26,15 @@ This plugin extracts React framework skills from the ai-mesh monolith into a mod
 ### Via Claude Code Marketplace
 
 ```bash
-claude plugin install @fortium/ai-mesh-react
+claude plugin install @fortium/ensemble-react
 ```
 
 ### Manual Installation
 
 ```bash
-# Clone the ai-mesh-plugins repository
-git clone https://github.com/FortiumPartners/ai-mesh-plugins.git
-cd ai-mesh-plugins
+# Clone the ensemble repository
+git clone https://github.com/FortiumPartners/ensemble.git
+cd ensemble
 
 # Install dependencies
 npm install
@@ -74,7 +74,7 @@ You can also explicitly load React skills:
 
 ```javascript
 // In your agent or command
-const reactSkill = require('@fortium/ai-mesh-react');
+const reactSkill = require('@fortium/ensemble-react');
 
 // Load quick reference for fast lookups
 const quickRef = await reactSkill.loadSkill('quick');
@@ -287,18 +287,18 @@ Demonstrates:
 ## Dependencies
 
 This plugin requires:
-- `@fortium/ai-mesh-development@4.0.0` - Core development agent functionality
+- `@fortium/ensemble-development@4.0.0` - Core development agent functionality
 
 ## Related Plugins
 
-- `@fortium/ai-mesh-typescript` - TypeScript-specific patterns
-- `@fortium/ai-mesh-testing` - Testing frameworks beyond React Testing Library
-- `@fortium/ai-mesh-vite` - Vite bundler configuration
-- `@fortium/ai-mesh-nextjs` - Next.js framework skills
+- `@fortium/ensemble-typescript` - TypeScript-specific patterns
+- `@fortium/ensemble-testing` - Testing frameworks beyond React Testing Library
+- `@fortium/ensemble-vite` - Vite bundler configuration
+- `@fortium/ensemble-nextjs` - Next.js framework skills
 
 ## Contributing
 
-Contributions are welcome! Please see the [main repository](https://github.com/FortiumPartners/ai-mesh-plugins) for contribution guidelines.
+Contributions are welcome! Please see the [main repository](https://github.com/FortiumPartners/ensemble) for contribution guidelines.
 
 ### Updating Content
 
@@ -322,8 +322,8 @@ Before releasing updates:
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/FortiumPartners/ai-mesh-plugins/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/FortiumPartners/ai-mesh-plugins/discussions)
+- **Issues**: [GitHub Issues](https://github.com/FortiumPartners/ensemble/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/FortiumPartners/ensemble/discussions)
 - **Documentation**: [Official React Documentation](https://react.dev/)
 
 ## License
@@ -332,7 +332,7 @@ MIT © 2025 Fortium Partners
 
 ---
 
-**Extracted from**: ai-mesh v3.x monolith
+**Extracted from**: ensemble v3.x monolith
 **Plugin Version**: 4.0.0
 **Last Updated**: 2025-12-10
 **Maintainer**: Fortium Software Configuration Team

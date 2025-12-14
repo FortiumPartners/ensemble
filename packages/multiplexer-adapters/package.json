@@ -1,13 +1,13 @@
 {
-  "name": "@ai-mesh/multiplexer-adapters",
-  "version": "1.0.0",
-  "description": "Shared terminal multiplexer adapters for AI Mesh plugins (WezTerm, Zellij, tmux)",
+  "name": "@fortium/ensemble-multiplexer-adapters",
+  "version": "5.0.0",
+  "description": "Shared terminal multiplexer adapters for Ensemble plugins (WezTerm, Zellij, tmux)",
   "main": "lib/index.js",
   "files": [
     "lib"
   ],
   "keywords": [
-    "ai-mesh",
+    "ensemble",
     "multiplexer",
     "terminal",
     "wezterm",
@@ -15,7 +15,7 @@
     "tmux",
     "pane"
   ],
-  "author": "AI Mesh Team",
+  "author": "Fortium Partners",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

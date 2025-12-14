@@ -6,7 +6,7 @@
 **Last Updated**: 2025-12-13
 **Author**: Tech Lead Orchestrator
 **PRD Reference**: [ensemble-rename.md](../PRD/ensemble-rename.md) v1.1.0
-**Project**: ai-mesh-plugins → ensemble
+**Project**: ensemble → ensemble
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## Document Overview
 
-This TRD translates the Ensemble Rename PRD into actionable technical specifications, task breakdowns, and sprint planning. The project involves renaming the entire ai-mesh ecosystem to "ensemble" with XDG-compliant configuration consolidation.
+This TRD translates the Ensemble Rename PRD into actionable technical specifications, task breakdowns, and sprint planning. The project involves renaming the entire ensemble ecosystem to "ensemble" with XDG-compliant configuration consolidation.
 
 **Scope Summary**:
 - 23 NPM packages to rename (all bumped to v5.0.0)
@@ -74,7 +74,7 @@ The following technical decisions were made during TRD refinement:
 | PREP-005 | Create feature branch `feature/ensemble-rename` from main | High | PREP-004 | [ ] |
 | PREP-006 | Document rollback procedure | Medium | PREP-004 | [ ] |
 | PREP-007 | **NEW**: Create pre-flight checklist script | High | PREP-001 | [ ] |
-| PREP-008 | **NEW**: Rename local directory ai-mesh-plugins → ensemble | Critical | PREP-005 | [ ] |
+| PREP-008 | **NEW**: Rename local directory ensemble → ensemble | Critical | PREP-005 | [ ] |
 
 ---
 
@@ -177,7 +177,7 @@ The following technical decisions were made during TRD refinement:
 | CODE-152 | Update create-trd command | `packages/product/commands/create-trd.md` | High | CODE-110 | [ ] |
 | CODE-153 | Update refine-trd command | `packages/product/commands/refine-trd.md` | High | CODE-110 | [ ] |
 | CODE-154 | Update pane-config command | `packages/pane-viewer/commands/pane-config.md` | High | CODE-140 | [ ] |
-| CODE-155 | Search and update all @ai-mesh-command annotations | All command files | Critical | PREP-002 | [ ] |
+| CODE-155 | Search and update all @ensemble-command annotations | All command files | Critical | PREP-002 | [ ] |
 
 #### 1.2.11 Config Path Updates
 
@@ -194,7 +194,7 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| GH-001 | Rename repository ai-mesh-plugins → ensemble | Critical | All CODE-XXX | [ ] |
+| GH-001 | Rename repository ensemble → ensemble | Critical | All CODE-XXX | [ ] |
 | GH-002 | Update repository URL in all files post-rename | Critical | GH-001 | [ ] |
 | GH-003 | Verify GitHub Actions work with new repo name | High | GH-001, CODE-030-032 | [ ] |
 | GH-004 | Update GitHub repository description | Medium | GH-001 | [ ] |
@@ -224,7 +224,7 @@ The following technical decisions were made during TRD refinement:
 | TEST-001 | Run existing test suite with new names | Critical | All CODE-XXX | [ ] |
 | TEST-002 | Add unit tests for XDG path resolution | High | CODE-106 | [ ] |
 | TEST-003 | Add integration tests for config migration | High | MIG-003 | [ ] |
-| TEST-004 | Verify no ai-mesh references remain (grep test) | Critical | All CODE-XXX | [ ] |
+| TEST-004 | Verify no ensemble references remain (grep test) | Critical | All CODE-XXX | [ ] |
 | TEST-005 | Test plugin installation with new names | High | PUB-001 | [ ] |
 | TEST-006 | Test slash commands with new prefix | High | CODE-150-155 | [ ] |
 | TEST-007 | **NEW**: Run pre-flight checklist validation | Critical | PREP-007 | [ ] |
@@ -242,7 +242,7 @@ The following technical decisions were made during TRD refinement:
 | PUB-005 | Publish utility packages v5.0.0 | High | PUB-001 | [ ] |
 | PUB-006 | Publish @fortium/ensemble-full v5.0.0 | High | PUB-002-005 | [ ] |
 | PUB-007 | Verify all packages install correctly | Critical | PUB-006 | [ ] |
-| PUB-008 | Deprecate old @fortium/ai-mesh-* packages | High | PUB-007 | [ ] |
+| PUB-008 | Deprecate old @fortium/ensemble-* packages | High | PUB-007 | [ ] |
 | PUB-009 | Unpublish old packages (if within 72h window) | Medium | PUB-008 | [ ] |
 
 ---
@@ -264,7 +264,7 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| CLEAN-001 | Run final grep verification for ai-mesh | Critical | All tasks | [ ] |
+| CLEAN-001 | Run final grep verification for ensemble | Critical | All tasks | [ ] |
 | CLEAN-002 | Remove any temporary files/scripts | Medium | All tasks | [ ] |
 | CLEAN-003 | Archive old package references | Low | PUB-009 | [ ] |
 | CLEAN-004 | Final documentation review | High | DOC-001-006 | [ ] |
@@ -446,7 +446,7 @@ $CONFIG_ROOT/
 - [ ] TEST-007: **Run pre-flight validation**
 - [ ] PREP-004: Back up current repository state
 - [ ] PREP-005: Create feature branch `feature/ensemble-rename` from main
-- [ ] PREP-008: **Rename local directory ai-mesh-plugins → ensemble**
+- [ ] PREP-008: **Rename local directory ensemble → ensemble**
 - [ ] PREP-003: Create automated bulk rename script (Node built-in glob)
 - [ ] PREP-006: Document rollback procedure
 
@@ -454,7 +454,7 @@ $CONFIG_ROOT/
 1. Pre-flight checklist script (`scripts/preflight-check.js`)
 2. NPM availability report (all 23 packages confirmed)
 3. Complete file inventory (JSON format)
-4. Backup archive (`backup-ai-mesh-plugins-YYYYMMDD.tar.gz`)
+4. Backup archive (`backup-ensemble-YYYYMMDD.tar.gz`)
 5. Feature branch `feature/ensemble-rename`
 6. Renamed local directory (`/Users/ldangelo/Development/Fortium/ensemble`)
 7. Automated rename script (`scripts/rename-to-ensemble.js`)
@@ -498,8 +498,8 @@ $CONFIG_ROOT/
 6. config-path.js module in ensemble-core
 
 **Acceptance Criteria**:
-- [ ] `grep -r "ai-mesh" --include="*.json"` returns 0 results
-- [ ] `grep -r "@ai-mesh/" --include="*.json"` returns 0 results
+- [ ] `grep -r "ensemble" --include="*.json"` returns 0 results
+- [ ] `grep -r "@fortium/ensemble-" --include="*.json"` returns 0 results
 - [ ] All packages at v5.0.0
 - [ ] All packages validate against new schema pattern
 - [ ] `npm run validate` passes
@@ -541,7 +541,7 @@ $CONFIG_ROOT/
 
 **Morning Tasks** (Testing):
 - [ ] TEST-001: Run existing test suite with new names
-- [ ] TEST-004: Verify no ai-mesh references remain (grep test)
+- [ ] TEST-004: Verify no ensemble references remain (grep test)
 - [ ] TEST-005: Test plugin installation with new names (local)
 - [ ] TEST-006: Test slash commands with new prefix
 - [ ] MIG-005: Test migration on macOS
@@ -550,7 +550,7 @@ $CONFIG_ROOT/
 
 **Afternoon Tasks** (GitHub):
 - [ ] CODE-030 to CODE-032: Update GitHub workflows
-- [ ] GH-001: Rename repository ai-mesh-plugins → ensemble
+- [ ] GH-001: Rename repository ensemble → ensemble
 - [ ] GH-002: Update repository URL in all files post-rename
 - [ ] GH-003: Verify GitHub Actions work with new repo name
 - [ ] GH-004: Update GitHub repository description
@@ -565,7 +565,7 @@ $CONFIG_ROOT/
 
 **Acceptance Criteria**:
 - [ ] CI pipeline passes on new repository
-- [ ] Old URL (FortiumPartners/ai-mesh-plugins) redirects to new URL
+- [ ] Old URL (FortiumPartners/ensemble) redirects to new URL
 - [ ] Migration works on macOS, Linux, WSL
 - [ ] All slash commands functional with /ensemble: prefix
 
@@ -588,7 +588,7 @@ $CONFIG_ROOT/
 - [ ] DOC-001: Create MIGRATION.md guide
 - [ ] DOC-002: Update all plugin README files
 - [ ] DOC-003 to DOC-004: Update docs references
-- [ ] PUB-008: Deprecate old @fortium/ai-mesh-* packages
+- [ ] PUB-008: Deprecate old @fortium/ensemble-* packages
 - [ ] PUB-009: Unpublish old packages (if within 72h window)
 - [ ] CLEAN-001 to CLEAN-004: Final cleanup
 
@@ -602,7 +602,7 @@ $CONFIG_ROOT/
 - [ ] `npm install @fortium/ensemble-full@5.0.0` works
 - [ ] All individual packages installable at v5.0.0
 - [ ] MIGRATION.md complete and accurate
-- [ ] No ai-mesh references anywhere in codebase
+- [ ] No ensemble references anywhere in codebase
 - [ ] Old packages show deprecation notice or 404
 
 ---
@@ -762,22 +762,22 @@ async function checkAllPackagesAvailable() {
 function checkBackupExists() {
   const backupDir = path.join(process.cwd(), '..');
   const files = fs.readdirSync(backupDir);
-  const backups = files.filter(f => f.startsWith('backup-ai-mesh-plugins-') && f.endsWith('.tar.gz'));
+  const backups = files.filter(f => f.startsWith('backup-ensemble-') && f.endsWith('.tar.gz'));
 
   if (backups.length > 0) {
     log('pass', `Backup found: ${backups[backups.length - 1]}`);
     return true;
   } else {
     log('fail', 'No backup archive found - create one before proceeding');
-    console.log('       Run: tar -czf ../backup-ai-mesh-plugins-$(date +%Y%m%d).tar.gz .');
+    console.log('       Run: tar -czf ../backup-ensemble-$(date +%Y%m%d).tar.gz .');
     return false;
   }
 }
 
 function checkDirectoryName() {
   const currentDir = path.basename(process.cwd());
-  if (currentDir === 'ai-mesh-plugins') {
-    log('pass', `Current directory is 'ai-mesh-plugins' - ready for rename`);
+  if (currentDir === 'ensemble-plugins') {
+    log('pass', `Current directory is 'ensemble-plugins' - ready for rename`);
     return true;
   } else if (currentDir === 'ensemble') {
     log('pass', `Directory already renamed to 'ensemble'`);
@@ -829,7 +829,7 @@ runAllChecks();
 ```javascript
 #!/usr/bin/env node
 /**
- * Automated rename script for ai-mesh → ensemble migration
+ * Automated rename script for ensemble → ensemble migration
  * Uses Node.js 22+ built-in glob (no external dependencies)
  *
  * Usage: node scripts/rename-to-ensemble.js [--dry-run]
@@ -844,29 +844,29 @@ const NEW_VERSION = '5.0.0';
 
 const REPLACEMENTS = [
   // Package names
-  { from: '@fortium/ai-mesh-', to: '@fortium/ensemble-' },
-  { from: '@ai-mesh/', to: '@fortium/ensemble-' },
+  { from: '@fortium/ensemble-', to: '@fortium/ensemble-' },
+  { from: '@fortium/ensemble-', to: '@fortium/ensemble-' },
 
   // Plugin names
-  { from: '"ai-mesh-', to: '"ensemble-' },
-  { from: "'ai-mesh-", to: "'ensemble-" },
+  { from: '"ensemble-', to: '"ensemble-' },
+  { from: "'ensemble-", to: "'ensemble-" },
 
   // Repository URLs
-  { from: 'FortiumPartners/ai-mesh-plugins', to: 'FortiumPartners/ensemble' },
+  { from: 'FortiumPartners/ensemble', to: 'FortiumPartners/ensemble' },
 
   // Config paths
-  { from: '.ai-mesh-task-progress', to: '.ensemble/plugins/task-progress-pane' },
-  { from: '.ai-mesh-pane-viewer', to: '.ensemble/plugins/pane-viewer' },
+  { from: '.ensemble/plugins/task-progress-pane', to: '.ensemble/plugins/task-progress-pane' },
+  { from: '.ensemble/plugins/pane-viewer', to: '.ensemble/plugins/pane-viewer' },
 
   // Command prefixes
-  { from: '/ai-mesh:', to: '/ensemble:' },
-  { from: '@ai-mesh-command', to: '@ensemble-command' },
+  { from: '/ensemble:', to: '/ensemble:' },
+  { from: '@ensemble-command', to: '@ensemble-command' },
 
   // Keywords
-  { from: '"ai-mesh"', to: '"ensemble"' },
+  { from: '"ensemble"', to: '"ensemble"' },
 
   // Schema patterns
-  { from: '^ai-mesh-[a-z0-9-]+$', to: '^ensemble-[a-z0-9-]+$' },
+  { from: '^ensemble-[a-z0-9-]+$', to: '^ensemble-[a-z0-9-]+$' },
 ];
 
 const FILE_PATTERNS = [
@@ -1294,7 +1294,7 @@ describe('config-path', () => {
 ```javascript
 #!/usr/bin/env node
 /**
- * Configuration migration script for ai-mesh → ensemble
+ * Configuration migration script for ensemble → ensemble
  *
  * Migrates configuration from old locations to new XDG-compliant structure
  *
@@ -1338,13 +1338,13 @@ const VERBOSE = process.argv.includes('--verbose');
 
 const OLD_CONFIG_PATTERNS = [
   {
-    pattern: '.ai-mesh-task-progress',
+    pattern: '.ensemble/plugins/task-progress-pane',
     plugin: 'task-progress-pane',
     files: ['config.json', 'state.json'],
     hasLogs: true,
   },
   {
-    pattern: '.ai-mesh-pane-viewer',
+    pattern: '.ensemble/plugins/pane-viewer',
     plugin: 'pane-viewer',
     files: ['config.json'],
     hasLogs: false,
@@ -1675,7 +1675,7 @@ echo "All packages published at v$VERSION"
 |-----------|-------------|---------------------|
 | AC-1 | CODE-101-143 | Automated validation script |
 | AC-2 | CODE-102-143 | Automated validation script |
-| AC-3 | CLEAN-001 | `grep -r "ai-mesh"` |
+| AC-3 | CLEAN-001 | `grep -r "ensemble"` |
 | AC-4 | GH-001, GH-006 | Manual URL test |
 | AC-5 | PUB-001-006 | NPM registry check |
 | AC-6 | PUB-008-009 | NPM registry check |
@@ -1708,7 +1708,7 @@ echo "All packages published at v$VERSION"
 | R-004 | Lost git history | High | Low | Use same repo, just rename | Lead |
 | R-005 | NPM unpublish blocked (>72h) | Medium | Medium | Use deprecate instead (PUB-008) | Lead |
 | R-006 | XDG edge cases | Low | Low | Comprehensive fallback (CODE-105) | Dev |
-| R-007 | Missed ai-mesh references | Medium | Medium | Automated grep in CI | Dev |
+| R-007 | Missed ensemble references | Medium | Medium | Automated grep in CI | Dev |
 | R-008 | **NEW**: Node 22+ not available | Medium | Low | Fallback glob implementation in script | Dev |
 
 ---
@@ -1759,17 +1759,17 @@ echo "All packages published at v$VERSION"
 ### Appendix B: Verification Commands
 
 ```bash
-# Verify no ai-mesh references remain
-grep -r "ai-mesh" --include="*.json" --include="*.js" --include="*.md" --include="*.yml" --include="*.yaml" | grep -v "node_modules" | grep -v ".git"
+# Verify no ensemble references remain
+grep -r "ensemble" --include="*.json" --include="*.js" --include="*.md" --include="*.yml" --include="*.yaml" | grep -v "node_modules" | grep -v ".git"
 
 # Verify all packages at v5.0.0
 find packages -name "package.json" -exec grep -l '"version": "5.0.0"' {} \;
 
 # Verify all package.json names updated
-find packages -name "package.json" -exec grep -l "ai-mesh" {} \;
+find packages -name "package.json" -exec grep -l "ensemble" {} \;
 
 # Verify all plugin.json names updated
-find packages -name "plugin.json" -exec grep -l "ai-mesh" {} \;
+find packages -name "plugin.json" -exec grep -l "ensemble" {} \;
 
 # Test package installation
 npm pack packages/core
@@ -1783,14 +1783,14 @@ XDG_CONFIG_HOME=/tmp/test-xdg node -e "console.log(require('./packages/core/lib/
 
 ```bash
 # 1. If packages published, deprecate new packages
-npm deprecate "@fortium/ensemble-core@5.0.0" "Rolling back - use @fortium/ai-mesh-core"
+npm deprecate "@fortium/ensemble-core@5.0.0" "Rolling back - use @fortium/ensemble-core"
 
 # 2. Restore from backup
 git checkout main
 git branch -D feature/ensemble-rename
 cd ..
 rm -rf ensemble
-tar -xzf backup-ai-mesh-plugins-YYYYMMDD.tar.gz
+tar -xzf backup-ensemble-YYYYMMDD.tar.gz
 
 # 3. If GitHub renamed, rename back (Settings → Repository name)
 

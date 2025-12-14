@@ -251,7 +251,7 @@ This validation compares the React framework skill (SKILL.md + REFERENCE.md + te
 
 **Agent Protocol**:
 - tech-lead-orchestrator: React-specific UI implementation tasks from TRD breakdown
-- ai-mesh-orchestrator: React frontend tasks requiring component architecture expertise
+- ensemble-orchestrator: React frontend tasks requiring component architecture expertise
 - frontend-developer: Tasks specifically requiring React patterns and best practices
 - backend-developer: API integration requirements for data-driven components
 

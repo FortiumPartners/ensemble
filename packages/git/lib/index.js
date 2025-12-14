@@ -1,6 +1,6 @@
 /**
  * Git Workflow Plugin
- * @fortium/ai-mesh-git
+ * @fortium/ensemble-git
  *
  * Enhanced git operations with conventional commits, semantic versioning, and safety protocols
  */

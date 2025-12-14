@@ -81,7 +81,7 @@ class MetricsApiClient {
             }
             
             // Try local token file (if available)
-            const tokenFile = path.join(os.homedir(), '.ai-mesh', 'metrics', '.auth-token');
+            const tokenFile = path.join(os.homedir(), '.ensemble', 'metrics', '.auth-token');
             if (await fs.pathExists(tokenFile)) {
                 const tokenData = await fs.readJson(tokenFile);
                 if (tokenData.accessToken && new Date(tokenData.expiresAt) > new Date()) {
@@ -100,7 +100,7 @@ class MetricsApiClient {
      */
     async refreshAuthToken() {
         try {
-            const tokenFile = path.join(os.homedir(), '.ai-mesh', 'metrics', '.auth-token');
+            const tokenFile = path.join(os.homedir(), '.ensemble', 'metrics', '.auth-token');
             if (await fs.pathExists(tokenFile)) {
                 const tokenData = await fs.readJson(tokenFile);
                 if (tokenData.refreshToken) {

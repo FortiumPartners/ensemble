@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Jest Skill Extraction**: Complete extraction from ai-mesh v3.x monolith
+- **Jest Skill Extraction**: Complete extraction from ensemble v3.x monolith
   - `skills/SKILL.md`: Quick reference guide for Jest testing framework
   - `skills/REFERENCE.md`: Comprehensive API reference and best practices
   - `skills/templates/unit-test.template.js`: Unit test template
@@ -44,15 +44,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated plugin structure to match ai-mesh-plugins monorepo standards
+- Updated plugin structure to match ensemble monorepo standards
 - Fixed template path references in `generate-test.js` to use relative paths from lib directory
 - Enhanced error messages for better debugging experience
 
 ### Migration Notes
 
-This release extracts the Jest testing skill from the ai-mesh monolith into a standalone plugin. The skill maintains 100% feature parity with the original implementation while providing improved modularity and maintainability.
+This release extracts the Jest testing skill from the ensemble monolith into a standalone plugin. The skill maintains 100% feature parity with the original implementation while providing improved modularity and maintainability.
 
-**From ai-mesh v3.x**:
+**From ensemble v3.x**:
 - Original location: `/skills/jest-test/`
 - New location: `packages/jest/`
 - All functionality preserved with no breaking changes
@@ -84,4 +84,4 @@ This release extracts the Jest testing skill from the ai-mesh monolith into a st
 
 ---
 
-**Note**: Version 4.0.0 aligns with the ai-mesh-plugins monorepo versioning scheme. Previous versions (1.x-3.x) were part of the ai-mesh monolith.
+**Note**: Version 4.0.0 aligns with the ensemble monorepo versioning scheme. Previous versions (1.x-3.x) were part of the ensemble monolith.

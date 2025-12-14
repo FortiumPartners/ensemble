@@ -1,6 +1,6 @@
 /**
  * Quality Assurance Plugin
- * @fortium/ai-mesh-quality
+ * @fortium/ensemble-quality
  *
  * Security-enhanced code review with DoD enforcement and quality gates
  */

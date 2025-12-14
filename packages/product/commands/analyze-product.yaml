@@ -4,7 +4,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: analysis
-  output_path: ai-mesh/analyze-product.md
+  output_path: ensemble/analyze-product.md
   source: fortium
 
 mission:

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release extracted from ai-mesh v3.x monolith
+- Initial release extracted from ensemble v3.x monolith
 - Plugin structure created for modular installation
 - **pytest Test Framework Skill** - Complete pytest testing framework integration
   - `SKILL.md` - Quick reference guide for pytest commands and patterns
@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration Notes
 
-- Extracted from `ai-mesh/skills/pytest-test/` directory
+- Extracted from `ensemble/skills/pytest-test/` directory
 - Preserved all original functionality and file contents
 - Added comprehensive REFERENCE.md with industry-standard pytest patterns
 - Enhanced plugin.json with skillsMetadata registration

@@ -1,6 +1,6 @@
 /**
  * ExUnit Testing Skill
- * @fortium/ai-mesh-exunit
+ * @fortium/ensemble-exunit
  *
  * Provides ExUnit test generation and execution for Elixir projects
  */

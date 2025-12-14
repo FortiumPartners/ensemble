@@ -1,6 +1,6 @@
-# Contributing to AI Mesh Plugins
+# Contributing to Ensemble Plugins
 
-Thank you for considering contributing to the AI Mesh Plugins ecosystem! This document provides guidelines and instructions for contributing.
+Thank you for considering contributing to the Ensemble Plugins ecosystem! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -37,13 +37,13 @@ This project adheres to a code of conduct that promotes a welcoming and inclusiv
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/ai-mesh-plugins.git
-   cd ai-mesh-plugins
+   git clone https://github.com/YOUR_USERNAME/ensemble.git
+   cd ensemble
    ```
 
 3. Add upstream remote:
    ```bash
-   git remote add upstream https://github.com/FortiumPartners/ai-mesh-plugins.git
+   git remote add upstream https://github.com/FortiumPartners/ensemble.git
    ```
 
 4. Install dependencies:
@@ -96,7 +96,7 @@ git rebase upstream/main
 2. **Create plugin.json** (`packages/my-plugin/.claude-plugin/plugin.json`):
    ```json
    {
-     "name": "ai-mesh-my-plugin",
+     "name": "ensemble-my-plugin",
      "version": "1.0.0",
      "description": "Description of your plugin",
      "author": {
@@ -104,9 +104,9 @@ git rebase upstream/main
        "email": "you@example.com",
        "url": "https://github.com/yourname"
      },
-     "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+     "repository": "https://github.com/FortiumPartners/ensemble",
      "license": "MIT",
-     "keywords": ["my-plugin", "ai-mesh"],
+     "keywords": ["my-plugin", "ensemble"],
      "agents": "./agents",
      "commands": "./commands",
      "skills": "./skills"
@@ -116,7 +116,7 @@ git rebase upstream/main
 3. **Create package.json** (`packages/my-plugin/package.json`):
    ```json
    {
-     "name": "@fortium/ai-mesh-my-plugin",
+     "name": "@fortium/ensemble-my-plugin",
      "version": "1.0.0",
      "description": "Description of your plugin",
      "main": "lib/index.js",
@@ -125,12 +125,12 @@ git rebase upstream/main
        "test:coverage": "jest --coverage",
        "lint": "eslint ."
      },
-     "keywords": ["my-plugin", "ai-mesh"],
+     "keywords": ["my-plugin", "ensemble"],
      "author": "Your Name",
      "license": "MIT",
      "repository": {
        "type": "git",
-       "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+       "url": "https://github.com/FortiumPartners/ensemble.git",
        "directory": "packages/my-plugin"
      },
      "devDependencies": {
@@ -236,7 +236,7 @@ Create tests in `packages/my-plugin/tests/`:
 describe('MyPlugin', () => {
   it('should validate plugin.json', () => {
     const pluginJson = require('../.claude-plugin/plugin.json');
-    expect(pluginJson.name).toBe('ai-mesh-my-plugin');
+    expect(pluginJson.name).toBe('ensemble-my-plugin');
   });
 
   it('should have required directories', () => {
@@ -367,8 +367,8 @@ Maintainers only:
 ## Questions?
 
 - **Documentation**: Check the [README.md](README.md)
-- **Issues**: Search [GitHub Issues](https://github.com/FortiumPartners/ai-mesh-plugins/issues)
-- **Discussions**: Ask in [GitHub Discussions](https://github.com/FortiumPartners/ai-mesh-plugins/discussions)
+- **Issues**: Search [GitHub Issues](https://github.com/FortiumPartners/ensemble/issues)
+- **Discussions**: Ask in [GitHub Discussions](https://github.com/FortiumPartners/ensemble/discussions)
 - **Email**: support@fortiumpartners.com
 
 ## License

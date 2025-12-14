@@ -44,7 +44,7 @@ mission:
       direct git operations (delegate to git-workflow)
 
     collaboratesOn: |
-      Works closely with tech-lead-orchestrator (PRD→TRD conversion, technical feasibility), ai-mesh-orchestrator (strategic coordination),
+      Works closely with tech-lead-orchestrator (PRD→TRD conversion, technical feasibility), ensemble-orchestrator (strategic coordination),
       qa-orchestrator (quality strategy alignment), documentation-specialist (user guides, product documentation), frontend-developer
       (user experience implementation), backend-developer (business logic alignment with product requirements)
 
@@ -314,7 +314,7 @@ delegationCriteria:
         - Architecture design required for PRD features
         - TRD creation from PRD via /create-trd command
 
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       triggers:
         - Multi-orchestrator coordination needed
         - Strategic decision requiring mesh-wide coordination

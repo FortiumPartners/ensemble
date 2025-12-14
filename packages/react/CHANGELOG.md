@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### React Framework Skill Extraction
-- **Complete skill documentation** extracted from ai-mesh v3.x monolith
+- **Complete skill documentation** extracted from ensemble v3.x monolith
   - `SKILL.md` (20KB) - Quick reference for fast lookups during development
   - `REFERENCE.md` (48KB) - Comprehensive guide with deep dive patterns
   - `README.md` (7KB) - Skill overview and usage instructions
@@ -66,16 +66,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Plugin structure** aligned with ai-mesh-plugins monorepo architecture
+- **Plugin structure** aligned with ensemble monorepo architecture
 - **Skill version** set to 1.0.0 (extracted from react-component-architect.yaml)
-- **Plugin version** set to 4.0.0 (aligned with ai-mesh v4.x)
+- **Plugin version** set to 4.0.0 (aligned with ensemble v4.x)
 
 ### Migration Notes
 
-This release extracts the React framework skill from the ai-mesh monolith into a standalone plugin:
+This release extracts the React framework skill from the ensemble monolith into a standalone plugin:
 
-**Source**: `/Users/ldangelo/Development/Fortium/ai-mesh/skills/react-framework/`
-**Target**: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/packages/react/`
+**Source**: `/Users/ldangelo/Development/Fortium/ensemble/skills/react-framework/`
+**Target**: `/Users/ldangelo/Development/Fortium/ensemble/packages/react/`
 
 **Files Migrated**:
 - 5 documentation files (SKILL.md, REFERENCE.md, README.md, PATTERNS-EXTRACTED.md, VALIDATION.md)
@@ -110,14 +110,14 @@ This release extracts the React framework skill from the ai-mesh monolith into a
 
 ### Dependencies
 
-- `@fortium/ai-mesh-development@4.0.0` - Core development agent functionality
+- `@fortium/ensemble-development@4.0.0` - Core development agent functionality
 
 ### Related Plugins
 
-- `@fortium/ai-mesh-typescript` - TypeScript-specific patterns
-- `@fortium/ai-mesh-testing` - Testing frameworks beyond React Testing Library
-- `@fortium/ai-mesh-vite` - Vite bundler configuration
-- `@fortium/ai-mesh-nextjs` - Next.js framework skills
+- `@fortium/ensemble-typescript` - TypeScript-specific patterns
+- `@fortium/ensemble-testing` - Testing frameworks beyond React Testing Library
+- `@fortium/ensemble-vite` - Vite bundler configuration
+- `@fortium/ensemble-nextjs` - Next.js framework skills
 
 ---
 
@@ -135,7 +135,7 @@ This release extracts the React framework skill from the ai-mesh monolith into a
 ---
 
 **Extraction Date**: 2025-12-10
-**Extracted From**: ai-mesh v3.x monolith
+**Extracted From**: ensemble v3.x monolith
 **Skill Version**: 1.0.0
 **Plugin Version**: 4.0.0
 **Maintainer**: Fortium Software Configuration Team

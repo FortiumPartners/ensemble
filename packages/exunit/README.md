@@ -1,16 +1,16 @@
-# @fortium/ai-mesh-exunit
+# @fortium/ensemble-exunit
 
 ExUnit testing framework integration for Elixir
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-exunit
+claude plugin install @fortium/ensemble-exunit
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides exunit testing framework integration for elixir.
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides exunit testing framework integration for elixir.
 
 ## Features
 
@@ -22,7 +22,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ## Documentation
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for complete documentation.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.
 
 ## License
 

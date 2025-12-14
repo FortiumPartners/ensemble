@@ -8,7 +8,7 @@ jest.mock('fs');
 const { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } = require('../lib/config-loader');
 
 describe('config-loader', () => {
-  const mockConfigDir = path.join(os.homedir(), '.ai-mesh-pane-viewer');
+  const mockConfigDir = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
   const mockConfigPath = path.join(mockConfigDir, 'config.json');
 
   beforeEach(() => {

@@ -367,7 +367,7 @@
 ### Handoff From (Input)
 
 1. **tech-lead-orchestrator**: Receives React-specific UI implementation tasks from TRD breakdown
-2. **ai-mesh-orchestrator**: Receives React frontend tasks requiring component architecture expertise
+2. **ensemble-orchestrator**: Receives React frontend tasks requiring component architecture expertise
 3. **frontend-developer**: Receives tasks specifically requiring React patterns and best practices
 4. **backend-developer**: Receives API integration requirements for data-driven components
 

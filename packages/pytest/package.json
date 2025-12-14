@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-pytest",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-pytest",
+  "version": "5.0.0",
   "description": "Pytest testing framework integration",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "pytest",
     "testing",
     "python",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/pytest"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-quality": "^4.0.0"
+    "@fortium/ensemble-quality": "^4.0.0"
   }
 }

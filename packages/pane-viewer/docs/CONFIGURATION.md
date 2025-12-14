@@ -1,10 +1,10 @@
 # Configuration Guide
 
-Complete configuration reference for AI Mesh Pane Viewer.
+Complete configuration reference for Ensemble Pane Viewer.
 
 ## Configuration File
 
-The configuration file is located at `~/.ai-mesh-pane-viewer/config.json`.
+The configuration file is located at `~/.ensemble/plugins/pane-viewer/config.json`.
 
 ### Default Configuration
 
@@ -174,12 +174,12 @@ export AI_MESH_PANE_LOG=false  # Disable logging
 
 ## Logging Configuration
 
-Activity logs are stored in `~/.ai-mesh/agent-logs/`.
+Activity logs are stored in `~/.ensemble/agent-logs/`.
 
 ### Log Structure
 
 ```
-~/.ai-mesh/agent-logs/
+~/.ensemble/agent-logs/
 └── 2025-01-15/
     ├── backend-developer_143245_abc123.log
     ├── infrastructure-developer_152030_def456.log
@@ -202,7 +202,7 @@ Agent Type:  backend-developer
 Task:        Implement user authentication
 Started:     2025-01-15 14:32:45
 Task ID:     abc123def456
-Log File:    ~/.ai-mesh/agent-logs/2025-01-15/backend-developer_143245_abc123.log
+Log File:    ~/.ensemble/agent-logs/2025-01-15/backend-developer_143245_abc123.log
 ================================================================================
 
 [14:32:46] TOOL: Read: auth-service.js

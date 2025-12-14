@@ -1,6 +1,6 @@
 /**
  * Zellij adapter - re-export from shared package
- * @deprecated Import from '@ai-mesh/multiplexer-adapters' instead
+ * @deprecated Import from '@fortium/ensemble-multiplexer-adapters' instead
  */
-const { ZellijAdapter } = require('@ai-mesh/multiplexer-adapters');
+const { ZellijAdapter } = require('@fortium/ensemble-multiplexer-adapters');
 module.exports = { ZellijAdapter };

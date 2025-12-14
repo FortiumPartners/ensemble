@@ -5,8 +5,8 @@
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^ai-mesh-[a-z0-9-]+$",
-      "description": "Plugin name (must start with 'ai-mesh-')"
+      "pattern": "^ensemble-[a-z0-9-]+$",
+      "description": "Plugin name (must start with 'ensemble-')"
     },
     "version": {
       "type": "string",
@@ -44,7 +44,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^ai-mesh-[a-z0-9-]+@\\d+\\.\\d+\\.\\d+$"
+        "pattern": "^ensemble-[a-z0-9-]+@\\d+\\.\\d+\\.\\d+$"
       }
     },
     "agents": {

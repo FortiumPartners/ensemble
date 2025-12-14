@@ -1,6 +1,6 @@
 /**
  * AI-Mesh Full Plugin Bundle
- * @fortium/ai-mesh-full
+ * @fortium/ensemble-full
  *
  * Meta-package that includes all AI-Mesh plugins
  */
@@ -10,35 +10,35 @@ const path = require('path');
 // Re-export all plugins
 const plugins = {
   // Core
-  core: () => require('@fortium/ai-mesh-core'),
+  core: () => require('@fortium/ensemble-core'),
 
   // Testing Frameworks
-  jest: () => require('@fortium/ai-mesh-jest'),
-  pytest: () => require('@fortium/ai-mesh-pytest'),
-  rspec: () => require('@fortium/ai-mesh-rspec'),
-  xunit: () => require('@fortium/ai-mesh-xunit'),
-  exunit: () => require('@fortium/ai-mesh-exunit'),
-  e2eTesting: () => require('@fortium/ai-mesh-e2e-testing'),
+  jest: () => require('@fortium/ensemble-jest'),
+  pytest: () => require('@fortium/ensemble-pytest'),
+  rspec: () => require('@fortium/ensemble-rspec'),
+  xunit: () => require('@fortium/ensemble-xunit'),
+  exunit: () => require('@fortium/ensemble-exunit'),
+  e2eTesting: () => require('@fortium/ensemble-e2e-testing'),
 
   // Web Frameworks
-  react: () => require('@fortium/ai-mesh-react'),
-  nestjs: () => require('@fortium/ai-mesh-nestjs'),
-  blazor: () => require('@fortium/ai-mesh-blazor'),
-  phoenix: () => require('@fortium/ai-mesh-phoenix'),
-  rails: () => require('@fortium/ai-mesh-rails'),
+  react: () => require('@fortium/ensemble-react'),
+  nestjs: () => require('@fortium/ensemble-nestjs'),
+  blazor: () => require('@fortium/ensemble-blazor'),
+  phoenix: () => require('@fortium/ensemble-phoenix'),
+  rails: () => require('@fortium/ensemble-rails'),
 
   // Workflow
-  git: () => require('@fortium/ai-mesh-git'),
-  quality: () => require('@fortium/ai-mesh-quality'),
-  development: () => require('@fortium/ai-mesh-development'),
-  infrastructure: () => require('@fortium/ai-mesh-infrastructure'),
+  git: () => require('@fortium/ensemble-git'),
+  quality: () => require('@fortium/ensemble-quality'),
+  development: () => require('@fortium/ensemble-development'),
+  infrastructure: () => require('@fortium/ensemble-infrastructure'),
 
   // Management
-  product: () => require('@fortium/ai-mesh-product'),
-  metrics: () => require('@fortium/ai-mesh-metrics'),
+  product: () => require('@fortium/ensemble-product'),
+  metrics: () => require('@fortium/ensemble-metrics'),
 
   // Monitoring
-  paneViewer: () => require('@fortium/ai-mesh-pane-viewer')
+  paneViewer: () => require('@fortium/ensemble-pane-viewer')
 };
 
 const skill = {

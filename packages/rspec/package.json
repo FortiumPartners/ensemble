@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-rspec",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-rspec",
+  "version": "5.0.0",
   "description": "RSpec testing framework integration",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "rspec",
     "testing",
     "ruby",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/rspec"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-quality": "^4.0.0"
+    "@fortium/ensemble-quality": "^4.0.0"
   }
 }

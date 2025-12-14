@@ -1,5 +1,5 @@
 metadata:
-  name: ai-mesh-orchestrator
+  name: ensemble-orchestrator
   description: Chief orchestrator for agent mesh coordination, task delegation, and conflict resolution
   version: 2.3.0
   lastUpdated: "2025-10-23"

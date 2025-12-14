@@ -7,11 +7,11 @@
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
-const { MultiplexerDetector } = require('@ai-mesh/multiplexer-adapters');
+const { MultiplexerDetector } = require('@fortium/ensemble-multiplexer-adapters');
 const { loadConfig } = require('./config-loader');
 const { SessionManager, STATE_PATH } = require('./session-manager');
 
-const PANE_STATE_DIR = path.join(os.homedir(), '.ai-mesh-task-progress');
+const PANE_STATE_DIR = path.join(os.homedir(), '.ensemble/plugins/task-progress-pane');
 
 /**
  * Task pane manager class
