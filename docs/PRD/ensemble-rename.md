@@ -118,9 +118,9 @@ The following decisions were made during PRD refinement:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| **NPM Scope** | `@fortium/ensemble-*` | Maintain Fortium brand identity while adopting new product name |
+| **Distribution Method** | GitHub only | Plugins installed via `claude plugin install github:FortiumPartners/ensemble/packages/*` |
+| **NPM Publishing** | Not required | GitHub repository serves as sole distribution channel |
 | **Transition Period** | None (hard cutover) | Clean break simplifies implementation; migration docs sufficient |
-| **Old NPM Packages** | Unpublish | Remove confusion; force clean install of new packages |
 | **Local Directory** | Rename to `ensemble` | Full consistency across all project references |
 | **Command Prefix** | `/ensemble:*` | Consistent branding in user-facing commands |
 | **GitHub Organization** | Keep FortiumPartners | Maintain existing organizational structure |
@@ -135,36 +135,33 @@ The following decisions were made during PRD refinement:
 
 | ID | Goal | Success Metric |
 |----|------|----------------|
-| G1 | Rename all "ensemble" references to "ensemble" | 100% of references updated |
+| G1 | Rename all "ai-mesh" references to "ensemble" | 100% of references updated |
 | G2 | Rename GitHub repository to "ensemble" | Repository accessible at `FortiumPartners/ensemble` |
 | G3 | Rename local directory to "ensemble" | `/Users/ldangelo/Development/Fortium/ensemble` |
 | G4 | Consolidate config under XDG-compliant paths | Single config directory with XDG support |
-| G5 | Update all NPM package names | All packages published as `@fortium/ensemble-*` |
-| G6 | Update all slash commands | Commands use `/ensemble:*` prefix |
-| G7 | Unpublish old NPM packages | Old `@fortium/ensemble-*` packages removed from registry |
+| G5 | Update all slash commands | Commands use `/ensemble:*` prefix |
+| G6 | Update package.json names for local consistency | All packages named `@fortium/ensemble-*` internally |
 
 ### 4.2 Success Criteria
 
-- [ ] All 23 plugin packages renamed from `@fortium/ensemble-*` to `@fortium/ensemble-*`
-- [ ] Internal packages renamed from `@fortium/ensemble-*` to `@fortium/ensemble-*` (unified scope)
-- [ ] GitHub repository renamed from `ensemble` to `ensemble`
-- [ ] Local directory renamed from `ensemble` to `ensemble`
-- [ ] All configuration consolidated under `~/.ensemble/` or `$XDG_CONFIG_HOME/ensemble/`
-- [ ] All slash commands updated from `/ensemble:*` to `/ensemble:*`
-- [ ] Migration documentation provided for existing users
-- [ ] Documentation fully updated
+- [x] All 23 plugin packages renamed from `@fortium/ai-mesh-*` to `@fortium/ensemble-*`
+- [x] GitHub repository renamed from `ai-mesh-plugins` to `ensemble`
+- [ ] Local directory renamed from `ai-mesh-plugins` to `ensemble`
+- [x] All configuration consolidated under `~/.ensemble/` or `$XDG_CONFIG_HOME/ensemble/`
+- [x] All slash commands updated from `/ai-mesh:*` to `/ensemble:*`
+- [x] Migration documentation provided for existing users
+- [x] Documentation fully updated
 - [ ] All tests passing with new names
-- [ ] CI/CD workflows updated
-- [ ] Old NPM packages unpublished
+- [x] CI/CD workflows updated
 
 ### 4.3 Non-Goals (Out of Scope)
 
 | Item | Reason |
 |------|--------|
+| NPM package publishing | Plugins distributed via GitHub only; no NPM registry needed |
 | Changing plugin functionality | This is a rename-only effort |
 | Redesigning plugin architecture | Scope creep prevention |
 | Adding new features | Focus on rename and consolidation |
-| Changing the @fortium organization scope | Maintaining brand consistency |
 | Breaking API changes | Preserve compatibility |
 | Backward compatibility period | Stakeholder decision: hard cutover |
 | Creating new CLI tool | Migration via documentation only |

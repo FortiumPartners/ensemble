@@ -1,9 +1,9 @@
 # Technical Requirements Document: Ensemble Rename & Consolidation
 
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Status**: Ready for Implementation
 **Created**: 2025-12-12
-**Last Updated**: 2025-12-13
+**Last Updated**: 2025-12-14
 **Author**: Tech Lead Orchestrator
 **PRD Reference**: [ensemble-rename.md](../PRD/ensemble-rename.md) v1.1.0
 **Project**: ensemble → ensemble
@@ -16,6 +16,7 @@
 |---------|------|--------|---------|
 | 1.0.0 | 2025-12-12 | Tech Lead | Initial TRD with task breakdown and sprint planning |
 | 1.1.0 | 2025-12-13 | Tech Lead | Refined with stakeholder decisions: v5.0.0 versioning, automated execution, pre-flight script, Node built-in glob, config module in core |
+| 1.2.0 | 2025-12-14 | Tech Lead | Marked NPM publishing as OUT OF SCOPE - plugins distributed via GitHub only |
 
 ---
 
@@ -24,12 +25,13 @@
 This TRD translates the Ensemble Rename PRD into actionable technical specifications, task breakdowns, and sprint planning. The project involves renaming the entire ensemble ecosystem to "ensemble" with XDG-compliant configuration consolidation.
 
 **Scope Summary**:
-- 23 NPM packages to rename (all bumped to v5.0.0)
+- 23 packages to rename in package.json (all bumped to v5.0.0)
 - 150+ files to update via automated script
 - 1 GitHub repository to rename
 - 1 local directory to rename (before code changes)
 - XDG-compliant config system in ensemble-core package
 - Migration script and pre-flight checklist to create
+- **Distribution**: GitHub-based only (NPM publishing is OUT OF SCOPE)
 
 ---
 
@@ -233,17 +235,20 @@ The following technical decisions were made during TRD refinement:
 
 ### 1.6 Publishing Tasks
 
+> **NOTE**: NPM publishing is OUT OF SCOPE. Plugins are distributed via GitHub only.
+> Users install plugins using: `claude plugin install github:FortiumPartners/ensemble/packages/*`
+
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| PUB-001 | Publish @fortium/ensemble-core v5.0.0 | Critical | TEST-001 | [ ] |
-| PUB-002 | Publish Tier 2 packages v5.0.0 | Critical | PUB-001 | [ ] |
-| PUB-003 | Publish Tier 3 packages v5.0.0 | High | PUB-002 | [ ] |
-| PUB-004 | Publish Tier 4 packages v5.0.0 | High | PUB-002 | [ ] |
-| PUB-005 | Publish utility packages v5.0.0 | High | PUB-001 | [ ] |
-| PUB-006 | Publish @fortium/ensemble-full v5.0.0 | High | PUB-002-005 | [ ] |
-| PUB-007 | Verify all packages install correctly | Critical | PUB-006 | [ ] |
-| PUB-008 | Deprecate old @fortium/ensemble-* packages | High | PUB-007 | [ ] |
-| PUB-009 | Unpublish old packages (if within 72h window) | Medium | PUB-008 | [ ] |
+| ~~PUB-001~~ | ~~Publish @fortium/ensemble-core v5.0.0~~ | ~~Critical~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-002~~ | ~~Publish Tier 2 packages v5.0.0~~ | ~~Critical~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-003~~ | ~~Publish Tier 3 packages v5.0.0~~ | ~~High~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-004~~ | ~~Publish Tier 4 packages v5.0.0~~ | ~~High~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-005~~ | ~~Publish utility packages v5.0.0~~ | ~~High~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-006~~ | ~~Publish @fortium/ensemble-full v5.0.0~~ | ~~High~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-007~~ | ~~Verify all packages install correctly~~ | ~~Critical~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-008~~ | ~~Deprecate old @fortium/ensemble-* packages~~ | ~~High~~ | N/A | [x] OUT OF SCOPE |
+| ~~PUB-009~~ | ~~Unpublish old packages~~ | ~~Medium~~ | N/A | [x] OUT OF SCOPE |
 
 ---
 
@@ -431,7 +436,7 @@ $CONFIG_ROOT/
 | Sprint 2 | Core Code Changes | 2 days | All package renames to v5.0.0, config-path module in core |
 | Sprint 3 | Config & Migration | 1 day | Migration script, plugin config updates |
 | Sprint 4 | Testing & GitHub | 1 day | Test suite, GitHub rename, CI/CD |
-| Sprint 5 | Publishing & Documentation | 1 day | NPM publish v5.0.0, documentation, cleanup |
+| Sprint 5 | Documentation & Cleanup | 1 day | Documentation updates, GitHub installation verification |
 
 ---
 
@@ -571,39 +576,29 @@ $CONFIG_ROOT/
 
 ---
 
-### Sprint 5: Publishing & Documentation
+### Sprint 5: Documentation & Cleanup
 
-**Goal**: Publish packages v5.0.0 and finalize documentation
+> **NOTE**: NPM publishing is OUT OF SCOPE. Plugins are distributed via GitHub only.
+> Users install plugins using: `claude plugin install github:FortiumPartners/ensemble/packages/*`
 
-**Morning Tasks** (Publishing):
-- [ ] PUB-001: Publish @fortium/ensemble-core v5.0.0
-- [ ] PUB-002: Publish Tier 2 packages v5.0.0
-- [ ] PUB-003: Publish Tier 3 packages v5.0.0
-- [ ] PUB-004: Publish Tier 4 packages v5.0.0
-- [ ] PUB-005: Publish utility packages v5.0.0
-- [ ] PUB-006: Publish @fortium/ensemble-full v5.0.0
-- [ ] PUB-007: Verify all packages install correctly
+**Goal**: Finalize documentation and cleanup
 
-**Afternoon Tasks** (Documentation & Cleanup):
+**Tasks** (Documentation & Cleanup):
 - [ ] DOC-001: Create MIGRATION.md guide
 - [ ] DOC-002: Update all plugin README files
 - [ ] DOC-003 to DOC-004: Update docs references
-- [ ] PUB-008: Deprecate old @fortium/ensemble-* packages
-- [ ] PUB-009: Unpublish old packages (if within 72h window)
 - [ ] CLEAN-001 to CLEAN-004: Final cleanup
 
 **Deliverables**:
-1. All 23 packages published to NPM at v5.0.0
-2. MIGRATION.md guide
-3. Old packages deprecated/unpublished
-4. Final documentation
+1. MIGRATION.md guide
+2. Final documentation updates
+3. Verified GitHub-based installation works
 
 **Acceptance Criteria**:
-- [ ] `npm install @fortium/ensemble-full@5.0.0` works
-- [ ] All individual packages installable at v5.0.0
+- [ ] `claude plugin install github:FortiumPartners/ensemble/packages/core` works
 - [ ] MIGRATION.md complete and accurate
 - [ ] No ensemble references anywhere in codebase
-- [ ] Old packages show deprecation notice or 404
+- [ ] All README files updated with GitHub installation instructions
 
 ---
 
@@ -1526,113 +1521,22 @@ function main() {
 main();
 ```
 
-### 4.6 NPM Publish Script
+### 4.6 Distribution
 
-**File**: `scripts/publish-ensemble.sh`
+> **NOTE**: NPM publishing is OUT OF SCOPE. Plugins are distributed via GitHub only.
 
+**Installation Method**: GitHub-based plugin installation
 ```bash
-#!/bin/bash
-# Ensemble NPM Publishing Script v5.0.0
-# Publishes all packages in dependency order
-
-set -e
-
-echo "Ensemble NPM Publishing Script v5.0.0"
-echo "======================================"
-echo ""
-
-# Check if logged into NPM
-if ! npm whoami &> /dev/null; then
-    echo "Error: Not logged into NPM. Run 'npm login' first."
-    exit 1
-fi
-
-# Configuration
-DRY_RUN=${DRY_RUN:-false}
-NPM_TAG=${NPM_TAG:-latest}
-VERSION="5.0.0"
-
-publish_package() {
-    local pkg_path=$1
-    local pkg_name=$(node -p "require('./${pkg_path}/package.json').name")
-    local pkg_version=$(node -p "require('./${pkg_path}/package.json').version")
-
-    echo "Publishing ${pkg_name}@${pkg_version}..."
-
-    if [ "$DRY_RUN" = "true" ]; then
-        echo "  [DRY-RUN] Would publish ${pkg_name}@${pkg_version}"
-    else
-        cd "$pkg_path"
-        npm publish --access public --tag "$NPM_TAG"
-        cd - > /dev/null
-        echo "  Published ${pkg_name}@${pkg_version}"
-    fi
-}
-
-# Verify all packages are at correct version
-echo "Verifying package versions..."
-for pkg in packages/*; do
-    if [ -f "$pkg/package.json" ]; then
-        pkg_version=$(node -p "require('./${pkg}/package.json').version")
-        if [ "$pkg_version" != "$VERSION" ]; then
-            echo "Error: $pkg is at version $pkg_version, expected $VERSION"
-            exit 1
-        fi
-    fi
-done
-echo "All packages at v$VERSION"
-echo ""
-
-# Level 0: Foundation
-echo "Level 0: Foundation"
-publish_package "packages/core"
-
-# Level 1: Workflow
-echo ""
-echo "Level 1: Workflow Plugins"
-publish_package "packages/product"
-publish_package "packages/development"
-publish_package "packages/quality"
-publish_package "packages/infrastructure"
-publish_package "packages/git"
-publish_package "packages/e2e-testing"
-publish_package "packages/metrics"
-
-# Level 2: Framework Skills
-echo ""
-echo "Level 2: Framework Skills"
-publish_package "packages/react"
-publish_package "packages/nestjs"
-publish_package "packages/rails"
-publish_package "packages/phoenix"
-publish_package "packages/blazor"
-
-# Level 3: Testing Frameworks
-echo ""
-echo "Level 3: Testing Frameworks"
-publish_package "packages/jest"
-publish_package "packages/pytest"
-publish_package "packages/rspec"
-publish_package "packages/xunit"
-publish_package "packages/exunit"
-
-# Level 4: Utilities
-echo ""
-echo "Level 4: Utilities"
-publish_package "packages/pane-viewer"
-publish_package "packages/task-progress-pane"
-publish_package "packages/multiplexer-adapters"
-
-# Level 5: Meta Package
-echo ""
-echo "Level 5: Meta Package"
-publish_package "packages/full"
-
-echo ""
-echo "======================================"
-echo "Publishing complete!"
-echo "All packages published at v$VERSION"
+claude plugin install github:FortiumPartners/ensemble/packages/core
+claude plugin install github:FortiumPartners/ensemble/packages/product
+# etc.
 ```
+
+This approach:
+- Eliminates NPM registry dependency
+- Simplifies distribution (no publish scripts needed)
+- Uses Claude Code's native plugin system
+- Allows direct installation from repository
 
 ---
 
@@ -1656,7 +1560,6 @@ echo "All packages published at v$VERSION"
 | Config file permissions | 0600 (owner read/write only) |
 | No sensitive data in logs | Review logging output |
 | Migration script privileges | Run as normal user, no sudo |
-| NPM publish authentication | Use 2FA, secure tokens |
 
 ### 5.3 Performance Requirements
 
@@ -1677,8 +1580,8 @@ echo "All packages published at v$VERSION"
 | AC-2 | CODE-102-143 | Automated validation script |
 | AC-3 | CLEAN-001 | `grep -r "ensemble"` |
 | AC-4 | GH-001, GH-006 | Manual URL test |
-| AC-5 | PUB-001-006 | NPM registry check |
-| AC-6 | PUB-008-009 | NPM registry check |
+| ~~AC-5~~ | ~~PUB-001-006~~ | ~~OUT OF SCOPE - No NPM publishing~~ |
+| ~~AC-6~~ | ~~PUB-008-009~~ | ~~OUT OF SCOPE - No NPM publishing~~ |
 | AC-7 | CODE-150-155 | Command listing test |
 | AC-8 | CODE-105, TEST-002 | Unit tests |
 | AC-9 | CODE-160-163, TEST-003 | Integration tests |
@@ -1695,6 +1598,7 @@ echo "All packages published at v$VERSION"
 | AC-20 | CODE-106, TEST-002 | Test coverage |
 | AC-21 | GH-003 | GitHub Actions |
 | AC-22 | N/A | Git log check |
+| AC-23 | N/A | GitHub plugin install test |
 
 ---
 
@@ -1702,14 +1606,14 @@ echo "All packages published at v$VERSION"
 
 | Risk ID | Risk | Impact | Probability | Mitigation | Owner |
 |---------|------|--------|-------------|------------|-------|
-| R-001 | NPM package names not available | High | Low | Pre-flight check (PREP-007) | Lead |
+| ~~R-001~~ | ~~NPM package names not available~~ | N/A | N/A | ~~OUT OF SCOPE - No NPM publishing~~ | N/A |
 | R-002 | Breaking existing installations | High | High | Migration script (MIG-003) | Lead |
 | R-003 | CI/CD failures after rename | Medium | Medium | Test workflows locally first | DevOps |
 | R-004 | Lost git history | High | Low | Use same repo, just rename | Lead |
-| R-005 | NPM unpublish blocked (>72h) | Medium | Medium | Use deprecate instead (PUB-008) | Lead |
+| ~~R-005~~ | ~~NPM unpublish blocked (>72h)~~ | N/A | N/A | ~~OUT OF SCOPE - No NPM publishing~~ | N/A |
 | R-006 | XDG edge cases | Low | Low | Comprehensive fallback (CODE-105) | Dev |
 | R-007 | Missed ensemble references | Medium | Medium | Automated grep in CI | Dev |
-| R-008 | **NEW**: Node 22+ not available | Medium | Low | Fallback glob implementation in script | Dev |
+| R-008 | Node 22+ not available | Medium | Low | Fallback glob implementation in script | Dev |
 
 ---
 
@@ -1782,20 +1686,14 @@ XDG_CONFIG_HOME=/tmp/test-xdg node -e "console.log(require('./packages/core/lib/
 ### Appendix C: Rollback Procedure
 
 ```bash
-# 1. If packages published, deprecate new packages
-npm deprecate "@fortium/ensemble-core@5.0.0" "Rolling back - use @fortium/ensemble-core"
-
-# 2. Restore from backup
+# 1. Restore from backup
 git checkout main
 git branch -D feature/ensemble-rename
 cd ..
 rm -rf ensemble
 tar -xzf backup-ensemble-YYYYMMDD.tar.gz
 
-# 3. If GitHub renamed, rename back (Settings → Repository name)
-
-# 4. Republish old packages if unpublished
-# Note: May require NPM support if >72 hours
+# 2. If GitHub renamed, rename back (Settings → Repository name)
 ```
 
 ### Appendix D: Execution Order Summary
@@ -1812,10 +1710,9 @@ tar -xzf backup-ensemble-YYYYMMDD.tar.gz
 9. TEST-001-004: Run all tests
 10. GH-001: Rename GitHub repository
 11. GH-002-006: Update URLs, verify redirects
-12. PUB-001-007: Publish all packages v5.0.0
-13. PUB-008-009: Deprecate/unpublish old packages
-14. DOC-001-006: Finalize documentation
-15. CLEAN-001-004: Final cleanup
+12. DOC-001-006: Finalize documentation
+13. CLEAN-001-004: Final cleanup
+14. Verify GitHub-based installation works
 ```
 
 ---

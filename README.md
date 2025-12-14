@@ -44,10 +44,13 @@ The plugin ecosystem is organized into 4 tiers:
 
 ## Installation
 
+Plugins are installed directly from the GitHub repository using Claude Code's plugin system.
+
 ### Quick Start (Full Ecosystem)
 
 ```bash
-claude plugin install @fortium/ensemble-full
+# Install all plugins at once
+claude plugin install github:FortiumPartners/ensemble/packages/full
 ```
 
 ### Modular Installation
@@ -56,25 +59,31 @@ Install only what you need:
 
 ```bash
 # Core foundation (required)
-claude plugin install @fortium/ensemble-core
+claude plugin install github:FortiumPartners/ensemble/packages/core
 
 # Add workflow capabilities
-claude plugin install @fortium/ensemble-product
-claude plugin install @fortium/ensemble-development
-claude plugin install @fortium/ensemble-quality
+claude plugin install github:FortiumPartners/ensemble/packages/product
+claude plugin install github:FortiumPartners/ensemble/packages/development
+claude plugin install github:FortiumPartners/ensemble/packages/quality
 
 # Add framework skills (optional)
-claude plugin install @fortium/ensemble-react
-claude plugin install @fortium/ensemble-nestjs
+claude plugin install github:FortiumPartners/ensemble/packages/react
+claude plugin install github:FortiumPartners/ensemble/packages/nestjs
 
 # Add testing support (optional)
-claude plugin install @fortium/ensemble-jest
+claude plugin install github:FortiumPartners/ensemble/packages/jest
 ```
 
-### Installation via NPM
+### Local Installation (Development)
+
+For local development or testing:
 
 ```bash
-npm install -g @fortium/ensemble-core
+# Clone the repository
+git clone https://github.com/FortiumPartners/ensemble.git
+
+# Install a specific plugin from local path
+claude plugin install ./ensemble/packages/core
 ```
 
 ## Usage
