@@ -51,7 +51,7 @@ describe('PaneManager', () => {
       await manager.init();
 
       expect(fs.mkdir).toHaveBeenCalledWith(
-        path.join(os.homedir(), '.ai-mesh-pane-viewer'),
+        path.join(os.homedir(), '.ensemble/plugins/pane-viewer'),
         { recursive: true }
       );
       expect(manager.initialized).toBe(true);
@@ -110,7 +110,7 @@ describe('PaneManager', () => {
 
       expect(state).toEqual(mockState);
       expect(fs.readFile).toHaveBeenCalledWith(
-        path.join(os.homedir(), '.ai-mesh-pane-viewer', 'panes.json'),
+        path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'panes.json'),
         'utf-8'
       );
     });
@@ -145,7 +145,7 @@ describe('PaneManager', () => {
       expect(new Date(state.lastUpdated).toString()).not.toBe('Invalid Date');
 
       expect(fs.writeFile).toHaveBeenCalledWith(
-        path.join(os.homedir(), '.ai-mesh-pane-viewer', 'panes.json'),
+        path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'panes.json'),
         JSON.stringify(state, null, 2)
       );
     });

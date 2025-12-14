@@ -423,7 +423,7 @@ end
 ### 4.3 Handoff Protocols
 
 **Receives Handoffs From**:
-- `ai-mesh-orchestrator`: Task delegation with TRD reference
+- `ensemble-orchestrator`: Task delegation with TRD reference
 - `tech-lead-orchestrator`: TRD implementation tasks with quality gates
 - `backend-developer`: General backend tasks requiring Elixir/Phoenix expertise
 

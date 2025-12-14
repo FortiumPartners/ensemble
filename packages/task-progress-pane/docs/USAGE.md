@@ -15,7 +15,7 @@ The plugin hooks into Claude Code's `TodoWrite` tool. When Claude creates or upd
 
 1. Captures the task data via a PreToolUse hook
 2. Parses tasks and calculates progress
-3. Updates the state file (`~/.ai-mesh-task-progress/state.json`)
+3. Updates the state file (`~/.ensemble/plugins/task-progress-pane/state.json`)
 4. Spawns or signals the monitor pane to refresh
 
 ## Task States
@@ -112,7 +112,7 @@ Collapsed view:
 
 Task completions are logged to daily JSONL files:
 ```
-~/.ai-mesh-task-progress/logs/tasks-2024-01-15.jsonl
+~/.ensemble/plugins/task-progress-pane/logs/tasks-2024-01-15.jsonl
 ```
 
 Log entries include:
@@ -136,7 +136,7 @@ This enables analytics and reporting on task completion patterns.
 
 2. Check plugin is enabled:
    ```bash
-   cat ~/.ai-mesh-task-progress/config.json | jq .enabled
+   cat ~/.ensemble/plugins/task-progress-pane/config.json | jq .enabled
    ```
 
 3. Look for errors in Claude Code output
@@ -165,7 +165,7 @@ This enables analytics and reporting on task completion patterns.
 
 1. Check the state file is being written:
    ```bash
-   cat ~/.ai-mesh-task-progress/state.json
+   cat ~/.ensemble/plugins/task-progress-pane/state.json
    ```
 
 2. Verify the monitor script is running:

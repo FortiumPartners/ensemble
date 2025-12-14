@@ -15,7 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CONFIG_PATH = path.join(os.homedir(), '.ai-mesh-pane-viewer', 'config.json');
+const CONFIG_PATH = path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'config.json');
 
 function loadConfig() {
   try {

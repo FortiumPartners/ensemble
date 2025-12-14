@@ -1,7 +1,7 @@
 /**
- * @ai-mesh/multiplexer-adapters
+ * @fortium/ensemble-multiplexer-adapters
  *
- * Shared terminal multiplexer adapters for AI Mesh plugins.
+ * Shared terminal multiplexer adapters for Ensemble plugins.
  * Provides a unified interface for managing panes across WezTerm, Zellij, and tmux.
  */
 

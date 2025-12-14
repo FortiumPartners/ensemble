@@ -50,7 +50,7 @@ integrationProtocols:
     - agent: tech-lead-orchestrator
       context: Receives E2E test requirements from TRD test strategy
       acceptanceCriteria: []
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives E2E coverage tasks for critical user journeys
       acceptanceCriteria: []
     - agent: frontend-developer

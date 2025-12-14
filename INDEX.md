@@ -1,9 +1,9 @@
-# AI Mesh Plugins Monorepo - Complete File Index
+# Ensemble Plugins Monorepo - Complete File Index
 
 ## Root Directory
 
 ```
-/Users/ldangelo/Development/Fortium/ai-mesh-plugins/
+<project-root>/ensemble/
 ```
 
 ### Configuration Files
@@ -77,7 +77,7 @@ packages/<plugin-name>/
 ### Tier 1: Core Foundation
 
 #### packages/core/
-- **NPM Name**: @fortium/ai-mesh-core
+- **NPM Name**: @fortium/ensemble-core
 - **Version**: 4.0.0
 - **Description**: Core orchestration and utilities
 - **Dependencies**: None (foundation)
@@ -85,115 +85,115 @@ packages/<plugin-name>/
 ### Tier 2: Workflow Plugins
 
 #### packages/product/
-- **NPM Name**: @fortium/ai-mesh-product
+- **NPM Name**: @fortium/ensemble-product
 - **Version**: 4.0.0
 - **Description**: Product management agents and workflows
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/development/
-- **NPM Name**: @fortium/ai-mesh-development
+- **NPM Name**: @fortium/ensemble-development
 - **Version**: 4.0.0
 - **Description**: Development agents for frontend/backend
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/quality/
-- **NPM Name**: @fortium/ai-mesh-quality
+- **NPM Name**: @fortium/ensemble-quality
 - **Version**: 4.0.0
 - **Description**: Quality assurance, code review, DoD
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/infrastructure/
-- **NPM Name**: @fortium/ai-mesh-infrastructure
+- **NPM Name**: @fortium/ensemble-infrastructure
 - **Version**: 4.0.0
 - **Description**: Infrastructure automation (AWS/K8s/Docker/Helm/Fly.io)
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/git/
-- **NPM Name**: @fortium/ai-mesh-git
+- **NPM Name**: @fortium/ensemble-git
 - **Version**: 4.0.0
 - **Description**: Git workflow automation
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/e2e-testing/
-- **NPM Name**: @fortium/ai-mesh-e2e-testing
+- **NPM Name**: @fortium/ensemble-e2e-testing
 - **Version**: 4.0.0
 - **Description**: Playwright E2E testing integration
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 #### packages/metrics/
-- **NPM Name**: @fortium/ai-mesh-metrics
+- **NPM Name**: @fortium/ensemble-metrics
 - **Version**: 4.0.0
 - **Description**: Productivity analytics dashboard
-- **Dependencies**: ai-mesh-core@4.0.0
+- **Dependencies**: ensemble-core@4.0.0
 
 ### Tier 3: Framework Skills
 
 #### packages/react/
-- **NPM Name**: @fortium/ai-mesh-react
+- **NPM Name**: @fortium/ensemble-react
 - **Version**: 4.0.0
 - **Description**: React framework skills
-- **Dependencies**: ai-mesh-development@4.0.0
+- **Dependencies**: ensemble-development@4.0.0
 
 #### packages/nestjs/
-- **NPM Name**: @fortium/ai-mesh-nestjs
+- **NPM Name**: @fortium/ensemble-nestjs
 - **Version**: 4.0.0
 - **Description**: NestJS backend framework skills
-- **Dependencies**: ai-mesh-development@4.0.0
+- **Dependencies**: ensemble-development@4.0.0
 
 #### packages/rails/
-- **NPM Name**: @fortium/ai-mesh-rails
+- **NPM Name**: @fortium/ensemble-rails
 - **Version**: 4.0.0
 - **Description**: Ruby on Rails backend skills
-- **Dependencies**: ai-mesh-development@4.0.0
+- **Dependencies**: ensemble-development@4.0.0
 
 #### packages/phoenix/
-- **NPM Name**: @fortium/ai-mesh-phoenix
+- **NPM Name**: @fortium/ensemble-phoenix
 - **Version**: 4.0.0
 - **Description**: Phoenix LiveView framework skills
-- **Dependencies**: ai-mesh-development@4.0.0
+- **Dependencies**: ensemble-development@4.0.0
 
 #### packages/blazor/
-- **NPM Name**: @fortium/ai-mesh-blazor
+- **NPM Name**: @fortium/ensemble-blazor
 - **Version**: 4.0.0
 - **Description**: Blazor .NET framework skills
-- **Dependencies**: ai-mesh-development@4.0.0
+- **Dependencies**: ensemble-development@4.0.0
 
 ### Tier 4: Testing Framework Integration
 
 #### packages/jest/
-- **NPM Name**: @fortium/ai-mesh-jest
+- **NPM Name**: @fortium/ensemble-jest
 - **Version**: 4.0.0
 - **Description**: Jest testing framework
-- **Dependencies**: ai-mesh-quality@4.0.0
+- **Dependencies**: ensemble-quality@4.0.0
 
 #### packages/pytest/
-- **NPM Name**: @fortium/ai-mesh-pytest
+- **NPM Name**: @fortium/ensemble-pytest
 - **Version**: 4.0.0
 - **Description**: Pytest testing framework
-- **Dependencies**: ai-mesh-quality@4.0.0
+- **Dependencies**: ensemble-quality@4.0.0
 
 #### packages/rspec/
-- **NPM Name**: @fortium/ai-mesh-rspec
+- **NPM Name**: @fortium/ensemble-rspec
 - **Version**: 4.0.0
 - **Description**: RSpec testing framework
-- **Dependencies**: ai-mesh-quality@4.0.0
+- **Dependencies**: ensemble-quality@4.0.0
 
 #### packages/xunit/
-- **NPM Name**: @fortium/ai-mesh-xunit
+- **NPM Name**: @fortium/ensemble-xunit
 - **Version**: 4.0.0
 - **Description**: xUnit testing framework (.NET)
-- **Dependencies**: ai-mesh-quality@4.0.0
+- **Dependencies**: ensemble-quality@4.0.0
 
 #### packages/exunit/
-- **NPM Name**: @fortium/ai-mesh-exunit
+- **NPM Name**: @fortium/ensemble-exunit
 - **Version**: 4.0.0
 - **Description**: ExUnit testing framework (Elixir)
-- **Dependencies**: ai-mesh-quality@4.0.0
+- **Dependencies**: ensemble-quality@4.0.0
 
 ### Utilities
 
 #### packages/pane-viewer/
-- **NPM Name**: @fortium/ai-mesh-pane-viewer
+- **NPM Name**: @fortium/ensemble-pane-viewer
 - **Version**: 0.1.0
 - **Description**: Real-time subagent monitoring
 - **Dependencies**: None (standalone)
@@ -201,7 +201,7 @@ packages/<plugin-name>/
 ### Meta-Package
 
 #### packages/full/
-- **NPM Name**: @fortium/ai-mesh-full
+- **NPM Name**: @fortium/ensemble-full
 - **Version**: 4.0.0
 - **Description**: Complete ecosystem (all plugins)
 - **Dependencies**: All 19 other plugins
@@ -227,53 +227,53 @@ Total Size:                   ~100 KB
 ## Dependency Tree
 
 ```
-ai-mesh-full (meta)
-├── ai-mesh-core
-├── ai-mesh-product
-│   └── ai-mesh-core
-├── ai-mesh-development
-│   └── ai-mesh-core
-├── ai-mesh-quality
-│   └── ai-mesh-core
-├── ai-mesh-infrastructure
-│   └── ai-mesh-core
-├── ai-mesh-git
-│   └── ai-mesh-core
-├── ai-mesh-e2e-testing
-│   └── ai-mesh-core
-├── ai-mesh-metrics
-│   └── ai-mesh-core
-├── ai-mesh-react
-│   └── ai-mesh-development
-│       └── ai-mesh-core
-├── ai-mesh-nestjs
-│   └── ai-mesh-development
-│       └── ai-mesh-core
-├── ai-mesh-rails
-│   └── ai-mesh-development
-│       └── ai-mesh-core
-├── ai-mesh-phoenix
-│   └── ai-mesh-development
-│       └── ai-mesh-core
-├── ai-mesh-blazor
-│   └── ai-mesh-development
-│       └── ai-mesh-core
-├── ai-mesh-jest
-│   └── ai-mesh-quality
-│       └── ai-mesh-core
-├── ai-mesh-pytest
-│   └── ai-mesh-quality
-│       └── ai-mesh-core
-├── ai-mesh-rspec
-│   └── ai-mesh-quality
-│       └── ai-mesh-core
-├── ai-mesh-xunit
-│   └── ai-mesh-quality
-│       └── ai-mesh-core
-├── ai-mesh-exunit
-│   └── ai-mesh-quality
-│       └── ai-mesh-core
-└── ai-mesh-pane-viewer (standalone)
+ensemble-full (meta)
+├── ensemble-core
+├── ensemble-product
+│   └── ensemble-core
+├── ensemble-development
+│   └── ensemble-core
+├── ensemble-quality
+│   └── ensemble-core
+├── ensemble-infrastructure
+│   └── ensemble-core
+├── ensemble-git
+│   └── ensemble-core
+├── ensemble-e2e-testing
+│   └── ensemble-core
+├── ensemble-metrics
+│   └── ensemble-core
+├── ensemble-react
+│   └── ensemble-development
+│       └── ensemble-core
+├── ensemble-nestjs
+│   └── ensemble-development
+│       └── ensemble-core
+├── ensemble-rails
+│   └── ensemble-development
+│       └── ensemble-core
+├── ensemble-phoenix
+│   └── ensemble-development
+│       └── ensemble-core
+├── ensemble-blazor
+│   └── ensemble-development
+│       └── ensemble-core
+├── ensemble-jest
+│   └── ensemble-quality
+│       └── ensemble-core
+├── ensemble-pytest
+│   └── ensemble-quality
+│       └── ensemble-core
+├── ensemble-rspec
+│   └── ensemble-quality
+│       └── ensemble-core
+├── ensemble-xunit
+│   └── ensemble-quality
+│       └── ensemble-core
+├── ensemble-exunit
+│   └── ensemble-quality
+│       └── ensemble-core
+└── ensemble-pane-viewer (standalone)
 ```
 
 ## Next Steps Reference
@@ -299,7 +299,7 @@ See `CONTRIBUTING.md` for:
 
 ## Repository Information
 
-- **Location**: /Users/ldangelo/Development/Fortium/ai-mesh-plugins
+- **Location**: /Users/ldangelo/Development/Fortium/ensemble
 - **Status**: Structure complete, ready for plugin extraction
 - **Version**: 4.0.0 (all core/workflow/framework/testing plugins)
 - **License**: MIT

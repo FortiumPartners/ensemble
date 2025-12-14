@@ -1,16 +1,16 @@
-# @fortium/ai-mesh-e2e-testing
+# @fortium/ensemble-e2e-testing
 
 End-to-end testing with Playwright integration
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-e2e-testing
+claude plugin install @fortium/ensemble-e2e-testing
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides end-to-end testing with playwright integration.
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides end-to-end testing with playwright integration.
 
 ## Features
 
@@ -22,7 +22,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ## Documentation
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for complete documentation.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.
 
 ## License
 

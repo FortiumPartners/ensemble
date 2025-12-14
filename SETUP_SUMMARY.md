@@ -1,4 +1,4 @@
-# AI Mesh Plugins Monorepo - Setup Summary
+# Ensemble Plugins Monorepo - Setup Summary
 
 **Created:** December 9, 2025  
 **Status:** Complete monorepo structure ready for plugin extraction
@@ -37,36 +37,36 @@
 All 20 plugins created with identical structure:
 
 ### Tier 1: Core Foundation
-✅ **packages/core/** - Core orchestration (@fortium/ai-mesh-core v4.0.0)
+✅ **packages/core/** - Core orchestration (@fortium/ensemble-core v4.0.0)
 
 ### Tier 2: Workflow Plugins (7 packages)
-✅ **packages/product/** - Product management (@fortium/ai-mesh-product v4.0.0)
-✅ **packages/development/** - Development agents (@fortium/ai-mesh-development v4.0.0)
-✅ **packages/quality/** - Quality assurance (@fortium/ai-mesh-quality v4.0.0)
-✅ **packages/infrastructure/** - Infrastructure automation (@fortium/ai-mesh-infrastructure v4.0.0)
-✅ **packages/git/** - Git workflows (@fortium/ai-mesh-git v4.0.0)
-✅ **packages/e2e-testing/** - Playwright E2E (@fortium/ai-mesh-e2e-testing v4.0.0)
-✅ **packages/metrics/** - Analytics dashboard (@fortium/ai-mesh-metrics v4.0.0)
+✅ **packages/product/** - Product management (@fortium/ensemble-product v4.0.0)
+✅ **packages/development/** - Development agents (@fortium/ensemble-development v4.0.0)
+✅ **packages/quality/** - Quality assurance (@fortium/ensemble-quality v4.0.0)
+✅ **packages/infrastructure/** - Infrastructure automation (@fortium/ensemble-infrastructure v4.0.0)
+✅ **packages/git/** - Git workflows (@fortium/ensemble-git v4.0.0)
+✅ **packages/e2e-testing/** - Playwright E2E (@fortium/ensemble-e2e-testing v4.0.0)
+✅ **packages/metrics/** - Analytics dashboard (@fortium/ensemble-metrics v4.0.0)
 
 ### Tier 3: Framework Skills (5 packages)
-✅ **packages/react/** - React framework (@fortium/ai-mesh-react v4.0.0)
-✅ **packages/nestjs/** - NestJS backend (@fortium/ai-mesh-nestjs v4.0.0)
-✅ **packages/rails/** - Rails backend (@fortium/ai-mesh-rails v4.0.0)
-✅ **packages/phoenix/** - Phoenix LiveView (@fortium/ai-mesh-phoenix v4.0.0)
-✅ **packages/blazor/** - Blazor .NET (@fortium/ai-mesh-blazor v4.0.0)
+✅ **packages/react/** - React framework (@fortium/ensemble-react v4.0.0)
+✅ **packages/nestjs/** - NestJS backend (@fortium/ensemble-nestjs v4.0.0)
+✅ **packages/rails/** - Rails backend (@fortium/ensemble-rails v4.0.0)
+✅ **packages/phoenix/** - Phoenix LiveView (@fortium/ensemble-phoenix v4.0.0)
+✅ **packages/blazor/** - Blazor .NET (@fortium/ensemble-blazor v4.0.0)
 
 ### Tier 4: Testing Framework Integration (5 packages)
-✅ **packages/jest/** - Jest testing (@fortium/ai-mesh-jest v4.0.0)
-✅ **packages/pytest/** - Pytest testing (@fortium/ai-mesh-pytest v4.0.0)
-✅ **packages/rspec/** - RSpec testing (@fortium/ai-mesh-rspec v4.0.0)
-✅ **packages/xunit/** - xUnit testing (@fortium/ai-mesh-xunit v4.0.0)
-✅ **packages/exunit/** - ExUnit testing (@fortium/ai-mesh-exunit v4.0.0)
+✅ **packages/jest/** - Jest testing (@fortium/ensemble-jest v4.0.0)
+✅ **packages/pytest/** - Pytest testing (@fortium/ensemble-pytest v4.0.0)
+✅ **packages/rspec/** - RSpec testing (@fortium/ensemble-rspec v4.0.0)
+✅ **packages/xunit/** - xUnit testing (@fortium/ensemble-xunit v4.0.0)
+✅ **packages/exunit/** - ExUnit testing (@fortium/ensemble-exunit v4.0.0)
 
 ### Utilities
-✅ **packages/pane-viewer/** - Terminal monitoring (@fortium/ai-mesh-pane-viewer v0.1.0)
+✅ **packages/pane-viewer/** - Terminal monitoring (@fortium/ensemble-pane-viewer v0.1.0)
 
 ### Meta-Package
-✅ **packages/full/** - Complete ecosystem (@fortium/ai-mesh-full v4.0.0)
+✅ **packages/full/** - Complete ecosystem (@fortium/ensemble-full v4.0.0)
 
 ## Package Contents (Each Plugin)
 
@@ -89,26 +89,26 @@ Each of the 20 packages contains:
 ## Dependency Graph
 
 ```
-ai-mesh-full (meta-package)
-├── ai-mesh-core (foundation)
-├── ai-mesh-product → ai-mesh-core
-├── ai-mesh-development → ai-mesh-core
-├── ai-mesh-quality → ai-mesh-core
-├── ai-mesh-infrastructure → ai-mesh-core
-├── ai-mesh-git → ai-mesh-core
-├── ai-mesh-e2e-testing → ai-mesh-core
-├── ai-mesh-metrics → ai-mesh-core
-├── ai-mesh-react → ai-mesh-development → ai-mesh-core
-├── ai-mesh-nestjs → ai-mesh-development → ai-mesh-core
-├── ai-mesh-rails → ai-mesh-development → ai-mesh-core
-├── ai-mesh-phoenix → ai-mesh-development → ai-mesh-core
-├── ai-mesh-blazor → ai-mesh-development → ai-mesh-core
-├── ai-mesh-jest → ai-mesh-quality → ai-mesh-core
-├── ai-mesh-pytest → ai-mesh-quality → ai-mesh-core
-├── ai-mesh-rspec → ai-mesh-quality → ai-mesh-core
-├── ai-mesh-xunit → ai-mesh-quality → ai-mesh-core
-├── ai-mesh-exunit → ai-mesh-quality → ai-mesh-core
-└── ai-mesh-pane-viewer (standalone)
+ensemble-full (meta-package)
+├── ensemble-core (foundation)
+├── ensemble-product → ensemble-core
+├── ensemble-development → ensemble-core
+├── ensemble-quality → ensemble-core
+├── ensemble-infrastructure → ensemble-core
+├── ensemble-git → ensemble-core
+├── ensemble-e2e-testing → ensemble-core
+├── ensemble-metrics → ensemble-core
+├── ensemble-react → ensemble-development → ensemble-core
+├── ensemble-nestjs → ensemble-development → ensemble-core
+├── ensemble-rails → ensemble-development → ensemble-core
+├── ensemble-phoenix → ensemble-development → ensemble-core
+├── ensemble-blazor → ensemble-development → ensemble-core
+├── ensemble-jest → ensemble-quality → ensemble-core
+├── ensemble-pytest → ensemble-quality → ensemble-core
+├── ensemble-rspec → ensemble-quality → ensemble-core
+├── ensemble-xunit → ensemble-quality → ensemble-core
+├── ensemble-exunit → ensemble-quality → ensemble-core
+└── ensemble-pane-viewer (standalone)
 ```
 
 ## File Statistics
@@ -133,7 +133,7 @@ Packages: 20 directories × 4 files = 80 files minimum
 ```bash
 git init
 git add .
-git commit -m "chore: initialize ai-mesh-plugins monorepo structure"
+git commit -m "chore: initialize ensemble monorepo structure"
 ```
 
 ### 2. Install Dependencies
@@ -147,9 +147,9 @@ npm run validate
 ```
 
 ### 4. Begin Plugin Extraction
-Start extracting content from ai-mesh v3.x:
+Start extracting content from ensemble v3.x:
 - Copy agents from `agents/` to appropriate plugin `agents/` directories
-- Copy commands from `commands/ai-mesh/` to plugin `commands/` directories
+- Copy commands from `commands/ensemble/` to plugin `commands/` directories
 - Copy skills from `skills/` to plugin `skills/` directories
 - Populate `lib/` with shared utilities
 
@@ -188,20 +188,20 @@ Update each plugin's README.md with:
 Users can install only what they need:
 ```bash
 # Minimal installation
-claude plugin install @fortium/ai-mesh-core
+claude plugin install @fortium/ensemble-core
 
 # Add specific capabilities
-claude plugin install @fortium/ai-mesh-react
-claude plugin install @fortium/ai-mesh-jest
+claude plugin install @fortium/ensemble-react
+claude plugin install @fortium/ensemble-jest
 
 # Complete installation
-claude plugin install @fortium/ai-mesh-full
+claude plugin install @fortium/ensemble-full
 ```
 
 ### Automatic Dependency Resolution
 Plugin dependencies are automatically installed:
-- Installing `ai-mesh-react` automatically installs `ai-mesh-development` and `ai-mesh-core`
-- Installing `ai-mesh-jest` automatically installs `ai-mesh-quality` and `ai-mesh-core`
+- Installing `ensemble-react` automatically installs `ensemble-development` and `ensemble-core`
+- Installing `ensemble-jest` automatically installs `ensemble-quality` and `ensemble-core`
 
 ### Independent Versioning
 - Core & Workflow plugins (Tier 1-2): Synchronized at 4.0.0
@@ -215,21 +215,21 @@ The monorepo structure supports seamless migration:
 
 | v3.x Component | v4.0 Plugin |
 |----------------|-------------|
-| ai-mesh-orchestrator | ai-mesh-core |
-| infrastructure-management-subagent | ai-mesh-infrastructure |
-| frontend-developer | ai-mesh-development |
-| backend-developer | ai-mesh-development |
-| code-reviewer | ai-mesh-quality |
-| test-runner | ai-mesh-quality |
+| ensemble-orchestrator | ensemble-core |
+| infrastructure-management-subagent | ensemble-infrastructure |
+| frontend-developer | ensemble-development |
+| backend-developer | ensemble-development |
+| code-reviewer | ensemble-quality |
+| test-runner | ensemble-quality |
 
 ## Repository Links
 
-- **GitHub**: https://github.com/FortiumPartners/ai-mesh-plugins (pending)
+- **GitHub**: https://github.com/FortiumPartners/ensemble (pending)
 - **NPM Organization**: @fortium (pending publication)
 
 ## Status
 
-**COMPLETE** - Monorepo structure fully scaffolded and ready for plugin extraction from ai-mesh v3.x.
+**COMPLETE** - Monorepo structure fully scaffolded and ready for plugin extraction from ensemble v3.x.
 
 ---
 

@@ -13,7 +13,7 @@ const DEFAULT_CONFIG = {
   autoCloseTimeout: 0  // Seconds to auto-close after completion (0 = disabled, manual close)
 };
 
-const CONFIG_DIR = path.join(os.homedir(), '.ai-mesh-pane-viewer');
+const CONFIG_DIR = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 
 function ensureConfigDir() {

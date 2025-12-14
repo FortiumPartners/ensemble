@@ -1,16 +1,16 @@
-# @fortium/ai-mesh-quality
+# @fortium/ensemble-quality
 
 Quality assurance, code review, and DoD enforcement
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-quality
+claude plugin install @fortium/ensemble-quality
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides quality assurance, code review, and dod enforcement.
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides quality assurance, code review, and dod enforcement.
 
 ## Features
 
@@ -22,7 +22,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ## Documentation
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for complete documentation.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.
 
 ## License
 

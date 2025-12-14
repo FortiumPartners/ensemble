@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-pane-viewer",
-  "version": "0.2.0",
+  "name": "@fortium/ensemble-pane-viewer",
+  "version": "5.0.0",
   "description": "Real-time subagent monitoring in terminal panes",
   "main": "lib/index.js",
   "scripts": {
@@ -12,17 +12,17 @@
     "monitoring",
     "terminal",
     "panes",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/pane-viewer"
   },
   "dependencies": {
-    "@ai-mesh/multiplexer-adapters": "file:../multiplexer-adapters"
+    "@fortium/ensemble-multiplexer-adapters": "file:../multiplexer-adapters"
   },
   "devDependencies": {
     "jest": "^29.7.0"

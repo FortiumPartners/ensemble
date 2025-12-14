@@ -1,17 +1,17 @@
 metadata:
   name: create-trd
   description: |
-    Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ai-mesh-orchestrator
+    Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: planning
-  output_path: ai-mesh/create-trd.md
+  output_path: ensemble/create-trd.md
   source: fortium
 
 mission:
   summary: |
     This command takes a comprehensive Product Requirements Document (PRD) $ARGUMENTS and delegates to
-    @tech-lead-orchestrator via @ai-mesh-orchestrator for technical planning, architecture design,
+    @tech-lead-orchestrator via @ensemble-orchestrator for technical planning, architecture design,
     and implementation breakdown. All outputs are automatically saved to @docs/TRD/ directory.
 
 workflow:
@@ -47,10 +47,10 @@ workflow:
       order: 2
       steps:
         - order: 1
-          title: AI Mesh Orchestrator
-          description: Route validated PRD to @ai-mesh-orchestrator
+          title: Ensemble Orchestrator
+          description: Route validated PRD to @ensemble-orchestrator
           delegation:
-            agent: ai-mesh-orchestrator
+            agent: ensemble-orchestrator
             context: Validated PRD with acceptance criteria
 
         - order: 2
@@ -301,7 +301,7 @@ mcp_integration:
        cd src/mcp-servers/trd-workflow && npm install
 
     2. Register with Claude:
-       claude mcp add trd-workflow --scope user -- node /path/to/ai-mesh/src/mcp-servers/trd-workflow/server.js
+       claude mcp add trd-workflow --scope user -- node /path/to/ensemble/src/mcp-servers/trd-workflow/server.js
 
     3. Verify installation:
        claude mcp list | grep trd-workflow

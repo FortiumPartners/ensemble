@@ -6,7 +6,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-11-05"
   category: analysis
-  output_path: ai-mesh/claude-changelog.md
+  output_path: ensemble/claude-changelog.md
   source: fortium
 
 mission:
@@ -126,7 +126,7 @@ workflow:
           description: Check for cached changelog data
           actions:
             - Skip cache if --refresh flag is set
-            - Check cache directory ~/.ai-mesh/cache/changelog/
+            - Check cache directory ~/.ensemble/cache/changelog/
             - Verify cache TTL (24 hours)
             - Return cached data if fresh
 

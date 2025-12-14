@@ -1,21 +1,21 @@
-# @fortium/ai-mesh-pytest
+# @fortium/ensemble-pytest
 
 pytest testing framework integration for Claude Code - Execute and generate Python tests with fixtures, parametrization, and mocking support.
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-pytest
+claude plugin install @fortium/ensemble-pytest
 ```
 
 Or via marketplace:
 ```bash
-claude plugin add ai-mesh-pytest
+claude plugin add ensemble-pytest
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides comprehensive pytest testing framework integration, enabling intelligent test generation and execution for Python projects.
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides comprehensive pytest testing framework integration, enabling intelligent test generation and execution for Python projects.
 
 ## Features
 
@@ -180,7 +180,7 @@ packages/pytest/
 
 ## Integration with Deep Debugger
 
-This plugin integrates with the ai-mesh deep-debugger workflow:
+This plugin integrates with the ensemble deep-debugger workflow:
 
 1. **Test Detection**: Identifies pytest as the test framework
 2. **Test Generation**: Creates failing tests for bug reproduction
@@ -290,17 +290,17 @@ def test_exception():
 
 ## Dependencies
 
-- `ai-mesh-quality@4.0.0`: Quality assurance and testing foundation
+- `ensemble-quality@4.0.0`: Quality assurance and testing foundation
 
 ## Documentation
 
 - **Skills Reference**: See `skills/SKILL.md` for quick reference
 - **Comprehensive Guide**: See `skills/REFERENCE.md` for detailed patterns
-- **Main Repository**: [ai-mesh-plugins](https://github.com/FortiumPartners/ai-mesh-plugins)
+- **Main Repository**: [ensemble](https://github.com/FortiumPartners/ensemble)
 
 ## Support
 
-For issues, questions, or contributions, please visit the [ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins).
+For issues, questions, or contributions, please visit the [ensemble repository](https://github.com/FortiumPartners/ensemble).
 
 ## License
 
@@ -308,4 +308,4 @@ MIT
 
 ---
 
-Part of the [ai-mesh plugin ecosystem](https://github.com/FortiumPartners/ai-mesh-plugins) - Modular, composable plugins for Claude Code.
+Part of the [ensemble plugin ecosystem](https://github.com/FortiumPartners/ensemble) - Modular, composable plugins for Claude Code.

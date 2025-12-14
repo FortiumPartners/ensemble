@@ -26,7 +26,7 @@ const { UserProfileManager } = require('./user-profile');
 async function logMetrics(data) {
     // Local storage fallback function
     const localFallback = async (metricsData) => {
-        const metricsDir = path.join(os.homedir(), '.ai-mesh', 'metrics');
+        const metricsDir = path.join(os.homedir(), '.ensemble', 'metrics');
         await fs.ensureDir(metricsDir);
         
         // Main metrics log
@@ -93,7 +93,7 @@ async function getCurrentSessionId() {
     if (!sessionId) {
         // Fallback: Read from persistent file
         try {
-            const metricsDir = path.join(os.homedir(), '.ai-mesh', 'metrics');
+            const metricsDir = path.join(os.homedir(), '.ensemble', 'metrics');
             const sessionIdFile = path.join(metricsDir, '.current-session-id');
             if (await fs.pathExists(sessionIdFile)) {
                 sessionId = (await fs.readFile(sessionIdFile, 'utf8')).trim();
@@ -135,7 +135,7 @@ function createPostToolUseContext(toolData) {
  */
 async function updateProductivityIndicators(metrics) {
     try {
-        const metricsDir = path.join(os.homedir(), '.ai-mesh', 'metrics');
+        const metricsDir = path.join(os.homedir(), '.ensemble', 'metrics');
         const indicatorsFile = path.join(metricsDir, 'productivity-indicators.json');
         
         // Load existing indicators or initialize

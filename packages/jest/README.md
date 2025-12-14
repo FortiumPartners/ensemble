@@ -1,4 +1,4 @@
-# @fortium/ai-mesh-jest
+# @fortium/ensemble-jest
 
 Jest testing framework integration for Claude Code AI-Mesh ecosystem.
 
@@ -11,14 +11,14 @@ The Jest plugin provides comprehensive test execution and generation capabilitie
 ### Via Claude Marketplace
 
 ```bash
-claude plugin install @fortium/ai-mesh-jest
+claude plugin install @fortium/ensemble-jest
 ```
 
 ### Manual Installation
 
 ```bash
-git clone https://github.com/FortiumPartners/ai-mesh-plugins.git
-cd ai-mesh-plugins/packages/jest
+git clone https://github.com/FortiumPartners/ensemble.git
+cd ensemble/packages/jest
 claude plugin install .
 ```
 
@@ -134,7 +134,7 @@ node lib/run-test.js \
 The plugin can also be used programmatically in Node.js:
 
 ```javascript
-const { generateTest, runTest } = require('@fortium/ai-mesh-jest/lib');
+const { generateTest, runTest } = require('@fortium/ensemble-jest/lib');
 
 // Generate a test file
 async function createTest() {
@@ -336,11 +336,11 @@ The plugin provides structured error output for easy debugging:
 
 ## Plugin Dependencies
 
-- `ai-mesh-quality@4.0.0` - Quality assurance and testing infrastructure
+- `ensemble-quality@4.0.0` - Quality assurance and testing infrastructure
 
 ## Contributing
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for contribution guidelines.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for contribution guidelines.
 
 ## Version History
 
@@ -354,11 +354,11 @@ MIT
 
 For issues, questions, or contributions:
 - **Email**: support@fortiumpartners.com
-- **Repository**: https://github.com/FortiumPartners/ai-mesh-plugins
+- **Repository**: https://github.com/FortiumPartners/ensemble
 - **Documentation**: See [skills/](skills/) directory for detailed guides
 
 ## Related Plugins
 
-- `@fortium/ai-mesh-quality` - Quality assurance infrastructure
-- `@fortium/ai-mesh-playwright` - E2E testing with Playwright
-- `@fortium/ai-mesh-vitest` - Vitest testing framework integration
+- `@fortium/ensemble-quality` - Quality assurance infrastructure
+- `@fortium/ensemble-playwright` - E2E testing with Playwright
+- `@fortium/ensemble-vitest` - Vitest testing framework integration

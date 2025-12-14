@@ -1,6 +1,6 @@
 ---
 name: pane-config
-description: Configure ai-mesh-pane-viewer settings
+description: Configure ensemble-pane-viewer settings
 ---
 
 # Pane Viewer Configuration
@@ -46,7 +46,7 @@ Enable or disable floating panes (Zellij only).
 - Default: `false`
 
 ### log
-Enable or disable output logging to `~/.ai-mesh/agent-logs/`.
+Enable or disable output logging to `~/.ensemble/agent-logs/`.
 - Options: `true`, `false`
 - Default: `true`
 
@@ -77,7 +77,7 @@ Enable or disable the pane viewer entirely.
 
 ## Configuration File
 
-Settings are saved to `~/.ai-mesh-pane-viewer/config.json`
+Settings are saved to `~/.ensemble/plugins/pane-viewer/config.json`
 
 ## Environment Variables
 
@@ -93,7 +93,7 @@ You can also configure via environment variables:
 
 When logging is enabled, output is captured to:
 ```
-~/.ai-mesh/agent-logs/YYYY-MM-DD/<agent-type>_<time>_<task-id>.log
+~/.ensemble/agent-logs/YYYY-MM-DD/<agent-type>_<time>_<task-id>.log
 ```
 
 Logs are automatically cleaned up after 7 days.

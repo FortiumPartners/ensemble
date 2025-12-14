@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Initial release extracted from ai-mesh v3.x monolith
+- Initial release extracted from ensemble v3.x monolith
 - Plugin structure created for modular installation
 
 ## [Unreleased]

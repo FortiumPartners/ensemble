@@ -1,7 +1,7 @@
 {
   "name": "multiplexer-adapters",
   "version": "1.0.0",
-  "description": "Shared terminal multiplexer adapters for AI Mesh plugins",
+  "description": "Shared terminal multiplexer adapters for Ensemble plugins",
   "type": "library",
   "exports": {
     "main": "../lib/index.js"

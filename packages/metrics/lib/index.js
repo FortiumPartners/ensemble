@@ -1,6 +1,6 @@
 /**
  * Metrics Dashboard Plugin
- * @fortium/ai-mesh-metrics
+ * @fortium/ensemble-metrics
  *
  * Team productivity metrics and development analytics
  */

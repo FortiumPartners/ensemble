@@ -47,7 +47,7 @@ mission:
       test execution (delegate to test-runner), E2E testing (delegate to playwright-tester)
     
     collaboratesOn: |
-      Works with ai-mesh-orchestrator for complex multi-agent workflows, product-management-orchestrator for PRD→TRD conversion, 
+      Works with ensemble-orchestrator for complex multi-agent workflows, product-management-orchestrator for PRD→TRD conversion, 
       code-reviewer for quality gates, test-runner for TDD validation, all specialist agents for implementation tasks
 
   expertise:
@@ -377,7 +377,7 @@ qualityStandards:
 
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives product requirements, constraints, timeline for complex multi-agent workflows requiring technical planning
       acceptanceCriteria:
         - Clear product requirements with user stories
@@ -485,7 +485,7 @@ delegationCriteria:
     - Agent delegation strategy and performance management
 
   whenToDelegate:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       triggers:
         - Complex multi-agent coordination needed beyond standard workflow
         - Conflict resolution between specialist agents required

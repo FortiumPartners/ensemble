@@ -1,6 +1,6 @@
 /**
  * Pane Viewer Plugin
- * @fortium/ai-mesh-pane-viewer
+ * @fortium/ensemble-pane-viewer
  *
  * Real-time subagent monitoring in terminal panes
  */

@@ -42,7 +42,7 @@ All MVP components have been successfully implemented and tested with WezTerm ad
 **Status**: ✅ Complete and tested
 
 **Features**:
-- State persistence (~/.ai-mesh-pane-viewer/panes.json)
+- State persistence (~/.ensemble/plugins/pane-viewer/panes.json)
 - Lazy initialization with adapter detection
 - Pane creation and reuse logic
 - Message sending via adapter
@@ -66,7 +66,7 @@ All MVP components have been successfully implemented and tested with WezTerm ad
 - Silent error handling (non-blocking)
 
 **Configuration**:
-- Location: `~/.ai-mesh-pane-viewer/config.json`
+- Location: `~/.ensemble/plugins/pane-viewer/config.json`
 - Default direction: `right`
 - Default percent: `40`
 - Reuse pane: `true`
@@ -159,7 +159,7 @@ Current state: { panes: {}, lastUpdated: null }
 
 1. **Error Handling**: All errors are caught and logged to stderr without interrupting Claude Code
 2. **Performance**: Initialization and detection complete in <10ms
-3. **State Management**: Pane state persists across sessions in ~/.ai-mesh-pane-viewer/panes.json
+3. **State Management**: Pane state persists across sessions in ~/.ensemble/plugins/pane-viewer/panes.json
 4. **Security**: Prompt content is truncated to 200 characters to avoid exposing sensitive data
 
 ## Usage
@@ -169,7 +169,7 @@ Current state: { panes: {}, lastUpdated: null }
 - `WEZTERM_PANE` - Auto-detected by WezTerm (used for session tracking)
 
 ### Configuration File
-Location: `~/.ai-mesh-pane-viewer/config.json`
+Location: `~/.ensemble/plugins/pane-viewer/config.json`
 
 Example:
 ```json

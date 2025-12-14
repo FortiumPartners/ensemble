@@ -411,7 +411,7 @@ end
 ### Receives Tasks From
 
 1. **tech-lead-orchestrator**: Rails-specific implementation tasks from TRD breakdown
-2. **ai-mesh-orchestrator**: Rails backend tasks requiring framework-specific expertise
+2. **ensemble-orchestrator**: Rails backend tasks requiring framework-specific expertise
 3. **backend-developer**: Tasks specifically requiring Rails framework patterns
 4. **frontend-developer**: API endpoint requirements for frontend integration
 

@@ -1,39 +1,39 @@
 {
-  "name": "ai-mesh-full",
+  "name": "ensemble-full",
   "version": "4.0.0",
-  "description": "Complete ai-mesh ecosystem (meta-package with all plugins)",
+  "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "author": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "full",
     "complete",
     "meta",
-    "ai-mesh"
+    "ensemble"
   ],
   "dependencies": [
-    "ai-mesh-core@4.0.0",
-    "ai-mesh-product@4.0.0",
-    "ai-mesh-development@4.0.0",
-    "ai-mesh-quality@4.0.0",
-    "ai-mesh-infrastructure@4.0.0",
-    "ai-mesh-git@4.0.0",
-    "ai-mesh-e2e-testing@4.0.0",
-    "ai-mesh-metrics@4.0.0",
-    "ai-mesh-pane-viewer@4.0.0",
-    "ai-mesh-react@4.0.0",
-    "ai-mesh-nestjs@4.0.0",
-    "ai-mesh-rails@4.0.0",
-    "ai-mesh-phoenix@4.0.0",
-    "ai-mesh-blazor@4.0.0",
-    "ai-mesh-jest@4.0.0",
-    "ai-mesh-pytest@4.0.0",
-    "ai-mesh-rspec@4.0.0",
-    "ai-mesh-xunit@4.0.0",
-    "ai-mesh-exunit@4.0.0"
+    "ensemble-core@4.0.0",
+    "ensemble-product@4.0.0",
+    "ensemble-development@4.0.0",
+    "ensemble-quality@4.0.0",
+    "ensemble-infrastructure@4.0.0",
+    "ensemble-git@4.0.0",
+    "ensemble-e2e-testing@4.0.0",
+    "ensemble-metrics@4.0.0",
+    "ensemble-pane-viewer@4.0.0",
+    "ensemble-react@4.0.0",
+    "ensemble-nestjs@4.0.0",
+    "ensemble-rails@4.0.0",
+    "ensemble-phoenix@4.0.0",
+    "ensemble-blazor@4.0.0",
+    "ensemble-jest@4.0.0",
+    "ensemble-pytest@4.0.0",
+    "ensemble-rspec@4.0.0",
+    "ensemble-xunit@4.0.0",
+    "ensemble-exunit@4.0.0"
   ]
 }

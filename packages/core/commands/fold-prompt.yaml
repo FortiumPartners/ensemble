@@ -4,7 +4,7 @@ metadata:
   version: 2.0.0
   lastUpdated: "2025-10-13"
   category: analysis
-  output_path: ai-mesh/fold-prompt.md
+  output_path: ensemble/fold-prompt.md
   source: fortium
 
 mission:

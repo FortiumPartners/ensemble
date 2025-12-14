@@ -1,11 +1,11 @@
 # Product Requirements Document: Task Progress Pane
 
-**Product Name:** AI Mesh Task Progress Pane
+**Product Name:** Ensemble Task Progress Pane
 **Version:** 1.1.0
 **Status:** Refined
 **Created:** 2025-12-12
 **Last Updated:** 2025-12-12
-**Author:** AI Mesh Product Team
+**Author:** Ensemble Product Team
 
 ---
 
@@ -31,14 +31,14 @@
 
 ### Product Vision
 
-The Task Progress Pane is a dedicated terminal UI component for the AI Mesh plugin ecosystem that provides real-time visualization of TRD (Technical Requirements Document) task execution progress. It displays a persistent progress bar in a fixed header area with a scrollable detailed task breakdown below, enabling developers to monitor complex multi-step AI agent workflows at a glance.
+The Task Progress Pane is a dedicated terminal UI component for the Ensemble plugin ecosystem that provides real-time visualization of TRD (Technical Requirements Document) task execution progress. It displays a persistent progress bar in a fixed header area with a scrollable detailed task breakdown below, enabling developers to monitor complex multi-step AI agent workflows at a glance.
 
 ### Value Proposition
 
 - **At-a-Glance Progress**: Instantly understand how far along a complex task is without scrolling
 - **Task State Visibility**: Clear differentiation between completed, in-progress, and pending tasks
 - **Non-Intrusive Monitoring**: Fixed progress header ensures critical status is always visible while detailed task list scrolls
-- **Seamless Integration**: Built on proven AI Mesh pane viewer architecture with multi-multiplexer support
+- **Seamless Integration**: Built on proven Ensemble pane viewer architecture with multi-multiplexer support
 - **Vim-Style Navigation**: Full keyboard control for power users with familiar keybindings
 - **Multi-Session Support**: Track parallel task sessions in a stacked view
 
@@ -1088,7 +1088,7 @@ And new tasks are displayed
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| Adoption rate | 40% of AI Mesh users | Plugin analytics |
+| Adoption rate | 40% of Ensemble users | Plugin analytics |
 | Update latency | P95 < 500ms | Performance monitoring |
 | Error rate | < 0.1% | Error logs |
 | Memory usage | < 10MB | Resource monitoring |
@@ -1128,8 +1128,8 @@ And new tasks are displayed
 
 ### B. Related Documents
 
-- [AI Mesh Pane Viewer README](../../packages/pane-viewer/README.md)
-- [AI Mesh Pane Viewer Implementation](../../packages/pane-viewer/IMPLEMENTATION.md)
+- [Ensemble Pane Viewer README](../../packages/pane-viewer/README.md)
+- [Ensemble Pane Viewer Implementation](../../packages/pane-viewer/IMPLEMENTATION.md)
 - [Claude Code Hooks Documentation](https://claude.ai/claude-code/docs/hooks)
 
 ### C. Keyboard Quick Reference
@@ -1163,8 +1163,8 @@ General:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0.0 | 2025-12-12 | AI Mesh Team | Initial PRD |
-| 1.1.0 | 2025-12-12 | AI Mesh Team | Refined based on stakeholder feedback: Added vim-style navigation (j/k/gg/G//), auto-collapse completed tasks (>5), expandable task details and errors, block character progress bar, per-task and total elapsed time display, stacked multi-session support, auto-hide on empty state, default 25% pane width, clarified coexistence with pane viewer |
+| 1.0.0 | 2025-12-12 | Ensemble Team | Initial PRD |
+| 1.1.0 | 2025-12-12 | Ensemble Team | Refined based on stakeholder feedback: Added vim-style navigation (j/k/gg/G//), auto-collapse completed tasks (>5), expandable task details and errors, block character progress bar, per-task and total elapsed time display, stacked multi-session support, auto-hide on empty state, default 25% pane width, clarified coexistence with pane viewer |
 
 ---
 

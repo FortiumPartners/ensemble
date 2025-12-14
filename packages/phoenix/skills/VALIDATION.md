@@ -257,7 +257,7 @@ The Phoenix Framework skill provides **comprehensive Phoenix and Elixir expertis
 ### 3.2 Handoff Protocols
 
 **Original Agent**:
-- Receives from: ai-mesh-orchestrator, tech-lead-orchestrator, backend-developer
+- Receives from: ensemble-orchestrator, tech-lead-orchestrator, backend-developer
 - Hands off to: code-reviewer, test-runner, playwright-tester, postgresql-specialist
 - Collaborates with: infrastructure-specialist, postgresql-specialist, nestjs-backend-expert
 

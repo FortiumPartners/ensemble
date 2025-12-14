@@ -1,13 +1,13 @@
 # React Framework Skill Extraction - Migration Summary
 
 **Date**: 2025-12-10
-**Source**: `/Users/ldangelo/Development/Fortium/ai-mesh/skills/react-framework/`
-**Target**: `/Users/ldangelo/Development/Fortium/ai-mesh-plugins/packages/react/`
+**Source**: `/Users/ldangelo/Development/Fortium/ensemble/skills/react-framework/`
+**Target**: `/Users/ldangelo/Development/Fortium/ensemble/packages/react/`
 **Status**: ✅ COMPLETE
 
 ## Migration Overview
 
-Successfully extracted the React framework skill from the ai-mesh v3.x monolith into a standalone plugin in the ai-mesh-plugins monorepo.
+Successfully extracted the React framework skill from the ensemble v3.x monolith into a standalone plugin in the ensemble monorepo.
 
 ## Files Migrated
 
@@ -130,21 +130,21 @@ The plugin will be automatically loaded by `frontend-developer` when:
 
 ## Version Information
 
-- **Plugin Version**: 4.0.0 (aligned with ai-mesh v4.x)
+- **Plugin Version**: 4.0.0 (aligned with ensemble v4.x)
 - **Skill Version**: 1.0.0 (initial extraction)
 - **React Support**: 18.0.0 - 18.x
 - **Frontend-Developer Requirement**: ≥4.0.0
 
 ## Dependencies
 
-- `@fortium/ai-mesh-development@4.0.0` - Core development agent functionality
+- `@fortium/ensemble-development@4.0.0` - Core development agent functionality
 
 ## Related Plugins (Future)
 
-- `@fortium/ai-mesh-typescript` - TypeScript-specific patterns
-- `@fortium/ai-mesh-testing` - Testing frameworks
-- `@fortium/ai-mesh-vite` - Vite bundler configuration
-- `@fortium/ai-mesh-nextjs` - Next.js framework skills
+- `@fortium/ensemble-typescript` - TypeScript-specific patterns
+- `@fortium/ensemble-testing` - Testing frameworks
+- `@fortium/ensemble-vite` - Vite bundler configuration
+- `@fortium/ensemble-nextjs` - Next.js framework skills
 
 ## Directory Structure
 
@@ -192,7 +192,7 @@ packages/react/
 ## Testing Recommendations
 
 ### Manual Testing
-1. Install plugin via marketplace: `claude plugin install @fortium/ai-mesh-react`
+1. Install plugin via marketplace: `claude plugin install @fortium/ensemble-react`
 2. Verify skill detection in React project
 3. Test template generation
 4. Validate example access
@@ -257,12 +257,12 @@ None identified during migration.
 ## Contact
 
 - **Maintainer**: Fortium Software Configuration Team
-- **Repository**: https://github.com/FortiumPartners/ai-mesh-plugins
-- **Issues**: https://github.com/FortiumPartners/ai-mesh-plugins/issues
+- **Repository**: https://github.com/FortiumPartners/ensemble
+- **Issues**: https://github.com/FortiumPartners/ensemble/issues
 
 ---
 
 **Migration Status**: ✅ COMPLETE
 **Date**: 2025-12-10
-**Extracted From**: ai-mesh v3.x monolith
-**Target Plugin**: @fortium/ai-mesh-react v4.0.0
+**Extracted From**: ensemble v3.x monolith
+**Target Plugin**: @fortium/ensemble-react v4.0.0

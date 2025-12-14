@@ -1,6 +1,6 @@
 /**
  * Multiplexer detector - re-export from shared package
- * @deprecated Import from '@ai-mesh/multiplexer-adapters' instead
+ * @deprecated Import from '@fortium/ensemble-multiplexer-adapters' instead
  */
-const { MultiplexerDetector } = require('@ai-mesh/multiplexer-adapters');
+const { MultiplexerDetector } = require('@fortium/ensemble-multiplexer-adapters');
 module.exports = { MultiplexerDetector };

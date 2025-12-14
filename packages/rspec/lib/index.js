@@ -1,6 +1,6 @@
 /**
  * RSpec Testing Skill
- * @fortium/ai-mesh-rspec
+ * @fortium/ensemble-rspec
  *
  * Provides RSpec test generation and execution for Ruby projects
  */

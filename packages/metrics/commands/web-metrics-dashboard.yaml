@@ -4,7 +4,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: analysis
-  output_path: ai-mesh/web-metrics-dashboard.md
+  output_path: ensemble/web-metrics-dashboard.md
   source: fortium
 
 mission:

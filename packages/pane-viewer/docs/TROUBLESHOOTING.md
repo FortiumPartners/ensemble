@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions for AI Mesh Pane Viewer.
+Common issues and solutions for Ensemble Pane Viewer.
 
 ## Quick Diagnostics
 
@@ -8,7 +8,7 @@ Run these commands to diagnose issues:
 
 ```bash
 # 1. Check plugin is installed
-ls ~/.claude/plugins/ai-mesh-pane-viewer/
+ls ~/.claude/plugins/ensemble-pane-viewer/
 
 # 2. Check hooks are configured
 cat ~/.claude/settings.json | grep -A5 "PreToolUse"
@@ -19,13 +19,13 @@ echo "ZELLIJ_SESSION_NAME: $ZELLIJ_SESSION_NAME"
 echo "TMUX: $TMUX"
 
 # 4. Check configuration
-cat ~/.ai-mesh-pane-viewer/config.json
+cat ~/.ensemble/plugins/pane-viewer/config.json
 
 # 5. Check state file
-cat ~/.ai-mesh-pane-viewer/panes.json
+cat ~/.ensemble/plugins/pane-viewer/panes.json
 
 # 6. Check recent logs
-ls -la ~/.ai-mesh/agent-logs/$(date +%Y-%m-%d)/
+ls -la ~/.ensemble/agent-logs/$(date +%Y-%m-%d)/
 ```
 
 ## Installation Issues
@@ -37,15 +37,15 @@ ls -la ~/.ai-mesh/agent-logs/$(date +%Y-%m-%d)/
 **Solution**:
 
 ```bash
-# Reinstall via ai-mesh
-npx @fortium/ai-mesh install --global
+# Reinstall via ensemble
+npx @fortium/ensemble install --global
 
 # Or install manually
 cd ~/.claude/plugins/
-git clone https://github.com/FortiumPartners/ai-mesh.git temp
-mv temp/plugins/ai-mesh-pane-viewer .
+git clone https://github.com/FortiumPartners/ensemble.git temp
+mv temp/plugins/ensemble-pane-viewer .
 rm -rf temp
-cd ai-mesh-pane-viewer && npm install
+cd ensemble-pane-viewer && npm install
 ```
 
 ### Hooks Not Configured
@@ -63,7 +63,7 @@ cd ai-mesh-pane-viewer && npm install
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ai-mesh-pane-viewer/hooks/pane-spawner.js"
+            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-spawner.js"
           }
         ]
       }
@@ -74,7 +74,7 @@ cd ai-mesh-pane-viewer && npm install
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ai-mesh-pane-viewer/hooks/pane-completion.js"
+            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-completion.js"
           }
         ]
       }
@@ -111,7 +111,7 @@ echo $WEZTERM_PANE $ZELLIJ_SESSION_NAME $TMUX
 echo $AI_MESH_PANE_DISABLE
 
 # Check config file
-cat ~/.ai-mesh-pane-viewer/config.json | grep enabled
+cat ~/.ensemble/plugins/pane-viewer/config.json | grep enabled
 
 # Re-enable if needed
 unset AI_MESH_PANE_DISABLE
@@ -122,7 +122,7 @@ unset AI_MESH_PANE_DISABLE
 
 ```bash
 # Verify plugin is installed
-ls ~/.claude/plugins/ai-mesh-pane-viewer/
+ls ~/.claude/plugins/ensemble-pane-viewer/
 
 # Check Claude Code recognizes it
 claude config plugins list
@@ -158,7 +158,7 @@ export AI_MESH_PANE_MULTIPLEXER=wezterm
 /pane-config multiplexer wezterm
 ```
 
-Or edit `~/.ai-mesh-pane-viewer/config.json`:
+Or edit `~/.ensemble/plugins/pane-viewer/config.json`:
 
 ```json
 {
@@ -199,10 +199,10 @@ Clean up stale panes:
 
 ```bash
 # Check state file
-cat ~/.ai-mesh-pane-viewer/panes.json
+cat ~/.ensemble/plugins/pane-viewer/panes.json
 
 # Reset if corrupted
-rm ~/.ai-mesh-pane-viewer/panes.json
+rm ~/.ensemble/plugins/pane-viewer/panes.json
 ```
 
 ### No Tool Output Displayed
@@ -274,7 +274,7 @@ echo $TERM
 ### Log Files Not Created
 
 #### Symptom
-No log files in `~/.ai-mesh/agent-logs/`.
+No log files in `~/.ensemble/agent-logs/`.
 
 #### Causes & Solutions
 
@@ -292,11 +292,11 @@ export AI_MESH_PANE_LOG=true
 
 ```bash
 # Check directory permissions
-ls -la ~/.ai-mesh/
+ls -la ~/.ensemble/
 
 # Fix if needed
-chmod 755 ~/.ai-mesh/
-mkdir -p ~/.ai-mesh/agent-logs
+chmod 755 ~/.ensemble/
+mkdir -p ~/.ensemble/agent-logs
 ```
 
 ### Performance Issues
@@ -311,7 +311,7 @@ Slow pane spawning or high CPU usage.
 Run the performance test:
 
 ```bash
-cd ~/.claude/plugins/ai-mesh-pane-viewer
+cd ~/.claude/plugins/ensemble-pane-viewer
 npm test -- --testPathPattern=performance
 ```
 
@@ -408,7 +408,7 @@ tmux list-panes -F "#{pane_id}"
 Enable debug logging for detailed output:
 
 ```bash
-export DEBUG=ai-mesh-pane-viewer:*
+export DEBUG=ensemble-pane-viewer:*
 
 # Then invoke an agent
 # Check logs in terminal output
@@ -420,10 +420,10 @@ If all else fails, reset to clean state:
 
 ```bash
 # Remove all config and state
-rm -rf ~/.ai-mesh-pane-viewer/
+rm -rf ~/.ensemble/plugins/pane-viewer/
 
 # Remove logs (optional)
-rm -rf ~/.ai-mesh/agent-logs/
+rm -rf ~/.ensemble/agent-logs/
 
 # Restart Claude Code
 ```
@@ -434,7 +434,7 @@ The plugin will recreate default configuration on next use.
 
 If issues persist:
 
-1. **Check GitHub Issues**: https://github.com/FortiumPartners/ai-mesh/issues
+1. **Check GitHub Issues**: https://github.com/FortiumPartners/ensemble/issues
 2. **Create Issue**: Include diagnostic output from Quick Diagnostics section
 3. **Email Support**: support@fortiumpartners.com
 

@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-nestjs",
+  "name": "ensemble-nestjs",
   "version": "4.0.0",
   "description": "NestJS backend framework skills for Claude Code AI-Augmented Development",
   "author": {
@@ -7,14 +7,14 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "nestjs",
     "backend",
     "nodejs",
     "typescript",
-    "ai-mesh",
+    "ensemble",
     "framework",
     "rest-api",
     "graphql",
@@ -24,7 +24,7 @@
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
-    "ai-mesh-development@4.0.0"
+    "ensemble-development@4.0.0"
   ],
   "skillsManifest": {
     "framework": "nestjs",

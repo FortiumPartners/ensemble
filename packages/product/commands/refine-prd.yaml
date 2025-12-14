@@ -4,7 +4,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: planning
-  output_path: ai-mesh/refine-prd.md
+  output_path: ensemble/refine-prd.md
   source: fortium
 
 mission:

@@ -1,4 +1,4 @@
-# @ai-mesh/task-progress-pane
+# @fortium/ensemble-task-progress-pane
 
 Real-time task progress visualization for Claude Code TodoWrite operations.
 
@@ -28,15 +28,15 @@ This plugin displays a visual progress pane when Claude Code uses the TodoWrite 
 
 ```bash
 # Install plugin
-npm install @ai-mesh/task-progress-pane
+npm install @fortium/ensemble-task-progress-pane
 
 # Or add to Claude Code plugins
-claude-code plugin add @ai-mesh/task-progress-pane
+claude-code plugin add @fortium/ensemble-task-progress-pane
 ```
 
 ## Configuration
 
-Configuration is stored at `~/.ai-mesh-task-progress/config.json`:
+Configuration is stored at `~/.ensemble/plugins/task-progress-pane/config.json`:
 
 ```json
 {
@@ -97,7 +97,7 @@ Configuration is stored at `~/.ai-mesh-task-progress/config.json`:
 
 1. Claude Code calls the `TodoWrite` tool to track tasks
 2. The plugin's `PreToolUse` hook captures the call
-3. Tasks are parsed and state is written to `~/.ai-mesh-task-progress/state.json`
+3. Tasks are parsed and state is written to `~/.ensemble/plugins/task-progress-pane/state.json`
 4. The monitor script (in a split pane) watches the state file
 5. UI is updated in real-time using ANSI escape sequences
 

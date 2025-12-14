@@ -489,7 +489,7 @@ integrationProtocols:
         - API documentation updated
         - Error handling implemented
     
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Ready-for-review code changes requiring DoD validation
       acceptanceCriteria:
         - All implementation complete

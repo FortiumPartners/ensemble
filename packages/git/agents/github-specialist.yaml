@@ -59,7 +59,7 @@ integrationProtocols:
     - agent: code-reviewer
       context: Receives PR for quality review before marking ready
       acceptanceCriteria: []
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives workflow orchestration requests
       acceptanceCriteria: []
   handoffTo:

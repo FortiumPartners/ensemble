@@ -14,7 +14,7 @@ const { spawn } = require('child_process');
 
 describe('E2E: Complete Hook Workflow', () => {
   const testDir = path.join(os.tmpdir(), 'pane-viewer-e2e-' + Date.now());
-  const configDir = path.join(testDir, '.ai-mesh-pane-viewer');
+  const configDir = path.join(testDir, '.ensemble/plugins/pane-viewer');
   const configPath = path.join(configDir, 'config.json');
   const statePath = path.join(configDir, 'panes.json');
 

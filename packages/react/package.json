@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-react",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-react",
+  "version": "5.0.0",
   "description": "React framework skills and component development",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "react",
     "frontend",
     "components",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/react"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-development": "^4.0.0"
+    "@fortium/ensemble-development": "^4.0.0"
   }
 }

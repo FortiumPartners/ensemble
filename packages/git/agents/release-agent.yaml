@@ -908,7 +908,7 @@ qualityStandards:
 
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Release request with version and type
       acceptanceCriteria:
         - Valid release type (standard, hotfix, rollback)

@@ -1,19 +1,19 @@
 {
-  "name": "ai-mesh-core",
+  "name": "ensemble-core",
   "version": "4.0.0",
-  "description": "Core orchestration and utilities for ai-mesh ecosystem",
+  "description": "Core orchestration and utilities for ensemble ecosystem",
   "author": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "orchestration",
     "agents",
     "core",
-    "ai-mesh"
+    "ensemble"
   ],
   "agents": "./agents",
   "commands": "./commands",

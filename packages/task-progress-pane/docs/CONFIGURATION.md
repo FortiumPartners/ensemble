@@ -6,7 +6,7 @@ The task-progress-pane plugin uses a JSON configuration file to customize behavi
 
 The configuration is stored at:
 ```
-~/.ai-mesh-task-progress/config.json
+~/.ensemble/plugins/task-progress-pane/config.json
 ```
 
 If the file doesn't exist, the plugin uses default values.
@@ -134,7 +134,7 @@ The `direction` setting accepts:
 You can modify configuration using the plugin's API:
 
 ```javascript
-const { loadConfig, saveConfig, setConfigValue } = require('@ai-mesh/task-progress-pane');
+const { loadConfig, saveConfig, setConfigValue } = require('@fortium/ensemble-task-progress-pane');
 
 // Load current config
 const config = loadConfig();
@@ -148,7 +148,7 @@ saveConfig({ ...config, direction: 'bottom' });
 
 ## State Files
 
-The plugin maintains state in `~/.ai-mesh-task-progress/`:
+The plugin maintains state in `~/.ensemble/plugins/task-progress-pane/`:
 
 | File | Purpose |
 |------|---------|

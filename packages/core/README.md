@@ -1,16 +1,16 @@
-# @fortium/ai-mesh-core
+# @fortium/ensemble-core
 
-Core orchestration and utilities for ai-mesh ecosystem
+Core orchestration and utilities for ensemble ecosystem
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-core
+claude plugin install @fortium/ensemble-core
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides core orchestration and utilities for ai-mesh ecosystem.
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides core orchestration and utilities for ensemble ecosystem.
 
 ## Features
 
@@ -22,7 +22,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ## Documentation
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for complete documentation.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.
 
 ## License
 

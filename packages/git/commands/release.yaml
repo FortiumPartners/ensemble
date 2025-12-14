@@ -6,7 +6,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-11-05"
   category: deployment
-  output_path: ai-mesh/release.md
+  output_path: ensemble/release.md
   source: fortium
 
 mission:

@@ -148,7 +148,7 @@ From `rails-backend-expert.yaml`:
 | Source Agent | Context | Coverage in Skill | Score |
 |--------------|---------|-------------------|-------|
 | tech-lead-orchestrator | Rails-specific implementation from TRD | ✅ Documented in README.md | 100% |
-| ai-mesh-orchestrator | Rails backend tasks requiring expertise | ✅ Framework detection signals | 100% |
+| ensemble-orchestrator | Rails backend tasks requiring expertise | ✅ Framework detection signals | 100% |
 | backend-developer | Tasks specifically requiring Rails patterns | ✅ Skill loading mechanism | 100% |
 | frontend-developer | API endpoint requirements | ✅ API development section | 100% |
 

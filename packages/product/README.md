@@ -1,16 +1,16 @@
-# @fortium/ai-mesh-product
+# @fortium/ensemble-product
 
 Product management agents and workflows (PRD creation, analysis)
 
 ## Installation
 
 ```bash
-claude plugin install @fortium/ai-mesh-product
+claude plugin install @fortium/ensemble-product
 ```
 
 ## Description
 
-Part of the ai-mesh plugin ecosystem for Claude Code. This plugin provides product management agents and workflows (prd creation, analysis).
+Part of the ensemble plugin ecosystem for Claude Code. This plugin provides product management agents and workflows (prd creation, analysis).
 
 ## Features
 
@@ -22,7 +22,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 ## Documentation
 
-See the [main ai-mesh-plugins repository](https://github.com/FortiumPartners/ai-mesh-plugins) for complete documentation.
+See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.
 
 ## License
 

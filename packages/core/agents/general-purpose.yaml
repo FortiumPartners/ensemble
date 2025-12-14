@@ -38,7 +38,7 @@ responsibilities:
     description: Combine findings from multiple sources into coherent insights
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives ambiguous or multi-domain requests requiring analysis
       acceptanceCriteria: []
     - agent: tech-lead-orchestrator
@@ -48,7 +48,7 @@ integrationProtocols:
       context: Receives requests for information outside their domain expertise
       acceptanceCriteria: []
   handoffTo:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       deliverables: Provides analysis results with recommendations for specialist delegation
       qualityGates: []
     - agent: tech-lead-orchestrator

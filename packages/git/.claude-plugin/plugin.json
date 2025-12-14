@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-git",
+  "name": "ensemble-git",
   "version": "4.0.0",
   "description": "Git workflow automation and conventional commits",
   "author": {
@@ -7,18 +7,18 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "git",
     "workflow",
     "commits",
-    "ai-mesh"
+    "ensemble"
   ],
   "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
-    "ai-mesh-core@4.0.0"
+    "ensemble-core@4.0.0"
   ]
 }

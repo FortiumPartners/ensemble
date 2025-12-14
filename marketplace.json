@@ -1,18 +1,18 @@
 {
-  "name": "ai-mesh",
+  "name": "ensemble",
   "version": "1.0.0",
-  "description": "Official Fortium ai-mesh plugin marketplace",
+  "description": "Official Fortium ensemble plugin marketplace",
   "owner": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "homepage": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "homepage": "https://github.com/FortiumPartners/ensemble",
   "categories": [
     {
       "id": "core",
       "name": "Core & Foundation",
-      "description": "Essential plugins for ai-mesh functionality"
+      "description": "Essential plugins for ensemble functionality"
     },
     {
       "id": "workflow",
@@ -43,7 +43,7 @@
       "description": "Real-time task progress visualization for Claude Code TodoWrite operations",
       "category": "utilities",
       "tags": ["progress", "todowrite", "terminal", "vim"],
-      "author": "AI Mesh Team"
+      "author": "Fortium Partners"
     }
   ]
 }

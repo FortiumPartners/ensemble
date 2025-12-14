@@ -1,17 +1,17 @@
-# @ai-mesh/multiplexer-adapters
+# @fortium/ensemble-multiplexer-adapters
 
-Shared terminal multiplexer adapters for AI Mesh plugins. Provides a unified interface for managing panes across WezTerm, Zellij, and tmux.
+Shared terminal multiplexer adapters for Ensemble plugins. Provides a unified interface for managing panes across WezTerm, Zellij, and tmux.
 
 ## Installation
 
 ```bash
-npm install @ai-mesh/multiplexer-adapters
+npm install @fortium/ensemble-multiplexer-adapters
 ```
 
 ## Usage
 
 ```javascript
-const { MultiplexerDetector } = require('@ai-mesh/multiplexer-adapters');
+const { MultiplexerDetector } = require('@fortium/ensemble-multiplexer-adapters');
 
 // Auto-detect and get the appropriate adapter
 const detector = new MultiplexerDetector();

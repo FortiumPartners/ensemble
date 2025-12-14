@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the AI Mesh Pane Viewer will be documented in this file.
+All notable changes to the Ensemble Pane Viewer will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Version 0.1.0 - Initial Release
 
-This is the initial scaffolding release of the AI Mesh Pane Viewer plugin. Core structure is in place, but implementations are stubs marked with TODOs.
+This is the initial scaffolding release of the Ensemble Pane Viewer plugin. Core structure is in place, but implementations are stubs marked with TODOs.
 
 **Status**: Development / Not Ready for Use
 
@@ -56,5 +56,5 @@ This is the initial scaffolding release of the AI Mesh Pane Viewer plugin. Core 
 
 **Target**: v1.0.0 - Full working implementation
 
-[Unreleased]: https://github.com/FortiumPartners/ai-mesh-pane-viewer/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/FortiumPartners/ai-mesh-pane-viewer/releases/tag/v0.1.0
+[Unreleased]: https://github.com/FortiumPartners/ensemble-pane-viewer/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/FortiumPartners/ensemble-pane-viewer/releases/tag/v0.1.0

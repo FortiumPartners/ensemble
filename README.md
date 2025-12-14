@@ -1,53 +1,53 @@
-# AI Mesh Plugins
+# Ensemble Plugins
 
 Modular plugin ecosystem for Claude Code, enabling flexible, pay-what-you-need AI-augmented development workflows.
 
 ## Overview
 
-AI Mesh Plugins is the v4.0.0 evolution of the ai-mesh toolkit, transitioning from a monolithic architecture to a modular plugin system. This allows developers to install only the capabilities they need, from core orchestration to framework-specific skills.
+Ensemble Plugins is the v4.0.0 evolution of the ensemble toolkit, transitioning from a monolithic architecture to a modular plugin system. This allows developers to install only the capabilities they need, from core orchestration to framework-specific skills.
 
 ## Architecture
 
 The plugin ecosystem is organized into 4 tiers:
 
 ### Tier 1: Core Foundation
-- **ai-mesh-core** (4.0.0) - Essential orchestration, agents, and utilities
+- **ensemble-core** (4.0.0) - Essential orchestration, agents, and utilities
 
 ### Tier 2: Workflow Plugins
-- **ai-mesh-product** - Product management (PRD creation, analysis)
-- **ai-mesh-development** - Frontend/backend implementation agents
-- **ai-mesh-quality** - Code review, testing, DoD enforcement
-- **ai-mesh-infrastructure** - AWS, Kubernetes, Docker, Helm, Fly.io automation
-- **ai-mesh-git** - Git workflow and conventional commits
-- **ai-mesh-e2e-testing** - Playwright integration for E2E testing
-- **ai-mesh-metrics** - Productivity analytics and dashboard
+- **ensemble-product** - Product management (PRD creation, analysis)
+- **ensemble-development** - Frontend/backend implementation agents
+- **ensemble-quality** - Code review, testing, DoD enforcement
+- **ensemble-infrastructure** - AWS, Kubernetes, Docker, Helm, Fly.io automation
+- **ensemble-git** - Git workflow and conventional commits
+- **ensemble-e2e-testing** - Playwright integration for E2E testing
+- **ensemble-metrics** - Productivity analytics and dashboard
 
 ### Tier 3: Framework Skills
-- **ai-mesh-react** - React component development
-- **ai-mesh-nestjs** - NestJS backend patterns
-- **ai-mesh-rails** - Ruby on Rails MVC
-- **ai-mesh-phoenix** - Phoenix LiveView patterns
-- **ai-mesh-blazor** - Blazor .NET components
+- **ensemble-react** - React component development
+- **ensemble-nestjs** - NestJS backend patterns
+- **ensemble-rails** - Ruby on Rails MVC
+- **ensemble-phoenix** - Phoenix LiveView patterns
+- **ensemble-blazor** - Blazor .NET components
 
 ### Tier 4: Testing Framework Integration
-- **ai-mesh-jest** - Jest testing patterns
-- **ai-mesh-pytest** - Pytest testing patterns
-- **ai-mesh-rspec** - RSpec testing patterns
-- **ai-mesh-xunit** - xUnit testing patterns
-- **ai-mesh-exunit** - ExUnit testing patterns
+- **ensemble-jest** - Jest testing patterns
+- **ensemble-pytest** - Pytest testing patterns
+- **ensemble-rspec** - RSpec testing patterns
+- **ensemble-xunit** - xUnit testing patterns
+- **ensemble-exunit** - ExUnit testing patterns
 
 ### Utilities
-- **ai-mesh-pane-viewer** (0.1.0) - Real-time subagent monitoring in terminal panes
+- **ensemble-pane-viewer** (0.1.0) - Real-time subagent monitoring in terminal panes
 
 ### Meta-Package
-- **ai-mesh-full** - Complete ecosystem (all plugins bundled)
+- **ensemble-full** - Complete ecosystem (all plugins bundled)
 
 ## Installation
 
 ### Quick Start (Full Ecosystem)
 
 ```bash
-claude plugin install @fortium/ai-mesh-full
+claude plugin install @fortium/ensemble-full
 ```
 
 ### Modular Installation
@@ -56,25 +56,25 @@ Install only what you need:
 
 ```bash
 # Core foundation (required)
-claude plugin install @fortium/ai-mesh-core
+claude plugin install @fortium/ensemble-core
 
 # Add workflow capabilities
-claude plugin install @fortium/ai-mesh-product
-claude plugin install @fortium/ai-mesh-development
-claude plugin install @fortium/ai-mesh-quality
+claude plugin install @fortium/ensemble-product
+claude plugin install @fortium/ensemble-development
+claude plugin install @fortium/ensemble-quality
 
 # Add framework skills (optional)
-claude plugin install @fortium/ai-mesh-react
-claude plugin install @fortium/ai-mesh-nestjs
+claude plugin install @fortium/ensemble-react
+claude plugin install @fortium/ensemble-nestjs
 
 # Add testing support (optional)
-claude plugin install @fortium/ai-mesh-jest
+claude plugin install @fortium/ensemble-jest
 ```
 
 ### Installation via NPM
 
 ```bash
-npm install -g @fortium/ai-mesh-core
+npm install -g @fortium/ensemble-core
 ```
 
 ## Usage
@@ -85,17 +85,17 @@ After installation, plugins automatically register their agents, commands, and s
 
 Commands are provided by specific plugins:
 
-- `/create-prd` - Product requirements (ai-mesh-product)
-- `/create-trd` - Technical requirements (ai-mesh-core)
-- `/implement-trd` - TRD implementation (ai-mesh-development)
-- `/fold-prompt` - Project optimization (ai-mesh-core)
-- `/dashboard` - Metrics dashboard (ai-mesh-metrics)
+- `/create-prd` - Product requirements (ensemble-product)
+- `/create-trd` - Technical requirements (ensemble-core)
+- `/implement-trd` - TRD implementation (ensemble-development)
+- `/fold-prompt` - Project optimization (ensemble-core)
+- `/dashboard` - Metrics dashboard (ensemble-metrics)
 
 ### Agent Mesh
 
 Plugins provide specialized agents:
 
-- **Orchestrators**: ai-mesh-orchestrator, tech-lead-orchestrator, product-management-orchestrator
+- **Orchestrators**: ensemble-orchestrator, tech-lead-orchestrator, product-management-orchestrator
 - **Developers**: frontend-developer, backend-developer, infrastructure-developer
 - **Quality**: code-reviewer, test-runner, playwright-tester
 - **Utilities**: git-workflow, documentation-specialist, file-creator
@@ -105,9 +105,9 @@ Plugins provide specialized agents:
 Plugins declare dependencies to ensure compatibility:
 
 ```
-ai-mesh-react
-  └─ ai-mesh-development
-      └─ ai-mesh-core
+ensemble-react
+  └─ ensemble-development
+      └─ ensemble-core
 ```
 
 Claude Code automatically installs required dependencies when you install a plugin.
@@ -117,7 +117,7 @@ Claude Code automatically installs required dependencies when you install a plug
 ### Repository Structure
 
 ```
-ai-mesh-plugins/
+ensemble/
 ├── packages/               # Individual plugins
 │   ├── core/              # Core plugin
 │   ├── product/           # Product plugin
@@ -131,8 +131,8 @@ ai-mesh-plugins/
 
 ```bash
 # Clone repository
-git clone https://github.com/FortiumPartners/ai-mesh-plugins.git
-cd ai-mesh-plugins
+git clone https://github.com/FortiumPartners/ensemble.git
+cd ensemble
 
 # Install dependencies
 npm install
@@ -154,7 +154,7 @@ mkdir -p packages/my-plugin/{.claude-plugin,agents,commands,skills,lib,tests}
 2. Create `packages/my-plugin/.claude-plugin/plugin.json`:
 ```json
 {
-  "name": "ai-mesh-my-plugin",
+  "name": "ensemble-my-plugin",
   "version": "1.0.0",
   "description": "My custom plugin",
   "author": {
@@ -162,7 +162,7 @@ mkdir -p packages/my-plugin/{.claude-plugin,agents,commands,skills,lib,tests}
     "email": "you@example.com"
   },
   "license": "MIT",
-  "keywords": ["my-plugin", "ai-mesh"],
+  "keywords": ["my-plugin", "ensemble"],
   "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills"
@@ -174,30 +174,30 @@ mkdir -p packages/my-plugin/{.claude-plugin,agents,commands,skills,lib,tests}
 5. Validate: `npm run validate`
 6. Test: `npm test`
 
-## Migration from ai-mesh v3.x
+## Migration from ensemble v3.x
 
-If you're migrating from the monolithic ai-mesh v3.x:
+If you're migrating from the monolithic ensemble v3.x:
 
 1. **Identify current usage**: Review which agents/commands you actively use
 2. **Install equivalent plugins**: Map your usage to the new modular plugins
-3. **Update references**: Plugin names have changed (e.g., `infrastructure-management-subagent` → `ai-mesh-infrastructure`)
+3. **Update references**: Plugin names have changed (e.g., `infrastructure-management-subagent` → `ensemble-infrastructure`)
 4. **Test workflows**: Verify your development workflows still function
 
 ### Migration Guide
 
 | v3.x Component | v4.0 Plugin |
 |----------------|-------------|
-| ai-mesh-orchestrator | ai-mesh-core |
-| product-management-orchestrator | ai-mesh-product |
-| frontend-developer | ai-mesh-development |
-| backend-developer | ai-mesh-development |
-| infrastructure-management-subagent | ai-mesh-infrastructure |
-| code-reviewer | ai-mesh-quality |
-| test-runner | ai-mesh-quality |
-| git-workflow | ai-mesh-git |
-| playwright-tester | ai-mesh-e2e-testing |
-| manager-dashboard-agent | ai-mesh-metrics |
-| ai-mesh-pane-viewer | ai-mesh-pane-viewer (no change) |
+| ensemble-orchestrator | ensemble-core |
+| product-management-orchestrator | ensemble-product |
+| frontend-developer | ensemble-development |
+| backend-developer | ensemble-development |
+| infrastructure-management-subagent | ensemble-infrastructure |
+| code-reviewer | ensemble-quality |
+| test-runner | ensemble-quality |
+| git-workflow | ensemble-git |
+| playwright-tester | ensemble-e2e-testing |
+| manager-dashboard-agent | ensemble-metrics |
+| ensemble-pane-viewer | ensemble-pane-viewer (no change) |
 
 ## Contributing
 
@@ -229,14 +229,14 @@ MIT - See [LICENSE](LICENSE) for details.
 
 ## Support
 
-- **Documentation**: [https://github.com/FortiumPartners/ai-mesh-plugins](https://github.com/FortiumPartners/ai-mesh-plugins)
-- **Issues**: [GitHub Issues](https://github.com/FortiumPartners/ai-mesh-plugins/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/FortiumPartners/ai-mesh-plugins/discussions)
+- **Documentation**: [https://github.com/FortiumPartners/ensemble](https://github.com/FortiumPartners/ensemble)
+- **Issues**: [GitHub Issues](https://github.com/FortiumPartners/ensemble/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/FortiumPartners/ensemble/discussions)
 - **Email**: support@fortiumpartners.com
 
 ## Acknowledgments
 
-Built on the foundation of ai-mesh v3.x, which achieved:
+Built on the foundation of ensemble v3.x, which achieved:
 - 35-40% productivity improvements
 - 87-99% performance optimization
 - 26 specialized agents

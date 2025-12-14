@@ -15,7 +15,7 @@ Configure the task-progress-pane plugin settings.
 
 Run this command to interactively configure the task-progress-pane plugin.
 
-The configuration is stored at `~/.ai-mesh-task-progress/config.json`.
+The configuration is stored at `~/.ensemble/plugins/task-progress-pane/config.json`.
 
 ---
 

@@ -14,7 +14,7 @@ START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 # Log configuration
 LOG_ENABLED="${AI_MESH_PANE_LOG:-true}"
-LOG_BASE_DIR="${HOME}/.ai-mesh/agent-logs"
+LOG_BASE_DIR="${HOME}/.ensemble/agent-logs"
 LOG_DATE=$(date '+%Y-%m-%d')
 LOG_TIME=$(date '+%H%M%S')
 LOG_DIR="${LOG_BASE_DIR}/${LOG_DATE}"

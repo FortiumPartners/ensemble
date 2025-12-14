@@ -1,5 +1,5 @@
 {
-  "name": "ai-mesh-xunit",
+  "name": "ensemble-xunit",
   "version": "4.0.0",
   "description": "xUnit testing framework integration for .NET",
   "author": {
@@ -7,18 +7,18 @@
     "email": "support@fortiumpartners.com",
     "url": "https://github.com/FortiumPartners"
   },
-  "repository": "https://github.com/FortiumPartners/ai-mesh-plugins",
+  "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
     "xunit",
     "testing",
     "dotnet",
-    "ai-mesh"
+    "ensemble"
   ],
   "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
-    "ai-mesh-quality@4.0.0"
+    "ensemble-quality@4.0.0"
   ]
 }

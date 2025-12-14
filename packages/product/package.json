@@ -1,6 +1,6 @@
 {
-  "name": "@fortium/ai-mesh-product",
-  "version": "4.0.0",
+  "name": "@fortium/ensemble-product",
+  "version": "5.0.0",
   "description": "Product management agents and workflows (PRD creation, analysis)",
   "main": "lib/index.js",
   "scripts": {
@@ -12,19 +12,19 @@
     "product",
     "prd",
     "planning",
-    "ai-mesh"
+    "ensemble"
   ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/FortiumPartners/ai-mesh-plugins.git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/product"
   },
   "devDependencies": {
     "jest": "^29.7.0"
   },
   "peerDependencies": {
-    "@fortium/ai-mesh-core": "^4.0.0"
+    "@fortium/ensemble-core": "^4.0.0"
   }
 }

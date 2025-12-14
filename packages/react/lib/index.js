@@ -1,5 +1,5 @@
 /**
- * @fortium/ai-mesh-react - React Framework Skills Plugin
+ * @fortium/ensemble-react - React Framework Skills Plugin
  *
  * Provides comprehensive React development skills including:
  * - Modern component patterns with hooks

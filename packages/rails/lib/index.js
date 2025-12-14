@@ -1,6 +1,6 @@
 /**
  * Rails Framework Plugin
- * @fortium/ai-mesh-rails
+ * @fortium/ensemble-rails
  *
  * Ruby on Rails framework skills
  */

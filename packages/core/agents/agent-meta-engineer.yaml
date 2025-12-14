@@ -40,7 +40,7 @@ responsibilities:
     description: Continuously improve the agent mesh based on real-world usage
 integrationProtocols:
   handoffFrom:
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       context: Receives requests for new agents when patterns emerge requiring specialization
       acceptanceCriteria: []
     - agent: tech-lead-orchestrator
@@ -56,7 +56,7 @@ integrationProtocols:
     - agent: Newly created agents
       deliverables: Deploy new agents with proper documentation and integration
       qualityGates: []
-    - agent: ai-mesh-orchestrator
+    - agent: ensemble-orchestrator
       deliverables: Update capability matrix and delegation logic with new agents
       qualityGates: []
     - agent: documentation-specialist

@@ -5,7 +5,7 @@
  * Handles pane creation, reuse, and cleanup.
  *
  * Responsibilities:
- * 1. Track active panes in state file (~/.ai-mesh-pane-viewer/panes.json)
+ * 1. Track active panes in state file (~/.ensemble/plugins/pane-viewer/panes.json)
  * 2. Spawn new panes or reuse existing ones
  * 3. Send messages to viewer panes
  * 4. Clean up stale panes
@@ -22,7 +22,7 @@ const { MultiplexerDetector } = require('./adapters');
  */
 class PaneManager {
   constructor() {
-    this.stateDir = path.join(os.homedir(), '.ai-mesh-pane-viewer');
+    this.stateDir = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
     this.statePath = path.join(this.stateDir, 'panes.json');
     this.lockPath = path.join(this.stateDir, 'panes.lock');
     this.detector = new MultiplexerDetector();
