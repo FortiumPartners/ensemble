@@ -199,6 +199,48 @@ If you're migrating from the monolithic ensemble v3.x:
 | manager-dashboard-agent | ensemble-metrics |
 | ensemble-pane-viewer | ensemble-pane-viewer (no change) |
 
+## Configuration
+
+Ensemble uses XDG-compliant configuration paths:
+
+### Config Directory Location
+
+The config directory is determined in this order:
+1. `$XDG_CONFIG_HOME/ensemble/` (if XDG_CONFIG_HOME is set)
+2. `~/.config/ensemble/` (if ~/.config exists)
+3. `~/.ensemble/` (fallback)
+
+### Directory Structure
+
+```
+~/.config/ensemble/           # or ~/.ensemble/
+├── plugins/
+│   ├── task-progress-pane/   # Task progress plugin config
+│   └── pane-viewer/          # Pane viewer plugin config
+├── logs/                     # Log files
+├── cache/                    # Cache data
+└── sessions/                 # Session data
+```
+
+### Migrating from ai-mesh
+
+If you have existing ai-mesh configuration directories, use the migration script:
+
+```bash
+# Preview what will be migrated
+node scripts/migrate-config.js --dry-run
+
+# Perform migration
+node scripts/migrate-config.js
+
+# Force overwrite existing files
+node scripts/migrate-config.js --force
+```
+
+The script migrates:
+- `~/.ai-mesh-task-progress/` → `~/.config/ensemble/plugins/task-progress-pane/`
+- `~/.ai-mesh-pane-viewer/` → `~/.config/ensemble/plugins/pane-viewer/`
+
 ## Contributing
 
 We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
