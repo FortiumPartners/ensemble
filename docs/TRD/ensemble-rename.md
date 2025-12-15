@@ -215,8 +215,8 @@ The following technical decisions were made during TRD refinement:
 | GH-001 | **DONE**: Rename repository ai-mesh-plugins → ensemble | Critical | All CODE-XXX | [x] |
 | GH-002 | **DONE**: Update repository URL in all files post-rename | Critical | GH-001 | [x] |
 | GH-003 | **DONE**: Verify GitHub Actions work with new repo name | High | GH-001, CODE-030-032 | [x] |
-| GH-004 | Update GitHub repository description | Medium | GH-001 | [ ] |
-| GH-005 | Update GitHub repository topics/tags | Low | GH-001 | [ ] |
+| GH-004 | **DONE**: Update GitHub repository description | Medium | GH-001 | [x] |
+| GH-005 | **DONE**: Update GitHub repository topics/tags | Low | GH-001 | [x] |
 | GH-006 | **DONE**: Verify old URL redirects work | Medium | GH-001 | [x] |
 
 ---
@@ -574,8 +574,8 @@ $CONFIG_ROOT/
 - [x] GH-001: Rename repository ai-mesh-plugins → ensemble (DONE)
 - [x] GH-002: Update repository URL in all files post-rename
 - [x] GH-003: Verify GitHub Actions work with new repo name
-- [ ] GH-004: Update GitHub repository description
-- [ ] GH-005: Update GitHub repository topics/tags
+- [x] GH-004: Update GitHub repository description
+- [x] GH-005: Update GitHub repository topics/tags
 - [x] GH-006: Verify old URL redirects work
 
 **Deliverables**:
