@@ -2,8 +2,8 @@
 #
 # Post-GitHub-Rename Script
 #
-# Run this script AFTER renaming the GitHub repository from
-# 'ai-mesh-plugins' to 'ensemble' in GitHub settings.
+# NOTE: This script was used during the migration from 'ai-mesh-plugins' to 'ensemble'.
+# The migration is now complete. This script is kept for historical reference.
 #
 # This script:
 # 1. Updates the git remote URL to the new repository name
@@ -30,52 +30,38 @@ fi
 
 echo "Current remote: $CURRENT_REMOTE"
 
-# Determine new remote URL
-if [[ "$CURRENT_REMOTE" == *"ai-mesh-plugins"* ]]; then
-    NEW_REMOTE=$(echo "$CURRENT_REMOTE" | sed 's/ai-mesh-plugins/ensemble/g')
-    echo "New remote:     $NEW_REMOTE"
-    echo ""
-
-    # Update remote
-    echo "Updating git remote..."
-    git remote set-url origin "$NEW_REMOTE"
-    echo "✓ Remote URL updated"
-    echo ""
+# Check if remote needs updating (migration already complete)
+if [[ "$CURRENT_REMOTE" == *"ensemble"* ]]; then
+    echo "✓ Remote already points to 'ensemble' repository"
 
     # Verify remote is accessible
     echo "Verifying remote accessibility..."
     if git ls-remote --exit-code origin &>/dev/null; then
         echo "✓ Remote is accessible"
     else
-        echo "✗ Warning: Remote not accessible yet"
-        echo "  Make sure you've renamed the repository on GitHub first:"
-        echo "  https://github.com/FortiumPartners/ai-mesh-plugins/settings"
-        echo ""
-        echo "  Reverting remote URL..."
-        git remote set-url origin "$CURRENT_REMOTE"
+        echo "✗ Warning: Remote not accessible"
         exit 1
     fi
 else
-    echo "Remote already updated or doesn't contain 'ai-mesh-plugins'"
+    echo "Warning: Remote URL doesn't contain 'ensemble'"
+    echo "Expected: https://github.com/FortiumPartners/ensemble"
+    echo "Current:  $CURRENT_REMOTE"
 fi
 
 echo ""
 echo "========================================"
-echo "Next Steps"
+echo "Migration Status"
 echo "========================================"
 echo ""
-echo "1. Rename the local directory:"
+echo "✓ GitHub repository renamed to 'ensemble'"
+echo "✓ Local directory renamed to 'ensemble'"
 echo ""
-echo "   cd .."
-echo "   mv ai-mesh-plugins ensemble"
-echo "   cd ensemble"
-echo ""
-echo "2. Verify everything works:"
+echo "Verify everything works:"
 echo ""
 echo "   git status"
 echo "   git pull origin main"
 echo ""
-echo "3. (Optional) Clean up old config directories:"
+echo "(Optional) Clean up old config directories if they exist:"
 echo ""
 echo "   rm -rf ~/.ai-mesh-task-progress"
 echo "   rm -rf ~/.ai-mesh-pane-viewer"

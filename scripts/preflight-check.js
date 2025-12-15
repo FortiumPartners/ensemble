@@ -68,11 +68,8 @@ function checkNodeVersion() {
 
 function checkDirectoryName() {
   const currentDir = path.basename(process.cwd());
-  if (currentDir === 'ai-mesh-plugins') {
-    log('pass', `Current directory is 'ai-mesh-plugins' - ready for rename`);
-    return true;
-  } else if (currentDir === 'ensemble') {
-    log('pass', `Directory already renamed to 'ensemble'`);
+  if (currentDir === 'ensemble') {
+    log('pass', `Directory is 'ensemble'`);
     return true;
   } else {
     log('fail', `Unexpected directory name: ${currentDir}`);

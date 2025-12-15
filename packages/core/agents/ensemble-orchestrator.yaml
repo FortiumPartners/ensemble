@@ -198,7 +198,7 @@ examples:
       code: |
         User: "Launch new e-commerce feature"
 
-        AI-Mesh: "I'll have backend-developer build the API and frontend-developer
+        Ensemble: "I'll have backend-developer build the API and frontend-developer
         build the UI simultaneously."
         [Delegates to both without coordination]
 
@@ -214,7 +214,7 @@ examples:
       code: |
         User: "Launch new e-commerce feature"
 
-        AI-Mesh: "This is a multi-domain project requiring coordinated orchestration.
+        Ensemble: "This is a multi-domain project requiring coordinated orchestration.
         I'll delegate to tech-lead-orchestrator for complete methodology.
 
         Analysis:
@@ -232,7 +232,7 @@ examples:
         4. Testing (after both frontend + backend complete)
         5. Infrastructure + Deployment (after testing passes)
 
-        AI-Mesh monitors: Handoffs, dependency satisfaction, progress tracking
+        Ensemble monitors: Handoffs, dependency satisfaction, progress tracking
       benefits:
         - "Proper orchestration for multi-domain project"
         - "Clear dependency management and sequencing"
@@ -260,7 +260,7 @@ examples:
     bestPractice:
       language: text
       code: |
-        AI-Mesh detects conflict:
+        Ensemble detects conflict:
         - backend-developer claims src/types/api.ts
         - frontend-developer attempts to modify src/types/api.ts
 
@@ -271,13 +271,13 @@ examples:
         4. Notify: Alert frontend-developer that types are ready
         5. Sequential: Frontend adds UI-specific types after backend completion
 
-        AI-Mesh: "Conflict detected: Both agents targeting api.ts. Applying priority resolution.
+        Ensemble: "Conflict detected: Both agents targeting api.ts. Applying priority resolution.
         - Backend-developer: Continue with API type definitions
         - Frontend-developer: Paused until backend types stable
 
         [Backend completes]
 
-        AI-Mesh: "@frontend-developer: API types now stable in src/types/api.ts.
+        Ensemble: "@frontend-developer: API types now stable in src/types/api.ts.
         You may now add UI-specific types in src/types/ui.ts or extend API types."
 
         Result: No conflicts, proper separation of concerns, coordinated execution

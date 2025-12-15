@@ -72,7 +72,7 @@ describe('Hook Integration', () => {
   describe('Environment-based disabling', () => {
     it('should not spawn pane when disabled via env var', async () => {
       // Set disable flag
-      process.env.AI_MESH_PANE_DISABLE = '1';
+      process.env.ENSEMBLE_PANE_DISABLE = '1';
 
       // Simulate the main() function logic
       const hookData = {
@@ -85,7 +85,7 @@ describe('Hook Integration', () => {
       };
 
       // Check disable flag (simulating main() logic)
-      if (process.env.AI_MESH_PANE_DISABLE === '1') {
+      if (process.env.ENSEMBLE_PANE_DISABLE === '1') {
         // Should return early, not call getOrCreatePane
         expect(mockManager.getOrCreatePane).not.toHaveBeenCalled();
         return;
@@ -97,7 +97,7 @@ describe('Hook Integration', () => {
 
     it('should spawn pane when env var is not set', async () => {
       // Ensure disable flag is not set
-      delete process.env.AI_MESH_PANE_DISABLE;
+      delete process.env.ENSEMBLE_PANE_DISABLE;
 
       const hookData = {
         tool_name: 'Task',
@@ -110,7 +110,7 @@ describe('Hook Integration', () => {
 
       // Simulate main() logic
       const config = loadConfig();
-      if (process.env.AI_MESH_PANE_DISABLE === '1' || !config.enabled) {
+      if (process.env.ENSEMBLE_PANE_DISABLE === '1' || !config.enabled) {
         return;
       }
 
@@ -158,7 +158,7 @@ describe('Hook Integration', () => {
 
       // Simulate main() logic
       const config = loadConfig();
-      if (process.env.AI_MESH_PANE_DISABLE === '1' || !config.enabled) {
+      if (process.env.ENSEMBLE_PANE_DISABLE === '1' || !config.enabled) {
         // Should return early
         expect(mockManager.getOrCreatePane).not.toHaveBeenCalled();
         return;

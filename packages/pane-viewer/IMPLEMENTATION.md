@@ -1,4 +1,4 @@
-# AI-Mesh Pane Viewer MVP Implementation
+# Ensemble Pane Viewer MVP Implementation
 
 ## Implementation Status: ✅ COMPLETE
 
@@ -61,7 +61,7 @@ All MVP components have been successfully implemented and tested with WezTerm ad
 - PreToolUse hook integration
 - Task tool filtering
 - Config loading with defaults
-- Disable flag support (AI_MESH_PANE_DISABLE)
+- Disable flag support (ENSEMBLE_PANE_DISABLE)
 - Agent info extraction and message formatting
 - Silent error handling (non-blocking)
 
@@ -165,7 +165,7 @@ Current state: { panes: {}, lastUpdated: null }
 ## Usage
 
 ### Environment Variables
-- `AI_MESH_PANE_DISABLE=1` - Disable pane spawning globally
+- `ENSEMBLE_PANE_DISABLE=1` - Disable pane spawning globally
 - `WEZTERM_PANE` - Auto-detected by WezTerm (used for session tracking)
 
 ### Configuration File

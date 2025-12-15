@@ -13,7 +13,7 @@ START_TIME=$(date +%s)
 START_TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 
 # Log configuration
-LOG_ENABLED="${AI_MESH_PANE_LOG:-true}"
+LOG_ENABLED="${ENSEMBLE_PANE_LOG:-true}"
 LOG_BASE_DIR="${HOME}/.ensemble/agent-logs"
 LOG_DATE=$(date '+%Y-%m-%d')
 LOG_TIME=$(date '+%H%M%S')
@@ -43,7 +43,7 @@ init_logging() {
     # Write log header
     cat > "$LOG_FILE" << EOF
 ================================================================================
-AI-Mesh Agent Log
+Ensemble Agent Log
 ================================================================================
 Agent Type:  ${AGENT_TYPE}
 Task:        ${DESCRIPTION}
@@ -100,7 +100,7 @@ trap cleanup EXIT INT TERM
 clear
 
 echo -e "${BOLD}╔════════════════════════════════════════╗${RESET}"
-echo -e "${BOLD}║  ${CYAN}AI-Mesh Subagent Monitor${RESET}${BOLD}             ║${RESET}"
+echo -e "${BOLD}║  ${CYAN}Ensemble Subagent Monitor${RESET}${BOLD}             ║${RESET}"
 echo -e "${BOLD}╚════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "${CYAN}${BOLD}▶ ${AGENT_TYPE}${RESET}"

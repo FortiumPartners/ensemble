@@ -1,6 +1,6 @@
 # @fortium/ensemble-jest
 
-Jest testing framework integration for Claude Code AI-Mesh ecosystem.
+Jest testing framework integration for Claude Code Ensemble ecosystem.
 
 ## Description
 
