@@ -2,7 +2,7 @@
  * @fortium/ensemble-nestjs
  *
  * NestJS backend framework skills for Claude Code AI-Augmented Development
- * Part of the AI-Mesh plugin ecosystem
+ * Part of the Ensemble plugin ecosystem
  */
 
 /**

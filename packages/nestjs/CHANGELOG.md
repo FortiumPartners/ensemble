@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated `README.md` with complete plugin documentation
   - Installation via Claude Code marketplace
   - Usage examples and code generation patterns
-  - Integration with AI-Mesh ecosystem
+  - Integration with Ensemble ecosystem
 
 ### Migration Notes
 

@@ -108,13 +108,13 @@ echo $WEZTERM_PANE $ZELLIJ_SESSION_NAME $TMUX
 
 ```bash
 # Check if disabled via environment
-echo $AI_MESH_PANE_DISABLE
+echo $ENSEMBLE_PANE_DISABLE
 
 # Check config file
 cat ~/.ensemble/plugins/pane-viewer/config.json | grep enabled
 
 # Re-enable if needed
-unset AI_MESH_PANE_DISABLE
+unset ENSEMBLE_PANE_DISABLE
 # Or edit config.json: "enabled": true
 ```
 
@@ -152,7 +152,7 @@ Force the correct multiplexer:
 
 ```bash
 # Via environment (takes precedence)
-export AI_MESH_PANE_MULTIPLEXER=wezterm
+export ENSEMBLE_PANE_MULTIPLEXER=wezterm
 
 # Via config
 /pane-config multiplexer wezterm
@@ -282,10 +282,10 @@ No log files in `~/.ensemble/agent-logs/`.
 
 ```bash
 # Check environment
-echo $AI_MESH_PANE_LOG
+echo $ENSEMBLE_PANE_LOG
 
 # Enable logging
-export AI_MESH_PANE_LOG=true
+export ENSEMBLE_PANE_LOG=true
 ```
 
 **2. Permission issues**
@@ -320,7 +320,7 @@ npm test -- --testPathPattern=performance
 Disable logging if not needed:
 
 ```bash
-export AI_MESH_PANE_LOG=false
+export ENSEMBLE_PANE_LOG=false
 ```
 
 **3. Simplify configuration**

@@ -1,4 +1,4 @@
-# AI-Mesh Plugin Migration Dashboard
+# Ensemble Plugin Migration Dashboard
 
 **Version**: 2.0.0
 **Last Updated**: 2025-12-10

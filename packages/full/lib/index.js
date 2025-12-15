@@ -1,8 +1,8 @@
 /**
- * AI-Mesh Full Plugin Bundle
+ * Ensemble Full Plugin Bundle
  * @fortium/ensemble-full
  *
- * Meta-package that includes all AI-Mesh plugins
+ * Meta-package that includes all Ensemble plugins
  */
 
 const path = require('path');
@@ -42,9 +42,9 @@ const plugins = {
 };
 
 const skill = {
-  name: 'AI-Mesh Full Bundle',
+  name: 'Ensemble Full Bundle',
   version: '4.0.0',
-  description: 'Complete AI-Mesh plugin ecosystem with all frameworks, testing, and workflow tools',
+  description: 'Complete Ensemble plugin ecosystem with all frameworks, testing, and workflow tools',
 
   includedPlugins: Object.keys(plugins),
 
