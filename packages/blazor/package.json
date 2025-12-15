@@ -4,7 +4,7 @@
   "description": "Blazor framework skills for .NET applications",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },

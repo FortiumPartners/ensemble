@@ -4,7 +4,7 @@
   "description": "Development agents for frontend/backend implementation",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },

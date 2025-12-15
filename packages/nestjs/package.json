@@ -4,7 +4,7 @@
   "description": "NestJS backend framework skills",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },

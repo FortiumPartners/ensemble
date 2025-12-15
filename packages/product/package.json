@@ -4,7 +4,7 @@
   "description": "Product management agents and workflows (PRD creation, analysis)",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },
