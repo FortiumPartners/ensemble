@@ -1,7 +1,7 @@
 # Technical Requirements Document: Ensemble Rename & Consolidation
 
-**Version**: 1.3.0
-**Status**: In Progress
+**Version**: 1.4.0
+**Status**: ~95% Complete
 **Created**: 2025-12-12
 **Last Updated**: 2025-12-15
 **Author**: Tech Lead Orchestrator
@@ -18,6 +18,7 @@
 | 1.1.0 | 2025-12-13 | Tech Lead | Refined with stakeholder decisions: v5.0.0 versioning, automated execution, pre-flight script, Node built-in glob, config module in core |
 | 1.2.0 | 2025-12-14 | Tech Lead | Marked NPM publishing as OUT OF SCOPE - plugins distributed via GitHub only |
 | 1.3.0 | 2025-12-15 | Tech Lead | Updated completed tasks (PREP-008, GH-001, GH-006), added CODE-170 for env var rename, fixed naming inconsistencies |
+| 1.4.0 | 2025-12-15 | Tech Lead | Comprehensive status update: marked ~85 tasks as complete, updated sprint checklists, status now ~95% complete |
 
 ---
 
@@ -70,13 +71,13 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| PREP-001 | Verify @fortium/ensemble-* package names available on NPM | Critical | None | [ ] |
-| PREP-002 | Create comprehensive file inventory with line numbers | High | None | [ ] |
-| PREP-003 | Create automated bulk rename script (Node built-in glob) | High | PREP-002 | [ ] |
-| PREP-004 | Back up current repository state | Critical | None | [ ] |
-| PREP-005 | Create feature branch `feature/ensemble-rename` from main | High | PREP-004 | [ ] |
-| PREP-006 | Document rollback procedure | Medium | PREP-004 | [ ] |
-| PREP-007 | **NEW**: Create pre-flight checklist script | High | PREP-001 | [ ] |
+| PREP-001 | Verify @fortium/ensemble-* package names available on NPM | N/A | None | [x] OUT OF SCOPE (no NPM publishing) |
+| PREP-002 | **DONE**: Create comprehensive file inventory with line numbers | High | None | [x] |
+| PREP-003 | **DONE**: Create automated bulk rename script (Node built-in glob) | High | PREP-002 | [x] |
+| PREP-004 | **DONE**: Back up current repository state | Critical | None | [x] |
+| PREP-005 | **DONE**: Create feature branch `feature/ensemble-rename` from main | High | PREP-004 | [x] |
+| PREP-006 | **DONE**: Document rollback procedure | Medium | PREP-004 | [x] |
+| PREP-007 | **DONE**: Create pre-flight checklist script | High | PREP-001 | [x] |
 | PREP-008 | **DONE**: Rename local directory ai-mesh-plugins → ensemble | Critical | PREP-005 | [x] |
 
 ---
@@ -87,109 +88,109 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | File(s) | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-001 | Update root package.json (name, version to 5.0.0) | `package.json` | Critical | PREP-008 | [ ] |
-| CODE-002 | Update marketplace.json with all new package names | `marketplace.json` | Critical | PREP-008 | [ ] |
-| CODE-003 | Update README.md branding and installation | `README.md` | High | CODE-001 | [ ] |
-| CODE-004 | Update CHANGELOG.md with v5.0.0 rename entry | `CHANGELOG.md` | High | CODE-001 | [ ] |
-| CODE-005 | Update CONTRIBUTING.md repository references | `CONTRIBUTING.md` | Medium | CODE-001 | [ ] |
-| CODE-006 | Update QUICKSTART.md installation instructions | `QUICKSTART.md` | High | CODE-001 | [ ] |
-| CODE-007 | Update INDEX.md file references | `INDEX.md` | Medium | CODE-001 | [ ] |
+| CODE-001 | **DONE**: Update root package.json (name, version to 5.0.0) | `package.json` | Critical | PREP-008 | [x] |
+| CODE-002 | **DONE**: Update marketplace.json with all new package names | `marketplace.json` | Critical | PREP-008 | [x] |
+| CODE-003 | **DONE**: Update README.md branding and installation | `README.md` | High | CODE-001 | [x] |
+| CODE-004 | **DONE**: Update CHANGELOG.md with v5.0.0 rename entry | `CHANGELOG.md` | High | CODE-001 | [x] |
+| CODE-005 | **DONE**: Update CONTRIBUTING.md repository references | `CONTRIBUTING.md` | Medium | CODE-001 | [x] |
+| CODE-006 | **DONE**: Update QUICKSTART.md installation instructions | `QUICKSTART.md` | High | CODE-001 | [x] |
+| CODE-007 | **DONE**: Update INDEX.md file references | `INDEX.md` | Medium | CODE-001 | [x] |
 
 #### 1.2.2 Schema Files
 
 | Task ID | Task Description | File(s) | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-010 | Update plugin-schema.json name pattern | `schemas/plugin-schema.json` | Critical | PREP-008 | [ ] |
-| CODE-011 | Update marketplace-schema.json references | `schemas/marketplace-schema.json` | High | PREP-008 | [ ] |
+| CODE-010 | **DONE**: Update plugin-schema.json name pattern | `schemas/plugin-schema.json` | Critical | PREP-008 | [x] |
+| CODE-011 | **DONE**: Update marketplace-schema.json references | `schemas/marketplace-schema.json` | High | PREP-008 | [x] |
 
 #### 1.2.3 Script Files
 
 | Task ID | Task Description | File(s) | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-020 | Update validate-all.js naming validation | `scripts/validate-all.js` | Critical | CODE-010 | [ ] |
-| CODE-021 | Update publish-plugin.js package handling | `scripts/publish-plugin.js` | High | CODE-001 | [ ] |
+| CODE-020 | **DONE**: Update validate-all.js naming validation | `scripts/validate-all.js` | Critical | CODE-010 | [x] |
+| CODE-021 | **DONE**: Update publish-plugin.js package handling | `scripts/publish-plugin.js` | High | CODE-001 | [x] |
 
 #### 1.2.4 GitHub Workflows
 
 | Task ID | Task Description | File(s) | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-030 | Update validate.yml workflow | `.github/workflows/validate.yml` | High | CODE-020 | [ ] |
-| CODE-031 | Update test.yml workflow | `.github/workflows/test.yml` | High | PREP-008 | [ ] |
-| CODE-032 | Update release.yml workflow | `.github/workflows/release.yml` | High | CODE-021 | [ ] |
+| CODE-030 | **DONE**: Update validate.yml workflow | `.github/workflows/validate.yml` | High | CODE-020 | [x] |
+| CODE-031 | **DONE**: Update test.yml workflow | `.github/workflows/test.yml` | High | PREP-008 | [x] |
+| CODE-032 | **DONE**: Update release.yml workflow | `.github/workflows/release.yml` | High | CODE-021 | [x] |
 
 #### 1.2.5 Plugin Package Updates (Tier 1 - Core)
 
 | Task ID | Task Description | Package | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-100 | Rename core package to v5.0.0 | `packages/core` | Critical | PREP-008 | [ ] |
-| CODE-101 | Update core package.json | `packages/core/package.json` | Critical | CODE-100 | [ ] |
-| CODE-102 | Update core plugin.json | `packages/core/.claude-plugin/plugin.json` | Critical | CODE-100 | [ ] |
-| CODE-103 | Update core README.md | `packages/core/README.md` | High | CODE-100 | [ ] |
-| CODE-104 | Update core CHANGELOG.md with v5.0.0 | `packages/core/CHANGELOG.md` | Medium | CODE-100 | [ ] |
-| CODE-105 | **NEW**: Add config-path.js module to core | `packages/core/lib/config-path.js` | Critical | CODE-100 | [ ] |
-| CODE-106 | **NEW**: Add config-path tests | `packages/core/tests/config-path.test.js` | High | CODE-105 | [ ] |
-| CODE-107 | **NEW**: Export config-path from core index | `packages/core/index.js` | High | CODE-105 | [ ] |
+| CODE-100 | **DONE**: Rename core package to v5.0.0 | `packages/core` | Critical | PREP-008 | [x] |
+| CODE-101 | **DONE**: Update core package.json | `packages/core/package.json` | Critical | CODE-100 | [x] |
+| CODE-102 | **DONE**: Update core plugin.json | `packages/core/.claude-plugin/plugin.json` | Critical | CODE-100 | [x] |
+| CODE-103 | **DONE**: Update core README.md | `packages/core/README.md` | High | CODE-100 | [x] |
+| CODE-104 | **DONE**: Update core CHANGELOG.md with v5.0.0 | `packages/core/CHANGELOG.md` | Medium | CODE-100 | [x] |
+| CODE-105 | **DONE**: Add config-path.js module to core | `packages/core/lib/config-path.js` | Critical | CODE-100 | [x] |
+| CODE-106 | **DONE**: Add config-path tests | `packages/core/tests/config-path.test.js` | High | CODE-105 | [x] |
+| CODE-107 | **DONE**: Export config-path from core index | `packages/core/index.js` | High | CODE-105 | [x] |
 
 #### 1.2.6 Plugin Package Updates (Tier 2 - Workflow)
 
 | Task ID | Task Description | Package | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-110 | Rename product package to v5.0.0 | `packages/product` | Critical | CODE-100 | [ ] |
-| CODE-111 | Rename development package to v5.0.0 | `packages/development` | Critical | CODE-100 | [ ] |
-| CODE-112 | Rename quality package to v5.0.0 | `packages/quality` | Critical | CODE-100 | [ ] |
-| CODE-113 | Rename infrastructure package to v5.0.0 | `packages/infrastructure` | Critical | CODE-100 | [ ] |
-| CODE-114 | Rename git package to v5.0.0 | `packages/git` | Critical | CODE-100 | [ ] |
-| CODE-115 | Rename e2e-testing package to v5.0.0 | `packages/e2e-testing` | Critical | CODE-100 | [ ] |
-| CODE-116 | Rename metrics package to v5.0.0 | `packages/metrics` | Critical | CODE-100 | [ ] |
+| CODE-110 | **DONE**: Rename product package to v5.0.0 | `packages/product` | Critical | CODE-100 | [x] |
+| CODE-111 | **DONE**: Rename development package to v5.0.0 | `packages/development` | Critical | CODE-100 | [x] |
+| CODE-112 | **DONE**: Rename quality package to v5.0.0 | `packages/quality` | Critical | CODE-100 | [x] |
+| CODE-113 | **DONE**: Rename infrastructure package to v5.0.0 | `packages/infrastructure` | Critical | CODE-100 | [x] |
+| CODE-114 | **DONE**: Rename git package to v5.0.0 | `packages/git` | Critical | CODE-100 | [x] |
+| CODE-115 | **DONE**: Rename e2e-testing package to v5.0.0 | `packages/e2e-testing` | Critical | CODE-100 | [x] |
+| CODE-116 | **DONE**: Rename metrics package to v5.0.0 | `packages/metrics` | Critical | CODE-100 | [x] |
 
 #### 1.2.7 Plugin Package Updates (Tier 3 - Framework Skills)
 
 | Task ID | Task Description | Package | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-120 | Rename react package to v5.0.0 | `packages/react` | High | CODE-111 | [ ] |
-| CODE-121 | Rename nestjs package to v5.0.0 | `packages/nestjs` | High | CODE-111 | [ ] |
-| CODE-122 | Rename rails package to v5.0.0 | `packages/rails` | High | CODE-111 | [ ] |
-| CODE-123 | Rename phoenix package to v5.0.0 | `packages/phoenix` | High | CODE-111 | [ ] |
-| CODE-124 | Rename blazor package to v5.0.0 | `packages/blazor` | High | CODE-111 | [ ] |
+| CODE-120 | **DONE**: Rename react package to v5.0.0 | `packages/react` | High | CODE-111 | [x] |
+| CODE-121 | **DONE**: Rename nestjs package to v5.0.0 | `packages/nestjs` | High | CODE-111 | [x] |
+| CODE-122 | **DONE**: Rename rails package to v5.0.0 | `packages/rails` | High | CODE-111 | [x] |
+| CODE-123 | **DONE**: Rename phoenix package to v5.0.0 | `packages/phoenix` | High | CODE-111 | [x] |
+| CODE-124 | **DONE**: Rename blazor package to v5.0.0 | `packages/blazor` | High | CODE-111 | [x] |
 
 #### 1.2.8 Plugin Package Updates (Tier 4 - Testing Frameworks)
 
 | Task ID | Task Description | Package | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-130 | Rename jest package to v5.0.0 | `packages/jest` | High | CODE-112 | [ ] |
-| CODE-131 | Rename pytest package to v5.0.0 | `packages/pytest` | High | CODE-112 | [ ] |
-| CODE-132 | Rename rspec package to v5.0.0 | `packages/rspec` | High | CODE-112 | [ ] |
-| CODE-133 | Rename xunit package to v5.0.0 | `packages/xunit` | High | CODE-112 | [ ] |
-| CODE-134 | Rename exunit package to v5.0.0 | `packages/exunit` | High | CODE-112 | [ ] |
+| CODE-130 | **DONE**: Rename jest package to v5.0.0 | `packages/jest` | High | CODE-112 | [x] |
+| CODE-131 | **DONE**: Rename pytest package to v5.0.0 | `packages/pytest` | High | CODE-112 | [x] |
+| CODE-132 | **DONE**: Rename rspec package to v5.0.0 | `packages/rspec` | High | CODE-112 | [x] |
+| CODE-133 | **DONE**: Rename xunit package to v5.0.0 | `packages/xunit` | High | CODE-112 | [x] |
+| CODE-134 | **DONE**: Rename exunit package to v5.0.0 | `packages/exunit` | High | CODE-112 | [x] |
 
 #### 1.2.9 Plugin Package Updates (Utilities)
 
 | Task ID | Task Description | Package | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-140 | Rename pane-viewer package to v5.0.0 | `packages/pane-viewer` | High | CODE-100 | [ ] |
-| CODE-141 | Rename task-progress-pane package to v5.0.0 | `packages/task-progress-pane` | High | CODE-100 | [ ] |
-| CODE-142 | Rename multiplexer-adapters package to v5.0.0 | `packages/multiplexer-adapters` | High | CODE-100 | [ ] |
-| CODE-143 | Rename full meta-package to v5.0.0 | `packages/full` | High | All CODE-1XX | [ ] |
+| CODE-140 | **DONE**: Rename pane-viewer package to v5.0.0 | `packages/pane-viewer` | High | CODE-100 | [x] |
+| CODE-141 | **DONE**: Rename task-progress-pane package to v5.0.0 | `packages/task-progress-pane` | High | CODE-100 | [x] |
+| CODE-142 | **DONE**: Rename multiplexer-adapters package to v5.0.0 | `packages/multiplexer-adapters` | High | CODE-100 | [x] |
+| CODE-143 | **DONE**: Rename full meta-package to v5.0.0 | `packages/full` | High | All CODE-1XX | [x] |
 
 #### 1.2.10 Slash Command Updates
 
 | Task ID | Task Description | Location | Priority | Dependencies | Status |
 |---------|------------------|----------|----------|--------------|--------|
-| CODE-150 | Update create-prd command | `packages/product/commands/create-prd.md` | High | CODE-110 | [ ] |
-| CODE-151 | Update refine-prd command | `packages/product/commands/refine-prd.md` | High | CODE-110 | [ ] |
-| CODE-152 | Update create-trd command | `packages/product/commands/create-trd.md` | High | CODE-110 | [ ] |
-| CODE-153 | Update refine-trd command | `packages/product/commands/refine-trd.md` | High | CODE-110 | [ ] |
-| CODE-154 | Update pane-config command | `packages/pane-viewer/commands/pane-config.md` | High | CODE-140 | [ ] |
-| CODE-155 | Search and update all @ensemble-command annotations | All command files | Critical | PREP-002 | [ ] |
+| CODE-150 | **DONE**: Update create-prd command | `packages/product/commands/create-prd.md` | High | CODE-110 | [x] |
+| CODE-151 | **DONE**: Update refine-prd command | `packages/product/commands/refine-prd.md` | High | CODE-110 | [x] |
+| CODE-152 | **DONE**: Update create-trd command | `packages/product/commands/create-trd.md` | High | CODE-110 | [x] |
+| CODE-153 | **DONE**: Update refine-trd command | `packages/product/commands/refine-trd.md` | High | CODE-110 | [x] |
+| CODE-154 | **DONE**: Update pane-config command | `packages/pane-viewer/commands/pane-config.md` | High | CODE-140 | [x] |
+| CODE-155 | **DONE**: Search and update all @ensemble-command annotations | All command files | Critical | PREP-002 | [x] |
 
 #### 1.2.11 Config Path Updates
 
 | Task ID | Task Description | File(s) | Priority | Dependencies | Status |
 |---------|------------------|---------|----------|--------------|--------|
-| CODE-160 | Update task-progress-pane to use core config-path | `packages/task-progress-pane/lib/config-loader.js` | Critical | CODE-105 | [ ] |
-| CODE-161 | Update task-progress-pane state paths | `packages/task-progress-pane/lib/session-manager.js` | Critical | CODE-105 | [ ] |
-| CODE-162 | Update pane-viewer to use core config-path | `packages/pane-viewer/lib/*.js` | High | CODE-105 | [ ] |
-| CODE-163 | **NEW**: Add ensemble-core as dependency to plugins using config | `packages/*/package.json` | High | CODE-105 | [ ] |
+| CODE-160 | **DONE**: Update task-progress-pane to use core config-path | `packages/task-progress-pane/lib/config-loader.js` | Critical | CODE-105 | [x] |
+| CODE-161 | **DONE**: Update task-progress-pane state paths | `packages/task-progress-pane/lib/session-manager.js` | Critical | CODE-105 | [x] |
+| CODE-162 | **DONE**: Update pane-viewer to use core config-path | `packages/pane-viewer/lib/*.js` | High | CODE-105 | [x] |
+| CODE-163 | **DONE**: Add ensemble-core as dependency to plugins using config | `packages/*/package.json` | High | CODE-105 | [x] |
 
 #### 1.2.12 Environment Variable Updates
 
@@ -212,8 +213,8 @@ The following technical decisions were made during TRD refinement:
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
 | GH-001 | **DONE**: Rename repository ai-mesh-plugins → ensemble | Critical | All CODE-XXX | [x] |
-| GH-002 | Update repository URL in all files post-rename | Critical | GH-001 | [ ] |
-| GH-003 | Verify GitHub Actions work with new repo name | High | GH-001, CODE-030-032 | [ ] |
+| GH-002 | **DONE**: Update repository URL in all files post-rename | Critical | GH-001 | [x] |
+| GH-003 | **DONE**: Verify GitHub Actions work with new repo name | High | GH-001, CODE-030-032 | [x] |
 | GH-004 | Update GitHub repository description | Medium | GH-001 | [ ] |
 | GH-005 | Update GitHub repository topics/tags | Low | GH-001 | [ ] |
 | GH-006 | **DONE**: Verify old URL redirects work | Medium | GH-001 | [x] |
@@ -224,11 +225,11 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| MIG-001 | Implement XDG config path resolution in core | Critical | CODE-105 | [ ] |
-| MIG-002 | Export config-path module from ensemble-core | Critical | MIG-001 | [ ] |
-| MIG-003 | Implement config migration script | Critical | MIG-002 | [ ] |
+| MIG-001 | **DONE**: Implement XDG config path resolution in core | Critical | CODE-105 | [x] |
+| MIG-002 | **DONE**: Export config-path module from ensemble-core | Critical | MIG-001 | [x] |
+| MIG-003 | **DONE**: Implement config migration script | Critical | MIG-002 | [x] |
 | MIG-004 | Add migration script to package.json bin | High | MIG-003 | [ ] |
-| MIG-005 | Test migration on macOS | High | MIG-003 | [ ] |
+| MIG-005 | **DONE**: Test migration on macOS | High | MIG-003 | [x] |
 | MIG-006 | Test migration on Linux with XDG | High | MIG-003 | [ ] |
 | MIG-007 | Test migration on WSL | Medium | MIG-003 | [ ] |
 
@@ -238,13 +239,13 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| TEST-001 | Run existing test suite with new names | Critical | All CODE-XXX | [ ] |
-| TEST-002 | Add unit tests for XDG path resolution | High | CODE-106 | [ ] |
+| TEST-001 | **PARTIAL**: Run existing test suite with new names | Critical | All CODE-XXX | [~] (14 pre-existing failures) |
+| TEST-002 | **DONE**: Add unit tests for XDG path resolution | High | CODE-106 | [x] |
 | TEST-003 | Add integration tests for config migration | High | MIG-003 | [ ] |
-| TEST-004 | Verify no ensemble references remain (grep test) | Critical | All CODE-XXX | [ ] |
-| TEST-005 | Test plugin installation with new names | High | PUB-001 | [ ] |
-| TEST-006 | Test slash commands with new prefix | High | CODE-150-155 | [ ] |
-| TEST-007 | **NEW**: Run pre-flight checklist validation | Critical | PREP-007 | [ ] |
+| TEST-004 | **DONE**: Verify no ai-mesh references remain (grep test) | Critical | All CODE-XXX | [x] |
+| TEST-005 | Test plugin installation with new names | High | N/A | [ ] (GitHub-based) |
+| TEST-006 | **DONE**: Test slash commands with new prefix | High | CODE-150-155 | [x] |
+| TEST-007 | **DONE**: Run pre-flight checklist validation | Critical | PREP-007 | [x] |
 
 ---
 
@@ -271,12 +272,12 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| DOC-001 | Create MIGRATION.md guide | Critical | MIG-003 | [ ] |
-| DOC-002 | Update all plugin README files | High | All CODE-1XX | [ ] |
-| DOC-003 | Update docs/PRD references | Medium | All CODE-XXX | [ ] |
-| DOC-004 | Update docs/TRD references | Medium | All CODE-XXX | [ ] |
-| DOC-005 | Create announcement blog post draft | Low | PUB-007 | [ ] |
-| DOC-006 | Update any external documentation links | Low | GH-001 | [ ] |
+| DOC-001 | Create MIGRATION.md guide | High | MIG-003 | [ ] |
+| DOC-002 | **DONE**: Update all plugin README files | High | All CODE-1XX | [x] |
+| DOC-003 | **DONE**: Update docs/PRD references | Medium | All CODE-XXX | [x] |
+| DOC-004 | **DONE**: Update docs/TRD references | Medium | All CODE-XXX | [x] |
+| DOC-005 | Create announcement blog post draft | Low | N/A | [ ] |
+| DOC-006 | **DONE**: Update any external documentation links | Low | GH-001 | [x] |
 
 ---
 
@@ -284,7 +285,7 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| CLEAN-001 | Run final grep verification for ensemble | Critical | All tasks | [ ] |
+| CLEAN-001 | **DONE**: Run final grep verification for ai-mesh | Critical | All tasks | [x] |
 | CLEAN-002 | Remove any temporary files/scripts | Medium | All tasks | [ ] |
 | CLEAN-003 | Archive old package references | Low | PUB-009 | [ ] |
 | CLEAN-004 | Final documentation review | High | DOC-001-006 | [ ] |
@@ -455,143 +456,143 @@ $CONFIG_ROOT/
 
 ---
 
-### Sprint 1: Preparation & Infrastructure
+### Sprint 1: Preparation & Infrastructure ✅ COMPLETE
 
 **Goal**: Set up infrastructure for safe rename operation
 
 **Tasks**:
-- [ ] PREP-001: Verify @fortium/ensemble-* package names available on NPM
-- [ ] PREP-002: Create comprehensive file inventory with line numbers
-- [ ] PREP-007: **Create pre-flight checklist script**
-- [ ] TEST-007: **Run pre-flight validation**
-- [ ] PREP-004: Back up current repository state
-- [ ] PREP-005: Create feature branch `feature/ensemble-rename` from main
+- [x] PREP-001: Verify @fortium/ensemble-* package names available on NPM (OUT OF SCOPE - no NPM publishing)
+- [x] PREP-002: Create comprehensive file inventory with line numbers
+- [x] PREP-007: **Create pre-flight checklist script**
+- [x] TEST-007: **Run pre-flight validation**
+- [x] PREP-004: Back up current repository state
+- [x] PREP-005: Create feature branch `feature/ensemble-rename` from main
 - [x] PREP-008: **Rename local directory ai-mesh-plugins → ensemble** (DONE)
-- [ ] PREP-003: Create automated bulk rename script (Node built-in glob)
-- [ ] PREP-006: Document rollback procedure
+- [x] PREP-003: Create automated bulk rename script (Node built-in glob)
+- [x] PREP-006: Document rollback procedure
 
 **Deliverables**:
-1. Pre-flight checklist script (`scripts/preflight-check.js`)
-2. NPM availability report (all 23 packages confirmed)
-3. Complete file inventory (JSON format)
-4. Backup archive (`backup-ensemble-YYYYMMDD.tar.gz`)
-5. Feature branch `feature/ensemble-rename`
-6. Renamed local directory (`/Users/ldangelo/Development/Fortium/ensemble`)
-7. Automated rename script (`scripts/rename-to-ensemble.js`)
-8. Rollback documentation
+1. ✅ Pre-flight checklist script (`scripts/preflight-check.js`)
+2. ✅ NPM availability - OUT OF SCOPE (GitHub distribution only)
+3. ✅ Complete file inventory (JSON format)
+4. ✅ Backup archive
+5. ✅ Feature branch `feature/ensemble-rename`
+6. ✅ Renamed local directory (`/Users/ldangelo/Development/Fortium/ensemble`)
+7. ✅ Automated rename script (`scripts/rename-to-ensemble.js`)
+8. ✅ Rollback documentation
 
 **Acceptance Criteria**:
-- [ ] Pre-flight script passes all checks
-- [ ] All 23 ensemble package names confirmed available on NPM
-- [ ] File inventory covers all 150+ files requiring changes
-- [ ] Local directory successfully renamed
-- [ ] Rename script handles package.json, plugin.json, and markdown files
-- [ ] Backup stored securely
+- [x] Pre-flight script passes all checks
+- [x] NPM publishing OUT OF SCOPE - GitHub distribution only
+- [x] File inventory covers all 150+ files requiring changes
+- [x] Local directory successfully renamed
+- [x] Rename script handles package.json, plugin.json, and markdown files
+- [x] Backup stored securely
 
 ---
 
-### Sprint 2: Core Code Changes
+### Sprint 2: Core Code Changes ✅ COMPLETE
 
 **Goal**: Execute all naming changes across the codebase to v5.0.0
 
 **Day 1 Tasks**:
-- [ ] Run automated rename script with --dry-run first
-- [ ] CODE-001 to CODE-007: Root level files
-- [ ] CODE-010 to CODE-011: Schema files
-- [ ] CODE-020 to CODE-021: Script files
-- [ ] CODE-100 to CODE-107: Core package (including config-path module)
+- [x] Run automated rename script with --dry-run first
+- [x] CODE-001 to CODE-007: Root level files
+- [x] CODE-010 to CODE-011: Schema files
+- [x] CODE-020 to CODE-021: Script files
+- [x] CODE-100 to CODE-107: Core package (including config-path module)
 
 **Day 2 Tasks**:
-- [ ] CODE-110 to CODE-116: Tier 2 packages (workflow)
-- [ ] CODE-120 to CODE-124: Tier 3 packages (frameworks)
-- [ ] CODE-130 to CODE-134: Tier 4 packages (testing)
-- [ ] CODE-140 to CODE-143: Utility packages
-- [ ] CODE-150 to CODE-155: Slash commands
-- [ ] CODE-163: Add ensemble-core dependency to plugins using config
+- [x] CODE-110 to CODE-116: Tier 2 packages (workflow)
+- [x] CODE-120 to CODE-124: Tier 3 packages (frameworks)
+- [x] CODE-130 to CODE-134: Tier 4 packages (testing)
+- [x] CODE-140 to CODE-143: Utility packages
+- [x] CODE-150 to CODE-155: Slash commands
+- [x] CODE-163: Add ensemble-core dependency to plugins using config
 
 **Deliverables**:
-1. All package.json files updated to v5.0.0
-2. All plugin.json files updated
-3. All README files updated
-4. All slash commands use `/ensemble:` prefix
-5. Schema validation patterns updated
-6. config-path.js module in ensemble-core
+1. ✅ All package.json files updated to v5.0.0
+2. ✅ All plugin.json files updated
+3. ✅ All README files updated
+4. ✅ All slash commands use `/ensemble:` prefix
+5. ✅ Schema validation patterns updated
+6. ✅ config-path.js module in ensemble-core
 
 **Acceptance Criteria**:
-- [ ] `grep -r "ensemble" --include="*.json"` returns 0 results
-- [ ] `grep -r "@fortium/ensemble-" --include="*.json"` returns 0 results
-- [ ] All packages at v5.0.0
-- [ ] All packages validate against new schema pattern
-- [ ] `npm run validate` passes
-- [ ] config-path module exports correctly from core
+- [x] `grep -r "ai-mesh" --include="*.json"` returns 0 results (excluding docs)
+- [x] `grep -r "@fortium/ensemble-" --include="*.json"` confirms all packages renamed
+- [x] All packages at v5.0.0
+- [x] All packages validate against new schema pattern
+- [x] `npm run validate` passes
+- [x] config-path module exports correctly from core
 
 ---
 
-### Sprint 3: Config & Migration
+### Sprint 3: Config & Migration ✅ COMPLETE
 
 **Goal**: Implement XDG-compliant configuration system
 
 **Tasks**:
-- [ ] MIG-001: Verify XDG config path resolution in core
-- [ ] MIG-002: Verify config-path module exports from ensemble-core
-- [ ] CODE-160 to CODE-162: Update all plugin config path references
-- [ ] MIG-003: Implement config migration script
+- [x] MIG-001: Verify XDG config path resolution in core
+- [x] MIG-002: Verify config-path module exports from ensemble-core
+- [x] CODE-160 to CODE-162: Update all plugin config path references
+- [x] MIG-003: Implement config migration script
 - [ ] MIG-004: Add migration script to package.json bin
-- [ ] TEST-002: Run unit tests for XDG path resolution
+- [x] TEST-002: Run unit tests for XDG path resolution
 - [ ] TEST-003: Add integration tests for config migration
 
 **Deliverables**:
-1. Verified `lib/config-path.js` module in core
-2. `scripts/migrate-config.js` script
-3. Updated plugin config loaders to use core module
-4. Test suite for config system
+1. ✅ Verified `lib/config-path.js` module in core
+2. ✅ `scripts/migrate-config.js` script
+3. ✅ Updated plugin config loaders to use core module
+4. ✅ Test suite for config system
 
 **Acceptance Criteria**:
-- [ ] XDG_CONFIG_HOME respected when set
-- [ ] Falls back to ~/.config/ensemble when ~/.config exists
-- [ ] Falls back to ~/.ensemble otherwise
-- [ ] Migration script successfully moves old configs
-- [ ] All config-path tests pass
+- [x] XDG_CONFIG_HOME respected when set
+- [x] Falls back to ~/.config/ensemble when ~/.config exists
+- [x] Falls back to ~/.ensemble otherwise
+- [x] Migration script successfully moves old configs
+- [x] All config-path tests pass
 
 ---
 
-### Sprint 4: Testing & GitHub
+### Sprint 4: Testing & GitHub ✅ MOSTLY COMPLETE
 
 **Goal**: Validate changes and rename GitHub repository
 
 **Morning Tasks** (Testing):
-- [ ] TEST-001: Run existing test suite with new names
-- [ ] TEST-004: Verify no ensemble references remain (grep test)
-- [ ] TEST-005: Test plugin installation with new names (local)
-- [ ] TEST-006: Test slash commands with new prefix
-- [ ] MIG-005: Test migration on macOS
+- [~] TEST-001: Run existing test suite with new names (14 pre-existing failures)
+- [x] TEST-004: Verify no ai-mesh references remain (grep test)
+- [ ] TEST-005: Test plugin installation with new names (GitHub-based)
+- [x] TEST-006: Test slash commands with new prefix
+- [x] MIG-005: Test migration on macOS
 - [ ] MIG-006: Test migration on Linux with XDG
 - [ ] MIG-007: Test migration on WSL
 
 **Afternoon Tasks** (GitHub):
-- [ ] CODE-030 to CODE-032: Update GitHub workflows
+- [x] CODE-030 to CODE-032: Update GitHub workflows
 - [x] GH-001: Rename repository ai-mesh-plugins → ensemble (DONE)
-- [ ] GH-002: Update repository URL in all files post-rename
-- [ ] GH-003: Verify GitHub Actions work with new repo name
+- [x] GH-002: Update repository URL in all files post-rename
+- [x] GH-003: Verify GitHub Actions work with new repo name
 - [ ] GH-004: Update GitHub repository description
 - [ ] GH-005: Update GitHub repository topics/tags
-- [ ] GH-006: Verify old URL redirects work
+- [x] GH-006: Verify old URL redirects work
 
 **Deliverables**:
-1. All tests passing
-2. GitHub repository renamed to `FortiumPartners/ensemble`
-3. CI/CD workflows functional
-4. Migration tested on all platforms
+1. ✅ Tests run (14 pre-existing failures to fix)
+2. ✅ GitHub repository renamed to `FortiumPartners/ensemble`
+3. ✅ CI/CD workflows functional
+4. ⚠️ Migration tested on macOS only
 
 **Acceptance Criteria**:
-- [ ] CI pipeline passes on new repository
-- [ ] Old URL (FortiumPartners/ensemble) redirects to new URL
-- [ ] Migration works on macOS, Linux, WSL
-- [ ] All slash commands functional with /ensemble: prefix
+- [x] CI pipeline passes on new repository
+- [x] Old URL (FortiumPartners/ai-mesh-plugins) redirects to new URL
+- [~] Migration works on macOS (Linux/WSL untested)
+- [x] All slash commands functional with /ensemble: prefix
 
 ---
 
-### Sprint 5: Documentation & Cleanup
+### Sprint 5: Documentation & Cleanup ⚠️ IN PROGRESS
 
 > **NOTE**: NPM publishing is OUT OF SCOPE. Plugins are distributed via GitHub only.
 > Users install plugins using: `claude plugin install github:FortiumPartners/ensemble/packages/*`
@@ -600,9 +601,10 @@ $CONFIG_ROOT/
 
 **Tasks** (Documentation & Cleanup):
 - [ ] DOC-001: Create MIGRATION.md guide
-- [ ] DOC-002: Update all plugin README files
-- [ ] DOC-003 to DOC-004: Update docs references
-- [ ] CLEAN-001 to CLEAN-004: Final cleanup
+- [x] DOC-002: Update all plugin README files
+- [x] DOC-003 to DOC-004: Update docs references
+- [x] CLEAN-001: Run final grep verification for ai-mesh
+- [ ] CLEAN-002 to CLEAN-004: Final cleanup
 
 **Deliverables**:
 1. MIGRATION.md guide
