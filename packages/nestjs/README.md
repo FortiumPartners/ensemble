@@ -4,7 +4,7 @@ NestJS backend framework skills for Claude Code AI-Augmented Development
 
 ## Overview
 
-The `@fortium/ensemble-nestjs` plugin provides comprehensive NestJS framework expertise for the AI-Mesh development ecosystem. This plugin enables Claude Code to architect, develop, and maintain production-ready NestJS applications following enterprise patterns and best practices.
+The `@fortium/ensemble-nestjs` plugin provides comprehensive NestJS framework expertise for the Ensemble development ecosystem. This plugin enables Claude Code to architect, develop, and maintain production-ready NestJS applications following enterprise patterns and best practices.
 
 ## Features
 
@@ -281,9 +281,9 @@ The plugin enforces these quality targets:
 - **Performance**: Response time <200ms for standard operations
 - **API Documentation**: 100% OpenAPI coverage
 
-## Integration with AI-Mesh Ecosystem
+## Integration with Ensemble Ecosystem
 
-This plugin is part of the AI-Mesh plugin ecosystem and works seamlessly with:
+This plugin is part of the Ensemble plugin ecosystem and works seamlessly with:
 
 - **@fortium/ensemble-development** - Core development workflows and agents
 - **@fortium/ensemble-react** - Frontend React framework (for full-stack apps)
@@ -386,7 +386,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for version history and migration notes.
 
 ## Support
 
-- **Documentation**: [AI-Mesh Plugins Repository](https://github.com/FortiumPartners/ensemble)
+- **Documentation**: [Ensemble Plugins Repository](https://github.com/FortiumPartners/ensemble)
 - **Issues**: [GitHub Issues](https://github.com/FortiumPartners/ensemble/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/FortiumPartners/ensemble/discussions)
 
@@ -404,5 +404,5 @@ Extracted from ensemble v3.x monolith as part of the plugin architecture migrati
 
 ---
 
-**Part of the AI-Mesh Plugin Ecosystem**
+**Part of the Ensemble Plugin Ecosystem**
 Professional AI-augmented development for Claude Code

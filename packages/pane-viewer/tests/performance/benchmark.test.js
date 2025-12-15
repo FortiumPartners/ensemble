@@ -39,7 +39,7 @@ describe('Performance: Hook Execution Time', () => {
 
         await new Promise((resolve, reject) => {
           const child = spawn('node', [spawnerPath], {
-            env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+            env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
           });
 
           child.stdin.write(hookData);
@@ -88,7 +88,7 @@ describe('Performance: Hook Execution Time', () => {
 
         await new Promise((resolve) => {
           const child = spawn('node', [spawnerPath], {
-            env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+            env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
           });
           child.stdin.write(hookData);
           child.stdin.end();
@@ -126,7 +126,7 @@ describe('Performance: Hook Execution Time', () => {
 
         await new Promise((resolve) => {
           const child = spawn('node', [completionPath], {
-            env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+            env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
           });
           child.stdin.write(hookData);
           child.stdin.end();

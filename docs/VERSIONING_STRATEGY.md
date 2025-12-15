@@ -1,4 +1,4 @@
-# AI-Mesh Plugins Versioning Strategy
+# Ensemble Plugins Versioning Strategy
 
 **Version**: 1.0.0
 **Date**: 2025-12-10
@@ -24,7 +24,7 @@
 
 ### 1.1 Core Principles
 
-The AI-Mesh plugins monorepo follows **independent versioning** with intelligent auto-update policies to balance stability with innovation:
+The Ensemble plugins monorepo follows **independent versioning** with intelligent auto-update policies to balance stability with innovation:
 
 - **Semantic Versioning (SemVer)**: All plugins strictly follow `MAJOR.MINOR.PATCH` format
 - **Independent Versioning**: Each plugin versions independently based on its own changes
@@ -345,7 +345,7 @@ npm WARN Run: npm update @fortium/ensemble-orchestrator
 
 ### 4.1 Update Policy Overview
 
-AI-Mesh plugins implement intelligent auto-update with user safety:
+Ensemble plugins implement intelligent auto-update with user safety:
 
 | Update Type | Auto-Install | User Notification | Rollback Available |
 |-------------|--------------|-------------------|-------------------|
@@ -773,7 +773,7 @@ Version 2.x.x: End-of-Life (no support)
 
 ### 6.2 Claude Code Version Compatibility
 
-AI-Mesh plugins target Claude Code stable releases:
+Ensemble plugins target Claude Code stable releases:
 
 ```json
 {

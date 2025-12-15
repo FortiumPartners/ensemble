@@ -12,7 +12,7 @@ const { PaneManager } = require('./pane-manager');
 
 async function main(hookData) {
   try {
-    if (process.env.AI_MESH_PANE_DISABLE === '1') {
+    if (process.env.ENSEMBLE_PANE_DISABLE === '1') {
       return;
     }
 

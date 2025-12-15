@@ -7,7 +7,7 @@
  * Displays subagent status in a split pane.
  *
  * Environment Variables:
- * - AI_MESH_PANE_DISABLE: Set to '1' to disable pane spawning
+ * - ENSEMBLE_PANE_DISABLE: Set to '1' to disable pane spawning
  */
 
 const { PaneManager } = require('./pane-manager');
@@ -34,7 +34,7 @@ function loadConfig() {
 async function main(hookData) {
   try {
     // Check disable flag
-    if (process.env.AI_MESH_PANE_DISABLE === '1') {
+    if (process.env.ENSEMBLE_PANE_DISABLE === '1') {
       return;
     }
 

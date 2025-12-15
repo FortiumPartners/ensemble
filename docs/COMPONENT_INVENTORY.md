@@ -1,12 +1,12 @@
-# AI-Mesh Component Inventory
+# Ensemble Component Inventory
 
 **Version**: 1.0.0
 **Date**: 2025-12-10
-**Purpose**: Comprehensive inventory of all AI-Mesh components for plugin modularization
+**Purpose**: Comprehensive inventory of all Ensemble components for plugin modularization
 
 ## Executive Summary
 
-This document catalogs all components from the AI-Mesh monorepo (`/Users/ldangelo/Development/Fortium/ensemble/`) for reorganization into focused NPM plugins.
+This document catalogs all components from the Ensemble monorepo (`/Users/ldangelo/Development/Fortium/ensemble/`) for reorganization into focused NPM plugins.
 
 ### Component Counts
 

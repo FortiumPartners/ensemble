@@ -132,44 +132,44 @@ Maximum number of agent entries to keep in state file.
 
 Environment variables override configuration file settings.
 
-### AI_MESH_PANE_DISABLE
+### ENSEMBLE_PANE_DISABLE
 
 Disable the pane viewer entirely.
 
 ```bash
-export AI_MESH_PANE_DISABLE=1
+export ENSEMBLE_PANE_DISABLE=1
 ```
 
-### AI_MESH_PANE_MULTIPLEXER
+### ENSEMBLE_PANE_MULTIPLEXER
 
 Force a specific multiplexer.
 
 ```bash
-export AI_MESH_PANE_MULTIPLEXER=wezterm
+export ENSEMBLE_PANE_MULTIPLEXER=wezterm
 ```
 
-### AI_MESH_PANE_DIRECTION
+### ENSEMBLE_PANE_DIRECTION
 
 Set the split direction.
 
 ```bash
-export AI_MESH_PANE_DIRECTION=bottom
+export ENSEMBLE_PANE_DIRECTION=bottom
 ```
 
-### AI_MESH_PANE_PERCENT
+### ENSEMBLE_PANE_PERCENT
 
 Set the pane size percentage.
 
 ```bash
-export AI_MESH_PANE_PERCENT=30
+export ENSEMBLE_PANE_PERCENT=30
 ```
 
-### AI_MESH_PANE_LOG
+### ENSEMBLE_PANE_LOG
 
 Enable/disable activity logging.
 
 ```bash
-export AI_MESH_PANE_LOG=false  # Disable logging
+export ENSEMBLE_PANE_LOG=false  # Disable logging
 ```
 
 ## Logging Configuration
@@ -196,7 +196,7 @@ Activity logs are stored in `~/.ensemble/agent-logs/`.
 
 ```
 ================================================================================
-AI-Mesh Agent Log
+Ensemble Agent Log
 ================================================================================
 Agent Type:  backend-developer
 Task:        Implement user authentication
@@ -270,7 +270,7 @@ Use the `/pane-config` command to manage configuration:
 Or via environment:
 
 ```bash
-export AI_MESH_PANE_DISABLE=1
+export ENSEMBLE_PANE_DISABLE=1
 ```
 
 ### Quick Auto-Close

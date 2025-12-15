@@ -27,20 +27,20 @@ describe('E2E: Complete Hook Workflow', () => {
 
     // Save and override HOME
     originalHome = process.env.HOME;
-    originalDisable = process.env.AI_MESH_PANE_DISABLE;
+    originalDisable = process.env.ENSEMBLE_PANE_DISABLE;
     process.env.HOME = testDir;
 
     // Ensure pane spawning is disabled for tests (no actual terminal)
-    process.env.AI_MESH_PANE_DISABLE = '1';
+    process.env.ENSEMBLE_PANE_DISABLE = '1';
   });
 
   afterAll(() => {
     // Restore environment
     process.env.HOME = originalHome;
     if (originalDisable !== undefined) {
-      process.env.AI_MESH_PANE_DISABLE = originalDisable;
+      process.env.ENSEMBLE_PANE_DISABLE = originalDisable;
     } else {
-      delete process.env.AI_MESH_PANE_DISABLE;
+      delete process.env.ENSEMBLE_PANE_DISABLE;
     }
 
     // Clean up test directory
@@ -68,7 +68,7 @@ describe('E2E: Complete Hook Workflow', () => {
       };
 
       const child = spawn('node', [spawnerPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       let stdout = '';
@@ -98,7 +98,7 @@ describe('E2E: Complete Hook Workflow', () => {
       };
 
       const child = spawn('node', [spawnerPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       child.on('close', (code) => {
@@ -114,7 +114,7 @@ describe('E2E: Complete Hook Workflow', () => {
       const spawnerPath = path.join(hookDir, 'pane-spawner.js');
 
       const child = spawn('node', [spawnerPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       let stderr = '';
@@ -142,7 +142,7 @@ describe('E2E: Complete Hook Workflow', () => {
       };
 
       const child = spawn('node', [completionPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       child.on('close', (code) => {
@@ -165,7 +165,7 @@ describe('E2E: Complete Hook Workflow', () => {
       };
 
       const child = spawn('node', [completionPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       child.on('close', (code) => {
@@ -656,7 +656,7 @@ describe('E2E: Performance Benchmarks', () => {
 
       const start = Date.now();
       const child = spawn('node', [spawnerPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       child.on('close', () => {
@@ -680,7 +680,7 @@ describe('E2E: Performance Benchmarks', () => {
 
       const start = Date.now();
       const child = spawn('node', [completionPath], {
-        env: { ...process.env, AI_MESH_PANE_DISABLE: '1' }
+        env: { ...process.env, ENSEMBLE_PANE_DISABLE: '1' }
       });
 
       child.on('close', () => {

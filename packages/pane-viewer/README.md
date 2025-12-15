@@ -31,7 +31,7 @@ The Ensemble Pane Viewer is a Claude Code plugin that automatically spawns termi
 
 ### Installation Methods
 
-#### Method 1: Via AI-Mesh Installer (Recommended)
+#### Method 1: Via Ensemble Installer (Recommended)
 
 ```bash
 # Install ensemble which includes the pane viewer plugin
@@ -175,16 +175,16 @@ Override configuration via environment:
 
 ```bash
 # Disable pane viewer
-export AI_MESH_PANE_DISABLE=1
+export ENSEMBLE_PANE_DISABLE=1
 
 # Force specific multiplexer
-export AI_MESH_PANE_MULTIPLEXER=wezterm
+export ENSEMBLE_PANE_MULTIPLEXER=wezterm
 
 # Set split direction
-export AI_MESH_PANE_DIRECTION=bottom
+export ENSEMBLE_PANE_DIRECTION=bottom
 
 # Set pane size
-export AI_MESH_PANE_PERCENT=40
+export ENSEMBLE_PANE_PERCENT=40
 ```
 
 ## Usage
@@ -204,7 +204,7 @@ Disable automatic spawning and control manually:
 
 ```bash
 # Disable automatic spawning
-export AI_MESH_PANE_DISABLE=1
+export ENSEMBLE_PANE_DISABLE=1
 
 # Use library API
 node -e "
@@ -277,7 +277,7 @@ The viewer pane shows real-time agent activity with tool invocations:
 
 ```
 ╔════════════════════════════════════════╗
-║  AI-Mesh Subagent Monitor              ║
+║  Ensemble Subagent Monitor              ║
 ╚════════════════════════════════════════╝
 
 ▶ infrastructure-developer
