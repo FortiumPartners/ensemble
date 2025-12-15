@@ -1,12 +1,12 @@
 # Technical Requirements Document: Ensemble Rename & Consolidation
 
-**Version**: 1.2.0
-**Status**: Ready for Implementation
+**Version**: 1.3.0
+**Status**: In Progress
 **Created**: 2025-12-12
-**Last Updated**: 2025-12-14
+**Last Updated**: 2025-12-15
 **Author**: Tech Lead Orchestrator
 **PRD Reference**: [ensemble-rename.md](../PRD/ensemble-rename.md) v1.1.0
-**Project**: ensemble → ensemble
+**Project**: ai-mesh-plugins → ensemble
 
 ---
 
@@ -17,12 +17,13 @@
 | 1.0.0 | 2025-12-12 | Tech Lead | Initial TRD with task breakdown and sprint planning |
 | 1.1.0 | 2025-12-13 | Tech Lead | Refined with stakeholder decisions: v5.0.0 versioning, automated execution, pre-flight script, Node built-in glob, config module in core |
 | 1.2.0 | 2025-12-14 | Tech Lead | Marked NPM publishing as OUT OF SCOPE - plugins distributed via GitHub only |
+| 1.3.0 | 2025-12-15 | Tech Lead | Updated completed tasks (PREP-008, GH-001, GH-006), added CODE-170 for env var rename, fixed naming inconsistencies |
 
 ---
 
 ## Document Overview
 
-This TRD translates the Ensemble Rename PRD into actionable technical specifications, task breakdowns, and sprint planning. The project involves renaming the entire ensemble ecosystem to "ensemble" with XDG-compliant configuration consolidation.
+This TRD translates the Ensemble Rename PRD into actionable technical specifications, task breakdowns, and sprint planning. The project involves renaming the entire ai-mesh ecosystem to "ensemble" with XDG-compliant configuration consolidation.
 
 **Scope Summary**:
 - 23 packages to rename in package.json (all bumped to v5.0.0)
@@ -76,7 +77,7 @@ The following technical decisions were made during TRD refinement:
 | PREP-005 | Create feature branch `feature/ensemble-rename` from main | High | PREP-004 | [ ] |
 | PREP-006 | Document rollback procedure | Medium | PREP-004 | [ ] |
 | PREP-007 | **NEW**: Create pre-flight checklist script | High | PREP-001 | [ ] |
-| PREP-008 | **NEW**: Rename local directory ensemble → ensemble | Critical | PREP-005 | [ ] |
+| PREP-008 | **DONE**: Rename local directory ai-mesh-plugins → ensemble | Critical | PREP-005 | [x] |
 
 ---
 
@@ -190,18 +191,32 @@ The following technical decisions were made during TRD refinement:
 | CODE-162 | Update pane-viewer to use core config-path | `packages/pane-viewer/lib/*.js` | High | CODE-105 | [ ] |
 | CODE-163 | **NEW**: Add ensemble-core as dependency to plugins using config | `packages/*/package.json` | High | CODE-105 | [ ] |
 
+#### 1.2.12 Environment Variable Updates
+
+| Task ID | Task Description | File(s) | Priority | Dependencies | Status |
+|---------|------------------|---------|----------|--------------|--------|
+| CODE-170 | **DONE**: Rename AI_MESH_* env vars to ENSEMBLE_* | Multiple (26 files) | High | PREP-008 | [x] |
+
+> **Note**: CODE-170 renamed the following environment variables:
+> - `AI_MESH_PANE_DISABLE` → `ENSEMBLE_PANE_DISABLE`
+> - `AI_MESH_PANE_MULTIPLEXER` → `ENSEMBLE_PANE_MULTIPLEXER`
+> - `AI_MESH_PANE_DIRECTION` → `ENSEMBLE_PANE_DIRECTION`
+> - `AI_MESH_PANE_PERCENT` → `ENSEMBLE_PANE_PERCENT`
+> - `AI_MESH_PANE_FLOATING` → `ENSEMBLE_PANE_FLOATING`
+> - `AI_MESH_PANE_LOG` → `ENSEMBLE_PANE_LOG`
+
 ---
 
 ### 1.3 GitHub Tasks
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| GH-001 | Rename repository ensemble → ensemble | Critical | All CODE-XXX | [ ] |
+| GH-001 | **DONE**: Rename repository ai-mesh-plugins → ensemble | Critical | All CODE-XXX | [x] |
 | GH-002 | Update repository URL in all files post-rename | Critical | GH-001 | [ ] |
 | GH-003 | Verify GitHub Actions work with new repo name | High | GH-001, CODE-030-032 | [ ] |
 | GH-004 | Update GitHub repository description | Medium | GH-001 | [ ] |
 | GH-005 | Update GitHub repository topics/tags | Low | GH-001 | [ ] |
-| GH-006 | Verify old URL redirects work | Medium | GH-001 | [ ] |
+| GH-006 | **DONE**: Verify old URL redirects work | Medium | GH-001 | [x] |
 
 ---
 
@@ -451,7 +466,7 @@ $CONFIG_ROOT/
 - [ ] TEST-007: **Run pre-flight validation**
 - [ ] PREP-004: Back up current repository state
 - [ ] PREP-005: Create feature branch `feature/ensemble-rename` from main
-- [ ] PREP-008: **Rename local directory ensemble → ensemble**
+- [x] PREP-008: **Rename local directory ai-mesh-plugins → ensemble** (DONE)
 - [ ] PREP-003: Create automated bulk rename script (Node built-in glob)
 - [ ] PREP-006: Document rollback procedure
 
@@ -555,7 +570,7 @@ $CONFIG_ROOT/
 
 **Afternoon Tasks** (GitHub):
 - [ ] CODE-030 to CODE-032: Update GitHub workflows
-- [ ] GH-001: Rename repository ensemble → ensemble
+- [x] GH-001: Rename repository ai-mesh-plugins → ensemble (DONE)
 - [ ] GH-002: Update repository URL in all files post-rename
 - [ ] GH-003: Verify GitHub Actions work with new repo name
 - [ ] GH-004: Update GitHub repository description
@@ -771,8 +786,8 @@ function checkBackupExists() {
 
 function checkDirectoryName() {
   const currentDir = path.basename(process.cwd());
-  if (currentDir === 'ensemble-plugins') {
-    log('pass', `Current directory is 'ensemble-plugins' - ready for rename`);
+  if (currentDir === 'ai-mesh-plugins') {
+    log('pass', `Current directory is 'ai-mesh-plugins' - ready for rename`);
     return true;
   } else if (currentDir === 'ensemble') {
     log('pass', `Directory already renamed to 'ensemble'`);
@@ -824,7 +839,7 @@ runAllChecks();
 ```javascript
 #!/usr/bin/env node
 /**
- * Automated rename script for ensemble → ensemble migration
+ * Automated rename script for ai-mesh → ensemble migration
  * Uses Node.js 22+ built-in glob (no external dependencies)
  *
  * Usage: node scripts/rename-to-ensemble.js [--dry-run]
@@ -1289,7 +1304,7 @@ describe('config-path', () => {
 ```javascript
 #!/usr/bin/env node
 /**
- * Configuration migration script for ensemble → ensemble
+ * Configuration migration script for ai-mesh → ensemble
  *
  * Migrates configuration from old locations to new XDG-compliant structure
  *
