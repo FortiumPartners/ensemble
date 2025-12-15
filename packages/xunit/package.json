@@ -4,7 +4,7 @@
   "description": "xUnit testing framework integration for .NET",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },

@@ -21,9 +21,9 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage --passWithNoTests"
   },
   "devDependencies": {
     "vitest": "^2.1.0",

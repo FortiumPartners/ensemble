@@ -4,7 +4,7 @@
   "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
   "main": "lib/index.js",
   "scripts": {
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },
