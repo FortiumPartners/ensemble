@@ -146,7 +146,7 @@ The following decisions were made during PRD refinement:
 
 - [x] All 23 plugin packages renamed from `@fortium/ai-mesh-*` to `@fortium/ensemble-*`
 - [x] GitHub repository renamed from `ai-mesh-plugins` to `ensemble`
-- [ ] Local directory renamed from `ai-mesh-plugins` to `ensemble`
+- [x] Local directory renamed from `ai-mesh-plugins` to `ensemble`
 - [x] All configuration consolidated under `~/.ensemble/` or `$XDG_CONFIG_HOME/ensemble/`
 - [x] All slash commands updated from `/ai-mesh:*` to `/ensemble:*`
 - [x] Migration documentation provided for existing users

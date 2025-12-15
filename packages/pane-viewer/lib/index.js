@@ -8,7 +8,7 @@
 const path = require('path');
 
 const skill = {
-  name: 'AI-Mesh Pane Viewer',
+  name: 'Ensemble Pane Viewer',
   version: '0.2.0',
   description: 'Real-time subagent monitoring in split terminal panes with tool display and manual close control',
   category: 'monitoring',

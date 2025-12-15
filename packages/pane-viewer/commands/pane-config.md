@@ -82,12 +82,12 @@ Settings are saved to `~/.ensemble/plugins/pane-viewer/config.json`
 ## Environment Variables
 
 You can also configure via environment variables:
-- `AI_MESH_PANE_MULTIPLEXER` - Set multiplexer
-- `AI_MESH_PANE_DIRECTION` - Set direction
-- `AI_MESH_PANE_PERCENT` - Set percent
-- `AI_MESH_PANE_FLOATING` - Set floating (0 or 1)
-- `AI_MESH_PANE_DISABLE` - Disable pane viewer (set to 1)
-- `AI_MESH_PANE_LOG` - Enable/disable logging (true or false)
+- `ENSEMBLE_PANE_MULTIPLEXER` - Set multiplexer
+- `ENSEMBLE_PANE_DIRECTION` - Set direction
+- `ENSEMBLE_PANE_PERCENT` - Set percent
+- `ENSEMBLE_PANE_FLOATING` - Set floating (0 or 1)
+- `ENSEMBLE_PANE_DISABLE` - Disable pane viewer (set to 1)
+- `ENSEMBLE_PANE_LOG` - Enable/disable logging (true or false)
 
 ## Log Files
 
