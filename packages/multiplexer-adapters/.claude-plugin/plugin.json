@@ -7,8 +7,5 @@
     "email": "support@fortiumpartners.com"
   },
   "license": "MIT",
-  "type": "library",
-  "exports": {
-    "main": "../lib/index.js"
-  }
+  "repository": "https://github.com/FortiumPartners/ensemble"
 }
