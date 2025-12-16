@@ -16,7 +16,6 @@
     "aws",
     "ensemble"
   ],
-  "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [

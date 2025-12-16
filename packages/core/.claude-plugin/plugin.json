@@ -1,6 +1,6 @@
 {
   "name": "ensemble-core",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Core orchestration and utilities for ensemble ecosystem",
   "author": {
     "name": "Fortium Partners",
@@ -11,11 +11,10 @@
   "license": "MIT",
   "keywords": [
     "orchestration",
-    "agents",
     "core",
-    "ensemble"
+    "ensemble",
+    "framework-detection"
   ],
-  "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills"
 }

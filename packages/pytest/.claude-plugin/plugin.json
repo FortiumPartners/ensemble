@@ -19,7 +19,6 @@
     "parametrization",
     "test-generation"
   ],
-  "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "skillsMetadata": {

@@ -19,7 +19,6 @@
     "ensemble"
   ],
   "main": "./lib/index.js",
-  "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
@@ -105,12 +104,18 @@
         "boostFactors": [
           {
             "type": "config-file",
-            "files": ["next.config.js", "next.config.mjs"],
+            "files": [
+              "next.config.js",
+              "next.config.mjs"
+            ],
             "boost": 0.1
           },
           {
             "type": "config-file",
-            "files": ["vite.config.js", "vite.config.ts"],
+            "files": [
+              "vite.config.js",
+              "vite.config.ts"
+            ],
             "boost": 0.1
           }
         ]

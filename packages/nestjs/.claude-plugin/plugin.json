@@ -20,7 +20,6 @@
     "graphql",
     "microservices"
   ],
-  "agents": "./agents",
   "commands": "./commands",
   "skills": "./skills",
   "dependencies": [
@@ -29,7 +28,10 @@
   "skillsManifest": {
     "framework": "nestjs",
     "category": "backend",
-    "languages": ["typescript", "javascript"],
+    "languages": [
+      "typescript",
+      "javascript"
+    ],
     "documentation": {
       "quickReference": "skills/SKILL.md",
       "comprehensiveGuide": "skills/REFERENCE.md",
