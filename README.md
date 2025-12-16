@@ -4,14 +4,14 @@ Modular plugin ecosystem for Claude Code, enabling flexible, pay-what-you-need A
 
 ## Overview
 
-Ensemble Plugins is the v4.0.0 evolution of the ensemble toolkit, transitioning from a monolithic architecture to a modular plugin system. This allows developers to install only the capabilities they need, from core orchestration to framework-specific skills.
+Ensemble Plugins v5.0.0 provides a modular plugin system for Claude Code, allowing developers to install only the capabilities they need—from core orchestration to framework-specific skills.
 
 ## Architecture
 
-The plugin ecosystem is organized into 4 tiers:
+The plugin ecosystem is organized into 4 tiers across 24 packages:
 
 ### Tier 1: Core Foundation
-- **ensemble-core** (4.0.0) - Essential orchestration, agents, and utilities
+- **ensemble-core** (5.0.0) - Essential orchestration, agents, and utilities
 
 ### Tier 2: Workflow Plugins
 - **ensemble-product** - Product management (PRD creation, analysis)
@@ -37,7 +37,9 @@ The plugin ecosystem is organized into 4 tiers:
 - **ensemble-exunit** - ExUnit testing patterns
 
 ### Utilities
-- **ensemble-pane-viewer** (0.1.0) - Real-time subagent monitoring in terminal panes
+- **ensemble-pane-viewer** (5.0.0) - Real-time subagent monitoring in terminal panes
+- **ensemble-task-progress-pane** (5.0.0) - TodoWrite progress visualization
+- **ensemble-multiplexer-adapters** - Terminal multiplexer abstraction layer
 
 ### Meta-Package
 - **ensemble-full** - Complete ecosystem (all plugins bundled)
@@ -102,12 +104,13 @@ Commands are provided by specific plugins:
 
 ### Agent Mesh
 
-Plugins provide specialized agents:
+Plugins provide 28 specialized agents across domains:
 
-- **Orchestrators**: ensemble-orchestrator, tech-lead-orchestrator, product-management-orchestrator
+- **Orchestrators**: ai-mesh-orchestrator, tech-lead-orchestrator, product-management-orchestrator, qa-orchestrator, build-orchestrator, deployment-orchestrator, infrastructure-orchestrator
 - **Developers**: frontend-developer, backend-developer, infrastructure-developer
-- **Quality**: code-reviewer, test-runner, playwright-tester
-- **Utilities**: git-workflow, documentation-specialist, file-creator
+- **Quality**: code-reviewer, test-runner, playwright-tester, deep-debugger
+- **Specialists**: documentation-specialist, api-documentation-specialist, postgresql-specialist, github-specialist, helm-chart-specialist
+- **Utilities**: git-workflow, file-creator, context-fetcher, directory-monitor, release-agent, agent-meta-engineer
 
 ## Plugin Dependencies
 
@@ -183,9 +186,9 @@ mkdir -p packages/my-plugin/{.claude-plugin,agents,commands,skills,lib,tests}
 5. Validate: `npm run validate`
 6. Test: `npm test`
 
-## Migration from ensemble v3.x
+## Migration from ensemble v3.x/v4.x
 
-If you're migrating from the monolithic ensemble v3.x:
+If you're migrating from previous ensemble versions:
 
 1. **Identify current usage**: Review which agents/commands you actively use
 2. **Install equivalent plugins**: Map your usage to the new modular plugins
@@ -194,8 +197,8 @@ If you're migrating from the monolithic ensemble v3.x:
 
 ### Migration Guide
 
-| v3.x Component | v4.0 Plugin |
-|----------------|-------------|
+| v3.x/v4.x Component | v5.0 Plugin |
+|---------------------|-------------|
 | ensemble-orchestrator | ensemble-core |
 | product-management-orchestrator | ensemble-product |
 | frontend-developer | ensemble-development |
@@ -206,7 +209,8 @@ If you're migrating from the monolithic ensemble v3.x:
 | git-workflow | ensemble-git |
 | playwright-tester | ensemble-e2e-testing |
 | manager-dashboard-agent | ensemble-metrics |
-| ensemble-pane-viewer | ensemble-pane-viewer (no change) |
+| ensemble-pane-viewer | ensemble-pane-viewer (now 5.0.0) |
+| task-progress-pane | ensemble-task-progress-pane (new) |
 
 ## Configuration
 
@@ -268,9 +272,9 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guid
 
 All plugins follow [Semantic Versioning](https://semver.org/):
 
-- **Major**: Breaking changes (e.g., 3.x → 4.0)
-- **Minor**: New features, backward compatible (e.g., 4.0 → 4.1)
-- **Patch**: Bug fixes, backward compatible (e.g., 4.0.0 → 4.0.1)
+- **Major**: Breaking changes (e.g., 4.x → 5.0)
+- **Minor**: New features, backward compatible (e.g., 5.0 → 5.1)
+- **Patch**: Bug fixes, backward compatible (e.g., 5.0.0 → 5.0.1)
 
 Core plugins (Tier 1-2) maintain version synchronization. Framework and testing plugins (Tier 3-4) may have independent versions.
 
@@ -287,10 +291,10 @@ MIT - See [LICENSE](LICENSE) for details.
 
 ## Acknowledgments
 
-Built on the foundation of ensemble v3.x, which achieved:
+Built on the foundation of previous ensemble versions, which achieved:
 - 35-40% productivity improvements
 - 87-99% performance optimization
-- 26 specialized agents
+- 28 specialized agents (v5.0)
 - Production validation across multiple teams
 
 ## Changelog
