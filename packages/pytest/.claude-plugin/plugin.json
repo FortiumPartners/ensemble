@@ -1,6 +1,6 @@
 {
   "name": "ensemble-pytest",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Pytest testing framework integration - Execute and generate Python tests with fixtures, parametrization, and mocking support",
   "author": {
     "name": "Fortium Partners",
@@ -33,8 +33,5 @@
         "runTest": "./lib/run-test.py"
       }
     }
-  },
-  "dependencies": [
-    "ensemble-quality@4.0.0"
-  ]
+  }
 }

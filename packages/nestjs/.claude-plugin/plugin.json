@@ -1,6 +1,6 @@
 {
   "name": "ensemble-nestjs",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "NestJS backend framework skills for Claude Code AI-Augmented Development",
   "author": {
     "name": "Fortium Partners",
@@ -15,112 +15,8 @@
     "nodejs",
     "typescript",
     "ensemble",
-    "framework",
-    "rest-api",
-    "graphql",
-    "microservices"
+    "framework"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-development@4.0.0"
-  ],
-  "skillsManifest": {
-    "framework": "nestjs",
-    "category": "backend",
-    "languages": [
-      "typescript",
-      "javascript"
-    ],
-    "documentation": {
-      "quickReference": "skills/SKILL.md",
-      "comprehensiveGuide": "skills/REFERENCE.md",
-      "validation": "skills/VALIDATION.md"
-    },
-    "templates": {
-      "controller": "skills/templates/controller.template.ts",
-      "service": "skills/templates/service.template.ts",
-      "repository": "skills/templates/repository.template.ts",
-      "dto": "skills/templates/dto.template.ts",
-      "entity": "skills/templates/entity.template.ts",
-      "module": "skills/templates/module.template.ts",
-      "serviceSpec": "skills/templates/service.spec.template.ts",
-      "testTemplates": "skills/templates/test-templates.js"
-    },
-    "examples": {
-      "userCrud": "skills/examples/user-management-crud.example.ts",
-      "jwtAuth": "skills/examples/jwt-authentication.example.ts",
-      "readme": "skills/examples/README.md"
-    },
-    "templateVariables": [
-      {
-        "name": "EntityName",
-        "description": "PascalCase entity name",
-        "example": "User"
-      },
-      {
-        "name": "entityName",
-        "description": "camelCase entity name",
-        "example": "user"
-      },
-      {
-        "name": "entity-name",
-        "description": "kebab-case entity name",
-        "example": "user"
-      },
-      {
-        "name": "entity-name-plural",
-        "description": "kebab-case plural",
-        "example": "users"
-      },
-      {
-        "name": "endpoint-path",
-        "description": "API endpoint path",
-        "example": "api/v1/users"
-      },
-      {
-        "name": "entity-display-name",
-        "description": "Human-readable name",
-        "example": "User"
-      }
-    ],
-    "detectionPatterns": {
-      "files": [
-        "nest-cli.json",
-        "package.json"
-      ],
-      "packageJsonDependencies": [
-        "@nestjs/common",
-        "@nestjs/core",
-        "@nestjs/platform-express"
-      ],
-      "directoryStructure": [
-        "src/modules",
-        "src/controllers",
-        "src/services"
-      ]
-    }
-  },
-  "compatibleAgents": {
-    "backend-developer": ">=3.0.0",
-    "tech-lead-orchestrator": ">=2.5.0"
-  },
-  "qualityStandards": {
-    "serviceCoverage": ">=80%",
-    "controllerCoverage": ">=70%",
-    "e2eCoverage": ">=60%",
-    "overallCoverage": ">=75%",
-    "security": "OWASP Top 10 compliance",
-    "performance": "<200ms response time",
-    "apiDocumentation": "100% OpenAPI coverage"
-  },
-  "frameworkSupport": {
-    "nestjs": {
-      "min": "8.0.0",
-      "max": "11.x",
-      "recommended": "10.4.0"
-    },
-    "nodejs": ">=18.0.0",
-    "typescript": ">=5.0.0"
-  }
+  "skills": "./skills"
 }

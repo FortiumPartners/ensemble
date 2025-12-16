@@ -1,6 +1,6 @@
 {
   "name": "ensemble-react",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "React framework skills and component development for Claude Code",
   "author": {
     "name": "Fortium Partners",
@@ -21,9 +21,6 @@
   "main": "./lib/index.js",
   "commands": "./commands",
   "skills": "./skills",
-  "dependencies": [
-    "ensemble-development@4.0.0"
-  ],
   "skillDefinitions": [
     {
       "name": "react-framework",
