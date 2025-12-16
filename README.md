@@ -37,7 +37,7 @@ The plugin ecosystem is organized into 4 tiers across 24 packages:
 - **ensemble-exunit** - ExUnit testing patterns
 
 ### Utilities
-- **ensemble-pane-viewer** (5.0.0) - Real-time subagent monitoring in terminal panes
+- **ensemble-agent-progress-pane** (5.1.0) - Real-time subagent monitoring in terminal panes
 - **ensemble-task-progress-pane** (5.0.0) - TodoWrite progress visualization
 - **ensemble-multiplexer-adapters** - Terminal multiplexer abstraction layer
 
@@ -209,7 +209,7 @@ If you're migrating from previous ensemble versions:
 | git-workflow | ensemble-git |
 | playwright-tester | ensemble-e2e-testing |
 | manager-dashboard-agent | ensemble-metrics |
-| ensemble-pane-viewer | ensemble-pane-viewer (now 5.0.0) |
+| ensemble-pane-viewer | ensemble-agent-progress-pane (now 5.1.0) |
 | task-progress-pane | ensemble-task-progress-pane (new) |
 
 ## Configuration
@@ -229,7 +229,7 @@ The config directory is determined in this order:
 ~/.config/ensemble/           # or ~/.ensemble/
 ├── plugins/
 │   ├── task-progress-pane/   # Task progress plugin config
-│   └── pane-viewer/          # Pane viewer plugin config
+│   └── agent-progress-pane/  # Agent progress pane plugin config
 ├── logs/                     # Log files
 ├── cache/                    # Cache data
 └── sessions/                 # Session data
@@ -252,7 +252,7 @@ node scripts/migrate-config.js --force
 
 The script migrates:
 - `~/.ai-mesh-task-progress/` → `~/.config/ensemble/plugins/task-progress-pane/`
-- `~/.ai-mesh-pane-viewer/` → `~/.config/ensemble/plugins/pane-viewer/`
+- `~/.ai-mesh-pane-viewer/` → `~/.config/ensemble/plugins/agent-progress-pane/`
 
 ## Contributing
 

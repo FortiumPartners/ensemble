@@ -39,7 +39,7 @@ Tier 3: Framework Skills (5)
 Tier 4: Testing Frameworks (5)
 ├── jest, pytest, rspec, xunit, exunit
 
-Utilities: pane-viewer, task-progress-pane
+Utilities: agent-progress-pane, task-progress-pane
 Shared: multiplexer-adapters (WezTerm, Zellij, tmux)
 Meta: ensemble-full (complete bundle)
 ```
@@ -203,7 +203,7 @@ Use conventional commits:
 - `chore(<scope>)`: Maintenance
 - `refactor(<scope>)`: Code restructure
 
-Example: `fix(pane-viewer): inline multiplexer-adapters for standalone use`
+Example: `fix(agent-progress-pane): inline multiplexer-adapters for standalone use`
 
 ## Common Tasks
 
@@ -235,7 +235,7 @@ npm run publish:changed
 
 ### Module Not Found in Cached Plugin
 - Inline dependencies instead of using npm packages
-- Example: pane-viewer inlines multiplexer-adapters
+- Example: agent-progress-pane inlines multiplexer-adapters
 
 ### Tests Failing
 - Jest/Vitest mock CommonJS `require()` differently

@@ -1,10 +1,12 @@
 # Configuration Guide
 
-Complete configuration reference for Ensemble Pane Viewer.
+Complete configuration reference for Ensemble Agent Progress Pane.
 
 ## Configuration File
 
-The configuration file is located at `~/.ensemble/plugins/pane-viewer/config.json`.
+The configuration file is located at `~/.ensemble/plugins/agent-progress-pane/config.json`.
+
+> **Backward Compatibility:** The old config path `~/.ensemble/plugins/pane-viewer/config.json` is still supported for existing installations.
 
 ### Default Configuration
 

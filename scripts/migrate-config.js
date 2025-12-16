@@ -3,17 +3,18 @@
  * Ensemble Config Migration Script
  *
  * Migrates existing ai-mesh configuration directories to the new
- * XDG-compliant ensemble structure.
+ * XDG-compliant ensemble structure, and handles plugin renames.
  *
- * Old locations:
- *   ~/.ai-mesh-task-progress/
- *   ~/.ai-mesh-pane-viewer/
+ * Migrations:
+ *   ~/.ai-mesh-task-progress/ → plugins/task-progress-pane/
+ *   ~/.ai-mesh-pane-viewer/   → plugins/agent-progress-pane/
+ *   plugins/pane-viewer/      → plugins/agent-progress-pane/ (rename)
  *
  * New location:
  *   $XDG_CONFIG_HOME/ensemble/  (or ~/.config/ensemble/ or ~/.ensemble/)
  *     └── plugins/
  *         ├── task-progress-pane/
- *         └── pane-viewer/
+ *         └── agent-progress-pane/
  *
  * Usage: node scripts/migrate-config.js [--dry-run] [--force]
  *
@@ -38,8 +39,14 @@ const LEGACY_MAPPINGS = [
   },
   {
     oldPath: '.ai-mesh-pane-viewer',
-    newPlugin: 'pane-viewer',
-    description: 'Pane Viewer configuration'
+    newPlugin: 'agent-progress-pane',
+    description: 'Agent Progress Pane configuration (from ai-mesh)'
+  },
+  {
+    oldPath: '.ensemble/plugins/pane-viewer',
+    newPlugin: 'agent-progress-pane',
+    description: 'Agent Progress Pane configuration (rename from pane-viewer)',
+    isInternalMigration: true  // Flag to handle differently
   }
 ];
 

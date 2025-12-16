@@ -8,8 +8,9 @@ jest.mock('fs');
 const { loadConfig, saveConfig, resetConfig, DEFAULT_CONFIG } = require('../lib/config-loader');
 
 describe('config-loader', () => {
-  const mockConfigDir = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
+  const mockConfigDir = path.join(os.homedir(), '.ensemble/plugins/agent-progress-pane');
   const mockConfigPath = path.join(mockConfigDir, 'config.json');
+  const oldConfigPath = path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'config.json');
 
   beforeEach(() => {
     // Clear all mocks before each test
@@ -25,7 +26,7 @@ describe('config-loader', () => {
 
   describe('loadConfig()', () => {
     it('should return default config when file does not exist', () => {
-      // Arrange
+      // Arrange - loadConfig checks CONFIG_PATH then OLD_CONFIG_PATH
       fs.existsSync.mockReturnValue(false);
 
       // Act
@@ -33,35 +34,39 @@ describe('config-loader', () => {
 
       // Assert
       expect(config).toEqual(DEFAULT_CONFIG);
-      expect(fs.existsSync).toHaveBeenCalledWith(mockConfigDir);
       expect(fs.existsSync).toHaveBeenCalledWith(mockConfigPath);
-      expect(fs.mkdirSync).toHaveBeenCalledWith(mockConfigDir, { recursive: true });
-    });
-
-    it('should create config directory if it does not exist', () => {
-      // Arrange
-      fs.existsSync
-        .mockReturnValueOnce(false) // CONFIG_DIR doesn't exist
-        .mockReturnValueOnce(false); // CONFIG_PATH doesn't exist
-
-      // Act
-      loadConfig();
-
-      // Assert
-      expect(fs.mkdirSync).toHaveBeenCalledWith(mockConfigDir, { recursive: true });
-    });
-
-    it('should not create config directory if it already exists', () => {
-      // Arrange
-      fs.existsSync
-        .mockReturnValueOnce(true)  // CONFIG_DIR exists
-        .mockReturnValueOnce(false); // CONFIG_PATH doesn't exist
-
-      // Act
-      loadConfig();
-
-      // Assert
+      expect(fs.existsSync).toHaveBeenCalledWith(oldConfigPath);
+      // loadConfig doesn't create directory - that's saveConfig's job
       expect(fs.mkdirSync).not.toHaveBeenCalled();
+    });
+
+    it('should load from new path when it exists', () => {
+      // Arrange
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.readFileSync.mockReturnValue(JSON.stringify({ enabled: false }));
+
+      // Act
+      loadConfig();
+
+      // Assert - should not check old path if new path exists
+      expect(fs.existsSync).toHaveBeenCalledWith(mockConfigPath);
+      expect(fs.readFileSync).toHaveBeenCalledWith(mockConfigPath, 'utf-8');
+    });
+
+    it('should fall back to old path for backward compatibility', () => {
+      // Arrange
+      fs.existsSync
+        .mockReturnValueOnce(false) // CONFIG_PATH doesn't exist
+        .mockReturnValueOnce(true); // OLD_CONFIG_PATH exists
+      fs.readFileSync.mockReturnValue(JSON.stringify({ enabled: false }));
+
+      // Act
+      loadConfig();
+
+      // Assert - should check old path when new doesn't exist
+      expect(fs.existsSync).toHaveBeenCalledWith(mockConfigPath);
+      expect(fs.existsSync).toHaveBeenCalledWith(oldConfigPath);
+      expect(fs.readFileSync).toHaveBeenCalledWith(oldConfigPath, 'utf-8');
     });
 
     it('should merge user config with defaults', () => {
@@ -72,9 +77,7 @@ describe('config-loader', () => {
         maxAgentHistory: 100
       };
 
-      fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists
-        .mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
       fs.readFileSync.mockReturnValue(JSON.stringify(userConfig));
 
       // Act
@@ -94,9 +97,7 @@ describe('config-loader', () => {
         enabled: false
       };
 
-      fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists
-        .mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
       fs.readFileSync.mockReturnValue(JSON.stringify(userConfig));
 
       // Act
@@ -111,9 +112,7 @@ describe('config-loader', () => {
 
     it('should return default config if user config is invalid JSON', () => {
       // Arrange
-      fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists
-        .mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
       fs.readFileSync.mockReturnValue('{ invalid json }');
 
       // Act
@@ -129,9 +128,7 @@ describe('config-loader', () => {
 
     it('should return default config if readFileSync throws error', () => {
       // Arrange
-      fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists
-        .mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
       fs.readFileSync.mockImplementation(() => {
         throw new Error('Permission denied');
       });
@@ -149,9 +146,7 @@ describe('config-loader', () => {
 
     it('should handle empty user config object', () => {
       // Arrange
-      fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists
-        .mockReturnValueOnce(true); // CONFIG_PATH exists
+      fs.existsSync.mockReturnValueOnce(true); // CONFIG_PATH exists
       fs.readFileSync.mockReturnValue('{}');
 
       // Act
@@ -190,14 +185,15 @@ describe('config-loader', () => {
     });
 
     it('should create config directory if it does not exist', () => {
-      // Arrange
-      fs.existsSync.mockReturnValue(false);
+      // Arrange - ensureConfigDir checks CONFIG_DIR
+      fs.existsSync.mockReturnValueOnce(false); // CONFIG_DIR doesn't exist
       const userConfig = { enabled: false };
 
       // Act
       saveConfig(userConfig);
 
-      // Assert
+      // Assert - ensureConfigDir creates the directory
+      expect(fs.existsSync).toHaveBeenCalledWith(mockConfigDir);
       expect(fs.mkdirSync).toHaveBeenCalledWith(mockConfigDir, { recursive: true });
     });
 
@@ -388,11 +384,11 @@ describe('config-loader', () => {
 
   describe('Integration scenarios', () => {
     it('should handle load -> save -> load cycle', () => {
-      // Arrange
+      // Arrange - first load: no config file exists
       fs.existsSync
-        .mockReturnValueOnce(true) // CONFIG_DIR exists (first load)
         .mockReturnValueOnce(false) // CONFIG_PATH doesn't exist (first load)
-        .mockReturnValue(true); // All subsequent calls return true
+        .mockReturnValueOnce(false) // OLD_CONFIG_PATH doesn't exist (first load)
+        .mockReturnValue(true); // All subsequent calls return true (save, second load)
 
       // First load - gets defaults
       const config1 = loadConfig();

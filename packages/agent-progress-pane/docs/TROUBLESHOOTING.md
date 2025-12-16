@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions for Ensemble Pane Viewer.
+Common issues and solutions for Ensemble Agent Progress Pane.
 
 ## Quick Diagnostics
 
@@ -8,7 +8,7 @@ Run these commands to diagnose issues:
 
 ```bash
 # 1. Check plugin is installed
-ls ~/.claude/plugins/ensemble-pane-viewer/
+ls ~/.claude/plugins/ensemble-agent-progress-pane/
 
 # 2. Check hooks are configured
 cat ~/.claude/settings.json | grep -A5 "PreToolUse"
@@ -19,10 +19,10 @@ echo "ZELLIJ_SESSION_NAME: $ZELLIJ_SESSION_NAME"
 echo "TMUX: $TMUX"
 
 # 4. Check configuration
-cat ~/.ensemble/plugins/pane-viewer/config.json
+cat ~/.ensemble/plugins/agent-progress-pane/config.json
 
 # 5. Check state file
-cat ~/.ensemble/plugins/pane-viewer/panes.json
+cat ~/.ensemble/plugins/agent-progress-pane/panes.json
 
 # 6. Check recent logs
 ls -la ~/.ensemble/agent-logs/$(date +%Y-%m-%d)/
@@ -43,9 +43,9 @@ npx @fortium/ensemble install --global
 # Or install manually
 cd ~/.claude/plugins/
 git clone https://github.com/FortiumPartners/ensemble.git temp
-mv temp/plugins/ensemble-pane-viewer .
+mv temp/packages/agent-progress-pane ensemble-agent-progress-pane
 rm -rf temp
-cd ensemble-pane-viewer && npm install
+cd ensemble-agent-progress-pane && npm install
 ```
 
 ### Hooks Not Configured
@@ -63,7 +63,7 @@ cd ensemble-pane-viewer && npm install
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-spawner.js"
+            "command": "~/.claude/plugins/ensemble-agent-progress-pane/hooks/pane-spawner.js"
           }
         ]
       }
@@ -74,7 +74,7 @@ cd ensemble-pane-viewer && npm install
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-completion.js"
+            "command": "~/.claude/plugins/ensemble-agent-progress-pane/hooks/pane-completion.js"
           }
         ]
       }
@@ -111,7 +111,7 @@ echo $WEZTERM_PANE $ZELLIJ_SESSION_NAME $TMUX
 echo $ENSEMBLE_PANE_DISABLE
 
 # Check config file
-cat ~/.ensemble/plugins/pane-viewer/config.json | grep enabled
+cat ~/.ensemble/plugins/agent-progress-pane/config.json | grep enabled
 
 # Re-enable if needed
 unset ENSEMBLE_PANE_DISABLE
@@ -122,7 +122,7 @@ unset ENSEMBLE_PANE_DISABLE
 
 ```bash
 # Verify plugin is installed
-ls ~/.claude/plugins/ensemble-pane-viewer/
+ls ~/.claude/plugins/ensemble-agent-progress-pane/
 
 # Check Claude Code recognizes it
 claude config plugins list
@@ -158,7 +158,7 @@ export ENSEMBLE_PANE_MULTIPLEXER=wezterm
 /pane-config multiplexer wezterm
 ```
 
-Or edit `~/.ensemble/plugins/pane-viewer/config.json`:
+Or edit `~/.ensemble/plugins/agent-progress-pane/config.json`:
 
 ```json
 {
@@ -199,10 +199,10 @@ Clean up stale panes:
 
 ```bash
 # Check state file
-cat ~/.ensemble/plugins/pane-viewer/panes.json
+cat ~/.ensemble/plugins/agent-progress-pane/panes.json
 
 # Reset if corrupted
-rm ~/.ensemble/plugins/pane-viewer/panes.json
+rm ~/.ensemble/plugins/agent-progress-pane/panes.json
 ```
 
 ### No Tool Output Displayed
@@ -311,7 +311,7 @@ Slow pane spawning or high CPU usage.
 Run the performance test:
 
 ```bash
-cd ~/.claude/plugins/ensemble-pane-viewer
+cd ~/.claude/plugins/ensemble-agent-progress-pane
 npm test -- --testPathPattern=performance
 ```
 
@@ -408,7 +408,7 @@ tmux list-panes -F "#{pane_id}"
 Enable debug logging for detailed output:
 
 ```bash
-export DEBUG=ensemble-pane-viewer:*
+export DEBUG=ensemble-agent-progress-pane:*
 
 # Then invoke an agent
 # Check logs in terminal output
@@ -420,7 +420,7 @@ If all else fails, reset to clean state:
 
 ```bash
 # Remove all config and state
-rm -rf ~/.ensemble/plugins/pane-viewer/
+rm -rf ~/.ensemble/plugins/agent-progress-pane/
 
 # Remove logs (optional)
 rm -rf ~/.ensemble/agent-logs/

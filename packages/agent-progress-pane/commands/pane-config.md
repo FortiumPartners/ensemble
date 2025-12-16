@@ -1,11 +1,11 @@
 ---
 name: pane-config
-description: Configure ensemble-pane-viewer settings
+description: Configure ensemble-agent-progress-pane settings
 ---
 
-# Pane Viewer Configuration
+# Agent Progress Pane Configuration
 
-Configure the terminal pane viewer for subagent monitoring.
+Configure the terminal pane for agent progress monitoring.
 
 ## Usage
 
@@ -77,7 +77,9 @@ Enable or disable the pane viewer entirely.
 
 ## Configuration File
 
-Settings are saved to `~/.ensemble/plugins/pane-viewer/config.json`
+Settings are saved to `~/.ensemble/plugins/agent-progress-pane/config.json`
+
+> **Note:** For backward compatibility, the old config path `~/.ensemble/plugins/pane-viewer/config.json` is also supported.
 
 ## Environment Variables
 

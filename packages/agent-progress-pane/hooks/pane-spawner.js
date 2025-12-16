@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Pane Spawner Hook
+ * Agent Progress Pane Spawner Hook
  *
  * PreToolUse hook that spawns a terminal pane when a Task tool is invoked.
- * Displays subagent status in a split pane.
+ * Displays agent progress status in a split pane.
  *
  * Environment Variables:
  * - ENSEMBLE_PANE_DISABLE: Set to '1' to disable pane spawning
@@ -15,12 +15,19 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const CONFIG_PATH = path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'config.json');
+// Config paths - new path with backward compatibility fallback
+const NEW_CONFIG_PATH = path.join(os.homedir(), '.ensemble/plugins/agent-progress-pane', 'config.json');
+const OLD_CONFIG_PATH = path.join(os.homedir(), '.ensemble/plugins/pane-viewer', 'config.json');
 
 function loadConfig() {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    // Try new path first
+    if (fs.existsSync(NEW_CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(NEW_CONFIG_PATH, 'utf-8'));
+    }
+    // Backward compatibility: check old path
+    if (fs.existsSync(OLD_CONFIG_PATH)) {
+      return JSON.parse(fs.readFileSync(OLD_CONFIG_PATH, 'utf-8'));
     }
   } catch {}
   return {

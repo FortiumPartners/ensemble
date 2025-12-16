@@ -1,8 +1,8 @@
 /**
- * Pane Viewer Plugin
- * @fortium/ensemble-pane-viewer
+ * Agent Progress Pane Plugin
+ * @fortium/ensemble-agent-progress-pane
  *
- * Real-time subagent monitoring in terminal panes
+ * Real-time agent progress visualization in terminal panes
  */
 
 const path = require('path');
@@ -19,9 +19,9 @@ const {
 } = require('../hooks/adapters');
 
 const skill = {
-  name: 'Ensemble Pane Viewer',
-  version: '0.2.0',
-  description: 'Real-time subagent monitoring in split terminal panes with tool display and manual close control',
+  name: 'Ensemble Agent Progress Pane',
+  version: '5.1.0',
+  description: 'Real-time agent progress visualization in split terminal panes with tool display and manual close control',
   category: 'monitoring',
 
   capabilities: [

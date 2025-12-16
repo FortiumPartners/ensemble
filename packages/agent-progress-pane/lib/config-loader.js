@@ -13,8 +13,13 @@ const DEFAULT_CONFIG = {
   autoCloseTimeout: 0  // Seconds to auto-close after completion (0 = disabled, manual close)
 };
 
-const CONFIG_DIR = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
+// New config path
+const CONFIG_DIR = path.join(os.homedir(), '.ensemble/plugins/agent-progress-pane');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
+
+// Old config path (backward compatibility)
+const OLD_CONFIG_DIR = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
+const OLD_CONFIG_PATH = path.join(OLD_CONFIG_DIR, 'config.json');
 
 function ensureConfigDir() {
   if (!fs.existsSync(CONFIG_DIR)) {
@@ -23,11 +28,15 @@ function ensureConfigDir() {
 }
 
 function loadConfig() {
-  ensureConfigDir();
-
   try {
+    // Try new path first
     if (fs.existsSync(CONFIG_PATH)) {
       const userConfig = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+      return { ...DEFAULT_CONFIG, ...userConfig };
+    }
+    // Backward compatibility: check old path
+    if (fs.existsSync(OLD_CONFIG_PATH)) {
+      const userConfig = JSON.parse(fs.readFileSync(OLD_CONFIG_PATH, 'utf-8'));
       return { ...DEFAULT_CONFIG, ...userConfig };
     }
   } catch (error) {

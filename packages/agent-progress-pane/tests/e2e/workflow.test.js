@@ -13,8 +13,8 @@ const os = require('os');
 const { spawn } = require('child_process');
 
 describe('E2E: Complete Hook Workflow', () => {
-  const testDir = path.join(os.tmpdir(), 'pane-viewer-e2e-' + Date.now());
-  const configDir = path.join(testDir, '.ensemble/plugins/pane-viewer');
+  const testDir = path.join(os.tmpdir(), 'agent-progress-pane-e2e-' + Date.now());
+  const configDir = path.join(testDir, '.ensemble/plugins/agent-progress-pane');
   const configPath = path.join(configDir, 'config.json');
   const statePath = path.join(configDir, 'panes.json');
 

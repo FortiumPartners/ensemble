@@ -192,7 +192,7 @@ describe('Performance: Module Load Time', () => {
 
   it('should load full library quickly', () => {
     Object.keys(require.cache).forEach(key => {
-      if (key.includes('ensemble-pane-viewer')) delete require.cache[key];
+      if (key.includes('ensemble-agent-progress-pane')) delete require.cache[key];
     });
 
     const start = process.hrtime.bigint();

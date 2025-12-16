@@ -199,12 +199,12 @@
       "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
     },
     {
-      "name": "ensemble-pane-viewer",
-      "version": "5.0.0",
-      "source": "./packages/pane-viewer",
-      "description": "Real-time subagent monitoring in terminal panes",
+      "name": "ensemble-agent-progress-pane",
+      "version": "5.1.0",
+      "source": "./packages/agent-progress-pane",
+      "description": "Real-time agent progress visualization in terminal panes",
       "category": "utilities",
-      "tags": ["monitoring", "terminal", "panes"],
+      "tags": ["agent", "progress", "monitoring", "terminal", "panes"],
       "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
     },
     {

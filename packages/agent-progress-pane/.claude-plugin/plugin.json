@@ -1,7 +1,7 @@
 {
-  "name": "ensemble-pane-viewer",
-  "version": "5.0.0",
-  "description": "Real-time subagent monitoring in terminal panes",
+  "name": "ensemble-agent-progress-pane",
+  "version": "5.1.0",
+  "description": "Real-time agent progress visualization in terminal panes",
   "author": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
@@ -10,6 +10,8 @@
   "repository": "https://github.com/FortiumPartners/ensemble",
   "license": "MIT",
   "keywords": [
+    "agent",
+    "progress",
     "monitoring",
     "terminal",
     "panes",

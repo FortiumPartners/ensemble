@@ -1,6 +1,8 @@
-# Ensemble Pane Viewer
+# Ensemble Agent Progress Pane
 
-Real-time subagent monitoring in terminal panes for Claude Code.
+Real-time agent progress visualization in terminal panes for Claude Code.
+
+> **Note:** This plugin was renamed from `ensemble-pane-viewer` to `ensemble-agent-progress-pane` in v5.1.0 for clarity and consistency with `ensemble-task-progress-pane`.
 
 [![Test](https://github.com/FortiumPartners/ensemble/actions/workflows/test.yml/badge.svg)](https://github.com/FortiumPartners/ensemble/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-80%25-green)](https://github.com/FortiumPartners/ensemble)
@@ -9,7 +11,7 @@ Real-time subagent monitoring in terminal panes for Claude Code.
 
 ## Overview
 
-The Ensemble Pane Viewer is a Claude Code plugin that automatically spawns terminal panes to display real-time activity from subagents. When you delegate tasks to agents like `infrastructure-developer` or `frontend-developer`, their work appears in a split pane alongside your main session.
+The Ensemble Agent Progress Pane is a Claude Code plugin that automatically spawns terminal panes to display real-time activity from subagents. When you delegate tasks to agents like `infrastructure-developer` or `frontend-developer`, their work appears in a split pane alongside your main session.
 
 ## Features
 
@@ -34,10 +36,10 @@ The Ensemble Pane Viewer is a Claude Code plugin that automatically spawns termi
 #### Method 1: Via Ensemble Installer (Recommended)
 
 ```bash
-# Install ensemble which includes the pane viewer plugin
+# Install ensemble which includes the agent progress pane plugin
 npx @fortium/ensemble install --global
 
-# The plugin is automatically installed to ~/.claude/plugins/ensemble-pane-viewer/
+# The plugin is automatically installed to ~/.claude/plugins/ensemble-agent-progress-pane/
 # Hooks are configured in ~/.claude/settings.json
 ```
 
@@ -48,7 +50,7 @@ npx @fortium/ensemble install --global
 /plugin marketplace add FortiumPartners/ensemble
 
 # Then install the plugin
-/plugin install ensemble-pane-viewer@ensemble
+/plugin install ensemble-agent-progress-pane@ensemble
 
 # Or browse and install interactively
 /plugin
@@ -60,11 +62,11 @@ npx @fortium/ensemble install --global
 # Clone to Claude plugins directory
 cd ~/.claude/plugins/
 git clone https://github.com/FortiumPartners/ensemble.git temp-clone
-mv temp-clone/plugins/ensemble-pane-viewer .
+mv temp-clone/plugins/ensemble-agent-progress-pane .
 rm -rf temp-clone
 
 # Install dependencies
-cd ensemble-pane-viewer
+cd ensemble-agent-progress-pane
 npm install
 
 # Configure hooks in ~/.claude/settings.json (see Configuration section)
@@ -74,7 +76,7 @@ npm install
 
 ```bash
 # Check plugin directory exists
-ls ~/.claude/plugins/ensemble-pane-viewer/
+ls ~/.claude/plugins/ensemble-agent-progress-pane/
 
 # Check hooks are configured
 cat ~/.claude/settings.json | grep pane-spawner
@@ -95,7 +97,7 @@ If installed manually, add to `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-spawner.js"
+            "command": "~/.claude/plugins/ensemble-agent-progress-pane/hooks/pane-spawner.js"
           }
         ]
       }
@@ -106,7 +108,7 @@ If installed manually, add to `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/plugins/ensemble-pane-viewer/hooks/pane-completion.js"
+            "command": "~/.claude/plugins/ensemble-agent-progress-pane/hooks/pane-completion.js"
           }
         ]
       }
@@ -144,7 +146,7 @@ If installed manually, add to `~/.claude/settings.json`:
 
 ### Configuration File
 
-Settings are saved to `~/.ensemble/plugins/pane-viewer/config.json`:
+Settings are saved to `~/.ensemble/plugins/agent-progress-pane/config.json`:
 
 ```json
 {
@@ -158,6 +160,8 @@ Settings are saved to `~/.ensemble/plugins/pane-viewer/config.json`:
   "maxAgentHistory": 50
 }
 ```
+
+> **Backward Compatibility:** The old config path `~/.ensemble/plugins/pane-viewer/config.json` is still supported.
 
 ### Auto-Close Behavior
 
@@ -208,7 +212,7 @@ export ENSEMBLE_PANE_DISABLE=1
 
 # Use library API
 node -e "
-  const { createViewer } = require('@fortium/ensemble-pane-viewer');
+  const { createViewer } = require('@fortium/ensemble-agent-progress-pane');
 
   (async () => {
     const viewer = await createViewer();
@@ -318,10 +322,10 @@ echo "ZELLIJ_SESSION_NAME: $ZELLIJ_SESSION_NAME"
 echo "TMUX: $TMUX"
 
 # Check configuration
-cat ~/.ensemble/plugins/pane-viewer/config.json
+cat ~/.ensemble/plugins/agent-progress-pane/config.json
 
 # Check state
-cat ~/.ensemble/plugins/pane-viewer/panes.json
+cat ~/.ensemble/plugins/agent-progress-pane/panes.json
 ```
 
 ### Common Issues
@@ -346,7 +350,7 @@ See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for complete configuration op
 ### Project Structure
 
 ```
-ensemble-pane-viewer/
+ensemble-agent-progress-pane/
 ├── .claude-plugin/
 │   └── plugin.json           # Plugin metadata
 ├── .github/
@@ -459,9 +463,9 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-- **Issues**: https://github.com/FortiumPartners/ensemble-pane-viewer/issues
+- **Issues**: https://github.com/FortiumPartners/ensemble/issues
 - **Email**: support@fortiumpartners.com
-- **Documentation**: https://docs.fortiumpartners.com/ensemble-pane-viewer
+- **Documentation**: https://docs.fortiumpartners.com/ensemble-agent-progress-pane
 
 ## Changelog
 

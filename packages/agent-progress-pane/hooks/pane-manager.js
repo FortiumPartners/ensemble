@@ -1,11 +1,11 @@
 /**
- * Pane Manager
+ * Agent Progress Pane Manager
  *
- * Manages the lifecycle of viewer panes across sessions.
+ * Manages the lifecycle of agent progress panes across sessions.
  * Handles pane creation, reuse, and cleanup.
  *
  * Responsibilities:
- * 1. Track active panes in state file (~/.ensemble/plugins/pane-viewer/panes.json)
+ * 1. Track active panes in state file (~/.ensemble/plugins/agent-progress-pane/panes.json)
  * 2. Spawn new panes or reuse existing ones
  * 3. Send messages to viewer panes
  * 4. Clean up stale panes
@@ -17,12 +17,29 @@ const path = require('path');
 const os = require('os');
 const { MultiplexerDetector } = require('./adapters');
 
+// State paths - new path with backward compatibility fallback
+const NEW_STATE_DIR = path.join(os.homedir(), '.ensemble/plugins/agent-progress-pane');
+const OLD_STATE_DIR = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
+
+/**
+ * Get the state directory, preferring new path but falling back to old
+ */
+function getStateDir() {
+  if (fsSync.existsSync(NEW_STATE_DIR)) {
+    return NEW_STATE_DIR;
+  }
+  if (fsSync.existsSync(OLD_STATE_DIR)) {
+    return OLD_STATE_DIR;
+  }
+  return NEW_STATE_DIR; // Default to new path for new installations
+}
+
 /**
  * Pane state manager
  */
 class PaneManager {
   constructor() {
-    this.stateDir = path.join(os.homedir(), '.ensemble/plugins/pane-viewer');
+    this.stateDir = getStateDir();
     this.statePath = path.join(this.stateDir, 'panes.json');
     this.lockPath = path.join(this.stateDir, 'panes.lock');
     this.detector = new MultiplexerDetector();
