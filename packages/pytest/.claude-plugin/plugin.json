@@ -20,18 +20,5 @@
     "test-generation"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "skillsMetadata": {
-    "pytest-test-framework": {
-      "name": "pytest Test Framework",
-      "version": "1.0.0",
-      "description": "Execute and generate pytest tests for Python projects",
-      "skillFile": "./skills/SKILL.md",
-      "referenceFile": "./skills/REFERENCE.md",
-      "tools": {
-        "generateTest": "./lib/generate-test.py",
-        "runTest": "./lib/run-test.py"
-      }
-    }
-  }
+  "skills": "./skills"
 }
