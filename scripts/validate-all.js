@@ -22,7 +22,7 @@ function validatePlugin(pluginDir) {
   // Validate plugin.json against schema
   try {
     execSync(
-      `npx ajv validate -s schemas/plugin-schema.json -d "${pluginJsonPath}"`,
+      `npx ajv validate -c ajv-formats -s schemas/plugin-schema.json -d "${pluginJsonPath}"`,
       { cwd: path.join(__dirname, '..'), stdio: 'inherit' }
     );
   } catch (error) {
@@ -69,7 +69,7 @@ function main() {
   // Validate marketplace.json
   console.log('Validating marketplace.json...');
   try {
-    execSync('npx ajv validate -s schemas/marketplace-schema.json -d marketplace.json', {
+    execSync('npx ajv validate -c ajv-formats -s schemas/marketplace-schema.json -d marketplace.json', {
       cwd: path.join(__dirname, '..'),
       stdio: 'inherit'
     });

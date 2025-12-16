@@ -15,6 +15,7 @@
     "panes",
     "ensemble"
   ],
+  "hooks": "./hooks/hooks.json",
   "commands": "./commands",
   "skills": "./skills"
 }

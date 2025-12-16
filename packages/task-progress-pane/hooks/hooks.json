@@ -1,15 +1,15 @@
 {
-  "hooks": [
-    {
-      "matcher": {
-        "tool_name": "TodoWrite"
-      },
-      "hooks": [
-        {
-          "type": "command",
-          "command": ["node", "hooks/task-spawner.js"]
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "TodoWrite",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/task-spawner.js"
+          }
+        ]
+      }
+    ]
+  }
 }
