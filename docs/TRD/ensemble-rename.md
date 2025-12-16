@@ -1,9 +1,9 @@
 # Technical Requirements Document: Ensemble Rename & Consolidation
 
-**Version**: 1.4.0
-**Status**: ~95% Complete
+**Version**: 1.5.0
+**Status**: ~98% Complete
 **Created**: 2025-12-12
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-16
 **Author**: Tech Lead Orchestrator
 **PRD Reference**: [ensemble-rename.md](../PRD/ensemble-rename.md) v1.1.0
 **Project**: ai-mesh-plugins → ensemble
@@ -19,6 +19,7 @@
 | 1.2.0 | 2025-12-14 | Tech Lead | Marked NPM publishing as OUT OF SCOPE - plugins distributed via GitHub only |
 | 1.3.0 | 2025-12-15 | Tech Lead | Updated completed tasks (PREP-008, GH-001, GH-006), added CODE-170 for env var rename, fixed naming inconsistencies |
 | 1.4.0 | 2025-12-15 | Tech Lead | Comprehensive status update: marked ~85 tasks as complete, updated sprint checklists, status now ~95% complete |
+| 1.5.0 | 2025-12-16 | Tech Lead | Completed TEST-005: All 21 plugins install successfully via GitHub marketplace. Fixed plugin.json validation issues (removed agents, dependencies, skillsMetadata, main, skillDefinitions, metadata, type, exports fields; corrected hooks/commands paths). Status now ~98% complete |
 
 ---
 
@@ -243,7 +244,7 @@ The following technical decisions were made during TRD refinement:
 | TEST-002 | **DONE**: Add unit tests for XDG path resolution | High | CODE-106 | [x] |
 | TEST-003 | Add integration tests for config migration | High | MIG-003 | [ ] |
 | TEST-004 | **DONE**: Verify no ai-mesh references remain (grep test) | Critical | All CODE-XXX | [x] |
-| TEST-005 | Test plugin installation with new names | High | N/A | [ ] (GitHub-based) |
+| TEST-005 | **DONE**: Test plugin installation with new names | High | N/A | [x] (GitHub-based) |
 | TEST-006 | **DONE**: Test slash commands with new prefix | High | CODE-150-155 | [x] |
 | TEST-007 | **DONE**: Run pre-flight checklist validation | Critical | PREP-007 | [x] |
 
@@ -563,7 +564,7 @@ $CONFIG_ROOT/
 **Morning Tasks** (Testing):
 - [~] TEST-001: Run existing test suite with new names (14 pre-existing failures)
 - [x] TEST-004: Verify no ai-mesh references remain (grep test)
-- [ ] TEST-005: Test plugin installation with new names (GitHub-based)
+- [x] TEST-005: Test plugin installation with new names (GitHub-based) - All 21 plugins install successfully
 - [x] TEST-006: Test slash commands with new prefix
 - [x] MIG-005: Test migration on macOS
 - [ ] MIG-006: Test migration on Linux with XDG
@@ -583,6 +584,7 @@ $CONFIG_ROOT/
 2. ✅ GitHub repository renamed to `FortiumPartners/ensemble`
 3. ✅ CI/CD workflows functional
 4. ⚠️ Migration tested on macOS only
+5. ✅ All 21 plugins install successfully via GitHub marketplace (tested 2025-12-16)
 
 **Acceptance Criteria**:
 - [x] CI pipeline passes on new repository
@@ -612,10 +614,10 @@ $CONFIG_ROOT/
 3. Verified GitHub-based installation works
 
 **Acceptance Criteria**:
-- [ ] `claude plugin install github:FortiumPartners/ensemble/packages/core` works
+- [x] `claude plugin install ensemble-core@ensemble` works (tested 2025-12-16)
 - [ ] MIGRATION.md complete and accurate
-- [ ] No ensemble references anywhere in codebase
-- [ ] All README files updated with GitHub installation instructions
+- [x] No ai-mesh references anywhere in codebase (except docs)
+- [x] All README files updated with GitHub installation instructions
 
 ---
 
