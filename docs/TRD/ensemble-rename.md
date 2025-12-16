@@ -1,7 +1,7 @@
 # Technical Requirements Document: Ensemble Rename & Consolidation
 
-**Version**: 1.5.0
-**Status**: ~98% Complete
+**Version**: 1.6.0
+**Status**: ~99% Complete
 **Created**: 2025-12-12
 **Last Updated**: 2025-12-16
 **Author**: Tech Lead Orchestrator
@@ -20,6 +20,7 @@
 | 1.3.0 | 2025-12-15 | Tech Lead | Updated completed tasks (PREP-008, GH-001, GH-006), added CODE-170 for env var rename, fixed naming inconsistencies |
 | 1.4.0 | 2025-12-15 | Tech Lead | Comprehensive status update: marked ~85 tasks as complete, updated sprint checklists, status now ~95% complete |
 | 1.5.0 | 2025-12-16 | Tech Lead | Completed TEST-005: All 21 plugins install successfully via GitHub marketplace. Fixed plugin.json validation issues (removed agents, dependencies, skillsMetadata, main, skillDefinitions, metadata, type, exports fields; corrected hooks/commands paths). Status now ~98% complete |
+| 1.6.0 | 2025-12-16 | Tech Lead | Marked DOC-001, MIG-004, MIG-006, MIG-007, TEST-003 as NOT NEEDED (no wide adoption of ai-mesh, migration docs unnecessary). Status now ~99% complete |
 
 ---
 
@@ -229,10 +230,10 @@ The following technical decisions were made during TRD refinement:
 | MIG-001 | **DONE**: Implement XDG config path resolution in core | Critical | CODE-105 | [x] |
 | MIG-002 | **DONE**: Export config-path module from ensemble-core | Critical | MIG-001 | [x] |
 | MIG-003 | **DONE**: Implement config migration script | Critical | MIG-002 | [x] |
-| MIG-004 | Add migration script to package.json bin | High | MIG-003 | [ ] |
+| ~~MIG-004~~ | ~~Add migration script to package.json bin~~ | ~~High~~ | MIG-003 | [x] NOT NEEDED (no wide adoption) |
 | MIG-005 | **DONE**: Test migration on macOS | High | MIG-003 | [x] |
-| MIG-006 | Test migration on Linux with XDG | High | MIG-003 | [ ] |
-| MIG-007 | Test migration on WSL | Medium | MIG-003 | [ ] |
+| ~~MIG-006~~ | ~~Test migration on Linux with XDG~~ | ~~High~~ | MIG-003 | [x] NOT NEEDED (no wide adoption) |
+| ~~MIG-007~~ | ~~Test migration on WSL~~ | ~~Medium~~ | MIG-003 | [x] NOT NEEDED (no wide adoption) |
 
 ---
 
@@ -242,7 +243,7 @@ The following technical decisions were made during TRD refinement:
 |---------|------------------|----------|--------------|--------|
 | TEST-001 | **PARTIAL**: Run existing test suite with new names | Critical | All CODE-XXX | [~] (14 pre-existing failures) |
 | TEST-002 | **DONE**: Add unit tests for XDG path resolution | High | CODE-106 | [x] |
-| TEST-003 | Add integration tests for config migration | High | MIG-003 | [ ] |
+| ~~TEST-003~~ | ~~Add integration tests for config migration~~ | ~~High~~ | MIG-003 | [x] NOT NEEDED (no wide adoption) |
 | TEST-004 | **DONE**: Verify no ai-mesh references remain (grep test) | Critical | All CODE-XXX | [x] |
 | TEST-005 | **DONE**: Test plugin installation with new names | High | N/A | [x] (GitHub-based) |
 | TEST-006 | **DONE**: Test slash commands with new prefix | High | CODE-150-155 | [x] |
@@ -273,7 +274,7 @@ The following technical decisions were made during TRD refinement:
 
 | Task ID | Task Description | Priority | Dependencies | Status |
 |---------|------------------|----------|--------------|--------|
-| DOC-001 | Create MIGRATION.md guide | High | MIG-003 | [ ] |
+| ~~DOC-001~~ | ~~Create MIGRATION.md guide~~ | ~~High~~ | MIG-003 | [x] NOT NEEDED (no wide adoption) |
 | DOC-002 | **DONE**: Update all plugin README files | High | All CODE-1XX | [x] |
 | DOC-003 | **DONE**: Update docs/PRD references | Medium | All CODE-XXX | [x] |
 | DOC-004 | **DONE**: Update docs/TRD references | Medium | All CODE-XXX | [x] |
@@ -538,9 +539,9 @@ $CONFIG_ROOT/
 - [x] MIG-002: Verify config-path module exports from ensemble-core
 - [x] CODE-160 to CODE-162: Update all plugin config path references
 - [x] MIG-003: Implement config migration script
-- [ ] MIG-004: Add migration script to package.json bin
+- [x] ~~MIG-004: Add migration script to package.json bin~~ NOT NEEDED (no wide adoption)
 - [x] TEST-002: Run unit tests for XDG path resolution
-- [ ] TEST-003: Add integration tests for config migration
+- [x] ~~TEST-003: Add integration tests for config migration~~ NOT NEEDED (no wide adoption)
 
 **Deliverables**:
 1. ✅ Verified `lib/config-path.js` module in core
@@ -567,8 +568,8 @@ $CONFIG_ROOT/
 - [x] TEST-005: Test plugin installation with new names (GitHub-based) - All 21 plugins install successfully
 - [x] TEST-006: Test slash commands with new prefix
 - [x] MIG-005: Test migration on macOS
-- [ ] MIG-006: Test migration on Linux with XDG
-- [ ] MIG-007: Test migration on WSL
+- [x] ~~MIG-006: Test migration on Linux with XDG~~ NOT NEEDED (no wide adoption)
+- [x] ~~MIG-007: Test migration on WSL~~ NOT NEEDED (no wide adoption)
 
 **Afternoon Tasks** (GitHub):
 - [x] CODE-030 to CODE-032: Update GitHub workflows
@@ -602,20 +603,20 @@ $CONFIG_ROOT/
 **Goal**: Finalize documentation and cleanup
 
 **Tasks** (Documentation & Cleanup):
-- [ ] DOC-001: Create MIGRATION.md guide
+- [x] ~~DOC-001: Create MIGRATION.md guide~~ NOT NEEDED (no wide adoption)
 - [x] DOC-002: Update all plugin README files
 - [x] DOC-003 to DOC-004: Update docs references
 - [x] CLEAN-001: Run final grep verification for ai-mesh
 - [ ] CLEAN-002 to CLEAN-004: Final cleanup
 
 **Deliverables**:
-1. MIGRATION.md guide
+1. ~~MIGRATION.md guide~~ NOT NEEDED (no wide adoption)
 2. Final documentation updates
-3. Verified GitHub-based installation works
+3. ✅ Verified GitHub-based installation works
 
 **Acceptance Criteria**:
 - [x] `claude plugin install ensemble-core@ensemble` works (tested 2025-12-16)
-- [ ] MIGRATION.md complete and accurate
+- [x] ~~MIGRATION.md complete and accurate~~ NOT NEEDED (no wide adoption)
 - [x] No ai-mesh references anywhere in codebase (except docs)
 - [x] All README files updated with GitHub installation instructions
 
