@@ -1,6 +1,6 @@
 {
   "name": "ensemble-full",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "author": {
     "name": "Fortium Partners",
@@ -14,26 +14,5 @@
     "complete",
     "meta",
     "ensemble"
-  ],
-  "dependencies": [
-    "ensemble-core@4.0.0",
-    "ensemble-product@4.0.0",
-    "ensemble-development@4.0.0",
-    "ensemble-quality@4.0.0",
-    "ensemble-infrastructure@4.0.0",
-    "ensemble-git@4.0.0",
-    "ensemble-e2e-testing@4.0.0",
-    "ensemble-metrics@4.0.0",
-    "ensemble-pane-viewer@4.0.0",
-    "ensemble-react@4.0.0",
-    "ensemble-nestjs@4.0.0",
-    "ensemble-rails@4.0.0",
-    "ensemble-phoenix@4.0.0",
-    "ensemble-blazor@4.0.0",
-    "ensemble-jest@4.0.0",
-    "ensemble-pytest@4.0.0",
-    "ensemble-rspec@4.0.0",
-    "ensemble-xunit@4.0.0",
-    "ensemble-exunit@4.0.0"
   ]
 }

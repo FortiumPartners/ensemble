@@ -1,6 +1,6 @@
 {
   "name": "ensemble-xunit",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "xUnit testing framework integration for .NET",
   "author": {
     "name": "Fortium Partners",
@@ -16,8 +16,5 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-quality@4.0.0"
-  ]
+  "skills": "./skills"
 }

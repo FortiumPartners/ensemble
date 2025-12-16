@@ -1,6 +1,6 @@
 {
   "name": "ensemble-rspec",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "RSpec testing framework integration",
   "author": {
     "name": "Fortium Partners",
@@ -16,8 +16,5 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-quality@4.0.0"
-  ]
+  "skills": "./skills"
 }

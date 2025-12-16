@@ -1,6 +1,6 @@
 {
   "name": "ensemble-infrastructure",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
   "author": {
     "name": "Fortium Partners",
@@ -17,8 +17,5 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-core@4.0.0"
-  ]
+  "skills": "./skills"
 }

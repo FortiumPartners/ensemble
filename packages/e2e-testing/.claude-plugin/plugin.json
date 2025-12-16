@@ -1,6 +1,6 @@
 {
   "name": "ensemble-e2e-testing",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "End-to-end testing with Playwright integration",
   "author": {
     "name": "Fortium Partners",
@@ -16,8 +16,5 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-core@4.0.0"
-  ]
+  "skills": "./skills"
 }

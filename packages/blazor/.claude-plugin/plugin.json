@@ -1,6 +1,6 @@
 {
   "name": "ensemble-blazor",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Blazor framework skills for .NET applications",
   "author": {
     "name": "Fortium Partners",
@@ -16,8 +16,5 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills",
-  "dependencies": [
-    "ensemble-development@4.0.0"
-  ]
+  "skills": "./skills"
 }
