@@ -7,7 +7,7 @@
     "email": "support@fortiumpartners.com"
   },
   "license": "MIT",
-  "hooks": "../hooks/hooks.json",
-  "commands": "../commands",
-  "repository": "https://github.com/FortiumPartners/ensemble"
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "hooks": "./hooks",
+  "commands": "./commands"
 }
