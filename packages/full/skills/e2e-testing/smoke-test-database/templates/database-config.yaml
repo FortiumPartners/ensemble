@@ -1,0 +1,386 @@
+# Database Smoke Test Configuration Template
+#
+# This template provides comprehensive examples for configuring database smoke tests
+# across multiple environments with connectivity, performance, schema, and integrity validation.
+#
+# Usage:
+#   1. Copy this template to your project
+#   2. Update environment-specific connection details and credentials
+#   3. Customize tests for your database schema
+#   4. Run tests: node test-connectivity.js --config database-config.yaml
+
+---
+# Pre-Release Environment
+preRelease:
+  environment: pre-release
+  database:
+    type: postgresql
+    host: pre-release-db.example.com
+    port: 5432
+    database: app_pre_release
+    username: app_user
+    password: ${PRE_RELEASE_DB_PASSWORD}
+    ssl: true
+    pool:
+      min: 2
+      max: 10
+      idleTimeout: 30000
+      connectionTimeout: 5000
+
+  tests:
+    - connectivity
+    - query-performance
+    - schema-validation
+    - data-integrity
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: user-lookup
+      sql: SELECT * FROM users WHERE id = $1 LIMIT 1
+      params: ['123e4567-e89b-12d3-a456-426614174000']
+      sla: 50
+    - name: join-query
+      sql: |
+        SELECT u.id, u.email, COUNT(o.id) as order_count
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.email
+        LIMIT 10
+      sla: 200
+
+  tables:
+    - users
+    - orders
+    - products
+
+  checks:
+    - name: user-count
+      description: Verify minimum user count
+      query: SELECT COUNT(*) as count FROM users
+      validation:
+        field: count
+        operator: '>='
+        value: 100
+
+---
+# Staging Environment
+staging:
+  environment: staging
+  database:
+    type: postgresql
+    host: staging-db.example.com
+    port: 5432
+    database: app_staging
+    username: app_user
+    password: ${STAGING_DB_PASSWORD}
+    ssl: true
+    pool:
+      min: 2
+      max: 10
+
+  tests:
+    - connectivity
+    - query-performance
+    - schema-validation
+    - data-integrity
+    - replication-health
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+    - name: write-operation
+      sql: |
+        INSERT INTO smoke_test_logs (message, created_at)
+        VALUES ('Smoke test', NOW())
+        RETURNING id
+      sla: 100
+      cleanup: DELETE FROM smoke_test_logs WHERE message = 'Smoke test'
+
+  tables:
+    - users
+    - orders
+    - products
+    - smoke_test_logs
+
+  checks:
+    - name: user-count
+      description: Verify minimum user count
+      query: SELECT COUNT(*) as count FROM users
+      validation:
+        field: count
+        operator: '>='
+        value: 100
+    - name: orphaned-orders
+      description: Check for orders without users
+      query: |
+        SELECT COUNT(*) as count FROM orders o
+        WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = o.user_id)
+      validation:
+        field: count
+        operator: '='
+        value: 0
+
+  replication:
+    maxLag: 1000
+    replicas:
+      - host: staging-db-replica-1.example.com
+        port: 5432
+      - host: staging-db-replica-2.example.com
+        port: 5432
+
+---
+# Canary Environment (5% traffic)
+canary5:
+  environment: canary-5
+  database:
+    type: postgresql
+    host: canary-db.example.com
+    port: 5432
+    database: app_production
+    username: app_user
+    password: ${CANARY_DB_PASSWORD}
+    ssl: true
+
+  tests:
+    - connectivity
+    - query-performance
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+
+---
+# Canary Environment (25% traffic)
+canary25:
+  environment: canary-25
+  database:
+    type: postgresql
+    host: canary-db.example.com
+    port: 5432
+    database: app_production
+    username: app_user
+    password: ${CANARY_DB_PASSWORD}
+    ssl: true
+
+  tests:
+    - connectivity
+    - query-performance
+    - data-integrity
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+    - name: join-query
+      sql: |
+        SELECT u.id, u.email, COUNT(o.id) as order_count
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.email
+        LIMIT 10
+      sla: 200
+
+  checks:
+    - name: user-count
+      description: Verify minimum user count
+      query: SELECT COUNT(*) as count FROM users
+      validation:
+        field: count
+        operator: '>='
+        value: 100
+
+---
+# Canary Environment (100% traffic)
+canary100:
+  environment: canary-100
+  database:
+    type: postgresql
+    host: canary-db.example.com
+    port: 5432
+    database: app_production
+    username: app_user
+    password: ${CANARY_DB_PASSWORD}
+    ssl: true
+
+  tests:
+    - connectivity
+    - query-performance
+    - schema-validation
+    - data-integrity
+    - replication-health
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+    - name: join-query
+      sql: |
+        SELECT u.id, u.email, COUNT(o.id) as order_count
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.email
+        LIMIT 10
+      sla: 200
+
+  tables:
+    - users
+    - orders
+    - products
+
+  checks:
+    - name: user-count
+      description: Verify minimum user count
+      query: SELECT COUNT(*) as count FROM users
+      validation:
+        field: count
+        operator: '>='
+        value: 100
+    - name: orphaned-orders
+      description: Check for orders without users
+      query: |
+        SELECT COUNT(*) as count FROM orders o
+        WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = o.user_id)
+      validation:
+        field: count
+        operator: '='
+        value: 0
+
+  replication:
+    maxLag: 1000
+    replicas:
+      - host: production-db-replica-1.example.com
+        port: 5432
+
+---
+# Production Environment
+production:
+  environment: production
+  database:
+    type: postgresql
+    host: production-db.example.com
+    port: 5432
+    database: app_production
+    username: app_user
+    password: ${PRODUCTION_DB_PASSWORD}
+    ssl: true
+    pool:
+      min: 5
+      max: 20
+
+  tests:
+    - connectivity
+    - query-performance
+    - replication-health
+    - backup-validation
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+
+  replication:
+    maxLag: 1000
+    replicas:
+      - host: production-db-replica-1.example.com
+        port: 5432
+      - host: production-db-replica-2.example.com
+        port: 5432
+
+  backup:
+    maxAge: 86400000  # 24 hours
+    path: /backups/postgres
+    verifyChecksum: true
+
+---
+# Post-Rollback Environment
+rollback:
+  environment: rollback
+  database:
+    type: postgresql
+    host: production-db.example.com
+    port: 5432
+    database: app_production
+    username: app_user
+    password: ${PRODUCTION_DB_PASSWORD}
+    ssl: true
+
+  tests:
+    - connectivity
+    - query-performance
+    - schema-validation
+    - data-integrity
+    - replication-health
+
+  queries:
+    - name: simple-query
+      sql: SELECT 1
+      sla: 10
+    - name: table-scan
+      sql: SELECT * FROM users LIMIT 1
+      sla: 50
+    - name: join-query
+      sql: |
+        SELECT u.id, u.email, COUNT(o.id) as order_count
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        GROUP BY u.id, u.email
+        LIMIT 10
+      sla: 200
+
+  tables:
+    - users
+    - orders
+    - products
+
+  checks:
+    - name: user-count
+      description: Verify user count maintained
+      query: SELECT COUNT(*) as count FROM users
+      validation:
+        field: count
+        operator: '>='
+        value: 100
+    - name: orphaned-orders
+      description: Check for orders without users
+      query: |
+        SELECT COUNT(*) as count FROM orders o
+        WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = o.user_id)
+      validation:
+        field: count
+        operator: '='
+        value: 0
+
+  replication:
+    maxLag: 1000
+    replicas:
+      - host: production-db-replica-1.example.com
+        port: 5432
+
+# Performance SLA Targets
+slaTargets:
+  connectivity: 1000      # Connection: ≤1000ms
+  simpleQuery: 10         # SELECT 1: ≤10ms
+  tableQuery: 50          # Table scan: ≤50ms
+  joinQuery: 200          # Multi-table join: ≤200ms
+  writeOperation: 100     # INSERT/UPDATE/DELETE: ≤100ms
+  replicationLag: 1000    # Replication lag: ≤1000ms
+  default: 30000          # Default timeout: ≤30000ms

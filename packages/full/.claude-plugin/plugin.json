@@ -14,5 +14,7 @@
     "complete",
     "meta",
     "ensemble"
-  ]
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
 }

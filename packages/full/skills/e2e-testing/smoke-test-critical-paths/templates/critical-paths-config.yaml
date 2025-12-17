@@ -1,0 +1,22 @@
+# Critical Paths Smoke Test Configuration Template
+
+---
+# Staging Environment
+staging:
+  environment: staging
+  baseUrl: https://staging.example.com
+  journeys:
+    - registration
+    - checkout
+    - search
+    - profile
+
+---
+# Production Environment
+production:
+  environment: production
+  baseUrl: https://api.example.com
+  journeys:
+    - registration
+    - checkout
+    - search
