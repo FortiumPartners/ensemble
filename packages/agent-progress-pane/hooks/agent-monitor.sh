@@ -31,6 +31,94 @@ DIM='\033[2m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
+# ===== Collapsible State Management =====
+declare -a TOOL_NAMES=()
+declare -a TOOL_OUTPUTS=()
+declare -a TOOL_EXPANDED=()
+CURRENT_TOOL=-1
+ALL_EXPANDED=0
+NEEDS_REDRAW=0
+
+# Add a new tool entry
+add_tool() {
+    local name="$1"
+    local output="$2"
+
+    TOOL_NAMES+=("$name")
+    TOOL_OUTPUTS+=("$output")
+    TOOL_EXPANDED+=(0)  # Collapsed by default
+
+    # Auto-select first tool
+    if [[ $CURRENT_TOOL -eq -1 ]]; then
+        CURRENT_TOOL=0
+    fi
+
+    NEEDS_REDRAW=1
+}
+
+# Update tool output (for streaming results)
+update_tool_output() {
+    local index="$1"
+    local output="$2"
+
+    if [[ $index -ge 0 && $index -lt ${#TOOL_OUTPUTS[@]} ]]; then
+        TOOL_OUTPUTS[$index]+="$output"
+        if [[ ${TOOL_EXPANDED[$index]} -eq 1 ]]; then
+            NEEDS_REDRAW=1
+        fi
+    fi
+}
+
+# Toggle single tool expand/collapse
+toggle_expand() {
+    local index="${1:-$CURRENT_TOOL}"
+
+    if [[ $index -ge 0 && $index -lt ${#TOOL_EXPANDED[@]} ]]; then
+        if [[ ${TOOL_EXPANDED[$index]} -eq 0 ]]; then
+            TOOL_EXPANDED[$index]=1
+        else
+            TOOL_EXPANDED[$index]=0
+        fi
+        NEEDS_REDRAW=1
+    fi
+}
+
+# Toggle all tools
+toggle_all() {
+    if [[ $ALL_EXPANDED -eq 0 ]]; then
+        # Expand all
+        for i in "${!TOOL_EXPANDED[@]}"; do
+            TOOL_EXPANDED[$i]=1
+        done
+        ALL_EXPANDED=1
+    else
+        # Collapse all
+        for i in "${!TOOL_EXPANDED[@]}"; do
+            TOOL_EXPANDED[$i]=0
+        done
+        ALL_EXPANDED=0
+    fi
+    NEEDS_REDRAW=1
+}
+
+# Move to next tool
+navigate_down() {
+    local count=${#TOOL_NAMES[@]}
+    if [[ $count -eq 0 ]]; then return; fi
+
+    CURRENT_TOOL=$(( (CURRENT_TOOL + 1) % count ))
+    NEEDS_REDRAW=1
+}
+
+# Move to previous tool
+navigate_up() {
+    local count=${#TOOL_NAMES[@]}
+    if [[ $count -eq 0 ]]; then return; fi
+
+    CURRENT_TOOL=$(( (CURRENT_TOOL - 1 + count) % count ))
+    NEEDS_REDRAW=1
+}
+
 # Logging functions
 init_logging() {
     if [ "$LOG_ENABLED" != "true" ]; then
@@ -82,6 +170,107 @@ cleanup_old_logs() {
 init_logging
 cleanup_old_logs
 
+# ===== Render Functions =====
+# Render the tools list
+render_tools() {
+    local count=${#TOOL_NAMES[@]}
+
+    for i in "${!TOOL_NAMES[@]}"; do
+        local name="${TOOL_NAMES[$i]}"
+        local expanded=${TOOL_EXPANDED[$i]}
+
+        # Cursor indicator
+        local cursor=" "
+        if [[ $i -eq $CURRENT_TOOL ]]; then
+            cursor="▶"
+        fi
+
+        # Expand/collapse indicator
+        local indicator="[+]"
+        if [[ $expanded -eq 1 ]]; then
+            indicator="[-]"
+        fi
+
+        # Render tool line
+        echo -e "  ${cursor}${DIM}→${RESET} ${YELLOW}${name}${RESET} ${DIM}${indicator}${RESET}"
+
+        # Render output if expanded
+        if [[ $expanded -eq 1 && -n "${TOOL_OUTPUTS[$i]}" ]]; then
+            echo "${TOOL_OUTPUTS[$i]}" | while IFS= read -r line; do
+                echo -e "    ${DIM}${line}${RESET}"
+            done
+        fi
+    done
+}
+
+# Render footer with keyboard hints
+render_footer() {
+    echo ""
+    echo -e "  ${DIM}────────────────────────────────────${RESET}"
+    echo -e "  ${DIM}[e] expand  [a] all  [j/k] nav  [q] quit${RESET}"
+}
+
+# Full screen render
+render_view() {
+    # Save cursor position
+    tput sc 2>/dev/null || true
+
+    # Move to tools section (after header - line 7)
+    tput cup 7 0 2>/dev/null || true
+
+    # Clear from cursor to end of screen
+    tput ed 2>/dev/null || true
+
+    # Render tools
+    render_tools
+
+    # Render footer
+    render_footer
+
+    # Restore cursor
+    tput rc 2>/dev/null || true
+
+    NEEDS_REDRAW=0
+}
+
+# ===== Input Handling =====
+# Non-blocking input handler
+handle_input() {
+    local key
+
+    # Read with 100ms timeout, single character, silent
+    if read -t 0.1 -n 1 -s key 2>/dev/null; then
+        case "$key" in
+            e|$'\n')  # e or Enter
+                toggle_expand
+                ;;
+            a)
+                toggle_all
+                ;;
+            j|$'\x1b')  # j or escape sequence start (arrow keys)
+                # Handle arrow keys
+                if [[ "$key" == $'\x1b' ]]; then
+                    read -t 0.01 -n 2 -s arrow 2>/dev/null
+                    if [[ "$arrow" == "[B" ]]; then  # Down arrow
+                        navigate_down
+                    elif [[ "$arrow" == "[A" ]]; then  # Up arrow
+                        navigate_up
+                    fi
+                else
+                    navigate_down
+                fi
+                ;;
+            k)
+                navigate_up
+                ;;
+            q)
+                return 1  # Signal exit
+                ;;
+        esac
+    fi
+    return 0
+}
+
 # Track existing agent files before we start
 EXISTING_FILES=$(mktemp)
 if [ -n "$TRANSCRIPT_DIR" ] && [ -d "$TRANSCRIPT_DIR" ]; then
@@ -112,6 +301,8 @@ echo ""
 # Function to extract and display tool names and results from JSONL
 show_tools() {
     local file="$1"
+    local current_tool_index=-1
+
     tail -f "$file" 2>/dev/null | while IFS= read -r line; do
         # Check if signal file exists (time to stop)
         [ -f "$SIGNAL_FILE" ] && break
@@ -170,15 +361,20 @@ except:
     pass
 " 2>/dev/null)
 
-        # Display with appropriate formatting and log
+        # Process output and store in arrays
         echo "$OUTPUT" | while IFS= read -r out_line; do
             if [[ "$out_line" == TOOL:* ]]; then
                 local tool_text="${out_line#TOOL:}"
-                echo -e "  ${DIM}→${RESET} ${YELLOW}${tool_text}${RESET}"
+                # Add new tool entry
+                add_tool "$tool_text" ""
+                current_tool_index=$((${#TOOL_NAMES[@]} - 1))
                 log_entry "TOOL: ${tool_text}"
             elif [[ "$out_line" == OUT:* ]]; then
                 local out_text="${out_line#OUT:}"
-                echo -e "    ${DIM}${out_text}${RESET}"
+                # Append to current tool's output
+                if [[ $current_tool_index -ge 0 ]]; then
+                    update_tool_output $current_tool_index "$out_text"$'\n'
+                fi
                 log_entry "  ${out_text}"
             fi
         done
@@ -214,18 +410,35 @@ watch_transcript() {
     fi
 }
 
-# Start watching for transcript in background
-watch_transcript &
-WATCH_PID=$!
+# ===== Main Event Loop =====
+main_loop() {
+    # Initial render
+    render_view
 
-# Poll for signal file (check every 200ms, no timeout - user closes manually)
-while [ ! -f "$SIGNAL_FILE" ]; do
-    sleep 0.2
-done
+    # Start tool watcher in background
+    watch_transcript &
+    WATCH_PID=$!
 
-# Kill background processes
-kill "$WATCH_PID" 2>/dev/null
-[ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
+    # Combined event loop
+    while [ ! -f "$SIGNAL_FILE" ]; do
+        # Handle keyboard input
+        if ! handle_input; then
+            break  # User pressed q
+        fi
+
+        # Redraw if needed
+        if [[ $NEEDS_REDRAW -eq 1 ]]; then
+            render_view
+        fi
+    done
+
+    # Cleanup
+    kill "$WATCH_PID" 2>/dev/null
+    [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null
+}
+
+# Start the main loop
+main_loop
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))

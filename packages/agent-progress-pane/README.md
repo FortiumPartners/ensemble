@@ -18,6 +18,7 @@ The Ensemble Agent Progress Pane is a Claude Code plugin that automatically spaw
 - **Automatic Pane Spawning**: Spawns viewer panes when subagents are invoked
 - **Multi-Multiplexer Support**: Works with WezTerm, Zellij, and tmux
 - **Real-Time Tool Display**: See tool invocations (Read, Write, Bash, etc.) with output preview
+- **Collapsible Tool Details**: Interactive keyboard-driven expand/collapse of tool outputs
 - **Configurable Layout**: Choose split direction, size, and auto-close behavior
 - **Auto-Close Timeout**: Optional countdown timer to automatically close completed panes
 - **Activity Logging**: Persistent logs in `~/.ensemble/agent-logs/` with 7-day retention
@@ -310,6 +311,44 @@ Press any key to close...
 ### Tool Output Preview
 
 The viewer shows up to 15 lines of output for each tool invocation, with line truncation at 100 characters. This gives you visibility into what the agent is doing without overwhelming the display.
+
+### Keyboard Shortcuts
+
+The viewer pane supports interactive keyboard controls for exploring tool outputs:
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `e` or `Enter` | Toggle Expand | Expand/collapse the current tool's output |
+| `a` | Toggle All | Expand or collapse all tools at once |
+| `j` or `↓` | Navigate Down | Move cursor to the next tool |
+| `k` or `↑` | Navigate Up | Move cursor to the previous tool |
+| `q` | Quit | Exit the viewer early |
+
+**Collapsible Tool Details**:
+- Tools are collapsed by default, showing only the tool name with a `[+]` indicator
+- Press `e` on a collapsed tool to expand it and view the full output (shows `[-]` indicator)
+- Use `j/k` or arrow keys to navigate between tools
+- Press `a` to quickly expand or collapse all tools
+- The current tool is marked with a `▶` cursor
+
+**Example interaction**:
+```
+  ▶→ Read: config.json [+]         # Collapsed (current)
+   → Bash: npm install [+]          # Collapsed
+   → Edit: src/index.js [+]         # Collapsed
+
+# Press 'e' to expand current tool:
+
+  ▶→ Read: config.json [-]         # Expanded
+    {
+      "name": "my-project",
+      ...
+    }
+   → Bash: npm install [+]
+   → Edit: src/index.js [+]
+
+  [e] expand  [a] all  [j/k] nav  [q] quit
+```
 
 ## Troubleshooting
 
