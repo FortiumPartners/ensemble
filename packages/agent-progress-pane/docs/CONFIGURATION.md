@@ -174,6 +174,53 @@ Enable/disable activity logging.
 export ENSEMBLE_PANE_LOG=false  # Disable logging
 ```
 
+## Collapsible Details Feature
+
+The agent monitor supports interactive keyboard controls for exploring tool outputs.
+
+### Keyboard Shortcuts
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `e` or `Enter` | Toggle Expand | Expand/collapse the current tool's output |
+| `a` | Toggle All | Expand or collapse all tools at once |
+| `j` or `↓` | Navigate Down | Move cursor to the next tool |
+| `k` or `↑` | Navigate Up | Move cursor to the previous tool |
+| `q` | Quit | Exit the viewer early |
+
+### Behavior
+
+- **Default State**: Tools are collapsed by default, showing only the tool name with a `[+]` indicator
+- **Expand**: Press `e` or `Enter` to expand the current tool and view full output (shows `[-]` indicator)
+- **Navigation**: Use `j/k` or arrow keys to move between tools
+- **Toggle All**: Press `a` to expand or collapse all tools at once
+- **Current Tool**: The selected tool is marked with a `▶` cursor
+- **Footer**: A persistent footer shows available keyboard shortcuts
+
+### Display Format
+
+**Collapsed tool**:
+```
+  ▶→ Read: config.json [+]
+```
+
+**Expanded tool**:
+```
+  ▶→ Read: config.json [-]
+    {
+      "name": "my-project",
+      "version": "1.0.0",
+      ...
+    }
+```
+
+### Performance
+
+- Keypress response time: <50ms
+- Supports 50+ tools without performance degradation
+- Real-time tool updates continue during interaction
+- No screen flicker on redraw
+
 ## Logging Configuration
 
 Activity logs are stored in `~/.ensemble/agent-logs/`.
