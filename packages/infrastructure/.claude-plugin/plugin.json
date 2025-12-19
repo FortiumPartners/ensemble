@@ -17,5 +17,6 @@
     "ensemble"
   ],
   "commands": "./commands",
-  "skills": "./skills"
+  "skills": "./skills",
+  "agents": "./agents"
 }

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(gh run list:*)",
+      "Bash(claude plugin install:*)",
+      "Bash(grep:*)",
+      "Bash(claude plugin marketplace update:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node hooks/task-spawner.js:*)"
+    ]
+  }
+}

@@ -16,5 +16,6 @@
     "framework-detection"
   ],
   "commands": "./commands",
-  "skills": "./skills"
+  "skills": "./skills",
+  "agents": "./agents"
 }

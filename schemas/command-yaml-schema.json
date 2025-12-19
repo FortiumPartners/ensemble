@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fortiumpartners.com/schemas/command-yaml-schema.json",
+  "title": "Ensemble Command YAML Schema",
+  "description": "Schema for validating ensemble plugin command YAML files",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["metadata", "mission", "workflow"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["name", "description", "version"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Command name (lowercase, hyphenated)"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Brief description of command purpose"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version (e.g., 1.0.0)"
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO 8601 date of last update"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["analysis", "workflow", "infrastructure", "quality", "documentation", "git", "testing", "planning", "implementation", "deployment"],
+          "description": "Command category"
+        },
+        "output_path": {
+          "type": "string",
+          "description": "Optional custom output path"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source organization"
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Tools this command can use"
+        },
+        "argument_hint": {
+          "type": "string",
+          "description": "Hint for command arguments"
+        },
+        "model": {
+          "type": "string",
+          "enum": ["opus", "sonnet", "haiku"],
+          "description": "Claude model to use"
+        }
+      }
+    },
+    "mission": {
+      "type": "object",
+      "required": ["summary"],
+      "additionalProperties": true,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Detailed mission summary"
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["phases"],
+      "additionalProperties": true,
+      "properties": {
+        "phases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "order"],
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 3,
+                "description": "Phase name"
+              },
+              "order": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Phase execution order (must be sequential from 1)"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["order"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "order": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "Step execution order (must be sequential from 1)"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Step title"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Step description"
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "description": "List of actions to perform"
+                    },
+                    "delegation": {
+                      "type": "object",
+                      "properties": {
+                        "agent": {
+                          "type": "string",
+                          "description": "Agent to delegate to"
+                        },
+                        "context": {
+                          "type": "string",
+                          "description": "Context for delegation"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "expectedOutput": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "format": {
+          "type": "string",
+          "description": "Expected output format"
+        },
+        "structure": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
