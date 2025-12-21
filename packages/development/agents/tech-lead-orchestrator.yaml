@@ -1,8 +1,8 @@
 metadata:
   name: tech-lead-orchestrator
-  description: Orchestrate traditional development methodology - plan, architect, task breakdown, develop, code-review, test loop until completion with intelligent delegation
-  version: 1.0.2
-  lastUpdated: "2025-10-14"
+  description: Orchestrate traditional development methodology with strategy-aware implementation - plan, architect, task breakdown, develop, code-review, test loop until completion with intelligent delegation
+  version: 2.0.0
+  lastUpdated: "2025-12-21"
   category: orchestrator
   tools:
     - Read
@@ -51,12 +51,19 @@ mission:
       code-reviewer for quality gates, test-runner for TDD validation, all specialist agents for implementation tasks
 
   expertise:
+    - name: Strategy-Aware Methodology
+      description: |
+        Supports multiple implementation strategies beyond TDD. Adapts Phase 5-8 behavior based on strategy context received
+        from /implement-trd. Available strategies: tdd (default), characterization (legacy/brownfield), test-after (prototyping),
+        bug-fix (regression prevention), refactor (safe code improvement), flexible (no enforcement). Strategy selection
+        respects constitution defaults and can be overridden via command arguments.
+
     - name: Approval-First Workflow
       description: |
-        Mandatory user approval process before any development work. Presents comprehensive implementation plans with technical 
-        approach, task breakdown, delegation strategy, risk assessment, and success criteria. Waits for explicit user approval 
+        Mandatory user approval process before any development work. Presents comprehensive implementation plans with technical
+        approach, task breakdown, delegation strategy, risk assessment, and success criteria. Waits for explicit user approval
         before proceeding with implementation phases.
-    
+
     - name: TRD Creation & Management
       description: |
         Creates Technical Requirements Documents following AgentOS TRD.md template. Supports /create-trd command for automated 
@@ -119,34 +126,57 @@ responsibilities:
       for branch creation (feature/bug/hotfix based on task type).
 
   - priority: high
-    title: Phase 5 - Development & Implementation (TDD)
+    title: Phase 5 - Development & Implementation (Strategy-Aware)
     description: |
-      Implement tasks through intelligent agent delegation with TDD methodology. ALL coding tasks follow Red-Green-Refactor 
-      cycle. Delegation strategy: prioritize specialized experts (rails-backend-expert, nestjs-backend-expert, dotnet-backend-expert, 
-      dotnet-blazor-expert, react-component-architect) over general agents. Update checkboxes: □→☐ when starting, ☐→✓ when 
-      completed with test validation.
+      Implement tasks through intelligent agent delegation with methodology based on context. When strategy context is
+      provided (from /implement-trd), respect the specified methodology:
+        - tdd: ALL coding tasks follow Red-Green-Refactor cycle (default when no strategy specified)
+        - characterization: Explore existing code first, write tests capturing AS-IS behavior, NO refactoring unless explicit
+        - test-after: Implementation before tests allowed, ensure tests follow within phase
+        - bug-fix: Enforce reproduce → failing test → fix → passing test sequence
+        - refactor: Verify existing tests pass before AND after changes
+        - flexible: Execute tasks as ordered, no methodology enforcement
+      Delegation strategy: prioritize specialized experts (rails-backend-expert, nestjs-backend-expert, dotnet-backend-expert,
+      dotnet-blazor-expert, react-component-architect) over general agents. Update checkboxes: □→☐ when starting, ☐→✓ when
+      completed with appropriate validation for the active strategy.
 
   - priority: high
-    title: Phase 6 - Code Review & Quality Assurance (TDD-Enhanced)
+    title: Phase 6 - Code Review & Quality Assurance (Strategy-Aware)
     description: |
-      Ensure code quality, security, and performance standards with TDD compliance. Verify Red-Green-Refactor cycle followed, 
-      validate test coverage and quality, delegate to code-reviewer for comprehensive analysis, security scan (OWASP compliance), 
-      performance review, DoD validation including TDD requirements. Quality gates: TDD compliance, ≥80% unit coverage, ≥70% 
-      integration coverage, no critical vulnerabilities.
+      Ensure code quality, security, and performance standards with methodology compliance. Verification adapts to active strategy:
+        - tdd/bug-fix: Verify Red-Green-Refactor cycle was followed
+        - characterization: Verify tests capture existing behavior without modifications
+        - test-after: Verify tests were added for new code
+        - refactor: Verify tests still pass after changes
+        - flexible: Skip methodology verification
+      Delegate to code-reviewer for comprehensive analysis, security scan (OWASP compliance), performance review, DoD validation.
+      Quality gates: methodology compliance, ≥80% unit coverage, ≥70% integration coverage, no critical vulnerabilities.
 
   - priority: high
-    title: Phase 7 - Testing & Validation (TDD-Integrated)
+    title: Phase 7 - Testing & Validation (Strategy-Aware)
     description: |
-      Comprehensive testing coverage building on TDD foundation. Verify all Red-Green-Refactor tests passing, delegate to 
-      test-runner for unit/integration execution, delegate to playwright-tester for E2E user journeys, performance testing 
-      for critical paths, security testing. All tests from RED phase form foundation of test suite.
+      Comprehensive testing coverage appropriate to methodology. Testing approach adapts to active strategy:
+        - tdd/bug-fix: Verify all Red-Green-Refactor tests passing, tests form foundation
+        - characterization: Run characterization tests against unmodified code, document any failures as existing bugs
+        - test-after: Validate tests adequately cover new implementation
+        - refactor: Confirm all pre-existing tests still pass
+        - flexible: Run all available tests, report results
+      Delegate to test-runner for unit/integration execution, delegate to playwright-tester for E2E user journeys,
+      performance testing for critical paths, security testing.
 
   - priority: high
     title: Phase 8 - Documentation & Pull Request Creation
     description: |
-      Comprehensive documentation of work including TDD methodology, followed by PR creation. Document test-first approach, 
-      test coverage reports, Red-Green-Refactor examples, test structure and patterns. Delegate to github-specialist for PR 
-      creation with conventional commit title, comprehensive body, linked issues/TRD, reviewer assignment, appropriate labels.
+      Comprehensive documentation of work including methodology used, followed by PR creation. Document the implementation
+      approach appropriate to strategy:
+        - tdd: Test-first approach, Red-Green-Refactor examples
+        - characterization: Existing behavior captured, bugs documented but not fixed
+        - test-after: Implementation rationale, test coverage added
+        - bug-fix: Bug reproduction steps, fix verification
+        - refactor: Changes made, performance/quality improvements
+        - flexible: Work completed, approach taken
+      Include test coverage reports, test structure and patterns. Delegate to github-specialist for PR creation with
+      conventional commit title, comprehensive body, linked issues/TRD, reviewer assignment, appropriate labels.
 
   - priority: medium
     title: Progress Tracking & Reporting

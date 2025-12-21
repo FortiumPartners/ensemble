@@ -1,8 +1,8 @@
 metadata:
   name: implement-trd
-  description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
-  version: 1.0.0
-  lastUpdated: "2025-10-13"
+  description: Complete TRD implementation with flexible strategies, state tracking, constitution guardrails, and ensemble-orchestrator delegation
+  version: 2.0.0
+  lastUpdated: "2025-12-21"
   category: implementation
   output_path: ensemble/implement-trd.md
   source: fortium
@@ -10,137 +10,471 @@ metadata:
 mission:
   summary: |
     This command implements a complete Technical Requirements Document (TRD) using modern
-    git-town feature branch workflow. It creates a feature branch and delegates to
-    ensemble-orchestrator which routes to tech-lead-orchestrator for structured TDD-based
-    development including planning, implementation, testing, and quality gates.
+    git-town feature branch workflow with flexible implementation strategies. It supports
+    six methodologies (TDD, characterization, test-after, bug-fix, refactor, flexible),
+    integrates with project constitution for guardrails, provides resume capability with
+    state tracking, and delegates to ensemble-orchestrator for structured development.
+
+arguments:
+  examples:
+    - "(no args) - Implement active TRD with auto-detected strategy"
+    - "resume - Continue from last checkpoint"
+    - "strategy=tdd / strategy=characterization / strategy=flexible"
+    - "from TRD-015 / to TRD-030 - Partial execution"
+    - "report status only - Show progress without executing"
+    - "max parallel 2 - Limit concurrent task execution"
+
+strategies:
+  - name: tdd
+    description: Test-Driven Development
+    details: |
+      Write tests first, then implementation. Enforce RED-GREEN-REFACTOR cycle.
+      Best for: New features, greenfield, well-defined requirements.
+      Validation: Error if implementation tasks before test tasks in same area.
+    default: true
+
+  - name: characterization
+    description: Characterization Testing
+    details: |
+      Understand existing code, write tests capturing CURRENT behavior AS-IS.
+      CRITICAL: NO refactoring unless EXPLICITLY requested.
+      Goal: Document existing behavior with tests, preserve all current behavior.
+      Best for: Legacy code, brownfield, adding test coverage to untested code.
+      Validation: Allow implementation exploration before tests.
+
+  - name: test-after
+    description: Implementation First
+    details: |
+      Implement feature, then write comprehensive tests.
+      No test-first enforcement.
+      Best for: Prototyping, UI work, exploratory implementation.
+      Validation: Warn if phase completes without tests.
+
+  - name: bug-fix
+    description: Bug Fix Flow
+    details: |
+      Reproduce bug, write failing test, fix implementation, verify passing.
+      Special sequencing: reproduce → test → fix → verify.
+      Best for: Bug fixes, regression prevention.
+      Validation: Expect reproduce/verify tasks.
+
+  - name: refactor
+    description: Refactoring
+    details: |
+      Tests already exist, refactor implementation safely.
+      Verify tests pass before AND after changes.
+      Best for: Code improvement, performance optimization, tech debt.
+      Validation: Require existing test verification.
+
+  - name: flexible
+    description: Developer Choice
+    details: |
+      No enforced test/implementation ordering.
+      Trust task breakdown as written.
+      Best for: Complex scenarios, mixed work, experienced teams.
+      Validation: None, execute tasks as specified.
+
+strategyDetection:
+  priority:
+    - source: arguments
+      description: "$ARGUMENTS override (e.g., strategy=characterization)"
+    - source: trd_explicit
+      description: "TRD contains 'Implementation Strategy: X'"
+    - source: constitution
+      description: "Constitution specifies default methodology"
+    - source: auto_detection
+      description: "Apply keyword detection rules"
+    - source: default
+      description: "Fall back to tdd"
+
+  autoDetectionRules:
+    - keywords: ["legacy", "existing", "brownfield", "untested"]
+      strategy: characterization
+    - keywords: ["bug fix", "regression", "defect", "issue"]
+      strategy: bug-fix
+    - condition: ">70% of tasks reference existing files"
+      strategy: characterization
+    - condition: ">50% of task descriptions contain 'Refactor'"
+      strategy: refactor
+    - keywords: ["prototype", "spike", "exploratory", "POC"]
+      strategy: test-after
+
+constitution:
+  location: docs/standards/constitution.md
+  integration:
+    - name: Core Principles
+      description: Methodology, non-negotiable rules
+    - name: Tech Stack
+      description: Languages, frameworks, testing tools
+    - name: Quality Gates
+      description: Coverage targets, security requirements
+    - name: Approval Requirements
+      description: What needs user consent
+  fallback:
+    message: "No constitution found. Run /init-project for enhanced guardrails."
+    defaults:
+      unit_coverage: 80
+      integration_coverage: 70
+      methodology: tdd
+
+stateManagement:
+  location: ".trd-state/<trd-name>/implement.json"
+  fields:
+    - name: trd_file
+      description: Path to TRD document
+    - name: trd_hash
+      description: SHA256 of TRD content for change detection
+    - name: branch
+      description: Feature branch name
+    - name: strategy
+      description: Active implementation strategy
+    - name: strategy_source
+      description: How strategy was determined
+    - name: constitution_applied
+      description: Whether constitution guardrails are active
+    - name: phase_cursor
+      description: Current phase number
+    - name: tasks
+      description: Task status map with commits and timestamps
+    - name: coverage
+      description: Unit and integration coverage metrics
+    - name: checkpoints
+      description: Phase checkpoint commits
+
+  resumeBehavior:
+    hashMatch: Skip completed tasks, re-queue failed/pending
+    hashChanged: Report diff, invalidate affected scope, re-plan
+    strategyReevaluation: Re-evaluated unless overridden in $ARGUMENTS
 
 workflow:
   phases:
-    - name: Prerequisites & Feature Branch Setup
+    - name: Preflight - Constitution, Branch, TRD, Strategy
       order: 1
       steps:
         - order: 1
-          title: Git Town Verification
-          description: Check git-town installation and configuration
+          title: Constitution Loading
+          description: Load guardrails from docs/standards/constitution.md if present
           actions:
-            - Verify git-town is installed
-            - Check repository is git-initialized
-            - Validate git-town configuration
-            - Ensure clean working directory
-        
+            - Extract Core Principles (methodology, non-negotiable rules)
+            - Extract Tech Stack (languages, frameworks, testing tools)
+            - Extract Quality Gates (coverage targets, security requirements)
+            - Extract Approval Requirements (what needs user consent)
+            - If absent, warn and continue with sensible defaults
+
         - order: 2
-          title: Feature Branch Creation
-          description: Create feature branch using git town hack
+          title: TRD Location and Selection
+          description: Find and validate TRD document
           actions:
-            - Extract branch name from TRD filename
-            - Execute git town hack feature/<branch-name>
-            - Verify branch creation successful
-        
+            - Check $ARGUMENTS for TRD path or name
+            - Search docs/TRD/ for in-progress TRDs
+            - If multiple candidates, prompt user for selection
+            - Validate TRD has Master Task List section
+            - Warn if TRD appears 100% complete
+
         - order: 3
-          title: TRD Ingestion
-          description: Parse and analyze existing TRD document with checkbox tracking
-        
+          title: Feature Branch Enforcement
+          description: Ensure feature branch exists
+          actions:
+            - Derive branch name from TRD filename or title
+            - Check if already on correct branch
+            - Prefer git town hack feature/<trd-name>
+            - Fallback to git switch -c feature/<trd-name>
+            - Record branch in state for resume
+
         - order: 4
-          title: Technical Feasibility Review
-          description: Validate implementation approach and architecture
-        
-        - order: 5
-          title: Resource Assessment
-          description: Identify required specialist agents and tools
-    
-    - name: Ensemble Orchestrator Delegation
+          title: Strategy Determination
+          description: Determine implementation strategy using priority order
+          actions:
+            - Check $ARGUMENTS for strategy override
+            - Check TRD for explicit "Implementation Strategy" declaration
+            - Check constitution for default methodology
+            - Apply auto-detection rules based on TRD content
+            - Default to tdd if no match
+            - Report strategy and source
+
+    - name: Parse Master Task List
       order: 2
       steps:
         - order: 1
-          title: Strategic Request Analysis
-          description: ensemble-orchestrator analyzes TRD requirements
-          delegation:
-            agent: ensemble-orchestrator
-            context: Complete TRD with task breakdown and acceptance criteria
-        
+          title: Extract Tasks from TRD
+          description: Parse Master Task List section
+          actions:
+            - 'Parse task format "- [ ] **TRD-XXX**: Description"'
+            - Extract id, description, estimate, priority, dependencies
+            - Identify [P] parallelizable markers
+            - Infer file_touches from descriptions
+
         - order: 2
-          title: Development Project Classification
-          description: Identifies as development project requiring full methodology
-        
+          title: Build DAG and Phases
+          description: Construct execution plan
+          actions:
+            - Group tasks by Sprint/Phase headings
+            - Parse dependency declarations
+            - Validate no circular dependencies
+            - Identify parallel groups with file mutex
+
         - order: 3
-          title: Tech Lead Orchestrator Delegation
-          description: Routes to tech-lead-orchestrator for development methodology
-          delegation:
-            agent: tech-lead-orchestrator
-            context: TRD implementation requirements with task tracking
-    
-    - name: Progressive Implementation with TDD
+          title: Strategy-Aware Validation
+          description: Validate task ordering against strategy
+          actions:
+            - "tdd: Advisory warning if implementation before tests"
+            - "bug-fix: Expect reproduce → test → fix → verify pattern"
+            - "refactor: Expect test verification at start and end"
+            - "flexible: No validation"
+
+        - order: 4
+          title: Load Resume State
+          description: Check for existing state and handle resume
+          actions:
+            - Read .trd-state/<trd-name>/implement.json if exists
+            - Compare TRD content hash
+            - Skip completed tasks if hash unchanged
+            - Invalidate affected tasks if hash changed
+
+    - name: Ensemble Orchestrator Delegation
       order: 3
       steps:
         - order: 1
-          title: Planning & Architecture Validation
-          description: Validate TRD architecture against current system
-        
+          title: Context Preparation
+          description: Bundle context for delegation
+          actions:
+            - Include TRD content and constitution
+            - Include strategy and strategy source
+            - Include phase to execute and parsed tasks
+            - Include quality gate targets
+
         - order: 2
-          title: Task Status Assessment
-          description: Review completed work before proceeding
-          actions:
-            - Check which tasks are already completed
-            - Identify blockers and dependencies
-            - Prioritize next tasks
-        
+          title: Delegate to Ensemble Orchestrator
+          description: Route to ensemble-orchestrator for mesh coordination
+          delegation:
+            agent: ensemble-orchestrator
+            context: |
+              Development project requiring technical implementation.
+              Strategy context overrides default TDD enforcement when appropriate.
+
         - order: 3
-          title: Test-Driven Implementation
-          description: Follow TDD Red-Green-Refactor cycle for all code
+          title: Tech Lead Orchestrator Receives Context
+          description: Routes to tech-lead-orchestrator with strategy awareness
+          delegation:
+            agent: tech-lead-orchestrator
+            context: |
+              TRD implementation with strategy context.
+              Adjust Phase 5 behavior based on specified methodology.
+
+    - name: Execute Tasks by Phase
+      order: 4
+      steps:
+        - order: 1
+          title: Phase-by-Phase Execution
+          description: Execute phases in DAG order
           actions:
-            - RED - Write failing tests first
-            - GREEN - Implement minimal code to pass
-            - REFACTOR - Improve code quality
-        
+            - Announce phase start
+            - Load tasks for this phase
+            - Respect dependencies (topological sort)
+            - Execute with parallelism where safe (max 2 concurrent)
+            - Use file-touch mutex to prevent conflicts
+            - Update state after each task
+
+        - order: 2
+          title: Strategy-Specific Execution
+          description: Apply methodology appropriate to strategy
+          actions:
+            - "tdd: RED-GREEN-REFACTOR cycle, test commits before implementation"
+            - "characterization: Explore → Document → Test AS-IS behavior"
+            - "test-after: Implement → Test → Validate"
+            - "bug-fix: Reproduce → Failing test → Fix → Passing test"
+            - "refactor: Verify tests → Change → Verify tests"
+            - "flexible: Execute as ordered"
+
+        - order: 3
+          title: On Task Success
+          description: Handle successful task completion
+          actions:
+            - Update TRD checkbox from [ ] to [x]
+            - 'Create commit with format "<type>(TRD-XXX): <description>"'
+            - Update state file with status, commit SHA, timestamp
+            - Log progress
+
         - order: 4
-          title: Quality Gates
-          description: Code review, security scanning, DoD enforcement
+          title: On Task Failure
+          description: Handle task failures
+          actions:
+            - "Sequential: Halt phase, record error, suggest remediation"
+            - "Parallel: Allow others to finish, fail at group boundary"
+
+    - name: Artifact Synchronization
+      order: 5
+      steps:
+        - order: 1
+          title: Update TRD After Phase
+          description: Ensure TRD reflects actual progress
+          actions:
+            - Mark all completed tasks [x] in Master Task List
+            - Update Sprint/Phase progress if tracking section exists
+            - Add implementation notes for significant decisions
+            - Commit TRD updates
+
+        - order: 2
+          title: Artifact Sync Validation Gate
+          description: Block phase completion on desync
+          actions:
+            - Verify TRD checkboxes match actual completion
+            - Verify no completed tasks still marked [ ]
+            - Verify constitution quality gates satisfied
+            - If desync detected, STOP and report mismatches
+            - Require fixes before proceeding
+
+    - name: Quality Gates
+      order: 6
+      steps:
+        - order: 1
+          title: Test Coverage Validation
+          description: Validate coverage against targets
+          delegation:
+            agent: test-runner
+            context: Run full test suite and collect coverage metrics
+          actions:
+            - Compare against constitution targets
+            - Default targets 80% unit, 70% integration
+            - Block phase if below threshold (unless flexible)
+
+        - order: 2
+          title: Security Validation
+          description: Security scanning and compliance
           delegation:
             agent: code-reviewer
-            context: Completed implementation requiring quality validation
-        
-        - order: 5
-          title: Sprint Review
-          description: Mark completed tasks and validate objectives
+            context: Security scan and OWASP compliance check
+          actions:
+            - Scan for security issues
+            - Check for hardcoded secrets
+            - Validate input sanitization
+
+        - order: 3
+          title: Constitution Compliance Check
+          description: Verify all guardrails satisfied
+          actions:
+            - Verify quality gate checkboxes satisfiable
+            - Check approval requirements weren't bypassed
+            - Validate tech stack constraints honored
+            - Report compliance status
+
+        - order: 4
+          title: Phase Checkpoint Commit
+          description: Create checkpoint after validations pass
+          actions:
+            - "Commit: chore(phase N): checkpoint (tests pass; cov unit X%, integ Y%)"
+            - Optional tag phase-N-pass for rollback reference
+
+    - name: Write Resume State
+      order: 7
+      steps:
+        - order: 1
+          title: Update State File
+          description: Persist state for resume capability
+          actions:
+            - Write to .trd-state/<trd-name>/implement.json
+            - Include trd_hash for change detection
+            - Include all task statuses with commits
+            - Include coverage metrics
+            - Include checkpoint history
+
+    - name: Completion Report
+      order: 8
+      steps:
+        - order: 1
+          title: Generate Summary
+          description: Produce final implementation report
+          actions:
+            - Report TRD name and branch
+            - Report strategy used and source
+            - Report phases completed/total
+            - Report task counts (done/failed/skipped)
+            - Report coverage metrics vs targets
+            - Report constitution compliance status
+            - Report final commit reference
+            - Suggest next steps (PR creation, TRD archival)
 
 expectedInput:
   format: Technical Requirements Document (TRD)
   sections:
+    - name: Master Task List
+      required: true
+      description: 'Tasks with checkbox format "- [ ] **TRD-XXX**: Description"'
+
     - name: System Architecture
       required: true
       description: Component design, data flow, integration points
-    
-    - name: Technical Specifications
-      required: true
-      description: APIs, data contracts, performance requirements
-    
-    - name: Implementation Tasks
-      required: true
-      description: Detailed task breakdown with checkboxes and estimates
-    
-    - name: Quality Requirements
-      required: true
-      description: Security, performance, testing standards
-    
+
     - name: Sprint Planning
       required: true
       description: Organized development phases with dependencies
-    
+
     - name: Acceptance Criteria
       required: true
       description: Measurable validation criteria with checkbox tracking
+
+    - name: Implementation Strategy
+      required: false
+      description: Optional explicit strategy declaration (tdd, characterization, etc.)
 
 expectedOutput:
   format: Implemented Features with Quality Gates
   structure:
     - name: Feature Branch
       description: Git-town feature branch with all implementation commits
-    
+
     - name: Implementation Code
-      description: Working code with tests (≥80% unit, ≥70% integration)
-    
+      description: Working code with tests meeting coverage targets
+
     - name: Quality Validation
       description: Code review passed, security scan clean, DoD met
-    
-    - name: Documentation
-      description: Updated documentation including API docs and deployment notes
+
+    - name: Updated TRD
+      description: All completed tasks marked [x], progress documented
+
+    - name: Resume State
+      description: .trd-state/<trd-name>/implement.json for continuation
+
+    - name: Completion Report
+      description: Summary with strategy, coverage, compliance status
+
+errorHandling:
+  - error: No TRD found
+    response: List available TRDs in docs/TRD/, suggest /create-trd
+
+  - error: No Master Task List
+    response: Show expected format, suggest TRD structure
+
+  - error: Branch conflict
+    response: Surface git commands to resolve
+
+  - error: Constitution violation
+    response: Stop phase, report specific violations with remediation
+
+  - error: Artifact desync
+    response: Stop, list mismatches, require fixes before proceeding
+
+  - error: Coverage below threshold
+    response: Report gap, suggest adding tests
+
+  - error: Resume hash mismatch
+    response: Show TRD diff, offer to invalidate and re-plan
+
+compatibility:
+  - Maintains ensemble-orchestrator → tech-lead-orchestrator delegation chain
+  - Preserves git-town integration (falls back to plain git if unavailable)
+  - Works with or without constitution.md (defaults apply)
+  - Existing TRDs work unchanged (Master Task List format)
+  - No speckit dependency
+
+changelog:
+  - version: "2.0.0"
+    date: "2025-12-21"
+    changes:
+      - "Added 6 flexible implementation strategies"
+      - "Added constitution integration from docs/standards/"
+      - "Added resume capability with state tracking"
+      - "Added artifact synchronization validation"
+      - "Added parallel task execution with file mutex"
+      - "Added strategy auto-detection from TRD content"
+      - "Expanded from 3 to 8 workflow phases"
