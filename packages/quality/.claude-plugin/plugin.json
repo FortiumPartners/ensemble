@@ -15,7 +15,13 @@
     "testing",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [],
+  "agents": [
+    "././agents/code-reviewer.md",
+    "././agents/deep-debugger.md",
+    "././agents/qa-orchestrator.md",
+    "././agents/test-reader-agent.md",
+    "././agents/test-runner.md"
+  ]
 }

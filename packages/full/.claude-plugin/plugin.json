@@ -15,7 +15,25 @@
     "meta",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/agent-progress-config.md",
+    "././commands/task-progress-config.md"
+  ],
+  "skills": [
+    "././skills/blazor",
+    "././skills/core",
+    "././skills/e2e-testing",
+    "././skills/exunit",
+    "././skills/git",
+    "././skills/infrastructure",
+    "././skills/jest",
+    "././skills/nestjs",
+    "././skills/phoenix",
+    "././skills/pytest",
+    "././skills/rails",
+    "././skills/react",
+    "././skills/rspec",
+    "././skills/xunit"
+  ],
+  "agents": []
 }

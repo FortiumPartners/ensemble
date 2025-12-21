@@ -9,5 +9,7 @@
   "license": "MIT",
   "repository": "https://github.com/FortiumPartners/ensemble",
   "hooks": "./hooks/hooks.json",
-  "commands": "./commands"
+  "commands": [
+    "././commands/task-progress-config.md"
+  ]
 }

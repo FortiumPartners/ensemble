@@ -15,7 +15,9 @@
     "javascript",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [
+    "././skills/templates"
+  ],
+  "agents": []
 }

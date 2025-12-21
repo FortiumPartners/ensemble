@@ -18,7 +18,9 @@
     "ensemble"
   ],
   "hooks": "./hooks/hooks.json",
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/agent-progress-config.md"
+  ],
+  "skills": [],
+  "agents": []
 }

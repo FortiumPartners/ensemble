@@ -15,7 +15,11 @@
     "frontend",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [
+    "././skills/dotnet-framework",
+    "././skills/examples",
+    "././skills/templates"
+  ],
+  "agents": []
 }

@@ -15,7 +15,18 @@
     "coding",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/create-trd.md",
+    "././commands/ensemble/generate-api-docs.md",
+    "././commands/ensemble/implement-trd.md",
+    "././commands/ensemble/refine-trd.md"
+  ],
+  "skills": [],
+  "agents": [
+    "././agents/api-documentation-specialist.md",
+    "././agents/backend-developer.md",
+    "././agents/documentation-specialist.md",
+    "././agents/frontend-developer.md",
+    "././agents/tech-lead-orchestrator.md"
+  ]
 }

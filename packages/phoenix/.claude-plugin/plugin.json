@@ -15,7 +15,10 @@
     "liveview",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [
+    "././skills/examples",
+    "././skills/templates"
+  ],
+  "agents": []
 }
