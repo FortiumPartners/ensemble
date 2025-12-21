@@ -16,7 +16,21 @@
     "aws",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [
+    "././skills/aws-cloud",
+    "././skills/cloud-provider-detector",
+    "././skills/flyio",
+    "././skills/helm",
+    "././skills/kubernetes",
+    "././skills/tooling-detector"
+  ],
+  "agents": [
+    "././agents/build-orchestrator.md",
+    "././agents/deployment-orchestrator.md",
+    "././agents/helm-chart-specialist.md",
+    "././agents/infrastructure-developer.md",
+    "././agents/infrastructure-orchestrator.md",
+    "././agents/postgresql-specialist.md"
+  ]
 }

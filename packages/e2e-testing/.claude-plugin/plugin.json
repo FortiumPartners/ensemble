@@ -15,7 +15,18 @@
     "testing",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/playwright-test.md"
+  ],
+  "skills": [
+    "././skills/smoke-test-api",
+    "././skills/smoke-test-auth",
+    "././skills/smoke-test-critical-paths",
+    "././skills/smoke-test-database",
+    "././skills/smoke-test-external-services",
+    "././skills/smoke-test-runner"
+  ],
+  "agents": [
+    "././agents/playwright-tester.md"
+  ]
 }

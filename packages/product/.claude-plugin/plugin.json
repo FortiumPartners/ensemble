@@ -15,7 +15,13 @@
     "planning",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/analyze-product.md",
+    "././commands/ensemble/create-prd.md",
+    "././commands/ensemble/refine-prd.md"
+  ],
+  "skills": [],
+  "agents": [
+    "././agents/product-management-orchestrator.md"
+  ]
 }

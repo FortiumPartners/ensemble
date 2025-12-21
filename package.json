@@ -16,6 +16,7 @@
     "generate:agents": "node scripts/generate-markdown.js --type agents",
     "generate:watch": "node scripts/generate-markdown.js --watch",
     "generate:validate": "node scripts/generate-markdown.js --validate",
+    "fix-manifests": "node scripts/fix-plugin-manifests.js",
     "publish:changed": "node scripts/publish-plugin.js"
   },
   "devDependencies": {

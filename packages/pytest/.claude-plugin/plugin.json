@@ -19,7 +19,7 @@
     "parametrization",
     "test-generation"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [],
+  "skills": [],
+  "agents": []
 }

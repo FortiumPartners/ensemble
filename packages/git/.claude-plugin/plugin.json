@@ -15,7 +15,16 @@
     "commits",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/claude-changelog.md",
+    "././commands/ensemble/release.md"
+  ],
+  "skills": [
+    "././skills/changelog-generator"
+  ],
+  "agents": [
+    "././agents/git-workflow.md",
+    "././agents/github-specialist.md",
+    "././agents/release-agent.md"
+  ]
 }

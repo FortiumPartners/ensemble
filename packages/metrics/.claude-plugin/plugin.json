@@ -15,7 +15,13 @@
     "dashboard",
     "ensemble"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/manager-dashboard.md",
+    "././commands/ensemble/sprint-status.md",
+    "././commands/ensemble/web-metrics-dashboard.md"
+  ],
+  "skills": [],
+  "agents": [
+    "././agents/manager-dashboard-agent.md"
+  ]
 }

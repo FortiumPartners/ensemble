@@ -15,7 +15,20 @@
     "ensemble",
     "framework-detection"
   ],
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": [
+    "././commands/ensemble/fold-prompt.md",
+    "././commands/ensemble/init-project.md"
+  ],
+  "skills": [
+    "././skills/framework-detector",
+    "././skills/test-detector"
+  ],
+  "agents": [
+    "././agents/agent-meta-engineer.md",
+    "././agents/context-fetcher.md",
+    "././agents/directory-monitor.md",
+    "././agents/ensemble-orchestrator.md",
+    "././agents/file-creator.md",
+    "././agents/general-purpose.md"
+  ]
 }
