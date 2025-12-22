@@ -59,6 +59,33 @@ CLAUDE.md, README.md, and agent configurations for improved Claude Code performa
 **3. Quality Assurance & Standards Validation**
    Validate against Fortium configuration standards
 
+### Phase 4: History Consolidation
+
+**1. Scan PRD/TRD Documents**
+   Read all documents in docs/PRD/ and docs/TRD/
+
+   - Scan docs/PRD/ for markdown files
+   - Scan docs/TRD/ for markdown files
+   - Parse document metadata (title, date, status, ID)
+   - Extract problem statements and solutions
+   - Extract key decisions from each document
+
+**2. Generate ENSEMBLE-HISTORY.md**
+   Create chronological change log
+
+   - Match PRDs with TRDs by filename
+   - Extract problem, solution, decisions
+   - Generate structured markdown entries
+   - Order entries newest-first
+   - Write to docs/ENSEMBLE-HISTORY.md
+
+**3. Commit History Updates**
+   Auto-commit if changes detected
+
+   - Check for file changes
+   - Stage ENSEMBLE-HISTORY.md
+   - Create conventional commit with entry count
+
 ## Expected Output
 
 **Format:** Optimized Claude Configuration
@@ -67,6 +94,7 @@ CLAUDE.md, README.md, and agent configurations for improved Claude Code performa
 - **CLAUDE.md**: Optimized with intelligent context management and agent orchestration
 - **README.md**: Aligned with current status and enhanced with productivity metrics
 - **Agent Configurations**: Project-specific optimizations for specialized agents
+- **ENSEMBLE-HISTORY.md**: Chronological change log generated from PRDs and TRDs with key decisions
 
 ## Usage
 

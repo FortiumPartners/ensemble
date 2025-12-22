@@ -63,23 +63,57 @@ workflow:
         - order: 1
           title: Agent Mesh Integration
           description: Configure specialized agents for project workflows
-        
+
         - order: 2
           title: Claude Environment Optimization
           description: Configure MCP servers and memory management
-        
+
         - order: 3
           title: Quality Assurance & Standards Validation
           description: Validate against Fortium configuration standards
+
+    - name: History Consolidation
+      order: 4
+      steps:
+        - order: 1
+          title: Scan PRD/TRD Documents
+          description: Read all documents in docs/PRD/ and docs/TRD/
+          actions:
+            - Scan docs/PRD/ for markdown files
+            - Scan docs/TRD/ for markdown files
+            - Parse document metadata (title, date, status, ID)
+            - Extract problem statements and solutions
+            - Extract key decisions from each document
+
+        - order: 2
+          title: Generate ENSEMBLE-HISTORY.md
+          description: Create chronological change log
+          actions:
+            - Match PRDs with TRDs by filename
+            - Extract problem, solution, decisions
+            - Generate structured markdown entries
+            - Order entries newest-first
+            - Write to docs/ENSEMBLE-HISTORY.md
+
+        - order: 3
+          title: Commit History Updates
+          description: Auto-commit if changes detected
+          actions:
+            - Check for file changes
+            - Stage ENSEMBLE-HISTORY.md
+            - Create conventional commit with entry count
 
 expectedOutput:
   format: Optimized Claude Configuration
   structure:
     - name: CLAUDE.md
       description: Optimized with intelligent context management and agent orchestration
-    
+
     - name: README.md
       description: Aligned with current status and enhanced with productivity metrics
-    
+
     - name: Agent Configurations
       description: Project-specific optimizations for specialized agents
+
+    - name: ENSEMBLE-HISTORY.md
+      description: Chronological change log generated from PRDs and TRDs with key decisions

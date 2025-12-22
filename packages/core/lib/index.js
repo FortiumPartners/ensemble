@@ -14,6 +14,10 @@ const frameworkPatterns = require('./framework-patterns.json');
 // Configuration Path Management (XDG-compliant)
 const configPath = require('./config-path');
 
+// Document Parser and History Generator
+const documentParser = require('./document-parser');
+const historyGenerator = require('./history-generator');
+
 const skill = {
   name: 'Framework Detector',
   version: '1.0.0',
@@ -87,4 +91,18 @@ module.exports = {
   initializeConfigStructure: configPath.initializeConfigStructure,
   getLegacyPaths: configPath.getLegacyPaths,
   hasLegacyConfig: configPath.hasLegacyConfig,
+
+  // Document parser utilities
+  documentParser,
+  scanDirectory: documentParser.scanDirectory,
+  parseDocument: documentParser.parseDocument,
+  scanAndParseDocuments: documentParser.scanAndParseDocuments,
+  HistoryError: documentParser.HistoryError,
+
+  // History generator utilities
+  historyGenerator,
+  generateHistory: historyGenerator.generateHistory,
+  printSummary: historyGenerator.printSummary,
+  matchDocuments: historyGenerator.matchDocuments,
+  generateMarkdown: historyGenerator.generateMarkdown,
 };
