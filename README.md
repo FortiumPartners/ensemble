@@ -8,7 +8,7 @@ Ensemble Plugins v5.0.0 provides a modular plugin system for Claude Code, allowi
 
 ## Architecture
 
-The plugin ecosystem is organized into 4 tiers across 24 packages:
+The plugin ecosystem is organized into 4 tiers across 22 packages:
 
 ### Tier 1: Core Foundation
 - **ensemble-core** (5.0.0) - Essential orchestration, agents, and utilities
@@ -94,19 +94,21 @@ After installation, plugins automatically register their agents, commands, and s
 
 ### Available Commands
 
-Commands are provided by specific plugins:
+All commands use the `/ensemble:` namespace:
 
-- `/create-prd` - Product requirements (ensemble-product)
-- `/create-trd` - Technical requirements (ensemble-core)
-- `/implement-trd` - TRD implementation (ensemble-development)
-- `/fold-prompt` - Project optimization (ensemble-core)
-- `/dashboard` - Metrics dashboard (ensemble-metrics)
+- `/ensemble:create-prd` - Product requirements (ensemble-product)
+- `/ensemble:create-trd` - Technical requirements (ensemble-development)
+- `/ensemble:implement-trd` - TRD implementation (ensemble-development)
+- `/ensemble:fold-prompt` - Project optimization (ensemble-core)
+- `/ensemble:manager-dashboard` - Metrics dashboard (ensemble-metrics)
+- `/ensemble:release` - Orchestrate release workflow (ensemble-git)
+- `/ensemble:playwright-test` - E2E testing (ensemble-e2e-testing)
 
 ### Agent Mesh
 
 Plugins provide 28 specialized agents across domains:
 
-- **Orchestrators**: ai-mesh-orchestrator, tech-lead-orchestrator, product-management-orchestrator, qa-orchestrator, build-orchestrator, deployment-orchestrator, infrastructure-orchestrator
+- **Orchestrators**: ensemble-orchestrator, tech-lead-orchestrator, product-management-orchestrator, qa-orchestrator, build-orchestrator, deployment-orchestrator, infrastructure-orchestrator
 - **Developers**: frontend-developer, backend-developer, infrastructure-developer
 - **Quality**: code-reviewer, test-runner, playwright-tester, deep-debugger
 - **Specialists**: documentation-specialist, api-documentation-specialist, postgresql-specialist, github-specialist, helm-chart-specialist

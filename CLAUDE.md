@@ -1,6 +1,6 @@
 # Ensemble Plugins - Claude Code Configuration
 
-> Modular plugin ecosystem for Claude Code (v5.0.0) | 24 packages | 28 agents | 4-tier architecture
+> Modular plugin ecosystem for Claude Code (v5.0.0) | 22 packages | 28 agents | 4-tier architecture
 
 ## Quick Reference
 
@@ -26,7 +26,7 @@ npm run test:coverage       # Coverage reports
 ```
 
 ### Key Paths
-- **Plugins**: `packages/*/` (24 packages)
+- **Plugins**: `packages/*/` (22 packages)
 - **Agents**: `packages/*/agents/*.yaml` (28 agents)
 - **Commands**: `packages/*/commands/`
 - **Skills**: `packages/*/skills/`
