@@ -48,7 +48,7 @@ const { generateHistory, printSummary } = require('@fortium/ensemble-core');
 
 const result = await generateHistory({
   docsDir: './docs',
-  outputPath: './docs/ENSEMBLE-HISTORY.md',
+  outputPath: './.claude/ENSEMBLE-HISTORY.md',  // Default location
   autoCommit: true,  // Auto-commit with conventional message
   verbose: false     // Enable debug output
 });

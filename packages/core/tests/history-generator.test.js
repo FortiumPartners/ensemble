@@ -218,8 +218,8 @@ describe('history-generator', () => {
 
       expect(result).toContain('# Ensemble Project History');
       expect(result).toContain('## 2025-12-20 - Test Feature');
-      expect(result).toContain('**PRD**: [PRD-001](PRD/test-feature.md)');
-      expect(result).toContain('**TRD**: [TRD-001](TRD/test-feature.md)');
+      expect(result).toContain('**PRD**: [PRD-001](../docs/PRD/test-feature.md)');
+      expect(result).toContain('**TRD**: [TRD-001](../docs/TRD/test-feature.md)');
       expect(result).toContain('**Status**: Approved');
       expect(result).toContain('### Problem');
       expect(result).toContain('Test problem');

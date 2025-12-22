@@ -180,7 +180,7 @@ ensemble-orchestrator (chief)
 ## Project History
 
 For understanding past architectural decisions and project evolution, read:
-- [docs/ENSEMBLE-HISTORY.md](docs/ENSEMBLE-HISTORY.md) - Chronological change log (auto-generated)
+- [.claude/ENSEMBLE-HISTORY.md](.claude/ENSEMBLE-HISTORY.md) - Chronological change log (auto-generated, read at startup)
 - [docs/PRD/](docs/PRD/) - Detailed product requirements
 - [docs/TRD/](docs/TRD/) - Technical implementation details
 

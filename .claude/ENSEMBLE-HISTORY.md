@@ -11,8 +11,8 @@
 
 ## 2025-12-22 - ENSEMBLE-HISTORY.md Change Tracking
 
-**PRD**: [PRD-CORE-004](PRD/ensemble-history-tracking.md)
-**TRD**: [TRD-CORE-004](TRD/ensemble-history-tracking.md)
+**PRD**: [PRD-CORE-004](../docs/PRD/ensemble-history-tracking.md)
+**TRD**: [TRD-CORE-004](../docs/TRD/ensemble-history-tracking.md)
 **Status**: Approved - Ready for Development
 
 ### Problem
@@ -32,8 +32,8 @@ Enhance the `/ensemble:fold-prompt` command to: Scan PRDs and TRDs, Extract Key 
 
 ## 2025-12-19 - YAML-to-Markdown Command Generator
 
-**PRD**: [PRD-CORE-003](PRD/yaml-to-markdown-generator.md)
-**TRD**: [TRD-CORE-003](TRD/yaml-to-markdown-generator.md)
+**PRD**: [PRD-CORE-003](../docs/PRD/yaml-to-markdown-generator.md)
+**TRD**: [TRD-CORE-003](../docs/TRD/yaml-to-markdown-generator.md)
 **Status**: Ready for Development
 
 ### Problem
@@ -53,7 +53,7 @@ Build a YAML-to-Markdown generator that: - **Preserves YAML as source of truth**
 
 ## 2025-12-18 - Task Progress Pane Unified Display
 
-**PRD**: [task-progress-pane-unified-display](PRD/task-progress-pane-unified-display.md)
+**PRD**: [task-progress-pane-unified-display](../docs/PRD/task-progress-pane-unified-display.md)
 *PRD only - TRD pending*
 
 ### Problem
@@ -66,8 +66,8 @@ Build a YAML-to-Markdown generator that: - **Preserves YAML as source of truth**
 
 ## 2025-12-17 - Pane Configuration Consistency & Autoclose Feature
 
-**PRD**: [pane-config-consistency-and-autoclose](PRD/pane-config-consistency-and-autoclose.md)
-**TRD**: [pane-config-consistency-and-autoclose](TRD/pane-config-consistency-and-autoclose.md)
+**PRD**: [pane-config-consistency-and-autoclose](../docs/PRD/pane-config-consistency-and-autoclose.md)
+**TRD**: [pane-config-consistency-and-autoclose](../docs/TRD/pane-config-consistency-and-autoclose.md)
 
 ### Problem
 The ensemble plugin ecosystem has two pane configuration commands (`agent-progress-config` and `task-progress-config`) that provide inconsistent user experiences: Inconsistent Help Output Format, No Automatic Pane Closure.
@@ -79,8 +79,8 @@ The ensemble plugin ecosystem has two pane configuration commands (`agent-progre
 
 ## 2025-12-16 - Collapsible Details in Agent Progress Pane
 
-**PRD**: [PRD-APP-002](PRD/agent-progress-pane-collapsible-details.md)
-**TRD**: [agent-progress-pane-collapsible-details](TRD/agent-progress-pane-collapsible-details.md)
+**PRD**: [PRD-APP-002](../docs/PRD/agent-progress-pane-collapsible-details.md)
+**TRD**: [agent-progress-pane-collapsible-details](../docs/TRD/agent-progress-pane-collapsible-details.md)
 **Status**: Draft
 
 ### Problem
@@ -93,8 +93,8 @@ Add collapsible detail sections that: - **Hide details by default** - Show only 
 
 ## 2025-12-16 - Rename pane-viewer to agent-progress-pane
 
-**PRD**: [agent-progress-pane-rename](PRD/agent-progress-pane-rename.md)
-**TRD**: [agent-progress-pane-rename](TRD/agent-progress-pane-rename.md)
+**PRD**: [agent-progress-pane-rename](../docs/PRD/agent-progress-pane-rename.md)
+**TRD**: [agent-progress-pane-rename](../docs/TRD/agent-progress-pane-rename.md)
 
 ### Problem
 ### Current State
@@ -106,8 +106,8 @@ Add collapsible detail sections that: - **Hide details by default** - Show only 
 
 ## 2025-12-12 - Ensemble Rename & Consolidation
 
-**PRD**: [ensemble-rename](PRD/ensemble-rename.md)
-**TRD**: [ensemble-rename](TRD/ensemble-rename.md)
+**PRD**: [ensemble-rename](../docs/PRD/ensemble-rename.md)
+**TRD**: [ensemble-rename](../docs/TRD/ensemble-rename.md)
 
 ### Problem
 The current project naming ("ensemble") and scattered configuration structure present several challenges: Brand Clarity, Configuration Fragmentation, Discoverability, Maintenance Overhead.
@@ -116,8 +116,8 @@ The current project naming ("ensemble") and scattered configuration structure pr
 
 ## 2025-12-12 - Task Progress Pane
 
-**PRD**: [task-progress-pane](PRD/task-progress-pane.md)
-**TRD**: [TRD-TPP-001](TRD/task-progress-pane.md)
+**PRD**: [task-progress-pane](../docs/PRD/task-progress-pane.md)
+**TRD**: [TRD-TPP-001](../docs/TRD/task-progress-pane.md)
 
 ### Problem
 ### Current State

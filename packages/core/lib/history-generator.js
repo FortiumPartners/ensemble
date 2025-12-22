@@ -168,14 +168,14 @@ function generateMarkdown(entries, stats) {
     lines.push(`## ${entry.date || 'Unknown Date'} - ${entry.title}`);
     lines.push('');
 
-    // Document links
+    // Document links (relative to .claude/ directory)
     if (entry.prd) {
       const prdLabel = entry.prd.id || entry.prd.filename;
-      lines.push(`**PRD**: [${prdLabel}](PRD/${entry.prd.filename}.md)`);
+      lines.push(`**PRD**: [${prdLabel}](../docs/PRD/${entry.prd.filename}.md)`);
     }
     if (entry.trd) {
       const trdLabel = entry.trd.id || entry.trd.filename;
-      lines.push(`**TRD**: [${trdLabel}](TRD/${entry.trd.filename}.md)`);
+      lines.push(`**TRD**: [${trdLabel}](../docs/TRD/${entry.trd.filename}.md)`);
     }
 
     // Status indicators
@@ -316,7 +316,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
  * Generate ENSEMBLE-HISTORY.md from PRDs and TRDs
  * @param {Object} options
  * @param {string} options.docsDir - Path to docs directory
- * @param {string} [options.outputPath] - Output file path (default: docs/ENSEMBLE-HISTORY.md)
+ * @param {string} [options.outputPath] - Output file path (default: .claude/ENSEMBLE-HISTORY.md)
  * @param {boolean} [options.autoCommit=true] - Whether to auto-commit
  * @param {boolean} [options.verbose=false] - Enable verbose output
  * @returns {Promise<GenerationResult>}
@@ -339,7 +339,9 @@ async function generateHistory(options) {
 
   try {
     const docsDir = options.docsDir;
-    const outputPath = options.outputPath || path.join(docsDir, 'ENSEMBLE-HISTORY.md');
+    // Output to .claude/ directory so Claude Code reads it at startup
+    const cwd = options.cwd || process.cwd();
+    const outputPath = options.outputPath || path.join(cwd, '.claude', 'ENSEMBLE-HISTORY.md');
     const autoCommit = options.autoCommit !== false;
     const verbose = options.verbose || process.env.ENSEMBLE_VERBOSE === 'true';
 
@@ -448,7 +450,7 @@ function printSummary(result) {
   console.log('');
 
   if (result.gitCommit) {
-    console.log(`Git: Committed docs/ENSEMBLE-HISTORY.md`);
+    console.log(`Git: Committed .claude/ENSEMBLE-HISTORY.md`);
     console.log(`  commit ${result.gitCommit} docs(history): update ENSEMBLE-HISTORY.md with latest PRD/TRD changes`);
   } else {
     console.log('Git: No changes to commit');
