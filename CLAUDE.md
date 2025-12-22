@@ -177,6 +177,15 @@ ensemble-orchestrator (chief)
 | CI/CD issues | build-orchestrator | infrastructure-developer |
 | Release process | release-agent | git-workflow |
 
+## Project History
+
+For understanding past architectural decisions and project evolution, read:
+- [docs/ENSEMBLE-HISTORY.md](docs/ENSEMBLE-HISTORY.md) - Chronological change log (auto-generated)
+- [docs/PRD/](docs/PRD/) - Detailed product requirements
+- [docs/TRD/](docs/TRD/) - Technical implementation details
+
+The history file is automatically regenerated when running `/ensemble:fold-prompt`.
+
 ## Testing
 
 ### Frameworks
