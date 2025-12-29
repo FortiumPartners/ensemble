@@ -217,6 +217,15 @@
       "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
     },
     {
+      "name": "ensemble-router",
+      "version": "5.0.0",
+      "source": "./packages/router",
+      "description": "UserPromptSubmit routing hook for intelligent agent delegation and skill invocation",
+      "category": "core",
+      "tags": ["router", "hooks", "delegation", "orchestration", "agent-routing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
       "name": "ensemble-full",
       "version": "5.1.0",
       "source": "./packages/full",

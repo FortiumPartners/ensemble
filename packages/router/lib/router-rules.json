@@ -1,0 +1,457 @@
+{
+  "version": "1.0.0",
+  "generated": "2025-12-28T18:30:00Z",
+  "description": "Router manifest generated from introspecting installed agents and skills",
+  "source": "generate-router-manifest command",
+
+  "agent_categories": {
+    "product_documentation": {
+      "description": "PRD, TRD, documentation, and requirements management",
+      "triggers": [
+        "PRD", "TRD", "product requirements", "technical requirements",
+        "documentation", "docs", "requirements", "spec", "specification",
+        "API docs", "swagger", "openapi", "user story", "stakeholder",
+        "roadmap", "feature prioritization"
+      ],
+      "agents": [
+        {
+          "name": "product-management-orchestrator",
+          "purpose": "Product lifecycle, requirements gathering, stakeholder alignment, roadmap planning",
+          "tools": ["Read", "Write", "Edit", "Bash", "Task", "TodoWrite", "Grep", "Glob"]
+        },
+        {
+          "name": "documentation-specialist",
+          "purpose": "Technical documentation, API docs, guides, and examples",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "api-documentation-specialist",
+          "purpose": "OpenAPI/Swagger documentation and API design",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        }
+      ]
+    },
+
+    "orchestration": {
+      "description": "High-level coordination, planning, and task decomposition",
+      "triggers": [
+        "orchestrate", "coordinate", "plan", "break down", "decompose",
+        "architect", "design system", "full pipeline", "end to end",
+        "delegate", "multi-step", "complex task", "methodology"
+      ],
+      "agents": [
+        {
+          "name": "ensemble-orchestrator",
+          "purpose": "Chief orchestrator for agent mesh coordination, task delegation, conflict resolution",
+          "tools": ["Read", "Task", "Write", "Edit", "Bash", "Grep", "Glob", "TodoWrite"]
+        },
+        {
+          "name": "tech-lead-orchestrator",
+          "purpose": "Plan, architect, task breakdown, develop, code-review, test loop with intelligent delegation",
+          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob"]
+        },
+        {
+          "name": "qa-orchestrator",
+          "purpose": "Quality assurance orchestration and test coordination",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "infrastructure-orchestrator",
+          "purpose": "Infrastructure provisioning, configuration management, monitoring, scalability planning",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "development": {
+      "description": "Code implementation across languages and frameworks",
+      "triggers": [
+        "implement", "code", "build", "create feature", "add feature",
+        "frontend", "backend", "mobile", "component", "endpoint", "API",
+        "react", "vue", "angular", "svelte", "node", "python", "ruby",
+        "elixir", "flutter", "iOS", "android", "typescript", "javascript",
+        "server-side", "client-side", "UI", "UX"
+      ],
+      "agents": [
+        {
+          "name": "frontend-developer",
+          "purpose": "JS/TS, React, Vue, Angular, Svelte with accessibility and performance optimization",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        },
+        {
+          "name": "backend-developer",
+          "purpose": "Server-side logic across languages/stacks, clean architecture and boundaries",
+          "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+        },
+        {
+          "name": "mobile-developer",
+          "purpose": "Flutter, React Native, native iOS/Android with platform-specific UI patterns",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        },
+        {
+          "name": "infrastructure-developer",
+          "purpose": "Cloud-agnostic automation: AWS, GCP, Azure, Helm, Kubernetes, Fly.io",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        }
+      ]
+    },
+
+    "quality_testing": {
+      "description": "Code review, testing, debugging, and quality assurance",
+      "triggers": [
+        "review", "test", "debug", "fix bug", "why is this failing",
+        "unit test", "integration test", "e2e test", "playwright",
+        "code review", "security", "performance", "coverage", "lint",
+        "failing", "error", "exception", "broken", "investigate"
+      ],
+      "agents": [
+        {
+          "name": "code-reviewer",
+          "purpose": "Security-enhanced code review with comprehensive DoD enforcement and quality gates",
+          "tools": ["Read", "Write", "Edit", "Bash", "Grep"]
+        },
+        {
+          "name": "test-runner",
+          "purpose": "Unit and integration test execution with intelligent failure triage and debugging",
+          "tools": ["Read", "Bash", "Grep"]
+        },
+        {
+          "name": "deep-debugger",
+          "purpose": "Systematic bug recreation, root cause analysis, TDD-based resolution",
+          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob", "Skill"]
+        },
+        {
+          "name": "playwright-tester",
+          "purpose": "E2E tests with Playwright MCP, capture traces and screenshots for regression",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "infrastructure_build": {
+      "description": "Deployment, CI/CD, releases, and build systems",
+      "triggers": [
+        "deploy", "release", "CI/CD", "pipeline", "docker", "kubernetes",
+        "helm", "staging", "production", "rollback", "build", "artifact",
+        "promote", "zero-downtime", "container", "orchestration"
+      ],
+      "agents": [
+        {
+          "name": "deployment-orchestrator",
+          "purpose": "Release automation, environment promotion, rollback procedures, zero-downtime deployment",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "build-orchestrator",
+          "purpose": "CI/CD pipeline optimization, artifact creation, dependency management, build automation",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "release-agent",
+          "purpose": "Automated release orchestration with quality gates, smoke test integration",
+          "tools": ["Read", "Write", "Edit", "Bash", "Task", "Skill"]
+        },
+        {
+          "name": "helm-chart-specialist",
+          "purpose": "Kubernetes Helm charts (delegates to infrastructure-developer)",
+          "tools": ["Read", "Task"]
+        }
+      ]
+    },
+
+    "git_github": {
+      "description": "Version control, commits, branches, and pull requests",
+      "triggers": [
+        "commit", "push", "pull request", "PR", "branch", "merge",
+        "git", "github", "conventional commit", "semantic version",
+        "rebase", "cherry-pick", "stash", "diff", "blame"
+      ],
+      "agents": [
+        {
+          "name": "git-workflow",
+          "purpose": "Conventional commits, semantic versioning, git-town integration, best practices",
+          "tools": ["Read", "Bash", "Grep"]
+        },
+        {
+          "name": "github-specialist",
+          "purpose": "Branch management, PR creation, code review integration, repository operations via gh CLI",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "utility": {
+      "description": "General support, research, scaffolding, and exploration",
+      "triggers": [
+        "research", "analyze", "investigate", "explore", "scaffold",
+        "template", "find", "search", "understand", "codebase"
+      ],
+      "agents": [
+        {
+          "name": "general-purpose",
+          "purpose": "Research and analysis for complex investigations, multi-domain analysis, ambiguous scope",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "Explore",
+          "purpose": "Fast codebase exploration: find files by patterns, search code for keywords",
+          "tools": ["All tools"]
+        },
+        {
+          "name": "Plan",
+          "purpose": "Software architect agent for designing implementation plans, step-by-step strategy",
+          "tools": ["All tools"]
+        },
+        {
+          "name": "file-creator",
+          "purpose": "Template-based scaffolding with project conventions",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "context-fetcher",
+          "purpose": "Pull authoritative references (AgentOS docs, vendor docs via Context7) with version awareness",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "directory-monitor",
+          "purpose": "Real-time file system surveillance, change detection, automated workflow triggering",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "database": {
+      "description": "Database administration and optimization",
+      "triggers": [
+        "database", "postgresql", "postgres", "SQL", "query", "schema",
+        "migration", "index", "optimize query", "table", "join",
+        "transaction", "constraint", "foreign key"
+      ],
+      "agents": [
+        {
+          "name": "postgresql-specialist",
+          "purpose": "PostgreSQL administration, SQL optimization, schema management",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "metrics_analytics": {
+      "description": "Productivity metrics, dashboards, and analytics",
+      "triggers": [
+        "metrics", "dashboard", "analytics", "productivity", "sprint",
+        "velocity", "burndown", "team performance", "tracking"
+      ],
+      "agents": [
+        {
+          "name": "manager-dashboard-agent",
+          "purpose": "Collecting, storing, and analyzing team productivity metrics and development analytics",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "claude_code_help": {
+      "description": "Help with Claude Code features, Agent SDK, and Anthropic API",
+      "triggers": [
+        "claude code", "how do I", "does claude", "can claude",
+        "agent sdk", "anthropic api", "MCP server", "hook", "skill",
+        "slash command"
+      ],
+      "agents": [
+        {
+          "name": "claude-code-guide",
+          "purpose": "Questions about Claude Code CLI, hooks, slash commands, MCP servers, Agent SDK, Anthropic API",
+          "tools": ["Glob", "Grep", "Read", "WebFetch", "WebSearch"]
+        }
+      ]
+    }
+  },
+
+  "skills": {
+    "atlassian": {
+      "triggers": ["jira", "confluence", "atlassian", "ticket", "issue tracking", "sprint board"],
+      "patterns": ["jira.*issue", "confluence.*page", "create.*ticket"],
+      "purpose": "Intelligent orchestration of Atlassian (Jira/Confluence) interactions"
+    },
+    "linear": {
+      "triggers": ["linear", "linear.app", "issue", "cycle", "linearis"],
+      "patterns": ["linear.*issue", "create.*linear", "linear.*sprint"],
+      "purpose": "Linear.app issue management using Linearis CLI with JSON output"
+    },
+    "vercel": {
+      "triggers": ["vercel", "nextjs", "next.js", "edge function", "preview deployment", "vercel deploy"],
+      "patterns": ["deploy.*vercel", "vercel.*deploy", "next.*app"],
+      "purpose": "Vercel platform CLI for frontend deployments, serverless functions, edge network"
+    },
+    "railway": {
+      "triggers": ["railway", "railway.app", "railway deploy", "railway service"],
+      "patterns": ["deploy.*railway", "railway.*deploy"],
+      "purpose": "Railway platform CLI for service deployment, infrastructure management"
+    },
+    "supabase": {
+      "triggers": ["supabase", "supabase edge function", "supabase migration", "supabase db"],
+      "patterns": ["supabase.*function", "supabase.*db", "supabase.*migrate"],
+      "purpose": "Supabase CLI for database management, Edge Functions, migrations"
+    },
+    "flutter": {
+      "triggers": ["flutter", "dart", "widget", "flutter build", "flutter run"],
+      "patterns": ["flutter.*app", "build.*flutter", "flutter.*widget"],
+      "purpose": "Flutter SDK for cross-platform development targeting iOS, Android, and Web"
+    },
+    "nestjs": {
+      "triggers": ["nestjs", "nest.js", "nest module", "nest controller", "nest service"],
+      "patterns": ["nest.*module", "nest.*service", "nest.*controller"],
+      "purpose": "NestJS Node.js/TypeScript backend framework with dependency injection"
+    },
+    "jest": {
+      "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test"],
+      "patterns": ["run.*jest", "jest.*test", "npm.*test"],
+      "purpose": "Execute and generate Jest tests for JavaScript/TypeScript projects"
+    },
+    "pytest": {
+      "triggers": ["pytest", "python test", "py.test", "fixture", "parametrize"],
+      "patterns": ["run.*pytest", "pytest.*test", "python.*-m.*pytest"],
+      "purpose": "Execute and generate pytest tests for Python projects"
+    },
+    "rspec": {
+      "triggers": ["rspec", "ruby test", "rails test", "spec", "describe block"],
+      "patterns": ["run.*rspec", "rspec.*spec", "bundle.*exec.*rspec"],
+      "purpose": "Execute and generate RSpec tests for Ruby/Rails projects"
+    },
+    "exunit": {
+      "triggers": ["exunit", "elixir test", "mix test", "elixir spec"],
+      "patterns": ["mix.*test", "exunit.*test"],
+      "purpose": "Execute and generate ExUnit tests for Elixir projects"
+    },
+    "xunit": {
+      "triggers": ["xunit", "dotnet test", "c# test", "csharp test", ".net test"],
+      "patterns": ["dotnet.*test", "xunit.*test"],
+      "purpose": "Execute and generate xUnit tests for C#/.NET projects"
+    },
+    "playwright-test": {
+      "triggers": ["playwright", "e2e test", "end to end", "browser test", "playwright test"],
+      "patterns": ["playwright.*test", "e2e.*test", "npx.*playwright"],
+      "purpose": "Automated E2E testing and error resolution using Playwright MCP integration"
+    },
+    "testmo": {
+      "triggers": ["testmo", "test management", "test results", "junit xml"],
+      "patterns": ["testmo.*run", "submit.*testmo"],
+      "purpose": "Run automated tests and submit results to Testmo"
+    },
+    "test-detector": {
+      "triggers": ["detect test framework", "what test framework", "which testing"],
+      "patterns": ["detect.*test", "which.*test.*framework"],
+      "purpose": "Automatically detect test frameworks in projects"
+    },
+    "framework-detector": {
+      "triggers": ["detect framework", "what framework", "identify framework", "which framework"],
+      "patterns": ["detect.*framework", "which.*framework"],
+      "purpose": "Multi-signal framework detection with confidence scoring"
+    },
+    "create-prd": {
+      "triggers": ["create prd", "write prd", "product requirements", "new prd"],
+      "patterns": ["prd.*for", "requirements.*document", "create.*product.*req"],
+      "purpose": "Create comprehensive Product Requirements Document from product description"
+    },
+    "create-trd": {
+      "triggers": ["create trd", "write trd", "technical requirements", "new trd", "technical design"],
+      "patterns": ["trd.*for", "technical.*design", "create.*technical.*req"],
+      "purpose": "Create Technical Requirements Document from existing PRD"
+    },
+    "refine-prd": {
+      "triggers": ["refine prd", "update prd", "improve prd", "revise prd"],
+      "patterns": ["refine.*prd", "update.*requirements"],
+      "purpose": "Refine and enhance existing PRD with stakeholder feedback"
+    },
+    "refine-trd": {
+      "triggers": ["refine trd", "update trd", "improve trd", "revise trd"],
+      "patterns": ["refine.*trd", "update.*technical"],
+      "purpose": "Refine and enhance existing TRD with additional detail"
+    },
+    "implement-trd": {
+      "triggers": ["implement trd", "execute trd", "build from trd", "start implementation"],
+      "patterns": ["implement.*trd", "execute.*tasks"],
+      "purpose": "Complete TRD implementation with flexible strategies and state tracking"
+    },
+    "implement-spec": {
+      "triggers": ["implement spec", "execute spec", "build from spec"],
+      "patterns": ["implement.*spec"],
+      "purpose": "Implement speckit task plan using Fortium development framework"
+    },
+    "release": {
+      "triggers": ["release", "create release", "publish release", "version release"],
+      "patterns": ["release.*version", "publish.*release", "cut.*release"],
+      "purpose": "Automated release workflow orchestration with quality gates"
+    },
+    "init-project": {
+      "triggers": ["init project", "initialize project", "setup project", "new project"],
+      "patterns": ["init.*project", "setup.*ai", "initialize.*project"],
+      "purpose": "Initialize project with constitution, standards, and docs structure"
+    },
+    "fold-prompt": {
+      "triggers": ["fold prompt", "optimize context", "reduce context", "context management"],
+      "patterns": ["fold.*prompt", "optimize.*context"],
+      "purpose": "Advanced Claude environment optimization through intelligent context management"
+    },
+    "sprint-status": {
+      "triggers": ["sprint status", "sprint report", "current sprint", "sprint progress"],
+      "patterns": ["sprint.*status", "status.*sprint"],
+      "purpose": "Generate current sprint status report with task completion and blockers"
+    },
+    "manager-dashboard": {
+      "triggers": ["manager dashboard", "productivity metrics", "team analytics", "dev metrics"],
+      "patterns": ["manager.*dashboard", "team.*metrics", "productivity.*dashboard"],
+      "purpose": "Generate real-time productivity metrics and team analytics dashboard"
+    },
+    "analyze-product": {
+      "triggers": ["analyze product", "product analysis", "improvement roadmap", "brownfield"],
+      "patterns": ["analyze.*product", "product.*analysis"],
+      "purpose": "Analyze existing brownfield project and generate improvement roadmap"
+    },
+    "generate-api-docs": {
+      "triggers": ["generate api docs", "api documentation", "openapi docs", "swagger docs"],
+      "patterns": ["generate.*api.*doc", "create.*swagger", "openapi.*generate"],
+      "purpose": "Generate comprehensive OpenAPI/Swagger API documentation from codebase"
+    },
+    "web-metrics-dashboard": {
+      "triggers": ["web metrics", "core web vitals", "performance dashboard", "lighthouse"],
+      "patterns": ["web.*metrics", "core.*vitals", "performance.*metrics"],
+      "purpose": "Generate web performance metrics dashboard with Core Web Vitals"
+    },
+    "claude-changelog": {
+      "triggers": ["claude changelog", "claude updates", "what's new claude", "claude features"],
+      "patterns": ["claude.*changelog", "claude.*update"],
+      "purpose": "Track Claude updates and new features directly from your development environment"
+    }
+  },
+
+  "injection_templates": {
+    "short_no_match": {
+      "description": "Short prompts (< 5 words) with no keyword matches - reference conversation context",
+      "template": "Consider the current conversation context and leverage an expert subagent or specialized skill(s) if they're a good fit for the request, but do not over-delegate if a simple, single-turn response will be sufficient."
+    },
+    "agents_only": {
+      "description": "When agents match but no skills - recommend agents with caveat",
+      "template": "Recommend one of the following subagents be utilized in servicing this request:\n{agent_list}\n\nHowever, if your assessment based on the full context of the request is that these subagents are not appropriate, do not over- or mis-delegate."
+    },
+    "agents_and_skills": {
+      "description": "When both agents and skills match - recommend both with Task prompt guidance",
+      "template": "Recommend one of the following subagents be utilized in servicing this request:\n{agent_list}\n\nIn invoking them, further recommend utilizing the following specialized skill(s): {skill_list}. Ensure the guidance to utilize these skills is explicitly mentioned in the Task prompt.\n\nHowever, if your assessment based on the full context of the request is that these subagents or skills are not appropriate, do not over- or mis-delegate."
+    },
+    "skills_only": {
+      "description": "When skills match but no agents - recommend skills",
+      "template": "Consider utilizing the following specialized skill(s) for this request: {skill_list}. These skills can be invoked directly or passed to a subagent via the Task prompt. However, if your assessment is that these skills are not a good fit, do not force their use."
+    },
+    "long_no_match": {
+      "description": "Longer prompts with no keyword matches - generic delegation guidance",
+      "template": "Leverage expert subagents and specialized skills when they're a good fit, but don't over-delegate if a simple response suffices."
+    }
+  },
+
+  "routing_rules": {
+    "description": "Rules for determining when to inject hints",
+    "short_threshold_words": 5,
+    "case_insensitive": true
+  }
+}

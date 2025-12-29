@@ -1,0 +1,153 @@
+metadata:
+  name: generate-project-router-rules
+  description: Generate project-specific router rules by analyzing the project's tech stack
+  version: 1.0.0
+  lastUpdated: "2025-12-28"
+  category: infrastructure
+  output_path: .claude/router-rules.json
+  source: ensemble-router
+  allowed_tools:
+    - Read
+    - Write
+    - Grep
+    - Glob
+
+mission:
+  summary: |
+    Analyze the current project's technology stack and generate a project-specific
+    .claude/router-rules.json that extends the global routing rules with
+    project-specific triggers, skills, and agent recommendations.
+
+workflow:
+  phases:
+    - name: Project Analysis
+      order: 1
+      steps:
+        - order: 1
+          title: Detect Package Manager and Dependencies
+          description: |
+            Scan for dependency files to understand the project's ecosystem.
+          actions:
+            - "Check for package.json (Node.js)"
+            - "Check for requirements.txt, pyproject.toml (Python)"
+            - "Check for Gemfile (Ruby)"
+            - "Check for go.mod (Go)"
+            - "Check for Cargo.toml (Rust)"
+            - "Check for composer.json (PHP)"
+            - "Check for *.csproj, *.sln (C#/.NET)"
+            - "Check for pubspec.yaml (Flutter/Dart)"
+            - "Check for mix.exs (Elixir)"
+
+        - order: 2
+          title: Identify Frameworks
+          description: |
+            Analyze dependencies to detect which frameworks the project uses.
+          actions:
+            - "React: 'react' in dependencies → map to jest skill"
+            - "Next.js: 'next' in dependencies → map to vercel, jest skills"
+            - "NestJS: '@nestjs/core' → map to jest, nestjs skills"
+            - "Rails: 'rails' in Gemfile → map to rspec, rails skills"
+            - "Phoenix: 'phoenix' in mix.exs → map to exunit, phoenix skills"
+            - "Flutter: pubspec.yaml exists → map to flutter skill"
+            - "Blazor: Blazor refs in .csproj → map to xunit, blazor skills"
+
+        - order: 3
+          title: Detect Infrastructure
+          description: |
+            Look for infrastructure and deployment configuration.
+          actions:
+            - "vercel.json or .vercel/ → Vercel deployment"
+            - "railway.json or railway.toml → Railway deployment"
+            - "fly.toml → Fly.io deployment"
+            - "docker-compose.yml, Dockerfile → Docker"
+            - ".github/workflows/ → GitHub Actions CI/CD"
+            - "supabase/ directory → Supabase backend"
+            - "netlify.toml → Netlify deployment"
+
+        - order: 4
+          title: Identify Testing Frameworks
+          description: |
+            Detect test configuration and frameworks.
+          actions:
+            - "jest.config.* → Jest testing"
+            - "pytest.ini or pyproject.toml[pytest] → pytest"
+            - "spec/ directory with Ruby files → RSpec"
+            - "test/ directory with _test.exs → ExUnit"
+            - "playwright.config.* → Playwright E2E"
+            - "cypress.config.* → Cypress E2E"
+
+    - name: Rules Generation
+      order: 2
+      steps:
+        - order: 1
+          title: Build Triggers Map
+          description: |
+            Create project-specific triggers based on detected technologies.
+          actions:
+            - "Add framework names as development triggers"
+            - "Add deployment platforms as infrastructure triggers"
+            - "Add test framework names as quality triggers"
+
+        - order: 2
+          title: Build Skills Mapping
+          description: |
+            Map detected technologies to relevant skills.
+          actions:
+            - "Map frameworks to their testing skills"
+            - "Map deployment platforms to their skills"
+            - "Map language to relevant testing skill"
+
+        - order: 3
+          title: Build Project Context
+          description: |
+            Create project context summary for routing decisions.
+          actions:
+            - "Identify primary programming language"
+            - "Note primary framework"
+            - "Note deployment platform"
+            - "List testing frameworks"
+
+    - name: File Generation
+      order: 3
+      steps:
+        - order: 1
+          title: Assemble Project Rules
+          description: |
+            Combine all detected information into the rules structure.
+          actions:
+            - "Set version and generation timestamp"
+            - "Extract project name from package.json or directory"
+            - "Include triggers, skill_mappings, project_context"
+
+        - order: 2
+          title: Write Rules File
+          description: |
+            Create .claude directory and write the rules file.
+          actions:
+            - "Create .claude/ directory if it doesn't exist"
+            - "Write rules to .claude/router-rules.json"
+            - "Report summary of detected technologies"
+
+expectedOutput:
+  format: JSON rules file at .claude/router-rules.json
+  structure:
+    - name: version
+      description: Schema version
+    - name: generated
+      description: ISO-8601 timestamp
+    - name: project_name
+      description: Name from package.json or directory
+    - name: triggers
+      description: Project-specific triggers by category
+    - name: skill_mappings
+      description: Keyword to skill associations
+    - name: project_context
+      description: Technology summary (language, framework, deployment, testing)
+
+merging_behavior:
+  description: |
+    At runtime, the router merges project rules with global rules:
+    - Project triggers are appended to existing category triggers
+    - skill_mappings add keyword→skill associations
+    - Project matches are marked [PROJECT-SPECIFIC] in hints
+    - Stronger hint language is used for project-specific matches
