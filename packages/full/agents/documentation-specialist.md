@@ -1,1 +1,0 @@
-../../development/agents/documentation-specialist.md

@@ -1,1 +1,0 @@
-../../git/agents/github-specialist.md

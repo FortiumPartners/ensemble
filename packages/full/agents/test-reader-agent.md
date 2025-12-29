@@ -1,1 +1,0 @@
-../../quality/agents/test-reader-agent.md

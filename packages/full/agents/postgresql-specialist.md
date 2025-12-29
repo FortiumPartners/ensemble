@@ -1,1 +1,0 @@
-../../infrastructure/agents/postgresql-specialist.md

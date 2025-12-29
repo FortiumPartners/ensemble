@@ -1,1 +1,0 @@
-../../quality/agents/code-reviewer.md
