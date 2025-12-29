@@ -66,8 +66,20 @@
       "description": "Agent definition(s) - single .md file path or array of .md file paths"
     },
     "commands": {
-      "type": "string",
-      "description": "Path to commands directory"
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to commands directory"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of paths to command directories"
+        }
+      ],
+      "description": "Command directory path(s) - single path or array of paths"
     },
     "skills": {
       "type": "string",
