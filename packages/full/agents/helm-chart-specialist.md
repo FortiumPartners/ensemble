@@ -1,1 +1,0 @@
-../../infrastructure/agents/helm-chart-specialist.md

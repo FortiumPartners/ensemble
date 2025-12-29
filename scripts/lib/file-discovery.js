@@ -32,18 +32,40 @@ async function discoverYamlFiles(packagesDir, options = {}) {
       const pluginJson = JSON.parse(await fs.readFile(pluginJsonPath, 'utf8'));
       const pluginDir = path.dirname(path.dirname(pluginJsonPath));
 
-      // Discover commands
+      // Discover commands (handle both string and array formats)
       if (types.includes('commands') && pluginJson.commands) {
-        const commandsDir = path.join(pluginDir, pluginJson.commands);
-        const commandYamls = await discoverYamlsInDir(commandsDir);
-        result.commands.push(...commandYamls);
+        const commandPaths = Array.isArray(pluginJson.commands)
+          ? pluginJson.commands
+          : [pluginJson.commands];
+        for (const cmdPath of commandPaths) {
+          const commandsDir = path.join(pluginDir, cmdPath);
+          const commandYamls = await discoverYamlsInDir(commandsDir);
+          result.commands.push(...commandYamls);
+        }
       }
 
-      // Discover agents
+      // Discover agents (handle both string and array formats)
       if (types.includes('agents') && pluginJson.agents) {
-        const agentsDir = path.join(pluginDir, pluginJson.agents);
-        const agentYamls = await discoverYamlsInDir(agentsDir);
-        result.agents.push(...agentYamls);
+        const agentPaths = Array.isArray(pluginJson.agents)
+          ? pluginJson.agents
+          : [pluginJson.agents];
+
+        // Collect unique directories to scan (avoid duplicate scans)
+        const agentDirs = new Set();
+        for (const agentPath of agentPaths) {
+          if (agentPath.endsWith('.md')) {
+            // Individual file path - extract directory
+            agentDirs.add(path.dirname(path.join(pluginDir, agentPath)));
+          } else {
+            // Directory path
+            agentDirs.add(path.join(pluginDir, agentPath));
+          }
+        }
+
+        for (const agentsDir of agentDirs) {
+          const agentYamls = await discoverYamlsInDir(agentsDir);
+          result.agents.push(...agentYamls);
+        }
       }
     } catch (error) {
       // Log warning but continue - missing/invalid plugin.json is not fatal
@@ -56,13 +78,21 @@ async function discoverYamlFiles(packagesDir, options = {}) {
 
 /**
  * Discover YAML files in a directory
+ * Skips symlinked directories to avoid processing files from other packages
  * @param {string} dir - Directory to scan
  * @returns {Promise<string[]>} Array of YAML file paths
  */
 async function discoverYamlsInDir(dir) {
   try {
-    const stat = await fs.stat(dir);
-    if (!stat.isDirectory()) {
+    // Use lstat to detect symlinks (stat follows symlinks, lstat doesn't)
+    const lstat = await fs.lstat(dir);
+
+    // Skip symlinked directories - these point to other packages
+    if (lstat.isSymbolicLink()) {
+      return [];
+    }
+
+    if (!lstat.isDirectory()) {
       return [];
     }
   } catch (error) {
@@ -95,18 +125,40 @@ async function discoverMarkdownFiles(packagesDir) {
       const pluginJson = JSON.parse(await fs.readFile(pluginJsonPath, 'utf8'));
       const pluginDir = path.dirname(path.dirname(pluginJsonPath));
 
-      // Discover command Markdown files
+      // Discover command Markdown files (handle both string and array formats)
       if (pluginJson.commands) {
-        const commandsDir = path.join(pluginDir, pluginJson.commands);
-        const commandMds = await discoverMdsInDir(commandsDir);
-        result.commands.push(...commandMds);
+        const commandPaths = Array.isArray(pluginJson.commands)
+          ? pluginJson.commands
+          : [pluginJson.commands];
+        for (const cmdPath of commandPaths) {
+          const commandsDir = path.join(pluginDir, cmdPath);
+          const commandMds = await discoverMdsInDir(commandsDir);
+          result.commands.push(...commandMds);
+        }
       }
 
-      // Discover agent Markdown files
+      // Discover agent Markdown files (handle both string and array formats)
       if (pluginJson.agents) {
-        const agentsDir = path.join(pluginDir, pluginJson.agents);
-        const agentMds = await discoverMdsInDir(agentsDir);
-        result.agents.push(...agentMds);
+        const agentPaths = Array.isArray(pluginJson.agents)
+          ? pluginJson.agents
+          : [pluginJson.agents];
+
+        // Collect unique directories to scan (avoid duplicate scans)
+        const agentDirs = new Set();
+        for (const agentPath of agentPaths) {
+          if (agentPath.endsWith('.md')) {
+            // Individual file path - extract directory
+            agentDirs.add(path.dirname(path.join(pluginDir, agentPath)));
+          } else {
+            // Directory path
+            agentDirs.add(path.join(pluginDir, agentPath));
+          }
+        }
+
+        for (const agentsDir of agentDirs) {
+          const agentMds = await discoverMdsInDir(agentsDir);
+          result.agents.push(...agentMds);
+        }
       }
     } catch (error) {
       // Silent - errors already logged during YAML discovery
@@ -118,13 +170,21 @@ async function discoverMarkdownFiles(packagesDir) {
 
 /**
  * Discover Markdown files in a directory
+ * Skips symlinked directories to avoid modifying files in other packages
  * @param {string} dir - Directory to scan
  * @returns {Promise<string[]>} Array of Markdown file paths
  */
 async function discoverMdsInDir(dir) {
   try {
-    const stat = await fs.stat(dir);
-    if (!stat.isDirectory()) {
+    // Use lstat to detect symlinks (stat follows symlinks, lstat doesn't)
+    const lstat = await fs.lstat(dir);
+
+    // Skip symlinked directories - these point to other packages
+    if (lstat.isSymbolicLink()) {
+      return [];
+    }
+
+    if (!lstat.isDirectory()) {
       return [];
     }
   } catch (error) {
