@@ -1,5 +1,5 @@
 {
-  "name": "@ensemble/router",
+  "name": "ensemble-router",
   "version": "5.0.0",
   "description": "UserPromptSubmit routing hook for intelligent agent delegation and skill invocation",
   "author": {
@@ -38,8 +38,6 @@
     "hooks/",
     "commands/",
     "lib/",
-    "agents/",
-    "skills/",
     "README.md",
     "CHANGELOG.md"
   ]
