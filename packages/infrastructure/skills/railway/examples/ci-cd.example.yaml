@@ -1,0 +1,217 @@
+# Railway CI/CD Deployment Examples
+# All commands use non-interactive flags for automation compatibility
+#
+# CRITICAL: Never use interactive commands in CI/CD:
+# - Always use --detach for railway up
+# - Always use -y for confirmations
+# - Use RAILWAY_TOKEN env var (never railway login)
+# - Specify explicit service/environment names
+
+# =============================================================================
+# GITHUB ACTIONS - Single Environment
+# =============================================================================
+#
+# name: Deploy to Railway
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Railway CLI
+#         run: npm i -g @railway/cli
+#
+#       - name: Deploy
+#         run: railway up --detach
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Multi-Environment (Staging + Production)
+# =============================================================================
+#
+# name: Deploy
+#
+# on:
+#   push:
+#     branches:
+#       - main      # Production
+#       - develop   # Staging
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Railway CLI
+#         run: npm i -g @railway/cli
+#
+#       - name: Deploy to Staging
+#         if: github.ref == 'refs/heads/develop'
+#         run: railway up --detach -e staging
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+#
+#       - name: Deploy to Production
+#         if: github.ref == 'refs/heads/main'
+#         run: railway up --detach -e production
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+
+# =============================================================================
+# GITHUB ACTIONS - Using Railway Docker Image
+# =============================================================================
+#
+# name: Deploy with Railway Container
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     container: ghcr.io/railwayapp/cli:latest
+#     env:
+#       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: railway up --detach
+
+# =============================================================================
+# GITHUB ACTIONS - Multi-Service Deployment
+# =============================================================================
+#
+# name: Deploy All Services
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy-api:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g @railway/cli
+#       - run: railway up --detach -s api
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+#
+#   deploy-worker:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g @railway/cli
+#       - run: railway up --detach -s worker
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+#
+#   deploy-frontend:
+#     runs-on: ubuntu-latest
+#     needs: [deploy-api]  # Wait for API to deploy first
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g @railway/cli
+#       - run: railway up --detach -s frontend
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Redeploy Existing Service
+# =============================================================================
+#
+# name: Redeploy
+#
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       service:
+#         description: 'Service to redeploy'
+#         required: true
+#         default: 'api'
+#
+# jobs:
+#   redeploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - run: npm i -g @railway/cli
+#       - run: railway redeploy -y -s ${{ inputs.service }}
+#         env:
+#           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+# =============================================================================
+# GITLAB CI
+# =============================================================================
+#
+# stages:
+#   - deploy
+#
+# deploy:
+#   stage: deploy
+#   image: ghcr.io/railwayapp/cli:latest
+#   script:
+#     - railway up --detach
+#   only:
+#     - main
+#   variables:
+#     RAILWAY_TOKEN: $RAILWAY_TOKEN
+
+# =============================================================================
+# CIRCLECI
+# =============================================================================
+#
+# version: 2.1
+#
+# jobs:
+#   deploy:
+#     docker:
+#       - image: ghcr.io/railwayapp/cli:latest
+#     steps:
+#       - checkout
+#       - run: railway up --detach
+#     environment:
+#       RAILWAY_TOKEN: ${RAILWAY_TOKEN}
+#
+# workflows:
+#   deploy:
+#     jobs:
+#       - deploy:
+#           filters:
+#             branches:
+#               only: main
+
+# =============================================================================
+# TOKEN MANAGEMENT
+# =============================================================================
+#
+# Generate tokens in Railway dashboard:
+# 1. Go to Project Settings → Tokens
+# 2. Create new token
+# 3. Add to CI/CD secrets
+#
+# Token types:
+# - Project Token (RAILWAY_TOKEN): Scoped to single project
+#   - Can: deploy, view logs, redeploy
+#   - Cannot: create projects, list all projects
+#
+# - Account Token (RAILWAY_API_TOKEN): Full account access
+#   - Can: everything including create projects
+#   - Use sparingly, prefer project tokens
+
+# =============================================================================
+# IMPORTANT NOTES
+# =============================================================================
+#
+# 1. ALWAYS use --detach for railway up (prevents blocking)
+# 2. ALWAYS use -y for commands with confirmations
+# 3. NEVER use railway login in CI/CD (use RAILWAY_TOKEN)
+# 4. NEVER use interactive commands (connect, shell)
+# 5. Specify explicit -s service and -e environment when possible
+# 6. Use project-specific tokens, not account tokens

@@ -1,0 +1,436 @@
+# Supabase CI/CD Deployment Examples
+# All commands use non-interactive flags for automation compatibility
+#
+# CRITICAL: Never use interactive commands in CI/CD:
+# - Always use SUPABASE_ACCESS_TOKEN env var (never supabase login)
+# - Always use --project-ref for explicit project targeting
+# - Use explicit org-id and region for project creation
+# - Avoid any commands that prompt for input
+
+# =============================================================================
+# GITHUB ACTIONS - Basic Migration Deploy
+# =============================================================================
+#
+# name: Deploy Supabase Migrations
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Link Project
+#         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+#
+#       - name: Push Migrations
+#         run: supabase db push
+
+# =============================================================================
+# GITHUB ACTIONS - Multi-Environment (Staging + Production)
+# =============================================================================
+#
+# name: Deploy to Supabase
+#
+# on:
+#   push:
+#     branches:
+#       - main      # Production
+#       - develop   # Staging
+#   pull_request:
+#     branches: [main]
+#
+# jobs:
+#   # Validate migrations on PR
+#   validate:
+#     if: github.event_name == 'pull_request'
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Start Local Supabase
+#         run: supabase start
+#
+#       - name: Validate Migrations
+#         run: supabase db reset
+#
+#       - name: Run Database Tests
+#         run: supabase test db
+#
+#       - name: Stop Local Supabase
+#         run: supabase stop --no-backup
+#
+#   # Deploy to staging
+#   staging:
+#     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#       SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Link to Staging
+#         run: supabase link --project-ref ${{ secrets.STAGING_PROJECT_ID }}
+#
+#       - name: Push Migrations
+#         run: supabase db push
+#
+#       - name: Deploy Edge Functions
+#         run: supabase functions deploy
+#
+#   # Deploy to production
+#   production:
+#     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#       SUPABASE_DB_PASSWORD: ${{ secrets.PRODUCTION_DB_PASSWORD }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Link to Production
+#         run: supabase link --project-ref ${{ secrets.PRODUCTION_PROJECT_ID }}
+#
+#       - name: Push Migrations
+#         run: supabase db push
+#
+#       - name: Deploy Edge Functions
+#         run: supabase functions deploy
+
+# =============================================================================
+# GITHUB ACTIONS - Edge Functions Only
+# =============================================================================
+#
+# name: Deploy Edge Functions
+#
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#       - 'supabase/functions/**'
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Deploy All Functions
+#         run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+
+# =============================================================================
+# GITHUB ACTIONS - Generate Types on Schema Change
+# =============================================================================
+#
+# name: Generate Database Types
+#
+# on:
+#   push:
+#     branches: [main]
+#     paths:
+#       - 'supabase/migrations/**'
+#
+# jobs:
+#   generate-types:
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Link Project
+#         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+#
+#       - name: Generate TypeScript Types
+#         run: supabase gen types typescript --linked > src/types/database.ts
+#
+#       - name: Commit Types
+#         uses: stefanzweifel/git-auto-commit-action@v5
+#         with:
+#           commit_message: "chore: update database types"
+#           file_pattern: src/types/database.ts
+
+# =============================================================================
+# GITHUB ACTIONS - Database Testing with pgTAP
+# =============================================================================
+#
+# name: Database Tests
+#
+# on:
+#   pull_request:
+#     branches: [main]
+#     paths:
+#       - 'supabase/migrations/**'
+#       - 'supabase/tests/**'
+#
+# jobs:
+#   test:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Start Supabase
+#         run: supabase start
+#
+#       - name: Run Migrations
+#         run: supabase db reset
+#
+#       - name: Run pgTAP Tests
+#         run: supabase test db
+#
+#       - name: Cleanup
+#         if: always()
+#         run: supabase stop --no-backup
+
+# =============================================================================
+# GITHUB ACTIONS - Preview Branch Deployment
+# =============================================================================
+#
+# name: Preview Branch
+#
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+#
+# jobs:
+#   preview:
+#     runs-on: ubuntu-latest
+#     env:
+#       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: supabase/setup-cli@v1
+#         with:
+#           version: latest
+#
+#       - name: Create Preview Branch
+#         run: |
+#           BRANCH_NAME="pr-${{ github.event.pull_request.number }}"
+#           supabase branches create $BRANCH_NAME --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+#
+#       - name: Get Preview URL
+#         id: preview
+#         run: |
+#           BRANCH_NAME="pr-${{ github.event.pull_request.number }}"
+#           URL=$(supabase branches get $BRANCH_NAME --project-ref ${{ secrets.SUPABASE_PROJECT_ID }} --json | jq -r '.api_url')
+#           echo "url=$URL" >> $GITHUB_OUTPUT
+#
+#       - name: Comment PR
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             github.rest.issues.createComment({
+#               issue_number: context.issue.number,
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               body: '🚀 Preview branch deployed: ${{ steps.preview.outputs.url }}'
+#             })
+
+# =============================================================================
+# GITLAB CI
+# =============================================================================
+#
+# stages:
+#   - validate
+#   - deploy
+#
+# variables:
+#   SUPABASE_ACCESS_TOKEN: $SUPABASE_ACCESS_TOKEN
+#
+# validate:
+#   stage: validate
+#   image: node:20
+#   services:
+#     - docker:dind
+#   before_script:
+#     - npm install -g supabase
+#   script:
+#     - supabase start
+#     - supabase db reset
+#     - supabase test db
+#     - supabase stop --no-backup
+#   only:
+#     - merge_requests
+#
+# deploy_staging:
+#   stage: deploy
+#   image: node:20
+#   variables:
+#     SUPABASE_DB_PASSWORD: $STAGING_DB_PASSWORD
+#   before_script:
+#     - npm install -g supabase
+#   script:
+#     - supabase link --project-ref $STAGING_PROJECT_ID
+#     - supabase db push
+#     - supabase functions deploy
+#   only:
+#     - develop
+#   environment:
+#     name: staging
+#
+# deploy_production:
+#   stage: deploy
+#   image: node:20
+#   variables:
+#     SUPABASE_DB_PASSWORD: $PRODUCTION_DB_PASSWORD
+#   before_script:
+#     - npm install -g supabase
+#   script:
+#     - supabase link --project-ref $PRODUCTION_PROJECT_ID
+#     - supabase db push
+#     - supabase functions deploy
+#   only:
+#     - main
+#   environment:
+#     name: production
+#   when: manual
+
+# =============================================================================
+# CIRCLECI
+# =============================================================================
+#
+# version: 2.1
+#
+# jobs:
+#   validate:
+#     docker:
+#       - image: node:20
+#     steps:
+#       - checkout
+#       - setup_remote_docker
+#       - run: npm install -g supabase
+#       - run: supabase start
+#       - run: supabase db reset
+#       - run: supabase test db
+#       - run: supabase stop --no-backup
+#
+#   deploy:
+#     docker:
+#       - image: node:20
+#     steps:
+#       - checkout
+#       - run: npm install -g supabase
+#       - run: supabase link --project-ref $SUPABASE_PROJECT_ID
+#       - run: supabase db push
+#       - run: supabase functions deploy
+#
+# workflows:
+#   deploy:
+#     jobs:
+#       - validate:
+#           filters:
+#             branches:
+#               ignore: main
+#       - deploy:
+#           filters:
+#             branches:
+#               only: main
+#           context:
+#             - supabase-production
+
+# =============================================================================
+# BITBUCKET PIPELINES
+# =============================================================================
+#
+# image: node:20
+#
+# pipelines:
+#   pull-requests:
+#     '**':
+#       - step:
+#           name: Validate Migrations
+#           services:
+#             - docker
+#           script:
+#             - npm install -g supabase
+#             - supabase start
+#             - supabase db reset
+#             - supabase test db
+#             - supabase stop --no-backup
+#
+#   branches:
+#     main:
+#       - step:
+#           name: Deploy to Production
+#           deployment: production
+#           script:
+#             - npm install -g supabase
+#             - supabase link --project-ref $SUPABASE_PROJECT_ID
+#             - supabase db push
+#             - supabase functions deploy
+#
+# definitions:
+#   services:
+#     docker:
+#       memory: 2048
+
+# =============================================================================
+# TOKEN AND SECRET MANAGEMENT
+# =============================================================================
+#
+# Required Secrets:
+# - SUPABASE_ACCESS_TOKEN: Personal access token from dashboard
+# - SUPABASE_PROJECT_ID: Project reference string
+# - SUPABASE_DB_PASSWORD: Database password for migrations
+#
+# For multi-environment:
+# - STAGING_PROJECT_ID / PRODUCTION_PROJECT_ID
+# - STAGING_DB_PASSWORD / PRODUCTION_DB_PASSWORD
+#
+# Generate tokens at: https://supabase.com/dashboard/account/tokens
+#
+# Best practices:
+# - Use minimal required permissions
+# - Store in CI/CD encrypted secrets (never in code)
+# - Rotate tokens periodically
+# - Use separate tokens for staging/production
+
+# =============================================================================
+# IMPORTANT NOTES
+# =============================================================================
+#
+# 1. ALWAYS use SUPABASE_ACCESS_TOKEN env var (never interactive login)
+# 2. ALWAYS use --project-ref for explicit project targeting
+# 3. Use supabase/setup-cli@v1 action for GitHub Actions
+# 4. Run supabase stop --no-backup in cleanup steps
+# 5. Use --debug flag for troubleshooting deployment issues
+# 6. Test migrations locally with supabase start before pushing
+# 7. Generate types after schema changes for type safety
