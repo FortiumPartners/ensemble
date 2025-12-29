@@ -18,7 +18,5 @@
     "ensemble"
   ],
   "hooks": "./hooks/hooks.json",
-  "commands": "./commands",
-  "skills": "./skills",
-  "agents": "./agents"
+  "commands": "./commands"
 }
