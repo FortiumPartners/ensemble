@@ -910,6 +910,439 @@ execute_git_town_command "git town propose"
 
 ---
 
+## Decision Trees
+
+### Branching Strategy Decision Tree
+
+Use this decision tree to determine which git-town command to use for creating new branches.
+
+```mermaid
+graph TD
+    A[Need to Create New Branch] --> B{What type of work?}
+
+    B -->|Standalone Feature| C{Is this production code?}
+    B -->|Builds on Current Work| D[Use git town append]
+    B -->|Current Work Depends on This| E[Use git town prepend]
+
+    C -->|Yes - Ship to Production| F[git town hack feature/name]
+    C -->|No - Throwaway/Prototype| G[git town hack --prototype proto/name]
+
+    D --> H[Creates child branch from current]
+    E --> I[Creates parent branch for current]
+    F --> J[Creates feature branch from main]
+    G --> K[Creates prototype branch, won't sync]
+
+    H --> L[Continue Working]
+    I --> L
+    J --> L
+    K --> L
+
+    style D fill:#90EE90
+    style E fill:#FFB6C1
+    style F fill:#87CEEB
+    style G fill:#FFD700
+```
+
+#### Decision Table
+
+| Scenario | Command | Reasoning |
+|----------|---------|-----------|
+| New independent feature for production | `git town hack feature/user-auth` | Standalone work that will ship to main |
+| Research spike or throwaway code | `git town hack --prototype proto/research` | Won't be synced, easier cleanup |
+| Next step in current feature (dependent) | `git town append feature/add-tests` | Builds on current branch, creates child |
+| Foundation needed for current work | `git town prepend feature/setup-db` | Current branch depends on this, creates parent |
+| Hotfix for production issue | `git town hack hotfix/fix-login` | Urgent standalone fix from main |
+| Refactoring before adding feature | `git town prepend refactor/cleanup` | Current feature needs this refactor first |
+| Adding tests after implementation | `git town append test/unit-tests` | Tests depend on implementation |
+| Experimenting with new library | `git town hack --prototype proto/new-lib` | Experimental work, may be discarded |
+
+#### Example Use Cases
+
+**Use Case 1: Standalone Feature**
+```bash
+# Starting new feature for user authentication
+git town hack feature/user-authentication
+
+# Why: Independent feature that will ship to main
+# Alternative: Could use git checkout -b, but git-town provides sync benefits
+```
+
+**Use Case 2: Building on Current Work (Stacked Branches)**
+```bash
+# Current branch: feature/user-model
+# Now need to add authentication endpoints that depend on user-model
+
+git town append feature/auth-endpoints
+
+# Why: Auth endpoints depend on user-model being merged first
+# Creates: feature/user-model → feature/auth-endpoints stack
+# When syncing, both branches stay up to date
+```
+
+**Use Case 3: Foundation Work (Reverse Dependency)**
+```bash
+# Current branch: feature/admin-dashboard
+# Realize you need to add admin roles first
+
+git town prepend feature/admin-roles
+
+# Why: Admin dashboard depends on roles being implemented
+# Creates: feature/admin-roles → feature/admin-dashboard stack
+# Switches to: feature/admin-roles (implement foundation first)
+```
+
+**Use Case 4: Prototype/Throwaway Work**
+```bash
+# Experimenting with a new state management library
+git town hack --prototype proto/zustand-experiment
+
+# Why: Experimental work that may be discarded
+# Benefits: Won't be synced automatically, easy to delete
+# When done: Just delete branch, no git-town cleanup needed
+```
+
+---
+
+### Sync Scope Decision Tree
+
+Use this decision tree to determine which sync scope to use.
+
+```mermaid
+graph TD
+    A[Need to Sync Branches] --> B{What scope?}
+
+    B -->|Single Branch| C{Working on branch stack?}
+    B -->|All Feature Branches| D[git town sync --all]
+
+    C -->|Yes - Part of Stack| E[git town sync --stack]
+    C -->|No - Standalone Branch| F[git town sync]
+
+    D --> G{Preparing for release?}
+    E --> H[Syncs current + parent/child branches]
+    F --> I[Syncs current branch only]
+
+    G -->|Yes| J[Update all features before release]
+    G -->|No| K[Keep all features current daily]
+
+    H --> L[Continue Working]
+    I --> L
+    J --> L
+    K --> L
+
+    style F fill:#87CEEB
+    style E fill:#90EE90
+    style D fill:#FFB6C1
+```
+
+#### Decision Matrix
+
+| Scenario | Command | When to Use | Performance Impact |
+|----------|---------|-------------|-------------------|
+| Working on single feature | `git town sync` | Default workflow, focused on one branch | Low - updates 1 branch |
+| Working on stacked branches | `git town sync --stack` | Using append/prepend, need stack updates | Medium - updates 2-5 branches |
+| End of day sync | `git town sync --all` | Keep all features up to date | High - updates all feature branches |
+| Pre-release preparation | `git town sync --all` | Ensure all features are current | High - full repository sync |
+| After main branch update | `git town sync --all` | Major changes merged to main | High - propagate changes |
+| Quick check before PR | `git town sync` | Just need current branch updated | Low - fast feedback |
+| Mid-stack development | `git town sync --stack` | Changes affect parent/child branches | Medium - stack coherence |
+| Morning startup | `git town sync --all` | Start day with fresh state | High - one-time cost |
+
+#### Performance Implications
+
+**`git town sync` (Current Branch Only)**
+- **Time**: 5-30 seconds
+- **Network**: Fetches current branch + main
+- **Conflicts**: Only in current branch
+- **Use**: 80% of daily syncs
+
+**`git town sync --stack` (Current + Related Branches)**
+- **Time**: 30 seconds - 2 minutes
+- **Network**: Fetches stack branches + main
+- **Conflicts**: Possible in any stack branch
+- **Use**: 15% of daily syncs (when using stacked branches)
+
+**`git town sync --all` (All Feature Branches)**
+- **Time**: 1-10 minutes (depends on branch count)
+- **Network**: Fetches all remotes
+- **Conflicts**: Possible in any feature branch
+- **Use**: 5% of syncs (strategic timing)
+
+#### When to Use Each Variant
+
+**Use `git town sync` when:**
+- ✓ Working on a single, standalone feature
+- ✓ Quick sync before making commits
+- ✓ Checking if main has updates
+- ✓ Branch is not part of a stack
+- ✓ Time-constrained (fastest option)
+
+**Use `git town sync --stack` when:**
+- ✓ Working on stacked branches (append/prepend)
+- ✓ Changes in parent affect current work
+- ✓ Need to push stack changes upstream
+- ✓ Testing integration across stack layers
+- ✓ Preparing to merge parent branch
+
+**Use `git town sync --all` when:**
+- ✓ Start of day (morning sync)
+- ✓ End of day (before leaving)
+- ✓ Before major release
+- ✓ After significant main branch changes
+- ✓ Weekly maintenance sync
+- ✓ Returning from vacation/break
+
+#### Example Workflows
+
+**Scenario 1: Daily Feature Development**
+```bash
+# Morning: Start with full sync
+git town sync --all
+
+# Mid-day: Quick syncs while working
+git checkout feature/user-auth
+git town sync  # Fast, focused sync
+
+# Make changes...
+git add .
+git commit -m "feat: add password hashing"
+
+# Before lunch: Quick sync
+git town sync
+
+# End of day: Full sync
+git town sync --all
+```
+
+**Scenario 2: Stacked Branch Development**
+```bash
+# Working on stack: feature/api → feature/ui → feature/tests
+git checkout feature/ui  # Middle of stack
+
+# Sync entire stack to keep coherent
+git town sync --stack
+
+# Changes propagate:
+# 1. feature/api syncs with main
+# 2. feature/ui syncs with feature/api
+# 3. feature/tests syncs with feature/ui
+```
+
+**Scenario 3: Pre-Release Preparation**
+```bash
+# Week before release: Ensure all features are current
+git town sync --all
+
+# Review any conflicts across all branches
+# Update features that fell behind main
+# Verify all features still build
+```
+
+---
+
+### Completion Strategy Decision Tree
+
+Use this decision tree to determine how to complete and merge your branch.
+
+```mermaid
+graph TD
+    A[Ready to Merge Branch] --> B{Is PR approved?}
+
+    B -->|Yes| C{Using git-town workflow?}
+    B -->|No| D[Create/Update PR]
+
+    C -->|Yes| E{Need manual merge control?}
+    C -->|No - Manual Git| F[Direct git merge]
+
+    E -->|No - Standard Ship| G[git town ship]
+    E -->|Yes - Manual Control| H[git town propose]
+
+    D --> I[Wait for approval]
+    F --> J[Manual merge to main]
+    G --> K[Squash + Merge via PR]
+    H --> L[Create PR, manual merge]
+
+    I --> B
+    J --> M[Branch Merged]
+    K --> M
+    L --> N[Manual merge after review]
+    N --> M
+
+    M --> O[Verify & Cleanup]
+
+    style G fill:#90EE90
+    style H fill:#87CEEB
+    style F fill:#FFD700
+```
+
+#### Decision Table
+
+| Scenario | Command | Pre-Conditions | Post-Actions |
+|----------|---------|----------------|--------------|
+| Standard approved PR | `git town ship` | PR approved, CI green, no conflicts | Auto-deletes branch, updates main |
+| Need to review merge commit | `git town propose` → manual merge | Want to customize merge message | Manual PR merge, run `git town sync` |
+| Not using git-town | `git merge` + manual cleanup | Working outside git-town workflow | Manual branch deletion |
+| Prototype branch | Delete locally | Prototype flag set, not for shipping | `git branch -D proto/name` |
+| Hotfix emergency | `git town ship` ASAP | Critical production fix approved | Fast-track merge, skip normal review |
+| Stacked branches | Ship from bottom up | Dependencies merged first | Ship parent before child |
+
+#### Pre-Ship Checklist
+
+Before running `git town ship`, verify:
+
+**Code Quality**
+- [ ] All tests passing locally
+- [ ] CI/CD pipeline green
+- [ ] Code review approved
+- [ ] No merge conflicts with main
+- [ ] Branch is up to date (`git town sync`)
+
+**Documentation**
+- [ ] Code comments added
+- [ ] README updated (if needed)
+- [ ] CHANGELOG entry added
+- [ ] API docs updated (if API changes)
+
+**Configuration**
+- [ ] Environment variables documented
+- [ ] Database migrations tested
+- [ ] Feature flags configured
+- [ ] Dependencies updated in lock files
+
+**Security**
+- [ ] No secrets committed
+- [ ] Security scan passed
+- [ ] Dependencies have no critical vulnerabilities
+- [ ] Authentication/authorization tested
+
+**Performance**
+- [ ] No performance regressions
+- [ ] Database queries optimized
+- [ ] Large file uploads handled
+- [ ] Caching implemented where needed
+
+#### Post-Ship Verification
+
+After `git town ship` completes:
+
+**Verify Merge**
+```bash
+# Check that main has your changes
+git checkout main
+git pull
+git log --oneline -5  # Verify your commit is there
+
+# Verify branch was deleted remotely
+git branch -r | grep feature/your-branch
+# Should return nothing
+```
+
+**Verify Deployment**
+```bash
+# If using CI/CD, check deployment status
+gh run list --branch main
+
+# Verify in staging/production
+curl https://staging.example.com/health
+```
+
+**Cleanup Local Branches**
+```bash
+# Git-town auto-deletes local branch after ship
+# Verify it's gone
+git branch | grep feature/your-branch
+# Should return nothing
+
+# Prune remote-tracking branches
+git fetch --prune
+```
+
+#### Example Workflows
+
+**Workflow 1: Standard Ship (Recommended)**
+```bash
+# 1. Ensure branch is up to date
+git town sync
+
+# 2. Run pre-ship checklist
+npm test          # All tests pass
+npm run lint      # No linting errors
+git status        # Clean working directory
+
+# 3. Create/update PR if not exists
+git town propose  # Creates PR if needed
+
+# 4. Wait for approval (done outside terminal)
+# - Code review approved
+# - CI/CD green
+# - QA sign-off
+
+# 5. Ship the feature
+git town ship
+
+# 6. Verify merge
+git checkout main
+git pull
+git log --oneline -5
+
+# Result:
+# ✓ PR merged and closed
+# ✓ Remote branch deleted
+# ✓ Local branch deleted
+# ✓ Switched to main branch
+# ✓ Main branch updated
+```
+
+**Workflow 2: Manual Merge Control**
+```bash
+# 1. Create PR but don't auto-merge
+git town propose
+
+# 2. Wait for approval
+# 3. Manually merge PR via GitHub UI with custom merge message
+# 4. Sync local repository
+git checkout main
+git pull
+
+# 5. Clean up local branch
+git branch -d feature/my-feature
+```
+
+**Workflow 3: Stacked Branches Ship**
+```bash
+# Stack: feature/api → feature/ui → feature/tests
+# Ship from bottom to top
+
+# Ship API layer first
+git checkout feature/api
+git town ship  # Merges to main
+
+# Ship UI layer second
+git checkout feature/ui
+git town sync  # Updates parent reference from feature/api to main
+git town ship  # Merges to main
+
+# Ship tests layer last
+git checkout feature/tests
+git town sync  # Updates parent reference from feature/ui to main
+git town ship  # Merges to main
+```
+
+**Workflow 4: Prototype Cleanup**
+```bash
+# Prototype branches are NOT shipped
+git checkout main
+
+# Delete prototype branch locally
+git branch -D proto/experiment
+
+# Delete remotely if pushed
+git push origin --delete proto/experiment
+
+# No git-town ship needed for prototypes
+```
+
+---
+
 ## Additional Resources
 
 - **Git-Town Documentation**: https://www.git-town.com/
@@ -919,5 +1352,5 @@ execute_git_town_command "git town propose"
 
 ---
 
-*Last updated: 2025-12-29*
-*Version: 1.0.0*
+*Last updated: 2025-12-30*
+*Version: 1.1.0*

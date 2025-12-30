@@ -255,6 +255,125 @@ Please analyze each conflict and choose the appropriate resolution strategy.")
       └──────────────┘
 ```
 
+#### Agent Decision Tree: Merge Conflicts
+
+```mermaid
+graph TD
+    A[Merge Conflict Detected] --> B[Analyze Conflict Files]
+    B --> C{File Type?}
+
+    C -->|Generated File| D[Auto-Resolve: Regenerate]
+    C -->|Documentation| E{Simple Conflict?}
+    C -->|Source Code| F[Escalate to User/Expert]
+    C -->|Configuration| F
+
+    D --> G[Regenerate Lock File]
+    G --> H[git add FILE]
+    H --> I{More Conflicts?}
+
+    E -->|Yes - Non-overlapping| J[Accept Both Changes]
+    E -->|No - Complex| F
+
+    J --> H
+
+    F --> K[Create Task for Expert]
+    K --> L[Wait for Resolution]
+    L --> H
+
+    I -->|Yes| B
+    I -->|No| M[git town continue]
+
+    M --> N{Continue Successful?}
+    N -->|Yes| O[Continue Workflow]
+    N -->|No| P{Retry Count < 3?}
+
+    P -->|Yes| A
+    P -->|No| Q[Fail: Escalate]
+
+    style D fill:#90EE90
+    style F fill:#FFB6C1
+    style Q fill:#FF6B6B
+    style O fill:#87CEEB
+```
+
+#### Decision Logic Table: Merge Conflicts
+
+| Condition | Action | Auto-Resolve? | Retry? | Escalate? |
+|-----------|--------|---------------|--------|-----------|
+| Generated file (package-lock.json) | Regenerate file | Yes | No | No |
+| Generated file (yarn.lock) | Regenerate file | Yes | No | No |
+| Generated file (Gemfile.lock) | Regenerate file | Yes | No | No |
+| Documentation - simple conflict | Accept both changes | Yes | No | No |
+| Documentation - complex overlap | Escalate to user | No | No | Yes |
+| Source code conflict | Escalate to expert | No | No | Yes |
+| Configuration file conflict | Escalate to user | No | No | Yes |
+| Unknown file type | Escalate to user | No | No | Yes |
+| Resolution failed after auto-fix | Retry (max 3x) | No | Yes | If retries exhausted |
+
+#### Example Error Handling Code
+
+```bash
+handle_merge_conflict() {
+    local retry_count=0
+    local max_retries=3
+
+    while [ $retry_count -lt $max_retries ]; do
+        # Get all conflicting files
+        local conflicts=$(git diff --name-only --diff-filter=U)
+
+        if [ -z "$conflicts" ]; then
+            echo "No conflicts remaining"
+            git town continue
+            return 0
+        fi
+
+        # Process each conflict
+        local auto_resolved=true
+        for file in $conflicts; do
+            local file_type=$(identify_conflict_type "$file")
+
+            case "$file_type" in
+                GENERATED_FILE)
+                    echo "Auto-resolving generated file: $file"
+                    auto_resolve_conflict "$file" "$file_type"
+                    ;;
+                DOCUMENTATION)
+                    if is_simple_conflict "$file"; then
+                        echo "Auto-resolving simple documentation conflict: $file"
+                        auto_resolve_conflict "$file" "$file_type"
+                    else
+                        echo "Escalating complex documentation conflict: $file"
+                        auto_resolved=false
+                    fi
+                    ;;
+                SOURCE_CODE|CONFIGURATION|UNKNOWN)
+                    echo "Escalating $file_type conflict: $file"
+                    auto_resolved=false
+                    ;;
+            esac
+        done
+
+        if [ "$auto_resolved" = false ]; then
+            echo "Manual intervention required for remaining conflicts"
+            # Delegate to Task() with subagent
+            return 1
+        fi
+
+        # Try to continue
+        if git town continue; then
+            echo "Merge conflicts resolved successfully"
+            return 0
+        else
+            retry_count=$((retry_count + 1))
+            echo "Retry $retry_count/$max_retries"
+        fi
+    done
+
+    echo "Failed to resolve conflicts after $max_retries retries"
+    return 1
+}
+```
+
 ---
 
 ### 2. Network Errors
@@ -476,6 +595,173 @@ Network Error (Exit 7)
 └─ Escalate to user with diagnostic info
 ```
 
+#### Agent Decision Tree: Network Errors
+
+```mermaid
+graph TD
+    A[Network Error Detected] --> B[Parse Error Type]
+    B --> C{Error Classification}
+
+    C -->|Timeout/Connection| D[Retry with Backoff]
+    C -->|DNS Resolution| E[Check DNS Config]
+    C -->|SSL/Certificate| F[Escalate: Cert Issue]
+    C -->|Server Error 5xx| G[Wait & Retry]
+
+    D --> H{Retry Count?}
+    H -->|< 3 attempts| I[Calculate Backoff]
+    H -->|>= 3 attempts| J[Switch to Offline Mode?]
+
+    I --> K[Sleep with Jitter]
+    K --> L[Retry Operation]
+    L --> M{Success?}
+
+    M -->|Yes| N[Continue Workflow]
+    M -->|No| H
+
+    J -->|Offline Available| O[Enable Offline Mode]
+    J -->|Must Be Online| P[Escalate to User]
+
+    E --> Q{Can Auto-Fix?}
+    Q -->|Yes| R[Update /etc/hosts]
+    Q -->|No| P
+
+    F --> P
+    G --> S{Server Up?}
+    S -->|Yes after wait| N
+    S -->|No - Still down| P
+
+    O --> N
+    P --> T[Fail: Manual Intervention]
+
+    style D fill:#90EE90
+    style O fill:#87CEEB
+    style P fill:#FFB6C1
+    style T fill:#FF6B6B
+```
+
+#### Decision Logic Table: Network Errors
+
+| Error Type | Auto-Resolve? | Retry Strategy | Max Retries | Escalate? |
+|------------|---------------|----------------|-------------|-----------|
+| Connection timeout | Yes | Exponential backoff (2s, 4s, 8s) | 3 | If exhausted |
+| DNS resolution failure | Conditional | Check /etc/hosts, retry DNS | 2 | If can't auto-fix |
+| SSL certificate error | No | None | 0 | Immediately |
+| Server error (5xx) | Yes | Linear backoff (5s, 10s, 15s) | 3 | If persists |
+| Network unreachable | Conditional | Check connectivity, switch offline | 1 | If no offline mode |
+| Authentication timeout | No | None | 0 | Immediately |
+| Proxy error | Conditional | Check proxy config | 2 | If can't auto-fix |
+| Rate limiting (429) | Yes | Exponential backoff (60s, 120s) | 2 | If persists |
+
+#### Example Error Handling Code
+
+```bash
+handle_network_error() {
+    local command="$1"
+    local error_output="$2"
+    local retry_count=0
+    local max_retries=3
+
+    # Classify error type
+    local error_type=$(classify_network_error "$error_output")
+
+    case "$error_type" in
+        TIMEOUT|CONNECTION_FAILED)
+            echo "Network timeout/connection error - retrying with backoff"
+
+            while [ $retry_count -lt $max_retries ]; do
+                # Exponential backoff with jitter
+                local wait_time=$((2 ** retry_count))
+                local jitter=$(( RANDOM % 2 ))
+                local total_wait=$((wait_time + jitter))
+
+                echo "Waiting ${total_wait}s before retry $((retry_count + 1))/$max_retries"
+                sleep $total_wait
+
+                # Retry command
+                if eval "$command"; then
+                    echo "Retry successful"
+                    return 0
+                fi
+
+                retry_count=$((retry_count + 1))
+            done
+
+            # Check if offline mode is available
+            if supports_offline_mode; then
+                echo "Switching to offline mode"
+                enable_offline_mode
+                return 0
+            else
+                echo "Network error persists, escalating to user"
+                return 1
+            fi
+            ;;
+
+        DNS_RESOLUTION)
+            echo "DNS resolution error - checking configuration"
+
+            # Try to auto-fix common DNS issues
+            if can_fix_dns; then
+                echo "Auto-fixing DNS configuration"
+                fix_dns_config
+                eval "$command"
+                return $?
+            else
+                echo "Cannot auto-fix DNS, escalating to user"
+                return 1
+            fi
+            ;;
+
+        SSL_ERROR)
+            echo "SSL/Certificate error - requires manual intervention"
+            echo "Error details: $error_output"
+            return 1
+            ;;
+
+        SERVER_ERROR)
+            echo "Server error (5xx) - waiting for server recovery"
+
+            local wait_times=(5 10 15)
+            for wait in "${wait_times[@]}"; do
+                echo "Waiting ${wait}s for server recovery"
+                sleep $wait
+
+                if eval "$command"; then
+                    echo "Server recovered, operation successful"
+                    return 0
+                fi
+            done
+
+            echo "Server error persists, escalating to user"
+            return 1
+            ;;
+
+        *)
+            echo "Unknown network error: $error_type"
+            return 1
+            ;;
+    esac
+}
+
+classify_network_error() {
+    local error_output="$1"
+
+    if echo "$error_output" | grep -qiE "timeout|timed out"; then
+        echo "TIMEOUT"
+    elif echo "$error_output" | grep -qiE "connection refused|could not connect"; then
+        echo "CONNECTION_FAILED"
+    elif echo "$error_output" | grep -qiE "could not resolve|dns|name resolution"; then
+        echo "DNS_RESOLUTION"
+    elif echo "$error_output" | grep -qiE "ssl|certificate|tls"; then
+        echo "SSL_ERROR"
+    elif echo "$error_output" | grep -qiE "500|502|503|504"; then
+        echo "SERVER_ERROR"
+    else
+        echo "UNKNOWN"
+    fi
+}
+```
+
 ---
 
 ### 3. Configuration Errors
@@ -665,6 +951,224 @@ handle_config_error() {
 
 **Never Escalate** (unless auto-fix fails):
 Only escalate if automated configuration fails after multiple attempts.
+
+#### Agent Decision Tree: Configuration Errors
+
+```mermaid
+graph TD
+    A[Configuration Error Detected] --> B{Error Code?}
+
+    B -->|Exit 2: Not Configured| C[Run git town config setup]
+    B -->|Exit 9: Invalid Config| D[Validate Configuration]
+
+    C --> E{Setup Interactive?}
+    E -->|Yes - Requires Input| F[Use Default Values]
+    E -->|No - Can Auto-Run| G[Execute Setup]
+
+    F --> H[Set main-branch=main]
+    H --> I[Set perennial-branches=develop,staging]
+    I --> J[Set push-new-branches=true]
+    J --> G
+
+    G --> K{Setup Successful?}
+    K -->|Yes| L[Continue Workflow]
+    K -->|No| M[Escalate to User]
+
+    D --> N[Parse Invalid Config]
+    N --> O{Can Auto-Fix?}
+
+    O -->|Yes - Known Issue| P[Fix Configuration Value]
+    O -->|No - Unknown Issue| M
+
+    P --> Q[git config --unset]
+    Q --> R[git config set with valid value]
+    R --> S{Fix Successful?}
+
+    S -->|Yes| L
+    S -->|No| T{Retry Count < 3?}
+
+    T -->|Yes| A
+    T -->|No| M
+
+    style C fill:#90EE90
+    style P fill:#90EE90
+    style M fill:#FFB6C1
+    style L fill:#87CEEB
+```
+
+#### Decision Logic Table: Configuration Errors
+
+| Error Type | Auto-Resolve? | Action | Escalate? |
+|------------|---------------|--------|-----------|
+| Not configured (Exit 2) | Yes | Run `git town config setup` with defaults | Only if setup fails |
+| Missing main branch config | Yes | Set `main-branch = main` | No |
+| Missing perennial branches | Yes | Set `perennial-branches = develop,staging` | No |
+| Invalid main branch name | Yes | Detect default branch, set config | No |
+| Invalid perennial branch | Conditional | Validate branch exists, remove if not | If validation fails |
+| Invalid push-new-branches | Yes | Set to `true` (safe default) | No |
+| Invalid sync-strategy | Yes | Set to `merge` (safe default) | No |
+| Corrupted config file | No | None - requires manual intervention | Yes |
+| Permission denied on config | No | None - requires manual intervention | Yes |
+
+#### Example Error Handling Code
+
+```bash
+handle_configuration_error() {
+    local exit_code="$1"
+    local error_output="$2"
+    local retry_count=0
+    local max_retries=3
+
+    case "$exit_code" in
+        2)  # EXIT_NOT_CONFIGURED
+            echo "Git-town not configured - running setup with defaults"
+
+            # Use non-interactive setup with sensible defaults
+            if setup_git_town_defaults; then
+                echo "Configuration successful"
+                return 0
+            else
+                echo "Auto-configuration failed, escalating to user"
+                return 1
+            fi
+            ;;
+
+        9)  # EXIT_INVALID_CONFIG
+            echo "Invalid git-town configuration detected"
+
+            while [ $retry_count -lt $max_retries ]; do
+                # Parse and fix invalid configuration
+                local config_key=$(parse_invalid_config "$error_output")
+
+                if [ -n "$config_key" ]; then
+                    echo "Attempting to fix configuration: $config_key"
+
+                    if fix_config_value "$config_key"; then
+                        echo "Configuration fixed successfully"
+                        return 0
+                    fi
+                fi
+
+                retry_count=$((retry_count + 1))
+                echo "Retry $retry_count/$max_retries"
+            done
+
+            echo "Unable to auto-fix configuration after $max_retries retries"
+            return 1
+            ;;
+
+        *)
+            echo "Unknown configuration error: exit code $exit_code"
+            return 1
+            ;;
+    esac
+}
+
+setup_git_town_defaults() {
+    # Detect default branch (main or master)
+    local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+
+    if [ -z "$default_branch" ]; then
+        # Fallback to 'main' if detection fails
+        default_branch="main"
+    fi
+
+    # Set main branch
+    git config git-town.main-branch "$default_branch" || return 1
+
+    # Set common perennial branches (if they exist)
+    local perennial_branches=()
+    for branch in develop staging production; do
+        if git show-ref --verify --quiet "refs/heads/$branch"; then
+            perennial_branches+=("$branch")
+        fi
+    done
+
+    if [ ${#perennial_branches[@]} -gt 0 ]; then
+        local perennial_list=$(IFS=,; echo "${perennial_branches[*]}")
+        git config git-town.perennial-branches "$perennial_list" || return 1
+    fi
+
+    # Set safe defaults for other settings
+    git config git-town.push-new-branches true || return 1
+    git config git-town.sync-strategy merge || return 1
+
+    echo "Git-town configured with defaults:"
+    echo "  main-branch: $default_branch"
+    echo "  perennial-branches: ${perennial_list:-none}"
+    echo "  push-new-branches: true"
+    echo "  sync-strategy: merge"
+
+    return 0
+}
+
+parse_invalid_config() {
+    local error_output="$1"
+
+    # Extract configuration key from error message
+    if echo "$error_output" | grep -qE "invalid.*main-branch"; then
+        echo "main-branch"
+    elif echo "$error_output" | grep -qE "invalid.*perennial"; then
+        echo "perennial-branches"
+    elif echo "$error_output" | grep -qE "invalid.*push-new"; then
+        echo "push-new-branches"
+    elif echo "$error_output" | grep -qE "invalid.*sync-strategy"; then
+        echo "sync-strategy"
+    else
+        echo ""
+    fi
+}
+
+fix_config_value() {
+    local config_key="$1"
+
+    case "$config_key" in
+        main-branch)
+            # Reset to detected default
+            local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+            default_branch="${default_branch:-main}"
+
+            git config --unset git-town.main-branch
+            git config git-town.main-branch "$default_branch"
+            ;;
+
+        perennial-branches)
+            # Remove invalid branches from list
+            local current=$(git config git-town.perennial-branches)
+            local valid_branches=()
+
+            IFS=',' read -ra branches <<< "$current"
+            for branch in "${branches[@]}"; do
+                if git show-ref --verify --quiet "refs/heads/$branch"; then
+                    valid_branches+=("$branch")
+                fi
+            done
+
+            git config --unset git-town.perennial-branches
+            if [ ${#valid_branches[@]} -gt 0 ]; then
+                local valid_list=$(IFS=,; echo "${valid_branches[*]}")
+                git config git-town.perennial-branches "$valid_list"
+            fi
+            ;;
+
+        push-new-branches)
+            git config --unset git-town.push-new-branches
+            git config git-town.push-new-branches true
+            ;;
+
+        sync-strategy)
+            git config --unset git-town.sync-strategy
+            git config git-town.sync-strategy merge
+            ;;
+
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
+}
+```
 
 ---
 
@@ -881,6 +1385,273 @@ Branch Not Found (Exit 8)
 ├─ Find similar branches → Suggest to user
 │
 └─ Escalate: "Branch not found. Did you mean: [suggestions]?"
+```
+
+#### Agent Decision Tree: Branch State Errors
+
+```mermaid
+graph TD
+    A[Branch State Error Detected] --> B{Error Code?}
+
+    B -->|Exit 6: Uncommitted Changes| C[Analyze Changes]
+    B -->|Exit 8: Branch Not Found| D[Search for Branch]
+
+    C --> E{Change Type?}
+    E -->|Tracked Files Modified| F[Auto-Stash Changes]
+    E -->|Untracked Files| G{Can Ignore?}
+    E -->|Staged Changes| F
+
+    F --> H[git stash push -m AUTO]
+    H --> I[Continue Operation]
+    I --> J{Operation Success?}
+
+    J -->|Yes| K[git stash pop]
+    J -->|No| L[Escalate: Keep Stash]
+
+    G -->|Yes - Build artifacts| M[Add to .gitignore]
+    G -->|No - User files| N[Escalate to User]
+
+    M --> I
+
+    D --> O[Find Similar Branches]
+    O --> P{Exact Match Found?}
+
+    P -->|Yes - Different Remote| Q[Switch to Correct Remote]
+    P -->|No - Similar Names| R[Suggest Alternatives]
+    P -->|No - Completely Wrong| N
+
+    Q --> S[Update Remote Reference]
+    S --> I
+
+    R --> N
+
+    K --> T[Continue Workflow]
+    L --> N
+    N --> U[Fail: Manual Intervention]
+
+    style F fill:#90EE90
+    style M fill:#90EE90
+    style Q fill:#87CEEB
+    style N fill:#FFB6C1
+    style U fill:#FF6B6B
+```
+
+#### Decision Logic Table: Branch State Errors
+
+| Error Type | Auto-Resolve? | Action | Escalate? |
+|------------|---------------|--------|-----------|
+| Uncommitted changes - tracked files | Yes | Auto-stash with message | No |
+| Uncommitted changes - staged files | Yes | Auto-stash including staged | No |
+| Untracked files - build artifacts | Yes | Add to .gitignore | No |
+| Untracked files - user files | No | None - may be important | Yes |
+| Branch not found - exists on remote | Yes | Fetch and checkout | No |
+| Branch not found - similar names | Conditional | Suggest alternatives | Yes (with suggestions) |
+| Branch not found - typo detected | Conditional | Suggest correct name | Yes (with suggestion) |
+| Branch not found - no matches | No | None | Yes |
+| Stash pop conflict after operation | No | None - keep stash | Yes |
+| Cannot create stash (e.g., disk full) | No | None | Yes |
+
+#### Example Error Handling Code
+
+```bash
+handle_branch_state_error() {
+    local exit_code="$1"
+    local error_output="$2"
+
+    case "$exit_code" in
+        6)  # EXIT_UNCOMMITTED_CHANGES
+            echo "Uncommitted changes detected - auto-stashing"
+
+            # Analyze working tree status
+            local status=$(git status --porcelain)
+
+            # Check for untracked files
+            local untracked=$(echo "$status" | grep "^??" || true)
+
+            if [ -n "$untracked" ]; then
+                # Try to identify if untracked files are safe to ignore
+                if are_build_artifacts "$untracked"; then
+                    echo "Untracked files are build artifacts - adding to .gitignore"
+                    add_to_gitignore "$untracked"
+                else
+                    echo "Untracked files detected - escalating to user"
+                    echo "Untracked files:"
+                    echo "$untracked"
+                    return 1
+                fi
+            fi
+
+            # Stash tracked and staged changes
+            if git stash push -u -m "Auto-stash before git-town operation: $(date +%Y-%m-%d_%H:%M:%S)"; then
+                echo "Changes stashed successfully"
+
+                # Try the operation again
+                # (caller should retry the original command)
+
+                # Pop stash after operation
+                # (caller should handle this in try-finally pattern)
+
+                return 0
+            else
+                echo "Failed to stash changes"
+                return 1
+            fi
+            ;;
+
+        8)  # EXIT_BRANCH_NOT_FOUND
+            echo "Branch not found - searching for alternatives"
+
+            # Extract branch name from error
+            local branch_name=$(echo "$error_output" | grep -oE "branch '[^']+'" | cut -d"'" -f2)
+
+            if [ -z "$branch_name" ]; then
+                echo "Could not determine branch name from error"
+                return 1
+            fi
+
+            # Check if branch exists on remote
+            if git ls-remote --heads origin "$branch_name" | grep -q "$branch_name"; then
+                echo "Branch exists on remote - fetching"
+                git fetch origin "$branch_name:$branch_name"
+                return 0
+            fi
+
+            # Find similar branches
+            local similar_branches=$(find_similar_branches "$branch_name")
+
+            if [ -n "$similar_branches" ]; then
+                echo "Branch not found. Did you mean one of these?"
+                echo "$similar_branches"
+                return 1
+            else
+                echo "Branch '$branch_name' not found and no similar branches exist"
+                return 1
+            fi
+            ;;
+
+        *)
+            echo "Unknown branch state error: exit code $exit_code"
+            return 1
+            ;;
+    esac
+}
+
+are_build_artifacts() {
+    local untracked_files="$1"
+
+    # Common patterns for build artifacts
+    local build_patterns=(
+        "node_modules/"
+        "dist/"
+        "build/"
+        "target/"
+        ".next/"
+        ".cache/"
+        "*.log"
+        "*.tmp"
+        ".DS_Store"
+        "coverage/"
+        ".nyc_output/"
+    )
+
+    # Check if all untracked files match build patterns
+    while IFS= read -r file; do
+        file=$(echo "$file" | sed 's/^?? //')
+        local is_build_artifact=false
+
+        for pattern in "${build_patterns[@]}"; do
+            if [[ "$file" == $pattern ]] || [[ "$file" == *"/$pattern" ]]; then
+                is_build_artifact=true
+                break
+            fi
+        done
+
+        if [ "$is_build_artifact" = false ]; then
+            return 1
+        fi
+    done <<< "$untracked_files"
+
+    return 0
+}
+
+add_to_gitignore() {
+    local untracked_files="$1"
+
+    while IFS= read -r file; do
+        file=$(echo "$file" | sed 's/^?? //')
+
+        # Extract pattern (directory or file extension)
+        if [[ "$file" == */ ]]; then
+            # Directory
+            echo "$file" >> .gitignore
+        else
+            # File - add by extension
+            local extension="${file##*.}"
+            if [ "$extension" != "$file" ]; then
+                echo "*.$extension" >> .gitignore
+            fi
+        fi
+    done <<< "$untracked_files"
+
+    # Deduplicate .gitignore
+    sort -u .gitignore -o .gitignore
+}
+
+find_similar_branches() {
+    local target_branch="$1"
+    local threshold=3  # Levenshtein distance threshold
+
+    # Get all branches
+    local all_branches=$(git branch -a | sed 's/^[* ] //' | sed 's#remotes/origin/##')
+
+    # Find branches within edit distance threshold
+    local similar_branches=""
+
+    while IFS= read -r branch; do
+        local distance=$(levenshtein_distance "$target_branch" "$branch")
+
+        if [ "$distance" -le "$threshold" ]; then
+            similar_branches="$similar_branches\n  - $branch (distance: $distance)"
+        fi
+    done <<< "$all_branches"
+
+    echo -e "$similar_branches" | sort -t: -k2 -n | head -5
+}
+
+levenshtein_distance() {
+    # Simple Levenshtein distance calculation
+    # (This is a simplified version - use a proper implementation in production)
+    local s1="$1"
+    local s2="$2"
+
+    local len1=${#s1}
+    local len2=${#s2}
+
+    if [ "$len1" -eq 0 ]; then
+        echo "$len2"
+        return
+    fi
+
+    if [ "$len2" -eq 0 ]; then
+        echo "$len1"
+        return
+    fi
+
+    # For simplicity, use a heuristic based on common prefix/suffix
+    local common_prefix=0
+    for ((i=0; i<len1 && i<len2; i++)); do
+        if [ "${s1:i:1}" = "${s2:i:1}" ]; then
+            ((common_prefix++))
+        else
+            break
+        fi
+    done
+
+    local remaining1=$((len1 - common_prefix))
+    local remaining2=$((len2 - common_prefix))
+
+    echo $((remaining1 + remaining2))
+}
 ```
 
 ---
@@ -1140,6 +1911,240 @@ NEVER:
 - Modify SSH configurations
 ```
 
+#### Agent Decision Tree: Authentication Errors
+
+```mermaid
+graph TD
+    A[Authentication Error Detected] --> B[Parse Error Type]
+    B --> C{Auth Method?}
+
+    C -->|HTTPS - Token| D[Check Token Status]
+    C -->|SSH - Key| E[Check SSH Key]
+    C -->|HTTPS - Password| F[Escalate: Update Credentials]
+    C -->|Unknown| F
+
+    D --> G{Token Valid?}
+    G -->|Expired| H[Escalate: Renew Token]
+    G -->|Invalid| H
+    G -->|Missing| H
+
+    E --> I{SSH Key Exists?}
+    I -->|Yes| J{Key Added to Agent?}
+    I -->|No| K[Escalate: Create SSH Key]
+
+    J -->|Yes| L{Key Authorized on Remote?}
+    J -->|No| M[Escalate: Add to SSH Agent]
+
+    L -->|Yes| N[Escalate: Unknown SSH Issue]
+    L -->|No| O[Escalate: Add Key to Remote]
+
+    H --> P[Provide Token Renewal Instructions]
+    K --> Q[Provide SSH Key Creation Guide]
+    M --> R[Provide SSH Agent Instructions]
+    O --> S[Provide Key Upload Instructions]
+
+    P --> T[User Action Required]
+    Q --> T
+    R --> T
+    S --> T
+    N --> T
+    F --> T
+
+    style H fill:#FFB6C1
+    style K fill:#FFB6C1
+    style M fill:#FFB6C1
+    style O fill:#FFB6C1
+    style F fill:#FFB6C1
+    style T fill:#FF6B6B
+```
+
+#### Decision Logic Table: Authentication Errors
+
+| Error Type | Auto-Resolve? | Action | Escalate? |
+|------------|---------------|--------|-----------|
+| HTTPS - expired token | No | Provide renewal instructions | Always |
+| HTTPS - invalid token | No | Provide token creation guide | Always |
+| HTTPS - missing credentials | No | Guide user to credential setup | Always |
+| SSH - key not found | No | Provide SSH key creation guide | Always |
+| SSH - key not in agent | No | Provide ssh-add instructions | Always |
+| SSH - key not authorized on remote | No | Guide to add key to GitHub/GitLab | Always |
+| SSH - wrong key permissions | No | Provide chmod 600 instructions | Always |
+| Two-factor authentication required | No | Provide 2FA setup guide | Always |
+| Account suspended/banned | No | Contact platform support | Always |
+| IP blocked/rate limited | No | Wait and retry, or VPN guidance | Always |
+
+#### Example Error Handling Code
+
+```bash
+handle_authentication_error() {
+    local error_output="$1"
+
+    echo "Authentication error detected - user intervention required"
+
+    # Classify auth error type
+    local auth_type=$(classify_auth_error "$error_output")
+
+    case "$auth_type" in
+        HTTPS_TOKEN_EXPIRED)
+            echo ""
+            echo "ERROR: Your authentication token has expired."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Generate a new personal access token:"
+            echo "   - GitHub: https://github.com/settings/tokens"
+            echo "   - GitLab: https://gitlab.com/-/profile/personal_access_tokens"
+            echo ""
+            echo "2. Update your git credential helper:"
+            echo "   git config credential.helper store"
+            echo "   git push  # You'll be prompted for new token"
+            echo ""
+            return 1
+            ;;
+
+        HTTPS_TOKEN_INVALID)
+            echo ""
+            echo "ERROR: Your authentication token is invalid."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Ensure your token has the correct scopes:"
+            echo "   - repo (for private repositories)"
+            echo "   - workflow (for GitHub Actions)"
+            echo ""
+            echo "2. Update your credentials:"
+            echo "   git credential reject <<EOF"
+            echo "   protocol=https"
+            echo "   host=github.com"
+            echo "   EOF"
+            echo ""
+            echo "3. Try the operation again (you'll be prompted for new token)"
+            echo ""
+            return 1
+            ;;
+
+        SSH_KEY_NOT_FOUND)
+            echo ""
+            echo "ERROR: SSH key not found."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Generate a new SSH key:"
+            echo "   ssh-keygen -t ed25519 -C \"your_email@example.com\""
+            echo ""
+            echo "2. Start the SSH agent:"
+            echo "   eval \"\$(ssh-agent -s)\""
+            echo ""
+            echo "3. Add your key to the agent:"
+            echo "   ssh-add ~/.ssh/id_ed25519"
+            echo ""
+            echo "4. Add the public key to your GitHub/GitLab account:"
+            echo "   cat ~/.ssh/id_ed25519.pub"
+            echo "   # Copy the output and add it in your account settings"
+            echo ""
+            return 1
+            ;;
+
+        SSH_KEY_NOT_IN_AGENT)
+            echo ""
+            echo "ERROR: SSH key exists but is not added to the SSH agent."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Start the SSH agent (if not running):"
+            echo "   eval \"\$(ssh-agent -s)\""
+            echo ""
+            echo "2. Add your SSH key:"
+            echo "   ssh-add ~/.ssh/id_ed25519"
+            echo ""
+            echo "3. Verify the key is added:"
+            echo "   ssh-add -l"
+            echo ""
+            return 1
+            ;;
+
+        SSH_KEY_NOT_AUTHORIZED)
+            echo ""
+            echo "ERROR: SSH key is not authorized on the remote server."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Copy your public key:"
+            echo "   cat ~/.ssh/id_ed25519.pub"
+            echo ""
+            echo "2. Add it to your remote platform:"
+            echo "   - GitHub: https://github.com/settings/keys"
+            echo "   - GitLab: https://gitlab.com/-/profile/keys"
+            echo ""
+            echo "3. Test the connection:"
+            echo "   ssh -T git@github.com"
+            echo ""
+            return 1
+            ;;
+
+        SSH_PERMISSIONS_WRONG)
+            echo ""
+            echo "ERROR: SSH key has incorrect permissions."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Fix the permissions:"
+            echo "   chmod 700 ~/.ssh"
+            echo "   chmod 600 ~/.ssh/id_ed25519"
+            echo "   chmod 644 ~/.ssh/id_ed25519.pub"
+            echo ""
+            echo "2. Try the operation again"
+            echo ""
+            return 1
+            ;;
+
+        TWO_FACTOR_REQUIRED)
+            echo ""
+            echo "ERROR: Two-factor authentication is required."
+            echo ""
+            echo "To fix this issue:"
+            echo "1. Use a personal access token instead of password"
+            echo "2. Or use SSH keys instead of HTTPS"
+            echo ""
+            echo "See authentication setup guide for details."
+            echo ""
+            return 1
+            ;;
+
+        *)
+            echo ""
+            echo "ERROR: Unknown authentication error."
+            echo ""
+            echo "Error details:"
+            echo "$error_output"
+            echo ""
+            echo "Please check:"
+            echo "1. Your credentials are up to date"
+            echo "2. Your account has access to this repository"
+            echo "3. Two-factor authentication is configured correctly"
+            echo ""
+            return 1
+            ;;
+    esac
+}
+
+classify_auth_error() {
+    local error_output="$1"
+
+    if echo "$error_output" | grep -qiE "token.*expired|credentials.*expired"; then
+        echo "HTTPS_TOKEN_EXPIRED"
+    elif echo "$error_output" | grep -qiE "bad credentials|invalid.*token|authentication failed"; then
+        echo "HTTPS_TOKEN_INVALID"
+    elif echo "$error_output" | grep -qiE "permission denied.*publickey|no such identity"; then
+        echo "SSH_KEY_NOT_FOUND"
+    elif echo "$error_output" | grep -qiE "agent.*no identities"; then
+        echo "SSH_KEY_NOT_IN_AGENT"
+    elif echo "$error_output" | grep -qiE "permission denied \(publickey\)"; then
+        echo "SSH_KEY_NOT_AUTHORIZED"
+    elif echo "$error_output" | grep -qiE "permissions.*too open"; then
+        echo "SSH_PERMISSIONS_WRONG"
+    elif echo "$error_output" | grep -qiE "two-factor|2fa"; then
+        echo "TWO_FACTOR_REQUIRED"
+    else
+        echo "UNKNOWN"
+    fi
+}
+```
+
 ---
 
 ### 6. Version Errors
@@ -1321,6 +2326,238 @@ To upgrade on macOS:
   brew upgrade git-town
 
 After upgrading, retry the operation."
+```
+
+#### Agent Decision Tree: Version Errors
+
+```mermaid
+graph TD
+    A[Version Error Detected] --> B[Check Current Version]
+    B --> C{Version Check Result}
+
+    C -->|< 14.0.0| D[Version Too Old]
+    C -->|>= 14.0.0| E[False Positive - Investigate]
+
+    D --> F[Detect Package Manager]
+    F --> G{Package Manager?}
+
+    G -->|Homebrew macOS| H[Provide: brew upgrade git-town]
+    G -->|Homebrew Linux| H
+    G -->|APT Debian/Ubuntu| I[Provide: apt update && apt upgrade git-town]
+    G -->|YUM/DNF RedHat| J[Provide: yum update git-town]
+    G -->|Scoop Windows| K[Provide: scoop update git-town]
+    G -->|Manual Install| L[Provide: Download from GitHub releases]
+    G -->|Unknown| M[Escalate: Manual upgrade needed]
+
+    H --> N[Provide Upgrade Instructions]
+    I --> N
+    J --> N
+    K --> N
+    L --> N
+
+    N --> O[Halt Workflow]
+    O --> P[User Action Required]
+
+    E --> Q[Check for Beta/Dev Version]
+    Q --> R{Using Pre-Release?}
+
+    R -->|Yes| S[Warn: Use Stable Version]
+    R -->|No| M
+
+    M --> P
+    S --> P
+
+    style H fill:#90EE90
+    style I fill:#90EE90
+    style J fill:#90EE90
+    style K fill:#90EE90
+    style L fill:#87CEEB
+    style M fill:#FFB6C1
+    style P fill:#FF6B6B
+```
+
+#### Decision Logic Table: Version Errors
+
+| Condition | Auto-Resolve? | Action | Escalate? |
+|-----------|---------------|--------|-----------|
+| Version < 14.0.0 on Homebrew | No | Provide `brew upgrade` instructions | Always |
+| Version < 14.0.0 on APT | No | Provide `apt upgrade` instructions | Always |
+| Version < 14.0.0 on YUM/DNF | No | Provide `yum update` instructions | Always |
+| Version < 14.0.0 on Scoop | No | Provide `scoop update` instructions | Always |
+| Version < 14.0.0 manual install | No | Provide GitHub download link | Always |
+| Version >= 14.0.0 but error | No | Investigate version detection bug | Always |
+| Using pre-release/beta version | No | Recommend stable version | Always |
+| Unknown package manager | No | Manual upgrade guidance | Always |
+| Cannot detect version | No | Reinstall instructions | Always |
+
+#### Example Error Handling Code
+
+```bash
+handle_version_error() {
+    local error_output="$1"
+
+    echo "Git-town version error detected"
+
+    # Check current version
+    local current_version=$(git town version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+    local required_version="14.0.0"
+
+    echo "Current version: $current_version"
+    echo "Required version: >= $required_version"
+
+    # Detect package manager
+    local package_manager=$(detect_package_manager)
+
+    echo ""
+    echo "ERROR: Git-town version is too old and must be upgraded."
+    echo ""
+    echo "Detected package manager: $package_manager"
+    echo ""
+
+    case "$package_manager" in
+        homebrew)
+            echo "To upgrade git-town:"
+            echo "  brew update"
+            echo "  brew upgrade git-town"
+            echo ""
+            echo "Verify installation:"
+            echo "  git town version"
+            echo ""
+            echo "Expected version: >= $required_version"
+            ;;
+
+        apt)
+            echo "To upgrade git-town:"
+            echo "  sudo apt update"
+            echo "  sudo apt upgrade git-town"
+            echo ""
+            echo "If git-town is not in your repositories, install from GitHub:"
+            echo "  VERSION=\$(curl -s https://api.github.com/repos/git-town/git-town/releases/latest | grep tag_name | cut -d'\"' -f4)"
+            echo "  wget https://github.com/git-town/git-town/releases/download/\$VERSION/git-town_linux_amd64.deb"
+            echo "  sudo dpkg -i git-town_linux_amd64.deb"
+            ;;
+
+        yum|dnf)
+            echo "To upgrade git-town:"
+            echo "  sudo $package_manager update git-town"
+            echo ""
+            echo "If git-town is not in your repositories, install from GitHub:"
+            echo "  VERSION=\$(curl -s https://api.github.com/repos/git-town/git-town/releases/latest | grep tag_name | cut -d'\"' -f4)"
+            echo "  wget https://github.com/git-town/git-town/releases/download/\$VERSION/git-town_linux_amd64.rpm"
+            echo "  sudo rpm -i git-town_linux_amd64.rpm"
+            ;;
+
+        scoop)
+            echo "To upgrade git-town:"
+            echo "  scoop update"
+            echo "  scoop update git-town"
+            echo ""
+            echo "Verify installation:"
+            echo "  git town version"
+            ;;
+
+        manual)
+            echo "Git-town appears to be manually installed."
+            echo ""
+            echo "To upgrade:"
+            echo "1. Visit: https://github.com/git-town/git-town/releases/latest"
+            echo "2. Download the appropriate binary for your system"
+            echo "3. Replace the existing git-town binary"
+            echo ""
+            echo "For macOS/Linux:"
+            echo "  VERSION=\$(curl -s https://api.github.com/repos/git-town/git-town/releases/latest | grep tag_name | cut -d'\"' -f4)"
+            echo "  # Download appropriate binary for your OS"
+            echo "  # macOS: git-town_darwin_amd64 or git-town_darwin_arm64"
+            echo "  # Linux: git-town_linux_amd64"
+            echo ""
+            echo "  sudo mv /path/to/downloaded/git-town /usr/local/bin/git-town"
+            echo "  sudo chmod +x /usr/local/bin/git-town"
+            ;;
+
+        *)
+            echo "Could not detect package manager."
+            echo ""
+            echo "Manual upgrade instructions:"
+            echo "1. Determine your current installation method"
+            echo "2. Visit: https://www.git-town.com/install.html"
+            echo "3. Follow the upgrade instructions for your platform"
+            echo ""
+            echo "Or install from GitHub releases:"
+            echo "  https://github.com/git-town/git-town/releases/latest"
+            ;;
+    esac
+
+    echo ""
+    echo "After upgrading, verify the version:"
+    echo "  git town version"
+    echo ""
+    echo "Then retry the operation."
+    echo ""
+
+    return 1
+}
+
+detect_package_manager() {
+    # Detect package manager based on system
+    if command -v brew >/dev/null 2>&1; then
+        # Check if git-town was installed via brew
+        if brew list git-town >/dev/null 2>&1; then
+            echo "homebrew"
+            return
+        fi
+    fi
+
+    if command -v apt-get >/dev/null 2>&1; then
+        echo "apt"
+        return
+    fi
+
+    if command -v dnf >/dev/null 2>&1; then
+        echo "dnf"
+        return
+    fi
+
+    if command -v yum >/dev/null 2>&1; then
+        echo "yum"
+        return
+    fi
+
+    if command -v scoop >/dev/null 2>&1; then
+        echo "scoop"
+        return
+    fi
+
+    # Default to manual if no package manager detected
+    echo "manual"
+}
+
+check_version_compatibility() {
+    local current_version="$1"
+    local required_version="$2"
+
+    # Simple version comparison (major.minor.patch)
+    local current_major=$(echo "$current_version" | cut -d. -f1)
+    local current_minor=$(echo "$current_version" | cut -d. -f2)
+    local current_patch=$(echo "$current_version" | cut -d. -f3)
+
+    local required_major=$(echo "$required_version" | cut -d. -f1)
+    local required_minor=$(echo "$required_version" | cut -d. -f2)
+    local required_patch=$(echo "$required_version" | cut -d. -f3)
+
+    if [ "$current_major" -lt "$required_major" ]; then
+        return 1
+    elif [ "$current_major" -eq "$required_major" ]; then
+        if [ "$current_minor" -lt "$required_minor" ]; then
+            return 1
+        elif [ "$current_minor" -eq "$required_minor" ]; then
+            if [ "$current_patch" -lt "$required_patch" ]; then
+                return 1
+            fi
+        fi
+    fi
+
+    return 0
+}
 ```
 
 ---
