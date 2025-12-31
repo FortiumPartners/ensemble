@@ -2967,5 +2967,189 @@ test_merge_conflict_handling() {
 
 ---
 
-*Last updated: 2025-12-30*
-*Version: 1.0.0*
+## Context7 Integration for Error Documentation
+
+### Using Context7 for Up-to-Date Error Handling
+
+**Recommended**: Use Context7 MCP to fetch the latest git-town error handling documentation instead of relying solely on this static guide.
+
+#### Why Context7 for Error Handling?
+
+- ✅ **Latest error codes**: Always current with newest git-town version
+- ✅ **New error scenarios**: Automatic inclusion of newly discovered edge cases
+- ✅ **Updated recovery patterns**: Best practices evolve with git-town releases
+- ✅ **No manual maintenance**: Documentation updates automatically
+
+#### Fetching Error Documentation via Context7
+
+```javascript
+// Import ensemble-core utilities
+const { checkContext7Available, createLibraryHelper } = require('@fortium/ensemble-core');
+
+// Check if Context7 is available
+if (checkContext7Available()) {
+  // Create git-town helper
+  const gitTown = createLibraryHelper('git-town');
+
+  // Fetch error-specific documentation
+  const conflictDocs = await gitTown.fetchDocs('merge conflicts', 3000);
+  const troubleshootingDocs = await gitTown.fetchDocs('troubleshooting', 5000);
+  const errorRecoveryDocs = await gitTown.fetchDocs('error recovery', 3000);
+} else {
+  // Show installation instructions
+  const { getContext7InstallInstructions } = require('@fortium/ensemble-core');
+  console.log(getContext7InstallInstructions());
+
+  // Fall back to local ERROR_HANDLING.md (this file)
+}
+```
+
+#### Context7 Query Patterns for Errors
+
+**Query common error scenarios**:
+```javascript
+// Merge conflict handling
+await gitTown.fetchDocs('merge conflicts');
+await gitTown.fetchDocs('conflict resolution');
+await gitTown.fetchDocs('continue command');
+await gitTown.fetchDocs('undo command');
+
+// Network and remote errors
+await gitTown.fetchDocs('remote errors');
+await gitTown.fetchDocs('network failures');
+await gitTown.fetchDocs('offline mode');
+
+// Configuration issues
+await gitTown.fetchDocs('configuration errors');
+await gitTown.fetchDocs('main branch configuration');
+
+// Branch state problems
+await gitTown.fetchDocs('uncommitted changes');
+await gitTown.fetchDocs('stash command');
+
+// General troubleshooting
+await gitTown.fetchDocs('troubleshooting');
+await gitTown.fetchDocs('common errors');
+```
+
+#### Graceful Fallback Pattern
+
+Use `withContext7Fallback` for automatic fallback:
+
+```javascript
+const { withContext7Fallback } = require('@fortium/ensemble-core');
+
+const errorDocs = await withContext7Fallback('git-town', 'merge conflicts', async () => {
+  // Fallback: Use local ERROR_HANDLING.md
+  const fs = require('fs');
+  const path = require('path');
+  const errorHandlingPath = path.join(__dirname, 'ERROR_HANDLING.md');
+  return fs.readFileSync(errorHandlingPath, 'utf8');
+});
+```
+
+#### When to Use Context7 vs Local Documentation
+
+| Scenario | Use Context7 | Use Local ERROR_HANDLING.md |
+|----------|-------------|------------------------------|
+| Production agents | ✅ Yes (always current) | Fallback only |
+| Development/testing | ✅ Yes (latest patterns) | Fallback if offline |
+| Offline environments | ❌ No (requires network) | ✅ Yes (always available) |
+| New git-town versions | ✅ Yes (auto-updated) | ⚠️ May be outdated |
+| Custom error patterns | ❌ No (generic docs) | ✅ Yes (project-specific) |
+
+#### Integration with Agent Error Handlers
+
+**Example: Merge conflict handler with Context7**:
+
+```javascript
+async function handleMergeConflict(conflictFiles) {
+  // Fetch latest conflict resolution strategies
+  const strategies = await fetchLibraryDocs('git-town', 'merge conflict resolution', 5000);
+
+  // Parse strategies from Context7 response
+  const autoResolvePatterns = parseStrategies(strategies);
+
+  // Attempt auto-resolution
+  for (const file of conflictFiles) {
+    const fileType = identifyFileType(file);
+    const strategy = autoResolvePatterns[fileType];
+
+    if (strategy && strategy.autoResolvable) {
+      await applyStrategy(file, strategy);
+    } else {
+      // Escalate to user for manual resolution
+      await escalateToUser(file, strategies);
+    }
+  }
+}
+```
+
+**Example: Network error retry with Context7**:
+
+```javascript
+async function handleNetworkError(operation) {
+  // Fetch latest retry strategies
+  const retryDocs = await fetchLibraryDocs('git-town', 'network errors', 3000);
+
+  // Extract retry configuration
+  const retryConfig = parseRetryConfig(retryDocs);
+
+  // Apply exponential backoff
+  for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt++) {
+    try {
+      await operation();
+      break; // Success
+    } catch (error) {
+      if (attempt === retryConfig.maxAttempts) {
+        // Check if offline mode is recommended
+        if (retryConfig.suggestOfflineMode) {
+          await enableOfflineMode();
+        }
+        throw error;
+      }
+
+      // Wait before retry
+      await sleep(retryConfig.backoffMs * Math.pow(2, attempt - 1));
+    }
+  }
+}
+```
+
+#### Installation Instructions
+
+If Context7 is not available, agents should provide these instructions:
+
+```bash
+# 1. Find Context7 in MCP catalog
+mcp-find --query "context7"
+
+# 2. Add Context7 MCP server
+mcp-add context7
+
+# 3. Verify installation
+# Context7 should now be available for error documentation queries
+
+# 4. Retry error handling workflow
+```
+
+#### Benefits Summary
+
+**With Context7**:
+- ✅ Always current error recovery patterns
+- ✅ New edge cases documented automatically
+- ✅ Version-specific error handling
+- ✅ Community best practices included
+
+**Local ERROR_HANDLING.md**:
+- ✅ Offline availability
+- ✅ Project-specific error patterns
+- ✅ Custom agent decision logic
+- ✅ Fast access (<30ms vs ~200ms Context7)
+
+**Recommendation**: Use Context7 as primary source, with local ERROR_HANDLING.md as fallback for offline scenarios and project-specific customizations.
+
+---
+
+*Last updated: 2025-12-31*
+*Version: 2.0.0 (added Context7 integration)*
