@@ -141,9 +141,18 @@ Create the rules with this structure:
 Write the complete rules to `router-rules.json` (or the path specified by ROUTER_RULES_PATH).
 
 **Validation:**
+- Validate output against the schema at `../lib/router-rules.schema.json`
 - Ensure valid JSON structure
 - Verify all agent names match discovered agents
+- Verify all category objects have required `triggers` and `agents` arrays
+- Verify all skill objects have required `triggers` and `purpose` fields
 - Confirm skill names match available skills
+
+**Schema Requirements** (from `router-rules.schema.json`):
+- Required top-level keys: `agent_categories`, `skills`, `injection_templates`
+- Each category must have `triggers` (array) and `agents` (array)
+- Each agent must have `name` (string) and `purpose` (string)
+- Each skill must have `triggers` (array) and `purpose` (string)
 
 ## Expected Output
 

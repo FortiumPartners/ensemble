@@ -37,7 +37,12 @@
       "triggers": [
         "orchestrate", "coordinate", "plan", "break down", "decompose",
         "architect", "design system", "full pipeline", "end to end",
-        "delegate", "multi-step", "complex task", "methodology"
+        "delegate", "multi-step", "complex task", "methodology",
+        "sprint", "scrum", "kanban", "backlog", "retrospective",
+        "standup", "sprint planning", "refinement",
+        "user story", "epic", "story points", "velocity",
+        "estimate", "timeline", "milestone", "deadline", "priority",
+        "dependency", "blocker", "critical path", "risk"
       ],
       "agents": [
         {
@@ -70,7 +75,17 @@
         "frontend", "backend", "mobile", "component", "endpoint", "API",
         "react", "vue", "angular", "svelte", "node", "python", "ruby",
         "elixir", "flutter", "iOS", "android", "typescript", "javascript",
-        "server-side", "client-side", "UI", "UX"
+        "server-side", "client-side", "UI", "UX",
+        "refactor", "optimize", "migrate", "upgrade", "scaffold",
+        "modernize", "rewrite", "port", "convert", "generate",
+        "microservice", "monolith", "serverless", "BFF", "gateway",
+        "event-driven", "CQRS", "DDD", "clean architecture",
+        "nuxt", "remix", "astro", "qwik", "hono",
+        "golang", "go", "rust", "kotlin", "swift", "java", "csharp",
+        "php", "laravel", "django", "fastapi",
+        "tailwind", "css", "scss", "styled-components",
+        "redux", "zustand", "pinia", "mobx", "signals",
+        "graphql", "apollo", "rest", "grpc", "websocket"
       ],
       "agents": [
         {
@@ -102,7 +117,14 @@
         "review", "test", "debug", "fix bug", "why is this failing",
         "unit test", "integration test", "e2e test", "playwright",
         "code review", "security", "performance", "coverage", "lint",
-        "failing", "error", "exception", "broken", "investigate"
+        "failing", "error", "exception", "broken", "investigate",
+        "smoke test", "regression test", "load test", "stress test",
+        "acceptance test", "contract test", "snapshot test", "visual test",
+        "mock", "stub", "spy", "fixture", "factory", "faker",
+        "test double", "arrange act assert", "given when then",
+        "coverage report", "uncovered", "branch coverage", "line coverage",
+        "missing test", "untested", "dead code",
+        "code smell", "technical debt", "complexity", "sonarqube"
       ],
       "agents": [
         {
@@ -124,6 +146,11 @@
           "name": "playwright-tester",
           "purpose": "E2E tests with Playwright MCP, capture traces and screenshots for regression",
           "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "test-reader-agent",
+          "purpose": "Test file reading and analysis for test coverage understanding",
+          "tools": ["Read"]
         }
       ]
     },
@@ -133,7 +160,17 @@
       "triggers": [
         "deploy", "release", "CI/CD", "pipeline", "docker", "kubernetes",
         "helm", "staging", "production", "rollback", "build", "artifact",
-        "promote", "zero-downtime", "container", "orchestration"
+        "promote", "zero-downtime", "container", "orchestration",
+        "AWS", "GCP", "Azure", "DigitalOcean",
+        "EC2", "ECS", "EKS", "Fargate", "GKE", "AKS",
+        "Lambda", "Cloud Functions", "serverless function",
+        "pod", "container image", "registry", "ECR",
+        "DNS", "SSL", "TLS", "certificate", "HTTPS", "CORS",
+        "load balancer", "ALB", "nginx", "traefik", "caddy",
+        "proxy", "reverse proxy", "API gateway", "ingress",
+        "VPC", "subnet", "security group", "firewall",
+        "terraform", "pulumi", "ansible", "cloudformation",
+        "infrastructure as code", "IaC", "GitOps", "ArgoCD"
       ],
       "agents": [
         {
@@ -164,7 +201,15 @@
       "triggers": [
         "commit", "push", "pull request", "PR", "branch", "merge",
         "git", "github", "conventional commit", "semantic version",
-        "rebase", "cherry-pick", "stash", "diff", "blame"
+        "rebase", "cherry-pick", "stash", "diff", "blame",
+        "squash", "bisect", "worktree", "reflog",
+        "interactive rebase", "fixup", "autosquash", "amend",
+        "hotfix", "feature branch", "release branch", "trunk based",
+        "gitflow", "github flow", "forking workflow",
+        "github actions", "workflow", "action runner",
+        "issue", "milestone", "label", "project board",
+        "approve PR", "request changes", "CODEOWNERS", "protected branch",
+        "status check", "draft PR"
       ],
       "agents": [
         {
@@ -184,7 +229,8 @@
       "description": "General support, research, scaffolding, and exploration",
       "triggers": [
         "research", "analyze", "investigate", "explore", "scaffold",
-        "template", "find", "search", "understand", "codebase"
+        "template", "find", "search", "understand", "codebase",
+        "agent design", "spawn agent", "create agent", "improve agent"
       ],
       "agents": [
         {
@@ -216,6 +262,11 @@
           "name": "directory-monitor",
           "purpose": "Real-time file system surveillance, change detection, automated workflow triggering",
           "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "agent-meta-engineer",
+          "purpose": "Agent ecosystem management - designing, spawning, improving agents and creating specialized commands",
+          "tools": ["Read", "Write", "Edit", "Bash"]
         }
       ]
     },
@@ -225,7 +276,15 @@
       "triggers": [
         "database", "postgresql", "postgres", "SQL", "query", "schema",
         "migration", "index", "optimize query", "table", "join",
-        "transaction", "constraint", "foreign key"
+        "transaction", "constraint", "foreign key",
+        "MySQL", "mysql", "MariaDB", "SQLite", "sqlite",
+        "Redis", "redis", "MongoDB", "mongo", "DynamoDB", "dynamodb",
+        "Cassandra", "CockroachDB", "TimescaleDB",
+        "seed", "backup", "restore", "dump", "import", "export",
+        "reindex", "vacuum", "analyze", "slow query", "explain",
+        "N+1", "eager load", "lazy load", "connection pool",
+        "deadlock", "lock", "ACID",
+        "ORM", "Prisma", "Drizzle", "TypeORM", "Sequelize", "Knex"
       ],
       "agents": [
         {
@@ -269,10 +328,10 @@
   },
 
   "skills": {
-    "atlassian": {
+    "jira": {
       "triggers": ["jira", "confluence", "atlassian", "ticket", "issue tracking", "sprint board"],
       "patterns": ["jira.*issue", "confluence.*page", "create.*ticket"],
-      "purpose": "Intelligent orchestration of Atlassian (Jira/Confluence) interactions"
+      "purpose": "Intelligent orchestration of Jira/Confluence interactions"
     },
     "linear": {
       "triggers": ["linear", "linear.app", "issue", "cycle", "linearis"],
@@ -305,7 +364,8 @@
       "purpose": "NestJS Node.js/TypeScript backend framework with dependency injection"
     },
     "jest": {
-      "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test"],
+      "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test",
+                   "vitest", "testing-library", "@testing-library", "describe", "it", "expect", "beforeEach"],
       "patterns": ["run.*jest", "jest.*test", "npm.*test"],
       "purpose": "Execute and generate Jest tests for JavaScript/TypeScript projects"
     },
@@ -329,15 +389,62 @@
       "patterns": ["dotnet.*test", "xunit.*test"],
       "purpose": "Execute and generate xUnit tests for C#/.NET projects"
     },
-    "playwright-test": {
-      "triggers": ["playwright", "e2e test", "end to end", "browser test", "playwright test"],
-      "patterns": ["playwright.*test", "e2e.*test", "npx.*playwright"],
-      "purpose": "Automated E2E testing and error resolution using Playwright MCP integration"
+    "react": {
+      "triggers": ["react", "jsx", "react component", "react hook", "useState", "useEffect", "useContext", "useMemo",
+                   "react router", "react query", "tanstack", "SWR", "suspense", "server component", "RSC"],
+      "patterns": ["react.*component", "use[A-Z]\\w+.*hook"],
+      "purpose": "React component development patterns and hooks"
     },
-    "testmo": {
-      "triggers": ["testmo", "test management", "test results", "junit xml"],
-      "patterns": ["testmo.*run", "submit.*testmo"],
-      "purpose": "Run automated tests and submit results to Testmo"
+    "rails": {
+      "triggers": ["rails", "ruby on rails", "activerecord", "rails migration", "rails model", "rails controller"],
+      "patterns": ["rails.*generate", "rake.*db", "bundle.*exec.*rails"],
+      "purpose": "Ruby on Rails application development patterns"
+    },
+    "phoenix": {
+      "triggers": ["phoenix", "liveview", "phoenix liveview", "ecto", "phoenix channel", "heex"],
+      "patterns": ["mix.*phx", "phoenix.*live"],
+      "purpose": "Phoenix/Elixir application development with LiveView"
+    },
+    "blazor": {
+      "triggers": ["blazor", "blazor server", "blazor wasm", "blazor webassembly", "razor component", "razor page"],
+      "patterns": ["blazor.*component", "@code.*block"],
+      "purpose": "Blazor component development for .NET applications"
+    },
+    "aws-cloud": {
+      "triggers": ["aws", "amazon web services", "ec2", "s3", "lambda", "cloudformation", "cdk", "aws cdk"],
+      "patterns": ["aws.*deploy", "cdk.*synth", "cloudformation.*stack"],
+      "purpose": "AWS cloud infrastructure provisioning and services"
+    },
+    "flyio": {
+      "triggers": ["fly.io", "fly", "flyctl", "fly deploy", "fly scale", "fly launch"],
+      "patterns": ["fly.*deploy", "flyctl.*"],
+      "purpose": "Fly.io deployment and application scaling"
+    },
+    "helm": {
+      "triggers": ["helm", "helm chart", "helm install", "helm upgrade", "helm values", "values.yaml"],
+      "patterns": ["helm.*install", "helm.*upgrade", "helm.*template"],
+      "purpose": "Kubernetes Helm chart management and templating"
+    },
+    "kubernetes": {
+      "triggers": ["kubernetes", "k8s", "kubectl", "pod", "deployment", "service", "ingress", "configmap",
+                   "kustomize", "k9s", "lens", "namespace", "secret", "pvc", "statefulset", "daemonset", "HPA"],
+      "patterns": ["kubectl.*apply", "kubectl.*get", "k8s.*deploy"],
+      "purpose": "Kubernetes cluster and workload management"
+    },
+    "graphql": {
+      "triggers": ["graphql", "apollo", "gql", "mutation", "subscription", "resolver", "schema"],
+      "patterns": ["query\\s*\\{", "mutation\\s*\\{", "type\\s+Query"],
+      "purpose": "GraphQL API development and schema management"
+    },
+    "docker": {
+      "triggers": ["docker", "dockerfile", "docker-compose", "container", "image", "registry"],
+      "patterns": ["FROM\\s+", "docker\\s+(build|run|compose)", "ENTRYPOINT"],
+      "purpose": "Docker container building and orchestration"
+    },
+    "tailwind": {
+      "triggers": ["tailwind", "tailwindcss", "utility class", "tailwind config"],
+      "patterns": ["@tailwind", "className=.*\\b(flex|grid|bg-|text-|p-|m-)"],
+      "purpose": "Tailwind CSS styling and configuration"
     },
     "test-detector": {
       "triggers": ["detect test framework", "what test framework", "which testing"],
@@ -436,12 +543,12 @@
       "template": "Recommend one of the following subagents be utilized in servicing this request:\n{agent_list}\n\nHowever, if your assessment based on the full context of the request is that these subagents are not appropriate, do not over- or mis-delegate."
     },
     "agents_and_skills": {
-      "description": "When both agents and skills match - recommend both with Task prompt guidance",
-      "template": "Recommend one of the following subagents be utilized in servicing this request:\n{agent_list}\n\nIn invoking them, further recommend utilizing the following specialized skill(s): {skill_list}. Ensure the guidance to utilize these skills is explicitly mentioned in the Task prompt.\n\nHowever, if your assessment based on the full context of the request is that these subagents or skills are not appropriate, do not over- or mis-delegate."
+      "description": "When both agents and skills match - recommend both with explicit Task prompt guidance and reporting",
+      "template": "You MUST delegate to one of these subagents:\n{agent_list}\n\nCraft a detailed Task prompt as you normally would, then APPEND skill instructions. The subagent should invoke these skills: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name] for the relevant functionality. Report which skill(s) you used.\"\n\nIf these agents/skills are clearly irrelevant, use your judgment."
     },
     "skills_only": {
-      "description": "When skills match but no agents - recommend skills",
-      "template": "Consider utilizing the following specialized skill(s) for this request: {skill_list}. These skills can be invoked directly or passed to a subagent via the Task prompt. However, if your assessment is that these skills are not a good fit, do not force their use."
+      "description": "When skills match but no agents - strongly recommend skills with reporting",
+      "template": "You SHOULD use the following skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back which they used. If you used any of these skills, note which ones in your response."
     },
     "long_no_match": {
       "description": "Longer prompts with no keyword matches - generic delegation guidance",

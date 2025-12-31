@@ -115,7 +115,7 @@ The router recognizes 24+ skills including:
 
 - **Deployment**: vercel, railway, supabase
 - **Frameworks**: nestjs, flutter
-- **Testing**: jest, pytest, rspec, exunit, xunit, playwright-test
+- **Testing**: jest, pytest, rspec, exunit, xunit, test-detector
 - **Workflow**: create-prd, create-trd, implement-trd, release
 - **Detection**: framework-detector, test-detector
 
@@ -144,6 +144,38 @@ echo '{"prompt": "Build the frontend", "cwd": "/path/to/project"}' | ROUTER_DEBU
 3. **Fast**: <20ms latency target
 4. **Mandatory Delegation**: Project matches have no escape hatch
 5. **Orchestrator Role**: Main session coordinates, agents implement
+
+## Skill Dependencies
+
+The router is a **hint provider** that analyzes prompts and suggests appropriate agents and skills. It does not implement the skills itself.
+
+### How Routing Works
+
+1. **Prompt Analysis**: Router examines user prompts for trigger keywords and patterns
+2. **Hint Generation**: Matching agents and skills are suggested in the system prompt
+3. **Skill Execution**: The suggested skills must be installed separately to function
+
+### Installing Skills
+
+For suggested skills to work, the corresponding ensemble packages must be installed:
+
+```bash
+# Recommended: Install the complete ensemble ecosystem
+claude plugins install @fortium/ensemble-full
+
+# Or install individual packages as needed
+claude plugins install @fortium/ensemble-quality     # For testing skills
+claude plugins install @fortium/ensemble-development # For framework skills
+```
+
+### Standalone Usage
+
+When installed standalone (without `@fortium/ensemble-full`):
+- **Routing hints will work**: Agents and skills will be suggested based on prompt analysis
+- **Some skills may not be available**: Suggested skills require their packages to be installed
+- **Basic orchestration functions**: Core routing and agent selection works independently
+
+For complete functionality, we recommend installing `@fortium/ensemble-full` which bundles all ensemble packages and their skills.
 
 ## License
 

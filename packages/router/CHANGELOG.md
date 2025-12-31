@@ -5,6 +5,18 @@ All notable changes to the ensemble-router package will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Removed non-existent skills from router-rules: `playwright-test` and `testmo`
+- Replaced `atlassian` skill reference with existing `jira` skill
+
+### Added
+
+- peerDependencies documentation for `@fortium/ensemble-full` (optional, >=5.0.0)
+- README section explaining skill dependencies and standalone usage
+
 ## [5.0.0] - 2025-12-28
 
 ### Added
@@ -45,9 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Deployment: vercel, railway, supabase
 - Frameworks: nestjs, flutter
-- Testing: jest, pytest, rspec, exunit, xunit, playwright-test, testmo, test-detector
+- Testing: jest, pytest, rspec, exunit, xunit, test-detector
 - Workflow: create-prd, create-trd, refine-prd, refine-trd, implement-trd, implement-spec, release
 - Project: init-project, analyze-product
 - Utilities: framework-detector, fold-prompt, sprint-status, manager-dashboard
 - Documentation: generate-api-docs, web-metrics-dashboard, claude-changelog
-- Integration: atlassian, linear
+- Integration: jira, linear

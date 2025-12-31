@@ -28,6 +28,7 @@ from router import (
     load_project_rules,
     merge_rules,
     validate_rules,
+    validate_rules_structure,
     normalize_text,
     count_words,
     match_agent_categories,
@@ -207,6 +208,45 @@ class TestLoadConfig:
             config = load_config()
             assert config.short_threshold == 5
 
+    def test_custom_discovery_enabled_default(self):
+        """Test custom discovery is enabled by default."""
+        with mock.patch.dict(os.environ, {}, clear=True):
+            config = load_config()
+            assert config.custom_discovery is True
+
+    def test_custom_discovery_disabled(self):
+        """Test custom discovery can be disabled."""
+        with mock.patch.dict(os.environ, {"ROUTER_CUSTOM_DISCOVERY": "0"}):
+            config = load_config()
+            assert config.custom_discovery is False
+
+    def test_custom_discovery_disabled_false_string(self):
+        """Test custom discovery disabled with 'false' string."""
+        with mock.patch.dict(os.environ, {"ROUTER_CUSTOM_DISCOVERY": "false"}):
+            config = load_config()
+            assert config.custom_discovery is False
+
+    def test_strict_validation_enabled_default(self):
+        """strict_validation should be True by default."""
+        with mock.patch.dict(os.environ, {}, clear=True):
+            os.environ["ROUTER_RULES_PATH"] = "/tmp/rules.json"
+            config = load_config()
+            assert config.strict_validation is True
+
+    def test_strict_validation_disabled_zero(self):
+        """strict_validation can be disabled with '0'."""
+        with mock.patch.dict(os.environ, {"ROUTER_STRICT_VALIDATION": "0"}, clear=True):
+            os.environ["ROUTER_RULES_PATH"] = "/tmp/rules.json"
+            config = load_config()
+            assert config.strict_validation is False
+
+    def test_strict_validation_disabled_false(self):
+        """strict_validation can be disabled with 'false'."""
+        with mock.patch.dict(os.environ, {"ROUTER_STRICT_VALIDATION": "false"}, clear=True):
+            os.environ["ROUTER_RULES_PATH"] = "/tmp/rules.json"
+            config = load_config()
+            assert config.strict_validation is False
+
 
 # === Input/Output Tests ===
 class TestReadInput:
@@ -296,6 +336,171 @@ class TestValidateRules:
         assert validate_rules(sample_rules) is False
 
 
+class TestValidateRulesStructure:
+    """Tests for validate_rules_structure() function."""
+
+    def test_valid_rules_pass(self, sample_rules):
+        """Valid rules should pass validation with no errors."""
+        valid, errors = validate_rules_structure(sample_rules)
+        assert valid is True
+        assert errors == []
+
+    def test_missing_agent_categories_key(self):
+        """Missing agent_categories key should fail validation."""
+        rules = {"skills": {}, "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "Missing required key: agent_categories" in errors
+
+    def test_missing_skills_key(self):
+        """Missing skills key should fail validation."""
+        rules = {"agent_categories": {}, "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "Missing required key: skills" in errors
+
+    def test_missing_injection_templates_key(self):
+        """Missing injection_templates key should fail validation."""
+        rules = {"agent_categories": {}, "skills": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "Missing required key: injection_templates" in errors
+
+    def test_agent_categories_not_dict(self):
+        """agent_categories must be an object/dict."""
+        rules = {"agent_categories": [], "skills": {}, "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories must be an object" in errors
+
+    def test_agent_categories_not_dict_string(self):
+        """agent_categories as string should fail."""
+        rules = {"agent_categories": "not-a-dict", "skills": {}, "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories must be an object" in errors
+
+    def test_category_not_dict(self):
+        """Each category must be an object/dict."""
+        rules = {
+            "agent_categories": {"development": "not-a-dict"},
+            "skills": {},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories.development must be an object" in errors
+
+    def test_category_missing_triggers(self):
+        """Category missing triggers key should fail."""
+        rules = {
+            "agent_categories": {"development": {"agents": []}},
+            "skills": {},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories.development missing 'triggers'" in errors
+
+    def test_category_missing_agents(self):
+        """Category missing agents key should fail."""
+        rules = {
+            "agent_categories": {"development": {"triggers": []}},
+            "skills": {},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories.development missing 'agents'" in errors
+
+    def test_category_triggers_not_array(self):
+        """Category triggers must be an array."""
+        rules = {
+            "agent_categories": {"development": {"triggers": "not-an-array", "agents": []}},
+            "skills": {},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories.development.triggers must be an array" in errors
+
+    def test_category_agents_not_array(self):
+        """Category agents must be an array."""
+        rules = {
+            "agent_categories": {"development": {"triggers": [], "agents": "not-an-array"}},
+            "skills": {},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "agent_categories.development.agents must be an array" in errors
+
+    def test_skills_not_dict(self):
+        """skills must be an object/dict."""
+        rules = {"agent_categories": {}, "skills": [], "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "skills must be an object" in errors
+
+    def test_skill_not_dict(self):
+        """Each skill must be an object/dict."""
+        rules = {
+            "agent_categories": {},
+            "skills": {"jest": "not-a-dict"},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "skills.jest must be an object" in errors
+
+    def test_skill_missing_triggers(self):
+        """Skill missing triggers key should fail."""
+        rules = {
+            "agent_categories": {},
+            "skills": {"jest": {"purpose": "testing"}},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "skills.jest missing 'triggers'" in errors
+
+    def test_skill_triggers_not_array(self):
+        """Skill triggers must be an array."""
+        rules = {
+            "agent_categories": {},
+            "skills": {"jest": {"triggers": "not-an-array", "purpose": "testing"}},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "skills.jest.triggers must be an array" in errors
+
+    def test_injection_templates_not_dict(self):
+        """injection_templates must be an object/dict."""
+        rules = {"agent_categories": {}, "skills": {}, "injection_templates": []}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert "injection_templates must be an object" in errors
+
+    def test_multiple_errors_collected(self):
+        """Multiple errors should all be collected."""
+        rules = {
+            "agent_categories": {"dev": {"triggers": "bad"}},
+            "skills": {"jest": {"purpose": "test"}},
+            "injection_templates": {}
+        }
+        valid, errors = validate_rules_structure(rules)
+        assert valid is False
+        assert len(errors) >= 2  # At least 2 errors
+
+    def test_empty_but_valid_structure(self):
+        """Empty but correctly typed structure should pass."""
+        rules = {"agent_categories": {}, "skills": {}, "injection_templates": {}}
+        valid, errors = validate_rules_structure(rules)
+        assert valid is True
+        assert errors == []
+
+
 class TestMergeRules:
     """Tests for merge_rules function."""
 
@@ -312,6 +517,191 @@ class TestMergeRules:
         # vercel and jest should be marked as project skills
         assert "vercel" in project_skills
         assert "jest" in project_skills
+
+    def test_merge_custom_agents(self):
+        """Test custom agents are merged into utility category."""
+        global_rules = {
+            "agent_categories": {
+                "utility": {
+                    "description": "Utility agents",
+                    "triggers": ["scaffold", "generate"],
+                    "agents": [
+                        {"name": "file-creator", "purpose": "Create files", "tools": ["Write"]},
+                    ]
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "my-custom-agent": {
+                    "description": "Custom project automation",
+                    "tools": ["Read", "Write", "Bash"],
+                    "triggers": ["my-custom", "custom automation"]
+                }
+            }
+        }
+
+        merged, project_agents, project_skills = merge_rules(global_rules, project_rules)
+
+        # Custom agent should be added to utility category
+        utility_agents = merged["agent_categories"]["utility"]["agents"]
+        agent_names = [a["name"] for a in utility_agents]
+        assert "my-custom-agent" in agent_names
+
+        # Verify agent data was merged correctly
+        custom_agent = next(a for a in utility_agents if a["name"] == "my-custom-agent")
+        assert custom_agent["purpose"] == "Custom project automation"
+        assert custom_agent["tools"] == ["Read", "Write", "Bash"]
+
+        # Custom agent triggers should be added to utility category
+        utility_triggers = merged["agent_categories"]["utility"]["triggers"]
+        assert "my-custom" in utility_triggers
+        assert "custom automation" in utility_triggers
+
+        # Agent should be marked as project-specific
+        assert "my-custom-agent" in project_agents
+
+    def test_merge_custom_agents_no_utility_category(self):
+        """Test custom agents gracefully handle missing utility category."""
+        global_rules = {
+            "agent_categories": {
+                "development": {
+                    "description": "Development agents",
+                    "triggers": ["code"],
+                    "agents": []
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "my-custom-agent": {
+                    "description": "Custom project automation",
+                    "tools": ["Read", "Write"],
+                    "triggers": ["my-custom"]
+                }
+            }
+        }
+
+        # Should not raise, just skip adding custom agents
+        merged, project_agents, project_skills = merge_rules(global_rules, project_rules)
+
+        # No utility category, so no custom agents added
+        assert "utility" not in merged["agent_categories"]
+        assert "my-custom-agent" not in project_agents
+
+    def test_merge_custom_agents_malformed_data(self):
+        """Test custom agents gracefully handle malformed data."""
+        global_rules = {
+            "agent_categories": {
+                "utility": {
+                    "description": "Utility agents",
+                    "triggers": [],
+                    "agents": []
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "valid-agent": {
+                    "description": "Valid agent",
+                    "tools": ["Read"],
+                    "triggers": ["valid"]
+                },
+                "invalid-agent": "not a dict",  # Malformed - should be skipped
+            }
+        }
+
+        # Should not raise, just skip malformed entries
+        merged, project_agents, project_skills = merge_rules(global_rules, project_rules)
+
+        # Valid agent should be added
+        utility_agents = merged["agent_categories"]["utility"]["agents"]
+        agent_names = [a["name"] for a in utility_agents]
+        assert "valid-agent" in agent_names
+        assert "invalid-agent" not in agent_names
+
+    def test_merge_custom_agents_empty_dict(self, sample_rules):
+        """Empty custom_agents dict should not add any agents."""
+        project_rules = {"custom_agents": {}}
+        merged, project_agents, project_skills = merge_rules(sample_rules, project_rules)
+        assert len(project_agents) == 0
+
+    def test_merge_custom_agents_missing_description(self):
+        """Custom agent without description should use default."""
+        global_rules = {
+            "agent_categories": {
+                "utility": {
+                    "description": "Utility agents",
+                    "triggers": [],
+                    "agents": []
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "my-agent": {"tools": ["Read"]}
+            }
+        }
+        merged, project_agents, _ = merge_rules(global_rules, project_rules)
+        utility_agents = merged["agent_categories"]["utility"]["agents"]
+        agent = next((a for a in utility_agents if a["name"] == "my-agent"), None)
+        assert agent is not None
+        assert agent["purpose"] == "Custom project agent"
+
+    def test_merge_custom_agents_missing_tools(self):
+        """Custom agent without tools should have empty tools list."""
+        global_rules = {
+            "agent_categories": {
+                "utility": {
+                    "description": "Utility agents",
+                    "triggers": [],
+                    "agents": []
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "my-agent": {"description": "Test agent"}
+            }
+        }
+        merged, project_agents, _ = merge_rules(global_rules, project_rules)
+        utility_agents = merged["agent_categories"]["utility"]["agents"]
+        agent = next((a for a in utility_agents if a["name"] == "my-agent"), None)
+        assert agent is not None
+        assert agent["tools"] == []
+
+    def test_merge_custom_agents_triggers_not_list(self):
+        """Custom agent with invalid triggers type should not crash."""
+        global_rules = {
+            "agent_categories": {
+                "utility": {
+                    "description": "Utility agents",
+                    "triggers": [],
+                    "agents": []
+                }
+            },
+            "skills": {},
+            "injection_templates": {},
+        }
+        project_rules = {
+            "custom_agents": {
+                "my-agent": {"description": "Test", "triggers": "not-a-list"}
+            }
+        }
+        # Should not raise exception
+        merged, project_agents, _ = merge_rules(global_rules, project_rules)
+        # Agent should still be added
+        assert "my-agent" in project_agents
 
 
 # === Word Count Tests ===

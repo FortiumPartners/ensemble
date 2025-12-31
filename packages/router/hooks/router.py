@@ -15,11 +15,16 @@ Environment Variables:
     ROUTER_RULES_PATH: Path to global router-rules.json (default: ../lib/router-rules.json relative to script)
     ROUTER_DEBUG: Enable debug logging to stderr (default: 0)
     ROUTER_SHORT_THRESHOLD: Word count threshold for "short" prompts (default: 5)
+    ROUTER_STRICT_VALIDATION: Enable structural validation of rules (default: 1)
+    ROUTER_CUSTOM_DISCOVERY: Enable custom agent/skill discovery (default: 1)
 
 Project Rules:
     The router also checks for .claude/router-rules.json in the current working
     directory. Project rules are merged with global rules, with project-specific
     triggers and skills taking precedence.
+
+    Custom agents defined in the project's `custom_agents` section are merged
+    into the utility agent category for routing purposes.
 
 Exit Codes:
     Always exits with 0 to never block user prompts.
@@ -38,6 +43,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 # === Constants ===
 DEFAULT_SHORT_THRESHOLD = 5
 PROJECT_RULES_PATH = ".claude/router-rules.json"
+STRICT_VALIDATION_ENV = "ROUTER_STRICT_VALIDATION"
+CUSTOM_DISCOVERY_ENV = "ROUTER_CUSTOM_DISCOVERY"
 
 
 # === Enums ===
@@ -57,6 +64,8 @@ class RouterConfig:
     rules_path: str
     debug: bool
     short_threshold: int
+    strict_validation: bool = True
+    custom_discovery: bool = True
     cwd: str = ""
 
 
@@ -107,10 +116,18 @@ def load_config() -> RouterConfig:
     except ValueError:
         short_threshold = DEFAULT_SHORT_THRESHOLD
 
+    strict_validation_str = os.environ.get(STRICT_VALIDATION_ENV, "1")
+    strict_validation = strict_validation_str.lower() in ("1", "true", "yes")
+
+    custom_discovery_str = os.environ.get(CUSTOM_DISCOVERY_ENV, "1")
+    custom_discovery = custom_discovery_str.lower() in ("1", "true", "yes")
+
     return RouterConfig(
         rules_path=rules_path,
         debug=debug,
         short_threshold=short_threshold,
+        strict_validation=strict_validation,
+        custom_discovery=custom_discovery,
         cwd=os.getcwd(),
     )
 
@@ -220,6 +237,26 @@ def merge_rules(global_rules: Dict[str, Any], project_rules: Optional[Dict[str, 
                         merged["skills"][skill_name]["triggers"].append(keyword)
                     project_skills.add(skill_name)
 
+    # Merge custom agents into utility category
+    if "custom_agents" in project_rules:
+        try:
+            for agent_name, agent_data in project_rules["custom_agents"].items():
+                if not isinstance(agent_data, dict):
+                    continue
+                # Add to utility category by default
+                if "utility" in merged.get("agent_categories", {}):
+                    merged["agent_categories"]["utility"]["agents"].append({
+                        "name": agent_name,
+                        "purpose": agent_data.get("description", "Custom project agent"),
+                        "tools": agent_data.get("tools", [])
+                    })
+                    # Add triggers from custom agent
+                    if "triggers" in agent_data and isinstance(agent_data["triggers"], list):
+                        merged["agent_categories"]["utility"]["triggers"].extend(agent_data["triggers"])
+                    project_agents.add(agent_name)
+        except Exception:
+            pass  # Graceful degradation - ignore malformed custom_agents
+
     return merged, project_agents, project_skills
 
 
@@ -227,6 +264,68 @@ def validate_rules(rules: Dict[str, Any]) -> bool:
     """Validate rules have required sections."""
     required_keys = ["agent_categories", "skills", "injection_templates"]
     return all(key in rules for key in required_keys)
+
+
+def validate_rules_structure(rules: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """
+    Validate rules structure with detailed error reporting.
+
+    Performs structural validation of router rules, checking that all required
+    keys exist and have the expected types and nested structure.
+
+    Args:
+        rules: The router rules dictionary to validate.
+
+    Returns:
+        - (True, []) if valid
+        - (False, [list of errors]) if invalid
+    """
+    errors: List[str] = []
+
+    # Check required top-level keys
+    required_keys = ["agent_categories", "skills", "injection_templates"]
+    for key in required_keys:
+        if key not in rules:
+            errors.append(f"Missing required key: {key}")
+
+    if errors:
+        return False, errors
+
+    # Validate agent_categories structure
+    if not isinstance(rules.get("agent_categories"), dict):
+        errors.append("agent_categories must be an object")
+    else:
+        for cat_name, cat_data in rules["agent_categories"].items():
+            if not isinstance(cat_data, dict):
+                errors.append(f"agent_categories.{cat_name} must be an object")
+                continue
+            if "triggers" not in cat_data:
+                errors.append(f"agent_categories.{cat_name} missing 'triggers'")
+            elif not isinstance(cat_data.get("triggers"), list):
+                errors.append(f"agent_categories.{cat_name}.triggers must be an array")
+            if "agents" not in cat_data:
+                errors.append(f"agent_categories.{cat_name} missing 'agents'")
+            elif not isinstance(cat_data.get("agents"), list):
+                errors.append(f"agent_categories.{cat_name}.agents must be an array")
+
+    # Validate skills structure
+    if not isinstance(rules.get("skills"), dict):
+        errors.append("skills must be an object")
+    else:
+        for skill_name, skill_data in rules["skills"].items():
+            if not isinstance(skill_data, dict):
+                errors.append(f"skills.{skill_name} must be an object")
+                continue
+            if "triggers" not in skill_data:
+                errors.append(f"skills.{skill_name} missing 'triggers'")
+            elif not isinstance(skill_data.get("triggers"), list):
+                errors.append(f"skills.{skill_name}.triggers must be an array")
+
+    # Validate injection_templates structure
+    if not isinstance(rules.get("injection_templates"), dict):
+        errors.append("injection_templates must be an object")
+
+    return len(errors) == 0, errors
 
 
 # === Keyword Matching Functions ===
@@ -471,14 +570,16 @@ def build_skills_only_hint(result: MatchResult, rules: Dict[str, Any]) -> str:
     if result.has_project_matches:
         default_template = (
             "MANDATORY: Use these project-configured skill(s): {skill_list}\n\n"
-            "These skills exist because the project requires specific tooling, authentication, "
-            "or patterns. You MUST use them - do not attempt manual alternatives."
+            "Invoke with: Skill(skill=\"[skill-name]\")\n\n"
+            "These skills exist because the project requires specific tooling. You MUST use them. "
+            "If you used any, note which ones in your response."
         )
     else:
         default_template = (
-            "Use these specialized skill(s): {skill_list}\n\n"
-            "Invoke directly or pass to a subagent. These skills exist because the task requires "
-            "specialized handling. Do not attempt manual implementation of what these skills automate."
+            "You SHOULD use the following skill(s) for this request: {skill_list}\n\n"
+            "Invoke with: Skill(skill=\"[skill-name]\")\n\n"
+            "If delegating to a subagent, instruct them to invoke the skill and report back which they used. "
+            "If you used any of these skills, note which ones in your response."
         )
 
     template = template_config.get("template", default_template)
@@ -519,19 +620,18 @@ def build_agents_and_skills_hint(result: MatchResult, rules: Dict[str, Any]) -> 
             "MANDATORY DELEGATION WITH PROJECT SKILLS.\n\n"
             "Delegate to one of these subagents:\n"
             "{agent_list}\n\n"
-            "Pass these project skills in the Task prompt: {skill_list}\n\n"
-            "Project-specific matches are NOT optional. These patterns were configured because "
-            "they require specialist handling. Do not rationalize reasons to self-implement - "
-            "even 'simple' tasks composed of basic commands are still implementation that belongs in a subagent."
+            "Craft a detailed Task prompt, then APPEND: \"Use the Skill tool to invoke [skill-name]. "
+            "Report which skill(s) you used.\" The subagent must invoke these skills: {skill_list}\n\n"
+            "Project-specific matches are NOT optional."
         )
     else:
         default_template = (
             "You MUST delegate to one of these subagents:\n"
             "{agent_list}\n\n"
-            "Pass these skills in the Task prompt: {skill_list}\n\n"
-            "You are an orchestrator - all implementation belongs in subagents. Do NOT execute "
-            "commands, write code, or modify files directly. The matched skills provide "
-            "specialized tooling; include them explicitly in your delegation prompt."
+            "Craft a detailed Task prompt as you normally would, then APPEND skill instructions. "
+            "The subagent should invoke these skills: {skill_list}\n\n"
+            "Append to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\n"
+            "If these agents/skills are clearly irrelevant, use your judgment."
         )
 
     template = template_config.get("template", default_template)
@@ -610,6 +710,15 @@ def main() -> None:
             log_debug(config, f"Failed to load global rules from {config.rules_path}")
             write_output({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit"}})
             sys.exit(0)
+
+        # Perform structural validation if strict mode is enabled
+        if config.strict_validation:
+            valid, validation_errors = validate_rules_structure(global_rules)
+            if not valid:
+                for err in validation_errors:
+                    log_debug(config, f"Rules validation warning: {err}")
+                # Graceful degradation: log warnings but continue
+                # Only fail if the basic validate_rules() already failed
 
         project_rules = load_project_rules(config, input_data)
         if project_rules:

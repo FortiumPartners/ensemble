@@ -29,6 +29,14 @@
   "engines": {
     "python": ">=3.8"
   },
+  "peerDependencies": {
+    "@fortium/ensemble-full": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@fortium/ensemble-full": {
+      "optional": true
+    }
+  },
   "scripts": {
     "test": "if [ \"$CI\" = \"true\" ]; then echo 'Skipping Python tests in CI (pytest not available)'; exit 0; else python3 -m pytest tests/test_router.py -v; fi",
     "test:local": "python3 -m pytest tests/test_router.py -v",
