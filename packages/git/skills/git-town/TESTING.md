@@ -347,13 +347,346 @@ yamllint SKILL.md
 
 ---
 
+---
+
+## Phase 5-6 Testing (Migration Guides, CI/CD, Monorepo)
+
+### Testing Migration Guides
+
+```bash
+# Test onboarding guide
+test -f guides/onboarding.md && echo "✓ Onboarding guide exists"
+echo "Onboarding guide lines: $(wc -l < guides/onboarding.md) (target: 400+)"
+
+# Test migration guides
+test -f guides/migration-git-flow.md && echo "✓ Git-flow migration guide exists"
+test -f guides/migration-github-flow.md && echo "✓ GitHub Flow migration guide exists"
+test -f guides/migration-trunk-based.md && echo "✓ Trunk-based migration guide exists"
+
+# Check migration guide structure
+echo ""
+echo "Migration guide sections:"
+grep "^## " guides/migration-*.md | wc -l
+echo "  Expected: 24+ sections across 3 guides"
+
+# Check for comparison tables
+echo ""
+echo "Comparison tables:"
+grep -c "^|" guides/migration-*.md
+echo "  Expected: 30+ table rows"
+```
+
+### Testing Monorepo Guide
+
+```bash
+# Test monorepo guide existence
+test -f guides/monorepo.md && echo "✓ Monorepo guide exists"
+echo "Monorepo guide lines: $(wc -l < guides/monorepo.md) (target: 500+)"
+
+# Check for workspace integrations
+echo ""
+echo "Workspace integrations documented:"
+grep -E "(npm workspaces|pnpm|Nx|Turborepo|Lerna)" guides/monorepo.md | wc -l
+echo "  Expected: 15+ references"
+
+# Check for code examples
+echo ""
+echo "Code examples:"
+grep -c '```' guides/monorepo.md
+echo "  Expected: 40+ code blocks"
+```
+
+### Testing CI/CD Integration
+
+```bash
+# Test CI/CD documentation
+test -f cicd/INTEGRATION.md && echo "✓ CI/CD integration guide exists"
+test -f cicd/examples/github-actions.yml && echo "✓ GitHub Actions example exists"
+test -f cicd/examples/gitlab-ci.yml && echo "✓ GitLab CI example exists"
+
+# Validate YAML syntax in CI examples
+echo ""
+echo "Validating CI/CD YAML syntax..."
+
+# GitHub Actions validation (requires yq or yamllint)
+if command -v yamllint &> /dev/null; then
+  yamllint cicd/examples/github-actions.yml && echo "✓ GitHub Actions YAML valid"
+  yamllint cicd/examples/gitlab-ci.yml && echo "✓ GitLab CI YAML valid"
+else
+  echo "⚠️  yamllint not installed, skipping YAML validation"
+  echo "  Install with: pip install yamllint"
+fi
+
+# Check for required CI/CD patterns
+echo ""
+echo "CI/CD patterns documented:"
+grep -c "jobs:" cicd/examples/*.yml
+echo "  Total jobs defined across examples"
+```
+
+### Testing Context7 Integration
+
+```bash
+# Check Context7 references in skill files
+echo "Context7 integration documentation:"
+echo ""
+
+# SKILL.md should have Context7 section
+if grep -q "## Context7 Integration" SKILL.md; then
+  echo "✓ SKILL.md documents Context7 integration"
+else
+  echo "✗ SKILL.md missing Context7 section"
+fi
+
+# REFERENCE.md should have Context7 documentation sources
+if grep -q "Context7 MCP" REFERENCE.md; then
+  echo "✓ REFERENCE.md references Context7"
+else
+  echo "✗ REFERENCE.md missing Context7 references"
+fi
+
+# ERROR_HANDLING.md should have Context7 integration
+if grep -q "Context7 Integration for Error Documentation" ERROR_HANDLING.md; then
+  echo "✓ ERROR_HANDLING.md has Context7 integration"
+else
+  echo "✗ ERROR_HANDLING.md missing Context7 section"
+fi
+
+# Check ensemble-core exports Context7 utilities
+echo ""
+echo "Checking ensemble-core Context7 utilities..."
+if grep -q "checkContext7Available" ../../core/lib/index.js; then
+  echo "✓ ensemble-core exports Context7 utilities"
+else
+  echo "✗ ensemble-core missing Context7 exports"
+fi
+```
+
+---
+
+## Comprehensive Test Suite
+
+Run all tests for Phases 1-6:
+
+```bash
+#!/bin/bash
+# comprehensive-test.sh
+
+echo "=================================="
+echo "Git-Town Skill Comprehensive Tests"
+echo "=================================="
+echo ""
+
+# Phase 1-2: Core Documentation
+echo "Phase 1-2: Core Documentation"
+echo "------------------------------"
+bash tests/test-integration.sh
+echo ""
+
+# Phase 5: Migration Guides
+echo "Phase 5: Migration Guides"
+echo "-------------------------"
+echo "Checking migration guides..."
+for guide in guides/migration-*.md guides/onboarding.md; do
+  if [ -f "$guide" ]; then
+    lines=$(wc -l < "$guide")
+    echo "✓ $guide ($lines lines)"
+  else
+    echo "✗ Missing: $guide"
+  fi
+done
+echo ""
+
+# Phase 6: Monorepo & CI/CD
+echo "Phase 6: Monorepo & CI/CD"
+echo "-------------------------"
+[ -f guides/monorepo.md ] && echo "✓ Monorepo guide" || echo "✗ Missing monorepo guide"
+[ -f cicd/INTEGRATION.md ] && echo "✓ CI/CD integration guide" || echo "✗ Missing CI/CD guide"
+[ -f cicd/examples/github-actions.yml ] && echo "✓ GitHub Actions example" || echo "✗ Missing GitHub Actions"
+[ -f cicd/examples/gitlab-ci.yml ] && echo "✓ GitLab CI example" || echo "✗ Missing GitLab CI"
+echo ""
+
+# Context7 Integration
+echo "Context7 Integration"
+echo "--------------------"
+grep -q "Context7" SKILL.md && echo "✓ SKILL.md has Context7 docs" || echo "✗ Missing Context7 in SKILL.md"
+grep -q "Context7" REFERENCE.md && echo "✓ REFERENCE.md has Context7 docs" || echo "✗ Missing Context7 in REFERENCE.md"
+grep -q "Context7" ERROR_HANDLING.md && echo "✓ ERROR_HANDLING.md has Context7 docs" || echo "✗ Missing Context7 in ERROR_HANDLING.md"
+echo ""
+
+# Documentation Quality Metrics
+echo "Documentation Quality Metrics"
+echo "-----------------------------"
+echo "Total documentation size:"
+find . -name "*.md" -type f -exec wc -l {} + | tail -1
+echo ""
+echo "Total code examples:"
+find . -name "*.md" -type f -exec grep -c '```' {} + | awk '{s+=$1} END {print s " code blocks"}'
+echo ""
+echo "Total mermaid diagrams:"
+find . -name "*.md" -type f -exec grep -c '```mermaid' {} + | awk '{s+=$1} END {print s " diagrams"}'
+echo ""
+
+echo "=================================="
+echo "Testing Complete!"
+echo "=================================="
+```
+
+Save as `tests/comprehensive-test.sh` and run:
+
+```bash
+chmod +x tests/comprehensive-test.sh
+bash tests/comprehensive-test.sh
+```
+
+---
+
+## Performance Benchmarks
+
+### Skill Loading Performance (Updated)
+
+```bash
+# Full skill load (all core files + new guides)
+echo "Full skill loading benchmark:"
+time {
+  cat SKILL.md REFERENCE.md ERROR_HANDLING.md \
+      guides/*.md cicd/INTEGRATION.md > /dev/null
+}
+
+# Expected: <200ms for complete skill load
+```
+
+### Context7 Query Performance
+
+```bash
+# Simulate Context7 query performance
+# Note: Requires Context7 MCP to be installed
+
+# Mock test (without actual Context7)
+echo "Context7 query simulation:"
+time {
+  # Simulate network latency + parsing
+  sleep 0.2  # 200ms (typical Context7 response time)
+}
+
+echo "Expected Context7 query time: ~200ms"
+echo "Local doc query time: <30ms"
+echo "Trade-off: Context7 is slower but always current"
+```
+
+---
+
+## CI/CD Pipeline Validation
+
+### GitHub Actions Validation
+
+```bash
+# Validate GitHub Actions workflow locally (requires act)
+if command -v act &> /dev/null; then
+  echo "Testing GitHub Actions locally..."
+  cd cicd/examples/
+  act -l  # List available jobs
+
+  # Run specific job
+  # act -j lint  # Example: run lint job
+else
+  echo "⚠️  'act' not installed for local GitHub Actions testing"
+  echo "  Install with: brew install act"
+fi
+```
+
+### GitLab CI Validation
+
+```bash
+# Validate GitLab CI syntax (requires gitlab-ci-local)
+if command -v gitlab-ci-local &> /dev/null; then
+  echo "Testing GitLab CI locally..."
+  cd cicd/examples/
+  gitlab-ci-local --file gitlab-ci.yml --list
+else
+  echo "⚠️  'gitlab-ci-local' not installed"
+  echo "  Install with: npm install -g gitlab-ci-local"
+fi
+```
+
+---
+
+## Manual Testing Checklist (Updated for All Phases)
+
+### Phase 1-2 Deliverables ✓
+- [ ] GT-001: Directory structure exists and organized
+- [ ] GT-002: Validation script runs without errors
+- [ ] GT-003: SKILL.md has all required sections
+- [ ] GT-004: REFERENCE.md documents git-town integration
+- [ ] GT-005: ERROR_HANDLING.md covers 6 error categories
+- [ ] GT-006: Test suite passes (22/22 tests)
+
+### Phase 3 Deliverables ✓
+- [ ] GT-018: Agent integration tests pass
+- [ ] GT-019: Merge conflict handling validated
+
+### Phase 4 Deliverables ✓
+- [ ] GT-020: Stacked branches documented
+- [ ] GT-021: Offline mode documented
+- [ ] GT-022: Configuration management documented
+- [ ] GT-023: GitHub CLI integration documented
+
+### Phase 5 Deliverables ✓
+- [ ] GT-024: Onboarding guide complete (487 lines)
+- [ ] GT-025: Git-flow migration guide complete (586 lines)
+- [ ] GT-026: GitHub Flow migration guide complete (502 lines)
+- [ ] GT-027: Trunk-based migration guide complete (605 lines)
+
+### Phase 6 Deliverables ✓
+- [ ] GT-028: Monorepo guide complete (621 lines)
+- [ ] GT-029: CI/CD integration guide complete (563 lines)
+- [ ] GT-030: GitHub Actions example complete (481 lines)
+- [ ] GT-031: GitLab CI example complete (470 lines)
+
+### Phase 7 Deliverables
+- [ ] GT-034: ERROR_HANDLING.md updated with Context7 ✓
+- [ ] GT-035: TESTING.md updated (this file) ✓
+- [ ] GT-036: Comprehensive README.md created
+- [ ] GT-037: Integration test validation complete
+
+### Context7 Integration ✓
+- [ ] packages/core/lib/context7-integration.js created
+- [ ] ensemble-core exports Context7 utilities
+- [ ] SKILL.md documents Context7 usage
+- [ ] REFERENCE.md references Context7 for commands
+- [ ] ERROR_HANDLING.md has Context7 integration section
+
+### Quality Checks (Final)
+- [ ] All Mermaid diagrams render correctly
+- [ ] No broken internal links in documentation
+- [ ] All code examples are syntactically correct
+- [ ] CI/CD YAML examples validate
+- [ ] Migration guides have clear step-by-step instructions
+- [ ] Monorepo guide covers all major tools (npm, pnpm, Nx, Turborepo)
+- [ ] Performance targets met (<100ms skill load, <200ms Context7 query)
+
+---
+
 ## Next Steps
 
 After all tests pass:
 
-1. **Test with actual agents**: Create a test agent that loads the git-town skill
-2. **Test interview workflow**: Have an agent use the interview templates
-3. **Test error recovery**: Simulate errors and verify decision trees work
-4. **Integration test**: Test skill in real git-town workflow
+1. **Create comprehensive README.md** (GT-036)
+   - Overview of all skill components
+   - Quick start guide
+   - Links to all documentation
 
-See `INTEGRATION_TESTING.md` for agent-level testing (to be created in Phase 3).
+2. **Final integration test** (GT-037)
+   - Run comprehensive test suite
+   - Validate all 37 tasks completed
+   - Performance benchmarking
+
+3. **Agent-level testing**
+   - Test with git-workflow agent
+   - Test with tech-lead-orchestrator
+   - Test error handling in real scenarios
+
+4. **Production deployment**
+   - Package skill for distribution
+   - Update ensemble-git plugin manifest
+   - Release notes and changelog
