@@ -42,6 +42,7 @@
     "@fortium/ensemble-jest": "^4.0.0",
     "@fortium/ensemble-pytest": "^4.0.0",
     "@fortium/ensemble-rspec": "^4.0.0",
+    "@fortium/ensemble-router": "^5.0.0",
     "@fortium/ensemble-xunit": "^4.0.0",
     "@fortium/ensemble-exunit": "^4.0.0"
   }
