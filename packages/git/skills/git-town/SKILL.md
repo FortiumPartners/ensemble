@@ -217,17 +217,113 @@ git-town sync  # Pushes to remote
 
 ---
 
+## Context7 Integration (Recommended)
+
+**For up-to-date git-town documentation**, use Context7 MCP instead of static skill files.
+
+### Why Context7?
+
+✅ **Always current** - Fetches latest git-town documentation
+✅ **No maintenance** - Automatically includes new features
+✅ **Version-aware** - Matches installed git-town version
+✅ **Reduced skill size** - No need for 2000+ lines of command docs
+
+### Using Context7 (via ensemble-core)
+
+```javascript
+// Import ensemble-core utilities
+const { checkContext7Available, createLibraryHelper } = require('@fortium/ensemble-core');
+
+// Check if Context7 is available
+if (checkContext7Available()) {
+  // Create git-town helper
+  const gitTown = createLibraryHelper('git-town');
+
+  // Fetch command documentation
+  const hackDocs = await gitTown.fetchDocs('hack command', 3000);
+  const configDocs = await gitTown.fetchDocs('configuration', 5000);
+} else {
+  // Show installation instructions
+  const { getContext7InstallInstructions } = require('@fortium/ensemble-core');
+  console.log(getContext7InstallInstructions());
+
+  // Fall back to local documentation
+}
+```
+
+### Context7 Query Patterns
+
+**Query git-town commands:**
+```javascript
+await gitTown.fetchDocs('hack command');       // Create feature branch
+await gitTown.fetchDocs('sync command');       // Synchronize branch
+await gitTown.fetchDocs('propose command');    // Create pull request
+await gitTown.fetchDocs('ship command');       // Merge and cleanup
+```
+
+**Query advanced topics:**
+```javascript
+await gitTown.fetchDocs('stacked branches');   // Advanced branching
+await gitTown.fetchDocs('configuration');      // Config options
+await gitTown.fetchDocs('troubleshooting');    // Error handling
+```
+
+### Graceful Fallback
+
+Use `withContext7Fallback` for automatic fallback to local docs:
+
+```javascript
+const { withContext7Fallback } = require('@fortium/ensemble-core');
+
+const docs = await withContext7Fallback('git-town', 'hack command', async () => {
+  // Fallback: Use local REFERENCE.md
+  const fs = require('fs');
+  const path = require('path');
+  const refPath = path.join(__dirname, 'REFERENCE.md');
+  return fs.readFileSync(refPath, 'utf8');
+});
+```
+
+### Installation Instructions
+
+If Context7 is not available, agents should provide these instructions:
+
+```bash
+# 1. Find Context7 in MCP catalog
+mcp-find --query "context7"
+
+# 2. Install Context7 MCP
+mcp-add context7
+
+# 3. Verify installation
+# Context7 should now be available
+
+# 4. Retry your git-town command
+```
+
+---
+
 ## Advanced Usage
 
-### Query Specific Sections
+### Local Documentation Queries (Fallback)
 
-Agents can query subsections for targeted information instead of loading full skill:
+When Context7 is unavailable, query local skill sections:
 
 - **Command documentation**: `git-town:REFERENCE:git-town hack` → Returns only the `git-town hack` command section
 - **Error handling**: `git-town:ERROR_HANDLING:merge conflicts` → Returns merge conflict resolution workflow
 - **Exit codes**: `git-town:REFERENCE:exit-codes` → Returns exit code reference table
 
 **Performance benefit**: Section queries return in ~30ms (vs ~100ms for full skill load) due to caching and indexing.
+
+**Context7 vs Local Comparison:**
+
+| Aspect | Context7 (Recommended) | Local Docs (Fallback) |
+|--------|----------------------|---------------------|
+| Freshness | Always latest | May be outdated |
+| Maintenance | Automatic | Manual updates needed |
+| Size | Minimal local storage | ~2000 lines |
+| Performance | Network-dependent (~200ms) | Fast local access (~30ms) |
+| Offline | Requires network | Always available |
 
 ### Performance Tuning
 
