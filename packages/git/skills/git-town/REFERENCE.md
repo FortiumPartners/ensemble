@@ -1343,6 +1343,791 @@ git push origin --delete proto/experiment
 
 ---
 
+## Advanced Branching Commands
+
+Git-town provides advanced commands for managing complex branch hierarchies and workflows.
+
+### `git town append`
+
+**Purpose**: Create a new branch as a child of the current branch (stacked branches).
+
+**Syntax**:
+```bash
+git town append <branch-name>
+```
+
+**Use Cases**:
+- Building features in layers (API → UI → Tests)
+- Breaking large features into reviewable chunks
+- Working on dependent features
+
+**Example 1: Success - Create Stacked Branch**
+```bash
+# Starting on feature/api
+git checkout feature/api
+git town append feature/ui
+
+# Result:
+# - Creates feature/ui branch
+# - Sets feature/api as parent of feature/ui
+# - Checks out feature/ui
+# - Stack: main → feature/api → feature/ui
+```
+
+**Example 2: Error - Uncommitted Changes**
+```bash
+$ git town append feature/ui
+Error: you have uncommitted changes
+
+# Exit Code: 6
+# Recovery:
+git stash push -m "WIP before append"
+git town append feature/ui
+git stash pop
+```
+
+**Example 3: Error - Branch Already Exists**
+```bash
+$ git town append feature/ui
+Error: branch "feature/ui" already exists
+
+# Exit Code: 8
+# Recovery:
+# Option 1: Use different name
+git town append feature/ui-v2
+
+# Option 2: Delete existing branch
+git branch -D feature/ui
+git town append feature/ui
+```
+
+---
+
+### `git town prepend`
+
+**Purpose**: Insert a new branch between the current branch and its parent.
+
+**Syntax**:
+```bash
+git town prepend <branch-name>
+```
+
+**Use Cases**:
+- Adding infrastructure before feature implementation
+- Splitting features discovered during development
+- Refactoring before feature work
+
+**Example 1: Success - Insert Intermediate Branch**
+```bash
+# Current stack: main → feature/ui
+git checkout feature/ui
+git town prepend feature/api
+
+# Result:
+# - Creates feature/api branch from main
+# - Sets main as parent of feature/api
+# - Sets feature/api as parent of feature/ui
+# - Checks out feature/api
+# - New stack: main → feature/api → feature/ui
+```
+
+**Example 2: Error - Not on Feature Branch**
+```bash
+$ git checkout main
+$ git town prepend feature/api
+Error: cannot prepend on main branch
+
+# Exit Code: 7
+# Recovery:
+git checkout <feature-branch>
+git town prepend feature/api
+```
+
+**Example 3: Error - Dirty Working Directory**
+```bash
+$ git town prepend feature/api
+Error: uncommitted changes detected
+
+# Exit Code: 6
+# Recovery:
+git add .
+git commit -m "WIP: Save progress"
+git town prepend feature/api
+```
+
+---
+
+### `git town detach`
+
+**Purpose**: Remove parent relationship, making branch a direct child of main.
+
+**Syntax**:
+```bash
+git town detach [<branch-name>]
+```
+
+**Use Cases**:
+- Converting stacked branch to independent feature
+- Reorganizing branch hierarchies
+- Removing dependencies between branches
+
+**Example 1: Success - Detach Current Branch**
+```bash
+# Stack: main → feature/api → feature/ui
+git checkout feature/ui
+git town detach
+
+# Result:
+# - feature/ui parent changed from feature/api to main
+# - New stack: main → feature/api
+#              main → feature/ui (independent)
+```
+
+**Example 2: Success - Detach Specific Branch**
+```bash
+# Stack: main → feature/api → feature/ui → feature/tests
+git town detach feature/ui
+
+# Result:
+# - feature/ui parent changed to main
+# - feature/tests parent changed to feature/ui (maintains chain)
+# - New stack: main → feature/api
+#              main → feature/ui → feature/tests
+```
+
+**Example 3: Error - Already Detached**
+```bash
+$ git checkout feature/standalone
+$ git town detach
+Warning: branch "feature/standalone" already has main as parent
+
+# Exit Code: 0 (warning, not error)
+# No action needed
+```
+
+---
+
+### `git town swap`
+
+**Purpose**: Swap the positions of two branches in a stack.
+
+**Syntax**:
+```bash
+git town swap <branch-1> <branch-2>
+```
+
+**Use Cases**:
+- Reordering implementation layers
+- Fixing dependency order
+- Reorganizing PR review sequence
+
+**Example 1: Success - Swap Adjacent Branches**
+```bash
+# Stack: main → feature/api → feature/ui
+git town swap feature/api feature/ui
+
+# Result:
+# - New stack: main → feature/ui → feature/api
+# - Rebases feature/api onto feature/ui
+```
+
+**Example 2: Error - Branches Not in Same Stack**
+```bash
+# Stack 1: main → feature/api
+# Stack 2: main → feature/ui
+$ git town swap feature/api feature/ui
+Error: branches are not in the same stack
+
+# Exit Code: 7
+# Recovery:
+# Cannot swap - branches are independent
+# Use git town append/prepend to restructure
+```
+
+**Example 3: Error - Merge Conflicts During Swap**
+```bash
+$ git town swap feature/api feature/ui
+Error: merge conflicts detected during rebase
+
+# Exit Code: 5
+# Recovery:
+git status  # Review conflicts
+# Resolve conflicts in files
+git add <resolved-files>
+git town continue  # Resume swap operation
+```
+
+---
+
+## Advanced Branching Decision Tree
+
+```mermaid
+graph TD
+    A[Need to Create Related Branch?] --> B{Where in hierarchy?}
+    B -->|After current| C[git town append]
+    B -->|Before current| D[git town prepend]
+    B -->|Independent| E[git town hack]
+
+    F[Need to Reorganize Stack?] --> G{What change?}
+    G -->|Remove parent link| H[git town detach]
+    G -->|Swap order| I[git town swap]
+    G -->|Change parent| J[git town detach + append]
+
+    C --> K[Stack grows downward]
+    D --> L[Stack grows upward]
+    H --> M[Branch becomes independent]
+    I --> N[Order reversed + rebased]
+
+    style C fill:#90EE90
+    style D fill:#90EE90
+    style E fill:#87CEEB
+    style H fill:#FFD700
+    style I fill:#FFD700
+```
+
+---
+
+## Error Recovery Commands
+
+Git-town provides commands to handle errors and resume interrupted operations.
+
+### `git town continue`
+
+**Purpose**: Resume a git-town command after resolving conflicts or errors.
+
+**Syntax**:
+```bash
+git town continue
+```
+
+**Use Cases**:
+- Continue after resolving merge conflicts
+- Resume after fixing validation errors
+- Proceed after manual intervention
+
+**Example 1: Success - Resume After Conflict Resolution**
+```bash
+# During sync, merge conflict occurs
+$ git town sync
+Error: merge conflicts detected
+
+# Resolve conflicts
+$ git status
+# Edit conflicted files
+$ git add <resolved-files>
+
+# Continue the sync operation
+$ git town continue
+# Sync completes successfully
+```
+
+**Example 2: Success - Continue After Stash**
+```bash
+# During hack, uncommitted changes detected
+$ git town hack feature/new-branch
+Error: uncommitted changes
+
+# Stash changes
+$ git stash push -m "WIP"
+
+# Retry and continue
+$ git town hack feature/new-branch
+# Success
+```
+
+**Example 3: Error - Nothing to Continue**
+```bash
+$ git town continue
+Error: no git-town operation in progress
+
+# Exit Code: 0 (informational)
+# No action needed - no operation was interrupted
+```
+
+---
+
+### `git town skip`
+
+**Purpose**: Skip the current branch during a multi-branch operation.
+
+**Syntax**:
+```bash
+git town skip
+```
+
+**Use Cases**:
+- Skip problematic branch during sync-all
+- Continue with other branches after error
+- Defer complex conflict resolution
+
+**Example 1: Success - Skip Conflicted Branch**
+```bash
+# Syncing all branches
+$ git town sync --all
+Processing feature/api... OK
+Processing feature/ui... CONFLICT
+
+# Skip feature/ui for now
+$ git town skip
+Processing feature/tests... OK
+Sync complete (1 branch skipped)
+```
+
+**Example 2: Success - Skip During Stack Sync**
+```bash
+# Syncing stacked branches: api → ui → tests
+$ git town sync
+Syncing feature/api... OK
+Syncing feature/ui... CONFLICT
+
+# Skip and continue with feature/tests
+$ git town skip
+Syncing feature/tests... OK
+```
+
+**Example 3: Error - Cannot Skip Single Operation**
+```bash
+$ git town sync
+# Conflict occurs
+$ git town skip
+Error: cannot skip - only one branch in operation
+
+# Exit Code: 7
+# Recovery: Use git town undo or resolve conflicts
+```
+
+---
+
+### `git town undo`
+
+**Purpose**: Undo the most recent git-town command and restore previous state.
+
+**Syntax**:
+```bash
+git town undo
+```
+
+**Use Cases**:
+- Revert accidental command execution
+- Undo failed operation
+- Restore state after unexpected results
+
+**Example 1: Success - Undo Branch Creation**
+```bash
+# Created wrong branch
+$ git town hack feature/wrong-name
+Branch created: feature/wrong-name
+
+# Undo creation
+$ git town undo
+Branch deleted: feature/wrong-name
+Restored to: main
+```
+
+**Example 2: Success - Undo Failed Sync**
+```bash
+# Sync caused conflicts
+$ git town sync
+Error: merge conflicts in 3 files
+
+# Undo the sync attempt
+$ git town undo
+Sync undone
+Restored to: <commit-before-sync>
+```
+
+**Example 3: Success - Undo Ship Operation**
+```bash
+# Accidentally shipped wrong branch
+$ git checkout feature/not-ready
+$ git town ship
+Merged to main: feature/not-ready
+
+# Immediately undo
+$ git town undo
+Reverted merge: feature/not-ready
+Restored: feature/not-ready, main
+```
+
+**Important Notes**:
+- Undo is tracked per-repository in `.git/town/undo` stack
+- Can undo multiple commands sequentially
+- Cannot undo after garbage collection removes commits
+- Undo is best-effort - complex operations may not fully restore
+
+---
+
+### `git town status`
+
+**Purpose**: Show current git-town operation status and configuration.
+
+**Syntax**:
+```bash
+git town status
+```
+
+**Use Cases**:
+- Check if operation is in progress
+- View branch relationships (stack structure)
+- Debug configuration issues
+
+**Example 1: Success - No Operation in Progress**
+```bash
+$ git town status
+No git-town operation in progress
+
+Configuration:
+  Main branch: main
+  Perennial branches: develop, staging
+
+Current branch: feature/user-auth
+  Parent: main
+  Children: none
+
+Branch type: feature
+```
+
+**Example 2: Success - Operation in Progress**
+```bash
+$ git town status
+Operation in progress: sync (paused due to conflict)
+
+Current step: Syncing feature/api with main
+Completed: 2/5 branches
+Remaining: feature/ui, feature/tests, feature/docs
+
+To continue: git town continue
+To abort: git town undo
+```
+
+**Example 3: Success - Stack Structure**
+```bash
+$ git checkout feature/ui
+$ git town status
+Current branch: feature/ui
+
+Stack structure:
+  main
+  └── feature/api
+      └── feature/ui (current)
+          └── feature/tests
+
+Branch type: feature (stacked)
+Parent: feature/api
+Children: feature/tests
+```
+
+---
+
+## Error Recovery Decision Tree
+
+```mermaid
+graph TD
+    A[Git-Town Error Occurred] --> B{Error Type?}
+
+    B -->|Merge Conflict| C{Want to fix now?}
+    C -->|Yes| D[Resolve conflicts<br/>git add files<br/>git town continue]
+    C -->|No| E[git town skip<br/>or<br/>git town undo]
+
+    B -->|Wrong Command| F[git town undo]
+
+    B -->|Configuration Issue| G[Check git town status<br/>Fix configuration<br/>Retry]
+
+    B -->|Uncommitted Changes| H{Want to save?}
+    H -->|Yes| I[git stash<br/>Retry command<br/>git stash pop]
+    H -->|No| J[git add + commit<br/>or<br/>git restore .]
+
+    B -->|Network Error| K[Check connectivity<br/>Retry or use<br/>git town offline]
+
+    D --> L[Operation completes]
+    E --> L
+    F --> L
+    I --> L
+
+    style D fill:#90EE90
+    style F fill:#FFD700
+    style E fill:#FFA500
+    style I fill:#87CEEB
+```
+
+---
+
+## Offline Mode
+
+Git-town's offline mode allows development without network connectivity.
+
+### `git town offline`
+
+**Purpose**: Toggle offline mode to work without network access.
+
+**Syntax**:
+```bash
+git town offline [on|off]
+```
+
+**Use Cases**:
+- Air-gapped development environments
+- Working without internet access
+- Avoiding network errors during development
+- Testing local-only workflows
+
+**Example 1: Success - Enable Offline Mode**
+```bash
+$ git town offline on
+Offline mode enabled
+
+# Git-town will now skip all network operations:
+# - No remote fetch/push
+# - No PR creation
+# - Local-only sync
+
+$ git town status
+Offline mode: ON
+```
+
+**Example 2: Success - Work Offline**
+```bash
+# Enable offline mode
+$ git town offline on
+
+# Create branches (local only)
+$ git town hack feature/offline-work
+Branch created: feature/offline-work (local only)
+
+# Sync with main (local only, no fetch)
+$ git town sync
+Syncing with local main branch...
+No remote updates (offline mode)
+Sync complete (local only)
+
+# Ship branch (fails in offline mode)
+$ git town ship
+Error: cannot ship in offline mode - requires network access
+
+# Disable offline mode when online
+$ git town offline off
+Offline mode disabled
+
+# Now can ship
+$ git town ship
+# Connects to remote and completes ship
+```
+
+**Example 3: Success - Check Offline Status**
+```bash
+$ git town offline
+Offline mode: OFF (connected)
+
+$ git town offline on
+$ git town offline
+Offline mode: ON
+```
+
+**Offline Mode Behavior**:
+
+| Command | Online Behavior | Offline Behavior |
+|---------|----------------|------------------|
+| `hack` | Creates branch + pushes | Creates branch (local only) |
+| `sync` | Fetches + merges remote | Merges local main only |
+| `propose` | Creates PR on remote | **Fails** - requires network |
+| `ship` | Merges + pushes + deletes remote | **Fails** - requires network |
+| `status` | Shows remote tracking | Shows local status only |
+
+**When to Use Offline Mode**:
+- ✅ Developing on airplane/train
+- ✅ Air-gapped secure environments
+- ✅ Testing workflows without network
+- ✅ Avoiding network latency during rapid iteration
+- ❌ Creating PRs (requires network)
+- ❌ Shipping branches (requires network)
+
+**Important Notes**:
+- Offline mode is per-repository (stored in `.git/config`)
+- Automatically disabled on `git town propose` or `git town ship`
+- Can be re-enabled after going online
+- Local commits still sync when connectivity restored
+
+---
+
+## Configuration
+
+Git-town configuration can be managed via commands or config files.
+
+### `git town config`
+
+**Purpose**: Configure git-town behavior for the repository.
+
+**Syntax**:
+```bash
+git town config [--global]
+git town config <key> <value>
+git town config --unset <key>
+```
+
+**Configuration Keys**:
+
+| Key | Description | Default | Example |
+|-----|-------------|---------|---------|
+| `git-town.main-branch` | Main development branch | `main` | `main`, `master`, `trunk` |
+| `git-town.perennial-branches` | Long-lived branches | `[]` | `develop`, `staging`, `qa` |
+| `git-town.push-new-branches` | Auto-push new branches | `true` | `true`, `false` |
+| `git-town.ship-delete-remote-branch` | Delete remote after ship | `true` | `true`, `false` |
+| `git-town.sync-upstream` | Sync with upstream fork | `false` | `true`, `false` |
+| `git-town.sync-perennial-strategy` | How to sync perennials | `rebase` | `rebase`, `merge` |
+| `git-town.new-branch-push-flag` | Push flag for new branches | `--set-upstream` | `--set-upstream`, `-u` |
+
+**Example 1: Success - Set Main Branch**
+```bash
+$ git town config git-town.main-branch trunk
+Main branch set to: trunk
+
+# Verify
+$ git town config git-town.main-branch
+trunk
+```
+
+**Example 2: Success - Add Perennial Branches**
+```bash
+# Add staging as long-lived branch
+$ git town config git-town.perennial-branches staging
+Perennial branches: staging
+
+# Add multiple perennial branches
+$ git town config git-town.perennial-branches "develop staging qa"
+Perennial branches: develop, staging, qa
+```
+
+**Example 3: Success - Configure Auto-Push Behavior**
+```bash
+# Disable auto-push for new branches
+$ git town config git-town.push-new-branches false
+New branches will NOT be pushed automatically
+
+# Re-enable
+$ git town config git-town.push-new-branches true
+New branches will be pushed automatically
+```
+
+### Configuration File Formats
+
+**Repository-Level Configuration** (`.git/config`):
+```ini
+[git-town]
+	main-branch = main
+	perennial-branches = develop,staging
+	push-new-branches = true
+	ship-delete-remote-branch = true
+	sync-upstream = false
+```
+
+**Global Configuration** (`~/.gitconfig`):
+```ini
+[git-town]
+	push-new-branches = true
+	ship-delete-remote-branch = true
+	new-branch-push-flag = --set-upstream
+```
+
+### Platform-Specific Configurations
+
+**GitHub Configuration**:
+```bash
+# Standard GitHub setup
+git town config git-town.main-branch main
+git town config git-town.perennial-branches ""
+git town config git-town.push-new-branches true
+git town config git-town.ship-delete-remote-branch true
+
+# GitHub with staging environment
+git town config git-town.main-branch main
+git town config git-town.perennial-branches "develop staging"
+git town config git-town.sync-perennial-strategy merge
+```
+
+**GitLab Configuration**:
+```bash
+# GitLab with protected branches
+git town config git-town.main-branch main
+git town config git-town.perennial-branches "staging production"
+git town config git-town.push-new-branches true
+git town config git-town.ship-delete-remote-branch false  # Keep for audit
+```
+
+**Gitea Configuration**:
+```bash
+# Gitea self-hosted setup
+git town config git-town.main-branch master
+git town config git-town.perennial-branches "develop"
+git town config git-town.push-new-branches true
+git town config git-town.sync-upstream false
+```
+
+### Example 4: Success - View All Configuration**
+```bash
+$ git town config
+Git-Town Configuration:
+
+Main branch: main
+Perennial branches: develop, staging
+Push new branches: true
+Delete remote branch on ship: true
+Sync with upstream: false
+Sync perennial strategy: rebase
+New branch push flag: --set-upstream
+
+Configuration source: .git/config (repository-level)
+```
+
+**Example 5: Success - Unset Configuration**
+```bash
+# Remove perennial branches configuration
+$ git town config --unset git-town.perennial-branches
+Perennial branches configuration removed
+
+# Reset to default
+$ git town config --unset git-town.push-new-branches
+Push new branches: true (default)
+```
+
+**Example 6: Error - Invalid Configuration Value**
+```bash
+$ git town config git-town.sync-perennial-strategy invalid
+Error: invalid value 'invalid' for git-town.sync-perennial-strategy
+Valid values: rebase, merge
+
+# Exit Code: 2
+# Recovery:
+git town config git-town.sync-perennial-strategy rebase
+```
+
+### Team Configuration Best Practices
+
+**Shared Team Configuration** (commit to repository):
+```bash
+# Create .git-town.toml in repository root
+cat > .git-town.toml << 'EOF'
+[git-town]
+main-branch = "main"
+perennial-branches = ["develop", "staging"]
+push-new-branches = true
+ship-delete-remote-branch = true
+EOF
+
+# Team members run once after clone:
+git town config --import .git-town.toml
+```
+
+**Monorepo Configuration**:
+```bash
+# Different main branches per component
+git town config git-town.main-branch main
+
+# More perennial branches for release trains
+git town config git-town.perennial-branches "release-1.0 release-2.0 develop staging"
+```
+
+---
+
 ## Additional Resources
 
 - **Git-Town Documentation**: https://www.git-town.com/
