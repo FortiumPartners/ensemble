@@ -95,6 +95,34 @@ To visually verify Mermaid diagrams render correctly:
 
 ## Integration Testing (10 minutes)
 
+### Automated Integration Tests
+
+Run the comprehensive integration test suite (GT-018 and GT-019):
+
+```bash
+# Run automated integration tests
+bash tests/test-integration.sh
+```
+
+**What it tests:**
+- GT-018: Agent executes git-town workflow via skill
+  - Skill file accessibility and loading performance
+  - Branch creation workflow with explicit CLI flags
+  - Interview template validation
+  - Skill query syntax
+- GT-019: Agent handles merge conflict error
+  - ERROR_HANDLING.md merge conflict documentation
+  - Exit code mapping and documentation
+  - Mermaid decision trees for error recovery
+  - Merge conflict simulation
+  - Error recovery state machine
+
+**Expected Results:**
+- ✓ All 22 integration tests pass
+- ✓ Skill loads in <100ms
+- ✓ Branch creation succeeds with non-interactive flags
+- ✓ Merge conflict detection and recovery works
+
 ### Test 1: Skill Loading Simulation
 
 ```bash
