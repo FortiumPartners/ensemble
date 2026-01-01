@@ -376,7 +376,7 @@ def match_agent_categories(
 
 
 def match_skills(
-    prompt: str, rules: Dict[str, Any], project_skills: Set[str]
+    prompt: str, rules: Dict[str, Any], project_skills: Set[str], config: RouterConfig
 ) -> Tuple[List[tuple], List[str]]:
     """
     Match prompt against skill triggers and patterns.
@@ -405,8 +405,8 @@ def match_skills(
             try:
                 if re.search(pattern, prompt_lower, re.IGNORECASE):
                     match_count += 2
-            except re.error:
-                pass
+            except re.error as e:
+                log_debug(config, f"Invalid pattern '{pattern}': {e}")
 
         if match_count > 0:
             results.append((skill_name, match_count, purpose))
@@ -421,7 +421,8 @@ def analyze_prompt(
     prompt: str,
     rules: Dict[str, Any],
     project_agents: Set[str],
-    project_skills: Set[str]
+    project_skills: Set[str],
+    config: RouterConfig
 ) -> MatchResult:
     """Analyze a prompt against the rules and return matches."""
     result = MatchResult()
@@ -436,7 +437,7 @@ def analyze_prompt(
     result.project_matched_agents = matched_proj_agents
 
     # Match skills
-    skill_matches, matched_proj_skills = match_skills(prompt, rules, project_skills)
+    skill_matches, matched_proj_skills = match_skills(prompt, rules, project_skills, config)
     for skill_name, match_count, purpose in skill_matches[:3]:
         result.matched_skills.append(skill_name)
         result.match_count += match_count
@@ -733,7 +734,7 @@ def main() -> None:
             f"{len(project_agents)} project agents, {len(project_skills)} project skills",
         )
 
-        result = analyze_prompt(prompt, merged_rules, project_agents, project_skills)
+        result = analyze_prompt(prompt, merged_rules, project_agents, project_skills, config)
 
         log_debug(
             config,

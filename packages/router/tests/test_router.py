@@ -761,28 +761,28 @@ class TestMatchAgentCategories:
 class TestMatchSkills:
     """Tests for match_skills function."""
 
-    def test_trigger_match(self, sample_rules):
+    def test_trigger_match(self, sample_rules, config):
         """Test matching skill trigger."""
-        matches, project_skills = match_skills("Run jest tests", sample_rules, set())
+        matches, project_skills = match_skills("Run jest tests", sample_rules, set(), config)
         assert len(matches) > 0
         skill_name, count, purpose = matches[0]
         assert skill_name == "jest"
 
-    def test_pattern_match(self, sample_rules):
+    def test_pattern_match(self, sample_rules, config):
         """Test matching skill pattern."""
-        matches, project_skills = match_skills("Deploy to vercel now", sample_rules, set())
+        matches, project_skills = match_skills("Deploy to vercel now", sample_rules, set(), config)
         assert len(matches) > 0
         skill_names = [m[0] for m in matches]
         assert "vercel" in skill_names
 
-    def test_no_matches(self, sample_rules):
+    def test_no_matches(self, sample_rules, config):
         """Test no matches returns empty list."""
-        matches, project_skills = match_skills("Random unrelated text", sample_rules, set())
+        matches, project_skills = match_skills("Random unrelated text", sample_rules, set(), config)
         assert len(matches) == 0
 
-    def test_multiple_skill_matches(self, sample_rules):
+    def test_multiple_skill_matches(self, sample_rules, config):
         """Test matching multiple skills."""
-        matches, project_skills = match_skills("Run jest tests then deploy to vercel", sample_rules, set())
+        matches, project_skills = match_skills("Run jest tests then deploy to vercel", sample_rules, set(), config)
         skill_names = [m[0] for m in matches]
         assert "jest" in skill_names
         assert "vercel" in skill_names
@@ -792,37 +792,37 @@ class TestMatchSkills:
 class TestAnalyzePrompt:
     """Tests for analyze_prompt function."""
 
-    def test_matched_categories(self, sample_rules):
+    def test_matched_categories(self, sample_rules, config):
         """Test categories are matched."""
-        result = analyze_prompt("Implement the backend API", sample_rules, set(), set())
+        result = analyze_prompt("Implement the backend API", sample_rules, set(), set(), config)
         assert "development" in result.matched_categories
 
-    def test_matched_agents(self, sample_rules):
+    def test_matched_agents(self, sample_rules, config):
         """Test agents are included."""
-        result = analyze_prompt("Build the frontend", sample_rules, set(), set())
+        result = analyze_prompt("Build the frontend", sample_rules, set(), set(), config)
         agent_names = [a.get("name") for a in result.matched_agents]
         assert "frontend-developer" in agent_names or "backend-developer" in agent_names
 
-    def test_matched_skills(self, sample_rules):
+    def test_matched_skills(self, sample_rules, config):
         """Test skills are matched."""
-        result = analyze_prompt("Run jest tests", sample_rules, set(), set())
+        result = analyze_prompt("Run jest tests", sample_rules, set(), set(), config)
         assert "jest" in result.matched_skills
 
-    def test_deduplication(self, sample_rules):
+    def test_deduplication(self, sample_rules, config):
         """Test agents are deduplicated."""
-        result = analyze_prompt("Implement frontend backend code build", sample_rules, set(), set())
+        result = analyze_prompt("Implement frontend backend code build", sample_rules, set(), set(), config)
         agent_names = [a.get("name") for a in result.matched_agents]
         assert len(agent_names) == len(set(agent_names))
 
-    def test_word_count_tracked(self, sample_rules):
+    def test_word_count_tracked(self, sample_rules, config):
         """Test word count is tracked."""
-        result = analyze_prompt("one two three", sample_rules, set(), set())
+        result = analyze_prompt("one two three", sample_rules, set(), set(), config)
         assert result.word_count == 3
 
-    def test_project_matches_tracked(self, sample_rules):
+    def test_project_matches_tracked(self, sample_rules, config):
         """Test project-specific matches are tracked."""
         project_agents = {"frontend-developer"}
-        result = analyze_prompt("Build the frontend", sample_rules, project_agents, set())
+        result = analyze_prompt("Build the frontend", sample_rules, project_agents, set(), config)
         assert "frontend-developer" in result.project_matched_agents
         assert result.has_project_matches is True
 
@@ -1041,7 +1041,7 @@ class TestIntegration:
     def test_full_flow_with_agent_match(self, sample_rules, config):
         """Test full flow with agent matching prompt."""
         prompt = "Implement the frontend component"
-        result = analyze_prompt(prompt, sample_rules, set(), set())
+        result = analyze_prompt(prompt, sample_rules, set(), set(), config)
         output = build_output(result, sample_rules, config)
 
         assert result.match_count > 0
@@ -1052,7 +1052,7 @@ class TestIntegration:
     def test_full_flow_with_skill_match(self, sample_rules, config):
         """Test full flow with skill matching prompt."""
         prompt = "Run jest tests"
-        result = analyze_prompt(prompt, sample_rules, set(), set())
+        result = analyze_prompt(prompt, sample_rules, set(), set(), config)
         output = build_output(result, sample_rules, config)
 
         assert "jest" in result.matched_skills
@@ -1062,7 +1062,7 @@ class TestIntegration:
     def test_full_flow_with_both_matches(self, sample_rules, config):
         """Test full flow with both agent and skill matches."""
         prompt = "Build the frontend and run jest tests"
-        result = analyze_prompt(prompt, sample_rules, set(), set())
+        result = analyze_prompt(prompt, sample_rules, set(), set(), config)
         output = build_output(result, sample_rules, config)
 
         assert len(result.matched_agents) > 0
@@ -1072,7 +1072,7 @@ class TestIntegration:
     def test_full_flow_short_no_match(self, sample_rules, config):
         """Test full flow with short prompt, no matches."""
         prompt = "thanks"
-        result = analyze_prompt(prompt, sample_rules, set(), set())
+        result = analyze_prompt(prompt, sample_rules, set(), set(), config)
         output = build_output(result, sample_rules, config)
 
         assert result.word_count < config.short_threshold
@@ -1082,7 +1082,7 @@ class TestIntegration:
     def test_full_flow_long_no_match(self, sample_rules, config):
         """Test full flow with long prompt, no matches."""
         prompt = "Random text that matches nothing in particular here"
-        result = analyze_prompt(prompt, sample_rules, set(), set())
+        result = analyze_prompt(prompt, sample_rules, set(), set(), config)
         output = build_output(result, sample_rules, config)
 
         assert result.word_count >= config.short_threshold
@@ -1098,7 +1098,7 @@ class TestIntegration:
             "Why is this failing?",
         ]
         for prompt in prompts:
-            result = analyze_prompt(prompt, sample_rules, set(), set())
+            result = analyze_prompt(prompt, sample_rules, set(), set(), config)
             output = build_output(result, sample_rules, config)
             # All prompts should get a hint (no blocking)
             assert "additionalContext" in output["hookSpecificOutput"], f"Failed for: {prompt}"
@@ -1108,33 +1108,33 @@ class TestIntegration:
 class TestEdgeCases:
     """Tests for edge cases."""
 
-    def test_empty_prompt(self, sample_rules):
+    def test_empty_prompt(self, sample_rules, config):
         """Test empty prompt."""
-        result = analyze_prompt("", sample_rules, set(), set())
+        result = analyze_prompt("", sample_rules, set(), set(), config)
         assert result.match_count == 0
 
-    def test_case_insensitivity(self, sample_rules):
+    def test_case_insensitivity(self, sample_rules, config):
         """Test matching is case insensitive."""
-        result1 = analyze_prompt("IMPLEMENT the feature", sample_rules, set(), set())
-        result2 = analyze_prompt("implement the feature", sample_rules, set(), set())
+        result1 = analyze_prompt("IMPLEMENT the feature", sample_rules, set(), set(), config)
+        result2 = analyze_prompt("implement the feature", sample_rules, set(), set(), config)
         assert result1.match_count == result2.match_count
 
-    def test_partial_word_not_matched(self, sample_rules):
+    def test_partial_word_not_matched(self, sample_rules, config):
         """Test partial words don't match."""
         # "implementation" contains "implement" but shouldn't match as word boundary
-        result = analyze_prompt("The implementation details", sample_rules, set(), set())
+        result = analyze_prompt("The implementation details", sample_rules, set(), set(), config)
         # Should not match "implement" trigger due to word boundary
         assert "development" not in result.matched_categories or result.match_count == 0
 
-    def test_multiple_categories_matched(self, sample_rules):
+    def test_multiple_categories_matched(self, sample_rules, config):
         """Test multiple categories can be matched."""
-        result = analyze_prompt("Implement and test the code review", sample_rules, set(), set())
+        result = analyze_prompt("Implement and test the code review", sample_rules, set(), set(), config)
         assert len(result.matched_categories) >= 1
 
-    def test_long_prompt(self, sample_rules):
+    def test_long_prompt(self, sample_rules, config):
         """Test handling of long prompts."""
         long_prompt = "Implement " * 1000
-        result = analyze_prompt(long_prompt, sample_rules, set(), set())
+        result = analyze_prompt(long_prompt, sample_rules, set(), set(), config)
         assert result is not None  # Should not crash
 
 

@@ -137,6 +137,21 @@ echo '{"prompt": "Deploy to vercel"}' | ROUTER_DEBUG=1 python3 packages/router/h
 echo '{"prompt": "Build the frontend", "cwd": "/path/to/project"}' | ROUTER_DEBUG=1 python3 packages/router/hooks/router.py
 ```
 
+## Design Decisions
+
+### Why No Regex Caching
+The router runs as a **subprocess per prompt** - each invocation spawns a fresh Python process that terminates after outputting the hint. Module-level caching provides no benefit since state doesn't persist between prompts.
+
+### Word Boundary Matching
+Triggers use `\b` word boundaries for precise matching. This correctly handles:
+- Special characters: `@nestjs/core` matches "nestjs" trigger
+- Case variations: `NextJS` matches "nextjs" (case-insensitive)
+
+For variant spellings (e.g., "next-app" vs "nextjs"), add both forms as separate triggers in router-rules.json.
+
+### Silent Regex Errors
+Invalid regex patterns in router-rules.json are silently skipped to prevent blocking user prompts. Enable `ROUTER_DEBUG=1` to see pattern compilation errors.
+
 ## Design Principles
 
 1. **Zero Dependencies**: Only Python stdlib - no pip, no virtualenv
