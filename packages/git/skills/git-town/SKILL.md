@@ -1,11 +1,7 @@
 ---
-skill_name: git-town
+name: git-town
+description: This skill should be used when the user asks to "create a feature branch", "start a new feature", "sync my branch", "sync with main", "update from main", "create a PR", "create a pull request", "ship a feature", "merge and clean up", "handle merge conflicts", "resolve conflicts in git-town", "create stacked branches", "work on dependent features", "configure git-town", "set up git-town", "use git-town offline", "manage git workflow", or mentions git-town commands (hack, sync, propose, ship, continue, undo, kill).
 version: 1.0.0
-author: Fortium Partners
-created: 2025-12-30
-updated: 2025-12-30
-tags: [git, workflow, branching, automation]
-dependencies: [git-town >= 14.0.0]
 ---
 
 # Git-Town Workflow Skill
