@@ -81,7 +81,11 @@ Before using git-town commands, ensure the following requirements are met:
 Run the validation script before executing git-town workflows to ensure all prerequisites are met:
 
 ```bash
-bash /Users/ldangelo/Development/Fortium/ensemble/packages/git/skills/git-town/scripts/validate-git-town.sh
+# From the git-town skill directory
+bash ./scripts/validate-git-town.sh
+
+# Or with absolute path using skill root
+bash ${ENSEMBLE_SKILL_ROOT}/scripts/validate-git-town.sh
 ```
 
 **Exit codes:**
@@ -410,7 +414,8 @@ git-town ship  # Merges to main
 
 4. Check file permissions:
    ```bash
-   chmod +r /Users/ldangelo/Development/Fortium/ensemble/packages/git/skills/git-town/*.md
+   # From the git-town skill directory
+   chmod +r *.md
    ```
 
 ### Validation Fails

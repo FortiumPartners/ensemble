@@ -19,6 +19,33 @@
 const { execSync } = require('child_process');
 
 /**
+ * Sanitize user input to prevent command injection
+ *
+ * @param {string} input - User-supplied input to sanitize
+ * @param {string} paramName - Parameter name for error messages
+ * @returns {string} Sanitized input
+ * @throws {Error} If input contains forbidden characters
+ */
+function sanitizeInput(input, paramName = 'input') {
+  if (typeof input !== 'string') {
+    throw new Error(`${paramName} must be a string`);
+  }
+
+  // Allow only alphanumeric characters, spaces, hyphens, dots, slashes, and underscores
+  // This prevents command injection while allowing library names like 'git-town', 'next.js', '/org/project'
+  if (!/^[a-zA-Z0-9\s\-\._\/]+$/.test(input)) {
+    throw new Error(`${paramName} contains forbidden characters. Allowed: alphanumeric, spaces, hyphens, dots, slashes, underscores`);
+  }
+
+  // Prevent potential directory traversal
+  if (input.includes('..')) {
+    throw new Error(`${paramName} contains forbidden sequence: ..`);
+  }
+
+  return input;
+}
+
+/**
  * Check if Context7 MCP server is available
  *
  * @returns {boolean} True if Context7 is installed and available
@@ -47,9 +74,12 @@ function checkContext7Available() {
  */
 async function resolveLibraryId(libraryName) {
   try {
+    // Sanitize input to prevent command injection
+    const sanitizedName = sanitizeInput(libraryName, 'libraryName');
+
     // Note: This assumes the MCP tool interface
     // Actual implementation would use MCP protocol
-    const result = execSync(`resolve-library-id --library "${libraryName}" 2>/dev/null`, {
+    const result = execSync(`resolve-library-id --library "${sanitizedName}" 2>/dev/null`, {
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -72,6 +102,15 @@ async function resolveLibraryId(libraryName) {
  */
 async function fetchLibraryDocs(libraryName, topic, tokens = 5000) {
   try {
+    // Sanitize topic input to prevent command injection
+    const sanitizedTopic = sanitizeInput(topic, 'topic');
+
+    // Validate tokens parameter
+    const sanitizedTokens = parseInt(tokens, 10);
+    if (isNaN(sanitizedTokens) || sanitizedTokens < 1 || sanitizedTokens > 50000) {
+      throw new Error('tokens must be a number between 1 and 50000');
+    }
+
     // First resolve the library ID
     const libraryId = await resolveLibraryId(libraryName);
 
@@ -80,9 +119,12 @@ async function fetchLibraryDocs(libraryName, topic, tokens = 5000) {
       return null;
     }
 
+    // Sanitize library ID as well (it came from external source)
+    const sanitizedLibraryId = sanitizeInput(libraryId, 'libraryId');
+
     // Fetch documentation for the topic
     const result = execSync(
-      `get-library-docs --context7CompatibleLibraryID "${libraryId}" --topic "${topic}" --tokens ${tokens} 2>/dev/null`,
+      `get-library-docs --context7CompatibleLibraryID "${sanitizedLibraryId}" --topic "${sanitizedTopic}" --tokens ${sanitizedTokens} 2>/dev/null`,
       {
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe']
@@ -169,8 +211,17 @@ function createLibraryHelper(libraryName) {
       if (cachedLibraryId) {
         // Use cached library ID
         try {
+          // Sanitize inputs to prevent command injection
+          const sanitizedLibraryId = sanitizeInput(cachedLibraryId, 'libraryId');
+          const sanitizedTopic = sanitizeInput(topic, 'topic');
+          const sanitizedTokens = parseInt(tokens, 10);
+
+          if (isNaN(sanitizedTokens) || sanitizedTokens < 1 || sanitizedTokens > 50000) {
+            throw new Error('tokens must be a number between 1 and 50000');
+          }
+
           const result = execSync(
-            `get-library-docs --context7CompatibleLibraryID "${cachedLibraryId}" --topic "${topic}" --tokens ${tokens} 2>/dev/null`,
+            `get-library-docs --context7CompatibleLibraryID "${sanitizedLibraryId}" --topic "${sanitizedTopic}" --tokens ${sanitizedTokens} 2>/dev/null`,
             {
               encoding: 'utf8',
               stdio: ['pipe', 'pipe', 'pipe']
