@@ -1,7 +1,7 @@
 ---
 name: file-creator
 description: Template-based scaffolding with project conventions
-tools: [Read, Write, Edit, Bash]
+skills: framework-detector, tooling-detector, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework
 ---
 <!-- DO NOT EDIT - Generated from file-creator.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

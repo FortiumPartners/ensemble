@@ -1,0 +1,118 @@
+// =============================================================================
+// Prisma Model Template
+//
+// Template Variables:
+//   model_name: Name of the model (e.g., "Post")
+//   fields: Array of field definitions
+//   relations: Array of relation definitions
+//   indexes: Array of index definitions
+//   soft_delete: boolean - Include deletedAt field
+//   timestamps: boolean - Include createdAt/updatedAt
+//   table_name: Optional custom table name (@@map)
+// =============================================================================
+
+model {{ model_name }} {
+  // ---------------------------------------------------------------------------
+  // Primary Key
+  // ---------------------------------------------------------------------------
+  id        String   @id @default(cuid())
+
+  // ---------------------------------------------------------------------------
+  // Fields
+  // ---------------------------------------------------------------------------
+  {% for field in fields %}
+  {{ field.name }}{% if field.type == 'String' and field.length %}  String{% if field.optional %}?{% endif %}  @db.VarChar({{ field.length }}){% elif field.type == 'Decimal' %}  Decimal{% if field.optional %}?{% endif %}  @db.Decimal({{ field.precision | default(10) }}, {{ field.scale | default(2) }}){% elif field.type == 'Json' %}  Json{% if field.optional %}?{% endif %}  @db.JsonB{% else %}  {{ field.type }}{% if field.optional %}?{% endif %}{% endif %}{% if field.default %}  @default({{ field.default }}){% endif %}{% if field.unique %}  @unique{% endif %}{% if field.map %}  @map("{{ field.map }}"){% endif %}
+  {% endfor %}
+
+  {% if timestamps | default(true) %}
+  // ---------------------------------------------------------------------------
+  // Timestamps
+  // ---------------------------------------------------------------------------
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  {% endif %}
+
+  {% if soft_delete %}
+  // ---------------------------------------------------------------------------
+  // Soft Delete
+  // ---------------------------------------------------------------------------
+  deletedAt DateTime?
+  {% endif %}
+
+  // ---------------------------------------------------------------------------
+  // Relations
+  // ---------------------------------------------------------------------------
+  {% for relation in relations | default([]) %}
+  {% if relation.type == 'one-to-one' %}
+  // One-to-One: {{ model_name }} has one {{ relation.model }}
+  {{ relation.name }}   {{ relation.model }}{% if relation.optional %}?{% endif %}  @relation(fields: [{{ relation.field }}], references: [id]{% if relation.onDelete %}, onDelete: {{ relation.onDelete }}{% endif %})
+  {{ relation.field }}  String{% if relation.optional %}?{% endif %}  @unique
+  {% elif relation.type == 'one-to-many' %}
+  // One-to-Many: {{ model_name }} has many {{ relation.model }}
+  {{ relation.name }}   {{ relation.model }}[]
+  {% elif relation.type == 'many-to-one' %}
+  // Many-to-One: {{ model_name }} belongs to {{ relation.model }}
+  {{ relation.name }}   {{ relation.model }}  @relation(fields: [{{ relation.field }}], references: [id]{% if relation.onDelete %}, onDelete: {{ relation.onDelete }}{% endif %})
+  {{ relation.field }}  String
+  {% elif relation.type == 'many-to-many' %}
+  // Many-to-Many: {{ model_name }} has many {{ relation.model }}
+  {{ relation.name }}   {{ relation.model }}[]
+  {% elif relation.type == 'self-one-to-many' %}
+  // Self-relation: Parent/Children
+  parent    {{ model_name }}?   @relation("{{ relation.relation_name | default(model_name + 'Hierarchy') }}", fields: [parentId], references: [id])
+  parentId  String?
+  children  {{ model_name }}[]  @relation("{{ relation.relation_name | default(model_name + 'Hierarchy') }}")
+  {% endif %}
+  {% endfor %}
+
+  // ---------------------------------------------------------------------------
+  // Indexes
+  // ---------------------------------------------------------------------------
+  {% for index in indexes | default([]) %}
+  {% if index.unique %}
+  @@unique([{% for field in index.fields %}{{ field }}{% if not loop.last %}, {% endif %}{% endfor %}]{% if index.name %}, name: "{{ index.name }}"{% endif %})
+  {% elif index.fulltext %}
+  @@index([{% for field in index.fields %}{{ field }}{% if not loop.last %}, {% endif %}{% endfor %}], type: FullText)
+  {% else %}
+  @@index([{% for field in index.fields %}{{ field }}{% if index.sort %}(sort: {{ index.sort }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}]{% if index.name %}, name: "{{ index.name }}"{% endif %})
+  {% endif %}
+  {% endfor %}
+  {% if soft_delete %}
+  @@index([deletedAt])
+  {% endif %}
+
+  {% if table_name %}
+  // ---------------------------------------------------------------------------
+  // Table Mapping
+  // ---------------------------------------------------------------------------
+  @@map("{{ table_name }}")
+  {% endif %}
+}
+
+// =============================================================================
+// Usage Example:
+//
+// Variables:
+// {
+//   "model_name": "Article",
+//   "fields": [
+//     { "name": "title", "type": "String" },
+//     { "name": "slug", "type": "String", "unique": true },
+//     { "name": "content", "type": "String", "optional": true },
+//     { "name": "published", "type": "Boolean", "default": "false" },
+//     { "name": "views", "type": "Int", "default": "0" }
+//   ],
+//   "relations": [
+//     { "type": "many-to-one", "name": "author", "model": "User", "field": "authorId", "onDelete": "Cascade" },
+//     { "type": "one-to-many", "name": "comments", "model": "Comment" },
+//     { "type": "many-to-many", "name": "tags", "model": "Tag" }
+//   ],
+//   "indexes": [
+//     { "fields": ["authorId"] },
+//     { "fields": ["published", "createdAt"], "sort": "Desc" },
+//     { "fields": ["title", "content"], "fulltext": true }
+//   ],
+//   "soft_delete": true,
+//   "timestamps": true
+// }
+// =============================================================================

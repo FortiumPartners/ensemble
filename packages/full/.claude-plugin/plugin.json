@@ -38,6 +38,7 @@
     "./agents/development/backend-developer.md",
     "./agents/development/documentation-specialist.md",
     "./agents/development/frontend-developer.md",
+    "./agents/development/mobile-developer.md",
     "./agents/development/tech-lead-orchestrator.md",
     "./agents/e2e-testing/playwright-tester.md",
     "./agents/git/git-workflow.md",

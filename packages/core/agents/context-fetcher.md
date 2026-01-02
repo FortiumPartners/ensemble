@@ -1,7 +1,6 @@
 ---
 name: context-fetcher
 description: Pull authoritative references into plans/specs (AgentOS docs; vendor docs via Context7) with version awareness.
-tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from context-fetcher.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

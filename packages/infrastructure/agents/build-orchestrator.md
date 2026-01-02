@@ -1,7 +1,7 @@
 ---
 name: build-orchestrator
 description: Build system orchestrator managing CI/CD pipeline optimization, artifact creation, dependency management, and build automation across all environments.
-tools: [Read, Write, Edit, Bash]
+skills: aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, act-local-ci, changelog-generator
 ---
 <!-- DO NOT EDIT - Generated from build-orchestrator.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
