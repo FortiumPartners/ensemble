@@ -1,0 +1,593 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-01-02T02:30:00Z",
+  "description": "Router manifest generated from introspecting installed agents and skills",
+  "source": "generate-router-manifest command",
+
+  "agent_categories": {
+    "product_documentation": {
+      "description": "PRD, TRD, documentation, and requirements management",
+      "triggers": [
+        "PRD", "TRD", "product requirements", "technical requirements",
+        "documentation", "docs", "requirements", "spec", "specification",
+        "API docs", "swagger", "openapi", "user story", "stakeholder",
+        "roadmap", "feature prioritization"
+      ],
+      "agents": [
+        {
+          "name": "product-management-orchestrator",
+          "purpose": "Product lifecycle, requirements gathering, stakeholder alignment, roadmap planning",
+          "tools": ["Read", "Write", "Edit", "Bash", "Task", "TodoWrite", "Grep", "Glob"]
+        },
+        {
+          "name": "documentation-specialist",
+          "purpose": "Technical documentation, API docs, guides, and examples",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "api-documentation-specialist",
+          "purpose": "OpenAPI/Swagger documentation and API design",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        }
+      ]
+    },
+
+    "orchestration": {
+      "description": "High-level coordination, planning, and task decomposition",
+      "triggers": [
+        "orchestrate", "coordinate", "plan", "break down", "decompose",
+        "architect", "design system", "full pipeline", "end to end",
+        "delegate", "multi-step", "complex task", "methodology",
+        "sprint", "scrum", "kanban", "backlog", "retrospective",
+        "standup", "sprint planning", "refinement",
+        "user story", "epic", "story points", "velocity",
+        "estimate", "timeline", "milestone", "deadline", "priority",
+        "dependency", "blocker", "critical path", "risk"
+      ],
+      "agents": [
+        {
+          "name": "ensemble-orchestrator",
+          "purpose": "Chief orchestrator for agent mesh coordination, task delegation, conflict resolution",
+          "tools": ["Read", "Task", "Write", "Edit", "Bash", "Grep", "Glob", "TodoWrite"]
+        },
+        {
+          "name": "tech-lead-orchestrator",
+          "purpose": "Plan, architect, task breakdown, develop, code-review, test loop with intelligent delegation",
+          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob"]
+        },
+        {
+          "name": "qa-orchestrator",
+          "purpose": "Quality assurance orchestration and test coordination",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "infrastructure-orchestrator",
+          "purpose": "Infrastructure provisioning, configuration management, monitoring, scalability planning",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "development": {
+      "description": "Code implementation across languages and frameworks",
+      "triggers": [
+        "implement", "code", "build", "create feature", "add feature",
+        "frontend", "backend", "mobile", "component", "endpoint", "API",
+        "react", "vue", "angular", "svelte", "node", "python", "ruby",
+        "elixir", "flutter", "iOS", "android", "typescript", "javascript",
+        "server-side", "client-side", "UI", "UX",
+        "refactor", "optimize", "migrate", "upgrade", "scaffold",
+        "modernize", "rewrite", "port", "convert", "generate",
+        "microservice", "monolith", "serverless", "BFF", "gateway",
+        "event-driven", "CQRS", "DDD", "clean architecture",
+        "nuxt", "remix", "astro", "qwik", "hono",
+        "golang", "go", "rust", "kotlin", "swift", "java", "csharp",
+        "php", "laravel", "django", "fastapi",
+        "tailwind", "css", "scss", "styled-components",
+        "redux", "zustand", "pinia", "mobx", "signals",
+        "graphql", "apollo", "rest", "grpc", "websocket"
+      ],
+      "agents": [
+        {
+          "name": "frontend-developer",
+          "purpose": "JS/TS, React, Vue, Angular, Svelte with accessibility and performance optimization",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        },
+        {
+          "name": "backend-developer",
+          "purpose": "Server-side logic across languages/stacks, clean architecture and boundaries",
+          "tools": ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+        },
+        {
+          "name": "mobile-developer",
+          "purpose": "Flutter, React Native, native iOS/Android with platform-specific UI patterns",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        },
+        {
+          "name": "infrastructure-developer",
+          "purpose": "Cloud-agnostic automation: AWS, GCP, Azure, Helm, Kubernetes, Fly.io",
+          "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"]
+        }
+      ]
+    },
+
+    "quality_testing": {
+      "description": "Code review, testing, debugging, and quality assurance",
+      "triggers": [
+        "review", "test", "debug", "fix bug", "why is this failing",
+        "unit test", "integration test", "e2e test", "playwright",
+        "code review", "security", "performance", "coverage", "lint",
+        "failing", "error", "exception", "broken", "investigate",
+        "smoke test", "regression test", "load test", "stress test",
+        "acceptance test", "contract test", "snapshot test", "visual test",
+        "mock", "stub", "spy", "fixture", "factory", "faker",
+        "test double", "arrange act assert", "given when then",
+        "coverage report", "uncovered", "branch coverage", "line coverage",
+        "missing test", "untested", "dead code",
+        "code smell", "technical debt", "complexity", "sonarqube"
+      ],
+      "agents": [
+        {
+          "name": "code-reviewer",
+          "purpose": "Security-enhanced code review with comprehensive DoD enforcement and quality gates",
+          "tools": ["Read", "Write", "Edit", "Bash", "Grep"]
+        },
+        {
+          "name": "test-runner",
+          "purpose": "Unit and integration test execution with intelligent failure triage and debugging",
+          "tools": ["Read", "Bash", "Grep"]
+        },
+        {
+          "name": "deep-debugger",
+          "purpose": "Systematic bug recreation, root cause analysis, TDD-based resolution",
+          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob", "Skill"]
+        },
+        {
+          "name": "playwright-tester",
+          "purpose": "E2E tests with Playwright MCP, capture traces and screenshots for regression",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "test-reader-agent",
+          "purpose": "Test file reading and analysis for test coverage understanding",
+          "tools": ["Read"]
+        }
+      ]
+    },
+
+    "infrastructure_build": {
+      "description": "Deployment, CI/CD, releases, and build systems",
+      "triggers": [
+        "deploy", "release", "CI/CD", "pipeline", "docker", "kubernetes",
+        "helm", "staging", "production", "rollback", "build", "artifact",
+        "promote", "zero-downtime", "container", "orchestration",
+        "AWS", "GCP", "Azure", "DigitalOcean",
+        "EC2", "ECS", "EKS", "Fargate", "GKE", "AKS",
+        "Lambda", "Cloud Functions", "serverless function",
+        "pod", "container image", "registry", "ECR",
+        "DNS", "SSL", "TLS", "certificate", "HTTPS", "CORS",
+        "load balancer", "ALB", "nginx", "traefik", "caddy",
+        "proxy", "reverse proxy", "API gateway", "ingress",
+        "VPC", "subnet", "security group", "firewall",
+        "terraform", "pulumi", "ansible", "cloudformation",
+        "infrastructure as code", "IaC", "GitOps", "ArgoCD"
+      ],
+      "agents": [
+        {
+          "name": "deployment-orchestrator",
+          "purpose": "Release automation, environment promotion, rollback procedures, zero-downtime deployment",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "build-orchestrator",
+          "purpose": "CI/CD pipeline optimization, artifact creation, dependency management, build automation",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "release-agent",
+          "purpose": "Automated release orchestration with quality gates, smoke test integration",
+          "tools": ["Read", "Write", "Edit", "Bash", "Task", "Skill"]
+        },
+        {
+          "name": "helm-chart-specialist",
+          "purpose": "Kubernetes Helm charts (delegates to infrastructure-developer)",
+          "tools": ["Read", "Task"]
+        }
+      ]
+    },
+
+    "git_github": {
+      "description": "Version control, commits, branches, and pull requests",
+      "triggers": [
+        "commit", "push", "pull request", "PR", "branch", "merge",
+        "git", "github", "conventional commit", "semantic version",
+        "rebase", "cherry-pick", "stash", "diff", "blame",
+        "squash", "bisect", "worktree", "reflog",
+        "interactive rebase", "fixup", "autosquash", "amend",
+        "hotfix", "feature branch", "release branch", "trunk based",
+        "gitflow", "github flow", "forking workflow",
+        "github actions", "workflow", "action runner",
+        "issue", "milestone", "label", "project board",
+        "approve PR", "request changes", "CODEOWNERS", "protected branch",
+        "status check", "draft PR"
+      ],
+      "agents": [
+        {
+          "name": "git-workflow",
+          "purpose": "Conventional commits, semantic versioning, git-town integration, best practices",
+          "tools": ["Read", "Bash", "Grep"]
+        },
+        {
+          "name": "github-specialist",
+          "purpose": "Branch management, PR creation, code review integration, repository operations via gh CLI",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "utility": {
+      "description": "General support, research, scaffolding, and exploration",
+      "triggers": [
+        "research", "analyze", "investigate", "explore", "scaffold",
+        "template", "find", "search", "understand", "codebase",
+        "agent design", "spawn agent", "create agent", "improve agent"
+      ],
+      "agents": [
+        {
+          "name": "general-purpose",
+          "purpose": "Research and analysis for complex investigations, multi-domain analysis, ambiguous scope",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "Explore",
+          "purpose": "Fast codebase exploration: find files by patterns, search code for keywords",
+          "tools": ["All tools"]
+        },
+        {
+          "name": "Plan",
+          "purpose": "Software architect agent for designing implementation plans, step-by-step strategy",
+          "tools": ["All tools"]
+        },
+        {
+          "name": "file-creator",
+          "purpose": "Template-based scaffolding with project conventions",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "context-fetcher",
+          "purpose": "Pull authoritative references (AgentOS docs, vendor docs via Context7) with version awareness",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "directory-monitor",
+          "purpose": "Real-time file system surveillance, change detection, automated workflow triggering",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        },
+        {
+          "name": "agent-meta-engineer",
+          "purpose": "Agent ecosystem management - designing, spawning, improving agents and creating specialized commands",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "database": {
+      "description": "Database administration and optimization",
+      "triggers": [
+        "database", "postgresql", "postgres", "SQL", "query", "schema",
+        "migration", "index", "optimize query", "table", "join",
+        "transaction", "constraint", "foreign key",
+        "MySQL", "mysql", "MariaDB", "SQLite", "sqlite",
+        "Redis", "redis", "MongoDB", "mongo", "DynamoDB", "dynamodb",
+        "Cassandra", "CockroachDB", "TimescaleDB",
+        "seed", "backup", "restore", "dump", "import", "export",
+        "reindex", "vacuum", "analyze", "slow query", "explain",
+        "N+1", "eager load", "lazy load", "connection pool",
+        "deadlock", "lock", "ACID",
+        "ORM", "Prisma", "Drizzle", "TypeORM", "Sequelize", "Knex"
+      ],
+      "agents": [
+        {
+          "name": "postgresql-specialist",
+          "purpose": "PostgreSQL administration, SQL optimization, schema management",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "metrics_analytics": {
+      "description": "Productivity metrics, dashboards, and analytics",
+      "triggers": [
+        "metrics", "dashboard", "analytics", "productivity", "sprint",
+        "velocity", "burndown", "team performance", "tracking"
+      ],
+      "agents": [
+        {
+          "name": "manager-dashboard-agent",
+          "purpose": "Collecting, storing, and analyzing team productivity metrics and development analytics",
+          "tools": ["Read", "Write", "Edit", "Bash"]
+        }
+      ]
+    },
+
+    "claude_code_help": {
+      "description": "Help with Claude Code features, Agent SDK, and Anthropic API",
+      "triggers": [
+        "claude code", "how do I", "does claude", "can claude",
+        "agent sdk", "anthropic api", "MCP server", "hook", "skill",
+        "slash command"
+      ],
+      "agents": [
+        {
+          "name": "claude-code-guide",
+          "purpose": "Questions about Claude Code CLI, hooks, slash commands, MCP servers, Agent SDK, Anthropic API",
+          "tools": ["Glob", "Grep", "Read", "WebFetch", "WebSearch"]
+        }
+      ]
+    }
+  },
+
+  "skills": {
+    "act-local-ci": {
+      "triggers": ["act", "local ci", "test github actions", "run workflow locally", "nektos act"],
+      "patterns": ["act.*run", "local.*workflow"],
+      "purpose": "Test GitHub Actions workflows locally using nektos/act"
+    },
+    "aws-cloud": {
+      "triggers": ["aws", "amazon web services", "ec2", "s3", "lambda", "cloudformation", "cdk", "aws cdk"],
+      "patterns": ["aws.*deploy", "cdk.*synth", "cloudformation.*stack"],
+      "purpose": "AWS cloud infrastructure provisioning and services"
+    },
+    "blazor": {
+      "triggers": ["blazor", "blazor server", "blazor wasm", "blazor webassembly", "razor component", "razor page"],
+      "patterns": ["blazor.*component", "@code.*block"],
+      "purpose": "Blazor component development for .NET applications"
+    },
+    "building-langgraph-agents": {
+      "triggers": ["langgraph", "multi-agent", "agent workflow", "cyclic workflow", "agentic", "agent orchestration"],
+      "patterns": ["langgraph.*agent", "state.*graph", "agent.*workflow"],
+      "purpose": "LangGraph development for stateful multi-agent applications and cyclic workflows"
+    },
+    "changelog-generator": {
+      "triggers": ["changelog", "generate changelog", "conventional commits changelog", "release notes"],
+      "patterns": ["generate.*changelog", "changelog.*generate"],
+      "purpose": "Parse conventional commits and generate categorized changelog"
+    },
+    "cloud-provider-detector": {
+      "triggers": ["detect cloud", "which cloud", "aws or gcp", "cloud provider"],
+      "patterns": ["detect.*cloud", "cloud.*provider"],
+      "purpose": "Auto-detect AWS, GCP, or Azure usage with multi-signal analysis"
+    },
+    "developing-with-flutter": {
+      "triggers": ["flutter", "dart", "flutter widget", "flutter build", "flutter state"],
+      "patterns": ["flutter.*widget", "flutter.*build"],
+      "purpose": "Flutter SDK for cross-platform development targeting iOS, Android, and Web"
+    },
+    "developing-with-laravel": {
+      "triggers": ["laravel", "eloquent", "artisan", "blade template", "laravel migration", "laravel queue"],
+      "patterns": ["laravel.*app", "artisan.*make", "eloquent.*model"],
+      "purpose": "Laravel framework patterns for PHP applications including Eloquent ORM, migrations, routing, queues, and Blade templates"
+    },
+    "developing-with-php": {
+      "triggers": ["php", "composer", "php 8", "php type", "php enum", "php attribute"],
+      "patterns": ["php.*class", "composer.*require"],
+      "purpose": "Modern PHP 8.x development with type system, attributes, enums, error handling, and Composer"
+    },
+    "developing-with-python": {
+      "triggers": ["python", "fastapi", "type hint", "async python", "pydantic", "poetry"],
+      "patterns": ["python.*app", "fastapi.*route", "def.*async"],
+      "purpose": "Python 3.11+ development with type hints, async patterns, FastAPI, and pytest"
+    },
+    "developing-with-react": {
+      "triggers": ["react", "react hook", "react component", "jsx", "tsx", "next.js", "nextjs"],
+      "patterns": ["react.*component", "use[A-Z].*hook"],
+      "purpose": "React 18+ development with hooks, state management, component patterns, and Next.js integration"
+    },
+    "developing-with-typescript": {
+      "triggers": ["typescript", "ts config", "type guard", "generics", "utility type", "strict mode"],
+      "patterns": ["typescript.*config", "interface.*\\{", "type.*="],
+      "purpose": "TypeScript 5.x development with type system, generics, utility types, and strict mode patterns"
+    },
+    "dotnet-framework": {
+      "triggers": ["dotnet", ".net", "asp.net", "entity framework", "c# api", "dotnet core"],
+      "patterns": ["\\.net.*app", "dotnet.*new", "entity.*framework"],
+      "purpose": ".NET 8+ with ASP.NET Core patterns and Entity Framework"
+    },
+    "exunit": {
+      "triggers": ["exunit", "elixir test", "mix test", "elixir spec"],
+      "patterns": ["mix.*test", "exunit.*test"],
+      "purpose": "Execute and generate ExUnit tests for Elixir projects"
+    },
+    "flyio": {
+      "triggers": ["fly.io", "fly", "flyctl", "fly deploy", "fly scale", "fly launch"],
+      "patterns": ["fly.*deploy", "flyctl.*"],
+      "purpose": "Fly.io deployment and application scaling"
+    },
+    "framework-detector": {
+      "triggers": ["detect framework", "what framework", "identify framework", "which framework"],
+      "patterns": ["detect.*framework", "which.*framework"],
+      "purpose": "Multi-signal framework detection with confidence scoring"
+    },
+    "helm": {
+      "triggers": ["helm", "helm chart", "helm install", "helm upgrade", "helm values", "values.yaml"],
+      "patterns": ["helm.*install", "helm.*upgrade", "helm.*template"],
+      "purpose": "Kubernetes Helm chart management and templating"
+    },
+    "jest": {
+      "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test",
+                   "vitest", "testing-library", "@testing-library", "describe", "it", "expect", "beforeEach"],
+      "patterns": ["run.*jest", "jest.*test", "npm.*test"],
+      "purpose": "Execute and generate Jest tests for JavaScript/TypeScript projects"
+    },
+    "kubernetes": {
+      "triggers": ["kubernetes", "k8s", "kubectl", "pod", "deployment", "service", "ingress", "configmap",
+                   "kustomize", "k9s", "lens", "namespace", "secret", "pvc", "statefulset", "daemonset", "HPA"],
+      "patterns": ["kubectl.*apply", "kubectl.*get", "k8s.*deploy"],
+      "purpose": "Kubernetes cluster and workload management"
+    },
+    "managing-jira-issues": {
+      "triggers": ["jira", "jira issue", "jira ticket", "jira sprint", "jira board", "atlassian jira", "confluence"],
+      "patterns": ["jira.*issue", "create.*jira", "jira.*sprint"],
+      "purpose": "Jira issue management using the jira CLI with JSON output"
+    },
+    "managing-linear-issues": {
+      "triggers": ["linear", "linear issue", "linear cycle", "linear project", "linearis", "linear.app"],
+      "patterns": ["linear.*issue", "create.*linear"],
+      "purpose": "Linear.app issue management using Linearis CLI with JSON output and smart ID resolution"
+    },
+    "managing-railway": {
+      "triggers": ["railway", "railway deploy", "railway service", "railway logs", "railway.app"],
+      "patterns": ["railway.*deploy", "railway.*service"],
+      "purpose": "Railway platform CLI for service deployment, infrastructure management, and debugging"
+    },
+    "managing-supabase": {
+      "triggers": ["supabase", "supabase db", "supabase edge", "supabase migration", "supabase function"],
+      "patterns": ["supabase.*db", "supabase.*function"],
+      "purpose": "Supabase CLI for database management, Edge Functions, migrations, and local development"
+    },
+    "managing-vercel": {
+      "triggers": ["vercel", "vercel deploy", "vercel domain", "vercel env", "vercel logs", "nextjs deploy"],
+      "patterns": ["vercel.*deploy", "vercel.*domain"],
+      "purpose": "Vercel platform CLI for frontend deployments, serverless functions, and edge network management"
+    },
+    "nestjs": {
+      "triggers": ["nestjs", "nest.js", "nest module", "nest controller", "nest service"],
+      "patterns": ["nest.*module", "nest.*service", "nest.*controller"],
+      "purpose": "NestJS Node.js/TypeScript backend framework with dependency injection"
+    },
+    "phoenix": {
+      "triggers": ["phoenix", "liveview", "phoenix liveview", "ecto", "phoenix channel", "heex"],
+      "patterns": ["mix.*phx", "phoenix.*live"],
+      "purpose": "Phoenix/Elixir application development with LiveView"
+    },
+    "pytest": {
+      "triggers": ["pytest", "python test", "py.test", "fixture", "parametrize"],
+      "patterns": ["run.*pytest", "pytest.*test", "python.*-m.*pytest"],
+      "purpose": "Execute and generate pytest tests for Python projects"
+    },
+    "rails": {
+      "triggers": ["rails", "ruby on rails", "activerecord", "rails migration", "rails model", "rails controller"],
+      "patterns": ["rails.*generate", "rake.*db", "bundle.*exec.*rails"],
+      "purpose": "Ruby on Rails application development patterns"
+    },
+    "rspec": {
+      "triggers": ["rspec", "ruby test", "rails test", "spec", "describe block"],
+      "patterns": ["run.*rspec", "rspec.*spec", "bundle.*exec.*rspec"],
+      "purpose": "Execute and generate RSpec tests for Ruby/Rails projects"
+    },
+    "smoke-test-api": {
+      "triggers": ["api smoke test", "test api endpoints", "api health"],
+      "patterns": ["smoke.*api", "api.*smoke"],
+      "purpose": "Smoke test API endpoints for health and basic functionality"
+    },
+    "smoke-test-auth": {
+      "triggers": ["auth smoke test", "test authentication", "login test"],
+      "patterns": ["smoke.*auth", "auth.*smoke"],
+      "purpose": "Smoke test authentication flows"
+    },
+    "smoke-test-critical-paths": {
+      "triggers": ["critical path test", "happy path test", "core flow test"],
+      "patterns": ["critical.*path", "happy.*path"],
+      "purpose": "Smoke test critical user paths and core application flows"
+    },
+    "smoke-test-database": {
+      "triggers": ["database smoke test", "db smoke test", "test database connection"],
+      "patterns": ["smoke.*db", "database.*smoke"],
+      "purpose": "Smoke test database connectivity and basic operations"
+    },
+    "smoke-test-external-services": {
+      "triggers": ["external service test", "third party test", "integration smoke test"],
+      "patterns": ["external.*service", "third.*party.*test"],
+      "purpose": "Smoke test external service integrations"
+    },
+    "smoke-test-runner": {
+      "triggers": ["smoke test", "sanity test", "quick test", "health check test", "critical path test"],
+      "patterns": ["smoke.*test", "sanity.*check"],
+      "purpose": "Orchestrates smoke test categories for API, auth, database, and critical path validation"
+    },
+    "styling-with-tailwind": {
+      "triggers": ["tailwind", "tailwindcss", "tailwind config", "utility class", "tailwind theme"],
+      "patterns": ["tailwind.*config", "@tailwind"],
+      "purpose": "Utility-first CSS styling patterns using Tailwind CSS 3.x"
+    },
+    "test-detector": {
+      "triggers": ["detect test framework", "what test framework", "which testing"],
+      "patterns": ["detect.*test", "which.*test.*framework"],
+      "purpose": "Automatically detect test frameworks in projects"
+    },
+    "tooling-detector": {
+      "triggers": ["detect tooling", "which tools", "infrastructure tools", "detect helm", "detect kubernetes"],
+      "patterns": ["detect.*tool", "which.*infrastructure"],
+      "purpose": "Automatic detection of infrastructure tooling (Helm, Kubernetes, Kustomize, ArgoCD)"
+    },
+    "using-anthropic-platform": {
+      "triggers": ["anthropic", "claude api", "claude sdk", "messages api", "tool use", "extended thinking"],
+      "patterns": ["anthropic.*client", "messages.*create", "claude.*api"],
+      "purpose": "Claude SDK development with Messages API, Tool Use, Extended Thinking, streaming, and prompt caching"
+    },
+    "using-celery": {
+      "triggers": ["celery", "celery task", "celery beat", "task queue", "celery worker", "redis broker"],
+      "patterns": ["celery.*task", "@task.*def", "celery.*beat"],
+      "purpose": "Celery 5.3+ distributed task queue with Beat scheduler, Redis/RabbitMQ brokers, workflow patterns"
+    },
+    "using-openai-platform": {
+      "triggers": ["openai", "gpt", "openai api", "chat completions", "openai embedding", "gpt-4", "gpt-5"],
+      "patterns": ["openai.*client", "chat.*completions", "openai.*embed"],
+      "purpose": "OpenAI SDK development with GPT-5 family, Chat Completions, Responses API, embeddings, and tool calling"
+    },
+    "using-perplexity-platform": {
+      "triggers": ["perplexity", "sonar", "perplexity api", "search augmented", "pplx"],
+      "patterns": ["perplexity.*client", "sonar.*api"],
+      "purpose": "Perplexity Sonar API development with search-augmented generation, real-time web search, and citations"
+    },
+    "using-prisma": {
+      "triggers": ["prisma", "prisma schema", "prisma migrate", "prisma client", "prisma studio"],
+      "patterns": ["prisma.*schema", "prisma.*migrate", "@prisma/client"],
+      "purpose": "Prisma 5+ ORM with schema-first design, type-safe client, migrations, and database integrations"
+    },
+    "using-weaviate": {
+      "triggers": ["weaviate", "vector database", "semantic search", "embedding", "vector store"],
+      "patterns": ["weaviate.*client", "vector.*search"],
+      "purpose": "Weaviate vector database for semantic search, hybrid queries, and AI-native applications"
+    },
+    "writing-playwright-tests": {
+      "triggers": ["playwright test", "e2e test", "playwright selector", "page object", "playwright fixture"],
+      "patterns": ["playwright.*test", "page\\..*\\(", "expect.*toBeVisible"],
+      "purpose": "E2E test scripts with Playwright focusing on selector strategies, page objects, and wait handling"
+    },
+    "xunit": {
+      "triggers": ["xunit", "dotnet test", "c# test", "csharp test", ".net test"],
+      "patterns": ["dotnet.*test", "xunit.*test"],
+      "purpose": "Execute and generate xUnit tests for C#/.NET projects"
+    }
+  },
+
+  "injection_templates": {
+    "short_no_match": {
+      "description": "Short prompts (< 5 words) with no keyword matches - context-aware continuation",
+      "template": "Short prompt - review conversation context. If continuing established work (e.g., \"proceed\", \"go ahead\"), maintain the current approach including any active subagent delegation. For new implementation tasks, delegate to a specialized subagent."
+    },
+    "agents_only": {
+      "description": "When agents match but no skills - directive delegation",
+      "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
+    },
+    "agents_and_skills": {
+      "description": "When both agents and skills match - directive delegation with skill passing",
+      "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation ONLY if this is a purely informational request with no implementation."
+    },
+    "skills_only": {
+      "description": "When skills match but no agents - direct skill instruction",
+      "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back."
+    },
+    "long_no_match": {
+      "description": "Longer prompts with no keyword matches - reminder with decision framework",
+      "template": "No specific agent/skill match found. If this involves implementation (code, commands, file changes), consider delegating to an appropriate subagent - review available agents via Task(subagent_type=...). Respond directly for informational requests."
+    }
+  },
+
+  "routing_rules": {
+    "description": "Rules for determining when to inject hints",
+    "short_threshold_words": 5,
+    "case_insensitive": true
+  }
+}

@@ -1,7 +1,8 @@
 ---
 name: qa-orchestrator
 description: Quality assurance orchestration and test coordination
-tools: [Read, Write, Edit, Bash]
+tools: Read, Edit, Bash, Glob, Grep, WebFetch, WebSearch, Task, Skill, TodoWrite, NotebookEdit, AskUserQuestion
+skills: test-detector, framework-detector, writing-playwright-tests, smoke-test-runner, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel
 ---
 <!-- DO NOT EDIT - Generated from qa-orchestrator.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

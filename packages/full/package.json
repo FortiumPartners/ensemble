@@ -27,6 +27,7 @@
     "jest": "^29.7.0"
   },
   "peerDependencies": {
+    "@fortium/ensemble-ai": "^5.1.0",
     "@fortium/ensemble-core": "^4.0.0",
     "@fortium/ensemble-product": "^4.0.0",
     "@fortium/ensemble-development": "^4.0.0",
@@ -44,6 +45,7 @@
     "@fortium/ensemble-jest": "^4.0.0",
     "@fortium/ensemble-pytest": "^4.0.0",
     "@fortium/ensemble-rspec": "^4.0.0",
+    "@fortium/ensemble-router": "^5.0.0",
     "@fortium/ensemble-xunit": "^4.0.0",
     "@fortium/ensemble-exunit": "^4.0.0"
   }

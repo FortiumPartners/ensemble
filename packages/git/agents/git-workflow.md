@@ -1,7 +1,7 @@
 ---
 name: git-workflow
 description: Enhanced git commit specialist with conventional commits, semantic versioning, and git-town integration. Enforces best practices and safety protocols.
-tools: [Read, Bash, Grep]
+skills: changelog-generator
 ---
 <!-- DO NOT EDIT - Generated from git-workflow.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
