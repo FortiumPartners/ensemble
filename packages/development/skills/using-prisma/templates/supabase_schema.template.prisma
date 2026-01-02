@@ -1,0 +1,206 @@
+// =============================================================================
+// Supabase Prisma Schema Template
+//
+// Template Variables:
+//   project_ref: Supabase project reference (e.g., "abcdefghijk")
+//   region: AWS region (e.g., "us-east-1")
+//   use_pooler: boolean - Use connection pooler (Supavisor)
+//   pool_mode: "transaction" | "session"
+//   include_auth_reference: boolean - Reference auth.users
+//   preview_features: Array of preview features
+//   schemas: Array of Postgres schemas to use ["public", "private"]
+//
+// Output: prisma/schema.prisma
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Datasource Configuration (Supabase)
+// -----------------------------------------------------------------------------
+
+datasource db {
+  provider  = "postgresql"
+  {% if use_pooler | default(true) %}
+  // Pooled connection for application (Supavisor)
+  // Pool mode: {{ pool_mode | default('transaction') }}
+  url       = env("DATABASE_URL")
+  // Direct connection for migrations (bypasses pooler)
+  directUrl = env("DIRECT_URL")
+  {% else %}
+  // Direct connection (no pooler)
+  url       = env("DATABASE_URL")
+  {% endif %}
+  {% if schemas %}
+  schemas   = [{% for schema in schemas %}"{{ schema }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+  {% endif %}
+}
+
+// -----------------------------------------------------------------------------
+// Generator Configuration
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider        = "prisma-client-js"
+  {% if preview_features %}
+  previewFeatures = [{% for feature in preview_features %}"{{ feature }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+  {% else %}
+  previewFeatures = ["multiSchema"]
+  {% endif %}
+}
+
+// -----------------------------------------------------------------------------
+// Supabase Auth Integration
+// -----------------------------------------------------------------------------
+
+{% if include_auth_reference | default(true) %}
+// Reference Supabase Auth users (read-only from Prisma)
+// This allows joining with auth.users without duplicating data
+model AuthUser {
+  id        String   @id @db.Uuid
+  email     String?
+
+  // Relations to your app models
+  profile   Profile?
+  posts     Post[]
+
+  @@map("users")
+  @@schema("auth")
+}
+{% endif %}
+
+// -----------------------------------------------------------------------------
+// Application Models
+// -----------------------------------------------------------------------------
+
+model Profile {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username  String   @unique
+  fullName  String?  @map("full_name")
+  avatarUrl String?  @map("avatar_url")
+  bio       String?
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  {% if include_auth_reference %}
+  // Link to Supabase Auth
+  userId    String   @unique @map("user_id") @db.Uuid
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  {% else %}
+  // Application-managed user ID (matches auth.users.id)
+  userId    String   @unique @map("user_id") @db.Uuid
+  {% endif %}
+
+  // Relations
+  posts     Post[]
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model Post {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String
+  content     String?
+  slug        String
+  published   Boolean  @default(false)
+  publishedAt DateTime? @map("published_at")
+
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Author
+  authorId    String   @map("author_id") @db.Uuid
+  author      Profile  @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  {% if include_auth_reference %}
+  // Direct auth user link for RLS
+  userId      String   @map("user_id") @db.Uuid
+  user        AuthUser @relation(fields: [userId], references: [id])
+  {% endif %}
+
+  // Indexes
+  @@unique([authorId, slug])
+  @@index([authorId])
+  @@index([published])
+  @@index([createdAt(sort: Desc)])
+
+  @@map("posts")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// Storage Integration (metadata)
+// -----------------------------------------------------------------------------
+
+model StorageObject {
+  id         String   @id @db.Uuid
+  bucket     String
+  name       String
+  owner      String?  @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  metadata   Json?
+
+  @@unique([bucket, name])
+  @@map("objects")
+  @@schema("storage")
+}
+
+// -----------------------------------------------------------------------------
+// Realtime Subscriptions (optional tracking)
+// -----------------------------------------------------------------------------
+
+model RealtimeSubscription {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel      String
+  userId       String   @map("user_id") @db.Uuid
+  subscribedAt DateTime @default(now()) @map("subscribed_at")
+  lastSeen     DateTime @default(now()) @map("last_seen")
+
+  @@unique([channel, userId])
+  @@index([userId])
+  @@map("realtime_subscriptions")
+  @@schema("public")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+
+  @@schema("public")
+}
+
+// =============================================================================
+// Environment Variables
+// =============================================================================
+
+// .env.local example:
+//
+// # Pooled connection (for application - uses Supavisor)
+// DATABASE_URL="postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?pgbouncer=true"
+//
+// # Direct connection (for migrations - bypasses pooler)
+// DIRECT_URL="postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:5432/postgres"
+//
+// # Alternative: Direct to database (not recommended for serverless)
+// # DIRECT_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres"
+
+// =============================================================================
+// Connection URL Patterns
+// =============================================================================
+
+// Supavisor (recommended for serverless):
+//   postgres://[USER].[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+//   - Port 6543 = Transaction mode (releases on statement end)
+//   - Port 5432 = Session mode (releases on connection close)
+//
+// Direct connection (for migrations):
+//   postgres://[USER]:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+//
+// Note: Always use Supavisor for Edge Functions and serverless deployments

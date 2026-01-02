@@ -1,5 +1,5 @@
 ---
-name: implement-trd
+name: implement-trd-enhanced
 description: Complete TRD implementation with flexible strategies, state tracking, constitution guardrails, and ensemble-orchestrator delegation
 version: 2.0.0
 category: implementation

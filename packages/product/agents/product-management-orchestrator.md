@@ -1,7 +1,7 @@
 ---
 name: product-management-orchestrator
 description: Product lifecycle orchestrator managing requirements gathering, stakeholder alignment, feature prioritization, roadmap planning, and user experience coordination
-tools: [Read, Write, Edit, Bash, Task, TodoWrite, Grep, Glob]
+skills: managing-jira-issues, managing-linear-issues
 ---
 <!-- DO NOT EDIT - Generated from product-management-orchestrator.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
