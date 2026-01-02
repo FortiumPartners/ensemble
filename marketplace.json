@@ -217,6 +217,15 @@
       "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
     },
     {
+      "name": "ensemble-ai",
+      "version": "5.1.0",
+      "source": "./packages/ai",
+      "description": "AI platform integrations (Anthropic, OpenAI, Perplexity, Weaviate, LangGraph)",
+      "category": "frameworks",
+      "tags": ["ai", "anthropic", "openai", "perplexity", "weaviate", "langgraph"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
       "name": "ensemble-full",
       "version": "5.1.0",
       "source": "./packages/full",

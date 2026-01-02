@@ -1,7 +1,7 @@
 ---
 name: test-runner
 description: Unit and integration test execution with intelligent failure triage and debugging
-tools: [Read, Bash, Grep]
+skills: test-detector, framework-detector, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework
 ---
 <!-- DO NOT EDIT - Generated from test-runner.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

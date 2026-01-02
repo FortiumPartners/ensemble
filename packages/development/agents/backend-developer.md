@@ -1,7 +1,7 @@
 ---
 name: backend-developer
 description: Implement server-side logic across languages/stacks; enforce clean architecture and boundaries
-tools: [Read, Write, Edit, Bash, Grep, Glob]
+skills: developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents
 ---
 <!-- DO NOT EDIT - Generated from backend-developer.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
