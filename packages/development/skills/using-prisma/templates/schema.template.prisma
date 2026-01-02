@@ -1,0 +1,121 @@
+// =============================================================================
+// Prisma Schema Template
+//
+// Template Variables:
+//   provider: "postgresql" | "mysql" | "sqlite" | "sqlserver"
+//   url_env: Environment variable for database URL
+//   direct_url_env: Environment variable for direct URL (pooled connections)
+//   preview_features: Array of preview features to enable
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Datasource Configuration
+// -----------------------------------------------------------------------------
+
+datasource db {
+  provider  = "{{ provider | default('postgresql') }}"
+  url       = env("{{ url_env | default('DATABASE_URL') }}")
+  {% if direct_url_env %}
+  directUrl = env("{{ direct_url_env }}")
+  {% endif %}
+  {% if relation_mode %}
+  relationMode = "{{ relation_mode }}"  // For PlanetScale
+  {% endif %}
+}
+
+// -----------------------------------------------------------------------------
+// Generator Configuration
+// -----------------------------------------------------------------------------
+
+generator client {
+  provider        = "prisma-client-js"
+  {% if preview_features %}
+  previewFeatures = [{% for feature in preview_features %}"{{ feature }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+  {% endif %}
+}
+
+{% if generate_zod %}
+generator zod {
+  provider = "zod-prisma-types"
+  output   = "../src/generated/zod"
+}
+{% endif %}
+
+// -----------------------------------------------------------------------------
+// Models
+// -----------------------------------------------------------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  {% if soft_delete %}
+  // Soft delete
+  deletedAt DateTime?
+  {% endif %}
+
+  // Relations
+  posts     Post[]
+  profile   Profile?
+
+  // Indexes
+  @@index([email])
+  {% if soft_delete %}
+  @@index([deletedAt])
+  {% endif %}
+}
+
+model Profile {
+  id     String  @id @default(cuid())
+  bio    String?
+  avatar String?
+
+  // Relations
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  slug      String
+  published Boolean  @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  {% if soft_delete %}
+  // Soft delete
+  deletedAt DateTime?
+  {% endif %}
+
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+
+  // Indexes
+  @@unique([authorId, slug])
+  @@index([authorId])
+  @@index([published])
+  {% if soft_delete %}
+  @@index([deletedAt])
+  {% endif %}
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
