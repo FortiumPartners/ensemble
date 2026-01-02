@@ -83,36 +83,36 @@ def sample_rules():
         },
         "injection_templates": {
             "short_no_match": {
-                "description": "Short prompts with no matches",
-                "template": "You are an orchestrator, not an implementer. If this request involves any implementation (code, commands, file changes), delegate to an appropriate subagent. Only respond directly if this is: (1) a clarifying question, (2) a direct factual question, or (3) acknowledgment/conversation."
+                "description": "Short prompts with no matches - context-aware continuation",
+                "template": "Short prompt - review conversation context. If continuing established work (e.g., \"proceed\", \"go ahead\"), maintain the current approach including any active subagent delegation. For new implementation tasks, delegate to a specialized subagent."
             },
             "agents_only": {
-                "description": "When agents match but no skills",
-                "template": "You MUST delegate to one of these subagents:\n{agent_list}\n\nYou are an orchestrator - implementation belongs in subagents, not this session. The ONLY exceptions: (1) answering a direct question about concepts, (2) reading files to provide information, (3) pure conversation. If the task involves ANY implementation, commands, or file changes - delegate."
+                "description": "When agents match but no skills - directive delegation",
+                "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
             },
             "agents_and_skills": {
-                "description": "When both agents and skills match",
-                "template": "You MUST delegate to one of these subagents:\n{agent_list}\n\nPass these skills in the Task prompt: {skill_list}\n\nYou are an orchestrator - all implementation belongs in subagents. Do NOT execute commands, write code, or modify files directly."
+                "description": "When both agents and skills match - directive delegation with skill passing",
+                "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation ONLY if this is a purely informational request with no implementation."
             },
             "skills_only": {
-                "description": "When skills match but no agents",
-                "template": "Use these specialized skill(s): {skill_list}\n\nInvoke directly or pass to a subagent. These skills exist because the task requires specialized handling."
+                "description": "When skills match but no agents - direct skill instruction",
+                "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back."
             },
             "long_no_match": {
-                "description": "Longer prompts with no matches",
-                "template": "You are an orchestrator. If this request involves implementation (code, commands, file changes), delegate to an appropriate subagent. Respond directly only for: questions, information lookup, or conversation."
+                "description": "Longer prompts with no matches - reminder with decision framework",
+                "template": "No specific agent/skill match found. If this involves implementation (code, commands, file changes), consider delegating to an appropriate subagent - review available agents via Task(subagent_type=...). Respond directly for informational requests."
             },
             "project_agents_only": {
-                "description": "Project-specific agents matched - NO ESCAPE HATCH",
-                "template": "MANDATORY DELEGATION. These subagents are configured for this project:\n{agent_list}\n\nProject-specific matches indicate this task requires specialist handling. You MUST delegate - no exceptions."
+                "description": "Project-specific agents matched",
+                "template": "Project-configured match. Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\nRespond directly only if this is clearly a mismatch, or for clarifying questions and factual lookups."
             },
             "project_skills_only": {
-                "description": "Project-specific skills matched - NO ESCAPE HATCH",
-                "template": "MANDATORY: Use these project-configured skill(s): {skill_list}\n\nThese skills exist because the project requires specific tooling. You MUST use them."
+                "description": "Project-specific skills matched",
+                "template": "Project-configured skill(s): {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back.\n\nSkip only if this is clearly a mismatch."
             },
             "project_agents_and_skills": {
-                "description": "Project-specific agents and skills matched - NO ESCAPE HATCH",
-                "template": "MANDATORY DELEGATION WITH PROJECT SKILLS.\n\nDelegate to one of these subagents:\n{agent_list}\n\nPass these project skills in the Task prompt: {skill_list}\n\nProject-specific matches are NOT optional."
+                "description": "Project-specific agents and skills matched",
+                "template": "Project-configured match. Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation only if this is clearly a mismatch or purely informational."
             },
         },
     }
@@ -894,7 +894,8 @@ class TestBuildShortNoMatchHint:
     def test_generates_hint(self, sample_rules):
         """Test short no match hint is generated."""
         hint = build_short_no_match_hint(sample_rules)
-        assert "orchestrator" in hint
+        assert "Short prompt" in hint
+        assert "conversation context" in hint
         assert "delegate" in hint.lower()
 
 
@@ -904,8 +905,8 @@ class TestBuildLongNoMatchHint:
     def test_generates_hint(self, sample_rules):
         """Test long no match hint is generated."""
         hint = build_long_no_match_hint(sample_rules)
-        assert "orchestrator" in hint
-        assert "delegate" in hint.lower()
+        assert "No specific agent/skill match" in hint
+        assert "delegating" in hint.lower()
 
 
 class TestBuildAgentsOnlyHint:
@@ -920,7 +921,8 @@ class TestBuildAgentsOnlyHint:
         )
         hint = build_agents_only_hint(result, sample_rules)
         assert "frontend-developer" in hint
-        assert "MUST delegate" in hint
+        assert "Delegate implementation" in hint
+        assert "orchestrator" in hint
 
     def test_project_specific_hint(self, sample_rules):
         """Test project-specific agents get stronger language."""
@@ -932,7 +934,8 @@ class TestBuildAgentsOnlyHint:
             has_project_matches=True,
         )
         hint = build_agents_only_hint(result, sample_rules)
-        assert "MANDATORY" in hint
+        assert "Project-configured" in hint
+        assert "clearly a mismatch" in hint
 
 
 class TestBuildSkillsOnlyHint:
@@ -945,6 +948,17 @@ class TestBuildSkillsOnlyHint:
         assert "skill(s)" in hint
         assert "jest" in hint
         assert "vercel" in hint
+
+    def test_project_specific_hint(self, sample_rules):
+        """Test project-specific skills get appropriate language."""
+        result = MatchResult(
+            matched_skills=["jest", "vercel"],
+            project_matched_skills=["jest"],
+            has_project_matches=True,
+        )
+        hint = build_skills_only_hint(result, sample_rules)
+        assert "Project-configured" in hint
+        assert "clearly a mismatch" in hint
 
 
 class TestBuildAgentsAndSkillsHint:
@@ -961,6 +975,23 @@ class TestBuildAgentsAndSkillsHint:
         hint = build_agents_and_skills_hint(result, sample_rules)
         assert "frontend-developer" in hint
         assert "jest" in hint
+
+    def test_project_specific_hint(self, sample_rules):
+        """Test project-specific agents and skills get appropriate language."""
+        result = MatchResult(
+            matched_agents=[
+                {"name": "frontend-developer", "purpose": "UI development"},
+            ],
+            matched_skills=["jest", "vercel"],
+            project_matched_agents=["frontend-developer"],
+            project_matched_skills=["jest"],
+            has_project_matches=True,
+        )
+        hint = build_agents_and_skills_hint(result, sample_rules)
+        assert "Project-configured" in hint
+        assert "clearly a mismatch" in hint
+        assert "frontend-developer" in hint
+        assert "jest" in hint
         assert "Task prompt" in hint
 
 
@@ -972,10 +1003,10 @@ class TestBuildHint:
         result = MatchResult(matched_skills=["jest"])
 
         hint = build_hint(Scenario.SHORT_NO_MATCH, result, sample_rules)
-        assert "orchestrator" in hint
+        assert "Short prompt" in hint
 
         hint = build_hint(Scenario.LONG_NO_MATCH, result, sample_rules)
-        assert "orchestrator" in hint
+        assert "No specific agent/skill match" in hint
 
         hint = build_hint(Scenario.SKILLS_ONLY, result, sample_rules)
         assert "jest" in hint
@@ -997,7 +1028,7 @@ class TestBuildOutput:
         result = MatchResult(word_count=2, match_count=0)
         output = build_output(result, sample_rules, config)
         assert "additionalContext" in output["hookSpecificOutput"]
-        assert "orchestrator" in output["hookSpecificOutput"]["additionalContext"]
+        assert "Short prompt" in output["hookSpecificOutput"]["additionalContext"]
 
     def test_agents_only_hint(self, sample_rules, config):
         """Test agents only gets appropriate hint."""
@@ -1077,7 +1108,7 @@ class TestIntegration:
 
         assert result.word_count < config.short_threshold
         assert result.match_count == 0
-        assert "orchestrator" in output["hookSpecificOutput"]["additionalContext"]
+        assert "Short prompt" in output["hookSpecificOutput"]["additionalContext"]
 
     def test_full_flow_long_no_match(self, sample_rules, config):
         """Test full flow with long prompt, no matches."""
@@ -1087,7 +1118,7 @@ class TestIntegration:
 
         assert result.word_count >= config.short_threshold
         assert result.match_count == 0
-        assert "orchestrator" in output["hookSpecificOutput"]["additionalContext"]
+        assert "No specific agent/skill match" in output["hookSpecificOutput"]["additionalContext"]
 
     def test_question_prompts_not_blocked(self, sample_rules, config):
         """Test that question prompts (formerly anti-routed) are not blocked."""

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "generated": "2025-12-28T18:30:00Z",
+  "generated": "2026-01-02T02:30:00Z",
   "description": "Router manifest generated from introspecting installed agents and skills",
   "source": "generate-router-manifest command",
 
@@ -328,40 +328,90 @@
   },
 
   "skills": {
-    "jira": {
-      "triggers": ["jira", "confluence", "atlassian", "ticket", "issue tracking", "sprint board"],
-      "patterns": ["jira.*issue", "confluence.*page", "create.*ticket"],
-      "purpose": "Intelligent orchestration of Jira/Confluence interactions"
+    "act-local-ci": {
+      "triggers": ["act", "local ci", "test github actions", "run workflow locally", "nektos act"],
+      "patterns": ["act.*run", "local.*workflow"],
+      "purpose": "Test GitHub Actions workflows locally using nektos/act"
     },
-    "linear": {
-      "triggers": ["linear", "linear.app", "issue", "cycle", "linearis"],
-      "patterns": ["linear.*issue", "create.*linear", "linear.*sprint"],
-      "purpose": "Linear.app issue management using Linearis CLI with JSON output"
+    "aws-cloud": {
+      "triggers": ["aws", "amazon web services", "ec2", "s3", "lambda", "cloudformation", "cdk", "aws cdk"],
+      "patterns": ["aws.*deploy", "cdk.*synth", "cloudformation.*stack"],
+      "purpose": "AWS cloud infrastructure provisioning and services"
     },
-    "vercel": {
-      "triggers": ["vercel", "nextjs", "next.js", "edge function", "preview deployment", "vercel deploy"],
-      "patterns": ["deploy.*vercel", "vercel.*deploy", "next.*app"],
-      "purpose": "Vercel platform CLI for frontend deployments, serverless functions, edge network"
+    "blazor": {
+      "triggers": ["blazor", "blazor server", "blazor wasm", "blazor webassembly", "razor component", "razor page"],
+      "patterns": ["blazor.*component", "@code.*block"],
+      "purpose": "Blazor component development for .NET applications"
     },
-    "railway": {
-      "triggers": ["railway", "railway.app", "railway deploy", "railway service"],
-      "patterns": ["deploy.*railway", "railway.*deploy"],
-      "purpose": "Railway platform CLI for service deployment, infrastructure management"
+    "building-langgraph-agents": {
+      "triggers": ["langgraph", "multi-agent", "agent workflow", "cyclic workflow", "agentic", "agent orchestration"],
+      "patterns": ["langgraph.*agent", "state.*graph", "agent.*workflow"],
+      "purpose": "LangGraph development for stateful multi-agent applications and cyclic workflows"
     },
-    "supabase": {
-      "triggers": ["supabase", "supabase edge function", "supabase migration", "supabase db"],
-      "patterns": ["supabase.*function", "supabase.*db", "supabase.*migrate"],
-      "purpose": "Supabase CLI for database management, Edge Functions, migrations"
+    "changelog-generator": {
+      "triggers": ["changelog", "generate changelog", "conventional commits changelog", "release notes"],
+      "patterns": ["generate.*changelog", "changelog.*generate"],
+      "purpose": "Parse conventional commits and generate categorized changelog"
     },
-    "flutter": {
-      "triggers": ["flutter", "dart", "widget", "flutter build", "flutter run"],
-      "patterns": ["flutter.*app", "build.*flutter", "flutter.*widget"],
+    "cloud-provider-detector": {
+      "triggers": ["detect cloud", "which cloud", "aws or gcp", "cloud provider"],
+      "patterns": ["detect.*cloud", "cloud.*provider"],
+      "purpose": "Auto-detect AWS, GCP, or Azure usage with multi-signal analysis"
+    },
+    "developing-with-flutter": {
+      "triggers": ["flutter", "dart", "flutter widget", "flutter build", "flutter state"],
+      "patterns": ["flutter.*widget", "flutter.*build"],
       "purpose": "Flutter SDK for cross-platform development targeting iOS, Android, and Web"
     },
-    "nestjs": {
-      "triggers": ["nestjs", "nest.js", "nest module", "nest controller", "nest service"],
-      "patterns": ["nest.*module", "nest.*service", "nest.*controller"],
-      "purpose": "NestJS Node.js/TypeScript backend framework with dependency injection"
+    "developing-with-laravel": {
+      "triggers": ["laravel", "eloquent", "artisan", "blade template", "laravel migration", "laravel queue"],
+      "patterns": ["laravel.*app", "artisan.*make", "eloquent.*model"],
+      "purpose": "Laravel framework patterns for PHP applications including Eloquent ORM, migrations, routing, queues, and Blade templates"
+    },
+    "developing-with-php": {
+      "triggers": ["php", "composer", "php 8", "php type", "php enum", "php attribute"],
+      "patterns": ["php.*class", "composer.*require"],
+      "purpose": "Modern PHP 8.x development with type system, attributes, enums, error handling, and Composer"
+    },
+    "developing-with-python": {
+      "triggers": ["python", "fastapi", "type hint", "async python", "pydantic", "poetry"],
+      "patterns": ["python.*app", "fastapi.*route", "def.*async"],
+      "purpose": "Python 3.11+ development with type hints, async patterns, FastAPI, and pytest"
+    },
+    "developing-with-react": {
+      "triggers": ["react", "react hook", "react component", "jsx", "tsx", "next.js", "nextjs"],
+      "patterns": ["react.*component", "use[A-Z].*hook"],
+      "purpose": "React 18+ development with hooks, state management, component patterns, and Next.js integration"
+    },
+    "developing-with-typescript": {
+      "triggers": ["typescript", "ts config", "type guard", "generics", "utility type", "strict mode"],
+      "patterns": ["typescript.*config", "interface.*\\{", "type.*="],
+      "purpose": "TypeScript 5.x development with type system, generics, utility types, and strict mode patterns"
+    },
+    "dotnet-framework": {
+      "triggers": ["dotnet", ".net", "asp.net", "entity framework", "c# api", "dotnet core"],
+      "patterns": ["\\.net.*app", "dotnet.*new", "entity.*framework"],
+      "purpose": ".NET 8+ with ASP.NET Core patterns and Entity Framework"
+    },
+    "exunit": {
+      "triggers": ["exunit", "elixir test", "mix test", "elixir spec"],
+      "patterns": ["mix.*test", "exunit.*test"],
+      "purpose": "Execute and generate ExUnit tests for Elixir projects"
+    },
+    "flyio": {
+      "triggers": ["fly.io", "fly", "flyctl", "fly deploy", "fly scale", "fly launch"],
+      "patterns": ["fly.*deploy", "flyctl.*"],
+      "purpose": "Fly.io deployment and application scaling"
+    },
+    "framework-detector": {
+      "triggers": ["detect framework", "what framework", "identify framework", "which framework"],
+      "patterns": ["detect.*framework", "which.*framework"],
+      "purpose": "Multi-signal framework detection with confidence scoring"
+    },
+    "helm": {
+      "triggers": ["helm", "helm chart", "helm install", "helm upgrade", "helm values", "values.yaml"],
+      "patterns": ["helm.*install", "helm.*upgrade", "helm.*template"],
+      "purpose": "Kubernetes Helm chart management and templating"
     },
     "jest": {
       "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test",
@@ -369,190 +419,169 @@
       "patterns": ["run.*jest", "jest.*test", "npm.*test"],
       "purpose": "Execute and generate Jest tests for JavaScript/TypeScript projects"
     },
-    "pytest": {
-      "triggers": ["pytest", "python test", "py.test", "fixture", "parametrize"],
-      "patterns": ["run.*pytest", "pytest.*test", "python.*-m.*pytest"],
-      "purpose": "Execute and generate pytest tests for Python projects"
-    },
-    "rspec": {
-      "triggers": ["rspec", "ruby test", "rails test", "spec", "describe block"],
-      "patterns": ["run.*rspec", "rspec.*spec", "bundle.*exec.*rspec"],
-      "purpose": "Execute and generate RSpec tests for Ruby/Rails projects"
-    },
-    "exunit": {
-      "triggers": ["exunit", "elixir test", "mix test", "elixir spec"],
-      "patterns": ["mix.*test", "exunit.*test"],
-      "purpose": "Execute and generate ExUnit tests for Elixir projects"
-    },
-    "xunit": {
-      "triggers": ["xunit", "dotnet test", "c# test", "csharp test", ".net test"],
-      "patterns": ["dotnet.*test", "xunit.*test"],
-      "purpose": "Execute and generate xUnit tests for C#/.NET projects"
-    },
-    "react": {
-      "triggers": ["react", "jsx", "react component", "react hook", "useState", "useEffect", "useContext", "useMemo",
-                   "react router", "react query", "tanstack", "SWR", "suspense", "server component", "RSC"],
-      "patterns": ["react.*component", "use[A-Z]\\w+.*hook"],
-      "purpose": "React component development patterns and hooks"
-    },
-    "rails": {
-      "triggers": ["rails", "ruby on rails", "activerecord", "rails migration", "rails model", "rails controller"],
-      "patterns": ["rails.*generate", "rake.*db", "bundle.*exec.*rails"],
-      "purpose": "Ruby on Rails application development patterns"
-    },
-    "phoenix": {
-      "triggers": ["phoenix", "liveview", "phoenix liveview", "ecto", "phoenix channel", "heex"],
-      "patterns": ["mix.*phx", "phoenix.*live"],
-      "purpose": "Phoenix/Elixir application development with LiveView"
-    },
-    "blazor": {
-      "triggers": ["blazor", "blazor server", "blazor wasm", "blazor webassembly", "razor component", "razor page"],
-      "patterns": ["blazor.*component", "@code.*block"],
-      "purpose": "Blazor component development for .NET applications"
-    },
-    "aws-cloud": {
-      "triggers": ["aws", "amazon web services", "ec2", "s3", "lambda", "cloudformation", "cdk", "aws cdk"],
-      "patterns": ["aws.*deploy", "cdk.*synth", "cloudformation.*stack"],
-      "purpose": "AWS cloud infrastructure provisioning and services"
-    },
-    "flyio": {
-      "triggers": ["fly.io", "fly", "flyctl", "fly deploy", "fly scale", "fly launch"],
-      "patterns": ["fly.*deploy", "flyctl.*"],
-      "purpose": "Fly.io deployment and application scaling"
-    },
-    "helm": {
-      "triggers": ["helm", "helm chart", "helm install", "helm upgrade", "helm values", "values.yaml"],
-      "patterns": ["helm.*install", "helm.*upgrade", "helm.*template"],
-      "purpose": "Kubernetes Helm chart management and templating"
-    },
     "kubernetes": {
       "triggers": ["kubernetes", "k8s", "kubectl", "pod", "deployment", "service", "ingress", "configmap",
                    "kustomize", "k9s", "lens", "namespace", "secret", "pvc", "statefulset", "daemonset", "HPA"],
       "patterns": ["kubectl.*apply", "kubectl.*get", "k8s.*deploy"],
       "purpose": "Kubernetes cluster and workload management"
     },
-    "graphql": {
-      "triggers": ["graphql", "apollo", "gql", "mutation", "subscription", "resolver", "schema"],
-      "patterns": ["query\\s*\\{", "mutation\\s*\\{", "type\\s+Query"],
-      "purpose": "GraphQL API development and schema management"
+    "managing-jira-issues": {
+      "triggers": ["jira", "jira issue", "jira ticket", "jira sprint", "jira board", "atlassian jira", "confluence"],
+      "patterns": ["jira.*issue", "create.*jira", "jira.*sprint"],
+      "purpose": "Jira issue management using the jira CLI with JSON output"
     },
-    "docker": {
-      "triggers": ["docker", "dockerfile", "docker-compose", "container", "image", "registry"],
-      "patterns": ["FROM\\s+", "docker\\s+(build|run|compose)", "ENTRYPOINT"],
-      "purpose": "Docker container building and orchestration"
+    "managing-linear-issues": {
+      "triggers": ["linear", "linear issue", "linear cycle", "linear project", "linearis", "linear.app"],
+      "patterns": ["linear.*issue", "create.*linear"],
+      "purpose": "Linear.app issue management using Linearis CLI with JSON output and smart ID resolution"
     },
-    "tailwind": {
-      "triggers": ["tailwind", "tailwindcss", "utility class", "tailwind config"],
-      "patterns": ["@tailwind", "className=.*\\b(flex|grid|bg-|text-|p-|m-)"],
-      "purpose": "Tailwind CSS styling and configuration"
+    "managing-railway": {
+      "triggers": ["railway", "railway deploy", "railway service", "railway logs", "railway.app"],
+      "patterns": ["railway.*deploy", "railway.*service"],
+      "purpose": "Railway platform CLI for service deployment, infrastructure management, and debugging"
+    },
+    "managing-supabase": {
+      "triggers": ["supabase", "supabase db", "supabase edge", "supabase migration", "supabase function"],
+      "patterns": ["supabase.*db", "supabase.*function"],
+      "purpose": "Supabase CLI for database management, Edge Functions, migrations, and local development"
+    },
+    "managing-vercel": {
+      "triggers": ["vercel", "vercel deploy", "vercel domain", "vercel env", "vercel logs", "nextjs deploy"],
+      "patterns": ["vercel.*deploy", "vercel.*domain"],
+      "purpose": "Vercel platform CLI for frontend deployments, serverless functions, and edge network management"
+    },
+    "nestjs": {
+      "triggers": ["nestjs", "nest.js", "nest module", "nest controller", "nest service"],
+      "patterns": ["nest.*module", "nest.*service", "nest.*controller"],
+      "purpose": "NestJS Node.js/TypeScript backend framework with dependency injection"
+    },
+    "phoenix": {
+      "triggers": ["phoenix", "liveview", "phoenix liveview", "ecto", "phoenix channel", "heex"],
+      "patterns": ["mix.*phx", "phoenix.*live"],
+      "purpose": "Phoenix/Elixir application development with LiveView"
+    },
+    "pytest": {
+      "triggers": ["pytest", "python test", "py.test", "fixture", "parametrize"],
+      "patterns": ["run.*pytest", "pytest.*test", "python.*-m.*pytest"],
+      "purpose": "Execute and generate pytest tests for Python projects"
+    },
+    "rails": {
+      "triggers": ["rails", "ruby on rails", "activerecord", "rails migration", "rails model", "rails controller"],
+      "patterns": ["rails.*generate", "rake.*db", "bundle.*exec.*rails"],
+      "purpose": "Ruby on Rails application development patterns"
+    },
+    "rspec": {
+      "triggers": ["rspec", "ruby test", "rails test", "spec", "describe block"],
+      "patterns": ["run.*rspec", "rspec.*spec", "bundle.*exec.*rspec"],
+      "purpose": "Execute and generate RSpec tests for Ruby/Rails projects"
+    },
+    "smoke-test-api": {
+      "triggers": ["api smoke test", "test api endpoints", "api health"],
+      "patterns": ["smoke.*api", "api.*smoke"],
+      "purpose": "Smoke test API endpoints for health and basic functionality"
+    },
+    "smoke-test-auth": {
+      "triggers": ["auth smoke test", "test authentication", "login test"],
+      "patterns": ["smoke.*auth", "auth.*smoke"],
+      "purpose": "Smoke test authentication flows"
+    },
+    "smoke-test-critical-paths": {
+      "triggers": ["critical path test", "happy path test", "core flow test"],
+      "patterns": ["critical.*path", "happy.*path"],
+      "purpose": "Smoke test critical user paths and core application flows"
+    },
+    "smoke-test-database": {
+      "triggers": ["database smoke test", "db smoke test", "test database connection"],
+      "patterns": ["smoke.*db", "database.*smoke"],
+      "purpose": "Smoke test database connectivity and basic operations"
+    },
+    "smoke-test-external-services": {
+      "triggers": ["external service test", "third party test", "integration smoke test"],
+      "patterns": ["external.*service", "third.*party.*test"],
+      "purpose": "Smoke test external service integrations"
+    },
+    "smoke-test-runner": {
+      "triggers": ["smoke test", "sanity test", "quick test", "health check test", "critical path test"],
+      "patterns": ["smoke.*test", "sanity.*check"],
+      "purpose": "Orchestrates smoke test categories for API, auth, database, and critical path validation"
+    },
+    "styling-with-tailwind": {
+      "triggers": ["tailwind", "tailwindcss", "tailwind config", "utility class", "tailwind theme"],
+      "patterns": ["tailwind.*config", "@tailwind"],
+      "purpose": "Utility-first CSS styling patterns using Tailwind CSS 3.x"
     },
     "test-detector": {
       "triggers": ["detect test framework", "what test framework", "which testing"],
       "patterns": ["detect.*test", "which.*test.*framework"],
       "purpose": "Automatically detect test frameworks in projects"
     },
-    "framework-detector": {
-      "triggers": ["detect framework", "what framework", "identify framework", "which framework"],
-      "patterns": ["detect.*framework", "which.*framework"],
-      "purpose": "Multi-signal framework detection with confidence scoring"
+    "tooling-detector": {
+      "triggers": ["detect tooling", "which tools", "infrastructure tools", "detect helm", "detect kubernetes"],
+      "patterns": ["detect.*tool", "which.*infrastructure"],
+      "purpose": "Automatic detection of infrastructure tooling (Helm, Kubernetes, Kustomize, ArgoCD)"
     },
-    "create-prd": {
-      "triggers": ["create prd", "write prd", "product requirements", "new prd"],
-      "patterns": ["prd.*for", "requirements.*document", "create.*product.*req"],
-      "purpose": "Create comprehensive Product Requirements Document from product description"
+    "using-anthropic-platform": {
+      "triggers": ["anthropic", "claude api", "claude sdk", "messages api", "tool use", "extended thinking"],
+      "patterns": ["anthropic.*client", "messages.*create", "claude.*api"],
+      "purpose": "Claude SDK development with Messages API, Tool Use, Extended Thinking, streaming, and prompt caching"
     },
-    "create-trd": {
-      "triggers": ["create trd", "write trd", "technical requirements", "new trd", "technical design"],
-      "patterns": ["trd.*for", "technical.*design", "create.*technical.*req"],
-      "purpose": "Create Technical Requirements Document from existing PRD"
+    "using-celery": {
+      "triggers": ["celery", "celery task", "celery beat", "task queue", "celery worker", "redis broker"],
+      "patterns": ["celery.*task", "@task.*def", "celery.*beat"],
+      "purpose": "Celery 5.3+ distributed task queue with Beat scheduler, Redis/RabbitMQ brokers, workflow patterns"
     },
-    "refine-prd": {
-      "triggers": ["refine prd", "update prd", "improve prd", "revise prd"],
-      "patterns": ["refine.*prd", "update.*requirements"],
-      "purpose": "Refine and enhance existing PRD with stakeholder feedback"
+    "using-openai-platform": {
+      "triggers": ["openai", "gpt", "openai api", "chat completions", "openai embedding", "gpt-4", "gpt-5"],
+      "patterns": ["openai.*client", "chat.*completions", "openai.*embed"],
+      "purpose": "OpenAI SDK development with GPT-5 family, Chat Completions, Responses API, embeddings, and tool calling"
     },
-    "refine-trd": {
-      "triggers": ["refine trd", "update trd", "improve trd", "revise trd"],
-      "patterns": ["refine.*trd", "update.*technical"],
-      "purpose": "Refine and enhance existing TRD with additional detail"
+    "using-perplexity-platform": {
+      "triggers": ["perplexity", "sonar", "perplexity api", "search augmented", "pplx"],
+      "patterns": ["perplexity.*client", "sonar.*api"],
+      "purpose": "Perplexity Sonar API development with search-augmented generation, real-time web search, and citations"
     },
-    "implement-trd": {
-      "triggers": ["implement trd", "execute trd", "build from trd", "start implementation"],
-      "patterns": ["implement.*trd", "execute.*tasks"],
-      "purpose": "Complete TRD implementation with flexible strategies and state tracking"
+    "using-prisma": {
+      "triggers": ["prisma", "prisma schema", "prisma migrate", "prisma client", "prisma studio"],
+      "patterns": ["prisma.*schema", "prisma.*migrate", "@prisma/client"],
+      "purpose": "Prisma 5+ ORM with schema-first design, type-safe client, migrations, and database integrations"
     },
-    "implement-spec": {
-      "triggers": ["implement spec", "execute spec", "build from spec"],
-      "patterns": ["implement.*spec"],
-      "purpose": "Implement speckit task plan using Fortium development framework"
+    "using-weaviate": {
+      "triggers": ["weaviate", "vector database", "semantic search", "embedding", "vector store"],
+      "patterns": ["weaviate.*client", "vector.*search"],
+      "purpose": "Weaviate vector database for semantic search, hybrid queries, and AI-native applications"
     },
-    "release": {
-      "triggers": ["release", "create release", "publish release", "version release"],
-      "patterns": ["release.*version", "publish.*release", "cut.*release"],
-      "purpose": "Automated release workflow orchestration with quality gates"
+    "writing-playwright-tests": {
+      "triggers": ["playwright test", "e2e test", "playwright selector", "page object", "playwright fixture"],
+      "patterns": ["playwright.*test", "page\\..*\\(", "expect.*toBeVisible"],
+      "purpose": "E2E test scripts with Playwright focusing on selector strategies, page objects, and wait handling"
     },
-    "init-project": {
-      "triggers": ["init project", "initialize project", "setup project", "new project"],
-      "patterns": ["init.*project", "setup.*ai", "initialize.*project"],
-      "purpose": "Initialize project with constitution, standards, and docs structure"
-    },
-    "fold-prompt": {
-      "triggers": ["fold prompt", "optimize context", "reduce context", "context management"],
-      "patterns": ["fold.*prompt", "optimize.*context"],
-      "purpose": "Advanced Claude environment optimization through intelligent context management"
-    },
-    "sprint-status": {
-      "triggers": ["sprint status", "sprint report", "current sprint", "sprint progress"],
-      "patterns": ["sprint.*status", "status.*sprint"],
-      "purpose": "Generate current sprint status report with task completion and blockers"
-    },
-    "manager-dashboard": {
-      "triggers": ["manager dashboard", "productivity metrics", "team analytics", "dev metrics"],
-      "patterns": ["manager.*dashboard", "team.*metrics", "productivity.*dashboard"],
-      "purpose": "Generate real-time productivity metrics and team analytics dashboard"
-    },
-    "analyze-product": {
-      "triggers": ["analyze product", "product analysis", "improvement roadmap", "brownfield"],
-      "patterns": ["analyze.*product", "product.*analysis"],
-      "purpose": "Analyze existing brownfield project and generate improvement roadmap"
-    },
-    "generate-api-docs": {
-      "triggers": ["generate api docs", "api documentation", "openapi docs", "swagger docs"],
-      "patterns": ["generate.*api.*doc", "create.*swagger", "openapi.*generate"],
-      "purpose": "Generate comprehensive OpenAPI/Swagger API documentation from codebase"
-    },
-    "web-metrics-dashboard": {
-      "triggers": ["web metrics", "core web vitals", "performance dashboard", "lighthouse"],
-      "patterns": ["web.*metrics", "core.*vitals", "performance.*metrics"],
-      "purpose": "Generate web performance metrics dashboard with Core Web Vitals"
-    },
-    "claude-changelog": {
-      "triggers": ["claude changelog", "claude updates", "what's new claude", "claude features"],
-      "patterns": ["claude.*changelog", "claude.*update"],
-      "purpose": "Track Claude updates and new features directly from your development environment"
+    "xunit": {
+      "triggers": ["xunit", "dotnet test", "c# test", "csharp test", ".net test"],
+      "patterns": ["dotnet.*test", "xunit.*test"],
+      "purpose": "Execute and generate xUnit tests for C#/.NET projects"
     }
   },
 
   "injection_templates": {
     "short_no_match": {
-      "description": "Short prompts (< 5 words) with no keyword matches - reference conversation context",
-      "template": "Consider the current conversation context and leverage an expert subagent or specialized skill(s) if they're a good fit for the request, but do not over-delegate if a simple, single-turn response will be sufficient."
+      "description": "Short prompts (< 5 words) with no keyword matches - context-aware continuation",
+      "template": "Short prompt - review conversation context. If continuing established work (e.g., \"proceed\", \"go ahead\"), maintain the current approach including any active subagent delegation. For new implementation tasks, delegate to a specialized subagent."
     },
     "agents_only": {
-      "description": "When agents match but no skills - recommend agents with caveat",
-      "template": "Recommend one of the following subagents be utilized in servicing this request:\n{agent_list}\n\nHowever, if your assessment based on the full context of the request is that these subagents are not appropriate, do not over- or mis-delegate."
+      "description": "When agents match but no skills - directive delegation",
+      "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
     },
     "agents_and_skills": {
-      "description": "When both agents and skills match - recommend both with explicit Task prompt guidance and reporting",
-      "template": "You MUST delegate to one of these subagents:\n{agent_list}\n\nCraft a detailed Task prompt as you normally would, then APPEND skill instructions. The subagent should invoke these skills: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name] for the relevant functionality. Report which skill(s) you used.\"\n\nIf these agents/skills are clearly irrelevant, use your judgment."
+      "description": "When both agents and skills match - directive delegation with skill passing",
+      "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation ONLY if this is a purely informational request with no implementation."
     },
     "skills_only": {
-      "description": "When skills match but no agents - strongly recommend skills with reporting",
-      "template": "You SHOULD use the following skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back which they used. If you used any of these skills, note which ones in your response."
+      "description": "When skills match but no agents - direct skill instruction",
+      "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill and report back."
     },
     "long_no_match": {
-      "description": "Longer prompts with no keyword matches - generic delegation guidance",
-      "template": "Leverage expert subagents and specialized skills when they're a good fit, but don't over-delegate if a simple response suffices."
+      "description": "Longer prompts with no keyword matches - reminder with decision framework",
+      "template": "No specific agent/skill match found. If this involves implementation (code, commands, file changes), consider delegating to an appropriate subagent - review available agents via Task(subagent_type=...). Respond directly for informational requests."
     }
   },
 

@@ -486,10 +486,9 @@ def build_short_no_match_hint(rules: Dict[str, Any]) -> str:
 
     return template_config.get(
         "template",
-        "You are an orchestrator, not an implementer. If this request involves any "
-        "implementation (code, commands, file changes), delegate to an appropriate subagent. "
-        "Only respond directly if this is: (1) a clarifying question, (2) a direct factual "
-        "question, or (3) acknowledgment/conversation."
+        "Short prompt - review conversation context. If continuing established work "
+        "(e.g., \"proceed\", \"go ahead\"), maintain the current approach including any "
+        "active subagent delegation. For new implementation tasks, delegate to a specialized subagent."
     )
 
 
@@ -500,9 +499,9 @@ def build_long_no_match_hint(rules: Dict[str, Any]) -> str:
 
     return template_config.get(
         "template",
-        "You are an orchestrator. If this request involves implementation (code, commands, "
-        "file changes), delegate to an appropriate subagent. Respond directly only for: "
-        "questions, information lookup, or conversation."
+        "No specific agent/skill match found. If this involves implementation (code, commands, "
+        "file changes), consider delegating to an appropriate subagent - review available agents "
+        "via Task(subagent_type=...). Respond directly for informational requests."
     )
 
 
@@ -530,20 +529,17 @@ def build_agents_only_hint(result: MatchResult, rules: Dict[str, Any]) -> str:
 
     if result.has_project_matches:
         default_template = (
-            "MANDATORY DELEGATION. These subagents are configured for this project:\n"
+            "Project-configured match. Delegate implementation to one of these subagents:\n"
             "{agent_list}\n\n"
-            "Project-specific matches indicate this task requires specialist handling. "
-            "You MUST delegate - no exceptions. Do not rationalize 'simple commands' or "
-            "'quick fixes' as reasons to self-implement."
+            "You are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\n"
+            "Respond directly only if this is clearly a mismatch, or for clarifying questions and factual lookups."
         )
     else:
         default_template = (
-            "You MUST delegate to one of these subagents:\n"
+            "Delegate implementation to one of these subagents:\n"
             "{agent_list}\n\n"
-            "You are an orchestrator - implementation belongs in subagents, not this session. "
-            "The ONLY exceptions where you may skip delegation: (1) answering a direct question "
-            "about concepts, (2) reading files to provide information, (3) pure conversation. "
-            "If the task involves ANY implementation, commands, or file changes - delegate."
+            "You are an orchestrator. Implementation (code, commands, file changes) belongs in subagents.\n\n"
+            "Respond directly only for: clarifying questions, factual lookups, or pure conversation."
         )
 
     template = template_config.get("template", default_template)
@@ -570,17 +566,16 @@ def build_skills_only_hint(result: MatchResult, rules: Dict[str, Any]) -> str:
 
     if result.has_project_matches:
         default_template = (
-            "MANDATORY: Use these project-configured skill(s): {skill_list}\n\n"
+            "Project-configured skill(s): {skill_list}\n\n"
             "Invoke with: Skill(skill=\"[skill-name]\")\n\n"
-            "These skills exist because the project requires specific tooling. You MUST use them. "
-            "If you used any, note which ones in your response."
+            "If delegating to a subagent, instruct them to invoke the skill and report back.\n\n"
+            "Skip only if this is clearly a mismatch."
         )
     else:
         default_template = (
-            "You SHOULD use the following skill(s) for this request: {skill_list}\n\n"
+            "Use these skill(s) for this request: {skill_list}\n\n"
             "Invoke with: Skill(skill=\"[skill-name]\")\n\n"
-            "If delegating to a subagent, instruct them to invoke the skill and report back which they used. "
-            "If you used any of these skills, note which ones in your response."
+            "If delegating to a subagent, instruct them to invoke the skill and report back."
         )
 
     template = template_config.get("template", default_template)
@@ -618,21 +613,19 @@ def build_agents_and_skills_hint(result: MatchResult, rules: Dict[str, Any]) -> 
 
     if result.has_project_matches:
         default_template = (
-            "MANDATORY DELEGATION WITH PROJECT SKILLS.\n\n"
-            "Delegate to one of these subagents:\n"
+            "Project-configured match. Delegate to one of these subagents:\n"
             "{agent_list}\n\n"
-            "Craft a detailed Task prompt, then APPEND: \"Use the Skill tool to invoke [skill-name]. "
-            "Report which skill(s) you used.\" The subagent must invoke these skills: {skill_list}\n\n"
-            "Project-specific matches are NOT optional."
+            "Pass these skills to the subagent: {skill_list}\n\n"
+            "Append to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\n"
+            "Skip delegation only if this is clearly a mismatch or purely informational."
         )
     else:
         default_template = (
-            "You MUST delegate to one of these subagents:\n"
+            "Delegate to one of these subagents:\n"
             "{agent_list}\n\n"
-            "Craft a detailed Task prompt as you normally would, then APPEND skill instructions. "
-            "The subagent should invoke these skills: {skill_list}\n\n"
+            "Pass these skills to the subagent: {skill_list}\n\n"
             "Append to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\n"
-            "If these agents/skills are clearly irrelevant, use your judgment."
+            "Skip delegation ONLY if this is a purely informational request with no implementation."
         )
 
     template = template_config.get("template", default_template)
