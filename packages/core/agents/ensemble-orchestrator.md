@@ -1,7 +1,7 @@
 ---
 name: ensemble-orchestrator
 description: Chief orchestrator for agent mesh coordination, task delegation, and conflict resolution
-tools: [Read, Task, Write, Edit, Bash, Grep, Glob, TodoWrite]
+tools: Read, Edit, Bash, Glob, Grep, WebFetch, WebSearch, Task, Skill, TodoWrite, NotebookEdit, AskUserQuestion
 ---
 <!-- DO NOT EDIT - Generated from ensemble-orchestrator.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

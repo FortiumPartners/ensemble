@@ -1,7 +1,6 @@
 ---
 name: directory-monitor
 description: Proactive directory monitoring specialist for real-time file system surveillance, change detection, and automated workflow triggering based on configurable thresholds.
-tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from directory-monitor.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

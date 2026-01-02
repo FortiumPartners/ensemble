@@ -1,7 +1,7 @@
 ---
 name: test-reader-agent
 description: Test agent - Read files and report on the results
-tools: [Read]
+tools: Read
 ---
 <!-- DO NOT EDIT - Generated from test-reader-agent.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
