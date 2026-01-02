@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "project-rules.schema.json",
+  "title": "Project Router Rules Schema",
+  "description": "Schema for validating project-specific .claude/router-rules.json files",
+  "type": "object",
+  "required": ["version", "generated", "project_name"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version string"
+    },
+    "generated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of generation"
+    },
+    "project_name": {
+      "type": "string",
+      "description": "Name of the project"
+    },
+    "description": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "triggers": {
+      "type": "object",
+      "description": "Category name to trigger keywords mapping",
+      "propertyNames": {
+        "enum": [
+          "product_documentation",
+          "orchestration",
+          "development",
+          "quality_testing",
+          "infrastructure_build",
+          "git_github",
+          "utility",
+          "database",
+          "metrics_analytics",
+          "claude_code_help"
+        ]
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "skill_mappings": {
+      "type": "object",
+      "description": "Keyword to skill names mapping",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "project_context": {
+      "type": "object",
+      "description": "Project metadata and technology context",
+      "properties": {
+        "primary_language": { "type": "string" },
+        "secondary_language": { "type": "string" },
+        "framework": { "type": "string" },
+        "deployment": { "type": "string" },
+        "testing": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "database": { "type": "string" }
+      }
+    },
+    "custom_agents": {
+      "type": "object",
+      "description": "Project-specific custom agents",
+      "additionalProperties": {
+        "$ref": "#/$defs/customAgent"
+      }
+    },
+    "skills": {
+      "type": "object",
+      "description": "Project-specific skill definitions",
+      "additionalProperties": {
+        "$ref": "#/$defs/skill"
+      }
+    },
+    "agent_recommendations": {
+      "type": "object",
+      "description": "Optional agent recommendations per category",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "primary": { "type": "string" },
+          "triggers": { "type": "array", "items": { "type": "string" } },
+          "context": { "type": "string" }
+        }
+      }
+    },
+    "custom_patterns": {
+      "type": "object",
+      "description": "File pattern-based routing rules",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "file_patterns": { "type": "array", "items": { "type": "string" } },
+          "triggers": { "type": "array", "items": { "type": "string" } },
+          "agent": { "type": "string" },
+          "skills": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "customAgent": {
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "triggers": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "required": ["triggers"],
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "patterns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "purpose": { "type": "string" }
+      }
+    }
+  }
+}
