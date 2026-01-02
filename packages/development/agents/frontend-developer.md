@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: Framework-agnostic front-end implementation (JS/TS, React, Vue, Angular, Svelte) with accessibility and performance optimization
-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+skills: developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents
 ---
 <!-- DO NOT EDIT - Generated from frontend-developer.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
@@ -102,11 +102,11 @@ function AccessibleLoginForm() {
   const [email, setEmail] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const emailInputId = useId();
-  
+
   return (
     <form onSubmit={handleSubmit} aria-labelledby="login-heading">
       <h2 id="login-heading">Login</h2>
-      
+
       <div className="form-field">
         <label htmlFor={emailInputId}>
           Email <span aria-label="required">*</span>
@@ -126,7 +126,7 @@ function AccessibleLoginForm() {
           </span>
         )}
       </div>
-      
+
       <button type="submit">Login</button>
     </form>
   );
@@ -139,7 +139,7 @@ function AccessibleLoginForm() {
 function BadLoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   return (
     <div>
       <input type="text" placeholder="Email" onChange={e => setEmail(e.target.value)} />
@@ -162,14 +162,14 @@ const UserCard = memo(({ user }: { user: User }) => (
 
 function OptimizedUserList({ users }: { users: User[] }) {
   const [search, setSearch] = useState('');
-  
+
   const filteredUsers = useMemo(() => {
     if (!search) return users;
-    return users.filter(user => 
+    return users.filter(user =>
       user.name.toLowerCase().includes(search.toLowerCase())
     );
   }, [users, search]);
-  
+
   return (
     <div>
       <input type="search" value={search} onChange={e => setSearch(e.target.value)} />
@@ -185,12 +185,12 @@ function OptimizedUserList({ users }: { users: User[] }) {
 // ❌ ANTI-PATTERN: Re-renders entire list on every update
 function SlowUserList({ users }: { users: User[] }) {
   const [search, setSearch] = useState('');
-  
+
   // Filters on every render
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(search.toLowerCase())
   );
-  
+
   return (
     <div>
       <input value={search} onChange={e => setSearch(e.target.value)} />
@@ -207,7 +207,7 @@ function SlowUserList({ users }: { users: User[] }) {
 // ✅ BEST PRACTICE: Responsive with modern formats
 function ResponsiveImage({ src, alt, sizes = '100vw' }: Props) {
   const srcSet = [400, 800, 1200].map(w => `${src}?w=${w} ${w}w`).join(', ');
-  
+
   return (
     <picture>
       <source type="image/avif" srcSet={srcSet.replace(/\?/, '.avif?')} />
