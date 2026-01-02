@@ -1,7 +1,7 @@
 ---
 name: infrastructure-developer
 description: Cloud-agnostic infrastructure automation with dynamic skill loading for AWS, GCP, Azure, Helm, Kubernetes, and Fly.io
-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+skills: aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework
 ---
 <!-- DO NOT EDIT - Generated from infrastructure-developer.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
