@@ -14,6 +14,9 @@ const frameworkPatterns = require('./framework-patterns.json');
 // Configuration Path Management (XDG-compliant)
 const configPath = require('./config-path');
 
+// Context7 MCP Integration
+const context7 = require('./context7-integration');
+
 const skill = {
   name: 'Framework Detector',
   version: '1.0.0',
@@ -87,4 +90,13 @@ module.exports = {
   initializeConfigStructure: configPath.initializeConfigStructure,
   getLegacyPaths: configPath.getLegacyPaths,
   hasLegacyConfig: configPath.hasLegacyConfig,
+
+  // Context7 MCP integration utilities
+  context7,
+  checkContext7Available: context7.checkContext7Available,
+  resolveLibraryId: context7.resolveLibraryId,
+  fetchLibraryDocs: context7.fetchLibraryDocs,
+  getContext7InstallInstructions: context7.getInstallInstructions,
+  createLibraryHelper: context7.createLibraryHelper,
+  withContext7Fallback: context7.withContext7Fallback,
 };
