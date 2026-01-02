@@ -6,8 +6,10 @@ coverage/
 dist/
 build/
 .npmrc.local
+*.backup
 
 # Python cache files
 __pycache__/
 *.pyc
 *.pyo
+
