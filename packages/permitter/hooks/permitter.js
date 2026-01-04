@@ -45,11 +45,27 @@ function debugLog(msg) {
 
 /**
  * Decision behaviors for PermissionRequest hook.
+ * Format: hookSpecificOutput.hookEventName + hookSpecificOutput.decision.behavior
  */
 const DECISION = {
-  ALLOW: { decision: { behavior: 'allow' } },
-  DENY: { decision: { behavior: 'deny' } },
-  ASK: { decision: { behavior: 'ask' } }
+  ALLOW: {
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: { behavior: 'allow' }
+    }
+  },
+  DENY: {
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: { behavior: 'deny' }
+    }
+  },
+  ASK: {
+    hookSpecificOutput: {
+      hookEventName: 'PermissionRequest',
+      decision: { behavior: 'ask' }
+    }
+  }
 };
 
 /**
