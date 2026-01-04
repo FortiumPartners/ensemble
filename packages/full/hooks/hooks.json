@@ -11,7 +11,7 @@
         ]
       }
     ],
-    "PreToolUse": [
+    "PermissionRequest": [
       {
         "matcher": "Bash",
         "hooks": [
@@ -21,7 +21,9 @@
             "timeout": 100
           }
         ]
-      },
+      }
+    ],
+    "PreToolUse": [
       {
         "matcher": "Task",
         "hooks": [

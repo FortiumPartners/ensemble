@@ -3,8 +3,8 @@
 /**
  * Permitter: Smart permission expansion hook for Claude Code.
  *
- * This hook intercepts Bash tool invocations and performs semantic
- * equivalence checking to expand permission matching beyond exact
+ * This hook intercepts PermissionRequest events for Bash commands and performs
+ * semantic equivalence checking to expand permission matching beyond exact
  * prefix matching.
  *
  * Environment Variables:
@@ -12,9 +12,18 @@
  *   PERMITTER_DEBUG   - Enable debug logging to stderr (default: "0")
  *   PERMITTER_STRICT  - Exit 1 on any parse error (default: "1")
  *
+ * Hook Type: PermissionRequest
+ *   - Fires when user would see a permission dialog
+ *   - Outputs JSON with decision.behavior to control approval
+ *
+ * Output format (to stdout):
+ *   {"decision": {"behavior": "allow"}} - Auto-approve the command
+ *   {"decision": {"behavior": "deny"}}  - Auto-deny the command
+ *   {"decision": {"behavior": "ask"}}   - Show normal permission dialog
+ *
  * Exit codes:
- *   0 - Allow command execution (all commands match allowlist, or hook disabled)
- *   1 - Defer to normal permission flow (no match, error, or explicitly denied)
+ *   0 - Hook processed successfully (check stdout for decision)
+ *   1 - Hook error, fall back to normal permission flow
  */
 
 'use strict';
@@ -35,29 +44,50 @@ function debugLog(msg) {
 }
 
 /**
+ * Decision behaviors for PermissionRequest hook.
+ */
+const DECISION = {
+  ALLOW: { decision: { behavior: 'allow' } },
+  DENY: { decision: { behavior: 'deny' } },
+  ASK: { decision: { behavior: 'ask' } }
+};
+
+/**
+ * Output a decision and exit.
+ * @param {Object} decision - The decision object to output
+ * @param {number} exitCode - Exit code (0 for success, 1 for error)
+ */
+function outputDecision(decision, exitCode = 0) {
+  console.log(JSON.stringify(decision));
+  process.exit(exitCode);
+}
+
+/**
  * Main hook logic.
  * @param {Object} hookData - Hook data from stdin
- * @returns {number} Exit code (0 = allow, 1 = defer)
  */
 async function main(hookData) {
   // 1. Check if enabled - disabled by default
   if (process.env.PERMITTER_ENABLED !== '1') {
-    debugLog('Hook disabled (PERMITTER_ENABLED != 1), passing through');
-    return 0; // Pass through when disabled
+    debugLog('Hook disabled (PERMITTER_ENABLED != 1), showing normal dialog');
+    outputDecision(DECISION.ASK);
+    return;
   }
 
   // 2. Only handle Bash tool
   const toolName = hookData.tool_name || hookData.tool;
   if (toolName !== 'Bash') {
-    debugLog(`Non-Bash tool (${toolName}), passing through`);
-    return 0; // Pass through for non-Bash tools
+    debugLog(`Non-Bash tool (${toolName}), showing normal dialog`);
+    outputDecision(DECISION.ASK);
+    return;
   }
 
   // 3. Extract command
   const command = hookData.tool_input?.command || '';
   if (!command) {
-    debugLog('Empty command, deferring to normal flow');
-    return 1; // Defer on empty command
+    debugLog('Empty command, showing normal dialog');
+    outputDecision(DECISION.ASK);
+    return;
   }
 
   debugLog(`Checking command: ${command}`);
@@ -71,7 +101,8 @@ async function main(hookData) {
     debugLog(`Denylist: ${JSON.stringify(denylist)}`);
   } catch (error) {
     debugLog(`Settings load error: ${error.message}`);
-    return 1; // Defer on settings error (fail-closed)
+    outputDecision(DECISION.ASK); // Fail-closed: ask user on error
+    return;
   }
 
   // 5. Parse command
@@ -81,35 +112,39 @@ async function main(hookData) {
     debugLog(`Parsed: ${JSON.stringify(commands)}`);
   } catch (error) {
     debugLog(`Parse error: ${error.message}`);
-    return 1; // Defer on parse error (fail-closed)
+    outputDecision(DECISION.ASK); // Fail-closed: ask user on parse error
+    return;
   }
 
   // 6. Check if we have any commands to check
   if (commands.length === 0) {
-    debugLog('No executable commands extracted, deferring');
-    return 1;
+    debugLog('No executable commands extracted, showing normal dialog');
+    outputDecision(DECISION.ASK);
+    return;
   }
 
   // 7. Check each command against denylist first, then allowlist
   for (const cmd of commands) {
     const cmdStr = cmd.args ? `${cmd.executable} ${cmd.args}` : cmd.executable;
 
-    // Denylist takes precedence
+    // Denylist takes precedence - but still ask user, don't auto-deny
     if (isDenied(cmd, denylist)) {
-      debugLog(`DENIED: ${cmdStr}`);
-      return 1;
+      debugLog(`ON DENYLIST: ${cmdStr} - showing normal dialog`);
+      outputDecision(DECISION.ASK);
+      return;
     }
 
     // Check allowlist
     if (!matchesAny(cmd, allowlist)) {
-      debugLog(`NO MATCH: ${cmdStr}`);
-      return 1;
+      debugLog(`NO MATCH: ${cmdStr} - showing normal dialog`);
+      outputDecision(DECISION.ASK);
+      return;
     }
   }
 
   // 8. All commands matched allowlist and none were denied
-  debugLog(`ALLOW: all ${commands.length} command(s) matched`);
-  return 0;
+  debugLog(`ALLOW: all ${commands.length} command(s) matched - auto-approving`);
+  outputDecision(DECISION.ALLOW);
 }
 
 // Read hook data from stdin
@@ -124,20 +159,21 @@ process.stdin.on('data', (chunk) => {
 process.stdin.on('end', async () => {
   try {
     const hookData = JSON.parse(inputData);
-    const exitCode = await main(hookData);
-    process.exit(exitCode);
+    await main(hookData);
+    // main() calls outputDecision() which exits, but just in case:
+    outputDecision(DECISION.ASK);
   } catch (error) {
     debugLog(`Fatal error: ${error.message}`);
-    // Fail-closed: any error results in deferral to normal permission flow
-    process.exit(1);
+    // Fail-closed: any error shows normal permission dialog
+    outputDecision(DECISION.ASK);
   }
 });
 
 // Handle case where stdin is empty or closed immediately
 process.stdin.on('error', (error) => {
   debugLog(`stdin error: ${error.message}`);
-  process.exit(1);
+  outputDecision(DECISION.ASK);
 });
 
 // Export for testing
-module.exports = { main, debugLog };
+module.exports = { main, debugLog, outputDecision, DECISION };
