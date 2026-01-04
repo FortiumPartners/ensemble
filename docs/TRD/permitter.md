@@ -149,14 +149,14 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| PERM-P4-SEC-001 | Adversarial test: nested subshells | 2 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-002 | Adversarial test: quote escaping | 2 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-003 | Adversarial test: unicode homoglyphs | 1.5 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-004 | Adversarial test: long commands | 1 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-005 | Adversarial test: command injection | 2 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-006 | Fuzz testing with random inputs | 3 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-007 | Performance benchmark suite | 2 | PERM-P3-MATCH-009 | [ ] |
-| PERM-P4-SEC-008 | Verify fail-closed behavior | 1 | PERM-P4-SEC-001 | [ ] |
+| PERM-P4-SEC-001 | Adversarial test: nested subshells | 2 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-002 | Adversarial test: quote escaping | 2 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-003 | Adversarial test: unicode homoglyphs | 1.5 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-004 | Adversarial test: long commands | 1 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-005 | Adversarial test: command injection | 2 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-006 | Fuzz testing with random inputs | 3 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-007 | Performance benchmark suite | 2 | PERM-P3-MATCH-009 | [x] |
+| PERM-P4-SEC-008 | Verify fail-closed behavior | 1 | PERM-P4-SEC-001 | [x] |
 | PERM-P4-DOC-001 | Complete API documentation | 2 | PERM-P4-SEC-008 | [ ] |
 | PERM-P4-DOC-002 | Security considerations doc | 2 | PERM-P4-SEC-008 | [ ] |
 | PERM-P4-DOC-003 | Usage examples | 1.5 | PERM-P4-DOC-001 | [ ] |
