@@ -24,9 +24,20 @@ function matchesPattern(cmdString, pattern) {
   const inner = pattern.slice(5, -1); // Remove "Bash(" and ")"
 
   if (inner.endsWith(':*')) {
-    // Prefix match
+    // Prefix match - matches if:
+    // 1. Command exactly equals the prefix, OR
+    // 2. Command starts with prefix followed by a space (additional args)
+    //
+    // Note: We do NOT match if the prefix is part of a longer word.
+    // For example, "npm testing" should NOT match "Bash(npm test:*)"
     const prefix = inner.slice(0, -2);
-    return cmdString === prefix || cmdString.startsWith(prefix + ' ');
+    if (cmdString === prefix) {
+      return true;
+    }
+    if (cmdString.startsWith(prefix + ' ')) {
+      return true;
+    }
+    return false;
   } else {
     // Exact match
     return cmdString === inner;

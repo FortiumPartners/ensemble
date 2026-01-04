@@ -126,22 +126,22 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| PERM-P3-ALLOW-001 | Implement settings file locator | 1.5 | PERM-P1-CORE-005 | [ ] |
-| PERM-P3-ALLOW-002 | Parse .claude/settings.local.json | 1 | PERM-P3-ALLOW-001 | [ ] |
-| PERM-P3-ALLOW-003 | Parse .claude/settings.json | 0.5 | PERM-P3-ALLOW-001 | [ ] |
-| PERM-P3-ALLOW-004 | Parse ~/.claude/settings.json | 0.5 | PERM-P3-ALLOW-001 | [ ] |
-| PERM-P3-ALLOW-005 | Merge allowlists with precedence | 1.5 | PERM-P3-ALLOW-004 | [ ] |
-| PERM-P3-ALLOW-006 | Merge denylists with precedence | 1 | PERM-P3-ALLOW-004 | [ ] |
-| PERM-P3-ALLOW-007 | Create allowlist-loader.js module | 1 | PERM-P3-ALLOW-006 | [ ] |
-| PERM-P3-MATCH-001 | Parse Bash(prefix:*) pattern format | 1.5 | PERM-P3-ALLOW-007 | [ ] |
-| PERM-P3-MATCH-002 | Implement prefix matching algorithm | 1.5 | PERM-P3-MATCH-001 | [ ] |
-| PERM-P3-MATCH-003 | Implement exact matching | 1 | PERM-P3-MATCH-001 | [ ] |
-| PERM-P3-MATCH-004 | Check denylist before allowlist | 1 | PERM-P3-MATCH-002 | [ ] |
-| PERM-P3-MATCH-005 | Validate all commands match | 1 | PERM-P3-MATCH-002 | [ ] |
-| PERM-P3-MATCH-006 | Create matcher.js module | 1 | PERM-P3-MATCH-005 | [ ] |
-| PERM-P3-MATCH-007 | Unit tests for allowlist loading | 2 | PERM-P3-ALLOW-007 | [ ] |
-| PERM-P3-MATCH-008 | Unit tests for pattern matching | 2 | PERM-P3-MATCH-006 | [ ] |
-| PERM-P3-MATCH-009 | Integration tests for full flow | 3 | PERM-P3-MATCH-006 | [ ] |
+| PERM-P3-ALLOW-001 | Implement settings file locator | 1.5 | PERM-P1-CORE-005 | [x] |
+| PERM-P3-ALLOW-002 | Parse .claude/settings.local.json | 1 | PERM-P3-ALLOW-001 | [x] |
+| PERM-P3-ALLOW-003 | Parse .claude/settings.json | 0.5 | PERM-P3-ALLOW-001 | [x] |
+| PERM-P3-ALLOW-004 | Parse ~/.claude/settings.json | 0.5 | PERM-P3-ALLOW-001 | [x] |
+| PERM-P3-ALLOW-005 | Merge allowlists with precedence | 1.5 | PERM-P3-ALLOW-004 | [x] |
+| PERM-P3-ALLOW-006 | Merge denylists with precedence | 1 | PERM-P3-ALLOW-004 | [x] |
+| PERM-P3-ALLOW-007 | Create allowlist-loader.js module | 1 | PERM-P3-ALLOW-006 | [x] |
+| PERM-P3-MATCH-001 | Parse Bash(prefix:*) pattern format | 1.5 | PERM-P3-ALLOW-007 | [x] |
+| PERM-P3-MATCH-002 | Implement prefix matching algorithm | 1.5 | PERM-P3-MATCH-001 | [x] |
+| PERM-P3-MATCH-003 | Implement exact matching | 1 | PERM-P3-MATCH-001 | [x] |
+| PERM-P3-MATCH-004 | Check denylist before allowlist | 1 | PERM-P3-MATCH-002 | [x] |
+| PERM-P3-MATCH-005 | Validate all commands match | 1 | PERM-P3-MATCH-002 | [x] |
+| PERM-P3-MATCH-006 | Create matcher.js module | 1 | PERM-P3-MATCH-005 | [x] |
+| PERM-P3-MATCH-007 | Unit tests for allowlist loading | 2 | PERM-P3-ALLOW-007 | [x] |
+| PERM-P3-MATCH-008 | Unit tests for pattern matching | 2 | PERM-P3-MATCH-006 | [x] |
+| PERM-P3-MATCH-009 | Integration tests for full flow | 3 | PERM-P3-MATCH-006 | [x] |
 
 **Phase 3 Total: 21 hours**
 

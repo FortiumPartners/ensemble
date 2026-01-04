@@ -60,7 +60,7 @@ function loadAllowlist() {
 
   for (const filePath of getSettingsFiles()) {
     const data = loadJsonFile(filePath);
-    if (data?.permissions?.allow) {
+    if (data?.permissions?.allow && Array.isArray(data.permissions.allow)) {
       patterns.push(...data.permissions.allow);
     }
   }
@@ -77,7 +77,7 @@ function loadDenylist() {
 
   for (const filePath of getSettingsFiles()) {
     const data = loadJsonFile(filePath);
-    if (data?.permissions?.deny) {
+    if (data?.permissions?.deny && Array.isArray(data.permissions.deny)) {
       patterns.push(...data.permissions.deny);
     }
   }
