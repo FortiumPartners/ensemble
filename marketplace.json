@@ -245,7 +245,7 @@
     },
     {
       "name": "ensemble-permitter",
-      "version": "1.0.0",
+      "version": "5.0.0",
       "source": "./packages/permitter",
       "description": "Smart permission expansion hook for Claude Code - semantic command matching",
       "category": "utilities",
