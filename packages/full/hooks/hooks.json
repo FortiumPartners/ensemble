@@ -13,6 +13,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/permitter.js",
+            "timeout": 100
+          }
+        ]
+      },
+      {
         "matcher": "Task",
         "hooks": [
           {
