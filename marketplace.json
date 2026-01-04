@@ -242,6 +242,15 @@
       "category": "core",
       "tags": ["full", "complete", "bundle"],
       "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-permitter",
+      "version": "1.0.0",
+      "source": "./packages/permitter",
+      "description": "Smart permission expansion hook for Claude Code - semantic command matching",
+      "category": "utilities",
+      "tags": ["permissions", "hooks", "security", "bash", "allowlist"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
     }
   ]
 }

@@ -157,11 +157,11 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 | PERM-P4-SEC-006 | Fuzz testing with random inputs | 3 | PERM-P3-MATCH-009 | [x] |
 | PERM-P4-SEC-007 | Performance benchmark suite | 2 | PERM-P3-MATCH-009 | [x] |
 | PERM-P4-SEC-008 | Verify fail-closed behavior | 1 | PERM-P4-SEC-001 | [x] |
-| PERM-P4-DOC-001 | Complete API documentation | 2 | PERM-P4-SEC-008 | [ ] |
-| PERM-P4-DOC-002 | Security considerations doc | 2 | PERM-P4-SEC-008 | [ ] |
-| PERM-P4-DOC-003 | Usage examples | 1.5 | PERM-P4-DOC-001 | [ ] |
-| PERM-P4-DOC-004 | Troubleshooting guide | 1 | PERM-P4-DOC-001 | [ ] |
-| PERM-P4-DOC-005 | Update marketplace.json | 0.5 | PERM-P4-DOC-001 | [ ] |
+| PERM-P4-DOC-001 | Complete API documentation | 2 | PERM-P4-SEC-008 | [x] |
+| PERM-P4-DOC-002 | Security considerations doc | 2 | PERM-P4-SEC-008 | [x] |
+| PERM-P4-DOC-003 | Usage examples | 1.5 | PERM-P4-DOC-001 | [x] |
+| PERM-P4-DOC-004 | Troubleshooting guide | 1 | PERM-P4-DOC-001 | [x] |
+| PERM-P4-DOC-005 | Update marketplace.json | 0.5 | PERM-P4-DOC-001 | [x] |
 
 **Phase 4 Total: 21.5 hours**
 
