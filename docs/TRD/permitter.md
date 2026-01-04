@@ -101,24 +101,24 @@ Format: \`PERM-<PHASE>-<CATEGORY>-<NUMBER>\`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| PERM-P2-PARSE-001 | Design tokenizer state machine | 1 | PERM-P1-CORE-005 | [ ] |
-| PERM-P2-PARSE-002 | Implement shell tokenizer | 3 | PERM-P2-PARSE-001 | [ ] |
-| PERM-P2-PARSE-003 | Handle single-quoted strings | 1.5 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-004 | Handle double-quoted strings with escapes | 2 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-005 | Detect operators (&&, \|\|, ;, \|) | 1.5 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-006 | Split commands by operators | 1.5 | PERM-P2-PARSE-005 | [ ] |
-| PERM-P2-PARSE-007 | Strip environment variable prefixes | 1.5 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-008 | Strip export statements | 1 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-009 | Strip timeout/time wrappers | 1 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-010 | Strip background operator (&) | 0.5 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-011 | Handle redirections (>, <, >>) | 1 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-012 | Extract subshell commands (bash -c) | 2 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-013 | Detect unsafe constructs (\$(), \`\`) | 1.5 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-014 | Detect heredocs (<<) | 1 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-015 | Extract core command with arguments | 1.5 | PERM-P2-PARSE-006 | [ ] |
-| PERM-P2-PARSE-016 | Create command-parser.js module | 1 | PERM-P2-PARSE-015 | [ ] |
-| PERM-P2-PARSE-017 | Unit tests for tokenizer | 3 | PERM-P2-PARSE-002 | [ ] |
-| PERM-P2-PARSE-018 | Unit tests for command extraction | 3 | PERM-P2-PARSE-015 | [ ] |
+| PERM-P2-PARSE-001 | Design tokenizer state machine | 1 | PERM-P1-CORE-005 | [x] |
+| PERM-P2-PARSE-002 | Implement shell tokenizer | 3 | PERM-P2-PARSE-001 | [x] |
+| PERM-P2-PARSE-003 | Handle single-quoted strings | 1.5 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-004 | Handle double-quoted strings with escapes | 2 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-005 | Detect operators (&&, \|\|, ;, \|) | 1.5 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-006 | Split commands by operators | 1.5 | PERM-P2-PARSE-005 | [x] |
+| PERM-P2-PARSE-007 | Strip environment variable prefixes | 1.5 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-008 | Strip export statements | 1 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-009 | Strip timeout/time wrappers | 1 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-010 | Strip background operator (&) | 0.5 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-011 | Handle redirections (>, <, >>) | 1 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-012 | Extract subshell commands (bash -c) | 2 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-013 | Detect unsafe constructs (\$(), \`\`) | 1.5 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-014 | Detect heredocs (<<) | 1 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-015 | Extract core command with arguments | 1.5 | PERM-P2-PARSE-006 | [x] |
+| PERM-P2-PARSE-016 | Create command-parser.js module | 1 | PERM-P2-PARSE-015 | [x] |
+| PERM-P2-PARSE-017 | Unit tests for tokenizer | 3 | PERM-P2-PARSE-002 | [x] |
+| PERM-P2-PARSE-018 | Unit tests for command extraction | 3 | PERM-P2-PARSE-015 | [x] |
 
 **Phase 2 Total: 28.5 hours**
 
