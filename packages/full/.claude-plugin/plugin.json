@@ -22,6 +22,7 @@
     "./commands/git",
     "./commands/e2e-testing",
     "./commands/metrics",
+    "./commands/router",
     "./commands/agent-progress-pane",
     "./commands/task-progress-pane"
   ],
