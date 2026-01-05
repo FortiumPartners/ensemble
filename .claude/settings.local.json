@@ -8,7 +8,23 @@
       "Bash(claude plugin marketplace update:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(node hooks/task-spawner.js:*)"
+      "Bash(node hooks/task-spawner.js:*)",
+      "Skill(ensemble-full:developing-with-python)",
+      "Skill(ensemble-full:jest)",
+      "Skill(ensemble-full:pytest)",
+      "Bash(for skill in developing-with-python managing-railway using-anthropic-platform)",
+      "Bash(do wc -l ~/.claude/plugins/cache/ensemble/ensemble-full/5.2.0/skills/$skill/SKILL.md)",
+      "Bash(done)",
+      "Bash(for skill in aws-cloud kubernetes helm jest pytest)",
+      "WebFetch(domain:www.joinformal.com)",
+      "Skill(ensemble-full:create-prd)",
+      "Skill(ensemble-full:create-trd)",
+      "Skill(ensemble-full:implement-trd-enhanced)",
+      "Bash(PERMITTER_ENABLED=1 PERMITTER_DEBUG=1 node:*)",
+      "Bash(npm test:*)",
+      "Bash(readlink:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && ls -la {}')",
+      "Bash(claude plugin uninstall:*)"
     ]
   },
   "enabledPlugins": {
