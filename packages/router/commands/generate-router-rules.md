@@ -1,5 +1,5 @@
 ---
-name: generate-router-rules
+name: ensemble:generate-router-rules
 description: Generate router rules by introspecting installed agents and skills
 allowed-tools: Read, Write, Grep, Glob
 ---
