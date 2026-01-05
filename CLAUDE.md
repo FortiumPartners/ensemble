@@ -1,6 +1,6 @@
 # Ensemble Plugins - Claude Code Configuration
 
-> Modular plugin ecosystem for Claude Code (v5.0.0) | 24 packages | 28 agents | 4-tier architecture
+> Modular plugin ecosystem for Claude Code (v5.1.0) | 25 packages | 28 agents | 4-tier architecture
 
 ## Quick Reference
 
@@ -26,11 +26,18 @@ npm run test:coverage       # Coverage reports
 ```
 
 ### Key Paths
-- **Plugins**: `packages/*/` (24 packages)
+- **Plugins**: `packages/*/` (25 packages)
 - **Agents**: `packages/*/agents/*.yaml` (28 agents)
 - **Commands**: `packages/*/commands/`
 - **Skills**: `packages/*/skills/`
 - **Schemas**: `schemas/{plugin,marketplace}-schema.json`
+
+### Package Sync (ensemble-full)
+When modifying pane viewer packages, sync to ensemble-full:
+```bash
+npm run sync-hooks --workspace=packages/full  # Syncs 24 files
+# Syncs: agent-progress-pane + task-progress-pane hooks, lib, and adapters
+```
 
 ## Architecture Overview
 
@@ -53,7 +60,12 @@ Tier 3: Framework Skills (5)
 Tier 4: Testing Frameworks (5)
 ├── jest, pytest, rspec, xunit, exunit
 
-Utilities: agent-progress-pane, task-progress-pane
+New Capabilities (v5.1.0):
+├── ai (AI services integration)
+├── router (agent routing and delegation)
+└── permitter (permission management with allowlists)
+
+Utilities: agent-progress-pane (v5.1.0), task-progress-pane (v5.1.0)
 Shared: multiplexer-adapters (WezTerm, Zellij, tmux)
 Meta: ensemble-full (complete bundle)
 ```
