@@ -1,14 +1,93 @@
 /**
  * Matcher module for Permitter.
  *
- * Handles matching commands against Bash permission patterns.
- * Pattern format: "Bash(prefix:*)" where prefix is matched literally.
+ * Handles matching commands against Bash and MCP permission patterns.
  *
- * This is a stub implementation for Phase 1.
- * Full implementation will be completed in Phase 3.
+ * Pattern formats:
+ *   - "Bash(prefix:*)" where prefix is matched literally
+ *
+ * MCP Native Pattern formats (Claude Code's native format):
+ *   - "mcp__server__tool" - exact tool match
+ *   - "mcp__server__*" - wildcard for all tools from server
+ *   - "mcp__server" - server-only match (all tools from that server)
+ *
+ * When users click "Yes, and don't ask again" in Claude Code, entries like
+ * "mcp__weaviate-vfm__search_api_endpoints" are added to allowlists.
+ * Permitter reads THESE patterns and matches against them.
  */
 
 'use strict';
+
+/**
+ * Parse MCP tool name into server and tool components.
+ * MCP tools have the format: mcp__<server>__<tool>
+ *
+ * @param {string} toolName - e.g., "mcp__playwright__navigate"
+ * @returns {{server: string, tool: string|null}|null} Parsed components or null if not MCP
+ */
+function parseMcpToolName(toolName) {
+  if (!toolName || typeof toolName !== 'string' || !toolName.startsWith('mcp__')) {
+    return null;
+  }
+
+  const parts = toolName.split('__');
+  // Minimum: ['mcp', '<server>']
+  if (parts.length < 2 || parts[1] === '') {
+    return null;
+  }
+
+  return {
+    server: parts[1],
+    // Tool may contain __ in its name, so rejoin remaining parts
+    tool: parts.length > 2 ? parts.slice(2).join('__') : null
+  };
+}
+
+/**
+ * Check if MCP tool matches a pattern using Claude Code's native format.
+ *
+ * Pattern formats (native Claude Code format):
+ *   - mcp__server__tool - exact tool match
+ *   - mcp__server__* - wildcard for all tools from server
+ *   - mcp__server - server-only match (all tools from that server)
+ *
+ * @param {string} toolName - e.g., "mcp__playwright__navigate" (from hook)
+ * @param {string} pattern - e.g., "mcp__playwright__navigate" or "mcp__playwright__*" or "mcp__playwright"
+ * @returns {boolean} True if tool matches the pattern
+ */
+function matchesMcpPattern(toolName, pattern) {
+  // Both toolName and pattern must use mcp__ prefix
+  if (!toolName || !pattern) {
+    return false;
+  }
+
+  if (!toolName.startsWith('mcp__') || !pattern.startsWith('mcp__')) {
+    return false;
+  }
+
+  // Exact match
+  if (toolName === pattern) {
+    return true;
+  }
+
+  // Wildcard match: mcp__playwright__* matches mcp__playwright__anything
+  if (pattern.endsWith('__*')) {
+    const prefix = pattern.slice(0, -1); // remove the *
+    return toolName.startsWith(prefix);
+  }
+
+  // Server-only match: mcp__playwright matches mcp__playwright__anything
+  // Pattern has only server (2 parts), tool has server+tool (3+ parts)
+  const patternParts = pattern.split('__');
+  const toolParts = toolName.split('__');
+
+  if (patternParts.length === 2 && toolParts.length >= 3) {
+    // mcp__playwright matches mcp__playwright__navigate
+    return patternParts[0] === toolParts[0] && patternParts[1] === toolParts[1];
+  }
+
+  return false;
+}
 
 /**
  * Check if a command matches a single pattern.
@@ -45,7 +124,9 @@ function matchesPattern(cmdString, pattern) {
 }
 
 /**
- * Check if command matches any allowlist pattern.
+ * Check if command matches any allowlist pattern (Bash commands only).
+ * For MCP tools, use matchesMcpToolAny instead.
+ *
  * @param {{executable: string, args: string}} command - Command object
  * @param {string[]} patterns - Array of patterns
  * @returns {boolean} True if command matches any pattern
@@ -65,6 +146,31 @@ function matchesAny(command, patterns) {
 }
 
 /**
+ * Check if MCP tool matches any pattern in the list.
+ * @param {string} toolName - MCP tool name like "mcp__playwright__navigate"
+ * @param {string[]} patterns - Array of Mcp patterns
+ * @returns {boolean} True if tool matches any pattern
+ */
+function matchesMcpToolAny(toolName, patterns) {
+  for (const pattern of patterns) {
+    if (matchesMcpPattern(toolName, pattern)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if MCP tool is denied by any pattern.
+ * @param {string} toolName - MCP tool name like "mcp__playwright__navigate"
+ * @param {string[]} patterns - Array of Mcp deny patterns
+ * @returns {boolean} True if tool is explicitly denied
+ */
+function isMcpDenied(toolName, patterns) {
+  return matchesMcpToolAny(toolName, patterns);
+}
+
+/**
  * Check if command matches any denylist pattern.
  * @param {{executable: string, args: string}} command - Command object
  * @param {string[]} patterns - Array of deny patterns
@@ -77,5 +183,10 @@ function isDenied(command, patterns) {
 module.exports = {
   matchesAny,
   isDenied,
-  matchesPattern
+  matchesPattern,
+  // MCP tool support
+  parseMcpToolName,
+  matchesMcpPattern,
+  matchesMcpToolAny,
+  isMcpDenied
 };

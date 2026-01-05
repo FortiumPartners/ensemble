@@ -14,7 +14,12 @@
 const {
   matchesPattern,
   matchesAny,
-  isDenied
+  isDenied,
+  // MCP tool support
+  parseMcpToolName,
+  matchesMcpPattern,
+  matchesMcpToolAny,
+  isMcpDenied
 } = require('../lib/matcher');
 
 // ===========================================================================
@@ -449,5 +454,383 @@ describe('TRD Test Cases - Pattern Matching', () => {
   test('wget should NOT match allowlist', () => {
     const command = { executable: 'wget', args: 'http://example.com' };
     expect(matchesAny(command, allowlist)).toBe(false);
+  });
+});
+
+// ===========================================================================
+// MCP Tool Support Tests (Native Format)
+// ===========================================================================
+
+describe('MCP Pattern Matching (Native Format)', () => {
+  // -------------------------------------------------------------------------
+  // parseMcpToolName() tests
+  // -------------------------------------------------------------------------
+  describe('parseMcpToolName()', () => {
+    describe('valid MCP tool names', () => {
+      test('parses mcp__playwright__navigate correctly', () => {
+        expect(parseMcpToolName('mcp__playwright__navigate')).toEqual({
+          server: 'playwright',
+          tool: 'navigate'
+        });
+      });
+
+      test('parses mcp__playwright__click correctly', () => {
+        expect(parseMcpToolName('mcp__playwright__click')).toEqual({
+          server: 'playwright',
+          tool: 'click'
+        });
+      });
+
+      test('parses mcp__context7__query-docs correctly', () => {
+        expect(parseMcpToolName('mcp__context7__query-docs')).toEqual({
+          server: 'context7',
+          tool: 'query-docs'
+        });
+      });
+
+      test('parses mcp__filesystem__read correctly', () => {
+        expect(parseMcpToolName('mcp__filesystem__read')).toEqual({
+          server: 'filesystem',
+          tool: 'read'
+        });
+      });
+
+      test('parses tool with double underscore in tool name', () => {
+        expect(parseMcpToolName('mcp__server__tool__with__underscores')).toEqual({
+          server: 'server',
+          tool: 'tool__with__underscores'
+        });
+      });
+
+      test('parses server-only tool (no tool part)', () => {
+        expect(parseMcpToolName('mcp__server')).toEqual({
+          server: 'server',
+          tool: null
+        });
+      });
+    });
+
+    describe('invalid inputs', () => {
+      test('returns null for non-MCP tool', () => {
+        expect(parseMcpToolName('Bash')).toBeNull();
+      });
+
+      test('returns null for Read tool', () => {
+        expect(parseMcpToolName('Read')).toBeNull();
+      });
+
+      test('returns null for empty string', () => {
+        expect(parseMcpToolName('')).toBeNull();
+      });
+
+      test('returns null for null', () => {
+        expect(parseMcpToolName(null)).toBeNull();
+      });
+
+      test('returns null for undefined', () => {
+        expect(parseMcpToolName(undefined)).toBeNull();
+      });
+
+      test('returns null for mcp__ with empty server', () => {
+        expect(parseMcpToolName('mcp__')).toBeNull();
+      });
+
+      test('returns null for mcp_single_underscore prefix', () => {
+        expect(parseMcpToolName('mcp_playwright_navigate')).toBeNull();
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // matchesMcpPattern() tests - Native Format
+  // -------------------------------------------------------------------------
+  describe('matchesMcpPattern()', () => {
+    describe('exact match', () => {
+      test('mcp__playwright__navigate matches mcp__playwright__navigate', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'mcp__playwright__navigate')).toBe(true);
+      });
+
+      test('mcp__playwright__click does NOT match mcp__playwright__navigate', () => {
+        expect(matchesMcpPattern('mcp__playwright__click', 'mcp__playwright__navigate')).toBe(false);
+      });
+
+      test('mcp__context7__query-docs matches mcp__context7__query-docs', () => {
+        expect(matchesMcpPattern('mcp__context7__query-docs', 'mcp__context7__query-docs')).toBe(true);
+      });
+
+      test('mcp__weaviate-vfm__search_api_endpoints matches exact pattern', () => {
+        expect(matchesMcpPattern('mcp__weaviate-vfm__search_api_endpoints', 'mcp__weaviate-vfm__search_api_endpoints')).toBe(true);
+      });
+    });
+
+    describe('wildcard match (mcp__server__*)', () => {
+      test('mcp__playwright__navigate matches mcp__playwright__*', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'mcp__playwright__*')).toBe(true);
+      });
+
+      test('mcp__playwright__click matches mcp__playwright__*', () => {
+        expect(matchesMcpPattern('mcp__playwright__click', 'mcp__playwright__*')).toBe(true);
+      });
+
+      test('mcp__playwright__browser_click matches mcp__playwright__*', () => {
+        expect(matchesMcpPattern('mcp__playwright__browser_click', 'mcp__playwright__*')).toBe(true);
+      });
+
+      test('mcp__filesystem__read does NOT match mcp__playwright__*', () => {
+        expect(matchesMcpPattern('mcp__filesystem__read', 'mcp__playwright__*')).toBe(false);
+      });
+
+      test('mcp__context7__query-docs does NOT match mcp__playwright__*', () => {
+        expect(matchesMcpPattern('mcp__context7__query-docs', 'mcp__playwright__*')).toBe(false);
+      });
+    });
+
+    describe('server-only match (mcp__server)', () => {
+      test('mcp__playwright__navigate matches mcp__playwright', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'mcp__playwright')).toBe(true);
+      });
+
+      test('mcp__playwright__click matches mcp__playwright', () => {
+        expect(matchesMcpPattern('mcp__playwright__click', 'mcp__playwright')).toBe(true);
+      });
+
+      test('mcp__playwright__browser_snapshot matches mcp__playwright', () => {
+        expect(matchesMcpPattern('mcp__playwright__browser_snapshot', 'mcp__playwright')).toBe(true);
+      });
+
+      test('mcp__filesystem__read does NOT match mcp__playwright', () => {
+        expect(matchesMcpPattern('mcp__filesystem__read', 'mcp__playwright')).toBe(false);
+      });
+
+      test('mcp__context7__query-docs does NOT match mcp__playwright', () => {
+        expect(matchesMcpPattern('mcp__context7__query-docs', 'mcp__playwright')).toBe(false);
+      });
+    });
+
+    describe('invalid patterns', () => {
+      test('returns false for Bash pattern', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'Bash(npm test:*)')).toBe(false);
+      });
+
+      test('returns false for old Mcp() format pattern', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'Mcp(playwright:*)')).toBe(false);
+      });
+
+      test('returns false for non-mcp pattern', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', 'playwright__navigate')).toBe(false);
+      });
+
+      test('returns false for empty pattern', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', '')).toBe(false);
+      });
+
+      test('returns false for null pattern', () => {
+        expect(matchesMcpPattern('mcp__playwright__navigate', null)).toBe(false);
+      });
+
+      test('returns false for non-MCP tool', () => {
+        expect(matchesMcpPattern('Bash', 'mcp__playwright__*')).toBe(false);
+      });
+    });
+
+    describe('case sensitivity', () => {
+      test('server matching is case sensitive', () => {
+        expect(matchesMcpPattern('mcp__Playwright__navigate', 'mcp__playwright')).toBe(false);
+        expect(matchesMcpPattern('mcp__Playwright__navigate', 'mcp__Playwright')).toBe(true);
+      });
+
+      test('tool matching is case sensitive', () => {
+        expect(matchesMcpPattern('mcp__playwright__Navigate', 'mcp__playwright__navigate')).toBe(false);
+        expect(matchesMcpPattern('mcp__playwright__Navigate', 'mcp__playwright__Navigate')).toBe(true);
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // matchesMcpToolAny() tests - Native Format
+  // -------------------------------------------------------------------------
+  describe('matchesMcpToolAny()', () => {
+    describe('single pattern matching', () => {
+      test('returns true when tool matches wildcard pattern', () => {
+        const patterns = ['mcp__playwright__*'];
+        expect(matchesMcpToolAny('mcp__playwright__navigate', patterns)).toBe(true);
+      });
+
+      test('returns true when tool matches exact pattern', () => {
+        const patterns = ['mcp__playwright__navigate'];
+        expect(matchesMcpToolAny('mcp__playwright__navigate', patterns)).toBe(true);
+      });
+
+      test('returns false when tool does not match pattern', () => {
+        const patterns = ['mcp__filesystem__*'];
+        expect(matchesMcpToolAny('mcp__playwright__navigate', patterns)).toBe(false);
+      });
+    });
+
+    describe('multiple pattern matching', () => {
+      test('returns true when tool matches any pattern', () => {
+        const patterns = [
+          'mcp__context7__*',
+          'mcp__playwright__*',
+          'mcp__filesystem__read'
+        ];
+        expect(matchesMcpToolAny('mcp__playwright__click', patterns)).toBe(true);
+      });
+
+      test('returns false when tool matches no patterns', () => {
+        const patterns = [
+          'mcp__context7__*',
+          'mcp__filesystem__read'
+        ];
+        expect(matchesMcpToolAny('mcp__playwright__navigate', patterns)).toBe(false);
+      });
+
+      test('returns true when tool matches specific tool pattern', () => {
+        const patterns = [
+          'mcp__playwright__navigate',
+          'mcp__playwright__click'
+        ];
+        expect(matchesMcpToolAny('mcp__playwright__navigate', patterns)).toBe(true);
+      });
+    });
+
+    describe('empty patterns array', () => {
+      test('returns false with empty patterns array', () => {
+        expect(matchesMcpToolAny('mcp__playwright__navigate', [])).toBe(false);
+      });
+    });
+
+    describe('real-world patterns from vfm-workspace', () => {
+      const vfmAllowlist = [
+        'mcp__playwright__browser_navigate',
+        'mcp__playwright__browser_close',
+        'mcp__playwright__browser_snapshot',
+        'mcp__playwright__browser_click',
+        'mcp__weaviate-vfm__search_api_endpoints'
+      ];
+
+      test('mcp__playwright__browser_click matches allowlist', () => {
+        expect(matchesMcpToolAny('mcp__playwright__browser_click', vfmAllowlist)).toBe(true);
+      });
+
+      test('mcp__playwright__browser_fill does NOT match allowlist (not listed)', () => {
+        expect(matchesMcpToolAny('mcp__playwright__browser_fill', vfmAllowlist)).toBe(false);
+      });
+
+      test('mcp__weaviate-vfm__search_api_endpoints matches allowlist', () => {
+        expect(matchesMcpToolAny('mcp__weaviate-vfm__search_api_endpoints', vfmAllowlist)).toBe(true);
+      });
+
+      test('mcp__weaviate-vfm__other_tool does NOT match allowlist', () => {
+        expect(matchesMcpToolAny('mcp__weaviate-vfm__other_tool', vfmAllowlist)).toBe(false);
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // isMcpDenied() tests - Native Format
+  // -------------------------------------------------------------------------
+  describe('isMcpDenied()', () => {
+    test('returns true when tool matches exact deny pattern', () => {
+      const denylist = ['mcp__playwright__fill', 'mcp__dangerous-server__*'];
+      expect(isMcpDenied('mcp__playwright__fill', denylist)).toBe(true);
+    });
+
+    test('returns true for server-wide deny with wildcard', () => {
+      const denylist = ['mcp__dangerous-server__*'];
+      expect(isMcpDenied('mcp__dangerous-server__any-tool', denylist)).toBe(true);
+    });
+
+    test('returns true for server-wide deny without wildcard', () => {
+      const denylist = ['mcp__dangerous-server'];
+      expect(isMcpDenied('mcp__dangerous-server__any-tool', denylist)).toBe(true);
+    });
+
+    test('returns false when tool does not match deny pattern', () => {
+      const denylist = ['mcp__playwright__fill'];
+      expect(isMcpDenied('mcp__playwright__navigate', denylist)).toBe(false);
+    });
+
+    test('returns false with empty denylist', () => {
+      expect(isMcpDenied('mcp__playwright__navigate', [])).toBe(false);
+    });
+  });
+});
+
+// ===========================================================================
+// MCP Integration Tests - Real-world scenarios (Native Format)
+// ===========================================================================
+describe('MCP Real-world Scenarios (Native Format)', () => {
+  const allowlist = [
+    'mcp__playwright__*',
+    'mcp__context7__query-docs',
+    'mcp__context7__resolve-library-id',
+    'Bash(npm test:*)'
+  ];
+
+  const denylist = [
+    'mcp__filesystem__delete',
+    'mcp__dangerous-server'
+  ];
+
+  test('playwright navigate should match allowlist', () => {
+    expect(matchesMcpToolAny('mcp__playwright__navigate', allowlist)).toBe(true);
+  });
+
+  test('playwright click should match allowlist', () => {
+    expect(matchesMcpToolAny('mcp__playwright__click', allowlist)).toBe(true);
+  });
+
+  test('context7 query-docs should match allowlist', () => {
+    expect(matchesMcpToolAny('mcp__context7__query-docs', allowlist)).toBe(true);
+  });
+
+  test('context7 resolve-library-id should match allowlist', () => {
+    expect(matchesMcpToolAny('mcp__context7__resolve-library-id', allowlist)).toBe(true);
+  });
+
+  test('context7 some-other-tool should NOT match allowlist', () => {
+    expect(matchesMcpToolAny('mcp__context7__some-other-tool', allowlist)).toBe(false);
+  });
+
+  test('filesystem read should NOT match allowlist (not listed)', () => {
+    expect(matchesMcpToolAny('mcp__filesystem__read', allowlist)).toBe(false);
+  });
+
+  test('filesystem delete should match denylist', () => {
+    expect(isMcpDenied('mcp__filesystem__delete', denylist)).toBe(true);
+  });
+
+  test('dangerous-server any-tool should match denylist', () => {
+    expect(isMcpDenied('mcp__dangerous-server__any-tool', denylist)).toBe(true);
+  });
+
+  test('filesystem read should NOT match denylist', () => {
+    expect(isMcpDenied('mcp__filesystem__read', denylist)).toBe(false);
+  });
+
+  test('playwright navigate should NOT match denylist', () => {
+    expect(isMcpDenied('mcp__playwright__navigate', denylist)).toBe(false);
+  });
+});
+
+// ===========================================================================
+// MCP Module exports
+// ===========================================================================
+describe('MCP Module exports', () => {
+  test('should export parseMcpToolName function', () => {
+    expect(typeof parseMcpToolName).toBe('function');
+  });
+
+  test('should export matchesMcpPattern function', () => {
+    expect(typeof matchesMcpPattern).toBe('function');
+  });
+
+  test('should export matchesMcpToolAny function', () => {
+    expect(typeof matchesMcpToolAny).toBe('function');
+  });
+
+  test('should export isMcpDenied function', () => {
+    expect(typeof isMcpDenied).toBe('function');
   });
 });

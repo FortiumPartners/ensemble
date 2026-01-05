@@ -30,7 +30,7 @@
 
 const { loadAllowlist, loadDenylist } = require('../lib/allowlist-loader');
 const { parseCommand } = require('../lib/command-parser');
-const { matchesAny, isDenied } = require('../lib/matcher');
+const { matchesAny, isDenied, matchesMcpToolAny, isMcpDenied } = require('../lib/matcher');
 
 /**
  * Debug logging to stderr.
@@ -79,6 +79,43 @@ function outputDecision(decision, exitCode = 0) {
 }
 
 /**
+ * Handle MCP tool permission checking.
+ * @param {string} toolName - MCP tool name like "mcp__playwright__navigate"
+ */
+async function handleMcpTool(toolName) {
+  // Load settings
+  let allowlist, denylist;
+  try {
+    allowlist = loadAllowlist();
+    denylist = loadDenylist();
+    debugLog(`MCP Allowlist: ${JSON.stringify(allowlist)}`);
+    debugLog(`MCP Denylist: ${JSON.stringify(denylist)}`);
+  } catch (error) {
+    debugLog(`Settings load error: ${error.message}`);
+    outputDecision(DECISION.ASK); // Fail-closed: ask user on error
+    return;
+  }
+
+  // Check denylist first
+  if (isMcpDenied(toolName, denylist)) {
+    debugLog(`MCP ON DENYLIST: ${toolName} - showing normal dialog`);
+    outputDecision(DECISION.ASK);
+    return;
+  }
+
+  // Check allowlist
+  if (matchesMcpToolAny(toolName, allowlist)) {
+    debugLog(`MCP ALLOW: ${toolName} - auto-approving`);
+    outputDecision(DECISION.ALLOW);
+    return;
+  }
+
+  // Not on allowlist
+  debugLog(`MCP NO MATCH: ${toolName} - showing normal dialog`);
+  outputDecision(DECISION.ASK);
+}
+
+/**
  * Main hook logic.
  * @param {Object} hookData - Hook data from stdin
  */
@@ -90,15 +127,24 @@ async function main(hookData) {
     return;
   }
 
-  // 2. Only handle Bash tool
+  // 2. Get tool name
   const toolName = hookData.tool_name || hookData.tool;
+
+  // 3. Handle MCP tools (format: mcp__<server>__<tool>)
+  if (toolName && toolName.startsWith('mcp__')) {
+    debugLog(`MCP tool detected: ${toolName}`);
+    await handleMcpTool(toolName);
+    return;
+  }
+
+  // 4. Only handle Bash tool for command matching
   if (toolName !== 'Bash') {
     debugLog(`Non-Bash tool (${toolName}), showing normal dialog`);
     outputDecision(DECISION.ASK);
     return;
   }
 
-  // 3. Extract command
+  // 5. Extract command
   const command = hookData.tool_input?.command || '';
   if (!command) {
     debugLog('Empty command, showing normal dialog');
@@ -108,7 +154,7 @@ async function main(hookData) {
 
   debugLog(`Checking command: ${command}`);
 
-  // 4. Load settings
+  // 6. Load settings
   let allowlist, denylist;
   try {
     allowlist = loadAllowlist();
@@ -121,7 +167,7 @@ async function main(hookData) {
     return;
   }
 
-  // 5. Parse command
+  // 7. Parse command
   let commands;
   try {
     commands = parseCommand(command);
@@ -132,14 +178,14 @@ async function main(hookData) {
     return;
   }
 
-  // 6. Check if we have any commands to check
+  // 8. Check if we have any commands to check
   if (commands.length === 0) {
     debugLog('No executable commands extracted, showing normal dialog');
     outputDecision(DECISION.ASK);
     return;
   }
 
-  // 7. Check each command against denylist first, then allowlist
+  // 9. Check each command against denylist first, then allowlist
   for (const cmd of commands) {
     const cmdStr = cmd.args ? `${cmd.executable} ${cmd.args}` : cmd.executable;
 
@@ -158,7 +204,7 @@ async function main(hookData) {
     }
   }
 
-  // 8. All commands matched allowlist and none were denied
+  // 10. All commands matched allowlist and none were denied
   debugLog(`ALLOW: all ${commands.length} command(s) matched - auto-approving`);
   outputDecision(DECISION.ALLOW);
 }
@@ -192,4 +238,4 @@ process.stdin.on('error', (error) => {
 });
 
 // Export for testing
-module.exports = { main, debugLog, outputDecision, DECISION };
+module.exports = { main, handleMcpTool, debugLog, outputDecision, DECISION };

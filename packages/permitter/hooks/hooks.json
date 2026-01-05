@@ -2,7 +2,7 @@
   "hooks": {
     "PermissionRequest": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|mcp__.*",
         "hooks": [
           {
             "type": "command",
