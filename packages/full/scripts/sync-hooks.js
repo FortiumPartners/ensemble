@@ -36,10 +36,18 @@ const FILE_MAPPINGS = [
     dest: 'full/hooks/pane-manager.js'
   },
 
-  // Task progress pane hook
+  // Task progress pane hooks and monitor scripts
   {
     source: 'task-progress-pane/hooks/task-spawner.js',
     dest: 'full/hooks/task-spawner.js'
+  },
+  {
+    source: 'task-progress-pane/hooks/task-progress-monitor-v2.sh',
+    dest: 'full/hooks/task-progress-monitor-v2.sh'
+  },
+  {
+    source: 'task-progress-pane/hooks/task-progress-monitor.sh',
+    dest: 'full/hooks/task-progress-monitor.sh'
   },
 
   // Task progress pane lib files
@@ -88,6 +96,38 @@ const FILE_MAPPINGS = [
   {
     source: 'multiplexer-adapters/lib/tmux-adapter.js',
     dest: 'full/lib/multiplexer/tmux-adapter.js'
+  },
+
+  // Agent progress pane monitor script
+  {
+    source: 'agent-progress-pane/hooks/agent-monitor.sh',
+    dest: 'full/hooks/agent-monitor.sh'
+  },
+
+  // Agent progress pane adapters (separate from task-progress-pane)
+  {
+    source: 'agent-progress-pane/hooks/adapters/index.js',
+    dest: 'full/hooks/adapters/index.js'
+  },
+  {
+    source: 'agent-progress-pane/hooks/adapters/base-adapter.js',
+    dest: 'full/hooks/adapters/base-adapter.js'
+  },
+  {
+    source: 'agent-progress-pane/hooks/adapters/multiplexer-detector.js',
+    dest: 'full/hooks/adapters/multiplexer-detector.js'
+  },
+  {
+    source: 'agent-progress-pane/hooks/adapters/wezterm-adapter.js',
+    dest: 'full/hooks/adapters/wezterm-adapter.js'
+  },
+  {
+    source: 'agent-progress-pane/hooks/adapters/zellij-adapter.js',
+    dest: 'full/hooks/adapters/zellij-adapter.js'
+  },
+  {
+    source: 'agent-progress-pane/hooks/adapters/tmux-adapter.js',
+    dest: 'full/hooks/adapters/tmux-adapter.js'
   }
 ];
 
