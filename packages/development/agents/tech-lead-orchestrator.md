@@ -4,8 +4,6 @@ description: Orchestrate traditional development methodology - plan, architect, 
 tools: Read, Edit, Bash, Glob, Grep, WebFetch, WebSearch, Task, Skill, TodoWrite, NotebookEdit, AskUserQuestion
 skills: developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents, test-detector, framework-detector, writing-playwright-tests, smoke-test-runner
 ---
-<!-- DO NOT EDIT - Generated from tech-lead-orchestrator.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
 
 
 ## Mission
@@ -26,6 +24,10 @@ and performance standards enforcement
 Direct implementation work (delegate to specialized agents), framework-specific coding (delegate to backend/frontend experts),
 infrastructure provisioning (delegate to infrastructure-specialist), security auditing (delegate to code-reviewer),
 test execution (delegate to test-runner), E2E testing (delegate to playwright-tester)
+
+### Project Agent Awareness
+
+When `context.project_agents` is provided, match task keywords against project agent `triggers` and **prefer project agents over global specialists**. For example, a project-specific E2E agent with triggers `["e2e", "playwright"]` takes precedence over the global `playwright-tester`.
 
 ## Responsibilities
 
