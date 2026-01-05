@@ -1,5 +1,5 @@
 ---
-name: generate-project-router-rules
+name: ensemble:generate-project-router-rules
 description: Generate project-specific router rules by analyzing the project's tech stack
 allowed-tools: Read, Write, Grep, Glob
 ---
