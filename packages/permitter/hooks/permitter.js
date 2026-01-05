@@ -8,7 +8,7 @@
  * prefix matching.
  *
  * Environment Variables:
- *   ENSEMBLE_PERMITTER_ENABLE - Master enable switch (default: "0")
+ *   ENSEMBLE_PERMITTER_DISABLE - Set to "1" to disable (default: enabled)
  *   PERMITTER_DEBUG   - Enable debug logging to stderr (default: "0")
  *   PERMITTER_STRICT  - Exit 1 on any parse error (default: "1")
  *
@@ -120,9 +120,9 @@ async function handleMcpTool(toolName) {
  * @param {Object} hookData - Hook data from stdin
  */
 async function main(hookData) {
-  // 1. Check if enabled - disabled by default
-  if (process.env.ENSEMBLE_PERMITTER_ENABLE !== '1') {
-    debugLog('Hook disabled (ENSEMBLE_PERMITTER_ENABLE != 1), showing normal dialog');
+  // 1. Check if disabled - enabled by default
+  if (process.env.ENSEMBLE_PERMITTER_DISABLE === '1') {
+    debugLog('Hook disabled (ENSEMBLE_PERMITTER_DISABLE=1), showing normal dialog');
     outputDecision(DECISION.ASK);
     return;
   }

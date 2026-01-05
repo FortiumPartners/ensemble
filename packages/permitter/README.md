@@ -64,21 +64,21 @@ claude plugin install ensemble-permitter --scope local
 By default, Permitter is **disabled**. To enable it, set the environment variable:
 
 ```bash
-export ENSEMBLE_PERMITTER_ENABLE=1
+# export ENSEMBLE_PERMITTER_DISABLE=1  # Uncomment to disable
 ```
 
 Add to your shell profile (`.bashrc`, `.zshrc`, etc.) for persistent enablement:
 
 ```bash
 # Enable Permitter for Claude Code
-export ENSEMBLE_PERMITTER_ENABLE=1
+# export ENSEMBLE_PERMITTER_DISABLE=1  # Uncomment to disable
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ENSEMBLE_PERMITTER_ENABLE` | `"0"` | Master enable switch. Set to `"1"` to activate. |
+| `ENSEMBLE_PERMITTER_DISABLE` | `"0"` | Master enable switch. Set to `"1"` to disable. |
 | `PERMITTER_DEBUG` | `"0"` | Enable debug logging to stderr. Set to `"1"` to see detailed matching info. |
 | `PERMITTER_STRICT` | `"1"` | Exit 1 on any parse error (fail-closed behavior). |
 
@@ -459,7 +459,7 @@ Enable Permitter and use Claude Code normally:
 
 ```bash
 # Enable Permitter
-export ENSEMBLE_PERMITTER_ENABLE=1
+# export ENSEMBLE_PERMITTER_DISABLE=1  # Uncomment to disable
 
 # Start Claude Code - permission expansion is now active
 claude
@@ -474,7 +474,7 @@ For non-interactive environments, Permitter reduces permission friction:
 # ci-script.sh
 
 # Enable Permitter
-export ENSEMBLE_PERMITTER_ENABLE=1
+# export ENSEMBLE_PERMITTER_DISABLE=1  # Uncomment to disable
 
 # These commands will auto-allow if patterns exist in settings
 # No interactive prompts needed
@@ -547,7 +547,7 @@ Configure for a Node.js project:
 Enable debug mode to see exactly what Permitter is doing:
 
 ```bash
-export ENSEMBLE_PERMITTER_ENABLE=1
+# export ENSEMBLE_PERMITTER_DISABLE=1  # Uncomment to disable
 export PERMITTER_DEBUG=1
 ```
 
@@ -577,10 +577,10 @@ When a command doesn't match:
 
 ### Security Model
 
-**Opt-In by Default:**
-- Hook is disabled unless `ENSEMBLE_PERMITTER_ENABLE=1`
-- Users explicitly accept the security tradeoff
-- Two-level opt-in: installation + enablement
+**Enabled by Default:**
+- Hook is enabled unless `ENSEMBLE_PERMITTER_DISABLE=1`
+- Set `ENSEMBLE_PERMITTER_DISABLE=1` to disable if needed
+- Provides smart permission expansion out of the box
 
 **Conservative Expansion:**
 - Only allows commands that semantically match existing allowlist
@@ -693,9 +693,9 @@ These scenarios are NOT in scope for Permitter to mitigate:
 
 **Diagnosis Steps:**
 
-1. **Verify ENSEMBLE_PERMITTER_ENABLE is set:**
+1. **Verify ENSEMBLE_PERMITTER_DISABLE is NOT set:**
    ```bash
-   echo $ENSEMBLE_PERMITTER_ENABLE  # Should output: 1
+   echo $ENSEMBLE_PERMITTER_DISABLE  # Should be empty or 0
    ```
 
 2. **Verify plugin is installed:**
@@ -756,9 +756,9 @@ These commands will defer to Claude Code's normal permission flow.
 Test the hook directly without Claude Code:
 
 ```bash
-# Test with a simple command
+# Test with a simple command (enabled by default)
 echo '{"tool_name":"Bash","tool_input":{"command":"npm test"}}' | \
-  ENSEMBLE_PERMITTER_ENABLE=1 PERMITTER_DEBUG=1 \
+  PERMITTER_DEBUG=1 \
   node packages/permitter/hooks/permitter.js
 echo "Exit code: $?"
 ```
@@ -806,9 +806,9 @@ Current coverage: 95.85% (428 tests passing)
 ### Manual Testing
 
 ```bash
-# Test the hook manually
+# Test the hook manually (enabled by default)
 echo '{"tool_name":"Bash","tool_input":{"command":"npm test"}}' | \
-  ENSEMBLE_PERMITTER_ENABLE=1 PERMITTER_DEBUG=1 node hooks/permitter.js
+  PERMITTER_DEBUG=1 node hooks/permitter.js
 echo $?  # Should output 0 or 1
 ```
 
