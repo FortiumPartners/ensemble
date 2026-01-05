@@ -64,21 +64,21 @@ claude plugin install ensemble-permitter --scope local
 By default, Permitter is **disabled**. To enable it, set the environment variable:
 
 ```bash
-export PERMITTER_ENABLED=1
+export ENSEMBLE_PERMITTER_ENABLE=1
 ```
 
 Add to your shell profile (`.bashrc`, `.zshrc`, etc.) for persistent enablement:
 
 ```bash
 # Enable Permitter for Claude Code
-export PERMITTER_ENABLED=1
+export ENSEMBLE_PERMITTER_ENABLE=1
 ```
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PERMITTER_ENABLED` | `"0"` | Master enable switch. Set to `"1"` to activate. |
+| `ENSEMBLE_PERMITTER_ENABLE` | `"0"` | Master enable switch. Set to `"1"` to activate. |
 | `PERMITTER_DEBUG` | `"0"` | Enable debug logging to stderr. Set to `"1"` to see detailed matching info. |
 | `PERMITTER_STRICT` | `"1"` | Exit 1 on any parse error (fail-closed behavior). |
 
@@ -459,7 +459,7 @@ Enable Permitter and use Claude Code normally:
 
 ```bash
 # Enable Permitter
-export PERMITTER_ENABLED=1
+export ENSEMBLE_PERMITTER_ENABLE=1
 
 # Start Claude Code - permission expansion is now active
 claude
@@ -474,7 +474,7 @@ For non-interactive environments, Permitter reduces permission friction:
 # ci-script.sh
 
 # Enable Permitter
-export PERMITTER_ENABLED=1
+export ENSEMBLE_PERMITTER_ENABLE=1
 
 # These commands will auto-allow if patterns exist in settings
 # No interactive prompts needed
@@ -547,7 +547,7 @@ Configure for a Node.js project:
 Enable debug mode to see exactly what Permitter is doing:
 
 ```bash
-export PERMITTER_ENABLED=1
+export ENSEMBLE_PERMITTER_ENABLE=1
 export PERMITTER_DEBUG=1
 ```
 
@@ -578,7 +578,7 @@ When a command doesn't match:
 ### Security Model
 
 **Opt-In by Default:**
-- Hook is disabled unless `PERMITTER_ENABLED=1`
+- Hook is disabled unless `ENSEMBLE_PERMITTER_ENABLE=1`
 - Users explicitly accept the security tradeoff
 - Two-level opt-in: installation + enablement
 
@@ -693,9 +693,9 @@ These scenarios are NOT in scope for Permitter to mitigate:
 
 **Diagnosis Steps:**
 
-1. **Verify PERMITTER_ENABLED is set:**
+1. **Verify ENSEMBLE_PERMITTER_ENABLE is set:**
    ```bash
-   echo $PERMITTER_ENABLED  # Should output: 1
+   echo $ENSEMBLE_PERMITTER_ENABLE  # Should output: 1
    ```
 
 2. **Verify plugin is installed:**
@@ -758,7 +758,7 @@ Test the hook directly without Claude Code:
 ```bash
 # Test with a simple command
 echo '{"tool_name":"Bash","tool_input":{"command":"npm test"}}' | \
-  PERMITTER_ENABLED=1 PERMITTER_DEBUG=1 \
+  ENSEMBLE_PERMITTER_ENABLE=1 PERMITTER_DEBUG=1 \
   node packages/permitter/hooks/permitter.js
 echo "Exit code: $?"
 ```
@@ -808,7 +808,7 @@ Current coverage: 95.85% (428 tests passing)
 ```bash
 # Test the hook manually
 echo '{"tool_name":"Bash","tool_input":{"command":"npm test"}}' | \
-  PERMITTER_ENABLED=1 PERMITTER_DEBUG=1 node hooks/permitter.js
+  ENSEMBLE_PERMITTER_ENABLE=1 PERMITTER_DEBUG=1 node hooks/permitter.js
 echo $?  # Should output 0 or 1
 ```
 
