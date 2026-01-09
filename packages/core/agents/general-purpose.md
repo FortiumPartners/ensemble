@@ -1,6 +1,7 @@
 ---
 name: general-purpose
 description: Research and analysis specialist for complex investigations, multi-domain analysis, and ambiguous scope tasks.
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from general-purpose.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

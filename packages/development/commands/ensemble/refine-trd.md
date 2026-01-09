@@ -18,7 +18,24 @@ version history and traceability.
    Review existing TRD content
 
 **2. Interview users**
-   Interview users, clarify any ambiguity or missing detail
+   REQUIRED: Conduct user interview BEFORE making any changes.
+
+Use the AskUserQuestion tool to present questions interactively:
+- Ask questions ONE AT A TIME (not all at once)
+- Wait for user answer before asking the next question
+- Do NOT just write questions in your response text
+- The user should see interactive question UI prompts
+
+Ask about:
+- Technical clarity of implementation details
+- Architecture decisions and component design
+- Technology choices and justifications
+- Error handling and recovery mechanisms
+- Testing strategy and coverage requirements
+- Performance requirements and targets
+- Missing technical edge cases
+- Integration points and external dependencies
+
 
 **3. Feedback Integration**
    Incorporate stakeholder feedback

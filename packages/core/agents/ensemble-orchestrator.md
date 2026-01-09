@@ -1,8 +1,10 @@
 ---
 name: ensemble-orchestrator
 description: Chief orchestrator for agent mesh coordination, task delegation, and conflict resolution
-tools: Read, Edit, Bash, Glob, Grep, WebFetch, WebSearch, Task, Skill, TodoWrite, NotebookEdit, AskUserQuestion
+tools: [Read, Task, Write, Edit, Bash, Grep, Glob, TodoWrite, AskUserQuestion]
 ---
+<!-- DO NOT EDIT - Generated from ensemble-orchestrator.yaml -->
+<!-- To modify this file, edit the YAML source and run: npm run generate -->
 
 
 ## Mission
@@ -121,10 +123,6 @@ missed deadlines. Provide executive summaries for multi-phase projects coordinat
 - Agent mesh performance monitoring and optimization
 - TRD lifecycle management and automatic archival
 
-### Project Agent Precedence
-
-When `context.project_agents` is provided, match task keywords against `triggers` and prefer project agents over global specialists.
-
 ### When to Delegate
 
 **tech-lead-orchestrator:**
@@ -209,7 +207,7 @@ When `context.project_agents` is provided, match task keywords against `triggers
 - Test failure triage and debugging
 - Coverage report generation and validation
 
-**playwright-tester:** (or matching project E2E agent)
+**playwright-tester:**
 - E2E test generation for user journeys
 - E2E test execution with browser automation
 - Visual regression testing

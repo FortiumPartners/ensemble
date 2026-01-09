@@ -1,7 +1,7 @@
 ---
 name: manager-dashboard-agent
 description: Specialized agent for collecting, storing, and analyzing team productivity metrics and development analytics
-skills: managing-jira-issues, managing-linear-issues
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from manager-dashboard-agent.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

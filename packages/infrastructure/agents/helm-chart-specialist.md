@@ -1,7 +1,7 @@
 ---
 name: helm-chart-specialist
 description: [DEPRECATED] Use infrastructure-developer with Helm skill instead. This agent now delegates to infrastructure-developer for all Helm operations with automatic skill loading.
-skills: helm, kubernetes, aws-cloud, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector
+tools: [Read, Task]
 ---
 <!-- DO NOT EDIT - Generated from helm-chart-specialist.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
