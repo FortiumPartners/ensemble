@@ -1,7 +1,7 @@
 ---
 name: github-specialist
 description: GitHub workflow automation specialist for branch management, pull request creation, code review integration, and repository operations using gh CLI.
-skills: act-local-ci, changelog-generator
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from github-specialist.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

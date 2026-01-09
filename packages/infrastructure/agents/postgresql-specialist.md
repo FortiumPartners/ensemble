@@ -1,7 +1,7 @@
 ---
 name: postgresql-specialist
 description: PostgreSQL database administration, SQL optimization, and schema management specialist with deep PostgreSQL expertise and seamless integration with the Claude Code agent ecosystem
-skills: using-prisma, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from postgresql-specialist.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

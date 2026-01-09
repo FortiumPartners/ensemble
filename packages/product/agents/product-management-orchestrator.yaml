@@ -13,6 +13,7 @@ metadata:
     - TodoWrite
     - Grep
     - Glob
+    - AskUserQuestion
   languages:
     - Markdown
     - YAML

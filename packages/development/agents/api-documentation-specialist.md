@@ -1,7 +1,7 @@
 ---
 name: api-documentation-specialist
 description: OpenAPI/Swagger documentation and API design
-skills: developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents
+tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 <!-- DO NOT EDIT - Generated from api-documentation-specialist.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

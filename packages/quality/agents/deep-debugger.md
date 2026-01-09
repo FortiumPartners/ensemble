@@ -1,7 +1,7 @@
 ---
 name: deep-debugger
 description: Systematic bug recreation, root cause analysis, and TDD-based resolution with skills-based test framework integration
-skills: test-detector, framework-detector, writing-playwright-tests, smoke-test-runner, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents
+tools: [Read, Write, TodoWrite, Edit, Bash, Task, Grep, Glob, Skill]
 ---
 <!-- DO NOT EDIT - Generated from deep-debugger.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

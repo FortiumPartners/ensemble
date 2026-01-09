@@ -19,14 +19,21 @@ version history and traceability.
 
 **2. Interview users**
    REQUIRED: Conduct user interview BEFORE making any changes.
-Present identified gaps and ask clarifying questions:
-- Are there any requirements that are unclear or need more detail?
-- Are there missing user scenarios we should address?
-- Are the acceptance criteria complete and testable?
-- Is the scope correctly defined (in-scope vs out-of-scope)?
-- Are there any technical constraints or dependencies not captured?
-- What is the priority order of the features/requirements?
-- Are there any open questions or decisions that need resolution?
+
+Use the AskUserQuestion tool to present questions interactively:
+- Ask questions ONE AT A TIME (not all at once)
+- Wait for user answer before asking the next question
+- Do NOT just write questions in your response text
+- The user should see interactive question UI prompts
+
+Ask about:
+- Requirements that are unclear or need more detail
+- Missing user scenarios we should address
+- Acceptance criteria completeness and testability
+- Scope definition (in-scope vs out-of-scope)
+- Technical constraints or dependencies not captured
+- Priority order of features/requirements
+- Open questions or decisions needing resolution
 
 
 **3. Feedback Integration**

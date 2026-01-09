@@ -17,7 +17,7 @@
         {
           "name": "product-management-orchestrator",
           "purpose": "Product lifecycle, requirements gathering, stakeholder alignment, roadmap planning",
-          "tools": ["Read", "Write", "Edit", "Bash", "Task", "TodoWrite", "Grep", "Glob"]
+          "tools": ["Read", "Write", "Edit", "Bash", "Task", "TodoWrite", "Grep", "Glob", "AskUserQuestion"]
         },
         {
           "name": "documentation-specialist",
@@ -48,12 +48,12 @@
         {
           "name": "ensemble-orchestrator",
           "purpose": "Chief orchestrator for agent mesh coordination, task delegation, conflict resolution",
-          "tools": ["Read", "Task", "Write", "Edit", "Bash", "Grep", "Glob", "TodoWrite"]
+          "tools": ["Read", "Task", "Write", "Edit", "Bash", "Grep", "Glob", "TodoWrite", "AskUserQuestion"]
         },
         {
           "name": "tech-lead-orchestrator",
           "purpose": "Plan, architect, task breakdown, develop, code-review, test loop with intelligent delegation",
-          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob"]
+          "tools": ["Read", "Write", "TodoWrite", "Edit", "Bash", "Task", "Grep", "Glob", "AskUserQuestion"]
         },
         {
           "name": "qa-orchestrator",
