@@ -93,10 +93,11 @@ packages/<name>/
   "description": "...",
   "author": { "name": "Fortium Partners", "email": "support@fortiumpartners.com" },
   "commands": "./commands",
-  "skills": "./skills",
-  "hooks": "./hooks/hooks.json"
+  "skills": "./skills"
 }
 ```
+
+**Note**: Claude Code automatically loads `hooks/hooks.json` when present. The `hooks` field in `plugin.json` should only reference *additional* hook files beyond the standard location to avoid duplicate loading errors.
 
 ### Agent YAML Format
 ```yaml

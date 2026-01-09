@@ -27,7 +27,6 @@
     "./commands/task-progress-pane"
   ],
   "skills": "./skills",
-  "hooks": "./hooks/hooks.json",
   "agents": [
     "./agents/core/agent-meta-engineer.md",
     "./agents/core/context-fetcher.md",

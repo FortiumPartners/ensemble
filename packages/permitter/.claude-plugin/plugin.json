@@ -16,6 +16,5 @@
     "bash",
     "allowlist",
     "ensemble"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }

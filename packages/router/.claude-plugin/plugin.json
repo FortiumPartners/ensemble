@@ -17,6 +17,5 @@
     "agent-routing",
     "ensemble"
   ],
-  "hooks": "./hooks/hooks.json",
   "commands": "./commands"
 }
