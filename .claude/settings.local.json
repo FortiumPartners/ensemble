@@ -24,7 +24,9 @@
       "Bash(npm test:*)",
       "Bash(readlink:*)",
       "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && ls -la {}')",
-      "Bash(claude plugin uninstall:*)"
+      "Bash(claude plugin uninstall:*)",
+      "mcp__MCP_DOCKER__resolve-library-id",
+      "Bash(npm run test:coverage:*)"
     ]
   },
   "enabledPlugins": {

@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-git",
-  "version": "5.1.0",
+  "version": "5.2.1",
   "description": "Git workflow automation and conventional commits",
   "main": "lib/index.js",
   "scripts": {

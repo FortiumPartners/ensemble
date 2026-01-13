@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-router",
-  "version": "5.0.0",
+  "version": "5.2.1",
   "description": "UserPromptSubmit routing hook for intelligent agent delegation and skill invocation",
   "author": {
     "name": "Fortium Partners",
