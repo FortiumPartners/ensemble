@@ -44,8 +44,11 @@ class ZellijAdapter extends BaseMultiplexerAdapter {
       ? 'down'
       : 'right';
 
+    // Use 'action new-pane' instead of 'run'
+    // 'run' is for starting new sessions, 'action new-pane' is for within sessions
     const args = [
-      'run',
+      'action',
+      'new-pane',
       '--direction', directionFlag,
       '--close-on-exit' // Close pane when command exits
     ];
