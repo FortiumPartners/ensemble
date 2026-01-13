@@ -893,25 +893,25 @@ Format: `TRD-TEST-XXX`
 
 #### OT - Observability
 
-- [ ] **TRD-TEST-062**: Configure OpenTelemetry for headless sessions
+- [x] **TRD-TEST-062**: Configure OpenTelemetry for headless sessions
   - Update run-headless.sh with OTel environment variables
   - CLAUDE_CODE_ENABLE_TELEMETRY=1
   - Dependencies: TRD-TEST-029
   - AC Reference: AC-T1
 
-- [ ] **TRD-TEST-063**: Verify telemetry data capture
+- [x] **TRD-TEST-063**: Verify telemetry data capture
   - Confirm events captured: tool_result, api_request, tool_decision
   - Dependencies: TRD-TEST-062
   - AC Reference: AC-T2
 
-- [ ] **TRD-TEST-064**: Document telemetry analysis patterns
+- [x] **TRD-TEST-064**: Document telemetry analysis patterns
   - Tool usage patterns analysis
   - API call analysis (token usage, latency)
   - Permission decision patterns
   - Dependencies: TRD-TEST-063
   - AC Reference: AC-T2
 
-- [ ] **TRD-TEST-065**: Implement telemetry-based skill verification
+- [x] **TRD-TEST-065**: Implement telemetry-based skill verification
   - Supplement session logs with telemetry data
   - Verify skill invocation via telemetry events
   - Dependencies: TRD-TEST-064
@@ -925,72 +925,83 @@ Format: `TRD-TEST-XXX`
 
 ##### IV - Integration Tests: Vendoring
 
-- [ ] **TRD-TEST-033**: Execute /init-project vendoring test on Claude Web
+- [x] **TRD-TEST-033**: Execute /init-project vendoring test on Claude Web
   - Create empty test directory
   - Run /init-project with predefined stack
   - Dependencies: TRD-TEST-023, TRD-TEST-029
   - AC Reference: AC-V1
+  - **Artifact**: `test/integration/tests/vendoring.test.sh`
 
-- [ ] **TRD-TEST-034**: Verify vendoring structure - agents and rules
+- [x] **TRD-TEST-034**: Verify vendoring structure - agents and rules
   - Verify 12 agent files in `.claude/agents/`
   - Verify 3 governance files in `.claude/rules/`
   - Dependencies: TRD-TEST-033
   - AC Reference: AC-V2, AC-V3
+  - **Artifact**: `test/integration/tests/vendoring.test.sh`
 
-- [ ] **TRD-TEST-035**: Verify vendoring structure - skills and root files
+- [x] **TRD-TEST-035**: Verify vendoring structure - skills and root files
   - Verify stack-appropriate skills in `.claude/skills/`
   - Verify CLAUDE.md at project root
   - Verify docs/ and .trd-state/ directories
   - Dependencies: TRD-TEST-033
   - AC Reference: AC-V4, AC-V5
+  - **Artifact**: `test/integration/tests/vendoring.test.sh`
 
 ##### IC - Integration Tests: Commands
 
-- [ ] **TRD-TEST-054**: Execute /init-project command flow test
+- [x] **TRD-TEST-054**: Execute /init-project command flow test
   - Verify `.claude/`, `docs/`, `CLAUDE.md` artifacts
   - Local execution
   - Dependencies: TRD-TEST-029
   - AC Reference: AC-C1
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-055**: Verify /init-project artifacts
+- [x] **TRD-TEST-055**: Verify /init-project artifacts
   - Full structure validation
   - Dependencies: TRD-TEST-054
   - AC Reference: AC-C1
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-056**: Execute /create-prd command flow test
+- [x] **TRD-TEST-056**: Execute /create-prd command flow test
   - Verify `docs/PRD/*.md` artifact
   - Local execution
   - Dependencies: TRD-TEST-054
   - AC Reference: AC-C2
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-057**: Verify /create-prd artifact structure
+- [x] **TRD-TEST-057**: Verify /create-prd artifact structure
   - PRD sections present
   - Dependencies: TRD-TEST-056
   - AC Reference: AC-C2
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-058**: Execute /create-trd command flow test
+- [x] **TRD-TEST-058**: Execute /create-trd command flow test
   - Verify `docs/TRD/*.md` artifact
   - Local execution
   - Dependencies: TRD-TEST-056
   - AC Reference: AC-C3
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-059**: Verify /create-trd includes parallelization recommendations
+- [x] **TRD-TEST-059**: Verify /create-trd includes parallelization recommendations
   - TRD includes execution plan
   - Session delegation recommendations present
   - Dependencies: TRD-TEST-058
   - AC Reference: AC-C3
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-060**: Execute /implement-trd command flow test
+- [x] **TRD-TEST-060**: Execute /implement-trd command flow test
   - Verify implementation + `.trd-state/` artifacts
   - Local orchestration with remote delegation
   - Dependencies: TRD-TEST-058
   - AC Reference: AC-C4
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
-- [ ] **TRD-TEST-061**: Verify /implement-trd remote delegation
+- [x] **TRD-TEST-061**: Verify /implement-trd remote delegation
   - Verify remote session delegation for parallel tasks
   - Verify state coordination
   - Dependencies: TRD-TEST-060
   - AC Reference: AC-C5
+  - **Artifact**: `test/integration/tests/commands.test.sh`
 
 #### Track B: Eval Tooling
 

@@ -75,21 +75,21 @@
     "TRD-TEST-030": { "status": "completed", "component": "infrastructure", "phase": 2 },
     "TRD-TEST-031": { "status": "completed", "component": "infrastructure", "phase": 2 },
     "TRD-TEST-032": { "status": "completed", "component": "infrastructure", "phase": 2 },
-    "TRD-TEST-033": { "status": "pending", "component": "vendoring", "phase": "4A" },
-    "TRD-TEST-034": { "status": "pending", "component": "vendoring", "phase": "4A" },
-    "TRD-TEST-035": { "status": "pending", "component": "vendoring", "phase": "4A" },
-    "TRD-TEST-054": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-055": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-056": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-057": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-058": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-059": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-060": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-061": { "status": "pending", "component": "commands", "phase": "4A" },
-    "TRD-TEST-062": { "status": "pending", "component": "observability", "phase": 3 },
-    "TRD-TEST-063": { "status": "pending", "component": "observability", "phase": 3 },
-    "TRD-TEST-064": { "status": "pending", "component": "observability", "phase": 3 },
-    "TRD-TEST-065": { "status": "pending", "component": "observability", "phase": 3 },
+    "TRD-TEST-033": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-034": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-035": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-054": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-055": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-056": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-057": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-058": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-059": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-060": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-061": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-062": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/run-headless.sh (verified)", "notes": "OTel config verified complete" },
+    "TRD-TEST-063": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/verify-telemetry.sh" },
+    "TRD-TEST-064": { "status": "completed", "component": "observability", "phase": 3, "artifact": "docs/TRD/testing-phase-telemetry-patterns.md" },
+    "TRD-TEST-065": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/verify-skill.sh" },
     "TRD-TEST-066": { "status": "pending", "component": "eval-framework", "phase": "4B" },
     "TRD-TEST-067": { "status": "pending", "component": "eval-framework", "phase": "4B" },
     "TRD-TEST-068": { "status": "pending", "component": "eval-framework", "phase": "4B" },
@@ -140,21 +140,62 @@
         "scripts": ["run-headless.sh", "verify-output.sh", "run-ab-test.sh"],
         "config": ["permissive-allowlist.json"]
       }
+    },
+    {
+      "id": "phase-4a-complete",
+      "timestamp": "2026-01-13T23:45:00.000Z",
+      "phase": "4A",
+      "tasks_completed": 11,
+      "artifacts": {
+        "tests": [
+          "test/integration/tests/vendoring.test.sh",
+          "test/integration/tests/commands.test.sh",
+          "test/integration/tests/helpers/setup.sh",
+          "test/integration/tests/run-all.sh"
+        ],
+        "test_coverage": {
+          "vendoring_tests": 26,
+          "commands_tests": 28,
+          "function_tests": 18,
+          "total": 72
+        }
+      },
+      "notes": "Phase 4A creates BATS integration tests for vendoring and command flows. Tests can be run with --functions for fast non-headless verification, or --live for full headless Claude session testing."
+    },
+    {
+      "id": "phase-3-complete",
+      "timestamp": "2026-01-13T14:30:00.000Z",
+      "phase": 3,
+      "tasks_completed": 4,
+      "artifacts": {
+        "scripts": [
+          "test/integration/scripts/verify-telemetry.sh",
+          "test/integration/scripts/verify-skill.sh"
+        ],
+        "documentation": [
+          "docs/TRD/testing-phase-telemetry-patterns.md"
+        ],
+        "fixtures": [
+          "test/integration/fixtures/sample-skill-session.jsonl",
+          "test/integration/fixtures/sample-no-skills.jsonl"
+        ]
+      },
+      "notes": "Phase 3 implements observability tooling: OTel config verification, telemetry capture verification, telemetry analysis patterns documentation, and skill verification utilities for A/B testing."
     }
   ],
   "active_sessions": {},
   "recovery": {
-    "last_healthy_checkpoint": "phase-2-complete",
-    "last_checkpoint_timestamp": "2026-01-13T22:30:00.000Z",
+    "last_healthy_checkpoint": "phase-3-complete",
+    "last_checkpoint_timestamp": "2026-01-13T14:30:00.000Z",
     "interrupted": false,
     "interrupt_reason": null
   },
   "metrics": {
     "total_tasks": 74,
-    "completed_tasks": 39,
+    "completed_tasks": 54,
     "failed_tasks": 0,
     "superseded_tasks": 18,
-    "pending_tasks": 35,
+    "pending_tasks": 20,
     "total_retries": 0
   },
   "revision_history": [

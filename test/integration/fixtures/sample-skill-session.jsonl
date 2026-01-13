@@ -1,0 +1,9 @@
+{"type": "user", "content": "Use the Skill tool for Python, then create a function"}
+{"type": "tool_use", "name": "Skill", "id": "tool_123", "input": {"skill": "developing-with-python"}}
+{"type": "tool_result", "tool_use_id": "tool_123", "content": "Skill loaded successfully"}
+{"type": "assistant", "content": [{"type": "text", "text": "I've loaded the Python skill. Now creating the function..."}]}
+{"type": "tool_use", "name": "Write", "id": "tool_456", "input": {"file_path": "/tmp/test.py", "content": "def hello(): pass"}}
+{"type": "tool_result", "tool_use_id": "tool_456", "content": "File written successfully"}
+{"type": "tool_use", "name": "Skill", "id": "tool_789", "input": {"skill": "pytest", "args": "run tests"}}
+{"type": "tool_result", "tool_use_id": "tool_789", "content": "Skill loaded successfully"}
+{"type": "assistant", "content": [{"type": "text", "text": "Done!"}]}
