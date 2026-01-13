@@ -348,7 +348,8 @@ describe('ZellijAdapter', () => {
       // Zellij returns timestamp-based ID
       expect(paneId).toMatch(/^zellij-\d+$/);
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--',
@@ -373,7 +374,8 @@ describe('ZellijAdapter', () => {
 
       expect(paneId).toMatch(/^zellij-\d+$/);
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'down',
         '--close-on-exit',
         '--',
@@ -397,7 +399,8 @@ describe('ZellijAdapter', () => {
       });
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'down',
         '--close-on-exit',
         '--',
@@ -422,7 +425,8 @@ describe('ZellijAdapter', () => {
       });
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--cwd', '/home/user/project',
@@ -448,7 +452,8 @@ describe('ZellijAdapter', () => {
       });
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--name', 'monitoring-pane',
@@ -472,7 +477,8 @@ describe('ZellijAdapter', () => {
       });
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--',
@@ -496,7 +502,8 @@ describe('ZellijAdapter', () => {
       await adapter.splitPane({});
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--',
@@ -522,7 +529,8 @@ describe('ZellijAdapter', () => {
       await adapter.splitPane({});
 
       expect(spawnSync).toHaveBeenCalledWith('zellij', [
-        'run',
+        'action',
+        'new-pane',
         '--direction', 'right',
         '--close-on-exit',
         '--',
@@ -699,14 +707,26 @@ describe('ZellijAdapter', () => {
   });
 
   describe('getPaneInfo', () => {
-    it('should return null (not supported by Zellij CLI)', async () => {
+    it('should use fallback method when no signal file provided', async () => {
       const info = await adapter.getPaneInfo('zellij-123');
-      expect(info).toBeNull();
+      expect(info).toEqual({
+        id: 'zellij-123',
+        exists: true,
+        method: 'assumed'
+      });
     });
 
-    it('should return null for any paneId', async () => {
-      expect(await adapter.getPaneInfo('any-id')).toBeNull();
-      expect(await adapter.getPaneInfo('zellij-456')).toBeNull();
+    it('should return pane info for any paneId', async () => {
+      expect(await adapter.getPaneInfo('any-id')).toEqual({
+        id: 'any-id',
+        exists: true,
+        method: 'assumed'
+      });
+      expect(await adapter.getPaneInfo('zellij-456')).toEqual({
+        id: 'zellij-456',
+        exists: true,
+        method: 'assumed'
+      });
       expect(await adapter.getPaneInfo('')).toBeNull();
     });
   });

@@ -138,13 +138,21 @@ describe('Zellij Integration Tests', () => {
   });
 
   describe('getPaneInfo()', () => {
-    it('should return null (not supported by Zellij CLI)', async () => {
+    it('should use fallback method when no signal file provided', async () => {
       const info = await adapter.getPaneInfo('any-pane-id');
-      expect(info).toBeNull();
+      expect(info).toEqual({
+        id: 'any-pane-id',
+        exists: true,
+        method: 'assumed'
+      });
     });
 
-    it('should return null for any paneId', async () => {
-      expect(await adapter.getPaneInfo('test-123')).toBeNull();
+    it('should return pane info for any paneId', async () => {
+      expect(await adapter.getPaneInfo('test-123')).toEqual({
+        id: 'test-123',
+        exists: true,
+        method: 'assumed'
+      });
       expect(await adapter.getPaneInfo('')).toBeNull();
     });
   });
