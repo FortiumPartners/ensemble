@@ -480,9 +480,9 @@ describe('PaneManager', () => {
       await manager.cleanup();
 
       expect(mockAdapter.getPaneInfo).toHaveBeenCalledTimes(3);
-      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-1');
-      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-2');
-      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-3');
+      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-1', { signalFile: '/tmp/signal-1' });
+      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-2', { signalFile: '/tmp/signal-2' });
+      expect(mockAdapter.getPaneInfo).toHaveBeenCalledWith('pane-3', { signalFile: '/tmp/signal-3' });
     });
   });
 
