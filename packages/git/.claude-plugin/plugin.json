@@ -1,6 +1,6 @@
 {
   "name": "ensemble-git",
-  "version": "5.1.0",
+  "version": "5.1.2",
   "description": "Git workflow automation and conventional commits",
   "author": {
     "name": "Fortium Partners",
