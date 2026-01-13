@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-permitter",
-  "version": "5.0.0",
+  "version": "5.1.2",
   "description": "Smart permission expansion hook for Claude Code - semantic command matching",
   "author": {
     "name": "Fortium Partners",

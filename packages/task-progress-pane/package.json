@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-task-progress-pane",
-  "version": "5.1.0",
+  "version": "5.1.2",
   "description": "Real-time task progress visualization for Claude Code TodoWrite operations",
   "main": "lib/index.js",
   "files": [
