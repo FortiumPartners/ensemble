@@ -207,9 +207,17 @@ describe('parseConventionalCommit', () => {
       expect(result.body).not.toContain('\r');
     });
 
-    it('should reject dangerous characters', () => {
-      const message = 'feat(core): <script>malicious</script>';
+    it('should reject disallowed special characters', () => {
+      // Note: <, >, @, /, =, + are now allowed for emails, paths, and version refs
+      // Test with actually disallowed characters like $ or &
+      const message = 'feat(core): test $INJECT_VAR &';
       expect(() => parseConventionalCommit(message)).toThrow(VersionError);
+    });
+
+    it('should allow angle brackets and @ symbols (for emails and tags)', () => {
+      // These are now allowed since they're common in commit messages
+      const message = 'feat(core): add <Component> with email@example.com';
+      expect(() => parseConventionalCommit(message)).not.toThrow();
     });
 
     it('should trim whitespace before parsing', () => {

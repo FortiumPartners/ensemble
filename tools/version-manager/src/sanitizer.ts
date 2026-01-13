@@ -49,9 +49,10 @@ export function sanitizeCommitMessage(message: string): string {
   }
 
   // 6. Validate allowed characters (alphanumeric, spaces, common punctuation)
-  // Allow: a-z, A-Z, 0-9, space, -, _, :, !, (, ), [, ], {, }, #, ., ,, ?, ;, <, >, @, newline
+  // Allow: a-z, A-Z, 0-9, space, -, _, :, !, (, ), [, ], {, }, #, ., ,, ?, ;, <, >, @, /, =, +, newline
   // Note: <, >, @ added to support email addresses in Co-Authored-By trailers
-  const allowedPattern = /^[a-zA-Z0-9\s\-_:!()\[\]{} #.,?;<>@\n]+$/;
+  // Note: /, =, + added to support file paths, version refs, and semantic versioning
+  const allowedPattern = /^[a-zA-Z0-9\s\-_:!()\[\]{} #.,?;<>@/=+\n]+$/;
   if (!allowedPattern.test(sanitized)) {
     // Find invalid characters for helpful error message
     const invalidChars = [...new Set(

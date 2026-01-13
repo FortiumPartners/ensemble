@@ -15,15 +15,17 @@ export interface ErrorContext {
 
 /**
  * Centralized error handler for all version management errors
- * Implements fail-fast behavior - exits process on all errors
+ * Implements fail-fast behavior - exits process on all errors by default
  *
  * @param error - Error to handle (VersionError or generic Error)
  * @param context - Error context for logging
- * @returns Never returns - always exits process
+ * @param shouldExit - Whether to call process.exit (default: true). Set to false for testing.
+ * @returns Never returns if shouldExit is true, otherwise throws the VersionError
  */
 export async function handleError(
   error: Error | VersionError,
-  context: ErrorContext
+  context: ErrorContext,
+  shouldExit: boolean = true
 ): Promise<never> {
   // Convert generic errors to VersionError with E011 (UNKNOWN_ERROR)
   let versionError: VersionError;
@@ -75,6 +77,10 @@ export async function handleError(
   const formattedError = formatError(versionError);
   console.error(formattedError);
 
-  // 3. Exit with appropriate code (fail-fast)
-  process.exit(versionError.exitCode);
+  // 3. Exit or throw (fail-fast)
+  if (shouldExit) {
+    process.exit(versionError.exitCode);
+  } else {
+    throw versionError;
+  }
 }

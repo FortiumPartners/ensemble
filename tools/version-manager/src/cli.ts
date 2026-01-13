@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
+import * as path from 'path';
 import { sanitizeCommitMessage } from './sanitizer.js';
 import { parseConventionalCommit } from './parser.js';
 import { determineBumpType, type BumpType } from './bump-resolver.js';
@@ -15,6 +16,25 @@ interface PreviewResult {
   commitType?: string;
   breakingChange?: boolean;
   message?: string;
+}
+
+/**
+ * Find the git repository root directory
+ */
+function findGitRoot(): string {
+  try {
+    const gitRoot = execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+    return gitRoot;
+  } catch (error) {
+    throw new VersionError(
+      ErrorCodes.GIT_ERROR.message,
+      ErrorCodes.GIT_ERROR.code,
+      ErrorCodes.GIT_ERROR.recovery,
+      1,
+      { command: 'git rev-parse --show-toplevel' },
+      error as Error
+    );
+  }
 }
 
 /**
@@ -100,8 +120,11 @@ async function main(): Promise<void> {
   } catch (error) {
     if (error instanceof VersionError) {
       // Handle error (this will log, format, and exit)
+      const gitRoot = findGitRoot();
+      const logPath = path.join(gitRoot, '.version-bumps.log');
+
       await handleError(error, {
-        logPath: '/Users/ldangelo/Development/Fortium/ensemble/.version-bumps.log',
+        logPath,
         operation: 'version-bump-preview'
       });
     } else {

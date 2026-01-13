@@ -43,6 +43,21 @@ describe('sanitizeCommitMessage', () => {
       const input = 'fix(auth): update email validation for <user@example.com>';
       expect(sanitizeCommitMessage(input)).toBe(input);
     });
+
+    it('should pass through message with file paths', () => {
+      const input = 'fix(api): update /api/v1/users endpoint';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should pass through message with version references', () => {
+      const input = 'chore: update package@1.2.3+build';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should pass through message with equals sign', () => {
+      const input = 'fix(config): set NODE_ENV=production';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
   });
 
   describe('CRLF normalization', () => {

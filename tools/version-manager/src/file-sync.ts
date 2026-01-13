@@ -1,8 +1,9 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import { PackageInfo } from './package-scanner';
 import { detectFormat, formatJson } from './json-formatter';
 import { AtomicTransaction } from './atomic-transaction';
 import { VersionError, ErrorCodes } from './errors';
+import { validateSemver } from './semver-validator';
 
 /**
  * Version update operation for packages
@@ -21,6 +22,9 @@ export interface VersionUpdate {
  */
 export async function updateVersions(update: VersionUpdate): Promise<void> {
   const { newVersion, packages } = update;
+
+  // Validate semver format
+  validateSemver(newVersion);
 
   // Nothing to do if no packages
   if (packages.length === 0) {
@@ -92,8 +96,8 @@ async function processFile(
   newVersion: string
 ): Promise<{ path: string; content: string }> {
   try {
-    // Read original content
-    const originalContent = fs.readFileSync(filePath, 'utf-8');
+    // Read original content (async I/O for better performance)
+    const originalContent = await fs.readFile(filePath, 'utf-8');
 
     // Detect formatting style
     const format = detectFormat(originalContent);

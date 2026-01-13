@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { VersionError, ErrorCodes } from './errors';
 
 interface FileUpdate {
   path: string;
@@ -80,10 +81,24 @@ export class AtomicTransaction {
 
           // Write new content
           fs.writeFileSync(update.path, update.newContent, 'utf-8');
-        } catch (error) {
-          // Rollback on any failure
-          await this.performRollback();
-          throw new Error(`Failed to write file ${update.path}: ${error}`);
+        } catch (writeError) {
+          // Attempt rollback on write failure
+          try {
+            await this.performRollback();
+            // Rollback succeeded - clean up and re-throw write error
+            this.updates = [];
+            this.inProgress = false;
+            throw new Error(`Failed to write file ${update.path}: ${writeError}`);
+          } catch (rollbackError) {
+            // Rollback failed - keep transaction in progress
+            throw new VersionError(
+              `${ErrorCodes.ROLLBACK_FAILED.message}: ${rollbackError}`,
+              ErrorCodes.ROLLBACK_FAILED.code,
+              ErrorCodes.ROLLBACK_FAILED.recovery,
+              1,
+              { originalError: String(writeError), rollbackError: String(rollbackError) }
+            );
+          }
         }
       }
 
@@ -91,8 +106,7 @@ export class AtomicTransaction {
       this.updates = [];
       this.inProgress = false;
     } catch (error) {
-      // Ensure transaction is closed even on error
-      this.inProgress = false;
+      // Re-throw error (already handled above)
       throw error;
     }
   }
