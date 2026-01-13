@@ -136,12 +136,41 @@ class ZellijAdapter extends BaseMultiplexerAdapter {
   /**
    * Get Zellij pane information
    * @param {string} paneId - Pane ID
+   * @param {Object} options - Additional options
+   * @param {string} options.signalFile - Path to signal file (used for pane existence check)
    * @returns {Promise<Object|null>}
    */
-  async getPaneInfo(paneId) {
+  async getPaneInfo(paneId, options = {}) {
     // Zellij doesn't expose pane information through CLI like WezTerm does
-    // Return null to indicate information is not available
-    // The pane viewer will work without this information
+    // However, we can check if the signal file exists as a proxy for pane existence
+    // The monitor script creates the signal file and removes it when the pane closes
+
+    if (options.signalFile) {
+      const fs = require('fs').promises;
+      try {
+        await fs.access(options.signalFile);
+        // Signal file exists, pane is likely still alive
+        return {
+          id: paneId,
+          exists: true,
+          method: 'signal-file-check'
+        };
+      } catch (error) {
+        // Signal file doesn't exist, pane is likely closed
+        return null;
+      }
+    }
+
+    // Fallback: assume pane exists if we have a paneId
+    // This prevents unnecessary pane spawning
+    if (paneId) {
+      return {
+        id: paneId,
+        exists: true,
+        method: 'assumed'
+      };
+    }
+
     return null;
   }
 }

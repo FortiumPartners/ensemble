@@ -190,7 +190,9 @@ class PaneManager {
         if (pane.transcriptDir === transcriptDir) {
           // Verify pane still exists
           log(`  Found matching pane ${pane.paneId}, verifying...`);
-          const info = await this.adapter.getPaneInfo(pane.paneId);
+          const info = await this.adapter.getPaneInfo(pane.paneId, {
+            signalFile: pane.signalFile
+          });
           if (info) {
             log(`  Pane ${pane.paneId} exists, reusing`);
             // Pane exists - reuse it, just update the task tracking
@@ -295,7 +297,9 @@ class PaneManager {
 
     for (const key of Object.keys(state.panes)) {
       const pane = state.panes[key];
-      const info = await this.adapter.getPaneInfo(pane.paneId);
+      const info = await this.adapter.getPaneInfo(pane.paneId, {
+        signalFile: pane.signalFile
+      });
       if (!info) {
         delete state.panes[key];
         cleaned++;
