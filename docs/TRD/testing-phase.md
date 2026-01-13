@@ -2507,8 +2507,8 @@ function generateReport(spec, results, outputDir) {
 |-------|-------|---------------|----------------|
 | Phase 1 | Unit Tests | None | Yes - internal |
 | Phase 2 | Infrastructure | None | Yes - with Phase 1 |
-| Phase 3 | Observability | Phase 2 complete | Yes - with Phase 1 |
-| Phase 4 | Eval Framework | Phase 2 + Phase 3 | Yes - Track A || Track B |
+| Phase 3 | Observability | Phase 2 complete | Yes - with Phase 4 |
+| Phase 4 | Eval Framework | Phase 2 complete | Yes - with Phase 3, Track A || Track B |
 
 ### 6.2 Work Sessions and Parallelization
 
@@ -2555,7 +2555,7 @@ flowchart LR
 
 | Session | Tasks | Can Parallel With |
 |---------|-------|-------------------|
-| P3-otel | TRD-TEST-062 through 065 | Phase 1 sessions |
+| P3-otel | TRD-TEST-062 through 065 | P4-vendoring, P4-framework, P4-rubrics |
 
 ```mermaid
 flowchart LR
@@ -2566,14 +2566,14 @@ flowchart LR
 
 | Session | Tasks | Can Parallel With |
 |---------|-------|-------------------|
-| P4-vendoring (Track A) | TRD-TEST-033 through 035 | P4-framework (Track B) |
-| P4-commands (Track A) | TRD-TEST-054 through 061 | P4-rubrics (Track B) |
-| P4-framework (Track B) | TRD-TEST-066 through 071 | P4-vendoring (Track A) |
-| P4-rubrics (Track B) | TRD-TEST-072 through 074 | P4-commands (Track A) |
+| P4-vendoring (Track A) | TRD-TEST-033 through 035 | P3-otel, P4-framework (Track B) |
+| P4-commands (Track A) | TRD-TEST-054 through 061 | P3-otel, P4-rubrics (Track B) |
+| P4-framework (Track B) | TRD-TEST-066 through 071 | P3-otel, P4-vendoring (Track A) |
+| P4-rubrics (Track B) | TRD-TEST-072 through 074 | P3-otel, P4-commands (Track A) |
 | P4-specs (Track B) | TRD-TEST-075 through 083 | P4-commands (Track A) |
 | P4-execution (Final) | TRD-TEST-084 through 085 | (Sequential, requires Track A + B) |
 
-**Note**: Track A (Structure Verification) and Track B (Eval Tooling) can run in parallel. P4-execution requires both tracks to complete.
+**Note**: Phase 3 (Observability) and Phase 4 can run in parallel. Track A and Track B within Phase 4 can also run in parallel. P4-execution requires both tracks to complete. OTel (Phase 3) is optional but provides debugging visibility.
 
 ```mermaid
 flowchart LR
@@ -2594,13 +2594,15 @@ flowchart LR
 flowchart LR
     TRD-TEST-023["TRD-TEST-023<br/>(Repo)"] --> TRD-TEST-029["TRD-TEST-029<br/>(Scripts)"]
     TRD-TEST-029 --> TRD-TEST-062["TRD-TEST-062<br/>(OTel)"]
-    TRD-TEST-062 --> TRD-TEST-033["TRD-TEST-033<br/>(Vendoring)"]
-    TRD-TEST-062 --> TRD-TEST-066["TRD-TEST-066<br/>(Eval Framework)"]
+    TRD-TEST-029 --> TRD-TEST-033["TRD-TEST-033<br/>(Vendoring)"]
+    TRD-TEST-029 --> TRD-TEST-066["TRD-TEST-066<br/>(Eval Framework)"]
     TRD-TEST-033 --> TRD-TEST-054["TRD-TEST-054<br/>(Commands)"]
     TRD-TEST-066 --> TRD-TEST-075["TRD-TEST-075<br/>(Eval Specs)"]
     TRD-TEST-054 --> TRD-TEST-084["TRD-TEST-084<br/>(Execute Evals)"]
     TRD-TEST-075 --> TRD-TEST-084
 ```
+
+**Note**: Phase 3 (OTel) runs in parallel with Phase 4 tracks. OTel is optional - it provides debugging visibility but is not required for eval execution.
 
 ### 6.4 Dependencies Diagram
 
@@ -2634,7 +2636,7 @@ flowchart TB
     end
 
     PHASE2 --> PHASE3
-    PHASE3 --> PHASE4
+    PHASE2 --> PHASE4
     IV --> IC
     EF_FW --> EF_RB
     EF_RB --> EF_SP

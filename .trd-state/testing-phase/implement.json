@@ -9,8 +9,8 @@
   "phase_structure": {
     "1": { "name": "Unit Tests", "tasks": "001-022, 086-092" },
     "2": { "name": "Infrastructure", "tasks": "023-032" },
-    "3": { "name": "Observability", "tasks": "062-065" },
-    "4": { "name": "Eval Framework", "tracks": {
+    "3": { "name": "Observability", "tasks": "062-065", "parallel_with": ["4A", "4B"] },
+    "4": { "name": "Eval Framework", "parallel_with": ["3"], "tracks": {
       "A": { "name": "Structure Verification", "tasks": "033-035, 054-061" },
       "B": { "name": "Eval Tooling", "tasks": "066-083" }
     }, "final": "084-085" }
