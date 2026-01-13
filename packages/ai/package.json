@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-ai",
-  "version": "5.1.0",
+  "version": "5.2.1",
   "description": "AI SDK skills for OpenAI and other AI providers",
   "main": "lib/index.js",
   "scripts": {
@@ -8,7 +8,15 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint ."
   },
-  "keywords": ["openai", "ai", "gpt", "llm", "embeddings", "agents", "ensemble"],
+  "keywords": [
+    "openai",
+    "ai",
+    "gpt",
+    "llm",
+    "embeddings",
+    "agents",
+    "ensemble"
+  ],
   "author": "Fortium Partners",
   "license": "MIT",
   "repository": {

@@ -1,7 +1,7 @@
 ---
 name: playwright-tester
 description: Use Playwright MCP to write/maintain E2E tests; capture traces and screenshots for regression.
-skills: writing-playwright-tests, developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from playwright-tester.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

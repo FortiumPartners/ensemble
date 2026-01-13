@@ -13,6 +13,7 @@ metadata:
     - Task
     - Grep
     - Glob
+    - AskUserQuestion
   languages:
     - Ruby
     - JavaScript

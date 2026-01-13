@@ -16,19 +16,22 @@ development including planning, implementation, testing, and quality gates.
 ### Phase 1: Prerequisites & Feature Branch Setup
 
 **1. Git Town Verification**
-   Check git-town installation and configuration
+   Check git-town installation and configuration using validation script
 
-   - Verify git-town is installed
-   - Check repository is git-initialized
-   - Validate git-town configuration
-   - Ensure clean working directory
+   - Execute validation script - bash packages/git/skills/git-town/scripts/validate-git-town.sh
+   - Handle exit codes - 0 (success), 1 (not installed), 2 (not configured), 3 (version mismatch), 4 (not git repo)
+   - If validation fails, escalate with specific error message
+   - Ensure clean working directory (git status)
 
 **2. Feature Branch Creation**
-   Create feature branch using git town hack
+   Create feature branch using git-town skill interview template
 
-   - Extract branch name from TRD filename
-   - Execute git town hack feature/<branch-name>
-   - Verify branch creation successful
+   - Load interview template from packages/git/skills/git-town/templates/interview-branch-creation.md
+   - Extract branch name from TRD filename (format - feature/<trd-slug>)
+   - Validate branch name against pattern - ^[a-z0-9-]+(/[a-z0-9-]+)*$
+   - Set base_branch to main (or current default branch)
+   - Execute - git-town hack <branch-name> --parent <base-branch>
+   - Verify branch creation successful (check git branch output)
 
 **3. TRD Ingestion**
    Parse and analyze existing TRD document with checkbox tracking

@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-infrastructure",
-  "version": "5.1.0",
+  "version": "5.2.1",
   "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
   "main": "lib/index.js",
   "scripts": {
