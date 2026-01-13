@@ -1,0 +1,39 @@
+{
+  "name": "ensemble-vnext",
+  "version": "1.0.0",
+  "description": "Complete ensemble vNext ecosystem for Claude Code",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble-vnext",
+  "license": "MIT",
+  "keywords": [
+    "ensemble",
+    "vnext",
+    "orchestration",
+    "workflow",
+    "subagents"
+  ],
+  "commands": [
+    "./commands/core",
+    "./commands/router"
+  ],
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "agents": [
+    "./agents/product-manager.md",
+    "./agents/technical-architect.md",
+    "./agents/spec-planner.md",
+    "./agents/frontend-implementer.md",
+    "./agents/backend-implementer.md",
+    "./agents/mobile-implementer.md",
+    "./agents/verify-app.md",
+    "./agents/code-simplifier.md",
+    "./agents/code-reviewer.md",
+    "./agents/app-debugger.md",
+    "./agents/devops-engineer.md",
+    "./agents/cicd-specialist.md"
+  ]
+}

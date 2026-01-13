@@ -1,0 +1,107 @@
+{
+  "$schema": "https://claude.ai/schemas/claude-settings.json",
+  "version": "1.0.0",
+  "permissions": {
+    "allowlist": [
+      "git status",
+      "git diff",
+      "git log",
+      "git add",
+      "git commit",
+      "git branch",
+      "git checkout",
+      "git push",
+      "git pull",
+      "git fetch",
+      "git merge",
+      "git stash",
+      "git rebase",
+      "ls",
+      "cat",
+      "head",
+      "tail",
+      "grep",
+      "find",
+      "wc",
+      "sort",
+      "uniq",
+      "pwd",
+      "echo",
+      "mkdir",
+      "cp",
+      "mv",
+      "rm",
+      "touch",
+      "chmod",
+      "npm run",
+      "npm test",
+      "npm install",
+      "npm ci",
+      "npx",
+      "yarn",
+      "pnpm",
+      "pip install",
+      "pip list",
+      "python -m pytest",
+      "pytest",
+      "python -m",
+      "python",
+      "cargo test",
+      "cargo build",
+      "cargo run",
+      "go test",
+      "go build",
+      "go run",
+      "bundle exec",
+      "rails",
+      "rake",
+      "mix",
+      "elixir",
+      "dotnet test",
+      "dotnet build",
+      "dotnet run",
+      "make",
+      "cmake",
+      "prettier",
+      "eslint",
+      "ruff",
+      "black",
+      "gofmt",
+      "rustfmt",
+      "shfmt"
+    ],
+    "auto_approve": true
+  },
+  "hooks": {
+    "PermissionRequest": {
+      "handler": ".claude/hooks/permitter.js",
+      "enabled": true
+    },
+    "UserPromptSubmit": {
+      "handler": ".claude/hooks/router.py",
+      "enabled": true
+    },
+    "PostToolUse": {
+      "handler": ".claude/hooks/formatter.sh",
+      "enabled": true,
+      "events": ["Edit", "Write"]
+    },
+    "SubagentStop": {
+      "handler": ".claude/hooks/status.js",
+      "enabled": true
+    },
+    "SessionEnd": {
+      "handler": ".claude/hooks/learning.js",
+      "enabled": true
+    }
+  },
+  "ensemble": {
+    "agents_dir": ".claude/agents",
+    "skills_dir": ".claude/skills",
+    "rules_dir": ".claude/rules",
+    "state_dir": ".trd-state",
+    "docs_dir": "docs",
+    "prd_dir": "docs/PRD",
+    "trd_dir": "docs/TRD"
+  }
+}
