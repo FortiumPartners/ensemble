@@ -1,5 +1,6 @@
 const { BaseMultiplexerAdapter } = require('./base-adapter');
 const { execSync, spawnSync } = require('child_process');
+const fs = require('fs').promises;
 
 /**
  * Zellij multiplexer adapter
@@ -136,12 +137,49 @@ class ZellijAdapter extends BaseMultiplexerAdapter {
   /**
    * Get Zellij pane information
    * @param {string} paneId - Pane ID
+   * @param {Object} options - Additional options
+   * @param {string} options.signalFile - Path to signal file (used for pane existence check)
    * @returns {Promise<Object|null>}
    */
-  async getPaneInfo(paneId) {
+  async getPaneInfo(paneId, options = {}) {
     // Zellij doesn't expose pane information through CLI like WezTerm does
-    // Return null to indicate information is not available
-    // The pane viewer will work without this information
+    // However, we can check if the signal file exists as a proxy for pane existence
+    // The monitor script creates the signal file and removes it when the pane closes
+    // Note: This has a TOCTOU (time-of-check-time-of-use) limitation where the
+    // signal file could be deleted between check and use.
+
+    if (options.signalFile) {
+      try {
+        await fs.access(options.signalFile);
+        // Signal file exists, pane is likely still alive
+        return {
+          id: paneId,
+          exists: true,
+          method: 'signal-file-check'
+        };
+      } catch (error) {
+        if (error.code === 'ENOENT') {
+          // Signal file doesn't exist, pane is closed
+          return null;
+        }
+        // Unexpected error (permissions, I/O error, etc.)
+        console.error(`[zellij] Unexpected error checking signal file ${options.signalFile}:`, error.message);
+        // Conservative: assume pane doesn't exist on unexpected errors
+        return null;
+      }
+    }
+
+    // Fallback: assume pane exists if we have a paneId
+    // This prevents unnecessary pane spawning when signal file isn't provided
+    if (paneId) {
+      console.log(`[zellij] Using fallback pane check for ${paneId} (no signal file provided)`);
+      return {
+        id: paneId,
+        exists: true,
+        method: 'assumed'
+      };
+    }
+
     return null;
   }
 }
