@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-agent-progress-pane",
-  "version": "5.1.2",
+  "version": "5.2.1",
   "description": "Real-time agent progress visualization in terminal panes",
   "main": "lib/index.js",
   "scripts": {

@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-quality",
-  "version": "5.1.2",
+  "version": "5.2.1",
   "description": "Quality assurance, code review, and DoD enforcement",
   "main": "lib/index.js",
   "scripts": {

@@ -1,7 +1,7 @@
 ---
 name: release-agent
 description: Automated release orchestration with quality gates, smoke test integration, and deployment coordination
-skills: aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, test-detector, framework-detector, writing-playwright-tests, smoke-test-runner, changelog-generator, act-local-ci
+tools: [Read, Write, Edit, Bash, Task, Skill]
 ---
 <!-- DO NOT EDIT - Generated from release-agent.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

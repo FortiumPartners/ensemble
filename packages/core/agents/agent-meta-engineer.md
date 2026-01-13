@@ -1,6 +1,7 @@
 ---
 name: agent-meta-engineer
 description: Chief AI engineer focused on agent ecosystem management - designing, spawning, improving agents and creating specialized commands on demand.
+tools: [Read, Write, Edit, Bash]
 ---
 <!-- DO NOT EDIT - Generated from agent-meta-engineer.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

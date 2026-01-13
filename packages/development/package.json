@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-development",
-  "version": "5.1.2",
+  "version": "5.2.1",
   "description": "Development agents for frontend/backend implementation",
   "main": "lib/index.js",
   "scripts": {

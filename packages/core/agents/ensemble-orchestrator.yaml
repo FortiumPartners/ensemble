@@ -13,6 +13,7 @@ metadata:
     - Grep
     - Glob
     - TodoWrite
+    - AskUserQuestion
 
 mission:
   summary: |

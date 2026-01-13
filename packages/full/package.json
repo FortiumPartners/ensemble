@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-full",
-  "version": "5.1.2",
+  "version": "5.2.1",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "main": "lib/index.js",
   "scripts": {

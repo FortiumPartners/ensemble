@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-metrics",
-  "version": "5.1.2",
+  "version": "5.2.1",
   "description": "Productivity metrics and analytics dashboard",
   "main": "lib/index.js",
   "scripts": {
