@@ -10,6 +10,21 @@ category: scaffolding
 
 ---
 
+## CRITICAL: All 15 Steps Must Be Completed
+
+**DO NOT exit early. DO NOT skip steps. This command REQUIRES all 15 steps to complete successfully.**
+
+The initialization is NOT complete until:
+- Step 9 (Deploy Configuration Files) creates `router-rules.json`
+- Step 12 (Generate Project Router Rules) runs `/generate-project-router-rules`
+- Step 13 (Create CLAUDE.md) creates or verifies CLAUDE.md exists
+- Step 14 (Validation) confirms ALL required files exist
+- Step 15 (Completion Report) outputs the summary
+
+**Common failure point:** Exiting after Step 8 (Deploy Hooks) leaves the project in an incomplete state without router rules or CLAUDE.md. YOU MUST CONTINUE through Steps 9-15.
+
+---
+
 ## User Input
 
 ```text
@@ -184,27 +199,31 @@ Options:
 
 </interactive-configuration>
 
-### Step 3: Create Directory Structure
+### Step 3: Create Directory Structure and Copy Plugin Content
 
-**Create the vendored runtime directory structure:**
+**Execute the scaffold script deterministically using shell commands:**
 
-```bash
-# Create .claude/ directory structure
-mkdir -p .claude/agents
-mkdir -p .claude/rules
-mkdir -p .claude/skills
-mkdir -p .claude/commands
-mkdir -p .claude/hooks
+Run a single combined command to resolve the plugin path and execute the scaffold script:
 
-# Create docs structure
-mkdir -p docs/PRD
-mkdir -p docs/TRD/completed
-mkdir -p docs/TRD/cancelled
-mkdir -p docs/standards  # For backwards compatibility symlink
+- Scaffold project: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; echo "Plugin path: $PLUGIN_PATH"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
 
-# Create .trd-state structure
-mkdir -p .trd-state
-```
+**The scaffold script creates:**
+- All `.claude/` subdirectories (agents, rules, skills, commands, hooks)
+- All `docs/` subdirectories (PRD, TRD, standards)
+- `.trd-state/` directory
+- Template files: `CLAUDE.md`, `.claude/router-rules.json`, `.claude/settings.json`, `.trd-state/current.json`
+- **12 agent files** copied to `.claude/agents/`
+- **8 command files** copied to `.claude/commands/`
+- **All hooks** copied to `.claude/hooks/` (including permitter with lib dependencies)
+
+**Verify all directories and these files exist before proceeding:**
+- `CLAUDE.md`
+- `.claude/router-rules.json`
+- `.claude/settings.json`
+- `.trd-state/current.json`
+- `.claude/agents/*.md` (12 files)
+- `.claude/commands/*.md` (8 files)
+- `.claude/hooks/` (permitter/, router.py, formatter.sh, status.js, wiggum.js, learning.sh)
 
 ### Step 4: Generate Governance Files
 
@@ -325,21 +344,30 @@ For each agent in `@packages/full/agents/`:
 | Issue Tracker: Jira | `managing-jira-issues` |
 | Issue Tracker: Linear | `managing-linear-issues` |
 
-3. For each matched skill:
-   - Copy entire folder from `packages/skills/<skill-name>/` to `.claude/skills/<skill-name>/`
-   - Include SKILL.md, REFERENCE.md, templates/, examples/
+3. Write selected skill names to `.claude/selected-skills.txt` (one skill per line):
 
-4. Report selection to user with confidence levels
+```
+developing-with-python
+pytest
+using-prisma
+managing-railway
+```
+
+4. Call the scaffold script to copy the selected skills:
+
+- Copy skills: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" --copy-skills .`
+
+5. Report selection to user with confidence levels
 
 </skill-selection>
 
-### Step 7: Deploy Commands
+### Step 7: Verify Commands (Copied in Step 3)
 
 <command-deployment>
 
-**Copy workflow commands from plugin to vendored runtime:**
+**Commands were copied by scaffold script in Step 3. Verify they exist:**
 
-Copy these commands from `@packages/core/commands/` to `.claude/commands/`:
+Check that these commands exist in `.claude/commands/`:
 - `create-prd.md`
 - `refine-prd.md`
 - `create-trd.md`
@@ -349,32 +377,33 @@ Copy these commands from `@packages/core/commands/` to `.claude/commands/`:
 - `cleanup-project.md`
 - `fold-prompt.md`
 
-Commands are copied WITHOUT modification - they are generic workflow commands.
+If any are missing, re-run the scaffold: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
 
 </command-deployment>
 
-### Step 8: Deploy Hooks
+### Step 8: Verify Hooks (Copied in Step 3)
 
 <hook-deployment>
 
-**Copy hooks to vendored runtime:**
+**Hooks were copied by scaffold script in Step 3. Verify they exist:**
 
-1. **Permitter Hook** - Copy from `@packages/permitter/hooks/permitter.js` to `.claude/hooks/permitter.js`
-   - No modifications - exact copy
+Check these hooks in `.claude/hooks/`:
+1. **Permitter Hook** - `.claude/hooks/permitter/permitter.js` and `lib/` directory
+2. **Router Hook** - `.claude/hooks/router.py`
+3. **Formatter Hook** - `.claude/hooks/formatter.sh`
+4. **Status Hook** - `.claude/hooks/status.js`
+5. **Wiggum Hook** - `.claude/hooks/wiggum.js`
+6. **Learning Hook** - `.claude/hooks/learning.sh`
 
-2. **Router Hook** - Copy from `@packages/router/hooks/router.py` to `.claude/hooks/router.py`
-   - No modifications - exact copy
-
-3. **Formatter Hook** - Copy from `@packages/core/hooks/formatter.sh` to `.claude/hooks/formatter.sh`
-   - Ensure execute permission
-
-4. **Status Hook** - Copy from `@packages/core/hooks/status.js` to `.claude/hooks/status.js`
-   - No modifications
-
-5. **Learning Hook** - Copy from `@packages/core/hooks/learning.js` to `.claude/hooks/learning.js`
-   - No modifications
+If any are missing, re-run the scaffold: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
 
 </hook-deployment>
+
+---
+
+**CHECKPOINT: Steps 1-8 complete. DO NOT STOP HERE. Continue with Steps 9-15.**
+
+---
 
 ### Step 9: Deploy Configuration Files
 
@@ -450,6 +479,12 @@ Ensure these patterns are added:
 
 </gitignore-update>
 
+---
+
+**CHECKPOINT: Steps 9-11 complete. DO NOT STOP HERE. Continue with Steps 12-15.**
+
+---
+
 ### Step 12: Generate Project Router Rules
 
 <router-rules-generation>
@@ -462,77 +497,96 @@ This command analyzes the project structure and creates routing rules in `.claud
 
 </router-rules-generation>
 
-### Step 13: Create CLAUDE.md (if not exists)
+### Step 13: Update CLAUDE.md
 
-<claude-md-initialization>
+<claude-md-update>
 
-**If CLAUDE.md does not exist in project root:**
+**The scaffolding script created CLAUDE.md from a template. You must now UPDATE it with project-specific information.**
 
-Create initial CLAUDE.md with:
-```markdown
-# CLAUDE.md - AI-Augmented Development
+**Action Required:**
 
-## Core Workflow
+1. Read the existing `CLAUDE.md` file
+2. Replace the placeholders with actual project information:
+   - `{{PROJECT_NAME}}` → Actual project name from PROJECT.md or directory
+   - `{{PROJECT_DESCRIPTION}}` → Brief description of the project
+   - `{{STACK_SUMMARY}}` → Summary of detected tech stack
+3. Use the Edit tool to update the file (preserve all other content)
 
-```
-/init-project          --> Initialize project structure (once per project)
-/create-prd            --> Product Requirements Document
-/refine-prd            --> (optional) Iterate on PRD with feedback
-/create-trd            --> Technical Requirements Document
-/refine-trd            --> (optional) Iterate on TRD with feedback
-/implement-trd         --> Execute implementation tasks
-/fold-prompt           --> Optimize context for continued work
-```
+**Placeholders to replace:**
 
-Always check for existing PRD/TRD before creating new ones.
+| Placeholder | Replace With |
+|-------------|--------------|
+| `{{PROJECT_NAME}}` | Project name (e.g., "TaskFlow API") |
+| `{{PROJECT_DESCRIPTION}}` | 1-2 sentence description |
+| `{{STACK_SUMMARY}}` | Tech stack summary from Step 1 analysis |
 
----
+**Verification:**
 
-## Project: {{PROJECT_NAME}}
+After updating, read CLAUDE.md and verify:
+- No `{{...}}` placeholders remain
+- Project name and description are filled in
+- Tech stack section has content
 
-{{PROJECT_DESCRIPTION}}
-
-## Tech Stack
-
-{{STACK_SUMMARY}}
-
----
-
-## Learnings
-
-*Learnings will be captured here by the SessionEnd hook.*
-```
-
-**If CLAUDE.md exists:**
-
-Preserve existing content. Do not overwrite.
-
-</claude-md-initialization>
+</claude-md-update>
 
 ### Step 14: Validation
 
 <validation>
 
-**Run validation script to verify setup:**
+**CRITICAL: Verify ALL required files exist before proceeding to Step 15.**
 
-Execute validation to check:
-1. `.claude/` directory structure is correct
-2. All required files present:
-   - `.claude/agents/` - 12 agent files
-   - `.claude/rules/` - constitution.md, stack.md, process.md
-   - `.claude/hooks/` - permitter.js, router.py, formatter.sh, status.js, learning.js
-   - `.claude/settings.json` - valid JSON
-   - `.claude/router-rules.json` - valid JSON
-3. `.trd-state/current.json` exists and is valid JSON
-4. `.gitignore` includes local settings patterns
-5. Hooks have correct permissions
+**Required Files Checklist - ALL must exist:**
+
+| File/Directory | Created In Step | Required |
+|----------------|-----------------|----------|
+| `.claude/agents/` (12 files) | Step 5 | YES |
+| `.claude/rules/constitution.md` | Step 4 | YES |
+| `.claude/rules/stack.md` | Step 4 | YES |
+| `.claude/rules/process.md` | Step 4 | YES |
+| `.claude/skills/` (1+ skill folders) | Step 6 | YES |
+| `.claude/commands/` (8 files) | Step 7 | YES |
+| `.claude/hooks/permitter.js` | Step 8 | YES |
+| `.claude/hooks/router.py` | Step 8 | YES |
+| `.claude/hooks/formatter.sh` | Step 8 | YES |
+| `.claude/hooks/status.js` | Step 8 | YES |
+| `.claude/hooks/learning.js` | Step 8 | YES |
+| `.claude/settings.json` | Step 3 (scaffold) | YES |
+| `.claude/router-rules.json` | Step 3 (scaffold) | YES |
+| `.trd-state/current.json` | Step 3 (scaffold) | YES |
+| `CLAUDE.md` | Step 3 (scaffold), Step 13 (update) | YES |
+
+**Validation Procedure:**
+
+1. Check each file in the checklist above
+2. For any MISSING file:
+   - Report which file is missing
+   - Identify which step should have created it
+   - **LOOP BACK and execute that step to create the missing file**
+   - Repeat validation until ALL files exist
+3. Verify JSON files are valid (`.claude/settings.json`, `.claude/router-rules.json`, `.trd-state/current.json`)
+4. Verify hooks have execute permissions
+5. Verify `.gitignore` includes local settings patterns
+6. **IMPORTANT: Verify CLAUDE.md has been updated:**
+   - Read CLAUDE.md
+   - Check that NO `{{...}}` placeholders remain
+   - If placeholders exist, go back to Step 13 and update them
 
 **If validation fails:**
 - Report specific issues
-- Suggest fixes
-- Do not mark initialization as complete
+- Execute missing steps to create missing files
+- If CLAUDE.md has placeholders, update them
+- Re-run validation
+- Do NOT proceed to Step 15 until ALL required files exist
+
+**Only when ALL files exist:** Proceed to Step 15 (Completion Report)
 
 </validation>
+
+---
+
+**FINAL STEP: You MUST complete Step 15 to finish initialization.**
+
+---
 
 ### Step 15: Completion Report
 

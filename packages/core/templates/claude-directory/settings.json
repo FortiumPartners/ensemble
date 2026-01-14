@@ -1,99 +1,110 @@
 {
-  "$schema": "https://claude.ai/schemas/claude-settings.json",
-  "version": "1.0.0",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allowlist": [
-      "git status",
-      "git diff",
-      "git log",
-      "git add",
-      "git commit",
-      "git branch",
-      "git checkout",
-      "git push",
-      "git pull",
-      "git fetch",
-      "git merge",
-      "git stash",
-      "git rebase",
-      "ls",
-      "cat",
-      "head",
-      "tail",
-      "grep",
-      "find",
-      "wc",
-      "sort",
-      "uniq",
-      "pwd",
-      "echo",
-      "mkdir",
-      "cp",
-      "mv",
-      "rm",
-      "touch",
-      "chmod",
-      "npm run",
-      "npm test",
-      "npm install",
-      "npm ci",
-      "npx",
-      "yarn",
-      "pnpm",
-      "pip install",
-      "pip list",
-      "python -m pytest",
-      "pytest",
-      "python -m",
-      "python",
-      "cargo test",
-      "cargo build",
-      "cargo run",
-      "go test",
-      "go build",
-      "go run",
-      "bundle exec",
-      "rails",
-      "rake",
-      "mix",
-      "elixir",
-      "dotnet test",
-      "dotnet build",
-      "dotnet run",
-      "make",
-      "cmake",
-      "prettier",
-      "eslint",
-      "ruff",
-      "black",
-      "gofmt",
-      "rustfmt",
-      "shfmt"
-    ],
-    "auto_approve": true
+    "allow": [
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(pwd)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(chmod:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(yarn:*)",
+      "Bash(pnpm:*)",
+      "Bash(pip:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(cargo:*)",
+      "Bash(go:*)",
+      "Bash(bundle:*)",
+      "Bash(rails:*)",
+      "Bash(rake:*)",
+      "Bash(mix:*)",
+      "Bash(elixir:*)",
+      "Bash(dotnet:*)",
+      "Bash(make:*)",
+      "Bash(cmake:*)",
+      "Bash(prettier:*)",
+      "Bash(eslint:*)",
+      "Bash(ruff:*)",
+      "Bash(black:*)",
+      "Bash(jq:*)",
+      "Bash(bats:*)"
+    ]
   },
   "hooks": {
-    "PermissionRequest": {
-      "handler": ".claude/hooks/permitter.js",
-      "enabled": true
-    },
-    "UserPromptSubmit": {
-      "handler": ".claude/hooks/router.py",
-      "enabled": true
-    },
-    "PostToolUse": {
-      "handler": ".claude/hooks/formatter.sh",
-      "enabled": true,
-      "events": ["Edit", "Write"]
-    },
-    "SubagentStop": {
-      "handler": ".claude/hooks/status.js",
-      "enabled": true
-    },
-    "SessionEnd": {
-      "handler": ".claude/hooks/learning.js",
-      "enabled": true
-    }
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/permitter/permitter.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/router.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/formatter.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/status.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/learning.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   },
   "ensemble": {
     "agents_dir": ".claude/agents",
