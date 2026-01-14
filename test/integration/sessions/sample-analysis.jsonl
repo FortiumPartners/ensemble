@@ -1,0 +1,20 @@
+{"type": "user", "content": "Create a Python script that calculates factorial"}
+{"type": "tool_use", "name": "Glob", "input": {"pattern": "**/*.py", "path": "/home/user/project"}}
+{"type": "tool_result", "tool_name": "Glob", "output": "/home/user/project/main.py\n/home/user/project/utils.py", "success": true}
+{"type": "tool_use", "name": "Read", "input": {"file_path": "/home/user/project/main.py"}}
+{"type": "tool_result", "tool_name": "Read", "output": "# Main application\nprint('Hello')", "success": true}
+{"type": "tool_use", "name": "Skill", "input": {"skill": "developing-with-python"}}
+{"type": "tool_result", "tool_name": "Skill", "output": "Loaded developing-with-python skill", "success": true}
+{"type": "assistant", "content": [{"type": "text", "text": "I'll create a factorial calculation script using Python best practices."}]}
+{"type": "tool_use", "name": "Write", "input": {"file_path": "/home/user/project/factorial.py", "content": "def factorial(n: int) -> int:\n    if n < 0:\n        raise ValueError('n must be non-negative')\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\n"}}
+{"type": "tool_result", "tool_name": "Write", "output": "File written successfully", "success": true}
+{"type": "tool_use", "name": "Bash", "input": {"command": "python /home/user/project/factorial.py", "description": "Run factorial script"}}
+{"type": "tool_result", "tool_name": "Bash", "output": "", "success": true}
+{"type": "tool_use", "name": "Read", "input": {"file_path": "/home/user/project/nonexistent.py"}}
+{"type": "tool_result", "tool_name": "Read", "output": "File not found: /home/user/project/nonexistent.py", "error": "ENOENT: no such file or directory", "success": false}
+{"type": "tool_use", "name": "Grep", "input": {"pattern": "def factorial", "path": "/home/user/project"}}
+{"type": "tool_result", "tool_name": "Grep", "output": "/home/user/project/factorial.py:1:def factorial(n: int) -> int:", "success": true}
+{"type": "tool_use", "name": "Edit", "input": {"file_path": "/home/user/project/factorial.py", "old_string": "def factorial(n: int) -> int:", "new_string": "def factorial(n: int) -> int:\n    \"\"\"Calculate factorial of n recursively.\"\"\""}}
+{"type": "tool_result", "tool_name": "Edit", "output": "Edit applied successfully", "success": true}
+{"type": "assistant", "content": [{"type": "text", "text": "I've created the factorial script with proper type hints and error handling, and added a docstring."}], "usage": {"input_tokens": 1250, "output_tokens": 340}}
+{"type": "user", "content": "Thanks!"}

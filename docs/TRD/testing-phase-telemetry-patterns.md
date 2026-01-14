@@ -1,7 +1,7 @@
 # Telemetry Analysis Patterns for Ensemble vNext Testing
 
 **Document Version**: 1.0.0
-**Status**: Draft
+**Status**: Active
 **Created**: 2026-01-13
 **Task Reference**: TRD-TEST-064
 **Related Tasks**: TRD-TEST-062 (OTel config), TRD-TEST-063 (telemetry verification)
@@ -38,6 +38,8 @@ This document provides patterns for analyzing telemetry data from Claude Code he
 - `jq` version 1.6 or higher for JSON processing
 - Access to session JSONL files from `test/integration/sessions/`
 - Optional: OTLP collector for metrics aggregation
+
+> **Practice File**: A sample session file is available at `test/integration/sessions/sample-analysis.jsonl` for practicing these queries.
 
 ### 1.3 Telemetry Data Types
 

@@ -38,8 +38,6 @@ set -euo pipefail
 # Configuration
 # -----------------------------------------------------------------------------
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # Expected telemetry event types per TRD Section 9.3
 # These are the key events Claude Code emits with OpenTelemetry enabled
 EXPECTED_EVENTS=(
@@ -151,12 +149,12 @@ check_event() {
         ' "$session_file" 2>/dev/null | wc -l)
     fi
 
-    # Fallback: grep for the event type string
+    # Fallback: grep for the event type string (use -F for literal matching to prevent regex injection)
     if [[ "$count" -eq 0 ]]; then
-        if grep -q "\"type\":\"$event_type\"" "$session_file" 2>/dev/null || \
-           grep -q "\"event\":\"$event_type\"" "$session_file" 2>/dev/null || \
-           grep -q "\"name\":\"claude_code.$event_type\"" "$session_file" 2>/dev/null || \
-           grep -q "\"$event_type\"" "$session_file" 2>/dev/null; then
+        if grep -Fq "\"type\":\"$event_type\"" "$session_file" 2>/dev/null || \
+           grep -Fq "\"event\":\"$event_type\"" "$session_file" 2>/dev/null || \
+           grep -Fq "\"name\":\"claude_code.$event_type\"" "$session_file" 2>/dev/null || \
+           grep -Fq "\"$event_type\"" "$session_file" 2>/dev/null; then
             count=1
         fi
     fi
@@ -181,15 +179,17 @@ count_events() {
         # Count specific event type
         local count=0
 
-        # Primary: jq extraction
+        # Primary: jq extraction (ensure valid integer output)
         count=$(jq --arg type "$event_type" '
             select(.type == $type or .event == $type or .name == ("claude_code." + $type))
-        ' "$session_file" 2>/dev/null | jq -s 'length')
+        ' "$session_file" 2>/dev/null | jq -s 'length' 2>/dev/null || echo "0")
+        count=${count:-0}
 
-        # Fallback: grep count
+        # Fallback: grep count (use -F for literal matching to prevent regex injection)
         if [[ "$count" -eq 0 ]]; then
-            count=$(grep -c "\"$event_type\"" "$session_file" 2>/dev/null || echo "0")
+            count=$(grep -Fc "\"$event_type\"" "$session_file" 2>/dev/null || echo "0")
         fi
+        count=${count:-0}
 
         echo "$count"
     else

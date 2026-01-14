@@ -29,8 +29,6 @@ set -euo pipefail
 # Configuration
 # -----------------------------------------------------------------------------
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # -----------------------------------------------------------------------------
 # Dependency Checks
 # -----------------------------------------------------------------------------
@@ -128,10 +126,10 @@ check_skill() {
         ' "$session_file" 2>/dev/null | wc -l)
     fi
 
-    # Fallback: grep for skill name in Skill tool context
+    # Fallback: grep for skill name in Skill tool context (use -F for literal matching to prevent regex injection)
     if [[ "$count" -eq 0 ]]; then
-        if grep -q "\"name\":\"Skill\"" "$session_file" 2>/dev/null && \
-           grep -q "\"skill\":\"$skill_name\"" "$session_file" 2>/dev/null; then
+        if grep -Fq "\"name\":\"Skill\"" "$session_file" 2>/dev/null && \
+           grep -Fq "\"skill\":\"$skill_name\"" "$session_file" 2>/dev/null; then
             count=1
         fi
     fi
@@ -185,37 +183,43 @@ count_skills() {
     validate_session_file "$session_file"
 
     if [[ -n "$skill_name" ]]; then
-        # Count specific skill invocations
+        # Count specific skill invocations (ensure valid integer output)
         local count=0
+        local nested=0
 
         count=$(jq --arg skill "$skill_name" '
             select(.type == "tool_use" and .name == "Skill" and .input.skill == $skill) or
             select(.type == "tool_call" and .name == "Skill" and (.arguments.skill == $skill or .input.skill == $skill))
-        ' "$session_file" 2>/dev/null | jq -s 'length')
+        ' "$session_file" 2>/dev/null | jq -s 'length' 2>/dev/null || echo "0")
+        count=${count:-0}
 
         # Add nested content blocks
         nested=$(jq --arg skill "$skill_name" '
             select(.type == "assistant") |
             .content[]? |
             select(.type == "tool_use" and .name == "Skill" and .input.skill == $skill)
-        ' "$session_file" 2>/dev/null | jq -s 'length')
+        ' "$session_file" 2>/dev/null | jq -s 'length' 2>/dev/null || echo "0")
+        nested=${nested:-0}
 
         echo $((count + nested))
     else
-        # Count all skill invocations
+        # Count all skill invocations (ensure valid integer output)
         local total=0
+        local nested=0
 
         total=$(jq '
             select(.type == "tool_use" and .name == "Skill") or
             select(.type == "tool_call" and .name == "Skill")
-        ' "$session_file" 2>/dev/null | jq -s 'length')
+        ' "$session_file" 2>/dev/null | jq -s 'length' 2>/dev/null || echo "0")
+        total=${total:-0}
 
         # Add nested content blocks
         nested=$(jq '
             select(.type == "assistant") |
             .content[]? |
             select(.type == "tool_use" and .name == "Skill")
-        ' "$session_file" 2>/dev/null | jq -s 'length')
+        ' "$session_file" 2>/dev/null | jq -s 'length' 2>/dev/null || echo "0")
+        nested=${nested:-0}
 
         echo $((total + nested))
     fi
@@ -300,11 +304,11 @@ compare_skills() {
         fi
     done <<< "$expected_skills"
 
-    # Report extra skills (not in expected list)
+    # Report extra skills (not in expected list) - use -F for literal matching to prevent regex injection
     local extra_skills=""
     while IFS= read -r skill; do
         [[ -z "$skill" ]] && continue
-        if ! echo "$expected_skills" | grep -q "^${skill}$"; then
+        if ! echo "$expected_skills" | grep -Fxq "$skill"; then
             extra_skills="${extra_skills}${skill}\n"
         fi
     done <<< "$actual_skills"
