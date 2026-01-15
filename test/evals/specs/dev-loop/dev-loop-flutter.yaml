@@ -3,11 +3,11 @@
 # Fixture: ensemble-vnext-test-fixtures with variant-based structure
 
 name: dev-loop-flutter
-version: 2.0.0
+version: 3.0.0
 description: |
   Test the complete development loop cycle for Flutter widget implementation:
 
-  1. IMPLEMENT: Read story.md and implement Counter Widget with color changes
+  1. IMPLEMENT: Delegate to @mobile-implementer to build from story.md Counter Widget with color changes
   2. VERIFY: Delegate to @verify-app to run flutter test and report coverage
   3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
   4. VERIFY: Delegate to @verify-app again to confirm tests still pass
@@ -15,9 +15,10 @@ description: |
   This eval measures whether agent delegation improves the quality and
   consistency of the full development workflow for Flutter applications.
 
-  Uses variant-based fixture structure for proper A/B testing:
-  - framework variant: Full Ensemble with agents, skills, and commands
-  - baseline variant: Vanilla Claude without framework assistance
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
 
 # Test fixture configuration (per-variant fixture paths)
 fixture:
@@ -64,35 +65,6 @@ test_case:
 
 # Variants to compare using variant-based fixture structure
 variants:
-  - id: framework
-    name: Full Ensemble Framework
-    description: Use agent delegation pattern with full framework support
-    fixture_path: variants/full/flutter-widget
-    suffix: |
-      Use the full Ensemble workflow. You have access to commands, skills, and agents.
-
-      Use the agent delegation pattern for each step:
-
-      For STEP 2 and STEP 4 (VERIFY):
-        Delegate to @verify-app agent for test execution.
-        Request: Run flutter test, verify widget behavior and color changes.
-
-      For STEP 3 (SIMPLIFY):
-        Delegate to @code-simplifier agent for refactoring.
-        Request: Simplify the widget implementation while preserving test behavior.
-
-      Use the developing-with-flutter skill for Flutter patterns and best practices.
-
-      Report which agents and skills you used at each step.
-    agent_enabled: true
-    skill_enabled: true
-    timeout_seconds: 900
-    expected_agents:
-      - verify-app
-      - code-simplifier
-    expected_skills:
-      - developing-with-flutter
-
   - id: baseline
     name: Vanilla Claude (No Framework)
     description: Complete all steps directly without framework assistance
@@ -102,6 +74,9 @@ variants:
       Implement directly without any framework assistance.
 
       Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the Flutter Counter Widget directly based on story.md requirements.
 
       For STEP 2 and STEP 4 (VERIFY):
         Run flutter test directly.
@@ -119,6 +94,85 @@ variants:
     timeout_seconds: 900
     expected_agents: []
     expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/flutter-widget
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @mobile-implementer agent for initial implementation.
+        Request: Read story.md and implement the Flutter Counter Widget with:
+        - Increment/decrement buttons
+        - Color changes based on value (green/red/grey)
+        - Comprehensive widget tests
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run flutter test, verify widget behavior and color changes.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the widget implementation while preserving test behavior.
+
+      Use the developing-with-flutter skill for Flutter patterns and best practices.
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 900
+    expected_agents:
+      - mobile-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-flutter
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/flutter-widget
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/counter-widget.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/counter-widget.md
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @mobile-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1500
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - mobile-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-flutter
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
 
 # Execution configuration
 runs_per_variant: 3

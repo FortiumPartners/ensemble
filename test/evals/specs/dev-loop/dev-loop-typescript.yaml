@@ -3,11 +3,11 @@
 # Fixture: ensemble-vnext-test-fixtures with variant-based structure
 
 name: dev-loop-typescript
-version: 2.0.0
+version: 3.0.0
 description: |
   Test the complete development loop cycle for TypeScript validation module:
 
-  1. IMPLEMENT: Read story.md and implement validation utilities with types
+  1. IMPLEMENT: Delegate to @frontend-implementer to build from story.md
   2. VERIFY: Delegate to @verify-app to run jest/vitest and report coverage
   3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
   4. VERIFY: Delegate to @verify-app again to confirm tests still pass
@@ -15,9 +15,10 @@ description: |
   This eval measures whether agent delegation improves the quality and
   consistency of the full development workflow for TypeScript applications.
 
-  Uses variant-based fixture structure for proper A/B testing:
-  - framework variant: Full Ensemble with agents, skills, and commands
-  - baseline variant: Vanilla Claude without framework assistance
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
 
 # Test fixture configuration (per-variant fixture paths)
 fixture:
@@ -65,35 +66,6 @@ test_case:
 
 # Variants to compare using variant-based fixture structure
 variants:
-  - id: framework
-    name: Full Ensemble Framework
-    description: Use agent delegation pattern with full framework support
-    fixture_path: variants/full/typescript-validation
-    suffix: |
-      Use the full Ensemble workflow. You have access to commands, skills, and agents.
-
-      Use the agent delegation pattern for each step:
-
-      For STEP 2 and STEP 4 (VERIFY):
-        Delegate to @verify-app agent for test execution.
-        Request: Run jest/vitest with coverage, test all validation functions.
-
-      For STEP 3 (SIMPLIFY):
-        Delegate to @code-simplifier agent for refactoring.
-        Request: Simplify the TypeScript validation module while preserving tests.
-
-      Use the developing-with-typescript skill for TypeScript patterns.
-
-      Report which agents and skills you used at each step.
-    agent_enabled: true
-    skill_enabled: true
-    timeout_seconds: 600
-    expected_agents:
-      - verify-app
-      - code-simplifier
-    expected_skills:
-      - developing-with-typescript
-
   - id: baseline
     name: Vanilla Claude (No Framework)
     description: Complete all steps directly without framework assistance
@@ -103,6 +75,9 @@ variants:
       Implement directly without any framework assistance.
 
       Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the TypeScript validation module directly based on story.md requirements.
 
       For STEP 2 and STEP 4 (VERIFY):
         Run tests directly with jest or vitest.
@@ -120,6 +95,85 @@ variants:
     timeout_seconds: 600
     expected_agents: []
     expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/typescript-validation
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @frontend-implementer agent for initial implementation.
+        Request: Read story.md and implement the TypeScript validation module with:
+        - Email validation, password strength, phone formatting
+        - Proper TypeScript types and strict mode
+        - Comprehensive test coverage
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run jest/vitest with coverage, test all validation functions.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the TypeScript validation module while preserving tests.
+
+      Use the developing-with-typescript skill for TypeScript patterns.
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 600
+    expected_agents:
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-typescript
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/typescript-validation
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/validation.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/validation.md
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @frontend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1200
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-typescript
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
 
 # Execution configuration
 runs_per_variant: 3

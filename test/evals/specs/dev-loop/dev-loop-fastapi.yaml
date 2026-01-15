@@ -3,11 +3,11 @@
 # Fixture: ensemble-vnext-test-fixtures with variant-based structure
 
 name: dev-loop-fastapi
-version: 2.0.0
+version: 3.0.0
 description: |
   Test the complete development loop cycle for FastAPI endpoint implementation:
 
-  1. IMPLEMENT: Read story.md and implement Todo List API with Pydantic models
+  1. IMPLEMENT: Delegate to @backend-implementer to build from story.md Todo List API with Pydantic models
   2. VERIFY: Delegate to @verify-app to run tests and report coverage
   3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
   4. VERIFY: Delegate to @verify-app again to confirm tests still pass
@@ -15,9 +15,10 @@ description: |
   This eval measures whether agent delegation improves the quality and
   consistency of the full development workflow for FastAPI applications.
 
-  Uses variant-based fixture structure for proper A/B testing:
-  - framework variant: Full Ensemble with agents, skills, and commands
-  - baseline variant: Vanilla Claude without framework assistance
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
 
 # Test fixture configuration (per-variant fixture paths)
 fixture:
@@ -59,14 +60,48 @@ test_case:
 
 # Variants to compare using variant-based fixture structure
 variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/taskflow-api
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the FastAPI Todo API directly based on story.md requirements.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run pytest directly: python -m pytest -v --cov --cov-report=term
+        Test each endpoint: GET, POST, PUT, DELETE
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns directly to improve code quality.
+        Ensure tests still pass after changes.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+    expected_skills: []
+
   - id: framework
-    name: Full Ensemble Framework
-    description: Use agent delegation pattern with full framework support
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
     fixture_path: variants/full/taskflow-api
     suffix: |
-      Use the full Ensemble workflow. You have access to commands, skills, and agents.
+      Use the full Ensemble workflow with agent delegation for EVERY step.
 
-      Use the agent delegation pattern for each step:
+      For STEP 1 (IMPLEMENT):
+        Delegate to @backend-implementer agent for initial implementation.
+        Request: Read story.md and implement the FastAPI Todo API with:
+        - CRUD endpoints (GET, POST, PUT, DELETE)
+        - Pydantic models for validation
+        - Comprehensive test coverage
 
       For STEP 2 and STEP 4 (VERIFY):
         Delegate to @verify-app agent for test execution.
@@ -85,37 +120,57 @@ variants:
     skill_enabled: true
     timeout_seconds: 600
     expected_agents:
+      - backend-implementer
       - verify-app
       - code-simplifier
     expected_skills:
       - developing-with-python
       - pytest
 
-  - id: baseline
-    name: Vanilla Claude (No Framework)
-    description: Complete all steps directly without framework assistance
-    fixture_path: variants/baseline/taskflow-api
-    is_baseline: true
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/taskflow-api
     suffix: |
-      Implement directly without any framework assistance.
+      Use the full structured workflow with upfront design artifacts.
 
-      Complete all steps directly without delegating to any agents.
+      BEFORE implementing, create the design artifacts:
 
-      For STEP 2 and STEP 4 (VERIFY):
-        Run pytest directly: python -m pytest -v --cov --cov-report=term
-        Test each endpoint: GET, POST, PUT, DELETE
-        Report pass/fail counts and coverage percentage.
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/taskflow-api.md
 
-      For STEP 3 (SIMPLIFY):
-        Apply refactoring patterns directly to improve code quality.
-        Ensure tests still pass after changes.
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/taskflow-api.md
 
-      Do not use any agents, skills, or commands from the framework.
-    agent_enabled: false
-    skill_enabled: false
-    timeout_seconds: 600
-    expected_agents: []
-    expected_skills: []
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @backend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1200
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
 
 # Execution configuration
 runs_per_variant: 3

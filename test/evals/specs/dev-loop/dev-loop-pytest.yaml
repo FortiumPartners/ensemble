@@ -3,11 +3,11 @@
 # Fixture: ensemble-vnext-test-fixtures with variant-based structure
 
 name: dev-loop-pytest
-version: 2.0.0
+version: 3.0.0
 description: |
   Test the complete development loop cycle for a test-writing task:
 
-  1. IMPLEMENT: Read story.md and implement string utilities with comprehensive tests
+  1. IMPLEMENT: Delegate to @backend-implementer to build from story.md string utilities with comprehensive tests
   2. VERIFY: Delegate to @verify-app to run pytest and verify 90%+ coverage
   3. SIMPLIFY: Delegate to @code-simplifier to refactor tests and source
   4. VERIFY: Delegate to @verify-app again to confirm tests still pass with coverage
@@ -15,9 +15,10 @@ description: |
   This eval is unique because the primary deliverable IS the tests themselves.
   It measures whether agent delegation improves test-writing quality.
 
-  Uses variant-based fixture structure for proper A/B testing:
-  - framework variant: Full Ensemble with agents, skills, and commands
-  - baseline variant: Vanilla Claude without framework assistance
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
 
 # Test fixture configuration (per-variant fixture paths)
 fixture:
@@ -65,14 +66,49 @@ test_case:
 
 # Variants to compare using variant-based fixture structure
 variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/pytest-tests
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the string utilities and tests directly based on story.md requirements.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run pytest directly: python -m pytest --cov=string_utils --cov-report=term
+        Verify coverage is >= 90%.
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns to both source and tests.
+        Use pytest.mark.parametrize to reduce duplication.
+        Ensure coverage is maintained.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+    expected_skills: []
+
   - id: framework
-    name: Full Ensemble Framework
-    description: Use agent delegation pattern with full framework support
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
     fixture_path: variants/full/pytest-tests
     suffix: |
-      Use the full Ensemble workflow. You have access to commands, skills, and agents.
+      Use the full Ensemble workflow with agent delegation for EVERY step.
 
-      Use the agent delegation pattern for each step:
+      For STEP 1 (IMPLEMENT):
+        Delegate to @backend-implementer agent for initial implementation.
+        Request: Read story.md and implement string_utils.py with:
+        - capitalize_words, reverse_string, count_vowels functions
+        - Comprehensive test suite targeting 90%+ coverage
+        - pytest fixtures and parametrize usage
 
       For STEP 2 and STEP 4 (VERIFY):
         Delegate to @verify-app agent for test execution.
@@ -92,38 +128,57 @@ variants:
     skill_enabled: true
     timeout_seconds: 600
     expected_agents:
+      - backend-implementer
       - verify-app
       - code-simplifier
     expected_skills:
       - developing-with-python
       - pytest
 
-  - id: baseline
-    name: Vanilla Claude (No Framework)
-    description: Complete all steps directly without framework assistance
-    fixture_path: variants/baseline/pytest-tests
-    is_baseline: true
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/pytest-tests
     suffix: |
-      Implement directly without any framework assistance.
+      Use the full structured workflow with upfront design artifacts.
 
-      Complete all steps directly without delegating to any agents.
+      BEFORE implementing, create the design artifacts:
 
-      For STEP 2 and STEP 4 (VERIFY):
-        Run pytest directly: python -m pytest --cov=string_utils --cov-report=term
-        Verify coverage is >= 90%.
-        Report pass/fail counts and coverage percentage.
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/string-utils.md
 
-      For STEP 3 (SIMPLIFY):
-        Apply refactoring patterns to both source and tests.
-        Use pytest.mark.parametrize to reduce duplication.
-        Ensure coverage is maintained.
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/string-utils.md
 
-      Do not use any agents, skills, or commands from the framework.
-    agent_enabled: false
-    skill_enabled: false
-    timeout_seconds: 600
-    expected_agents: []
-    expected_skills: []
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @backend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1200
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
 
 # Execution configuration
 runs_per_variant: 3
