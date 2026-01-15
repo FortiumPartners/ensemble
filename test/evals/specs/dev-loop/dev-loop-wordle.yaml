@@ -331,7 +331,7 @@ session_analysis:
     pattern: "test.*first|TDD|test-driven|write.*test.*before"
     description: Verify TDD methodology was mentioned/used
   verify_no_framework_leak:
-    pattern: "\.claude/|@verify-app|@backend-implementer|/create-prd"
+    pattern: '\.claude/|@verify-app|@backend-implementer|/create-prd'
     description: Check for framework usage (should NOT appear in baseline)
     expect_in_baseline: false
 
