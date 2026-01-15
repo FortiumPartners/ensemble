@@ -55,7 +55,6 @@ workflow:
             - Align README.md with enhanced architecture
             - Synchronize all markdown documentation
             - Update agent configurations
-            - Ensure AgentOS standards compliance
     
     - name: Advanced Integration & Validation
       order: 3
