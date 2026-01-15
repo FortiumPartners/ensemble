@@ -1,0 +1,6 @@
+# Placeholder for Markdown judging rubrics
+# Planned rubrics (TRD-TEST-072 through 074):
+# - code-quality.md (1-5 scale for general code quality)
+# - test-quality.md (test coverage and structure criteria)
+# - error-handling.md (validation and exception handling)
+# - documentation.md (documentation quality - optional)

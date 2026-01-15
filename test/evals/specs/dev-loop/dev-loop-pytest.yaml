@@ -1,0 +1,289 @@
+# Eval spec for development loop testing: implement -> verify -> simplify -> verify
+# Tests the complete development cycle with pytest test-writing task
+# Fixture: ensemble-vnext-test-fixtures with variant-based structure
+
+name: dev-loop-pytest
+version: 2.0.0
+description: |
+  Test the complete development loop cycle for a test-writing task:
+
+  1. IMPLEMENT: Read story.md and implement string utilities with comprehensive tests
+  2. VERIFY: Delegate to @verify-app to run pytest and verify 90%+ coverage
+  3. SIMPLIFY: Delegate to @code-simplifier to refactor tests and source
+  4. VERIFY: Delegate to @verify-app again to confirm tests still pass with coverage
+
+  This eval is unique because the primary deliverable IS the tests themselves.
+  It measures whether agent delegation improves test-writing quality.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - framework variant: Full Ensemble with agents, skills, and commands
+  - baseline variant: Vanilla Claude without framework assistance
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Complete this task using the full development loop:
+
+    ## STEP 1 - IMPLEMENT
+    Read the story.md file. This task requires implementing BOTH:
+    1. A string utility module with the specified functions
+    2. Comprehensive tests achieving at least 90% coverage
+
+    Requirements for string_utils.py:
+    - capitalize_words(text: str) -> str - Capitalize first letter of each word
+    - reverse_string(text: str) -> str - Reverse the string
+    - count_vowels(text: str) -> int - Count vowels (a, e, i, o, u)
+    - Include type hints and docstrings
+    - Handle edge cases (empty strings, special characters)
+
+    Requirements for test_string_utils.py:
+    - Test all three functions comprehensively
+    - Include edge cases: empty strings, single characters, special chars
+    - Use pytest fixtures and parametrize for efficiency
+    - Target: >= 90% code coverage
+
+    ## STEP 2 - VERIFY (Initial)
+    Run tests and verify coverage meets 90% threshold.
+    Command: python -m pytest --cov=string_utils --cov-report=term --cov-fail-under=90
+    Report coverage breakdown by function.
+
+    ## STEP 3 - SIMPLIFY
+    Review both the source and test code for simplifications:
+    - Improve test organization
+    - Remove test duplication using parametrize
+    - Simplify source functions if possible
+    - Ensure consistent style
+
+    ## STEP 4 - VERIFY (Final)
+    Run tests again to confirm 90%+ coverage is maintained.
+    Report final coverage metrics.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: framework
+    name: Full Ensemble Framework
+    description: Use agent delegation pattern with full framework support
+    fixture_path: variants/full/pytest-tests
+    suffix: |
+      Use the full Ensemble workflow. You have access to commands, skills, and agents.
+
+      Use the agent delegation pattern for each step:
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run pytest with coverage, verify 90%+ threshold is met.
+        Request coverage breakdown by function.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify both source and test code while maintaining coverage.
+
+      Use the appropriate skills:
+      - developing-with-python for Python patterns
+      - pytest for test execution and fixtures
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 600
+    expected_agents:
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/pytest-tests
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run pytest directly: python -m pytest --cov=string_utils --cov-report=term
+        Verify coverage is >= 90%.
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns to both source and tests.
+        Use pytest.mark.parametrize to reduce duplication.
+        Ensure coverage is maintained.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+    expected_skills: []
+
+# Execution configuration
+runs_per_variant: 3
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: implementation_complete
+    description: Both source and test files were created
+    check: |
+      cd {workspace} && \
+        [ -f string_utils.py ] && \
+        grep -q "def capitalize_words\|def reverse_string\|def count_vowels" string_utils.py && \
+        [ -f test_string_utils.py ]
+    weight: 0.2
+
+  - name: tests_pass_initial
+    description: All tests pass after initial implementation
+    check: |
+      cd {workspace} && \
+        python -m pytest test_string_utils.py -v --tb=short 2>&1
+    weight: 0.2
+
+  - name: coverage_threshold_met
+    description: Coverage meets 90% threshold
+    check: |
+      cd {workspace} && \
+        python -m pytest --cov=string_utils --cov-fail-under=90 test_string_utils.py 2>&1
+    weight: 0.2
+    critical: true
+
+  - name: tests_pass_final
+    description: Tests pass after simplification
+    check: |
+      cd {workspace} && \
+        python -m pytest test_string_utils.py -v --tb=short 2>&1
+    weight: 0.2
+
+  - name: parametrize_used
+    description: pytest.mark.parametrize is used for efficient testing
+    check: |
+      cd {workspace} && \
+        grep -q "pytest.mark.parametrize\|@parametrize" test_string_utils.py
+    weight: 0.2
+
+# LLM-judged quality metrics
+metrics:
+  - name: code_quality
+    description: Quality of the string utilities implementation
+    rubric: code-quality.md
+    files:
+      - "string_utils.py"
+    context_files:
+      - "story.md"
+    weight: 0.3
+    custom_prompt_addition: |
+      Focus on the source code quality:
+      - Are functions well-documented with docstrings?
+      - Is error handling appropriate?
+      - Are edge cases handled (empty strings, None)?
+      - Are type hints complete?
+
+  - name: test_quality
+    description: Quality of the pytest test suite (primary focus for this eval)
+    rubric: test-quality.md
+    files:
+      - "test_string_utils.py"
+    context_files:
+      - "string_utils.py"
+    weight: 0.5
+    custom_prompt_addition: |
+      This is a test-writing task, so test quality is the PRIMARY metric:
+
+      **Coverage Completeness** (30%):
+      - Are all three functions tested (capitalize_words, reverse_string, count_vowels)?
+      - Are edge cases covered (empty strings, single chars, special characters)?
+      - Are boundary conditions tested?
+
+      **Test Structure** (25%):
+      - Is pytest.mark.parametrize used effectively?
+      - Are fixtures used appropriately?
+      - Is test organization logical (grouped by function)?
+
+      **Test Quality** (25%):
+      - Are test names descriptive?
+      - Do assertions test behavior, not implementation?
+      - Are expected values clearly documented?
+
+      **DRY Principle** (20%):
+      - Is parametrize used instead of copy-paste tests?
+      - Are common setup steps in fixtures?
+
+  - name: simplification_quality
+    description: Quality of test and source refactoring
+    rubric: code-quality.md
+    files:
+      - "test_string_utils.py"
+      - "string_utils.py"
+    weight: 0.2
+    custom_prompt_addition: |
+      Focus on whether simplification improved the code:
+      - Were repetitive tests consolidated with parametrize?
+      - Was source code simplified without reducing clarity?
+      - Is coverage still >= 90% after changes?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating a complete development loop for a TEST-WRITING task:
+    implement -> verify -> simplify -> verify
+
+    This is unique because the primary deliverable is the TEST SUITE itself.
+    Weight test quality heavily in your evaluation.
+
+    Key criteria:
+    1. Coverage: All functions tested, edge cases covered, >= 90% coverage
+    2. Structure: pytest best practices (parametrize, fixtures, clear names)
+    3. Efficiency: DRY tests without sacrificing clarity
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for agent verification
+session_analysis:
+  verify_verify_app_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to (with_agents variant)
+  verify_code_simplifier_delegation:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier agent was delegated to (with_agents variant)
+  verify_coverage_reported:
+    pattern: "[89][0-9]%|100%|coverage"
+    description: Verify coverage percentage was reported
+  verify_pytest_features:
+    pattern: "parametrize|fixture|pytest"
+    description: Verify pytest features were used
+
+# Acceptance criteria for this eval
+acceptance:
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.8
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  language: python
+  tech_stack: pytest
+  complexity: intermediate
+  estimated_duration_minutes: 10
+  primary_focus: test-writing
+  tags:
+    - development-loop
+    - python
+    - pytest
+    - test-writing
+    - coverage
+    - parametrize
+    - agent-comparison

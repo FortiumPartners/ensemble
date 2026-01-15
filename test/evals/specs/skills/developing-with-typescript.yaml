@@ -1,0 +1,103 @@
+# Eval spec for developing-with-typescript skill A/B comparison
+# TRD Task: TRD-TEST-077
+
+name: developing-with-typescript
+description: |
+  Evaluate effectiveness of developing-with-typescript skill for validation module task.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_skill variant: Full framework with developing-with-typescript skill
+  - without_skill variant: Baseline without skills
+version: 2.0.0
+
+# Test case configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Build a TypeScript validation module for form data. Read the story.md file
+    in this directory for full requirements.
+
+    The module should:
+    - Validate email addresses
+    - Validate phone numbers
+    - Validate required fields
+    - Return detailed error messages
+    - Use strong TypeScript types throughout
+
+    Include comprehensive tests for all validation functions.
+
+# Number of runs per variant
+runs_per_variant: 5
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_skill
+    name: With Skill
+    description: Use developing-with-typescript skill for implementation
+    fixture_path: variants/full/typescript-validation
+    suffix: |
+      Use the Skill tool to invoke the developing-with-typescript skill.
+      After loading the skill, follow its patterns and best practices.
+    skill_enabled: true
+    agent_enabled: true
+    timeout_seconds: 300
+    expected_skills:
+      - developing-with-typescript
+
+  - id: without_skill
+    name: Without Skill (Baseline)
+    description: Implement without skill guidance
+    fixture_path: variants/baseline/typescript-validation
+    is_baseline: true
+    suffix: ""
+    skill_enabled: false
+    agent_enabled: false
+    timeout_seconds: 300
+    expected_skills: []
+
+# Binary checks (pass/fail) - list syntax with weights
+binary_checks:
+  - name: type_compile
+    check: |
+      cd {workspace} && npx tsc --noEmit
+    weight: 0.5
+
+  - name: tests_pass
+    check: |
+      cd {workspace} && npm test
+    weight: 0.5
+
+# Judged metrics (1-5 score via Claude Opus) - list syntax with weights
+metrics:
+  - name: code_quality
+    rubric: code-quality.md
+    files: ["src/**/*.ts", "!src/**/*.test.ts", "!src/**/*.spec.ts"]
+    weight: 0.35
+
+  - name: type_safety
+    rubric: code-quality.md
+    files: ["src/**/*.ts"]
+    custom_prompt_addition: |
+      Pay special attention to TypeScript-specific quality:
+      - Use of strict types (avoid 'any')
+      - Generic type usage where appropriate
+      - Proper type guards and narrowing
+      - Interface/type definitions
+      - Discriminated unions for complex types
+    weight: 0.35
+
+  - name: test_quality
+    rubric: test-quality.md
+    files: ["src/**/*.test.ts", "src/**/*.spec.ts", "**/__tests__/**/*.ts"]
+    context_files: ["src/**/*.ts", "!src/**/*.test.ts"]
+    weight: 0.3
+
+# Acceptance criteria
+acceptance:
+  binary_pass_threshold: 0.8
+  minimum_mean_difference: 0.5
+  significance_threshold: 0.05

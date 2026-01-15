@@ -1,0 +1,6 @@
+# Placeholder for eval framework helper modules
+# See README.md for planned files:
+# - spec-parser.js (YAML spec parsing and validation)
+# - prompt-builder.js (Construct prompts with variant suffixes)
+# - score-extractor.js (Parse JSON scores from judge output)
+# - report-generator.js (Generate Markdown reports)

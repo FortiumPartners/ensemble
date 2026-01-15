@@ -1,0 +1,224 @@
+# Eval Specification: backend-implementer Agent A/B Comparison
+# TRD Task: TRD-TEST-080
+# Dependencies: TRD-TEST-072 (code-quality rubric), TRD-TEST-074 (error-handling rubric)
+# AC Reference: AC-EF3, AC-A1, AC-A6
+#
+# Purpose: Evaluate the effectiveness of delegating FastAPI CRUD tasks to the
+# backend-implementer agent versus direct implementation. This tests whether
+# agent delegation improves code quality, error handling, and documentation.
+
+name: backend-implementer
+description: |
+  Evaluate effectiveness of backend-implementer agent for FastAPI CRUD task.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_agent variant: Full framework with backend-implementer agent delegation
+  - without_agent variant: Baseline without agent delegation
+version: 2.0.0
+
+# Fixture configuration (per-variant fixture paths)
+# Reuses the fastapi-endpoint fixture from TRD-TEST-027
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Build a complete CRUD API for managing contacts using FastAPI.
+
+    Requirements:
+    - POST /contacts - Create a new contact
+    - GET /contacts - List all contacts (with optional pagination)
+    - GET /contacts/{id} - Get a specific contact by ID
+    - PUT /contacts/{id} - Update an existing contact
+    - DELETE /contacts/{id} - Delete a contact
+
+    Contact model should include:
+    - id (auto-generated)
+    - name (required string)
+    - email (required string with email validation)
+    - phone (optional string)
+
+    Implementation requirements:
+    - Use Pydantic models for request/response validation
+    - Include proper error handling (404 for not found, 422 for validation errors)
+    - Write comprehensive tests using pytest with httpx TestClient
+    - Follow FastAPI best practices and conventions
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_agent
+    name: With Agent
+    description: Delegate to backend-implementer agent for implementation
+    fixture_path: variants/full/fastapi-endpoint
+    suffix: |
+      Delegate this task to the @backend-implementer agent.
+
+      Provide the agent with:
+      - The complete requirements above
+      - Request to follow FastAPI best practices
+      - Request for comprehensive test coverage (>80%)
+
+      Use the Task tool or delegation pattern to invoke the backend-implementer agent.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 600
+    expected_agents:
+      - backend-implementer
+
+  - id: without_agent
+    name: Without Agent (Baseline)
+    description: Implement FastAPI CRUD directly without agent delegation
+    fixture_path: variants/baseline/fastapi-endpoint
+    is_baseline: true
+    suffix: |
+      Complete this task directly. Implement all endpoints in a single main.py file
+      with accompanying test_main.py for tests.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+
+# Runs per variant for statistical significance
+# 5 runs per variant provides reasonable confidence intervals
+runs_per_variant: 5
+
+# Binary checks (deterministic pass/fail)
+# These verify that fundamental requirements are met
+binary_checks:
+  - name: all_endpoints
+    description: All 5 CRUD endpoints are defined (GET list, GET single, POST, PUT, DELETE)
+    check: |
+      count=$(grep -r -E '@(app|router)\.(get|post|put|delete)\(' *.py 2>/dev/null | wc -l)
+      test "$count" -ge 5
+    weight: 0.25
+
+  - name: pydantic_models
+    description: Pydantic models are used for request/response validation
+    check: |
+      count=$(grep -r -E '(class .+\(BaseModel\)|from pydantic import)' *.py 2>/dev/null | wc -l)
+      test "$count" -ge 1
+    weight: 0.15
+
+  - name: tests_pass
+    description: API tests execute successfully with pytest
+    check: |
+      python -m pytest -v --tb=short 2>&1 | grep -E '(passed|PASSED)'
+    weight: 0.30
+
+  - name: http_exceptions
+    description: HTTPException is used for error responses (404, 422)
+    check: |
+      count=$(grep -r -E '(raise HTTPException|HTTPException\(status_code=)' *.py 2>/dev/null | wc -l)
+      test "$count" -ge 2
+    weight: 0.15
+
+  - name: email_validation
+    description: Email field has validation (EmailStr or regex pattern)
+    check: |
+      grep -r -E '(EmailStr|email.*@|validator.*email|Field.*regex.*@)' *.py 2>/dev/null | wc -l | xargs test 1 -le
+    weight: 0.15
+
+# LLM-judged quality metrics
+# These use Claude Opus with rubrics to score subjective quality
+metrics:
+  - name: code_quality
+    description: Overall code quality including structure, naming, and organization
+    rubric: code-quality.md
+    weight: 0.35
+    files:
+      - "*.py"
+      - "!test_*.py"
+      - "!*_test.py"
+      - "!conftest.py"
+    custom_prompt_addition: |
+      When evaluating FastAPI CRUD API code, pay special attention to:
+      - Proper use of dependency injection patterns
+      - Router organization and modular structure
+      - Pydantic model design (separate Create/Update/Response schemas)
+      - Type hints throughout the codebase
+      - Clear separation of concerns (routes, models, business logic)
+      - Consistent naming conventions following Python/FastAPI standards
+
+  - name: error_handling
+    description: Quality of error handling and validation
+    rubric: error-handling.md
+    weight: 0.35
+    files:
+      - "*.py"
+      - "!conftest.py"
+    custom_prompt_addition: |
+      For FastAPI CRUD applications, evaluate:
+      - HTTPException usage with appropriate status codes (404 for not found, 422 for validation)
+      - Request validation via Pydantic (automatic 422 responses)
+      - Custom exception handlers for domain-specific errors
+      - Input sanitization (email format validation)
+      - Error response consistency and detail messages
+      - Graceful handling of edge cases (empty lists, invalid IDs)
+
+  - name: documentation
+    description: Quality of code documentation and API descriptions
+    rubric: code-quality.md
+    weight: 0.30
+    files:
+      - "*.py"
+    custom_prompt_addition: |
+      Focus specifically on documentation quality for this evaluation:
+      - Docstrings for functions and classes
+      - OpenAPI schema descriptions (summary, description parameters)
+      - Type annotations that serve as documentation
+      - Inline comments explaining non-obvious logic
+      - README or module-level docstrings explaining design decisions
+      - Response model descriptions for API clarity
+
+      Score documentation independently from other code quality aspects.
+      A high score requires comprehensive, clear documentation at multiple levels.
+
+# Judge configuration
+# Uses Claude Opus for highest quality judging with Chain-of-Thought reasoning
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0.0
+
+# Execution configuration
+execution:
+  timeout: 600  # 10 minutes - agent delegation may take longer
+  parallel: true
+  cleanup: true
+
+# Acceptance criteria
+# Defines thresholds for considering the eval successful
+acceptance:
+  # Minimum mean score difference (with_agent - without_agent) to indicate improvement
+  minimum_mean_difference: 0.3
+  # Statistical significance threshold (p-value)
+  significance_threshold: 0.05
+  # Minimum binary check pass rate for with_agent variant
+  binary_pass_threshold: 0.80
+
+# Metadata for reporting
+metadata:
+  author: tech-lead-orchestrator
+  created: 2026-01-13
+  trd_task: TRD-TEST-080
+  eval_type: agent
+  related_fixtures:
+    - user-stories/fastapi-endpoint
+  related_rubrics:
+    - code-quality.md
+    - error-handling.md
+  agent_under_test: backend-implementer
+  framework: FastAPI
+  language: Python
+  task_type: crud-api
+  complexity: intermediate
+  estimated_duration_minutes: 10
+  tags:
+    - agent-eval
+    - backend
+    - fastapi
+    - crud
+    - api
+    - delegation

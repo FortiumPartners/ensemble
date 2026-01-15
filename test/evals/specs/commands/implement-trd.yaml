@@ -1,0 +1,199 @@
+# Eval spec for workflow value assessment
+# TRD Task: TRD-TEST-4B (Command Evals)
+# AC Reference: Consolidated from TRD-TEST-060/061
+#
+# KEY INSIGHT: This eval tests whether the structured PRD->TRD->implement workflow
+# produces better code than direct ad-hoc implementation from the same requirements.
+
+name: implement-trd
+version: 2.0.0
+description: |
+  Evaluate whether the PRD->TRD->implement workflow produces better code
+  than direct implementation from the same requirements.
+
+  This is the ultimate assessment of the Ensemble workflow value proposition.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_workflow variant: Full framework with PRD->TRD->implement workflow
+  - direct_implementation variant: Baseline with ad-hoc implementation
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Implement a task management API based on the PROJECT.md specification.
+
+    Focus on Phase 1 only:
+    - Basic FastAPI project structure
+    - Task model with SQLAlchemy
+    - GET /health and POST /tasks endpoints
+    - Basic pytest tests
+
+    Use Python 3.11+ with:
+    - FastAPI for the web framework
+    - SQLAlchemy 2.0 for ORM
+    - Pydantic v2 for validation
+    - pytest for testing
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_workflow
+    name: Full PRD->TRD->Implement Workflow
+    description: Use the structured workflow with intermediate artifacts
+    fixture_path: variants/full/taskflow-api
+    suffix: |
+      Follow the full workflow:
+      1. Run /init-project to set up the project structure
+      2. Run /create-prd to generate a Product Requirements Document
+      3. Run /create-trd to generate a Technical Requirements Document
+      4. Run /implement-trd to implement Phase 1
+
+      This tests the value of structured planning before implementation.
+    skill_enabled: true
+    agent_enabled: true
+    timeout_seconds: 900
+
+  - id: direct_implementation
+    name: Direct Implementation (Baseline)
+    description: Implement directly from PROJECT.md without PRD/TRD workflow
+    fixture_path: variants/baseline/taskflow-api
+    is_baseline: true
+    suffix: |
+      Implement Phase 1 directly WITHOUT using /init-project, /create-prd,
+      /create-trd, or /implement-trd commands:
+
+      - Create basic project structure (src/, tests/)
+      - Implement the code directly
+
+      Do NOT create docs/PRD/, docs/TRD/, .trd-state/, or .claude/ directories.
+      This tests direct implementation without structured planning.
+    skill_enabled: false
+    agent_enabled: false
+    timeout_seconds: 900
+
+# Fewer runs due to longer execution time
+runs_per_variant: 3
+
+# Binary checks apply to BOTH variants (fair comparison)
+# These verify that fundamental implementation requirements are met
+binary_checks:
+  - name: implementation_files
+    description: Python source files created
+    check: |
+      find . -name "*.py" -type f | grep -q .
+    weight: 0.30
+
+  - name: tests_exist
+    description: Test files created alongside implementation
+    check: |
+      find . -name "test_*.py" -o -name "*_test.py" | grep -q .
+    weight: 0.30
+
+  - name: tests_pass
+    description: Tests execute successfully with pytest
+    check: |
+      python -m pytest --tb=short 2>&1 | grep -E "(passed|PASSED)"
+    weight: 0.40
+
+# Note: .trd-state is NOT a binary check because it's workflow-specific.
+# The quality metrics will assess overall code quality regardless of workflow.
+
+# Metrics apply to BOTH variants (fair comparison)
+# Same criteria regardless of workflow used
+metrics:
+  - name: code_quality
+    description: Quality of generated implementation code
+    rubric: code-quality.md
+    weight: 0.5
+    files:
+      - "**/*.py"
+      - "!test_*.py"
+      - "!*_test.py"
+      - "!conftest.py"
+    context_files:
+      - "PROJECT.md"
+    custom_prompt_addition: |
+      When evaluating this FastAPI implementation, pay special attention to:
+      - Proper use of Pydantic models for request/response validation
+      - SQLAlchemy model design and relationship patterns
+      - FastAPI best practices (dependency injection, router organization)
+      - Type hints throughout the codebase
+      - Error handling with HTTPException
+
+  - name: test_quality
+    description: Quality of generated tests
+    rubric: test-quality.md
+    weight: 0.5
+    files:
+      - "test_*.py"
+      - "*_test.py"
+      - "conftest.py"
+    context_files:
+      - "**/*.py"
+      - "!test_*.py"
+    custom_prompt_addition: |
+      When evaluating tests for this FastAPI application:
+      - Check for use of pytest fixtures and TestClient
+      - Verify both happy path and error cases are tested
+      - Look for proper test isolation and cleanup
+      - Assess coverage of API endpoints and model validation
+
+# Note: implementation-fidelity.md is NOT used here because it requires
+# a TRD to compare against, which only exists in the workflow variant.
+# For fair A/B comparison, both variants use identical metrics.
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating code quality for a FastAPI task management API.
+    Focus on production-readiness, maintainability, and test coverage.
+    Score each metric on a 1-5 scale according to the provided rubric.
+
+# Execution configuration
+execution:
+  timeout: 900  # 15 minutes for implementation
+  parallel: false  # Run sequentially due to resource intensity
+  cleanup: true
+
+# Acceptance criteria
+acceptance:
+  # We expect with_workflow to produce higher quality code
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  # Lower threshold - implementation is inherently harder
+  binary_pass_threshold: 0.7
+
+# Metadata for reporting
+metadata:
+  category: command
+  target_command: implement-trd
+  eval_type: workflow-comparison
+  complexity: advanced
+  estimated_duration_minutes: 15
+  related_fixtures:
+    - fixtures/taskflow-api
+  related_rubrics:
+    - code-quality.md
+    - test-quality.md
+  framework: FastAPI
+  language: Python
+  hypothesis: |
+    The structured PRD->TRD->implement workflow should produce higher quality
+    code than ad-hoc implementation because:
+    1. Requirements are clarified before coding begins
+    2. Technical decisions are documented and justified
+    3. Execution plan provides clear task breakdown
+    4. Agent delegation enables specialized expertise
+  tags:
+    - command-eval
+    - workflow-comparison
+    - implementation
+    - fastapi
+    - value-proposition

@@ -1,0 +1,315 @@
+# Eval spec for code-simplifier agent A/B comparison
+# TRD Task: TRD-TEST-082
+# AC Reference: AC-A3, AC-A6, AC-EF3
+
+name: code-simplifier
+version: 2.0.0
+description: |
+  Evaluate effectiveness of the code-simplifier agent for refactoring tasks.
+  Compares quality outcomes between sessions that delegate to @code-simplifier
+  agent vs sessions that perform refactoring directly without agent delegation.
+
+  The code-simplifier agent specializes in:
+  - Reducing code complexity (smaller functions, early returns)
+  - Improving readability (better names, clearer structure)
+  - Removing duplication (DRY principle)
+  - Preserving behavior during refactoring (tests must pass)
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_agent variant: Full framework with code-simplifier agent delegation
+  - without_agent variant: Baseline without agent delegation
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+  # Complex code files are included in the fixture variants
+  # Create complex code that needs refactoring
+  setup_files:
+    - name: calc_complex.py
+      content: |
+        #!/usr/bin/env python3
+        """Complex calculator that needs refactoring."""
+        import sys
+
+        def do_calc(args):
+            """Main calculation function with deep nesting and duplication."""
+            if args is not None:
+                if len(args) == 4:
+                    n1_str = args[1]
+                    op = args[2]
+                    n2_str = args[3]
+                    try:
+                        n1 = float(n1_str)
+                    except:
+                        print("Error: First argument must be a number")
+                        return 1
+                    try:
+                        n2 = float(n2_str)
+                    except:
+                        print("Error: Second argument must be a number")
+                        return 1
+                    if op == "+":
+                        r = n1 + n2
+                        if r == int(r):
+                            print(int(r))
+                        else:
+                            print(r)
+                        return 0
+                    elif op == "-":
+                        r = n1 - n2
+                        if r == int(r):
+                            print(int(r))
+                        else:
+                            print(r)
+                        return 0
+                    elif op == "*" or op == "x":
+                        r = n1 * n2
+                        if r == int(r):
+                            print(int(r))
+                        else:
+                            print(r)
+                        return 0
+                    elif op == "/":
+                        if n2 != 0:
+                            r = n1 / n2
+                            if r == int(r):
+                                print(int(r))
+                            else:
+                                print(r)
+                            return 0
+                        else:
+                            print("Error: Cannot divide by zero")
+                            return 1
+                    else:
+                        print("Error: Invalid operator")
+                        return 1
+                else:
+                    print("Usage: python calc_complex.py <num1> <op> <num2>")
+                    return 1
+            else:
+                print("Error: No arguments provided")
+                return 1
+
+        if __name__ == "__main__":
+            sys.exit(do_calc(sys.argv))
+
+    - name: test_calc_complex.py
+      content: |
+        """Tests for calculator - must continue to pass after refactoring."""
+        import subprocess
+        import sys
+
+        def run_calc(args):
+            """Helper to run calculator and capture output."""
+            result = subprocess.run(
+                [sys.executable, "calc_complex.py"] + args,
+                capture_output=True,
+                text=True
+            )
+            return result.stdout.strip(), result.returncode
+
+        def test_addition():
+            output, code = run_calc(["5", "+", "3"])
+            assert output == "8"
+            assert code == 0
+
+        def test_subtraction():
+            output, code = run_calc(["10", "-", "4"])
+            assert output == "6"
+            assert code == 0
+
+        def test_multiplication():
+            output, code = run_calc(["6", "*", "7"])
+            assert output == "42"
+            assert code == 0
+
+        def test_division():
+            output, code = run_calc(["15", "/", "3"])
+            assert output == "5"
+            assert code == 0
+
+        def test_division_decimal():
+            output, code = run_calc(["7", "/", "2"])
+            assert output == "3.5"
+            assert code == 0
+
+        def test_division_by_zero():
+            output, code = run_calc(["5", "/", "0"])
+            assert "divide by zero" in output.lower() or "zero" in output.lower()
+            assert code == 1
+
+        def test_invalid_operator():
+            output, code = run_calc(["5", "^", "2"])
+            assert code == 1
+
+        def test_invalid_number():
+            output, code = run_calc(["abc", "+", "3"])
+            assert code == 1
+
+        def test_missing_arguments():
+            output, code = run_calc(["5", "+"])
+            assert code == 1
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Review the existing calculator code in calc_complex.py and refactor it to:
+
+    1. Reduce complexity (smaller functions, eliminate deep nesting)
+    2. Improve readability (better names, clearer structure)
+    3. Remove any duplication (apply DRY principle)
+    4. Ensure all existing tests still pass after refactoring
+
+    CRITICAL: Do NOT add new features. Only refactor existing code.
+    The behavior must remain exactly the same - all tests must continue to pass.
+
+    The code has several issues:
+    - Deep nesting (6+ levels)
+    - Duplicated output formatting logic
+    - No separation of concerns
+    - Poor error handling structure
+    - Unclear variable names (n1, n2, r, op)
+
+    After refactoring, run the tests to verify behavior is preserved:
+    python -m pytest test_calc_complex.py -v
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_agent
+    name: With Agent
+    description: Delegate refactoring to @code-simplifier agent
+    fixture_path: variants/full/python-cli-complex
+    suffix: |
+      Delegate this refactoring task to the @code-simplifier agent.
+      Provide the agent with:
+      - The file to refactor: calc_complex.py
+      - The test file to verify: test_calc_complex.py
+      - The specific issues identified above
+
+      Wait for the agent to complete and report its simplification results.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 300
+    expected_agents:
+      - code-simplifier
+
+  - id: without_agent
+    name: Without Agent (Baseline)
+    description: Perform refactoring directly without agent delegation
+    fixture_path: variants/baseline/python-cli-complex
+    is_baseline: true
+    suffix: |
+      Complete the following refactoring task directly without delegating to any subagent.
+      Apply refactoring patterns you know to improve the code quality.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 300
+    expected_agents: []
+
+# Execution configuration
+runs_per_variant: 5
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: behavior_preserved
+    description: All tests still pass after refactoring (critical requirement)
+    check: |
+      cd {workspace} && python -m pytest test_calc_complex.py -v --tb=short 2>&1
+    weight: 0.5
+    critical: true  # Must pass for valid eval
+
+  - name: complexity_reduced
+    description: Code nesting depth reduced (max indent level decreased)
+    check: |
+      # Check if maximum indentation depth is reduced from 6+ to 3 or less
+      # Original has 6 levels of indentation (24 spaces)
+      # Refactored should have max 3 levels (12 spaces typical)
+      max_indent=$(grep -E '^\s+' {workspace}/calc_complex.py 2>/dev/null | \
+        sed 's/[^ ].*//' | awk '{ print length }' | sort -rn | head -1)
+      [ "$max_indent" -le 16 ]  # Allow up to 4 levels (16 spaces)
+    weight: 0.25
+
+  - name: duplication_reduced
+    description: Duplicated output formatting logic extracted into function
+    check: |
+      # Original has 4 copies of "if r == int(r): print(int(r)) else: print(r)"
+      # Should be refactored to single function
+      duplicates=$(grep -c 'if.*==.*int.*:.*print.*int' {workspace}/calc_complex.py 2>/dev/null || echo "0")
+      [ "$duplicates" -le 1 ]
+    weight: 0.25
+
+# LLM-judged quality metrics
+metrics:
+  - name: code_quality
+    description: Overall code quality assessment after refactoring
+    rubric: code-quality.md
+    files:
+      - "calc_complex.py"
+    custom_prompt_addition: |
+      Focus specifically on refactoring quality:
+      - Were functions broken down appropriately (single responsibility)?
+      - Is the code more readable than the deeply nested original?
+      - Was duplication removed without over-abstraction?
+      - Are names clearer and more descriptive (not n1, n2, r, op)?
+      - Was the refactoring conservative (no unnecessary changes)?
+      - Is the code structure flatter with early returns?
+
+      The original code had:
+      - 6+ levels of nesting
+      - 4 duplicated output formatting blocks
+      - Poor variable names (n1, n2, r, op)
+      - No separation of concerns
+
+      Score higher if these issues were addressed while preserving behavior.
+    weight: 1.0
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating refactored Python code quality.
+    The task was to refactor a deeply nested, duplicated calculator without changing behavior.
+
+    Score the refactoring on a 1-5 scale:
+    1 - No improvement or broke functionality
+    2 - Minor improvements, still has significant issues
+    3 - Acceptable refactoring, some issues remain
+    4 - Good refactoring, most issues addressed
+    5 - Excellent refactoring, all issues addressed cleanly
+
+    Consider:
+    - Did nesting depth decrease significantly?
+    - Was duplication eliminated?
+    - Are variable/function names clearer?
+    - Is there appropriate separation of concerns?
+    - Was behavior preserved (tests still pass)?
+
+    Output JSON: {"scores": {"code_quality": {"score": N, "justification": "..."}}}
+
+# Acceptance criteria for this eval
+acceptance:
+  # Minimum mean score difference between variants to be considered significant
+  minimum_mean_difference: 0.3
+  # Statistical significance threshold (p-value)
+  significance_threshold: 0.05
+  # Minimum passing rate for binary checks
+  binary_pass_threshold: 0.8
+  # Critical checks must pass
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: agent
+  target_agent: code-simplifier
+  language: python
+  complexity: intermediate
+  estimated_duration_minutes: 5
+  tags:
+    - refactoring
+    - code-quality
+    - complexity-reduction
+    - duplication
+    - agent-comparison

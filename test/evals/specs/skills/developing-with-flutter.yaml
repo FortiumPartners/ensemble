@@ -1,0 +1,125 @@
+# Eval spec for developing-with-flutter skill A/B comparison
+# TRD Task: TRD-TEST-076
+
+name: developing-with-flutter
+description: |
+  Evaluate effectiveness of developing-with-flutter skill for counter widget task.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_skill variant: Full framework with developing-with-flutter skill
+  - without_skill variant: Baseline without skills
+version: 2.0.0
+
+# Test case configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Build a counter widget with increment and decrement buttons. The counter
+    should display the current value and change color based on whether it's
+    positive, negative, or zero.
+
+    Read the story.md file in this directory for full requirements.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_skill
+    name: With Skill
+    description: Use developing-with-flutter skill for implementation
+    fixture_path: variants/full/flutter-widget
+    suffix: |
+      Use the Skill tool to invoke the developing-with-flutter skill.
+      After loading the skill, follow its patterns and best practices.
+    skill_enabled: true
+    agent_enabled: true
+    timeout_seconds: 600
+    expected_skills:
+      - developing-with-flutter
+
+  - id: without_skill
+    name: Without Skill (Baseline)
+    description: Implement without skill guidance
+    fixture_path: variants/baseline/flutter-widget
+    is_baseline: true
+    suffix: ""
+    skill_enabled: false
+    agent_enabled: false
+    timeout_seconds: 600
+    expected_skills: []
+
+# Runs per variant for statistical significance
+runs_per_variant: 5
+
+# Binary checks (deterministic pass/fail)
+binary_checks:
+  - name: build_success
+    description: Flutter app builds successfully
+    check: |
+      cd {workspace} && flutter build apk --debug 2>&1 || flutter analyze
+    success_pattern: "Built|No issues found"
+    weight: 0.50
+
+  - name: widget_test_pass
+    description: Widget tests pass
+    check: |
+      cd {workspace} && flutter test
+    success_pattern: "All tests passed|passed"
+    weight: 0.50
+
+# LLM-judged quality metrics (1-5 score via Claude Opus)
+metrics:
+  - name: code_quality
+    description: Overall code quality evaluation
+    rubric: code-quality.md
+    files:
+      - "lib/**/*.dart"
+      - "!lib/**/*_test.dart"
+    weight: 0.50
+
+  - name: widget_structure
+    description: Flutter-specific widget architecture evaluation
+    rubric: code-quality.md
+    files:
+      - "lib/**/*.dart"
+    custom_prompt_addition: |
+      Pay special attention to Flutter-specific patterns:
+      - Proper StatelessWidget vs StatefulWidget usage
+      - Build method complexity
+      - Widget composition
+      - State management approach
+      - Separation of presentation and logic
+      - Proper use of const constructors for performance
+      - Color change implementation based on counter value
+    weight: 0.50
+
+# Execution configuration
+execution:
+  timeout: 600  # Flutter builds can be slow
+  parallel: true
+  session_options:
+    dangerously_skip_permissions: true
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+
+# Acceptance criteria for skill effectiveness
+acceptance:
+  # Minimum mean score improvement from with_skill over without_skill
+  minimum_mean_difference: 0.5
+  # Statistical significance threshold (p-value)
+  significance_threshold: 0.05
+  # Minimum binary check pass rate for with_skill variant
+  binary_pass_threshold: 0.8
+
+# Metadata
+metadata:
+  created: 2026-01-13
+  author: backend-implementer
+  trd_reference: TRD-TEST-076
+  ac_reference: AC-EF2

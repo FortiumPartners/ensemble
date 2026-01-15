@@ -1,0 +1,145 @@
+# Eval spec for /create-trd command quality assessment
+# TRD Task: TRD-TEST-4B (Command Evals)
+# AC Reference: Consolidated from TRD-TEST-058/059
+
+name: create-trd
+version: 2.0.0
+description: |
+  Evaluate quality of TRDs generated from PRD inputs.
+  Compares quality between having a pre-existing PRD vs generating both.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - from_prd variant: Full framework with structured PRD->TRD workflow
+  - combined_generation variant: Baseline with direct TRD generation
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Generate a Technical Requirements Document (TRD) for a task management API.
+
+    The TRD should include:
+    - Architecture design
+    - Tech stack with justification
+    - Database schema
+    - API specifications
+    - Execution plan with numbered tasks
+
+    Output to docs/TRD/taskflow.md
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: from_prd
+    name: From Existing PRD
+    description: Generate TRD from a pre-existing PRD document
+    fixture_path: variants/full/taskflow-api
+    suffix: |
+      First, run /create-prd using PROJECT.md to generate a PRD in docs/PRD/.
+
+      Then run /create-trd to generate a Technical Requirements Document
+      based on the PRD you just created.
+
+      Follow the structured workflow: PRD first, then TRD.
+    skill_enabled: true
+    agent_enabled: true
+    timeout_seconds: 600
+
+  - id: combined_generation
+    name: Combined PRD+TRD Generation (Baseline)
+    description: Generate both PRD and TRD in sequence from PROJECT.md
+    fixture_path: variants/baseline/taskflow-api
+    is_baseline: true
+    suffix: |
+      Generate a complete TRD for the task management API described in PROJECT.md.
+
+      You may reference PROJECT.md directly without creating a separate PRD first.
+      Focus on creating a comprehensive TRD that covers:
+      - System architecture
+      - Database design (SQLAlchemy models)
+      - FastAPI endpoint specifications
+      - Testing strategy
+      - Deployment approach
+    skill_enabled: false
+    agent_enabled: false
+    timeout_seconds: 600
+
+# Runs per variant for statistical significance
+runs_per_variant: 5
+
+# Binary checks (deterministic pass/fail)
+binary_checks:
+  - name: trd_created
+    description: TRD file was created in docs/TRD/
+    check: |
+      test -f docs/TRD/*.md
+    weight: 0.25
+
+  - name: has_architecture
+    description: Contains Architecture/System Design section
+    check: |
+      grep -qiE "^#+.*(architecture|system design|technical design)" docs/TRD/*.md
+    weight: 0.20
+
+  - name: has_tech_stack
+    description: Contains Tech Stack/Technology section
+    check: |
+      grep -qiE "^#+.*(tech.*stack|technology|stack)" docs/TRD/*.md
+    weight: 0.20
+
+  - name: has_execution_plan
+    description: Contains Execution Plan/Implementation section
+    check: |
+      grep -qiE "^#+.*(execution plan|implementation|task list|master task)" docs/TRD/*.md
+    weight: 0.20
+
+  - name: has_task_ids
+    description: Tasks have identifiers (TRD-XXX or numbered)
+    check: |
+      grep -qE "(TRD-[0-9]+|^[0-9]+\.|Task [0-9]+)" docs/TRD/*.md
+    weight: 0.15
+
+# LLM-judged quality metrics
+metrics:
+  - name: trd_quality
+    description: Overall TRD quality assessment
+    rubric: trd-quality.md
+    weight: 1.0
+    files:
+      - "docs/TRD/*.md"
+    context_files:
+      - "docs/PRD/*.md"
+      - "PROJECT.md"
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+
+# Execution configuration
+execution:
+  timeout: 600
+  parallel: true
+  cleanup: true
+
+# Acceptance criteria
+acceptance:
+  minimum_mean_difference: 0.5
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.9
+
+# Metadata for reporting
+metadata:
+  category: command
+  target_command: create-trd
+  complexity: intermediate
+  estimated_duration_minutes: 10
+  tags:
+    - command-eval
+    - trd
+    - document-generation
+    - technical-design
