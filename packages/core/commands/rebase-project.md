@@ -61,6 +61,49 @@ Examples:
    - List missing files
    - Offer: "Run /init-project to create missing files, or continue with partial rebase?"
 
+### Path Resolution
+
+**Plugin source paths** use the `@` prefix notation in this document:
+
+| Notation | Resolves To |
+|----------|-------------|
+| `@packages/` | Plugin installation directory packages/ |
+| `@packages/core/commands/` | Core package commands |
+| `@packages/router/hooks/` | Router package hooks |
+
+**Resolution mechanism:**
+
+1. **Installed Plugin Path:**
+   - Check environment variable `CLAUDE_PLUGIN_ROOT`
+   - Fallback: `~/.claude/plugins/ensemble-vnext/`
+
+2. **For LLM execution:**
+   - Use file system tools to read from resolved paths
+   - Example: To read `@packages/core/commands/create-prd.md`:
+     - Resolve: `${CLAUDE_PLUGIN_ROOT}/packages/core/commands/create-prd.md`
+     - Read file contents
+
+3. **If plugin path unavailable:**
+   - Report error: "Cannot resolve plugin source path. Ensure ensemble-vnext plugin is installed."
+   - Abort rebase
+
+**Implementation note:** When copying files, use absolute resolved paths. The `@` notation is for documentation clarity only.
+
+### Timestamp Format
+
+All backup directories use a consistent timestamp format for file system compatibility:
+
+**Format:** `YYYYMMDD-HHmmss` (ISO8601 without special characters)
+
+**Examples:**
+- `.claude/skills.backup.20260113-143022/`
+- `.claude/commands.backup.20260113-143022/`
+
+**Generation:** Use this pattern to generate timestamps:
+```javascript
+const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
+```
+
 ---
 
 ## Execution Steps
@@ -394,17 +437,23 @@ Default: "Cancel rebase"
 
 #### 4.3 Update Commands (Replace)
 
-**Preservation Rule:** Safe to replace - not customized per project
+**Preservation Rule:** Safe to replace - not customized per project. Backup created for safety.
 
-1. **For each plugin command:**
+1. **Create backup of modified commands:**
+   - Compare each vendored command with plugin version
+   - If content differs, copy to `.claude/commands.backup.<timestamp>/`
+   - Report: "Backed up modified command: [name]"
+
+2. **For each plugin command:**
    - Copy from plugin source to `.claude/commands/`
    - Overwrite existing
+   - Report: "Updated command: [name]"
 
-2. **For custom commands (not in plugin):**
+3. **For custom commands (not in plugin):**
    - DO NOT remove
    - Report: "Kept custom command: [name]"
 
-3. **Commands to copy:**
+4. **Commands to copy:**
    - From `@packages/core/commands/`:
      - create-prd.md
      - refine-prd.md
@@ -420,23 +469,36 @@ Default: "Cancel rebase"
 
 #### 4.4 Update Hooks (Replace)
 
-**Preservation Rule:** Safe to replace - not customized per project
+**Preservation Rule:** Safe to replace - not customized per project. Backup created for safety.
 
-1. **For each plugin hook:**
+1. **Create backup of modified hooks:**
+   - Compare each vendored hook with plugin version
+   - If content differs, copy to `.claude/hooks.backup.<timestamp>/`
+   - Report: "Backed up modified hook: [name]"
+
+2. **For each plugin hook:**
    - Copy from plugin source to `.claude/hooks/`
    - Overwrite existing
    - Ensure execute permission on shell scripts
+   - Report: "Updated hook: [name]"
 
-2. **For custom hooks (not in plugin):**
+3. **For custom hooks (not in plugin):**
    - DO NOT remove
    - Report: "Kept custom hook: [name]"
 
-3. **Hooks to copy:**
-   - `permitter.js` from `@packages/permitter/hooks/`
-   - `router.py` from `@packages/router/hooks/`
-   - `formatter.sh` from `@packages/core/hooks/`
-   - `status.js` from `@packages/core/hooks/`
-   - `learning.js` from `@packages/core/hooks/`
+4. **Discover hooks from plugin:**
+   - Scan these plugin directories for hook files:
+     - `@packages/permitter/hooks/` - Permission hooks
+     - `@packages/router/hooks/` - Routing hooks
+     - `@packages/core/hooks/` - Core workflow hooks
+   - Include files matching: `*.js`, `*.py`, `*.sh`
+   - Current known hooks (may expand):
+     - `permitter.js` - Permission management
+     - `router.py` - Prompt routing
+     - `formatter.sh` - Code formatting
+     - `status.js` - TRD status tracking
+     - `learning.js` - Session learning capture
+     - `wiggum.js` - Autonomous execution mode
 
 #### 4.5 Update Settings (Merge)
 
@@ -559,6 +621,8 @@ The following files may benefit from manual review:
 |--------|----------|
 | Skills | `.claude/skills.backup.[timestamp]/` |
 | Agents (if --force) | `.claude/agents.backup.[timestamp]/` |
+| Commands (if modified) | `.claude/commands.backup.[timestamp]/` |
+| Hooks (if modified) | `.claude/hooks.backup.[timestamp]/` |
 
 ### Next Steps
 
@@ -588,6 +652,68 @@ The following files may benefit from manual review:
    - Inform user: "Full report saved to [path]"
 
 </rebase-report>
+
+---
+
+## Rollback Procedure
+
+If issues occur after rebase, you can restore from backups:
+
+### Automatic Rollback
+
+If rebase fails mid-execution, partial changes may exist. To restore:
+
+1. **Check for backup directories:**
+   ```
+   ls -la .claude/*.backup.*
+   ```
+
+2. **Restore each component as needed:**
+
+   **Restore Skills:**
+   ```bash
+   rm -rf .claude/skills
+   mv .claude/skills.backup.<timestamp> .claude/skills
+   ```
+
+   **Restore Agents (if --force was used):**
+   ```bash
+   rm -rf .claude/agents
+   mv .claude/agents.backup.<timestamp> .claude/agents
+   ```
+
+   **Restore Commands:**
+   ```bash
+   rm -rf .claude/commands
+   mv .claude/commands.backup.<timestamp> .claude/commands
+   ```
+
+   **Restore Hooks:**
+   ```bash
+   rm -rf .claude/hooks
+   mv .claude/hooks.backup.<timestamp> .claude/hooks
+   ```
+
+3. **Reset version in settings.json:**
+   - Edit `.claude/settings.json`
+   - Change `ensemble.version` to previous version
+   - Change `ensemble.rebased_at` to previous timestamp
+
+### Manual Rollback
+
+If backups are missing, you can reinstall:
+
+1. **Full reset:** Run `/init-project --force` to regenerate all vendored files
+2. **Partial reset:** Use `/add-skill` to re-add specific skills
+
+### Cleanup Old Backups
+
+After verifying the rebase is successful:
+
+```bash
+# Remove backup directories older than 7 days
+find .claude -name "*.backup.*" -type d -mtime +7 -exec rm -rf {} \;
+```
 
 ---
 

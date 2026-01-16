@@ -57,10 +57,28 @@ DEFAULT_TIMEOUT=300
 # OpenTelemetry Environment Setup
 # -----------------------------------------------------------------------------
 
-export CLAUDE_CODE_ENABLE_TELEMETRY=1
-export OTEL_METRICS_EXPORTER="${OTEL_METRICS_EXPORTER:-console}"
-export OTEL_LOGS_EXPORTER="${OTEL_LOGS_EXPORTER:-console}"
-export OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_ENDPOINT:-http://localhost:4317}"
+# Load .env file from test/ directory if it exists
+ENV_FILE="${SCRIPT_DIR}/../../.env"
+if [[ -f "$ENV_FILE" ]]; then
+    # Export all variables from .env file (skip comments and empty lines)
+    set -a
+    # shellcheck source=/dev/null
+    source "$ENV_FILE"
+    set +a
+fi
+
+# Only enable telemetry if OTEL endpoint is explicitly configured
+# This prevents errors when no collector is running
+if [[ -n "${OTEL_EXPORTER_OTLP_ENDPOINT:-}" ]]; then
+    export CLAUDE_CODE_ENABLE_TELEMETRY="${CLAUDE_CODE_ENABLE_TELEMETRY:-1}"
+    export OTEL_EXPORTER_OTLP_PROTOCOL="${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}"
+    export OTEL_METRICS_EXPORTER="${OTEL_METRICS_EXPORTER:-otlp}"
+    export OTEL_LOGS_EXPORTER="${OTEL_LOGS_EXPORTER:-otlp}"
+    export OTEL_EXPORTER_OTLP_HEADERS="${OTEL_EXPORTER_OTLP_HEADERS:-}"
+else
+    # Disable telemetry if no endpoint configured
+    export CLAUDE_CODE_ENABLE_TELEMETRY=0
+fi
 
 # Additional OpenTelemetry settings for better observability
 export OTEL_SERVICE_NAME="${OTEL_SERVICE_NAME:-ensemble-vnext-test}"

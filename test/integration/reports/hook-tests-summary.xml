@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Hook Integration Tests" tests="127" failures="0" skipped="2" time="16.522">
+  <testsuite name="wiggum-hook" tests="36" failures="0" skipped="0" time="3.4">
+    <properties>
+      <property name="hook" value="wiggum"/>
+      <property name="testFile" value="wiggum-hook.test.sh"/>
+    </properties>
+  </testsuite>
+  <testsuite name="formatter-hook" tests="26" failures="0" skipped="0" time="7.7">
+    <properties>
+      <property name="hook" value="formatter"/>
+      <property name="testFile" value="formatter-hook.test.sh"/>
+    </properties>
+  </testsuite>
+  <testsuite name="learning-hook" tests="19" failures="0" skipped="1" time="2.0">
+    <properties>
+      <property name="hook" value="learning"/>
+      <property name="testFile" value="learning-hook.test.sh"/>
+    </properties>
+  </testsuite>
+  <testsuite name="status-hook" tests="28" failures="0" skipped="1" time="2.0">
+    <properties>
+      <property name="hook" value="status"/>
+      <property name="testFile" value="status-hook.test.sh"/>
+    </properties>
+  </testsuite>
+  <testsuite name="permitter-hook" tests="18" failures="0" skipped="0" time="1.4">
+    <properties>
+      <property name="hook" value="permitter"/>
+      <property name="testFile" value="permitter-hook.test.sh"/>
+    </properties>
+  </testsuite>
+</testsuites>

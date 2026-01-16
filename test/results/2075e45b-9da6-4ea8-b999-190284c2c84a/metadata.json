@@ -1,0 +1,12 @@
+{
+  "session_id": "2075e45b-9da6-4ea8-b999-190284c2c84a",
+  "variant": "",
+  "fixture": "",
+  "start_time": "2026-01-15T17:33:36-08:00",
+  "prompt_preview": "Create a file called test-remote.txt with content 'hello from remote'",
+  "execution_mode": "remote",
+  "timeout_seconds": 300,
+  "framework_version": "1.0.0",
+  "end_time": "2026-01-15T17:33:46-08:00",
+  "exit_code": 1
+}

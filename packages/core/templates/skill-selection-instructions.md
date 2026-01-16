@@ -1,61 +1,96 @@
 # Skill Selection Instructions
 
-This document provides instructions for the LLM to select and copy relevant skills during `/init-project`.
+This document provides guidance for agentic skill selection during `/init-project`.
 
-**Important**: Skill selection is an LLM function, NOT executable code. The LLM reviews the generated `stack.md` and matches against available skills in the plugin library.
+**Important**: Skill selection is an intelligent reasoning task, NOT a lookup table. You must explore the available skills, understand what each provides, and reason about which would genuinely benefit this specific project.
 
 ---
 
-## Selection Process
+## Agentic Selection Approach
 
-### Step 1: Read stack.md
+### Philosophy
 
-Parse the generated `stack.md` to extract:
-- Primary language(s)
-- Framework(s)
-- Testing framework(s)
-- Database/ORM
-- Infrastructure/deployment targets
-- CI/CD platform
+You are not executing a matching algorithm. You are an intelligent agent that:
+1. **Explores** the skill library to understand what's available
+2. **Reads** skill documentation to understand each skill's purpose
+3. **Reasons** about which skills would provide genuine value
+4. **Considers** both explicit matches and complementary value
 
-### Step 2: Match Against Skill Library
+### How to Select Skills
 
-The skill library is located at `packages/skills/` in the plugin.
+**Step 1: Discover Available Skills**
 
-Each skill has a `SKILL.md` with a "When to Use" section that defines triggering conditions.
+Use Glob to find all skills: `packages/skills/*/SKILL.md`
 
-**Matching Rules**:
+For each skill, read its "When to Use" section to understand:
+- What technology it covers
+- What triggers its use
+- What value it provides
 
-| stack.md Entry | Skill Match |
-|----------------|-------------|
-| Language: Python | `developing-with-python` |
-| Language: TypeScript | `developing-with-typescript` |
-| Language: PHP | `developing-with-php` |
-| Framework: React | `developing-with-react` |
-| Framework: Laravel | `developing-with-laravel` |
-| Framework: Flutter | `developing-with-flutter` |
-| Framework: NestJS | `nestjs` |
-| Testing: Jest | `jest` |
-| Testing: pytest | `pytest` |
-| Testing: RSpec | `rspec` |
-| Testing: xUnit | `xunit` |
-| Testing: ExUnit | `exunit` |
-| Testing: Playwright | `writing-playwright-tests` |
-| Database: Prisma | `using-prisma` |
-| Database: Weaviate | `using-weaviate` |
-| Infrastructure: Railway | `managing-railway` |
-| Infrastructure: Vercel | `managing-vercel` |
-| Infrastructure: Supabase | `managing-supabase` |
-| AI: Anthropic/Claude | `using-anthropic-platform` |
-| AI: OpenAI | `using-openai-platform` |
-| AI: Perplexity | `using-perplexity-platform` |
-| AI: LangGraph | `building-langgraph-agents` |
-| Background Jobs: Celery | `using-celery` |
-| Styling: Tailwind | `styling-with-tailwind` |
-| Issue Tracker: Jira | `managing-jira-issues` |
-| Issue Tracker: Linear | `managing-linear-issues` |
+**Step 2: Reason About Relevance**
 
-### Step 3: Copy Matched Skills
+For each skill, consider multiple dimensions of value:
+
+1. **Direct Match**: Is this technology explicitly present in the detected stack?
+   - Example: `prisma/schema.prisma` exists → `using-prisma` is directly relevant
+
+2. **Ecosystem Fit**: Does this skill fit the project's ecosystem even if not explicitly used?
+   - Example: Python project → `pytest` is likely valuable even without explicit config
+   - Example: TypeScript project → `developing-with-typescript` provides foundational patterns
+
+3. **Complementary Value**: Would this skill help with likely future needs?
+   - Example: Web API without deployment → deployment skills might be valuable
+   - Example: React without styling → Tailwind skill could help
+
+4. **Not Every Match Is Valuable**: Just because a technology could be used doesn't mean the skill is needed
+   - A simple project may not need every potentially-relevant skill
+   - Consider project complexity and scope
+
+**Step 3: Categorize Your Selections**
+
+Group skills by confidence:
+
+- **High Confidence**: Direct match found in codebase - auto-include
+- **Medium Confidence**: Strong ecosystem fit - include with note
+- **Low Confidence**: Tangentially related - ask user before including
+
+---
+
+## Reference: Common Skill Mappings
+
+The following associations help you recognize skill relevance. Use them as reference for your reasoning, not as rigid rules.
+
+### Language Skills
+- Python projects often benefit from `developing-with-python`
+- TypeScript projects often benefit from `developing-with-typescript`
+- PHP projects often benefit from `developing-with-php`
+
+### Framework Skills
+- React projects → `developing-with-react`
+- Laravel projects → `developing-with-laravel`
+- Flutter projects → `developing-with-flutter`
+- NestJS projects → `nestjs`
+
+### Testing Skills
+- Jest-configured projects → `jest`
+- pytest-configured projects → `pytest`
+- RSpec-configured projects → `rspec`
+- Playwright-configured projects → `writing-playwright-tests`
+
+### Infrastructure Skills
+- Prisma-using projects → `using-prisma`
+- Railway-deployed projects → `managing-railway`
+- Vercel-deployed projects → `managing-vercel`
+- Supabase-using projects → `managing-supabase`
+
+### AI Platform Skills
+- Anthropic/Claude SDK usage → `using-anthropic-platform`
+- OpenAI SDK usage → `using-openai-platform`
+- LangGraph usage → `building-langgraph-agents`
+
+---
+
+## How to Copy Skills
 
 For each matched skill:
 

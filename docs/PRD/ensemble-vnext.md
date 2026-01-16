@@ -1,14 +1,25 @@
 # Product Requirements Document: Ensemble vNext
 
-**Document Version**: 1.5.1
+**Document Version**: 1.6.0
 **Status**: Draft
 **Created**: 2026-01-11
-**Updated**: 2026-01-12
+**Updated**: 2026-01-14
 **Author**: Product Management
 
 ---
 
 ## Changelog
+
+### Version 1.6.0 (2026-01-14)
+
+**New Feature - Remote Session Log Capture (F6.6)**:
+- Added F6.6 Remote Log Capture hook to preserve session logs from remote/cloud Claude sessions
+- Hook activates via `ENSEMBLE_SAVE_REMOTE_LOGS=1` environment variable
+- Captures all session logs (including subagent transcripts) to `.claude-sessions/logs/`
+- Commits logs before VM termination to ensure persistence
+- Added acceptance criteria AC-F6.6-01 through AC-F6.6-05
+- Updated Hook System Diagram to include new hook
+- Added glossary entries for Remote Log Capture and ENSEMBLE_SAVE_REMOTE_LOGS
 
 ### Version 1.5.1 (2026-01-12)
 
@@ -834,6 +845,7 @@ Putting orchestration logic in the command (rather than SubagentStop hooks or a 
 | F6.3 Formatter | PostToolUse | Format code output (project-configurable) | P2 |
 | F6.4 Status | SubagentStop | Update status artifact on completion | P0 |
 | F6.5 Learning | SessionEnd | Auto-capture learnings to CLAUDE.md | P2 |
+| F6.6 Remote Log Capture | SessionEnd | Capture and commit session logs from remote sessions | P2 |
 
 **Hook System Diagram**:
 
@@ -852,6 +864,7 @@ flowchart LR
     Post -->|"Format code"| Formatter
     Stop -->|"Update status<br/>Gate completion"| Status
     Session -->|"Capture learnings"| Learning
+    Session -->|"Save remote logs<br/>(when enabled)"| RemoteLogCapture
 ```
 
 **F6.1 Permitter Hook Details**:
@@ -956,6 +969,61 @@ CLAUDE_CODE_REMOTE environment variable:
 This "no auto-commit" policy applies **only** to the SessionEnd hook's learning capture. The `/implement-trd` command actively commits and pushes work as part of its normal implementation cycle - this is expected behavior for tracking implementation progress. The distinction is:
 - **SessionEnd**: Automatic learning capture at session end - stages only, respects user control over git history
 - **implement-trd**: Active implementation workflow - commits checkpoints, pushes to work session branches
+
+**F6.6 Remote Session Log Capture Hook Details**:
+
+The Remote Session Log Capture hook preserves session transcripts from remote/cloud Claude sessions that would otherwise be lost when the VM terminates.
+
+*Problem Statement*:
+When running Claude sessions remotely via `--remote`, session logs are stored on the remote VM and lost when the session terminates. This makes it impossible to analyze session behavior, debug issues, or learn from eval runs after the fact.
+
+*Solution*:
+A SessionEnd hook that captures all session logs (including subagent logs) and commits them to the repository before the VM shuts down.
+
+*Activation*:
+```bash
+# Enable remote log capture
+export ENSEMBLE_SAVE_REMOTE_LOGS=1
+
+# Run a remote session
+echo "Build feature X" | claude --remote "feature-x-session" --dangerously-skip-permissions
+```
+
+*Hook Behavior*:
+1. **Trigger**: Runs on SessionEnd event
+2. **Environment Check**: Only activates when `ENSEMBLE_SAVE_REMOTE_LOGS=1` is set
+3. **Log Collection**: Captures all session logs including subagent conversation logs
+4. **Destination**: Saves logs to `.claude-sessions/logs/` directory
+5. **Persistence**: Commits logs to git before session terminates
+
+*Log Destination Structure*:
+```
+.claude-sessions/
+└── logs/
+    ├── session-<id>-<timestamp>.jsonl
+    └── ...
+```
+
+*Environment Variables*:
+
+| Variable | Purpose | Values |
+|----------|---------|--------|
+| `ENSEMBLE_SAVE_REMOTE_LOGS` | Enable remote session log capture | `1` to enable, unset to disable |
+
+*Use Cases*:
+- **Eval Testing**: Preserve session transcripts from remote eval runs for analysis
+- **Debug Investigation**: Capture logs from failed remote sessions for post-mortem
+- **Learning Analysis**: Review session behavior patterns to improve workflows
+- **Audit Trail**: Maintain records of autonomous remote executions
+
+*Key Properties*:
+- Only activates in remote sessions (checks execution context)
+- Non-blocking - failures do not prevent session termination
+- Commits logs before VM shutdown to ensure persistence
+- Compatible with other SessionEnd hooks (Learning hook)
+
+*Rationale*:
+Remote sessions run on Anthropic-managed VMs that are ephemeral. Without explicit log capture, valuable debugging and learning information is lost. This hook ensures session transcripts survive the VM lifecycle.
 
 ### 4.2 Enhanced Features (P1 - Should Have)
 
@@ -1620,6 +1688,11 @@ claude --version > .claude/.claude-version
 | AC-F6.5-03 | SessionEnd hook detects CLAUDE_CODE_REMOTE environment variable | Test in both local and remote contexts, verify detection |
 | AC-F6.5-04 | SessionEnd hook stages but never commits changes | End session, verify `git add` but no `git commit` |
 | AC-F6.5-05 | Appropriate log messages displayed for local vs remote contexts | Test both contexts, verify correct messaging |
+| AC-F6.6-01 | Remote log capture activates only when ENSEMBLE_SAVE_REMOTE_LOGS=1 | Test with/without env var, verify conditional activation |
+| AC-F6.6-02 | Session logs saved to .claude-sessions/logs/ directory | End remote session with flag, verify logs written |
+| AC-F6.6-03 | Logs include subagent conversation transcripts | Run session with subagents, verify all logs captured |
+| AC-F6.6-04 | Hook commits logs before session terminates | End remote session, verify git commit with logs |
+| AC-F6.6-05 | Hook is non-blocking on failure | Simulate write failure, verify session still terminates |
 
 ### 6.2 Enhanced Features (P1)
 
@@ -1775,6 +1848,8 @@ claude --version > .claude/.claude-version
 | **Work Session** | A proposed split of TRD work for parallel execution |
 | **app-debugger** | Subagent specialized for fixing verification failures and resolving bugs |
 | **Cycle Position** | Current step in the implement->verify->simplify->verify->review->update cycle |
+| **Remote Log Capture** | SessionEnd hook that saves session logs from remote executions to `.claude-sessions/logs/` |
+| **ENSEMBLE_SAVE_REMOTE_LOGS** | Environment variable to enable remote session log capture (set to `1`) |
 
 ## Appendix B: Related Documents
 

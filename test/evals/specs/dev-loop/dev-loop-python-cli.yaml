@@ -208,7 +208,7 @@ binary_checks:
         [ "$func_count" -ge 3 ] && [ "$func_count" -le 15 ]
     weight: 0.25
 
-# LLM-judged quality metrics
+# LLM-judged quality metrics (4 standardized rubrics)
 metrics:
   - name: code_quality
     description: Overall code quality of the final implementation
@@ -217,13 +217,12 @@ metrics:
       - "calc.py"
     context_files:
       - "story.md"
-    weight: 0.4
+    weight: 0.25
     custom_prompt_addition: |
       Focus on whether the simplification step improved the code:
       - Are functions appropriately sized and focused?
       - Is there good separation of concerns?
       - Are variable names clear and descriptive?
-      - Is error handling consistent and comprehensive?
       - Was any unnecessary complexity removed?
 
   - name: test_quality
@@ -233,7 +232,7 @@ metrics:
       - "test_calc.py"
     context_files:
       - "calc.py"
-    weight: 0.3
+    weight: 0.25
     custom_prompt_addition: |
       Evaluate the test coverage and structure:
       - Are all functions tested (add, subtract, multiply, divide, calculate, parse_number, main)?
@@ -241,19 +240,37 @@ metrics:
       - Are CLI arguments tested?
       - Do tests follow pytest best practices (fixtures, parametrize)?
 
-  - name: simplification_quality
-    description: Quality of the refactoring/simplification step
-    rubric: code-quality.md
+  - name: architecture_quality
+    description: Quality of the code architecture and module design
+    rubric: architecture.md
     files:
       - "calc.py"
-    weight: 0.3
+    context_files:
+      - "story.md"
+    weight: 0.25
     custom_prompt_addition: |
-      Focus specifically on whether refactoring improved readability without
-      over-engineering or breaking functionality:
-      - Was complexity reduced appropriately?
-      - Were any unnecessary abstractions avoided?
-      - Is the code more readable than a typical first-pass implementation?
-      - Was the DRY principle applied without excessive abstraction?
+      Evaluate the architectural choices for a CLI calculator:
+      - Is there clear separation between parsing, calculation, and output?
+      - Are operations modular and independently callable?
+      - Is the main entry point cleanly organized?
+      - Could components be easily extended or reused?
+      - Is the code structure appropriate for the problem size?
+
+  - name: error_handling_quality
+    description: Quality of error handling implementation
+    rubric: error-handling.md
+    files:
+      - "calc.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate input validation, exception handling, and user-friendly error messages:
+      - Is division by zero handled gracefully?
+      - Are invalid inputs (wrong type, missing args) caught and reported clearly?
+      - Are error messages helpful and user-friendly?
+      - Is there consistent error handling throughout the code?
+      - Are exceptions caught at appropriate levels?
 
 # Judge configuration
 judge:

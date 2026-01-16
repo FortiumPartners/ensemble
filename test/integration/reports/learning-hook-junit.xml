@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="1.273">
+<testsuite name="learning-hook.test.sh" tests="19" failures="0" errors="0" skipped="1" time="1.273" timestamp="2026-01-14T05:17:57" hostname="JMS-LAPTOP">
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook fires on SessionEnd event" time="0.065" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook returns JSON with correct structure" time="0.083" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook stages modified files" time="0.075" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook captures staged count in output" time="0.073" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook stages CLAUDE.md if modified" time="0.076" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook stages files in subdirectories" time="0.070" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook NEVER makes git commits" time="0.083" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook only stages, files remain uncommitted" time="0.071" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook with multiple runs never commits" time="0.138" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook handles non-git directory gracefully" time="0.030" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook reports no_git status for non-git directory" time="0.026" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook detects CLAUDE_CODE_REMOTE environment" time="0.065" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook local environment is_remote is false" time="0.068" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook respects LEARNING_HOOK_DISABLE=1" time="0.049" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook handles clean repository" time="0.079" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook integrates with run-hook-test.sh harness" time="0">
+        <skipped>Headless tests disabled (set SKIP_HEADLESS=false to enable)</skipped>
+    </testcase>
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook handles files with spaces in names" time="0.078" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook handles special characters in filenames" time="0.075" />
+    <testcase classname="learning-hook.test.sh" name="TRD-TEST-097: learning hook always exits with 0 (non-blocking)" time="0.069" />
+
+</testsuite>
+</testsuites>

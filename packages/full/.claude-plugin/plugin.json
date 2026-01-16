@@ -1,7 +1,7 @@
 {
   "name": "ensemble-vnext",
   "version": "1.0.0",
-  "description": "Complete ensemble vNext ecosystem for Claude Code",
+  "description": "Streamlined ensemble workflow framework for Claude Code with 12 specialized agents",
   "author": {
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com",
@@ -14,7 +14,10 @@
     "vnext",
     "orchestration",
     "workflow",
-    "subagents"
+    "subagents",
+    "prd",
+    "trd",
+    "ai-augmented-development"
   ],
   "commands": [
     "./commands/core",

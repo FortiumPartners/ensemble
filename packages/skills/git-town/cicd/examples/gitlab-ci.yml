@@ -1,0 +1,601 @@
+# ============================================================================
+# GitLab CI Pipeline for Git-Town Projects
+# ============================================================================
+#
+# This pipeline provides comprehensive CI/CD for git-town-based development:
+# - Merge request validation with parallel jobs
+# - Multi-stage deployment (staging → production)
+# - Automated dependency updates
+# - Security scanning and compliance checks
+#
+# Copy this file to .gitlab-ci.yml in your repository root.
+#
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Workflow Rules: When to run pipelines
+# ----------------------------------------------------------------------------
+workflow:
+  rules:
+    # Run on merge requests
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    # Run on main branch pushes
+    - if: $CI_COMMIT_BRANCH == "main"
+    # Run on version tags
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+    # Manual pipeline runs
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+# ----------------------------------------------------------------------------
+# Default Settings
+# ----------------------------------------------------------------------------
+default:
+  image: node:20
+
+  # Retry failed jobs
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+
+  # Cache node_modules across jobs
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull
+
+  # Install dependencies before each job
+  before_script:
+    - npm ci --cache .npm --prefer-offline
+
+# ----------------------------------------------------------------------------
+# Pipeline Stages
+# ----------------------------------------------------------------------------
+stages:
+  - install
+  - validate
+  - test
+  - build
+  - deploy-staging
+  - smoke-test
+  - deploy-production
+  - release
+
+# ============================================================================
+# Stage 1: Install Dependencies
+# ============================================================================
+
+install:
+  stage: install
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+      - .npm/
+    policy: pull-push
+  script:
+    - npm ci --cache .npm
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Stage 2: Validation (Merge Requests Only)
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Lint: ESLint and Prettier
+# ----------------------------------------------------------------------------
+lint:
+  stage: validate
+  needs: [install]
+  script:
+    - npm run lint
+    - npm run format:check
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ----------------------------------------------------------------------------
+# Type Check: TypeScript
+# ----------------------------------------------------------------------------
+typecheck:
+  stage: validate
+  needs: [install]
+  script:
+    - npm run typecheck
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ----------------------------------------------------------------------------
+# MR Size Check: Enforce small merge requests
+# ----------------------------------------------------------------------------
+mr-size-check:
+  stage: validate
+  needs: []
+  image: alpine/git
+  before_script: []
+  cache: {}
+  script:
+    - |
+      git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+      LINES_CHANGED=$(git diff --shortstat origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD | awk '{print $4+$6}')
+      echo "Lines changed: $LINES_CHANGED"
+
+      if [ -z "$LINES_CHANGED" ]; then
+        echo "No changes detected"
+        exit 0
+      fi
+
+      if [ $LINES_CHANGED -gt 500 ]; then
+        echo "❌ MR too large: $LINES_CHANGED lines (max 500)"
+        echo "Please break into smaller MRs for faster review"
+        exit 1
+      fi
+
+      echo "✅ MR size acceptable: $LINES_CHANGED lines"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# ============================================================================
+# Stage 3: Tests
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Unit Tests: Fast, isolated tests
+# ----------------------------------------------------------------------------
+test:unit:
+  stage: test
+  needs: [install]
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  script:
+    - npm run test:unit -- --coverage
+  artifacts:
+    reports:
+      junit: junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+    paths:
+      - coverage/
+    expire_in: 7 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ----------------------------------------------------------------------------
+# Integration Tests: Database and API tests
+# ----------------------------------------------------------------------------
+test:integration:
+  stage: test
+  needs: [install]
+
+  services:
+    - name: postgres:15
+      alias: postgres
+    - name: redis:7
+      alias: redis
+
+  variables:
+    POSTGRES_DB: test_db
+    POSTGRES_USER: test
+    POSTGRES_PASSWORD: test
+    DATABASE_URL: postgresql://test:test@postgres:5432/test_db
+    REDIS_URL: redis://redis:6379
+
+  script:
+    - npm run db:migrate
+    - npm run test:integration
+
+  artifacts:
+    reports:
+      junit: junit-integration.xml
+    expire_in: 7 days
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ----------------------------------------------------------------------------
+# E2E Tests: Playwright full application tests
+# ----------------------------------------------------------------------------
+test:e2e:
+  stage: test
+  needs: [install, build]
+
+  image: mcr.microsoft.com/playwright:v1.40.0-focal
+
+  script:
+    - npx playwright install
+    - npm run test:e2e
+
+  artifacts:
+    when: on_failure
+    paths:
+      - playwright-report/
+    expire_in: 30 days
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ----------------------------------------------------------------------------
+# Security: Dependency scanning and SAST
+# ----------------------------------------------------------------------------
+security:audit:
+  stage: test
+  needs: [install]
+
+  script:
+    - npm audit --audit-level=moderate
+
+  allow_failure: true
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+security:sast:
+  stage: test
+
+  # Use GitLab's SAST template
+  include:
+    - template: Security/SAST.gitlab-ci.yml
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+security:dependency:
+  stage: test
+
+  # Use GitLab's Dependency Scanning template
+  include:
+    - template: Security/Dependency-Scanning.gitlab-ci.yml
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Stage 4: Build
+# ============================================================================
+
+build:
+  stage: build
+  needs: [install]
+
+  script:
+    - npm run build
+
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 30 days
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+
+# ============================================================================
+# Stage 5: Deploy to Staging (Main Branch Only)
+# ============================================================================
+
+deploy:staging:
+  stage: deploy-staging
+  needs: [build]
+
+  environment:
+    name: staging
+    url: https://staging.example.com
+    deployment_tier: staging
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq awscli
+
+  script:
+    # Deploy to AWS S3
+    - |
+      aws s3 sync dist/ s3://$STAGING_BUCKET/ \
+        --delete \
+        --cache-control "public, max-age=31536000"
+
+    # Invalidate CloudFront cache
+    - |
+      aws cloudfront create-invalidation \
+        --distribution-id $STAGING_CLOUDFRONT_ID \
+        --paths "/*"
+
+    # Notify deployment
+    - |
+      curl -X POST $SLACK_WEBHOOK \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"text\": \"✅ Deployed to staging: $CI_COMMIT_SHA\",
+          \"blocks\": [{
+            \"type\": \"section\",
+            \"text\": {
+              \"type\": \"mrkdwn\",
+              \"text\": \"*Staging Deployment*\nCommit: \`$CI_COMMIT_SHA\`\nURL: https://staging.example.com\"
+            }
+          }]
+        }"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Stage 6: Smoke Tests (After Staging Deployment)
+# ============================================================================
+
+smoke-test:
+  stage: smoke-test
+  needs: [deploy:staging]
+
+  script:
+    - npm run test:smoke
+
+  variables:
+    BASE_URL: https://staging.example.com
+    SMOKE_TEST_TIMEOUT: 30000
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Stage 7: Deploy to Production (Manual Approval)
+# ============================================================================
+
+deploy:production:
+  stage: deploy-production
+  needs: [smoke-test]
+
+  environment:
+    name: production
+    url: https://example.com
+    deployment_tier: production
+
+  # Require manual approval
+  when: manual
+
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq awscli
+
+  script:
+    # Deploy to AWS S3
+    - |
+      aws s3 sync dist/ s3://$PRODUCTION_BUCKET/ \
+        --delete \
+        --cache-control "public, max-age=31536000"
+
+    # Invalidate CloudFront cache
+    - |
+      aws cloudfront create-invalidation \
+        --distribution-id $PRODUCTION_CLOUDFRONT_ID \
+        --paths "/*"
+
+    # Verify deployment
+    - curl -f https://example.com/health || exit 1
+
+    # Notify deployment
+    - |
+      curl -X POST $SLACK_WEBHOOK \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"text\": \"🚀 Deployed to production: $CI_COMMIT_SHA\",
+          \"blocks\": [{
+            \"type\": \"section\",
+            \"text\": {
+              \"type\": \"mrkdwn\",
+              \"text\": \"*Production Deployment*\nCommit: \`$CI_COMMIT_SHA\`\nURL: https://example.com\"
+            }
+          }]
+        }"
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Stage 8: Release (Version Tags)
+# ============================================================================
+
+release:
+  stage: release
+  needs: []
+
+  image: node:20
+
+  before_script:
+    - npm ci --cache .npm
+
+  script:
+    # Build production
+    - npm run build
+
+    # Run tests
+    - npm test
+
+    # Publish to npm
+    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+    - npm publish --access public
+
+    # Extract release notes from CHANGELOG
+    - |
+      VERSION=${CI_COMMIT_TAG#v}
+      NOTES=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '1d;$d')
+      echo "RELEASE_NOTES<<EOF" >> release.env
+      echo "$NOTES" >> release.env
+      echo "EOF" >> release.env
+
+    # Create GitLab release
+    - |
+      release-cli create \
+        --name "Release ${CI_COMMIT_TAG}" \
+        --tag-name "${CI_COMMIT_TAG}" \
+        --description "$(cat release.env)"
+
+    # Notify release
+    - |
+      curl -X POST $SLACK_WEBHOOK \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"text\": \"📦 Released version ${CI_COMMIT_TAG}\",
+          \"blocks\": [{
+            \"type\": \"section\",
+            \"text\": {
+              \"type\": \"mrkdwn\",
+              \"text\": \"*New Release*\nVersion: \`${CI_COMMIT_TAG}\`\nView: ${CI_PROJECT_URL}/-/releases/${CI_COMMIT_TAG}\"
+            }
+          }]
+        }"
+
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 90 days
+
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+
+# ============================================================================
+# Automated Dependency Updates
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Renovate Bot: Auto-merge patch and minor updates
+# ----------------------------------------------------------------------------
+# Note: This job requires Renovate bot to be configured in GitLab
+# See: https://docs.renovatebot.com/modules/platform/gitlab/
+
+.auto-merge-renovate: &auto-merge-renovate
+  stage: .pre
+
+  image: alpine/git
+
+  before_script: []
+  cache: {}
+
+  script:
+    - |
+      # Check if MR is from Renovate
+      if [ "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME" != "renovate/*" ]; then
+        echo "Not a Renovate MR, skipping auto-merge"
+        exit 0
+      fi
+
+      # Wait for all pipelines to succeed
+      echo "Waiting for pipeline to complete..."
+      # Custom logic to wait for pipeline success
+
+      # Auto-approve and merge
+      echo "Auto-approving and merging Renovate MR"
+      curl --request POST \
+        --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/approve"
+
+      curl --request PUT \
+        --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        --url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/merge_requests/${CI_MERGE_REQUEST_IID}/merge" \
+        --data "merge_when_pipeline_succeeds=true" \
+        --data "squash=true"
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^renovate\//
+    - when: never
+
+# ============================================================================
+# Code Quality Reports
+# ============================================================================
+
+code_quality:
+  stage: validate
+
+  # Use GitLab's Code Quality template
+  include:
+    - template: Code-Quality.gitlab-ci.yml
+
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ============================================================================
+# Performance Testing (Optional)
+# ============================================================================
+
+performance:lighthouse:
+  stage: test
+
+  image: cypress/browsers:node18.12.0-chrome107
+
+  before_script:
+    - npm install -g @lhci/cli
+
+  script:
+    - lhci autorun --upload.target=temporary-public-storage
+
+  artifacts:
+    reports:
+      performance: performance.json
+
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+    - when: never
+
+# ============================================================================
+# Configuration Notes
+# ============================================================================
+#
+# Required CI/CD Variables (Settings → CI/CD → Variables):
+#
+# AWS Deployment:
+# - AWS_ACCESS_KEY_ID: AWS access key
+# - AWS_SECRET_ACCESS_KEY: AWS secret key
+# - AWS_DEFAULT_REGION: AWS region (e.g., us-east-1)
+# - STAGING_BUCKET: S3 bucket for staging
+# - STAGING_CLOUDFRONT_ID: CloudFront distribution for staging
+# - PRODUCTION_BUCKET: S3 bucket for production
+# - PRODUCTION_CLOUDFRONT_ID: CloudFront distribution for production
+#
+# Notifications:
+# - SLACK_WEBHOOK: Slack webhook URL
+#
+# Package Publishing:
+# - NPM_TOKEN: NPM authentication token
+#
+# Auto-Merge:
+# - GITLAB_TOKEN: GitLab personal access token with api scope
+#
+# Required Protected Branch Settings (Settings → Repository → Protected Branches):
+# Branch: main
+# - Allowed to merge: Maintainers
+# - Allowed to push: No one
+# - Require approval from code owners: Yes
+# - Require status checks to pass: Yes
+#   - lint
+#   - typecheck
+#   - test:unit
+#   - test:integration
+#   - test:e2e
+#   - build
+#
+# Required Environment Settings (Deployments → Environments):
+# - staging: Auto-deploy from main branch
+# - production: Protected, requires manual approval from Maintainers
+#
+# ============================================================================

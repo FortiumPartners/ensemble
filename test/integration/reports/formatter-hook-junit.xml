@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="6.747">
+<testsuite name="formatter-hook.test.sh" tests="26" failures="0" errors="0" skipped="0" time="6.747" timestamp="2026-01-14T05:17:55" hostname="JMS-LAPTOP">
+    <testcase classname="formatter-hook.test.sh" name="prerequisite: parse-hook-events.js exists and is executable" time="0.034" />
+    <testcase classname="formatter-hook.test.sh" name="prerequisite: formatter hook script exists" time="0.010" />
+    <testcase classname="formatter-hook.test.sh" name="prerequisite: run-hook-test.sh harness exists" time="0.009" />
+    <testcase classname="formatter-hook.test.sh" name="prerequisite: jq is available" time="0.009" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook triggers on PostToolUse after Write tool" time="0.051" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook triggers on PostToolUse after Edit tool" time="0.044" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook does not trigger for Read operations" time="0.047" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook output includes status field" time="0.051" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook output includes formatted_file field" time="0.046" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook reports successful completion" time="0.047" />
+    <testcase classname="formatter-hook.test.sh" name="Python files (.py) map to ruff formatter" time="0.046" />
+    <testcase classname="formatter-hook.test.sh" name="TypeScript files (.ts) map to prettier formatter" time="0.046" />
+    <testcase classname="formatter-hook.test.sh" name="Go files (.go) map to gofmt formatter" time="0.050" />
+    <testcase classname="formatter-hook.test.sh" name="unknown extension returns no_formatter status" time="0.047" />
+    <testcase classname="formatter-hook.test.sh" name="multiple files in single session trigger multiple formatter events" time="0.050" />
+    <testcase classname="formatter-hook.test.sh" name="summary correctly counts formatter hooks by event type" time="0.048" />
+    <testcase classname="formatter-hook.test.sh" name="summary includes formatter in unique_hooks list" time="0.048" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook script returns valid JSON output" time="1.317" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook script includes hookEventName PostToolUse" time="1.218" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook returns no_file when file path cannot be extracted" time="0.038" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook returns file_not_found for missing files" time="0.028" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook returns no_extension for files without extension" time="0.034" />
+    <testcase classname="formatter-hook.test.sh" name="FORMATTER_HOOK_DISABLE=1 disables the hook" time="0.024" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook handles files with multiple dots in name" time="1.121" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook handles uppercase extensions" time="1.158" />
+    <testcase classname="formatter-hook.test.sh" name="formatter hook handles paths with spaces" time="1.126" />
+
+</testsuite>
+</testsuites>

@@ -16,6 +16,7 @@
  * Options:
  *   --parallel N       Run N sessions in parallel (default: 2)
  *   --sequential       Run variants sequentially
+ *   --remote           Use remote execution (requires git repo pushed to GitHub)
  *   --output DIR       Output directory for results (default: ../results)
  *   --timeout SECONDS  Timeout per session (default: 600, overridden by spec values)
  *   --runs N           Override runs_per_variant from spec
@@ -44,6 +45,7 @@ function parseArgs(args) {
     specPath: null,
     parallel: DEFAULT_PARALLEL,
     sequential: false,
+    remote: false, // Use remote execution instead of local
     outputDir: null,
     timeout: null, // null = use spec.execution.timeout or DEFAULT_TIMEOUT
     runs: null, // Override for runs_per_variant
@@ -68,6 +70,10 @@ function parseArgs(args) {
       case '--sequential':
         result.sequential = true;
         result.parallel = 1;
+        break;
+
+      case '--remote':
+        result.remote = true;
         break;
 
       case '--output':
@@ -243,7 +249,6 @@ function launchSession(variant, basePrompt, outputDir, timeout, options = {}) {
 
     // Build arguments for run-session.sh
     const args = [
-      '--local', // Use local execution by default for evals
       '--keep', // Keep workspace for inspection/judging
       '--output-dir',
       outputDir,
@@ -252,6 +257,16 @@ function launchSession(variant, basePrompt, outputDir, timeout, options = {}) {
       '--timeout',
       String(timeout)
     ];
+
+    // Use local execution by default, unless --remote is specified
+    // Remote mode requirements:
+    // - Must run from git repo pushed to GitHub
+    // - Requires TTY (uses script command)
+    // - Does NOT support --dangerously-skip-permissions
+    // - Session logs are NOT committed
+    if (!options.useRemote) {
+      args.unshift('--local');
+    }
 
     // Add fixture if specified
     if (options.fixture) {
@@ -356,7 +371,7 @@ async function launchSessions(spec, outputDir, options = {}) {
             : variant.fixture_path;
         }
 
-        return launchSession(variant, basePrompt, outputDir, variantTimeout, { fixture, runIndex });
+        return launchSession(variant, basePrompt, outputDir, variantTimeout, { fixture, runIndex, useRemote: options.useRemote });
       })
     );
 
@@ -430,6 +445,7 @@ Arguments:
 Options:
   --parallel N       Run N sessions in parallel (default: ${DEFAULT_PARALLEL})
   --sequential       Run variants sequentially (same as --parallel 1)
+  --remote           Use remote execution instead of local (see requirements below)
   --output DIR       Output directory for results (default: ../results/<name>_<timestamp>)
   --timeout SECONDS  Default timeout per session in seconds (default: ${DEFAULT_TIMEOUT})
                      Timeout precedence: variant.timeout_seconds > spec.execution.timeout > --timeout > default
@@ -438,10 +454,19 @@ Options:
   --dry-run          Validate spec without running sessions
   --help             Show this help
 
+Remote Mode Requirements (--remote):
+  - Must run from a git repository that is pushed to GitHub
+  - Prompt is passed as argument to --remote (not piped)
+  - Requires TTY - uses 'script' command to capture output
+  - Does NOT support --dangerously-skip-permissions
+  - Session logs are NOT committed (only code artifacts)
+  - Use 'claude --teleport <session_id>' to retrieve sessions
+
 Examples:
   node run-eval.js specs/skills/python.yaml
   node run-eval.js spec.yaml --parallel 4 --output ./my-results
   node run-eval.js spec.yaml --runs 1              # Quick single run per variant
+  node run-eval.js spec.yaml --remote              # Use remote execution
   node run-eval.js spec.yaml --dry-run --quiet`);
 }
 
@@ -560,7 +585,8 @@ async function run(args) {
 
   const sessions = await launchSessions(spec, outputDir, {
     parallel: parsedArgs.parallel,
-    timeout: parsedArgs.timeout
+    timeout: parsedArgs.timeout,
+    useRemote: parsedArgs.remote
   });
 
   // Report results and log failures

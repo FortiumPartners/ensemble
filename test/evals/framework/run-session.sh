@@ -132,31 +132,48 @@ Arguments:
 Options:
     --fixture PATH     Fixture path in ensemble-vnext-test-fixtures repo
     --variant NAME     Variant name for metadata tracking
-    --session-id UUID  Use specific session ID (default: auto-generated)
+    --session-id UUID  Use specific session ID (default: auto-generated, local only)
     --output-dir DIR   Output directory (default: ../../results)
     --timeout SECONDS  Execution timeout (default: 300)
     --keep             Keep workspace after completion
     --local            Use local execution (--print) instead of --remote
+    --plugin-dir DIR   Plugin directory for local mode
     --prompt-file FILE Read prompt from file
     --quiet            Suppress progress output
     --dry-run          Show what would be executed without running
     --help             Show this help
 
+Execution Modes:
+
+    LOCAL (--local):
+        - Runs: echo '<prompt>' | claude --print --dangerously-skip-permissions ...
+        - Session ID can be specified
+        - Supports --plugin-dir and --setting-sources
+        - Session logs stored locally in ~/.claude/projects/
+
+    REMOTE (default):
+        - Runs: claude --remote '<prompt>'
+        - Session ID auto-generated (cannot override)
+        - Requires workspace to be a git repo pushed to GitHub
+        - Output contains session URL and teleport command
+        - Use 'claude --teleport <session_id>' to retrieve session locally
+
 Output Files:
     Session output saved to: <output-dir>/<session-id>/
-    - session.jsonl  - Claude session output
+    - session.jsonl  - Claude session output (or remote session info)
     - metadata.json  - Session metadata (variant, fixture, timing)
     - workspace/     - Cloned fixture (if --keep)
 
 Examples:
-    ./run-session.sh "Build a CLI calculator"
-
-    ./run-session.sh \
-        --fixture "user-stories/python-cli" \
+    # Local execution with fixture
+    ./run-session.sh --local \
+        --fixture "variants/full/python-cli" \
         --variant "with-skill" \
-        --session-id "abc123" \
-        --output-dir "../results/eval_20260113/" \
-        "Use developing-with-python skill, then build a calculator"
+        "Build a CLI calculator"
+
+    # Remote execution (requires git repo pushed to GitHub)
+    cd /path/to/github-repo
+    ./run-session.sh "Build a CLI calculator"
 EOF
     exit 0
 }
@@ -249,10 +266,18 @@ clone_fixture() {
 
     log_info "Cloning fixture: $fixture_path"
 
-    # First, check if we have a local copy in the project
+    # First, check prepared fixtures in /tmp (output of prepare-all-fixtures.sh)
+    local prepared_fixture_base="/tmp/ensemble-test-fixtures"
+    if [[ -d "$prepared_fixture_base/$fixture_path" ]]; then
+        log_info "Using prepared fixture from: $prepared_fixture_base/$fixture_path"
+        cp -r "$prepared_fixture_base/$fixture_path/"* "$target_dir/" 2>/dev/null || true
+        return 0
+    fi
+
+    # Fall back to project directory (raw fixtures without .claude/)
     local local_fixture_base="${SCRIPT_DIR}/../../../ensemble-vnext-test-fixtures"
     if [[ -d "$local_fixture_base/$fixture_path" ]]; then
-        log_info "Using local fixture from: $local_fixture_base/$fixture_path"
+        log_info "Using local fixture from: $local_fixture_base/$fixture_path (WARNING: may not have .claude/)"
         cp -r "$local_fixture_base/$fixture_path/"* "$target_dir/" 2>/dev/null || true
         return 0
     fi
@@ -340,47 +365,66 @@ execute_claude_session() {
     local workspace_dir="$3"
     local output_file="$4"
 
-    local claude_args=()
+    log_info "Executing Claude session..."
+    log_debug "Working directory: $workspace_dir"
+
+    local exit_code=0
 
     if [[ "$USE_LOCAL" == "true" ]]; then
         # Local execution with --print
-        claude_args+=(
+        # - Prompt is piped via stdin
+        # - Supports --dangerously-skip-permissions
+        # - Supports --session-id for tracking
+        # - Supports --plugin-dir and --setting-sources
+        local claude_args=(
             "--print"
             "--dangerously-skip-permissions"
-            "--setting-sources" "local"  # Use only project-local settings/skills
+            "--setting-sources" "local"
+            "--session-id" "$session_id"
         )
+
+        # Add plugin directory if specified
+        if [[ -n "$PLUGIN_DIR" ]]; then
+            claude_args+=("--plugin-dir" "$PLUGIN_DIR")
+        fi
+
+        log_debug "Local mode args: ${claude_args[*]}"
+
+        # Clear CLAUDECODE env vars to prevent nested session interference
+        (
+            cd "$workspace_dir"
+            echo "$prompt" | env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT \
+                timeout "$TIMEOUT" claude "${claude_args[@]}"
+        ) > "$output_file" 2>&1
+        exit_code=$?
     else
         # Remote execution with --remote
-        claude_args+=(
-            "--remote"
-            "evaluation-session"
-            "--dangerously-skip-permissions"
-            "--setting-sources" "local"  # Use only project-local settings/skills
-        )
+        # - Prompt MUST be the argument to --remote (not piped)
+        # - Does NOT support --dangerously-skip-permissions
+        # - Does NOT support --session-id (remote generates its own)
+        # - Does NOT support --setting-sources or --plugin-dir
+        # - Requires working directory to be a git repo pushed to GitHub
+        # - Must run from the CURRENT directory (the git repo), not workspace
+
+        log_debug "Remote mode: claude --remote \"<prompt>\""
+        log_info "Note: Remote sessions require git repo pushed to GitHub"
+        log_info "Running from current directory (must be git repo): $(pwd)"
+
+        # Remote runs from current dir (the git repo), not the workspace
+        # Note: --remote requires a TTY, so we use 'script' to capture output
+        # while maintaining pseudo-terminal
+        if command -v script &>/dev/null; then
+            # Use script to capture output (works on Linux)
+            script -q -c "timeout $TIMEOUT claude --remote \"$prompt\"" "$output_file"
+            exit_code=$?
+        else
+            # Fallback: run without capture, output goes to terminal
+            log_info "Warning: 'script' not found, remote output will go to terminal"
+            timeout "$TIMEOUT" claude --remote "$prompt"
+            exit_code=$?
+            echo "Remote session started - check terminal output for session URL" > "$output_file"
+        fi
     fi
-
-    # Add plugin directory if specified
-    if [[ -n "$PLUGIN_DIR" ]]; then
-        claude_args+=("--plugin-dir" "$PLUGIN_DIR")
-    fi
-
-    # Add session ID for tracking
-    claude_args+=(
-        "--session-id" "$session_id"
-    )
-
-    log_info "Executing Claude session..."
-    log_debug "Working directory: $workspace_dir"
-    log_debug "Claude args: ${claude_args[*]}"
-
-    # Execute with timeout
-    set +e
-    (
-        cd "$workspace_dir"
-        echo "$prompt" | timeout "$TIMEOUT" claude "${claude_args[@]}" > "$output_file" 2>&1
-    )
-    local exit_code=$?
-    set -e
 
     return $exit_code
 }
@@ -505,6 +549,18 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo "Execution Mode: $( [[ "$USE_LOCAL" == "true" ]] && echo "local (--print)" || echo "remote (--remote)" )"
     echo "Prompt Preview: ${PROMPT:0:100}..."
     echo ""
+    if [[ "$USE_LOCAL" == "true" ]]; then
+        echo "Command: echo '<prompt>' | claude --print --dangerously-skip-permissions --setting-sources local --session-id $SESSION_ID"
+    else
+        echo "Command: claude --remote '<prompt>'"
+        echo ""
+        echo "NOTE: Remote mode limitations:"
+        echo "  - Requires working directory to be a git repo pushed to GitHub"
+        echo "  - Session ID is auto-generated (cannot override)"
+        echo "  - Output will contain session URL, not session content"
+        echo "  - Use 'claude --teleport <session_id>' to retrieve session locally"
+    fi
+    echo ""
     echo "Would create: $OUTPUT_DIR/$SESSION_ID/"
     echo "  - session.jsonl"
     echo "  - metadata.json"
@@ -558,9 +614,13 @@ echo "$PROMPT" > "$SESSION_DIR/prompt.txt"
 # Execute Claude session
 SESSION_OUTPUT_FILE="$SESSION_DIR/session.jsonl"
 
-EXIT_CODE=0
-if ! execute_claude_session "$PROMPT" "$SESSION_ID" "$WORKSPACE_DIR" "$SESSION_OUTPUT_FILE"; then
-    EXIT_CODE=$?
+# Execute and capture exit code properly (disable set -e temporarily)
+set +e
+execute_claude_session "$PROMPT" "$SESSION_ID" "$WORKSPACE_DIR" "$SESSION_OUTPUT_FILE"
+EXIT_CODE=$?
+set -e
+
+if [[ $EXIT_CODE -ne 0 ]]; then
     if [[ $EXIT_CODE -eq 124 ]]; then
         log_error "Session timed out after ${TIMEOUT}s"
     else

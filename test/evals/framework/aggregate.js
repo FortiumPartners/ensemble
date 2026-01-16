@@ -1018,6 +1018,7 @@ function aggregateMetrics(collectedScores, resultsDir) {
 
 /**
  * Aggregate scores by variant
+ * Calculates both mean (legacy) and additive (sum) scoring presentations
  * @param {object} collectedScores - Collected scores from collectScores
  * @returns {object} Aggregated statistics per variant
  */
@@ -1027,13 +1028,18 @@ function aggregateByVariant(collectedScores) {
   for (const [variant, data] of Object.entries(collectedScores)) {
     const sessions = data.sessions;
     const allScores = [];
+    const allSums = [];  // Sum of all rubrics per session
     const byRubric = {};
     const rawScores = [];
 
     for (const session of sessions) {
       const sessionScores = Object.values(session.scores);
       const sessionMean = sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length;
+      const sessionSum = sessionScores.reduce((a, b) => a + b, 0);
+      const rubricCount = sessionScores.length;
+
       allScores.push(sessionMean);
+      allSums.push(sessionSum);
       rawScores.push(sessionMean);
 
       // Collect per-rubric scores
@@ -1045,20 +1051,38 @@ function aggregateByVariant(collectedScores) {
       }
     }
 
-    // Calculate overall statistics
+    // Calculate overall statistics (mean-based, legacy)
     const overall = calculateStatistics(allScores);
+
+    // Calculate additive statistics (sum-based)
+    const rubricCount = Object.keys(byRubric).length || 4;  // Default to 4 rubrics
+    const maxPossible = rubricCount * 5.25;  // Max with +0.25 modifiers
+    const additive = {
+      ...calculateStatistics(allSums),
+      max_possible: parseFloat(maxPossible.toFixed(2)),
+      rubric_count: rubricCount,
+      // Normalized to 100-point scale
+      normalized_mean: allSums.length > 0
+        ? parseFloat(((allSums.reduce((a, b) => a + b, 0) / allSums.length / maxPossible) * 100).toFixed(1))
+        : 0
+    };
 
     // Calculate per-rubric statistics
     const rubricStats = {};
     for (const [rubric, scores] of Object.entries(byRubric)) {
-      rubricStats[rubric] = calculateStatistics(scores);
+      const stats = calculateStatistics(scores);
+      // Add sum presentation: each rubric contributes to /5 (or /5.25 max)
+      stats.sum_contribution = parseFloat((stats.mean * 4).toFixed(2));  // Contribution to /20
+      rubricStats[rubric] = stats;
     }
 
     aggregated[variant] = {
       sessions: sessions.length,
-      overall,
+      overall,           // Mean-based (legacy): /5 scale
+      additive,          // Sum-based: raw sum and /100 normalized
       by_rubric: rubricStats,
       raw_scores: rawScores,
+      raw_sums: allSums,
       raw_sessions: sessions
     };
   }
@@ -1125,13 +1149,38 @@ function generateMarkdownReport(data) {
   // Summary section
   lines.push('## Summary');
   lines.push('');
+
+  // Check if we have additive data
+  const hasAdditive = Object.values(data.variants).some(v => v.additive);
+
+  if (hasAdditive) {
+    // New additive scoring presentation
+    lines.push('### Additive Scoring (Recommended)');
+    lines.push('');
+    lines.push('| Variant | Sessions | Total Score | Normalized (/100) | Std Dev |');
+    lines.push('|---------|----------|-------------|-------------------|---------|');
+
+    for (const [variant, stats] of Object.entries(data.variants)) {
+      const additive = stats.additive || {};
+      const mean = additive.mean ?? 'N/A';
+      const normalized = additive.normalized_mean ?? 'N/A';
+      const maxPossible = additive.max_possible ?? 21;
+      const stddev = additive.stddev ?? 'N/A';
+      lines.push(`| ${variant} | ${stats.sessions} | ${mean}/${maxPossible} | ${normalized} | ${stddev} |`);
+    }
+    lines.push('');
+
+    lines.push('### Mean Scoring (Legacy /5 Scale)');
+    lines.push('');
+  }
+
   lines.push('| Variant | Sessions | Mean Score | Std Dev |');
   lines.push('|---------|----------|------------|---------|');
 
   for (const [variant, stats] of Object.entries(data.variants)) {
     const mean = stats.overall?.mean ?? 'N/A';
     const stddev = stats.overall?.stddev ?? 'N/A';
-    lines.push(`| ${variant} | ${stats.sessions} | ${mean} | ${stddev} |`);
+    lines.push(`| ${variant} | ${stats.sessions} | ${mean}/5 | ${stddev} |`);
   }
   lines.push('');
 

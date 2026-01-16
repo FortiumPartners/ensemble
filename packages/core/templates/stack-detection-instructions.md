@@ -1,118 +1,100 @@
 # Stack Detection Instructions
 
-This document provides instructions for the LLM to detect the project's technology stack during `/init-project`.
+This document provides guidance for agentic technology stack detection during `/init-project`.
 
-**Important**: Stack detection is an LLM function, NOT executable code. The LLM reads project files and analyzes them to determine the technology stack.
+**Important**: Stack detection is an agentic LLM function - you explore, read, and reason about what you find. The tables below are REFERENCE MATERIAL for your reasoning, NOT checklists to follow mechanically.
 
 ---
 
-## Detection Process
+## Agentic Detection Approach
 
-### Step 1: Scan Dependency Files
+### Philosophy
 
-Scan the project root for the following files and extract technology information:
+You are not executing a lookup algorithm. You are an intelligent agent that:
+1. **Explores** the project structure to discover what exists
+2. **Reads** files that might contain technology information
+3. **Reasons** about what you find to understand the stack
+4. **Infers** from available evidence when explicit signals are missing
 
-| File | Detection Logic |
-|------|-----------------|
-| `package.json` | Node.js project; extract `dependencies` and `devDependencies` for frameworks |
-| `requirements.txt` | Python project; scan for framework packages |
-| `pyproject.toml` | Python project; check `[project.dependencies]` or `[tool.poetry.dependencies]` |
-| `Pipfile` | Python project; check `[packages]` section |
-| `Gemfile` | Ruby project; scan for Rails, Sinatra, etc. |
-| `go.mod` | Go project; extract module dependencies |
-| `Cargo.toml` | Rust project; check `[dependencies]` |
-| `composer.json` | PHP project; check `require` section |
-| `pom.xml` | Java/Maven project |
-| `build.gradle` | Java/Gradle project |
-| `*.csproj`, `*.sln` | .NET project |
-| `mix.exs` | Elixir project |
-| `pubspec.yaml` | Dart/Flutter project |
+### What to Look For
 
-### Step 2: Identify Frameworks
+When exploring a project, consider these categories of evidence:
 
-For each language detected, identify the primary framework:
+**Dependency/Manifest Files** (high-signal when present):
+- Package managers: package.json, requirements.txt, pyproject.toml, Gemfile, go.mod, Cargo.toml, composer.json, mix.exs, pubspec.yaml, *.csproj, pom.xml, build.gradle
+- These directly declare dependencies
 
-#### JavaScript/TypeScript
-| Pattern in package.json | Framework |
-|-------------------------|-----------|
-| `react`, `react-dom` | React |
-| `next` | Next.js |
-| `vue` | Vue.js |
-| `nuxt` | Nuxt.js |
-| `@angular/core` | Angular |
-| `svelte` | Svelte |
-| `express` | Express.js |
-| `fastify` | Fastify |
-| `@nestjs/core` | NestJS |
-| `hono` | Hono |
+**Configuration Files** (reveal frameworks and tools):
+- Framework configs: next.config.*, vite.config.*, nuxt.config.*, angular.json
+- Tool configs: tsconfig.json, jest.config.*, pytest.ini, .eslintrc
+- Deployment configs: vercel.json, railway.json, Dockerfile, docker-compose.yml
 
-#### Python
-| Pattern | Framework |
-|---------|-----------|
-| `django` | Django |
-| `flask` | Flask |
-| `fastapi` | FastAPI |
-| `starlette` | Starlette |
-| `tornado` | Tornado |
-| `celery` | Celery (background jobs) |
+**Directory Structure** (reveals architecture):
+- `src/`, `lib/`, `app/` suggest different organizational patterns
+- `pages/`, `app/` in JS projects suggest Next.js or similar
+- `migrations/` suggests database usage
+- `tests/`, `spec/`, `__tests__/` reveal testing patterns
 
-#### Ruby
-| Pattern | Framework |
-|---------|-----------|
-| `rails` | Ruby on Rails |
-| `sinatra` | Sinatra |
-| `hanami` | Hanami |
+**Source Code** (last resort, but valuable):
+- Import statements reveal dependencies
+- File extensions reveal languages
+- Code patterns reveal frameworks even without config
 
-#### Other Languages
-| Pattern | Stack |
-|---------|-------|
-| `gin-gonic/gin` (go.mod) | Go/Gin |
-| `actix-web` (Cargo.toml) | Rust/Actix |
-| `phoenix` (mix.exs) | Elixir/Phoenix |
-| `laravel/framework` (composer.json) | PHP/Laravel |
+**Documentation** (often describes intended stack):
+- README.md, CONTRIBUTING.md, docs/
+- Story or spec files describing features
+- Architecture decision records
 
-### Step 3: Detect Testing Setup
+---
 
-Scan for test configuration:
+## Reference: Common Technology Signals
 
-| File/Pattern | Testing Framework |
-|--------------|-------------------|
-| `jest.config.*` | Jest |
-| `vitest.config.*` | Vitest |
-| `cypress.config.*` | Cypress |
-| `playwright.config.*` | Playwright |
-| `pytest.ini`, `pyproject.toml [tool.pytest]` | pytest |
-| `.rspec` | RSpec |
-| `*_test.go` files | Go testing |
-| `tests/` directory with `*Test.php` | PHPUnit |
+The following tables help you recognize common technologies. Use them as reference, not as exhaustive checklists.
 
-### Step 4: Detect Database
+### Languages (by file extension)
+- `.js`, `.jsx`, `.ts`, `.tsx` - JavaScript/TypeScript
+- `.py` - Python
+- `.rb` - Ruby
+- `.go` - Go
+- `.rs` - Rust
+- `.php` - PHP
+- `.ex`, `.exs` - Elixir
+- `.dart` - Dart
+- `.cs` - C#
+- `.java`, `.kt` - Java/Kotlin
 
-Look for database configuration:
+### Frameworks (common indicators)
+- React: `react` in deps, `.jsx`/`.tsx` files
+- Next.js: `next` in deps, `pages/` or `app/` directory
+- FastAPI: `fastapi` in deps, Python decorators `@app.get`
+- Rails: `rails` gem, `config/routes.rb`, `app/models/`
+- Phoenix: `phoenix` in mix.exs, `lib/*_web/`
+- NestJS: `@nestjs/core` in deps, decorators `@Module`, `@Controller`
+- Laravel: `laravel/framework` in composer.json, `artisan` file
 
-| Pattern | Database |
-|---------|----------|
-| `prisma/schema.prisma` | PostgreSQL/MySQL (via Prisma) |
-| `drizzle.config.*` | PostgreSQL/MySQL (via Drizzle) |
-| `POSTGRES`, `pg` in deps | PostgreSQL |
-| `mysql2` in deps | MySQL |
-| `mongodb` in deps | MongoDB |
-| `redis` in deps | Redis |
-| `supabase` in deps | Supabase |
-| `@planetscale/database` in deps | PlanetScale |
+### Testing (common indicators)
+- Jest: `jest` in deps, `*.test.js` files
+- pytest: `pytest` in deps, `test_*.py` files
+- RSpec: `rspec` gem, `*_spec.rb` files
+- Playwright: `@playwright/test` in deps, `*.spec.ts` files
 
-### Step 5: Detect Infrastructure
+### Databases (common indicators)
+- Prisma: `prisma/schema.prisma` file
+- PostgreSQL: `pg` or `psycopg2` in deps, `DATABASE_URL` patterns
+- MongoDB: `mongodb` or `mongoose` in deps
+- Redis: `redis` or `ioredis` in deps
 
-| Pattern | Infrastructure |
-|---------|----------------|
-| `Dockerfile` | Docker |
-| `docker-compose.yml` | Docker Compose |
-| `vercel.json` | Vercel |
-| `railway.json` | Railway |
-| `.github/workflows/` | GitHub Actions |
-| `netlify.toml` | Netlify |
-| `serverless.yml` | Serverless Framework |
-| `terraform/`, `*.tf` | Terraform |
+---
+
+## When Signals Are Missing
+
+If you cannot find explicit dependency files or configs:
+
+1. **Read source code**: Import statements and patterns reveal technologies
+2. **Check documentation**: README often describes the intended stack
+3. **Examine file structure**: Directory organization implies frameworks
+4. **Look for stories/specs**: These may describe technologies before implementation
+5. **Ask the user**: When uncertain, ask for clarification
 
 ---
 

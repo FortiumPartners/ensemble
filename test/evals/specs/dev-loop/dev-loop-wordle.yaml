@@ -225,7 +225,7 @@ binary_checks:
         grep -rqE "words\.txt|load.*word|read.*word|open.*word" *.py
     weight: 0.15
 
-# LLM-judged quality metrics
+# LLM-judged quality metrics (4 standardized rubrics)
 metrics:
   - name: code_quality
     description: Overall code quality of the Wordle implementation
@@ -237,13 +237,12 @@ metrics:
       - "main.py"
     context_files:
       - "story.md"
-    weight: 0.35
+    weight: 0.25
     custom_prompt_addition: |
       Focus on:
       - Clean separation between game logic, UI, and word management
       - Proper state management for game progression
       - Color output implementation (ANSI or colorama)
-      - Input validation and error handling
       - Code readability and maintainability
 
   - name: test_quality
@@ -255,7 +254,7 @@ metrics:
     context_files:
       - "wordle.py"
       - "game.py"
-    weight: 0.35
+    weight: 0.25
     custom_prompt_addition: |
       Evaluate coverage of:
       - Feedback generation (various letter positions)
@@ -273,7 +272,9 @@ metrics:
       - "game.py"
       - "words.py"
       - "main.py"
-    weight: 0.30
+    context_files:
+      - "story.md"
+    weight: 0.25
     custom_prompt_addition: |
       Evaluate:
       - Separation of concerns (game logic vs UI vs data)
@@ -281,6 +282,24 @@ metrics:
       - Dependency direction (no circular imports)
       - Single responsibility principle
       - Testability of individual components
+
+  - name: error_handling_quality
+    description: Quality of error handling implementation
+    rubric: error-handling.md
+    files:
+      - "wordle.py"
+      - "game.py"
+      - "words.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate input validation, exception handling, and user feedback:
+      - Is invalid input (wrong length, non-alpha) handled gracefully?
+      - Are file loading errors (words.txt) caught and reported?
+      - Are error messages helpful and user-friendly?
+      - Is there consistent error handling across modules?
+      - Are edge cases in game state handled properly?
 
 # Judge configuration
 judge:

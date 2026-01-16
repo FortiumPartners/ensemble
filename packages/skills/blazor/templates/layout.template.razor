@@ -1,0 +1,59 @@
+@*
+ * TEMPLATE: Blazor Layout Component (Lines: ~120)
+ * Purpose: Main layout with navigation and header
+ * Placeholders: {{Namespace}}, {{AppName}}
+ *@
+
+@inherits LayoutComponentBase
+@using Microsoft.FluentUI.AspNetCore.Components
+@namespace {{Namespace}}.Layout
+
+<FluentLayout>
+    <FluentHeader>
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.SpaceBetween">
+            <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="16">
+                <FluentIcon Icon="Icons.Regular.Size24.AppGeneric" Color="Color.Accent" />
+                <h2>{{AppName}}</h2>
+            </FluentStack>
+
+            <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="16">
+                <FluentButton IconStart="@(new Icons.Regular.Size20.Settings())" Appearance="Appearance.Stealth">
+                    Settings
+                </FluentButton>
+                <AuthorizeView>
+                    <Authorized>
+                        <FluentPersona Name="@context.User.Identity?.Name" />
+                    </Authorized>
+                    <NotAuthorized>
+                        <FluentButton Href="/login">Login</FluentButton>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </FluentStack>
+        </FluentStack>
+    </FluentHeader>
+
+    <FluentStack Class="main-container" Orientation="Orientation.Horizontal" Style="height: calc(100vh - 60px);">
+        <FluentNavMenu Width="250px">
+            <FluentNavLink Href="/" Match="NavLinkMatch.All" Icon="@(new Icons.Regular.Size20.Home())">
+                Home
+            </FluentNavLink>
+            <FluentNavLink Href="/dashboard" Icon="@(new Icons.Regular.Size20.ChartMultiple())">
+                Dashboard
+            </FluentNavLink>
+            <FluentNavLink Href="/users" Icon="@(new Icons.Regular.Size20.People())">
+                Users
+            </FluentNavLink>
+            <FluentNavLink Href="/settings" Icon="@(new Icons.Regular.Size20.Settings())">
+                Settings
+            </FluentNavLink>
+        </FluentNavMenu>
+
+        <FluentStack Orientation="Orientation.Vertical" Style="flex: 1; padding: 24px; overflow-y: auto;">
+            @Body
+        </FluentStack>
+    </FluentStack>
+</FluentLayout>
+
+@code {
+    // Layout-specific logic
+}

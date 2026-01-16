@@ -1,0 +1,30 @@
+{
+  "devDependencies": {
+    "bats": "^1.13.0",
+    "jest": "^29.7.0",
+    "js-yaml": "^4.1.0",
+    "mock-fs": "^5.2.0"
+  },
+  "name": "ensemble-vnext",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:evals": "jest --testPathPattern=test/evals"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/islayjames/ensemble-vnext.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/islayjames/ensemble-vnext/issues"
+  },
+  "homepage": "https://github.com/islayjames/ensemble-vnext#readme",
+  "description": ""
+}

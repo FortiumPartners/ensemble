@@ -1,6 +1,6 @@
 # Technical Requirements Document: Ensemble vNext Testing Phase
 
-**Document Version**: 1.3.0
+**Document Version**: 1.4.0
 **Status**: Draft
 **Created**: 2026-01-13
 **Last Updated**: 2026-01-13
@@ -47,7 +47,7 @@ This TRD defines the testing infrastructure and test implementation requirements
 
 | Component | Technology | Notes |
 |-----------|------------|-------|
-| JavaScript Tests | Jest ^29.0.0 | Hook unit tests (Permitter, Status, Wiggum) |
+| JavaScript Tests | Jest ^29.0.0 | Hook unit tests (Permitter, Status, SaveRemoteLogs, Wiggum) |
 | Python Tests | pytest ^7.0.0 | Router hook tests |
 | Bash Tests | BATS ^1.9.0 | Formatter, Learning hooks; shell scripts |
 | Coverage (JS) | Jest built-in | Coverage reports for Node.js |
@@ -101,6 +101,8 @@ ensemble-vnext/
 │       │   ├── formatter.test.sh   # BATS tests (new)
 │       │   ├── learning.sh         # Hook implementation
 │       │   ├── learning.test.sh    # BATS tests (new)
+│       │   ├── save-remote-logs.js      # Hook implementation (new)
+│       │   ├── save-remote-logs.test.js # Jest tests (new)
 │       │   ├── wiggum.js           # Hook implementation
 │       │   └── wiggum.test.js      # Jest tests (existing)
 │       │
@@ -320,7 +322,26 @@ flowchart LR
 | Stage multiple files | Handle multiple changed files |
 | Never commits | Verify no `git commit` calls |
 
-#### 3.1.6 Wiggum Hook Tests (Existing)
+#### 3.1.6 SaveRemoteLogs Hook Tests (Create New)
+
+**File**: `packages/core/hooks/save-remote-logs.test.js`
+**Framework**: Jest + mock-fs
+
+| Test Case | Description | Mock Requirements |
+|-----------|-------------|-------------------|
+| Env var disabled | Hook is no-op when `ENSEMBLE_SAVE_REMOTE_LOGS` not set | Environment mock |
+| Env var enabled | Hook executes when `ENSEMBLE_SAVE_REMOTE_LOGS=1` | Environment mock |
+| Session start extraction | Extract session start time from transcript | mock-fs with transcript |
+| JSONL file discovery | Find .jsonl files created since session start | mock-fs with timestamped files |
+| Filter old files | Exclude files created before session start | mock-fs with mixed timestamps |
+| Log file copying | Copy discovered files to `.claude-sessions/logs/` | mock-fs write verification |
+| Directory creation | Create destination directory if missing | mock-fs without target dir |
+| Git add | Stage copied files for commit | Git command mock |
+| Git commit | Commit staged files (unlike Learning hook) | Git command mock |
+| Error: missing transcript | Handle missing transcript gracefully | mock-fs without transcript |
+| Error: git failure | Handle git command failures | Git mock returning error |
+
+#### 3.1.7 Wiggum Hook Tests (Existing)
 
 **File**: `packages/core/hooks/wiggum.test.js`
 **Framework**: Jest
@@ -618,7 +639,7 @@ Format: `TRD-TEST-XXX`
 
 | Range | Category | Phase | Description |
 |-------|----------|-------|-------------|
-| 001-015 | UH | 1 | Unit Tests - Hooks |
+| 001-015, 015A-015C | UH | 1 | Unit Tests - Hooks |
 | 016-022 | US | 1 | Unit Tests - Scripts |
 | 086-092 | UA | 1 | Unit Tests - Agent Frontmatter |
 | 023-032 | II | 2 | Integration Infrastructure |
@@ -629,6 +650,7 @@ Format: `TRD-TEST-XXX`
 | 072-074 | ER | 4B | Eval Framework - Rubrics (Track B) |
 | 075-083 | ES | 4B | Eval Framework - Eval Specs (Track B) |
 | 084-085 | EX | 4 | Eval Framework - Execution (Final) |
+| 093-100 | HI | 5 | Hook Integration Testing |
 
 **Note**: TRD-TEST-036 through TRD-TEST-053 (Skills A/B and Agent routing tests) have been superseded by the eval framework specs.
 
@@ -719,6 +741,26 @@ Format: `TRD-TEST-XXX`
   - Test cases: stage_files, multiple files, verify no commits
   - Dependencies: TRD-TEST-014
   - AC Reference: AC-H5
+
+- [ ] **TRD-TEST-015A**: Create SaveRemoteLogs hook test file
+  - File: `packages/core/hooks/save-remote-logs.test.js`
+  - Framework: Jest + mock-fs
+  - Dependencies: None
+  - AC Reference: AC-H8
+
+- [ ] **TRD-TEST-015B**: Implement SaveRemoteLogs hook core function tests
+  - Test cases: env var detection, session start time extraction, JSONL file discovery
+  - Verify hook is no-op when ENSEMBLE_SAVE_REMOTE_LOGS is not set
+  - Verify correct files are found based on modification time
+  - Dependencies: TRD-TEST-015A
+  - AC Reference: AC-H8
+
+- [ ] **TRD-TEST-015C**: Implement SaveRemoteLogs hook file operations tests
+  - Test cases: log file copying, directory creation, git add, git commit
+  - Verify logs copied to `.claude-sessions/logs/`
+  - Verify git commit is executed (unlike Learning hook)
+  - Dependencies: TRD-TEST-015B
+  - AC Reference: AC-H8
 
 #### US - Unit Tests: Scripts
 
@@ -1007,131 +1049,149 @@ Format: `TRD-TEST-XXX`
 
 ##### EF - Eval Framework Build
 
-- [ ] **TRD-TEST-066**: Create eval framework directory structure
+- [x] **TRD-TEST-066**: Create eval framework directory structure
   - Create `test/evals/framework/`, `specs/`, `rubrics/`, `results/` directories
   - Create lib/ subdirectory for helper modules
   - Dependencies: None
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/README.md`, directory structure
 
-- [ ] **TRD-TEST-067**: Implement run-eval.js main entry point
+- [x] **TRD-TEST-067**: Implement run-eval.js main entry point
   - YAML spec parsing and validation
   - Session launching orchestration
   - Progress reporting and error handling
   - Dependencies: TRD-TEST-066
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/framework/run-eval.js`, `test/evals/framework/run-eval.test.js`
 
-- [ ] **TRD-TEST-068**: Implement run-session.sh wrapper for claude --remote
+- [x] **TRD-TEST-068**: Implement run-session.sh wrapper for claude --remote
   - Fixture cloning from GitHub
   - Session ID generation and tracking
   - Workspace isolation
   - Dependencies: TRD-TEST-066
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/framework/run-session.sh`, `test/evals/framework/run-session.test.sh`
 
-- [ ] **TRD-TEST-069**: Implement collect-results.sh for session teleporting
+- [x] **TRD-TEST-069**: Implement collect-results.sh for session teleporting
   - Teleport invocation and file extraction
   - Session completion detection
   - Output organization
   - Dependencies: TRD-TEST-068
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/framework/collect-results.sh`, `test/evals/framework/collect-results.test.sh`
 
-- [ ] **TRD-TEST-070**: Implement judge.js using claude -p --model opus
+- [x] **TRD-TEST-070**: Implement judge.js using claude -p --model opus
   - Rubric loading and prompt construction
   - Claude CLI invocation with JSON output
   - Score extraction and storage
   - Dependencies: TRD-TEST-069
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/framework/judge.js`, `test/evals/framework/judge.test.js`
 
-- [ ] **TRD-TEST-071**: Implement aggregate.js for score compilation
+- [x] **TRD-TEST-071**: Implement aggregate.js for score compilation
   - Per-variant score aggregation
   - Statistical comparison (mean, stddev)
   - Markdown report generation
   - Dependencies: TRD-TEST-070
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/framework/aggregate.js`, `test/evals/framework/aggregate.test.js`
 
 ##### ER - Eval Rubrics
 
-- [ ] **TRD-TEST-072**: Create code-quality.md rubric
+- [x] **TRD-TEST-072**: Create code-quality.md rubric
   - 1-5 scale definitions with specific indicators
   - Language-agnostic quality criteria
   - Dependencies: TRD-TEST-066
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/rubrics/code-quality.md`
 
-- [ ] **TRD-TEST-073**: Create test-quality.md rubric
+- [x] **TRD-TEST-073**: Create test-quality.md rubric
   - Coverage and structure criteria
   - Testing best practices indicators
   - Dependencies: TRD-TEST-066
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/rubrics/test-quality.md`
 
-- [ ] **TRD-TEST-074**: Create error-handling.md rubric
+- [x] **TRD-TEST-074**: Create error-handling.md rubric
   - Validation and exception handling criteria
   - Graceful degradation indicators
   - Dependencies: TRD-TEST-066
   - AC Reference: AC-EF1
+  - **Artifact**: `test/evals/rubrics/error-handling.md`
 
 ##### ES - Eval Specs
 
-- [ ] **TRD-TEST-075**: Create developing-with-python.yaml eval spec
+- [x] **TRD-TEST-075**: Create developing-with-python.yaml eval spec
   - CLI calculator test case
   - Binary checks: tests_pass, type_hints, error_handling
   - Judged metrics: code_quality, test_quality, error_handling
   - Dependencies: TRD-TEST-072, TRD-TEST-073, TRD-TEST-074
   - AC Reference: AC-EF2
+  - **Artifact**: `test/evals/specs/skills/developing-with-python.yaml`
 
-- [ ] **TRD-TEST-076**: Create developing-with-flutter.yaml eval spec
+- [x] **TRD-TEST-076**: Create developing-with-flutter.yaml eval spec
   - Counter widget test case
   - Binary checks: build_success, widget_test_pass
   - Judged metrics: code_quality, widget_structure
   - Dependencies: TRD-TEST-072
   - AC Reference: AC-EF2
+  - **Artifact**: `test/evals/specs/skills/developing-with-flutter.yaml`
 
-- [ ] **TRD-TEST-077**: Create developing-with-typescript.yaml eval spec
+- [x] **TRD-TEST-077**: Create developing-with-typescript.yaml eval spec
   - Validation module test case
   - Binary checks: type_compile, tests_pass
   - Judged metrics: code_quality, type_safety
   - Dependencies: TRD-TEST-072, TRD-TEST-073
   - AC Reference: AC-EF2
+  - **Artifact**: `test/evals/specs/skills/developing-with-typescript.yaml`
 
-- [ ] **TRD-TEST-078**: Create using-fastapi.yaml eval spec
+- [x] **TRD-TEST-078**: Create using-fastapi.yaml eval spec
   - API endpoint test case
   - Binary checks: endpoints_defined, pydantic_models, tests_pass
   - Judged metrics: code_quality, error_handling
   - Dependencies: TRD-TEST-072, TRD-TEST-074
   - AC Reference: AC-EF2
+  - **Artifact**: `test/evals/specs/skills/using-fastapi.yaml`
 
-- [ ] **TRD-TEST-079**: Create pytest.yaml eval spec
+- [x] **TRD-TEST-079**: Create pytest.yaml eval spec
   - Test generation test case
   - Binary checks: tests_executable, coverage_present
   - Judged metrics: test_quality
   - Dependencies: TRD-TEST-073
   - AC Reference: AC-EF2
+  - **Artifact**: `test/evals/specs/skills/pytest.yaml`
 
-- [ ] **TRD-TEST-080**: Create backend-implementer.yaml eval spec
+- [x] **TRD-TEST-080**: Create backend-implementer.yaml eval spec
   - FastAPI CRUD test case for agent vs direct comparison
   - Binary checks: all_endpoints, tests_pass
   - Judged metrics: code_quality, error_handling, documentation
   - Dependencies: TRD-TEST-072, TRD-TEST-074
   - AC Reference: AC-EF3
+  - **Artifact**: `test/evals/specs/agents/backend-implementer.yaml`
 
-- [ ] **TRD-TEST-081**: Create verify-app.yaml eval spec
+- [x] **TRD-TEST-081**: Create verify-app.yaml eval spec
   - Test execution delegation test case
   - Binary checks: tests_executed, failures_reported
   - Judged metrics: test_quality
   - Dependencies: TRD-TEST-073
   - AC Reference: AC-EF3
+  - **Artifact**: `test/evals/specs/agents/verify-app.yaml`
 
-- [ ] **TRD-TEST-082**: Create code-simplifier.yaml eval spec
+- [x] **TRD-TEST-082**: Create code-simplifier.yaml eval spec
   - Refactoring test case for agent vs direct comparison
   - Binary checks: behavior_preserved, complexity_reduced
   - Judged metrics: code_quality
   - Dependencies: TRD-TEST-072
   - AC Reference: AC-EF3
+  - **Artifact**: `test/evals/specs/agents/code-simplifier.yaml`
 
-- [ ] **TRD-TEST-083**: Create code-reviewer.yaml eval spec
+- [x] **TRD-TEST-083**: Create code-reviewer.yaml eval spec
   - PR review test case for agent vs direct comparison
   - Binary checks: issues_identified
   - Judged metrics: review_quality
   - Dependencies: None (creates own rubric)
   - AC Reference: AC-EF3
+  - **Artifact**: `test/evals/specs/agents/code-reviewer.yaml`
 
 #### Final (Requires Both Tracks)
 
@@ -1148,6 +1208,69 @@ Format: `TRD-TEST-XXX`
   - Generate summary report
   - Dependencies: TRD-TEST-067 through 071, TRD-TEST-080 through 083
   - AC Reference: AC-EF3, AC-EF4
+
+### 4.6 Phase 5: Hook Integration Testing
+
+> Tests that hooks actually trigger during Claude sessions and produce expected behavior. Requires Phase 1-4 complete. Can run in parallel with TRD-TEST-084/085 (eval execution).
+
+#### HI - Hook Integration Tests
+
+- [x] **TRD-TEST-093**: Create hook integration test harness
+  - File: `test/integration/hooks/run-hook-test.sh`
+  - Wrapper script for running Claude sessions with hooks enabled
+  - Captures session logs for hook event analysis
+  - Dependencies: TRD-TEST-029 (run-headless.sh)
+  - AC Reference: AC-HI1
+
+- [x] **TRD-TEST-094**: Create session log parser for hook events
+  - File: `test/integration/hooks/parse-hook-events.js`
+  - Parses JSONL session logs for hook execution events
+  - Extracts hook names, trigger events, and outputs
+  - Dependencies: TRD-TEST-093
+  - AC Reference: AC-HI1, AC-HI2
+
+- [x] **TRD-TEST-095**: Test wiggum.js triggers on Stop (corrected from UserPromptSubmit)
+  - Verify wiggum hook fires on user prompt submission
+  - Verify routing guidance appears in session context
+  - Verify agent recommendations are injected
+  - Dependencies: TRD-TEST-094
+  - AC Reference: AC-HI2
+
+- [x] **TRD-TEST-096**: Test formatter hook triggers and affects output
+  - Verify formatter hook triggers on PreToolUse/PostToolUse
+  - Verify output formatting is applied (check session output)
+  - Test multiple file extensions trigger correct formatters
+  - Dependencies: TRD-TEST-094
+  - AC Reference: AC-HI2
+
+- [x] **TRD-TEST-097**: Test learning hook triggers on Stop
+  - Verify learning hook fires on session Stop event
+  - Verify learning data is captured (check for learning artifacts)
+  - Verify no git commits are made (only staging)
+  - Dependencies: TRD-TEST-094
+  - AC Reference: AC-HI2
+
+- [x] **TRD-TEST-098**: Test status hook triggers on SubagentStop (corrected from Notification)
+  - Verify status hook fires on Notification events
+  - Verify status updates are emitted (check session log for status events)
+  - Verify TRD state is properly read and reported
+  - Dependencies: TRD-TEST-094
+  - AC Reference: AC-HI2
+
+- [x] **TRD-TEST-099**: Test permitter hook logging (limited verification)
+  - Verify permitter hook fires on UserPromptSubmit
+  - Verify logging occurs (runs with --dangerously-skip-permissions)
+  - Note: Actual permission blocking cannot be tested in headless mode
+  - Dependencies: TRD-TEST-094
+  - AC Reference: AC-HI2, AC-HI3
+
+- [x] **TRD-TEST-100**: Create hook integration test suite runner
+  - File: `test/integration/hooks/run-all-hook-tests.sh`
+  - Runs all hook integration tests (TRD-TEST-095-099)
+  - Generates summary report of hook test results
+  - Calculates hook integration test coverage
+  - Dependencies: TRD-TEST-095 through 099
+  - AC Reference: AC-HI4
 
 ---
 
@@ -2520,6 +2643,7 @@ function generateReport(spec, results, outputDir) {
 | Phase 2 | Infrastructure | None | Yes - with Phase 1 |
 | Phase 3 | Observability | Phase 2 complete | Yes - with Phase 4 |
 | Phase 4 | Eval Framework | Phase 2 complete | Yes - with Phase 3, Track A || Track B |
+| Phase 5 | Hook Integration Testing | Phase 1-4 complete | Yes - with TRD-TEST-084/085 |
 
 ### 6.2 Work Sessions and Parallelization
 
@@ -2599,6 +2723,24 @@ flowchart LR
     P4-specs --> P4-execution
 ```
 
+#### Phase 5 Work Sessions (Hook Integration Testing)
+
+| Session | Tasks | Can Parallel With |
+|---------|-------|-------------------|
+| P5-harness | TRD-TEST-093, 094 | P4-execution |
+| P5-hook-tests | TRD-TEST-095 through 099 | P4-execution |
+| P5-suite-runner | TRD-TEST-100 | (Sequential, requires P5-hook-tests) |
+
+**Note**: Phase 5 can run in parallel with P4-execution (TRD-TEST-084/085) since both require Phase 1-4 infrastructure to be complete. P5 tests verify hook behavior during actual Claude sessions.
+
+```mermaid
+flowchart LR
+    subgraph PHASE5["Phase 5: Hook Integration"]
+        P5-harness --> P5-hook-tests
+        P5-hook-tests --> P5-suite-runner
+    end
+```
+
 ### 6.3 Critical Path
 
 ```mermaid
@@ -2611,9 +2753,12 @@ flowchart LR
     TRD-TEST-066 --> TRD-TEST-075["TRD-TEST-075<br/>(Eval Specs)"]
     TRD-TEST-054 --> TRD-TEST-084["TRD-TEST-084<br/>(Execute Evals)"]
     TRD-TEST-075 --> TRD-TEST-084
+    TRD-TEST-029 --> TRD-TEST-093["TRD-TEST-093<br/>(Hook Harness)"]
+    TRD-TEST-093 --> TRD-TEST-095["TRD-TEST-095<br/>(Hook Tests)"]
+    TRD-TEST-095 --> TRD-TEST-100["TRD-TEST-100<br/>(Hook Suite)"]
 ```
 
-**Note**: Phase 3 (OTel) runs in parallel with Phase 4 tracks. OTel is optional - it provides debugging visibility but is not required for eval execution.
+**Note**: Phase 3 (OTel) runs in parallel with Phase 4 tracks. Phase 5 (Hook Integration) can run in parallel with Phase 4 execution. OTel is optional - it provides debugging visibility but is not required for eval execution.
 
 ### 6.4 Dependencies Diagram
 
@@ -2646,6 +2791,12 @@ flowchart TB
         EF_EX["Execution<br/>(TRD-TEST-084 to 085)"]
     end
 
+    subgraph PHASE5["Phase 5: Hook Integration Testing"]
+        HI_HR["Harness<br/>(TRD-TEST-093 to 094)"]
+        HI_HT["Hook Tests<br/>(TRD-TEST-095 to 099)"]
+        HI_SR["Suite Runner<br/>(TRD-TEST-100)"]
+    end
+
     PHASE2 --> PHASE3
     PHASE2 --> PHASE4
     IV --> IC
@@ -2653,6 +2804,9 @@ flowchart TB
     EF_RB --> EF_SP
     IC --> EF_EX
     EF_SP --> EF_EX
+    PHASE2 --> PHASE5
+    HI_HR --> HI_HT
+    HI_HT --> HI_SR
 ```
 
 ---
@@ -2668,6 +2822,7 @@ flowchart TB
 | Status hook | >= 80% | Jest |
 | Formatter hook | >= 80% | BATS |
 | Learning hook | >= 80% | BATS |
+| SaveRemoteLogs hook | >= 80% | Jest |
 | Wiggum hook | 100% (75/75 tests pass) | Jest |
 | validate-init script | >= 80% | BATS |
 | scaffold-project script | >= 80% | BATS |
@@ -2732,6 +2887,17 @@ flowchart TB
 | G4.15 | 5 skill evals produce scored comparisons | AC-EF2 |
 | G4.16 | 4 agent evals produce scored comparisons | AC-EF3 |
 
+#### Phase 5 Completion (Hook Integration Testing)
+
+| Gate | Criterion | AC Reference |
+|------|-----------|--------------|
+| G5.1 | Hook integration test harness created and operational | AC-HI1 |
+| G5.2 | Session log parser extracts hook events | AC-HI1 |
+| G5.3 | All 5 hooks trigger at expected events (verified via session log) | AC-HI1 |
+| G5.4 | Hook output appears in session context | AC-HI2 |
+| G5.5 | Hook failures are logged and do not crash sessions | AC-HI3 |
+| G5.6 | Hook integration test coverage >= 80% | AC-HI4 |
+
 ### 7.3 Test Execution Performance
 
 | Requirement | Target | Rationale |
@@ -2741,6 +2907,7 @@ flowchart TB
 | Headless Claude session | < 5 minutes each | Web-based testing |
 | Full integration suite | < 30 minutes | Periodic verification |
 | Parallel A/B tests (all 5) | < 10 minutes total | Web parallelization |
+| Hook integration suite | < 15 minutes | Sessions for each hook |
 
 ---
 
@@ -2786,6 +2953,7 @@ flowchart TB
 # Unit Tests - Hooks
 npm run test:permitter        # Jest - Permitter hook (485 tests)
 npm run test:status           # Jest - Status hook
+npm run test:save-remote-logs # Jest - SaveRemoteLogs hook
 npm run test:wiggum           # Jest - Wiggum hook (75 tests)
 pytest packages/router/       # pytest - Router hook (106+ tests)
 bats packages/core/hooks/formatter.test.sh    # BATS - Formatter hook
@@ -2805,6 +2973,10 @@ CLAUDE_CODE_ENABLE_TELEMETRY=1 ./test/integration/run-all.sh
 # Individual Integration Test
 ./test/integration/scripts/run-headless.sh "/init-project"
 ./test/integration/scripts/run-ab-test.sh developing-with-python
+
+# Hook Integration Tests
+./test/integration/hooks/run-hook-test.sh wiggum "Test prompt"
+./test/integration/hooks/run-all-hook-tests.sh
 ```
 
 ### 9.2 Acceptance Criteria Reference
@@ -2818,6 +2990,7 @@ CLAUDE_CODE_ENABLE_TELEMETRY=1 ./test/integration/run-all.sh
 | AC-H5 | Learning tests: Git staging | TRD-TEST-013 to 015 |
 | AC-H6 | Wiggum tests: 75/75 passing | (Existing) |
 | AC-H7 | Combined hook coverage >= 80% | All hook tasks |
+| AC-H8 | SaveRemoteLogs tests: Env var detection, file discovery, git commit | TRD-TEST-015A to 015C |
 | AC-S1 | validate-init: All rules | TRD-TEST-017 to 019 |
 | AC-S2 | scaffold-project: Idempotency | TRD-TEST-020 to 022 |
 | AC-S3 | Combined script coverage >= 80% | All script tasks |
@@ -2853,6 +3026,10 @@ CLAUDE_CODE_ENABLE_TELEMETRY=1 ./test/integration/run-all.sh
 | AC-UA1 | All 12 agent files exist | TRD-TEST-086, 087 |
 | AC-UA2 | Valid YAML frontmatter with required fields | TRD-TEST-088 to 090 |
 | AC-UA3 | Skills format valid, no duplicate names | TRD-TEST-091, 092 |
+| AC-HI1 | All hooks trigger at expected events (verified via session log) | TRD-TEST-093, 094, 095-099 |
+| AC-HI2 | Hook output appears in session context (routing guidance, formatting, etc.) | TRD-TEST-095 to 099 |
+| AC-HI3 | Hook failures are logged and do not crash session | TRD-TEST-099 |
+| AC-HI4 | Hook integration test coverage >= 80% | TRD-TEST-100 |
 
 ### 9.3 OpenTelemetry Configuration Reference
 
@@ -2879,6 +3056,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 | `packages/core/hooks/status.test.js` | New | Jest | TRD-TEST-007 to 009 |
 | `packages/core/hooks/formatter.test.sh` | New | BATS | TRD-TEST-010 to 012 |
 | `packages/core/hooks/learning.test.sh` | New | BATS | TRD-TEST-013 to 015 |
+| `packages/core/hooks/save-remote-logs.test.js` | New | Jest | TRD-TEST-015A to 015C |
 | `packages/core/scripts/scaffold-project.sh` | Extract | - | TRD-TEST-016 |
 | `packages/core/scripts/validate-init.test.sh` | New | BATS | TRD-TEST-017 to 019 |
 | `packages/core/scripts/scaffold-project.test.sh` | New | BATS | TRD-TEST-020 to 022 |
@@ -2887,6 +3065,9 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 | `test/integration/scripts/run-ab-test.sh` | New | - | TRD-TEST-031 |
 | `test/integration/config/permissive-allowlist.json` | New | - | TRD-TEST-032 |
 | `packages/core/agents/agents.test.js` | New | Jest | TRD-TEST-086 to 092 |
+| `test/integration/hooks/run-hook-test.sh` | New | - | TRD-TEST-093 |
+| `test/integration/hooks/parse-hook-events.js` | New | Node.js | TRD-TEST-094 |
+| `test/integration/hooks/run-all-hook-tests.sh` | New | - | TRD-TEST-100 |
 
 ### 9.5 New Repository
 

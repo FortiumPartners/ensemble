@@ -1,0 +1,658 @@
+# Eval spec for complex full-stack development: React + Node Express + PostgreSQL Kanban Board
+# This is a HARD eval designed to stress-test the framework with a real-world application
+# Estimated duration: 60-90 minutes per session
+#
+# Key complexity factors:
+# - Full-stack application (frontend + backend)
+# - Database with migrations
+# - Multiple file architecture
+# - State management across layers
+# - API design and implementation
+# - React component hierarchy with drag-and-drop
+
+name: dev-loop-kanban-fullstack
+version: 1.0.0
+description: |
+  Complex full-stack development eval: Build a Kanban task board with:
+  - React 18 frontend with drag-and-drop
+  - Node.js Express backend with RESTful API
+  - PostgreSQL database with proper schema
+  - Docker Compose for local development
+
+  This eval tests the framework's ability to handle complex, multi-part system
+  development with frontend/backend integration, database design, and proper
+  architectural patterns.
+
+  Development loop: IMPLEMENT -> VERIFY -> SIMPLIFY -> VERIFY
+
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
+
+# Test fixture configuration
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Build a full-stack Kanban task board application with the following requirements:
+
+    ## ARCHITECTURE OVERVIEW
+
+    ```
+    kanban-board/
+    ├── docker-compose.yml          # PostgreSQL + app services
+    ├── backend/
+    │   ├── package.json
+    │   ├── src/
+    │   │   ├── index.js            # Express app entry
+    │   │   ├── routes/
+    │   │   │   ├── boards.js       # Board CRUD
+    │   │   │   ├── columns.js      # Column CRUD
+    │   │   │   └── cards.js        # Card CRUD + reordering
+    │   │   ├── models/
+    │   │   │   ├── Board.js
+    │   │   │   ├── Column.js
+    │   │   │   └── Card.js
+    │   │   ├── db/
+    │   │   │   ├── index.js        # PostgreSQL connection
+    │   │   │   └── migrations/     # Schema migrations
+    │   │   └── middleware/
+    │   │       └── errorHandler.js
+    │   └── tests/
+    │       ├── boards.test.js
+    │       ├── columns.test.js
+    │       └── cards.test.js
+    └── frontend/
+        ├── package.json
+        ├── src/
+        │   ├── App.jsx
+        │   ├── components/
+        │   │   ├── Board.jsx
+        │   │   ├── Column.jsx
+        │   │   ├── Card.jsx
+        │   │   ├── CardModal.jsx
+        │   │   └── AddCardForm.jsx
+        │   ├── hooks/
+        │   │   ├── useBoard.js
+        │   │   ├── useApi.js
+        │   │   └── useDragDrop.js
+        │   └── styles/
+        │       └── kanban.css
+        └── tests/
+            ├── Board.test.jsx
+            └── Card.test.jsx
+    ```
+
+    ## BACKEND REQUIREMENTS
+
+    ### Database Schema (PostgreSQL)
+
+    ```sql
+    -- boards table
+    CREATE TABLE boards (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+
+    -- columns table
+    CREATE TABLE columns (
+      id SERIAL PRIMARY KEY,
+      board_id INTEGER REFERENCES boards(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      position FLOAT NOT NULL,  -- fractional indexing for reordering
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    -- cards table
+    CREATE TABLE cards (
+      id SERIAL PRIMARY KEY,
+      column_id INTEGER REFERENCES columns(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      position FLOAT NOT NULL,  -- fractional indexing for reordering
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+    ```
+
+    ### API Endpoints
+
+    | Method | Endpoint | Description |
+    |--------|----------|-------------|
+    | GET | /api/boards | List all boards |
+    | POST | /api/boards | Create a board |
+    | GET | /api/boards/:id | Get board with columns and cards |
+    | PUT | /api/boards/:id | Update board name |
+    | DELETE | /api/boards/:id | Delete board (cascades) |
+    | POST | /api/boards/:id/columns | Create column in board |
+    | PUT | /api/columns/:id | Update column (name, position) |
+    | DELETE | /api/columns/:id | Delete column (cascades cards) |
+    | POST | /api/columns/:id/cards | Create card in column |
+    | PUT | /api/cards/:id | Update card (title, description, position, column_id) |
+    | DELETE | /api/cards/:id | Delete card |
+    | PATCH | /api/cards/:id/move | Move card (change column_id and/or position) |
+
+    ### Card Reordering Logic
+
+    Use fractional indexing for position management:
+    - New card at end: position = last_position + 1024
+    - Insert between cards: position = (prev_position + next_position) / 2
+    - Move to empty column: position = 1024
+
+    ### Error Handling
+
+    - 400: Invalid request body
+    - 404: Resource not found
+    - 409: Conflict (e.g., duplicate name)
+    - 500: Database or server error
+
+    ## FRONTEND REQUIREMENTS
+
+    ### React Components
+
+    1. **Board.jsx**
+       - Renders all columns for a board
+       - Handles column creation
+       - Manages drag-and-drop context
+
+    2. **Column.jsx**
+       - Renders column header with name
+       - Lists all cards in the column
+       - Drop zone for card drag-and-drop
+       - "Add card" button
+
+    3. **Card.jsx**
+       - Draggable card component
+       - Shows title, truncated description
+       - Click to open CardModal
+
+    4. **CardModal.jsx**
+       - Full card editing (title, description)
+       - Delete card button
+       - Close on outside click or Escape
+
+    5. **AddCardForm.jsx**
+       - Inline form for quick card creation
+       - Title input with Enter to submit
+
+    ### Drag and Drop
+
+    Implement drag-and-drop using either:
+    - HTML5 Drag and Drop API (native)
+    - @dnd-kit library (if allowed)
+
+    Must support:
+    - Drag cards between columns
+    - Reorder cards within a column
+    - Visual feedback during drag (ghost element)
+    - Optimistic UI updates with rollback on error
+
+    ### State Management
+
+    - Use React hooks (useState, useReducer, useContext)
+    - Custom hooks for API calls (useBoard, useApi)
+    - Optimistic updates for responsive UX
+    - Error state handling with user feedback
+
+    ### Styling
+
+    - CSS Grid or Flexbox for board layout
+    - Responsive design (columns stack on mobile)
+    - Visual indication of drop zones
+    - Card shadows and hover effects
+    - Column card count badge
+
+    ## DEVELOPMENT STEPS
+
+    ### STEP 1 - IMPLEMENT
+
+    Build the complete application following the architecture above.
+
+    Backend:
+    - Set up Express with proper middleware
+    - Implement all API endpoints
+    - Create database migrations
+    - Write unit tests for API routes
+
+    Frontend:
+    - Set up React with Vite or CRA
+    - Implement all components
+    - Add drag-and-drop functionality
+    - Write component tests
+
+    Integration:
+    - Docker Compose for PostgreSQL
+    - CORS configuration
+    - Environment variables
+
+    ### STEP 2 - VERIFY (Initial)
+
+    Backend:
+    - Run Jest tests: npm test
+    - Target: >= 80% coverage on API routes
+
+    Frontend:
+    - Run React tests: npm test
+    - Target: >= 70% coverage on components
+
+    Integration:
+    - Start services with docker-compose up
+    - Manually verify CRUD operations work
+    - Test drag-and-drop functionality
+
+    ### STEP 3 - SIMPLIFY
+
+    Review and refactor:
+    - Extract common API patterns
+    - Reduce component complexity
+    - Consolidate CSS
+    - Remove dead code
+    - Ensure proper separation of concerns
+
+    ### STEP 4 - VERIFY (Final)
+
+    - All tests still pass
+    - No regression in functionality
+    - Coverage maintained
+
+# Variants to compare
+variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Build the full-stack app without framework assistance
+    fixture_path: variants/baseline/kanban-board
+    is_baseline: true
+    suffix: |
+      Implement this full-stack application directly without any framework assistance.
+
+      Do not use any agents, skills, or commands from the framework.
+
+      For STEP 1 (IMPLEMENT):
+        Build the backend and frontend directly based on the requirements.
+        Create the database schema and migrations.
+        Implement all API endpoints and React components.
+        Write tests for both backend and frontend.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Backend: cd backend && npm test
+        Frontend: cd frontend && npm test
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns directly to improve code quality.
+        Focus on reducing complexity and improving maintainability.
+
+      Complete all steps yourself without delegating to any agents.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 5400  # 90 minutes
+    expected_agents: []
+    expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation for all implementation steps
+    fixture_path: variants/full/kanban-board
+    suffix: |
+      Use the full Ensemble workflow with agent delegation.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @backend-implementer for:
+        - Express API setup
+        - Database schema and migrations
+        - API endpoint implementation
+        - Backend tests
+
+        Delegate to @frontend-implementer for:
+        - React app setup
+        - Component implementation
+        - Drag-and-drop functionality
+        - Frontend tests
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run tests for both backend and frontend, report coverage.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent.
+        Request: Review both backend and frontend for simplification opportunities.
+
+      Use the appropriate skills:
+      - developing-with-typescript or developing-with-react for frontend
+      - developing-with-node or developing-with-typescript for backend
+      - jest for test execution
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 5400  # 90 minutes
+    expected_agents:
+      - backend-implementer
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-react
+      - jest
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/kanban-board
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/kanban-board.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/kanban-board.md
+
+         The TRD should include:
+         - Database schema design
+         - API contract specification
+         - Component hierarchy
+         - State management approach
+         - Testing strategy
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate:
+         - @backend-implementer for API
+         - @frontend-implementer for React
+         - @verify-app for testing
+         - @code-simplifier for refactoring
+
+         Track progress in .trd-state/
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 7200  # 120 minutes for full workflow
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - backend-implementer
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-react
+      - jest
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
+
+# Execution configuration
+runs_per_variant: 1  # Single run due to long duration (60-90 min per session)
+
+# Automated binary checks
+binary_checks:
+  - name: backend_structure
+    description: Backend has proper file structure
+    check: |
+      cd {workspace} && \
+        [ -f backend/package.json ] && \
+        [ -f backend/src/index.js ] && \
+        [ -d backend/src/routes ] && \
+        [ -d backend/src/models ]
+    weight: 0.1
+
+  - name: frontend_structure
+    description: Frontend has proper file structure
+    check: |
+      cd {workspace} && \
+        [ -f frontend/package.json ] && \
+        [ -f frontend/src/App.jsx ] && \
+        [ -d frontend/src/components ]
+    weight: 0.1
+
+  - name: database_schema
+    description: Database migrations exist with proper schema
+    check: |
+      cd {workspace} && \
+        find . -name "*.sql" -o -name "*migration*" | head -1 | xargs grep -l "CREATE TABLE" && \
+        grep -r "boards\|columns\|cards" backend/src/db/ 2>/dev/null
+    weight: 0.1
+
+  - name: api_endpoints_complete
+    description: All required API endpoints are implemented
+    check: |
+      cd {workspace}/backend && \
+        grep -r "boards" src/routes/ && \
+        grep -r "columns" src/routes/ && \
+        grep -r "cards" src/routes/ && \
+        grep -r "move\|position" src/routes/
+    weight: 0.1
+
+  - name: react_components_complete
+    description: All required React components exist
+    check: |
+      cd {workspace}/frontend && \
+        [ -f src/components/Board.jsx ] && \
+        [ -f src/components/Column.jsx ] && \
+        [ -f src/components/Card.jsx ]
+    weight: 0.1
+
+  - name: drag_drop_implemented
+    description: Drag and drop functionality is implemented
+    check: |
+      cd {workspace}/frontend && \
+        grep -r "drag\|drop\|onDrag\|onDrop\|useDrag\|dnd" src/ | head -1
+    weight: 0.05
+
+  - name: ag_grid_integrated
+    description: AG Grid is integrated for reports view
+    check: |
+      cd {workspace}/frontend && \
+        grep -r "ag-grid\|AgGridReact\|columnDefs" src/ | head -1
+    weight: 0.05
+
+  - name: backend_tests_pass
+    description: Backend tests pass
+    check: |
+      cd {workspace}/backend && \
+        npm install --silent 2>/dev/null && \
+        npm test 2>&1 | tail -20
+    weight: 0.2
+    critical: true
+
+  - name: frontend_tests_pass
+    description: Frontend tests pass
+    check: |
+      cd {workspace}/frontend && \
+        npm install --silent 2>/dev/null && \
+        npm test -- --passWithNoTests 2>&1 | tail -20
+    weight: 0.2
+    critical: true
+
+# LLM-judged quality metrics
+metrics:
+  - name: architecture_quality
+    description: Overall full-stack architecture assessment
+    rubric: architecture.md
+    files:
+      - "backend/src/**/*.js"
+      - "frontend/src/**/*.{js,jsx}"
+    weight: 0.30
+    custom_prompt_addition: |
+      Evaluate full-stack architecture patterns:
+
+      Backend:
+      - Is there proper separation between routes, models, and database layer?
+      - Are controllers thin with business logic in services?
+      - Is error handling consistent and centralized?
+      - Is the database access properly abstracted?
+
+      Frontend:
+      - Is state management properly organized (hooks, context)?
+      - Are components properly separated (presentational vs container)?
+      - Is the drag-and-drop logic isolated from component rendering?
+      - Are API calls abstracted in custom hooks?
+
+      Integration:
+      - Is the API contract clear and consistent?
+      - Are there proper TypeScript types or PropTypes?
+      - Is error handling coordinated between frontend and backend?
+
+  - name: backend_code_quality
+    description: Backend code quality assessment
+    rubric: code-quality.md
+    files:
+      - "backend/src/**/*.js"
+    context_files:
+      - "story.md"
+    weight: 0.20
+    custom_prompt_addition: |
+      Focus on Express/Node.js quality aspects:
+      - Is middleware properly organized?
+      - Are async/await patterns used correctly?
+      - Is input validation present?
+      - Are environment variables used for configuration?
+      - Is the database connection properly managed?
+      - Are SQL queries parameterized (no injection)?
+
+  - name: frontend_code_quality
+    description: Frontend code quality assessment
+    rubric: code-quality.md
+    files:
+      - "frontend/src/**/*.{js,jsx}"
+    weight: 0.20
+    custom_prompt_addition: |
+      Focus on React quality aspects:
+      - Are hooks used correctly (dependencies, cleanup)?
+      - Is component state properly scoped?
+      - Are effects properly managed?
+      - Is the drag-and-drop implementation clean?
+      - Are callbacks memoized where appropriate?
+      - Is the CSS organized and maintainable?
+
+  - name: test_quality
+    description: Test suite quality for both layers
+    rubric: test-quality.md
+    files:
+      - "backend/tests/**/*.js"
+      - "frontend/tests/**/*.{js,jsx}"
+      - "frontend/src/**/*.test.{js,jsx}"
+    weight: 0.20
+    custom_prompt_addition: |
+      Evaluate testing patterns:
+
+      Backend:
+      - Are API endpoints tested with supertest?
+      - Are database operations mocked or use test DB?
+      - Are error cases tested (404, 400, 500)?
+      - Is the card reordering logic tested?
+
+      Frontend:
+      - Are components tested with React Testing Library?
+      - Are user interactions tested (click, drag)?
+      - Are async operations handled in tests?
+      - Is the custom hook logic tested?
+
+  - name: error_handling_quality
+    description: Error handling across the stack
+    rubric: error-handling.md
+    files:
+      - "backend/src/**/*.js"
+      - "frontend/src/**/*.{js,jsx}"
+    weight: 0.10
+    custom_prompt_addition: |
+      Evaluate error handling patterns:
+
+      Backend:
+      - Is there a centralized error handler?
+      - Are database errors caught and transformed?
+      - Are appropriate HTTP status codes returned?
+      - Is error logging present?
+
+      Frontend:
+      - Are API errors caught and displayed to users?
+      - Are loading states handled?
+      - Is there error boundary usage?
+      - Do optimistic updates have rollback on error?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating a complex full-stack Kanban board application.
+
+    This is a React + Node.js Express + PostgreSQL application with:
+    - RESTful API backend with CRUD operations
+    - React frontend with drag-and-drop
+    - Database schema with proper relationships
+
+    Key evaluation focus areas:
+    1. Full-stack architecture and layer separation
+    2. API design and error handling
+    3. React component structure and state management
+    4. Drag-and-drop implementation quality
+    5. Test coverage for both layers
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis
+session_analysis:
+  verify_backend_agent:
+    pattern: "backend-implementer"
+    description: Verify @backend-implementer was delegated to
+  verify_frontend_agent:
+    pattern: "frontend-implementer"
+    description: Verify @frontend-implementer was delegated to
+  verify_verify_app:
+    pattern: "verify-app"
+    description: Verify @verify-app was delegated to
+  verify_simplifier:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier was delegated to
+  verify_react_skill:
+    pattern: "developing-with-react"
+    description: Verify React skill was invoked
+  verify_jest_skill:
+    pattern: "jest"
+    description: Verify Jest skill was invoked
+  verify_fullstack_patterns:
+    pattern: "Express|React|PostgreSQL|drag.*drop"
+    description: Verify full-stack patterns mentioned
+
+# Acceptance criteria
+acceptance:
+  minimum_mean_difference: 0.5  # Higher bar for complex eval
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.7  # Slightly lower due to complexity
+  critical_checks_required: true
+
+# Metadata
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  complexity: hard
+  estimated_duration_minutes: 75
+  tech_stack:
+    frontend: react
+    backend: node-express
+    database: postgresql
+  tags:
+    - full-stack
+    - react
+    - node
+    - express
+    - postgresql
+    - drag-and-drop
+    - complex
+    - hard
+    - agent-comparison

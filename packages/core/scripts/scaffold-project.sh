@@ -182,6 +182,31 @@ copy_commands() {
     info "Copied $count commands"
 }
 
+# Copy global router rules to vendored lib directory
+copy_global_router_rules() {
+    local target_dir="$1"
+    local dest="$target_dir/.claude/lib"
+
+    if [[ -z "$PLUGIN_DIR" ]]; then
+        warn "No plugin directory specified, skipping global router rules"
+        return 0
+    fi
+
+    # Global router rules are in packages/router/lib/router-rules.json
+    local src="$PLUGIN_DIR/../router/lib/router-rules.json"
+
+    if [[ -f "$src" ]]; then
+        if [[ -f "$dest/router-rules.json" ]]; then
+            info "Global router rules exist: .claude/lib/router-rules.json"
+        else
+            cp "$src" "$dest/router-rules.json"
+            info "Copied global router rules to .claude/lib/router-rules.json"
+        fi
+    else
+        warn "Global router rules not found: $src"
+    fi
+}
+
 # Copy hooks from plugin directory
 copy_hooks() {
     local dest="$1/.claude/hooks"
@@ -232,7 +257,7 @@ copy_hooks() {
 
     # Core hooks
     local core_hooks="$PLUGIN_DIR/../core/hooks"
-    for hook in formatter.sh learning.sh status.js wiggum.js; do
+    for hook in formatter.sh learning.sh status.js wiggum.js save-remote-logs.js; do
         if [[ -f "$core_hooks/$hook" ]]; then
             if [[ ! -f "$dest/$hook" ]]; then
                 cp "$core_hooks/$hook" "$dest/"
@@ -324,6 +349,7 @@ scaffold_project() {
     create_dir ".claude/skills"
     create_dir ".claude/commands"
     create_dir ".claude/hooks"
+    create_dir ".claude/lib"
     echo ""
 
     # Create docs structure
@@ -365,6 +391,10 @@ scaffold_project() {
         copy_hooks "$(pwd)"
         echo ""
 
+        echo "--- Global Router Rules ---"
+        copy_global_router_rules "$(pwd)"
+        echo ""
+
         # Copy skills only if --copy-skills flag was set
         if [[ "$COPY_SKILLS" == "true" ]]; then
             echo "--- Skills ---"
@@ -386,6 +416,7 @@ scaffold_project() {
     echo "  .claude/skills/"
     echo "  .claude/commands/"
     echo "  .claude/hooks/"
+    echo "  .claude/lib/"
     echo "  docs/PRD/"
     echo "  docs/TRD/"
     echo "  docs/TRD/completed/"
@@ -395,9 +426,12 @@ scaffold_project() {
     echo ""
     echo "Created files from templates:"
     echo "  CLAUDE.md"
-    echo "  .claude/router-rules.json"
+    echo "  .claude/router-rules.json (project-specific rules)"
     echo "  .claude/settings.json"
     echo "  .trd-state/current.json"
+    echo ""
+    echo "Copied global assets:"
+    echo "  .claude/lib/router-rules.json (global routing rules)"
     echo ""
 
     if [[ -n "$PLUGIN_DIR" ]]; then

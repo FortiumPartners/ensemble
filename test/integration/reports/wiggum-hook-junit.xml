@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="2.066">
+<testsuite name="wiggum-hook.test.sh" tests="36" failures="0" errors="0" skipped="0" time="2.066" timestamp="2026-01-14T05:17:47" hostname="JMS-LAPTOP">
+    <testcase classname="wiggum-hook.test.sh" name="wiggum.js hook file exists and is readable" time="0.010" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum.js has proper shebang" time="0.013" />
+    <testcase classname="wiggum-hook.test.sh" name="run-hook-test.sh harness exists and is executable" time="0.011" />
+    <testcase classname="wiggum-hook.test.sh" name="parse-hook-events.js parser exists" time="0.011" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook output identifies as Stop event hook" time="0.049" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook does nothing when WIGGUM_ACTIVE is not set" time="0.046" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook does nothing when WIGGUM_ACTIVE=0" time="0.045" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook activates when WIGGUM_ACTIVE=1" time="0.052" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook output is valid JSON" time="0.065" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook output contains hookSpecificOutput with hookEventName" time="0.058" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook output contains continue field" time="0.053" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook includes reason when blocking exit" time="0.062" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook blocks exit when tasks are pending" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook blocks exit when tasks are in_progress" time="0.068" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook re-injection prompt contains task status" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit when all tasks have status success" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit when all tasks have status complete" time="0.060" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit when completion promise tag detected" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit when max iterations reached" time="0.076" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook increments iteration count" time="0.071" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook default max iterations is 50" time="0.067" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook caps max iterations at 1000" time="0.067" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook sets stop_hook_active when blocking" time="0.077" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit and clears flag when stop_hook_active is true" time="0.073" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook finds project root with .trd-state directory" time="0.068" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook allows exit when no .trd-state directory exists" time="0.064" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles empty input gracefully" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles malformed JSON input gracefully" time="0.057" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles missing cwd gracefully" time="0.059" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles invalid implement.json gracefully" time="0.061" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook outputs debug info to stderr when WIGGUM_DEBUG=1" time="0.060" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook does not output debug info when WIGGUM_DEBUG=0" time="0.060" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook output can be parsed by parse-hook-events.js" time="0.106" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles mixed success/pending/in_progress statuses" time="0.069" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles empty tasks object" time="0.062" />
+    <testcase classname="wiggum-hook.test.sh" name="wiggum hook handles failed/blocked task statuses as incomplete" time="0.061" />
+
+</testsuite>
+</testsuites>

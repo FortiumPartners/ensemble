@@ -1,0 +1,12 @@
+{
+  "session_id": "4846ff46-0330-4003-bb05-2587d5146a49",
+  "variant": "",
+  "fixture": "",
+  "start_time": "2026-01-15T17:29:47-08:00",
+  "prompt_preview": "Read variants/full/python-cli/story.md and create variants/full/python-cli/hello.py that prints Hello",
+  "execution_mode": "remote",
+  "timeout_seconds": 300,
+  "framework_version": "1.0.0",
+  "end_time": "2026-01-15T17:30:02-08:00",
+  "exit_code": 0
+}

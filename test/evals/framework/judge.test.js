@@ -463,7 +463,7 @@ describe('judge.js', () => {
       expect(result.overall).toBe(4);
     });
 
-    it('should extract dimension scores when present', () => {
+    it('should extract dimension scores when present (legacy format)', () => {
       const response = {
         score: 4,
         dimension_scores: {
@@ -474,10 +474,37 @@ describe('judge.js', () => {
 
       const result = judge.extractScore(response);
 
+      // Legacy numeric dimensions are converted to new object format
       expect(result.dimensions).toEqual({
-        readability: 4,
-        maintainability: 5
+        readability: { base: 4, modifier: 'solid', score: 4 },
+        maintainability: { base: 5, modifier: 'solid', score: 5 }
       });
+    });
+
+    it('should extract dimension scores with new format and calculate rubric_total', () => {
+      const response = {
+        base_score: 4,
+        modifier: 'strong',
+        score: 4.25,
+        dimension_scores: {
+          readability: { base: 4, modifier: 'strong', score: 4.25 },
+          maintainability: { base: 5, modifier: 'weak', score: 4.75 }
+        }
+      };
+
+      const result = judge.extractScore(response);
+
+      expect(result.overall).toBe(4.25);
+      expect(result.base_score).toBe(4);
+      expect(result.modifier).toBe('strong');
+      expect(result.dimensions).toEqual({
+        readability: { base: 4, modifier: 'strong', score: 4.25 },
+        maintainability: { base: 5, modifier: 'weak', score: 4.75 }
+      });
+      // New additive scoring fields
+      expect(result.rubric_total).toBe(9);  // 4.25 + 4.75 = 9
+      expect(result.rubric_max).toBe(10.5); // 2 dimensions × 5.25
+      expect(result.rubric_weight).toBe(1.0);
     });
 
     it('should handle response without dimension scores', () => {

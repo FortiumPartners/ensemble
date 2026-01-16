@@ -63,7 +63,7 @@ variants:
   - id: baseline
     name: Vanilla Claude (No Framework)
     description: Complete all steps directly without framework assistance
-    fixture_path: variants/baseline/taskflow-api
+    fixture_path: variants/baseline/fastapi-endpoint
     is_baseline: true
     suffix: |
       Implement directly without any framework assistance.
@@ -92,7 +92,7 @@ variants:
   - id: framework
     name: Full Ensemble Framework with Agent Delegation
     description: Use agent delegation pattern for ALL steps including implementation
-    fixture_path: variants/full/taskflow-api
+    fixture_path: variants/full/fastapi-endpoint
     suffix: |
       Use the full Ensemble workflow with agent delegation for EVERY step.
 
@@ -130,7 +130,7 @@ variants:
   - id: full-workflow
     name: Full PRD -> TRD -> implement-trd Workflow
     description: Use the complete structured workflow with upfront design
-    fixture_path: variants/full/taskflow-api
+    fixture_path: variants/full/fastapi-endpoint
     suffix: |
       Use the full structured workflow with upfront design artifacts.
 
@@ -138,11 +138,11 @@ variants:
 
       1. Run /create-prd to generate a Product Requirements Document
          Input: Use the story.md as the product description.
-         Output: docs/PRD/taskflow-api.md
+         Output: docs/PRD/fastapi-endpoint.md
 
       2. Run /create-trd to generate a Technical Requirements Document
          Input: Use the PRD just created.
-         Output: docs/TRD/taskflow-api.md
+         Output: docs/TRD/fastapi-endpoint.md
 
       3. Run /implement-trd to execute the implementation
          This should orchestrate the full dev loop with TDD methodology:

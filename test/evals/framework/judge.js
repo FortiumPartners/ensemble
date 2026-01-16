@@ -395,17 +395,40 @@ ${rubric}
 1. Analyze the code carefully against each dimension in the rubric.
 2. Think through your evaluation step by step.
 3. Provide specific examples from the code to justify your assessment.
-4. Assign a final score from 1-5 based on the rubric definitions.
+4. For each score, use the TWO-STEP SCORING METHOD below.
 5. Estimate code metrics (lines of code, comment ratio, complexity, nesting depth).
+
+## TWO-STEP SCORING METHOD
+
+For EACH score (overall and per-dimension):
+
+**Step 1: Pin the Base Score (1-5)**
+Read the rubric definitions carefully. Determine which level (1-5) best describes the code.
+The base score MUST match one of the rubric level definitions.
+
+**Step 2: Apply Band Modifier**
+Within that level, assess whether the code is:
+- "weak": Barely meets this level, close to dropping down → subtract 0.25
+- "solid": Clearly meets this level, typical example → no change
+- "strong": Exceeds expectations for this level, close to next level up → add 0.25
+
+**Final Score = Base Score + Modifier**
+Examples: 3.75 (base 4, weak), 4.0 (base 4, solid), 4.25 (base 4, strong)
 
 ## Output Format
 
 Respond in JSON format:
 {
-  "score": <1-5>,
+  "base_score": <1-5 integer from rubric>,
+  "modifier": "<weak|solid|strong>",
+  "score": <final score with modifier applied>,
   "justification": "<2-3 sentence summary of overall quality>",
   "dimension_scores": {
-    "<dimension_name>": <1-5>,
+    "<dimension_name>": {
+      "base": <1-5 integer>,
+      "modifier": "<weak|solid|strong>",
+      "score": <final score>
+    },
     ...
   },
   "metrics": {
@@ -701,7 +724,12 @@ function invokeClaude(prompt, options = {}) {
       const cliResponse = JSON.parse(result.stdout.trim());
 
       // Extract the actual model response from the 'result' field
-      let modelText = cliResponse.result || cliResponse;
+      let modelText = cliResponse.result;
+
+      // Handle empty response
+      if (!modelText || modelText === '') {
+        throw new Error(`Claude returned empty result. num_turns=${cliResponse.num_turns}, cost=$${cliResponse.total_cost_usd?.toFixed(4)}`);
+      }
 
       // If modelText is a string, it may contain markdown code fences
       if (typeof modelText === 'string') {
@@ -724,20 +752,81 @@ function invokeClaude(prompt, options = {}) {
 
 /**
  * Extract and validate score from Claude response
+ * Supports both legacy format (score: N) and new format (base_score + modifier)
  * @param {object} response - Claude response object
  * @returns {object} Extracted score data
  */
 function extractScore(response) {
-  const score = response.score;
+  let score = response.score;
+  let baseScore = response.base_score;
+  let modifier = response.modifier;
 
-  // Validate score range
-  if (typeof score !== 'number' || score < 1 || score > 5) {
-    throw new Error(`Invalid score value: ${score}. Score must be between 1 and 5.`);
+  // Handle new format with base_score + modifier
+  if (typeof baseScore === 'number') {
+    // Validate base score is integer 1-5
+    if (!Number.isInteger(baseScore) || baseScore < 1 || baseScore > 5) {
+      throw new Error(`Invalid base_score value: ${baseScore}. Must be integer 1-5.`);
+    }
+
+    // Validate modifier
+    const validModifiers = ['weak', 'solid', 'strong'];
+    if (modifier && !validModifiers.includes(modifier)) {
+      throw new Error(`Invalid modifier: ${modifier}. Must be one of: ${validModifiers.join(', ')}`);
+    }
+
+    // Calculate expected score if not provided or verify it matches
+    const modifierValue = modifier === 'weak' ? -0.25 : modifier === 'strong' ? 0.25 : 0;
+    const expectedScore = baseScore + modifierValue;
+
+    if (typeof score !== 'number') {
+      score = expectedScore;
+    }
   }
 
+  // Validate final score range (0.75 to 5.25 with modifier)
+  if (typeof score !== 'number' || score < 0.75 || score > 5.25) {
+    throw new Error(`Invalid score value: ${score}. Score must be between 0.75 and 5.25.`);
+  }
+
+  // Process dimension scores - handle both old and new format
+  const dimensions = {};
+  const rawDimensions = response.dimension_scores || {};
+
+  for (const [dimName, dimValue] of Object.entries(rawDimensions)) {
+    if (typeof dimValue === 'object' && dimValue !== null) {
+      // New format: {base: N, modifier: "...", score: N.NN}
+      dimensions[dimName] = {
+        base: dimValue.base,
+        modifier: dimValue.modifier,
+        score: dimValue.score
+      };
+    } else if (typeof dimValue === 'number') {
+      // Legacy format: just a number
+      dimensions[dimName] = {
+        base: Math.round(dimValue),
+        modifier: 'solid',
+        score: dimValue
+      };
+    }
+  }
+
+  // Calculate rubric_total as sum of dimension scores
+  const dimensionScores = Object.values(dimensions).map(d => d.score);
+  const rubricTotal = dimensionScores.length > 0
+    ? parseFloat(dimensionScores.reduce((a, b) => a + b, 0).toFixed(2))
+    : score;  // Fallback to overall score if no dimensions
+  const dimensionCount = dimensionScores.length || 4;  // Default to 4 dimensions
+  const rubricMax = parseFloat((dimensionCount * 5.25).toFixed(2));
+
   return {
-    overall: score,
-    dimensions: response.dimension_scores || {},
+    overall: score,  // Keep for backward compatibility
+    base_score: baseScore || Math.round(score),
+    modifier: modifier || 'solid',
+    dimensions: dimensions,
+    // New additive scoring fields
+    rubric_total: rubricTotal,
+    rubric_max: rubricMax,
+    rubric_weight: 1.0,  // Equal weighting for now
     metrics: response.metrics || null
   };
 }

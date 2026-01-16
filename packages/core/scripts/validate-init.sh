@@ -38,17 +38,17 @@ PROJECT_DIR="${1:-.}"
 # Output functions
 pass() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((PASS++))
+    ((++PASS))
 }
 
 fail() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((FAIL++))
+    ((++FAIL))
 }
 
 warn() {
     echo -e "${YELLOW}[WARN]${NC} $1"
-    ((WARN++))
+    ((++WARN))
 }
 
 info() {
@@ -131,7 +131,7 @@ REQUIRED_AGENTS=(
 AGENT_COUNT=0
 for agent in "${REQUIRED_AGENTS[@]}"; do
     if [[ -f ".claude/agents/$agent" ]]; then
-        ((AGENT_COUNT++))
+        ((++AGENT_COUNT))
     else
         fail "Missing agent: $agent"
     fi
@@ -177,7 +177,8 @@ REQUIRED_HOOKS=(
 
 OPTIONAL_HOOKS=(
     "formatter.sh"
-    "learning.js"
+    "learning.sh"
+    "save-remote-logs.js"
 )
 
 for hook in "${REQUIRED_HOOKS[@]}"; do

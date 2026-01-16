@@ -1,0 +1,40 @@
+{
+  "name": "@ensemble-vnext/permitter",
+  "version": "1.0.0",
+  "description": "Smart permission expansion hook for Claude Code - semantic command matching",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble-vnext.git",
+    "directory": "packages/permitter"
+  },
+  "keywords": [
+    "claude-code",
+    "hook",
+    "permissions",
+    "security",
+    "bash",
+    "allowlist",
+    "ensemble"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "files": [
+    "hooks/",
+    "lib/",
+    "README.md"
+  ]
+}

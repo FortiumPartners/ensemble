@@ -1,0 +1,61 @@
+# Ensemble Runtime - Local Settings
+# These files contain local-only configuration and should not be tracked
+.claude/settings.local.json
+*.local.*
+*.local.json
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Session state (optional - uncomment if you don't want to track implementation state)
+# .trd-state/
+
+# Editor and IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+
+# PostgreSQL data (Docker volume)
+postgres_data/
+
+# ============================================================
+# IMPORTANT: The following SHOULD be tracked (committed to git)
+# ============================================================
+#
+# .claude/           - Vendored runtime (committed for reproducibility)
+#   agents/          - Subagent prompts
+#   rules/           - constitution.md, stack.md, process.md
+#   skills/          - Stack-relevant skills
+#   commands/        - Workflow commands
+#   hooks/           - Hook executables
+#   settings.json    - Committed configuration
+#   router-rules.json - Routing patterns
+#
+# .trd-state/        - Implementation tracking (committed for collaboration)
+#   current.json     - Current feature pointer
+#   <feature>/       - Per-feature implementation status
+#
+# docs/              - Documentation
+#   PRD/             - Product Requirements Documents
+#   TRD/             - Technical Requirements Documents
+#
+# CLAUDE.md          - Project context and learnings
+#

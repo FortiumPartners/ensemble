@@ -10,18 +10,19 @@ category: scaffolding
 
 ---
 
-## CRITICAL: All 15 Steps Must Be Completed
+## CRITICAL: Steps 1-14 Must Be Completed (Steps 15-16 are Optional)
 
-**DO NOT exit early. DO NOT skip steps. This command REQUIRES all 15 steps to complete successfully.**
+**DO NOT exit early. DO NOT skip steps. This command REQUIRES steps 1-14 to complete successfully.**
 
 The initialization is NOT complete until:
 - Step 9 (Deploy Configuration Files) creates `router-rules.json`
-- Step 12 (Generate Project Router Rules) runs `/generate-project-router-rules`
-- Step 13 (Create CLAUDE.md) creates or verifies CLAUDE.md exists
-- Step 14 (Validation) confirms ALL required files exist
-- Step 15 (Completion Report) outputs the summary
+- Step 12 (Update CLAUDE.md) updates placeholders with project information
+- Step 13 (Validation) confirms ALL required files exist
+- Step 14 (Completion Report) outputs the summary
 
-**Common failure point:** Exiting after Step 8 (Deploy Hooks) leaves the project in an incomplete state without router rules or CLAUDE.md. YOU MUST CONTINUE through Steps 9-15.
+Steps 15-16 are optional enhancements that improve routing but are not required for a functional installation.
+
+**Common failure point:** Exiting after Step 8 (Deploy Hooks) leaves the project in an incomplete state without CLAUDE.md updated. YOU MUST CONTINUE through Steps 9-14.
 
 ---
 
@@ -92,46 +93,77 @@ Examples:
 
 ### Step 1: Analyze Project
 
-**Repository Analysis via LLM**
+**Agentic Repository Analysis**
 
-This is an LLM function - you (Claude) comprehensively scan the project to understand its structure.
+This is a fully agentic LLM function. You (Claude) must explore the project comprehensively using your tools to understand its structure. DO NOT rely on a predefined checklist of files - instead, discover and reason about what you find.
 
 <repository-analysis>
 
-**Scan for Dependency Files:**
+**Phase 1: Discover Project Structure**
 
-| File | What to Extract |
-|------|-----------------|
-| `package.json` | Node.js; dependencies, devDependencies, scripts, engines |
-| `requirements.txt` | Python; package names and versions |
-| `pyproject.toml` | Python; dependencies, build system, tools |
-| `Gemfile` | Ruby; gems and versions |
-| `go.mod` | Go; module and requires |
-| `Cargo.toml` | Rust; dependencies and features |
-| `composer.json` | PHP; require and require-dev |
-| `mix.exs` | Elixir; deps function |
-| `*.csproj`, `*.sln` | .NET; PackageReference |
-| `pubspec.yaml` | Dart/Flutter; dependencies |
+Use **Glob** to discover the entire file structure:
+```
+**/*
+```
 
-**Identify Frameworks:**
+This gives you visibility into all directories and files. Pay attention to:
+- Top-level files (often contain project configuration)
+- Directory names (reveal architecture: `src/`, `lib/`, `app/`, `packages/`, etc.)
+- File extensions (reveal languages used)
+- Configuration directories (`.github/`, `.vercel/`, `docker/`, etc.)
 
-Follow the instructions in `@packages/core/templates/stack-detection-instructions.md` for:
-- Primary language detection
-- Framework identification (React, Next.js, FastAPI, NestJS, Rails, Phoenix, etc.)
-- Testing framework detection (Jest, Vitest, pytest, RSpec, etc.)
-- Database detection (PostgreSQL, MySQL, MongoDB, Redis, etc.)
-- Infrastructure detection (Docker, Vercel, Railway, etc.)
+**Phase 2: Read and Reason About What You Find**
 
-**Analyze Project Structure:**
+Based on the Glob results, read files that might indicate the technology stack. These are NOT limited to a predefined list - use your judgment:
 
-- Directory layout and organization patterns
-- Architecture style (MVC, Clean Architecture, microservices, monolith)
-- Existing conventions (naming, file organization)
-- Monorepo detection (workspaces, lerna, turborepo)
+- **Any dependency/manifest files** you discover (package.json, requirements.txt, go.mod, Cargo.toml, composer.json, Gemfile, mix.exs, pubspec.yaml, *.csproj, pom.xml, build.gradle, etc.)
+- **Configuration files** that reveal frameworks or tools (next.config.*, vite.config.*, tsconfig.json, tailwind.config.*, docker-compose.yml, etc.)
+- **Documentation files** that describe the project (README.md, CONTRIBUTING.md, docs/, etc.)
+- **Source code samples** if dependency files are missing - infer from imports and patterns
+- **Story or spec files** if present - these may describe intended technology even before implementation
+
+**Phase 3: Reason and Infer**
+
+As you read files, build understanding through reasoning:
+
+1. **Primary Language(s)**: What languages are used? Look at file extensions, dependency files, and source code.
+
+2. **Framework(s)**: What frameworks or libraries are central to the project? Reason about:
+   - Direct dependencies in manifest files
+   - Import statements in source code
+   - Configuration files that imply frameworks
+   - Directory structure patterns (e.g., `pages/` suggests Next.js or Nuxt)
+
+3. **Testing Setup**: What testing approach is used?
+   - Test directories and file naming patterns
+   - Testing dependencies
+   - Test configuration files
+
+4. **Database/Data Layer**: What data storage is used?
+   - Schema files (Prisma, Drizzle, migrations/)
+   - Database driver dependencies
+   - ORM patterns in code
+
+5. **Infrastructure**: How is the project deployed/run?
+   - Deployment config files
+   - CI/CD workflows
+   - Container definitions
+
+6. **Architecture Style**: What patterns does the codebase follow?
+   - Directory organization
+   - Code structure (MVC, Clean Architecture, microservices, etc.)
+   - Monorepo indicators (workspaces, multiple package.jsons)
+
+**Handle Edge Cases Agentically:**
+
+- **No dependency files found**: Read source code and infer from imports/syntax
+- **Documentation only (no code)**: Infer intended stack from descriptions and stories
+- **Mixed signals**: Note uncertainty and ask user for clarification in Step 2
+- **Monorepo**: Explore each workspace/package to understand the full stack
 
 **Output: Detected Stack Summary**
 
-Create a mental model of:
+After your agentic exploration, synthesize your findings:
 ```
 Primary Language: <language>
 Framework: <framework>
@@ -139,7 +171,10 @@ Testing: <unit framework>, <integration framework>, <e2e framework>
 Database: <database> via <orm/driver>
 Infrastructure: <hosting>, <ci-cd>
 Architecture: <pattern>
+Confidence: <High/Medium/Low with reasoning>
 ```
+
+If confidence is low for any component, note what additional information would help and prepare to ask in Step 2.
 
 </repository-analysis>
 
@@ -298,53 +333,68 @@ For each agent in `@packages/full/agents/`:
 - Reference actual project structure in examples
 - Preserve core responsibilities and boundaries
 
+**CRITICAL - Frontmatter Format Requirements:**
+
+- **Never add a `tools:` line** - agents have all tools enabled by default
+- **`skills:` must be single-line, comma-separated** - NOT a YAML array
+  - Correct: `skills: pytest, jest, developing-with-python`
+  - Wrong: `skills:\n  - pytest\n  - jest`
+- Preserve the existing frontmatter structure (name, description, color, skills)
+
 </subagent-deployment>
 
 ### Step 6: Select and Copy Skills
 
 <skill-selection>
 
-**Follow instructions in `@packages/core/templates/skill-selection-instructions.md`**
+**Agentic Skill Selection**
 
-1. Parse the generated `stack.md` to extract:
-   - Primary language(s)
-   - Framework(s)
-   - Testing framework(s)
-   - Database/ORM
-   - Infrastructure targets
+This is a reasoning task, not a lookup table. You must analyze the detected stack and reason about which skills would genuinely help this specific project.
 
-2. Match against skill library at `@packages/skills/`:
+**Phase 1: Discover Available Skills**
 
-| stack.md Entry | Skill to Copy |
-|----------------|---------------|
-| Language: Python | `developing-with-python` |
-| Language: TypeScript | `developing-with-typescript` |
-| Language: PHP | `developing-with-php` |
-| Framework: React | `developing-with-react` |
-| Framework: Laravel | `developing-with-laravel` |
-| Framework: Flutter | `developing-with-flutter` |
-| Framework: NestJS | `nestjs` |
-| Testing: Jest | `jest` |
-| Testing: pytest | `pytest` |
-| Testing: RSpec | `rspec` |
-| Testing: xUnit | `xunit` |
-| Testing: ExUnit | `exunit` |
-| Testing: Playwright | `writing-playwright-tests` |
-| Database: Prisma | `using-prisma` |
-| Database: Weaviate | `using-weaviate` |
-| Infrastructure: Railway | `managing-railway` |
-| Infrastructure: Vercel | `managing-vercel` |
-| Infrastructure: Supabase | `managing-supabase` |
-| AI: Anthropic/Claude | `using-anthropic-platform` |
-| AI: OpenAI | `using-openai-platform` |
-| AI: Perplexity | `using-perplexity-platform` |
-| AI: LangGraph | `building-langgraph-agents` |
-| Background Jobs: Celery | `using-celery` |
-| Styling: Tailwind | `styling-with-tailwind` |
-| Issue Tracker: Jira | `managing-jira-issues` |
-| Issue Tracker: Linear | `managing-linear-issues` |
+First, explore the skill library to understand what's available:
 
-3. Write selected skill names to `.claude/selected-skills.txt` (one skill per line):
+- Use Glob to list: `@packages/skills/*/SKILL.md`
+- Read the "When to Use" section of each skill to understand its purpose
+
+**Phase 2: Reason About Skill Relevance**
+
+For each available skill, consider:
+
+1. **Direct Match**: Does the detected stack explicitly use this technology?
+   - Example: Project has `prisma/schema.prisma` → `using-prisma` is directly relevant
+
+2. **Complementary Value**: Would this skill help even if not explicitly used yet?
+   - Example: Project uses React but no styling detected → `styling-with-tailwind` might be valuable
+   - Example: Project has API but no deployment → `managing-railway` or `managing-vercel` could help
+
+3. **Ecosystem Fit**: Does this skill fit the project's ecosystem?
+   - Example: Python/FastAPI project → `pytest` is a natural fit even if not configured yet
+   - Example: TypeScript project → `developing-with-typescript` provides foundational patterns
+
+4. **Future Needs**: Based on project structure, what will likely be needed?
+   - Example: Project has AI-related code → AI platform skills may be relevant
+   - Example: Project has background job patterns → `using-celery` or similar may help
+
+**Phase 3: Categorize by Confidence**
+
+Group your selections:
+
+- **High Confidence (Auto-include)**: Direct dependency/technology match found in codebase
+- **Medium Confidence (Include with note)**: Strong ecosystem fit or likely to be needed
+- **Low Confidence (Ask user)**: Tangentially related, could be useful but uncertain
+
+**Phase 4: Handle Special Cases**
+
+- **No clear stack detected**: Ask user what technologies they plan to use
+- **Greenfield project**: Include foundational skills for stated intended stack
+- **Brownfield project**: Focus on skills matching existing patterns
+- **Monorepo**: Consider skills for ALL detected technology stacks
+
+**Phase 5: Write Selection and Copy**
+
+1. Write selected skill names to `.claude/selected-skills.txt` (one skill per line):
 
 ```
 developing-with-python
@@ -353,11 +403,28 @@ using-prisma
 managing-railway
 ```
 
-4. Call the scaffold script to copy the selected skills:
+2. Call the scaffold script to copy the selected skills:
 
 - Copy skills: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" --copy-skills .`
 
-5. Report selection to user with confidence levels
+**Phase 6: Report to User**
+
+Output your reasoning:
+
+```markdown
+## Skills Selected
+
+### High Confidence (Direct Match)
+- `developing-with-python` - Python 3.11 detected in pyproject.toml
+- `using-prisma` - prisma/schema.prisma found
+
+### Medium Confidence (Ecosystem Fit)
+- `pytest` - Python project, standard testing approach
+
+### Considered but Not Included
+- `using-celery` - No background job patterns detected
+- `managing-railway` - No deployment config found; can add later with `/add-skill`
+```
 
 </skill-selection>
 
@@ -481,59 +548,66 @@ Ensure these patterns are added:
 
 ---
 
-**CHECKPOINT: Steps 9-11 complete. DO NOT STOP HERE. Continue with Steps 12-15.**
+**CHECKPOINT: Steps 9-11 complete. DO NOT STOP HERE. Continue with Steps 12-14.**
 
 ---
 
-### Step 12: Generate Project Router Rules
-
-<router-rules-generation>
-
-**After all other setup is complete, run generate-project-router-rules:**
-
-Invoke `/generate-project-router-rules` to create project-specific routing patterns.
-
-This command analyzes the project structure and creates routing rules in `.claude/router-rules.json` that help the Router hook route prompts to appropriate commands, skills, and agents.
-
-</router-rules-generation>
-
-### Step 13: Update CLAUDE.md
+### Step 12: Update CLAUDE.md
 
 <claude-md-update>
 
-**The scaffolding script created CLAUDE.md from a template. You must now UPDATE it with project-specific information.**
+**Agentic CLAUDE.md Customization**
 
-**Action Required:**
+The scaffolding script created CLAUDE.md from a template. You must now UPDATE it with project-specific information by reasoning about what context would be most valuable for future development sessions.
 
-1. Read the existing `CLAUDE.md` file
-2. Replace the placeholders with actual project information:
-   - `{{PROJECT_NAME}}` → Actual project name from PROJECT.md or directory
-   - `{{PROJECT_DESCRIPTION}}` → Brief description of the project
-   - `{{STACK_SUMMARY}}` → Summary of detected tech stack
-3. Use the Edit tool to update the file (preserve all other content)
+**Phase 1: Gather Context**
 
-**Placeholders to replace:**
+Synthesize what you learned during initialization:
+- Project name and purpose from README, package.json description, or user input
+- The full technology stack you detected in Step 1
+- Key architectural patterns you observed
+- Notable project conventions or unique aspects
 
-| Placeholder | Replace With |
-|-------------|--------------|
-| `{{PROJECT_NAME}}` | Project name (e.g., "TaskFlow API") |
-| `{{PROJECT_DESCRIPTION}}` | 1-2 sentence description |
-| `{{STACK_SUMMARY}}` | Tech stack summary from Step 1 analysis |
+**Phase 2: Replace Placeholders with Reasoned Content**
 
-**Verification:**
+Read the existing `CLAUDE.md` and replace placeholders:
 
-After updating, read CLAUDE.md and verify:
-- No `{{...}}` placeholders remain
-- Project name and description are filled in
-- Tech stack section has content
+| Placeholder | How to Fill |
+|-------------|-------------|
+| `{{PROJECT_NAME}}` | Use actual project name - infer from directory, package.json name, or README title |
+| `{{PROJECT_DESCRIPTION}}` | Synthesize a clear 1-2 sentence description that captures what the project does |
+| `{{STACK_SUMMARY}}` | Craft a useful summary that highlights the key technologies, not just a list |
+
+**Phase 3: Add Project-Specific Context**
+
+Go beyond simple placeholder replacement. If the template has sections for:
+- **Key Documents**: Reference any important docs you discovered (README, architecture docs, etc.)
+- **Conventions**: Note any project-specific patterns you observed
+- **Entry Points**: Identify main entry points, configuration files, or key directories
+
+**Phase 4: Verify Completeness**
+
+After updating:
+1. Read CLAUDE.md and verify no `{{...}}` placeholders remain
+2. Ensure the content accurately represents the project
+3. Check that the information would be genuinely helpful for future sessions
+4. If anything seems incomplete or unclear, enhance it
+
+**Quality Check:**
+
+A good CLAUDE.md should let a future session:
+- Understand what the project does
+- Know what technologies are used
+- Find key files and entry points
+- Follow project conventions
 
 </claude-md-update>
 
-### Step 14: Validation
+### Step 13: Validation
 
 <validation>
 
-**CRITICAL: Verify ALL required files exist before proceeding to Step 15.**
+**CRITICAL: Verify ALL required files exist before proceeding to Step 14.**
 
 **Required Files Checklist - ALL must exist:**
 
@@ -553,7 +627,7 @@ After updating, read CLAUDE.md and verify:
 | `.claude/settings.json` | Step 3 (scaffold) | YES |
 | `.claude/router-rules.json` | Step 3 (scaffold) | YES |
 | `.trd-state/current.json` | Step 3 (scaffold) | YES |
-| `CLAUDE.md` | Step 3 (scaffold), Step 13 (update) | YES |
+| `CLAUDE.md` | Step 3 (scaffold), Step 12 (update) | YES |
 
 **Validation Procedure:**
 
@@ -569,26 +643,26 @@ After updating, read CLAUDE.md and verify:
 6. **IMPORTANT: Verify CLAUDE.md has been updated:**
    - Read CLAUDE.md
    - Check that NO `{{...}}` placeholders remain
-   - If placeholders exist, go back to Step 13 and update them
+   - If placeholders exist, go back to Step 12 and update them
 
 **If validation fails:**
 - Report specific issues
 - Execute missing steps to create missing files
 - If CLAUDE.md has placeholders, update them
 - Re-run validation
-- Do NOT proceed to Step 15 until ALL required files exist
+- Do NOT proceed to Step 14 until ALL required files exist
 
-**Only when ALL files exist:** Proceed to Step 15 (Completion Report)
+**Only when ALL files exist:** Proceed to Step 14 (Completion Report)
 
 </validation>
 
 ---
 
-**FINAL STEP: You MUST complete Step 15 to finish initialization.**
+**FINAL REQUIRED STEP: You MUST complete Step 14 to finish initialization.**
 
 ---
 
-### Step 15: Completion Report
+### Step 14: Completion Report
 
 <completion-report>
 
@@ -640,6 +714,69 @@ Commands Available:
 ```
 
 </completion-report>
+
+---
+
+**OPTIONAL ENHANCEMENTS: Steps 15-16 improve routing but are not required.**
+
+---
+
+### Step 15: Generate Project Router Rules (Optional Enhancement)
+
+> **Note:** Steps 15-16 are optional enhancements. If the session ends here,
+> the project initialization is still complete and functional.
+
+<router-rules-generation>
+
+**After all critical setup is complete, run generate-project-router-rules:**
+
+Invoke `/generate-project-router-rules` to create project-specific routing patterns.
+
+This command analyzes the project structure and creates routing rules in `.claude/router-rules.json` that help the Router hook route prompts to appropriate commands, skills, and agents.
+
+</router-rules-generation>
+
+### Step 16: Keyword Mapping Report (Optional)
+
+> **Note:** This step is optional. If skipped, there is no impact on functionality.
+
+<keyword-mapping-report>
+
+**If router-rules.json was generated in Step 15, output a summary showing:**
+
+1. **Keywords that route to specific agents:**
+   - List keywords/patterns and their target agents
+   - Example: `"database"` → `backend-implementer`
+
+2. **Keywords that trigger specific skills:**
+   - List keywords/patterns and their target skills
+   - Example: `"railway deploy"` → `managing-railway`
+
+3. **Project-specific patterns detected:**
+   - Framework-specific routing (e.g., React components → `frontend-implementer`)
+   - Technology-specific triggers (e.g., Prisma → `using-prisma` skill)
+
+**Example Output Format:**
+
+```
+Keyword Mapping Summary:
+
+Agent Routing:
+  "api", "endpoint", "database" → backend-implementer
+  "component", "ui", "style" → frontend-implementer
+  "deploy", "ci", "pipeline" → cicd-specialist
+
+Skill Triggers:
+  "prisma", "schema" → using-prisma
+  "railway", "deploy" → managing-railway
+  "react", "component" → developing-with-react
+
+Project-Specific Patterns:
+  - Next.js detected: "page", "layout" → frontend-implementer
+  - PostgreSQL detected: "migration" → using-prisma skill
+```
+
+</keyword-mapping-report>
 
 ---
 

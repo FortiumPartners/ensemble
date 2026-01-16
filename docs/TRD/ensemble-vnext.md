@@ -385,6 +385,7 @@ flowchart LR
         H4["Status<br/>(Node.js or Shell)"]
         H5["Learning<br/>(Node.js or Shell)"]
         H6["Wiggum<br/>(Node.js)"]
+        H7["SaveRemoteLogs<br/>(Node.js)"]
     end
 
     E1 --> H1
@@ -392,6 +393,7 @@ flowchart LR
     E3 --> H3
     E4 --> H4
     E5 --> H5
+    E5 --> |"ENSEMBLE_SAVE_REMOTE_LOGS=1"| H7
     E6 --> |"--wiggum flag"| H6
 ```
 
@@ -402,6 +404,7 @@ flowchart LR
 | PostToolUse | Formatter | **Shell script** (`formatter.sh`) | Route to correct formatter based on file extension (see formatter table below) |
 | SubagentStop | Status | Node.js or Shell | Update `.trd-state/`, record cycle position, track session IDs |
 | SessionEnd | Learning | Node.js or Shell | Capture learnings, update CLAUDE.md, git add changed files (NEVER commit) |
+| SessionEnd | SaveRemoteLogs | Node.js (`save-remote-logs.js`) | Capture session logs from remote sessions before VM terminates (when `ENSEMBLE_SAVE_REMOTE_LOGS=1`) |
 | Stop | Wiggum | Node.js | Intercept exit (when `--wiggum`), re-inject prompt, check completion |
 
 > **Note**: The Router hook is currently implemented in Python (`router.py`). A future iteration will refactor it to Node.js for consistency with other hooks.
@@ -1047,7 +1050,35 @@ function execute_task_cycle(task, state):
 
 **Implementation File**: `.claude/hooks/learning.js` (or `learning.sh` if simple)
 
-#### 3.5.6 Wiggum Hook (F7)
+#### 3.5.6 SaveRemoteLogs Hook
+
+**Event**: SessionEnd
+**Priority**: P2
+**Language**: Node.js
+**Timeout**: 30 seconds
+
+**Activation**: Set `ENSEMBLE_SAVE_REMOTE_LOGS=1` in:
+- Environment variable, or
+- `settings.json` env configuration
+
+**Purpose**: Capture session logs from remote Claude Code sessions before the VM terminates. Remote sessions do not persist session logs locally, so this hook copies all relevant logs to a committed location for later analysis.
+
+**Behavior**:
+1. Check if `ENSEMBLE_SAVE_REMOTE_LOGS=1` is set
+2. If not set, exit immediately (no-op)
+3. Get session start time from the transcript
+4. Find all `.jsonl` files created since session start (captures subagent logs)
+5. Copy logs to `.claude-sessions/logs/` directory
+6. `git add` the copied logs
+7. `git commit` the logs (to ensure they are captured before VM termination)
+
+> **Important**: Unlike other SessionEnd hooks, this hook DOES commit because remote sessions may terminate immediately after SessionEnd, leaving no opportunity for manual commits. The logs are committed to `.claude-sessions/logs/` which should be gitignored in production if desired.
+
+**Destination Directory**: `.claude-sessions/logs/`
+
+**Implementation File**: `.claude/hooks/save-remote-logs.js`
+
+#### 3.5.7 Wiggum Hook (F7)
 
 **Event**: Stop
 **Priority**: P1 (only active with `--wiggum` flag)
@@ -1791,11 +1822,15 @@ project-root/
 │   │   ├── formatter.sh
 │   │   ├── status.js (or .sh)
 │   │   ├── learning.js (or .sh)
-│   │   └── wiggum.js
+│   │   ├── wiggum.js
+│   │   └── save-remote-logs.js
 │   │
 │   ├── settings.json
 │   ├── settings.local.json
 │   └── router-rules.json
+│
+├── .claude-sessions/
+│   └── logs/                   # Session logs captured by save-remote-logs hook
 │
 ├── .gitignore
 ├── CLAUDE.md
@@ -1897,6 +1932,7 @@ Emitted when:
 | PostToolUse | Formatter | After Edit/Write tool |
 | SubagentStop | Status | Subagent completes |
 | SessionEnd | Learning | Session ending |
+| SessionEnd | SaveRemoteLogs | Session ending (when `ENSEMBLE_SAVE_REMOTE_LOGS=1`) |
 | Stop | Wiggum | Claude attempts to exit |
 
 ---
