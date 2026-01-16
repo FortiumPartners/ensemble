@@ -360,15 +360,12 @@ async function launchSessions(spec, outputDir, options = {}) {
         const variantTimeout = variant.timeout_seconds || globalTimeout;
 
         // Per-variant fixture_path takes precedence over global fixture path
-        // If variant has fixture_path, construct full path using repo + fixture_path
-        // Otherwise fall back to global fixture
+        // fixture_path should be used directly - it's already relative to the prepared fixtures base
+        // e.g., "variants/full/python-cli" maps to "/tmp/ensemble-test-fixtures/variants/full/python-cli"
+        // Note: fixtureRepo is only used for GitHub cloning fallback, not for path construction
         let fixture = globalFixture;
         if (variant.fixture_path) {
-          // variant.fixture_path is relative to the fixture repo
-          // e.g., "variants/full/python-cli" -> "{repo}/variants/full/python-cli"
-          fixture = fixtureRepo
-            ? `${fixtureRepo}/${variant.fixture_path}`
-            : variant.fixture_path;
+          fixture = variant.fixture_path;
         }
 
         return launchSession(variant, basePrompt, outputDir, variantTimeout, { fixture, runIndex, useRemote: options.useRemote });

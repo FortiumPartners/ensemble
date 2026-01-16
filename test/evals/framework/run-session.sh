@@ -270,7 +270,8 @@ clone_fixture() {
     local prepared_fixture_base="/tmp/ensemble-test-fixtures"
     if [[ -d "$prepared_fixture_base/$fixture_path" ]]; then
         log_info "Using prepared fixture from: $prepared_fixture_base/$fixture_path"
-        cp -r "$prepared_fixture_base/$fixture_path/"* "$target_dir/" 2>/dev/null || true
+        # Use /. to copy ALL files including hidden ones (.claude/, .gitignore, etc.)
+        cp -r "$prepared_fixture_base/$fixture_path/." "$target_dir/" 2>/dev/null || true
         return 0
     fi
 
@@ -278,7 +279,8 @@ clone_fixture() {
     local local_fixture_base="${SCRIPT_DIR}/../../../ensemble-vnext-test-fixtures"
     if [[ -d "$local_fixture_base/$fixture_path" ]]; then
         log_info "Using local fixture from: $local_fixture_base/$fixture_path (WARNING: may not have .claude/)"
-        cp -r "$local_fixture_base/$fixture_path/"* "$target_dir/" 2>/dev/null || true
+        # Use /. to copy ALL files including hidden ones
+        cp -r "$local_fixture_base/$fixture_path/." "$target_dir/" 2>/dev/null || true
         return 0
     fi
 
