@@ -93,6 +93,17 @@ Given non-deterministic LLM output:
 
 The eval framework at `test/evals/framework/` enables A/B testing of skills and agents.
 
+### Spec Hierarchy
+
+**Use `dev-loop/` specs by default.** Other categories serve specific purposes:
+
+| Category | Purpose | When to Use |
+|----------|---------|-------------|
+| `dev-loop/` | **Primary A/B testing** with 3 variants (baseline, framework, full-workflow) | Default for comprehensive evaluation |
+| `skills/` | Skill-specific isolation testing | Narrow skill effectiveness testing |
+| `agents/` | Agent routing evaluation | Testing specific agent behaviors |
+| `commands/` | Command workflow testing | Testing command implementations |
+
 ### Key Components
 
 | File | Purpose | Execution Model |
@@ -146,8 +157,11 @@ metrics:      # Judged metrics (1-5 scale)
 ### Running Evals
 
 ```bash
-# Run evaluation
-node test/evals/framework/run-eval.js test/evals/specs/skills/developing-with-python.yaml
+# RECOMMENDED: Run dev-loop eval for comprehensive A/B comparison
+node test/evals/framework/run-eval.js test/evals/specs/dev-loop/dev-loop-pytest.yaml --local
+
+# For skill-specific isolation testing (narrower scope)
+node test/evals/framework/run-eval.js test/evals/specs/skills/pytest.yaml --local
 
 # Collect results after sessions complete
 ./test/evals/framework/collect-results.sh <session-id> <output-dir>
@@ -165,9 +179,9 @@ node test/evals/framework/aggregate.js <results-dir>
 
 **Using Local Plugin (Required for Testing):**
 ```bash
-# Always use --plugin-dir and --setting-sources local for testing
-# This ensures tests use the development plugin, not any system-installed version
-claude --plugin-dir /path/to/packages/full --setting-sources local <other args>
+# Always use --plugin-dir and --setting-sources project for testing
+# This ensures tests use the development plugin and project agents are discovered
+claude --plugin-dir /path/to/packages/full --setting-sources project <other args>
 
 # The test scripts handle this automatically via PLUGIN_ROOT environment variable
 ```
@@ -178,14 +192,14 @@ claude --plugin-dir /path/to/packages/full --setting-sources local <other args>
 PLUGIN_DIR="/home/james/dev/ensemble-vnext/packages/full"
 echo "Build a calculator" | claude --print \
     --plugin-dir "$PLUGIN_DIR" \
-    --setting-sources local \
+    --setting-sources project \
     --dangerously-skip-permissions
 
 # With session ID for tracking
 SESSION_ID=$(uuidgen)
 echo "Create test.py" | claude --print \
     --plugin-dir "$PLUGIN_DIR" \
-    --setting-sources local \
+    --setting-sources project \
     --session-id "$SESSION_ID" \
     --dangerously-skip-permissions
 
@@ -280,8 +294,10 @@ test/
   evals/
     framework/   # Eval orchestration (run-eval.js, judge.js, aggregate.js)
     specs/       # YAML eval specifications
-      skills/    # Skill A/B test specs
-      agents/    # Agent A/B test specs
+      dev-loop/  # PRIMARY: Full dev loop A/B tests (3 variants)
+      skills/    # Skill-specific isolation tests
+      agents/    # Agent routing tests
+      commands/  # Command workflow tests
     rubrics/     # Evaluation rubrics (code-quality.md, test-quality.md, error-handling.md)
     results/     # Eval output (gitignored)
 
