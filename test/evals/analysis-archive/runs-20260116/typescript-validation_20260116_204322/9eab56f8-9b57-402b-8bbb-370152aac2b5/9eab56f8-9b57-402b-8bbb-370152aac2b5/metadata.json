@@ -1,0 +1,13 @@
+{
+  "session_id": "9eab56f8-9b57-402b-8bbb-370152aac2b5",
+  "variant": "full-workflow",
+  "fixture": "variants/full/typescript-validation",
+  "start_time": "2026-01-16T20:43:22-08:00",
+  "prompt_preview": "",
+  "execution_mode": "local",
+  "timeout_seconds": 3600,
+  "framework_version": "1.0.0",
+  "workflow_mode": "prd-trd-implement",
+  "end_time": "2026-01-16T21:00:21-08:00",
+  "exit_code": 0
+}

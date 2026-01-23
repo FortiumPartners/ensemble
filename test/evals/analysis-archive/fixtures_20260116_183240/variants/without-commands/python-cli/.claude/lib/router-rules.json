@@ -1,0 +1,169 @@
+{
+  "version": "1.0.0",
+  "generated": "2024-01-15T00:00:00Z",
+  "description": "Router rules for ensemble-vnext with 12 streamlined agents",
+
+  "agent_categories": {
+    "product_documentation": {
+      "description": "PRD, TRD, documentation, and requirements management",
+      "triggers": [
+        "PRD", "TRD", "product requirements", "technical requirements",
+        "documentation", "docs", "requirements", "spec", "specification",
+        "user story", "stakeholder", "roadmap", "feature prioritization"
+      ],
+      "agents": [
+        {
+          "name": "product-manager",
+          "purpose": "Product lifecycle, requirements gathering, stakeholder alignment, PRD creation"
+        },
+        {
+          "name": "technical-architect",
+          "purpose": "TRD creation, architecture design, task breakdown, implementation planning"
+        }
+      ]
+    },
+
+    "orchestration": {
+      "description": "Execution planning and coordination",
+      "triggers": [
+        "plan", "schedule", "coordinate", "parallelize", "dependency",
+        "execution plan", "phase", "sprint", "milestone"
+      ],
+      "agents": [
+        {
+          "name": "spec-planner",
+          "purpose": "Execution planning, parallelization strategy, dependency management"
+        }
+      ]
+    },
+
+    "development": {
+      "description": "Code implementation across languages and frameworks",
+      "triggers": [
+        "implement", "code", "build", "create feature", "add feature",
+        "frontend", "backend", "mobile", "component", "endpoint", "API",
+        "react", "vue", "angular", "svelte", "node", "python", "ruby",
+        "flutter", "iOS", "android", "typescript", "javascript",
+        "server-side", "client-side", "UI", "UX"
+      ],
+      "agents": [
+        {
+          "name": "frontend-implementer",
+          "purpose": "UI components, state management, accessibility, performance optimization"
+        },
+        {
+          "name": "backend-implementer",
+          "purpose": "APIs, database integration, business logic, authentication"
+        },
+        {
+          "name": "mobile-implementer",
+          "purpose": "Flutter, React Native, native iOS/Android development"
+        }
+      ]
+    },
+
+    "quality_testing": {
+      "description": "Code review, testing, debugging, and quality assurance",
+      "triggers": [
+        "review", "test", "debug", "fix bug", "why is this failing",
+        "unit test", "integration test", "e2e test", "playwright",
+        "code review", "security", "performance", "coverage",
+        "failing", "error", "exception", "broken", "investigate",
+        "refactor", "simplify", "clean up"
+      ],
+      "agents": [
+        {
+          "name": "verify-app",
+          "purpose": "Test execution, coverage analysis, quality gate verification"
+        },
+        {
+          "name": "code-simplifier",
+          "purpose": "Post-verification refactoring, complexity reduction, DRY"
+        },
+        {
+          "name": "code-reviewer",
+          "purpose": "Security review, quality gates, DoD verification"
+        },
+        {
+          "name": "app-debugger",
+          "purpose": "Root cause analysis, bug reproduction, TDD-based resolution"
+        }
+      ]
+    },
+
+    "infrastructure_build": {
+      "description": "Infrastructure, deployment, CI/CD, and releases",
+      "triggers": [
+        "deploy", "release", "CI/CD", "pipeline", "docker", "kubernetes",
+        "helm", "staging", "production", "rollback", "infrastructure",
+        "AWS", "GCP", "Azure", "terraform", "cloud"
+      ],
+      "agents": [
+        {
+          "name": "devops-engineer",
+          "purpose": "Cloud infrastructure, Kubernetes, Helm, IaC"
+        },
+        {
+          "name": "cicd-specialist",
+          "purpose": "CI/CD pipelines, build automation, release management"
+        }
+      ]
+    }
+  },
+
+  "skills": {
+    "developing-with-react": {
+      "triggers": ["react", "react hook", "jsx", "tsx", "next.js", "nextjs"],
+      "patterns": ["react.*component", "use[A-Z].*hook"],
+      "purpose": "React 18+ development with hooks, state management, and Next.js"
+    },
+    "developing-with-python": {
+      "triggers": ["python", "fastapi", "django", "flask", "pydantic"],
+      "patterns": ["python.*app", "fastapi.*route"],
+      "purpose": "Python 3.11+ with type hints, async patterns, and FastAPI"
+    },
+    "developing-with-typescript": {
+      "triggers": ["typescript", "ts config", "type guard", "generics"],
+      "patterns": ["typescript.*config", "interface.*\\{"],
+      "purpose": "TypeScript 5.x with type system and strict mode patterns"
+    },
+    "jest": {
+      "triggers": ["jest", "jest test", "npm test", "vitest", "describe", "it", "expect"],
+      "patterns": ["run.*jest", "jest.*test"],
+      "purpose": "Execute and generate Jest tests for JavaScript/TypeScript"
+    },
+    "pytest": {
+      "triggers": ["pytest", "python test", "fixture", "parametrize"],
+      "patterns": ["run.*pytest", "pytest.*test"],
+      "purpose": "Execute and generate pytest tests for Python projects"
+    }
+  },
+
+  "injection_templates": {
+    "short_no_match": {
+      "description": "Short prompts with no matches",
+      "template": "Short prompt - review conversation context. If continuing established work, maintain the current approach. For new implementation tasks, delegate to a specialized subagent."
+    },
+    "agents_only": {
+      "description": "When agents match but no skills",
+      "template": "Delegate implementation to one of these subagents:\n{agent_list}\n\nYou are an orchestrator. Implementation belongs in subagents.\n\nRespond directly only for: clarifying questions, factual lookups, or pure conversation."
+    },
+    "agents_and_skills": {
+      "description": "When both agents and skills match",
+      "template": "Delegate to one of these subagents:\n{agent_list}\n\nPass these skills to the subagent: {skill_list}\n\nAppend to your Task prompt: \"Use the Skill tool to invoke [skill-name]. Report which skill(s) you used.\"\n\nSkip delegation ONLY if this is a purely informational request."
+    },
+    "skills_only": {
+      "description": "When skills match but no agents",
+      "template": "Use these skill(s) for this request: {skill_list}\n\nInvoke with: Skill(skill=\"[skill-name]\")\n\nIf delegating to a subagent, instruct them to invoke the skill."
+    },
+    "long_no_match": {
+      "description": "Longer prompts with no matches",
+      "template": "No specific agent/skill match found. If this involves implementation, consider delegating to an appropriate subagent. Respond directly for informational requests."
+    }
+  },
+
+  "routing_rules": {
+    "short_threshold_words": 5,
+    "case_insensitive": true
+  }
+}

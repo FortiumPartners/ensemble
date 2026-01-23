@@ -6,11 +6,12 @@
 # This script is extracted from init-project.md Step 3.
 #
 # Usage:
-#   ./scaffold-project.sh [--plugin-dir DIR] [--copy-skills] [project-directory]
+#   ./scaffold-project.sh [--plugin-dir DIR] [--copy-skills] [--force] [project-directory]
 #
 # Options:
 #   --plugin-dir DIR   Plugin directory containing agents, skills, hooks
 #   --copy-skills      Copy skills listed in .claude/selected-skills.txt
+#   --force            Overwrite existing files (for "Replace All" scenarios)
 #
 # If project-directory is not provided, uses current directory.
 #
@@ -26,6 +27,7 @@ TEMPLATES_DIR="${SCRIPT_DIR}/../templates"
 # Default values
 PLUGIN_DIR=""
 COPY_SKILLS=false
+FORCE=false
 PROJECT_DIR=""
 
 # Parse arguments
@@ -37,6 +39,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --copy-skills)
             COPY_SKILLS=true
+            shift
+            ;;
+        --force)
+            FORCE=true
             shift
             ;;
         -*)
@@ -92,17 +98,21 @@ create_dir() {
     fi
 }
 
-# Copy template file if it doesn't exist
+# Copy template file (overwrites if --force)
 copy_template() {
     local template="$1"
     local dest="$2"
     local template_path="${TEMPLATES_DIR}/${template}"
 
-    if [[ -f "$dest" ]]; then
+    if [[ -f "$dest" && "$FORCE" != "true" ]]; then
         info "File exists: $dest"
     elif [[ -f "$template_path" ]]; then
         cp "$template_path" "$dest"
-        info "Created from template: $dest"
+        if [[ "$FORCE" == "true" ]]; then
+            info "Replaced from template: $dest"
+        else
+            info "Created from template: $dest"
+        fi
     else
         warn "Template not found: $template_path"
     fi
@@ -128,11 +138,15 @@ copy_agents() {
         [[ -f "$agent" ]] || continue
         local basename
         basename="$(basename "$agent")"
-        if [[ -f "$dest/$basename" ]]; then
+        if [[ -f "$dest/$basename" && "$FORCE" != "true" ]]; then
             info "Agent exists: $basename"
         else
             cp "$agent" "$dest/"
-            info "Copied agent: $basename"
+            if [[ "$FORCE" == "true" && -f "$dest/$basename" ]]; then
+                info "Replaced agent: $basename"
+            else
+                info "Copied agent: $basename"
+            fi
             ((count++)) || true
         fi
     done
@@ -169,11 +183,15 @@ copy_commands() {
 
     local count=0
     for cmd in "${commands[@]}"; do
-        if [[ -f "$dest/$cmd" ]]; then
+        if [[ -f "$dest/$cmd" && "$FORCE" != "true" ]]; then
             info "Command exists: $cmd"
         elif [[ -f "$src/$cmd" ]]; then
             cp "$src/$cmd" "$dest/"
-            info "Copied command: $cmd"
+            if [[ "$FORCE" == "true" ]]; then
+                info "Replaced command: $cmd"
+            else
+                info "Copied command: $cmd"
+            fi
             ((count++)) || true
         else
             warn "Command not found: $cmd"
@@ -196,14 +214,53 @@ copy_global_router_rules() {
     local src="$PLUGIN_DIR/../router/lib/router-rules.json"
 
     if [[ -f "$src" ]]; then
-        if [[ -f "$dest/router-rules.json" ]]; then
+        if [[ -f "$dest/router-rules.json" && "$FORCE" != "true" ]]; then
             info "Global router rules exist: .claude/lib/router-rules.json"
         else
             cp "$src" "$dest/router-rules.json"
-            info "Copied global router rules to .claude/lib/router-rules.json"
+            if [[ "$FORCE" == "true" ]]; then
+                info "Replaced global router rules: .claude/lib/router-rules.json"
+            else
+                info "Copied global router rules to .claude/lib/router-rules.json"
+            fi
         fi
     else
         warn "Global router rules not found: $src"
+    fi
+}
+
+# Ensure all hook files have executable permissions
+ensure_hooks_executable() {
+    local hooks_dir="$1"
+
+    info "Ensuring hooks are executable..."
+
+    # List of hook files that need to be executable
+    local hook_files=(
+        "$hooks_dir/router.py"
+        "$hooks_dir/formatter.sh"
+        "$hooks_dir/learning.sh"
+        "$hooks_dir/status.js"
+        "$hooks_dir/wiggum.js"
+        "$hooks_dir/save-remote-logs.js"
+        "$hooks_dir/permitter/permitter.js"
+    )
+
+    local count=0
+    for hook in "${hook_files[@]}"; do
+        if [[ -f "$hook" ]]; then
+            if [[ ! -x "$hook" ]]; then
+                chmod +x "$hook"
+                info "Made executable: $(basename "$hook")"
+                ((count++)) || true
+            fi
+        fi
+    done
+
+    if [[ $count -gt 0 ]]; then
+        info "Made $count hooks executable"
+    else
+        info "All hooks already executable"
     fi
 }
 
@@ -223,9 +280,13 @@ copy_hooks() {
     if [[ -d "$permitter_src" ]]; then
         mkdir -p "$dest/permitter/lib"
         if [[ -f "$permitter_src/hooks/permitter.js" ]]; then
-            if [[ ! -f "$dest/permitter/permitter.js" ]]; then
+            if [[ ! -f "$dest/permitter/permitter.js" || "$FORCE" == "true" ]]; then
                 cp "$permitter_src/hooks/permitter.js" "$dest/permitter/"
-                info "Copied hook: permitter/permitter.js"
+                if [[ "$FORCE" == "true" ]]; then
+                    info "Replaced hook: permitter/permitter.js"
+                else
+                    info "Copied hook: permitter/permitter.js"
+                fi
                 ((count++)) || true
             else
                 info "Hook exists: permitter/permitter.js"
@@ -236,9 +297,13 @@ copy_hooks() {
             [[ -f "$lib" ]] || continue
             local basename
             basename="$(basename "$lib")"
-            if [[ ! -f "$dest/permitter/lib/$basename" ]]; then
+            if [[ ! -f "$dest/permitter/lib/$basename" || "$FORCE" == "true" ]]; then
                 cp "$lib" "$dest/permitter/lib/"
-                info "Copied lib: permitter/lib/$basename"
+                if [[ "$FORCE" == "true" ]]; then
+                    info "Replaced lib: permitter/lib/$basename"
+                else
+                    info "Copied lib: permitter/lib/$basename"
+                fi
             fi
         done
     fi
@@ -246,9 +311,13 @@ copy_hooks() {
     # Router hook
     local router_src="$PLUGIN_DIR/../router/hooks/router.py"
     if [[ -f "$router_src" ]]; then
-        if [[ ! -f "$dest/router.py" ]]; then
+        if [[ ! -f "$dest/router.py" || "$FORCE" == "true" ]]; then
             cp "$router_src" "$dest/"
-            info "Copied hook: router.py"
+            if [[ "$FORCE" == "true" ]]; then
+                info "Replaced hook: router.py"
+            else
+                info "Copied hook: router.py"
+            fi
             ((count++)) || true
         else
             info "Hook exists: router.py"
@@ -259,9 +328,13 @@ copy_hooks() {
     local core_hooks="$PLUGIN_DIR/../core/hooks"
     for hook in formatter.sh learning.sh status.js wiggum.js save-remote-logs.js; do
         if [[ -f "$core_hooks/$hook" ]]; then
-            if [[ ! -f "$dest/$hook" ]]; then
+            if [[ ! -f "$dest/$hook" || "$FORCE" == "true" ]]; then
                 cp "$core_hooks/$hook" "$dest/"
-                info "Copied hook: $hook"
+                if [[ "$FORCE" == "true" ]]; then
+                    info "Replaced hook: $hook"
+                else
+                    info "Copied hook: $hook"
+                fi
                 ((count++)) || true
             else
                 info "Hook exists: $hook"
@@ -270,6 +343,9 @@ copy_hooks() {
     done
 
     info "Copied $count hooks"
+
+    # Ensure all hooks are executable
+    ensure_hooks_executable "$dest"
 }
 
 # Copy skills from plugin directory based on selection file
@@ -302,11 +378,18 @@ copy_skills() {
         skill="${skill// /}"
 
         if [[ -d "$src/$skill" ]]; then
-            if [[ -d "$dest/$skill" ]]; then
+            if [[ -d "$dest/$skill" && "$FORCE" != "true" ]]; then
                 info "Skill exists: $skill"
             else
+                if [[ "$FORCE" == "true" && -d "$dest/$skill" ]]; then
+                    rm -rf "$dest/$skill"
+                fi
                 cp -r "$src/$skill" "$dest/"
-                info "Copied skill: $skill"
+                if [[ "$FORCE" == "true" ]]; then
+                    info "Replaced skill: $skill"
+                else
+                    info "Copied skill: $skill"
+                fi
                 ((count++)) || true
             fi
         else
@@ -340,6 +423,11 @@ scaffold_project() {
     echo "========================================"
     echo ""
     echo "Target Directory: $(pwd)"
+    if [[ "$FORCE" == "true" ]]; then
+        echo "Mode: FORCE (overwriting existing files)"
+    else
+        echo "Mode: Safe (preserving existing files)"
+    fi
     echo ""
 
     # Create .claude/ directory structure

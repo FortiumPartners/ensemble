@@ -1,6 +1,6 @@
-# Ensemble vNext Technology Stack
+# ensemble-vnext Technology Stack
 
-Technology stack definition for the Ensemble vNext plugin development project.
+Technology stack definition for Claude Code Plugin Development.
 
 ---
 
@@ -16,56 +16,71 @@ Technology stack definition for the Ensemble vNext plugin development project.
 
 ## Core Technologies
 
-### Prompt Engineering
+### Languages
 
-| Component | Format | Location |
-|-----------|--------|----------|
-| Skills | Markdown with frontmatter | `.claude/skills/<name>/SKILL.md` |
-| Agents | Markdown with YAML frontmatter | `.claude/agents/*.md` |
-| Commands | Markdown with YAML frontmatter | `.claude/commands/*.md` |
-| Rules | Plain Markdown | `.claude/rules/*.md` |
+| Purpose | Language | Version |
+|---------|----------|---------|
+| Hook development | JavaScript/Node.js | 18+ |
+| Router hook | Python | 3.x |
+| Integration tests | Shell/BATS | 1.9+ |
+| Prompts, skills, agents | Markdown | N/A |
+| Configuration | JSON/YAML | N/A |
 
-### Hook Development
+### Frameworks
 
-| Technology | Purpose | Notes |
-|------------|---------|-------|
-| Node.js | Hook executables | Primary hook runtime |
-| Shell (Bash) | Simple scripts, scaffolding | Deterministic operations |
-| Python | Router hook (legacy) | Future refactor to Node.js planned |
+| Category | Framework | Version |
+|----------|-----------|---------|
+| Testing (JS) | Jest | ^29.7.0 |
+| Testing (Shell) | BATS | ^1.9.0 |
+| Testing (Python) | pytest | ^7.0.0 |
 
-### Configuration
+### Database
 
-| Format | Use Case |
-|--------|----------|
-| JSON | `settings.json`, status files, `.mcp.json` |
-| YAML | Frontmatter in Markdown files |
-| Markdown | Documentation, prompts |
+N/A - This is a plugin development project without database requirements.
 
 ---
 
 ## Development Tools
 
-### Version Control
-
-- **Git** - Source control and state coordination
-- Branch naming: `<issue-id>-<session-name>`
-
-### Testing
-
-| Type | Approach |
-|------|----------|
-| Manual verification | Primary testing method |
-| Session log review | Verify agent/skill invocation |
-| Unit tests | Hooks and utility scripts only |
-| CLI automation | `claude --prompt "..." --dangerously-skip-permissions` |
-
-### Code Quality
+### Package Management
 
 | Tool | Purpose |
 |------|---------|
-| Prettier | Markdown, JSON, YAML formatting |
-| ESLint | JavaScript/Node.js linting |
-| ShellCheck | Shell script linting |
+| npm | JavaScript dependencies |
+| pip/uv | Python dependencies |
+
+### Testing
+
+| Type | Framework | Config |
+|------|-----------|--------|
+| Unit (JS) | Jest | jest.config.js |
+| Unit (Python) | pytest | pytest.ini |
+| Integration | BATS | test/integration/ |
+| Eval Framework | Custom | test/evals/framework/ |
+
+### Code Quality
+
+| Tool | Purpose | Config |
+|------|---------|--------|
+| Prettier | Markdown, JSON, YAML formatting | .prettierrc |
+| ESLint | JavaScript linting | .eslintrc |
+| ShellCheck | Shell script linting | N/A |
+
+---
+
+## Infrastructure
+
+### Hosting
+
+| Service | Purpose |
+|---------|---------|
+| GitHub | Source control, CI/CD |
+
+### CI/CD
+
+| Platform | Purpose |
+|----------|---------|
+| GitHub Actions | Automated testing |
 
 ---
 
@@ -76,10 +91,11 @@ Technology stack definition for the Ensemble vNext plugin development project.
 - Claude Code CLI (latest)
 - Node.js 18+ (for hooks)
 - Git 2.x+ (for version control)
+- Python 3.x (for router hook)
 
 ### Optional
 
-- Python 3.x (for legacy router hook)
+- jq (for JSON parsing in scripts)
 - OpenTelemetry (for execution tracing)
 
 ---
@@ -105,9 +121,12 @@ Skills are compiled from the plugin library based on this stack definition.
 - Claude Code plugin development
 - Testing strategies for non-deterministic systems
 
-### Optional Skills (Project-Dependent)
+### Stack-Specific Skills
 
-Selected based on target project's technology stack during `/init-project`.
+- jest - JavaScript testing
+- pytest - Python testing
+- developing-with-python - Python patterns
+- developing-with-typescript - TypeScript patterns
 
 ---
 
@@ -122,11 +141,20 @@ Selected based on target project's technology stack during `/init-project`.
   rules/        # constitution.md, stack.md, process.md
   settings.json # Committed configuration
 
+packages/
+  core/         # Templates, commands, hooks
+  full/         # Complete plugin distribution
+  permitter/    # Permission hook
+  router/       # Routing hook
+  skills/       # Skill library
+
 docs/
   PRD/          # Product Requirements Documents
   TRD/          # Technical Requirements Documents
-  standards/    # Symlinked governance docs
-  templates/    # Document templates
+
+test/
+  integration/  # BATS integration tests
+  evals/        # Eval framework
 
 .trd-state/     # Implementation tracking (git-tracked)
 ```
@@ -134,3 +162,4 @@ docs/
 ---
 
 *This stack definition is maintained by the user and drives skill selection during project initialization.*
+*Generated by /init-project on 2026-01-22*

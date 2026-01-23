@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(/home/james/dev/ensemble/**)"
+    ]
+  },
+  "env": {
+    "ENSEMBLE_SAVE_REMOTE_LOGS": "1"
+  }
+}

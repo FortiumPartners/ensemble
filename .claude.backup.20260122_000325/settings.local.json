@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:threadreaderapp.com)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "WebFetch(domain:subagents.cc)",
+      "Bash(PRESERVE_TEST_DIR=true bats:*)",
+      "WebFetch(domain:www.eesel.ai)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(done)",
+      "Bash(./test/evals/framework/run-session.sh:*)",
+      "Bash(claude:*)",
+      "Bash(./test/evals/framework/score-sessions.sh:*)"
+    ]
+  }
+}

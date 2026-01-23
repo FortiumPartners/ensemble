@@ -47,5 +47,7 @@ test/evals/results/
 .claude-sessions/logs/*.tmp
 
 # Environment files with secrets
+.env
 test/.env
 .env.local
+.env.*.local

@@ -236,11 +236,26 @@ Options:
 
 ### Step 3: Create Directory Structure and Copy Plugin Content
 
-**Execute the scaffold script deterministically using shell commands:**
+**Execute the scaffold script using Bash tool:**
 
-Run a single combined command to resolve the plugin path and execute the scaffold script:
+Find the plugin path and run the scaffold script. The plugin path can be determined by:
+1. Environment variable `ENSEMBLE_PLUGIN_DIR` (if set)
+2. The `packages/full` directory within the ensemble-vnext project
+3. The installed plugin path from `~/.claude/plugins/installed_plugins.json`
 
-- Scaffold project: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; echo "Plugin path: $PLUGIN_PATH"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
+**Run the scaffold script:**
+```bash
+# Determine plugin path (adjust based on context)
+# For ensemble-vnext development: packages/full
+# For installed plugin: check ~/.claude/plugins/installed_plugins.json
+
+PLUGIN_DIR="/path/to/packages/full"  # Set this to the actual plugin path
+
+# Run scaffold script
+"${PLUGIN_DIR}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" .
+```
+
+The scaffold script is located at `packages/core/scripts/scaffold-project.sh` (symlinked from `packages/full/scripts/`).
 
 **The scaffold script creates:**
 - All `.claude/` subdirectories (agents, rules, skills, commands, hooks)
@@ -444,7 +459,10 @@ Check that these commands exist in `.claude/commands/`:
 - `cleanup-project.md`
 - `fold-prompt.md`
 
-If any are missing, re-run the scaffold: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
+If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
+```bash
+PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" --force .
+```
 
 </command-deployment>
 
@@ -462,7 +480,10 @@ Check these hooks in `.claude/hooks/`:
 5. **Wiggum Hook** - `.claude/hooks/wiggum.js`
 6. **Learning Hook** - `.claude/hooks/learning.sh`
 
-If any are missing, re-run the scaffold: !`PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-$(cat /tmp/.ensemble-test/plugin-path 2>/dev/null || jq -r '.plugins | to_entries[] | select(.key | startswith("ensemble")) | .value[0].installPath' ~/.claude/plugins/installed_plugins.json 2>/dev/null)}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" .`
+If any are missing, re-run the scaffold (use `--force` to overwrite existing files):
+```bash
+PLUGIN_PATH="${ENSEMBLE_PLUGIN_DIR:-${CLAUDE_PLUGIN_ROOT:-...}}"; "${PLUGIN_PATH}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_PATH" --force .
+```
 
 </hook-deployment>
 
@@ -799,8 +820,13 @@ Options:
 
 **On "Replace All":**
 1. Create backup at `.claude.backup.<timestamp>/`
-2. Remove existing `.claude/` directory
+2. Remove existing `.claude/` directory (or use `--force` flag with scaffold)
 3. Continue with normal initialization
+
+**Important:** If you cannot delete the directory first, use `--force`:
+```bash
+"${PLUGIN_DIR}/scripts/scaffold-project.sh" --plugin-dir "$PLUGIN_DIR" --force .
+```
 
 **On "Preserve Rules":**
 1. Backup existing `.claude/rules/` to `.claude.rules.backup.<timestamp>/`

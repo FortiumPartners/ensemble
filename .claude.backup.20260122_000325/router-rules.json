@@ -1,0 +1,19 @@
+{
+  "version": "1.0.0",
+  "description": "Project-specific routing rules. Run /generate-project-router-rules to populate based on detected tech stack.",
+
+  "skill_mappings": {
+  },
+
+  "triggers": {
+  },
+
+  "skills": {
+  },
+
+  "custom_agents": {
+  },
+
+  "project_context": {
+  }
+}

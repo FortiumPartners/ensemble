@@ -1,0 +1,21 @@
+# Ensemble Runtime - Local Settings
+.claude/settings.local.json
+*.local.*
+*.local.json
+
+# Environment files with secrets
+.env
+.env.local
+.env.*.local
+
+# Node.js
+node_modules/
+dist/
+coverage/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
