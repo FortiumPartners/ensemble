@@ -1,0 +1,55 @@
+metadata:
+  name: ensemble:generate-api-docs
+  description: Generate comprehensive OpenAPI/Swagger API documentation from codebase
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: documentation
+  output_path: ensemble/generate-api-docs.md
+  source: fortium
+
+constraints:
+  - DO NOT modify, refactor, or change any code in the codebase
+  - This command ONLY generates documentation from existing code
+  - It reads and documents APIs but does not alter them
+  - If documentation reveals issues, document them but do not fix them without explicit user approval
+
+mission:
+  summary: |
+    Generate comprehensive API documentation from codebase analysis, including OpenAPI/Swagger
+    specifications, endpoint descriptions, request/response examples, and error documentation.
+
+workflow:
+  phases:
+    - name: API Discovery
+      order: 1
+      steps:
+        - order: 1
+          title: Endpoint Scanning
+          description: Scan codebase for API endpoints
+        
+        - order: 2
+          title: Schema Extraction
+          description: Extract request/response schemas
+    
+    - name: Documentation Generation
+      order: 2
+      steps:
+        - order: 1
+          title: OpenAPI Generation
+          description: Generate OpenAPI 3.0 specification
+          delegation:
+            agent: api-documentation-specialist
+            context: Discovered endpoints and schemas
+        
+        - order: 2
+          title: Example Creation
+          description: Create request/response examples
+
+expectedOutput:
+  format: OpenAPI 3.0 Specification
+  structure:
+    - name: openapi.yaml
+      description: Complete OpenAPI specification
+    
+    - name: API Documentation
+      description: Human-readable API documentation

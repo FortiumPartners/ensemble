@@ -1,0 +1,229 @@
+{
+  "name": "ensemble",
+  "version": "5.0.0",
+  "description": "Official Fortium Ensemble plugin marketplace - AI-augmented development workflows",
+  "owner": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "homepage": "https://github.com/FortiumPartners/ensemble",
+  "categories": [
+    {
+      "id": "core",
+      "name": "Core & Foundation",
+      "description": "Essential plugins for ensemble functionality"
+    },
+    {
+      "id": "workflow",
+      "name": "Workflow & Process",
+      "description": "Development workflow automation"
+    },
+    {
+      "id": "frameworks",
+      "name": "Framework Support",
+      "description": "Language and framework-specific skills"
+    },
+    {
+      "id": "testing",
+      "name": "Testing Frameworks",
+      "description": "Test framework integrations"
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "description": "Productivity and monitoring tools"
+    }
+  ],
+  "plugins": [
+    {
+      "name": "ensemble-core",
+      "version": "5.0.0",
+      "source": "./packages/core",
+      "description": "Core utilities including framework detection and XDG-compliant configuration",
+      "category": "core",
+      "tags": ["core", "framework-detection", "config"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-product",
+      "version": "5.0.0",
+      "source": "./packages/product",
+      "description": "Product management workflows - PRD and TRD creation",
+      "category": "workflow",
+      "tags": ["product", "prd", "trd", "requirements"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-development",
+      "version": "5.0.0",
+      "source": "./packages/development",
+      "description": "Development workflow orchestration and best practices",
+      "category": "workflow",
+      "tags": ["development", "workflow", "orchestration"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-quality",
+      "version": "5.0.0",
+      "source": "./packages/quality",
+      "description": "Quality assurance and code review workflows",
+      "category": "workflow",
+      "tags": ["quality", "testing", "code-review"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-infrastructure",
+      "version": "5.0.0",
+      "source": "./packages/infrastructure",
+      "description": "Infrastructure and DevOps workflows",
+      "category": "workflow",
+      "tags": ["infrastructure", "devops", "deployment"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-git",
+      "version": "5.0.0",
+      "source": "./packages/git",
+      "description": "Git workflow automation and best practices",
+      "category": "workflow",
+      "tags": ["git", "version-control", "commits"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-e2e-testing",
+      "version": "5.0.0",
+      "source": "./packages/e2e-testing",
+      "description": "End-to-end testing workflows with Playwright",
+      "category": "testing",
+      "tags": ["e2e", "playwright", "testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-metrics",
+      "version": "5.0.0",
+      "source": "./packages/metrics",
+      "description": "Development metrics and analytics",
+      "category": "utilities",
+      "tags": ["metrics", "analytics", "productivity"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-react",
+      "version": "5.0.0",
+      "source": "./packages/react",
+      "description": "React framework skills and patterns",
+      "category": "frameworks",
+      "tags": ["react", "frontend", "javascript"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-nestjs",
+      "version": "5.0.0",
+      "source": "./packages/nestjs",
+      "description": "NestJS backend framework skills",
+      "category": "frameworks",
+      "tags": ["nestjs", "backend", "typescript"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-rails",
+      "version": "5.0.0",
+      "source": "./packages/rails",
+      "description": "Ruby on Rails framework skills",
+      "category": "frameworks",
+      "tags": ["rails", "ruby", "backend"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-phoenix",
+      "version": "5.0.0",
+      "source": "./packages/phoenix",
+      "description": "Phoenix/Elixir framework skills",
+      "category": "frameworks",
+      "tags": ["phoenix", "elixir", "backend"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-blazor",
+      "version": "5.0.0",
+      "source": "./packages/blazor",
+      "description": "Blazor/.NET framework skills",
+      "category": "frameworks",
+      "tags": ["blazor", "dotnet", "csharp"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-jest",
+      "version": "5.0.0",
+      "source": "./packages/jest",
+      "description": "Jest testing framework skills",
+      "category": "testing",
+      "tags": ["jest", "javascript", "unit-testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-pytest",
+      "version": "5.0.0",
+      "source": "./packages/pytest",
+      "description": "Pytest testing framework skills",
+      "category": "testing",
+      "tags": ["pytest", "python", "unit-testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-rspec",
+      "version": "5.0.0",
+      "source": "./packages/rspec",
+      "description": "RSpec testing framework skills",
+      "category": "testing",
+      "tags": ["rspec", "ruby", "unit-testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-xunit",
+      "version": "5.0.0",
+      "source": "./packages/xunit",
+      "description": "xUnit testing framework skills for .NET",
+      "category": "testing",
+      "tags": ["xunit", "dotnet", "unit-testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-exunit",
+      "version": "5.0.0",
+      "source": "./packages/exunit",
+      "description": "ExUnit testing framework skills for Elixir",
+      "category": "testing",
+      "tags": ["exunit", "elixir", "unit-testing"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-pane-viewer",
+      "version": "5.0.0",
+      "source": "./packages/pane-viewer",
+      "description": "Real-time subagent monitoring in terminal panes",
+      "category": "utilities",
+      "tags": ["monitoring", "terminal", "panes"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-task-progress-pane",
+      "version": "5.0.0",
+      "source": "./packages/task-progress-pane",
+      "description": "Real-time task progress visualization for TodoWrite operations",
+      "category": "utilities",
+      "tags": ["progress", "todowrite", "terminal"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    },
+    {
+      "name": "ensemble-full",
+      "version": "5.0.0",
+      "source": "./packages/full",
+      "description": "Complete Ensemble suite - all plugins in one package",
+      "category": "core",
+      "tags": ["full", "complete", "bundle"],
+      "author": {"name": "Fortium Partners", "url": "https://github.com/FortiumPartners"}
+    }
+  ]
+}

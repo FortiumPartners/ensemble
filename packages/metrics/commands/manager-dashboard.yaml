@@ -1,0 +1,61 @@
+metadata:
+  name: ensemble:manager-dashboard
+  description: Generate real-time productivity metrics and team analytics dashboard
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: analysis
+  output_path: ensemble/manager-dashboard.md
+  source: fortium
+
+mission:
+  summary: |
+    Generate a comprehensive management dashboard with real-time productivity metrics,
+    team analytics, sprint progress, and actionable insights for engineering managers
+    and technical leads.
+
+workflow:
+  phases:
+    - name: Data Collection
+      order: 1
+      steps:
+        - order: 1
+          title: Metrics Gathering
+          description: Collect productivity metrics from all sources
+          actions:
+            - Git commit history
+            - Test coverage reports
+            - Sprint task completion
+            - Code review metrics
+    
+    - name: Analysis
+      order: 2
+      steps:
+        - order: 1
+          title: Trend Analysis
+          description: Analyze productivity trends over time
+        
+        - order: 2
+          title: Insight Generation
+          description: Generate actionable insights
+    
+    - name: Dashboard Generation
+      order: 3
+      steps:
+        - order: 1
+          title: Dashboard Creation
+          description: Generate HTML/Markdown dashboard
+          delegation:
+            agent: manager-dashboard-agent
+            context: Collected metrics and analysis results
+
+expectedOutput:
+  format: Interactive Dashboard
+  structure:
+    - name: Productivity Metrics
+      description: Development velocity, error rates, automation coverage
+    
+    - name: Team Analytics
+      description: Individual and team performance metrics
+    
+    - name: Sprint Progress
+      description: Current sprint status and burndown

@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ensemble-product",
+  "version": "5.2.1",
+  "description": "Product management agents and workflows (PRD creation, analysis)",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "product",
+    "prd",
+    "planning",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/product"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ensemble-core": "^4.0.0"
+  }
+}

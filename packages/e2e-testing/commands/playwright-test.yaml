@@ -1,0 +1,75 @@
+metadata:
+  name: ensemble:playwright-test
+  description: Automated E2E testing and error resolution using Playwright MCP integration
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: testing
+  output_path: ensemble/playwright-test.md
+  source: fortium
+
+mission:
+  summary: |
+    Automated application testing and error resolution using Playwright MCP server
+    integration. Generates test specs, executes tests, captures failures, and provides
+    debugging context for quick resolution.
+
+workflow:
+  phases:
+    - name: Test Planning
+      order: 1
+      steps:
+        - order: 1
+          title: User Flow Identification
+          description: Identify critical user flows to test
+        
+        - order: 2
+          title: Test Spec Generation
+          description: Generate Playwright test specifications
+    
+    - name: Test Execution
+      order: 2
+      steps:
+        - order: 1
+          title: Test Run
+          description: Execute Playwright tests with trace capture
+          delegation:
+            agent: playwright-tester
+            context: Test specifications and target application URL
+        
+        - order: 2
+          title: Result Analysis
+          description: Analyze test results and capture failures
+    
+    - name: Error Resolution
+      order: 3
+      steps:
+        - order: 1
+          title: Failure Diagnosis
+          description: Analyze failure screenshots and traces
+        
+        - order: 2
+          title: Fix Implementation
+          description: Implement fixes for identified issues
+
+expectedInput:
+  format: Application URL or Test Configuration
+  sections:
+    - name: Application URL
+      required: true
+      description: URL of application to test
+    
+    - name: User Flows
+      required: false
+      description: Specific flows to test
+
+expectedOutput:
+  format: Test Results and Traces
+  structure:
+    - name: Test Report
+      description: Pass/fail status for all tests
+    
+    - name: Traces
+      description: Playwright traces for failed tests
+    
+    - name: Screenshots
+      description: Failure screenshots for debugging

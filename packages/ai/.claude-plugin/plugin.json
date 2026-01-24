@@ -1,0 +1,23 @@
+{
+  "name": "ensemble-ai",
+  "version": "5.2.1",
+  "description": "AI SDK skills for OpenAI, and other AI providers for Claude Code",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "openai",
+    "ai",
+    "gpt",
+    "llm",
+    "embeddings",
+    "agents",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
+}

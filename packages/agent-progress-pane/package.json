@@ -1,0 +1,33 @@
+{
+  "name": "@fortium/ensemble-agent-progress-pane",
+  "version": "5.2.2",
+  "description": "Real-time agent progress visualization in terminal panes",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "if [ \"$CI\" = \"true\" ]; then echo 'Skipping tests in CI (require multiplexer)'; exit 0; else jest --passWithNoTests; fi",
+    "test:coverage": "jest --coverage",
+    "test:local": "jest --passWithNoTests",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "agent",
+    "progress",
+    "monitoring",
+    "terminal",
+    "panes",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/agent-progress-pane"
+  },
+  "dependencies": {
+    "@fortium/ensemble-multiplexer-adapters": "file:../multiplexer-adapters"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

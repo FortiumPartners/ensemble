@@ -1,0 +1,20 @@
+{
+  "name": "ensemble-permitter",
+  "version": "5.2.1",
+  "description": "Smart permission expansion hook for Claude Code - semantic command matching",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "permissions",
+    "hooks",
+    "security",
+    "bash",
+    "allowlist",
+    "ensemble"
+  ]
+}

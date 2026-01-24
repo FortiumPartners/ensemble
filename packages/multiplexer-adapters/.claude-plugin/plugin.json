@@ -1,0 +1,11 @@
+{
+  "name": "ensemble-multiplexer-adapters",
+  "version": "5.1.0",
+  "description": "Shared terminal multiplexer adapters for Ensemble plugins",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/FortiumPartners/ensemble"
+}

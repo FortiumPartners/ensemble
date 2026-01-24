@@ -1,0 +1,20 @@
+{
+  "name": "ensemble-rails",
+  "version": "5.1.0",
+  "description": "Ruby on Rails backend framework skills",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "rails",
+    "ruby",
+    "backend",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
+}

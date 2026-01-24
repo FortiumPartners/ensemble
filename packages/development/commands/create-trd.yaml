@@ -1,0 +1,315 @@
+metadata:
+  name: ensemble:create-trd
+  description: |
+    Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: planning
+  output_path: ensemble/create-trd.md
+  source: fortium
+
+constraints:
+  - DO NOT implement, build, or execute any technical work described in the requirements
+  - This command creates ONLY a TRD document
+  - The arguments describe what should be documented, not what should be built
+  - After creating the TRD, stop and wait for user approval before any implementation
+
+mission:
+  summary: |
+    This command takes a comprehensive Product Requirements Document (PRD) $ARGUMENTS and delegates to
+    @tech-lead-orchestrator via @ensemble-orchestrator for technical planning, architecture design,
+    and implementation breakdown. All outputs are automatically saved to @docs/TRD/ directory.
+
+workflow:
+  phases:
+    - name: PRD Analysis & Validation
+      order: 1
+      steps:
+        - order: 1
+          title: PRD Ingestion
+          description: Parse and analyze existing PRD document $ARGUMENTS
+          actions:
+            - Read PRD file from specified path
+            - Validate document structure
+            - Extract key requirements
+
+        - order: 2
+          title: Requirements Validation
+          description: Ensure completeness of functional and non-functional requirements
+          actions:
+            - Validate all required sections present
+            - Check acceptance criteria are testable
+            - Verify constraints are documented
+
+        - order: 3
+          title: Acceptance Criteria Review
+          description: Validate testable acceptance criteria
+
+        - order: 4
+          title: Context Preparation
+          description: Prepare PRD for technical planning delegation
+
+    - name: Agent Mesh Delegation
+      order: 2
+      steps:
+        - order: 1
+          title: Ensemble Orchestrator
+          description: Route validated PRD to @ensemble-orchestrator
+          delegation:
+            agent: ensemble-orchestrator
+            context: Validated PRD with acceptance criteria
+
+        - order: 2
+          title: Tech Lead Orchestrator
+          description: Delegate technical planning and architecture design
+          delegation:
+            agent: tech-lead-orchestrator
+            context: Product requirements requiring technical translation
+
+        - order: 3
+          title: TRD Generation
+          description: Generate Technical Requirements Document (TRD)
+
+        - order: 4
+          title: Task Breakdown
+          description: Create actionable development tasks with estimates and checkboxes
+
+        - order: 5
+          title: Implementation Planning
+          description: Develop sprint planning with trackable task lists
+
+    - name: MCP Enhancement (Optional)
+      order: 3
+      description: |
+        Optionally use TRD Workflow MCP server tools to enhance TRD generation.
+        Falls back to manual generation if MCP server unavailable.
+      steps:
+        - order: 1
+          title: Check MCP Availability
+          description: Detect if TRD Workflow MCP server is registered and available
+          actions:
+            - Check ~/.claude/mcp/config.json for trd-workflow server
+            - Validate server installation exists
+            - Proceed with MCP tools if available, otherwise skip to manual generation
+
+        - order: 2
+          title: Inject Checkpoints (MCP)
+          description: Use inject_checkpoints tool to add review/validation checkpoints
+          mcp_tool:
+            name: inject_checkpoints
+            usage: |
+              Automatically inject checkpoint tasks into task breakdown:
+              - After major milestones
+              - Before deployments
+              - At integration points
+            fallback: Manually add checkpoint tasks using project patterns
+
+        - order: 3
+          title: Assess Complexity (MCP)
+          description: Use assess_complexity tool to analyze task breakdown
+          mcp_tool:
+            name: assess_complexity
+            usage: |
+              Analyze overall project complexity:
+              - Estimate total hours
+              - Identify high-risk tasks
+              - Suggest sprint organization
+            fallback: Manually estimate complexity based on task estimates
+
+        - order: 4
+          title: Generate Workflow Section (MCP)
+          description: Use generate_workflow_section tool to create execution workflow
+          mcp_tool:
+            name: generate_workflow_section
+            usage: |
+              Generate comprehensive workflow markdown:
+              - Sprint-by-sprint execution plan
+              - Task dependencies and ordering
+              - Checkbox tracking for progress
+            fallback: Manually structure workflow using TRD template patterns
+
+    - name: Output Management
+      order: 4
+      steps:
+        - order: 1
+          title: TRD Creation
+          description: Generate comprehensive TRD document with project-specific naming
+
+        - order: 2
+          title: File Organization
+          description: Save to @docs/TRD/ directory with descriptive filename
+
+        - order: 3
+          title: Version Control
+          description: Include timestamp and PRD reference for traceability
+
+        - order: 4
+          title: Documentation Links
+          description: Update cross-references between PRD and TRD documents
+
+expectedInput:
+  format: Product Requirements Document (PRD)
+  sections:
+    - name: Product Summary
+      required: true
+      description: Problem statement, solution overview, value proposition
+
+    - name: User Analysis
+      required: true
+      description: Primary users, personas, pain points, user journey
+
+    - name: Goals & Non-Goals
+      required: true
+      description: Primary objectives, success criteria, scope boundaries
+
+    - name: Technical Requirements
+      required: true
+      description: Functional and non-functional requirements
+
+    - name: Acceptance Criteria
+      required: true
+      description: Measurable success criteria with test scenarios
+
+    - name: Implementation Planning
+      required: false
+      description: Phases, timeline, constraints
+
+    - name: Risk Assessment
+      required: false
+      description: Technical and business risks with mitigation strategies
+
+expectedOutput:
+  format: Technical Requirements Document (TRD)
+  structure:
+    - name: Master Task List
+      description: Comprehensive task tracking with unique task IDs, dependencies, and completion tracking
+
+    - name: System Architecture
+      description: Component design, data flow, and integration points
+
+    - name: Sprint Planning
+      description: Organized development phases with task references and dependencies
+
+    - name: Acceptance Criteria
+      description: Technical validation criteria with checkbox tracking
+
+    - name: Quality Requirements
+      description: Security, performance, accessibility, and testing standards
+
+mcp_integration:
+  enabled: true
+  description: |
+    TRD Workflow MCP server integration for enhanced TRD generation.
+    Automatically detects MCP server availability and uses tools when possible.
+    Gracefully falls back to manual workflows if server unavailable.
+
+  tools:
+    - name: inject_checkpoints
+      description: Inject checkpoint tasks into task breakdown
+      usage: |
+        Use to automatically add review/validation checkpoints:
+        - After major milestones (every 3-5 tasks)
+        - Before deployments or releases
+        - At integration points between systems
+        Example: callInjectCheckpoints({ tasks: [...] })
+      input:
+        taskBreakdown: Task breakdown object with tasks array
+        checkpointStrategy: smart | milestone | fixed
+      output: Enhanced breakdown with checkpoint tasks injected
+      timeout: 2000ms
+      fallback: Manually insert checkpoint tasks using project patterns
+
+    - name: generate_workflow_section
+      description: Generate execution workflow section for TRD
+      usage: |
+        Use to create comprehensive workflow markdown:
+        - Sprint-by-sprint execution plan
+        - Task dependencies and ordering
+        - Checkbox tracking for progress monitoring
+        Example: callGenerateWorkflow({ productName, sprints })
+      input:
+        trdContext: Context object with product name and sprint breakdown
+        includeCheckboxes: Boolean to include task checkboxes
+      output: Formatted workflow markdown ready for TRD inclusion
+      timeout: 2000ms
+      fallback: Generate workflow manually using TRD template structure
+
+    - name: assess_complexity
+      description: Analyze complexity of task breakdown
+      usage: |
+        Use to get complexity insights:
+        - Overall project complexity score
+        - Total estimated hours
+        - High-risk task identification
+        - Sprint organization suggestions
+        Example: callAssessComplexity({ tasks: [...] })
+      input:
+        taskBreakdown: Task breakdown with estimates
+      output: Complexity assessment with metrics and recommendations
+      timeout: 2000ms
+      fallback: Manual complexity estimation from task hour estimates
+
+    - name: detect_task_types
+      description: Detect and categorize task types
+      usage: Categorize tasks by type (setup, feature, testing, documentation)
+      input:
+        taskBreakdown: Task breakdown object
+      output: Task categorization with type distribution
+      timeout: 2000ms
+      fallback: Manual task categorization
+
+    - name: generate_delegation_patterns
+      description: Generate agent delegation patterns
+      usage: Create delegation section showing which agents handle which tasks
+      input:
+        taskBreakdown: Task breakdown with agent assignments
+      output: Delegation patterns markdown
+      timeout: 2000ms
+      fallback: Manual delegation pattern documentation
+
+    - name: validate_trd_structure
+      description: Validate TRD structure and completeness
+      usage: |
+        Use to validate generated TRD:
+        - Check all required sections present
+        - Validate task ID format and uniqueness
+        - Verify acceptance criteria completeness
+        Example: callValidateTRD(trdMarkdown)
+      input:
+        trdContent: Complete TRD markdown content
+      output: Validation result with errors/warnings
+      timeout: 2000ms
+      fallback: Manual TRD structure validation
+
+  implementation:
+    check_availability: |
+      Use checkMCPServerAvailable() to detect if TRD Workflow MCP server is registered.
+      Check ~/.claude/mcp/config.json for 'trd-workflow' entry.
+      If available, proceed with MCP-enhanced workflow.
+      If unavailable, use standard manual workflow - no errors or warnings.
+
+    tool_invocation: |
+      Use provided wrapper functions (callInjectCheckpoints, callGenerateWorkflow, etc.)
+      All tools have 2-second timeout for fast fallback.
+      Return null on timeout or error - allows graceful degradation.
+
+    fallback_strategy: |
+      Always provide fallback to manual generation:
+      - If MCP server not registered: Use manual workflow silently
+      - If tool call timeout: Continue with manual generation
+      - If tool returns error: Log warning and use manual approach
+      Never break workflow if MCP unavailable - it's an optional enhancement.
+
+  setup_instructions: |
+    To enable MCP-enhanced TRD generation:
+
+    1. Install TRD Workflow MCP server:
+       cd src/mcp-servers/trd-workflow && npm install
+
+    2. Register with Claude:
+       claude mcp add trd-workflow --scope user -- node /path/to/ensemble/src/mcp-servers/trd-workflow/server.js
+
+    3. Verify installation:
+       claude mcp list | grep trd-workflow
+
+    4. Server auto-detected on next /create-trd invocation

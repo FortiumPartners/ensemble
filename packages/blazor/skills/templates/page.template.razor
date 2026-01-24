@@ -1,0 +1,507 @@
+@*
+ * ============================================================================
+ * TEMPLATE: Blazor Routable Page
+ * ============================================================================
+ *
+ * Purpose: Full page component with routing, data loading, and CRUD operations
+ * Usage: Main application pages with navigation
+ *
+ * Placeholders:
+ * - {{PageName}} - Page name (e.g., UsersPage)
+ * - {{EntityName}} - Entity name (e.g., User)
+ * - {{EntityNamePlural}} - Plural form (e.g., Users)
+ * - {{entityNameLower}} - Lowercase (e.g., user)
+ * - {{entityNamePluralLower}} - Lowercase plural (e.g., users)
+ * - {{Namespace}} - Namespace (e.g., MyApp.Pages)
+ * - {{ServiceName}} - Service name (e.g., UserService)
+ *
+ * Lines: ~280
+ *@
+
+@page "/{{entityNamePluralLower}}"
+@page "/{{entityNamePluralLower}}/{Id:guid}"
+@using Microsoft.FluentUI.AspNetCore.Components
+@using {{Namespace}}.Services
+@using {{Namespace}}.Models
+@namespace {{Namespace}}.Pages
+@inject I{{ServiceName}} {{ServiceName}}
+@inject NavigationManager Navigation
+@inject ILogger<{{PageName}}> Logger
+@inject IToastService ToastService
+@attribute [Authorize]
+
+<PageTitle>{{EntityNamePlural}} - MyApp</PageTitle>
+
+<FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+    @* Header *@
+    <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="16" VerticalAlignment="VerticalAlignment.Center">
+        <h1>{{EntityNamePlural}}</h1>
+        <FluentSpacer />
+        <FluentButton
+            Appearance="Appearance.Accent"
+            IconStart="@(new Icons.Regular.Size20.Add())"
+            OnClick="OpenCreateDialog">
+            Add {{EntityName}}
+        </FluentButton>
+    </FluentStack>
+
+    @* Search and filters *@
+    <FluentCard>
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="16">
+            <FluentSearch
+                @bind-Value="searchTerm"
+                @bind-Value:after="SearchAsync"
+                Placeholder="Search {{entityNamePluralLower}}..."
+                Style="width: 300px;" />
+
+            <FluentSelect
+                @bind-Value="filterStatus"
+                @bind-Value:after="ApplyFiltersAsync"
+                Label="Status"
+                Items="@statusOptions"
+                Style="width: 150px;" />
+
+            <FluentButton
+                Appearance="Appearance.Neutral"
+                OnClick="ClearFilters">
+                Clear Filters
+            </FluentButton>
+
+            <FluentSpacer />
+
+            <FluentButton
+                IconStart="@(new Icons.Regular.Size20.ArrowDownload())"
+                OnClick="ExportData">
+                Export
+            </FluentButton>
+        </FluentStack>
+    </FluentCard>
+
+    @* Loading state *@
+    @if (isLoading)
+    {
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalAlignment="HorizontalAlignment.Center">
+            <FluentProgressRing />
+            <span>Loading {{entityNamePluralLower}}...</span>
+        </FluentStack>
+    }
+    @* Error state *@
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">
+            @errorMessage
+            <FluentButton Appearance="Appearance.Stealth" OnClick="LoadDataAsync">
+                Retry
+            </FluentButton>
+        </FluentMessageBar>
+    }
+    @* Empty state *@
+    else if (items == null || !items.Any())
+    {
+        <FluentCard>
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="16" HorizontalAlignment="HorizontalAlignment.Center">
+                <FluentIcon Icon="Icons.Regular.Size48.FolderOpen" Color="Color.Neutral" />
+                <h3>No {{entityNamePluralLower}} found</h3>
+                <p>Get started by adding your first {{entityNameLower}}.</p>
+                <FluentButton Appearance="Appearance.Accent" OnClick="OpenCreateDialog">
+                    Add {{EntityName}}
+                </FluentButton>
+            </FluentStack>
+        </FluentCard>
+    }
+    @* Data grid *@
+    else
+    {
+        <FluentDataGrid Items="@filteredItems" Virtualize="true" Pagination="@pagination">
+            <PropertyColumn Property="@(x => x.Name)" Sortable="true" />
+            <PropertyColumn Property="@(x => x.Email)" Sortable="true" />
+            <PropertyColumn Property="@(x => x.Status)" Sortable="true">
+                <ColumnOptions>
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        @foreach (var status in statusOptions)
+                        {
+                            <FluentCheckbox
+                                Value="@status"
+                                Label="@status"
+                                @onchange="@(e => FilterByStatus(status, (bool)e.Value!))" />
+                        }
+                    </div>
+                </ColumnOptions>
+            </PropertyColumn>
+            <PropertyColumn Property="@(x => x.CreatedAt)" Format="yyyy-MM-dd" Sortable="true" />
+
+            <TemplateColumn Title="Actions">
+                <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="4">
+                    <FluentButton
+                        Size="ButtonSize.Small"
+                        Appearance="Appearance.Neutral"
+                        IconStart="@(new Icons.Regular.Size16.Edit())"
+                        OnClick="@(() => OpenEditDialog(context))">
+                        Edit
+                    </FluentButton>
+                    <FluentButton
+                        Size="ButtonSize.Small"
+                        Appearance="Appearance.Stealth"
+                        IconStart="@(new Icons.Regular.Size16.Delete())"
+                        OnClick="@(() => OpenDeleteDialog(context))">
+                        Delete
+                    </FluentButton>
+                </FluentStack>
+            </TemplateColumn>
+        </FluentDataGrid>
+
+        <FluentPaginator State="@pagination" />
+    }
+</FluentStack>
+
+@* Create/Edit Dialog *@
+<FluentDialog @ref="editDialog" Modal="true" TrapFocus="true" Style="min-width: 500px;">
+    <FluentDialogHeader>
+        <h3>@(isEditMode ? $"Edit {{{EntityName}}}" : $"Create New {{{EntityName}}}")</h3>
+    </FluentDialogHeader>
+
+    <FluentDialogBody>
+        <EditForm Model="@currentItem" OnValidSubmit="SaveItemAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+                <FluentTextField
+                    @bind-Value="currentItem.Name"
+                    Label="Name"
+                    Required="true"
+                    Style="width: 100%;" />
+                <ValidationMessage For="@(() => currentItem.Name)" />
+
+                <FluentTextField
+                    @bind-Value="currentItem.Email"
+                    Label="Email"
+                    Required="true"
+                    Type="InputType.Email"
+                    Style="width: 100%;" />
+                <ValidationMessage For="@(() => currentItem.Email)" />
+
+                <FluentSelect
+                    @bind-Value="currentItem.Status"
+                    Label="Status"
+                    Items="@statusOptions"
+                    Style="width: 100%;" />
+
+                <FluentTextArea
+                    @bind-Value="currentItem.Notes"
+                    Label="Notes"
+                    Rows="4"
+                    Style="width: 100%;" />
+            </FluentStack>
+        </EditForm>
+    </FluentDialogBody>
+
+    <FluentDialogFooter>
+        <FluentButton
+            Appearance="Appearance.Accent"
+            OnClick="SaveItemAsync"
+            Disabled="@isSaving">
+            @(isSaving ? "Saving..." : "Save")
+        </FluentButton>
+        <FluentButton
+            Appearance="Appearance.Neutral"
+            OnClick="CloseEditDialog">
+            Cancel
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+@* Delete Confirmation Dialog *@
+<FluentDialog @ref="deleteDialog" Modal="true" TrapFocus="true">
+    <FluentDialogHeader>
+        <h3>Confirm Deletion</h3>
+    </FluentDialogHeader>
+
+    <FluentDialogBody>
+        <p>Are you sure you want to delete <strong>@itemToDelete?.Name</strong>?</p>
+        <p>This action cannot be undone.</p>
+    </FluentDialogBody>
+
+    <FluentDialogFooter>
+        <FluentButton
+            Appearance="Appearance.Accent"
+            OnClick="ConfirmDeleteAsync"
+            Disabled="@isDeleting">
+            @(isDeleting ? "Deleting..." : "Delete")
+        </FluentButton>
+        <FluentButton
+            Appearance="Appearance.Neutral"
+            OnClick="CloseDeleteDialog">
+            Cancel
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>
+
+@code {
+    // ========================================================================
+    // ROUTE PARAMETERS
+    // ========================================================================
+
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    // ========================================================================
+    // STATE
+    // ========================================================================
+
+    private List<{{EntityName}}>? items;
+    private IQueryable<{{EntityName}}>? filteredItems;
+    private PaginationState pagination = new() { ItemsPerPage = 20 };
+
+    private {{EntityName}} currentItem = new();
+    private {{EntityName}}? itemToDelete;
+
+    private string searchTerm = string.Empty;
+    private string filterStatus = "All";
+    private List<string> statusOptions = new() { "All", "Active", "Inactive", "Pending" };
+
+    private bool isLoading = false;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+    private bool isEditMode = false;
+    private string? errorMessage;
+
+    private FluentDialog? editDialog;
+    private FluentDialog? deleteDialog;
+
+    // ========================================================================
+    // LIFECYCLE
+    // ========================================================================
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+
+        // If Id parameter is provided, open edit dialog
+        if (Id.HasValue)
+        {
+            var item = items?.FirstOrDefault(x => x.Id == Id.Value);
+            if (item != null)
+            {
+                await OpenEditDialog(item);
+            }
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        ApplyFilters();
+    }
+
+    // ========================================================================
+    // DATA LOADING
+    // ========================================================================
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            Logger.LogInformation("Loading {{entityNamePluralLower}}");
+
+            items = await {{ServiceName}}.GetAllAsync();
+            ApplyFilters();
+
+            Logger.LogInformation("Loaded {Count} {{entityNamePluralLower}}", items.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading {{entityNamePluralLower}}");
+            errorMessage = "Failed to load {{entityNamePluralLower}}. Please try again.";
+            ToastService.ShowError("Failed to load data");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // ========================================================================
+    // FILTERING & SEARCH
+    // ========================================================================
+
+    private void ApplyFilters()
+    {
+        if (items == null)
+        {
+            filteredItems = null;
+            return;
+        }
+
+        var query = items.AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(x =>
+                x.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                x.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Apply status filter
+        if (filterStatus != "All")
+        {
+            query = query.Where(x => x.Status == filterStatus);
+        }
+
+        filteredItems = query;
+    }
+
+    private async Task SearchAsync()
+    {
+        await Task.Delay(300); // Debounce
+        ApplyFilters();
+    }
+
+    private async Task ApplyFiltersAsync()
+    {
+        ApplyFilters();
+        await Task.CompletedTask;
+    }
+
+    private void FilterByStatus(string status, bool isChecked)
+    {
+        filterStatus = isChecked ? status : "All";
+        ApplyFilters();
+    }
+
+    private void ClearFilters()
+    {
+        searchTerm = string.Empty;
+        filterStatus = "All";
+        ApplyFilters();
+    }
+
+    // ========================================================================
+    // CRUD OPERATIONS
+    // ========================================================================
+
+    private async Task OpenCreateDialog()
+    {
+        currentItem = new {{EntityName}}();
+        isEditMode = false;
+        await editDialog!.ShowAsync();
+    }
+
+    private async Task OpenEditDialog({{EntityName}} item)
+    {
+        currentItem = new {{EntityName}}
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Email = item.Email,
+            Status = item.Status,
+            Notes = item.Notes
+        };
+        isEditMode = true;
+        await editDialog!.ShowAsync();
+    }
+
+    private async Task SaveItemAsync()
+    {
+        try
+        {
+            isSaving = true;
+
+            if (isEditMode)
+            {
+                await {{ServiceName}}.UpdateAsync(currentItem);
+                ToastService.ShowSuccess("{{EntityName}} updated successfully");
+                Logger.LogInformation("Updated {{entityNameLower}} {Id}", currentItem.Id);
+            }
+            else
+            {
+                await {{ServiceName}}.CreateAsync(currentItem);
+                ToastService.ShowSuccess("{{EntityName}} created successfully");
+                Logger.LogInformation("Created new {{entityNameLower}}");
+            }
+
+            await CloseEditDialog();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving {{entityNameLower}}");
+            ToastService.ShowError("Failed to save {{entityNameLower}}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task CloseEditDialog()
+    {
+        await editDialog!.HideAsync();
+        currentItem = new {{EntityName}}();
+    }
+
+    private async Task OpenDeleteDialog({{EntityName}} item)
+    {
+        itemToDelete = item;
+        await deleteDialog!.ShowAsync();
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (itemToDelete == null) return;
+
+        try
+        {
+            isDeleting = true;
+
+            await {{ServiceName}}.DeleteAsync(itemToDelete.Id);
+            ToastService.ShowSuccess("{{EntityName}} deleted successfully");
+            Logger.LogInformation("Deleted {{entityNameLower}} {Id}", itemToDelete.Id);
+
+            await CloseDeleteDialog();
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting {{entityNameLower}}");
+            ToastService.ShowError("Failed to delete {{entityNameLower}}");
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private async Task CloseDeleteDialog()
+    {
+        await deleteDialog!.HideAsync();
+        itemToDelete = null;
+    }
+
+    // ========================================================================
+    // ADDITIONAL ACTIONS
+    // ========================================================================
+
+    private async Task ExportData()
+    {
+        try
+        {
+            Logger.LogInformation("Exporting {{entityNamePluralLower}}");
+
+            var data = await {{ServiceName}}.ExportAsync();
+
+            // Trigger download via JS interop
+            // await JS.InvokeVoidAsync("downloadFile", data, "{{entityNamePluralLower}}.csv");
+
+            ToastService.ShowSuccess("Export completed");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting {{entityNamePluralLower}}");
+            ToastService.ShowError("Export failed");
+        }
+    }
+}

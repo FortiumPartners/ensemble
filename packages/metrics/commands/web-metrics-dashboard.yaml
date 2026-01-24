@@ -1,0 +1,45 @@
+metadata:
+  name: ensemble:web-metrics-dashboard
+  description: Generate web performance metrics dashboard with Core Web Vitals
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: analysis
+  output_path: ensemble/web-metrics-dashboard.md
+  source: fortium
+
+mission:
+  summary: |
+    Generate a comprehensive web performance metrics dashboard including Core Web Vitals,
+    Lighthouse scores, bundle sizes, and performance recommendations for frontend applications.
+
+workflow:
+  phases:
+    - name: Metrics Collection
+      order: 1
+      steps:
+        - order: 1
+          title: Performance Testing
+          description: Run Lighthouse audits and collect metrics
+        
+        - order: 2
+          title: Bundle Analysis
+          description: Analyze JavaScript bundle sizes
+    
+    - name: Dashboard Generation
+      order: 2
+      steps:
+        - order: 1
+          title: Metrics Dashboard
+          description: Generate visual dashboard with metrics
+
+expectedOutput:
+  format: Performance Dashboard
+  structure:
+    - name: Core Web Vitals
+      description: LCP, FID, CLS measurements
+    
+    - name: Lighthouse Scores
+      description: Performance, accessibility, SEO scores
+    
+    - name: Recommendations
+      description: Actionable performance improvements

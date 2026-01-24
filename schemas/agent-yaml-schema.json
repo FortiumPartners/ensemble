@@ -1,0 +1,238 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fortiumpartners.com/schemas/agent-yaml-schema.json",
+  "title": "Ensemble Agent YAML Schema",
+  "description": "Schema for validating ensemble plugin agent YAML files",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["metadata", "mission", "responsibilities"],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": ["name", "description", "version", "tools"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Agent name (lowercase, hyphenated)"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300,
+          "description": "Brief description of agent purpose"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "description": "Semantic version (e.g., 1.0.0)"
+        },
+        "lastUpdated": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO 8601 date of last update"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "orchestrator",
+            "specialist",
+            "developer",
+            "quality",
+            "infrastructure",
+            "utility",
+            "workflow",
+            "testing",
+            "performance",
+            "accessibility",
+            "architecture",
+            "security",
+            "patterns"
+          ],
+          "description": "Agent category"
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Tools this agent can use"
+        }
+      }
+    },
+    "mission": {
+      "type": "object",
+      "required": ["summary"],
+      "additionalProperties": true,
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 20,
+          "description": "Detailed mission summary"
+        },
+        "boundaries": {
+          "type": "object",
+          "properties": {
+            "handles": {
+              "type": "string",
+              "description": "What this agent handles"
+            },
+            "doesNotHandle": {
+              "type": "string",
+              "description": "What this agent does not handle"
+            }
+          }
+        }
+      }
+    },
+    "responsibilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["priority", "title"],
+        "additionalProperties": true,
+        "properties": {
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Responsibility priority"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Responsibility title"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description"
+          }
+        }
+      }
+    },
+    "integrationProtocols": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "handoffFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent": { "type": "string" },
+              "context": { "type": "string" },
+              "acceptanceCriteria": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "handoffTo": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent": { "type": "string" },
+              "deliverables": { "type": "string" },
+              "qualityGates": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "delegationCriteria": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "whenToUse": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "When to use this agent"
+        },
+        "whenToDelegate": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent": { "type": "string" },
+              "triggers": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "scenario": { "type": "string" },
+          "bestPractice": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "code": { "type": "string" },
+              "language": { "type": "string" }
+            }
+          },
+          "antiPattern": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "code": { "type": "string" },
+              "language": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "qualityStandards": {
+      "type": "object",
+      "description": "Quality standards for the agent's work",
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "description": { "type": "string" },
+                    "enforcement": { "type": "string", "enum": ["required", "recommended", "optional"] },
+                    "target": { "type": "string" },
+                    "unit": { "type": "string" },
+                    "minimum": { "type": "number" }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "object",
+            "description": "Nested object structure (e.g., testing with unit/integration/e2e)",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": true,
+              "properties": {
+                "minimum": { "type": "number" },
+                "target": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "ensemble-quality",
+  "version": "5.2.1",
+  "description": "Quality assurance, code review, and DoD enforcement",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "quality",
+    "review",
+    "testing",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/code-reviewer.md",
+    "./agents/deep-debugger.md",
+    "./agents/qa-orchestrator.md",
+    "./agents/test-reader-agent.md",
+    "./agents/test-runner.md"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@fortium/ensemble-core",
+  "version": "5.2.1",
+  "description": "Core orchestration and utilities for ensemble ecosystem",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "orchestration",
+    "agents",
+    "core",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/core"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

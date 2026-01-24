@@ -1,0 +1,60 @@
+metadata:
+  name: ensemble:analyze-product
+  description: Analyze existing brownfield project and generate improvement roadmap
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: analysis
+  output_path: ensemble/analyze-product.md
+  source: fortium
+
+mission:
+  summary: |
+    Analyze an existing brownfield project to understand its architecture, identify
+    improvement opportunities, and generate a comprehensive roadmap with PRD for enhancements.
+
+workflow:
+  phases:
+    - name: Project Discovery
+      order: 1
+      steps:
+        - order: 1
+          title: Codebase Analysis
+          description: Scan and analyze existing codebase structure
+        
+        - order: 2
+          title: Architecture Assessment
+          description: Identify architectural patterns and technologies
+        
+        - order: 3
+          title: Documentation Review
+          description: Review existing documentation and identify gaps
+    
+    - name: Gap Analysis
+      order: 2
+      steps:
+        - order: 1
+          title: Technical Debt Identification
+          description: Identify areas of technical debt
+        
+        - order: 2
+          title: Opportunity Assessment
+          description: Identify improvement and optimization opportunities
+    
+    - name: Roadmap Generation
+      order: 3
+      steps:
+        - order: 1
+          title: PRD Creation
+          description: Generate PRD for identified improvements
+
+expectedOutput:
+  format: Analysis Report + Product Requirements Document
+  structure:
+    - name: Current State Analysis
+      description: Architecture, technologies, strengths, weaknesses
+    
+    - name: Improvement Opportunities
+      description: Prioritized list of enhancements
+    
+    - name: PRD
+      description: Requirements for top priority improvements

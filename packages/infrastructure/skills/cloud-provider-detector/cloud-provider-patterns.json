@@ -1,0 +1,204 @@
+{
+  "version": "1.0.0",
+  "providers": {
+    "aws": {
+      "name": "Amazon Web Services (AWS)",
+      "confidence_boost": 0.3,
+      "detection_signals": {
+        "terraform": {
+          "weight": 0.5,
+          "patterns": [
+            "provider \"aws\"",
+            "aws_vpc",
+            "aws_instance",
+            "aws_s3_bucket",
+            "aws_ecs_cluster",
+            "aws_eks_cluster",
+            "aws_rds_instance",
+            "aws_lambda_function",
+            "aws_cloudfront_distribution"
+          ]
+        },
+        "npm": {
+          "weight": 0.3,
+          "file": "package.json",
+          "patterns": [
+            "@aws-sdk/",
+            "aws-sdk",
+            "@aws-cdk/",
+            "aws-cdk-lib"
+          ]
+        },
+        "python": {
+          "weight": 0.3,
+          "file": "requirements.txt",
+          "patterns": [
+            "boto3",
+            "botocore",
+            "aws-cdk-lib"
+          ]
+        },
+        "cli": {
+          "weight": 0.2,
+          "file": "*.sh",
+          "patterns": [
+            "aws configure",
+            "aws s3",
+            "aws ec2",
+            "aws ecs",
+            "aws eks",
+            "aws cloudformation"
+          ]
+        },
+        "docker": {
+          "weight": 0.2,
+          "file": "Dockerfile",
+          "patterns": [
+            "FROM public.ecr.aws",
+            "FROM amazon/",
+            "ECR_REGISTRY"
+          ]
+        },
+        "config": {
+          "weight": 0.3,
+          "files": [
+            ".aws/config",
+            ".aws/credentials",
+            "aws-cli.yml",
+            "cloudformation.yml"
+          ]
+        }
+      }
+    },
+    "gcp": {
+      "name": "Google Cloud Platform (GCP)",
+      "confidence_boost": 0.3,
+      "detection_signals": {
+        "terraform": {
+          "weight": 0.5,
+          "patterns": [
+            "provider \"google\"",
+            "google_compute_instance",
+            "google_storage_bucket",
+            "google_container_cluster",
+            "google_sql_database_instance",
+            "google_cloud_run_service",
+            "google_cloudfunctions_function"
+          ]
+        },
+        "npm": {
+          "weight": 0.3,
+          "file": "package.json",
+          "patterns": [
+            "@google-cloud/",
+            "googleapis"
+          ]
+        },
+        "python": {
+          "weight": 0.3,
+          "file": "requirements.txt",
+          "patterns": [
+            "google-cloud-",
+            "google-api-python-client"
+          ]
+        },
+        "cli": {
+          "weight": 0.2,
+          "file": "*.sh",
+          "patterns": [
+            "gcloud ",
+            "gsutil ",
+            "gcloud compute",
+            "gcloud container",
+            "gcloud sql"
+          ]
+        },
+        "docker": {
+          "weight": 0.2,
+          "file": "Dockerfile",
+          "patterns": [
+            "FROM gcr.io",
+            "FROM us.gcr.io",
+            "FROM eu.gcr.io"
+          ]
+        },
+        "config": {
+          "weight": 0.3,
+          "files": [
+            ".gcloud/",
+            "gcloud-cli.yml",
+            "cloudbuild.yaml",
+            "service-account.json"
+          ]
+        }
+      }
+    },
+    "azure": {
+      "name": "Microsoft Azure",
+      "confidence_boost": 0.3,
+      "detection_signals": {
+        "terraform": {
+          "weight": 0.5,
+          "patterns": [
+            "provider \"azurerm\"",
+            "azurerm_resource_group",
+            "azurerm_virtual_machine",
+            "azurerm_storage_account",
+            "azurerm_kubernetes_cluster",
+            "azurerm_sql_database",
+            "azurerm_function_app",
+            "azurerm_container_registry"
+          ]
+        },
+        "npm": {
+          "weight": 0.3,
+          "file": "package.json",
+          "patterns": [
+            "@azure/",
+            "azure-"
+          ]
+        },
+        "python": {
+          "weight": 0.3,
+          "file": "requirements.txt",
+          "patterns": [
+            "azure-",
+            "msrestazure"
+          ]
+        },
+        "cli": {
+          "weight": 0.2,
+          "file": "*.sh",
+          "patterns": [
+            "az ",
+            "azure-cli",
+            "az vm",
+            "az aks",
+            "az storage"
+          ]
+        },
+        "docker": {
+          "weight": 0.2,
+          "file": "Dockerfile",
+          "patterns": [
+            "FROM mcr.microsoft.com",
+            "FROM azurecr.io"
+          ]
+        },
+        "config": {
+          "weight": 0.3,
+          "files": [
+            ".azure/",
+            "azure-pipelines.yml",
+            "azuredeploy.json"
+          ]
+        }
+      }
+    }
+  },
+  "detection_rules": {
+    "minimum_confidence": 0.7,
+    "multi_signal_boost": 0.2,
+    "minimum_signals_for_boost": 3
+  }
+}

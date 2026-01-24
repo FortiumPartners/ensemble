@@ -1,0 +1,357 @@
+# Smoke Test Configuration Template
+# Version: 1.0.0
+# Schema: schemas/smoke-test-config-schema.json
+
+# Environment-specific configurations for smoke test execution
+environments:
+  # Pre-release environment (local development, CI/CD)
+  pre-release:
+    baseUrl: https://localhost:3000
+    database:
+      host: localhost
+      port: 5432
+      database: app_test
+      ssl: false
+    timeout: 5000  # 5 seconds
+    criticalPathsOnly: false
+
+  # Staging environment (pre-production testing)
+  staging:
+    baseUrl: https://staging.example.com
+    database:
+      host: staging-db.example.com
+      port: 5432
+      database: app_staging
+      ssl: true
+    timeout: 5000  # 5 seconds
+    criticalPathsOnly: false
+
+  # Production environment (live system)
+  production:
+    baseUrl: https://api.example.com
+    database:
+      host: prod-db.example.com
+      port: 5432
+      database: app_production
+      ssl: true
+    timeout: 3000  # 3 seconds (stricter)
+    criticalPathsOnly: false
+
+  # Canary environment (progressive rollout)
+  canary:
+    baseUrl: https://canary.example.com
+    database:
+      host: prod-db.example.com
+      port: 5432
+      database: app_production
+      ssl: true
+    timeout: 2000  # 2 seconds (strictest)
+    criticalPathsOnly: true  # Reduced scope for faster validation
+
+# Smoke test category configurations
+smokeTests:
+  # Category 1: API Health
+  # Purpose: Verify all critical API endpoints are responding correctly
+  # Timing: ≤30 seconds
+  api:
+    endpoints:
+      # Health check endpoints
+      - path: /health
+        expectedStatus: 200
+        method: GET
+        maxDuration: 500  # 500ms
+
+      - path: /api/health
+        expectedStatus: 200
+        method: GET
+        maxDuration: 500
+
+      # Authentication endpoints
+      - path: /api/auth/login
+        expectedStatus: 200
+        method: POST
+        body:
+          username: "smoke-test-user@example.com"
+          password: "${SMOKE_TEST_PASSWORD}"
+        maxDuration: 1000  # 1 second
+
+      - path: /api/auth/logout
+        expectedStatus: 200
+        method: POST
+        headers:
+          Authorization: "Bearer ${AUTH_TOKEN}"
+        maxDuration: 500
+
+      # Core CRUD endpoints
+      - path: /api/users
+        expectedStatus: 200
+        method: GET
+        headers:
+          Authorization: "Bearer ${AUTH_TOKEN}"
+        maxDuration: 1000
+
+      - path: /api/products
+        expectedStatus: 200
+        method: GET
+        maxDuration: 1000
+
+      - path: /api/orders
+        expectedStatus: 200
+        method: GET
+        headers:
+          Authorization: "Bearer ${AUTH_TOKEN}"
+        maxDuration: 1000
+
+      # Public endpoints
+      - path: /api/public/info
+        expectedStatus: 200
+        method: GET
+        maxDuration: 500
+
+      # Admin endpoints
+      - path: /api/admin/dashboard
+        expectedStatus: 200
+        method: GET
+        headers:
+          Authorization: "Bearer ${ADMIN_TOKEN}"
+        maxDuration: 1000
+
+  # Category 2: Database Connectivity
+  # Purpose: Verify database is accessible and responding correctly
+  # Timing: ≤20 seconds
+  database:
+    connectionString: "${DATABASE_URL}"
+    testTable: smoke_test_table
+    queries:
+      read: "SELECT 1"  # Simple read test
+      write: "INSERT INTO smoke_test_table (test_data, created_at) VALUES (?, NOW())"  # Write test
+
+  # Category 3: External Services
+  # Purpose: Verify third-party integrations are accessible
+  # Timing: ≤30 seconds
+  externalServices:
+    # Payment gateway (Stripe)
+    - name: stripe
+      type: payment
+      endpoint: https://api.stripe.com/v1/health
+      apiKey: "${STRIPE_API_KEY}"
+      headers:
+        Authorization: "Bearer ${STRIPE_API_KEY}"
+      maxDuration: 2000  # 2 seconds
+
+    # Email service (SendGrid)
+    - name: sendgrid
+      type: email
+      endpoint: https://api.sendgrid.com/v3/health
+      apiKey: "${SENDGRID_API_KEY}"
+      headers:
+        Authorization: "Bearer ${SENDGRID_API_KEY}"
+      maxDuration: 2000
+
+    # Cloud storage (AWS S3)
+    - name: aws-s3
+      type: storage
+      endpoint: https://s3.amazonaws.com/health
+      apiKey: "${AWS_ACCESS_KEY_ID}"
+      headers:
+        Authorization: "AWS4-HMAC-SHA256 ${AWS_SIGNATURE}"
+      maxDuration: 2000
+
+    # Authentication provider (Auth0)
+    - name: auth0
+      type: auth
+      endpoint: https://dev-example.auth0.com/api/v2/
+      apiKey: "${AUTH0_API_KEY}"
+      headers:
+        Authorization: "Bearer ${AUTH0_API_KEY}"
+      maxDuration: 2000
+
+    # Analytics (Google Analytics)
+    - name: google-analytics
+      type: analytics
+      endpoint: https://www.google-analytics.com/collect
+      maxDuration: 2000
+
+  # Category 4: Authentication
+  # Purpose: Verify authentication and authorization flows
+  # Timing: ≤20 seconds
+  auth:
+    testUser:
+      username: smoke-test-user@example.com
+      password: "${SMOKE_TEST_PASSWORD}"
+    endpoints:
+      login: /api/auth/login
+      logout: /api/auth/logout
+      protected: /api/protected
+
+  # Category 5: Critical Paths
+  # Purpose: Verify end-to-end critical user journeys
+  # Timing: ≤80 seconds (3-5 journeys, 15s each)
+  criticalPaths:
+    # Journey 1: User Signup Flow
+    - name: signup
+      description: Complete user registration flow
+      maxDuration: 15000  # 15 seconds
+      critical: true
+      steps:
+        - action: navigateToSignup
+          endpoint: /api/signup
+          method: GET
+          expectedStatus: 200
+
+        - action: submitSignupForm
+          endpoint: /api/signup
+          method: POST
+          body:
+            email: "test-${TIMESTAMP}@example.com"
+            password: "TestPassword123!"
+            name: "Test User"
+          expectedStatus: 201
+
+        - action: verifyEmail
+          endpoint: /api/auth/verify-email
+          method: POST
+          body:
+            token: "${VERIFICATION_TOKEN}"
+          expectedStatus: 200
+
+    # Journey 2: Checkout Flow
+    - name: checkout
+      description: Complete purchase flow from cart to order confirmation
+      maxDuration: 20000  # 20 seconds
+      critical: true
+      steps:
+        - action: addToCart
+          endpoint: /api/cart/add
+          method: POST
+          body:
+            productId: "test-product-001"
+            quantity: 1
+          expectedStatus: 200
+
+        - action: proceedToCheckout
+          endpoint: /api/checkout/init
+          method: POST
+          expectedStatus: 200
+
+        - action: enterPayment
+          endpoint: /api/checkout/payment
+          method: POST
+          body:
+            paymentMethod: "test_card"
+            cardNumber: "4242424242424242"
+            expiry: "12/25"
+            cvv: "123"
+          expectedStatus: 200
+
+        - action: placeOrder
+          endpoint: /api/orders
+          method: POST
+          expectedStatus: 201
+
+        - action: confirmOrder
+          endpoint: /api/orders/${ORDER_ID}
+          method: GET
+          expectedStatus: 200
+
+    # Journey 3: Product Search and Filtering
+    - name: search
+      description: Search and filter products
+      maxDuration: 10000  # 10 seconds
+      critical: true
+      steps:
+        - action: searchProducts
+          endpoint: /api/products/search
+          method: GET
+          body:
+            query: "laptop"
+          expectedStatus: 200
+
+        - action: applyFilters
+          endpoint: /api/products/search
+          method: GET
+          body:
+            query: "laptop"
+            filters:
+              price:
+                min: 500
+                max: 1500
+              brand: "Example Brand"
+          expectedStatus: 200
+
+        - action: viewProductDetails
+          endpoint: /api/products/${PRODUCT_ID}
+          method: GET
+          expectedStatus: 200
+
+    # Journey 4: Content Creation (Posts/Comments)
+    - name: content-creation
+      description: Create and publish content
+      maxDuration: 12000  # 12 seconds
+      critical: false
+      steps:
+        - action: createPost
+          endpoint: /api/posts
+          method: POST
+          body:
+            title: "Test Post ${TIMESTAMP}"
+            content: "This is a test post created during smoke tests."
+            tags: ["test", "smoke-test"]
+          expectedStatus: 201
+
+        - action: addComment
+          endpoint: /api/posts/${POST_ID}/comments
+          method: POST
+          body:
+            content: "Test comment"
+          expectedStatus: 201
+
+        - action: publishPost
+          endpoint: /api/posts/${POST_ID}/publish
+          method: POST
+          expectedStatus: 200
+
+    # Journey 5: Admin Dashboard Access
+    - name: admin-dashboard
+      description: Access admin dashboard and view metrics
+      maxDuration: 10000  # 10 seconds
+      critical: false
+      steps:
+        - action: loginAsAdmin
+          endpoint: /api/auth/login
+          method: POST
+          body:
+            username: "admin@example.com"
+            password: "${ADMIN_PASSWORD}"
+          expectedStatus: 200
+
+        - action: accessDashboard
+          endpoint: /api/admin/dashboard
+          method: GET
+          headers:
+            Authorization: "Bearer ${ADMIN_TOKEN}"
+          expectedStatus: 200
+
+        - action: viewMetrics
+          endpoint: /api/admin/metrics
+          method: GET
+          headers:
+            Authorization: "Bearer ${ADMIN_TOKEN}"
+          expectedStatus: 200
+
+# Environment variable placeholders:
+# ${SMOKE_TEST_PASSWORD} - Password for smoke test user
+# ${AUTH_TOKEN} - Authentication token for protected endpoints
+# ${ADMIN_TOKEN} - Admin authentication token
+# ${DATABASE_URL} - Database connection string
+# ${STRIPE_API_KEY} - Stripe API key
+# ${SENDGRID_API_KEY} - SendGrid API key
+# ${AWS_ACCESS_KEY_ID} - AWS access key ID
+# ${AWS_SIGNATURE} - AWS request signature
+# ${AUTH0_API_KEY} - Auth0 API key
+# ${VERIFICATION_TOKEN} - Email verification token
+# ${TIMESTAMP} - Current timestamp for unique values
+# ${ORDER_ID} - Order ID from previous step
+# ${PRODUCT_ID} - Product ID for details view
+# ${POST_ID} - Post ID from creation step
+# ${ADMIN_PASSWORD} - Admin user password
