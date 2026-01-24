@@ -1,0 +1,54 @@
+{
+  "name": "@fortium/ensemble-full",
+  "version": "5.2.2",
+  "description": "Complete ensemble ecosystem (meta-package with all plugins)",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "sync-hooks": "node scripts/sync-hooks.js",
+    "prepare": "npm run sync-hooks"
+  },
+  "keywords": [
+    "full",
+    "complete",
+    "meta",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/full"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ensemble-ai": "^5.1.0",
+    "@fortium/ensemble-core": "^4.0.0",
+    "@fortium/ensemble-product": "^4.0.0",
+    "@fortium/ensemble-development": "^4.0.0",
+    "@fortium/ensemble-quality": "^4.0.0",
+    "@fortium/ensemble-infrastructure": "^4.0.0",
+    "@fortium/ensemble-git": "^4.0.0",
+    "@fortium/ensemble-e2e-testing": "^4.0.0",
+    "@fortium/ensemble-metrics": "^4.0.0",
+    "@fortium/ensemble-agent-progress-pane": "^5.1.0",
+    "@fortium/ensemble-task-progress-pane": "^5.0.0",
+    "@fortium/ensemble-react": "^4.0.0",
+    "@fortium/ensemble-nestjs": "^4.0.0",
+    "@fortium/ensemble-rails": "^4.0.0",
+    "@fortium/ensemble-phoenix": "^4.0.0",
+    "@fortium/ensemble-blazor": "^4.0.0",
+    "@fortium/ensemble-jest": "^4.0.0",
+    "@fortium/ensemble-pytest": "^4.0.0",
+    "@fortium/ensemble-rspec": "^4.0.0",
+    "@fortium/ensemble-router": "^5.0.0",
+    "@fortium/ensemble-permitter": "^5.0.0",
+    "@fortium/ensemble-xunit": "^4.0.0",
+    "@fortium/ensemble-exunit": "^4.0.0"
+  }
+}

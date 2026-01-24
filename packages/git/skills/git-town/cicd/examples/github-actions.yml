@@ -1,0 +1,654 @@
+# ============================================================================
+# GitHub Actions Workflow for Git-Town Projects
+# ============================================================================
+#
+# This workflow provides comprehensive CI/CD for git-town-based development:
+# - PR validation with parallel jobs
+# - Automated dependency updates
+# - Multi-stage deployment (staging → production)
+# - Status checks for branch protection
+#
+# Copy this file to .github/workflows/ in your repository.
+#
+# ============================================================================
+
+name: CI/CD
+
+on:
+  # PR validation
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+  # Trunk deployment
+  push:
+    branches: [main]
+
+  # Version releases
+  push:
+    tags:
+      - 'v*.*.*'
+
+  # Manual deployments
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version/SHA to deploy'
+        required: false
+
+# ============================================================================
+# PR Validation Jobs
+# ============================================================================
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Code Quality: Linting and Formatting
+  # --------------------------------------------------------------------------
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git-town
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Check code formatting
+        run: npm run format:check
+
+  # --------------------------------------------------------------------------
+  # Type Checking: TypeScript
+  # --------------------------------------------------------------------------
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run TypeScript compiler
+        run: npm run typecheck
+
+  # --------------------------------------------------------------------------
+  # Unit Tests: Fast, isolated tests
+  # --------------------------------------------------------------------------
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm run test:unit -- --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+          flags: unit
+          name: unit-tests
+
+  # --------------------------------------------------------------------------
+  # Integration Tests: Database and API tests
+  # --------------------------------------------------------------------------
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run database migrations
+        run: npm run db:migrate
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+  # --------------------------------------------------------------------------
+  # E2E Tests: Full application tests with Playwright
+  # --------------------------------------------------------------------------
+  test-e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Build application
+        run: npm run build
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  # --------------------------------------------------------------------------
+  # Security: Dependency audit and vulnerability scanning
+  # --------------------------------------------------------------------------
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+  # --------------------------------------------------------------------------
+  # Build: Production build verification
+  # --------------------------------------------------------------------------
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # PR Size Check: Enforce small PRs for fast reviews
+  # --------------------------------------------------------------------------
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        run: |
+          LINES_CHANGED=$(git diff --shortstat origin/main...HEAD | awk '{print $4+$6}')
+          echo "Lines changed: $LINES_CHANGED"
+
+          if [ -z "$LINES_CHANGED" ]; then
+            echo "No changes detected"
+            exit 0
+          fi
+
+          if [ $LINES_CHANGED -gt 500 ]; then
+            echo "❌ PR too large: $LINES_CHANGED lines (max 500)"
+            echo "Please break into smaller PRs for faster review"
+            exit 1
+          fi
+
+          echo "✅ PR size acceptable: $LINES_CHANGED lines"
+
+  # --------------------------------------------------------------------------
+  # Required Checks: All checks must pass for branch protection
+  # --------------------------------------------------------------------------
+  required-checks:
+    name: Required Checks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [lint, typecheck, test-unit, test-integration, test-e2e, security, build, pr-size-check]
+
+    steps:
+      - name: All checks passed
+        run: echo "✅ All required checks passed"
+
+# ============================================================================
+# Trunk Deployment Jobs (Main Branch)
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # Build Production: Create production artifacts
+  # --------------------------------------------------------------------------
+  build-production:
+    name: Build Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-build
+          path: dist/
+          retention-days: 30
+
+  # --------------------------------------------------------------------------
+  # Deploy Staging: Deploy to staging environment
+  # --------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build-production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: staging
+      url: https://staging.example.com
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: production-build
+          path: dist/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.STAGING_BUCKET }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.STAGING_CLOUDFRONT_ID }} \
+            --paths "/*"
+
+      - name: Notify deployment
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "✅ Deployed to staging: ${{ github.sha }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Staging Deployment*\nCommit: `${{ github.sha }}`\nURL: https://staging.example.com"
+                }
+              }]
+            }'
+
+  # --------------------------------------------------------------------------
+  # Smoke Tests: Verify staging deployment
+  # --------------------------------------------------------------------------
+  smoke-tests:
+    name: Smoke Tests
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+        env:
+          BASE_URL: https://staging.example.com
+          SMOKE_TEST_TIMEOUT: 30000
+
+  # --------------------------------------------------------------------------
+  # Deploy Production: Deploy to production environment
+  # --------------------------------------------------------------------------
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: smoke-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://example.com
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: production-build
+          path: dist/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync dist/ s3://${{ secrets.PRODUCTION_BUCKET }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000"
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.PRODUCTION_CLOUDFRONT_ID }} \
+            --paths "/*"
+
+      - name: Verify deployment
+        run: |
+          curl -f https://example.com/health || exit 1
+
+      - name: Notify deployment
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "🚀 Deployed to production: ${{ github.sha }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Production Deployment*\nCommit: `${{ github.sha }}`\nURL: https://example.com"
+                }
+              }]
+            }'
+
+# ============================================================================
+# Automated Dependency Updates
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # Dependabot Auto-Merge: Automatically merge dependency updates
+  # --------------------------------------------------------------------------
+  dependabot-auto-merge:
+    name: Dependabot Auto-Merge
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.actor == 'dependabot[bot]'
+    needs: required-checks
+
+    steps:
+      - name: Fetch dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-approve PR
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          gh pr review "$PR_URL" --approve -b "Auto-approved by CI"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: |
+          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: |
+          gh pr merge "$PR_URL" --auto --squash
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# ============================================================================
+# Release Workflow (Version Tags)
+# ============================================================================
+
+  # --------------------------------------------------------------------------
+  # Release: Create GitHub release and publish packages
+  # --------------------------------------------------------------------------
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Extract release notes
+        id: release_notes
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          NOTES=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | sed '1d;$d')
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+
+      - name: Notify release
+        run: |
+          curl -X POST ${{ secrets.SLACK_WEBHOOK }} \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "📦 Released version ${{ github.ref_name }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*New Release*\nVersion: `${{ github.ref_name }}`\nView: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+                }
+              }]
+            }'
+
+# ============================================================================
+# Configuration Notes
+# ============================================================================
+#
+# Required GitHub Secrets:
+# - SNYK_TOKEN: Snyk API token for security scanning
+# - AWS_ROLE_ARN: AWS IAM role for deployments
+# - STAGING_BUCKET: S3 bucket for staging
+# - STAGING_CLOUDFRONT_ID: CloudFront distribution for staging
+# - PRODUCTION_BUCKET: S3 bucket for production
+# - PRODUCTION_CLOUDFRONT_ID: CloudFront distribution for production
+# - SLACK_WEBHOOK: Slack webhook URL for notifications
+# - NPM_TOKEN: NPM authentication token for publishing
+#
+# Required Branch Protection Rules (Settings → Branches → main):
+# - Require pull request reviews (1 reviewer)
+# - Require status checks: "Required Checks"
+# - Require branches to be up to date
+# - Require conversation resolution
+# - Do not allow bypassing settings
+#
+# Required GitHub Environments:
+# - staging: Auto-deploy from main
+# - production: Requires approval from designated reviewers
+#
+# ============================================================================

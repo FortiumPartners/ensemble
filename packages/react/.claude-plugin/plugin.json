@@ -1,0 +1,23 @@
+{
+  "name": "ensemble-react",
+  "version": "5.1.0",
+  "description": "React framework skills and component development for Claude Code",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "react",
+    "frontend",
+    "components",
+    "hooks",
+    "typescript",
+    "state-management",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "ensemble-exunit",
+  "version": "5.1.0",
+  "description": "ExUnit testing framework integration for Elixir",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "exunit",
+    "testing",
+    "elixir",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
+}

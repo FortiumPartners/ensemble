@@ -1,0 +1,78 @@
+# Changelog Generator Configuration Template
+
+---
+# Standard Configuration
+standard:
+  fromTag: v2.0.0
+  toTag: HEAD
+  format: markdown  # or 'json', 'plain'
+  currentVersion: 2.0.0
+
+  # Include commit hash in output
+  includeCommitHash: true
+
+  # Include commit author
+  includeAuthor: false
+
+  # Group commits by scope
+  groupByScope: false
+
+  # Exclude types from changelog
+  excludeTypes:
+    - style
+    - ci
+    - chore
+
+  # Type mapping to categories
+  typeMapping:
+    feat: Features
+    fix: Bug Fixes
+    perf: Performance
+    docs: Documentation
+    refactor: Code Quality
+    test: Testing
+    build: Build System
+
+---
+# Monorepo Configuration
+monorepo:
+  fromTag: v2.0.0
+  toTag: HEAD
+  format: markdown
+  currentVersion: 2.0.0
+
+  # Repository settings
+  repositories:
+    - name: "Core API"
+      path: packages/api
+      prefix: api
+
+    - name: "Web UI"
+      path: packages/web
+      prefix: web
+
+  # Generate separate changelogs
+  separateChangelogs: true
+
+---
+# Production Release Configuration
+production:
+  fromTag: v3.0.0
+  toTag: HEAD
+  format: markdown
+  currentVersion: 3.0.0
+
+  # Include commit hash and author
+  includeCommitHash: true
+  includeAuthor: true
+
+  # Link to commits in remote repository
+  linkCommits: true
+  commitUrlTemplate: "https://github.com/owner/repo/commit/{hash}"
+
+  # Version suggestion
+  suggestVersion: true
+
+  # Performance limits
+  maxCommits: 10000
+  timeout: 60000  # 60 seconds

@@ -1,0 +1,31 @@
+{
+  "name": "@fortium/ensemble-infrastructure",
+  "version": "5.2.1",
+  "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "infrastructure",
+    "devops",
+    "kubernetes",
+    "aws",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/infrastructure"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ensemble-core": "^4.0.0"
+  }
+}

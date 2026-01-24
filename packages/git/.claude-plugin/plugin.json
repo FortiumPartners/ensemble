@@ -1,0 +1,25 @@
+{
+  "name": "ensemble-git",
+  "version": "5.2.1",
+  "description": "Git workflow automation and conventional commits",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "workflow",
+    "commits",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/git-workflow.md",
+    "./agents/github-specialist.md",
+    "./agents/release-agent.md"
+  ]
+}

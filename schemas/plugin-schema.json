@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["name", "version", "description", "author"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^ensemble(-[a-z0-9-]+)?$",
+      "description": "Plugin name ('ensemble' or 'ensemble-*')"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 200
+    },
+    "author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri"
+    },
+    "license": {
+      "type": "string",
+      "enum": ["MIT", "Apache-2.0", "GPL-3.0", "BSD-3-Clause"]
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^ensemble-[a-z0-9-]+@\\d+\\.\\d+\\.\\d+$"
+      }
+    },
+    "agents": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "\\.md$",
+          "description": "Path to a single agent markdown file"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "\\.md$"
+          },
+          "description": "Array of paths to agent markdown files"
+        }
+      ],
+      "description": "Agent definition(s) - single .md file path or array of .md file paths"
+    },
+    "commands": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Path to commands directory"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of paths to command directories"
+        }
+      ],
+      "description": "Command directory path(s) - single path or array of paths"
+    },
+    "skills": {
+      "type": "string",
+      "description": "Path to skills directory"
+    },
+    "hooks": {
+      "type": "string",
+      "description": "Path to hooks directory"
+    }
+  }
+}

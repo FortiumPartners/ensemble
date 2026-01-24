@@ -1,0 +1,547 @@
+metadata:
+  name: ensemble:release
+  description: |
+    Automated release workflow orchestration with quality gates, smoke test integration,
+    and deployment coordination. Supports standard, hotfix, and rollback release types.
+  version: 1.0.0
+  lastUpdated: "2025-11-05"
+  category: deployment
+  output_path: ensemble/release.md
+  source: fortium
+
+mission:
+  summary: |
+    This command orchestrates the complete release workflow from quality gates through deployment
+    and verification. It delegates to release-agent for workflow orchestration, coordinating with
+    specialized agents (code-reviewer, test-runner, playwright-tester, deployment-orchestrator)
+    to ensure safe, reliable releases with comprehensive smoke test coverage and automated rollback.
+
+workflow:
+  phases:
+    - name: Release Initialization
+      order: 1
+      steps:
+        - order: 1
+          title: Version Validation
+          description: Validate semantic version format (X.Y.Z)
+          actions:
+            - Parse --version argument
+            - Validate semantic versioning format
+            - Check for version conflicts (tag/branch exists)
+          skill: semantic-version-validator
+
+        - order: 2
+          title: Release Type Validation
+          description: Validate release type and workflow selection
+          actions:
+            - Parse --type argument (standard, hotfix, rollback)
+            - Determine base branch (main, develop, production)
+            - Determine target branch (release/vX.Y.Z, hotfix/vX.Y.Z)
+            - Validate branch arguments if provided
+
+        - order: 3
+          title: Release Branch Creation
+          description: Create release branch via git-workflow
+          delegation:
+            agent: git-workflow
+            context: Base and target branches, release version
+          actions:
+            - Create release branch from base
+            - Push to remote
+            - Verify branch created successfully
+
+        - order: 4
+          title: Changelog Generation
+          description: Generate changelog from git history
+          skill: changelog-generator
+          actions:
+            - Parse commits since last release
+            - Categorize changes (breaking, new, enhancement, bugfix)
+            - Generate markdown formatted changelog
+            - Add changelog to release branch
+
+    - name: Quality Gates
+      order: 2
+      steps:
+        - order: 1
+          title: Security Scan
+          description: Execute security vulnerability scan via code-reviewer
+          delegation:
+            agent: code-reviewer
+            context: Release branch, security scan operation
+          timing:
+            target: 3 minutes
+            timeout: 10 minutes
+          actions:
+            - Scan for OWASP Top 10 vulnerabilities
+            - Check for critical and high-severity issues
+            - Generate security report
+            - Block on critical/high issues
+
+        - order: 2
+          title: Definition of Done Validation
+          description: Validate all DoD categories via code-reviewer
+          delegation:
+            agent: code-reviewer
+            context: Release branch, DoD validation operation
+          timing:
+            target: 2 minutes
+            timeout: 10 minutes
+          actions:
+            - Validate all 8 DoD categories
+            - Check test coverage targets (unit ≥80%, integration ≥70%)
+            - Verify documentation updated
+            - Block on any category failure
+
+        - order: 3
+          title: Unit Test Execution
+          description: Execute unit test suite via test-runner
+          delegation:
+            agent: test-runner
+            context: Release branch, unit tests operation
+          timing:
+            target: 5 minutes
+            timeout: 15 minutes
+          actions:
+            - Run unit test suite with coverage
+            - Require ≥80% coverage
+            - Provide intelligent failure triage
+            - Block on failures or coverage below threshold
+
+        - order: 4
+          title: Integration Test Execution
+          description: Execute integration test suite via test-runner
+          delegation:
+            agent: test-runner
+            context: Release branch, integration tests operation
+          timing:
+            target: 5 minutes
+            timeout: 15 minutes
+          actions:
+            - Run integration test suite with coverage
+            - Require ≥70% coverage
+            - Provide intelligent failure triage
+            - Block on failures or coverage below threshold
+
+        - order: 5
+          title: Pre-Release Smoke Tests
+          description: Execute smoke test suite before deployment
+          skill: smoke-test-runner
+          timing:
+            target: 3 minutes
+            timeout: 5 minutes
+          actions:
+            - Execute 5-category smoke test suite
+              - API Health
+              - Database connectivity
+              - External services
+              - Authentication
+              - Critical paths
+            - Use pre-release environment configuration
+            - Block on any smoke test failure
+
+        - order: 6
+          title: E2E Test Execution
+          description: Execute critical user journeys via playwright-tester
+          delegation:
+            agent: playwright-tester
+            context: Release branch, staging environment
+          timing:
+            target: 5 minutes
+            timeout: 10 minutes
+          actions:
+            - Execute critical user journey tests
+            - Capture trace artifacts for all journeys
+            - Capture screenshots on failures
+            - Block on any journey failure
+
+    - name: Staging Deployment
+      order: 3
+      condition: Release type is standard or hotfix (skip for rollback)
+      steps:
+        - order: 1
+          title: Deploy to Staging
+          description: Deploy release to staging environment
+          delegation:
+            agent: deployment-orchestrator
+            context: Release version, staging environment, deployment strategy
+          timing:
+            target: 2 minutes
+            timeout: 15 minutes
+          actions:
+            - Execute blue-green or rolling deployment
+            - Verify health checks
+            - Route traffic to new version
+
+        - order: 2
+          title: Post-Staging Smoke Tests
+          description: Verify staging deployment with smoke tests
+          skill: smoke-test-runner
+          timing:
+            target: 3 minutes
+            timeout: 5 minutes
+          actions:
+            - Execute full 5-category smoke test suite
+            - Use staging-specific configuration
+            - Verify all smoke tests pass
+            - Block on any smoke test failure
+
+    - name: Production Deployment
+      order: 4
+      steps:
+        - order: 1
+          title: Deploy to Production (Canary)
+          description: Deploy to production using canary strategy
+          delegation:
+            agent: deployment-orchestrator
+            context: Release version, production environment, canary strategy
+          timing:
+            target: 5 minutes
+            timeout: 15 minutes
+          actions:
+            - Deploy to canary infrastructure
+            - Route 5% traffic to canary
+            - Execute canary smoke tests (smoke-test-runner skill)
+            - Monitor error rate for 2 minutes
+            - "If pass: Route 25% traffic, execute smoke tests"
+            - "If pass: Route 100% traffic, execute final smoke tests"
+            - "If fail at any stage: Trigger automated rollback"
+
+        - order: 2
+          title: Post-Production Smoke Tests
+          description: Final verification of production deployment
+          skill: smoke-test-runner
+          timing:
+            target: 3 minutes
+            timeout: 5 minutes
+          actions:
+            - Execute full 5-category smoke test suite
+            - Use production-specific configuration
+            - Monitor error rate for 5 minutes
+            - Trigger rollback on smoke test failure or error rate >5%
+
+    - name: Release Completion
+      order: 5
+      steps:
+        - order: 1
+          title: Create Pull Request
+          description: Create release PR via github-specialist
+          delegation:
+            agent: github-specialist
+            context: Release branch, main branch, changelog
+          actions:
+            - Create PR with changelog in description
+            - Add labels (release, version)
+            - Request reviews from tech-lead
+            - Link to release artifacts
+
+        - order: 2
+          title: Create GitHub Release
+          description: Publish GitHub release with notes
+          delegation:
+            agent: github-specialist
+            context: Release version, changelog, release notes
+          actions:
+            - Create GitHub release with tag
+            - Attach release notes
+            - Mark as draft if --draft flag provided
+
+        - order: 3
+          title: Generate Release Report
+          description: Create comprehensive release report
+          skill: release-report-generator
+          actions:
+            - Compile test execution history
+            - Include smoke test results
+            - Add deployment timeline
+            - Summarize quality gate metrics
+
+        - order: 4
+          title: Append Audit Log
+          description: Record release in audit log
+          skill: audit-log-generator
+          actions:
+            - Append audit log entry with test tracking
+            - Include approval history
+            - Record deployment events
+            - Add release artifacts links
+
+        - order: 5
+          title: Update Tickets
+          description: Update Linear/Jira tickets with release info
+          actions:
+            - Update ticket status to deployed
+            - Attach release report
+            - Link to PR and GitHub release
+            - Add deployment timestamp
+
+        - order: 6
+          title: Send Release Metrics
+          description: Report metrics to manager-dashboard-agent
+          delegation:
+            agent: manager-dashboard-agent
+            context: Release metrics, cycle time, success rate
+          actions:
+            - Send cycle time metric
+            - Send success/failure status
+            - Send test execution metrics
+            - Send deployment duration
+
+    - name: Rollback (On Failure)
+      order: 6
+      condition: Production smoke test failure OR error rate >5% OR health check failure
+      trigger: Automated rollback trigger
+      steps:
+        - order: 1
+          title: Trigger Rollback
+          description: Initiate automated rollback workflow
+          actions:
+            - Detect failure condition (smoke test, error rate, health check)
+            - Alert on-call engineer
+            - Capture rollback trigger context
+
+        - order: 2
+          title: Revert Traffic
+          description: Route traffic to previous version
+          delegation:
+            agent: deployment-orchestrator
+            context: Rollback operation, previous version
+          timing:
+            target: 2 minutes
+            timeout: 5 minutes
+          actions:
+            - Route all traffic to previous version
+            - Verify previous version health checks
+            - Capture traffic reversion metrics
+
+        - order: 3
+          title: Post-Rollback Smoke Tests
+          description: Verify rollback success with smoke tests
+          skill: smoke-test-runner
+          timing:
+            target: 3 minutes
+            timeout: 5 minutes
+          actions:
+            - Execute full 5-category smoke test suite
+            - Verify error rate normalized
+            - Confirm system stability
+            - Escalate on smoke test failure
+
+        - order: 4
+          title: Health Validation
+          description: Monitor system health post-rollback
+          timing:
+            target: 5 minutes
+          actions:
+            - Monitor error rate (<1% target)
+            - Verify all health checks passing
+            - Confirm no degradation
+            - Escalate on health check failure
+
+        - order: 5
+          title: Create Git Revert
+          description: Create revert commit in git
+          delegation:
+            agent: git-workflow
+            context: Rollback operation, release version
+          actions:
+            - Create revert commit
+            - Tag rollback version (vX.Y.Z-rollback)
+            - Update changelog with rollback entry
+
+        - order: 6
+          title: Update Tickets
+          description: Document rollback in tickets
+          actions:
+            - Update ticket status to rolled-back
+            - Add rollback reason
+            - Link to rollback artifacts
+            - Schedule post-mortem
+
+arguments:
+  required:
+    - name: --version
+      type: string
+      format: X.Y.Z
+      description: Semantic version for the release (e.g., 2.1.0)
+      validation:
+        - Matches semantic versioning format (X.Y.Z)
+        - No conflicts with existing tags/branches
+      example: --version 2.1.0
+
+  optional:
+    - name: --type
+      type: enum
+      values: [standard, hotfix, rollback]
+      default: standard
+      description: Release type (standard, hotfix, rollback)
+      example: --type hotfix
+
+    - name: --from
+      type: string
+      description: Base branch for release (overrides default)
+      default: main (standard), production (hotfix)
+      example: --from develop
+
+    - name: --to
+      type: string
+      description: Target branch for release (overrides default)
+      default: release/vX.Y.Z (standard), hotfix/vX.Y.Z (hotfix)
+      example: --to release/v2.1.0
+
+    - name: --base
+      type: string
+      description: Alias for --from (base branch)
+      example: --base main
+
+    - name: --target
+      type: string
+      description: Alias for --to (target branch)
+      example: --target release/v2.1.0
+
+    - name: --rollback
+      type: boolean
+      description: Trigger manual rollback (equivalent to --type rollback)
+      example: --rollback
+
+    - name: --draft
+      type: boolean
+      description: Create GitHub release as draft
+      example: --draft
+
+    - name: --dry-run
+      type: boolean
+      description: Simulate release workflow without mutations (future enhancement)
+      example: --dry-run
+
+expectedInput:
+  format: Command arguments
+  required:
+    - Release version (semantic versioning X.Y.Z)
+
+  optional:
+    - Release type (standard, hotfix, rollback)
+    - Base branch (main, develop, production)
+    - Target branch (release/vX.Y.Z, hotfix/vX.Y.Z)
+    - Draft mode flag
+    - Dry-run flag (future)
+
+expectedOutput:
+  format: Release workflow results
+  structure:
+    - name: Quality Gate Results
+      description: Security scan, DoD validation, test results (unit, integration, smoke, E2E)
+
+    - name: Deployment Results
+      description: Staging deployment, production deployment (canary progression), smoke test results
+
+    - name: Release Artifacts
+      description: Pull request URL, GitHub release URL, release report, audit log
+
+    - name: Rollback Results
+      description: (If triggered) Traffic reversion, post-rollback smoke tests, health validation
+
+usageExamples:
+  - name: Standard Release
+    command: /release --version 2.1.0
+    description: Execute standard release workflow with full quality gates and staging deployment
+
+  - name: Hotfix Release
+    command: /release --version 2.1.1 --type hotfix
+    description: Execute fast-track hotfix workflow with canary deployment (skips staging)
+
+  - name: Manual Rollback
+    command: /release --version 2.1.0 --rollback
+    description: Manually trigger rollback to previous version
+
+  - name: Custom Branches
+    command: /release --version 2.1.0 --from develop --to release/v2.1.0
+    description: Release from custom base branch to custom target branch
+
+  - name: Draft Release
+    command: /release --version 2.1.0 --draft
+    description: Create release as draft for review before publishing
+
+timingBudget:
+  standardRelease:
+    qualityGates: 23 minutes
+    stagingDeployment: 5 minutes
+    productionDeployment: 5 minutes
+    total: 33 minutes
+
+  hotfixRelease:
+    fastTrackGates: 10 minutes
+    canaryDeployment: 10 minutes
+    total: 20 minutes
+
+  rollback:
+    trafficReversion: 2 minutes
+    smokeTestVerification: 3 minutes
+    healthMonitoring: 5 minutes
+    total: 10 minutes
+
+qualityGates:
+  required:
+    - name: Security Scan
+      target: Zero critical/high severity issues
+      timeout: 10 minutes
+
+    - name: DoD Validation
+      target: All 8 categories pass
+      timeout: 10 minutes
+
+    - name: Unit Tests
+      target: "≥80% coverage, 0 failures"
+      timeout: 15 minutes
+
+    - name: Integration Tests
+      target: "≥70% coverage, 0 failures"
+      timeout: 15 minutes
+
+    - name: Smoke Tests
+      target: All 5 categories pass
+      timeout: 5 minutes
+
+    - name: E2E Tests
+      target: All critical journeys pass
+      timeout: 10 minutes
+
+  deployment:
+    - name: Staging Deployment
+      target: "≤5 minutes (2min deploy + 3min smoke tests)"
+      timeout: 15 minutes
+
+    - name: Production Deployment
+      target: "≤5 minutes (canary progression + smoke tests)"
+      timeout: 15 minutes
+
+    - name: Rollback
+      target: "≤10 minutes (2min revert + 3min smoke + 5min health)"
+      timeout: 15 minutes
+
+successCriteria:
+  - All quality gates pass
+  - Staging deployment successful with smoke tests passing
+  - Production deployment successful with canary progression
+  - Post-production smoke tests passing
+  - Error rate <1% for 5 minutes post-deployment
+  - Release artifacts created (PR, GitHub release, report, audit log)
+  - Tickets updated with release information
+
+failureCriteria:
+  - Any quality gate fails
+  - Staging deployment or smoke tests fail
+  - Production smoke test failure
+  - Error rate >5% for 2 minutes
+  - Health check failure (3 consecutive)
+  - Rollback triggered
+
+rollbackTriggers:
+  automatic:
+    - Production smoke test failure (any category)
+    - Error rate >5% for 2 minutes
+    - Health check failure (3 consecutive checks)
+
+  manual:
+    - On-call engineer initiated rollback (--rollback flag)
+    - Critical production issue detected

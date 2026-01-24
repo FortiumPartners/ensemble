@@ -1,0 +1,289 @@
+metadata:
+  name: ensemble:claude-changelog
+  description: |
+    Track Claude updates and new features directly from your development environment.
+    Fetch, parse, and display changelogs with intelligent filtering and caching.
+  version: 1.0.0
+  lastUpdated: "2025-11-05"
+  category: analysis
+  output_path: ensemble/claude-changelog.md
+  source: fortium
+
+mission:
+  summary: |
+    This command fetches and displays Claude changelog information from Anthropic documentation.
+    It provides intelligent filtering by version, date, category, and importance level.
+    Results are cached for 24 hours to optimize performance.
+
+  capabilities:
+    - Fetch changelog from Anthropic documentation
+    - Parse version, date, and features
+    - Categorize by type (breaking, new, enhancement, performance, security, deprecation, bugfix)
+    - Filter by category, importance, date range
+    - Multi-format output (console, JSON, markdown)
+    - Intelligent caching with 24-hour TTL
+    - Comprehensive error handling with fallback
+
+parameters:
+  - name: version
+    type: string
+    required: false
+    description: Specific version (e.g., 3.5.0) or "latest"
+    pattern: "^\\d+(\\.\\d+){0,2}$|^latest$"
+    examples:
+      - "3.5.0"
+      - "3.5"
+      - "latest"
+
+  - name: since
+    type: string
+    required: false
+    description: Show changes since date or time period
+    pattern: "^\\d{4}-\\d{2}-\\d{2}$|^\\d+[dwm]$"
+    examples:
+      - "2025-10-01"
+      - "7d"
+      - "2w"
+      - "1m"
+
+  - name: category
+    type: string
+    required: false
+    description: Filter by feature category (comma-separated for multiple)
+    validValues:
+      - breaking
+      - new
+      - enhancement
+      - performance
+      - security
+      - deprecation
+      - bugfix
+    examples:
+      - "breaking"
+      - "breaking,security"
+      - "new"
+
+  - name: important
+    type: boolean
+    required: false
+    default: false
+    description: Show only high-impact changes
+
+  - name: format
+    type: string
+    required: false
+    default: console
+    description: Output format
+    validValues:
+      - console
+      - json
+      - markdown
+    examples:
+      - "console"
+      - "json"
+      - "markdown"
+
+  - name: refresh
+    type: boolean
+    required: false
+    default: false
+    description: Force refresh, bypass cache
+
+  - name: help
+    type: boolean
+    required: false
+    default: false
+    description: Show help and usage examples
+
+workflow:
+  phases:
+    - name: Parameter Parsing
+      order: 1
+      steps:
+        - order: 1
+          title: Validate Parameters
+          description: Parse and validate command parameters
+          actions:
+            - Parse command-line arguments
+            - Validate version format (semver)
+            - Validate date format (YYYY-MM-DD or relative)
+            - Validate category names
+            - Validate output format
+
+        - order: 2
+          title: Handle Help Flag
+          description: Display help if requested
+          actions:
+            - Check if --help flag is set
+            - Return comprehensive help text if true
+            - Continue to workflow if false
+
+    - name: Data Fetching
+      order: 2
+      steps:
+        - order: 1
+          title: Check Cache
+          description: Check for cached changelog data
+          actions:
+            - Skip cache if --refresh flag is set
+            - Check cache directory ~/.ensemble/cache/changelog/
+            - Verify cache TTL (24 hours)
+            - Return cached data if fresh
+
+        - order: 2
+          title: Fetch from Network
+          description: Fetch changelog from Anthropic documentation
+          actions:
+            - Attempt WebFetch MCP integration (if available)
+            - Fall back to Node.js HTTPS module
+            - Apply 5-second timeout
+            - Retry with exponential backoff (max 2 retries)
+            - Handle network errors gracefully
+
+        - order: 3
+          title: Cache Response
+          description: Store fetched data in cache
+          actions:
+            - Create cache directory if needed
+            - Write JSON cache file with TTL metadata
+            - Handle cache write errors (non-critical)
+
+    - name: Parsing & Categorization
+      order: 3
+      steps:
+        - order: 1
+          title: Parse HTML Content
+          description: Extract structured data from changelog HTML
+          actions:
+            - Parse HTML with cheerio
+            - Extract version (semver format)
+            - Extract release date (ISO 8601)
+            - Identify section headers (7 categories)
+            - Extract feature descriptions
+
+        - order: 2
+          title: Categorize Features
+          description: Classify and enhance feature data
+          actions:
+            - Categorize by type (breaking, new, etc.)
+            - Assess impact level (high, medium, low)
+            - Calculate confidence score
+            - Extract migration guidance for breaking changes
+
+        - order: 3
+          title: Validate Data
+          description: Validate and enrich parsed data
+          actions:
+            - Validate version format (semver)
+            - Validate date format (ISO 8601)
+            - Add metadata (cachedAt, source, confidence)
+            - Handle partial parsing results
+
+    - name: Filtering & Formatting
+      order: 4
+      steps:
+        - order: 1
+          title: Apply Filters
+          description: Filter features based on parameters
+          actions:
+            - Filter by category if specified
+            - Filter by importance (high impact only)
+            - Filter by date range if --since specified
+            - Sort by impact and category
+
+        - order: 2
+          title: Format Output
+          description: Generate formatted output
+          actions:
+            - Create formatter with specified format (console/json/markdown)
+            - Generate formatted output with symbols and colors
+            - Add summary statistics
+            - Include high-impact indicators
+
+        - order: 3
+          title: Display Result
+          description: Return formatted changelog to user
+          actions:
+            - Return formatted output string
+            - Include cache metadata if applicable
+            - Display partial results warning if needed
+
+errorHandling:
+  networkErrors:
+    - code: ECONNREFUSED
+      action: Fall back to cache with age indication
+      message: "Unable to connect to Anthropic documentation server"
+
+    - code: ETIMEDOUT
+      action: Retry with exponential backoff, then cache fallback
+      message: "Request timeout - server took too long to respond"
+
+    - code: ENOTFOUND
+      action: Fall back to cache
+      message: "DNS lookup failed - could not resolve hostname"
+
+    - statusCode: 404
+      action: Display error message
+      message: "Changelog not found (HTTP 404)"
+
+    - statusCode: 500
+      action: Fall back to cache
+      message: "Anthropic server error (HTTP 500)"
+
+  parsingErrors:
+    - action: Show partial results with warning
+      message: "Failed to parse changelog completely"
+
+  validationErrors:
+    - action: Display helpful message with examples
+      message: "Invalid parameter format"
+
+  cacheErrors:
+    - action: Continue without caching (non-critical)
+      message: "Cache operation failed"
+
+performance:
+  timeout: 5000  # 5 seconds
+  cacheTTL: 86400  # 24 hours
+  retryAttempts: 2
+  retryDelay: 1000  # 1 second initial delay (exponential backoff)
+  memoryLimit: 52428800  # 50MB
+
+successCriteria:
+  - Response time <5s (p95) for network fetch
+  - Response time <1s (p95) for cache hits
+  - Parsing accuracy ≥85% for MVP (≥95% for production)
+  - Zero crashes on valid input
+  - Graceful error handling with cache fallback
+  - Test coverage ≥80%
+
+examples:
+  - command: "/claude-changelog"
+    description: "Get latest changelog"
+
+  - command: "/claude-changelog --version 3.5.0"
+    description: "Get specific version"
+
+  - command: "/claude-changelog --since 7d"
+    description: "Get changes from last 7 days"
+
+  - command: "/claude-changelog --category breaking"
+    description: "Filter by breaking changes only"
+
+  - command: "/claude-changelog --important --format json"
+    description: "Get high-impact changes in JSON format"
+
+  - command: "/claude-changelog --refresh"
+    description: "Force refresh and bypass cache"
+
+  - command: "/claude-changelog --help"
+    description: "Show help information"
+
+agentDelegation:
+  primary: general-purpose
+  description: Workflow orchestration and coordination
+  specialists:
+    - agent: backend-developer
+      purpose: Component implementation
+    - agent: test-runner
+      purpose: Validation and testing

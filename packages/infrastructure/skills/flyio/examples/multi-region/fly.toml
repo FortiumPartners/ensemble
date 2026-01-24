@@ -1,0 +1,32 @@
+# Fly.io Configuration for Multi-Region Deployment
+app = "multi-region-app"
+primary_region = "sea"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false  # Keep running for better latency
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/health"
+
+# Multi-region configuration
+# Fly.io automatically routes users to nearest region
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+# Optional: Specify machines per region
+# Use flyctl scale count <count> --region <region> instead

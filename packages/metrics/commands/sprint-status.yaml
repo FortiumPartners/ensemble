@@ -1,0 +1,45 @@
+metadata:
+  name: ensemble:sprint-status
+  description: Generate current sprint status report with task completion and blockers
+  version: 1.0.0
+  lastUpdated: "2025-10-13"
+  category: analysis
+  output_path: ensemble/sprint-status.md
+  source: fortium
+
+mission:
+  summary: |
+    Generate a comprehensive sprint status report including task completion percentages,
+    blockers, team velocity, and projected completion date based on current TRD progress.
+
+workflow:
+  phases:
+    - name: Data Collection
+      order: 1
+      steps:
+        - order: 1
+          title: TRD Analysis
+          description: Scan TRD files for task checkboxes
+        
+        - order: 2
+          title: Progress Calculation
+          description: Calculate completion percentages
+    
+    - name: Report Generation
+      order: 2
+      steps:
+        - order: 1
+          title: Status Report
+          description: Generate formatted status report
+
+expectedOutput:
+  format: Sprint Status Report
+  structure:
+    - name: Completion Summary
+      description: Overall and per-category completion percentages
+    
+    - name: Blockers
+      description: Identified blockers and dependencies
+    
+    - name: Velocity
+      description: Team velocity and projected completion

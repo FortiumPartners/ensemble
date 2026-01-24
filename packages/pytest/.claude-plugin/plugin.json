@@ -1,0 +1,24 @@
+{
+  "name": "ensemble-pytest",
+  "version": "5.1.0",
+  "description": "Pytest testing framework integration - Execute and generate Python tests with fixtures, parametrization, and mocking support",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "pytest",
+    "testing",
+    "python",
+    "ensemble",
+    "fixtures",
+    "mocking",
+    "parametrization",
+    "test-generation"
+  ],
+  "commands": "./commands",
+  "skills": "./skills"
+}

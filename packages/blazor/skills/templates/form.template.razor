@@ -1,0 +1,145 @@
+@*
+ * TEMPLATE: Blazor Form with Validation (Lines: ~150)
+ * Purpose: Form component with EditForm and validation
+ * Placeholders: {{EntityName}}, {{Namespace}}, {{PropertyName}}, {{SecondPropertyName}}
+ *@
+
+@using Microsoft.FluentUI.AspNetCore.Components
+@using System.ComponentModel.DataAnnotations
+@namespace {{Namespace}}.Components
+
+<EditForm Model="@Model" OnValidSubmit="HandleValidSubmit" OnInvalidSubmit="HandleInvalidSubmit">
+    <DataAnnotationsValidator />
+
+    <FluentStack Orientation="Orientation.Vertical" VerticalGap="16">
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <FluentMessageBar Intent="MessageIntent.Error">
+                @errorMessage
+            </FluentMessageBar>
+        }
+
+        <ValidationSummary />
+
+        <FluentTextField
+            @bind-Value="Model.{{PropertyName}}"
+            Label="{{PropertyName}}"
+            Required="true"
+            Placeholder="Enter {{propertyName}}..." />
+        <ValidationMessage For="@(() => Model.{{PropertyName}})" />
+
+        <FluentTextField
+            @bind-Value="Model.{{SecondPropertyName}}"
+            Label="{{SecondPropertyName}}"
+            Type="InputType.Email"
+            Placeholder="Enter {{secondPropertyName}}..." />
+        <ValidationMessage For="@(() => Model.{{SecondPropertyName}})" />
+
+        <FluentNumberField
+            @bind-Value="Model.Age"
+            Label="Age"
+            Min="0"
+            Max="150" />
+        <ValidationMessage For="@(() => Model.Age)" />
+
+        <FluentSelect
+            @bind-Value="Model.Status"
+            Label="Status"
+            Items="@statusOptions">
+            <OptionTemplate Context="option">@option</OptionTemplate>
+        </FluentSelect>
+
+        <FluentCheckbox
+            @bind-Value="Model.IsActive"
+            Label="Active" />
+
+        <FluentTextArea
+            @bind-Value="Model.Notes"
+            Label="Notes"
+            Rows="4"
+            Placeholder="Additional notes..." />
+
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="8">
+            <FluentButton
+                Type="ButtonType.Submit"
+                Appearance="Appearance.Accent"
+                Disabled="@isSubmitting">
+                @(isSubmitting ? "Submitting..." : "Submit")
+            </FluentButton>
+            <FluentButton
+                Type="ButtonType.Button"
+                Appearance="Appearance.Neutral"
+                OnClick="HandleCancel"
+                Disabled="@isSubmitting">
+                Cancel
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired]
+    public {{EntityName}}FormModel Model { get; set; } = new();
+
+    [Parameter]
+    public EventCallback<{{EntityName}}FormModel> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private bool isSubmitting = false;
+    private string? errorMessage;
+    private List<string> statusOptions = new() { "Active", "Inactive", "Pending" };
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            isSubmitting = true;
+            errorMessage = null;
+
+            await OnSubmit.InvokeAsync(Model);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void HandleInvalidSubmit()
+    {
+        errorMessage = "Please correct the validation errors.";
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}
+
+// Model
+public class {{EntityName}}FormModel
+{
+    [Required(ErrorMessage = "{{PropertyName}} is required")]
+    [MaxLength(100)]
+    public string {{PropertyName}} { get; set; } = string.Empty;
+
+    [Required]
+    [EmailAddress]
+    public string {{SecondPropertyName}} { get; set; } = string.Empty;
+
+    [Range(0, 150)]
+    public int Age { get; set; }
+
+    [Required]
+    public string Status { get; set; } = "Active";
+
+    public bool IsActive { get; set; } = true;
+
+    [MaxLength(500)]
+    public string Notes { get; set; } = string.Empty;
+}

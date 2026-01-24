@@ -1,0 +1,29 @@
+{
+  "name": "ensemble-infrastructure",
+  "version": "5.2.1",
+  "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "infrastructure",
+    "devops",
+    "kubernetes",
+    "aws",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/build-orchestrator.md",
+    "./agents/deployment-orchestrator.md",
+    "./agents/helm-chart-specialist.md",
+    "./agents/infrastructure-developer.md",
+    "./agents/infrastructure-orchestrator.md",
+    "./agents/postgresql-specialist.md"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "ensemble-e2e-testing",
+  "version": "5.2.1",
+  "description": "End-to-end testing with Playwright integration",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testing",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/playwright-tester.md"
+  ]
+}

@@ -1,0 +1,25 @@
+# Django core
+Django==5.0.1
+psycopg2-binary==2.9.9
+
+# WSGI server
+gunicorn==21.2.0
+
+# Environment variables
+python-decouple==3.8
+
+# Database
+dj-database-url==2.1.0
+
+# Static files
+whitenoise==6.6.0
+
+# Background tasks
+celery==5.3.6
+redis==5.0.1
+
+# Security
+django-cors-headers==4.3.1
+
+# Monitoring
+sentry-sdk==1.39.2

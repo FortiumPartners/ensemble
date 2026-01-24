@@ -1,0 +1,120 @@
+# Act Local CI Configuration Template
+# Copy to project root as .actrc or use with --config flag
+
+# Runner Platform Images
+# Use appropriate image for your workflows
+# Options: micro (small), medium (default), large, full (maximum compatibility)
+platforms:
+  ubuntu-latest: catthehacker/ubuntu:act-latest
+  ubuntu-22.04: catthehacker/ubuntu:act-22.04
+  ubuntu-20.04: catthehacker/ubuntu:act-20.04
+
+# Secrets Configuration
+# Create .secrets file with actual values (gitignored)
+secrets:
+  file: .secrets
+  # Inline secrets (for non-sensitive values only)
+  inline: {}
+    # CI: true
+    # NODE_ENV: test
+
+# Environment Variables
+environment:
+  file: .env
+  inline:
+    ACT: true
+    CI: true
+
+# Container Options
+container:
+  # Reuse containers between runs (faster)
+  reuse: false
+
+  # Architecture for Apple Silicon compatibility
+  architecture: linux/amd64
+
+  # Resource limits
+  options: "--memory=4g --cpus=2"
+
+  # Network mode
+  network: bridge  # or 'host' for service containers
+
+# Artifact Handling
+artifacts:
+  # Local path for artifacts
+  serverPath: /tmp/act-artifacts
+
+# Performance Settings
+performance:
+  # Use bind mount for faster file access
+  bind: false
+
+  # Pull images in advance
+  pullImages: true
+
+# Default Event
+defaultEvent: push
+
+# Workflow Selection
+workflows:
+  # Default workflow directory
+  directory: .github/workflows
+
+  # Specific workflows to run (empty = all)
+  include: []
+    # - test.yml
+    # - build.yml
+
+  # Workflows to skip
+  exclude: []
+    # - deploy.yml
+    # - release.yml
+
+# Job Selection
+jobs:
+  # Run specific jobs (empty = all)
+  include: []
+    # - test
+    # - build
+
+  # Skip specific jobs
+  exclude: []
+    # - deploy
+    # - notify
+
+# Logging
+logging:
+  # Verbose output
+  verbose: false
+
+  # Very verbose output
+  veryVerbose: false
+
+  # Output format
+  format: standard  # or 'json'
+
+# ---
+# Example .actrc file (place in project root):
+# ---
+# -P ubuntu-latest=catthehacker/ubuntu:act-latest
+# -P ubuntu-22.04=catthehacker/ubuntu:act-22.04
+# --secret-file .secrets
+# --env-file .env
+# --reuse
+# --container-architecture linux/amd64
+
+# ---
+# Example .secrets file (DO NOT COMMIT):
+# ---
+# GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# NPM_TOKEN=npm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# AWS_ACCESS_KEY_ID=AKIAXXXXXXXXXXXXXXXX
+# AWS_SECRET_ACCESS_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# ---
+# Example .secrets.example file (commit this for documentation):
+# ---
+# # Required secrets for local CI testing
+# # Copy this file to .secrets and fill in values
+# GITHUB_TOKEN=<your-github-personal-access-token>
+# NPM_TOKEN=<your-npm-token>

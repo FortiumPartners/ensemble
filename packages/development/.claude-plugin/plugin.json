@@ -1,0 +1,27 @@
+{
+  "name": "ensemble-development",
+  "version": "5.2.1",
+  "description": "Development agents for frontend/backend implementation",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "development",
+    "implementation",
+    "coding",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/api-documentation-specialist.md",
+    "./agents/backend-developer.md",
+    "./agents/documentation-specialist.md",
+    "./agents/frontend-developer.md",
+    "./agents/tech-lead-orchestrator.md"
+  ]
+}

@@ -1,0 +1,418 @@
+# API Smoke Test Configuration Template
+#
+# This template provides comprehensive examples for configuring API smoke tests
+# across multiple environments with health checks, CRUD operations, and error handling.
+#
+# Usage:
+#   1. Copy this template to your project
+#   2. Update environment-specific URLs and credentials
+#   3. Customize endpoints for your API
+#   4. Run tests: node execute-health-checks.js --config health-check-config.yaml
+
+---
+# Pre-Release Environment
+preRelease:
+  environment: pre-release
+  baseUrl: https://pre-release.example.com
+  timeout: 5000
+  retries: 2
+  retryDelay: 1000
+  validateSSL: true
+  followRedirects: true
+  stopOnFirstFailure: false
+
+  # Authentication configuration
+  auth:
+    type: bearer  # Options: bearer, basic, apikey
+    token: ${PRE_RELEASE_AUTH_TOKEN}  # Environment variable
+
+  # Global headers
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+    Content-Type: application/json
+
+  # Endpoints to test
+  endpoints:
+    # 1. System Health Checks
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100  # Target: ≤100ms
+      validateResponse:
+        - field: status
+          value: ok
+        - field: version
+          type: string
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+      validateResponse:
+        - field: connected
+          value: true
+        - field: responseTime
+          type: number
+          max: 100
+
+    - name: cache-health
+      path: /health/cache
+      method: GET
+      expectedStatus: 200
+      sla: 200
+      validateResponse:
+        - field: connected
+          value: true
+
+    # 2. Critical API Endpoints
+    - name: list-users
+      path: /api/v1/users
+      method: GET
+      expectedStatus: 200
+      sla: 500
+      validateResponse:
+        - field: data
+          type: array
+        - field: pagination.total
+          type: number
+
+    - name: search-users
+      path: /api/v1/search
+      method: GET
+      expectedStatus: 200
+      sla: 2000
+      query:
+        q: test
+        limit: 10
+      validateResponse:
+        - field: results
+          type: array
+
+    # 3. Error Handling Tests
+    - name: not-found-test
+      path: /api/v1/nonexistent
+      method: GET
+      expectedStatus: 404
+      sla: 100
+
+---
+# Staging Environment
+staging:
+  environment: staging
+  baseUrl: https://staging.example.com
+  timeout: 5000
+  retries: 2
+  retryDelay: 1000
+  validateSSL: true
+  followRedirects: true
+
+  auth:
+    type: bearer
+    token: ${STAGING_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+    Content-Type: application/json
+
+  endpoints:
+    # Health checks
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    # CRUD operations
+    - name: create-resource
+      path: /api/v1/resources
+      method: POST
+      expectedStatus: 201
+      sla: 1000
+      body:
+        name: Smoke Test Resource
+        type: test
+      validateResponse:
+        - field: id
+          type: string
+        - field: name
+          value: Smoke Test Resource
+
+    - name: read-resource
+      path: /api/v1/resources
+      method: GET
+      expectedStatus: 200
+      sla: 500
+      validateResponse:
+        - field: data
+          type: array
+
+    # Authentication tests
+    - name: protected-endpoint
+      path: /api/v1/protected
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+---
+# Canary Environment (5% traffic)
+canary5:
+  environment: canary-5
+  baseUrl: https://canary.example.com
+  timeout: 5000
+  retries: 2
+  validateSSL: true
+
+  auth:
+    type: bearer
+    token: ${CANARY_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+
+  # Critical endpoints only for canary testing
+  endpoints:
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: critical-api
+      path: /api/v1/critical
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+---
+# Canary Environment (25% traffic)
+canary25:
+  environment: canary-25
+  baseUrl: https://canary.example.com
+  timeout: 5000
+  retries: 2
+  validateSSL: true
+
+  auth:
+    type: bearer
+    token: ${CANARY_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+
+  endpoints:
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: critical-api
+      path: /api/v1/critical
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+    - name: list-users
+      path: /api/v1/users
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+---
+# Canary Environment (100% traffic)
+canary100:
+  environment: canary-100
+  baseUrl: https://canary.example.com
+  timeout: 5000
+  retries: 2
+  validateSSL: true
+
+  auth:
+    type: bearer
+    token: ${CANARY_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+
+  # Full smoke test suite for 100% canary
+  endpoints:
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: cache-health
+      path: /health/cache
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: list-users
+      path: /api/v1/users
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+    - name: search-users
+      path: /api/v1/search
+      method: GET
+      expectedStatus: 200
+      sla: 2000
+      query:
+        q: test
+        limit: 10
+
+    - name: create-resource
+      path: /api/v1/resources
+      method: POST
+      expectedStatus: 201
+      sla: 1000
+      body:
+        name: Canary Test Resource
+
+---
+# Production Environment
+production:
+  environment: production
+  baseUrl: https://api.example.com
+  timeout: 5000
+  retries: 3  # More retries in production
+  retryDelay: 2000
+  validateSSL: true
+  followRedirects: true
+  stopOnFirstFailure: true  # Stop immediately on production failure
+
+  auth:
+    type: bearer
+    token: ${PRODUCTION_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+    Content-Type: application/json
+
+  endpoints:
+    # Critical health checks only in production
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: cache-health
+      path: /health/cache
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    # Critical API endpoints
+    - name: list-users
+      path: /api/v1/users
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+    # Authentication validation
+    - name: protected-endpoint
+      path: /api/v1/protected
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+---
+# Post-Rollback Environment (validates rollback success)
+rollback:
+  environment: rollback
+  baseUrl: https://api.example.com  # Production URL after rollback
+  timeout: 5000
+  retries: 2
+  validateSSL: true
+
+  auth:
+    type: bearer
+    token: ${PRODUCTION_AUTH_TOKEN}
+
+  headers:
+    User-Agent: SmokeTestAPI/1.0
+    Accept: application/json
+
+  # Comprehensive validation after rollback
+  endpoints:
+    - name: system-health
+      path: /health
+      method: GET
+      expectedStatus: 200
+      sla: 100
+
+    - name: database-health
+      path: /health/db
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: cache-health
+      path: /health/cache
+      method: GET
+      expectedStatus: 200
+      sla: 200
+
+    - name: list-users
+      path: /api/v1/users
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+    - name: search-users
+      path: /api/v1/search
+      method: GET
+      expectedStatus: 200
+      sla: 2000
+      query:
+        q: test
+        limit: 10
+
+    - name: protected-endpoint
+      path: /api/v1/protected
+      method: GET
+      expectedStatus: 200
+      sla: 500
+
+# Performance SLA Targets
+slaTargets:
+  health: 100       # Health endpoints: ≤100ms
+  read: 500         # Read operations: ≤500ms
+  write: 1000       # Write operations: ≤1000ms
+  search: 2000      # Search operations: ≤2000ms
+  default: 5000     # Default timeout: ≤5000ms

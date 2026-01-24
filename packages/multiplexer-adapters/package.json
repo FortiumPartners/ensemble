@@ -1,0 +1,32 @@
+{
+  "name": "@fortium/ensemble-multiplexer-adapters",
+  "version": "5.2.2",
+  "description": "Shared terminal multiplexer adapters for Ensemble plugins (WezTerm, Zellij, tmux)",
+  "main": "lib/index.js",
+  "files": [
+    "lib"
+  ],
+  "keywords": [
+    "ensemble",
+    "multiplexer",
+    "terminal",
+    "wezterm",
+    "zellij",
+    "tmux",
+    "pane"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0",
+    "@vitest/coverage-v8": "^2.1.0"
+  }
+}

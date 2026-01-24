@@ -1,0 +1,30 @@
+{
+  "name": "@fortium/ensemble-e2e-testing",
+  "version": "5.2.1",
+  "description": "End-to-end testing with Playwright integration",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testing",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/e2e-testing"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "peerDependencies": {
+    "@fortium/ensemble-core": "^4.0.0"
+  }
+}

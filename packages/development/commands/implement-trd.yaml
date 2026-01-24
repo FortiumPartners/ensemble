@@ -1,0 +1,149 @@
+metadata:
+  name: ensemble:implement-trd
+  description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
+  version: 1.1.0
+  lastUpdated: "2025-12-30"
+  category: implementation
+  output_path: ensemble/implement-trd.md
+  source: fortium
+
+mission:
+  summary: |
+    This command implements a complete Technical Requirements Document (TRD) using modern
+    git-town feature branch workflow. It creates a feature branch and delegates to
+    ensemble-orchestrator which routes to tech-lead-orchestrator for structured TDD-based
+    development including planning, implementation, testing, and quality gates.
+
+workflow:
+  phases:
+    - name: Prerequisites & Feature Branch Setup
+      order: 1
+      steps:
+        - order: 1
+          title: Git Town Verification
+          description: Check git-town installation and configuration using validation script
+          actions:
+            - Execute validation script - bash packages/git/skills/git-town/scripts/validate-git-town.sh
+            - Handle exit codes - 0 (success), 1 (not installed), 2 (not configured), 3 (version mismatch), 4 (not git repo)
+            - If validation fails, escalate with specific error message
+            - Ensure clean working directory (git status)
+        
+        - order: 2
+          title: Feature Branch Creation
+          description: Create feature branch using git-town skill interview template
+          actions:
+            - Load interview template from packages/git/skills/git-town/templates/interview-branch-creation.md
+            - Extract branch name from TRD filename (format - feature/<trd-slug>)
+            - Validate branch name against pattern - ^[a-z0-9-]+(/[a-z0-9-]+)*$
+            - Set base_branch to main (or current default branch)
+            - Execute - git-town hack <branch-name> --parent <base-branch>
+            - Verify branch creation successful (check git branch output)
+        
+        - order: 3
+          title: TRD Ingestion
+          description: Parse and analyze existing TRD document with checkbox tracking
+        
+        - order: 4
+          title: Technical Feasibility Review
+          description: Validate implementation approach and architecture
+        
+        - order: 5
+          title: Resource Assessment
+          description: Identify required specialist agents and tools
+    
+    - name: Ensemble Orchestrator Delegation
+      order: 2
+      steps:
+        - order: 1
+          title: Strategic Request Analysis
+          description: ensemble-orchestrator analyzes TRD requirements
+          delegation:
+            agent: ensemble-orchestrator
+            context: Complete TRD with task breakdown and acceptance criteria
+        
+        - order: 2
+          title: Development Project Classification
+          description: Identifies as development project requiring full methodology
+        
+        - order: 3
+          title: Tech Lead Orchestrator Delegation
+          description: Routes to tech-lead-orchestrator for development methodology
+          delegation:
+            agent: tech-lead-orchestrator
+            context: TRD implementation requirements with task tracking
+    
+    - name: Progressive Implementation with TDD
+      order: 3
+      steps:
+        - order: 1
+          title: Planning & Architecture Validation
+          description: Validate TRD architecture against current system
+        
+        - order: 2
+          title: Task Status Assessment
+          description: Review completed work before proceeding
+          actions:
+            - Check which tasks are already completed
+            - Identify blockers and dependencies
+            - Prioritize next tasks
+        
+        - order: 3
+          title: Test-Driven Implementation
+          description: Follow TDD Red-Green-Refactor cycle for all code
+          actions:
+            - RED - Write failing tests first
+            - GREEN - Implement minimal code to pass
+            - REFACTOR - Improve code quality
+        
+        - order: 4
+          title: Quality Gates
+          description: Code review, security scanning, DoD enforcement
+          delegation:
+            agent: code-reviewer
+            context: Completed implementation requiring quality validation
+        
+        - order: 5
+          title: Sprint Review
+          description: Mark completed tasks and validate objectives
+
+expectedInput:
+  format: Technical Requirements Document (TRD)
+  sections:
+    - name: System Architecture
+      required: true
+      description: Component design, data flow, integration points
+    
+    - name: Technical Specifications
+      required: true
+      description: APIs, data contracts, performance requirements
+    
+    - name: Implementation Tasks
+      required: true
+      description: Detailed task breakdown with checkboxes and estimates
+    
+    - name: Quality Requirements
+      required: true
+      description: Security, performance, testing standards
+    
+    - name: Sprint Planning
+      required: true
+      description: Organized development phases with dependencies
+    
+    - name: Acceptance Criteria
+      required: true
+      description: Measurable validation criteria with checkbox tracking
+
+expectedOutput:
+  format: Implemented Features with Quality Gates
+  structure:
+    - name: Feature Branch
+      description: Git-town feature branch with all implementation commits
+    
+    - name: Implementation Code
+      description: Working code with tests (≥80% unit, ≥70% integration)
+    
+    - name: Quality Validation
+      description: Code review passed, security scan clean, DoD met
+    
+    - name: Documentation
+      description: Updated documentation including API docs and deployment notes

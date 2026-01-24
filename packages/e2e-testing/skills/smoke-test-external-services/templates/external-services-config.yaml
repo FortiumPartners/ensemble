@@ -1,0 +1,66 @@
+# External Services Smoke Test Configuration Template
+#
+# Configures smoke tests for third-party service integrations including
+# payment gateways, communication services, cloud storage, and monitoring.
+
+---
+# Pre-Release Environment
+preRelease:
+  environment: pre-release
+  services:
+    - name: stripe
+      type: payment
+      baseUrl: https://api.stripe.com
+      apiKey: ${STRIPE_TEST_API_KEY}
+      tests:
+        - connectivity
+        - authentication
+    - name: sendgrid
+      type: email
+      baseUrl: https://api.sendgrid.com
+      apiKey: ${SENDGRID_TEST_API_KEY}
+      tests:
+        - connectivity
+        - authentication
+
+---
+# Staging Environment
+staging:
+  environment: staging
+  services:
+    - name: stripe
+      type: payment
+      baseUrl: https://api.stripe.com
+      apiKey: ${STRIPE_TEST_API_KEY}
+      tests:
+        - connectivity
+        - authentication
+        - basic-operation
+    - name: sendgrid
+      type: email
+      baseUrl: https://api.sendgrid.com
+      apiKey: ${SENDGRID_API_KEY}
+      tests:
+        - connectivity
+        - authentication
+        - basic-operation
+
+---
+# Production Environment
+production:
+  environment: production
+  services:
+    - name: stripe
+      type: payment
+      baseUrl: https://api.stripe.com
+      apiKey: ${STRIPE_LIVE_API_KEY}
+      tests:
+        - connectivity
+        - authentication
+    - name: sendgrid
+      type: email
+      baseUrl: https://api.sendgrid.com
+      apiKey: ${SENDGRID_API_KEY}
+      tests:
+        - connectivity
+        - authentication

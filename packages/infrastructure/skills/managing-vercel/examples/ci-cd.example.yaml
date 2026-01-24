@@ -1,0 +1,291 @@
+# Vercel CI/CD Deployment Examples
+# All commands use non-interactive flags for automation compatibility
+#
+# CRITICAL: Never use interactive commands in CI/CD:
+# - Always use --yes for confirmation prompts
+# - Always use --token (never vercel login)
+# - Use explicit project names
+# - Avoid vercel dev (interactive)
+
+# =============================================================================
+# GITHUB ACTIONS - Basic Production Deploy
+# =============================================================================
+#
+# name: Deploy to Vercel
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Vercel CLI
+#         run: npm i -g vercel
+#
+#       - name: Deploy to Production
+#         run: vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Multi-Environment (Preview + Production)
+# =============================================================================
+#
+# name: Deploy
+#
+# on:
+#   push:
+#     branches:
+#       - main      # Production
+#       - develop   # Preview
+#   pull_request:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Vercel CLI
+#         run: npm i -g vercel
+#
+#       - name: Pull Vercel Environment
+#         run: vercel pull --yes --environment preview --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Build Project
+#         run: vercel build --yes --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Deploy Preview (PR/develop)
+#         if: github.ref != 'refs/heads/main'
+#         run: vercel deploy --prebuilt --yes --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Deploy Production (main)
+#         if: github.ref == 'refs/heads/main'
+#         run: vercel deploy --prebuilt --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Staged Production with Approval
+# =============================================================================
+#
+# name: Staged Production Deploy
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   stage:
+#     runs-on: ubuntu-latest
+#     outputs:
+#       url: ${{ steps.deploy.outputs.url }}
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Vercel CLI
+#         run: npm i -g vercel
+#
+#       - name: Deploy Staged (no domain assignment)
+#         id: deploy
+#         run: |
+#           URL=$(vercel --prod --skip-domain --yes --token ${{ secrets.VERCEL_TOKEN }})
+#           echo "url=$URL" >> $GITHUB_OUTPUT
+#           echo "Staged deployment: $URL"
+#
+#   test:
+#     needs: stage
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Run E2E tests against staged
+#         run: |
+#           curl -f ${{ needs.stage.outputs.url }}/api/health
+#           # Add more tests here
+#
+#   promote:
+#     needs: [stage, test]
+#     runs-on: ubuntu-latest
+#     environment: production  # Requires manual approval
+#     steps:
+#       - name: Install Vercel CLI
+#         run: npm i -g vercel
+#
+#       - name: Promote to Production
+#         run: vercel promote ${{ needs.stage.outputs.url }} --yes --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Monorepo with Multiple Apps
+# =============================================================================
+#
+# name: Deploy Monorepo
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy-frontend:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g vercel
+#       - working-directory: ./packages/frontend
+#         run: vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+#
+#   deploy-docs:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g vercel
+#       - working-directory: ./packages/docs
+#         run: vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - With Environment Variables
+# =============================================================================
+#
+# name: Deploy with Env Setup
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - name: Install Vercel CLI
+#         run: npm i -g vercel
+#
+#       - name: Link Project
+#         run: vercel link --yes --project ${{ vars.VERCEL_PROJECT_NAME }} --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Pull Environment Variables
+#         run: vercel pull --yes --environment production --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Build Project
+#         run: vercel build --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Deploy
+#         run: vercel deploy --prebuilt --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITHUB ACTIONS - Rollback on Failure
+# =============================================================================
+#
+# name: Deploy with Auto-Rollback
+#
+# on:
+#   push:
+#     branches: [main]
+#
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - run: npm i -g vercel
+#
+#       - name: Get Current Production URL
+#         id: current
+#         run: |
+#           URL=$(vercel list --json --token ${{ secrets.VERCEL_TOKEN }} | jq -r '.[0].url')
+#           echo "url=$URL" >> $GITHUB_OUTPUT
+#
+#       - name: Deploy
+#         id: deploy
+#         continue-on-error: true
+#         run: vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }}
+#
+#       - name: Health Check
+#         id: health
+#         if: steps.deploy.outcome == 'success'
+#         continue-on-error: true
+#         run: |
+#           sleep 30
+#           curl -f https://myapp.vercel.app/api/health
+#
+#       - name: Rollback on Failure
+#         if: steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure'
+#         run: |
+#           echo "Deployment failed, rolling back to: ${{ steps.current.outputs.url }}"
+#           vercel rollback --token ${{ secrets.VERCEL_TOKEN }}
+
+# =============================================================================
+# GITLAB CI
+# =============================================================================
+#
+# stages:
+#   - deploy
+#
+# deploy_preview:
+#   stage: deploy
+#   image: node:18
+#   script:
+#     - npm i -g vercel
+#     - vercel --yes --token $VERCEL_TOKEN
+#   except:
+#     - main
+#
+# deploy_production:
+#   stage: deploy
+#   image: node:18
+#   script:
+#     - npm i -g vercel
+#     - vercel --prod --yes --token $VERCEL_TOKEN
+#   only:
+#     - main
+
+# =============================================================================
+# CIRCLECI
+# =============================================================================
+#
+# version: 2.1
+#
+# jobs:
+#   deploy:
+#     docker:
+#       - image: node:18
+#     steps:
+#       - checkout
+#       - run: npm i -g vercel
+#       - run: vercel --prod --yes --token $VERCEL_TOKEN
+#
+# workflows:
+#   deploy:
+#     jobs:
+#       - deploy:
+#           filters:
+#             branches:
+#               only: main
+
+# =============================================================================
+# TOKEN MANAGEMENT
+# =============================================================================
+#
+# Generate tokens at: https://vercel.com/account/tokens
+#
+# Token scopes:
+# - Full Access: All operations
+# - Git Integration: Limited to deployments
+#
+# Best practices:
+# - Use minimal required permissions
+# - Store in CI/CD secrets (never in code)
+# - Rotate tokens periodically
+# - Use team tokens for team projects
+
+# =============================================================================
+# IMPORTANT NOTES
+# =============================================================================
+#
+# 1. ALWAYS use --yes for all commands
+# 2. ALWAYS use --token (never vercel login)
+# 3. Use --no-wait for redeploy to avoid blocking
+# 4. Use --skip-domain for staged deployments
+# 5. Use --prebuilt with vercel build for faster deploys
+# 6. Pull environment variables before building locally
+# 7. Use vercel promote for staged → production promotion

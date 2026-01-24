@@ -1,0 +1,29 @@
+{
+  "name": "@ensemble/version-manager",
+  "version": "1.0.0",
+  "description": "Automated version management for Ensemble plugin ecosystem",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "version-bump": "node dist/cli.js",
+    "install-hook": "node scripts/install-hook.js"
+  },
+  "keywords": ["version-management", "conventional-commits", "semver"],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "dependencies": {
+    "conventional-commits-parser": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.19",
+    "husky": "^8.0.3",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
+  }
+}

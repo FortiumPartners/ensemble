@@ -1,0 +1,27 @@
+# Auth Smoke Test Configuration Template
+
+---
+# Staging Environment
+staging:
+  environment: staging
+  baseUrl: https://staging.example.com
+  testCredentials:
+    email: test@example.com
+    password: ${TEST_USER_PASSWORD}
+  tests:
+    - login
+    - token-validation
+    - protected-resource
+
+---
+# Production Environment
+production:
+  environment: production
+  baseUrl: https://api.example.com
+  testCredentials:
+    email: prod-test@example.com
+    password: ${PROD_TEST_USER_PASSWORD}
+  tests:
+    - login
+    - token-validation
+    - protected-resource

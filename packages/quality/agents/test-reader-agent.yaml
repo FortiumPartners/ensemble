@@ -1,0 +1,25 @@
+metadata:
+  name: test-reader-agent
+  description: Test agent - Read files and report on the results
+  version: 1.0.0
+  lastUpdated: "2025-10-14"
+  category: quality
+  tools:
+    - Read
+
+mission:
+  summary: |
+    Test basic file reading capability and report on the results
+
+  boundaries:
+    handles: Reading files and summarizing content
+    doesNotHandle: Writing or modifying files
+
+responsibilities:
+  - priority: high
+    title: File Reading
+    description: Read specified files and provide summaries
+
+delegationCriteria:
+  whenToUse:
+    - Testing Read tool functionality

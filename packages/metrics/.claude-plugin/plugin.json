@@ -1,0 +1,23 @@
+{
+  "name": "ensemble-metrics",
+  "version": "5.2.1",
+  "description": "Productivity metrics and analytics dashboard",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "metrics",
+    "analytics",
+    "dashboard",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/manager-dashboard-agent.md"
+  ]
+}
