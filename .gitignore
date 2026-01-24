@@ -40,11 +40,7 @@ coverage/
 test/evals/results/
 
 # Session logs directory
-# Note: .claude-sessions/logs/ is NOT gitignored - the save-remote-logs hook
-# commits session logs there intentionally for remote session capture.
-# Only ignore potential temporary files that might appear during collection.
-.claude-sessions/*.tmp
-.claude-sessions/logs/*.tmp
+.claude-sessions/
 
 # Environment files with secrets
 .env
