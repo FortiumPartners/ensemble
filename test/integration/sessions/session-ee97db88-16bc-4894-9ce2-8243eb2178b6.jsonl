@@ -1,0 +1,180 @@
+{"type":"system","subtype":"init","cwd":"/tmp/test-session","session_id":"ee97db88-16bc-4894-9ce2-8243eb2178b6","tools":["Task","TaskOutput","Bash","Glob","Grep","ExitPlanMode","Read","Edit","Write","NotebookEdit","WebFetch","TodoWrite","WebSearch","KillShell","AskUserQuestion","Skill","EnterPlanMode","MCPSearch","mcp__context7__resolve-library-id","mcp__context7__query-docs","mcp__claude-context__index_codebase","mcp__claude-context__search_code","mcp__claude-context__clear_index","mcp__claude-context__get_indexing_status"],"mcp_servers":[{"name":"context7","status":"connected"},{"name":"claude-context","status":"connected"}],"model":"claude-opus-4-5-20251101","permissionMode":"bypassPermissions","slash_commands":["release","implement-spec","claude-changelog","ensemble-full:fold-prompt","ensemble-full:init-project","ensemble-full:analyze-product","ensemble-full:create-prd","ensemble-full:refine-prd","ensemble-full:create-trd","ensemble-full:generate-api-docs","ensemble-full:implement-trd-enhanced","ensemble-full:implement-trd","ensemble-full:refine-trd","ensemble-full:claude-changelog","ensemble-full:release","ensemble-full:playwright-test","ensemble-full:manager-dashboard","ensemble-full:sprint-status","ensemble-full:web-metrics-dashboard","ensemble-full:generate-project-router-rules","ensemble-full:generate-router-rules","ensemble-full:agent-progress-config","ensemble-full:task-progress-config","ensemble-full:act-local-ci","ensemble-full:aws-cloud","ensemble-full:blazor","ensemble-full:building-langgraph-agents","ensemble-full:changelog-generator","ensemble-full:cloud-provider-detector","ensemble-full:developing-with-flutter","ensemble-full:developing-with-laravel","ensemble-full:developing-with-php","ensemble-full:developing-with-python","ensemble-full:developing-with-react","ensemble-full:developing-with-typescript","ensemble-full:exunit","ensemble-full:flyio","ensemble-full:helm","ensemble-full:jest","ensemble-full:kubernetes","ensemble-full:managing-jira-issues","ensemble-full:managing-linear-issues","ensemble-full:managing-railway","ensemble-full:managing-supabase","ensemble-full:managing-vercel","ensemble-full:nestjs","ensemble-full:phoenix","ensemble-full:pytest","ensemble-full:rails","ensemble-full:rspec","ensemble-full:smoke-test-api","ensemble-full:smoke-test-auth","ensemble-full:smoke-test-critical-paths","ensemble-full:smoke-test-database","ensemble-full:smoke-test-external-services","ensemble-full:smoke-test-runner","ensemble-full:styling-with-tailwind","ensemble-full:tooling-detector","ensemble-full:using-anthropic-platform","ensemble-full:using-celery","ensemble-full:using-openai-platform","ensemble-full:using-perplexity-platform","ensemble-full:using-prisma","ensemble-full:using-weaviate","ensemble-full:writing-playwright-tests","ensemble-full:xunit","compact","context","cost","init","pr-comments","release-notes","review","security-review"],"apiKeySource":"none","claude_code_version":"2.1.7","output_style":"default","agents":["Bash","general-purpose","statusline-setup","Explore","Plan","claude-code-guide","ensemble-full:agent-meta-engineer","ensemble-full:context-fetcher","ensemble-full:directory-monitor","ensemble-full:ensemble-orchestrator","ensemble-full:file-creator","ensemble-full:general-purpose","ensemble-full:api-documentation-specialist","ensemble-full:backend-developer","ensemble-full:documentation-specialist","ensemble-full:frontend-developer","ensemble-full:mobile-developer","ensemble-full:tech-lead-orchestrator","ensemble-full:playwright-tester","ensemble-full:git-workflow","ensemble-full:github-specialist","ensemble-full:release-agent","ensemble-full:build-orchestrator","ensemble-full:deployment-orchestrator","ensemble-full:helm-chart-specialist","ensemble-full:infrastructure-developer","ensemble-full:infrastructure-orchestrator","ensemble-full:postgresql-specialist","ensemble-full:manager-dashboard-agent","ensemble-full:product-management-orchestrator","ensemble-full:code-reviewer","ensemble-full:deep-debugger","ensemble-full:qa-orchestrator","ensemble-full:test-reader-agent","ensemble-full:test-runner"],"skills":["ensemble-full:building-langgraph-agents","ensemble-full:developing-with-flutter","ensemble-full:developing-with-laravel","ensemble-full:developing-with-php","ensemble-full:developing-with-python","ensemble-full:developing-with-react","ensemble-full:developing-with-typescript","ensemble-full:exunit","ensemble-full:jest","ensemble-full:managing-jira-issues","ensemble-full:managing-linear-issues","ensemble-full:managing-railway","ensemble-full:managing-supabase","ensemble-full:managing-vercel","ensemble-full:nestjs","ensemble-full:pytest","ensemble-full:rspec","ensemble-full:styling-with-tailwind","ensemble-full:using-anthropic-platform","ensemble-full:using-celery","ensemble-full:using-openai-platform","ensemble-full:using-perplexity-platform","ensemble-full:using-prisma","ensemble-full:using-weaviate","ensemble-full:writing-playwright-tests","ensemble-full:xunit"],"plugins":[{"name":"ensemble-full","path":"/home/james/.claude/plugins/cache/ensemble/ensemble-full/5.2.0"}],"uuid":"739e9a39-532c-47ee-b684-81bb27d2d663"}
+{"type":"assistant","message":{"model":"claude-opus-4-5-20251101","id":"msg_01N5nMt4KovkMnLqG4k3eCbH","type":"message","role":"assistant","content":[{"type":"text","text":"test successful"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":8718,"cache_read_input_tokens":15272,"cache_creation":{"ephemeral_5m_input_tokens":8718,"ephemeral_1h_input_tokens":0},"output_tokens":1,"service_tier":"standard"},"context_management":null},"parent_tool_use_id":null,"session_id":"ee97db88-16bc-4894-9ce2-8243eb2178b6","uuid":"92794c01-35aa-4238-ab0d-2b66a3bde34f"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":2688,"duration_api_ms":2437,"num_turns":1,"result":"test successful","session_id":"ee97db88-16bc-4894-9ce2-8243eb2178b6","total_cost_usd":0.0622585,"usage":{"input_tokens":2,"cache_creation_input_tokens":8718,"cache_read_input_tokens":15272,"output_tokens":5,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":8718}},"modelUsage":{"claude-opus-4-5-20251101":{"inputTokens":2,"outputTokens":5,"cacheReadInputTokens":15272,"cacheCreationInputTokens":8718,"webSearchRequests":0,"costUSD":0.0622585,"contextWindow":200000,"maxOutputTokens":64000}},"permission_denials":[],"uuid":"f9336857-0a1a-460c-8332-c7887ce55207"}
+{
+  resource: {
+    attributes: {
+      'service.version': '1.0.0',
+      'service.name': 'ensemble-vnext-test',
+      'host.arch': 'amd64',
+      'os.type': 'linux',
+      'os.version': '6.6.87.2-microsoft-standard-WSL2',
+      'wsl.version': '2'
+    }
+  },
+  instrumentationScope: {
+    name: 'com.anthropic.claude_code.events',
+    version: '2.1.7',
+    schemaUrl: undefined
+  },
+  timestamp: 1768367147444000,
+  traceId: undefined,
+  spanId: undefined,
+  traceFlags: undefined,
+  severityText: undefined,
+  severityNumber: undefined,
+  body: 'claude_code.user_prompt',
+  attributes: {
+    'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+    'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+    'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+    'user.email': 'james.simmons@highpointe.tech',
+    'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+    'terminal.type': 'WezTerm',
+    'event.name': 'user_prompt',
+    'event.timestamp': '2026-01-14T05:05:47.444Z',
+    prompt_length: '21',
+    prompt: '<REDACTED>'
+  }
+}
+{
+  resource: {
+    attributes: {
+      'service.version': '1.0.0',
+      'service.name': 'ensemble-vnext-test',
+      'host.arch': 'amd64',
+      'os.type': 'linux',
+      'os.version': '6.6.87.2-microsoft-standard-WSL2',
+      'wsl.version': '2'
+    }
+  },
+  instrumentationScope: {
+    name: 'com.anthropic.claude_code.events',
+    version: '2.1.7',
+    schemaUrl: undefined
+  },
+  timestamp: 1768367150091000,
+  traceId: undefined,
+  spanId: undefined,
+  traceFlags: undefined,
+  severityText: undefined,
+  severityNumber: undefined,
+  body: 'claude_code.api_request',
+  attributes: {
+    'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+    'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+    'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+    'user.email': 'james.simmons@highpointe.tech',
+    'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+    'terminal.type': 'WezTerm',
+    'event.name': 'api_request',
+    'event.timestamp': '2026-01-14T05:05:50.091Z',
+    model: 'claude-opus-4-5-20251101',
+    input_tokens: '2',
+    output_tokens: '5',
+    cache_read_tokens: '15272',
+    cache_creation_tokens: '8718',
+    cost_usd: '0.0622585',
+    duration_ms: '2429'
+  }
+}
+{
+  descriptor: {
+    name: 'claude_code.cost.usage',
+    type: 'COUNTER',
+    description: 'Cost of the Claude Code session',
+    unit: 'USD',
+    valueType: 1,
+    advice: {}
+  },
+  dataPointType: 3,
+  dataPoints: [
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768367150, 85000000 ],
+      endTime: [ 1768367150, 114000000 ],
+      value: 0.0622585
+    }
+  ]
+}
+{
+  descriptor: {
+    name: 'claude_code.token.usage',
+    type: 'COUNTER',
+    description: 'Number of tokens used',
+    unit: 'tokens',
+    valueType: 1,
+    advice: {}
+  },
+  dataPointType: 3,
+  dataPoints: [
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'input',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768367150, 85000000 ],
+      endTime: [ 1768367150, 114000000 ],
+      value: 2
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'output',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768367150, 85000000 ],
+      endTime: [ 1768367150, 114000000 ],
+      value: 5
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'cacheRead',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768367150, 86000000 ],
+      endTime: [ 1768367150, 114000000 ],
+      value: 15272
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': 'ee97db88-16bc-4894-9ce2-8243eb2178b6',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'cacheCreation',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768367150, 86000000 ],
+      endTime: [ 1768367150, 114000000 ],
+      value: 8718
+    }
+  ]
+}

@@ -1,0 +1,112 @@
+{
+  "$schema": "https://ensemble.dev/schemas/router-rules.json",
+  "version": "1.0.0",
+  "description": "Router rules for prompt classification and context steering",
+  "rules": {
+    "commands": {
+      "patterns": [
+        {
+          "pattern": "^/create-prd",
+          "route": "command:create-prd",
+          "description": "Create Product Requirements Document"
+        },
+        {
+          "pattern": "^/refine-prd",
+          "route": "command:refine-prd",
+          "description": "Refine existing PRD"
+        },
+        {
+          "pattern": "^/create-trd",
+          "route": "command:create-trd",
+          "description": "Create Technical Requirements Document"
+        },
+        {
+          "pattern": "^/refine-trd",
+          "route": "command:refine-trd",
+          "description": "Refine existing TRD"
+        },
+        {
+          "pattern": "^/implement-trd",
+          "route": "command:implement-trd",
+          "description": "Execute TRD implementation"
+        },
+        {
+          "pattern": "^/update-project",
+          "route": "command:update-project",
+          "description": "Update project learnings"
+        },
+        {
+          "pattern": "^/cleanup-project",
+          "route": "command:cleanup-project",
+          "description": "Cleanup project artifacts"
+        }
+      ]
+    },
+    "agents": {
+      "patterns": [
+        {
+          "pattern": "(PRD|product requirement|feature request|user story)",
+          "route": "agent:product-manager",
+          "confidence": 0.7
+        },
+        {
+          "pattern": "(TRD|technical requirement|architecture|design)",
+          "route": "agent:technical-architect",
+          "confidence": 0.7
+        },
+        {
+          "pattern": "(frontend|UI|component|React|Vue|Angular|CSS|HTML)",
+          "route": "agent:frontend-implementer",
+          "confidence": 0.6
+        },
+        {
+          "pattern": "(backend|API|database|server|REST|GraphQL)",
+          "route": "agent:backend-implementer",
+          "confidence": 0.6
+        },
+        {
+          "pattern": "(mobile|iOS|Android|React Native|Flutter)",
+          "route": "agent:mobile-implementer",
+          "confidence": 0.7
+        },
+        {
+          "pattern": "(test|verify|coverage|assertion)",
+          "route": "agent:verify-app",
+          "confidence": 0.6
+        },
+        {
+          "pattern": "(refactor|simplify|clean up|DRY)",
+          "route": "agent:code-simplifier",
+          "confidence": 0.6
+        },
+        {
+          "pattern": "(review|security|quality|audit)",
+          "route": "agent:code-reviewer",
+          "confidence": 0.6
+        },
+        {
+          "pattern": "(debug|fix|bug|error|issue|crash)",
+          "route": "agent:app-debugger",
+          "confidence": 0.7
+        },
+        {
+          "pattern": "(deploy|infrastructure|AWS|GCP|Azure|Docker|Kubernetes)",
+          "route": "agent:devops-engineer",
+          "confidence": 0.7
+        },
+        {
+          "pattern": "(CI/CD|pipeline|GitHub Actions|Jenkins|CircleCI)",
+          "route": "agent:cicd-specialist",
+          "confidence": 0.7
+        }
+      ]
+    },
+    "skills": {
+      "patterns": []
+    }
+  },
+  "fallback": {
+    "route": "general",
+    "message": "No specific routing rule matched"
+  }
+}

@@ -1,0 +1,184 @@
+# Eval Specification: using-fastapi Skill A/B Comparison
+# TRD Task: TRD-TEST-078
+# Dependencies: TRD-TEST-072 (code-quality rubric), TRD-TEST-074 (error-handling rubric)
+#
+# Purpose: Evaluate the effectiveness of the using-fastapi skill when generating
+# FastAPI endpoint code. Compares outputs with and without the skill loaded to
+# measure quality improvements in API structure, Pydantic model usage, and error handling.
+
+name: using-fastapi
+description: |
+  Evaluate effectiveness of using-fastapi skill for API endpoint tasks.
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_skill variant: Full framework with developing-with-python skill
+  - without_skill variant: Baseline without skills
+version: 2.0.0
+
+# Fixture configuration (per-variant fixture paths)
+# References the fastapi-endpoint user story from TRD-TEST-027
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Build an API endpoint for a todo list. Include:
+    - GET /todos - List all todos
+    - POST /todos - Create a new todo
+    - PUT /todos/{id} - Update an existing todo
+    - DELETE /todos/{id} - Delete a todo
+
+    Use Pydantic models for request/response validation.
+    Include appropriate error handling for not found cases.
+    Write tests using pytest with httpx TestClient.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_skill
+    name: With Skill
+    description: Generate FastAPI code after loading the developing-with-python skill
+    fixture_path: variants/full/fastapi-endpoint
+    suffix: |
+      First, use the Skill tool to invoke 'developing-with-python'.
+      Then complete the task following FastAPI best practices.
+    skill_enabled: true
+    agent_enabled: true
+    timeout_seconds: 300
+    expected_skills:
+      - developing-with-python
+
+  - id: without_skill
+    name: Without Skill (Baseline)
+    description: Generate FastAPI code without loading any skill
+    fixture_path: variants/baseline/fastapi-endpoint
+    is_baseline: true
+    suffix: ""
+    skill_enabled: false
+    agent_enabled: false
+    timeout_seconds: 300
+    expected_skills: []
+
+# Runs per variant for statistical significance
+# 5 runs per variant provides reasonable confidence intervals
+runs_per_variant: 5
+
+# Binary checks (deterministic pass/fail)
+# These checks execute shell commands to verify presence of required elements
+binary_checks:
+  - name: endpoints_defined
+    description: FastAPI endpoints are defined with proper decorators
+    # Match @app.get, @app.post, @app.put, @app.delete, @app.patch
+    # OR @router.get, @router.post, etc. for APIRouter pattern
+    check: |
+      grep -r -E '@(app|router)\.(get|post|put|patch|delete)\(' *.py 2>/dev/null | wc -l | xargs test 4 -le
+    weight: 0.24
+
+  - name: pydantic_models
+    description: Pydantic models are used for request/response validation
+    # Match class definitions inheriting from BaseModel
+    # OR import statements for pydantic
+    check: |
+      grep -r -E '(class .+\(BaseModel\)|from pydantic import)' *.py 2>/dev/null | wc -l | xargs test 1 -le
+    weight: 0.18
+
+  - name: tests_pass
+    description: API tests execute successfully with pytest
+    # Run pytest and check for passing tests
+    # Uses httpx TestClient for async endpoint testing
+    check: |
+      python -m pytest -v --tb=short 2>&1 | grep -E '(passed|PASSED)'
+    weight: 0.29
+
+  - name: crud_complete
+    description: All four CRUD endpoints (GET, POST, PUT, DELETE) are implemented
+    check: |
+      count=$(grep -r -E '@(app|router)\.(get|post|put|delete)\(' *.py 2>/dev/null | wc -l)
+      test "$count" -ge 4
+    weight: 0.18
+
+  - name: http_exceptions
+    description: HTTPException is used for error responses
+    check: |
+      grep -r -E '(raise HTTPException|from fastapi import.*HTTPException)' *.py 2>/dev/null | wc -l | xargs test 1 -le
+    weight: 0.11
+
+# LLM-judged quality metrics
+# These metrics use Claude Opus with rubrics to score subjective quality
+# Note: Field named 'metrics' for compatibility with run-eval.js framework
+metrics:
+  - name: code_quality
+    description: Overall code quality including structure, naming, and organization
+    rubric: code-quality.md
+    weight: 0.53
+    # Files to include in evaluation (exclude test files for code quality)
+    files:
+      - "*.py"
+      - "!test_*.py"
+      - "!*_test.py"
+      - "!conftest.py"
+    # Additional context for the judge specific to FastAPI patterns
+    custom_prompt_addition: |
+      When evaluating FastAPI code, pay special attention to:
+      - Proper use of dependency injection patterns
+      - Router organization and modular structure
+      - Pydantic model design (separate Create/Update/Response schemas)
+      - OpenAPI documentation (docstrings, response_model, status_code)
+      - Async/await usage for I/O operations
+      - Type hints throughout the codebase
+
+  - name: error_handling
+    description: Quality of error handling and validation
+    rubric: error-handling.md
+    weight: 0.47
+    # Include all Python files for error handling assessment
+    files:
+      - "*.py"
+      - "!conftest.py"
+    # Additional context for FastAPI-specific error handling
+    custom_prompt_addition: |
+      For FastAPI applications, consider:
+      - HTTPException usage with appropriate status codes (404, 422, 400, 500)
+      - Request validation via Pydantic (automatic 422 responses)
+      - Custom exception handlers for domain-specific errors
+      - Background task error handling and cleanup
+      - Proper error response models with detail messages
+      - Input sanitization for security (SQL injection, XSS prevention)
+
+# Judge configuration
+# Uses Claude Opus for highest quality judging with Chain-of-Thought reasoning
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0.0  # Deterministic judging for consistency
+
+# Execution configuration
+execution:
+  timeout: 300  # 5 minutes per session
+  parallel: true  # Run variants in parallel where possible
+  cleanup: true  # Clean up temporary files after each run
+
+# Acceptance criteria
+# Defines thresholds for considering the eval successful
+acceptance:
+  # Minimum mean score difference (with_skill - without_skill) to be significant
+  minimum_mean_difference: 0.5
+  # Statistical significance threshold (p-value)
+  significance_threshold: 0.05
+  # Minimum binary check pass rate for with_skill variant
+  binary_pass_threshold: 0.80
+
+# Metadata for reporting
+metadata:
+  author: backend-developer
+  created: 2026-01-13
+  trd_task: TRD-TEST-078
+  related_fixtures:
+    - user-stories/fastapi-endpoint
+  related_rubrics:
+    - code-quality.md
+    - error-handling.md
+  skill_under_test: developing-with-python
+  framework: FastAPI
+  language: Python

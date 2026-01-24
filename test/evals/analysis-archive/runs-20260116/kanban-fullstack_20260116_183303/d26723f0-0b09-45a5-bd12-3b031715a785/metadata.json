@@ -1,0 +1,12 @@
+{
+  "session_id": "d26723f0-0b09-45a5-bd12-3b031715a785",
+  "variant": "baseline",
+  "fixture": "variants/without-agents/kanban-board",
+  "start_time": "2026-01-16T18:33:30-08:00",
+  "prompt_preview": "# Kanban Task Board - Full-Stack Application\n\n## Overview\n\nBuild a full-stack Kanban task management application with a React frontend, Node.js Express backend, and PostgreSQL database. The applicatio",
+  "execution_mode": "local",
+  "timeout_seconds": 5400,
+  "framework_version": "1.0.0",
+  "end_time": "2026-01-16T18:50:55-08:00",
+  "exit_code": 0
+}

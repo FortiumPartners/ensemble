@@ -1,0 +1,344 @@
+# Eval spec for development loop testing: implement -> verify -> simplify -> verify
+# Tests the complete development cycle with Python CLI calculator
+# Fixture: ensemble-vnext-test-fixtures with variant-based structure
+
+name: dev-loop-python-cli
+version: 3.0.0
+description: |
+  Test the complete development loop cycle for Python CLI implementation:
+
+  1. IMPLEMENT: Delegate to @backend-implementer to build from story.md
+  2. VERIFY: Delegate to @verify-app to run tests and report coverage
+  3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
+  4. VERIFY: Delegate to @verify-app again to confirm tests still pass
+
+  This eval measures whether agent delegation improves the quality and
+  consistency of the full development workflow compared to direct implementation.
+
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD → TRD → implement-trd orchestrated workflow
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Complete this task using the full development loop:
+
+    ## STEP 1 - IMPLEMENT
+    Read the story.md file in this directory and implement the requirements.
+    The existing calc.py provides a starting point - review it and ensure it meets
+    all requirements including comprehensive error handling.
+
+    ## STEP 2 - VERIFY (Initial)
+    Run tests to verify the implementation works correctly.
+    Report test results and coverage metrics.
+    Target: >= 80% unit test coverage.
+
+    ## STEP 3 - SIMPLIFY
+    Review the code for potential simplifications:
+    - Reduce complexity where possible
+    - Improve readability
+    - Remove any duplication
+    - Ensure functions are appropriately sized
+
+    ## STEP 4 - VERIFY (Final)
+    Run tests again to confirm all tests still pass after simplification.
+    Report final coverage metrics.
+
+    Requirements for the CLI calculator:
+    - Accept command line arguments: <number1> <operator> <number2>
+    - Support operators: +, -, *, /
+    - Handle division by zero gracefully
+    - Provide clear error messages for invalid input
+    - Include type hints throughout the code
+    - Write comprehensive tests using pytest
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/python-cli
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the Python CLI calculator directly based on story.md requirements.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run pytest directly: python -m pytest -v --cov=calc --cov-report=term
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns directly to improve code quality.
+        Ensure tests still pass after changes.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+    expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/python-cli
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @backend-implementer agent for initial implementation.
+        Request: Read story.md and implement the Python CLI calculator with tests.
+        The agent should handle all implementation including error handling and tests.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run pytest with coverage, report results against 80% threshold.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the implementation while preserving test behavior.
+
+      Use the appropriate skills:
+      - developing-with-python for implementation patterns
+      - pytest for test execution
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 600
+    expected_agents:
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+
+  - id: full-workflow
+    name: Full PRD → TRD → implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/python-cli
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/calculator.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/calculator.md
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @backend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1200
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
+
+# Execution configuration
+runs_per_variant: 3
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: implementation_complete
+    description: Core implementation files were created or enhanced
+    check: |
+      cd {workspace} && \
+        [ -f calc.py ] && \
+        grep -q "def " calc.py && \
+        [ -f test_calc.py ]
+    weight: 0.25
+
+  - name: tests_pass_initial
+    description: Tests pass after initial implementation
+    check: |
+      cd {workspace} && \
+        python -m pytest test_calc.py -v --tb=short 2>&1
+    weight: 0.25
+
+  - name: tests_pass_final
+    description: Tests pass after simplification (behavior preserved)
+    check: |
+      cd {workspace} && \
+        python -m pytest test_calc.py -v --tb=short 2>&1
+    weight: 0.25
+    critical: true
+
+  - name: code_simplified
+    description: Code complexity was addressed (measured by function count and size)
+    check: |
+      cd {workspace} && \
+        # Check for reasonable function count (modular design)
+        func_count=$(grep -c "^def \|^    def " calc.py 2>/dev/null || echo "0")
+        [ "$func_count" -ge 3 ] && [ "$func_count" -le 15 ]
+    weight: 0.25
+
+# LLM-judged quality metrics (4 standardized rubrics)
+metrics:
+  - name: code_quality
+    description: Overall code quality of the final implementation
+    rubric: code-quality.md
+    files:
+      - "calc.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Focus on whether the simplification step improved the code:
+      - Are functions appropriately sized and focused?
+      - Is there good separation of concerns?
+      - Are variable names clear and descriptive?
+      - Was any unnecessary complexity removed?
+
+  - name: test_quality
+    description: Quality of the test suite
+    rubric: test-quality.md
+    files:
+      - "test_calc.py"
+    context_files:
+      - "calc.py"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate the test coverage and structure:
+      - Are all functions tested (add, subtract, multiply, divide, calculate, parse_number, main)?
+      - Are edge cases covered (division by zero, invalid input, boundary values)?
+      - Are CLI arguments tested?
+      - Do tests follow pytest best practices (fixtures, parametrize)?
+
+  - name: architecture_quality
+    description: Quality of the code architecture and module design
+    rubric: architecture.md
+    files:
+      - "calc.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate the architectural choices for a CLI calculator:
+      - Is there clear separation between parsing, calculation, and output?
+      - Are operations modular and independently callable?
+      - Is the main entry point cleanly organized?
+      - Could components be easily extended or reused?
+      - Is the code structure appropriate for the problem size?
+
+  - name: error_handling_quality
+    description: Quality of error handling implementation
+    rubric: error-handling.md
+    files:
+      - "calc.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate input validation, exception handling, and user-friendly error messages:
+      - Is division by zero handled gracefully?
+      - Are invalid inputs (wrong type, missing args) caught and reported clearly?
+      - Are error messages helpful and user-friendly?
+      - Is there consistent error handling throughout the code?
+      - Are exceptions caught at appropriate levels?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating the quality of a complete development loop execution:
+    implement -> verify -> simplify -> verify
+
+    This tests whether the full cycle produces better results with agent delegation
+    versus direct implementation. Consider:
+
+    1. Implementation quality: Does the code meet requirements?
+    2. Test quality: Are tests comprehensive and well-structured?
+    3. Simplification quality: Did refactoring improve readability?
+    4. Process completion: Were all four steps executed?
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for agent verification
+session_analysis:
+  verify_backend_implementer:
+    pattern: "backend-implementer"
+    description: Verify @backend-implementer agent was delegated to for implementation
+  verify_verify_app_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to for test execution
+  verify_code_simplifier_delegation:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier agent was delegated to for refactoring
+  verify_product_manager:
+    pattern: "product-manager|create-prd"
+    description: Verify PRD creation (full-workflow variant)
+  verify_technical_architect:
+    pattern: "technical-architect|create-trd"
+    description: Verify TRD creation (full-workflow variant)
+  verify_implement_trd:
+    pattern: "implement-trd|trd-state"
+    description: Verify implement-trd was used (full-workflow variant)
+  verify_pytest_execution:
+    pattern: "pytest|test.*pass|coverage"
+    description: Verify pytest was executed for verification steps
+  verify_full_cycle:
+    pattern: "simplif|refactor"
+    description: Verify simplification step was performed
+
+# Acceptance criteria for this eval
+acceptance:
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.8
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  language: python
+  tech_stack: python-cli
+  complexity: intermediate
+  estimated_duration_minutes: 10
+  tags:
+    - development-loop
+    - python
+    - cli
+    - pytest
+    - agent-comparison
+    - verify-app
+    - code-simplifier

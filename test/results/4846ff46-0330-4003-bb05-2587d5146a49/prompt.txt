@@ -1,0 +1,1 @@
+Read variants/full/python-cli/story.md and create variants/full/python-cli/hello.py that prints Hello

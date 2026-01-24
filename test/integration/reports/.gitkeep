@@ -1,0 +1,3 @@
+# Reports directory
+# A/B comparison reports are stored here by run-ab-test.sh
+# These files are typically gitignored

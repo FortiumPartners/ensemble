@@ -1,0 +1,220 @@
+# Eval spec for verify-app agent A/B comparison
+# TRD Task: TRD-TEST-081
+# AC Reference: AC-A2, AC-A6, AC-EF3
+
+name: verify-app
+version: 2.0.0
+description: |
+  Evaluate effectiveness of verify-app agent for test execution and verification.
+  Compares quality outcomes between sessions with agent delegation vs direct execution.
+
+  The verify-app agent specializes in:
+  - Test execution orchestration (pytest, jest, etc.)
+  - Failure analysis and root cause identification
+  - Coverage reporting against thresholds
+  - Test result summarization
+
+  Uses variant-based fixture structure for proper A/B testing:
+  - with_agent variant: Full framework with verify-app agent delegation
+  - without_agent variant: Baseline without agent delegation
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    This project contains a calculator module (calc.py) with the following functions:
+    - add, subtract, multiply, divide
+    - calculate (dispatcher function)
+    - parse_number (input validation)
+    - main (CLI entry point)
+
+    Your task:
+    1. Run all the tests in this project using pytest
+    2. If tests don't exist yet, write comprehensive tests first
+    3. Analyze any failures and explain the root cause
+    4. Report test coverage (aim for >= 80%)
+    5. Provide a summary of the test results
+    6. If tests fail, suggest fixes with specific code changes
+
+    Requirements:
+    - Test all functions including edge cases (division by zero, invalid input)
+    - Test CLI argument parsing
+    - Use pytest fixtures and parametrize where appropriate
+    - Include both positive and negative test cases
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: with_agent
+    name: With Agent
+    description: Delegate testing to @verify-app agent
+    fixture_path: variants/full/python-cli
+    suffix: |
+      Delegate this testing task to the @verify-app agent.
+      Request a complete test execution report including coverage metrics.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 300
+    expected_agents:
+      - verify-app
+    expected_skills:
+      - pytest
+
+  - id: without_agent
+    name: Without Agent (Baseline)
+    description: Complete testing directly without agent delegation
+    fixture_path: variants/baseline/python-cli
+    is_baseline: true
+    suffix: |
+      Complete this testing task directly without delegating to any agents.
+      Provide test execution results and coverage metrics.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 300
+    expected_agents: []
+    expected_skills: []
+
+# Execution configuration
+runs_per_variant: 5
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: tests_executed
+    description: Tests were actually executed (pytest was run successfully)
+    check: |
+      # Look for pytest output patterns in session log or check test file exists
+      cd {workspace} && \
+        (python -m pytest -v --tb=short 2>&1 | grep -E "(PASSED|FAILED|passed|failed|tests?)" && exit 0) || \
+        ([ -f test_calc.py ] && exit 0) || \
+        exit 1
+    weight: 0.4
+
+  - name: failures_reported
+    description: Test results were clearly reported (pass/fail status mentioned)
+    check: |
+      # This checks the session output, not the workspace
+      # Return success if any test-related output patterns exist
+      cd {workspace} && [ -f test_calc.py ]
+    weight: 0.3
+
+  - name: coverage_reported
+    description: Coverage metrics were reported or calculated
+    check: |
+      # Check if coverage was run or coverage-related output exists
+      cd {workspace} && \
+        (python -m pytest --cov=calc --cov-report=term 2>&1 | grep -E "[0-9]+%" && exit 0) || \
+        exit 1
+    weight: 0.3
+
+# LLM-judged quality metrics
+metrics:
+  - name: test_quality
+    description: Quality of test execution, analysis, and reporting
+    rubric: test-quality.md
+    files:
+      - "test_*.py"
+      - "*_test.py"
+    context_files:
+      - "calc.py"
+    weight: 0.5
+    custom_prompt_addition: |
+      Focus on evaluating the quality of the test execution and reporting process:
+      - Were tests executed systematically with clear methodology?
+      - Was failure analysis thorough and actionable?
+      - Were coverage metrics reported against thresholds (80% unit, 70% integration)?
+      - Was the test summary clear and professional?
+      - Were fix suggestions specific and implementable?
+
+      Note: This evaluation is for a test execution agent, so emphasize:
+      - Thoroughness of test execution (not just test writing)
+      - Quality of failure analysis and root cause identification
+      - Professionalism of the test execution report
+      - Actionability of recommendations
+
+  - name: execution_thoroughness
+    description: How thorough was the test execution process
+    rubric: test-quality.md
+    files:
+      - "test_*.py"
+    context_files:
+      - "calc.py"
+    weight: 0.5
+    custom_prompt_addition: |
+      Evaluate the thoroughness of test execution specifically:
+
+      **Coverage Completeness** (25%):
+      - Were all functions tested (add, subtract, multiply, divide, calculate, parse_number, main)?
+      - Were edge cases covered (division by zero, invalid input, boundary values)?
+      - Were CLI arguments tested?
+
+      **Execution Methodology** (25%):
+      - Was pytest used correctly with appropriate flags?
+      - Were coverage tools utilized effectively?
+      - Was the execution deterministic and reproducible?
+
+      **Analysis Quality** (25%):
+      - Were failures clearly categorized (logic, integration, environment, flaky)?
+      - Were root causes identified correctly?
+      - Were reproduction steps provided?
+
+      **Report Quality** (25%):
+      - Was the report structured and professional?
+      - Were metrics reported against thresholds?
+      - Were next steps clearly articulated?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating the quality of test execution and verification performed by an AI agent.
+    This is an evaluation of a test execution task, not a test writing task, so focus on:
+
+    1. How well tests were executed and results were communicated
+    2. Quality of failure analysis and root cause identification
+    3. Coverage reporting and threshold verification
+    4. Professionalism and actionability of recommendations
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Provide brief justification for each score.
+    Output your response as JSON with structure:
+    {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for agent verification
+session_analysis:
+  verify_agent_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to (with_agent variant)
+  verify_pytest_skill:
+    pattern: "pytest"
+    description: Verify pytest skill was invoked
+  verify_coverage_output:
+    pattern: "[0-9]+%"
+    description: Verify coverage percentage was reported
+
+# Acceptance criteria for this eval
+acceptance:
+  # Minimum mean score difference between variants to be considered significant
+  minimum_mean_difference: 0.3
+  # Statistical significance threshold (p-value)
+  significance_threshold: 0.05
+  # Minimum passing rate for binary checks
+  binary_pass_threshold: 0.8
+
+# Metadata for reporting
+metadata:
+  category: agent
+  target_agent: verify-app
+  language: python
+  complexity: intermediate
+  estimated_duration_minutes: 5
+  tags:
+    - testing
+    - pytest
+    - coverage
+    - verification
+    - test-execution

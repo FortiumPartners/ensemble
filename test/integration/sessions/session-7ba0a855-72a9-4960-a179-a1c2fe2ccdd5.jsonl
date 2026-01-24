@@ -1,0 +1,180 @@
+{"type":"system","subtype":"init","cwd":"/tmp","session_id":"7ba0a855-72a9-4960-a179-a1c2fe2ccdd5","tools":["Task","TaskOutput","Bash","Glob","Grep","ExitPlanMode","Read","Edit","Write","NotebookEdit","WebFetch","TodoWrite","WebSearch","KillShell","AskUserQuestion","Skill","EnterPlanMode","MCPSearch"],"mcp_servers":[],"model":"claude-opus-4-5-20251101","permissionMode":"bypassPermissions","slash_commands":["ensemble-vnext:cleanup-project","ensemble-vnext:create-prd","ensemble-vnext:create-trd","ensemble-vnext:fold-prompt","ensemble-vnext:implement-trd","ensemble-vnext:init-project","ensemble-vnext:rebase-project","ensemble-vnext:refine-prd","ensemble-vnext:refine-trd","ensemble-vnext:update-project","ensemble-vnext:generate-project-router-rules","ensemble-vnext:generate-router-rules","ensemble-vnext:act-local-ci","ensemble-vnext:aws-cloud","ensemble-vnext:blazor","ensemble-vnext:building-langgraph-agents","ensemble-vnext:changelog-generator","ensemble-vnext:cloud-provider-detector","ensemble-vnext:developing-with-flutter","ensemble-vnext:developing-with-laravel","ensemble-vnext:developing-with-php","ensemble-vnext:developing-with-python","ensemble-vnext:developing-with-react","ensemble-vnext:developing-with-typescript","ensemble-vnext:exunit","ensemble-vnext:flyio","ensemble-vnext:framework-detector","ensemble-vnext:git-town","ensemble-vnext:helm","ensemble-vnext:jest","ensemble-vnext:kubernetes","ensemble-vnext:managing-jira-issues","ensemble-vnext:managing-linear-issues","ensemble-vnext:managing-railway","ensemble-vnext:managing-supabase","ensemble-vnext:managing-vercel","ensemble-vnext:nestjs","ensemble-vnext:phoenix","ensemble-vnext:pytest","ensemble-vnext:rails","ensemble-vnext:rspec","ensemble-vnext:smoke-test-api","ensemble-vnext:smoke-test-auth","ensemble-vnext:smoke-test-critical-paths","ensemble-vnext:smoke-test-database","ensemble-vnext:smoke-test-external-services","ensemble-vnext:smoke-test-runner","ensemble-vnext:styling-with-tailwind","ensemble-vnext:test-detector","ensemble-vnext:tooling-detector","ensemble-vnext:using-anthropic-platform","ensemble-vnext:using-celery","ensemble-vnext:using-openai-platform","ensemble-vnext:using-perplexity-platform","ensemble-vnext:using-prisma","ensemble-vnext:using-weaviate","ensemble-vnext:writing-playwright-tests","ensemble-vnext:xunit","compact","context","cost","init","pr-comments","release-notes","review","security-review"],"apiKeySource":"none","claude_code_version":"2.1.7","output_style":"default","agents":["Bash","general-purpose","statusline-setup","Explore","Plan","claude-code-guide","ensemble-vnext:product-manager","ensemble-vnext:technical-architect","ensemble-vnext:spec-planner","ensemble-vnext:frontend-implementer","ensemble-vnext:backend-implementer","ensemble-vnext:mobile-implementer","ensemble-vnext:verify-app","ensemble-vnext:code-simplifier","ensemble-vnext:code-reviewer","ensemble-vnext:app-debugger","ensemble-vnext:devops-engineer","ensemble-vnext:cicd-specialist"],"skills":["ensemble-vnext:building-langgraph-agents","ensemble-vnext:developing-with-flutter","ensemble-vnext:developing-with-laravel","ensemble-vnext:developing-with-php","ensemble-vnext:developing-with-python","ensemble-vnext:developing-with-react","ensemble-vnext:developing-with-typescript","ensemble-vnext:exunit","ensemble-vnext:framework-detector","ensemble-vnext:git-town","ensemble-vnext:jest","ensemble-vnext:managing-jira-issues","ensemble-vnext:managing-linear-issues","ensemble-vnext:managing-railway","ensemble-vnext:managing-supabase","ensemble-vnext:managing-vercel","ensemble-vnext:nestjs","ensemble-vnext:pytest","ensemble-vnext:rspec","ensemble-vnext:styling-with-tailwind","ensemble-vnext:test-detector","ensemble-vnext:using-anthropic-platform","ensemble-vnext:using-celery","ensemble-vnext:using-openai-platform","ensemble-vnext:using-perplexity-platform","ensemble-vnext:using-prisma","ensemble-vnext:using-weaviate","ensemble-vnext:writing-playwright-tests","ensemble-vnext:xunit"],"plugins":[{"name":"ensemble-vnext","path":"/home/james/dev/ensemble-vnext/packages/full"}],"uuid":"c144bc1b-2dfb-464b-9267-0f93b19b08f7"}
+{"type":"assistant","message":{"model":"claude-opus-4-5-20251101","id":"msg_01MHhsPU1x6MJaPmNJCDhRMu","type":"message","role":"assistant","content":[{"type":"text","text":"test successful"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":2,"cache_creation_input_tokens":22073,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":22073,"ephemeral_1h_input_tokens":0},"output_tokens":5,"service_tier":"standard"},"context_management":null},"parent_tool_use_id":null,"session_id":"7ba0a855-72a9-4960-a179-a1c2fe2ccdd5","uuid":"e4fddf79-dfb5-43d8-9f4c-171b1bf0a4ec"}
+{"type":"result","subtype":"success","is_error":false,"duration_ms":2605,"duration_api_ms":2439,"num_turns":1,"result":"test successful","session_id":"7ba0a855-72a9-4960-a179-a1c2fe2ccdd5","total_cost_usd":0.13809125,"usage":{"input_tokens":2,"cache_creation_input_tokens":22073,"cache_read_input_tokens":0,"output_tokens":5,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":22073}},"modelUsage":{"claude-opus-4-5-20251101":{"inputTokens":2,"outputTokens":5,"cacheReadInputTokens":0,"cacheCreationInputTokens":22073,"webSearchRequests":0,"costUSD":0.13809125,"contextWindow":200000,"maxOutputTokens":64000}},"permission_denials":[],"uuid":"166b14af-7e85-4f5e-96de-733e4f3fdd77"}
+{
+  resource: {
+    attributes: {
+      'service.version': '1.0.0',
+      'service.name': 'ensemble-vnext-test',
+      'host.arch': 'amd64',
+      'os.type': 'linux',
+      'os.version': '6.6.87.2-microsoft-standard-WSL2',
+      'wsl.version': '2'
+    }
+  },
+  instrumentationScope: {
+    name: 'com.anthropic.claude_code.events',
+    version: '2.1.7',
+    schemaUrl: undefined
+  },
+  timestamp: 1768374633342000,
+  traceId: undefined,
+  spanId: undefined,
+  traceFlags: undefined,
+  severityText: undefined,
+  severityNumber: undefined,
+  body: 'claude_code.user_prompt',
+  attributes: {
+    'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+    'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+    'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+    'user.email': 'james.simmons@highpointe.tech',
+    'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+    'terminal.type': 'WezTerm',
+    'event.name': 'user_prompt',
+    'event.timestamp': '2026-01-14T07:10:33.342Z',
+    prompt_length: '21',
+    prompt: '<REDACTED>'
+  }
+}
+{
+  resource: {
+    attributes: {
+      'service.version': '1.0.0',
+      'service.name': 'ensemble-vnext-test',
+      'host.arch': 'amd64',
+      'os.type': 'linux',
+      'os.version': '6.6.87.2-microsoft-standard-WSL2',
+      'wsl.version': '2'
+    }
+  },
+  instrumentationScope: {
+    name: 'com.anthropic.claude_code.events',
+    version: '2.1.7',
+    schemaUrl: undefined
+  },
+  timestamp: 1768374635845000,
+  traceId: undefined,
+  spanId: undefined,
+  traceFlags: undefined,
+  severityText: undefined,
+  severityNumber: undefined,
+  body: 'claude_code.api_request',
+  attributes: {
+    'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+    'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+    'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+    'user.email': 'james.simmons@highpointe.tech',
+    'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+    'terminal.type': 'WezTerm',
+    'event.name': 'api_request',
+    'event.timestamp': '2026-01-14T07:10:35.845Z',
+    model: 'claude-opus-4-5-20251101',
+    input_tokens: '2',
+    output_tokens: '5',
+    cache_read_tokens: '0',
+    cache_creation_tokens: '22073',
+    cost_usd: '0.13809125',
+    duration_ms: '2433'
+  }
+}
+{
+  descriptor: {
+    name: 'claude_code.cost.usage',
+    type: 'COUNTER',
+    description: 'Cost of the Claude Code session',
+    unit: 'USD',
+    valueType: 1,
+    advice: {}
+  },
+  dataPointType: 3,
+  dataPoints: [
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768374635, 841000000 ],
+      endTime: [ 1768374635, 932000000 ],
+      value: 0.13809125
+    }
+  ]
+}
+{
+  descriptor: {
+    name: 'claude_code.token.usage',
+    type: 'COUNTER',
+    description: 'Number of tokens used',
+    unit: 'tokens',
+    valueType: 1,
+    advice: {}
+  },
+  dataPointType: 3,
+  dataPoints: [
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'input',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768374635, 842000000 ],
+      endTime: [ 1768374635, 932000000 ],
+      value: 2
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'output',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768374635, 842000000 ],
+      endTime: [ 1768374635, 932000000 ],
+      value: 5
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'cacheRead',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768374635, 842000000 ],
+      endTime: [ 1768374635, 932000000 ],
+      value: 0
+    },
+    {
+      attributes: {
+        'user.id': 'cafb42714403e7e482b3df9c415595f9ca73c4b6ff541c3d1f8b63ead3a90dc0',
+        'session.id': '7ba0a855-72a9-4960-a179-a1c2fe2ccdd5',
+        'organization.id': 'b608fe9f-1a7c-46ca-a9fd-6814d417c008',
+        'user.email': 'james.simmons@highpointe.tech',
+        'user.account_uuid': '05ffc532-b3d7-428c-a9a3-efa2a59928e8',
+        'terminal.type': 'WezTerm',
+        type: 'cacheCreation',
+        model: 'claude-opus-4-5-20251101'
+      },
+      startTime: [ 1768374635, 842000000 ],
+      endTime: [ 1768374635, 932000000 ],
+      value: 22073
+    }
+  ]
+}

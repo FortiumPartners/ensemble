@@ -1,0 +1,21 @@
+# Fly.io Configuration for Background Worker (No HTTP)
+app = "background-worker"
+primary_region = "sea"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  WORKER_CONCURRENCY = "10"
+  PYTHONUNBUFFERED = "1"
+
+# No http_service - this is a worker-only app
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512
+
+[[services]]
+  internal_port = 6379  # Redis connection
+  protocol = "tcp"

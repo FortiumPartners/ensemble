@@ -1,15 +1,49 @@
-node_modules/
-coverage/
-*.log
+# Ensemble vNext .gitignore
+
+# Local settings (not committed)
+.claude/settings.local.json
+.claude/*.local.*
+
+# Note: .trd-state/ IS tracked for parallel execution coordination
+# Do NOT add .trd-state/ to gitignore
+
+# OS files
 .DS_Store
-*.tgz
-dist/
-build/
-.npmrc.local
-*.backup
+Thumbs.db
 
-# Python cache files
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-*
+
+# Node.js (for hook development)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python (for legacy router hook)
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+*.egg-info/
 
+# Test artifacts
+coverage/
+.nyc_output/
+*.log
+test/evals/results/
+
+# Session logs directory
+.claude-sessions/
+
+# Environment files with secrets
+.env
+test/.env
+.env.local
+.env.*.local

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="1.105">
+<testsuite name="status-hook.test.sh" tests="28" failures="0" errors="0" skipped="1" time="1.105" timestamp="2026-01-14T05:17:59" hostname="JMS-LAPTOP">
+    <testcase classname="status-hook.test.sh" name="status.js hook file exists and is readable" time="0.009" />
+    <testcase classname="status-hook.test.sh" name="parse-hook-events.js parser exists and is executable" time="0.009" />
+    <testcase classname="status-hook.test.sh" name="run-hook-test.sh harness exists and is executable" time="0.009" />
+    <testcase classname="status-hook.test.sh" name="status hook reports hookEventName as SubagentStop" time="0.043" />
+    <testcase classname="status-hook.test.sh" name="status hook outputs valid JSON with hookSpecificOutput" time="0.040" />
+    <testcase classname="status-hook.test.sh" name="status hook output contains timestamp" time="0.040" />
+    <testcase classname="status-hook.test.sh" name="status hook always exits with code 0 (non-blocking)" time="0.034" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;verified&#39; when implement.json recently modified" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;session_cleared&#39; when session_id present" time="0.050" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;unchanged&#39; when implement.json not recently modified" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;disabled&#39; when STATUS_HOOK_DISABLE=1" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook reads implement.json correctly" time="0.046" />
+    <testcase classname="status-hook.test.sh" name="status hook finds .trd-state from nested directory" time="0.050" />
+    <testcase classname="status-hook.test.sh" name="status hook handles multiple implement.json files" time="0.047" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;no_state&#39; when .trd-state directory missing" time="0.043" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;no_files&#39; when .trd-state exists but empty" time="0.046" />
+    <testcase classname="status-hook.test.sh" name="status hook emits &#39;no_files&#39; when subdirectories lack implement.json" time="0.046" />
+    <testcase classname="status-hook.test.sh" name="status hook handles corrupt JSON gracefully (incomplete JSON)" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook handles corrupt JSON gracefully (not JSON at all)" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook handles empty implement.json" time="0.045" />
+    <testcase classname="status-hook.test.sh" name="status hook handles binary content in implement.json" time="0.044" />
+    <testcase classname="status-hook.test.sh" name="status hook outputs debug info to stderr when STATUS_HOOK_DEBUG=1" time="0.046" />
+    <testcase classname="status-hook.test.sh" name="status hook does not output debug info when STATUS_HOOK_DEBUG unset" time="0.042" />
+    <testcase classname="status-hook.test.sh" name="status hook clears session_id and sets last_session_completed" time="0.051" />
+    <testcase classname="status-hook.test.sh" name="status hook preserves other data when clearing session_id" time="0.056" />
+    <testcase classname="status-hook.test.sh" name="status hook uses process.cwd() when cwd not in input" time="0.041" />
+    <testcase classname="status-hook.test.sh" name="status hook handles empty stdin gracefully" time="0.043" />
+    <testcase classname="status-hook.test.sh" name="LIVE: status hook fires during real SubagentStop event" time="0">
+        <skipped>Live tests disabled (set SKIP_LIVE_TESTS=false to enable)</skipped>
+    </testcase>
+
+</testsuite>
+</testsuites>

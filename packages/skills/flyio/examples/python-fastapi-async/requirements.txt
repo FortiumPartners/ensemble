@@ -1,0 +1,24 @@
+# FastAPI core
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+
+# Async database
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.25
+
+# Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# HTTP client
+httpx==0.26.0
+
+# Caching
+redis==5.0.1
+aioredis==2.0.1
+
+# Background tasks
+celery==5.3.6
+
+# Monitoring
+prometheus-fastapi-instrumentator==6.1.0

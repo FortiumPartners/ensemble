@@ -1,0 +1,253 @@
+{
+  "$schema": "https://claude.ai/schemas/permission-allowlist.json",
+  "_comment": [
+    "Task: TRD-TEST-032",
+    "Purpose: Bypass permissions for headless testing",
+    "This allowlist permits all common test operations for automated testing.",
+    "DO NOT use in production environments."
+  ],
+  "version": "1.0.0",
+  "description": "Permissive allowlist for ensemble-vnext integration testing",
+  "permissions": {
+    "file_operations": {
+      "read": {
+        "enabled": true,
+        "patterns": [
+          "**/*"
+        ],
+        "description": "Allow reading any file for test verification"
+      },
+      "write": {
+        "enabled": true,
+        "patterns": [
+          "**/*"
+        ],
+        "exclude_patterns": [
+          "**/node_modules/**",
+          "**/.git/**"
+        ],
+        "description": "Allow writing files except in node_modules and .git"
+      },
+      "delete": {
+        "enabled": true,
+        "patterns": [
+          "**/test/**",
+          "**/tmp/**",
+          "**/temp/**",
+          "**/.trd-state/**"
+        ],
+        "description": "Allow deleting test and temporary files only"
+      }
+    },
+    "command_execution": {
+      "shell": {
+        "enabled": true,
+        "allowed_commands": [
+          "npm",
+          "npx",
+          "node",
+          "python",
+          "python3",
+          "pip",
+          "pip3",
+          "pytest",
+          "jest",
+          "vitest",
+          "git",
+          "ls",
+          "cat",
+          "head",
+          "tail",
+          "grep",
+          "find",
+          "mkdir",
+          "rm",
+          "cp",
+          "mv",
+          "touch",
+          "echo",
+          "pwd",
+          "cd",
+          "env",
+          "export",
+          "which",
+          "type",
+          "uuidgen",
+          "date",
+          "wc",
+          "sort",
+          "uniq",
+          "jq",
+          "curl",
+          "wget"
+        ],
+        "blocked_commands": [
+          "sudo",
+          "su",
+          "passwd",
+          "chown",
+          "chmod 777",
+          "rm -rf /",
+          "mkfs",
+          "dd",
+          "shutdown",
+          "reboot",
+          "systemctl",
+          "service"
+        ],
+        "description": "Allow common development and test commands"
+      },
+      "background_processes": {
+        "enabled": true,
+        "max_duration_seconds": 300,
+        "description": "Allow background processes up to 5 minutes"
+      }
+    },
+    "network": {
+      "outbound": {
+        "enabled": true,
+        "allowed_hosts": [
+          "localhost",
+          "127.0.0.1",
+          "::1",
+          "api.anthropic.com",
+          "api.openai.com",
+          "github.com",
+          "api.github.com",
+          "raw.githubusercontent.com",
+          "registry.npmjs.org",
+          "pypi.org"
+        ],
+        "blocked_hosts": [],
+        "description": "Allow outbound to common development services"
+      },
+      "inbound": {
+        "enabled": true,
+        "allowed_ports": [
+          3000,
+          4000,
+          5000,
+          8000,
+          8080,
+          8888,
+          9000
+        ],
+        "description": "Allow common development server ports"
+      }
+    },
+    "tool_invocation": {
+      "all_tools": {
+        "enabled": true,
+        "description": "Allow all tool invocations for comprehensive testing"
+      },
+      "specific_tools": {
+        "Read": { "enabled": true },
+        "Write": { "enabled": true },
+        "Edit": { "enabled": true },
+        "Bash": { "enabled": true },
+        "Glob": { "enabled": true },
+        "Grep": { "enabled": true },
+        "WebFetch": { "enabled": true },
+        "WebSearch": { "enabled": true },
+        "TodoWrite": { "enabled": true },
+        "NotebookEdit": { "enabled": true },
+        "Skill": { "enabled": true }
+      }
+    },
+    "agent_delegation": {
+      "enabled": true,
+      "allowed_agents": [
+        "backend-implementer",
+        "frontend-implementer",
+        "mobile-implementer",
+        "verify-app",
+        "code-simplifier",
+        "code-reviewer",
+        "app-debugger",
+        "devops-engineer",
+        "cicd-specialist",
+        "product-manager",
+        "technical-architect",
+        "spec-planner"
+      ],
+      "description": "Allow delegation to all ensemble agents"
+    },
+    "skill_invocation": {
+      "enabled": true,
+      "allowed_skills": [
+        "developing-with-python",
+        "developing-with-typescript",
+        "developing-with-flutter",
+        "developing-with-react",
+        "developing-with-php",
+        "developing-with-laravel",
+        "using-prisma",
+        "using-celery",
+        "using-anthropic-platform",
+        "using-openai-platform",
+        "using-perplexity-platform",
+        "using-weaviate",
+        "building-langgraph-agents",
+        "managing-railway",
+        "managing-supabase",
+        "managing-vercel",
+        "styling-with-tailwind",
+        "pytest",
+        "jest",
+        "rspec",
+        "xunit",
+        "exunit",
+        "playwright-test",
+        "init-project",
+        "create-prd",
+        "refine-prd",
+        "create-trd",
+        "refine-trd",
+        "implement-trd",
+        "fold-prompt"
+      ],
+      "description": "Allow invocation of all ensemble skills"
+    }
+  },
+  "environment": {
+    "test": true,
+    "ci": true,
+    "production": false,
+    "allowed_env_vars": [
+      "CLAUDE_CODE_ENABLE_TELEMETRY",
+      "OTEL_*",
+      "NODE_ENV",
+      "PATH",
+      "HOME",
+      "USER",
+      "SHELL",
+      "TERM",
+      "LANG",
+      "LC_*",
+      "TZ",
+      "TMPDIR",
+      "XDG_*"
+    ],
+    "sensitive_env_vars_blocked": [
+      "AWS_SECRET*",
+      "GITHUB_TOKEN",
+      "NPM_TOKEN",
+      "*_API_KEY",
+      "*_SECRET",
+      "*_PASSWORD",
+      "*_CREDENTIAL*"
+    ]
+  },
+  "safety": {
+    "max_file_size_mb": 10,
+    "max_output_lines": 10000,
+    "timeout_seconds": 600,
+    "prevent_recursive_deletion": true,
+    "require_confirmation_for": []
+  },
+  "audit": {
+    "log_all_operations": true,
+    "log_level": "debug",
+    "retain_logs_days": 7
+  }
+}

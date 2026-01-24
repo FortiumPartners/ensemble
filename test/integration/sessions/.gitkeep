@@ -1,0 +1,3 @@
+# Session output directory
+# Session JSONL logs are stored here by run-headless.sh
+# These files are typically gitignored

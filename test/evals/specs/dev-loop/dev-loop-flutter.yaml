@@ -1,0 +1,316 @@
+# Eval spec for development loop testing: implement -> verify -> simplify -> verify
+# Tests the complete development cycle with Flutter Counter Widget
+# Fixture: ensemble-vnext-test-fixtures with variant-based structure
+
+name: dev-loop-flutter
+version: 3.0.0
+description: |
+  Test the complete development loop cycle for Flutter widget implementation:
+
+  1. IMPLEMENT: Delegate to @mobile-implementer to build from story.md Counter Widget with color changes
+  2. VERIFY: Delegate to @verify-app to run flutter test and report coverage
+  3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
+  4. VERIFY: Delegate to @verify-app again to confirm tests still pass
+
+  This eval measures whether agent delegation improves the quality and
+  consistency of the full development workflow for Flutter applications.
+
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Complete this task using the full development loop:
+
+    ## STEP 1 - IMPLEMENT
+    Read the story.md file and implement a Counter Widget in Flutter.
+
+    Requirements:
+    - Create a counter widget with increment and decrement buttons
+    - Display the current counter value
+    - Change color based on value:
+      - Green when positive
+      - Red when negative
+      - Grey when zero
+    - Use proper Flutter widget composition
+    - Include appropriate state management (StatefulWidget or provider)
+
+    Create the following structure:
+    - lib/counter_widget.dart - The counter widget implementation
+    - test/counter_widget_test.dart - Widget tests
+
+    ## STEP 2 - VERIFY (Initial)
+    Run widget tests to verify the implementation works correctly.
+    Command: flutter test
+    Report test results and any failures.
+
+    ## STEP 3 - SIMPLIFY
+    Review the widget code for potential simplifications:
+    - Reduce widget complexity
+    - Extract reusable components if appropriate
+    - Improve widget composition
+    - Ensure proper separation of concerns
+
+    ## STEP 4 - VERIFY (Final)
+    Run tests again to confirm all tests still pass after simplification.
+    Report final test results.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/flutter-widget
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the Flutter Counter Widget directly based on story.md requirements.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run flutter test directly.
+        Verify increment, decrement, and color change behavior.
+        Report pass/fail counts.
+
+      For STEP 3 (SIMPLIFY):
+        Apply Flutter widget refactoring patterns directly.
+        Consider extracting components or improving composition.
+        Ensure tests still pass after changes.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 900
+    expected_agents: []
+    expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/flutter-widget
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @mobile-implementer agent for initial implementation.
+        Request: Read story.md and implement the Flutter Counter Widget with:
+        - Increment/decrement buttons
+        - Color changes based on value (green/red/grey)
+        - Comprehensive widget tests
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run flutter test, verify widget behavior and color changes.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the widget implementation while preserving test behavior.
+
+      Use the developing-with-flutter skill for Flutter patterns and best practices.
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 900
+    expected_agents:
+      - mobile-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-flutter
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/flutter-widget
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/counter-widget.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/counter-widget.md
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @mobile-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1500
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - mobile-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-flutter
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
+
+# Execution configuration
+runs_per_variant: 3
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: implementation_complete
+    description: Flutter widget files were created
+    check: |
+      cd {workspace} && \
+        [ -f lib/counter_widget.dart ] && \
+        grep -q "StatefulWidget\|StatelessWidget\|ConsumerWidget" lib/counter_widget.dart && \
+        [ -f test/counter_widget_test.dart ]
+    weight: 0.25
+
+  - name: tests_pass_initial
+    description: Widget tests pass after initial implementation
+    check: |
+      cd {workspace} && \
+        flutter test test/counter_widget_test.dart 2>&1 | grep -E "All tests passed|passed"
+    weight: 0.25
+
+  - name: tests_pass_final
+    description: Tests pass after simplification (behavior preserved)
+    check: |
+      cd {workspace} && \
+        flutter test test/counter_widget_test.dart 2>&1 | grep -E "All tests passed|passed"
+    weight: 0.25
+    critical: true
+
+  - name: color_logic_exists
+    description: Color change logic based on counter value is implemented
+    check: |
+      cd {workspace} && \
+        grep -q "green\|Green\|Colors.green" lib/counter_widget.dart && \
+        grep -q "red\|Red\|Colors.red" lib/counter_widget.dart
+    weight: 0.25
+
+# LLM-judged quality metrics
+metrics:
+  - name: code_quality
+    description: Overall code quality of the Flutter widget
+    rubric: code-quality.md
+    files:
+      - "lib/counter_widget.dart"
+      - "lib/*.dart"
+    context_files:
+      - "story.md"
+    weight: 0.4
+    custom_prompt_addition: |
+      Focus on Flutter-specific quality aspects:
+      - Is widget composition appropriate (StatefulWidget vs StatelessWidget)?
+      - Is state management clean and predictable?
+      - Are widgets properly decomposed (not one giant build method)?
+      - Is the color logic implemented cleanly?
+      - Are widgets const where possible for performance?
+      - Does it follow Effective Dart guidelines?
+
+  - name: test_quality
+    description: Quality of the widget test suite
+    rubric: test-quality.md
+    files:
+      - "test/counter_widget_test.dart"
+      - "test/*.dart"
+    context_files:
+      - "lib/counter_widget.dart"
+    weight: 0.3
+    custom_prompt_addition: |
+      Evaluate Flutter widget testing patterns:
+      - Is testWidgets used correctly?
+      - Are pumpWidget and pump/pumpAndSettle used appropriately?
+      - Are find.text and find.byIcon used for widget discovery?
+      - Is increment/decrement behavior tested?
+      - Are color changes tested for positive/negative/zero values?
+      - Are tap interactions tested with tester.tap?
+
+  - name: simplification_quality
+    description: Quality of the widget refactoring
+    rubric: code-quality.md
+    files:
+      - "lib/counter_widget.dart"
+    weight: 0.3
+    custom_prompt_addition: |
+      Focus on whether refactoring improved the Flutter widget:
+      - Was the build method simplified?
+      - Were reusable widgets extracted where appropriate?
+      - Is widget composition cleaner?
+      - Was over-engineering avoided (not extracting too many tiny widgets)?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating a complete development loop for a Flutter Counter Widget:
+    implement -> verify -> simplify -> verify
+
+    Consider Flutter-specific best practices:
+    1. Proper widget composition and state management
+    2. Widget testing with testWidgets and pumpWidget
+    3. Effective Dart guidelines
+    4. Performance considerations (const widgets)
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for agent verification
+session_analysis:
+  verify_verify_app_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to (with_agents variant)
+  verify_code_simplifier_delegation:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier agent was delegated to (with_agents variant)
+  verify_flutter_patterns:
+    pattern: "flutter test|StatefulWidget|testWidgets"
+    description: Verify Flutter patterns were used
+
+# Acceptance criteria for this eval
+acceptance:
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.8
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  language: dart
+  tech_stack: flutter
+  complexity: intermediate
+  estimated_duration_minutes: 15
+  tags:
+    - development-loop
+    - dart
+    - flutter
+    - widget
+    - flutter-test
+    - agent-comparison

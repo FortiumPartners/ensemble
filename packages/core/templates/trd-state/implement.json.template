@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "trd_file": "{{TRD_PATH}}",
+  "trd_hash": "{{TRD_HASH}}",
+  "branch": "{{BRANCH_NAME}}",
+  "strategy": "{{STRATEGY}}",
+  "phase_cursor": 1,
+  "tasks": {},
+  "coverage": {
+    "unit": 0.0,
+    "integration": 0.0,
+    "e2e": 0.0
+  },
+  "checkpoints": [],
+  "active_sessions": {},
+  "recovery": {
+    "last_healthy_checkpoint": null,
+    "last_checkpoint_timestamp": null,
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "metrics": {
+    "total_tasks": 0,
+    "completed_tasks": 0,
+    "failed_tasks": 0,
+    "total_retries": 0
+  }
+}

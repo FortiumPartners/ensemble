@@ -1,0 +1,4 @@
+{"type": "user", "content": "Create a Python function"}
+{"type": "tool_use", "name": "Write", "id": "tool_456", "input": {"file_path": "/tmp/test.py", "content": "def hello(): pass"}}
+{"type": "tool_result", "tool_use_id": "tool_456", "content": "File written successfully"}
+{"type": "assistant", "content": [{"type": "text", "text": "Done!"}]}

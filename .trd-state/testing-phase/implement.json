@@ -1,0 +1,286 @@
+{
+  "version": "1.1.0",
+  "trd_file": "docs/TRD/testing-phase.md",
+  "trd_version": "1.4.0",
+  "trd_hash": "phase-5-added",
+  "branch": "feature/trd-implementation",
+  "strategy": "tdd",
+  "phase_cursor": 5,
+  "phase_structure": {
+    "1": { "name": "Unit Tests", "tasks": "001-022, 086-092" },
+    "2": { "name": "Infrastructure", "tasks": "023-032" },
+    "3": { "name": "Observability", "tasks": "062-065", "parallel_with": ["4A", "4B"] },
+    "4": { "name": "Eval Framework", "parallel_with": ["3"], "tracks": {
+      "A": { "name": "Structure Verification", "tasks": "033-035, 054-061" },
+      "B": { "name": "Eval Tooling", "tasks": "066-083" }
+    }, "final": "084-085" },
+    "5": { "name": "Hook Integration Testing", "tasks": "093-100", "parallel_with": ["4-final"] }
+  },
+  "superseded_tasks": {
+    "TRD-TEST-036": { "reason": "Replaced by developing-with-python.yaml eval (TRD-TEST-075)" },
+    "TRD-TEST-037": { "reason": "Replaced by developing-with-python.yaml eval (TRD-TEST-075)" },
+    "TRD-TEST-038": { "reason": "Replaced by developing-with-flutter.yaml eval (TRD-TEST-076)" },
+    "TRD-TEST-039": { "reason": "Replaced by developing-with-flutter.yaml eval (TRD-TEST-076)" },
+    "TRD-TEST-040": { "reason": "Replaced by developing-with-typescript.yaml eval (TRD-TEST-077)" },
+    "TRD-TEST-041": { "reason": "Replaced by developing-with-typescript.yaml eval (TRD-TEST-077)" },
+    "TRD-TEST-042": { "reason": "Replaced by using-fastapi.yaml eval (TRD-TEST-078)" },
+    "TRD-TEST-043": { "reason": "Replaced by using-fastapi.yaml eval (TRD-TEST-078)" },
+    "TRD-TEST-044": { "reason": "Replaced by pytest.yaml eval (TRD-TEST-079)" },
+    "TRD-TEST-045": { "reason": "Replaced by pytest.yaml eval (TRD-TEST-079)" },
+    "TRD-TEST-046": { "reason": "Replaced by backend-implementer.yaml eval (TRD-TEST-080)" },
+    "TRD-TEST-047": { "reason": "Replaced by backend-implementer.yaml eval (TRD-TEST-080)" },
+    "TRD-TEST-048": { "reason": "Replaced by verify-app.yaml eval (TRD-TEST-081)" },
+    "TRD-TEST-049": { "reason": "Replaced by verify-app.yaml eval (TRD-TEST-081)" },
+    "TRD-TEST-050": { "reason": "Replaced by code-simplifier.yaml eval (TRD-TEST-082)" },
+    "TRD-TEST-051": { "reason": "Replaced by code-simplifier.yaml eval (TRD-TEST-082)" },
+    "TRD-TEST-052": { "reason": "Replaced by code-reviewer.yaml eval (TRD-TEST-083)" },
+    "TRD-TEST-053": { "reason": "Replaced by code-reviewer.yaml eval (TRD-TEST-083)" }
+  },
+  "tasks": {
+    "TRD-TEST-001": { "status": "completed", "component": "permitter", "phase": 1 },
+    "TRD-TEST-002": { "status": "completed", "component": "permitter", "phase": 1 },
+    "TRD-TEST-003": { "status": "completed", "component": "permitter", "phase": 1 },
+    "TRD-TEST-004": { "status": "completed", "component": "router", "phase": 1 },
+    "TRD-TEST-005": { "status": "completed", "component": "router", "phase": 1 },
+    "TRD-TEST-006": { "status": "completed", "component": "router", "phase": 1 },
+    "TRD-TEST-007": { "status": "completed", "component": "status-hook", "phase": 1 },
+    "TRD-TEST-008": { "status": "completed", "component": "status-hook", "phase": 1 },
+    "TRD-TEST-009": { "status": "completed", "component": "status-hook", "phase": 1 },
+    "TRD-TEST-010": { "status": "completed", "component": "formatter-hook", "phase": 1 },
+    "TRD-TEST-011": { "status": "completed", "component": "formatter-hook", "phase": 1 },
+    "TRD-TEST-012": { "status": "completed", "component": "formatter-hook", "phase": 1 },
+    "TRD-TEST-013": { "status": "completed", "component": "learning-hook", "phase": 1 },
+    "TRD-TEST-014": { "status": "completed", "component": "learning-hook", "phase": 1 },
+    "TRD-TEST-015": { "status": "completed", "component": "learning-hook", "phase": 1 },
+    "TRD-TEST-016": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-017": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-018": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-019": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-020": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-021": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-022": { "status": "completed", "component": "scripts", "phase": 1 },
+    "TRD-TEST-086": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-087": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-088": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-089": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-090": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-091": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-092": { "status": "completed", "component": "agent-validation", "phase": 1 },
+    "TRD-TEST-023": { "status": "completed", "component": "infrastructure", "phase": 2 },
+    "TRD-TEST-024": { "status": "completed", "component": "fixtures", "phase": 2 },
+    "TRD-TEST-025": { "status": "completed", "component": "fixtures", "phase": 2 },
+    "TRD-TEST-026": { "status": "completed", "component": "fixtures", "phase": 2 },
+    "TRD-TEST-027": { "status": "completed", "component": "fixtures", "phase": 2 },
+    "TRD-TEST-028": { "status": "completed", "component": "fixtures", "phase": 2 },
+    "TRD-TEST-029": { "status": "completed", "component": "infrastructure", "phase": 2 },
+    "TRD-TEST-030": { "status": "completed", "component": "infrastructure", "phase": 2 },
+    "TRD-TEST-031": { "status": "completed", "component": "infrastructure", "phase": 2 },
+    "TRD-TEST-032": { "status": "completed", "component": "infrastructure", "phase": 2 },
+    "TRD-TEST-033": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-034": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-035": { "status": "completed", "component": "vendoring", "phase": "4A", "artifact": "test/integration/tests/vendoring.test.sh" },
+    "TRD-TEST-054": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-055": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-056": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-057": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-058": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-059": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-060": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-061": { "status": "completed", "component": "commands", "phase": "4A", "artifact": "test/integration/tests/commands.test.sh" },
+    "TRD-TEST-062": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/run-headless.sh (verified)" },
+    "TRD-TEST-063": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/verify-telemetry.sh" },
+    "TRD-TEST-064": { "status": "completed", "component": "observability", "phase": 3, "artifact": "docs/TRD/testing-phase-telemetry-patterns.md" },
+    "TRD-TEST-065": { "status": "completed", "component": "observability", "phase": 3, "artifact": "test/integration/scripts/verify-skill.sh" },
+    "TRD-TEST-066": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/README.md" },
+    "TRD-TEST-067": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/framework/run-eval.js" },
+    "TRD-TEST-068": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/framework/run-session.sh" },
+    "TRD-TEST-069": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/framework/collect-results.sh" },
+    "TRD-TEST-070": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/framework/judge.js" },
+    "TRD-TEST-071": { "status": "completed", "component": "eval-framework", "phase": "4B", "artifact": "test/evals/framework/aggregate.js" },
+    "TRD-TEST-072": { "status": "completed", "component": "rubrics", "phase": "4B", "artifact": "test/evals/rubrics/code-quality.md" },
+    "TRD-TEST-073": { "status": "completed", "component": "rubrics", "phase": "4B", "artifact": "test/evals/rubrics/test-quality.md" },
+    "TRD-TEST-074": { "status": "completed", "component": "rubrics", "phase": "4B", "artifact": "test/evals/rubrics/error-handling.md" },
+    "TRD-TEST-075": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/skills/developing-with-python.yaml" },
+    "TRD-TEST-076": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/skills/developing-with-flutter.yaml" },
+    "TRD-TEST-077": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/skills/developing-with-typescript.yaml" },
+    "TRD-TEST-078": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/skills/using-fastapi.yaml" },
+    "TRD-TEST-079": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/skills/pytest.yaml" },
+    "TRD-TEST-080": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/agents/backend-implementer.yaml" },
+    "TRD-TEST-081": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/agents/verify-app.yaml" },
+    "TRD-TEST-082": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/agents/code-simplifier.yaml" },
+    "TRD-TEST-083": { "status": "completed", "component": "eval-specs", "phase": "4B", "artifact": "test/evals/specs/agents/code-reviewer.yaml" },
+    "TRD-TEST-084": { "status": "pending", "component": "eval-execution", "phase": 4 },
+    "TRD-TEST-085": { "status": "pending", "component": "eval-execution", "phase": 4 },
+    "TRD-TEST-093": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/run-hook-test.sh" },
+    "TRD-TEST-094": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/parse-hook-events.js" },
+    "TRD-TEST-095": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/wiggum-hook.test.sh", "note": "Corrected: wiggum fires on Stop, not UserPromptSubmit" },
+    "TRD-TEST-096": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/formatter-hook.test.sh" },
+    "TRD-TEST-097": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/learning-hook.test.sh" },
+    "TRD-TEST-098": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/status-hook.test.sh", "note": "Corrected: status fires on SubagentStop, not Notification" },
+    "TRD-TEST-099": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/permitter-hook.test.sh" },
+    "TRD-TEST-100": { "status": "completed", "component": "hook-integration", "phase": 5, "artifact": "test/integration/hooks/run-all-hook-tests.sh" }
+  },
+  "coverage": { "unit": 0.0, "integration": 0.0 },
+  "checkpoints": [
+    {
+      "id": "phase-1-complete",
+      "timestamp": "2026-01-13T21:15:00.000Z",
+      "phase": 1,
+      "tasks_completed": 29,
+      "test_results": {
+        "permitter": { "passed": 523, "failed": 0, "skipped": 0 },
+        "router": { "passed": 107, "failed": 0, "skipped": 0 },
+        "status_hook": { "passed": 61, "failed": 0, "skipped": 0 },
+        "formatter_hook": { "passed": 79, "failed": 0, "skipped": 4 },
+        "learning_hook": { "passed": 41, "failed": 0, "skipped": 0 },
+        "scripts": { "passed": 49, "failed": 0, "skipped": 0 },
+        "agent_validation": { "passed": 98, "failed": 0, "skipped": 0 }
+      },
+      "total_tests": { "passed": 958, "failed": 0, "skipped": 4 }
+    },
+    {
+      "id": "phase-2-complete",
+      "timestamp": "2026-01-13T22:30:00.000Z",
+      "phase": 2,
+      "tasks_completed": 10,
+      "artifacts": {
+        "repository": "ensemble-vnext-test-fixtures",
+        "fixtures": ["python-cli", "flutter-widget", "typescript-validation", "fastapi-endpoint", "pytest-tests"],
+        "scripts": ["run-headless.sh", "verify-output.sh", "run-ab-test.sh"],
+        "config": ["permissive-allowlist.json"]
+      }
+    },
+    {
+      "id": "phase-3-complete",
+      "timestamp": "2026-01-13T14:30:00.000Z",
+      "phase": 3,
+      "tasks_completed": 4,
+      "artifacts": {
+        "scripts": ["test/integration/scripts/verify-telemetry.sh", "test/integration/scripts/verify-skill.sh"],
+        "documentation": ["docs/TRD/testing-phase-telemetry-patterns.md"],
+        "fixtures": ["test/integration/fixtures/sample-skill-session.jsonl", "test/integration/fixtures/sample-no-skills.jsonl"]
+      }
+    },
+    {
+      "id": "phase-4a-complete",
+      "timestamp": "2026-01-13T23:45:00.000Z",
+      "phase": "4A",
+      "tasks_completed": 11,
+      "artifacts": {
+        "tests": ["test/integration/tests/vendoring.test.sh", "test/integration/tests/commands.test.sh"]
+      }
+    },
+    {
+      "id": "phase-4b-complete",
+      "timestamp": "2026-01-14T01:00:00.000Z",
+      "phase": "4B",
+      "tasks_completed": 18,
+      "artifacts": {
+        "framework": [
+          "test/evals/framework/run-eval.js",
+          "test/evals/framework/run-session.sh",
+          "test/evals/framework/collect-results.sh",
+          "test/evals/framework/judge.js",
+          "test/evals/framework/aggregate.js"
+        ],
+        "tests": [
+          "test/evals/framework/run-eval.test.js",
+          "test/evals/framework/run-session.test.sh",
+          "test/evals/framework/collect-results.test.sh",
+          "test/evals/framework/judge.test.js",
+          "test/evals/framework/aggregate.test.js"
+        ],
+        "rubrics": [
+          "test/evals/rubrics/code-quality.md",
+          "test/evals/rubrics/test-quality.md",
+          "test/evals/rubrics/error-handling.md"
+        ],
+        "skill_specs": [
+          "test/evals/specs/skills/developing-with-python.yaml",
+          "test/evals/specs/skills/developing-with-flutter.yaml",
+          "test/evals/specs/skills/developing-with-typescript.yaml",
+          "test/evals/specs/skills/using-fastapi.yaml",
+          "test/evals/specs/skills/pytest.yaml"
+        ],
+        "agent_specs": [
+          "test/evals/specs/agents/backend-implementer.yaml",
+          "test/evals/specs/agents/verify-app.yaml",
+          "test/evals/specs/agents/code-simplifier.yaml",
+          "test/evals/specs/agents/code-reviewer.yaml"
+        ]
+      },
+      "notes": "Phase 4B implements complete eval framework: YAML spec parsing, session orchestration, result collection, Claude Opus judging with rubrics, statistical aggregation and reporting."
+    },
+    {
+      "id": "phase-5-complete",
+      "timestamp": "2026-01-14T02:30:00.000Z",
+      "phase": 5,
+      "tasks_completed": 8,
+      "artifacts": {
+        "harness": "test/integration/hooks/run-hook-test.sh",
+        "parser": "test/integration/hooks/parse-hook-events.js",
+        "parser_tests": "test/integration/hooks/parse-hook-events.test.js",
+        "hook_tests": [
+          "test/integration/hooks/wiggum-hook.test.sh",
+          "test/integration/hooks/formatter-hook.test.sh",
+          "test/integration/hooks/learning-hook.test.sh",
+          "test/integration/hooks/status-hook.test.sh",
+          "test/integration/hooks/permitter-hook.test.sh"
+        ],
+        "suite_runner": "test/integration/hooks/run-all-hook-tests.sh"
+      },
+      "test_counts": {
+        "wiggum": { "tests": 36 },
+        "formatter": { "tests": 26 },
+        "learning": { "tests": 19 },
+        "status": { "tests": 28 },
+        "permitter": { "tests": 18 },
+        "total": { "tests": 127 }
+      },
+      "notes": "Phase 5 implements hook integration testing: harness for running Claude sessions with hooks, JSONL parser for hook events, BATS tests for all 5 hooks (wiggum, formatter, learning, status, permitter), and suite runner with JUnit output."
+    }
+  ],
+  "active_sessions": {},
+  "recovery": {
+    "last_healthy_checkpoint": "phase-5-complete",
+    "last_checkpoint_timestamp": "2026-01-14T02:30:00.000Z",
+    "interrupted": false,
+    "interrupt_reason": null
+  },
+  "metrics": {
+    "total_tasks": 82,
+    "completed_tasks": 80,
+    "failed_tasks": 0,
+    "superseded_tasks": 18,
+    "pending_tasks": 2,
+    "total_retries": 0
+  },
+  "revision_history": [
+    {
+      "timestamp": "2026-01-13T23:00:00.000Z",
+      "change": "Consolidated Phase 3+5 into new Phase 4, moved Observability to Phase 3",
+      "tasks_removed": 18,
+      "reason": "Manual A/B tests superseded by automated eval framework"
+    },
+    {
+      "timestamp": "2026-01-14T01:00:00.000Z",
+      "change": "Completed Phase 4B (Eval Tooling)",
+      "tasks_completed": 18,
+      "reason": "All eval framework components, rubrics, and specs implemented"
+    },
+    {
+      "timestamp": "2026-01-14T05:00:00.000Z",
+      "change": "Added Phase 5: Hook Integration Testing (TRD-TEST-093-100)",
+      "tasks_added": 8,
+      "reason": "Gap identified: no tests verifying hooks trigger during Claude sessions"
+    },
+    {
+      "timestamp": "2026-01-14T02:30:00.000Z",
+      "change": "Completed Phase 5: Hook Integration Testing (TRD-TEST-093-100)",
+      "tasks_completed": 8,
+      "artifacts_created": 9,
+      "total_tests": 127,
+      "reason": "All hook integration tests implemented with harness, parser, and BATS test suites"
+    }
+  ]
+}

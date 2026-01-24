@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="0.718">
+<testsuite name="permitter-hook.test.sh" tests="18" failures="0" errors="0" skipped="0" time="0.718" timestamp="2026-01-14T05:18:01" hostname="JMS-LAPTOP">
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook exists and is executable" time="0.008" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook produces valid JSON on Bash command" time="0.043" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook returns &#39;ask&#39; for unknown commands" time="0.044" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook returns &#39;ask&#39; for non-Bash tools" time="0.043" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles empty command gracefully" time="0.043" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles MCP tool requests" time="0.044" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook produces debug logs when PERMITTER_DEBUG=1" time="0.039" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles malformed JSON gracefully" time="0.041" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook can be disabled via environment variable" time="0.042" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook parses simple command" time="0.039" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook parses piped commands" time="0.044" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook parses chained commands" time="0.042" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook parses subshell commands" time="0.042" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles stdin EOF gracefully" time="0.036" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles missing tool_name field" time="0.041" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook handles missing tool_input field" time="0.041" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook output has correct hookEventName" time="0.043" />
+    <testcase classname="permitter-hook.test.sh" name="TRD-TEST-099: permitter hook output behavior is valid enum" time="0.043" />
+
+</testsuite>
+</testsuites>

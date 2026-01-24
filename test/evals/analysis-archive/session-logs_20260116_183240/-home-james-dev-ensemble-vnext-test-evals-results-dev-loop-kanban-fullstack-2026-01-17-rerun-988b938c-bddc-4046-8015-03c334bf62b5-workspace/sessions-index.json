@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "sessionId": "49851d7a-7dba-47c9-a68d-25a89185403b",
+      "fullPath": "/home/james/.claude/projects/-home-james-dev-ensemble-vnext-test-evals-results-dev-loop-kanban-fullstack-2026-01-17-rerun-988b938c-bddc-4046-8015-03c334bf62b5-workspace/49851d7a-7dba-47c9-a68d-25a89185403b.jsonl",
+      "fileMtime": 1768612598831,
+      "firstPrompt": "No prompt",
+      "messageCount": 4,
+      "created": "2026-01-17T01:16:07.086Z",
+      "modified": "2026-01-17T01:16:38.803Z",
+      "gitBranch": "feature/trd-implementation",
+      "projectPath": "/home/james/dev/ensemble-vnext/test/evals/results/dev-loop-kanban-fullstack_2026-01-17_rerun/988b938c-bddc-4046-8015-03c334bf62b5/workspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "988b938c-bddc-4046-8015-03c334bf62b5",
+      "fullPath": "/home/james/.claude/projects/-home-james-dev-ensemble-vnext-test-evals-results-dev-loop-kanban-fullstack-2026-01-17-rerun-988b938c-bddc-4046-8015-03c334bf62b5-workspace/988b938c-bddc-4046-8015-03c334bf62b5.jsonl",
+      "fileMtime": 1768612730935,
+      "firstPrompt": "Build a full-stack Kanban task board application with the following requirements:  ## ARCHITECTURE OVERVIEW  ``` kanban-board/ ├── docker-compose.yml          # PostgreSQL + app services ├── backend/…",
+      "messageCount": 11,
+      "created": "2026-01-17T01:04:03.147Z",
+      "modified": "2026-01-17T01:18:50.929Z",
+      "gitBranch": "feature/trd-implementation",
+      "projectPath": "/home/james/dev/ensemble-vnext/test/evals/results/dev-loop-kanban-fullstack_2026-01-17_rerun/988b938c-bddc-4046-8015-03c334bf62b5/workspace",
+      "isSidechain": false
+    },
+    {
+      "sessionId": "efa9585a-278f-4599-b564-1ad36d91ea49",
+      "fullPath": "/home/james/.claude/projects/-home-james-dev-ensemble-vnext-test-evals-results-dev-loop-kanban-fullstack-2026-01-17-rerun-988b938c-bddc-4046-8015-03c334bf62b5-workspace/efa9585a-278f-4599-b564-1ad36d91ea49.jsonl",
+      "fileMtime": 1768612838124,
+      "firstPrompt": "No prompt",
+      "messageCount": 3,
+      "created": "2026-01-17T01:19:47.336Z",
+      "modified": "2026-01-17T01:20:38.119Z",
+      "gitBranch": "feature/trd-implementation",
+      "projectPath": "/home/james/dev/ensemble-vnext/test/evals/results/dev-loop-kanban-fullstack_2026-01-17_rerun/988b938c-bddc-4046-8015-03c334bf62b5/workspace",
+      "isSidechain": false
+    }
+  ]
+}

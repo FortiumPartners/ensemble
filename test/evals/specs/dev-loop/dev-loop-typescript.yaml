@@ -1,0 +1,319 @@
+# Eval spec for development loop testing: implement -> verify -> simplify -> verify
+# Tests the complete development cycle with TypeScript Validation Module
+# Fixture: ensemble-vnext-test-fixtures with variant-based structure
+
+name: dev-loop-typescript
+version: 3.0.0
+description: |
+  Test the complete development loop cycle for TypeScript validation module:
+
+  1. IMPLEMENT: Delegate to @frontend-implementer to build from story.md
+  2. VERIFY: Delegate to @verify-app to run jest/vitest and report coverage
+  3. SIMPLIFY: Delegate to @code-simplifier to refactor while preserving tests
+  4. VERIFY: Delegate to @verify-app again to confirm tests still pass
+
+  This eval measures whether agent delegation improves the quality and
+  consistency of the full development workflow for TypeScript applications.
+
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Complete this task using the full development loop:
+
+    ## STEP 1 - IMPLEMENT
+    Read the story.md file and implement a TypeScript validation module.
+
+    Requirements:
+    - Email validation function (validateEmail)
+    - Password strength checker (checkPasswordStrength)
+    - Phone number formatter (formatPhoneNumber)
+    - Export TypeScript types for validation results
+    - Use strict TypeScript with proper type definitions
+    - Include comprehensive error handling
+
+    Create the following structure:
+    - src/validation.ts - Validation functions
+    - src/types.ts - TypeScript type definitions
+    - test/validation.test.ts - Jest/Vitest tests
+    - tsconfig.json - TypeScript configuration (strict mode)
+
+    ## STEP 2 - VERIFY (Initial)
+    Run tests to verify the implementation works correctly.
+    Use jest or vitest for test execution.
+    Report test results and coverage metrics.
+    Target: >= 80% coverage.
+
+    ## STEP 3 - SIMPLIFY
+    Review the code for potential simplifications:
+    - Reduce complexity in validation logic
+    - Improve type definitions
+    - Extract common patterns
+    - Ensure consistent error handling
+
+    ## STEP 4 - VERIFY (Final)
+    Run tests again to confirm all tests still pass after simplification.
+    Report final coverage metrics.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/typescript-validation
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the TypeScript validation module directly based on story.md requirements.
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run tests directly with jest or vitest.
+        Use: npx jest --coverage or npx vitest run --coverage
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply TypeScript refactoring patterns directly.
+        Consider type improvements and function simplification.
+        Ensure tests still pass after changes.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 600
+    expected_agents: []
+    expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/typescript-validation
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @frontend-implementer agent for initial implementation.
+        Request: Read story.md and implement the TypeScript validation module with:
+        - Email validation, password strength, phone formatting
+        - Proper TypeScript types and strict mode
+        - Comprehensive test coverage
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run jest/vitest with coverage, test all validation functions.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the TypeScript validation module while preserving tests.
+
+      Use the developing-with-typescript skill for TypeScript patterns.
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 600
+    expected_agents:
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-typescript
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/typescript-validation
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/validation.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/validation.md
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @frontend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1200
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - frontend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-typescript
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
+
+# Execution configuration
+runs_per_variant: 3
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: implementation_complete
+    description: TypeScript validation module files were created
+    check: |
+      cd {workspace} && \
+        ([ -f src/validation.ts ] || [ -f validation.ts ]) && \
+        grep -rq "validateEmail\|checkPassword\|formatPhone" src/*.ts *.ts 2>/dev/null && \
+        ([ -f test/validation.test.ts ] || [ -f validation.test.ts ])
+    weight: 0.25
+
+  - name: tests_pass_initial
+    description: Tests pass after initial implementation
+    check: |
+      cd {workspace} && \
+        (npx jest --passWithNoTests 2>&1 || npx vitest run 2>&1) | grep -E "passed|PASS"
+    weight: 0.25
+
+  - name: tests_pass_final
+    description: Tests pass after simplification (behavior preserved)
+    check: |
+      cd {workspace} && \
+        (npx jest --passWithNoTests 2>&1 || npx vitest run 2>&1) | grep -E "passed|PASS"
+    weight: 0.25
+    critical: true
+
+  - name: types_exported
+    description: TypeScript types are properly defined and exported
+    check: |
+      cd {workspace} && \
+        grep -rq "export.*type\|export.*interface\|export type\|export interface" src/*.ts *.ts 2>/dev/null
+    weight: 0.25
+
+# LLM-judged quality metrics
+metrics:
+  - name: code_quality
+    description: Overall code quality of the TypeScript validation module
+    rubric: code-quality.md
+    files:
+      - "src/validation.ts"
+      - "src/types.ts"
+      - "validation.ts"
+      - "types.ts"
+    context_files:
+      - "story.md"
+    weight: 0.4
+    custom_prompt_addition: |
+      Focus on TypeScript-specific quality aspects:
+      - Are types properly defined (not using 'any')?
+      - Is strict mode being used effectively?
+      - Are union types and discriminated unions used appropriately?
+      - Is error handling type-safe?
+      - Are generic types used where beneficial?
+      - Is the Result/Either pattern used for validation results?
+
+  - name: test_quality
+    description: Quality of the TypeScript test suite
+    rubric: test-quality.md
+    files:
+      - "test/validation.test.ts"
+      - "validation.test.ts"
+    context_files:
+      - "src/validation.ts"
+      - "validation.ts"
+    weight: 0.3
+    custom_prompt_addition: |
+      Evaluate TypeScript testing patterns:
+      - Are Jest/Vitest best practices followed?
+      - Is each validation function tested?
+      - Are edge cases covered (empty strings, invalid formats)?
+      - Are type assertions used appropriately?
+      - Are describe/it blocks well-organized?
+
+  - name: simplification_quality
+    description: Quality of the TypeScript refactoring
+    rubric: code-quality.md
+    files:
+      - "src/validation.ts"
+      - "validation.ts"
+    weight: 0.3
+    custom_prompt_addition: |
+      Focus on whether refactoring improved the TypeScript module:
+      - Were types refined or improved?
+      - Was validation logic simplified?
+      - Were common patterns extracted?
+      - Is the code more type-safe after refactoring?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating a complete development loop for a TypeScript validation module:
+    implement -> verify -> simplify -> verify
+
+    Consider TypeScript-specific best practices:
+    1. Strict type safety (no any, proper narrowing)
+    2. Discriminated unions for result types
+    3. Jest/Vitest testing patterns
+    4. ESLint/TSLint compliance
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for agent verification
+session_analysis:
+  verify_verify_app_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to (with_agents variant)
+  verify_code_simplifier_delegation:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier agent was delegated to (with_agents variant)
+  verify_typescript_patterns:
+    pattern: "jest|vitest|type.*=|interface"
+    description: Verify TypeScript patterns were used
+
+# Acceptance criteria for this eval
+acceptance:
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.8
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  language: typescript
+  tech_stack: typescript-validation
+  complexity: intermediate
+  estimated_duration_minutes: 10
+  tags:
+    - development-loop
+    - typescript
+    - validation
+    - jest
+    - vitest
+    - agent-comparison

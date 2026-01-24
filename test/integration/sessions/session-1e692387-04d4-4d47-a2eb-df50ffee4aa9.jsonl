@@ -1,0 +1,12 @@
+This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). The promise rejected with the reason:
+Error: Unknown protocol set in OTEL_EXPORTER_OTLP_METRICS_PROTOCOL or OTEL_EXPORTER_OTLP_PROTOCOL env var: undefined
+    at PS5 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:2285:368)
+    at ow2 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:2285:3618)
+    at aU7 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:4727:17328)
+    at XS0 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:4727:17294)
+    at IS0 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:4727:17259)
+    at hP0.<anonymous> (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:5222:4980)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async hP0.parseAsync (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:4718:4156)
+    at async J_7 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:5252:1637)
+    at async G_7 (file:///home/james/.nvm/versions/node/v22.16.0/lib/node_modules/@anthropic-ai/claude-code/cli.js:5175:1561)

@@ -1,0 +1,12 @@
+{
+  "session_id": "44ae0fda-76a9-4d53-ab43-33a64837ec2a",
+  "variant": "framework",
+  "fixture": "variants/full/typescript-validation",
+  "start_time": "2026-01-16T20:43:22-08:00",
+  "prompt_preview": "# Validation Module\n\nBuild a validation module with functions for email validation, password strength checking, and phone number formatting. Export TypeScript types for validation results.",
+  "execution_mode": "local",
+  "timeout_seconds": 1800,
+  "framework_version": "1.0.0",
+  "end_time": "2026-01-16T20:50:10-08:00",
+  "exit_code": 0
+}

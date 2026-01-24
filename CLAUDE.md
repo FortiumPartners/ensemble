@@ -1,374 +1,372 @@
-# Ensemble Plugins - Claude Code Configuration
+# CLAUDE.md - Ensemble vNext Development
 
-> Modular plugin ecosystem for Claude Code (v5.1.0) | 25 packages | 28 agents | 4-tier architecture
+## Project Overview
 
-## Quick Reference
+Ensemble vNext is a workflow framework for Claude Code that encodes power-user patterns into a repeatable, accessible system. This project is the plugin development for Ensemble vNext.
 
-### Slash Commands
-All ensemble commands use the `/ensemble:` namespace:
-```
-/ensemble:fold-prompt          # Optimize Claude environment
-/ensemble:create-prd           # Create Product Requirements Document
-/ensemble:create-trd           # Create Technical Requirements Document
-/ensemble:implement-trd        # Implement TRD with git-town workflow
-/ensemble:release              # Orchestrate release workflow
-/ensemble:playwright-test      # Run E2E tests with Playwright
-/ensemble:manager-dashboard    # Generate productivity metrics
-/ensemble:sprint-status        # Current sprint status report
-```
+**Key Documents:**
+- PRD: `docs/PRD/ensemble-vnext.md`
+- TRD: `docs/TRD/ensemble-vnext.md`
+- Testing TRD: `docs/TRD/testing-phase.md` (v1.4.0 with Phase 5)
+- Constitution: `.claude/rules/constitution.md`
+- Stack: `.claude/rules/stack.md`
 
-### Essential Commands
-```bash
-npm test                    # Run all tests
-npm run validate            # Validate marketplace + plugins
-npm run generate            # Regenerate markdown from YAML
-npm run test:coverage       # Coverage reports
-```
-
-### Key Paths
-- **Plugins**: `packages/*/` (25 packages)
-- **Agents**: `packages/*/agents/*.yaml` (28 agents)
-- **Commands**: `packages/*/commands/`
-- **Skills**: `packages/*/skills/`
-- **Schemas**: `schemas/{plugin,marketplace}-schema.json`
-
-### Package Sync (ensemble-full)
-When modifying pane viewer packages, sync to ensemble-full:
-```bash
-npm run sync-hooks --workspace=packages/full  # Syncs 24 files
-# Syncs: agent-progress-pane + task-progress-pane hooks, lib, and adapters
-```
-
-## Architecture Overview
-
-```
-Tier 1: Core Foundation
-└── ensemble-core (orchestration, framework detection, XDG config)
-
-Tier 2: Workflow Plugins (7)
-├── product (PRD/TRD creation)
-├── development (frontend/backend orchestration)
-├── quality (code review, testing, DoD)
-├── infrastructure (AWS, K8s, Docker, Helm, Fly.io)
-├── git (workflow, conventional commits)
-├── e2e-testing (Playwright)
-└── metrics (productivity analytics)
-
-Tier 3: Framework Skills (5)
-├── react, nestjs, rails, phoenix, blazor
-
-Tier 4: Testing Frameworks (5)
-├── jest, pytest, rspec, xunit, exunit
-
-New Capabilities (v5.1.0):
-├── ai (AI services integration)
-├── router (agent routing and delegation)
-└── permitter (permission management with allowlists)
-
-Utilities: agent-progress-pane (v5.1.0), task-progress-pane (v5.1.0)
-Shared: multiplexer-adapters (WezTerm, Zellij, tmux)
-Meta: ensemble-full (complete bundle)
-```
-
-## Development Patterns
-
-### Plugin Structure
-```
-packages/<name>/
-├── .claude-plugin/plugin.json  # Plugin manifest (required)
-├── package.json                # NPM config (required)
-├── agents/*.yaml               # Agent definitions
-├── commands/*.{yaml,md}        # Slash commands
-├── skills/{SKILL,REFERENCE}.md # Skill documentation
-├── hooks/hooks.json            # Tool hooks (optional)
-├── lib/                        # Shared utilities
-└── tests/                      # Jest or Vitest tests
-```
-
-### Plugin Manifest (plugin.json)
-```json
-{
-  "name": "ensemble-<name>",
-  "version": "5.0.0",
-  "description": "...",
-  "author": { "name": "Fortium Partners", "email": "support@fortiumpartners.com" },
-  "commands": "./commands",
-  "skills": "./skills"
-}
-```
-
-**Note**: Claude Code automatically loads `hooks/hooks.json` when present. The `hooks` field in `plugin.json` should only reference *additional* hook files beyond the standard location to avoid duplicate loading errors.
-
-### Agent YAML Format
-```yaml
 ---
-name: agent-name
-description: Clear mission statement
-tools: [Read, Write, Edit, Bash, Grep, Glob, Task]
+
+## Core Principles
+
+1. **Commands orchestrate, subagents execute** - Commands define workflow, agents do specialized work
+2. **Skills and agents are PROMPTS only** - Markdown files interpreted by LLM, not executable code
+3. **Commands are prompts with optional shell scripts** - Deterministic parts use scripts, LLM handles the rest
+4. **Non-deterministic system** - Most testing is manual; use session logs to verify behavior
+
 ---
-## Mission
-Specific expertise area
 
-## Behavior
-- Key behaviors and protocols
-- Handoff procedures
+## Development Workflow
+
+```
+/create-prd    --> docs/PRD/<feature>.md
+/create-trd    --> docs/TRD/<feature>.md
+/implement-trd --> Implementation with .trd-state/ tracking
 ```
 
-## Agent Mesh (28 Specialized Agents)
+---
 
-### Orchestrators
-- `ensemble-orchestrator` - Chief orchestrator, task decomposition
-- `tech-lead-orchestrator` - Technical leadership, architecture
-- `product-management-orchestrator` - Product lifecycle coordination
-- `qa-orchestrator` - Quality assurance orchestration
-- `infrastructure-orchestrator` - Infrastructure coordination
+## Baseline Reference
 
-### Developers
-- `frontend-developer` - React, Vue, Angular, Svelte
-- `backend-developer` - Server-side across languages
-- `infrastructure-developer` - Cloud-agnostic automation
+**Read-only source**: `~/dev/ensemble`
 
-### Quality & Testing
-- `code-reviewer` - Security-enhanced code review
-- `test-runner` - Test execution and triage
-- `deep-debugger` - Systematic bug analysis
-- `playwright-tester` - E2E testing
+Copy extensively from existing ensemble. Under NO circumstances modify that folder.
 
-### Specialists
-- `git-workflow` - Conventional commits, semantic versioning
-- `github-specialist` - PR, branch management
-- `documentation-specialist` - Technical documentation
-- `api-documentation-specialist` - OpenAPI/Swagger
-- `postgresql-specialist` - Database administration
-- `helm-chart-specialist` - Kubernetes Helm charts
+Key sources:
+- `packages/permitter/` - Permission hook (copy exactly)
+- `packages/router/` - Routing hook (copy exactly)
+- `packages/*/agents/` - Agent templates (adapt for 12 streamlined agents)
+- `packages/*/skills/` - Skill library (copy relevant skills)
+- `packages/*/commands/` - Command templates (adapt for vendored runtime)
 
-### Utilities
-- `general-purpose` - Research and analysis
-- `file-creator` - Template-based scaffolding
-- `context-fetcher` - Documentation retrieval
-- `directory-monitor` - File system surveillance
-- `agent-meta-engineer` - Agent ecosystem management
-- `release-agent` - Automated release orchestration
+---
 
-## Agent Delegation Protocol
+## 12 Streamlined Subagents
 
-### Handoff Pattern
-Agents delegate work using the Task tool with explicit agent types:
-```
-Task(subagent_type="backend-developer", prompt="Implement API endpoint...")
-Task(subagent_type="code-reviewer", prompt="Review changes in src/...")
-```
+| Agent | Based On | Purpose |
+|-------|----------|---------|
+| product-manager | product-management-orchestrator | PRD creation |
+| technical-architect | tech-lead-orchestrator | TRD creation |
+| spec-planner | (new) | Execution planning |
+| frontend-implementer | frontend-developer | UI/client work |
+| backend-implementer | backend-developer | API/server work |
+| mobile-implementer | mobile-developer | Mobile apps |
+| verify-app | (new) | Test execution |
+| code-simplifier | (new) | Post-verify refactoring |
+| code-reviewer | code-reviewer | Security/quality review |
+| app-debugger | deep-debugger | Debug failures |
+| devops-engineer | infrastructure-developer | Infrastructure |
+| cicd-specialist | deployment-orchestrator | CI/CD pipelines |
 
-### Delegation Hierarchy
-```
-ensemble-orchestrator (chief)
-├── tech-lead-orchestrator (architecture decisions)
-│   ├── backend-developer, frontend-developer
-│   └── infrastructure-developer
-├── product-management-orchestrator (requirements)
-├── qa-orchestrator (quality gates)
-│   ├── code-reviewer, test-runner
-│   └── playwright-tester
-└── infrastructure-orchestrator (deployment)
-    └── deployment-orchestrator, build-orchestrator
-```
+---
 
-### Handoff Best Practices
-1. **Clear Context**: Include relevant file paths and requirements
-2. **Scoped Tasks**: One responsibility per delegation
-3. **Return Path**: Agents report results back to orchestrator
-4. **Error Escalation**: Unresolved issues escalate up the hierarchy
+## Testing Architecture
 
-### Agent Selection Guide
-| Task Type | Primary Agent | Backup |
-|-----------|---------------|--------|
-| API implementation | backend-developer | tech-lead-orchestrator |
-| UI components | frontend-developer | tech-lead-orchestrator |
-| Code quality | code-reviewer | qa-orchestrator |
-| Test failures | test-runner | deep-debugger |
-| Database changes | postgresql-specialist | backend-developer |
-| CI/CD issues | build-orchestrator | infrastructure-developer |
-| Release process | release-agent | git-workflow |
+### Test Framework Stack
 
-## Testing
+| Component | Framework | Location |
+|-----------|-----------|----------|
+| JavaScript Tests | Jest ^29.0.0 | `packages/*/tests/*.test.js` |
+| Python Tests | pytest ^7.0.0 | `packages/router/tests/test_*.py` |
+| Shell Tests | BATS ^1.9.0 | `packages/core/**/*.test.sh`, `test/integration/tests/*.test.sh` |
+| Eval Specs | YAML | `test/evals/specs/**/*.yaml` |
 
-### Frameworks
-- **Jest** (most packages): `npm test`
-- **Vitest** (multiplexer-adapters): `npm test`
+### Testing Patterns
 
-### Running Tests
+Given non-deterministic LLM output:
+
+1. **Manual verification** - Primary for LLM-generated content
+2. **Session log review** - Confirms correct skill/agent invocation
+3. **Deterministic unit tests** - Jest for hooks, BATS for shell scripts
+4. **Integration tests** - BATS tests verifying Claude CLI behavior
+5. **Eval framework** - A/B testing with statistical analysis
+
+---
+
+## Eval Framework Usage
+
+The eval framework at `test/evals/framework/` enables A/B testing of skills and agents.
+
+### Spec Hierarchy
+
+**Use `dev-loop/` specs by default.** Other categories serve specific purposes:
+
+| Category | Purpose | When to Use |
+|----------|---------|-------------|
+| `dev-loop/` | **Primary A/B testing** with 3 variants (baseline, framework, full-workflow) | Default for comprehensive evaluation |
+| `skills/` | Skill-specific isolation testing | Narrow skill effectiveness testing |
+| `agents/` | Agent routing evaluation | Testing specific agent behaviors |
+| `commands/` | Command workflow testing | Testing command implementations |
+
+### Key Components
+
+| File | Purpose | Execution Model |
+|------|---------|-----------------|
+| `run-eval.js` | YAML spec parsing, session orchestration | Async, parallel |
+| `run-session.sh` | Session execution with `--remote` | Async cloud execution |
+| `collect-results.sh` | Teleports sessions, extracts artifacts | Post-session |
+| `judge.js` | Code evaluation with Claude Opus 4.5 | **Sync local execution** |
+| `aggregate.js` | Statistical analysis (Welch's t-test) | Post-judging |
+| `schema.js` | YAML spec validation | Validation |
+
+### Important: Judge vs Session Execution
+
+**Session execution** (`run-session.sh`): Supports both local and remote modes
 ```bash
-# All packages
-npm test
+# LOCAL mode (--local flag): Uses --print, supports all flags
+./run-session.sh --local "Build a calculator"
 
-# Single package
-npm test --workspace=packages/<name>
-
-# With coverage
-npm run test:coverage --workspace=packages/<name>
+# REMOTE mode (default): Uses --remote, requires git repo pushed to GitHub
+# - Uses `script` command to capture TTY output
+# - Prompt is argument to --remote (not piped)
+# - Does NOT support --dangerously-skip-permissions or --session-id
+./run-session.sh "Build a calculator"
 ```
 
-## Hooks System
-
-### Available Hook Points
-- `PreToolUse` - Before tool execution (can modify or block)
-- `PostToolUse` - After tool execution (can process results)
-
-### Hook Configuration (hooks/hooks.json)
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Task",
-      "hooks": [{
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-spawner.js"
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Task",
-      "hooks": [{
-        "type": "command",
-        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-completion.js"
-      }]
-    }]
-  }
-}
-```
-
-### Implemented Hooks
-
-| Plugin | Hook | Trigger | Purpose |
-|--------|------|---------|---------|
-| agent-progress-pane | PreToolUse | Task | Spawn progress pane |
-| agent-progress-pane | PostToolUse | Task | Update completion status |
-| task-progress-pane | PreToolUse | TodoWrite | Display task progress |
-
-### Hook Environment Variables
-- `CLAUDE_PLUGIN_ROOT` - Plugin installation directory
-- `TOOL_NAME` - Name of the tool being invoked
-- `TOOL_INPUT` - JSON-encoded tool parameters
-
-### Creating Custom Hooks
+**Judge execution** (`judge.js`): Runs locally and synchronously with Opus 4.5
 ```javascript
-#!/usr/bin/env node
-// hooks/my-hook.js
-const input = JSON.parse(process.env.TOOL_INPUT || '{}');
-console.log(`Tool ${process.env.TOOL_NAME} called with:`, input);
-// Return non-zero to block tool execution (PreToolUse only)
-process.exit(0);
+// Judge evaluates already-collected local artifacts
+// No tool use needed - just rubric + code -> score
+const CLAUDE_MODEL = 'claude-opus-4-5-20251101';
 ```
 
-## Configuration
+### Eval Spec Format
 
-### XDG-Compliant Paths
-Priority order:
-1. `$XDG_CONFIG_HOME/ensemble/`
-2. `~/.config/ensemble/`
-3. `~/.ensemble/`
+```yaml
+name: skill-eval-name
+variants:
+  - id: with-skill
+    prompt_suffix: "Use developing-with-python skill"
+  - id: without-skill
+    prompt_suffix: ""
+checks:       # Binary pass/fail checks
+  - name: file_created
+    type: file_exists
+    path: "*.py"
+metrics:      # Judged metrics (1-5 scale)
+  - name: code_quality
+    rubric: code-quality  # References test/evals/rubrics/code-quality.md
+```
 
-### Claude Code Permissions (.claude/settings.local.json)
-Pre-approved commands:
-- `git push`, `git add`, `git commit`
-- `gh run list`
-- `claude plugin install`, `claude plugin marketplace update`
-- `grep`, `node hooks/task-spawner.js`
+### Running Evals
 
-## Validation & CI
-
-### Local Validation
 ```bash
-npm run validate  # Validates:
-                  # - marketplace.json schema
-                  # - plugin.json files
-                  # - YAML syntax in agents/
-                  # - package.json naming
+# RECOMMENDED: Run dev-loop eval for comprehensive A/B comparison
+node test/evals/framework/run-eval.js test/evals/specs/dev-loop/dev-loop-pytest.yaml --local
+
+# For skill-specific isolation testing (narrower scope)
+node test/evals/framework/run-eval.js test/evals/specs/skills/pytest.yaml --local
+
+# Collect results after sessions complete
+./test/evals/framework/collect-results.sh <session-id> <output-dir>
+
+# Judge collected artifacts
+node test/evals/framework/judge.js <session-dir> code-quality
+
+# Generate comparison report
+node test/evals/framework/aggregate.js <results-dir>
 ```
 
-### GitHub Actions
-- `validate.yml` - Schema and structure validation
-- `test.yml` - Node 20/22 matrix testing
-- `release.yml` - Automated releases on tags
+---
 
-## Commit Conventions
+## Headless Testing with Claude CLI
 
-Use conventional commits:
-- `feat(<scope>)`: New feature
-- `fix(<scope>)`: Bug fix
-- `docs(<scope>)`: Documentation
-- `test(<scope>)`: Tests
-- `chore(<scope>)`: Maintenance
-- `refactor(<scope>)`: Code restructure
-
-Example: `fix(agent-progress-pane): inline multiplexer-adapters for standalone use`
-
-## Common Tasks
-
-### Create New Plugin
+**Using Local Plugin (Required for Testing):**
 ```bash
-mkdir -p packages/<name>/{.claude-plugin,agents,commands,skills,lib,tests}
-# Create plugin.json, package.json, README.md, CHANGELOG.md
-npm run validate
+# Always use --plugin-dir and --setting-sources project for testing
+# This ensures tests use the development plugin and project agents are discovered
+claude --plugin-dir /path/to/packages/full --setting-sources project <other args>
+
+# The test scripts handle this automatically via PLUGIN_ROOT environment variable
 ```
 
-### Update Marketplace
+**Local Headless Execution (`--print`):**
 ```bash
-# Edit marketplace.json
-npm run validate
-git commit -m "feat(marketplace): add <plugin-name>"
+# Run a prompt non-interactively with local plugin
+PLUGIN_DIR="/home/james/dev/ensemble-vnext/packages/full"
+echo "Build a calculator" | claude --print \
+    --plugin-dir "$PLUGIN_DIR" \
+    --setting-sources project \
+    --dangerously-skip-permissions
+
+# With session ID for tracking
+SESSION_ID=$(uuidgen)
+echo "Create test.py" | claude --print \
+    --plugin-dir "$PLUGIN_DIR" \
+    --setting-sources project \
+    --session-id "$SESSION_ID" \
+    --dangerously-skip-permissions
+
+# Sessions persist locally, can be resumed
+claude --resume "$SESSION_ID"
 ```
 
-### Publish Plugin
+**Remote Execution (`--remote`):**
 ```bash
-npm run publish:changed
+# Run on Claude's cloud infrastructure
+# IMPORTANT: Prompt is the ARGUMENT, not piped
+claude --remote "Build a calculator"
+
+# Key requirements:
+# - Must run from a git repo that is pushed to GitHub
+# - Prompt MUST be the argument to --remote (not piped via stdin)
+# - Does NOT support --dangerously-skip-permissions
+# - Does NOT support --session-id (auto-generated as session_xxx)
+# - Does NOT support --plugin-dir or --setting-sources
+# - Requires TTY - output redirection breaks it (use `script` command)
+# - Runs at repo ROOT, not subdirectory you invoked from
 ```
 
-## Troubleshooting
-
-### Plugin Not Loading
-1. Check `plugin.json` syntax: `npm run validate`
-2. Verify hooks path matches actual file location
-3. Check for missing dependencies in cached installation
-4. Reinstall: `claude plugin uninstall ensemble-full && claude plugin install ensemble-full --scope local`
-
-### Module Not Found in Cached Plugin
-- Inline dependencies instead of using npm packages
-- Example: agent-progress-pane inlines multiplexer-adapters
-- Check `node_modules` exists in plugin directory
-
-### Tests Failing
-- Jest/Vitest mock CommonJS `require()` differently
-- Use `vi.mock()` for ESM, `jest.mock()` for CJS
-- Real config files can interfere with test expectations
-
-### YAML Generation Errors
+**Remote Session Output Capture (for scripts):**
 ```bash
-npm run generate -- --verbose  # See detailed errors
-npm run generate -- --dry-run  # Preview without writing
+# Remote requires TTY, so use `script` to capture output
+script -q -c 'claude --remote "Build a calculator"' output.txt
+
+# Output contains session URL and teleport command:
+# Created remote session: Build calculator app
+# View: https://claude.ai/code/session_018oKtL6CSbVA9gNttj41T13?m=0
+# Resume with: claude --teleport session_018oKtL6CSbVA9gNttj41T13
 ```
-Common issues:
-- Schema validation: Check pattern requirements in `schemas/command-yaml-schema.json`
-- Missing required fields: `metadata.name`, `metadata.description`, `metadata.version`
-- Phase/step numbering gaps: Must be sequential starting from 1
 
-### Agent Not Found
-- Verify agent YAML exists in `packages/*/agents/`
-- Run `npm run generate` to regenerate markdown
-- Check agent name matches exactly (case-sensitive)
+**Teleporting Web Sessions (`--teleport`):**
+```bash
+# Retrieve a remote session to local CLI
+claude --teleport session_<REMOTE_SESSION_ID>
 
-### Hooks Not Executing
-1. Verify `hooks.json` path in `plugin.json`
-2. Check hook script is executable: `chmod +x hooks/*.js`
-3. Test hook manually: `TOOL_NAME=Task node hooks/my-hook.js`
-4. Check Claude Code logs for hook errors
+# Example: Transfer from remote to local
+claude --teleport session_018oKtL6CSbVA9gNttj41T13
 
-### Command Namespace Issues
-- Commands should use `name: ensemble:command-name` format
-- Schema pattern: `^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)?$`
-- After changes, run `npm run generate` and reinstall plugin
+# Teleport checks out the branch and retrieves session context
+# Requires the branch to be pushed to GitHub first
+```
 
-## Links
+**Session ID Formats:**
+- Local sessions: UUID format (`ebb01d82-e53e-4ddb-842f-3c77580c426c`)
+- Remote/Web sessions: `session_<ID>` format (`session_018oKtL6CSbVA9gNttj41T13`)
 
-- **Repository**: https://github.com/FortiumPartners/ensemble
-- **Issues**: https://github.com/FortiumPartners/ensemble/issues
-- **Email**: support@fortiumpartners.com
+### Known Limitations (as of v2.1.7)
+
+- `--remote` requires TTY - cannot redirect stdout directly (use `script`)
+- `--remote` runs at repo root, loses subdirectory context
+- `--remote` does not support `--dangerously-skip-permissions` or `--session-id`
+- `--teleport` requires branch to be pushed to GitHub first
+- Remote sessions commit code but NOT session logs
+- `/teleport` slash command has known bugs (may not appear)
+
+---
+
+## File Structure Reference
+
+```
+.claude/
+  agents/        # 12 streamlined subagents
+  commands/      # Workflow commands
+  hooks/         # Hook executables
+  skills/        # Compiled skills
+  rules/         # constitution.md, stack.md, process.md
+  settings.json  # Committed configuration
+
+docs/
+  PRD/           # Product Requirements Documents
+  TRD/           # Technical Requirements Documents
+  standards/     # Symlinked governance docs
+  templates/     # Document templates
+
+packages/
+  permitter/     # Permission hook + tests (Jest)
+  router/        # Routing hook + tests (pytest)
+  core/
+    hooks/       # Hook implementations + tests (Jest, BATS)
+    scripts/     # Utility scripts + tests (BATS)
+
+test/
+  integration/
+    scripts/     # Test infrastructure (run-headless.sh, verify-*.sh)
+    tests/       # Integration tests (BATS)
+    fixtures/    # Sample session data
+    config/      # permissive-allowlist.json
+  evals/
+    framework/   # Eval orchestration (run-eval.js, judge.js, aggregate.js)
+    specs/       # YAML eval specifications
+      dev-loop/  # PRIMARY: Full dev loop A/B tests (3 variants)
+      skills/    # Skill-specific isolation tests
+      agents/    # Agent routing tests
+      commands/  # Command workflow tests
+    rubrics/     # Evaluation rubrics (code-quality.md, test-quality.md, error-handling.md)
+    results/     # Eval output (gitignored)
+
+.trd-state/      # Implementation tracking (git-tracked)
+```
+
+---
+
+## Security Considerations
+
+### Command Injection Prevention
+
+Use `spawnSync` with array arguments instead of `execSync` with string interpolation:
+
+```javascript
+// WRONG: Command injection risk
+execSync(`claude --prompt "${userInput}"`);
+
+// CORRECT: Safe argument passing
+spawnSync('claude', ['-p', userInput], { encoding: 'utf8' });
+```
+
+### Path Traversal Prevention
+
+Validate paths stay within expected directories:
+
+```javascript
+const absoluteBase = path.resolve(baseDir);
+const normalizedPath = path.normalize(targetPath);
+
+if (!normalizedPath.startsWith(absoluteBase + path.sep)) {
+  throw new Error('Path traversal detected');
+}
+```
+
+### Shell Script Safety
+
+- Use `set -euo pipefail` in BATS tests
+- Apply file size limits (10M) and count limits (1000)
+- Validate session ID format before use
+- Quote all variables in shell scripts
+
+---
+
+## Approval Requirements
+
+**Requires Approval:**
+- Any modification to `~/dev/ensemble`
+- Schema/architectural changes
+- Changes to constitution.md or stack.md
+
+**No Approval Needed:**
+- Reading files anywhere
+- Creating files in `.claude/` and `docs/`
+- Running tests
+- Git operations (status, diff, log, add, commit)
+
+---
+
+## Current Status
+
+Project in Phase 4B implementation. Testing TRD v1.4.0 includes Phase 5 (Hook Integration Testing).
+
+**Completed:**
+- Phase 2: Integration Infrastructure
+- Phase 3: Observability (verify-telemetry.sh, verify-skill.sh)
+- Phase 4A: Structure Verification (vendoring.test.sh, commands.test.sh)
+- Phase 4B: Eval Framework (run-eval.js, judge.js, aggregate.js, 9 eval specs)
+
+**Pending:**
+- Phase 1: Unit Tests (Jest, BATS for hooks)
+- Phase 5: Hook Integration Testing (TRD-TEST-093-100)

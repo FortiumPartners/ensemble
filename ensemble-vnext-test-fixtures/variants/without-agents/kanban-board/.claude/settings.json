@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "ENSEMBLE_SAVE_REMOTE_LOGS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(pwd)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(chmod:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(yarn:*)",
+      "Bash(pnpm:*)",
+      "Bash(pip:*)",
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(cargo:*)",
+      "Bash(go:*)",
+      "Bash(bundle:*)",
+      "Bash(rails:*)",
+      "Bash(rake:*)",
+      "Bash(mix:*)",
+      "Bash(elixir:*)",
+      "Bash(dotnet:*)",
+      "Bash(make:*)",
+      "Bash(cmake:*)",
+      "Bash(prettier:*)",
+      "Bash(eslint:*)",
+      "Bash(ruff:*)",
+      "Bash(black:*)",
+      "Bash(jq:*)",
+      "Bash(bats:*)"
+    ]
+  },
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/permitter/permitter.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/router.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/formatter.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/status.js",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/learning.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/learning.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/save-remote-logs.js",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "ensemble": {
+    "agents_dir": ".claude/agents",
+    "skills_dir": ".claude/skills",
+    "rules_dir": ".claude/rules",
+    "state_dir": ".trd-state",
+    "docs_dir": "docs",
+    "prd_dir": "docs/PRD",
+    "trd_dir": "docs/TRD"
+  }
+}

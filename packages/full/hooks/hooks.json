@@ -13,7 +13,7 @@
     ],
     "PermissionRequest": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -23,33 +23,40 @@
         ]
       }
     ],
-    "PreToolUse": [
+    "SubagentStop": [
       {
-        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-spawner.js"
-          }
-        ]
-      },
-      {
-        "matcher": "TodoWrite",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/task-spawner.js"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/status.js",
+            "timeout": 5
           }
         ]
       }
     ],
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-completion.js"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/wiggum.js",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/learning.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/save-remote-logs.js",
+            "timeout": 30
           }
         ]
       }

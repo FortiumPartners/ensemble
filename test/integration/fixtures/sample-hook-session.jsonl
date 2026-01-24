@@ -1,0 +1,17 @@
+{"type": "user", "content": "Build a Python API with FastAPI"}
+{"type": "hook_start", "hook": "wiggum", "event": "UserPromptSubmit", "timestamp": "2026-01-13T10:00:00.000Z"}
+{"type": "hook_output", "hook": "wiggum", "output": {"routing": {"recommended_agent": "backend-developer", "skills": ["developing-with-python", "using-fastapi"]}, "guidance": "You SHOULD use the developing-with-python skill"}, "timestamp": "2026-01-13T10:00:01.000Z"}
+{"type": "hook_end", "hook": "wiggum", "event": "UserPromptSubmit", "success": true, "timestamp": "2026-01-13T10:00:02.000Z"}
+{"type": "assistant", "content": [{"type": "text", "text": "I'll create a FastAPI application for you..."}]}
+{"type": "tool_use", "name": "Write", "id": "tool_001", "input": {"file_path": "/tmp/main.py", "content": "from fastapi import FastAPI\n\napp = FastAPI()"}}
+{"type": "hook_start", "hook": "formatter", "event": "PostToolUse", "timestamp": "2026-01-13T10:01:00.000Z"}
+{"type": "hook_output", "hook": "formatter", "output": {"file_formatted": "/tmp/main.py", "formatter": "black"}, "timestamp": "2026-01-13T10:01:01.000Z"}
+{"type": "hook_end", "hook": "formatter", "event": "PostToolUse", "success": true, "timestamp": "2026-01-13T10:01:02.000Z"}
+{"type": "tool_result", "tool_use_id": "tool_001", "content": "File written successfully"}
+{"type": "assistant", "content": [{"type": "text", "text": "The FastAPI application has been created."}]}
+{"type": "hook_start", "hook": "status", "event": "Notification", "timestamp": "2026-01-13T10:02:00.000Z"}
+{"type": "hook_output", "hook": "status", "output": {"status": "verified", "trd_phase": 1, "tasks_complete": 1, "tasks_total": 3}, "timestamp": "2026-01-13T10:02:01.000Z"}
+{"type": "hook_end", "hook": "status", "event": "Notification", "success": true, "timestamp": "2026-01-13T10:02:02.000Z"}
+{"type": "hook_start", "hook": "learning", "event": "Stop", "timestamp": "2026-01-13T10:05:00.000Z"}
+{"type": "hook_output", "hook": "learning", "output": {"learnings_captured": 2, "patterns_identified": ["fastapi_setup", "black_formatting"]}, "timestamp": "2026-01-13T10:05:01.000Z"}
+{"type": "hook_end", "hook": "learning", "event": "Stop", "success": true, "timestamp": "2026-01-13T10:05:02.000Z"}

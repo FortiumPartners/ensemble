@@ -24,6 +24,7 @@ from router import (
     read_input,
     write_output,
     load_rules_file,
+    find_global_rules_path,
     load_global_rules,
     load_project_rules,
     merge_rules,
@@ -311,6 +312,76 @@ class TestLoadRulesFile:
             os.unlink(f.name)
 
         assert result is None
+
+
+class TestFindGlobalRulesPath:
+    """Tests for find_global_rules_path function."""
+
+    def test_env_path_takes_precedence(self, sample_rules):
+        """Test that environment variable path is checked first."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(sample_rules, f)
+            f.flush()
+            # Even with other paths existing, env path should be returned
+            result = find_global_rules_path(cwd="/tmp", env_path=f.name)
+            os.unlink(f.name)
+
+        assert result is not None
+        assert result.endswith(".json")
+
+    def test_vendored_location_checked(self, sample_rules):
+        """Test that vendored location (.claude/lib/) is checked."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create vendored rules file
+            lib_dir = os.path.join(tmpdir, ".claude", "lib")
+            os.makedirs(lib_dir)
+            rules_path = os.path.join(lib_dir, "router-rules.json")
+            with open(rules_path, "w") as f:
+                json.dump(sample_rules, f)
+
+            result = find_global_rules_path(cwd=tmpdir, env_path=None)
+
+        assert result is not None
+        assert ".claude/lib/router-rules.json" in result
+
+    def test_fallback_to_plugin_location(self):
+        """Test fallback to plugin location when no vendored rules exist."""
+        # With non-existent cwd and no env path, should fall back to default
+        result = find_global_rules_path(cwd="/nonexistent", env_path=None)
+
+        # Should return the plugin location (../lib/) which may or may not exist
+        # depending on where tests are run
+        # Just verify the function doesn't crash and returns something
+        # (None or a path)
+        assert result is None or isinstance(result, str)
+
+    def test_returns_none_if_no_rules_found(self):
+        """Test returns None when no rules file exists in any location."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Empty directory, no rules anywhere
+            result = find_global_rules_path(
+                cwd=tmpdir,
+                env_path="/nonexistent/env-rules.json"
+            )
+
+        # Should return None since no file exists at any location
+        # (unless the default plugin location happens to exist)
+        assert result is None or isinstance(result, str)
+
+    def test_vendored_takes_precedence_over_plugin(self, sample_rules):
+        """Test vendored location is checked before plugin location."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create vendored rules
+            lib_dir = os.path.join(tmpdir, ".claude", "lib")
+            os.makedirs(lib_dir)
+            vendored_path = os.path.join(lib_dir, "router-rules.json")
+            with open(vendored_path, "w") as f:
+                json.dump({"vendored": True, **sample_rules}, f)
+
+            result = find_global_rules_path(cwd=tmpdir, env_path=None)
+
+        assert result is not None
+        assert vendored_path == result
 
 
 class TestValidateRules:

@@ -1,5 +1,5 @@
 ---
-name: ensemble:generate-router-rules
+name: generate-router-rules
 description: Generate router rules by introspecting installed agents and skills
 allowed-tools: Read, Write, Grep, Glob
 ---
@@ -28,13 +28,11 @@ Group discovered agents into these functional domains:
 
 | Domain | Description | Example Agents |
 |--------|-------------|----------------|
-| `product_documentation` | PRD, TRD, docs, requirements | product-management-orchestrator, documentation-specialist |
-| `orchestration` | Coordination and planning | ensemble-orchestrator, tech-lead-orchestrator |
-| `development` | Code implementation | frontend-developer, backend-developer, mobile-developer |
-| `quality_testing` | Review, testing, debugging | code-reviewer, test-runner, deep-debugger |
-| `infrastructure_build` | Deploy, build, release | deployment-orchestrator, build-orchestrator |
-| `utility` | Support tasks | general-purpose, file-creator, git-workflow |
-| `database` | Database operations | postgresql-specialist |
+| `product_documentation` | PRD, TRD, docs, requirements | product-manager, technical-architect |
+| `orchestration` | Coordination and planning | spec-planner |
+| `development` | Code implementation | frontend-implementer, backend-implementer, mobile-implementer |
+| `quality_testing` | Review, testing, debugging | code-reviewer, verify-app, app-debugger, code-simplifier |
+| `infrastructure_build` | Deploy, build, release | devops-engineer, cicd-specialist |
 
 ## Phase 2: Skill Discovery
 
@@ -71,25 +69,6 @@ For each agent category, extract trigger keywords:
 - Technology terms (React, Rails, Docker, PostgreSQL)
 - Common synonyms (build/create, fix/debug, check/review)
 - Command prefixes (create, build, deploy, run, fix)
-- Infrastructure terms (environment, services, hosting, healthy)
-
-### 3.2 Comprehensive Trigger Coverage
-
-Ensure triggers cover:
-
-```json
-{
-  "infrastructure_build": [
-    "environment", "environments", "dev environment", "staging", "production",
-    "services", "service", "connectivity", "communication", "healthy", "health check",
-    "infrastructure", "hosted", "hosting", "CI/CD", "pipeline", "deploy", "release"
-  ],
-  "development": [
-    "implement", "code", "build", "frontend", "backend", "BFF", "backend for frontend",
-    "microservice", "microservices", "API", "endpoint"
-  ]
-}
-```
 
 ## Phase 4: Rules Generation
 
@@ -107,8 +86,7 @@ Create the rules with this structure:
       "agents": [
         {
           "name": "agent-name",
-          "purpose": "Brief purpose from description",
-          "tools": ["Tool1", "Tool2"]
+          "purpose": "Brief purpose from description"
         }
       ]
     }
@@ -125,10 +103,7 @@ Create the rules with this structure:
     "agents_only": {"template": "..."},
     "agents_and_skills": {"template": "..."},
     "skills_only": {"template": "..."},
-    "long_no_match": {"template": "..."},
-    "project_agents_only": {"template": "..."},
-    "project_skills_only": {"template": "..."},
-    "project_agents_and_skills": {"template": "..."}
+    "long_no_match": {"template": "..."}
   },
   "routing_rules": {
     "short_threshold_words": 5
@@ -138,21 +113,7 @@ Create the rules with this structure:
 
 ### 4.2 Write Rules File
 
-Write the complete rules to `router-rules.json` (or the path specified by ROUTER_RULES_PATH).
-
-**Validation:**
-- Validate output against the schema at `../lib/router-rules.schema.json`
-- Ensure valid JSON structure
-- Verify all agent names match discovered agents
-- Verify all category objects have required `triggers` and `agents` arrays
-- Verify all skill objects have required `triggers` and `purpose` fields
-- Confirm skill names match available skills
-
-**Schema Requirements** (from `router-rules.schema.json`):
-- Required top-level keys: `agent_categories`, `skills`, `injection_templates`
-- Each category must have `triggers` (array) and `agents` (array)
-- Each agent must have `name` (string) and `purpose` (string)
-- Each skill must have `triggers` (array) and `purpose` (string)
+Write the complete rules to `router-rules.json` in the router lib directory.
 
 ## Expected Output
 
@@ -160,8 +121,8 @@ A `router-rules.json` file containing:
 
 1. **metadata** - Version, generated timestamp
 2. **agent_categories** - Domain categories with trigger keywords and agent lists
-3. **skills** - All discovered skills with keyword mappings and diagnostic patterns
-4. **injection_templates** - 8 templates for different scenarios (including project-specific)
+3. **skills** - All discovered skills with keyword mappings
+4. **injection_templates** - Templates for different scenarios
 5. **routing_rules** - Configuration like short_threshold_words
 
 ## Usage

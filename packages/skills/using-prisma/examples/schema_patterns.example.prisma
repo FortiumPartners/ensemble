@@ -1,0 +1,406 @@
+// =============================================================================
+// Prisma Schema Patterns Example
+//
+// This example demonstrates common schema patterns including:
+// - Various relation types (1:1, 1:n, m:n)
+// - Self-relations and hierarchies
+// - Soft delete pattern
+// - Polymorphic associations
+// - Multi-tenancy
+// - Audit trails
+// - Full-text search
+// =============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+// =============================================================================
+// Core Models
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  name          String
+  role          Role      @default(USER)
+
+  // Status
+  isActive      Boolean   @default(true) @map("is_active")
+  emailVerified DateTime? @map("email_verified")
+  lastLoginAt   DateTime? @map("last_login_at")
+
+  // Timestamps
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // One-to-One: User has one Profile
+  profile       Profile?
+
+  // One-to-Many: User has many Posts
+  posts         Post[]
+
+  // One-to-Many: User has many Comments
+  comments      Comment[]
+
+  // Many-to-Many: User has many Roles (explicit join table)
+  userRoles     UserRole[]
+
+  // Many-to-Many: User follows many Users (self-relation)
+  following     Follow[]  @relation("follower")
+  followers     Follow[]  @relation("following")
+
+  // Multi-tenancy: User belongs to many Organizations
+  memberships   OrganizationMember[]
+
+  // Audit trail
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Profile {
+  id        String  @id @default(cuid())
+  bio       String? @db.Text
+  website   String?
+  avatarUrl String? @map("avatar_url")
+  location  String?
+
+  // Social links (JSON field)
+  socialLinks Json? @map("social_links") @db.JsonB
+
+  // One-to-One: Profile belongs to User
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String @unique @map("user_id")
+
+  @@map("profiles")
+}
+
+// =============================================================================
+// Content Models
+// =============================================================================
+
+model Post {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String
+  excerpt     String?   @db.VarChar(500)
+  content     String?   @db.Text
+  coverImage  String?   @map("cover_image")
+
+  // Status
+  status      PostStatus @default(DRAFT)
+  publishedAt DateTime?  @map("published_at")
+  featured    Boolean    @default(false)
+  viewCount   Int        @default(0) @map("view_count")
+
+  // SEO
+  metaTitle       String? @map("meta_title") @db.VarChar(60)
+  metaDescription String? @map("meta_description") @db.VarChar(160)
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Many-to-One: Post belongs to User
+  author      User     @relation(fields: [authorId], references: [id])
+  authorId    String   @map("author_id")
+
+  // Many-to-One: Post belongs to Category (optional)
+  category    Category? @relation(fields: [categoryId], references: [id])
+  categoryId  String?   @map("category_id")
+
+  // One-to-Many: Post has many Comments
+  comments    Comment[]
+
+  // Many-to-Many: Post has many Tags (implicit)
+  tags        Tag[]
+
+  // Polymorphic: Post has many Media
+  media       Media[]
+
+  // Full-text search index (PostgreSQL)
+  @@index([title, content], type: FullText)
+  @@unique([authorId, slug])
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([status, publishedAt])
+  @@index([deletedAt])
+  @@map("posts")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Many-to-One: Comment belongs to User
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String   @map("author_id")
+
+  // Many-to-One: Comment belongs to Post
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String   @map("post_id")
+
+  // Self-relation: Nested comments (replies)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  parentId  String?   @map("parent_id")
+  replies   Comment[] @relation("CommentReplies")
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Category {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  // Self-relation: Category hierarchy
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  parentId    String?    @map("parent_id")
+  children    Category[] @relation("CategoryHierarchy")
+
+  // One-to-Many: Category has many Posts
+  posts       Post[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  slug  String @unique
+  color String? @db.VarChar(7) // Hex color
+
+  // Many-to-Many: Tag belongs to many Posts (implicit)
+  posts Post[]
+
+  @@map("tags")
+}
+
+// =============================================================================
+// Self-Relation: Follow System
+// =============================================================================
+
+model Follow {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // User who is following
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followerId  String   @map("follower_id")
+
+  // User being followed
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  followingId String   @map("following_id")
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+// =============================================================================
+// Explicit Many-to-Many with Extra Fields
+// =============================================================================
+
+model UserRole {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  grantedBy String?  @map("granted_by") // Who assigned this role
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @map("user_id")
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+  permissionId String   @map("permission_id")
+
+  @@unique([userId, permissionId])
+  @@map("user_roles")
+}
+
+model Permission {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  resource    String     // e.g., "posts", "users"
+  action      String     // e.g., "create", "read", "update", "delete"
+
+  userRoles   UserRole[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+// =============================================================================
+// Multi-Tenancy Pattern
+// =============================================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  plan        Plan     @default(FREE)
+
+  // Settings (JSON)
+  settings    Json?    @db.JsonB
+
+  // Timestamps
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // One-to-Many: Organization has many Members
+  members     OrganizationMember[]
+
+  // One-to-Many: Organization has many Projects
+  projects    Project[]
+
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id           String           @id @default(cuid())
+  role         OrganizationRole @default(MEMBER)
+  joinedAt     DateTime         @default(now()) @map("joined_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String      @map("organization_id")
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String       @map("user_id")
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  name           String
+  description    String?
+
+  // Multi-tenant: Project belongs to Organization
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String       @map("organization_id")
+
+  // Timestamps
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+// =============================================================================
+// Polymorphic Pattern: Media attachments
+// =============================================================================
+
+model Media {
+  id           String    @id @default(cuid())
+  url          String
+  type         MediaType
+  filename     String
+  size         Int       // bytes
+  mimeType     String    @map("mime_type")
+  width        Int?
+  height       Int?
+
+  // Polymorphic: Attach to different entities
+  attachableType String  @map("attachable_type") // "Post", "Profile", etc.
+  attachableId   String  @map("attachable_id")
+
+  // Optional: Direct relation for type safety
+  post         Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId       String?   @map("post_id")
+
+  // Timestamps
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@index([attachableType, attachableId])
+  @@index([postId])
+  @@map("media")
+}
+
+// =============================================================================
+// Audit Trail Pattern
+// =============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  action     String   // "create", "update", "delete"
+  entityType String   @map("entity_type") // "Post", "User", etc.
+  entityId   String   @map("entity_id")
+  changes    Json?    @db.JsonB // Before/after values
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+
+  // Who performed the action
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     String?  @map("user_id")
+
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+  AUDIO
+}

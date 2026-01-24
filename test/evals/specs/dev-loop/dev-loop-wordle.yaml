@@ -1,0 +1,380 @@
+# Eval spec for development loop testing: implement -> verify -> simplify -> verify
+# Tests the complete development cycle with Text-Based Wordle Game
+# This is a more complex fixture testing multi-file architecture
+# Fixture: ensemble-vnext-test-fixtures with variant-based structure
+
+name: dev-loop-wordle
+version: 1.0.0
+description: |
+  Test the complete development loop with a more complex implementation:
+  Text-Based Wordle Game (CLI).
+
+  This is a comprehensive test covering:
+  - Multi-file architecture (game logic, UI, word management)
+  - State management (game state, attempts)
+  - Input validation
+  - User interaction patterns
+  - Terminal color output
+
+  Three test variants:
+  - baseline: Vanilla Claude without framework assistance
+  - framework: Full Ensemble with agents and skills (implement + verify + simplify)
+  - full-workflow: PRD -> TRD -> implement-trd orchestrated workflow
+
+# Test fixture configuration (per-variant fixture paths)
+fixture:
+  repo: ensemble-vnext-test-fixtures
+  # Note: path is now per-variant, see variants[].fixture_path
+
+# Test case definition
+test_case:
+  base_prompt: |
+    Complete this task using the full development loop:
+
+    ## STEP 1 - IMPLEMENT
+    Read the story.md file and implement a Text-Based Wordle CLI game.
+
+    Requirements:
+    - Load words from words.txt (provided)
+    - Randomly select a target word
+    - Accept user guesses (5 letters, no word list validation needed)
+    - Provide color-coded feedback (green/yellow/gray)
+    - Track attempts (max 6)
+    - Win/loss detection and messaging
+    - Play again option
+    - Use Python standard library only
+
+    Structure the code with clear separation:
+    - wordle.py - Main game entry point
+    - game.py - Game logic (state, feedback generation)
+    - words.py - Word list management
+    - test_wordle.py - Comprehensive pytest tests
+
+    ## STEP 2 - VERIFY (Initial)
+    Run tests to verify the implementation works correctly.
+    Report test results and coverage metrics.
+    Target: >= 80% coverage.
+
+    ## STEP 3 - SIMPLIFY
+    Review the code for potential simplifications:
+    - Reduce complexity in feedback generation
+    - Improve separation of concerns
+    - Ensure consistent error handling
+    - Extract common patterns
+
+    ## STEP 4 - VERIFY (Final)
+    Run tests again to confirm all tests still pass after simplification.
+    Report final coverage metrics.
+
+# Variants to compare using variant-based fixture structure
+variants:
+  - id: baseline
+    name: Vanilla Claude (No Framework)
+    description: Complete all steps directly without framework assistance
+    fixture_path: variants/baseline/wordle-game
+    is_baseline: true
+    suffix: |
+      Implement directly without any framework assistance.
+
+      Complete all steps directly without delegating to any agents.
+
+      For STEP 1 (IMPLEMENT):
+        Implement the Wordle game directly based on story.md requirements.
+        Create all required files (wordle.py, game.py, words.py, test_wordle.py).
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Run pytest directly: python -m pytest -v --cov=. --cov-report=term
+        Report pass/fail counts and coverage percentage.
+
+      For STEP 3 (SIMPLIFY):
+        Apply refactoring patterns directly to improve code quality.
+        Ensure tests still pass after changes.
+
+      Do not use any agents, skills, or commands from the framework.
+    agent_enabled: false
+    skill_enabled: false
+    timeout_seconds: 900
+    expected_agents: []
+    expected_skills: []
+
+  - id: framework
+    name: Full Ensemble Framework with Agent Delegation
+    description: Use agent delegation pattern for ALL steps including implementation
+    fixture_path: variants/full/wordle-game
+    suffix: |
+      Use the full Ensemble workflow with agent delegation for EVERY step.
+
+      For STEP 1 (IMPLEMENT):
+        Delegate to @backend-implementer agent for initial implementation.
+        Request: Read story.md and implement the Wordle CLI game with:
+        - Multi-file architecture (wordle.py, game.py, words.py)
+        - Comprehensive test coverage (test_wordle.py)
+        - Proper error handling and input validation
+
+      For STEP 2 and STEP 4 (VERIFY):
+        Delegate to @verify-app agent for test execution.
+        Request: Run pytest with coverage, report results against 80% threshold.
+
+      For STEP 3 (SIMPLIFY):
+        Delegate to @code-simplifier agent for refactoring.
+        Request: Simplify the implementation while preserving test behavior.
+        Focus on feedback generation logic and state management.
+
+      Use the appropriate skills:
+      - developing-with-python for implementation patterns
+      - pytest for test execution
+
+      Report which agents and skills you used at each step.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 900
+    expected_agents:
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+
+  - id: full-workflow
+    name: Full PRD -> TRD -> implement-trd Workflow
+    description: Use the complete structured workflow with upfront design
+    fixture_path: variants/full/wordle-game
+    suffix: |
+      Use the full structured workflow with upfront design artifacts.
+
+      BEFORE implementing, create the design artifacts:
+
+      1. Run /create-prd to generate a Product Requirements Document
+         Input: Use the story.md as the product description.
+         Output: docs/PRD/wordle.md
+
+      2. Run /create-trd to generate a Technical Requirements Document
+         Input: Use the PRD just created.
+         Output: docs/TRD/wordle.md
+         The TRD should include an execution plan with phases.
+
+      3. Run /implement-trd to execute the implementation
+         This should orchestrate the full dev loop with TDD methodology:
+         - Use @backend-implementer for implementation
+         - Use @verify-app for test verification
+         - Use @code-simplifier for refactoring
+         - Track progress in .trd-state/
+
+      The implement-trd command should handle STEPS 1-4 automatically using
+      the TRD execution plan and agent delegation.
+
+      Report which commands, agents, and skills were used throughout.
+    agent_enabled: true
+    skill_enabled: true
+    timeout_seconds: 1500
+    expected_agents:
+      - product-manager
+      - technical-architect
+      - backend-implementer
+      - verify-app
+      - code-simplifier
+    expected_skills:
+      - developing-with-python
+      - pytest
+    expected_commands:
+      - create-prd
+      - create-trd
+      - implement-trd
+
+# Execution configuration
+runs_per_variant: 3
+
+# Automated binary checks (shell-based, exit 0 on success)
+binary_checks:
+  - name: implementation_complete
+    description: All required Python files were created
+    check: |
+      cd {workspace} && \
+        ([ -f wordle.py ] || [ -f main.py ]) && \
+        ([ -f game.py ] || grep -q "class.*Game\|def.*feedback\|def.*check" *.py 2>/dev/null) && \
+        [ -f test_wordle.py -o -f test_game.py ]
+    weight: 0.20
+
+  - name: tests_pass_initial
+    description: Tests pass after initial implementation
+    check: |
+      cd {workspace} && \
+        python -m pytest test_*.py -v --tb=short 2>&1 | grep -E "passed|PASSED"
+    weight: 0.25
+
+  - name: tests_pass_final
+    description: Tests pass after simplification (behavior preserved)
+    check: |
+      cd {workspace} && \
+        python -m pytest test_*.py -v --tb=short 2>&1 | grep -E "passed|PASSED"
+    weight: 0.25
+    critical: true
+
+  - name: feedback_logic_exists
+    description: Wordle feedback logic is implemented (green/yellow/gray)
+    check: |
+      cd {workspace} && \
+        grep -rqE "green|yellow|gray|correct.*position|wrong.*position|🟩|🟨|⬜" *.py
+    weight: 0.15
+
+  - name: word_loading_exists
+    description: Word list loading functionality exists
+    check: |
+      cd {workspace} && \
+        grep -rqE "words\.txt|load.*word|read.*word|open.*word" *.py
+    weight: 0.15
+
+# LLM-judged quality metrics (4 standardized rubrics)
+metrics:
+  - name: code_quality
+    description: Overall code quality of the Wordle implementation
+    rubric: code-quality.md
+    files:
+      - "wordle.py"
+      - "game.py"
+      - "words.py"
+      - "main.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Focus on:
+      - Clean separation between game logic, UI, and word management
+      - Proper state management for game progression
+      - Color output implementation (ANSI or colorama)
+      - Code readability and maintainability
+
+  - name: test_quality
+    description: Quality of the test suite
+    rubric: test-quality.md
+    files:
+      - "test_wordle.py"
+      - "test_game.py"
+    context_files:
+      - "wordle.py"
+      - "game.py"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate coverage of:
+      - Feedback generation (various letter positions)
+      - Win/loss conditions
+      - Input validation (length, characters)
+      - Word loading
+      - Game state transitions
+      - Edge cases (repeated letters, all correct, all wrong)
+
+  - name: architecture_quality
+    description: Quality of multi-file architecture
+    rubric: architecture.md
+    files:
+      - "wordle.py"
+      - "game.py"
+      - "words.py"
+      - "main.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate:
+      - Separation of concerns (game logic vs UI vs data)
+      - Proper module boundaries
+      - Dependency direction (no circular imports)
+      - Single responsibility principle
+      - Testability of individual components
+
+  - name: error_handling_quality
+    description: Quality of error handling implementation
+    rubric: error-handling.md
+    files:
+      - "wordle.py"
+      - "game.py"
+      - "words.py"
+    context_files:
+      - "story.md"
+    weight: 0.25
+    custom_prompt_addition: |
+      Evaluate input validation, exception handling, and user feedback:
+      - Is invalid input (wrong length, non-alpha) handled gracefully?
+      - Are file loading errors (words.txt) caught and reported?
+      - Are error messages helpful and user-friendly?
+      - Is there consistent error handling across modules?
+      - Are edge cases in game state handled properly?
+
+# Judge configuration
+judge:
+  model: opus
+  use_cot: true
+  temperature: 0
+  system_prompt: |
+    You are evaluating a Text-Based Wordle CLI game implementation.
+
+    This is a more complex task than simple utilities - it requires:
+    1. Multi-file architecture
+    2. State management
+    3. User interaction
+    4. Algorithmic logic (feedback generation)
+
+    Score each metric on a 1-5 scale according to the provided rubric.
+    Pay special attention to:
+    - Correct feedback generation (green/yellow/gray logic)
+    - Proper handling of repeated letters
+    - Clean separation between game logic and presentation
+
+    Output JSON: {"scores": {"metric_name": {"score": N, "justification": "..."}}}
+
+# Session log analysis for comprehensive verification
+session_analysis:
+  verify_backend_implementer:
+    pattern: "backend-implementer"
+    description: Verify @backend-implementer agent was delegated to for implementation
+  verify_verify_app_delegation:
+    pattern: "verify-app"
+    description: Verify @verify-app agent was delegated to for test execution
+  verify_code_simplifier_delegation:
+    pattern: "code-simplifier"
+    description: Verify @code-simplifier agent was delegated to for refactoring
+  verify_product_manager:
+    pattern: "product-manager|create-prd"
+    description: Verify PRD creation (full-workflow variant)
+  verify_technical_architect:
+    pattern: "technical-architect|create-trd"
+    description: Verify TRD creation (full-workflow variant)
+  verify_implement_trd:
+    pattern: "implement-trd|trd-state"
+    description: Verify implement-trd was used (full-workflow variant)
+  verify_pytest_execution:
+    pattern: "pytest|test.*pass|coverage"
+    description: Verify pytest was executed for verification steps
+  verify_tdd_methodology:
+    pattern: "test.*first|TDD|test-driven|write.*test.*before"
+    description: Verify TDD methodology was mentioned/used
+  verify_no_framework_leak:
+    pattern: '\.claude/|@verify-app|@backend-implementer|/create-prd'
+    description: Check for framework usage (should NOT appear in baseline)
+    expect_in_baseline: false
+
+# Acceptance criteria for this eval
+acceptance:
+  minimum_mean_difference: 0.3
+  significance_threshold: 0.05
+  binary_pass_threshold: 0.7
+  critical_checks_required: true
+
+# Metadata for reporting
+metadata:
+  category: dev-loop
+  target_workflow: implement-verify-simplify-verify
+  language: python
+  tech_stack: python-cli-game
+  complexity: advanced
+  estimated_duration_minutes: 15
+  tags:
+    - development-loop
+    - python
+    - cli-game
+    - wordle
+    - pytest
+    - agent-comparison
+    - multi-file
+    - state-management
