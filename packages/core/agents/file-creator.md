@@ -295,3 +295,8 @@ touch src/users.controller.ts
 ```
 
 ## Quality Standards
+
+### Performance
+- **Creation Speed** (target: <5 seconds): Complex scaffolding (component + styles + tests) completion time
+- **Validation Accuracy** (target: 100%): Generated files passing syntax validation without errors
+- **Template Quality** (target: ≥95%): Scaffolded code used as-is without modifications

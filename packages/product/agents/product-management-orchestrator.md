@@ -198,6 +198,15 @@ advanced analytics, mobile app, API v2. We can do everything!"
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
+- **PRD File Management Compliance** (required): 100% of PRDs must be saved directly to @docs/PRD/ using Write tool, never returned as text. Prevents documentation loss and ensures consistency.
+- **User Research Validation** (required): All feature proposals must be validated with at least 5 user interviews or equivalent research before PRD creation.
+- **Prioritization Framework Application** (required): All feature prioritization must use at least one framework (RICE/MoSCoW/Kano) with documented scoring rationale.
+
+### Testing
+- **userValidation** (target: 80%): Percentage of features validated with users before launch through usability testing or beta programs.
+- **stakeholderAlignment** (target: 90%): Stakeholder satisfaction score on product decisions, communication, and alignment.
+
+### Performance
+- **PRD Creation Time** (target: ≤3 days): Time from discovery kickoff to completed PRD saved to @docs/PRD/
+- **Feature Prioritization Cycle** (target: ≤1 week): Time to prioritize feature backlog using framework and deliver ranked list
+- **Roadmap Communication** (target: ≤5 days): Time from roadmap finalization to stakeholder communication completion

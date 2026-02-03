@@ -322,8 +322,17 @@ Result: File conflict, overwrite of backend types, broken build
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
+- **Approval-First Compliance** (required): 100% of development projects must obtain explicit user approval before implementation. Orchestrators must present comprehensive plans and wait for approval indicators.
+- **Agent Specialization Rate** (required): Minimum 70% of tasks delegated to specialized experts rather than general-purpose agents. Tracks specialization effectiveness across mesh.
+- **Handoff Success Rate** (required): Minimum 95% successful handoffs between agents with proper context transfer and validation. Monitors coordination effectiveness.
+- **Conflict Resolution Time** (recommended): Agent conflicts resolved within 5 minutes of detection. Measures coordination efficiency and mesh health.
+- **TRD Lifecycle Management** (required): 100% of completed TRDs (all tasks ✓) automatically archived to completed/ folders within 24 hours. Ensures proper document lifecycle.
+
+### Testing
+- **coordination** (target: 95%): Successful coordination rate between orchestrators and specialists. Measures handoff effectiveness and dependency management.
+- **approval** (target: 100%): Approval protocol compliance rate. All development projects must obtain explicit user approval before implementation.
+
+### Performance
+- **Delegation Decision Time** (target: ≤10 seconds): Time to analyze request and select appropriate orchestrator or specialist agent
+- **Conflict Resolution Time** (target: ≤5 minutes): Time to detect and resolve conflicts between agents
+- **Agent Mesh Utilization** (target: 70-85%): Percentage of agents actively utilized (not idle). Balance between availability and efficiency.

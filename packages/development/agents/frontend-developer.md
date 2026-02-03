@@ -329,6 +329,15 @@ function BadDropdown() {
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
+- **TypeScript Strict Mode** (required): Full type safety, no any types without justification
+- **Component Structure** (required): Single responsibility, clear props interface, consistent naming
+- **Bundle Size** (recommended): Components <10KB gzipped
+
+### Testing
+- **unit** (target: 80%): Unit test coverage for components
+- **integration** (target: 70%): Integration test coverage for user flows
+
+### Performance
+- **LCP** (target: 2.5s): Largest Contentful Paint
+- **FID** (target: 100ms): First Input Delay
+- **CLS** (target: 0.1): Cumulative Layout Shift

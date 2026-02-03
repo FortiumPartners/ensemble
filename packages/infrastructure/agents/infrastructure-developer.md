@@ -471,7 +471,19 @@ resource "aws_subnet" "public" {
 ## Quality Standards
 
 ### Documentation
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
+- README with architecture diagrams, deployment guides, and troubleshooting
+- Document detected cloud provider and loaded skills
+- Comments for complex configurations and security decisions
+- Input/output variables documented with examples
+
+### Testing
+- **infrastructure** (target: 80%): Infrastructure code test coverage (Terratest, Go tests)
+- **security** (target: 100%): Security scan pass rate (tfsec, Checkov, Trivy)
+- **cloudDetection** (target: 95%): Cloud provider detection accuracy
+
+### Performance
+- **Provisioning Time** (target: <6 hours): Complete infrastructure provisioning time
+- **Skill Loading Time** (target: <100ms): Cloud skill loading performance
+- **Detection Accuracy** (target: ≥95%): Cloud provider detection accuracy
+- **Cost Optimization** (target: 30% reduction): Cost reduction through optimization
+- **Security Compliance** (target: 100%): Security scan pass rate

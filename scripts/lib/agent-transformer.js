@@ -231,7 +231,21 @@ function transformAgentToMarkdown(agentData, sourceYamlPath) {
     if (agentData.qualityStandards.codeQuality && agentData.qualityStandards.codeQuality.length > 0) {
       parts.push('### Code Quality');
       for (const item of agentData.qualityStandards.codeQuality) {
-        parts.push(`- ${item}`);
+        // Handle both string items and object items with name/description
+        if (typeof item === 'string') {
+          parts.push(`- ${item}`);
+        } else if (item && typeof item === 'object') {
+          const name = item.name || '';
+          const description = item.description || '';
+          const enforcement = item.enforcement ? ` (${item.enforcement})` : '';
+          if (name && description) {
+            parts.push(`- **${name}**${enforcement}: ${description}`);
+          } else if (name) {
+            parts.push(`- **${name}**${enforcement}`);
+          } else if (description) {
+            parts.push(`- ${description}`);
+          }
+        }
       }
       parts.push('');
     }
@@ -239,15 +253,77 @@ function transformAgentToMarkdown(agentData, sourceYamlPath) {
     if (agentData.qualityStandards.documentation && agentData.qualityStandards.documentation.length > 0) {
       parts.push('### Documentation');
       for (const item of agentData.qualityStandards.documentation) {
-        parts.push(`- ${item}`);
+        // Handle both string items and object items with name/description
+        if (typeof item === 'string') {
+          parts.push(`- ${item}`);
+        } else if (item && typeof item === 'object') {
+          const name = item.name || '';
+          const description = item.description || '';
+          if (name && description) {
+            parts.push(`- **${name}**: ${description}`);
+          } else if (name) {
+            parts.push(`- **${name}**`);
+          } else if (description) {
+            parts.push(`- ${description}`);
+          }
+        }
       }
       parts.push('');
     }
 
-    if (agentData.qualityStandards.testing && agentData.qualityStandards.testing.length > 0) {
+    if (agentData.qualityStandards.testing) {
       parts.push('### Testing');
-      for (const item of agentData.qualityStandards.testing) {
-        parts.push(`- ${item}`);
+      // Handle testing as either an array or an object with named properties
+      if (Array.isArray(agentData.qualityStandards.testing)) {
+        for (const item of agentData.qualityStandards.testing) {
+          if (typeof item === 'string') {
+            parts.push(`- ${item}`);
+          } else if (item && typeof item === 'object') {
+            const name = item.name || '';
+            const description = item.description || '';
+            if (name && description) {
+              parts.push(`- **${name}**: ${description}`);
+            } else if (name) {
+              parts.push(`- **${name}**`);
+            } else if (description) {
+              parts.push(`- ${description}`);
+            }
+          }
+        }
+      } else if (typeof agentData.qualityStandards.testing === 'object') {
+        // Handle object format like { userValidation: { minimum: 80, description: "..." } }
+        for (const [key, value] of Object.entries(agentData.qualityStandards.testing)) {
+          if (value && typeof value === 'object') {
+            const minimum = value.minimum !== undefined ? `${value.minimum}%` : '';
+            const description = value.description || '';
+            const target = minimum ? ` (target: ${minimum})` : '';
+            parts.push(`- **${key}**${target}: ${description}`);
+          } else {
+            parts.push(`- **${key}**: ${value}`);
+          }
+        }
+      }
+      parts.push('');
+    }
+
+    // Handle performance standards if present
+    if (agentData.qualityStandards.performance && agentData.qualityStandards.performance.length > 0) {
+      parts.push('### Performance');
+      for (const item of agentData.qualityStandards.performance) {
+        if (typeof item === 'string') {
+          parts.push(`- ${item}`);
+        } else if (item && typeof item === 'object') {
+          const name = item.name || '';
+          const target = item.target || '';
+          const description = item.description || '';
+          if (name && target) {
+            parts.push(`- **${name}** (target: ${target}): ${description}`);
+          } else if (name && description) {
+            parts.push(`- **${name}**: ${description}`);
+          } else if (name) {
+            parts.push(`- **${name}**`);
+          }
+        }
       }
       parts.push('');
     }

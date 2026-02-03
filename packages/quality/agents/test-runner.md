@@ -168,3 +168,15 @@ npm test
 ```
 
 ## Quality Standards
+
+### Testing
+- **unit** (target: 80%): Unit test coverage target (critical paths require 100%)
+- **integration** (target: 70%): Integration test coverage target (critical workflows require 100%)
+- **criticalPath** (target: 100%): Authentication, authorization, payment, and security-critical code paths
+
+### Performance
+- **Unit Tests (Small Suite)** (target: ≤3 seconds): For test suites with <100 tests. P95: ≤5s, P99: ≤8s, Timeout: 15s
+- **Unit Tests (Large Suite)** (target: ≤10 seconds): For test suites with 100-500 tests. P95: ≤15s, P99: ≤20s, Timeout: 30s
+- **Integration Tests** (target: ≤10-30 seconds): Small suites ≤10s, large suites ≤30s. P95: +5s, Timeout: 30-90s
+- **Full Test Suite** (target: ≤60 seconds): Complete test run. P95: ≤90s, P99: ≤120s, Timeout: 180s
+- **Coverage Report Generation** (target: ≤5 seconds): Generate coverage report. P95: ≤8s, Timeout: 20s

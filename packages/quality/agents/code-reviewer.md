@@ -327,7 +327,17 @@ end
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
+- **Cyclomatic Complexity** (required): Maximum complexity of 10 per function
+- **Function Length** (required): Maximum 50 lines per function
+- **DRY Principle** (required): No code duplication, extract reusable functions
+- **SOLID Principles** (required): Follow Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion
+
+### Testing
+- **unit** (target: 80%): Unit test coverage for business logic
+- **integration** (target: 70%): Integration test coverage for API endpoints and service interactions
+- **e2e** (target: 0%): E2E coverage for critical user journeys (handled by playwright-tester)
+
+### Performance
+- **API Response Time** (target: 200ms): For simple CRUD operations
+- **Database Query Time** (target: 50ms): For individual queries
+- **Memory Usage** (target: 512MB): Maximum heap usage for typical operations
