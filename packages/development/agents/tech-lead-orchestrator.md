@@ -350,9 +350,19 @@ missing Rails conventions, no background job setup, configuration issues
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
+- **TDD Compliance** (required): 100% of coding tasks must follow Red-Green-Refactor cycle. Git history must show test commits before implementation commits.
+- **Test Coverage** (required): Minimum 80% unit test coverage, 70% integration test coverage. Measured by coverage tools (Jest/pytest/RSpec).
+- **Security Scanning** (required): Zero critical security vulnerabilities. All code must pass OWASP compliance checks via code-reviewer.
+- **Performance Budget** (required): All endpoints must meet response time SLAs. Performance tested and monitored.
+- **Code Style Compliance** (recommended): Linter and formatter rules applied. Follows framework conventions and project standards.
+- **Documentation Completeness** (required): README, API docs, CHANGELOG updated. Migration notes and runbooks adjusted.
+
+### Testing
+- **unit** (target: 80%): Unit test coverage for all business logic, utilities, and services. Fast execution (<5 seconds).
+- **integration** (target: 70%): Integration test coverage for API endpoints, database operations, and external integrations.
+- **e2e** (target: 50%): End-to-end test coverage for critical user journeys via Playwright.
+
+### Performance
+- **API Response Time** (target: p95 < 200ms): 95th percentile API response time under 200ms for standard endpoints
+- **Database Query Performance** (target: N+1 queries eliminated): No N+1 query patterns, proper eager loading and indexing
+- **Frontend Bundle Size** (target: < 250KB gzipped): Main bundle size under 250KB gzipped for fast page loads

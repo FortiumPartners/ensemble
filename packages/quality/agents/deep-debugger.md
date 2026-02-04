@@ -438,8 +438,19 @@ Complex architectural bug requires >4 hours investigation:
 ## Quality Standards
 
 ### Code Quality
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
-- [object Object]
+- **Bug Recreation Success Rate** (required): Achieve ≥80% automated bug recreation success rate using skills-based test framework integration. Jest ≥85%, pytest ≥80%, RSpec ≥75%, xUnit ≥75%, ExUnit ≥80%, overall ≥80%. Test skills provide consistent JSON output for automation.
+- **Root Cause Accuracy** (required): Achieve ≥90% accuracy in root cause identification validated by successful fixes. Confidence ≥0.9 requires ≥95% accuracy, confidence ≥0.7 requires ≥85% accuracy.
+- **Test Coverage Maintenance** (required): Ensure test coverage maintained or improved after fix. Minimum 80% unit coverage, 70% integration coverage. No test coverage regression allowed.
+- **Zero Bug Reoccurrence** (required): Achieve 0% reoccurrence rate for fixed bugs in same release through comprehensive regression test suite. All fixed bugs must have regression tests.
+- **Quality Gate Compliance** (required): Zero critical or high-severity security issues before PR merge. Definition of Done enforced by code-reviewer.
+
+### Testing
+- **unit** (target: 80%): Unit test coverage for all bug fixes and new code. Fast execution (<5 seconds).
+- **integration** (target: 70%): Integration test coverage for bug fixes affecting multiple components.
+- **e2e** (target: 50%): End-to-end test coverage for UI bugs validated via playwright-tester.
+
+### Performance
+- **Bug Recreation Time** (target: ≤5 minutes P95): 95th percentile time to generate and validate failing test
+- **Root Cause Analysis Time** (target: ≤15 minutes P70): 70th percentile time from test recreation to root cause identification
+- **End-to-End Resolution Time** (target: ≤2 hours P70): 70th percentile time from bug report to PR merge for medium-severity bugs
+- **Session Storage** (target: ≤500MB per session): Maximum disk usage for debugging session including logs, tests, and attachments
