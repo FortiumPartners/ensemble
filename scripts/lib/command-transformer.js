@@ -120,6 +120,26 @@ function transformCommandToMarkdown(commandData, sourceYamlPath) {
             }
             parts.push('');
           }
+
+          // MCP Tool info
+          if (step.mcp_tool) {
+            if (typeof step.mcp_tool === 'object') {
+              if (step.mcp_tool.name) {
+                parts.push(`   **MCP Tool:** \`${step.mcp_tool.name}\``);
+              }
+              if (step.mcp_tool.usage) {
+                parts.push(`   ${step.mcp_tool.usage.trim()}`);
+                parts.push('');
+              }
+              if (step.mcp_tool.fallback) {
+                parts.push(`   **Fallback:** ${step.mcp_tool.fallback}`);
+                parts.push('');
+              }
+            } else if (typeof step.mcp_tool === 'string') {
+              parts.push(`   **MCP Tool:** \`${step.mcp_tool}\``);
+              parts.push('');
+            }
+          }
         }
       }
     }
