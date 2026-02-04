@@ -70,11 +70,35 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
 **2. Inject Checkpoints (MCP)**
    Use inject_checkpoints tool to add review/validation checkpoints
 
+   **MCP Tool:** `inject_checkpoints`
+   Automatically inject checkpoint tasks into task breakdown:
+- After major milestones
+- Before deployments
+- At integration points
+
+   **Fallback:** Manually add checkpoint tasks using project patterns
+
 **3. Assess Complexity (MCP)**
    Use assess_complexity tool to analyze task breakdown
 
+   **MCP Tool:** `assess_complexity`
+   Analyze overall project complexity:
+- Estimate total hours
+- Identify high-risk tasks
+- Suggest sprint organization
+
+   **Fallback:** Manually estimate complexity based on task estimates
+
 **4. Generate Workflow Section (MCP)**
    Use generate_workflow_section tool to create execution workflow
+
+   **MCP Tool:** `generate_workflow_section`
+   Generate comprehensive workflow markdown:
+- Sprint-by-sprint execution plan
+- Task dependencies and ordering
+- Checkbox tracking for progress
+
+   **Fallback:** Manually structure workflow using TRD template patterns
 
 ### Phase 4: Output Management
 
