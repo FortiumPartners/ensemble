@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-core",
-  "version": "5.2.1",
+  "version": "5.2.3",
   "description": "Core orchestration and utilities for ensemble ecosystem",
   "main": "lib/index.js",
   "scripts": {

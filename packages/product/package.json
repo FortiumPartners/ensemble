@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-product",
-  "version": "5.2.1",
+  "version": "5.2.3",
   "description": "Product management agents and workflows (PRD creation, analysis)",
   "main": "lib/index.js",
   "scripts": {
