@@ -8,6 +8,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  id-token: write
 
 concurrency:
   group: auto-implement-${{ github.event.issue.number }}
@@ -34,14 +35,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check how many auto-implement runs are in progress
           RUNNING=$(gh run list --workflow auto-implement.yml --status in_progress --json databaseId --jq 'length')
           if [ "$RUNNING" -gt 2 ]; then
             echo "::error::Rate limit exceeded — $RUNNING auto-implement runs already in progress (max 2)"
             exit 1
           fi
 
-          # Check runs in the last hour
           RECENT=$(gh run list --workflow auto-implement.yml --created ">$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)" --json databaseId --jq 'length' 2>/dev/null || echo "0")
           if [ "$RECENT" -gt 5 ]; then
             echo "::error::Rate limit exceeded — $RECENT runs in the last hour (max 5)"
@@ -55,9 +54,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install -g @anthropic-ai/claude-code
-          npm ci
+        run: npm ci
 
       - name: Configure git
         run: |
@@ -78,62 +75,24 @@ jobs:
             const body = context.payload.issue.body || 'No description provided.';
             fs.writeFileSync('/tmp/issue-body.txt', body);
 
-      - name: Configure Claude Code restrictions
-        run: |
-          mkdir -p .claude
-          cat > .claude/settings.json <<'SETTINGS'
-          {
-            "permissions": {
-              "allow": [
-                "Edit",
-                "Write",
-                "Read",
-                "Bash(cat:*)",
-                "Bash(ls:*)",
-                "Bash(find:*)",
-                "Bash(grep:*)",
-                "Bash(head:*)",
-                "Bash(tail:*)",
-                "Bash(wc:*)",
-                "Bash(mkdir:*)",
-                "Bash(cp:*)",
-                "Bash(mv:*)",
-                "Bash(node:*)",
-                "Bash(npm:*)",
-                "Bash(npx:*)",
-                "Bash(git diff:*)",
-                "Bash(git log:*)",
-                "Bash(git status:*)"
-              ],
-              "deny": [
-                "Bash(curl:*)",
-                "Bash(wget:*)",
-                "Bash(git push:*)",
-                "Bash(git commit:*)",
-                "Bash(rm -rf:*)",
-                "WebFetch",
-                "WebSearch"
-              ]
-            }
-          }
-          SETTINGS
-
       - name: "Phase 1: Create PRD"
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          ISSUE_BODY=$(cat /tmp/issue-body.txt)
-          timeout 600 claude -p "Read CLAUDE.md for project context.
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read CLAUDE.md for project context.
 
-          Run /ensemble:create-prd with the following product description:
+            Run /ensemble:create-prd with the following product description:
 
-          ## Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
+            ## Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
 
-          ${ISSUE_BODY}
+            (Read the issue body from /tmp/issue-body.txt)
 
-          Save the PRD to docs/PRD/issue-${ISSUE_NUMBER}.md
+            Save the PRD to docs/PRD/issue-${{ github.event.issue.number }}.md
 
-          Do NOT implement anything. Only create the PRD document."
+            Do NOT implement anything. Only create the PRD document.
+          claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
+          timeout_minutes: 10
 
       - name: "Verify Phase 1 output"
         run: |
@@ -150,16 +109,19 @@ jobs:
           echo "✅ PRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 2: Create TRD"
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          timeout 600 claude -p "Read CLAUDE.md for project context.
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read CLAUDE.md for project context.
 
-          Run /ensemble:create-trd using the PRD at docs/PRD/issue-${ISSUE_NUMBER}.md
+            Run /ensemble:create-trd using the PRD at docs/PRD/issue-${{ github.event.issue.number }}.md
 
-          Save the TRD to docs/TRD/issue-${ISSUE_NUMBER}.md
+            Save the TRD to docs/TRD/issue-${{ github.event.issue.number }}.md
 
-          Do NOT implement anything. Only create the TRD document."
+            Do NOT implement anything. Only create the TRD document.
+          claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
+          timeout_minutes: 10
 
       - name: "Verify Phase 2 output"
         run: |
@@ -176,16 +138,19 @@ jobs:
           echo "✅ TRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 3: Implement TRD"
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          timeout 600 claude -p "Read CLAUDE.md for project context.
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read CLAUDE.md for project context.
 
-          Run /ensemble:implement-trd using the TRD at docs/TRD/issue-${ISSUE_NUMBER}.md
+            Run /ensemble:implement-trd using the TRD at docs/TRD/issue-${{ github.event.issue.number }}.md
 
-          Follow the project's coding standards and conventions.
-          Include tests if applicable.
-          Do NOT commit — just make the file changes."
+            Follow the project's coding standards and conventions.
+            Include tests if applicable.
+            Do NOT commit — just make the file changes.
+          claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
+          timeout_minutes: 10
 
       - name: Upload pipeline artifacts on failure
         if: failure()
@@ -199,10 +164,6 @@ jobs:
 
       - name: Commit and push
         run: |
-          # Remove the temporary settings file
-          rm -f .claude/settings.json
-          rmdir .claude 2>/dev/null || true
-
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes were made"
             echo "NO_CHANGES=true" >> "$GITHUB_ENV"

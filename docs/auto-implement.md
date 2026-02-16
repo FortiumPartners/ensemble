@@ -31,7 +31,7 @@ Go to **Settings → Secrets and variables → Actions** and add:
 
 | Secret | Description |
 |--------|-------------|
-| `ANTHROPIC_API_KEY` | Your Anthropic API key with sufficient credits |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (same one used by the code review workflow) |
 
 ### 2. Create the Label
 
