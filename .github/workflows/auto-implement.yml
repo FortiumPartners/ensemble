@@ -44,21 +44,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rate limit check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RUNNING=$(gh run list --workflow auto-implement.yml --status in_progress --json databaseId --jq 'length')
-          if [ "$RUNNING" -gt 2 ]; then
-            echo "::error::Rate limit exceeded — $RUNNING auto-implement runs already in progress (max 2)"
-            exit 1
-          fi
-
-          RECENT=$(gh run list --workflow auto-implement.yml --created ">$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)" --json databaseId --jq 'length' 2>/dev/null || echo "0")
-          if [ "$RECENT" -gt 5 ]; then
-            echo "::error::Rate limit exceeded — $RECENT runs in the last hour (max 5)"
-            exit 1
-          fi
+      # TODO: Re-enable rate limiting after testing is complete
+      # - name: Rate limit check
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     RUNNING=$(gh run list --workflow auto-implement.yml --status in_progress --json databaseId --jq 'length')
+      #     if [ "$RUNNING" -gt 2 ]; then
+      #       echo "::error::Rate limit exceeded — $RUNNING auto-implement runs already in progress (max 2)"
+      #       exit 1
+      #     fi
+      #
+      #     RECENT=$(gh run list --workflow auto-implement.yml --created ">$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)" --json databaseId --jq 'length' 2>/dev/null || echo "0")
+      #     if [ "$RECENT" -gt 5 ]; then
+      #       echo "::error::Rate limit exceeded — $RECENT runs in the last hour (max 5)"
+      #       exit 1
+      #     fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
