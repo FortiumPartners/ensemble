@@ -181,7 +181,14 @@ jobs:
         run: rm -rf .github/issue-context
 
       - name: Commit and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Re-authenticate git after claude-code-action cleanup revokes its token
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git config user.name "ensemble-bot"
+          git config user.email "ensemble-bot@users.noreply.github.com"
+
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes were made"
             echo "NO_CHANGES=true" >> "$GITHUB_ENV"
