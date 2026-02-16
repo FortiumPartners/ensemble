@@ -2,11 +2,12 @@ metadata:
   name: ensemble:create-trd
   description: |
     Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
-  version: 1.0.0
-  lastUpdated: "2025-10-13"
+  version: 2.0.0
+  lastUpdated: "2026-02-16"
   category: planning
   output_path: ensemble/create-trd.md
   source: fortium
+  model: opus-4-6
 
 constraints:
   - DO NOT implement, build, or execute any technical work described in the requirements
