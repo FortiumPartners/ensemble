@@ -31,6 +31,19 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Verify authorized user
+        run: |
+          ALLOWED_USERS="ldangelo,bautrey,islayjames"
+          if [[ ! ",$ALLOWED_USERS," == *",${{ github.actor }},"* ]]; then
+            echo "::error::${{ github.actor }} is not authorized to trigger auto-implement"
+            gh issue comment "${ISSUE_NUMBER}" \
+              --body "⚠️ **Auto-implement not authorized.** Only designated users can trigger this workflow." \
+              || true
+            exit 1
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Rate limit check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
