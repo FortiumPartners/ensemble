@@ -57,8 +57,8 @@
         },
         "model": {
           "type": "string",
-          "enum": ["opus", "sonnet", "haiku"],
-          "description": "Claude model to use"
+          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "description": "Preferred Claude model for this command"
         }
       }
     },

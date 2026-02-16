@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://fortiumpartners.com/schemas/model-selection-schema.json",
+  "title": "Model Selection Configuration Schema",
+  "description": "Schema for model selection configuration file",
+  "type": "object",
+  "required": ["version", "defaults", "modelAliases"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Config schema version"
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "description": "Default model for commands without metadata.model"
+        },
+        "task": {
+          "type": "string",
+          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "description": "Default model for Task tool (future)"
+        },
+        "tool": {
+          "type": "string",
+          "enum": ["sonnet-4", "sonnet", "haiku"],
+          "description": "Default model for simple tool calls (future)"
+        }
+      },
+      "required": ["command"]
+    },
+    "modelAliases": {
+      "type": "object",
+      "description": "Map short names to full Claude model IDs",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^claude-"
+      },
+      "minProperties": 1
+    },
+    "commandOverrides": {
+      "type": "object",
+      "description": "Force specific models for named commands",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"]
+      }
+    },
+    "costTracking": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable cost tracking and logging"
+        },
+        "logPath": {
+          "type": "string",
+          "description": "Path to usage log file (supports ~ expansion)"
+        }
+      },
+      "required": ["enabled"]
+    }
+  }
+}

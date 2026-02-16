@@ -1,11 +1,12 @@
 metadata:
   name: ensemble:refine-prd
   description: Refine and enhance existing PRD with stakeholder feedback and additional detail
-  version: 1.0.0
-  lastUpdated: "2025-10-13"
+  version: 2.0.0
+  lastUpdated: "2026-02-16"
   category: planning
   output_path: ensemble/refine-prd.md
   source: fortium
+  model: opus-4-6
 
 constraints:
   - DO NOT implement, build, or execute any work described in the PRD
