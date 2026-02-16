@@ -4,12 +4,24 @@ Automatically implements GitHub issues using Claude Code and opens a PR for revi
 
 ## How It Works
 
+This workflow uses the **full Ensemble pipeline** rather than raw-dogging Claude Code:
+
 1. A new issue is created (or labeled) with the **`auto-implement`** label
-2. GitHub Actions spins up a runner and installs Claude Code
-3. Claude Code reads `CLAUDE.md` for project context, then implements the issue
-4. Changes are committed to a `feat/issue-{number}` branch
-5. A PR is created linking back to the original issue
-6. A comment is posted on the issue with the PR link
+2. GitHub Actions spins up a runner and installs Claude Code + Ensemble
+3. **Phase 1: PRD** — `/ensemble:create-prd` generates a Product Requirements Document from the issue
+4. **Phase 2: TRD** — `/ensemble:create-trd` converts the PRD into a Technical Requirements Document
+5. **Phase 3: Implement** — `/ensemble:implement-trd` implements the TRD following project conventions
+6. Changes (including PRD + TRD docs) are committed to a `feat/issue-{number}` branch
+7. A PR is created linking back to the original issue
+8. A comment is posted on the issue with the PR link
+
+### Why the Pipeline?
+
+Running the full Ensemble flow ensures:
+- **Structured requirements** before any code is written
+- **Traceability** — every implementation has a PRD and TRD on record
+- **Better implementations** — Claude Code works from a detailed TRD, not a vague issue description
+- **Review artifacts** — reviewers can check the PRD/TRD reasoning, not just the code
 
 ## Setup
 
