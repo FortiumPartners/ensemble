@@ -22,7 +22,6 @@ jobs:
     env:
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       ISSUE_TITLE: ${{ github.event.issue.title }}
-      ISSUE_BODY: ${{ github.event.issue.body }}
 
     steps:
       - name: Checkout repository
@@ -30,6 +29,24 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      - name: Rate limit check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check how many auto-implement runs are in progress
+          RUNNING=$(gh run list --workflow auto-implement.yml --status in_progress --json databaseId --jq 'length')
+          if [ "$RUNNING" -gt 2 ]; then
+            echo "::error::Rate limit exceeded — $RUNNING auto-implement runs already in progress (max 2)"
+            exit 1
+          fi
+
+          # Check runs in the last hour
+          RECENT=$(gh run list --workflow auto-implement.yml --created ">$(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-1H +%Y-%m-%dT%H:%M:%SZ)" --json databaseId --jq 'length' 2>/dev/null || echo "0")
+          if [ "$RECENT" -gt 5 ]; then
+            echo "::error::Rate limit exceeded — $RECENT runs in the last hour (max 5)"
+            exit 1
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,18 +59,71 @@ jobs:
           npm install -g @anthropic-ai/claude-code
           npm ci
 
+      - name: Configure git
+        run: |
+          git config user.name "ensemble-bot"
+          git config user.email "ensemble-bot@users.noreply.github.com"
+
       - name: Create feature branch
         run: |
           BRANCH="feat/issue-${ISSUE_NUMBER}"
           git checkout -b "$BRANCH"
           echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
+      - name: Write issue body to file
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = context.payload.issue.body || 'No description provided.';
+            fs.writeFileSync('/tmp/issue-body.txt', body);
+
+      - name: Configure Claude Code restrictions
+        run: |
+          mkdir -p .claude
+          cat > .claude/settings.json <<'SETTINGS'
+          {
+            "permissions": {
+              "allow": [
+                "Edit",
+                "Write",
+                "Read",
+                "Bash(cat:*)",
+                "Bash(ls:*)",
+                "Bash(find:*)",
+                "Bash(grep:*)",
+                "Bash(head:*)",
+                "Bash(tail:*)",
+                "Bash(wc:*)",
+                "Bash(mkdir:*)",
+                "Bash(cp:*)",
+                "Bash(mv:*)",
+                "Bash(node:*)",
+                "Bash(npm:*)",
+                "Bash(npx:*)",
+                "Bash(git diff:*)",
+                "Bash(git log:*)",
+                "Bash(git status:*)"
+              ],
+              "deny": [
+                "Bash(curl:*)",
+                "Bash(wget:*)",
+                "Bash(git push:*)",
+                "Bash(git commit:*)",
+                "Bash(rm -rf:*)",
+                "WebFetch",
+                "WebSearch"
+              ]
+            }
+          }
+          SETTINGS
+
       - name: "Phase 1: Create PRD"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          cat <<EOF > /tmp/phase1-prompt.txt
-          Read CLAUDE.md for project context.
+          ISSUE_BODY=$(cat /tmp/issue-body.txt)
+          timeout 600 claude -p "Read CLAUDE.md for project context.
 
           Run /ensemble:create-prd with the following product description:
 
@@ -63,24 +133,27 @@ jobs:
 
           Save the PRD to docs/PRD/issue-${ISSUE_NUMBER}.md
 
-          Do NOT implement anything. Only create the PRD document.
-          EOF
-
-          claude -p "$(cat /tmp/phase1-prompt.txt)"
+          Do NOT implement anything. Only create the PRD document."
 
       - name: "Verify Phase 1 output"
         run: |
-          if [ ! -f "docs/PRD/issue-${ISSUE_NUMBER}.md" ]; then
+          FILE="docs/PRD/issue-${ISSUE_NUMBER}.md"
+          if [ ! -f "$FILE" ]; then
             echo "::error::Phase 1 failed — PRD was not created"
             exit 1
           fi
-          echo "✅ PRD created successfully"
+          SIZE=$(wc -c < "$FILE")
+          if [ "$SIZE" -lt 200 ]; then
+            echo "::error::Phase 1 failed — PRD appears empty or too short (${SIZE} bytes)"
+            exit 1
+          fi
+          echo "✅ PRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 2: Create TRD"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude -p "Read CLAUDE.md for project context.
+          timeout 600 claude -p "Read CLAUDE.md for project context.
 
           Run /ensemble:create-trd using the PRD at docs/PRD/issue-${ISSUE_NUMBER}.md
 
@@ -90,17 +163,23 @@ jobs:
 
       - name: "Verify Phase 2 output"
         run: |
-          if [ ! -f "docs/TRD/issue-${ISSUE_NUMBER}.md" ]; then
+          FILE="docs/TRD/issue-${ISSUE_NUMBER}.md"
+          if [ ! -f "$FILE" ]; then
             echo "::error::Phase 2 failed — TRD was not created"
             exit 1
           fi
-          echo "✅ TRD created successfully"
+          SIZE=$(wc -c < "$FILE")
+          if [ "$SIZE" -lt 200 ]; then
+            echo "::error::Phase 2 failed — TRD appears empty or too short (${SIZE} bytes)"
+            exit 1
+          fi
+          echo "✅ TRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 3: Implement TRD"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude -p "Read CLAUDE.md for project context.
+          timeout 600 claude -p "Read CLAUDE.md for project context.
 
           Run /ensemble:implement-trd using the TRD at docs/TRD/issue-${ISSUE_NUMBER}.md
 
@@ -120,8 +199,9 @@ jobs:
 
       - name: Commit and push
         run: |
-          git config user.name "ensemble-bot"
-          git config user.email "ensemble-bot@users.noreply.github.com"
+          # Remove the temporary settings file
+          rm -f .claude/settings.json
+          rmdir .claude 2>/dev/null || true
 
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes were made"

@@ -60,28 +60,38 @@ Add the `auto-implement` label to any existing issue to trigger implementation.
 ## Configuration
 
 ### Timeout
-The workflow has a **30-minute timeout** to prevent runaway costs. Adjust in the workflow file:
-```yaml
-timeout-minutes: 30
-```
+- **Job timeout**: 30 minutes total (configurable in workflow)
+- **Phase timeout**: 10 minutes per phase (PRD, TRD, Implementation)
 
-### Concurrency
-Only one auto-implement job runs per issue at a time. Re-labeling an issue cancels any in-progress run for that issue.
+### Concurrency & Rate Limiting
+- Only one auto-implement job runs per issue at a time. Re-labeling cancels any in-progress run.
+- **Max 2 concurrent** auto-implement runs across all issues
+- **Max 5 runs per hour** to prevent cost overruns
 
 ### Claude Code Permissions
-The workflow restricts Claude Code to safe tools:
-- File read/write/edit
-- Git diff (read-only)
-- File exploration (find, cat, ls, grep)
-- Node/npm (for build/test)
+The workflow creates a `.claude/settings.json` that restricts Claude Code to:
 
-It **cannot** run arbitrary shell commands, push directly, or access the network.
+**Allowed:**
+- File read/write/edit
+- Git read-only (diff, log, status)
+- File exploration (find, cat, ls, grep, head, tail, wc)
+- Node/npm/npx (for build/test)
+- File operations (mkdir, cp, mv)
+
+**Denied:**
+- Network access (curl, wget, WebFetch, WebSearch)
+- Git write operations (push, commit)
+- Destructive commands (rm -rf)
+
+### Input Sanitization
+- Issue body is written to a temp file via `actions/github-script` to avoid shell injection
+- Issue title and number are passed via environment variables, not direct interpolation
 
 ## Limitations
 
 - **Review required** — AI-generated code should always be reviewed before merging
 - **Complex issues** — Multi-step or ambiguous issues may produce incomplete implementations
-- **Cost** — Each run consumes Anthropic API credits (budget ~$1-5 per issue depending on complexity)
+- **Cost** — Each run consumes Anthropic API credits. Expect ~$1-3 for simple issues (single file changes), ~$3-8 for moderate issues (multi-file features), and potentially more for complex architectural changes. The 3-phase pipeline uses more tokens than a single-shot approach but produces better results.
 - **No iteration** — The bot makes one pass; it doesn't respond to PR review comments (yet)
 
 ## Troubleshooting
