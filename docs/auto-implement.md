@@ -4,7 +4,7 @@ Automatically implements GitHub issues using Claude Code and opens a PR for revi
 
 ## How It Works
 
-This workflow uses the **full Ensemble pipeline** rather than raw-dogging Claude Code:
+This workflow uses the **full Ensemble pipeline** rather than invoking Claude Code directly:
 
 1. A new issue is created (or labeled) with the **`auto-implement`** label
 2. GitHub Actions spins up a runner and installs Claude Code + Ensemble

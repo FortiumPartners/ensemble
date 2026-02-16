@@ -19,6 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    env:
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -30,6 +35,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install dependencies
         run: |
@@ -38,7 +44,7 @@ jobs:
 
       - name: Create feature branch
         run: |
-          BRANCH="feat/issue-${{ github.event.issue.number }}"
+          BRANCH="feat/issue-${ISSUE_NUMBER}"
           git checkout -b "$BRANCH"
           echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
@@ -46,23 +52,29 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_BODY=$(cat <<'ISSUE_EOF'
-          ${{ github.event.issue.body }}
-          ISSUE_EOF
-          )
-
-          claude -p "Read CLAUDE.md for project context.
+          cat <<EOF > /tmp/phase1-prompt.txt
+          Read CLAUDE.md for project context.
 
           Run /ensemble:create-prd with the following product description:
 
-          ## Issue #${{ github.event.issue.number }}: ${ISSUE_TITLE}
+          ## Issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
 
           ${ISSUE_BODY}
 
-          Save the PRD to docs/PRD/issue-${{ github.event.issue.number }}.md
+          Save the PRD to docs/PRD/issue-${ISSUE_NUMBER}.md
 
-          Do NOT implement anything. Only create the PRD document."
+          Do NOT implement anything. Only create the PRD document.
+          EOF
+
+          claude -p "$(cat /tmp/phase1-prompt.txt)"
+
+      - name: "Verify Phase 1 output"
+        run: |
+          if [ ! -f "docs/PRD/issue-${ISSUE_NUMBER}.md" ]; then
+            echo "::error::Phase 1 failed — PRD was not created"
+            exit 1
+          fi
+          echo "✅ PRD created successfully"
 
       - name: "Phase 2: Create TRD"
         env:
@@ -70,11 +82,19 @@ jobs:
         run: |
           claude -p "Read CLAUDE.md for project context.
 
-          Run /ensemble:create-trd using the PRD at docs/PRD/issue-${{ github.event.issue.number }}.md
+          Run /ensemble:create-trd using the PRD at docs/PRD/issue-${ISSUE_NUMBER}.md
 
-          Save the TRD to docs/TRD/issue-${{ github.event.issue.number }}.md
+          Save the TRD to docs/TRD/issue-${ISSUE_NUMBER}.md
 
           Do NOT implement anything. Only create the TRD document."
+
+      - name: "Verify Phase 2 output"
+        run: |
+          if [ ! -f "docs/TRD/issue-${ISSUE_NUMBER}.md" ]; then
+            echo "::error::Phase 2 failed — TRD was not created"
+            exit 1
+          fi
+          echo "✅ TRD created successfully"
 
       - name: "Phase 3: Implement TRD"
         env:
@@ -82,11 +102,21 @@ jobs:
         run: |
           claude -p "Read CLAUDE.md for project context.
 
-          Run /ensemble:implement-trd using the TRD at docs/TRD/issue-${{ github.event.issue.number }}.md
+          Run /ensemble:implement-trd using the TRD at docs/TRD/issue-${ISSUE_NUMBER}.md
 
           Follow the project's coding standards and conventions.
           Include tests if applicable.
           Do NOT commit — just make the file changes."
+
+      - name: Upload pipeline artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ensemble-pipeline-artifacts
+          path: |
+            docs/PRD/issue-${{ github.event.issue.number }}.md
+            docs/TRD/issue-${{ github.event.issue.number }}.md
+          if-no-files-found: ignore
 
       - name: Commit and push
         run: |
@@ -100,11 +130,11 @@ jobs:
           fi
 
           git add -A
-          git commit -m "feat: implement #${{ github.event.issue.number }} - ${{ github.event.issue.title }}
+          git commit -m "feat: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}
 
           Implemented via Ensemble pipeline:
-          - PRD: docs/PRD/issue-${{ github.event.issue.number }}.md
-          - TRD: docs/TRD/issue-${{ github.event.issue.number }}.md"
+          - PRD: docs/PRD/issue-${ISSUE_NUMBER}.md
+          - TRD: docs/TRD/issue-${ISSUE_NUMBER}.md"
           git push origin "$BRANCH"
 
       - name: Create Pull Request
@@ -112,36 +142,41 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_URL=$(gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "feat: implement #${{ github.event.issue.number }} - ${{ github.event.issue.title }}" \
-            --body "## Auto-Implemented via Ensemble Pipeline
+          PR_BODY=$(cat <<EOF
+          ## Auto-Implemented via Ensemble Pipeline
 
-          This PR was automatically generated using the full Ensemble workflow from issue #${{ github.event.issue.number }}.
+          This PR was automatically generated using the full Ensemble workflow from issue #${ISSUE_NUMBER}.
 
           ### Pipeline Phases
-          1. **PRD** — \`/ensemble:create-prd\` → \`docs/PRD/issue-${{ github.event.issue.number }}.md\`
-          2. **TRD** — \`/ensemble:create-trd\` → \`docs/TRD/issue-${{ github.event.issue.number }}.md\`
+          1. **PRD** — \`/ensemble:create-prd\` → \`docs/PRD/issue-${ISSUE_NUMBER}.md\`
+          2. **TRD** — \`/ensemble:create-trd\` → \`docs/TRD/issue-${ISSUE_NUMBER}.md\`
           3. **Implementation** — \`/ensemble:implement-trd\`
 
           ### Source Issue
-          Closes #${{ github.event.issue.number }}
+          Closes #${ISSUE_NUMBER}
 
           ### ⚠️ Review Required
           This is AI-generated code. Please review the PRD, TRD, and implementation carefully before merging.
 
           ---
-          *Generated by [auto-implement](../blob/main/docs/auto-implement.md) workflow*")
+          *Generated by [auto-implement](../blob/main/docs/auto-implement.md) workflow*
+          EOF
+          )
+
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "feat: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}" \
+            --body "$PR_BODY")
 
           echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
 
-      - name: Comment on issue
+      - name: Comment on issue (success)
         if: env.NO_CHANGES != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue comment ${{ github.event.issue.number }} \
+          gh issue comment "${ISSUE_NUMBER}" \
             --body "🤖 **Auto-implement complete!**
 
           The full Ensemble pipeline has been executed:
@@ -158,10 +193,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue comment ${{ github.event.issue.number }} \
+          gh issue comment "${ISSUE_NUMBER}" \
             --body "🤖 **Auto-implement pipeline completed but no file changes were produced.**
 
           The Ensemble pipeline ran but Claude Code did not generate implementation changes. This may need:
           - A more detailed issue description
           - Manual implementation
           - Review of the generated PRD/TRD for issues"
+
+      - name: Comment on issue (failure)
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "🤖 **Auto-implement pipeline failed.**
+
+          One of the Ensemble phases did not complete successfully. Check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+          Pipeline artifacts (if any) have been uploaded for debugging."
