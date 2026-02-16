@@ -1,11 +1,12 @@
 metadata:
   name: ensemble:implement-trd
   description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
-  version: 1.1.0
-  lastUpdated: "2025-12-30"
+  version: 2.0.0
+  lastUpdated: "2026-02-16"
   category: implementation
   output_path: ensemble/implement-trd.md
   source: fortium
+  model: sonnet
 
 mission:
   summary: |

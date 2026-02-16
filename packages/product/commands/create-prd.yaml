@@ -1,11 +1,12 @@
 metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document from product description
-  version: 1.0.0
-  lastUpdated: "2025-10-13"
+  version: 2.0.0
+  lastUpdated: "2026-02-16"
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
+  model: opus-4-6
 
 constraints:
   - DO NOT implement, build, or execute any work described in the product description

@@ -17,6 +17,11 @@ const configPath = require('./config-path');
 // Context7 MCP Integration
 const context7 = require('./context7-integration');
 
+// Model Selection
+const configLoader = require('./config-loader');
+const modelResolver = require('./model-resolver');
+const usageLogger = require('./usage-logger');
+
 const skill = {
   name: 'Framework Detector',
   version: '1.0.0',
@@ -99,4 +104,24 @@ module.exports = {
   getContext7InstallInstructions: context7.getInstallInstructions,
   createLibraryHelper: context7.createLibraryHelper,
   withContext7Fallback: context7.withContext7Fallback,
+
+  // Model selection utilities
+  configLoader,
+  loadConfig: configLoader.loadConfig,
+  getConfigPaths: configLoader.getConfigPaths,
+  getDefaultConfig: configLoader.getDefaultConfig,
+  validateConfig: configLoader.validateConfig,
+  resolveModelAlias: configLoader.resolveModelAlias,
+
+  modelResolver,
+  selectModel: modelResolver.selectModel,
+  extractModelPreference: modelResolver.extractModelPreference,
+  getModelAlias: modelResolver.getModelAlias,
+
+  usageLogger,
+  logUsage: usageLogger.logUsage,
+  generateSummary: usageLogger.generateSummary,
+  getLogPath: usageLogger.getLogPath,
+  calculateCost: usageLogger.calculateCost,
+  MODEL_PRICING: usageLogger.MODEL_PRICING,
 };

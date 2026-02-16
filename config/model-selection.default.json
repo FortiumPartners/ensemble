@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "defaults": {
+    "command": "sonnet",
+    "task": "sonnet",
+    "tool": "haiku"
+  },
+  "modelAliases": {
+    "opus-4-6": "claude-opus-4-6-20251101",
+    "opus": "claude-opus-4-6-20251101",
+    "sonnet-4": "claude-sonnet-4-20250514",
+    "sonnet": "claude-sonnet-4-20250514",
+    "haiku": "claude-3-5-haiku-20241022"
+  },
+  "commandOverrides": {
+    "ensemble:create-prd": "opus-4-6",
+    "ensemble:refine-prd": "opus-4-6",
+    "ensemble:create-trd": "opus-4-6",
+    "ensemble:refine-trd": "opus-4-6"
+  },
+  "costTracking": {
+    "enabled": true,
+    "logPath": "~/.config/ensemble/logs/model-usage.jsonl"
+  }
+}
