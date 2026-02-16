@@ -33,6 +33,12 @@ Go to **Settings → Secrets and variables → Actions** and add:
 |--------|-------------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code OAuth token (same one used by the code review workflow) |
 
+#### Token Scoping
+
+The `CLAUDE_CODE_OAUTH_TOKEN` is an OAuth token from Anthropic's Claude Code service. It authenticates Claude Code CLI runs in CI. If you're already using the code review workflow (`claude-code-review.yml`), this secret is already configured — no additional setup needed.
+
+**Rotate tokens every 90 days** as a best practice.
+
 ### 2. Create the Label
 
 Create an `auto-implement` label in your repository:
