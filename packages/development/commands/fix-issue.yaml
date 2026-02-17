@@ -1,0 +1,363 @@
+metadata:
+  name: ensemble:fix-issue
+  description: Lightweight workflow for bug fixes and small issues
+  version: 1.0.0
+  lastUpdated: "2026-02-16"
+  category: implementation
+  model: sonnet
+  output_path: ensemble/fix-issue.md
+  source: fortium
+
+parameters:
+  - name: description
+    type: string
+    required: false
+    description: Issue description (free text or omit if using --issue)
+
+  - name: issue
+    type: number
+    required: false
+    description: GitHub issue number (e.g., --issue 34)
+
+  - name: branch
+    type: string
+    required: false
+    description: Custom branch name (default auto-generated)
+
+  - name: skip-tests
+    type: boolean
+    default: false
+    description: Skip test validation (not recommended)
+
+  - name: draft-pr
+    type: boolean
+    default: false
+    description: Create draft PR instead of ready-for-review
+
+  - name: interactive
+    type: boolean
+    default: false
+    description: Enable detailed user interviews during planning
+
+constraints:
+  - GitHub only (no GitLab/Bitbucket in v1.0)
+  - GitHub CLI (gh) must be installed and authenticated
+  - Tests must pass unless --skip-tests flag is used
+  - Maximum 2 auto-fix attempts for test failures
+  - User interview limited to 5 questions maximum
+  - Branch naming follows fixed convention (customizable via --branch)
+
+mission:
+  summary: |
+    Orchestrate a complete bug fix workflow from analysis to PR creation,
+    assembling a virtual team of specialized agents (Product Manager, Tech Lead,
+    Architect, QA Lead) to ensure high-quality fixes with minimal user intervention.
+
+  behavior:
+    - Execute 3-phase workflow - Analysis & Planning, Execution, Validation & Delivery
+    - Delegate codebase analysis to general-purpose agent (Haiku for speed)
+    - Assemble 4-agent team for collaborative planning (Sonnet for quality)
+    - Conduct user interview only if description is ambiguous or --interactive flag set
+    - Create git branch following convention - fix/issue-{num}-{slug}
+    - Generate actionable task list and track progress with TodoWrite
+    - Delegate implementation to appropriate agents (backend, frontend, infrastructure)
+    - Run test suite with auto-fix retry logic (max 2 attempts)
+    - Create comprehensive PR with GitHub CLI
+    - Provide clear error messages and recovery guidance
+
+workflow:
+  phases:
+    - name: Analysis & Planning
+      order: 1
+      description: Understand codebase context and create comprehensive fix plan
+
+      steps:
+        - order: 1
+          title: Codebase Analysis
+          description: |
+            Explore codebase to identify affected files, patterns, and scope.
+            Use Grep, Glob, and Read tools to understand context.
+          agent: general-purpose
+          model: haiku
+          instructions: |
+            1. Extract keywords from issue description
+            2. Search codebase for relevant files (Grep)
+            3. Identify related test files
+            4. Detect framework and testing patterns (package.json, imports)
+            5. Estimate scope (file count, estimated LOC)
+            6. Return structured analysis result
+
+        - order: 2
+          title: Collaborative Planning
+          description: |
+            Assemble virtual team of 4 specialized agents to create comprehensive
+            fix plan with multiple perspectives.
+          model: sonnet
+          instructions: |
+            Delegate planning to 4 agents in sequence:
+
+            1. Task(product-management-orchestrator)
+               - Validate problem statement
+               - Define acceptance criteria
+               - Identify user impact and edge cases
+
+            2. Task(tech-lead-orchestrator)
+               - Review technical approach
+               - Ensure consistency with codebase patterns
+               - Validate feasibility
+
+            3. Task(infrastructure-orchestrator)
+               - Evaluate architecture implications
+               - Identify dependencies and integration points
+               - Assess scalability and maintainability
+
+            4. Task(qa-orchestrator)
+               - Define test coverage requirements
+               - Create test strategy
+               - Identify quality gates
+
+            Synthesize responses into unified plan with:
+            - Approach summary
+            - Files to modify
+            - Test strategy
+            - Edge cases to handle
+
+        - order: 3
+          title: User Interview (Conditional)
+          description: |
+            If issue description is ambiguous or --interactive flag is set,
+            ask clarifying questions (max 5).
+          conditional: true
+          trigger: |
+            Ambiguity detection:
+            - Description < 20 words
+            - Vague terms ("doesn't work", "broken", "issue")
+            - Multiple possible interpretations
+            - OR --interactive flag is set
+          instructions: |
+            1. Generate 3-5 focused questions
+            2. Use AskUserQuestion tool
+            3. Incorporate responses into plan
+            4. Update approach and acceptance criteria
+
+    - name: Execution
+      order: 2
+      description: Create branch, generate tasks, and implement fix
+
+      steps:
+        - order: 1
+          title: Branch Creation
+          description: Create git branch with conventional naming
+          tool: Bash
+          instructions: |
+            1. Generate branch name:
+               - IF --branch flag: Use custom name
+               - ELIF --issue flag: fix/issue-{number}-{slugified-description}
+               - ELSE: fix/{slugified-description}
+
+            2. Check if branch exists:
+               - git branch --list {branch-name}
+               - If exists: Ask user to switch or use different name
+
+            3. Create branch:
+               - git checkout -b {branch-name}
+               - Verify creation: git branch --show-current
+
+        - order: 2
+          title: Task List Generation
+          description: Break down plan into actionable tasks
+          tool: TodoWrite
+          instructions: |
+            Generate 3-10 specific, actionable tasks from plan:
+
+            Format:
+            - content: "Update timeout.ts constant from 30s to 60s"
+              activeForm: "Updating timeout constant"
+              status: "pending"
+
+            Include:
+            - Implementation tasks (file modifications)
+            - Test update tasks
+            - Validation tasks
+
+            Each task should be:
+            - Specific to a file or component
+            - Actionable (clear what to do)
+            - Testable (clear success criteria)
+
+        - order: 3
+          title: Task Execution
+          description: |
+            Execute all tasks with appropriate agent delegation and
+            real-time progress tracking.
+          model: sonnet
+          instructions: |
+            FOR EACH task in task list:
+
+            1. Mark task as in_progress:
+               TodoWrite({ taskId: X, status: "in_progress" })
+
+            2. Select appropriate agent:
+               - Backend code → backend-developer
+               - Frontend code → frontend-developer
+               - Infrastructure → infrastructure-developer
+               - Generic → general-purpose
+
+            3. Delegate task:
+               Task(agent-type, prompt=task.content)
+
+            4. Mark task as completed:
+               TodoWrite({ taskId: X, status: "completed" })
+
+            5. IF task fails:
+               - Keep status as "in_progress"
+               - Log error details
+               - Continue with remaining tasks
+               - Report failures at end
+
+    - name: Validation & Delivery
+      order: 3
+      description: Validate tests pass and create pull request
+
+      steps:
+        - order: 1
+          title: Test Validation
+          description: |
+            Run test suite with auto-fix retry logic. Ensure all tests
+            pass before creating PR.
+          agent: test-runner
+          model: haiku
+          retry: 2
+          instructions: |
+            1. Detect test framework:
+               - Check package.json for jest, pytest, rspec, etc.
+               - Check for test files and imports
+               - Determine test command (npm test, pytest, rspec)
+
+            2. Run tests (Attempt 1):
+               - Bash({test-command})
+               - Parse output for pass/fail
+
+            3. IF tests fail:
+               - Analyze failure output
+               - Identify root causes
+               - Attempt fixes (Edit files)
+               - Run tests again (Attempt 2)
+
+            4. IF tests still fail after 2 attempts:
+               - Report failures to user with details
+               - HALT workflow (do not create PR)
+               - Provide recovery instructions
+
+            5. IF --skip-tests flag:
+               - Log warning message
+               - Skip test execution
+               - Proceed to PR creation
+
+        - order: 2
+          title: PR Creation
+          description: Create comprehensive pull request with GitHub CLI
+          tool: Bash
+          model: haiku
+          instructions: |
+            1. Generate commit message using conventional commit format:
+               - Format: "fix: {brief description}"
+               - OR with scope: "fix(scope): {brief description}"
+               - Reference issue in commit body, not title
+
+            2. Commit changes:
+               - git status to review changed files
+               - git add {specific-files} (stage only files modified during this workflow; never use git add . or git add -A)
+               - git commit -m "{message}"
+
+            3. Push branch:
+               - git push -u origin {branch-name}
+               - Handle push errors (auth, network)
+
+            4. Generate PR title:
+               - IF issue number: "Fix #{number}: {description}"
+               - ELSE: "Fix: {description}"
+
+            5. Generate PR body (template):
+               ```markdown
+               ## Problem
+               {Issue description from user or GitHub issue}
+
+               ## Solution
+               {Summary of changes made, approach taken}
+
+               ## Changes
+               - {File 1}: {Description}
+               - {File 2}: {Description}
+
+               ## Test Plan
+               {What was tested, coverage added}
+
+               ## Checklist
+               - [x] Tests pass locally
+               - [x] Code follows project conventions
+               - [x] No new warnings or errors
+
+               Fixes #{issue-number}
+
+               Generated with [Ensemble Fix-Issue](https://github.com/FortiumPartners/ensemble)
+               ```
+
+            6. Create PR:
+               - IF --draft-pr: gh pr create --draft --title "..." --body "..."
+               - ELSE: gh pr create --title "..." --body "..."
+
+            7. Extract PR URL from output
+
+            8. Display to user:
+               - "✓ PR created: {url}"
+               - "✓ Branch pushed: {branch-name}"
+               - "✓ All tests passed"
+
+expectedInput:
+  description: Issue description or GitHub issue number
+  formats:
+    - Free text description of the bug or issue
+    - GitHub issue number (--issue flag)
+  examples:
+    - "/ensemble:fix-issue \"Fix timeout bug in auth flow\""
+    - "/ensemble:fix-issue --issue 34"
+    - "/ensemble:fix-issue \"Fix pagination\" --interactive"
+
+expectedOutput:
+  format: Pull Request
+  structure:
+    - name: Git Branch
+      description: Feature branch following fix/issue-{num}-{slug} convention
+    - name: Code Changes
+      description: Implementation fixes with test coverage
+    - name: Pull Request
+      description: Comprehensive PR with problem, solution, changes, and test plan
+
+validation:
+  required_tools:
+    - Bash
+    - Read
+    - Write
+    - Edit
+    - Grep
+    - Glob
+    - Task
+    - TodoWrite
+
+  required_agents:
+    - general-purpose
+    - product-management-orchestrator
+    - tech-lead-orchestrator
+    - infrastructure-orchestrator
+    - qa-orchestrator
+    - backend-developer
+    - frontend-developer
+    - infrastructure-developer
+    - test-runner
+    - git-workflow
+    - github-specialist
+
+  required_external:
+    - git (version 2.0+)
+    - gh (GitHub CLI, authenticated)
