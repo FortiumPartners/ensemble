@@ -22,7 +22,8 @@
     "directory": "packages/development"
   },
   "devDependencies": {
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "js-yaml": "^4.1.0"
   },
   "peerDependencies": {
     "@fortium/ensemble-core": "^4.0.0"

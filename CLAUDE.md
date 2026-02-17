@@ -11,6 +11,7 @@ All ensemble commands use the `/ensemble:` namespace:
 /ensemble:create-prd           # Create Product Requirements Document
 /ensemble:create-trd           # Create Technical Requirements Document
 /ensemble:implement-trd        # Implement TRD with git-town workflow
+/ensemble:fix-issue            # Lightweight bug fix workflow (analysis → PR)
 /ensemble:release              # Orchestrate release workflow
 /ensemble:playwright-test      # Run E2E tests with Playwright
 /ensemble:manager-dashboard    # Generate productivity metrics
