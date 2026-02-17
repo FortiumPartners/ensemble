@@ -61,6 +61,28 @@ jobs:
       #       exit 1
       #     fi
 
+      - name: Detect issue type
+        run: |
+          LABELS='${{ toJSON(github.event.issue.labels.*.name) }}'
+          echo "Labels: $LABELS"
+
+          if echo "$LABELS" | grep -qi '"bug"'; then
+            echo "ISSUE_TYPE=fix" >> "$GITHUB_ENV"
+            echo "BRANCH_PREFIX=fix" >> "$GITHUB_ENV"
+            echo "COMMIT_PREFIX=fix" >> "$GITHUB_ENV"
+            echo "Detected issue type: Bug → fix-issue workflow"
+          elif echo "$LABELS" | grep -qi '"task"'; then
+            echo "ISSUE_TYPE=fix" >> "$GITHUB_ENV"
+            echo "BRANCH_PREFIX=fix" >> "$GITHUB_ENV"
+            echo "COMMIT_PREFIX=fix" >> "$GITHUB_ENV"
+            echo "Detected issue type: Task → fix-issue workflow"
+          else
+            echo "ISSUE_TYPE=feature" >> "$GITHUB_ENV"
+            echo "BRANCH_PREFIX=feat" >> "$GITHUB_ENV"
+            echo "COMMIT_PREFIX=feat" >> "$GITHUB_ENV"
+            echo "Detected issue type: Feature → full PRD/TRD pipeline"
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -71,9 +93,9 @@ jobs:
           git config user.name "ensemble-bot"
           git config user.email "ensemble-bot@users.noreply.github.com"
 
-      - name: Create feature branch
+      - name: Create branch
         run: |
-          BRANCH="feat/issue-${ISSUE_NUMBER}"
+          BRANCH="${BRANCH_PREFIX}/issue-${ISSUE_NUMBER}"
           git checkout -b "$BRANCH"
           echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
@@ -86,7 +108,38 @@ jobs:
             fs.mkdirSync('.github/issue-context', { recursive: true });
             fs.writeFileSync('.github/issue-context/issue-body.md', body);
 
+      # ============================================================
+      # Fix-Issue path (Bug / Task labels)
+      # ============================================================
+
+      - name: "Fix Issue: Analyze and implement"
+        if: env.ISSUE_TYPE == 'fix'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Read CLAUDE.md for project context.
+
+            Run /ensemble:fix-issue for the following issue:
+
+            ## Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            The full issue body is in the file .github/issue-context/issue-body.md — read it for the complete description.
+
+            IMPORTANT CI constraints:
+            - Do NOT create a git branch (already created: ${{ env.BRANCH }})
+            - Do NOT commit or push changes
+            - Do NOT create a PR
+            - Just analyze the issue, plan the fix, implement changes, and run tests
+            - Make all file changes directly
+          claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
+
+      # ============================================================
+      # Feature path (Feature label or default)
+      # ============================================================
+
       - name: "Phase 1: Create PRD"
+        if: env.ISSUE_TYPE == 'feature'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -105,6 +158,7 @@ jobs:
           claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
 
       - name: "Verify Phase 1 output"
+        if: env.ISSUE_TYPE == 'feature'
         run: |
           FILE="docs/PRD/issue-${ISSUE_NUMBER}.md"
           if [ ! -f "$FILE" ]; then
@@ -123,6 +177,7 @@ jobs:
           echo "✅ PRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 2: Create TRD"
+        if: env.ISSUE_TYPE == 'feature'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -137,6 +192,7 @@ jobs:
           claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
 
       - name: "Verify Phase 2 output"
+        if: env.ISSUE_TYPE == 'feature'
         run: |
           FILE="docs/TRD/issue-${ISSUE_NUMBER}.md"
           if [ ! -f "$FILE" ]; then
@@ -154,6 +210,7 @@ jobs:
           echo "✅ TRD created successfully (${SIZE} bytes)"
 
       - name: "Phase 3: Implement TRD"
+        if: env.ISSUE_TYPE == 'feature'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -166,6 +223,10 @@ jobs:
             Include tests if applicable.
             Do NOT commit — just make the file changes.
           claude_args: '--allowed-tools "Edit,Write,Read,Bash(cat:*),Bash(ls:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(tail:*),Bash(wc:*),Bash(mkdir:*),Bash(cp:*),Bash(mv:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(git diff:*),Bash(git log:*),Bash(git status:*)"'
+
+      # ============================================================
+      # Shared: Commit, PR, and issue comments
+      # ============================================================
 
       - name: Upload pipeline artifacts on failure
         if: failure()
@@ -195,12 +256,20 @@ jobs:
             exit 0
           fi
 
-          git add -A
-          git commit -m "feat: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}
+          if [ "$ISSUE_TYPE" = "fix" ]; then
+            COMMIT_MSG="${COMMIT_PREFIX}: fix #${ISSUE_NUMBER} - ${ISSUE_TITLE}
+
+          Implemented via Ensemble fix-issue workflow"
+          else
+            COMMIT_MSG="${COMMIT_PREFIX}: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}
 
           Implemented via Ensemble pipeline:
           - PRD: docs/PRD/issue-${ISSUE_NUMBER}.md
           - TRD: docs/TRD/issue-${ISSUE_NUMBER}.md"
+          fi
+
+          git add -A
+          git commit -m "$COMMIT_MSG"
           git push origin "$BRANCH"
 
       - name: Create Pull Request
@@ -208,47 +277,90 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_BODY=$(cat <<EOF
-          ## Auto-Implemented via Ensemble Pipeline
+          if [ "$ISSUE_TYPE" = "fix" ]; then
+            PR_TITLE="${COMMIT_PREFIX}: fix #${ISSUE_NUMBER} - ${ISSUE_TITLE}"
+            PR_BODY=$(cat <<'EOF'
+          ## Auto-Fixed via Ensemble Fix-Issue
 
-          This PR was automatically generated using the full Ensemble workflow from issue #${ISSUE_NUMBER}.
+          This PR was automatically generated using the lightweight fix-issue workflow from issue #$ISSUE_NUMBER_PLACEHOLDER.
 
-          ### Pipeline Phases
-          1. **PRD** — \`/ensemble:create-prd\` → \`docs/PRD/issue-${ISSUE_NUMBER}.md\`
-          2. **TRD** — \`/ensemble:create-trd\` → \`docs/TRD/issue-${ISSUE_NUMBER}.md\`
-          3. **Implementation** — \`/ensemble:implement-trd\`
+          ### Workflow
+          - **Type:** Bug/Task fix (lightweight path)
+          - **Command:** `/ensemble:fix-issue --issue $ISSUE_NUMBER_PLACEHOLDER`
 
           ### Source Issue
-          Closes #${ISSUE_NUMBER}
+          Closes #$ISSUE_NUMBER_PLACEHOLDER
 
-          ### ⚠️ Review Required
+          ### Review Required
+          This is AI-generated code. Please review the implementation and tests carefully before merging.
+
+          ---
+          *Generated by [auto-implement](../blob/main/docs/auto-implement.md) workflow*
+          EOF
+          )
+            PR_BODY="${PR_BODY//\$ISSUE_NUMBER_PLACEHOLDER/$ISSUE_NUMBER}"
+          else
+            PR_TITLE="${COMMIT_PREFIX}: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}"
+            PR_BODY=$(cat <<'EOF'
+          ## Auto-Implemented via Ensemble Pipeline
+
+          This PR was automatically generated using the full Ensemble workflow from issue #$ISSUE_NUMBER_PLACEHOLDER.
+
+          ### Pipeline Phases
+          1. **PRD** — `/ensemble:create-prd` → `docs/PRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md`
+          2. **TRD** — `/ensemble:create-trd` → `docs/TRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md`
+          3. **Implementation** — `/ensemble:implement-trd`
+
+          ### Source Issue
+          Closes #$ISSUE_NUMBER_PLACEHOLDER
+
+          ### Review Required
           This is AI-generated code. Please review the PRD, TRD, and implementation carefully before merging.
 
           ---
           *Generated by [auto-implement](../blob/main/docs/auto-implement.md) workflow*
           EOF
           )
+            PR_BODY="${PR_BODY//\$ISSUE_NUMBER_PLACEHOLDER/$ISSUE_NUMBER}"
+          fi
 
           PR_URL=$(gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "feat: implement #${ISSUE_NUMBER} - ${ISSUE_TITLE}" \
+            --title "$PR_TITLE" \
             --body "$PR_BODY")
 
           echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
 
-      - name: Comment on issue (success)
-        if: env.NO_CHANGES != 'true'
+      - name: Comment on issue (success - fix)
+        if: env.NO_CHANGES != 'true' && env.ISSUE_TYPE == 'fix'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment "${ISSUE_NUMBER}" \
-            --body "🤖 **Auto-implement complete!**
+            --body "**Auto-fix complete!**
+
+          The fix-issue workflow has been executed:
+          1. Issue analyzed
+          2. Fix implemented
+          3. Tests validated
+
+          PR: ${{ env.PR_URL }}
+
+          Please review the changes and provide feedback."
+
+      - name: Comment on issue (success - feature)
+        if: env.NO_CHANGES != 'true' && env.ISSUE_TYPE == 'feature'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "**Auto-implement complete!**
 
           The full Ensemble pipeline has been executed:
-          1. ✅ PRD created
-          2. ✅ TRD created
-          3. ✅ Implementation complete
+          1. PRD created
+          2. TRD created
+          3. Implementation complete
 
           PR: ${{ env.PR_URL }}
 
@@ -259,13 +371,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh issue comment "${ISSUE_NUMBER}" \
-            --body "🤖 **Auto-implement pipeline completed but no file changes were produced.**
+          if [ "$ISSUE_TYPE" = "fix" ]; then
+            PIPELINE="fix-issue"
+          else
+            PIPELINE="full PRD/TRD"
+          fi
 
-          The Ensemble pipeline ran but Claude Code did not generate implementation changes. This may need:
+          gh issue comment "${ISSUE_NUMBER}" \
+            --body "**Auto-implement pipeline completed but no file changes were produced.**
+
+          The $PIPELINE pipeline ran but Claude Code did not generate implementation changes. This may need:
           - A more detailed issue description
           - Manual implementation
-          - Review of the generated PRD/TRD for issues"
+          - Review of the generated artifacts for issues"
 
       - name: Comment on issue (failure)
         if: failure()
@@ -273,7 +391,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment "${ISSUE_NUMBER}" \
-            --body "🤖 **Auto-implement pipeline failed.**
+            --body "**Auto-implement pipeline failed.**
 
           One of the Ensemble phases did not complete successfully. Check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
 

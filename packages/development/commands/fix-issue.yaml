@@ -2,7 +2,8 @@ metadata:
   name: ensemble:fix-issue
   description: Lightweight workflow for bug fixes and small issues
   version: 1.0.0
-  category: development
+  lastUpdated: "2026-02-16"
+  category: implementation
   model: sonnet
   output_path: ensemble/fix-issue.md
   source: fortium
@@ -38,6 +39,14 @@ parameters:
     default: false
     description: Enable detailed user interviews during planning
 
+constraints:
+  - GitHub only (no GitLab/Bitbucket in v1.0)
+  - GitHub CLI (gh) must be installed and authenticated
+  - Tests must pass unless --skip-tests flag is used
+  - Maximum 2 auto-fix attempts for test failures
+  - User interview limited to 5 questions maximum
+  - Branch naming follows fixed convention (customizable via --branch)
+
 mission:
   summary: |
     Orchestrate a complete bug fix workflow from analysis to PR creation,
@@ -55,14 +64,6 @@ mission:
     - Run test suite with auto-fix retry logic (max 2 attempts)
     - Create comprehensive PR with GitHub CLI
     - Provide clear error messages and recovery guidance
-
-  constraints:
-    - GitHub only (no GitLab/Bitbucket in v1.0)
-    - GitHub CLI (gh) must be installed and authenticated
-    - Tests must pass unless --skip-tests flag is used
-    - Maximum 2 auto-fix attempts for test failures
-    - User interview limited to 5 questions maximum
-    - Branch naming follows fixed convention (customizable via --branch)
 
 workflow:
   phases:
@@ -259,13 +260,14 @@ workflow:
           tool: Bash
           model: haiku
           instructions: |
-            1. Generate commit message:
-               - Format: "Fix: {brief description}"
-               - OR if issue number: "Fix #{number}: {description}"
-               - Use conventional commit format
+            1. Generate commit message using conventional commit format:
+               - Format: "fix: {brief description}"
+               - OR with scope: "fix(scope): {brief description}"
+               - Reference issue in commit body, not title
 
             2. Commit changes:
-               - git add .
+               - git status to review changed files
+               - git add {specific-files} (stage only files modified during this workflow; never use git add . or git add -A)
                - git commit -m "{message}"
 
             3. Push branch:
@@ -298,7 +300,7 @@ workflow:
 
                Fixes #{issue-number}
 
-               🤖 Generated with [Ensemble Fix-Issue](https://github.com/FortiumPartners/ensemble)
+               Generated with [Ensemble Fix-Issue](https://github.com/FortiumPartners/ensemble)
                ```
 
             6. Create PR:
@@ -311,6 +313,26 @@ workflow:
                - "✓ PR created: {url}"
                - "✓ Branch pushed: {branch-name}"
                - "✓ All tests passed"
+
+expectedInput:
+  description: Issue description or GitHub issue number
+  formats:
+    - Free text description of the bug or issue
+    - GitHub issue number (--issue flag)
+  examples:
+    - "/ensemble:fix-issue \"Fix timeout bug in auth flow\""
+    - "/ensemble:fix-issue --issue 34"
+    - "/ensemble:fix-issue \"Fix pagination\" --interactive"
+
+expectedOutput:
+  format: Pull Request
+  structure:
+    - name: Git Branch
+      description: Feature branch following fix/issue-{num}-{slug} convention
+    - name: Code Changes
+      description: Implementation fixes with test coverage
+    - name: Pull Request
+      description: Comprehensive PR with problem, solution, changes, and test plan
 
 validation:
   required_tools:

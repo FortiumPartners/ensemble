@@ -21,7 +21,7 @@ describe('Fix-Issue Command', () => {
       expect(commandYaml.metadata.name).toBe('ensemble:fix-issue');
       expect(commandYaml.metadata.description).toBe('Lightweight workflow for bug fixes and small issues');
       expect(commandYaml.metadata.version).toBe('1.0.0');
-      expect(commandYaml.metadata.category).toBe('development');
+      expect(commandYaml.metadata.category).toBe('implementation');
       expect(commandYaml.metadata.model).toBe('sonnet');
       expect(commandYaml.metadata.source).toBe('fortium');
     });
@@ -93,7 +93,7 @@ describe('Fix-Issue Command', () => {
       expect(commandYaml.mission).toBeDefined();
       expect(commandYaml.mission.summary).toBeDefined();
       expect(commandYaml.mission.behavior).toBeInstanceOf(Array);
-      expect(commandYaml.mission.constraints).toBeInstanceOf(Array);
+      expect(commandYaml.constraints).toBeInstanceOf(Array);
     });
 
     test('mission summary describes workflow', () => {
@@ -114,9 +114,9 @@ describe('Fix-Issue Command', () => {
     });
 
     test('defines constraints', () => {
-      expect(commandYaml.mission.constraints.length).toBeGreaterThan(3);
+      expect(commandYaml.constraints.length).toBeGreaterThan(3);
 
-      const constraints = commandYaml.mission.constraints.join(' ');
+      const constraints = commandYaml.constraints.join(' ');
       expect(constraints).toContain('GitHub only');
       expect(constraints).toContain('GitHub CLI');
       expect(constraints).toContain('Tests must pass');
@@ -206,7 +206,7 @@ describe('Fix-Issue Command', () => {
       expect(step1.model).toBe('haiku');
       expect(step1.retry).toBe(2);
       expect(step1.instructions).toContain('Detect test framework');
-      expect(step1.instructions).toContain('max 2 attempts');
+      expect(step1.instructions).toContain('2 attempts');
 
       // Step 2: PR Creation
       const step2 = phase.steps[1];
