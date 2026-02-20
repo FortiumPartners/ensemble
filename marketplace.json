@@ -429,6 +429,24 @@
         "name": "Fortium Partners",
         "url": "https://github.com/FortiumPartners"
       }
+    },
+    {
+      "name": "ensemble-opencode",
+      "version": "5.3.0",
+      "source": "./packages/opencode",
+      "description": "OpenCode coding agent integration — skills, configuration, and Ensemble workflow compatibility for OpenCode users",
+      "category": "frameworks",
+      "tags": [
+        "opencode",
+        "coding-agent",
+        "open-source",
+        "ai-agent",
+        "terminal"
+      ],
+      "author": {
+        "name": "Fortium Partners",
+        "url": "https://fortiumpartners.com"
+      }
     }
   ]
 }
