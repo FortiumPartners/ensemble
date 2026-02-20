@@ -324,6 +324,26 @@
           "tools": ["Glob", "Grep", "Read", "WebFetch", "WebSearch"]
         }
       ]
+    },
+
+    "coding_agents": {
+      "description": "Coding agent configuration, setup, and orchestration",
+      "triggers": [
+        "opencode", "open code", "coding agent", "coding agent setup",
+        "use opencode", "switch to opencode", "opencode agent",
+        "configure opencode", "opencode setup"
+      ],
+      "agents": [
+        {
+          "name": "general-purpose",
+          "purpose": "OpenCode setup questions, configuration guidance, and troubleshooting"
+        },
+        {
+          "name": "documentation-specialist",
+          "purpose": "OpenCode integration documentation and reference guides"
+        }
+      ],
+      "skills": ["opencode-integration"]
     }
   },
 
