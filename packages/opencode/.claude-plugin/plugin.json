@@ -1,0 +1,19 @@
+{
+  "name": "ensemble-opencode",
+  "version": "5.3.0",
+  "description": "OpenCode coding agent integration for the Ensemble orchestration ecosystem",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "coding-agent",
+    "ensemble",
+    "ai-agent"
+  ],
+  "skills": "./skills"
+}

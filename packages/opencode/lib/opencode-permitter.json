@@ -1,0 +1,30 @@
+{
+  "description": "Sample permitter allowlist for OpenCode CLI commands used by Ensemble agents. Copy relevant entries into your .claude/settings.local.json allowedTools configuration.",
+  "version": "1.0.0",
+  "allowlist": [
+    {
+      "command": "opencode",
+      "description": "OpenCode coding agent CLI entrypoint"
+    },
+    {
+      "command": "opencode run",
+      "description": "Run OpenCode with a prompt"
+    },
+    {
+      "command": "opencode chat",
+      "description": "Start an interactive OpenCode chat session"
+    },
+    {
+      "command": "opencode --version",
+      "description": "Check OpenCode version"
+    },
+    {
+      "command": "opencode --help",
+      "description": "Show OpenCode help"
+    },
+    {
+      "command": "which opencode",
+      "description": "Verify OpenCode binary is in PATH"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@fortium/ensemble-opencode",
+  "version": "5.3.0",
+  "description": "OpenCode coding agent integration for Ensemble",
+  "main": "lib/opencode-detector.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": ["lib/**/*.js"]
+  }
+}
