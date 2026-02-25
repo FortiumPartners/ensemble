@@ -46,47 +46,66 @@ The plugin ecosystem is organized into 4 tiers across 24 packages:
 
 ## Installation
 
-Plugins are installed directly from the GitHub repository using Claude Code's plugin system.
+Plugins are installed using Claude Code's interactive `/plugin` command.
 
 ### Quick Start (Full Ecosystem)
 
-```bash
-# Install all plugins at once
-claude plugin install github:FortiumPartners/ensemble/packages/full
+In Claude Code, run:
+
 ```
+# Add the Ensemble marketplace
+/plugin marketplace add FortiumPartners/ensemble
+
+# Install the full bundle (all plugins)
+/plugin install ensemble-full@ensemble
+```
+
+Or use the interactive UI: type `/plugin` → **Discover** tab → select **ensemble-full** → choose your scope.
 
 ### Modular Installation
 
-Install only what you need:
+Install only what you need from the marketplace:
 
-```bash
+```
 # Core foundation (required)
-claude plugin install github:FortiumPartners/ensemble/packages/core
+/plugin install ensemble-core@ensemble
 
-# Add workflow capabilities
-claude plugin install github:FortiumPartners/ensemble/packages/product
-claude plugin install github:FortiumPartners/ensemble/packages/development
-claude plugin install github:FortiumPartners/ensemble/packages/quality
+# Workflow plugins
+/plugin install ensemble-product@ensemble
+/plugin install ensemble-development@ensemble
+/plugin install ensemble-quality@ensemble
+/plugin install ensemble-infrastructure@ensemble
+/plugin install ensemble-git@ensemble
+/plugin install ensemble-e2e-testing@ensemble
 
-# Add framework skills (optional)
-claude plugin install github:FortiumPartners/ensemble/packages/react
-claude plugin install github:FortiumPartners/ensemble/packages/nestjs
+# Framework skills (optional)
+/plugin install ensemble-react@ensemble
+/plugin install ensemble-nestjs@ensemble
 
-# Add testing support (optional)
-claude plugin install github:FortiumPartners/ensemble/packages/jest
+# Testing support (optional)
+/plugin install ensemble-jest@ensemble
+/plugin install ensemble-pytest@ensemble
 ```
 
 ### Local Installation (Development)
 
-For local development or testing:
+For local development or testing, use the `--plugin-dir` flag:
 
 ```bash
 # Clone the repository
 git clone https://github.com/FortiumPartners/ensemble.git
 
-# Install a specific plugin from local path
-claude plugin install ./ensemble/packages/core
+# Run Claude Code with a local plugin
+claude --plugin-dir ./ensemble/packages/core
 ```
+
+### Installation Scopes
+
+When installing plugins, you can choose a scope:
+
+- **User** (default) — available across all your projects
+- **Project** — shared with collaborators via `.claude/settings.json`
+- **Local** — personal, per-repository (not shared)
 
 ## Usage
 
