@@ -121,30 +121,30 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S1-SK-001** | Implement `SkillCopier` class: discover all SKILL.md files across `packages/*/skills/` | 3 | OC-S1-PKG-003 | |
-| - [ ] **OC-S1-SK-002** | Implement SKILL.md frontmatter injection (name, description) without breaking Claude Code | 3 | OC-S1-SK-001 | |
-| - [ ] **OC-S1-SK-003** | Implement REFERENCE.md to SKILL.md conversion for OpenCode compatibility | 2 | OC-S1-SK-001 | |
-| - [ ] **OC-S1-SK-004** | Copy validated skills to `dist/opencode/.opencode/skill/<framework>/SKILL.md` | 2 | OC-S1-SK-001 | |
-| - [ ] **OC-S1-SK-005** | Generate `skills.paths` configuration entries for opencode.json | 1 | OC-S1-SK-004 | |
-| - [ ] **OC-S1-SK-006** | Verify Claude Code skill loading is unaffected by frontmatter additions (regression test) | 2 | OC-S1-SK-002 | |
-| - [ ] **OC-S1-TEST-001** | Unit tests for SkillCopier: discovery, frontmatter injection, REFERENCE.md conversion | 4 | OC-S1-SK-004 | |
+| - [x] **OC-S1-SK-001** | Implement `SkillCopier` class: discover all SKILL.md files across `packages/*/skills/` | 3 | OC-S1-PKG-003 | Done |
+| - [x] **OC-S1-SK-002** | Implement SKILL.md frontmatter injection (name, description) without breaking Claude Code | 3 | OC-S1-SK-001 | Done |
+| - [x] **OC-S1-SK-003** | Implement REFERENCE.md to SKILL.md conversion for OpenCode compatibility | 2 | OC-S1-SK-001 | Done |
+| - [x] **OC-S1-SK-004** | Copy validated skills to `dist/opencode/.opencode/skill/<framework>/SKILL.md` | 2 | OC-S1-SK-001 | Done |
+| - [x] **OC-S1-SK-005** | Generate `skills.paths` configuration entries for opencode.json | 1 | OC-S1-SK-004 | Done |
+| - [x] **OC-S1-SK-006** | Verify Claude Code skill loading is unaffected by frontmatter additions (regression test) | 2 | OC-S1-SK-002 | Done |
+| - [x] **OC-S1-TEST-001** | Unit tests for SkillCopier: discovery, frontmatter injection, REFERENCE.md conversion | 4 | OC-S1-SK-004 | Done |
 
 #### Command Translator
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S1-CMD-001** | Implement `CommandTranslator` class: parse Ensemble command YAML schema | 3 | OC-S1-PKG-003 | |
-| - [ ] **OC-S1-CMD-002** | Implement YAML metadata to Markdown header translation (`metadata.name` -> `# Command Title $PLACEHOLDER`) | 3 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-003** | Implement `$ARGUMENTS` to `$PLACEHOLDER_NAME` syntax conversion | 2 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-004** | Implement workflow phases/steps to numbered Markdown sections | 3 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-005** | Implement constraints section rendering | 1 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-006** | Implement `expectedOutput` section rendering | 1 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-007** | Implement delegation step annotations (agent references in generated Markdown) | 2 | OC-S1-CMD-004 | |
-| - [ ] **OC-S1-CMD-008** | Generate JSON command config entries for opencode.json (`command` block) | 2 | OC-S1-CMD-001 | |
-| - [ ] **OC-S1-CMD-009** | Map `metadata.model` hints to OpenCode `providerID/modelID` format | 1.5 | OC-S1-CMD-008 | |
-| - [ ] **OC-S1-CMD-010** | Write all 15 translated commands to `dist/opencode/.opencode/commands/ensemble/` | 1.5 | OC-S1-CMD-004 | |
-| - [ ] **OC-S1-TEST-002** | Unit tests for CommandTranslator: YAML parsing, Markdown generation, argument mapping | 5 | OC-S1-CMD-010 | |
-| - [ ] **OC-S1-TEST-003** | Snapshot tests: compare generated Markdown against golden files for 3 representative commands | 3 | OC-S1-CMD-010 | |
+| - [x] **OC-S1-CMD-001** | Implement `CommandTranslator` class: parse Ensemble command YAML schema | 3 | OC-S1-PKG-003 | Done |
+| - [x] **OC-S1-CMD-002** | Implement YAML metadata to Markdown header translation (`metadata.name` -> `# Command Title $PLACEHOLDER`) | 3 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-003** | Implement `$ARGUMENTS` to `$PLACEHOLDER_NAME` syntax conversion | 2 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-004** | Implement workflow phases/steps to numbered Markdown sections | 3 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-005** | Implement constraints section rendering | 1 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-006** | Implement `expectedOutput` section rendering | 1 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-007** | Implement delegation step annotations (agent references in generated Markdown) | 2 | OC-S1-CMD-004 | Done |
+| - [x] **OC-S1-CMD-008** | Generate JSON command config entries for opencode.json (`command` block) | 2 | OC-S1-CMD-001 | Done |
+| - [x] **OC-S1-CMD-009** | Map `metadata.model` hints to OpenCode `providerID/modelID` format | 1.5 | OC-S1-CMD-008 | Done |
+| - [x] **OC-S1-CMD-010** | Write all 15 translated commands to `dist/opencode/.opencode/commands/ensemble/` | 1.5 | OC-S1-CMD-004 | Done |
+| - [x] **OC-S1-TEST-002** | Unit tests for CommandTranslator: YAML parsing, Markdown generation, argument mapping | 5 | OC-S1-CMD-010 | Done |
+| - [x] **OC-S1-TEST-003** | Snapshot tests: compare generated Markdown against golden files for 3 representative commands | 3 | OC-S1-CMD-010 | Done |
 
 **Sprint 1 Total: 49.5 hours (~2.5 weeks at 4 hours/day)**
 
