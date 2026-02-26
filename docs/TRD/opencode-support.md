@@ -191,31 +191,31 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S3-MF-001** | Implement `ManifestGenerator` class: read all 25 `packages/*/.claude-plugin/plugin.json` manifests | 3 | OC-S1-PKG-003 | |
-| - [ ] **OC-S3-MF-002** | Generate `opencode.json` with `agent` block from AgentTranslator output | 2 | OC-S2-AGT-006 | |
-| - [ ] **OC-S3-MF-003** | Generate `opencode.json` with `command` block from CommandTranslator output | 2 | OC-S1-CMD-008 | |
-| - [ ] **OC-S3-MF-004** | Generate `opencode.json` with `skills.paths` from SkillCopier output | 1 | OC-S1-SK-005 | |
-| - [ ] **OC-S3-MF-005** | Generate `opencode.json` with `plugin` array referencing ensemble-opencode package | 1 | OC-S3-MF-001 | |
-| - [ ] **OC-S3-MF-006** | Generate `opencode.json` with `instructions` array pointing to CLAUDE.md/AGENTS.md | 1 | OC-S3-MF-001 | |
-| - [ ] **OC-S3-MF-007** | Generate `opencode.json` with `permission` block (default conservative permissions) | 1.5 | OC-S3-MF-001 | |
-| - [ ] **OC-S3-MF-008** | Implement config merging: combine agent, command, skill, plugin, and permission sections | 2 | OC-S3-MF-007 | |
-| - [ ] **OC-S3-TEST-009** | Unit tests for ManifestGenerator: manifest reading, config section generation, merging | 4 | OC-S3-MF-008 | |
+| - [x] **OC-S3-MF-001** | Implement `ManifestGenerator` class: read all 25 `packages/*/.claude-plugin/plugin.json` manifests | 3 | OC-S1-PKG-003 | Done |
+| - [ ] **OC-S3-MF-002** | Generate `opencode.json` with `agent` block from AgentTranslator output | 2 | OC-S2-AGT-006 | Deferred (S2) |
+| - [x] **OC-S3-MF-003** | Generate `opencode.json` with `command` block from CommandTranslator output | 2 | OC-S1-CMD-008 | Done |
+| - [x] **OC-S3-MF-004** | Generate `opencode.json` with `skills.paths` from SkillCopier output | 1 | OC-S1-SK-005 | Done |
+| - [x] **OC-S3-MF-005** | Generate `opencode.json` with `plugin` array referencing ensemble-opencode package | 1 | OC-S3-MF-001 | Done |
+| - [x] **OC-S3-MF-006** | Generate `opencode.json` with `instructions` array pointing to CLAUDE.md/AGENTS.md | 1 | OC-S3-MF-001 | Done |
+| - [x] **OC-S3-MF-007** | Generate `opencode.json` with `permission` block (default conservative permissions) | 1.5 | OC-S3-MF-001 | Done |
+| - [x] **OC-S3-MF-008** | Implement config merging: combine agent, command, skill, plugin, and permission sections | 2 | OC-S3-MF-007 | Done |
+| - [x] **OC-S3-TEST-009** | Unit tests for ManifestGenerator: manifest reading, config section generation, merging | 4 | OC-S3-MF-008 | Done |
 
 #### Generator CLI
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S3-CLI-001** | Implement CLI entry point (`scripts/generate-opencode/index.ts`) with Commander.js | 3 | OC-S1-PKG-003 | |
-| - [ ] **OC-S3-CLI-002** | Implement `--dry-run` flag: preview output without writing files | 2 | OC-S3-CLI-001 | |
-| - [ ] **OC-S3-CLI-003** | Implement `--verbose` flag: detailed logging of translation steps | 1.5 | OC-S3-CLI-001 | |
-| - [ ] **OC-S3-CLI-004** | Implement `--validate` flag: validate generated configs against OpenCode schema | 3 | OC-S3-CLI-001, OC-S3-MF-008 | |
-| - [ ] **OC-S3-CLI-005** | Implement `--output-dir` flag: custom output directory (default: `dist/opencode/`) | 1 | OC-S3-CLI-001 | |
-| - [ ] **OC-S3-CLI-006** | Implement full pipeline orchestration: SkillCopier -> CommandTranslator -> AgentTranslator -> HookBridgeGenerator -> ManifestGenerator | 4 | OC-S3-MF-008 | |
-| - [ ] **OC-S3-CLI-007** | Implement incremental generation: hash-based change detection, only re-translate modified packages | 4 | OC-S3-CLI-006 | |
-| - [ ] **OC-S3-CLI-008** | Add progress reporting: file count, translation status, timing | 2 | OC-S3-CLI-006 | |
-| - [ ] **OC-S3-CLI-009** | Implement error handling: collect errors per translator, report summary, non-zero exit on failures | 2 | OC-S3-CLI-006 | |
-| - [ ] **OC-S3-TEST-010** | Unit tests for CLI: flag parsing, pipeline orchestration, error handling | 4 | OC-S3-CLI-009 | |
-| - [ ] **OC-S3-TEST-011** | Integration test: full `npm run generate:opencode` produces complete valid output | 4 | OC-S3-CLI-009 | |
+| - [x] **OC-S3-CLI-001** | Implement CLI entry point (`scripts/generate-opencode/index.ts`) with Commander.js | 3 | OC-S1-PKG-003 | Done |
+| - [x] **OC-S3-CLI-002** | Implement `--dry-run` flag: preview output without writing files | 2 | OC-S3-CLI-001 | Done |
+| - [x] **OC-S3-CLI-003** | Implement `--verbose` flag: detailed logging of translation steps | 1.5 | OC-S3-CLI-001 | Done |
+| - [x] **OC-S3-CLI-004** | Implement `--validate` flag: validate generated configs against OpenCode schema | 3 | OC-S3-CLI-001, OC-S3-MF-008 | Done |
+| - [x] **OC-S3-CLI-005** | Implement `--output-dir` flag: custom output directory (default: `dist/opencode/`) | 1 | OC-S3-CLI-001 | Done |
+| - [x] **OC-S3-CLI-006** | Implement full pipeline orchestration: SkillCopier -> CommandTranslator -> AgentTranslator -> HookBridgeGenerator -> ManifestGenerator | 4 | OC-S3-MF-008 | Done |
+| - [x] **OC-S3-CLI-007** | Implement incremental generation: hash-based change detection, only re-translate modified packages | 4 | OC-S3-CLI-006 | Done |
+| - [x] **OC-S3-CLI-008** | Add progress reporting: file count, translation status, timing | 2 | OC-S3-CLI-006 | Done |
+| - [x] **OC-S3-CLI-009** | Implement error handling: collect errors per translator, report summary, non-zero exit on failures | 2 | OC-S3-CLI-006 | Done |
+| - [x] **OC-S3-TEST-010** | Unit tests for CLI: flag parsing, pipeline orchestration, error handling | 4 | OC-S3-CLI-009 | Done |
+| - [x] **OC-S3-TEST-011** | Integration test: full `npm run generate:opencode` produces complete valid output | 4 | OC-S3-CLI-009 | Done |
 
 #### Distribution Package
 

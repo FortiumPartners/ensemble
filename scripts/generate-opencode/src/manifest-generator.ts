@@ -12,9 +12,14 @@
  *   - Merge all sections into unified opencode.json
  *
  * Task IDs: OC-S3-MF-001 through OC-S3-MF-008
+ *
+ * NOTE: The canonical implementation is in manifest-generator.js (CommonJS).
+ * This TypeScript wrapper re-exports from the JS module for ts-node compatibility.
+ * Both files must be kept in sync.
  */
 
-// Stub: Implementation will be added in OC-S3-MF-001
-export class ManifestGenerator {
-  // TODO: Implement in OC-S3-MF-001
-}
+// Re-export from the CommonJS implementation
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const impl = require('./manifest-generator.js');
+
+export const ManifestGenerator = impl.ManifestGenerator;

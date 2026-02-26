@@ -1,35 +1,27 @@
 /**
- * OpenCode Generator CLI Entry Point
+ * OpenCode Generator CLI Entry Point (TypeScript wrapper)
  *
- * Orchestrates the translation of Ensemble plugin artifacts into
- * OpenCode-compatible formats. This is the main entry point for
- * `npm run generate:opencode`.
- *
- * Pipeline:
- *   1. SkillCopier      - Copy/validate SKILL.md files
- *   2. CommandTranslator - YAML commands -> OpenCode Markdown
- *   3. AgentTranslator   - YAML agents -> OpenCode JSON + Markdown
- *   4. HookBridge        - Ensemble hooks -> OpenCode hook API
- *   5. ManifestGenerator - Produce unified opencode.json
+ * The actual implementation lives in index.js (plain Node.js, no ts-node required).
+ * This file exists for backward compatibility if anyone invokes via ts-node.
  *
  * Usage:
- *   npx ts-node scripts/generate-opencode/index.ts [options]
+ *   node scripts/generate-opencode/index.js [options]
  *
  * Options:
  *   --dry-run     Preview output without writing files
  *   --verbose     Detailed logging of translation steps
  *   --validate    Validate generated configs against OpenCode schema
  *   --output-dir  Custom output directory (default: dist/opencode/)
+ *   --force       Bypass incremental cache
  */
 
-// Stub: Implementation will be added in OC-S3-CLI-001
-export async function main(): Promise<void> {
-  console.log('generate-opencode: stub - not yet implemented');
-}
+// Re-export from the JS implementation
+const cli = require('./index.js');
+
+export const main = cli.runPipeline;
+export const createProgram = cli.createProgram;
 
 if (require.main === module) {
-  main().catch((err) => {
-    console.error('Generator failed:', err);
-    process.exit(1);
-  });
+  // Delegate to the JS entry point
+  require('./index.js');
 }
