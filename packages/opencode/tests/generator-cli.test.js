@@ -189,10 +189,9 @@ describe('OC-S3-CLI-006: Pipeline orchestration', () => {
     expect(result.stdout).toMatch(/command/i);
   });
 
-  it('should gracefully skip AgentTranslator (not yet implemented)', () => {
-    // Should not crash, should mention skipping or not-implemented
+  it('should execute AgentTranslator step', () => {
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/agent.*skip|skip.*agent|agent.*not.*implement/i);
+    expect(result.stdout).toMatch(/agent/i);
   });
 
   it('should gracefully skip HookBridgeGenerator (not yet implemented)', () => {
