@@ -173,15 +173,15 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S2-HK-001** | Create `src/plugin/` directory in `packages/opencode/` with TypeScript plugin entry point | 2 | OC-S1-PKG-004 | |
-| - [ ] **OC-S2-HK-002** | Implement `HookBridgeGenerator` class: parse all `hooks.json` files from `packages/*/hooks/` | 3 | OC-S2-HK-001 | |
-| - [ ] **OC-S2-HK-003** | Implement `PreToolUse` -> `tool.execute.before` mapping with tool name matcher support | 4 | OC-S2-HK-002 | |
-| - [ ] **OC-S2-HK-004** | Implement `PostToolUse` -> `tool.execute.after` mapping with tool name matcher support | 3 | OC-S2-HK-003 | |
-| - [ ] **OC-S2-HK-005** | Implement environment variable bridging (TOOL_NAME, TOOL_INPUT from OpenCode hook context) | 2 | OC-S2-HK-003 | |
-| - [ ] **OC-S2-HK-006** | Implement hook blocking behavior (non-zero exit in PreToolUse prevents tool execution) | 2 | OC-S2-HK-003 | |
-| - [ ] **OC-S2-HK-007** | Document unmapped OpenCode hooks for future expansion (chat.params, shell.env, permission.ask, etc.) | 1.5 | OC-S2-HK-002 | |
-| - [ ] **OC-S2-TEST-007** | Unit tests for HookBridgeGenerator: hook parsing, matcher logic, env variable bridging | 4 | OC-S2-HK-006 | |
-| - [ ] **OC-S2-TEST-008** | Integration test: mock tool execution triggers before/after hooks with correct parameters | 3 | OC-S2-HK-006 | |
+| - [x] **OC-S2-HK-001** | Create `src/plugin/` directory in `packages/opencode/` with TypeScript plugin entry point | 2 | OC-S1-PKG-004 | Done |
+| - [x] **OC-S2-HK-002** | Implement `HookBridgeGenerator` class: parse all `hooks.json` files from `packages/*/hooks/` | 3 | OC-S2-HK-001 | Done |
+| - [x] **OC-S2-HK-003** | Implement `PreToolUse` -> `tool.execute.before` mapping with tool name matcher support | 4 | OC-S2-HK-002 | Done |
+| - [x] **OC-S2-HK-004** | Implement `PostToolUse` -> `tool.execute.after` mapping with tool name matcher support | 3 | OC-S2-HK-003 | Done |
+| - [x] **OC-S2-HK-005** | Implement environment variable bridging (TOOL_NAME, TOOL_INPUT from OpenCode hook context) | 2 | OC-S2-HK-003 | Done |
+| - [x] **OC-S2-HK-006** | Implement hook blocking behavior (non-zero exit in PreToolUse prevents tool execution) | 2 | OC-S2-HK-003 | Done |
+| - [x] **OC-S2-HK-007** | Document unmapped OpenCode hooks for future expansion (chat.params, shell.env, permission.ask, etc.) | 1.5 | OC-S2-HK-002 | Done |
+| - [x] **OC-S2-TEST-007** | Unit tests for HookBridgeGenerator: hook parsing, matcher logic, env variable bridging | 4 | OC-S2-HK-006 | Done |
+| - [x] **OC-S2-TEST-008** | Integration test: mock tool execution triggers before/after hooks with correct parameters | 3 | OC-S2-HK-006 | Done |
 
 **Sprint 2 Total: 65.5 hours (~3 weeks at 4 hours/day)**
 
