@@ -121,7 +121,9 @@ while true; do
     render
     
     # Non-blocking key read
-    if read -t 1 -n 1 key 2>/dev/null; then
+    # Read from /dev/tty to ensure input comes from the terminal device,
+    # not stdin (which may be a pipe when spawned by WezTerm split-pane)
+    if read -t 1 -n 1 key < /dev/tty 2>/dev/null; then
         [[ "$key" == "q" ]] && exit 0
     fi
 done
