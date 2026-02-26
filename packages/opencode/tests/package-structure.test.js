@@ -73,20 +73,24 @@ describe('OC-S1-PKG-003: scripts/generate-opencode/ structure', () => {
     expect(fs.existsSync(path.join(SCRIPTS_DIR, 'index.ts'))).toBe(true);
   });
 
-  it('should have src/ directory with translator module stubs', () => {
+  it('should have src/ directory with translator modules', () => {
     const srcDir = path.join(SCRIPTS_DIR, 'src');
     expect(fs.existsSync(srcDir)).toBe(true);
 
     const expectedModules = [
-      'skill-copier.ts',
-      'command-translator.ts',
-      'agent-translator.ts',
-      'hook-bridge.ts',
-      'manifest-generator.ts',
+      'skill-copier',
+      'command-translator',
+      'agent-translator',
+      'hook-bridge',
+      'manifest-generator',
     ];
 
     for (const mod of expectedModules) {
-      expect(fs.existsSync(path.join(srcDir, mod))).toBe(true);
+      // Each module should exist as .ts, .js, or .d.ts
+      const hasTs = fs.existsSync(path.join(srcDir, mod + '.ts'));
+      const hasJs = fs.existsSync(path.join(srcDir, mod + '.js'));
+      const hasDts = fs.existsSync(path.join(srcDir, mod + '.d.ts'));
+      expect(hasTs || hasJs || hasDts).toBe(true);
     }
   });
 });

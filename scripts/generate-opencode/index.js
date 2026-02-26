@@ -10,8 +10,8 @@
  * Pipeline:
  *   1. SkillCopier      - Copy/validate SKILL.md files
  *   2. CommandTranslator - YAML commands -> OpenCode Markdown
- *   3. AgentTranslator   - (Deferred to Sprint 2)
- *   4. HookBridge        - (Deferred to Sprint 2)
+ *   3. AgentTranslator   - YAML agents -> OpenCode JSON config + Markdown
+ *   4. HookBridge        - Hook bridge config generation
  *   5. ManifestGenerator - Produce unified opencode.json
  *
  * Task IDs: OC-S3-CLI-001 through OC-S3-CLI-009
@@ -313,14 +313,33 @@ async function runPipeline(opts) {
     }
   }
 
-  // --- Step 3: AgentTranslator (deferred - Sprint 2) ---
+  // --- Step 3: AgentTranslator ---
+  let agentResult = { configBlock: {}, routingPrompt: '', agents: [], errors: [] };
   {
     const timer = new StepTimer('AgentTranslator', verbose);
-    if (verbose) {
-      console.log('  [AgentTranslator] Skipped - not yet implemented (Sprint 2)');
+    try {
+      const { AgentTranslator } = require('./src/agent-translator');
+      const translator = new AgentTranslator({
+        packagesDir: path.join(ROOT, 'packages'),
+        outputDir: path.join(outputDir, '.opencode', 'agents'),
+        dryRun,
+        verbose,
+      });
+      agentResult = translator.executeSync();
+      const agentCount = agentResult.agents.length;
+      const errCount = agentResult.errors.length;
+      const info = timer.end(`${agentCount} agents translated${errCount > 0 ? `, ${errCount} errors` : ''}`);
+      stepResults.push(info);
+      if (errCount > 0) {
+        for (const e of agentResult.errors) {
+          errors.push({ step: 'AgentTranslator', message: e.message });
+        }
+      }
+    } catch (err) {
+      errors.push({ step: 'AgentTranslator', message: err.message });
+      const info = timer.end(`ERROR: ${err.message}`);
+      stepResults.push(info);
     }
-    const info = timer.end('skipped (not yet implemented)');
-    stepResults.push(info);
   }
 
   // --- Step 4: HookBridgeGenerator (deferred - Sprint 2) ---
@@ -348,7 +367,7 @@ async function runPipeline(opts) {
         skills: {
           paths: skillResult.paths || [path.join(outputDir, '.opencode', 'skill')],
         },
-        agent: {},
+        agent: agentResult.configBlock || {},
         plugin: [],
         instructions: [],
         permission: {

@@ -154,20 +154,20 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S2-AGT-001** | Implement `AgentTranslator` class: parse Ensemble agent YAML schema | 3 | OC-S1-PKG-003 | |
-| - [ ] **OC-S2-AGT-002** | Implement tool permission mapping (Ensemble tools -> OpenCode permission config) | 3 | OC-S2-AGT-001 | |
-| - [ ] **OC-S2-AGT-003** | Implement mission/responsibilities to OpenCode `prompt` field concatenation | 3 | OC-S2-AGT-001 | |
-| - [ ] **OC-S2-AGT-004** | Implement agent mode classification (orchestrator -> primary, specialist/developer/utility/quality -> subagent) | 2 | OC-S2-AGT-001 | |
-| - [ ] **OC-S2-AGT-005** | Implement model hint translation (opus-4-6 -> anthropic/claude-opus-4-6, etc.) | 1.5 | OC-S2-AGT-001 | |
-| - [ ] **OC-S2-AGT-006** | Generate OpenCode agent JSON config entries for opencode.json `agent` block | 3 | OC-S2-AGT-004 | |
-| - [ ] **OC-S2-AGT-007** | Generate OpenCode agent Markdown files in `dist/opencode/.opencode/agents/` | 3 | OC-S2-AGT-003 | |
-| - [ ] **OC-S2-AGT-008** | Implement delegation hierarchy extraction from `integrationProtocols` and `delegationCriteria` | 4 | OC-S2-AGT-001 | |
-| - [ ] **OC-S2-AGT-009** | Generate routing prompt for primary orchestrator agent with full 28-agent delegation map | 4 | OC-S2-AGT-008 | |
-| - [ ] **OC-S2-AGT-010** | Implement `@agent-name` reference injection for subagent delegation in generated prompts | 2 | OC-S2-AGT-009 | |
-| - [ ] **OC-S2-AGT-011** | Handle agent categories as metadata tags in generated config (for filtering and selection) | 1.5 | OC-S2-AGT-006 | |
-| - [ ] **OC-S2-TEST-004** | Unit tests for AgentTranslator: YAML parsing, permission mapping, mode classification | 5 | OC-S2-AGT-007 | |
-| - [ ] **OC-S2-TEST-005** | Unit tests for routing prompt generation: verify all 28 agents referenced, delegation criteria preserved | 3 | OC-S2-AGT-009 | |
-| - [ ] **OC-S2-TEST-006** | Snapshot tests: compare generated agent configs against golden files for 5 representative agents | 3 | OC-S2-AGT-007 | |
+| - [x] **OC-S2-AGT-001** | Implement `AgentTranslator` class: parse Ensemble agent YAML schema | 3 | OC-S1-PKG-003 | Done |
+| - [x] **OC-S2-AGT-002** | Implement tool permission mapping (Ensemble tools -> OpenCode permission config) | 3 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-003** | Implement mission/responsibilities to OpenCode `prompt` field concatenation | 3 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-004** | Implement agent mode classification (orchestrator -> primary, specialist/developer/utility/quality -> subagent) | 2 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-005** | Implement model hint translation (opus-4-6 -> anthropic/claude-opus-4-6, etc.) | 1.5 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-006** | Generate OpenCode agent JSON config entries for opencode.json `agent` block | 3 | OC-S2-AGT-004 | Done |
+| - [x] **OC-S2-AGT-007** | Generate OpenCode agent Markdown files in `dist/opencode/.opencode/agents/` | 3 | OC-S2-AGT-003 | Done |
+| - [x] **OC-S2-AGT-008** | Implement delegation hierarchy extraction from `integrationProtocols` and `delegationCriteria` | 4 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-009** | Generate routing prompt for primary orchestrator agent with full 28-agent delegation map | 4 | OC-S2-AGT-008 | Done |
+| - [x] **OC-S2-AGT-010** | Implement `@agent-name` reference injection for subagent delegation in generated prompts | 2 | OC-S2-AGT-009 | Done |
+| - [x] **OC-S2-AGT-011** | Handle agent categories as metadata tags in generated config (for filtering and selection) | 1.5 | OC-S2-AGT-006 | Done |
+| - [x] **OC-S2-TEST-004** | Unit tests for AgentTranslator: YAML parsing, permission mapping, mode classification | 5 | OC-S2-AGT-007 | Done |
+| - [x] **OC-S2-TEST-005** | Unit tests for routing prompt generation: verify all 28 agents referenced, delegation criteria preserved | 3 | OC-S2-AGT-009 | Done |
+| - [x] **OC-S2-TEST-006** | Snapshot tests: compare generated agent configs against golden files for 5 representative agents | 3 | OC-S2-AGT-007 | Done |
 
 #### Hook Bridge Plugin
 
@@ -192,7 +192,7 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
 | - [x] **OC-S3-MF-001** | Implement `ManifestGenerator` class: read all 25 `packages/*/.claude-plugin/plugin.json` manifests | 3 | OC-S1-PKG-003 | Done |
-| - [ ] **OC-S3-MF-002** | Generate `opencode.json` with `agent` block from AgentTranslator output | 2 | OC-S2-AGT-006 | Deferred (S2) |
+| - [x] **OC-S3-MF-002** | Generate `opencode.json` with `agent` block from AgentTranslator output | 2 | OC-S2-AGT-006 | Done |
 | - [x] **OC-S3-MF-003** | Generate `opencode.json` with `command` block from CommandTranslator output | 2 | OC-S1-CMD-008 | Done |
 | - [x] **OC-S3-MF-004** | Generate `opencode.json` with `skills.paths` from SkillCopier output | 1 | OC-S1-SK-005 | Done |
 | - [x] **OC-S3-MF-005** | Generate `opencode.json` with `plugin` array referencing ensemble-opencode package | 1 | OC-S3-MF-001 | Done |
