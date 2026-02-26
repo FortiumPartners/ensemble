@@ -221,13 +221,13 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S3-DIST-001** | Create `packages/opencode/src/index.ts` plugin entry point using `@opencode-ai/plugin` | 3 | OC-S2-HK-006 | |
-| - [ ] **OC-S3-DIST-002** | Implement plugin `tool` registrations: register Ensemble-specific custom tools if needed | 2 | OC-S3-DIST-001 | |
-| - [ ] **OC-S3-DIST-003** | Implement plugin hook registrations: wire up hook bridge from OC-S2-HK-* | 2 | OC-S3-DIST-001, OC-S2-HK-006 | |
-| - [ ] **OC-S3-DIST-004** | Configure `packages/opencode/package.json` for npm publishing (name: ensemble-opencode, main, types, files) | 2 | OC-S3-DIST-001 | |
-| - [ ] **OC-S3-DIST-005** | Add build step: compile TypeScript to JS, bundle for Bun compatibility | 3 | OC-S3-DIST-004 | |
-| - [ ] **OC-S3-DIST-006** | Implement `file:///` local path installation support for development | 1.5 | OC-S3-DIST-005 | |
-| - [ ] **OC-S3-DIST-007** | Add version sync script: ensure ensemble-opencode version matches ensemble-full | 1 | OC-S3-DIST-004 | |
+| - [x] **OC-S3-DIST-001** | Create `packages/opencode/src/index.ts` plugin entry point using `@opencode-ai/plugin` | 3 | OC-S2-HK-006 | Done |
+| - [x] **OC-S3-DIST-002** | Implement plugin `tool` registrations: register Ensemble-specific custom tools if needed | 2 | OC-S3-DIST-001 | Done |
+| - [ ] **OC-S3-DIST-003** | Implement plugin hook registrations: wire up hook bridge from OC-S2-HK-* | 2 | OC-S3-DIST-001, OC-S2-HK-006 | Deferred (S2) |
+| - [x] **OC-S3-DIST-004** | Configure `packages/opencode/package.json` for npm publishing (name: ensemble-opencode, main, types, files) | 2 | OC-S3-DIST-001 | Done |
+| - [x] **OC-S3-DIST-005** | Add build step: compile TypeScript to JS, bundle for Bun compatibility | 3 | OC-S3-DIST-004 | Done |
+| - [x] **OC-S3-DIST-006** | Implement `file:///` local path installation support for development | 1.5 | OC-S3-DIST-005 | Done |
+| - [x] **OC-S3-DIST-007** | Add version sync script: ensure ensemble-opencode version matches ensemble-full | 1 | OC-S3-DIST-004 | Done |
 | - [ ] **OC-S3-TEST-012** | Unit tests for plugin entry point: hook registration, tool registration | 3 | OC-S3-DIST-003 | |
 | - [ ] **OC-S3-TEST-013** | Integration test: `file:///` local install loads plugin in OpenCode | 3 | OC-S3-DIST-006 | |
 
@@ -239,11 +239,11 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S4-CI-001** | Create GitHub Actions workflow: `opencode-generate.yml` that runs `npm run generate:opencode --validate` on every PR | 3 | OC-S3-CLI-004 | |
-| - [ ] **OC-S4-CI-002** | Add regression test step: verify existing Claude Code artifacts unchanged after generation | 2 | OC-S4-CI-001 | |
-| - [ ] **OC-S4-CI-003** | Add generated output diff check: fail PR if generated output is stale (needs regeneration) | 2 | OC-S4-CI-001 | |
+| - [x] **OC-S4-CI-001** | Create GitHub Actions workflow: `opencode-generate.yml` that runs `npm run generate:opencode --validate` on every PR | 3 | OC-S3-CLI-004 | Done |
+| - [x] **OC-S4-CI-002** | Add regression test step: verify existing Claude Code artifacts unchanged after generation | 2 | OC-S4-CI-001 | Done |
+| - [x] **OC-S4-CI-003** | Add generated output diff check: fail PR if generated output is stale (needs regeneration) | 2 | OC-S4-CI-001 | Done |
 | - [ ] **OC-S4-CI-004** | Create npm publish workflow for ensemble-opencode on git tag | 3 | OC-S3-DIST-005 | |
-| - [ ] **OC-S4-CI-005** | Add OpenCode schema validation step to existing `validate.yml` workflow | 2 | OC-S4-CI-001 | |
+| - [x] **OC-S4-CI-005** | Add OpenCode schema validation step to existing `validate.yml` workflow | 2 | OC-S4-CI-001 | Done |
 
 #### End-to-End Testing
 
@@ -254,7 +254,7 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 | - [ ] **OC-S4-TEST-016** | E2E test: execute `/project:ensemble:fix-issue` in OpenCode, validate workflow | 4 | OC-S4-TEST-014 | |
 | - [ ] **OC-S4-TEST-017** | E2E test: execute `/project:ensemble:fold-prompt` in OpenCode, validate output | 3 | OC-S4-TEST-014 | |
 | - [ ] **OC-S4-TEST-018** | E2E test: verify hook bridge fires on tool execution (before + after hooks) | 3 | OC-S4-TEST-014 | |
-| - [ ] **OC-S4-TEST-019** | Performance test: measure generation time (target < 10s full, < 2s incremental) | 2 | OC-S3-CLI-007 | |
+| - [x] **OC-S4-TEST-019** | Performance test: measure generation time (target < 10s full, < 2s incremental) | 2 | OC-S3-CLI-007 | Done |
 | - [ ] **OC-S4-TEST-020** | Performance test: measure plugin load time (target < 500ms) | 2 | OC-S3-DIST-005 | |
 | - [ ] **OC-S4-TEST-021** | Performance test: measure hook overhead (target < 50ms per hook invocation) | 2 | OC-S2-HK-006 | |
 
@@ -265,7 +265,7 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 | - [ ] **OC-S4-DOC-001** | Write quick-start guide for OpenCode users: install, configure, verify | 4 | OC-S3-DIST-006 | |
 | - [ ] **OC-S4-DOC-002** | Write translation mapping reference: complete Ensemble -> OpenCode artifact mapping | 3 | OC-S3-CLI-006 | |
 | - [ ] **OC-S4-DOC-003** | Write agent mesh guide for OpenCode: how delegation works, agent categories, routing | 3 | OC-S2-AGT-009 | |
-| - [ ] **OC-S4-DOC-004** | Update CLAUDE.md with OpenCode generation instructions and package reference | 1.5 | OC-S3-CLI-006 | |
+| - [x] **OC-S4-DOC-004** | Update CLAUDE.md with OpenCode generation instructions and package reference | 1.5 | OC-S3-CLI-006 | Done |
 | - [ ] **OC-S4-DOC-005** | Write CHANGELOG.md entry for ensemble-opencode v5.x initial release | 1 | OC-S4-CI-004 | |
 | - [ ] **OC-S4-DOC-006** | Create packages/opencode/README.md with installation, usage, and configuration docs | 3 | OC-S3-DIST-006 | |
 | - [ ] **OC-S4-DOC-007** | Document known limitations and feature parity gaps vs Claude Code | 2 | OC-S4-TEST-017 | |
@@ -274,8 +274,8 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S4-PKG-007** | Add packages/opencode to `validate-all.js` script for plugin.json validation | 1.5 | OC-S1-PKG-001 | |
-| - [ ] **OC-S4-PKG-008** | Add ensemble-opencode to marketplace.json | 1 | OC-S3-DIST-004 | |
+| - [x] **OC-S4-PKG-007** | Add packages/opencode to `validate-all.js` script for plugin.json validation | 1.5 | OC-S1-PKG-001 | Done (auto-included) |
+| - [x] **OC-S4-PKG-008** | Add ensemble-opencode to marketplace.json | 1 | OC-S3-DIST-004 | Done |
 | - [ ] **OC-S4-PKG-009** | Run full validation suite: `npm run validate` passes with new package | 1 | OC-S4-PKG-007 | |
 | - [ ] **OC-S4-DIST-008** | Publish ensemble-opencode v5.3.0 to npm (matching ensemble-full version) | 2 | OC-S4-CI-004 | |
 
