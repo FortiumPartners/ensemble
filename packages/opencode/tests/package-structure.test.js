@@ -21,7 +21,12 @@ describe('OC-S1-PKG-001: packages/opencode/ directory structure', () => {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     expect(pkg.name).toBe('@fortium/ensemble-opencode');
     expect(pkg.version).toBe('5.3.0');
-    expect(pkg.author).toBe('Fortium Partners');
+    // Author can be string or object with name field (TRD specifies object form)
+    if (typeof pkg.author === 'string') {
+      expect(pkg.author).toBe('Fortium Partners');
+    } else {
+      expect(pkg.author).toHaveProperty('name', 'Fortium Partners');
+    }
     expect(pkg.license).toBe('MIT');
   });
 
