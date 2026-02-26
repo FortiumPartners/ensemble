@@ -239,7 +239,9 @@ handle_input() {
     local key
 
     # Read with 100ms timeout, single character, silent
-    if read -t 0.1 -n 1 -s key 2>/dev/null; then
+    # Read from /dev/tty to ensure input comes from the terminal device,
+    # not stdin (which may be a pipe when spawned by WezTerm split-pane)
+    if read -t 0.1 -n 1 -s key < /dev/tty 2>/dev/null; then
         case "$key" in
             e|$'\n')  # e or Enter
                 toggle_expand
@@ -250,7 +252,7 @@ handle_input() {
             j|$'\x1b')  # j or escape sequence start (arrow keys)
                 # Handle arrow keys
                 if [[ "$key" == $'\x1b' ]]; then
-                    read -t 0.01 -n 2 -s arrow 2>/dev/null
+                    read -t 0.01 -n 2 -s arrow < /dev/tty 2>/dev/null
                     if [[ "$arrow" == "[B" ]]; then  # Down arrow
                         navigate_down
                     elif [[ "$arrow" == "[A" ]]; then  # Up arrow
@@ -489,7 +491,7 @@ if [ "$AUTO_CLOSE_TIMEOUT" -gt 0 ] 2>/dev/null; then
     countdown=$AUTO_CLOSE_TIMEOUT
     while [ $countdown -gt 0 ]; do
         # Check for keypress with 1 second timeout
-        if read -t 1 -n 1 -s 2>/dev/null; then
+        if read -t 1 -n 1 -s < /dev/tty 2>/dev/null; then
             break  # User pressed a key
         fi
         countdown=$((countdown - 1))
@@ -502,5 +504,5 @@ if [ "$AUTO_CLOSE_TIMEOUT" -gt 0 ] 2>/dev/null; then
 else
     # Manual close (original behavior)
     echo -e "${DIM}Press any key to close...${RESET}"
-    read -n 1 -s
+    read -n 1 -s < /dev/tty
 fi
