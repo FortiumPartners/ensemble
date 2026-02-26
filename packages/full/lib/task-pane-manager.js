@@ -77,7 +77,9 @@ class TaskPaneManager {
 
     // Check if existing pane is still valid
     if (this.paneId) {
-      const info = await this.adapter.getPaneInfo(this.paneId);
+      const info = await this.adapter.getPaneInfo(this.paneId, {
+        signalFile: this.signalFile
+      });
       if (info) {
         return this.paneId;
       }
@@ -212,7 +214,9 @@ class TaskPaneManager {
       return false;
     }
 
-    const info = await this.adapter.getPaneInfo(this.paneId);
+    const info = await this.adapter.getPaneInfo(this.paneId, {
+      signalFile: this.signalFile
+    });
     return info !== null;
   }
 
