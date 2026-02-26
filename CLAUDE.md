@@ -1,5 +1,15 @@
 # Ensemble Plugins - Claude Code Configuration
 
+## MANDATORY: Use td for Task Management
+
+Run td usage --new-session at conversation start (or after /clear). This tells you what to work on next.
+
+Sessions are automatic (based on terminal/agent context). Optional:
+- td session "name" to label the current session
+- td session --new to force a new session in the same context
+
+Use td usage -q after first read.
+
 > Modular plugin ecosystem for Claude Code (v5.1.0) | 25 packages | 28 agents | 4-tier architecture
 
 ## Quick Reference
