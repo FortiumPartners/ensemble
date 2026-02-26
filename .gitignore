@@ -13,3 +13,7 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Local tool state
+.sidecar/
+.todos/
+
