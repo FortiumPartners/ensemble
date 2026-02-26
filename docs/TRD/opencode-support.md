@@ -110,12 +110,12 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| - [ ] **OC-S1-PKG-001** | Create `packages/opencode/` directory structure with package.json, plugin.json, tsconfig.json | 2 | None | |
-| - [ ] **OC-S1-PKG-002** | Add `ensemble-opencode` to root package.json workspaces | 0.5 | OC-S1-PKG-001 | |
-| - [ ] **OC-S1-PKG-003** | Create `scripts/generate-opencode/` directory structure with index.ts entry point | 2 | None | |
-| - [ ] **OC-S1-PKG-004** | Add `@opencode-ai/plugin` as devDependency for type definitions | 1 | OC-S1-PKG-001 | |
-| - [ ] **OC-S1-PKG-005** | Add `npm run generate:opencode` script to root package.json | 0.5 | OC-S1-PKG-003 | |
-| - [ ] **OC-S1-PKG-006** | Create `dist/opencode/` output directory structure (.opencode/commands/ensemble/, .opencode/agents/, .opencode/skill/) | 1 | OC-S1-PKG-003 | |
+| - [x] **OC-S1-PKG-001** | Create `packages/opencode/` directory structure with package.json, plugin.json, tsconfig.json | 2 | None | Done |
+| - [x] **OC-S1-PKG-002** | Add `ensemble-opencode` to root package.json workspaces | 0.5 | OC-S1-PKG-001 | Done |
+| - [x] **OC-S1-PKG-003** | Create `scripts/generate-opencode/` directory structure with index.ts entry point | 2 | None | Done |
+| - [x] **OC-S1-PKG-004** | Add `@opencode-ai/plugin` as devDependency for type definitions | 1 | OC-S1-PKG-001 | Done |
+| - [x] **OC-S1-PKG-005** | Add `npm run generate:opencode` script to root package.json | 0.5 | OC-S1-PKG-003 | Done |
+| - [x] **OC-S1-PKG-006** | Create `dist/opencode/` output directory structure (.opencode/commands/ensemble/, .opencode/agents/, .opencode/skill/) | 1 | OC-S1-PKG-003 | Done |
 
 #### Skill Copier
 
