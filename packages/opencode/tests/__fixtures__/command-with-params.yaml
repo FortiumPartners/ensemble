@@ -1,0 +1,72 @@
+metadata:
+  name: ensemble:fix-issue
+  description: Lightweight workflow for bug fixes and small issues
+  version: 1.0.0
+  lastUpdated: "2026-02-16"
+  category: implementation
+  model: sonnet
+  output_path: ensemble/fix-issue.md
+  source: fortium
+
+parameters:
+  - name: description
+    type: string
+    required: false
+    description: Issue description (free text or omit if using --issue)
+
+  - name: issue
+    type: number
+    required: false
+    description: GitHub issue number (e.g., --issue 34)
+
+  - name: branch
+    type: string
+    required: false
+    description: Custom branch name (default auto-generated)
+
+constraints:
+  - GitHub only (no GitLab/Bitbucket in v1.0)
+  - GitHub CLI (gh) must be installed and authenticated
+  - Tests must pass unless --skip-tests flag is used
+
+mission:
+  summary: |
+    Orchestrate a complete bug fix workflow from analysis to PR creation.
+
+workflow:
+  phases:
+    - name: Analysis & Planning
+      order: 1
+      steps:
+        - order: 1
+          title: Codebase Analysis
+          description: Explore codebase to identify affected files
+          delegation:
+            agent: general-purpose
+            context: Issue description and codebase context
+
+        - order: 2
+          title: Collaborative Planning
+          description: Assemble virtual team for comprehensive fix plan
+
+    - name: Validation & Delivery
+      order: 2
+      steps:
+        - order: 1
+          title: Test Validation
+          description: Run test suite with auto-fix retry logic
+          delegation:
+            agent: test-runner
+            context: Test specifications and retry config
+
+        - order: 2
+          title: PR Creation
+          description: Create comprehensive pull request with GitHub CLI
+
+expectedOutput:
+  format: Pull Request
+  structure:
+    - name: Git Branch
+      description: Feature branch following fix/issue-{num}-{slug} convention
+    - name: Pull Request
+      description: Comprehensive PR with problem, solution, changes, and test plan

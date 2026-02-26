@@ -1,0 +1,69 @@
+metadata:
+  name: ensemble:create-trd
+  description: |
+    Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
+  version: 2.0.0
+  lastUpdated: "2026-02-16"
+  category: planning
+  output_path: ensemble/create-trd.md
+  source: fortium
+  model: opus-4-6
+
+constraints:
+  - DO NOT implement, build, or execute any technical work described in the requirements
+  - This command creates ONLY a TRD document
+  - After creating the TRD, stop and wait for user approval before any implementation
+
+mission:
+  summary: |
+    This command takes a comprehensive Product Requirements Document (PRD) $ARGUMENTS and delegates to
+    @tech-lead-orchestrator via @ensemble-orchestrator for technical planning.
+
+workflow:
+  phases:
+    - name: PRD Analysis & Validation
+      order: 1
+      steps:
+        - order: 1
+          title: PRD Ingestion
+          description: Parse and analyze existing PRD document $ARGUMENTS
+          actions:
+            - Read PRD file from specified path
+            - Validate document structure
+
+        - order: 2
+          title: Requirements Validation
+          description: Ensure completeness of functional and non-functional requirements
+
+    - name: Agent Mesh Delegation
+      order: 2
+      steps:
+        - order: 1
+          title: Ensemble Orchestrator
+          description: Route validated PRD to @ensemble-orchestrator
+          delegation:
+            agent: ensemble-orchestrator
+            context: Validated PRD with acceptance criteria
+
+        - order: 2
+          title: Tech Lead Orchestrator
+          description: Delegate technical planning and architecture design
+          delegation:
+            agent: tech-lead-orchestrator
+            context: Product requirements requiring technical translation
+
+    - name: Output Management
+      order: 3
+      steps:
+        - order: 1
+          title: TRD Creation
+          description: Generate comprehensive TRD document
+
+expectedOutput:
+  format: Technical Requirements Document (TRD)
+  structure:
+    - name: Master Task List
+      description: Comprehensive task tracking with unique task IDs
+
+    - name: System Architecture
+      description: Component design, data flow, and integration points

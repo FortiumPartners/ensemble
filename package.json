@@ -16,6 +16,7 @@
     "generate:agents": "node scripts/generate-markdown.js --type agents",
     "generate:watch": "node scripts/generate-markdown.js --watch",
     "generate:validate": "node scripts/generate-markdown.js --validate",
+    "generate:opencode": "node scripts/generate-opencode/index.js",
     "publish:changed": "node scripts/publish-plugin.js"
   },
   "devDependencies": {
