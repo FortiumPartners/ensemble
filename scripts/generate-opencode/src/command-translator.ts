@@ -10,9 +10,14 @@
  *   - Map model hints to OpenCode providerID/modelID format
  *
  * Task IDs: OC-S1-CMD-001 through OC-S1-CMD-010
+ *
+ * NOTE: The canonical implementation is in command-translator.js (CommonJS).
+ * This TypeScript wrapper re-exports from the JS module for ts-node compatibility.
+ * Both files must be kept in sync.
  */
 
-// Stub: Implementation will be added in OC-S1-CMD-001
-export class CommandTranslator {
-  // TODO: Implement in OC-S1-CMD-001
-}
+// Re-export from the CommonJS implementation
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const impl = require('./command-translator.js');
+
+export const CommandTranslator = impl.CommandTranslator;

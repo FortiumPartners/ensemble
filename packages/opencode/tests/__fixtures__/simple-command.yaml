@@ -1,0 +1,51 @@
+metadata:
+  name: ensemble:fold-prompt
+  description: Advanced Claude environment optimization through intelligent project analysis and context management
+  version: 2.0.0
+  lastUpdated: "2025-10-13"
+  category: analysis
+  output_path: ensemble/fold-prompt.md
+  source: fortium
+
+mission:
+  summary: |
+    Advanced Claude environment optimization through intelligent project analysis, context
+    management, and documentation enhancement for maximum productivity gains.
+
+workflow:
+  phases:
+    - name: Intelligent Discovery & Context Mapping
+      order: 1
+      steps:
+        - order: 1
+          title: Deep Project Analysis
+          description: Scan directory structure with pattern recognition
+          actions:
+            - Analyze codebase architecture and technology stack
+            - Identify documentation gaps
+
+        - order: 2
+          title: Context Intelligence Gathering
+          description: Extract project context and patterns
+          actions:
+            - Extract project goals from existing docs
+            - Analyze commit history and development patterns
+
+    - name: Strategic Optimization & Enhancement
+      order: 2
+      steps:
+        - order: 1
+          title: CLAUDE.md Intelligence Enhancement
+          description: Optimize for Claude Code context retention
+          actions:
+            - Integrate agent mesh orchestration patterns
+            - Add productivity-focused quick reference sections
+
+expectedOutput:
+  format: Optimized Claude Configuration
+  structure:
+    - name: CLAUDE.md
+      description: Optimized with intelligent context management and agent orchestration
+
+    - name: README.md
+      description: Aligned with current status and enhanced with productivity metrics

@@ -1,80 +1,45 @@
-/**
- * SkillCopier - Discovers and copies SKILL.md files to OpenCode paths
- *
- * Responsibilities:
- *   - Discover all SKILL.md files across packages/*/skills/
- *   - Inject frontmatter (name, description) for OpenCode discovery
- *   - Convert REFERENCE.md to SKILL.md format where needed
- *   - Copy validated skills to dist/opencode/.opencode/skill/<framework>/
- *   - Generate skills.paths config entries for opencode.json
- *
- * Task IDs: OC-S1-SK-001 through OC-S1-SK-006
- *
- * NOTE: The runtime implementation is in packages/opencode/lib/skill-copier.js
- * This TypeScript file serves as the type definition and will re-export
- * the JS implementation once the build pipeline compiles it.
- */
+// SkillCopier - Discovers and copies SKILL.md files to OpenCode paths
+//
+// Responsibilities:
+//   - Discover all SKILL.md files across packages/[pkg]/skills/
+//   - Inject frontmatter (name, description) for OpenCode discovery
+//   - Convert REFERENCE.md to SKILL.md format where needed
+//   - Copy validated skills to dist/opencode/.opencode/skill/[framework]/
+//   - Generate skills.paths config entries for opencode.json
+//
+// Task IDs: OC-S1-SK-001 through OC-S1-SK-006
 
-import * as fs from 'fs';
-import * as path from 'path';
+'use strict';
 
-export interface SkillCopierOptions {
-  /** Path to packages/ directory */
-  packagesDir: string;
-  /** Path to dist/opencode/.opencode/skill/ */
-  outputDir: string;
-  /** Whether to add frontmatter (default: true) */
-  injectFrontmatter?: boolean;
-  /** If true, don't write files */
-  dryRun?: boolean;
-  /** If true, log progress */
-  verbose?: boolean;
-}
-
-export interface TranslationError {
-  file: string;
-  error: string;
-}
-
-export interface SkillCopierResult {
-  skillsCopied: number;
-  referencesConverted: number;
-  /** Generated skill config paths for opencode.json */
-  paths: string[];
-  errors: TranslationError[];
-}
-
-interface PackageInfo {
-  packageName: string;
-  skillPath: string;
-}
-
-interface ParsedFrontmatter {
-  data: Record<string, string | string[]>;
-  content: string;
-  hasFrontmatter: boolean;
-}
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Parse YAML frontmatter from a markdown string.
+ * Returns { data: {}, content: string, hasFrontmatter: boolean }
+ *
+ * This is a lightweight replacement for gray-matter that handles
+ * the simple YAML frontmatter format used in SKILL.md files.
  */
-function parseFrontmatter(input: string): ParsedFrontmatter {
-  if (!input.startsWith('---\n')) {
+function parseFrontmatter(input) {
+  const trimmed = input;
+  if (!trimmed.startsWith('---\n')) {
     return { data: {}, content: input, hasFrontmatter: false };
   }
 
-  const endIndex = input.indexOf('\n---\n', 4);
+  const endIndex = trimmed.indexOf('\n---\n', 4);
   if (endIndex === -1) {
-    if (input.endsWith('\n---')) {
-      const yamlStr = input.slice(4, input.length - 3);
+    // Check if frontmatter closes at end of file: ---\n...\n---
+    if (trimmed.endsWith('\n---')) {
+      const yamlStr = trimmed.slice(4, trimmed.length - 3);
       const data = parseSimpleYaml(yamlStr);
       return { data, content: '', hasFrontmatter: true };
     }
     return { data: {}, content: input, hasFrontmatter: false };
   }
 
-  const yamlStr = input.slice(4, endIndex);
-  const content = input.slice(endIndex + 5);
+  const yamlStr = trimmed.slice(4, endIndex);
+  const content = trimmed.slice(endIndex + 5); // skip \n---\n
   const data = parseSimpleYaml(yamlStr);
 
   return { data, content, hasFrontmatter: true };
@@ -82,29 +47,35 @@ function parseFrontmatter(input: string): ParsedFrontmatter {
 
 /**
  * Parse simple YAML key-value pairs (single level only).
+ * Handles strings, numbers, and simple lists. Enough for frontmatter.
  */
-function parseSimpleYaml(yamlStr: string): Record<string, string | string[]> {
-  const data: Record<string, string | string[]> = {};
+function parseSimpleYaml(yamlStr) {
+  const data = {};
   const lines = yamlStr.split('\n');
-  let currentKey: string | null = null;
+
+  let currentKey = null;
 
   for (const line of lines) {
+    // Skip empty lines and comments
     if (line.trim() === '' || line.trim().startsWith('#')) continue;
 
+    // Check for list item (indented with -)
     if (/^\s+-\s+/.test(line) && currentKey) {
       const value = line.replace(/^\s+-\s+/, '').trim();
       if (!Array.isArray(data[currentKey])) {
         data[currentKey] = [];
       }
-      (data[currentKey] as string[]).push(value);
+      data[currentKey].push(value);
       continue;
     }
 
+    // Key-value pair
     const match = line.match(/^([a-zA-Z_][a-zA-Z0-9_-]*):\s*(.*)/);
     if (match) {
       const key = match[1];
       let value = match[2].trim();
 
+      // Remove surrounding quotes
       if (
         (value.startsWith('"') && value.endsWith('"')) ||
         (value.startsWith("'") && value.endsWith("'"))
@@ -113,7 +84,12 @@ function parseSimpleYaml(yamlStr: string): Record<string, string | string[]> {
       }
 
       currentKey = key;
-      data[key] = value;
+      if (value === '') {
+        // Could be start of a list or multi-line value
+        data[key] = '';
+      } else {
+        data[key] = value;
+      }
     }
   }
 
@@ -123,8 +99,8 @@ function parseSimpleYaml(yamlStr: string): Record<string, string | string[]> {
 /**
  * Stringify a simple object to YAML frontmatter format.
  */
-function stringifyFrontmatter(data: Record<string, string | string[]>): string {
-  const lines: string[] = [];
+function stringifyFrontmatter(data) {
+  const lines = [];
   for (const [key, value] of Object.entries(data)) {
     if (Array.isArray(value)) {
       lines.push(`${key}:`);
@@ -132,6 +108,7 @@ function stringifyFrontmatter(data: Record<string, string | string[]>): string {
         lines.push(`  - ${item}`);
       }
     } else {
+      // Quote values that contain special characters
       const strValue = String(value);
       if (
         strValue.includes(':') ||
@@ -150,11 +127,13 @@ function stringifyFrontmatter(data: Record<string, string | string[]>): string {
 
 /**
  * Extract the first meaningful line of content from markdown.
+ * Used to generate a description from the file body.
  */
-function extractDescription(content: string): string {
+function extractDescription(content) {
   const lines = content.split('\n');
   for (const line of lines) {
     const trimmed = line.trim();
+    // Skip empty lines, headings, and horizontal rules
     if (
       trimmed === '' ||
       trimmed.startsWith('#') ||
@@ -164,71 +143,99 @@ function extractDescription(content: string): string {
     ) {
       continue;
     }
+    // Strip bold markers for cleaner description
     const cleaned = trimmed.replace(/\*\*/g, '').trim();
     if (cleaned.length > 0) {
+      // Truncate to reasonable length
       return cleaned.length > 120 ? cleaned.slice(0, 117) + '...' : cleaned;
     }
   }
   return 'Ensemble skill documentation';
 }
 
-export class SkillCopier {
-  private packagesDir: string;
-  private outputDir: string;
-  private injectFrontmatter: boolean;
-  private dryRun: boolean;
-  private verbose: boolean;
-
-  constructor(options: SkillCopierOptions) {
+class SkillCopier {
+  /**
+   * @param {object} options
+   * @param {string} options.packagesDir - Path to packages/ directory
+   * @param {string} options.outputDir - Path to dist/opencode/.opencode/skill/
+   * @param {boolean} [options.injectFrontmatter=true] - Whether to add frontmatter
+   * @param {boolean} [options.dryRun=false] - If true, don't write files
+   * @param {boolean} [options.verbose=false] - If true, log progress
+   */
+  constructor(options) {
     this.packagesDir = options.packagesDir;
     this.outputDir = options.outputDir;
-    this.injectFrontmatter = options.injectFrontmatter !== undefined ? options.injectFrontmatter : true;
+    this.injectFrontmatter =
+      options.injectFrontmatter !== undefined ? options.injectFrontmatter : true;
     this.dryRun = options.dryRun || false;
     this.verbose = options.verbose || false;
   }
 
-  async execute(): Promise<SkillCopierResult> {
-    const errors: TranslationError[] = [];
+  /**
+   * Execute the skill copy pipeline.
+   * @returns {Promise<{skillsCopied: number, referencesConverted: number, paths: string[], errors: Array}>}
+   */
+  async execute() {
+    const errors = [];
     let skillsCopied = 0;
     let referencesConverted = 0;
 
-    const packageDirs = this.discoverPackages();
+    // Step 1: Discover packages
+    const packageDirs = this._discoverPackages();
 
     if (this.verbose) {
       console.log(`Discovered ${packageDirs.length} packages with skills`);
     }
 
+    // Step 2: Process SKILL.md files
     for (const { packageName, skillPath } of packageDirs) {
       const skillFile = path.join(skillPath, 'SKILL.md');
       if (fs.existsSync(skillFile)) {
         try {
-          this.processSkillFile(packageName, skillFile);
+          this._processSkillFile(packageName, skillFile);
           skillsCopied++;
-        } catch (err: any) {
-          errors.push({ file: skillFile, error: err.message });
+        } catch (err) {
+          errors.push({
+            file: skillFile,
+            error: err.message,
+          });
         }
       }
     }
 
+    // Step 3: Process REFERENCE.md files
     for (const { packageName, skillPath } of packageDirs) {
       const refFile = path.join(skillPath, 'REFERENCE.md');
       if (fs.existsSync(refFile)) {
         try {
-          this.processReferenceFile(packageName, refFile);
+          this._processReferenceFile(packageName, refFile);
           referencesConverted++;
-        } catch (err: any) {
-          errors.push({ file: refFile, error: err.message });
+        } catch (err) {
+          errors.push({
+            file: refFile,
+            error: err.message,
+          });
         }
       }
     }
 
-    const paths = this.generatePaths();
+    // Step 4: Generate paths config
+    const paths = this._generatePaths();
 
-    return { skillsCopied, referencesConverted, paths, errors };
+    return {
+      skillsCopied,
+      referencesConverted,
+      paths,
+      errors,
+    };
   }
 
-  private discoverPackages(): PackageInfo[] {
-    const results: PackageInfo[] = [];
+  /**
+   * Discover all packages that have a skills/ directory.
+   * @returns {Array<{packageName: string, skillPath: string}>}
+   */
+  _discoverPackages() {
+    const results = [];
 
     if (!fs.existsSync(this.packagesDir)) {
       return results;
@@ -241,11 +248,15 @@ export class SkillCopier {
 
       const skillPath = path.join(this.packagesDir, entry.name, 'skills');
       if (fs.existsSync(skillPath) && fs.statSync(skillPath).isDirectory()) {
+        // Check if there's a SKILL.md or REFERENCE.md
         const hasSkill = fs.existsSync(path.join(skillPath, 'SKILL.md'));
         const hasRef = fs.existsSync(path.join(skillPath, 'REFERENCE.md'));
 
         if (hasSkill || hasRef) {
-          results.push({ packageName: entry.name, skillPath });
+          results.push({
+            packageName: entry.name,
+            skillPath,
+          });
         }
       }
     }
@@ -253,12 +264,16 @@ export class SkillCopier {
     return results;
   }
 
-  private processSkillFile(packageName: string, sourcePath: string): void {
+  /**
+   * Process a SKILL.md file: read, inject frontmatter if needed, write to output.
+   * NEVER modifies the source file.
+   */
+  _processSkillFile(packageName, sourcePath) {
     const rawContent = fs.readFileSync(sourcePath, 'utf-8');
-    let outputContent: string;
+    let outputContent;
 
     if (this.injectFrontmatter) {
-      outputContent = this.ensureFrontmatter(rawContent, packageName);
+      outputContent = this._ensureFrontmatter(rawContent, packageName);
     } else {
       outputContent = rawContent;
     }
@@ -274,12 +289,17 @@ export class SkillCopier {
     }
   }
 
-  private processReferenceFile(packageName: string, sourcePath: string): void {
+  /**
+   * Process a REFERENCE.md file: read, convert to SKILL.md format with frontmatter,
+   * write to output as <framework>/reference/SKILL.md.
+   * NEVER modifies the source file.
+   */
+  _processReferenceFile(packageName, sourcePath) {
     const rawContent = fs.readFileSync(sourcePath, 'utf-8');
-    let outputContent: string;
+    let outputContent;
 
     if (this.injectFrontmatter) {
-      outputContent = this.createReferenceFrontmatter(rawContent, packageName);
+      outputContent = this._createReferenceFrontmatter(rawContent, packageName);
     } else {
       outputContent = rawContent;
     }
@@ -291,14 +311,22 @@ export class SkillCopier {
     }
 
     if (this.verbose) {
-      console.log(`  [REF]   ${packageName}/REFERENCE.md -> ${packageName}/reference/SKILL.md`);
+      console.log(
+        `  [REF]   ${packageName}/REFERENCE.md -> ${packageName}/reference/SKILL.md`
+      );
     }
   }
 
-  private ensureFrontmatter(rawContent: string, packageName: string): string {
+  /**
+   * Ensure a SKILL.md file has valid frontmatter with name and description.
+   * If frontmatter exists, adds missing fields. If not, creates new frontmatter.
+   * Returns the new content string - never modifies the input.
+   */
+  _ensureFrontmatter(rawContent, packageName) {
     const parsed = parseFrontmatter(rawContent);
 
     if (parsed.hasFrontmatter) {
+      // Frontmatter exists - ensure name and description are present
       const data = { ...parsed.data };
       let modified = false;
 
@@ -313,25 +341,35 @@ export class SkillCopier {
       }
 
       if (modified) {
+        // Rebuild with updated frontmatter
         const yamlStr = stringifyFrontmatter(data);
         return `---\n${yamlStr}\n---\n${parsed.content}`;
       }
 
+      // Frontmatter already complete - return as-is
       return rawContent;
     }
 
+    // No frontmatter - create new
     const description = extractDescription(rawContent);
-    const data: Record<string, string> = { name: packageName, description };
+    const data = {
+      name: packageName,
+      description,
+    };
     const yamlStr = stringifyFrontmatter(data);
     return `---\n${yamlStr}\n---\n${rawContent}`;
   }
 
-  private createReferenceFrontmatter(rawContent: string, packageName: string): string {
+  /**
+   * Create frontmatter for a REFERENCE.md file being converted to SKILL.md.
+   * Uses <framework>-reference as the name.
+   */
+  _createReferenceFrontmatter(rawContent, packageName) {
     const parsed = parseFrontmatter(rawContent);
     const body = parsed.hasFrontmatter ? parsed.content : rawContent;
     const description = extractDescription(body);
 
-    const data: Record<string, string> = {
+    const data = {
       name: `${packageName}-reference`,
       description,
     };
@@ -340,7 +378,15 @@ export class SkillCopier {
     return `---\n${yamlStr}\n---\n${body}`;
   }
 
-  private generatePaths(): string[] {
+  /**
+   * Generate the paths configuration for opencode.json.
+   * Returns an array of paths pointing to the skill output directory.
+   */
+  _generatePaths() {
+    // OpenCode discovers skills recursively from base paths.
+    // We provide the single base skill directory.
     return [this.outputDir];
   }
 }
+
+module.exports = { SkillCopier, parseFrontmatter, stringifyFrontmatter };

@@ -1,0 +1,17 @@
+metadata:
+  name: ensemble:minimal
+  description: A minimal command for testing with only required fields
+  version: 1.0.0
+
+mission:
+  summary: |
+    This is a minimal command with only required fields for testing purposes.
+
+workflow:
+  phases:
+    - name: Single Phase
+      order: 1
+      steps:
+        - order: 1
+          title: Only Step
+          description: The only step in this minimal command
