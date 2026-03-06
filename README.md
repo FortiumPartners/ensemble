@@ -41,6 +41,9 @@ The plugin ecosystem is organized into 4 tiers across 24 packages:
 - **ensemble-task-progress-pane** (5.0.0) - TodoWrite progress visualization
 - **ensemble-multiplexer-adapters** - Terminal multiplexer abstraction layer
 
+### Runtime Translation
+- **ensemble-opencode** (5.3.0) - OpenCode runtime support (translates Ensemble artifacts to OpenCode-compatible formats)
+
 ### Meta-Package
 - **ensemble-full** - Complete ecosystem (all plugins bundled)
 
@@ -130,6 +133,61 @@ Plugins provide 28 specialized agents across domains:
 - **Quality**: code-reviewer, test-runner, playwright-tester, deep-debugger
 - **Specialists**: documentation-specialist, api-documentation-specialist, postgresql-specialist, github-specialist, helm-chart-specialist
 - **Utilities**: git-workflow, file-creator, context-fetcher, directory-monitor, release-agent, agent-meta-engineer
+
+## OpenCode Support
+
+Ensemble plugins can be used with the [OpenCode](https://opencode.ai) runtime via the `ensemble-opencode` translation layer. This generates OpenCode-compatible agents, commands, skills, and configuration from the existing Ensemble YAML/JSON/Markdown artifacts.
+
+### Generating OpenCode Artifacts
+
+```bash
+# Generate all OpenCode artifacts to dist/opencode/
+npm run generate:opencode
+
+# Preview without writing files
+npm run generate:opencode -- --dry-run
+
+# Validate generated config against OpenCode schema
+npm run generate:opencode -- --validate
+
+# Custom output directory
+npm run generate:opencode -- --output-dir ./my-output
+```
+
+The generator produces:
+- **Skills**: Copies and validates SKILL.md files to `.opencode/skill/`
+- **Commands**: Translates YAML commands to OpenCode Markdown format in `.opencode/commands/ensemble/`
+- **Agents**: Converts 28 agent YAML definitions to OpenCode JSON config + Markdown agent files
+- **Hooks**: Bridges Ensemble PreToolUse/PostToolUse hooks to OpenCode's typed hook API via `@opencode-ai/plugin` SDK
+- **Manifest**: Generates `opencode.json` with agent, command, skill, plugin, and permission configuration
+
+### Installing in OpenCode
+
+```jsonc
+// In your opencode.json, add the plugin:
+{
+  "plugin": ["ensemble-opencode"]
+}
+```
+
+For local development:
+```jsonc
+{
+  "plugin": ["file:///absolute/path/to/packages/opencode"]
+}
+```
+
+### Output Structure
+
+```
+dist/opencode/
+├── .opencode/
+│   ├── agents/          # Agent markdown files
+│   ├── commands/
+│   │   └── ensemble/    # Translated command files
+│   └── skill/           # Framework skill files
+└── opencode.json        # OpenCode configuration manifest
+```
 
 ## Plugin Dependencies
 
