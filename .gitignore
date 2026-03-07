@@ -13,3 +13,12 @@ __pycache__/
 *.pyc
 *.pyo
 
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.logs/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
