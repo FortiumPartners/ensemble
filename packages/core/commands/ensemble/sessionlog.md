@@ -20,6 +20,9 @@ across context boundaries, onboarding, and audit trails.
 - Never overwrite an existing session log file
 - Include all significant decisions, not just code changes
 - Capture both successful and failed approaches for learning value
+- Never include sensitive data such as API keys, tokens, passwords, secrets, credentials, or personally identifiable information (PII) in session logs
+- If previous session logs exist in ./SessionLogs/, focus on changes since the last log rather than repeating prior context
+- When prior logs exist, include a Continuation section at the top linking to the most recent previous log file
 
 ## Workflow
 
@@ -42,7 +45,15 @@ across context boundaries, onboarding, and audit trails.
    - Note any external resources referenced
    - Record configuration or environment details relevant to the work
 
-**3. Determine Output Path**
+**3. Check for Previous Logs**
+   Scan for existing session logs to enable incremental logging
+
+   - List files in ./SessionLogs/ directory if it exists
+   - Identify the most recent session log by filename timestamp
+   - If a previous log exists, scan its content to understand what was already captured
+   - Focus this session log on new work, decisions, and changes since the last log
+
+**4. Determine Output Path**
    Resolve the session log file path
 
    - Determine the current project root directory
@@ -56,6 +67,7 @@ across context boundaries, onboarding, and audit trails.
    Generate the structured markdown session log
 
    - Write frontmatter with date, project, and branch metadata
+   - If a previous session log exists, write a Continuation note linking to the previous log filename
    - Write a brief session summary paragraph
    - Write a Key Decisions section with rationale for each decision
    - Write a Commands & Actions section listing significant commands and outcomes
@@ -63,9 +75,10 @@ across context boundaries, onboarding, and audit trails.
    - Write a Files Changed section listing created, modified, or deleted files
    - Write a Notes section for any additional observations or follow-up items
 
-**2. Write Session Log File**
-   Save the session log to disk
+**2. Sanitize and Write Session Log File**
+   Review for sensitive data then save the session log to disk
 
+   - Review the composed log and strip any API keys, tokens, passwords, secrets, credentials, or PII
    - Create the SessionLogs directory if it does not exist
    - Write the markdown content to the resolved file path
    - Confirm the file was written successfully
