@@ -1,0 +1,87 @@
+metadata:
+  name: ensemble:sessionlog
+  description: Save a structured session transcript to SessionLogs with key decisions, commands, and resolutions
+  version: 1.0.0
+  lastUpdated: "2026-03-08"
+  category: documentation
+  output_path: ensemble/sessionlog.md
+  source: fortium
+
+mission:
+  summary: |
+    Capture and persist the current session context as a structured markdown log file.
+    Analyzes the conversation to extract key decisions, commands executed, problems
+    encountered, and resolutions reached. Saves to ./SessionLogs/session-DDMMYY-HH:MM.md
+    relative to the current project directory. Useful for preserving session knowledge
+    across context boundaries, onboarding, and audit trails.
+
+constraints:
+  - Output directory is always ./SessionLogs/ relative to the current working project
+  - Filename format is session-DDMMYY-HH:MM.md using current date and time
+  - Create the SessionLogs directory if it does not exist
+  - Never overwrite an existing session log file
+  - Include all significant decisions, not just code changes
+  - Capture both successful and failed approaches for learning value
+
+workflow:
+  phases:
+    - name: Session Analysis
+      order: 1
+      steps:
+        - order: 1
+          title: Conversation Scanning
+          description: Review the full session conversation history
+          actions:
+            - Identify all user requests and assistant responses
+            - Extract commands executed and their outcomes
+            - Note tool calls and their results
+            - Flag any errors, retries, or approach changes
+
+        - order: 2
+          title: Context Extraction
+          description: Extract structured information from the session
+          actions:
+            - List key decisions made and their rationale
+            - Identify problems encountered and how they were resolved
+            - Capture file paths modified or created
+            - Note any external resources referenced
+            - Record configuration or environment details relevant to the work
+
+        - order: 3
+          title: Determine Output Path
+          description: Resolve the session log file path
+          actions:
+            - Determine the current project root directory
+            - Construct the SessionLogs directory path relative to project root
+            - Generate the filename using current date and time in DDMMYY-HH:MM format
+            - Verify the target file does not already exist
+
+    - name: Output Generation
+      order: 2
+      steps:
+        - order: 1
+          title: Compose Session Log
+          description: Generate the structured markdown session log
+          actions:
+            - Write frontmatter with date, project, and branch metadata
+            - Write a brief session summary paragraph
+            - Write a Key Decisions section with rationale for each decision
+            - Write a Commands & Actions section listing significant commands and outcomes
+            - Write a Problems & Resolutions section documenting issues and fixes
+            - Write a Files Changed section listing created, modified, or deleted files
+            - Write a Notes section for any additional observations or follow-up items
+
+        - order: 2
+          title: Write Session Log File
+          description: Save the session log to disk
+          actions:
+            - Create the SessionLogs directory if it does not exist
+            - Write the markdown content to the resolved file path
+            - Confirm the file was written successfully
+            - Report the file path to the user
+
+expectedOutput:
+  format: Markdown Session Log
+  structure:
+    - name: SessionLogs/session-DDMMYY-HH:MM.md
+      description: Structured session transcript with decisions, commands, problems, resolutions, and files changed
