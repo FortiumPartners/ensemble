@@ -361,29 +361,125 @@ git-town propose \
 
 ### Stacked PR Workflow
 
-For complex features spanning multiple PRs:
+Stacked PRs break large features into small, reviewable increments. Each PR builds on its parent, creating a chain of dependent changes. Git-town tracks parent-child relationships automatically, ensuring PRs target the correct base branch.
+
+#### When to Use Stacked PRs
+
+- Feature requires 200+ lines of changes across multiple concerns
+- Logical decomposition: refactor → implement → test → polish
+- Parallel review: reviewers can approve earlier PRs while later ones are in progress
+- Risk reduction: ship stable foundation before dependent features
+
+#### Step 1: Create the Branch Stack
 
 ```bash
-# Create base feature branch
+# Create base feature branch from main
 git-town hack auth-refactor --parent main
-git commit -m "refactor: extract auth service"
-git-town propose --title "Refactor: Auth Service" --draft
+# ... make refactoring changes ...
+git add -A && git commit -m "refactor: extract auth service"
 
-# Create dependent feature on top
-git-town hack oauth-implementation --parent auth-refactor
-git commit -m "feat: implement OAuth"
-git-town propose --title "Feature: OAuth Support" --draft
+# Create second branch, parented on the first
+git-town hack auth-oauth --parent auth-refactor
+# ... implement OAuth ...
+git add -A && git commit -m "feat: add OAuth provider support"
 
-# Ship child PR first (if approved independently)
-git checkout oauth-implementation
-git-town ship  # Merges to auth-refactor (parent), not main
-
-# Ship parent PR
-git checkout auth-refactor
-git-town ship  # Merges to main
+# Create third branch, parented on the second
+git-town hack auth-tests --parent auth-oauth
+# ... write tests ...
+git add -A && git commit -m "test: add auth integration tests"
 ```
 
-**Why this works**: Git-town's parent tracking ensures child branches merge to correct parents.
+Git-town now tracks the hierarchy: `main → auth-refactor → auth-oauth → auth-tests`
+
+#### Step 2: Create Stacked PRs
+
+```bash
+# PR 1: targets main (git-town knows the parent)
+git checkout auth-refactor
+git-town propose --title "refactor: Extract auth service" --body "Part 1/3: Extracts auth into standalone service."
+
+# PR 2: targets auth-refactor
+git checkout auth-oauth
+git-town propose --title "feat: Add OAuth support" --body "Part 2/3: Adds OAuth. Depends on #<PR1>."
+
+# PR 3: targets auth-oauth
+git checkout auth-tests
+git-town propose --title "test: Add auth tests" --body "Part 3/3: Integration tests. Depends on #<PR2>."
+```
+
+Each PR shows only its incremental diff against its parent — reviewers see focused, small changes.
+
+#### Step 3: Sync the Stack
+
+When the parent branch (e.g., main) gets new commits, sync the entire stack:
+
+```bash
+# Sync propagates changes down the stack automatically
+git checkout auth-refactor
+git-town sync
+
+git checkout auth-oauth
+git-town sync
+
+git checkout auth-tests
+git-town sync
+```
+
+Git-town rebases each branch on its parent, cascading updates through the stack.
+
+#### Step 4: Ship (Merge) Bottom-Up
+
+Always ship from the bottom of the stack upward:
+
+```bash
+# Ship the base PR first (merges auth-refactor → main)
+git checkout auth-refactor
+git-town ship
+
+# git-town automatically re-targets auth-oauth to main
+# Sync to pick up the merge
+git checkout auth-oauth
+git-town sync
+
+# Ship the next PR (merges auth-oauth → main)
+git-town ship
+
+# Repeat for remaining branches
+git checkout auth-tests
+git-town sync
+git-town ship
+```
+
+**Key behavior**: When you ship a parent branch, git-town automatically updates child branches to point to the new parent (main). The corresponding PR on GitHub is re-targeted automatically.
+
+#### Updating a Mid-Stack Branch
+
+To fix issues in a branch that has children:
+
+```bash
+# Switch to the branch that needs changes
+git checkout auth-refactor
+# ... make fixes ...
+git add -A && git commit -m "fix: address review feedback on auth refactor"
+
+# Sync child branches to pick up the changes
+git checkout auth-oauth
+git-town sync
+git checkout auth-tests
+git-town sync
+
+# Push all updated branches
+git push --force-with-lease  # Each branch individually, or use sync which pushes
+```
+
+#### Stacked PR Best Practices
+
+1. **Keep stacks shallow** (2-4 PRs). Deep stacks create review bottlenecks.
+2. **Ship bottom-up** — never skip a level. Git-town enforces this via parent tracking.
+3. **Use `--draft`** for PRs above the first — mark ready when their parent ships.
+4. **Sync frequently** — run `git-town sync` on each branch after parent changes.
+5. **Commit message prefixes** — use `Part N/M` in PR bodies to help reviewers.
+6. **Non-interactive flags** — always use `--parent` when creating branches to avoid prompts.
 
 ---
 
