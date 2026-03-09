@@ -13,3 +13,11 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Gas Town runtime
+.runtime/
+.beads/
+.claude/
+.logs/
+
+# Session logs (generated per-session)
+SessionLogs/
