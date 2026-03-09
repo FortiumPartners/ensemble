@@ -16,6 +16,17 @@ Part of the ensemble plugin ecosystem for Claude Code. This plugin provides deve
 
 - TBD (to be populated during plugin extraction)
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/ensemble:implement-trd` | Complete TRD implementation using git-town workflow with TDD methodology |
+| `/ensemble:implement-trd-beads` | TRD implementation with persistent beads project management — epic/story/task hierarchy, `bd ready` execution loop, cross-session resumability |
+| `/ensemble:create-trd` | Create a Technical Requirements Document from a PRD |
+| `/ensemble:refine-trd` | Refine and improve an existing TRD |
+| `/ensemble:fix-issue` | Lightweight bug fix workflow (analysis to PR) |
+| `/ensemble:generate-api-docs` | Generate API documentation |
+
 ## Usage
 
 After installation, this plugin's agents, commands, and skills will be automatically available in Claude Code.
