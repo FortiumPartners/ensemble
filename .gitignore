@@ -22,3 +22,10 @@ __pycache__/
 # Dolt database files (added by bd init)
 .dolt/
 *.db
+# Gas Town runtime
+.runtime/
+.beads/
+.claude/
+.logs/
+
+# Session logs (generated per-session)
