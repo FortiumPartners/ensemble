@@ -13,3 +13,7 @@ __pycache__/
 *.pyc
 *.pyo
 
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db
