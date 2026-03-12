@@ -1,0 +1,190 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for JSON config entry (create-trd) 1`] = `
+{
+  "ensemble:create-trd": {
+    "agent": "build",
+    "description": "Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator",
+    "model": "anthropic/claude-opus-4-6",
+    "subtask": false,
+  },
+}
+`;
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for JSON config entry (fix-issue) 1`] = `
+{
+  "ensemble:fix-issue": {
+    "agent": "build",
+    "description": "Lightweight workflow for bug fixes and small issues",
+    "model": "anthropic/claude-sonnet-4-20250514",
+    "subtask": false,
+  },
+}
+`;
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for command with $ARGUMENTS (create-trd) 1`] = `
+"# Create TRD $PRD_PATH
+
+Take an existing PRD $PRD_PATH and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
+
+This command takes a comprehensive Product Requirements Document (PRD) $PRD_PATH and delegates to
+@tech-lead-orchestrator via @ensemble-orchestrator for technical planning.
+
+## Constraints
+
+- DO NOT implement, build, or execute any technical work described in the requirements
+- This command creates ONLY a TRD document
+- After creating the TRD, stop and wait for user approval before any implementation
+
+## Phase 1: PRD Analysis & Validation
+
+### Step 1.1: PRD Ingestion
+
+Parse and analyze existing PRD document $PRD_PATH
+
+- Read PRD file from specified path
+- Validate document structure
+
+### Step 1.2: Requirements Validation
+
+Ensure completeness of functional and non-functional requirements
+
+## Phase 2: Agent Mesh Delegation
+
+### Step 2.1: Ensemble Orchestrator
+
+Route validated PRD to @ensemble-orchestrator
+
+**Agent:** @ensemble-orchestrator
+
+> Validated PRD with acceptance criteria
+
+### Step 2.2: Tech Lead Orchestrator
+
+Delegate technical planning and architecture design
+
+**Agent:** @tech-lead-orchestrator
+
+> Product requirements requiring technical translation
+
+## Phase 3: Output Management
+
+### Step 3.1: TRD Creation
+
+Generate comprehensive TRD document
+
+## Expected Output
+
+**Format:** Technical Requirements Document (TRD)
+
+- **Master Task List**: Comprehensive task tracking with unique task IDs
+- **System Architecture**: Component design, data flow, and integration points
+"
+`;
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for command with parameters (fix-issue) 1`] = `
+"# Fix Issue $ISSUE_DESCRIPTION
+
+Lightweight workflow for bug fixes and small issues
+
+Orchestrate a complete bug fix workflow from analysis to PR creation.
+
+## Constraints
+
+- GitHub only (no GitLab/Bitbucket in v1.0)
+- GitHub CLI (gh) must be installed and authenticated
+- Tests must pass unless --skip-tests flag is used
+
+## Phase 1: Analysis & Planning
+
+### Step 1.1: Codebase Analysis
+
+Explore codebase to identify affected files
+
+**Agent:** @general-purpose
+
+> Issue description and codebase context
+
+### Step 1.2: Collaborative Planning
+
+Assemble virtual team for comprehensive fix plan
+
+## Phase 2: Validation & Delivery
+
+### Step 2.1: Test Validation
+
+Run test suite with auto-fix retry logic
+
+**Agent:** @test-runner
+
+> Test specifications and retry config
+
+### Step 2.2: PR Creation
+
+Create comprehensive pull request with GitHub CLI
+
+## Expected Output
+
+**Format:** Pull Request
+
+- **Git Branch**: Feature branch following fix/issue-{num}-{slug} convention
+- **Pull Request**: Comprehensive PR with problem, solution, changes, and test plan
+"
+`;
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for minimal command 1`] = `
+"# Minimal
+
+A minimal command for testing with only required fields
+
+This is a minimal command with only required fields for testing purposes.
+
+## Phase 1: Single Phase
+
+### Step 1.1: Only Step
+
+The only step in this minimal command
+"
+`;
+
+exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for simple command (fold-prompt) 1`] = `
+"# Fold Prompt
+
+Advanced Claude environment optimization through intelligent project analysis and context management
+
+Advanced Claude environment optimization through intelligent project analysis, context
+management, and documentation enhancement for maximum productivity gains.
+
+## Phase 1: Intelligent Discovery & Context Mapping
+
+### Step 1.1: Deep Project Analysis
+
+Scan directory structure with pattern recognition
+
+- Analyze codebase architecture and technology stack
+- Identify documentation gaps
+
+### Step 1.2: Context Intelligence Gathering
+
+Extract project context and patterns
+
+- Extract project goals from existing docs
+- Analyze commit history and development patterns
+
+## Phase 2: Strategic Optimization & Enhancement
+
+### Step 2.1: CLAUDE.md Intelligence Enhancement
+
+Optimize for Claude Code context retention
+
+- Integrate agent mesh orchestration patterns
+- Add productivity-focused quick reference sections
+
+## Expected Output
+
+**Format:** Optimized Claude Configuration
+
+- **CLAUDE.md**: Optimized with intelligent context management and agent orchestration
+- **README.md**: Aligned with current status and enhanced with productivity metrics
+"
+`;

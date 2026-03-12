@@ -24,15 +24,23 @@ All ensemble commands use the `/ensemble:` namespace:
 npm test                    # Run all tests
 npm run validate            # Validate marketplace + plugins
 npm run generate            # Regenerate markdown from YAML
+npm run generate:opencode   # Generate OpenCode-compatible artifacts from Ensemble plugins
 npm run test:coverage       # Coverage reports
 ```
 
 ### Key Paths
-- **Plugins**: `packages/*/` (25 packages)
+- **Plugins**: `packages/*/` (26 packages)
 - **Agents**: `packages/*/agents/*.yaml` (28 agents)
 - **Commands**: `packages/*/commands/`
 - **Skills**: `packages/*/skills/`
 - **Schemas**: `schemas/{plugin,marketplace}-schema.json`
+- **OpenCode Output**: `dist/opencode/` (generated artifacts for OpenCode runtime)
+
+### OpenCode Support
+Ensemble plugins can be translated for use with the OpenCode runtime via `npm run generate:opencode`.
+This generates OpenCode-compatible skills, commands, and config in `dist/opencode/`. Supports
+`--dry-run`, `--verbose`, `--validate`, and `--force` flags. See `packages/opencode/` for the
+translation layer implementation.
 
 ### Package Sync (ensemble-full)
 When modifying pane viewer packages, sync to ensemble-full:
@@ -69,6 +77,7 @@ New Capabilities (v5.1.0):
 
 Utilities: agent-progress-pane (v5.1.0), task-progress-pane (v5.1.0)
 Shared: multiplexer-adapters (WezTerm, Zellij, tmux)
+Runtime: opencode (OpenCode translation layer, v5.3.0)
 Meta: ensemble-full (complete bundle)
 ```
 
