@@ -50,7 +50,7 @@ TRD File (.md)
 
 ### Data Flow
 
-1. **Input:** TRD markdown file with `- [ ] **TRD-XXX**: Description [Depends: TRD-YYY] [Priority: PN]` entries
+1. **Input:** TRD markdown file with `- [x] **TRD-XXX**: Description [Depends: TRD-YYY] [Priority: PN]` entries
 2. **Scaffold:** TRD tasks become br beads with structured title prefixes for idempotency
 3. **Sync:** `br sync --flush-only` exports to `.beads/beads.jsonl` after every mutation batch
 4. **Plan:** `bv --robot-plan` reads JSONL and produces parallel execution tracks
@@ -75,7 +75,7 @@ TRD File (.md)
 
 ### Phase 1: br Migration (Core)
 
-- [ ] **TRD-001**: Replace preflight health checks -- remove Dolt checks, add br/bv availability checks [Priority: P0]
+- [x] **TRD-001**: Replace preflight health checks -- remove Dolt checks, add br/bv availability checks [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[0].steps[1]` (Dolt and Beads Health Check)
   - **Actions:**
     1. Remove step "Dolt and Beads Health Check" (phase 1, step 2) entirely
@@ -86,7 +86,7 @@ TRD File (.md)
     3. Remove all references to `gt dolt status` and Dolt diagnostics throughout the YAML
     4. Remove the "Dolt Connectivity Monitoring" step from Execute phase (phase 3, step 5)
 
-- [ ] **TRD-002**: Replace resume detection from bd to br [Depends: TRD-001] [Priority: P0]
+- [x] **TRD-002**: Replace resume detection from bd to br [Depends: TRD-001] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[0].steps[4]` (Resume Detection)
   - **Actions:**
     1. Replace `bd list --label trd-implementation --json --limit 200` with `br list --status=open --json`
@@ -94,19 +94,19 @@ TRD File (.md)
     3. Remove reference to `bd swarm status` -- replace with `bv --robot-triage --format toon` (if BV_AVAILABLE) or `br list --status=open --json` (fallback)
     4. Update the "If found" action to set ROOT_EPIC_ID from br JSON output `.id` field
 
-- [ ] **TRD-003**: Replace --status argument handler from bd to br/bv [Depends: TRD-001] [Priority: P1]
+- [x] **TRD-003**: Replace --status argument handler from bd to br/bv [Depends: TRD-001] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[0].steps[0]` (Handle Special Arguments)
   - **Actions:**
     1. Replace `bd list --label trd-implementation --json` with `br list --status=open --json` and filter JSON for `[trd:<TRD_SLUG>]` title prefix
     2. Replace `bd swarm status` with `bv --robot-triage --format toon` (if BV_AVAILABLE) or `br list --status=open --json` (fallback)
 
-- [ ] **TRD-004**: Replace --reset-task argument handler from bd to br [Depends: TRD-001] [Priority: P1]
+- [x] **TRD-004**: Replace --reset-task argument handler from bd to br [Depends: TRD-001] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[0].steps[0]` (Handle Special Arguments)
   - **Actions:**
     1. Replace `find bead by external-ref trd:<TRD_SLUG>:task:<TASK_ID>` with: run `br list --status=open --json` and filter JSON for title containing `[trd:<TRD_SLUG>:task:<TASK_ID>]`
     2. Replace `bd update <BEAD_ID> --status open` with `br update <BEAD_ID> --status=open`
 
-- [ ] **TRD-005**: Replace idempotency cache from external-ref to title-prefix [Depends: TRD-001] [Priority: P0]
+- [x] **TRD-005**: Replace idempotency cache from external-ref to title-prefix [Depends: TRD-001] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[1]` (Idempotency Cache)
   - **Actions:**
     1. Replace `bd list --label trd-implementation --json --limit 500` with `br list --status=open --json` (capture full JSON output once)
@@ -114,7 +114,7 @@ TRD File (.md)
     3. Title prefix format: `[trd:<TRD_SLUG>]` for epic, `[trd:<TRD_SLUG>:phase:<N>]` for stories, `[trd:<TRD_SLUG>:task:<ID>]` for tasks
     4. Parse br JSON output (array of bead objects with `.id` and `.title` fields); build map of prefix -> bead_id
 
-- [ ] **TRD-006**: Replace root epic creation from bd to br [Depends: TRD-005] [Priority: P0]
+- [x] **TRD-006**: Replace root epic creation from bd to br [Depends: TRD-005] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[2]` (Root Epic Creation)
   - **Actions:**
     1. Change idempotency check from `external_ref == 'trd:<TRD_SLUG>'` to title prefix `[trd:<TRD_SLUG>]` in EXISTING_BEADS
@@ -124,7 +124,7 @@ TRD File (.md)
     4. Capture ROOT_EPIC_ID from `br create --json` output (parse `.id` field from JSON response)
     5. Note: description can be included in title or added as a separate update if br supports it
 
-- [ ] **TRD-007**: Replace story bead creation from bd to br [Depends: TRD-005, TRD-006] [Priority: P0]
+- [x] **TRD-007**: Replace story bead creation from bd to br [Depends: TRD-005, TRD-006] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[3]` (Story Bead Creation)
   - **Actions:**
     1. Change idempotency check from `external_ref == 'trd:<TRD_SLUG>:phase:<i>'` to title prefix `[trd:<TRD_SLUG>:phase:<i>]`
@@ -133,7 +133,7 @@ TRD File (.md)
     3. After creation: `br dep add <STORY_BEAD_ID> <ROOT_EPIC_ID>` to establish parent-child relationship
     4. Remove `--parent`, `--external-ref`, `--labels`, `--silent` flags
 
-- [ ] **TRD-008**: Replace task bead creation from bd to br [Depends: TRD-005, TRD-007] [Priority: P0]
+- [x] **TRD-008**: Replace task bead creation from bd to br [Depends: TRD-005, TRD-007] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[4]` (Task Bead Creation)
   - **Actions:**
     1. Change idempotency check from `external_ref == 'trd:<TRD_SLUG>:task:<task.id>'` to title prefix `[trd:<TRD_SLUG>:task:<task.id>]`
@@ -143,14 +143,14 @@ TRD File (.md)
     4. Record TRD_TO_BEAD_MAP[task.id] = bead_id
     5. Remove `--parent`, `--external-ref`, `--labels`, `--estimate`, `--silent` flags
 
-- [ ] **TRD-009**: Replace dependency encoding from bd to br [Depends: TRD-008] [Priority: P0]
+- [x] **TRD-009**: Replace dependency encoding from bd to br [Depends: TRD-008] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[5]` (Dependency Encoding)
   - **Actions:**
     1. Replace `bd dep add <TASK_BEAD_ID> <TRD_TO_BEAD_MAP[dep_id]>` with `br dep add <TASK_BEAD_ID> <TRD_TO_BEAD_MAP[dep_id]>`
     2. Keep inter-phase sequential gate logic: `br dep add <first_task_of_phase_i> <last_task_of_phase_i-1>`
     3. Keep warn-and-skip behavior for missing dependency targets
 
-- [ ] **TRD-010**: Remove swarm creation and replace with br sync [Depends: TRD-009] [Priority: P1]
+- [x] **TRD-010**: Remove swarm creation and replace with br sync [Depends: TRD-009] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1].steps[6]` (Swarm Creation and Summary)
   - **Actions:**
     1. Remove `bd swarm create <ROOT_EPIC_ID>` entirely (swarm is bd-specific)
@@ -159,7 +159,7 @@ TRD File (.md)
     4. Add `br sync --flush-only` as final scaffold action to export JSONL for bv
     5. Update summary output: remove swarm ID, show epic ID, story count, task count, dep count
 
-- [ ] **TRD-011**: Replace execution loop from bd ready to bv robot-next [Depends: TRD-010] [Priority: P0]
+- [x] **TRD-011**: Replace execution loop from bd ready to bv robot-next [Depends: TRD-010] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[2].steps[0]` (Execution Loop)
   - **Actions:**
     1. Replace `bd ready --parent <ROOT_EPIC_ID> --type task --json --limit 10` with:
@@ -172,14 +172,14 @@ TRD File (.md)
     4. For parallel execution: use `bv --robot-plan --format toon` to get parallel tracks instead of raw ready list
     5. After each task/group completion: `br sync --flush-only` before next bv call
 
-- [ ] **TRD-012**: Replace task claim semantics from bd to br [Depends: TRD-011] [Priority: P0]
+- [x] **TRD-012**: Replace task claim semantics from bd to br [Depends: TRD-011] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[2].steps[1]` (Task Claim and Specialist Selection)
   - **Actions:**
     1. Replace `bd update <BEAD_ID> --claim` with `br update <BEAD_ID> --status=in_progress`
     2. Keep specialist selection logic unchanged (keyword matching + router-rules.json)
     3. Keep TASK_ID extraction from title prefix pattern unchanged
 
-- [ ] **TRD-013**: Replace task delegation bd calls with br equivalents [Depends: TRD-012] [Priority: P0]
+- [x] **TRD-013**: Replace task delegation bd calls with br equivalents [Depends: TRD-012] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[2].steps[2]` (Task Delegation)
   - **Actions:**
     1. Replace `bd update <BEAD_ID> --status closed` with `br close <BEAD_ID> --reason="Completed"`
@@ -187,21 +187,21 @@ TRD File (.md)
     3. Replace `bd comments add <BEAD_ID> 'Implementation failed: <error>'` with `br comment add <BEAD_ID> 'Implementation failed: <error>'`
     4. Add `br sync --flush-only` after status changes to keep JSONL current
 
-- [ ] **TRD-014**: Replace debug loop bd calls with br equivalents [Depends: TRD-013] [Priority: P1]
+- [x] **TRD-014**: Replace debug loop bd calls with br equivalents [Depends: TRD-013] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[2].steps[3]` (Debug Loop)
   - **Actions:**
     1. Replace `bd update --status closed` with `br close <BEAD_ID> --reason="Completed"` on fix success
     2. Replace `bd comments add <BEAD_ID> 'Debug loop exhausted...'` with `br comment add <BEAD_ID> 'Debug loop exhausted...'`
     3. Add `br sync --flush-only` after status changes
 
-- [ ] **TRD-015**: Remove Dolt connectivity monitoring step [Depends: TRD-001] [Priority: P1]
+- [x] **TRD-015**: Remove Dolt connectivity monitoring step [Depends: TRD-001] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[2].steps[4]` (Dolt Connectivity Monitoring)
   - **Actions:**
     1. Remove entire step "Dolt Connectivity Monitoring" from Execute phase
     2. Remove all references to `gt dolt status`, `gt escalate`, and Dolt diagnostics
     3. Add general br error handling: if any br command fails with non-zero exit, print error and PAUSE
 
-- [ ] **TRD-016**: Replace quality gate bd calls with br equivalents [Depends: TRD-013] [Priority: P1]
+- [x] **TRD-016**: Replace quality gate bd calls with br equivalents [Depends: TRD-013] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[3]` (Quality Gate)
   - **Actions:**
     1. Replace `bd list --parent <STORY_BEAD_ID> --type task --json` with `br list --status=open --json` filtered by title prefix `[trd:<TRD_SLUG>:phase:<N>]`
@@ -209,7 +209,7 @@ TRD File (.md)
     3. Replace `bd update <STORY_BEAD_ID> --status closed` with `br close <STORY_BEAD_ID> --reason="Phase complete - quality gate passed"`
     4. Add `br sync --flush-only` after story closure
 
-- [ ] **TRD-017**: Replace completion phase bd calls with br equivalents [Depends: TRD-016] [Priority: P1]
+- [x] **TRD-017**: Replace completion phase bd calls with br equivalents [Depends: TRD-016] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[4]` (Completion)
   - **Actions:**
     1. Replace `bd ready --parent ROOT_EPIC_ID --type task` with `br list --status=open --json` filtered by TRD slug (expect empty)
@@ -219,7 +219,7 @@ TRD File (.md)
     5. Add final `br sync --flush-only` after epic closure
     6. Update completion report to remove swarm ID, keep epic ID, task counts, coverage
 
-- [ ] **TRD-018**: Update mission and metadata sections for br/bv [Depends: TRD-001] [Priority: P2]
+- [x] **TRD-018**: Update mission and metadata sections for br/bv [Depends: TRD-001] [Priority: P2]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `mission` and `metadata` sections
   - **Actions:**
     1. Update `mission.summary`: replace all references to `bd` with `br`, replace `bd ready` with `bv --robot-next`, mention bv integration
@@ -228,7 +228,7 @@ TRD File (.md)
     4. Update metadata.description to mention br/bv
     5. Update metadata.lastUpdated to current date
 
-- [ ] **TRD-019**: Update expectedOutput section for br/bv [Depends: TRD-017] [Priority: P2]
+- [x] **TRD-019**: Update expectedOutput section for br/bv [Depends: TRD-017] [Priority: P2]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `expectedOutput` section
   - **Actions:**
     1. Update "Beads Hierarchy" description: remove "in Dolt", replace with "in br storage with JSONL export"
@@ -238,7 +238,7 @@ TRD File (.md)
 
 ### Phase 2: BV Integration
 
-- [ ] **TRD-020**: Add bv --robot-plan invocation after scaffold [Depends: TRD-010] [Priority: P0]
+- [x] **TRD-020**: Add bv --robot-plan invocation after scaffold [Depends: TRD-010] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1]` (Scaffold), add new step after dependency encoding
   - **Actions:**
     1. Add new step "BV Execution Planning" after Dependency Encoding (before the summary step)
@@ -249,7 +249,7 @@ TRD File (.md)
     6. Store PARALLEL_TRACKS for use in wheel instructions
     7. On bv failure: `echo "WARNING: bv --robot-plan failed. Falling back to sequential execution."; BV_AVAILABLE=false`
 
-- [ ] **TRD-021**: Add bv --robot-triage invocation after scaffold [Depends: TRD-020] [Priority: P0]
+- [x] **TRD-021**: Add bv --robot-triage invocation after scaffold [Depends: TRD-020] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[1]` (Scaffold), same new step as TRD-020
   - **Actions:**
     1. Add to "BV Execution Planning" step (after robot-plan):
@@ -258,7 +258,7 @@ TRD File (.md)
     4. Store TRIAGE_RECOMMENDATIONS for use in wheel instructions
     5. On bv failure: `echo "WARNING: bv --robot-triage failed."; continue without triage data`
 
-- [ ] **TRD-022**: Add structured BV summary output section [Depends: TRD-020, TRD-021] [Priority: P1]
+- [x] **TRD-022**: Add structured BV summary output section [Depends: TRD-020, TRD-021] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- scaffold summary step
   - **Actions:**
     1. Update scaffold summary step to include bv analysis output
@@ -269,7 +269,7 @@ TRD File (.md)
     6. Print `BLOCKERS TO CLEAR:` from TRIAGE_OUTPUT blockers_to_clear section
     7. If BV_AVAILABLE == false: print `BV analysis unavailable. Using br-only execution order.`
 
-- [ ] **TRD-023**: Add br sync --flush-only calls at critical points [Depends: TRD-010] [Priority: P0]
+- [x] **TRD-023**: Add br sync --flush-only calls at critical points [Depends: TRD-010] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- multiple locations
   - **Actions:**
     1. After scaffold completion (all beads + deps created): `br sync --flush-only`
@@ -281,7 +281,7 @@ TRD File (.md)
 
 ### Phase 3: Wheel Instructions
 
-- [ ] **TRD-024**: Create wheel instructions output template [Depends: TRD-020, TRD-021] [Priority: P1]
+- [x] **TRD-024**: Create wheel instructions output template [Depends: TRD-020, TRD-021] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- add new step to Scaffold phase (after BV summary)
   - **Actions:**
     1. Add new step "Wheel Instructions Output" to Scaffold phase (runs after BV Execution Planning)
@@ -321,7 +321,7 @@ TRD File (.md)
     ================================================================
     ```
 
-- [ ] **TRD-025**: Implement graceful degradation for wheel instructions when bv unavailable [Depends: TRD-024] [Priority: P1]
+- [x] **TRD-025**: Implement graceful degradation for wheel instructions when bv unavailable [Depends: TRD-024] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- wheel instructions step
   - **Actions:**
     1. If BV_AVAILABLE == false, print reduced wheel instructions:
@@ -349,7 +349,7 @@ TRD File (.md)
     2. Omit PARALLEL EXECUTION TRACKS, RECOMMENDED EXECUTION ORDER, and MAIL sections
     3. Replace `bv --robot-next` with `br ready` in the agent loop
 
-- [ ] **TRD-026**: Add wheel instructions to completion phase output [Depends: TRD-024] [Priority: P2]
+- [x] **TRD-026**: Add wheel instructions to completion phase output [Depends: TRD-024] [Priority: P2]
   - **File:** `packages/development/commands/implement-trd-beads.yaml` -- `workflow.phases[4].steps[2]` (Completion Report)
   - **Actions:**
     1. Update completion report to include final progress summary via `bv --robot-triage --format toon` (if BV_AVAILABLE)
@@ -359,7 +359,7 @@ TRD File (.md)
 
 ### Phase 4: Testing and Validation
 
-- [ ] **TRD-027**: Verify zero bd references in updated YAML [Depends: TRD-001 through TRD-019] [Priority: P0]
+- [x] **TRD-027**: Verify zero bd references in updated YAML [Depends: TRD-001 through TRD-019] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Run: `grep -n '\bbd\b' packages/development/commands/implement-trd-beads.yaml`
@@ -367,21 +367,21 @@ TRD File (.md)
     3. If any matches found: identify and fix each remaining bd reference
     4. Verify: no references to `bd create`, `bd update`, `bd close`, `bd ready`, `bd list`, `bd sync`, `bd status`, `bd swarm`, `bd dep`, `bd comments`, `bd onboard`
 
-- [ ] **TRD-028**: Verify zero Dolt references in updated YAML [Depends: TRD-001, TRD-015] [Priority: P0]
+- [x] **TRD-028**: Verify zero Dolt references in updated YAML [Depends: TRD-001, TRD-015] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Run: `grep -ni 'dolt' packages/development/commands/implement-trd-beads.yaml`
     2. Expected result: zero matches
     3. If any matches found: remove or replace each Dolt reference
 
-- [ ] **TRD-029**: Verify zero swarm references in updated YAML [Depends: TRD-010] [Priority: P0]
+- [x] **TRD-029**: Verify zero swarm references in updated YAML [Depends: TRD-010] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Run: `grep -ni 'swarm' packages/development/commands/implement-trd-beads.yaml`
     2. Expected result: zero matches
     3. If any matches found: remove or replace each swarm reference
 
-- [ ] **TRD-030**: Validate YAML schema compliance [Depends: TRD-027, TRD-028, TRD-029] [Priority: P0]
+- [x] **TRD-030**: Validate YAML schema compliance [Depends: TRD-027, TRD-028, TRD-029] [Priority: P0]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Run: `npm run validate` from project root
@@ -390,7 +390,7 @@ TRD File (.md)
     4. Verify: phase/step ordering is sequential starting from 1
     5. Verify: all required metadata fields present (name, description, version)
 
-- [ ] **TRD-031**: Regenerate markdown from updated YAML [Depends: TRD-030] [Priority: P0]
+- [x] **TRD-031**: Regenerate markdown from updated YAML [Depends: TRD-030] [Priority: P0]
   - **File:** Run `npm run generate` to produce `ensemble/implement-trd-beads.md`
   - **Actions:**
     1. Run: `npm run generate` from project root
@@ -398,7 +398,7 @@ TRD File (.md)
     3. Review generated markdown for correctness
     4. Commit both YAML and generated markdown
 
-- [ ] **TRD-032**: Validate backward compatibility of all existing arguments [Depends: TRD-030] [Priority: P1]
+- [x] **TRD-032**: Validate backward compatibility of all existing arguments [Depends: TRD-030] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Verify `argument_hint` still shows: `[trd-path] [--status] [--reset-task TRD-XXX] [max parallel N]`
@@ -407,7 +407,7 @@ TRD File (.md)
     4. Trace `max parallel N` path through YAML: confirm parallel execution logic unchanged
     5. Trace TRD path argument: confirm file selection priority logic unchanged
 
-- [ ] **TRD-033**: Validate idempotency mechanism correctness [Depends: TRD-005, TRD-006, TRD-007, TRD-008] [Priority: P1]
+- [x] **TRD-033**: Validate idempotency mechanism correctness [Depends: TRD-005, TRD-006, TRD-007, TRD-008] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Verify title prefix patterns are consistent across all creation steps:
@@ -418,7 +418,7 @@ TRD File (.md)
     3. Verify each creation step checks cache before creating
     4. Verify partial scaffold resume: if epic exists but some tasks don't, only missing tasks are created
 
-- [ ] **TRD-034**: Validate graceful degradation paths [Depends: TRD-001, TRD-025] [Priority: P1]
+- [x] **TRD-034**: Validate graceful degradation paths [Depends: TRD-001, TRD-025] [Priority: P1]
   - **File:** `packages/development/commands/implement-trd-beads.yaml`
   - **Actions:**
     1. Trace BV_AVAILABLE=false path: verify all bv calls are guarded by BV_AVAILABLE check
@@ -427,7 +427,7 @@ TRD File (.md)
     4. Verify: git-town missing -> fallback to `git switch -c` (existing behavior preserved)
     5. Verify: wheel instructions print br-only version when bv unavailable
 
-- [ ] **TRD-035**: Final commit and branch update [Depends: TRD-031, TRD-032, TRD-033, TRD-034] [Priority: P0]
+- [x] **TRD-035**: Final commit and branch update [Depends: TRD-031, TRD-032, TRD-033, TRD-034] [Priority: P0]
   - **Actions:**
     1. Stage all modified files: `git add packages/development/commands/implement-trd-beads.yaml`
     2. Stage generated markdown if applicable
