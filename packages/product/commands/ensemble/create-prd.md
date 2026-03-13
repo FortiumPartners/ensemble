@@ -1,6 +1,7 @@
 ---
 name: ensemble:create-prd
 description: Create comprehensive Product Requirements Document from product description
+model: opus-4-6
 ---
 <!-- DO NOT EDIT - Generated from create-prd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
