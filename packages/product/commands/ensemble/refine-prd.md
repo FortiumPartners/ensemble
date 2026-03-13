@@ -1,6 +1,7 @@
 ---
 name: ensemble:refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
+model: opus-4-6
 ---
 <!-- DO NOT EDIT - Generated from refine-prd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

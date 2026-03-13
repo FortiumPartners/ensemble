@@ -2,6 +2,7 @@
 name: ensemble:create-trd
 description: Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
 
+model: opus-4-6
 ---
 <!-- DO NOT EDIT - Generated from create-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
