@@ -1,10 +1,10 @@
 # PRD: Team-based Execution Model for implement-trd-beads
 
 **Document ID**: PRD-2026-015
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Date**: 2026-03-14
 **Author**: Product Management Orchestrator
-**Status**: Draft
+**Status**: Refined
 **Priority**: High
 **Command**: `ensemble:implement-trd-beads`
 **Location**: `packages/development/commands/implement-trd-beads.yaml`
@@ -194,13 +194,19 @@ team:
                     +--[reject]--+
                     |             |
 open --> in_progress --> in_review --> in_qa --> closed
-  |       (builder)     (reviewer)    (qa)       |
-  |                        |                      |
-  +--- lead assigns ---+   +--[reject]--+         |
-                        |               |          |
-                        +-- builder ---->          |
-                               rework              |
+  |       (builder)  |  (reviewer)  |  (qa)       |
+  |                  |     |        |              |
+  +--- lead assigns  |     +--[reject]--+          |
+                     |                  |          |
+                     |   +-- builder rework        |
+                     |                             |
+                     +--[lead skips review]-------->+
+                     |                             |
+                     +--[lead skips review+QA]---->+
+                                                  closed
 ```
+
+**Note**: The lead can optionally skip `in_review` and/or `in_qa` steps per task based on complexity/risk judgment (see FR-LL-10). When review is skipped, the task transitions directly from `in_progress` to `in_qa`. When both are skipped, the task transitions from `in_progress` to `closed`.
 
 **State Transitions**:
 
@@ -217,13 +223,13 @@ open --> in_progress --> in_review --> in_qa --> closed
 
 | ID | Requirement | Priority |
 |---|---|---|
-| FR-SM-1 | Implement state machine with the 6 transitions defined above | Must |
+| FR-SM-1 | Implement state machine with the 6 transitions defined above; transitions through `in_review` and/or `in_qa` can be skipped when lead decides per-task (see FR-LL-10) | Must |
 | FR-SM-2 | Track current sub-state by parsing the latest `br comment` with `status:` prefix on a bead | Must |
 | FR-SM-3 | Use structured comment format: `status:<state> <role>:<agent> [verdict:<approved\|rejected>] [reason:<text>] [files:<list>]` | Must |
 | FR-SM-4 | Reject transitions to invalid states (e.g., `open` directly to `in_qa`) | Must |
 | FR-SM-5 | On reviewer rejection, return task to `in_progress` with rejection reason visible to builder | Must |
 | FR-SM-6 | On QA rejection, return task to `in_progress` and reset br status to `open` for re-claiming | Must |
-| FR-SM-7 | Cap rejection cycles at 3 (configurable) -- after 3 rejections, pause for human intervention | Should |
+| FR-SM-7 | Cap rejection cycles at 2 (configurable) -- after 2 rejections, escalate to lead for architectural review before retry | Should |
 | FR-SM-8 | Record all state transitions as br comments for full audit trail | Must |
 
 ### 4.3 Lead Execution Loop (Must Have)
@@ -263,6 +269,7 @@ LOOP:
 | FR-LL-7 | Lead skips QA step if no `qa` role is defined in team | Should |
 | FR-LL-8 | Lead can run architecture review before assigning implementation (for tasks with `architecture` keyword) | Should |
 | FR-LL-9 | Lead provides builder with context from completed sibling tasks in the same phase | Should |
+| FR-LL-10 | Lead can optionally skip reviewer and/or QA steps for specific tasks at delegation time based on task complexity/risk judgment | Should |
 
 ### 4.4 Builder Agent Behavior (Must Have)
 
@@ -411,6 +418,32 @@ MONITOR TEAM PROGRESS:
 | FR-GD-5 | When TEAM_MODE=true but `qa` role is missing, skip QA step (reviewer -> closed directly) | Should |
 | FR-GD-6 | Partial team (only lead + builders, no reviewer/QA) behaves like current model but with lead orchestration | Should |
 
+### 4.11 Parallel Builder Execution (Should Have)
+
+**Description**: Support multiple builder agents working on different tasks simultaneously, enabling the lead to parallelize implementation across the team.
+
+**Requirements**:
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-PB-1 | Lead can delegate multiple tasks to different builders concurrently | Should |
+| FR-PB-2 | Each builder operates independently on its assigned task with no shared mutable state | Should |
+| FR-PB-3 | Lead manages a task queue with concurrent builder slots (configurable, default 2) | Should |
+| FR-PB-4 | Review and QA steps are still sequential per task (builder finishes -> review -> QA) | Must |
+
+### 4.12 Team Metrics and Reporting (Should Have)
+
+**Description**: Track team performance metrics during execution and generate a summary report at phase completion.
+
+**Requirements**:
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-TM-1 | Track review pass/reject rates per builder agent | Should |
+| FR-TM-2 | Track average rejection cycles per task | Should |
+| FR-TM-3 | Track time spent in each sub-state per task | Should |
+| FR-TM-4 | Generate team performance summary at phase completion (printed to console) | Should |
+
 ---
 
 ## 5. Non-Functional Requirements
@@ -422,7 +455,7 @@ MONITOR TEAM PROGRESS:
 | NFR-P-1 | Per-task overhead from team handoffs (review + QA) | Less than 120 seconds added per task (agent delegation round-trips) |
 | NFR-P-2 | Sub-state query latency (parsing br comments) | Less than 2 seconds per task status check |
 | NFR-P-3 | Team mode should not degrade bv --robot-next performance | Zero additional bv overhead (sub-states are in br comments, not bv) |
-| NFR-P-4 | Rejection loop should not cause infinite cycles | Max 3 rejections per task before human intervention (configurable) |
+| NFR-P-4 | Rejection loop should not cause infinite cycles | Max 2 rejections per task before lead architectural review escalation (configurable) |
 
 ### 5.2 Reliability
 
@@ -465,7 +498,7 @@ MONITOR TEAM PROGRESS:
 - **AC-SM-1**: A task in team mode traverses all 4 states (`open` -> `in_progress` -> `in_review` -> `in_qa` -> `closed`) with a br comment recorded at each transition.
 - **AC-SM-2**: Parsing `br comment list <bead_id>` after task closure shows the full audit trail with timestamps and actors.
 - **AC-SM-3**: A reviewer rejection returns the task to `in_progress` with the rejection reason in a br comment, and the builder receives the rejection context on re-delegation.
-- **AC-SM-4**: After 3 rejection cycles on a single task, execution pauses with a message indicating human intervention is required.
+- **AC-SM-4**: After 2 rejection cycles on a single task, execution escalates to the lead for architectural review before retry.
 - **AC-SM-5**: Invalid state transitions (e.g., `open` directly to `in_qa`) are rejected with an error message.
 
 ### 6.3 Lead Orchestration
@@ -474,22 +507,27 @@ MONITOR TEAM PROGRESS:
 - **AC-LL-2**: The lead agent handles builder failure by entering the debug loop (same as current behavior).
 - **AC-LL-3**: The lead agent correctly skips the review step when no `reviewer` role is defined.
 - **AC-LL-4**: The lead agent correctly skips the QA step when no `qa` role is defined.
+- **AC-LL-5**: The lead can skip review for a specific task and the task transitions directly from `in_progress` to `in_qa` (or `closed` if QA is also skipped).
 
-### 6.4 Coordination via br
+### 6.4 Parallel Builder Execution
+
+- **AC-PB-1**: Two builders can work on different tasks simultaneously with correct state tracking for each task independently.
+
+### 6.5 Coordination via br
 
 - **AC-BR-1**: Sub-state comments follow the structured format: `status:<state> <role>:<agent> [verdict:<approved|rejected>] [reason:<text>] [files:<list>]`.
 - **AC-BR-2**: The current sub-state of any task can be determined by parsing the latest `status:` comment from `br comment list <id>`.
 - **AC-BR-3**: `br sync --flush-only` is called after every state transition.
 - **AC-BR-4**: Tasks in `in_review` or `in_qa` sub-states show as `in_progress` in `br list --status=open` (not prematurely closed).
 
-### 6.5 Backward Compatibility
+### 6.6 Backward Compatibility
 
 - **AC-BC-1**: Running the command without a `team:` section produces identical output and behavior to v2.1.0.
 - **AC-BC-2**: `--status` flag works in both team and non-team modes.
 - **AC-BC-3**: `--reset-task` resets both br native status and sub-state in team mode.
 - **AC-BC-4**: Existing beads scaffolds created by v2.1.0 are compatible with team-mode execution.
 
-### 6.6 Wheel Instructions
+### 6.7 Wheel Instructions
 
 - **AC-WI-1**: When TEAM_MODE=true, wheel instructions show team topology, task lifecycle, and lead orchestration loop.
 - **AC-WI-2**: When TEAM_MODE=false, wheel instructions are identical to current output.
@@ -512,7 +550,9 @@ br comment list <bead_id>  # Parse latest 'status:' line
 
 **Alternative considered**: Using `br` labels (if supported) for sub-states. Rejected because br's label support is not confirmed and comments provide a richer audit trail with metadata.
 
-**Alternative considered**: Extending br with custom statuses. Rejected because it requires changes to the br CLI, which is an external dependency outside ensemble's control.
+**Alternative considered**: Extending br with custom statuses. Rejected for v1 because it requires changes to the br CLI, which is an external dependency outside ensemble's control.
+
+**Note (v1 hybrid approach)**: Comment-based tracking is the v1 approach. A follow-up initiative is planned to extend `br` with native `in_review` and `in_qa` status support via a br CLI extension. This would replace comment parsing with native status queries. See the planned "br custom status extension" PRD in Related Documents (Section 11.4).
 
 ### 7.2 Lead Agent as Orchestration Hub
 
@@ -572,11 +612,12 @@ Adding the `team:` section constitutes a minor version bump for the command: v2.
 |---|---|---|---|---|
 | R1 | Per-task review and QA significantly increase total execution time | High | Medium | Make reviewer and QA roles optional; teams can define lead+builder only for speed; measure overhead and optimize prompts |
 | R2 | br comment parsing is fragile (unstructured text) | Medium | High | Define strict comment format with parser validation; add unit tests for comment parsing; consider JSON-structured comments |
-| R3 | Rejection loops create infinite cycles | Medium | High | Cap at 3 rejections per task (configurable); pause for human intervention after cap |
+| R3 | Rejection loops create infinite cycles | Medium | High | Cap at 2 rejections per task (configurable); escalate to lead for architectural review before retry after cap |
 | R4 | Cross-session resume fails to reconstruct team sub-state | Medium | High | Persist team config in br comment on epic bead; sub-state always derivable from latest comment |
 | R5 | Lead agent context window exhaustion on large TRDs (many tasks with handoff metadata) | Low | Medium | Lead only holds current task context plus phase summary; completed task details are in br comments, not agent memory |
 | R6 | bv --robot-next does not account for team sub-states | Low | Low | bv sees only br native statuses; tasks in_review/in_qa are in_progress (not available for selection); no conflict |
 | R7 | Reviewer and QA agents produce inconsistent verdict formats | Medium | Medium | Define strict verdict schema in delegation prompt; validate verdict structure before recording |
+| R8 | Concurrent builders create merge conflicts when committing to the same branch | Medium | High | Sequential commits -- lead serializes git commit/push operations even when builders work in parallel; builders prepare changes but lead coordinates commit ordering |
 
 ### 8.2 Dependencies
 
@@ -598,9 +639,18 @@ Adding the `team:` section constitutes a minor version bump for the command: v2.
 | Per-task defect escape rate (defects found after closure) | Less than 10% of tasks (vs ~30% without review) | Count tasks requiring rework after closure |
 | Review coverage | 100% of tasks reviewed when reviewer role defined | Count tasks with `verdict:approved` or `verdict:rejected` comments |
 | QA coverage | 100% of tasks validated when QA role defined | Count tasks with QA verdict comments |
-| Rejection resolution rate | 90% of rejections resolved within 2 cycles | Count rejection cycles per task |
+| Rejection resolution rate | 90% of rejections resolved within 1 cycle | Count rejection cycles per task |
 
-### 9.2 Performance Metrics
+### 9.2 Team Metrics
+
+| Metric | Target | Measurement |
+|---|---|---|
+| Review pass rate per builder | Greater than 80% first-pass approval | Count approved vs rejected verdicts per builder agent |
+| Average rejection cycles per task | Less than 1.0 cycles | Sum rejection cycles / total tasks |
+| Average time in sub-state | Less than 60 seconds per sub-state transition | Timestamp deltas between sub-state comments |
+| Phase completion summary generated | 100% of phases produce a metrics summary | Verify console output at phase end |
+
+### 9.3 Performance Metrics
 
 | Metric | Target | Measurement |
 |---|---|---|
@@ -608,7 +658,7 @@ Adding the `team:` section constitutes a minor version bump for the command: v2.
 | Total execution time increase with full team | Less than 40% increase over single-agent mode | Compare wall-clock time for same TRD with and without team |
 | Cross-session resume accuracy | 100% correct sub-state reconstruction | Test resume after interruption at each sub-state |
 
-### 9.3 Adoption Metrics
+### 9.4 Adoption Metrics
 
 | Metric | Target | Measurement |
 |---|---|---|
@@ -637,7 +687,7 @@ Adding the `team:` section constitutes a minor version bump for the command: v2.
 | M2.2 | Builder delegation with structured completion output | Builders return summaries compatible with handoff protocol |
 | M2.3 | Code reviewer delegation and verdict handling | Reviewer receives context, returns approved/rejected verdict |
 | M2.4 | QA delegation and verdict handling | QA validates acceptance criteria, returns passed/rejected verdict |
-| M2.5 | Rejection loop with cycle cap | Rejected tasks return to builder; cap at 3 cycles |
+| M2.5 | Rejection loop with cycle cap | Rejected tasks return to builder; cap at 2 cycles with lead escalation |
 
 ### Phase 3: Integration and Tooling (Weeks 5-6)
 
@@ -754,6 +804,7 @@ team:
 | Code reviewer agent | `packages/quality/agents/code-reviewer.yaml` |
 | QA orchestrator agent | `packages/quality/agents/qa-orchestrator.yaml` |
 | Tech lead orchestrator agent | `packages/development/agents/tech-lead-orchestrator.yaml` |
+| br custom status extension PRD (planned) | `docs/PRD/br-custom-status-extension.md` (future -- native `in_review`/`in_qa` status support in br CLI) |
 
 ### 11.5 Glossary
 
@@ -766,3 +817,12 @@ team:
 | **Lead loop** | The orchestration loop run by the tech-lead-orchestrator that drives task selection, delegation, and handoff management |
 | **Verdict** | The structured outcome of a review or QA step: `approved`, `rejected`, `passed`, or `failed` |
 | **Wheel instructions** | Printed instructions for initiating the multi-agent flywheel with NTM spawn commands and agent loops |
+
+---
+
+## Version History
+
+| Version | Date | Author | Changes |
+|---|---|---|---|
+| 1.0.0 | 2026-03-14 | Product Management Orchestrator | Initial draft: team-based execution model with roles, state machine, lead orchestration, and handoff protocol |
+| 1.1.0 | 2026-03-14 | Product Management Orchestrator | Refined based on stakeholder feedback: reduced rejection cap to 2 with lead escalation, added risk-based review gating (FR-LL-10), added parallel builder execution (4.11), added team metrics and reporting (4.12), hybrid sub-state tracking approach with planned br extension, added merge conflict risk (R8) |
