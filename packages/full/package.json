@@ -49,6 +49,7 @@
     "@fortium/ensemble-router": "^5.0.0",
     "@fortium/ensemble-permitter": "^5.0.0",
     "@fortium/ensemble-xunit": "^4.0.0",
-    "@fortium/ensemble-exunit": "^4.0.0"
+    "@fortium/ensemble-exunit": "^4.0.0",
+    "@fortium/ensemble-opencode": "^5.3.0"
   }
 }
