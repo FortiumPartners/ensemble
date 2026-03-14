@@ -48,3 +48,13 @@ jobs:
               node -e "const p = require('./$pkg'); if (!p.name.startsWith('@fortium/ensemble-')) process.exit(1);"
             fi
           done
+
+      - name: Validate OpenCode plugin.json
+        run: |
+          OPENCODE_PLUGIN="packages/opencode/.claude-plugin/plugin.json"
+          if [ -f "$OPENCODE_PLUGIN" ]; then
+            echo "Validating $OPENCODE_PLUGIN"
+            npx ajv validate -s schemas/plugin-schema.json -d "$OPENCODE_PLUGIN" -c ajv-formats
+          else
+            echo "WARNING: packages/opencode/.claude-plugin/plugin.json not found"
+          fi

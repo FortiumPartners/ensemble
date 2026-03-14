@@ -1,0 +1,65 @@
+name: OpenCode Generate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - 'feature/opencode-*'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # OC-S4-CI-001: Validate generated output with dry-run
+      - name: Validate OpenCode generation (dry-run)
+        run: npm run generate:opencode -- --validate --dry-run
+
+      # OC-S4-CI-002: Regression test - verify no existing Claude Code artifacts were modified
+      - name: Generate OpenCode artifacts
+        run: npm run generate:opencode -- --force --output-dir dist/opencode
+
+      - name: Check for unintended modifications to Claude Code artifacts
+        run: |
+          CHANGED_FILES=$(git diff --name-only)
+          if [ -n "$CHANGED_FILES" ]; then
+            # Filter out files that are NOT in dist/opencode/ or packages/opencode/
+            UNEXPECTED=$(echo "$CHANGED_FILES" | grep -v -E '^(dist/opencode/|packages/opencode/)' || true)
+            if [ -n "$UNEXPECTED" ]; then
+              echo "ERROR: OpenCode generation modified files outside of expected directories:"
+              echo "$UNEXPECTED"
+              echo ""
+              echo "Only files in dist/opencode/ and packages/opencode/ should be affected."
+              exit 1
+            fi
+          fi
+          echo "Regression check passed: no unexpected file modifications."
+
+      # OC-S4-CI-003: Staleness check - ensure committed output matches generated output
+      - name: Check for stale generated output
+        run: |
+          # Reset any changes from the previous step
+          git checkout -- .
+          # Generate fresh output
+          npm run generate:opencode -- --force --output-dir dist/opencode
+          # Check if there are any differences from what is committed
+          if git diff --exit-code --quiet; then
+            echo "Generated output is up to date."
+          else
+            echo "ERROR: Generated output is stale. Run 'npm run generate:opencode' and commit the results."
+            echo ""
+            echo "Changed files:"
+            git diff --name-only
+            exit 1
+          fi

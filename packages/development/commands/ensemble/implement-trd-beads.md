@@ -1,792 +1,341 @@
 ---
-name: implement-trd-beads
-description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via bd ready, and cross-session resumability
-version: 1.0.0
-category: implementation
+name: ensemble:implement-trd-beads
+description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+argument-hint: [trd-path] [--status] [--reset-task TRD-XXX] [max parallel N]
+model: sonnet
 ---
+<!-- DO NOT EDIT - Generated from implement-trd-beads.yaml -->
+<!-- To modify this file, edit the YAML source and run: npm run generate -->
 
-> **Usage:** `/ensemble:implement-trd-beads` from project root with `docs/TRD/` directory.
-> Arguments: `[trd-path]` `[--status]` `[--reset-task TRD-XXX]` `[max parallel N]`
 
----
+Parse a TRD and create a beads hierarchy (epic -> stories -> tasks) before
+any implementation begins. Drive execution order through bv --robot-next (with
+br ready fallback) rather than TRD re-parsing. Record all state transitions
+in br beads so the implementation is resumable across sessions without access
+to local state files.
 
-## User Input
+This command wraps the implement-trd-enhanced execution model with a full
+beads project management layer powered by br (beads_rust) and bv (beads_viewer).
+It transforms TRD-structured work into a persistent, queryable beads hierarchy
+and drives execution order through bv --robot-next — enabling cross-session
+resumability, graph-aware triage, and parallel execution planning.
 
-```text
-$ARGUMENTS
-```
-
-Examples: (no args), `docs/TRD/my-feature.md`, `--status`, `--reset-task TRD-005`, `max parallel 3`
-
----
-
-## Flow
-
-```
-1. Preflight  → validate Dolt/beads, git-town, TRD, detect resume or scaffold
-2. Scaffold   → epic → stories → tasks → deps → swarm
-3. Execute    → bd ready loop → claim → delegate → close/fail → debug loop
-4. Gate       → phase completion → test-runner → gate result as bead comment
-5. Complete   → bd epic close-eligible → TRD checkbox sync → report
-```
-
----
-
-## Step 1: Preflight
-
-### 1.1 Handle --status Argument
-
-If `$ARGUMENTS` contains `--status`:
-
-1. Derive `TRD_SLUG` using the TRD selection logic in §1.5.
-2. Run: `bd list --label trd-implementation --json --limit 200`
-3. Find item where `external_ref` starts with `trd:<TRD_SLUG>` and `type == "epic"`.
-4. If found:
-   - Print: `bd swarm status <EPIC_ID>`
-   - Print: `bd epic status <EPIC_ID>`
-   - **EXIT** (no implementation)
-5. If not found:
-   - Print: `No beads scaffold found for TRD: <TRD_SLUG>`
-   - Print: `Run /ensemble:implement-trd-beads [trd-path] to scaffold`
-   - **EXIT**
-
-### 1.2 Handle --reset-task Argument
-
-If `$ARGUMENTS` contains `--reset-task`:
-
-1. Extract `TASK_ID` = token immediately after `--reset-task` (e.g., `TRD-005`).
-2. Derive `TRD_SLUG` using §1.5 TRD selection logic.
-3. `ext_ref = "trd:<TRD_SLUG>:task:<TASK_ID>"`
-4. Run: `bd list --label trd-implementation --json --limit 200`
-5. Find bead where `external_ref == ext_ref`.
-6. If found:
-   - Run: `bd update <BEAD_ID> --status open`
-   - Print: `Reset <TASK_ID> (bead: <BEAD_ID>) to open status`
-   - **EXIT**
-7. If not found:
-   - Print: `Task <TASK_ID> not found in beads scaffold for <TRD_SLUG>`
-   - **EXIT with error**
-
-### 1.3 Dolt and Beads Health Check
-
-```bash
-gt dolt status 2>&1
-```
-
-If exit code != 0 OR output contains `latency > 5000`:
-
-```
-Dolt health check failed.
-
-Diagnostics (collect BEFORE restarting):
-  1. kill -QUIT $(cat ~/gt/.dolt-data/dolt.pid)
-  2. gt dolt status 2>&1 | tee /tmp/dolt-hang-$(date +%s).log
-  3. gt escalate -s HIGH "Dolt: <describe symptom>"
-
-See CLAUDE.md Dolt Operational Awareness section for full protocol.
-HALT.
-```
-
-```bash
-bd status 2>&1
-```
-
-If exit code != 0:
-
-```
-bd status failed. Beads database not initialized or Dolt unreachable.
-  gt dolt status   — verify Dolt is running
-  bd init          — if beads database not yet created for this workspace
-HALT.
-```
-
-### 1.4 Git-Town and Working Directory
-
-```bash
-bash packages/git/skills/git-town/scripts/validate-git-town.sh
-```
-
-Exit code handling:
-
-| Code | Meaning | Action |
-|------|---------|--------|
-| 0 | OK | Continue |
-| 1 | Not installed | Print install instructions; HALT |
-| 2 | Not configured | Print `git town config`; HALT |
-| 3 | Version mismatch | Print version requirement; HALT |
-| 4 | Not git repo | HALT |
-
-```bash
-git status --porcelain
-```
-
-If output is non-empty:
-```
-Working directory is dirty. Commit or stash changes before running implement-trd-beads.
-HALT.
-```
-
-### 1.5 TRD Selection
-
-Priority order:
-
-1. `$ARGUMENTS` contains a `.md` file path → use that path directly.
-2. `$ARGUMENTS` contains a name without path → search `docs/TRD/<name>.md`.
-3. Scan `docs/TRD/` for TRDs containing `- [ ]` (in-progress checkboxes):
-   - Exactly one found → use it automatically.
-   - Multiple found → list them and prompt user to select.
-4. List all `.md` files in `docs/TRD/` and prompt user.
-
-**TRD Validation:**
-
-- File exists (use Read tool)
-- Contains a heading matching `## Master Task List` (case-insensitive)
-- Contains at least one line matching `- [ ] **TRD-`
-
-On validation failure: print specific failure reason and HALT.
-
-### 1.6 TRD Slug Derivation
-
-```
-Input:  docs/TRD/implement-trd-beads.md
-Step 1: basename without extension → implement-trd-beads
-Step 2: lowercase, replace non-alphanumeric with hyphens
-Step 3: strip leading/trailing hyphens
-Result: TRD_SLUG = "implement-trd-beads"
-
-Branch: feature/implement-trd-beads
-Epic external-ref: trd:implement-trd-beads
-```
-
-### 1.7 Resume Detection
-
-```bash
-bd list --label trd-implementation --json --limit 200
-```
-
-Search result array for item where:
-- `external_ref` starts with `trd:<TRD_SLUG>`
-- `type == "epic"`
-
-**If found (RESUME_MODE):**
-
-```
-ROOT_EPIC_ID = <found item's id>
-Resuming implementation. Found existing scaffold: <ROOT_EPIC_ID>
-```
-
-Print: `bd swarm status <ROOT_EPIC_ID>`
-
-Skip Step 2 (Scaffold). Proceed to Step 3 (Execute).
-
-**If not found (FRESH_MODE):**
-
-Proceed to §1.8 (branch creation) then Step 2.
-
-### 1.8 Feature Branch Creation
-
-```bash
-branch_name="feature/<TRD_SLUG>"
-git branch --list $branch_name
-```
-
-- If branch exists: `git switch $branch_name`
-- If not exists: `git town hack $branch_name` (fallback: `git switch -c $branch_name`)
-
-Print result.
-
-### 1.9 Strategy Detection
-
-**Priority** (first match wins):
-
-1. `$ARGUMENTS` contains `strategy=<value>` → use that value
-2. TRD file contains explicit strategy annotation → use it
-3. `docs/standards/constitution.md` specifies strategy → use it
-4. Auto-detect from TRD content:
-   - Contains `legacy`, `existing`, `brownfield`, `untested` → `characterization`
-   - Contains `bug fix`, `regression`, `defect` → `bug-fix`
-   - Contains `refactor`, `optimize`, `tech debt` → `refactor`
-   - Contains `prototype`, `spike`, `POC` → `test-after`
-5. Default: `tdd`
-
-**Strategy behaviors:**
-
-| Strategy | Quality Gate | Coverage Block |
-|----------|-------------|----------------|
-| `tdd` | Blocking | Yes |
-| `characterization` | Informational | No |
-| `test-after` | Warning | No |
-| `bug-fix` | Blocking (bug test only) | Warn |
-| `refactor` | Blocking (no regressions) | Yes |
-| `flexible` | Informational | No |
-
----
-
-## Step 2: Scaffold
-
-> **Skip this step if RESUME_MODE == true (existing scaffold found in §1.7).**
-
-### 2.1 Parse TRD
-
-Apply parsing passes in order:
-
-**Pass 1 — TRD title:**
-```
-Pattern: first H1 heading ^# (.+)$
-Result: TRD_TITLE
-```
-
-**Pass 2 — Summary:**
-```
-Pattern: first paragraph of prose after H1, before first H2
-If absent: TRD_TITLE as description
-Truncate to 500 chars
-Result: TRD_SUMMARY
-```
-
-**Pass 3 — Phases:**
-```
-Pattern: ### Phase N  or  ### Sprint N  (case-insensitive, N = integer)
-If none found: synthesize single phase "Phase 1: Implementation"
-Result: PHASES array with n, title, tasks[]
-```
-
-**Pass 4 — Tasks (from Master Task List section):**
-```
-Pattern: - [ ] **TRD-XXX**: Description
-For each task:
-  task_id = TRD-XXX
-  description = text after colon
-  depends_on = comma-separated "Depends: TRD-YYY" inline annotation
-  estimate_minutes = value from "(Xh)" → X*60 or "(Xm)" → X, else 0
-  parallelizable = true if "[P]" present
-Tasks belong to the phase whose heading precedes them in the document.
-Tasks before any phase heading → Phase 1.
-Result: PHASES[i].tasks = [...]
-```
-
-**Pass 5 — Validation:**
-```
-If total tasks == 0: HALT "No TRD task entries found in Master Task List"
-If duplicate task_id found: WARN and continue (use first occurrence)
-```
-
-Set `max_parallel`:
-- Default: 2
-- Override: `$ARGUMENTS` contains `max parallel N` → use N (clamp to 1–4)
-
-### 2.2 Idempotency Cache
-
-```bash
-bd list --label trd-implementation --json --limit 500
-```
-
-Build `EXISTING_BEADS` map keyed by `external_ref`. Use this single cached result for all "already exists" checks during scaffold. Do not re-query per bead.
-
-### 2.3 Root Epic Creation
-
-```bash
-# Check cache first
-existing = EXISTING_BEADS["trd:<TRD_SLUG>"]
-if existing:
-  ROOT_EPIC_ID = existing.id
-  print "Using existing epic: <ROOT_EPIC_ID>"
-else:
-  ROOT_EPIC_ID=$(bd create \
-    --type epic \
-    --title "Implement TRD: <TRD_TITLE>" \
-    --description "<TRD_SUMMARY>" \
-    --external-ref "trd:<TRD_SLUG>" \
-    --labels "trd-implementation" \
-    --priority 2 \
-    --silent)
-```
-
-HALT if exit code != 0 or `ROOT_EPIC_ID` is empty. Print cleanup instructions:
-```
-Cleanup: bd close <any-partial-beads> before retrying.
-```
-
-### 2.4 Story Bead Creation (per phase)
-
-```bash
-for each phase i (1..N):
-  ext_ref = "trd:<TRD_SLUG>:phase:<i>"
-  existing = EXISTING_BEADS[ext_ref]
-
-  if existing:
-    STORY_BEAD_IDs[i] = existing.id
-    print "Skipping phase <i> story (already exists: <existing.id>)"
-    continue
-
-  STORY_BEAD_IDs[i]=$(bd create \
-    --type feature \
-    --title "Phase <i>: <PHASES[i].title>" \
-    --parent <ROOT_EPIC_ID> \
-    --external-ref "<ext_ref>" \
-    --labels "trd-phase,trd-implementation" \
-    --priority 2 \
-    --silent)
-
-  HALT if exit code != 0
-```
+Key behaviors:
+- Scaffold: epic -> stories -> tasks created in br before first line of code
+- Idempotency: existing scaffolds detected via title-prefix matching; partial scaffolds resumed safely
+- Execution: bv --robot-next determines what to run next (fallback: br ready)
+- Quality gates: phase completion triggers test delegation; results recorded as br comments
+- Sync: br sync --flush-only exports JSONL before every bv call
+- Wheel instructions: printed every run with NTM spawn commands for multi-agent flywheel
+- Graceful degradation: bv features skipped if bv unavailable; br required
+- No .trd-state/ files: beads + JSONL are the single source of truth
+
+## Workflow
+
+### Phase 1: Preflight
+
+**1. Handle Special Arguments**
+   Process --status and --reset-task arguments for early exit paths
 
-### 2.5 Task Bead Creation (per task)
-
-```bash
-for each phase i, task j:
-  ext_ref = "trd:<TRD_SLUG>:task:<task.id>"
-  existing = EXISTING_BEADS[ext_ref]
-
-  if existing:
-    TASK_BEAD_IDs[i][j] = existing.id
-    TRD_TO_BEAD_MAP[task.id] = existing.id
-    print "Skipping <task.id> (already exists: <existing.id>)"
-    continue
-
-  estimate_flag = ""
-  if task.estimate_minutes > 0:
-    estimate_flag = "--estimate <task.estimate_minutes>"
-
-  TASK_BEAD_IDs[i][j]=$(bd create \
-    --type task \
-    --title "<task.id>: <task.description>" \
-    --parent <STORY_BEAD_IDs[i]> \
-    --external-ref "<ext_ref>" \
-    --labels "trd-task,trd-implementation" \
-    <estimate_flag> \
-    --silent)
-
-  TRD_TO_BEAD_MAP[task.id] = TASK_BEAD_IDs[i][j]
-  HALT if exit code != 0
-```
-
-### 2.6 Dependency Encoding
-
-```bash
-# Explicit TRD dependencies
-for each phase i, task j:
-  for each dep_task_id in task.depends_on:
-    if dep_task_id in TRD_TO_BEAD_MAP:
-      bd dep add <TASK_BEAD_IDs[i][j]> <TRD_TO_BEAD_MAP[dep_task_id]>
-    else:
-      print "WARNING: TRD dependency <dep_task_id> not in scaffold; skipping link"
-
-# Inter-phase sequential gates (phase N+1 cannot start until phase N completes)
-for each phase i from 2 to N:
-  last_of_prev  = TASK_BEAD_IDs[i-1][-1]   # last task of previous phase
-  first_of_this = TASK_BEAD_IDs[i][0]       # first task of this phase
-  bd dep add <first_of_this> <last_of_prev>
-```
-
-### 2.7 Swarm Creation and Summary
-
-```bash
-SWARM_MOL_ID=$(bd swarm create <ROOT_EPIC_ID> --json | jq -r '.id')
-```
-
-Print scaffolding summary:
-
-```
-═══════════════════════════════════════════════════════
-Beads Scaffold Complete
-═══════════════════════════════════════════════════════
-TRD:         <trd_file>
-Epic:        <ROOT_EPIC_ID>  "Implement TRD: <TRD_TITLE>"
-Stories:     <count> phase beads created
-Tasks:       <count> task beads created
-Deps:        <count> dependency links encoded
-Swarm:       <SWARM_MOL_ID>
-
-Monitor:  bd swarm status <ROOT_EPIC_ID>
-Resume:   /ensemble:implement-trd-beads <trd-path>
-═══════════════════════════════════════════════════════
-```
-
-Then print: `bd swarm status <ROOT_EPIC_ID>`
-
----
-
-## Step 3: Execute
-
-### 3.1 Main Execution Loop
-
-```
-LOOP:
-  ready_tasks = bd ready --parent <ROOT_EPIC_ID> --type task --json --limit 10
-
-  If ready_tasks is empty:
-    swarm_json = bd swarm status <ROOT_EPIC_ID> --json
-    if swarm_json.active == 0 and swarm_json.ready == 0:
-      break  ← proceed to Completion (Step 5)
-    else:
-      print "No ready tasks but swarm shows active=<active> ready=<ready>"
-      print "Possible dependency cycle. Run: bd graph <ROOT_EPIC_ID>"
-      PAUSE for user decision
-
-  If max_parallel == 1 or len(ready_tasks) == 1:
-    execute_task(ready_tasks[0])
-  Else:
-    candidates = ready_tasks[0 .. min(max_parallel, len(ready_tasks))-1]
-    conflict_groups = detect_file_conflicts(candidates)
-    For each conflict-free group: execute_parallel(group)
-
-  print: bd swarm status <ROOT_EPIC_ID>
-```
-
-### 3.2 Claim Task
-
-```bash
-bd update <BEAD_ID> --claim
-```
-
-If exit code != 0:
-```
-Task <BEAD_ID> already claimed by another agent. Skipping.
-```
-Continue loop.
-
-### 3.3 Select Specialist
-
-Check `.claude/router-rules.json` first. Project-specific agents take priority.
-
-Keyword fallback table (applied to task title, case-insensitive):
-
-| Keywords in title | Specialist |
-|-------------------|------------|
-| backend, api, endpoint, database, server, model, migration | @backend-developer |
-| frontend, ui, component, react, vue, angular, svelte, web, css | @frontend-developer |
-| mobile, flutter, react-native, ios, android | @mobile-developer |
-| test, spec, playwright, e2e, coverage | @test-runner or @playwright-tester |
-| refactor, optimize, cleanup, lint | @backend-developer or @frontend-developer |
-| docs, readme, documentation, changelog | @documentation-specialist |
-| infra, deploy, docker, k8s, kubernetes, aws, cloud, terraform | @infrastructure-developer |
-| (no match) | @backend-developer |
-
-### 3.4 File Conflict Detection (for parallel execution)
-
-**Step 1 — Infer file touches per task:**
-
-| Source | Method |
-|--------|--------|
-| Explicit | Task contains `Files: path/to/file` → use those paths |
-| Keyword | `controller` → `**/controllers/**`; `model` → `**/models/**`; `service` → `**/services/**`; `test` → `**/*.test.*`; `component` → `**/components/**` |
-| Domain | Backend tasks → `src/api/`, `src/services/`; Frontend → `src/components/`, `src/pages/` |
-
-**Step 2 — Detect conflicts:**
-- Overlapping file sets → execute sequentially
-- Disjoint file sets → execute in parallel
-
-### 3.5 Skill Matching
-
-**Discovery order:**
-1. Project-specific: `.claude/router-rules.json` (if exists)
-2. Global plugin: `${CLAUDE_PLUGIN_ROOT}/router/lib/router-rules.json` (if exists)
-3. Language-keyword fallback:
-
-| Keywords | Skill |
-|----------|-------|
-| JavaScript, TypeScript, Jest, React test | `jest` |
-| Python, pytest, Django, Flask test | `pytest` |
-| Ruby, RSpec, Rails test | `rspec` |
-| Elixir, ExUnit, Phoenix test | `exunit` |
-| C#, .NET, xUnit test | `xunit` |
-| Playwright, E2E, browser test | `writing-playwright-tests` |
-| No match | Omit Skills section from prompt |
-
-### 3.6 Task Prompt Template
-
-```markdown
-## Task: <TASK_ID> (bead: <BEAD_ID>) - <description>
-
-### Context
-- TRD: <trd_file>
-- Strategy: <strategy>
-- Bead ID: <BEAD_ID>  ← update status if needed during implementation
-- Constitution: <quality_gates_summary or "defaults: 80% unit, 70% integration">
-- Completed tasks this phase: <completed_task_ids>
-
-### Objective
-<acceptance criteria extracted from TRD task description>
-
-### Files
-<file paths inferred from task description>
-
-### Skills
-<matched skills — e.g., "Use the Skill tool to invoke the jest skill.">
-
-### Strategy Instructions
-<strategy-specific instructions — see table below>
-
-### Deliverables
-1. Implementation complete per objective
-2. Files changed (list paths)
-3. Tests passing (yes/no/not applicable)
-4. Outcome summary
-```
-
-**Strategy instructions per strategy:**
-
-| Strategy | Instructions |
-|----------|-------------|
-| `tdd` | Follow Red-Green-Refactor: (1) Write failing test first, (2) Implement minimal passing code, (3) Refactor while keeping tests green |
-| `characterization` | Document current behavior AS-IS. Write tests that capture EXISTING behavior. Do NOT refactor or fix the code. Tests should pass immediately. |
-| `test-after` | Implement first, then add tests. Focus on coverage over test-first methodology. |
-| `bug-fix` | (1) Write failing test reproducing the bug, (2) Implement the fix, (3) Verify the test passes. |
-| `refactor` | Ensure all tests pass BEFORE changes. Make incremental changes. Run tests after each change. |
-| `flexible` | Use your judgment. No strict methodology enforcement. |
-
-### 3.7 Handle Task Result
-
-**On success:**
-
-```bash
-bd update <BEAD_ID> --status closed
-# Update TRD file: - [ ] **<TASK_ID>** → - [x] **<TASK_ID>**
-git commit -m "feat(<TASK_ID>): <short description from task title>"
-```
-
-**On failure:**
-
-```bash
-bd update <BEAD_ID> --status open
-bd comments add <BEAD_ID> "Implementation failed: <error_summary>"
-# Enter debug loop (§3.8)
-```
-
-### 3.8 Debug Loop
-
-```
-max_retries = 2
-retry_count = 0
-
-WHILE retry_count < max_retries:
-  Delegate to @deep-debugger:
-    "Tests failing after task <TASK_ID> implementation.
-    Strategy: <strategy>
-    Error output: <test_failure_details>
-    Files modified: <changed_files>
-    Bead ID: <BEAD_ID>
-
-    Analyze root cause. Propose fix. Implement if straightforward.
-    Max retries: 2
-
-    Report: fix applied (yes/no), files changed, recommendation"
-
-  If result.fix_applied:
-    Re-run tests
-    If tests pass:
-      bd update <BEAD_ID> --status closed
-      Update TRD checkbox and git commit
-      BREAK ← task done
-    Else:
-      retry_count++
-  Else:
-    retry_count++
-
-If retry_count >= max_retries:
-  bd comments add <BEAD_ID> "Debug loop exhausted after 2 retries. Manual intervention required."
-  PAUSE for user decision (continue, skip, abort)
-```
-
-### 3.9 Dolt Connectivity Loss Detection
-
-After **any** `bd` command: if exit code != 0 AND prior `bd` commands in this session succeeded:
-
-```
-═══ DOLT CONNECTIVITY ALERT ═══
-bd command failed unexpectedly. Dolt may have gone down mid-execution.
-
-Diagnostic steps (collect BEFORE restarting Dolt):
-  1. kill -QUIT $(cat ~/gt/.dolt-data/dolt.pid)
-  2. gt dolt status 2>&1 | tee /tmp/dolt-hang-$(date +%s).log
-  3. gt escalate -s HIGH "Dolt: connectivity lost during TRD implementation"
-
-After resolving, resume with:
-  /ensemble:implement-trd-beads <trd-path>
-═════════════════════════════════
-HALT
-```
-
----
-
-## Step 4: Quality Gate
-
-Triggered after all task beads under a story bead are closed.
+   - If $ARGUMENTS contains '--status': derive TRD_SLUG, run br list --status=open --json, filter JSON for entries with title matching [trd:<TRD_SLUG>] to find epic, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, EXIT
+   - If $ARGUMENTS contains '--reset-task': extract TASK_ID, run br list --status=open --json, filter JSON for entry with title containing [trd:<TRD_SLUG>:task:<TASK_ID>], run br update <BEAD_ID> --status=open, EXIT
 
-### 4.1 Phase Completion Detection
+**2. Tool Availability Check**
+   Verify br is installed and functional, detect bv availability
 
-After each task closes:
-
-```bash
-bd list --parent <STORY_BEAD_ID> --type task --json
-```
-
-If ALL tasks have `status == "closed"` → trigger quality gate for this phase.
-
-### 4.2 Test Execution
-
-Delegate to `@test-runner`:
-
-```
-Run full test suite for files modified in phase <N>.
-Files: <changed_files_this_phase>
-
-Report:
-- Pass/fail status
-- Coverage percentages (unit, integration)
-- Failure details with file:line references
-- Which skill(s) used
-```
-
-Parse results:
-
-```
-gate_passed = tests_pass
-              AND unit_coverage >= constitution_unit_target (default 80%)
-              AND int_coverage  >= constitution_int_target  (default 70%)
-```
-
-**Exceptions** (gate always passes — informational only):
-- `strategy == "characterization"`
-- `strategy == "flexible"`
-
-### 4.3 Coverage Blocking by Strategy
-
-| Strategy | Below Threshold Action |
-|----------|----------------------|
-| `tdd` | BLOCK until coverage improved |
-| `refactor` | BLOCK (no regressions allowed) |
-| `bug-fix` | WARN, continue |
-| `test-after` | WARN, continue |
-| `characterization` | SKIP (coverage not the goal) |
-| `flexible` | LOG, continue |
-
-### 4.4 Gate Result Recording
-
-```bash
-bd comments add <STORY_BEAD_ID> \
-  "Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>"
-```
-
-**If gate passed:**
-
-```bash
-bd update <STORY_BEAD_ID> --status closed
-git commit -m "chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)"
-```
-
-**If gate failed AND strategy is blocking (tdd/refactor/bug-fix):**
-
-```
-Quality gate FAILED for Phase <N>.
-Unit coverage: <X%> (target: <target>%)
-Integration coverage: <Y%> (target: <target>%)
-Failed tests: <list>
-```
-
-Print: `bd swarm status <ROOT_EPIC_ID>`
-
-PAUSE for user decision:
-- `fix` → re-run debug loop on failing tests; retry gate
-- `skip` → close story bead and continue to next phase
-- `abort` → HALT implementation entirely
-
----
-
-## Step 5: Completion
-
-Reached when `bd ready --parent <ROOT_EPIC_ID> --type task` returns empty.
-
-### 5.1 Verify All-Done Condition
-
-```bash
-bd swarm status <ROOT_EPIC_ID> --json
-```
-
-- `active == 0 AND ready == 0` → proceed to epic closure
-- Otherwise: HALT with cycle/blocked state message and `bd graph <ROOT_EPIC_ID>`
-
-### 5.2 Epic Closure
-
-```bash
-bd epic close-eligible
-```
-
-Closes `ROOT_EPIC_ID` if all children are closed.
-
-### 5.3 TRD Checkbox Sync
-
-For each task in TRD Master Task List:
-
-```
-If TRD_TO_BEAD_MAP[task.id] exists AND bead status == "closed":
-  Replace "- [ ] **<task.id>**" with "- [x] **<task.id>**" in TRD file
-```
-
-```bash
-git commit -m "docs(TRD): sync checkboxes to bead closure state"
-```
-
-### 5.4 Completion Report
-
+   - which br || { echo 'ERROR: br (beads_rust) not installed. Install from https://github.com/Dicklesworthstone/beads_rust'; exit 1; }
+   - br list --status=open > /dev/null 2>&1 || { echo 'ERROR: br not functional'; exit 1; }
+   - which bv && BV_AVAILABLE=true || { echo 'WARNING: bv (beads_viewer) not installed. Graph-aware triage will be unavailable. Install from https://github.com/Dicklesworthstone/beads_viewer'; BV_AVAILABLE=false; }
+
+**3. Git-Town and Working Directory Verification**
+   Verify git-town installed and working directory is clean
+
+   - Run: bash packages/git/skills/git-town/scripts/validate-git-town.sh — handle exit codes 0 (ok), 1 (not installed), 2 (not configured), 3 (version mismatch), 4 (not git repo)
+   - Run: git status --porcelain — HALT if output non-empty (dirty working directory)
+
+**4. TRD Selection and Validation**
+   Locate and validate the target TRD file
+
+   - Priority: $ARGUMENTS .md path -> $ARGUMENTS name search in docs/TRD/ -> single in-progress TRD in docs/TRD/ -> prompt user
+   - Validate: file exists, contains Master Task List section, contains at least one '- [ ] **TRD-' entry
+   - Derive TRD_SLUG from filename: lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens
+
+**5. Resume Detection**
+   Check for existing beads scaffold to enable cross-session resume
+
+   - Run: br list --status=open --json
+   - Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
+   - If found: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
+   - If not found: proceed to Feature Branch Creation then Scaffold
+
+**6. Feature Branch Creation**
+   Create or switch to feature branch for TRD implementation
+
+   - branch_name = 'feature/<TRD_SLUG>'
+   - Run: git branch --list <branch_name>
+   - If exists: git switch <branch_name>
+   - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
+
+**7. Strategy Detection**
+   Determine implementation strategy from arguments, TRD content, or auto-detection
+
+   - Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)
+   - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
+
+### Phase 2: Scaffold
+
+**1. TRD Parsing**
+   Parse TRD into structured phases and tasks
+
+   - Pass 1: Extract TRD_TITLE from first H1 heading
+   - Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)
+   - Pass 3: Extract phases from '### Phase N' or '### Sprint N' headings; synthesize single phase if none found
+   - Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
+   - Pass 5: Validate at least one task found; warn on duplicate task IDs
+
+**2. Idempotency Cache**
+   Cache existing beads to enable partial scaffold resume via title-prefix matching
+
+   - Run: br list --status=open --json (capture full JSON output once)
+   - Parse JSON array of bead objects with .id and .title fields
+   - Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:phase:<N>] for stories, [trd:<TRD_SLUG>:task:<ID>] for tasks
+   - Map key is the title prefix pattern, value is the bead .id
+   - Use this cache for all 'already exists' checks during scaffold — do not re-query per bead
+
+**3. Root Epic Creation**
+   Create the top-level epic bead for the TRD
+
+   - Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>]
+   - If found: ROOT_EPIC_ID = existing id; skip creation
+   - If not found: run br create --title='[trd:<TRD_SLUG>] Implement TRD: <TRD_TITLE>' --type=epic --priority=2 --description='<TRD_SUMMARY>' --json
+   - Capture ROOT_EPIC_ID by parsing .id field from JSON response
+   - HALT if exit code != 0 or ROOT_EPIC_ID empty
+
+**4. Story Bead Creation**
+   Create one story bead per TRD phase under the root epic
+
+   - For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:phase:<i>]
+   - If found: STORY_BEAD_IDs[i] = existing id; skip creation
+   - If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --description='Phase <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.' --json
+   - Capture STORY_BEAD_ID by parsing .id from JSON response
+   - After creation: br dep add <STORY_BEAD_ID> <ROOT_EPIC_ID> to establish parent-child relationship
+   - HALT if any creation fails
+
+**5. Task Bead Creation**
+   Create one task bead per TRD task under its phase story with full description from TRD actions
+
+   - For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]
+   - If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation
+   - If not found: extract the full task body from the TRD (everything under the task entry: File, Actions, sub-items) and use as description
+   - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<task_body_from_TRD>' --json
+   - The description should include: target file path, numbered action items, dependencies, and acceptance criteria from the TRD task entry
+   - Capture TASK_BEAD_ID by parsing .id from JSON response
+   - After creation: br dep add <TASK_BEAD_ID> <STORY_BEAD_ID> to establish parent-child relationship
+   - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
+
+**6. Dependency Encoding**
+   Wire explicit TRD dependencies and inter-phase sequential gates
+
+   - For each task with depends_on: br dep add <TASK_BEAD_ID> <TRD_TO_BEAD_MAP[dep_id]> (warn and skip if dep not in map)
+   - For each phase i >= 2: br dep add <first_task_of_phase_i> <last_task_of_phase_i-1> (inter-phase sequential gate)
+
+**7. BV Execution Planning**
+   Run bv robot-plan and robot-triage for graph-aware execution planning
+
+   - Run: br sync --flush-only (ensure JSONL is current before any bv call)
+   - If BV_AVAILABLE == true:
+   -   Run: PLAN_OUTPUT=$(bv --robot-plan --format toon) — capture parallel execution tracks
+   -   Parse PLAN_OUTPUT to extract parallel tracks (track numbers, task lists per track)
+   -   Store PARALLEL_TRACKS for use in wheel instructions
+   -   On bv failure: echo 'WARNING: bv --robot-plan failed. Falling back to sequential execution.'; BV_AVAILABLE=false
+   -   Run: TRIAGE_OUTPUT=$(bv --robot-triage --format toon) — capture triage analysis
+   -   Parse TRIAGE_OUTPUT to extract: quick_ref, recommendations (ranked list with scores), quick_wins, blockers_to_clear
+   -   Store TRIAGE_RECOMMENDATIONS for use in wheel instructions
+   -   On bv failure: echo 'WARNING: bv --robot-triage failed.'; continue without triage data
+   - If BV_AVAILABLE == false: skip bv calls, use br-only sequential execution order
+
+**8. Scaffold Summary and BV Analysis**
+   Print scaffolding summary with BV analysis output
+
+   - Print scaffolding summary: epic ID, story count, task count, dep count
+   - Run: br list --status=open for summary overview
+   - Run: br sync --flush-only (final sync after all scaffold mutations)
+   - If BV_AVAILABLE == true:
+   -   Print section: === BV ANALYSIS ===
+   -   Print PARALLEL EXECUTION TRACKS with parsed track data from PLAN_OUTPUT
+   -   Print TRIAGE RECOMMENDATIONS with top recommendations from TRIAGE_OUTPUT
+   -   Print QUICK WINS from TRIAGE_OUTPUT quick_wins section
+   -   Print BLOCKERS TO CLEAR from TRIAGE_OUTPUT blockers_to_clear section
+   - If BV_AVAILABLE == false: print 'BV analysis unavailable. Using br-only execution order.'
+
+**9. Wheel Instructions Output**
+   Print agentic coding flywheel instructions for multi-agent execution
+
+   - If BV_AVAILABLE == true, print full wheel instructions:
+   -   ================================================================
+   -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel
+   -   ================================================================
+   -   PARALLEL EXECUTION TRACKS (from bv --robot-plan):
+   -     <Insert parsed parallel tracks from PLAN_OUTPUT>
+   -   RECOMMENDED EXECUTION ORDER (from bv --robot-triage):
+   -     <Insert ranked recommendations from TRIAGE_OUTPUT>
+   -   SPAWN AGENTS WITH NTM:
+   -     # Spawn one agent per parallel track
+   -     <For each track: ntm new <TRD_SLUG>-track-N -- claude code>
+   -   AGENT SELF-SELECTION LOOP:
+   -     # Each agent runs this loop:
+   -     bv --robot-next --format toon          # Get top priority task
+   -     br update <id> --status=in_progress    # Claim the task
+   -     # ... implement the task ...
+   -     br close <id> --reason='Completed'     # Mark done
+   -     br sync --flush-only                   # Export for bv
+   -     bv --robot-next --format toon          # Get next task
+   -   AGENT COORDINATION VIA MAIL:
+   -     # Send status updates between agents
+   -     mail send <TRD_SLUG>-track-2 'TRD-001 complete, Track 2 unblocked'
+   -     mail check                             # Check for messages
+   -   MONITOR PROGRESS:
+   -     bv --robot-triage --format toon        # Full triage refresh
+   -     br list --status=open                  # See remaining work
+   -   ================================================================
+   - If BV_AVAILABLE == false, print reduced wheel instructions:
+   -   ================================================================
+   -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel (br-only mode)
+   -   ================================================================
+   -   NOTE: bv not available. Install beads_viewer for graph-aware execution planning.
+   -   AVAILABLE TASKS:
+   -     br ready                               # See unblocked tasks
+   -   AGENT WORK LOOP:
+   -     br ready                               # Find available work
+   -     br update <id> --status=in_progress    # Claim the task
+   -     # ... implement the task ...
+   -     br close <id> --reason='Completed'     # Mark done
+   -     br sync --flush-only                   # Sync changes
+   -   MONITOR PROGRESS:
+   -     br list --status=open                  # See remaining work
+   -   ================================================================
+
+### Phase 3: Execute
+
+**1. Execution Loop**
+   Poll bv robot-next (or br ready) and execute tasks until epic is complete
+
+   - LOOP:
+   - Run: br sync --flush-only (ensure JSONL current before bv call)
+   - If BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
+   - If not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
+   - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
+   - If max_parallel==1 or single task ready: execute_single_task
+   - Else: if BV_AVAILABLE use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
+   - After each task (or parallel group): br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon for progress check else run br list --status=open filtered by TRD slug
+
+**2. Task Claim and Specialist Selection**
+   Claim task in beads before delegating to specialist agent
+
+   - Run: br update <BEAD_ID> --status=in_progress — skip task if exit code != 0 (already claimed)
+   - Extract TASK_ID from task.title prefix (TRD-XXX pattern)
+   - Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer
+   - Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
+   - Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
+
+**3. Task Delegation**
+   Build prompt and delegate to selected specialist, require closing summary comment
+
+   - Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions
+   - Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
+   - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
+   - On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
+   - On failure: br comment add <BEAD_ID> 'Failed: <error_summary>. Files touched: <changed_files>. Agent: <specialist_type>.'; br update <BEAD_ID> --status=open; br sync --flush-only; enter debug loop
+
+**4. Code Review**
+   Mandatory code review before task closure — delegate to @code-reviewer for quality validation
+
+   - Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
+   - If approved: br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'; br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
+   - If rejected with fixable issues: br comment add <BEAD_ID> 'Code review REJECTED: <issues_found>'; delegate back to original specialist with review feedback; re-submit to code review after fixes (max 2 review rounds)
+   - If rejected after 2 rounds: br comment add <BEAD_ID> 'Code review failed after 2 rounds. Issues: <remaining_issues>.'; PAUSE for user decision (force-close, fix manually, abort)
+   - Skip code review only if strategy == 'flexible' or task type is docs/documentation-only
+
+**5. Debug Loop**
+   Attempt automated fix on task failure via deep-debugger (max 2 retries)
+
+   - Delegate to @deep-debugger with error details, changed files, strategy, bead ID
+   - If fix applied: re-run tests; if pass -> proceed to Code Review step (order 4); if fail -> retry
+   - After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Root cause: <error_analysis>. Attempted fixes: <fix_attempts>. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
+
+**6. Error Handling**
+   Handle br command failures during execution
+
+   - After any br command: if exit code != 0 AND prior br commands in session succeeded -> possible br failure
+   - Print error message with br command that failed and its exit code
+   - Print: check br status and .beads/ directory integrity
+   - PAUSE for user decision (resume with /ensemble:implement-trd-beads <trd-path> after issue resolved)
+
+### Phase 4: Quality Gate
+
+**1. Phase Completion Detection**
+   Detect when all tasks in a phase are closed
+
+   - After each task completion: run br list --status=open --json, filter by title prefix [trd:<TRD_SLUG>:phase:<N>] to find tasks for this phase
+   - If no open tasks remain for this phase: trigger quality gate for this story/phase
+
+**2. Test Execution**
+   Delegate test suite execution to test-runner
+
+   - Delegate to @test-runner: run full test suite for files modified in this phase; report pass/fail, unit coverage %, integration coverage %, failures with file:line
+   - Parse results: gate_passed = tests_pass AND unit_cov >= target AND int_cov >= target
+   - Exception: strategy=characterization or flexible -> gate_passed = true (informational only)
+
+**3. Gate Result Recording**
+   Record quality gate outcome as br comment and close story on pass
+
+   - Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'
+   - Run: br sync --flush-only
+   - If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - If NOT gate_passed AND blocking strategy (tdd/refactor/bug-fix): print gate failure details; PAUSE for user: fix/skip/abort
+
+### Phase 5: Completion
+
+**1. Epic Closure**
+   Close the root epic when all children are done
+
+   - Verify: br list --status=open --json filtered by TRD slug returns no open tasks
+   - Run: br close <ROOT_EPIC_ID> --reason='TRD implementation complete'
+   - Run: br sync --flush-only
+
+**2. TRD Checkbox Sync**
+   Update TRD file checkboxes to reflect bead closure state
+
+   - For each task in TRD Master Task List: if TRD_TO_BEAD_MAP[task.id] exists and bead status == 'closed' -> replace '- [ ] **<task.id>**' with '- [x] **<task.id>**'
+   - git commit -m 'docs(TRD): sync checkboxes to bead closure state'
+
+**3. Completion Report**
+   Print final summary and remind user about PR creation
+
+   - Print completion report: TRD file, branch, strategy, epic ID, task counts, coverage summary
+   - Run: br sync --flush-only
+   - If BV_AVAILABLE: run bv --robot-triage --format toon for final progress summary
+   - If not BV_AVAILABLE: run br list --status=open --json filtered by TRD slug (expect empty)
+   - Remind user: git diff main...<branch>; gh pr create; after merge: mv <trd_file> docs/TRD/completed/
+   - Remind user: br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'
+   - Do NOT auto-create PR — user must run gh pr create manually
+
+## Expected Output
+
+**Format:** Implemented Features with Quality Gates and Beads Tracking
+
+**Structure:**
+- **Beads Hierarchy**: Epic + story + task beads in br storage with JSONL export and full dependency graph
+- **Feature Branch**: Git feature branch with implementation commits and phase checkpoint commits
+- **Closed Beads**: All task and story beads closed with quality gate comments recorded via br comment add
+- **TRD Checkboxes**: TRD Master Task List updated with completed checkboxes synced to bead closure state
+- **Wheel Instructions**: Printed agentic coding flywheel instructions with NTM spawn commands, agent self-selection loop, mail coordination, and progress monitoring commands
+- **BV Analysis**: Captured bv --robot-plan parallel execution tracks and bv --robot-triage scored recommendations (when bv available)
+- **Completion Report**: Summary with epic ID, coverage metrics, and PR creation reminder
+
+## Usage
+
+```
+/ensemble:implement-trd-beads [trd-path] [--status] [--reset-task TRD-XXX] [max parallel N]
 ```
-═══════════════════════════════════════════════════════
-TRD Implementation Complete
-═══════════════════════════════════════════════════════
-
-TRD:      <trd_file>
-Branch:   <branch_name>
-Strategy: <strategy>
-Epic:     <ROOT_EPIC_ID>
-Swarm:    <SWARM_MOL_ID>
-
-Progress: <N> tasks completed, <M> failed
-
-Quality:
-  Unit Coverage:        <X>% (target: <unit_target>%)
-  Integration Coverage: <Y>% (target: <int_target>%)
-
-Beads Dashboard:
-  bd swarm status <ROOT_EPIC_ID>
-  bd epic status <ROOT_EPIC_ID>
-
-Next Steps:
-  1. git diff main...<branch_name>
-  2. gh pr create
-  3. After merge: mv <trd_file> docs/TRD/completed/
-═══════════════════════════════════════════════════════
-```
-
-> Do NOT auto-create the PR. The user must run `gh pr create` manually after reviewing the diff.
-
----
-
-## Error Handling
-
-| Error | Detection | Response |
-|-------|-----------|----------|
-| Dolt unreachable | `gt dolt status` exit != 0 | Collect diagnostics per CLAUDE.md; escalate; HALT |
-| bd status failure | `bd status` exit != 0 | Print init/start instructions; HALT |
-| No TRD found | No `.md` in `docs/TRD/` with task entries | List available TRDs; suggest `/ensemble:create-trd` |
-| TRD invalid format | Missing Master Task List or TRD-XXX entries | Print specific validation failure; HALT |
-| Dirty working directory | `git status --porcelain` non-empty | Print commit/stash instruction; HALT |
-| Epic creation failure | `bd create` exit != 0 | Print partial bead IDs; print cleanup instructions; HALT |
-| Task already claimed | `bd update --claim` exit != 0 | Skip task; continue loop |
-| Task failure | Specialist returns error | Record in bead comment; enter debug loop |
-| Debug loop exhausted | 2 retries failed | Record in bead comment; PAUSE for user |
-| Coverage below threshold | gate_passed == false | Strategy-dependent: block, warn, or continue |
-| Dependency cycle | `bd ready` empty but swarm shows ready > 0 | Print `bd graph <ROOT_EPIC_ID>`; PAUSE |
-| Dolt connectivity loss mid-run | `bd` fails after prior success | Print DOLT CONNECTIVITY ALERT with diagnostics; HALT |
-| Partial scaffold on retry | `--external-ref` match in `EXISTING_BEADS` | Skip already-created beads; continue from first missing bead |
-
----
-
-## Compatibility
-
-- Requires: `bd` CLI, `gt` CLI, `git town`, Dolt running on port 3307
-- Works with/without `docs/standards/constitution.md`
-- Works with/without `.claude/router-rules.json`
-- Existing TRDs with `- [ ] **TRD-XXX**` format work unchanged
-- Resumable across sessions — beads are the only state authority
-- No `.trd-state/` files created or read

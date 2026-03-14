@@ -26,7 +26,11 @@
       "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && ls -la {}')",
       "Bash(claude plugin uninstall:*)",
       "mcp__MCP_DOCKER__resolve-library-id",
-      "Bash(npm run test:coverage:*)"
+      "Bash(npm run test:coverage:*)",
+      "Bash(npm install:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm query:*)",
+      "Bash(npx jest:*)"
     ]
   },
   "enabledPlugins": {

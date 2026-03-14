@@ -1,0 +1,66 @@
+{
+  "name": "@fortium/ensemble-opencode",
+  "version": "5.3.0",
+  "description": "Ensemble agent mesh for OpenCode - 28 agents, 15 commands, 10 framework skills",
+  "main": "src/index.js",
+  "types": "src/index.ts",
+  "files": [
+    "src/",
+    "lib/",
+    ".opencode/",
+    ".claude-plugin/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint .",
+    "build": "tsc",
+    "prepublishOnly": "npm run build && npm test",
+    "validate:version": "node -e \"const p=require('./package.json');const c=require('./.claude-plugin/plugin.json');if(p.version!==c.version){console.error('Version mismatch: package.json='+p.version+' plugin.json='+c.version);process.exit(1)}console.log('Version sync OK:',p.version)\""
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "ensemble",
+    "ai-agents",
+    "coding-assistant",
+    "plugin",
+    "translation"
+  ],
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/opencode"
+  },
+  "homepage": "https://github.com/FortiumPartners/ensemble/tree/main/packages/opencode",
+  "bugs": {
+    "url": "https://github.com/FortiumPartners/ensemble/issues"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "gray-matter": "^4.0.3"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opencode-ai/plugin": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "*",
+    "jest": "^29.7.0",
+    "typescript": "^5.4.0"
+  },
+  "opencode": {
+    "localInstall": "In opencode.json, add: \"plugin\": [\"file:///absolute/path/to/packages/opencode\"]"
+  }
+}
