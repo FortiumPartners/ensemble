@@ -14,18 +14,9 @@ __pycache__/
 *.pyo
 
 
-# Gas Town (added by gt)
-.runtime/
-.claude/
-.logs/
-
 # Dolt database files (added by bd init)
 .dolt/
 *.db
-# Gas Town runtime
-.runtime/
-.beads/
-.claude/
-.logs/
 
-# Session logs (generated per-session)
+# bv (beads viewer) local config and caches
+.bv/

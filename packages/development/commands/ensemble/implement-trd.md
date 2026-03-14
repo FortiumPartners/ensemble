@@ -1,6 +1,7 @@
 ---
 name: ensemble:implement-trd
 description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
+model: sonnet
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
