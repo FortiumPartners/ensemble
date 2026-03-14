@@ -108,7 +108,7 @@ Key behaviors:
 
    - Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>]
    - If found: ROOT_EPIC_ID = existing id; skip creation
-   - If not found: run br create --title='[trd:<TRD_SLUG>] Implement TRD: <TRD_TITLE>' --type=epic --priority=2 --json
+   - If not found: run br create --title='[trd:<TRD_SLUG>] Implement TRD: <TRD_TITLE>' --type=epic --priority=2 --description='<TRD_SUMMARY>' --json
    - Capture ROOT_EPIC_ID by parsing .id field from JSON response
    - HALT if exit code != 0 or ROOT_EPIC_ID empty
 
@@ -117,17 +117,19 @@ Key behaviors:
 
    - For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:phase:<i>]
    - If found: STORY_BEAD_IDs[i] = existing id; skip creation
-   - If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --json
+   - If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --description='Phase <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.' --json
    - Capture STORY_BEAD_ID by parsing .id from JSON response
    - After creation: br dep add <STORY_BEAD_ID> <ROOT_EPIC_ID> to establish parent-child relationship
    - HALT if any creation fails
 
 **5. Task Bead Creation**
-   Create one task bead per TRD task under its phase story
+   Create one task bead per TRD task under its phase story with full description from TRD actions
 
    - For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]
    - If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation
-   - If not found: run br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --json
+   - If not found: extract the full task body from the TRD (everything under the task entry: File, Actions, sub-items) and use as description
+   - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<task_body_from_TRD>' --json
+   - The description should include: target file path, numbered action items, dependencies, and acceptance criteria from the TRD task entry
    - Capture TASK_BEAD_ID by parsing .id from JSON response
    - After creation: br dep add <TASK_BEAD_ID> <STORY_BEAD_ID> to establish parent-child relationship
    - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
@@ -233,26 +235,36 @@ Key behaviors:
 
    - Run: br update <BEAD_ID> --status=in_progress — skip task if exit code != 0 (already claimed)
    - Extract TASK_ID from task.title prefix (TRD-XXX pattern)
-   - Select specialist by keyword matching: backend/api/endpoint/database/server -> @backend-developer; frontend/ui/component/react -> @frontend-developer; test/spec/e2e/playwright -> @test-runner or @playwright-tester; docs/readme -> @documentation-specialist; infra/deploy/docker/k8s -> @infrastructure-developer; default -> @backend-developer
+   - Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer
    - Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
    - Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
 
 **3. Task Delegation**
-   Build prompt and delegate to selected specialist
+   Build prompt and delegate to selected specialist, require closing summary comment
 
    - Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions
+   - Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
    - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
-   - On success: br close <BEAD_ID> --reason='Completed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
-   - On failure: br update <BEAD_ID> --status=open; br comment add <BEAD_ID> 'Implementation failed: <error>'; br sync --flush-only; enter debug loop
+   - On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
+   - On failure: br comment add <BEAD_ID> 'Failed: <error_summary>. Files touched: <changed_files>. Agent: <specialist_type>.'; br update <BEAD_ID> --status=open; br sync --flush-only; enter debug loop
 
-**4. Debug Loop**
+**4. Code Review**
+   Mandatory code review before task closure — delegate to @code-reviewer for quality validation
+
+   - Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
+   - If approved: br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'; br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
+   - If rejected with fixable issues: br comment add <BEAD_ID> 'Code review REJECTED: <issues_found>'; delegate back to original specialist with review feedback; re-submit to code review after fixes (max 2 review rounds)
+   - If rejected after 2 rounds: br comment add <BEAD_ID> 'Code review failed after 2 rounds. Issues: <remaining_issues>.'; PAUSE for user decision (force-close, fix manually, abort)
+   - Skip code review only if strategy == 'flexible' or task type is docs/documentation-only
+
+**5. Debug Loop**
    Attempt automated fix on task failure via deep-debugger (max 2 retries)
 
    - Delegate to @deep-debugger with error details, changed files, strategy, bead ID
-   - If fix applied: re-run tests; if pass -> br close <BEAD_ID> --reason='Completed' and br sync --flush-only and continue; if fail -> retry
-   - After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
+   - If fix applied: re-run tests; if pass -> proceed to Code Review step (order 4); if fail -> retry
+   - After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Root cause: <error_analysis>. Attempted fixes: <fix_attempts>. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
 
-**5. Error Handling**
+**6. Error Handling**
    Handle br command failures during execution
 
    - After any br command: if exit code != 0 AND prior br commands in session succeeded -> possible br failure
