@@ -10,56 +10,11 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Team config parser (inlined from team-yaml-parser.test.js)
-// ---------------------------------------------------------------------------
-
-/**
- * Parses the `team:` section of a command YAML (already loaded as a JS object)
- * and returns a normalized team configuration.
- *
- * @param {Object|undefined|null} yamlTeamSection - The `team:` object from parsed YAML
- * @returns {{ teamMode: boolean, teamRoles: Object, reviewerEnabled: boolean, qaEnabled: boolean }}
- * @throws {Error} if required roles (lead, builder) are missing
- */
-function parseTeamConfig(yamlTeamSection) {
-  if (!yamlTeamSection) {
-    return {
-      teamMode: false,
-      teamRoles: {},
-      reviewerEnabled: false,
-      qaEnabled: false,
-    };
-  }
-
-  const roles = yamlTeamSection.roles || [];
-  const teamRoles = {};
-
-  for (const role of roles) {
-    const agents =
-      role.agents ||
-      (role.agent ? [role.agent] : []);
-
-    teamRoles[role.name] = {
-      agents,
-      owns: role.owns || [],
-    };
-  }
-
-  if (!teamRoles.lead) {
-    throw new Error("team.roles must include a 'lead' role");
-  }
-  if (!teamRoles.builder) {
-    throw new Error("team.roles must include a 'builder' role");
-  }
-
-  return {
-    teamMode: true,
-    teamRoles,
-    reviewerEnabled: !!teamRoles.reviewer,
-    qaEnabled: !!teamRoles.qa,
-  };
-}
+const {
+  parseTeamConfig,
+  selectBuilder,
+  VALID_TRANSITIONS,
+} = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -122,41 +77,8 @@ const FIXTURE_TRD = {
 };
 
 // ---------------------------------------------------------------------------
-// Builder selection
+// Pipeline simulation (file-specific helper)
 // ---------------------------------------------------------------------------
-
-const BACKEND_KEYWORDS = ['backend', 'api', 'database', 'server', 'model', 'migration'];
-const FRONTEND_KEYWORDS = ['frontend', 'ui', 'component', 'react', 'vue', 'css'];
-const INFRA_KEYWORDS = ['infra', 'deploy', 'docker', 'k8s', 'aws'];
-const DOCS_KEYWORDS = ['docs', 'documentation', 'readme'];
-
-/**
- * Selects the most appropriate builder agent for a task based on keywords.
- *
- * @param {string[]} taskKeywords
- * @param {string[]} builderAgents
- * @returns {string} selected agent name
- */
-function selectBuilder(taskKeywords, builderAgents) {
-  for (const kw of taskKeywords) {
-    if (BACKEND_KEYWORDS.includes(kw) && builderAgents.includes('backend-developer')) return 'backend-developer';
-    if (FRONTEND_KEYWORDS.includes(kw) && builderAgents.includes('frontend-developer')) return 'frontend-developer';
-    if (INFRA_KEYWORDS.includes(kw) && builderAgents.includes('infrastructure-developer')) return 'infrastructure-developer';
-    if (DOCS_KEYWORDS.includes(kw) && builderAgents.includes('backend-developer')) return 'backend-developer';
-  }
-  return builderAgents[0]; // Default to first builder
-}
-
-// ---------------------------------------------------------------------------
-// Pipeline simulation (inlined from team-lead-loop.test.js)
-// ---------------------------------------------------------------------------
-
-const VALID_TRANSITIONS_E2E = {
-  open: ['in_progress'],
-  in_progress: ['in_review', 'in_qa', 'closed'],
-  in_review: ['in_qa', 'in_progress'],
-  in_qa: ['closed', 'in_progress'],
-};
 
 /**
  * Minimal simulation of the lead-loop task pipeline for audit trail assertions.
@@ -182,7 +104,7 @@ function simulateTaskPipelineE2E(options = {}) {
   let currentState = 'open';
 
   // Lead assigns to builder
-  if ((VALID_TRANSITIONS_E2E[currentState] || []).includes('in_progress')) {
+  if ((VALID_TRANSITIONS[currentState] || []).includes('in_progress')) {
     currentState = 'in_progress';
     comments.push(`status:in_progress assigned:${builderAgent}`);
   }

@@ -10,74 +10,10 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Parser implementation (inlined from team-comment-parser.test.js)
-// ---------------------------------------------------------------------------
-
-/**
- * Parses the output of `br comment list <bead_id>` to find the latest
- * status: comment.
- *
- * @param {string} commentListOutput - Raw stdout from `br comment list`
- * @returns {{ state: string, metadata: Object } | null}
- */
-function parseSubState(commentListOutput) {
-  if (!commentListOutput || typeof commentListOutput !== 'string') {
-    return null;
-  }
-
-  const lines = commentListOutput.split('\n');
-
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    const statusIdx = line.indexOf('status:');
-    if (statusIdx === -1) continue;
-
-    const statusPart = line.substring(statusIdx);
-    if (!statusPart.startsWith('status:')) continue;
-
-    const tokens = statusPart.split(/\s+/);
-    const state = tokens[0].replace('status:', '');
-
-    if (!state) continue;
-
-    const metadata = {};
-    for (let j = 1; j < tokens.length; j++) {
-      const colonIdx = tokens[j].indexOf(':');
-      if (colonIdx === -1) continue;
-      const key = tokens[j].substring(0, colonIdx);
-      const rawValue = tokens[j].substring(colonIdx + 1);
-      if (!key || rawValue === undefined) continue;
-
-      if (key === 'reason') {
-        metadata[key] = decodeURIComponent(rawValue.replace(/-/g, ' '));
-      } else {
-        metadata[key] = rawValue;
-      }
-    }
-
-    return { state, metadata };
-  }
-
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// State machine (inlined from team-state-machine.test.js)
-// ---------------------------------------------------------------------------
-
-const VALID_TRANSITIONS = {
-  open: ['in_progress'],
-  in_progress: ['in_review', 'in_qa', 'closed'],
-  in_review: ['in_qa', 'in_progress'],
-  in_qa: ['closed', 'in_progress'],
-};
-
-function validateTransition(currentState, targetState) {
-  return (VALID_TRANSITIONS[currentState] || []).includes(targetState);
-}
+const {
+  parseSubState,
+  validateTransition,
+} = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Pipeline simulation

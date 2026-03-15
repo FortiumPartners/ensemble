@@ -8,67 +8,13 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// State machine implementation
-// ---------------------------------------------------------------------------
-
-/**
- * Valid state transitions for the bead sub-state machine.
- *
- * open         -> in_progress   (builder claims task)
- * in_progress  -> in_review     (builder submits for review)
- * in_progress  -> in_qa         (lead skips review via skip-review)
- * in_progress  -> closed        (lead skips all stages)
- * in_review    -> in_qa         (reviewer approves)
- * in_review    -> in_progress   (reviewer rejects)
- * in_qa        -> closed        (QA passes)
- * in_qa        -> in_progress   (QA rejects)
- */
-const VALID_TRANSITIONS = {
-  open: ['in_progress'],
-  in_progress: ['in_review', 'in_qa', 'closed'],
-  in_review: ['in_qa', 'in_progress'],
-  in_qa: ['closed', 'in_progress'],
-};
-
-/**
- * Returns true if transitioning from currentState to targetState is allowed.
- *
- * @param {string} currentState
- * @param {string} targetState
- * @returns {boolean}
- */
-function validateTransition(currentState, targetState) {
-  const allowed = VALID_TRANSITIONS[currentState] || [];
-  return allowed.includes(targetState);
-}
-
-/**
- * Count how many times verdict:rejected appears in a comment list output.
- * Used to detect when the rejection cycle limit (MAX_REJECTIONS) has been hit.
- *
- * @param {string} commentListOutput - Raw stdout from `br comment list`
- * @returns {number}
- */
-function countRejections(commentListOutput) {
-  if (!commentListOutput || typeof commentListOutput !== 'string') return 0;
-  const matches = commentListOutput.match(/verdict:rejected/g);
-  return matches ? matches.length : 0;
-}
-
-/** Maximum rejection cycles before lead escalation is required. */
-const MAX_REJECTIONS = 2;
-
-/**
- * Returns true when the rejection count has reached or exceeded MAX_REJECTIONS,
- * indicating that the lead must intervene before re-assigning the task.
- *
- * @param {number} rejectionCount
- * @returns {boolean}
- */
-function requiresEscalation(rejectionCount) {
-  return rejectionCount >= MAX_REJECTIONS;
-}
+const {
+  VALID_TRANSITIONS,
+  validateTransition,
+  countRejections,
+  MAX_REJECTIONS,
+  requiresEscalation,
+} = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -265,6 +211,49 @@ describe('Rejection cycle tracking (countRejections)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// lead-reset:true baseline
+// ---------------------------------------------------------------------------
+
+describe('lead-reset:true baseline (countRejections)', () => {
+  test('no lead-reset -> counts all rejections (backward compat)', () => {
+    const output = [
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:missing-tests',
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:still-missing',
+    ].join('\n');
+    expect(countRejections(output)).toBe(2);
+  });
+
+  test('lead-reset in middle -> counts only rejections after it', () => {
+    const output = [
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:first',
+      'status:in_progress lead:tech-lead-orchestrator lead-reset:true',
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:second',
+    ].join('\n');
+    expect(countRejections(output)).toBe(1);
+  });
+
+  test('multiple lead-resets -> uses most recent', () => {
+    const output = [
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:first',
+      'status:in_progress lead:tech-lead-orchestrator lead-reset:true',
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:second',
+      'status:in_progress lead:tech-lead-orchestrator lead-reset:true',
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:third',
+    ].join('\n');
+    expect(countRejections(output)).toBe(1);
+  });
+
+  test('lead-reset at end -> returns 0', () => {
+    const output = [
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:first',
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:second',
+      'status:in_progress lead:tech-lead-orchestrator lead-reset:true',
+    ].join('\n');
+    expect(countRejections(output)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Escalation threshold
 // ---------------------------------------------------------------------------
 
@@ -317,18 +306,22 @@ describe('Escalation threshold (requiresEscalation)', () => {
       expect(requiresEscalation(rejections)).toBe(false);
     });
 
-    test('after lead escalation, rejection count resets conceptually', () => {
-      // After escalation the lead adds a lead: comment and the task is
-      // re-assigned. The "reset" is represented by a fresh comment thread
-      // segment containing no new verdicts yet.
-      const freshSegment = [
-        'status:in_progress lead:tech-lead-orchestrator reason:escalated-after-2-rejections',
+    test('after lead escalation, rejection count resets via lead-reset:true', () => {
+      // Full history including pre-reset rejections and post-reset fresh segment.
+      // The lead-reset:true marker tells countRejections to only count after it.
+      const fullHistory = [
+        'status:in_progress assigned:backend-developer',
+        'status:in_review builder:backend-developer files:src/auth.ts',
+        'status:in_progress reviewer:code-reviewer verdict:rejected reason:missing-jwt-expiry-check',
+        'status:in_review builder:backend-developer files:src/auth.ts',
+        'status:in_progress reviewer:code-reviewer verdict:rejected reason:still-missing-expiry-check',
+        'status:in_progress lead:tech-lead-orchestrator reason:escalated-after-2-rejections lead-reset:true',
         'status:in_progress assigned:backend-developer',
         'status:in_review builder:backend-developer files:src/auth.ts',
       ].join('\n');
 
-      // Rejection count in the new segment is 0
-      expect(countRejections(freshSegment)).toBe(0);
+      // Only counts rejections after the lead-reset:true line (0 in fresh segment)
+      expect(countRejections(fullHistory)).toBe(0);
       expect(requiresEscalation(0)).toBe(false);
     });
   });

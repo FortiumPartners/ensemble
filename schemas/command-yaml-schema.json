@@ -105,9 +105,11 @@
                   "additionalProperties": true,
                   "properties": {
                     "order": {
-                      "type": "integer",
-                      "minimum": 1,
-                      "description": "Step execution order (must be sequential from 1)"
+                      "oneOf": [
+                        { "type": "integer", "minimum": 1 },
+                        { "type": "string", "pattern": "^[0-9]+[a-z]?$" }
+                      ],
+                      "description": "Step execution order (integer or string like '3a' for sub-steps)"
                     },
                     "title": {
                       "type": "string",

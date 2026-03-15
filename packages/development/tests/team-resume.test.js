@@ -8,8 +8,10 @@
 
 'use strict';
 
+const { parseTeamConfig: reconstructTeamConfig } = require('./helpers/team-utils');
+
 // ---------------------------------------------------------------------------
-// Resume routing implementation
+// Resume routing implementation (file-specific)
 // ---------------------------------------------------------------------------
 
 /**
@@ -47,52 +49,6 @@ function routeResumedTask(subState, metadata) {
     default:
       return { action: 'delegate_to_builder', context: { builder: null } };
   }
-}
-
-// ---------------------------------------------------------------------------
-// Team config reconstruction
-// ---------------------------------------------------------------------------
-
-/**
- * Re-parses the team: section from a command YAML during session resume.
- * Identical behaviour to parseTeamConfig but called in the resume path to
- * reconstruct TEAM_MODE settings without requiring a fresh user invocation.
- *
- * @param {Object|undefined|null} teamSection - The `team:` object from parsed YAML
- * @returns {{ teamMode: boolean, teamRoles: Object, reviewerEnabled: boolean, qaEnabled: boolean }}
- */
-function reconstructTeamConfig(teamSection) {
-  if (!teamSection) {
-    return { teamMode: false, teamRoles: {}, reviewerEnabled: false, qaEnabled: false };
-  }
-
-  const roles = teamSection.roles || [];
-  const teamRoles = {};
-
-  for (const role of roles) {
-    const agents =
-      role.agents ||
-      (role.agent ? [role.agent] : []);
-
-    teamRoles[role.name] = {
-      agents,
-      owns: role.owns || [],
-    };
-  }
-
-  if (!teamRoles.lead) {
-    throw new Error("team.roles must include a 'lead' role");
-  }
-  if (!teamRoles.builder) {
-    throw new Error("team.roles must include a 'builder' role");
-  }
-
-  return {
-    teamMode: true,
-    teamRoles,
-    reviewerEnabled: !!teamRoles.reviewer,
-    qaEnabled: !!teamRoles.qa,
-  };
 }
 
 // ---------------------------------------------------------------------------

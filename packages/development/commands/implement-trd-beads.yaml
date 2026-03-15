@@ -100,7 +100,7 @@ metadata:
 #   reviewer  - reviewer agent name
 #   qa        - QA agent name
 #   verdict   - outcome: approved | rejected | passed | failed
-#   reason    - URL-encoded explanation text (spaces as %20 or hyphens)
+#   reason    - URL-encoded explanation text (spaces encoded as %20; hyphens are preserved literally)
 #   files     - comma-separated list of changed files
 #   lead      - lead agent name
 #
@@ -120,11 +120,11 @@ metadata:
 #      (open/in_progress/closed) as fallback
 #
 # URL-encoding rule:
-#   reason: values must have spaces encoded as %20 or as hyphens.
-#   Example: reason:missing-input-validation-on-email-field
-#       (hyphens for readability)
-#     or reason:Missing%20input%20validation
-#       (URL encoding)
+#   reason: values must have spaces encoded as %20 (hyphens are preserved literally).
+#   Example: reason:missing%20input%20validation%20on%20email%20field
+#       (%20 for spaces)
+#     or reason:TRD-001-related
+#       (hyphens preserved as literal characters)
 #
 # Sub-state to br native status mapping:
 #   br "open"        -> sub-state "open"        (no comment needed)
@@ -175,7 +175,7 @@ metadata:
 #     reviewer: reviewer agent name
 #     qa:       QA agent name
 #     verdict:  "approved | rejected | passed | failed"
-#     reason:   URL-encoded explanation (spaces as %20 or hyphens)
+#     reason:   URL-encoded explanation (spaces as %20; hyphens preserved literally)
 #     files:    comma-separated list of changed files
 #     lead:     lead agent name
 #   write_command: "br comment add <bead_id> 'status:<state> <key>:<value> ...'"
