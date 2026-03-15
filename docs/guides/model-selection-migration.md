@@ -44,7 +44,7 @@ metadata:
   name: ensemble:my-command
   description: My command
   version: 2.0.0
-  model: opus-4-6  # Optional enhancement
+  model: opus  # Optional enhancement
 ```
 
 #### Default Behavior
@@ -84,25 +84,25 @@ Update these commands for optimal quality:
 metadata:
   name: ensemble:create-prd
   version: 2.0.0
-  model: opus-4-6  # Add this line
+  model: opus  # Add this line
 
 # packages/product/commands/refine-prd.yaml
 metadata:
   name: ensemble:refine-prd
   version: 2.0.0
-  model: opus-4-6
+  model: opus
 
 # packages/development/commands/create-trd.yaml
 metadata:
   name: ensemble:create-trd
   version: 2.0.0
-  model: opus-4-6
+  model: opus
 
 # packages/development/commands/refine-trd.yaml
 metadata:
   name: ensemble:refine-trd
   version: 2.0.0
-  model: opus-4-6
+  model: opus
 ```
 
 **Implementation (Explicit Sonnet):**
@@ -138,9 +138,7 @@ cat > ~/.config/ensemble/model-selection.json << 'EOF'
     "command": "sonnet"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
     "opus": "claude-opus-4-6-20251101",
-    "sonnet-4": "claude-sonnet-4-20250514",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
@@ -164,7 +162,7 @@ cat > ~/.config/ensemble/model-selection.json << 'EOF'
     "command": "sonnet"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
+    "opus": "claude-opus-4-6-20251101",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
@@ -305,7 +303,7 @@ Error: Invalid model name 'opus-5' in create-prd.yaml
 ```
 
 **Solution:**
-Use valid model names: `opus-4-6`, `opus`, `sonnet-4`, `sonnet`, `haiku`
+Use valid model names: `opus`, `sonnet`, `haiku`
 
 ### Issue 2: Config File Not Loaded
 
@@ -361,7 +359,7 @@ Before deploying changes:
 **Message to developers:**
 
 > Ensemble v5.1.0 introduces intelligent model selection. No action required - all existing commands continue working. Optionally, you can:
-> - Add `model: opus-4-6` to PRD/TRD commands for better quality
+> - Add `model: opus` to PRD/TRD commands for better quality
 > - Monitor costs with automatic logging
 > - Override models per-command or per-session
 >

@@ -74,7 +74,7 @@ The system consists of six major components:
 | Output Directory | `dist/opencode/` | Separates generated artifacts from source; follows build convention |
 | Agent Mode Mapping | Orchestrators -> primary, Specialists -> subagent | Preserves Ensemble delegation hierarchy in OpenCode |
 | Tool Permission Strategy | Conservative defaults (bash: "ask", edit: "allow", read: "allow") | Security-first; users can relax permissions |
-| Model Mapping | `opus-4-6` -> `anthropic/claude-opus-4-6` | OpenCode's `providerID/modelID` format |
+| Model Mapping | `opus` -> `anthropic/claude-opus-4-6` | OpenCode's `providerID/modelID` format |
 | Package Name | `ensemble-opencode` | Parallel to `ensemble-full` for Claude Code |
 | Config Format | JSONC (`opencode.json`) | OpenCode's native config format |
 
@@ -158,7 +158,7 @@ Format: `OC-<SPRINT>-<CATEGORY>-<NUMBER>`
 | - [x] **OC-S2-AGT-002** | Implement tool permission mapping (Ensemble tools -> OpenCode permission config) | 3 | OC-S2-AGT-001 | Done |
 | - [x] **OC-S2-AGT-003** | Implement mission/responsibilities to OpenCode `prompt` field concatenation | 3 | OC-S2-AGT-001 | Done |
 | - [x] **OC-S2-AGT-004** | Implement agent mode classification (orchestrator -> primary, specialist/developer/utility/quality -> subagent) | 2 | OC-S2-AGT-001 | Done |
-| - [x] **OC-S2-AGT-005** | Implement model hint translation (opus-4-6 -> anthropic/claude-opus-4-6, etc.) | 1.5 | OC-S2-AGT-001 | Done |
+| - [x] **OC-S2-AGT-005** | Implement model hint translation (opus -> anthropic/claude-opus-4-6, etc.) | 1.5 | OC-S2-AGT-001 | Done |
 | - [x] **OC-S2-AGT-006** | Generate OpenCode agent JSON config entries for opencode.json `agent` block | 3 | OC-S2-AGT-004 | Done |
 | - [x] **OC-S2-AGT-007** | Generate OpenCode agent Markdown files in `dist/opencode/.opencode/agents/` | 3 | OC-S2-AGT-003 | Done |
 | - [x] **OC-S2-AGT-008** | Implement delegation hierarchy extraction from `integrationProtocols` and `delegationCriteria` | 4 | OC-S2-AGT-001 | Done |
@@ -1190,9 +1190,7 @@ function generateCommandMarkdown(cmd: CommandYaml): string {
 
 ```typescript
 const MODEL_MAP: Record<string, { providerID: string; modelID: string }> = {
-  "opus-4-6": { providerID: "anthropic", modelID: "claude-opus-4-6" },
   "opus": { providerID: "anthropic", modelID: "claude-opus-4-6" },
-  "sonnet-4": { providerID: "anthropic", modelID: "claude-sonnet-4-20250514" },
   "sonnet": { providerID: "anthropic", modelID: "claude-sonnet-4-20250514" },
   "haiku": { providerID: "anthropic", modelID: "claude-3-5-haiku-20241022" },
 };

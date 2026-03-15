@@ -36,7 +36,7 @@ describe('Model Selection Integration', () => {
           name: 'ensemble:create-prd',
           description: 'Create PRD',
           version: '2.0.0',
-          model: 'opus-4-6'
+          model: 'opus'
         }
       };
 
@@ -94,7 +94,7 @@ describe('Model Selection Integration', () => {
       const command = {
         metadata: {
           name: 'ensemble:create-prd',
-          model: 'opus-4-6'
+          model: 'opus'
         }
       };
 
@@ -111,7 +111,7 @@ describe('Model Selection Integration', () => {
       const command = {
         metadata: {
           name: 'ensemble:create-prd',
-          model: 'opus-4-6'
+          model: 'opus'
         }
       };
 
@@ -137,7 +137,7 @@ describe('Model Selection Integration', () => {
       const prdCommand = {
         metadata: {
           name: 'ensemble:create-prd',
-          model: 'opus-4-6'
+          model: 'opus'
         }
       };
 
@@ -147,7 +147,7 @@ describe('Model Selection Integration', () => {
       logUsage({
         command: 'ensemble:create-prd',
         model: prdModel,
-        modelAlias: 'opus-4-6',
+        modelAlias: 'opus',
         inputTokens: 45000,
         outputTokens: 6000,
         durationMs: 15000,
@@ -183,7 +183,7 @@ describe('Model Selection Integration', () => {
       const log2 = JSON.parse(fs.appendFileSync.mock.calls[1][1]);
 
       expect(log1.command).toBe('ensemble:create-prd');
-      expect(log1.model_alias).toBe('opus-4-6');
+      expect(log1.model_alias).toBe('opus');
       expect(log1.cost_usd).toBeGreaterThan(1.0);
 
       expect(log2.command).toBe('ensemble:implement-trd');
@@ -197,13 +197,13 @@ describe('Model Selection Integration', () => {
       const logEntries = [
         {
           command: 'ensemble:create-prd',
-          model_alias: 'opus-4-6',
+          model_alias: 'opus',
           cost_usd: 1.125,
           success: true
         },
         {
           command: 'ensemble:create-trd',
-          model_alias: 'opus-4-6',
+          model_alias: 'opus',
           cost_usd: 1.35,
           success: true
         },
@@ -227,8 +227,8 @@ describe('Model Selection Integration', () => {
       expect(summary.errors).toBe(0);
 
       // Verify cost attribution
-      expect(summary.byModel['opus-4-6'].count).toBe(2);
-      expect(summary.byModel['opus-4-6'].cost).toBeCloseTo(2.475, 2);
+      expect(summary.byModel['opus'].count).toBe(2);
+      expect(summary.byModel['opus'].cost).toBeCloseTo(2.475, 2);
 
       expect(summary.byModel['sonnet'].count).toBe(1);
       expect(summary.byModel['sonnet'].cost).toBeCloseTo(0.975, 2);
@@ -260,7 +260,7 @@ describe('Model Selection Integration', () => {
       const config = loadConfig();
 
       expect(config.defaults.command).toBe('sonnet');
-      expect(config.modelAliases['opus-4-6']).toBeDefined();
+      expect(config.modelAliases['opus']).toBeDefined();
     });
   });
 });

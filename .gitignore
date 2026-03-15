@@ -20,3 +20,11 @@ __pycache__/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Tool state directories
+.beads.bd/
+.mulch/
+.ntm/
+.opencode/
+.todos/
+.claude/worktrees/

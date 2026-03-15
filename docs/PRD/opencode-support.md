@@ -162,7 +162,7 @@ OpenCode         opencode          fix-issue            workflows
 | FR-CMD-3 | Convert `$ARGUMENTS` placeholder from Ensemble to `$PLACEHOLDER` syntax in OpenCode | Must |
 | FR-CMD-4 | Preserve workflow phase/step structure as numbered instructions in Markdown output | Must |
 | FR-CMD-5 | Generate corresponding JSON command config entries for opencode.json with description, agent assignment, and subtask flag | Should |
-| FR-CMD-6 | Map Ensemble `metadata.model` hints (e.g., `opus-4-6`) to OpenCode agent model config | Could |
+| FR-CMD-6 | Map Ensemble `metadata.model` hints (e.g., `opus`) to OpenCode agent model config | Could |
 
 **Translation Example**:
 
@@ -172,7 +172,7 @@ metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document
   category: planning
-  model: opus-4-6
+  model: opus
 
 mission:
   summary: |
@@ -516,7 +516,7 @@ OpenCode runs on Bun, not Node.js. Implications:
 
 ### 7.5 OpenCode Provider-Agnostic Design
 
-Ensemble agent YAML files reference Claude-specific models (e.g., `model: opus-4-6`). The translator must:
+Ensemble agent YAML files reference Claude-specific models (e.g., `model: opus`). The translator must:
 
 - Convert model hints to OpenCode's `providerID/modelID` format (e.g., `anthropic/claude-opus-4-6`)
 - Allow model overrides in the generated config so users can swap providers

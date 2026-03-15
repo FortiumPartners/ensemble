@@ -27,11 +27,8 @@ const glob = require('glob');
 // ---------------------------------------------------------------------------
 const MODEL_MAP = {
   opus: { providerID: 'anthropic', modelID: 'claude-opus-4-6' },
-  'opus-4-6': { providerID: 'anthropic', modelID: 'claude-opus-4-6' },
   sonnet: { providerID: 'anthropic', modelID: 'claude-sonnet-4-6' },
-  'sonnet-4-6': { providerID: 'anthropic', modelID: 'claude-sonnet-4-6' },
   haiku: { providerID: 'anthropic', modelID: 'claude-haiku-4-5-20251001' },
-  'haiku-4-5': { providerID: 'anthropic', modelID: 'claude-haiku-4-5-20251001' },
 };
 
 const DEFAULT_MODEL = { providerID: 'anthropic', modelID: 'claude-sonnet-4-6' };

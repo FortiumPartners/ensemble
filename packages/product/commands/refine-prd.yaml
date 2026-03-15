@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/refine-prd.md
   source: fortium
-  model: opus-4-6
+  model: opus
 
 constraints:
   - DO NOT implement, build, or execute any work described in the PRD
