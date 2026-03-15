@@ -77,6 +77,123 @@ metadata:
 #         - quality-gate
 #         - acceptance-criteria
 
+# ============================================================
+# COMMENT FORMAT SPEC
+# ============================================================
+# Agents implementing TRD-005 (state machine validator) and
+# TRD-006 (get_sub_state query function) MUST reference this
+# section for the canonical format and parsing algorithm.
+#
+# Format:  status:<state> <key>:<value> [<key>:<value>...]
+#
+# Valid states:
+#   in_progress  - task assigned to builder
+#   in_review    - awaiting reviewer
+#   in_qa        - awaiting QA agent
+#   closed       - task complete (QA passed or skipped)
+#   skip-review  - review skipped by lead
+#   skip-qa      - QA skipped by lead
+#
+# Valid keys:
+#   assigned  - agent name assigned to the task
+#   builder   - builder agent name
+#   reviewer  - reviewer agent name
+#   qa        - QA agent name
+#   verdict   - outcome: approved | rejected | passed | failed
+#   reason    - URL-encoded explanation text (spaces as %20 or hyphens)
+#   files     - comma-separated list of changed files
+#   lead      - lead agent name
+#
+# Writing (how to add a status comment):
+#   br comment add <bead_id> 'status:<state> <key>:<value> ...'
+#
+# Parsing algorithm (how to read the current sub-state):
+#   1. Run: br comment list <bead_id>
+#   2. Split output into lines
+#   3. Scan lines in REVERSE order (latest comment first)
+#   4. For each line: check if it contains "status:" prefix
+#   5. If found: extract state (first token after "status:"),
+#      extract key-value pairs (remaining space-separated
+#      "key:value" tokens), URL-decode reason: values
+#   6. Return (state, metadata_dict)
+#   7. If no status: comment found: query br native status
+#      (open/in_progress/closed) as fallback
+#
+# URL-encoding rule:
+#   reason: values must have spaces encoded as %20 or as hyphens.
+#   Example: reason:missing-input-validation-on-email-field
+#       (hyphens for readability)
+#     or reason:Missing%20input%20validation
+#       (URL encoding)
+#
+# Sub-state to br native status mapping:
+#   br "open"        -> sub-state "open"        (no comment needed)
+#   br "in_progress" -> sub-state is latest status: comment
+#                       (could be in_progress, in_review, in_qa)
+#   br "closed"      -> sub-state "closed"
+#
+# Quick reference — state transition comments (write via br comment add):
+#
+#   # Builder claims task:
+#   status:in_progress assigned:backend-developer
+#
+#   # Builder submits for review:
+#   status:in_review builder:backend-developer files:src/api.ts,src/api.test.ts
+#
+#   # Reviewer approves, submit for QA:
+#   status:in_qa reviewer:code-reviewer verdict:approved
+#
+#   # Reviewer rejects, send back to builder:
+#   status:in_progress reviewer:code-reviewer verdict:rejected reason:missing-input-validation
+#
+#   # QA rejects, send back to builder:
+#   status:in_progress qa:qa-orchestrator verdict:rejected reason:test-coverage-below-80-percent
+#
+#   # QA passes, task closed:
+#   status:closed qa:qa-orchestrator verdict:passed
+#
+#   # Lead skips review (documentation-only, low-risk, etc.):
+#   status:skip-review lead:tech-lead-orchestrator reason:documentation-only-task
+#
+#   # Lead skips QA:
+#   status:skip-qa lead:tech-lead-orchestrator reason:low-risk-configuration-change
+#
+# Schema (commented-out, for documentation purposes only):
+#
+# comment_format:
+#   format: "status:<state> <key>:<value> [<key>:<value>...]"
+#   states:
+#     - in_progress
+#     - in_review
+#     - in_qa
+#     - closed
+#     - skip-review
+#     - skip-qa
+#   keys:
+#     assigned: agent name assigned to task
+#     builder:  builder agent name
+#     reviewer: reviewer agent name
+#     qa:       QA agent name
+#     verdict:  "approved | rejected | passed | failed"
+#     reason:   URL-encoded explanation (spaces as %20 or hyphens)
+#     files:    comma-separated list of changed files
+#     lead:     lead agent name
+#   write_command: "br comment add <bead_id> 'status:<state> <key>:<value> ...'"
+#   parse_algorithm:
+#     - "Run: br comment list <bead_id>"
+#     - "Split output into lines"
+#     - "Scan lines in REVERSE order (latest comment first)"
+#     - "For each line: check for 'status:' prefix"
+#     - "If found: extract state (first token after status:), extract key-value pairs"
+#     - "URL-decode reason: values"
+#     - "Return (state, metadata_dict)"
+#     - "If no status: comment found: query br native status as fallback"
+#   native_status_mapping:
+#     open:        "sub-state 'open' (no comment needed)"
+#     in_progress: "sub-state is latest status: comment (in_progress | in_review | in_qa)"
+#     closed:      "sub-state 'closed'"
+# ============================================================
+
 mission:
   summary: |
     Parse a TRD and create a beads hierarchy (epic -> stories -> tasks) before
