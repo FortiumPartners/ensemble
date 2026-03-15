@@ -1,7 +1,7 @@
 # PRD: Team-based Execution Model for implement-trd-beads
 
 **Document ID**: PRD-2026-015
-**Version**: 1.1.0
+**Version**: 1.2.0
 **Date**: 2026-03-14
 **Author**: Product Management Orchestrator
 **Status**: Refined
@@ -508,10 +508,13 @@ MONITOR TEAM PROGRESS:
 - **AC-LL-3**: The lead agent correctly skips the review step when no `reviewer` role is defined.
 - **AC-LL-4**: The lead agent correctly skips the QA step when no `qa` role is defined.
 - **AC-LL-5**: The lead can skip review for a specific task and the task transitions directly from `in_progress` to `in_qa` (or `closed` if QA is also skipped).
+- **AC-LL-6**: When the lead skips review and/or QA for a task, the skip decision is recorded as a br comment with the format `status:skip-review lead:<agent> reason:<rationale>` (or `status:skip-qa`), visible in the audit trail.
 
 ### 6.4 Parallel Builder Execution
 
 - **AC-PB-1**: Two builders can work on different tasks simultaneously with correct state tracking for each task independently.
+- **AC-PB-2**: When two parallel builders edit overlapping files, the conflict is detected at commit time, and the second builder retries its commit after the first builder's commit is applied.
+- **AC-PB-3**: If one builder crashes or fails, the other builder's in-progress task continues unaffected, and the failed builder's task is returned to `open` status for re-claiming.
 
 ### 6.5 Coordination via br
 
@@ -531,6 +534,20 @@ MONITOR TEAM PROGRESS:
 
 - **AC-WI-1**: When TEAM_MODE=true, wheel instructions show team topology, task lifecycle, and lead orchestration loop.
 - **AC-WI-2**: When TEAM_MODE=false, wheel instructions are identical to current output.
+
+### 6.8 Team Metrics
+
+- **AC-TM-1**: At phase completion, a human-readable team performance summary is printed to console showing: review pass/reject rates per builder, average rejection cycles, and time-per-state averages.
+- **AC-TM-2**: Team metrics are also output in structured JSON format parseable by external tools.
+- **AC-TM-3**: Team metrics are persisted as a br comment on the epic bead, accessible across sessions via `br comment list <epic-id>`.
+- **AC-TM-4**: Metrics accurately reflect actual task outcomes — a task rejected once and then approved shows 1 rejection cycle in the metrics.
+
+### 6.9 Cross-Session Resume
+
+- **AC-RS-1**: Resuming a session where a task is in `in_review` sub-state correctly routes the task to the reviewer agent (not back to the builder).
+- **AC-RS-2**: Resuming a session where a task is in `in_qa` sub-state correctly routes the task to the QA agent.
+- **AC-RS-3**: Resuming a session where a task was rejected and returned to `in_progress` correctly re-delegates to the builder with the rejection context from the br comment.
+- **AC-RS-4**: Team configuration (roles, agents) is reconstructable from the command YAML on resume — no additional state file is needed.
 
 ---
 
@@ -826,3 +843,4 @@ team:
 |---|---|---|---|
 | 1.0.0 | 2026-03-14 | Product Management Orchestrator | Initial draft: team-based execution model with roles, state machine, lead orchestration, and handoff protocol |
 | 1.1.0 | 2026-03-14 | Product Management Orchestrator | Refined based on stakeholder feedback: reduced rejection cap to 2 with lead escalation, added risk-based review gating (FR-LL-10), added parallel builder execution (4.11), added team metrics and reporting (4.12), hybrid sub-state tracking approach with planned br extension, added merge conflict risk (R8) |
+| 1.2.0 | 2026-03-15 | Product Management Orchestrator | Acceptance criteria gaps filled: team metrics (AC-TM-1-4), parallel builder error handling (AC-PB-2-3), skip audit trail (AC-LL-6), cross-session resume (AC-RS-1-4) |
