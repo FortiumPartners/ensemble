@@ -110,7 +110,7 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
    - Parse $ARGUMENTS for presence of --team flag; if found set FORCE_TEAM=true
    - Parse $ARGUMENTS for presence of --no-team flag; if found set FORCE_NO_TEAM=true
    - If both flags present, print ERROR: --team and --no-team are mutually exclusive, and HALT
-   - Remove consumed flags from $ARGUMENTS before passing to subsequent phases
+   - Store flag values in FORCE_TEAM and FORCE_NO_TEAM variables for use within this phase only
 
 **2. Task Counter and Hour Estimator**
    Scan the generated TRD Master Task List to count tasks and total estimated hours
