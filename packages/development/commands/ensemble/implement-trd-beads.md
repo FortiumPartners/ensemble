@@ -494,6 +494,41 @@ Key behaviors:
    -            (Review and QA remain sequential per task even when builders ran in parallel)
    -          - Remove each completed task from active_builders after its full pipeline finishes
    - 
+   -       --- Sequential Commit Ordering (TRD-026) ---
+   -       When parallel builders complete and their full pipelines (review+QA) pass, the lead serializes git commit operations:
+   - 
+   -       TRD-026-1. Maintain COMMIT_QUEUE = ordered list of tasks whose pipelines completed successfully (in completion order).
+   - 
+   -       TRD-026-2. For each task in COMMIT_QUEUE (process one at a time):
+   -          a. Run: git diff --name-only HEAD to see current staged changes
+   -          b. If no file conflicts with prior commits in this batch: commit immediately
+   -             - git commit with message referencing task ID and bead ID
+   -             - br comment add <bead_id> 'commit-order:<N> commit:<sha>'
+   -             - N = position in COMMIT_QUEUE (1-indexed)
+   -          c. If file conflict detected (same file modified by prior commit):
+   -             - One retry: builder re-applies its changes on top of the current HEAD
+   -             - If retry succeeds: commit normally, record commit-order:<N>
+   -             - If retry fails: br update <bead_id> --status=open; br comment add <bead_id> 'status:open commit-conflict-unresolved: returned to open'; continue to next task in COMMIT_QUEUE
+   - 
+   -       TRD-026-3. After all commits: br sync --flush-only
+   - 
+   -       --- Parallel Builder Failure Isolation (TRD-027) ---
+   -       If one builder fails (Task() returns error or structured failure summary) during parallel execution:
+   - 
+   -       TRD-027-1. Reset that task: br update <bead_id> --status=open
+   - 
+   -       TRD-027-2. Record failure (pure audit record — no state prefix): br comment add <bead_id> 'verdict:failed builder:<agent_type> reason:<error_summary>'
+   -          Note: NO status: prefix — this is a failure audit comment, not a state transition. validate_transition is NOT called.
+   -          The bead is already open (reset in step 1); a status: prefix would mislead get_sub_state() on the next loop iteration.
+   - 
+   -       TRD-027-3. Other parallel builders continue unaffected (do not interrupt them).
+   - 
+   -       TRD-027-4. The failed task enters the debug loop (Execute step 5: Debug Loop) on the NEXT loop iteration OR is eligible for re-assignment to another builder.
+   - 
+   -       TRD-027-5. Lead tracks builder slot count: when a builder fails, its slot is freed immediately (active_builders count decremented).
+   - 
+   -       TRD-027-6. Lead refills available slots on the next loop iteration by querying bv --robot-next / br ready again.
+   - 
    -       5. Check loop exit:
    -          - If no tasks returned by bv/br AND no active_builders AND no in-flight tasks: break to Completion
    -          - If no tasks returned but tasks exist in_review or in_qa: wait (check in-flight tasks next iteration)
@@ -963,12 +998,30 @@ Key behaviors:
    -    === END TEAM SUMMARY ===
    - 
    - 3. Persist metrics as br comment on ROOT_EPIC_ID (not story bead — epic captures cross-phase history):
-   -    - Build per-builder JSON summary:
-   -      BUILDERS_JSON = JSON-encoded object:
-   -      { "<builder_agent>": {"tasks": <N>, "first_pass": <N>, "rejections": <N>}, ... }
-   -      (one entry per builder in TEAM_METRICS.builders)
+   -    - Build BUILDERS_JSON per TRD-036 schema (see below)
    -    - Run: br comment add <ROOT_EPIC_ID> 'team-metrics:phase-<N> tasks:<tasks_completed> first-pass-rate:<first_pass_rate>% total-rejections:<total_rejections> builders:<BUILDERS_JSON>'
-   -    - Note: JSON format of the builders summary field is defined in TRD-036 (upcoming task)
+   - 
+   -    TRD-036 — BUILDERS_JSON Schema:
+   -    BUILDERS_JSON is a JSON-encoded object with the following top-level structure:
+   -    {
+   -      "phase": <N>,
+   -      "tasks_completed": <integer>,
+   -      "first_pass_rate": <float, 0.0-100.0>,
+   -      "total_rejections": <integer>,
+   -      "avg_rejection_cycles": <float>,
+   -      "builders": {
+   -        "<builder_agent_type>": {
+   -          "tasks": <integer>,
+   -          "first_pass_approvals": <integer>,
+   -          "rejections": <integer>,
+   -          "first_pass_rate": <float, 0.0-100.0>
+   -        }
+   -      }
+   -    }
+   -    Derivation rules:
+   -    - avg_rejection_cycles = total_rejections / tasks_completed (0.0 if tasks_completed == 0)
+   -    - Per-builder first_pass_rate = (first_pass_approvals / tasks) * 100
+   -    - top-level first_pass_rate = (first_pass_approvals_count / tasks_completed) * 100 (same as step 1 above)
    - 
    - 4. Run: br sync --flush-only (ensure metrics comment is persisted)
 
