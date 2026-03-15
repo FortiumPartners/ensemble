@@ -58,7 +58,7 @@ describe('Config Loader', () => {
 
       expect(config.version).toBe('1.0.0');
       expect(config.defaults.command).toBe('sonnet');
-      expect(config.modelAliases['opus-4-6']).toBe('claude-opus-4-6-20251101');
+      expect(config.modelAliases['opus']).toBe('claude-opus-4-6-20251101');
       expect(config.modelAliases['sonnet']).toBe('claude-sonnet-4-20250514');
       expect(config.modelAliases['haiku']).toBe('claude-3-5-haiku-20241022');
       expect(config.costTracking.enabled).toBe(true);
@@ -67,8 +67,8 @@ describe('Config Loader', () => {
     test('includes command overrides', () => {
       const config = getDefaultConfig();
 
-      expect(config.commandOverrides['ensemble:create-prd']).toBe('opus-4-6');
-      expect(config.commandOverrides['ensemble:create-trd']).toBe('opus-4-6');
+      expect(config.commandOverrides['ensemble:create-prd']).toBe('opus');
+      expect(config.commandOverrides['ensemble:create-trd']).toBe('opus');
     });
   });
 
@@ -162,9 +162,9 @@ describe('Config Loader', () => {
   });
 
   describe('resolveModelAlias', () => {
-    test('resolves opus-4-6 alias', () => {
+    test('resolves opus alias', () => {
       const config = getDefaultConfig();
-      const modelId = resolveModelAlias('opus-4-6', config);
+      const modelId = resolveModelAlias('opus', config);
 
       expect(modelId).toBe('claude-opus-4-6-20251101');
     });
@@ -198,7 +198,7 @@ describe('Config Loader', () => {
       resolveModelAlias('invalid', config);
 
       expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Valid aliases: opus-4-6, opus, sonnet-4, sonnet, haiku')
+        expect.stringContaining('Valid aliases: opus, sonnet, haiku')
       );
     });
   });

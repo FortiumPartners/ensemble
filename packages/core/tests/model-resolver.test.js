@@ -24,7 +24,7 @@ describe('Model Resolver', () => {
 
   describe('selectModel', () => {
     test('uses environment variable override', () => {
-      process.env.ENSEMBLE_MODEL_OVERRIDE = 'opus-4-6';
+      process.env.ENSEMBLE_MODEL_OVERRIDE = 'opus';
 
       const command = {
         metadata: { name: 'test', model: 'haiku' }
@@ -48,7 +48,7 @@ describe('Model Resolver', () => {
 
     test('uses command YAML metadata', () => {
       const command = {
-        metadata: { name: 'test', model: 'opus-4-6' }
+        metadata: { name: 'test', model: 'opus' }
       };
 
       const modelId = selectModel(command, config);
@@ -117,12 +117,12 @@ describe('Model Resolver', () => {
   describe('extractModelPreference', () => {
     test('extracts model from metadata', () => {
       const command = {
-        metadata: { name: 'test', model: 'opus-4-6' }
+        metadata: { name: 'test', model: 'opus' }
       };
 
       const model = extractModelPreference(command);
 
-      expect(model).toBe('opus-4-6');
+      expect(model).toBe('opus');
     });
 
     test('returns null when no model specified', () => {
@@ -148,13 +148,13 @@ describe('Model Resolver', () => {
     test('finds alias for opus model ID', () => {
       const alias = getModelAlias('claude-opus-4-6-20251101', config);
 
-      expect(alias).toBe('opus-4-6');
+      expect(alias).toBe('opus');
     });
 
     test('finds alias for sonnet model ID', () => {
       const alias = getModelAlias('claude-sonnet-4-20250514', config);
 
-      expect(alias).toBe('sonnet-4');
+      expect(alias).toBe('sonnet');
     });
 
     test('finds alias for haiku model ID', () => {

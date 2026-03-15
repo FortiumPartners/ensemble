@@ -1,7 +1,7 @@
 ---
 name: ensemble:refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail
-model: opus-4-6
+model: opus
 ---
 <!-- DO NOT EDIT - Generated from refine-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
