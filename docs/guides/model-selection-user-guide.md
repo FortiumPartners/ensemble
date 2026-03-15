@@ -67,7 +67,7 @@ Create `~/.config/ensemble/model-selection.json`:
     "command": "sonnet"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
+    "opus": "claude-opus-4-6-20251101",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
@@ -83,7 +83,7 @@ Create `~/.config/ensemble/model-selection.json`:
 
 ## Model Options
 
-### Opus 4.6 (`opus-4-6`, `opus`)
+### Opus 4.6 (`opus`)
 
 **Best for:**
 - Strategic planning and PRDs
@@ -101,7 +101,7 @@ Create `~/.config/ensemble/model-selection.json`:
 - System architecture with multiple integration points
 - Technical design requiring deep analysis
 
-### Sonnet 4 (`sonnet-4`, `sonnet`)
+### Sonnet 4 (`sonnet`)
 
 **Best for:**
 - Code implementation
@@ -192,14 +192,12 @@ cat ~/.config/ensemble/logs/model-usage.jsonl | \
     "tool": "haiku"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
     "opus": "claude-opus-4-6-20251101",
-    "sonnet-4": "claude-sonnet-4-20250514",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
   "commandOverrides": {
-    "ensemble:create-prd": "opus-4-6",
+    "ensemble:create-prd": "opus",
     "ensemble:my-custom-command": "haiku"
   },
   "costTracking": {
@@ -252,7 +250,7 @@ Override priority from highest to lowest:
 **Cause:** Invalid model name or configuration
 
 **Solution:**
-1. Check model name: `opus-4-6`, `opus`, `sonnet-4`, `sonnet`, `haiku`
+1. Check model name: `opus`, `sonnet`, `haiku`
 2. Validate config: Run `npm run validate` in ensemble repo
 3. Check logs for warnings
 

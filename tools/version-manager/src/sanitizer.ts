@@ -52,7 +52,8 @@ export function sanitizeCommitMessage(message: string): string {
   // Allow: a-z, A-Z, 0-9, space, -, _, :, !, (, ), [, ], {, }, #, ., ,, ?, ;, <, >, @, /, =, +, newline
   // Note: <, >, @ added to support email addresses in Co-Authored-By trailers
   // Note: /, =, + added to support file paths, version refs, and semantic versioning
-  const allowedPattern = /^[a-zA-Z0-9\s\-_:!()\[\]{} #.,?;<>@/=+\n]+$/;
+  // Note: ', ", %, &, *, ^, ~, |, `, \u2014 (em dash) added to support common commit message content
+  const allowedPattern = /^[a-zA-Z0-9\s\-_:!()\[\]{} #.,?;<>@/=+\n'""%&*^~|`\u2014]+$/;
   if (!allowedPattern.test(sanitized)) {
     // Find invalid characters for helpful error message
     const invalidChars = [...new Set(

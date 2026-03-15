@@ -16,17 +16,17 @@
       "properties": {
         "command": {
           "type": "string",
-          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "enum": ["opus", "sonnet", "haiku"],
           "description": "Default model for commands without metadata.model"
         },
         "task": {
           "type": "string",
-          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "enum": ["opus", "sonnet", "haiku"],
           "description": "Default model for Task tool (future)"
         },
         "tool": {
           "type": "string",
-          "enum": ["sonnet-4", "sonnet", "haiku"],
+          "enum": ["sonnet", "haiku"],
           "description": "Default model for simple tool calls (future)"
         }
       },
@@ -46,7 +46,7 @@
       "description": "Force specific models for named commands",
       "additionalProperties": {
         "type": "string",
-        "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"]
+        "enum": ["opus", "sonnet", "haiku"]
       }
     },
     "costTracking": {

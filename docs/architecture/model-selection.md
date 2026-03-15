@@ -21,7 +21,7 @@ The Model Selection system provides intelligent routing of Ensemble tasks to opt
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                Command YAML Layer                            │
-│  - metadata.model field (opus-4-6, sonnet, haiku)           │
+│  - metadata.model field (opus, sonnet, haiku)           │
 │  - Schema validation                                         │
 │  - Command registry                                          │
 └─────────────────────┬───────────────────────────────────────┘
@@ -96,7 +96,7 @@ Logs model usage to JSONL files for cost tracking and analytics.
   "timestamp": "2026-02-16T10:30:00.000Z",
   "command": "ensemble:create-prd",
   "model": "claude-opus-4-6-20251101",
-  "model_alias": "opus-4-6",
+  "model_alias": "opus",
   "input_tokens": 45230,
   "output_tokens": 5820,
   "cost_usd": 0.7538,
@@ -121,17 +121,15 @@ Location: `~/.config/ensemble/model-selection.json`
     "tool": "haiku"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
     "opus": "claude-opus-4-6-20251101",
-    "sonnet-4": "claude-sonnet-4-20250514",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
   "commandOverrides": {
-    "ensemble:create-prd": "opus-4-6",
-    "ensemble:refine-prd": "opus-4-6",
-    "ensemble:create-trd": "opus-4-6",
-    "ensemble:refine-trd": "opus-4-6"
+    "ensemble:create-prd": "opus",
+    "ensemble:refine-prd": "opus",
+    "ensemble:create-trd": "opus",
+    "ensemble:refine-trd": "opus"
   },
   "costTracking": {
     "enabled": true,
@@ -149,7 +147,7 @@ metadata:
   name: ensemble:create-prd
   description: Create comprehensive PRD
   version: 2.0.0
-  model: opus-4-6  # Use Opus 4.6 for strategic planning
+  model: opus  # Use Opus 4.6 for strategic planning
 ```
 
 ## Model Selection Rules

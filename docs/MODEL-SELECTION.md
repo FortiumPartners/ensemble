@@ -25,8 +25,8 @@ The Model Selection system automatically routes Ensemble commands to the most ap
 
 | Model | Alias | Best For | Cost |
 |-------|-------|----------|------|
-| Opus 4.6 | `opus-4-6`, `opus` | PRDs, TRDs, strategic planning | $$$ |
-| Sonnet 4 | `sonnet-4`, `sonnet` | Implementation, general tasks | $$ |
+| Opus 4.6 | `opus` | PRDs, TRDs, strategic planning | $$$ |
+| Sonnet 4 | `sonnet` | Implementation, general tasks | $$ |
 | Haiku 3.5 | `haiku` | Simple queries, quick analysis | $ |
 
 ## Default Model Selection
@@ -75,7 +75,7 @@ Create `~/.config/ensemble/model-selection.json`:
     "command": "sonnet"
   },
   "commandOverrides": {
-    "ensemble:create-prd": "opus-4-6"
+    "ensemble:create-prd": "opus"
   },
   "costTracking": {
     "enabled": true
@@ -109,7 +109,7 @@ cat ~/.config/ensemble/logs/model-usage.jsonl | \
   "timestamp": "2026-02-16T10:30:00Z",
   "command": "ensemble:create-prd",
   "model": "claude-opus-4-6-20251101",
-  "model_alias": "opus-4-6",
+  "model_alias": "opus",
   "input_tokens": 45230,
   "output_tokens": 5820,
   "cost_usd": 0.7538,
@@ -146,7 +146,7 @@ metadata:
   name: ensemble:create-prd
   description: Create PRD
   version: 2.0.0
-  model: opus-4-6  # Optional field
+  model: opus  # Optional field
 ```
 
 ## Testing
@@ -194,7 +194,7 @@ Add `model` field to command YAMLs:
 metadata:
   name: my-plugin:strategic-command
   version: 2.0.0
-  model: opus-4-6  # Use Opus for complex reasoning
+  model: opus  # Use Opus for complex reasoning
 
 # Or
 
@@ -299,7 +299,7 @@ Edit `config-loader.js`:
 
 ```javascript
 modelAliases: {
-  "opus-4-6": "claude-opus-4-6-20251101",
+  "opus": "claude-opus-4-6-20251101",
   "new-model": "claude-new-model-YYYYMMDD"  // Add here
 }
 ```

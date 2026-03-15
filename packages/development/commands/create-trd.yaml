@@ -2,12 +2,191 @@ metadata:
   name: ensemble:create-trd
   description: |
     Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
-  version: 2.0.0
-  lastUpdated: "2026-02-16"
+  version: 2.1.0
+  lastUpdated: "2026-03-15"
   category: planning
   output_path: ensemble/create-trd.md
   source: fortium
-  model: opus-4-6
+  model: opus
+  argument_hint: "[prd-path] [--team] [--no-team]"
+
+team_configuration:
+  # TRD-001: Domain keyword mapping (case-insensitive matching)
+  domain_keywords:
+    backend:
+      - api
+      - endpoint
+      - server
+      - service
+      - controller
+      - repository
+      - middleware
+      - rest
+      - graphql
+      - backend
+    frontend:
+      - ui
+      - component
+      - react
+      - vue
+      - angular
+      - svelte
+      - css
+      - html
+      - page
+      - frontend
+      - interface
+      - form
+    infrastructure:
+      - deploy
+      - docker
+      - kubernetes
+      - k8s
+      - aws
+      - cloud
+      - terraform
+      - ci-cd
+      - continuous-integration
+      - continuous-delivery
+      - pipeline
+      - infra
+      - infrastructure
+    documentation:
+      - docs
+      - readme
+      - documentation
+      - changelog
+      - guide
+      - api-docs
+      - swagger
+      - openapi
+      - document
+    testing:
+      - test
+      - spec
+      - e2e
+      - unit
+      - integration
+      - coverage
+      - jest
+      - pytest
+      - rspec
+      - playwright
+      - vitest
+      - exunit
+    database:
+      - database
+      - sql
+      - schema
+      - migration
+      - query
+      - postgres
+      - mysql
+      - mongodb
+      - redis
+    security:
+      - security
+      - auth
+      - authentication
+      - authorization
+      - permission
+      - encrypt
+      - ssl
+      - tls
+      - vulnerability
+      - cve
+    devops:
+      - devops
+      - monitoring
+      - logging
+      - alerting
+      - metrics
+      - observability
+      - helm
+      - ansible
+      - provisioning
+
+  # TRD-002: Default agent-to-domain mapping
+  default_agents:
+    backend: backend-developer
+    frontend: frontend-developer
+    infrastructure: infrastructure-developer
+    documentation: documentation-specialist
+    testing: test-runner
+    database: postgresql-specialist
+    security: code-reviewer
+    devops: infrastructure-developer
+    # Fixed role assignments
+    lead: tech-lead-orchestrator
+    reviewer: code-reviewer
+    qa: qa-orchestrator
+    qa_fallback: test-runner
+
+  # TRD-003: Complexity tier thresholds
+  complexity_tiers:
+    simple:
+      description: Single-agent execution; no team config generated
+      conditions:
+        task_count_lt: 10
+        domain_count_eq: 1
+        estimated_hours_lt: 20
+      note: ALL three conditions must be met for Simple classification
+    medium:
+      description: Lead + builder team; no reviewer or QA
+      conditions:
+        task_count_min: 10
+        task_count_max: 25
+        domain_count_min: 2
+        estimated_hours_min: 20
+        estimated_hours_max: 60
+      note: ANY single condition triggers Medium (unless Complex condition also met)
+    complex:
+      description: Full team; lead + builder(s) + reviewer + QA
+      conditions:
+        task_count_gt: 25
+        domain_count_gte: 3
+        estimated_hours_gt: 60
+      note: ANY single Complex condition triggers Complex tier
+
+  # TRD-019: Domain-to-marketplace-plugin mapping
+  marketplace_mappings:
+    domain_to_plugins:
+      backend:
+        - ensemble-nestjs
+        - ensemble-rails
+        - ensemble-phoenix
+      frontend:
+        - ensemble-react
+        - ensemble-blazor
+      infrastructure:
+        - ensemble-infrastructure
+      testing:
+        - ensemble-e2e-testing
+        - ensemble-jest
+        - ensemble-pytest
+        - ensemble-rspec
+        - ensemble-xunit
+        - ensemble-exunit
+      database:
+        - ensemble-infrastructure
+      security:
+        - ensemble-quality
+      devops:
+        - ensemble-infrastructure
+        - ensemble-git
+    framework_keyword_to_plugin:
+      react: ensemble-react
+      nest: ensemble-nestjs
+      nestjs: ensemble-nestjs
+      rails: ensemble-rails
+      phoenix: ensemble-phoenix
+      blazor: ensemble-blazor
+      jest: ensemble-jest
+      pytest: ensemble-pytest
+      rspec: ensemble-rspec
+      xunit: ensemble-xunit
+      exunit: ensemble-exunit
+      playwright: ensemble-e2e-testing
 
 constraints:
   - DO NOT implement, build, or execute any technical work described in the requirements
@@ -129,8 +308,142 @@ workflow:
               - Checkbox tracking for progress
             fallback: Manually structure workflow using TRD template patterns
 
-    - name: Output Management
+    - name: Team Configuration
       order: 4
+      description: |
+        Analyze the generated TRD for complexity and automatically configure team mode.
+        Performs agent/skill discovery, marketplace gap analysis, and injects a
+        ## Team Configuration section into the TRD when warranted by complexity.
+      steps:
+        - order: 1
+          title: CLI Flag Parsing
+          description: Parse $ARGUMENTS for --team and --no-team flags before complexity analysis
+          actions:
+            - Parse $ARGUMENTS for presence of --team flag; if found set FORCE_TEAM=true
+            - Parse $ARGUMENTS for presence of --no-team flag; if found set FORCE_NO_TEAM=true
+            - 'If both flags present, print ERROR: --team and --no-team are mutually exclusive, and HALT'
+            - Store flag values in FORCE_TEAM and FORCE_NO_TEAM variables for use within this phase only
+
+        - order: 2
+          title: Task Counter and Hour Estimator
+          description: Scan the generated TRD Master Task List to count tasks and total estimated hours
+          actions:
+            - "Scan TRD content for entries matching '- [ ] **TRD-XXX** description (Nh)' pattern"
+            - Count total tasks matching the '- [ ] **TRD-' pattern (TASK_COUNT)
+            - For each task extract hour estimate from parenthetical notation e.g. (2h); default 2h if absent
+            - Sum all extracted hours to compute ESTIMATED_HOURS
+            - If MCP assess_complexity output is available from Phase 3, merge its hours estimate (prefer MCP)
+            - Store results in COMPLEXITY_METRICS -- {task_count, estimated_hours}
+
+        - order: 3
+          title: Domain Detection
+          description: Scan task titles and descriptions against domain_keywords mapping to detect technical domains
+          actions:
+            - For each task entry extract title and description text (case-insensitive)
+            - Match text against domain_keywords from team_configuration block
+            - A task may belong to multiple domains; record all matches
+            - Count distinct domains detected (DOMAIN_COUNT)
+            - Count cross-cutting tasks (tasks matching 2 or more distinct domains)
+            - Parse [depends TRD-XXX] annotations to build dependency graph; compute longest path (DEPENDENCY_DEPTH)
+            - Add to COMPLEXITY_METRICS -- {domain_count, domains_list, cross_cutting_count, dependency_depth}
+
+        - order: "3b"
+          title: Team Mode Heuristic
+          description: Apply three-tier complexity classification to determine team mode
+          actions:
+            - If FORCE_NO_TEAM=true, set TEAM_TIER=None and skip to Phase 5 Output Management
+            - If FORCE_TEAM=true, set TEAM_TIER=Complex and proceed to agent discovery
+            - Otherwise evaluate against complexity_tiers thresholds
+            - "Complex if ANY: task_count > 25 OR domain_count >= 3 OR estimated_hours > 60"
+            - "Medium if ANY: task_count >= 10 OR domain_count >= 2 OR estimated_hours >= 20 (and no Complex condition)"
+            - "Simple if ALL: task_count < 10 AND domain_count = 1 AND estimated_hours < 20"
+            - If TEAM_TIER=Simple, skip team config generation and proceed to Phase 5
+            - Store TEAM_TIER in COMPLEXITY_METRICS
+
+        - order: 4
+          title: Agent Auto-Discovery
+          description: Scan packages/*/agents/*.yaml to build a registry of available agents and their capabilities
+          actions:
+            - Use Glob tool to scan packages/*/agents/*.yaml
+            - For each discovered YAML file use Read tool to extract name and description fields from front matter
+            - Also extract the '## Mission' section body text (first paragraph after heading)
+            - Build AGENT_REGISTRY -- Map<agent_name, {description, mission_keywords, source_file}>
+            - Extract capability keywords from description and mission text (tokenize, lowercase)
+            - Store AGENT_REGISTRY for use in builder matching and validation
+
+        - order: "4b"
+          title: Skill Auto-Discovery
+          description: Scan packages/*/skills/ directories to build a registry of available skills
+          actions:
+            - Use Glob tool to scan packages/*/skills/
+            - For each discovered skills directory extract package name from path
+            - Build SKILL_REGISTRY -- Map<package_name, {skills_path, has_skills}>
+            - Registry used by marketplace gap analysis to detect skill gaps
+
+        - order: 5
+          title: Builder Agent Matching
+          description: Select the best builder agents for each detected domain using router-rules, keyword matching, then defaults
+          actions:
+            - Check for .claude/router-rules.json in project root; if present parse ROUTER_OVERRIDES (domain -> agent)
+            - For each domain in COMPLEXITY_METRICS.domains_list select builder agent by priority
+            - "Priority 1: Router rules override for this domain (from .claude/router-rules.json)"
+            - "Priority 2: Keyword match -- compare domain keywords against AGENT_REGISTRY descriptions and missions; select agent with highest keyword overlap"
+            - "Priority 3: Default fallback from team_configuration.default_agents mapping"
+            - Build BUILDER_AGENTS list; deduplicate (one agent covering multiple domains listed once with all owned domains)
+            - After marketplace flow (step 7) completes -- re-run this step if INSTALLED_DURING_RUN is non-empty
+
+        - order: 6
+          title: Agent Existence Validation
+          description: Validate all selected team agents exist in the discovered registry
+          actions:
+            - For every agent in BUILDER_AGENTS list verify presence in AGENT_REGISTRY
+            - Validate lead agent (tech-lead-orchestrator) exists in AGENT_REGISTRY
+            - Validate reviewer agent (code-reviewer) exists in AGENT_REGISTRY
+            - Validate QA agent -- qa-orchestrator first; fall back to test-runner if missing (FR-3.7)
+            - If any selected agent is absent from registry log warning and substitute with nearest available or default
+
+        - order: 7
+          title: Marketplace Gap Analysis and Suggestion Flow
+          description: Detect capability gaps, suggest marketplace plugins, install approved ones
+          actions:
+            - "Step 1 -- Read marketplace.json: use Read tool to load marketplace.json from repository root"
+            - "If missing or malformed: log 'marketplace.json not found or invalid -- skipping gap analysis'; set MARKETPLACE_AVAILABLE=false and skip remaining steps"
+            - "If valid: parse plugin entries into MARKETPLACE_CATALOG; exclude ensemble-full; set MARKETPLACE_AVAILABLE=true"
+            - "Step 2 -- Installed-plugin detection: for each plugin in MARKETPLACE_CATALOG derive local path from source field; use Glob to check packages/<name>/ directory; build INSTALLED_PLUGINS set"
+            - "Step 3 -- Gap analysis: identify agent gaps (domain default agent absent from AGENT_REGISTRY) and skill gaps (framework keywords present in tasks but corresponding skills/ directory absent)"
+            - "Three-tier matching: high-weight domain-to-tag, medium-weight keyword-to-tag, low-weight keyword-to-description"
+            - "Context-aware filtering: generic 'test' keyword alone must NOT trigger testing framework suggestions; require framework-specific keywords (jest, pytest, rspec, etc.)"
+            - "Consolidate: multiple gaps pointing to same plugin merge into single suggestion with combined rationale"
+            - "Sort by relevance: agent gaps before skill gaps, then by task_count_benefiting descending"
+            - "Build SUGGESTIONS list with fields: plugin_name, description, gap_category, rationale, agents_provided, skills_provided, task_count_benefiting"
+            - "Step 4 -- Non-interactive detection: check if AskUserQuestion tool is available; if not set NON_INTERACTIVE=true"
+            - "Step 5 -- Suggestion presentation: if NON_INTERACTIVE=true log each suggestion as [INFO] and add all to DECLINED_PLUGINS"
+            - "If interactive: for each suggestion use AskUserQuestion to present yes/no prompt with plugin name, description, rationale, agents/skills provided"
+            - "Track APPROVED_PLUGINS and DECLINED_PLUGINS; do not re-prompt declined plugins"
+            - "Step 6 -- Plugin installation: for each plugin in APPROVED_PLUGINS run 'claude plugin install <name>' via Bash; check exit code; track INSTALLED_DURING_RUN and FAILED_INSTALLS"
+            - "If INSTALLED_DURING_RUN non-empty: re-run agent and skill discovery (steps 4 and 4b) and re-run builder matching (step 5) with refreshed registries"
+            - "Log summary: 'Marketplace analysis: {N} gaps identified, {M} plugins suggested, {A} approved, {D} declined, {F} failed to install'"
+
+        - order: 8
+          title: Team Configuration Generation and Injection
+          description: Generate ## Team Configuration section and inject into TRD document
+          actions:
+            - If TEAM_TIER=Simple or FORCE_NO_TEAM=true, skip section generation
+            - Build TEAM_CONFIG_HEADER with blockquote notice and complexity metrics (task count, hours, domain count, domains, cross-cutting, dependency depth, tier)
+            - Build TEAM_CONFIG_YAML YAML block conforming to the implement-trd-beads team roles schema
+            - "Always include lead role: agent: tech-lead-orchestrator, owns: [task-selection, architecture-review, final-approval]"
+            - "Always include builder role: agents: list from BUILDER_AGENTS, owns: [implementation]"
+            - "If Complex: include reviewer role -- agent: code-reviewer, owns: [code-review]"
+            - "If Complex: include qa role -- agent: qa-orchestrator (test-runner fallback), owns: [quality-gate, acceptance-criteria]"
+            - "If Medium: omit reviewer and qa roles"
+            - If plugins were installed during step 7, build MARKETPLACE_NOTE listing installed plugins with agents/skills provided
+            - Compose full section -- TEAM_CONFIG_HEADER + MARKETPLACE_NOTE (if non-empty) + TEAM_CONFIG_YAML wrapped in yaml code fence
+            - Inject section into TRD after Master Task List section and before Quality Requirements or Appendix sections
+            - Print summary -- "Team configuration included -- {TEAM_TIER} tier, {N} builder agent(s) -- {agent_list}"
+            - Print -- "Review the ## Team Configuration section and edit agent assignments if needed before running /implement-trd-beads."
+
+    - name: Output Management
+      order: 5
       steps:
         - order: 1
           title: TRD Creation

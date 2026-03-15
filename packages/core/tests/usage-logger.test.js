@@ -118,7 +118,7 @@ describe('Usage Logger', () => {
       const params = {
         command: 'ensemble:create-prd',
         model: 'claude-opus-4-6-20251101',
-        modelAlias: 'opus-4-6',
+        modelAlias: 'opus',
         inputTokens: 45000,
         outputTokens: 6000,
         durationMs: 12000,
@@ -133,7 +133,7 @@ describe('Usage Logger', () => {
 
       expect(entry.command).toBe('ensemble:create-prd');
       expect(entry.model).toBe('claude-opus-4-6-20251101');
-      expect(entry.model_alias).toBe('opus-4-6');
+      expect(entry.model_alias).toBe('opus');
       expect(entry.input_tokens).toBe(45000);
       expect(entry.output_tokens).toBe(6000);
       expect(entry.cost_usd).toBeCloseTo(1.125, 3);
@@ -238,7 +238,7 @@ describe('Usage Logger', () => {
       const logContent = [
         JSON.stringify({
           command: 'ensemble:create-prd',
-          model_alias: 'opus-4-6',
+          model_alias: 'opus',
           cost_usd: 1.5,
           success: true
         }),
@@ -250,7 +250,7 @@ describe('Usage Logger', () => {
         }),
         JSON.stringify({
           command: 'ensemble:create-prd',
-          model_alias: 'opus-4-6',
+          model_alias: 'opus',
           cost_usd: 1.2,
           success: false
         })
@@ -271,7 +271,7 @@ describe('Usage Logger', () => {
       expect(summary.byCommand['ensemble:implement-trd'].count).toBe(1);
       expect(summary.byCommand['ensemble:implement-trd'].cost).toBeCloseTo(0.8, 1);
 
-      expect(summary.byModel['opus-4-6'].count).toBe(2);
+      expect(summary.byModel['opus'].count).toBe(2);
       expect(summary.byModel['sonnet'].count).toBe(1);
     });
 

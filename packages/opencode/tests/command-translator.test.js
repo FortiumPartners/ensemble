@@ -76,7 +76,7 @@ describe('OC-S1-CMD-001: CommandTranslator class construction and YAML parsing',
     expect(parsed.metadata.name).toBe('ensemble:create-trd');
     expect(parsed.metadata.version).toBe('2.0.0');
     expect(parsed.metadata.category).toBe('planning');
-    expect(parsed.metadata.model).toBe('opus-4-6');
+    expect(parsed.metadata.model).toBe('opus');
   });
 
   it('should extract mission summary', () => {
@@ -440,7 +440,7 @@ describe('OC-S1-CMD-008: JSON config entry generation', () => {
   it('should include agent field when model hint is present', () => {
     const parsed = loadFixture('command-with-arguments.yaml');
     const config = translator.generateConfigEntry(parsed);
-    // opus-4-6 model hint should result in an agent field
+    // opus model hint should result in an agent field
     expect(config['ensemble:create-trd']).toHaveProperty('agent');
   });
 
@@ -467,21 +467,9 @@ describe('OC-S1-CMD-009: Model hint mapping', () => {
     });
   });
 
-  it('should map opus-4-6 to anthropic/claude-opus-4-6', () => {
-    expect(translator.mapModelHint('opus-4-6')).toBe(
-      'anthropic/claude-opus-4-6'
-    );
-  });
-
   it('should map opus to anthropic/claude-opus-4-6', () => {
     expect(translator.mapModelHint('opus')).toBe(
       'anthropic/claude-opus-4-6'
-    );
-  });
-
-  it('should map sonnet-4 to anthropic/claude-sonnet-4-20250514', () => {
-    expect(translator.mapModelHint('sonnet-4')).toBe(
-      'anthropic/claude-sonnet-4-20250514'
     );
   });
 

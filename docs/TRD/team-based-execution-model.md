@@ -98,7 +98,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 1: Foundation -- Team Definition, State Machine, Comment Format
 
-- [ ] **TRD-001**: Add `team:` section schema to implement-trd-beads.yaml metadata (2h)
+- [x] **TRD-001**: Add `team:` section schema to implement-trd-beads.yaml metadata (2h)
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Add `team:` as an optional top-level key in the YAML with `roles:` array
@@ -107,7 +107,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Valid ownership categories: `task-selection`, `implementation`, `code-review`, `quality-gate`, `architecture-review`, `final-approval`, `acceptance-criteria`
   - AC: FR-TD-1, FR-TD-3, FR-TD-4
 
-- [ ] **TRD-002**: Implement team YAML parser in Preflight phase (3h) [depends: TRD-001]
+- [x] **TRD-002**: Implement team YAML parser in Preflight phase (3h) [depends: TRD-001]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Preflight phase, new step)
   - Actions:
     1. After Strategy Detection step, add new step "Team Configuration Detection"
@@ -120,7 +120,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     8. Set QA_ENABLED=true if `qa` role defined, else false
   - AC: FR-TD-1, FR-TD-2, FR-TD-6, FR-TD-7, FR-TD-8, AC-TD-1, AC-TD-2, AC-TD-3
 
-- [ ] **TRD-003**: Implement agent registry validation for team roles (2h) [depends: TRD-002]
+- [x] **TRD-003**: Implement agent registry validation for team roles (2h) [depends: TRD-002]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Preflight phase)
   - Actions:
     1. Build KNOWN_AGENTS list by scanning `packages/*/agents/*.yaml` filenames (strip .yaml extension)
@@ -129,7 +129,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Include fallback: also check `.claude/router-rules.json` for project-specific agent definitions
   - AC: AC-TD-2
 
-- [ ] **TRD-004**: Define structured comment format and parser (3h)
+- [x] **TRD-004**: Define structured comment format and parser (3h)
   - File: `packages/development/commands/implement-trd-beads.yaml` (new utility section referenced by Execute phase)
   - Actions:
     1. Define comment format spec: `status:<state> <key>:<value> [<key>:<value>...]`
@@ -140,7 +140,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Document URL-encoding requirement for `reason:` values containing spaces
   - AC: FR-SM-3, FR-BR-1, FR-BR-2, FR-BR-3, AC-BR-1, AC-BR-2
 
-- [ ] **TRD-005**: Implement state machine transition validator (3h) [depends: TRD-004]
+- [x] **TRD-005**: Implement state machine transition validator (3h) [depends: TRD-004]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase utility)
   - Actions:
     1. Define valid transition table:
@@ -157,7 +157,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. After transition: write new status comment and call `br sync --flush-only`
   - AC: FR-SM-1, FR-SM-4, FR-SM-8, AC-SM-5
 
-- [ ] **TRD-006**: Implement sub-state query function (2h) [depends: TRD-004]
+- [x] **TRD-006**: Implement sub-state query function (2h) [depends: TRD-004]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase utility)
   - Actions:
     1. Define `get_sub_state(bead_id)` logic: run `br comment list <bead_id>`, parse output lines in reverse, find first `status:` prefix, extract state value
@@ -166,7 +166,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Handle edge case: multiple rapid comments -- always use the latest (last in reverse scan)
   - AC: FR-SM-2, FR-BR-2, AC-BR-2
 
-- [ ] **TRD-007**: Implement rejection cycle tracking and cap (2h) [depends: TRD-005]
+- [x] **TRD-007**: Implement rejection cycle tracking and cap (2h) [depends: TRD-005]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. For each task, count `verdict:rejected` comments via `br comment list <bead_id>`
@@ -176,7 +176,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. After lead architectural review: reset rejection count and allow one more cycle
   - AC: FR-SM-7, AC-SM-4
 
-- [ ] **TRD-008**: Add TEAM_MODE=false passthrough gate (1h) [depends: TRD-002]
+- [x] **TRD-008**: Add TEAM_MODE=false passthrough gate (1h) [depends: TRD-002]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. At the top of the Execute phase, add conditional: `if TEAM_MODE == false: use current v2.1.0 Execute loop unchanged`
@@ -185,7 +185,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Quality Gate phase has a minor branch: if TEAM_MODE and QA_ENABLED, phase gate scope is reduced to integration-only
   - AC: FR-GD-1, FR-GD-2, FR-GD-3, AC-TD-3, AC-BC-1
 
-- [ ] **TRD-009**: Unit tests for comment parser (3h) [depends: TRD-004, TRD-006]
+- [x] **TRD-009**: Unit tests for comment parser (3h) [depends: TRD-004, TRD-006]
   - File: `packages/development/tests/team-comment-parser.test.js` (new file)
   - Actions:
     1. Test parsing well-formed status comments with all key types
@@ -196,7 +196,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Test multi-line comment handling (status: should be on a single line)
   - AC: Quality requirement -- unit test coverage for parsing logic
 
-- [ ] **TRD-010**: Unit tests for state machine transitions (3h) [depends: TRD-005]
+- [x] **TRD-010**: Unit tests for state machine transitions (3h) [depends: TRD-005]
   - File: `packages/development/tests/team-state-machine.test.js` (new file)
   - Actions:
     1. Test all 8 valid transitions produce correct br comment
@@ -207,7 +207,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Test escalation trigger after MAX_REJECTIONS
   - AC: Quality requirement -- state machine coverage
 
-- [ ] **TRD-011**: Unit tests for team YAML parser (2h) [depends: TRD-002]
+- [x] **TRD-011**: Unit tests for team YAML parser (2h) [depends: TRD-002]
   - File: `packages/development/tests/team-yaml-parser.test.js` (new file)
   - Actions:
     1. Test full team config (lead + builder + reviewer + qa) parsed correctly
@@ -219,7 +219,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     7. Test `agent:` (singular) vs `agents:` (plural) handling
   - AC: AC-TD-1, AC-TD-2, AC-TD-3, AC-TD-4
 
-- [ ] **TRD-012**: Validate YAML schema compliance after team section addition (1h) [depends: TRD-001]
+- [x] **TRD-012**: Validate YAML schema compliance after team section addition (1h) [depends: TRD-001]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Run `npm run validate` and confirm zero errors
@@ -230,7 +230,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 2: Lead Orchestration Loop, Builder/Reviewer/QA Delegation
 
-- [ ] **TRD-013**: Implement lead execution loop skeleton (3h) [depends: TRD-008]
+- [x] **TRD-013**: Implement lead execution loop skeleton (3h) [depends: TRD-008]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, replace current loop when TEAM_MODE=true)
   - Actions:
     1. When TEAM_MODE=true, the Execute loop is replaced with the lead orchestration loop
@@ -252,7 +252,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     3. The lead loop must handle the "in-flight check" for tasks that are in_review or in_qa -- these are still in_progress in br native status, so `bv --robot-next` will not return them, but they need processing
   - AC: FR-LL-1, AC-LL-1
 
-- [ ] **TRD-014**: Implement builder agent constraint from team config (2h) [depends: TRD-002, TRD-013]
+- [x] **TRD-014**: Implement builder agent constraint from team config (2h) [depends: TRD-002, TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, Task Claim and Specialist Selection step)
   - Actions:
     1. When TEAM_MODE=true, the specialist selection logic is constrained to agents listed in `team.roles[name=builder].agents`
@@ -261,7 +261,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. `.claude/router-rules.json` still takes priority over keyword defaults (same as current)
   - AC: FR-TD-5
 
-- [ ] **TRD-015**: Implement builder delegation with structured output (2h) [depends: TRD-013]
+- [x] **TRD-015**: Implement builder delegation with structured output (2h) [depends: TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, Task Delegation step)
   - Actions:
     1. Build prompt identical to current Task Delegation step but add: "Do NOT close this bead. Return a structured summary with: files_changed (list), implementation_description (text), test_results (pass/fail with details), issues_encountered (list), recommendations (list)."
@@ -271,7 +271,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. Builder must NOT call `br close` -- this is enforced in the prompt instructions
   - AC: FR-BA-1, FR-BA-2, FR-BA-3, FR-BA-4, FR-BA-5, AC-SM-1
 
-- [ ] **TRD-016**: Implement reviewer delegation and verdict handling (3h) [depends: TRD-013, TRD-005]
+- [x] **TRD-016**: Implement reviewer delegation and verdict handling (3h) [depends: TRD-013, TRD-005]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, new step after Task Delegation)
   - Actions:
     1. After builder completes and task is in `in_review`: build reviewer prompt
@@ -283,7 +283,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     7. Track rejection cycle count per task
   - AC: FR-CR-1 through FR-CR-6, FR-LL-3, FR-SM-5, AC-SM-3
 
-- [ ] **TRD-017**: Implement QA delegation and verdict handling (3h) [depends: TRD-016, TRD-005]
+- [x] **TRD-017**: Implement QA delegation and verdict handling (3h) [depends: TRD-016, TRD-005]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, new step after reviewer step)
   - Actions:
     1. After reviewer approves and task is in `in_qa`: build QA prompt
@@ -295,7 +295,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     7. On rejected: `br comment add <bead_id> 'status:in_progress qa:<agent> verdict:rejected reason:<url_encoded_reason>'`; `br update <bead_id> --status=open`; return to builder with QA feedback
   - AC: FR-QA-1 through FR-QA-6, FR-LL-4, FR-SM-6, AC-SM-1
 
-- [ ] **TRD-018**: Implement rejection loop with builder re-delegation (2h) [depends: TRD-007, TRD-016, TRD-017]
+- [x] **TRD-018**: Implement rejection loop with builder re-delegation (2h) [depends: TRD-007, TRD-016, TRD-017]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. On reviewer rejection: re-delegate to same builder with augmented prompt including rejection reason, specific feedback (file, line, issue, suggestion), and instruction to address the issues
@@ -305,7 +305,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. All rejection context from previous br comments is included in re-delegation prompt
   - AC: FR-LL-5, AC-SM-3, AC-SM-4
 
-- [ ] **TRD-019**: Implement debug loop integration for team mode (1h) [depends: TRD-013]
+- [x] **TRD-019**: Implement debug loop integration for team mode (1h) [depends: TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, Debug Loop step)
   - Actions:
     1. When TEAM_MODE=true and builder fails (not rejection -- actual error/crash): enter debug loop same as current
@@ -315,7 +315,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. Record debug attempts as br comments
   - AC: FR-IT-5, AC-LL-2
 
-- [ ] **TRD-020**: Implement optional review/QA skip per task (2h) [depends: TRD-013, TRD-005]
+- [x] **TRD-020**: Implement optional review/QA skip per task (2h) [depends: TRD-013, TRD-005]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, lead loop)
   - Actions:
     1. Lead can skip review for a specific task: transition directly from `in_progress` to `in_qa`
@@ -326,7 +326,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Skip decisions are auditable in the br comment trail
   - AC: FR-LL-6, FR-LL-7, FR-LL-10, AC-LL-3, AC-LL-4, AC-LL-5, AC-LL-6
 
-- [ ] **TRD-021**: Implement lead architecture review for tagged tasks (2h) [depends: TRD-013]
+- [x] **TRD-021**: Implement lead architecture review for tagged tasks (2h) [depends: TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, lead loop)
   - Actions:
     1. Before assigning a builder, lead checks if task description contains architecture keywords: `architecture`, `design`, `system`, `cross-cutting`, `multi-component`
@@ -335,7 +335,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Record architecture review as br comment: `br comment add <bead_id> 'architecture-review lead:<agent> guidance:<summary>'`
   - AC: FR-LL-8
 
-- [ ] **TRD-022**: Implement sibling task context for builders (1h) [depends: TRD-013]
+- [x] **TRD-022**: Implement sibling task context for builders (1h) [depends: TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, lead loop)
   - Actions:
     1. Before delegating a task to a builder, collect summaries of completed sibling tasks in the same phase
@@ -344,7 +344,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Limit to 5 most recent siblings to avoid prompt bloat
   - AC: FR-LL-9
 
-- [ ] **TRD-023**: Implement graceful degradation for partial teams (2h) [depends: TRD-002, TRD-013]
+- [x] **TRD-023**: Implement graceful degradation for partial teams (2h) [depends: TRD-002, TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. If TEAM_MODE=true and REVIEWER_ENABLED=false: skip review step, transition from in_progress directly to in_qa (or closed if QA also disabled)
@@ -354,7 +354,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. Record which steps are skipped in the team config summary at scaffold time
   - AC: FR-GD-4, FR-GD-5, FR-GD-6, AC-TD-4
 
-- [ ] **TRD-024**: Integration tests for lead loop happy path (3h) [depends: TRD-013, TRD-015, TRD-016, TRD-017]
+- [x] **TRD-024**: Integration tests for lead loop happy path (3h) [depends: TRD-013, TRD-015, TRD-016, TRD-017]
   - File: `packages/development/tests/team-lead-loop.test.js` (new file)
   - Actions:
     1. Test full pipeline: open -> in_progress -> in_review -> in_qa -> closed with mocked agent responses
@@ -368,7 +368,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 3: Parallel Builders, Per-Task Skip Gating, Cross-Session Resume
 
-- [ ] **TRD-025**: Implement parallel builder execution (4h) [depends: TRD-013, TRD-015]
+- [x] **TRD-025**: Implement parallel builder execution (4h) [depends: TRD-013, TRD-015]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, lead loop)
   - Actions:
     1. Lead maintains a concurrent builder slot count (default: 2, configurable via `max parallel N` argument)
@@ -380,7 +380,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     7. Multiple tasks can be in different pipeline stages simultaneously (e.g., task A in_review while task B in_progress)
   - AC: FR-PB-1, FR-PB-2, FR-PB-3, FR-PB-4, AC-PB-1
 
-- [ ] **TRD-026**: Implement sequential commit ordering for parallel builders (3h) [depends: TRD-025]
+- [x] **TRD-026**: Implement sequential commit ordering for parallel builders (3h) [depends: TRD-025]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. When parallel builders complete, lead serializes git commit operations
@@ -392,7 +392,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     7. If conflict resolution fails after 1 retry: return task to builder for manual resolution
   - AC: AC-PB-2
 
-- [ ] **TRD-027**: Implement parallel builder failure isolation (2h) [depends: TRD-025]
+- [x] **TRD-027**: Implement parallel builder failure isolation (2h) [depends: TRD-025]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. If one builder crashes/fails: its task is returned to `open` status via `br update <bead_id> --status=open`
@@ -402,7 +402,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. Lead tracks active builder count and refills slots as tasks complete or fail
   - AC: AC-PB-3
 
-- [ ] **TRD-028**: Implement cross-session resume with team sub-state (3h) [depends: TRD-006, TRD-013]
+- [x] **TRD-028**: Implement cross-session resume with team sub-state (3h) [depends: TRD-006, TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Preflight phase, Resume Detection step)
   - Actions:
     1. Existing resume detection finds the root epic bead (unchanged)
@@ -417,7 +417,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Print resume summary: "Resuming team execution. Tasks in_progress: N, in_review: N, in_qa: N, completed: N"
   - AC: FR-IT-7, NFR-R-1, AC-RS-1, AC-RS-2, AC-RS-3, AC-RS-4
 
-- [ ] **TRD-029**: Update `--status` flag for team sub-states (2h) [depends: TRD-006]
+- [x] **TRD-029**: Update `--status` flag for team sub-states (2h) [depends: TRD-006]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Preflight phase, Handle Special Arguments step)
   - Actions:
     1. When `--status` is invoked and TEAM_MODE=true: enhance output with sub-state information
@@ -427,7 +427,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. When TEAM_MODE=false: unchanged from current behavior
   - AC: FR-IT-8, AC-BC-2
 
-- [ ] **TRD-030**: Update `--reset-task` for team sub-states (2h) [depends: TRD-006]
+- [x] **TRD-030**: Update `--reset-task` for team sub-states (2h) [depends: TRD-006]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Preflight phase, Handle Special Arguments step)
   - Actions:
     1. When `--reset-task TRD-XXX` is invoked and TEAM_MODE=true: reset both br native status and clear team sub-state
@@ -438,7 +438,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. When TEAM_MODE=false: unchanged from current behavior
   - AC: FR-IT-9, AC-BC-3
 
-- [ ] **TRD-031**: Implement phase quality gate scope reduction for team QA (2h) [depends: TRD-017]
+- [x] **TRD-031**: Implement phase quality gate scope reduction for team QA (2h) [depends: TRD-017]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Quality Gate phase)
   - Actions:
     1. When TEAM_MODE=true and QA_ENABLED=true: phase-level quality gate focuses on integration tests and cross-task validation only
@@ -449,7 +449,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. When TEAM_MODE=false or QA_ENABLED=false: phase gate runs full scope (current behavior)
   - AC: FR-QA-7
 
-- [ ] **TRD-032**: Test parallel builder execution (3h) [depends: TRD-025, TRD-026, TRD-027]
+- [x] **TRD-032**: Test parallel builder execution (3h) [depends: TRD-025, TRD-026, TRD-027]
   - File: `packages/development/tests/team-parallel-builders.test.js` (new file)
   - Actions:
     1. Test two builders working simultaneously with non-overlapping files
@@ -459,7 +459,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     5. Test slot refilling after task completion
   - AC: AC-PB-1, AC-PB-2, AC-PB-3
 
-- [ ] **TRD-033**: Test cross-session resume with team sub-states (3h) [depends: TRD-028]
+- [x] **TRD-033**: Test cross-session resume with team sub-states (3h) [depends: TRD-028]
   - File: `packages/development/tests/team-resume.test.js` (new file)
   - Actions:
     1. Test resume when task is in `in_review` sub-state
@@ -471,7 +471,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 4: Team Metrics, Wheel Instructions, Integration Testing
 
-- [ ] **TRD-034**: Implement team metrics collection (3h) [depends: TRD-016, TRD-017]
+- [x] **TRD-034**: Implement team metrics collection (3h) [depends: TRD-016, TRD-017]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase, after task closure)
   - Actions:
     1. After each task closure, collect metrics:
@@ -484,7 +484,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Per-task tracking: rejection_cycles, time_in_review, time_in_qa, time_in_progress
   - AC: FR-TM-1, FR-TM-2, FR-TM-3, AC-TM-4
 
-- [ ] **TRD-035**: Implement phase-level team performance summary (2h) [depends: TRD-034]
+- [x] **TRD-035**: Implement phase-level team performance summary (2h) [depends: TRD-034]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Quality Gate phase, after gate result)
   - Actions:
     1. At phase completion, print team performance summary to console:
@@ -505,7 +505,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     3. Persist metrics as br comment on epic bead: `br comment add <epic_id> 'team-metrics:phase-N <JSON>'`
   - AC: FR-TM-4, AC-TM-1, AC-TM-2, AC-TM-3
 
-- [ ] **TRD-036**: Implement team metrics JSON format (1h) [depends: TRD-035]
+- [x] **TRD-036**: Implement team metrics JSON format (1h) [depends: TRD-035]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. Define JSON schema for team metrics:
@@ -529,7 +529,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     3. JSON is the format persisted on the epic bead comment
   - AC: AC-TM-2
 
-- [ ] **TRD-037**: Update wheel instructions for team mode (2h) [depends: TRD-002]
+- [x] **TRD-037**: Update wheel instructions for team mode (2h) [depends: TRD-002]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Scaffold phase, Wheel Instructions Output step)
   - Actions:
     1. When TEAM_MODE=true: replace current wheel instructions with team-specific version
@@ -543,7 +543,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Include parallel execution track info from bv if available
   - AC: FR-WI-1, FR-WI-2, FR-WI-3, FR-WI-4, AC-WI-1, AC-WI-2
 
-- [ ] **TRD-038**: Implement backward compatibility with existing scaffolds (1h) [depends: TRD-013]
+- [x] **TRD-038**: Implement backward compatibility with existing scaffolds (1h) [depends: TRD-013]
   - File: `packages/development/commands/implement-trd-beads.yaml` (Execute phase)
   - Actions:
     1. When resuming a scaffold created by v2.1.0 (no team sub-state comments): treat all in-progress tasks as `in_progress` (builder stage)
@@ -552,7 +552,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Verify: `br list`, `bv --robot-next`, `br ready` all work identically with team-mode beads
   - AC: FR-IT-4, FR-IT-6, NFR-C-1, NFR-C-2, NFR-C-3, NFR-C-4, AC-BC-4
 
-- [ ] **TRD-039**: Bump YAML version to 2.2.0 and regenerate markdown (1h) [depends: TRD-001]
+- [x] **TRD-039**: Bump YAML version to 2.2.0 and regenerate markdown (1h) [depends: TRD-001]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Update `metadata.version` from `2.1.0` to `2.2.0`
@@ -561,7 +561,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     4. Run `npm run validate` to confirm schema compliance
   - AC: Technical Considerations 7.6
 
-- [ ] **TRD-040**: Update CHANGELOG.md with team mode entry (1h) [depends: TRD-039]
+- [x] **TRD-040**: Update CHANGELOG.md with team mode entry (1h) [depends: TRD-039]
   - File: `packages/development/CHANGELOG.md`
   - Actions:
     1. Add entry for v2.2.0: "feat(implement-trd-beads): add team-based execution model with role-based handoffs"
@@ -569,7 +569,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     3. Note backward compatibility: "No breaking changes -- team mode is opt-in via team: section"
   - AC: Documentation requirement
 
-- [ ] **TRD-041**: End-to-end test with full team on sample TRD (4h) [depends: TRD-017, TRD-037]
+- [x] **TRD-041**: End-to-end test with full team on sample TRD (4h) [depends: TRD-017, TRD-037]
   - File: `packages/development/tests/team-e2e-full.test.js` (new file)
   - Actions:
     1. Create fixture TRD with 3 phases, 6 tasks, mixed backend/frontend keywords
@@ -582,7 +582,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     8. Verify: wheel instructions show team topology
   - AC: Roadmap M4.1
 
-- [ ] **TRD-042**: End-to-end test with minimal team (lead + builders only) (3h) [depends: TRD-023]
+- [x] **TRD-042**: End-to-end test with minimal team (lead + builders only) (3h) [depends: TRD-023]
   - File: `packages/development/tests/team-e2e-minimal.test.js` (new file)
   - Actions:
     1. Create fixture TRD with 2 phases, 4 tasks
@@ -593,7 +593,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Verify: br comments show assignment and completion only
   - AC: Roadmap M4.2, AC-TD-4
 
-- [ ] **TRD-043**: End-to-end backward compatibility test (no team section) (2h) [depends: TRD-008]
+- [x] **TRD-043**: End-to-end backward compatibility test (no team section) (2h) [depends: TRD-008]
   - File: `packages/development/tests/team-e2e-backward-compat.test.js` (new file)
   - Actions:
     1. Use existing fixture TRD (same as current tests)
@@ -604,7 +604,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
     6. Verify: wheel instructions are unchanged
   - AC: Roadmap M4.3, AC-BC-1
 
-- [ ] **TRD-044**: Test team metrics accuracy and persistence (2h) [depends: TRD-035, TRD-036]
+- [x] **TRD-044**: Test team metrics accuracy and persistence (2h) [depends: TRD-035, TRD-036]
   - File: `packages/development/tests/team-metrics.test.js` (new file)
   - Actions:
     1. Test metrics accurately reflect task outcomes: 1 rejection + 1 approval = 1 rejection cycle

@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
-  model: opus-4-6
+  model: opus
 
 constraints:
   - DO NOT implement, build, or execute any work described in the product description
@@ -28,37 +28,37 @@ workflow:
         - order: 1
           title: Product Description Analysis
           description: Analyze provided product description or feature idea
-        
+
         - order: 2
           title: User Research
           description: Identify primary users, personas, and pain points
-        
+
         - order: 3
           title: Goal Definition
           description: Define primary goals, success criteria, and non-goals
-    
+
     - name: Requirements Definition
       order: 2
       steps:
         - order: 1
           title: Functional Requirements
           description: Define what the product must do
-        
+
         - order: 2
           title: Non-Functional Requirements
           description: Define performance, security, accessibility requirements
-        
+
         - order: 3
           title: Acceptance Criteria
           description: Create measurable, testable acceptance criteria
-    
+
     - name: Output Management
       order: 3
       steps:
         - order: 1
           title: PRD Creation
           description: Generate comprehensive PRD document
-        
+
         - order: 2
           title: File Organization
           description: Save to @docs/PRD/ directory
@@ -68,12 +68,12 @@ expectedOutput:
   structure:
     - name: Product Summary
       description: Problem statement, solution, value proposition
-    
+
     - name: User Analysis
       description: Users, personas, pain points, journey
-    
+
     - name: Goals & Non-Goals
       description: Objectives, success criteria, scope boundaries
-    
+
     - name: Acceptance Criteria
       description: Measurable success criteria with test scenarios

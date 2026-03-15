@@ -144,7 +144,7 @@ The model selection will be implemented at two levels:
    ```yaml
    metadata:
      name: ensemble:create-prd
-     model: opus-4-6  # Explicit model selection
+     model: opus  # Explicit model selection
    ```
 
 2. **Agent-Level Delegation**: Task tool invocations specify model parameter
@@ -303,7 +303,7 @@ The model selection will be implemented at two levels:
 
 **Acceptance Criteria:**
 - Command YAML schema includes optional `model` field
-- Valid values: `opus-4-6`, `sonnet`, `haiku`
+- Valid values: `opus`, `sonnet`, `haiku`
 - Missing `model` field defaults to `sonnet` (current behavior)
 - Schema validation enforces valid model names
 
@@ -311,7 +311,7 @@ The model selection will be implemented at two levels:
 ```yaml
 metadata:
   name: ensemble:create-prd
-  model: opus-4-6
+  model: opus
   description: Create comprehensive PRD
 ```
 
@@ -519,10 +519,10 @@ ELSE:
     "tool": "haiku"
   },
   "commandOverrides": {
-    "ensemble:create-prd": "opus-4-6",
-    "ensemble:refine-prd": "opus-4-6",
-    "ensemble:create-trd": "opus-4-6",
-    "ensemble:refine-trd": "opus-4-6",
+    "ensemble:create-prd": "opus",
+    "ensemble:refine-prd": "opus",
+    "ensemble:create-trd": "opus",
+    "ensemble:refine-trd": "opus",
     "ensemble:implement-trd": "sonnet"
   },
   "toolClassification": {
@@ -530,7 +530,6 @@ ELSE:
     "sonnet": ["Edit", "Write", "Task", "NotebookEdit"]
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
     "opus": "claude-opus-4-6-20251101",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
@@ -547,12 +546,12 @@ ELSE:
 **Scenario 1: User runs `/ensemble:create-prd`**
 
 1. CLI parses command → `ensemble:create-prd`
-2. Load command YAML → `metadata.model = "opus-4-6"`
+2. Load command YAML → `metadata.model = "opus"`
 3. Model Selection Engine → selects `claude-opus-4-6-20251101`
 4. Invoke Claude Code SDK with Opus model
 5. Agent executes, uses Task tool for sub-tasks
 6. Task tool respects parent model unless overridden
-7. Log usage: `{command: "ensemble:create-prd", model: "opus-4-6", tokens: ...}`
+7. Log usage: `{command: "ensemble:create-prd", model: "opus", tokens: ...}`
 
 **Scenario 2: Agent uses simple tool (Read file)**
 
@@ -577,7 +576,7 @@ ELSE:
 
 ### AC-1: Command-Level Model Selection
 
-**Given** a command YAML with `metadata.model = "opus-4-6"`
+**Given** a command YAML with `metadata.model = "opus"`
 **When** the user runs that command
 **Then** the command executes using Claude Opus 4.6
 **And** the model selection is logged
@@ -628,10 +627,10 @@ ELSE:
 
 ### AC-5: Override Functionality
 
-**Given** a command with `metadata.model = "opus-4-6"`
+**Given** a command with `metadata.model = "opus"`
 **When** the user runs it with `--model sonnet` flag
 **Then** the command uses Sonnet instead of Opus
-**And** a warning is displayed: "Overriding recommended model (opus-4-6) with sonnet"
+**And** a warning is displayed: "Overriding recommended model (opus) with sonnet"
 
 **Test Scenarios:**
 - `/ensemble:create-prd --model sonnet` → Verify Sonnet used
@@ -815,7 +814,7 @@ ELSE:
 **Scope:**
 - Schema updates for `metadata.model` field in command YAML
 - Configuration file structure (`model-selection.json`)
-- Model alias mapping (opus-4-6 → claude-opus-4-6-20251101)
+- Model alias mapping (opus → claude-opus-4-6-20251101)
 - Basic logging infrastructure
 
 **Deliverables:**

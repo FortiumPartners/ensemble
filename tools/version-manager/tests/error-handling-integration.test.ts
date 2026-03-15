@@ -93,10 +93,9 @@ describe('Error Handling Integration', () => {
 
   describe('sanitization errors (E002)', () => {
     const maliciousCommits = [
-      { msg: 'feat(core): <script>alert("xss")</script>', name: 'HTML tags' },
-      { msg: 'feat(core): `rm -rf /`', name: 'backticks' },
-      { msg: 'feat(core): add | dangerous', name: 'pipe character' },
-      { msg: 'feat(core): add && malicious', name: 'shell operators' },
+      { msg: 'feat(core): $HOME expansion', name: 'dollar signs' },
+      { msg: 'feat(core): add\x01control\x02chars', name: 'control characters' },
+      { msg: 'feat(core): path\\to\\file', name: 'backslashes' },
     ];
 
     it.each(maliciousCommits)('should reject $name', ({ msg }) => {

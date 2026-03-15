@@ -95,7 +95,7 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
 | MODEL-P1-SCHEMA-001 | Update command YAML schema with model field | 2 | None | [ ] |
-| MODEL-P1-SCHEMA-002 | Add model enum validation (opus-4-6, sonnet, haiku) | 1 | MODEL-P1-SCHEMA-001 | [ ] |
+| MODEL-P1-SCHEMA-002 | Add model enum validation (opus, sonnet, haiku) | 1 | MODEL-P1-SCHEMA-001 | [ ] |
 | MODEL-P1-SCHEMA-003 | Update schema validation script | 1 | MODEL-P1-SCHEMA-002 | [ ] |
 | MODEL-P1-SCHEMA-004 | Add schema version bump to 2.0.0 | 0.5 | MODEL-P1-SCHEMA-001 | [ ] |
 | MODEL-P1-CONFIG-001 | Design model-selection.json schema | 1.5 | None | [ ] |
@@ -113,10 +113,10 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
 
 | Task ID | Description | Est. Hours | Dependencies | Status |
 |---------|-------------|------------|--------------|--------|
-| MODEL-P2-CMD-001 | Update /ensemble:create-prd with model: opus-4-6 | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
-| MODEL-P2-CMD-002 | Update /ensemble:refine-prd with model: opus-4-6 | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
-| MODEL-P2-CMD-003 | Update /ensemble:create-trd with model: opus-4-6 | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
-| MODEL-P2-CMD-004 | Update /ensemble:refine-trd with model: opus-4-6 | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
+| MODEL-P2-CMD-001 | Update /ensemble:create-prd with model: opus | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
+| MODEL-P2-CMD-002 | Update /ensemble:refine-prd with model: opus | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
+| MODEL-P2-CMD-003 | Update /ensemble:create-trd with model: opus | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
+| MODEL-P2-CMD-004 | Update /ensemble:refine-trd with model: opus | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
 | MODEL-P2-CMD-005 | Update /ensemble:implement-trd with model: sonnet | 0.5 | MODEL-P1-SCHEMA-003 | [ ] |
 | MODEL-P2-CMD-006 | Regenerate command markdown from YAML | 0.5 | MODEL-P2-CMD-005 | [ ] |
 | MODEL-P2-CMD-007 | Validate all command YAMLs pass schema | 1 | MODEL-P2-CMD-006 | [ ] |
@@ -190,7 +190,7 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                Command YAML Layer                            │
-│  - metadata.model field (opus-4-6, sonnet, haiku)           │
+│  - metadata.model field (opus, sonnet, haiku)               │
 │  - Schema validation                                         │
 │  - Command registry                                          │
 └─────────────────────┬───────────────────────────────────────┘
@@ -241,7 +241,7 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
 │                                          │
 │     create-prd.yaml:                     │
 │     metadata:                            │
-│       model: opus-4-6                    │
+│       model: opus                    │
 └────────┬─────────────────────────────────┘
          │
          ▼
@@ -254,7 +254,7 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
 │     model-selection.json:                │
 │     {                                    │
 │       "modelAliases": {                  │
-│         "opus-4-6": "claude-opus-4-6..." │
+│         "opus": "claude-opus-4-6..."     │
 │       }                                  │
 │     }                                    │
 └────────┬─────────────────────────────────┘
@@ -262,7 +262,7 @@ Format: `MODEL-<PHASE>-<CATEGORY>-<NUMBER>`
          ▼
 ┌──────────────────────────────────────────┐
 │  3. Resolve Model                         │
-│     - Alias: opus-4-6                    │
+│     - Alias: opus                        │
 │     - Full ID: claude-opus-4-6-20251101  │
 │     - Override check: None               │
 │     - Selected: claude-opus-4-6-20251101 │
@@ -308,8 +308,8 @@ Priority Order (highest to lowest):
 
 Example Resolution:
   Command: /ensemble:create-prd
-  YAML metadata.model: opus-4-6
-  No overrides → Result: opus-4-6
+  YAML metadata.model: opus
+  No overrides → Result: opus
 
   Command: /ensemble:implement-trd
   YAML metadata.model: sonnet
@@ -387,7 +387,7 @@ Example Resolution:
         "version": { "type": "string" },
         "model": {
           "type": "string",
-          "enum": ["opus-4-6", "opus", "sonnet-4", "sonnet", "haiku"],
+          "enum": ["opus", "sonnet", "haiku"],
           "description": "Preferred Claude model for this command"
         }
       },
@@ -405,7 +405,7 @@ metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document
   version: 2.0.0
-  model: opus-4-6  # Use Opus 4.6 for superior reasoning
+  model: opus  # Use Opus 4.6 for superior reasoning
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
@@ -417,7 +417,7 @@ mission:
 
 **Validation Rules:**
 - `model` field is optional (omission = use default)
-- Must be one of: `opus-4-6`, `opus`, `sonnet-4`, `sonnet`, `haiku`
+- Must be one of: `opus`, `sonnet`, `haiku`
 - Invalid model names fail schema validation
 - Case-sensitive matching
 
@@ -497,9 +497,7 @@ mission:
     "tool": "haiku"
   },
   "modelAliases": {
-    "opus-4-6": "claude-opus-4-6-20251101",
     "opus": "claude-opus-4-6-20251101",
-    "sonnet-4": "claude-sonnet-4-20250514",
     "sonnet": "claude-sonnet-4-20250514",
     "haiku": "claude-3-5-haiku-20241022"
   },
@@ -596,9 +594,7 @@ function getDefaultConfig() {
       tool: "haiku"
     },
     modelAliases: {
-      "opus-4-6": "claude-opus-4-6-20251101",
       "opus": "claude-opus-4-6-20251101",
-      "sonnet-4": "claude-sonnet-4-20250514",
       "sonnet": "claude-sonnet-4-20250514",
       "haiku": "claude-3-5-haiku-20241022"
     },
@@ -644,7 +640,7 @@ module.exports = {
   "timestamp": "2026-02-16T10:30:00.000Z",
   "command": "ensemble:create-prd",
   "model": "claude-opus-4-6-20251101",
-  "model_alias": "opus-4-6",
+  "model_alias": "opus",
   "input_tokens": 45230,
   "output_tokens": 5820,
   "cost_usd": 0.7538,
@@ -1082,10 +1078,10 @@ function resolveModelAlias(alias, config) {
 
 **Deliverables:**
 - 5 priority commands updated:
-  - `/ensemble:create-prd` (opus-4-6)
-  - `/ensemble:refine-prd` (opus-4-6)
-  - `/ensemble:create-trd` (opus-4-6)
-  - `/ensemble:refine-trd` (opus-4-6)
+  - `/ensemble:create-prd` (opus)
+  - `/ensemble:refine-prd` (opus)
+  - `/ensemble:create-trd` (opus)
+  - `/ensemble:refine-trd` (opus)
   - `/ensemble:implement-trd` (sonnet)
 - Regenerated command markdown
 - Integration tests
@@ -1300,8 +1296,8 @@ describe('Config Loader', () => {
 describe('Model Resolver', () => {
   const config = getDefaultConfig();
 
-  test('resolves opus-4-6 alias', () => {
-    const model = resolveModelAlias('opus-4-6', config);
+  test('resolves opus alias', () => {
+    const model = resolveModelAlias('opus', config);
     expect(model).toBe('claude-opus-4-6-20251101');
   });
 
@@ -1325,7 +1321,7 @@ describe('Usage Logger', () => {
     logUsage({
       command: 'ensemble:create-prd',
       model: 'claude-opus-4-6-20251101',
-      modelAlias: 'opus-4-6',
+      modelAlias: 'opus',
       inputTokens: 1000,
       outputTokens: 500,
       durationMs: 5000,
@@ -1427,7 +1423,7 @@ describe('Logging Integration', () => {
     logUsage({
       command: 'ensemble:create-prd',
       model: 'claude-opus-4-6-20251101',
-      modelAlias: 'opus-4-6',
+      modelAlias: 'opus',
       inputTokens: 45000,
       outputTokens: 6000,
       durationMs: 15000,
@@ -1566,7 +1562,7 @@ metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document
   version: 2.0.0
-  model: opus-4-6  # Superior reasoning for strategic planning
+  model: opus  # Superior reasoning for strategic planning
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
@@ -1622,7 +1618,7 @@ metadata:
 
 **Example Log Entry:**
 ```json
-{"timestamp":"2026-02-16T10:30:15.234Z","command":"ensemble:create-prd","model":"claude-opus-4-6-20251101","model_alias":"opus-4-6","input_tokens":45230,"output_tokens":5820,"cost_usd":0.7538,"duration_ms":12450,"success":true,"error":null}
+{"timestamp":"2026-02-16T10:30:15.234Z","command":"ensemble:create-prd","model":"claude-opus-4-6-20251101","model_alias":"opus","input_tokens":45230,"output_tokens":5820,"cost_usd":0.7538,"duration_ms":12450,"success":true,"error":null}
 {"timestamp":"2026-02-16T10:45:22.567Z","command":"ensemble:implement-trd","model":"claude-sonnet-4-20250514","model_alias":"sonnet","input_tokens":198340,"output_tokens":24560,"cost_usd":0.9634,"duration_ms":42300,"success":true,"error":null}
 ```
 
@@ -1718,7 +1714,7 @@ cat ~/.config/ensemble/logs/model-usage.jsonl | \
        "command": "sonnet"
      },
      "modelAliases": {
-       "opus": "claude-opus-4-6-20251101",
+    "opus": "claude-opus-4-6-20251101",
        "sonnet": "claude-sonnet-4-20250514",
        "haiku": "claude-3-5-haiku-20241022"
      },
@@ -1732,7 +1728,7 @@ cat ~/.config/ensemble/logs/model-usage.jsonl | \
    ```
 
 3. **Update Commands** (optional, for optimization):
-   - Add `model: opus-4-6` to planning commands
+   - Add `model: opus` to planning commands
    - Add `model: sonnet` to implementation commands (explicit default)
    - Leave other commands unchanged (implicit default)
 
@@ -1746,7 +1742,7 @@ cat ~/.config/ensemble/logs/model-usage.jsonl | \
 
 **Issue: "Invalid model name in YAML"**
 - **Cause**: Typo in `metadata.model` field
-- **Solution**: Use one of: `opus-4-6`, `opus`, `sonnet-4`, `sonnet`, `haiku`
+- **Solution**: Use one of: `opus`, `sonnet`, `haiku`
 - **Verification**: Run `npm run validate`
 
 **Issue: "Config file not found"**

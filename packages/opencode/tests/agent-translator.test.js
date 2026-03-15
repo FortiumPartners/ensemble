@@ -327,24 +327,8 @@ describe('OC-S2-AGT-005: Model hint translation', () => {
     });
   });
 
-  it('should map opus-4-6 to anthropic/claude-opus-4-6', () => {
-    const model = translator.mapModelHint('opus-4-6');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-opus-4-6',
-    });
-  });
-
   it('should map sonnet to anthropic/claude-sonnet-4-6', () => {
     const model = translator.mapModelHint('sonnet');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-sonnet-4-6',
-    });
-  });
-
-  it('should map sonnet-4-6 to anthropic/claude-sonnet-4-6', () => {
-    const model = translator.mapModelHint('sonnet-4-6');
     expect(model).toEqual({
       providerID: 'anthropic',
       modelID: 'claude-sonnet-4-6',
@@ -359,15 +343,7 @@ describe('OC-S2-AGT-005: Model hint translation', () => {
     });
   });
 
-  it('should map haiku-4-5 to anthropic/claude-haiku-4-5-20251001', () => {
-    const model = translator.mapModelHint('haiku-4-5');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-haiku-4-5-20251001',
-    });
-  });
-
-  it('should default to sonnet-4-6 when no model specified', () => {
+  it('should default to sonnet when no model specified', () => {
     const model = translator.mapModelHint(undefined);
     expect(model).toEqual({
       providerID: 'anthropic',
@@ -375,7 +351,7 @@ describe('OC-S2-AGT-005: Model hint translation', () => {
     });
   });
 
-  it('should default to sonnet-4-6 for null input', () => {
+  it('should default to sonnet for null input', () => {
     const model = translator.mapModelHint(null);
     expect(model).toEqual({
       providerID: 'anthropic',

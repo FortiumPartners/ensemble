@@ -38,8 +38,30 @@ Key behaviors:
 **1. Handle Special Arguments**
    Process --status and --reset-task arguments for early exit paths
 
-   - If $ARGUMENTS contains '--status': derive TRD_SLUG, run br list --status=open --json, filter JSON for entries with title matching [trd:<TRD_SLUG>] to find epic, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, EXIT
-   - If $ARGUMENTS contains '--reset-task': extract TASK_ID, run br list --status=open --json, filter JSON for entry with title containing [trd:<TRD_SLUG>:task:<TASK_ID>], run br update <BEAD_ID> --status=open, EXIT
+   - If $ARGUMENTS contains '--status' AND TEAM_MODE=true: (TRD-029, AC: FR-IT-8, AC-BC-2)
+   -   1. Derive TRD_SLUG from filename (same derivation as normal Preflight step 4)
+   -   2. Run: br list --status=in_progress --json, filter by [trd:<TRD_SLUG>:task:] prefix
+   -   3. For each in-progress task: call get_sub_state(bead_id) to get sub-state
+   -   4. Group and print:
+   -        '=== TEAM STATUS: <TRD_SLUG> ==='
+   -        'Tasks in_progress (building): <N>'  -- list task IDs and assigned builder
+   -        'Tasks in_review: <N>'               -- list task IDs and reviewer
+   -        'Tasks in_qa: <N>'                   -- list task IDs and QA agent
+   -        For each task with rejection count > 0: show 'Task <ID>: <N> rejections'
+   -        'Tasks completed: <M> / <Total>'
+   -        '================================='
+   -   5. EXIT
+   - If $ARGUMENTS contains '--status' AND TEAM_MODE=false: derive TRD_SLUG, run br list --status=open --json, filter JSON for entries with title matching [trd:<TRD_SLUG>] to find epic, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, EXIT
+   - If $ARGUMENTS contains '--reset-task' AND TEAM_MODE=true: (TRD-030, AC: FR-IT-9, AC-BC-3)
+   -   1. Extract TASK_ID from argument
+   -   2. Find bead: br list --status=open --json OR br list --status=in_progress --json
+   -      Filter for title containing [trd:<TRD_SLUG>:task:<TASK_ID>]
+   -   3. Reset br native status: br update <bead_id> --status=open
+   -   4. Add reset comment: br comment add <bead_id> 'status:open reset:manual reason:--reset-task'
+   -   5. Run: br sync --flush-only
+   -   6. Print: 'Reset task <TASK_ID> (bead: <bead_id>) to open. Team sub-state cleared.'
+   -   7. EXIT
+   - If $ARGUMENTS contains '--reset-task' AND TEAM_MODE=false: extract TASK_ID, run br list --status=open --json, filter JSON for entry with title containing [trd:<TRD_SLUG>:task:<TASK_ID>], run br update <BEAD_ID> --status=open, EXIT
 
 **2. Tool Availability Check**
    Verify br is installed and functional, detect bv availability
@@ -68,6 +90,40 @@ Key behaviors:
    - Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
    - If found: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
    - If not found: proceed to Feature Branch Creation then Scaffold
+   - 
+   - TRD-028 — Cross-Session Resume with Team Sub-State (AC: FR-IT-7, NFR-R-1, AC-RS-1, AC-RS-2, AC-RS-3, AC-RS-4):
+   - When TEAM_MODE=true AND existing scaffold found (resume detected):
+   -   1. Existing scaffold detection (unchanged): find ROOT_EPIC_ID by [trd:<TRD_SLUG>] epic bead
+   -   2. Reconstruct team config: re-parse using precedence order -- (1) check TRD file for '## Team Configuration' section first, (2) fall back to command YAML team: section. This ensures that edits to TRD team config between sessions are picked up on resume.
+   -   3. Scan all in-progress task beads: br list --status=in_progress --json, filter by TRD slug
+   -   4. For each in-progress bead, call get_sub_state(bead_id) to determine pipeline stage:
+   -      a. sub_state == 'in_progress' with assigned: comment -> re-delegate to same builder (or new one if original failed)
+   -      b. sub_state == 'in_review' -> delegate directly to reviewer with context from builder comment
+   -      c. sub_state == 'in_qa' -> delegate directly to QA with context from reviewer comment
+   -      d. sub_state == 'in_progress' with verdict:rejected in previous comment -> re-delegate to builder with rejection context
+   -   5. Print resume summary:
+   -      '=== RESUMING TEAM EXECUTION: <TRD_SLUG> ==='
+   -      'Tasks in_progress (building): <N>'
+   -      'Tasks in_review: <N>'
+   -      'Tasks in_qa: <N>'
+   -      'Tasks completed: <M>'
+   -      'Team config: lead=<agent>, builders=<list>, reviewer=<agent or none>, QA=<agent or none>'
+   -      '=== Resuming lead loop... ==='
+   -   6. Skip Scaffold phase (scaffold already exists)
+   -   7. Proceed directly to Lead Orchestration Loop
+   - 
+   - TRD-038 — Backward Compatibility with Existing v2.1.0 Scaffolds (AC: FR-IT-4, FR-IT-6, NFR-C-1, NFR-C-2, NFR-C-3, NFR-C-4, AC-BC-4):
+   - When TEAM_MODE=true resuming a v2.1.0 scaffold:
+   -   1. v2.1.0 beads have no status: comments -> get_sub_state() returns ('in_progress', {}) via native fallback
+   -   2. Lead treats these beads as in_progress (builder stage): re-delegates to builder
+   -   3. No structural differences: v2.1.0 creates same bead types (epic/feature/task) with same title format
+   -   4. Team mode adds comments but does not modify bead types or titles
+   -   5. br list, bv --robot-next, br ready all work identically with team-mode beads
+   -   6. The status:in_progress comment written by lead when claiming is the only addition
+   -   Key invariant: if a bead has no status: comments, it is treated as in builder stage (in_progress),
+   -   which is the safe default for resuming any in-progress bead from v2.1.0.
+   - 
+   - When TEAM_MODE=false AND resume detected: existing v2.1.0 resume behavior unchanged
 
 **6. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
@@ -82,6 +138,115 @@ Key behaviors:
 
    - Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)
    - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
+
+**8. Team Configuration Detection**
+   Determine team mode using precedence order: (1) TRD ## Team Configuration section,
+(2) command YAML team: section, (3) no team (single-agent). Sets TEAM_MODE,
+TEAM_CONFIG_SOURCE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for all subsequent
+steps. AC: FR-TD-1, FR-TD-2, FR-TD-6, FR-TD-7, FR-TD-8, AC-TD-1, AC-TD-2, AC-TD-3,
+FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
+
+
+   - === TRD-FIRST PARSING (TRD-029, TRD-031) ===
+   - Step 0 — TRD team config check: search the TRD file (already loaded in step 4) for '## Team Configuration' heading
+   - If '## Team Configuration' heading found in TRD:
+   -   a. Extract the YAML code block immediately following the heading (delimited by triple backticks with yaml language tag)
+   -   b. Parse the extracted YAML; validate schema:
+   -      - Verify team.roles array exists
+   -      - Verify 'lead' and 'builder' roles are present in team.roles
+   -      - Verify agent: and agents: fields are mutually exclusive per role
+   -      - Verify owns: list is non-empty for each role
+   -   c. If YAML parse fails or schema violations found: print specific validation errors with details (role name, field, issue) and HALT
+   -   d. If valid: use this team config; set TEAM_CONFIG_SOURCE='trd'; log 'Team config source: TRD document'; proceed to role extraction (Step 2)
+   - If '## Team Configuration' section NOT found in TRD: fall through to command YAML check below
+   - 
+   - === COMMAND YAML FALLBACK (existing logic) ===
+   - Step 1 — Presence check: examine whether this file (implement-trd-beads.yaml) contains a top-level 'team:' key (uncommented, active YAML, not inside a comment block)
+   - If team: is ABSENT: set TEAM_MODE=false; set TEAM_CONFIG_SOURCE='none'; print 'TEAM MODE: disabled (single-agent execution)'; skip all subsequent team-related steps and proceed with single-agent defaults
+   - If team: is PRESENT: set TEAM_CONFIG_SOURCE='yaml'; set TEAM_MODE=true; log 'Team config source: command YAML'; continue with steps below
+   - 
+   - === ROLE EXTRACTION AND VALIDATION (applies to both sources) ===
+   - Step 2 — Role extraction: iterate over team.roles list and build TEAM_ROLES map:
+   -   For each role entry in team.roles:
+   -     - Read name: field (required; must be one of: lead | builder | reviewer | qa)
+   -     - Read agent: (singular string) OR agents: (list of strings) — these are mutually exclusive
+   -     - Normalize: if agent: was used, convert to agents: [agent_name] so all downstream code uses agents: uniformly
+   -     - Read owns: list (required)
+   -     - Store as TEAM_ROLES[name] = {agents: [...], owns: [...]}
+   -   Result shape: TEAM_ROLES = {lead: {agents: [...], owns: [...]}, builder: {agents: [...], owns: [...]}, reviewer: {agents: [...], owns: [...]}, qa: {agents: [...], owns: [...]}}
+   - Step 3 — Required role validation:
+   -   If 'lead' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a lead role'; HALT
+   -   If 'builder' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a builder role'; HALT
+   - Step 4 — Agent registry validation (AC: AC-TD-2, FR-5.6):
+   -   Build KNOWN_AGENTS list:
+   -     1. Scan packages/*/agents/*.yaml using glob pattern
+   -     2. For each file: extract basename, strip .yaml extension -> agent name
+   -     3. Also scan .claude/router-rules.json if it exists: extract any custom agent names defined there
+   -     4. Deduplicate into KNOWN_AGENTS set (sorted alphabetically for deterministic output)
+   -   For each role in TEAM_ROLES:
+   -     For each agent name in role.agents:
+   -       If agent_name NOT in KNOWN_AGENTS:
+   -         Print: "ERROR: Agent '<agent_name>' referenced in team role '<role_name>' not found in ensemble registry."
+   -         Print: "Known agents: <sorted comma-separated KNOWN_AGENTS list>"
+   -         Print: "Check packages/*/agents/*.yaml for available agents."
+   -         HALT
+   -   On success: print "Agent registry validation passed: all <N> referenced agents verified."
+   - Step 5 — Optional role flags:
+   -   Set REVIEWER_ENABLED = true if 'reviewer' key exists in TEAM_ROLES, else false
+   -   Set QA_ENABLED = true if 'qa' key exists in TEAM_ROLES, else false
+   - Step 6 — Configuration summary: print team configuration summary:
+   -   'TEAM MODE: enabled'
+   -   'Team config source: {TEAM_CONFIG_SOURCE}'
+   -   'Lead: <TEAM_ROLES.lead.agents[0]>'
+   -   'Builders: <TEAM_ROLES.builder.agents joined by comma>'
+   -   'Reviewer: <TEAM_ROLES.reviewer.agents[0] if REVIEWER_ENABLED else none>'
+   -   'QA: <TEAM_ROLES.qa.agents[0] if QA_ENABLED else none>'
+   -   Also print which steps will be skipped (TRD-023):
+   -   'Skipped steps: <review (if REVIEWER_ENABLED=false), qa (if QA_ENABLED=false), or none>'
+   - 
+   - TRD-023 — Graceful Degradation for Partial Teams (AC: FR-GD-4, FR-GD-5, FR-GD-6, AC-TD-4):
+   - Case 1: REVIEWER_ENABLED=false (no reviewer role defined):
+   -   - Skip review step entirely
+   -   - After builder: validate_transition(bead_id, 'in_qa') if QA_ENABLED else validate_transition(bead_id, 'closed')
+   -   - br comment add <bead_id> 'status:skip-review lead:<agent> reason:no-reviewer-role-defined'
+   - Case 2: QA_ENABLED=false (no qa role defined):
+   -   - Skip QA step entirely
+   -   - After reviewer approval: validate_transition(bead_id, 'closed')
+   -   - br comment add <bead_id> 'status:skip-qa lead:<agent> reason:no-qa-role-defined'
+   - Case 3: REVIEWER_ENABLED=false AND QA_ENABLED=false:
+   -   - Lead orchestration loop active, builder implements, lead closes directly
+   -   - After builder: validate_transition(bead_id, 'closed')
+   -   - br comment add <bead_id> 'status:closed lead:<agent> reason:no-reviewer-no-qa-direct-close'
+   - Case 4: Only lead+builder defined (same as Case 3):
+   -   - Identical to Case 3
+   - Record which steps are skipped in the team configuration summary printed during this Preflight step.
+
+**9. Marketplace Preflight Check**
+   Before execution begins, check for marketplace capability gaps that may affect team
+config quality. Presents suggestions for missing agents/skills and installs approved
+plugins. Re-reads team config from TRD after installation if agents referenced in TRD
+team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.6
+
+
+   - Step 1 — Load marketplace.json: Read marketplace.json from repository root
+   - If missing or malformed: log 'marketplace.json not found -- skipping marketplace preflight'; skip remaining steps
+   - Step 2 — Domain scan: identify TRD task domains using same keyword matching as /create-trd Phase 4 Step 3
+   - Step 3 — Installed-plugin detection: for each plugin in marketplace.json derive local path from source field; use Glob to check packages/<name>/ directory; build PREFLIGHT_INSTALLED set
+   - Step 4 — Gap analysis: for each TRD domain check if default agent exists in packages/*/agents/*.yaml registry; for framework-specific keywords check corresponding skills/ directory
+   - Exclude plugins already in PREFLIGHT_INSTALLED; consolidate multiple gaps pointing to same plugin
+   - Context-aware filtering: generic 'test' keyword alone must NOT trigger testing framework suggestions
+   - Step 5 — Track declined plugins within this session: build SESSION_DECLINED_PLUGINS set (empty at start)
+   - Step 6 — For each gap suggestion (excluding SESSION_DECLINED_PLUGINS):
+   -   If AskUserQuestion is available: present yes/no prompt with plugin name, description, rationale, agents/skills provided
+   -   If user approves: run 'claude plugin install <plugin_name>' via Bash; verify packages/<name>/ directory created
+   -   If user declines: add to SESSION_DECLINED_PLUGINS (do not re-suggest during this session)
+   -   If non-interactive: log suggestion as [INFO] and skip all installations
+   - Step 7 — If any plugins were installed:
+   -   Re-run agent discovery: scan packages/*/agents/*.yaml to refresh KNOWN_AGENTS and AGENT_REGISTRY
+   -   If TEAM_CONFIG_SOURCE='trd': re-read ## Team Configuration from TRD and re-validate agents against refreshed registry
+   -   If newly installed agents ARE referenced in TRD team config: log 'Newly installed agents now available for team config'
+   -   If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'
+   - Step 8 — If user declines all suggestions: proceed with existing team config and available agents
 
 ### Phase 2: Scaffold
 
@@ -170,9 +335,46 @@ Key behaviors:
    - If BV_AVAILABLE == false: print 'BV analysis unavailable. Using br-only execution order.'
 
 **9. Wheel Instructions Output**
-   Print agentic coding flywheel instructions for multi-agent execution
+   Print agentic coding flywheel instructions for multi-agent execution — team-aware when TEAM_MODE=true. AC: FR-WI-1, FR-WI-2, FR-WI-3, FR-WI-4, AC-WI-1, AC-WI-2
 
-   - If BV_AVAILABLE == true, print full wheel instructions:
+   - If TEAM_MODE == true, print team wheel instructions: (TRD-037)
+   -   ================================================================
+   -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel (TEAM MODE)
+   -   ================================================================
+   -   TEAM TOPOLOGY:
+   -     Lead:     <TEAM_ROLES.lead.agents[0]>
+   -     Builders: <TEAM_ROLES.builder.agents comma-joined>
+   -     Reviewer: <TEAM_ROLES.reviewer.agents[0] or 'none'>
+   -     QA:       <TEAM_ROLES.qa.agents[0] or 'none'>
+   - 
+   -   TASK LIFECYCLE (team mode):
+   -     open -> [lead assigns] -> in_progress -> [builder implements]
+   -          -> in_review -> [reviewer approves] -> in_qa -> [QA passes] -> closed
+   -     Rejections: reviewer/QA rejects -> back to in_progress -> builder reworks
+   - 
+   -   SPAWN LEAD WITH NTM:
+   -     ntm new <TRD_SLUG>-lead -- claude code
+   -     # Lead runs: /ensemble:implement-trd-beads <trd-path>
+   - 
+   -   LEAD ORCHESTRATION LOOP:
+   -     The lead agent (tech-lead-orchestrator) runs the loop automatically.
+   -     Per-task handoff sequence:
+   -       1. br update <id> --status=in_progress  (claim)
+   -       2. br comment add <id> 'status:in_progress assigned:<builder>'
+   -       3. Task(builder) -> implementation
+   -       4. br comment add <id> 'status:in_review builder:<agent> files:<list>'
+   -       5. Task(reviewer) -> verdict
+   -       6. br comment add <id> 'status:in_qa reviewer:<agent> verdict:approved'
+   -       7. Task(qa) -> verdict
+   -       8. br comment add <id> 'status:closed qa:<agent> verdict:passed'
+   -       9. br close <id>
+   - 
+   -   MONITOR TEAM PROGRESS:
+   -     br list --status=in_progress       # See in-flight tasks
+   -     br comment list <id>               # See full audit trail for a task
+   -     br list --status=open              # See remaining work
+   -   ================================================================
+   - If TEAM_MODE == false AND BV_AVAILABLE == true, print full wheel instructions:
    -   ================================================================
    -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel
    -   ================================================================
@@ -199,7 +401,7 @@ Key behaviors:
    -     bv --robot-triage --format toon        # Full triage refresh
    -     br list --status=open                  # See remaining work
    -   ================================================================
-   - If BV_AVAILABLE == false, print reduced wheel instructions:
+   - If TEAM_MODE == false AND BV_AVAILABLE == false, print reduced wheel instructions:
    -   ================================================================
    -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel (br-only mode)
    -   ================================================================
@@ -219,8 +421,169 @@ Key behaviors:
 ### Phase 3: Execute
 
 **1. Execution Loop**
-   Poll bv robot-next (or br ready) and execute tasks until epic is complete
+   Poll bv robot-next (or br ready) and execute tasks until epic is complete. AC: FR-GD-1, FR-GD-2, FR-GD-3, AC-TD-3, AC-BC-1
 
+   - TEAM_MODE Gate (evaluated once at the start of the Execute phase):
+   -   if TEAM_MODE == false:
+   -     - Use the existing v2.1.0 Execute loop (all steps 1-6 unchanged)
+   -     - Skip all team-specific steps (reviewer delegation, QA delegation, rejection loop, parallel builders)
+   -     - Quality Gate phase: run full scope (current behavior)
+   -     - Continue to LOOP below
+   -   if TEAM_MODE == true:
+   -     - Replace the standard execution loop with the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)
+   -     - Reviewer delegation: enabled (TRD-016)
+   -     - QA delegation: enabled if QA_ENABLED=true (TRD-017)
+   -     - Parallel builder slots: active (TRD-025)
+   -     - Quality Gate phase: reduced scope if QA_ENABLED=true (TRD-031)
+   -     - Note: Scaffold phase is IDENTICAL in both modes (no team awareness in scaffold)
+   -     - Note: Completion phase is IDENTICAL in both modes
+   -     - Note: v2.1.0 beads without status: comments are treated as in_progress (builder stage) — safe default for backward compat (TRD-038)
+   -     - RETURN (team loop handles all remaining execution; skip LOOP below)
+   - 
+   -     LEAD ORCHESTRATION LOOP (TEAM_MODE=true):
+   - 
+   -     Variables: active_builders = {} (bead_id -> builder_agent)
+   - 
+   -     LOOP:
+   -       1. br sync --flush-only (ensure JSONL current)
+   - 
+   -       2. Check in-flight tasks (tasks with br native status=in_progress that have sub-states in_review or in_qa):
+   -          - Run: br list --status=in_progress --json, filter by TRD slug
+   -          - For each in-progress bead: call get_sub_state(bead_id)
+   -            - If sub_state == 'in_review': proceed to Reviewer Delegation step (TRD-016)
+   -            - If sub_state == 'in_qa': proceed to QA Delegation step (TRD-017)
+   -            - If sub_state == 'in_progress': task is with builder (normal)
+   - 
+   -       3. Count available slots: available_slots = max_parallel - len(active_builders)
+   -          (default max_parallel=1, increased by 'max parallel N' argument)
+   - 
+   -       4. If available_slots > 0:
+   -          - Get next tasks: if BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task)
+   -            Else: run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
+   -          - For each task (up to available_slots):
+   -            a. (TRD-021) Architecture Review: check task description for keywords:
+   -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
+   -               If ANY keyword found:
+   -                 - Lead performs brief architectural review (read TRD context, consider phase impact)
+   -                 - Generate guidance notes (key design decisions, patterns to use, pitfalls to avoid)
+   -                 - Record: br comment add <bead_id> 'architecture-review lead:<agent> guidance:<url_encoded_summary>'
+   -                 - Include guidance in builder prompt: 'Architecture guidance from lead: <guidance_notes>'
+   -               If NO keywords: skip architecture review, proceed normally
+   -            b. (TRD-020) Lead Skip Decision: evaluate task characteristics before delegating to builder:
+   -               - If task description contains ONLY documentation/comments (no code changes expected):
+   -                 SKIP_REVIEW=true, SKIP_QA=true
+   -               - If REVIEWER_ENABLED=false: SKIP_REVIEW=true (per TRD-023)
+   -               - If QA_ENABLED=false: SKIP_QA=true (per TRD-023)
+   -               - Lead can also skip based on judgment (low-risk configuration, etc.)
+   -               Record skip decisions:
+   -               - If SKIP_REVIEW: br comment add <bead_id> 'status:skip-review lead:<agent> reason:<rationale>'
+   -               - If SKIP_QA: br comment add <bead_id> 'status:skip-qa lead:<agent> reason:<rationale>'
+   -               Transition directly:
+   -               - Both review and QA skipped: validate_transition(bead_id, 'closed') directly after builder
+   -               - Only review skipped: validate_transition(bead_id, 'in_qa') -> QA delegation after builder
+   -               - No skips: normal flow (in_progress -> in_review -> in_qa -> closed)
+   -               AC: FR-LL-6, FR-LL-7, FR-LL-10, AC-LL-3, AC-LL-4, AC-LL-5, AC-LL-6
+   -            c. (TRD-022) Sibling Task Context: collect completed sibling tasks in same phase:
+   -               - Query br list --status=closed --json, filter by [trd:<TRD_SLUG>:phase:<N>] prefix
+   -               - For each closed task in this phase: read br comment list, find last implementation summary
+   -               - Limit to 5 most recently closed siblings
+   -               - If sibling context found, add to builder prompt:
+   -                 'Previously completed tasks in this phase:'
+   -                 '[TRD-XXX]: <implementation_summary_first_200_chars>'
+   -                 '[TRD-YYY]: <implementation_summary_first_200_chars>'
+   -               - If no siblings completed yet: omit this section from prompt
+   -               AC: FR-LL-9
+   -            d. Select builder from TEAM_ROLES.builder.agents using keyword matching (TRD-014)
+   -            e. validate_transition(bead_id, 'in_progress') -- write status comment
+   -            f. Delegate to builder via Task(subagent_type=<builder>, prompt=<builder_prompt>) (TRD-015)
+   -            g. active_builders[bead_id] = builder
+   - 
+   -       --- Parallel Builder Execution (TRD-025) ---
+   -       When available_slots > 1 AND multiple tasks are ready, apply parallel dispatch:
+   - 
+   -       TRD-025-1. Set BUILDER_SLOTS = max_parallel (default 1, overridden by 'max parallel N' argument)
+   - 
+   -       TRD-025-2. Query available tasks for parallel dispatch:
+   -          - If BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks
+   -            Extract up to BUILDER_SLOTS tasks from the top-priority track(s)
+   -          - Else: run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries
+   -          - Candidate task list: CANDIDATE_TASKS = up to BUILDER_SLOTS ready tasks
+   - 
+   -       TRD-025-3. File conflict detection: prevent assigning tasks with overlapping file targets
+   -          - For each task in CANDIDATE_TASKS:
+   -            a. Extract target file paths from the bead description
+   -               (look for 'File:', file path patterns like src/*, and file mentions in action items)
+   -            b. Build FILE_MAP: task_id -> [file_path, ...]
+   -          - Build SEEN_FILES = {} (file_path -> first task_id that claims it)
+   -          - Iterate CANDIDATE_TASKS in order:
+   -            For each task: check if ANY of its file paths are already in SEEN_FILES
+   -              - If NO overlap: add task to CONFLICT_FREE set, add its files to SEEN_FILES
+   -              - If overlap found: discard this task (keep first occurrence); log discarded task_id
+   -          - CONFLICT_FREE = ordered list of tasks with no file overlaps (up to BUILDER_SLOTS)
+   - 
+   -       TRD-025-4. Launch concurrent Task() delegations for CONFLICT_FREE task set:
+   -          Phase A — Pre-flight (sequential, per task):
+   -            For each task in CONFLICT_FREE: run steps 4a-4e (architecture review, skip decision,
+   -              sibling context, builder selection, validate_transition) to prepare builder prompt.
+   -          Phase B — Concurrent dispatch:
+   -            Issue all Task() calls (step 4f) for CONFLICT_FREE simultaneously (parallel invocation).
+   -            Each builder works independently on its assigned task.
+   -          Phase C — Post-dispatch bookkeeping (sequential, per task):
+   -            For each dispatched task: run step 4g (active_builders[bead_id] = builder).
+   - 
+   -       TRD-025-5. Wait for all parallel builders to complete:
+   -          - Block until ALL concurrent Task() delegations from TRD-025-4 return results
+   -          - Collect structured builder summaries (files_changed, implementation_description, etc.)
+   - 
+   -       TRD-025-6. Process each builder result sequentially (after all parallel builders finish):
+   -          - For each completed builder result in CONFLICT_FREE order:
+   -            a. On builder success: run Reviewer Delegation step (step 3a) for this task
+   -            b. On reviewer approval: run QA Delegation step (step 3b) for this task
+   -            c. On any rejection: run Rejection Loop (step 3c) for this task
+   -            (Review and QA remain sequential per task even when builders ran in parallel)
+   -          - Remove each completed task from active_builders after its full pipeline finishes
+   - 
+   -       --- Sequential Commit Ordering (TRD-026) ---
+   -       When parallel builders complete and their full pipelines (review+QA) pass, the lead serializes git commit operations:
+   - 
+   -       TRD-026-1. Maintain COMMIT_QUEUE = ordered list of tasks whose pipelines completed successfully (in completion order).
+   - 
+   -       TRD-026-2. For each task in COMMIT_QUEUE (process one at a time):
+   -          a. Run: git diff --name-only HEAD to see current staged changes
+   -          b. If no file conflicts with prior commits in this batch: commit immediately
+   -             - git commit with message referencing task ID and bead ID
+   -             - br comment add <bead_id> 'commit-order:<N> commit:<sha>'
+   -             - N = position in COMMIT_QUEUE (1-indexed)
+   -          c. If file conflict detected (same file modified by prior commit):
+   -             - One retry: builder re-applies its changes on top of the current HEAD
+   -             - If retry succeeds: commit normally, record commit-order:<N>
+   -             - If retry fails: br update <bead_id> --status=open; br comment add <bead_id> 'status:open commit-conflict-unresolved: returned to open'; continue to next task in COMMIT_QUEUE
+   - 
+   -       TRD-026-3. After all commits: br sync --flush-only
+   - 
+   -       --- Parallel Builder Failure Isolation (TRD-027) ---
+   -       If one builder fails (Task() returns error or structured failure summary) during parallel execution:
+   - 
+   -       TRD-027-1. Reset that task: br update <bead_id> --status=open
+   - 
+   -       TRD-027-2. Record failure (pure audit record — no state prefix): br comment add <bead_id> 'verdict:failed builder:<agent_type> reason:<error_summary>'
+   -          Note: NO status: prefix — this is a failure audit comment, not a state transition. validate_transition is NOT called.
+   -          The bead is already open (reset in step 1); a status: prefix would mislead get_sub_state() on the next loop iteration.
+   - 
+   -       TRD-027-3. Other parallel builders continue unaffected (do not interrupt them).
+   - 
+   -       TRD-027-4. The failed task enters the debug loop (Execute step 5: Debug Loop) on the NEXT loop iteration OR is eligible for re-assignment to another builder.
+   - 
+   -       TRD-027-5. Lead tracks builder slot count: when a builder fails, its slot is freed immediately (active_builders count decremented).
+   - 
+   -       TRD-027-6. Lead refills available slots on the next loop iteration by querying bv --robot-next / br ready again.
+   - 
+   -       5. Check loop exit:
+   -          - If no tasks returned by bv/br AND no active_builders AND no in-flight tasks: break to Completion
+   -          - If no tasks returned but tasks exist in_review or in_qa: wait (check in-flight tasks next iteration)
+   - 
+   -       6. br sync --flush-only
+   -       7. Continue LOOP
    - LOOP:
    - Run: br sync --flush-only (ensure JSONL current before bv call)
    - If BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
@@ -238,6 +601,16 @@ Key behaviors:
    - Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer
    - Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
    - Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
+   - 
+   - TRD-014 — Builder Agent Constraint from Team Config (AC: FR-TD-5):
+   - When TEAM_MODE=true, add this constraint to specialist selection:
+   -   - Run standard keyword matching (existing logic above)
+   -   - But constrain candidates to TEAM_ROLES.builder.agents list only
+   -   - If keyword match selects agent NOT in team builder list: fall back to first agent in TEAM_ROLES.builder.agents
+   -   - .claude/router-rules.json takes priority over both keyword defaults AND team constraint
+   -   - Example: keyword says @infrastructure-developer, team builder list has [backend-developer, frontend-developer]
+   -     -> fall back to backend-developer (first in list)
+   - When TEAM_MODE=false: existing specialist selection unchanged
 
 **3. Task Delegation**
    Build prompt and delegate to selected specialist, require closing summary comment
@@ -247,6 +620,219 @@ Key behaviors:
    - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
    - On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
    - On failure: br comment add <BEAD_ID> 'Failed: <error_summary>. Files touched: <changed_files>. Agent: <specialist_type>.'; br update <BEAD_ID> --status=open; br sync --flush-only; enter debug loop
+   - 
+   - TRD-015 — Builder Delegation with Structured Output (AC: FR-BA-1, FR-BA-2, FR-BA-3, FR-BA-4, FR-BA-5, AC-SM-1):
+   - When TEAM_MODE=true, builder delegation differs:
+   -   1. Builder prompt includes additional instruction:
+   -      'IMPORTANT: Do NOT close this bead (do not run br close). When done, return a structured summary:'
+   -      '  - files_changed: [list of modified files with paths]'
+   -      '  - implementation_description: [what was implemented]'
+   -      '  - test_results: [pass/fail with details]'
+   -      '  - issues_encountered: [list of problems, empty if none]'
+   -      '  - recommendations: [follow-up suggestions, empty if none]'
+   -   2. Delegate: Task(subagent_type=<builder>, prompt=<augmented_prompt>)
+   -   3. On success:
+   -      a. Extract files_changed from builder's structured summary
+   -      b. Run: br comment add <bead_id> 'status:in_review builder:<agent> files:<comma-joined-files_changed>'
+   -      c. validate_transition(bead_id, 'in_review') -- see Execute step 9 (State Machine Transition Validator)
+   -      d. Proceed to Reviewer Delegation (TRD-016, Execute step 3a)
+   -   4. On failure (builder crashes, not rejection):
+   -      a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
+   -      b. Enter debug loop (Execute step 5)
+   - When TEAM_MODE=false: existing Task Delegation step unchanged (builder can close bead)
+
+**3a. Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)**
+   Delegate to reviewer after builder submits, parse verdict, route accordingly. AC: FR-CR-1, FR-CR-2, FR-CR-3, FR-CR-4, FR-CR-5, FR-CR-6, FR-LL-3, FR-SM-5, AC-SM-3
+
+   - TRD-016 — Reviewer Delegation and Verdict Handling (TEAM_MODE=true only, after builder writes status:in_review comment):
+   - 
+   - 1. Build reviewer prompt:
+   -    - Bead ID and task title
+   -    - Files changed (from builder's structured summary)
+   -    - Builder's implementation_description
+   -    - TRD acceptance criteria for this specific task (from bead description)
+   -    - Strategy and coverage targets
+   -    - Relevant test results from builder summary
+   -    - Instruction: 'Review the implementation. Return verdict: APPROVED or REJECTED.'
+   -      'If REJECTED: provide specific feedback with file, line, issue, and suggestion.'
+   - 
+   - 2. Delegate: Task(subagent_type=<TEAM_ROLES.reviewer.agents[0]>, prompt=<reviewer_prompt>)
+   - 
+   - 3. Parse reviewer response:
+   -    - Look for 'APPROVED' or 'REJECTED' keyword in response
+   -    - Extract rejection reason if REJECTED
+   - 
+   - 4. On APPROVED:
+   -    - validate_transition(bead_id, 'in_qa')  -- sole status comment writer: writes 'status:in_qa reviewer:<agent> verdict:approved' and calls br comment add internally
+   -    - Proceed to QA Delegation (TRD-017)
+   - 
+   - 5. On REJECTED:
+   -    - validate_transition(bead_id, 'in_progress')  -- sole status comment writer: writes 'status:in_progress reviewer:<agent> verdict:rejected reason:<url_encoded_reason>' and resets native br status to open
+   -    - Increment rejection count for this bead
+   -    - Re-delegate to builder with rejection context (TRD-018 rejection loop)
+   - 
+   - 6. Track: record reviewer_agent for this task in metrics (TRD-034)
+
+**3b. QA Delegation and Verdict Handling (TEAM_MODE=true only)**
+   Delegate to QA agent after reviewer approves and task is in_qa state, parse verdict, route accordingly. AC: FR-QA-1, FR-QA-2, FR-QA-3, FR-QA-4, FR-QA-5, FR-QA-6, FR-LL-4, FR-SM-6, AC-SM-1
+
+   - TRD-017 — QA Delegation and Verdict Handling (TEAM_MODE=true only, invoked when task sub-state == 'in_qa'):
+   - 
+   - 1. Build QA prompt:
+   -    - Bead ID and task title
+   -    - Files changed (from builder's structured summary)
+   -    - Builder's implementation_description
+   -    - Reviewer's verdict (approved) and any notes from reviewer response
+   -    - TRD acceptance criteria for this specific task (from bead description)
+   -    - Strategy and coverage targets (from strategy detection)
+   -    - Test results from builder's summary
+   - 
+   - 2. Delegate to @test-runner first for fresh test execution:
+   -    Task(subagent_type='test-runner', prompt='Run tests for changed files: <files_changed>. Report pass/fail and coverage.')
+   -    Capture test_results from @test-runner response.
+   - 
+   - 3. Build augmented QA prompt with test_results, then:
+   -    Delegate: Task(subagent_type=<TEAM_ROLES.qa.agents[0]>, prompt=<qa_prompt_with_test_results>)
+   - 
+   -    QA agent validates:
+   -    - All acceptance criteria from TRD are met
+   -    - Test coverage meets strategy targets
+   -    - No regressions in existing tests
+   -    - Code quality and security concerns (if any)
+   - 
+   -    QA returns verdict: PASSED or REJECTED with specific issues.
+   - 
+   - 4. Parse QA response for PASSED/REJECTED keyword.
+   - 
+   - 5. On PASSED:
+   -    a. validate_transition(bead_id, 'closed')  -- sole status comment writer: writes 'status:closed qa:<agent> verdict:passed' and calls br close internally
+   -    b. Run: br sync --flush-only
+   -    c. Update TRD checkbox: replace '- [ ] **<TASK_ID>**' with '- [x] **<TASK_ID>**' in TRD file
+   -    d. git commit -m 'feat(<TRD_SLUG>): complete <TASK_ID> - <task_title_short>'
+   -    e. Record metrics: update TEAM_METRICS accumulator (TRD-034, Execute step 3d)
+   - 
+   - 6. On REJECTED:
+   -    a. validate_transition(bead_id, 'in_progress')  -- sole status comment writer: writes 'status:in_progress qa:<agent> verdict:rejected reason:<url_encoded_reason>' and resets native br status to open
+   -    b. Run: br update <bead_id> --status=open (ensure br native status is reset for re-claiming)
+   -    c. Increment rejection count for this bead
+   -    d. Return to builder with QA feedback (via rejection loop TRD-018, Execute step 3c):
+   -       - Include: QA rejection reason, failed acceptance criteria, test failure details
+   -       - Builder re-implements, then goes back through reviewer -> QA
+   - 
+   - 7. Track: record qa_agent for this task in metrics (TRD-034)
+
+**3c. Rejection Loop with Builder Re-Delegation (TEAM_MODE=true only)**
+   Triggered by reviewer REJECTED (from step 3a) or QA REJECTED (from step 3b). Collects full rejection context, enforces MAX_REJECTIONS cap, and re-delegates to the original builder or escalates to lead. AC: FR-LL-5, AC-SM-3, AC-SM-4
+
+   - TRD-018 — Rejection Loop with Builder Re-Delegation (TEAM_MODE=true, triggered by reviewer OR QA REJECTED verdict):
+   - 
+   - 1. Collect full rejection context from br comments:
+   -    - Run: br comment list <bead_id>
+   -    - Extract ALL verdict:rejected comments (not just the latest)
+   -    - Build rejection_context = {
+   -        rejection_count: <count of lines containing verdict:rejected>,
+   -        latest_reason: <url_decoded reason from most recent verdict:rejected comment>,
+   -        previous_attempts: <summaries of builder implementation from prior builder comments>,
+   -        reviewer_feedback: <specific reviewer issues if rejection source is reviewer (step 3a)>,
+   -        qa_feedback: <specific QA issues including failed ACs and test failures if rejection source is QA (step 3b)>
+   -      }
+   - 
+   - 2. Check rejection_count against MAX_REJECTIONS (default 2):
+   -    a. If rejection_count < MAX_REJECTIONS:
+   -       - Identify original builder from the bead's assigned: metadata in the first status:in_progress comment
+   -         (Run: br comment list <bead_id>, scan forward for first 'status:in_progress assigned:<agent>' comment)
+   -       - Re-delegate to SAME original builder:
+   -         Task(subagent_type=<original_builder>, prompt=<augmented_re_delegation_prompt>)
+   -       - Augmented re-delegation prompt includes:
+   -         'IMPORTANT: Your previous implementation was rejected. You must address ALL issues before resubmitting.'
+   -         'Rejection reason: <latest_reason>'
+   -         'Reviewer feedback: <reviewer_feedback if rejection from reviewer, else N/A>'
+   -         'QA feedback: <qa_feedback if rejection from QA, else N/A>'
+   -         'Previous attempt summary: <what was tried in prior implementation>'
+   -         'Please fix ALL identified issues. Do NOT close the bead — return a structured summary as before.'
+   -       - After builder returns: continue through full pipeline (step 3a reviewer -> step 3b QA again)
+   - 
+   -    b. If rejection_count >= MAX_REJECTIONS:
+   -       - LEAD ARCHITECTURAL REVIEW (TRD-007 escalation):
+   -         Lead reviews all of: task description (from bead description), all rejection reasons
+   -         (from br comment list), builder implementation attempts (from builder status comments),
+   -         and acceptance criteria (from bead description).
+   -         Lead decision options (choose one):
+   -           - Restructure task: break into smaller sub-tasks, create new child beads under same story
+   -           - Adjust acceptance criteria: if criteria are overly strict or misspecified for scope
+   -           - Reassign: delegate to a different builder from TEAM_ROLES.builder.agents list
+   -           - Architectural fix: identify root architectural issue requiring a fundamentally different approach
+   -         Record lead decision:
+   -           br comment add <bead_id> 'lead-escalation:max-rejections lead:tech-lead-orchestrator action:<decision>'
+   -         Reset rejection baseline:
+   -           Write a new 'status:in_progress assigned:<builder> lead-reset:true' comment.
+   -           Subsequent rejection counts are relative to comments AFTER this new baseline comment.
+   -         Allow one more full cycle (builder -> reviewer -> QA) with lead guidance included in builder prompt:
+   -           'Lead architectural guidance after escalation: <lead_decision_and_rationale>'
+   -         If still failing after the post-escalation cycle:
+   -           PAUSE for user decision (abort task, force-close with known issues, or escalate further)
+   - 
+   - 3. All rejection history from br comments is included in re-delegation prompt.
+   -    Agents have full audit trail context from previous cycles via br comment list output.
+
+**3d. Team Metrics Collection (TEAM_MODE=true only)**
+   In-memory metrics accumulator invoked after each task closure in step 3b PASSED path. Tracks per-builder stats, rejection cycles, and time-in-state for the current phase. AC: FR-TM-1, FR-TM-2, FR-TM-3, AC-TM-4
+
+   - TRD-034 — Team Metrics Collection (TEAM_MODE=true, invoked after each task closure in step 3b PASSED path):
+   - 
+   - Initialization (once at Execute phase start when TEAM_MODE=true):
+   -   TEAM_METRICS = {
+   -     phase: <current_phase_number>,
+   -     tasks_completed: 0,
+   -     builders: {},   # per-builder stats: {agent_name: {tasks, first_pass_approvals, rejections}}
+   -     task_details: []  # per-task metrics entries
+   -   }
+   - 
+   - After each task closure (step 3b PASSED path):
+   - 
+   - 1. Identify builder agent:
+   -    - Run: br comment list <bead_id>
+   -    - Scan forward for the first (or most recent post-lead-reset) 'status:in_progress assigned:<agent>' comment
+   -    - Extract builder_agent name from the assigned: value
+   - 
+   - 2. Count rejection cycles:
+   -    - From the same br comment list output, count lines containing the exact token 'verdict:rejected'
+   -    - rejection_cycles = count of such lines
+   - 
+   - 3. Extract timestamps from br comments to calculate time in each sub-state:
+   -    - Scan br comment list output for status transition comments with timestamps
+   -    - time_in_progress: timestamp(first status:in_review comment) - timestamp(status:in_progress comment)
+   -    - time_in_review:   timestamp(status:in_qa comment) - timestamp(status:in_review comment)
+   -    - time_in_qa:       timestamp(status:closed comment) - timestamp(status:in_qa comment)
+   -    - If a stage was skipped (status:skip-review or status:skip-qa present): time for that stage = 0
+   -    - If timestamps are unavailable or unparse-able: record as null (do not fail metrics collection)
+   - 
+   - 4. Determine first_pass_approval:
+   -    - first_pass_approval = true if rejection_cycles == 0, else false
+   - 
+   - 5. Update TEAM_METRICS:
+   -    - TEAM_METRICS.tasks_completed += 1
+   -    - If builder_agent NOT in TEAM_METRICS.builders: initialize entry
+   -      TEAM_METRICS.builders[builder_agent] = {tasks: 0, first_pass_approvals: 0, rejections: 0}
+   -    - TEAM_METRICS.builders[builder_agent].tasks += 1
+   -    - If first_pass_approval: TEAM_METRICS.builders[builder_agent].first_pass_approvals += 1
+   -    - TEAM_METRICS.builders[builder_agent].rejections += rejection_cycles
+   -    - TEAM_METRICS.task_details.append({
+   -        id: <bead_id>,
+   -        task_id: <TRD-XXX from title>,
+   -        builder: builder_agent,
+   -        rejection_cycles: rejection_cycles,
+   -        time_in_progress: time_in_progress,
+   -        time_in_review: time_in_review,
+   -        time_in_qa: time_in_qa,
+   -        first_pass_approval: first_pass_approval
+   -      })
+   - 
+   - Note: TEAM_METRICS lives in-memory for the duration of the Execute phase.
+   - At Quality Gate phase completion (step 3 of Quality Gate), include TEAM_METRICS summary
+   - in the gate result comment if TEAM_MODE=true:
+   -   br comment add <STORY_BEAD_ID> 'team-metrics phase:<N> tasks:<tasks_completed>
+   -     first-pass-rate:<X%> total-rejections:<Y>'
 
 **4. Code Review**
    Mandatory code review before task closure — delegate to @code-reviewer for quality validation
@@ -263,6 +849,17 @@ Key behaviors:
    - Delegate to @deep-debugger with error details, changed files, strategy, bead ID
    - If fix applied: re-run tests; if pass -> proceed to Code Review step (order 4); if fail -> retry
    - After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Root cause: <error_analysis>. Attempted fixes: <fix_attempts>. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
+   - 
+   - TRD-019 — Debug Loop Integration for Team Mode (AC: FR-IT-5, AC-LL-2):
+   - When TEAM_MODE=true and builder fails with an actual error (not rejection -- crash/exception):
+   -   1. Enter debug loop same as v2.1.0 (delegate to @deep-debugger with error details, changed files)
+   -   2. Record debug attempt: br comment add <bead_id> 'debug-attempt:<N> debugger:deep-debugger error:<summary>'
+   -   3. If fix applied: re-run through builder (Task(builder, re-implementation prompt))
+   -      Then continue through handoff pipeline: reviewer -> QA
+   -   4. After 2 debug retries without success:
+   -      br comment add <bead_id> 'Debug loop exhausted after 2 retries. Manual intervention required.'
+   -      PAUSE for user decision (same as v2.1.0)
+   - When TEAM_MODE=false: existing debug loop unchanged
 
 **6. Error Handling**
    Handle br command failures during execution
@@ -271,6 +868,92 @@ Key behaviors:
    - Print error message with br command that failed and its exit code
    - Print: check br status and .beads/ directory integrity
    - PAUSE for user decision (resume with /ensemble:implement-trd-beads <trd-path> after issue resolved)
+
+**7. Utility: Sub-State Query Function (get_sub_state)**
+   Inline utility referenced by the State Machine Transition Validator (order 8) and by resume logic. Reads br comment history in reverse to find the most recent status: comment. AC: FR-SM-2, FR-BR-2, AC-BR-2
+
+   - Function signature: get_sub_state(bead_id) -> (state, metadata_dict)
+   - Step 1: Run: br comment list <bead_id>  — capture full output as COMMENT_LIST
+   - Step 2: Split COMMENT_LIST into individual lines
+   - Step 3: Scan lines in REVERSE ORDER (last line first; last comment is most recent)
+   - Step 4: For each line, check if the line STARTS WITH the exact prefix 'status:' (not merely contains it)
+   - Step 5 — If a matching line is found:
+   -   a. Extract state: first whitespace-delimited token after 'status:' (e.g., 'in_progress', 'in_review', 'in_qa', 'closed')
+   -   b. Extract metadata: remaining space-separated 'key:value' tokens on the same line
+   -   c. URL-decode any 'reason:' values: replace '%20' with space and '+' with space
+   -   d. Return (state, {key: value, ...})
+   - Step 6 — Edge cases during line scan:
+   -   - Malformed comment where 'status:' prefix is present but no state token follows: skip that line and continue scanning
+   -   - Multiple rapid status comments: reverse scan naturally returns the most recent — correct behavior
+   -   - Empty comment list: falls through to Step 7 (native status lookup)
+   - Step 7 — If NO 'status:' comment found in entire list (fallback to br native status):
+   -   Run: br list --json, filter JSON array for the entry where .id == bead_id, read .status field
+   -   Map native status to sub-state:
+   -     'open'        -> return ('open', {})
+   -     'in_progress' -> return ('in_progress', {})
+   -     'closed'      -> return ('closed', {})
+   -     any other     -> return (native_status_value, {})
+
+**8. Utility: Rejection Cycle Tracking and Cap**
+   Inline utility invoked after any verdict:rejected comment is written during reviewer or QA delegation. Enforces a maximum rejection cap and escalates to lead when the cap is reached. AC: FR-SM-7, AC-SM-4
+
+   - Rejection Cycle Tracking (invoked during reviewer and QA delegation, after each verdict:rejected comment):
+   - Step 1 — Count rejection cycles for this bead (respecting lead-reset baseline):
+   -   Run: br comment list <bead_id>  — capture full output as COMMENT_LINES (ordered oldest to newest)
+   -   1a. Scan all of COMMENT_LINES (oldest to newest, index 0 upward), updating BASELINE_LINE_INDEX each time a line containing 'lead-reset:true' is encountered.
+   -       After the full scan: BASELINE_LINE_INDEX holds the index of the MOST RECENT such line.
+   -       If no such line was found: BASELINE_LINE_INDEX = -1 (no baseline; count all comments).
+   -   1b. Count lines containing the exact token 'verdict:rejected' in COMMENT_LINES[BASELINE_LINE_INDEX+1:]
+   -       (i.e., only comments appearing AFTER the baseline comment, or all comments if no baseline).
+   -   REJECTION_COUNT = number of matching lines found in the post-baseline slice
+   - Step 2 — Determine cap:
+   -   MAX_REJECTIONS = 2 (default)
+   -   If team config contains a max_rejections: field for this role: override MAX_REJECTIONS with that value
+   - Step 3 — If REJECTION_COUNT < MAX_REJECTIONS:
+   -   Return task to builder with full rejection context:
+   -     - Include: rejection reason from verdict:rejected comment, all reviewer/QA feedback from comments, list of previous attempt summaries
+   -   Continue normal rejection loop (builder re-implements, re-submits)
+   - Step 4 — If REJECTION_COUNT >= MAX_REJECTIONS, escalate to lead for architectural review:
+   -   a. Lead reviews: task description, all rejection reasons (from br comment list), builder implementation attempts (from file changes), acceptance criteria
+   -   b. Lead may take any of these actions:
+   -        - Restructure the task into smaller sub-tasks
+   -        - Adjust acceptance criteria if determined to be overly strict
+   -        - Reassign to a different builder agent
+   -        - Identify and resolve underlying architectural issues
+   -   c. Record lead decision:
+   -        br comment add <bead_id> 'lead-escalation:max-rejections-reached lead:tech-lead-orchestrator action:<lead_decision>'
+   -   d. Reset tracking baseline:
+   -        Write a new 'status:in_progress' comment from lead — this becomes the new baseline for REJECTION_COUNT
+   -        (Subsequent rejection counts are relative to comments after this new baseline)
+   -   e. Allow one additional review cycle with lead's guidance included in the builder prompt
+   - Step 5 — If still failing after lead escalation:
+   -   PAUSE for user decision (abort task, force-close, or escalate further)
+
+**9. Utility: State Machine Transition Validator**
+   Inline utility called before any status transition to verify it is legal and then execute it atomically. References get_sub_state (order 7). AC: FR-SM-1, FR-SM-4, FR-SM-8, AC-SM-5
+
+   - Valid transitions table (current_state -> [allowed target_states]):
+   -   open        -> in_progress   (actor: lead)
+   -   in_progress -> in_review     (actor: builder)
+   -   in_progress -> in_qa         (actor: lead, when REVIEWER_ENABLED=false)
+   -   in_progress -> closed        (actor: lead, when REVIEWER_ENABLED=false AND QA_ENABLED=false)
+   -   in_review   -> in_qa         (actor: reviewer, verdict: approved)
+   -   in_review   -> in_progress   (actor: reviewer, verdict: rejected)
+   -   in_qa       -> closed        (actor: qa, verdict: passed)
+   -   in_qa       -> in_progress   (actor: qa, verdict: rejected)
+   - Validation and transition algorithm (call this before any status change):
+   - Step 1: call get_sub_state(bead_id) — capture (current_state, metadata)
+   - Step 2: look up VALID_TRANSITIONS[current_state] to get the set of allowed target states
+   - Step 3: if target_state NOT in allowed set:
+   -   Print: 'ERROR: Invalid transition from {current_state} to {target_state} for bead {bead_id}'
+   -   HALT
+   - Step 4: if target_state IS valid, execute the transition:
+   -   a. Build comment_string: 'status:{target_state} {key}:{value} ...' (include actor, verdict, and any other relevant metadata keys from caller)
+   -   b. Run: br comment add <bead_id> '<comment_string>'
+   -   c. Run: br sync --flush-only
+   -   d. If target_state == 'closed': run br close <bead_id> --reason='<metadata.reason if provided, else QA passed>'
+   -   e. If target_state == 'in_progress' AND current_state was 'in_review' or 'in_qa' (i.e., a rejection path):
+   -      Run: br update <bead_id> --status=open  (reset native br status so lead can re-assign)
 
 ### Phase 4: Quality Gate
 
@@ -281,19 +964,115 @@ Key behaviors:
    - If no open tasks remain for this phase: trigger quality gate for this story/phase
 
 **2. Test Execution**
-   Delegate test suite execution to test-runner
+   Delegate test suite execution to test-runner, with scope adjusted for team mode. AC: FR-QA-7
 
-   - Delegate to @test-runner: run full test suite for files modified in this phase; report pass/fail, unit coverage %, integration coverage %, failures with file:line
-   - Parse results: gate_passed = tests_pass AND unit_cov >= target AND int_cov >= target
-   - Exception: strategy=characterization or flexible -> gate_passed = true (informational only)
+   - TRD-031 — Phase Quality Gate Scope Reduction for Team QA (AC: FR-QA-7):
+   - 
+   - When TEAM_MODE=true AND QA_ENABLED=true (per-task QA already ran via step 3b for each task):
+   -   Phase gate focuses on INTEGRATION-ONLY scope:
+   -   a. Delegate to @test-runner: run INTEGRATION test suite only for files modified in this phase
+   -      (exclude unit tests — these were already validated per-task by QA agent)
+   -      Prompt: 'Run integration test suite for phase <N> files: <files_list>. Report pass/fail and integration coverage %.'
+   -   b. Cross-file consistency checks:
+   -      - Verify API contracts are consistent across changed files (no mismatched request/response shapes)
+   -      - Verify shared types and interfaces are used consistently across module boundaries
+   -      - Verify module import/export contracts are intact (no broken references)
+   -   c. Aggregate coverage report:
+   -      - Collect per-task coverage data from QA verdict comments (verdict:passed lines with coverage metadata)
+   -      - Compute aggregate coverage across all phase tasks
+   -      - Confirm aggregate coverage meets strategy target
+   -   Parse results: gate_passed = integration_tests_pass AND aggregate_coverage >= target
+   -   Exception: strategy=characterization or flexible -> gate_passed = true (informational only)
+   -   Note: Phase gate does NOT re-run per-task unit tests or per-task AC validation (already done by QA per task).
+   - 
+   - When TEAM_MODE=false (v2.1.0 single-agent mode — no per-task QA ran, full gate required):
+   -   Delegate to @test-runner: run full test suite (unit + integration) for files modified in this phase;
+   -   report pass/fail, unit coverage %, integration coverage %, failures with file:line
+   -   Parse results: gate_passed = tests_pass AND unit_cov >= target AND int_cov >= target
+   -   Exception: strategy=characterization or flexible -> gate_passed = true (informational only)
+   - 
+   - When TEAM_MODE=true AND QA_ENABLED=false (team mode active but no QA agent configured — no per-task QA ran, full gate required):
+   -   Delegate to @test-runner: run full test suite (unit + integration) for files modified in this phase;
+   -   report pass/fail, unit coverage %, integration coverage %, failures with file:line
+   -   Parse results: gate_passed = tests_pass AND unit_cov >= target AND int_cov >= target
+   -   Exception: strategy=characterization or flexible -> gate_passed = true (informational only)
 
 **3. Gate Result Recording**
    Record quality gate outcome as br comment and close story on pass
 
-   - Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'
+   - TRD-031 — Gate result comment format depends on scope (team mode vs full):
+   - 
+   - When TEAM_MODE=true AND QA_ENABLED=true (integration-only scope):
+   -   Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | integration: <X tests> | aggregate-coverage: <Y%> | scope: integration-only (team-QA)'
+   -   If TEAM_METRICS is populated (TRD-034): append team metrics summary:
+   -     br comment add <STORY_BEAD_ID> 'team-metrics phase:<N> tasks:<tasks_completed> first-pass-rate:<X%> total-rejections:<Y>'
+   - 
+   - When TEAM_MODE=false (v2.1.0 single-agent mode — no per-task QA ran, full unit + integration gate required):
+   -   Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'
+   - 
+   - When TEAM_MODE=true AND QA_ENABLED=false (team mode but no QA agent configured — no per-task QA ran, full unit + integration gate required):
+   -   Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'
+   - 
    - Run: br sync --flush-only
    - If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
+   -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
+   -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
    - If NOT gate_passed AND blocking strategy (tdd/refactor/bug-fix): print gate failure details; PAUSE for user: fix/skip/abort
+
+**4. Team Performance Summary (TEAM_MODE=true only)**
+   Print and persist team performance metrics after Quality Gate step 3 when TEAM_MODE=true and TEAM_METRICS is populated. AC: FR-TM-4, FR-TM-5
+
+   - TRD-035 — Team Performance Summary (TEAM_MODE=true AND TEAM_METRICS populated, after Gate Result Recording):
+   - 
+   - Condition: execute this step only when TEAM_MODE=true AND TEAM_METRICS.tasks_completed > 0
+   - 
+   - 1. Compute derived metrics:
+   -    - total_rejections = sum of rejection_cycles across all entries in TEAM_METRICS.task_details
+   -    - first_pass_rate = (first_pass_approvals_count / TEAM_METRICS.tasks_completed) * 100
+   -      where first_pass_approvals_count = number of entries in TEAM_METRICS.task_details where first_pass_approval == true
+   -    - Per-builder breakdown: for each builder_agent in TEAM_METRICS.builders:
+   -        builder_tasks = TEAM_METRICS.builders[builder_agent].tasks
+   -        builder_first_pass = TEAM_METRICS.builders[builder_agent].first_pass_approvals
+   -        builder_rejections = TEAM_METRICS.builders[builder_agent].rejections
+   - 
+   - 2. Print team performance summary block to console:
+   -    === TEAM PERFORMANCE SUMMARY — Phase <TEAM_METRICS.phase> ===
+   -    Tasks completed: <TEAM_METRICS.tasks_completed>
+   -    First-pass approval rate: <first_pass_rate>%
+   -    Total rejection cycles: <total_rejections>
+   -    Per-builder breakdown:
+   -      <builder_agent>: tasks=<builder_tasks> first-pass=<builder_first_pass> rejections=<builder_rejections>
+   -      (repeat for each builder in TEAM_METRICS.builders)
+   -    === END TEAM SUMMARY ===
+   - 
+   - 3. Persist metrics as br comment on ROOT_EPIC_ID (not story bead — epic captures cross-phase history):
+   -    - Build BUILDERS_JSON per TRD-036 schema (see below)
+   -    - Run: br comment add <ROOT_EPIC_ID> 'team-metrics:phase-<N> tasks:<tasks_completed> first-pass-rate:<first_pass_rate>% total-rejections:<total_rejections> builders:<BUILDERS_JSON>'
+   - 
+   -    TRD-036 — BUILDERS_JSON Schema:
+   -    BUILDERS_JSON is a JSON-encoded object with the following top-level structure:
+   -    {
+   -      "phase": <N>,
+   -      "tasks_completed": <integer>,
+   -      "first_pass_rate": <float, 0.0-100.0>,
+   -      "total_rejections": <integer>,
+   -      "avg_rejection_cycles": <float>,
+   -      "builders": {
+   -        "<builder_agent_type>": {
+   -          "tasks": <integer>,
+   -          "first_pass_approvals": <integer>,
+   -          "rejections": <integer>,
+   -          "first_pass_rate": <float, 0.0-100.0>
+   -        }
+   -      }
+   -    }
+   -    Derivation rules:
+   -    - avg_rejection_cycles = total_rejections / tasks_completed (0.0 if tasks_completed == 0)
+   -    - Per-builder first_pass_rate = (first_pass_approvals / tasks) * 100
+   -    - top-level first_pass_rate = (first_pass_approvals_count / tasks_completed) * 100 (same as step 1 above)
+   - 
+   - 4. Run: br sync --flush-only (ensure metrics comment is persisted)
 
 ### Phase 5: Completion
 

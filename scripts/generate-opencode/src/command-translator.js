@@ -27,9 +27,7 @@ const glob = require('glob');
 // Model hint mapping table (OC-S1-CMD-009)
 // ---------------------------------------------------------------------------
 const MODEL_MAP = {
-  'opus-4-6': 'anthropic/claude-opus-4-6',
   opus: 'anthropic/claude-opus-4-6',
-  'sonnet-4': 'anthropic/claude-sonnet-4-20250514',
   sonnet: 'anthropic/claude-sonnet-4-20250514',
   haiku: 'anthropic/claude-haiku-4-5-20251001',
 };

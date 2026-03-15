@@ -89,29 +89,6 @@ describe('sanitizeCommitMessage', () => {
   });
 
   describe('invalid characters', () => {
-    it('should reject message with angle brackets', () => {
-      const input = 'feat(core): <script>alert("xss")</script>';
-      expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
-      expect(() => sanitizeCommitMessage(input)).toThrow(expect.objectContaining({
-        code: ErrorCodes.SANITIZATION_FAILED.code
-      }));
-    });
-
-    it('should reject message with backticks', () => {
-      const input = 'feat(core): `rm -rf /`';
-      expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
-    });
-
-    it('should reject message with pipes', () => {
-      const input = 'feat(core): add | dangerous command';
-      expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
-    });
-
-    it('should reject message with ampersands', () => {
-      const input = 'feat(core): add && malicious';
-      expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
-    });
-
     it('should reject message with dollar signs', () => {
       const input = 'feat(core): $HOME expansion';
       expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
@@ -119,6 +96,11 @@ describe('sanitizeCommitMessage', () => {
 
     it('should reject message with control characters', () => {
       const input = 'feat(core): add\x01control\x02chars';
+      expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
+    });
+
+    it('should reject message with backslashes', () => {
+      const input = 'feat(core): path\\to\\file';
       expect(() => sanitizeCommitMessage(input)).toThrow(VersionError);
     });
   });
@@ -183,6 +165,31 @@ describe('sanitizeCommitMessage', () => {
 
     it('should allow underscores and hyphens', () => {
       const input = 'feat(core): add_utility-function';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should allow em dashes', () => {
+      const input = 'feat(core): TRD-025/035 \u2014 parallel builder execution';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should allow backticks', () => {
+      const input = 'fix(api): update `getUser` method';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should allow pipes and ampersands', () => {
+      const input = 'test(core): unit | integration & e2e tests';
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should allow single and double quotes', () => {
+      const input = "feat(core): add 'team' section with \"roles\"";
+      expect(sanitizeCommitMessage(input)).toBe(input);
+    });
+
+    it('should allow percent signs', () => {
+      const input = 'test(core): coverage at 95% for all modules';
       expect(sanitizeCommitMessage(input)).toBe(input);
     });
   });
