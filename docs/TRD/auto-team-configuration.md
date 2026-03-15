@@ -112,7 +112,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 1: Foundation -- Complexity Analyzer, Domain Detection, Configuration Maps
 
-- [ ] **TRD-001**: Define keyword-to-domain mapping configuration block in create-trd.yaml (2h)
+- [x] **TRD-001**: Define keyword-to-domain mapping configuration block in create-trd.yaml (2h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add a new `team_configuration` top-level key to the YAML metadata (or a new step section) containing `domain_keywords` mapping
@@ -122,7 +122,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-1.2, NFR-3.1
   - Dependencies: none
 
-- [ ] **TRD-002**: Define default agent-to-domain mapping in create-trd.yaml (1h)
+- [x] **TRD-002**: Define default agent-to-domain mapping in create-trd.yaml (1h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add `default_agents` mapping within the same `team_configuration` block as TRD-001
@@ -131,7 +131,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-3.4, FR-3.5, FR-3.6, FR-3.7, NFR-3.3
   - Dependencies: TRD-001
 
-- [ ] **TRD-003**: Define complexity tier thresholds as named constants in create-trd.yaml (1h)
+- [x] **TRD-003**: Define complexity tier thresholds as named constants in create-trd.yaml (1h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add `complexity_tiers` within the `team_configuration` block
@@ -142,7 +142,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-2.1, FR-2.2, NFR-3.2
   - Dependencies: none
 
-- [ ] **TRD-004**: Add new Phase 4 "Team Configuration" to create-trd.yaml workflow (2h)
+- [x] **TRD-004**: Add new Phase 4 "Team Configuration" to create-trd.yaml workflow (2h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Renumber existing Phase 4 "Output Management" to Phase 5
@@ -152,7 +152,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: Section 7.1 of PRD
   - Dependencies: TRD-001, TRD-002, TRD-003
 
-- [ ] **TRD-005**: Implement CLI flag parsing for --team and --no-team (2h) [depends: TRD-004]
+- [x] **TRD-005**: Implement CLI flag parsing for --team and --no-team (2h) [depends: TRD-004]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 1 to Phase 4: parse $ARGUMENTS for `--team` and `--no-team` flags
@@ -163,7 +163,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-2.3, FR-2.4, FR-2.5, AC-3.1, AC-3.2, AC-3.3
   - Dependencies: TRD-004
 
-- [ ] **TRD-006**: Implement TRD task counter and hour estimator (3h) [depends: TRD-004]
+- [x] **TRD-006**: Implement TRD task counter and hour estimator (3h) [depends: TRD-004]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 2 to Phase 4: after TRD content is generated (post-Phase 3), scan for `- [ ] **TRD-` entries in the Master Task List section
@@ -175,7 +175,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-1.1, FR-1.3
   - Dependencies: TRD-004
 
-- [ ] **TRD-007**: Implement domain detection from task keywords (3h) [depends: TRD-001, TRD-006]
+- [x] **TRD-007**: Implement domain detection from task keywords (3h) [depends: TRD-001, TRD-006]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 3 to Phase 4: for each task entry, extract the task title and description text
@@ -188,7 +188,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-1.1, FR-1.2
   - Dependencies: TRD-001, TRD-006
 
-- [ ] **TRD-008**: Implement three-tier team mode heuristic (2h) [depends: TRD-003, TRD-007]
+- [x] **TRD-008**: Implement three-tier team mode heuristic (2h) [depends: TRD-003, TRD-007]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 3b to Phase 4 (after domain detection): apply tier classification
@@ -203,7 +203,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-2.1, FR-2.2, FR-2.3, FR-2.4, AC-1.1, AC-1.2, AC-1.3, AC-1.5
   - Dependencies: TRD-003, TRD-007
 
-- [ ] **TRD-009**: Implement complexity analysis logging and output (1h) [depends: TRD-008]
+- [x] **TRD-009**: Implement complexity analysis logging and output (1h) [depends: TRD-008]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. After heuristic evaluation, log the full complexity analysis results to command output
@@ -216,7 +216,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 2: Agent/Skill Discovery and Team Config Generation
 
-- [ ] **TRD-010**: Implement agent auto-discovery via glob scan (3h) [depends: TRD-004]
+- [x] **TRD-010**: Implement agent auto-discovery via glob scan (3h) [depends: TRD-004]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 4 to Phase 4: use Glob tool to scan `packages/*/agents/*.yaml`
@@ -228,7 +228,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-3.1, FR-3.2, FR-3.8, NFR-1.1
   - Dependencies: TRD-004
 
-- [ ] **TRD-011**: Implement skill auto-discovery via directory scan (2h) [depends: TRD-004]
+- [x] **TRD-011**: Implement skill auto-discovery via directory scan (2h) [depends: TRD-004]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 4b to Phase 4: use Glob tool to scan `packages/*/skills/`
@@ -238,7 +238,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-8.2 (skill gaps detection)
   - Dependencies: TRD-004
 
-- [ ] **TRD-012**: Implement router-rules.json check and builder agent matching (3h) [depends: TRD-002, TRD-007, TRD-010]
+- [x] **TRD-012**: Implement router-rules.json check and builder agent matching (3h) [depends: TRD-002, TRD-007, TRD-010]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add step 5 to Phase 4: check for `.claude/router-rules.json` in project root using Read tool
@@ -252,7 +252,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-3.3, FR-3.4, AC-2.1, AC-2.5
   - Dependencies: TRD-002, TRD-007, TRD-010
 
-- [ ] **TRD-013**: Implement agent existence validation for selected team (1h) [depends: TRD-010, TRD-012]
+- [x] **TRD-013**: Implement agent existence validation for selected team (1h) [depends: TRD-010, TRD-012]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. After builder matching (TRD-012): validate that every selected agent exists in AGENT_REGISTRY
@@ -264,7 +264,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-3.8, AC-2.2, AC-2.3, AC-2.4
   - Dependencies: TRD-010, TRD-012
 
-- [ ] **TRD-014**: Generate complexity assessment metadata block (2h) [depends: TRD-008, TRD-012]
+- [x] **TRD-014**: Generate complexity assessment metadata block (2h) [depends: TRD-008, TRD-012]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Build the markdown text for the `## Team Configuration` section header and complexity assessment
@@ -274,7 +274,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-4.2, FR-4.4, AC-1.4
   - Dependencies: TRD-008, TRD-012
 
-- [ ] **TRD-015**: Generate team YAML block from selected agents and tier (3h) [depends: TRD-008, TRD-012, TRD-013]
+- [x] **TRD-015**: Generate team YAML block from selected agents and tier (3h) [depends: TRD-008, TRD-012, TRD-013]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Build the YAML block conforming to the team schema (implement-trd-beads.yaml lines 25-78)
@@ -288,7 +288,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-4.2, FR-4.3, AC-1.2, AC-1.3
   - Dependencies: TRD-008, TRD-012, TRD-013
 
-- [ ] **TRD-016**: Generate marketplace plugins installed note (1h) [depends: TRD-015]
+- [x] **TRD-016**: Generate marketplace plugins installed note (1h) [depends: TRD-015]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. After marketplace suggestion flow (TRD-024 through TRD-026), check if any plugins were installed
@@ -299,7 +299,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-10.6
   - Dependencies: TRD-015 (assembles after marketplace flow completes)
 
-- [ ] **TRD-017**: Assemble and inject ## Team Configuration section into TRD (2h) [depends: TRD-014, TRD-015, TRD-016]
+- [x] **TRD-017**: Assemble and inject ## Team Configuration section into TRD (2h) [depends: TRD-014, TRD-015, TRD-016]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Compose the full `## Team Configuration` section from: TEAM_CONFIG_HEADER + MARKETPLACE_NOTE (if non-empty) + TEAM_CONFIG_YAML
@@ -309,7 +309,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-4.1, FR-4.5
   - Dependencies: TRD-014, TRD-015, TRD-016
 
-- [ ] **TRD-018**: Print team configuration summary after TRD generation (1h) [depends: TRD-017]
+- [x] **TRD-018**: Print team configuration summary after TRD generation (1h) [depends: TRD-017]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. After TRD is written to disk (in Phase 5 / Output Management): print summary to command output
@@ -321,7 +321,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 3: Marketplace Gap Analysis and Suggestion Flow
 
-- [ ] **TRD-019**: Define domain-to-marketplace-plugin mapping in create-trd.yaml (2h)
+- [x] **TRD-019**: Define domain-to-marketplace-plugin mapping in create-trd.yaml (2h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Add `marketplace_mappings` within the `team_configuration` block (co-located with domain_keywords and default_agents per NFR-3.4)
@@ -330,7 +330,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-12.2, FR-12.3, NFR-3.4
   - Dependencies: TRD-001
 
-- [ ] **TRD-020**: Implement installed-plugin detection (2h) [depends: TRD-011]
+- [x] **TRD-020**: Implement installed-plugin detection (2h) [depends: TRD-011]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. For each plugin in `marketplace.json`, derive expected local path from `source` field (e.g., `./packages/infrastructure` -> check if `packages/infrastructure/` directory exists)
@@ -340,7 +340,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-8.5
   - Dependencies: TRD-011
 
-- [ ] **TRD-021**: Implement marketplace.json reader with graceful degradation (2h)
+- [x] **TRD-021**: Implement marketplace.json reader with graceful degradation (2h)
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Read `marketplace.json` from repository root using Read tool
@@ -351,7 +351,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-8.6, NFR-2.4
   - Dependencies: none
 
-- [ ] **TRD-022**: Implement capability gap analysis engine (4h) [depends: TRD-007, TRD-010, TRD-011, TRD-019, TRD-020, TRD-021]
+- [x] **TRD-022**: Implement capability gap analysis engine (4h) [depends: TRD-007, TRD-010, TRD-011, TRD-019, TRD-020, TRD-021]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. If MARKETPLACE_AVAILABLE=false: skip gap analysis, proceed to team config generation
@@ -369,7 +369,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-8.1, FR-8.2, FR-8.3, FR-8.4, FR-8.5, FR-12.1, FR-12.4, NFR-1.4, AC-9.1, AC-9.2, AC-9.3, AC-9.4
   - Dependencies: TRD-007, TRD-010, TRD-011, TRD-019, TRD-020, TRD-021
 
-- [ ] **TRD-023**: Implement interactive suggestion presentation (3h) [depends: TRD-022]
+- [x] **TRD-023**: Implement interactive suggestion presentation (3h) [depends: TRD-022]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. If SUGGESTIONS list is empty: log "No marketplace capability gaps detected" and proceed
@@ -383,7 +383,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-9.1, FR-9.2, FR-9.3, FR-9.4, FR-9.5, FR-9.6, AC-7.3, AC-7.5
   - Dependencies: TRD-022
 
-- [ ] **TRD-024**: Implement plugin installation via Bash tool (3h) [depends: TRD-023]
+- [x] **TRD-024**: Implement plugin installation via Bash tool (3h) [depends: TRD-023]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. For each plugin in APPROVED_PLUGINS:
@@ -396,7 +396,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-10.1, FR-10.2, NFR-1.5, AC-7.4, AC-7.6
   - Dependencies: TRD-023
 
-- [ ] **TRD-025**: Implement agent/skill re-discovery after plugin installation (2h) [depends: TRD-024]
+- [x] **TRD-025**: Implement agent/skill re-discovery after plugin installation (2h) [depends: TRD-024]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. If INSTALLED_DURING_RUN is non-empty: re-run agent auto-discovery (same logic as TRD-010) to refresh AGENT_REGISTRY
@@ -406,7 +406,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-10.3, FR-10.4, FR-10.5, AC-7.4
   - Dependencies: TRD-024
 
-- [ ] **TRD-026**: Implement marketplace gap analysis logging (1h) [depends: TRD-022, TRD-023, TRD-024]
+- [x] **TRD-026**: Implement marketplace gap analysis logging (1h) [depends: TRD-022, TRD-023, TRD-024]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Log marketplace gap analysis results: number of gaps identified, plugins suggested, user decisions (approved/declined per plugin), installation outcomes
@@ -414,7 +414,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: NFR-4.3, AC-7.7, AC-7.8, AC-7.9
   - Dependencies: TRD-022, TRD-023, TRD-024
 
-- [ ] **TRD-027**: Implement context-aware keyword matching to reduce false positives (2h) [depends: TRD-022]
+- [x] **TRD-027**: Implement context-aware keyword matching to reduce false positives (2h) [depends: TRD-022]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Enhance the gap analysis engine (TRD-022) with context checks per FR-12.4
@@ -424,7 +424,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-12.4, AC-9.2
   - Dependencies: TRD-022
 
-- [ ] **TRD-028**: Implement non-interactive mode detection (1h) [depends: TRD-023]
+- [x] **TRD-028**: Implement non-interactive mode detection (1h) [depends: TRD-023]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Before presenting suggestions, detect if environment is non-interactive
@@ -436,7 +436,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 4: implement-trd-beads Integration and TRD Reading
 
-- [ ] **TRD-029**: Implement TRD team config section parser in implement-trd-beads (4h)
+- [x] **TRD-029**: Implement TRD team config section parser in implement-trd-beads (4h)
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. In Preflight phase, modify "Team Configuration Detection" step (currently step 8): add TRD-first parsing logic before existing command YAML parsing
@@ -454,7 +454,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, NFR-1.3, AC-4.1, AC-4.2, AC-4.3, AC-4.5
   - Dependencies: none (modifies existing Preflight step)
 
-- [ ] **TRD-030**: Implement agent registry validation for TRD-sourced team config (2h) [depends: TRD-029]
+- [x] **TRD-030**: Implement agent registry validation for TRD-sourced team config (2h) [depends: TRD-029]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. After parsing team config from TRD (TRD-029), validate all agent names against the agent registry
@@ -467,7 +467,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-5.6, AC-4.4
   - Dependencies: TRD-029
 
-- [ ] **TRD-031**: Implement team config precedence logic (2h) [depends: TRD-029]
+- [x] **TRD-031**: Implement team config precedence logic (2h) [depends: TRD-029]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Restructure the "Team Configuration Detection" step to implement precedence order per FR-5.5:
@@ -481,7 +481,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-5.5, NFR-4.2, AC-4.5
   - Dependencies: TRD-029
 
-- [ ] **TRD-032**: Implement preflight marketplace gap check in implement-trd-beads (4h) [depends: TRD-029, TRD-030]
+- [x] **TRD-032**: Implement preflight marketplace gap check in implement-trd-beads (4h) [depends: TRD-029, TRD-030]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Add new Preflight step after "Team Configuration Detection": "Marketplace Preflight Check"
@@ -497,7 +497,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-11.1, FR-11.2, FR-11.3, FR-11.4, FR-11.5, FR-11.6, AC-8.1, AC-8.2, AC-8.3, AC-8.4, AC-8.5, AC-8.6
   - Dependencies: TRD-029, TRD-030
 
-- [ ] **TRD-033**: Update implement-trd-beads resume logic to handle TRD-sourced team config (2h) [depends: TRD-029, TRD-031]
+- [x] **TRD-033**: Update implement-trd-beads resume logic to handle TRD-sourced team config (2h) [depends: TRD-029, TRD-031]
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. In Preflight step 5 "Resume Detection": when TEAM_MODE=true and resume detected, ensure team config is re-read from TRD (not just command YAML)
@@ -507,7 +507,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-5.5 (precedence applies to resume as well)
   - Dependencies: TRD-029, TRD-031
 
-- [ ] **TRD-034**: Update implement-trd-beads version to 2.4.0 (1h)
+- [x] **TRD-034**: Update implement-trd-beads version to 2.4.0 (1h)
   - File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Update `metadata.version` from `2.3.0` to `2.4.0`
@@ -517,7 +517,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: FR-7.2, AC-5.2
   - Dependencies: none
 
-- [ ] **TRD-035**: Update create-trd version to 2.1.0 (1h) [depends: TRD-004]
+- [x] **TRD-035**: Update create-trd version to 2.1.0 (1h) [depends: TRD-004]
   - File: `packages/development/commands/create-trd.yaml`
   - Actions:
     1. Update `metadata.version` from `2.0.0` to `2.1.0`
@@ -528,7 +528,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
 
 ### Sprint 5: Testing, Backward Compatibility, and Documentation
 
-- [ ] **TRD-036**: Test complexity analyzer with Simple-tier TRD (3h) [depends: TRD-008]
+- [x] **TRD-036**: Test complexity analyzer with Simple-tier TRD (3h) [depends: TRD-008]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Create test TRD with 5 tasks, single domain (backend), 10 estimated hours
@@ -539,7 +539,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-1.1
   - Dependencies: TRD-008
 
-- [ ] **TRD-037**: Test complexity analyzer with Medium-tier TRD (3h) [depends: TRD-015]
+- [x] **TRD-037**: Test complexity analyzer with Medium-tier TRD (3h) [depends: TRD-015]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Create test TRD with 15 tasks, 2 domains (backend + database), 30 estimated hours
@@ -550,7 +550,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-1.2
   - Dependencies: TRD-015
 
-- [ ] **TRD-038**: Test complexity analyzer with Complex-tier TRD (3h) [depends: TRD-015]
+- [x] **TRD-038**: Test complexity analyzer with Complex-tier TRD (3h) [depends: TRD-015]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Create test TRD with 30 tasks, 3 domains (backend + infrastructure + documentation), 70 estimated hours
@@ -561,7 +561,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-1.3, AC-1.5
   - Dependencies: TRD-015
 
-- [ ] **TRD-039**: Test CLI flags (--team, --no-team, both) (2h) [depends: TRD-005]
+- [x] **TRD-039**: Test CLI flags (--team, --no-team, both) (2h) [depends: TRD-005]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Test `--team` with Simple-tier input: verify Complex team config generated despite low complexity
@@ -570,7 +570,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-3.1, AC-3.2, AC-3.3
   - Dependencies: TRD-005
 
-- [ ] **TRD-040**: Test implement-trd-beads reads team config from TRD (3h) [depends: TRD-029, TRD-031]
+- [x] **TRD-040**: Test implement-trd-beads reads team config from TRD (3h) [depends: TRD-029, TRD-031]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Create TRD with valid `## Team Configuration` section: verify TEAM_MODE=true and correct agents loaded
@@ -581,7 +581,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-4.1, AC-4.2, AC-4.3, AC-4.4, AC-4.5
   - Dependencies: TRD-029, TRD-031
 
-- [ ] **TRD-041**: Test backward compatibility with existing TRDs (2h) [depends: TRD-029]
+- [x] **TRD-041**: Test backward compatibility with existing TRDs (2h) [depends: TRD-029]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Run implement-trd-beads against `docs/TRD/team-based-execution-model.md` (existing TRD without `## Team Configuration`): verify single-agent mode
@@ -590,7 +590,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-5.1, AC-5.2, AC-5.3, FR-7.1, FR-7.2, FR-7.3, FR-7.4
   - Dependencies: TRD-029
 
-- [ ] **TRD-042**: Test marketplace gap analysis and suggestion flow (4h) [depends: TRD-022, TRD-023, TRD-024]
+- [x] **TRD-042**: Test marketplace gap analysis and suggestion flow (4h) [depends: TRD-022, TRD-023, TRD-024]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Test with database tasks and no postgresql-specialist installed: verify ensemble-infrastructure suggested with correct rationale
@@ -609,7 +609,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-7.1 through AC-7.9, AC-9.1 through AC-9.4
   - Dependencies: TRD-022, TRD-023, TRD-024
 
-- [ ] **TRD-043**: Test implement-trd-beads preflight marketplace check (3h) [depends: TRD-032]
+- [x] **TRD-043**: Test implement-trd-beads preflight marketplace check (3h) [depends: TRD-032]
   - File: `packages/development/tests/` (new test files)
   - Actions:
     1. Generate TRD with full team config, then uninstall a plugin: verify preflight detects gap and suggests reinstallation
@@ -621,7 +621,7 @@ Format: `TRD-XXX` where XXX is a three-digit sequential number.
   - AC: AC-8.1 through AC-8.6
   - Dependencies: TRD-032
 
-- [ ] **TRD-044**: Run npm run validate and npm run generate after all changes (1h) [depends: all]
+- [x] **TRD-044**: Run npm run validate and npm run generate after all changes (1h) [depends: all]
   - File: `packages/development/commands/create-trd.yaml`, `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Run `npm run validate`: verify all YAML syntax, plugin.json schemas, and marketplace.json pass

@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.3.0
+  version: 2.4.0
   lastUpdated: "2026-03-15"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
@@ -287,7 +287,7 @@ workflow:
             - "TRD-028 — Cross-Session Resume with Team Sub-State (AC: FR-IT-7, NFR-R-1, AC-RS-1, AC-RS-2, AC-RS-3, AC-RS-4):"
             - "When TEAM_MODE=true AND existing scaffold found (resume detected):"
             - "  1. Existing scaffold detection (unchanged): find ROOT_EPIC_ID by [trd:<TRD_SLUG>] epic bead"
-            - "  2. Reconstruct team config: re-parse team: section from command YAML (same source, always current)"
+            - "  2. Reconstruct team config: re-parse using precedence order -- (1) check TRD file for '## Team Configuration' section first, (2) fall back to command YAML team: section. This ensures that edits to TRD team config between sessions are picked up on resume."
             - "  3. Scan all in-progress task beads: br list --status=in_progress --json, filter by TRD slug"
             - "  4. For each in-progress bead, call get_sub_state(bead_id) to determine pipeline stage:"
             - "     a. sub_state == 'in_progress' with assigned: comment -> re-delegate to same builder (or new one if original failed)"
@@ -336,11 +336,32 @@ workflow:
 
         - order: 8
           title: Team Configuration Detection
-          description: "Parse the team: section of this YAML (implement-trd-beads.yaml) to enable or disable team mode. Sets TEAM_MODE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for use by all subsequent steps. AC: FR-TD-1, FR-TD-2, FR-TD-6, FR-TD-7, FR-TD-8, AC-TD-1, AC-TD-2, AC-TD-3"
+          description: |
+            Determine team mode using precedence order: (1) TRD ## Team Configuration section,
+            (2) command YAML team: section, (3) no team (single-agent). Sets TEAM_MODE,
+            TEAM_CONFIG_SOURCE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for all subsequent
+            steps. AC: FR-TD-1, FR-TD-2, FR-TD-6, FR-TD-7, FR-TD-8, AC-TD-1, AC-TD-2, AC-TD-3,
+            FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
           actions:
+            - "=== TRD-FIRST PARSING (TRD-029, TRD-031) ==="
+            - "Step 0 — TRD team config check: search the TRD file (already loaded in step 4) for '## Team Configuration' heading"
+            - "If '## Team Configuration' heading found in TRD:"
+            - "  a. Extract the YAML code block immediately following the heading (delimited by triple backticks with yaml language tag)"
+            - "  b. Parse the extracted YAML; validate schema:"
+            - "     - Verify team.roles array exists"
+            - "     - Verify 'lead' and 'builder' roles are present in team.roles"
+            - "     - Verify agent: and agents: fields are mutually exclusive per role"
+            - "     - Verify owns: list is non-empty for each role"
+            - "  c. If YAML parse fails or schema violations found: print specific validation errors with details (role name, field, issue) and HALT"
+            - "  d. If valid: use this team config; set TEAM_CONFIG_SOURCE='trd'; log 'Team config source: TRD document'; proceed to role extraction (Step 2)"
+            - "If '## Team Configuration' section NOT found in TRD: fall through to command YAML check below"
+            - ""
+            - "=== COMMAND YAML FALLBACK (existing logic) ==="
             - "Step 1 — Presence check: examine whether this file (implement-trd-beads.yaml) contains a top-level 'team:' key (uncommented, active YAML, not inside a comment block)"
-            - "If team: is ABSENT: set TEAM_MODE=false; print 'TEAM MODE: disabled (single-agent execution)'; skip all subsequent team-related steps and proceed with single-agent defaults"
-            - "If team: is PRESENT: set TEAM_MODE=true; continue with steps below"
+            - "If team: is ABSENT: set TEAM_MODE=false; set TEAM_CONFIG_SOURCE='none'; print 'TEAM MODE: disabled (single-agent execution)'; skip all subsequent team-related steps and proceed with single-agent defaults"
+            - "If team: is PRESENT: set TEAM_CONFIG_SOURCE='yaml'; set TEAM_MODE=true; log 'Team config source: command YAML'; continue with steps below"
+            - ""
+            - "=== ROLE EXTRACTION AND VALIDATION (applies to both sources) ==="
             - "Step 2 — Role extraction: iterate over team.roles list and build TEAM_ROLES map:"
             - "  For each role entry in team.roles:"
             - "    - Read name: field (required; must be one of: lead | builder | reviewer | qa)"
@@ -352,7 +373,7 @@ workflow:
             - "Step 3 — Required role validation:"
             - "  If 'lead' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a lead role'; HALT"
             - "  If 'builder' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a builder role'; HALT"
-            - "Step 4 — Agent registry validation (AC: AC-TD-2):"
+            - "Step 4 — Agent registry validation (AC: AC-TD-2, FR-5.6):"
             - "  Build KNOWN_AGENTS list:"
             - "    1. Scan packages/*/agents/*.yaml using glob pattern"
             - "    2. For each file: extract basename, strip .yaml extension -> agent name"
@@ -371,6 +392,7 @@ workflow:
             - "  Set QA_ENABLED = true if 'qa' key exists in TEAM_ROLES, else false"
             - "Step 6 — Configuration summary: print team configuration summary:"
             - "  'TEAM MODE: enabled'"
+            - "  'Team config source: {TEAM_CONFIG_SOURCE}'"
             - "  'Lead: <TEAM_ROLES.lead.agents[0]>'"
             - "  'Builders: <TEAM_ROLES.builder.agents joined by comma>'"
             - "  'Reviewer: <TEAM_ROLES.reviewer.agents[0] if REVIEWER_ENABLED else none>'"
@@ -394,6 +416,34 @@ workflow:
             - "Case 4: Only lead+builder defined (same as Case 3):"
             - "  - Identical to Case 3"
             - "Record which steps are skipped in the team configuration summary printed during this Preflight step."
+
+        - order: 9
+          title: Marketplace Preflight Check
+          description: |
+            Before execution begins, check for marketplace capability gaps that may affect team
+            config quality. Presents suggestions for missing agents/skills and installs approved
+            plugins. Re-reads team config from TRD after installation if agents referenced in TRD
+            team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.6
+          actions:
+            - "Step 1 — Load marketplace.json: Read marketplace.json from repository root"
+            - "If missing or malformed: log 'marketplace.json not found -- skipping marketplace preflight'; skip remaining steps"
+            - "Step 2 — Domain scan: identify TRD task domains using same keyword matching as /create-trd Phase 4 Step 3"
+            - "Step 3 — Installed-plugin detection: for each plugin in marketplace.json derive local path from source field; use Glob to check packages/<name>/ directory; build PREFLIGHT_INSTALLED set"
+            - "Step 4 — Gap analysis: for each TRD domain check if default agent exists in packages/*/agents/*.yaml registry; for framework-specific keywords check corresponding skills/ directory"
+            - "Exclude plugins already in PREFLIGHT_INSTALLED; consolidate multiple gaps pointing to same plugin"
+            - "Context-aware filtering: generic 'test' keyword alone must NOT trigger testing framework suggestions"
+            - "Step 5 — Track declined plugins within this session: build SESSION_DECLINED_PLUGINS set (empty at start)"
+            - "Step 6 — For each gap suggestion (excluding SESSION_DECLINED_PLUGINS):"
+            - "  If AskUserQuestion is available: present yes/no prompt with plugin name, description, rationale, agents/skills provided"
+            - "  If user approves: run 'claude plugin install <plugin_name>' via Bash; verify packages/<name>/ directory created"
+            - "  If user declines: add to SESSION_DECLINED_PLUGINS (do not re-suggest during this session)"
+            - "  If non-interactive: log suggestion as [INFO] and skip all installations"
+            - "Step 7 — If any plugins were installed:"
+            - "  Re-run agent discovery: scan packages/*/agents/*.yaml to refresh KNOWN_AGENTS and AGENT_REGISTRY"
+            - "  If TEAM_CONFIG_SOURCE='trd': re-read ## Team Configuration from TRD and re-validate agents against refreshed registry"
+            - "  If newly installed agents ARE referenced in TRD team config: log 'Newly installed agents now available for team config'"
+            - "  If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'"
+            - "Step 8 — If user declines all suggestions: proceed with existing team config and available agents"
 
     - name: Scaffold
       order: 2
