@@ -17,6 +17,66 @@ metadata:
     - Glob
     - Task
 
+# Optional team configuration section.
+# Absence of this section means TEAM_MODE=false (single-agent behavior — v2.1.0 default).
+# Presence of this section means TEAM_MODE=true (role-based handoff execution).
+#
+# Schema:
+#   team:
+#     roles:                           # Required when team: is present. List of role definitions.
+#       - name: <role-name>            # Required. One of: lead | builder | reviewer | qa
+#         agent: <agent-name>          # Singular agent assignment (mutually exclusive with agents:)
+#         agents:                      # Multi-agent assignment (mutually exclusive with agent:)
+#           - <agent-name>
+#           - <agent-name>
+#         owns:                        # Required. List of ownership categories this role is responsible for.
+#           - <category>               # Valid values: task-selection | implementation | code-review |
+#                                      #   quality-gate | architecture-review | final-approval |
+#                                      #   acceptance-criteria
+#
+# Role name semantics:
+#   lead      - Orchestrates task selection, architecture review, and final approval.
+#               Required when team: is present. Must use singular agent:.
+#   builder   - Implements tasks. Required when team: is present. May use agent: or agents:.
+#               When agents: is a list, builders are dispatched in parallel per task.
+#   reviewer  - Performs code review. Optional. Use agent: (single reviewer).
+#               If absent, REVIEWER_ENABLED=false and code-review ownership falls to lead.
+#   qa        - Performs quality gate validation. Optional. Use agent: (single QA agent).
+#               If absent, QA_ENABLED=false and quality-gate ownership falls to lead.
+#
+# Validation rules (enforced during Preflight "Team Configuration Detection" step, TRD-002):
+#   - lead and builder roles MUST be defined when team: is present
+#   - All agent names MUST exist in packages/*/agents/*.yaml (ensemble agent registry)
+#   - agent: and agents: are mutually exclusive per role entry
+#   - owns: list MUST contain at least one valid category
+#
+# Example team configuration (uncomment and adapt to activate team mode):
+#
+# team:
+#   roles:
+#     - name: lead
+#       agent: tech-lead-orchestrator
+#       owns:
+#         - task-selection
+#         - architecture-review
+#         - final-approval
+#     - name: builder
+#       agents:
+#         - backend-developer
+#         - frontend-developer
+#         - infrastructure-developer
+#       owns:
+#         - implementation
+#     - name: reviewer
+#       agent: code-reviewer
+#       owns:
+#         - code-review
+#     - name: qa
+#       agent: qa-orchestrator
+#       owns:
+#         - quality-gate
+#         - acceptance-criteria
+
 mission:
   summary: |
     Parse a TRD and create a beads hierarchy (epic -> stories -> tasks) before
