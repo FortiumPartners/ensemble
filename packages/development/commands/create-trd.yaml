@@ -45,8 +45,9 @@ team_configuration:
       - aws
       - cloud
       - terraform
-      - ci
-      - cd
+      - ci-cd
+      - continuous-integration
+      - continuous-delivery
       - pipeline
       - infra
       - infrastructure
@@ -75,7 +76,6 @@ team_configuration:
       - exunit
     database:
       - database
-      - db
       - sql
       - schema
       - migration
@@ -322,7 +322,7 @@ workflow:
             - Parse $ARGUMENTS for presence of --team flag; if found set FORCE_TEAM=true
             - Parse $ARGUMENTS for presence of --no-team flag; if found set FORCE_NO_TEAM=true
             - 'If both flags present, print ERROR: --team and --no-team are mutually exclusive, and HALT'
-            - Remove consumed flags from $ARGUMENTS before passing to subsequent phases
+            - Store flag values in FORCE_TEAM and FORCE_NO_TEAM variables for use within this phase only
 
         - order: 2
           title: Task Counter and Hour Estimator
