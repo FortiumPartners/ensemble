@@ -8,75 +8,7 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Parser implementation
-// ---------------------------------------------------------------------------
-
-/**
- * Parses the `team:` section of a command YAML (already loaded as a JS object)
- * and returns a normalized team configuration.
- *
- * Expected input shape (from YAML):
- * ```yaml
- * team:
- *   roles:
- *     - name: lead
- *       agent: tech-lead-orchestrator   # singular form
- *       owns: [planning, escalation]
- *     - name: builder
- *       agents: [backend-developer, frontend-developer]  # plural form
- *       owns: [implementation]
- *     - name: reviewer
- *       agent: code-reviewer
- *     - name: qa
- *       agent: qa-orchestrator
- * ```
- *
- * @param {Object|undefined|null} yamlTeamSection - The `team:` object from parsed YAML
- * @returns {{ teamMode: boolean, teamRoles: Object, reviewerEnabled: boolean, qaEnabled: boolean }}
- * @throws {Error} if required roles (lead, builder) are missing
- */
-function parseTeamConfig(yamlTeamSection) {
-  // No team: section — single-agent execution mode
-  if (!yamlTeamSection) {
-    return {
-      teamMode: false,
-      teamRoles: {},
-      reviewerEnabled: false,
-      qaEnabled: false,
-    };
-  }
-
-  const roles = yamlTeamSection.roles || [];
-  const teamRoles = {};
-
-  for (const role of roles) {
-    // Support both singular `agent:` and plural `agents:` forms
-    const agents =
-      role.agents ||
-      (role.agent ? [role.agent] : []);
-
-    teamRoles[role.name] = {
-      agents,
-      owns: role.owns || [],
-    };
-  }
-
-  // Required role validation
-  if (!teamRoles.lead) {
-    throw new Error("team.roles must include a 'lead' role");
-  }
-  if (!teamRoles.builder) {
-    throw new Error("team.roles must include a 'builder' role");
-  }
-
-  return {
-    teamMode: true,
-    teamRoles,
-    reviewerEnabled: !!teamRoles.reviewer,
-    qaEnabled: !!teamRoles.qa,
-  };
-}
+const { parseTeamConfig } = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -428,6 +360,22 @@ describe('Team YAML Parser (parseTeamConfig)', () => {
       const result = parseTeamConfig(config);
       expect(result.reviewerEnabled).toBe(false);
       expect(result.qaEnabled).toBe(true);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // agent: vs agents: mutual exclusivity
+  // -------------------------------------------------------------------------
+
+  describe('agent: vs agents: mutual exclusivity', () => {
+    test('when both agent: and agents: on same role, agents: takes precedence', () => {
+      const config = parseTeamConfig({
+        roles: [
+          { name: 'lead', agent: 'tech-lead-orchestrator' },
+          { name: 'builder', agent: 'backend-developer', agents: ['backend-developer', 'frontend-developer'] },
+        ],
+      });
+      expect(config.teamRoles.builder.agents).toEqual(['backend-developer', 'frontend-developer']);
     });
   });
 });

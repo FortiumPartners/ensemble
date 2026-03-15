@@ -8,47 +8,7 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Parser implementation (inlined - same logic as team-yaml-parser.test.js)
-// ---------------------------------------------------------------------------
-
-/**
- * Parses the `team:` section of a command YAML and returns a normalized
- * team configuration. Used both on first invocation and on session resume.
- *
- * @param {Object|undefined|null} yamlTeamSection - The `team:` object from parsed YAML
- * @returns {{ teamMode: boolean, teamRoles: Object, reviewerEnabled: boolean, qaEnabled: boolean }}
- * @throws {Error} if required roles (lead, builder) are missing
- */
-function parseTeamConfig(yamlTeamSection) {
-  if (!yamlTeamSection) {
-    return { teamMode: false, teamRoles: {}, reviewerEnabled: false, qaEnabled: false };
-  }
-
-  const roles = yamlTeamSection.roles || [];
-  const teamRoles = {};
-
-  for (const role of roles) {
-    const agents =
-      role.agents ||
-      (role.agent ? [role.agent] : []);
-
-    teamRoles[role.name] = {
-      agents,
-      owns: role.owns || [],
-    };
-  }
-
-  if (!teamRoles.lead) throw new Error("team.roles must include a 'lead' role");
-  if (!teamRoles.builder) throw new Error("team.roles must include a 'builder' role");
-
-  return {
-    teamMode: true,
-    teamRoles,
-    reviewerEnabled: !!teamRoles.reviewer,
-    qaEnabled: !!teamRoles.qa,
-  };
-}
+const { parseTeamConfig, parseSubState } = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Pipeline helper
@@ -215,48 +175,55 @@ describe('E2E Minimal Team (lead + builders only)', () => {
   // -------------------------------------------------------------------------
 
   describe('br comment trail for minimal team', () => {
-    test('br comments for minimal team show only assignment and completion', () => {
-      const expectedComments = [
-        'status:in_progress assigned:backend-developer',
-        'status:skip-review lead:tech-lead-orchestrator reason:no-reviewer-role-defined',
-        'status:skip-qa lead:tech-lead-orchestrator reason:no-qa-role-defined',
-        'status:closed lead:tech-lead-orchestrator reason:no-reviewer-no-qa-direct-close',
-      ];
+    const commentTrail = [
+      'status:in_progress assigned:backend-developer',
+      'status:skip-review lead:tech-lead-orchestrator reason:no-reviewer-role-defined',
+      'status:skip-qa lead:tech-lead-orchestrator reason:no-qa-role-defined',
+      'status:closed lead:tech-lead-orchestrator reason:no-reviewer-no-qa-direct-close',
+    ].join('\n');
 
-      const hasReviewComment = expectedComments.some(c => c.includes('status:in_review'));
-      const hasQAComment = expectedComments.some(c => c.includes('status:in_qa'));
-
-      expect(hasReviewComment).toBe(false);
-      expect(hasQAComment).toBe(false);
-      expect(expectedComments[0]).toContain('status:in_progress');
-      expect(expectedComments[expectedComments.length - 1]).toContain('status:closed');
+    test('parseSubState returns closed as latest state from full trail', () => {
+      const result = parseSubState(commentTrail);
+      expect(result).not.toBeNull();
+      expect(result.state).toBe('closed');
+      expect(result.metadata.lead).toBe('tech-lead-orchestrator');
+      expect(result.metadata.reason).toBe('no-reviewer-no-qa-direct-close');
     });
 
-    test('first comment is in_progress with assigned builder', () => {
-      const firstComment = 'status:in_progress assigned:backend-developer';
-      expect(firstComment).toMatch(/^status:in_progress/);
-      expect(firstComment).toContain('assigned:');
+    test('first comment parses as in_progress with assigned builder', () => {
+      const result = parseSubState('status:in_progress assigned:backend-developer');
+      expect(result).not.toBeNull();
+      expect(result.state).toBe('in_progress');
+      expect(result.metadata.assigned).toBe('backend-developer');
     });
 
-    test('final comment is closed with lead attribution', () => {
-      const finalComment =
-        'status:closed lead:tech-lead-orchestrator reason:no-reviewer-no-qa-direct-close';
-      expect(finalComment).toMatch(/^status:closed/);
-      expect(finalComment).toContain('lead:tech-lead-orchestrator');
+    test('final comment parses as closed with lead attribution', () => {
+      const result = parseSubState(
+        'status:closed lead:tech-lead-orchestrator reason:no-reviewer-no-qa-direct-close'
+      );
+      expect(result).not.toBeNull();
+      expect(result.state).toBe('closed');
+      expect(result.metadata.lead).toBe('tech-lead-orchestrator');
     });
 
-    test('skip-review comment references the lead agent', () => {
-      const skipReviewComment =
-        'status:skip-review lead:tech-lead-orchestrator reason:no-reviewer-role-defined';
-      expect(skipReviewComment).toContain('lead:tech-lead-orchestrator');
-      expect(skipReviewComment).toContain('reason:no-reviewer-role-defined');
+    test('skip-review comment parses with lead and reason metadata', () => {
+      const result = parseSubState(
+        'status:skip-review lead:tech-lead-orchestrator reason:no-reviewer-role-defined'
+      );
+      expect(result).not.toBeNull();
+      expect(result.state).toBe('skip-review');
+      expect(result.metadata.lead).toBe('tech-lead-orchestrator');
+      expect(result.metadata.reason).toBe('no-reviewer-role-defined');
     });
 
-    test('skip-qa comment references the lead agent', () => {
-      const skipQAComment =
-        'status:skip-qa lead:tech-lead-orchestrator reason:no-qa-role-defined';
-      expect(skipQAComment).toContain('lead:tech-lead-orchestrator');
-      expect(skipQAComment).toContain('reason:no-qa-role-defined');
+    test('skip-qa comment parses with lead and reason metadata', () => {
+      const result = parseSubState(
+        'status:skip-qa lead:tech-lead-orchestrator reason:no-qa-role-defined'
+      );
+      expect(result).not.toBeNull();
+      expect(result.state).toBe('skip-qa');
+      expect(result.metadata.lead).toBe('tech-lead-orchestrator');
+      expect(result.metadata.reason).toBe('no-qa-role-defined');
     });
   });
 

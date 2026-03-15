@@ -8,72 +8,7 @@
 
 'use strict';
 
-// ---------------------------------------------------------------------------
-// Parser implementation
-// ---------------------------------------------------------------------------
-
-/**
- * Parses the output of `br comment list <bead_id>` to find the latest
- * status: comment.
- *
- * Format: status:<state> <key>:<value> [<key>:<value>...]
- *
- * Valid states: in_progress, in_review, in_qa, closed, skip-review, skip-qa
- * Valid keys:   assigned, builder, reviewer, qa, verdict, reason, files, lead
- *
- * reason: values may use hyphens or %20 for spaces; both are decoded.
- *
- * @param {string} commentListOutput - Raw stdout from `br comment list`
- * @returns {{ state: string, metadata: Object } | null}
- */
-function parseSubState(commentListOutput) {
-  if (!commentListOutput || typeof commentListOutput !== 'string') {
-    return null;
-  }
-
-  const lines = commentListOutput.split('\n');
-
-  // Scan in reverse so the latest comment wins
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    // `br comment list` may prepend a timestamp prefix such as
-    // "2024-01-15T12:34:56Z  status:in_progress assigned:backend-developer"
-    // We find the first occurrence of "status:" on the line.
-    const statusIdx = line.indexOf('status:');
-    if (statusIdx === -1) continue;
-
-    const statusPart = line.substring(statusIdx);
-    // Verify the substring actually starts with "status:" (not e.g. "no-status:")
-    if (!statusPart.startsWith('status:')) continue;
-
-    const tokens = statusPart.split(/\s+/);
-    const state = tokens[0].replace('status:', '');
-
-    if (!state) continue; // Malformed: nothing after "status:"
-
-    const metadata = {};
-    for (let j = 1; j < tokens.length; j++) {
-      const colonIdx = tokens[j].indexOf(':');
-      if (colonIdx === -1) continue; // Token has no colon — skip
-      const key = tokens[j].substring(0, colonIdx);
-      const rawValue = tokens[j].substring(colonIdx + 1);
-      if (!key || rawValue === undefined) continue;
-
-      // URL-decode reason values (hyphens treated as spaces per spec)
-      if (key === 'reason') {
-        metadata[key] = decodeURIComponent(rawValue.replace(/-/g, ' '));
-      } else {
-        metadata[key] = rawValue;
-      }
-    }
-
-    return { state, metadata };
-  }
-
-  return null; // No status: comment found
-}
+const { parseSubState } = require('./helpers/team-utils');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -150,28 +85,36 @@ describe('Comment Parser (parseSubState)', () => {
   // URL-encoded reason values
   // -------------------------------------------------------------------------
 
-  test('decodes hyphen-separated reason values to spaces', () => {
+  test('preserves hyphens in reason values (reason:TRD-001-related)', () => {
+    const output =
+      'status:in_progress reviewer:code-reviewer verdict:rejected reason:TRD-001-related';
+    const result = parseSubState(output);
+    expect(result).not.toBeNull();
+    expect(result.metadata.reason).toBe('TRD-001-related');
+  });
+
+  test('preserves hyphens in multi-word reason values', () => {
     const output =
       'status:in_progress reviewer:code-reviewer verdict:rejected reason:missing-input-validation';
+    const result = parseSubState(output);
+    expect(result).not.toBeNull();
+    expect(result.metadata.reason).toBe('missing-input-validation');
+  });
+
+  test('decodes %20-encoded reason values to spaces', () => {
+    const output =
+      'status:in_progress qa:qa-orchestrator verdict:rejected reason:missing%20input%20validation';
     const result = parseSubState(output);
     expect(result).not.toBeNull();
     expect(result.metadata.reason).toBe('missing input validation');
   });
 
-  test('decodes %20-encoded reason values to spaces', () => {
+  test('decodes %20 reason for QA rejection while preserving hyphens', () => {
     const output =
-      'status:in_progress qa:qa-orchestrator verdict:rejected reason:Missing%20input%20validation';
+      'status:in_progress qa:qa-orchestrator verdict:rejected reason:test-coverage%20below%2080-percent';
     const result = parseSubState(output);
     expect(result).not.toBeNull();
-    expect(result.metadata.reason).toBe('Missing input validation');
-  });
-
-  test('decodes multi-word hyphen reason for QA rejection', () => {
-    const output =
-      'status:in_progress qa:qa-orchestrator verdict:rejected reason:test-coverage-below-80-percent';
-    const result = parseSubState(output);
-    expect(result).not.toBeNull();
-    expect(result.metadata.reason).toBe('test coverage below 80 percent');
+    expect(result.metadata.reason).toBe('test-coverage below 80-percent');
   });
 
   // -------------------------------------------------------------------------
