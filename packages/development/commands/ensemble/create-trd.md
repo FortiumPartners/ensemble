@@ -32,9 +32,9 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
    - Verify constraints are documented
 
 **3. Acceptance Criteria Review**
-   Validate testable acceptance criteria and traceability annotations.
-Warn (do NOT halt) if any REQ-NNN requirement has zero TRD task coverage.
-Validate that [satisfies] annotations reference real PRD REQ-NNN IDs.
+   Validate testable acceptance criteria from the PRD.
+Ensure each requirement has measurable acceptance criteria with Given/When/Then items.
+Do NOT validate TRD traceability here — the TRD has not been generated yet.
 
 
 **4. Context Preparation**
@@ -249,6 +249,15 @@ Instruct tech-lead-orchestrator to:
 Generate '## Acceptance Criteria Traceability' matrix table in TRD:
 | REQ-NNN | Description | Implementation Tasks | Test Tasks |
 List each PRD requirement with its implementation task IDs and paired -TEST task IDs.
+
+
+**5. Traceability Validation**
+   Validate [satisfies] annotations now that the TRD has been generated.
+Scan all TRD tasks for [satisfies REQ-NNN] annotations.
+Validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD.
+Warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage.
+Warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD.
+Print summary: 'Traceability check: <N> requirements covered, <M> uncovered, <K> orphaned annotations.'
 
 
 ## Expected Output

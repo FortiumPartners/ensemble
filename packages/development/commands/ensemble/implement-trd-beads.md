@@ -258,15 +258,19 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - Step 1 — Check for traceability annotations: scan TRD content for any '[satisfies REQ-' token
    - If NO [satisfies REQ-] annotations found: print 'NOTE: TRD has no [satisfies] annotations — skipping traceability validation (legacy TRD). Run /create-trd to regenerate with traceability.'; skip remaining steps
-   - Step 2 — Locate PRD reference: search TRD for 'Based on PRD:' or 'PRD:' annotation or a link to a docs/PRD/*.md file
+   - Step 2 — Locate PRD reference: search TRD for PRD path using priority order: (1) docs/PRD/*.md link (most specific), (2) 'Based on PRD: <path>', (3) 'PRD: <path>'. After extracting a candidate path, verify it looks like a file path (contains '/' or ends in '.md') before setting PRD_PATH.
    - If PRD path found: set PRD_PATH to that path
    - If PRD path NOT found: print 'WARNING: No PRD reference found in TRD — skipping traceability validation. Add a PRD reference to enable this gate.'; skip remaining steps
+   - Verify PRD_PATH exists on disk. If not: print 'WARNING: PRD file not found at <PRD_PATH> — skipping traceability validation. Fix the PRD path in the TRD.'; skip to Step 7.
    - Step 3 — Run validation: invoke the validate-requirements logic inline (do not spawn a new agent):
-   -   a. Parse PRD_PATH for all REQ-NNN IDs and AC-NNN-M IDs
-   -   b. Parse TRD for all [satisfies REQ-NNN], [verifies TRD-NNN], and Validates PRD ACs: fields
+   -   a. Parse PRD_PATH for all REQ-NNN IDs and AC-NNN-M IDs — build PRD_REQUIREMENTS map
+   -      If PRD_REQUIREMENTS is empty AND PRD file is non-empty: print 'WARNING: PRD parsed but no REQ-NNN headings found — PRD may use a different format. Skipping validation.' Skip to Step 7.
+   -   b. Parse TRD for all [satisfies REQ-NNN], [verifies TRD-NNN], and Validates PRD ACs: fields — build TRD_TASKS map
+   -      If TRD_TASKS is empty AND TRD is non-empty: print 'WARNING: TRD parsed but no [satisfies] annotations found — TRD may use a different format. Skipping validation.' Skip to Step 7.
    -   c. Check coverage: for each PRD REQ-NNN, check if any TRD task has [satisfies REQ-NNN]; collect UNCOVERED as WARNING
    -   d. Check orphans: for each [satisfies REQ-NNN] in TRD, check if REQ-NNN exists in PRD; collect ORPHANED as ERROR
    -   e. Check test pairs: for each impl task with [satisfies REQ-NNN] (not INFRA/ARCH), check if <task-id>-TEST exists; collect MISSING_TESTS as WARNING
+   -   f. AC reference check: for each task in TRD with 'Validates PRD ACs:' field, check if each AC-NNN-M exists in PRD_REQUIREMENTS (i.e., in the flat set of AC-NNN-M IDs extracted from the PRD); collect INVALID_AC_REFS as WARNING
    - Step 4 — Print validation report:
    -   Print '=== TRACEABILITY VALIDATION ==='
    -   Print each WARNING (uncovered reqs, missing -TEST pairs)
@@ -276,7 +280,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   Print 'ERROR: Traceability validation failed. Fix orphaned [satisfies] annotations in TRD before implementing.'
    -   Print 'Run /ensemble:validate-requirements <prd-path> <trd-path> for details.'
    -   HALT
-   - Step 6 — If only WARNINGs (no errors): print 'Traceability warnings found but continuing. Address before closing implementation.' and proceed to Scaffold
+   -   Note: No beads were created. No git operations were performed. Plugin installations from this session are permanent. Re-run after fixing the TRD annotations.
+   - Step 6 — If only WARNINGs (no errors): print 'Traceability warnings found but continuing. Address before closing implementation. Run /ensemble:validate-requirements <PRD_PATH> <TRD_PATH> at any time to review warnings.' and proceed to Scaffold
 
 ### Phase 2: Scaffold
 
@@ -327,7 +332,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If not found: build structured bead description based on task classification from TASK_TRACEABILITY:
    -   For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\nSatisfies: <satisfies_req_id or INFRA/ARCH>\nPRD ACs: <validates_acs>\nTarget File: <file>\nActions:\n<numbered_actions>\nImplementation AC:\n<implementation_ac_checklist>\nDependencies: <depends_on>'
    -   For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\nVerifies: <verifies_task_id>\nSatisfies: <satisfies_req_id>\nPRD ACs Proven: <validates_acs>\nProof of requirement: <proof_text>\nTarget Files: <files>\nActions:\n<numbered_actions>\nTest AC:\n<test_ac_checklist>\nDependencies: <depends_on>'
-   -   Fallback (no traceability annotations): use raw TRD task body as before
+   -   Fallback (task has no [satisfies] annotation AND no [verifies] annotation): use raw TRD task body as description. Tasks with [satisfies INFRA] or [satisfies ARCH] use the impl task format.
    - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json
    - The description should include: target file path, numbered action items, dependencies, satisfaction/verification links, and acceptance criteria from the TRD task entry
    - Capture TASK_BEAD_ID by parsing .id from JSON response
@@ -458,6 +463,11 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **1. Execution Loop**
    Poll bv robot-next (or br ready) and execute tasks until epic is complete. AC: FR-GD-1, FR-GD-2, FR-GD-3, AC-TD-3, AC-BC-1
 
+   - Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:
+   -   a. Re-run Scaffold Step 1 Pass 6: extract [satisfies REQ-NNN], [satisfies INFRA], [satisfies ARCH], [verifies TRD-NNN], 'Validates PRD ACs:' fields, 'Implementation AC:' blocks, and 'Proof of requirement:' fields per task
+   -   b. Re-run Scaffold Step 1 Pass 7: classify task type — if task.id ends in '-TEST' suffix mark is_test_task=true; extract verifies_task_id and satisfies_req_id
+   -   c. Store rebuilt map in TASK_TRACEABILITY keyed by task.id
+   -   d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
    - TEAM_MODE Gate (evaluated once at the start of the Execute phase):
    -   if TEAM_MODE == false:
    -     - Use the existing v2.1.0 Execute loop (all steps 1-6 unchanged)
@@ -727,6 +737,9 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -    Capture test_results from @test-runner response.
    - 
    - 3. Build augmented QA prompt with test_results, then:
+   -    Check TASK_TRACEABILITY[TASK_ID].is_test_task:
+   -    If is_test_task == true: append to QA prompt before delegating:
+   -      'IMPORTANT: For each PRD AC listed in Validates PRD ACs:, provide explicit verdict (PROVEN/NOT_PROVEN) with evidence.'
    -    Delegate: Task(subagent_type=<TEAM_ROLES.qa.agents[0]>, prompt=<qa_prompt_with_test_results>)
    - 
    -    QA agent validates:
@@ -740,11 +753,10 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 4. Parse QA response for PASSED/REJECTED keyword.
    - 
    - 5. On PASSED:
-   -    a. Detect if this is a test task: check if TASK_ID ends in '-TEST' suffix
-   -    b. If test task: augmented QA prompt must require explicit verdict per PRD AC sub-ID:
-   -       'IMPORTANT: For each PRD AC listed in Validates PRD ACs, provide explicit verdict (PROVEN/NOT_PROVEN).'
-   -       Parse QA response for per-AC verdicts; build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN
-   -       Extract REQ_ID from bead description (satisfies_req_id from TASK_TRACEABILITY)
+   -    a. Detect if this is a test task: check TASK_TRACEABILITY[TASK_ID].is_test_task
+   -    b. If test task: parse QA response for per-AC verdicts (the prompt already required PROVEN/NOT_PROVEN per AC from step 3 above);
+   -       build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN
+   -       Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
    -    c. validate_transition(bead_id, 'closed') — writes augmented status comment for test tasks:
    -       If test task: 'status:closed qa:<agent> verdict:passed req-satisfied:<REQ_ID> ac-proven:<PROVEN_ACS comma-joined>'
    -       If impl task: 'status:closed qa:<agent> verdict:passed' (existing behavior)
@@ -882,7 +894,15 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    Mandatory code review before task closure — delegate to @code-reviewer for quality validation
 
    - Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
-   - If approved: br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'; br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
+   - If approved:
+   -   br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
+   -   Check TASK_TRACEABILITY[TASK_ID].is_test_task:
+   -   If is_test_task == true:
+   -     Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
+   -     Extract PROVEN_ACS from TASK_TRACEABILITY[TASK_ID].validates_acs (all ACs for this test task)
+   -     Write bead comment: br comment add <BEAD_ID> 'req-satisfied:<REQ_ID> ac-proven:<PROVEN_ACS comma-joined>'
+   -     Write root epic comment: br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> ac:<PROVEN_ACS comma-joined>'
+   -   br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
    - If rejected with fixable issues: br comment add <BEAD_ID> 'Code review REJECTED: <issues_found>'; delegate back to original specialist with review feedback; re-submit to code review after fixes (max 2 review rounds)
    - If rejected after 2 rounds: br comment add <BEAD_ID> 'Code review failed after 2 rounds. Issues: <remaining_issues>.'; PAUSE for user decision (force-close, fix manually, abort)
    - Skip code review only if strategy == 'flexible' or task type is docs/documentation-only
@@ -1139,6 +1159,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Print completion report: TRD file, branch, strategy, epic ID, task counts, coverage summary
    - Requirement Satisfaction Table: scan ROOT_EPIC_ID comments for req-verified: tokens
    -   Run: br comment list <ROOT_EPIC_ID>
+   -   If br comment list fails or returns non-JSON: print 'WARNING: Could not read root epic comments — req-verified data unavailable. Run /ensemble:requirement-status <TRD_SLUG> to generate the report manually.' Continue with empty VERIFIED_REQS.
    -   Parse each comment for tokens: req-verified:REQ-NNN, by:TRD-NNN-TEST, qa:<agent>, ac-proven:AC-NNN-M,...
    -   Build VERIFIED_REQS map: REQ-NNN -> {test_task, qa_agent, acs_proven}
    -   If TRD has PRD reference: also load PRD REQ-NNN list for cross-reference (unverified reqs show as NOT VERIFIED)
