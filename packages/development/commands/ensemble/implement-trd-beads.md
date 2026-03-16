@@ -1,7 +1,7 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.7.0
+version: 2.8.0
 category: implementation
 last-updated: 2026-03-16
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
@@ -763,7 +763,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 4. Parse QA response for PASSED/REJECTED keyword.
    - 
    - 5. On PASSED:
-   -    a. Detect if this is a test task: before accessing TASK_TRACEABILITY[TASK_ID]: if TASK_ID is not present as a key in the TASK_TRACEABILITY map (task predates traceability or map rebuild failed): print 'WARNING: No traceability entry for <TASK_ID> — treating as impl task; audit tokens will not be written. If this task has [satisfies REQ-NNN] annotations, re-run this command to re-scaffold.' Set is_test_task = false and skip all req-satisfied/req-verified/ac-proven token writing for this task. Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task
+   -    a. Detect if this is a test task: apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, action item 3). Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task
    -    b. If test task: parse QA response for per-AC verdicts (the prompt already required PROVEN/NOT_PROVEN per AC from step 3 above);
    -       build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN
    -       Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
@@ -906,7 +906,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
    - If approved:
    -   br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
-   -   Before accessing TASK_TRACEABILITY[TASK_ID]: if TASK_ID is not present as a key in the TASK_TRACEABILITY map (task predates traceability or map rebuild failed): print 'WARNING: No traceability entry for <TASK_ID> — treating as impl task; audit tokens will not be written. If this task has [satisfies REQ-NNN] annotations, re-run this command to re-scaffold.' Set is_test_task = false and skip all req-satisfied/req-verified/ac-proven token writing for this task.
+   -   Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3).
    -   Check TASK_TRACEABILITY[TASK_ID].is_test_task:
    -   If is_test_task == true:
    -     Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
