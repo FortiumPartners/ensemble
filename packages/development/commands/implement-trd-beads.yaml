@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.6.0
+  version: 2.7.0
   lastUpdated: "2026-03-16"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
@@ -538,8 +538,8 @@ workflow:
             - "For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]"
             - "If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation"
             - "If not found: build structured bead description based on task classification from TASK_TRACEABILITY:"
-            - "  For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\\nSatisfies: <satisfies_req_id or INFRA/ARCH>\\nPRD ACs: <validates_acs>\\nTarget File: <file>\\nActions:\\n<numbered_actions>\\nImplementation AC:\\n<implementation_ac_checklist>\\nDependencies: <depends_on>'"
-            - "  For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\\nVerifies: <verifies_task_id>\\nSatisfies: <satisfies_req_id>\\nPRD ACs Proven: <validates_acs>\\nProof of requirement: <proof_text>\\nTarget Files: <files>\\nActions:\\n<numbered_actions>\\nTest AC:\\n<test_ac_checklist>\\nDependencies: <depends_on>'"
+            - "  For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase> (omit this line if satisfies_req_id is INFRA or ARCH)\\nSatisfies: <satisfies_req_id or INFRA/ARCH>\\nPRD ACs: <validates_acs>\\nTarget File: <file>\\nActions:\\n<numbered_actions>\\nImplementation AC:\\n<implementation_ac_checklist>\\nDependencies: <depends_on>'"
+            - "  For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase>\\nVerifies Task: <TRD_FILE_PATH>#<verifies_task_id-lowercase>\\nVerifies: <verifies_task_id>\\nSatisfies: <satisfies_req_id>\\nPRD ACs Proven: <validates_acs>\\nProof of requirement: <proof_text>\\nTarget Files: <files>\\nActions:\\n<numbered_actions>\\nTest AC:\\n<test_ac_checklist>\\nDependencies: <depends_on>'"
             - "  Fallback (task has no [satisfies] annotation AND no [verifies] annotation): use raw TRD task body as description. Tasks with [satisfies INFRA] or [satisfies ARCH] use the impl task format."
             - "Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json"
             - "The description should include: target file path, numbered action items, dependencies, satisfaction/verification links, and acceptance criteria from the TRD task entry"
