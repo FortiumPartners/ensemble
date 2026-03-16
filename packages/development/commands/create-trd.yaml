@@ -2,7 +2,7 @@ metadata:
   name: ensemble:create-trd
   description: |
     Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
-  version: 2.1.0
+  version: 2.2.0
   lastUpdated: "2026-03-15"
   category: planning
   output_path: ensemble/create-trd.md
@@ -223,7 +223,10 @@ workflow:
 
         - order: 3
           title: Acceptance Criteria Review
-          description: Validate testable acceptance criteria
+          description: |
+            Validate testable acceptance criteria from the PRD.
+            Ensure each requirement has measurable acceptance criteria with Given/When/Then items.
+            Do NOT validate TRD traceability here — the TRD has not been generated yet.
 
         - order: 4
           title: Context Preparation
@@ -241,7 +244,16 @@ workflow:
 
         - order: 2
           title: Tech Lead Orchestrator
-          description: Delegate technical planning and architecture design
+          description: |
+            Delegate technical planning and architecture design with traceability annotations.
+
+            Instruct tech-lead-orchestrator to:
+            - Add [satisfies REQ-NNN] to every task that satisfies a PRD requirement
+            - Use [satisfies INFRA] or [satisfies ARCH] for infrastructure/architecture tasks without a direct user requirement
+            - Add Validates PRD ACs: AC-NNN-M, AC-NNN-M fields to every implementation task
+            - Add Implementation AC: checklist with Given/When/Then items per task
+            - Generate paired TRD-NNN-TEST tasks for every user-facing implementation task:
+              [verifies TRD-NNN] [satisfies REQ-NNN] [depends: TRD-NNN]
           delegation:
             agent: tech-lead-orchestrator
             context: Product requirements requiring technical translation
@@ -459,7 +471,21 @@ workflow:
 
         - order: 4
           title: Documentation Links
-          description: Update cross-references between PRD and TRD documents
+          description: |
+            Update cross-references between PRD and TRD documents.
+            Generate '## Acceptance Criteria Traceability' matrix table in TRD:
+            | REQ-NNN | Description | Implementation Tasks | Test Tasks |
+            List each PRD requirement with its implementation task IDs and paired -TEST task IDs.
+
+        - order: 5
+          title: Traceability Validation
+          description: |
+            Validate [satisfies] annotations now that the TRD has been generated.
+            Scan all TRD tasks for [satisfies REQ-NNN] annotations.
+            Validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD.
+            Warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage.
+            Warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD.
+            Print summary: 'Traceability check: <N> requirements covered, <M> uncovered, <K> orphaned annotations.'
 
 expectedInput:
   format: Product Requirements Document (PRD)
@@ -482,7 +508,7 @@ expectedInput:
 
     - name: Acceptance Criteria
       required: true
-      description: Measurable success criteria with test scenarios
+      description: Measurable success criteria with REQ-NNN IDs and Given/When/Then AC-NNN-M sub-items
 
     - name: Implementation Planning
       required: false
@@ -496,7 +522,7 @@ expectedOutput:
   format: Technical Requirements Document (TRD)
   structure:
     - name: Master Task List
-      description: Comprehensive task tracking with unique task IDs, dependencies, and completion tracking
+      description: Comprehensive task tracking with unique task IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired -TEST verification tasks
 
     - name: System Architecture
       description: Component design, data flow, and integration points
@@ -509,6 +535,9 @@ expectedOutput:
 
     - name: Quality Requirements
       description: Security, performance, accessibility, and testing standards
+
+    - name: Acceptance Criteria Traceability
+      description: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks
 
 mcp_integration:
   enabled: true

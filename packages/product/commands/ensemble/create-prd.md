@@ -27,18 +27,28 @@ acceptance criteria definition, and structured requirements documentation.
 ### Phase 2: Requirements Definition
 
 **1. Functional Requirements**
-   Define what the product must do
+   Define what the product must do.
+Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
+
 
 **2. Non-Functional Requirements**
-   Define performance, security, accessibility requirements
+   Define performance, security, accessibility requirements.
+Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
+
 
 **3. Acceptance Criteria**
-   Create measurable, testable acceptance criteria
+   Create measurable, testable acceptance criteria.
+Write ACs as numbered sub-items under each requirement in Given/When/Then format: '- AC-NNN-M: Given <context>, when <action>, then <outcome>'
+
 
 ### Phase 3: Output Management
 
 **1. PRD Creation**
-   Generate comprehensive PRD document
+   Generate comprehensive PRD document.
+Include document frontmatter block: Document ID: PRD-YYYY-NNN, Version, Status, Requirement count.
+Generate Acceptance Criteria summary table: | REQ-NNN | Description | AC count | Priority |
+File naming: docs/PRD/PRD-YYYY-NNN-<slug>.md
+
 
 **2. File Organization**
    Save to @docs/PRD/ directory
@@ -51,7 +61,8 @@ acceptance criteria definition, and structured requirements documentation.
 - **Product Summary**: Problem statement, solution, value proposition
 - **User Analysis**: Users, personas, pain points, journey
 - **Goals & Non-Goals**: Objectives, success criteria, scope boundaries
-- **Acceptance Criteria**: Measurable success criteria with test scenarios
+- **Requirement IDs**: REQ-NNN identifiers on every functional and non-functional requirement
+- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table
 
 ## Usage
 

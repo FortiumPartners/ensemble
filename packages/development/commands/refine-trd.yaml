@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:refine-trd
   description: Refine and enhance existing TRD with stakeholder feedback and additional detail
-  version: 2.0.0
-  lastUpdated: "2026-02-16"
+  version: 2.1.0
+  lastUpdated: "2026-03-15"
   category: planning
   output_path: ensemble/refine-trd.md
   source: fortium
@@ -49,6 +49,10 @@ workflow:
             - Performance requirements and targets
             - Missing technical edge cases
             - Integration points and external dependencies
+            - "Does every implementation task have a [satisfies REQ-NNN] annotation?"
+            - "Is there a paired TRD-NNN-TEST task for every user-facing implementation task?"
+            - "Do 'Validates PRD ACs:' fields correctly reference PRD sub-IDs (AC-NNN-M)?"
+            - "Are all [satisfies] annotations referencing real PRD REQ-NNN IDs?"
 
         - order: 3
           title: Feedback Integration
@@ -59,7 +63,11 @@ workflow:
       steps:
         - order: 1
           title: Content Refinement
-          description: Enhance clarity, detail, and completeness
+          description: |
+            Enhance clarity, detail, and completeness
+            - Add [satisfies REQ-NNN] annotations to implementation tasks that lack them
+            - Add missing TRD-NNN-TEST paired tasks for user-facing implementation tasks
+            - Validate Validates PRD ACs: fields reference real PRD AC sub-IDs
 
         - order: 2
           title: Validation
@@ -73,7 +81,7 @@ workflow:
           description: Update TRD with version history
 
 expectedOutput:
-  format: Refined Technical Requirements Document (PRD)
+  format: Refined Technical Requirements Document (TRD)
   structure:
     - name: Updated TRD
       description: Enhanced TRD with feedback incorporated

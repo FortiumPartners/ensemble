@@ -16,9 +16,9 @@ async function main(hookData) {
       return;
     }
 
-    // Only handle Task tool
+    // Only handle Task and Agent tools
     const toolName = hookData.tool_name || hookData.tool;
-    if (toolName !== 'Task') {
+    if (toolName !== 'Task' && toolName !== 'Agent') {
       return;
     }
 

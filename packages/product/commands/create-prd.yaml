@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document from product description
-  version: 2.0.0
-  lastUpdated: "2026-02-16"
+  version: 2.1.0
+  lastUpdated: "2026-03-15"
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
@@ -42,22 +42,32 @@ workflow:
       steps:
         - order: 1
           title: Functional Requirements
-          description: Define what the product must do
+          description: |
+            Define what the product must do.
+            Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
 
         - order: 2
           title: Non-Functional Requirements
-          description: Define performance, security, accessibility requirements
+          description: |
+            Define performance, security, accessibility requirements.
+            Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
 
         - order: 3
           title: Acceptance Criteria
-          description: Create measurable, testable acceptance criteria
+          description: |
+            Create measurable, testable acceptance criteria.
+            Write ACs as numbered sub-items under each requirement in Given/When/Then format: '- AC-NNN-M: Given <context>, when <action>, then <outcome>'
 
     - name: Output Management
       order: 3
       steps:
         - order: 1
           title: PRD Creation
-          description: Generate comprehensive PRD document
+          description: |
+            Generate comprehensive PRD document.
+            Include document frontmatter block: Document ID: PRD-YYYY-NNN, Version, Status, Requirement count.
+            Generate Acceptance Criteria summary table: | REQ-NNN | Description | AC count | Priority |
+            File naming: docs/PRD/PRD-YYYY-NNN-<slug>.md
 
         - order: 2
           title: File Organization
@@ -75,5 +85,8 @@ expectedOutput:
     - name: Goals & Non-Goals
       description: Objectives, success criteria, scope boundaries
 
+    - name: Requirement IDs
+      description: REQ-NNN identifiers on every functional and non-functional requirement
+
     - name: Acceptance Criteria
-      description: Measurable success criteria with test scenarios
+      description: "ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table"

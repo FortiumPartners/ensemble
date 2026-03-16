@@ -30,7 +30,11 @@
       "Bash(npm install:*)",
       "Bash(npm ls:*)",
       "Bash(npm query:*)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(mulch learn:*)",
+      "Bash(mulch record:*)",
+      "Bash(npm run:*)",
+      "Bash(gh pr:*)"
     ]
   },
   "enabledPlugins": {

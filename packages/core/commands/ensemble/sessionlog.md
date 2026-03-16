@@ -12,18 +12,6 @@ encountered, and resolutions reached. Saves to ./SessionLogs/session-DDMMYY-HH:M
 relative to the current project directory. Useful for preserving session knowledge
 across context boundaries, onboarding, and audit trails.
 
-## Constraints
-
-- Output directory is always ./SessionLogs/ relative to the current working project
-- Filename format is session-DDMMYY-HH:MM.md using current date and time
-- Create the SessionLogs directory if it does not exist
-- Never overwrite an existing session log file
-- Include all significant decisions, not just code changes
-- Capture both successful and failed approaches for learning value
-- Never include sensitive data such as API keys, tokens, passwords, secrets, credentials, or personally identifiable information (PII) in session logs
-- If previous session logs exist in ./SessionLogs/, focus on changes since the last log rather than repeating prior context
-- When prior logs exist, include a Continuation section at the top linking to the most recent previous log file
-
 ## Workflow
 
 ### Phase 1: Session Analysis
