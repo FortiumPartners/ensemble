@@ -32,7 +32,10 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
    - Verify constraints are documented
 
 **3. Acceptance Criteria Review**
-   Validate testable acceptance criteria
+   Validate testable acceptance criteria and traceability annotations.
+Warn (do NOT halt) if any REQ-NNN requirement has zero TRD task coverage.
+Validate that [satisfies] annotations reference real PRD REQ-NNN IDs.
+
 
 **4. Context Preparation**
    Prepare PRD for technical planning delegation
@@ -46,7 +49,16 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
    Validated PRD with acceptance criteria
 
 **2. Tech Lead Orchestrator**
-   Delegate technical planning and architecture design
+   Delegate technical planning and architecture design with traceability annotations.
+
+Instruct tech-lead-orchestrator to:
+- Add [satisfies REQ-NNN] to every task that satisfies a PRD requirement
+- Use [satisfies INFRA] or [satisfies ARCH] for infrastructure/architecture tasks without a direct user requirement
+- Add Validates PRD ACs: AC-NNN-M, AC-NNN-M fields to every implementation task
+- Add Implementation AC: checklist with Given/When/Then items per task
+- Generate paired TRD-NNN-TEST tasks for every user-facing implementation task:
+  [verifies TRD-NNN] [satisfies REQ-NNN] [depends: TRD-NNN]
+
 
    **Delegation:** @tech-lead-orchestrator
    Product requirements requiring technical translation
@@ -233,18 +245,23 @@ and implementation breakdown. All outputs are automatically saved to @docs/TRD/ 
    Include timestamp and PRD reference for traceability
 
 **4. Documentation Links**
-   Update cross-references between PRD and TRD documents
+   Update cross-references between PRD and TRD documents.
+Generate '## Acceptance Criteria Traceability' matrix table in TRD:
+| REQ-NNN | Description | Implementation Tasks | Test Tasks |
+List each PRD requirement with its implementation task IDs and paired -TEST task IDs.
+
 
 ## Expected Output
 
 **Format:** Technical Requirements Document (TRD)
 
 **Structure:**
-- **Master Task List**: Comprehensive task tracking with unique task IDs, dependencies, and completion tracking
+- **Master Task List**: Comprehensive task tracking with unique task IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired -TEST verification tasks
 - **System Architecture**: Component design, data flow, and integration points
 - **Sprint Planning**: Organized development phases with task references and dependencies
 - **Acceptance Criteria**: Technical validation criteria with checkbox tracking
 - **Quality Requirements**: Security, performance, accessibility, and testing standards
+- **Acceptance Criteria Traceability**: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks
 
 ## Usage
 

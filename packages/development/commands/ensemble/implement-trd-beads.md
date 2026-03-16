@@ -258,6 +258,8 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    - Pass 3: Extract phases from '### Phase N' or '### Sprint N' headings; synthesize single phase if none found
    - Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
    - Pass 5: Validate at least one task found; warn on duplicate task IDs
+   - Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id
+   - Pass 7: Classify task type — if task.id ends in '-TEST' suffix, mark is_test_task=true; extract verifies_task_id (from [verifies TRD-NNN]) and satisfies_req_id (from [satisfies REQ-NNN]); store in TASK_TRACEABILITY[task.id]
 
 **2. Idempotency Cache**
    Cache existing beads to enable partial scaffold resume via title-prefix matching
@@ -292,9 +294,12 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
 
    - For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]
    - If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation
-   - If not found: extract the full task body from the TRD (everything under the task entry: File, Actions, sub-items) and use as description
-   - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<task_body_from_TRD>' --json
-   - The description should include: target file path, numbered action items, dependencies, and acceptance criteria from the TRD task entry
+   - If not found: build structured bead description based on task classification from TASK_TRACEABILITY:
+   -   For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\nSatisfies: <satisfies_req_id or INFRA/ARCH>\nPRD ACs: <validates_acs>\nTarget File: <file>\nActions:\n<numbered_actions>\nImplementation AC:\n<implementation_ac_checklist>\nDependencies: <depends_on>'
+   -   For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\nVerifies: <verifies_task_id>\nSatisfies: <satisfies_req_id>\nPRD ACs Proven: <validates_acs>\nProof of requirement: <proof_text>\nTarget Files: <files>\nActions:\n<numbered_actions>\nTest AC:\n<test_ac_checklist>\nDependencies: <depends_on>'
+   -   Fallback (no traceability annotations): use raw TRD task body as before
+   - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json
+   - The description should include: target file path, numbered action items, dependencies, satisfaction/verification links, and acceptance criteria from the TRD task entry
    - Capture TASK_BEAD_ID by parsing .id from JSON response
    - After creation: br dep add <TASK_BEAD_ID> <STORY_BEAD_ID> to establish parent-child relationship
    - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
@@ -705,11 +710,20 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    - 4. Parse QA response for PASSED/REJECTED keyword.
    - 
    - 5. On PASSED:
-   -    a. validate_transition(bead_id, 'closed')  -- sole status comment writer: writes 'status:closed qa:<agent> verdict:passed' and calls br close internally
-   -    b. Run: br sync --flush-only
-   -    c. Update TRD checkbox: replace '- [ ] **<TASK_ID>**' with '- [x] **<TASK_ID>**' in TRD file
-   -    d. git commit -m 'feat(<TRD_SLUG>): complete <TASK_ID> - <task_title_short>'
-   -    e. Record metrics: update TEAM_METRICS accumulator (TRD-034, Execute step 3d)
+   -    a. Detect if this is a test task: check if TASK_ID ends in '-TEST' suffix
+   -    b. If test task: augmented QA prompt must require explicit verdict per PRD AC sub-ID:
+   -       'IMPORTANT: For each PRD AC listed in Validates PRD ACs, provide explicit verdict (PROVEN/NOT_PROVEN).'
+   -       Parse QA response for per-AC verdicts; build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN
+   -       Extract REQ_ID from bead description (satisfies_req_id from TASK_TRACEABILITY)
+   -    c. validate_transition(bead_id, 'closed') — writes augmented status comment for test tasks:
+   -       If test task: 'status:closed qa:<agent> verdict:passed req-satisfied:<REQ_ID> ac-proven:<PROVEN_ACS comma-joined>'
+   -       If impl task: 'status:closed qa:<agent> verdict:passed' (existing behavior)
+   -    d. If test task AND PASSED: write root epic audit comment:
+   -       br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> qa:<QA_AGENT> ac-proven:<PROVEN_ACS comma-joined>'
+   -    e. Run: br sync --flush-only
+   -    f. Update TRD checkbox: replace '- [ ] **<TASK_ID>**' with '- [x] **<TASK_ID>**' in TRD file
+   -    g. git commit -m 'feat(<TRD_SLUG>): complete <TASK_ID> - <task_title_short>'
+   -    h. Record metrics: update TEAM_METRICS accumulator (TRD-034, Execute step 3d)
    - 
    - 6. On REJECTED:
    -    a. validate_transition(bead_id, 'in_progress')  -- sole status comment writer: writes 'status:in_progress qa:<agent> verdict:rejected reason:<url_encoded_reason>' and resets native br status to open
@@ -1093,6 +1107,18 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    Print final summary and remind user about PR creation
 
    - Print completion report: TRD file, branch, strategy, epic ID, task counts, coverage summary
+   - Requirement Satisfaction Table: scan ROOT_EPIC_ID comments for req-verified: tokens
+   -   Run: br comment list <ROOT_EPIC_ID>
+   -   Parse each comment for tokens: req-verified:REQ-NNN, by:TRD-NNN-TEST, qa:<agent>, ac-proven:AC-NNN-M,...
+   -   Build VERIFIED_REQS map: REQ-NNN -> {test_task, qa_agent, acs_proven}
+   -   If TRD has PRD reference: also load PRD REQ-NNN list for cross-reference (unverified reqs show as NOT VERIFIED)
+   -   Print table:
+   -     === REQUIREMENT SATISFACTION REPORT ===
+   -     REQ-001: SATISFIED (TRD-001-TEST) — ACs: AC-001-1, AC-001-2
+   -     REQ-002: NOT VERIFIED (TRD-002-TEST still open)
+   -     REQ-003: SATISFIED (TRD-007-TEST) — ACs: AC-003-1, AC-003-2, AC-003-3
+   -     TOTAL: <N> satisfied / <M> total requirements
+   -     ========================================
    - Run: br sync --flush-only
    - If BV_AVAILABLE: run bv --robot-triage --format toon for final progress summary
    - If not BV_AVAILABLE: run br list --status=open --json filtered by TRD slug (expect empty)
@@ -1112,6 +1138,7 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
 - **Wheel Instructions**: Printed agentic coding flywheel instructions with NTM spawn commands, agent self-selection loop, mail coordination, and progress monitoring commands
 - **BV Analysis**: Captured bv --robot-plan parallel execution tracks and bv --robot-triage scored recommendations (when bv available)
 - **Completion Report**: Summary with epic ID, coverage metrics, and PR creation reminder
+- **Requirement Satisfaction Report**: Table of PRD REQ-NNN requirements with SATISFIED/NOT VERIFIED status, test task references, and proven AC sub-IDs (generated from root epic req-verified comments)
 
 ## Usage
 

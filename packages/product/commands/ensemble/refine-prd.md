@@ -35,6 +35,9 @@ Ask about:
 - Technical constraints or dependencies not captured
 - Priority order of features/requirements
 - Open questions or decisions needing resolution
+- Do all requirements have REQ-NNN IDs as H3 headings?
+- Are all ACs written in Given/When/Then format and independently testable?
+- Is there a PRD document ID (PRD-YYYY-NNN) in the frontmatter?
 
 
 **3. Feedback Integration**
@@ -43,7 +46,11 @@ Ask about:
 ### Phase 2: Enhancement
 
 **1. Content Refinement**
-   Enhance clarity, detail, and completeness
+   Enhance clarity, detail, and completeness.
+Retroactively assign REQ-NNN IDs to any unnumbered requirements in existing PRDs.
+Rewrite non-GWT acceptance criteria in Given/When/Then format.
+Add PRD frontmatter block if missing (Document ID, Version, Status, Requirement count).
+
 
 **2. Validation**
    Ensure all sections meet quality standards

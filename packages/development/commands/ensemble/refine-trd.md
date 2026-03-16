@@ -36,6 +36,10 @@ Ask about:
 - Performance requirements and targets
 - Missing technical edge cases
 - Integration points and external dependencies
+- "Does every implementation task have a [satisfies REQ-NNN] annotation?"
+- "Is there a paired TRD-NNN-TEST task for every user-facing implementation task?"
+- "Do 'Validates PRD ACs:' fields correctly reference PRD sub-IDs (AC-NNN-M)?"
+- "Are all [satisfies] annotations referencing real PRD REQ-NNN IDs?"
 
 
 **3. Feedback Integration**
@@ -45,6 +49,10 @@ Ask about:
 
 **1. Content Refinement**
    Enhance clarity, detail, and completeness
+- Add [satisfies REQ-NNN] annotations to implementation tasks that lack them
+- Add missing TRD-NNN-TEST paired tasks for user-facing implementation tasks
+- Validate Validates PRD ACs: fields reference real PRD AC sub-IDs
+
 
 **2. Validation**
    Ensure all sections meet quality standards
@@ -56,7 +64,7 @@ Ask about:
 
 ## Expected Output
 
-**Format:** Refined Technical Requirements Document (PRD)
+**Format:** Refined Technical Requirements Document (TRD)
 
 **Structure:**
 - **Updated TRD**: Enhanced TRD with feedback incorporated

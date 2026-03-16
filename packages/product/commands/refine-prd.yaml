@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:refine-prd
   description: Refine and enhance existing PRD with stakeholder feedback and additional detail
-  version: 2.0.0
-  lastUpdated: "2026-02-16"
+  version: 2.1.0
+  lastUpdated: "2026-03-15"
   category: planning
   output_path: ensemble/refine-prd.md
   source: fortium
@@ -48,6 +48,9 @@ workflow:
             - Technical constraints or dependencies not captured
             - Priority order of features/requirements
             - Open questions or decisions needing resolution
+            - Do all requirements have REQ-NNN IDs as H3 headings?
+            - Are all ACs written in Given/When/Then format and independently testable?
+            - Is there a PRD document ID (PRD-YYYY-NNN) in the frontmatter?
 
         - order: 3
           title: Feedback Integration
@@ -58,7 +61,11 @@ workflow:
       steps:
         - order: 1
           title: Content Refinement
-          description: Enhance clarity, detail, and completeness
+          description: |
+            Enhance clarity, detail, and completeness.
+            Retroactively assign REQ-NNN IDs to any unnumbered requirements in existing PRDs.
+            Rewrite non-GWT acceptance criteria in Given/When/Then format.
+            Add PRD frontmatter block if missing (Document ID, Version, Status, Requirement count).
 
         - order: 2
           title: Validation
