@@ -763,7 +763,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 4. Parse QA response for PASSED/REJECTED keyword.
    - 
    - 5. On PASSED:
-   -    a. Detect if this is a test task: apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3). Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task
+   -    a. Detect if this is a test task: apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, action item 3). Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task
    -    b. If test task: parse QA response for per-AC verdicts (the prompt already required PROVEN/NOT_PROVEN per AC from step 3 above);
    -       build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN
    -       Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
