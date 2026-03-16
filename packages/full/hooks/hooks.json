@@ -34,6 +34,15 @@
         ]
       },
       {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-spawner.js"
+          }
+        ]
+      },
+      {
         "matcher": "TodoWrite",
         "hooks": [
           {
@@ -46,6 +55,15 @@
     "PostToolUse": [
       {
         "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pane-completion.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
         "hooks": [
           {
             "type": "command",

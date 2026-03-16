@@ -50,9 +50,9 @@ async function main(hookData) {
       return;
     }
 
-    // Only handle Task tool
+    // Only handle Task/Agent tool (Claude Code uses both names across versions)
     const toolName = hookData.tool_name || hookData.tool;
-    if (toolName !== 'Task') {
+    if (toolName !== 'Task' && toolName !== 'Agent') {
       return;
     }
 
