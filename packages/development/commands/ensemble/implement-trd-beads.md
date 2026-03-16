@@ -1,11 +1,11 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.5.0
+version: 2.6.0
 category: implementation
-last-updated: 2026-03-15
+last-updated: 2026-03-16
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
-argument-hint: [trd-path] [--status] [--reset-task TRD-XXX] [max parallel N]
+argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: sonnet
 ---
 <!-- DO NOT EDIT - Generated from implement-trd-beads.yaml -->
@@ -41,6 +41,9 @@ Key behaviors:
 **1. Handle Special Arguments**
    Process --status and --reset-task arguments for early exit paths
 
+   - If $ARGUMENTS contains '--plan' AND $ARGUMENTS contains '--execute': print 'ERROR: --plan and --execute are mutually exclusive.' and EXIT
+   - If $ARGUMENTS contains '--plan': set PLAN_ONLY=true (scaffold phase runs, Execute phase is skipped — print wheel instructions and exit after scaffold completes)
+   - If $ARGUMENTS contains '--execute': set EXECUTE_ONLY=true (scaffold phase is skipped — resume detection runs, Execute phase runs against existing beads)
    - If $ARGUMENTS contains '--status' AND TEAM_MODE=true: (TRD-029, AC: FR-IT-8, AC-BC-2)
    -   1. Derive TRD_SLUG from filename (same derivation as normal Preflight step 4)
    -   2. Run: br list --status=in_progress --json, filter by [trd:<TRD_SLUG>:task:] prefix
@@ -89,6 +92,7 @@ Key behaviors:
 **5. Resume Detection**
    Check for existing beads scaffold to enable cross-session resume
 
+   - If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble:implement-trd-beads --plan first.' and EXIT.
    - Run: br list --status=open --json
    - Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
    - If found: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
@@ -460,6 +464,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   MONITOR PROGRESS:
    -     br list --status=open                  # See remaining work
    -   ================================================================
+   - If PLAN_ONLY=true: print 'Plan complete. Bead hierarchy created. Run /ensemble:implement-trd-beads --execute to begin implementation.' and EXIT. Do not enter Execute phase.
 
 ### Phase 3: Execute
 
@@ -1205,5 +1210,5 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 ## Usage
 
 ```
-/ensemble:implement-trd-beads [trd-path] [--status] [--reset-task TRD-XXX] [max parallel N]
+/ensemble:implement-trd-beads [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 ```
