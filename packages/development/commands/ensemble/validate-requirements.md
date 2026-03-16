@@ -49,7 +49,8 @@ Note: IDs must match exactly (REQ-001, not REQ-1 or req-001). IDs that do not ma
 
 **1. Coverage Check**
    Identify uncovered PRD requirements (WARNING — not ERROR).
-For each REQ-NNN in PRD_REQUIREMENTS:
+If PRD_REQUIREMENTS is empty or null (legacy PRD or early-exit condition from Document Parsing): skip this check entirely and print 'Coverage Check: SKIPPED (no PRD requirements to cross-reference).'
+Otherwise: For each REQ-NNN in PRD_REQUIREMENTS:
   Check if any TRD task has [satisfies REQ-NNN] annotation.
   If none: record as UNCOVERED_REQUIREMENTS[REQ-NNN].
 Print '[WARNING] Uncovered requirements (no TRD task satisfies them):' with list.
@@ -57,7 +58,8 @@ Print '[WARNING] Uncovered requirements (no TRD task satisfies them):' with list
 
 **2. Orphan Check**
    Identify orphaned TRD annotations referencing non-existent PRD IDs (ERROR).
-For each [satisfies REQ-NNN] annotation in TRD_TASKS:
+If PRD_REQUIREMENTS is empty or null (legacy PRD or early-exit condition from Document Parsing): skip this check entirely and print 'Orphan Check: SKIPPED (no PRD requirements to cross-reference).'
+Otherwise: For each [satisfies REQ-NNN] annotation in TRD_TASKS:
   If REQ-NNN not in PRD_REQUIREMENTS AND REQ-NNN not in [INFRA, ARCH]:
     record as ORPHANED_ANNOTATIONS[task-id -> REQ-NNN].
 Print '[ERROR] Orphaned satisfies annotations (REQ-NNN not in PRD):' with list.
@@ -67,6 +69,7 @@ Note: The exit code mechanism requires the Bash tool to run `exit 1`. If running
 
 **3. Test Pair Check**
    Identify missing -TEST task pairs for user-facing implementation tasks (WARNING).
+Note: This check uses only TRD data (TRD_TASKS) and runs even when PRD_REQUIREMENTS is empty or null.
 For each task in TRD_TASKS where is_test_task=false:
   If task has [satisfies REQ-NNN] (not INFRA or ARCH):
     Expected paired test task: <task-id>-TEST
@@ -76,6 +79,7 @@ Print '[WARNING] Missing -TEST paired tasks:' with list.
 
 **4. AC Coverage Check**
    Check that Validates PRD ACs fields reference real AC IDs (WARNING).
+If PRD_REQUIREMENTS is empty or null (legacy PRD or early-exit condition from Document Parsing): skip this check entirely and print 'AC Coverage Check: SKIPPED (no PRD requirements to cross-reference).'
 If no tasks in TRD_TASKS have any 'Validates PRD ACs:' fields: print 'AC Coverage Check: SKIPPED (no Validates PRD ACs fields found in TRD)' and note this in the summary. Distinguish from PASSED (references found and all valid).
 For each task in TRD_TASKS with validates_acs non-empty:
   For each AC-NNN-M in validates_acs:
