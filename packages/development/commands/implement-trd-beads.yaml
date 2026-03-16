@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.7.0
+  version: 2.8.0
   lastUpdated: "2026-03-16"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
@@ -18,39 +18,12 @@ metadata:
     - Task
 
 # Optional team configuration section.
-# Absence of this section means TEAM_MODE=false (single-agent behavior — v2.1.0 default).
-# Presence of this section means TEAM_MODE=true (role-based handoff execution).
+# Absence: TEAM_MODE=false (single-agent). Presence: TEAM_MODE=true (role-based handoff).
+# Roles: lead (required), builder (required), reviewer (optional), qa (optional).
+# All agent names must exist in packages/*/agents/*.yaml.
+# See Preflight Step 8 "Team Configuration Detection" for full schema and validation rules.
 #
-# Schema:
-#   team:
-#     roles:                           # Required when team: is present. List of role definitions.
-#       - name: <role-name>            # Required. One of: lead | builder | reviewer | qa
-#         agent: <agent-name>          # Singular agent assignment (mutually exclusive with agents:)
-#         agents:                      # Multi-agent assignment (mutually exclusive with agent:)
-#           - <agent-name>
-#           - <agent-name>
-#         owns:                        # Required. List of ownership categories this role is responsible for.
-#           - <category>               # Valid values: task-selection | implementation | code-review |
-#                                      #   quality-gate | architecture-review | final-approval |
-#                                      #   acceptance-criteria
-#
-# Role name semantics:
-#   lead      - Orchestrates task selection, architecture review, and final approval.
-#               Required when team: is present. Must use singular agent:.
-#   builder   - Implements tasks. Required when team: is present. May use agent: or agents:.
-#               When agents: is a list, builders are dispatched in parallel per task.
-#   reviewer  - Performs code review. Optional. Use agent: (single reviewer).
-#               If absent, REVIEWER_ENABLED=false and code-review ownership falls to lead.
-#   qa        - Performs quality gate validation. Optional. Use agent: (single QA agent).
-#               If absent, QA_ENABLED=false and quality-gate ownership falls to lead.
-#
-# Validation rules (enforced during Preflight "Team Configuration Detection" step, TRD-002):
-#   - lead and builder roles MUST be defined when team: is present
-#   - All agent names MUST exist in packages/*/agents/*.yaml (ensemble agent registry)
-#   - agent: and agents: are mutually exclusive per role entry
-#   - owns: list MUST contain at least one valid category
-#
-# Example team configuration (uncomment and adapt to activate team mode):
+# Example (uncomment and adapt to activate team mode):
 #
 # team:
 #   roles:
@@ -158,40 +131,6 @@ metadata:
 #   # Lead skips QA:
 #   status:skip-qa lead:tech-lead-orchestrator reason:low-risk-configuration-change
 #
-# Schema (commented-out, for documentation purposes only):
-#
-# comment_format:
-#   format: "status:<state> <key>:<value> [<key>:<value>...]"
-#   states:
-#     - in_progress
-#     - in_review
-#     - in_qa
-#     - closed
-#     - skip-review
-#     - skip-qa
-#   keys:
-#     assigned: agent name assigned to task
-#     builder:  builder agent name
-#     reviewer: reviewer agent name
-#     qa:       QA agent name
-#     verdict:  "approved | rejected | passed | failed"
-#     reason:   URL-encoded explanation (spaces as %20; hyphens preserved literally)
-#     files:    comma-separated list of changed files
-#     lead:     lead agent name
-#   write_command: "br comment add <bead_id> 'status:<state> <key>:<value> ...'"
-#   parse_algorithm:
-#     - "Run: br comment list <bead_id>"
-#     - "Split output into lines"
-#     - "Scan lines in REVERSE order (latest comment first)"
-#     - "For each line: check for 'status:' prefix"
-#     - "If found: extract state (first token after status:), extract key-value pairs"
-#     - "URL-decode reason: values"
-#     - "Return (state, metadata_dict)"
-#     - "If no status: comment found: query br native status as fallback"
-#   native_status_mapping:
-#     open:        "sub-state 'open' (no comment needed)"
-#     in_progress: "sub-state is latest status: comment (in_progress | in_review | in_qa)"
-#     closed:      "sub-state 'closed'"
 # ============================================================
 
 mission:
@@ -974,7 +913,7 @@ workflow:
             - "4. Parse QA response for PASSED/REJECTED keyword."
             - ""
             - "5. On PASSED:"
-            - "   a. Detect if this is a test task: before accessing TASK_TRACEABILITY[TASK_ID]: if TASK_ID is not present as a key in the TASK_TRACEABILITY map (task predates traceability or map rebuild failed): print 'WARNING: No traceability entry for <TASK_ID> — treating as impl task; audit tokens will not be written. If this task has [satisfies REQ-NNN] annotations, re-run this command to re-scaffold.' Set is_test_task = false and skip all req-satisfied/req-verified/ac-proven token writing for this task. Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task"
+            - "   a. Detect if this is a test task: apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, action item 3). Otherwise: check TASK_TRACEABILITY[TASK_ID].is_test_task"
             - "   b. If test task: parse QA response for per-AC verdicts (the prompt already required PROVEN/NOT_PROVEN per AC from step 3 above);"
             - "      build PROVEN_ACS list of AC-NNN-M IDs with verdict=PROVEN"
             - "      Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id"
@@ -1120,7 +1059,7 @@ workflow:
             - "Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'"
             - "If approved:"
             - "  br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'"
-            - "  Before accessing TASK_TRACEABILITY[TASK_ID]: if TASK_ID is not present as a key in the TASK_TRACEABILITY map (task predates traceability or map rebuild failed): print 'WARNING: No traceability entry for <TASK_ID> — treating as impl task; audit tokens will not be written. If this task has [satisfies REQ-NNN] annotations, re-run this command to re-scaffold.' Set is_test_task = false and skip all req-satisfied/req-verified/ac-proven token writing for this task."
+            - "  Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3)."
             - "  Check TASK_TRACEABILITY[TASK_ID].is_test_task:"
             - "  If is_test_task == true:"
             - "    Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id"
