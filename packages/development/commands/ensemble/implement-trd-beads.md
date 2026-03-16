@@ -248,6 +248,36 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    -   If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'
    - Step 8 — If user declines all suggestions: proceed with existing team config and available agents
 
+**10. Traceability Validation Gate**
+   Run validate-requirements as an automatic preflight gate before scaffolding begins.
+Checks that PRD requirements have TRD task coverage, that [satisfies] annotations
+reference real REQ-NNN IDs, and that every user-facing task has a paired -TEST task.
+Errors (orphaned annotations) halt execution; warnings are printed but do not halt.
+Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
+
+
+   - Step 1 — Check for traceability annotations: scan TRD content for any '[satisfies REQ-' token
+   - If NO [satisfies REQ-] annotations found: print 'NOTE: TRD has no [satisfies] annotations — skipping traceability validation (legacy TRD). Run /create-trd to regenerate with traceability.'; skip remaining steps
+   - Step 2 — Locate PRD reference: search TRD for 'Based on PRD:' or 'PRD:' annotation or a link to a docs/PRD/*.md file
+   - If PRD path found: set PRD_PATH to that path
+   - If PRD path NOT found: print 'WARNING: No PRD reference found in TRD — skipping traceability validation. Add a PRD reference to enable this gate.'; skip remaining steps
+   - Step 3 — Run validation: invoke the validate-requirements logic inline (do not spawn a new agent):
+   -   a. Parse PRD_PATH for all REQ-NNN IDs and AC-NNN-M IDs
+   -   b. Parse TRD for all [satisfies REQ-NNN], [verifies TRD-NNN], and Validates PRD ACs: fields
+   -   c. Check coverage: for each PRD REQ-NNN, check if any TRD task has [satisfies REQ-NNN]; collect UNCOVERED as WARNING
+   -   d. Check orphans: for each [satisfies REQ-NNN] in TRD, check if REQ-NNN exists in PRD; collect ORPHANED as ERROR
+   -   e. Check test pairs: for each impl task with [satisfies REQ-NNN] (not INFRA/ARCH), check if <task-id>-TEST exists; collect MISSING_TESTS as WARNING
+   - Step 4 — Print validation report:
+   -   Print '=== TRACEABILITY VALIDATION ==='
+   -   Print each WARNING (uncovered reqs, missing -TEST pairs)
+   -   Print each ERROR (orphaned annotations)
+   -   Print '=============================='
+   - Step 5 — HALT decision: if any ERRORS (orphaned annotations) found:
+   -   Print 'ERROR: Traceability validation failed. Fix orphaned [satisfies] annotations in TRD before implementing.'
+   -   Print 'Run /ensemble:validate-requirements <prd-path> <trd-path> for details.'
+   -   HALT
+   - Step 6 — If only WARNINGs (no errors): print 'Traceability warnings found but continuing. Address before closing implementation.' and proceed to Scaffold
+
 ### Phase 2: Scaffold
 
 **1. TRD Parsing**
