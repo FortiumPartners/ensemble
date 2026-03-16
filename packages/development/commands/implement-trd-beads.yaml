@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.5.0
-  lastUpdated: "2026-03-15"
+  version: 2.6.0
+  lastUpdated: "2026-03-16"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
   source: fortium

@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.5.0
+version: 2.6.0
 category: implementation
-last-updated: 2026-03-15
+last-updated: 2026-03-16
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: sonnet
