@@ -1,6 +1,9 @@
 ---
 name: ensemble:manager-dashboard
 description: Generate real-time productivity metrics and team analytics dashboard
+version: 1.0.0
+category: analysis
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from manager-dashboard.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

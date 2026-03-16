@@ -1,6 +1,9 @@
 ---
 name: ensemble:sprint-status
 description: Generate current sprint status report with task completion and blockers
+version: 1.0.0
+category: analysis
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from sprint-status.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

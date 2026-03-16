@@ -1,6 +1,9 @@
 ---
 name: ensemble:sessionlog
 description: Save a structured session transcript to SessionLogs with key decisions, commands, and resolutions
+version: 1.0.0
+category: documentation
+last-updated: 2026-03-08
 ---
 <!-- DO NOT EDIT - Generated from sessionlog.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

@@ -2,6 +2,9 @@
 name: ensemble:create-trd
 description: Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
 
+version: 2.2.0
+category: planning
+last-updated: 2026-03-15
 argument-hint: [prd-path] [--team] [--no-team]
 model: opus
 ---

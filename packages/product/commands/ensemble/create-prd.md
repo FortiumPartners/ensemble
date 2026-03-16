@@ -1,6 +1,9 @@
 ---
 name: ensemble:create-prd
 description: Create comprehensive Product Requirements Document from product description
+version: 2.1.0
+category: planning
+last-updated: 2026-03-15
 model: opus
 ---
 <!-- DO NOT EDIT - Generated from create-prd.yaml -->

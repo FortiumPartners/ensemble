@@ -1,6 +1,9 @@
 ---
 name: ensemble:web-metrics-dashboard
 description: Generate web performance metrics dashboard with Core Web Vitals
+version: 1.0.0
+category: analysis
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from web-metrics-dashboard.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

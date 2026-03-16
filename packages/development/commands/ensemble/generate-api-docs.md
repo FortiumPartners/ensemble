@@ -1,6 +1,9 @@
 ---
 name: ensemble:generate-api-docs
 description: Generate comprehensive OpenAPI/Swagger API documentation from codebase
+version: 1.0.0
+category: documentation
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from generate-api-docs.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

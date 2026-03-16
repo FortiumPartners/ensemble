@@ -1,6 +1,6 @@
 {
   "name": "ensemble",
-  "version": "5.2.1",
+  "version": "5.6.0",
   "description": "Official Fortium Ensemble plugin marketplace - AI-augmented development workflows",
   "owner": {
     "name": "Fortium Partners",
@@ -38,7 +38,7 @@
   "plugins": [
     {
       "name": "ensemble-core",
-      "version": "5.0.0",
+      "version": "5.3.0",
       "source": "./packages/core",
       "description": "Core utilities including framework detection and XDG-compliant configuration",
       "category": "core",
@@ -54,7 +54,7 @@
     },
     {
       "name": "ensemble-product",
-      "version": "5.0.0",
+      "version": "5.4.0",
       "source": "./packages/product",
       "description": "Product management workflows - PRD and TRD creation",
       "category": "workflow",
@@ -71,7 +71,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "5.4.0",
+      "version": "5.6.0",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -87,7 +87,7 @@
     },
     {
       "name": "ensemble-quality",
-      "version": "5.0.0",
+      "version": "5.3.0",
       "source": "./packages/quality",
       "description": "Quality assurance and code review workflows",
       "category": "workflow",
@@ -103,7 +103,7 @@
     },
     {
       "name": "ensemble-infrastructure",
-      "version": "5.0.0",
+      "version": "5.3.0",
       "source": "./packages/infrastructure",
       "description": "Infrastructure and DevOps workflows",
       "category": "workflow",
@@ -119,7 +119,7 @@
     },
     {
       "name": "ensemble-git",
-      "version": "5.0.0",
+      "version": "5.2.1",
       "source": "./packages/git",
       "description": "Git workflow automation and best practices",
       "category": "workflow",
@@ -135,7 +135,7 @@
     },
     {
       "name": "ensemble-e2e-testing",
-      "version": "5.0.0",
+      "version": "5.2.1",
       "source": "./packages/e2e-testing",
       "description": "End-to-end testing workflows with Playwright",
       "category": "testing",
@@ -151,7 +151,7 @@
     },
     {
       "name": "ensemble-metrics",
-      "version": "5.0.0",
+      "version": "5.2.1",
       "source": "./packages/metrics",
       "description": "Development metrics and analytics",
       "category": "utilities",
@@ -167,7 +167,7 @@
     },
     {
       "name": "ensemble-react",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/react",
       "description": "React framework skills and patterns",
       "category": "frameworks",
@@ -183,7 +183,7 @@
     },
     {
       "name": "ensemble-nestjs",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/nestjs",
       "description": "NestJS backend framework skills",
       "category": "frameworks",
@@ -199,7 +199,7 @@
     },
     {
       "name": "ensemble-rails",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/rails",
       "description": "Ruby on Rails framework skills",
       "category": "frameworks",
@@ -215,7 +215,7 @@
     },
     {
       "name": "ensemble-phoenix",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/phoenix",
       "description": "Phoenix/Elixir framework skills",
       "category": "frameworks",
@@ -231,7 +231,7 @@
     },
     {
       "name": "ensemble-blazor",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/blazor",
       "description": "Blazor/.NET framework skills",
       "category": "frameworks",
@@ -247,7 +247,7 @@
     },
     {
       "name": "ensemble-jest",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/jest",
       "description": "Jest testing framework skills",
       "category": "testing",
@@ -263,7 +263,7 @@
     },
     {
       "name": "ensemble-pytest",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/pytest",
       "description": "Pytest testing framework skills",
       "category": "testing",
@@ -279,7 +279,7 @@
     },
     {
       "name": "ensemble-rspec",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/rspec",
       "description": "RSpec testing framework skills",
       "category": "testing",
@@ -295,7 +295,7 @@
     },
     {
       "name": "ensemble-xunit",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/xunit",
       "description": "xUnit testing framework skills for .NET",
       "category": "testing",
@@ -311,7 +311,7 @@
     },
     {
       "name": "ensemble-exunit",
-      "version": "5.0.0",
+      "version": "5.1.0",
       "source": "./packages/exunit",
       "description": "ExUnit testing framework skills for Elixir",
       "category": "testing",
@@ -327,7 +327,7 @@
     },
     {
       "name": "ensemble-agent-progress-pane",
-      "version": "5.1.0",
+      "version": "5.2.2",
       "source": "./packages/agent-progress-pane",
       "description": "Real-time agent progress visualization in terminal panes",
       "category": "utilities",
@@ -345,7 +345,7 @@
     },
     {
       "name": "ensemble-task-progress-pane",
-      "version": "5.0.0",
+      "version": "5.2.2",
       "source": "./packages/task-progress-pane",
       "description": "Real-time task progress visualization for TodoWrite operations",
       "category": "utilities",
@@ -361,7 +361,7 @@
     },
     {
       "name": "ensemble-ai",
-      "version": "5.1.0",
+      "version": "5.2.1",
       "source": "./packages/ai",
       "description": "AI platform integrations (Anthropic, OpenAI, Perplexity, Weaviate, LangGraph)",
       "category": "frameworks",
@@ -380,7 +380,7 @@
     },
     {
       "name": "ensemble-router",
-      "version": "5.0.0",
+      "version": "5.2.1",
       "source": "./packages/router",
       "description": "UserPromptSubmit routing hook for intelligent agent delegation and skill invocation",
       "category": "core",
@@ -398,7 +398,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "5.1.0",
+      "version": "5.6.0",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
@@ -414,7 +414,7 @@
     },
     {
       "name": "ensemble-permitter",
-      "version": "5.0.0",
+      "version": "5.2.1",
       "source": "./packages/permitter",
       "description": "Smart permission expansion hook for Claude Code - semantic command matching",
       "category": "utilities",

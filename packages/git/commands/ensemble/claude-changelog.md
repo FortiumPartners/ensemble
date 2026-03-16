@@ -3,6 +3,9 @@ name: ensemble:claude-changelog
 description: Track Claude updates and new features directly from your development environment.
 Fetch, parse, and display changelogs with intelligent filtering and caching.
 
+version: 1.0.0
+category: analysis
+last-updated: 2025-11-05
 ---
 <!-- DO NOT EDIT - Generated from claude-changelog.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

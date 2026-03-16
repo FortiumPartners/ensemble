@@ -1,6 +1,9 @@
 ---
 name: ensemble:analyze-product
 description: Analyze existing brownfield project and generate improvement roadmap
+version: 1.0.0
+category: analysis
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from analyze-product.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

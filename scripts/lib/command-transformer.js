@@ -38,6 +38,21 @@ function generateCommandFrontmatter(data) {
     lines.push(`description: ${meta.description}`);
   }
 
+  // Version (optional)
+  if (meta.version) {
+    lines.push(`version: ${meta.version}`);
+  }
+
+  // Category (optional)
+  if (meta.category) {
+    lines.push(`category: ${meta.category}`);
+  }
+
+  // Last updated (optional)
+  if (meta.lastUpdated) {
+    lines.push(`last-updated: ${meta.lastUpdated}`);
+  }
+
   // Allowed tools (optional)
   if (meta.allowed_tools && meta.allowed_tools.length > 0) {
     lines.push(`allowed-tools: ${meta.allowed_tools.join(', ')}`);

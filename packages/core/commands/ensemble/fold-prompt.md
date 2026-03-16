@@ -1,6 +1,9 @@
 ---
 name: ensemble:fold-prompt
 description: Advanced Claude environment optimization through intelligent project analysis and context management
+version: 2.0.0
+category: analysis
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from fold-prompt.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

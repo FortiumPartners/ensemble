@@ -1,6 +1,9 @@
 ---
 name: ensemble:playwright-test
 description: Automated E2E testing and error resolution using Playwright MCP integration
+version: 1.0.0
+category: testing
+last-updated: 2025-10-13
 ---
 <!-- DO NOT EDIT - Generated from playwright-test.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

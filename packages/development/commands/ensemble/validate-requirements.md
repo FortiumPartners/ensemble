@@ -1,6 +1,9 @@
 ---
 name: ensemble:validate-requirements
 description: Pre-implementation traceability gate — validates REQ-NNN coverage and TEST task pairing between PRD and TRD
+version: 1.0.0
+category: planning
+last-updated: 2026-03-15
 argument-hint: [prd-path] [trd-path]
 model: sonnet
 ---
