@@ -136,7 +136,7 @@ Pipeline complete. Your implementation plan is ready.
 
 To start implementation:
 
-  In this window:    /ensemble:implement-trd-beads --execute
+  In this window:    /ensemble:implement-trd-beads <TRD_PATH> --execute
   In a new window:   ntm
 
 Where <PRD_PATH> and <TRD_PATH> are the actual file paths captured from Steps 1 and 3 respectively.
