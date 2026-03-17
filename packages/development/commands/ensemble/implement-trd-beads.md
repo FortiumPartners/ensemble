@@ -1,7 +1,7 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.8.0
+version: 2.9.0
 category: implementation
 last-updated: 2026-03-16
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
@@ -75,6 +75,7 @@ Key behaviors:
    - which br || { echo 'ERROR: br (beads_rust) not installed. Install from https://github.com/Dicklesworthstone/beads_rust'; exit 1; }
    - br list --status=open > /dev/null 2>&1 || { echo 'ERROR: br not functional'; exit 1; }
    - which bv && BV_AVAILABLE=true || { echo 'WARNING: bv (beads_viewer) not installed. Graph-aware triage will be unavailable. Install from https://github.com/Dicklesworthstone/beads_viewer'; BV_AVAILABLE=false; }
+   - If EXECUTE_ONLY=true AND BV_AVAILABLE=false: print 'ERROR: --execute requires bv (beads_viewer) for graph-aware task scheduling.' then print 'Install bv from https://github.com/Dicklesworthstone/beads_viewer then retry.' then print 'For plan-only mode (scaffold without execution): use --plan instead.' and HALT
 
 **3. Git-Town and Working Directory Verification**
    Verify git-town installed and working directory is clean
@@ -95,7 +96,8 @@ Key behaviors:
    - If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble:implement-trd-beads --plan first.' and EXIT.
    - Run: br list --status=open --json
    - Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
-   - If found: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
+   - If found AND EXECUTE_ONLY=false: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
+   - If found AND EXECUTE_ONLY=true: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then run bv --robot-triage --format toon (bv is guaranteed available — checked in Preflight Step 2), skip Scaffold phase, proceed to Execute
    - If not found: proceed to Feature Branch Creation then Scaffold
    - 
    - TRD-028 — Cross-Session Resume with Team Sub-State (AC: FR-IT-7, NFR-R-1, AC-RS-1, AC-RS-2, AC-RS-3, AC-RS-4):
@@ -421,7 +423,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -     br comment list <id>               # See full audit trail for a task
    -     br list --status=open              # See remaining work
    -   ================================================================
-   - If TEAM_MODE == false AND BV_AVAILABLE == true, print full wheel instructions:
+   - If TEAM_MODE == false AND BV_AVAILABLE == true AND EXECUTE_ONLY == false, print full wheel instructions:
    -   ================================================================
    -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel
    -   ================================================================
@@ -448,7 +450,31 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -     bv --robot-triage --format toon        # Full triage refresh
    -     br list --status=open                  # See remaining work
    -   ================================================================
-   - If TEAM_MODE == false AND BV_AVAILABLE == false, print reduced wheel instructions:
+   - If TEAM_MODE == false AND EXECUTE_ONLY == true, print execute-mode wheel instructions:
+   -   ================================================================
+   -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel (--execute mode)
+   -   ================================================================
+   -   NOTE: Running in --execute mode. bv is required and verified available.
+   -   PARALLEL EXECUTION TRACKS (from bv --robot-plan):
+   -     <Insert parsed parallel tracks from PLAN_OUTPUT>
+   -   RECOMMENDED EXECUTION ORDER (from bv --robot-triage):
+   -     <Insert ranked recommendations from TRIAGE_OUTPUT>
+   -   SPAWN AGENTS WITH NTM:
+   -     # Spawn one agent per parallel track
+   -     <For each track: ntm new <TRD_SLUG>-track-N -- claude code>
+   -   AGENT SELF-SELECTION LOOP:
+   -     # Each agent runs this loop:
+   -     bv --robot-next --format toon          # Get top priority task
+   -     br update <id> --status=in_progress    # Claim the task
+   -     # ... implement the task ...
+   -     br close <id> --reason='Completed'     # Mark done
+   -     br sync --flush-only                   # Export for bv
+   -     bv --robot-next --format toon          # Get next task
+   -   MONITOR PROGRESS:
+   -     bv --robot-triage --format toon        # Full triage refresh
+   -     br list --status=open                  # See remaining work
+   -   ================================================================
+   - If TEAM_MODE == false AND BV_AVAILABLE == false AND EXECUTE_ONLY == false, print reduced wheel instructions:
    -   ================================================================
    -   WHEEL INSTRUCTIONS - Agentic Coding Flywheel (br-only mode)
    -   ================================================================
@@ -512,8 +538,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -          (default max_parallel=1, increased by 'max parallel N' argument)
    - 
    -       4. If available_slots > 0:
-   -          - Get next tasks: if BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task)
-   -            Else: run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
+   -          - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
+   -            Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
    -          - For each task (up to available_slots):
    -            a. (TRD-021) Architecture Review: check task description for keywords:
    -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
@@ -558,9 +584,9 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       TRD-025-1. Set BUILDER_SLOTS = max_parallel (default 1, overridden by 'max parallel N' argument)
    - 
    -       TRD-025-2. Query available tasks for parallel dispatch:
-   -          - If BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks
+   -          - If EXECUTE_ONLY=true or BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks
    -            Extract up to BUILDER_SLOTS tasks from the top-priority track(s)
-   -          - Else: run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries
+   -          - Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries
    -          - Candidate task list: CANDIDATE_TASKS = up to BUILDER_SLOTS ready tasks
    - 
    -       TRD-025-3. File conflict detection: prevent assigning tasks with overlapping file targets
@@ -640,12 +666,15 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       7. Continue LOOP
    - LOOP:
    - Run: br sync --flush-only (ensure JSONL current before bv call)
-   - If BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
-   - If not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
+   - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
+   - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
+   - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
-   - Else: if BV_AVAILABLE use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-   - After each task (or parallel group): br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon for progress check else run br list --status=open filtered by TRD slug
+   - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
+   - Else if EXECUTE_ONLY=false AND BV_AVAILABLE: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
+   - Else if EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by TRD slug, take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
+   - After each task (or parallel group): br sync --flush-only, then if EXECUTE_ONLY=true or BV_AVAILABLE run bv --robot-triage --format toon for progress check else run br list --status=open filtered by TRD slug
 
 **2. Task Claim and Specialist Selection**
    Claim task in beads before delegating to specialist agent
