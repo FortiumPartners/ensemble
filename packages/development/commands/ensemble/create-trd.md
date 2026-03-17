@@ -2,9 +2,9 @@
 name: ensemble:create-trd
 description: Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
 
-version: 2.2.0
+version: 2.3.0
 category: planning
-last-updated: 2026-03-15
+last-updated: 2026-03-16
 argument-hint: [prd-path] [--team] [--no-team]
 model: opus
 ---
@@ -78,11 +78,17 @@ Instruct tech-lead-orchestrator to:
 ### Phase 3: MCP Enhancement (Optional)
 
 **1. Check MCP Availability**
-   Detect if TRD Workflow MCP server is registered and available
+   Detect whether any MCP tools are available before attempting any MCP calls.
+Check the list of available tools for names prefixed with 'mcp__'.
+If NO tools with 'mcp__' prefix are found, print:
+  'MCP enhancement: skipped (no MCP tools detected)'
+and skip steps 2-4 entirely — do not attempt any MCP tool calls.
+Only proceed to steps 2-4 if at least one mcp__-prefixed tool is confirmed present.
 
-   - Check ~/.claude/mcp/config.json for trd-workflow server
-   - Validate server installation exists
-   - Proceed with MCP tools if available, otherwise skip to manual generation
+
+   - Scan available tool names for any name starting with 'mcp__'
+   - If none found, print 'MCP enhancement: skipped (no MCP tools detected)' and skip to Phase 4
+   - If found, proceed with MCP-enhanced workflow steps below
 
 **2. Inject Checkpoints (MCP)**
    Use inject_checkpoints tool to add review/validation checkpoints
@@ -152,16 +158,20 @@ Instruct tech-lead-orchestrator to:
    Apply three-tier complexity classification to determine team mode
 
    - If FORCE_NO_TEAM=true, set TEAM_TIER=None and skip to Phase 5 Output Management
-   - If FORCE_TEAM=true, set TEAM_TIER=Complex and proceed to agent discovery
+   - If FORCE_TEAM=true, set TEAM_TIER=Complex and proceed to agent discovery (step 4)
    - Otherwise evaluate against complexity_tiers thresholds
    - Complex if ANY: task_count > 25 OR domain_count >= 3 OR estimated_hours > 60
    - Medium if ANY: task_count >= 10 OR domain_count >= 2 OR estimated_hours >= 20 (and no Complex condition)
    - Simple if ALL: task_count < 10 AND domain_count = 1 AND estimated_hours < 20
-   - If TEAM_TIER=Simple, skip team config generation and proceed to Phase 5
+   - If TEAM_TIER=Simple, print 'Team configuration: disabled (pass --team to enable auto-discovery and marketplace suggestions)' and skip to Phase 5
    - Store TEAM_TIER in COMPLEXITY_METRICS
+   - NOTE: Steps 4 through 8 below only execute when --team flag is present in $ARGUMENTS OR when TEAM_TIER is Medium or Complex. If neither condition is met the phase ends here.
 
 **4. Agent Auto-Discovery**
-   Scan packages/*/agents/*.yaml to build a registry of available agents and their capabilities
+   Scan packages/*/agents/*.yaml to build a registry of available agents and their capabilities.
+CONDITION: Only run this step if ($ARGUMENTS contains '--team') OR (TEAM_TIER is Medium or Complex).
+If condition is not met, skip this step and all remaining steps in this phase.
+
 
    - Use Glob tool to scan packages/*/agents/*.yaml
    - For each discovered YAML file use Read tool to extract name and description fields from front matter
@@ -171,7 +181,9 @@ Instruct tech-lead-orchestrator to:
    - Store AGENT_REGISTRY for use in builder matching and validation
 
 **4b. Skill Auto-Discovery**
-   Scan packages/*/skills/ directories to build a registry of available skills
+   Scan packages/*/skills/ directories to build a registry of available skills.
+CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
+
 
    - Use Glob tool to scan packages/*/skills/
    - For each discovered skills directory extract package name from path
@@ -179,7 +191,9 @@ Instruct tech-lead-orchestrator to:
    - Registry used by marketplace gap analysis to detect skill gaps
 
 **5. Builder Agent Matching**
-   Select the best builder agents for each detected domain using router-rules, keyword matching, then defaults
+   Select the best builder agents for each detected domain using router-rules, keyword matching, then defaults.
+CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
+
 
    - Check for .claude/router-rules.json in project root; if present parse ROUTER_OVERRIDES (domain -> agent)
    - For each domain in COMPLEXITY_METRICS.domains_list select builder agent by priority
@@ -187,10 +201,11 @@ Instruct tech-lead-orchestrator to:
    - Priority 2: Keyword match -- compare domain keywords against AGENT_REGISTRY descriptions and missions; select agent with highest keyword overlap
    - Priority 3: Default fallback from team_configuration.default_agents mapping
    - Build BUILDER_AGENTS list; deduplicate (one agent covering multiple domains listed once with all owned domains)
-   - After marketplace flow (step 7) completes -- re-run this step if INSTALLED_DURING_RUN is non-empty
 
 **6. Agent Existence Validation**
-   Validate all selected team agents exist in the discovered registry
+   Validate all selected team agents exist in the discovered registry.
+CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
+
 
    - For every agent in BUILDER_AGENTS list verify presence in AGENT_REGISTRY
    - Validate lead agent (tech-lead-orchestrator) exists in AGENT_REGISTRY
@@ -199,7 +214,9 @@ Instruct tech-lead-orchestrator to:
    - If any selected agent is absent from registry log warning and substitute with nearest available or default
 
 **7. Marketplace Gap Analysis and Suggestion Flow**
-   Detect capability gaps, suggest marketplace plugins, install approved ones
+   Detect capability gaps, suggest marketplace plugins, install approved ones.
+CONDITION: Only run if ($ARGUMENTS contains '--team'). If '--team' is absent, skip this step entirely.
+
 
    - Step 1 -- Read marketplace.json: use Read tool to load marketplace.json from repository root
    - If missing or malformed: log 'marketplace.json not found or invalid -- skipping gap analysis'; set MARKETPLACE_AVAILABLE=false and skip remaining steps
@@ -216,7 +233,7 @@ Instruct tech-lead-orchestrator to:
    - If interactive: for each suggestion use AskUserQuestion to present yes/no prompt with plugin name, description, rationale, agents/skills provided
    - Track APPROVED_PLUGINS and DECLINED_PLUGINS; do not re-prompt declined plugins
    - Step 6 -- Plugin installation: for each plugin in APPROVED_PLUGINS run 'claude plugin install <name>' via Bash; check exit code; track INSTALLED_DURING_RUN and FAILED_INSTALLS
-   - If INSTALLED_DURING_RUN non-empty: re-run agent and skill discovery (steps 4 and 4b) and re-run builder matching (step 5) with refreshed registries
+   - If INSTALLED_DURING_RUN non-empty: refresh KNOWN_AGENTS by re-scanning packages/*/agents/*.yaml once (no full re-index); update BUILDER_AGENTS list using refreshed KNOWN_AGENTS
    - Log summary: 'Marketplace analysis: {N} gaps identified, {M} plugins suggested, {A} approved, {D} declined, {F} failed to install'
 
 **8. Team Configuration Generation and Injection**
