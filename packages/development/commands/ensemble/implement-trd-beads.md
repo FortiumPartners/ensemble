@@ -1,7 +1,7 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.9.0
+version: 2.9.1
 category: implementation
 last-updated: 2026-03-16
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
@@ -330,7 +330,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If found: STORY_BEAD_IDs[i] = existing id; skip creation
    - If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --description='Phase <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.' --json
    - Capture STORY_BEAD_ID by parsing .id from JSON response
-   - After creation: br dep add <STORY_BEAD_ID> <ROOT_EPIC_ID> to establish parent-child relationship
+   - After creation: br dep add <ROOT_EPIC_ID> <STORY_BEAD_ID> to establish story-blocks-epic relationship (epic cannot close until all stories close)
    - HALT if any creation fails
 
 **5. Task Bead Creation**
@@ -345,7 +345,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json
    - The description should include: target file path, numbered action items, dependencies, satisfaction/verification links, and acceptance criteria from the TRD task entry
    - Capture TASK_BEAD_ID by parsing .id from JSON response
-   - After creation: br dep add <TASK_BEAD_ID> <STORY_BEAD_ID> to establish parent-child relationship
+   - After creation: br dep add <STORY_BEAD_ID> <TASK_BEAD_ID> to establish task-blocks-story relationship (story cannot close until all its tasks close)
    - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
 
 **6. Dependency Encoding**
