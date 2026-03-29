@@ -6,6 +6,5 @@
     "name": "Fortium Partners",
     "email": "support@fortiumpartners.com"
   },
-  "commands": "./commands",
   "skills": "./skills"
 }

@@ -101,7 +101,9 @@ function renderFrontmatter(
   model: string | undefined
 ): string {
   const toolsInline = tools.length > 0 ? `[${tools.join(', ')}]` : '[]';
-  const lines = ['---', `name: ${name}`, `description: ${description}`, `tools: ${toolsInline}`];
+  // Quote description if it starts with YAML-special characters ([, {, *, &, !, |, >, ', ", %)
+  const descSafe = /^[[{*&!|>'"%]/.test(description) ? `"${description.replace(/"/g, '\\"')}"` : description;
+  const lines = ['---', `name: ${name}`, `description: ${descSafe}`, `tools: ${toolsInline}`];
   if (model) {
     lines.push(`model: ${model}`);
   }

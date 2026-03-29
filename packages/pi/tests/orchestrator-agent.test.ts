@@ -156,16 +156,8 @@ describe('all agents in packages/pi/agents/', () => {
       }
     }
 
-    if (parseErrors.length > 0) {
-      fail(`The following Pi agents have YAML parse errors:\n  ${parseErrors.join('\n  ')}`);
-    }
+    expect(parseErrors).toHaveLength(0);  // YAML parse errors: ${parseErrors.join(', ')}
 
-    if (violations.length > 0) {
-      fail(
-        `The following Pi agents use Claude Code-only tools:\n  ${violations.join('\n  ')}`,
-      );
-    }
-
-    expect(violations).toHaveLength(0);
+    expect(violations).toHaveLength(0);  // Claude Code-only tools found: ${violations.join(', ')}
   });
 });
