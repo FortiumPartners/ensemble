@@ -45,6 +45,18 @@
     "prompts": ["./prompts"],
     "agents": ["./agents"]
   },
+  "engines": {
+    "node": ">=18.0.0",
+    "pi": ">=1.0.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "js-yaml": "^4.1.0",
     "gray-matter": "^4.0.3"
