@@ -9,6 +9,9 @@ const { execSync } = require('child_process');
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
 
+// All packages under packages/ are eligible for publish:changed, including:
+//   packages/pi  — Pi runtime support (prepublishOnly: build -> test -> validate:version)
+
 function getChangedPackages() {
   try {
     const output = execSync('git diff --name-only HEAD~1 HEAD', {
