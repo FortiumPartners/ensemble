@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:fix-issue
   description: Lightweight workflow for bug fixes and small issues
-  version: 1.0.0
-  lastUpdated: "2026-02-16"
+  version: 1.1.0
+  lastUpdated: "2026-03-29"
   category: implementation
   model: sonnet
   output_path: ensemble/fix-issue.md
@@ -126,7 +126,8 @@ workflow:
           title: User Interview (Conditional)
           description: |
             If issue description is ambiguous or --interactive flag is set,
-            ask clarifying questions (max 5).
+            ask clarifying questions ONE AT A TIME (max 5) -- never batch questions.
+            Use AskUserQuestion for each. Wait for each answer before asking the next.
           conditional: true
           trigger: |
             Ambiguity detection:
@@ -135,10 +136,10 @@ workflow:
             - Multiple possible interpretations
             - OR --interactive flag is set
           instructions: |
-            1. Generate 3-5 focused questions
-            2. Use AskUserQuestion tool
-            3. Incorporate responses into plan
-            4. Update approach and acceptance criteria
+            1. Identify up to 5 focused clarifying questions
+            2. Ask them ONE AT A TIME using AskUserQuestion -- never batch or list multiple questions
+            3. Wait for each answer before asking the next
+            4. Incorporate responses into plan and update approach and acceptance criteria
 
     - name: Execution
       order: 2
