@@ -1,3 +1,7 @@
+---
+name: dotnet-framework
+description: '[ApiController]'
+---
 # .NET Framework Skill - Quick Reference
 
 **Framework**: .NET 8+ with ASP.NET Core

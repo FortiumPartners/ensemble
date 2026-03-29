@@ -1,3 +1,7 @@
+---
+name: aws-cloud
+description: 'resource "aws_ecs_cluster" "app" {'
+---
 # AWS Cloud Infrastructure Skill
 
 **Quick reference for AWS infrastructure automation with Terraform, security-first design, and production-ready patterns.**

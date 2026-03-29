@@ -1,6 +1,9 @@
 ---
 name: using-weaviate
-description: Weaviate vector database for semantic search, hybrid queries, and AI-native applications. Use for embeddings storage, similarity search, RAG pipelines, and multi-modal retrieval.
+description: >-
+  Weaviate vector database for semantic search, hybrid queries, and AI-native
+  applications. Use for embeddings storage, similarity search, RAG pipelines,
+  and multi-modal retrieval.
 ---
 
 # Weaviate Vector Database Skill

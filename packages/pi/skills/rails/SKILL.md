@@ -1,3 +1,7 @@
+---
+name: rails
+description: class PostsController < ApplicationController
+---
 # Rails Framework Skill - Quick Reference
 
 **Framework**: Ruby on Rails 7+

@@ -1,3 +1,9 @@
+---
+name: helm
+description: >-
+  Helm is a package manager for Kubernetes that simplifies application
+  deployment through **charts** - pre-configured Kubernetes resource templates.
+---
 # Helm Chart Quick Reference
 
 **Version**: 1.0.0 | **Target Size**: <100KB | **Purpose**: Fast reference for Helm chart development and deployment

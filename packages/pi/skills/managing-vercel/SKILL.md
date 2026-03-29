@@ -1,6 +1,9 @@
 ---
 name: managing-vercel
-description: Vercel platform CLI for frontend deployments, serverless functions, and edge network management. Use for deploying applications, managing domains, environment variables, and debugging deployments.
+description: >-
+  Vercel platform CLI for frontend deployments, serverless functions, and edge
+  network management. Use for deploying applications, managing domains,
+  environment variables, and debugging deployments.
 ---
 
 # Vercel CLI Skill

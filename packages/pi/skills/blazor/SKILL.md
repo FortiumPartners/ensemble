@@ -1,3 +1,7 @@
+---
+name: blazor
+description: // Program.cs
+---
 # Blazor Framework - Quick Reference (SKILL.md)
 
 **Version**: 1.0.0

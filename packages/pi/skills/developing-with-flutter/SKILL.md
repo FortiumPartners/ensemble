@@ -1,6 +1,9 @@
 ---
 name: developing-with-flutter
-description: Flutter SDK for cross-platform development targeting iOS, Android, and Web. Use for widget architecture, state management, platform channels, and multi-platform deployment.
+description: >-
+  Flutter SDK for cross-platform development targeting iOS, Android, and Web.
+  Use for widget architecture, state management, platform channels, and
+  multi-platform deployment.
 ---
 
 # Flutter SDK Skill

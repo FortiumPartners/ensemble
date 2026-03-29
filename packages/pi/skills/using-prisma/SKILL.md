@@ -1,6 +1,9 @@
 ---
 name: using-prisma
-description: Prisma 5+ ORM with schema-first design, type-safe client, migrations, and database integrations (Supabase, PlanetScale, Neon). Use for TypeScript/JavaScript database access.
+description: >-
+  Prisma 5+ ORM with schema-first design, type-safe client, migrations, and
+  database integrations (Supabase, PlanetScale, Neon). Use for
+  TypeScript/JavaScript database access.
 ---
 
 # Prisma ORM Development Skill

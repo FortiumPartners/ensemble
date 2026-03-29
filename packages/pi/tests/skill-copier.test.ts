@@ -7,12 +7,14 @@
  * 3. Deduplication: same real file skipped if seen twice
  * 4. Dry-run mode: returns results but writes no files
  * 5. Result shape: type === 'skill', sourcePath, outputPath, content
+ * 6. SKILL.md frontmatter normalisation (name + description fields)
  */
 
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { copySkills } from '../src/transformers/skill-copier';
+import matter from 'gray-matter';
+import { copySkills, normalizeSkillMd } from '../src/transformers/skill-copier';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -118,12 +120,26 @@ describe('copySkills', () => {
     }
   });
 
-  it('preserves file content byte-for-byte', async () => {
+  it('writes content that matches result.content to disk', async () => {
     const results = await copySkills(sourceRoot, outputRoot, {});
 
     for (const result of results) {
       const written = fs.readFileSync(result.outputPath, 'utf-8');
       expect(written).toBe(result.content);
+    }
+  });
+
+  it('preserves REFERENCE.md content byte-for-byte', async () => {
+    const results = await copySkills(sourceRoot, outputRoot, {});
+    const refResults = results.filter((r) => r.outputPath.endsWith('REFERENCE.md'));
+
+    for (const result of refResults) {
+      // Read original source (resolved real path)
+      const origContent = fs.readFileSync(
+        fs.realpathSync(result.sourcePath),
+        'utf-8'
+      );
+      expect(result.content).toBe(origContent);
     }
   });
 
@@ -240,6 +256,90 @@ describe('copySkills', () => {
     fs.writeFileSync(path.join(noSkillPkg, 'package.json'), '{}', 'utf-8');
 
     await expect(copySkills(sourceRoot, outputRoot, {})).resolves.toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // SKILL.md normalisation in copySkills
+  // -------------------------------------------------------------------------
+  it('normalises SKILL.md name field to the skill directory name', async () => {
+    const results = await copySkills(sourceRoot, outputRoot, {});
+    const skillResults = results.filter((r) => r.outputPath.endsWith('SKILL.md'));
+
+    for (const result of skillResults) {
+      const parsed = matter(result.content);
+      // name must equal the directory name in the output path
+      const dirName = path.basename(path.dirname(result.outputPath));
+      expect(parsed.data['name']).toBe(dirName);
+    }
+  });
+
+  it('ensures every SKILL.md result has a non-empty description field', async () => {
+    const results = await copySkills(sourceRoot, outputRoot, {});
+    const skillResults = results.filter((r) => r.outputPath.endsWith('SKILL.md'));
+
+    for (const result of skillResults) {
+      const parsed = matter(result.content);
+      expect(typeof parsed.data['description']).toBe('string');
+      expect((parsed.data['description'] as string).length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6. normalizeSkillMd — frontmatter normalisation unit tests
+// ---------------------------------------------------------------------------
+
+describe('normalizeSkillMd', () => {
+  it('sets name to skillDirName regardless of source', () => {
+    const input = '---\nname: Jest Test Framework\ndescription: old\n---\n# Body\n';
+    const out = normalizeSkillMd(input, 'jest');
+    const parsed = matter(out);
+    expect(parsed.data['name']).toBe('jest');
+  });
+
+  it('preserves existing description', () => {
+    const input = '---\nname: foo\ndescription: existing desc\n---\n# Body\n';
+    const out = normalizeSkillMd(input, 'foo');
+    const parsed = matter(out);
+    expect(parsed.data['description']).toBe('existing desc');
+  });
+
+  it('extracts description from first non-heading paragraph', () => {
+    const input = '---\nname: foo\n---\n# Heading\n\nThis is the description paragraph.\n';
+    const out = normalizeSkillMd(input, 'foo');
+    const parsed = matter(out);
+    expect(parsed.data['description']).toBe('This is the description paragraph.');
+  });
+
+  it('generates fallback description when body has only headings', () => {
+    const input = '---\nname: foo\n---\n# Heading Only\n## Sub\n';
+    const out = normalizeSkillMd(input, 'my-skill');
+    const parsed = matter(out);
+    expect(parsed.data['description']).toBe('My Skill skill');
+  });
+
+  it('handles content with no frontmatter at all', () => {
+    const input = '# No Frontmatter\n\nSome content here.\n';
+    const out = normalizeSkillMd(input, 'no-frontmatter');
+    const parsed = matter(out);
+    expect(parsed.data['name']).toBe('no-frontmatter');
+    expect(typeof parsed.data['description']).toBe('string');
+    expect((parsed.data['description'] as string).length).toBeGreaterThan(0);
+  });
+
+  it('truncates description at DESC_MAX_LEN (200 chars)', () => {
+    const longLine = 'A'.repeat(300);
+    const input = `---\nname: foo\n---\n# Heading\n\n${longLine}\n`;
+    const out = normalizeSkillMd(input, 'foo');
+    const parsed = matter(out);
+    expect((parsed.data['description'] as string).length).toBeLessThanOrEqual(200);
+  });
+
+  it('does not modify REFERENCE.md content (caller responsibility)', () => {
+    // normalizeSkillMd is only called for SKILL.md; this test verifies
+    // the function itself doesn't throw on arbitrary content
+    const refContent = '# Reference\n\nContent.\n';
+    expect(() => normalizeSkillMd(refContent, 'some-skill')).not.toThrow();
   });
 });
 

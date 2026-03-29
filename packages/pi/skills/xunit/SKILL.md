@@ -1,6 +1,8 @@
 ---
-name: xUnit Test Framework
-description: Execute and generate xUnit tests for C#/.NET projects with FluentAssertions and Moq support
+name: xunit
+description: >-
+  Execute and generate xUnit tests for C#/.NET projects with FluentAssertions
+  and Moq support
 version: 1.0.0
 ---
 

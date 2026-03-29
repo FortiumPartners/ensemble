@@ -1,6 +1,9 @@
 ---
 name: managing-railway
-description: Railway platform CLI for service deployment, infrastructure management, and debugging. Use for creating services, managing deployments, configuring networking, and reviewing logs.
+description: >-
+  Railway platform CLI for service deployment, infrastructure management, and
+  debugging. Use for creating services, managing deployments, configuring
+  networking, and reviewing logs.
 ---
 
 # Railway CLI Skill

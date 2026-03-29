@@ -1,3 +1,10 @@
+---
+name: changelog-generator
+description: >-
+  Generate changelog from conventional commits with categorization (Features,
+  Bug Fixes, Breaking Changes, Performance, Documentation) and formatted output
+  for release notes.
+---
 # Changelog Generator Skill
 
 **Quick Reference** - Parse conventional commits and generate categorized changelog

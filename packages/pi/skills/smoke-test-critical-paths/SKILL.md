@@ -1,3 +1,9 @@
+---
+name: smoke-test-critical-paths
+description: >-
+  Execute comprehensive critical user journey smoke tests to validate end-to-end
+  business flows during release workflows.
+---
 # Smoke Test Critical Paths Skill
 
 **Quick Reference** - Load this first for fast context (~2KB)

@@ -1,6 +1,8 @@
 ---
-name: RSpec Test Framework
-description: Execute and generate RSpec tests for Ruby projects with let bindings, before hooks, and mocking support
+name: rspec
+description: >-
+  Execute and generate RSpec tests for Ruby projects with let bindings, before
+  hooks, and mocking support
 version: 1.0.0
 ---
 

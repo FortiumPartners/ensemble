@@ -1,6 +1,8 @@
 ---
 name: using-anthropic-platform
-description: Claude SDK development with Messages API, Tool Use, Extended Thinking, streaming, and prompt caching
+description: >-
+  Claude SDK development with Messages API, Tool Use, Extended Thinking,
+  streaming, and prompt caching
 ---
 
 # Anthropic Claude SDK - Quick Reference

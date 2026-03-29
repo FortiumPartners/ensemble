@@ -1,3 +1,10 @@
+---
+name: smoke-test-external-services
+description: >-
+  Execute comprehensive external service integration smoke tests to validate
+  third-party APIs, payment gateways, email/SMS providers, and monitoring
+  service connectivity during release workflows.
+---
 # Smoke Test External Services Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

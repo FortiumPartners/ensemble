@@ -1,3 +1,7 @@
+---
+name: cloud-provider-detector
+description: 'const { detectCloudProvider } = require(''./detect-cloud-provider.js'');'
+---
 # Cloud Provider Detection Skill
 
 **Auto-detect AWS, GCP, or Azure usage with 95%+ accuracy using multi-signal analysis.**

@@ -1,6 +1,8 @@
 ---
 name: developing-with-python
-description: Python 3.11+ development with type hints, async patterns, FastAPI, and pytest. Use for backend services, CLI tools, data processing, and API development.
+description: >-
+  Python 3.11+ development with type hints, async patterns, FastAPI, and pytest.
+  Use for backend services, CLI tools, data processing, and API development.
 ---
 
 # Python Development Skill

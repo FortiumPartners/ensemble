@@ -1,3 +1,9 @@
+---
+name: kubernetes
+description: >-
+  Kubernetes is a container orchestration platform for automating deployment,
+  scaling, and management of containerized applications.
+---
 # Kubernetes Quick Reference
 
 **Version**: 1.0.0 | **Target Size**: <100KB | **Purpose**: Fast reference for Kubernetes manifest development and deployment

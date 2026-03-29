@@ -1,6 +1,9 @@
 ---
 name: developing-with-laravel
-description: Laravel framework patterns for PHP applications including Eloquent ORM, migrations, routing, queues, and Blade templates. Use when building Laravel applications or working with Laravel projects.
+description: >-
+  Laravel framework patterns for PHP applications including Eloquent ORM,
+  migrations, routing, queues, and Blade templates. Use when building Laravel
+  applications or working with Laravel projects.
 ---
 
 # Laravel Skill - Quick Reference

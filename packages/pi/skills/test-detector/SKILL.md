@@ -1,6 +1,8 @@
 ---
-name: Test Framework Detector
-description: Automatically detect test frameworks (Jest, pytest, RSpec, xUnit) in projects by analyzing configuration files and dependencies
+name: test-detector
+description: >-
+  Automatically detect test frameworks (Jest, pytest, RSpec, xUnit) in projects
+  by analyzing configuration files and dependencies
 version: 1.0.0
 ---
 

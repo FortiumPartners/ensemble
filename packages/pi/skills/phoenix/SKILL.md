@@ -1,3 +1,9 @@
+---
+name: phoenix
+description: >-
+  Quick reference for Phoenix and Elixir development patterns. For comprehensive
+  documentation, see REFERENCE.md.
+---
 # Phoenix Framework Skill - Quick Reference
 
 **Version**: 1.0.0 | **Last Updated**: 2025-10-22 | **Agent**: backend-developer

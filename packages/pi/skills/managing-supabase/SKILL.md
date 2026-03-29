@@ -1,6 +1,9 @@
 ---
 name: managing-supabase
-description: Supabase CLI for database management, Edge Functions, migrations, and local development. Use for managing Postgres databases, deploying serverless functions, and debugging Supabase projects.
+description: >-
+  Supabase CLI for database management, Edge Functions, migrations, and local
+  development. Use for managing Postgres databases, deploying serverless
+  functions, and debugging Supabase projects.
 ---
 
 # Supabase CLI Skill

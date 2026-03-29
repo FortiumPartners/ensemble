@@ -1,3 +1,7 @@
+---
+name: react
+description: 'This skill is loaded by `frontend-developer` when:'
+---
 # React Framework - Quick Reference
 
 **Version**: 1.0.0

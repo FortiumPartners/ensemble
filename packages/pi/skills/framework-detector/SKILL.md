@@ -1,21 +1,23 @@
 ---
-name: Framework Detector
+name: framework-detector
 version: 1.0.0
 framework_versions:
   min: 1.0.0
   recommended: 1.0.0
 compatible_agents:
-  backend-developer: ">=3.0.0"
-  frontend-developer: ">=3.0.0"
-  tech-lead-orchestrator: ">=2.5.0"
-description: Multi-signal framework detection with confidence scoring for 6 major frameworks
+  backend-developer: '>=3.0.0'
+  frontend-developer: '>=3.0.0'
+  tech-lead-orchestrator: '>=2.5.0'
+description: >-
+  Multi-signal framework detection with confidence scoring for 6 major
+  frameworks
 frameworks:
   - framework-detector
 languages:
   - javascript
   - typescript
 category: utility
-updated: 2025-10-22
+updated: 2025-10-22T00:00:00.000Z
 ---
 
 # Framework Detector Skill

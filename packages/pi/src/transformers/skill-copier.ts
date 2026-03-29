@@ -16,13 +16,18 @@
  * Symlinks (e.g. packages/full/skills/) are resolved before copying; if two paths
  * resolve to the same real file, the second is skipped.
  *
- * Files are copied byte-for-byte (no content transformation).
+ * SKILL.md files are normalized for Pi compatibility:
+ *   - `name` is always overridden with the output skill directory name
+ *   - `description` is added if missing, extracted from body or generated from the name
+ *
+ * REFERENCE.md files are copied byte-for-byte.
  *
  * @module ensemble-pi/transformers/skill-copier
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import matter from 'gray-matter';
 import { TransformResult } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -31,6 +36,85 @@ import { TransformResult } from '../types';
 
 /** File names to copy from each skill directory. */
 const SKILL_FILES = ['SKILL.md', 'REFERENCE.md'];
+
+/** Maximum length for auto-extracted description. */
+const DESC_MAX_LEN = 200;
+
+// ---------------------------------------------------------------------------
+// Frontmatter normalisation (SKILL.md only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract a description from the SKILL.md body when none is present in
+ * the frontmatter.
+ *
+ * Strategy:
+ *  1. Strip leading blank lines and heading lines (starting with `#`).
+ *  2. Find the first non-empty line that is not a heading, blockquote,
+ *     list item, table row, or fenced-code delimiter.
+ *  3. Trim to DESC_MAX_LEN chars at a sentence boundary (`.`, `!`, `?`)
+ *     when possible.
+ *  4. Fallback: title-case each word of skillDirName + " skill".
+ */
+function extractDescription(body: string, skillDirName: string): string {
+  const lines = body.split('\n');
+  const skipPattern = /^(#|>|-|\*|\||\s*```)/;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (skipPattern.test(trimmed)) continue;
+
+    // We have a candidate paragraph line — truncate it
+    if (trimmed.length <= DESC_MAX_LEN) {
+      return trimmed;
+    }
+
+    // Try to cut at a sentence boundary within the limit
+    const chunk = trimmed.slice(0, DESC_MAX_LEN);
+    const lastSentence = Math.max(
+      chunk.lastIndexOf('. '),
+      chunk.lastIndexOf('! '),
+      chunk.lastIndexOf('? ')
+    );
+    if (lastSentence > 40) {
+      return chunk.slice(0, lastSentence + 1).trim();
+    }
+    return chunk.trim();
+  }
+
+  // Fallback: generate from the directory name
+  return (
+    skillDirName
+      .split('-')
+      .map((w) => (w.length > 0 ? w[0].toUpperCase() + w.slice(1) : w))
+      .join(' ') + ' skill'
+  );
+}
+
+/**
+ * Normalize the frontmatter of a SKILL.md file for Pi compatibility.
+ *
+ * Rules:
+ *  - `name` is always set to `skillDirName` (overrides whatever the source says).
+ *  - `description` is added when absent, using body extraction or a generated fallback.
+ *
+ * @param content      Raw SKILL.md content (may or may not have frontmatter).
+ * @param skillDirName Output skill directory name (lowercase, a-z0-9 and hyphens).
+ * @returns            Normalised content string.
+ */
+export function normalizeSkillMd(content: string, skillDirName: string): string {
+  const parsed = matter(content);
+
+  // Override / set required fields
+  parsed.data['name'] = skillDirName;
+
+  if (!parsed.data['description']) {
+    parsed.data['description'] = extractDescription(parsed.content, skillDirName);
+  }
+
+  return matter.stringify(parsed.content, parsed.data);
+}
 
 /** Package directories to skip during scanning (output targets, not sources). */
 const SKIP_PACKAGES = new Set(['pi', 'full']);
@@ -166,7 +250,8 @@ function discoverSkillFiles(packagesDir: string): SkillFileEntry[] {
  * Copy SKILL.md and REFERENCE.md files from all Ensemble skill packages
  * into the Pi output root under `skills/<skill-name>/`.
  *
- * No content transformation is performed — files are copied byte-for-byte.
+ * SKILL.md files are normalised for Pi compatibility (name + description fields).
+ * REFERENCE.md files are copied byte-for-byte.
  *
  * Deduplication: if two paths resolve to the same real file (common when
  * packages/full uses symlinks), only the first occurrence is copied.
@@ -214,15 +299,21 @@ export async function copySkills(
     const outputPath = path.join(skillsOutputDir, entry.skillDirName, entry.fileName);
 
     // Read file content
-    let content: string;
+    let rawContent: string;
     try {
-      content = fs.readFileSync(entry.realSrcPath, 'utf-8');
+      rawContent = fs.readFileSync(entry.realSrcPath, 'utf-8');
     } catch (err) {
       process.stderr.write(
         `  skill-copier: warning — cannot read ${entry.srcPath}: ${(err as Error).message}\n`
       );
       continue;
     }
+
+    // Normalise SKILL.md frontmatter for Pi compatibility; REFERENCE.md is copied as-is
+    const content =
+      entry.fileName === 'SKILL.md'
+        ? normalizeSkillMd(rawContent, entry.skillDirName)
+        : rawContent;
 
     const result: TransformResult = {
       sourcePath: entry.srcPath,

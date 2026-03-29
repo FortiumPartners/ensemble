@@ -1,3 +1,9 @@
+---
+name: act-local-ci
+description: >-
+  Run GitHub Actions workflows locally before pushing to validate CI/CD
+  pipelines, catch errors early, and reduce iteration time.
+---
 # Act Local CI Skill
 
 **Quick Reference** - Test GitHub Actions workflows locally using nektos/act

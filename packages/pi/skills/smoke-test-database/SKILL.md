@@ -1,3 +1,10 @@
+---
+name: smoke-test-database
+description: >-
+  Execute comprehensive database smoke tests to validate connectivity, query
+  performance, data integrity, and backup/restore operations during release
+  workflows.
+---
 # Smoke Test Database Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

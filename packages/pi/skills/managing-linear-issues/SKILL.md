@@ -1,6 +1,9 @@
 ---
 name: managing-linear-issues
-description: Linear.app issue management using Linearis CLI with JSON output and smart ID resolution. Use when creating, viewing, updating, or searching Linear issues, managing sprints/cycles, or listing teams/projects.
+description: >-
+  Linear.app issue management using Linearis CLI with JSON output and smart ID
+  resolution. Use when creating, viewing, updating, or searching Linear issues,
+  managing sprints/cycles, or listing teams/projects.
 ---
 
 # Linear Integration Skill

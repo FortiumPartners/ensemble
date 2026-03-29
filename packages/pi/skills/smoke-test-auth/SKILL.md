@@ -1,3 +1,10 @@
+---
+name: smoke-test-auth
+description: >-
+  Execute comprehensive authentication and authorization smoke tests to validate
+  login flows, token validation, session management, and access control during
+  release workflows.
+---
 # Smoke Test Auth Skill
 
 **Quick Reference** - Load this first for fast context (~2KB)

@@ -1,6 +1,9 @@
 ---
 name: using-openai-platform
-description: OpenAI SDK development with GPT-5 family, Chat Completions, Responses API, embeddings, and tool calling. Use for AI-powered applications, chatbots, agents, and semantic search.
+description: >-
+  OpenAI SDK development with GPT-5 family, Chat Completions, Responses API,
+  embeddings, and tool calling. Use for AI-powered applications, chatbots,
+  agents, and semantic search.
 ---
 
 # OpenAI SDK Development Skill

@@ -1,6 +1,9 @@
 ---
 name: writing-playwright-tests
-description: Provides patterns for writing maintainable E2E test scripts with Playwright, focusing on selector strategies, page objects, and wait handling for legacy application retrofitting.
+description: >-
+  Provides patterns for writing maintainable E2E test scripts with Playwright,
+  focusing on selector strategies, page objects, and wait handling for legacy
+  application retrofitting.
 ---
 
 # Playwright E2E Testing Skill

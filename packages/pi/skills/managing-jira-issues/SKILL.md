@@ -1,6 +1,9 @@
 ---
 name: managing-jira-issues
-description: Jira issue management using the jira CLI with JSON output. Use for creating, viewing, updating, searching issues, fetching complete hierarchies, and managing sprints.
+description: >-
+  Jira issue management using the jira CLI with JSON output. Use for creating,
+  viewing, updating, searching issues, fetching complete hierarchies, and
+  managing sprints.
 ---
 
 # Jira Integration Skill

@@ -1,3 +1,7 @@
+---
+name: flyio
+description: '1. [fly.toml Quick Reference](#flytoml-quick-reference)'
+---
 # Fly.io Infrastructure Skills
 
 **Version**: 1.0.0 | **Target Size**: <25KB | **Purpose**: Fast reference for Fly.io deployments and global application distribution

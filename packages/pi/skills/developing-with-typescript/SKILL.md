@@ -1,6 +1,9 @@
 ---
 name: developing-with-typescript
-description: TypeScript 5.x development with type system, generics, utility types, and strict mode patterns. Use when writing TypeScript code or adding types to JavaScript projects.
+description: >-
+  TypeScript 5.x development with type system, generics, utility types, and
+  strict mode patterns. Use when writing TypeScript code or adding types to
+  JavaScript projects.
 ---
 
 # TypeScript Development Skill

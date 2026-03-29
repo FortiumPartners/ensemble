@@ -1,6 +1,10 @@
 ---
 name: building-langgraph-agents
-description: LangGraph development for stateful multi-agent applications, cyclic workflows, conditional routing, human-in-the-loop patterns, and persistent state management. Use for complex AI orchestration, agent coordination, and production-grade agentic systems.
+description: >-
+  LangGraph development for stateful multi-agent applications, cyclic workflows,
+  conditional routing, human-in-the-loop patterns, and persistent state
+  management. Use for complex AI orchestration, agent coordination, and
+  production-grade agentic systems.
 ---
 
 # LangGraph Development Skill

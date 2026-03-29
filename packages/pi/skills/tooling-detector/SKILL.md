@@ -1,3 +1,9 @@
+---
+name: tooling-detector
+description: >-
+  The tooling detection system automatically identifies infrastructure and
+  DevOps tooling usage in projects using multi-signal analysis.
+---
 # Tooling Detection System
 
 **Version**: 1.0.0 | **Purpose**: Automatic detection of infrastructure tooling (Helm, Kubernetes, Kustomize, ArgoCD)

@@ -1,6 +1,10 @@
 ---
 name: using-perplexity-platform
-description: Perplexity Sonar API development with search-augmented generation, real-time web search, citations, and OpenAI-compatible Chat Completions. Use for AI-powered applications requiring up-to-date information, research assistants, and grounded responses with sources.
+description: >-
+  Perplexity Sonar API development with search-augmented generation, real-time
+  web search, citations, and OpenAI-compatible Chat Completions. Use for
+  AI-powered applications requiring up-to-date information, research assistants,
+  and grounded responses with sources.
 ---
 
 # Perplexity Sonar API Development Skill

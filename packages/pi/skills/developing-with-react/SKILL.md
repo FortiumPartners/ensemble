@@ -1,6 +1,9 @@
 ---
 name: developing-with-react
-description: React 18+ development with hooks, state management, component patterns, and Next.js integration. Use when building React applications or working with JSX/TSX components.
+description: >-
+  React 18+ development with hooks, state management, component patterns, and
+  Next.js integration. Use when building React applications or working with
+  JSX/TSX components.
 ---
 
 # React Framework - Quick Reference

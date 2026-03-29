@@ -1,6 +1,9 @@
 ---
 name: using-celery
-description: Celery 5.3+ distributed task queue with Beat scheduler, Redis/RabbitMQ brokers, workflow patterns, and FastAPI integration. Use for background jobs, periodic tasks, and async processing.
+description: >-
+  Celery 5.3+ distributed task queue with Beat scheduler, Redis/RabbitMQ
+  brokers, workflow patterns, and FastAPI integration. Use for background jobs,
+  periodic tasks, and async processing.
 ---
 
 # Celery & Beat Development Skill

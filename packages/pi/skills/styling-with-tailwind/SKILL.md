@@ -1,6 +1,9 @@
 ---
 name: styling-with-tailwind
-description: Provides utility-first CSS styling patterns using Tailwind CSS 3.x. Use when styling components with utility classes, configuring tailwind.config.js, implementing responsive designs, or creating dark mode themes.
+description: >-
+  Provides utility-first CSS styling patterns using Tailwind CSS 3.x. Use when
+  styling components with utility classes, configuring tailwind.config.js,
+  implementing responsive designs, or creating dark mode themes.
 ---
 
 # Tailwind CSS 3.x Skill

@@ -1,3 +1,9 @@
+---
+name: smoke-test-api
+description: >-
+  Execute comprehensive API health smoke tests to validate service availability,
+  response times, and critical endpoint functionality during release workflows.
+---
 # Smoke Test API Skill
 
 **Quick Reference** - Load this first for fast context (~3KB)

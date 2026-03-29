@@ -1,3 +1,10 @@
+---
+name: smoke-test-runner
+description: >-
+  Orchestrate execution of all smoke test categories (API, Database, External
+  Services, Auth, Critical Paths) in the correct order with early exit on
+  failure.
+---
 # Smoke Test Runner Skill
 
 **Quick Reference** - Orchestrates all smoke test categories

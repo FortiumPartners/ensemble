@@ -1,21 +1,23 @@
 ---
-name: NestJS Framework
+name: nestjs
 version: 1.0.0
 framework_versions:
   min: 8.0.0
   max: 11.x
   recommended: 10.4.0
 compatible_agents:
-  backend-developer: ">=3.0.0"
-  tech-lead-orchestrator: ">=2.5.0"
-description: Node.js/TypeScript backend framework with dependency injection and modular architecture
+  backend-developer: '>=3.0.0'
+  tech-lead-orchestrator: '>=2.5.0'
+description: >-
+  Node.js/TypeScript backend framework with dependency injection and modular
+  architecture
 frameworks:
   - nestjs
 languages:
   - typescript
   - javascript
 category: backend
-updated: 2025-10-22
+updated: 2025-10-22T00:00:00.000Z
 ---
 
 # NestJS Framework Skill

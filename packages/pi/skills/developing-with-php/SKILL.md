@@ -1,6 +1,9 @@
 ---
 name: developing-with-php
-description: Modern PHP 8.x development with type system, attributes, enums, error handling, and Composer. Use when writing PHP code or working with PHP projects.
+description: >-
+  Modern PHP 8.x development with type system, attributes, enums, error
+  handling, and Composer. Use when writing PHP code or working with PHP
+  projects.
 ---
 
 # PHP Skill - Quick Reference
