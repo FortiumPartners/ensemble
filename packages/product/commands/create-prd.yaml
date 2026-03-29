@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-prd
-  description: Create comprehensive Product Requirements Document from product description
-  version: 2.1.0
-  lastUpdated: "2026-03-15"
+  description: Create comprehensive Product Requirements Document with structured elicitation and adversarial review
+  version: 2.2.0
+  lastUpdated: "2026-03-28"
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
@@ -13,80 +13,227 @@ constraints:
   - This command creates ONLY a PRD document
   - The arguments describe what should be documented, not what should be built
   - After creating the PRD, stop and wait for user approval before any implementation
+  - DO NOT skip the elicitation phase -- always ask clarifying questions before generating requirements
+  - DO NOT save the PRD until it passes the Implementation Readiness Gate
 
 mission:
   summary: |
-    Create a comprehensive Product Requirements Document (PRD) from a product description
-    or feature idea. Delegates to product-management-orchestrator for user analysis,
-    acceptance criteria definition, and structured requirements documentation.
+    Create a comprehensive Product Requirements Document (PRD) through structured elicitation,
+    contextual research, and adversarial self-review. Adapts depth to project scale (solo dev
+    through enterprise). Uses clarifying interviews and creative elicitation techniques to surface
+    hidden requirements before writing. Every PRD passes an Implementation Readiness Gate before
+    being saved to ensure handoff quality.
 
 workflow:
   phases:
-    - name: Product Analysis
+    - name: Structured Elicitation
       order: 1
       steps:
         - order: 1
-          title: Product Description Analysis
-          description: Analyze provided product description or feature idea
+          title: Scale Detection
+          description: Determine project complexity to calibrate PRD depth
+          actions:
+            - "Ask the user: 'Is this a solo/side project, small team (2-5), or enterprise/multi-team effort?'"
+            - "If user provided a product description as arguments, read it first, then ask -- don't make them repeat themselves"
+            - "Set depth level: LIGHT (solo -- 5-10 requirements, minimal ceremony), STANDARD (small team -- 10-25 requirements, full ACs), DEEP (enterprise -- 25+ requirements, risk analysis, compliance section)"
+            - Announce the chosen depth level so the user can override if needed
 
         - order: 2
-          title: User Research
-          description: Identify primary users, personas, and pain points
+          title: Problem Space Interview
+          description: Gather core product context through targeted questions
+          actions:
+            - "Ask these questions (skip any already answered in the product description):"
+            - "1. What problem does this solve? Who feels the pain today?"
+            - "2. Who are the primary users? (roles, not names)"
+            - "3. What does success look like? (specific metrics if possible)"
+            - "4. What constraints exist? (budget, timeline, tech stack, compliance)"
+            - "5. What existing solutions have been tried or considered?"
+            - Wait for answers before proceeding -- do not generate requirements from assumptions
+            - Summarize what you heard back to the user in 3-4 sentences for confirmation
 
         - order: 3
-          title: Goal Definition
-          description: Define primary goals, success criteria, and non-goals
+          title: Creative Elicitation
+          description: Use structured techniques to surface hidden and edge-case requirements
+          actions:
+            - "SCAMPER the core idea: ask the user 2-3 targeted questions from these angles:"
+            - "  - Substitute: What if a key component were replaced? (e.g., 'What if users couldn't use a browser?')"
+            - "  - Combine: What adjacent problems could this solve simultaneously?"
+            - "  - Adapt: What existing product does this most resemble, and where must it differ?"
+            - "  - Eliminate: What's the simplest version that still solves the core problem?"
+            - "'What could go wrong?' exercise: brainstorm 3-5 failure scenarios with the user (data loss, abuse, scale issues, accessibility gaps)"
+            - Record insights from both techniques -- these become requirements or risk flags later
+            - "For LIGHT depth: ask 2 SCAMPER questions and 2 failure scenarios"
+            - "For DEEP depth: run full SCAMPER sweep and 5+ failure scenarios"
 
-    - name: Requirements Definition
+    - name: Research and Context
       order: 2
       steps:
         - order: 1
-          title: Functional Requirements
-          description: |
-            Define what the product must do.
-            Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
+          title: Codebase Reconnaissance
+          description: Understand existing patterns and constraints before writing requirements
+          actions:
+            - Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack
+            - Read CLAUDE.md or CONTRIBUTING.md for coding standards the PRD should respect
+            - Identify existing authentication, authorization, and data patterns the new feature must integrate with
+            - "If no codebase exists (greenfield), note this and skip to step 2"
 
         - order: 2
-          title: Non-Functional Requirements
-          description: |
-            Define performance, security, accessibility requirements.
-            Assign REQ-NNN IDs to every requirement as H3 headings: '### REQ-001: Description'
+          title: Existing PRD Review
+          description: Maintain consistency with prior product documentation
+          actions:
+            - "Check docs/PRD/ for existing PRDs -- read the most recent one for style and numbering"
+            - "Determine next PRD number: find highest PRD-YYYY-NNN and increment"
+            - "If no existing PRDs, start with PRD-{current_year}-001"
+            - Note any cross-cutting requirements from existing PRDs that this feature must respect
 
         - order: 3
-          title: Acceptance Criteria
-          description: |
-            Create measurable, testable acceptance criteria.
-            Write ACs as numbered sub-items under each requirement in Given/When/Then format: '- AC-NNN-M: Given <context>, when <action>, then <outcome>'
+          title: Technical Dependency Mapping
+          description: Identify integration points and technical constraints
+          actions:
+            - List external services, APIs, or databases the feature will interact with
+            - Identify shared components or libraries the feature should reuse
+            - Flag any technical constraints that limit design options (e.g., must work offline, must support IE11, max 100ms latency)
+            - "For LIGHT depth: bullet list of dependencies is sufficient"
+            - "For DEEP depth: create a dependency matrix showing interaction direction and data flow"
 
-    - name: Output Management
+    - name: Requirements Definition
       order: 3
       steps:
         - order: 1
-          title: PRD Creation
-          description: |
-            Generate comprehensive PRD document.
-            Include document frontmatter block: Document ID: PRD-YYYY-NNN, Version, Status, Requirement count.
-            Generate Acceptance Criteria summary table: | REQ-NNN | Description | AC count | Priority |
-            File naming: docs/PRD/PRD-YYYY-NNN-<slug>.md
+          title: Functional Requirements
+          description: Define what the product must do, grouped by feature area
+          actions:
+            - "Group requirements by feature area (e.g., 'User Management', 'Data Import', 'Reporting'), not just 'Functional' vs 'Non-Functional'"
+            - "Assign REQ-NNN IDs as H3 headings: '### REQ-001: Description'"
+            - "Tag each requirement with MoSCoW priority: Must, Should, Could, Won't (this release)"
+            - "Tag each requirement with complexity: Low, Medium, High"
+            - "Flag requirements with risk indicators where applicable: [RISK: description]"
+            - "Write requirements as user-observable behaviors, not implementation details"
+            - "For LIGHT depth: 5-10 requirements, Must/Should only"
+            - "For STANDARD depth: 10-25 requirements, full MoSCoW"
+            - "For DEEP depth: 25+ requirements, full MoSCoW with risk flags on every Medium/High complexity item"
+
+        - order: 2
+          title: Non-Functional Requirements
+          description: Define performance, security, accessibility, and operational requirements
+          actions:
+            - "Use the same REQ-NNN numbering sequence (continue from functional requirements)"
+            - "Cover these categories as applicable: performance, security, accessibility, reliability, scalability, observability"
+            - "Tag each with MoSCoW priority and complexity, same as functional requirements"
+            - "For LIGHT depth: 2-3 non-functional requirements covering the obvious gaps"
+            - "For DEEP depth: comprehensive coverage of all categories with specific targets (e.g., 'p99 latency < 200ms')"
+
+        - order: 3
+          title: Acceptance Criteria
+          description: Create measurable, testable acceptance criteria for every requirement
+          actions:
+            - "Write ACs as sub-items under each requirement in Given/When/Then format"
+            - "Format: '- AC-NNN-M: Given <context>, when <action>, then <outcome>'"
+            - "Every Must requirement needs at least 2 ACs (happy path + one edge case)"
+            - "Every Should requirement needs at least 1 AC"
+            - "Could/Won't requirements: ACs optional but recommended"
+            - "Include negative test cases for security-sensitive requirements"
+            - "For LIGHT depth: 1 AC per requirement minimum"
+            - "For DEEP depth: 2-4 ACs per requirement including edge cases and error paths"
+
+        - order: 4
+          title: Dependency Map
+          description: Document which requirements depend on each other
+          actions:
+            - "For each requirement, list any prerequisites: 'REQ-003 depends on REQ-001'"
+            - "Identify requirement clusters that should be implemented together"
+            - "Flag any circular dependencies as issues to resolve"
+            - "For LIGHT depth: simple bullet list of dependencies"
+            - "For DEEP depth: dependency table with columns: REQ, Depends On, Blocked By, Notes"
+
+    - name: Adversarial Review and Readiness Gate
+      order: 4
+      steps:
+        - order: 1
+          title: Self-Critique
+          description: Find issues in the draft PRD before presenting to the user
+          actions:
+            - "Review the draft PRD and identify at least 5 potential issues from these categories:"
+            - "  - Gaps: missing requirements that the elicitation phase hinted at"
+            - "  - Contradictions: requirements that conflict with each other"
+            - "  - Ambiguity: requirements vague enough to be implemented two different ways"
+            - "  - Missing edge cases: failure scenarios from the elicitation phase not covered by ACs"
+            - "  - Testability: ACs that cannot be objectively verified"
+            - "For DEEP depth: find at least 10 issues"
+            - "Present each issue with a recommended resolution"
+
+        - order: 2
+          title: Issue Resolution
+          description: Present issues to the user and incorporate their decisions
+          actions:
+            - "Present the issues as a numbered list with recommended resolutions"
+            - "Ask the user to approve, modify, or reject each recommendation"
+            - "Update the PRD based on user decisions"
+            - "If new requirements emerge from issue resolution, assign REQ-NNN IDs and add ACs"
+
+        - order: 3
+          title: Implementation Readiness Gate
+          description: Score the PRD on quality dimensions to determine if it is ready for TRD handoff
+          actions:
+            - "Score these dimensions (1-5 scale):"
+            - "  - Completeness: are all feature areas covered with requirements?"
+            - "  - Testability: does every Must/Should requirement have verifiable ACs?"
+            - "  - Clarity: could two different developers read this and build the same thing?"
+            - "  - Feasibility: are all requirements technically achievable within stated constraints?"
+            - "Compute overall score: average of all dimensions"
+            - "PASS (4.0+): save the PRD"
+            - "CONCERNS (3.0-3.9): list specific concerns, ask user if they want to address them or proceed"
+            - "FAIL (<3.0): do not save -- identify the weakest dimensions and loop back to fix them"
+            - "Present the scorecard to the user with the gate decision"
+
+    - name: Output Management
+      order: 5
+      steps:
+        - order: 1
+          title: PRD Document Generation
+          description: Generate the final PRD with frontmatter and health summary
+          actions:
+            - "Include document frontmatter block: Document ID (PRD-YYYY-NNN), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score"
+            - "Generate PRD Health summary at the top of the document:"
+            - "  - Requirement count by priority: Must (N), Should (N), Could (N), Won't (N)"
+            - "  - AC coverage: N/N requirements have acceptance criteria (percentage)"
+            - "  - Risk flags: N requirements flagged with risk indicators"
+            - "  - Dependency count: N cross-requirement dependencies"
+            - "Generate Acceptance Criteria summary table: | REQ-NNN | Description | Priority | Complexity | AC Count |"
+            - "Include the dependency map section"
+            - "File naming: docs/PRD/PRD-YYYY-NNN-<slug>.md"
 
         - order: 2
           title: File Organization
-          description: Save to @docs/PRD/ directory
+          description: Save to docs/PRD/ directory and confirm
+          actions:
+            - "Create docs/PRD/ directory if it doesn't exist"
+            - Save the PRD to docs/PRD/PRD-YYYY-NNN-<slug>.md
+            - "Print: file path, requirement count, readiness score, and suggested next step (e.g., '/ensemble:create-trd docs/PRD/PRD-YYYY-NNN-<slug>.md')"
 
 expectedOutput:
   format: Product Requirements Document (PRD)
   structure:
+    - name: PRD Health Summary
+      description: Requirement counts by priority, AC coverage percentage, risk flag count, dependency count
+
     - name: Product Summary
-      description: Problem statement, solution, value proposition
+      description: Problem statement, solution overview, value proposition, target users
 
     - name: User Analysis
-      description: Users, personas, pain points, journey
+      description: User roles, personas, pain points, success metrics
 
-    - name: Goals & Non-Goals
-      description: Objectives, success criteria, scope boundaries
+    - name: Goals and Non-Goals
+      description: Objectives, success criteria, explicit scope boundaries
 
-    - name: Requirement IDs
-      description: REQ-NNN identifiers on every functional and non-functional requirement
+    - name: Requirements by Feature Area
+      description: REQ-NNN identified requirements grouped by feature area with MoSCoW priority and complexity tags
 
     - name: Acceptance Criteria
-      description: "ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table"
+      description: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table
+
+    - name: Dependency Map
+      description: Cross-requirement dependencies and implementation clusters
+
+    - name: Readiness Scorecard
+      description: Implementation Readiness Gate scores for completeness, testability, clarity, and feasibility
