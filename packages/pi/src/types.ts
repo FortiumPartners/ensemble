@@ -27,7 +27,12 @@ export interface Step {
   id: number;
   title: string;
   description?: string;
-  actions?: string[];
+  /**
+   * Actions are declared as strings in YAML but js-yaml may parse unquoted
+   * "key: value" entries as single-key objects. Use `unknown[]` to accept
+   * both and coerce to string during rendering.
+   */
+  actions?: unknown[];
 }
 
 export interface CommandYaml {
