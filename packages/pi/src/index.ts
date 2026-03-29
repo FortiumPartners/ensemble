@@ -26,7 +26,7 @@ const options: GeneratorOptions = {
   dryRun: args.includes('--dry-run'),
   verbose: args.includes('--verbose'),
   validate: args.includes('--validate'),
-  sourceRoot: process.cwd(),
+  sourceRoot: path.resolve(__dirname, '..', '..', '..'),
   outputRoot: path.join(__dirname, '..'),
 };
 
