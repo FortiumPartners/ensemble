@@ -1,192 +1,13 @@
 metadata:
   name: ensemble:create-trd
-  description: |
-    Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator
-  version: 2.3.0
-  lastUpdated: "2026-03-16"
+  description: Create Technical Requirements Document from PRD with architecture design and adversarial review
+  version: 3.0.0
+  lastUpdated: "2026-03-28"
   category: planning
   output_path: ensemble/create-trd.md
   source: fortium
   model: opus
-  argument_hint: "[prd-path] [--team] [--no-team]"
-
-team_configuration:
-  # TRD-001: Domain keyword mapping (case-insensitive matching)
-  domain_keywords:
-    backend:
-      - api
-      - endpoint
-      - server
-      - service
-      - controller
-      - repository
-      - middleware
-      - rest
-      - graphql
-      - backend
-    frontend:
-      - ui
-      - component
-      - react
-      - vue
-      - angular
-      - svelte
-      - css
-      - html
-      - page
-      - frontend
-      - interface
-      - form
-    infrastructure:
-      - deploy
-      - docker
-      - kubernetes
-      - k8s
-      - aws
-      - cloud
-      - terraform
-      - ci-cd
-      - continuous-integration
-      - continuous-delivery
-      - pipeline
-      - infra
-      - infrastructure
-    documentation:
-      - docs
-      - readme
-      - documentation
-      - changelog
-      - guide
-      - api-docs
-      - swagger
-      - openapi
-      - document
-    testing:
-      - test
-      - spec
-      - e2e
-      - unit
-      - integration
-      - coverage
-      - jest
-      - pytest
-      - rspec
-      - playwright
-      - vitest
-      - exunit
-    database:
-      - database
-      - sql
-      - schema
-      - migration
-      - query
-      - postgres
-      - mysql
-      - mongodb
-      - redis
-    security:
-      - security
-      - auth
-      - authentication
-      - authorization
-      - permission
-      - encrypt
-      - ssl
-      - tls
-      - vulnerability
-      - cve
-    devops:
-      - devops
-      - monitoring
-      - logging
-      - alerting
-      - metrics
-      - observability
-      - helm
-      - ansible
-      - provisioning
-
-  # TRD-002: Default agent-to-domain mapping
-  default_agents:
-    backend: backend-developer
-    frontend: frontend-developer
-    infrastructure: infrastructure-developer
-    documentation: documentation-specialist
-    testing: test-runner
-    database: postgresql-specialist
-    security: code-reviewer
-    devops: infrastructure-developer
-    # Fixed role assignments
-    lead: tech-lead-orchestrator
-    reviewer: code-reviewer
-    qa: qa-orchestrator
-    qa_fallback: test-runner
-
-  # TRD-003: Complexity tier thresholds
-  complexity_tiers:
-    simple:
-      description: Single-agent execution; no team config generated
-      conditions:
-        task_count_lt: 10
-        domain_count_eq: 1
-        estimated_hours_lt: 20
-      note: ALL three conditions must be met for Simple classification
-    medium:
-      description: Lead + builder team; no reviewer or QA
-      conditions:
-        task_count_min: 10
-        task_count_max: 25
-        domain_count_min: 2
-        estimated_hours_min: 20
-        estimated_hours_max: 60
-      note: ANY single condition triggers Medium (unless Complex condition also met)
-    complex:
-      description: Full team; lead + builder(s) + reviewer + QA
-      conditions:
-        task_count_gt: 25
-        domain_count_gte: 3
-        estimated_hours_gt: 60
-      note: ANY single Complex condition triggers Complex tier
-
-  # TRD-019: Domain-to-marketplace-plugin mapping
-  marketplace_mappings:
-    domain_to_plugins:
-      backend:
-        - ensemble-nestjs
-        - ensemble-rails
-        - ensemble-phoenix
-      frontend:
-        - ensemble-react
-        - ensemble-blazor
-      infrastructure:
-        - ensemble-infrastructure
-      testing:
-        - ensemble-e2e-testing
-        - ensemble-jest
-        - ensemble-pytest
-        - ensemble-rspec
-        - ensemble-xunit
-        - ensemble-exunit
-      database:
-        - ensemble-infrastructure
-      security:
-        - ensemble-quality
-      devops:
-        - ensemble-infrastructure
-        - ensemble-git
-    framework_keyword_to_plugin:
-      react: ensemble-react
-      nest: ensemble-nestjs
-      nestjs: ensemble-nestjs
-      rails: ensemble-rails
-      phoenix: ensemble-phoenix
-      blazor: ensemble-blazor
-      jest: ensemble-jest
-      pytest: ensemble-pytest
-      rspec: ensemble-rspec
-      xunit: ensemble-xunit
-      exunit: ensemble-exunit
-      playwright: ensemble-e2e-testing
+  argument_hint: "[prd-path] [--team]"
 
 constraints:
   - DO NOT implement, build, or execute any technical work described in the requirements
@@ -196,99 +17,132 @@ constraints:
 
 mission:
   summary: |
-    This command takes a comprehensive Product Requirements Document (PRD) $ARGUMENTS and delegates to
-    @tech-lead-orchestrator via @ensemble-orchestrator for technical planning, architecture design,
-    and implementation breakdown. All outputs are automatically saved to @docs/TRD/ directory.
+    Create a Technical Requirements Document (TRD) from a Product Requirements Document (PRD).
+    Performs PRD validation, architecture design with alternatives, task breakdown with traceability,
+    optional MCP enhancement, adversarial self-review with a Design Readiness Gate, and structured
+    output with traceability matrices. Team configuration is handled separately by
+    /ensemble:configure-team. All outputs are saved to docs/TRD/.
 
 workflow:
   phases:
-    - name: PRD Analysis & Validation
+    - name: PRD Ingestion and Validation
       order: 1
       steps:
         - order: 1
           title: PRD Ingestion
-          description: Parse and analyze existing PRD document $ARGUMENTS
+          description: Parse and analyze existing PRD document from $ARGUMENTS path
           actions:
             - Read PRD file from specified path
-            - Validate document structure
-            - Extract key requirements
+            - Validate document structure (required sections present)
+            - Extract key requirements with REQ-NNN IDs
+            - Build requirements registry for traceability tracking
 
         - order: 2
           title: Requirements Validation
           description: Ensure completeness of functional and non-functional requirements
           actions:
-            - Validate all required sections present
-            - Check acceptance criteria are testable
-            - Verify constraints are documented
+            - Validate all required sections present (Product Summary, User Analysis, Goals, Technical Requirements, Acceptance Criteria)
+            - Check acceptance criteria are testable and use Given/When/Then format
+            - Verify REQ-NNN format numbering is consistent and sequential
+            - Verify constraints and non-goals are documented
 
         - order: 3
           title: Acceptance Criteria Review
-          description: |
-            Validate testable acceptance criteria from the PRD.
-            Ensure each requirement has measurable acceptance criteria with Given/When/Then items.
-            Do NOT validate TRD traceability here — the TRD has not been generated yet.
+          description: Validate testable acceptance criteria from the PRD before TRD generation
+          actions:
+            - Ensure each requirement has measurable acceptance criteria with Given/When/Then items
+            - Verify AC-NNN-M sub-item format under each REQ-NNN
+            - Check that every Must requirement has at least 2 ACs (happy path + edge case)
+            - "Do NOT validate TRD traceability here -- the TRD has not been generated yet"
 
         - order: 4
-          title: Context Preparation
-          description: Prepare PRD for technical planning delegation
+          title: Implementation Readiness Gate Check
+          description: Check if the PRD passed its own readiness gate before proceeding
+          actions:
+            - Read PRD frontmatter for Readiness Score field
+            - "If score >= 4.0 (PASS): proceed normally"
+            - "If score 3.0-3.9 (CONCERNS): warn user about PRD concerns, ask whether to proceed"
+            - "If score < 3.0 (FAIL): halt and recommend running /ensemble:refine-prd first"
+            - If no readiness score in frontmatter, proceed with a note that PRD was not gate-checked
 
-    - name: Agent Mesh Delegation
+    - name: Architecture Design
       order: 2
       steps:
         - order: 1
-          title: Ensemble Orchestrator
-          description: Route validated PRD to @ensemble-orchestrator
-          delegation:
-            agent: ensemble-orchestrator
-            context: Validated PRD with acceptance criteria
+          title: Domain Analysis
+          description: Analyze requirements for technical domains and architectural scope
+          actions:
+            - Scan all REQ-NNN requirements for technical domain keywords (API, UI, database, infrastructure, security, etc.)
+            - Identify architectural patterns needed (API layer, data model, UI components, integrations)
+            - Map requirements to technical domains for coverage tracking
+            - Determine if project is greenfield or brownfield (check for existing codebase)
+            - Summarize domain coverage and gaps
 
         - order: 2
-          title: Tech Lead Orchestrator
-          description: |
-            Delegate technical planning and architecture design with traceability annotations.
-
-            Instruct tech-lead-orchestrator to:
-            - Add [satisfies REQ-NNN] to every task that satisfies a PRD requirement
-            - Use [satisfies INFRA] or [satisfies ARCH] for infrastructure/architecture tasks without a direct user requirement
-            - Add Validates PRD ACs: AC-NNN-M, AC-NNN-M fields to every implementation task
-            - Add Implementation AC: checklist with Given/When/Then items per task
-            - Generate paired TRD-NNN-TEST tasks for every user-facing implementation task:
-              [verifies TRD-NNN] [satisfies REQ-NNN] [depends: TRD-NNN]
-          delegation:
-            agent: tech-lead-orchestrator
-            context: Product requirements requiring technical translation
+          title: Architecture Alternatives
+          description: Present 2-3 architecture approaches with tradeoffs for user selection
+          actions:
+            - "Design Option A: simplest approach -- minimal components, fastest to build, may not scale"
+            - "Design Option B: most scalable approach -- production-grade architecture, more upfront work"
+            - "Design Option C: best fit for existing codebase (if brownfield) or balanced approach (if greenfield)"
+            - Present each option with pros, cons, estimated complexity impact, and risk profile
+            - Ask user to choose one option or combine elements before proceeding
 
         - order: 3
-          title: TRD Generation
-          description: Generate Technical Requirements Document (TRD)
+          title: System Architecture Design
+          description: Design detailed system architecture based on chosen approach
+          actions:
+            - Define component boundaries and responsibilities
+            - Design data flow between components (inputs, outputs, transformations)
+            - Specify integration points with external systems and APIs
+            - Document technology choices and rationale
+            - Create architecture diagram description (component relationships, data flow direction)
 
-        - order: 4
-          title: Task Breakdown
-          description: Create actionable development tasks with estimates and checkboxes
+    - name: Task Breakdown and Planning
+      order: 3
+      steps:
+        - order: 1
+          title: Master Task List Generation
+          description: Generate comprehensive task list with TRD-NNN IDs and traceability annotations
+          actions:
+            - Generate unique TRD-NNN IDs for every task (sequential numbering)
+            - "Each task includes: description, hour estimate (Nh), [satisfies REQ-NNN] annotation"
+            - Add Validates PRD ACs field listing AC-NNN-M items the task covers
+            - Add Implementation AC checklist with Given/When/Then items specific to the implementation
+            - "Use [satisfies INFRA] or [satisfies ARCH] for infrastructure/architecture tasks without a direct REQ"
 
-        - order: 5
-          title: Implementation Planning
-          description: Develop sprint planning with trackable task lists
+        - order: 2
+          title: Test Task Generation
+          description: Generate paired test tasks for every user-facing implementation task
+          actions:
+            - For every user-facing TRD-NNN implementation task, generate a TRD-NNN-TEST task
+            - "Test tasks include: [verifies TRD-NNN] [satisfies REQ-NNN] [depends: TRD-NNN] annotations"
+            - Test task descriptions reference the specific ACs they verify
+            - Ensure test tasks cover both happy path and edge case scenarios
+            - Link test tasks to the PRD acceptance criteria they validate
+
+        - order: 3
+          title: Dependency Mapping
+          description: Organize tasks by dependencies and plan sprint phases
+          actions:
+            - "Add [depends: TRD-NNN] annotations where tasks have prerequisites"
+            - Build dependency graph and identify the critical path
+            - Flag tasks estimated at 8h+ as candidates for further breakdown
+            - Organize tasks into sprints/phases based on dependency order
+            - Ensure no circular dependencies exist in the task graph
 
     - name: MCP Enhancement (Optional)
-      order: 3
+      order: 4
       description: |
         Optionally use TRD Workflow MCP server tools to enhance TRD generation.
         Skipped entirely when no MCP tools are detected in the current environment.
-        Only runs MCP steps when mcp__-prefixed tool names are confirmed available.
       steps:
         - order: 1
           title: Check MCP Availability
-          description: |
-            Detect whether any MCP tools are available before attempting any MCP calls.
-            Check the list of available tools for names prefixed with 'mcp__'.
-            If NO tools with 'mcp__' prefix are found, print:
-              'MCP enhancement: skipped (no MCP tools detected)'
-            and skip steps 2-4 entirely — do not attempt any MCP tool calls.
-            Only proceed to steps 2-4 if at least one mcp__-prefixed tool is confirmed present.
+          description: Detect whether any MCP tools are available before attempting calls
           actions:
             - Scan available tool names for any name starting with 'mcp__'
-            - "If none found, print 'MCP enhancement: skipped (no MCP tools detected)' and skip to Phase 4"
+            - "If none found, print 'MCP enhancement: skipped (no MCP tools detected)' and skip to Phase 5"
             - If found, proceed with MCP-enhanced workflow steps below
 
         - order: 2
@@ -327,183 +181,104 @@ workflow:
               - Checkbox tracking for progress
             fallback: Manually structure workflow using TRD template patterns
 
-    - name: Team Configuration
-      order: 4
-      description: |
-        Analyze the generated TRD for complexity and automatically configure team mode.
-        Performs agent/skill discovery, marketplace gap analysis, and injects a
-        ## Team Configuration section into the TRD when warranted by complexity.
-      steps:
-        - order: 1
-          title: CLI Flag Parsing
-          description: Parse $ARGUMENTS for --team and --no-team flags before complexity analysis
-          actions:
-            - Parse $ARGUMENTS for presence of --team flag; if found set FORCE_TEAM=true
-            - Parse $ARGUMENTS for presence of --no-team flag; if found set FORCE_NO_TEAM=true
-            - 'If both flags present, print ERROR: --team and --no-team are mutually exclusive, and HALT'
-            - Store flag values in FORCE_TEAM and FORCE_NO_TEAM variables for use within this phase only
-
-        - order: 2
-          title: Task Counter and Hour Estimator
-          description: Scan the generated TRD Master Task List to count tasks and total estimated hours
-          actions:
-            - "Scan TRD content for entries matching '- [ ] **TRD-XXX** description (Nh)' pattern"
-            - Count total tasks matching the '- [ ] **TRD-' pattern (TASK_COUNT)
-            - For each task extract hour estimate from parenthetical notation e.g. (2h); default 2h if absent
-            - Sum all extracted hours to compute ESTIMATED_HOURS
-            - If MCP assess_complexity output is available from Phase 3, merge its hours estimate (prefer MCP)
-            - Store results in COMPLEXITY_METRICS -- {task_count, estimated_hours}
-
-        - order: 3
-          title: Domain Detection
-          description: Scan task titles and descriptions against domain_keywords mapping to detect technical domains
-          actions:
-            - For each task entry extract title and description text (case-insensitive)
-            - Match text against domain_keywords from team_configuration block
-            - A task may belong to multiple domains; record all matches
-            - Count distinct domains detected (DOMAIN_COUNT)
-            - Count cross-cutting tasks (tasks matching 2 or more distinct domains)
-            - Parse [depends TRD-XXX] annotations to build dependency graph; compute longest path (DEPENDENCY_DEPTH)
-            - Add to COMPLEXITY_METRICS -- {domain_count, domains_list, cross_cutting_count, dependency_depth}
-
-        - order: "3b"
-          title: Team Mode Heuristic
-          description: Apply three-tier complexity classification to determine team mode
-          actions:
-            - If FORCE_NO_TEAM=true, set TEAM_TIER=None and skip to Phase 5 Output Management
-            - If FORCE_TEAM=true, set TEAM_TIER=Complex and proceed to agent discovery (step 4)
-            - Otherwise evaluate against complexity_tiers thresholds
-            - "Complex if ANY: task_count > 25 OR domain_count >= 3 OR estimated_hours > 60"
-            - "Medium if ANY: task_count >= 10 OR domain_count >= 2 OR estimated_hours >= 20 (and no Complex condition)"
-            - "Simple if ALL: task_count < 10 AND domain_count = 1 AND estimated_hours < 20"
-            - "If TEAM_TIER=Simple, print 'Team configuration: disabled (pass --team to enable auto-discovery and marketplace suggestions)' and skip to Phase 5"
-            - Store TEAM_TIER in COMPLEXITY_METRICS
-            - "NOTE: Steps 4 through 8 below only execute when --team flag is present in $ARGUMENTS OR when TEAM_TIER is Medium or Complex. If neither condition is met the phase ends here."
-
-        - order: 4
-          title: Agent Auto-Discovery
-          description: |
-            Scan packages/*/agents/*.yaml to build a registry of available agents and their capabilities.
-            CONDITION: Only run this step if ($ARGUMENTS contains '--team') OR (TEAM_TIER is Medium or Complex).
-            If condition is not met, skip this step and all remaining steps in this phase.
-          actions:
-            - Use Glob tool to scan packages/*/agents/*.yaml
-            - For each discovered YAML file use Read tool to extract name and description fields from front matter
-            - Also extract the '## Mission' section body text (first paragraph after heading)
-            - Build AGENT_REGISTRY -- Map<agent_name, {description, mission_keywords, source_file}>
-            - Extract capability keywords from description and mission text (tokenize, lowercase)
-            - Store AGENT_REGISTRY for use in builder matching and validation
-
-        - order: "4b"
-          title: Skill Auto-Discovery
-          description: |
-            Scan packages/*/skills/ directories to build a registry of available skills.
-            CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
-          actions:
-            - Use Glob tool to scan packages/*/skills/
-            - For each discovered skills directory extract package name from path
-            - Build SKILL_REGISTRY -- Map<package_name, {skills_path, has_skills}>
-            - Registry used by marketplace gap analysis to detect skill gaps
-
-        - order: 5
-          title: Builder Agent Matching
-          description: |
-            Select the best builder agents for each detected domain using router-rules, keyword matching, then defaults.
-            CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
-          actions:
-            - Check for .claude/router-rules.json in project root; if present parse ROUTER_OVERRIDES (domain -> agent)
-            - For each domain in COMPLEXITY_METRICS.domains_list select builder agent by priority
-            - "Priority 1: Router rules override for this domain (from .claude/router-rules.json)"
-            - "Priority 2: Keyword match -- compare domain keywords against AGENT_REGISTRY descriptions and missions; select agent with highest keyword overlap"
-            - "Priority 3: Default fallback from team_configuration.default_agents mapping"
-            - Build BUILDER_AGENTS list; deduplicate (one agent covering multiple domains listed once with all owned domains)
-
-        - order: 6
-          title: Agent Existence Validation
-          description: |
-            Validate all selected team agents exist in the discovered registry.
-            CONDITION: Only run if step 4 ran (same --team or TEAM_TIER condition applies).
-          actions:
-            - For every agent in BUILDER_AGENTS list verify presence in AGENT_REGISTRY
-            - Validate lead agent (tech-lead-orchestrator) exists in AGENT_REGISTRY
-            - Validate reviewer agent (code-reviewer) exists in AGENT_REGISTRY
-            - Validate QA agent -- qa-orchestrator first; fall back to test-runner if missing (FR-3.7)
-            - If any selected agent is absent from registry log warning and substitute with nearest available or default
-
-        - order: 7
-          title: Marketplace Gap Analysis and Suggestion Flow
-          description: |
-            Detect capability gaps, suggest marketplace plugins, install approved ones.
-            CONDITION: Only run if ($ARGUMENTS contains '--team'). If '--team' is absent, skip this step entirely.
-          actions:
-            - "Step 1 -- Read marketplace.json: use Read tool to load marketplace.json from repository root"
-            - "If missing or malformed: log 'marketplace.json not found or invalid -- skipping gap analysis'; set MARKETPLACE_AVAILABLE=false and skip remaining steps"
-            - "If valid: parse plugin entries into MARKETPLACE_CATALOG; exclude ensemble-full; set MARKETPLACE_AVAILABLE=true"
-            - "Step 2 -- Installed-plugin detection: for each plugin in MARKETPLACE_CATALOG derive local path from source field; use Glob to check packages/<name>/ directory; build INSTALLED_PLUGINS set"
-            - "Step 3 -- Gap analysis: identify agent gaps (domain default agent absent from AGENT_REGISTRY) and skill gaps (framework keywords present in tasks but corresponding skills/ directory absent)"
-            - "Three-tier matching: high-weight domain-to-tag, medium-weight keyword-to-tag, low-weight keyword-to-description"
-            - "Context-aware filtering: generic 'test' keyword alone must NOT trigger testing framework suggestions; require framework-specific keywords (jest, pytest, rspec, etc.)"
-            - "Consolidate: multiple gaps pointing to same plugin merge into single suggestion with combined rationale"
-            - "Sort by relevance: agent gaps before skill gaps, then by task_count_benefiting descending"
-            - "Build SUGGESTIONS list with fields: plugin_name, description, gap_category, rationale, agents_provided, skills_provided, task_count_benefiting"
-            - "Step 4 -- Non-interactive detection: check if AskUserQuestion tool is available; if not set NON_INTERACTIVE=true"
-            - "Step 5 -- Suggestion presentation: if NON_INTERACTIVE=true log each suggestion as [INFO] and add all to DECLINED_PLUGINS"
-            - "If interactive: for each suggestion use AskUserQuestion to present yes/no prompt with plugin name, description, rationale, agents/skills provided"
-            - "Track APPROVED_PLUGINS and DECLINED_PLUGINS; do not re-prompt declined plugins"
-            - "Step 6 -- Plugin installation: for each plugin in APPROVED_PLUGINS run 'claude plugin install <name>' via Bash; check exit code; track INSTALLED_DURING_RUN and FAILED_INSTALLS"
-            - "If INSTALLED_DURING_RUN non-empty: refresh KNOWN_AGENTS by re-scanning packages/*/agents/*.yaml once (no full re-index); update BUILDER_AGENTS list using refreshed KNOWN_AGENTS"
-            - "Log summary: 'Marketplace analysis: {N} gaps identified, {M} plugins suggested, {A} approved, {D} declined, {F} failed to install'"
-
-        - order: 8
-          title: Team Configuration Generation and Injection
-          description: Generate ## Team Configuration section and inject into TRD document
-          actions:
-            - If TEAM_TIER=Simple or FORCE_NO_TEAM=true, skip section generation
-            - Build TEAM_CONFIG_HEADER with blockquote notice and complexity metrics (task count, hours, domain count, domains, cross-cutting, dependency depth, tier)
-            - Build TEAM_CONFIG_YAML YAML block conforming to the implement-trd-beads team roles schema
-            - "Always include lead role: agent: tech-lead-orchestrator, owns: [task-selection, architecture-review, final-approval]"
-            - "Always include builder role: agents: list from BUILDER_AGENTS, owns: [implementation]"
-            - "If Complex: include reviewer role -- agent: code-reviewer, owns: [code-review]"
-            - "If Complex: include qa role -- agent: qa-orchestrator (test-runner fallback), owns: [quality-gate, acceptance-criteria]"
-            - "If Medium: omit reviewer and qa roles"
-            - If plugins were installed during step 7, build MARKETPLACE_NOTE listing installed plugins with agents/skills provided
-            - Compose full section -- TEAM_CONFIG_HEADER + MARKETPLACE_NOTE (if non-empty) + TEAM_CONFIG_YAML wrapped in yaml code fence
-            - Inject section into TRD after Master Task List section and before Quality Requirements or Appendix sections
-            - Print summary -- "Team configuration included -- {TEAM_TIER} tier, {N} builder agent(s) -- {agent_list}"
-            - Print -- "Review the ## Team Configuration section and edit agent assignments if needed before running /implement-trd-beads."
-
-    - name: Output Management
+    - name: Adversarial Review and Design Gate
       order: 5
       steps:
         - order: 1
-          title: TRD Creation
-          description: Generate comprehensive TRD document with project-specific naming
+          title: Architecture Self-Critique
+          description: Identify architecture gaps and interface issues in the TRD
+          actions:
+            - Find components that need to communicate but have no defined interface
+            - Identify missing error handling or failure recovery paths between components
+            - Check that every integration point has a defined protocol and data format
+            - Flag architectural decisions that lack rationale or alternatives considered
+            - Document at least 2 architecture issues with recommended resolutions
 
         - order: 2
-          title: File Organization
-          description: Save to @docs/TRD/ directory with descriptive filename
+          title: Task Coverage Analysis
+          description: Verify PRD requirement coverage and identify task gaps
+          actions:
+            - Check every PRD REQ-NNN has at least one corresponding TRD task with [satisfies REQ-NNN]
+            - Identify any TRD tasks that reference nonexistent REQ-NNN IDs
+            - Find PRD requirements with no corresponding test tasks
+            - Flag tasks estimated at 8h+ that should be broken down further
+            - Document at least 2 coverage issues with recommended resolutions
 
         - order: 3
-          title: Version Control
-          description: Include timestamp and PRD reference for traceability
+          title: Dependency and Estimate Review
+          description: Check for dependency risks and estimate confidence issues
+          actions:
+            - Identify tasks with long dependency chains (depth > 3)
+            - Check for circular or implicit dependencies
+            - Review hour estimates for consistency (similar tasks should have similar estimates)
+            - Flag optimistic estimates on high-complexity tasks
+            - Document at least 1 dependency or estimate issue with recommended resolution
 
         - order: 4
-          title: Documentation Links
-          description: |
-            Update cross-references between PRD and TRD documents.
-            Generate '## Acceptance Criteria Traceability' matrix table in TRD:
-            | REQ-NNN | Description | Implementation Tasks | Test Tasks |
-            List each PRD requirement with its implementation task IDs and paired -TEST task IDs.
+          title: Testability Review
+          description: Verify all implementation ACs can be objectively verified
+          actions:
+            - Check each Implementation AC for measurability (has specific pass/fail criteria)
+            - Flag ACs that use subjective language (fast, good, user-friendly) without metrics
+            - Verify test tasks have clear verification steps
+            - Document any testability issues with recommended resolutions
 
         - order: 5
+          title: Design Readiness Gate
+          description: Score TRD on quality dimensions and determine readiness
+          actions:
+            - "Score architecture completeness (1-5): are all components, interfaces, and data flows defined?"
+            - "Score task coverage (1-5): does every REQ-NNN have implementation and test tasks?"
+            - "Score dependency clarity (1-5): are dependencies explicit and acyclic?"
+            - "Score estimate confidence (1-5): are estimates consistent, reasonable, and granular enough?"
+            - "Compute overall score: average of all four dimensions"
+            - "PASS (4.0+): proceed to output"
+            - "CONCERNS (3.0-3.9): list specific concerns, ask user whether to proceed or loop back"
+            - "FAIL (<3.0): identify weakest dimensions and loop back to fix before output"
+            - Present the Design Readiness Scorecard to the user
+
+    - name: Output Management
+      order: 6
+      steps:
+        - order: 1
+          title: TRD Document Generation
+          description: Generate comprehensive TRD document with frontmatter and structured sections
+          actions:
+            - "Include frontmatter: Document ID (TRD-YYYY-NNN), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score"
+            - Generate Architecture Decision section documenting the chosen approach and alternatives considered
+            - Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks
+            - Generate Sprint Planning section with dependency-ordered phases
+            - "File naming: docs/TRD/TRD-YYYY-NNN-<slug>.md"
+
+        - order: 2
+          title: Acceptance Criteria Traceability
+          description: Generate traceability matrix linking PRD requirements to TRD tasks
+          actions:
+            - "Generate '## Acceptance Criteria Traceability' matrix table:"
+            - "| REQ-NNN | Description | Implementation Tasks | Test Tasks |"
+            - List each PRD requirement with its implementation TRD-NNN IDs and paired TRD-NNN-TEST IDs
+            - Ensure every Must/Should requirement appears in the matrix
+
+        - order: 3
           title: Traceability Validation
-          description: |
-            Validate [satisfies] annotations now that the TRD has been generated.
-            Scan all TRD tasks for [satisfies REQ-NNN] annotations.
-            Validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD.
-            Warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage.
-            Warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD.
-            Print summary: 'Traceability check: <N> requirements covered, <M> uncovered, <K> orphaned annotations.'
+          description: Validate [satisfies] annotations against the PRD
+          actions:
+            - Scan all TRD tasks for [satisfies REQ-NNN] annotations
+            - Validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD
+            - Warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage
+            - Warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD
+            - "Print summary: 'Traceability check: N requirements covered, M uncovered, K orphaned annotations'"
+
+        - order: 4
+          title: File Save and Next Steps
+          description: Save TRD and suggest follow-up commands
+          actions:
+            - Create docs/TRD/ directory if it doesn't exist
+            - Save TRD to docs/TRD/TRD-YYYY-NNN-<slug>.md
+            - "Print: file path, task count, design readiness score"
+            - "Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-NNN-slug.md to auto-configure the team'"
+            - "Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-NNN-slug.md'"
+            - "If --team flag was passed in $ARGUMENTS, auto-run /ensemble:configure-team on the saved TRD path"
 
 expectedInput:
   format: Product Requirements Document (PRD)
@@ -539,23 +314,26 @@ expectedInput:
 expectedOutput:
   format: Technical Requirements Document (TRD)
   structure:
+    - name: Architecture Decision
+      description: Chosen architecture approach with alternatives considered, rationale, and tradeoffs
+
     - name: Master Task List
-      description: Comprehensive task tracking with unique task IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired -TEST verification tasks
+      description: Comprehensive task tracking with TRD-NNN IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired TRD-NNN-TEST verification tasks
 
     - name: System Architecture
-      description: Component design, data flow, and integration points
+      description: Component design, data flow, integration points, and technology choices
 
     - name: Sprint Planning
       description: Organized development phases with task references and dependencies
 
-    - name: Acceptance Criteria
-      description: Technical validation criteria with checkbox tracking
+    - name: Acceptance Criteria Traceability
+      description: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks
 
     - name: Quality Requirements
       description: Security, performance, accessibility, and testing standards
 
-    - name: Acceptance Criteria Traceability
-      description: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks
+    - name: Design Readiness Scorecard
+      description: Scores for architecture completeness, task coverage, dependency clarity, and estimate confidence
 
 mcp_integration:
   enabled: true
@@ -572,7 +350,6 @@ mcp_integration:
         - After major milestones (every 3-5 tasks)
         - Before deployments or releases
         - At integration points between systems
-        Example: callInjectCheckpoints({ tasks: [...] })
       input:
         taskBreakdown: Task breakdown object with tasks array
         checkpointStrategy: smart | milestone | fixed
@@ -587,7 +364,6 @@ mcp_integration:
         - Sprint-by-sprint execution plan
         - Task dependencies and ordering
         - Checkbox tracking for progress monitoring
-        Example: callGenerateWorkflow({ productName, sprints })
       input:
         trdContext: Context object with product name and sprint breakdown
         includeCheckboxes: Boolean to include task checkboxes
@@ -603,74 +379,8 @@ mcp_integration:
         - Total estimated hours
         - High-risk task identification
         - Sprint organization suggestions
-        Example: callAssessComplexity({ tasks: [...] })
       input:
         taskBreakdown: Task breakdown with estimates
       output: Complexity assessment with metrics and recommendations
       timeout: 2000ms
       fallback: Manual complexity estimation from task hour estimates
-
-    - name: detect_task_types
-      description: Detect and categorize task types
-      usage: Categorize tasks by type (setup, feature, testing, documentation)
-      input:
-        taskBreakdown: Task breakdown object
-      output: Task categorization with type distribution
-      timeout: 2000ms
-      fallback: Manual task categorization
-
-    - name: generate_delegation_patterns
-      description: Generate agent delegation patterns
-      usage: Create delegation section showing which agents handle which tasks
-      input:
-        taskBreakdown: Task breakdown with agent assignments
-      output: Delegation patterns markdown
-      timeout: 2000ms
-      fallback: Manual delegation pattern documentation
-
-    - name: validate_trd_structure
-      description: Validate TRD structure and completeness
-      usage: |
-        Use to validate generated TRD:
-        - Check all required sections present
-        - Validate task ID format and uniqueness
-        - Verify acceptance criteria completeness
-        Example: callValidateTRD(trdMarkdown)
-      input:
-        trdContent: Complete TRD markdown content
-      output: Validation result with errors/warnings
-      timeout: 2000ms
-      fallback: Manual TRD structure validation
-
-  implementation:
-    check_availability: |
-      Use checkMCPServerAvailable() to detect if TRD Workflow MCP server is registered.
-      Check ~/.claude/mcp/config.json for 'trd-workflow' entry.
-      If available, proceed with MCP-enhanced workflow.
-      If unavailable, use standard manual workflow - no errors or warnings.
-
-    tool_invocation: |
-      Use provided wrapper functions (callInjectCheckpoints, callGenerateWorkflow, etc.)
-      All tools have 2-second timeout for fast fallback.
-      Return null on timeout or error - allows graceful degradation.
-
-    fallback_strategy: |
-      Always provide fallback to manual generation:
-      - If MCP server not registered: Use manual workflow silently
-      - If tool call timeout: Continue with manual generation
-      - If tool returns error: Log warning and use manual approach
-      Never break workflow if MCP unavailable - it's an optional enhancement.
-
-  setup_instructions: |
-    To enable MCP-enhanced TRD generation:
-
-    1. Install TRD Workflow MCP server:
-       cd src/mcp-servers/trd-workflow && npm install
-
-    2. Register with Claude:
-       claude mcp add trd-workflow --scope user -- node /path/to/ensemble/src/mcp-servers/trd-workflow/server.js
-
-    3. Verify installation:
-       claude mcp list | grep trd-workflow
-
-    4. Server auto-detected on next /create-trd invocation
