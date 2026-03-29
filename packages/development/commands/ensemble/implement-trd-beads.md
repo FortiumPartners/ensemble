@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.9.1
+version: 2.10.0
 category: implementation
-last-updated: 2026-03-16
+last-updated: 2026-03-28
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: sonnet
@@ -90,7 +90,16 @@ Key behaviors:
    - Validate: file exists, contains Master Task List section, contains at least one '- [ ] **TRD-' entry
    - Derive TRD_SLUG from filename: lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens
 
-**5. Resume Detection**
+**5. Design Readiness Gate Verification**
+   Check if the TRD passed the Design Readiness Gate from create-trd v3.0.0
+
+   - Parse TRD frontmatter (YAML block between --- delimiters at top of file) for 'design_readiness_score' or 'Design Readiness Score' field
+   - If score exists AND score >= 4.0 (PASS): print 'Design Readiness: PASS (<score>)' and continue
+   - If score exists AND score >= 3.0 AND score < 4.0 (CONCERNS): print 'WARNING: TRD has Design Readiness score of <score> (CONCERNS). Consider running /ensemble:refine-trd to address issues before implementation.' Ask user to continue or abort.
+   - If score exists AND score < 3.0 (FAIL): print 'ERROR: TRD has Design Readiness score of <score> (FAIL). Run /ensemble:refine-trd to improve the TRD before implementation.' and HALT
+   - If no design readiness score found in frontmatter (pre-v3.0.0 TRD): print 'NOTE: No Design Readiness score found (pre-v3.0.0 TRD). Consider running /ensemble:refine-trd to generate a score.' and continue
+
+**6. Resume Detection**
    Check for existing beads scaffold to enable cross-session resume
 
    - If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble:implement-trd-beads --plan first.' and EXIT.
@@ -134,7 +143,7 @@ Key behaviors:
    - 
    - When TEAM_MODE=false AND resume detected: existing v2.1.0 resume behavior unchanged
 
-**6. Feature Branch Creation**
+**7. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
    - branch_name = 'feature/<TRD_SLUG>'
@@ -142,13 +151,13 @@ Key behaviors:
    - If exists: git switch <branch_name>
    - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
 
-**7. Strategy Detection**
+**8. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
 
    - Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)
    - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
 
-**8. Team Configuration Detection**
+**9. Team Configuration Detection**
    Determine team mode using precedence order: (1) TRD ## Team Configuration section,
 (2) command YAML team: section, (3) no team (single-agent). Sets TEAM_MODE,
 TEAM_CONFIG_SOURCE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for all subsequent
@@ -156,6 +165,15 @@ steps. AC: FR-TD-1, FR-TD-2, FR-TD-6, FR-TD-7, FR-TD-8, AC-TD-1, AC-TD-2, AC-TD-
 FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
 
 
+   - === TEAM CONFIGURATION SUGGESTION (pre-check) ===
+   - If no top-level team: section found in this command YAML (uncommented, active YAML) AND no '## Team Configuration' section found in TRD:
+   -   Check COMPLEXITY_METRICS from TRD task count if available:
+   -   Count total tasks matching '- [ ] **TRD-' pattern in TRD
+   -   Count distinct technical domains by scanning task descriptions for domain keywords (backend/api, frontend/ui, infrastructure/deploy, database/migration, test/e2e)
+   -   If TRD has >= 10 tasks OR >= 2 distinct technical domains:
+   -     Print 'NOTE: This TRD has <N> tasks across <M> domains. Consider running /ensemble:configure-team <trd-path> to auto-configure team roles.'
+   -   Continue without team mode (this is informational only — does not block execution)
+   - 
    - === TRD-FIRST PARSING (TRD-029, TRD-031) ===
    - Step 0 — TRD team config check: search the TRD file (already loaded in step 4) for '## Team Configuration' heading
    - If '## Team Configuration' heading found in TRD:
@@ -230,7 +248,7 @@ FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
    -   - Identical to Case 3
    - Record which steps are skipped in the team configuration summary printed during this Preflight step.
 
-**9. Marketplace Preflight Check**
+**10. Marketplace Preflight Check**
    Before execution begins, check for marketplace capability gaps that may affect team
 config quality. Presents suggestions for missing agents/skills and installs approved
 plugins. Re-reads team config from TRD after installation if agents referenced in TRD
@@ -257,7 +275,7 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    -   If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'
    - Step 8 — If user declines all suggestions: proceed with existing team config and available agents
 
-**10. Traceability Validation Gate**
+**11. Traceability Validation Gate**
    Run validate-requirements as an automatic preflight gate before scaffolding begins.
 Checks that PRD requirements have TRD task coverage, that [satisfies] annotations
 reference real REQ-NNN IDs, and that every user-facing task has a paired -TEST task.
@@ -503,6 +521,14 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   c. Store rebuilt map in TASK_TRACEABILITY keyed by task.id
    -   d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
    -   e. After rebuild: if rebuilt TASK_TRACEABILITY is empty AND TRD content was successfully read AND TRD is non-empty: print 'WARNING: TRD re-parse found no traceability annotations. Requirement audit comments will not be written. If this is a legacy TRD without [satisfies] annotations, this is expected.' If TRD file could not be read: print 'ERROR: Cannot read TRD file at <TRD_PATH> during cross-session resume. Verify file exists and is readable.' and HALT.
+   - Context Budget Monitoring (applies to both TEAM_MODE=true and TEAM_MODE=false):
+   -   After every 5 task completions OR after any task that produces more than 500 lines of output:
+   -     Print context budget warning: 'Context checkpoint: <N> tasks completed this session. If quality is degrading, consider:'
+   -     '  1. /compact to compress conversation context'
+   -     '  2. Start a new session with /ensemble:implement-trd-beads --execute <trd-path> (beads preserve all state)'
+   -     '  3. Use max parallel N to delegate more work to fresh-context subagents'
+   -   This is informational only — do not halt or pause execution
+   - 
    - TEAM_MODE Gate (evaluated once at the start of the Execute phase):
    -   if TEAM_MODE == false:
    -     - Use the existing v2.1.0 Execute loop (all steps 1-6 unchanged)
@@ -699,6 +725,12 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    Build prompt and delegate to selected specialist, require closing summary comment
 
    - Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions
+   - Builder prompt construction MUST follow these context curation rules:
+   -   - Include ONLY: task description from bead, TRD section for this task, architecture guidance (if any), sibling context (if any from TRD-022)
+   -   - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
+   -   - Include the file path(s) the task targets so the builder can Read them directly
+   -   - Include the test file path(s) the task should create/modify
+   -   - Each builder subagent starts with clean context — this is intentional for quality
    - Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
    - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
    - On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
@@ -706,6 +738,12 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - TRD-015 — Builder Delegation with Structured Output (AC: FR-BA-1, FR-BA-2, FR-BA-3, FR-BA-4, FR-BA-5, AC-SM-1):
    - When TEAM_MODE=true, builder delegation differs:
+   -   0. Builder prompt construction MUST follow these context curation rules:
+   -      - Include ONLY: task description from bead, TRD section for this task, architecture guidance (if any), sibling context (if any from TRD-022)
+   -      - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
+   -      - Include the file path(s) the task targets so the builder can Read them directly
+   -      - Include the test file path(s) the task should create/modify
+   -      - Each builder subagent starts with clean context — this is intentional for quality
    -   1. Builder prompt includes additional instruction:
    -      'IMPORTANT: Do NOT close this bead (do not run br close). When done, return a structured summary:'
    -      '  - files_changed: [list of modified files with paths]'
