@@ -1,0 +1,11 @@
+{
+  "name": "ensemble-pi",
+  "version": "1.0.0",
+  "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com"
+  },
+  "commands": "./commands",
+  "skills": "./skills"
+}
