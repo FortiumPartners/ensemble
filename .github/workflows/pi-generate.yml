@@ -1,0 +1,41 @@
+name: Pi Generate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build packages/pi
+        run: npm run build --workspace=packages/pi
+
+      # PI-CI-001: Generate Pi artifacts from source
+      - name: Generate Pi artifacts
+        run: npm run generate:pi
+
+      # PI-CI-002: Drift detection - fail if generated artifacts differ from committed versions
+      - name: Check for stale generated output
+        run: |
+          git diff --exit-code packages/pi/prompts packages/pi/agents packages/pi/skills packages/pi/AGENTS.md || {
+            echo "ERROR: Generated Pi artifacts are stale. Run 'npm run generate:pi' and commit the results."
+            echo ""
+            echo "Changed files:"
+            git diff --name-only packages/pi/prompts packages/pi/agents packages/pi/skills packages/pi/AGENTS.md
+            exit 1
+          }
+          echo "Pi generated output is up to date."

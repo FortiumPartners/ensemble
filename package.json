@@ -17,6 +17,7 @@
     "generate:watch": "node scripts/generate-markdown.js --watch",
     "generate:validate": "node scripts/generate-markdown.js --validate",
     "generate:opencode": "node scripts/generate-opencode/index.js",
+    "generate:pi": "npm run generate --workspace=packages/pi",
     "publish:changed": "node scripts/publish-plugin.js"
   },
   "devDependencies": {

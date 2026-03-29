@@ -1,0 +1,73 @@
+{
+  "name": "@fortium/ensemble-pi",
+  "version": "1.0.0",
+  "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
+  "main": "dist/index.js",
+  "files": [
+    "dist/",
+    "extensions/",
+    "skills/",
+    "prompts/",
+    "agents/",
+    ".claude-plugin/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "generate": "node dist/index.js",
+    "validate:version": "node -e \"const p=require('./package.json'); const c=require('./.claude-plugin/plugin.json'); if(p.version!==c.version){process.stderr.write('Version mismatch: package.json ('+p.version+') != plugin.json ('+c.version+')\\n'); process.exit(1)}\"",
+    "prepublishOnly": "npm run build && npm test && npm run validate:version"
+  },
+  "keywords": [
+    "pi-package",
+    "ensemble",
+    "ai-agents"
+  ],
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/pi"
+  },
+  "homepage": "https://github.com/FortiumPartners/ensemble/tree/main/packages/pi",
+  "bugs": {
+    "url": "https://github.com/FortiumPartners/ensemble/issues"
+  },
+  "pi": {
+    "extensions": ["./extensions"],
+    "skills": ["./skills"],
+    "prompts": ["./prompts"],
+    "agents": ["./agents"]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pi": ">=1.0.0"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "gray-matter": "^4.0.3",
+    "glob": "^10.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "@types/jest": "^29.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/js-yaml": "^4.0.0",
+    "ts-jest": "^29.0.0"
+  }
+}
