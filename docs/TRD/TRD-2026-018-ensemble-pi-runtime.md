@@ -3,11 +3,11 @@
 ---
 **Document ID:** TRD-2026-018
 **PRD Reference:** PRD-2026-018-ensemble-pi-runtime.md
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Status:** Draft
 **Date:** 2026-03-29
 **Architecture Option:** B — Standalone `packages/pi` (mirrors OpenCode)
-**Design Readiness Score:** 4.3 / 5.0 (PASS)
+**Design Readiness Score:** 4.5 / 5.0 (PASS)
 ---
 
 ## Architecture Decision
@@ -188,18 +188,21 @@ packages/CLAUDE.md (ensemble sections)
 
 **TRD-005: Implement generator CLI entry point (src/index.ts)** [satisfies REQ-004]
 - Accept flags: `--dry-run` (no file writes), `--verbose` (log each transform), `--validate` (parse-check output without writing)
-- Exit 0 on success, exit 1 on any error
+- Exit 0 on success, exit 1 on any error (parse errors AND structural errors)
+- Validate structural requirements before transforming: `metadata.name`, `metadata.version`, `workflow.phases` must be present; exit 1 with specific message (e.g., "Missing required field: workflow in create-prd.yaml") if absent
 - Call `generator.ts` with parsed options
 - Add `generate:pi` to monorepo root `package.json` scripts: `"generate:pi": "npm run generate --workspace=packages/pi"`
 - Estimate: 3h
 - Validates PRD ACs: AC-004-1, AC-004-2, AC-004-3, AC-004-4
 
 **TRD-005-TEST: Test generator CLI flags** [verifies TRD-005][satisfies REQ-004][depends: TRD-005]
+- Default run: all output files created in correct Pi directories (`prompts/`, `agents/`, `skills/`, `AGENTS.md`)
 - `--dry-run`: no files written, output logged to console
 - `--verbose`: each source→output path pair logged
 - Malformed YAML input: exits 1 with file path + line number in error message
+- Structurally invalid YAML (missing `workflow` or `metadata`): exits 1 with specific field-level error message
 - Estimate: 2h
-- Validates PRD ACs: AC-004-2, AC-004-3, AC-004-4
+- Validates PRD ACs: AC-004-1, AC-004-2, AC-004-3, AC-004-4
 
 ---
 
@@ -281,12 +284,13 @@ packages/CLAUDE.md (ensemble sections)
 
 ---
 
-**TRD-010: Implement --validate flag** [satisfies REQ-009]
+**TRD-010: Implement --validate flag and performance target** [satisfies REQ-009]
 - After generation, parse all output `.md` files with `gray-matter` + markdown parser
 - Parse all agent `.md` frontmatter as YAML
 - Report any parse errors with file path and line number
 - `--validate` flag: runs validation only, no write
 - Exit 1 if any artifact fails validation
+- Performance target: full `npm run generate:pi` completes in < 10 seconds for the current YAML source set
 - Estimate: 2h
 - Validates PRD ACs: AC-009-1, AC-009-2
 
@@ -472,7 +476,7 @@ packages/CLAUDE.md (ensemble sections)
 
 ---
 
-**TRD-024: Jest tests for generator (TRD-025)** [satisfies REQ-025]
+**TRD-024: Jest tests for generator** [satisfies REQ-025]
 - `command-transformer.test.ts`: 5+ test cases covering phase rendering, interview protocol, tool name mapping, determinism, empty actions
 - `agent-transformer.test.ts`: 3+ test cases covering frontmatter validity, tool filtering, body rendering
 - `skill-copier.test.ts`: 2+ test cases covering content identity, directory structure
@@ -483,18 +487,21 @@ packages/CLAUDE.md (ensemble sections)
 
 ---
 
-**TRD-025: End-to-end quality parity test** [satisfies REQ-024]
+**TRD-025: End-to-end quality parity test** [satisfies REQ-024, REQ-016]
 - Run `/create-prd "build a task management app"` on both Claude Code and Pi with identical inputs
-- Compare outputs for: presence of frontmatter, health summary, ≥5 REQ-NNN requirements, ≥1 AC per requirement, dependency map, readiness scorecard
+- Run `/create-trd` on the resulting PRD on both Claude Code and Pi with identical inputs
+- Compare PRD outputs for: presence of frontmatter, health summary, ≥5 REQ-NNN requirements, ≥1 AC per requirement, dependency map, readiness scorecard
+- Compare TRD outputs for: architecture decision, master task list with TRD-NNN IDs, sprint planning, traceability matrix, design readiness scorecard
 - Document any structural differences and address in transformer if needed
-- Estimate: 3h
-- Validates PRD ACs: AC-024-1, AC-024-2
+- Estimate: 4h
+- Validates PRD ACs: AC-024-1, AC-024-2, AC-016-2
 
-**TRD-025-TEST: Automated structural equivalence check** [verifies TRD-025][satisfies REQ-024][depends: TRD-025, TRD-013-TEST]
-- Write a comparison script that parses both PRDs and checks for required sections
-- Pass criteria: both contain all 6 required sections (see AC-024-1)
+**TRD-025-TEST: Automated structural equivalence check** [verifies TRD-025][satisfies REQ-024, REQ-016][depends: TRD-025, TRD-013-TEST]
+- Write a comparison script that parses both PRDs and TRDs and checks for required sections
+- PRD pass criteria: both contain all 6 required sections (see AC-024-1)
+- TRD pass criteria: both contain architecture decision, task list, sprint plan, traceability matrix, scorecard (see AC-016-2)
 - Estimate: 2h
-- Validates PRD ACs: AC-024-1, AC-024-2
+- Validates PRD ACs: AC-024-1, AC-024-2, AC-016-2
 
 ---
 
@@ -524,7 +531,7 @@ Dependencies: none — these are the root of all dependency chains.
 
 Dependencies: Sprint 1 (package scaffold must exist).
 
-### Sprint 2 Tests (~11h)
+### Sprint 2 Tests (~13h)
 | Task | Hours |
 |------|-------|
 | TRD-002-TEST, TRD-004-TEST | 3h |
@@ -554,7 +561,7 @@ Dependencies: Sprint 2 (TRD-006b must be complete for tool mapping).
 
 Dependencies: Sprint 3 (ask_user extension needed for command smoke tests).
 
-### Sprint 5 — Distribution + Quality (~22h)
+### Sprint 5 — Distribution + Quality (~25h)
 | Task | Hours |
 |------|-------|
 | TRD-017: Publish pipeline | 1h |
@@ -565,13 +572,13 @@ Dependencies: Sprint 3 (ask_user extension needed for command smoke tests).
 | TRD-022: marketplace.json | 1h |
 | TRD-023: Pi version compat | 1h |
 | TRD-024: Jest tests | 8h |
-| TRD-025: Quality parity | 3h |
+| TRD-025: Quality parity | 4h |
 | TRD-017-TEST, TRD-018-TEST | 2h |
 | TRD-025-TEST | 2h |
 
 Dependencies: Sprint 4 (commands and agents verified before distribution).
 
-**Total:** ~84h across 43 tasks (26 implementation + 17 test)
+**Total:** ~89h across 43 tasks (26 implementation + 17 test)
 
 ---
 
@@ -581,6 +588,7 @@ Dependencies: Sprint 4 (commands and agents verified before distribution).
 |---------|-------------|---------------------|-----------|
 | REQ-001 | Monorepo package scaffold | TRD-001 | TRD-001-TEST |
 | REQ-002 | Pi-compatible package.json | TRD-002 | TRD-002-TEST |
+| ARCH | TypeScript config (tsconfig) | TRD-003 | — (manual review) |
 | REQ-003 | Version synchronization | TRD-004 | TRD-004-TEST |
 | REQ-004 | generate:pi script | TRD-005 | TRD-005-TEST |
 | REQ-005 | Command → prompt template | TRD-006a, TRD-006b | TRD-006-TEST, TRD-012-TEST |
@@ -594,7 +602,7 @@ Dependencies: Sprint 4 (commands and agents verified before distribution).
 | REQ-013 | /create-prd template | TRD-013 | TRD-013-TEST |
 | REQ-014 | /refine-prd template | TRD-014 | TRD-014-TEST |
 | REQ-015 | /analyze-product template | TRD-014 | TRD-014-TEST |
-| REQ-016 | /create-trd template | TRD-013 | TRD-013-TEST |
+| REQ-016 | /create-trd template | TRD-013, TRD-025 | TRD-013-TEST, TRD-025-TEST |
 | REQ-017 | /refine-trd template | TRD-014 | TRD-014-TEST |
 | REQ-018 | product-management-orchestrator | TRD-015 | TRD-015-TEST |
 | REQ-019 | Agent discovery config | TRD-016 | TRD-016-TEST |
@@ -616,12 +624,12 @@ Traceability check: 28 requirements covered, 0 uncovered, 0 orphaned annotations
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Architecture Completeness | 4.5 | All components, interfaces, and data flows defined; Option B rationale clear |
-| Task Coverage | 4.5 | All 28 PRD requirements have implementation and test tasks; traceability matrix complete |
+| Architecture Completeness | 4.5 | All components, interfaces, and data flows defined; Option B rationale clear; structural validation and performance target specified |
+| Task Coverage | 5.0 | All 28 PRD requirements + ARCH tasks have implementation and test tasks; AC-016-2 coverage gap resolved; traceability matrix complete |
 | Dependency Clarity | 4.0 | Sprint ordering explicit; one external dependency (Pi subagent extension for TRD-015-TEST) documented |
-| Estimate Confidence | 4.0 | TRD-024 (Jest tests) and TRD-011 (ask_user extension) carry uncertainty; Pi TUI API unknown until hands-on |
+| Estimate Confidence | 4.5 | Sprint hour totals corrected; TRD-011 (ask_user extension) carries uncertainty; Pi TUI API unknown until hands-on |
 
-**Overall Score: 4.3 / 5.0 — PASS**
+**Overall Score: 4.5 / 5.0 — PASS**
 
 ### Known Risks
 
@@ -630,6 +638,15 @@ Traceability check: 28 requirements covered, 0 uncovered, 0 orphaned annotations
 2. **Subagent extension external dependency (TRD-015)** — The orchestrator agent requires a Pi subagent extension not shipped by ensemble-pi. README must clearly state this prerequisite; v2 should consider bundling a minimal subagent extension.
 
 3. **Generated artifact size** — Pi prompt templates for commands like `create-trd` (256-line YAML) may produce very long prompt templates. Test that Pi's context window handles them gracefully.
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2026-03-29 | Initial TRD with 43 tasks, 5 sprints |
+| 1.1.0 | 2026-03-29 | Refinement: corrected sprint hour totals (84h→89h), added AC-016-2 coverage to TRD-025, added structural YAML validation to TRD-005, added performance target (<10s) to TRD-010, fixed TRD-024 naming, added AC-004-1 coverage to TRD-005-TEST, added TRD-003 to traceability table |
 
 ---
 

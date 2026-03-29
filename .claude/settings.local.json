@@ -42,7 +42,9 @@
       "Bash(gh repo:*)",
       "Bash(python3 -c \"import sys,json; [print\\(f[''''type''''].ljust\\(6\\), f[''''name'''']\\) for f in json.load\\(sys.stdin\\)]\")",
       "Bash(python3 -c \"import json,sys; tree=json.load\\(sys.stdin\\); [print\\(x[''''path'''']\\) for x in tree.get\\(''''tree'''',[]\\)]\")",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "WebFetch(domain:github.com)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(''''desc:'''', d.description\\); console.log\\(''''readme:'''', \\(d.readme||''''''''\\).slice\\(0,2000\\)\\)\")"
     ]
   },
   "enabledPlugins": {}
