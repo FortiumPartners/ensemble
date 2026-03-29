@@ -30,7 +30,7 @@ fix plan with multiple perspectives.
 
 If issue description is ambiguous or --interactive flag is set,
 ask clarifying questions ONE AT A TIME (max 5) -- never batch questions.
-Use AskUserQuestion for each. Wait for each answer before asking the next.
+Use ask_user for each. Wait for each answer before asking the next.
 
 ## Phase 2: Execution
 

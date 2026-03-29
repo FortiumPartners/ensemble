@@ -167,7 +167,7 @@ Identify agent and skill gaps, match to marketplace plugins
 Present plugin suggestions to user and install approved plugins
 
 **Actions:**
-1. Check if AskUserQuestion tool is available; if not set NON_INTERACTIVE=true
+1. Check if ask_user tool is available; if not set NON_INTERACTIVE=true
 2. If NON_INTERACTIVE: log each suggestion as [INFO] and add all to DECLINED_PLUGINS
 3. If interactive: for each suggestion present yes/no prompt with plugin name, description, rationale
 4. Track APPROVED_PLUGINS and DECLINED_PLUGINS; do not re-prompt declined plugins

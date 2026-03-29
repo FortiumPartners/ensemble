@@ -19,6 +19,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { glob } from 'glob';
+import matter from 'gray-matter';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -295,34 +296,67 @@ function writeResult(result: TransformResult): void {
 }
 
 // ---------------------------------------------------------------------------
-// --validate pass: parse output .md files for structural issues
+// --validate pass: parse output artifacts for structural issues (TRD-010)
 // ---------------------------------------------------------------------------
 
-function validateOutputFiles(outputRoot: string): void {
-  const mdFiles = findFilesRecursive(outputRoot, '.md');
-  const errors: string[] = [];
+/**
+ * Validate generated artifacts using their in-memory content.
+ *
+ * - agent artifacts: parsed with gray-matter; must have frontmatter fields
+ *   'name' and 'description'.
+ * - command artifacts: must contain at least one H1 heading ('# ').
+ * - All artifact types: must be non-empty.
+ *
+ * Throws an Error if any validation errors are found so the caller can
+ * propagate a non-zero exit code.
+ */
+function validateResults(
+  results: TransformResult[],
+  options: { verbose?: boolean }
+): void {
+  const { verbose = false } = options;
+  const validateErrors: string[] = [];
 
-  for (const mdFile of mdFiles) {
-    try {
-      const content = fs.readFileSync(mdFile, 'utf-8');
-      // Basic validation: file must be non-empty and start with a heading
-      if (!content.trim()) {
-        errors.push(`${mdFile}: file is empty`);
-      } else if (!content.trimStart().startsWith('#')) {
-        errors.push(`${mdFile}: does not start with a markdown heading`);
+  for (const result of results) {
+    if (result.type === 'agent') {
+      try {
+        const { data } = matter(result.content);
+        if (!data.name) {
+          validateErrors.push(`${result.outputPath}: missing frontmatter field 'name'`);
+        }
+        if (!data.description) {
+          validateErrors.push(
+            `${result.outputPath}: missing frontmatter field 'description'`
+          );
+        }
+      } catch (e) {
+        validateErrors.push(
+          `${result.outputPath}: frontmatter parse error: ${(e as Error).message}`
+        );
       }
-    } catch (err) {
-      errors.push(`${mdFile}: read error — ${(err as Error).message}`);
+    }
+
+    if (result.type === 'command') {
+      if (!result.content.includes('# ')) {
+        validateErrors.push(`${result.outputPath}: missing H1 heading`);
+      }
+    }
+
+    // All artifact types: must be non-empty
+    if (!result.content.trim()) {
+      validateErrors.push(`${result.outputPath}: generated content is empty`);
     }
   }
 
-  if (errors.length > 0) {
-    process.stderr.write(`Validation found ${errors.length} issue(s):\n`);
-    for (const e of errors) {
-      process.stderr.write(`  - ${e}\n`);
+  if (validateErrors.length > 0) {
+    for (const err of validateErrors) {
+      process.stderr.write(`VALIDATION ERROR: ${err}\n`);
     }
-  } else {
-    process.stdout.write(`Validation passed: ${mdFiles.length} output file(s) OK.\n`);
+    throw new Error(`Validation failed: ${validateErrors.length} error(s)`);
+  }
+
+  if (verbose) {
+    process.stdout.write(`Validation passed: ${results.length} artifacts validated\n`);
   }
 }
 
@@ -341,6 +375,9 @@ export async function generate(options: GeneratorOptions): Promise<void> {
       `Flags: dry-run=${dryRun}, verbose=${verbose}, validate=${validate}\n`
     );
   }
+
+  // Performance measurement (TRD-010)
+  const startTime = Date.now();
 
   const results: TransformResult[] = [];
 
@@ -457,10 +494,25 @@ export async function generate(options: GeneratorOptions): Promise<void> {
   }
 
   // ------------------------------------------------------------------
-  // 6. --validate: parse all output .md files and report errors
+  // 6. Performance timing (TRD-010)
   // ------------------------------------------------------------------
-  if (validate && !dryRun) {
-    validateOutputFiles(outputRoot);
+  const elapsed = Date.now() - startTime;
+  if (verbose) {
+    process.stdout.write(
+      `Generation complete in ${elapsed}ms (target: <10000ms)\n`
+    );
+  }
+  if (elapsed > 10000) {
+    process.stderr.write(
+      `WARNING: Generation took ${elapsed}ms, exceeding 10s target\n`
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // 7. --validate: parse generated artifacts in-memory for structural issues
+  // ------------------------------------------------------------------
+  if (validate) {
+    validateResults(results, { verbose });
   }
 
   if (verbose) {

@@ -202,5 +202,18 @@ export function transformCommand(
   }
 
   // Terminate with a single trailing newline for clean file output
-  return sections.join('\n') + '\n';
+  let output = sections.join('\n') + '\n';
+
+  // Map AskUserQuestion → ask_user throughout the rendered output.
+  // Pi uses the ask_user tool name; the Ensemble YAML sources use the
+  // Claude Code tool name (AskUserQuestion).  A global replacement here
+  // ensures no AskUserQuestion references survive into any Pi prompt.
+  output = output.replace(/AskUserQuestion/g, 'ask_user');
+
+  // INTERVIEW PROTOCOL annotations and {{variable}} placeholders require
+  // no additional transformation: action items render verbatim (the
+  // actionToString helper preserves the text as-is), and Pi shares the
+  // same {{variable}} template syntax as Ensemble YAML — no escaping needed.
+
+  return output;
 }

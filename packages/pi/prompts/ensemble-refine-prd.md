@@ -48,7 +48,7 @@ any edits yet. Scan for the following issues:
 - Missing Implementation Readiness Gate scorecard
 - Acceptance criteria coverage gaps (Must requirements with fewer than 2 ACs, Should requirements with zero ACs)
 
-Use the AskUserQuestion tool to present a consolidated numbered list in this
+Use the ask_user tool to present a consolidated numbered list in this
 exact format, then capture the user's selection as SELECTED_ITEMS:
 
 ---
@@ -71,7 +71,7 @@ finding number.
 REQUIRED: Conduct a targeted user interview covering ONLY the topics
 corresponding to SELECTED_ITEMS. Skip any findings the user did not select.
 
-Use the AskUserQuestion tool to present questions interactively:
+Use the ask_user tool to present questions interactively:
 - Ask questions ONE AT A TIME (not all at once)
 - Wait for user answer before asking the next question
 - Do NOT just write questions in your response text

@@ -51,7 +51,7 @@ Scan the TRD for the following categories of issues:
 - Tasks missing hour estimates entirely
 - Stale references to files, APIs, or components that no longer exist in the codebase
 
-Use the AskUserQuestion tool to present a consolidated findings list and capture
+Use the ask_user tool to present a consolidated findings list and capture
 the user's selection. Format the question body exactly as follows:
 
 ```
@@ -76,7 +76,7 @@ Store the user's reply as SELECTED_ITEMS.
 Conduct a focused follow-up interview ONLY about the SELECTED_ITEMS from the
 Synthesis step. Skip any topic the user did not select.
 
-Use the AskUserQuestion tool to present questions interactively:
+Use the ask_user tool to present questions interactively:
 - Ask questions ONE AT A TIME (not all at once)
 - Wait for the user's answer before asking the next question
 - Do NOT just write questions in your response text

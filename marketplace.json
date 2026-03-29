@@ -412,6 +412,23 @@
         "name": "Fortium Partners",
         "url": "https://github.com/FortiumPartners"
       }
+    },
+    {
+      "name": "ensemble-pi",
+      "version": "1.0.0",
+      "source": "./packages/pi",
+      "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
+      "category": "core",
+      "tags": [
+        "pi",
+        "translation",
+        "runtime",
+        "plugin"
+      ],
+      "author": {
+        "name": "Fortium Partners",
+        "email": "support@fortiumpartners.com"
+      }
     }
   ]
 }

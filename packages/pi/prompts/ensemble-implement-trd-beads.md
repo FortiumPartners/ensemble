@@ -252,7 +252,7 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
 7. Context-aware filtering: generic 'test' keyword alone must NOT trigger testing framework suggestions
 8. Step 5 — Track declined plugins within this session: build SESSION_DECLINED_PLUGINS set (empty at start)
 9. Step 6 — For each gap suggestion (excluding SESSION_DECLINED_PLUGINS):
-10. If AskUserQuestion is available: present yes/no prompt with plugin name, description, rationale, agents/skills provided
+10. If ask_user is available: present yes/no prompt with plugin name, description, rationale, agents/skills provided
 11. If user approves: run 'claude plugin install <plugin_name>' via Bash; verify packages/<name>/ directory created
 12. If user declines: add to SESSION_DECLINED_PLUGINS (do not re-suggest during this session)
 13. If non-interactive: log suggestion as [INFO] and skip all installations

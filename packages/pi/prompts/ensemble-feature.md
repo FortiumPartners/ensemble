@@ -4,7 +4,7 @@
 
 # ensemble:feature
 
-> **Mission:** Orchestrate the complete idea-to-plan pipeline as a single command. Runs five commands in strict sequence: (1) create-prd, (2) refine-prd, (3) create-trd, (4) refine-trd, (5) implement-trd-beads --plan. Each step completes before the next begins. Refinement steps (2 and 4) pause for user input via AskUserQuestion. The --skip-refine flag bypasses both refinement steps for an uninterrupted run. Planning only -- no code is executed. Terminates with a handoff message showing how to start implementation.
+> **Mission:** Orchestrate the complete idea-to-plan pipeline as a single command. Runs five commands in strict sequence: (1) create-prd, (2) refine-prd, (3) create-trd, (4) refine-trd, (5) implement-trd-beads --plan. Each step completes before the next begins. Refinement steps (2 and 4) pause for user input via ask_user. The --skip-refine flag bypasses both refinement steps for an uninterrupted run. Planning only -- no code is executed. Terminates with a handoff message showing how to start implementation.
 
 > **Constraints:**
 > - DO NOT implement, build, or execute any code
@@ -56,7 +56,7 @@ Check SKIP_REFINE.
 
 If SKIP_REFINE=true: Print [Step 2/5] refine-prd... (skipped) and proceed to Step 3. Do not invoke refine-prd.
 
-If SKIP_REFINE=false: Print [Step 2/5] refine-prd... (pausing for your input) and invoke /ensemble:refine-prd. The refine-prd command internally uses AskUserQuestion to conduct the interview -- no special pause mechanism is needed here. Wait for refine-prd to complete before proceeding.
+If SKIP_REFINE=false: Print [Step 2/5] refine-prd... (pausing for your input) and invoke /ensemble:refine-prd. The refine-prd command internally uses ask_user to conduct the interview -- no special pause mechanism is needed here. Wait for refine-prd to complete before proceeding.
 
 If refine-prd fails, print the following and halt the pipeline immediately:
 [Step 2/5] refine-prd failed. Pipeline halted.
@@ -90,7 +90,7 @@ Check SKIP_REFINE.
 
 If SKIP_REFINE=true: Print [Step 4/5] refine-trd... (skipped) and proceed to Step 5. Do not invoke refine-trd.
 
-If SKIP_REFINE=false: Print [Step 4/5] refine-trd... (pausing for your input) and invoke /ensemble:refine-trd. The refine-trd command internally uses AskUserQuestion to conduct the interview -- no special pause mechanism is needed here. Wait for refine-trd to complete before proceeding.
+If SKIP_REFINE=false: Print [Step 4/5] refine-trd... (pausing for your input) and invoke /ensemble:refine-trd. The refine-trd command internally uses ask_user to conduct the interview -- no special pause mechanism is needed here. Wait for refine-trd to complete before proceeding.
 
 If refine-trd fails, print the following and halt the pipeline immediately:
 [Step 4/5] refine-trd failed. Pipeline halted.
