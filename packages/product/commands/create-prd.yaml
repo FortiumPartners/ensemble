@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-prd
   description: Create comprehensive Product Requirements Document with structured elicitation and adversarial review
-  version: 2.2.0
-  lastUpdated: "2026-03-28"
+  version: 2.3.0
+  lastUpdated: "2026-03-29"
   category: planning
   output_path: ensemble/create-prd.md
   source: fortium
@@ -40,30 +40,33 @@ workflow:
 
         - order: 2
           title: Problem Space Interview
-          description: Gather core product context through targeted questions
+          description: Gather core product context through a one-question-at-a-time interview
           actions:
-            - "Ask these questions (skip any already answered in the product description):"
-            - "1. What problem does this solve? Who feels the pain today?"
-            - "2. Who are the primary users? (roles, not names)"
-            - "3. What does success look like? (specific metrics if possible)"
-            - "4. What constraints exist? (budget, timeline, tech stack, compliance)"
-            - "5. What existing solutions have been tried or considered?"
-            - Wait for answers before proceeding -- do not generate requirements from assumptions
-            - Summarize what you heard back to the user in 3-4 sentences for confirmation
+            - "INTERVIEW PROTOCOL: Ask exactly ONE question, wait for the user's full answer, then ask the next. Never batch questions."
+            - "Determine which of these questions are NOT already answered by the product description provided as arguments, then ask only the unanswered ones in order:"
+            - "Q1: 'What problem does this solve, and who feels the pain today?'"
+            - "Q2: 'Who are the primary users? (describe by role, not by name)'"
+            - "Q3: 'What does success look like -- ideally with specific metrics?'"
+            - "Q4: 'What constraints apply? (budget, timeline, tech stack, compliance, etc.)'"
+            - "Q5: 'What existing solutions have been tried or considered, and why weren't they enough?'"
+            - "After each answer: acknowledge it briefly (1 sentence), then ask the next question"
+            - "After the final answer: summarize what you heard in 3-4 sentences and ask the user to confirm before continuing"
 
         - order: 3
           title: Creative Elicitation
-          description: Use structured techniques to surface hidden and edge-case requirements
+          description: Surface hidden and edge-case requirements through a structured one-question-at-a-time interview
           actions:
-            - "SCAMPER the core idea: ask the user 2-3 targeted questions from these angles:"
-            - "  - Substitute: What if a key component were replaced? (e.g., 'What if users couldn't use a browser?')"
-            - "  - Combine: What adjacent problems could this solve simultaneously?"
-            - "  - Adapt: What existing product does this most resemble, and where must it differ?"
-            - "  - Eliminate: What's the simplest version that still solves the core problem?"
-            - "'What could go wrong?' exercise: brainstorm 3-5 failure scenarios with the user (data loss, abuse, scale issues, accessibility gaps)"
-            - Record insights from both techniques -- these become requirements or risk flags later
-            - "For LIGHT depth: ask 2 SCAMPER questions and 2 failure scenarios"
-            - "For DEEP depth: run full SCAMPER sweep and 5+ failure scenarios"
+            - "INTERVIEW PROTOCOL: Ask ONE question at a time, wait for the answer, then ask the next."
+            - "Choose 2-3 SCAMPER angles most relevant to this product and ask them sequentially:"
+            - "  - Substitute angle: 'What if [key component] were replaced or unavailable? What would break?'"
+            - "  - Combine angle: 'What adjacent problem could this solve at the same time?'"
+            - "  - Adapt angle: 'What existing product does this most resemble, and where must yours differ?'"
+            - "  - Eliminate angle: 'What is the simplest version that still solves the core problem?'"
+            - "After SCAMPER, run the failure scenario interview -- ask one failure scenario at a time:"
+            - "  Ask: 'What happens if [scenario]?' -- use data loss, abuse, scale failure, accessibility, and offline as failure scenario prompts"
+            - "Record every insight -- these become requirements or risk flags"
+            - "For LIGHT depth: 2 SCAMPER questions + 2 failure scenario questions"
+            - "For DEEP depth: all 4 SCAMPER angles + 5+ failure scenario questions"
 
     - name: Research and Context
       order: 2
@@ -164,11 +167,13 @@ workflow:
 
         - order: 2
           title: Issue Resolution
-          description: Present issues to the user and incorporate their decisions
+          description: Walk through issues one at a time and incorporate user decisions
           actions:
-            - "Present the issues as a numbered list with recommended resolutions"
-            - "Ask the user to approve, modify, or reject each recommendation"
-            - "Update the PRD based on user decisions"
+            - "INTERVIEW PROTOCOL: Present ONE issue at a time. Do not list all issues upfront."
+            - "For each issue: state the problem, give your recommended resolution, then ask 'Does this resolution work for you, or would you like to adjust it?'"
+            - "Wait for the user's response before moving to the next issue"
+            - "After each decision: acknowledge briefly, apply the change mentally, then present the next issue"
+            - "After all issues are resolved: summarize the changes made and confirm before updating the PRD"
             - "If new requirements emerge from issue resolution, assign REQ-NNN IDs and add ACs"
 
         - order: 3
