@@ -1,7 +1,7 @@
 ---
 name: ensemble:create-prd
 description: Create comprehensive Product Requirements Document with structured elicitation and adversarial review
-version: 2.3.0
+version: 2.4.0
 category: planning
 last-updated: 2026-03-29
 model: opus
@@ -119,7 +119,34 @@ being saved to ensure handoff quality.
    - For LIGHT depth: 1 AC per requirement minimum
    - For DEEP depth: 2-4 ACs per requirement including edge cases and error paths
 
-**4. Dependency Map**
+**4. Ambiguity Marking Pass**
+   Review every requirement and AC written in this phase for unresolved ambiguity.
+
+For each place where the PRD author made an assumption rather than having explicit
+user confirmation:
+- Insert [NEEDS CLARIFICATION: <specific question>] as an inline marker immediately after the ambiguous text
+- The question must be specific enough that a "yes/no" or brief answer fully resolves it
+- Do NOT silently resolve ambiguity with a best-guess — mark it instead
+
+Examples of valid markers:
+- "Users can upload files up to 10MB [NEEDS CLARIFICATION: Is 10MB the right limit, or should this be configurable per plan?]"
+- "Authentication uses JWT tokens [NEEDS CLARIFICATION: Should tokens be short-lived (15min) or long-lived (7d)?]"
+- "The dashboard shows last 30 days by default [NEEDS CLARIFICATION: Should the default time range be configurable by users or admins only?]"
+
+Categories to scan for ambiguities:
+- Numeric thresholds without stated rationale (limits, timeouts, counts)
+- Technology choices made without explicit user confirmation
+- Authorization rules inferred from context rather than stated
+- Behavioral defaults (sort order, pagination size, date ranges)
+- Error handling behaviors not explicitly discussed
+- Integration assumptions about external systems
+
+After marking: count the total [NEEDS CLARIFICATION] markers and print:
+"Ambiguity scan complete: N items marked for clarification."
+These markers will become the structured interview agenda in /ensemble:refine-prd.
+
+
+**5. Dependency Map**
    Document which requirements depend on each other
 
    - For each requirement, list any prerequisites: 'REQ-003 depends on REQ-001'
