@@ -1,6 +1,6 @@
 {
   "name": "ensemble",
-  "version": "5.10.1",
+  "version": "5.12.0",
   "description": "Official Fortium Ensemble plugin marketplace - AI-augmented development workflows",
   "owner": {
     "name": "Fortium Partners",
@@ -71,7 +71,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "5.10.1",
+      "version": "5.12.0",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -364,7 +364,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "5.11.1",
+      "version": "5.12.0",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
@@ -421,6 +421,24 @@
       "category": "core",
       "tags": [
         "pi",
+        "translation",
+        "runtime",
+        "plugin"
+      ],
+      "author": {
+        "name": "Fortium Partners",
+        "email": "support@fortiumpartners.com"
+      }
+    },
+    {
+      "name": "ensemble-codex",
+      "version": "5.3.0",
+      "source": "./packages/codex",
+      "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
+      "category": "core",
+      "tags": [
+        "codex",
+        "openai",
         "translation",
         "runtime",
         "plugin"

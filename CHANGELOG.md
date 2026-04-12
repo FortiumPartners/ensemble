@@ -7,122 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### In Progress
-- Plugin extraction from ensemble v3.x monolith
-- Individual plugin population with agents, commands, skills
-- Testing framework for plugin validation
-- NPM package publishing setup
+## [5.12.0] - 2026-04-12
 
-## [4.0.0] - 2025-12-09
+### Added
 
-### Added - Major Architecture Shift
-
-#### Plugin System Foundation
-- **Modular plugin architecture** replacing v3.x monolith
-- **20 specialized plugins** organized in 4 tiers (Core, Workflow, Frameworks, Testing)
-- **Plugin dependency system** with automatic resolution
-- **Marketplace integration** for plugin discovery and installation
-
-#### Plugin Ecosystem
-- **ensemble-core** (4.0.0) - Core orchestration and utilities
-- **ensemble-product** (4.0.0) - Product management workflows
-- **ensemble-development** (4.0.0) - Development agents
-- **ensemble-quality** (4.0.0) - Quality assurance and code review
-- **ensemble-infrastructure** (4.0.0) - Infrastructure automation (AWS/K8s/Docker/Helm/Fly.io)
-- **ensemble-git** (4.0.0) - Git workflow automation
-- **ensemble-e2e-testing** (4.0.0) - Playwright E2E testing
-- **ensemble-metrics** (4.0.0) - Productivity analytics
-- **ensemble-pane-viewer** (0.1.0) - Real-time monitoring
-- **ensemble-react** (4.0.0) - React framework skills
-- **ensemble-nestjs** (4.0.0) - NestJS backend skills
-- **ensemble-rails** (4.0.0) - Rails backend skills
-- **ensemble-phoenix** (4.0.0) - Phoenix LiveView skills
-- **ensemble-blazor** (4.0.0) - Blazor .NET skills
-- **ensemble-jest** (4.0.0) - Jest testing integration
-- **ensemble-pytest** (4.0.0) - Pytest testing integration
-- **ensemble-rspec** (4.0.0) - RSpec testing integration
-- **ensemble-xunit** (4.0.0) - xUnit testing integration
-- **ensemble-exunit** (4.0.0) - ExUnit testing integration
-- **ensemble-full** (4.0.0) - Complete ecosystem meta-package
-
-#### Infrastructure
-- **NPM workspace** configuration for monorepo management
-- **Validation schemas** for plugin.json and marketplace.json
-- **GitHub Actions workflows** for CI/CD (validate, test, release)
-- **Automated validation** scripts for all plugins
-- **Publishing automation** for selective plugin releases
+- **Pi runtime** (`ensemble-pi`): Translation-layer runtime for Ensemble commands, with skill-copier and CRLF normalization (#55).
+- **Codex package** (`ensemble-codex`): Codex release notes generation and project installation scripts.
+- **Standards discovery**: `/ensemble:discover-standards` and `/ensemble:inject-standards` commands for extracting and applying coding conventions.
+- **Implement-bead command**: Single-bead implementation workflow (`/ensemble:implement-bead`).
+- **Feature pipeline**: `/ensemble:feature` orchestration command combining PRD → TRD → implementation (#53).
+- **Requirement traceability**: End-to-end `validate-requirements` and `requirement-status` commands (#52).
+- **Auto-team configuration**: Automated team config generation from TRD complexity analysis (TRD-AUTOTEAM-001).
+- **Beads-plan and beads-build**: Commands for bead hierarchy analysis and builder/code-review/close pipeline.
+- **Team-based execution model** for `implement-trd-beads`: Team YAML parser, state machine, parallel builders, QA delegation, rejection loops, metrics, and quality gates.
+- **Session logging**: `/ensemble:sessionlog` command with sensitive data exclusion and incremental logging.
+- **OpenCode support**: Full translation layer for OpenCode runtime — SkillCopier, CommandTranslator, AgentTranslator, HookBridge, ManifestGenerator, and distribution packaging.
 
 ### Changed
 
-#### From v3.x Monolith
-- **Breaking**: Modular installation replaces single-package install
-- **Breaking**: Plugin names now prefixed with `ensemble-` (e.g., `ensemble-core`)
-- **Breaking**: NPM scope changed to `@fortium/` (e.g., `@fortium/ensemble-core`)
-- **Improved**: Pay-what-you-need model (install only required plugins)
-- **Improved**: Independent plugin versioning for framework-specific modules
-- **Improved**: Reduced installation size (average 90% reduction per plugin)
+- **PRD/TRD commands rewritten**: Competitive analysis rewrite of `fold-prompt`, `create-prd`, `create-trd` with interview-style elicitation.
+- **Refine commands**: Added readiness gates to `refine-prd` and `refine-trd`.
+- **Git workflow**: Consolidated on git-town, removed jj-vcs skill.
+- **implement-trd-beads**: Migrated from bd to br/bv with wheel instructions, added PRD/TRD file links to bead task descriptions.
+- **Model aliases**: Simplified — removed opus-4-6 and sonnet-4 aliases.
+- Command frontmatter now includes version, category, and last-updated fields.
 
-### Migration Notes
+### Fixed
 
-#### Breaking Changes from v3.x
+- Pi runtime: `sourceRoot` derived from `__dirname` instead of `process.cwd()`.
+- Pi skill-copier: CRLF → LF normalization to prevent CI drift.
+- implement-trd-beads: Corrected backwards dependency wiring in scaffold.
+- create-trd: Addressed code review findings M-1 and M-2.
+- version-manager: Widened commit message character allowlist.
 
-1. **Installation Method**
-   ```bash
-   # v3.x (monolith)
-   npx @fortium/ensemble install --global
+### Removed
 
-   # v4.0 (modular)
-   claude plugin install @fortium/ensemble-core
-   claude plugin install @fortium/ensemble-product  # optional
-   ```
+- `agent-progress-pane` and `task-progress-pane` packages (consolidated).
 
-2. **Agent References**
-   - Old: `infrastructure-management-subagent`
-   - New: Provided by `ensemble-infrastructure` plugin
+## [5.3.0] - 2026-02-17
 
-3. **Command Availability**
-   - Commands now provided by specific plugins
-   - Install relevant plugin to access commands
+### Added
 
-#### Migration Path
+- Initial 5.x release series with 23 packages, 28 agents, and 4-tier architecture.
+- See git history for detailed changes from 4.0.0 to 5.3.0.
 
-1. **Assess current usage**: Identify which v3.x agents/commands you actively use
-2. **Map to v4.0 plugins**: See migration table in README.md
-3. **Install plugins**: Use `claude plugin install` for each required plugin
-4. **Verify workflows**: Test existing workflows still function
-5. **Optimize installation**: Remove unused plugins to reduce footprint
+## [4.0.0] - 2025-12-09
 
-### Performance
+### Added
 
-Compared to v3.x monolith:
-- **90% smaller installation** per plugin (modular vs full ecosystem)
-- **75% faster plugin loading** (only load what's installed)
-- **Zero regression** in agent performance (maintained 87-99% optimization)
+- Modular plugin architecture replacing the v3.x monolith.
+- 20 specialized plugins organized across core, workflow, framework, and testing layers.
+- Plugin dependency resolution and marketplace integration.
+- NPM workspace support, validation schemas, CI workflows, and publishing automation.
 
-### Metrics
+### Changed
 
-- **20 plugins** created from v3.x monolith consolidation
-- **4-tier architecture** (Core, Workflow, Frameworks, Testing)
-- **100% backward compatibility** for workflows (via plugin composition)
-- **26 specialized agents** distributed across plugins
+- Installation moved from a single monolith to modular plugin installs.
+- Plugin names now use the `ensemble-` prefix and `@fortium/` npm scope.
+- Installation size and plugin load time were significantly reduced through modularization.
 
-## [3.6.5] - Previous Version
+## [3.6.5]
 
-### Note
-This is the last version before the v4.0.0 plugin architecture migration. See v3.x branch for full v3.x changelog.
+### Changed
 
----
-
-## Version Strategy
-
-- **Core & Workflow plugins (Tier 1-2)**: Synchronized versioning (4.x.x)
-- **Framework plugins (Tier 3)**: Independent versioning based on framework updates
-- **Testing plugins (Tier 4)**: Independent versioning based on test framework updates
-- **Utilities**: Independent versioning (e.g., pane-viewer at 0.1.0)
-
-## Links
-
-- [v4.0.0 Migration Guide](docs/MIGRATION_v4.md)
-- [Plugin Development Guide](docs/PLUGIN_DEVELOPMENT.md)
-- [Repository](https://github.com/FortiumPartners/ensemble)
-- [NPM Organization](https://www.npmjs.com/org/fortium)
+- Last release before the v4 plugin architecture migration.
+- See the v3.x branch for the pre-plugin changelog history.

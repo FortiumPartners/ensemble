@@ -1,6 +1,6 @@
 {
   "name": "ensemble-plugins",
-  "version": "5.3.0",
+  "version": "5.12.0",
   "private": true,
   "description": "Ensemble Plugin Ecosystem - Modular Claude Code plugins for development workflows",
   "workspaces": [
@@ -10,7 +10,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "validate": "node scripts/validate-all.js",
+    "validate": "node scripts/validate-all.js && node scripts/validate-version-sync.js",
     "generate": "node scripts/generate-markdown.js",
     "generate:commands": "node scripts/generate-markdown.js --type commands",
     "generate:agents": "node scripts/generate-markdown.js --type agents",
@@ -18,6 +18,11 @@
     "generate:validate": "node scripts/generate-markdown.js --validate",
     "generate:opencode": "node scripts/generate-opencode/index.js",
     "generate:pi": "npm run generate --workspace=packages/pi",
+    "generate:codex": "node scripts/generate-codex/index.js",
+    "install:codex": "node scripts/install-codex-project.js",
+    "version:codex": "node scripts/sync-codex-version.js",
+    "release-notes": "node scripts/generate-release-notes.js",
+    "release-notes:codex": "node scripts/generate-codex-release-notes.js",
     "publish:changed": "node scripts/publish-plugin.js"
   },
   "devDependencies": {
