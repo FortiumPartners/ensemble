@@ -2,7 +2,8 @@
 /**
  * Validates that release-critical version fields are in sync.
  *
- * Checks: root package.json, packages/full/package.json, and
+ * Checks: root package.json, packages/full/package.json,
+ * packages/full/.claude-plugin/plugin.json, and
  * marketplace.json (top-level + ensemble-full entry) all share
  * the same version string.
  *
@@ -20,12 +21,14 @@ function readJson(rel) {
 
 const rootPkg = readJson('package.json');
 const fullPkg = readJson('packages/full/package.json');
+const pluginJson = readJson('packages/full/.claude-plugin/plugin.json');
 const marketplace = readJson('marketplace.json');
 const fullPlugin = marketplace.plugins.find(p => p.name === 'ensemble-full');
 
 const versions = {
   'package.json': rootPkg.version,
   'packages/full/package.json': fullPkg.version,
+  'packages/full/.claude-plugin/plugin.json': pluginJson.version,
   'marketplace.json (top-level)': marketplace.version,
   'marketplace.json (ensemble-full)': fullPlugin?.version ?? 'MISSING',
 };
@@ -40,6 +43,6 @@ if (unique.size === 1) {
   for (const [source, ver] of Object.entries(versions)) {
     console.error(`  ${source}: ${ver}`);
   }
-  console.error('\nAll four must match before tagging a release.');
+  console.error('\nAll five must match before tagging a release.');
   process.exit(1);
 }
