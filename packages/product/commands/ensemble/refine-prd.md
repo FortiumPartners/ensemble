@@ -1,9 +1,9 @@
 ---
 name: ensemble:refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail
-version: 2.3.0
+version: 2.4.0
 category: planning
-last-updated: 2026-03-28
+last-updated: 2026-03-29
 model: opus
 ---
 <!-- DO NOT EDIT - Generated from refine-prd.yaml -->
@@ -34,6 +34,7 @@ scoring.
    After reviewing the PRD, generate a numbered list of findings WITHOUT making
 any edits yet. Scan for the following issues:
 
+- '[NEEDS CLARIFICATION] markers from create-prd — present each one verbatim as a finding so the user''s answers replace the marker with actual content'
 - Requirements missing REQ-NNN IDs as H3 headings
 - Acceptance criteria that are missing or not in Given/When/Then format
 - Missing PRD document ID (PRD-YYYY-NNN) in frontmatter
@@ -78,6 +79,8 @@ Use the AskUserQuestion tool to present questions interactively:
 - Wait for user answer before asking the next question
 - Do NOT just write questions in your response text
 - The user should see interactive question UI prompts
+
+'For [NEEDS CLARIFICATION] findings: quote the marker verbatim, then ask the embedded question directly. Replace the marker with the user''s answer in the Content Refinement step.'
 
 For each selected finding, ask a focused follow-up question. Examples:
 - For unclear requirements: ask the user to clarify intent or expected behavior
