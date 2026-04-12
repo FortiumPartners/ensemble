@@ -1,6 +1,6 @@
 {
   "name": "ensemble-plugins",
-  "version": "5.12.0",
+  "version": "5.13.0",
   "private": true,
   "description": "Ensemble Plugin Ecosystem - Modular Claude Code plugins for development workflows",
   "workspaces": [
