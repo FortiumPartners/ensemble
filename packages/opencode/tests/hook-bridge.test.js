@@ -221,12 +221,12 @@ describe('OC-S2-HK-002: discoverHooksFiles', () => {
     }
   });
 
-  it('should find agent-progress-pane hooks.json', () => {
+  it('should find router hooks.json', () => {
     const results = discoverHooksFiles(ROOT);
-    const agentPane = results.find(r =>
-      r.filePath.includes('agent-progress-pane')
+    const router = results.find(r =>
+      r.filePath.includes('router')
     );
-    expect(agentPane).toBeDefined();
+    expect(router).toBeDefined();
   });
 });
 
@@ -495,24 +495,22 @@ describe('OC-S2-TEST-007: Comprehensive hook parsing and environment bridging', 
   } = require('../src/hooks/bridge.js');
 
   describe('parsing real-world hooks.json structures', () => {
-    it('should parse agent-progress-pane style hooks', () => {
+    it('should return empty for permitter hooks (PermissionRequest not bridgeable)', () => {
       const hooksJson = JSON.parse(
         fs.readFileSync(
-          path.join(ROOT, 'packages/agent-progress-pane/hooks/hooks.json'),
+          path.join(ROOT, 'packages/permitter/hooks/hooks.json'),
           'utf-8'
         )
       );
       const result = parseHooksJson(
         hooksJson,
-        path.join(ROOT, 'packages/agent-progress-pane')
+        path.join(ROOT, 'packages/permitter')
       );
-      expect(result.length).toBeGreaterThan(0);
-      const preHooks = result.filter(h => h.point === 'PreToolUse');
-      expect(preHooks.length).toBeGreaterThan(0);
-      expect(preHooks[0].matcher).toBe('Task');
+      // PermissionRequest hooks are not bridged to OpenCode
+      expect(result.length).toBe(0);
     });
 
-    it('should parse full package hooks (aggregated)', () => {
+    it('should return empty for full package hooks (no PreToolUse/PostToolUse)', () => {
       const hooksJson = JSON.parse(
         fs.readFileSync(
           path.join(ROOT, 'packages/full/hooks/hooks.json'),
@@ -523,11 +521,8 @@ describe('OC-S2-TEST-007: Comprehensive hook parsing and environment bridging', 
         hooksJson,
         path.join(ROOT, 'packages/full')
       );
-      // full has PreToolUse for Task and TodoWrite, plus PostToolUse for Task
-      const preHooks = result.filter(h => h.point === 'PreToolUse');
-      const postHooks = result.filter(h => h.point === 'PostToolUse');
-      expect(preHooks.length).toBeGreaterThanOrEqual(2);
-      expect(postHooks.length).toBeGreaterThanOrEqual(1);
+      // full only has UserPromptSubmit and PermissionRequest — not bridgeable
+      expect(result.length).toBe(0);
     });
 
     it('should not extract hooks from router package (UserPromptSubmit only)', () => {

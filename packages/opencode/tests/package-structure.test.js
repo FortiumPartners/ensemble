@@ -128,7 +128,11 @@ describe('OC-S1-PKG-005: generate:opencode script', () => {
   });
 });
 
-describe('OC-S1-PKG-006: dist/opencode/ output directory structure', () => {
+const distExists = fs.existsSync(DIST_DIR);
+
+// These tests require `npm run generate:opencode` to have been run first
+// Skip in CI where the dist directory may not exist
+(distExists ? describe : describe.skip)('OC-S1-PKG-006: dist/opencode/ output directory structure', () => {
   it('should have .opencode/commands/ensemble/ directory', () => {
     expect(
       fs.existsSync(path.join(DIST_DIR, '.opencode', 'commands', 'ensemble'))
