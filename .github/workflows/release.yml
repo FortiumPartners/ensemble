@@ -22,13 +22,20 @@ jobs:
       - name: Run validation
         run: npm run validate
 
+      - name: Verify version sync
+        run: node scripts/validate-version-sync.js
+
       - name: Run tests
         run: npm test
+
+      - name: Generate release notes
+        run: npm run release-notes -- --output .github/release-notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          generate_release_notes: true
+          body_path: .github/release-notes.md
+          generate_release_notes: false
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
