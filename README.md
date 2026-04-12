@@ -2,6 +2,8 @@
 
 Modular plugin ecosystem for Claude Code, enabling flexible, pay-what-you-need AI-augmented development workflows.
 
+![The Spec-Driven Factory: Ensemble Plugin Ecosystem](docs/images/ensemble-architecture.png)
+
 ## Overview
 
 Ensemble Plugins v5.0.0 provides a modular plugin system for Claude Code, allowing developers to install only the capabilities they need—from core orchestration to framework-specific skills.
