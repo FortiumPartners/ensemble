@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-trd-foreman
-  description: Create Foreman-native structured Technical Requirements Document from PRD
-  version: 1.0.0
-  lastUpdated: "2026-03-28"
+  description: Create Foreman-native structured Technical Requirements Document from PRD — omits adversarial review phase, outputs parser-compatible tables
+  version: 3.0.0
+  lastUpdated: "2026-04-16"
   category: planning
   output_path: ensemble/create-trd-foreman.md
   source: fortium
@@ -14,12 +14,13 @@ constraints:
   - This command creates ONLY a TRD document
   - The arguments describe what should be documented, not what should be built
   - After creating the Foreman-native TRD, stop and wait for user approval before any implementation
+  - All task Status cells in output tables must be `[ ]` — never use `[x]` or `done` markers
 
 mission:
   summary: |
     Create a Foreman-native Technical Requirements Document (TRD) from a Product Requirements Document (PRD).
-    The resulting TRD must be machine-consumable by Foreman's existing \`parseTrd()\` parser and suitable for
-    immediate native task creation via \`foreman sling prd\`. Perform PRD validation, architecture design with
+    The resulting TRD must be machine-consumable by Foreman's existing `parseTrd()` parser and suitable for
+    immediate native task creation via `foreman sling prd`. Perform PRD validation, architecture design with
     alternatives, and a structured task breakdown with deterministic markdown tables. All outputs are saved to docs/TRD/.
 
 workflow:
@@ -60,7 +61,7 @@ workflow:
           actions:
             - Read PRD frontmatter for Readiness Score field
             - "If score >= 4.0 (PASS): proceed normally"
-            - "If score 3.0-3.9 (CONCERNS): warn user about PRD concerns, ask whether to proceed"
+            - "If score 3.0-3.9 (CONCERNS): warn about PRD concerns and proceed automatically for non-interactive callers"
             - "If score < 3.0 (FAIL): halt and recommend running /ensemble:refine-prd first"
             - If no readiness score in frontmatter, proceed with a note that PRD was not gate-checked
 
@@ -84,8 +85,8 @@ workflow:
             - "Design Option A: simplest approach -- minimal components, fastest to build, may not scale"
             - "Design Option B: most scalable approach -- production-grade architecture, more upfront work"
             - "Design Option C: best fit for existing codebase (if brownfield) or balanced approach (if greenfield)"
-            - Present each option with pros, cons, estimated complexity impact, and risk profile
-            - Ask user to choose one option or combine elements before proceeding
+            - Present each option briefly with pros, cons, estimated complexity impact, and risk profile
+            - Choose the best balanced option automatically unless the caller explicitly requested an interactive architecture review
 
         - order: 3
           title: System Architecture Design
@@ -104,12 +105,14 @@ workflow:
           title: Master Task List Generation
           description: Generate a parser-compatible Foreman task breakdown with deterministic markdown tables
           actions:
-            - Generate unique TRD task IDs following the pattern `[A-Z]+-T\d+` (for example `FSC-T001`)
+            - Generate unique task IDs following the pattern `[A-Z]+-T\d+` (for example `FSC-T001`, `AUTH-T001`)
             - Organize work under `### N.M Sprint N` headers and `#### Story N.M` headers only
-            - For every story, emit a markdown table with required columns `ID | Task | Estimate | Dependencies | Files | Status`
+            - For every story, emit a markdown table with required columns `ID | Task | Est. | Deps`
             - Set every Status cell to `[ ]` so Foreman creates dispatchable native tasks rather than completed tasks
-            - Use dependencies that reference other TRD task IDs exactly as strings in the Dependencies column
+            - Use dependencies that reference other task IDs exactly as strings in the Dependencies column
             - Ensure task rows are implementation-oriented and deterministic, not prose narratives
+            - "CRITICAL: First column header must be exactly `id` (lowercase) — not `ID`, `TRD ID`, or `Task ID`"
+            - "CRITICAL: Second column must contain `task`, `description`, or `title`"
 
         - order: 2
           title: Test Task Generation
@@ -119,6 +122,7 @@ workflow:
             - Keep test tasks in the same parser-compatible table structure rather than narrative bullet lists
             - Ensure at least one validation task covers happy path and one covers an edge case for each major feature area
             - Reference prerequisite implementation task IDs in the Dependencies column instead of free-form annotations
+            - All test/validation task Status cells must also be `[ ]`
 
         - order: 3
           title: Dependency Mapping
@@ -129,6 +133,7 @@ workflow:
             - Organize tasks into sprints/phases based on dependency order
             - Ensure no circular dependencies exist in the task graph
             - Ensure no dependency points to a task ID that is absent from the final TRD tables
+            - Ensure dependency ordering: if Task A depends on Task B, Task B must appear before Task A
 
     - name: MCP Enhancement (Optional)
       order: 4
@@ -141,7 +146,7 @@ workflow:
           description: Detect whether any MCP tools are available before attempting calls
           actions:
             - Scan available tool names for any name starting with 'mcp__'
-            - "If none found, print 'MCP enhancement: skipped (no MCP tools detected)' and skip to Phase 5"
+            - "If none found, print 'MCP enhancement: skipped (no MCP tools detected)' and skip to Output Management"
             - If found, proceed with MCP-enhanced workflow steps below
 
         - order: 2
@@ -180,64 +185,8 @@ workflow:
               - Checkbox tracking for progress
             fallback: Manually structure workflow using TRD template patterns
 
-    - name: Adversarial Review and Design Gate
-      order: 5
-      steps:
-        - order: 1
-          title: Architecture Self-Critique
-          description: Identify architecture gaps and interface issues in the TRD
-          actions:
-            - Find components that need to communicate but have no defined interface
-            - Identify missing error handling or failure recovery paths between components
-            - Check that every integration point has a defined protocol and data format
-            - Flag architectural decisions that lack rationale or alternatives considered
-            - Document at least 2 architecture issues with recommended resolutions
-
-        - order: 2
-          title: Task Coverage Analysis
-          description: Verify PRD requirement coverage and identify task gaps
-          actions:
-            - Check every PRD REQ-NNN has at least one corresponding TRD task with [satisfies REQ-NNN]
-            - Identify any TRD tasks that reference nonexistent REQ-NNN IDs
-            - Find PRD requirements with no corresponding test tasks
-            - Flag tasks estimated at 8h+ that should be broken down further
-            - Document at least 2 coverage issues with recommended resolutions
-
-        - order: 3
-          title: Dependency and Estimate Review
-          description: Check for dependency risks and estimate confidence issues
-          actions:
-            - Identify tasks with long dependency chains (depth > 3)
-            - Check for circular or implicit dependencies
-            - Review hour estimates for consistency (similar tasks should have similar estimates)
-            - Flag optimistic estimates on high-complexity tasks
-            - Document at least 1 dependency or estimate issue with recommended resolution
-
-        - order: 4
-          title: Testability Review
-          description: Verify all implementation ACs can be objectively verified
-          actions:
-            - Check each Implementation AC for measurability (has specific pass/fail criteria)
-            - Flag ACs that use subjective language (fast, good, user-friendly) without metrics
-            - Verify test tasks have clear verification steps
-            - Document any testability issues with recommended resolutions
-
-        - order: 5
-          title: Design Readiness Gate
-          description: Score TRD on quality dimensions and determine readiness
-          actions:
-            - "Score architecture completeness (1-5): are all components, interfaces, and data flows defined?"
-            - "Score task coverage (1-5): does every REQ-NNN have implementation and test tasks?"
-            - "Score dependency clarity (1-5): are dependencies explicit and acyclic?"
-            - "Score estimate confidence (1-5): are estimates consistent, reasonable, and granular enough?"
-            - "Compute overall score: average of all four dimensions"
-            - "PASS (4.0+): proceed to output"
-            - "CONCERNS (3.0-3.9): list specific concerns, ask user whether to proceed or loop back"
-            - "FAIL (<3.0): identify weakest dimensions and loop back to fix before output"
-            - Present the Design Readiness Scorecard to the user
-
     - name: Output Management
-      order: 6
+      order: 5
       steps:
         - order: 1
           title: TRD Document Generation
@@ -245,15 +194,18 @@ workflow:
           actions:
             - "Document metadata must include **Document ID**, **PRD Reference**, **Version**, **Status**, **Date**, and **Design Readiness Score** fields"
             - Generate Architecture Decision section documenting the chosen approach and alternatives considered
+            - Generate Master Task List section with all parser-compatible task tables
             - Generate Sprint Planning section with dependency-ordered phases
             - Preserve parser-compatible sprint/story/table structure exactly; do not replace tables with prose checklists
-            - "File naming must be docs/TRD/TRD-YYYY-NNN-<slug>.md"
+            - "File naming must be docs/TRD/TRD-YYYY-NNN-<slug>.md — same slug as beads path, NO `-foreman` suffix"
+            - Write exactly one primary parser-compatible TRD markdown file; any auxiliary summaries must not replace or redefine the task tables
+            - "CRITICAL: Validate that all task Status cells in ALL tables are `[ ]` — no `[x]`, `done`, or other markers permitted"
 
         - order: 2
           title: Acceptance Criteria Traceability
           description: Generate traceability information without breaking the parser-friendly TRD layout
           actions:
-            - "Generate an ## Acceptance Criteria Traceability section after the task tables"
+            - "Generate a ## Acceptance Criteria Traceability section after the task tables"
             - Use a separate traceability matrix that references task IDs already present in the parser-compatible tables
             - Ensure every Must/Should requirement appears in the matrix
 
@@ -262,7 +214,8 @@ workflow:
           description: Validate [satisfies] annotations against the PRD
           actions:
             - Validate that every task ID referenced in Dependencies exists in the generated tables
-            - Validate that required columns `ID`, `Task`, and `Status` exist for every story table
+            - Validate that required columns `id`, `task`, and `status` exist for every story table
+            - "CRITICAL: Confirm all Status cells are `[ ]` — fail the phase if any `[x]` or `done` markers found"
             - Warn (do NOT halt) if any PRD REQ-NNN has zero corresponding task references in the traceability section
             - "Print summary: Foreman compatibility check: parser-safe=<yes/no>, dependency-orphans=N, uncovered-reqs=M"
 
@@ -272,9 +225,8 @@ workflow:
           actions:
             - Create docs/TRD/ directory if it does not exist
             - Save TRD to docs/TRD/TRD-YYYY-NNN-<slug>.md
-            - "Print: file path, task count, design readiness score, and explicit next step foreman sling prd <original-prd-path>"
+            - "Print: file path, task count, design readiness score, and explicit next step `foreman sling prd <original-prd-path>`"
             - Do not suggest beads-specific implementation commands
-            - "If --team was passed, note that team configuration is separate and should happen after foreman sling prd creates native tasks"
 
 expectedInput:
   format: Product Requirements Document (PRD)
@@ -314,7 +266,7 @@ expectedOutput:
       description: Chosen architecture approach with alternatives considered, rationale, and tradeoffs
 
     - name: Master Task List
-      description: Comprehensive task tracking with TRD-NNN IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired TRD-NNN-TEST verification tasks
+      description: Parser-compatible sprint/story task tables only, using exact headers `id | task | estimate | dependencies | files | status` (lowercase `id` required) and `[ ]` status cells for every generated task row
 
     - name: System Architecture
       description: Component design, data flow, integration points, and technology choices
@@ -327,9 +279,6 @@ expectedOutput:
 
     - name: Quality Requirements
       description: Security, performance, accessibility, and testing standards
-
-    - name: Design Readiness Scorecard
-      description: Scores for architecture completeness, task coverage, dependency clarity, and estimate confidence
 
 mcp_integration:
   enabled: true
