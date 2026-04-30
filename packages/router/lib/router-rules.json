@@ -415,7 +415,7 @@
     },
     "jest": {
       "triggers": ["jest", "jest test", "javascript test", "typescript test", "npm test",
-                   "vitest", "testing-library", "@testing-library", "describe", "it", "expect", "beforeEach"],
+                   "vitest", "testing-library", "@testing-library", "beforeEach"],
       "patterns": ["run.*jest", "jest.*test", "npm.*test"],
       "purpose": "Execute and generate Jest tests for JavaScript/TypeScript projects"
     },
