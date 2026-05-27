@@ -1,14 +1,14 @@
 # TRD-2026-021: Tiered Model Aliases & Project-Level Model Config
 
 ---
-**Document ID:** TRD-2026-021
-**PRD Reference:** PRD-2026-021
-**Version:** 1.0.0
-**Status:** Draft
-**Date:** 2026-05-27
-**Architecture:** Option B — Full PRD, clean break (single-pass migration)
-**Design Readiness Score:** 4.4 / 5.0 (PASS)
-**Total Tasks:** 46
+document_id: TRD-2026-021
+prd_reference: PRD-2026-021
+version: 1.0.0
+status: Draft
+date: 2026-05-27
+architecture: "Option B — Full PRD, clean break (single-pass migration)"
+design_readiness_score: 4.4
+total_tasks: 40
 ---
 
 ## TRD Health Summary
@@ -109,6 +109,58 @@ A single-pass brownfield refactor that replaces all legacy model alias infrastru
 ---
 
 ## Master Task List
+
+### Phase 1: Core Foundation
+- [x] **TRD-001**: Create `packages/core/lib/known-model-ids.js` — exported immutable array of pinned Claude model IDs [satisfies REQ-024]
+- [x] **TRD-001-TEST**: Test `known-model-ids.js` — frozen array, non-empty strings, no moving aliases [verifies TRD-001] [satisfies REQ-024] [depends: TRD-001]
+- [x] **TRD-002**: Create `schemas/ensemble-model-config-schema.json` — JSON Schema draft-07 for config file [satisfies REQ-002]
+- [x] **TRD-002-TEST**: Validate schema against conforming and non-conforming sample configs [verifies TRD-002] [satisfies REQ-002] [depends: TRD-002]
+- [x] **TRD-003**: Rewrite `packages/core/lib/config-loader.js` — project-root detection, project config loading, XDG warning, first-run hint [satisfies REQ-001, REQ-003, REQ-004, REQ-015, REQ-016]
+- [x] **TRD-003-TEST**: Test `config-loader.js` — root detection, load, defaults, XDG warning, legacy rejection [verifies TRD-003] [satisfies REQ-001, REQ-003, REQ-004, REQ-015, REQ-016] [depends: TRD-003]
+- [x] **TRD-004**: Rewrite `packages/core/lib/model-resolver.js` — pre-flight validation, tier-alias-only env var, bypass list [satisfies REQ-020, REQ-023]
+- [x] **TRD-004-TEST**: Test `model-resolver.js` — pre-flight pass/fail, env var tier/legacy/raw-ID rejection, bypass [verifies TRD-004] [satisfies REQ-020, REQ-023] [depends: TRD-004, TRD-003, TRD-001]
+- [x] **TRD-005**: Add legacy alias rejection (`opus`/`sonnet`/`haiku`) in config-loader + model-resolver [satisfies REQ-005]
+- [x] **TRD-005-TEST**: Test legacy alias rejection in config and env var paths [verifies TRD-005] [satisfies REQ-005] [depends: TRD-005]
+- [x] **TRD-006**: Implement first-run hint + seen-hints sentinel in config-loader [satisfies REQ-022]
+- [x] **TRD-006-TEST**: Test first-run hint logic — first run, repeat suppression, corrupted file, write failure [verifies TRD-006] [satisfies REQ-022] [depends: TRD-006]
+
+### Phase 2: Schema + YAML Migration
+- [x] **TRD-007**: Update `schemas/command-yaml-schema.json` model enum from `opus/sonnet/haiku` to `high/medium/low` [satisfies REQ-011, ARCH]
+- [x] **TRD-007-TEST**: Validate updated command schema — new values pass, legacy values fail [verifies TRD-007] [satisfies REQ-011, ARCH] [depends: TRD-007]
+- [x] **TRD-008**: Update `schemas/agent-yaml-schema.json` — add optional `model` field with enum `high/medium/low` [satisfies REQ-013]
+- [x] **TRD-008-TEST**: Validate agent schema — model field optional, valid values pass, legacy values fail [verifies TRD-008] [satisfies REQ-013] [depends: TRD-008]
+- [x] **TRD-009**: Migrate all 18 command YAMLs — replace `opus`→`high`, `sonnet`→`medium`, `haiku`→`low` in metadata.model [satisfies REQ-011]
+- [x] **TRD-009-TEST**: Grep verify — zero legacy aliases in command YAMLs, `npm run validate` passes [verifies TRD-009] [satisfies REQ-011] [depends: TRD-009, TRD-007]
+- [x] **TRD-010**: Add `model: high` to 9 high-tier agent YAMLs (orchestrators, code-reviewer, deep-debugger, agent-meta-engineer, release-agent) [satisfies REQ-014]
+- [x] **TRD-011**: Add `model: medium` to 16 medium-tier agent YAMLs; remove `model: inherit` from mobile-developer [satisfies REQ-014]
+- [x] **TRD-012**: Add `model: low` to 3 low-tier agent YAMLs (file-creator, context-fetcher, directory-monitor) [satisfies REQ-014]
+- [x] **TRD-012-TEST**: Verify all 28 agents have valid `model` field matching assignment table; zero `model: inherit` [verifies TRD-010, TRD-011, TRD-012] [satisfies REQ-014] [depends: TRD-010, TRD-011, TRD-012, TRD-008]
+- [x] **TRD-013**: Regenerate all `.md` files in `packages/*/commands/ensemble/` to sync frontmatter `model:` field [satisfies REQ-012]
+- [x] **TRD-013-TEST**: Compare each `.md` frontmatter `model:` to its YAML source — must match exactly [verifies TRD-013] [satisfies REQ-012] [depends: TRD-013, TRD-009]
+
+### Phase 3: Wizard + Migration Commands
+- [x] **TRD-014**: Create `packages/core/lib/map-model-wizard.js` — TTY detection, KNOWN_MODEL_IDS suggestions, readline prompts, atomic write, .claude/ creation, final state output [satisfies REQ-006, REQ-007, REQ-008, REQ-009, REQ-010]
+- [x] **TRD-014-TEST**: Test wizard logic — TTY detection, suggestion list, Enter keep, valid pick, invalid rejection, dir creation, atomic write, output format [verifies TRD-014] [satisfies REQ-006, REQ-007, REQ-008, REQ-009, REQ-010] [depends: TRD-014, TRD-001, TRD-003]
+- [x] **TRD-015**: Create `packages/core/commands/map-model.yaml` + generated `.md` — wizard and one-shot CLI form [satisfies REQ-006, REQ-018, ARCH]
+- [x] **TRD-016**: Create `packages/core/lib/legacy-config-migrator.js` — read XDG legacy, translate aliases, write project config, warn about commandOverrides/costTracking [satisfies REQ-019]
+- [x] **TRD-016-TEST**: Test migration logic — legacy exists, both exist (overwrite prompt), nothing to migrate, legacy intact after, commandOverrides warning, costTracking notice [verifies TRD-016] [satisfies REQ-019] [depends: TRD-016, TRD-003]
+- [x] **TRD-017**: Create `packages/core/commands/migrate-model-config.yaml` + generated `.md` + add to pre-flight bypass list [satisfies REQ-019, ARCH]
+- [x] **TRD-018**: Add one-shot CLI form `runOneShotUpdate(tier, modelId)` to `map-model-wizard.js` [satisfies REQ-018]
+- [x] **TRD-018-TEST**: Test one-shot CLI — valid tier+ID updates only that tier; invalid tier/ID errors; wizard not invoked [verifies TRD-018] [satisfies REQ-018] [depends: TRD-018, TRD-014]
+
+### Phase 4: CI + Docs + Cleanup
+- [x] **TRD-019**: Create `scripts/lint-model-ids.js` — glob YAMLs, extract model values, validate against KNOWN_MODEL_IDS, exit codes [satisfies REQ-021]
+- [x] **TRD-019-TEST**: Test lint script — unknown ID exits non-zero with file listed; clean files exit 0; KNOWN_MODEL_IDS update accepted [verifies TRD-019] [satisfies REQ-021] [depends: TRD-019, TRD-001]
+- [x] **TRD-020**: Add `lint:model-ids` to root `package.json` scripts; integrate into `npm run validate` [satisfies REQ-021, ARCH]
+- [x] **TRD-020-TEST**: Smoke test `npm run lint:model-ids` exits 0 on clean migrated codebase [verifies TRD-020] [satisfies REQ-021] [depends: TRD-020, TRD-019, TRD-009]
+- [x] **TRD-021**: Write CHANGELOG breaking-change entry describing alias rename and config path change [satisfies REQ-017]
+- [x] **TRD-022**: Update plugin README — add "Model Tier Configuration" top-level section with tier model, wizard docs, upgrader instructions [satisfies REQ-022]
+- [x] **TRD-023**: Update `packages/core/lib/usage-logger.js` — remove `costTracking` config dependency, hardcode log path, update MODEL_PRICING to current IDs [satisfies ARCH]
+- [x] **TRD-023-TEST**: Test `usage-logger.js` — getLogPath returns hardcoded default, MODEL_PRICING uses current IDs [verifies TRD-023] [satisfies ARCH] [depends: TRD-023]
+
+---
+
+## Sprint Implementation Details
 
 ### Sprint 1: Core Foundation
 
