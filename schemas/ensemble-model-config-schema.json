@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ensemble-model-config-schema.json",
+  "title": "Ensemble Model Config",
+  "description": "Per-project tier-to-model-ID mapping for Ensemble commands",
+  "type": "object",
+  "required": ["version", "tiers"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "tiers": {
+      "type": "object",
+      "required": ["high", "medium", "low"],
+      "properties": {
+        "high": { "type": "string", "minLength": 1 },
+        "medium": { "type": "string", "minLength": 1 },
+        "low": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "extraKnownModelIds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    }
+  },
+  "additionalProperties": true
+}

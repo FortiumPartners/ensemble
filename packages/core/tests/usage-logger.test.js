@@ -12,7 +12,20 @@ const {
   calculateCost,
   MODEL_PRICING
 } = require('../lib/usage-logger');
-const { getDefaultConfig } = require('../lib/config-loader');
+
+/**
+ * A minimal config that satisfies usage-logger's costTracking requirements.
+ * The usage-logger is independent of the tiered config — it just needs
+ * costTracking.enabled and optionally costTracking.logPath.
+ */
+function getUsageLoggerTestConfig() {
+  return {
+    costTracking: {
+      enabled: true,
+      logPath: '~/.config/ensemble/logs/model-usage.jsonl'
+    }
+  };
+}
 
 // Mock fs and os modules
 jest.mock('fs');
@@ -114,7 +127,7 @@ describe('Usage Logger', () => {
         throw new Error('File not found');
       });
 
-      const config = getDefaultConfig();
+      const config = getUsageLoggerTestConfig();
       const params = {
         command: 'ensemble:create-prd',
         model: 'claude-opus-4-6-20251101',
@@ -165,7 +178,7 @@ describe('Usage Logger', () => {
         throw new Error('File not found');
       });
 
-      const config = getDefaultConfig();
+      const config = getUsageLoggerTestConfig();
       const params = {
         command: 'test',
         model: 'claude-sonnet-4-20250514',
@@ -188,7 +201,7 @@ describe('Usage Logger', () => {
         throw new Error('File not found');
       });
 
-      const config = getDefaultConfig();
+      const config = getUsageLoggerTestConfig();
       const params = {
         command: 'test',
         model: 'claude-sonnet-4-20250514',
@@ -217,7 +230,7 @@ describe('Usage Logger', () => {
         throw new Error('Disk full');
       });
 
-      const config = getDefaultConfig();
+      const config = getUsageLoggerTestConfig();
       const params = {
         command: 'test',
         model: 'claude-sonnet-4-20250514',
