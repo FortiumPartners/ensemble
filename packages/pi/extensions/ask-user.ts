@@ -27,14 +27,10 @@ export default function (pi: ExtensionAPI): void {
     description:
       'Ask the user a single question and return their answer. Use for interactive interviews — one question at a time.',
     parameters: {
-      type: 'object',
-      properties: {
-        question: {
-          type: 'string',
-          description: 'The question to display to the user',
-        },
+      question: {
+        type: 'string',
+        description: 'The question to display to the user',
       },
-      required: ['question'],
     },
     execute: async ({ question }: ToolParameters): Promise<string> => {
       try {
