@@ -5,7 +5,6 @@ version: 1.0.0
 category: planning
 last-updated: 2026-03-15
 argument-hint: [prd-path] [trd-path]
-model: medium
 ---
 <!-- DO NOT EDIT - Generated from validate-requirements.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

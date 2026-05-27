@@ -5,7 +5,6 @@ version: 3.0.0
 category: planning
 last-updated: 2026-04-16
 argument-hint: [prd-path]
-model: high
 ---
 <!-- DO NOT EDIT - Generated from create-trd-foreman.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

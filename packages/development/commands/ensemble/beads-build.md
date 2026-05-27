@@ -6,7 +6,6 @@ category: implementation
 last-updated: 2026-03-29
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [epic-id|slug-pattern] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [max parallel N]
-model: medium
 ---
 <!-- DO NOT EDIT - Generated from beads-build.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
