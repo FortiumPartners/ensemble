@@ -1,0 +1,75 @@
+metadata:
+  name: ensemble:migrate-model-config
+  description: One-shot migration from legacy ~/.config/ensemble/model-selection.json to project-level .claude/ensemble-model-config.json
+  version: 1.0.0
+  category: configuration
+  model: medium
+  output_path: ensemble/migrate-model-config.md
+
+mission:
+  summary: |
+    Detect and migrate a legacy XDG-based model-selection.json config file
+    to the new project-level .claude/ensemble-model-config.json format.
+    Maps old opus/sonnet/haiku alias keys to the current high/medium/low tier names.
+    Warns about per-command overrides and custom cost-tracking log paths that
+    cannot be automatically migrated.
+
+workflow:
+  phases:
+    - name: Legacy Config Migration
+      order: 1
+      steps:
+        - order: 1
+          title: Pre-flight Bypass
+          description: This command bypasses pre-flight validation to allow it to run even when the current config is invalid
+          actions:
+            - Bypass pre-flight model validation (command is in BYPASS_COMMANDS list)
+
+        - order: 2
+          title: Locate Legacy Config
+          description: Search standard XDG paths for an existing legacy config file
+          actions:
+            - Check ~/.config/ensemble/model-selection.json (or $XDG_CONFIG_HOME/ensemble/model-selection.json)
+            - Check ~/.ensemble/model-selection.json
+            - Report path found or abort with helpful message if none found
+
+        - order: 3
+          title: Parse and Map Legacy Keys
+          description: Read legacy config and translate to new format
+          actions:
+            - Parse JSON from legacy config file
+            - Map modelAliases.opus -> tiers.high
+            - Map modelAliases.sonnet -> tiers.medium
+            - Map modelAliases.haiku -> tiers.low
+            - Preserve already-valid tier keys (high/medium/low) unchanged
+
+        - order: 4
+          title: Warn About Non-Migratable Fields
+          description: Surface deprecation warnings for fields that require manual action
+          actions:
+            - If commandOverrides present - print stderr list of affected commands with instructions to set metadata.model in each command YAML
+            - If costTracking.logPath present - print stderr notice that custom log path was not migrated
+
+        - order: 5
+          title: Write Project Config
+          description: Atomically write the new config to the project directory
+          actions:
+            - Detect project root by walking up to the nearest .git directory
+            - If .claude/ensemble-model-config.json already exists - abort unless --overwrite flag given
+            - Write new config atomically (tmp+rename)
+            - Print confirmation with absolute path to written file
+            - Leave the legacy file intact (do not delete)
+
+expectedInput:
+  format: Optional flags
+  description: |
+    No args - auto-detect legacy config and migrate to current project root
+    --overwrite - replace an existing project config if present
+
+expectedOutput:
+  format: Migration confirmation
+  structure:
+    - name: Migrated config path
+      description: Absolute path to the newly written .claude/ensemble-model-config.json
+    - name: Deprecation warnings (stderr)
+      description: Warnings for commandOverrides and costTracking.logPath if present in legacy config
