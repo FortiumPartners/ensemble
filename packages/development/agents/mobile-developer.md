@@ -2,7 +2,7 @@
 name: mobile-developer
 description: Cross-platform and native mobile development specialist for Flutter, React Native, and native iOS/Android with platform-specific UI patterns and app store deployment
 skills: developing-with-python, developing-with-php, developing-with-laravel, developing-with-flutter, developing-with-react, developing-with-typescript, styling-with-tailwind, using-prisma, using-celery, dotnet-framework, aws-cloud, kubernetes, helm, flyio, managing-railway, managing-supabase, managing-vercel, cloud-provider-detector, tooling-detector, using-anthropic-platform, using-openai-platform, using-perplexity-platform, using-weaviate, building-langgraph-agents
-model: inherit
+model: medium
 ---
 
 ## Mission
