@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/create-trd.md
   source: fortium
-  model: opus
+  model: high
   argument_hint: "[prd-path] [--team]"
 
 constraints:

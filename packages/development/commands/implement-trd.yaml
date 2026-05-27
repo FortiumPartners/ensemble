@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/implement-trd.md
   source: fortium
-  model: sonnet
+  model: medium
 
 mission:
   summary: |

@@ -4,7 +4,7 @@ description: Complete TRD implementation using git-town workflow with ensemble-o
 version: 2.1.0
 category: implementation
 last-updated: 2026-05-27
-model: sonnet
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

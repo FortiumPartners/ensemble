@@ -4,7 +4,7 @@ description: Lightweight workflow for bug fixes and small issues
 version: 1.1.0
 category: implementation
 last-updated: 2026-03-29
-model: sonnet
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from fix-issue.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

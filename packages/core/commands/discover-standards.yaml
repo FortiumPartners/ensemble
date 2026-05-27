@@ -6,7 +6,7 @@ metadata:
   category: analysis
   output_path: ensemble/discover-standards.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[path]"
 
 constraints:

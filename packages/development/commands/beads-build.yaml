@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/beads-build.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[epic-id|slug-pattern] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [max parallel N]"
   allowed_tools:
     - Read

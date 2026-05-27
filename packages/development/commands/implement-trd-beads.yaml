@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/implement-trd-beads.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]"
   allowed_tools:
     - Read

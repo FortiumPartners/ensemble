@@ -4,6 +4,7 @@ metadata:
   version: 2.2.0
   lastUpdated: "2025-10-27"
   category: specialist
+  model: medium
   tools:
     - Read
     - Write
