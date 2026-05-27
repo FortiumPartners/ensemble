@@ -1,0 +1,65 @@
+metadata:
+  name: ensemble:map-model
+  description: Interactive wizard to pin Claude model tier mappings for this project
+  version: 1.0.0
+  category: configuration
+  model: medium
+  output_path: ensemble/map-model.md
+
+mission:
+  summary: |
+    Interactively remap the three Claude model tiers (high/medium/low) to specific
+    Claude model IDs for this project. Creates or updates
+    <project_root>/.claude/ensemble-model-config.json.
+
+workflow:
+  phases:
+    - name: Model Tier Configuration
+      order: 1
+      steps:
+        - order: 1
+          title: Pre-flight Bypass
+          description: This command bypasses pre-flight validation (it exists to repair invalid configs)
+          actions:
+            - Bypass pre-flight model validation (command is in BYPASS_COMMANDS list)
+
+        - order: 2
+          title: Load and Display Current Config
+          description: Show existing tier mappings before prompting
+          actions:
+            - Load config from .claude/ensemble-model-config.json (or defaults if missing)
+            - Display current high/medium/low mappings with numbered KNOWN_MODEL_IDS suggestions
+
+        - order: 3
+          title: Prompt Per Tier
+          description: Interactively collect new mapping for each tier
+          actions:
+            - For each tier (high, medium, low) - prompt user to keep current or select from list
+            - Accept empty input (keep current), numbered selection, or reject unknown IDs
+
+        - order: 4
+          title: Atomic Write and Report
+          description: Write updated config and confirm
+          actions:
+            - Write .claude/ensemble-model-config.json atomically (tmp+rename)
+            - Print final mappings and absolute file path
+
+        - order: 5
+          title: One-Shot Mode (non-interactive)
+          description: Direct single-tier update without wizard
+          actions:
+            - "Usage: /ensemble:map-model <tier> <model-id>"
+            - Validate tier is high/medium/low and model-id is in allowList
+            - Update only the specified tier; print confirmation
+
+expectedInput:
+  format: Optional positional arguments
+  description: |
+    No args - launch interactive wizard
+    One-shot - /ensemble:map-model <tier> <model-id> (e.g., /ensemble:map-model high claude-opus-4-7)
+
+expectedOutput:
+  format: Config confirmation
+  structure:
+    - name: Saved path and tier mappings
+      description: Absolute path to written file plus three tier -> model-id lines
