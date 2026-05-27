@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.12.0
+version: 2.13.0
 category: implementation
-last-updated: 2026-03-29
+last-updated: 2026-05-27
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: sonnet
@@ -146,10 +146,10 @@ Key behaviors:
 **7. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
-   - branch_name = 'feature/<TRD_SLUG>'
+   - branch_name = 'feature/<TRD_SLUG>-phase-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
-   - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
+   - If not exists: git town hack <branch_name> --parent main (fallback: git switch -c <branch_name>)
 
 **8. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
@@ -1086,6 +1086,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - Run: br sync --flush-only
    - If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - If gate_passed: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
+   - If gate_passed AND more phases remain: NEXT_BRANCH='feature/<TRD_SLUG>-phase-<N+1>'; run git town hack <NEXT_BRANCH> --parent <CURRENT_PHASE_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print 'Sprint branch ready: <NEXT_BRANCH> (stacked on phase <N> branch)'
    - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
    -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
    -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
@@ -1161,7 +1163,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - git commit -m 'docs(TRD): sync checkboxes to bead closure state'
 
 **3. Completion Report**
-   Print final summary and remind user about PR creation
+   Print final summary with stacked PR map and next steps
 
    - Print completion report: TRD file, branch, strategy, epic ID, task counts, coverage summary
    - Requirement Satisfaction Table: scan ROOT_EPIC_ID comments for req-verified: tokens
@@ -1182,10 +1184,11 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Run: br sync --flush-only
    - If BV_AVAILABLE: run bv --robot-triage --format toon for final progress summary
    - If not BV_AVAILABLE: run br list --status=open --json filtered by TRD slug (expect empty)
-   - Remind user: git diff main...<branch>; gh pr create; after merge: mv <trd_file> docs/TRD/completed/
+   - Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per phase: 'Phase <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; end with '========================'
+   - Remind user: PRs were created per-phase via git town propose. Merge Phase 1 PR first (it targets main). After each phase merges, git-town automatically retargets the next phase's PR against main.
+   - Remind user: after all PRs merge, run: mv <trd_file> docs/TRD/completed/
    - Remind user: br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'
    - TIP: The execution engine used here is also available standalone as /ensemble:beads-build <epic-id>. Use it to drive any bead hierarchy (not just TRD-generated ones) through the same build pipeline.
-   - Do NOT auto-create PR — user must run gh pr create manually
 
 ## Expected Output
 
@@ -1198,7 +1201,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 - **TRD Checkboxes**: TRD Master Task List updated with completed checkboxes synced to bead closure state
 - **Wheel Instructions**: Printed agentic coding flywheel instructions with NTM spawn commands, agent self-selection loop, mail coordination, and progress monitoring commands
 - **BV Analysis**: Captured bv --robot-plan parallel execution tracks and bv --robot-triage scored recommendations (when bv available)
-- **Completion Report**: Summary with epic ID, coverage metrics, and PR creation reminder
+- **Stacked Sprint PRs**: One git-town PR per phase (created via `git town propose` after each phase quality gate), each targeting the previous phase's branch
+- **Completion Report**: Summary with epic ID, coverage metrics, and stacked PR map
 - **Requirement Satisfaction Report**: Table of PRD REQ-NNN requirements with SATISFIED/NOT VERIFIED status, test task references, and proven AC sub-IDs (generated from root epic req-verified comments)
 
 ## Usage

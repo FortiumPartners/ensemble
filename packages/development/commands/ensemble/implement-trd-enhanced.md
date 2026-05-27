@@ -1,7 +1,7 @@
 ---
 name: implement-trd-enhanced
 description: Execute TRD implementation with strategy awareness, direct specialist delegation, and phase-end quality gates
-version: 4.2.0
+version: 4.3.0
 category: implementation
 ---
 
@@ -43,7 +43,9 @@ Priority: $ARGUMENTS path → $ARGUMENTS name → in-progress TRD in docs/TRD/ �
 Validate: Must have "Master Task List" section with `- [ ] **TRD-XXX**: Description` format.
 
 ### 1.3 Branch
-Ensure on `feature/<trd-name>` branch. Use `git town hack` or `git switch -c` as fallback.
+Derive TRD_NAME from TRD filename (lowercase, hyphens). Initialize sprint tracking:
+- CURRENT_PHASE=1; CURRENT_PHASE_BRANCH=`feature/<trd-name>-phase-1`; PHASE_BRANCH_MAP={1: CURRENT_PHASE_BRANCH}; PHASE_PR_MAP={}
+- Ensure on `feature/<trd-name>-phase-1` branch: `git town hack feature/<trd-name>-phase-1 --parent main` (fallback: `git switch -c feature/<trd-name>-phase-1`)
 
 ### 1.4 Strategy
 
@@ -290,6 +292,8 @@ Report: issues found (list), severity, recommendations
 If quality gate passes:
 - Commit: `chore(phase N): checkpoint (tests pass; cov X%)`
 - Update state with checkpoint marker
+- **Sprint PR**: Run `git town propose --title "feat(<trd-name>): Phase N — <phase_title>" --body "Phase N complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Coverage: unit X%, integration Y%."` — record returned PR URL as PHASE_PR_MAP[N]; print `Sprint PR created: <PR_URL>`
+- **Next sprint branch** (if more phases remain): Run `git town hack feature/<trd-name>-phase-N+1 --parent feature/<trd-name>-phase-N` (fallback: `git switch -c feature/<trd-name>-phase-N+1`); update CURRENT_PHASE_BRANCH=`feature/<trd-name>-phase-N+1`; set PHASE_BRANCH_MAP[N+1]=CURRENT_PHASE_BRANCH; increment CURRENT_PHASE
 
 If quality gate fails:
 - Report specific issues
@@ -339,10 +343,12 @@ Quality:
   Integration Coverage: {Y}% (target: 70%)
   Security Scan:        {Clean/Issues found}
 
+Stacked PRs:
+{list PHASE_PR_MAP entries: Phase N → <PR_URL> (branch: feature/<trd-name>-phase-N → parent)}
+
 Next Steps:
-  1. git diff main...feature/feature-name
-  2. gh pr create
-  3. After merge: mv docs/TRD/feature.md docs/TRD/completed/
+  1. Merge Phase 1 PR first (targets main); git-town retargets subsequent phase PRs automatically
+  2. After all PRs merge: mv docs/TRD/feature.md docs/TRD/completed/
 ═══════════════════════════════════════════════════════
 ```
 
