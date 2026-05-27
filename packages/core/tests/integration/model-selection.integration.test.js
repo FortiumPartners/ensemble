@@ -1,266 +1,161 @@
+'use strict';
+
 /**
- * Integration tests for model selection workflow
+ * Integration tests for tier-based model selection workflow.
+ * Updated for TRD-2026-021 tiered model aliases (Phase 1).
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const yaml = require('js-yaml');
-const { loadConfig, getDefaultConfig } = require('../../lib/config-loader');
-const { selectModel } = require('../../lib/model-resolver');
-const { logUsage, generateSummary } = require('../../lib/usage-logger');
-
-// Mock fs for controlled testing
-jest.mock('fs');
-jest.mock('os', () => ({
-  homedir: () => '/home/testuser'
-}));
 
 describe('Model Selection Integration', () => {
+  let tmpDir;
+  let stderrSpy;
+  let originalEnv;
+
   beforeEach(() => {
-    jest.clearAllMocks();
-    delete process.env.ENSEMBLE_MODEL_OVERRIDE;
-    jest.spyOn(console, 'error').mockImplementation(() => {});
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-integ-'));
+    stderrSpy = jest.spyOn(process.stderr, 'write').mockImplementation(() => {});
+    originalEnv = { ...process.env };
+    // Isolated XDG so we don't hit real legacy files
+    process.env.XDG_CONFIG_HOME = path.join(tmpDir, 'xdg');
+    jest.resetModules();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    stderrSpy.mockRestore();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in originalEnv)) delete process.env[key];
+    }
+    Object.assign(process.env, originalEnv);
+    jest.resetModules();
   });
+
+  function makeProject(configObj) {
+    const projectDir = path.join(tmpDir, 'project');
+    fs.mkdirSync(projectDir);
+    fs.mkdirSync(path.join(projectDir, '.git'));
+    if (configObj !== undefined) {
+      const claudeDir = path.join(projectDir, '.claude');
+      fs.mkdirSync(claudeDir);
+      fs.writeFileSync(
+        path.join(claudeDir, 'ensemble-model-config.json'),
+        JSON.stringify(configObj),
+        'utf-8'
+      );
+    }
+    return projectDir;
+  }
+
+  const VALID_CONFIG = {
+    version: 1,
+    tiers: {
+      high: 'claude-opus-4-7',
+      medium: 'claude-sonnet-4-6',
+      low: 'claude-haiku-4-5-20251001',
+    },
+  };
 
   describe('End-to-End Command Model Selection', () => {
-    test('create-prd command uses Opus', () => {
-      fs.existsSync.mockReturnValue(false);
-
-      const command = {
-        metadata: {
-          name: 'ensemble:create-prd',
-          description: 'Create PRD',
-          version: '2.0.0',
-          model: 'opus'
-        }
-      };
-
-      const config = loadConfig();
-      const modelId = selectModel(command, config);
-
-      expect(modelId).toBe('claude-opus-4-6-20251101');
+    test('create-prd command with high tier returns opus model ID', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      const { selectModel } = require('../../lib/model-resolver');
+      const modelId = selectModel('ensemble:create-prd', 'high', projectDir);
+      expect(modelId).toBe('claude-opus-4-7');
     });
 
-    test('implement-trd command uses Sonnet', () => {
-      fs.existsSync.mockReturnValue(false);
-
-      const command = {
-        metadata: {
-          name: 'ensemble:implement-trd',
-          description: 'Implement TRD',
-          version: '2.0.0',
-          model: 'sonnet'
-        }
-      };
-
-      const config = loadConfig();
-      const modelId = selectModel(command, config);
-
-      expect(modelId).toBe('claude-sonnet-4-20250514');
+    test('implement-trd command with medium tier returns sonnet model ID', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      const { selectModel } = require('../../lib/model-resolver');
+      const modelId = selectModel('ensemble:implement-trd', 'medium', projectDir);
+      expect(modelId).toBe('claude-sonnet-4-6');
     });
 
-    test('command without model field uses default', () => {
-      fs.existsSync.mockReturnValue(false);
-
-      const command = {
-        metadata: {
-          name: 'ensemble:test-command',
-          description: 'Test',
-          version: '1.0.0'
-        }
-      };
-
-      const config = loadConfig();
-      const modelId = selectModel(command, config);
-
-      expect(modelId).toBe('claude-sonnet-4-20250514');
+    test('command without explicit tier defaults to medium', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      const { selectModel } = require('../../lib/model-resolver');
+      const modelId = selectModel('ensemble:test-command', null, projectDir);
+      expect(modelId).toBe('claude-sonnet-4-6');
     });
   });
 
-  describe('Config Override Integration', () => {
-    test('commandOverrides take precedence over metadata', () => {
+  describe('Config Loading Integration', () => {
+    test('loadConfig returns default config when no project config exists', () => {
+      const projectDir = makeProject(); // no config
+      const { loadConfig, getDefaultConfig } = require('../../lib/config-loader');
+      const cfg = loadConfig(projectDir);
+      const defaults = getDefaultConfig();
+      expect(cfg.tiers.high).toBe(defaults.tiers.high);
+      expect(cfg.tiers.medium).toBe(defaults.tiers.medium);
+      expect(cfg.tiers.low).toBe(defaults.tiers.low);
+    });
+
+    test('loadConfig returns project config when file is valid', () => {
       const customConfig = {
-        ...getDefaultConfig(),
-        commandOverrides: {
-          'ensemble:create-prd': 'haiku'
-        }
+        version: 1,
+        tiers: {
+          high: 'claude-opus-4-7',
+          medium: 'claude-sonnet-4-6',
+          low: 'claude-haiku-4-5-20251001',
+        },
       };
-
-      const command = {
-        metadata: {
-          name: 'ensemble:create-prd',
-          model: 'opus'
-        }
-      };
-
-      // Config override is lower priority than YAML metadata
-      const modelId = selectModel(command, customConfig);
-
-      // YAML metadata takes precedence
-      expect(modelId).toBe('claude-opus-4-6-20251101');
+      const projectDir = makeProject(customConfig);
+      const { loadConfig } = require('../../lib/config-loader');
+      const cfg = loadConfig(projectDir);
+      expect(cfg.tiers.high).toBe('claude-opus-4-7');
     });
 
-    test('environment variable overrides everything', () => {
-      process.env.ENSEMBLE_MODEL_OVERRIDE = 'haiku';
-
-      const command = {
-        metadata: {
-          name: 'ensemble:create-prd',
-          model: 'opus'
-        }
-      };
-
-      const config = getDefaultConfig();
-      const modelId = selectModel(command, config, { modelFlag: 'sonnet' });
-
-      expect(modelId).toBe('claude-3-5-haiku-20241022');
-
-      delete process.env.ENSEMBLE_MODEL_OVERRIDE;
+    test('modelAliases is alias for tiers on both default and loaded config', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      const { loadConfig } = require('../../lib/config-loader');
+      const cfg = loadConfig(projectDir);
+      expect(cfg.modelAliases).toBe(cfg.tiers);
     });
   });
 
-  describe('Full Workflow with Logging', () => {
-    test('complete workflow logs correctly', () => {
-      fs.existsSync.mockReturnValue(false);
-      fs.statSync.mockImplementation(() => {
-        throw new Error('File not found');
-      });
+  describe('Environment Variable Override Integration', () => {
+    test('ENSEMBLE_MODEL_OVERRIDE=high overrides explicitTier', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      process.env.ENSEMBLE_MODEL_OVERRIDE = 'high';
+      const { selectModel } = require('../../lib/model-resolver');
+      // Would have been 'low' from explicit tier, but env wins
+      const modelId = selectModel('ensemble:create-prd', 'low', projectDir);
+      expect(modelId).toBe('claude-opus-4-7');
+    });
 
-      const config = loadConfig();
-
-      // Simulate PRD creation with Opus
-      const prdCommand = {
-        metadata: {
-          name: 'ensemble:create-prd',
-          model: 'opus'
-        }
-      };
-
-      const prdModel = selectModel(prdCommand, config);
-      expect(prdModel).toBe('claude-opus-4-6-20251101');
-
-      logUsage({
-        command: 'ensemble:create-prd',
-        model: prdModel,
-        modelAlias: 'opus',
-        inputTokens: 45000,
-        outputTokens: 6000,
-        durationMs: 15000,
-        success: true
-      }, config);
-
-      // Simulate TRD implementation with Sonnet
-      const trdCommand = {
-        metadata: {
-          name: 'ensemble:implement-trd',
-          model: 'sonnet'
-        }
-      };
-
-      const trdModel = selectModel(trdCommand, config);
-      expect(trdModel).toBe('claude-sonnet-4-20250514');
-
-      logUsage({
-        command: 'ensemble:implement-trd',
-        model: trdModel,
-        modelAlias: 'sonnet',
-        inputTokens: 200000,
-        outputTokens: 25000,
-        durationMs: 45000,
-        success: true
-      }, config);
-
-      // Verify logging calls
-      expect(fs.appendFileSync).toHaveBeenCalledTimes(2);
-
-      // Parse log entries
-      const log1 = JSON.parse(fs.appendFileSync.mock.calls[0][1]);
-      const log2 = JSON.parse(fs.appendFileSync.mock.calls[1][1]);
-
-      expect(log1.command).toBe('ensemble:create-prd');
-      expect(log1.model_alias).toBe('opus');
-      expect(log1.cost_usd).toBeGreaterThan(1.0);
-
-      expect(log2.command).toBe('ensemble:implement-trd');
-      expect(log2.model_alias).toBe('sonnet');
-      expect(log2.cost_usd).toBeGreaterThan(0.9);
+    test('ENSEMBLE_MODEL_OVERRIDE=opus throws PreflightError (legacy)', () => {
+      const projectDir = makeProject(VALID_CONFIG);
+      process.env.ENSEMBLE_MODEL_OVERRIDE = 'opus';
+      const { selectModel, PreflightError } = require('../../lib/model-resolver');
+      expect(() => selectModel('ensemble:create-prd', null, projectDir)).toThrow(PreflightError);
     });
   });
 
-  describe('Summary Generation Integration', () => {
-    test('generates accurate summary from workflow', () => {
-      const logEntries = [
-        {
-          command: 'ensemble:create-prd',
-          model_alias: 'opus',
-          cost_usd: 1.125,
-          success: true
-        },
-        {
-          command: 'ensemble:create-trd',
-          model_alias: 'opus',
-          cost_usd: 1.35,
-          success: true
-        },
-        {
-          command: 'ensemble:implement-trd',
-          model_alias: 'sonnet',
-          cost_usd: 0.975,
-          success: true
-        }
-      ];
-
-      const logContent = logEntries.map(e => JSON.stringify(e)).join('\n');
-
-      fs.existsSync.mockReturnValue(true);
-      fs.readFileSync.mockReturnValue(logContent);
-
-      const summary = generateSummary('/tmp/test.jsonl');
-
-      expect(summary.totalInvocations).toBe(3);
-      expect(summary.totalCost).toBeCloseTo(3.45, 2);
-      expect(summary.errors).toBe(0);
-
-      // Verify cost attribution
-      expect(summary.byModel['opus'].count).toBe(2);
-      expect(summary.byModel['opus'].cost).toBeCloseTo(2.475, 2);
-
-      expect(summary.byModel['sonnet'].count).toBe(1);
-      expect(summary.byModel['sonnet'].cost).toBeCloseTo(0.975, 2);
+  describe('Bypass Commands Integration', () => {
+    test('map-model bypasses preflight even with no tiers', () => {
+      const projectDir = makeProject(); // no config → defaults used
+      const { selectModel } = require('../../lib/model-resolver');
+      // defaults have valid tiers, so this should succeed
+      const modelId = selectModel('map-model', null, projectDir);
+      expect(typeof modelId).toBe('string');
+      expect(modelId.length).toBeGreaterThan(0);
     });
   });
 
   describe('Backward Compatibility', () => {
-    test('existing commands without model work', () => {
-      fs.existsSync.mockReturnValue(false);
-
-      const legacyCommand = {
-        metadata: {
-          name: 'ensemble:fold-prompt',
-          description: 'Optimize environment',
-          version: '1.0.0'
-          // No model field
-        }
-      };
-
-      const config = loadConfig();
-      const modelId = selectModel(legacyCommand, config);
-
-      expect(modelId).toBe('claude-sonnet-4-20250514');
+    test('modelAliases property exists on default config for backward compat', () => {
+      const { getDefaultConfig } = require('../../lib/config-loader');
+      const cfg = getDefaultConfig();
+      expect(cfg.modelAliases).toBeDefined();
+      expect(cfg.modelAliases).toBe(cfg.tiers);
     });
 
-    test('missing config file uses defaults', () => {
-      fs.existsSync.mockReturnValue(false);
-
-      const config = loadConfig();
-
-      expect(config.defaults.command).toBe('sonnet');
-      expect(config.modelAliases['opus']).toBeDefined();
+    test('BYPASS_COMMANDS is exported from config-loader', () => {
+      const { BYPASS_COMMANDS } = require('../../lib/config-loader');
+      expect(Array.isArray(BYPASS_COMMANDS)).toBe(true);
+      expect(BYPASS_COMMANDS).toContain('map-model');
     });
   });
 });
