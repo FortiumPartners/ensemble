@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/requirement-status.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[trd-path-or-slug]"
 
 constraints:

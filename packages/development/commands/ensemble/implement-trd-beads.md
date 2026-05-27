@@ -6,7 +6,7 @@ category: implementation
 last-updated: 2026-05-27
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
-model: sonnet
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from implement-trd-beads.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

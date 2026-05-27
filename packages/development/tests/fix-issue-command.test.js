@@ -22,7 +22,7 @@ describe('Fix-Issue Command', () => {
       expect(commandYaml.metadata.description).toBe('Lightweight workflow for bug fixes and small issues');
       expect(commandYaml.metadata.version).toBe('1.1.0');
       expect(commandYaml.metadata.category).toBe('implementation');
-      expect(commandYaml.metadata.model).toBe('sonnet');
+      expect(commandYaml.metadata.model).toBe('medium');
       expect(commandYaml.metadata.source).toBe('fortium');
     });
 
@@ -141,14 +141,14 @@ describe('Fix-Issue Command', () => {
       const step1 = phase.steps[0];
       expect(step1.title).toBe('Codebase Analysis');
       expect(step1.agent).toBe('general-purpose');
-      expect(step1.model).toBe('haiku');
+      expect(step1.model).toBe('low');
       expect(step1.instructions).toContain('Extract keywords');
       expect(step1.instructions).toContain('Search codebase');
 
       // Step 2: Collaborative Planning
       const step2 = phase.steps[1];
       expect(step2.title).toBe('Collaborative Planning');
-      expect(step2.model).toBe('sonnet');
+      expect(step2.model).toBe('medium');
       expect(step2.instructions).toContain('product-management-orchestrator');
       expect(step2.instructions).toContain('tech-lead-orchestrator');
       expect(step2.instructions).toContain('infrastructure-orchestrator');
@@ -186,7 +186,7 @@ describe('Fix-Issue Command', () => {
       // Step 3: Task Execution
       const step3 = phase.steps[2];
       expect(step3.title).toBe('Task Execution');
-      expect(step3.model).toBe('sonnet');
+      expect(step3.model).toBe('medium');
       expect(step3.instructions).toContain('backend-developer');
       expect(step3.instructions).toContain('frontend-developer');
       expect(step3.instructions).toContain('infrastructure-developer');
@@ -203,7 +203,7 @@ describe('Fix-Issue Command', () => {
       const step1 = phase.steps[0];
       expect(step1.title).toBe('Test Validation');
       expect(step1.agent).toBe('test-runner');
-      expect(step1.model).toBe('haiku');
+      expect(step1.model).toBe('low');
       expect(step1.retry).toBe(2);
       expect(step1.instructions).toContain('Detect test framework');
       expect(step1.instructions).toContain('2 attempts');
@@ -212,7 +212,7 @@ describe('Fix-Issue Command', () => {
       const step2 = phase.steps[1];
       expect(step2.title).toBe('PR Creation');
       expect(step2.tool).toBe('Bash');
-      expect(step2.model).toBe('haiku');
+      expect(step2.model).toBe('low');
       expect(step2.instructions).toContain('gh pr create');
       expect(step2.instructions).toContain('conventional commit');
     });
@@ -308,39 +308,39 @@ describe('Fix-Issue Command', () => {
   });
 
   describe('Model Selection', () => {
-    test('uses haiku for analysis (fast, cost-effective)', () => {
+    test('uses low for analysis (fast, cost-effective)', () => {
       const analysisPhase = commandYaml.workflow.phases[0];
       const analysisStep = analysisPhase.steps[0];
 
-      expect(analysisStep.model).toBe('haiku');
+      expect(analysisStep.model).toBe('low');
     });
 
-    test('uses sonnet for planning (quality)', () => {
+    test('uses medium for planning (quality)', () => {
       const analysisPhase = commandYaml.workflow.phases[0];
       const planningStep = analysisPhase.steps[1];
 
-      expect(planningStep.model).toBe('sonnet');
+      expect(planningStep.model).toBe('medium');
     });
 
-    test('uses sonnet for implementation (quality)', () => {
+    test('uses medium for implementation (quality)', () => {
       const executionPhase = commandYaml.workflow.phases[1];
       const taskExecutionStep = executionPhase.steps[2];
 
-      expect(taskExecutionStep.model).toBe('sonnet');
+      expect(taskExecutionStep.model).toBe('medium');
     });
 
-    test('uses haiku for testing (fast)', () => {
+    test('uses low for testing (fast)', () => {
       const deliveryPhase = commandYaml.workflow.phases[2];
       const testStep = deliveryPhase.steps[0];
 
-      expect(testStep.model).toBe('haiku');
+      expect(testStep.model).toBe('low');
     });
 
-    test('uses haiku for PR creation (fast)', () => {
+    test('uses low for PR creation (fast)', () => {
       const deliveryPhase = commandYaml.workflow.phases[2];
       const prStep = deliveryPhase.steps[1];
 
-      expect(prStep.model).toBe('haiku');
+      expect(prStep.model).toBe('low');
     });
   });
 

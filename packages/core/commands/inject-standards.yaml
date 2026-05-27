@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/inject-standards.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "<task-description>"
 
 constraints:

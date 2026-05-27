@@ -52,6 +52,11 @@
           ],
           "description": "Agent category"
         },
+        "model": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "Tier alias for Claude model selection"
+        },
         "tools": {
           "type": "array",
           "items": { "type": "string" },

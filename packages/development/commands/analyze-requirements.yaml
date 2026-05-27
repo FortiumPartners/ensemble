@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/analyze-requirements.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[prd-path] [trd-path]"
 
 constraints:

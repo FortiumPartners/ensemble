@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/configure-team.md
   source: fortium
-  model: opus
+  model: high
   argument_hint: "[trd-path] [--team] [--no-team]"
 
 team_configuration:

@@ -9,30 +9,22 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Pricing per million tokens (as of 2026-02-16)
+// Pricing per million tokens (as of 2026-05-27)
 const MODEL_PRICING = {
-  'claude-opus-4-6-20251101': { input: 15.00, output: 75.00 },
-  'claude-sonnet-4-20250514': { input: 3.00, output: 15.00 },
-  'claude-3-5-haiku-20241022': { input: 0.80, output: 4.00 }
+  'claude-opus-4-7': { input: 15.00, output: 75.00 },
+  'claude-sonnet-4-6': { input: 3.00, output: 15.00 },
+  'claude-haiku-4-5-20251001': { input: 0.80, output: 4.00 },
 };
 
 const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10MB
 
 /**
- * Get log file path from config.
- * @param {Object} config - Config object
+ * Get log file path (hardcoded to XDG-compliant location).
  * @returns {string} Absolute log file path
  */
-function getLogPath(config) {
-  let logPath = config.costTracking?.logPath ||
-                '~/.config/ensemble/logs/model-usage.jsonl';
-
-  // Expand tilde
-  if (logPath.startsWith('~/')) {
-    logPath = path.join(os.homedir(), logPath.slice(2));
-  }
-
-  return logPath;
+function getLogPath() {
+  const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+  return path.join(xdgConfig, 'ensemble', 'logs', 'model-usage.jsonl');
 }
 
 /**
@@ -94,14 +86,10 @@ function calculateCost(modelId, inputTokens, outputTokens) {
  * @param {number} params.durationMs - Execution duration
  * @param {boolean} params.success - Success flag
  * @param {string} [params.error] - Error message if failed
- * @param {Object} config - Config object
+ * @param {Object} [config] - Ignored; kept for backward compatibility
  */
-function logUsage(params, config) {
-  if (!config.costTracking?.enabled) {
-    return; // Logging disabled
-  }
-
-  const logPath = getLogPath(config);
+function logUsage(params, config) { // eslint-disable-line no-unused-vars
+  const logPath = getLogPath();
   ensureLogDirectory(logPath);
   rotateLogIfNeeded(logPath);
 

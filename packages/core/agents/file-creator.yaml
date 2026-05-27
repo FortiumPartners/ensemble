@@ -4,6 +4,7 @@ metadata:
   version: 2.0.0
   lastUpdated: "2025-10-15"
   category: workflow
+  model: low
   tools:
     - Read
     - Write

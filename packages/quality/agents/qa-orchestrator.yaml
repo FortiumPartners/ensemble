@@ -4,6 +4,7 @@ metadata:
   version: 1.0.0
   lastUpdated: "2025-10-13"
   category: orchestrator
+  model: high
   tools:
     - Read
     - Write

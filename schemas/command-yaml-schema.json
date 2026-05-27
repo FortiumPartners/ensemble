@@ -57,7 +57,7 @@
         },
         "model": {
           "type": "string",
-          "enum": ["opus", "sonnet", "haiku"],
+          "enum": ["high", "medium", "low"],
           "description": "Preferred Claude model for this command"
         }
       }

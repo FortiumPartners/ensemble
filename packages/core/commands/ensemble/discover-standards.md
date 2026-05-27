@@ -5,7 +5,7 @@ version: 1.0.0
 category: analysis
 last-updated: 2026-03-29
 argument-hint: [path]
-model: sonnet
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from discover-standards.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

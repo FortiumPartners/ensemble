@@ -4,7 +4,7 @@ metadata:
   version: 1.1.0
   lastUpdated: "2026-03-29"
   category: implementation
-  model: sonnet
+  model: medium
   output_path: ensemble/fix-issue.md
   source: fortium
 
@@ -78,7 +78,7 @@ workflow:
             Explore codebase to identify affected files, patterns, and scope.
             Use Grep, Glob, and Read tools to understand context.
           agent: general-purpose
-          model: haiku
+          model: low
           instructions: |
             1. Extract keywords from issue description
             2. Search codebase for relevant files (Grep)
@@ -92,7 +92,7 @@ workflow:
           description: |
             Assemble virtual team of 4 specialized agents to create comprehensive
             fix plan with multiple perspectives.
-          model: sonnet
+          model: medium
           instructions: |
             Delegate planning to 4 agents in sequence:
 
@@ -191,7 +191,7 @@ workflow:
           description: |
             Execute all tasks with appropriate agent delegation and
             real-time progress tracking.
-          model: sonnet
+          model: medium
           instructions: |
             FOR EACH task in task list:
 
@@ -227,7 +227,7 @@ workflow:
             Run test suite with auto-fix retry logic. Ensure all tests
             pass before creating PR.
           agent: test-runner
-          model: haiku
+          model: low
           retry: 2
           instructions: |
             1. Detect test framework:
@@ -259,7 +259,7 @@ workflow:
           title: PR Creation
           description: Create comprehensive pull request with GitHub CLI
           tool: Bash
-          model: haiku
+          model: low
           instructions: |
             1. Generate commit message using conventional commit format:
                - Format: "fix: {brief description}"
