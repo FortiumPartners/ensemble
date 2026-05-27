@@ -6,7 +6,7 @@ metadata:
   category: planning
   output_path: ensemble/feature.md
   source: fortium
-  model: opus
+  model: high
   argument_hint: "<description> [--skip-refine]"
 
 constraints:

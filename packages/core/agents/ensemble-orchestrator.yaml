@@ -4,6 +4,7 @@ metadata:
   version: 2.3.0
   lastUpdated: "2025-10-23"
   category: orchestrator
+  model: high
   tools:
     - Read
     - Task

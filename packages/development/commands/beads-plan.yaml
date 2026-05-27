@@ -6,7 +6,7 @@ metadata:
   category: implementation
   output_path: ensemble/beads-plan.md
   source: fortium
-  model: sonnet
+  model: medium
   argument_hint: "[epic-id|slug-pattern] [max parallel N]"
   allowed_tools:
     - Read
