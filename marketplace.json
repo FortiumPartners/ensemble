@@ -1,6 +1,6 @@
 {
   "name": "ensemble",
-  "version": "6.0.0",
+  "version": "6.0.2",
   "description": "Official Fortium Ensemble plugin marketplace - AI-augmented development workflows",
   "owner": {
     "name": "Fortium Partners",
@@ -381,7 +381,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "6.0.0",
+      "version": "6.0.2",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
