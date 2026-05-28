@@ -1,0 +1,21 @@
+{
+  "name": "ensemble-dotnet",
+  "version": "1.0.0",
+  "description": ".NET backend development agents and skills (ASP.NET Core, Wolverine, MartenDB, CQRS/Event Sourcing)",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "dotnet",
+    "aspnetcore",
+    "csharp",
+    "backend",
+    "ensemble"
+  ],
+  "agents": ["./agents/dotnet-backend-expert.md"],
+  "skills": "./skills"
+}
