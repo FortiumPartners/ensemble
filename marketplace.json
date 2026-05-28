@@ -246,6 +246,23 @@
       }
     },
     {
+      "name": "ensemble-dotnet",
+      "version": "1.0.0",
+      "source": "./packages/dotnet",
+      "description": ".NET backend agents and skills (ASP.NET Core, Wolverine, MartenDB)",
+      "category": "frameworks",
+      "tags": [
+        "dotnet",
+        "aspnetcore",
+        "csharp",
+        "backend"
+      ],
+      "author": {
+        "name": "Fortium Partners",
+        "url": "https://github.com/FortiumPartners"
+      }
+    },
+    {
       "name": "ensemble-jest",
       "version": "5.1.0",
       "source": "./packages/jest",

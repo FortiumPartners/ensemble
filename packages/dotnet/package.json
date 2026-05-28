@@ -1,0 +1,28 @@
+{
+  "name": "@fortium/ensemble-dotnet",
+  "version": "1.0.0",
+  "description": ".NET backend development agents and skills (ASP.NET Core, Wolverine, MartenDB, CQRS/Event Sourcing)",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "dotnet",
+    "aspnetcore",
+    "csharp",
+    "backend",
+    "ensemble"
+  ],
+  "author": "Fortium Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/FortiumPartners/ensemble.git",
+    "directory": "packages/dotnet"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
