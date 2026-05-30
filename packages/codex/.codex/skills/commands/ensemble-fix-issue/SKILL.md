@@ -2,7 +2,7 @@
 name: ensemble-fix-issue
 description: Lightweight workflow for bug fixes and small issues (Codex skill for /ensemble:fix-issue)
 user-invocable: true
-model: gpt-5.1-codex
+model: medium
 ---
 
 # Ensemble Command: /ensemble:fix-issue

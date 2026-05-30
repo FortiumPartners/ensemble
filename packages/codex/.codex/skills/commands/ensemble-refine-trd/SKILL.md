@@ -2,7 +2,7 @@
 name: ensemble-refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail (Codex skill for /ensemble:refine-trd)
 user-invocable: true
-model: gpt-5.1-codex
+model: high
 ---
 
 # Ensemble Command: /ensemble:refine-trd

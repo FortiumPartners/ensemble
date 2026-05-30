@@ -1,10 +1,9 @@
 ---
 name: ensemble-create-trd-foreman
-description: Create Foreman-native structured Technical Requirements Document from PRD (Codex skill for /ensemble:create-trd-foreman)
+description: Create Foreman-native structured Technical Requirements Document from PRD — omits adversarial review phase, outputs parser-compatible tables (Codex skill for /ensemble:create-trd-foreman)
 user-invocable: true
 argument-hint:
   - prd-path
-model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:create-trd-foreman

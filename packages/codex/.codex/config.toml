@@ -52,6 +52,10 @@ config_file = "agents/frontend-developer.toml"
 description = "Orchestrate traditional development methodology - plan, architect, task breakdown, develop, code-review, test loop until completion with intelligent delegation and quality loops"
 config_file = "agents/tech-lead-orchestrator.toml"
 
+[agents."dotnet-backend-expert"]
+description = ".NET backend specialist for ASP.NET Core APIs, Wolverine CQRS, MartenDB event sourcing, and C# patterns"
+config_file = "agents/dotnet-backend-expert.toml"
+
 [agents."playwright-tester"]
 description = "Use Playwright MCP to write/maintain E2E tests; capture traces and screenshots for regression."
 config_file = "agents/playwright-tester.toml"
@@ -87,6 +91,10 @@ config_file = "agents/infrastructure-developer.toml"
 [agents."infrastructure-orchestrator"]
 description = "Infrastructure orchestrator managing environment provisioning, configuration management, monitoring setup, scalability planning, and cloud resource optimization"
 config_file = "agents/infrastructure-orchestrator.toml"
+
+[agents."infrastructure-specialist"]
+description = "Hands-on infrastructure provisioning specialist for Terraform, CloudFormation, Kubernetes, Docker, and cloud resource configuration. Writes IaC, configures cloud resources, and implements infrastructure security at the tactical level."
+config_file = "agents/infrastructure-specialist.toml"
 
 [agents."postgresql-specialist"]
 description = "PostgreSQL database administration, SQL optimization, and schema management specialist with deep PostgreSQL expertise and seamless integration with the Claude Code agent ecosystem"

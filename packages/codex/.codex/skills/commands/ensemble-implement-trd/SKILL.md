@@ -2,7 +2,7 @@
 name: ensemble-implement-trd
 description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology (Codex skill for /ensemble:implement-trd)
 user-invocable: true
-model: gpt-5.1-codex
+model: medium
 ---
 
 # Ensemble Command: /ensemble:implement-trd
@@ -32,13 +32,14 @@ development including planning, implementation, testing, and quality gates.
    - Ensure clean working directory (git status)
 
 **2. Feature Branch Creation**
-   Create feature branch using git-town skill interview template
+   Create sprint-1 feature branch using git-town skill interview template
 
    - Load interview template from packages/git/skills/git-town/templates/interview-branch-creation.md
-   - Extract branch name from TRD filename (format - feature/<trd-slug>)
+   - Extract TRD slug from TRD filename (lowercase, hyphens replacing spaces/underscores)
+   - Set CURRENT_SPRINT=1; set CURRENT_BRANCH=feature/<trd-slug>-sprint-1
    - Validate branch name against pattern - ^[a-z0-9-]+(/[a-z0-9-]+)*$
    - Set base_branch to main (or current default branch)
-   - Execute - git-town hack <branch-name> --parent <base-branch>
+   - Execute - git-town hack feature/<trd-slug>-sprint-1 --parent <base-branch>
    - Verify branch creation successful (check git branch output)
 
 **3. TRD Ingestion**
@@ -95,12 +96,20 @@ development including planning, implementation, testing, and quality gates.
 **5. Sprint Review**
    Mark completed tasks and validate objectives
 
+**6. Sprint PR Stacking**
+   After quality gate passes, create a stacked PR for the current sprint and advance to the next sprint branch
+
+   - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
+   - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
+   - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; run git town hack feature/<trd-slug>-sprint-<NEXT_SPRINT> --parent feature/<trd-slug>-sprint-<CURRENT_SPRINT>; set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
+   - If no more sprints - print stacked PR summary with all SPRINT_PR_MAP entries; implementation complete
+
 ## Expected Output
 
-**Format:** Implemented Features with Quality Gates
+**Format:** Implemented Features with Quality Gates and Stacked PRs
 
 **Structure:**
-- **Feature Branch**: Git-town feature branch with all implementation commits
+- **Stacked Sprint PRs**: One git-town PR per sprint, each targeting the previous sprint's branch (Sprint 1 targets main)
 - **Implementation Code**: Working code with tests (≥80% unit, ≥70% integration)
 - **Quality Validation**: Code review passed, security scan clean, DoD met
 - **Documentation**: Updated documentation including API docs and deployment notes

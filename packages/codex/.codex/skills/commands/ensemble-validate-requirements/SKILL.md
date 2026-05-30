@@ -3,7 +3,7 @@ name: ensemble-validate-requirements
 description: Pre-implementation traceability gate — validates REQ-NNN coverage and TEST task pairing between PRD and TRD (Codex skill for /ensemble:validate-requirements)
 user-invocable: true
 argument-hint: '[prd-path] [trd-path]'
-model: gpt-5.1-codex
+model: medium
 ---
 
 # Ensemble Command: /ensemble:validate-requirements
