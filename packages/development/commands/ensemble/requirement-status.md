@@ -5,6 +5,7 @@ version: 1.0.0
 category: implementation
 last-updated: 2026-03-15
 argument-hint: [trd-path-or-slug]
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from requirement-status.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

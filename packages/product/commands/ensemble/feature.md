@@ -5,6 +5,7 @@ version: 1.0.0
 category: planning
 last-updated: 2026-03-15
 argument-hint: <description> [--skip-refine]
+model: high
 ---
 <!-- DO NOT EDIT - Generated from feature.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

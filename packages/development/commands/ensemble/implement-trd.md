@@ -4,6 +4,7 @@ description: Complete TRD implementation using git-town workflow with ensemble-o
 version: 2.1.0
 category: implementation
 last-updated: 2026-05-27
+model: medium
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
@@ -94,7 +95,7 @@ development including planning, implementation, testing, and quality gates.
 **6. Sprint PR Stacking**
    After quality gate passes, create a stacked PR for the current sprint and advance to the next sprint branch
 
-   - Run - git town propose --title "feat(<trd-slug>): Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
+   - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
    - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
    - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; run git town hack feature/<trd-slug>-sprint-<NEXT_SPRINT> --parent feature/<trd-slug>-sprint-<CURRENT_SPRINT>; set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
    - If no more sprints - print stacked PR summary with all SPRINT_PR_MAP entries; implementation complete
