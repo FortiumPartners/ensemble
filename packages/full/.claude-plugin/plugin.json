@@ -1,6 +1,6 @@
 {
   "name": "ensemble-full",
-  "version": "6.0.4",
+  "version": "6.0.5",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "author": {
     "name": "Fortium Partners",

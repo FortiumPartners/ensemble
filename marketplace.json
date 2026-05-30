@@ -71,7 +71,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "6.0.2",
+      "version": "6.0.3",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -381,7 +381,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "6.0.4",
+      "version": "6.0.5",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
@@ -434,7 +434,7 @@
       "name": "ensemble-pi",
       "version": "1.0.0",
       "source": "./packages/pi",
-      "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
+      "description": "Pi runtime support \u2014 translates ensemble artifacts for Pi coding agent",
       "category": "core",
       "tags": [
         "pi",
