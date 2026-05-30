@@ -3,7 +3,7 @@ name: ensemble-implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability (Codex skill for /ensemble:implement-trd-beads)
 user-invocable: true
 argument-hint: '[trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]'
-model: gpt-5.1-codex
+model: medium
 ---
 
 # Ensemble Command: /ensemble:implement-trd-beads
@@ -60,7 +60,7 @@ Key behaviors:
    -        'Tasks completed: <M> / <Total>'
    -        '================================='
    -   5. EXIT
-   - If $ARGUMENTS contains '--status' AND TEAM_MODE=false: derive TRD_SLUG, run br list --status=open --json, filter JSON for entries with title matching [trd:<TRD_SLUG>] to find epic, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, EXIT
+   - If $ARGUMENTS contains '--status' AND TEAM_MODE=false: derive TRD_SLUG, then call trd_progress() (Execute phase order 10) to print the TRD-scoped progress summary, EXIT
    - If $ARGUMENTS contains '--reset-task' AND TEAM_MODE=true: (TRD-030, AC: FR-IT-9, AC-BC-3)
    -   1. Extract TASK_ID from argument
    -   2. Find bead: br list --status=open --json OR br list --status=in_progress --json
@@ -87,11 +87,12 @@ Key behaviors:
    - Run: git status --porcelain — HALT if output non-empty (dirty working directory)
 
 **4. TRD Selection and Validation**
-   Locate and validate the target TRD file
+   Locate, validate, and detect format of the target TRD file
 
    - Priority: $ARGUMENTS .md path -> $ARGUMENTS name search in docs/TRD/ -> single in-progress TRD in docs/TRD/ -> prompt user
    - Validate: file exists, contains Master Task List section, contains at least one '- [ ] **TRD-' entry
    - Derive TRD_SLUG from filename: lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens
+   - PR format detection: scan the TRD file for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If at least one such heading is found: set PR_FORMAT=true and log 'TRD format: PR-stack (shippable boundaries)'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'. PR_FORMAT is re-derived on every invocation (including cross-session resume) so the correct value is always in scope.
 
 **5. Design Readiness Gate Verification**
    Check if the TRD passed the Design Readiness Gate from create-trd v3.0.0
@@ -108,8 +109,8 @@ Key behaviors:
    - If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble:implement-trd-beads --plan first.' and EXIT.
    - Run: br list --status=open --json
    - Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
-   - If found AND EXECUTE_ONLY=false: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then if BV_AVAILABLE run bv --robot-triage --format toon else run br list --status=open --json filtered by TRD slug, skip Scaffold phase, proceed to Execute
-   - If found AND EXECUTE_ONLY=true: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then run bv --robot-triage --format toon (bv is guaranteed available — checked in Preflight Step 2), skip Scaffold phase, proceed to Execute
+   - If found AND EXECUTE_ONLY=false: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Execute phase order 10) to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute
+   - If found AND EXECUTE_ONLY=true: set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Execute phase order 10) to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute
    - If not found: proceed to Feature Branch Creation then Scaffold
    - 
    - TRD-028 — Cross-Session Resume with Team Sub-State (AC: FR-IT-7, NFR-R-1, AC-RS-1, AC-RS-2, AC-RS-3, AC-RS-4):
@@ -149,10 +150,10 @@ Key behaviors:
 **7. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
-   - branch_name = 'feature/<TRD_SLUG>'
+   - branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
-   - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
+   - If not exists: git town hack <branch_name> --parent main (fallback: git switch -c <branch_name>)
 
 **8. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
@@ -320,7 +321,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - Pass 1: Extract TRD_TITLE from first H1 heading
    - Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)
-   - Pass 3: Extract phases from '### Phase N' or '### Sprint N' headings; synthesize single phase if none found
+   - Pass 3: Extract phase/PR boundaries from the '## Master Task List' section only (scope: from '## Master Task List' heading to the next '##' heading or EOF — this prevents Sprint Planning H3 headings from being misidentified as boundaries). Detection priority within that section: (1) '### PR N' headings → set PR_FORMAT=true for this parse; (2) '### Phase N' headings → PR_FORMAT=false; (3) '### Sprint N' headings → PR_FORMAT=false; (4) synthesize single boundary titled 'PR 1: Implementation' if none found. For each PR-format (PR_FORMAT=true) section: extract the optional '**Shippable State:**' line immediately following the heading; store in PHASE_SHIPPABLE_STATE[N]. Result: PHASES = [{n: 1, title: '...', tasks: [], shippable_state: '...'}...]
    - Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
    - Pass 5: Validate at least one task found; warn on duplicate task IDs
    - Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id
@@ -331,7 +332,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - Run: br list --status=open --json (capture full JSON output once)
    - Parse JSON array of bead objects with .id and .title fields
-   - Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:phase:<N>] for stories, [trd:<TRD_SLUG>:task:<ID>] for tasks
+   - Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:pr:<N>] OR [trd:<TRD_SLUG>:phase:<N>] for stories (both accepted to support cross-session resume across format migrations), [trd:<TRD_SLUG>:task:<ID>] for tasks
    - Map key is the title prefix pattern, value is the bead .id
    - Use this cache for all 'already exists' checks during scaffold — do not re-query per bead
 
@@ -347,9 +348,10 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **4. Story Bead Creation**
    Create one story bead per TRD phase under the root epic
 
-   - For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:phase:<i>]
+   - Determine naming based on PR_FORMAT: if PR_FORMAT=true: bead_prefix='pr', bead_label='PR'; if PR_FORMAT=false: bead_prefix='phase', bead_label='Phase'
+   - For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:<bead_prefix>:<i>]
    - If found: STORY_BEAD_IDs[i] = existing id; skip creation
-   - If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --description='Phase <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.' --json
+   - If not found: shippable_line = ' Shippable state: ' + PHASE_SHIPPABLE_STATE[i] if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[i] exists else ''; run br create --title='[trd:<TRD_SLUG>:<bead_prefix>:<i>] <bead_label> <i>: <phase.title>' --type=feature --priority=2 --description='<bead_label> <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.<shippable_line>' --json
    - Capture STORY_BEAD_ID by parsing .id from JSON response
    - After creation: br dep add <ROOT_EPIC_ID> <STORY_BEAD_ID> to establish story-blocks-epic relationship (epic cannot close until all stories close)
    - HALT if any creation fails
@@ -404,39 +406,37 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   Print BLOCKERS TO CLEAR from TRIAGE_OUTPUT blockers_to_clear section
    - If BV_AVAILABLE == false: print 'BV analysis unavailable. Using br-only execution order.'
 
-**9. Foreman Wheel Instructions Output**
-   Print Foreman-based execution instructions for multi-agent parallel implementation. AC: FR-WI-1, FR-WI-2, FR-WI-3, FR-WI-4, AC-WI-1, AC-WI-2
+**9. Wheel Instructions Output**
+   Print execution instructions for multi-agent parallel implementation. AC: FR-WI-1, FR-WI-2, FR-WI-3, FR-WI-4, AC-WI-1, AC-WI-2
 
-   - Print the following Foreman execution instructions:
+   - Print the following execution instructions:
    -   ================================================================
-   -   FOREMAN EXECUTION INSTRUCTIONS
+   -   EXECUTION INSTRUCTIONS
    -   ================================================================
-   -   Foreman orchestrates parallel agents across isolated git worktrees.
+   -   Use /ensemble:implement-trd-beads --execute or bv --robot-next to drive parallel implementation.
    -   Each bead runs through: Explorer → Developer → QA → Reviewer → Finalize
    -   ----------------------------------------------------------------
    -   PREREQUISITES (run once):
-   -     foreman doctor                    # Verify br, API key, dependencies
-   -     foreman init --name '<TRD_SLUG>'  # Initialize Foreman (if not done)
+   -     br list --status=open              # Sanity check that br works
    -   ----------------------------------------------------------------
    -   RUN (dispatches agents to all ready beads):
-   -     foreman run --max-agents <max_parallel>
-   -     # Foreman reads br ready, assigns beads to agents, runs pipeline,
+   -     /ensemble:implement-trd-beads --execute
+   -     # Or drive manually: bv --robot-next (repeat until epic is complete)
+   -     # Reads br ready beads, assigns to agents, runs pipeline,
    -     # merges completed branches, and closes beads automatically.
    -   ----------------------------------------------------------------
    -   MONITOR:
-   -     foreman status --watch            # Live agent + bead status
-   -     foreman inbox --all --watch        # Live inter-agent messages
+   -     br list --status=in_progress       # Live bead status
    -   ----------------------------------------------------------------
    -   DEBUG:
-   -     foreman debug <bead-id>           # AI analysis of failing bead
-   -     foreman inbox --bead <bead-id>    # Full message timeline for bead
+   -     br get <bead-id>                   # Inspect a specific bead
    -   ----------------------------------------------------------------
-   -   MERGE (runs automatically in foreman run loop):
-   -     foreman merge --target-branch feature/<TRD_SLUG>
+   -   MERGE:
+   -     git town propose                   # Propose PR for feature branch
    -   ================================================================
-   - If BV_AVAILABLE == true: also print the BV analysis from Scaffold Step 7 (parallel tracks and triage recommendations) above the Foreman instructions as planning context.
-   - If PLAN_ONLY=true: print 'Plan complete. Bead hierarchy created. Run /ensemble:implement-trd-beads --execute (or foreman run) to begin implementation.' and EXIT. Do not enter Execute phase.
-   - TIP: You can also run /ensemble:beads-plan <ROOT_EPIC_ID> at any time to regenerate bv analysis and Foreman instructions without re-running TRD scaffold.
+   - If BV_AVAILABLE == true: also print the BV analysis from Scaffold Step 7 (parallel tracks and triage recommendations) above the execution instructions as planning context.
+   - If PLAN_ONLY=true: print 'Plan complete. Bead hierarchy created. Run /ensemble:implement-trd-beads --execute to begin implementation.' and EXIT. Do not enter Execute phase.
+   - TIP: You can also run /ensemble:beads-plan <ROOT_EPIC_ID> at any time to regenerate bv analysis and execution instructions without re-running TRD scaffold.
 
 ### Phase 3: Execute
 
@@ -629,7 +629,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
    - Else if EXECUTE_ONLY=false AND BV_AVAILABLE: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
    - Else if EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by TRD slug, take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-   - After each task (or parallel group): br sync --flush-only, then if EXECUTE_ONLY=true or BV_AVAILABLE run bv --robot-triage --format toon for progress check else run br list --status=open filtered by TRD slug
+   - After each task (or parallel group): br sync --flush-only, then call trd_progress() (order 10) for a TRD-scoped progress check
 
 **2. Task Claim and Specialist Selection**
    Claim task in beads before delegating to specialist agent
@@ -1029,6 +1029,25 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   e. If target_state == 'in_progress' AND current_state was 'in_review' or 'in_qa' (i.e., a rejection path):
    -      Run: br update <bead_id> --status=open  (reset native br status so lead can re-assign)
 
+**10. Utility: TRD Progress Snapshot (trd_progress)**
+   Inline utility for accurate per-TRD progress reporting, referenced by the --status display (Preflight), resume detection, the per-task progress check, and the final summary. Computes task counts scoped to the current TRD only. Does NOT use bv --robot-triage/--robot-next: those operate on the entire beads project and cannot be scoped to a single TRD, so they report whole-repo numbers rather than this TRD's progress.
+
+   - Function signature: trd_progress() -> prints a TRD-scoped progress summary; returns (TOTAL, CLOSED, IN_PROGRESS, OPEN, PCT)
+   - Step 1: Run: br list --all --limit 0 --title-contains '[trd:<TRD_SLUG>:task:' --json  — capture as TASKS_JSON
+   -   Flag rationale (all three are required for an accurate count):
+   -     --all          : include closed tasks (br excludes closed by default — without it CLOSED is always 0)
+   -     --limit 0      : disable br's default 50-row cap (without it, TRDs with >50 tasks are silently truncated)
+   -     --title-contains: scope to this TRD's task beads only (the bracketed prefix is matched as a literal substring)
+   - Step 2: From TASKS_JSON compute: TOTAL = entry count; CLOSED = entries with .status=='closed'; IN_PROGRESS = .status=='in_progress'; OPEN = .status=='open'
+   - Step 3: PCT = round(100 * CLOSED / TOTAL) if TOTAL > 0 else 0
+   - Step 4: Print:
+   -   '=== TRD PROGRESS: <TRD_SLUG> ==='
+   -   'Tasks: <CLOSED>/<TOTAL> complete (<PCT>%)'
+   -   'In progress: <IN_PROGRESS> | Open: <OPEN>'
+   -   '================================'
+   - Step 5 (TEAM_MODE=true only): enrich the in_progress count with pipeline sub-state — for each in_progress bead call get_sub_state(bead_id) and tally building/in_review/in_qa, then append: 'Building: <b> | In review: <r> | In QA: <q>'
+   - Note: bv --robot-triage may still be run separately for project-wide graph insight, but its counts are GLOBAL across all epics/TRDs and must never be presented as this TRD's progress.
+
 ### Phase 4: Quality Gate
 
 **1. Phase Completion Detection**
@@ -1088,7 +1107,12 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'
    - 
    - Run: br sync --flush-only
-   - If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - If gate_passed: br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(<bead_prefix> <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - If gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.
+**Shippable:** <shippable>
+Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
+   - If gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
+   - If gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; run git town hack <NEXT_BRANCH> --parent <CURRENT_PHASE_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch)'
    - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
    -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
    -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
@@ -1164,7 +1188,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - git commit -m 'docs(TRD): sync checkboxes to bead closure state'
 
 **3. Completion Report**
-   Print final summary and remind user about PR creation
+   Print final summary with stacked PR map and next steps
 
    - Print completion report: TRD file, branch, strategy, epic ID, task counts, coverage summary
    - Requirement Satisfaction Table: scan ROOT_EPIC_ID comments for req-verified: tokens
@@ -1183,12 +1207,12 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -     Note: SATISFIED(code-review) = verified via TEAM_MODE=false code-reviewer approval; SATISFIED(qa-verified) = verified via TEAM_MODE=true QA agent
    -     ========================================
    - Run: br sync --flush-only
-   - If BV_AVAILABLE: run bv --robot-triage --format toon for final progress summary
-   - If not BV_AVAILABLE: run br list --status=open --json filtered by TRD slug (expect empty)
-   - Remind user: git diff main...<branch>; gh pr create; after merge: mv <trd_file> docs/TRD/completed/
+   - Call trd_progress() (Execute phase order 10) for the final TRD-scoped progress summary (expect <TOTAL>/<TOTAL> complete, 100%)
+   - Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per entry in PHASE_PR_MAP: use label='PR' if PR_FORMAT=true else 'Phase'; print '<label> <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[N] exists, print '  Shippable: <PHASE_SHIPPABLE_STATE[N]>' on the next line; end with '========================'
+   - Remind user: PRs were created per-<label> via git town propose. Merge <label> 1 PR first (it targets main). After each merges, git-town automatically retargets the next PR against main.
+   - Remind user: after all PRs merge, run: mv <trd_file> docs/TRD/completed/
    - Remind user: br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'
    - TIP: The execution engine used here is also available standalone as /ensemble:beads-build <epic-id>. Use it to drive any bead hierarchy (not just TRD-generated ones) through the same build pipeline.
-   - Do NOT auto-create PR — user must run gh pr create manually
 
 ## Expected Output
 

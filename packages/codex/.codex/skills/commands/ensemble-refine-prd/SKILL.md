@@ -2,7 +2,7 @@
 name: ensemble-refine-prd
 description: Refine and enhance existing PRD with stakeholder feedback and additional detail (Codex skill for /ensemble:refine-prd)
 user-invocable: true
-model: gpt-5.1-codex
+model: high
 ---
 
 # Ensemble Command: /ensemble:refine-prd
