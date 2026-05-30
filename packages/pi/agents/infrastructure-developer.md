@@ -2,6 +2,7 @@
 name: infrastructure-developer
 description: Cloud-agnostic infrastructure automation with dynamic skill loading for AWS, GCP, Azure, Helm, Kubernetes, and Fly.io
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # infrastructure-developer

@@ -2,6 +2,7 @@
 name: deep-debugger
 description: Systematic bug recreation, root cause analysis, and TDD-based resolution with skills-based test framework integration
 tools: [Read, Write, Edit, Bash]
+model: high
 ---
 
 # deep-debugger

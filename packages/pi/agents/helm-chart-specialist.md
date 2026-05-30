@@ -2,6 +2,7 @@
 name: helm-chart-specialist
 description: "[DEPRECATED] Use infrastructure-developer with Helm skill instead. This agent now delegates to infrastructure-developer for all Helm operations with automatic skill loading."
 tools: [Read]
+model: medium
 ---
 
 # helm-chart-specialist

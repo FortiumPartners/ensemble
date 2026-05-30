@@ -2,6 +2,7 @@
 name: general-purpose
 description: Research and analysis specialist for complex investigations, multi-domain analysis, and ambiguous scope tasks.
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # general-purpose

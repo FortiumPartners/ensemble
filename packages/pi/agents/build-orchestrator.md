@@ -2,6 +2,7 @@
 name: build-orchestrator
 description: Build system orchestrator managing CI/CD pipeline optimization, artifact creation, dependency management, and build automation across all environments.
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # build-orchestrator

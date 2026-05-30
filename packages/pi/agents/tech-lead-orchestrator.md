@@ -2,6 +2,7 @@
 name: tech-lead-orchestrator
 description: Orchestrate traditional development methodology - plan, architect, task breakdown, develop, code-review, test loop until completion with intelligent delegation and quality loops
 tools: [Read, Write, Edit, Bash, ask_user]
+model: high
 ---
 
 # tech-lead-orchestrator

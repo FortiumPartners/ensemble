@@ -2,6 +2,7 @@
 name: qa-orchestrator
 description: Quality assurance orchestration and test coordination
 tools: [Read, Write, Edit, Bash]
+model: high
 ---
 
 # qa-orchestrator

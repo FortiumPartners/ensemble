@@ -2,6 +2,7 @@
 name: playwright-tester
 description: Use Playwright MCP to write/maintain E2E tests; capture traces and screenshots for regression.
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # playwright-tester

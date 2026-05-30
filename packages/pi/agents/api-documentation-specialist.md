@@ -2,6 +2,7 @@
 name: api-documentation-specialist
 description: OpenAPI/Swagger documentation and API design
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # api-documentation-specialist

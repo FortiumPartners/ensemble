@@ -2,6 +2,7 @@
 name: agent-meta-engineer
 description: Chief AI engineer focused on agent ecosystem management - designing, spawning, improving agents and creating specialized commands on demand.
 tools: [Read, Write, Edit, Bash]
+model: high
 ---
 
 # agent-meta-engineer

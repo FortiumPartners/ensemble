@@ -2,6 +2,7 @@
 name: documentation-specialist
 description: Technical documentation, API docs, guides, and examples
 tools: [Read, Write, Edit, Bash]
+model: medium
 ---
 
 # documentation-specialist
