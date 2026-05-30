@@ -194,6 +194,38 @@ ensemble-orchestrator (chief)
 | CI/CD issues | build-orchestrator | infrastructure-developer |
 | Release process | release-agent | git-workflow |
 
+## TRD PR Boundary Workflow
+
+`/ensemble:create-trd` (v3.1.0+) organizes the Master Task List under `### PR N:` headings. Each PR section maps directly to a shippable branch and pull request when implemented with `/ensemble:implement-trd-beads`.
+
+### TRD Master Task List Format
+
+```markdown
+### PR 1: <title>
+**Shippable State:** One sentence describing user-observable capability after this PR merges.
+
+- [ ] TASK-001 Implement X
+- [ ] TASK-002 Add Y
+```
+
+**Shippable State rules:**
+- Must describe a user-observable capability (e.g., "Users can log in with email and password")
+- Must NOT be infrastructure-only statements (e.g., "scaffolding complete", "schema migrated")
+- One sentence, written in present tense from the user's perspective
+
+### How implement-trd-beads Uses PR Boundaries
+
+`/ensemble:implement-trd-beads` auto-detects the TRD format on startup:
+
+- **PR format detected** (`### PR N:` headings found): `PR_FORMAT=true`
+  - Branch names: `feature/<slug>-pr-N`
+  - Bead prefixes: `[trd:<slug>:pr:<N>]`
+  - PR titles: `feat(<slug>): PR N — <title>`
+  - PR body includes the **Shippable State** line
+- **Legacy format** (`### Phase N:` / `### Sprint N:` headings): unchanged behavior
+
+Legacy TRDs continue to work without modification — no migration required.
+
 ## Testing
 
 ### Frameworks
