@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.13.0
-  lastUpdated: "2026-05-27"
+  version: 2.14.0
+  lastUpdated: "2026-05-30"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
   source: fortium
@@ -212,11 +212,12 @@ workflow:
 
         - order: 4
           title: TRD Selection and Validation
-          description: Locate and validate the target TRD file
+          description: Locate, validate, and detect format of the target TRD file
           actions:
             - "Priority: $ARGUMENTS .md path -> $ARGUMENTS name search in docs/TRD/ -> single in-progress TRD in docs/TRD/ -> prompt user"
             - "Validate: file exists, contains Master Task List section, contains at least one '- [ ] **TRD-' entry"
             - "Derive TRD_SLUG from filename: lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens"
+            - "PR format detection: scan the TRD file for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If at least one such heading is found: set PR_FORMAT=true and log 'TRD format: PR-stack (shippable boundaries)'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'. PR_FORMAT is re-derived on every invocation (including cross-session resume) so the correct value is always in scope."
 
         - order: 5
           title: Design Readiness Gate Verification
@@ -277,7 +278,7 @@ workflow:
           title: Feature Branch Creation
           description: Create or switch to feature branch for TRD implementation
           actions:
-            - "branch_name = 'feature/<TRD_SLUG>-phase-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}"
+            - "branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}"
             - "Run: git branch --list <branch_name>"
             - "If exists: git switch <branch_name>"
             - "If not exists: git town hack <branch_name> --parent main (fallback: git switch -c <branch_name>)"
@@ -454,7 +455,7 @@ workflow:
           actions:
             - "Pass 1: Extract TRD_TITLE from first H1 heading"
             - "Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)"
-            - "Pass 3: Extract phases from '### Phase N' or '### Sprint N' headings; synthesize single phase if none found"
+            - "Pass 3: Extract phase/PR boundaries from the '## Master Task List' section only (scope: from '## Master Task List' heading to the next '##' heading or EOF — this prevents Sprint Planning H3 headings from being misidentified as boundaries). Detection priority within that section: (1) '### PR N' headings → set PR_FORMAT=true for this parse; (2) '### Phase N' headings → PR_FORMAT=false; (3) '### Sprint N' headings → PR_FORMAT=false; (4) synthesize single boundary titled 'PR 1: Implementation' if none found. For each PR-format (PR_FORMAT=true) section: extract the optional '**Shippable State:**' line immediately following the heading; store in PHASE_SHIPPABLE_STATE[N]. Result: PHASES = [{n: 1, title: '...', tasks: [], shippable_state: '...'}...]"
             - "Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity"
             - "Pass 5: Validate at least one task found; warn on duplicate task IDs"
             - "Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id"
@@ -466,7 +467,7 @@ workflow:
           actions:
             - "Run: br list --status=open --json (capture full JSON output once)"
             - "Parse JSON array of bead objects with .id and .title fields"
-            - "Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:phase:<N>] for stories, [trd:<TRD_SLUG>:task:<ID>] for tasks"
+            - "Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:pr:<N>] OR [trd:<TRD_SLUG>:phase:<N>] for stories (both accepted to support cross-session resume across format migrations), [trd:<TRD_SLUG>:task:<ID>] for tasks"
             - "Map key is the title prefix pattern, value is the bead .id"
             - "Use this cache for all 'already exists' checks during scaffold — do not re-query per bead"
 
@@ -484,9 +485,10 @@ workflow:
           title: Story Bead Creation
           description: Create one story bead per TRD phase under the root epic
           actions:
-            - "For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:phase:<i>]"
+            - "Determine naming based on PR_FORMAT: if PR_FORMAT=true: bead_prefix='pr', bead_label='PR'; if PR_FORMAT=false: bead_prefix='phase', bead_label='Phase'"
+            - "For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:<bead_prefix>:<i>]"
             - "If found: STORY_BEAD_IDs[i] = existing id; skip creation"
-            - "If not found: run br create --title='[trd:<TRD_SLUG>:phase:<i>] Phase <i>: <phase.title>' --type=feature --priority=2 --description='Phase <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.' --json"
+            - "If not found: shippable_line = ' Shippable state: ' + PHASE_SHIPPABLE_STATE[i] if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[i] exists else ''; run br create --title='[trd:<TRD_SLUG>:<bead_prefix>:<i>] <bead_label> <i>: <phase.title>' --type=feature --priority=2 --description='<bead_label> <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.<shippable_line>' --json"
             - "Capture STORY_BEAD_ID by parsing .id from JSON response"
             - "After creation: br dep add <ROOT_EPIC_ID> <STORY_BEAD_ID> to establish story-blocks-epic relationship (epic cannot close until all stories close)"
             - "HALT if any creation fails"
@@ -1266,9 +1268,10 @@ workflow:
             - "  Run: br comment add <STORY_BEAD_ID> 'Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>'"
             - ""
             - "Run: br sync --flush-only"
-            - "If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'"
-            - "If gate_passed: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'"
-            - "If gate_passed AND more phases remain: NEXT_BRANCH='feature/<TRD_SLUG>-phase-<N+1>'; run git town hack <NEXT_BRANCH> --parent <CURRENT_PHASE_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print 'Sprint branch ready: <NEXT_BRANCH> (stacked on phase <N> branch)'"
+            - "If gate_passed: br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(<bead_prefix> <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'"
+            - "If gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.\n**Shippable:** <shippable>\nStrategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'"
+            - "If gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'"
+            - "If gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; run git town hack <NEXT_BRANCH> --parent <CURRENT_PHASE_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch)'"
             - "If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:"
             - "  TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }"
             - "  (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)"
@@ -1369,8 +1372,8 @@ workflow:
             - "    ========================================"
             - "Run: br sync --flush-only"
             - "Call trd_progress() (Execute phase order 10) for the final TRD-scoped progress summary (expect <TOTAL>/<TOTAL> complete, 100%)"
-            - "Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per phase: 'Phase <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; end with '========================'"
-            - "Remind user: PRs were created per-phase via git town propose. Merge Phase 1 PR first (it targets main). After each phase merges, git-town automatically retargets the next phase's PR against main."
+            - "Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per entry in PHASE_PR_MAP: use label='PR' if PR_FORMAT=true else 'Phase'; print '<label> <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[N] exists, print '  Shippable: <PHASE_SHIPPABLE_STATE[N]>' on the next line; end with '========================'"
+            - "Remind user: PRs were created per-<label> via git town propose. Merge <label> 1 PR first (it targets main). After each merges, git-town automatically retargets the next PR against main."
             - "Remind user: after all PRs merge, run: mv <trd_file> docs/TRD/completed/"
             - "Remind user: br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'"
             - "TIP: The execution engine used here is also available standalone as /ensemble:beads-build <epic-id>. Use it to drive any bead hierarchy (not just TRD-generated ones) through the same build pipeline."

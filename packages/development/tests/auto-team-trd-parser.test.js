@@ -430,8 +430,8 @@ describe('TRD-041: implement-trd-beads.yaml structure', () => {
     expect(rawContent.length).toBeGreaterThan(0);
   });
 
-  it('version is 2.13.0', () => {
-    expect(rawContent).toMatch(/version:\s*['"]?2\.13\.0['"]?/);
+  it('version is 2.14.0', () => {
+    expect(rawContent).toMatch(/version:\s*['"]?2\.14\.0['"]?/);
   });
 
   it('preflight step 8 contains TRD-first parsing logic', () => {

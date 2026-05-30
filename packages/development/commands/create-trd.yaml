@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-trd
   description: Create Technical Requirements Document from PRD with architecture design and adversarial review
-  version: 3.0.0
-  lastUpdated: "2026-03-28"
+  version: 3.1.0
+  lastUpdated: "2026-05-30"
   category: planning
   output_path: ensemble/create-trd.md
   source: fortium
@@ -122,14 +122,16 @@ workflow:
             - Link test tasks to the PRD acceptance criteria they validate
 
         - order: 3
-          title: Dependency Mapping
-          description: Organize tasks by dependencies and plan sprint phases
+          title: Dependency Mapping and PR Boundary Design
+          description: Organize tasks into shippable PR stack boundaries based on dependency order
           actions:
             - "Add [depends: TRD-NNN] annotations where tasks have prerequisites"
             - Build dependency graph and identify the critical path
             - Flag tasks estimated at 8h+ as candidates for further breakdown
-            - Organize tasks into sprints/phases based on dependency order
+            - "Draw PR boundaries around shippable vertical slices: each ### PR N: section must leave the codebase with passing tests, no half-implemented user-visible features, and be independently reviewable. Group by capability delivered, not calendar time."
+            - "Immediately after each ### PR N: heading, write a **Shippable State:** line: one sentence describing the visible capability available after this PR merges (e.g., 'Users can log in with email/password; profile editing is not yet available'). Infrastructure-only statements ('scaffolding complete') are not acceptable — the statement must describe user-observable behaviour."
             - Ensure no circular dependencies exist in the task graph
+            - "Verify each PR boundary passes the shippability test: (a) all its tests pass in isolation, (b) no public API or UI route returns 404/500 due to tasks deferred to a later PR, (c) the scope is small enough to be reviewed independently."
 
     - name: MCP Enhancement (Optional)
       order: 4
@@ -196,12 +198,14 @@ workflow:
 
         - order: 2
           title: Task Coverage Analysis
-          description: Verify PRD requirement coverage and identify task gaps
+          description: Verify PRD requirement coverage, task gaps, and PR shippability
           actions:
             - Check every PRD REQ-NNN has at least one corresponding TRD task with [satisfies REQ-NNN]
             - Identify any TRD tasks that reference nonexistent REQ-NNN IDs
             - Find PRD requirements with no corresponding test tasks
             - Flag tasks estimated at 8h+ that should be broken down further
+            - "Verify every ### PR N: section in the Master Task List has a **Shippable State:** annotation"
+            - "Flag any PR section whose Shippable State is infrastructure-only (e.g., 'scaffolding complete', 'setup done') with no user-observable capability — require a meaningful statement or a boundary split"
             - Document at least 2 coverage issues with recommended resolutions
 
         - order: 3
@@ -246,8 +250,8 @@ workflow:
           actions:
             - "Include frontmatter: Document ID (TRD-YYYY-NNN), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score"
             - Generate Architecture Decision section documenting the chosen approach and alternatives considered
-            - Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks
-            - Generate Sprint Planning section with dependency-ordered phases
+            - "Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs."
+            - "Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it."
             - "File naming: docs/TRD/TRD-YYYY-NNN-<slug>.md"
 
         - order: 2
