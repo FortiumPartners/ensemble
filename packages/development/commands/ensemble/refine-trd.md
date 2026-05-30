@@ -1,9 +1,9 @@
 ---
 name: ensemble:refine-trd
 description: Refine and enhance existing TRD with stakeholder feedback and additional detail
-version: 2.3.0
+version: 2.4.0
 category: planning
-last-updated: 2026-03-28
+last-updated: 2026-05-30
 model: high
 ---
 <!-- DO NOT EDIT - Generated from refine-trd.yaml -->
@@ -27,6 +27,8 @@ version history, traceability, and Design Readiness scoring.
    - Build dependency graph from [depends: TRD-NNN] annotations
    - Check if Acceptance Criteria Traceability matrix exists
    - Note current version number for bumping later
+   - PR format detection: scan TRD for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If found: set PR_FORMAT=true and log 'TRD format: PR-stack'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'.
+   - If PR_FORMAT=true: count PR boundary sections; for each ### PR N: heading check whether a **Shippable State:** line immediately follows it; record MISSING_SHIPPABLE[N] for any that don't; record INFRA_ONLY_SHIPPABLE[N] for any whose Shippable State text contains only infrastructure language (e.g., 'scaffolding', 'setup done', 'infrastructure complete') with no user-observable capability.
 
 **2. Synthesis**
    After reviewing the TRD, generate a numbered list of findings — do NOT make
@@ -50,6 +52,10 @@ Scan the TRD for the following categories of issues:
 - Missing Design Readiness Gate scorecard in frontmatter
 - Tasks missing hour estimates entirely
 - Stale references to files, APIs, or components that no longer exist in the codebase
+- "(PR_FORMAT=true only) PR sections missing **Shippable State:** annotation — list each ### PR N: heading that lacks an immediately-following **Shippable State:** line"
+- "(PR_FORMAT=true only) PR sections whose Shippable State describes only infrastructure or scaffolding with no user-observable capability — these must be rewritten or the PR must be split to deliver visible value"
+- "(PR_FORMAT=true only) Tasks in PR N that [depends: TRD-XXX] where TRD-XXX belongs to PR N+1 or later — forward dependency violates the shippability guarantee of PR N"
+- "(PR_FORMAT=false only) TRD uses legacy ### Phase N: or ### Sprint N: headings — offer optional conversion to ### PR N: format with Shippable State annotations to enable implement-trd-beads PR-stack mode (present as a low-priority suggestion, not an error)"
 
 Use the AskUserQuestion tool to present a consolidated findings list and capture
 the user's selection. Format the question body exactly as follows:
@@ -95,6 +101,10 @@ For each selected finding, ask targeted follow-up questions such as:
 - For dependency chains: "Tasks TRD-AAA -> TRD-BBB -> TRD-CCC -> TRD-DDD form a N-task chain. Can any of these run in parallel?"
 - For missing architecture decisions: "What alternatives were considered for [component] and why was this approach chosen?"
 - For stale references: "TRD-NNN references [path/file] which no longer exists. Should this task be updated or removed?"
+- "For missing Shippable State (PR_FORMAT=true): 'PR N has no Shippable State annotation. In one sentence, what user-observable capability exists after this PR merges? (not infrastructure — a feature, endpoint, or UI state a user can interact with)'"
+- "For infrastructure-only Shippable State (PR_FORMAT=true): 'The current Shippable State for PR N reads: \"<current text>\". This describes infrastructure, not user-observable behaviour. What does a user gain when this PR is live?'"
+- "For forward dependency violations (PR_FORMAT=true): 'TRD-XXX in PR N depends on TRD-YYY in PR N+1. This breaks PR N shippability. Should we move TRD-XXX to PR N+1, or can TRD-YYY be moved to PR N?'"
+- "For legacy format conversion offer (PR_FORMAT=false): 'This TRD uses ### Phase N: headings. Would you like to convert the Master Task List to ### PR N: format with Shippable State annotations? This enables implement-trd-beads PR-stack mode (feature/<slug>-pr-N branches, per-PR git town propose). The ## Sprint Planning section would remain unchanged.'"
 
 
 **4. Feedback Integration**
@@ -126,6 +136,11 @@ Enhancements to apply (scoped to selected findings):
 - Restructure dependency chains to enable parallel execution where possible
 - Remove or update stale file/API/component references
 - Add or complete Architecture Decision section with alternatives and justification
+- "(PR_FORMAT=true) Add missing **Shippable State:** lines: insert immediately after each ### PR N: heading that lacks one, using the user's interview answer"
+- "(PR_FORMAT=true) Rewrite infrastructure-only Shippable State lines with user-observable capability from interview answers"
+- "(PR_FORMAT=true) Resolve forward dependency violations: move affected tasks to the correct PR section per interview guidance; re-verify ordering after moving"
+- "(PR_FORMAT=true) When inserting new tasks, place them inside the correct ### PR N: section based on their dependencies — do not add tasks between PR sections or above the first ### PR N: heading"
+- "(PR_FORMAT=false, user confirmed conversion) Convert ### Phase N: / ### Sprint N: headings in the Master Task List to ### PR N: format; add a **Shippable State:** line for each (gathered via interview); leave ## Sprint Planning section unchanged — it uses H2 headings and is informational only"
 
 
 **2. Validation**
@@ -137,6 +152,9 @@ Enhancements to apply (scoped to selected findings):
    - Check no circular dependencies were introduced
    - Verify all user-facing implementation tasks have paired TRD-NNN-TEST tasks
    - Count tasks and hours to verify they haven't drifted from the Master Task List summary
+   - If PR_FORMAT=true: verify every ### PR N: heading in the Master Task List has an immediately-following **Shippable State:** line
+   - If PR_FORMAT=true: verify no task has a [depends: TRD-XXX] where TRD-XXX belongs to a later PR section (no forward dependencies across PR boundaries)
+   - If PR_FORMAT=true: verify the Master Task List section contains only ### PR N: headings (no mixed ### Phase N: or ### Sprint N: headings)
 
 ### Phase 3: Design Readiness Gate Re-Score
 
