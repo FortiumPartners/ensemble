@@ -1,7 +1,7 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.14.0
+version: 2.14.1
 category: implementation
 last-updated: 2026-05-30
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
@@ -150,7 +150,7 @@ Key behaviors:
    - branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
-   - If not exists: git town hack <branch_name> --parent main (fallback: git switch -c <branch_name>)
+   - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
 
 **8. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
@@ -1109,7 +1109,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **Shippable:** <shippable>
 Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
    - If gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
-   - If gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; run git town hack <NEXT_BRANCH> --parent <CURRENT_PHASE_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch)'
+   - If gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; ensure currently checked out on <CURRENT_PHASE_BRANCH> (git switch <CURRENT_PHASE_BRANCH> if needed); run git town append <NEXT_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch via git town append)'
    - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
    -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
    -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
