@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:migrate-model-config
   description: One-shot migration from legacy ~/.config/ensemble/model-selection.json to project-level .claude/ensemble-model-config.json
-  version: 1.0.0
+  version: 1.0.1
   category: configuration
   model: medium
   output_path: ensemble/migrate-model-config.md
