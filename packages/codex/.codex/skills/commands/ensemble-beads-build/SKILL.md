@@ -83,14 +83,26 @@ Key behaviors:
    - Classify task type: if task.id ends in -TEST suffix, mark is_test_task=true; extract verifies_task_id and satisfies_req_id; store in TASK_TRACEABILITY[task.id]
    - Print "TRD augmentations: enabled (traceability, checkbox sync, requirement report)"
 
-**6. Strategy Detection**
+**6. TRD Staleness Gate**
+   When TRD_MODE=true and first invocation, check TRD freshness before execution begins.
+Skip when TRD_MODE=false or when resuming an existing epic.
+Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+
+
+   - If TRD_MODE=false: skip this step entirely. Print "Staleness check: skipped (no --trd flag)" and continue to step 7.
+   - If TRD_MODE=true AND ROOT_EPIC_ID was found in Preflight step 4 (Epic Discovery) — IS_RESUME=true: skip this step. Print "Staleness check: skipped (resume detected)" and continue to step 7.
+   - If TRD_MODE=true AND no ROOT_EPIC_ID found in step 4 (first invocation): execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH from Preflight step 1 and IS_RESUME=false.
+   - On HALT from skill: do not proceed. Implementation stops.
+   - On RETURN from skill: continue to step 7 (Strategy Detection).
+
+**7. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
 
    - Priority: --strategy arg -> TRD explicit (if TRD_MODE) -> auto-detect from bead titles/descriptions -> default (tdd)
    - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
    - Store STRATEGY; print "Strategy: <STRATEGY>"
 
-**7. Team Configuration Detection**
+**8. Team Configuration Detection**
    Detect team configuration from --team-config argument or bead metadata, default to single-agent
 
    - If TRD_MODE=true: check TRD "## Team Configuration" section; if found parse YAML block; validate schema (roles array, lead and builder roles required); set TEAM_MODE=true, TEAM_ROLES; else fall through

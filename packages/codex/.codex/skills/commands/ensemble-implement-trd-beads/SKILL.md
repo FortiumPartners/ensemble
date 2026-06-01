@@ -147,7 +147,17 @@ Key behaviors:
    - 
    - When TEAM_MODE=false AND resume detected: existing v2.1.0 resume behavior unchanged
 
-**7. Feature Branch Creation**
+**7. TRD Staleness Gate**
+   Check TRD freshness before committing to a feature branch. Skip on resume.
+Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+
+
+   - If resume was detected in Preflight step 6 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to step 8.
+   - If first invocation (IS_RESUME=false / no ROOT_EPIC_ID found in step 6): execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH from Preflight step 4 and IS_RESUME=false.
+   - On HALT from skill: do not proceed. Implementation stops.
+   - On RETURN from skill (TRD fresh or successfully refined): continue to Preflight step 8 (Feature Branch Creation).
+
+**8. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
    - branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
@@ -155,13 +165,13 @@ Key behaviors:
    - If exists: git switch <branch_name>
    - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
 
-**8. Strategy Detection**
+**9. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
 
    - Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)
    - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
 
-**9. Team Configuration Detection**
+**10. Team Configuration Detection**
    Determine team mode using precedence order: (1) TRD ## Team Configuration section,
 (2) command YAML team: section, (3) no team (single-agent). Sets TEAM_MODE,
 TEAM_CONFIG_SOURCE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for all subsequent
@@ -252,7 +262,7 @@ FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
    -   - Identical to Case 3
    - Record which steps are skipped in the team configuration summary printed during this Preflight step.
 
-**10. Marketplace Preflight Check**
+**11. Marketplace Preflight Check**
    Before execution begins, check for marketplace capability gaps that may affect team
 config quality. Presents suggestions for missing agents/skills and installs approved
 plugins. Re-reads team config from TRD after installation if agents referenced in TRD
@@ -279,7 +289,7 @@ team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.
    -   If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'
    - Step 8 — If user declines all suggestions: proceed with existing team config and available agents
 
-**11. Traceability Validation Gate**
+**12. Traceability Validation Gate**
    Run validate-requirements as an automatic preflight gate before scaffolding begins.
 Checks that PRD requirements have TRD task coverage, that [satisfies] annotations
 reference real REQ-NNN IDs, and that every user-facing task has a paired -TEST task.
