@@ -288,6 +288,33 @@ TRD-002, TRD-003, TRD-004 can execute in parallel after TRD-001 merges (no file 
 
 ---
 
+## Team Configuration
+
+> Auto-configured by `/ensemble:configure-team` on 2026-06-01
+>
+> **Complexity metrics:** tasks=9 | estimated_hours=9.5 | domains=2 (documentation, testing) | cross_cutting=1 | dependency_depth=3 | tier=**Medium**
+>
+> Medium tier: lead + builder roles only (no reviewer or QA — add manually if desired).
+
+```yaml
+team:
+  roles:
+    - name: lead
+      agent: tech-lead-orchestrator
+      owns:
+        - task-selection
+        - architecture-review
+        - final-approval
+    - name: builder
+      agents:
+        - documentation-specialist
+        - backend-developer
+      owns:
+        - implementation
+```
+
+---
+
 ## Quality Requirements
 
 ### Testing Standards
