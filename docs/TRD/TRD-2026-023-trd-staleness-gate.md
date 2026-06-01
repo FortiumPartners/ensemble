@@ -105,7 +105,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
 
 **Shippable State:** All three `implement-trd` flavors enforce the staleness gate on first invocation — no implementation starts against a TRD older than 24 hours or with newer source files; resume paths are unaffected.
 
-- [ ] **TRD-001**: Create `packages/development/skills/staleness-gate/SKILL.md` with the full staleness gate algorithm (3h) [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008]
+- [x] **TRD-001**: Create `packages/development/skills/staleness-gate/SKILL.md` with the full staleness gate algorithm (3h) [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008]
   - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-003-1, AC-003-2, AC-004-1, AC-005-1, AC-008-1, AC-008-2
   - Target File: `packages/development/skills/staleness-gate/SKILL.md`
   - Actions:
@@ -126,7 +126,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given refine-trd exits 0, when post-refinement decision runs, then implementation proceeds without a second staleness check
     - Given refine-trd exits non-zero, when post-refinement decision runs, then HALT is reached with the correct error message
 
-- [ ] **TRD-001-TEST**: Verify SKILL.md documents all required behaviors with complete accuracy (1h) [verifies TRD-001] [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008] [depends: TRD-001]
+- [x] **TRD-001-TEST**: Verify SKILL.md documents all required behaviors with complete accuracy (1h) [verifies TRD-001] [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008] [depends: TRD-001]
   - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-003-1, AC-003-2, AC-004-1, AC-005-1, AC-008-1, AC-008-2
   - Target Files: `packages/development/skills/staleness-gate/SKILL.md`
   - Actions:
@@ -138,7 +138,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the exclusion list in SKILL.md, when compared to PRD REQ-002's list, then all excluded path patterns are present and correct
   - Proof of requirement: All 14 ACs from PRD-2026-022 map to documented SKILL.md behaviors
 
-- [ ] **TRD-002**: Add TRD Staleness Gate step to `implement-trd-beads.yaml` Preflight (2h) [satisfies REQ-007] [depends: TRD-001]
+- [x] **TRD-002**: Add TRD Staleness Gate step to `implement-trd-beads.yaml` Preflight (2h) [satisfies REQ-007] [depends: TRD-001]
   - Validates PRD ACs: AC-006-1
   - Target File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
@@ -161,7 +161,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given a stale TRD and first invocation, when Preflight step 7 runs, then the SKILL.md gate executes before any feature branch is created
     - Given a resume (ROOT_EPIC_ID set in step 6), when Preflight step 7 runs, then it prints the skip message and continues to step 8 without any file system checks
 
-- [ ] **TRD-002-TEST**: Verify implement-trd-beads staleness step is correct, correctly numbered, and does not disturb existing step references (1h) [verifies TRD-002] [satisfies REQ-007] [depends: TRD-002]
+- [x] **TRD-002-TEST**: Verify implement-trd-beads staleness step is correct, correctly numbered, and does not disturb existing step references (1h) [verifies TRD-002] [satisfies REQ-007] [depends: TRD-002]
   - Validates PRD ACs: AC-006-1
   - Target File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
@@ -175,7 +175,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the updated YAML, when `npm run validate` runs, then it exits 0 with no schema errors
     - Given the Preflight step list, when step orders 1-12 are enumerated, then all are sequential with no gaps
 
-- [ ] **TRD-003**: Add TRD Staleness Gate step to `implement-trd.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
+- [x] **TRD-003**: Add TRD Staleness Gate step to `implement-trd.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
   - Validates PRD ACs: AC-006-2
   - Target File: `packages/development/commands/implement-trd.yaml`
   - Actions:
@@ -200,7 +200,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given a stale TRD and no existing feature branch, when Preflight step 2 runs, then the gate executes before `git town hack` creates any branch
     - Given the feature branch `feature/<TRD_SLUG>-sprint-1` already exists, when Preflight step 2 runs, then IS_RESUME=true and the gate is skipped
 
-- [ ] **TRD-003-TEST**: Verify implement-trd staleness step is correct and correctly numbered (0.5h) [verifies TRD-003] [satisfies REQ-007] [depends: TRD-003]
+- [x] **TRD-003-TEST**: Verify implement-trd staleness step is correct and correctly numbered (0.5h) [verifies TRD-003] [satisfies REQ-007] [depends: TRD-003]
   - Validates PRD ACs: AC-006-2
   - Target File: `packages/development/commands/implement-trd.yaml`
   - Actions:
@@ -213,7 +213,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the updated YAML, when `npm run validate` runs, then it exits 0
     - Given the Preflight steps, when steps 1-6 are enumerated, then all are sequential with no gaps
 
-- [ ] **TRD-004**: Add TRD Staleness Gate step to `beads-build.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
+- [x] **TRD-004**: Add TRD Staleness Gate step to `beads-build.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
   - Validates PRD ACs: AC-006-1, AC-007-1, AC-007-2
   - Target File: `packages/development/commands/beads-build.yaml`
   - Actions:
@@ -238,7 +238,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given `beads-build` invoked without `--trd`, when Preflight step 6 runs, then it prints the no-trd skip message and continues
     - Given `beads-build --trd <stale-trd>` with no existing root epic, when Preflight step 6 runs, then the staleness gate executes before any execution begins
 
-- [ ] **TRD-004-TEST**: Verify beads-build staleness step is correct and correctly numbered (0.5h) [verifies TRD-004] [satisfies REQ-007] [depends: TRD-004]
+- [x] **TRD-004-TEST**: Verify beads-build staleness step is correct and correctly numbered (0.5h) [verifies TRD-004] [satisfies REQ-007] [depends: TRD-004]
   - Validates PRD ACs: AC-006-1, AC-007-1, AC-007-2
   - Target File: `packages/development/commands/beads-build.yaml`
   - Actions:
@@ -251,7 +251,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the updated YAML, when `npm run validate` runs, then it exits 0
     - Given the Preflight steps, when steps 1-8 are enumerated, then all are sequential with no gaps
 
-- [ ] **TRD-005**: Regenerate all downstream artifacts (0.5h) [satisfies INFRA] [depends: TRD-002] [depends: TRD-003] [depends: TRD-004]
+- [x] **TRD-005**: Regenerate all downstream artifacts (0.5h) [satisfies INFRA] [depends: TRD-002] [depends: TRD-003] [depends: TRD-004]
   - Target Files: all generated `.md`, pi, codex artifacts
   - Actions:
     1. Run `npm run generate` — must exit 0
