@@ -48,7 +48,10 @@
       "Bash(bv --help)",
       "Bash(git town *)",
       "Bash(br list *)",
-      "Bash(python3 -c ' *)"
+      "Bash(python3 -c ' *)",
+      "Bash(bv --robot-triage --format toon)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('QUICK WINS:', [i['id']+': '+i['title'] for i in d.get\\('triage',{}\\).get\\('quick_wins',[]\\)][:5]\\); print\\('TOP RECS:', [r['recommendation'] for r in d.get\\('triage',{}\\).get\\('recommendations',[]\\)[:3]]\\)\")",
+      "Bash(br update *)"
     ]
   },
   "enabledPlugins": {}
