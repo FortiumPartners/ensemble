@@ -311,8 +311,8 @@ Parse TRD into structured phases and tasks
 2. Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)
 3. Pass 3: Extract phase/PR boundaries from the '## Master Task List' section only (scope: from '## Master Task List' heading to the next '##' heading or EOF — this prevents Sprint Planning H3 headings from being misidentified as boundaries). Detection priority within that section: (1) '### PR N' headings → set PR_FORMAT=true for this parse; (2) '### Phase N' headings → PR_FORMAT=false; (3) '### Sprint N' headings → PR_FORMAT=false; (4) synthesize single boundary titled 'PR 1: Implementation' if none found. For each PR-format (PR_FORMAT=true) section: extract the optional '**Shippable State:**' line immediately following the heading; store in PHASE_SHIPPABLE_STATE[N]. Result: PHASES = [{n: 1, title: '...', tasks: [], shippable_state: '...'}...]
 4. Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
-5. Pass 4b: For each task matched in Pass 4, capture its BODY = all lines from the task line up to (but excluding) the next top-level task line (a line matching '- [ ] **TRD-' at the same or lesser indentation), the next '### ' heading, or the next '## ' heading. Store raw body in TASK_BODY[task.id]. From the body, extract structured pieces into TASK_TRACEABILITY[task.id]: target_files (from 'Target File:'/'File:' lines), numbered_actions (from an 'Actions:' list), implementation_ac_checklist / test_ac_checklist (from 'Implementation AC:' / 'Test AC:' blocks), depends_on (from 'Dependencies:' lines and any [depends: TRD-NNN] annotations), and nested_subitems = every '- [ ]' or '- [x]' line within the body that does NOT itself match the Pass 4 top-level '**TRD-' task pattern.
-6. Pass 4c: Classify each entry in nested_subitems as a TEST sub-item when its text contains any test keyword (test, spec, e2e, coverage, unit test, integration test, jest, pytest, rspec, exunit, xunit, playwright). Store TASK_TRACEABILITY[task.id].test_subitems = ordered list of test sub-item texts. These are tests embedded under an impl task that lack their own TRD-NNN-TEST id and must be surfaced explicitly.
+5. Pass 4b: For each task matched in Pass 4, capture its BODY = all lines from the task line up to (but excluding) the next top-level task line (a line matching '- [ ] **TRD-' at the same or lesser indentation), the next '### ' heading, or the next '## ' heading. Store raw body in TASK_BODY[task.id]. From the body, extract structured pieces into TASK_TRACEABILITY[task.id]: target_files (from 'Target File:'/'File:' lines), numbered_actions (from an 'Actions:' list), implementation_ac_checklist / test_ac_checklist (from 'Implementation AC:' / 'Test AC:' blocks), depends_on (from 'Dependencies:' lines and any [depends: TRD-NNN] annotations in the body — Pass 4b is AUTHORITATIVE for depends_on; Scaffold Step 7 reads TASK_TRACEABILITY[task.id].depends_on and does not re-parse annotations), and nested_subitems = every '- [ ]' or '- [x]' line within the body that does NOT itself match the Pass 4 top-level '**TRD-' task pattern.
+6. Pass 4c: Classify each entry in nested_subitems as a TEST sub-item when its text contains any test keyword (test, spec, e2e, coverage, unit test, integration test, jest, pytest, rspec, exunit, xunit, playwright). NOTE: This match is intentionally broad — terms like 'spec' and 'coverage' may match non-test sub-items (e.g., 'Review the OpenAPI spec'). Broad recall is preferred over precision here: a false-positive synthesized test bead is easier to close than a missed test. Store TASK_TRACEABILITY[task.id].test_subitems = ordered list of test sub-item texts. These are tests embedded under an impl task that lack their own TRD-NNN-TEST id and must be surfaced explicitly.
 7. Pass 5: Validate at least one task found; warn on duplicate task IDs
 8. Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id
 9. Pass 7: Classify task type — if task.id ends in '-TEST' suffix, mark is_test_task=true; extract verifies_task_id (from [verifies TRD-NNN]) and satisfies_req_id (from [satisfies REQ-NNN]); store in TASK_TRACEABILITY[task.id]
@@ -380,7 +380,7 @@ Promote nested test sub-items (test checklist items lacking their own TRD-NNN-TE
 4. Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<synth_id>]; if found: TRD_TO_BEAD_MAP[synth_id] = existing id; skip creation
 5. If not found: build description: '## Synthesized Test Task: <synth_id>\nDerived from a nested test sub-item of <task.id> (no explicit TRD-NNN-TEST task existed).\nVerifies Task: <task.id>\nVerifies: <task.id>\nSatisfies: <parent task satisfies_req_id>\nTest objective: <test_subitem text>\nTarget Files: <parent task target_files if known, else infer test file path from project conventions>\nParent impl task: <task.id>'
 6. Run: br create --title='[trd:<TRD_SLUG>:task:<synth_id>] <test_subitem text>' --type=task --priority=<task.priority> --description='<synth description>' --json; capture SYNTH_BEAD_ID from .id
-7. Run: br dep add <STORY_BEAD_ID for this task's phase> <SYNTH_BEAD_ID>  (synth test belongs to the same story/phase as its parent)
+7. Run: br dep add <STORY_BEAD_IDs[phase.n]> <SYNTH_BEAD_ID>  where phase.n is the phase number that contains task.id (look up from STORY_BEAD_IDs map populated in Scaffold Step 4; synth test belongs to the same story/phase as its parent impl task)
 8. Run: br dep add <SYNTH_BEAD_ID> <parent task bead id from TRD_TO_BEAD_MAP[task.id]>  (the test depends on its impl task, so it runs after the implementation)
 9. Set TASK_TRACEABILITY[synth_id] = {is_test_task: true, verifies_task_id: task.id, satisfies_req_id: <parent satisfies_req_id>, validates_acs: <parent validates_acs>, synthesized: true}
 10. Record TRD_TO_BEAD_MAP[synth_id] = SYNTH_BEAD_ID
@@ -704,24 +704,25 @@ Build prompt and delegate to selected specialist, require closing summary commen
 18. - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
 19. - Include the file path(s) the task targets so the builder can Read them directly
 20. - Include the test file path(s) the task should create/modify
-21. - Each builder subagent starts with clean context — this is intentional for quality
-22. 1. Builder prompt includes additional instruction:
-23. 'IMPORTANT: Do NOT close this bead (do not run br close). When done, return a structured summary:'
-24. '  - files_changed: [list of modified files with paths]'
-25. '  - implementation_description: [what was implemented]'
-26. '  - test_results: [pass/fail with details]'
-27. '  - issues_encountered: [list of problems, empty if none]'
-28. '  - recommendations: [follow-up suggestions, empty if none]'
-29. 2. Delegate: Task(subagent_type=<builder>, prompt=<augmented_prompt>)
-30. 3. On success:
-31. a. Extract files_changed from builder's structured summary
-32. b. Run: br comment add <bead_id> 'status:in_review builder:<agent> files:<comma-joined-files_changed>'
-33. c. validate_transition(bead_id, 'in_review') -- see Execute step 9 (State Machine Transition Validator)
-34. d. Proceed to Reviewer Delegation (TRD-016, Execute step 3a)
-35. 4. On failure (builder crashes, not rejection):
-36. a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
-37. b. Enter debug loop (Execute step 5)
-38. When TEAM_MODE=false: existing Task Delegation step unchanged (builder can close bead)
+21. - If the bead description contains a 'Sub-items' or 'Embedded tests' section: list every one of those items verbatim in the builder prompt and instruct: 'You MUST implement EVERY checklist sub-item listed, including all embedded tests. The task is not complete until every sub-item — especially each test — is implemented and passing. Do not skip tests that lack their own task id.'
+22. - Each builder subagent starts with clean context — this is intentional for quality
+23. 1. Builder prompt includes additional instruction:
+24. 'IMPORTANT: Do NOT close this bead (do not run br close). When done, return a structured summary:'
+25. '  - files_changed: [list of modified files with paths]'
+26. '  - implementation_description: [what was implemented]'
+27. '  - test_results: [pass/fail with details]'
+28. '  - issues_encountered: [list of problems, empty if none]'
+29. '  - recommendations: [follow-up suggestions, empty if none]'
+30. 2. Delegate: Task(subagent_type=<builder>, prompt=<augmented_prompt>)
+31. 3. On success:
+32. a. Extract files_changed from builder's structured summary
+33. b. Run: br comment add <bead_id> 'status:in_review builder:<agent> files:<comma-joined-files_changed>'
+34. c. validate_transition(bead_id, 'in_review') -- see Execute step 9 (State Machine Transition Validator)
+35. d. Proceed to Reviewer Delegation (TRD-016, Execute step 3a)
+36. 4. On failure (builder crashes, not rejection):
+37. a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
+38. b. Enter debug loop (Execute step 5)
+39. When TEAM_MODE=false: existing Task Delegation step unchanged (builder can close bead)
 
 ### Step 4: Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)
 
