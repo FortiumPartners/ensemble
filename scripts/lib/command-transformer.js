@@ -5,6 +5,10 @@
 
 'use strict';
 
+// NOTE: model: tier aliases in source YAML are resolved to fully-pinned model IDs
+// at generation time via packages/core/lib/config-loader + model-resolver.
+// Generated .md files always contain real model IDs (or no model: field if unresolvable).
+
 const path = require('path');
 
 /**
@@ -63,9 +67,25 @@ function generateCommandFrontmatter(data) {
     lines.push(`argument-hint: ${meta.argument_hint}`);
   }
 
-  // Model (optional)
+  // Resolve tier aliases to fully-pinned model IDs before emitting.
+  // Claude Code rejects tier names ('high', 'medium', 'low') as model IDs.
+  // If resolution fails, suppress the field so Claude Code uses the user's default.
   if (meta.model) {
-    lines.push(`model: ${meta.model}`);
+    const TIER_ALIASES = new Set(['high', 'medium', 'low']);
+    let resolvedModel = meta.model;
+    if (TIER_ALIASES.has(meta.model)) {
+      try {
+        const { loadConfig } = require('../../packages/core/lib/config-loader');
+        const { resolveModel } = require('../../packages/core/lib/model-resolver');
+        const cfg = loadConfig(process.cwd());
+        resolvedModel = resolveModel(meta.model, cfg);
+      } catch (_) {
+        resolvedModel = null; // suppress on any error
+      }
+    }
+    if (resolvedModel) {
+      lines.push(`model: ${resolvedModel}`);
+    }
   }
 
   lines.push('---');
