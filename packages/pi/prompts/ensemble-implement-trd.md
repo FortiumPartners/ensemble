@@ -18,7 +18,20 @@ Check git-town installation and configuration using validation script
 3. If validation fails, escalate with specific error message
 4. Ensure clean working directory (git status)
 
-### Step 2: Feature Branch Creation
+### Step 2: TRD Staleness Gate
+
+Check TRD freshness before creating a feature branch. Skip if branch already exists (resume).
+Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+
+**Actions:**
+1. Derive TRD_PATH from $ARGUMENTS (the .md path argument).
+2. Derive TRD_SLUG from TRD_PATH filename (lowercase, replace non-alphanumeric with hyphens).
+3. Resume detection: run 'git branch --list feature/<TRD_SLUG>-sprint-1'. If this returns a branch name: IS_RESUME=true. If empty: IS_RESUME=false.
+4. Execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH and IS_RESUME.
+5. On HALT from skill: do not proceed. Implementation stops.
+6. On RETURN from skill: continue to step 3 (Feature Branch Creation).
+
+### Step 3: Feature Branch Creation
 
 Create sprint-1 feature branch using git-town skill interview template
 
@@ -31,15 +44,15 @@ Create sprint-1 feature branch using git-town skill interview template
 6. Execute - git-town hack feature/<trd-slug>-sprint-1 --parent <base-branch>
 7. Verify branch creation successful (check git branch output)
 
-### Step 3: TRD Ingestion
+### Step 4: TRD Ingestion
 
 Parse and analyze existing TRD document with checkbox tracking
 
-### Step 4: Technical Feasibility Review
+### Step 5: Technical Feasibility Review
 
 Validate implementation approach and architecture
 
-### Step 5: Resource Assessment
+### Step 6: Resource Assessment
 
 Identify required specialist agents and tools
 

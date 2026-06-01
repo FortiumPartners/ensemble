@@ -31,7 +31,19 @@ development including planning, implementation, testing, and quality gates.
    - If validation fails, escalate with specific error message
    - Ensure clean working directory (git status)
 
-**2. Feature Branch Creation**
+**2. TRD Staleness Gate**
+   Check TRD freshness before creating a feature branch. Skip if branch already exists (resume).
+Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+
+
+   - Derive TRD_PATH from $ARGUMENTS (the .md path argument).
+   - Derive TRD_SLUG from TRD_PATH filename (lowercase, replace non-alphanumeric with hyphens).
+   - Resume detection: run 'git branch --list feature/<TRD_SLUG>-sprint-1'. If this returns a branch name: IS_RESUME=true. If empty: IS_RESUME=false.
+   - Execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH and IS_RESUME.
+   - On HALT from skill: do not proceed. Implementation stops.
+   - On RETURN from skill: continue to step 3 (Feature Branch Creation).
+
+**3. Feature Branch Creation**
    Create sprint-1 feature branch using git-town skill interview template
 
    - Load interview template from packages/git/skills/git-town/templates/interview-branch-creation.md
@@ -42,13 +54,13 @@ development including planning, implementation, testing, and quality gates.
    - Execute - git-town hack feature/<trd-slug>-sprint-1 --parent <base-branch>
    - Verify branch creation successful (check git branch output)
 
-**3. TRD Ingestion**
+**4. TRD Ingestion**
    Parse and analyze existing TRD document with checkbox tracking
 
-**4. Technical Feasibility Review**
+**5. Technical Feasibility Review**
    Validate implementation approach and architecture
 
-**5. Resource Assessment**
+**6. Resource Assessment**
    Identify required specialist agents and tools
 
 ### Phase 2: Ensemble Orchestrator Delegation
