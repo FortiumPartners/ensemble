@@ -3,7 +3,7 @@ name: ensemble-configure-team
 description: Analyze TRD complexity and auto-configure team roles, agent assignments, and marketplace plugins (Codex skill for /ensemble:configure-team)
 user-invocable: true
 argument-hint: '[trd-path] [--team] [--no-team]'
-model: high
+model: claude-opus-4-7
 ---
 
 # Ensemble Command: /ensemble:configure-team

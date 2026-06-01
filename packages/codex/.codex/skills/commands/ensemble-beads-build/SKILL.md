@@ -3,7 +3,7 @@ name: ensemble-beads-build
 description: Drive an existing bead hierarchy to completion through the full builder, code-review, and close pipeline (Codex skill for /ensemble:beads-build)
 user-invocable: true
 argument-hint: '[epic-id|slug-pattern] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [max parallel N]'
-model: medium
+model: claude-sonnet-4-6
 ---
 
 # Ensemble Command: /ensemble:beads-build

@@ -3,7 +3,7 @@ name: ensemble-analyze-requirements
 description: Pre-implementation cross-artifact consistency sweep — checks PRD↔TRD↔beads alignment before coding begins (Codex skill for /ensemble:analyze-requirements)
 user-invocable: true
 argument-hint: '[prd-path] [trd-path]'
-model: medium
+model: claude-sonnet-4-6
 ---
 
 # Ensemble Command: /ensemble:analyze-requirements

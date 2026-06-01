@@ -4,7 +4,7 @@ description: Analyze codebase and extract coding conventions into a standards/ d
 user-invocable: true
 argument-hint:
   - path
-model: medium
+model: claude-sonnet-4-6
 ---
 
 # Ensemble Command: /ensemble:discover-standards
