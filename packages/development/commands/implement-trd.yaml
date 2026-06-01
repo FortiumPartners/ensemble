@@ -30,6 +30,19 @@ workflow:
             - Ensure clean working directory (git status)
         
         - order: 2
+          title: TRD Staleness Gate
+          description: |
+            Check TRD freshness before creating a feature branch. Skip if branch already exists (resume).
+            Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+          actions:
+            - "Derive TRD_PATH from $ARGUMENTS (the .md path argument)."
+            - "Derive TRD_SLUG from TRD_PATH filename (lowercase, replace non-alphanumeric with hyphens)."
+            - "Resume detection: run 'git branch --list feature/<TRD_SLUG>-sprint-1'. If this returns a branch name: IS_RESUME=true. If empty: IS_RESUME=false."
+            - "Execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH and IS_RESUME."
+            - "On HALT from skill: do not proceed. Implementation stops."
+            - "On RETURN from skill: continue to step 3 (Feature Branch Creation)."
+
+        - order: 3
           title: Feature Branch Creation
           description: Create sprint-1 feature branch using git-town skill interview template
           actions:
@@ -40,16 +53,16 @@ workflow:
             - Set base_branch to main (or current default branch)
             - Execute - git-town hack feature/<trd-slug>-sprint-1 --parent <base-branch>
             - Verify branch creation successful (check git branch output)
-        
-        - order: 3
+
+        - order: 4
           title: TRD Ingestion
           description: Parse and analyze existing TRD document with checkbox tracking
         
-        - order: 4
+        - order: 5
           title: Technical Feasibility Review
           description: Validate implementation approach and architecture
-        
-        - order: 5
+
+        - order: 6
           title: Resource Assessment
           description: Identify required specialist agents and tools
     

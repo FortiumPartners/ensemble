@@ -275,6 +275,17 @@ workflow:
             - "When TEAM_MODE=false AND resume detected: existing v2.1.0 resume behavior unchanged"
 
         - order: 7
+          title: TRD Staleness Gate
+          description: |
+            Check TRD freshness before committing to a feature branch. Skip on resume.
+            Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
+          actions:
+            - "If resume was detected in Preflight step 6 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to step 8."
+            - "If first invocation (IS_RESUME=false / no ROOT_EPIC_ID found in step 6): execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH from Preflight step 4 and IS_RESUME=false."
+            - "On HALT from skill: do not proceed. Implementation stops."
+            - "On RETURN from skill (TRD fresh or successfully refined): continue to Preflight step 8 (Feature Branch Creation)."
+
+        - order: 8
           title: Feature Branch Creation
           description: Create or switch to feature branch for TRD implementation
           actions:
@@ -283,14 +294,14 @@ workflow:
             - "If exists: git switch <branch_name>"
             - "If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)"
 
-        - order: 8
+        - order: 9
           title: Strategy Detection
           description: Determine implementation strategy from arguments, TRD content, or auto-detection
           actions:
             - "Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)"
             - "Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd"
 
-        - order: 9
+        - order: 10
           title: Team Configuration Detection
           description: |
             Determine team mode using precedence order: (1) TRD ## Team Configuration section,
@@ -382,7 +393,7 @@ workflow:
             - "  - Identical to Case 3"
             - "Record which steps are skipped in the team configuration summary printed during this Preflight step."
 
-        - order: 10
+        - order: 11
           title: Marketplace Preflight Check
           description: |
             Before execution begins, check for marketplace capability gaps that may affect team
@@ -410,7 +421,7 @@ workflow:
             - "  If newly installed agents are NOT referenced in TRD team config: log 'Note: newly installed agents not referenced in TRD team config. Consider re-running /create-trd to update team configuration.'"
             - "Step 8 — If user declines all suggestions: proceed with existing team config and available agents"
 
-        - order: 11
+        - order: 12
           title: Traceability Validation Gate
           description: |
             Run validate-requirements as an automatic preflight gate before scaffolding begins.
