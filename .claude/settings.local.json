@@ -45,7 +45,10 @@
       "Bash(python3 -c \":*)",
       "WebFetch(domain:github.com)",
       "Bash(node -e \"const d=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(''''desc:'''', d.description\\); console.log\\(''''readme:'''', \\(d.readme||''''''''\\).slice\\(0,2000\\)\\)\")",
-      "Bash(bv --help)"
+      "Bash(bv --help)",
+      "Bash(git town *)",
+      "Bash(br list *)",
+      "Bash(python3 -c ' *)"
     ]
   },
   "enabledPlugins": {}
