@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.14.1
+version: 2.15.0
 category: implementation
-last-updated: 2026-05-30
+last-updated: 2026-05-31
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: claude-sonnet-4-6
@@ -320,6 +320,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)
    - Pass 3: Extract phase/PR boundaries from the '## Master Task List' section only (scope: from '## Master Task List' heading to the next '##' heading or EOF — this prevents Sprint Planning H3 headings from being misidentified as boundaries). Detection priority within that section: (1) '### PR N' headings → set PR_FORMAT=true for this parse; (2) '### Phase N' headings → PR_FORMAT=false; (3) '### Sprint N' headings → PR_FORMAT=false; (4) synthesize single boundary titled 'PR 1: Implementation' if none found. For each PR-format (PR_FORMAT=true) section: extract the optional '**Shippable State:**' line immediately following the heading; store in PHASE_SHIPPABLE_STATE[N]. Result: PHASES = [{n: 1, title: '...', tasks: [], shippable_state: '...'}...]
    - Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
+   - Pass 4b: For each task matched in Pass 4, capture its BODY = all lines from the task line up to (but excluding) the next top-level task line (a line matching '- [ ] **TRD-' at the same or lesser indentation), the next '### ' heading, or the next '## ' heading. Store raw body in TASK_BODY[task.id]. From the body, extract structured pieces into TASK_TRACEABILITY[task.id]: target_files (from 'Target File:'/'File:' lines), numbered_actions (from an 'Actions:' list), implementation_ac_checklist / test_ac_checklist (from 'Implementation AC:' / 'Test AC:' blocks), depends_on (from 'Dependencies:' lines and any [depends: TRD-NNN] annotations in the body — Pass 4b is AUTHORITATIVE for depends_on; Scaffold Step 7 reads TASK_TRACEABILITY[task.id].depends_on and does not re-parse annotations), and nested_subitems = every '- [ ]' or '- [x]' line within the body that does NOT itself match the Pass 4 top-level '**TRD-' task pattern.
+   - Pass 4c: Classify each entry in nested_subitems as a TEST sub-item when its text contains any test keyword (test, spec, e2e, coverage, unit test, integration test, jest, pytest, rspec, exunit, xunit, playwright). NOTE: This match is intentionally broad — terms like 'spec' and 'coverage' may match non-test sub-items (e.g., 'Review the OpenAPI spec'). Broad recall is preferred over precision here: a false-positive synthesized test bead is easier to close than a missed test. Store TASK_TRACEABILITY[task.id].test_subitems = ordered list of test sub-item texts. These are tests embedded under an impl task that lack their own TRD-NNN-TEST id and must be surfaced explicitly.
    - Pass 5: Validate at least one task found; warn on duplicate task IDs
    - Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id
    - Pass 7: Classify task type — if task.id ends in '-TEST' suffix, mark is_test_task=true; extract verifies_task_id (from [verifies TRD-NNN]) and satisfies_req_id (from [satisfies REQ-NNN]); store in TASK_TRACEABILITY[task.id]
@@ -359,7 +361,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]
    - If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation
    - If not found: build structured bead description based on task classification from TASK_TRACEABILITY:
-   -   For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase> (omit this line if satisfies_req_id is INFRA or ARCH)\nSatisfies: <satisfies_req_id or INFRA/ARCH>\nPRD ACs: <validates_acs>\nTarget File: <file>\nActions:\n<numbered_actions>\nImplementation AC:\n<implementation_ac_checklist>\nDependencies: <depends_on>'
+   -   For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase> (omit this line if satisfies_req_id is INFRA or ARCH)\nSatisfies: <satisfies_req_id or INFRA/ARCH>\nPRD ACs: <validates_acs>\nTarget File: <file>\nActions:\n<numbered_actions>\nImplementation AC:\n<implementation_ac_checklist>\nSub-items (every checklist item below MUST be completed before this task is done):\n<nested_subitems as a checklist>\nEmbedded tests (implement AND run these — they have no separate TRD-NNN-TEST task):\n<test_subitems as a checklist>\nDependencies: <depends_on>' (omit the 'Sub-items' section if nested_subitems is empty; omit the 'Embedded tests' section if test_subitems is empty)
    -   For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase>\nVerifies Task: <TRD_FILE_PATH>#<verifies_task_id-lowercase>\nVerifies: <verifies_task_id>\nSatisfies: <satisfies_req_id>\nPRD ACs Proven: <validates_acs>\nProof of requirement: <proof_text>\nTarget Files: <files>\nActions:\n<numbered_actions>\nTest AC:\n<test_ac_checklist>\nDependencies: <depends_on>'
    -   Fallback (task has no [satisfies] annotation AND no [verifies] annotation): use raw TRD task body as description. Tasks with [satisfies INFRA] or [satisfies ARCH] use the impl task format.
    - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json
@@ -368,13 +370,29 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - After creation: br dep add <STORY_BEAD_ID> <TASK_BEAD_ID> to establish task-blocks-story relationship (story cannot close until all its tasks close)
    - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
 
-**6. Dependency Encoding**
+**6. Synthesized Test Bead Creation for Nested Test Sub-items**
+   Promote nested test sub-items (test checklist items lacking their own TRD-NNN-TEST id) into first-class, dependency-wired test beads so they are tracked and implemented
+
+   - For each task where TASK_TRACEABILITY[task.id].test_subitems is non-empty:
+   -   For each test_subitem at index k (1-based):
+   -     synth_id = '<task.id>-TEST-S<k>'  (the -TEST-S suffix marks a synthesized sub-item test)
+   -     Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<synth_id>]; if found: TRD_TO_BEAD_MAP[synth_id] = existing id; skip creation
+   -     If not found: build description: '## Synthesized Test Task: <synth_id>\nDerived from a nested test sub-item of <task.id> (no explicit TRD-NNN-TEST task existed).\nVerifies Task: <task.id>\nVerifies: <task.id>\nSatisfies: <parent task satisfies_req_id>\nTest objective: <test_subitem text>\nTarget Files: <parent task target_files if known, else infer test file path from project conventions>\nParent impl task: <task.id>'
+   -     Run: br create --title='[trd:<TRD_SLUG>:task:<synth_id>] <test_subitem text>' --type=task --priority=<task.priority> --description='<synth description>' --json; capture SYNTH_BEAD_ID from .id
+   -     Run: br dep add <STORY_BEAD_IDs[phase.n]> <SYNTH_BEAD_ID>  where phase.n is the phase number that contains task.id (look up from STORY_BEAD_IDs map populated in Scaffold Step 4; synth test belongs to the same story/phase as its parent impl task)
+   -     Run: br dep add <SYNTH_BEAD_ID> <parent task bead id from TRD_TO_BEAD_MAP[task.id]>  (the test depends on its impl task, so it runs after the implementation)
+   -     Set TASK_TRACEABILITY[synth_id] = {is_test_task: true, verifies_task_id: task.id, satisfies_req_id: <parent satisfies_req_id>, validates_acs: <parent validates_acs>, synthesized: true}
+   -     Record TRD_TO_BEAD_MAP[synth_id] = SYNTH_BEAD_ID
+   -   Log: 'Synthesized <count> test bead(s) from nested test sub-items of <task.id>: <synth_id list>'
+   - If no task has test_subitems: skip this step (no synthesized test beads created).
+
+**7. Dependency Encoding**
    Wire explicit TRD dependencies and inter-phase sequential gates
 
    - For each task with depends_on: br dep add <TASK_BEAD_ID> <TRD_TO_BEAD_MAP[dep_id]> (warn and skip if dep not in map)
    - For each phase i >= 2: br dep add <first_task_of_phase_i> <last_task_of_phase_i-1> (inter-phase sequential gate)
 
-**7. BV Execution Planning**
+**8. BV Execution Planning**
    Run bv robot-plan and robot-triage for graph-aware execution planning
 
    - Run: br sync --flush-only (ensure JSONL is current before any bv call)
@@ -389,7 +407,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   On bv failure: echo 'WARNING: bv --robot-triage failed.'; continue without triage data
    - If BV_AVAILABLE == false: skip bv calls, use br-only sequential execution order
 
-**8. Scaffold Summary and BV Analysis**
+**9. Scaffold Summary and BV Analysis**
    Print scaffolding summary with BV analysis output
 
    - Print scaffolding summary: epic ID, story count, task count, dep count
@@ -403,7 +421,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   Print BLOCKERS TO CLEAR from TRIAGE_OUTPUT blockers_to_clear section
    - If BV_AVAILABLE == false: print 'BV analysis unavailable. Using br-only execution order.'
 
-**9. Wheel Instructions Output**
+**10. Wheel Instructions Output**
    Print execution instructions for multi-agent parallel implementation. AC: FR-WI-1, FR-WI-2, FR-WI-3, FR-WI-4, AC-WI-1, AC-WI-2
 
    - Print the following execution instructions:
@@ -442,6 +460,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - NOTE: This Execute phase implements the same execution engine as /ensemble:beads-build. If you have raw beads (not from a TRD), use /ensemble:beads-build <epic-id> instead. beads-build also accepts --trd <path> to enable TRD augmentations on any bead hierarchy.
    - Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:
+   -   a0. Re-run Scaffold Step 1 Pass 4b and Pass 4c: rebuild TASK_BODY, nested_subitems, and test_subitems per task, and re-derive synthesized '<task.id>-TEST-S<k>' traceability entries (is_test_task=true, verifies_task_id, satisfies_req_id, synthesized=true) so resumed sessions recognize synthesized test beads found via the idempotency cache.
    -   a. Re-run Scaffold Step 1 Pass 6: extract [satisfies REQ-NNN], [satisfies INFRA], [satisfies ARCH], [verifies TRD-NNN], 'Validates PRD ACs:' fields, 'Implementation AC:' blocks, and 'Proof of requirement:' fields per task
    -   b. Re-run Scaffold Step 1 Pass 7: classify task type — if task.id ends in '-TEST' suffix mark is_test_task=true; extract verifies_task_id and satisfies_req_id
    -   c. Store rebuilt map in TASK_TRACEABILITY keyed by task.id
@@ -656,6 +675,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
    -   - Include the file path(s) the task targets so the builder can Read them directly
    -   - Include the test file path(s) the task should create/modify
+   -   - If the bead description contains a 'Sub-items' or 'Embedded tests' section: list every one of those items verbatim in the builder prompt and instruct: 'You MUST implement EVERY checklist sub-item listed, including all embedded tests. The task is not complete until every sub-item — especially each test — is implemented and passing. Do not skip tests that lack their own task id.'
    -   - Each builder subagent starts with clean context — this is intentional for quality
    - Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
    - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
@@ -669,6 +689,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -      - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
    -      - Include the file path(s) the task targets so the builder can Read them directly
    -      - Include the test file path(s) the task should create/modify
+   -      - If the bead description contains a 'Sub-items' or 'Embedded tests' section: list every one of those items verbatim in the builder prompt and instruct: 'You MUST implement EVERY checklist sub-item listed, including all embedded tests. The task is not complete until every sub-item — especially each test — is implemented and passing. Do not skip tests that lack their own task id.'
    -      - Each builder subagent starts with clean context — this is intentional for quality
    -   1. Builder prompt includes additional instruction:
    -      'IMPORTANT: Do NOT close this bead (do not run br close). When done, return a structured summary:'
