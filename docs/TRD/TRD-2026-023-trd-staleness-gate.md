@@ -1,10 +1,10 @@
 ---
 document_id: TRD-2026-023
 prd_reference: docs/PRD/PRD-2026-022-trd-staleness-gate.md
-version: 1.0.0
+version: 1.0.1
 status: Draft
 date: 2026-06-01
-design_readiness_score: 4.63
+design_readiness_score: 4.88
 ---
 
 # TRD-2026-023: TRD Staleness Gate
@@ -101,11 +101,12 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
 
 ## Master Task List
 
-### PR 1: Staleness Gate Skill
+### PR 1: TRD Staleness Gate
 
-**Shippable State:** The canonical staleness gate algorithm is documented in a standalone skill file that can be referenced by any command and manually applied; the algorithm itself is reviewable and testable in isolation.
+**Shippable State:** All three `implement-trd` flavors enforce the staleness gate on first invocation — no implementation starts against a TRD older than 24 hours or with newer source files; resume paths are unaffected.
 
-- [ ] **TRD-001**: Create `packages/development/skills/staleness-gate/SKILL.md` with the full staleness gate algorithm (2h) [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008]
+- [ ] **TRD-001**: Create `packages/development/skills/staleness-gate/SKILL.md` with the full staleness gate algorithm (3h) [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008]
+  - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-003-1, AC-003-2, AC-004-1, AC-005-1, AC-008-1, AC-008-2
   - Target File: `packages/development/skills/staleness-gate/SKILL.md`
   - Actions:
     1. Create directory `packages/development/skills/staleness-gate/`
@@ -115,8 +116,8 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
        - **Step 1 — Resume Check**: if IS_RESUME=true → print "Staleness check: skipped (resume detected)" and RETURN
        - **Step 2 — Get TRD mtime**: `TRD_MTIME=$(stat -f %m "<TRD_PATH>")` (macOS) OR `TRD_MTIME=$(stat -c %Y "<TRD_PATH>")` (Linux) OR `python3 -c "import os; print(int(os.path.getmtime('<TRD_PATH>')))"` (fallback); on failure → print "WARNING: Cannot determine TRD file age — skipping staleness check." and RETURN
        - **Step 3 — Age Check**: `CURRENT_TIME=$(date +%s); AGE_SECONDS=$((CURRENT_TIME - TRD_MTIME)); AGE_HOURS=$((AGE_SECONDS / 3600)); if AGE_HOURS > 24 → STALE=true, STALE_REASON=age`
-       - **Step 4 — Source File Drift Check**: `git ls-files --exclude-standard | grep -vE "^packages/[^/]+/commands/ensemble/|^packages/pi/prompts/|^packages/codex/\.codex/"` → for each file get mtime → collect NEWER_FILES where file_mtime > TRD_MTIME; if NEWER_FILES non-empty and not already stale → STALE=true, STALE_REASON=drift
-       - **Step 5 — Gate Decision**: if STALE=false → print "Staleness check: TRD is current" and RETURN; if STALE=true and STALE_REASON=age → print "STALENESS GATE: TRD is ${AGE_HOURS}h old (threshold: 24h). Running /ensemble:refine-trd before implementation." and invoke `/ensemble:refine-trd <TRD_PATH>`; if STALE=true and STALE_REASON=drift → print "STALENESS GATE: ${NEWER_COUNT} source files are newer than the TRD." + list up to 10 file paths (show count if >10) + "Running /ensemble:refine-trd before implementation." and invoke `/ensemble:refine-trd <TRD_PATH>`
+       - **Step 4 — Source File Drift Check (always runs, even if age already triggered)**: `git ls-files --exclude-standard | grep -vE "^packages/[^/]+/commands/ensemble/|^packages/pi/prompts/|^packages/codex/\.codex/"` → for each file get mtime → collect NEWER_FILES where file_mtime > TRD_MTIME; if NEWER_FILES non-empty → STALE_DRIFT=true, NEWER_COUNT=len(NEWER_FILES); else STALE_DRIFT=false
+       - **Step 5 — Gate Decision**: STALE = (STALE_AGE OR STALE_DRIFT). If STALE=false → print "Staleness check: TRD is current" and RETURN. If STALE=true → build combined message: if STALE_AGE → append "TRD is ${AGE_HOURS}h old (threshold: 24h)."; if STALE_DRIFT → append "${NEWER_COUNT} source file(s) are newer than the TRD:" + list up to 10 file paths (append "(and ${NEWER_COUNT-10} more)" if >10); append "Running /ensemble:refine-trd before implementation." and invoke `/ensemble:refine-trd <TRD_PATH>`
        - **Step 6 — Post-Refinement Decision**: if refine-trd exits 0 → print "Staleness gate satisfied — TRD refreshed. Proceeding with implementation." and RETURN (no re-check); if refine-trd exits non-zero → print "STALENESS GATE FAILURE: TRD refinement failed. Fix the TRD manually and re-run." and HALT
        - **Known Limitation section**: document mtime reset on git clone/checkout/pull
   - Implementation AC:
@@ -126,6 +127,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given refine-trd exits non-zero, when post-refinement decision runs, then HALT is reached with the correct error message
 
 - [ ] **TRD-001-TEST**: Verify SKILL.md documents all required behaviors with complete accuracy (1h) [verifies TRD-001] [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-003] [satisfies REQ-004] [satisfies REQ-005] [satisfies REQ-006] [satisfies REQ-008] [depends: TRD-001]
+  - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-003-1, AC-003-2, AC-004-1, AC-005-1, AC-008-1, AC-008-2
   - Target Files: `packages/development/skills/staleness-gate/SKILL.md`
   - Actions:
     1. Read the SKILL.md and verify: (a) all 6 algorithm steps are present, (b) both platform-specific stat variants documented, (c) exclusion list matches PRD REQ-002 exactly, (d) NEWER_FILES truncation at 10 entries specified, (e) post-refinement no-recheck is explicit, (f) Known Limitation section present
@@ -136,11 +138,8 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the exclusion list in SKILL.md, when compared to PRD REQ-002's list, then all excluded path patterns are present and correct
   - Proof of requirement: All 14 ACs from PRD-2026-022 map to documented SKILL.md behaviors
 
-### PR 2: Command Integration
-
-**Shippable State:** All three `implement-trd` flavors enforce the staleness gate on first invocation — no implementation starts against a TRD older than 24 hours or with newer source files; resume paths are unaffected.
-
 - [ ] **TRD-002**: Add TRD Staleness Gate step to `implement-trd-beads.yaml` Preflight (2h) [satisfies REQ-007] [depends: TRD-001]
+  - Validates PRD ACs: AC-006-1
   - Target File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Insert new Preflight step between current step 6 (Resume Detection) and current step 7 (Feature Branch Creation). The new step becomes order 7; renumber existing steps 7→8, 8→9, 9→10, 10→11, 11→12.
@@ -163,6 +162,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given a resume (ROOT_EPIC_ID set in step 6), when Preflight step 7 runs, then it prints the skip message and continues to step 8 without any file system checks
 
 - [ ] **TRD-002-TEST**: Verify implement-trd-beads staleness step is correct, correctly numbered, and does not disturb existing step references (1h) [verifies TRD-002] [satisfies REQ-007] [depends: TRD-002]
+  - Validates PRD ACs: AC-006-1
   - Target File: `packages/development/commands/implement-trd-beads.yaml`
   - Actions:
     1. Parse Preflight steps; confirm new step order 7 exists with title "TRD Staleness Gate"
@@ -176,6 +176,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the Preflight step list, when step orders 1-12 are enumerated, then all are sequential with no gaps
 
 - [ ] **TRD-003**: Add TRD Staleness Gate step to `implement-trd.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
+  - Validates PRD ACs: AC-006-2
   - Target File: `packages/development/commands/implement-trd.yaml`
   - Actions:
     1. Insert new Preflight step between current step 1 (Git Town Verification) and current step 2 (Feature Branch Creation). New step becomes order 2; renumber existing steps 2→3, 3→4, 4→5, 5→6.
@@ -200,6 +201,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the feature branch `feature/<TRD_SLUG>-sprint-1` already exists, when Preflight step 2 runs, then IS_RESUME=true and the gate is skipped
 
 - [ ] **TRD-003-TEST**: Verify implement-trd staleness step is correct and correctly numbered (0.5h) [verifies TRD-003] [satisfies REQ-007] [depends: TRD-003]
+  - Validates PRD ACs: AC-006-2
   - Target File: `packages/development/commands/implement-trd.yaml`
   - Actions:
     1. Confirm new step order 2 with title "TRD Staleness Gate" exists
@@ -212,6 +214,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given the Preflight steps, when steps 1-6 are enumerated, then all are sequential with no gaps
 
 - [ ] **TRD-004**: Add TRD Staleness Gate step to `beads-build.yaml` Preflight (1h) [satisfies REQ-007] [depends: TRD-001]
+  - Validates PRD ACs: AC-006-1, AC-007-1, AC-007-2
   - Target File: `packages/development/commands/beads-build.yaml`
   - Actions:
     1. Insert new Preflight step between current step 5 (TRD Augmentation Setup) and current step 6 (Strategy Detection). New step becomes order 6; renumber existing steps 6→7, 7→8.
@@ -236,6 +239,7 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
     - Given `beads-build --trd <stale-trd>` with no existing root epic, when Preflight step 6 runs, then the staleness gate executes before any execution begins
 
 - [ ] **TRD-004-TEST**: Verify beads-build staleness step is correct and correctly numbered (0.5h) [verifies TRD-004] [satisfies REQ-007] [depends: TRD-004]
+  - Validates PRD ACs: AC-006-1, AC-007-1, AC-007-2
   - Target File: `packages/development/commands/beads-build.yaml`
   - Actions:
     1. Confirm new step order 6 with title "TRD Staleness Gate" exists
@@ -262,14 +266,11 @@ File mtimes reset to current time after `git clone`, `git checkout`, or `git pul
 
 ## Sprint Planning
 
-### Sprint 1 (PR 1 + PR 2 — single sprint, ~9.5h total)
+### Sprint 1 (single PR — ~10.5h total)
 
-PR 1 can be reviewed independently (skill file only). PR 2 depends on PR 1 merging. Both fit within a single sprint given the bounded scope.
+All 9 tasks ship in one PR. TRD-001 (skill file) and TRD-001-TEST must complete first; TRD-002, TRD-003, TRD-004 can then execute in parallel (no file conflicts); TRD-005 runs last.
 
-- **PR 1 tasks** (3h): TRD-001, TRD-001-TEST
-- **PR 2 tasks** (6.5h): TRD-002, TRD-002-TEST, TRD-003, TRD-003-TEST, TRD-004, TRD-004-TEST, TRD-005
-
-TRD-002, TRD-003, TRD-004 can execute in parallel after TRD-001 merges (no file conflicts between the three command YAMLs).
+- **PR 1 tasks** (10.5h): TRD-001, TRD-001-TEST, TRD-002, TRD-002-TEST, TRD-003, TRD-003-TEST, TRD-004, TRD-004-TEST, TRD-005
 
 ---
 
@@ -335,8 +336,21 @@ Git mtime reset on clone/checkout is accepted and documented. Semantic staleness
 
 | Dimension | Score | Notes |
 |-----------|-------|-------|
-| Architecture completeness | 4.5 | All components, interfaces, data flows defined; platform-specific stat noted; mtime fallback documented |
-| Task coverage | 4.5 | All 8 REQs covered; all 5 impl tasks have paired test tasks; INFRA task for regen included |
-| Dependency clarity | 5.0 | Clean 2-level tree: TRD-001 → {TRD-002, TRD-003, TRD-004} → TRD-005; no cycles |
-| Estimate confidence | 4.5 | Well-scoped YAML edits; TRD-002 (beads renumbering 7→12) is most complex at 2h |
-| **Overall** | **4.63** | **PASS — ready for implementation** |
+| Architecture completeness | 4.75 | All components, interfaces, data flows defined; dual-condition algorithm now fully specified; both conditions always evaluated and reported |
+| Task coverage | 5.0 | All 8 REQs covered; Validates PRD ACs fields added to all impl/test tasks; full AC traceability |
+| Dependency clarity | 5.0 | Single PR; clean 2-level tree: TRD-001 → {TRD-002, TRD-003, TRD-004} → TRD-005; no cycles |
+| Estimate confidence | 5.0 | TRD-001 bumped to 3h (realistic for detailed SKILL.md); all other estimates unchanged |
+| **Overall** | **4.88** | **PASS — ready for implementation** |
+
+---
+
+## Changelog
+
+### v1.0.1 — 2026-06-01 (refined via /ensemble:refine-trd)
+
+- **Collapsed PR 1 + PR 2 into single PR**: skill file and command integration now ship together; Shippable State updated to describe user-observable enforcement across all three flavors
+- **Added `Validates PRD ACs:` fields** to TRD-001, TRD-001-TEST, TRD-002, TRD-002-TEST, TRD-003, TRD-003-TEST, TRD-004, TRD-004-TEST — full PRD AC sub-ID traceability now in place
+- **Dual-condition observability**: SKILL.md Step 4 now always runs (drift check no longer short-circuits on age); Step 5 builds a combined message when both age and drift conditions are true
+- **TRD-001 estimate**: 2h → 3h (more realistic for the level of specification detail required)
+- **Total estimated hours**: 9.5h → 10.5h
+- **Design Readiness Score**: 4.63 → 4.88 (improved)
