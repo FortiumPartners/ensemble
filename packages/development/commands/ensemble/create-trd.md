@@ -5,7 +5,7 @@ version: 3.1.0
 category: planning
 last-updated: 2026-05-30
 argument-hint: [prd-path] [--team]
-model: high
+model: claude-opus-4-7
 ---
 <!-- DO NOT EDIT - Generated from create-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
