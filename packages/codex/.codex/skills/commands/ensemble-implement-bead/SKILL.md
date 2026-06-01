@@ -3,7 +3,7 @@ name: ensemble-implement-bead
 description: Implement a single beads task by ID through analysis, implementation, and PR creation (Codex skill for /ensemble:implement-bead)
 user-invocable: true
 argument-hint: <bead-id>
-model: medium
+model: claude-sonnet-4-6
 ---
 
 # Ensemble Command: /ensemble:implement-bead

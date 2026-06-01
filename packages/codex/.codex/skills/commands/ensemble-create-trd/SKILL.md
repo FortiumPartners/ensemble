@@ -3,7 +3,7 @@ name: ensemble-create-trd
 description: Create Technical Requirements Document from PRD with architecture design and adversarial review (Codex skill for /ensemble:create-trd)
 user-invocable: true
 argument-hint: '[prd-path] [--team]'
-model: high
+model: claude-opus-4-7
 ---
 
 # Ensemble Command: /ensemble:create-trd

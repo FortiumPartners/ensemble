@@ -2,7 +2,7 @@
 name: ensemble-create-prd
 description: Create comprehensive Product Requirements Document with structured elicitation and adversarial review (Codex skill for /ensemble:create-prd)
 user-invocable: true
-model: high
+model: claude-opus-4-7
 ---
 
 # Ensemble Command: /ensemble:create-prd
