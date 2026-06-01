@@ -1,9 +1,9 @@
 ---
 name: ensemble:fold-prompt
 description: Optimize CLAUDE.md for token efficiency, standards discovery, and progressive context loading
-version: 2.0.0
+version: 2.0.1
 category: analysis
-last-updated: 2026-03-28
+last-updated: 2026-05-31
 ---
 <!-- DO NOT EDIT - Generated from fold-prompt.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

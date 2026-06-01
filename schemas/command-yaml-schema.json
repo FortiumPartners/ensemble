@@ -35,7 +35,7 @@
         },
         "category": {
           "type": "string",
-          "enum": ["analysis", "workflow", "infrastructure", "quality", "documentation", "git", "testing", "planning", "implementation", "deployment"],
+          "enum": ["analysis", "workflow", "infrastructure", "quality", "documentation", "git", "testing", "planning", "implementation", "deployment", "configuration"],
           "description": "Command category"
         },
         "output_path": {
