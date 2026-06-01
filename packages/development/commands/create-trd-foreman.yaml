@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:create-trd-foreman
   description: Create Foreman-native structured Technical Requirements Document from PRD — omits adversarial review phase, outputs parser-compatible tables
-  version: 3.0.0
-  lastUpdated: "2026-04-16"
+  version: 3.0.1
+  lastUpdated: "2026-05-31"
   category: planning
   output_path: ensemble/create-trd-foreman.md
   source: fortium
@@ -133,7 +133,7 @@ workflow:
             - Organize tasks into sprints/phases based on dependency order
             - Ensure no circular dependencies exist in the task graph
             - Ensure no dependency points to a task ID that is absent from the final TRD tables
-            - Ensure dependency ordering: if Task A depends on Task B, Task B must appear before Task A
+            - 'Ensure dependency ordering: if Task A depends on Task B, Task B must appear before Task A'
 
     - name: MCP Enhancement (Optional)
       order: 4

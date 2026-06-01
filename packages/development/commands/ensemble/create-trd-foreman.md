@@ -1,10 +1,11 @@
 ---
 name: ensemble:create-trd-foreman
 description: Create Foreman-native structured Technical Requirements Document from PRD — omits adversarial review phase, outputs parser-compatible tables
-version: 3.0.0
+version: 3.0.1
 category: planning
-last-updated: 2026-04-16
+last-updated: 2026-05-31
 argument-hint: [prd-path]
+model: high
 ---
 <!-- DO NOT EDIT - Generated from create-trd-foreman.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
@@ -92,8 +93,8 @@ alternatives, and a structured task breakdown with deterministic markdown tables
    - Set every Status cell to `[ ]` so Foreman creates dispatchable native tasks rather than completed tasks
    - Use dependencies that reference other task IDs exactly as strings in the Dependencies column
    - Ensure task rows are implementation-oriented and deterministic, not prose narratives
-   - **CRITICAL: First column header must be exactly `id` (lowercase) — not `ID`, `TRD ID`, or `Task ID`**
-   - **CRITICAL: Second column must contain `task`, `description`, or `title`**
+   - CRITICAL: First column header must be exactly `id` (lowercase) — not `ID`, `TRD ID`, or `Task ID`
+   - CRITICAL: Second column must contain `task`, `description`, or `title`
 
 **2. Test Task Generation**
    Generate paired validation tasks that still satisfy Foreman table parsing
@@ -128,9 +129,9 @@ alternatives, and a structured task breakdown with deterministic markdown tables
 
    **MCP Tool:** `inject_checkpoints`
    Automatically inject checkpoint tasks into task breakdown:
-   - After major milestones
-   - Before deployments
-   - At integration points
+- After major milestones
+- Before deployments
+- At integration points
 
    **Fallback:** Manually add checkpoint tasks using project patterns
 
@@ -139,9 +140,9 @@ alternatives, and a structured task breakdown with deterministic markdown tables
 
    **MCP Tool:** `assess_complexity`
    Analyze overall project complexity:
-   - Estimate total hours
-   - Identify high-risk tasks
-   - Suggest sprint organization
+- Estimate total hours
+- Identify high-risk tasks
+- Suggest sprint organization
 
    **Fallback:** Manually estimate complexity based on task estimates
 
@@ -150,9 +151,9 @@ alternatives, and a structured task breakdown with deterministic markdown tables
 
    **MCP Tool:** `generate_workflow_section`
    Generate comprehensive workflow markdown:
-   - Sprint-by-sprint execution plan
-   - Task dependencies and ordering
-   - Checkbox tracking for progress
+- Sprint-by-sprint execution plan
+- Task dependencies and ordering
+- Checkbox tracking for progress
 
    **Fallback:** Manually structure workflow using TRD template patterns
 
@@ -168,7 +169,7 @@ alternatives, and a structured task breakdown with deterministic markdown tables
    - Preserve parser-compatible sprint/story/table structure exactly; do not replace tables with prose checklists
    - File naming must be docs/TRD/TRD-YYYY-NNN-<slug>.md — same slug as beads path, NO `-foreman` suffix
    - Write exactly one primary parser-compatible TRD markdown file; any auxiliary summaries must not replace or redefine the task tables
-   - **CRITICAL: Validate that all task Status cells in ALL tables are `[ ]` — no `[x]`, `done`, or other markers permitted**
+   - CRITICAL: Validate that all task Status cells in ALL tables are `[ ]` — no `[x]`, `done`, or other markers permitted
 
 **2. Acceptance Criteria Traceability**
    Generate traceability information without breaking the parser-friendly TRD layout
@@ -182,7 +183,7 @@ alternatives, and a structured task breakdown with deterministic markdown tables
 
    - Validate that every task ID referenced in Dependencies exists in the generated tables
    - Validate that required columns `id`, `task`, and `status` exist for every story table
-   - **CRITICAL: Confirm all Status cells are `[ ]` — fail the phase if any `[x]` or `done` markers found**
+   - CRITICAL: Confirm all Status cells are `[ ]` — fail the phase if any `[x]` or `done` markers found
    - Warn (do NOT halt) if any PRD REQ-NNN has zero corresponding task references in the traceability section
    - Print summary: Foreman compatibility check: parser-safe=<yes/no>, dependency-orphans=N, uncovered-reqs=M
 
