@@ -2,7 +2,7 @@
 name: ensemble-migrate-model-config
 description: One-shot migration from legacy ~/.config/ensemble/model-selection.json to project-level .claude/ensemble-model-config.json (Codex skill for /ensemble:migrate-model-config)
 user-invocable: true
-model: medium
+model: claude-sonnet-4-6
 ---
 
 # Ensemble Command: /ensemble:migrate-model-config
