@@ -3,7 +3,7 @@ name: ensemble:map-model
 description: Interactive wizard to pin Claude model tier mappings for this project
 version: 1.0.1
 category: configuration
-model: medium
+model: claude-sonnet-4-6
 ---
 <!-- DO NOT EDIT - Generated from map-model.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->
