@@ -309,6 +309,7 @@ Pre-approved commands:
 - `gh run list`
 - `claude plugin install`, `claude plugin marketplace update`
 - `grep`
+- [Environment Variables](docs/guides/environment-variables.md) — all env vars used by Ensemble, with defaults and examples
 
 ## Validation & CI
 
