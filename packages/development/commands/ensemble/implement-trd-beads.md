@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.15.0
+version: 2.16.0
 category: implementation
-last-updated: 2026-05-31
+last-updated: 2026-06-04
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: claude-sonnet-4-6
@@ -1136,6 +1136,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - Run: br sync --flush-only
    - If gate_passed: br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(<bead_prefix> <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
+   - Pre-PR test gate: before running git town propose, run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the quality gate to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue.
    - If gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.
 **Shippable:** <shippable>
 Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
