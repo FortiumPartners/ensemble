@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd
 description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
-version: 2.1.0
+version: 2.2.0
 category: implementation
-last-updated: 2026-05-27
+last-updated: 2026-06-04
 model: claude-sonnet-4-6
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->
@@ -107,6 +107,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **6. Sprint PR Stacking**
    After quality gate passes, create a stacked PR for the current sprint and advance to the next sprint branch
 
+   - Pre-PR test gate: run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the sprint review to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue.
    - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
    - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
    - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; run git town hack feature/<trd-slug>-sprint-<NEXT_SPRINT> --parent feature/<trd-slug>-sprint-<CURRENT_SPRINT>; set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint

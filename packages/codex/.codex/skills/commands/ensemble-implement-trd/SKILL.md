@@ -111,6 +111,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **6. Sprint PR Stacking**
    After quality gate passes, create a stacked PR for the current sprint and advance to the next sprint branch
 
+   - Pre-PR test gate: run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the sprint review to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue.
    - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
    - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
    - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; run git town hack feature/<trd-slug>-sprint-<NEXT_SPRINT> --parent feature/<trd-slug>-sprint-<CURRENT_SPRINT>; set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
