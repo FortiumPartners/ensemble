@@ -361,8 +361,9 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **1. Phase Completion Detection**
    Detect when all tasks in a phase are closed
 
-   - After each task completion: run br list --status=open --json filtered by EPIC_SLUG and current phase prefix to find remaining open tasks
-   - If no open tasks remain for this phase: trigger quality gate for this story/phase
+   - After each task completion: determine CURRENT_PHASE_N = the lowest-numbered phase/story with open tasks. Task beads carry NO phase prefix in their title — phase membership comes from the dependency children of the phase story bead (the task beads it blocks). Reconstruct the per-phase task id set from each STORY_BEAD_ID dependency children if not already tracked.
+   - Phase N is complete when every task bead that is a dependency child of STORY_BEAD_IDs[N] has status==closed. Do NOT filter by a phase:<N> title prefix — task beads have no such segment.
+   - If all tasks for phase N are closed: trigger the quality gate for STORY_BEAD_IDs[N].
 
 **2. Test Execution**
    Delegate test suite execution to test-runner, with scope adjusted for team mode
