@@ -47,6 +47,7 @@ Key behaviors:
    - If $ARGUMENTS contains '--plan' AND $ARGUMENTS contains '--execute': print 'ERROR: --plan and --execute are mutually exclusive.' and EXIT
    - If $ARGUMENTS contains '--plan': set PLAN_ONLY=true (scaffold phase runs, Execute phase is skipped — print wheel instructions and exit after scaffold completes)
    - If $ARGUMENTS contains '--execute': set EXECUTE_ONLY=true (scaffold phase is skipped — resume detection runs, Execute phase runs against existing beads)
+   - Read ENSEMBLE_USE_STACKED_PRS environment variable: if its value equals 'true' (case-insensitive) set STACKED_PRS=true; otherwise set STACKED_PRS=false (DEFAULT — single PR for the entire TRD). STACKED_PRS governs PR-creation strategy only: true = one stacked PR per ### PR N: section via a git town append chain; false = all phases implemented on a single branch with ONE PR created at Completion. Phase-strict execution ordering (finish phase N before phase N+1) applies in BOTH modes when PR_FORMAT=true. Log: 'Stacked PRs: <enabled if STACKED_PRS else disabled (single PR)>'.
    - If $ARGUMENTS contains '--status' AND TEAM_MODE=true: (TRD-029, AC: FR-IT-8, AC-BC-2)
    -   1. Derive TRD_SLUG from filename (same derivation as normal Preflight step 4)
    -   2. Run: br list --status=in_progress --json, filter by [trd:<TRD_SLUG>:task:] prefix
@@ -160,7 +161,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **8. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
-   - branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'; CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
+   - If STACKED_PRS=true: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'. If STACKED_PRS=false: branch_name = 'feature/<TRD_SLUG>' (a single branch for the whole TRD). CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
    - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
@@ -525,7 +526,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       4. If available_slots > 0:
    -          - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
    -            Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
-   -          - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. Restrict the candidate task(s) to ids in PHASE_TASK_IDS[CURRENT_PHASE_N]; DISCARD any returned task belonging to a later phase. Never dispatch a builder for a phase N+1 task until phase N's quality gate has fired (PR N created + PR N+1 branch appended). PR_FORMAT=false: no phase restriction — use bv/br ordering directly.
+   -          - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. Restrict the candidate task(s) to ids in PHASE_TASK_IDS[CURRENT_PHASE_N]; DISCARD any returned task belonging to a later phase. Never dispatch a builder for a phase N+1 task until phase N's quality gate has passed and its checkpoint commit is made; in stacked mode the PR is also created and the next branch appended. PR_FORMAT=false: no phase restriction — use bv/br ordering directly.
    -          - For each task (up to available_slots):
    -            a. (TRD-021) Architecture Review: check task description for keywords:
    -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
@@ -655,7 +656,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
    - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
    - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-   - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. If the task returned above belongs to a phase later than CURRENT_PHASE_N, DISCARD it and instead select the highest-priority ready task whose id is in PHASE_TASK_IDS[CURRENT_PHASE_N]. Never start a phase N+1 task until phase N's quality gate has fired (PR N created + PR N+1 branch appended via git town append). PR_FORMAT=false: skip this guard.
+   - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. If the task returned above belongs to a phase later than CURRENT_PHASE_N, DISCARD it and instead select the highest-priority ready task whose id is in PHASE_TASK_IDS[CURRENT_PHASE_N]. Never start a phase N+1 task until phase N's quality gate has passed and its checkpoint commit is made; in stacked mode the PR is also created and the next branch appended. PR_FORMAT=false: skip this guard.
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -1144,12 +1145,13 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - Run: br sync --flush-only
    - If gate_passed: br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(<bead_prefix> <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
-   - Pre-PR test gate: before running git town propose, run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the quality gate to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue.
-   - If gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.
+   - If STACKED_PRS=true AND gate_passed: Pre-PR test gate — run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the quality gate to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.'
+   - If STACKED_PRS=true AND gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.
 **Shippable:** <shippable>
 Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
-   - If gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
-   - If gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; ensure currently checked out on <CURRENT_PHASE_BRANCH> (git switch <CURRENT_PHASE_BRANCH> if needed); run git town append <NEXT_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch via git town append)'
+   - If STACKED_PRS=true AND gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
+   - If STACKED_PRS=true AND gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; ensure currently checked out on <CURRENT_PHASE_BRANCH> (git switch <CURRENT_PHASE_BRANCH> if needed); run git town append <NEXT_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch via git town append)'
+   - If STACKED_PRS=false AND gate_passed: do NOT create a PR and do NOT append a branch for this phase. Stay on CURRENT_PHASE_BRANCH (the single TRD branch); the phase checkpoint commit above is retained. Continue to the next phase's tasks. The single PR for the entire TRD is created in the Completion phase.
    - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
    -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
    -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
@@ -1245,8 +1247,9 @@ Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%
    -     ========================================
    - Run: br sync --flush-only
    - Call trd_progress() (Execute phase order 10) for the final TRD-scoped progress summary (expect <TOTAL>/<TOTAL> complete, 100%)
-   - Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per entry in PHASE_PR_MAP: use label='PR' if PR_FORMAT=true else 'Phase'; print '<label> <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[N] exists, print '  Shippable: <PHASE_SHIPPABLE_STATE[N]>' on the next line; end with '========================'
-   - Remind user: PRs were created per-<label> via git town propose. Merge <label> 1 PR first (it targets main). After each merges, git-town automatically retargets the next PR against main.
+   - If STACKED_PRS=false: create the single PR for the whole TRD now. Pre-PR test gate — run 'npm run test --workspaces --if-present'; if exit != 0 print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run.' and HALT. Then run git town propose --title 'feat(<TRD_SLUG>): <TRD_TITLE>' --body 'Implements TRD <TRD_SLUG>. Strategy: <strategy>. <phase_count> phases, <task_count> tasks — all complete. Bead: <ROOT_EPIC_ID>.'; record the URL as SINGLE_PR_URL; print '=== PR SUMMARY ===' then 'PR: <SINGLE_PR_URL> (branch: feature/<TRD_SLUG> -> main)' then '=================='; remind the user to review and merge it. Then SKIP the stacked PR summary.
+   - If STACKED_PRS=true: Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per entry in PHASE_PR_MAP: use label='PR' if PR_FORMAT=true else 'Phase'; print '<label> <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[N] exists, print '  Shippable: <PHASE_SHIPPABLE_STATE[N]>' on the next line; end with '========================'
+   - If STACKED_PRS=true: Remind user: PRs were created per-<label> via git town propose. Merge <label> 1 PR first (it targets main). After each merges, git-town automatically retargets the next PR against main.
    - Remind user: after all PRs merge, run: mv <trd_file> docs/TRD/completed/
    - Remind user: br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'
    - TIP: The execution engine used here is also available standalone as /ensemble:beads-build <epic-id>. Use it to drive any bead hierarchy (not just TRD-generated ones) through the same build pipeline.

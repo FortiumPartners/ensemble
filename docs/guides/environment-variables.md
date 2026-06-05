@@ -16,6 +16,7 @@ Set these in your shell before invoking Ensemble commands. None are required unl
 | `METRICS_API_URL` | `http://localhost:3002/api/v1` | Endpoint for posting usage and metrics events. Only needed when using the metrics plugin. | `METRICS_API_URL=https://metrics.example.com/api/v1` |
 | `METRICS_API_TOKEN` | _(none)_ | Bearer token for the metrics API. When set, sent as `Authorization: Bearer <token>`. Only needed when the metrics endpoint requires authentication. | `METRICS_API_TOKEN=secret-token` |
 | `PROJECT_ID` | Current directory basename | Project identifier tag attached to all metric events. Defaults to the basename of the current working directory. | `PROJECT_ID=my-project` |
+| `ENSEMBLE_USE_STACKED_PRS` | _(unset — single PR)_ | When `true`, `implement-trd` and `implement-trd-beads` create one stacked PR per `### PR N:` / sprint section (git-town append chain). When unset or any other value, all phases are implemented on a single branch and ONE PR is created for the whole TRD. Phase ordering is preserved either way. | `ENSEMBLE_USE_STACKED_PRS=true` then run `/ensemble:implement-trd-beads docs/TRD/my-trd.md` |
 
 ## Injected by Claude Code
 
