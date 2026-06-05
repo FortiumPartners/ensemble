@@ -488,7 +488,7 @@ describe('buildScaffoldPlan — null/non-object task entries', () => {
 
 describe('buildScaffoldPlan — integration with real fixture', () => {
   const md = fs.readFileSync(
-    path.join(__dirname, 'fixtures', 'trd-pr-format.md'),
+    path.join(__dirname, 'fixtures', 'TRD-2026-023-trd-staleness-gate.md'),
     'utf8',
   );
   const parsed = parseTRD(md);
