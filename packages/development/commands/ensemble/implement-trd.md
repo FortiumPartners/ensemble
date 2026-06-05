@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd
 description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
-version: 2.2.0
+version: 2.3.0
 category: implementation
-last-updated: 2026-06-04
+last-updated: 2026-06-05
 model: claude-sonnet-4-6
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->
@@ -47,7 +47,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
    - Set CURRENT_SPRINT=1; set CURRENT_BRANCH=feature/<trd-slug>-sprint-1
    - Validate branch name against pattern - ^[a-z0-9-]+(/[a-z0-9-]+)*$
    - Set base_branch to main (or current default branch)
-   - Execute - git-town hack feature/<trd-slug>-sprint-1 --parent <base-branch>
+   - Execute - git town hack feature/<trd-slug>-sprint-1 (creates the first sprint branch off the default branch; fallback - git switch -c feature/<trd-slug>-sprint-1)
    - Verify branch creation successful (check git branch output)
 
 **4. TRD Ingestion**
@@ -110,7 +110,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
    - Pre-PR test gate: run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the sprint review to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue.
    - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
    - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
-   - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; run git town hack feature/<trd-slug>-sprint-<NEXT_SPRINT> --parent feature/<trd-slug>-sprint-<CURRENT_SPRINT>; set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
+   - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; ensure currently on feature/<trd-slug>-sprint-<CURRENT_SPRINT> (git switch if needed); run git town append feature/<trd-slug>-sprint-<NEXT_SPRINT> (stacks the next sprint branch on the current sprint branch; fallback - git switch -c feature/<trd-slug>-sprint-<NEXT_SPRINT>); set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
    - If no more sprints - print stacked PR summary with all SPRINT_PR_MAP entries; implementation complete
 
 ## Expected Output

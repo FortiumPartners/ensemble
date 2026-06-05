@@ -1,9 +1,9 @@
 ---
 name: ensemble:implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-version: 2.16.0
+version: 2.17.0
 category: implementation
-last-updated: 2026-06-04
+last-updated: 2026-06-05
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task
 argument-hint: [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
 model: claude-sonnet-4-6
@@ -379,6 +379,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Capture TASK_BEAD_ID by parsing .id from JSON response
    - After creation: br dep add <STORY_BEAD_ID> <TASK_BEAD_ID> to establish task-blocks-story relationship (story cannot close until all its tasks close)
    - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
+   - Record PHASE_TASK_IDS[phase.n]: append task.id to the list for the phase this task belongs to (from the PHASES structure built in TRD Parsing Pass 3/4). PHASE_TASK_IDS is the AUTHORITATIVE task→phase membership for Phase Completion Detection and the phase-strict execution guard. Task bead titles carry no phase/pr segment, so membership must come from this map (or, on resume, from each story bead's dependency children).
 
 **6. Synthesized Test Bead Creation for Nested Test Sub-items**
    Promote nested test sub-items (test checklist items lacking their own TRD-NNN-TEST id) into first-class, dependency-wired test beads so they are tracked and implemented
@@ -521,6 +522,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       4. If available_slots > 0:
    -          - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
    -            Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
+   -          - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. Restrict the candidate task(s) to ids in PHASE_TASK_IDS[CURRENT_PHASE_N]; DISCARD any returned task belonging to a later phase. Never dispatch a builder for a phase N+1 task until phase N's quality gate has fired (PR N created + PR N+1 branch appended). PR_FORMAT=false: no phase restriction — use bv/br ordering directly.
    -          - For each task (up to available_slots):
    -            a. (TRD-021) Architecture Review: check task description for keywords:
    -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
@@ -545,7 +547,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -               - No skips: normal flow (in_progress -> in_review -> in_qa -> closed)
    -               AC: FR-LL-6, FR-LL-7, FR-LL-10, AC-LL-3, AC-LL-4, AC-LL-5, AC-LL-6
    -            c. (TRD-022) Sibling Task Context: collect completed sibling tasks in same phase:
-   -               - Query br list --status=closed --json, filter by [trd:<TRD_SLUG>:phase:<N>] prefix
+   -               - Query br list --status=closed --json filtered by TRD slug, then restrict to task ids in PHASE_TASK_IDS[N] (task beads carry no phase/pr title segment — do NOT filter by a [trd:<TRD_SLUG>:phase:<N>] prefix, which never matches)
    -               - For each closed task in this phase: read br comment list, find last implementation summary
    -               - Limit to 5 most recently closed siblings
    -               - If sibling context found, add to builder prompt:
@@ -650,6 +652,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
    - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
    - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
+   - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. If the task returned above belongs to a phase later than CURRENT_PHASE_N, DISCARD it and instead select the highest-priority ready task whose id is in PHASE_TASK_IDS[CURRENT_PHASE_N]. Never start a phase N+1 task until phase N's quality gate has fired (PR N created + PR N+1 branch appended via git town append). PR_FORMAT=false: skip this guard.
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -1081,8 +1084,10 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **1. Phase Completion Detection**
    Detect when all tasks in a phase are closed
 
-   - After each task completion: run br list --status=open --json, filter by title prefix [trd:<TRD_SLUG>:phase:<N>] to find tasks for this phase
-   - If no open tasks remain for this phase: trigger quality gate for this story/phase
+   - Determine CURRENT_PHASE_N = the lowest-numbered phase that still has open tasks. Task beads are titled [trd:<TRD_SLUG>:task:<ID>] and carry NO phase/pr segment — phase membership comes from PHASE_TASK_IDS[N] (Scaffold Task Bead Creation) or, on resume, from the dependency children of STORY_BEAD_IDs[N].
+   - Resume rebuild: if PHASE_TASK_IDS is empty (cross-session resume), reconstruct it per phase by reading each STORY_BEAD_IDs[N] bead's dependency children (the task beads it blocks). Do NOT use a [trd:<TRD_SLUG>:phase:<N>] title filter — it never matches task beads.
+   - After each task completion: run br list --all --json filtered by TRD slug. Phase N is COMPLETE when every task id in PHASE_TASK_IDS[N] has bead status=='closed'.
+   - If all tasks in PHASE_TASK_IDS[CURRENT_PHASE_N] are closed: trigger the quality gate for STORY_BEAD_IDs[CURRENT_PHASE_N] (this is what creates PR N and appends the PR N+1 branch). Until then, do NOT trigger the gate.
 
 **2. Test Execution**
    Delegate test suite execution to test-runner, with scope adjusted for team mode. AC: FR-QA-7
