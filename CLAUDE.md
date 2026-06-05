@@ -226,6 +226,8 @@ ensemble-orchestrator (chief)
 
 Legacy TRDs continue to work without modification — no migration required.
 
+See [Stacked PRs Usage Guide](docs/guides/stacked-prs.md) for a step-by-step walkthrough, branch naming reference, merge order, and common troubleshooting.
+
 ## Testing
 
 ### Frameworks
