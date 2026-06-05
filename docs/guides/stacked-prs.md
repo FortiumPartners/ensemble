@@ -2,6 +2,8 @@
 
 `implement-trd-beads` turns `### PR N:` sections in the TRD Master Task List into a git-town stacked PR chain. Each PR section becomes its own feature branch; branches are stacked so each PR targets the previous one, and git-town automatically retargets child PRs as the stack merges bottom-up into main. This guide walks through TRD structure, the full workflow, branch naming, merge order, cross-session resume, and common mistakes with fixes.
 
+**Stacked PRs are opt-in.** Set `ENSEMBLE_USE_STACKED_PRS=true` in your environment to enable the per-PR stacked workflow described in this guide. Without it (the default), `implement-trd-beads` implements all PR sections on a single branch and opens ONE pull request for the whole TRD. Phase ordering is preserved either way.
+
 ## Table of Contents
 
 1. [How to structure your TRD](#1-how-to-structure-your-trd)

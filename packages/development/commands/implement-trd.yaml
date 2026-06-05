@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:implement-trd
   description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology
-  version: 2.3.0
+  version: 2.4.0
   lastUpdated: "2026-06-05"
   category: implementation
   output_path: ensemble/implement-trd.md
@@ -48,10 +48,11 @@ workflow:
           actions:
             - Load interview template from packages/git/skills/git-town/templates/interview-branch-creation.md
             - Extract TRD slug from TRD filename (lowercase, hyphens replacing spaces/underscores)
-            - Set CURRENT_SPRINT=1; set CURRENT_BRANCH=feature/<trd-slug>-sprint-1
+            - "Read ENSEMBLE_USE_STACKED_PRS env var: STACKED_PRS=true only if its value equals 'true' (case-insensitive), else false (DEFAULT — single PR). Log: 'Stacked PRs: <enabled if STACKED_PRS else disabled (single PR)>'."
+            - "Set CURRENT_SPRINT=1. If STACKED_PRS=true: set CURRENT_BRANCH=feature/<trd-slug>-sprint-1. If STACKED_PRS=false: set CURRENT_BRANCH=feature/<trd-slug> (single branch for the whole TRD)."
             - Validate branch name against pattern - ^[a-z0-9-]+(/[a-z0-9-]+)*$
             - Set base_branch to main (or current default branch)
-            - Execute - git town hack feature/<trd-slug>-sprint-1 (creates the first sprint branch off the default branch; fallback - git switch -c feature/<trd-slug>-sprint-1)
+            - Execute - git town hack <CURRENT_BRANCH> (creates the first branch off the default branch; fallback - git switch -c <CURRENT_BRANCH>)
             - Verify branch creation successful (check git branch output)
 
         - order: 4
@@ -125,11 +126,11 @@ workflow:
           title: Sprint PR Stacking
           description: After quality gate passes, create a stacked PR for the current sprint and advance to the next sprint branch
           actions:
-            - "Pre-PR test gate: run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the sprint review to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.' and continue."
-            - Run - git town propose --title "feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation" --body "Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>."
-            - Record PR URL output from git town propose as SPRINT_PR_MAP[CURRENT_SPRINT]
-            - If more sprints remain - set NEXT_SPRINT=CURRENT_SPRINT+1; ensure currently on feature/<trd-slug>-sprint-<CURRENT_SPRINT> (git switch if needed); run git town append feature/<trd-slug>-sprint-<NEXT_SPRINT> (stacks the next sprint branch on the current sprint branch; fallback - git switch -c feature/<trd-slug>-sprint-<NEXT_SPRINT>); set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint
-            - If no more sprints - print stacked PR summary with all SPRINT_PR_MAP entries; implementation complete
+            - "Pre-PR test gate (runs before ANY PR creation, both modes): run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the sprint review to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED.'"
+            - "If STACKED_PRS=true: run git town propose --title \"feat(<trd-slug>){{colon}} Sprint <CURRENT_SPRINT> implementation\" --body \"Sprint <CURRENT_SPRINT> of TRD complete. Stacked PR targeting <base_branch>.\"; record PR URL as SPRINT_PR_MAP[CURRENT_SPRINT]"
+            - "If STACKED_PRS=true AND more sprints remain: set NEXT_SPRINT=CURRENT_SPRINT+1; ensure currently on feature/<trd-slug>-sprint-<CURRENT_SPRINT> (git switch if needed); run git town append feature/<trd-slug>-sprint-<NEXT_SPRINT> (fallback - git switch -c feature/<trd-slug>-sprint-<NEXT_SPRINT>); set CURRENT_BRANCH=feature/<trd-slug>-sprint-<NEXT_SPRINT>; set CURRENT_SPRINT=NEXT_SPRINT; continue to next sprint"
+            - "If STACKED_PRS=true AND no more sprints: print stacked PR summary with all SPRINT_PR_MAP entries; implementation complete"
+            - "If STACKED_PRS=false: do NOT propose a PR or create a new branch per sprint. Stay on CURRENT_BRANCH=feature/<trd-slug> and continue to the next sprint's tasks. When NO more sprints remain: run git town propose --title \"feat(<trd-slug>){{colon}} <trd-title>\" --body \"Implements TRD <trd-slug>. All sprints complete.\"; print 'Single PR created: <PR_URL>'; implementation complete"
 
 expectedInput:
   format: Technical Requirements Document (TRD)
