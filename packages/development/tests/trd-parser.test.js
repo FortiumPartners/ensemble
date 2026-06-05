@@ -242,7 +242,7 @@ describe('parseTRD — PR format (real fixture)', () => {
   let result;
 
   beforeAll(() => {
-    const fixturePath = path.resolve(__dirname, 'fixtures/trd-pr-format.md');
+    const fixturePath = path.resolve(__dirname, 'fixtures/TRD-2026-023-trd-staleness-gate.md');
     const md = fs.readFileSync(fixturePath, 'utf8');
     result = parseTRD(md);
   });
