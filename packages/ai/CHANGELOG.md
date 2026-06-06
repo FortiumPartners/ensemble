@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+- Removed obsolete Claude Code/Agent SDK install guidance; this skill now documents only Anthropic API SDK usage.
+
 ## [5.1.0] - 2025-12-31
 
 ### Added

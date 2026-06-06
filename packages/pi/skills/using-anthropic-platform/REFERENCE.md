@@ -8,153 +8,18 @@ This document contains comprehensive API reference, advanced patterns, and detai
 
 ## Table of Contents
 
-1. [Claude Agent SDK](#claude-agent-sdk)
-2. [Message Batches API](#message-batches-api)
-3. [Computer Use (Beta)](#computer-use-beta)
-4. [MCP (Model Context Protocol)](#mcp-model-context-protocol)
-5. [Citations](#citations)
-6. [Advanced Messages API](#advanced-messages-api)
-7. [Advanced Tool Use](#advanced-tool-use)
-8. [Advanced Extended Thinking](#advanced-extended-thinking)
-9. [Advanced Streaming](#advanced-streaming)
-10. [Advanced Vision](#advanced-vision)
-11. [Prompt Caching Details](#prompt-caching-details)
-12. [Error Handling](#error-handling)
-13. [Best Practices](#best-practices)
-
----
-
-## Claude Agent SDK
-
-The Claude Agent SDK powers Claude Code and enables building custom AI agents with tool access.
-
-### Installation
-
-```bash
-# Python
-pip install claude-code-sdk
-
-# NPM
-npm install @anthropic-ai/claude-code-sdk
-```
-
-### Python Agent Example
-
-```python
-"""Build custom agents with the Claude Agent SDK."""
-import asyncio
-from claude_code_sdk import Claude, ClaudeOptions
-
-async def run_agent():
-    options = ClaudeOptions(
-        model="claude-sonnet-4-20250514",
-        allowed_tools=["Task", "Read", "Write", "Edit", "Bash"],
-        system_prompt="You are a helpful coding assistant.",
-        permission_mode="default",
-        max_turns=10,
-    )
-
-    async with Claude(options=options) as agent:
-        result = await agent.query(
-            prompt="Create a Python script that lists all files"
-        )
-
-        async for message in agent.receive_response():
-            if hasattr(message, "text"):
-                print(message.text, end="", flush=True)
-            elif hasattr(message, "tool_use"):
-                print(f"\n[Using tool: {message.tool_use.name}]")
-            elif hasattr(message, "result"):
-                return message.result
-
-asyncio.run(run_agent())
-```
-
-### TypeScript Agent Example
-
-```typescript
-import { Claude, ClaudeOptions } from '@anthropic-ai/claude-code-sdk';
-
-async function runAgent() {
-  const options: ClaudeOptions = {
-    model: 'claude-sonnet-4-20250514',
-    allowedTools: ['Task', 'Read', 'Write', 'Edit', 'Bash', 'WebSearch'],
-    systemPrompt: 'You are a helpful coding assistant.',
-    permissionMode: 'default',
-  };
-
-  const agent = new Claude(options);
-
-  try {
-    await agent.query({
-      prompt: 'Analyze the package.json and suggest improvements',
-    });
-
-    for await (const message of agent.stream()) {
-      if (message.type === 'text') {
-        process.stdout.write(message.text);
-      } else if (message.type === 'tool_use') {
-        console.log(`\n[Tool: ${message.name}]`);
-      }
-    }
-  } finally {
-    await agent.close();
-  }
-}
-```
-
-### Agent SDK Configuration
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `model` | string | Claude model to use |
-| `allowed_tools` | array | Tools the agent can use |
-| `system_prompt` | string | Custom system prompt |
-| `permission_mode` | string | `default`, `plan`, or `acceptEdits` |
-| `max_turns` | int | Maximum conversation turns |
-| `working_directory` | string | Base directory for file operations |
-| `env_vars` | dict | Environment variables for subprocess |
-
-### Available Agent Tools
-
-| Tool | Description |
-|------|-------------|
-| `Task` | Spawn sub-agents for delegated work |
-| `Read` | Read file contents |
-| `Write` | Write/create files |
-| `Edit` | Make precise edits to files |
-| `Bash` | Execute shell commands |
-| `WebSearch` | Search the web for information |
-| `Glob` | Find files matching patterns |
-| `Grep` | Search file contents |
-
-### Permission Modes
-
-| Mode | Description |
-|------|-------------|
-| `default` | Ask user before file modifications and command execution |
-| `plan` | Show plan, ask approval, then execute without further prompts |
-| `acceptEdits` | Auto-approve file edits, ask for commands |
-
-### Session Management
-
-```python
-"""Maintain conversation context across queries."""
-from claude_code_sdk import Claude, ClaudeOptions
-
-async def multi_turn_session():
-    options = ClaudeOptions(model="claude-sonnet-4-20250514")
-
-    async with Claude(options=options) as agent:
-        await agent.query("Read the README.md file")
-        async for msg in agent.receive_response():
-            pass
-
-        await agent.query("Now summarize what you read")
-        async for msg in agent.receive_response():
-            if hasattr(msg, "text"):
-                print(msg.text)
-```
+1. [Message Batches API](#message-batches-api)
+2. [Computer Use (Beta)](#computer-use-beta)
+3. [MCP (Model Context Protocol)](#mcp-model-context-protocol)
+4. [Citations](#citations)
+5. [Advanced Messages API](#advanced-messages-api)
+6. [Advanced Tool Use](#advanced-tool-use)
+7. [Advanced Extended Thinking](#advanced-extended-thinking)
+8. [Advanced Streaming](#advanced-streaming)
+9. [Advanced Vision](#advanced-vision)
+10. [Prompt Caching Details](#prompt-caching-details)
+11. [Error Handling](#error-handling)
+12. [Best Practices](#best-practices)
 
 ---
 
@@ -1149,7 +1014,6 @@ For up-to-date documentation, use Context7 MCP when available:
 - Official Docs: https://docs.anthropic.com/
 - SDK Python: https://github.com/anthropics/anthropic-sdk-python
 - SDK TypeScript: https://github.com/anthropics/anthropic-sdk-typescript
-- Agent SDK: https://github.com/anthropics/claude-code-sdk
 - MCP Spec: https://modelcontextprotocol.io/
 
 ---

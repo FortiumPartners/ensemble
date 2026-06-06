@@ -73,18 +73,6 @@
 | Rate limit handling | Yes | Yes | No | Complete |
 | Authentication errors | Yes | Yes | No | Complete |
 
-### Agent SDK (NEW)
-
-| Feature | SKILL.md | Templates | Examples | Status |
-|---------|----------|-----------|----------|--------|
-| ClaudeOptions configuration | Yes | No | No | Complete |
-| Permission modes | Yes | No | No | Complete |
-| Tool access (Task, Read, Write, Edit, Bash) | Yes | No | No | Complete |
-| Session management | Yes | No | No | Complete |
-| Streaming responses | Yes | No | No | Complete |
-| Python SDK | Yes | No | No | Complete |
-| TypeScript SDK | Yes | No | No | Complete |
-
 ### Message Batches API (NEW)
 
 | Feature | SKILL.md | Templates | Examples | Status |
