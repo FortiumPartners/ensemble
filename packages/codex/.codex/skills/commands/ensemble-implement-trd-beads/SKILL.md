@@ -162,7 +162,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **8. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
-   - Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {stacked, prFormat, branchFirst, actions}. Set STACKED_PRS=stacked, branch_name=branchFirst, CURRENT_PHASE_BRANCH=branch_name, PHASE_BRANCH_MAP={1:branch_name}, PHASE_PR_MAP={}, and store PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
+   - Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {ok, stacked, prFormat, branchFirst, actions}. If ok is false or the process exits non-zero: print the error and HALT (do NOT continue with an undefined branch name or PR plan). Set STACKED_PRS=stacked, branch_name=branchFirst, CURRENT_PHASE_BRANCH=branch_name, PHASE_BRANCH_MAP={1:branch_name}, PHASE_PR_MAP={}, and store PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
    - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
@@ -345,7 +345,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **3. Root Epic Creation**
    Create the top-level epic bead for the TRD
 
-   - Run: node "$TRD_CLI" scaffold-plan "<TRD_FILE_PATH>" and parse {ok, slug, plan}. PLAN is AUTHORITATIVE for every bead's title, description, type, priority and for all dependency edges across the next steps (Root Epic, Story, Task, Synthesized Test, Dependency Encoding). Each step below EXECUTES the relevant part of PLAN via br — it must NOT re-derive titles/descriptions/prefixes. Idempotency: before each br create, still check EXISTING_BEADS for the bead's titlePrefix and skip if present.
+   - Run: node "$TRD_CLI" scaffold-plan "<TRD_FILE_PATH>" and parse {ok, slug, plan}. If ok is false or the process exits non-zero: print the error and HALT (do NOT proceed to br create with an undefined PLAN). PLAN is AUTHORITATIVE for every bead's title, description, type, priority and for all dependency edges across the next steps (Root Epic, Story, Task, Synthesized Test, Dependency Encoding). Each step below EXECUTES the relevant part of PLAN via br — it must NOT re-derive titles/descriptions/prefixes. Print each PLAN.warnings entry. Idempotency: before each br create, still check EXISTING_BEADS for the bead's titlePrefix and skip if present.
    - Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>]
    - If found: ROOT_EPIC_ID = existing id; skip creation
    - If not found: run br create using PLAN.epic fields verbatim — --title='<PLAN.epic.title>' --type=<PLAN.epic.type> --priority=<PLAN.epic.priority> --description='<PLAN.epic.description>' --json. PLAN.epic.title already includes the [trd:<TRD_SLUG>] titlePrefix; do NOT re-derive or re-prefix the title/description inline; use PLAN.epic.
@@ -508,7 +508,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       4. If available_slots > 0:
    -          - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
    -            Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
-   -          - Phase-strict selection: after bv --robot-next / br ready returns ready task ids, run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma ready ids>" --closed "<comma closed ids>" --max <available_slots or 1>. Dispatch ONLY the returned selected[] ids. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
+   -          - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads (the same set used by phase-status). Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
    -          - For each task (up to available_slots):
    -            a. (TRD-021) Architecture Review: check task description for keywords:
    -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
@@ -638,7 +638,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
    - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
    - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-   - Phase-strict selection: after bv --robot-next / br ready returns ready task ids, run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma ready ids>" --closed "<comma closed ids>" --max <available_slots or 1>. Dispatch ONLY the returned selected[] ids. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
+   - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -1070,7 +1070,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **1. Phase Completion Detection**
    Detect when all tasks in a phase are closed
 
-   - Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined ids of TRD tasks whose beads are closed>". Parse {currentPhase, phases:[{n,complete}], phaseTaskIds}. The phase whose entry has complete=true and equals the just-finished phase is done.
+   - Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined ids of TRD tasks whose beads are closed>". Parse {ok, currentPhase, phases:[{n,complete}], phaseTaskIds}. If ok is false or the process exits non-zero: print the error and do NOT trigger the quality gate this cycle (treat as 'phase not yet complete' and continue). The phase whose entry has complete=true and equals the just-finished phase is done.
    - When phases[currentPhase] (or the phase just completed) shows complete=true: trigger the quality gate for STORY_BEAD_IDs[that phase]. Until then, do not trigger the gate. (This replaces the old PHASE_TASK_IDS title-filter prose.)
 
 **2. Test Execution**
