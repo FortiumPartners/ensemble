@@ -79,6 +79,7 @@ Key behaviors:
    - which br || { echo 'ERROR: br (beads_rust) not installed. Install from https://github.com/Dicklesworthstone/beads_rust'; exit 1; }
    - br list --status=open > /dev/null 2>&1 || { echo 'ERROR: br not functional'; exit 1; }
    - which bv && BV_AVAILABLE=true || { echo 'WARNING: bv (beads_viewer) not installed. Graph-aware triage will be unavailable. Install from https://github.com/Dicklesworthstone/beads_viewer'; BV_AVAILABLE=false; }
+   - Resolve TRD_CLI: set TRD_CLI to the first path that exists among: "${CLAUDE_PLUGIN_ROOT}/lib/trd-cli.js", "packages/development/lib/trd-cli.js". If neither exists OR 'which node' fails: print 'ERROR: Node.js and the TRD CLI (lib/trd-cli.js) are required for deterministic TRD parsing. Ensure Node.js is installed and the ensemble-development plugin is present.' and exit 1. Smoke-check: node "$TRD_CLI" parse "<any TRD path once known>" is used later; for now just confirm the file exists and node runs.
    - If EXECUTE_ONLY=true AND BV_AVAILABLE=false: print 'ERROR: --execute requires bv (beads_viewer) for graph-aware task scheduling.' then print 'Install bv from https://github.com/Dicklesworthstone/beads_viewer then retry.' then print 'For plan-only mode (scaffold without execution): use --plan instead.' and HALT
 
 **3. Git-Town and Working Directory Verification**
@@ -161,7 +162,7 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 **8. Feature Branch Creation**
    Create or switch to feature branch for TRD implementation
 
-   - If STACKED_PRS=true: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; branch_name = 'feature/<TRD_SLUG>-<branch_prefix>-1'. If STACKED_PRS=false: branch_name = 'feature/<TRD_SLUG>' (a single branch for the whole TRD). CURRENT_PHASE_BRANCH = branch_name; PHASE_BRANCH_MAP = {1: branch_name}; PHASE_PR_MAP = {}
+   - Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {stacked, prFormat, branchFirst, actions}. Set STACKED_PRS=stacked, branch_name=branchFirst, CURRENT_PHASE_BRANCH=branch_name, PHASE_BRANCH_MAP={1:branch_name}, PHASE_PR_MAP={}, and store PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
    - Run: git branch --list <branch_name>
    - If exists: git switch <branch_name>
    - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
@@ -330,15 +331,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **1. TRD Parsing**
    Parse TRD into structured phases and tasks
 
-   - Pass 1: Extract TRD_TITLE from first H1 heading
-   - Pass 2: Extract TRD_SUMMARY from first prose paragraph (max 500 chars)
-   - Pass 3: Extract phase/PR boundaries from the '## Master Task List' section only (scope: from '## Master Task List' heading to the next '##' heading or EOF — this prevents Sprint Planning H3 headings from being misidentified as boundaries). Detection priority within that section: (1) '### PR N' headings → set PR_FORMAT=true for this parse; (2) '### Phase N' headings → PR_FORMAT=false; (3) '### Sprint N' headings → PR_FORMAT=false; (4) synthesize single boundary titled 'PR 1: Implementation' if none found. For each PR-format (PR_FORMAT=true) section: extract the optional '**Shippable State:**' line immediately following the heading; store in PHASE_SHIPPABLE_STATE[N]. Result: PHASES = [{n: 1, title: '...', tasks: [], shippable_state: '...'}...]
-   - Pass 4: Extract tasks matching '- [ ] **TRD-XXX**: Description' pattern; assign to phases by proximity
-   - Pass 4b: For each task matched in Pass 4, capture its BODY = all lines from the task line up to (but excluding) the next top-level task line (a line matching '- [ ] **TRD-' at the same or lesser indentation), the next '### ' heading, or the next '## ' heading. Store raw body in TASK_BODY[task.id]. From the body, extract structured pieces into TASK_TRACEABILITY[task.id]: target_files (from 'Target File:'/'File:' lines), numbered_actions (from an 'Actions:' list), implementation_ac_checklist / test_ac_checklist (from 'Implementation AC:' / 'Test AC:' blocks), depends_on (from 'Dependencies:' lines and any [depends: TRD-NNN] annotations in the body — Pass 4b is AUTHORITATIVE for depends_on; Scaffold Step 7 reads TASK_TRACEABILITY[task.id].depends_on and does not re-parse annotations), and nested_subitems = every '- [ ]' or '- [x]' line within the body that does NOT itself match the Pass 4 top-level '**TRD-' task pattern.
-   - Pass 4c: Classify each entry in nested_subitems as a TEST sub-item when its text contains any test keyword (test, spec, e2e, coverage, unit test, integration test, jest, pytest, rspec, exunit, xunit, playwright). NOTE: This match is intentionally broad — terms like 'spec' and 'coverage' may match non-test sub-items (e.g., 'Review the OpenAPI spec'). Broad recall is preferred over precision here: a false-positive synthesized test bead is easier to close than a missed test. Store TASK_TRACEABILITY[task.id].test_subitems = ordered list of test sub-item texts. These are tests embedded under an impl task that lack their own TRD-NNN-TEST id and must be surfaced explicitly.
-   - Pass 5: Validate at least one task found; warn on duplicate task IDs
-   - Pass 6: Extract traceability annotations per task — look for [satisfies REQ-NNN] (may also be [satisfies INFRA] or [satisfies ARCH]), [verifies TRD-NNN], 'Validates PRD ACs: AC-NNN-M,...', 'Implementation AC:' block, 'Proof of requirement:' field; store in TASK_TRACEABILITY map keyed by task.id
-   - Pass 7: Classify task type — if task.id ends in '-TEST' suffix, mark is_test_task=true; extract verifies_task_id (from [verifies TRD-NNN]) and satisfies_req_id (from [satisfies REQ-NNN]); store in TASK_TRACEABILITY[task.id]
+   - Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and parse the JSON from stdout. This is the AUTHORITATIVE parse — do NOT hand-parse the TRD. From trd: set TRD_TITLE=trd.title, TRD_SUMMARY=trd.summary, PR_FORMAT=trd.prFormat, TRD_SLUG=trd.slug, PHASES=trd.phases (each {n,title,shippableState,taskIds}), and PHASE_SHIPPABLE_STATE[n]=phase.shippableState. Build TASK_TRACEABILITY from trd.tasksById — each task provides id, isTest (is_test_task), satisfies (satisfies_req_id = satisfies[0]), verifies (verifies_task_id), validatesAcs, dependsOn, targetFiles, actions, implementationAc, testAc, nestedSubitems, testSubitems, proofOfRequirement. Print each trd.warnings entry. If ok is false or the process exits non-zero: print the error and HALT.
 
 **2. Idempotency Cache**
    Cache existing beads to enable partial scaffold resume via title-prefix matching
@@ -352,60 +345,52 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **3. Root Epic Creation**
    Create the top-level epic bead for the TRD
 
+   - Run: node "$TRD_CLI" scaffold-plan "<TRD_FILE_PATH>" and parse {ok, slug, plan}. PLAN is AUTHORITATIVE for every bead's title, description, type, priority and for all dependency edges across the next steps (Root Epic, Story, Task, Synthesized Test, Dependency Encoding). Each step below EXECUTES the relevant part of PLAN via br — it must NOT re-derive titles/descriptions/prefixes. Idempotency: before each br create, still check EXISTING_BEADS for the bead's titlePrefix and skip if present.
    - Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>]
    - If found: ROOT_EPIC_ID = existing id; skip creation
-   - If not found: run br create --title='[trd:<TRD_SLUG>] Implement TRD: <TRD_TITLE>' --type=epic --priority=2 --description='<TRD_SUMMARY>' --json
+   - If not found: run br create using PLAN.epic fields verbatim — --title='<PLAN.epic.title>' --type=<PLAN.epic.type> --priority=<PLAN.epic.priority> --description='<PLAN.epic.description>' --json. PLAN.epic.title already includes the [trd:<TRD_SLUG>] titlePrefix; do NOT re-derive or re-prefix the title/description inline; use PLAN.epic.
    - Capture ROOT_EPIC_ID by parsing .id field from JSON response
    - HALT if exit code != 0 or ROOT_EPIC_ID empty
 
 **4. Story Bead Creation**
    Create one story bead per TRD phase under the root epic
 
-   - Determine naming based on PR_FORMAT: if PR_FORMAT=true: bead_prefix='pr', bead_label='PR'; if PR_FORMAT=false: bead_prefix='phase', bead_label='Phase'
-   - For each phase i: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:<bead_prefix>:<i>]
-   - If found: STORY_BEAD_IDs[i] = existing id; skip creation
-   - If not found: shippable_line = ' Shippable state: ' + PHASE_SHIPPABLE_STATE[i] if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[i] exists else ''; run br create --title='[trd:<TRD_SLUG>:<bead_prefix>:<i>] <bead_label> <i>: <phase.title>' --type=feature --priority=2 --description='<bead_label> <i> of TRD: <TRD_TITLE>. Contains <task_count> tasks.<shippable_line>' --json
-   - Capture STORY_BEAD_ID by parsing .id from JSON response
-   - After creation: br dep add <ROOT_EPIC_ID> <STORY_BEAD_ID> to establish story-blocks-epic relationship (epic cannot close until all stories close)
+   - For each entry in PLAN.stories (indexed by phaseN): check EXISTING_BEADS for the entry's titlePrefix (PLAN.stories[i].titlePrefix, e.g. [trd:<TRD_SLUG>:pr:<n>] or [trd:<TRD_SLUG>:phase:<n>])
+   - If found: STORY_BEAD_IDs[phaseN] = existing id; skip creation
+   - If not found: run br create using PLAN.stories[i] fields verbatim — --title='<PLAN.stories[i].title>' --type=<PLAN.stories[i].type> --priority=<PLAN.stories[i].priority> --description='<PLAN.stories[i].description>' --json. PLAN.stories[i].title already includes the titlePrefix and shippable state is already folded into description by PLAN; do NOT re-derive bead_prefix/label/shippable_line inline — use PLAN.stories[i].
+   - Capture STORY_BEAD_ID by parsing .id from JSON response; record STORY_BEAD_IDs[PLAN.stories[i].phaseN] = STORY_BEAD_ID
+   - Do NOT wire the story-blocks-epic dependency here — the story-blocks-epic edge is in PLAN.deps and is executed once in the Dependency Encoding step (avoid double-wiring).
    - HALT if any creation fails
 
 **5. Task Bead Creation**
    Create one task bead per TRD task under its phase story with full description from TRD actions
 
-   - For each task: check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<task.id>]
+   - For each entry in PLAN.tasks (each has id, phaseN, titlePrefix, title, type, priority, description, isTest): check EXISTING_BEADS for the entry's titlePrefix ([trd:<TRD_SLUG>:task:<id>])
    - If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation
-   - If not found: build structured bead description based on task classification from TASK_TRACEABILITY:
-   -   For impl tasks (is_test_task=false): build description as: '## Task: <task.id>\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase> (omit this line if satisfies_req_id is INFRA or ARCH)\nSatisfies: <satisfies_req_id or INFRA/ARCH>\nPRD ACs: <validates_acs>\nTarget File: <file>\nActions:\n<numbered_actions>\nImplementation AC:\n<implementation_ac_checklist>\nSub-items (every checklist item below MUST be completed before this task is done):\n<nested_subitems as a checklist>\nEmbedded tests (implement AND run these — they have no separate TRD-NNN-TEST task):\n<test_subitems as a checklist>\nDependencies: <depends_on>' (omit the 'Sub-items' section if nested_subitems is empty; omit the 'Embedded tests' section if test_subitems is empty)
-   -   For test tasks (is_test_task=true): build description as: '## Test Task: <task.id>\nTRD Reference: <TRD_FILE_PATH>#<task.id-lowercase>\nPRD Reference: <PRD_FILE_PATH>#<satisfies_req_id-lowercase>\nVerifies Task: <TRD_FILE_PATH>#<verifies_task_id-lowercase>\nVerifies: <verifies_task_id>\nSatisfies: <satisfies_req_id>\nPRD ACs Proven: <validates_acs>\nProof of requirement: <proof_text>\nTarget Files: <files>\nActions:\n<numbered_actions>\nTest AC:\n<test_ac_checklist>\nDependencies: <depends_on>'
-   -   Fallback (task has no [satisfies] annotation AND no [verifies] annotation): use raw TRD task body as description. Tasks with [satisfies INFRA] or [satisfies ARCH] use the impl task format.
-   - Run: br create --title='[trd:<TRD_SLUG>:task:<task.id>] <task.description>' --type=task --priority=<task.priority> --description='<structured_bead_description>' --json
-   - The description should include: target file path, numbered action items, dependencies, satisfaction/verification links, and acceptance criteria from the TRD task entry
+   - If not found: run br create using PLAN.tasks[j] fields verbatim — --title='<PLAN.tasks[j].title>' --type=<PLAN.tasks[j].type> --priority=<PLAN.tasks[j].priority> --description='<PLAN.tasks[j].description>' --json. PLAN.tasks[j].title already includes the [trd:<TRD_SLUG>:task:<id>] titlePrefix, and PLAN.tasks[j].description is the AUTHORITATIVE structured description (impl vs test classification, target files, actions, AC checklists, sub-items, embedded tests, dependencies are all already folded in by PLAN). Do NOT re-derive the description/title inline — use PLAN.tasks[j].
    - Capture TASK_BEAD_ID by parsing .id from JSON response
-   - After creation: br dep add <STORY_BEAD_ID> <TASK_BEAD_ID> to establish task-blocks-story relationship (story cannot close until all its tasks close)
-   - Record TRD_TO_BEAD_MAP[task.id] = bead_id for each task
-   - Record PHASE_TASK_IDS[phase.n]: append task.id to the list for the phase this task belongs to (from the PHASES structure built in TRD Parsing Pass 3/4). PHASE_TASK_IDS is the AUTHORITATIVE task→phase membership for Phase Completion Detection and the phase-strict execution guard. Task bead titles carry no phase/pr segment, so membership must come from this map (or, on resume, from each story bead's dependency children).
+   - Do NOT wire the task-blocks-story dependency here — the task-blocks-story edge is in PLAN.deps and is executed once in the Dependency Encoding step (avoid double-wiring).
+   - Record TRD_TO_BEAD_MAP[PLAN.tasks[j].id] = bead_id for each task
+   - Record PHASE_TASK_IDS[PLAN.tasks[j].phaseN]: append PLAN.tasks[j].id to the list for that task's phase (phaseN comes from PLAN). PHASE_TASK_IDS is the AUTHORITATIVE task→phase membership for Phase Completion Detection and the phase-strict execution guard. Task bead titles carry no phase/pr segment, so membership must come from this map (or, on resume, from each story bead's dependency children).
 
 **6. Synthesized Test Bead Creation for Nested Test Sub-items**
    Promote nested test sub-items (test checklist items lacking their own TRD-NNN-TEST id) into first-class, dependency-wired test beads so they are tracked and implemented
 
-   - For each task where TASK_TRACEABILITY[task.id].test_subitems is non-empty:
-   -   For each test_subitem at index k (1-based):
-   -     synth_id = '<task.id>-TEST-S<k>'  (the -TEST-S suffix marks a synthesized sub-item test)
-   -     Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>:task:<synth_id>]; if found: TRD_TO_BEAD_MAP[synth_id] = existing id; skip creation
-   -     If not found: build description: '## Synthesized Test Task: <synth_id>\nDerived from a nested test sub-item of <task.id> (no explicit TRD-NNN-TEST task existed).\nVerifies Task: <task.id>\nVerifies: <task.id>\nSatisfies: <parent task satisfies_req_id>\nTest objective: <test_subitem text>\nTarget Files: <parent task target_files if known, else infer test file path from project conventions>\nParent impl task: <task.id>'
-   -     Run: br create --title='[trd:<TRD_SLUG>:task:<synth_id>] <test_subitem text>' --type=task --priority=<task.priority> --description='<synth description>' --json; capture SYNTH_BEAD_ID from .id
-   -     Run: br dep add <STORY_BEAD_IDs[phase.n]> <SYNTH_BEAD_ID>  where phase.n is the phase number that contains task.id (look up from STORY_BEAD_IDs map populated in Scaffold Step 4; synth test belongs to the same story/phase as its parent impl task)
-   -     Run: br dep add <SYNTH_BEAD_ID> <parent task bead id from TRD_TO_BEAD_MAP[task.id]>  (the test depends on its impl task, so it runs after the implementation)
-   -     Set TASK_TRACEABILITY[synth_id] = {is_test_task: true, verifies_task_id: task.id, satisfies_req_id: <parent satisfies_req_id>, validates_acs: <parent validates_acs>, synthesized: true}
-   -     Record TRD_TO_BEAD_MAP[synth_id] = SYNTH_BEAD_ID
-   -   Log: 'Synthesized <count> test bead(s) from nested test sub-items of <task.id>: <synth_id list>'
-   - If no task has test_subitems: skip this step (no synthesized test beads created).
+   - For each entry in PLAN.synthesizedTests (each has id, parentId, phaseN, titlePrefix, title, type, priority, description, verifies, satisfies):
+   -   Check EXISTING_BEADS for the entry's titlePrefix ([trd:<TRD_SLUG>:task:<id>]); if found: TRD_TO_BEAD_MAP[id] = existing id; skip creation
+   -   If not found: run br create using PLAN.synthesizedTests[k] fields verbatim — --title='<PLAN.synthesizedTests[k].title>' --type=<PLAN.synthesizedTests[k].type> --priority=<PLAN.synthesizedTests[k].priority> --description='<PLAN.synthesizedTests[k].description>' --json; capture SYNTH_BEAD_ID from .id. The title already includes the titlePrefix and the description is AUTHORITATIVE — do NOT re-derive synth_id/description inline; use PLAN.synthesizedTests[k].
+   -   Do NOT wire the synth dependencies here — the synthtest-depends (parent impl task blocks synth) and task-blocks-story edges for synthesized tests are in PLAN.deps and are executed once in the Dependency Encoding step (avoid double-wiring).
+   -   Set TASK_TRACEABILITY[PLAN.synthesizedTests[k].id] = {is_test_task: true, verifies_task_id: PLAN.synthesizedTests[k].verifies, satisfies_req_id: PLAN.synthesizedTests[k].satisfies[0], validates_acs: <parent validates_acs>, synthesized: true}
+   -   Record TRD_TO_BEAD_MAP[PLAN.synthesizedTests[k].id] = SYNTH_BEAD_ID
+   - Log: 'Synthesized <count> test bead(s) from nested test sub-items: <synth id list>'
+   - If PLAN.synthesizedTests is empty: skip this step (no synthesized test beads created).
 
 **7. Dependency Encoding**
    Wire explicit TRD dependencies and inter-phase sequential gates
 
-   - For each task with depends_on: br dep add <TASK_BEAD_ID> <TRD_TO_BEAD_MAP[dep_id]> (warn and skip if dep not in map)
-   - For each phase i >= 2: br dep add <first_task_of_phase_i> <last_task_of_phase_i-1> (inter-phase sequential gate)
+   - PLAN.deps (from the scaffold-plan call in Root Epic Creation) is the AUTHORITATIVE, complete set of dependency edges: story-blocks-epic, task-blocks-story, task-depends (explicit dependsOn), inter-phase-gate, and synthtest-depends. Each edge is {type, blockerId, blockedId} where blockerId/blockedId are TITLE PREFIXES and 'blocker blocks blocked'.
+   - For each edge in PLAN.deps: resolve blockerId and blockedId (title prefixes) to real bead ids — [trd:<TRD_SLUG>] -> ROOT_EPIC_ID; [trd:<TRD_SLUG>:pr:<n>] or [trd:<TRD_SLUG>:phase:<n>] -> STORY_BEAD_IDs[n]; [trd:<TRD_SLUG>:task:<id>] -> TRD_TO_BEAD_MAP[id]. Then run `br dep add <blocked_bead_id> <blocker_bead_id>` (blocker blocks blocked). Warn and skip any edge whose blockerId or blockedId cannot be resolved to a bead id.
+   - Ensure PHASE_TASK_IDS is populated for the quality gate: it is built from PLAN (phaseN per task) in Task Bead Creation; if empty here (e.g. all task beads already existed), rebuild PHASE_TASK_IDS[phaseN] by appending each PLAN.tasks[j].id and each PLAN.synthesizedTests[k].id under its phaseN.
 
 **8. BV Execution Planning**
    Run bv robot-plan and robot-triage for graph-aware execution planning
@@ -475,10 +460,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - NOTE: This Execute phase implements the same execution engine as /ensemble:beads-build. If you have raw beads (not from a TRD), use /ensemble:beads-build <epic-id> instead. beads-build also accepts --trd <path> to enable TRD augmentations on any bead hierarchy.
    - Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:
-   -   a0. Re-run Scaffold Step 1 Pass 4b and Pass 4c: rebuild TASK_BODY, nested_subitems, and test_subitems per task, and re-derive synthesized '<task.id>-TEST-S<k>' traceability entries (is_test_task=true, verifies_task_id, satisfies_req_id, synthesized=true) so resumed sessions recognize synthesized test beads found via the idempotency cache.
-   -   a. Re-run Scaffold Step 1 Pass 6: extract [satisfies REQ-NNN], [satisfies INFRA], [satisfies ARCH], [verifies TRD-NNN], 'Validates PRD ACs:' fields, 'Implementation AC:' blocks, and 'Proof of requirement:' fields per task
-   -   b. Re-run Scaffold Step 1 Pass 7: classify task type — if task.id ends in '-TEST' suffix mark is_test_task=true; extract verifies_task_id and satisfies_req_id
-   -   c. Store rebuilt map in TASK_TRACEABILITY keyed by task.id
+   -   Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and rebuild TASK_TRACEABILITY from trd.tasksById exactly as in Scaffold Step 1 (same field mapping). This is the deterministic resume rebuild; do not hand-parse.
    -   d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
    -   e. After rebuild: if rebuilt TASK_TRACEABILITY is empty AND TRD content was successfully read AND TRD is non-empty: print 'WARNING: TRD re-parse found no traceability annotations. Requirement audit comments will not be written. If this is a legacy TRD without [satisfies] annotations, this is expected.' If TRD file could not be read: print 'ERROR: Cannot read TRD file at <TRD_PATH> during cross-session resume. Verify file exists and is readable.' and HALT.
    - Context Budget Monitoring (applies to both TEAM_MODE=true and TEAM_MODE=false):
@@ -526,7 +508,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -       4. If available_slots > 0:
    -          - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
    -            Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
-   -          - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. Restrict the candidate task(s) to ids in PHASE_TASK_IDS[CURRENT_PHASE_N]; DISCARD any returned task belonging to a later phase. Never dispatch a builder for a phase N+1 task until phase N's quality gate has passed and its checkpoint commit is made; in stacked mode the PR is also created and the next branch appended. PR_FORMAT=false: no phase restriction — use bv/br ordering directly.
+   -          - Phase-strict selection: after bv --robot-next / br ready returns ready task ids, run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma ready ids>" --closed "<comma closed ids>" --max <available_slots or 1>. Dispatch ONLY the returned selected[] ids. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
    -          - For each task (up to available_slots):
    -            a. (TRD-021) Architecture Review: check task description for keywords:
    -               'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
@@ -656,7 +638,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
    - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
    - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-   - PHASE-STRICT GUARD (PR_FORMAT=true only): let CURRENT_PHASE_N = lowest-numbered phase with open tasks. If the task returned above belongs to a phase later than CURRENT_PHASE_N, DISCARD it and instead select the highest-priority ready task whose id is in PHASE_TASK_IDS[CURRENT_PHASE_N]. Never start a phase N+1 task until phase N's quality gate has passed and its checkpoint commit is made; in stacked mode the PR is also created and the next branch appended. PR_FORMAT=false: skip this guard.
+   - Phase-strict selection: after bv --robot-next / br ready returns ready task ids, run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma ready ids>" --closed "<comma closed ids>" --max <available_slots or 1>. Dispatch ONLY the returned selected[] ids. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -1088,10 +1070,8 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **1. Phase Completion Detection**
    Detect when all tasks in a phase are closed
 
-   - Determine CURRENT_PHASE_N = the lowest-numbered phase that still has open tasks. Task beads are titled [trd:<TRD_SLUG>:task:<ID>] and carry NO phase/pr segment — phase membership comes from PHASE_TASK_IDS[N] (Scaffold Task Bead Creation) or, on resume, from the dependency children of STORY_BEAD_IDs[N].
-   - Resume rebuild: if PHASE_TASK_IDS is empty (cross-session resume), reconstruct it per phase by reading each STORY_BEAD_IDs[N] bead's dependency children (the task beads it blocks). Do NOT use a [trd:<TRD_SLUG>:phase:<N>] title filter — it never matches task beads.
-   - After each task completion: run br list --all --json filtered by TRD slug. Phase N is COMPLETE when every task id in PHASE_TASK_IDS[N] has bead status=='closed'.
-   - If all tasks in PHASE_TASK_IDS[CURRENT_PHASE_N] are closed: trigger the quality gate for STORY_BEAD_IDs[CURRENT_PHASE_N] (this is what creates PR N and appends the PR N+1 branch). Until then, do NOT trigger the gate.
+   - Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined ids of TRD tasks whose beads are closed>". Parse {currentPhase, phases:[{n,complete}], phaseTaskIds}. The phase whose entry has complete=true and equals the just-finished phase is done.
+   - When phases[currentPhase] (or the phase just completed) shows complete=true: trigger the quality gate for STORY_BEAD_IDs[that phase]. Until then, do not trigger the gate. (This replaces the old PHASE_TASK_IDS title-filter prose.)
 
 **2. Test Execution**
    Delegate test suite execution to test-runner, with scope adjusted for team mode. AC: FR-QA-7
@@ -1145,13 +1125,11 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - Run: br sync --flush-only
    - If gate_passed: br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'; br sync --flush-only; git commit -m 'chore(<bead_prefix> <N>): checkpoint (tests pass; unit <X%>, int <Y%>)'
-   - If STACKED_PRS=true AND gate_passed: Pre-PR test gate — run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the quality gate to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.'
-   - If STACKED_PRS=true AND gate_passed AND PR_FORMAT=true: shippable = PHASE_SHIPPABLE_STATE[N] if PHASE_SHIPPABLE_STATE[N] exists else 'See TRD for scope'; run git town propose --title 'feat(<TRD_SLUG>): PR <N> — <phase_title>' --body 'PR <N> of TRD <TRD_SLUG>.
-**Shippable:** <shippable>
-Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
-   - If STACKED_PRS=true AND gate_passed AND PR_FORMAT=false: run git town propose --title 'feat(<TRD_SLUG>): Phase <N> — <phase_title>' --body 'Phase <N> complete. Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.'; record PR URL from output as PHASE_PR_MAP[N]; print 'Sprint PR created: <PR_URL>'
-   - If STACKED_PRS=true AND gate_passed AND more phases remain: branch_prefix = 'pr' if PR_FORMAT=true else 'phase'; NEXT_BRANCH='feature/<TRD_SLUG>-<branch_prefix>-<N+1>'; ensure currently checked out on <CURRENT_PHASE_BRANCH> (git switch <CURRENT_PHASE_BRANCH> if needed); run git town append <NEXT_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print '<bead_label> branch ready: <NEXT_BRANCH> (stacked on <bead_prefix> <N> branch via git town append)'
-   - If STACKED_PRS=false AND gate_passed: do NOT create a PR and do NOT append a branch for this phase. Stay on CURRENT_PHASE_BRANCH (the single TRD branch); the phase checkpoint commit above is retained. Continue to the next phase's tasks. The single PR for the entire TRD is created in the Completion phase.
+   - PR sequencing is driven by GATE_ACTION = PR_ACTIONS[N] (the phase-gate entry for the just-completed phase N, from the pr-plan call in Feature Branch Creation). GATE_ACTION provides createPr, proposeTitle, branch, parentBranch, appendNextBranch, and shippableState. Use these instead of re-deriving branch names, titles, or the create-vs-skip decision.
+   - If gate_passed AND GATE_ACTION.createPr == true: Pre-PR test gate — run 'npm run test --workspaces --if-present'. If exit code != 0: print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run the quality gate to retry.' and HALT. If exit code == 0: print 'Pre-PR test gate: PASSED — proceeding with PR creation.'
+   - If gate_passed AND GATE_ACTION.createPr == true: ensure currently checked out on GATE_ACTION.branch (git switch GATE_ACTION.branch if needed); shippable = GATE_ACTION.shippableState if set else 'See TRD for scope'; run git town propose --title '<GATE_ACTION.proposeTitle>' --body '<PR/Phase <N> of TRD <TRD_SLUG>.\n**Shippable:** <shippable>\nStrategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%. Bead: <STORY_BEAD_ID>.>'; record PR URL from output as PHASE_PR_MAP[N]; print 'PR <N> created: <PR_URL>'
+   - If gate_passed AND GATE_ACTION.createPr == true AND GATE_ACTION.appendNextBranch is set (more phases remain): NEXT_BRANCH = GATE_ACTION.appendNextBranch; ensure currently checked out on GATE_ACTION.branch (git switch GATE_ACTION.branch if needed); run git town append <NEXT_BRANCH> (fallback: git switch -c <NEXT_BRANCH>); set CURRENT_PHASE_BRANCH=NEXT_BRANCH; set PHASE_BRANCH_MAP[N+1]=NEXT_BRANCH; print 'Next branch ready: <NEXT_BRANCH> (stacked on phase <N> branch via git town append)'
+   - If gate_passed AND GATE_ACTION.createPr == false (STACKED_PRS=false / single-PR mode): do NOT create a PR and do NOT append a branch for this phase. Stay on CURRENT_PHASE_BRANCH (the single TRD branch); the phase checkpoint commit above is retained. Continue to the next phase's tasks. The single PR for the entire TRD is created in the Completion phase per PR_ACTIONS' completion entry.
    - If gate_passed AND more phases remain AND TEAM_MODE=true: reset TEAM_METRICS for the next phase:
    -   TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
    -   (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
@@ -1247,7 +1225,7 @@ Strategy: <strategy>. Tasks: <completed_task_ids>. Unit: <X>%, Integration: <Y>%
    -     ========================================
    - Run: br sync --flush-only
    - Call trd_progress() (Execute phase order 10) for the final TRD-scoped progress summary (expect <TOTAL>/<TOTAL> complete, 100%)
-   - If STACKED_PRS=false: create the single PR for the whole TRD now. Pre-PR test gate — run 'npm run test --workspaces --if-present'; if exit != 0 print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run.' and HALT. Then run git town propose --title 'feat(<TRD_SLUG>): <TRD_TITLE>' --body 'Implements TRD <TRD_SLUG>. Strategy: <strategy>. <phase_count> phases, <task_count> tasks — all complete. Bead: <ROOT_EPIC_ID>.'; record the URL as SINGLE_PR_URL; print '=== PR SUMMARY ===' then 'PR: <SINGLE_PR_URL> (branch: feature/<TRD_SLUG> -> main)' then '=================='; remind the user to review and merge it. Then SKIP the stacked PR summary.
+   - Let COMPLETION_ACTION = the PR_ACTIONS entry with kind=='completion' (from the pr-plan call in Feature Branch Creation). If COMPLETION_ACTION.createPr == true (single-PR mode, summaryKind=='single'): create the single PR for the whole TRD now using COMPLETION_ACTION.proposeTitle and COMPLETION_ACTION.branch. Pre-PR test gate — run 'npm run test --workspaces --if-present'; if exit != 0 print 'ERROR: Local tests failed — PR creation blocked. Fix failing tests and re-run.' and HALT. Then run git town propose --title '<COMPLETION_ACTION.proposeTitle>' --body 'Implements TRD <TRD_SLUG>. Strategy: <strategy>. <phase_count> phases, <task_count> tasks — all complete. Bead: <ROOT_EPIC_ID>.'; record the URL as SINGLE_PR_URL; print '=== PR SUMMARY ===' then 'PR: <SINGLE_PR_URL> (branch: <COMPLETION_ACTION.branch> -> main)' then '=================='; remind the user to review and merge it. Then SKIP the stacked PR summary.
    - If STACKED_PRS=true: Print stacked PR summary: '=== STACKED PR SUMMARY ===' followed by one line per entry in PHASE_PR_MAP: use label='PR' if PR_FORMAT=true else 'Phase'; print '<label> <N>: <PHASE_PR_MAP[N]> (branch: <PHASE_BRANCH_MAP[N]> -> parent)'; if PR_FORMAT=true AND PHASE_SHIPPABLE_STATE[N] exists, print '  Shippable: <PHASE_SHIPPABLE_STATE[N]>' on the next line; end with '========================'
    - If STACKED_PRS=true: Remind user: PRs were created per-<label> via git town propose. Merge <label> 1 PR first (it targets main). After each merges, git-town automatically retargets the next PR against main.
    - Remind user: after all PRs merge, run: mv <trd_file> docs/TRD/completed/
