@@ -55,7 +55,8 @@
       "Bash(node *)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'PR #{d[\\\\\"number\\\\\"]}: {d[\\\\\"url\\\\\"]}'\\); print\\(f'{d[\\\\\"headRefName\\\\\"]} -> {d[\\\\\"baseRefName\\\\\"]} \\({d[\\\\\"state\\\\\"]}\\)'\\)\")",
       "Bash(node packages/development/lib/trd-cli.js *)",
-      "Bash(node ${CLAUDE_PLUGIN_ROOT}/lib/trd-cli.js *)"
+      "Bash(node ${CLAUDE_PLUGIN_ROOT}/lib/trd-cli.js *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'PR #{d[\\\\\"number\\\\\"]}: {d[\\\\\"title\\\\\"]}'\\); print\\(d['url']\\); print\\(f'{len\\(d[\\\\\"commits\\\\\"]\\)} commits'\\)\")"
     ]
   },
   "enabledPlugins": {}
