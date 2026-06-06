@@ -51,7 +51,12 @@
       "Bash(python3 -c ' *)",
       "Bash(bv --robot-triage --format toon)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('QUICK WINS:', [i['id']+': '+i['title'] for i in d.get\\('triage',{}\\).get\\('quick_wins',[]\\)][:5]\\); print\\('TOP RECS:', [r['recommendation'] for r in d.get\\('triage',{}\\).get\\('recommendations',[]\\)[:3]]\\)\")",
-      "Bash(br update *)"
+      "Bash(br update *)",
+      "Bash(node *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'PR #{d[\\\\\"number\\\\\"]}: {d[\\\\\"url\\\\\"]}'\\); print\\(f'{d[\\\\\"headRefName\\\\\"]} -> {d[\\\\\"baseRefName\\\\\"]} \\({d[\\\\\"state\\\\\"]}\\)'\\)\")",
+      "Bash(node packages/development/lib/trd-cli.js *)",
+      "Bash(node ${CLAUDE_PLUGIN_ROOT}/lib/trd-cli.js *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'PR #{d[\\\\\"number\\\\\"]}: {d[\\\\\"title\\\\\"]}'\\); print\\(d['url']\\); print\\(f'{len\\(d[\\\\\"commits\\\\\"]\\)} commits'\\)\")"
     ]
   },
   "enabledPlugins": {}
