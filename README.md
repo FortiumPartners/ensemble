@@ -4,25 +4,21 @@ Modular plugin ecosystem for Claude Code, enabling flexible, pay-what-you-need A
 
 ![The Spec-Driven Factory: Ensemble Plugin Ecosystem](docs/images/ensemble-architecture.png)
 
-## Model Tier Configuration
+## Model Tier Selection
 
-Ensemble uses three abstract tier aliases for Claude model selection:
+Command sources declare an abstract tier (`high`/`medium`/`low`) in their YAML
+`metadata.model`. At generation time these map to Claude Code's portable model
+aliases, which resolve per-provider at runtime (Anthropic API, Bedrock, Vertex)
+and auto-forward as new model versions ship:
 
-| Tier | Default Model | Typical Use |
-|------|---------------|-------------|
-| `high` | `claude-opus-4-7` | Strategic reasoning, architecture, security review |
-| `medium` | `claude-sonnet-4-6` | Implementation, documentation, testing |
-| `low` | `claude-haiku-4-5-20251001` | Lightweight retrieval, file watching |
+| Tier | Claude Code alias | Typical Use |
+|------|-------------------|-------------|
+| `high` | `opus` | Strategic reasoning, architecture, security review |
+| `medium` | `sonnet` | Implementation, documentation, testing |
+| `low` | `haiku` | Lightweight retrieval, file watching |
 
-Customize tiers per project using `/ensemble:map-model` — an interactive wizard that writes
-`.claude/ensemble-model-config.json` to your project root (committed with the repo).
-
-To migrate from the legacy `~/.config/ensemble/model-selection.json`, run:
-```
-/ensemble:migrate-model-config
-```
-
-See `schemas/ensemble-model-config-schema.json` for the full config file schema.
+Because commands ship portable aliases instead of pinned model IDs, there is no
+per-project model config to maintain — the same commands work on every backend.
 
 ## Overview
 

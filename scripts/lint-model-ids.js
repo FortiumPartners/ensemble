@@ -2,12 +2,13 @@
 'use strict';
 /**
  * Lint script: scans all command and agent YAML files for model: fields
- * and validates them against KNOWN_MODEL_IDS.
- * Exit 0 = all clean; Exit 1 = unknown model IDs found.
+ * and validates them against the supported tier aliases (high/medium/low).
+ * The generator maps these tiers to Claude Code's portable model aliases
+ * (opus/sonnet/haiku) at build time.
+ * Exit 0 = all clean; Exit 1 = unknown model values found.
  */
 const path = require('path');
 const fs = require('fs');
-const { KNOWN_MODEL_IDS } = require('../packages/core/lib/known-model-ids');
 
 const ROOT = path.resolve(__dirname, '..');
 
@@ -71,8 +72,7 @@ function main() {
   const yamlFiles = findYamlFiles();
   const errors = [];
   const VALID_TIERS = ['high', 'medium', 'low'];
-  // Also accept full model IDs that are in KNOWN_MODEL_IDS
-  const VALID_VALUES = new Set([...VALID_TIERS, ...KNOWN_MODEL_IDS]);
+  const VALID_VALUES = new Set(VALID_TIERS);
 
   for (const filePath of yamlFiles) {
     const content = fs.readFileSync(filePath, 'utf8');
@@ -80,7 +80,7 @@ function main() {
     if (!modelValue) continue; // No model field — not an error
     if (!VALID_VALUES.has(modelValue)) {
       const relPath = path.relative(ROOT, filePath);
-      errors.push(`${relPath}: model: ${modelValue} (not in KNOWN_MODEL_IDS or valid tier)`);
+      errors.push(`${relPath}: model: ${modelValue} (not a valid tier — use high, medium, or low)`);
     }
   }
 
