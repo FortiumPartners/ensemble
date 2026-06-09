@@ -8,7 +8,6 @@ Set these in your shell before invoking Ensemble commands. None are required unl
 
 | Variable | Default | Purpose | Example |
 |---|---|---|---|
-| `ENSEMBLE_MODEL_OVERRIDE` | _(none)_ | Override the active model tier for the entire session. Accepted values: `high`, `medium`, `low`. Legacy aliases (`opus`, `sonnet`, `haiku`) and raw model IDs are rejected with a `PreflightError`. Takes priority over the command's `metadata.model` tier and the project config file. | `ENSEMBLE_MODEL_OVERRIDE=high /ensemble:create-trd` |
 | `XDG_CONFIG_HOME` | `~/.config` | Base directory for user-level config. Ensemble looks for its config at `$XDG_CONFIG_HOME/ensemble/`. Standard XDG variable shared with other tools. | `XDG_CONFIG_HOME=/opt/config` |
 | `ENSEMBLE_PERMITTER_DISABLE` | _(unset)_ | Disable the permission-expansion hook entirely. Set to any non-empty value (e.g., `1`). Useful when troubleshooting permission issues or when the hook conflicts with other tooling. | `ENSEMBLE_PERMITTER_DISABLE=1` |
 | `PERMITTER_DEBUG` | _(unset)_ | Enable verbose debug logging from the permitter hook to stderr. Set to `1`. Shows detailed permission-matching info for each tool invocation. | `PERMITTER_DEBUG=1` |
@@ -47,6 +46,5 @@ Ensemble reads these standard variables from the environment to detect the activ
 
 Related documentation:
 
-- Run `/ensemble:map-model` to configure the model tier mapping written to `.claude/ensemble-model-config.json`
 - `packages/permitter/README.md` — permitter hook details and allowlist format
 - `packages/full/HOOKS.md` — full hook system reference

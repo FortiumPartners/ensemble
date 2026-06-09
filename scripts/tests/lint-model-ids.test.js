@@ -114,7 +114,6 @@ describe('lint-model-ids.js script integration', () => {
 'use strict';
 const path = require('path');
 const fs = require('fs');
-const { KNOWN_MODEL_IDS } = require('${path.resolve(__dirname, '../../packages/core/lib/known-model-ids')}');
 
 const ROOT = '${tmpDir}';
 
@@ -150,7 +149,7 @@ function extractModelValue(yamlContent) {
 }
 
 const yamlFiles = findYamlFiles();
-const VALID_VALUES = new Set(['high', 'medium', 'low', ...KNOWN_MODEL_IDS]);
+const VALID_VALUES = new Set(['high', 'medium', 'low']);
 const errors = [];
 for (const filePath of yamlFiles) {
   const content = fs.readFileSync(filePath, 'utf8');

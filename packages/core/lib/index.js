@@ -17,14 +17,6 @@ const configPath = require('./config-path');
 // Context7 MCP Integration
 const context7 = require('./context7-integration');
 
-// Known Model IDs (single source of truth)
-const { KNOWN_MODEL_IDS } = require('./known-model-ids');
-
-// Model Selection
-const configLoader = require('./config-loader');
-const modelResolver = require('./model-resolver');
-const usageLogger = require('./usage-logger');
-
 const skill = {
   name: 'Framework Detector',
   version: '1.0.0',
@@ -107,33 +99,4 @@ module.exports = {
   getContext7InstallInstructions: context7.getInstallInstructions,
   createLibraryHelper: context7.createLibraryHelper,
   withContext7Fallback: context7.withContext7Fallback,
-
-  // Known model IDs (single source of truth for all tier validation)
-  KNOWN_MODEL_IDS,
-
-  // Model selection utilities (tier-based: high/medium/low)
-  configLoader,
-  loadConfig: configLoader.loadConfig,
-  getDefaultConfig: configLoader.getDefaultConfig,
-  validateConfig: configLoader.validateConfig,
-  findProjectRoot: configLoader.findProjectRoot,
-  getProjectConfigPath: configLoader.getProjectConfigPath,
-  checkLegacyXdgFile: configLoader.checkLegacyXdgFile,
-  emitFirstRunHint: configLoader.emitFirstRunHint,
-  BYPASS_COMMANDS: configLoader.BYPASS_COMMANDS,
-
-  modelResolver,
-  selectModel: modelResolver.selectModel,
-  preflightValidate: modelResolver.preflightValidate,
-  resolveModel: modelResolver.resolveModel,
-  PreflightError: modelResolver.PreflightError,
-  TIER_ALIASES: modelResolver.TIER_ALIASES,
-  LEGACY_ALIASES: modelResolver.LEGACY_ALIASES,
-
-  usageLogger,
-  logUsage: usageLogger.logUsage,
-  generateSummary: usageLogger.generateSummary,
-  getLogPath: usageLogger.getLogPath,
-  calculateCost: usageLogger.calculateCost,
-  MODEL_PRICING: usageLogger.MODEL_PRICING,
 };
