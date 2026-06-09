@@ -2,7 +2,7 @@
 name: ensemble-map-model
 description: Interactive wizard to pin Claude model tier mappings for this project (Codex skill for /ensemble:map-model)
 user-invocable: true
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:map-model

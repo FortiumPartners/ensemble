@@ -39,7 +39,6 @@ export declare class AgentTranslator {
   mapToolPermissions(tools: string[]): Record<string, string>;
   generatePrompt(agent: Record<string, unknown>): string;
   classifyMode(category: string | undefined): 'primary' | 'subagent';
-  mapModelHint(hint: string | undefined | null): { providerID: string; modelID: string };
   generateConfigEntry(agent: Record<string, unknown>): Record<string, unknown>;
   generateMarkdown(agent: Record<string, unknown>): string;
   getOutputPath(agent: Record<string, unknown>): string;

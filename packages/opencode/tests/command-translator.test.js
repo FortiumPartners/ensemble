@@ -437,60 +437,18 @@ describe('OC-S1-CMD-008: JSON config entry generation', () => {
     expect(config['ensemble:fold-prompt'].subtask).toBe(false);
   });
 
-  it('should include agent field when model hint is present', () => {
-    const parsed = loadFixture('command-with-arguments.yaml');
-    const config = translator.generateConfigEntry(parsed);
-    // opus model hint should result in an agent field
-    expect(config['ensemble:create-trd']).toHaveProperty('agent');
-  });
-
-  it('should not include agent field when no model hint', () => {
-    const parsed = loadFixture('simple-command.yaml');
-    const config = translator.generateConfigEntry(parsed);
-    // No model hint -> default agent or no agent field
-    expect(config['ensemble:fold-prompt'].agent).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// OC-S1-CMD-009: Model hint to OpenCode providerID/modelID mapping
-// ---------------------------------------------------------------------------
-describe('OC-S1-CMD-009: Model hint mapping', () => {
-  let translator;
-
-  beforeEach(() => {
-    translator = new CommandTranslator({
-      packagesDir: PACKAGES_DIR,
-      outputDir: '/tmp/test-output',
-      dryRun: true,
-      verbose: false,
-    });
-  });
-
-  it('should map opus to anthropic/claude-opus-4-6', () => {
-    expect(translator.mapModelHint('opus')).toBe(
-      'anthropic/claude-opus-4-6'
+  it('should never emit agent or model fields (OpenCode uses the user config)', () => {
+    const withHint = translator.generateConfigEntry(
+      loadFixture('command-with-arguments.yaml')
     );
-  });
+    expect(withHint['ensemble:create-trd'].agent).toBeUndefined();
+    expect(withHint['ensemble:create-trd'].model).toBeUndefined();
 
-  it('should map sonnet to anthropic/claude-sonnet-4-20250514', () => {
-    expect(translator.mapModelHint('sonnet')).toBe(
-      'anthropic/claude-sonnet-4-20250514'
+    const noHint = translator.generateConfigEntry(
+      loadFixture('simple-command.yaml')
     );
-  });
-
-  it('should map haiku to anthropic/claude-haiku-4-5-20251001', () => {
-    expect(translator.mapModelHint('haiku')).toBe(
-      'anthropic/claude-haiku-4-5-20251001'
-    );
-  });
-
-  it('should return undefined for unknown model hints', () => {
-    expect(translator.mapModelHint('unknown')).toBeUndefined();
-  });
-
-  it('should return undefined for undefined input', () => {
-    expect(translator.mapModelHint(undefined)).toBeUndefined();
+    expect(noHint['ensemble:fold-prompt'].agent).toBeUndefined();
+    expect(noHint['ensemble:fold-prompt'].model).toBeUndefined();
   });
 });
 

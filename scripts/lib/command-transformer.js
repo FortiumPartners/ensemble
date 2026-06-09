@@ -5,9 +5,12 @@
 
 'use strict';
 
-// NOTE: model: tier aliases in source YAML are resolved to fully-pinned model IDs
-// at generation time via packages/core/lib/config-loader + model-resolver.
-// Generated .md files always contain real model IDs (or no model: field if unresolvable).
+// NOTE: model: tier aliases in source YAML (high/medium/low) are emitted as
+// Claude Code's portable model aliases (opus/sonnet/haiku) in the generated .md.
+// These resolve per-provider at runtime (Anthropic API, Bedrock, Vertex), so
+// generated commands run on any backend. Emitting a pinned first-party ID
+// (e.g. 'claude-opus-4-7') would 400 on Bedrock, where the model identifier is
+// an inference-profile ARN that does not match first-party model names.
 
 const path = require('path');
 
@@ -67,25 +70,17 @@ function generateCommandFrontmatter(data) {
     lines.push(`argument-hint: ${meta.argument_hint}`);
   }
 
-  // Resolve tier aliases to fully-pinned model IDs before emitting.
-  // Claude Code rejects tier names ('high', 'medium', 'low') as model IDs.
-  // If resolution fails, suppress the field so Claude Code uses the user's default.
+  // Map tier aliases (high/medium/low) to Claude Code's portable model aliases
+  // (opus/sonnet/haiku). These resolve per-provider at runtime, so generated
+  // commands run on Anthropic API, Bedrock, and Vertex alike. A pinned
+  // first-party ID would 400 on Bedrock (model id is an inference-profile ARN).
+  // Non-tier values pass through unchanged for explicit overrides.
   if (meta.model) {
-    const TIER_ALIASES = new Set(['high', 'medium', 'low']);
-    let resolvedModel = meta.model;
-    if (TIER_ALIASES.has(meta.model)) {
-      try {
-        const { loadConfig } = require('../../packages/core/lib/config-loader');
-        const { resolveModel } = require('../../packages/core/lib/model-resolver');
-        const cfg = loadConfig(process.cwd());
-        resolvedModel = resolveModel(meta.model, cfg);
-      } catch (_) {
-        resolvedModel = null; // suppress on any error
-      }
-    }
-    if (resolvedModel) {
-      lines.push(`model: ${resolvedModel}`);
-    }
+    const TIER_TO_ALIAS = { high: 'opus', medium: 'sonnet', low: 'haiku' };
+    const emitted = Object.prototype.hasOwnProperty.call(TIER_TO_ALIAS, meta.model)
+      ? TIER_TO_ALIAS[meta.model]
+      : meta.model;
+    lines.push(`model: ${emitted}`);
   }
 
   lines.push('---');

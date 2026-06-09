@@ -4,7 +4,7 @@ description: Refine and enhance existing TRD with stakeholder feedback and addit
 version: 2.4.0
 category: planning
 last-updated: 2026-05-30
-model: claude-opus-4-7
+model: opus
 ---
 <!-- DO NOT EDIT - Generated from refine-trd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

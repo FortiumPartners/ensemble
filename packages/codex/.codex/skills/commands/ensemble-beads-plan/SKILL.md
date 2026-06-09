@@ -3,7 +3,7 @@ name: ensemble-beads-plan
 description: Analyze an existing bead hierarchy and produce bv analysis and wheel instructions without executing any implementation (Codex skill for /ensemble:beads-plan)
 user-invocable: true
 argument-hint: '[epic-id|slug-pattern] [max parallel N]'
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:beads-plan

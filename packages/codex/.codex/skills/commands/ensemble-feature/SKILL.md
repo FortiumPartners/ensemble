@@ -3,7 +3,7 @@ name: ensemble-feature
 description: 'Orchestrate the full idea-to-plan pipeline: create-prd, refine-prd, create-trd, refine-trd, implement-trd-beads --plan (Codex skill for /ensemble:feature)'
 user-invocable: true
 argument-hint: <description> [--skip-refine]
-model: claude-opus-4-7
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:feature

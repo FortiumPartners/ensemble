@@ -3,7 +3,7 @@ name: ensemble-inject-standards
 description: Selectively inject relevant standards from standards/index.yml into agent context based on current task (Codex skill for /ensemble:inject-standards)
 user-invocable: true
 argument-hint: <task-description>
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:inject-standards

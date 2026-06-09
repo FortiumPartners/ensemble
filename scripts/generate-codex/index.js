@@ -12,6 +12,9 @@ const CODEX_PACKAGE_DIR = path.join(PACKAGES_DIR, 'codex');
 const OUTPUT_DIR = path.join(CODEX_PACKAGE_DIR, '.codex');
 const AGENTS_OUTPUT = path.join(CODEX_PACKAGE_DIR, 'AGENTS.md');
 const DEFAULT_MODEL = 'gpt-5.1-codex';
+// Codex targets OpenAI models, so any Anthropic-family tier alias coming from
+// the source frontmatter (opus/sonnet/haiku) maps to the OpenAI DEFAULT_MODEL.
+const ANTHROPIC_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
 const AVAILABLE_SKILLS = new Set(['react', 'nestjs', 'rails', 'phoenix', 'blazor', 'jest', 'pytest', 'rspec', 'xunit', 'exunit']);
 const FRAMEWORK_SKILL_REWRITES = [
   [/skills\/nestjs-framework\//g, '.codex/skills/nestjs/'],
@@ -260,7 +263,7 @@ function generateCommandSkills({ dryRun, verbose }) {
       description: `${description} (Codex skill for /${commandName})`,
       'user-invocable': true,
       ...(data['argument-hint'] ? { 'argument-hint': data['argument-hint'] } : {}),
-      ...(data.model ? { model: data.model === 'sonnet' || data.model === 'opus' ? DEFAULT_MODEL : data.model } : {}),
+      ...(data.model ? { model: ANTHROPIC_ALIASES.has(data.model) ? DEFAULT_MODEL : data.model } : {}),
     };
 
     const body = [
@@ -292,7 +295,7 @@ function generateAgents({ dryRun, verbose }) {
     const { data, content } = parseFrontmatter(raw);
     const name = data.name || baseName;
     const description = data.description || `${name} specialist`;
-    const model = data.model === 'sonnet' || data.model === 'opus' || !data.model ? DEFAULT_MODEL : data.model;
+    const model = !data.model || ANTHROPIC_ALIASES.has(data.model) ? DEFAULT_MODEL : data.model;
     const dest = path.join(OUTPUT_DIR, 'agents', `${name}.toml`);
     const normalizedContent = normalizeSkillBody(content);
     const skills = detectAgentSkills(name, normalizedContent);

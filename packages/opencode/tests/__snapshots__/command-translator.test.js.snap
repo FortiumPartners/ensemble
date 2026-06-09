@@ -3,9 +3,7 @@
 exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for JSON config entry (create-trd) 1`] = `
 {
   "ensemble:create-trd": {
-    "agent": "build",
     "description": "Take an existing PRD $ARGUMENTS and delegate to @tech-lead-orchestrator by the @ensemble-orchestrator",
-    "model": "anthropic/claude-opus-4-6",
     "subtask": false,
   },
 }
@@ -14,9 +12,7 @@ exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snap
 exports[`OC-S1-TEST-003: Snapshot tests for generated Markdown should match snapshot for JSON config entry (fix-issue) 1`] = `
 {
   "ensemble:fix-issue": {
-    "agent": "build",
     "description": "Lightweight workflow for bug fixes and small issues",
-    "model": "anthropic/claude-sonnet-4-20250514",
     "subtask": false,
   },
 }

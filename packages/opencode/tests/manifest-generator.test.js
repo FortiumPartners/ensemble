@@ -325,7 +325,7 @@ describe('OC-S3-MF-008: Config merging and file output', () => {
 
     const config = gen.buildConfig(ROOT);
     expect(config.$schema).toBe('https://opencode.ai/config.json');
-    expect(config.model).toBe('anthropic/claude-sonnet-4-20250514');
+    expect(config.model).toBeUndefined();
     expect(config.command).toBeDefined();
     expect(config.command['ensemble:create-prd']).toBeDefined();
     expect(config.skills).toBeDefined();
@@ -342,10 +342,10 @@ describe('OC-S3-MF-008: Config merging and file output', () => {
     expect(config.$schema).toBe('https://opencode.ai/config.json');
   });
 
-  it('should include default model', () => {
+  it('should not pin a top-level model (OpenCode uses the user config)', () => {
     const gen = createGenerator();
     const config = gen.buildConfig();
-    expect(config.model).toBe('anthropic/claude-sonnet-4-20250514');
+    expect(config.model).toBeUndefined();
   });
 
   it('should support dryRun mode (no file written)', () => {
@@ -447,7 +447,7 @@ describe('Integration: ManifestGenerator with real package directory', () => {
 
     const config = result.configContent;
     expect(config.$schema).toBe('https://opencode.ai/config.json');
-    expect(config.model).toBe('anthropic/claude-sonnet-4-20250514');
+    expect(config.model).toBeUndefined();
     expect(config.command['ensemble:fold-prompt']).toBeDefined();
     expect(config.skills.paths).toContain('.opencode/skill');
     expect(config.plugin).toEqual(['ensemble-opencode@5.3.0']);

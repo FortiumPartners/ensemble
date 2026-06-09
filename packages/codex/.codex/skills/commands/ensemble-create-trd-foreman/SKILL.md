@@ -4,7 +4,7 @@ description: Create Foreman-native structured Technical Requirements Document fr
 user-invocable: true
 argument-hint:
   - prd-path
-model: claude-opus-4-7
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:create-trd-foreman
