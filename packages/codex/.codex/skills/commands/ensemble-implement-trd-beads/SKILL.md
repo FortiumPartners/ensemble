@@ -3,7 +3,7 @@ name: ensemble-implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability (Codex skill for /ensemble:implement-trd-beads)
 user-invocable: true
 argument-hint: '[trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]'
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:implement-trd-beads

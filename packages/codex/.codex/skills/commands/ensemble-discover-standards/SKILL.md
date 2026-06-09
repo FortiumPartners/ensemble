@@ -4,7 +4,7 @@ description: Analyze codebase and extract coding conventions into a standards/ d
 user-invocable: true
 argument-hint:
   - path
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:discover-standards

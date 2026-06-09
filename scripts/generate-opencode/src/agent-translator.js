@@ -23,17 +23,6 @@ const yaml = require('js-yaml');
 const glob = require('glob');
 
 // ---------------------------------------------------------------------------
-// Model hint mapping table (OC-S2-AGT-005)
-// ---------------------------------------------------------------------------
-const MODEL_MAP = {
-  opus: { providerID: 'anthropic', modelID: 'claude-opus-4-6' },
-  sonnet: { providerID: 'anthropic', modelID: 'claude-sonnet-4-6' },
-  haiku: { providerID: 'anthropic', modelID: 'claude-haiku-4-5-20251001' },
-};
-
-const DEFAULT_MODEL = { providerID: 'anthropic', modelID: 'claude-sonnet-4-6' };
-
-// ---------------------------------------------------------------------------
 // Tool permission mapping table (OC-S2-AGT-002)
 // ---------------------------------------------------------------------------
 const TOOL_PERMISSION_MAP = {
@@ -333,21 +322,6 @@ class AgentTranslator {
   }
 
   // -------------------------------------------------------------------------
-  // OC-S2-AGT-005: Model hint translation
-  // -------------------------------------------------------------------------
-
-  /**
-   * Map an Ensemble model hint to OpenCode providerID/modelID format.
-   * @param {string|undefined|null} hint - Model hint
-   * @returns {{ providerID: string, modelID: string }}
-   */
-  mapModelHint(hint) {
-    if (!hint) return { ...DEFAULT_MODEL };
-    const mapped = MODEL_MAP[hint];
-    return mapped ? { ...mapped } : { ...DEFAULT_MODEL };
-  }
-
-  // -------------------------------------------------------------------------
   // OC-S2-AGT-006: Generate JSON config entries
   // -------------------------------------------------------------------------
 
@@ -360,15 +334,15 @@ class AgentTranslator {
     const name = `ensemble-${agent.metadata.name}`;
     const category = this.classifyCategory(agent.metadata.category);
     const mode = this.classifyMode(agent.metadata.category);
-    const model = this.mapModelHint(agent.metadata.model);
     const permission = this.mapToolPermissions(agent.metadata.tools);
     const prompt = this.generatePrompt(agent);
 
+    // Model is intentionally omitted: OpenCode resolves the model from the
+    // user's own opencode config, so ensemble does not pin one here.
     const entry = {
       name,
       description: trimValue(agent.metadata.description),
       mode,
-      model,
       permission,
       prompt,
       metadata: {

@@ -4,7 +4,7 @@ description: Create comprehensive Product Requirements Document with structured 
 version: 2.4.0
 category: planning
 last-updated: 2026-03-29
-model: claude-opus-4-7
+model: opus
 ---
 <!-- DO NOT EDIT - Generated from create-prd.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

@@ -24,15 +24,6 @@ const yaml = require('js-yaml');
 const glob = require('glob');
 
 // ---------------------------------------------------------------------------
-// Model hint mapping table (OC-S1-CMD-009)
-// ---------------------------------------------------------------------------
-const MODEL_MAP = {
-  opus: 'anthropic/claude-opus-4-6',
-  sonnet: 'anthropic/claude-sonnet-4-20250514',
-  haiku: 'anthropic/claude-haiku-4-5-20251001',
-};
-
-// ---------------------------------------------------------------------------
 // Known argument placeholder mappings per command name.
 // Derived from TRD section 4.2 argument mapping table.
 // ---------------------------------------------------------------------------
@@ -317,30 +308,10 @@ class CommandTranslator {
       subtask: false,
     };
 
-    // Map model hint to agent field (CMD-009)
-    if (parsed.metadata.model) {
-      const model = this.mapModelHint(parsed.metadata.model);
-      if (model) {
-        entry.agent = 'build';
-        entry.model = model;
-      }
-    }
+    // Model is intentionally omitted: OpenCode resolves the model from the
+    // user's own opencode config, so ensemble does not pin one here.
 
     return { [name]: entry };
-  }
-
-  // -------------------------------------------------------------------------
-  // OC-S1-CMD-009: Model hint mapping
-  // -------------------------------------------------------------------------
-
-  /**
-   * Map an Ensemble model hint to OpenCode providerID/modelID format.
-   * @param {string|undefined} hint - Model hint from metadata
-   * @returns {string|undefined} OpenCode model string or undefined
-   */
-  mapModelHint(hint) {
-    if (!hint) return undefined;
-    return MODEL_MAP[hint];
   }
 
   // -------------------------------------------------------------------------

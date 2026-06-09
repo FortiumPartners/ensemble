@@ -8,10 +8,6 @@ exports[`OC-S2-TEST-006: Snapshot tests for representative agents should match s
       "category": "specialist",
     },
     "mode": "subagent",
-    "model": {
-      "modelID": "claude-sonnet-4-6",
-      "providerID": "anthropic",
-    },
     "name": "ensemble-backend-developer",
     "permission": {
       "bash": "ask",
@@ -140,10 +136,6 @@ exports[`OC-S2-TEST-006: Snapshot tests for representative agents should match s
       "category": "orchestrator",
     },
     "mode": "primary",
-    "model": {
-      "modelID": "claude-sonnet-4-6",
-      "providerID": "anthropic",
-    },
     "name": "ensemble-ensemble-orchestrator",
     "permission": {
       "bash": "ask",
@@ -274,10 +266,6 @@ exports[`OC-S2-TEST-006: Snapshot tests for representative agents should match s
       "category": "quality",
     },
     "mode": "subagent",
-    "model": {
-      "modelID": "claude-sonnet-4-6",
-      "providerID": "anthropic",
-    },
     "name": "ensemble-code-reviewer",
     "permission": {
       "bash": "ask",
@@ -374,10 +362,6 @@ exports[`OC-S2-TEST-006: Snapshot tests for representative agents should match s
       "category": "utility",
     },
     "mode": "subagent",
-    "model": {
-      "modelID": "claude-sonnet-4-6",
-      "providerID": "anthropic",
-    },
     "name": "ensemble-file-creator",
     "permission": {
       "edit": "allow",
@@ -425,10 +409,6 @@ exports[`OC-S2-TEST-006: Snapshot tests for representative agents should match s
       "category": "workflow",
     },
     "mode": "subagent",
-    "model": {
-      "modelID": "claude-sonnet-4-6",
-      "providerID": "anthropic",
-    },
     "name": "ensemble-git-workflow",
     "permission": {
       "bash": "ask",

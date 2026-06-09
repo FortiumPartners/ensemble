@@ -3,7 +3,7 @@ name: ensemble:migrate-model-config
 description: One-shot migration from legacy ~/.config/ensemble/model-selection.json to project-level .claude/ensemble-model-config.json
 version: 1.0.1
 category: configuration
-model: claude-sonnet-4-6
+model: sonnet
 ---
 <!-- DO NOT EDIT - Generated from migrate-model-config.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

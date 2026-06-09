@@ -2,7 +2,7 @@
 name: ensemble-implement-trd
 description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology (Codex skill for /ensemble:implement-trd)
 user-invocable: true
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:implement-trd

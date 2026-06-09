@@ -305,9 +305,9 @@ describe('OC-S2-AGT-004: Agent mode classification', () => {
 });
 
 // ---------------------------------------------------------------------------
-// OC-S2-AGT-005: Model hint translation
+// OC-S2-AGT-005: Model is intentionally omitted (OpenCode uses the user's config)
 // ---------------------------------------------------------------------------
-describe('OC-S2-AGT-005: Model hint translation', () => {
+describe('OC-S2-AGT-005: Model omission', () => {
   let translator;
 
   beforeEach(() => {
@@ -319,44 +319,13 @@ describe('OC-S2-AGT-005: Model hint translation', () => {
     });
   });
 
-  it('should map opus to anthropic/claude-opus-4-6', () => {
-    const model = translator.mapModelHint('opus');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-opus-4-6',
-    });
-  });
-
-  it('should map sonnet to anthropic/claude-sonnet-4-6', () => {
-    const model = translator.mapModelHint('sonnet');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-sonnet-4-6',
-    });
-  });
-
-  it('should map haiku to anthropic/claude-haiku-4-5-20251001', () => {
-    const model = translator.mapModelHint('haiku');
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-haiku-4-5-20251001',
-    });
-  });
-
-  it('should default to sonnet when no model specified', () => {
-    const model = translator.mapModelHint(undefined);
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-sonnet-4-6',
-    });
-  });
-
-  it('should default to sonnet for null input', () => {
-    const model = translator.mapModelHint(null);
-    expect(model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-sonnet-4-6',
-    });
+  it('should not emit a model field on the config entry', () => {
+    const agent = translator.parseAgentYaml(
+      path.join(FIXTURES_DIR, 'sample-developer-agent.yaml')
+    );
+    const entry = translator.generateConfigEntry(agent);
+    const config = entry[Object.keys(entry)[0]];
+    expect(config.model).toBeUndefined();
   });
 });
 
@@ -389,10 +358,7 @@ describe('OC-S2-AGT-006: JSON config entry generation', () => {
     expect(config.name).toBe('ensemble-backend-developer');
     expect(config.description).toContain('server-side logic');
     expect(config.mode).toBe('subagent');
-    expect(config.model).toEqual({
-      providerID: 'anthropic',
-      modelID: 'claude-sonnet-4-6',
-    });
+    expect(config.model).toBeUndefined();
     expect(config.permission).toEqual({
       read: 'allow',
       edit: 'allow',

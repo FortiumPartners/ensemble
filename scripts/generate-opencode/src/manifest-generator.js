@@ -235,9 +235,10 @@ class ManifestGenerator {
    * @returns {object} The merged config object
    */
   buildConfig(projectRoot) {
+    // No top-level `model`: OpenCode resolves the model from the user's own
+    // opencode config, so ensemble does not pin one (avoids stale model IDs).
     const config = {
       $schema: 'https://opencode.ai/config.json',
-      model: 'anthropic/claude-sonnet-4-20250514',
     };
 
     // Agent block (OC-S3-MF-002 - only include if provided)

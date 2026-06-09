@@ -5,7 +5,7 @@ version: 3.0.1
 category: planning
 last-updated: 2026-05-31
 argument-hint: [prd-path]
-model: claude-opus-4-7
+model: opus
 ---
 <!-- DO NOT EDIT - Generated from create-trd-foreman.yaml -->
 <!-- To modify this file, edit the YAML source and run: npm run generate -->

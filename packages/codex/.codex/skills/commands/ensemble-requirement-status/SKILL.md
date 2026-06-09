@@ -4,7 +4,7 @@ description: On-demand requirement satisfaction report — scans bead comments f
 user-invocable: true
 argument-hint:
   - trd-path-or-slug
-model: claude-sonnet-4-6
+model: gpt-5.1-codex
 ---
 
 # Ensemble Command: /ensemble:requirement-status
