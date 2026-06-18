@@ -32,6 +32,35 @@ Part of the ensemble plugin ecosystem for Claude Code. This plugin provides deve
 
 After installation, this plugin's agents, commands, and skills will be automatically available in Claude Code.
 
+### Multi-TRD Beads Workstreams
+
+`/ensemble:implement-trd-beads` supports both single-TRD and multi-TRD execution.
+Single-TRD invocation keeps the existing behavior:
+
+```bash
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-feature.md --plan
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-feature.md --execute
+```
+
+Passing two or more TRD paths activates combined workstream mode:
+
+```bash
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --plan
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --execute
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --status
+```
+
+Combined workstream mode:
+
+- validates all TRDs before any Beads, branch, or scaffold side effect;
+- creates one release train bead plus one TRD epic per source TRD;
+- preserves each TRD's PR/story/task hierarchy under its own epic;
+- supports source-qualified cross-TRD deps: `<trd-slug>#TRD-NNN` and `<trd-slug>#PR-N`;
+- uses only `bv --robot-*` graph checks and prompts before unresolved/cyclic dependency changes;
+- reports release train progress plus per-TRD ready/blocked/in-progress counts.
+
+If stacked PR support is enabled with `ENSEMBLE_USE_STACKED_PRS=true`, combined mode prints `Combined workstream mode: stacked PRs enabled`; otherwise it offers scaffold-only or alternate execution paths.
+
 ## Documentation
 
 See the [main ensemble repository](https://github.com/FortiumPartners/ensemble) for complete documentation.

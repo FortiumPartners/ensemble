@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `implement-trd-beads` combined workstream mode for multiple TRD paths.
+  - Plans one release train bead and one TRD epic per source TRD.
+  - Preserves each TRD-local PR/story/task hierarchy.
+  - Supports source-qualified cross-TRD dependencies: `<trd-slug>#TRD-NNN` and `<trd-slug>#PR-N`.
+  - Adds `validate-workstream`, `workstream-plan`, and `workstream-status` TRD CLI helpers.
+  - Uses `bv --robot-*` validation for graph checks and prompts on ambiguous/cyclic dependency changes.
+
 - Plugin extraction and population (in progress)
 
 ## [5.0.0] - 2026-03-07

@@ -139,6 +139,7 @@ Commands are provided by specific plugins:
 - `/create-prd` - Product requirements (ensemble-product)
 - `/create-trd` - Technical requirements (ensemble-core)
 - `/implement-trd` - TRD implementation (ensemble-development)
+- `/ensemble:implement-trd-beads` - Beads-backed TRD implementation; accepts multiple TRD paths for combined workstream mode with a release train bead, one TRD epic per source TRD, cross-TRD dependency edges, and `bv --robot-*` validation
 - `/fold-prompt` - Project optimization (ensemble-core)
 - `/dashboard` - Metrics dashboard (ensemble-metrics)
 
@@ -218,6 +219,33 @@ ensemble-react
 ```
 
 Claude Code automatically installs required dependencies when you install a plugin.
+
+## Multi-TRD Beads Workstreams
+
+`/ensemble:implement-trd-beads` can scaffold and execute related TRDs as one graph-aware workstream without merging the source documents.
+
+```bash
+# Plan/scaffold only
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --plan
+
+# Execute an existing scaffold
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --execute
+
+# Inspect combined status
+/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --status
+```
+
+Behavior:
+
+- one TRD path keeps existing single-TRD behavior;
+- two or more TRD paths enable combined workstream mode;
+- all TRDs are validated before side effects;
+- Beads get one release train parent plus one root epic per TRD;
+- each TRD's PR/story/task hierarchy stays under its own epic;
+- cross-TRD dependencies use `<trd-slug>#TRD-NNN` or `<trd-slug>#PR-N`;
+- graph checks use `bv --robot-*` only and prompt before ambiguous/cyclic dependency changes.
+
+See `packages/development/README.md` for the user-facing command details.
 
 ## Development
 
