@@ -22,6 +22,9 @@
  *   phase-status <trd-path> [--closed a,b,c]
  *   next-task    <trd-path> --ready a,b [--closed a,b] [--max N]
  *   pr-plan      <trd-path> [--stacked]
+ *   validate-workstream <trd-path...>
+ *   workstream-plan <trd-path...> [--stacked]
+ *   workstream-status [--workstream slug] [--issues-json path]
  */
 
 const fs = require('fs');
@@ -35,6 +38,9 @@ const {
   selectNextTasks,
 } = require('./phase-tracker');
 const { buildScaffoldPlan } = require('./scaffold-planner');
+const { buildWorkstreamPlan, validateWorkstream } = require('./workstream-planner');
+const { resolveCrossTrdDeps } = require('./cross-trd-deps');
+const { summarizeWorkstream } = require('./workstream-status');
 const { useStackedPrs, branchName, planPrActions } = require('./pr-strategy');
 
 // ---------------------------------------------------------------------------
@@ -276,6 +282,49 @@ function runPrPlan(argv, env) {
   };
 }
 
+/** Load all TRD paths for combined workstream helpers. */
+function loadWorkstreamItems(trdPaths) {
+  const paths = Array.isArray(trdPaths) ? trdPaths : [];
+  return paths.map((trdPath) => {
+    const { slug, parsed } = loadParsed(trdPath);
+    return { trdPath, slug, parsed };
+  });
+}
+
+/** `validate-workstream <trd-path...>` -> all-or-nothing validation. */
+function runValidateWorkstream(argv) {
+  const { positionals } = parseArgs(argv);
+  if (positionals.length < 2) {
+    throw new Error('validate-workstream requires two or more TRD paths');
+  }
+  const items = loadWorkstreamItems(positionals);
+  return validateWorkstream(items);
+}
+
+/** `workstream-plan <trd-path...> [--stacked]` -> release train + per-TRD scaffold plans. */
+function runWorkstreamPlan(argv, env) {
+  const { positionals, flags } = parseArgs(argv);
+  if (positionals.length < 2) {
+    throw new Error('workstream-plan requires two or more TRD paths');
+  }
+  const items = loadWorkstreamItems(positionals);
+  const stackedPrs = flags.stacked === true ? true : useStackedPrs(env || {});
+  const plan = buildWorkstreamPlan(items, { stackedPrs });
+  const crossTrd = resolveCrossTrdDeps(plan.scaffoldPlans);
+  return Object.assign({ ok: plan.ok && crossTrd.ok, crossTrd }, plan);
+}
+
+/** `workstream-status [--workstream slug] [--issues-json path]` -> combined status summary. */
+function runWorkstreamStatus(argv) {
+  const { flags } = parseArgs(argv, new Set(['workstream', 'issues-json']));
+  let issuesInput = [];
+  if (flags['issues-json']) {
+    const raw = fs.readFileSync(flags['issues-json'], 'utf8');
+    issuesInput = JSON.parse(raw);
+  }
+  return summarizeWorkstream(issuesInput, { workstreamSlug: flags.workstream || null });
+}
+
 // ---------------------------------------------------------------------------
 // CLI dispatch
 // ---------------------------------------------------------------------------
@@ -286,6 +335,9 @@ const HANDLERS = {
   'phase-status': (argv) => runPhaseStatus(argv),
   'next-task': (argv) => runNextTask(argv),
   'pr-plan': (argv) => runPrPlan(argv, process.env),
+  'validate-workstream': (argv) => runValidateWorkstream(argv),
+  'workstream-plan': (argv) => runWorkstreamPlan(argv, process.env),
+  'workstream-status': (argv) => runWorkstreamStatus(argv),
 };
 
 /**
@@ -305,7 +357,7 @@ function main(argv) {
     process.stdout.write(
       JSON.stringify({
         error:
-          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan> <trd-path> [...]',
+          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan|validate-workstream|workstream-plan|workstream-status> <trd-path> [...]',
       }) + '\n'
     );
     return 1;
@@ -341,6 +393,9 @@ module.exports = {
   runPhaseStatus,
   runNextTask,
   runPrPlan,
+  runValidateWorkstream,
+  runWorkstreamPlan,
+  runWorkstreamStatus,
   main,
   // exported for unit testing of the helpers
   deriveSlug,

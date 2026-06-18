@@ -15,6 +15,7 @@
  * @property {string} summary
  * @property {string|null} prdReference
  * @property {number|null} designReadinessScore
+ * @property {string|null} status
  * @property {boolean} prFormat
  * @property {Phase[]} phases
  * @property {Object.<string,Task>} tasksById
@@ -304,10 +305,11 @@ function extractValidatesAcs(text) {
 
 function extractInlineDepends(text) {
   const out = [];
-  const re = /\[depends:\s*(TRD-[A-Za-z0-9-]+)\]/gi;
+  const re = /\[depends:\s*([^\]]+)\]/gi;
   let m;
   while ((m = re.exec(text)) !== null) {
-    out.push(m[1]);
+    const ids = m[1].match(/[a-z0-9][a-z0-9-]*#(?:TRD-[A-Za-z0-9-]+|PR-\d+)|TRD-[A-Za-z0-9-]+/gi);
+    if (ids) ids.forEach((id) => out.push(id));
   }
   return out;
 }
@@ -437,7 +439,9 @@ function extractProofOfRequirement(bodyLines) {
 
 /**
  * Extract dependsOn from a body: from "Dependencies:" lines and inline
- * [depends: TRD-NNN] annotations. De-duplicates, preserves document order.
+ * [depends: TRD-NNN] annotations. Also accepts source-qualified cross-TRD
+ * references: <trd-slug>#TRD-NNN and <trd-slug>#PR-N. De-duplicates,
+ * preserves document order.
  */
 function extractDependsOn(bodyText, bodyLines) {
   const out = [];
@@ -456,7 +460,7 @@ function extractDependsOn(bodyText, bodyLines) {
   for (const line of bodyLines) {
     const m = line.match(/^\s*-?\s*Dependencies?\s*:\s*(.+)$/i);
     if (m) {
-      const ids = m[1].match(/TRD-[A-Za-z0-9-]+/gi);
+      const ids = m[1].match(/[a-z0-9][a-z0-9-]*#(?:TRD-[A-Za-z0-9-]+|PR-\d+)|TRD-[A-Za-z0-9-]+/gi);
       if (ids) ids.forEach((id) => push(id));
     }
   }
@@ -571,6 +575,7 @@ function parseTRD(markdownString) {
 
   const { frontmatter, body } = splitFrontmatter(md);
   const designReadinessScore = extractDesignReadinessScore(frontmatter);
+  const status = frontmatter && frontmatter.status != null ? String(frontmatter.status) : null;
 
   const allLines = body.split('\n');
 
@@ -735,6 +740,7 @@ function parseTRD(markdownString) {
     summary,
     prdReference,
     designReadinessScore,
+    status,
     prFormat,
     phases: cleanPhases,
     tasksById,

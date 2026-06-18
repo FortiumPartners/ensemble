@@ -167,6 +167,7 @@ workflow:
           description: Process --status and --reset-task arguments for early exit paths
           actions:
             - "If $ARGUMENTS contains '--plan' AND $ARGUMENTS contains '--execute': print 'ERROR: --plan and --execute are mutually exclusive.' and EXIT"
+            - "Parse $ARGUMENTS for .md paths. If two or more TRD paths are present: set COMBINED_WORKSTREAM_MODE=true, set SOURCE_TRD_PATHS to the ordered path list, print 'Combined workstream mode: preserving PRD/TRD traceability with separate TRD epics under one release train', and list every source TRD. If exactly one TRD path is present: set COMBINED_WORKSTREAM_MODE=false and preserve existing single-TRD behavior exactly."
             - "If $ARGUMENTS contains '--plan': set PLAN_ONLY=true (scaffold phase runs, Execute phase is skipped — print wheel instructions and exit after scaffold completes)"
             - "If $ARGUMENTS contains '--execute': set EXECUTE_ONLY=true (scaffold phase is skipped — resume detection runs, Execute phase runs against existing beads)"
             - "Read ENSEMBLE_USE_STACKED_PRS environment variable: if its value equals 'true' (case-insensitive) set STACKED_PRS=true; otherwise set STACKED_PRS=false (DEFAULT — single PR for the entire TRD). STACKED_PRS governs PR-creation strategy only: true = one stacked PR per ### PR N: section via a git town append chain; false = all phases implemented on a single branch with ONE PR created at Completion. Phase-strict execution ordering (finish phase N before phase N+1) applies in BOTH modes when PR_FORMAT=true. Log: 'Stacked PRs: <enabled if STACKED_PRS else disabled (single PR)>'."
@@ -183,6 +184,7 @@ workflow:
             - "       'Tasks completed: <M> / <Total>'"
             - "       '================================='"
             - "  5. EXIT"
+            - "If $ARGUMENTS contains '--status' AND COMBINED_WORKSTREAM_MODE=true: run br list --status=open --json and node \"$TRD_CLI\" workstream-status --issues-json <captured-json-file> (include --workstream <slug> if known); print release train progress, each TRD epic progress, blocked items, ready items, and parallel-safe streams; EXIT"
             - "If $ARGUMENTS contains '--status' AND TEAM_MODE=false: derive TRD_SLUG, then call trd_progress() (Execute phase order 10) to print the TRD-scoped progress summary, EXIT"
             - "If $ARGUMENTS contains '--reset-task' AND TEAM_MODE=true: (TRD-030, AC: FR-IT-9, AC-BC-3)"
             - "  1. Extract TASK_ID from argument"
@@ -216,7 +218,8 @@ workflow:
           title: TRD Selection and Validation
           description: Locate, validate, and detect format of the target TRD file
           actions:
-            - "Priority: $ARGUMENTS .md path -> $ARGUMENTS name search in docs/TRD/ -> single in-progress TRD in docs/TRD/ -> prompt user"
+            - "Priority: $ARGUMENTS .md path(s) -> $ARGUMENTS name search in docs/TRD/ -> single in-progress TRD in docs/TRD/ -> prompt user"
+            - "If COMBINED_WORKSTREAM_MODE=true: run node \"$TRD_CLI\" validate-workstream <SOURCE_TRD_PATHS...> and parse {ok,trds,errors}. This is the all-or-nothing preflight. It validates every TRD for readability, parseability, PRD reference, Master Task List, PR sections, Shippable State lines, design_readiness_score >= 4.0, and non-blocked status before any br, branch, or scaffold side effect. If ok=false: print every failing TRD with reason and HALT. No release train bead, root epic bead, story bead, task bead, dependency edge, or branch may be created."
             - "Validate: file exists, contains Master Task List section, contains at least one '- [ ] **TRD-' entry"
             - "Derive TRD_SLUG from filename: lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens"
             - "PR format detection: scan the TRD file for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If at least one such heading is found: set PR_FORMAT=true and log 'TRD format: PR-stack (shippable boundaries)'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'. PR_FORMAT is re-derived on every invocation (including cross-session resume) so the correct value is always in scope."
@@ -482,7 +485,8 @@ workflow:
           title: Root Epic Creation
           description: Create the top-level epic bead for the TRD
           actions:
-            - "Run: node \"$TRD_CLI\" scaffold-plan \"<TRD_FILE_PATH>\" and parse {ok, slug, plan}. If ok is false or the process exits non-zero: print the error and HALT (do NOT proceed to br create with an undefined PLAN). PLAN is AUTHORITATIVE for every bead's title, description, type, priority and for all dependency edges across the next steps (Root Epic, Story, Task, Synthesized Test, Dependency Encoding). Each step below EXECUTES the relevant part of PLAN via br — it must NOT re-derive titles/descriptions/prefixes. Print each PLAN.warnings entry. Idempotency: before each br create, still check EXISTING_BEADS for the bead's titlePrefix and skip if present."
+            - "If COMBINED_WORKSTREAM_MODE=true: run node \"$TRD_CLI\" workstream-plan <SOURCE_TRD_PATHS...>$( [ \"$ENSEMBLE_USE_STACKED_PRS\" = true ] && echo ' --stacked' ) and parse {ok,workstreamSlug,releaseTrain,trdEpics,scaffoldPlans,crossTrd}. Create or reuse releaseTrain first, then one TRD root epic per trdEpics entry, then execute each scaffoldPlans[n].plan using the existing single-TRD PLAN executor. Preserve each TRD-local PR/story/task hierarchy under its TRD epic. If crossTrd.errors is non-empty or ok=false: print each ambiguity/conflict and ask the user how to resolve before creating affected dependency edges; do not guess."
+            - "If COMBINED_WORKSTREAM_MODE=false: run node \"$TRD_CLI\" scaffold-plan \"<TRD_FILE_PATH>\" and parse {ok, slug, plan}. If ok is false or the process exits non-zero: print the error and HALT (do NOT proceed to br create with an undefined PLAN). PLAN is AUTHORITATIVE for every bead's title, description, type, priority and for all dependency edges across the next steps (Root Epic, Story, Task, Synthesized Test, Dependency Encoding). Each step below EXECUTES the relevant part of PLAN via br — it must NOT re-derive titles/descriptions/prefixes. Print each PLAN.warnings entry. Idempotency: before each br create, still check EXISTING_BEADS for the bead's titlePrefix and skip if present."
             - "Check EXISTING_BEADS for title prefix [trd:<TRD_SLUG>]"
             - "If found: ROOT_EPIC_ID = existing id; skip creation"
             - "If not found: run br create using PLAN.epic fields verbatim — --title='<PLAN.epic.title>' --type=<PLAN.epic.type> --priority=<PLAN.epic.priority> --description='<PLAN.epic.description>' --json. PLAN.epic.title already includes the [trd:<TRD_SLUG>] titlePrefix; do NOT re-derive or re-prefix the title/description inline; use PLAN.epic."
@@ -530,7 +534,8 @@ workflow:
           description: Wire explicit TRD dependencies and inter-phase sequential gates
           actions:
             - "PLAN.deps (from the scaffold-plan call in Root Epic Creation) is the AUTHORITATIVE, complete set of dependency edges: story-blocks-epic, task-blocks-story, task-depends (explicit dependsOn), inter-phase-gate, and synthtest-depends. Each edge is {type, blockerId, blockedId} where blockerId/blockedId are TITLE PREFIXES and 'blocker blocks blocked'."
-            - "For each edge in PLAN.deps: resolve blockerId and blockedId (title prefixes) to real bead ids — [trd:<TRD_SLUG>] -> ROOT_EPIC_ID; [trd:<TRD_SLUG>:pr:<n>] or [trd:<TRD_SLUG>:phase:<n>] -> STORY_BEAD_IDs[n]; [trd:<TRD_SLUG>:task:<id>] -> TRD_TO_BEAD_MAP[id]. Then run `br dep add <blocked_bead_id> <blocker_bead_id>` (blocker blocks blocked). Warn and skip any edge whose blockerId or blockedId cannot be resolved to a bead id."
+            - "For each edge in PLAN.deps: resolve blockerId and blockedId (title prefixes) to real bead ids — [trd:<TRD_SLUG>] -> ROOT_EPIC_ID; [trd:<TRD_SLUG>:pr:<n>] or [trd:<TRD_SLUG>:phase:<n>] -> STORY_BEAD_IDs[n]; [trd:<TRD_SLUG>:task:<id>] -> TRD_TO_BEAD_MAP[id]. Then run `br dep add <blocked_bead_id> <blocker_bead_id>` (blocker blocks blocked). If the exact edge already exists, skip as no-op. Warn and skip any edge whose blockerId or blockedId cannot be resolved to a bead id."
+            - "If COMBINED_WORKSTREAM_MODE=true: also execute WORKSTREAM_PLAN.deps and crossTrd.edges after local PLAN.deps. For each crossTrd edge, resolve blockerId and blockedId across the global title-prefix map, run `br dep add <blocked_bead_id> <blocker_bead_id>`, and add metadata comment '<edge.metadata>' to the blocked bead. If br reports a cycle or contradictory direction, print the exact edge and ask user to retry, skip, reverse, or abort; never auto-resolve."
             - "Ensure PHASE_TASK_IDS is populated for the quality gate: it is built from PLAN (phaseN per task) in Task Bead Creation; if empty here (e.g. all task beads already existed), rebuild PHASE_TASK_IDS[phaseN] by appending each PLAN.tasks[j].id and each PLAN.synthesizedTests[k].id under its phaseN."
 
         - order: 8
@@ -543,6 +548,7 @@ workflow:
             - "  Parse PLAN_OUTPUT to extract parallel tracks (track numbers, task lists per track)"
             - "  Store PARALLEL_TRACKS for use in wheel instructions"
             - "  On bv failure: echo 'WARNING: bv --robot-plan failed. Falling back to sequential execution.'; BV_AVAILABLE=false"
+            - "  Run: INSIGHTS_OUTPUT=$(bv --robot-insights --format toon) — capture graph health; if cycles, unexpected blockers, or priority/order mismatches are reported, print them and ask user how to proceed before execution. Never invoke bare bv; only --robot-* flags."
             - "  Run: TRIAGE_OUTPUT=$(bv --robot-triage --format toon) — capture triage analysis"
             - "  Parse TRIAGE_OUTPUT to extract: quick_ref, recommendations (ranked list with scores), quick_wins, blockers_to_clear"
             - "  Store TRIAGE_RECOMMENDATIONS for use in wheel instructions"
@@ -554,6 +560,7 @@ workflow:
           description: Print scaffolding summary with BV analysis output
           actions:
             - "Print scaffolding summary: epic ID, story count, task count, dep count"
+            - "If COMBINED_WORKSTREAM_MODE=true: print 'Combined workstream mode: stacked PRs enabled' when STACKED_PRS=true; always print release train ID/name, all source TRD epics, per-TRD task counts, and cross-TRD dependency count."
             - "Run: br list --status=open for summary overview"
             - "Run: br sync --flush-only (final sync after all scaffold mutations)"
             - "If BV_AVAILABLE == true:"

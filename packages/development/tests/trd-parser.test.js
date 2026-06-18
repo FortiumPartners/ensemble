@@ -718,6 +718,7 @@ describe('parseTRD — ParsedTRD contract shape', () => {
         'phases',
         'prFormat',
         'prdReference',
+        'status',
         'summary',
         'tasksById',
         'title',
