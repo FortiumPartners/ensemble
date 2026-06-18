@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.0] - 2026-06-18
+
+### Added
+
+- **development:** add multi-TRD workstream support
+- **development:** add refine-beads command
+
+### Changed
+
+- **TRD:** sync refine-beads checkboxes
+- add refine-beads TRD
+- archive completed PRDs
+- document multi-TRD workstreams
+- update multi-TRD workstream TRD
+- stop tracking beads issue database
+
+### Fixed
+
+- **development:** address coderabbit findings
+
 ## [5.12.0] - 2026-04-12
 
 ### Added
