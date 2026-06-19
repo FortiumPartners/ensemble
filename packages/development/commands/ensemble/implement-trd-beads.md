@@ -220,12 +220,15 @@ FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
    - Step 3 — Required role validation:
    -   If 'lead' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a lead role'; HALT
    -   If 'builder' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a builder role'; HALT
-   - Step 4 — Agent registry validation (AC: AC-TD-2, FR-5.6):
-   -   Build KNOWN_AGENTS list:
-   -     1. Scan packages/*/agents/*.yaml using glob pattern
+   - Step 4 — Agent registry validation and alias resolution (AC: AC-TD-2, FR-5.6):
+   -   Build KNOWN_AGENTS list from the runtime-visible Task agent registry, not only source package files. Include both unqualified names (backend-developer) and namespaced plugin names (ensemble-full:backend-developer).
+   -     1. Scan packages/*/agents/*.yaml using glob pattern when running from repo source
    -     2. For each file: extract basename, strip .yaml extension -> agent name
-   -     3. Also scan .claude/router-rules.json if it exists: extract any custom agent names defined there
-   -     4. Deduplicate into KNOWN_AGENTS set (sorted alphabetically for deterministic output)
+   -     3. Include every available Task agent name exposed by the runtime (for installed plugins this may be ensemble-full:<agent>)
+   -     4. Also scan .claude/router-rules.json if it exists: extract any custom agent names defined there
+   -     5. Deduplicate into KNOWN_AGENTS set (sorted alphabetically for deterministic output)
+   -   Build AGENT_ALIAS_MAP: for each known agent with a namespace prefix '<plugin>:<name>', map '<name>' to the full namespaced agent if no exact unqualified '<name>' exists. Example: if only 'ensemble-full:backend-developer' exists, AGENT_ALIAS_MAP['backend-developer']='ensemble-full:backend-developer'.
+   -   Before storing or delegating any role/specialist/reviewer/QA/debug/test agent, resolve it through AGENT_ALIAS_MAP. Always pass the resolved runtime agent name to Task(subagent_type=...) or Task(agent_type=...), never the unresolved shorthand when it is not in KNOWN_AGENTS.
    -   For each role in TEAM_ROLES:
    -     For each agent name in role.agents:
    -       If agent_name NOT in KNOWN_AGENTS:
@@ -653,7 +656,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
    - Run: br update <BEAD_ID> --status=in_progress — skip task if exit code != 0 (already claimed)
    - Extract TASK_ID from task.title prefix (TRD-XXX pattern)
-   - Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer
+   - Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer. After choosing shorthand, resolve it via AGENT_ALIAS_MAP before delegation (e.g. backend-developer -> ensemble-full:backend-developer when installed from ensemble-full).
    - Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
    - Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
    - 
@@ -679,7 +682,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   - If the bead description contains a 'Sub-items' or 'Embedded tests' section: list every one of those items verbatim in the builder prompt and instruct: 'You MUST implement EVERY checklist sub-item listed, including all embedded tests. The task is not complete until every sub-item — especially each test — is implemented and passing. Do not skip tests that lack their own task id.'
    -   - Each builder subagent starts with clean context — this is intentional for quality
    - Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
-   - Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
+   - Delegate: Task(agent_type=<resolved_specialist>, prompt=<prompt>) where resolved_specialist is the AGENT_ALIAS_MAP/KNOWN_AGENTS-resolved runtime name.
    - On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
    - On failure: br comment add <BEAD_ID> 'Failed: <error_summary>. Files touched: <changed_files>. Agent: <specialist_type>.'; br update <BEAD_ID> --status=open; br sync --flush-only; enter debug loop
    - 
@@ -757,7 +760,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -    - Test results from builder's summary
    - 
    - 2. Delegate to @test-runner first for fresh test execution:
-   -    Task(subagent_type='test-runner', prompt='Run tests for changed files: <files_changed>. Report pass/fail and coverage.')
+   -    Task(subagent_type=<resolved test-runner>, prompt='Run tests for changed files: <files_changed>. Report pass/fail and coverage.') where resolved test-runner uses AGENT_ALIAS_MAP (e.g. ensemble-full:test-runner).
    -    Capture test_results from @test-runner response.
    - 
    - 3. Build augmented QA prompt with test_results, then:
@@ -918,7 +921,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **4. Code Review**
    Mandatory code review before task closure — delegate to @code-reviewer for quality validation
 
-   - Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
+   - Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
    - If approved:
    -   br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
    -   Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3).
@@ -939,7 +942,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **5. Debug Loop**
    Attempt automated fix on task failure via deep-debugger (max 2 retries)
 
-   - Delegate to @deep-debugger with error details, changed files, strategy, bead ID
+   - Delegate to resolved @deep-debugger (via AGENT_ALIAS_MAP, e.g. ensemble-full:deep-debugger) with error details, changed files, strategy, bead ID
    - If fix applied: re-run tests; if pass -> proceed to Code Review step (order 4); if fail -> retry
    - After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Root cause: <error_analysis>. Attempted fixes: <fix_attempts>. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
    - 

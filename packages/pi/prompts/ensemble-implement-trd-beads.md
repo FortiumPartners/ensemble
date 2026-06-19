@@ -208,49 +208,52 @@ FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
 37. Step 3 — Required role validation:
 38. If 'lead' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a lead role'; HALT
 39. If 'builder' NOT in TEAM_ROLES: print 'ERROR: team.roles must include a builder role'; HALT
-40. Step 4 — Agent registry validation (AC: AC-TD-2, FR-5.6):
-41. Build KNOWN_AGENTS list:
-42. 1. Scan packages/*/agents/*.yaml using glob pattern
+40. Step 4 — Agent registry validation and alias resolution (AC: AC-TD-2, FR-5.6):
+41. Build KNOWN_AGENTS list from the runtime-visible Task agent registry, not only source package files. Include both unqualified names (backend-developer) and namespaced plugin names (ensemble-full:backend-developer).
+42. 1. Scan packages/*/agents/*.yaml using glob pattern when running from repo source
 43. 2. For each file: extract basename, strip .yaml extension -> agent name
-44. 3. Also scan .claude/router-rules.json if it exists: extract any custom agent names defined there
-45. 4. Deduplicate into KNOWN_AGENTS set (sorted alphabetically for deterministic output)
-46. For each role in TEAM_ROLES:
-47. For each agent name in role.agents:
-48. If agent_name NOT in KNOWN_AGENTS:
-49. Print: "ERROR: Agent '<agent_name>' referenced in team role '<role_name>' not found in ensemble registry."
-50. Print: "Known agents: <sorted comma-separated KNOWN_AGENTS list>"
-51. Print: "Check packages/*/agents/*.yaml for available agents."
-52. HALT
-53. On success: print "Agent registry validation passed: all <N> referenced agents verified."
-54. Step 5 — Optional role flags:
-55. Set REVIEWER_ENABLED = true if 'reviewer' key exists in TEAM_ROLES, else false
-56. Set QA_ENABLED = true if 'qa' key exists in TEAM_ROLES, else false
-57. Step 6 — Configuration summary: print team configuration summary:
-58. 'TEAM MODE: enabled'
-59. 'Team config source: {TEAM_CONFIG_SOURCE}'
-60. 'Lead: <TEAM_ROLES.lead.agents[0]>'
-61. 'Builders: <TEAM_ROLES.builder.agents joined by comma>'
-62. 'Reviewer: <TEAM_ROLES.reviewer.agents[0] if REVIEWER_ENABLED else none>'
-63. 'QA: <TEAM_ROLES.qa.agents[0] if QA_ENABLED else none>'
-64. Also print which steps will be skipped (TRD-023):
-65. 'Skipped steps: <review (if REVIEWER_ENABLED=false), qa (if QA_ENABLED=false), or none>'
-66. 
-67. TRD-023 — Graceful Degradation for Partial Teams (AC: FR-GD-4, FR-GD-5, FR-GD-6, AC-TD-4):
-68. Case 1: REVIEWER_ENABLED=false (no reviewer role defined):
-69. - Skip review step entirely
-70. - After builder: validate_transition(bead_id, 'in_qa') if QA_ENABLED else validate_transition(bead_id, 'closed')
-71. - br comment add <bead_id> 'status:skip-review lead:<agent> reason:no-reviewer-role-defined'
-72. Case 2: QA_ENABLED=false (no qa role defined):
-73. - Skip QA step entirely
-74. - After reviewer approval: validate_transition(bead_id, 'closed')
-75. - br comment add <bead_id> 'status:skip-qa lead:<agent> reason:no-qa-role-defined'
-76. Case 3: REVIEWER_ENABLED=false AND QA_ENABLED=false:
-77. - Lead orchestration loop active, builder implements, lead closes directly
-78. - After builder: validate_transition(bead_id, 'closed')
-79. - br comment add <bead_id> 'status:closed lead:<agent> reason:no-reviewer-no-qa-direct-close'
-80. Case 4: Only lead+builder defined (same as Case 3):
-81. - Identical to Case 3
-82. Record which steps are skipped in the team configuration summary printed during this Preflight step.
+44. 3. Include every available Task agent name exposed by the runtime (for installed plugins this may be ensemble-full:<agent>)
+45. 4. Also scan .claude/router-rules.json if it exists: extract any custom agent names defined there
+46. 5. Deduplicate into KNOWN_AGENTS set (sorted alphabetically for deterministic output)
+47. Build AGENT_ALIAS_MAP: for each known agent with a namespace prefix '<plugin>:<name>', map '<name>' to the full namespaced agent if no exact unqualified '<name>' exists. Example: if only 'ensemble-full:backend-developer' exists, AGENT_ALIAS_MAP['backend-developer']='ensemble-full:backend-developer'.
+48. Before storing or delegating any role/specialist/reviewer/QA/debug/test agent, resolve it through AGENT_ALIAS_MAP. Always pass the resolved runtime agent name to Task(subagent_type=...) or Task(agent_type=...), never the unresolved shorthand when it is not in KNOWN_AGENTS.
+49. For each role in TEAM_ROLES:
+50. For each agent name in role.agents:
+51. If agent_name NOT in KNOWN_AGENTS:
+52. Print: "ERROR: Agent '<agent_name>' referenced in team role '<role_name>' not found in ensemble registry."
+53. Print: "Known agents: <sorted comma-separated KNOWN_AGENTS list>"
+54. Print: "Check packages/*/agents/*.yaml for available agents."
+55. HALT
+56. On success: print "Agent registry validation passed: all <N> referenced agents verified."
+57. Step 5 — Optional role flags:
+58. Set REVIEWER_ENABLED = true if 'reviewer' key exists in TEAM_ROLES, else false
+59. Set QA_ENABLED = true if 'qa' key exists in TEAM_ROLES, else false
+60. Step 6 — Configuration summary: print team configuration summary:
+61. 'TEAM MODE: enabled'
+62. 'Team config source: {TEAM_CONFIG_SOURCE}'
+63. 'Lead: <TEAM_ROLES.lead.agents[0]>'
+64. 'Builders: <TEAM_ROLES.builder.agents joined by comma>'
+65. 'Reviewer: <TEAM_ROLES.reviewer.agents[0] if REVIEWER_ENABLED else none>'
+66. 'QA: <TEAM_ROLES.qa.agents[0] if QA_ENABLED else none>'
+67. Also print which steps will be skipped (TRD-023):
+68. 'Skipped steps: <review (if REVIEWER_ENABLED=false), qa (if QA_ENABLED=false), or none>'
+69. 
+70. TRD-023 — Graceful Degradation for Partial Teams (AC: FR-GD-4, FR-GD-5, FR-GD-6, AC-TD-4):
+71. Case 1: REVIEWER_ENABLED=false (no reviewer role defined):
+72. - Skip review step entirely
+73. - After builder: validate_transition(bead_id, 'in_qa') if QA_ENABLED else validate_transition(bead_id, 'closed')
+74. - br comment add <bead_id> 'status:skip-review lead:<agent> reason:no-reviewer-role-defined'
+75. Case 2: QA_ENABLED=false (no qa role defined):
+76. - Skip QA step entirely
+77. - After reviewer approval: validate_transition(bead_id, 'closed')
+78. - br comment add <bead_id> 'status:skip-qa lead:<agent> reason:no-qa-role-defined'
+79. Case 3: REVIEWER_ENABLED=false AND QA_ENABLED=false:
+80. - Lead orchestration loop active, builder implements, lead closes directly
+81. - After builder: validate_transition(bead_id, 'closed')
+82. - br comment add <bead_id> 'status:closed lead:<agent> reason:no-reviewer-no-qa-direct-close'
+83. Case 4: Only lead+builder defined (same as Case 3):
+84. - Identical to Case 3
+85. Record which steps are skipped in the team configuration summary printed during this Preflight step.
 
 ### Step 11: Marketplace Preflight Check
 
@@ -667,7 +670,7 @@ Claim task in beads before delegating to specialist agent
 **Actions:**
 1. Run: br update <BEAD_ID> --status=in_progress — skip task if exit code != 0 (already claimed)
 2. Extract TASK_ID from task.title prefix (TRD-XXX pattern)
-3. Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer
+3. Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer. After choosing shorthand, resolve it via AGENT_ALIAS_MAP before delegation (e.g. backend-developer -> ensemble-full:backend-developer when installed from ensemble-full).
 4. Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
 5. Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
 6. 
@@ -695,7 +698,7 @@ Build prompt and delegate to selected specialist, require closing summary commen
 7. - If the bead description contains a 'Sub-items' or 'Embedded tests' section: list every one of those items verbatim in the builder prompt and instruct: 'You MUST implement EVERY checklist sub-item listed, including all embedded tests. The task is not complete until every sub-item — especially each test — is implemented and passing. Do not skip tests that lack their own task id.'
 8. - Each builder subagent starts with clean context — this is intentional for quality
 9. Include in prompt: 'When done, provide a structured summary: files changed, what was implemented, any issues encountered, and recommendations for follow-up work.'
-10. Delegate: Task(agent_type=<specialist>, prompt=<prompt>)
+10. Delegate: Task(agent_type=<resolved_specialist>, prompt=<prompt>) where resolved_specialist is the AGENT_ALIAS_MAP/KNOWN_AGENTS-resolved runtime name.
 11. On success: br comment add <BEAD_ID> 'Implementation complete: <agent_summary_of_work_done — files changed, what was implemented, any issues or recommendations>'; proceed to Code Review step
 12. On failure: br comment add <BEAD_ID> 'Failed: <error_summary>. Files touched: <changed_files>. Agent: <specialist_type>.'; br update <BEAD_ID> --status=open; br sync --flush-only; enter debug loop
 13. 
@@ -777,7 +780,7 @@ Delegate to QA agent after reviewer approves and task is in_qa state, parse verd
 10. - Test results from builder's summary
 11. 
 12. 2. Delegate to @test-runner first for fresh test execution:
-13. Task(subagent_type='test-runner', prompt='Run tests for changed files: <files_changed>. Report pass/fail and coverage.')
+13. Task(subagent_type=<resolved test-runner>, prompt='Run tests for changed files: <files_changed>. Report pass/fail and coverage.') where resolved test-runner uses AGENT_ALIAS_MAP (e.g. ensemble-full:test-runner).
 14. Capture test_results from @test-runner response.
 15. 
 16. 3. Build augmented QA prompt with test_results, then:
@@ -944,7 +947,7 @@ In-memory metrics accumulator invoked after each task closure in step 3b PASSED 
 Mandatory code review before task closure — delegate to @code-reviewer for quality validation
 
 **Actions:**
-1. Delegate to @code-reviewer: 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
+1. Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
 2. If approved:
 3. br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
 4. Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3).
@@ -967,7 +970,7 @@ Mandatory code review before task closure — delegate to @code-reviewer for qua
 Attempt automated fix on task failure via deep-debugger (max 2 retries)
 
 **Actions:**
-1. Delegate to @deep-debugger with error details, changed files, strategy, bead ID
+1. Delegate to resolved @deep-debugger (via AGENT_ALIAS_MAP, e.g. ensemble-full:deep-debugger) with error details, changed files, strategy, bead ID
 2. If fix applied: re-run tests; if pass -> proceed to Code Review step (order 4); if fail -> retry
 3. After 2 retries: br comment add <BEAD_ID> 'Debug loop exhausted after 2 retries. Root cause: <error_analysis>. Attempted fixes: <fix_attempts>. Manual intervention required.'; br sync --flush-only; PAUSE for user decision
 4. 

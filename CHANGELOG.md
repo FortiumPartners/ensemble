@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.4] - 2026-06-19
+
+### Fixed
+
+- **development:** resolve shorthand agent names to installed namespaced plugin agents before Task delegation.
+
 ## [6.6.3] - 2026-06-19
 
 ### Fixed
