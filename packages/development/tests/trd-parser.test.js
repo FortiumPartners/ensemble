@@ -10,6 +10,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const { parseTRD } = require('../lib/trd-parser');
 
@@ -671,6 +672,37 @@ describe('parseTRD — edge cases', () => {
     );
     expect(result.tasksById['TRD-001'].hourEstimate).toBe(2); // first def wins
     expect(Object.keys(result.tasksById)).toHaveLength(1);
+  });
+
+  it('parses scalar frontmatter without requiring js-yaml at runtime', () => {
+    const script = `
+      const Module = require('module');
+      const originalLoad = Module._load;
+      Module._load = function(request, parent, isMain) {
+        if (request === 'js-yaml') throw new Error('Cannot find module js-yaml');
+        return originalLoad.apply(this, arguments);
+      };
+      const { parseTRD } = require('./packages/development/lib/trd-parser');
+      const result = parseTRD(\`---
+design_readiness_score: 4.7
+status: Draft
+prd_reference: docs/PRD/frontmatter-only.md
+---
+
+# TRD-200: Frontmatter Fallback
+
+Summary.
+
+## Master Task List
+
+- [ ] **TRD-001**: Do work (1h)
+\`);
+      process.stdout.write(JSON.stringify({ score: result.designReadinessScore, status: result.status, prd: result.prdReference }));
+    `;
+    const child = spawnSync(process.execPath, ['-e', script], { cwd: path.resolve(__dirname, '../../..'), encoding: 'utf8' });
+    expect(child.stderr).toBe('');
+    expect(child.status).toBe(0);
+    expect(JSON.parse(child.stdout)).toEqual({ score: 4.7, status: 'Draft', prd: 'docs/PRD/frontmatter-only.md' });
   });
 
   it('warns when a PR-format phase has no Shippable State', () => {

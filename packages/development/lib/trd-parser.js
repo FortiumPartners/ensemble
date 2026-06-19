@@ -96,6 +96,29 @@ const TEST_KEYWORDS = [
  * Split off a leading YAML frontmatter block.
  * @returns {{frontmatter: Object|null, body: string}}
  */
+function parseSimpleFrontmatter(raw) {
+  const out = {};
+  for (const line of String(raw || '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const m = trimmed.match(/^([^:]+):\s*(.*)$/);
+    if (!m) continue;
+    const key = m[1].trim();
+    let value = m[2].trim();
+    const commentIndex = value.search(/\s+#/);
+    if (commentIndex !== -1) value = value.slice(0, commentIndex).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
+      value = Number(value);
+    } else if (/^(true|false)$/i.test(value)) {
+      value = /^true$/i.test(value);
+    }
+    out[key] = value;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function splitFrontmatter(md) {
   if (!md.startsWith('---')) {
     return { frontmatter: null, body: md };
@@ -122,6 +145,7 @@ function splitFrontmatter(md) {
       frontmatter = null;
     }
   }
+  if (!frontmatter) frontmatter = parseSimpleFrontmatter(raw);
   const body = lines.slice(end + 1).join('\n');
   return { frontmatter, body };
 }

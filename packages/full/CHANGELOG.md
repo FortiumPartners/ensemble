@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.2] - 2026-06-19
+
+### Fixed
+
+- Parse TRD scalar frontmatter without requiring installed npm dependencies in plugin cache.
+
 - Plugin extraction and population (in progress)
 
 ## [6.6.1] - 2026-06-18
