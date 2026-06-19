@@ -15,3 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 - Plugin extraction and population (in progress)
+
+## [6.6.1] - 2026-06-18
+
+### Fixed
+
+- Bundle TRD CLI helper modules required by installed Beads/TRD commands.

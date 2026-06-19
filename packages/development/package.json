@@ -21,9 +21,11 @@
     "url": "https://github.com/FortiumPartners/ensemble.git",
     "directory": "packages/development"
   },
-  "devDependencies": {
-    "jest": "^29.7.0",
+  "dependencies": {
     "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   },
   "peerDependencies": {
     "@fortium/ensemble-core": "^4.0.0"

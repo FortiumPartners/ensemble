@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-full",
-  "version": "6.6.0",
+  "version": "6.6.1",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "scripts": {
     "test": "jest --passWithNoTests",
@@ -45,5 +45,8 @@
     "@fortium/ensemble-permitter": "^5.0.0",
     "@fortium/ensemble-xunit": "^4.0.0",
     "@fortium/ensemble-exunit": "^4.0.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
   }
 }
