@@ -467,13 +467,11 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and rebuild TASK_TRACEABILITY from trd.tasksById exactly as in Scaffold Step 1 (same field mapping). This is the deterministic resume rebuild; do not hand-parse.
    -   d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
    -   e. After rebuild: if rebuilt TASK_TRACEABILITY is empty AND TRD content was successfully read AND TRD is non-empty: print 'WARNING: TRD re-parse found no traceability annotations. Requirement audit comments will not be written. If this is a legacy TRD without [satisfies] annotations, this is expected.' If TRD file could not be read: print 'ERROR: Cannot read TRD file at <TRD_PATH> during cross-session resume. Verify file exists and is readable.' and HALT.
-   - Context Budget Monitoring (applies to both TEAM_MODE=true and TEAM_MODE=false):
-   -   After every 5 task completions OR after any task that produces more than 500 lines of output:
-   -     Print context budget warning: 'Context checkpoint: <N> tasks completed this session. If quality is degrading, consider:'
-   -     '  1. /compact to compress conversation context'
-   -     '  2. Start a new session with /ensemble:implement-trd-beads --execute <trd-path> (beads preserve all state)'
-   -     '  3. Use max parallel N to delegate more work to fresh-context subagents'
-   -   This is informational only — do not halt or pause execution
+   - Non-Interactive Progress Policy (applies to both TEAM_MODE=true and TEAM_MODE=false):
+   -   Do NOT stop, pause, ask for acknowledgement, or end the assistant turn for routine progress summaries, context checkpoints, or task-count milestones. The execution loop must continue automatically until Completion or until a real user decision is required.
+   -   A real user decision means one of: invalid/cyclic graph needing edge choice, failed quality gate needing fix/skip/abort, exhausted debug/review/rejection retries, dirty working tree before branch creation, failed br/git command requiring recovery, or missing required tool/config.
+   -   After every 10 task completions, at most print one terse non-blocking line: 'Progress: <N> tasks completed; continuing automatically.' Do not print multi-line reports or compact/new-session suggestions unless the user explicitly asks for status.
+   -   If output from a task exceeds 500 lines, summarize it into a br comment and continue; do not stop for context-budget advice.
    - 
    - TEAM_MODE Gate (evaluated once at the start of the Execute phase):
    -   if TEAM_MODE == false:
@@ -648,7 +646,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
    - Else if EXECUTE_ONLY=false AND BV_AVAILABLE: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
    - Else if EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by TRD slug, take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-   - After each task (or parallel group): br sync --flush-only, then call trd_progress() (order 10) for a TRD-scoped progress check
+   - After each task (or parallel group): br sync --flush-only, update internal completed/open counters, and continue the loop. Do NOT call trd_progress() here and do NOT print a multi-line progress report after routine task completions; trd_progress() is reserved for --status, resume start, explicit user status requests, and final completion.
 
 **2. Task Claim and Specialist Selection**
    Claim task in beads before delegating to specialist agent

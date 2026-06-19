@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.3] - 2026-06-19
+
+### Fixed
+
+- Keep implement-trd-beads running through routine progress milestones; only pause for real user decisions.
+
 ## [6.6.2] - 2026-06-19
 
 ### Fixed
