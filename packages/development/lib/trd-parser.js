@@ -44,6 +44,7 @@
  * @property {string[]} nestedSubitems
  * @property {string[]} testSubitems
  * @property {string|null} proofOfRequirement
+ * @property {string} [syntheticKind] ac-validation | cross-cutting
  */
 
 let yaml = null;
@@ -323,7 +324,7 @@ function extractValidatesAcs(text) {
   // "Validates PRD ACs: AC-001-1, AC-002-2, ..."
   const m = text.match(/Validates PRD ACs?:\s*([^\n]+)/i);
   if (!m) return [];
-  const acs = m[1].match(/AC-\d+-\d+/gi);
+  const acs = m[1].match(/AC-\d+(?:-\d+|[a-z])?/gi);
   return acs ? acs.map((a) => a.toUpperCase()) : [];
 }
 
@@ -583,6 +584,137 @@ function buildTask(id, taskLineText, bodyLines, phaseN) {
 }
 
 // ---------------------------------------------------------------------------
+// Acceptance criteria + cross-cutting extraction
+// ---------------------------------------------------------------------------
+
+const AC_ID_RE = /\bAC-\d+(?:-\d+|[a-z])?\b/i;
+const XC_HEADING_RE = /^#{3,4}\s+(XC-\d+)\s*:?\s*(.*)$/i;
+
+function cleanAcText(text) {
+  return String(text || '')
+    .replace(/^\s*-\s*/, '')
+    .replace(/^\s*\[[ xX]\]\s*/, '')
+    .replace(/^\s*(?:AC-\d+(?:-\d+|[a-z])?)\s*:?\s*/i, '')
+    .trim();
+}
+
+function extractAcceptanceCriteria(lines) {
+  const out = [];
+  const seen = new Set();
+  let inSection = false;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^##\s+Acceptance Criteria\s*$/i.test(trimmed) || /^##\s+Requirements Validation\s*$/i.test(trimmed)) {
+      inSection = true;
+      continue;
+    }
+    if (inSection && /^##\s+/.test(trimmed)) break;
+    if (!inSection) continue;
+    const m = line.match(AC_ID_RE);
+    if (!m) continue;
+    const id = m[0].toUpperCase();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, text: cleanAcText(line) });
+  }
+  return out;
+}
+
+function extractCrossCuttingRequirements(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(XC_HEADING_RE);
+    if (!m) continue;
+    const id = m[1].toUpperCase();
+    const title = m[2].trim() || 'Cross-cutting requirement';
+    const body = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^#{1,4}\s+/.test(lines[j])) break;
+      const t = lines[j].trim();
+      if (t) body.push(t);
+    }
+    out.push({ id, title, text: body.join(' ') });
+  }
+  return out;
+}
+
+function addSyntheticValidationTasks(tasksById, phases, allLines, warnings) {
+  const acceptanceCriteria = extractAcceptanceCriteria(allLines);
+  const crossCuttingRequirements = extractCrossCuttingRequirements(allLines);
+  const phaseNums = phases.map((p) => Number(p.n)).filter(Number.isFinite).sort((a, b) => a - b);
+  const lastPhaseN = phaseNums.length ? phaseNums[phaseNums.length - 1] : 1;
+  const phaseByN = new Map(phases.map((p) => [Number(p.n), p]));
+  const defaultPhase = phaseByN.get(lastPhaseN) || phases[0];
+  const existingTaskIds = Object.keys(tasksById).filter((id) => /^TRD-/i.test(id));
+
+  for (const ac of acceptanceCriteria) {
+    if (Object.prototype.hasOwnProperty.call(tasksById, ac.id)) continue;
+    const blockers = existingTaskIds.filter((tid) => {
+      const task = tasksById[tid];
+      return task && Array.isArray(task.validatesAcs) && task.validatesAcs.includes(ac.id);
+    });
+    tasksById[ac.id] = {
+      id: ac.id,
+      phaseN: lastPhaseN,
+      description: `Verify ${ac.id}: ${ac.text || 'Acceptance criterion'}`,
+      isTest: true,
+      hourEstimate: null,
+      satisfies: [],
+      verifies: blockers[0] || null,
+      validatesAcs: [ac.id],
+      dependsOn: blockers,
+      targetFiles: [],
+      actions: [
+        `Locate code artifacts that implement ${ac.id}`,
+        `Add or update executable tests that prove ${ac.id}`,
+        `Run the relevant unit/integration tests and record command output`,
+      ],
+      implementationAc: [],
+      testAc: [
+        `No tests for ${ac.id} are disabled via .FIXME, .DISABLED, or .STUB`,
+        `Relevant tests for ${ac.id} execute and pass`,
+        `Any introduced .FIXME/.DISABLED/.STUB production file blocks closure`,
+      ],
+      nestedSubitems: [],
+      testSubitems: [],
+      proofOfRequirement: `Executable validation for ${ac.id}`,
+      syntheticKind: 'ac-validation',
+    };
+    if (defaultPhase) defaultPhase.taskIds.push(ac.id);
+  }
+
+  for (const xc of crossCuttingRequirements) {
+    if (Object.prototype.hasOwnProperty.call(tasksById, xc.id)) continue;
+    tasksById[xc.id] = {
+      id: xc.id,
+      phaseN: lastPhaseN,
+      description: `${xc.id}: ${xc.title}`,
+      isTest: false,
+      hourEstimate: null,
+      satisfies: ['ARCH'],
+      verifies: null,
+      validatesAcs: [],
+      dependsOn: existingTaskIds,
+      targetFiles: [],
+      actions: [xc.text || `Implement and verify cross-cutting requirement ${xc.id}`],
+      implementationAc: [
+        'Cross-cutting behavior is implemented across every affected domain/handler/event path',
+        'Evidence is recorded in bead comments before closure',
+      ],
+      testAc: [],
+      nestedSubitems: [],
+      testSubitems: [],
+      proofOfRequirement: `Cross-cutting verification for ${xc.id}`,
+      syntheticKind: 'cross-cutting',
+    };
+    if (defaultPhase) defaultPhase.taskIds.push(xc.id);
+  }
+
+  if (acceptanceCriteria.length) warnings.push(`Generated ${acceptanceCriteria.length} acceptance-criteria validation task(s)`);
+  if (crossCuttingRequirements.length) warnings.push(`Generated ${crossCuttingRequirements.length} cross-cutting requirement task(s)`);
+}
+
+// ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
 
@@ -750,6 +882,8 @@ function parseTRD(markdownString) {
   if (taskOrder.length === 0) {
     warnings.push('No tasks found in the TRD');
   }
+
+  addSyntheticValidationTasks(tasksById, phases, allLines, warnings);
 
   // Strip the internal _startLine helper before returning.
   const cleanPhases = phases.map((p) => ({

@@ -643,7 +643,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
    - If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
    - If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-   - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
+   - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TASK_ID>]. Extract TASK_ID from the title prefix (between ':task:' and ']'); valid IDs include TRD-NNN, TRD-NNN-TEST, AC-NNN, AC-NNN-M, AC-NNNa, and XC-NNN synthetic validation tasks. Form READY_TRD_IDS from those extracted TASK_ID values, and form CLOSED_TRD_IDS from all currently-closed task bead title prefixes the same way. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TASK_ID values; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
    - If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
    - If max_parallel==1 or single task ready: execute_single_task
    - Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -673,7 +673,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 **3. Task Delegation**
    Build prompt and delegate to selected specialist, require closing summary comment
 
-   - Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions
+   - Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions, and Definition of Done. For synthetic AC-* validation tasks, the task is not complete until code artifacts are located, executable tests exist, tests run and pass, disabled test/code extensions are absent or explicitly justified, and the AC is recorded as proven in br comments. For synthetic XC-* tasks, verify cross-cutting behavior across every affected domain before closure.
    - Builder prompt construction MUST follow these context curation rules:
    -   - Include ONLY: task description from bead, TRD section for this task, architecture guidance (if any), sibling context (if any from TRD-022)
    -   - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
@@ -711,7 +711,7 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   4. On failure (builder crashes, not rejection):
    -      a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
    -      b. Enter debug loop (Execute step 5)
-   - When TEAM_MODE=false: existing Task Delegation step unchanged (builder can close bead)
+   - When TEAM_MODE=false: builder may only close bead after the Definition of Done gate passes. Do NOT close a bead solely because a handler/stub exists or the build compiles.
 
 **3a. Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)**
    Delegate to reviewer after builder submits, parse verdict, route accordingly. AC: FR-CR-1, FR-CR-2, FR-CR-3, FR-CR-4, FR-CR-5, FR-CR-6, FR-LL-3, FR-SM-5, AC-SM-3
@@ -918,9 +918,14 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   br comment add <STORY_BEAD_ID> 'team-metrics phase:<N> tasks:<tasks_completed>
    -     first-pass-rate:<X%> total-rejections:<Y>'
 
-**4. Code Review**
-   Mandatory code review before task closure — delegate to @code-reviewer for quality validation
+**4. Definition of Done and Code Review**
+   Mandatory Definition of Done validation plus code review before task closure — delegate to @code-reviewer for quality validation
 
+   - Definition of Done gate (RCA corrective action CA2/CA3/CA5): before ANY br close for a task bead, verify and record all applicable checklist items as br comments. Closure is forbidden if any required item fails.
+   - Required DoD items: code artifact exists for the task/AC; unit tests exist for changed behavior; tests execute (not merely written); relevant tests pass; integration/API test exists for user-facing behavior; build succeeds; no new src/**/*.FIXME, src/**/*.DISABLED, src/**/*.STUB files exist; no test .FIXME/.DISABLED/.STUB is introduced without an explicit follow-up bead/issue and user-approved justification; cross-cutting NATS/RBAC/audit/tenant requirements are verified when applicable; acceptance criteria are explicitly proven.
+   - If disabled files are detected in production paths, treat as quality-gate failure and route to Debug Loop or ask user for fix/skip/abort; never close the bead as complete.
+   - For AC-* synthetic validation beads: write br comment 'ac-validation:<AC_ID> code:<found|missing> tests:<pass|fail|missing|disabled> integration:<pass|fail|na> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven.
+   - For XC-* synthetic cross-cutting beads: write br comment 'xc-validation:<XC_ID> domains:<list> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven.
    - Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
    - If approved:
    -   br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'

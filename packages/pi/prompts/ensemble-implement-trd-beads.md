@@ -655,7 +655,7 @@ Poll bv robot-next (or br ready) and execute tasks until epic is complete. AC: F
 176. If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
 177. If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
 178. If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-179. Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
+179. Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TASK_ID>]. Extract TASK_ID from the title prefix (between ':task:' and ']'); valid IDs include TRD-NNN, TRD-NNN-TEST, AC-NNN, AC-NNN-M, AC-NNNa, and XC-NNN synthetic validation tasks. Form READY_TRD_IDS from those extracted TASK_ID values, and form CLOSED_TRD_IDS from all currently-closed task bead title prefixes the same way. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TASK_ID values; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
 180. If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
 181. If max_parallel==1 or single task ready: execute_single_task
 182. Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
@@ -689,7 +689,7 @@ Claim task in beads before delegating to specialist agent
 Build prompt and delegate to selected specialist, require closing summary comment
 
 **Actions:**
-1. Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions
+1. Build prompt with: Task ID + bead ID, TRD file path, strategy, constitution targets, completed tasks this phase, acceptance criteria, inferred file paths, matched skills, strategy-specific instructions, and Definition of Done. For synthetic AC-* validation tasks, the task is not complete until code artifacts are located, executable tests exist, tests run and pass, disabled test/code extensions are absent or explicitly justified, and the AC is recorded as proven in br comments. For synthetic XC-* tasks, verify cross-cutting behavior across every affected domain before closure.
 2. Builder prompt construction MUST follow these context curation rules:
 3. - Include ONLY: task description from bead, TRD section for this task, architecture guidance (if any), sibling context (if any from TRD-022)
 4. - Do NOT include: full TRD content, other phase tasks, conversation history, previous builder outputs
@@ -727,7 +727,7 @@ Build prompt and delegate to selected specialist, require closing summary commen
 36. 4. On failure (builder crashes, not rejection):
 37. a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
 38. b. Enter debug loop (Execute step 5)
-39. When TEAM_MODE=false: existing Task Delegation step unchanged (builder can close bead)
+39. When TEAM_MODE=false: builder may only close bead after the Definition of Done gate passes. Do NOT close a bead solely because a handler/stub exists or the build compiles.
 
 ### Step 4: Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)
 
@@ -942,28 +942,33 @@ In-memory metrics accumulator invoked after each task closure in step 3b PASSED 
 54. br comment add <STORY_BEAD_ID> 'team-metrics phase:<N> tasks:<tasks_completed>
 55. first-pass-rate:<X%> total-rejections:<Y>'
 
-### Step 8: Code Review
+### Step 8: Definition of Done and Code Review
 
-Mandatory code review before task closure — delegate to @code-reviewer for quality validation
+Mandatory Definition of Done validation plus code review before task closure — delegate to @code-reviewer for quality validation
 
 **Actions:**
-1. Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
-2. If approved:
-3. br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
-4. Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3).
-5. Check TASK_TRACEABILITY[TASK_ID].is_test_task:
-6. If is_test_task == true:
-7. Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
-8. Extract PROVEN_ACS from TASK_TRACEABILITY[TASK_ID].validates_acs (all ACs for this test task)
-9. Write the status:closed comment with embedded req-satisfied token: run `br close <BEAD_ID>` then write bead comment: `br comment add <BEAD_ID> 'status:closed reviewer:code-reviewer verdict:approved req-satisfied:<REQ_ID> ac-proven:<PROVEN_ACS comma-joined>'`
-10. Write root epic comment: br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> reviewer:code-reviewer ac-proven:<PROVEN_ACS comma-joined>'
-11. Note: In TEAM_MODE=false, code review approval triggers audit token writing. The 'reviewer:code-reviewer' field in the comment distinguishes this from QA-verified evidence. The Completion Report will show these as SATISFIED(code-review) to distinguish from SATISFIED(qa-verified).
-12. br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
-13. If is_test_task == false:
-14. br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
-15. If rejected with fixable issues: br comment add <BEAD_ID> 'Code review REJECTED: <issues_found>'; delegate back to original specialist with review feedback; re-submit to code review after fixes (max 2 review rounds)
-16. If rejected after 2 rounds: br comment add <BEAD_ID> 'Code review failed after 2 rounds. Issues: <remaining_issues>.'; PAUSE for user decision (force-close, fix manually, abort)
-17. Skip code review only if strategy == 'flexible' or task type is docs/documentation-only
+1. Definition of Done gate (RCA corrective action CA2/CA3/CA5): before ANY br close for a task bead, verify and record all applicable checklist items as br comments. Closure is forbidden if any required item fails.
+2. Required DoD items: code artifact exists for the task/AC; unit tests exist for changed behavior; tests execute (not merely written); relevant tests pass; integration/API test exists for user-facing behavior; build succeeds; no new src/**/*.FIXME, src/**/*.DISABLED, src/**/*.STUB files exist; no test .FIXME/.DISABLED/.STUB is introduced without an explicit follow-up bead/issue and user-approved justification; cross-cutting NATS/RBAC/audit/tenant requirements are verified when applicable; acceptance criteria are explicitly proven.
+3. If disabled files are detected in production paths, treat as quality-gate failure and route to Debug Loop or ask user for fix/skip/abort; never close the bead as complete.
+4. For AC-* synthetic validation beads: write br comment 'ac-validation:<AC_ID> code:<found|missing> tests:<pass|fail|missing|disabled> integration:<pass|fail|na> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven.
+5. For XC-* synthetic cross-cutting beads: write br comment 'xc-validation:<XC_ID> domains:<list> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven.
+6. Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'
+7. If approved:
+8. br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'
+9. Apply TASK_TRACEABILITY absent-key guard (see Execute step 3b, first instance in step 3).
+10. Check TASK_TRACEABILITY[TASK_ID].is_test_task:
+11. If is_test_task == true:
+12. Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
+13. Extract PROVEN_ACS from TASK_TRACEABILITY[TASK_ID].validates_acs (all ACs for this test task)
+14. Write the status:closed comment with embedded req-satisfied token: run `br close <BEAD_ID>` then write bead comment: `br comment add <BEAD_ID> 'status:closed reviewer:code-reviewer verdict:approved req-satisfied:<REQ_ID> ac-proven:<PROVEN_ACS comma-joined>'`
+15. Write root epic comment: br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> reviewer:code-reviewer ac-proven:<PROVEN_ACS comma-joined>'
+16. Note: In TEAM_MODE=false, code review approval triggers audit token writing. The 'reviewer:code-reviewer' field in the comment distinguishes this from QA-verified evidence. The Completion Report will show these as SATISFIED(code-review) to distinguish from SATISFIED(qa-verified).
+17. br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
+18. If is_test_task == false:
+19. br close <BEAD_ID> --reason='Completed — code review passed'; br sync --flush-only; update TRD checkbox - [ ] -> - [x]; git commit
+20. If rejected with fixable issues: br comment add <BEAD_ID> 'Code review REJECTED: <issues_found>'; delegate back to original specialist with review feedback; re-submit to code review after fixes (max 2 review rounds)
+21. If rejected after 2 rounds: br comment add <BEAD_ID> 'Code review failed after 2 rounds. Issues: <remaining_issues>.'; PAUSE for user decision (force-close, fix manually, abort)
+22. Skip code review only if strategy == 'flexible' or task type is docs/documentation-only
 
 ### Step 9: Debug Loop
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.5] - 2026-06-20
+
+### Fixed
+
+- **development:** scaffold explicit AC-* validation and XC-* cross-cutting beads, and enforce Definition of Done gates before bead closure.
+
 ## [6.6.4] - 2026-06-19
 
 ### Fixed

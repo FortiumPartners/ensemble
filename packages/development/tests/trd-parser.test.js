@@ -791,3 +791,48 @@ describe('parseTRD — ParsedTRD contract shape', () => {
     );
   });
 });
+
+
+describe('RCA corrective parsing', () => {
+  const RCA_TRD = `# TRD-200: RCA Gaps
+
+Summary.
+
+## Acceptance Criteria
+
+- AC-001: Handler validates activity exists
+- AC-002-1: Handler enforces tenant isolation
+- AC-013a: Event includes all changed fields
+
+## Cross-Cutting Requirements
+
+### XC-001: NATS Event Routing
+Requirement: Configure routes for emitted events.
+
+### XC-002: RBAC Permission Codes
+Requirement: Seed permission codes for handlers.
+
+## Master Task List
+
+### PR 1: Feature
+
+**Shippable State:** Feature can be verified.
+
+- [ ] **TRD-001**: Implement handler [satisfies REQ-001]
+  - Validates PRD ACs: AC-001, AC-002-1
+`;
+
+  it('generates synthetic AC validation and cross-cutting tasks', () => {
+    const result = parseTRD(RCA_TRD);
+    expect(result.tasksById['AC-001'].syntheticKind).toBe('ac-validation');
+    expect(result.tasksById['AC-002-1'].dependsOn).toEqual(['TRD-001']);
+    expect(result.tasksById['AC-013A'].testAc.join(' ')).toContain('disabled');
+    expect(result.tasksById['XC-001'].syntheticKind).toBe('cross-cutting');
+    expect(result.tasksById['XC-001'].dependsOn).toEqual(['TRD-001']);
+    expect(result.phases[0].taskIds).toEqual(expect.arrayContaining(['AC-001', 'AC-002-1', 'AC-013A', 'XC-001', 'XC-002']));
+    expect(result.warnings).toEqual(expect.arrayContaining([
+      'Generated 3 acceptance-criteria validation task(s)',
+      'Generated 2 cross-cutting requirement task(s)',
+    ]));
+  });
+});

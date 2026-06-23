@@ -28,3 +28,17 @@ describe('implement-trd-beads command progress behavior', () => {
     expect(text).not.toContain('After each task (or parallel group): br sync --flush-only, then call trd_progress()');
   });
 });
+
+
+describe('implement-trd-beads RCA quality gates', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+
+  test('supports AC/XC synthetic task ids and Definition of Done closure gates', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('AC-NNN-M');
+    expect(text).toContain('XC-NNN synthetic validation tasks');
+    expect(text).toContain('Definition of Done gate');
+    expect(text).toContain('no new src/**/*.FIXME');
+    expect(text).toContain('Only close when verdict:proven');
+  });
+});
