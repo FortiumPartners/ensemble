@@ -248,11 +248,12 @@ workflow:
           title: TRD Document Generation
           description: Generate comprehensive TRD document with frontmatter and structured sections
           actions:
-            - "Include frontmatter: Document ID (TRD-YYYY-NNN), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score"
+            - "Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e \"console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))\"`). Do NOT scan for highest TRD sequence number or increment NNN; teams create TRDs concurrently."
+            - "Include frontmatter: Document ID (TRD-YYYY-<micro_uuid>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score"
             - Generate Architecture Decision section documenting the chosen approach and alternatives considered
             - "Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs."
             - "Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it."
-            - "File naming: docs/TRD/TRD-YYYY-NNN-<slug>.md"
+            - "File naming: docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)"
 
         - order: 2
           title: Acceptance Criteria Traceability
@@ -278,10 +279,10 @@ workflow:
           description: Save TRD and suggest follow-up commands
           actions:
             - Create docs/TRD/ directory if it doesn't exist
-            - Save TRD to docs/TRD/TRD-YYYY-NNN-<slug>.md
+            - Save TRD to docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md
             - "Print: file path, task count, design readiness score"
-            - "Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-NNN-slug.md to auto-configure the team'"
-            - "Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-NNN-slug.md'"
+            - "Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-<micro_uuid>-slug.md to auto-configure the team'"
+            - "Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-<micro_uuid>-slug.md'"
             - "If --team flag was passed in $ARGUMENTS, auto-run /ensemble:configure-team on the saved TRD path"
 
 expectedInput:

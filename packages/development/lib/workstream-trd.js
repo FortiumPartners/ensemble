@@ -142,17 +142,20 @@ function generateWorkstreamTrd(items, opts = {}) {
   return { ok: true, errors: validation.errors || [], markdown: lines.join('\n'), workstreamSlug };
 }
 
-function nextWorkstreamPath(outDir, year, slug) {
-  const dir = outDir || 'docs/TRD/workstreams';
-  const yy = year || new Date().getFullYear();
-  let max = 0;
-  if (fs.existsSync(dir)) {
-    for (const f of fs.readdirSync(dir)) {
-      const m = f.match(new RegExp(`^TRD-${yy}-(\\d{3})-workstream-`, 'i'));
-      if (m) max = Math.max(max, Number(m[1]));
-    }
+function microUuid() {
+  try {
+    // eslint-disable-next-line global-require
+    return require('crypto').randomUUID().replace(/-/g, '').slice(0, 8).toLowerCase();
+  } catch {
+    return Math.random().toString(16).slice(2, 10).padEnd(8, '0').toLowerCase();
   }
-  return path.join(dir, `TRD-${yy}-${String(max + 1).padStart(3, '0')}-workstream-${slug}.md`);
 }
 
-module.exports = { generateWorkstreamTrd, nextWorkstreamPath, workstreamTaskId, acTaskId };
+function nextWorkstreamPath(outDir, year, slug, id) {
+  const dir = outDir || 'docs/TRD/workstreams';
+  const yy = year || new Date().getFullYear();
+  const docId = id || microUuid();
+  return path.join(dir, `TRD-${yy}-${docId}-workstream-${slug}.md`);
+}
+
+module.exports = { generateWorkstreamTrd, nextWorkstreamPath, workstreamTaskId, acTaskId, microUuid };

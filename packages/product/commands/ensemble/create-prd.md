@@ -69,9 +69,9 @@ being saved to ensure handoff quality.
 **2. Existing PRD Review**
    Maintain consistency with prior product documentation
 
-   - Check docs/PRD/ for existing PRDs -- read the most recent one for style and numbering
-   - Determine next PRD number: find highest PRD-YYYY-NNN and increment
-   - If no existing PRDs, start with PRD-{current_year}-001
+   - Check docs/PRD/ for existing PRDs -- read the most recent one for style and conventions
+   - Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest sequence numbers or increment NNN; teams create PRDs concurrently.
+   - Set Document ID to PRD-{current_year}-{micro_uuid}, for example PRD-2026-a1b2c3d4
    - Note any cross-cutting requirements from existing PRDs that this feature must respect
 
 **3. Technical Dependency Mapping**
@@ -198,7 +198,7 @@ These markers will become the structured interview agenda in /ensemble:refine-pr
 **1. PRD Document Generation**
    Generate the final PRD with frontmatter and health summary
 
-   - Include document frontmatter block: Document ID (PRD-YYYY-NNN), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
+   - Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
    - Generate PRD Health summary at the top of the document:
    -   - Requirement count by priority: Must (N), Should (N), Could (N), Won't (N)
    -   - AC coverage: N/N requirements have acceptance criteria (percentage)
@@ -206,14 +206,14 @@ These markers will become the structured interview agenda in /ensemble:refine-pr
    -   - Dependency count: N cross-requirement dependencies
    - Generate Acceptance Criteria summary table: | REQ-NNN | Description | Priority | Complexity | AC Count |
    - Include the dependency map section
-   - File naming: docs/PRD/PRD-YYYY-NNN-<slug>.md
+   - File naming: docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)
 
 **2. File Organization**
    Save to docs/PRD/ directory and confirm
 
    - Create docs/PRD/ directory if it doesn't exist
-   - Save the PRD to docs/PRD/PRD-YYYY-NNN-<slug>.md
-   - Print: file path, requirement count, readiness score, and suggested next step (e.g., '/ensemble:create-trd docs/PRD/PRD-YYYY-NNN-<slug>.md')
+   - Save the PRD to docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md
+   - Print: file path, requirement count, readiness score, and suggested next step (e.g., '/ensemble:create-trd docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md')
 
 ## Expected Output
 

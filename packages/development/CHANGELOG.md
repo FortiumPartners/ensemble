@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.10.0] - 2026-06-20
+
+### Added
+
+- Use micro UUID document IDs for generated TRD/workstream artifact filenames instead of sequence numbers.
+
 ## [5.9.0] - 2026-06-20
 
 ### Added

@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { runCreateWorkstreamTrd } = require('../lib/trd-cli');
+const { nextWorkstreamPath } = require('../lib/workstream-trd');
 
 function trd(title, n, ac) {
   return `---\ndesign_readiness_score: 4.5\nstatus: Draft\n---\n# ${title}\n\nSummary.\n\nBased on PRD: docs/PRD/PRD-2026-00${n}.md\n\n## Master Task List\n\n### PR 1: Feature\n\n**Shippable State:** Done.\n\n- [ ] **TRD-001**: Implement thing [satisfies REQ-001]\n  - Validates PRD ACs: ${ac}\n  - Actions:\n    1. Build it\n`;
@@ -27,5 +28,11 @@ describe('create-workstream-trd', () => {
     expect(md).toContain('**TRD-S01-001**');
     expect(md).toContain('**TRD-S01-AC-001-1**');
     expect(md).toContain('/ensemble:implement-trd-beads');
+  });
+
+  test('default workstream path uses micro UUID instead of sequence number', () => {
+    const out = nextWorkstreamPath('docs/TRD/workstreams', 2026, 'alpha-beta', 'a1b2c3d4');
+    expect(out).toBe('docs/TRD/workstreams/TRD-2026-a1b2c3d4-workstream-alpha-beta.md');
+    expect(out).not.toMatch(/TRD-2026-\d{3}-workstream/);
   });
 });

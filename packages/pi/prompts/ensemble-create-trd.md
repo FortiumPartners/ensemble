@@ -219,11 +219,12 @@ Score TRD on quality dimensions and determine readiness
 Generate comprehensive TRD document with frontmatter and structured sections
 
 **Actions:**
-1. Include frontmatter: Document ID (TRD-YYYY-NNN), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score
-2. Generate Architecture Decision section documenting the chosen approach and alternatives considered
-3. Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs.
-4. Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it.
-5. File naming: docs/TRD/TRD-YYYY-NNN-<slug>.md
+1. Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest TRD sequence number or increment NNN; teams create TRDs concurrently.
+2. Include frontmatter: Document ID (TRD-YYYY-<micro_uuid>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score
+3. Generate Architecture Decision section documenting the chosen approach and alternatives considered
+4. Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs.
+5. Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it.
+6. File naming: docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)
 
 ### Step 2: Acceptance Criteria Traceability
 
@@ -252,8 +253,8 @@ Save TRD and suggest follow-up commands
 
 **Actions:**
 1. Create docs/TRD/ directory if it doesn't exist
-2. Save TRD to docs/TRD/TRD-YYYY-NNN-<slug>.md
+2. Save TRD to docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md
 3. Print: file path, task count, design readiness score
-4. Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-NNN-slug.md to auto-configure the team'
-5. Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-NNN-slug.md'
+4. Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-<micro_uuid>-slug.md to auto-configure the team'
+5. Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-<micro_uuid>-slug.md'
 6. If --team flag was passed in $ARGUMENTS, auto-run /ensemble:configure-team on the saved TRD path

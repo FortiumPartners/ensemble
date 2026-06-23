@@ -197,7 +197,8 @@ workflow:
             - Generate Master Task List section with all parser-compatible task tables
             - Generate Sprint Planning section with dependency-ordered phases
             - Preserve parser-compatible sprint/story/table structure exactly; do not replace tables with prose checklists
-            - "File naming must be docs/TRD/TRD-YYYY-NNN-<slug>.md — same slug as beads path, NO `-foreman` suffix"
+            - "Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source. Do NOT scan for highest TRD sequence number or increment NNN; teams create TRDs concurrently."
+            - "File naming must be docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md — same slug as beads path, NO `-foreman` suffix, micro_uuid is 8 lowercase hex chars"
             - Write exactly one primary parser-compatible TRD markdown file; any auxiliary summaries must not replace or redefine the task tables
             - "**CRITICAL**: Validate that all task Status cells in ALL tables are `[ ]` — no `[x]`, `done`, or other markers permitted"
 
@@ -224,7 +225,7 @@ workflow:
           description: Save TRD and suggest follow-up commands
           actions:
             - Create docs/TRD/ directory if it does not exist
-            - Save TRD to docs/TRD/TRD-YYYY-NNN-<slug>.md
+            - Save TRD to docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md
             - "Print: file path, task count, design readiness score, and explicit next step `foreman sling prd <original-prd-path>`"
             - Do not suggest beads-specific implementation commands
 
