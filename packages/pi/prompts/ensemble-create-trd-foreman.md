@@ -165,8 +165,8 @@ Generate a Foreman-native TRD document with parser-compatible sections
 3. Generate Master Task List section with all parser-compatible task tables
 4. Generate Sprint Planning section with dependency-ordered phases
 5. Preserve parser-compatible sprint/story/table structure exactly; do not replace tables with prose checklists
-6. Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source. Do NOT scan for highest TRD sequence number or increment NNN; teams create TRDs concurrently.
-7. File naming must be docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md — same slug as beads path, NO `-foreman` suffix, micro_uuid is 8 lowercase hex chars
+6. Derive the TRD document micro UUID from the source PRD, so PRD/TRD artifacts share the same 8-hex correlation id. Parse the PRD filename or frontmatter Document ID for PRD-YYYY-<micro_uuid> where micro_uuid is 8 lowercase hex chars. If found, set TRD_MICRO_UUID to that value. Only if the PRD has a legacy sequence id or no parseable id, generate a new 8-hex micro UUID from a UUID/random source. Do NOT scan for highest TRD sequence number or increment NNN.
+7. File naming must be docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md — same slug as beads path, NO `-foreman` suffix, correlation id from source PRD when available
 8. Write exactly one primary parser-compatible TRD markdown file; any auxiliary summaries must not replace or redefine the task tables
 9. **CRITICAL**: Validate that all task Status cells in ALL tables are `[ ]` — no `[x]`, `done`, or other markers permitted
 
@@ -196,6 +196,6 @@ Save TRD and suggest follow-up commands
 
 **Actions:**
 1. Create docs/TRD/ directory if it does not exist
-2. Save TRD to docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md
-3. Print: file path, task count, design readiness score, and explicit next step `foreman sling prd <original-prd-path>`
+2. Save TRD to docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md
+3. Print: file path, task count, design readiness score, source PRD correlation id (TRD_MICRO_UUID), and explicit next step `foreman sling prd <original-prd-path>`
 4. Do not suggest beads-specific implementation commands

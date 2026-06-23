@@ -1,6 +1,6 @@
 {
   "name": "@fortium/ensemble-full",
-  "version": "6.8.0",
+  "version": "6.8.1",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "scripts": {
     "test": "jest --passWithNoTests",

@@ -217,12 +217,12 @@ output with traceability matrices. Team configuration is handled separately by
 **1. TRD Document Generation**
    Generate comprehensive TRD document with frontmatter and structured sections
 
-   - Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest TRD sequence number or increment NNN; teams create TRDs concurrently.
-   - Include frontmatter: Document ID (TRD-YYYY-<micro_uuid>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score
+   - Derive the TRD document micro UUID from the source PRD, so PRD/TRD artifacts share the same 8-hex correlation id. Parse the PRD filename or frontmatter Document ID for PRD-YYYY-<micro_uuid> where micro_uuid is 8 lowercase hex chars. If found, set TRD_MICRO_UUID to that value. Only if the PRD has a legacy sequence id or no parseable id, generate a new 8-hex micro UUID from a UUID/random source. Do NOT scan for highest TRD sequence number or increment NNN.
+   - Include frontmatter: Document ID (TRD-YYYY-<TRD_MICRO_UUID>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score
    - Generate Architecture Decision section documenting the chosen approach and alternatives considered
    - Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs.
    - Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it.
-   - File naming: docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)
+   - File naming: docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md where TRD_MICRO_UUID is the source PRD micro UUID when available (no sequence number)
 
 **2. Acceptance Criteria Traceability**
    Generate traceability matrix linking PRD requirements to TRD tasks
@@ -245,10 +245,10 @@ output with traceability matrices. Team configuration is handled separately by
    Save TRD and suggest follow-up commands
 
    - Create docs/TRD/ directory if it doesn't exist
-   - Save TRD to docs/TRD/TRD-YYYY-<micro_uuid>-<slug>.md
-   - Print: file path, task count, design readiness score
-   - Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-<micro_uuid>-slug.md to auto-configure the team'
-   - Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-<micro_uuid>-slug.md'
+   - Save TRD to docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md
+   - Print: file path, task count, design readiness score, and source PRD correlation id (TRD_MICRO_UUID)
+   - Suggest: '/ensemble:configure-team docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-slug.md to auto-configure the team'
+   - Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-slug.md'
    - If --team flag was passed in $ARGUMENTS, auto-run /ensemble:configure-team on the saved TRD path
 
 ## Expected Output

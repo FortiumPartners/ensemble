@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.8.1] - 2026-06-20
+
+### Fixed
+
+- Reuse the source PRD micro UUID for generated TRD IDs; workstream TRDs still generate their own micro UUID.
+
 ## [5.10.0] - 2026-06-20
 
 ### Added
