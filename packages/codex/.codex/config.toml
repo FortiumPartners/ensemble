@@ -40,6 +40,10 @@ config_file = "agents/api-documentation-specialist.toml"
 description = "Implement server-side logic across languages/stacks; enforce clean architecture and boundaries"
 config_file = "agents/backend-developer.toml"
 
+[agents."beads-scaffold-specialist"]
+description = "Design, create, audit, and repair Beads hierarchies from PRD/TRD/workstream artifacts without implementing code"
+config_file = "agents/beads-scaffold-specialist.toml"
+
 [agents."documentation-specialist"]
 description = "Technical documentation, API docs, guides, and examples"
 config_file = "agents/documentation-specialist.toml"

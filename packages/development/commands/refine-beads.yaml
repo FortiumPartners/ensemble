@@ -21,8 +21,9 @@ mission:
     contradictions. Analysis is read-only until the user approves selected fixes.
 
     All Beads updates use br. Graph analysis uses only bv --robot-* flags; never run
-    bare interactive bv. This command never executes implementation work, tests,
-    builders, reviewers, branches, commits, or PR creation.
+    bare interactive bv. This command uses beads-scaffold-specialist semantics for
+    graph audit/repair work rather than backend-developer. It never executes implementation work,
+    tests, builders, reviewers, branches, commits, or PR creation.
 
 workflow:
   phases:

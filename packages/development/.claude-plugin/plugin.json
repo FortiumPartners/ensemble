@@ -19,6 +19,7 @@
   "skills": "./skills",
   "agents": [
     "./agents/api-documentation-specialist.md",
+    "./agents/beads-scaffold-specialist.md",
     "./agents/backend-developer.md",
     "./agents/documentation-specialist.md",
     "./agents/frontend-developer.md",

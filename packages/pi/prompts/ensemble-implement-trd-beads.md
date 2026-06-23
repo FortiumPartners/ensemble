@@ -321,12 +321,13 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 
 ## Phase 2: Scaffold
 
-### Step 1: TRD Parsing
+### Step 1: TRD Parsing and Scaffold Specialist Boundary
 
-Parse TRD into structured phases and tasks
+Parse TRD into structured phases and tasks; reserve scaffold work for beads-scaffold-specialist semantics
 
 **Actions:**
-1. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and parse the JSON from stdout. This is the AUTHORITATIVE parse — do NOT hand-parse the TRD. From trd: set TRD_TITLE=trd.title, TRD_SUMMARY=trd.summary, PR_FORMAT=trd.prFormat, TRD_SLUG=trd.slug, PHASES=trd.phases (each {n,title,shippableState,taskIds}), and PHASE_SHIPPABLE_STATE[n]=phase.shippableState. Build TASK_TRACEABILITY from trd.tasksById — each task provides id, isTest (is_test_task), satisfies (satisfies_req_id = satisfies[0]), verifies (verifies_task_id), validatesAcs, dependsOn, targetFiles, actions, implementationAc, testAc, nestedSubitems, testSubitems, proofOfRequirement. Print each trd.warnings entry. If ok is false or the process exits non-zero: print the error and HALT.
+1. Scaffold ownership: all hierarchy/dependency planning and br/bv scaffold mutations in this phase use beads-scaffold-specialist semantics, not backend-developer. If delegating scaffold/audit/repair work to Task(), resolve and use @beads-scaffold-specialist (or namespaced equivalent such as ensemble-full:beads-scaffold-specialist). Do not delegate scaffold planning to backend-developer, and do not implement product code during Scaffold.
+2. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and parse the JSON from stdout. This is the AUTHORITATIVE parse — do NOT hand-parse the TRD. From trd: set TRD_TITLE=trd.title, TRD_SUMMARY=trd.summary, PR_FORMAT=trd.prFormat, TRD_SLUG=trd.slug, PHASES=trd.phases (each {n,title,shippableState,taskIds}), and PHASE_SHIPPABLE_STATE[n]=phase.shippableState. Build TASK_TRACEABILITY from trd.tasksById — each task provides id, isTest (is_test_task), satisfies (satisfies_req_id = satisfies[0]), verifies (verifies_task_id), validatesAcs, dependsOn, targetFiles, actions, implementationAc, testAc, nestedSubitems, testSubitems, proofOfRequirement. Print each trd.warnings entry. If ok is false or the process exits non-zero: print the error and HALT.
 
 ### Step 2: Idempotency Cache
 

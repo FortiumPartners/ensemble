@@ -1,6 +1,6 @@
 {
   "name": "ensemble-full",
-  "version": "6.8.1",
+  "version": "6.9.0",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "author": {
     "name": "Fortium Partners",
@@ -33,6 +33,7 @@
     "./agents/core/file-creator.md",
     "./agents/core/general-purpose.md",
     "./agents/development/api-documentation-specialist.md",
+    "./agents/development/beads-scaffold-specialist.md",
     "./agents/development/backend-developer.md",
     "./agents/development/documentation-specialist.md",
     "./agents/development/frontend-developer.md",

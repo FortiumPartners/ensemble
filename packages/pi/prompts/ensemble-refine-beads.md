@@ -4,7 +4,7 @@
 
 # ensemble:refine-beads
 
-> **Mission:** Refine a Beads dependency graph before execution. The command analyzes a selected epic/release-train subtree by default, or the whole project when --scope project is explicitly supplied. It detects hierarchy gaps, dependency issues, PR-boundary mismatches, missing requirement/AC traceability, duplicate tasks, and priority/order contradictions. Analysis is read-only until the user approves selected fixes. All Beads updates use br. Graph analysis uses only bv --robot-* flags; never run bare interactive bv. This command never executes implementation work, tests, builders, reviewers, branches, commits, or PR creation.
+> **Mission:** Refine a Beads dependency graph before execution. The command analyzes a selected epic/release-train subtree by default, or the whole project when --scope project is explicitly supplied. It detects hierarchy gaps, dependency issues, PR-boundary mismatches, missing requirement/AC traceability, duplicate tasks, and priority/order contradictions. Analysis is read-only until the user approves selected fixes. All Beads updates use br. Graph analysis uses only bv --robot-* flags; never run bare interactive bv. This command uses beads-scaffold-specialist semantics for graph audit/repair work rather than backend-developer. It never executes implementation work, tests, builders, reviewers, branches, commits, or PR creation.
 
 ## Phase 1: Preflight
 
