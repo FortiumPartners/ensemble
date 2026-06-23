@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.1] - 2026-06-23
+
+### Fixed
+
+- Decompose workstream TRD acceptance criteria into AC-level implementation, test, and validation tasks.
+
 ## [6.9.0] - 2026-06-20
 
 ### Added

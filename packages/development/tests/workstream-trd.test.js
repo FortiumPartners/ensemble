@@ -26,7 +26,14 @@ describe('create-workstream-trd', () => {
     expect(md).toContain('Source TRD: ' + a);
     expect(md).toContain('Source AC: AC-001-1');
     expect(md).toContain('**TRD-S01-001**');
+    expect(md).toContain('**TRD-S01-AC-001-1-IMPL**');
+    expect(md).toContain('**TRD-S01-AC-001-1-TEST**');
     expect(md).toContain('**TRD-S01-AC-001-1**');
+    expect(md).toContain('Implement AC-001-1 from');
+    expect(md).toContain('Add executable tests for AC-001-1');
+    expect(md).toContain('Validate AC-001-1 implementation and tests');
+    expect(md).toContain('Validation AC:');
+    expect(md).toContain('ac-validation:AC-001-1');
     expect(md).toContain('/ensemble:implement-trd-beads');
   });
 

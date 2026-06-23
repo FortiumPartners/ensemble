@@ -13,6 +13,14 @@ function workstreamTaskId(sourceIndex, sourceTaskId) {
   return `TRD-S${String(sourceIndex + 1).padStart(2, '0')}-${stripTrdPrefix(sourceTaskId)}`.toUpperCase();
 }
 
+function acImplTaskId(sourceIndex, acId) {
+  return `TRD-S${String(sourceIndex + 1).padStart(2, '0')}-${String(acId || '').toUpperCase()}-IMPL`;
+}
+
+function acTestTaskId(sourceIndex, acId) {
+  return `TRD-S${String(sourceIndex + 1).padStart(2, '0')}-${String(acId || '').toUpperCase()}-TEST`;
+}
+
 function acTaskId(sourceIndex, acId) {
   return `TRD-S${String(sourceIndex + 1).padStart(2, '0')}-${String(acId || '').toUpperCase()}`;
 }
@@ -77,6 +85,8 @@ function generateWorkstreamTrd(items, opts = {}) {
   lines.push('');
   lines.push('Generated executable workstream TRD. Source TRDs remain canonical; this file normalizes execution into one bead graph while preserving provenance.');
   lines.push('');
+  lines.push('This workstream decomposes every `Validates PRD ACs:` reference into AC-level implementation, executable test, and validation tasks so Beads scaffolding is not limited to coarse MTL granularity.');
+  lines.push('');
   lines.push('Next step: `/ensemble:implement-trd-beads <this-workstream-trd-path>`.');
   lines.push('');
   if (sourcePrds[0]) lines.push(`Based on PRD: ${sourcePrds[0]}`);
@@ -119,17 +129,70 @@ function generateWorkstreamTrd(items, opts = {}) {
         acToDeps.get(ac).push(idMap.get(sourceTaskId));
       }
     }
-    for (const [ac, deps] of [...acToDeps.entries()].sort()) {
-      const wid = acTaskId(sourceIndex, ac);
-      lines.push(`- [ ] **${wid}**: Verify ${ac} from ${item.trdPath} [depends: ${uniq(deps).join(', ')}]`);
+    for (const [ac, sourceTaskIds] of [...acToDeps.entries()].sort()) {
+      const sourceDeps = uniq(sourceTaskIds);
+      const implId = acImplTaskId(sourceIndex, ac);
+      const testId = acTestTaskId(sourceIndex, ac);
+      const verifyId = acTaskId(sourceIndex, ac);
+      const sourceTaskText = sourceDeps.join(', ');
+      const sourceTasks = sourceTaskIds
+        .map((wid) => Object.keys(tasks).find((sourceId) => idMap.get(sourceId) === wid))
+        .filter(Boolean)
+        .map((sourceId) => tasks[sourceId]);
+      const targetFiles = uniq(sourceTasks.flatMap((task) => task.targetFiles || []));
+      const satisfies = uniq(sourceTasks.flatMap((task) => task.satisfies || []));
+      const upstreamDeps = uniq(sourceTasks.flatMap((task) => (task.dependsOn || []).map((d) => idMap.get(d)).filter(Boolean)));
+      const implDepends = upstreamDeps.length ? ` [depends: ${upstreamDeps.join(', ')}]` : '';
+
+      lines.push(`- [ ] **${implId}**: Implement ${ac} from ${item.trdPath}${satisfies[0] ? ` [satisfies ${satisfies[0]}]` : ''}${implDepends}`);
       lines.push(`  - Source TRD: ${item.trdPath}`);
       if (item.parsed.prdReference) lines.push(`  - Source PRD: ${item.parsed.prdReference}`);
       lines.push(`  - Source AC: ${ac}`);
+      lines.push(`  - Source Tasks: ${sourceTaskText}`);
+      lines.push(`  - Validates PRD ACs: ${ac}`);
+      if (targetFiles.length) lines.push(`  - Target Files: ${targetFiles.join(', ')}`);
+      lines.push('  - Actions:');
+      lines.push(`    1. Locate every code path needed to satisfy ${ac}.`);
+      lines.push(`    2. Implement the minimal behavior required for ${ac}.`);
+      lines.push(`    3. Preserve source TRD provenance in commit/PR notes and bead comments.`);
+      lines.push('  - Implementation AC:');
+      lines.push(`    - [ ] Runtime behavior satisfies ${ac}, not just the parent MTL task.`);
+      lines.push('    - [ ] Code artifact exists and is wired into the executable path.');
+      lines.push('    - [ ] No stub, disabled, FIXME, or build-excluded implementation is used as proof.');
+      lines.push('  - Definition of Done:');
+      lines.push('    - [ ] Code artifact exists for this AC');
+      lines.push('    - [ ] Relevant tests are identified or created in the paired AC test task');
+      lines.push('    - [ ] Acceptance criteria evidence is recorded in bead comments');
+      lines.push('');
+
+      lines.push(`- [ ] **${testId}**: Add executable tests for ${ac} [depends: ${implId}]`);
+      lines.push(`  - Source TRD: ${item.trdPath}`);
+      if (item.parsed.prdReference) lines.push(`  - Source PRD: ${item.parsed.prdReference}`);
+      lines.push(`  - Source AC: ${ac}`);
+      lines.push(`  - Source Tasks: ${sourceTaskText}`);
+      lines.push(`  - Validates PRD ACs: ${ac}`);
+      if (targetFiles.length) lines.push(`  - Target Files: ${targetFiles.join(', ')}`);
+      lines.push('  - Test AC:');
+      lines.push(`    - [ ] Unit and/or integration tests directly prove ${ac}.`);
+      lines.push('    - [ ] Tests execute in the project test runner and pass.');
+      lines.push('    - [ ] Tests are not skipped, quarantined, disabled, or hidden behind .FIXME/.DISABLED/.STUB.');
+      lines.push('  - Proof of requirement: test file paths and command output recorded in bead comments');
+      lines.push('');
+
+      lines.push(`- [ ] **${verifyId}**: Validate ${ac} implementation and tests [depends: ${testId}]`);
+      lines.push(`  - Source TRD: ${item.trdPath}`);
+      if (item.parsed.prdReference) lines.push(`  - Source PRD: ${item.parsed.prdReference}`);
+      lines.push(`  - Source AC: ${ac}`);
+      lines.push(`  - Source Tasks: ${sourceTaskText}`);
       lines.push(`  - Validates PRD ACs: ${ac}`);
       lines.push('  - Test AC:');
       lines.push(`    - [ ] Executable tests prove ${ac}`);
       lines.push('    - [ ] Tests execute and pass');
       lines.push('    - [ ] No tests are disabled via .FIXME/.DISABLED/.STUB');
+      lines.push('  - Validation AC:');
+      lines.push('    - [ ] Code references and test evidence are present in bead comments');
+      lines.push(`    - [ ] br comment includes ac-validation:${ac} with verdict:proven`);
+      lines.push('    - [ ] Parent MTL task is not treated as complete unless this validation task is closed');
       lines.push('  - Proof of requirement: executable test output and code references recorded in bead comments');
       lines.push('');
     }
@@ -158,4 +221,4 @@ function nextWorkstreamPath(outDir, year, slug, id) {
   return path.join(dir, `TRD-${yy}-${docId}-workstream-${slug}.md`);
 }
 
-module.exports = { generateWorkstreamTrd, nextWorkstreamPath, workstreamTaskId, acTaskId, microUuid };
+module.exports = { generateWorkstreamTrd, nextWorkstreamPath, workstreamTaskId, acImplTaskId, acTestTaskId, acTaskId, microUuid };
