@@ -134,14 +134,14 @@ describe('selectNextTasks (phase-strict selection)', () => {
     phaseTaskIds = buildPhaseTaskIds(PARSED_TRD);
   });
 
-  test('prFormat=true DISCARDS a phase-2 ready task while phase 1 is incomplete', () => {
+  test('stacked=true DISCARDS a phase-2 ready task while phase 1 is incomplete', () => {
     // TRD-001 is closed, so the scheduler reports both TRD-001-TEST (its dep
     // satisfied) AND TRD-002 (its only explicit dep, TRD-001, satisfied).
     // Phase 1 is NOT complete (TRD-001-TEST still open) -> TRD-002 must be
     // discarded; only the phase-1 ready task may be selected.
     const closed = ['TRD-001'];
     const ready = ['TRD-001-TEST', 'TRD-002'];
-    const selected = selectNextTasks(ready, phaseTaskIds, closed, { prFormat: true, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, closed, { stacked: true, max: 5 });
     expect(selected).toEqual(['TRD-001-TEST']);
     expect(selected).not.toContain('TRD-002');
   });
@@ -153,60 +153,60 @@ describe('selectNextTasks (phase-strict selection)', () => {
     // task, even though it was lower priority.
     const closed = ['TRD-001'];
     const ready = ['TRD-002', 'TRD-001-TEST'];
-    const selected = selectNextTasks(ready, phaseTaskIds, closed, { prFormat: true, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, closed, { stacked: true, max: 5 });
     expect(selected).toEqual(['TRD-001-TEST']);
   });
 
-  test('prFormat=false ALLOWS the phase-2 ready task through (no boundary gate)', () => {
+  test('stacked=false ALLOWS the phase-2 ready task through (no boundary gate)', () => {
     const closed = ['TRD-001'];
     const ready = ['TRD-001-TEST', 'TRD-002'];
-    const selected = selectNextTasks(ready, phaseTaskIds, closed, { prFormat: false, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, closed, { stacked: false, max: 5 });
     expect(selected).toEqual(['TRD-001-TEST', 'TRD-002']);
   });
 
   test('respects opts.max', () => {
     const ready = ['TRD-001', 'TRD-001-TEST'];
-    const selected = selectNextTasks(ready, phaseTaskIds, [], { prFormat: true, max: 1 });
+    const selected = selectNextTasks(ready, phaseTaskIds, [], { stacked: true, max: 1 });
     expect(selected).toHaveLength(1);
     expect(selected).toEqual(['TRD-001']);
   });
 
   test('preserves readyTaskIds order', () => {
     const ready = ['TRD-001-TEST', 'TRD-001'];
-    const selected = selectNextTasks(ready, phaseTaskIds, [], { prFormat: true, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, [], { stacked: true, max: 5 });
     expect(selected).toEqual(['TRD-001-TEST', 'TRD-001']);
   });
 
   test('defaults max to 1 when not provided', () => {
     const ready = ['TRD-001', 'TRD-001-TEST'];
-    const selected = selectNextTasks(ready, phaseTaskIds, [], { prFormat: false });
+    const selected = selectNextTasks(ready, phaseTaskIds, [], { stacked: false });
     expect(selected).toHaveLength(1);
   });
 
-  test('returns empty array when everything is closed (prFormat=true)', () => {
+  test('returns empty array when everything is closed (stacked=true)', () => {
     const allClosed = ['TRD-001', 'TRD-001-TEST', 'TRD-002', 'TRD-002-TEST'];
-    const selected = selectNextTasks(['TRD-002'], phaseTaskIds, allClosed, { prFormat: true, max: 5 });
+    const selected = selectNextTasks(['TRD-002'], phaseTaskIds, allClosed, { stacked: true, max: 5 });
     expect(selected).toEqual([]);
   });
 
-  test('edge: a ready id not in any phase is DISCARDED in strict mode', () => {
-    // TRD-999 belongs to no phase. In strict mode it cannot be proven to be in
+  test('edge: a ready id not in any phase is DISCARDED in stacked mode', () => {
+    // TRD-999 belongs to no phase. In stacked mode it cannot be proven to be in
     // the current phase, so it is dropped — even though phase 1 is current.
     const ready = ['TRD-999', 'TRD-001'];
-    const selected = selectNextTasks(ready, phaseTaskIds, [], { prFormat: true, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, [], { stacked: true, max: 5 });
     expect(selected).toEqual(['TRD-001']);
     expect(selected).not.toContain('TRD-999');
   });
 
-  test('edge: a ready id not in any phase PASSES THROUGH in non-strict mode', () => {
+  test('edge: a ready id not in any phase PASSES THROUGH in non-stacked mode', () => {
     const ready = ['TRD-999', 'TRD-001'];
-    const selected = selectNextTasks(ready, phaseTaskIds, [], { prFormat: false, max: 5 });
+    const selected = selectNextTasks(ready, phaseTaskIds, [], { stacked: false, max: 5 });
     expect(selected).toEqual(['TRD-999', 'TRD-001']);
   });
 
   test('handles empty readyTaskIds', () => {
-    expect(selectNextTasks([], phaseTaskIds, [], { prFormat: true, max: 5 })).toEqual([]);
-    expect(selectNextTasks(null, phaseTaskIds, [], { prFormat: true })).toEqual([]);
+    expect(selectNextTasks([], phaseTaskIds, [], { stacked: true, max: 5 })).toEqual([]);
+    expect(selectNextTasks(null, phaseTaskIds, [], { stacked: true })).toEqual([]);
   });
 });
 

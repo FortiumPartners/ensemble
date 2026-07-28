@@ -137,30 +137,33 @@ function isPhaseComplete(phaseTaskIds, phaseN, closedTaskIds) {
  * PHASE-STRICT next-task selection.
  *
  * `readyTaskIds` are the ids the scheduler (bv/br dependency view) reports as
- * unblocked. In PR/stacked mode we must NOT let a later-phase task jump ahead
+ * unblocked. In stacked PR mode we must NOT let a later-phase task jump ahead
  * just because its explicit dependency is satisfied — the phase boundary is an
  * additional, implicit gate. We therefore keep only ready ids whose task
  * belongs to the *current* (lowest-incomplete) phase.
  *
- * Edge — "ready id not in any phase": in strict (prFormat) mode an id that has
+ * In non-stacked mode (single-PR / `--stacked=false`) all ready ids pass
+ * through unfiltered; bv schedules across phases freely.
+ *
+ * Edge — "ready id not in any phase": in stacked mode an id that has
  * no phase mapping is DISCARDED. It cannot be proven to belong to the current
  * phase, and admitting it would risk re-introducing the boundary-jumping bug.
- * In non-strict mode such ids pass through unfiltered.
+ * In non-stacked mode such ids pass through unfiltered.
  *
  * @param {string[]} readyTaskIds  scheduler-unblocked ids, in priority order
  * @param {PhaseTaskIds} phaseTaskIds
  * @param {Set<string>|string[]} closedTaskIds
- * @param {{prFormat?: boolean, max?: number}} [opts]
+ * @param {{stacked?: boolean, max?: number}} [opts]
  * @returns {string[]} up to opts.max ids, preserving readyTaskIds order
  */
 function selectNextTasks(readyTaskIds, phaseTaskIds, closedTaskIds, opts) {
   const ready = Array.isArray(readyTaskIds) ? readyTaskIds : [];
   const options = opts || {};
-  const prFormat = options.prFormat === true;
+  const stacked = options.stacked === true;
   const max = Number.isFinite(options.max) && options.max > 0 ? Math.floor(options.max) : 1;
 
   let eligible;
-  if (!prFormat) {
+  if (!stacked) {
     eligible = ready.slice();
   } else {
     const cp = currentPhase(phaseTaskIds, closedTaskIds);
@@ -170,7 +173,7 @@ function selectNextTasks(readyTaskIds, phaseTaskIds, closedTaskIds, opts) {
     } else {
       const lookup = buildTaskPhaseLookup(phaseTaskIds);
       // Keep only ready ids known to belong to the current phase. Unknown ids
-      // (not in any phase) are discarded in strict mode — see doc above.
+      // (not in any phase) are discarded in stacked mode — see doc above.
       eligible = ready.filter((id) => lookup.get(id) === cp);
     }
   }
