@@ -145,7 +145,7 @@ Key behaviors:
    -   2. Lead treats these beads as in_progress (builder stage): re-delegates to builder
    -   3. No structural differences: v2.1.0 creates same bead types (epic/feature/task) with same title format
    -   4. Team mode adds comments but does not modify bead types or titles
-   -   5. br list, bv --robot-next, br ready all work identically with team-mode beads
+   -   5. br list, bv --robot-plan, br ready all work identically with team-mode beads
    -   6. The status:in_progress comment written by lead when claiming is the only addition
    -   Key invariant: if a bead has no status: comments, it is treated as in builder stage (in_progress),
    -   which is the safe default for resuming any in-progress bead from v2.1.0.
