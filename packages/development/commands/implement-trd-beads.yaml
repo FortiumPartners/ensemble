@@ -136,21 +136,21 @@ metadata:
 mission:
   summary: |
     Parse a TRD and create a beads hierarchy (epic -> stories -> tasks) before
-    any implementation begins. Drive execution order through bv --robot-next (with
-    br ready fallback) rather than TRD re-parsing. Record all state transitions
+    any implementation begins. Drive execution order through bv --robot-plan (with
+    br ready fallback when bv is unavailable) rather than TRD re-parsing. Record all state transitions
     in br beads so the implementation is resumable across sessions without access
     to local state files.
 
     This command wraps the implement-trd-enhanced execution model with a full
     beads project management layer powered by br (beads_rust) and bv (beads_viewer).
     It transforms TRD-structured work into a persistent, queryable beads hierarchy
-    and drives execution order through bv --robot-next — enabling cross-session
+    and drives execution order through bv --robot-plan — enabling cross-session
     resumability, graph-aware triage, and parallel execution planning.
 
     Key behaviors:
     - Scaffold: epic -> stories -> tasks created in br before first line of code
     - Idempotency: existing scaffolds detected via title-prefix matching; partial scaffolds resumed safely
-    - Execution: bv --robot-next determines what to run next (fallback: br ready)
+    - Execution: bv --robot-plan determines what to run next, extracting up to max_parallel tasks for parallel execution (fallback: br ready when bv unavailable)
     - Quality gates: phase completion triggers test delegation; results recorded as br comments
     - Sync: br sync --flush-only exports JSONL before every bv call
     - Wheel instructions: printed every run with NTM spawn commands for multi-agent flywheel
@@ -535,16 +535,17 @@ workflow:
 
         - order: 7
           title: Dependency Encoding
-          description: Wire explicit TRD dependencies and inter-phase sequential gates
+          description: Wire explicit TRD dependencies between tasks, stories, and the epic
           actions:
-            - "PLAN.deps (from the scaffold-plan call in Root Epic Creation) is the AUTHORITATIVE, complete set of dependency edges: story-blocks-epic, task-blocks-story, task-depends (explicit dependsOn), inter-phase-gate, and synthtest-depends. Each edge is {type, blockerId, blockedId} where blockerId/blockedId are TITLE PREFIXES and 'blocker blocks blocked'."
+            - "REPAIR: Remove stale inter-phase-gate edges from a previous scaffold run. These are task→task deps of the form: 'first task of phase N' depends on 'last task of phase N-1'. If PHASE_TASK_IDS is empty, rebuild it from PLAN.tasks: for each task in PLAN.tasks, append its id to PHASE_TASK_IDS[task.phaseN]; for each synth in PLAN.synthesizedTests, append its id to PHASE_TASK_IDS[synth.phaseN]. Then for each phase N >= 2: let lastPrev = last id in PHASE_TASK_IDS[N-1]; let firstCur = first id in PHASE_TASK_IDS[N]; let lastPrevBead = TRD_TO_BEAD_MAP[lastPrev]; let firstCurBead = TRD_TO_BEAD_MAP[firstCur]; if both are non-empty: run br dep remove <firstCurBead> <lastPrevBead> (suppress stderr / ignore 'edge not found'; the dep may or may not exist from the prior scaffold). Print 'Removed stale inter-phase-gate dep: <lastPrevBead> → <firstCurBead>' when removed, or 'No stale inter-phase-gate dep to remove.' when absent."
+            - "PLAN.deps (from the scaffold-plan call in Root Epic Creation) is the AUTHORITATIVE, complete set of dependency edges: story-blocks-epic, task-blocks-story, task-depends (explicit dependsOn), and synthtest-depends. Each edge is {type, blockerId, blockedId} where blockerId/blockedId are TITLE PREFIXES and 'blocker blocks blocked'."
             - "For each edge in PLAN.deps: resolve blockerId and blockedId (title prefixes) to real bead ids — [trd:<TRD_SLUG>] -> ROOT_EPIC_ID; [trd:<TRD_SLUG>:pr:<n>] or [trd:<TRD_SLUG>:phase:<n>] -> STORY_BEAD_IDs[n]; [trd:<TRD_SLUG>:task:<id>] -> TRD_TO_BEAD_MAP[id]. Then run `br dep add <blocked_bead_id> <blocker_bead_id>` (blocker blocks blocked). If the exact edge already exists, skip as no-op. Warn and skip any edge whose blockerId or blockedId cannot be resolved to a bead id."
-            - "If COMBINED_WORKSTREAM_MODE=true: also execute WORKSTREAM_PLAN.deps and crossTrd.edges after local PLAN.deps. Resolve every blockerId and blockedId through GLOBAL_BEAD_MAP (populated during release-train, TRD epic, story, task, and synthesized-test creation). For each crossTrd edge, run `br dep add <blocked_bead_id> <blocker_bead_id>` and add metadata comment '<edge.metadata>' to the blocked bead. If br reports a cycle or contradictory direction, print the exact edge and ask user to choose one of: retry (rerun the same br dep add after user manually fixes graph state), skip (record a skipped-edge comment and continue), reverse (swap blocker_bead_id and blocked_bead_id, show the reversed command, require explicit confirmation, then run once), abort (HALT immediately). Never auto-resolve or continue without a user choice."
+            - "If COMBINED_WORKSTREAM_MODE=true: also execute WORKSTREAM_PLAN.deps and crossTrd.edges after local PLAN.deps. Resolve every blockerId and blockedId through GLOBAL_BEAD_MAP (populated during release-train, TRD epic, story, task, and synthesized-test creation). For each crossTrd edge, run `br dep add <blocked_bead_id> <blocker_bead_id>` and add metadata comment '<edge.metadata>' to the blocked bead. If br reports a cycle or contradictory direction, print the exact edge and ask user to choose one of: retry (rerun the same br dep add after user manually fixes graph state), skip (record a skipped-edge comment and continue), reverse (swap blocker_bead_id and blocked_bead_id, show the reversed command, require explicit confirmation, then run once), or abort."
             - "Ensure PHASE_TASK_IDS is populated for the quality gate: it is built from PLAN (phaseN per task) in Task Bead Creation; if empty here (e.g. all task beads already existed), rebuild PHASE_TASK_IDS[phaseN] by appending each PLAN.tasks[j].id and each PLAN.synthesizedTests[k].id under its phaseN."
 
         - order: 8
           title: BV Execution Planning
-          description: Run bv robot-plan and robot-triage for graph-aware execution planning
+          description: Run bv --robot-plan and --robot-triage for graph-aware execution planning
           actions:
             - "Run: br sync --flush-only (ensure JSONL is current before any bv call)"
             - "If BV_AVAILABLE == true:"
@@ -583,7 +584,7 @@ workflow:
             - "  ================================================================"
             - "  EXECUTION INSTRUCTIONS"
             - "  ================================================================"
-            - "  Use /ensemble:implement-trd-beads --execute or bv --robot-next to drive parallel implementation."
+            - "  Use /ensemble:implement-trd-beads --execute or bv --robot-plan to drive parallel implementation."
             - "  Each bead runs through: Explorer → Developer → QA → Reviewer → Finalize"
             - "  ----------------------------------------------------------------"
             - "  PREREQUISITES (run once):"
@@ -591,7 +592,7 @@ workflow:
             - "  ----------------------------------------------------------------"
             - "  RUN (dispatches agents to all ready beads):"
             - "    /ensemble:implement-trd-beads --execute"
-            - "    # Or drive manually: bv --robot-next (repeat until epic is complete)"
+            - "    # Or drive manually: bv --robot-plan (repeat until epic is complete)"
             - "    # Reads br ready beads, assigns to agents, runs pipeline,"
             - "    # merges completed branches, and closes beads automatically."
             - "  ----------------------------------------------------------------"
@@ -613,7 +614,7 @@ workflow:
       steps:
         - order: 1
           title: Execution Loop
-          description: "Poll bv robot-next (or br ready) and execute tasks until epic is complete. AC: FR-GD-1, FR-GD-2, FR-GD-3, AC-TD-3, AC-BC-1"
+          description: "Poll bv --robot-plan (or br ready) and execute tasks in parallel up to max_parallel until epic is complete. AC: FR-GD-1, FR-GD-2, FR-GD-3, AC-TD-3, AC-BC-1"
           actions:
             - "NOTE: This Execute phase implements the same execution engine as /ensemble:beads-build. If you have raw beads (not from a TRD), use /ensemble:beads-build <epic-id> instead. beads-build also accepts --trd <path> to enable TRD augmentations on any bead hierarchy."
             - "Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:"
@@ -633,7 +634,7 @@ workflow:
             - "    - Quality Gate phase: run full scope (current behavior)"
             - "    - Continue to LOOP below"
             - "  if TEAM_MODE == true:"
-            - "    - Replace the standard execution loop with the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)"
+            - "    - Enter the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)"
             - "    - Reviewer delegation: enabled (TRD-016)"
             - "    - QA delegation: enabled if QA_ENABLED=true (TRD-017)"
             - "    - Parallel builder slots: active (TRD-025)"
@@ -641,7 +642,7 @@ workflow:
             - "    - Note: Scaffold phase is IDENTICAL in both modes (no team awareness in scaffold)"
             - "    - Note: Completion phase is IDENTICAL in both modes"
             - "    - Note: v2.1.0 beads without status: comments are treated as in_progress (builder stage) — safe default for backward compat (TRD-038)"
-            - "    - RETURN (team loop handles all remaining execution; skip LOOP below)"
+            - "    - The Lead Orchestration Loop (below) handles all remaining execution. After it exits, skip the standard sequential LOOP and proceed directly to the Quality Gate phase."
             - ""
             - "    LEAD ORCHESTRATION LOOP (TEAM_MODE=true):"
             - ""
@@ -661,10 +662,10 @@ workflow:
             - "         (default max_parallel=1, increased by 'max parallel N' argument)"
             - ""
             - "      4. If available_slots > 0:"
-            - "         - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)"
-            - "           Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix"
-            - "         - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads (the same set used by phase-status). Run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter."
-            - "         - For each task (up to available_slots):"
+            - "         - Get next tasks (always use bv --robot-plan when available; br ready is fallback when unavailable):"
+            - "           - If BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks; extract up to available_slots TRD-NNN ids from top-priority track(s); form CLOSED_TRD_IDS; run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max <available_slots>$( [ \"$STACKED_PRS\" = true ] && echo ' --stacked' ). If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). Map selected TRD-NNN ids back to bead ids via TRD_TO_BEAD_MAP; dispatch only those beads."
+            - "           - If not BV_AVAILABLE: run br ready, filter by [trd:<TRD_SLUG>:task:] prefix — br ready lacks track/dependency info, so exactly 1 task is dispatched (sequential); extract exactly 1 TRD-NNN id; form CLOSED_TRD_IDS; run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max 1$( [ \"$STACKED_PRS\" = true ] && echo ' --stacked' ). If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). Map selected TRD-NNN id back to bead id via TRD_TO_BEAD_MAP; execute_single_task."
+            - "         - For each dispatched task (BV_AVAILABLE: up to available_slots; not BV_AVAILABLE: exactly 1):"
             - "           a. (TRD-021) Architecture Review: check task description for keywords:"
             - "              'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'"
             - "              If ANY keyword found:"
@@ -707,10 +708,9 @@ workflow:
             - ""
             - "      TRD-025-1. Set BUILDER_SLOTS = max_parallel (default 1, overridden by 'max parallel N' argument)"
             - ""
-            - "      TRD-025-2. Query available tasks for parallel dispatch:"
-            - "         - If EXECUTE_ONLY=true or BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks"
+            - "      TRD-025-2. Query available tasks for parallel dispatch (only applicable when BV_AVAILABLE; when not BV_AVAILABLE the sequential single-task path is used instead):"
+            - "         - If BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks"
             - "           Extract up to BUILDER_SLOTS tasks from the top-priority track(s)"
-            - "         - Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries"
             - "         - Candidate task list: CANDIDATE_TASKS = up to BUILDER_SLOTS ready tasks"
             - ""
             - "      TRD-025-3. File conflict detection: prevent assigning tasks with overlapping file targets"
@@ -764,7 +764,6 @@ workflow:
             - "            - If retry fails: br update <bead_id> --status=open; br comment add <bead_id> 'status:open commit-conflict-unresolved: returned to open'; continue to next task in COMMIT_QUEUE"
             - ""
             - "      TRD-026-3. After all commits: br sync --flush-only"
-            - ""
             - "      --- Parallel Builder Failure Isolation (TRD-027) ---"
             - "      If one builder fails (Task() returns error or structured failure summary) during parallel execution:"
             - ""
@@ -780,25 +779,38 @@ workflow:
             - ""
             - "      TRD-027-5. Lead tracks builder slot count: when a builder fails, its slot is freed immediately (active_builders count decremented)."
             - ""
-            - "      TRD-027-6. Lead refills available slots on the next loop iteration by querying bv --robot-next / br ready again."
+            - "      TRD-027-6. Lead refills available slots on the next loop iteration via the standard LOOP candidate selection (bv --robot-plan or br ready, then phase-strict next-task)."
             - ""
-            - "      5. Check loop exit:"
-            - "         - If no tasks returned by bv/br AND no active_builders AND no in-flight tasks: break to Completion"
-            - "         - If no tasks returned but tasks exist in_review or in_qa: wait (check in-flight tasks next iteration)"
             - ""
-            - "      6. br sync --flush-only"
-            - "      7. Continue LOOP"
+            - "      TRD-025-7. After all parallel builder results are processed, all commits are synced, and failure isolation is complete: clear all active_builders entries (all slots are now free); run br sync --flush-only; then GOTO LOOP step 1 (re-enter at the top of the loop to check in-flight tasks and refill available slots). This step must execute — parallel group result processing must never fall through to the sequential exit path."
             - "LOOP:"
             - "Run: br sync --flush-only (ensure JSONL current before bv call)"
-            - "If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)"
-            - "If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task"
-            - "If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]"
-            - "Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TASK_ID>]. Extract TASK_ID from the title prefix (between ':task:' and ']'); valid IDs include TRD-NNN, TRD-NNN-TEST, AC-NNN, AC-NNN-M, AC-NNNa, and XC-NNN synthetic validation tasks. Form READY_TRD_IDS from those extracted TASK_ID values, and form CLOSED_TRD_IDS from all currently-closed task bead title prefixes the same way. Run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TASK_ID values; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter."
-            - "If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)"
-            - "If max_parallel==1 or single task ready: execute_single_task"
-            - "Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel"
-            - "Else if EXECUTE_ONLY=false AND BV_AVAILABLE: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel"
-            - "Else if EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by TRD slug, take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel"
+            - "If BV_AVAILABLE:"
+            - "  Run: bv --robot-plan --format toon to get parallel execution tracks"
+            - "  Extract up to available_slots candidates from the top-priority track(s) (1 when max_parallel==1, up to available_slots when max_parallel>1)"
+            - "  Extract TRD-NNN ids from candidate titles to form READY_TRD_IDS; form CLOSED_TRD_IDS from all currently-closed task beads"
+            - "  Run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max <available_slots>$( [ \"$STACKED_PRS\" = true ] && echo ' --stacked' ). If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection)"
+            - "  If selected[] is empty: run br list --status=in_progress --json filtered by TRD slug; if any in-flight tasks exist, continue the loop; else run br list --status=open --json filtered by [trd:<TRD_SLUG>:task:] to get remaining open task bead ids; if no task beads open, break to Completion; if task beads open but none in-flight, verify ALL open tasks are genuinely blocked before declaring blocked:"
+            - "    a. For each remaining open task bead id: extract its TRD-NNN id from the bead title; look up the task's phaseN in TASK_TRACEABILITY; run br dep list <bead_id> --direction down --format json to get current direct blocker bead ids from the live bead graph; record {bead_id, trd_id, phaseN, blockers: [<blocker_bead_id>, ...]}"
+            - "    b. For each blocker bead id in a task's blockers: run br show <blocker_id> --json and check the status field; if status is not 'closed', this blocker is still open"
+            - "    c. Determine current_phase: the lowest phaseN in PHASE_TASK_IDS that has any task id NOT in CLOSED_TRD_IDS (same algorithm next-task uses). Classify remaining open tasks in current_phase: blocked if it has at least one open blocker; unblocked if all blockers closed. Tasks in later phases are irrelevant for this decision."
+            - "    d. If current_phase has any unblocked tasks: this is a genuine inconsistency — current-phase tasks have all blockers closed but next-task returned empty. Retry next-task once with refreshed --ready/--closed state; if still empty after retry, print 'EXECUTION INCONSISTENCY: next-task returned no candidates despite current-phase blockers being resolved. Run br sync --flush-only and retry, or investigate manually.' and HALT"
+            - "    e. If current_phase has only blocked tasks (or no remaining tasks in current_phase): print 'EXECUTION BLOCKED: current-phase (<current_phase>) tasks have open blockers. Waiting for: <blocker bead titles from step b>.' and HALT"
+            - "  Map selected TRD-NNN ids back to bead ids via TRD_TO_BEAD_MAP"
+            - "  If selected count == 1: execute_single_task"
+            - "  If selected count > 1: run file conflict detection on the selected group; execute conflict-free subset in parallel (up to max_parallel slots)"
+            - "If not BV_AVAILABLE:"
+            - "  Run: br ready, filter by [trd:<TRD_SLUG>:task:] prefix — br ready lacks track/dependency info, so only one task is dispatched at a time (sequential execution order)"
+            - "  Extract TRD-NNN ids from returned bead titles to form READY_TRD_IDS; form CLOSED_TRD_IDS from all currently-closed task beads"
+            - "  Run: node \"$TRD_CLI\" next-task \"<TRD_FILE_PATH>\" --ready \"<comma-joined READY_TRD_IDS>\" --closed \"<comma-joined CLOSED_TRD_IDS>\" --max 1$( [ \"$STACKED_PRS\" = true ] && echo ' --stacked' ). If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection)"
+            - "  If selected[] is empty: run br list --status=in_progress --json filtered by TRD slug; if any in-flight tasks exist, continue the loop; else run br list --status=open --json filtered by [trd:<TRD_SLUG>:task:] to get remaining open task bead ids; if no task beads open, break to Completion; if task beads open but none in-flight, verify ALL open tasks are genuinely blocked before declaring blocked:"
+            - "    a. For each remaining open task bead id: extract its TRD-NNN id from the bead title; look up the task's phaseN in TASK_TRACEABILITY; run br dep list <bead_id> --direction down --format json to get current direct blocker bead ids from the live bead graph; record {bead_id, trd_id, phaseN, blockers: [<blocker_bead_id>, ...]}"
+            - "    b. For each blocker bead id in a task's blockers: run br show <blocker_id> --json and check the status field; if status is not 'closed', this blocker is still open"
+            - "    c. Determine current_phase: the lowest phaseN in PHASE_TASK_IDS that has any task id NOT in CLOSED_TRD_IDS (same algorithm next-task uses). Classify remaining open tasks in current_phase: blocked if it has at least one open blocker; unblocked if all blockers closed. Tasks in later phases are irrelevant for this decision."
+            - "    d. If current_phase has any unblocked tasks: this is a genuine inconsistency — current-phase tasks have all blockers closed but next-task returned empty. Retry next-task once with refreshed --ready/--closed state; if still empty after retry, print 'EXECUTION INCONSISTENCY: next-task returned no candidates despite current-phase blockers being resolved. Run br sync --flush-only and retry, or investigate manually.' and HALT"
+            - "    e. If current_phase has only blocked tasks (or no remaining tasks in current_phase): print 'EXECUTION BLOCKED: current-phase (<current_phase>) tasks have open blockers. Waiting for: <blocker bead titles from step b>.' and HALT"
+            - "  Map selected TRD-NNN id back to its bead id via TRD_TO_BEAD_MAP"
+            - "  execute_single_task"
             - "After each task (or parallel group): br sync --flush-only, update internal completed/open counters, and continue the loop. Do NOT call trd_progress() here and do NOT print a multi-line progress report after routine task completions; trd_progress() is reserved for --status, resume start, explicit user status requests, and final completion."
 
         - order: 2
@@ -1082,7 +1094,7 @@ workflow:
             - "Required DoD items: code artifact exists for the task/AC; unit tests exist for changed behavior; tests execute (not merely written); relevant tests pass; integration/API test exists for user-facing behavior; build succeeds; no new src/**/*.FIXME, src/**/*.DISABLED, src/**/*.STUB files exist; no test .FIXME/.DISABLED/.STUB is introduced without an explicit follow-up bead/issue and user-approved justification; cross-cutting NATS/RBAC/audit/tenant requirements are verified when applicable; acceptance criteria are explicitly proven."
             - "If disabled files are detected in production paths, treat as quality-gate failure and route to Debug Loop or ask user for fix/skip/abort; never close the bead as complete."
             - "For AC-* synthetic validation beads: write br comment 'ac-validation:<AC_ID> code:<found|missing> tests:<pass|fail|missing|disabled> integration:<pass|fail|na> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven."
-            - "For XC-* synthetic cross-cutting beads: write br comment 'xc-validation:<XC_ID> domains:<list> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven."
+            - "For XC-NNN synthetic validation tasks / XC-* synthetic cross-cutting beads: write br comment 'xc-validation:<XC_ID> domains:<list> verdict:<proven|not_proven> evidence:<commands/files>'. Only close when verdict:proven."
             - "Delegate to resolved @code-reviewer (via AGENT_ALIAS_MAP, e.g. ensemble-full:code-reviewer): 'Review the changes for task <TASK_ID> (bead: <BEAD_ID>). Files changed: <changed_files>. Strategy: <strategy>. Check for: correctness, adherence to project conventions, security issues, test coverage, and code quality. Provide: approval/rejection with specific feedback.'"
             - "If approved:"
             - "  br comment add <BEAD_ID> 'Code review PASSED by @code-reviewer: <review_summary>'"
@@ -1374,7 +1386,7 @@ workflow:
           title: Epic Closure
           description: Close the root epic when all children are done
           actions:
-            - "Verify: br list --status=open --json filtered by TRD slug returns no open tasks"
+            - "Verify: run br list --status=open --json filtered by [trd:<TRD_SLUG>:task:] prefix to catch open task beads; also run br list --status=open --json filtered by [trd:<TRD_SLUG>:story:] prefix to catch open story beads (excluding <ROOT_EPIC_ID> itself which is intentionally still open); if any task or story beads remain open, do not close the epic — investigate and resolve first (open beads at this stage indicate incomplete work or a missed Quality Gate). Only <ROOT_EPIC_ID> may remain open."
             - "Run: br close <ROOT_EPIC_ID> --reason='TRD implementation complete'"
             - "Run: br sync --flush-only"
 

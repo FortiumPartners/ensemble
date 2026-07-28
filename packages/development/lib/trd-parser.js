@@ -20,6 +20,8 @@
  * @property {Phase[]} phases
  * @property {Object.<string,Task>} tasksById
  * @property {string[]} warnings
+ * @property {string|null} architectureDecision  prose from ## 1. Architecture Decision
+ * @property {string[]} keyTechnicalDecisions     entries from ### Key Technical Decisions
  *
  * @typedef {Object} Phase
  * @property {number} n
@@ -59,9 +61,10 @@ try {
 // Regular expressions (shared)
 // ---------------------------------------------------------------------------
 
-// Top-level task line: "- [ ] **TRD-001**: Description" / "- [x] **TRD-001-TEST**: ..."
+// Top-level task line: "- [ ] **TRD-001**: Description" / "- [ ] **TRD-001** — Description"
+// Accepts colon, em dash (—), en dash (–), or hyphen as separator after the bold id.
 // The bold id may carry a "-TEST" or "-TEST-S<k>" suffix.
-const TASK_LINE_RE = /^(\s*)- \[[ xX]\]\s+\*\*(TRD-[A-Za-z0-9-]+)\*\*\s*:?\s*(.*)$/;
+const TASK_LINE_RE = /^(\s*)- \[[ xX]\]\s+\*\*(TRD-[A-Za-z0-9-]+)\*\*\s*[-—–:]?\s*(.*)$/;
 
 // Any checklist line (used to detect nested sub-items).
 const CHECKLIST_LINE_RE = /^\s*- \[[ xX]\]\s+(.*)$/;
@@ -221,6 +224,99 @@ function extractSummary(lines) {
   return '';
 }
 
+// ---------------------------------------------------------------------------
+// Architecture decision and key technical decisions
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the ## 1. Architecture Decision section prose.
+ * End boundary is the next ## heading (e.g. ## Master Task List) or EOF.
+ * Returns null when the section is absent.
+ */
+function extractArchitectureDecision(lines) {
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+(?:\d+\.\s+)?Architecture/i.test(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return null;
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    // Stop at ### Key Technical Decisions (exclusive boundary for that subsection),
+    // a top-level ## heading, or a horizontal rule.
+    if (/^###\s+Key\s+Technical\s+Decisions/i.test(lines[i]) ||
+        /^##\s/.test(lines[i]) ||
+        /^---/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  // Strip the section heading and trailing blank lines.
+  const section = lines.slice(start + 1, end);
+  while (section.length && section[0].trim() === '') section.shift();
+  while (section.length && section[section.length - 1].trim() === '') section.pop();
+  return section.join('\n') || null;
+}
+
+/**
+ * Extract numbered entries from ### Key Technical Decisions.
+ * Each entry starts with "N. " where N is a number, and captures up to the
+ * next numbered entry, a horizontal-rule separator, or the next ##/### heading.
+ * Trailing blank lines are stripped from each entry.
+ * Returns an empty array when the subsection is absent.
+ */
+function extractKeyTechnicalDecisions(lines) {
+  let sectionStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^###\s+Key\s+Technical\s+Decisions/i.test(lines[i])) {
+      sectionStart = i;
+      break;
+    }
+  }
+  if (sectionStart === -1) return [];
+
+  // Find end of this subsection: next ---, any ##/### heading, or EOF.
+  let sectionEnd = lines.length;
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    if (/^---/.test(lines[i]) || /^#{2,3}\s/.test(lines[i])) {
+      sectionEnd = i;
+      break;
+    }
+  }
+
+  const decisions = [];
+  const numbered = /^(\d+)\.\s+(.*)/;
+  let i = sectionStart + 1;
+
+  // Skip leading blank lines.
+  while (i < sectionEnd && lines[i].trim() === '') i++;
+
+  while (i < sectionEnd) {
+    const m = lines[i].match(numbered);
+    if (!m) {
+      // Append non-blank non-numbered continuation to the last entry.
+      if (decisions.length > 0 && lines[i].trim() !== '') {
+        decisions[decisions.length - 1] += '\n' + lines[i];
+      }
+      i++;
+      continue;
+    }
+    // Each numbered line is a new entry — push it directly.
+    decisions.push(lines[i]);
+    i++;
+  }
+
+  // Strip trailing blank lines from the final entry.
+  if (decisions.length > 0) {
+    decisions[decisions.length - 1] = decisions[decisions.length - 1].replace(/\n+$/, '');
+  }
+
+  return decisions;
+}
 // ---------------------------------------------------------------------------
 // Pass 3: PRD reference
 // ---------------------------------------------------------------------------
@@ -741,6 +837,10 @@ function parseTRD(markdownString) {
   const title = extractTitle(allLines);
   const summary = extractSummary(allLines);
 
+  // Architecture decision prose + key technical decisions (Pass 1).
+  const architectureDecision = extractArchitectureDecision(allLines);
+  const keyTechnicalDecisions = extractKeyTechnicalDecisions(allLines);
+
   // Pass 3 PRD reference (whole body).
   const prdReference = extractPrdReference(body, frontmatter);
 
@@ -905,6 +1005,8 @@ function parseTRD(markdownString) {
     phases: cleanPhases,
     tasksById,
     warnings,
+    architectureDecision,
+    keyTechnicalDecisions,
   };
 }
 

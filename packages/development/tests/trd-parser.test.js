@@ -161,6 +161,29 @@ Summary.
     - Given a fixture, when tested, then it passes
   - Proof of requirement: All ACs map to passing tests
 `;
+// Em dash (—), en dash (–), and bare hyphen (-) task line separators.
+// Matches the format used in real TRDs (e.g. TRD-2026-96872fc5-go-elixir-cqrs-parity).
+const DASH_SEPARATORS_TRD = `# TRD-108: Dash Separators
+
+Summary describing the work.
+
+## Master Task List
+
+### PR 1: Typed Event Foundation
+
+**Shippable State:** Events use typed structs.
+
+- [ ] **TRD-001** — Enumerate event vocabulary (2h) [satisfies REQ-010]
+- [ ] **TRD-002** – Add enforce_keys to events (3h) [depends: TRD-001]
+- [ ] **TRD-003** - Implement EventCodec dual-read (4h) [satisfies REQ-010]
+
+### PR 2: HTTP Ingress
+
+**Shippable State:** Go CLI can POST commands.
+
+- [ ] **TRD-008** — Scaffold Phoenix endpoint (3h) [satisfies REQ-001]
+- [x] **TRD-009** — Implement POST /api/commands (4h) [satisfies REQ-001] [depends: TRD-008]
+`;
 
 const SCOPING_TRD = `---
 design_readiness_score: 4.5
@@ -746,7 +769,9 @@ describe('parseTRD — ParsedTRD contract shape', () => {
     const result = parseTRD(BODY_FIELDS_TRD);
     expect(Object.keys(result).sort()).toEqual(
       [
+        'architectureDecision',
         'designReadinessScore',
+        'keyTechnicalDecisions',
         'phases',
         'prFormat',
         'prdReference',
@@ -757,6 +782,81 @@ describe('parseTRD — ParsedTRD contract shape', () => {
         'warnings',
       ].sort()
     );
+  });
+
+  it('extracts architectureDecision prose up to Key Technical Decisions', () => {
+    // Inline fixture with real section headings.
+    const trd =
+      '---\nstatus: Draft\n---\n' +
+      '# My TRD\n\n' +
+      '## 1. Architecture Decision\n\n' +
+      '### Chosen Approach: Option B\n\n' +
+      'This is the chosen approach.\n\n' +
+      '**Rationale:** It works best for our use case.\n\n' +
+      '### Key Technical Decisions\n\n' +
+      '1. Decision one.\n\n' +
+      '---\n\n' +
+      '## Master Task List\n\n' +
+      '- [ ] **TRD-001**: A task\n';
+    const result = parseTRD(trd);
+    expect(result.architectureDecision).toBeTruthy();
+    expect(result.architectureDecision).toContain('Option B');
+    expect(result.architectureDecision).toContain('Rationale:');
+    // Must NOT bleed in the Key Technical Decisions subsection.
+    expect(result.architectureDecision).not.toContain('Key Technical Decisions');
+  });
+
+  it('extracts architectureDecision from unnumbered ## Architecture Decision heading', () => {
+    const trd =
+      '---\nstatus: Draft\n---\n' +
+      '# My TRD\n\n' +
+      '## Architecture Decision\n\n' +
+      'We chose option A.\n\n' +
+      '**Rationale:** It aligns with our goals.\n\n' +
+      '### Key Technical Decisions\n\n' +
+      '1. First.\n\n' +
+      '## Master Task List\n\n' +
+      '- [ ] **TRD-001**: Task\n';
+    const result = parseTRD(trd);
+    expect(result.architectureDecision).toBeTruthy();
+    expect(result.architectureDecision).toContain('We chose option A');
+    expect(result.architectureDecision).toContain('Rationale:');
+    expect(result.architectureDecision).not.toContain('Key Technical Decisions');
+  });
+
+  it('extracts keyTechnicalDecisions as clean entries without ---', () => {
+    const trd =
+      '---\nstatus: Draft\n---\n' +
+      '# My TRD\n\n' +
+      '## 1. Architecture Decision\n\n' +
+      '### Chosen Approach: Option B\n\n' +
+      'Chosen.\n\n' +
+      '### Key Technical Decisions\n\n' +
+      '1. First decision.\n\n' +
+      '2. Second decision.\n\n' +
+      '### Later Subsection\n\n' +
+      'This text should not appear in any decision entry.\n\n' +
+      '---\n\n' +
+      '## Master Task List\n\n' +
+      '- [ ] **TRD-001**: A task\n';
+    const result = parseTRD(trd);
+    expect(Array.isArray(result.keyTechnicalDecisions)).toBe(true);
+    expect(result.keyTechnicalDecisions.length).toBe(2);
+    result.keyTechnicalDecisions.forEach((d) => {
+      expect(typeof d).toBe('string');
+      expect(d.trim()).toMatch(/^\d+\.\s+/);
+      expect(d).not.toContain('---');
+      // Subsequent ### subsections must not bleed into decision entries.
+      expect(d).not.toContain('Later Subsection');
+    });
+  });
+
+  it('returns null / empty when Architecture Decision section is absent', () => {
+    const minimal =
+      '---\nstatus: Draft\n---\n\n# Minimal TRD\n\n## Master Task List\n\n- [ ] **TRD-001**: A task\n';
+    const result = parseTRD(minimal);
+    expect(result.architectureDecision).toBeNull();
+    expect(result.keyTechnicalDecisions).toEqual([]);
   });
 
   it('each task carries the full Task shape', () => {

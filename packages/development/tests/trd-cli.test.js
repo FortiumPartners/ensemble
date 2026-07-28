@@ -145,10 +145,9 @@ describe('runNextTask', () => {
     expectJsonSerializable(out);
   });
 
-  test('boundary guard: later-phase id filtered out while phase 1 open (prFormat)', () => {
-    // The fixture has a single PR/phase, so EVERY real task id belongs to
-    // phase 1. To exercise the strict boundary guard end-to-end we feed a
-    // ready id that exists in NO phase mapping — in prFormat mode such an id
+  test('boundary guard: unknown-phase id discarded while phase 1 open (stacked)', () => {
+    // phase 1. To exercise the stacked boundary guard end-to-end we feed a
+    // ready id that exists in NO phase mapping — in stacked mode such an id
     // must be discarded (it cannot be proven to belong to the current phase).
     const out = runNextTask([
       FIXTURE,
@@ -156,7 +155,7 @@ describe('runNextTask', () => {
       'TRD-999-NOT-IN-ANY-PHASE,TRD-001',
       '--max',
       '5',
-    ]);
+    ], { ENSEMBLE_USE_STACKED_PRS: 'true' });
     expect(out.ok).toBe(true);
     // The unknown (would-be later-phase) id is filtered; only the real
     // phase-1 id survives.

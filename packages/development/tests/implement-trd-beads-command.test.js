@@ -54,3 +54,44 @@ describe('implement-trd-beads direct multi-TRD deprecation', () => {
     expect(text).toContain('DEPRECATED: direct multi-TRD mode');
   });
 });
+
+
+describe('implement-trd-beads execution blocked-check logic', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+
+  test('blocked-check uses live bead graph, not parsed depends-on', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    // Must use live bead graph via br dep list
+    expect(text).toContain('br dep list');
+    expect(text).toContain('br show');
+    // Step a must NOT consult TASK_TRACEABILITY depends-on for blocker ids
+    // (phaseN lookup is fine; blocker ids must come from br dep list)
+    expect(text).not.toMatch(/look up.*depends-on.*in TASK_TRACEABILITY/);
+  });
+
+  test('blocked-check computes current_phase from PHASE_TASK_IDS and CLOSED_TRD_IDS', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('PHASE_TASK_IDS');
+    expect(text).toContain('CLOSED_TRD_IDS');
+    // next-task algorithm: lowest phase with unclosed tasks
+    expect(text).toMatch(/lowest phaseN in PHASE_TASK_IDS that has any task id NOT in CLOSED_TRD_IDS/);
+  });
+
+  test('blocked-check distinguishes current-phase blockers from later-phase tasks', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    // Later-phase state is irrelevant; current_phase is decisive
+    expect(text).toMatch(/Tasks in later phases are irrelevant/);
+    // HALT only when current_phase is blocked
+    expect(text).toMatch(/EXECUTION BLOCKED.*current-phase.*open blockers/);
+    // Retry/inconsistency only when current_phase unblocked
+    expect(text).toMatch(/genuine inconsistency.*current-phase.*all blockers closed/);
+  });
+
+  test('old stale blocked-check text is gone', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    // No more "SOME remaining open tasks have ALL blockers closed" phrasing
+    expect(text).not.toMatch(/SOME remaining open tasks have ALL blockers closed/);
+    // No more generic "EXECUTION BLOCKED" without current_phase context
+    expect(text).not.toMatch(/EXECUTION BLOCKED.*all.*remaining open tasks are waiting/);
+  });
+});

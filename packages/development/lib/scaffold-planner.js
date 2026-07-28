@@ -25,11 +25,26 @@
  * @property {SynthTestPlan[]} synthesizedTests
  * @property {DepEdge[]} deps
  * @property {string[]} warnings
- *
  * @typedef {Object} DepEdge
- * @property {('story-blocks-epic'|'task-blocks-story'|'task-depends'|'inter-phase-gate'|'synthtest-depends')} type
+ * @property {('story-blocks-epic'|'task-blocks-story'|'task-depends'|'synthtest-depends')} type
  * @property {string} blockerId  title-prefix of the blocking bead
  * @property {string} blockedId  title-prefix of the blocked bead
+ *
+ * @typedef {Object} PrdContext
+ * @property {Record<string, ReqEntry>} requirements
+ * @property {Record<string, AcEntry>} acs
+ * @typedef {Object} ReqEntry
+ * @property {string} id
+ * @property {string} title
+ * @property {string} text
+ * @property {string[]} acIds
+ * @typedef {Object} AcEntry
+ * @property {string} id
+ * @property {string} reqId
+ * @property {string} given
+ * @property {string} when
+ * @property {string} then
+ * @property {string} text
  */
 
 const DEFAULT_PRIORITY = 2;
@@ -62,6 +77,46 @@ function numberedBlock(items) {
 function joinSections(sections) {
   return sections.filter((s) => s !== null && s !== undefined).join('\n');
 }
+/**
+ * Build a PRD enrichment block for a task that satisfies a given requirement.
+ * Returns null when no PRD context is available for the requirement.
+ * @param {string} reqId   e.g. "REQ-001"
+ * @param {string[]} acIds  e.g. ["AC-001-1", "AC-001-2"]
+ * @param {{requirements:Object, acs:Object}} prdContext
+ * @returns {string|null}
+ */
+function prdEnrichmentSection(reqId, acIds, prdContext) {
+  if (!prdContext || !reqId) return null;
+  const reqs = prdContext.requirements || {};
+  const acs = prdContext.acs || {};
+  const req = reqs[reqId.toUpperCase()];
+  if (!req) return null;
+
+  const lines = [];
+  lines.push('');
+  lines.push('--- PRD Context ---');
+  lines.push(`**Requirement ${req.id}**: ${req.title}`);
+  lines.push(req.text);
+
+  // Include AC breakdown for the ACs this task validates
+  const taskAcs = (acIds || [])
+    .map((id) => acs[id.toUpperCase()])
+    .filter(Boolean);
+  if (taskAcs.length) {
+    lines.push('');
+    lines.push('**Acceptance Criteria:**');
+    for (const ac of taskAcs) {
+      const parts = [];
+      if (ac.given) parts.push(`Given ${ac.given}`);
+      if (ac.when) parts.push(`When ${ac.when}`);
+      if (ac.then) parts.push(`Then ${ac.then}`);
+      lines.push(`- ${ac.id}: ${parts.join(' | ')}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 
 // ---------------------------------------------------------------------------
 // Title-prefix builders (the idempotency keys / stable identifiers)
@@ -89,7 +144,7 @@ function taskPrefix(slug, taskId) {
  * Embedded-tests additions.
  */
 function buildImplTaskDescription(task, opts) {
-  const { trdFilePath, prdFilePath } = opts;
+  const { trdFilePath, prdFilePath, prdContext, architectureDecision, keyTechnicalDecisions } = opts;
   const satisfiesReq = task.satisfies && task.satisfies.length ? task.satisfies[0] : '';
 
   const sections = [];
@@ -99,32 +154,43 @@ function buildImplTaskDescription(task, opts) {
   // PRD Reference line is omitted for INFRA / ARCH / empty satisfies.
   if (satisfiesReq && !isInfraOrArch(satisfiesReq)) {
     sections.push(`PRD Reference: ${prdFilePath}#${lower(satisfiesReq)}`);
+    // Embed actual PRD requirement prose and AC breakdown so agents never need to cross-reference.
+    const prdBlock = prdEnrichmentSection(satisfiesReq, task.validatesAcs || [], prdContext);
+    if (prdBlock) sections.push(prdBlock);
+  }
+
+  // TRD Architecture Decision and Key Technical Decisions — document-level context.
+  if (architectureDecision || (keyTechnicalDecisions && keyTechnicalDecisions.length)) {
+    sections.push('');
+    sections.push('--- TRD Context ---');
+    if (architectureDecision) {
+      sections.push(architectureDecision);
+    }
+    if (keyTechnicalDecisions && keyTechnicalDecisions.length) {
+      sections.push('');
+      sections.push('**Key Technical Decisions:**');
+      keyTechnicalDecisions.forEach((d) => sections.push(d));
+    }
   }
 
   sections.push(`Satisfies: ${satisfiesReq}`);
   sections.push(`PRD ACs: ${(task.validatesAcs || []).join(', ')}`);
   sections.push(`Target File: ${(task.targetFiles || []).join(', ')}`);
-
   sections.push('Actions:');
   sections.push(numberedBlock(task.actions || []));
-
   sections.push('Implementation AC:');
   sections.push(checklistBlock(task.implementationAc || []));
-
   // Sub-items section — only when nestedSubitems is non-empty.
   if (task.nestedSubitems && task.nestedSubitems.length) {
     sections.push('Sub-items (every checklist item below MUST be completed before this task is done):');
     sections.push(checklistBlock(task.nestedSubitems));
   }
-
   // Embedded tests section — only when testSubitems is non-empty.
   if (task.testSubitems && task.testSubitems.length) {
     sections.push('Embedded tests (implement AND run these — they have no separate TRD-NNN-TEST task):');
     sections.push(checklistBlock(task.testSubitems));
   }
-
   sections.push(`Dependencies: ${(task.dependsOn || []).join(', ')}`);
-
   return joinSections(sections);
 }
 
@@ -133,7 +199,7 @@ function buildImplTaskDescription(task, opts) {
  * Ports implement-trd-beads.yaml Step 5 line ~518.
  */
 function buildTestTaskDescription(task, opts) {
-  const { trdFilePath, prdFilePath } = opts;
+  const { trdFilePath, prdFilePath, prdContext, architectureDecision, keyTechnicalDecisions } = opts;
   const satisfiesReq = task.satisfies && task.satisfies.length ? task.satisfies[0] : '';
   const verifies = task.verifies || '';
 
@@ -142,7 +208,25 @@ function buildTestTaskDescription(task, opts) {
   sections.push(`TRD Reference: ${trdFilePath}#${lower(task.id)}`);
   if (satisfiesReq && !isInfraOrArch(satisfiesReq)) {
     sections.push(`PRD Reference: ${prdFilePath}#${lower(satisfiesReq)}`);
+    // Embed actual PRD requirement prose and AC breakdown so agents never need to cross-reference.
+    const prdBlock = prdEnrichmentSection(satisfiesReq, task.validatesAcs || [], prdContext);
+    if (prdBlock) sections.push(prdBlock);
   }
+
+  // TRD Architecture Decision and Key Technical Decisions — document-level context.
+  if (architectureDecision || (keyTechnicalDecisions && keyTechnicalDecisions.length)) {
+    sections.push('');
+    sections.push('--- TRD Context ---');
+    if (architectureDecision) {
+      sections.push(architectureDecision);
+    }
+    if (keyTechnicalDecisions && keyTechnicalDecisions.length) {
+      sections.push('');
+      sections.push('**Key Technical Decisions:**');
+      keyTechnicalDecisions.forEach((d) => sections.push(d));
+    }
+  }
+
   sections.push(`Verifies Task: ${trdFilePath}#${lower(verifies)}`);
   sections.push(`Verifies: ${verifies}`);
   sections.push(`Satisfies: ${satisfiesReq}`);
@@ -184,9 +268,8 @@ function buildSynthTestDescription(synthId, parentTask, subitemText) {
  * Build a pure scaffold plan from a ParsedTRD.
  * Never throws — problems are collected into the returned `warnings` array.
  *
- * @param {ParsedTRD} parsed  output of parseTRD()
- * @param {{trdSlug:string, trdFilePath:string, prdFilePath:string}} opts
- * @returns {ScaffoldPlan}
+ * @param {ParsedTRD} parsed
+ * @param {{trdSlug:string, trdFilePath:string, prdFilePath:string, prdContext:PrdContext}} opts
  */
 function buildScaffoldPlan(parsed, opts) {
   const warnings = [];
@@ -197,7 +280,14 @@ function buildScaffoldPlan(parsed, opts) {
   const slug = o.trdSlug == null ? '' : String(o.trdSlug);
   const trdFilePath = o.trdFilePath == null ? '' : String(o.trdFilePath);
   const prdFilePath = o.prdFilePath == null ? '' : String(o.prdFilePath);
-  const descOpts = { trdFilePath, prdFilePath };
+  const prdContext = o.prdContext && typeof o.prdContext === 'object' ? o.prdContext : { requirements: {}, acs: {} };
+  const descOpts = {
+    trdFilePath,
+    prdFilePath,
+    prdContext,
+    architectureDecision: safeParsed.architectureDecision || null,
+    keyTechnicalDecisions: Array.isArray(safeParsed.keyTechnicalDecisions) ? safeParsed.keyTechnicalDecisions : [],
+  };
 
   const prFormat = !!safeParsed.prFormat;
   const phases = Array.isArray(safeParsed.phases) ? safeParsed.phases : [];
@@ -384,22 +474,6 @@ function buildScaffoldPlan(parsed, opts) {
     }
   }
 
-  // inter-phase-gate: for phase i >= 2, last task of phase i-1 blocks first
-  // task of phase i (sequential gate between phases).
-  for (let i = 1; i < orderedPhases.length; i++) {
-    const prevPhase = orderedPhases[i - 1];
-    const curPhase = orderedPhases[i];
-    const prevTaskIds = (prevPhase.taskIds || []).filter(isUsableTask);
-    const curTaskIds = (curPhase.taskIds || []).filter(isUsableTask);
-    if (prevTaskIds.length === 0 || curTaskIds.length === 0) continue;
-    const lastPrev = prevTaskIds[prevTaskIds.length - 1];
-    const firstCur = curTaskIds[0];
-    deps.push({
-      type: 'inter-phase-gate',
-      blockerId: taskPrefixById[lastPrev],
-      blockedId: taskPrefixById[firstCur],
-    });
-  }
 
   // synthtest-depends + task-blocks-story for synthesized tests.
   for (const synth of synthesizedTests) {

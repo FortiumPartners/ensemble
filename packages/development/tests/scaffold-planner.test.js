@@ -124,6 +124,36 @@ function buildTwoPhaseParsed() {
   };
 }
 
+// Like buildTwoPhaseParsed but with document-level architecture context.
+function buildTwoPhaseParsedWithTrdCtx() {
+  const parsed = buildTwoPhaseParsed();
+  return {
+    ...parsed,
+    architectureDecision:
+      '**Chosen Approach: Option C — Typed-Events-First**\n\n' +
+      'REQ-010 is implemented as the first shippable vertical slice. This locks the\n' +
+      'authoritative event vocabulary before map→struct debt accumulates.\n\n' +
+      '**Rationale:** The PRD identified typed-event migration as the highest-risk item.',
+    keyTechnicalDecisions: [
+      '1. EventCodec dual-read path: Both old map format and new typed structs accepted on read during migration.',
+      '2. Versioned envelope: {version: 1, data: typed_event} or {version: 0, data: map}.',
+    ],
+  };
+}
+
+// Like buildTwoPhaseParsed but with only keyTechnicalDecisions (no architectureDecision).
+function buildTwoPhaseParsedWithDecisionsOnly() {
+  const parsed = buildTwoPhaseParsed();
+  return {
+    ...parsed,
+    architectureDecision: null,
+    keyTechnicalDecisions: [
+      '1. EventCodec dual-read path: Both old map format and new typed structs accepted on read.',
+      '2. Versioned envelope: {version: 1, data: typed_event} or {version: 0, data: map}.',
+    ],
+  };
+}
+
 // Single-phase legacy (phase) format with an unknown dependency.
 function buildLegacyParsed() {
   const t1 = makeTask({ id: 'TRD-010', phaseN: 1, description: 'A' });
@@ -277,6 +307,117 @@ describe('buildScaffoldPlan — tasks', () => {
     expect(t.description).toContain('- [ ] Coverage >= 80%');
   });
 });
+// ---------------------------------------------------------------------------
+// PRD enrichment
+// ---------------------------------------------------------------------------
+
+describe('buildScaffoldPlan — PRD enrichment', () => {
+  const prdCtx = {
+    requirements: {
+      'REQ-001': {
+        id: 'REQ-001',
+        title: 'HTTP command ingress',
+        text: 'The system MUST accept commands via HTTP POST to a Phoenix endpoint.',
+        acIds: ['AC-001-1', 'AC-001-2'],
+      },
+    },
+    acs: {
+      'AC-001-1': {
+        id: 'AC-001-1',
+        reqId: 'REQ-001',
+        given: 'a running Elixir backend',
+        when: 'the Go CLI sends POST /api/commands',
+        then: 'all mutations route to CommandRouter.dispatch',
+        text: 'Given a running Elixir backend, When the Go CLI sends POST /api/commands, Then all mutations route to CommandRouter.dispatch',
+      },
+      'AC-001-2': {
+        id: 'AC-001-2',
+        reqId: 'REQ-001',
+        given: 'an invalid JSON payload',
+        when: 'the POST request is received',
+        then: 'the system returns a 400 error',
+        text: 'Given an invalid JSON payload, When the POST request is received, Then the system returns a 400 error',
+      },
+    },
+  };
+
+  const optsWithPrd = { ...OPTS, prdContext: prdCtx };
+  const planWithPrd = buildScaffoldPlan(buildTwoPhaseParsed(), optsWithPrd);
+
+  test('impl task embeds PRD requirement title and prose when prdContext is provided', () => {
+    const t = planWithPrd.tasks.find((x) => x.id === 'TRD-001');
+    expect(t.description).toContain('--- PRD Context ---');
+    expect(t.description).toContain('**Requirement REQ-001**: HTTP command ingress');
+    expect(t.description).toContain('MUST accept commands via HTTP POST');
+  });
+
+  test('impl task embeds AC Given/When/Then breakdown for validatesAcs', () => {
+    const t = planWithPrd.tasks.find((x) => x.id === 'TRD-001');
+    expect(t.description).toContain('**Acceptance Criteria:**');
+    expect(t.description).toContain('AC-001-1');
+    expect(t.description).toContain('Given a running Elixir backend');
+    expect(t.description).toContain('When the Go CLI sends POST /api/commands');
+    expect(t.description).toContain('Then all mutations route to CommandRouter.dispatch');
+  });
+
+  test('impl task omits PRD block when no matching requirement in prdContext', () => {
+    // TRD-003 satisfies REQ-003 which is not in prdCtx
+    const t = planWithPrd.tasks.find((x) => x.id === 'TRD-003');
+    expect(t.description).not.toContain('--- PRD Context ---');
+  });
+
+  test('test task embeds PRD enrichment via same prdContext', () => {
+    const t = planWithPrd.tasks.find((x) => x.id === 'TRD-001-TEST');
+    expect(t.description).toContain('--- PRD Context ---');
+    expect(t.description).toContain('**Requirement REQ-001**: HTTP command ingress');
+  });
+
+  test('task without satisfies req (INFRA) does not emit PRD block', () => {
+    const t = planWithPrd.tasks.find((x) => x.id === 'TRD-002');
+    expect(t.description).not.toContain('--- PRD Context ---');
+  });
+});
+
+describe('buildScaffoldPlan — TRD Context enrichment', () => {
+  const planWithCtx = buildScaffoldPlan(buildTwoPhaseParsedWithTrdCtx(), OPTS);
+  const planWithoutCtx = buildScaffoldPlan(buildTwoPhaseParsed(), OPTS);
+
+  test('impl task emits --- TRD Context --- when architectureDecision is present', () => {
+    const t = planWithCtx.tasks.find((x) => x.id === 'TRD-001');
+    expect(t.description).toContain('--- TRD Context ---');
+    expect(t.description).toContain('Chosen Approach');
+    expect(t.description).toContain('Typed-Events-First');
+    expect(t.description).toContain('Rationale:');
+  });
+
+  test('impl task emits --- TRD Context --- when keyTechnicalDecisions is present', () => {
+    const t = planWithCtx.tasks.find((x) => x.id === 'TRD-001');
+    expect(t.description).toContain('**Key Technical Decisions:**');
+    expect(t.description).toContain('1. EventCodec dual-read path');
+    expect(t.description).toContain('2. Versioned envelope');
+  });
+
+  test('test task emits --- TRD Context --- when architectureDecision is present', () => {
+    const t = planWithCtx.tasks.find((x) => x.id === 'TRD-001-TEST');
+    expect(t.description).toContain('--- TRD Context ---');
+    expect(t.description).toContain('Chosen Approach');
+  });
+
+  test('impl and test tasks omit --- TRD Context --- when both fields are absent', () => {
+    const impl = planWithoutCtx.tasks.find((x) => x.id === 'TRD-001');
+    const test = planWithoutCtx.tasks.find((x) => x.id === 'TRD-001-TEST');
+    expect(impl.description).not.toContain('--- TRD Context ---');
+    expect(test.description).not.toContain('--- TRD Context ---');
+  });
+
+  test('impl task emits --- TRD Context --- from keyTechnicalDecisions alone (no architectureDecision)', () => {
+    const plan = buildScaffoldPlan(buildTwoPhaseParsedWithDecisionsOnly(), OPTS);
+    const t = plan.tasks.find((x) => x.id === 'TRD-001');
+    expect(t.description).toContain('--- TRD Context ---');
+    expect(t.description).toContain('**Key Technical Decisions:**');
+    expect(t.description).not.toContain('Rationale:');
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Synthesized tests
@@ -345,15 +486,6 @@ describe('buildScaffoldPlan — dependency edges', () => {
     expect(e.blockerId).toBe('[trd:demo-trd:task:TRD-001]');
   });
 
-  test('inter-phase-gate: last task of phase i-1 blocks first task of phase i', () => {
-    const edges = depsOfType(plan, 'inter-phase-gate');
-    expect(edges).toHaveLength(1);
-    const e = edges[0];
-    // phase 1 last task is TRD-002, phase 2 first task is TRD-003
-    expect(e.blockerId).toBe('[trd:demo-trd:task:TRD-002]');
-    expect(e.blockedId).toBe('[trd:demo-trd:task:TRD-003]');
-  });
-
   test('synthtest-depends: parent impl task blocks the synth test', () => {
     const edges = depsOfType(plan, 'synthtest-depends');
     expect(edges).toHaveLength(1);
@@ -362,26 +494,19 @@ describe('buildScaffoldPlan — dependency edges', () => {
     expect(e.blockedId).toBe('[trd:demo-trd:task:TRD-001-TEST-S1]');
   });
 
-  test('all five dep edge types are present', () => {
+  test('all four dep edge types are present', () => {
     const types = new Set(plan.deps.map((d) => d.type));
     expect(types).toEqual(
       new Set([
         'story-blocks-epic',
         'task-blocks-story',
         'task-depends',
-        'inter-phase-gate',
         'synthtest-depends',
       ]),
     );
   });
 });
 
-describe('buildScaffoldPlan — single phase has no inter-phase gate', () => {
-  const plan = buildScaffoldPlan(buildLegacyParsed(), OPTS);
-  test('no inter-phase-gate edges when only one phase', () => {
-    expect(depsOfType(plan, 'inter-phase-gate')).toHaveLength(0);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Unknown dependency handling
@@ -462,23 +587,6 @@ describe('buildScaffoldPlan — null/non-object task entries', () => {
       expect(e.blockerId).toBeDefined();
       expect(e.blockedId).toBeDefined();
     }
-  });
-
-  test('inter-phase-gate skips a null last-task of the previous phase', () => {
-    const parsed = {
-      title: 'X',
-      phases: [
-        { n: 1, taskIds: ['A', 'X'] },
-        { n: 2, taskIds: ['B'] },
-      ],
-      tasksById: { A: { id: 'A' }, X: null, B: { id: 'B' } },
-    };
-    const plan = buildScaffoldPlan(parsed, OK);
-    const gate = depsOfType(plan, 'inter-phase-gate');
-    expect(gate).toHaveLength(1);
-    // lastPrev must be the usable task A, not the null X.
-    expect(gate[0].blockerId).toBe('[trd:s:task:A]');
-    expect(gate[0].blockedId).toBe('[trd:s:task:B]');
   });
 });
 
