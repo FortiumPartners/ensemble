@@ -122,6 +122,7 @@ function buildWorkstreamPlan(items, opts = {}) {
       trdSlug: slug,
       trdFilePath: item.trdPath,
       prdFilePath: parsed.prdReference || '',
+      prdContext: item.prdContext ?? null,
     });
     scaffoldPlans.push({ trdPath: item.trdPath, slug, plan: scaffold });
     warnings.push(...(scaffold.warnings || []).map((w) => `${slug}: ${w}`));

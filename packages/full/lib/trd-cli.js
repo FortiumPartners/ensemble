@@ -32,6 +32,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { parseTRD } = require('./trd-parser');
+const { extractPrdContext } = require('./prd-parser');
 const {
   buildPhaseTaskIds,
   currentPhase,
@@ -147,14 +148,25 @@ function readTrd(trdPath) {
 }
 
 /**
- * Parse a TRD path into { slug, parsed }. Shared by every subcommand.
+ * Parse a TRD path into { slug, parsed, prdContext }. Shared by every subcommand.
  * @param {string} trdPath
  */
 function loadParsed(trdPath) {
   const markdown = readTrd(trdPath);
   const parsed = parseTRD(markdown);
   const slug = deriveSlug(trdPath);
-  return { slug, parsed };
+  // Load PRD context when a PRD reference is present.
+  let prdContext = null;
+  if (parsed.prdReference) {
+    try {
+      const prdPath = path.resolve(path.dirname(trdPath), parsed.prdReference);
+      const prdMarkdown = fs.readFileSync(prdPath, 'utf8');
+      prdContext = extractPrdContext(prdMarkdown);
+    } catch (_) {
+      // PRD reference is advisory; leave prdContext null on any read error.
+    }
+  }
+  return { slug, parsed, prdContext };
 }
 
 // ---------------------------------------------------------------------------
@@ -181,11 +193,12 @@ function runParse(argv) {
 function runScaffoldPlan(argv) {
   const { positionals } = parseArgs(argv);
   const trdPath = positionals[0];
-  const { slug, parsed } = loadParsed(trdPath);
+  const { slug, parsed, prdContext } = loadParsed(trdPath);
   const plan = buildScaffoldPlan(parsed, {
     trdSlug: slug,
     trdFilePath: trdPath,
     prdFilePath: parsed.prdReference || '',
+    prdContext: prdContext ?? null,
   });
   return { ok: true, slug, plan };
 }
@@ -223,11 +236,8 @@ function runPhaseStatus(argv) {
  * `next-task <trd-path> --ready a,b [--closed a,b] [--max N]`
  *   -> { ok:true, selected:[ids] }
  */
-function runNextTask(argv) {
-  const { positionals, flags } = parseArgs(
-    argv,
-    new Set(['ready', 'closed', 'max'])
-  );
+function runNextTask(argv, env) {
+  const { positionals, flags } = parseArgs(argv, new Set(['ready', 'closed', 'max']));
   const trdPath = positionals[0];
   const { parsed } = loadParsed(trdPath);
 
@@ -235,12 +245,11 @@ function runNextTask(argv) {
   const closed = splitList(flags.closed);
   const maxRaw = flags.max != null && flags.max !== '' ? Number(flags.max) : NaN;
   const max = Number.isFinite(maxRaw) && maxRaw > 0 ? Math.floor(maxRaw) : 1;
-
+  // Phase-strict filtering only applies in stacked PR mode (one PR per phase).
+  // Single-PR mode lets any phase's ready tasks run as bv schedules them.
+  const stacked = flags.stacked === true ? true : useStackedPrs(env || {});
   const phaseTaskIds = buildPhaseTaskIds(parsed);
-  const selected = selectNextTasks(ready, phaseTaskIds, closed, {
-    prFormat: !!parsed.prFormat,
-    max,
-  });
+  const selected = selectNextTasks(ready, phaseTaskIds, closed, { stacked, max });
 
   return { ok: true, selected };
 }
@@ -288,8 +297,8 @@ function runPrPlan(argv, env) {
 function loadWorkstreamItems(trdPaths) {
   const paths = Array.isArray(trdPaths) ? trdPaths : [];
   return paths.map((trdPath) => {
-    const { slug, parsed } = loadParsed(trdPath);
-    return { trdPath, slug, parsed };
+    const { slug, parsed, prdContext } = loadParsed(trdPath);
+    return { trdPath, slug, parsed, prdContext };
   });
 }
 
@@ -350,7 +359,7 @@ const HANDLERS = {
   parse: (argv) => runParse(argv),
   'scaffold-plan': (argv) => runScaffoldPlan(argv),
   'phase-status': (argv) => runPhaseStatus(argv),
-  'next-task': (argv) => runNextTask(argv),
+  'next-task': (argv) => runNextTask(argv, process.env),
   'pr-plan': (argv) => runPrPlan(argv, process.env),
   'validate-workstream': (argv) => runValidateWorkstream(argv),
   'create-workstream-trd': (argv) => runCreateWorkstreamTrd(argv),

@@ -713,6 +713,98 @@ function addSyntheticValidationTasks(tasksById, phases, allLines, warnings) {
   if (acceptanceCriteria.length) warnings.push(`Generated ${acceptanceCriteria.length} acceptance-criteria validation task(s)`);
   if (crossCuttingRequirements.length) warnings.push(`Generated ${crossCuttingRequirements.length} cross-cutting requirement task(s)`);
 }
+// ---------------------------------------------------------------------------
+// Architecture decision + key technical decisions
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the prose body of ## N. Architecture Decision (or ## Architecture Decision).
+ * Matches both numbered and unnumbered variants.
+ * Stops before ### Key Technical Decisions, any ## top-level heading, or ---.
+ * Returns null when absent.
+ *
+ * @param {string[]} lines
+ * @returns {string|null}
+ */
+function extractArchitectureDecision(lines) {
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s+(?:\d+\.\s+)?Architecture/i.test(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  if (start === -1) return null;
+
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^###\s+Key\s+Technical\s+Decisions/i.test(lines[i]) ||
+        /^##\s/.test(lines[i]) ||
+        /^---/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  const section = lines.slice(start + 1, end);
+  while (section.length && section[0].trim() === '') section.shift();
+  while (section.length && section[section.length - 1].trim() === '') section.pop();
+  return section.join('\n') || null;
+}
+
+/**
+ * Extract numbered entries from ### Key Technical Decisions.
+ * Each entry starts with "N. " and captures up to the next numbered entry,
+ * a --- separator, or the next ##/### heading.
+ * Trailing blank lines stripped from each entry.
+ * Returns an empty array when absent.
+ *
+ * @param {string[]} lines
+ * @returns {string[]}
+ */
+function extractKeyTechnicalDecisions(lines) {
+  let sectionStart = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^###\s+Key\s+Technical\s+Decisions/i.test(lines[i])) {
+      sectionStart = i;
+      break;
+    }
+  }
+  if (sectionStart === -1) return [];
+
+  let sectionEnd = lines.length;
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    if (/^---/.test(lines[i]) || /^#{2,3}\s/.test(lines[i])) {
+      sectionEnd = i;
+      break;
+    }
+  }
+
+  const decisions = [];
+  const numbered = /^(\d+)\.\s+(.*)/;
+  let i = sectionStart + 1;
+
+  while (i < sectionEnd && lines[i].trim() === '') i++;
+
+  while (i < sectionEnd) {
+    const m = lines[i].match(numbered);
+    if (!m) {
+      if (decisions.length > 0 && lines[i].trim() !== '') {
+        decisions[decisions.length - 1] += '\n' + lines[i];
+      }
+      i++;
+      continue;
+    }
+    decisions.push(lines[i]);
+    i++;
+  }
+
+  if (decisions.length > 0) {
+    decisions[decisions.length - 1] = decisions[decisions.length - 1].replace(/\n+$/, '');
+  }
+
+  return decisions;
+}
 
 // ---------------------------------------------------------------------------
 // Main entry point
@@ -741,6 +833,10 @@ function parseTRD(markdownString) {
 
   // Pass 3 PRD reference (whole body).
   const prdReference = extractPrdReference(body, frontmatter);
+
+  // Architecture decision prose + key technical decisions (Pass 1).
+  const architectureDecision = extractArchitectureDecision(allLines);
+  const keyTechnicalDecisions = extractKeyTechnicalDecisions(allLines);
 
   // Pass 3 scope: the Master Task List section.
   const scope = findMasterTaskListScope(allLines);
@@ -897,6 +993,8 @@ function parseTRD(markdownString) {
     title,
     summary,
     prdReference,
+    architectureDecision,
+    keyTechnicalDecisions,
     designReadinessScore,
     status,
     prFormat,
