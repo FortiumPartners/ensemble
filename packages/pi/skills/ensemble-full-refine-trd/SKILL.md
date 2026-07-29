@@ -1,0 +1,213 @@
+---
+name: ensemble-full-refine-trd
+description: >-
+  Refine and enhance an existing Technical Requirements Document based on
+  stakeholder feedback, additional research, or identified gaps. Updates TRD
+  while maintaining version history, traceability, and Design Readiness scoring.
+disable-model-invocation: true
+---
+<!-- Command: ensemble:refine-trd | Version: 2.4.0 -->
+<!-- Description: Refine and enhance existing TRD with stakeholder feedback and additional detail -->
+
+# ensemble:refine-trd
+
+> **Mission:** Refine and enhance an existing Technical Requirements Document based on stakeholder feedback, additional research, or identified gaps. Updates TRD while maintaining version history, traceability, and Design Readiness scoring.
+
+> **Constraints:**
+> - DO NOT implement, build, or execute any technical work described in the TRD
+> - This command ONLY refines the TRD document itself
+> - The arguments describe what should be improved in the document, not what should be built
+> - After refining the TRD, stop and wait for user approval before any implementation
+> - DO NOT make any edits during Synthesis -- findings are presented first, edits happen only after user selects items
+
+## Phase 1: TRD Review
+
+### Step 1: Current TRD Analysis
+
+Review existing TRD content and extract structural metadata
+
+**Actions:**
+1. Read the TRD file from the path provided in $ARGUMENTS
+2. Parse frontmatter for Document ID (TRD-YYYY-NNN), Version, PRD reference, Design Readiness Score
+3. Count total tasks (TRD-NNN pattern), total test tasks (TRD-NNN-TEST), total hours estimated
+4. Build dependency graph from [depends: TRD-NNN] annotations
+5. Check if Acceptance Criteria Traceability matrix exists
+6. Note current version number for bumping later
+7. PR format detection: scan TRD for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If found: set PR_FORMAT=true and log 'TRD format: PR-stack'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'.
+8. If PR_FORMAT=true: count PR boundary sections; for each ### PR N: heading check whether a **Shippable State:** line immediately follows it; record MISSING_SHIPPABLE[N] for any that don't; record INFRA_ONLY_SHIPPABLE[N] for any whose Shippable State text contains only infrastructure language (e.g., 'scaffolding', 'setup done', 'infrastructure complete') with no user-observable capability.
+
+### Step 2: Synthesis
+
+After reviewing the TRD, generate a numbered list of findings — do NOT make
+any edits yet.
+
+Scan the TRD for the following categories of issues:
+- Implementation tasks missing a [satisfies REQ-NNN] annotation
+- User-facing implementation tasks missing a paired TRD-NNN-TEST task
+- Missing or incorrect "Validates PRD ACs:" fields (must reference real AC-NNN-M sub-IDs)
+- [satisfies] annotations that reference non-existent PRD REQ-NNN IDs
+- Unclear or underspecified implementation details
+- Missing error handling or recovery mechanism descriptions
+- Missing performance targets or non-functional requirements
+- Architecture decisions that are not justified or explained
+- Integration points or external dependencies that are not fully specified
+- Tasks with hour estimates >= 8h that should be broken into smaller tasks
+- Long dependency chains (3+ sequential [depends: TRD-NNN] hops) that create execution bottlenecks
+- Circular dependencies between tasks
+- Missing or incomplete Architecture Decision section (should include alternatives with justification)
+- Missing or outdated Acceptance Criteria Traceability matrix
+- Missing Design Readiness Gate scorecard in frontmatter
+- Tasks missing hour estimates entirely
+- Stale references to files, APIs, or components that no longer exist in the codebase
+- "(PR_FORMAT=true only) PR sections missing **Shippable State:** annotation — list each ### PR N: heading that lacks an immediately-following **Shippable State:** line"
+- "(PR_FORMAT=true only) PR sections whose Shippable State describes only infrastructure or scaffolding with no user-observable capability — these must be rewritten or the PR must be split to deliver visible value"
+- "(PR_FORMAT=true only) Tasks in PR N that [depends: TRD-XXX] where TRD-XXX belongs to PR N+1 or later — forward dependency violates the shippability guarantee of PR N"
+- "(PR_FORMAT=false only) TRD uses legacy ### Phase N: or ### Sprint N: headings — offer optional conversion to ### PR N: format with Shippable State annotations to enable implement-trd-beads PR-stack mode (present as a low-priority suggestion, not an error)"
+
+Use the ask_user tool to present a consolidated findings list and capture
+the user's selection. Format the question body exactly as follows:
+
+```
+Based on my review of <TRD filename>, here are the areas I suggest improving:
+
+1. [issue description — e.g., "TRD-005 is missing [satisfies REQ-NNN] annotation"]
+2. [issue description]
+...N. [issue description]
+
+Which would you like to address? Reply with: all, a comma-separated list of numbers (e.g. 1,3), or skip to exit without changes.
+```
+
+Store the user's reply as SELECTED_ITEMS.
+
+- If the user replies "skip" or provides no selection, exit immediately without
+  making any changes to the TRD (the workflow is complete).
+- If the user replies "all", treat every numbered finding as selected.
+- Otherwise, parse the comma-separated numbers to determine which findings are selected.
+
+### Step 3: Interview
+
+Conduct a focused follow-up interview ONLY about the SELECTED_ITEMS from the
+Synthesis step. Skip any topic the user did not select.
+
+Use the ask_user tool to present questions interactively:
+- Ask questions ONE AT A TIME (not all at once)
+- Wait for the user's answer before asking the next question
+- Do NOT just write questions in your response text
+- The user should see interactive question UI prompts
+
+For each selected finding, ask targeted follow-up questions such as:
+- For missing [satisfies] annotations: "Which PRD REQ-NNN ID does TRD-XXX satisfy?"
+- For missing TRD-NNN-TEST tasks: "What acceptance criteria should the test task validate?"
+- For missing "Validates PRD ACs:" fields: "Which PRD AC sub-IDs does this task validate?"
+- For unclear implementation details: "Can you clarify how [component] should behave when [scenario]?"
+- For missing error handling: "What should the system do when [error condition] occurs?"
+- For missing performance targets: "What is the acceptable latency / throughput / SLA for [operation]?"
+- For unjustified architecture decisions: "What drove the choice of [technology/pattern]?"
+- For unspecified integration points: "What contract / protocol / schema does [integration] use?"
+- For oversized tasks: "TRD-NNN is estimated at Xh. Can we split it into smaller pieces? What are the natural boundaries?"
+- For dependency chains: "Tasks TRD-AAA -> TRD-BBB -> TRD-CCC -> TRD-DDD form a N-task chain. Can any of these run in parallel?"
+- For missing architecture decisions: "What alternatives were considered for [component] and why was this approach chosen?"
+- For stale references: "TRD-NNN references [path/file] which no longer exists. Should this task be updated or removed?"
+- "For missing Shippable State (PR_FORMAT=true): 'PR N has no Shippable State annotation. In one sentence, what user-observable capability exists after this PR merges? (not infrastructure — a feature, endpoint, or UI state a user can interact with)'"
+- "For infrastructure-only Shippable State (PR_FORMAT=true): 'The current Shippable State for PR N reads: \"<current text>\". This describes infrastructure, not user-observable behaviour. What does a user gain when this PR is live?'"
+- "For forward dependency violations (PR_FORMAT=true): 'TRD-XXX in PR N depends on TRD-YYY in PR N+1. This breaks PR N shippability. Should we move TRD-XXX to PR N+1, or can TRD-YYY be moved to PR N?'"
+- "For legacy format conversion offer (PR_FORMAT=false): 'This TRD uses ### Phase N: headings. Would you like to convert the Master Task List to ### PR N: format with Shippable State annotations? This enables implement-trd-beads PR-stack mode (feature/<slug>-pr-N branches, per-PR git town propose). The ## Sprint Planning section would remain unchanged.'"
+
+### Step 4: Feedback Integration
+
+Incorporate stakeholder feedback collected during the interview into a change plan
+
+**Actions:**
+1. Apply interview answers to the relevant findings in SELECTED_ITEMS only
+2. For new tasks added, assign next sequential TRD-NNN ID
+3. For split tasks, preserve original [satisfies] annotations on child tasks
+4. For dependency changes, update the dependency graph and check for new circular deps
+5. Compile a change plan summarizing all modifications to be applied
+
+## Phase 2: Enhancement
+
+### Step 1: Content Refinement
+
+Apply changes ONLY for the SELECTED_ITEMS identified in the Synthesis step.
+Do not alter sections that were not selected by the user.
+
+Enhancements to apply (scoped to selected findings):
+- Add [satisfies REQ-NNN] annotations to implementation tasks that lack them
+- Add missing TRD-NNN-TEST paired tasks for user-facing implementation tasks
+- Validate and correct "Validates PRD ACs:" fields to reference real PRD AC sub-IDs (AC-NNN-M)
+- Ensure all [satisfies] annotations reference real PRD REQ-NNN IDs
+- Expand unclear implementation details with specifics gathered during the interview
+- Add error handling and recovery mechanism descriptions where missing
+- Add performance targets and non-functional requirement entries where missing
+- Document justifications for architecture decisions
+- Specify integration contracts, protocols, and schemas for external dependencies
+- Break oversized tasks (>= 8h) into smaller subtasks per interview guidance
+- Restructure dependency chains to enable parallel execution where possible
+- Remove or update stale file/API/component references
+- Add or complete Architecture Decision section with alternatives and justification
+- "(PR_FORMAT=true) Add missing **Shippable State:** lines: insert immediately after each ### PR N: heading that lacks one, using the user's interview answer"
+- "(PR_FORMAT=true) Rewrite infrastructure-only Shippable State lines with user-observable capability from interview answers"
+- "(PR_FORMAT=true) Resolve forward dependency violations: move affected tasks to the correct PR section per interview guidance; re-verify ordering after moving"
+- "(PR_FORMAT=true) When inserting new tasks, place them inside the correct ### PR N: section based on their dependencies — do not add tasks between PR sections or above the first ### PR N: heading"
+- "(PR_FORMAT=false, user confirmed conversion) Convert ### Phase N: / ### Sprint N: headings in the Master Task List to ### PR N: format; add a **Shippable State:** line for each (gathered via interview); leave ## Sprint Planning section unchanged — it uses H2 headings and is informational only"
+
+### Step 2: Validation
+
+Verify structural integrity of the refined TRD before writing
+
+**Actions:**
+1. Verify all TRD-NNN IDs are unique and sequential
+2. Verify all [satisfies REQ-NNN] annotations reference valid PRD requirements
+3. Verify all [depends: TRD-NNN] annotations reference existing tasks
+4. Check no circular dependencies were introduced
+5. Verify all user-facing implementation tasks have paired TRD-NNN-TEST tasks
+6. Count tasks and hours to verify they haven't drifted from the Master Task List summary
+7. If PR_FORMAT=true: verify every ### PR N: heading in the Master Task List has an immediately-following **Shippable State:** line
+8. If PR_FORMAT=true: verify no task has a [depends: TRD-XXX] where TRD-XXX belongs to a later PR section (no forward dependencies across PR boundaries)
+9. If PR_FORMAT=true: verify the Master Task List section contains only ### PR N: headings (no mixed ### Phase N: or ### Sprint N: headings)
+
+## Phase 3: Design Readiness Gate Re-Score
+
+### Step 1: Re-Score Readiness Dimensions
+
+Re-evaluate the Design Readiness Gate after refinement changes
+
+**Actions:**
+1. Score architecture completeness (1-5): are all components, interfaces, and data flows defined?
+2. Score task coverage (1-5): does every REQ-NNN have implementation and test tasks?
+3. Score dependency clarity (1-5): are dependencies explicit and acyclic?
+4. Score estimate confidence (1-5): are estimates consistent, reasonable, and granular enough?
+5. Compute overall score: average of all four dimensions
+
+### Step 2: Compare With Previous Score
+
+Compare new readiness score against the previous score from frontmatter
+
+**Actions:**
+1. Read previous Design Readiness Score from TRD frontmatter
+2. Print delta: 'Design Readiness: X.X -> Y.Y (improved/declined/unchanged)'
+3. If score dropped, warn the user and explain which dimensions declined
+4. If no previous readiness score exists, offer to run the gate for the first time
+
+### Step 3: Assess Team Impact
+
+Determine whether task changes warrant team reconfiguration
+
+**Actions:**
+1. Calculate task count delta (original vs refined)
+2. Calculate hour estimate delta (original vs refined)
+3. If task count changed by >20%, suggest: '/ensemble:configure-team <trd-path> to re-configure the team'
+4. Update the readiness score in frontmatter
+
+## Phase 4: Output Management
+
+### Step 1: TRD Update
+
+Write the refined TRD with version history and changelog
+
+**Actions:**
+1. Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1)
+2. Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
+3. Add changelog entry at the bottom: date, version, list of changes made
+4. Save the updated TRD to the same file path (overwrite)
+5. Print summary: changes made, new version, task count delta, hour estimate delta

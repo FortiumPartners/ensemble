@@ -11,6 +11,7 @@
  * @module ensemble-pi/generator
  */
 
+import { generateCommandSkills } from './transformers/command-skill-transformer';
 import { GeneratorOptions, TransformResult, CommandYaml } from './types';
 import { transformCommand } from './transformers/command-transformer';
 import { buildAgentResult } from './transformers/agent-transformer';
@@ -408,6 +409,19 @@ export async function generate(options: GeneratorOptions): Promise<void> {
     }
 
     results.push(result);
+
+    // Emit ensemble-full: command aliases so `ensemble-full:<cmd>` resolves
+    // at runtime. e.g. ensemble:create-prd → ensemble-full-create-prd.md
+    const name = commandYaml.metadata.name;
+    if (name.startsWith('ensemble:')) {
+      const commandPart = name.slice('ensemble:'.length); // e.g. 'create-prd'
+      const aliasName = `ensemble-full-${commandPart}`;
+      const aliasPath = path.join(outputRoot, 'prompts', `${aliasName}.md`);
+      results.push({ sourcePath: filePath, outputPath: aliasPath, content: result.content, type: 'command' });
+      if (verbose) {
+        process.stdout.write(`  alias: ${filePath} → ${aliasPath}\n`);
+      }
+    }
   }
 
   // ------------------------------------------------------------------
@@ -492,6 +506,17 @@ export async function generate(options: GeneratorOptions): Promise<void> {
       `Dry-run mode: ${results.length} artifact(s) collected but not written.\n`
     );
   }
+
+  // ------------------------------------------------------------------
+  // 5b. Command prompt skill wrappers
+  //     Called after the write loop so the prompt files exist on disk.
+  // ------------------------------------------------------------------
+  const commandSkillResults = await generateCommandSkills(outputRoot, { dryRun, verbose });
+  results.push(...commandSkillResults);
+
+  // ------------------------------------------------------------------
+  // 6. Performance timing (TRD-010)
+  // ------------------------------------------------------------------
 
   // ------------------------------------------------------------------
   // 6. Performance timing (TRD-010)
