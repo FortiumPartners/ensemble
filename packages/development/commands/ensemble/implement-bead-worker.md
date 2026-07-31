@@ -121,8 +121,7 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    -     test_exists: true if test files found in WORKER_FILES_CHANGED or test_command available
    -   Run integration test check if INTEGRATION_TEST_PATHS env var or project config has known integration test commands; record integration_passed: true/false/na
    -   Determine verdict:
-   -     If test_passed==true AND test_exists==true AND integration_passed!=false: verdict=proven
-   -     Else if test_passed==true AND test_exists==true AND code_source==none: verdict=proven (validation-only bead — no code change expected)
+   -     If code_source!=none AND test_exists==true AND test_passed==true AND integration_passed!=false: verdict=proven
    -     Else: verdict=not_proven
    -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<code_source|missing> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
    -   Record VALIDATION_RESULT=ac-validation:<AC_ID>:verdict:<verdict>
