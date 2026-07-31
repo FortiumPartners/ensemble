@@ -33,7 +33,9 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    Extract bead ID and optional branch name from arguments
 
    - Parse $ARGUMENTS: extract first token as BEAD_ID (e.g., "beads-042" or "42"); if numeric only, leave as-is — br accepts bare integers
-   - If --branch <name> is present in $ARGUMENTS: store as ORCHESTRATED_BRANCH ( supervisor-passed ); else ORCHESTRATED_BRANCH = ""
+   - If --synthetic <kind> is present in $ARGUMENTS: store SYNTHETIC_KIND=<kind> (must be one of: ac-validation, cross-cutting, none; reject and HALT if any other value)
+   - If --synthetic is absent: store SYNTHETIC_KIND="" (empty sentinel — title inference happens in Bead Validation after BEAD_TITLE is populated)
+   - If --branch <name> is present in $ARGUMENTS: store as ORCHESTRATED_BRANCH; else ORCHESTRATED_BRANCH = ""
    - If --branch was supplied: verify current branch matches ORCHESTRATED_BRANCH before proceeding
    -   Run: git branch --show-current
    -   If $? != 0 or output is empty: print "WARNING: Detached HEAD — commit will land on current ref (<hash>). Bead: <BEAD_ID>."; set VERIFIED_BRANCH="<detached>"
@@ -54,6 +56,11 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    - Parse bead fields: store BEAD_TITLE, BEAD_STATUS, BEAD_TYPE, BEAD_DESCRIPTION
    - If BEAD_STATUS == "closed": print "Bead <BEAD_ID> is already closed." and EXIT
    - Print: "Bead: <BEAD_ID> | Status: <BEAD_STATUS> | Type: <BEAD_TYPE> | Title: <BEAD_TITLE>"
+   - If SYNTHETIC_KIND == "":
+   -   Match BEAD_TITLE against case-insensitive regex /\[trd:[^\]]+:task:(AC-\d+(?:-\d+|[A-Z])?)\]/i — if match and captured ID is non-empty: SYNTHETIC_KIND=ac-validation
+   -   Else match against /\[trd:[^\]]+:task:(XC-[A-Z0-9]+(?:-[A-Z0-9]+)*)\]/i — if match and captured ID is non-empty: SYNTHETIC_KIND=cross-cutting
+   -   Else: SYNTHETIC_KIND=none
+   -   If --synthetic flag value is present but title-inferred kind conflicts (e.g. flag says cross-cutting but title has AC segment): print warning and prefer the supervisor-provided flag value
 
 ### Phase 2: Analyse
 
@@ -107,12 +114,11 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    - Record WORKER_TRACKED=$(git diff --name-only HEAD | tr "\n" " ")
    - Record WORKER_UNTRACKED=$(git ls-files --others --exclude-standard | tr "\n" " ")
    - Record WORKER_FILES_CHANGED=$(echo "$WORKER_TRACKED $WORKER_UNTRACKED" | tr -s " ")
-   - Record BEAD_TITLE_LOWER=$(echo "<BEAD_TITLE>" | tr "[:upper:]" "[:lower:]")
-   - If BEAD_TITLE_LOWER starts with "ac-" or contains " ac-" (AC-* synthetic):
-   -   Extract AC_ID from BEAD_TITLE (format: AC-XXX-N)
-   -   Detect implementation artifacts from WORKER_FILES_CHANGED:
-   -     code_exists: true if any source file (.ts/.js/.py/.ex/.rb/.cs/etc.) appears in WORKER_TRACKED or WORKER_UNTRACKED
-   -     code_source: "changed" if WORKER_TRACKED contains source file; "new" if WORKER_UNTRACKED contains source file; "none" if neither
+   - If SYNTHETIC_KIND == "ac-validation":
+   -   Extract AC_ID from BEAD_TITLE using case-insensitive regex /\[trd:[^\]]+:task:(AC-\d+(?:-\d+|[A-Z])?)\]/i (e.g. AC-001, AC-002-1, AC-013A — anchored to scaffold task segment to avoid AC IDs mentioned in task descriptions)
+   -   Detect implementation artifacts:
+   -     code_source: "changed" if WORKER_TRACKED contains source file (.ts/.js/.py/.ex/.rb/.cs/etc.); "new" if WORKER_UNTRACKED contains source file; "none" if neither
+   -     code_exists: true if code_source!=none OR any source file matching patterns from BEAD_DESCRIPTION exists in repo (AC tasks verify existing implementation — search full repo for referenced files/patterns, not just uncommitted diff)
    -   Detect test artifacts from WORKER_FILES_CHANGED and package files:
    -     test_command: inferred from package.json (jest, playwright), mix.exs (exunit), Gemfile (rspec), *.csproj (xunit)
    -     test_framework: detected framework name
@@ -121,18 +127,19 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    -     test_exists: true if test files found in WORKER_FILES_CHANGED or test_command available
    -   Run integration test check if INTEGRATION_TEST_PATHS env var or project config has known integration test commands; record integration_passed: true/false/na
    -   Determine verdict:
-   -     If code_source!=none AND test_exists==true AND test_passed==true AND integration_passed!=false: verdict=proven
+   -     If code_exists==true AND test_exists==true AND test_passed==true AND integration_passed!=false: verdict=proven
    -     Else: verdict=not_proven
-   -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<code_source|missing> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
+   -   Record CODE_EVIDENCE=<code_source> if code_source!=none else "existing"
+   -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<CODE_EVIDENCE> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
    -   Record VALIDATION_RESULT=ac-validation:<AC_ID>:verdict:<verdict>
-   - Else if BEAD_TITLE_LOWER starts with "xc-" (XC-* synthetic cross-cutting):
-   -   Extract XC_ID from BEAD_TITLE (format: XC-XXX)
-   -   Identify affected domain directories from WORKER_FILES_CHANGED (e.g. src/hooks/, src/services/, src/middleware/)
-   -   Check each domain for cross-cutting pattern violations: shared state, tight coupling, missing abstraction layers
-   -   Determine verdict: verdict=proven if no violations found; verdict=not_proven otherwise
+   - Else if SYNTHETIC_KIND == "cross-cutting":
+   -   Extract XC_ID from BEAD_TITLE using case-insensitive regex /\[trd:[^\]]+:task:(XC-[A-Z0-9]+(?:-[A-Z0-9]+)*)\]/i — anchored to scaffold task segment to avoid XC IDs mentioned in task descriptions
+   -   Require WORKER_FILES_CHANGED to contain at least one source file in a named XC domain (e.g. src/hooks/, src/services/, src/middleware/, src/shared/); if no relevant files changed: verdict=not_proven (vacuous pass not allowed)
+   -   If files present: identify affected domains and check each for cross-cutting pattern violations: shared mutable state, tight coupling across domain boundaries, missing abstraction layers
+   -   Determine verdict: verdict=proven only if relevant files exist AND no violations found; verdict=not_proven otherwise
    -   Run: br comment add <BEAD_ID> "xc-validation:<XC_ID> domains:<comma-joined-domains> verdict:<verdict> evidence:<files-list>"
    -   Record VALIDATION_RESULT=xc-validation:<XC_ID>:verdict:<verdict>
-   - Else (regular task bead):
+   - Else:
    -   Record VALIDATION_RESULT=none
    - Print: VALIDATION_TOKEN: <VALIDATION_RESULT>
 
@@ -147,10 +154,12 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
    - Run: git commit -m "<message>"
    - Record WORKER_COMMIT=<message>
    - Record WORKER_FILES_CHANGED=$(git show --pretty= --name-only HEAD | tr "\n" " ")
+   - Record WORKER_COMMIT_SHA=$(git rev-parse HEAD)  (captured here — before HALT path in step 2; refreshed after --amend in step 2 on success)
 
 **2. Close Bead**
    Transition bead to closed state and record completion comment
 
+   - If SYNTHETIC_KIND in ("ac-validation","cross-cutting") AND VALIDATION_RESULT contains "verdict:not_proven": print "WORKER_COMPLETE: bead=<BEAD_ID> test-passed=<TEST_RESULT.passed> test-attempts=<TEST_RESULT.attempts> test-framework=<TEST_RESULT.framework> branch=<VERIFIED_BRANCH> commit-sha=<WORKER_COMMIT_SHA> files-changed=<WORKER_FILES_CHANGED> validation=<VALIDATION_RESULT> commit=<WORKER_COMMIT>" then print "HALT: Synthetic bead <BEAD_ID> verdict is not_proven — worker halted before close. Supervisor will re-open and handle." and HALT before any state transition; do NOT run br close or write status:closed
    - Run: br close <BEAD_ID> --reason="Completed [bead:<BEAD_ID> branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed>]"
    - Run: br comment add <BEAD_ID> "status:closed agent:implement-bead-worker branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed> commit:<WORKER_COMMIT>"
    - Run: br sync --flush-only
