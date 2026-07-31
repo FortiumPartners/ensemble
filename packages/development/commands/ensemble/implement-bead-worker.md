@@ -104,25 +104,31 @@ prompt — use /ensemble:implement-bead-worker only for supervisor orchestration
 **1. Synthetic Validation**
    For AC-* and XC-* beads, run structured evidence checks and write validation tokens
 
-   - Record CURRENT_FILES=$(git show --pretty= --name-only HEAD | tr "\n" " ")
+   - Record WORKER_TRACKED=$(git diff --name-only HEAD | tr "\n" " ")
+   - Record WORKER_UNTRACKED=$(git ls-files --others --exclude-standard | tr "\n" " ")
+   - Record WORKER_FILES_CHANGED=$(echo "$WORKER_TRACKED $WORKER_UNTRACKED" | tr -s " ")
    - Record BEAD_TITLE_LOWER=$(echo "<BEAD_TITLE>" | tr "[:upper:]" "[:lower:]")
    - If BEAD_TITLE_LOWER starts with "ac-" or contains " ac-" (AC-* synthetic):
    -   Extract AC_ID from BEAD_TITLE (format: AC-XXX-N)
-   -   Detect implementation artifacts from CURRENT_FILES:
-   -     code_exists: true if any file in CURRENT_FILES is a source file (.ts/.js/.py/.ex/.rb/.cs/etc.)
-   -   Detect test artifacts from CURRENT_FILES and package files:
+   -   Detect implementation artifacts from WORKER_FILES_CHANGED:
+   -     code_exists: true if any source file (.ts/.js/.py/.ex/.rb/.cs/etc.) appears in WORKER_TRACKED or WORKER_UNTRACKED
+   -     code_source: "changed" if WORKER_TRACKED contains source file; "new" if WORKER_UNTRACKED contains source file; "none" if neither
+   -   Detect test artifacts from WORKER_FILES_CHANGED and package files:
    -     test_command: inferred from package.json (jest, playwright), mix.exs (exunit), Gemfile (rspec), *.csproj (xunit)
    -     test_framework: detected framework name
    -     test_attempts: <TEST_RESULT.attempts>
    -     test_passed: <TEST_RESULT.passed>
-   -     test_exists: true if test files found in CURRENT_FILES or test_command available
+   -     test_exists: true if test files found in WORKER_FILES_CHANGED or test_command available
    -   Run integration test check if INTEGRATION_TEST_PATHS env var or project config has known integration test commands; record integration_passed: true/false/na
-   -   Determine verdict: verdict=proven if code_exists==true AND test_exists==true AND test_passed==true AND integration_passed!=false; otherwise verdict=not_proven
-   -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<code_exists|missing> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
+   -   Determine verdict:
+   -     If test_passed==true AND test_exists==true AND integration_passed!=false: verdict=proven
+   -     Else if test_passed==true AND test_exists==true AND code_source==none: verdict=proven (validation-only bead — no code change expected)
+   -     Else: verdict=not_proven
+   -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<code_source|missing> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
    -   Record VALIDATION_RESULT=ac-validation:<AC_ID>:verdict:<verdict>
    - Else if BEAD_TITLE_LOWER starts with "xc-" (XC-* synthetic cross-cutting):
    -   Extract XC_ID from BEAD_TITLE (format: XC-XXX)
-   -   Identify affected domain directories from CURRENT_FILES (e.g. src/hooks/, src/services/, src/middleware/)
+   -   Identify affected domain directories from WORKER_FILES_CHANGED (e.g. src/hooks/, src/services/, src/middleware/)
    -   Check each domain for cross-cutting pattern violations: shared state, tight coupling, missing abstraction layers
    -   Determine verdict: verdict=proven if no violations found; verdict=not_proven otherwise
    -   Run: br comment add <BEAD_ID> "xc-validation:<XC_ID> domains:<comma-joined-domains> verdict:<verdict> evidence:<files-list>"
