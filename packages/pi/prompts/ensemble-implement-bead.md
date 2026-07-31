@@ -4,7 +4,7 @@
 
 # ensemble:implement-bead
 
-> **Mission:** Implement a single beads task identified by its bead ID. Fetches bead details, creates a feature branch, analyses the codebase, implements the required changes, runs tests, then closes the bead and creates a pull request. Designed for focused single-task execution — use /ensemble:beads-build for multi-task epic-level orchestration. Records all state transitions in beads for cross-session visibility. Key behaviors: - Validates bead exists and is not already closed before starting - Warns (does not halt) on dirty working directory - Derives branch name from bead title with bead/<ID>- prefix - Marks bead in_progress before implementing; closed on success - Records br comments at each state transition - Creates PR via gh pr create on completion
+> **Mission:** Implement a single beads task identified by its bead ID. Fetches bead details, optionally creates a feature branch, analyses the codebase, implements the required changes, runs tests, then closes the bead and optionally creates a pull request. Two execution modes: - Default (standalone): creates its own branch and PR — for direct single-task use. - Orchestrated (--orchestrated --branch <name>): skips branch/PR creation, executes on a supervisor-owned branch — for use by implement-trd-beads TRD supervisor. Designed for focused single-task execution — use /ensemble:beads-build for multi-task epic-level orchestration. Records all state transitions in beads for cross-session visibility. Key behaviors: - Validates bead exists and is not already closed before starting - Warns (does not halt) on dirty working directory in standalone mode - In standalone mode: derives branch name from bead title with bead/<ID>- prefix - In orchestrated mode: uses the supervisor-owned branch passed via --branch - Marks bead in_progress before implementing; closed on success - Records br comments at each state transition - In standalone mode: creates PR via gh pr create on completion - In orchestrated mode: supervisor owns PR creation — worker does NOT create PRs
 
 ## Phase 1: Preflight
 
@@ -15,6 +15,10 @@ Extract bead ID from arguments or prompt user if missing
 **Actions:**
 1. Parse $ARGUMENTS: extract first token as BEAD_ID (e.g., "beads-042" or "42"); if $ARGUMENTS is empty, prompt user: "Please provide a bead ID (e.g., beads-042):" and store response as BEAD_ID
 2. Normalise BEAD_ID: if numeric only (e.g., "42"), leave as-is — br accepts bare integers; store original input as BEAD_ID_RAW
+3. Detect orchestrated mode: if "--orchestrated" is present in $ARGUMENTS: set ORCHESTRATED=true
+4. If ORCHESTRATED=true: extract the value after "--branch" in $ARGUMENTS as ORCHESTRATED_BRANCH (required — supervisor must pass it). If --branch is missing: print "ERROR: --orchestrated requires --branch <branch-name> argument." and EXIT. Example: "--orchestrated --branch feat/trd-001-phase-1"
+5. If ORCHESTRATED is not set: set ORCHESTRATED=false; ORCHESTRATED_BRANCH = ""
+6. Print: "Mode: <standalone|orchestrated> | Bead: <BEAD_ID>"
 
 ### Step 2: Tool Availability Check
 
@@ -30,106 +34,55 @@ Fetch bead details and verify it is actionable
 
 **Actions:**
 1. Run: br show <BEAD_ID> — if exit code != 0 print "ERROR: Bead <BEAD_ID> not found." and EXIT
-2. Parse bead fields from output: store BEAD_TITLE, BEAD_STATUS, BEAD_TYPE, BEAD_DESCRIPTION
-3. If BEAD_STATUS == "closed": print "Bead <BEAD_ID> is already closed." and EXIT
-4. Print bead summary: "Bead: <BEAD_ID> | Status: <BEAD_STATUS> | Type: <BEAD_TYPE> | Title: <BEAD_TITLE>"
 
 ### Step 4: Working Directory Check
 
-Check for a dirty working directory and warn if found
+Check for a dirty working directory and warn if found (standalone mode only)
 
 **Actions:**
-1. Run: git status --porcelain
-2. If output is non-empty: print "WARNING: Working directory has uncommitted changes. Proceeding anyway — stage or stash if you want a clean baseline." (do NOT halt)
+1. If ORCHESTRATED=true: skip this step — supervisor manages working directory state
+2. If ORCHESTRATED=false:
+3. Run: git status --porcelain
+4. If output is non-empty: print "WARNING: Working directory has uncommitted changes. Proceeding anyway — stage or stash if you want a clean baseline." (do NOT halt)
 
 ## Phase 2: Branch
 
 ### Step 1: Feature Branch Creation
 
-Derive branch name from bead title and create or switch to it
+Derive branch name from bead title and create or switch to it (standalone mode only)
 
 **Actions:**
-1. Derive BRANCH_NAME: take BEAD_TITLE, lowercase, replace spaces and non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens; prepend "bead/<BEAD_ID>-"; example: "bead/42-fix-auth-timeout"
-2. Run: git branch --list <BRANCH_NAME>
-3. If branch already exists: run git switch <BRANCH_NAME> and print "Switched to existing branch: <BRANCH_NAME>"
-4. If branch does not exist: run git town hack <BRANCH_NAME>; if git-town unavailable (exit code != 0) fallback to git switch -c <BRANCH_NAME>; print "Created branch: <BRANCH_NAME>"
+1. If ORCHESTRATED=true: skip this phase — supervisor owns the branch. Print "Branch: using supervisor-owned branch (<ORCHESTRATED_BRANCH>)" and proceed to Analyse.
+2. If ORCHESTRATED=false:
+3. Derive BRANCH_NAME: take BEAD_TITLE, lowercase, replace spaces and non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens; prepend "bead/<BEAD_ID>-"; example: "bead/42-fix-auth-timeout"
+4. Run: git branch --list <BRANCH_NAME>
+5. If branch already exists: run git switch <BRANCH_NAME> and print "Switched to existing branch: <BRANCH_NAME>"
+6. If branch does not exist: run git town hack <BRANCH_NAME>; if git-town unavailable (exit code != 0) fallback to git switch -c <BRANCH_NAME>; print "Created branch: <BRANCH_NAME>"
 
-## Phase 3: Analyse
+## Phase 3: Execute
 
-### Step 1: Mark In-Progress
+### Step 1: Delegate to implement-bead-worker
 
-Transition bead to in_progress state and record agent comment
-
-**Actions:**
-1. Run: br update <BEAD_ID> --status=in_progress
-2. Run: br comment add <BEAD_ID> "status:in_progress agent:implement-bead branch:<BRANCH_NAME>"
-
-### Step 2: Codebase Analysis
-
-Read bead description and search codebase for relevant files
+Core lifecycle runs in the shared worker command. Invoke it directly — Task() subagent_type requires a real agent, not a command. Branch already created/switched in Branch phase.
 
 **Actions:**
-1. Read full bead description and any existing comments via br show <BEAD_ID>
-2. Extract keywords from BEAD_TITLE and BEAD_DESCRIPTION (nouns, domain terms, file hints)
-3. Search codebase with Grep and Glob using extracted keywords to locate relevant source files, test files, and configuration
-4. Identify framework and language from package.json, mix.exs, Gemfile, or *.csproj as applicable
-5. Identify related test files matching the source files found
-6. Print an implementation plan: files to modify, approach, test strategy, and any edge cases
+1. If ORCHESTRATED=true: set WORKER_BRANCH=<ORCHESTRATED_BRANCH>
+2. If ORCHESTRATED=false: set WORKER_BRANCH=<BRANCH_NAME>
+3. Invoke: /ensemble:implement-bead-worker <BEAD_ID> --branch <WORKER_BRANCH>
+4. Wait for the command to complete and capture its response
+5. The worker handles: mark in_progress, codebase analysis, specialist delegation, test validation, commit, and bead close — all modes go through the same worker
 
-## Phase 4: Implement
+## Phase 4: Complete
 
-### Step 1: Execute Implementation
+### Step 1: Create Pull Request
 
-Implement the changes required by the bead
-
-**Actions:**
-1. Select appropriate specialist by keyword matching against BEAD_TITLE and BEAD_DESCRIPTION:
-2. backend/api/endpoint/database/server/model/migration -> @backend-developer
-3. frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer
-4. infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer
-5. architecture/design/system/multi-component/cross-cutting -> @tech-lead-orchestrator
-6. default -> @backend-developer
-7. Delegate implementation via Task(subagent_type=<specialist>, prompt="Implement bead <BEAD_ID>: <BEAD_TITLE>. Description: <BEAD_DESCRIPTION>. Target files: <relevant_files>. When done provide a structured summary: files changed, what was implemented, any issues encountered.")
-
-### Step 2: Test Validation
-
-Run relevant tests and fix failures before proceeding
+Push branch and create PR (standalone mode only; orchestrated mode supervisor owns PR)
 
 **Actions:**
-1. Detect test framework from package.json, mix.exs, Gemfile, or *.csproj
-2. Run test suite (npm test, mix test, bundle exec rspec, dotnet test, or detected equivalent)
-3. If tests fail: analyse failure output, attempt targeted fixes, re-run tests (max 2 attempts)
-4. If tests still fail after 2 attempts: print test failure details and HALT — do not close bead or create PR
-
-## Phase 5: Complete
-
-### Step 1: Commit Changes
-
-Stage and commit changes with conventional commit message referencing bead ID
-
-**Actions:**
-1. Run: git status to review changed files
-2. Stage specific changed files (never use git add . or git add -A)
-3. Generate commit message using conventional commit format: "feat: <BEAD_TITLE> [bead:<BEAD_ID>]" or "fix: <BEAD_TITLE> [bead:<BEAD_ID>]" depending on bead type
-4. Run: git commit -m "<message>"
-
-### Step 2: Close Bead
-
-Transition bead to closed state and record completion comment
-
-**Actions:**
-1. Run: br update <BEAD_ID> --status=closed
-2. Run: br comment add <BEAD_ID> "status:closed agent:implement-bead pr:pending"
-3. Run: br sync --flush-only
-
-### Step 3: Create Pull Request
-
-Push branch and create PR with bead title and description
-
-**Actions:**
-1. Run: git push -u origin <BRANCH_NAME>
-2. Generate PR body referencing bead ID, title, description, and files changed
-3. Run: gh pr create --title "<BEAD_TITLE>" --body "$(cat <<EOF\n## Bead\n<BEAD_ID>: <BEAD_TITLE>\n\n## Description\n<BEAD_DESCRIPTION>\n\n## Changes\n<summary of files changed and what was implemented>\n\n## Test Plan\n<what was tested>\n\nCloses bead <BEAD_ID>\n\nGenerated with [Ensemble implement-bead](https://github.com/FortiumPartners/ensemble)\nEOF\n)"
-4. Extract PR URL from gh output
-5. Run: br comment add <BEAD_ID> "status:closed agent:implement-bead pr:<PR_URL>"
-6. Print: "Bead <BEAD_ID> complete. PR: <PR_URL> | Branch: <BRANCH_NAME>"
+1. If ORCHESTRATED=true: skip this step — supervisor owns PR creation. Print "Bead <BEAD_ID> complete (orchestrated). Supervisor will create PR."
+2. If ORCHESTRATED=false:
+3. Run: git push -u origin <BRANCH_NAME>
+4. Run: gh pr create --title "<BEAD_TITLE>" --body "$(cat <<EOF\n## Bead\n<BEAD_ID>: <BEAD_TITLE>\n\n## Description\n<BEAD_DESCRIPTION>\n\n## Changes\n<summary of files changed and what was implemented>\n\n## Test Plan\n<what was tested>\n\nCloses bead <BEAD_ID>\n\nGenerated with [Ensemble implement-bead](https://github.com/FortiumPartners/ensemble)\nEOF\n)"
+5. Extract PR URL from gh output
+6. Run: br comment add <BEAD_ID> "status:closed agent:implement-bead mode:standalone pr:<PR_URL>"
+7. Print: "Bead <BEAD_ID> complete. PR: <PR_URL> | Branch: <BRANCH_NAME>"

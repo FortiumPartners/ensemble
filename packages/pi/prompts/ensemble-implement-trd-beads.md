@@ -147,10 +147,32 @@ Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 Create or switch to feature branch for TRD implementation
 
 **Actions:**
-1. Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {ok, stacked, prFormat, branchFirst, actions}. If ok is false or the process exits non-zero: print the error and HALT (do NOT continue with an undefined branch name or PR plan). Set STACKED_PRS=stacked, branch_name=branchFirst, CURRENT_PHASE_BRANCH=branch_name, PHASE_BRANCH_MAP={1:branch_name}, PHASE_PR_MAP={}, and store PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
-2. Run: git branch --list <branch_name>
-3. If exists: git switch <branch_name>
-4. If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
+1. Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {ok, stacked, prFormat, branchFirst, actions}. If ok is false or the process exits non-zero: print the error and HALT (do NOT continue with an undefined branch name or PR plan). Always set PR_ACTIONS=actions and STACKED_PRS=stacked from this run.
+2. On first run (IS_RESUME=false): set CURRENT_PHASE_BRANCH=branchFirst.
+3. On resume (IS_RESUME=true):
+4. Rebuild EXISTING_BEADS cache from open, closed, and in_progress beads (Preflight does not run Scaffold on resume, so the cache must be rebuilt here):
+5. a. Run: br list --status=open --json; filter to beads whose title starts with '[trd:<TRD_SLUG>]' — record each as EXISTING_BEADS[full_title]=id
+6. b. Run: br list --status=closed --json; apply the same title filter and record into EXISTING_BEADS
+7. c. Run: br list --status=in_progress --json; apply the same filter and record into EXISTING_BEADS
+8. Re-run scaffold-plan to get plan.stories: node "$TRD_CLI" scaffold-plan "<TRD_FILE_PATH>" -> parse {ok, slug, plan}
+9. For each plan.stories entry (indexed by phaseN):
+10. Search EXISTING_BEADS for the bead whose title starts with plan.stories[i].titlePrefix:
+11. Collect all matching beads (titles starting with that prefix).
+12. If zero matches: print 'ERROR: Story bead for phase <phaseN> not found in br store (titlePrefix: <titlePrefix>). Run /ensemble:implement-trd-beads without --execute to recreate the bead hierarchy.' and HALT
+13. If more than one match: print 'ERROR: Multiple beads match titlePrefix <titlePrefix>.' and HALT
+14. If exactly one match: STORY_BEAD_IDs[phaseN] = that bead's id
+15. Scan PR_ACTIONS in order for the first incomplete phase gate:
+16. For each action where action.kind=='phase-gate':
+17. Let STORY_ID = STORY_BEAD_IDs[action.phaseN]
+18. Run: br show <STORY_ID>
+19. If STORY_ID bead is NOT closed: this is the current incomplete gate — set TARGET_GATE=action and break
+20. If STORY_ID bead IS closed: skip to next phase-gate action
+21. If a TARGET_GATE was found: set CURRENT_PHASE_BRANCH=TARGET_GATE.branch
+22. If no TARGET_GATE found (all phases complete): set CURRENT_PHASE_BRANCH=branchFirst and proceed to Completion
+23. PHASE_BRANCH_MAP and PHASE_PR_MAP are reconstructed from PR_ACTIONS on each invocation — do not rely on cross-session memory
+24. Run: git branch --list <CURRENT_PHASE_BRANCH>
+25. If exists: git switch <CURRENT_PHASE_BRANCH>
+26. If not exists: git town hack <CURRENT_PHASE_BRANCH> (fallback: git switch -c <CURRENT_PHASE_BRANCH>)
 
 ### Step 9: Strategy Detection
 
@@ -327,7 +349,7 @@ Parse TRD into structured phases and tasks; reserve scaffold work for beads-scaf
 
 **Actions:**
 1. Scaffold ownership: all hierarchy/dependency planning and br/bv scaffold mutations in this phase use beads-scaffold-specialist semantics, not backend-developer. If delegating scaffold/audit/repair work to Task(), resolve and use @beads-scaffold-specialist (or namespaced equivalent such as ensemble-full:beads-scaffold-specialist). Do not delegate scaffold planning to backend-developer, and do not implement product code during Scaffold.
-2. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and parse the JSON from stdout. This is the AUTHORITATIVE parse — do NOT hand-parse the TRD. From trd: set TRD_TITLE=trd.title, TRD_SUMMARY=trd.summary, PR_FORMAT=trd.prFormat, TRD_SLUG=trd.slug, PHASES=trd.phases (each {n,title,shippableState,taskIds}), and PHASE_SHIPPABLE_STATE[n]=phase.shippableState. Build TASK_TRACEABILITY from trd.tasksById — each task provides id, isTest (is_test_task), satisfies (satisfies_req_id = satisfies[0]), verifies (verifies_task_id), validatesAcs, dependsOn, targetFiles, actions, implementationAc, testAc, nestedSubitems, testSubitems, proofOfRequirement. Print each trd.warnings entry. If ok is false or the process exits non-zero: print the error and HALT.
+2. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and parse the JSON from stdout. This is the AUTHORITATIVE parse — do NOT hand-parse the TRD. From trd: set TRD_TITLE=trd.title, TRD_SUMMARY=trd.summary, PR_FORMAT=trd.prFormat, TRD_SLUG=trd.slug, PHASES=trd.phases (each {n,title,shippableState,taskIds}), and PHASE_SHIPPABLE_STATE[n]=phase.shippableState. Build TASK_TRACEABILITY from trd.tasksById — each task provides id, isTest (is_test_task), satisfies (satisfies_req_id = satisfies[0]), verifies (verifies_task_id), validatesAcs, dependsOn, targetFiles, actions, implementationAc, testAc, nestedSubitems, testSubitems, proofOfRequirement, syntheticKind. Also set is_ac_synthetic=true where syntheticKind=='ac-validation' and is_xc_synthetic=true where syntheticKind=='cross-cutting'. Print each trd.warnings entry. If ok is false or the process exits non-zero: print the error and HALT.
 
 ### Step 2: Idempotency Cache
 
@@ -479,190 +501,197 @@ Poll bv robot-next (or br ready) and execute tasks until epic is complete. AC: F
 
 **Actions:**
 1. NOTE: This Execute phase implements the same execution engine as /ensemble:beads-build. If you have raw beads (not from a TRD), use /ensemble:beads-build <epic-id> instead. beads-build also accepts --trd <path> to enable TRD augmentations on any bead hierarchy.
-2. Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:
-3. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and rebuild TASK_TRACEABILITY from trd.tasksById exactly as in Scaffold Step 1 (same field mapping). This is the deterministic resume rebuild; do not hand-parse.
-4. d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
-5. e. After rebuild: if rebuilt TASK_TRACEABILITY is empty AND TRD content was successfully read AND TRD is non-empty: print 'WARNING: TRD re-parse found no traceability annotations. Requirement audit comments will not be written. If this is a legacy TRD without [satisfies] annotations, this is expected.' If TRD file could not be read: print 'ERROR: Cannot read TRD file at <TRD_PATH> during cross-session resume. Verify file exists and is readable.' and HALT.
-6. Non-Interactive Progress Policy (applies to both TEAM_MODE=true and TEAM_MODE=false):
-7. Do NOT stop, pause, ask for acknowledgement, or end the assistant turn for routine progress summaries, context checkpoints, or task-count milestones. The execution loop must continue automatically until Completion or until a real user decision is required.
-8. A real user decision means one of: invalid/cyclic graph needing edge choice, failed quality gate needing fix/skip/abort, exhausted debug/review/rejection retries, dirty working tree before branch creation, failed br/git command requiring recovery, or missing required tool/config.
-9. After every 10 task completions, at most print one terse non-blocking line: 'Progress: <N> tasks completed; continuing automatically.' Do not print multi-line reports or compact/new-session suggestions unless the user explicitly asks for status.
-10. If output from a task exceeds 500 lines, summarize it into a br comment and continue; do not stop for context-budget advice.
-11. 
-12. TEAM_MODE Gate (evaluated once at the start of the Execute phase):
-13. if TEAM_MODE == false:
-14. - Use the existing v2.1.0 Execute loop (all steps 1-6 unchanged)
-15. - Skip all team-specific steps (reviewer delegation, QA delegation, rejection loop, parallel builders)
-16. - Quality Gate phase: run full scope (current behavior)
-17. - Continue to LOOP below
-18. if TEAM_MODE == true:
-19. - Replace the standard execution loop with the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)
-20. - Reviewer delegation: enabled (TRD-016)
-21. - QA delegation: enabled if QA_ENABLED=true (TRD-017)
-22. - Parallel builder slots: active (TRD-025)
-23. - Quality Gate phase: reduced scope if QA_ENABLED=true (TRD-031)
-24. - Note: Scaffold phase is IDENTICAL in both modes (no team awareness in scaffold)
-25. - Note: Completion phase is IDENTICAL in both modes
-26. - Note: v2.1.0 beads without status: comments are treated as in_progress (builder stage) — safe default for backward compat (TRD-038)
-27. - RETURN (team loop handles all remaining execution; skip LOOP below)
-28. 
-29. LEAD ORCHESTRATION LOOP (TEAM_MODE=true):
-30. 
-31. Variables: active_builders = {} (bead_id -> builder_agent)
+2. IMPORTANT — Loop Design and Guarantee Scope: This execution loop runs entirely inside the current AI turn via blocking Task() calls. The supervisor re-invokes /ensemble:implement-trd-beads --execute to resume after each drain. A YAML `LOOP:` block is prose that renders as a Markdown bullet — it is NOT a real loop interpreter. Do not write 'continue the loop' prose as if it were executable control flow; instead, use an explicit re-poll-and-conditional-break structure within each pass.
+3. Termination guarantee (in-session drain): In-session draining is best-effort. After closing each task, re-poll scoped `br ready`. If candidates remain, continue. When `br ready` returns empty AND no in-flight tasks (in_progress with sub-state in_review or in_qa) remain for any phase, the drain is complete for this session.
+4. Claude Code /goal Stop hook (in-session improvement): Claude Code's /goal command is a session-scoped prompt-based Stop hook. Before the drain loop, the user can set /goal to re-invoke --execute when the turn would otherwise exit. A conditional plugin Stop hook can block premature turn completion and signal the supervisor to re-poll scoped `br ready`. This directly targets 'stops after every bead' better than loop prose. NOTE: Stop hooks have an 8-consecutive-block cap — after 8 consecutive blocks the hook releases and the turn exits. Use /goal as an in-session drain accelerator, not an absolute guarantee. A real external supervisor (e.g. a shell script that loops `pi run /ensemble:implement-trd-beads --execute`) is still required for an all-beads absolute guarantee.
+5. bv --robot-next is global/unscoped: use it ONLY for selection ranking, not as the completion signal. Scoped `br ready` filtered by `[trd:<TRD_SLUG>:task:]` is the authoritative termination signal.
+6. Resume check: If TASK_TRACEABILITY is empty (cross-session resume — Scaffold phase did not run this session), re-parse TRD content to rebuild TASK_TRACEABILITY before processing tasks:
+7. Run: node "$TRD_CLI" parse "<TRD_FILE_PATH>" and rebuild TASK_TRACEABILITY from trd.tasksById exactly as in Scaffold Step 1 (same field mapping). This is the deterministic resume rebuild; do not hand-parse.
+8. d. Print 'NOTE: TASK_TRACEABILITY rebuilt from TRD (cross-session resume). Tasks: <N>'
+9. e. After rebuild: if rebuilt TASK_TRACEABILITY is empty AND TRD content was successfully read AND TRD is non-empty: print 'WARNING: TRD re-parse found no traceability annotations. Requirement audit comments will not be written. If this is a legacy TRD without [satisfies] annotations, this is expected.' If TRD file could not be read: print 'ERROR: Cannot read TRD file at <TRD_PATH> during cross-session resume. Verify file exists and is readable.' and HALT.
+10. Non-Interactive Progress Policy (applies to both TEAM_MODE=true and TEAM_MODE=false):
+11. Do NOT stop, pause, ask for acknowledgement, or end the assistant turn for routine progress summaries, context checkpoints, or task-count milestones. The execution loop must continue automatically until Completion or until a real user decision is required.
+12. A real user decision means one of: invalid/cyclic graph needing edge choice, failed quality gate needing fix/skip/abort, exhausted debug/review/rejection retries, dirty working tree before branch creation, failed br/git command requiring recovery, or missing required tool/config.
+13. After every 10 task completions, at most print one terse non-blocking line: 'Progress: <N> tasks completed; continuing automatically.' Do not print multi-line reports or compact/new-session suggestions unless the user explicitly asks for status.
+14. If output from a task exceeds 500 lines, summarize it into a br comment and continue; do not stop for context-budget advice.
+15. 
+16. TEAM_MODE Gate (evaluated once at the start of the Execute phase):
+17. if TEAM_MODE == false:
+18. - Run the DRAIN LOOP below (lines 825-875) — this single loop handles all non-team execution via implement-bead-worker
+19. - After DRAIN LOOP step (c) break: RETURN from Execute phase — do NOT fall through to helper steps below
+20. - Steps 2 through 10 are TEAM_MODE=true helpers only; they are NEVER reached in TEAM_MODE=false
+21. - Quality Gate phase: run full scope (current behavior)
+22. if TEAM_MODE == true:
+23. - Replace the standard execution loop with the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)
+24. - Reviewer delegation: enabled (TRD-016)
+25. - QA delegation: enabled if QA_ENABLED=true (TRD-017)
+26. - Parallel builder slots: active (TRD-025)
+27. - Quality Gate phase: reduced scope if QA_ENABLED=true (TRD-031)
+28. - Note: Scaffold phase is IDENTICAL in both modes (no team awareness in scaffold)
+29. - Note: Completion phase is IDENTICAL in both modes
+30. - Note: v2.1.0 beads without status: comments are treated as in_progress (builder stage) — safe default for backward compat (TRD-038)
+31. - RETURN (team loop handles all remaining execution; skip LOOP below)
 32. 
-33. LOOP:
-34. 1. br sync --flush-only (ensure JSONL current)
-35. 
-36. 2. Check in-flight tasks (tasks with br native status=in_progress that have sub-states in_review or in_qa):
-37. - Run: br list --status=in_progress --json, filter by TRD slug
-38. - For each in-progress bead: call get_sub_state(bead_id)
-39. - If sub_state == 'in_review': proceed to Reviewer Delegation step (TRD-016)
-40. - If sub_state == 'in_qa': proceed to QA Delegation step (TRD-017)
-41. - If sub_state == 'in_progress': task is with builder (normal)
-42. 
-43. 3. Count available slots: available_slots = max_parallel - len(active_builders)
-44. (default max_parallel=1, increased by 'max parallel N' argument)
-45. 
-46. 4. If available_slots > 0:
-47. - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
-48. Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
-49. - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads (the same set used by phase-status). Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
-50. - For each task (up to available_slots):
-51. a. (TRD-021) Architecture Review: check task description for keywords:
-52. 'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
-53. If ANY keyword found:
-54. - Lead performs brief architectural review (read TRD context, consider phase impact)
-55. - Generate guidance notes (key design decisions, patterns to use, pitfalls to avoid)
-56. - Record: br comment add <bead_id> 'architecture-review lead:<agent> guidance:<url_encoded_summary>'
-57. - Include guidance in builder prompt: 'Architecture guidance from lead: <guidance_notes>'
-58. If NO keywords: skip architecture review, proceed normally
-59. b. (TRD-020) Lead Skip Decision: evaluate task characteristics before delegating to builder:
-60. - If task description contains ONLY documentation/comments (no code changes expected):
-61. SKIP_REVIEW=true, SKIP_QA=true
-62. - If REVIEWER_ENABLED=false: SKIP_REVIEW=true (per TRD-023)
-63. - If QA_ENABLED=false: SKIP_QA=true (per TRD-023)
-64. - Lead can also skip based on judgment (low-risk configuration, etc.)
-65. Record skip decisions:
-66. - If SKIP_REVIEW: br comment add <bead_id> 'status:skip-review lead:<agent> reason:<rationale>'
-67. - If SKIP_QA: br comment add <bead_id> 'status:skip-qa lead:<agent> reason:<rationale>'
-68. Transition directly:
-69. - Both review and QA skipped: validate_transition(bead_id, 'closed') directly after builder
-70. - Only review skipped: validate_transition(bead_id, 'in_qa') -> QA delegation after builder
-71. - No skips: normal flow (in_progress -> in_review -> in_qa -> closed)
-72. AC: FR-LL-6, FR-LL-7, FR-LL-10, AC-LL-3, AC-LL-4, AC-LL-5, AC-LL-6
-73. c. (TRD-022) Sibling Task Context: collect completed sibling tasks in same phase:
-74. - Query br list --status=closed --json filtered by TRD slug, then restrict to task ids in PHASE_TASK_IDS[N] (task beads carry no phase/pr title segment — do NOT filter by a [trd:<TRD_SLUG>:phase:<N>] prefix, which never matches)
-75. - For each closed task in this phase: read br comment list, find last implementation summary
-76. - Limit to 5 most recently closed siblings
-77. - If sibling context found, add to builder prompt:
-78. 'Previously completed tasks in this phase:'
-79. '[TRD-XXX]: <implementation_summary_first_200_chars>'
-80. '[TRD-YYY]: <implementation_summary_first_200_chars>'
-81. - If no siblings completed yet: omit this section from prompt
-82. AC: FR-LL-9
-83. d. Select builder from TEAM_ROLES.builder.agents using keyword matching (TRD-014)
-84. e. validate_transition(bead_id, 'in_progress') -- write status comment
-85. f. Delegate to builder via Task(subagent_type=<builder>, prompt=<builder_prompt>) (TRD-015)
-86. g. active_builders[bead_id] = builder
-87. 
-88. --- Parallel Builder Execution (TRD-025) ---
-89. When available_slots > 1 AND multiple tasks are ready, apply parallel dispatch:
-90. 
-91. TRD-025-1. Set BUILDER_SLOTS = max_parallel (default 1, overridden by 'max parallel N' argument)
-92. 
-93. TRD-025-2. Query available tasks for parallel dispatch:
-94. - If EXECUTE_ONLY=true or BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks
-95. Extract up to BUILDER_SLOTS tasks from the top-priority track(s)
-96. - Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries
-97. - Candidate task list: CANDIDATE_TASKS = up to BUILDER_SLOTS ready tasks
-98. 
-99. TRD-025-3. File conflict detection: prevent assigning tasks with overlapping file targets
-100. - For each task in CANDIDATE_TASKS:
-101. a. Extract target file paths from the bead description
-102. (look for 'File:', file path patterns like src/*, and file mentions in action items)
-103. b. Build FILE_MAP: task_id -> [file_path, ...]
-104. - Build SEEN_FILES = {} (file_path -> first task_id that claims it)
-105. - Iterate CANDIDATE_TASKS in order:
-106. For each task: check if ANY of its file paths are already in SEEN_FILES
-107. - If NO overlap: add task to CONFLICT_FREE set, add its files to SEEN_FILES
-108. - If overlap found: discard this task (keep first occurrence); log discarded task_id
-109. - CONFLICT_FREE = ordered list of tasks with no file overlaps (up to BUILDER_SLOTS)
-110. 
-111. TRD-025-4. Launch concurrent Task() delegations for CONFLICT_FREE task set:
-112. Phase A — Pre-flight (sequential, per task):
-113. For each task in CONFLICT_FREE: run steps 4a-4e (architecture review, skip decision,
-114. sibling context, builder selection, validate_transition) to prepare builder prompt.
-115. Phase B — Concurrent dispatch:
-116. Issue all Task() calls (step 4f) for CONFLICT_FREE simultaneously (parallel invocation).
-117. Each builder works independently on its assigned task.
-118. Phase C — Post-dispatch bookkeeping (sequential, per task):
-119. For each dispatched task: run step 4g (active_builders[bead_id] = builder).
-120. 
-121. TRD-025-5. Wait for all parallel builders to complete:
-122. - Block until ALL concurrent Task() delegations from TRD-025-4 return results
-123. - Collect structured builder summaries (files_changed, implementation_description, etc.)
+33. LEAD ORCHESTRATION LOOP (TEAM_MODE=true):
+34. 
+35. Variables: active_builders = {} (bead_id -> builder_agent)
+36. 
+37. LOOP:
+38. 1. br sync --flush-only (ensure JSONL current)
+39. 
+40. 2. Check in-flight tasks (tasks with br native status=in_progress that have sub-states in_review or in_qa):
+41. - Run: br list --status=in_progress --json, filter by TRD slug
+42. - For each in-progress bead: call get_sub_state(bead_id)
+43. - If sub_state == 'in_review': proceed to Reviewer Delegation step (TRD-016)
+44. - If sub_state == 'in_qa': proceed to QA Delegation step (TRD-017)
+45. - If sub_state == 'in_progress': task is with builder (normal)
+46. 
+47. 3. Count available slots: available_slots = max_parallel - len(active_builders)
+48. (default max_parallel=1, increased by 'max parallel N' argument)
+49. 
+50. 4. If available_slots > 0:
+51. - Get next tasks: if EXECUTE_ONLY=true or BV_AVAILABLE, run bv --robot-next --format toon (returns top unblocked task; bv is guaranteed available when EXECUTE_ONLY=true)
+52. Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix
+53. - Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TRD-NNN>]. Extract the TRD-NNN id from each ready bead's title to form READY_TRD_IDS, and form CLOSED_TRD_IDS = the TRD-NNN ids of all currently-closed task beads (the same set used by phase-status). Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TRD-NNN ids; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
+54. - For each task (up to available_slots):
+55. a. (TRD-021) Architecture Review: check task description for keywords:
+56. 'architecture', 'design', 'system', 'cross-cutting', 'multi-component', 'orchestrat'
+57. If ANY keyword found:
+58. - Lead performs brief architectural review (read TRD context, consider phase impact)
+59. - Generate guidance notes (key design decisions, patterns to use, pitfalls to avoid)
+60. - Record: br comment add <bead_id> 'architecture-review lead:<agent> guidance:<url_encoded_summary>'
+61. - Include guidance in builder prompt: 'Architecture guidance from lead: <guidance_notes>'
+62. If NO keywords: skip architecture review, proceed normally
+63. b. (TRD-020) Lead Skip Decision: evaluate task characteristics before delegating to builder:
+64. - If task description contains ONLY documentation/comments (no code changes expected):
+65. SKIP_REVIEW=true, SKIP_QA=true
+66. - If REVIEWER_ENABLED=false: SKIP_REVIEW=true (per TRD-023)
+67. - If QA_ENABLED=false: SKIP_QA=true (per TRD-023)
+68. - Lead can also skip based on judgment (low-risk configuration, etc.)
+69. Record skip decisions:
+70. - If SKIP_REVIEW: br comment add <bead_id> 'status:skip-review lead:<agent> reason:<rationale>'
+71. - If SKIP_QA: br comment add <bead_id> 'status:skip-qa lead:<agent> reason:<rationale>'
+72. Transition directly:
+73. - Both review and QA skipped: validate_transition(bead_id, 'closed') directly after builder
+74. - Only review skipped: validate_transition(bead_id, 'in_qa') -> QA delegation after builder
+75. - No skips: normal flow (in_progress -> in_review -> in_qa -> closed)
+76. AC: FR-LL-6, FR-LL-7, FR-LL-10, AC-LL-3, AC-LL-4, AC-LL-5, AC-LL-6
+77. c. (TRD-022) Sibling Task Context: collect completed sibling tasks in same phase:
+78. - Query br list --status=closed --json filtered by TRD slug, then restrict to task ids in PHASE_TASK_IDS[N] (task beads carry no phase/pr title segment — do NOT filter by a [trd:<TRD_SLUG>:phase:<N>] prefix, which never matches)
+79. - For each closed task in this phase: read br comment list, find last implementation summary
+80. - Limit to 5 most recently closed siblings
+81. - If sibling context found, add to builder prompt:
+82. 'Previously completed tasks in this phase:'
+83. '[TRD-XXX]: <implementation_summary_first_200_chars>'
+84. '[TRD-YYY]: <implementation_summary_first_200_chars>'
+85. - If no siblings completed yet: omit this section from prompt
+86. AC: FR-LL-9
+87. d. Select builder from TEAM_ROLES.builder.agents using keyword matching (TRD-014)
+88. e. validate_transition(bead_id, 'in_progress') -- write status comment
+89. f. Delegate to builder via Task(subagent_type=<builder>, prompt=<builder_prompt>) (TRD-015)
+90. g. active_builders[bead_id] = builder
+91. 
+92. --- Parallel Builder Execution (TRD-025) ---
+93. When available_slots > 1 AND multiple tasks are ready, apply parallel dispatch:
+94. 
+95. TRD-025-1. Set BUILDER_SLOTS = max_parallel (default 1, overridden by 'max parallel N' argument)
+96. 
+97. TRD-025-2. Query available tasks for parallel dispatch:
+98. - If EXECUTE_ONLY=true or BV_AVAILABLE: run bv --robot-plan --format toon to get parallel execution tracks
+99. Extract up to BUILDER_SLOTS tasks from the top-priority track(s)
+100. - Else (EXECUTE_ONLY=false AND not BV_AVAILABLE): run br ready, filter by [trd:<TRD_SLUG>:task:] prefix, take up to BUILDER_SLOTS entries
+101. - Candidate task list: CANDIDATE_TASKS = up to BUILDER_SLOTS ready tasks
+102. 
+103. TRD-025-3. File conflict detection: prevent assigning tasks with overlapping file targets
+104. - For each task in CANDIDATE_TASKS:
+105. a. Extract target file paths from the bead description
+106. (look for 'File:', file path patterns like src/*, and file mentions in action items)
+107. b. Build FILE_MAP: task_id -> [file_path, ...]
+108. - Build SEEN_FILES = {} (file_path -> first task_id that claims it)
+109. - Iterate CANDIDATE_TASKS in order:
+110. For each task: check if ANY of its file paths are already in SEEN_FILES
+111. - If NO overlap: add task to CONFLICT_FREE set, add its files to SEEN_FILES
+112. - If overlap found: discard this task (keep first occurrence); log discarded task_id
+113. - CONFLICT_FREE = ordered list of tasks with no file overlaps (up to BUILDER_SLOTS)
+114. 
+115. TRD-025-4. Launch concurrent Task() delegations for CONFLICT_FREE task set:
+116. Phase A — Pre-flight (sequential, per task):
+117. For each task in CONFLICT_FREE: run steps 4a-4e (architecture review, skip decision,
+118. sibling context, builder selection, validate_transition) to prepare builder prompt.
+119. Phase B — Concurrent dispatch:
+120. Issue all Task() calls (step 4f) for CONFLICT_FREE simultaneously (parallel invocation).
+121. Each builder works independently on its assigned task.
+122. Phase C — Post-dispatch bookkeeping (sequential, per task):
+123. For each dispatched task: run step 4g (active_builders[bead_id] = builder).
 124. 
-125. TRD-025-6. Process each builder result sequentially (after all parallel builders finish):
-126. - For each completed builder result in CONFLICT_FREE order:
-127. a. On builder success: run Reviewer Delegation step (step 3a) for this task
-128. b. On reviewer approval: run QA Delegation step (step 3b) for this task
-129. c. On any rejection: run Rejection Loop (step 3c) for this task
-130. (Review and QA remain sequential per task even when builders ran in parallel)
-131. - Remove each completed task from active_builders after its full pipeline finishes
-132. 
-133. --- Sequential Commit Ordering (TRD-026) ---
-134. When parallel builders complete and their full pipelines (review+QA) pass, the lead serializes git commit operations:
-135. 
-136. TRD-026-1. Maintain COMMIT_QUEUE = ordered list of tasks whose pipelines completed successfully (in completion order).
-137. 
-138. TRD-026-2. For each task in COMMIT_QUEUE (process one at a time):
-139. a. Run: git diff --name-only HEAD to see current staged changes
-140. b. If no file conflicts with prior commits in this batch: commit immediately
-141. - git commit with message referencing task ID and bead ID
-142. - br comment add <bead_id> 'commit-order:<N> commit:<sha>'
-143. - N = position in COMMIT_QUEUE (1-indexed)
-144. c. If file conflict detected (same file modified by prior commit):
-145. - One retry: builder re-applies its changes on top of the current HEAD
-146. - If retry succeeds: commit normally, record commit-order:<N>
-147. - If retry fails: br update <bead_id> --status=open; br comment add <bead_id> 'status:open commit-conflict-unresolved: returned to open'; continue to next task in COMMIT_QUEUE
-148. 
-149. TRD-026-3. After all commits: br sync --flush-only
+125. TRD-025-5. Wait for all parallel builders to complete:
+126. - Block until ALL concurrent Task() delegations from TRD-025-4 return results
+127. - Collect structured builder summaries (files_changed, implementation_description, etc.)
+128. 
+129. TRD-025-6. Process each builder result sequentially (after all parallel builders finish):
+130. - For each completed builder result in CONFLICT_FREE order:
+131. a. Record EXECUTED_PHASE: look up this task's phaseN from PHASE_TASK_IDS; set EXECUTED_PHASE=<phaseN>
+132. b. On builder success: run Reviewer Delegation step (step 3a) for this task
+133. c. On reviewer approval: run QA Delegation step (step 3b) for this task
+134. d. On any rejection: run Rejection Loop (step 3c) for this task
+135. (Review and QA remain sequential per task even when builders ran in parallel)
+136. e. Remove this task from active_builders after its full pipeline finishes
+137. f. PHASE GATE CHECK (after this task's pipeline finishes):
+138. - Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined TRD task IDs whose beads are closed>"
+139. - Parse {ok, phases:[{n,complete}]}
+140. - If ok=false or non-zero: print error and continue to next task
+141. - Let GATE_CHECK = phases.find(p => p.n == EXECUTED_PHASE)
+142. - If GATE_CHECK exists AND GATE_CHECK.complete == true:
+143. - Set PENDING_GATE=true and PENDING_GATE_PHASE=EXECUTED_PHASE
+144. - Print 'Phase <EXECUTED_PHASE> complete — breaking dispatch. Commit queue will run before Quality Gate.'
+145. - BREAK from TRD-025-6 (NOT return — must still run TRD-026 commits and TRD-027 failure isolation)
+146. - If phase not yet complete: continue to next task
+147. 
+148. --- Sequential Commit Ordering (TRD-026) ---
+149. When parallel builders complete and their full pipelines (review+QA) pass, the lead serializes git commit operations:
 150. 
-151. --- Parallel Builder Failure Isolation (TRD-027) ---
-152. If one builder fails (Task() returns error or structured failure summary) during parallel execution:
-153. 
-154. TRD-027-1. Reset that task: br update <bead_id> --status=open
-155. 
-156. TRD-027-2. Record failure (pure audit record — no state prefix): br comment add <bead_id> 'verdict:failed builder:<agent_type> reason:<error_summary>'
-157. Note: NO status: prefix — this is a failure audit comment, not a state transition. validate_transition is NOT called.
-158. The bead is already open (reset in step 1); a status: prefix would mislead get_sub_state() on the next loop iteration.
-159. 
-160. TRD-027-3. Other parallel builders continue unaffected (do not interrupt them).
-161. 
-162. TRD-027-4. The failed task enters the debug loop (Execute step 5: Debug Loop) on the NEXT loop iteration OR is eligible for re-assignment to another builder.
+151. TRD-026-1. Maintain COMMIT_QUEUE = ordered list of tasks whose pipelines completed successfully (in completion order).
+152. 
+153. TRD-026-2. For each task in COMMIT_QUEUE (process one at a time):
+154. a. Run: git diff --name-only HEAD to see current staged changes
+155. b. If no file conflicts with prior commits in this batch: commit immediately
+156. - git commit with message referencing task ID and bead ID
+157. - br comment add <bead_id> 'commit-order:<N> commit:<sha>'
+158. - N = position in COMMIT_QUEUE (1-indexed)
+159. c. If file conflict detected (same file modified by prior commit):
+160. - One retry: builder re-applies its changes on top of the current HEAD
+161. - If retry succeeds: commit normally, record commit-order:<N>
+162. - If retry fails: br update <bead_id> --status=open; br comment add <bead_id> 'status:open commit-conflict-unresolved: returned to open'; continue to next task in COMMIT_QUEUE
 163. 
-164. TRD-027-5. Lead tracks builder slot count: when a builder fails, its slot is freed immediately (active_builders count decremented).
+164. TRD-026-3. After all commits: br sync --flush-only
 165. 
-166. TRD-027-6. Lead refills available slots on the next loop iteration by querying bv --robot-next / br ready again.
-167. 
-168. 5. Check loop exit:
-169. - If no tasks returned by bv/br AND no active_builders AND no in-flight tasks: break to Completion
-170. - If no tasks returned but tasks exist in_review or in_qa: wait (check in-flight tasks next iteration)
-171. 
-172. 6. br sync --flush-only
-173. 7. Continue LOOP
-174. LOOP:
-175. Run: br sync --flush-only (ensure JSONL current before bv call)
-176. If EXECUTE_ONLY=true: run bv --robot-next --format toon to get single top-priority task (bv is guaranteed available)
-177. If EXECUTE_ONLY=false AND BV_AVAILABLE: run bv --robot-next --format toon to get single top-priority task
-178. If EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by title prefix [trd:<TRD_SLUG>:task:]
-179. Phase-strict selection: bv --robot-next / br ready return BEAD records titled [trd:<TRD_SLUG>:task:<TASK_ID>]. Extract TASK_ID from the title prefix (between ':task:' and ']'); valid IDs include TRD-NNN, TRD-NNN-TEST, AC-NNN, AC-NNN-M, AC-NNNa, and XC-NNN synthetic validation tasks. Form READY_TRD_IDS from those extracted TASK_ID values, and form CLOSED_TRD_IDS from all currently-closed task bead title prefixes the same way. Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>. If ok is false or the process exits non-zero: print the error and HALT (do NOT dispatch on undefined selection). The returned selected[] are TASK_ID values; map each back to its bead id via TRD_TO_BEAD_MAP and dispatch ONLY those beads. This deterministically enforces the phase boundary (later-phase tasks filtered when PR_FORMAT=true); do NOT hand-filter.
-180. If no tasks returned: run br list --status=open --json filtered by TRD slug; if no open tasks remain break to Completion; else PAUSE (possible dependency cycle)
-181. If max_parallel==1 or single task ready: execute_single_task
-182. Else if EXECUTE_ONLY=true: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-183. Else if EXECUTE_ONLY=false AND BV_AVAILABLE: use bv --robot-plan --format toon for parallel tracks; take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-184. Else if EXECUTE_ONLY=false AND not BV_AVAILABLE: run br ready, filter by TRD slug, take up to max_parallel candidates; run file conflict detection; execute conflict-free group in parallel
-185. After each task (or parallel group): br sync --flush-only, update internal completed/open counters, and continue the loop. Do NOT call trd_progress() here and do NOT print a multi-line progress report after routine task completions; trd_progress() is reserved for --status, resume start, explicit user status requests, and final completion.
+166. --- Parallel Builder Failure Isolation (TRD-027) ---
+167. If one builder fails (Task() returns error or structured failure summary) during parallel execution:
+168. 
+169. TRD-027-1. Reset that task: br update <bead_id> --status=open
+170. 
+171. TRD-027-2. Record failure (pure audit record — no state prefix): br comment add <bead_id> 'verdict:failed builder:<agent_type> reason:<error_summary>'
+172. Note: NO status: prefix — this is a failure audit comment, not a state transition. validate_transition is NOT called.
+173. The bead is already open (reset in step 1); a status: prefix would mislead get_sub_state() on the next loop iteration.
+174. 
+175. TRD-027-3. Other parallel builders continue unaffected (do not interrupt them).
+176. 
+177. TRD-027-4. The failed task enters the debug loop (Execute step 5: Debug Loop) on the NEXT loop iteration OR is eligible for re-assignment to another builder.
+178. 
+179. TRD-027-5. Lead tracks builder slot count: when a builder fails, its slot is freed immediately (active_builders count decremented).
+180. 
+181. TRD-027-6. Lead refills available slots on the next loop iteration by querying bv --robot-next / br ready again.
+182. 
+183. LEAD ORCHESTRATION LOOP RETURN — after TRD-026 (commits) and TRD-027 (failure isolation) complete:
+184. - If PENDING_GATE == true: set currentPhase = PENDING_GATE_PHASE (explicit phase tracker); THEN RETURN (do NOT clear pending — Quality Gate consumes it)
+185. - If PENDING_GATE == false: normal loop continuation (no phase gate hit this iteration)
+186. - The loop restarts at TRD-025-2 on the next --execute re-run
+187. DELEGATE TO TRD-EXECUTE ENGINE (TEAM_MODE=false):
+188. Delegate to: /ensemble:trd-execute "implement TRD <TRD_SLUG>" --trd "<TRD_FILE_PATH>" --strategy <STRATEGY> --max-parallel <MAX_PARALLEL>
+189. The trd-execute engine runs the full single-agent DRAIN LOOP: trd-cli phase ordering, bv primary dispatch with br ready fallback, implement-bead-worker execution, TRD checkbox sync, Quality Gate, and Completion.
+190. After delegation: RETURN from Execute phase — implement-trd-beads is done.
+191. 
+192. EXIT: Execute phase delegated to trd-execute for TEAM_MODE=false. Steps 2–10 are TEAM_MODE=true helpers only.
 
 ### Step 2: Task Claim and Specialist Selection
 
@@ -671,7 +700,7 @@ Claim task in beads before delegating to specialist agent
 **Actions:**
 1. Run: br update <BEAD_ID> --status=in_progress — skip task if exit code != 0 (already claimed)
 2. Extract TASK_ID from task.title prefix (TRD-XXX pattern)
-3. Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer. After choosing shorthand, resolve it via AGENT_ALIAS_MAP before delegation (e.g. backend-developer -> ensemble-full:backend-developer when installed from ensemble-full).
+3. Select specialist by keyword matching: architecture/design/system/multi-component/cross-cutting/orchestrat -> @tech-lead-orchestrator; backend/api/endpoint/database/server/model/migration -> @backend-developer; frontend/ui/component/react/vue/angular/svelte/css -> @frontend-developer; test/spec/e2e/playwright/coverage -> @test-runner or @playwright-tester; docs/readme/documentation/changelog/api-docs -> @documentation-specialist; infra/deploy/docker/k8s/kubernetes/aws/cloud/terraform -> @infrastructure-developer; refactor/optimize/cleanup spanning multiple domains -> @tech-lead-orchestrator; default -> @backend-developer. After choosing shorthand, resolve it via AGENT_ALIAS_MAP before delegation (e.g. backend-developer -> ensemble-full:backend-developer).
 4. Check .claude/router-rules.json first; project-specific agents take priority over keyword defaults
 5. Match skills via router-rules.json triggers/patterns; fallback: jest/pytest/rspec/exunit/xunit by language keywords
 6. 
@@ -681,9 +710,6 @@ Claim task in beads before delegating to specialist agent
 10. - But constrain candidates to TEAM_ROLES.builder.agents list only
 11. - If keyword match selects agent NOT in team builder list: fall back to first agent in TEAM_ROLES.builder.agents
 12. - .claude/router-rules.json takes priority over both keyword defaults AND team constraint
-13. - Example: keyword says @infrastructure-developer, team builder list has [backend-developer, frontend-developer]
-14. -> fall back to backend-developer (first in list)
-15. When TEAM_MODE=false: existing specialist selection unchanged
 
 ### Step 3: Task Delegation
 
@@ -728,7 +754,6 @@ Build prompt and delegate to selected specialist, require closing summary commen
 36. 4. On failure (builder crashes, not rejection):
 37. a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
 38. b. Enter debug loop (Execute step 5)
-39. When TEAM_MODE=false: builder may only close bead after the Definition of Done gate passes. Do NOT close a bead solely because a handler/stub exists or the build compiles.
 
 ### Step 4: Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)
 
@@ -989,7 +1014,6 @@ Attempt automated fix on task failure via deep-debugger (max 2 retries)
 11. 4. After 2 debug retries without success:
 12. br comment add <bead_id> 'Debug loop exhausted after 2 retries. Manual intervention required.'
 13. PAUSE for user decision (same as v2.1.0)
-14. When TEAM_MODE=false: existing debug loop unchanged
 
 ### Step 10: Error Handling
 
@@ -1118,11 +1142,16 @@ Inline utility for accurate per-TRD progress reporting, referenced by the --stat
 
 ### Step 1: Phase Completion Detection
 
-Detect when all tasks in a phase are closed
+Detect when all tasks in a phase are closed using PENDING_GATE_PHASE
 
 **Actions:**
-1. Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined ids of TRD tasks whose beads are closed>". Parse {ok, currentPhase, phases:[{n,complete}], phaseTaskIds}. If ok is false or the process exits non-zero: print the error and do NOT trigger the quality gate this cycle (treat as 'phase not yet complete' and continue). The phase whose entry has complete=true and equals the just-finished phase is done.
-2. When phases[currentPhase] (or the phase just completed) shows complete=true: trigger the quality gate for STORY_BEAD_IDs[that phase]. Until then, do not trigger the gate. (This replaces the old PHASE_TASK_IDS title-filter prose.)
+1. PENDING_GATE_PHASE is the explicit phase to gate — set by Execute TRD-025-6 step (f) when a phase completes.
+2. If PENDING_GATE_PHASE is set: use it as the gate target; do NOT re-derive from currentPhase.
+3. Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined ids of TRD tasks whose beads are closed>". Parse {ok, phases:[{n,complete}]}.
+4. Let GATE_PHASE = PENDING_GATE_PHASE (the explicit phase that just completed).
+5. Confirm phases.find(p => p.n == GATE_PHASE).complete == true. If not yet complete: clear PENDING_GATE_PHASE; treat as 'phase not yet complete' and continue without triggering the gate.
+6. If confirmed complete: trigger the quality gate for STORY_BEAD_IDs[GATE_PHASE].
+7. If PENDING_GATE_PHASE is not set: run phase-status to detect phase completion normally; trigger the gate for any phase where complete==true.
 
 ### Step 2: Test Execution
 
@@ -1189,6 +1218,8 @@ Record quality gate outcome as br comment and close story on pass
 22. TEAM_METRICS = { phase: <N+1>, tasks_completed: 0, builders: {}, task_details: [] }
 23. (This ensures phase N+1 accumulates fresh metrics and does not inherit stale phase-N data.)
 24. If NOT gate_passed AND blocking strategy (tdd/refactor/bug-fix): print gate failure details; PAUSE for user: fix/skip/abort
+25. PENDING GATE CLEAR — after all gate result, PR, and branch handling are complete:
+26. - If PENDING_GATE == true: clear PENDING_GATE and PENDING_GATE_PHASE (consumed by this gate cycle)
 
 ### Step 4: Team Performance Summary (TEAM_MODE=true only)
 
@@ -1248,16 +1279,33 @@ Print and persist team performance metrics after Quality Gate step 3 when TEAM_M
 
 ## Phase 5: Completion
 
-### Step 1: Epic Closure
+### Step 1: Hard Completion Guard
+
+Block finalization if any task is still open — prevents partial epic closure or premature single PR
+
+**Actions:**
+1. ALL-TASKS-CLOSED CHECK (hard guard — do NOT proceed if any task is open):
+2. Run: br list --status=open --json filtered by TRD slug
+3. Run: br list --status=in_progress --json filtered by TRD slug
+4. If either returns non-empty: at least one task is not yet closed.
+5. Extract the next incomplete phase from the task bead IDs or from PENDING_GATE_PHASE:
+6. - If PENDING_GATE is set (phase gate triggered but not yet run): NEXT_PHASE=PENDING_GATE_PHASE
+7. - Else: find the first phase that has an open/in_progress task by checking PHASE_TASK_IDS against the open bead list
+8. Look up CURRENT_PHASE_BRANCH from PR_ACTIONS for NEXT_PHASE (action where action.phaseN==NEXT_PHASE).branch
+9. Print: 'ERROR: <N> task(s) still open/in-progress. Complete all tasks before finalization.'
+10. Print: 'Next phase: <NEXT_PHASE> — branch: <CURRENT_PHASE_BRANCH> — re-run: /ensemble:implement-trd-beads <TRD_PATH> --execute'
+11. Print: 'Run /ensemble:implement-trd-beads <TRD_PATH> --execute to continue implementation without re-scaffolding.'
+12. EXIT — do not close epic, do not sync TRD checkboxes, do not create single PR
+
+### Step 2: Epic Closure
 
 Close the root epic when all children are done
 
 **Actions:**
-1. Verify: br list --status=open --json filtered by TRD slug returns no open tasks
-2. Run: br close <ROOT_EPIC_ID> --reason='TRD implementation complete'
-3. Run: br sync --flush-only
+1. Run: br close <ROOT_EPIC_ID> --reason='TRD implementation complete'
+2. Run: br sync --flush-only
 
-### Step 2: TRD Checkbox Sync
+### Step 3: TRD Checkbox Sync
 
 Update TRD file checkboxes to reflect bead closure state
 
@@ -1265,7 +1313,7 @@ Update TRD file checkboxes to reflect bead closure state
 1. For each task in TRD Master Task List: if TRD_TO_BEAD_MAP[task.id] exists and bead status == 'closed' -> replace '- [ ] **<task.id>**' with '- [x] **<task.id>**'
 2. git commit -m 'docs(TRD): sync checkboxes to bead closure state'
 
-### Step 3: Completion Report
+### Step 4: Completion Report
 
 Print final summary with stacked PR map and next steps
 
