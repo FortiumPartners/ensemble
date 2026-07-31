@@ -707,34 +707,62 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -        - Invoke: /ensemble:implement-bead-worker <BEAD_ID> --branch <CURRENT_PHASE_BRANCH> --synthetic <SYNTHETIC_KIND>; wait for completion
    -          (--synthetic is passed through to worker Validate phase; worker handles claim/analyse/implement/test/commit/close; supervisor owns branch and PR)
    -      - max_parallel applies only to TEAM_MODE=true (lead orchestration loop); DRAIN LOOP is always sequential
-   - 
-   -   f. POST-WORKER AUDIT (TEAM_MODE=false only — worker evidence is unmediated):
-   -      - Parse the WORKER_COMPLETE block printed by implement-bead-worker:
+   -      - Parse the following mandatory fields from the WORKER_COMPLETE block — HALT with an AUDIT ERROR if any are missing or empty:
+   -        - worker_bead (from 'bead=')
+   -        - test_passed (from 'test-passed=')
+   -        - test_attempts (from 'test-attempts=')
+   -        - test_framework (from 'test-framework=')
+   -        - verified_branch (from 'branch=')
+   -        - commit_sha (from 'commit-sha=')
+   -        - files_changed (from 'files-changed=')
+   -        - validation_result (from 'validation=')
+   -        - worker_commit (from 'commit=')
+   -      - Require worker_bead == <BEAD_ID> — if mismatched: print 'AUDIT ERROR: WORKER_COMPLETE.bead <worker_bead> does not match current bead <BEAD_ID>. Wrong task context.' and HALT
+   -      - If test_passed == 'true': require commit_sha != 'none' and commit_sha == $(git rev-parse HEAD) — if SHA is missing or differs: print 'AUDIT ERROR: test-passed=true but commit-sha is missing or does not match HEAD for <BEAD_ID>. Ensure git commit ran before attesting.' and HALT
+   -      - If test_passed == 'false': require commit_sha == 'none' — if a SHA is present: print 'AUDIT ERROR: test-passed=false but commit-sha is not 'none' for <BEAD_ID>. Worker should not have committed on test failure.' and HALT
+   -      - Proceed to phase-gate based on parsed fields (test-passed, validation)
    -        bead, test-passed, test-attempts, test-framework, commit-sha, files-changed, validation
+   -      - If test-passed == false:  (distinct no-commit audit path — worker already reset to open)
+   -        - Verify: br show <BEAD_ID> reports current status as 'open' AND br comment list <BEAD_ID> contains 'test-failed:exhausted-retries'
+   -        - If either check fails: print 'AUDIT ERROR: test-passed=false for <BEAD_ID> but worker did not reset bead correctly. Expected status=open and test-failed comment. Investigate before retrying.' and HALT
+   -        - Print: 'DRAIN HALTED: test-passed=false for <BEAD_ID> — bead reset to open. Implementation preserved for diagnosis. Do not retry without fixing tests.'
+   -        - HALT — do NOT return to step (h), do NOT retry; drain is stopped
    -      - For AC-* beads (TASK_TRACEABILITY[TASK_ID].is_ac_synthetic == true):
    -        - Set AC_ID=TASK_ID  (parser-generated AC task ID, e.g. AC-001)
-   -        - Verify: br comment list <BEAD_ID> contains 'ac-validation:<AC_ID>'
-   -        - Parse verdict token from that comment; if verdict != 'proven':
+   -        - Scan all br comment list entries for <BEAD_ID>; retain the LAST comment containing 'ac-validation:<AC_ID>' (br comment list is oldest-to-newest; newest is authoritative)
+   -        - Require LATEST_AC_COMMENT exists — if missing: print 'AUDIT ERROR: no ac-validation comment found for <BEAD_ID>. Worker may not have run Validate phase.' and HALT
+   -        - Parse COMMENT_VERDICT from LATEST_AC_COMMENT
+   -        - Parse WORKER_COMPLETE.validation independently into WORKER_KIND, WORKER_ID, WORKER_VERDICT
+   -        - Require WORKER_KIND='ac-validation' and WORKER_ID=<AC_ID> — if mismatched: print 'AUDIT ERROR: WORKER_COMPLETE.validation kind/id does not match this AC task for <BEAD_ID>. Wrong task context.' and HALT
+   -        - Require COMMENT_VERDICT == WORKER_VERDICT — if they differ: print 'AUDIT ERROR: bead comment verdict does not match WORKER_COMPLETE.validation for <BEAD_ID>. Possible concurrent modification.' and HALT
+   -        - If COMMENT_VERDICT != 'proven':
    -          - Reset to open: br update <BEAD_ID> --status=open  (TRD-027 failure reset — not in_progress, which would falsify drain detection)
    -          - Write: br comment add <BEAD_ID> 'verdict:not_proven — ac-validation failed in post-worker audit'
    -          - Sync: br sync --flush-only
-   -          - Stage and amend failure metadata: git add .beads/beads.jsonl && git commit --amend --no-edit  (must persist reset-to-open before continuing)
-   -          - Skip phase-gate evaluation for this bead; continue to step (h)
-   -        - If verdict == 'proven':
+   -          - Stage and amend failure metadata: git add .beads/beads.jsonl && git commit --amend --no-edit  (must persist reset-to-open before stopping)
+   -          - Print: 'DRAIN HALTED: AC verdict not_proven for <BEAD_ID> — bead reset to open. Do not retry without fixing validation.'
+   -          - HALT — do NOT continue to step (h); drain is stopped
+   -        - If COMMENT_VERDICT == 'proven':
    -          - Write: br comment add <BEAD_ID> 'ac-proven:<AC_ID>'
    -          - Resolve REQ_ID: first check TASK_TRACEABILITY[AC_ID].verifies_task_id for a non-empty satisfies_req_id; if empty, iterate TASK_TRACEABILITY[AC_ID].dependsOn and take satisfies_req_id from the first blocking task that has one; if none found, leave REQ_ID unset
    -          - If REQ_ID is non-empty: br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> ac-proven:<AC_ID> verification_mode:worker'
    -          - Else (no resolves REQ): br comment add <ROOT_EPIC_ID> 'ac-proven:<AC_ID> verification_mode:worker'  (do not emit malformed req-verified:undefined)
    -      - For XC-* beads (TASK_TRACEABILITY[TASK_ID].is_xc_synthetic == true):
    -        - Set XC_ID=TASK_ID  (parser-generated XC task ID, e.g. XC-001)
-   -        - Verify: br comment list <BEAD_ID> contains 'xc-validation:<XC_ID>'
-   -        - Parse verdict; if verdict != 'proven':
+   -        - Scan all br comment list entries for <BEAD_ID>; retain the LAST comment containing 'xc-validation:<XC_ID>' (br comment list is oldest-to-newest; newest is authoritative)
+   -        - Require LATEST_XC_COMMENT exists — if missing: print 'AUDIT ERROR: no xc-validation comment found for <BEAD_ID>. Worker may not have run Validate phase.' and HALT
+   -        - Parse COMMENT_VERDICT from LATEST_XC_COMMENT
+   -        - Parse WORKER_COMPLETE.validation independently into WORKER_KIND, WORKER_ID, WORKER_VERDICT
+   -        - Require WORKER_KIND='xc-validation' and WORKER_ID=<XC_ID> — if mismatched: print 'AUDIT ERROR: WORKER_COMPLETE.validation kind/id does not match this XC task for <BEAD_ID>. Wrong task context.' and HALT
+   -        - Require COMMENT_VERDICT == WORKER_VERDICT — if they differ: print 'AUDIT ERROR: bead comment verdict does not match WORKER_COMPLETE.validation for <BEAD_ID>. Possible concurrent modification.' and HALT
+   -        - If COMMENT_VERDICT != 'proven':
    -          - Reset to open: br update <BEAD_ID> --status=open
    -          - Write: br comment add <BEAD_ID> 'verdict:not_proven — xc-validation failed in post-worker audit'
    -          - Sync: br sync --flush-only
    -          - Stage and amend failure metadata: git add .beads/beads.jsonl && git commit --amend --no-edit
-   -          - Skip phase-gate evaluation for this bead; continue to step (h)
-   -        - If verdict == 'proven':
+   -          - Print: 'DRAIN HALTED: XC verdict not_proven for <BEAD_ID> — bead reset to open. Do not retry without fixing validation.'
+   -          - HALT — do NOT continue to step (h); drain is stopped
+   -        - If COMMENT_VERDICT == 'proven':
    -          - Write: br comment add <BEAD_ID> 'xc-proven:<XC_ID> verification_mode:worker'
    -          - For root epic attestation: if TASK_TRACEABILITY[XC_ID].satisfies_req_id is non-empty emit 'req-verified:<TASK_TRACEABILITY[XC_ID].satisfies_req_id> by:<TASK_ID> xc-proven:<XC_ID> verification_mode:worker' on ROOT_EPIC_ID; if empty omit req-verified token entirely (do not walk dependsOn — XC owns its own satisfies, not a chain)
    -      - For regular task beads (not synthetic):
