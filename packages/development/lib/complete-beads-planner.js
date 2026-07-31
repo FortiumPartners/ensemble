@@ -117,7 +117,9 @@ function extractFileClaims(bead) {
     if (m[1]) claims.push(m[1]);
   }
   // Common path patterns: src/*, lib/*, packages/*, etc.
-  const pathRe = /\b(?:src|lib|packages|app|api|services|models|components|hooks|utils|tests?|spec|test)[^\s*\/]*(?:\/[^\s,;)]+)*/gi;
+  // Require an actual / after the directory name — prevents "application",
+  // "testing", "approvals" etc. from being misidentified as file claims.
+  const pathRe = /\b(?:src|lib|packages|app|api|services|models|components|hooks|utils|tests?|spec)(?=\/)(?:\/[^\s,;)]+)*/gi;
   while ((m = pathRe.exec(text)) !== null) {
     if (m[0] && !claims.includes(m[0])) claims.push(m[0]);
   }
@@ -376,4 +378,4 @@ function buildResult(selected, deferred) {
   };
 }
 
-module.exports = { planDispatch };
+module.exports = { planDispatch, extractFileClaims };
