@@ -35,6 +35,7 @@ LOOP:
   4. br sync --flush-only
   5. RunPlanner()                     → selected[], deferred[]
   6. If selected is empty:
+       If deferred.length > 0 → RETURN {status: blocked, reason: deferred[0].deferReason, ...}
        If scoped open beads remain but br ready is empty → RETURN {status:blocked, ...}
        Else → all scoped descendants closed → rollup → RETURN {status:complete, ...}
   7. DispatchBatch(selected)          → results[]
@@ -117,7 +118,7 @@ COMPLETE_BEADS_RESULT
 ```
 
 - `complete`: every scoped descendant is closed
-- `blocked`: scoped open descendants remain but `br ready` is empty
+- `blocked`: scoped open descendants remain but `br ready` is empty, OR all eligible candidates are deferred (phase-gate, file-claim-conflict, slot-cap)
 - `failed`: at least one dispatched bead could not be implemented/integrated after bounded recovery; unrelated successful results are still integrated first
 
 ---

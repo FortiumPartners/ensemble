@@ -200,3 +200,70 @@ describe('planDispatch — file-claim conflict deferral', () => {
     expect(result.deferred).toHaveLength(1);
   });
 });
+
+
+describe('planDispatch — phase-gate deferred is NOT false-complete', () => {
+  const mkPlan = (tracks) => ({ plan: { tracks } });
+  // Titles must match the [trd:...:task:TRD-NNN] format that extractTaskId parses.
+  const mkBead = (id, taskId) => ({
+    id,
+    title: `[trd:my-trd:task:${taskId}]`,
+    description: '',
+  });
+
+  // Scenario: all scoped tasks belong to phase 2; no phase-1 tasks are closed yet.
+  // selectNextTasks returns only phase-1 task IDs → both phase-2 tasks are deferred.
+  // Bug: without the phaseDeferred merge, selected=[]+deferred>0 was treated as complete.
+  test('all-tasks-phase-gated: selected=[] deferred>0 → not false-complete', () => {
+    const result = planDispatch(
+      { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+      mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+      [mkBead('t1', 'TRD-002'), mkBead('t2', 'TRD-003')],
+      [mkBead('t1', 'TRD-002'), mkBead('t2', 'TRD-003')],
+      [],
+      [],
+      2,
+      { 1: ['TRD-001'], 2: ['TRD-002', 'TRD-003'] },
+      { prFormat: true }
+    );
+    expect(result.selected).toHaveLength(0);       // all phase-gated
+    expect(result.deferred).toHaveLength(2);      // both preserved in deferred
+    expect(result.deferred.every((d) => d.deferReason === 'phase-gate')).toBe(true);
+    // Consumer: SKILL.md step 6 sees selected=[] && deferred>0 → status: blocked (NOT complete)
+  });
+
+  // Scenario: t1 is phase-1 (active), t2 is phase-2 (gated). Correct behavior: t1 passes.
+  test('partial phase-gate: active-phase task passes, later-phase task deferred', () => {
+    const result = planDispatch(
+      { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+      mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+      [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+      [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+      [],
+      [],
+      2,
+      { 1: ['TRD-001'], 2: ['TRD-002'] },
+      { prFormat: true }
+    );
+    expect(result.selected.find((s) => s.id === 't1')).toBeDefined(); // phase 1 is active
+    const t2 = result.deferred.find((d) => d.id === 't2');
+    expect(t2).toBeDefined();
+    expect(t2.deferReason).toBe('phase-gate');
+  });
+
+  // Scenario: non-strict mode (prFormat=false) bypasses phase filter entirely.
+  test('non-strict mode: no phase-gate deferrals regardless of phaseTaskIds', () => {
+    const result = planDispatch(
+      { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+      mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+      [mkBead('t1', 'TRD-002'), mkBead('t2', 'TRD-003')],
+      [mkBead('t1', 'TRD-002'), mkBead('t2', 'TRD-003')],
+      [], [],
+      2,
+      { 1: ['TRD-001'], 2: ['TRD-002', 'TRD-003'] },
+      { prFormat: false }
+    );
+    const phaseGated = result.deferred.filter((d) => d.deferReason === 'phase-gate');
+    expect(phaseGated).toHaveLength(0); // no phase-gate in non-strict mode
+  });
+});

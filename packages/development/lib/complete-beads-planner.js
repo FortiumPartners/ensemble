@@ -293,7 +293,7 @@ function planDispatch(
   const scopedRoundRobin = roundRobin.filter((r) => eligible.has(r.id));
 
   // Step 7: Apply phase-strict filter if TRD phase metadata present
-  const phaseFiltered = applyPhaseFilter(
+  const { passed: phasePassed, deferred: phaseDeferred } = applyPhaseFilter(
     scopedRoundRobin,
     eligible,
     closedBeads,
@@ -302,26 +302,19 @@ function planDispatch(
   );
 
   // Step 8: File-claim conflict avoidance + slot cap
-  const { selected, deferred } = applyFileClaimFilter(phaseFiltered, eligible, slots_);
+  const { selected, deferred: claimDeferred } = applyFileClaimFilter(phasePassed, eligible, slots_);
 
+  // Merge phase-gated items into deferred so they are not silently dropped.
+  // This prevents a false "complete" signal when eligible beads remain but
+  // all are blocked behind an earlier incomplete phase.
+  const deferred = [...phaseDeferred, ...claimDeferred];
+
+  // Assert completion is only when no eligible beads remain, not when deferred happens
+  // to be empty (deferred being empty only means no conflict/slot pressure, not done)
   return buildResult(selected, deferred);
 }
-
-/**
- * Apply phase-strict filtering via phase-tracker selectNextTasks.
- *
- * In prFormat mode: only ids belonging to the lowest-incomplete phase pass.
- * In non-strict mode: all ids pass through unchanged.
- *
- * @param {Array<{id, track, position}>} orderedIds — round-robin, already intersected with eligible
- * @param {Map<string, object>} eligibleMap
- * @param {Array} closedBeads — used to build closedTaskIdSet
- * @param {object} phaseTaskIds
- * @param {boolean} prFormat
- * @returns {Array} filtered in same order
- */
 function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, prFormat) {
-  if (!prFormat) return orderedIds;
+  if (!prFormat) return { passed: orderedIds, deferred: [] };
 
   // Extract task IDs from all closed beads for accurate currentPhase detection
   const closedSet = closedTaskIdSet(closedBeads);
@@ -346,11 +339,18 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
   );
   const selectedSet = new Set(selectedTaskIds);
 
-  return orderedIds.filter((r) => {
+  const passed = [];
+  const deferred = [];
+  for (const r of orderedIds) {
     const bead = eligibleMap.get(r.id);
     const taskId = extractTaskId(bead?.title) || r.id;
-    return selectedSet.has(taskId);
-  });
+    if (selectedSet.has(taskId)) {
+      passed.push(r);
+    } else {
+      deferred.push({ ...r, deferReason: 'phase-gate' });
+    }
+  }
+  return { passed, deferred };
 }
 
 function buildResult(selected, deferred) {
