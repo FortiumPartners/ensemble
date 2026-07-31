@@ -31,3 +31,4 @@ __pycache__/
 
 # Beads local issue database (sync state; do not track)
 .beads/issues.jsonl
+.beads/beads.db-fsqlite-*
