@@ -505,10 +505,10 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    - TEAM_MODE Gate (evaluated once at the start of the Execute phase):
    -   if TEAM_MODE == false:
-   -     - Use the existing v2.1.0 Execute loop (all steps 1-6 unchanged)
-   -     - Skip all team-specific steps (reviewer delegation, QA delegation, rejection loop, parallel builders)
+   -     - Run the DRAIN LOOP below (lines 825-875) — this single loop handles all non-team execution via implement-bead-worker
+   -     - After DRAIN LOOP step (c) break: RETURN from Execute phase — do NOT fall through to helper steps below
+   -     - Steps 2 through 10 are TEAM_MODE=true helpers only; they are NEVER reached in TEAM_MODE=false
    -     - Quality Gate phase: run full scope (current behavior)
-   -     - Continue to LOOP below
    -   if TEAM_MODE == true:
    -     - Replace the standard execution loop with the Lead Orchestration Loop below (TRD-013, AC: FR-LL-1, AC-LL-1)
    -     - Reviewer delegation: enabled (TRD-016)
@@ -685,10 +685,13 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -        - If sub_state in ('in_review', 'in_qa'): add to INFLIGHT_ACTIVE list
    -      - SCOPED_CLOSED = all task beads with status=closed filtered by TRD slug
    - 
-   -   c. AUTHORITATIVE COMPLETION CHECK: if SCOPED_READY_LIST is empty AND INFLIGHT_ACTIVE is empty: ALL phases drained for this session. Break to Completion. Do NOT use bv --robot-next as a completion signal — it is global/unscoped and its emptiness means nothing for this TRD.
+   -   c. AUTHORITATIVE COMPLETION CHECK: if SCOPED_READY_LIST is empty AND INFLIGHT_ACTIVE is empty:
+   -      - All phases are fully drained for this session.
+   -      - RETURN from Execute phase and advance to Quality Gate / Completion flow.
+   -      - Do NOT fall through to helper steps below.
    - 
-   -   d. SELECTION AND RANKING (only if SCOPED_READY_LIST is non-empty):
-   -      - bv --robot-next / bv --robot-plan are used ONLY for prioritization ranking (not as completion signal)
+   -   d. SELECTION AND RANKING (only runs when SCOPED_READY_LIST is non-empty):
+   -      - bv --robot-next / bv --robot-plan are used ONLY for prioritization ranking, not as completion signal.
    -      - Run: node "$TRD_CLI" next-task "<TRD_FILE_PATH>" --ready "<comma-joined READY_TRD_IDS>" --closed "<comma-joined CLOSED_TRD_IDS>" --max <available_slots or 1>
    -        (READY_TRD_IDS extracted from SCOPED_READY_LIST bead titles; CLOSED_TRD_IDS from SCOPED_CLOSED)
    -      - If trd-cli returns ok=false or non-zero exit: print error and HALT
@@ -696,35 +699,62 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    - 
    -   e. EXECUTE each selected task:
    -      - DRAIN LOOP runs ONLY when TEAM_MODE=false (TEAM_MODE=true RETURNs at Execute step 1)
-   -      - For each SELECTED task: extract its phaseN from PHASE_TASK_IDS (task belongs to which phase); record EXECUTED_PHASE=<phaseN> before invoking the worker
+   -      - For each SELECTED task: extract its phaseN from PHASE_TASK_IDS; record EXECUTED_PHASE=<phaseN> before invoking the worker
    -      - Invoke: /ensemble:implement-bead-worker <BEAD_ID> --branch <CURRENT_PHASE_BRANCH>; wait for completion
    -        (implement-bead-worker handles claim/analyse/implement/test/commit/close; supervisor owns branch and PR)
    -      - max_parallel applies only to TEAM_MODE=true (lead orchestration loop); DRAIN LOOP is always sequential
    - 
-   -   f. PHASE GATE CHECK (after each task close, before loop continues):
+   -   f. POST-WORKER AUDIT (TEAM_MODE=false only — worker evidence is unmediated):
+   -      - Parse the WORKER_COMPLETE block printed by implement-bead-worker:
+   -        bead, test-passed, test-attempts, test-framework, commit-sha, files-changed
+   -      - Verify: br comment list <BEAD_ID> contains 'status:closed' (worker closed the bead)
+   -      - For AC-* beads (TASK_TRACEABILITY[TASK_ID].is_ac_synthetic == true):
+   -        - Verify: br comment list <BEAD_ID> contains 'ac-validation:<AC_ID>'
+   -        - Parse verdict token from that comment; if verdict != 'proven':
+   -          - Re-open bead: br update <BEAD_ID> --status=in_progress
+   -          - Write: br comment add <BEAD_ID> 'verdict:not_proven — ac-validation failed in post-worker audit'
+   -          - Sync: br sync --flush-only
+   -          - Skip phase-gate evaluation for this bead; continue to step (h)
+   -        - If verdict == 'proven': write ac-proven token to bead and root epic:
+   -          - br comment add <BEAD_ID> 'ac-proven:<AC_ID>'
+   -          - Extract REQ_ID from TASK_TRACEABILITY[TASK_ID].satisfies_req_id
+   -          - br comment add <ROOT_EPIC_ID> 'req-verified:<REQ_ID> by:<TASK_ID> ac-proven:<AC_ID> verification_mode:worker'
+   -      - For XC-* beads (TASK_TRACEABILITY[TASK_ID].is_xc_synthetic == true):
+   -        - Verify: br comment list <BEAD_ID> contains 'xc-validation:<XC_ID>'
+   -        - Parse verdict; if verdict != 'proven': re-open, record verdict:not_proven, skip phase gate (same as AC-* path)
+   -        - If verdict == 'proven': write req-verified token to root epic with verification_mode:worker
+   -      - For regular task beads (not synthetic):
+   -        - Verify WORKER_COMPLETE.test-passed == true
+   -        - Check TASK_TRACEABILITY[TASK_ID].is_test_task:
+   -          - If is_test_task == true: write req-satisfied and ac-proven tokens to bead and root epic
+   -      - Sync: br sync --flush-only
+   -      - Stage and amend bead/root epic comments into the worker commit: git add .beads/beads.jsonl && git commit --amend --no-edit
+   -      - Note: worker test-passed=false causes bead to remain open — phase gate will not advance until bead is closed or user overrides
+   - 
+   -   g. PHASE GATE CHECK (after each task close, before loop continues):
    -      - Run: node "$TRD_CLI" phase-status "<TRD_FILE_PATH>" --closed "<comma-joined TRD task IDs whose beads are closed>"
-   -      - Parse {ok, phases:[{n,complete}]}
-   -      - If ok=false or non-zero: print error and continue to step (g)
+   -      - If ok=false or non-zero: print error and continue to step (h)
    -      - Let GATE_CHECK = phases.find(p => p.n == EXECUTED_PHASE)
    -      - If GATE_CHECK exists AND GATE_CHECK.complete == true:
    -        - Set PENDING_GATE=true and PENDING_GATE_PHASE=EXECUTED_PHASE
    -        - Print 'Phase <EXECUTED_PHASE> complete — Execute drained. Quality Gate will run.'
-   -        - BREAK Execute immediately — do NOT loop; hand off to Quality Gate
-   -      - If phase not yet complete: continue to step (g)
+   -        - RETURN from Execute phase — do NOT loop; hand off to Quality Gate
+   -      - If phase not yet complete: continue to step (h)
    - 
-   -   g. AFTER EACH TASK:
+   -   h. AFTER EACH TASK:
    -      - br sync --flush-only
    -      - Update internal completed/open counters
    -      - If completed tasks % 10 == 0: print 'Progress: <N> tasks completed; continuing automatically.' (terse, non-blocking)
    -      - Do NOT call trd_progress() here — it is reserved for --status, resume start, explicit user status requests, and final completion
    -      - Loop continues to step (a) — next iteration begins immediately in this same assistant turn
    - 
-   -   h. STALLED STATE (SCOPED_READY_LIST empty but INFLIGHT_ACTIVE non-empty):
-   -      - This is a normal in-flight state (reviewer or QA is working). Do NOT break.
-   -      - Print at most: 'Progress: <N> tasks done; <M> in-flight (review/QA). Re-run --execute when ready.' and break to Completion.
-   -      - A later --execute re-run will pick up from the in-flight state.
+   -   i. STALLED STATE (SCOPED_READY_LIST empty but INFLIGHT_ACTIVE non-empty):
+   -      - This is a normal in-flight state (reviewer or QA is working). Do NOT return as complete.
+   -      - Print: 'Progress: <N> tasks done; <M> in-flight (review/QA). Halting — re-run --execute when ready.'
+   -      - HALT this invocation — do NOT advance to Quality Gate or Completion.
+   -      - Supervisor will re-invoke --execute to resume from the unchanged in-flight state.
    - 
-   - EXIT: Loop exits only via step (c) break (all phases drained) or step (h) break (in-flight stalled) — never via prose 'continue the loop'
+   - EXIT: Loop exits only via step (c) RETURN (all phases drained) or step (g) RETURN (phase gate hit) — never while tasks are still in-flight. Steps 2–10 are TEAM_MODE=true helpers only.
 
 **2. Task Claim and Specialist Selection**
    Claim task in beads before delegating to specialist agent
@@ -741,9 +771,6 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   - But constrain candidates to TEAM_ROLES.builder.agents list only
    -   - If keyword match selects agent NOT in team builder list: fall back to first agent in TEAM_ROLES.builder.agents
    -   - .claude/router-rules.json takes priority over both keyword defaults AND team constraint
-   -   - Example: keyword says @infrastructure-developer, team builder list has [backend-developer, frontend-developer]
-   -     -> fall back to backend-developer (first in list)
-   - When TEAM_MODE=false: existing specialist selection unchanged
 
 **3. Task Delegation**
    Build prompt and delegate to selected specialist, require closing summary comment
@@ -786,7 +813,6 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   4. On failure (builder crashes, not rejection):
    -      a. br comment add <bead_id> 'Implementation failed: <error_summary>. Builder: <agent>.'
    -      b. Enter debug loop (Execute step 5)
-   - When TEAM_MODE=false: builder may only close bead after the Definition of Done gate passes. Do NOT close a bead solely because a handler/stub exists or the build compiles.
 
 **3a. Reviewer Delegation and Verdict Handling (TEAM_MODE=true only)**
    Delegate to reviewer after builder submits, parse verdict, route accordingly. AC: FR-CR-1, FR-CR-2, FR-CR-3, FR-CR-4, FR-CR-5, FR-CR-6, FR-LL-3, FR-SM-5, AC-SM-3
@@ -1035,7 +1061,6 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
    -   4. After 2 debug retries without success:
    -      br comment add <bead_id> 'Debug loop exhausted after 2 retries. Manual intervention required.'
    -      PAUSE for user decision (same as v2.1.0)
-   - When TEAM_MODE=false: existing debug loop unchanged
 
 **6. Error Handling**
    Handle br command failures during execution

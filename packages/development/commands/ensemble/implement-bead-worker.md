@@ -5,7 +5,7 @@ version: 1.0.0
 category: implementation
 last-updated: 2026-07-30
 allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, Eval
-argument-hint: <bead-id> [--branch <branch-name>]
+argument-hint: <bead-id> [--branch <branch-name>]  # --branch optional; omit to use current branch
 model: sonnet
 ---
 <!-- DO NOT EDIT - Generated from implement-bead-worker.yaml -->
@@ -20,10 +20,10 @@ Does NOT create branches or PRs — those belong to the supervisor.
 State transitions are recorded via br comments for cross-session visibility.
 Returns a structured completion summary to the supervisor.
 
-This is an internal worker skill. It is invoked by implement-bead (in
-orchestrated mode) and by implement-trd-beads (TRD supervisor). Do not
-invoke directly from the chat prompt — use /ensemble:implement-bead-worker
-only for supervisor orchestration.
+This is an internal worker skill. It is invoked by implement-bead (both standalone
+and orchestrated modes — implement-bead sets up the branch before invoking the worker)
+and by implement-trd-beads (TRD supervisor). Do not invoke directly from the chat
+prompt — use /ensemble:implement-bead-worker only for supervisor orchestration.
 
 ## Workflow
 
@@ -34,7 +34,12 @@ only for supervisor orchestration.
 
    - Parse $ARGUMENTS: extract first token as BEAD_ID (e.g., "beads-042" or "42"); if numeric only, leave as-is — br accepts bare integers
    - If --branch <name> is present in $ARGUMENTS: store as ORCHESTRATED_BRANCH ( supervisor-passed ); else ORCHESTRATED_BRANCH = ""
-   - Print: "Worker starting for bead <BEAD_ID> (branch: <ORCHESTRATED_BRANCH> or 'supervisor-owned')"
+   - If --branch was supplied: verify current branch matches ORCHESTRATED_BRANCH before proceeding
+   -   Run: git branch --show-current
+   -   If $? != 0 or output is empty: print "WARNING: Detached HEAD — commit will land on current ref (<hash>). Bead: <BEAD_ID>."; set VERIFIED_BRANCH="<detached>"
+   -   If output != ORCHESTRATED_BRANCH: print "ERROR: Branch mismatch. Supplied --branch=<ORCHESTRATED_BRANCH> but current branch is <current>. Will NOT proceed to prevent committing to wrong branch." and EXIT
+   -   If output == ORCHESTRATED_BRANCH: set VERIFIED_BRANCH=<ORCHESTRATED_BRANCH>; print "Branch verified: <VERIFIED_BRANCH>"
+   - If --branch was NOT supplied (standalone mode): run: git branch --show-current; if output is empty (detached HEAD): print "ERROR: Cannot run worker in detached HEAD state without --branch. Switch to a branch first." and EXIT; set VERIFIED_BRANCH to the current branch; print "Using current branch: <VERIFIED_BRANCH>"
 
 **2. Tool Availability Check**
    Verify br is installed and functional
@@ -56,7 +61,7 @@ only for supervisor orchestration.
    Transition bead to in_progress state and record agent comment
 
    - Run: br update <BEAD_ID> --status=in_progress
-   - Run: br comment add <BEAD_ID> "status:in_progress agent:implement-bead-worker orch-branch:<ORCHESTRATED_BRANCH>"
+   - Run: br comment add <BEAD_ID> "status:in_progress agent:implement-bead-worker branch:<VERIFIED_BRANCH>"
 
 **2. Codebase Analysis**
    Read bead description and search codebase for relevant files
@@ -94,7 +99,38 @@ only for supervisor orchestration.
    - If tests still fail after 2 attempts: print test failure details and HALT — do not close bead
    - Record TEST_RESULT: { passed: true|false, attempts: N, framework: <detected> }
 
-### Phase 4: Complete
+### Phase 4: Validate
+
+**1. Synthetic Validation**
+   For AC-* and XC-* beads, run structured evidence checks and write validation tokens
+
+   - Record BEAD_TITLE_LOWER=$(echo "<BEAD_TITLE>" | tr "[:upper:]" "[:lower:]")
+   - If BEAD_TITLE_LOWER starts with "ac-" or contains " ac-" (AC-* synthetic):
+   -   Extract AC_ID from BEAD_TITLE (format: AC-XXX-N)
+   -   Detect implementation artifacts from WORKER_FILES_CHANGED:
+   -     code_exists: true if any file in WORKER_FILES_CHANGED is a source file (.ts/.js/.py/.ex/.rb/.cs/etc.)
+   -   Detect test artifacts from WORKER_FILES_CHANGED and package files:
+   -     test_command: inferred from package.json (jest, playwright), mix.exs (exunit), Gemfile (rspec), *.csproj (xunit)
+   -     test_framework: detected framework name
+   -     test_attempts: <TEST_RESULT.attempts>
+   -     test_passed: <TEST_RESULT.passed>
+   -     test_exists: true if test files found in WORKER_FILES_CHANGED or test_command available
+   -   Run integration test check if INTEGRATION_TEST_PATHS env var or project config has known integration test commands; record integration_passed: true/false/na
+   -   Determine verdict: verdict=proven if code_exists==true AND test_exists==true AND test_passed==true AND integration_passed!=false; otherwise verdict=not_proven
+   -   Run: br comment add <BEAD_ID> "ac-validation:<AC_ID> code:<code_exists|missing> tests:<test_passed|fail|missing|disabled> integration:<integration_passed|na> verdict:<verdict> evidence:<test_command> <test_framework>"
+   -   Record VALIDATION_RESULT=ac-validation:<AC_ID>:verdict:<verdict>
+   - Else if BEAD_TITLE_LOWER starts with "xc-" (XC-* synthetic cross-cutting):
+   -   Extract XC_ID from BEAD_TITLE (format: XC-XXX)
+   -   Identify affected domain directories from WORKER_FILES_CHANGED (e.g. src/hooks/, src/services/, src/middleware/)
+   -   Check each domain for cross-cutting pattern violations: shared state, tight coupling, missing abstraction layers
+   -   Determine verdict: verdict=proven if no violations found; verdict=not_proven otherwise
+   -   Run: br comment add <BEAD_ID> "xc-validation:<XC_ID> domains:<comma-joined-domains> verdict:<verdict> evidence:<files-list>"
+   -   Record VALIDATION_RESULT=xc-validation:<XC_ID>:verdict:<verdict>
+   - Else (regular task bead):
+   -   Record VALIDATION_RESULT=none
+   - Print: VALIDATION_TOKEN: <VALIDATION_RESULT>
+
+### Phase 5: Complete
 
 **1. Commit Changes**
    Stage and commit changes on the supervisor-owned branch
@@ -104,20 +140,32 @@ only for supervisor orchestration.
    - Generate commit message using conventional commit format: "feat: <BEAD_TITLE> [bead:<BEAD_ID>]" or "fix: <BEAD_TITLE> [bead:<BEAD_ID>]" depending on bead type
    - Run: git commit -m "<message>"
    - Record WORKER_COMMIT=<message>
+   - Record WORKER_FILES_CHANGED=$(git show --pretty= --name-only HEAD | tr "\n" " ")
 
 **2. Close Bead**
    Transition bead to closed state and record completion comment
 
-   - Run: br update <BEAD_ID> --status=closed
-   - Run: br comment add <BEAD_ID> "status:closed agent:implement-bead-worker orch-branch:<ORCHESTRATED_BRANCH> test:<TEST_RESULT.passed> commit:<WORKER_COMMIT>"
+   - Run: br close <BEAD_ID> --reason="Completed [bead:<BEAD_ID> branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed>]"
+   - Run: br comment add <BEAD_ID> "status:closed agent:implement-bead-worker branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed> commit:<WORKER_COMMIT>"
    - Run: br sync --flush-only
+   - Stage the Beads export: git add .beads/beads.jsonl (or whichever file br sync modified)
+   - Amend to embed bead metadata: git commit --amend --no-edit
+   - Record WORKER_COMMIT_SHA=$(git rev-parse HEAD)
 
 **3. Worker Completion Summary**
    Return structured completion data to the supervisor
 
    - Print worker completion block:
-   -   WORKER_COMPLETE: bead=<BEAD_ID> test-passed=<TEST_RESULT.passed> branch=<ORCHESTRATED_BRANCH or "supervisor-owned">
-   -   Commit: <WORKER_COMMIT>
+   -   WORKER_COMPLETE:
+   -     bead=<BEAD_ID>
+   -     test-passed=<TEST_RESULT.passed>
+   -     test-attempts=<TEST_RESULT.attempts>
+   -     test-framework=<TEST_RESULT.framework>
+   -     branch=<VERIFIED_BRANCH>
+   -     commit-sha=<WORKER_COMMIT_SHA>
+   -     files-changed=<WORKER_FILES_CHANGED>
+   -     validation=<VALIDATION_RESULT>
+   -     commit=<WORKER_COMMIT>
    -   This worker does NOT create PRs. Supervisor (TRD lead) is responsible for PR creation.
 
 ## Expected Output
@@ -133,5 +181,5 @@ only for supervisor orchestration.
 ## Usage
 
 ```
-/ensemble:implement-bead-worker <bead-id> [--branch <branch-name>]
+/ensemble:implement-bead-worker <bead-id> [--branch <branch-name>]  # --branch optional; omit to use current branch
 ```
