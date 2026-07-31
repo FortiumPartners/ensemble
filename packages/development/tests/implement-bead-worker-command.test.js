@@ -23,6 +23,14 @@ describe('implement-bead-worker synthetic failure paths', () => {
     expect(block).toContain('br sync --flush-only');
     expect(block).toContain('HALT');
   });
+  test('test-success: records TEST_RESULT={passed:true,attempts:<actual>,framework:<detected>} before Validate phase', () => {
+    // On test success the worker must record TEST_RESULT so Complete phase interpolations
+    // (TEST_RESULT.passed/attempts/framework) are resolved for the supervisor audit
+    const block = text.match(/If tests pass \(first attempt or after retry\)[\s\S]*?Validate phase/)?.[0] ?? '';
+    expect(block).toContain("Record TEST_RESULT={ passed: true, attempts: <actual>, framework: <detected> }");
+    // Must appear before the Validate phase — success path falls through without HALT
+    expect(text.indexOf("Record TEST_RESULT={ passed: true")).toBeLessThan(text.indexOf('name: Validate'));
+  });
 
   test('test-failure: resets bead to open before HALT so standalone use cannot strand in_progress', () => {
     const block = text.match(/tests still fail after 2 attempts:[\s\S]*?HALT/)?.[0] ?? '';

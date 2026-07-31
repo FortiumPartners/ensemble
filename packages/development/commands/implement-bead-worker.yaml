@@ -121,6 +121,7 @@ workflow:
             - 'Run test suite (npm test, mix test, bundle exec rspec, dotnet test, or detected equivalent)'
             - 'If tests fail: analyse failure output, attempt targeted fixes, re-run tests (max 2 attempts)'
             - 'If tests still fail after 2 attempts: Record TEST_RESULT={ passed: false, attempts: 3, framework: <detected> }; print "WORKER_COMPLETE: bead=<BEAD_ID> test-passed=false test-attempts=3 test-framework=<detected> branch=<VERIFIED_BRANCH> commit-sha=none files-changed=uncommitted validation=test-failed:exhausted-retries commit=none"; print "TEST_FAILURE: test-passed=false bead=<BEAD_ID> — resetting to open, supervisor will handle."; Run: br update <BEAD_ID> --status=open; Run: br comment add <BEAD_ID> "status:open test-failed:exhausted-retries attempts=3 agent:implement-bead-worker"; Run: br sync --flush-only; HALT — do NOT close bead, do NOT amend, do NOT continue to Validate or Complete'
+            - 'If tests pass (first attempt or after retry): Record TEST_RESULT={ passed: true, attempts: <actual>, framework: <detected> }  — must be recorded before Validate phase interpolates TEST_RESULT.passed/attempts/framework'
     - name: Validate
       order: 4
       description: Emit ac-validation or xc-validation tokens for synthetic beads; no-op for regular tasks
