@@ -68,11 +68,11 @@ workflow:
             - 'Parse bead fields: store BEAD_TITLE, BEAD_STATUS, BEAD_TYPE, BEAD_DESCRIPTION'
             - 'If BEAD_STATUS == "closed": print "Bead <BEAD_ID> is already closed." and EXIT'
             - 'Print: "Bead: <BEAD_ID> | Status: <BEAD_STATUS> | Type: <BEAD_TYPE> | Title: <BEAD_TITLE>"'
-            - 'If SYNTHETIC_KIND == "":'
-            - '  Match BEAD_TITLE against case-insensitive regex /\[trd:[^\]]+:task:(AC-\d+(?:-\d+|[A-Z])?)\]/i — if match and captured ID is non-empty: SYNTHETIC_KIND=ac-validation'
-            - '  Else match against /\[trd:[^\]]+:task:(XC-[A-Z0-9]+(?:-[A-Z0-9]+)*)\]/i — if match and captured ID is non-empty: SYNTHETIC_KIND=cross-cutting'
-            - '  Else: SYNTHETIC_KIND=none'
-            - '  If --synthetic flag value is present but title-inferred kind conflicts (e.g. flag says cross-cutting but title has AC segment): print warning and prefer the supervisor-provided flag value'
+            - 'Derive TITLE_SYNTHETIC_KIND: match BEAD_TITLE against /\[trd:[^\]]+:task:(AC-\d+(?:-\d+|[A-Z])?)\]/i — if captured AC_ID non-empty: TITLE_SYNTHETIC_KIND=ac-validation; else match /\[trd:[^\]]+:task:(XC-[A-Z0-9]+(?:-[A-Z0-9]+)*)\]/i — if captured XC_ID non-empty: TITLE_SYNTHETIC_KIND=cross-cutting; else TITLE_SYNTHETIC_KIND=none'
+            - 'If SYNTHETIC_KIND != "" AND SYNTHETIC_KIND != TITLE_SYNTHETIC_KIND: print "ERROR: --synthetic flag (<SYNTHETIC_KIND>) conflicts with title-derived kind (<TITLE_SYNTHETIC_KIND>). Will not proceed." and HALT before any validation'
+            - 'If SYNTHETIC_KIND == "": SYNTHETIC_KIND=TITLE_SYNTHETIC_KIND  (no flag — adopt title inference)'
+            - 'If SYNTHETIC_KIND == "ac-validation" and no AC_ID captured from title: print "ERROR: --synthetic ac-validation but no AC ID in bead title. Cannot emit ac-validation token." and HALT'
+            - 'If SYNTHETIC_KIND == "cross-cutting" and no XC_ID captured from title: print "ERROR: --synthetic cross-cutting but no XC ID in bead title. Cannot emit xc-validation token." and HALT'
 
     - name: Analyse
       order: 2
@@ -120,8 +120,7 @@ workflow:
             - 'Detect test framework from package.json, mix.exs, Gemfile, or *.csproj'
             - 'Run test suite (npm test, mix test, bundle exec rspec, dotnet test, or detected equivalent)'
             - 'If tests fail: analyse failure output, attempt targeted fixes, re-run tests (max 2 attempts)'
-            - 'If tests still fail after 2 attempts: print test failure details and HALT — do not close bead'
-            - 'Record TEST_RESULT: { passed: true|false, attempts: N, framework: <detected> }'
+            - 'If tests still fail after 2 attempts: Record TEST_RESULT={ passed: false, attempts: 3, framework: <detected> }; print "WORKER_COMPLETE: bead=<BEAD_ID> test-passed=false test-attempts=3 test-framework=<detected> branch=<VERIFIED_BRANCH> commit-sha=none files-changed=uncommitted validation=test-failed:exhausted-retries commit=none"; print "TEST_FAILURE: test-passed=false bead=<BEAD_ID> — resetting to open, supervisor will handle."; Run: br update <BEAD_ID> --status=open; Run: br comment add <BEAD_ID> "status:open test-failed:exhausted-retries attempts=3 agent:implement-bead-worker"; Run: br sync --flush-only; HALT — do NOT close bead, do NOT amend, do NOT continue to Validate or Complete'
     - name: Validate
       order: 4
       description: Emit ac-validation or xc-validation tokens for synthetic beads; no-op for regular tasks
@@ -169,8 +168,10 @@ workflow:
           title: Commit Changes
           description: Stage and commit changes on the supervisor-owned branch
           actions:
+            - 'Run: br sync --flush-only  (persist any pending comments — validation tasks may have no product-file changes; the beads export is the authoritative record)'
             - 'Run: git status to review changed files'
-            - 'Stage specific changed files (never use git add . or git add -A)'
+            - 'Stage the Beads export: git add .beads/beads.jsonl (br sync may have modified it)'
+            - 'Stage product changed files: git add <list from git status — never use git add . or git add -A>'
             - 'Generate commit message using conventional commit format: "feat: <BEAD_TITLE> [bead:<BEAD_ID>]" or "fix: <BEAD_TITLE> [bead:<BEAD_ID>]" depending on bead type'
             - 'Run: git commit -m "<message>"'
             - 'Record WORKER_COMMIT=<message>'
@@ -181,7 +182,7 @@ workflow:
           title: Close Bead
           description: Transition bead to closed state and record completion comment
           actions:
-            - 'If SYNTHETIC_KIND in ("ac-validation","cross-cutting") AND VALIDATION_RESULT contains "verdict:not_proven": print "WORKER_COMPLETE: bead=<BEAD_ID> test-passed=<TEST_RESULT.passed> test-attempts=<TEST_RESULT.attempts> test-framework=<TEST_RESULT.framework> branch=<VERIFIED_BRANCH> commit-sha=<WORKER_COMMIT_SHA> files-changed=<WORKER_FILES_CHANGED> validation=<VALIDATION_RESULT> commit=<WORKER_COMMIT>" then print "HALT: Synthetic bead <BEAD_ID> verdict is not_proven — worker halted before close. Supervisor will re-open and handle." and HALT before any state transition; do NOT run br close or write status:closed'
+            - 'If SYNTHETIC_KIND in ("ac-validation","cross-cutting") AND VALIDATION_RESULT contains "verdict:not_proven": Run: br update <BEAD_ID> --status=open; Run: br comment add <BEAD_ID> "verdict:not_proven — <SYNTHETIC_KIND> failed in implement-bead-worker, reset to open"; Run: br sync --flush-only; git add .beads/beads.jsonl; git commit --amend --no-edit; Record WORKER_COMMIT_SHA=$(git rev-parse HEAD); print "WORKER_COMPLETE: bead=<BEAD_ID> test-passed=<TEST_RESULT.passed> test-attempts=<TEST_RESULT.attempts> test-framework=<TEST_RESULT.framework> branch=<VERIFIED_BRANCH> commit-sha=<WORKER_COMMIT_SHA> files-changed=<WORKER_FILES_CHANGED> validation=<VALIDATION_RESULT> commit=<WORKER_COMMIT>"; print "HALT: Synthetic bead <BEAD_ID> verdict not_proven — bead reset to open (worker self-reset; idempotent for TRD audit). Supervisor will handle." and HALT; do NOT run br close or write status:closed'
             - 'Run: br close <BEAD_ID> --reason="Completed [bead:<BEAD_ID> branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed>]"'
             - 'Run: br comment add <BEAD_ID> "status:closed agent:implement-bead-worker branch:<VERIFIED_BRANCH> test:<TEST_RESULT.passed> commit:<WORKER_COMMIT>"'
             - 'Run: br sync --flush-only'
