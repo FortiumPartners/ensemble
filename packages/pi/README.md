@@ -37,7 +37,6 @@ pi install ./packages/pi
 
 All artifact counts reflect the current state after running `npm run generate:pi` from
 the monorepo root.
-
 ## Usage
 
 **Standard (via monorepo root):**
@@ -102,7 +101,6 @@ Ensemble YAML sources (packages/*/commands/*.yaml, agents/*.yaml, skills/)
           v
      Pi artifact output (this package)
 ```
-
 **Transformer responsibilities:**
 
 - **command-transformer** — converts Ensemble YAML `phases`/`steps`/`actions` into Pi
@@ -111,7 +109,6 @@ Ensemble YAML sources (packages/*/commands/*.yaml, agents/*.yaml, skills/)
   Pi-compatible tool lists
 - **skill-copier** — propagates `SKILL.md` files from all packages into `skills/`
 - **agents-md-generator** — extracts the agent mesh overview from `packages/CLAUDE.md`
-
 ## Contributing
 
 Bug reports and feature requests: [https://github.com/FortiumPartners/ensemble/issues](https://github.com/FortiumPartners/ensemble/issues)
