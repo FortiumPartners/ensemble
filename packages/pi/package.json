@@ -5,7 +5,6 @@
   "main": "dist/index.js",
   "files": [
     "dist/",
-    "extensions/",
     "skills/",
     "prompts/",
     "agents/",
@@ -40,7 +39,6 @@
     "url": "https://github.com/FortiumPartners/ensemble/issues"
   },
   "pi": {
-    "extensions": ["./extensions"],
     "skills": ["./skills"],
     "prompts": ["./prompts"],
     "agents": ["./agents"]

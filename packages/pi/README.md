@@ -7,8 +7,7 @@ Pi runtime support — translates Ensemble YAML sources into Pi coding agent art
 `ensemble-pi` is the translation layer between the Ensemble plugin ecosystem and the
 [Pi coding agent](https://github.com/mariozechner/pi). It reads Ensemble YAML command
 definitions, agent manifests, and skill files from the monorepo and emits Pi-compatible
-artifacts: prompt templates, agent definitions, skill directories, an agent mesh reference,
-and a registered `ask_user` extension.
+artifacts: prompt templates, agent definitions, skill directories, and an agent mesh reference.
 
 The generated output lives inside this package and is loaded by Pi at runtime via the
 `pi` manifest field in `package.json`.
@@ -35,7 +34,6 @@ pi install ./packages/pi
 | `agents/` | 28 files | Agent definition markdown (one per Ensemble agent) |
 | `skills/` | 49 directories | Skill documentation copied from all packages |
 | `AGENTS.md` | 1 file | Agent mesh reference extracted from the monorepo |
-| `extensions/ask-user.ts` | 1 file | Registers the `ask_user` tool via Pi `ExtensionAPI` |
 
 All artifact counts reflect the current state after running `npm run generate:pi` from
 the monorepo root.
@@ -99,7 +97,6 @@ Ensemble YAML sources (packages/*/commands/*.yaml, agents/*.yaml, skills/)
     |  agent-transformer     → agents/   |
     |  skill-copier          → skills/   |
     |  agents-md-generator   → AGENTS.md |
-    |  ask-user extension    → extensions/ |
     └────────────────────────────────────┘
           |
           v
@@ -114,8 +111,6 @@ Ensemble YAML sources (packages/*/commands/*.yaml, agents/*.yaml, skills/)
   Pi-compatible tool lists
 - **skill-copier** — propagates `SKILL.md` files from all packages into `skills/`
 - **agents-md-generator** — extracts the agent mesh overview from `packages/CLAUDE.md`
-- **ask-user extension** — registers `ask_user` as a Pi tool via `ExtensionAPI` so
-  agents can prompt users interactively during runs
 
 ## Contributing
 
