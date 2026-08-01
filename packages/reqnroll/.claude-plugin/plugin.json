@@ -1,0 +1,26 @@
+{
+  "name": "ensemble-reqnroll",
+  "version": "1.0.0",
+  "description": "Reqnroll + xUnit BDD bindings: fill PRD-generated step definitions test-first",
+  "author": {
+    "name": "Fortium Partners",
+    "email": "support@fortiumpartners.com",
+    "url": "https://github.com/FortiumPartners"
+  },
+  "repository": "https://github.com/FortiumPartners/ensemble",
+  "license": "MIT",
+  "keywords": [
+    "reqnroll",
+    "bdd",
+    "gherkin",
+    "xunit",
+    "dotnet",
+    "testing",
+    "ensemble"
+  ],
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": [
+    "./agents/reqnroll-binding-specialist.md"
+  ]
+}

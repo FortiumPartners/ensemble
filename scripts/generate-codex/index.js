@@ -15,7 +15,7 @@ const DEFAULT_MODEL = 'gpt-5.1-codex';
 // Codex targets OpenAI models, so any Anthropic-family tier alias coming from
 // the source frontmatter (opus/sonnet/haiku) maps to the OpenAI DEFAULT_MODEL.
 const ANTHROPIC_ALIASES = new Set(['opus', 'sonnet', 'haiku']);
-const AVAILABLE_SKILLS = new Set(['react', 'nestjs', 'rails', 'phoenix', 'blazor', 'jest', 'pytest', 'rspec', 'xunit', 'exunit']);
+const AVAILABLE_SKILLS = new Set(['react', 'nestjs', 'rails', 'phoenix', 'blazor', 'jest', 'pytest', 'rspec', 'xunit', 'exunit', 'reqnroll']);
 const FRAMEWORK_SKILL_REWRITES = [
   [/skills\/nestjs-framework\//g, '.codex/skills/nestjs/'],
   [/skills\/phoenix-framework\//g, '.codex/skills/phoenix/'],
@@ -207,6 +207,7 @@ function detectAgentSkills(name, content) {
   if (contentMentions(['rspec'])) skills.add('rspec');
   if (contentMentions(['xunit'])) skills.add('xunit');
   if (contentMentions(['exunit'])) skills.add('exunit');
+  if (contentMentions(['reqnroll'])) skills.add('reqnroll');
 
   if (lowerName.includes('test') || lowerName.includes('debug') || lowerName.includes('review')) {
     ['jest', 'pytest', 'rspec', 'xunit', 'exunit'].forEach((skill) => skills.add(skill));
@@ -240,6 +241,29 @@ function copyFrameworkSkills({ dryRun, verbose }) {
     count += 1;
   }
 
+
+  const reqnrollSkillFile = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'SKILL.md');
+  if (fs.existsSync(reqnrollSkillFile)) {
+    const packageName = 'reqnroll';
+    const dest = path.join(OUTPUT_DIR, 'skills', packageName, 'SKILL.md');
+    const raw = readFile(reqnrollSkillFile);
+    const parsed = parseFrontmatter(raw);
+    const frontmatter = Object.keys(parsed.data).length > 0
+      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
+      : {
+          name: packageName,
+          description: firstMeaningfulLine(parsed.content),
+          'user-invocable': true,
+        };
+
+    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
+
+    const referencePath = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'REFERENCE.md');
+    if (fs.existsSync(referencePath)) {
+      writeFile(path.join(OUTPUT_DIR, 'skills', packageName, 'REFERENCE.md'), `${normalizeSkillBody(readFile(referencePath))}\n`, dryRun, verbose);
+    }
+    count += 1;
+  }
   return count;
 }
 

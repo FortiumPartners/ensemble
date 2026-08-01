@@ -145,6 +145,7 @@ Update or create the dependency map section if dependency gaps were selected.
    Save the refined PRD with updated metadata and changelog
 
    - Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1, 1.2.3 -> 1.2.4)
+   - Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate or renumber them on refine (downstream artifacts correlate by the micro UUID id)
    - Update the PRD Health summary: recalculate requirement counts by priority, AC coverage percentage, risk flag count, dependency count
    - Add changelog entry at the bottom of the PRD: date, version, list of changes made during this refinement
    - Save the updated PRD to the same file path (overwrite the original)
