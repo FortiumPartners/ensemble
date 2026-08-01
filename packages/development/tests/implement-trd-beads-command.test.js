@@ -120,8 +120,9 @@ describe('implement-trd-beads branch-intent flags', () => {
 
   test('interactive path pre-ask gate handles both USE_CURRENT_BRANCH_REQUESTED and BRANCH_REQUESTED', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toMatch(/USE_CURRENT_BRANCH_REQUESTED=true AND INTERACTIVE=true.*skip AskUserQuestion/);
-    expect(text).toMatch(/BRANCH_REQUESTED is set AND INTERACTIVE=true.*set branch_name=<BRANCH_REQUESTED>.*skip AskUserQuestion/);
+    // Both flags appear in the combined INTERACTIVE=true AND (...) OR block, each setting branch_name and skipping AskUserQuestion
+    expect(text).toMatch(/USE_CURRENT_BRANCH_REQUESTED=true.*skip AskUserQuestion/s);
+    expect(text).toMatch(/BRANCH_REQUESTED is set.*set branch_name=<BRANCH_REQUESTED>.*skip AskUserQuestion/s);
   });
 
   test('AskUserQuestion only fires when NEITHER flag is set', () => {
@@ -233,7 +234,7 @@ describe('implement-trd-beads branch-intent flags', () => {
       fbBlock.lastIndexOf('INTERACTIVE=true', askIdx),
       askIdx
     );
-    expect(guardSlice).toMatch(/BRANCH_RESOLVED_BY_AUTO_DETECT != true/);
+    expect(guardSlice).toMatch(/BRANCH_RESOLVED_BY_AUTO_DETECT is not true/);
   });
 
   test('explicit --branch and --use-current-branch are checked BEFORE BRANCH_RESOLVED_BY_AUTO_DETECT in non-interactive path', () => {
@@ -255,12 +256,12 @@ describe('implement-trd-beads branch-intent flags', () => {
     const fbStart = text.indexOf('title: Feature Branch Creation');
     const mpStart = text.indexOf('title: Marketplace Preflight Check');
     const fbBlock = text.slice(fbStart, mpStart);
-    const flagUseCurrentIdx = fbBlock.indexOf('USE_CURRENT_BRANCH_REQUESTED=true AND INTERACTIVE=true');
-    const flagBranchIdx = fbBlock.indexOf('BRANCH_REQUESTED is set AND INTERACTIVE=true');
-    const askGuardIdx = fbBlock.indexOf('BRANCH_RESOLVED_BY_AUTO_DETECT != true');
-    expect(flagUseCurrentIdx).toBeGreaterThan(-1);
-    expect(flagBranchIdx).toBeGreaterThan(flagUseCurrentIdx);
-    expect(askGuardIdx).toBeGreaterThan(flagBranchIdx);
+    // New combined condition: all three flags are handled in one OR block before AskUserQuestion
+    const combinedIdx = fbBlock.indexOf('INTERACTIVE=true AND (USE_CURRENT_BRANCH_REQUESTED=true OR BRANCH_REQUESTED is set OR BRANCH_RESOLVED_BY_AUTO_DETECT=true)');
+    expect(combinedIdx).toBeGreaterThan(-1);
+    // The AskUserQuestion call comes AFTER the combined guard block
+    const askIdx = fbBlock.indexOf('Call AskUserQuestion');
+    expect(askIdx).toBeGreaterThan(combinedIdx);
   });
 
   test('auto-detected branch flows through reuse-mode PR_ACTIONS normalization', () => {
@@ -273,5 +274,113 @@ describe('implement-trd-beads branch-intent flags', () => {
     const autoDetectIdx = fbBlock.indexOf('TRD Branch Auto-Detection');
     expect(autoDetectIdx).toBeGreaterThan(-1);
     expect(reuseTransformIdx).toBeGreaterThan(autoDetectIdx);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// runChoicesRead / runChoicesWrite — trd-cli.js unit tests
+// ─────────────────────────────────────────────────────────────────────────────
+const { runChoicesRead, runChoicesWrite } = require('../lib/trd-cli.js');
+const os = require('os');
+
+describe('runChoicesRead / runChoicesWrite', () => {
+  const trdWithFrontmatter = [
+    '---',
+    'title: Test TRD',
+    'ensemble_implement_trd_beads:',
+    '  branch_name: feature/previous-branch',
+    '  use_proposed: true',
+    '  stacked_prs: false',
+    '---',
+    '',
+    '# Test content',
+    '',
+  ].join('\n');
+
+  const trdNoBlock = [
+    '---',
+    'title: Test TRD',
+    '---',
+    '',
+    '# Test content',
+    '',
+  ].join('\n');
+
+  test('read: returns empty choices when no ensemble_implement_trd_beads block exists', () => {
+    const tmp = path.join(os.tmpdir(), `trd-no-block-${Date.now()}.md`);
+    fs.writeFileSync(tmp, trdNoBlock);
+    try {
+      const result = runChoicesRead([tmp]);
+      expect(result.ok).toBe(true);
+      expect(result.choices.branch_name).toBe('');
+      expect(result.choices.use_proposed).toBe(false);
+      expect(result.choices.stacked_prs).toBe(false);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  });
+
+  test('read: parses existing block correctly', () => {
+    const tmp = path.join(os.tmpdir(), `trd-with-block-${Date.now()}.md`);
+    fs.writeFileSync(tmp, trdWithFrontmatter);
+    try {
+      const result = runChoicesRead([tmp]);
+      expect(result.ok).toBe(true);
+      expect(result.choices.branch_name).toBe('feature/previous-branch');
+      expect(result.choices.use_proposed).toBe(true);
+      expect(result.choices.stacked_prs).toBe(false);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  });
+
+  test('write: creates block when none exists', () => {
+    const tmp = path.join(os.tmpdir(), `trd-write-new-${Date.now()}.md`);
+    fs.writeFileSync(tmp, trdNoBlock);
+    try {
+      const result = runChoicesWrite([tmp, '--branch-name', 'feature/new-branch', '--use-proposed', '--stacked-prs']);
+      expect(result.ok).toBe(true);
+      const written = fs.readFileSync(tmp, 'utf8');
+      expect(written).toMatch(/^ensemble_implement_trd_beads:/m);
+      expect(written).toMatch(/^  branch_name: feature\/new-branch$/m);
+      expect(written).toMatch(/^  use_proposed: true$/m);
+      expect(written).toMatch(/^  stacked_prs: true$/m);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  });
+
+  test('write: replaces existing block — top-level key (not indented), boolean flags truthy', () => {
+    const tmp = path.join(os.tmpdir(), `trd-write-replace-${Date.now()}.md`);
+    fs.writeFileSync(tmp, trdWithFrontmatter);
+    try {
+      runChoicesWrite([tmp, '--branch-name', 'feature/replaced', '--use-proposed']);
+      const written = fs.readFileSync(tmp, 'utf8');
+      // Top-level key check (not indented with 2 spaces)
+      expect(written).toMatch(/^ensemble_implement_trd_beads:/m);
+      // Previous values gone
+      expect(written).not.toMatch(/^  branch_name: feature\/previous-branch$/m);
+      expect(written).toMatch(/^  branch_name: feature\/replaced$/m);
+      expect(written).toMatch(/^  use_proposed: true$/m);
+      expect(written).toMatch(/^  stacked_prs: false$/m); // was false, not toggled
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  });
+
+  test('write + read: round-trip with space-separated --branch-name flag', () => {
+    const tmp = path.join(os.tmpdir(), `trd-roundtrip-${Date.now()}.md`);
+    fs.writeFileSync(tmp, trdNoBlock);
+    try {
+      const writeResult = runChoicesWrite([tmp, '--branch-name', 'feature/roundtrip', '--stacked-prs']);
+      expect(writeResult.ok).toBe(true);
+      const readResult = runChoicesRead([tmp]);
+      expect(readResult.ok).toBe(true);
+      expect(readResult.choices.branch_name).toBe('feature/roundtrip');
+      expect(readResult.choices.use_proposed).toBe(false);
+      expect(readResult.choices.stacked_prs).toBe(true);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
   });
 });
