@@ -2,7 +2,7 @@
 name: ensemble-implement-trd-beads
 description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability (Codex skill for /ensemble:implement-trd-beads)
 user-invocable: true
-argument-hint: '[trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]'
+argument-hint: '[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [max parallel N]'
 model: gpt-5.1-codex
 ---
 
@@ -48,7 +48,7 @@ Key behaviors:
    - Parse $ARGUMENTS for .md paths. Initialize COMBINED_WORKSTREAM_MODE=false before branching. If two or more TRD paths are present without '--workstream' or '--legacy-multi': print 'ERROR: Multiple TRDs passed directly. Direct multi-TRD execution is deprecated because it can lose fidelity across parser/runtime merge boundaries. Run /ensemble:create-workstream-trd <trd1> <trd2> ... then /ensemble:implement-trd-beads <generated-workstream-trd>, or rerun with --workstream to generate first.' and HALT before any br/git/scaffold side effects. If two or more TRD paths are present with '--workstream': resolve TRD_CLI and run node "$TRD_CLI" create-workstream-trd <TRD_PATHS...>; parse {ok,path}. If ok is false or JSON malformed, print errors and HALT. Replace TRD path list with the generated single workstream TRD path and continue normal single-TRD behavior. If two or more TRD paths are present with '--legacy-multi': set COMBINED_WORKSTREAM_MODE=true, set SOURCE_TRD_PATHS to the ordered path list, print 'DEPRECATED: direct multi-TRD mode; prefer /ensemble:create-workstream-trd then implement the generated workstream TRD', and list every source TRD. If exactly one TRD path is present: keep COMBINED_WORKSTREAM_MODE=false and preserve existing single-TRD behavior exactly. If zero TRD paths are present: keep COMBINED_WORKSTREAM_MODE=false and defer to normal single-TRD selection in Preflight step 4.
    - If $ARGUMENTS contains '--plan': set PLAN_ONLY=true (scaffold phase runs, Execute phase is skipped — print wheel instructions and exit after scaffold completes)
    - If $ARGUMENTS contains '--execute': set EXECUTE_ONLY=true (scaffold phase is skipped — resume detection runs, Execute phase runs against existing beads)
-   - Read ENSEMBLE_USE_STACKED_PRS environment variable: if its value equals 'true' (case-insensitive) set STACKED_PRS=true; otherwise set STACKED_PRS=false (DEFAULT — single PR for the entire TRD). STACKED_PRS governs PR-creation strategy only: true = one stacked PR per ### PR N: section via a git town append chain; false = all phases implemented on a single branch with ONE PR created at Completion. Phase-strict execution ordering (finish phase N before phase N+1) applies in BOTH modes when PR_FORMAT=true. Log: 'Stacked PRs: <enabled if STACKED_PRS else disabled (single PR)>'.
+   - If $ARGUMENTS contains '--use-current-branch': set USE_CURRENT_BRANCH_REQUESTED=true; if $ARGUMENTS also contains '--branch=<name>': print 'ERROR: --use-current-branch and --branch=<name> are mutually exclusive.' and HALT before any git side effects. If flag absent: set USE_CURRENT_BRANCH_REQUESTED=false. If $ARGUMENTS contains '--branch=<name>': extract the branch name after '=' and store it as BRANCH_REQUESTED; if --use-current-branch is also present this is already caught and HALTed above.
    - If $ARGUMENTS contains '--status' AND TEAM_MODE=true: (TRD-029, AC: FR-IT-8, AC-BC-2)
    -   1. Derive TRD_SLUG from filename (same derivation as normal Preflight step 4)
    -   2. Run: br list --status=in_progress --json, filter by [trd:<TRD_SLUG>:task:] prefix
@@ -157,26 +157,18 @@ Key behaviors:
 Algorithm defined in packages/development/skills/staleness-gate/SKILL.md.
 
 
-   - If resume was detected in Preflight step 6 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to step 8.
+   - If resume was detected in Preflight step 6 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to Preflight step 8 (Strategy Detection).
    - If first invocation (IS_RESUME=false / no ROOT_EPIC_ID found in step 6): execute the TRD Staleness Gate per packages/development/skills/staleness-gate/SKILL.md using TRD_PATH from Preflight step 4 and IS_RESUME=false.
    - On HALT from skill: do not proceed. Implementation stops.
-   - On RETURN from skill (TRD fresh or successfully refined): continue to Preflight step 8 (Feature Branch Creation).
+   - On RETURN from skill (TRD fresh or successfully refined): continue to Preflight step 8 (Strategy Detection).
 
-**8. Feature Branch Creation**
-   Create or switch to feature branch for TRD implementation
-
-   - Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {ok, stacked, prFormat, branchFirst, actions}. If ok is false or the process exits non-zero: print the error and HALT (do NOT continue with an undefined branch name or PR plan). Set STACKED_PRS=stacked, branch_name=branchFirst, CURRENT_PHASE_BRANCH=branch_name, PHASE_BRANCH_MAP={1:branch_name}, PHASE_PR_MAP={}, and store PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
-   - Run: git branch --list <branch_name>
-   - If exists: git switch <branch_name>
-   - If not exists: git town hack <branch_name> (fallback: git switch -c <branch_name>)
-
-**9. Strategy Detection**
+**8. Strategy Detection**
    Determine implementation strategy from arguments, TRD content, or auto-detection
 
    - Priority: $ARGUMENTS strategy=X -> TRD explicit -> constitution -> auto-detect -> default (tdd)
    - Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
 
-**10. Team Configuration Detection**
+**9. Team Configuration Detection**
    Determine team mode using precedence order: (1) TRD ## Team Configuration section,
 (2) command YAML team: section, (3) no team (single-agent). Sets TEAM_MODE,
 TEAM_CONFIG_SOURCE, TEAM_ROLES, REVIEWER_ENABLED, and QA_ENABLED for all subsequent
@@ -270,9 +262,28 @@ FR-5.1, FR-5.2, FR-5.3, FR-5.4, FR-5.5, FR-5.6, NFR-1.3, NFR-4.2
    -   - Identical to Case 3
    - Record which steps are skipped in the team configuration summary printed during this Preflight step.
 
+**10. Feature Branch Creation**
+   Create or switch to feature branch for TRD implementation
+
+   - Run: node "$TRD_CLI" pr-plan "<TRD_FILE_PATH>"$( [ "$ENSEMBLE_USE_STACKED_PRS" = true ] && echo ' --stacked' ). Parse {ok, stacked, prFormat, branchFirst, actions}. If ok is false or the process exits non-zero: print the error and HALT (do NOT continue with an undefined branch name or PR plan). Set STACKED_PRS=stacked, PR_ACTIONS=actions (used by the quality gate for per-phase propose/append and by Completion for the single-PR case).
+   - Run: git branch --show-current and store the result as CURRENT_BRANCH_NAME (empty string if detached HEAD).
+   - Detect AskUserQuestion availability: set INTERACTIVE=true if available, INTERACTIVE=false otherwise.
+   - In non-interactive mode (INTERACTIVE=false): if --branch=<name> is present in arguments: set branch_name=<BRANCH_REQUESTED>, USE_PROPOSED=false, print 'Branch intent: <BRANCH_REQUESTED> (from --branch argument)'. Else if USE_CURRENT_BRANCH_REQUESTED=true: if CURRENT_BRANCH_NAME is empty: print 'ERROR: --use-current-branch requires a current branch (detached HEAD state). Switch to a branch first, or use --branch=<name> to specify a branch.' and HALT. Otherwise: set branch_name=<CURRENT_BRANCH_NAME>, USE_PROPOSED=false, print 'Branch intent: <CURRENT_BRANCH_NAME> (from --use-current-branch)'. Else: print 'EXECUTION PLAN (non-interactive — branch intent required): ═══════════════════════════════════════════════ EXECUTION PLAN ═══════════════════════════════════════════════ TRD:             <TRD_FILE_PATH> Mode:            <PLAN_ONLY ? 'Plan only' : EXECUTE_ONLY ? 'Execute only' : 'Full'> Proposed branch:  <branchFirst> Current branch:  <CURRENT_BRANCH_NAME or '(none / detached)'> PR topology:     <STACKED_PRS ? 'Stacked (one PR per phase)' : 'Single PR (all phases on one branch)'> ═══════════════════════════════════════════════ ERROR: Branch intent required in non-interactive mode. Pass --branch=<name> or --use-current-branch to specify the target branch, or run interactively.' and HALT.
+   - In interactive mode (INTERACTIVE=true): set BRANCH_OPTIONS=[{label:'Use proposed branch',description:'Use pr-plan generated branch: <branchFirst> (creates via git town hack if needed)',preview:'Proposed: <branchFirst>'},{label:'Specify existing branch',description:'Enter an existing branch name to switch to before implementation',preview:'Existing branch'},{label:'Abort',description:'Stop without any git side effects',preview:'Abort'}].
+   - If INTERACTIVE=true AND CURRENT_BRANCH_NAME != '': append to BRANCH_OPTIONS: {label:'Use current branch',description:'Work on already-checked-out branch: <CURRENT_BRANCH_NAME> — no new branch created',preview:'Current: <CURRENT_BRANCH_NAME>'}.
+   - Print the proposed execution plan BEFORE asking (shows recommendation so user can make an informed choice): ═══════════════════════════════════════════════ EXECUTION PLAN (proposed) ═══════════════════════════════════════════════ TRD:             <TRD_FILE_PATH> Mode:            <PLAN_ONLY ? 'Plan only' : EXECUTE_ONLY ? 'Execute only' : 'Full'> Strategy:        <STRATEGY> Team mode:       <TEAM_MODE ? 'Multi-agent' : 'Single-agent'> Proposed branch:  <branchFirst> Current branch:  <CURRENT_BRANCH_NAME or '(none / detached)'> PR topology:     <STACKED_PRS ? 'Stacked (one PR per phase)' : 'Single PR (all phases on one branch)'> ═══════════════════════════════════════════════
+   - If USE_CURRENT_BRANCH_REQUESTED=true AND INTERACTIVE=true: if CURRENT_BRANCH_NAME is empty: print 'ERROR: --use-current-branch requires a current branch (detached HEAD state). Switch to a branch first, or use --branch=<name> to specify a branch.' and HALT. Otherwise: set branch_name=<CURRENT_BRANCH_NAME>, USE_PROPOSED=false, print 'Branch intent: <CURRENT_BRANCH_NAME> (from --use-current-branch flag)' and skip AskUserQuestion. If BRANCH_REQUESTED is set AND INTERACTIVE=true: set branch_name=<BRANCH_REQUESTED>, USE_PROPOSED=false, print 'Branch intent: <BRANCH_REQUESTED> (from --branch argument)' and skip AskUserQuestion.
+   - If INTERACTIVE=true AND USE_CURRENT_BRANCH_REQUESTED=false AND BRANCH_REQUESTED is not set: Call AskUserQuestion with id='branch_intent', question='Which branch should this TRD implementation use?', options=BRANCH_OPTIONS, multi=false, recommended=0. Parse answer id. If answer='abort': print 'Aborted — no git side effects.' and HALT. If answer='use_proposed': set USE_PROPOSED=true. If answer='use_current': set USE_PROPOSED=false, branch_name=<CURRENT_BRANCH_NAME>. If answer='specify_existing': ask a followup with id='branch_name' question='Enter the existing branch name:' options=[], multi=false. Parse freeform answer as branch_name, set USE_PROPOSED=false.
+   - If USE_PROPOSED=false (current or specified branch): print 'Branch intent: reuse mode — single-branch plan.' Transform PR_ACTIONS for single-branch operation: for every gate/append entry, set branch=<branch_name>, clear parentBranch, clear appendNextBranch, set createPr=false. For the completion entry: rebuild it as {kind:'completion', createPr:true, branch:<branch_name>, proposeTitle:'Implement <TRD_SLUG> (<TRD_FILE_PATH basename>)', summaryKind:'single', parentBranch:'', appendNextBranch:''}. Set STACKED_PRS=false, CURRENT_PHASE_BRANCH=<branch_name>, PHASE_BRANCH_MAP={1:<branch_name>}, PHASE_PR_MAP={}.
+   - If USE_PROPOSED=true: set branch_name=<branchFirst>, CURRENT_PHASE_BRANCH=<branchFirst>, PHASE_BRANCH_MAP={1:<branchFirst>}, PHASE_PR_MAP={}. Print 'Branch intent: use proposed branch <branch_name>'.
+   - Print the final execution plan AFTER the user's choice is resolved and intent is normalized: ═══════════════════════════════════════════════ EXECUTION PLAN (confirmed) ═══════════════════════════════════════════════ TRD:             <TRD_FILE_PATH> Mode:            <PLAN_ONLY ? 'Plan only' : EXECUTE_ONLY ? 'Execute only' : 'Full'> Strategy:        <STRATEGY> Team mode:       <TEAM_MODE ? 'Multi-agent' : 'Single-agent'> Proposed branch:  <branchFirst> Current branch:  <CURRENT_BRANCH_NAME or '(none / detached)'> PR topology:     <STACKED_PRS ? 'Stacked (one PR per phase)' : 'Single PR (all phases on one branch)'> Selected branch: <USE_PROPOSED ? branchFirst : branch_name> ═══════════════════════════════════════════════
+   - If USE_PROPOSED=true: Run: git branch --list <branch_name>. If exists: git switch <branch_name>. If not exists: git town hack <branch_name>.
+   - If USE_PROPOSED=false: Run: git branch --list <branch_name>. If exists: git switch <branch_name>. If not exists: print 'ERROR: Branch <branch_name> does not exist. Switch to an existing branch before running, or choose 'Use proposed branch' to create a new one.' and HALT.
+
 **11. Marketplace Preflight Check**
    Before execution begins, check for marketplace capability gaps that may affect team
 config quality. Presents suggestions for missing agents/skills and installs approved
+
 plugins. Re-reads team config from TRD after installation if agents referenced in TRD
 team config are now available. AC: FR-11.1 through FR-11.6, AC-8.1 through AC-8.6
 
@@ -1275,5 +1286,5 @@ Skipped if TRD has no [satisfies] annotations (legacy TRD without traceability).
 ## Usage
 
 ```
-/ensemble:implement-trd-beads [trd-path] [--plan] [--execute] [--status] [--reset-task TRD-XXX] [max parallel N]
+/ensemble:implement-trd-beads [trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [max parallel N]
 ```
