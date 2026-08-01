@@ -383,4 +383,34 @@ describe('runChoicesRead / runChoicesWrite', () => {
       fs.unlinkSync(tmp);
     }
   });
+
+  test('read: branch_name outside the ensemble_implement_trd_beads block is NOT parsed (block is authoritative)', () => {
+    // TRD has branch_name both inside AND outside the choices block
+    const text = [
+      '---',
+      'title: Test TRD',
+      'ensemble_implement_trd_beads:',
+      '  branch_name: feature/saved-choice',
+      '  use_proposed: true',
+      '  stacked_prs: false',
+      'owner: alice',
+      'branch_name: feature/outside-block',
+      '---',
+      '',
+      '# Test content',
+      '',
+    ].join('\n');
+    const tmp = path.join(os.tmpdir(), `trd-outside-block-${Date.now()}.md`);
+    fs.writeFileSync(tmp, text);
+    try {
+      const result = runChoicesRead([tmp]);
+      expect(result.ok).toBe(true);
+      // Must read from inside the block, NOT from the top-level branch_name
+      expect(result.choices.branch_name).toBe('feature/saved-choice');
+      expect(result.choices.use_proposed).toBe(true);
+      expect(result.choices.stacked_prs).toBe(false);
+    } finally {
+      fs.unlinkSync(tmp);
+    }
+  });
 });

@@ -415,19 +415,9 @@ function runChoicesRead(argv) {
     }
     if (inBlock) {
       const trimmed = line.trim();
-      // End of block: un-indented non-empty line — exit block but re-process this line
+      // End of block: un-indented non-empty line — stop parsing choices
       if (trimmed !== '' && !line.startsWith(' ') && !line.startsWith('\t')) {
-        inBlock = false;
-        // Re-process this line as a top-level key
-        const colonIdx = trimmed.indexOf(':');
-        if (colonIdx > 0) {
-          const key = trimmed.slice(0, colonIdx).trim();
-          const val = trimmed.slice(colonIdx + 1).trim();
-          if (key === 'branch_name') branchName = val.replace(/^['"]|['"]$/g, '');
-          else if (key === 'use_proposed') useProposed = val === 'true';
-          else if (key === 'stacked_prs') stackedPrs = val === 'true';
-        }
-        continue;
+        break; // do NOT re-process as top-level — block is authoritative
       }
       // Indented child line — parse key:value
       const colonIdx = trimmed.indexOf(':');
