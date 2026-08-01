@@ -2,8 +2,7 @@
  * TRD-002-TEST: Pi install and manifest discovery
  *
  * Validates that the pi package has correct manifest structure:
- *   - package.json has a `pi` field pointing to ./extensions, ./skills,
- *     ./prompts, and ./agents
+ *   - package.json has a `pi` field pointing to ./skills, ./prompts, and ./agents
  *   - .claude-plugin/plugin.json exists with name "ensemble-pi"
  *   - Version is consistent between package.json and plugin.json
  *   - Required directories (skills/, prompts/, agents/) exist and are populated
@@ -38,12 +37,6 @@ describe('package.json pi field', () => {
   test('package.json has a pi field', () => {
     expect(packageJson).toHaveProperty('pi');
     expect(typeof packageJson['pi']).toBe('object');
-  });
-
-  test('pi.extensions includes "./extensions"', () => {
-    const pi = packageJson['pi'] as Record<string, unknown>;
-    expect(Array.isArray(pi['extensions'])).toBe(true);
-    expect(pi['extensions']).toContain('./extensions');
   });
 
   test('pi.skills includes "./skills"', () => {
