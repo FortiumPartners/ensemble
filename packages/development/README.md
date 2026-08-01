@@ -39,7 +39,7 @@ After installation, this plugin's agents, commands, and skills will be automatic
 Single-TRD invocation keeps the existing behavior:
 
 ```bash
-# Plan/scaffold — branch intent required (--branch OR --use-current-branch)
+# Plan/scaffold — branch intent resolved automatically from TRD slug or explicit flag
 /ensemble:implement-trd-beads docs/TRD/TRD-2026-001-feature.md --plan --use-current-branch
 
 # Execute an existing scaffold
@@ -59,7 +59,7 @@ Passing two or more TRD paths activates combined workstream mode:
 /ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --status
 ```
 
-> **Note:** `--branch=<name>` and `--use-current-branch` are mutually exclusive. `--branch=<name>` requires the branch to already exist (switches to it with `git switch`); `--use-current-branch` works on the currently checked-out branch. In non-interactive (script/CI) mode, branch intent is required — the workflow halts if neither flag is present. In interactive mode, you are prompted for branch intent if both flags are absent.
+> **Note:** `--branch=<name>` and `--use-current-branch` are mutually exclusive. `--branch=<name>` requires the branch to already exist (switches to it with `git switch`); `--use-current-branch` works on the currently checked-out branch. When neither flag is provided, the workflow auto-detects a matching local branch by TRD slug (e.g., `feature/<slug>`). If exactly one local branch matches, it is reused automatically. If multiple local branches match, a warning is printed and the workflow falls through to normal branch-intent handling (prompt if interactive, halt if non-interactive). In non-interactive mode with no match, the workflow halts requiring an explicit flag.
 
 Combined workstream mode:
 

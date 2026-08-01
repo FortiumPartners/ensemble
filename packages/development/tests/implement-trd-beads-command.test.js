@@ -181,4 +181,97 @@ describe('implement-trd-beads branch-intent flags', () => {
     const postPlanGitSwitch = fbBlock.indexOf('If USE_PROPOSED=true: Run: git branch --list');
     expect(noIntentHalt).toBeLessThan(postPlanGitSwitch);
   });
+  test('TRD slug auto-detection action present after pr-plan and current-branch read', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    // pr-plan action uses escaped quotes in YAML: node \"$TRD_CLI\" pr-plan
+    const prPlanIdx = fbBlock.indexOf('Run: node \\"$TRD_CLI\\" pr-plan');
+    const showCurrentIdx = fbBlock.indexOf('git branch --show-current');
+    const autoDetectIdx = fbBlock.indexOf('TRD Branch Auto-Detection');
+    const interactiveDetectIdx = fbBlock.indexOf('Detect AskUserQuestion availability');
+    expect(prPlanIdx).toBeGreaterThan(-1);
+    expect(showCurrentIdx).toBeGreaterThan(prPlanIdx);
+    expect(autoDetectIdx).toBeGreaterThan(showCurrentIdx);
+    expect(interactiveDetectIdx).toBeGreaterThan(autoDetectIdx);
+    // Auto-detection scans only local refs/heads/ (no remotes)
+    const autoDetectBlock = fbBlock.slice(autoDetectIdx, interactiveDetectIdx);
+    expect(autoDetectBlock).toMatch(/refs\/heads\//);
+    expect(autoDetectBlock).toMatch(/BRANCH_RESOLVED_BY_AUTO_DETECT=true/);
+    expect(autoDetectBlock).toMatch(/USE_PROPOSED=false/);
+    // Guard: only runs when no explicit flag was set
+    expect(autoDetectBlock).toMatch(/USE_CURRENT_BRANCH_REQUESTED != true/);
+    expect(autoDetectBlock).toMatch(/BRANCH_REQUESTED is not set/);
+    // Ambiguity: multiple local matches must NOT guess — must print warning and fall through
+    expect(autoDetectBlock).toMatch(/MATCHES\.length\s*==\s*1/);
+    expect(autoDetectBlock).toMatch(/MATCHES\.length\s*>=\s*2.*WARNING.*Multiple local branches match/);
+  });
+
+  test('non-interactive no-flags HALT path is escaped by BRANCH_RESOLVED_BY_AUTO_DETECT', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    const nonInteractiveIdx = fbBlock.indexOf('In non-interactive mode (INTERACTIVE=false)');
+    expect(nonInteractiveIdx).toBeGreaterThan(-1);
+    const noFlagHaltIdx = fbBlock.indexOf('Branch intent required in non-interactive mode', nonInteractiveIdx);
+    expect(noFlagHaltIdx).toBeGreaterThan(nonInteractiveIdx);
+    // Between the start of non-interactive block and the HALT, BRANCH_RESOLVED_BY_AUTO_DETECT must appear
+    const slice = fbBlock.slice(nonInteractiveIdx, noFlagHaltIdx);
+    expect(slice).toMatch(/BRANCH_RESOLVED_BY_AUTO_DETECT=true/);
+  });
+
+  test('AskUserQuestion guard escapes when BRANCH_RESOLVED_BY_AUTO_DETECT=true', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    const askIdx = fbBlock.indexOf('Call AskUserQuestion');
+    expect(askIdx).toBeGreaterThan(-1);
+    const guardSlice = fbBlock.slice(
+      fbBlock.lastIndexOf('INTERACTIVE=true', askIdx),
+      askIdx
+    );
+    expect(guardSlice).toMatch(/BRANCH_RESOLVED_BY_AUTO_DETECT != true/);
+  });
+
+  test('explicit --branch and --use-current-branch are checked BEFORE BRANCH_RESOLVED_BY_AUTO_DETECT in non-interactive path', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    const nonInteractiveIdx = fbBlock.indexOf('In non-interactive mode (INTERACTIVE=false)');
+    const flagBranchIdx = fbBlock.indexOf('--branch=<name> is present', nonInteractiveIdx);
+    const flagUseCurrentIdx = fbBlock.indexOf('USE_CURRENT_BRANCH_REQUESTED=true', nonInteractiveIdx);
+    const autoDetectBranchIdx = fbBlock.indexOf('BRANCH_RESOLVED_BY_AUTO_DETECT=true', nonInteractiveIdx);
+    expect(flagBranchIdx).toBeGreaterThan(nonInteractiveIdx);
+    expect(flagUseCurrentIdx).toBeGreaterThan(flagBranchIdx);
+    expect(autoDetectBranchIdx).toBeGreaterThan(flagUseCurrentIdx);
+  });
+
+  test('explicit --branch and --use-current-branch are checked BEFORE BRANCH_RESOLVED_BY_AUTO_DETECT in interactive path', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    const flagUseCurrentIdx = fbBlock.indexOf('USE_CURRENT_BRANCH_REQUESTED=true AND INTERACTIVE=true');
+    const flagBranchIdx = fbBlock.indexOf('BRANCH_REQUESTED is set AND INTERACTIVE=true');
+    const askGuardIdx = fbBlock.indexOf('BRANCH_RESOLVED_BY_AUTO_DETECT != true');
+    expect(flagUseCurrentIdx).toBeGreaterThan(-1);
+    expect(flagBranchIdx).toBeGreaterThan(flagUseCurrentIdx);
+    expect(askGuardIdx).toBeGreaterThan(flagBranchIdx);
+  });
+
+  test('auto-detected branch flows through reuse-mode PR_ACTIONS normalization', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const fbStart = text.indexOf('title: Feature Branch Creation');
+    const mpStart = text.indexOf('title: Marketplace Preflight Check');
+    const fbBlock = text.slice(fbStart, mpStart);
+    // The reuse-mode transform sets STACKED_PRS=false and creates completion entry
+    const reuseTransformIdx = fbBlock.indexOf('If USE_PROPOSED=false (current or specified branch)');
+    const autoDetectIdx = fbBlock.indexOf('TRD Branch Auto-Detection');
+    expect(autoDetectIdx).toBeGreaterThan(-1);
+    expect(reuseTransformIdx).toBeGreaterThan(autoDetectIdx);
+  });
 });
