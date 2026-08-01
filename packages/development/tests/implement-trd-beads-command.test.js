@@ -164,9 +164,16 @@ describe('implement-trd-beads branch-intent flags', () => {
     // Must match the actual post-confirmed-plan action, not option preview text
     const postPlanGitSwitch = fbBlock.indexOf('If USE_PROPOSED=true: Run: git branch --list');
     const postPlanGitTown   = fbBlock.indexOf('git town hack <branch_name>');
+    const reuseGitSwitch = fbBlock.indexOf('If USE_PROPOSED=false: Run: git branch --list');
     expect(confirmedIdx).toBeGreaterThan(-1);
     expect(postPlanGitSwitch).toBeGreaterThan(confirmedIdx);
     expect(postPlanGitTown).toBeGreaterThan(confirmedIdx);
+    expect(reuseGitSwitch).toBeGreaterThan(confirmedIdx);
+    // choices-write must run AFTER both git mutation paths so the working tree
+    // is clean when hack creates the branch (hack fails on dirty tree).
+    const choicesWriteIdx = fbBlock.indexOf('choices-write');
+    expect(choicesWriteIdx).toBeGreaterThan(postPlanGitTown);
+    expect(choicesWriteIdx).toBeGreaterThan(reuseGitSwitch);
   });
 
   test('branch-intent HALT paths exit before any git mutation', () => {

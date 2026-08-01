@@ -443,9 +443,9 @@ workflow:
                PR topology:     <STACKED_PRS ? 'Stacked (one PR per phase)' : 'Single PR (all phases on one branch)'>
                Selected branch: <USE_PROPOSED ? branchFirst : branch_name>
                ═══════════════════════════════════════════════"
-            - "Normalize choices for persist: USE_PROPOSED_NORM=<USE_PROPOSED ? 'true' : 'false'>, STACKED_PRS_NORM=<STACKED_PRS ? 'true' : 'false'>, BRANCH_NAME_NORM=<USE_PROPOSED ? branchFirst : branch_name>. Run: node \"$TRD_CLI\" choices-write \"<TRD_FILE_PATH>\" --branch-name <BRANCH_NAME_NORM>$( [ \"<USE_PROPOSED_NORM>\" = 'true' ] && echo ' --use-proposed' )$( [ \"<STACKED_PRS_NORM>\" = 'true' ] && echo ' --stacked-prs' ). If exit code != 0: print warning 'Failed to persist branch choice to TRD frontmatter — continuing without persisting' (non-fatal)."
             - "If USE_PROPOSED=true: Run: git branch --list <branch_name>. If exists: git switch <branch_name>. If not exists: git town hack <branch_name>."
             - "If USE_PROPOSED=false: Run: git branch --list <branch_name>. If exists: git switch <branch_name>. If not exists: print 'ERROR: Branch <branch_name> does not exist. Switch to an existing branch before running, or choose 'Use proposed branch' to create a new one.' and HALT."
+            - "Normalize choices for persist: USE_PROPOSED_NORM=<USE_PROPOSED ? 'true' : 'false'>, STACKED_PRS_NORM=<STACKED_PRS ? 'true' : 'false'>, BRANCH_NAME_NORM=<USE_PROPOSED ? branchFirst : branch_name>. Run: node \"$TRD_CLI\" choices-write \"<TRD_FILE_PATH>\" --branch-name <BRANCH_NAME_NORM>$( [ \"<USE_PROPOSED_NORM>\" = 'true' ] && echo ' --use-proposed' )$( [ \"<STACKED_PRS_NORM>\" = 'true' ] && echo ' --stacked-prs' ). If exit code != 0: print warning 'Failed to persist branch choice to TRD frontmatter — continuing without persisting' (non-fatal)."
 
         - order: 11
           title: Marketplace Preflight Check
