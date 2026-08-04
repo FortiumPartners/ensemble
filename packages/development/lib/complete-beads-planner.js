@@ -316,6 +316,44 @@ function planDispatch(
 function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, prFormat) {
   if (!prFormat) return { passed: orderedIds, deferred: [] };
 
+  // prFormat is set by trd-parser ONLY when the TRD has `PR N:` headings
+  // (trd-parser.js: `if (sawPR) { prFormat = true; ... }`), and a PR heading
+  // always produces at least one phase. So prFormat with no usable phase task
+  // ids is not "a TRD without phases" — it can only mean the phase map failed
+  // to load. complete-beads-cli turns an absent or unreadable file into `{}`
+  // (`phaseTaskIdsJson || {}`), which is exactly how that state arrives here.
+  //
+  // Fail CLOSED. An earlier version of this guard passed the ids through with a
+  // warning; that fails open on the one condition it was written to detect,
+  // silently dispatching later-phase work across a real boundary. planDispatch
+  // already signals unusable input by throwing, so throw.
+  //
+  // Count TASK IDS, not phase keys: buildPhaseTaskIds keeps empty phases on the
+  // parse path, so {"1":[],"2":[]} has two keys and zero ids. Counting keys let
+  // that shape skip the guard, currentPhase() returned null, and every ready
+  // bead was deferred 'phase-gate' — the same total stall, still reachable.
+  // Count ids only under NUMERIC keys. phase-tracker's sortedPhaseNumbers drops
+  // non-finite keys, so ids parked under e.g. "a" are invisible to currentPhase()
+  // — counting them would pass the guard and then stall on exactly the shape the
+  // guard exists to catch. buildPhaseTaskIds/reconstructPhaseTaskIds only emit
+  // numeric keys, so this bites only a hand-edited or corrupted map; that is
+  // precisely when a loud failure beats a silent one.
+  const phaseIdCount = phaseTaskIds
+    ? Object.entries(phaseTaskIds).reduce(
+        (n, [key, ids]) =>
+          n + (Number.isFinite(Number(key)) && Array.isArray(ids) ? ids.length : 0),
+        0
+      )
+    : 0;
+  if (phaseIdCount === 0) {
+    throw new Error(
+      'complete-beads-planner: --pr-format set but the TRD phase map contains no task ids. ' +
+        'A PR-format TRD always has at least one phase, so this means the phase map failed to ' +
+        'load (missing/unreadable --phase-task-ids, or a map whose phases are all empty). ' +
+        'Refusing to dispatch: phase-strict gating cannot be enforced without it.'
+    );
+  }
+
   // Extract task IDs from all closed beads for accurate currentPhase detection
   const closedSet = closedTaskIdSet(closedBeads);
   const closedTaskIds = [...closedSet];
@@ -335,7 +373,15 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
     readyTaskIds,
     phaseTaskIds,
     closedTaskIds,
-    { prFormat: true, max: readyTaskIds.length }
+    // `stacked`, not `prFormat`: phase-tracker renamed this option in 7b73b7a
+    // and this call site was missed. Passing the old key made
+    // `options.stacked === true` never true, so selectNextTasks fell into the
+    // unfiltered branch and phase-strict gating silently did nothing —
+    // later-phase tasks could jump the phase boundary, which is the exact bug
+    // the phase gate exists to prevent. The planner keeps `prFormat` as its own
+    // public option name (it comes from the CLI's --pr-format); only the call
+    // INTO phase-tracker uses the new key.
+    { stacked: true, max: readyTaskIds.length }
   );
   const selectedSet = new Set(selectedTaskIds);
 
@@ -343,9 +389,19 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
   const deferred = [];
   for (const r of orderedIds) {
     const bead = eligibleMap.get(r.id);
-    const taskId = extractTaskId(bead?.title) || r.id;
+    const extracted = extractTaskId(bead?.title);
+    const taskId = extracted || r.id;
     if (selectedSet.has(taskId)) {
       passed.push(r);
+    } else if (!extracted) {
+      // The fallback to the bead id is a task id that by construction never
+      // appears in phaseTaskIds, so this bead can never be selected while the
+      // gate is live. Discarding it is deliberate — phase-tracker documents
+      // that an id with no phase mapping cannot be proven to belong to the
+      // current phase — but calling it 'phase-gate' tells an operator it is
+      // waiting on an earlier phase, when the real cause is a bead title
+      // missing its [trd:<slug>:task:<id>] marker. Name the actual cause.
+      deferred.push({ ...r, deferReason: 'unparseable-task-id' });
     } else {
       deferred.push({ ...r, deferReason: 'phase-gate' });
     }
