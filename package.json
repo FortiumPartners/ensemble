@@ -10,7 +10,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "validate": "node scripts/validate-all.js && node scripts/validate-version-sync.js && node scripts/lint-model-ids.js",
+    "validate": "node scripts/validate-all.js && node scripts/validate-version-sync.js && node scripts/validate-peer-deps.js && node scripts/lint-model-ids.js",
     "lint:model-ids": "node scripts/lint-model-ids.js",
     "generate": "node scripts/generate-markdown.js",
     "generate:commands": "node scripts/generate-markdown.js --type commands",
@@ -34,7 +34,8 @@
     "commander": "^11.0.0",
     "glob": "^10.3.10",
     "jest": "^29.7.0",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "semver": "^7.6.0"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -322,7 +322,22 @@ npm run validate  # Validates:
                   # - plugin.json files
                   # - YAML syntax in agents/
                   # - package.json naming
+                  # - intra-workspace dependency ranges (see below)
 ```
+
+### Intra-workspace dependency ranges
+
+Every dependency on another `@fortium/ensemble-*` workspace must declare a range that the
+**current local version** of that workspace satisfies. npm links a workspace in place only
+when the range matches; when it does not, npm falls through to the public registry, where
+none of these packages are published, and `npm ci` dies with a 404. A `@fortium/ensemble-*`
+name with no matching workspace fails the same way, so the check treats that as an error
+rather than an external dependency.
+
+When you bump a workspace across a major version, widen every range that points at it in the
+same commit. `node scripts/validate-peer-deps.js` enforces this and names each offending file
+with the range it should carry. It runs in `npm run validate` and as its own step in
+`validate.yml`, so it gates pull requests rather than only tagged releases.
 
 ### GitHub Actions
 - `validate.yml` - Schema and structure validation

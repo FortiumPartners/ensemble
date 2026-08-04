@@ -825,7 +825,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Validate version consistency
         run: npm run validate-versions
