@@ -69,7 +69,21 @@ function expandWorkspacePattern(pattern) {
 }
 
 const rootPkg = readManifest(path.join(root, 'package.json'));
-const workspaceDirs = (rootPkg.workspaces || []).flatMap(expandWorkspacePattern);
+
+if (!Array.isArray(rootPkg.workspaces) || rootPkg.workspaces.length === 0) {
+  console.error('✗ Root package.json declares no workspaces — nothing to check.');
+  console.error('  Refusing to report success on an empty scan.');
+  process.exit(1);
+}
+
+const workspaceDirs = rootPkg.workspaces.flatMap(expandWorkspacePattern);
+
+if (workspaceDirs.length === 0) {
+  console.error(`✗ workspaces ${JSON.stringify(rootPkg.workspaces)} matched no package.json files.`);
+  console.error('  The workspace root has moved or an entry is mistyped. Refusing to report');
+  console.error('  success on an empty scan — that is how a guard silently stops guarding.');
+  process.exit(1);
+}
 
 const localVersions = {};
 // The root manifest is scanned for stale ranges too, but is not itself a workspace.
@@ -81,10 +95,15 @@ for (const rel of workspaceDirs) {
   manifests.push({ rel: `${rel}/package.json`, pkg });
 }
 
-/** Widest range that still resolves locally. Caret on a 0.x major pins the minor. */
+/**
+ * Widest range that still resolves locally. Caret on a 0.x major pins the minor, and
+ * `^6.0.0` excludes `6.0.0-rc.1`, so a prerelease has to be carated in full — otherwise
+ * the guard would advise a range it then rejects, with no range it accepts.
+ */
 function suggestRange(version) {
   if (!version) return 'a range matching that workspace';
-  return semver.major(version) > 0 ? `^${semver.major(version)}.0.0` : `^${version}`;
+  if (semver.prerelease(version) || semver.major(version) === 0) return `^${version}`;
+  return `^${semver.major(version)}.0.0`;
 }
 
 const failures = [];
