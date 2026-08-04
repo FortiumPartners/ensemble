@@ -17,7 +17,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Validate marketplace.json
         run: npx ajv validate -s schemas/marketplace-schema.json -d marketplace.json -c ajv-formats
