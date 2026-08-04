@@ -152,6 +152,7 @@ Any `propose`/`append` failure returns `failed` with current branch and already-
 ## HALT Conditions
 
 - Malformed BV JSON or missing `.plan.tracks` when ready work exists → fail closed
+- `--pr-format` with an unusable phase map (no task ids under any numeric phase) → fail closed: the map failed to load and phase-strict gating cannot be enforced without it
 - Dirty integration checkout before worktree creation → halt with diagnostic
 - `propose`/`append` failure → return `failed` with existing PR URLs
 - Worker test/validation failure: never cherry-pick; reopen/comment in separate audit commit

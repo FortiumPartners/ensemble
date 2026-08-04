@@ -332,8 +332,18 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
   // parse path, so {"1":[],"2":[]} has two keys and zero ids. Counting keys let
   // that shape skip the guard, currentPhase() returned null, and every ready
   // bead was deferred 'phase-gate' — the same total stall, still reachable.
+  // Count ids only under NUMERIC keys. phase-tracker's sortedPhaseNumbers drops
+  // non-finite keys, so ids parked under e.g. "a" are invisible to currentPhase()
+  // — counting them would pass the guard and then stall on exactly the shape the
+  // guard exists to catch. buildPhaseTaskIds/reconstructPhaseTaskIds only emit
+  // numeric keys, so this bites only a hand-edited or corrupted map; that is
+  // precisely when a loud failure beats a silent one.
   const phaseIdCount = phaseTaskIds
-    ? Object.values(phaseTaskIds).reduce((n, ids) => n + (Array.isArray(ids) ? ids.length : 0), 0)
+    ? Object.entries(phaseTaskIds).reduce(
+        (n, [key, ids]) =>
+          n + (Number.isFinite(Number(key)) && Array.isArray(ids) ? ids.length : 0),
+        0
+      )
     : 0;
   if (phaseIdCount === 0) {
     throw new Error(
@@ -345,16 +355,6 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
   }
 
   // Extract task IDs from all closed beads for accurate currentPhase detection
-  const phaseCount = phaseTaskIds ? Object.keys(phaseTaskIds).length : 0;
-  if (phaseCount === 0) {
-    process.stderr.write(
-      'WARN complete-beads-planner: --pr-format set but no TRD phase metadata; ' +
-        'phase-strict gating does not apply and all ready beads pass through. ' +
-        'If this TRD has phases, the phase map failed to load.\n'
-    );
-    return { passed: orderedIds, deferred: [] };
-  }
-
   const closedSet = closedTaskIdSet(closedBeads);
   const closedTaskIds = [...closedSet];
 

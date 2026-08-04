@@ -242,6 +242,7 @@ describe('planDispatch — phase-gate deferred is NOT false-complete', () => {
     ['empty map', {}],
     ['undefined map', undefined],
     ['phases present but no task ids', { 1: [], 2: [] }],
+    ['ids under a non-numeric key phase-tracker discards', { a: ['TRD-001'] }],
   ])('refuses to dispatch when the phase map is unusable: %s', (_label, phaseMap) => {
     expect(() =>
       planDispatch(
