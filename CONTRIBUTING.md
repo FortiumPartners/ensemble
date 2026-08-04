@@ -260,13 +260,12 @@ This checks:
 - package.json consistency
 - YAML syntax in agents
 - Dependency declarations
-- Intra-workspace peer dependency ranges
+- Intra-workspace dependency ranges
 
-On that last one: a `peerDependencies` range pointing at another `@fortium/ensemble-*`
-workspace must be satisfied by that workspace's current version. Otherwise npm stops linking
-it locally, tries the public registry where these packages do not exist, and `npm ci` fails
-with a 404. Bumping a workspace to a new major means widening every peer range that points at
-it, in the same commit.
+On that last one: a range pointing at another `@fortium/ensemble-*` workspace must be
+satisfied by that workspace's current version. Otherwise npm stops linking it locally, tries
+the public registry where these packages do not exist, and `npm ci` fails with a 404. Bumping
+a workspace to a new major means widening every range that points at it, in the same commit.
 
 ## Documentation
 
