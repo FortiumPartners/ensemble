@@ -335,7 +335,15 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
     readyTaskIds,
     phaseTaskIds,
     closedTaskIds,
-    { prFormat: true, max: readyTaskIds.length }
+    // `stacked`, not `prFormat`: phase-tracker renamed this option in 7b73b7a
+    // and this call site was missed. Passing the old key made
+    // `options.stacked === true` never true, so selectNextTasks fell into the
+    // unfiltered branch and phase-strict gating silently did nothing —
+    // later-phase tasks could jump the phase boundary, which is the exact bug
+    // the phase gate exists to prevent. The planner keeps `prFormat` as its own
+    // public option name (it comes from the CLI's --pr-format); only the call
+    // INTO phase-tracker uses the new key.
+    { stacked: true, max: readyTaskIds.length }
   );
   const selectedSet = new Set(selectedTaskIds);
 
