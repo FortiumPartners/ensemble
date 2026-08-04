@@ -124,7 +124,7 @@ COMPLETE_BEADS_RESULT
 ```
 
 - `complete`: every scoped descendant is closed
-- `blocked`: scoped open descendants remain but `br ready` is empty, OR all eligible candidates are deferred (phase-gate, file-claim-conflict, slot-cap)
+- `blocked`: scoped open descendants remain but `br ready` is empty, OR all eligible candidates are deferred (phase-gate, file-claim-conflict, slot-cap, unparseable-task-id — the bead title is missing its [trd:<slug>:task:<id>] marker)
 - `failed`: at least one dispatched bead could not be implemented/integrated after bounded recovery; unrelated successful results are still integrated first
 
 ---
@@ -152,6 +152,7 @@ Any `propose`/`append` failure returns `failed` with current branch and already-
 ## HALT Conditions
 
 - Malformed BV JSON or missing `.plan.tracks` when ready work exists → fail closed
+- `--pr-format` with an unusable phase map (no task ids under any numeric phase) → fail closed: the map failed to load and phase-strict gating cannot be enforced without it
 - Dirty integration checkout before worktree creation → halt with diagnostic
 - `propose`/`append` failure → return `failed` with existing PR URLs
 - Worker test/validation failure: never cherry-pick; reopen/comment in separate audit commit
