@@ -232,6 +232,51 @@ describe('planDispatch — phase-gate deferred is NOT false-complete', () => {
     // Consumer: SKILL.md step 6 sees selected=[] && deferred>0 → status: blocked (NOT complete)
   });
 
+  // Guard: re-arming the phase gate made a MISSING phase map fatal. The CLI turns
+  // an absent phase file into `{}` (complete-beads-cli.js `phaseTaskIdsJson || {}`),
+  // and with the gate live currentPhase() returns null so EVERY ready bead is
+  // deferred 'phase-gate' — a total stall reported as "waiting on an earlier phase",
+  // exiting 0. No phase metadata means no boundaries to enforce; pass through.
+  test('empty phase map: gate does not apply, everything passes through', () => {
+    const warn = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const result = planDispatch(
+      { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+      mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+      [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+      [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+      [],
+      [],
+      2,
+      {},
+      { prFormat: true }
+    );
+    expect(result.selected).toHaveLength(2);
+    expect(result.deferred).toHaveLength(0);
+    // and it must SAY so — a TRD that should have phases and silently lost them
+    // is indistinguishable from one that never had them without this line.
+    expect(warn.mock.calls.flat().join('')).toMatch(/no TRD phase metadata/);
+    warn.mockRestore();
+  });
+
+  // Guard: extractTaskId falls back to the bead id, which by construction never
+  // appears in phaseTaskIds — so an unmarked title can never be selected while the
+  // gate is live. Discarding it is deliberate; calling it 'phase-gate' is not.
+  test('unparseable bead title defers with its real cause, not phase-gate', () => {
+    const result = planDispatch(
+      { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+      mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+      [{ id: 't1', title: 'no marker', description: '' }, { id: 't2', title: 'none either', description: '' }],
+      [{ id: 't1', title: 'no marker', description: '' }, { id: 't2', title: 'none either', description: '' }],
+      [],
+      [],
+      2,
+      { 1: ['TRD-001'], 2: ['TRD-002'] },
+      { prFormat: true }
+    );
+    expect(result.selected).toHaveLength(0);
+    expect(result.deferred.every((d) => d.deferReason === 'unparseable-task-id')).toBe(true);
+  });
+
   // Scenario: t1 is phase-1 (active), t2 is phase-2 (gated). Correct behavior: t1 passes.
   test('partial phase-gate: active-phase task passes, later-phase task deferred', () => {
     const result = planDispatch(

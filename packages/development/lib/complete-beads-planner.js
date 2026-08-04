@@ -316,7 +316,29 @@ function planDispatch(
 function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, prFormat) {
   if (!prFormat) return { passed: orderedIds, deferred: [] };
 
+  // Step 7's caller says "if TRD phase metadata present" — but nothing enforced
+  // it, and the CLI turns a missing phase file into `{}` (complete-beads-cli.js:
+  // `phaseTaskIdsJson || {}`). With the gate live and an empty map, selectNextTasks'
+  // currentPhase() returns null and EVERY ready bead is deferred as 'phase-gate':
+  // a total stall, reported as "waiting on an earlier phase", exiting 0. That is
+  // the same silent-failure this fix exists to remove, one level up.
+  //
+  // No phase metadata means no phase boundaries to enforce, so the gate does not
+  // apply and the ids pass through — but say so on stderr, because a TRD that
+  // SHOULD have phases and silently lost them looks identical to one that never
+  // had them, and the difference decides whether the run is correct.
+
   // Extract task IDs from all closed beads for accurate currentPhase detection
+  const phaseCount = phaseTaskIds ? Object.keys(phaseTaskIds).length : 0;
+  if (phaseCount === 0) {
+    process.stderr.write(
+      'WARN complete-beads-planner: --pr-format set but no TRD phase metadata; ' +
+        'phase-strict gating does not apply and all ready beads pass through. ' +
+        'If this TRD has phases, the phase map failed to load.\n'
+    );
+    return { passed: orderedIds, deferred: [] };
+  }
+
   const closedSet = closedTaskIdSet(closedBeads);
   const closedTaskIds = [...closedSet];
 
@@ -351,9 +373,19 @@ function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, pr
   const deferred = [];
   for (const r of orderedIds) {
     const bead = eligibleMap.get(r.id);
-    const taskId = extractTaskId(bead?.title) || r.id;
+    const extracted = extractTaskId(bead?.title);
+    const taskId = extracted || r.id;
     if (selectedSet.has(taskId)) {
       passed.push(r);
+    } else if (!extracted) {
+      // The fallback to the bead id is a task id that by construction never
+      // appears in phaseTaskIds, so this bead can never be selected while the
+      // gate is live. Discarding it is deliberate — phase-tracker documents
+      // that an id with no phase mapping cannot be proven to belong to the
+      // current phase — but calling it 'phase-gate' tells an operator it is
+      // waiting on an earlier phase, when the real cause is a bead title
+      // missing its [trd:<slug>:task:<id>] marker. Name the actual cause.
+      deferred.push({ ...r, deferReason: 'unparseable-task-id' });
     } else {
       deferred.push({ ...r, deferReason: 'phase-gate' });
     }
