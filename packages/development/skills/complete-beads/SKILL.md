@@ -118,7 +118,7 @@ COMPLETE_BEADS_RESULT
 ```
 
 - `complete`: every scoped descendant is closed
-- `blocked`: scoped open descendants remain but `br ready` is empty, OR all eligible candidates are deferred (phase-gate, file-claim-conflict, slot-cap)
+- `blocked`: scoped open descendants remain but `br ready` is empty, OR all eligible candidates are deferred (phase-gate, file-claim-conflict, slot-cap, unparseable-task-id — the bead title is missing its [trd:<slug>:task:<id>] marker)
 - `failed`: at least one dispatched bead could not be implemented/integrated after bounded recovery; unrelated successful results are still integrated first
 
 ---

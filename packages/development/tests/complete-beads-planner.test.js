@@ -232,13 +232,34 @@ describe('planDispatch — phase-gate deferred is NOT false-complete', () => {
     // Consumer: SKILL.md step 6 sees selected=[] && deferred>0 → status: blocked (NOT complete)
   });
 
-  // Guard: re-arming the phase gate made a MISSING phase map fatal. The CLI turns
-  // an absent phase file into `{}` (complete-beads-cli.js `phaseTaskIdsJson || {}`),
-  // and with the gate live currentPhase() returns null so EVERY ready bead is
-  // deferred 'phase-gate' — a total stall reported as "waiting on an earlier phase",
-  // exiting 0. No phase metadata means no boundaries to enforce; pass through.
-  test('empty phase map: gate does not apply, everything passes through', () => {
-    const warn = jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+  // Guard: prFormat is set only for TRDs with `PR N:` headings, which always
+  // yield >=1 phase — so prFormat with no phase task ids can ONLY mean the map
+  // failed to load (complete-beads-cli turns an absent file into `{}`). Fail
+  // CLOSED: passing through would silently dispatch later-phase work across a
+  // real boundary, which is the failure this whole fix exists to remove.
+  // Counts TASK IDS, not phase keys — {"1":[],"2":[]} has two keys, zero ids.
+  test.each([
+    ['empty map', {}],
+    ['undefined map', undefined],
+    ['phases present but no task ids', { 1: [], 2: [] }],
+  ])('refuses to dispatch when the phase map is unusable: %s', (_label, phaseMap) => {
+    expect(() =>
+      planDispatch(
+        { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
+        mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
+        [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+        [mkBead('t1', 'TRD-001'), mkBead('t2', 'TRD-002')],
+        [],
+        [],
+        2,
+        phaseMap,
+        { prFormat: true }
+      )
+    ).toThrow(/phase map contains no task ids/);
+  });
+
+  // The gate must still NOT fire when the caller never asked for phase strictness.
+  test('no --pr-format: unusable phase map is irrelevant, ids pass through', () => {
     const result = planDispatch(
       { quick_ref: { total: 2, picks: [{ id: 't1' }, { id: 't2' }] } },
       mkPlan([{ track: 0, items: [{ id: 't1' }] }, { track: 1, items: [{ id: 't2' }] }]),
@@ -248,14 +269,9 @@ describe('planDispatch — phase-gate deferred is NOT false-complete', () => {
       [],
       2,
       {},
-      { prFormat: true }
+      { prFormat: false }
     );
     expect(result.selected).toHaveLength(2);
-    expect(result.deferred).toHaveLength(0);
-    // and it must SAY so — a TRD that should have phases and silently lost them
-    // is indistinguishable from one that never had them without this line.
-    expect(warn.mock.calls.flat().join('')).toMatch(/no TRD phase metadata/);
-    warn.mockRestore();
   });
 
   // Guard: extractTaskId falls back to the bead id, which by construction never

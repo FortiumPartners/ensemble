@@ -316,17 +316,33 @@ function planDispatch(
 function applyPhaseFilter(orderedIds, eligibleMap, closedBeads, phaseTaskIds, prFormat) {
   if (!prFormat) return { passed: orderedIds, deferred: [] };
 
-  // Step 7's caller says "if TRD phase metadata present" — but nothing enforced
-  // it, and the CLI turns a missing phase file into `{}` (complete-beads-cli.js:
-  // `phaseTaskIdsJson || {}`). With the gate live and an empty map, selectNextTasks'
-  // currentPhase() returns null and EVERY ready bead is deferred as 'phase-gate':
-  // a total stall, reported as "waiting on an earlier phase", exiting 0. That is
-  // the same silent-failure this fix exists to remove, one level up.
+  // prFormat is set by trd-parser ONLY when the TRD has `PR N:` headings
+  // (trd-parser.js: `if (sawPR) { prFormat = true; ... }`), and a PR heading
+  // always produces at least one phase. So prFormat with no usable phase task
+  // ids is not "a TRD without phases" — it can only mean the phase map failed
+  // to load. complete-beads-cli turns an absent or unreadable file into `{}`
+  // (`phaseTaskIdsJson || {}`), which is exactly how that state arrives here.
   //
-  // No phase metadata means no phase boundaries to enforce, so the gate does not
-  // apply and the ids pass through — but say so on stderr, because a TRD that
-  // SHOULD have phases and silently lost them looks identical to one that never
-  // had them, and the difference decides whether the run is correct.
+  // Fail CLOSED. An earlier version of this guard passed the ids through with a
+  // warning; that fails open on the one condition it was written to detect,
+  // silently dispatching later-phase work across a real boundary. planDispatch
+  // already signals unusable input by throwing, so throw.
+  //
+  // Count TASK IDS, not phase keys: buildPhaseTaskIds keeps empty phases on the
+  // parse path, so {"1":[],"2":[]} has two keys and zero ids. Counting keys let
+  // that shape skip the guard, currentPhase() returned null, and every ready
+  // bead was deferred 'phase-gate' — the same total stall, still reachable.
+  const phaseIdCount = phaseTaskIds
+    ? Object.values(phaseTaskIds).reduce((n, ids) => n + (Array.isArray(ids) ? ids.length : 0), 0)
+    : 0;
+  if (phaseIdCount === 0) {
+    throw new Error(
+      'complete-beads-planner: --pr-format set but the TRD phase map contains no task ids. ' +
+        'A PR-format TRD always has at least one phase, so this means the phase map failed to ' +
+        'load (missing/unreadable --phase-task-ids, or a map whose phases are all empty). ' +
+        'Refusing to dispatch: phase-strict gating cannot be enforced without it.'
+    );
+  }
 
   // Extract task IDs from all closed beads for accurate currentPhase detection
   const phaseCount = phaseTaskIds ? Object.keys(phaseTaskIds).length : 0;
