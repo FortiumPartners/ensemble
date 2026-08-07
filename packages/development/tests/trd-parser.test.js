@@ -770,8 +770,12 @@ describe('parseTRD — ParsedTRD contract shape', () => {
     expect(Object.keys(result).sort()).toEqual(
       [
         'architectureDecision',
+        'capabilities',
         'designReadinessScore',
+        'documentId',
         'keyTechnicalDecisions',
+        'kind',
+        'label',
         'phases',
         'prFormat',
         'prdReference',
@@ -935,5 +939,50 @@ Requirement: Seed permission codes for handlers.
       'Generated 3 acceptance-criteria validation task(s)',
       'Generated 2 cross-cutting requirement task(s)',
     ]));
+  });
+});
+
+describe('parseTRD — document identity (documentId/label/kind)', () => {
+  test('surfaces document_id, label, and kind from frontmatter', () => {
+    const md = [
+      '---',
+      'document_id: TRD-2026-a1b2c3d4',
+      'label: trd-login-mfa',
+      'kind: foundational',
+      'prd_reference: docs/PRD/PRD-2026-a1b2c3d4-login.md',
+      '---',
+      '# TRD-2026-a1b2c3d4: Login MFA',
+    ].join('\n');
+    const r = parseTRD(md);
+    expect(r.documentId).toBe('TRD-2026-a1b2c3d4');
+    expect(r.label).toBe('trd-login-mfa');
+    expect(r.kind).toBe('foundational');
+  });
+
+  test('defaults to null id/label and kind "trd" when absent', () => {
+    const r = parseTRD('# Some TRD\n');
+    expect(r.documentId).toBeNull();
+    expect(r.label).toBeNull();
+    expect(r.kind).toBe('trd');
+    expect(r.capabilities).toEqual([]);
+  });
+
+  test('reads a capabilities YAML list from frontmatter', () => {
+    const md = [
+      '---',
+      'document_id: TRD-2026-a1b2c3d4',
+      'kind: foundational',
+      'capabilities:',
+      '  - order-domain',
+      '  - money-value-object',
+      '---',
+      '# TRD-2026-a1b2c3d4: Order Domain',
+    ].join('\n');
+    expect(parseTRD(md).capabilities).toEqual(['order-domain', 'money-value-object']);
+  });
+
+  test('accepts a comma-separated capabilities string', () => {
+    const md = '---\ndocument_id: TRD-2026-x\ncapabilities: order-domain, money-vo\n---\n# x\n';
+    expect(parseTRD(md).capabilities).toEqual(['order-domain', 'money-vo']);
   });
 });

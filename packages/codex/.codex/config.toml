@@ -131,3 +131,7 @@ config_file = "agents/test-reader-agent.toml"
 [agents."test-runner"]
 description = "Unit and integration test execution with intelligent failure triage and debugging"
 config_file = "agents/test-runner.toml"
+
+[agents."reqnroll-binding-specialist"]
+description = "Fill PRD-generated Reqnroll step bindings test-first against the system under test, without ever editing the generated step-matching attributes"
+config_file = "agents/reqnroll-binding-specialist.toml"

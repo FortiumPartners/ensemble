@@ -995,9 +995,29 @@ function parseTRD(markdownString) {
     taskIds: p.taskIds,
   }));
 
+  const documentId =
+    frontmatter && frontmatter.document_id != null ? String(frontmatter.document_id) : null;
+  const label = frontmatter && frontmatter.label != null ? String(frontmatter.label) : null;
+  const kind =
+    frontmatter && frontmatter.kind != null ? String(frontmatter.kind).toLowerCase() : 'trd';
+
+  // Capabilities a (foundational) TRD provides. Accept a YAML list or a
+  // comma-separated string; normalize to a trimmed, non-empty string array.
+  let capabilities = [];
+  if (frontmatter && frontmatter.capabilities != null) {
+    const raw = Array.isArray(frontmatter.capabilities)
+      ? frontmatter.capabilities
+      : String(frontmatter.capabilities).split(',');
+    capabilities = raw.map((c) => String(c).trim()).filter(Boolean);
+  }
+
   return {
     title,
     summary,
+    documentId,
+    label,
+    kind,
+    capabilities,
     prdReference,
     designReadinessScore,
     status,

@@ -327,6 +327,24 @@
       }
     },
     {
+      "name": "ensemble-reqnroll",
+      "version": "1.0.0",
+      "source": "./packages/reqnroll",
+      "description": "Reqnroll + xUnit BDD bindings: fill PRD-generated step definitions test-first",
+      "category": "testing",
+      "tags": [
+        "reqnroll",
+        "bdd",
+        "gherkin",
+        "xunit",
+        "dotnet"
+      ],
+      "author": {
+        "name": "Fortium Partners",
+        "url": "https://github.com/FortiumPartners"
+      }
+    },
+    {
       "name": "ensemble-exunit",
       "version": "5.1.0",
       "source": "./packages/exunit",

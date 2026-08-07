@@ -72,6 +72,7 @@ being saved to ensure handoff quality.
    - Check docs/PRD/ for existing PRDs -- read the most recent one for style and conventions
    - Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest sequence numbers or increment NNN; teams create PRDs concurrently.
    - Set Document ID to PRD-{current_year}-{micro_uuid}, for example PRD-2026-a1b2c3d4
+   - Set a human-readable Label: prd-<stem>, where <stem> is a short lowercase-kebab handle for the effort (a few words), derived from the working title by default but overridable if the user offers a shorter codename. Example: title 'Multi-Factor Login' -> label prd-login-mfa. The label is display-only for humans to reference the doc at a glance; it is NEVER a reference key (all cross-document references use the micro UUID Document ID) and need not be globally unique.
    - Note any cross-cutting requirements from existing PRDs that this feature must respect
 
 **3. Technical Dependency Mapping**
@@ -198,7 +199,7 @@ These markers will become the structured interview agenda in /ensemble:refine-pr
 **1. PRD Document Generation**
    Generate the final PRD with frontmatter and health summary
 
-   - Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
+   - Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Label (prd-<stem>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
    - Generate PRD Health summary at the top of the document:
    -   - Requirement count by priority: Must (N), Should (N), Could (N), Won't (N)
    -   - AC coverage: N/N requirements have acceptance criteria (percentage)
