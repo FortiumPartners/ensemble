@@ -94,9 +94,46 @@ function dimension(score, label, evidence = []) {
 function scoreScopeSize(text) {
   const evidence = [];
   let score = 0;
-  if (/\b(single|one)\s+(file|line|component|endpoint)\b/i.test(text)) evidence.push('single-file or narrow scope');
-  const medium = [/\b(files|modules|components|commands|workflows)\b/i, /\badd\b|\bcreate\b|\bimplement\b/i];
-  const high = [/\bcross[- ]cutting\b/i, /\bend[- ]to[- ]end\b/i, /\bplatform\b/i, /\bmultiple\s+(packages|services|repos|workflows)\b/i];
+  // Narrow-scope markers carry no SCORE — small work should score low — but they do
+  // carry EVIDENCE, and that distinction is what separates "this is recognisably
+  // small" from "nothing was recognised at all". Without the second list, "Fix a
+  // typo in the README" produces zero evidence for the same reason "Rework how we
+  // handle customers" does, and anything keyed on absence-of-evidence cannot tell
+  // a finished small task from an unstated large one.
+  // Two tiers, because a narrow marker that fires on ordinary prose is worse than
+  // no marker at all: it silently disarms the confirmation gate on exactly the
+  // vague, large descriptions the gate exists to catch. "Rework how we handle
+  // customer comments and complaints" and "rename several fields throughout the
+  // codebase" both did that on a bare word list.
+  //
+  // Compound and domain-specific markers are safe bare — nobody writes "off-by-one"
+  // or "broken link" while describing a platform migration. Generic verbs and nouns
+  // need a singular-article anchor, which is what separates "rename a variable"
+  // from "rename several fields".
+  const narrow = [
+    /\b(single|one)\s+(file|line|component|endpoint)\b/i,
+    /\b(typo|typos|whitespace|indentation|off[- ]by[- ]one|broken link|copyright)\b/i,
+    /\b(null check|version bump|bump the|lint rule|lockfile)\b/i,
+    /\b(rename|renaming|reword|rewording)\s+(a|an|the|one|this)\s/i,
+    /\b(a|an|the|one|this)\s+(comment|docstring|log message|variable)\b/i,
+  ];
+  if (narrow.some(r => r.test(text))) evidence.push('narrow, single-artifact scope');
+  const medium = [
+    /\b(files|modules|components|commands|workflows)\b/i,
+    /\badd\b|\bcreate\b|\bimplement\b|\bbuild\b|\bintroduce\b/i,
+  ];
+  // A quantifier in front of a plural noun is the strongest available scope signal.
+  // "multiple services" is the only form the original matched; "three services",
+  // "every service" and "all repos" say the same thing and were scoring zero.
+  const QUANTIFIER = '(?:multiple|several|many|all|every|each|both|two|three|four|five|six|\\d+)';
+  const SCOPE_NOUN = '(?:packages?|services?|repos?|repositor(?:y|ies)|workflows?|systems?|apps?|applications?|modules?|components?|tenants?)';
+  const high = [
+    /\bcross[- ]cutting\b/i,
+    /\bend[- ]to[- ]end\b/i,
+    /\bplatform\b/i,
+    new RegExp(`\\b${QUANTIFIER}\\s+${SCOPE_NOUN}\\b`, 'i'),
+    new RegExp(`\\bacross\\s+(?:${QUANTIFIER}\\s+)?${SCOPE_NOUN}\\b`, 'i'),
+  ];
   if (medium.some(r => r.test(text))) { score = Math.max(score, 1); evidence.push('multi-artifact implementation language'); }
   if (high.some(r => r.test(text))) { score = Math.max(score, 3); evidence.push('cross-cutting or platform-wide scope'); }
   return score === 0 ? dimension(0, 'low', evidence) : score >= 3 ? dimension(3, 'high', evidence) : dimension(1, 'medium', evidence);
@@ -106,7 +143,7 @@ function scoreDependencies(text) {
   const evidence = [];
   let count = 0;
   const patterns = [
-    /\b(api|database|queue|cache|service|provider|integration|mcp|cli|config|environment|artifact|pr|branch)\b/gi,
+    /\b(api|database|queue|cache|service|provider|integration|mcp|cli|config|environment|artifact|pr|branch|schema|webhook|endpoint|job|worker|dashboard|handler)s?\b/gi,
     /\bdepends? on\b|\bafter\b|\bbefore\b|\bsequence\b/gi,
   ];
   for (const re of patterns) {
@@ -122,7 +159,7 @@ function scoreDependencies(text) {
 
 function scoreRiskFactors(text) {
   const evidence = [];
-  const riskWords = text.match(/\b(security|secret|token|approval|production|breaking|migration|rollback|fallback|low[- ]confidence|malformed|audit|compliance|risk|unsafe|halt)\b/gi) || [];
+  const riskWords = text.match(/\b(security|secrets?|tokens?|approvals?|production|breaking|migrat(?:e|es|ed|ing|ion|ions)|rollbacks?|fallbacks?|low[- ]confidence|malformed|audits?|compliance|risks?|unsafe|halt)\b/gi) || [];
   evidence.push(...riskWords.slice(0, 6).map(w => `risk signal: ${w.toLowerCase()}`));
   if (riskWords.length >= 5) return dimension(3, 'high', evidence);
   if (riskWords.length >= 2) return dimension(2, 'medium', evidence);
@@ -132,7 +169,7 @@ function scoreRiskFactors(text) {
 
 function scoreTeamSize(text) {
   const evidence = [];
-  const teamWords = text.match(/\b(team|teams|pm|developer|developers|operator|user|users|reviewer|qa|foreman|human|approval|owner|owners)\b/gi) || [];
+  const teamWords = text.match(/\b(teams?|pm|developers?|operators?|users?|reviewers?|qa|foreman|humans?|approvals?|owners?|tenants?|admins?|stakeholders?)\b/gi) || [];
   evidence.push(...teamWords.slice(0, 5).map(w => `team signal: ${w.toLowerCase()}`));
   if (/\bmulti[- ]team\b/i.test(text) || teamWords.length >= 5) return dimension(3, 'high', evidence);
   if (teamWords.length >= 2) return dimension(2, 'medium', evidence);
@@ -245,9 +282,32 @@ function analyze(input, opts = {}, env = process.env) {
     .flatMap(([name, dim]) => dim.evidence.slice(0, 2).map(e => `${name}: ${e}`))
     .slice(0, 6);
 
+  // A description carrying no signal in any dimension scores at the floor, so the
+  // route reads Simple — and Simple dispatches to /ensemble:fix-issue with no PRD
+  // and no TRD. "Rework how we handle customers" lands there. That is the case the
+  // command spec means by "ask for confirmation or clarification on low-confidence
+  // interactive analysis before dispatch".
+  //
+  // Scoped narrowly on purpose. Blanket low-confidence escalation would also catch
+  // "Fix a typo in the README", which reports low confidence and is nonetheless
+  // correctly Simple; escalating it hands a typo a PRD. The discriminator is not
+  // confidence alone but confidence WITH no extracted evidence — a typo scores low
+  // because there is little to say, a vague subject scores low because nothing was
+  // said. An explicit --route means the human already named the route, so there is
+  // nothing left to confirm.
+  //
+  // This flags; it does not reroute. The recommendation stands and the caller
+  // decides, which keeps the analyzer's output deterministic.
+  const needsConfirmation =
+    normalized.mode !== 'foreman' &&
+    confidence === 'low' &&
+    rationale.length === 0 &&
+    !overrideResult.override.applied;
+
   return {
     ok: true,
     adaptivePlanning: config,
+    needsConfirmation,
     subject: normalized.subject,
     descriptionPresent: Boolean(normalized.description),
     score,
@@ -284,6 +344,7 @@ function renderReport(result, artifactPath) {
   lines.push(`- Confidence: ${result.confidence}`);
   lines.push(`- Override: ${result.override?.applied ? result.override.value : 'none'}`);
   lines.push(`- Adaptive planning: ${result.adaptivePlanning?.enabled === false ? 'disabled' : 'enabled'}`);
+  if (result.needsConfirmation) lines.push('- Confirmation required: yes');
   if (artifactPath) lines.push(`- Classification sidecar: ${sidecarPath(artifactPath)}`);
   lines.push('');
   lines.push('## Rationale');
@@ -291,6 +352,17 @@ function renderReport(result, artifactPath) {
   if (!result.rationale?.length) lines.push('- No high-signal rationale extracted.');
   lines.push('');
   lines.push('## Route Plan');
+  if (result.needsConfirmation) {
+    lines.push(
+      '- CONFIRM BEFORE DISPATCH: no scope, dependency, risk or team signal was found in'
+    );
+    lines.push(
+      '  this description, so the score sits at the floor and the route below is a guess.'
+    );
+    lines.push(
+      '  Describe the work in more detail, or name the route with --route simple|medium|complex.'
+    );
+  }
   for (const step of result.routePlan || []) lines.push(`- ${step}`);
   return `${lines.join('\n')}\n`;
 }
