@@ -100,11 +100,22 @@ function scoreScopeSize(text) {
   // typo in the README" produces zero evidence for the same reason "Rework how we
   // handle customers" does, and anything keyed on absence-of-evidence cannot tell
   // a finished small task from an unstated large one.
+  // Two tiers, because a narrow marker that fires on ordinary prose is worse than
+  // no marker at all: it silently disarms the confirmation gate on exactly the
+  // vague, large descriptions the gate exists to catch. "Rework how we handle
+  // customer comments and complaints" and "rename several fields throughout the
+  // codebase" both did that on a bare word list.
+  //
+  // Compound and domain-specific markers are safe bare — nobody writes "off-by-one"
+  // or "broken link" while describing a platform migration. Generic verbs and nouns
+  // need a singular-article anchor, which is what separates "rename a variable"
+  // from "rename several fields".
   const narrow = [
     /\b(single|one)\s+(file|line|component|endpoint)\b/i,
-    /\b(typo|typos|whitespace|indentation|formatting|lint)\b/i,
-    /\b(rename|renaming|comment|comments|docstring|copyright|changelog)\b/i,
-    /\b(off[- ]by[- ]one|null check|broken link|version bump|bump the)\b/i,
+    /\b(typo|typos|whitespace|indentation|off[- ]by[- ]one|broken link|copyright)\b/i,
+    /\b(null check|version bump|bump the|lint rule|lockfile)\b/i,
+    /\b(rename|renaming|reword|rewording)\s+(a|an|the|one|this)\s/i,
+    /\b(a|an|the|one|this)\s+(comment|docstring|log message|variable)\b/i,
   ];
   if (narrow.some(r => r.test(text))) evidence.push('narrow, single-artifact scope');
   const medium = [

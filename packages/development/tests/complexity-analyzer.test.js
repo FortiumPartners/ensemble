@@ -273,3 +273,56 @@ describe('complexity-analyzer low-confidence confirmation gate', () => {
     expect(result.needsConfirmation).toBe(false);
   });
 });
+
+describe('complexity-analyzer narrow markers do not disarm the gate', () => {
+  // Review found the gate could be silently defeated by one ordinary word: a bare
+  // narrow-marker list matched "comments" inside "Rework how we handle customer
+  // comments and complaints", producing scope evidence and suppressing the very
+  // confirmation this feature adds. A marker that fires on ordinary prose is worse
+  // than no marker, because it fails toward less planning without saying so.
+  const VAGUE_CONTAINING_NARROW_WORDS = [
+    'Rework how we handle customer comments and complaints',
+    'We should rename several fields for clarity throughout the codebase',
+    'Clean up the changelog process across the org',
+    'Improve how we comment on releases',
+  ];
+
+  test.each(VAGUE_CONTAINING_NARROW_WORDS)(
+    'a narrow word in vague prose still asks: %s',
+    (description) => {
+      const result = analyzer.analyze(null, { foreman: false, description }, {});
+      expect(result.ok).toBe(true);
+      expect(result.needsConfirmation).toBe(true);
+    }
+  );
+
+  test('the same sentence with and without a stray narrow word behaves identically', () => {
+    // The live repro from review: these two differed only by the word "comments",
+    // and that one word flipped the gate off.
+    const withWord = analyzer.analyze(null, {
+      foreman: false,
+      description: 'Rework how we handle customer comments and complaints',
+    }, {});
+    const withoutWord = analyzer.analyze(null, {
+      foreman: false,
+      description: 'Rework how we handle customer complaints',
+    }, {});
+    expect(withWord.needsConfirmation).toBe(withoutWord.needsConfirmation);
+    expect(withWord.needsConfirmation).toBe(true);
+  });
+
+  const GENUINELY_SMALL_USING_THE_SAME_WORDS = [
+    'Rename a variable in utils.js',
+    'Fix a comment that says the wrong thing',
+    'Update a docstring in the parser',
+  ];
+
+  test.each(GENUINELY_SMALL_USING_THE_SAME_WORDS)(
+    'the singular-article form still reads as small: %s',
+    (description) => {
+      const result = analyzer.analyze(null, { foreman: false, description }, {});
+      expect(result.needsConfirmation).toBe(false);
+      expect(result.recommendedRoute).toBe('simple');
+    }
+  );
+});
