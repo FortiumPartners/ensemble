@@ -22,7 +22,6 @@ const fs = require('fs');
 const path = require('path');
 const semver = require('semver');
 
-const WORKSPACE_SCOPE = '@fortium/ensemble-';
 const DEP_FIELDS = [
   'dependencies',
   'devDependencies',
@@ -32,6 +31,11 @@ const DEP_FIELDS = [
 
 /** Range protocols npm resolves from disk — these never reach the registry. */
 const LOCAL_PROTOCOLS = ['file:', 'link:', 'workspace:', 'portal:'];
+
+/** "@fortium/ensemble-core" -> "@fortium". Unscoped names have no scope. */
+function scopeOf(name) {
+  return name.startsWith('@') ? name.slice(0, name.indexOf('/')) : '';
+}
 
 const root = path.resolve(__dirname, '..');
 
@@ -95,6 +99,18 @@ for (const rel of workspaceDirs) {
   manifests.push({ rel: `${rel}/package.json`, pkg });
 }
 
+// Which npm scopes belong to this workspace. Derived from the workspaces
+// themselves rather than hardcoded: a scope rename (@fortium -> @sunstone-partners,
+// as Leo's fork did) must not turn this guard into a no-op that scans 29
+// manifests, checks 0 ranges, and exits 0.
+const localScopes = new Set(Object.keys(localVersions).map(scopeOf).filter(Boolean));
+
+if (localScopes.size === 0) {
+  console.error('✗ No workspace declares a scoped package name — nothing to check.');
+  console.error('  Refusing to report success on a scan that measures nothing.');
+  process.exit(1);
+}
+
 /**
  * Widest range that still resolves locally. Caret on a 0.x major pins the minor, and
  * `^6.0.0` excludes `6.0.0-rc.1`, so a prerelease has to be carated in full — otherwise
@@ -112,8 +128,8 @@ let checked = 0;
 for (const { rel, pkg } of manifests) {
   for (const field of DEP_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] || {})) {
-      // Anything outside the workspace scope resolves from the registry normally.
-      if (!dep.startsWith(WORKSPACE_SCOPE)) continue;
+      // Anything outside the workspace's own scopes resolves from the registry normally.
+      if (!localScopes.has(scopeOf(dep))) continue;
       // file:/link:/workspace:/portal: resolve from disk — no registry lookup to break.
       if (LOCAL_PROTOCOLS.some((proto) => range.startsWith(proto))) continue;
       checked++;
