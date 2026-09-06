@@ -150,3 +150,58 @@ describe('complexity-analyzer audit and artifacts', () => {
     expect(command).toContain('FOREMAN_ARTIFACT_PATH');
   });
 });
+
+describe('complexity-analyzer route calibration', () => {
+  // The suite previously asserted config precedence, override validation and
+  // Foreman fallbacks, but nothing asserted that a large description stays out
+  // of the Simple band. Simple dispatches straight to /ensemble:fix-issue with
+  // no PRD and no TRD, so under-routing is the failure that costs something.
+  const LARGE = [
+    'Build a multi-tenant billing system with Stripe Connect, Postgres schema, invoice migration, admin UI, webhook handlers and a reconciliation job across three services',
+    'Replace the authentication system across every service, migrate all user sessions, and roll out to production with a staged rollback plan',
+    'Re-architect the entire platform to support multiple services and cross-cutting end-to-end observability for multi-team ownership with security and compliance audit approval',
+  ];
+
+  test.each(LARGE)('large work never routes to simple: %s', (description) => {
+    const result = analyzer.analyze(null, { foreman: false, description }, {});
+    expect(result.ok).toBe(true);
+    expect(result.recommendedRoute).not.toBe('simple');
+  });
+
+  const SMALL = [
+    'Fix a typo in the README',
+    'Rename a variable in utils.js',
+    'Bump the eslint version',
+    'Correct a broken link in the docs',
+    'Fix an off-by-one in the pagination offset',
+  ];
+
+  test.each(SMALL)('small work still routes to simple: %s', (description) => {
+    const result = analyzer.analyze(null, { foreman: false, description }, {});
+    expect(result.ok).toBe(true);
+    expect(result.recommendedRoute).toBe('simple');
+  });
+
+  test('a quantifier in front of a singular noun counts as broad scope', () => {
+    // "across every service" means the same as "across all services"; the
+    // original high band only matched the literal token "multiple".
+    const result = analyzer.analyze(null, {
+      foreman: false,
+      description: 'Update the request logger across every service',
+    }, {});
+    expect(result.ok).toBe(true);
+    expect(result.dimensions.scopeSize.score).toBe(3);
+  });
+
+  test('plural dependency nouns score the same as singular ones', () => {
+    const singular = analyzer.analyze(null, { foreman: false, description: 'Touch the service and the endpoint' }, {});
+    const plural = analyzer.analyze(null, { foreman: false, description: 'Touch the services and the endpoints' }, {});
+    expect(plural.dimensions.dependencies.score).toBe(singular.dimensions.dependencies.score);
+  });
+
+  test('migration verbs carry the same risk weight as the noun', () => {
+    const noun = analyzer.analyze(null, { foreman: false, description: 'Plan the migration and the rollback' }, {});
+    const verb = analyzer.analyze(null, { foreman: false, description: 'Migrate the data and the rollback' }, {});
+    expect(verb.dimensions.riskFactors.score).toBe(noun.dimensions.riskFactors.score);
+  });
+});

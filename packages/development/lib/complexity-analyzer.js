@@ -95,8 +95,22 @@ function scoreScopeSize(text) {
   const evidence = [];
   let score = 0;
   if (/\b(single|one)\s+(file|line|component|endpoint)\b/i.test(text)) evidence.push('single-file or narrow scope');
-  const medium = [/\b(files|modules|components|commands|workflows)\b/i, /\badd\b|\bcreate\b|\bimplement\b/i];
-  const high = [/\bcross[- ]cutting\b/i, /\bend[- ]to[- ]end\b/i, /\bplatform\b/i, /\bmultiple\s+(packages|services|repos|workflows)\b/i];
+  const medium = [
+    /\b(files|modules|components|commands|workflows)\b/i,
+    /\badd\b|\bcreate\b|\bimplement\b|\bbuild\b|\bintroduce\b/i,
+  ];
+  // A quantifier in front of a plural noun is the strongest available scope signal.
+  // "multiple services" is the only form the original matched; "three services",
+  // "every service" and "all repos" say the same thing and were scoring zero.
+  const QUANTIFIER = '(?:multiple|several|many|all|every|each|both|two|three|four|five|six|\\d+)';
+  const SCOPE_NOUN = '(?:packages?|services?|repos?|repositor(?:y|ies)|workflows?|systems?|apps?|applications?|modules?|components?|tenants?)';
+  const high = [
+    /\bcross[- ]cutting\b/i,
+    /\bend[- ]to[- ]end\b/i,
+    /\bplatform\b/i,
+    new RegExp(`\\b${QUANTIFIER}\\s+${SCOPE_NOUN}\\b`, 'i'),
+    new RegExp(`\\bacross\\s+(?:${QUANTIFIER}\\s+)?${SCOPE_NOUN}\\b`, 'i'),
+  ];
   if (medium.some(r => r.test(text))) { score = Math.max(score, 1); evidence.push('multi-artifact implementation language'); }
   if (high.some(r => r.test(text))) { score = Math.max(score, 3); evidence.push('cross-cutting or platform-wide scope'); }
   return score === 0 ? dimension(0, 'low', evidence) : score >= 3 ? dimension(3, 'high', evidence) : dimension(1, 'medium', evidence);
@@ -106,7 +120,7 @@ function scoreDependencies(text) {
   const evidence = [];
   let count = 0;
   const patterns = [
-    /\b(api|database|queue|cache|service|provider|integration|mcp|cli|config|environment|artifact|pr|branch)\b/gi,
+    /\b(api|database|queue|cache|service|provider|integration|mcp|cli|config|environment|artifact|pr|branch|schema|webhook|endpoint|job|worker|dashboard|handler)s?\b/gi,
     /\bdepends? on\b|\bafter\b|\bbefore\b|\bsequence\b/gi,
   ];
   for (const re of patterns) {
@@ -122,7 +136,7 @@ function scoreDependencies(text) {
 
 function scoreRiskFactors(text) {
   const evidence = [];
-  const riskWords = text.match(/\b(security|secret|token|approval|production|breaking|migration|rollback|fallback|low[- ]confidence|malformed|audit|compliance|risk|unsafe|halt)\b/gi) || [];
+  const riskWords = text.match(/\b(security|secrets?|tokens?|approvals?|production|breaking|migrat(?:e|es|ed|ing|ion|ions)|rollbacks?|fallbacks?|low[- ]confidence|malformed|audits?|compliance|risks?|unsafe|halt)\b/gi) || [];
   evidence.push(...riskWords.slice(0, 6).map(w => `risk signal: ${w.toLowerCase()}`));
   if (riskWords.length >= 5) return dimension(3, 'high', evidence);
   if (riskWords.length >= 2) return dimension(2, 'medium', evidence);
@@ -132,7 +146,7 @@ function scoreRiskFactors(text) {
 
 function scoreTeamSize(text) {
   const evidence = [];
-  const teamWords = text.match(/\b(team|teams|pm|developer|developers|operator|user|users|reviewer|qa|foreman|human|approval|owner|owners)\b/gi) || [];
+  const teamWords = text.match(/\b(teams?|pm|developers?|operators?|users?|reviewers?|qa|foreman|humans?|approvals?|owners?|tenants?|admins?|stakeholders?)\b/gi) || [];
   evidence.push(...teamWords.slice(0, 5).map(w => `team signal: ${w.toLowerCase()}`));
   if (/\bmulti[- ]team\b/i.test(text) || teamWords.length >= 5) return dimension(3, 'high', evidence);
   if (teamWords.length >= 2) return dimension(2, 'medium', evidence);
