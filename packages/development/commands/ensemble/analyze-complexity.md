@@ -23,7 +23,8 @@ Ensemble commands.
 ### Phase 1: Input Normalization
 
 **1. Resolve subject and description**
-   Run node packages/development/lib/complexity-analyzer.js analyze with the provided arguments.
+   Resolve COMPLEXITY_ANALYZER per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/complexity-analyzer.js. If none of the 4 tiers resolve OR 'which node' fails: print 'ERROR: Node.js and the complexity analyzer (lib/complexity-analyzer.js) are required for deterministic complexity scoring. Ensure Node.js is installed and the ensemble-development plugin is present.' and exit 1.
+Run node "$COMPLEXITY_ANALYZER" analyze with the provided arguments.
 If --foreman is present, read FOREMAN_TASK_TITLE as the subject and FOREMAN_TASK_DESCRIPTION as the description.
 If no subject or description exists, print the missing-subject error and stop before creating any downstream artifact.
 

@@ -32,9 +32,17 @@ describe('refine-beads command', () => {
 
   test('generates repair plan before approval prompt', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toContain('beads-refine-cli.js plan');
+    expect(text).toContain('"$BEADS_REFINE_CLI" plan');
     expect(text).toContain('capture REPAIR_PLAN');
     expect(text).toContain('proposed br command(s) from REPAIR_PLAN');
+  });
+
+  test('resolves the bundled CLI rather than hardcoding a monorepo path', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    // A bare packages/development/lib/... path only exists in the monorepo, so the
+    // command was unusable from a consuming project with only the plugin installed.
+    expect(text).not.toContain('node packages/development/lib/');
+    expect(text).toContain('tool-path-resolution');
   });
 
   test('requires approval and dependency confirmation before mutation', () => {

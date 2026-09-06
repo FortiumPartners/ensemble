@@ -149,6 +149,16 @@ describe('complexity-analyzer audit and artifacts', () => {
     }
     expect(command).toContain('FOREMAN_ARTIFACT_PATH');
   });
+
+  test('command YAML resolves the analyzer rather than hardcoding a monorepo path', () => {
+    const commandPath = path.join(__dirname, '../commands/analyze-complexity.yaml');
+    const command = fs.readFileSync(commandPath, 'utf8');
+    // A bare packages/development/lib/... path only exists in the monorepo, so Phase 1
+    // step 1 could not run from a consuming project with only the plugin installed.
+    expect(command).not.toContain('node packages/development/lib/');
+    expect(command).toContain('tool-path-resolution');
+    expect(command).toContain('"$COMPLEXITY_ANALYZER" analyze');
+  });
 });
 
 describe('complexity-analyzer route calibration', () => {
