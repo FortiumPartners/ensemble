@@ -16,7 +16,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
-    "generate": "node dist/index.js",
+    "generate": "npm run build && node dist/index.js",
     "validate:version": "node -e \"const p=require('./package.json'); const c=require('./.claude-plugin/plugin.json'); if(p.version!==c.version){process.stderr.write('Version mismatch: package.json ('+p.version+') != plugin.json ('+c.version+')\\n'); process.exit(1)}\"",
     "prepublishOnly": "npm run build && npm test && npm run validate:version && npm run generate"
   },

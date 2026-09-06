@@ -58,7 +58,8 @@ jobs:
         run: |
           PATHS="packages/pi/prompts packages/pi/agents packages/pi/skills packages/pi/AGENTS.md packages/pi/package.json packages/pi/.claude-plugin/plugin.json"
           git diff --exit-code $PATHS || {
-            echo "ERROR: Generated Pi artifacts (or version files) are stale. Run 'npm run generate:pi' and commit the results."
+            echo "ERROR: Generated Pi artifacts (or version files) are stale. Run 'npm run generate:pi' and commit the results (including the version bump)."
+            echo "If you already did and still see this: your packages/pi/dist/ was a stale local build. dist/ is gitignored and 'generate' now builds first, so re-run on an up-to-date checkout."
             echo ""
             echo "Changed files:"
             git diff --name-only $PATHS
