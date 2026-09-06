@@ -205,3 +205,71 @@ describe('complexity-analyzer route calibration', () => {
     expect(verb.dimensions.riskFactors.score).toBe(noun.dimensions.riskFactors.score);
   });
 });
+
+describe('complexity-analyzer low-confidence confirmation gate', () => {
+  // The command YAML asks for confirmation on low-confidence interactive analysis.
+  // Confidence alone is the wrong trigger: "Fix a typo in the README" is also low
+  // confidence and is correctly Simple, so gating on it would hand a typo a PRD.
+  // The trigger is low confidence WITH no extracted evidence — nothing recognised,
+  // as opposed to something small recognised.
+  const VAGUE = [
+    'Rework how we handle customers',
+    'Make the checkout flow better',
+    'Redo onboarding',
+    'Improve the reporting',
+  ];
+
+  test.each(VAGUE)('a description with no recognised signal asks first: %s', (description) => {
+    const result = analyzer.analyze(null, { foreman: false, description }, {});
+    expect(result.ok).toBe(true);
+    expect(result.needsConfirmation).toBe(true);
+    expect(analyzer.renderReport(result)).toContain('CONFIRM BEFORE DISPATCH');
+  });
+
+  const RECOGNISABLY_SMALL = [
+    'Fix a typo in the README',
+    'Update the copyright year',
+    'Fix an off-by-one in the pagination offset',
+    'Rename a variable in utils.js',
+    'Bump the eslint version',
+    'Correct a broken link in the docs',
+  ];
+
+  test.each(RECOGNISABLY_SMALL)('recognisably small work is not gated: %s', (description) => {
+    const result = analyzer.analyze(null, { foreman: false, description }, {});
+    expect(result.ok).toBe(true);
+    expect(result.needsConfirmation).toBe(false);
+    expect(result.recommendedRoute).toBe('simple');
+  });
+
+  test('work with real signal is not gated', () => {
+    const result = analyzer.analyze(null, {
+      foreman: false,
+      description: 'Build a multi-tenant billing system with Postgres schema, invoice migration, webhook handlers and a reconciliation job across three services',
+    }, {});
+    expect(result.needsConfirmation).toBe(false);
+    expect(result.recommendedRoute).toBe('complex');
+  });
+
+  test('an explicit --route leaves nothing to confirm', () => {
+    const result = analyzer.analyze(null, {
+      foreman: false,
+      description: 'Rework how we handle customers',
+      route: 'medium',
+    }, {});
+    expect(result.needsConfirmation).toBe(false);
+    expect(result.selectedRoute).toBe('medium');
+  });
+
+  test('Foreman mode keeps its own safety bump and never asks', () => {
+    // Foreman is unattended — there is nobody to answer a prompt. Its existing
+    // low-confidence path escalates the route instead, and that stays untouched.
+    const env = {
+      FOREMAN_TASK_TITLE: 'Rework how we handle customers',
+      FOREMAN_TASK_DESCRIPTION: 'Rework how we handle customers',
+    };
+    const result = analyzer.analyze(null, { foreman: true }, env);
+    expect(result.ok).toBe(true);
+    expect(result.needsConfirmation).toBe(false);
+  });
+});

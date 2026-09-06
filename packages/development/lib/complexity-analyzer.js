@@ -94,7 +94,19 @@ function dimension(score, label, evidence = []) {
 function scoreScopeSize(text) {
   const evidence = [];
   let score = 0;
-  if (/\b(single|one)\s+(file|line|component|endpoint)\b/i.test(text)) evidence.push('single-file or narrow scope');
+  // Narrow-scope markers carry no SCORE — small work should score low — but they do
+  // carry EVIDENCE, and that distinction is what separates "this is recognisably
+  // small" from "nothing was recognised at all". Without the second list, "Fix a
+  // typo in the README" produces zero evidence for the same reason "Rework how we
+  // handle customers" does, and anything keyed on absence-of-evidence cannot tell
+  // a finished small task from an unstated large one.
+  const narrow = [
+    /\b(single|one)\s+(file|line|component|endpoint)\b/i,
+    /\b(typo|typos|whitespace|indentation|formatting|lint)\b/i,
+    /\b(rename|renaming|comment|comments|docstring|copyright|changelog)\b/i,
+    /\b(off[- ]by[- ]one|null check|broken link|version bump|bump the)\b/i,
+  ];
+  if (narrow.some(r => r.test(text))) evidence.push('narrow, single-artifact scope');
   const medium = [
     /\b(files|modules|components|commands|workflows)\b/i,
     /\badd\b|\bcreate\b|\bimplement\b|\bbuild\b|\bintroduce\b/i,
@@ -259,9 +271,32 @@ function analyze(input, opts = {}, env = process.env) {
     .flatMap(([name, dim]) => dim.evidence.slice(0, 2).map(e => `${name}: ${e}`))
     .slice(0, 6);
 
+  // A description carrying no signal in any dimension scores at the floor, so the
+  // route reads Simple — and Simple dispatches to /ensemble:fix-issue with no PRD
+  // and no TRD. "Rework how we handle customers" lands there. That is the case the
+  // command spec means by "ask for confirmation or clarification on low-confidence
+  // interactive analysis before dispatch".
+  //
+  // Scoped narrowly on purpose. Blanket low-confidence escalation would also catch
+  // "Fix a typo in the README", which reports low confidence and is nonetheless
+  // correctly Simple; escalating it hands a typo a PRD. The discriminator is not
+  // confidence alone but confidence WITH no extracted evidence — a typo scores low
+  // because there is little to say, a vague subject scores low because nothing was
+  // said. An explicit --route means the human already named the route, so there is
+  // nothing left to confirm.
+  //
+  // This flags; it does not reroute. The recommendation stands and the caller
+  // decides, which keeps the analyzer's output deterministic.
+  const needsConfirmation =
+    normalized.mode !== 'foreman' &&
+    confidence === 'low' &&
+    rationale.length === 0 &&
+    !overrideResult.override.applied;
+
   return {
     ok: true,
     adaptivePlanning: config,
+    needsConfirmation,
     subject: normalized.subject,
     descriptionPresent: Boolean(normalized.description),
     score,
@@ -298,6 +333,7 @@ function renderReport(result, artifactPath) {
   lines.push(`- Confidence: ${result.confidence}`);
   lines.push(`- Override: ${result.override?.applied ? result.override.value : 'none'}`);
   lines.push(`- Adaptive planning: ${result.adaptivePlanning?.enabled === false ? 'disabled' : 'enabled'}`);
+  if (result.needsConfirmation) lines.push('- Confirmation required: yes');
   if (artifactPath) lines.push(`- Classification sidecar: ${sidecarPath(artifactPath)}`);
   lines.push('');
   lines.push('## Rationale');
@@ -305,6 +341,17 @@ function renderReport(result, artifactPath) {
   if (!result.rationale?.length) lines.push('- No high-signal rationale extracted.');
   lines.push('');
   lines.push('## Route Plan');
+  if (result.needsConfirmation) {
+    lines.push(
+      '- CONFIRM BEFORE DISPATCH: no scope, dependency, risk or team signal was found in'
+    );
+    lines.push(
+      '  this description, so the score sits at the floor and the route below is a guess.'
+    );
+    lines.push(
+      '  Describe the work in more detail, or name the route with --route simple|medium|complex.'
+    );
+  }
   for (const step of result.routePlan || []) lines.push(`- ${step}`);
   return `${lines.join('\n')}\n`;
 }
