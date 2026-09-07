@@ -23,8 +23,10 @@
  *            from the registry and never from a workspace, so one fails
  *            ENOVERSIONS even when the range matches the local version, and
  *            with "aliases only work for registry deps" when it carries file:.
- *   SKIPPED  `file:` on a name that matches a workspace — measured: npm ignores
- *            the path entirely and links the workspace, so the path is inert.
+ *   SKIPPED  `file:` — it never reaches the registry, so it cannot 404, which is
+ *            the only failure this guard exists to catch. NOT because the path is
+ *            inert: npm honours it, and the dependency resolves to whatever lives
+ *            there. See the note at the skip.
  *   SKIPPED  anything else; it resolves from the registry like any dependency.
  *
  * Not detectable here: a deleted workspace still referenced by a plain semver
@@ -207,12 +209,26 @@ for (const { rel, pkg } of manifests) {
       }
 
       if (!(dep in localVersions)) continue;   // registry resolves it
-      // Nothing to check, though not for the reason an earlier version of this
-      // comment gave. Measured: when the name matches a workspace, npm ignores the
-      // file: path completely and links the workspace — declaring `pkg-a` as
-      // `file:../other` still linked packages/a, with the lockfile recording
-      // `resolved: packages/a, link: true`. So the path is inert here, and the
-      // semver range is never consulted either way.
+      // Skipped because a file: range never reaches the registry, so it cannot
+      // produce the 404 this guard exists to catch. There is no semver range to
+      // check either.
+      //
+      // Two earlier comments here claimed npm ignores the path and links the
+      // workspace. That is false, and the second one was written while claiming to
+      // correct the first. Declaring `pkg-a` as `file:../other`, requiring it from
+      // a real file inside the declaring package, under both npm install and npm ci:
+      //
+      //   require.resolve('pkg-a')  ->  packages/other/i.js
+      //   require('pkg-a/package.json').name  ->  'pkg-other'
+      //
+      // The root-level node_modules/pkg-a -> packages/a symlink that both earlier
+      // comments cited is workspace hoisting; it appears for every workspace with no
+      // dependencies declared at all, so it says nothing about this dependency.
+      // Resolution for the DECLARING package is packages/consumer/node_modules/pkg-a.
+      //
+      // So npm honours the path, and a file: range can point a trusted name at
+      // different code. That is a real hazard and it is not this guard's subject —
+      // filed separately rather than grown into this one.
       if (range.startsWith('file:')) continue;
 
       checked++;
