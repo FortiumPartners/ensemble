@@ -1,19 +1,27 @@
 #!/usr/bin/env node
 /**
- * Validates that every dependency on another @fortium/ensemble-* workspace
+ * Validates that every dependency naming one of this repo's own workspaces
  * declares a range that workspace's current version satisfies.
  *
- * npm links a workspace in place only when the declared range matches the
- * local version. When it does not match, npm falls through to the public
- * registry — where none of the @fortium/ensemble-* packages are published —
- * and `npm ci` dies with a 404. That is what stranded this repo on
- * `npm ci --legacy-peer-deps` from 2025-12-14 (commit 0f44318, added the
- * same day 218daed moved packages/development to 5.0.0 and broke every
- * ^4.0.0 range) until 2026-08-04.
+ * npm links a workspace in place only when the declared range matches the local
+ * version. When it does not match, npm falls through to the public registry —
+ * where these packages are not published — and `npm ci` dies with a 404. That is
+ * what stranded this repo on `npm ci --legacy-peer-deps` from 2025-12-14 (commit
+ * 0f44318, added the same day 218daed moved packages/development to 5.0.0 and
+ * broke every ^4.0.0 range) until 2026-08-04.
  *
- * A @fortium/ensemble-* name with no matching workspace is a failure, not a
- * skip: that is a renamed, deleted, or mistyped workspace, and it produces
- * the same registry 404 as a stale range.
+ * Scope, stated plainly because the previous three versions of this file each
+ * claimed more than they measured:
+ *
+ *   CHECKED  a dependency whose name matches a workspace in this repo
+ *   CHECKED  a `workspace:` range, whatever it names — the range asserts it is
+ *            one of ours, so a name that is not is a broken reference
+ *   CHECKED  a `file:`/`link:`/`portal:` range, for whether the path exists
+ *   SKIPPED  anything else; it resolves from the registry like any dependency
+ *
+ * Not detectable here: a deleted workspace still referenced by a plain semver
+ * range looks exactly like an ordinary registry package. Declaring it
+ * `workspace:` is what makes that case visible.
  *
  * Exit 0 = every range resolvable locally, Exit 1 = at least one is not.
  */
@@ -28,14 +36,6 @@ const DEP_FIELDS = [
   'peerDependencies',
   'optionalDependencies',
 ];
-
-/** Range protocols npm resolves from disk — these never reach the registry. */
-const LOCAL_PROTOCOLS = ['file:', 'link:', 'workspace:', 'portal:'];
-
-/** "@fortium/ensemble-core" -> "@fortium". Unscoped names have no scope. */
-function scopeOf(name) {
-  return name.startsWith('@') ? name.slice(0, name.indexOf('/')) : '';
-}
 
 const root = path.resolve(__dirname, '..');
 
@@ -99,40 +99,7 @@ for (const rel of workspaceDirs) {
   manifests.push({ rel: `${rel}/package.json`, pkg });
 }
 
-/**
- * Names that belong to this workspace family. Derived, never hardcoded — a scope
- * rename (@fortium -> @sunstone-partners, as Leo's fork did) must not turn this
- * guard into a no-op that scans 29 manifests, checks 0 ranges and exits 0.
- *
- * Derived as the longest common prefix of the workspace names WITHIN each scope,
- * not the bare scope. The bare scope is too coarse: it makes an ordinary external
- * package like @fortium/eslint-config look intra-workspace and fails it with
- * "renamed, deleted, or mistyped", which is a false alarm of exactly the kind this
- * guard exists to avoid producing.
- */
-function familyPrefixes(names) {
-  const byScope = new Map();
-  for (const name of names) {
-    const scope = scopeOf(name);
-    if (!scope) continue; // unscoped names carry no family; localVersions covers them
-    if (!byScope.has(scope)) byScope.set(scope, []);
-    byScope.get(scope).push(name);
-  }
-  const prefixes = [];
-  for (const group of byScope.values()) {
-    let prefix = group[0];
-    for (const name of group.slice(1)) {
-      let i = 0;
-      while (i < prefix.length && i < name.length && prefix[i] === name[i]) i++;
-      prefix = prefix.slice(0, i);
-    }
-    if (prefix) prefixes.push(prefix);
-  }
-  return prefixes;
-}
-
 const localNames = Object.keys(localVersions);
-const localFamilies = familyPrefixes(localNames);
 
 if (localNames.length === 0) {
   console.error('✗ No workspace declares a package name — nothing to check.');
@@ -141,14 +108,26 @@ if (localNames.length === 0) {
 }
 
 /**
- * A dependency is ours if it names a workspace outright — which covers unscoped
- * workspaces, invisible to any scope-based test — or if it sits under a workspace
- * family prefix, which is what catches a renamed, deleted or mistyped name.
+ * Ranges that assert the dependency resolves from disk rather than the registry.
+ * `workspace:` asserts specifically that it is one of THIS repo's workspaces.
  */
-function isIntraWorkspace(dep) {
-  if (dep in localVersions) return true;
-  return localFamilies.some((prefix) => dep.startsWith(prefix));
-}
+const WORKSPACE_PROTOCOL = 'workspace:';
+const PATH_PROTOCOLS = ['file:', 'link:', 'portal:'];
+
+/**
+ * Three earlier attempts here tried to infer which dependency NAMES were ours — a
+ * hardcoded '@fortium/ensemble-' prefix, then the bare npm scope, then the longest
+ * common prefix of the workspace names. Each was wrong in both directions, and
+ * review said it plainly: the precision was an accident of the current naming
+ * rather than anything the code enforced. Renaming a scope broke one; adding one
+ * differently-named workspace broke the next.
+ *
+ * So this infers nothing. A dependency is checked when it NAMES a workspace, or
+ * when its RANGE asserts it is local. Both are facts already written down; neither
+ * is a guess about what a name looks like. The cost is stated in the summary rather
+ * than hidden: a deleted workspace still referenced by a plain semver range is
+ * indistinguishable from an ordinary registry package, and is not detectable here.
+ */
 
 /**
  * Widest range that still resolves locally. Caret on a 0.x major pins the minor, and
@@ -167,27 +146,44 @@ let checked = 0;
 for (const { rel, pkg } of manifests) {
   for (const field of DEP_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] || {})) {
-      // Anything outside the workspace family resolves from the registry normally.
-      if (!isIntraWorkspace(dep)) continue;
-      checked++;
+      const namesWorkspace = dep in localVersions;
+      const claimsWorkspace = range.startsWith(WORKSPACE_PROTOCOL);
+      const claimsPath = PATH_PROTOCOLS.some((proto) => range.startsWith(proto));
 
-      // Existence is checked BEFORE the protocol skip. A workspace:/file: range
-      // naming a workspace that does not exist still breaks the install, and
-      // skipping it first let a typo through silently.
-      if (!(dep in localVersions)) {
-        failures.push({
-          rel,
-          field,
-          dep,
-          range,
-          reason: 'names no workspace — renamed, deleted, or mistyped',
-        });
+      if (!namesWorkspace) {
+        // `workspace:` states outright that this is one of our workspaces. It is not,
+        // so the reference is broken however the name happens to be spelled.
+        if (claimsWorkspace) {
+          checked++;
+          failures.push({
+            rel, field, dep, range,
+            reason: 'declared workspace: but names no workspace — renamed, deleted, or mistyped',
+          });
+          continue;
+        }
+        // file:/link:/portal: name a path, not a workspace. Pointing outside the
+        // workspaces glob is legitimate — vendored code lives there — so the only
+        // thing worth checking is whether the path is actually present.
+        if (claimsPath) {
+          checked++;
+          const target = range.slice(range.indexOf(':') + 1);
+          const resolved = path.resolve(path.dirname(path.join(root, rel)), target);
+          if (!fs.existsSync(resolved)) {
+            failures.push({
+              rel, field, dep, range,
+              reason: `points at ${path.relative(root, resolved)}, which does not exist`,
+            });
+          }
+          continue;
+        }
+        // A plain semver range on a name we do not own resolves from the registry.
         continue;
       }
 
-      // file:/link:/workspace:/portal: resolve from disk once the workspace is known
-      // to exist, so the semver range carries no risk and is not worth checking.
-      if (LOCAL_PROTOCOLS.some((proto) => range.startsWith(proto))) continue;
+      checked++;
+      // The workspace exists and the range pins resolution to disk, so no semver
+      // range is consulted at install time and none is worth checking here.
+      if (claimsWorkspace || claimsPath) continue;
 
       const local = localVersions[dep];
       if (!local) {
@@ -210,7 +206,13 @@ for (const { rel, pkg } of manifests) {
 if (failures.length === 0) {
   console.log(
     `✓ All ${checked} intra-workspace dependency ranges are satisfiable ` +
-      `(${manifests.length} manifests scanned)`
+      `(${manifests.length} manifests scanned, ${localNames.length} workspaces)`
+  );
+  console.log(
+    '  Not covered: a deleted workspace still referenced by a plain semver range is'
+  );
+  console.log(
+    '  indistinguishable from a registry package. Declare it workspace: to catch that.'
   );
   process.exit(0);
 }
