@@ -10,18 +10,27 @@
  * 0f44318, added the same day 218daed moved packages/development to 5.0.0 and
  * broke every ^4.0.0 range) until 2026-08-04.
  *
- * Scope, stated plainly because the previous three versions of this file each
- * claimed more than they measured:
+ * Every rule below was measured against the npm this repo actually uses
+ * (npm 10.9.2, lockfileVersion 3), not inferred. Earlier versions of this file
+ * asserted behaviour nobody had run.
  *
- *   CHECKED  a dependency whose name matches a workspace in this repo
- *   CHECKED  a `workspace:` range, whatever it names — the range asserts it is
- *            one of ours, so a name that is not is a broken reference
- *   CHECKED  a `file:`/`link:`/`portal:` range, for whether the path exists
- *   SKIPPED  anything else; it resolves from the registry like any dependency
+ *   FAIL     `workspace:`, `link:`, `portal:` — npm rejects all three with
+ *            EUNSUPPORTEDPROTOCOL before it looks at the name or the path, so
+ *            they break `npm ci` unconditionally. They are pnpm/yarn syntax.
+ *   CHECKED  a plain semver range whose name matches a workspace — the original
+ *            defect: a stale range sends npm to the registry and 404s.
+ *   CHECKED  `npm:<name>@<range>` aliases whose target names a workspace; the
+ *            target hides inside the range string, and a stale one fails with
+ *            ENOVERSIONS.
+ *   SKIPPED  `file:` — verified tolerated by npm here even when the path is
+ *            absent, so failing it would be inventing a failure mode.
+ *   SKIPPED  anything else; it resolves from the registry like any dependency.
  *
  * Not detectable here: a deleted workspace still referenced by a plain semver
- * range looks exactly like an ordinary registry package. Declaring it
- * `workspace:` is what makes that case visible.
+ * range looks exactly like an ordinary registry package. There is no way to tell
+ * them apart from the manifest alone, and no syntax to recommend that npm would
+ * accept — an earlier version of this file suggested `workspace:` for it, which
+ * would have broken every install that followed the advice.
  *
  * Exit 0 = every range resolvable locally, Exit 1 = at least one is not.
  */
@@ -108,11 +117,22 @@ if (localNames.length === 0) {
 }
 
 /**
- * Ranges that assert the dependency resolves from disk rather than the registry.
- * `workspace:` asserts specifically that it is one of THIS repo's workspaces.
+ * Protocols npm cannot install. Measured, not assumed: with npm 10.9.2 each of
+ * these exits 1 with EUNSUPPORTEDPROTOCOL even when it names a real, correctly
+ * versioned workspace, because npm-package-arg rejects the string before any
+ * name matching or path resolution happens. `file:` is the only local protocol
+ * vanilla npm accepts.
  */
-const WORKSPACE_PROTOCOL = 'workspace:';
-const PATH_PROTOCOLS = ['file:', 'link:', 'portal:'];
+const UNSUPPORTED_PROTOCOLS = ['workspace:', 'link:', 'portal:'];
+
+/** `npm:@scope/name@^1.2.3` — the real target name is inside the range string. */
+function aliasTarget(range) {
+  if (!range.startsWith('npm:')) return null;
+  const spec = range.slice('npm:'.length);
+  const at = spec.lastIndexOf('@');
+  if (at <= 0) return { name: spec, range: '*' };
+  return { name: spec.slice(0, at), range: spec.slice(at + 1) || '*' };
+}
 
 /**
  * Three earlier attempts here tried to infer which dependency NAMES were ours — a
@@ -146,57 +166,39 @@ let checked = 0;
 for (const { rel, pkg } of manifests) {
   for (const field of DEP_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] || {})) {
-      const namesWorkspace = dep in localVersions;
-      const claimsWorkspace = range.startsWith(WORKSPACE_PROTOCOL);
-      const claimsPath = PATH_PROTOCOLS.some((proto) => range.startsWith(proto));
-
-      if (!namesWorkspace) {
-        // `workspace:` states outright that this is one of our workspaces. It is not,
-        // so the reference is broken however the name happens to be spelled.
-        if (claimsWorkspace) {
-          checked++;
-          failures.push({
-            rel, field, dep, range,
-            reason: 'declared workspace: but names no workspace — renamed, deleted, or mistyped',
-          });
-          continue;
-        }
-        // file:/link:/portal: name a path, not a workspace. Pointing outside the
-        // workspaces glob is legitimate — vendored code lives there — so the only
-        // thing worth checking is whether the path is actually present.
-        if (claimsPath) {
-          checked++;
-          const target = range.slice(range.indexOf(':') + 1);
-          const resolved = path.resolve(path.dirname(path.join(root, rel)), target);
-          if (!fs.existsSync(resolved)) {
-            failures.push({
-              rel, field, dep, range,
-              reason: `points at ${path.relative(root, resolved)}, which does not exist`,
-            });
-          }
-          continue;
-        }
-        // A plain semver range on a name we do not own resolves from the registry.
+      const unsupported = UNSUPPORTED_PROTOCOLS.find((proto) => range.startsWith(proto));
+      if (unsupported) {
+        checked++;
+        failures.push({
+          rel, field, dep, range,
+          reason: `npm cannot install a "${unsupported}" range — it fails with ` +
+                  'EUNSUPPORTEDPROTOCOL whatever it names. Use a plain semver range.',
+        });
         continue;
       }
 
-      checked++;
-      // The workspace exists and the range pins resolution to disk, so no semver
-      // range is consulted at install time and none is worth checking here.
-      if (claimsWorkspace || claimsPath) continue;
+      // An alias hides the real target inside the range, so the field key tells you
+      // nothing. Resolve it and judge the target, not the key.
+      const alias = aliasTarget(range);
+      const name = alias ? alias.name : dep;
+      const wanted = alias ? alias.range : range;
 
-      const local = localVersions[dep];
+      if (!(name in localVersions)) continue;   // registry resolves it
+      // `file:` pins resolution to disk and consults no semver range. npm tolerates
+      // it here even when the path is missing, so there is nothing to check.
+      if (wanted.startsWith('file:')) continue;
+
+      checked++;
+      const local = localVersions[name];
       if (!local) {
         failures.push({ rel, field, dep, range, reason: 'that workspace declares no version' });
         continue;
       }
-      if (!semver.satisfies(local, range)) {
+      if (!semver.satisfies(local, wanted)) {
         failures.push({
-          rel,
-          field,
-          dep,
-          range,
-          reason: `that workspace is at ${local} — widen to "${suggestRange(local)}"`,
+          rel, field, dep, range,
+          reason: (alias ? `aliases ${name}, which ` : 'that workspace ') +
+                  `is at ${local} — widen to "${suggestRange(local)}"`,
         });
       }
     }
@@ -212,7 +214,7 @@ if (failures.length === 0) {
     '  Not covered: a deleted workspace still referenced by a plain semver range is'
   );
   console.log(
-    '  indistinguishable from a registry package. Declare it workspace: to catch that.'
+    '  indistinguishable from a registry package in the manifest alone.'
   );
   process.exit(0);
 }
