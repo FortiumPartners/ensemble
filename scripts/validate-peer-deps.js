@@ -99,16 +99,55 @@ for (const rel of workspaceDirs) {
   manifests.push({ rel: `${rel}/package.json`, pkg });
 }
 
-// Which npm scopes belong to this workspace. Derived from the workspaces
-// themselves rather than hardcoded: a scope rename (@fortium -> @sunstone-partners,
-// as Leo's fork did) must not turn this guard into a no-op that scans 29
-// manifests, checks 0 ranges, and exits 0.
-const localScopes = new Set(Object.keys(localVersions).map(scopeOf).filter(Boolean));
+/**
+ * Names that belong to this workspace family. Derived, never hardcoded — a scope
+ * rename (@fortium -> @sunstone-partners, as Leo's fork did) must not turn this
+ * guard into a no-op that scans 29 manifests, checks 0 ranges and exits 0.
+ *
+ * Derived as the longest common prefix of the workspace names WITHIN each scope,
+ * not the bare scope. The bare scope is too coarse: it makes an ordinary external
+ * package like @fortium/eslint-config look intra-workspace and fails it with
+ * "renamed, deleted, or mistyped", which is a false alarm of exactly the kind this
+ * guard exists to avoid producing.
+ */
+function familyPrefixes(names) {
+  const byScope = new Map();
+  for (const name of names) {
+    const scope = scopeOf(name);
+    if (!scope) continue; // unscoped names carry no family; localVersions covers them
+    if (!byScope.has(scope)) byScope.set(scope, []);
+    byScope.get(scope).push(name);
+  }
+  const prefixes = [];
+  for (const group of byScope.values()) {
+    let prefix = group[0];
+    for (const name of group.slice(1)) {
+      let i = 0;
+      while (i < prefix.length && i < name.length && prefix[i] === name[i]) i++;
+      prefix = prefix.slice(0, i);
+    }
+    if (prefix) prefixes.push(prefix);
+  }
+  return prefixes;
+}
 
-if (localScopes.size === 0) {
-  console.error('✗ No workspace declares a scoped package name — nothing to check.');
+const localNames = Object.keys(localVersions);
+const localFamilies = familyPrefixes(localNames);
+
+if (localNames.length === 0) {
+  console.error('✗ No workspace declares a package name — nothing to check.');
   console.error('  Refusing to report success on a scan that measures nothing.');
   process.exit(1);
+}
+
+/**
+ * A dependency is ours if it names a workspace outright — which covers unscoped
+ * workspaces, invisible to any scope-based test — or if it sits under a workspace
+ * family prefix, which is what catches a renamed, deleted or mistyped name.
+ */
+function isIntraWorkspace(dep) {
+  if (dep in localVersions) return true;
+  return localFamilies.some((prefix) => dep.startsWith(prefix));
 }
 
 /**
@@ -128,12 +167,13 @@ let checked = 0;
 for (const { rel, pkg } of manifests) {
   for (const field of DEP_FIELDS) {
     for (const [dep, range] of Object.entries(pkg[field] || {})) {
-      // Anything outside the workspace's own scopes resolves from the registry normally.
-      if (!localScopes.has(scopeOf(dep))) continue;
-      // file:/link:/workspace:/portal: resolve from disk — no registry lookup to break.
-      if (LOCAL_PROTOCOLS.some((proto) => range.startsWith(proto))) continue;
+      // Anything outside the workspace family resolves from the registry normally.
+      if (!isIntraWorkspace(dep)) continue;
       checked++;
 
+      // Existence is checked BEFORE the protocol skip. A workspace:/file: range
+      // naming a workspace that does not exist still breaks the install, and
+      // skipping it first let a typo through silently.
       if (!(dep in localVersions)) {
         failures.push({
           rel,
@@ -144,6 +184,10 @@ for (const { rel, pkg } of manifests) {
         });
         continue;
       }
+
+      // file:/link:/workspace:/portal: resolve from disk once the workspace is known
+      // to exist, so the semver range carries no risk and is not worth checking.
+      if (LOCAL_PROTOCOLS.some((proto) => range.startsWith(proto))) continue;
 
       const local = localVersions[dep];
       if (!local) {
