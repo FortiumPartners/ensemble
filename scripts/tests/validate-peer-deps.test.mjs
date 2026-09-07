@@ -33,8 +33,17 @@ function runGuard({ workspaces, consumer }) {
       path.join(dir, 'package.json'),
       JSON.stringify({ name: 'root', private: true, workspaces: ['packages/*'] })
     );
-    // The guard requires semver; borrow the repo's copy rather than installing.
-    fs.symlinkSync(path.join(REPO, 'node_modules'), path.join(dir, 'node_modules'));
+    // The guard requires semver; borrow the repo's copy rather than installing one.
+    // Say so plainly if it is not there — the failure this replaces was an opaque
+    // MODULE_NOT_FOUND stack, which is a poor look for a suite about unclear guards.
+    const repoModules = path.join(REPO, 'node_modules');
+    if (!fs.existsSync(path.join(repoModules, 'semver'))) {
+      throw new Error(
+        `these tests borrow semver from ${repoModules}, which is not populated — ` +
+        'run `npm ci` at the repo root first'
+      );
+    }
+    fs.symlinkSync(repoModules, path.join(dir, 'node_modules'));
     fs.mkdirSync(path.join(dir, 'scripts'));
     fs.copyFileSync(GUARD, path.join(dir, 'scripts/validate-peer-deps.js'));
 
@@ -93,6 +102,24 @@ test('an npm: alias hiding a stale workspace version fails', () => {
   const { code, out } = runGuard({ workspaces: A, consumer: dep({ aliased: 'npm:pkg-a@^2.0.0' }) });
   assert.equal(code, 1);
   assert.match(out, /aliases pkg-a, which is at 1\.0\.0/);
+});
+
+test('a SCOPED npm: alias resolves to the right target', () => {
+  // '@scope/name@range' has two '@'. Splitting on the wrong one silently renames
+  // the target, and every workspace in this repo is scoped, so this is the shape
+  // a real aliased dependency would take.
+  const ws = { a: { name: '@acme/core', version: '1.0.0' } };
+  const stale = runGuard({ workspaces: ws, consumer: dep({ aliased: 'npm:@acme/core@^2.0.0' }) });
+  assert.equal(stale.code, 1);
+  assert.match(stale.out, /aliases @acme\/core, which is at 1\.0\.0/);
+
+  const ok = runGuard({ workspaces: ws, consumer: dep({ aliased: 'npm:@acme/core@^1.0.0' }) });
+  assert.equal(ok.code, 0);
+});
+
+test('an npm: alias with no version pins nothing and passes', () => {
+  const ws = { a: { name: '@acme/core', version: '1.0.0' } };
+  assert.equal(runGuard({ workspaces: ws, consumer: dep({ aliased: 'npm:@acme/core' }) }).code, 0);
 });
 
 test('an npm: alias that is satisfied passes', () => {
