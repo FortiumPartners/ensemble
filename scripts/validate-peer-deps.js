@@ -23,8 +23,8 @@
  *            from the registry and never from a workspace, so one fails
  *            ENOVERSIONS even when the range matches the local version, and
  *            with "aliases only work for registry deps" when it carries file:.
- *   SKIPPED  `file:` — verified tolerated by npm here even when the path is
- *            absent, so failing it would be inventing a failure mode.
+ *   SKIPPED  `file:` on a name that matches a workspace — measured: npm ignores
+ *            the path entirely and links the workspace, so the path is inert.
  *   SKIPPED  anything else; it resolves from the registry like any dependency.
  *
  * Not detectable here: a deleted workspace still referenced by a plain semver
@@ -126,13 +126,20 @@ if (localNames.length === 0) {
  */
 const UNSUPPORTED_PROTOCOLS = ['workspace:', 'link:', 'portal:'];
 
-/** `npm:@scope/name@^1.2.3` — the real target name is inside the range string. */
+/**
+ * `npm:@scope/name@^1.2.3` — the real target name is inside the range string.
+ *
+ * Anchored on the NAME rather than the last '@', because a range can contain one:
+ * `npm:pkg-a@git+ssh://git@github.com/o/r.git` split on lastIndexOf gave the name
+ * `pkg-a@git+ssh://git`, which matches no workspace, so the guard skipped an alias
+ * npm rejects.
+ */
+const ALIAS_SPEC = /^(@[^/@]+\/[^/@]+|[^/@]+)(?:@(.*))?$/;
 function aliasTarget(range) {
   if (!range.startsWith('npm:')) return null;
-  const spec = range.slice('npm:'.length);
-  const at = spec.lastIndexOf('@');
-  if (at <= 0) return { name: spec, range: '*' };
-  return { name: spec.slice(0, at), range: spec.slice(at + 1) || '*' };
+  const m = ALIAS_SPEC.exec(range.slice('npm:'.length));
+  if (!m) return null;
+  return { name: m[1], range: m[2] || '*' };
 }
 
 /**
@@ -200,8 +207,12 @@ for (const { rel, pkg } of manifests) {
       }
 
       if (!(dep in localVersions)) continue;   // registry resolves it
-      // `file:` pins resolution to disk and consults no semver range. npm tolerates
-      // it here even when the path is missing, so there is nothing to check.
+      // Nothing to check, though not for the reason an earlier version of this
+      // comment gave. Measured: when the name matches a workspace, npm ignores the
+      // file: path completely and links the workspace — declaring `pkg-a` as
+      // `file:../other` still linked packages/a, with the lockfile recording
+      // `resolved: packages/a, link: true`. So the path is inert here, and the
+      // semver range is never consulted either way.
       if (range.startsWith('file:')) continue;
 
       checked++;

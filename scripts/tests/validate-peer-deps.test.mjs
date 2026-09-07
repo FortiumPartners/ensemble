@@ -103,7 +103,11 @@ test('file: passes — npm tolerates it, so failing it would invent a failure mo
 // fails "aliases only work for registry deps". So the range is irrelevant — aliasing
 // a workspace cannot install, full stop. Two earlier versions of these tests asserted
 // the satisfied forms PASS, which locked in the bug rather than catching it.
-for (const spec of ['npm:pkg-a@^2.0.0', 'npm:pkg-a@^1.0.0', 'npm:pkg-a', 'npm:pkg-a@file:../a']) {
+for (const spec of ['npm:pkg-a@^2.0.0', 'npm:pkg-a@^1.0.0', 'npm:pkg-a', 'npm:pkg-a@file:../a',
+                    // A range can itself contain '@'. Splitting on the last one gave the
+                    // name 'pkg-a@git+ssh://git', which matches no workspace, so the guard
+                    // skipped an alias npm rejects.
+                    'npm:pkg-a@git+ssh://git@github.com/o/r.git']) {
   test(`aliasing a workspace fails whatever follows it: ${spec}`, () => {
     const { code, out } = runGuard({ workspaces: A, consumer: dep({ aliased: spec }) });
     assert.equal(code, 1);
