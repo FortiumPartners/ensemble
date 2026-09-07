@@ -10,7 +10,14 @@ Since 2026-09-06 the `ensemble` marketplace in every Claude config root is a **d
 ~/projects/.worktrees/ensemble-live     branch `live`, tracks sunstone/main
 ```
 
-Nothing pulls from a remote marketplace. That worktree decides what every session loads, and nothing lands in it without `scripts/ensemble-sync.sh` being run. `Sunstone-Partners/ensemble` is the live upstream; `FortiumPartners/ensemble` is dormant. See `scripts/ensemble-sync.sh --help` and the three ops scripts in `scripts/`.
+Nothing pulls from a remote marketplace. That worktree decides what every session loads, and nothing lands in it without `scripts/ensemble-sync.sh` being run.
+
+**The hook and watcher must never be referenced at a path inside this repo.** They are
+installed to `~/.claude/scripts/` by `scripts/install-ensemble-hooks.sh`; run it after
+changing either script. Wiring a machine-wide hook at `projects/ensemble/scripts/...`
+means it exists only while this tree has the right branch checked out — switching branches
+deleted it under 44 of 48 live sessions and silently killed the launchd watcher for a day
+(#97). The installer is idempotent and rewrites any entry that points back into a worktree. `Sunstone-Partners/ensemble` is the live upstream; `FortiumPartners/ensemble` is dormant. See `scripts/ensemble-sync.sh --help` and the three ops scripts in `scripts/`.
 
 ## Quick Reference
 
