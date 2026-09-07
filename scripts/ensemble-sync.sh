@@ -44,12 +44,86 @@ git -C "$DEV_CLONE" fetch --quiet "$UPSTREAM_REMOTE" || die "could not fetch $UP
 live_sha="$(git -C "$LIVE_WORKTREE" rev-parse HEAD)"
 up_sha="$(git -C "$DEV_CLONE" rev-parse "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")"
 
+# Reinstall every registered @ensemble plugin in each config root and verify by
+# CONTENT that the cache now matches source. Callable on its own, because a
+# worktree already at upstream can still be serving sessions a stale cache.
+refresh_caches() {
+  refresh_failures=0
+
+  for root in ${CONFIG_ROOTS[@]+"${CONFIG_ROOTS[@]}"}; do
+    [ -d "$root" ] || continue
+    echo "── $root"
+    for plugin in $(jq -r '.plugins | keys[] | select(endswith("@ensemble"))' \
+                      "$root/plugins/installed_plugins.json" 2>/dev/null | sed 's/@ensemble$//'); do
+      CLAUDE_CONFIG_DIR="$root" claude plugin uninstall "$plugin" >/dev/null 2>&1
+      if ! CLAUDE_CONFIG_DIR="$root" claude plugin install "${plugin}@ensemble" >/dev/null 2>&1; then
+        echo "    ✗ ${plugin}: reinstall FAILED"
+        refresh_failures=$((refresh_failures + 1))
+        continue
+      fi
+
+      # Verify by CONTENT, not by exit status and not by mtime. The command reports
+      # success on a version-gated no-op, and `claude plugin install` preserves mtimes
+      # when it re-copies identical content, so neither says whether the cache matches
+      # source. Comparing the files answers it directly.
+      install_path="$(jq -r --arg k "${plugin}@ensemble" \
+        '.plugins[$k][]? | select(.scope=="user") | .installPath' \
+        "$root/plugins/installed_plugins.json" 2>/dev/null | head -1)"
+      if [ -z "$install_path" ] || [ ! -d "$install_path" ]; then
+        echo "    ✗ ${plugin}: no install path after reinstall"
+        refresh_failures=$((refresh_failures + 1))
+        continue
+      fi
+
+      src_rel="$(jq -r --arg n "$plugin" \
+        '.plugins[] | select(.name == $n) | .source' \
+        "$LIVE_WORKTREE/.claude-plugin/marketplace.json" 2>/dev/null | sed 's|^\./||')"
+      if [ -z "$src_rel" ] || [ ! -d "$LIVE_WORKTREE/$src_rel" ]; then
+        echo "    ✗ ${plugin}: marketplace names no source dir — cannot verify the copy"
+        refresh_failures=$((refresh_failures + 1))
+        continue
+      fi
+
+      # "Only in" lines are stale files the installer leaves behind on re-copy; they are
+      # harmless. A file present in both that DIFFERS means the cache did not take.
+      drift="$(diff -rq "$LIVE_WORKTREE/$src_rel" "$install_path" 2>/dev/null \
+               | grep -v '^Only in' | head -3)"
+      if [ -n "$drift" ]; then
+        echo "    ✗ ${plugin}: cache does not match source after reinstall"
+        printf '%s\n' "$drift" | sed 's/^/        /'
+        refresh_failures=$((refresh_failures + 1))
+        continue
+      fi
+      printf '    ✓ %s\n' "$plugin"
+    done
+  done
+
+  if [ "$refresh_failures" -ne 0 ]; then
+    echo "✗ ${refresh_failures} plugin refresh(es) did not land — sessions would keep the old content." >&2
+    return 1
+  fi
+  return 0
+}
+
+
 if [ "$live_sha" = "$up_sha" ]; then
   echo "✓ Already current with ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} ($(git -C "$DEV_CLONE" rev-parse --short "$up_sha"))"
-  exit 0
+  # The worktree matching upstream says nothing about the plugin caches: a manual
+  # fast-forward, or an earlier run that moved the tree and failed at the refresh,
+  # both leave sessions on old content with nothing here able to fix it. --apply
+  # still refreshes, because the caches are the thing sessions actually load.
+  if [ "$APPLY" -eq 0 ]; then
+    echo "  Re-run with --apply to refresh the plugin caches against it."
+    exit 0
+  fi
+  echo
+  echo "── Refreshing plugin caches only ──"
+  refresh_caches
+  exit $?
 fi
 
 behind="$(git -C "$DEV_CLONE" rev-list --count "${live_sha}..${up_sha}")"
+merge_base="$(git -C "$DEV_CLONE" merge-base "$live_sha" "$up_sha" 2>/dev/null)"
 ahead="$(git -C "$DEV_CLONE" rev-list --count "${up_sha}..${live_sha}")"
 
 echo "Upstream:  ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} $(git -C "$DEV_CLONE" rev-parse --short "$up_sha")"
@@ -96,7 +170,50 @@ else
   # Comparing against upstream lets git match by patch-id and drop what has landed.
   if ! git -C "$LIVE_WORKTREE" rebase --no-reapply-cherry-picks "$up_sha" 2>&1 | sed 's/^/    /'; then
     git -C "$LIVE_WORKTREE" rebase --abort 2>/dev/null || true
-    die "rebase conflicted — the worktree is untouched. Resolve by hand, then re-run."
+
+    # Before handing this to a person, work out WHY. The common cause is not a real
+    # divergence: GitHub squash-merges a PR, so our three commits arrive upstream as
+    # one with a new patch-id, `--no-reapply-cherry-picks` cannot match them, and the
+    # replay conflicts with our own already-landed work. Measured 2026-09-07 on
+    # Sunstone-Partners/ensemble#65.
+    #
+    # The test that survives a squash is content, not commit identity: does upstream
+    # already contain every line our patches added?
+    absorbed=1
+    touched="$(git -C "$DEV_CLONE" diff --name-only "${merge_base}..${live_sha}" 2>/dev/null)"
+    for f in $touched; do
+      # Lines we have that upstream lacks. Zero for every file means fully absorbed.
+      missing="$(git -C "$DEV_CLONE" diff --numstat "${live_sha}" "${up_sha}" -- "$f" 2>/dev/null | awk '{print $2}')"
+      [ -z "$missing" ] && missing=0
+      if [ "$missing" -ne 0 ] 2>/dev/null; then absorbed=0; fi
+    done
+
+    echo
+    if [ "$absorbed" -eq 1 ] && [ -n "$touched" ]; then
+      echo "  Diagnosis: upstream already contains every line these patches add."
+      echo "  That is what a squash-merge looks like from here — same content, new"
+      echo "  commit, so patch-id cannot match and the replay fights our own work."
+      echo
+      echo "  Files checked, all fully absorbed:"
+      printf '%s\n' $touched | sed 's/^/      /'
+      echo
+      echo "  If you agree these landed upstream, drop them and take upstream as-is:"
+      live_branch="$(git -C "$LIVE_WORKTREE" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+      if [ -n "$live_branch" ] && [ "$live_branch" != "HEAD" ]; then
+        # Not `reset --hard`: detach, move the ref, re-attach. Same result, and it
+        # keeps this script clear of the destructive-op family entirely.
+        echo "      git -C \"$LIVE_WORKTREE\" checkout --detach ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+        echo "      git -C \"$DEV_CLONE\" branch -f ${live_branch} ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+        echo "      git -C \"$LIVE_WORKTREE\" checkout ${live_branch}"
+      else
+        echo "      git -C \"$LIVE_WORKTREE\" checkout --detach ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+      fi
+      echo "      then re-run this script with --apply to refresh the plugin caches."
+    else
+      echo "  Diagnosis: upstream does NOT contain all of our changes, so this is a"
+      echo "  real divergence rather than a squash-merge. Resolve the conflict by hand."
+    fi
+    die "rebase conflicted — the worktree is untouched."
   fi
 
   after_list="$(git -C "$LIVE_WORKTREE" log --format=%s "${up_sha}..HEAD")"
@@ -137,59 +254,8 @@ echo "✓ marketplace.json valid ($(jq -r '.plugins|length' "$LIVE_WORKTREE/.cla
 # does — it prints "already at the latest version" and copies nothing. Measured on
 # 2026-09-06: the cache still held the unpatched file afterwards while the command
 # reported success. Uninstall+install is the only refresh that actually re-copies.
-refresh_failures=0
 
-for root in ${CONFIG_ROOTS[@]+"${CONFIG_ROOTS[@]}"}; do
-  [ -d "$root" ] || continue
-  echo "── $root"
-  for plugin in $(jq -r '.plugins | keys[] | select(endswith("@ensemble"))' \
-                    "$root/plugins/installed_plugins.json" 2>/dev/null | sed 's/@ensemble$//'); do
-    CLAUDE_CONFIG_DIR="$root" claude plugin uninstall "$plugin" >/dev/null 2>&1
-    if ! CLAUDE_CONFIG_DIR="$root" claude plugin install "${plugin}@ensemble" >/dev/null 2>&1; then
-      echo "    ✗ ${plugin}: reinstall FAILED"
-      refresh_failures=$((refresh_failures + 1))
-      continue
-    fi
-
-    # Verify by CONTENT, not by exit status and not by mtime. The command reports
-    # success on a version-gated no-op, and `claude plugin install` preserves mtimes
-    # when it re-copies identical content, so neither says whether the cache matches
-    # source. Comparing the files answers it directly.
-    install_path="$(jq -r --arg k "${plugin}@ensemble" \
-      '.plugins[$k][]? | select(.scope=="user") | .installPath' \
-      "$root/plugins/installed_plugins.json" 2>/dev/null | head -1)"
-    if [ -z "$install_path" ] || [ ! -d "$install_path" ]; then
-      echo "    ✗ ${plugin}: no install path after reinstall"
-      refresh_failures=$((refresh_failures + 1))
-      continue
-    fi
-
-    src_rel="$(jq -r --arg n "$plugin" \
-      '.plugins[] | select(.name == $n) | .source' \
-      "$LIVE_WORKTREE/.claude-plugin/marketplace.json" 2>/dev/null | sed 's|^\./||')"
-    if [ -z "$src_rel" ] || [ ! -d "$LIVE_WORKTREE/$src_rel" ]; then
-      echo "    ✗ ${plugin}: marketplace names no source dir — cannot verify the copy"
-      refresh_failures=$((refresh_failures + 1))
-      continue
-    fi
-
-    # "Only in" lines are stale files the installer leaves behind on re-copy; they are
-    # harmless. A file present in both that DIFFERS means the cache did not take.
-    drift="$(diff -rq "$LIVE_WORKTREE/$src_rel" "$install_path" 2>/dev/null \
-             | grep -v '^Only in' | head -3)"
-    if [ -n "$drift" ]; then
-      echo "    ✗ ${plugin}: cache does not match source after reinstall"
-      printf '%s\n' "$drift" | sed 's/^/        /'
-      refresh_failures=$((refresh_failures + 1))
-      continue
-    fi
-    printf '    ✓ %s\n' "$plugin"
-  done
-done
-
-if [ "$refresh_failures" -ne 0 ]; then
-  die "${refresh_failures} plugin refresh(es) did not land — sessions would keep the old content."
-fi
+refresh_caches || die "plugin refresh failed — sessions would keep the old content."
 
 echo
 echo "✓ Synced to $(git -C "$LIVE_WORKTREE" rev-parse --short HEAD)."
