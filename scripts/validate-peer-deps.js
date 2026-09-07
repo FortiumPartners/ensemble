@@ -19,9 +19,10 @@
  *            they break `npm ci` unconditionally. They are pnpm/yarn syntax.
  *   CHECKED  a plain semver range whose name matches a workspace — the original
  *            defect: a stale range sends npm to the registry and 404s.
- *   CHECKED  `npm:<name>@<range>` aliases whose target names a workspace; the
- *            target hides inside the range string, and a stale one fails with
- *            ENOVERSIONS.
+ *   FAIL     `npm:<name>@…` whose target names a workspace. npm resolves aliases
+ *            from the registry and never from a workspace, so one fails
+ *            ENOVERSIONS even when the range matches the local version, and
+ *            with "aliases only work for registry deps" when it carries file:.
  *   SKIPPED  `file:` — verified tolerated by npm here even when the path is
  *            absent, so failing it would be inventing a failure mode.
  *   SKIPPED  anything else; it resolves from the registry like any dependency.
@@ -180,25 +181,39 @@ for (const { rel, pkg } of manifests) {
       // An alias hides the real target inside the range, so the field key tells you
       // nothing. Resolve it and judge the target, not the key.
       const alias = aliasTarget(range);
-      const name = alias ? alias.name : dep;
-      const wanted = alias ? alias.range : range;
 
-      if (!(name in localVersions)) continue;   // registry resolves it
+      if (alias) {
+        // An alias ALWAYS resolves from the registry — npm never satisfies one from
+        // a workspace. Measured: npm:semver@^7.0.0 installs, while npm:<workspace>
+        // fails ENOVERSIONS even when the range matches the local version exactly,
+        // and npm:<workspace>@file:../a fails "aliases only work for registry deps".
+        // So aliasing a workspace is broken whatever range or protocol follows it.
+        if (alias.name in localVersions) {
+          checked++;
+          failures.push({
+            rel, field, dep, range,
+            reason: `aliases ${alias.name}, a workspace — npm resolves aliases from ` +
+                    'the registry, where these are not published, so this cannot install',
+          });
+        }
+        continue;   // an alias to a real registry package is none of our business
+      }
+
+      if (!(dep in localVersions)) continue;   // registry resolves it
       // `file:` pins resolution to disk and consults no semver range. npm tolerates
       // it here even when the path is missing, so there is nothing to check.
-      if (wanted.startsWith('file:')) continue;
+      if (range.startsWith('file:')) continue;
 
       checked++;
-      const local = localVersions[name];
+      const local = localVersions[dep];
       if (!local) {
         failures.push({ rel, field, dep, range, reason: 'that workspace declares no version' });
         continue;
       }
-      if (!semver.satisfies(local, wanted)) {
+      if (!semver.satisfies(local, range)) {
         failures.push({
           rel, field, dep, range,
-          reason: (alias ? `aliases ${name}, which ` : 'that workspace ') +
-                  `is at ${local} — widen to "${suggestRange(local)}"`,
+          reason: `that workspace is at ${local} — widen to "${suggestRange(local)}"`,
         });
       }
     }
