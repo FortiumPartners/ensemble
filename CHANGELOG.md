@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **build:** `scripts/validate-peer-deps.js`, wired into `npm run validate` and into `validate.yml` so it gates pull requests, fails when any intra-workspace dependency range cannot be resolved locally, and names the offending file and the range it should carry. It refuses to report success on an empty scan.
+
+### Fixed
+
+- **build:** widen 34 intra-workspace `peerDependencies` ranges that were still pinned at `^4.0.0` while the packages they point at had moved to 5.x. npm links a workspace in place only when the declared range matches the local version, so each stale range sent npm to the public registry — where these packages are not published — and `npm ci` failed with a 404. Plain `npm ci` now works; the `--legacy-peer-deps` workaround has been dropped from all seven workflows, where it had been suppressing this since 2025-12-14.
+
 ## [6.9.2] - 2026-06-23
 
 ### Fixed

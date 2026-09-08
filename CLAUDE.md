@@ -322,7 +322,30 @@ npm run validate  # Validates:
                   # - plugin.json files
                   # - YAML syntax in agents/
                   # - package.json naming
+                  # - intra-workspace dependency ranges (see below)
 ```
+
+### Intra-workspace dependency ranges
+
+Every dependency naming another workspace must declare a range that the **current local
+version** of that workspace satisfies. npm links a workspace in place only when the range
+matches; when it does not, npm falls through to the public registry, where none of these
+packages are published, and `npm ci` dies with a 404.
+
+Use plain semver ranges. **`workspace:`, `link:` and `portal:` do not work here** — npm
+rejects all three with `EUNSUPPORTEDPROTOCOL` before it looks at the name, whatever they
+point at. They are pnpm and yarn syntax; only `file:` is a local protocol npm accepts.
+
+When you bump a workspace across a major version, widen every range that points at it in the
+same commit. `node scripts/validate-peer-deps.js` enforces this and names each offending file
+with the range it should carry. It runs in `npm run validate` and as its own step in
+`validate.yml`, so it gates pull requests rather than only tagged releases.
+
+What it cannot see: a deleted workspace still referenced by a plain semver range is
+indistinguishable from an ordinary registry package in the manifest alone. Three earlier
+versions of that script tried to infer the difference from name shapes and each was wrong in
+both directions, so it no longer guesses. `scripts/tests/validate-peer-deps.test.mjs` holds
+the cases, and runs in CI.
 
 ### GitHub Actions
 - `validate.yml` - Schema and structure validation
