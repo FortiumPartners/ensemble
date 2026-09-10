@@ -36,6 +36,7 @@ disable-model-invocation: true
 > - This command creates ONLY a TRD document
 > - The arguments describe what should be documented, not what should be built
 > - After creating the Foreman-native TRD, stop and wait for user approval before any implementation
+> - DO NOT save the TRD until the Constitution Gate Contract passes
 > - All task Status cells in output tables must be `[ ]` — never use `[x]` or `done` markers
 
 ## Phase 1: PRD Ingestion and Validation
@@ -193,7 +194,26 @@ Use assess_complexity tool to analyze task breakdown
 
 Use generate_workflow_section tool to create execution workflow
 
-## Phase 5: Output Management
+## Phase 5: Constitution Gate
+
+### Step 1: Constitution Gate Contract
+
+Non-bypassable pre-save constitution validation
+
+**Actions:**
+1. Run this gate after architecture, task draft generation, and Foreman compatibility checks exist in memory, and before creating docs/TRD/, writing any repo-local TRD artifact, printing success, or printing the foreman sling prd next step.
+2. Resolve the constitution source with strict precedence: use docs/standards/constitution.md as canonical when present; otherwise fall back to .specify/memory/constitution.md.
+3. If both docs/standards/constitution.md and .specify/memory/constitution.md exist and their normalized contents differ, print a warning naming both paths, but continue with docs/standards/constitution.md as canonical.
+4. If neither constitution source exists, HALT as CONSTITUTION_CONFIG_ERROR; do not save any repo-local TRD artifact and do not print downstream next steps.
+5. Extract source article heading identifiers and titles from the canonical constitution, preserving repo-local heading text such as Article I, Article 1, or A1 and including the title when available.
+6. Every enforceable constitution check MUST map to at least one source article id. If an enforceable check has no article id, HALT as CONSTITUTION_CONFIG_ERROR; this unmapped article check is a gate configuration failure.
+7. Evaluate the in-memory TRD draft against the mapped article checks. This command always runs under Foreman dispatch, so constitution violations are non-bypassable unconditionally -- there is no interactive or non-interactive proceed-anyway path.
+8. Format each violation with article id, article title when available, failing draft section, specific finding, and remediation hint. For multiple violations, list every failing article id; never collapse them to a generic constitution failure.
+9. Do not offer any proceed anyway, override, skip, soft-confirmation, or default-proceed path for constitution source errors, unmapped article checks, or article violations.
+10. On constitution failure, do not write docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md, do not create docs/TRD/ as proof of success, do not print saved-file success output, and do not print the foreman sling prd next-step output.
+11. If the gate passes, record `Constitution compliance: passed` in the saved TRD frontmatter or Design Readiness Score notes, then continue to Output Management save and success messaging.
+
+## Phase 6: Output Management
 
 ### Step 1: TRD Document Generation
 
@@ -239,6 +259,6 @@ Save TRD and suggest follow-up commands
 
 **Actions:**
 1. Create docs/TRD/ directory if it does not exist
-2. Save TRD to docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md
-3. Print: file path, task count, design readiness score, source PRD correlation id (TRD_MICRO_UUID), and explicit next step `foreman sling prd <original-prd-path>`
+2. Save TRD to docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md only after constitution compliance passes
+3. Print: file path, task count, design readiness score, source PRD correlation id (TRD_MICRO_UUID), and explicit next step `foreman sling prd <original-prd-path>` only after constitution compliance passes
 4. Do not suggest beads-specific implementation commands
