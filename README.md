@@ -103,6 +103,17 @@ startup, so a sync reaches you when you next restart, not before.
 A `SessionStart` hook tells you when the worktree has fallen behind upstream, and when the
 watcher behind it has itself gone stale. Silence from it means current.
 
+## If the ensemble commands are missing
+
+Ask the FS-Ensemble session to run `scripts/provision-ensemble.sh`, then restart yours.
+
+Burke runs four accounts (`ccrgm`, `ccram`, `ccrfs`, `ccrfp`), each with its own config root.
+Ensemble used to be installed by hand in whichever root was in front of whoever did it, so new
+accounts arrived without it — and twice a root ended up with the plugin registered and enabled
+while its install directory did not exist. A session in that state has no ensemble commands and
+nothing says why. The script brings every root to the same install and repairs that case;
+`--check` reports without changing anything.
+
 ## Known rough edges
 
 Read these before filing something already known. Full list:
