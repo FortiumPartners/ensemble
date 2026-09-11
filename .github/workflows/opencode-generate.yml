@@ -20,7 +20,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       # OC-S4-CI-001: Validate generated output with dry-run
       - name: Validate OpenCode generation (dry-run)

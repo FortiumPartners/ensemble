@@ -17,7 +17,15 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
+
+      - name: Validate intra-workspace dependency ranges
+        run: node scripts/validate-peer-deps.js
+
+      # The guard above was rewritten three times, each time shipping a different
+      # wrong answer, because nothing ran its cases. These are those cases.
+      - name: Test the dependency-range guard
+        run: node --test scripts/tests/validate-peer-deps.test.mjs
 
       - name: Validate marketplace.json
         run: npx ajv validate -s schemas/marketplace-schema.json -d marketplace.json -c ajv-formats

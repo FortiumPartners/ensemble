@@ -27,7 +27,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Sync version (workflow_dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' }}
