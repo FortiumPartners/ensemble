@@ -3,7 +3,8 @@
 # loads has fallen behind the live upstream, so a SessionStart hook can say so
 # without anyone broadcasting a message.
 #
-# Since 2026-09-06 the `ensemble` marketplace in all three Claude config roots
+# Since 2026-09-06 the `ensemble` marketplace in every Claude config root on this
+# machine (five of them today, discovered rather than listed by the ops scripts)
 # is a DIRECTORY source pointed at a git worktree we control:
 #
 #   ~/projects/.worktrees/ensemble-live   (branch `live`, tracks sunstone/main)

@@ -20,14 +20,27 @@ set -uo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DEST_DIR="${ENSEMBLE_HOOK_DEST:-$HOME/.claude/scripts}"
 PLIST="$HOME/Library/LaunchAgents/com.burkestudio.ensemble-version-watch.plist"
-CONFIG_ROOTS=(
-  "$HOME/.claude"
-  "$HOME/.claude-fortiumsoftware"
-  "$HOME/.claude-fortiumpartners"
-)
+# Discovered, not listed. The hardcoded three-root list here meant .claude-gmail
+# and .claude-autreymail never got the hook wired at all, so two of five accounts
+# had no staleness warning and nothing said so. A list only stays right until the
+# next account is added, and two already had been.
+# ENSEMBLE_CONFIG_ROOTS matches the override ensemble-sync.sh already takes, so
+# this path can be exercised against a scratch root instead of five live ones.
+if [ -n "${ENSEMBLE_CONFIG_ROOTS+x}" ]; then
+  read -r -a CONFIG_ROOTS <<< "$ENSEMBLE_CONFIG_ROOTS"
+else
+  CONFIG_ROOTS=()
+  for d in "$HOME"/.claude "$HOME"/.claude-*; do
+    [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+    CONFIG_ROOTS+=("$d")
+  done
+fi
 HOOK_CMD="$DEST_DIR/ensemble-version-hook.sh SessionStart"
 
 die() { echo "✗ $*" >&2; exit 1; }
+
+# Wiring zero roots and printing nothing is how this silently did nothing before.
+[ ${#CONFIG_ROOTS[@]} -gt 0 ] || die "no Claude config root found under $HOME (looked for .claude*/settings.json)"
 
 mkdir -p "$DEST_DIR" || die "could not create $DEST_DIR"
 
@@ -67,7 +80,16 @@ if [ -f "$PLIST" ]; then
   if grep -q "$REPO_DIR/scripts/ensemble-version-watch.sh" "$PLIST"; then
     sed -i '' "s|$REPO_DIR/scripts/ensemble-version-watch.sh|$DEST_DIR/ensemble-version-watch.sh|g" "$PLIST"
     launchctl unload "$PLIST" 2>/dev/null
-    launchctl load "$PLIST" 2>/dev/null && echo "✓ launchd job repointed and reloaded"
+    # No failure branch here meant the one repair path that #97 is about could fail
+    # and print nothing at all: the job stays unloaded, the daily check never runs,
+    # and the hook it feeds goes quiet — which is the incident, not a warning about it.
+    if load_out="$(launchctl load "$PLIST" 2>&1)"; then
+      echo "✓ launchd job repointed and reloaded"
+    else
+      printf '%s\n' "$load_out" | sed 's/^/    /' >&2
+      die "plist repointed but launchctl load failed — the version watcher is NOT running.
+  Load it by hand:  launchctl load \"$PLIST\""
+    fi
   else
     echo "✓ launchd job already points outside the worktree"
   fi

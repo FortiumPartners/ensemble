@@ -28,14 +28,29 @@ command -v jq >/dev/null 2>&1 || exit 0
 
 checked_at="$(jq -r '.checked_at // ""' "$STATE_FILE" 2>/dev/null)"
 behind="$(jq -r '.commits_behind // ""' "$STATE_FILE" 2>/dev/null)"
-live_ver="$(jq -r '.live.version // ""' "$STATE_FILE" 2>/dev/null)"
-up_ver="$(jq -r '.upstream.version // ""' "$STATE_FILE" 2>/dev/null)"
+# Both versions come from plugin.json in a third-party fork, and this text is
+# printed straight into the startup context of every session on the machine. A
+# version string is digits, dots and a prerelease tag; anything else in it is not
+# a version, so drop it rather than pass it through. 32 chars is past any real tag.
+safe_version() {
+  local v; v="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9.+_-' | cut -c1-32)"
+  # A glob is not tight enough here: `7.0.0IGNOREPREVIOUSINSTRUCTIONS.` matches
+  # [0-9]*.[0-9]*.[0-9]* and would still be relayed. Require the whole string to
+  # be a version, with a prerelease or build tag only after . + or -.
+  if [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+_-]*)?$ ]]; then
+    printf '%s' "$v"
+  elif [ -n "$v" ]; then
+    printf 'unrecognised'   # upstream wrote something that is not a version
+  fi
+}
+live_ver="$(safe_version "$(jq -r '.live.version // ""' "$STATE_FILE" 2>/dev/null)")"
+up_ver="$(safe_version "$(jq -r '.upstream.version // ""' "$STATE_FILE" 2>/dev/null)")"
 state_err="$(jq -r '.error // ""' "$STATE_FILE" 2>/dev/null)"
 
 # What THIS session's config root actually has installed.
 root="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-installed="$(jq -r '.plugins["ensemble-full@ensemble"][]? | select(.scope=="user") | .version' \
-  "$root/plugins/installed_plugins.json" 2>/dev/null | head -1)"
+installed="$(safe_version "$(jq -r '.plugins["ensemble-full@ensemble"][]? | select(.scope=="user") | .version' \
+  "$root/plugins/installed_plugins.json" 2>/dev/null | head -1)")"
 
 # Is the watcher's own data stale? Compare dates, not a parsed timestamp —
 # `date -d` is GNU-only and this is macOS.
@@ -73,6 +88,9 @@ if [ "$EVENT" = "UserPromptSubmit" ]; then
     input="$(cat 2>/dev/null || true)"
     session_id="$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null || true)"
   fi
+  # The id is interpolated into a path that is then created, so `../` in it writes
+  # outside WARN_DIR. Reduce it to the characters a session id is actually made of.
+  session_id="$(printf '%s' "$session_id" | tr -cd 'A-Za-z0-9_-' | cut -c1-64)"
   lock="$WARN_DIR/${session_id:-anon}.$(date -u +%Y-%m-%d)"
   [ -f "$lock" ] && exit 0
   : > "$lock"

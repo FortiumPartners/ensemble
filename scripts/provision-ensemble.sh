@@ -22,15 +22,20 @@ set -uo pipefail
 
 LIVE_WORKTREE="${ENSEMBLE_LIVE_WORKTREE:-$HOME/projects/.worktrees/ensemble-live}"
 
-# The four accounts plus the default root. `.claude-sessions` is session storage,
-# not a config root — it has no settings.json and is deliberately absent.
-DEFAULT_ROOTS=(
-  "$HOME/.claude"
-  "$HOME/.claude-gmail"
-  "$HOME/.claude-autreymail"
-  "$HOME/.claude-fortiumsoftware"
-  "$HOME/.claude-fortiumpartners"
-)
+# Every config root on the machine, discovered rather than listed. This file used
+# to name the five that existed when it was written, which is how the other ops
+# scripts ended up naming only three: a list is right until the next account is
+# added, and two already had been. `settings.json` is the test — `.claude-sessions`
+# is session storage, has none, and is correctly skipped by it.
+DEFAULT_ROOTS=()
+for d in "$HOME"/.claude "$HOME"/.claude-*; do
+  [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+  DEFAULT_ROOTS+=("$d")
+done
+[ ${#DEFAULT_ROOTS[@]} -gt 0 ] || {
+  echo "✗ no Claude config root found under $HOME (looked for .claude*/settings.json)" >&2
+  exit 1
+}
 
 # The set every root should carry. ensemble-full alone would serve every command,
 # but the established roots also register the eight individual plugins, and some
@@ -76,14 +81,27 @@ for r in "${DEFAULT_ROOTS[@]}"; do
   [ "$n" -gt "$want_commands" ] && want_commands=$n
 done
 if [ "$want_commands" -eq 0 ]; then
-  echo "  no root yet has a populated ensemble-full $want_version — installing from source"
+  # Says what is true: there is no cross-root reference count to compare against,
+  # so the count check below reports UNVERIFIED. The earlier wording announced an
+  # install-from-source step that this branch does not perform.
+  echo "  no root yet has a populated ensemble-full $want_version —"
+  echo "  the command-count check below has no reference and will report UNVERIFIED"
 fi
 
 problems=0
 
+# Where the marketplace says a plugin's files come from. Empty means the manifest
+# does not name this plugin, which makes the install unverifiable rather than fine.
+source_dir_for() {
+  local rel
+  rel=$(jq -r --arg n "$1" '.plugins[] | select(.name == $n) | .source' \
+    "$LIVE_WORKTREE/.claude-plugin/marketplace.json" 2>/dev/null | head -1 | sed 's|^\./||')
+  [ -n "$rel" ] && [ -d "$LIVE_WORKTREE/$rel" ] && printf '%s\n' "$LIVE_WORKTREE/$rel"
+}
+
 # Report on one plugin in one root. Echoes a short status word.
 plugin_state() {
-  local root="$1" plugin="$2" path
+  local root="$1" plugin="$2" path src sub want have
   path=$(jq -r --arg k "${plugin}@ensemble" \
     '.plugins[$k][]? | select(.scope=="user") | .installPath' \
     "$root/plugins/installed_plugins.json" 2>/dev/null | head -1)
@@ -93,6 +111,23 @@ plugin_state() {
   # check that swallows that error reports the root as healthy.
   if [ ! -d "$path" ]; then echo "hollow"; return; fi
   if [ -z "$(ls -A "$path" 2>/dev/null)" ]; then echo "empty"; return; fi
+
+  # Non-empty is not healthy. A plugin.json copied without its commands/ directory
+  # passes `ls -A` and loads nothing, and the deeper count check further down runs
+  # against ensemble-full only — so eight of nine plugins had no content check at
+  # all, which is the same "reports success while measuring nothing" shape the rest
+  # of this script exists to catch. Compare against the source the marketplace names.
+  src=$(source_dir_for "$plugin")
+  if [ -z "$src" ]; then echo "unverifiable"; return; fi
+  for sub in commands agents skills; do
+    [ -d "$src/$sub" ] || continue
+    # -L on the source side: packages/full/commands holds symlinks into the other
+    # packages and the installer dereferences them on copy, so an unfollowed find
+    # counts 0 there and would call a correct bundle broken.
+    want=$(find -L "$src/$sub" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    have=$(find "$path/$sub" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$want" != "$have" ]; then echo "incomplete"; return; fi
+  done
   echo "ok"
 }
 
@@ -134,11 +169,18 @@ for root in "${ROOTS[@]}"; do
   fi
 
   CLAUDE_CONFIG_DIR="$root" claude plugin marketplace update ensemble >/dev/null 2>&1
+  cli_errors=""
   for p in "${broken[@]}" "${missing[@]}"; do
     # Uninstall first: a hollow entry has to be cleared before install will
     # rebuild it, and uninstalling something absent is harmless.
     CLAUDE_CONFIG_DIR="$root" claude plugin uninstall "$p" >/dev/null 2>&1
-    CLAUDE_CONFIG_DIR="$root" claude plugin install "${p}@ensemble" >/dev/null 2>&1
+    # Keep stderr. Discarding it left the recheck below able to say a plugin was
+    # still wrong but never able to say why, which is the failure mode (nothing
+    # says why) that this script was written to end.
+    if ! out="$(CLAUDE_CONFIG_DIR="$root" claude plugin install "${p}@ensemble" 2>&1)"; then
+      cli_errors="${cli_errors}${p}: $(printf '%s' "$out" | tail -2 | tr '\n' ' ')
+"
+    fi
   done
 
   # Re-check rather than trust the installer's exit status.
@@ -148,6 +190,7 @@ for root in "${ROOTS[@]}"; do
   done
   if [ ${#still[@]} -ne 0 ]; then
     printf '  %-26s ✗ still wrong after repair: %s\n' "$name" "$(printf '%s ' "${still[@]}")"
+    [ -n "$cli_errors" ] && printf '%s' "$cli_errors" | sed 's/^/        /'
     problems=$((problems + 1)); continue
   fi
   printf '  %-26s ✓ repaired %s plugin(s)\n' "$name" "$(( ${#broken[@]} + ${#missing[@]} ))"

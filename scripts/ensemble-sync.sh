@@ -22,14 +22,34 @@ UPSTREAM_REMOTE="${ENSEMBLE_UPSTREAM_REMOTE:-sunstone}"
 UPSTREAM_BRANCH="${ENSEMBLE_UPSTREAM_BRANCH:-main}"
 # Space-separated override exists so the apply path can be exercised end to end
 # without repointing 56 sessions' plugin caches. Empty means "skip that step".
+#
+# Otherwise the roots are DISCOVERED, not listed. A hardcoded list was wrong the
+# moment a fourth and fifth account appeared: this script named three roots while
+# provision-ensemble.sh named five, so `--apply` reported a full success having
+# never touched .claude-gmail or .claude-autreymail. A list that has to be edited
+# every time an account is added will be out of date again by the next account.
+# `settings.json` is the same test provision-ensemble.sh already uses to tell a
+# config root from session storage like .claude-sessions.
+discover_config_roots() {
+  local d found=0
+  for d in "$HOME"/.claude "$HOME"/.claude-*; do
+    [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+    printf '%s\n' "$d"
+    found=1
+  done
+  [ "$found" -eq 1 ]
+}
+
 if [ -n "${ENSEMBLE_CONFIG_ROOTS+x}" ]; then
   read -r -a CONFIG_ROOTS <<< "$ENSEMBLE_CONFIG_ROOTS"
 else
-  CONFIG_ROOTS=(
-    "$HOME/.claude"
-    "$HOME/.claude-fortiumsoftware"
-    "$HOME/.claude-fortiumpartners"
-  )
+  CONFIG_ROOTS=()
+  while IFS= read -r r; do CONFIG_ROOTS+=("$r"); done < <(discover_config_roots)
+  # Discovering nothing is not the same as an explicit empty override. Refusing
+  # here is the point: a refresh loop over zero roots reports success having
+  # verified nothing, which is the exact defect this script exists to catch.
+  [ ${#CONFIG_ROOTS[@]} -gt 0 ] \
+    || { echo "✗ no Claude config root found under $HOME (looked for .claude*/settings.json)" >&2; exit 1; }
 fi
 
 APPLY=0
@@ -41,8 +61,14 @@ die() { echo "✗ $*" >&2; exit 1; }
 
 git -C "$DEV_CLONE" fetch --quiet "$UPSTREAM_REMOTE" || die "could not fetch $UPSTREAM_REMOTE"
 
-live_sha="$(git -C "$LIVE_WORKTREE" rev-parse HEAD)"
-up_sha="$(git -C "$DEV_CLONE" rev-parse "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")"
+# Unguarded, an unresolvable ref leaves the variable empty and `${live_sha}..`
+# is git shorthand for `${live_sha}..HEAD`, which counts 0 and exits 0. The script
+# would then report "already current" on a misconfigured upstream.
+live_sha="$(git -C "$LIVE_WORKTREE" rev-parse HEAD)" \
+  || die "could not resolve HEAD in $LIVE_WORKTREE"
+up_sha="$(git -C "$DEV_CLONE" rev-parse "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")" \
+  || die "could not resolve ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} in $DEV_CLONE"
+[ -n "$live_sha" ] && [ -n "$up_sha" ] || die "empty sha resolving live or upstream ref"
 
 # Reinstall every registered @ensemble plugin in each config root and verify by
 # CONTENT that the cache now matches source. Callable on its own, because a
@@ -53,11 +79,32 @@ refresh_caches() {
   for root in ${CONFIG_ROOTS[@]+"${CONFIG_ROOTS[@]}"}; do
     [ -d "$root" ] || continue
     echo "── $root"
-    for plugin in $(jq -r '.plugins | keys[] | select(endswith("@ensemble"))' \
-                      "$root/plugins/installed_plugins.json" 2>/dev/null | sed 's/@ensemble$//'); do
+
+    # Read the plugin list with the jq failure VISIBLE. Swallowing it meant a root
+    # with a missing or malformed installed_plugins.json iterated zero plugins,
+    # left refresh_failures at 0, and was reported as fully refreshed having
+    # checked nothing — the same defect this function was written to fix.
+    if ! plugin_list="$(jq -r '.plugins | keys[] | select(endswith("@ensemble"))' \
+                          "$root/plugins/installed_plugins.json" 2>&1)"; then
+      echo "    ✗ cannot read $root/plugins/installed_plugins.json — nothing verified here"
+      printf '%s\n' "$plugin_list" | sed 's/^/        /'
+      refresh_failures=$((refresh_failures + 1))
+      continue
+    fi
+    if [ -z "$plugin_list" ]; then
+      echo "    ✗ no @ensemble plugin registered — this root loads no Ensemble at all"
+      echo "        run scripts/provision-ensemble.sh to install it"
+      refresh_failures=$((refresh_failures + 1))
+      continue
+    fi
+
+    for plugin in $(printf '%s\n' "$plugin_list" | sed 's/@ensemble$//'); do
       CLAUDE_CONFIG_DIR="$root" claude plugin uninstall "$plugin" >/dev/null 2>&1
-      if ! CLAUDE_CONFIG_DIR="$root" claude plugin install "${plugin}@ensemble" >/dev/null 2>&1; then
+      # Keep stderr. Discarding it left "reinstall FAILED" with no reason, which
+      # is the failure mode (nothing says why) that motivated this whole script.
+      if ! cli_out="$(CLAUDE_CONFIG_DIR="$root" claude plugin install "${plugin}@ensemble" 2>&1)"; then
         echo "    ✗ ${plugin}: reinstall FAILED"
+        printf '%s\n' "$cli_out" | tail -5 | sed 's/^/        /'
         refresh_failures=$((refresh_failures + 1))
         continue
       fi
@@ -84,10 +131,23 @@ refresh_caches() {
         continue
       fi
 
-      # "Only in" lines are stale files the installer leaves behind on re-copy; they are
-      # harmless. A file present in both that DIFFERS means the cache did not take.
-      drift="$(diff -rq "$LIVE_WORKTREE/$src_rel" "$install_path" 2>/dev/null \
-               | grep -v '^Only in' | head -3)"
+      # Two different things share the "Only in" prefix and only ONE is harmless:
+      #
+      #   Only in <install_path>: f   a stale file the installer left behind — harmless
+      #   Only in <source>: f         a file that never got copied — the cache is INCOMPLETE
+      #
+      # Filtering every "Only in" line discarded the second along with the first, so a
+      # half-copied plugin passed. Drop only the destination-side lines, by prefix.
+      diff_out="$(diff -rq "$LIVE_WORKTREE/$src_rel" "$install_path" 2>&1)"
+      diff_rc=$?
+      if [ "$diff_rc" -ge 2 ]; then
+        echo "    ✗ ${plugin}: could not compare cache with source (diff exit ${diff_rc})"
+        printf '%s\n' "$diff_out" | head -3 | sed 's/^/        /'
+        refresh_failures=$((refresh_failures + 1))
+        continue
+      fi
+      drift="$(printf '%s\n' "$diff_out" \
+               | awk -v d="Only in ${install_path}" 'NF && index($0, d) != 1' | head -3)"
       if [ -n "$drift" ]; then
         echo "    ✗ ${plugin}: cache does not match source after reinstall"
         printf '%s\n' "$drift" | sed 's/^/        /'
@@ -169,7 +229,15 @@ else
   # content, new SHA — it is not recognised and the replay conflicts with itself.
   # Comparing against upstream lets git match by patch-id and drop what has landed.
   if ! git -C "$LIVE_WORKTREE" rebase --no-reapply-cherry-picks "$up_sha" 2>&1 | sed 's/^/    /'; then
-    git -C "$LIVE_WORKTREE" rebase --abort 2>/dev/null || true
+    # The abort is what makes the claim at the bottom of this block true. Swallowing
+    # its status let the script tell 56 sessions the worktree was untouched while it
+    # sat mid-rebase with conflict markers in the files they load.
+    if ! abort_out="$(git -C "$LIVE_WORKTREE" rebase --abort 2>&1)"; then
+      echo "$abort_out" | sed 's/^/    /' >&2
+      die "rebase conflicted AND the rebase --abort failed — $LIVE_WORKTREE is mid-rebase
+  right now and every config root's plugin cache is pinned to it. Fix it by hand
+  before any session restarts:  git -C \"$LIVE_WORKTREE\" status"
+    fi
 
     # Before handing this to a person, work out WHY. The common cause is not a real
     # divergence: GitHub squash-merges a PR, so our three commits arrive upstream as
