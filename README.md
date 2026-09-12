@@ -48,7 +48,7 @@ Running the full pipeline on a bug costs hours and produces a PRD nobody reads. 
 |---|---|---|
 | A bug, a typo, one file | `fix-issue` | analysis straight to a PR, no PRD, no TRD |
 | A contained feature | `create-prd` → `create-trd`, then stop | documents to review before anyone writes code |
-| Large or cross-cutting | `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd` | the full pipeline with refinement gates |
+| Large or cross-cutting | `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd-beads` | the full pipeline with refinement gates |
 | One task in an existing TRD | `implement-trd-task --task <id>` | a single task through implement, review, close |
 
 **`analyze-complexity` will choose for you.** It scores scope, dependencies, risk and team size,
@@ -60,6 +60,31 @@ It under-routed badly until 2026-09-06 — a multi-service billing feature score
 was sent to `fix-issue`. That is fixed upstream and live here. If you saw a warning in
 `~/projects/CLAUDE.md` telling you to always pass `--route` by hand, that warning is stale.
 `--route simple|medium|complex` still works when you already know the size.
+
+## `implement-trd` or `implement-trd-beads`
+
+**Use `implement-trd-beads`.** The two are separate implementations, not a flag on one command.
+`implement-trd` contains no beads calls at all — zero `bv`, zero `br`. The three times the word
+"beads" appears in it are comments pointing at the other file. It runs git-town, one branch, one
+PR, and it re-reads the TRD to decide what to do next.
+
+`implement-trd-beads` parses the TRD into an epic/story/task hierarchy in beads first, then lets
+`bv --robot-plan` schedule the work. What that buys:
+
+- **It survives the session ending.** State lives in the bead graph, so a run that stops halfway
+  picks up where it stopped. `implement-trd` holds its position in the conversation, so a context
+  compaction or a crash costs you the run.
+- **It ships in slices.** A TRD written with `### PR N:` headings becomes one branch and one PR
+  per section, each with its Shippable State line in the body. `implement-trd` produces a single
+  PR for the whole TRD.
+- **It runs tracks in parallel** up to `max_parallel`, because the scheduler can see which beads
+  are unblocked.
+
+Cost: `br` and `bv` have to be installed, and the bead graph is real state you can end up having
+to repair. `implement-trd` needs only git-town.
+
+Take `implement-trd` when the TRD is small enough to land as one PR in one sitting and you do not
+want a bead hierarchy for it. Anything larger, use the beads variant.
 
 ## Finding the commands
 
