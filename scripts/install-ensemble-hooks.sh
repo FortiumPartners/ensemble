@@ -35,8 +35,9 @@ else
     # This script REWRITES settings.json, so adopting a backup copy by accident
     # edits the very file someone made to be able to go back. Skip by name, say so.
     case "$(basename "$d")" in
-      *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save)
-        echo "  skipping $(basename "$d") — the name reads as a backup copy"; continue ;;
+      *-backup*|*.backup*|*-copy*|*.copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*-save|*.save)
+        echo "  skipping $(basename "$d") — the name reads as a backup copy;"
+        echo "  set ENSEMBLE_CONFIG_ROOTS to wire it anyway"; continue ;;
     esac
     CONFIG_ROOTS+=("$d")
   done
@@ -120,11 +121,23 @@ for root in "${CONFIG_ROOTS[@]}"; do
   # wired at all, which is the exact state (.claude-gmail, .claude-autreymail at
   # zero entries) this script was changed to fix — the gate would have passed the
   # failure it exists to catch. Reproduced against a never-wired fixture.
-  counts="$(jq -r --arg d "$DEST_DIR" '
-    [.hooks.SessionStart[]?.hooks[]?.command // "" | select(test("ensemble-version-hook\\.sh"))]
-    | "\(map(select(startswith($d))) | length) \(map(select(startswith($d) | not)) | length)"' "$f")"
+  # The prefix must end at a path boundary. A bare startswith($d) counts
+  # $DEST_DIR-old/ensemble-version-hook.sh as "good" — a hook that is not in
+  # DEST_DIR at all — and this expression is the sole arbiter of a PASS, so that
+  # string test would certify a mis-wired root. Reproduced against a sibling-path
+  # fixture: good=1, stale=0, both checks passed.
+  counts="$(jq -r --arg d "${DEST_DIR%/}/" '
+    [.hooks.SessionStart[]?.hooks[]?.command | select(type == "string" and test("ensemble-version-hook\\.sh"))]
+    | "\(map(select(startswith($d))) | length) \(map(select(startswith($d) | not)) | length)"' "$f" 2>/dev/null)"
+  # A jq failure leaves counts empty, and an empty string would split into two
+  # empty fields that ${good:-0} quietly reads as 0 — a gate that cannot parse its
+  # input must fail, not default.
+  case "$counts" in
+    [0-9]*' '[0-9]*) ;;
+    *) die "could not read hook entries from $f — refusing to report this root wired" ;;
+  esac
   good="${counts%% *}"; stale="${counts##* }"
   [ "$stale" = "0" ] || die "$f still has $stale hook entry(s) pointing outside $DEST_DIR"
-  [ "${good:-0}" -ge 1 ] || die "$f has no ensemble-version-hook entry at all — this root was never wired"
+  [ "$good" -ge 1 ] || die "$f has no ensemble-version-hook entry at all — this root was never wired"
 done
 echo "✓ every config root runs the hook from $DEST_DIR, none from inside a git worktree"

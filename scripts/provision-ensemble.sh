@@ -34,8 +34,9 @@ for d in "$HOME"/.claude "$HOME"/.claude-*; do
   # so a backup copy taken before an upgrade would be mutated by the tool someone
   # was hedging against. Skip by name, and say which, rather than doing it quietly.
   case "$(basename "$d")" in
-    *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save)
-      echo "  skipping $(basename "$d") — the name reads as a backup copy"; continue ;;
+    *-backup*|*.backup*|*-copy*|*.copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*-save|*.save)
+      echo "  skipping $(basename "$d") — the name reads as a backup copy;"
+      echo "  pass it as an argument to provision it anyway"; continue ;;
   esac
   DEFAULT_ROOTS+=("$d")
 done

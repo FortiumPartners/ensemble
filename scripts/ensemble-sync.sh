@@ -38,7 +38,7 @@ UPSTREAM_BRANCH="${ENSEMBLE_UPSTREAM_BRANCH:-main}"
 # adoption was the objection; being told is the fix.
 looks_like_backup() {
   case "$(basename "$1")" in
-    *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save) return 0 ;;
+    *-backup*|*.backup*|*-copy*|*.copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*-save|*.save) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -47,7 +47,8 @@ discover_config_roots() {
   for d in "$HOME"/.claude "$HOME"/.claude-*; do
     [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
     if looks_like_backup "$d"; then
-      echo "  skipping $(basename "$d") — the name reads as a backup copy" >&2
+      echo "  skipping $(basename "$d") — reads as a backup copy; set" >&2
+      echo "  ENSEMBLE_CONFIG_ROOTS to include it anyway" >&2
       continue
     fi
     printf '%s\n' "$d"
@@ -148,23 +149,42 @@ refresh_caches() {
         continue
       fi
 
-      # Two different things share the "Only in" prefix and only ONE is harmless:
+      # Compare by CONTENT MANIFEST, not with `diff -rq`.
       #
-      #   Only in <install_path>: f   a stale file the installer left behind — harmless
-      #   Only in <source>: f         a file that never got copied — the cache is INCOMPLETE
+      # diff could not do this job here and said so, and the first version of this
+      # check counted its complaints as drift. packages/full/skills is 52 symlinks
+      # into the other packages, and diff emits 20 `Directory loop detected` errors
+      # on the source side; with 2>&1 those errors landed in the same stream as the
+      # findings, so a byte-identical cache reported 20 drifts and --apply would have
+      # died at this gate every single time. Worse than the false alarm: those 20
+      # skill directories were never compared at all, so the gate also measured less
+      # than it claimed.
       #
-      # Filtering every "Only in" line discarded the second along with the first, so a
-      # half-copied plugin passed. Drop only the destination-side lines, by prefix.
-      diff_out="$(diff -rq "$LIVE_WORKTREE/$src_rel" "$install_path" 2>&1)"
-      diff_rc=$?
-      if [ "$diff_rc" -ge 2 ]; then
-        echo "    ✗ ${plugin}: could not compare cache with source (diff exit ${diff_rc})"
-        printf '%s\n' "$diff_out" | head -3 | sed 's/^/        /'
+      # A manifest of path+hash sidesteps the traversal entirely. `find -L` follows
+      # the symlinks the installer dereferences on copy and handles the cycle
+      # cleanly (227 files, exit 0, no errors, against diff's 20 refusals).
+      manifest() {
+        ( cd "$1" 2>/dev/null || exit 1
+          # shellcheck disable=SC2086  # $2 is a fixed flag, deliberately unquoted
+          find $2 . -type f -print0 2>/dev/null | LC_ALL=C sort -z \
+            | xargs -0 -n 64 shasum 2>/dev/null ) | LC_ALL=C sort
+      }
+      src_manifest="$(manifest "$LIVE_WORKTREE/$src_rel" -L)"
+      dst_manifest="$(manifest "$install_path" "")"
+
+      # An empty manifest means the comparison measured nothing, which must never
+      # read as agreement — that is the defect this whole script is about.
+      if [ -z "$src_manifest" ]; then
+        echo "    ✗ ${plugin}: source manifest is empty — cannot verify the copy"
         refresh_failures=$((refresh_failures + 1))
         continue
       fi
-      drift="$(printf '%s\n' "$diff_out" \
-               | awk -v d="Only in ${install_path}" 'NF && index($0, d) != 1' | head -3)"
+
+      # Lines present in source but not in the cache: a file that never copied, or
+      # one whose content differs. Lines only in the cache are stale leftovers the
+      # installer does not remove, and are genuinely harmless, so they are dropped
+      # by direction rather than by pattern.
+      drift="$(comm -23 <(printf '%s\n' "$src_manifest") <(printf '%s\n' "$dst_manifest") | head -3)"
       if [ -n "$drift" ]; then
         echo "    ✗ ${plugin}: cache does not match source after reinstall"
         printf '%s\n' "$drift" | sed 's/^/        /'

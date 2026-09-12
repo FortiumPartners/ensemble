@@ -44,17 +44,44 @@ behind="$(jq -r '.commits_behind // ""' "$STATE_FILE" 2>/dev/null)"
 # data was untrustworthy — a notifier failing quiet, which is what this hook's
 # header says is worse than no notifier. A short digest keeps distinct values
 # distinct while relaying none of their content.
+# Eight hex digits that depend on the whole input and carry none of it.
+#
+# The first version called shasum directly with no guard. jq is guarded a few
+# lines above precisely because a hook runs with whatever environment it is given,
+# and shasum got no equivalent — so on a PATH without it the substitution produced
+# nothing, every rejected value rendered as the bare string "unrecognised-", and
+# the false-equality bug this digest exists to prevent came straight back.
+# Reproduced under a PATH holding only tr/cut/printf.
+#
+# Three sources, the last needing no external command at all, so there is no
+# environment in which this collapses.
+digest8() {
+  local s="$1" out=""
+  if command -v shasum >/dev/null 2>&1; then
+    out="$(printf '%s' "$s" | shasum 2>/dev/null | cut -c1-8)"
+  elif command -v cksum >/dev/null 2>&1; then
+    out="$(printf '%s' "$s" | cksum 2>/dev/null | tr -cd '0-9' | cut -c1-8)"
+  fi
+  if [ -z "$out" ]; then
+    local i c h=5381
+    for ((i = 0; i < ${#s}; i++)); do
+      printf -v c '%d' "'${s:i:1}"
+      h=$(( (h * 33 + c) % 4294967296 ))
+    done
+    printf -v out '%08x' "$h"
+  fi
+  printf '%s' "$out"
+}
+
 safe_version() {
   local v core
   v="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9.+_-' | cut -c1-32)"
   [ -n "$v" ] || return 0
   core='[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}'
-  if [[ "$v" =~ ^${core}(-(alpha|beta|rc|pre|dev|next|canary)(\.[0-9]{1,4})?)?(\+[0-9A-Za-z]{1,10})?$ ]]; then
+  if [[ "$v" =~ ^${core}(-(alpha|beta|rc|pre|dev|next|canary)(\.[0-9]{1,4})?)?(\+(build)?[0-9]{1,8})?$ ]]; then
     printf '%s' "$v"
   else
-    # Distinct per value, carries none of it. Digest of the RAW input, so two
-    # different malformed versions never compare equal.
-    printf 'unrecognised-%s' "$(printf '%s' "$1" | shasum | cut -c1-8)"
+    printf 'unrecognised-%s' "$(digest8 "$1")"
   fi
 }
 live_ver="$(safe_version "$(jq -r '.live.version // ""' "$STATE_FILE" 2>/dev/null)")"
@@ -96,22 +123,42 @@ fi
 [ -z "$msg" ] && exit 0
 
 # Rate-limit the chatty event to once per session per day.
+#
+# The key has to be STABLE ACROSS INVOCATIONS of this hook, because every
+# UserPromptSubmit is a fresh process. Two earlier attempts each failed one half
+# of that: a shared literal "anon" was stable but not per-session, so the first
+# unidentified session of the day silenced every other one; `anon-$$` was
+# per-process rather than per-session, so no two invocations ever produced the
+# same filename, the daily cap never engaged at all, and WARN_DIR grew by one
+# empty file per prompt with nothing pruning it. Reproduced both ways.
+#
+# transcript_path is the fallback that is actually stable per session, so it is
+# tried before giving up. If neither identifier resolves the warning is repeated
+# rather than suppressed and NO lock is written — this hook's own header says a
+# notifier that goes quiet is worse than a noisy one, and writing no file keeps
+# the unidentified case from growing the directory.
 if [ "$EVENT" = "UserPromptSubmit" ]; then
-  session_id=""
+  session_key=""
   if [ ! -t 0 ]; then
     input="$(cat 2>/dev/null || true)"
-    session_id="$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null || true)"
+    session_key="$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null || true)"
+    if [ -z "$session_key" ]; then
+      transcript="$(printf '%s' "$input" | jq -r '.transcript_path // ""' 2>/dev/null || true)"
+      [ -n "$transcript" ] && session_key="t$(digest8 "$transcript")"
+    fi
   fi
-  # The id is interpolated into a path that is then created, so `../` in it writes
-  # outside WARN_DIR. Reduce it to the characters a session id is actually made of.
-  session_id="$(printf '%s' "$session_id" | tr -cd 'A-Za-z0-9_-' | cut -c1-64)"
-  # A bare "anon" fallback is one lock shared by every session that could not be
-  # identified, so the first such session that day silences all the others. The
-  # pid keeps them apart; a session that cannot be named gets warned rather than
-  # suppressed, which is the right way for a rate limit to fail.
-  lock="$WARN_DIR/${session_id:-anon-$$}.$(date -u +%Y-%m-%d)"
-  [ -f "$lock" ] && exit 0
-  : > "$lock"
+  # The key is interpolated into a path that is then created, so `../` in it would
+  # write outside WARN_DIR. Reduce it to the characters an identifier is made of.
+  session_key="$(printf '%s' "$session_key" | tr -cd 'A-Za-z0-9_-' | cut -c1-64)"
+
+  if [ -n "$session_key" ]; then
+    lock="$WARN_DIR/${session_key}.$(date -u +%Y-%m-%d)"
+    [ -f "$lock" ] && exit 0
+    : > "$lock"
+    # Bound the directory: yesterday's locks are dead weight, and an unpruned
+    # marker directory is its own small leak.
+    find "$WARN_DIR" -type f -mtime +7 -delete 2>/dev/null || true
+  fi
 fi
 
 printf '%s\n' "$msg"
