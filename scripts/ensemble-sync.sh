@@ -104,7 +104,17 @@ refresh_caches() {
   refresh_failures=0
 
   for root in ${CONFIG_ROOTS[@]+"${CONFIG_ROOTS[@]}"}; do
-    [ -d "$root" ] || continue
+    # A root that does not exist was skipped by `continue`, leaving refresh_failures
+    # at 0 so the run still reported success. Every root in this list was either
+    # discovered (so it existed a moment ago) or named deliberately; either way a
+    # missing one is a fact worth failing on, not a silent skip. Found while
+    # reviewing the previous fix — the tenth instance of this defect in this PR.
+    if [ ! -d "$root" ]; then
+      echo "── $root"
+      echo "    ✗ no such directory — nothing verified for this root"
+      refresh_failures=$((refresh_failures + 1))
+      continue
+    fi
     echo "── $root"
 
     # Read the plugin list with the jq failure VISIBLE. Swallowing it meant a root
