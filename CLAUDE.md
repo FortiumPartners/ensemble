@@ -1,23 +1,59 @@
 # Ensemble Plugins - Claude Code Configuration
 
-> Modular plugin ecosystem for Claude Code (v5.1.0) | 23 packages | 28 agents | 4-tier architecture
+> Modular plugin ecosystem for Claude Code (v6.9.3) | 27 plugins | 48 commands | 38 agents | 4-tier architecture
+
+## Where the plugin comes from
+
+Since 2026-09-06 the `ensemble` marketplace in every Claude config root is a **directory** source pointed at a worktree we control:
+
+```
+~/projects/.worktrees/ensemble-live     branch `live`, tracks sunstone/main
+```
+
+Nothing pulls from a remote marketplace. That worktree decides what every session loads, and nothing lands in it without `scripts/ensemble-sync.sh` being run.
+
+**The hook and watcher must never be referenced at a path inside this repo.** They are
+installed to `~/.claude/scripts/` by `scripts/install-ensemble-hooks.sh`; run it after
+changing either script. Wiring a machine-wide hook at `projects/ensemble/scripts/...`
+means it exists only while this tree has the right branch checked out — switching branches
+deleted it under 44 of 48 live sessions and silently killed the launchd watcher for a day
+(#97). The installer is idempotent and rewrites any entry that points back into a worktree. `Sunstone-Partners/ensemble` is the live upstream; `FortiumPartners/ensemble` is dormant. Run `scripts/ensemble-sync.sh` for a dry report and `--apply` to land it; `scripts/provision-ensemble.sh --check` reports every config root. Each script's header comment carries its full usage — none of them implements `--help`.
 
 ## Quick Reference
+
+### Picking a workflow
+
+The full PRD → TRD pipeline is for large features. Running it on a bug costs hours.
+
+| Size of work | Use |
+|---|---|
+| A bug or small issue | `/ensemble:fix-issue` — analysis straight to PR |
+| A contained feature | `create-prd` → `create-trd`, then stop |
+| Large or cross-cutting | The full five-step sequence |
+| One task in an existing TRD | `/ensemble:implement-trd-task --task <id>` |
+
+`/ensemble:analyze-complexity` routes automatically, but **pass `--route simple\|medium\|complex` explicitly** — the automatic score under-routes and fails toward less planning (#95). The override is validated; the score is advisory.
 
 ### Slash Commands
 All ensemble commands use the `/ensemble:` namespace:
 ```
+/ensemble:analyze-complexity   # Score work and pick a planning route (see #95)
+/ensemble:fix-issue            # Lightweight bug fix workflow (analysis → PR)
 /ensemble:fold-prompt          # Optimize Claude environment
 /ensemble:create-prd           # Create Product Requirements Document
 /ensemble:create-trd           # Create Technical Requirements Document
 /ensemble:create-trd-foreman   # Create Foreman-native structured Technical Requirements Document
+/ensemble:create-workstream-trd # Normalized executable workstream TRD from multiple TRDs
 /ensemble:implement-trd        # Implement TRD with git-town workflow
-/ensemble:fix-issue            # Lightweight bug fix workflow (analysis → PR)
+/ensemble:implement-trd-beads  # Implement TRD with persistent bead hierarchy
+/ensemble:implement-trd-task   # Run ONE task through implement → review → close
+/ensemble:refine-beads         # Approval-gated Beads graph refinement
 /ensemble:release              # Orchestrate release workflow
 /ensemble:playwright-test      # Run E2E tests with Playwright
 /ensemble:sessionlog           # Save structured session transcript
 /ensemble:manager-dashboard    # Generate productivity metrics
 /ensemble:sprint-status        # Current sprint status report
+/ensemble:reinstall-plugins    # Force-refresh when a version-gated update misses content
 ```
 
 ### Essential Commands
@@ -30,8 +66,8 @@ npm run test:coverage       # Coverage reports
 ```
 
 ### Key Paths
-- **Plugins**: `packages/*/` (24 packages)
-- **Agents**: `packages/*/agents/*.yaml` (28 agents)
+- **Plugins**: `packages/*/` (27 plugins in marketplace.json)
+- **Agents**: `packages/*/agents/*.yaml` (38 agents)
 - **Commands**: `packages/*/commands/`
 - **Skills**: `packages/*/skills/`
 - **Schemas**: `schemas/{plugin,marketplace}-schema.json`
@@ -64,7 +100,7 @@ Tier 3: Framework Skills (5)
 Tier 4: Testing Frameworks (5)
 ├── jest, pytest, rspec, xunit, exunit
 
-New Capabilities (v5.1.0):
+Added in the 5.1.0 line:
 ├── ai (AI services integration)
 ├── router (agent routing and delegation)
 └── permitter (permission management with allowlists)
@@ -118,7 +154,9 @@ Specific expertise area
 - Handoff procedures
 ```
 
-## Agent Mesh (28 Specialized Agents)
+## Agent Mesh (38 Specialized Agents)
+
+The list below covers the original 28. Ten more shipped in the 6.x line, including `beads-scaffold-specialist`, `dotnet-backend-expert`, `infrastructure-specialist` and `reqnroll-binding-specialist` — run `/help` or check `packages/*/agents/` for the current set.
 
 ### Orchestrators
 - `ensemble-orchestrator` - Chief orchestrator, task decomposition
@@ -430,6 +468,7 @@ Common issues:
 
 ## Links
 
-- **Repository**: https://github.com/FortiumPartners/ensemble
+- **Upstream (live)**: https://github.com/Sunstone-Partners/ensemble
+- **Fortium repo (dormant, issues still tracked here)**: https://github.com/FortiumPartners/ensemble
 - **Issues**: https://github.com/FortiumPartners/ensemble/issues
 - **Email**: support@fortiumpartners.com
