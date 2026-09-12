@@ -32,6 +32,12 @@ else
   CONFIG_ROOTS=()
   for d in "$HOME"/.claude "$HOME"/.claude-*; do
     [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+    # This script REWRITES settings.json, so adopting a backup copy by accident
+    # edits the very file someone made to be able to go back. Skip by name, say so.
+    case "$(basename "$d")" in
+      *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save)
+        echo "  skipping $(basename "$d") — the name reads as a backup copy"; continue ;;
+    esac
     CONFIG_ROOTS+=("$d")
   done
 fi
@@ -41,6 +47,7 @@ die() { echo "✗ $*" >&2; exit 1; }
 
 # Wiring zero roots and printing nothing is how this silently did nothing before.
 [ ${#CONFIG_ROOTS[@]} -gt 0 ] || die "no Claude config root found under $HOME (looked for .claude*/settings.json)"
+echo "Config roots (${#CONFIG_ROOTS[@]}): $(printf '%s ' "${CONFIG_ROOTS[@]##*/}")"
 
 mkdir -p "$DEST_DIR" || die "could not create $DEST_DIR"
 
@@ -109,9 +116,15 @@ fi
 for root in "${CONFIG_ROOTS[@]}"; do
   f="$root/settings.json"
   [ -f "$f" ] || continue
-  stale="$(jq -r --arg d "$DEST_DIR" '
-    [.hooks.SessionStart[]?.hooks[]?.command]
-    | map(select(test("ensemble-version-hook\\.sh") and (startswith($d) | not))) | length' "$f")"
+  # Count BOTH. Counting only the stale entries gave 0 for a root that was never
+  # wired at all, which is the exact state (.claude-gmail, .claude-autreymail at
+  # zero entries) this script was changed to fix — the gate would have passed the
+  # failure it exists to catch. Reproduced against a never-wired fixture.
+  counts="$(jq -r --arg d "$DEST_DIR" '
+    [.hooks.SessionStart[]?.hooks[]?.command // "" | select(test("ensemble-version-hook\\.sh"))]
+    | "\(map(select(startswith($d))) | length) \(map(select(startswith($d) | not)) | length)"' "$f")"
+  good="${counts%% *}"; stale="${counts##* }"
   [ "$stale" = "0" ] || die "$f still has $stale hook entry(s) pointing outside $DEST_DIR"
+  [ "${good:-0}" -ge 1 ] || die "$f has no ensemble-version-hook entry at all — this root was never wired"
 done
-echo "✓ no config root references the script inside a git worktree"
+echo "✓ every config root runs the hook from $DEST_DIR, none from inside a git worktree"

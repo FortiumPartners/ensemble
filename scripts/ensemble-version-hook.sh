@@ -29,18 +29,32 @@ command -v jq >/dev/null 2>&1 || exit 0
 checked_at="$(jq -r '.checked_at // ""' "$STATE_FILE" 2>/dev/null)"
 behind="$(jq -r '.commits_behind // ""' "$STATE_FILE" 2>/dev/null)"
 # Both versions come from plugin.json in a third-party fork, and this text is
-# printed straight into the startup context of every session on the machine. A
-# version string is digits, dots and a prerelease tag; anything else in it is not
-# a version, so drop it rather than pass it through. 32 chars is past any real tag.
+# printed straight into the startup context of every session on the machine.
+#
+# The first attempt at this allowed a free-form prerelease tag, which is the
+# semver grammar and is also exactly wide enough to carry a sentence written with
+# dashes: `7.0.0-IGNORE-ALL-PREVIOUS-INSTRUCTIONS...` passed it verbatim. It
+# rejected the one payload written in the commit message and nothing shaped
+# differently. A version is not a free-text field, so the tag is an ALLOWLIST of
+# the words a prerelease is actually made of. Anything else is not relayed at all.
+#
+# And a rejected value is NOT collapsed to a shared word. The first attempt
+# printed 'unrecognised' for every bad value, so two DIFFERENT bad values compared
+# equal and the "your plugin is stale" branch below went silent precisely when the
+# data was untrustworthy — a notifier failing quiet, which is what this hook's
+# header says is worse than no notifier. A short digest keeps distinct values
+# distinct while relaying none of their content.
 safe_version() {
-  local v; v="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9.+_-' | cut -c1-32)"
-  # A glob is not tight enough here: `7.0.0IGNOREPREVIOUSINSTRUCTIONS.` matches
-  # [0-9]*.[0-9]*.[0-9]* and would still be relayed. Require the whole string to
-  # be a version, with a prerelease or build tag only after . + or -.
-  if [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.+-][A-Za-z0-9.+_-]*)?$ ]]; then
+  local v core
+  v="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9.+_-' | cut -c1-32)"
+  [ -n "$v" ] || return 0
+  core='[0-9]{1,6}\.[0-9]{1,6}\.[0-9]{1,6}'
+  if [[ "$v" =~ ^${core}(-(alpha|beta|rc|pre|dev|next|canary)(\.[0-9]{1,4})?)?(\+[0-9A-Za-z]{1,10})?$ ]]; then
     printf '%s' "$v"
-  elif [ -n "$v" ]; then
-    printf 'unrecognised'   # upstream wrote something that is not a version
+  else
+    # Distinct per value, carries none of it. Digest of the RAW input, so two
+    # different malformed versions never compare equal.
+    printf 'unrecognised-%s' "$(printf '%s' "$1" | shasum | cut -c1-8)"
   fi
 }
 live_ver="$(safe_version "$(jq -r '.live.version // ""' "$STATE_FILE" 2>/dev/null)")"
@@ -91,7 +105,11 @@ if [ "$EVENT" = "UserPromptSubmit" ]; then
   # The id is interpolated into a path that is then created, so `../` in it writes
   # outside WARN_DIR. Reduce it to the characters a session id is actually made of.
   session_id="$(printf '%s' "$session_id" | tr -cd 'A-Za-z0-9_-' | cut -c1-64)"
-  lock="$WARN_DIR/${session_id:-anon}.$(date -u +%Y-%m-%d)"
+  # A bare "anon" fallback is one lock shared by every session that could not be
+  # identified, so the first such session that day silences all the others. The
+  # pid keeps them apart; a session that cannot be named gets warned rather than
+  # suppressed, which is the right way for a rate limit to fail.
+  lock="$WARN_DIR/${session_id:-anon-$$}.$(date -u +%Y-%m-%d)"
   [ -f "$lock" ] && exit 0
   : > "$lock"
 fi

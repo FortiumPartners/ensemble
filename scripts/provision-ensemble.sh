@@ -30,6 +30,13 @@ LIVE_WORKTREE="${ENSEMBLE_LIVE_WORKTREE:-$HOME/projects/.worktrees/ensemble-live
 DEFAULT_ROOTS=()
 for d in "$HOME"/.claude "$HOME"/.claude-*; do
   [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+  # This script runs `claude plugin uninstall`/`install` inside whatever it adopts,
+  # so a backup copy taken before an upgrade would be mutated by the tool someone
+  # was hedging against. Skip by name, and say which, rather than doing it quietly.
+  case "$(basename "$d")" in
+    *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save)
+      echo "  skipping $(basename "$d") — the name reads as a backup copy"; continue ;;
+  esac
   DEFAULT_ROOTS+=("$d")
 done
 [ ${#DEFAULT_ROOTS[@]} -gt 0 ] || {
@@ -73,19 +80,21 @@ want_version=$(jq -r '.version // empty' \
   "$LIVE_WORKTREE/packages/full/.claude-plugin/plugin.json" 2>/dev/null)
 [ -n "$want_version" ] || { echo "✗ cannot read the plugin version from $LIVE_WORKTREE" >&2; exit 1; }
 
-want_commands=0
-for r in "${DEFAULT_ROOTS[@]}"; do
-  d="$r/plugins/cache/ensemble/ensemble-full/$want_version"
-  [ -d "$d" ] || continue
-  n=$(find "$d/commands" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-  [ "$n" -gt "$want_commands" ] && want_commands=$n
-done
+# Counted from the SOURCE, not from the other roots. Taking the max across peer
+# caches made the check circular: if every root's cache were short in the same way
+# — one partial install repeated by the same code path everywhere — the reference
+# would be that same wrong number and every root would print a tick. A reference
+# derived from the thing being checked measures nothing. -L because
+# packages/full/commands holds symlinks the installer dereferences on copy.
+want_commands=$(find -L "$LIVE_WORKTREE/packages/full/commands" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 if [ "$want_commands" -eq 0 ]; then
-  # Says what is true: there is no cross-root reference count to compare against,
-  # so the count check below reports UNVERIFIED. The earlier wording announced an
-  # install-from-source step that this branch does not perform.
-  echo "  no root yet has a populated ensemble-full $want_version —"
-  echo "  the command-count check below has no reference and will report UNVERIFIED"
+  # The source itself has no commands, which means the worktree is broken rather
+  # than the roots. Say so and stop, instead of comparing every root against 0 and
+  # calling them all correct.
+  echo "✗ $LIVE_WORKTREE/packages/full/commands holds no .md files — the source is" >&2
+  echo "  empty or the worktree is on the wrong branch. Refusing to verify roots" >&2
+  echo "  against a reference of zero." >&2
+  exit 1
 fi
 
 problems=0
@@ -209,10 +218,6 @@ for root in "${ROOTS[@]}"; do
   fi
   c=$(find "$path/commands" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
   a=$(find "$path/agents" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$want_commands" -eq 0 ]; then
-    printf '  %-26s %s commands, %s agents (UNVERIFIED — no reference count)\n' "$name" "$c" "$a"
-    problems=$((problems + 1)); continue
-  fi
   if [ "$c" -ne "$want_commands" ]; then
     printf '  %-26s ✗ %s commands, expected %s\n' "$name" "$c" "$want_commands"
     problems=$((problems + 1)); continue

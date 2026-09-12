@@ -30,10 +30,26 @@ UPSTREAM_BRANCH="${ENSEMBLE_UPSTREAM_BRANCH:-main}"
 # every time an account is added will be out of date again by the next account.
 # `settings.json` is the same test provision-ensemble.sh already uses to tell a
 # config root from session storage like .claude-sessions.
+# A directory under $HOME that merely has a settings.json is not necessarily a
+# live config root. `cp -r ~/.claude ~/.claude-backup-preupgrade` is the ordinary
+# thing to do before an upgrade, and the copy is indistinguishable from the
+# original by content — so a name that reads as a backup is skipped, out loud, and
+# every root that IS adopted is printed before anything is written to it. Silent
+# adoption was the objection; being told is the fix.
+looks_like_backup() {
+  case "$(basename "$1")" in
+    *backup*|*copy*|*.bak|*-bak|*.old|*-old|*.orig|*-orig|*save) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 discover_config_roots() {
   local d found=0
   for d in "$HOME"/.claude "$HOME"/.claude-*; do
     [ -d "$d" ] && [ -f "$d/settings.json" ] || continue
+    if looks_like_backup "$d"; then
+      echo "  skipping $(basename "$d") — the name reads as a backup copy" >&2
+      continue
+    fi
     printf '%s\n' "$d"
     found=1
   done
@@ -50,6 +66,7 @@ else
   # verified nothing, which is the exact defect this script exists to catch.
   [ ${#CONFIG_ROOTS[@]} -gt 0 ] \
     || { echo "✗ no Claude config root found under $HOME (looked for .claude*/settings.json)" >&2; exit 1; }
+  echo "Config roots (${#CONFIG_ROOTS[@]}): $(printf '%s ' "${CONFIG_ROOTS[@]##*/}")" >&2
 fi
 
 APPLY=0
