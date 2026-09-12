@@ -134,8 +134,12 @@ plugin_state() {
     # -L on the source side: packages/full/commands holds symlinks into the other
     # packages and the installer dereferences them on copy, so an unfollowed find
     # counts 0 there and would call a correct bundle broken.
-    want=$(find -L "$src/$sub" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
-    have=$(find "$path/$sub" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+    # Every file, not just *.md. Skills ship js/ts/py/rb/json/sh alongside
+    # SKILL.md, so a copy that dropped a skill's script while keeping its markdown
+    # read as healthy. Verified across six plugins that the all-file counts do
+    # match source exactly, so this is strictly stronger and not noisier.
+    want=$(find -L "$src/$sub" -type f 2>/dev/null | wc -l | tr -d ' ')
+    have=$(find "$path/$sub" -type f 2>/dev/null | wc -l | tr -d ' ')
     if [ "$want" != "$have" ]; then echo "incomplete"; return; fi
   done
   echo "ok"

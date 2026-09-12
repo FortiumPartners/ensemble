@@ -62,13 +62,22 @@ if [ -n "${ENSEMBLE_CONFIG_ROOTS+x}" ]; then
 else
   CONFIG_ROOTS=()
   while IFS= read -r r; do CONFIG_ROOTS+=("$r"); done < <(discover_config_roots)
-  # Discovering nothing is not the same as an explicit empty override. Refusing
-  # here is the point: a refresh loop over zero roots reports success having
-  # verified nothing, which is the exact defect this script exists to catch.
-  [ ${#CONFIG_ROOTS[@]} -gt 0 ] \
-    || { echo "✗ no Claude config root found under $HOME (looked for .claude*/settings.json)" >&2; exit 1; }
-  echo "Config roots (${#CONFIG_ROOTS[@]}): $(printf '%s ' "${CONFIG_ROOTS[@]##*/}")" >&2
 fi
+
+# Guarded AFTER the branch, not inside one of them. The guard used to sit only in
+# the discovery arm, so ENSEMBLE_CONFIG_ROOTS="" — a stale export in a profile, a
+# wrapper whose command substitution returned nothing, a pasted invocation missing
+# its value — produced a zero-length array, refresh_caches iterated nothing,
+# returned 0, and the script printed "✓ Synced" having verified no cache in any
+# root. An earlier comment here called an empty override a deliberate "skip that
+# step"; nothing distinguished that from the accident, so the escape hatch is gone.
+# Name one root to scope a run.
+[ ${#CONFIG_ROOTS[@]} -gt 0 ] \
+  || { echo "✗ no Claude config root to work on. Discovery found none under $HOME" >&2
+       echo "  (.claude*/settings.json), or ENSEMBLE_CONFIG_ROOTS was set but empty." >&2
+       echo "  Refusing to report success on a run that would verify nothing." >&2
+       exit 1; }
+echo "Config roots (${#CONFIG_ROOTS[@]}): $(printf '%s ' "${CONFIG_ROOTS[@]##*/}")" >&2
 
 APPLY=0
 [ "${1:-}" = "--apply" ] && APPLY=1
@@ -284,23 +293,42 @@ else
     #
     # The test that survives a squash is content, not commit identity: does upstream
     # already contain every line our patches added?
+    # This decides whether to TELL THE OPERATOR TO DISCARD reviewed local patches
+    # and take a third-party fork verbatim, so it has to fail closed. It did not:
+    # `git diff --numstat` prints "-" for a binary file, `[ "-" -ne 0 ]` errors, the
+    # `2>/dev/null` swallowed it, the file was skipped, and absorbed stayed 1. An
+    # unsplittable path did the same via word-splitting on $touched.
+    #
+    # -z for the file list and read -d '' for the loop, so a path with a space or a
+    # newline stays one path. Anything that is not a plain number — "-", empty
+    # output, a git failure — counts as NOT absorbed, because the safe error here
+    # is carrying a patch we already have, not dropping one we still need.
     absorbed=1
-    touched="$(git -C "$DEV_CLONE" diff --name-only "${merge_base}..${live_sha}" 2>/dev/null)"
-    for f in $touched; do
-      # Lines we have that upstream lacks. Zero for every file means fully absorbed.
-      missing="$(git -C "$DEV_CLONE" diff --numstat "${live_sha}" "${up_sha}" -- "$f" 2>/dev/null | awk '{print $2}')"
-      [ -z "$missing" ] && missing=0
-      if [ "$missing" -ne 0 ] 2>/dev/null; then absorbed=0; fi
-    done
+    touched_count=0
+    while IFS= read -r -d '' f; do
+      touched_count=$((touched_count + 1))
+      if ! numstat="$(git -C "$DEV_CLONE" diff --numstat "${live_sha}" "${up_sha}" -- "$f" 2>/dev/null)"; then
+        absorbed=0; continue
+      fi
+      missing="$(printf '%s\n' "$numstat" | awk 'NR==1 {print $2}')"
+      case "$missing" in
+        ''|0) ;;                  # nothing of ours is absent upstream
+        *[!0-9]*) absorbed=0 ;;   # "-" for binary, or anything unparseable
+        *) absorbed=0 ;;          # a positive count of missing lines
+      esac
+    done < <(git -C "$DEV_CLONE" diff --name-only -z "${merge_base}..${live_sha}" 2>/dev/null)
+    # Deciding "fully absorbed" from an empty file list would be the same defect
+    # one level up: a conclusion drawn from nothing.
+    [ "$touched_count" -gt 0 ] || absorbed=0
 
     echo
-    if [ "$absorbed" -eq 1 ] && [ -n "$touched" ]; then
+    if [ "$absorbed" -eq 1 ]; then
       echo "  Diagnosis: upstream already contains every line these patches add."
       echo "  That is what a squash-merge looks like from here — same content, new"
       echo "  commit, so patch-id cannot match and the replay fights our own work."
       echo
-      echo "  Files checked, all fully absorbed:"
-      printf '%s\n' $touched | sed 's/^/      /'
+      echo "  Files checked, all ${touched_count} fully absorbed:"
+      git -C "$DEV_CLONE" diff --name-only "${merge_base}..${live_sha}" 2>/dev/null | sed 's/^/      /'
       echo
       echo "  If you agree these landed upstream, drop them and take upstream as-is:"
       live_branch="$(git -C "$LIVE_WORKTREE" rev-parse --abbrev-ref HEAD 2>/dev/null)"

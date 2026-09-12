@@ -71,7 +71,16 @@ jq -n \
                  version: (if $uver == "" then null else $uver end) },
      commits_behind: (if $behind == "" then null else ($behind | tonumber) end),
      error: (if $err == "" then null else $err end)
-   }' > "$STATE_FILE"
+   }' > "$STATE_FILE.tmp.$$" || { rm -f "$STATE_FILE.tmp.$$"; exit 1; }
+
+# Atomic replace. Writing straight to the live path meant a job killed mid-write —
+# a restart, a sleep, a full disk — left a truncated file, and the hook that reads
+# it went completely silent rather than reporting the broken watcher. Validate,
+# then rename, so readers see either the old file or the new one and never a
+# half-written one.
+jq -e . "$STATE_FILE.tmp.$$" >/dev/null 2>&1 \
+  || { echo "refusing to publish an unparseable state file" >&2; rm -f "$STATE_FILE.tmp.$$"; exit 1; }
+mv -f "$STATE_FILE.tmp.$$" "$STATE_FILE" || { rm -f "$STATE_FILE.tmp.$$"; exit 1; }
 
 echo "[ensemble-version-watch] $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 jq -c '{live:.live.version, upstream:.upstream.version, behind:.commits_behind, error:.error}' "$STATE_FILE"

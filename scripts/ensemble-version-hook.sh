@@ -26,6 +26,20 @@ mkdir -p "$WARN_DIR"
 [ -f "$STATE_FILE" ] || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 
+# Case 3 in the header — "the watcher itself is broken" — has to survive its own
+# data being unreadable. Every field below is read with 2>/dev/null, so a
+# truncated or invalid state file made all of them empty, INCLUDING .error, and
+# the hook fell through every branch and exited silently: indistinguishable from
+# "Ensemble is current". Parse once, up front, and say so when it fails.
+if ! jq -e . "$STATE_FILE" >/dev/null 2>&1; then
+  printf '%s\n' "[ensemble-watch] The Ensemble version state file is unreadable or not valid JSON:
+  $STATE_FILE
+The watcher writes it daily, so this means the watcher failed part-way or the file
+was truncated. Sessions may be loading a stale plugin with nothing else warning them.
+Ask the FS-Ensemble session to check the launchd job."
+  exit 0
+fi
+
 checked_at="$(jq -r '.checked_at // ""' "$STATE_FILE" 2>/dev/null)"
 behind="$(jq -r '.commits_behind // ""' "$STATE_FILE" 2>/dev/null)"
 # Both versions come from plugin.json in a third-party fork, and this text is
@@ -81,7 +95,13 @@ safe_version() {
   if [[ "$v" =~ ^${core}(-(alpha|beta|rc|pre|dev|next|canary)(\.[0-9]{1,4})?)?(\+(build)?[0-9]{1,8})?$ ]]; then
     printf '%s' "$v"
   else
-    printf 'unrecognised-%s' "$(digest8 "$1")"
+    # Bounded input. The pure-bash tier of digest8 is a per-character loop, so
+    # handing it the RAW unbounded string let a long version in a third-party
+    # plugin.json burn CPU at every SessionStart on a machine without shasum or
+    # cksum — measured at 31 seconds for 100,000 characters. 256 characters is far
+    # past any real version and still distinguishes values that the 32-char
+    # sanitised form would have flattened together.
+    printf 'unrecognised-%s' "$(digest8 "${1:0:256}")"
   fi
 }
 live_ver="$(safe_version "$(jq -r '.live.version // ""' "$STATE_FILE" 2>/dev/null)")"
@@ -154,7 +174,12 @@ if [ "$EVENT" = "UserPromptSubmit" ]; then
   if [ -n "$session_key" ]; then
     lock="$WARN_DIR/${session_key}.$(date -u +%Y-%m-%d)"
     [ -f "$lock" ] && exit 0
-    : > "$lock"
+    # If the marker cannot be written the dedup never engages and the warning
+    # repeats every prompt. That is noise rather than silence, so it does not stop
+    # the message, but it should not be invisible either.
+    if ! : > "$lock" 2>/dev/null; then
+      printf '%s\n' "[ensemble-watch] (cannot write $WARN_DIR — this notice will repeat until that is fixed)"
+    fi
     # Bound the directory: yesterday's locks are dead weight, and an unpruned
     # marker directory is its own small leak.
     find "$WARN_DIR" -type f -mtime +7 -delete 2>/dev/null || true
