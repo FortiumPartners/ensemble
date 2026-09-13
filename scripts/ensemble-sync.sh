@@ -317,15 +317,19 @@ else
     touched_count=0
     while IFS= read -r -d '' f; do
       touched_count=$((touched_count + 1))
-      if ! numstat="$(git -C "$DEV_CLONE" diff --numstat "${live_sha}" "${up_sha}" -- "$f" 2>/dev/null)"; then
-        absorbed=0; continue
-      fi
-      missing="$(printf '%s\n' "$numstat" | awk 'NR==1 {print $2}')"
-      case "$missing" in
-        ''|0) ;;                  # nothing of ours is absent upstream
-        *[!0-9]*) absorbed=0 ;;   # "-" for binary, or anything unparseable
-        *) absorbed=0 ;;          # a positive count of missing lines
-      esac
+      # Compare the FILE, not a column of numstat. Counting only the "removed"
+      # column asked "does upstream lack any line we added", which is blind to a
+      # patch that DELETES a line: going live->upstream that line comes back as an
+      # ADDITION, the removed column is 0, and the script called it absorbed and
+      # offered to discard a deletion upstream never took. Reproduced.
+      #
+      # Identical content is the whole patch effect — additions, edits, deletions,
+      # and binary files alike — with no column to misread. When upstream has also
+      # changed the file for its own reasons the files differ and this says NOT
+      # absorbed, which sends the operator to resolve by hand. That is the safe
+      # direction: carrying a patch we already have costs nothing, dropping one we
+      # still need costs the fix.
+      git -C "$DEV_CLONE" diff --quiet "${live_sha}" "${up_sha}" -- "$f" 2>/dev/null || absorbed=0
     done < <(git -C "$DEV_CLONE" diff --name-only -z "${merge_base}..${live_sha}" 2>/dev/null)
     # Deciding "fully absorbed" from an empty file list would be the same defect
     # one level up: a conclusion drawn from nothing.

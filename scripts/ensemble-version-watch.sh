@@ -54,6 +54,16 @@ else
   fi
 fi
 
+# A version that could not be read is a broken manifest, and leaving err empty let
+# the state file say "no error" while both version fields were null. With behind at
+# 0 the hook then printed nothing at all — silence meaning "current" when the live
+# plugin manifest was missing or invalid.
+if [ -z "$err" ] && [ -z "$live_version" ]; then
+  err="cannot read a version from $LIVE_WORKTREE/packages/full/.claude-plugin/plugin.json — the live plugin manifest is missing or invalid"
+fi
+if [ -z "$err" ] && [ -z "$upstream_version" ]; then
+  err="cannot read a version from ${UPSTREAM_REMOTE}/main:packages/full/.claude-plugin/plugin.json"
+fi
 [ -z "$err" ] && [ -z "$behind" ] && err="could not compute how far behind the live worktree is"
 
 jq -n \
