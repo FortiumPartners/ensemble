@@ -23,7 +23,7 @@ Tier 3: Framework Skills (5)
 Tier 4: Testing Frameworks (5)
 ├── jest, pytest, rspec, xunit, exunit
 
-New Capabilities (v5.1.0):
+Added in the 5.1.0 line:
 ├── ai (AI services integration)
 ├── router (agent routing and delegation)
 └── permitter (permission management with allowlists)
@@ -33,7 +33,9 @@ Runtime: opencode (OpenCode translation layer, v5.3.0)
 Meta: ensemble-full (complete bundle)
 ```
 
-## Agent Mesh (28 Specialized Agents)
+## Agent Mesh (38 Specialized Agents)
+
+The list below covers the original 28. Ten more shipped in the 6.x line, including `beads-scaffold-specialist`, `dotnet-backend-expert`, `infrastructure-specialist` and `reqnroll-binding-specialist` — run `/help` or check `packages/*/agents/` for the current set.
 
 ### Orchestrators
 - `ensemble-orchestrator` - Chief orchestrator, task decomposition
