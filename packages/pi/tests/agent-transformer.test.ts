@@ -5,6 +5,7 @@
  * markdown body preservation, both YAML layouts, empty tools, and TransformResult shape.
  */
 
+import matter from 'gray-matter';
 import {
   transformAgent,
   agentOutputPath,
@@ -42,7 +43,7 @@ const ASK_USER_AGENT: Record<string, unknown> = {
 const ALL_STRIPPED_AGENT: Record<string, unknown> = {
   name: 'orchestrator',
   description: 'Orchestrates tasks',
-  tools: ['Task', 'Agent', 'TodoWrite', 'Glob', 'Grep'],
+  tools: ['Agent', 'TodoWrite', 'Glob', 'Grep'],
 };
 
 /** Agent with no tools field. */
@@ -109,12 +110,6 @@ describe('transformAgent', () => {
       expect(closingIdx).toBeGreaterThan(0);
     });
 
-    it('renders tools as an inline flow sequence', () => {
-      const output = transformAgent(TOP_LEVEL_AGENT, SOURCE_PATH, {});
-      // After stripping Task/Glob/Agent, only Read and Write remain
-      expect(output).toContain('tools: ["Read", "Write"]');
-    });
-
     it('includes model in frontmatter when present', () => {
       const output = transformAgent(MODEL_AGENT, SOURCE_PATH, {});
       expect(output).toContain('model: "claude-opus-4"');
@@ -126,19 +121,35 @@ describe('transformAgent', () => {
     });
   });
 
-  describe('tool filtering — Claude Code-only tools stripped', () => {
-    it('strips Task, Glob, Agent and keeps Read, Write', () => {
+  describe('tool filtering and native delegation', () => {
+    it('preserves explicit delegation as the native task capability', () => {
       const output = transformAgent(TOP_LEVEL_AGENT, SOURCE_PATH, {});
-      expect(output).toContain('["Read", "Write"]');
-      expect(output).not.toContain('Task');
-      expect(output).not.toContain('Glob');
-      expect(output).not.toContain('Agent');
+      expect(matter(output).data.tools).toEqual(['Read', 'Write', 'task']);
     });
 
-    it('strips WebSearch from nested metadata tools', () => {
+    it('preserves delegation declared in nested metadata', () => {
+      const output = transformAgent({
+        metadata: {
+          name: 'orchestrator',
+          description: 'Delegates to specialists',
+          tools: ['Read', 'Task'],
+        },
+      }, SOURCE_PATH, {});
+      expect(matter(output).data.tools).toEqual(['Read', 'task']);
+    });
+
+    it('retains an already-native task capability', () => {
+      const output = transformAgent({
+        name: 'orchestrator',
+        description: 'Delegates to specialists',
+        tools: ['task'],
+      }, SOURCE_PATH, {});
+      expect(matter(output).data.tools).toEqual(['task']);
+    });
+
+    it('does not grant delegation to a non-delegating agent', () => {
       const output = transformAgent(METADATA_AGENT, SOURCE_PATH, {});
-      expect(output).not.toContain('WebSearch');
-      expect(output).toContain('["Read", "Write"]');
+      expect(matter(output).data.tools).toEqual(['Read', 'Write']);
     });
 
     it('strips all Claude Code-only tools: TodoWrite, NotebookEdit, ExitPlanMode, EnterPlanMode, Grep', () => {
@@ -178,14 +189,14 @@ describe('transformAgent', () => {
   });
 
   describe('empty tools list', () => {
-    it('renders empty tools as "[]" when all tools are stripped', () => {
+    it('grants no tools when all declared tools are unsupported', () => {
       const output = transformAgent(ALL_STRIPPED_AGENT, SOURCE_PATH, {});
-      expect(output).toContain('tools: []');
+      expect(matter(output).data.tools).toEqual([]);
     });
 
-    it('renders empty tools as "[]" when no tools field is present', () => {
+    it('grants no tools when no tools field is present', () => {
       const output = transformAgent(NO_TOOLS_AGENT, SOURCE_PATH, {});
-      expect(output).toContain('tools: []');
+      expect(matter(output).data.tools).toEqual([]);
     });
   });
 
@@ -210,19 +221,17 @@ describe('transformAgent', () => {
       expect(output).toContain('description: "Implements UI components"');
     });
 
-    it('prefers top-level tools over metadata.tools when both present', () => {
+    it('does not inherit delegation when top-level tools override metadata.tools', () => {
       const agent: Record<string, unknown> = {
         metadata: {
           name: 'mixed-agent',
           description: 'Mixed layout',
-          tools: ['Glob'],
+          tools: ['Task'],
         },
         tools: ['Read', 'Edit'],
       };
       const output = transformAgent(agent, SOURCE_PATH, {});
-      // top-level tools wins: ['Read', 'Edit'] — Glob (metadata) should not appear
-      expect(output).toContain('["Read", "Edit"]');
-      expect(output).not.toContain('Glob');
+      expect(matter(output).data.tools).toEqual(['Read', 'Edit']);
     });
   });
 

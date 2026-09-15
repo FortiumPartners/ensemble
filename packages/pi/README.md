@@ -26,6 +26,24 @@ pi install @sunstone-partners/ensemble-pi
 pi install ./packages/pi
 ```
 
+### Native OMP delegation
+
+Oh My Pi (OMP) loads this package through the same `pi` manifest. The agent
+transformer maps an explicitly declared `Task` tool to OMP's native `task` tool.
+OMP uses that lowercase name to infer spawn permission when `spawns` is absent;
+its normal spawn-policy and recursion-depth guards still apply. Agents whose
+source does not declare `Task` or `task` are not granted delegation.
+
+In OMP, invoke the generated workflow skills, for example:
+
+```text
+/skill:ensemble-create-trd <prd-path>
+```
+
+The package supplies agent definitions, not a delegation implementation for
+runtimes without a native `task` tool. This mapping does not configure model
+routing or change approval gates.
+
 ## Generated Artifacts
 
 | Directory / File | Count | Description |

@@ -1,7 +1,7 @@
 ---
 name: "implement-trd-task"
 description: "Depth-1 task-runner subagent for /ensemble:implement-trd. Runs exactly ONE TRD task by executing the ensemble:implement-trd-task command, then emits the single-line JSON summary its caller's loop reads."
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "medium"
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: "infrastructure-specialist"
 description: "Hands-on infrastructure provisioning specialist for Terraform, CloudFormation, Kubernetes, Docker, and cloud resource configuration. Writes IaC, configures cloud resources, and implements infrastructure security at the tactical level."
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "medium"
 ---
 

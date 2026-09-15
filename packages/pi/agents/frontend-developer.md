@@ -1,7 +1,7 @@
 ---
 name: "frontend-developer"
 description: "Framework-agnostic front-end implementation (JS/TS, React, Vue, Angular, Svelte) with accessibility and performance optimization"
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "medium"
 ---
 

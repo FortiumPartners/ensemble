@@ -1,7 +1,7 @@
 ---
 name: "advisor"
 description: "Monitor active implementation to detect shortcuts, ensure the best solution is implemented rather than the fastest path, and intervene when an agent is silently bypassing requirements."
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "high"
 ---
 

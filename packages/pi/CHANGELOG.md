@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Preserve explicitly declared `Task` as native `task` in generated agents so OMP orchestrators can delegate, without granting delegation to agents whose source does not declare it.
+
 ### Security
 - Removed obsolete Claude Code/Agent SDK install guidance from the copied Anthropic skill.
 

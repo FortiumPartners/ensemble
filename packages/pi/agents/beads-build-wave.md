@@ -1,7 +1,7 @@
 ---
 name: "beads-build-wave"
 description: "Depth-1 wave-runner subagent for /ensemble:beads-build. Runs exactly ONE scheduling wave by executing the ensemble:beads-build-wave command, then emits the single-line JSON summary its caller's loop reads."
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "medium"
 ---
 

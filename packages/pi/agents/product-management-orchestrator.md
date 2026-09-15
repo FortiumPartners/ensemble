@@ -1,7 +1,7 @@
 ---
 name: "product-management-orchestrator"
 description: "Product lifecycle orchestrator managing requirements gathering, stakeholder alignment, feature prioritization, roadmap planning, and user experience coordination"
-tools: ["Read", "Write", "Edit", "Bash", "ask_user"]
+tools: ["Read", "Write", "Edit", "Bash", "task", "ask_user"]
 model: "high"
 ---
 

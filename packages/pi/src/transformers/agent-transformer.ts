@@ -7,12 +7,12 @@
  * Handles both top-level `name`/`description`/`tools` layout and the
  * nested `metadata.*` pattern used across the Ensemble monorepo.
  *
- * Pi-available tools (allowlist):
- *   Read, Write, Edit, Bash, ask_user
+ * Pi/OMP-available tools (allowlist):
+ *   Read, Write, Edit, Bash, ask_user, task
  *
  * Stripped Claude Code-only tools:
- *   Task, TodoWrite, Agent, NotebookEdit, ExitPlanMode, EnterPlanMode,
- *   WebSearch, WebFetch, Glob, Grep, AskUserQuestion
+ *   TodoWrite, Agent, NotebookEdit, ExitPlanMode, EnterPlanMode,
+ *   WebSearch, WebFetch, Glob, Grep
  *
  * @module ensemble-pi/transformers/agent-transformer
  */
@@ -24,12 +24,18 @@ import { TransformResult } from '../types';
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Tools that are available in the Pi runtime. */
-const PI_AVAILABLE_TOOLS = new Set(['Read', 'Write', 'Edit', 'Bash', 'ask_user']);
+/** Tools available to Pi agents, including OMP's native delegation tool. */
+const PI_AVAILABLE_TOOLS: Record<string, true> = {
+  Read: true,
+  Write: true,
+  Edit: true,
+  Bash: true,
+  ask_user: true,
+  task: true,
+};
 
 /** Claude Code-only tools that must be stripped when targeting Pi. */
 const CLAUDE_CODE_ONLY_TOOLS = new Set([
-  'Task',
   'TodoWrite',
   'Agent',
   'NotebookEdit',
@@ -81,13 +87,19 @@ function normalizeAgentFields(raw: Record<string, unknown>): {
 }
 
 /**
- * Filter the tools list to only Pi-available tools.
+ * Filter the tools list to only Pi/OMP-available tools.
+ * Task must use the native lowercase name: OMP also uses it to infer spawn
+ * permission. Preserve source opt-in rather than granting it to every agent.
  * AskUserQuestion is mapped to ask_user before filtering.
  */
 function filterTools(tools: string[]): string[] {
   return tools
-    .map(t => (t === 'AskUserQuestion' ? 'ask_user' : t))
-    .filter(t => PI_AVAILABLE_TOOLS.has(t));
+    .map(t => {
+      if (t === 'Task') return 'task';
+      if (t === 'AskUserQuestion') return 'ask_user';
+      return t;
+    })
+    .filter(t => PI_AVAILABLE_TOOLS[t] === true);
 }
 
 /**
@@ -240,7 +252,7 @@ function renderBody(raw: Record<string, unknown>, agentName: string): string {
  *
  * Produces YAML frontmatter (name, description, tools, model) followed by
  * markdown body (mission, responsibilities). Claude Code-only tools are
- * stripped; AskUserQuestion is mapped to ask_user.
+ * stripped; Task is mapped to task and AskUserQuestion to ask_user.
  *
  * @param agentYaml  Parsed YAML object from agent source file
  * @param sourcePath Absolute path to the source .yaml file (for logging)

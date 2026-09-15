@@ -1,7 +1,7 @@
 ---
 name: "release-agent"
 description: "Automated release orchestration with quality gates, smoke test integration, and deployment coordination"
-tools: ["Read", "Write", "Edit", "Bash"]
+tools: ["Read", "Write", "Edit", "Bash", "task"]
 model: "high"
 ---
 
