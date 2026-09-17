@@ -193,6 +193,7 @@ Enhancements to apply (scoped to selected findings):
    Write the refined TRD with version history and changelog
 
    - Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1)
+   - Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate them on refine (beads and PRD/TRD correlation depend on the stable micro UUID id)
    - Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
    - Add changelog entry at the bottom: date, version, list of changes made
    - Save the updated TRD to the same file path (overwrite)

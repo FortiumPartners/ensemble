@@ -200,7 +200,8 @@ Write the refined TRD with version history and changelog
 
 **Actions:**
 1. Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1)
-2. Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
-3. Add changelog entry at the bottom: date, version, list of changes made
-4. Save the updated TRD to the same file path (overwrite)
-5. Print summary: changes made, new version, task count delta, hour estimate delta
+2. Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate them on refine (beads and PRD/TRD correlation depend on the stable micro UUID id)
+3. Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
+4. Add changelog entry at the bottom: date, version, list of changes made
+5. Save the updated TRD to the same file path (overwrite)
+6. Print summary: changes made, new version, task count delta, hour estimate delta

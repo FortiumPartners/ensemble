@@ -1,0 +1,68 @@
+metadata:
+  name: ensemble:generate-reqnroll-bindings
+  description: Scaffold a runnable Reqnroll + xUnit test project (features, step stubs, project files) from a PRD
+  version: 1.0.0
+  lastUpdated: "2026-06-29"
+  category: testing
+  output_path: ensemble/generate-reqnroll-bindings.md
+  source: fortium
+  model: low
+  argument_hint: "[prd-path] [--out <dir>] [--sut <csproj>] [--dry-run] [--force]"
+
+constraints:
+  - This command ONLY scaffolds test artifacts deterministically -- it does not fill step bodies or implement features
+  - Codegen runs through the reqnroll-cli helper -- DO NOT hand-author .feature, .cs, .csproj, or reqnroll.json files
+  - The generated [Given/When/Then(@"...")] attributes are authoritative -- never edit them by hand
+  - Step .cs files are WRITE-ONCE -- regeneration preserves filled bodies and only adds new step stubs (unless --force)
+  - Every generated step body is a Pending stub; making them pass is a separate, test-first step (see /ensemble:reqnroll-tdd)
+
+mission:
+  summary: |
+    Generate a runnable Reqnroll + xUnit acceptance-test project from a PRD's
+    acceptance criteria. Reuses the same deterministic PRD parse that produces the
+    .feature files, then emits one [Binding] step class per requirement (literal,
+    verbatim Given/When/Then attributes with Pending() bodies), a .csproj wired for
+    Reqnroll.xUnit, reqnroll.json, and a .reqnroll-trace.json manifest that
+    fingerprints every step for drift detection. The result builds and runs
+    immediately -- every scenario starts red (Pending), which is the correct
+    test-first starting point before bindings are filled in.
+
+workflow:
+  phases:
+    - name: Generate
+      order: 1
+      steps:
+        - order: 1
+          title: Resolve PRD and SUT
+          description: Determine the PRD to scaffold from and the system-under-test project to reference
+          actions:
+            - If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to use if ambiguous
+            - "Ask for or accept --sut <path-to-SUT.csproj> so the test project can reference the code under test (optional; omit if the SUT does not exist yet)"
+        - order: 2
+          title: Run the generator
+          description: Invoke the deterministic CLI to scaffold the project
+          actions:
+            - "Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT."
+            - "Run: node \"$REQNROLL_CLI\" generate-bindings <prd-path> --json"
+            - "Pass through --out <dir> (default: tests/), --sut <csproj>, --dry-run, and --force as requested"
+            - The CLI writes Features/*.feature, Steps/*.Steps.cs, <Name>.Tests.csproj, reqnroll.json, and .reqnroll-trace.json under <out>/<prd-stem>/
+        - order: 3
+          title: Report results
+          description: Summarize the scaffold and the next move
+          actions:
+            - Report the output directory, feature count, and distinct step-binding count
+            - List any step files that were preserved (write-once) versus newly created
+            - Echo parser warnings and remind the user that needs-clarification ACs produce step-less scenarios until the PRD is fixed
+            - "Point the user to /ensemble:reqnroll-tdd to fill the Pending() bodies test-first, or /ensemble:check-binding-drift to audit coverage later"
+
+expectedOutput:
+  format: Reqnroll + xUnit test project
+  structure:
+    - name: "<out>/<prd-stem>/Features/<REQ-NNN>.feature"
+      description: Gherkin features (one per requirement), tagged and hashed
+    - name: "<out>/<prd-stem>/Steps/<REQ-NNN>.Steps.cs"
+      description: "[Binding] step classes: literal Given/When/Then attributes with Pending() bodies"
+    - name: "<out>/<prd-stem>/*.Tests.csproj + reqnroll.json"
+      description: Reqnroll.xUnit-wired test project, optionally referencing the SUT
+    - name: "<out>/<prd-stem>/.reqnroll-trace.json"
+      description: Step fingerprint manifest used by check-binding-drift

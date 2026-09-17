@@ -79,7 +79,8 @@ Maintain consistency with prior product documentation
 1. Check docs/PRD/ for existing PRDs -- read the most recent one for style and conventions
 2. Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest sequence numbers or increment NNN; teams create PRDs concurrently.
 3. Set Document ID to PRD-{current_year}-{micro_uuid}, for example PRD-2026-a1b2c3d4
-4. Note any cross-cutting requirements from existing PRDs that this feature must respect
+4. Set a human-readable Label: prd-<stem>, where <stem> is a short lowercase-kebab handle for the effort (a few words), derived from the working title by default but overridable if the user offers a shorter codename. Example: title 'Multi-Factor Login' -> label prd-login-mfa. The label is display-only for humans to reference the doc at a glance; it is NEVER a reference key (all cross-document references use the micro UUID Document ID) and need not be globally unique.
+5. Note any cross-cutting requirements from existing PRDs that this feature must respect
 
 ### Step 3: Technical Dependency Mapping
 
@@ -223,7 +224,7 @@ Score the PRD on quality dimensions to determine if it is ready for TRD handoff
 Generate the final PRD with frontmatter and health summary
 
 **Actions:**
-1. Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
+1. Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Label (prd-<stem>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
 2. Generate PRD Health summary at the top of the document:
 3. - Requirement count by priority: Must (N), Should (N), Could (N), Won't (N)
 4. - AC coverage: N/N requirements have acceptance criteria (percentage)

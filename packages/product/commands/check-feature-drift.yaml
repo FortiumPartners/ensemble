@@ -1,0 +1,59 @@
+metadata:
+  name: ensemble:check-feature-drift
+  description: Detect drift between a PRD's acceptance criteria and its generated Gherkin feature files
+  version: 1.0.0
+  lastUpdated: "2026-06-29"
+  category: quality
+  output_path: ensemble/check-feature-drift.md
+  source: fortium
+  model: low
+  argument_hint: "[prd-path] [--out <dir>]"
+
+constraints:
+  - This command is READ-ONLY -- it never rewrites feature files; it reports drift and tells the user how to resync
+  - Comparison is deterministic via the prd-cli helper against the .prd-trace.json manifest -- DO NOT eyeball-diff files
+  - Drift identity is the AC id; the fingerprint ignores cosmetic edits (whitespace/casing) so only semantic changes register
+
+mission:
+  summary: |
+    Re-parse a PRD and compare its current acceptance criteria against the
+    .prd-trace.json manifest produced by /ensemble:generate-feature-tests. Reports
+    ADDED acceptance criteria with no feature scenario, REMOVED criteria whose
+    feature scenario is now orphaned, and CHANGED criteria whose wording has
+    materially diverged from the generated feature. This makes requirement/test
+    traceability continuous rather than a one-time snapshot, and the CLI exit code
+    (0 in-sync, 2 drift) lets the same check run as a CI or pre-commit gate.
+
+workflow:
+  phases:
+    - name: Check
+      order: 1
+      steps:
+        - order: 1
+          title: Resolve the PRD path
+          description: Determine which PRD to check
+          actions:
+            - If the user passed a PRD path argument, use it
+            - Otherwise look under docs/PRD/ and ask the user which PRD to check if ambiguous
+        - order: 2
+          title: Run the drift check
+          description: Invoke the deterministic CLI to diff the PRD against its manifest
+          actions:
+            - "Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT."
+            - "Run: node \"$PRD_CLI\" check-drift <prd-path> --json"
+            - "Pass through --out <dir> (default: features/) so the correct manifest is located"
+            - "Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no manifest yet"
+        - order: 3
+          title: Report and recommend
+          description: Explain the drift and the path back to sync
+          actions:
+            - "If IN_SYNC: confirm the feature files match the PRD"
+            - "If ADDED/REMOVED/CHANGED: list the affected AC ids under each category"
+            - "If no manifest exists: tell the user to run /ensemble:generate-feature-tests first"
+            - "Recommend re-running /ensemble:generate-feature-tests to resync, then committing the updated features and manifest"
+
+expectedOutput:
+  format: Drift report
+  structure:
+    - name: Drift status
+      description: IN_SYNC, or the lists of ADDED / REMOVED / CHANGED acceptance criteria ids

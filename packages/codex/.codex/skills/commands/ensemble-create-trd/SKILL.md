@@ -2,7 +2,7 @@
 name: ensemble-create-trd
 description: Create Technical Requirements Document from PRD with architecture design and adversarial review (Codex skill for /ensemble:create-trd)
 user-invocable: true
-argument-hint: '[prd-path] [--team]'
+argument-hint: '[prd-path] [--team] [--foundational]'
 model: gpt-5.1-codex
 ---
 
@@ -29,30 +29,32 @@ output with traceability matrices. Team configuration is handled separately by
    Parse and analyze existing PRD document from $ARGUMENTS path
 
    - Read PRD file from specified path
-   - Validate document structure (required sections present)
-   - Extract key requirements with REQ-NNN IDs
-   - Build requirements registry for traceability tracking
+   - If --foundational and no full PRD exists: accept a short capability brief instead (the shared work to build), skip PRD-structure validation for this run, and build a capability registry from the brief's named capabilities / scope / target files instead of REQ-NNN IDs
+   - If a full PRD is provided: validate document structure (required sections present), extract key requirements with REQ-NNN IDs, and build requirements registry for traceability tracking
 
 **2. Requirements Validation**
    Ensure completeness of functional and non-functional requirements
 
-   - Validate all required sections present (Product Summary, User Analysis, Goals, Technical Requirements, Acceptance Criteria)
-   - Check acceptance criteria are testable and use Given/When/Then format
-   - Verify REQ-NNN format numbering is consistent and sequential
-   - Verify constraints and non-goals are documented
+   - If --foundational with a short capability brief: skip this PRD-specific validation step
+   - Otherwise validate all required sections present (Product Summary, User Analysis, Goals, Technical Requirements, Acceptance Criteria)
+   - Otherwise check acceptance criteria are testable and use Given/When/Then format
+   - Otherwise verify REQ-NNN format numbering is consistent and sequential
+   - Otherwise verify constraints and non-goals are documented
 
 **3. Acceptance Criteria Review**
    Validate testable acceptance criteria from the PRD before TRD generation
 
-   - Ensure each requirement has measurable acceptance criteria with Given/When/Then items
-   - Verify AC-NNN-M sub-item format under each REQ-NNN
-   - Check that every Must requirement has at least 2 ACs (happy path + edge case)
+   - If --foundational with a short capability brief: skip this PRD-specific acceptance criteria review
+   - Otherwise ensure each requirement has measurable acceptance criteria with Given/When/Then items
+   - Otherwise verify AC-NNN-M sub-item format under each REQ-NNN
+   - Otherwise check that every Must requirement has at least 2 ACs (happy path + edge case)
    - Do NOT validate TRD traceability here -- the TRD has not been generated yet
 
 **4. Implementation Readiness Gate Check**
    Check if the PRD passed its own readiness gate before proceeding
 
-   - Read PRD frontmatter for Readiness Score field
+   - If --foundational with a short capability brief: skip the PRD readiness score gate
+   - Otherwise read PRD frontmatter for Readiness Score field
    - If score >= 4.0 (PASS): proceed normally
    - If score 3.0-3.9 (CONCERNS): warn user about PRD concerns, ask whether to proceed
    - If score < 3.0 (FAIL): halt and recommend running /ensemble:refine-prd first
@@ -69,7 +71,17 @@ output with traceability matrices. Team configuration is handled separately by
    - Determine if project is greenfield or brownfield (check for existing codebase)
    - Summarize domain coverage and gaps
 
-**2. Architecture Alternatives**
+**2. Capability Reuse Check**
+   Reuse existing foundational work instead of duplicating it (dedup-by-reference)
+
+   - Resolve TRD_GRAPH_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/trd-graph-cli.js, packages/development/lib/trd-graph-cli.js. If missing, print error and HALT.
+   - Run: node "$TRD_GRAPH_CLI" capabilities docs/TRD --json to list capabilities already provided by foundational TRDs; if docs/TRD does not exist yet, treat the registry as empty and continue
+   - For each technical capability this PRD needs (from Domain Analysis), check the registry: an EXPLICIT match is one of the listed capability tokens; otherwise judge an IMPLICIT match by comparing the needed work to existing foundational TRD labels/titles and their target files (also consult: node "$TRD_GRAPH_CLI" overlap docs/TRD)
+   - If a foundational TRD already provides the capability: DO NOT generate duplicate tasks for it. Instead add a cross-TRD dependency [depends: <foundational-slug>#TRD-NNN] (or #PR-N) on the task that needs it, and record it under a '## Reused Capabilities' section (capability -> foundational TRD label + document id)
+   - If a needed capability is clearly reusable across PRDs but no foundational TRD exists yet, recommend extracting it: suggest running /ensemble:create-trd <prd> --foundational to create a shared TRD, rather than embedding the work here
+   - Reference foundational work by slug / document id only -- never by label (labels are display-only and may change)
+
+**3. Architecture Alternatives**
    Present 2-3 architecture approaches with tradeoffs for user selection
 
    - Design Option A: simplest approach -- minimal components, fastest to build, may not scale
@@ -78,7 +90,7 @@ output with traceability matrices. Team configuration is handled separately by
    - Present each option with pros, cons, estimated complexity impact, and risk profile
    - Ask user to choose one option or combine elements before proceeding
 
-**3. System Architecture Design**
+**4. System Architecture Design**
    Design detailed system architecture based on chosen approach
 
    - Define component boundaries and responsibilities
@@ -218,7 +230,9 @@ output with traceability matrices. Team configuration is handled separately by
    Generate comprehensive TRD document with frontmatter and structured sections
 
    - Derive the TRD document micro UUID from the source PRD, so PRD/TRD artifacts share the same 8-hex correlation id. Parse the PRD filename or frontmatter Document ID for PRD-YYYY-<micro_uuid> where micro_uuid is 8 lowercase hex chars. If found, set TRD_MICRO_UUID to that value. Only if the PRD has a legacy sequence id or no parseable id, generate a new 8-hex micro UUID from a UUID/random source. Do NOT scan for highest TRD sequence number or increment NNN.
-   - Include frontmatter: Document ID (TRD-YYYY-<TRD_MICRO_UUID>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score
+   - Derive the TRD Label from the source PRD's label so the pair reads as one effort: take the PRD's `label: prd-<stem>` (from its frontmatter, or derive prd-<stem> from the PRD title) and set TRD_LABEL = trd-<stem> (swap the prd- prefix for trd-, keep the same stem). The label is display-only and NEVER a reference key — cross-references use TRD_MICRO_UUID.
+   - Include frontmatter: Document ID (TRD-YYYY-<TRD_MICRO_UUID>), Label (trd-<stem>), PRD reference, version 1.0.0, status Draft, date, Design Readiness Score, and kind (default `trd`)
+   - If --foundational: this is a shared/reusable TRD not tied 1:1 to a PRD. Set frontmatter `kind: foundational`; the PRD reference is optional (treat the input as a capability brief if no full PRD exists); and add a `capabilities:` frontmatter list of the machine-matchable capability tokens this TRD provides (e.g. order-domain, money-value-object) so other TRDs' Capability Reuse Check can find and reference it
    - Generate Architecture Decision section documenting the chosen approach and alternatives considered
    - Generate Master Task List with all TRD-NNN tasks and TRD-NNN-TEST tasks, organized under ### PR N: headings (not ### Phase N: or ### Sprint N:). Each ### PR N: heading must be immediately followed by a **Shippable State:** line before the first task entry. This is the machine-parsed section used by implement-trd-beads to create stacked PRs.
    - Generate a ## Sprint Planning section (H2 heading) as a separate human-readable grouping for time-boxing PRs into calendar sprints. Use ## Sprint N: sub-headings (H2) within this section. This section is informational only — implement-trd-beads does not parse it.
@@ -227,19 +241,21 @@ output with traceability matrices. Team configuration is handled separately by
 **2. Acceptance Criteria Traceability**
    Generate traceability matrix linking PRD requirements to TRD tasks
 
-   - Generate '## Acceptance Criteria Traceability' matrix table:
+   - If --foundational with a short capability brief: skip the PRD acceptance criteria traceability matrix
+   - Otherwise generate '## Acceptance Criteria Traceability' matrix table:
    - | REQ-NNN | Description | Implementation Tasks | Test Tasks |
-   - List each PRD requirement with its implementation TRD-NNN IDs and paired TRD-NNN-TEST IDs
-   - Ensure every Must/Should requirement appears in the matrix
+   - Otherwise list each PRD requirement with its implementation TRD-NNN IDs and paired TRD-NNN-TEST IDs
+   - Otherwise ensure every Must/Should requirement appears in the matrix
 
 **3. Traceability Validation**
    Validate [satisfies] annotations against the PRD
 
-   - Scan all TRD tasks for [satisfies REQ-NNN] annotations
-   - Validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD
-   - Warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage
-   - Warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD
-   - Print summary: 'Traceability check: N requirements covered, M uncovered, K orphaned annotations'
+   - If --foundational with a short capability brief: skip PRD REQ-NNN traceability validation
+   - Otherwise scan all TRD tasks for [satisfies REQ-NNN] annotations
+   - Otherwise validate that each REQ-NNN referenced in a [satisfies] annotation exists in the PRD
+   - Otherwise warn (do NOT halt) if any PRD REQ-NNN has zero TRD task coverage
+   - Otherwise warn (do NOT halt) if any [satisfies] annotation references a REQ-NNN not found in the PRD
+   - Otherwise print summary: 'Traceability check: N requirements covered, M uncovered, K orphaned annotations'
 
 **4. File Save and Next Steps**
    Save TRD and suggest follow-up commands
@@ -260,12 +276,12 @@ output with traceability matrices. Team configuration is handled separately by
 - **Master Task List**: Comprehensive task tracking with TRD-NNN IDs, [satisfies REQ-NNN] annotations, Validates PRD ACs fields, Implementation AC checklists, and paired TRD-NNN-TEST verification tasks
 - **System Architecture**: Component design, data flow, integration points, and technology choices
 - **Sprint Planning**: Organized development phases with task references and dependencies
-- **Acceptance Criteria Traceability**: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks
+- **Acceptance Criteria Traceability**: Matrix table linking REQ-NNN requirements to implementation tasks and test tasks when a full PRD is supplied
 - **Quality Requirements**: Security, performance, accessibility, and testing standards
 - **Design Readiness Scorecard**: Scores for architecture completeness, task coverage, dependency clarity, and estimate confidence
 
 ## Usage
 
 ```
-/ensemble:create-trd [prd-path] [--team]
+/ensemble:create-trd [prd-path] [--team] [--foundational]
 ```
