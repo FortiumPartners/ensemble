@@ -41,6 +41,12 @@ In Foreman mode, the generated `quickstart.md` path and coverage summary are inc
 
 `/ensemble:implement-trd-beads` does not generate quickstart artifacts in v1. Use standard `/ensemble:implement-trd` when a v1 `quickstart.md` validation artifact is required.
 
+### BDD Scenario Generation (Reqnroll)
+
+`/ensemble:create-trd` requires >=3 Given/When/Then scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist (`- [ ] Scenario: <title> -- Given ..., When ..., Then ...`, indented deeper than the `Test AC:` label so the TRD/beads parsers pick it up).
+
+Both `/ensemble:implement-trd` (via `implement-trd-task`) and `/ensemble:implement-trd-beads` route any task whose id matches `-TEST` through the Reqnroll BDD path: resolve `reqnroll-cli`, resolve the target `.csproj`, run `generate-bindings` to scaffold `.feature` files and `Pending()` step stubs, confirm RED, delegate `reqnroll-binding-specialist` to fill step bodies test-first, then re-confirm RED before handing off to GREEN implementation. `implement-trd-beads` carries the same `Test AC:`/`validatesAcs` content verbatim into each TRD-NNN-TEST bead's description via `scaffold-planner.js`, so the contract holds regardless of which specialist later executes the bead.
+
 ### Multi-TRD Beads Workstreams
 
 `/ensemble:implement-trd-beads` supports both single-TRD and multi-TRD execution.
