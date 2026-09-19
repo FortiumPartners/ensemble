@@ -102,6 +102,8 @@ browser. The resulting artifact is the input to Enhancement.
      },
    );
    const piRequire = createRequire(PI_PKG_JSON);
+   const { refinementReview } = piRequire('@sunstone-partners/ensemble-core');
+   ```
    Call
    `refinementReview.session.migrateOrCreate({ sessionPath, kind: 'prd', sourcePath, questions, reopen: true })`,
    where `migrateOrCreate` returns `{ session, token }` synchronously.

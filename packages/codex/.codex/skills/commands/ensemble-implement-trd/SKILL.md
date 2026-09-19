@@ -1,6 +1,6 @@
 ---
 name: ensemble-implement-trd
-description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology (Codex skill for /ensemble:implement-trd)
+description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation, TDD methodology, and Reqnroll BDD acceptance testing for TRD-NNN-TEST tasks (Codex skill for /ensemble:implement-trd)
 user-invocable: true
 model: gpt-5.1-codex
 ---
