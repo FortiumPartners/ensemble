@@ -1,0 +1,33 @@
+:PROPERTIES:
+:CATEGORY: ensemble
+:END:
+* TODO Ensemble no longer 'interviews' the user during refinement
+* TODO Ensemble looks for dependencies in the wrong place.
+
+Sometimes it looks for dependencies in the development directory and other times it looks under ~/.claude, while running under omp.  The packaging and script locations need to be generalized so they work across the different backends.
+* TODO Currently PRD's contain 'some' technical requirements as well
+
+A PRD needs to focus on the 'what' exclusevly.  A final pass should perform an 'advesarial' review and ask 'could you implement this feature on 'any' backend or does the PRD require our existing backend' 
+* TODO Claude is now complaining about CLAUDE_PLUGIN_ROOT not being set
+
+- State "DONE"       from "TODO"       [2026-09-15 Tue 11:14]
+⏺ The TRD creation attempt hit a hard blocker before it could produce anything. Here's what happened:
+
+  Halted in Phase 2 (Capability Reuse Check) — the agent verified rather than assumed the environment:
+  - packages/development/skills/tool-path-resolution/SKILL.md doesn't exist anywhere (not in this repo, not in the installed ensemble-full v6.9.3 plugin).
+  - The real, installed create-trd.md command resolves TRD_GRAPH_CLI as: first of ${CLAUDE_PLUGIN_ROOT}/lib/trd-graph-cli.js or packages/development/lib/trd-graph-cli.js.
+    CLAUDE_PLUGIN_ROOT is unset in this session, and vcheck has no packages/ directory at all — so both candidates fail.
+  - trd-graph-cli.js doesn't exist anywhere on disk in this installation (only trd-cli.js, bundled inside the plugin's own lib, not relative to this repo).
+  - It also pre-checked the later gates: neither docs/standards/constitution.md nor .specify/memory/constitution.md exists (would also hard-HALT the Constitution Gate), and trd-cli.js
+    isn't reachable relative to this repo either (needed for Phase 5's self-check).
+
+  Per the command's own spec, a missing required CLI is a hard halt, not a soft warning — so nothing was fabricated: no architecture options were presented, no docs/TRD/ was created,
+  no TRD file was written.
+
+  This needs your call before I retry — it's not something I should guess at.
+* TODO Add a dependecy install command.
+
+The command 'should' install all dependencies br,bv,gittown, etc...
+* TODO Apparently ensemble copied the TRD/PRD and constitution into the vchecks-services sub-directory
+
+Why did it do this?  And why would it copy *all* these files into the sub directory?  I suspect it is because the directory wasn't a git repo.
