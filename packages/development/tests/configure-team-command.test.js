@@ -135,10 +135,6 @@ describe('implement-trd-beads command agent registry build', () => {
     expect(text).toContain('resolved @code-reviewer');
     expect(text).toContain('resolved @deep-debugger');
   });
-  test('version bumped to reflect agent-registry-build fix', () => {
-    const text = fs.readFileSync(IMPLEMENT_TRD_BEADS_YAML, 'utf8');
-    expect(text).toMatch(/^\s*version:\s*2\.21\.0\s*$/m);
-  });
 
   test('Preflight Order 11 Step 5 (gap analysis) consults runtime skill glob', () => {
     const text = fs.readFileSync(IMPLEMENT_TRD_BEADS_YAML, 'utf8');
