@@ -631,6 +631,165 @@ describe('validateSession', () => {
   });
 });
 
+describe('customerSummary and approval fields', () => {
+  // Both are optional additions: envelopes written before the customer
+  // approval tab existed must keep loading, so nothing here may require them.
+  function baseSession(extra = {}) {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      sessionId: 's1',
+      revision: 1,
+      createdAt: 'now',
+      updatedAt: 'now',
+      document: {
+        kind: 'prd',
+        sourcePath: '/tmp/x.md',
+        contentPath: '/tmp/x.md',
+        sha256: 'h',
+        sectionHeadings: [],
+      },
+      questions: [{ id: 'q', prompt: 'p', context: null, status: 'open', answer: null, author: null, updatedAt: null }],
+      comments: [],
+      ...extra,
+    };
+  }
+
+  test('validateSession accepts a missing, null, or string customerSummary', () => {
+    expect(() => validateSession(baseSession())).not.toThrow();
+    expect(() =>
+      validateSession(baseSession({ document: { ...baseSession().document, customerSummary: null } })),
+    ).not.toThrow();
+    expect(() =>
+      validateSession(baseSession({ document: { ...baseSession().document, customerSummary: 'Plain words.' } })),
+    ).not.toThrow();
+  });
+
+  test('validateSession rejects non-string customerSummary', () => {
+    expect(() =>
+      validateSession(baseSession({ document: { ...baseSession().document, customerSummary: 42 } })),
+    ).toThrow(/customerSummary/);
+  });
+
+  test('validateSession accepts a well-formed approval', () => {
+    expect(() =>
+      validateSession(baseSession({
+        approval: { decision: 'approved', author: 'Cust', note: null, decidedAt: 'now' },
+      })),
+    ).not.toThrow();
+    expect(() =>
+      validateSession(baseSession({
+        approval: { decision: 'changes-requested', author: 'Cust', note: 'Fix scope', decidedAt: 'now' },
+      })),
+    ).not.toThrow();
+  });
+
+  test('validateSession rejects malformed approval shapes', () => {
+    const good = { decision: 'approved', author: 'Cust', note: null, decidedAt: 'now' };
+    expect(() => validateSession(baseSession({ approval: 'approved' }))).toThrow(/object or null/);
+    expect(() => validateSession(baseSession({ approval: { ...good, decision: 'maybe' } }))).toThrow(/decision/);
+    expect(() => validateSession(baseSession({ approval: { ...good, decision: undefined } }))).toThrow(/decision/);
+    expect(() => validateSession(baseSession({ approval: { ...good, author: '' } }))).toThrow(/author/);
+    expect(() => validateSession(baseSession({ approval: { ...good, author: 7 } }))).toThrow(/author/);
+    expect(() => validateSession(baseSession({ approval: { ...good, note: 7 } }))).toThrow(/note/);
+    expect(() => validateSession(baseSession({ approval: { ...good, decidedAt: '' } }))).toThrow(/decidedAt/);
+    expect(() => validateSession(baseSession({ approval: { ...good, decidedAt: 5 } }))).toThrow(/decidedAt/);
+  });
+
+  test('createSession stores customerSummary and an empty approval', () => {
+    const source = writeSource();
+    const sessionPath = path.join(tmp, 'summary.json');
+    const { session } = createSession({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+      customerSummary: '## What we are building\nBilling, monthly.',
+    });
+    expect(session.document.customerSummary).toBe('## What we are building\nBilling, monthly.');
+    expect(session.approval).toBeNull();
+    expect(loadSession(sessionPath).document.customerSummary).toBe(session.document.customerSummary);
+  });
+
+  test('createSession without customerSummary leaves it null', () => {
+    const source = writeSource();
+    const sessionPath = path.join(tmp, 'nosummary.json');
+    const { session } = createSession({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+    });
+    expect(session.document.customerSummary).toBeNull();
+  });
+
+  test('createSession rejects non-string customerSummary', () => {
+    expect(() =>
+      createSession({
+        sessionPath: path.join(tmp, 'bad.json'),
+        kind: 'prd',
+        sourcePath: writeSource(),
+        questions: [{ prompt: 'p' }],
+        customerSummary: { nope: true },
+      }),
+    ).toThrow(/customerSummary/);
+  });
+
+  test('migrateOrCreate refreshes a changed summary and bumps revision once', () => {
+    const source = writeSource();
+    const sessionPath = path.join(tmp, 'mig.json');
+    const before = createSession({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+    }).session;
+    const { session } = migrateOrCreate({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+      customerSummary: 'New plain-language summary.',
+    });
+    expect(session.document.customerSummary).toBe('New plain-language summary.');
+    expect(session.revision).toBe(before.revision + 1);
+  });
+
+  test('migrateOrCreate leaves revision alone when summary unchanged', () => {
+    const source = writeSource();
+    const sessionPath = path.join(tmp, 'mig-same.json');
+    const before = createSession({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+      customerSummary: 'Stable summary.',
+    }).session;
+    const { session } = migrateOrCreate({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+      customerSummary: 'Stable summary.',
+    });
+    expect(session.revision).toBe(before.revision);
+    expect(session.document.customerSummary).toBe('Stable summary.');
+  });
+
+  test('migrateOrCreate carries summary into a newly created session', () => {
+    const source = writeSource();
+    const sessionPath = path.join(tmp, 'mig-new.json');
+    const { session } = migrateOrCreate({
+      sessionPath,
+      kind: 'prd',
+      sourcePath: source,
+      questions: [{ id: 'q1', prompt: 'p' }],
+      customerSummary: 'Fresh session summary.',
+    });
+    expect(session.revision).toBe(1);
+    expect(session.document.customerSummary).toBe('Fresh session summary.');
+  });
+});
+
 describe('migrateOrCreate', () => {
   function setupSource(extra = '') {
     const src = path.join(tmp, 'doc.md');

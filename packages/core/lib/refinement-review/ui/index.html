@@ -18,41 +18,66 @@
     </div>
     <div id="rr-presence" class="rr-presence" aria-label="Connected reviewers"></div>
   </header>
-  <main class="rr-main">
-    <section class="rr-pane rr-document" aria-label="Document">
-      <div id="rr-document" class="rr-document-body" tabindex="0"></div>
-      <aside class="rr-inline-comments" id="rr-inline-comments" aria-label="Inline comments"></aside>
-    </section>
-    <aside class="rr-pane rr-sidebar" aria-label="Review">
-      <section class="rr-section" aria-label="Questions">
-        <header class="rr-section-header">
-          <h2>Refinement questions</h2>
-          <span id="rr-question-progress" class="rr-progress"></span>
-        </header>
-        <div id="rr-question" class="rr-question" aria-live="polite"></div>
-        <div class="rr-controls">
-          <button type="button" id="rr-prev">Previous</button>
-          <button type="button" id="rr-next">Next</button>
-          <button type="button" id="rr-skip">Skip</button>
-          <button type="button" id="rr-save" class="primary">Save answer</button>
+  <nav class="rr-tabs" role="tablist" aria-label="Review views">
+    <button type="button" class="rr-tab" role="tab" id="rr-tab-overview"
+            aria-controls="rr-panel-overview" aria-selected="true">Overview</button>
+    <button type="button" class="rr-tab" role="tab" id="rr-tab-refine"
+            aria-controls="rr-panel-refine" aria-selected="false" tabindex="-1">Refinement</button>
+  </nav>
+  <section id="rr-panel-overview" class="rr-panel" role="tabpanel" aria-labelledby="rr-tab-overview">
+    <div class="rr-overview">
+      <article id="rr-overview-body" class="rr-document-body" tabindex="0"></article>
+      <aside class="rr-approval" aria-label="Approve this concept">
+        <label for="rr-approval-author">Your name</label>
+        <input type="text" id="rr-approval-author" placeholder="e.g. Ada Customer" />
+        <label for="rr-approval-note">Notes <span class="rr-approval-required">(required to request changes)</span></label>
+        <textarea id="rr-approval-note" rows="4" placeholder="What should change, and why?"></textarea>
+        <div class="rr-approval-actions">
+          <button type="button" id="rr-approve" class="primary">Approve</button>
+          <button type="button" id="rr-request-changes">Request changes</button>
         </div>
+        <p class="rr-approval-hint">Tell us whether this is the right thing to build. You can change your mind until the review closes.</p>
+        <div id="rr-approval-state" class="rr-approval-state" role="status" aria-live="polite"></div>
+      </aside>
+    </div>
+  </section>
+  <section id="rr-panel-refine" class="rr-panel" role="tabpanel" aria-labelledby="rr-tab-refine" hidden>
+    <main class="rr-main">
+      <section class="rr-pane rr-document" aria-label="Document">
+        <div id="rr-document" class="rr-document-body" tabindex="0"></div>
+        <aside class="rr-inline-comments" id="rr-inline-comments" aria-label="Inline comments"></aside>
       </section>
-      <section class="rr-section" aria-label="Comments">
-        <header class="rr-section-header">
-          <h2>Comments</h2>
-          <button type="button" id="rr-add-comment" class="primary">+ Add comment</button>
-        </header>
-        <div id="rr-comments" class="rr-comments"></div>
-      </section>
-      <section class="rr-section" aria-label="Submit">
-        <div class="rr-author-row">
-          <label for="rr-author">Your name:</label>
-          <input type="text" id="rr-author" placeholder="pm / dev / reviewer" />
-        </div>
-        <button type="button" id="rr-complete" class="primary">Mark complete</button>
-      </section>
-    </aside>
-  </main>
+      <aside class="rr-pane rr-sidebar" aria-label="Review">
+        <section class="rr-section" aria-label="Questions">
+          <header class="rr-section-header">
+            <h2>Refinement questions</h2>
+            <span id="rr-question-progress" class="rr-progress"></span>
+          </header>
+          <div id="rr-question" class="rr-question" aria-live="polite"></div>
+          <div class="rr-controls">
+            <button type="button" id="rr-prev">Previous</button>
+            <button type="button" id="rr-next">Next</button>
+            <button type="button" id="rr-skip">Skip</button>
+            <button type="button" id="rr-save" class="primary">Save answer</button>
+          </div>
+        </section>
+        <section class="rr-section" aria-label="Comments">
+          <header class="rr-section-header">
+            <h2>Comments</h2>
+            <button type="button" id="rr-add-comment" class="primary">+ Add comment</button>
+          </header>
+          <div id="rr-comments" class="rr-comments"></div>
+        </section>
+        <section class="rr-section" aria-label="Submit">
+          <div class="rr-author-row">
+            <label for="rr-author">Your name:</label>
+            <input type="text" id="rr-author" placeholder="pm / dev / reviewer" />
+          </div>
+          <button type="button" id="rr-complete" class="primary">Mark complete</button>
+        </section>
+      </aside>
+    </main>
+  </section>
   <dialog id="rr-comment-dialog" class="rr-dialog">
     <form method="dialog" id="rr-comment-form">
       <h3 id="rr-comment-dialog-title">New comment</h3>
