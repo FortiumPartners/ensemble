@@ -59,7 +59,7 @@ the arguments are the product description.
    - Q1: 'What problem does this solve, and who feels the pain today?'
    - Q2: 'Who are the primary users? (describe by role, not by name)'
    - Q3: 'What does success look like -- ideally with specific metrics?'
-   - Q4: 'What constraints apply? (budget, timeline, tech stack, compliance, etc.)'
+   - Q4: 'What constraints apply? (budget, timeline, regulatory/compliance obligations, platforms the users must be able to reach, etc.)'
    - Q5: 'What existing solutions have been tried or considered, and why weren't they enough?'
    - After each answer: acknowledge it briefly (1 sentence), then ask the next question
    - After the final answer: summarize what you heard in 3-4 sentences and ask the user to confirm before continuing
@@ -77,6 +77,9 @@ the arguments are the product description.
    - After SCAMPER, run the failure scenario interview -- ask one failure scenario at a time:
    -   Ask: 'What happens if [scenario]?' -- use data loss, abuse, scale failure, accessibility, and offline as failure scenario prompts
    - Record every insight -- these become requirements or risk flags
+   - Close the interview with two scope-boundary questions, and record both answers as explicit PRD sections:
+   -   - 'Who signs off that this is the right thing to build, and what are their acceptance criteria?' -- becomes *Approvals and Decision Ownership*, naming the approver/role and the criteria they will judge against.
+   -   - 'What has to be true before we start, and what has to be true before we can call this done?' -- becomes *Entry and Exit Criteria*: preconditions the work assumes, and the observable conditions that end it.
    - For LIGHT depth: 2 SCAMPER questions + 2 failure scenario questions
    - For DEEP depth: all 4 SCAMPER angles + 5+ failure scenario questions
 
@@ -85,7 +88,7 @@ the arguments are the product description.
 **1. Codebase Reconnaissance**
    Understand existing patterns and constraints before writing requirements
 
-   - Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack
+   - Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack -- record it as research *context* only; the stack is never a requirement, and requirements MUST NOT name a technology
    - Read CLAUDE.md or CONTRIBUTING.md for coding standards the PRD should respect
    - Identify existing authentication, authorization, and data patterns the new feature must integrate with
    - If no codebase exists (greenfield), note this and skip to step 2
@@ -99,14 +102,14 @@ the arguments are the product description.
    - Set a human-readable Label: prd-<stem>, where <stem> is a short lowercase-kebab handle for the effort (a few words), derived from the working title by default but overridable if the user offers a shorter codename. Example: title 'Multi-Factor Login' -> label prd-login-mfa. The label is display-only for humans to reference the doc at a glance; it is NEVER a reference key (all cross-document references use the micro UUID Document ID) and need not be globally unique.
    - Note any cross-cutting requirements from existing PRDs that this feature must respect
 
-**3. Technical Dependency Mapping**
-   Identify integration points and technical constraints
+**3. Business Integration Points**
+   Identify which systems, partners, or regulations the product must satisfy -- the what, not the how
 
-   - List external services, APIs, or databases the feature will interact with
-   - Identify shared components or libraries the feature should reuse
-   - Flag any technical constraints that limit design options (e.g., must work offline, must support IE11, max 100ms latency)
+   - Name each external system or partner the product depends on BY CAPABILITY, not by product or endpoint (e.g. 'must charge cards through a payment provider', not 'Stripe checkout API'). Implementation choices -- SDKs, schemas, wire formats, call direction -- belong to the TRD.
+   - State what must be true of each: the business outcome it serves and any obligation it carries (data residency, settlement timing, accessibility, audit trail).
+   - Flag constraints that limit what can be promised (e.g. must work offline, max 100ms perceived latency, must support IE11) as requirements, not as technology decisions.
    - For LIGHT depth: bullet list of dependencies is sufficient
-   - For DEEP depth: create a dependency matrix showing interaction direction and data flow
+   - For DEEP depth: list each dependency with its capability, business outcome, and obligation -- still no interface or data-flow design
 
 ### Phase 3: Requirements Definition
 
@@ -114,21 +117,21 @@ the arguments are the product description.
    Define what the product must do, grouped by feature area
 
    - Group requirements by feature area (e.g., 'User Management', 'Data Import', 'Reporting'), not just 'Functional' vs 'Non-Functional'
-   - Assign REQ-NNN IDs as H3 headings: '### REQ-001: Description'
-   - Tag each requirement with MoSCoW priority: Must, Should, Could, Won't (this release)
-   - Tag each requirement with complexity: Low, Medium, High
+   - Assign REQ-NNN IDs as H3 headings: '### REQ-NNN: Description'
+   - Tag each requirement with MoSCoW priority: Must, Should, Could, Won't (this release). Priority is business value only -- never an effort or difficulty judgement.
    - Flag requirements with risk indicators where applicable: [RISK: description]
-   - Write requirements as user-observable behaviors, not implementation details
+   - Write requirements as user-observable behaviors, not implementation details; a requirement that names a framework, database, library, endpoint, or schema belongs in the TRD
+   - Do NOT tag requirements with complexity or effort estimates -- sizing is the TRD's job (/ensemble:create-trd, 'Assess Complexity'). A PRD that estimates effort invites scope decisions to be made on cost rather than value.
    - For LIGHT depth: 5-10 requirements, Must/Should only
    - For STANDARD depth: 10-25 requirements, full MoSCoW
-   - For DEEP depth: 25+ requirements, full MoSCoW with risk flags on every Medium/High complexity item
+   - For DEEP depth: 25+ requirements, full MoSCoW, plus a [RISK: ...] flag on any requirement with an unresolved dependency or external obligation
 
 **2. Non-Functional Requirements**
    Define performance, security, accessibility, and operational requirements
 
    - Use the same REQ-NNN numbering sequence (continue from functional requirements)
    - Cover these categories as applicable: performance, security, accessibility, reliability, scalability, observability
-   - Tag each with MoSCoW priority and complexity, same as functional requirements
+   - Tag each with MoSCoW priority only -- no complexity estimate
    - For LIGHT depth: 2-3 non-functional requirements covering the obvious gaps
    - For DEEP depth: comprehensive coverage of all categories with specific targets (e.g., 'p99 latency < 200ms')
 
@@ -140,7 +143,7 @@ the arguments are the product description.
    - Every Must requirement needs at least 2 ACs (happy path + one edge case)
    - Every Should requirement needs at least 1 AC
    - Could/Won't requirements: ACs optional but recommended
-   - Include negative test cases for security-sensitive requirements
+   - For security-sensitive requirements, write the rejection the user can observe as an AC ('when a second login attempt comes from a different device, then access is denied and re-verification is requested') -- never reference test cases or harnesses
    - For LIGHT depth: 1 AC per requirement minimum
    - For DEEP depth: 2-4 ACs per requirement including edge cases and error paths
 
@@ -241,13 +244,10 @@ These markers will become the structured interview agenda in /ensemble:refine-pr
    Generate the final PRD with frontmatter and health summary
 
    - Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Label (prd-<stem>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
-   - Generate PRD Health summary at the top of the document:
-   -   - Requirement count by priority: Must (N), Should (N), Could (N), Won't (N)
-   -   - AC coverage: N/N requirements have acceptance criteria (percentage)
-   -   - Risk flags: N requirements flagged with risk indicators
-   -   - Dependency count: N cross-requirement dependencies
+   - Generate PRD Health summary at the top of the document -- metadata only. Do not restate requirement counts, per-requirement priority/AC tables, or complexity: the REQ headings and AC sub-items are the source of truth, and any derived summary that disagrees with them creates ambiguity in the wrong place.
+   -   - Risk flags: list the REQ ids carrying a [RISK: ...] marker (count is implied by the list)
+   -   - Dependencies: N cross-requirement dependencies, from the dependency map section
    -   - Constitution compliance: passed
-   - Generate Acceptance Criteria summary table: | REQ-NNN | Description | Priority | Complexity | AC Count |
    - Include the dependency map section
    - File naming: docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)
 
@@ -263,12 +263,14 @@ These markers will become the structured interview agenda in /ensemble:refine-pr
 **Format:** Product Requirements Document (PRD)
 
 **Structure:**
-- **PRD Health Summary**: Requirement counts by priority, AC coverage percentage, risk flag count, dependency count
+- **PRD Health Summary**: Document metadata (ID, version, status, date, scale depth, readiness score) plus risk-flag and dependency listings; counts are derived from the REQ/AC structure, not restated
 - **Product Summary**: Problem statement, solution overview, value proposition, target users
 - **User Analysis**: User roles, personas, pain points, success metrics
-- **Goals and Non-Goals**: Objectives, success criteria, explicit scope boundaries
-- **Requirements by Feature Area**: REQ-NNN identified requirements grouped by feature area with MoSCoW priority and complexity tags
-- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table
+- **Requirements by Feature Area**: REQ-NNN identified requirements grouped by feature area with MoSCoW priority (business value only; no effort or complexity tags)
+- **Goals and Non-Goals**: Objectives, success criteria, explicit scope boundaries -- stated as outcomes, with no effort or technology claims
+- **Approvals and Decision Ownership**: Named approver (role, not person-dependent prose) for the product decision, plus the criteria they judge it against; the accountable counterpart to the customer-facing approve/request-changes step
+- **Entry and Exit Criteria**: Preconditions that must hold before work starts, and the observable conditions that mark the effort delivered
+- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M)
 - **Dependency Map**: Cross-requirement dependencies and implementation clusters
 - **Readiness Scorecard**: Implementation Readiness Gate scores for completeness, testability, clarity, and feasibility
 

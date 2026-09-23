@@ -75,6 +75,39 @@ browser. The resulting artifact is the input to Enhancement.
    - `recommendedOptionId` MUST be the `id` of the option you
      want to default-select. Always pick the option you would
      apply if the reviewer hit Save immediately.
+   `customerSummary` is a separate document field, not a question
+   field: pass it to `migrateOrCreate` as its own top-level key
+   alongside `questions`. Its shape and rules are in step 2b.
+2b. Write the `customerSummary` for the session document. This is
+   the plain-language text a customer reads on the Overview tab
+   before deciding whether the concept is right, so it must be
+   understandable to someone who has never seen the PRD:
+   - Exactly these six `##` sections, in this order:
+     `## What we're building`, `## Who it's for`,
+     `## Why it matters`, `## What changes for you`,
+     `## What's not included`, `## What we need from you`.
+   - Length: 150-400 words total.
+   - Forbidden: requirement IDs of any kind (REQ-, AC-, NFR-),
+     `[RISK: ...]` or `[NEEDS CLARIFICATION: ...]` markers, the
+     risk register, complexity or effort estimates, markdown
+     tables, Given/When/Then blocks, file paths, module or service
+     names, and any description of how the work will be
+     implemented. If a sentence needs a system diagram to be
+     understood, it does not belong here.
+   - `## What we need from you` states, in one or two sentences,
+     what approving commits the customer to (e.g. "Approving means
+     we build billing for monthly plans and will not cover usage
+     pricing in this release") and who owns the decision.
+   - Derive it from the PRD content you just read, not from the
+     questions.
+   On a re-run (`--collab` against an existing session), regenerate
+   `customerSummary` whenever the PRD body has changed since the
+   last run. Do not clear or alter the customer's existing approval
+   decision just because the summary text changed.
+   The Overview tab derives its own text from the PRD when no
+   `customerSummary` is present; that derivation also drops
+   `[RISK: ...]` lines, so an internal risk register can never reach
+   the customer through either path.
 3. Pick a session file path under a cache directory returned by
    `getLogsPath()` or equivalent (gitignored). The bootstrap script
    is generated outside the PI package's install directory, so plain
