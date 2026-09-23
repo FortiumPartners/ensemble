@@ -38,7 +38,7 @@
     }
   },
   "scripts": {
-    "test": "if python3 -c 'import pytest' >/dev/null 2>&1; then python3 -m pytest tests/test_router.py -v; else echo 'Skipping Python tests: pytest is not importable by python3. Install it (pip install pytest) to run the router suite.' >&2; fi",
+    "test": "if python3 -c \"import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\" >/dev/null 2>&1; then python3 -m pytest tests/test_router.py -v; else echo 'Skipping Python tests: pytest is not installed for python3. Install it (pip install pytest) to run the router suite.' >&2; fi",
     "test:local": "python3 -m pytest tests/test_router.py -v",
     "test:coverage": "python3 -m pytest tests/test_router.py -v --cov=hooks --cov-report=term-missing"
   },

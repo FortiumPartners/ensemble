@@ -8,6 +8,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         node-version: [20, 22]
@@ -27,8 +29,15 @@ jobs:
 
       # packages/router's suite is Python. Without pytest here its test script
       # skips, which is how 107 tests sat green-by-absence rather than by passing.
+      #
+      # Pinned deliberately. This suite is version-sensitive: it fails on pytest
+      # 7.4.3 with `ImportError: cannot import name 'FixtureDef' from 'pytest'`
+      # (a pytest_asyncio incompatibility) and passes on 9.1.1. Unpinned, a future
+      # pytest release turns this newly-enabled gate red on unrelated PRs, and it
+      # is also the repo's only dependency ingestion without an integrity pin —
+      # the 431 JS deps all come through `npm ci`.
       - name: Install pytest
-        run: python3 -m pip install --quiet pytest
+        run: python3 -m pip install --quiet 'pytest==9.1.1'
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
