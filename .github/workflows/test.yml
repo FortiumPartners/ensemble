@@ -31,9 +31,11 @@ jobs:
       # skips, which is how 107 tests sat green-by-absence rather than by passing.
       #
       # Pinned so this newly-enabled gate is reproducible, and because it is the
-      # repo's only dependency ingestion without an integrity pin — the JS deps
-      # all arrive through `npm ci`. 9.1.1 is the version the suite was verified
-      # against when this gate was turned on.
+      # only dependency ingestion outside `npm ci`. 9.1.1 is the version the
+      # suite was verified against when this gate was turned on.
+      #
+      # Not the repo's only unpinned ingestion: the `uses:` action references
+      # across these workflows are mutable tags. Tracked separately in #79.
       #
       # Not pinned because of any version sensitivity in this repo: the suite has
       # no async tests, declares no pytest-asyncio and carries no pytest config.
