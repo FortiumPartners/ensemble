@@ -30,12 +30,16 @@ jobs:
       # packages/router's suite is Python. Without pytest here its test script
       # skips, which is how 107 tests sat green-by-absence rather than by passing.
       #
-      # Pinned deliberately. This suite is version-sensitive: it fails on pytest
-      # 7.4.3 with `ImportError: cannot import name 'FixtureDef' from 'pytest'`
-      # (a pytest_asyncio incompatibility) and passes on 9.1.1. Unpinned, a future
-      # pytest release turns this newly-enabled gate red on unrelated PRs, and it
-      # is also the repo's only dependency ingestion without an integrity pin —
-      # the 431 JS deps all come through `npm ci`.
+      # Pinned so this newly-enabled gate is reproducible, and because it is the
+      # repo's only dependency ingestion without an integrity pin — the JS deps
+      # all arrive through `npm ci`. 9.1.1 is the version the suite was verified
+      # against when this gate was turned on.
+      #
+      # Not pinned because of any version sensitivity in this repo: the suite has
+      # no async tests, declares no pytest-asyncio and carries no pytest config.
+      # An earlier draft of this comment blamed a `FixtureDef` ImportError on
+      # pytest 7.4.3; that came from a plugin auto-loading in one developer's
+      # global site-packages, not from anything CI installs.
       - name: Install pytest
         run: python3 -m pip install --quiet 'pytest==9.1.1'
 
