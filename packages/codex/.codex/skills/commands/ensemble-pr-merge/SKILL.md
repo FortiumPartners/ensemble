@@ -27,7 +27,13 @@ approvals, merge). Re-verifies against live CI/review state after every round --
 trusts a subagent's self-report -- and loops, bounded by --max-rounds, until every check is
 green and every review thread is resolved, then merges. Hard constraint: no finding may be
 resolved by deleting, skipping, or weakening a test; only real fixes to source, test, build,
-or config code count as resolution.
+or config code count as resolution. Once merge-ready, distills every finding resolved
+this run into durable guardrails and, when at least one survives, opens a small, separate
+housekeeping PR against the base branch that appends them to the target repo's existing
+constitution (docs/standards/constitution.md, or .specify/memory/constitution.md when that
+is the only one present) -- never creates one, and never touches the PR being merged's own
+branch or commit history -- so create-prd, create-trd, refine-prd, and future pr-merge runs
+are less likely to reproduce the same class of failure.
 
 ## Workflow
 
@@ -104,7 +110,31 @@ step 2.
    - If findings remain and round_number < --max-rounds: increment round_number, re-classify the new manifest (Classification and Routing phase), and re-dispatch (Parallel Remediation Dispatch phase).
    - If findings remain and round_number == --max-rounds: HALT. Do not merge. Produce the final report (Reporting step) with every still-open finding, its last owning orchestrator, and its most recent log/comment state, and stop for human escalation.
 
-### Phase 5: Merge and Report
+### Phase 5: Constitution Learning Capture
+
+**1. Aggregate Guardrails and Update Constitution**
+   Once the Findings Manifest is empty and merge is imminent, distill the findings
+resolved across every round this run into zero or more durable, generalizable
+guardrails and, when any survive, land them in the target repo's existing
+constitution via a small, independent PR against BASE_REF -- never by touching
+the PR being merged. This step never blocks, delays, or reverses that PR's merge
+decision -- any failure inside it, including the housekeeping PR itself failing
+checks or review, is logged and swallowed, not escalated.
+
+
+   - Skip this entire phase when --dry-run is set, or when the Findings Manifest was empty at round 0 (nothing was actually remediated this run) -- there is nothing to learn.
+   - Resolve the canonical constitution the same way create-prd/create-trd do: docs/standards/constitution.md when present, else .specify/memory/constitution.md, else skip this phase entirely and proceed straight to Merge and Report. This command NEVER creates a constitution file -- that is /ensemble:init-project's job, not pr-merge's.
+   - For each finding resolved this run (across all rounds), classify it as PATTERN (a systemic, preventable mistake a future author or agent could plausibly repeat -- e.g. a test pinning an exact version/date string instead of an invariant, a stale text anchor left behind by a rename, a missing codegen step before commit, a previously-banned pattern reintroduced) or ONE-OFF (a unique bug or typo with no generalizable rule). Only PATTERN findings produce a candidate guardrail; ONE-OFF findings produce none.
+   - For each PATTERN finding, draft exactly one guardrail: a short imperative rule plus a one-clause reason, stated as the general lesson -- never as a restatement of the specific bug or a reference to this PR/file (e.g. 'NEVER assert an exact version or date string in a test as proof a change shipped; assert the underlying invariant instead' rather than 'fix the version check in implement-trd-command.test.js').
+   - Read the full canonical constitution, at its current tip on BASE_REF, before finalizing any draft. Drop any candidate guardrail whose rule is already covered, equaled, or subsumed by existing constitution content anywhere in the document -- never append a near-duplicate rule.
+   - If zero guardrails survive classification and deduplication, stop here without touching the constitution file, creating a branch, or opening a PR.
+   - Otherwise append each surviving guardrail as a new numbered item under the constitution's non-negotiable-rules list inside its Core Principles section when that section and list exist in the recognizable init-project format; if the canonical constitution predates that structure (a migrated/legacy .specify constitution, or one hand-edited into an incompatible shape), append a new top-level `## CI/Review Remediation Guardrails` section instead rather than guessing at foreign structure. Add one Changelog row per guardrail using the constitution's existing Date/Change/Author table columns: `| <ISO date> | Guardrail: <one-line summary> | /ensemble:pr-merge (PR #<PR_NUMBER>) |`.
+   - NEVER commit this update to HEAD_REF or any branch of the PR being merged -- pushing a new commit there risks resetting required status checks to pending and, depending on branch protection's 'dismiss stale approvals on push' setting, invalidating the existing APPROVED review, which would then trip this command's own merge gate (constraint: only merge when reviewDecision is APPROVED) over a problem this command itself created.
+   - Instead: create a new branch off the current tip of BASE_REF (name it docs/constitution-guardrails-pr-<PR_NUMBER>), commit the constitution update there alone with message `docs(constitution): capture guardrail(s) from PR #<PR_NUMBER> remediation`, push it, and open a PR targeting BASE_REF via gh pr create -- delegate this sub-step to github-specialist.
+   - This housekeeping PR is entirely independent: do NOT wait for its CI or review, do NOT merge it as part of this run, and do NOT let its outcome affect whether the original PR_NUMBER proceeds to Merge and Report. Record its URL for the Final Report and move on immediately.
+   - Any error in this phase (resolution, parse, write, branch/push, or PR-creation failure) is non-fatal: log it once, do not retry, and proceed straight to Merge and Report -- a constitution-update failure must never HALT or block the original PR's merge.
+
+### Phase 6: Merge and Report
 
 **1. Merge**
    Merge only once every required check is green and every review thread is resolved.
@@ -120,7 +150,7 @@ step 2.
 **2. Final Report**
    Emit a single machine-readable summary line as the last line of output.
 
-   - Schema (one line, valid JSON): { pr_number, pr_url, rounds_executed, findings_total, findings_resolved, findings_escalated, merged (bool), halted_reason (string|null) }.
+   - Schema (one line, valid JSON): { pr_number, pr_url, rounds_executed, findings_total, findings_resolved, findings_escalated, constitution_guardrails_added (number), constitution_pr_url (string|null), merged (bool), halted_reason (string|null) }.
    - Print the JSON summary as the LAST line of stdout. Do not print further prose after it.
 
 ## Expected Output
@@ -129,6 +159,7 @@ step 2.
 
 **Structure:**
 - **Round Narration**: Per round: Findings Manifest, routing decisions, dispatch/barrier confirmation, re-verification diff
+- **Constitution Update**: If the target repo has a constitution and at least one resolved finding this run was a generalizable pattern: the URL of the separate housekeeping PR opened against BASE_REF with the appended guardrail(s) and Changelog row(s). Otherwise a one-line note that nothing qualified (no constitution present, or every finding was one-off). This PR is independent of the original PR's merge and is never waited on.
 - **JSON Summary**: One line of valid JSON describing the final outcome: merged, escalated findings, and round count
 
 ## Usage

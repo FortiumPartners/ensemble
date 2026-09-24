@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-pi",
-  "version": "1.6.8",
+  "version": "1.6.9",
   "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
   "main": "dist/index.js",
   "files": [
