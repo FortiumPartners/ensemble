@@ -1,0 +1,95 @@
+name: Release Gate
+
+# Runs only on the dev -> main release PR.
+#
+# main is the live distribution channel. This was verified empirically, not
+# inferred from marketplace.json's relative paths: `claude plugin marketplace
+# add Sunstone-Partners/ensemble` takes no ref, and a probe install in an
+# isolated CLAUDE_CONFIG_DIR clones and checks out the repository's DEFAULT
+# BRANCH. The stored known_marketplaces.json entry records no ref at all, so
+# resolution is symbolic -- consumers follow whatever the default branch
+# points at, on every update, not a commit frozen at install time.
+#
+# Two consequences, both load-bearing:
+#
+#   - A merge to main reaches installed machines directly, with no tag and no
+#     GitHub Release involved. This is the last point a stale version can be
+#     stopped.
+#
+#   - The default branch MUST stay main. It conflates two unrelated concerns:
+#     the default target for new PRs, and the distribution target consumers
+#     fetch. Switching it to dev to get the first silently moved every
+#     unpinned consumer onto the unprotected integration branch. Contributors
+#     target dev by convention and by the guard below; the default branch is
+#     not the mechanism for that.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # main is a release channel, so it may only ever advance from the
+  # integration branch. Without this a feature branch can PR straight at main
+  # -- which is easy to do by accident now that main is GitHub's default base
+  # for new PRs, for the distribution reason above.
+  #
+  # The repository check is not redundant. github.head_ref is only the source
+  # BRANCH NAME, with no repo-of-origin scoping, and this repository is public
+  # with forks. A fork can name a branch 'dev' and satisfy a name-only test,
+  # which matters because required status checks are keyed by commit SHA:
+  # once a commit has green checks it can be fast-forwarded straight onto a
+  # protected branch, skipping the PR entirely. Verified by probe -- a commit
+  # pre-greened elsewhere pushed cleanly into a dev-protected branch, and was
+  # refused by a main-protected one only because source-branch was red on it.
+  #
+  # So this job is what makes that SHA-keyed shortcut safe for main, and it
+  # has to assert provenance, not just a name.
+  source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the release PR to come from dev in this repository
+        if: >-
+          github.head_ref != 'dev' ||
+          github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "::error::PRs into main may only come from the 'dev' branch of ${{ github.repository }}."
+          echo "  head branch : ${{ github.head_ref }}"
+          echo "  head repo   : ${{ github.event.pull_request.head.repo.full_name }}"
+          echo "Merge this branch into dev first, then open a dev -> main release PR."
+          exit 1
+
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # validate-release-bump.js diffs HEAD against the base branch, so
+          # the full history has to be present. With the default shallow
+          # fetch the diff fails and the gate cannot run at all.
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }} --force
+
+      # Were the changed packages bumped at all?
+      - name: Require version bumps for changed packages
+        run: node scripts/validate-release-bump.js origin/${{ github.base_ref }}
+
+      # Do the bumped versions agree across package.json, plugin.json and
+      # marketplace.json? A bump applied to only some of those is what makes
+      # a package stop re-syncing on consumer machines.
+      - name: Verify version fields are in sync
+        run: node scripts/validate-version-sync.js
+
+      - name: Run validation
+        run: npm run validate
+
+      - name: Run tests
+        run: npm test

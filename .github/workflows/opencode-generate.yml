@@ -2,7 +2,7 @@ name: OpenCode Generate
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   push:
     branches:
       - 'feature/opencode-*'
