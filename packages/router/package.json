@@ -38,7 +38,7 @@
     }
   },
   "scripts": {
-    "test": "if [ \"$CI\" = \"true\" ]; then echo 'Skipping Python tests in CI (pytest not available)'; exit 0; else python3 -m pytest tests/test_router.py -v; fi",
+    "test": "if python3 -c \"import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)\" >/dev/null 2>&1; then python3 -m pytest tests/test_router.py -v; elif [ -n \"$CI\" ]; then echo 'ERROR: pytest is not installed, and CI must not report success on a suite it never ran. The workflow installs it; if that step was removed or reordered, restore it.' >&2; exit 1; else echo 'Skipping Python tests: pytest is not installed for python3. Install it (pip install pytest) to run the router suite.' >&2; fi",
     "test:local": "python3 -m pytest tests/test_router.py -v",
     "test:coverage": "python3 -m pytest tests/test_router.py -v --cov=hooks --cov-report=term-missing"
   },
