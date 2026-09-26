@@ -1,9 +1,9 @@
 ---
 name: "ensemble:create-prd-meeting"
 description: "Create a PRD from a meeting summary instead of a live interview"
-version: "1.0.0"
+version: "1.1.0"
 category: "planning"
-last-updated: "2026-07-13"
+last-updated: "2026-09-22"
 model: "opus"
 ---
 <!-- DO NOT EDIT - Generated from create-prd-meeting.yaml -->
@@ -51,7 +51,7 @@ shape, not tied to any one meeting platform.
 **1. Codebase Reconnaissance**
    Understand existing patterns and constraints before writing requirements
 
-   - Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack
+   - Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack -- record it as research *context* only; the stack is never a requirement, and requirements MUST NOT name a technology
    - Read CLAUDE.md or CONTRIBUTING.md for coding standards the PRD should respect
    - Identify existing authentication, authorization, and data patterns the new feature must integrate with
    - If no codebase exists (greenfield), note this and skip to step 2
@@ -65,14 +65,14 @@ shape, not tied to any one meeting platform.
    - Note any cross-cutting requirements from existing PRDs that this feature must respect
    - If the meeting summary itself references an existing PRD or feature by name, flag that as a candidate for /ensemble:refine-prd-meeting instead -- this command is for new PRDs, not extending an existing one
 
-**3. Technical Dependency Mapping**
-   Identify integration points and technical constraints
+**3. Business Integration Points**
+   Identify which systems, partners, or regulations the product must satisfy -- the what, not the how
 
-   - List external services, APIs, or databases the feature will interact with
-   - Identify shared components or libraries the feature should reuse
-   - Flag any technical constraints that limit design options (e.g., must work offline, must support IE11, max 100ms latency)
+   - Name each external system or partner the product depends on BY CAPABILITY, not by product or endpoint (e.g. 'must charge cards through a payment provider', not 'Stripe checkout API'). Implementation choices -- SDKs, schemas, wire formats, call direction -- belong to the TRD.
+   - State what must be true of each: the business outcome it serves and any obligation it carries (data residency, settlement timing, accessibility, audit trail).
+   - Flag constraints that limit what can be promised (e.g. must work offline, max 100ms perceived latency, must support IE11) as requirements, not as technology decisions.
    - For LIGHT depth: bullet list of dependencies is sufficient
-   - For DEEP depth: create a dependency matrix showing interaction direction and data flow
+   - For DEEP depth: list each dependency with its capability, business outcome, and obligation -- still no interface or data-flow design
 
 ### Phase 3: Requirements Definition
 
@@ -81,20 +81,21 @@ shape, not tied to any one meeting platform.
 
    - Group requirements by feature area (e.g., 'User Management', 'Data Import', 'Reporting'), not just 'Functional' vs 'Non-Functional'
    - Assign REQ-NNN IDs as H3 headings: '### REQ-001: Description'
-   - Tag each requirement with MoSCoW priority: Must, Should, Could, Won't (this release) -- infer from how the meeting summary discussed it (e.g., a Decision implies Must, an Open Question implies the priority itself may need clarification)
-   - Tag each requirement with complexity: Low, Medium, High
+   - Tag each requirement with MoSCoW priority: Must, Should, Could, Won't (this release) -- infer from how the meeting summary discussed it (e.g., a Decision implies Must, an Open Question implies the priority itself may need clarification). Priority is business value only; if the meeting argued about effort or cost, record that as a constraint or an action item, never as the requirement's priority.
    - Flag requirements with risk indicators where applicable: [RISK: description]
-   - Write requirements as user-observable behaviors, not implementation details
+   - Derive *Approvals and Decision Ownership* and *Entry and Exit Criteria* from the summary: whose approval was treated as decisive (an owner, a sign-off, a 'X to confirm'), and any precondition or 'done when' the meeting stated. If the summary is silent, insert [NEEDS CLARIFICATION: no approver identified in the meeting -- confirm who signs off on this scope] rather than inventing one.
+   - Write requirements as user-observable behaviors, not implementation details; a requirement that names a framework, database, library, endpoint, or schema belongs in the TRD
+   - Do NOT tag requirements with complexity or effort estimates -- sizing is the TRD's job (/ensemble:create-trd, 'Assess Complexity'). A PRD that estimates effort invites scope decisions to be made on cost rather than value.
    - For LIGHT depth: 5-10 requirements, Must/Should only
    - For STANDARD depth: 10-25 requirements, full MoSCoW
-   - For DEEP depth: 25+ requirements, full MoSCoW with risk flags on every Medium/High complexity item
+   - For DEEP depth: 25+ requirements, full MoSCoW, plus a [RISK: ...] flag on any requirement with an unresolved dependency or external obligation
 
 **2. Non-Functional Requirements**
    Define performance, security, accessibility, and operational requirements
 
    - Use the same REQ-NNN numbering sequence (continue from functional requirements)
    - Cover these categories as applicable, but only where the meeting summary actually touched on them -- do not invent NFRs the meeting never discussed
-   - Tag each with MoSCoW priority and complexity, same as functional requirements
+   - Tag each with MoSCoW priority only -- no complexity estimate
    - If the meeting summary is silent on a category a real product would typically need (e.g., security, accessibility), mark it with [NEEDS CLARIFICATION: no NFR discussion found for <category> -- confirm requirements] rather than fabricating one
 
 **3. Acceptance Criteria**
@@ -171,10 +172,10 @@ the score.
    Generate the final PRD with frontmatter and health summary
 
    - Include document frontmatter block: Document ID (PRD-YYYY-<micro_uuid>), Version (1.0.0), Status (Draft), Date, Scale Depth, Total Requirements, Readiness Score
-   - Generate PRD Health summary at the top of the document, same fields as create-prd
+   - Generate the PRD Health summary at the top of the document, same metadata-only fields as create-prd (no restated requirement counts or AC tables)
    - Add a Source line noting this PRD was drafted from a meeting summary -- name the meeting title and date if the input included them
    - State the [NEEDS CLARIFICATION] marker count in the Notes section, so a human can gauge how much refine-prd work remains before this is Development Ready
-   - Generate Acceptance Criteria summary table: | REQ-NNN | Description | Priority | Complexity | AC Count |
+   - Do not generate an Acceptance Criteria summary table -- ACs live under their REQ-NNN and any restated count risks disagreeing with them
    - Include the dependency map section
    - File naming: docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md (micro_uuid = 8 lowercase hex chars; no sequence number)
 
@@ -190,12 +191,14 @@ the score.
 **Format:** Product Requirements Document (PRD), drafted from a meeting summary
 
 **Structure:**
-- **PRD Health Summary**: Requirement counts by priority, AC coverage percentage, risk flag count, dependency count
+- **PRD Health Summary**: Document metadata (ID, version, status, date, scale depth, readiness score) plus risk-flag and dependency listings; counts are derived from the REQ/AC structure, not restated
 - **Product Summary**: Problem statement, solution overview, value proposition, target users -- drawn from the meeting summary, gaps marked rather than invented
 - **User Analysis**: User roles, personas, pain points, success metrics
 - **Goals and Non-Goals**: Objectives, success criteria, explicit scope boundaries
-- **Requirements by Feature Area**: REQ-NNN identified requirements grouped by feature area with MoSCoW priority and complexity tags
-- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M), plus summary table
+- **Requirements by Feature Area**: REQ-NNN identified requirements grouped by feature area with MoSCoW priority (business value only; no effort or complexity tags)
+- **Approvals and Decision Ownership**: Who signs off on the product decision and against what criteria, derived from the meeting summary
+- **Entry and Exit Criteria**: Preconditions the meeting assumed, and the observable conditions that mark the effort delivered
+- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M)
 - **Dependency Map**: Cross-requirement dependencies and implementation clusters
 - **Readiness Scorecard**: Implementation Readiness Gate scores for completeness, testability, clarity, and feasibility
 - **Clarification Agenda**: Count and list of [NEEDS CLARIFICATION] markers -- the agenda for the human-run refine-prd pass this command expects to follow it

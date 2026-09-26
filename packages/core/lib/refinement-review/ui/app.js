@@ -31,6 +31,8 @@
     lastError: null,
     pendingAnchor: null,
     saveInflight: false,
+    overview: null,
+    activeTab: 'overview',
   };
 
   /** Renders the persisted session envelope into state and the page. */
@@ -42,6 +44,7 @@
     renderComments();
     renderInlineComments();
     renderMeta();
+    renderApproval();
     if (opts && opts.bumpQuestionIndex) {
       // Keep the index on the user, but skip a deleted question.
       skipDeleted();
@@ -672,6 +675,112 @@
     return siblings.join(' / ') || null;
   }
 
+  /**
+   * Switch between the customer Overview tab and the Refinement tab.
+   * The selection is mirrored into the URL hash so a link can deep-link to
+   * `#refine`, and so a reload keeps the reviewer where they were.
+   * @param {'overview'|'refine'} name
+   */
+  function activateTab(name) {
+    const tab = name === 'refine' ? 'refine' : 'overview';
+    state.activeTab = tab;
+    const isOverview = tab === 'overview';
+    $('rr-tab-overview').setAttribute('aria-selected', String(isOverview));
+    $('rr-tab-refine').setAttribute('aria-selected', String(!isOverview));
+    $('rr-panel-overview').toggleAttribute('hidden', !isOverview);
+    $('rr-panel-refine').toggleAttribute('hidden', isOverview);
+    const hash = '#' + tab;
+    if (window.location.hash !== hash) {
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.search + hash);
+      } catch (_) {
+        window.location.hash = tab;
+      }
+    }
+  }
+
+  async function loadOverview() {
+    const res = await fetch('/api/overview', { headers: authHeaders() });
+    state.overview = res.ok ? await res.json().catch(() => null) : null;
+    renderOverview();
+  }
+
+  function renderOverview() {
+    const body = $('rr-overview-body');
+    if (!body) return;
+    if (!state.overview || state.overview.source === 'empty' || !state.overview.markdown) {
+      body.innerHTML = '<p class="rr-empty">No customer summary is available for this document yet. ' +
+        'Use the Refinement tab to review the full document.</p>';
+      return;
+    }
+    body.innerHTML = window.RRMarkdown.render(state.overview.markdown);
+  }
+
+  /** Render the persisted approval decision and lock controls once completed. */
+  function renderApproval() {
+    const box = $('rr-approval-state');
+    if (!box) return;
+    const a = state.session && state.session.approval;
+    if (!a) {
+      box.textContent = 'Awaiting decision.';
+      box.className = 'rr-approval-state';
+    } else if (a.decision === 'approved') {
+      box.className = 'rr-approval-state rr-approval-ok';
+      box.innerHTML = `Approved by ${escapeHtml(a.author)} &middot; ${escapeHtml(formatDate(a.decidedAt))}` +
+        (a.note ? `<div class="rr-approval-note">${escapeHtml(a.note)}</div>` : '');
+    } else {
+      box.className = 'rr-approval-state rr-approval-changes';
+      box.innerHTML = `Changes requested by ${escapeHtml(a.author)} &middot; ${escapeHtml(formatDate(a.decidedAt))}` +
+        (a.note ? `<div class="rr-approval-note">${escapeHtml(a.note)}</div>` : '');
+    }
+    const done = Boolean(state.session && state.session.completedAt);
+    ['rr-approve', 'rr-request-changes', 'rr-approval-author', 'rr-approval-note'].forEach((id) => {
+      const el = $(id);
+      if (el) el.disabled = done;
+    });
+  }
+
+  /**
+   * Post the customer's decision. Approving is unconditional; requesting
+   * changes must carry a note, since an unexplained rejection is not
+   * actionable for the refiner.
+   * @param {'approved'|'changes-requested'} decision
+   */
+  async function submitApproval(decision) {
+    if (!state.session) return;
+    const author = (state.author || '').trim() || ($('rr-approval-author').value || '').trim();
+    if (!author) {
+      alert('Please enter your name above.');
+      return;
+    }
+    const note = ($('rr-approval-note').value || '').trim();
+    if (decision === 'changes-requested' && !note) {
+      alert('Please describe what needs to change.');
+      return;
+    }
+    const res = await fetch('/api/approval', {
+      method: 'POST',
+      headers: authHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify({
+        revision: state.session.revision,
+        author,
+        decision,
+        note: note || null,
+      }),
+    });
+    if (res.status === 409) {
+      const err = await res.json();
+      showStale(err.currentRevision);
+      await loadSession();
+      return;
+    }
+    if (!res.ok) {
+      alert('Approval failed: ' + res.status);
+      return;
+    }
+    setSession(await res.json());
+  }
+
   function bind() {
     $('rr-prev').addEventListener('click', () => {
       if (state.questionIndex > 0) {
@@ -723,15 +832,31 @@
       }
     });
 
-    $('rr-author').addEventListener('input', (e) => {
-      state.author = e.target.value;
+    const rememberAuthor = (value) => {
+      state.author = value;
       try {
         localStorage.setItem('rr.author', state.author);
       } catch (_) {
         /* no-op */
       }
+    };
+    // One reviewer per browser session in the single-nonce --collab flow, so
+    // both name fields share `state.author` / localStorage['rr.author']: the
+    // customer types their name once, whichever tab they land on.
+    $('rr-author').addEventListener('input', (e) => {
+      rememberAuthor(e.target.value);
+      const mirror = $('rr-approval-author');
+      if (mirror && mirror !== document.activeElement) mirror.value = e.target.value;
     });
-
+    $('rr-approval-author').addEventListener('input', (e) => {
+      rememberAuthor(e.target.value);
+      const mirror = $('rr-author');
+      if (mirror && mirror !== document.activeElement) mirror.value = e.target.value;
+    });
+    $('rr-tab-overview').addEventListener('click', () => activateTab('overview'));
+    $('rr-tab-refine').addEventListener('click', () => activateTab('refine'));
+    $('rr-approve').addEventListener('click', () => submitApproval('approved'));
+    $('rr-request-changes').addEventListener('click', () => submitApproval('changes-requested'));
     $('rr-complete').addEventListener('click', complete);
 
     // Keyboard navigation: Cmd/Ctrl+Enter saves, Esc cancels dialog.
@@ -753,6 +878,7 @@
     try {
       state.author = localStorage.getItem('rr.author') || '';
       $('rr-author').value = state.author;
+      $('rr-approval-author').value = state.author;
     } catch (_) {
       /* no-op */
     }
@@ -787,8 +913,12 @@
     await loadSession();
     await loadDocument();
     renderInlineComments();
+    await loadOverview();
     await loadMe();
     subscribe();
+    // Default to Overview so a link handed to a customer lands on the approval
+    // view; `#refine` deep-links straight to the document.
+    activateTab(window.location.hash === '#refine' ? 'refine' : 'overview');
   }
 
 

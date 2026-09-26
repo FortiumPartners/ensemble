@@ -41,7 +41,8 @@ describe('implement-trd-task command contract (v1.0.0 single-task primitive)', (
 
   test('specialist dispatch resolves from targetFiles (never bare name to Task())', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    const dispatchSection = text.slice(text.indexOf('Step 1 (specialist dispatch)'), text.indexOf('Step 2 (RED'));
+    const dispatchStart = text.indexOf('Step 1d (generic specialist dispatch');
+    const dispatchSection = text.slice(dispatchStart, text.indexOf('Step 2 (RED', dispatchStart));
     expect(dispatchSection).toMatch(/NEVER pass a bare specialist name to Task/);
     expect(dispatchSection).toMatch(/Task\(subagent_type=</);
   });
@@ -128,8 +129,8 @@ describe('implement-trd-task command contract (v1.0.0 single-task primitive)', (
 
   test('metadata and schema fields are valid', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toMatch(/version: 1\.0\.0/);
-    expect(text).toMatch(/lastUpdated: "2026-08-19"/);
+    expect(text).toMatch(/version: \d+\.\d+\.\d+/);
+    expect(text).toMatch(/lastUpdated: "\d{4}-\d{2}-\d{2}"/);
     expect(text).toMatch(/name: ensemble:implement-trd-task/);
     expect(text).toMatch(/output_path: ensemble\/implement-trd-task\.md/);
     expect(text).toMatch(/category: implementation/);

@@ -113,6 +113,9 @@ function validateSession(session) {
     if (typeof h !== 'string')
       throw new Error('document.sectionHeadings entries must be strings');
   }
+  if (doc.customerSummary !== undefined && doc.customerSummary !== null &&
+      typeof doc.customerSummary !== 'string')
+    throw new Error('document.customerSummary must be string or null');
 
   if (!Array.isArray(session.questions) || session.questions.length === 0)
     throw new Error('questions must be a non-empty array');
@@ -211,6 +214,21 @@ function validateSession(session) {
       session.completedBy !== null &&
       typeof session.completedBy !== 'string')
     throw new Error('completedBy must be string or null');
+  // Approval is optional in both directions: sessions written before the
+  // customer-approval tab existed simply lack the field, so it is never
+  // required — only shape-checked when present.
+  if (session.approval !== undefined && session.approval !== null) {
+    const a = session.approval;
+    if (typeof a !== 'object') throw new Error('approval must be object or null');
+    if (a.decision !== 'approved' && a.decision !== 'changes-requested')
+      throw new Error('approval.decision must be "approved" or "changes-requested"');
+    if (typeof a.author !== 'string' || !a.author)
+      throw new Error('approval.author is required');
+    if (a.note !== null && typeof a.note !== 'string')
+      throw new Error('approval.note must be string or null');
+    if (typeof a.decidedAt !== 'string' || !a.decidedAt)
+      throw new Error('approval.decidedAt must be an ISO timestamp');
+  }
 }
 
 /**
@@ -266,9 +284,12 @@ function loadSession(sessionPath) {
  * @param {"prd"|"trd"} args.kind
  * @param {string} args.sourcePath - source markdown path (absolute)
  * @param {Array<{id?: string, prompt: string, context?: string|null, targetAnchor?: object|null, options?: Array<{id: string, label: string, description?: string|null}>|null, recommendedOptionId?: string|null}>} args.questions
+ * @param {string} [args.customerSummary] - plain-language summary for the
+ *   customer-facing approval tab. When absent, the server derives one from
+ *   the source markdown.
  * @returns {{session: object, token: string}}
  */
-function createSession({ sessionPath, kind, sourcePath, questions }) {
+function createSession({ sessionPath, kind, sourcePath, questions, customerSummary }) {
 
   if (!['prd', 'trd'].includes(kind))
     throw new Error(`kind must be "prd" or "trd" (got ${kind})`);
@@ -276,6 +297,8 @@ function createSession({ sessionPath, kind, sourcePath, questions }) {
     throw new Error('sourcePath is required');
   if (!Array.isArray(questions) || questions.length === 0)
     throw new Error('questions must be a non-empty array');
+  if (customerSummary !== undefined && customerSummary !== null && typeof customerSummary !== 'string')
+    throw new Error('customerSummary must be a string when provided');
 
   const abs = path.resolve(sourcePath);
   const content = fs.readFileSync(abs);
@@ -292,6 +315,7 @@ function createSession({ sessionPath, kind, sourcePath, questions }) {
       contentPath: abs,
       sha256: sha,
       sectionHeadings: headings,
+      customerSummary: customerSummary || null,
     },
     questions: questions.map((q) => ({
       id: q.id || newId(),
@@ -312,6 +336,7 @@ function createSession({ sessionPath, kind, sourcePath, questions }) {
     updatedAt: now,
     completedAt: null,
     completedBy: null,
+    approval: null,
   };
 
   validateSession(session);
@@ -456,9 +481,13 @@ function reopenSession({ sessionPath, expectedRevision, now }) {
  * @param {boolean} [args.reopen] - when true, an existing completed session
  *   is reopened in place (completedAt/completedBy cleared, revision bumped).
  *   Defaults to false: completed sessions throw SESSION_COMPLETED.
+ * @param {string} [args.customerSummary] - plain-language summary for the
+ *   customer-facing approval tab. For a new session it is stored directly; for
+ *   an existing one it replaces a stale/absent summary (revision +1) and is
+ *   skipped when already identical.
  * @returns {{ session: object, token: string }}
  */
-function migrateOrCreate({ sessionPath, kind, sourcePath, questions, migrate, reopen }) {
+function migrateOrCreate({ sessionPath, kind, sourcePath, questions, customerSummary, migrate, reopen }) {
   const exists = fs.existsSync(sessionPath);
   let readable = false;
   if (exists) {
@@ -470,7 +499,7 @@ function migrateOrCreate({ sessionPath, kind, sourcePath, questions, migrate, re
   }
 
   if (!exists || !readable) {
-    return createSession({ sessionPath, kind, sourcePath, questions });
+    return createSession({ sessionPath, kind, sourcePath, questions, customerSummary });
   }
 
   const loaded = loadSession(sessionPath);
@@ -488,6 +517,20 @@ function migrateOrCreate({ sessionPath, kind, sourcePath, questions, migrate, re
       sessionPath,
       expectedRevision: loaded.revision,
     });
+  }
+
+  // Refresh the customer-facing summary before any caller-supplied migration so
+  // the Overview tab always tracks the current PRD. Skipping when the text is
+  // already identical avoids a pointless revision bump on every reopen.
+  if (typeof customerSummary === 'string' && customerSummary) {
+    const current = loadSession(sessionPath);
+    if (current.document.customerSummary !== customerSummary) {
+      mutateSession({
+        sessionPath,
+        expectedRevision: current.revision,
+        mutate: (s) => { s.document.customerSummary = customerSummary; },
+      });
+    }
   }
 
   if (typeof migrate === 'function') {

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Standard `/ensemble:implement-trd` now documents parser-backed `quickstart.md` generation after completion verification, including Foreman phase-report visibility for the quickstart path and AC coverage summary. Beads-backed quickstart generation is explicitly unsupported in v1; use standard `/ensemble:implement-trd` when a quickstart validation artifact is required.
+- `/ensemble:create-trd` now requires >=3 Given/When/Then BDD scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist. Both `/ensemble:implement-trd` and `/ensemble:implement-trd-beads` route `-TEST` tasks through the Reqnroll BDD toolchain (`reqnroll-cli generate-bindings`, RED confirmation, `reqnroll-binding-specialist` delegation, re-confirm RED) instead of the generic implementation-specialist path. See `packages/development/README.md#bdd-scenario-generation-reqnroll`.
 
 ### Fixed
 

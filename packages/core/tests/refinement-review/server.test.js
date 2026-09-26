@@ -80,6 +80,7 @@ async function setupServer(extra = {}) {
     uiDir,
     log: () => {},
     logError: () => {},
+    ...extra,
   });
   activeServers.push(server);
   return { source, sessionPath, token, session, server, uiDir };
@@ -1541,5 +1542,100 @@ describe('long-lived review session', () => {
     const { server, token } = await setupLongLived();
     const r = await request(server, 'GET', '/api/me', { token });
     expect(r.status).toBe(401);
+  });
+});
+
+describe('share-link diagnostics (the --collab stale-404 class)', () => {
+  // Root cause context: cloudflared announces the trycloudflare.com URL
+  // before the Cloudflare edge routes it, so early hits get an edge-level
+  // 404/502 that never reaches this server (prevented by the tunnel.js
+  // readiness probe). The other stale-link class — a redeemed/expired
+  // credential — DOES reach here. The contract now splits by caller:
+  //   - API/probe callers: unchanged 401 JSON, plus a `hint` field.
+  //   - Browser navigations: a short HTML page (200) instead of a bare 404.
+  test('burned nonce still 401 JSON for API callers, with hint', async () => {
+    const { server, token } = await setupServer();
+    const first = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token },
+    );
+    expect(first.status).toBe(302);
+    const again = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token },
+    );
+    expect(again.status).toBe(401);
+    expect(again.json.error).toBe('invalid or expired nonce');
+    expect(again.json.hint).toMatch(/single-use|expire/i);
+    await server.stop();
+  });
+
+  test('burned nonce served as HTML diagnostic on browser navigation', async () => {
+    const { server, token } = await setupServer();
+    const nav = { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
+    const first = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token, headers: nav },
+    );
+    expect(first.status).toBe(302);
+    const again = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token, headers: nav },
+    );
+    expect(again.status).toBe(200);
+    expect(again.headers['content-type']).toMatch(/text\/html/);
+    expect(again.text).toMatch(/no longer valid/i);
+    expect(again.text).toMatch(/single-use|expire/i);
+    await server.stop();
+  });
+
+  test('unknown invite keeps 401 JSON for API callers but HTML for browsers', async () => {
+    const { server } = await setupServer({ longLived: true });
+    const api = await request(server, 'GET', '/api/exchange?invite=deadbeef');
+    expect(api.status).toBe(401);
+    expect(api.json.error).toBe('invalid or expired invite');
+    expect(api.json.hint).toMatch(/invite/i);
+    const nav = { accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
+    const browser = await request(
+      server,
+      'GET',
+      '/api/exchange?invite=deadbeef',
+      { headers: nav },
+    );
+    expect(browser.status).toBe(200);
+    expect(browser.headers['content-type']).toMatch(/text\/html/);
+    await server.stop();
+  });
+
+  test('the exchange route burns the nonce regardless of bearer — URL is the credential', async () => {
+    const { server, token } = await setupServer();
+    // Contract check (guards a proposed security change): /api/exchange is
+    // NOT bearer-gated — the nonce in the URL is the sole credential, so a
+    // request with any (or no) bearer redeems and burns it. The
+    // "probes must not mutate the nonce map" invariant is enforced inside
+    // consumeNonce (peek-vs-burn split), not by rejecting bearers here.
+    const probe = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token: 'wrong' },
+    );
+    expect(probe.status).toBe(302);
+    const afterBurn = await request(
+      server,
+      'GET',
+      `/api/exchange?nonce=${server.shareNonce}`,
+      { token },
+    );
+    expect(afterBurn.status).toBe(401);
+    await server.stop();
   });
 });

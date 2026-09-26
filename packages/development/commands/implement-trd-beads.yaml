@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:implement-trd-beads
   description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via br/bv, and cross-session resumability
-  version: 2.21.0
-  lastUpdated: "2026-08-22"
+  version: 2.22.0
+  lastUpdated: "2026-09-19"
   category: implementation
   output_path: ensemble/implement-trd-beads.md
   source: sunstone
@@ -576,6 +576,7 @@ workflow:
             - "For each entry in PLAN.tasks (each has id, phaseN, titlePrefix, title, type, priority, description, isTest): check EXISTING_BEADS for the entry's titlePrefix ([trd:<TRD_SLUG>:task:<id>])"
             - "If found: TASK_BEAD_IDs[i][j] = existing id; record in TRD_TO_BEAD_MAP; skip creation"
             - "If not found: run br create using PLAN.tasks[j] fields verbatim — --title='<PLAN.tasks[j].title>' --type=<PLAN.tasks[j].type> --priority=<PLAN.tasks[j].priority> --description='<PLAN.tasks[j].description>' --json. PLAN.tasks[j].title already includes the [trd:<TRD_SLUG>:task:<id>] titlePrefix, and PLAN.tasks[j].description is the AUTHORITATIVE structured description (impl vs test classification, target files, actions, AC checklists, sub-items, embedded tests, dependencies are all already folded in by PLAN). Do NOT re-derive the description/title inline — use PLAN.tasks[j]."
+            - "BDD preservation (isTest=true tasks): PLAN.tasks[j].description for a TRD-NNN-TEST task is built by scaffold-planner.js's buildTestTaskDescription, which already serializes task.testAc verbatim under a `Test AC:` section and task.validatesAcs under `PRD ACs Proven:` -- this is how the Scenario checklist items from create-trd's BDD Test Task Generation phase (one `- [ ] Scenario: ...` per AC-NNN-M, written under the task's `Test AC:` label so the TRD parser's labeled-checklist extractor captures it) reach the bead body. Do not move Scenario content to an unparsed heading. Whichever specialist later picks up this bead must, before writing any binding: resolve REQNROLL_CLI (packages/product/lib/reqnroll-cli.js), run `generate-bindings <PRD_PATH> --out tests --sut <SUT_CSPROJ> --json` to scaffold the Test AC scenarios, confirm RED, delegate to reqnroll-binding-specialist to fill bodies test-first (packages/reqnroll/skills/reqnroll/SKILL.md), and re-confirm RED before the paired TRD-NNN implementation bead is allowed to close it to GREEN -- same contract as implement-trd-task.yaml Execute Step 1a-1c."
             - "Capture TASK_BEAD_ID by parsing .id from JSON response"
             - "Do NOT wire the task-blocks-story dependency here — the task-blocks-story edge is in PLAN.deps and is executed once in the Dependency Encoding step (avoid double-wiring)."
             - "Record TRD_TO_BEAD_MAP[PLAN.tasks[j].id] = bead_id for each task"

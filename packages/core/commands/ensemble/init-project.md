@@ -121,7 +121,7 @@ Create `docs/standards/constitution.md` with the following structure:
 
 ---
 
-## 1. Core Principles
+## Article I: Core Principles
 
 ### Development Methodology: [Selected]
 [Description based on selection]
@@ -134,7 +134,7 @@ Create `docs/standards/constitution.md` with the following structure:
 
 ---
 
-## 2. Tech Stack
+## Article II: Tech Stack
 
 ### Languages & Frameworks
 - **Primary Language:** [detected]
@@ -153,7 +153,7 @@ Create `docs/standards/constitution.md` with the following structure:
 
 ---
 
-## 3. Quality Gates (Definition of Done)
+## Article III: Quality Gates (Definition of Done)
 
 ### Test Coverage Targets
 - Unit Tests: ≥[X]%
@@ -175,7 +175,7 @@ Create `docs/standards/constitution.md` with the following structure:
 
 ---
 
-## 4. Approval Requirements
+## Article IV: Approval Requirements
 
 The following changes require explicit user approval before implementation:
 
@@ -192,7 +192,7 @@ The following changes require explicit user approval before implementation:
 
 ---
 
-## 5. Agent Delegation Standards
+## Article V: Agent Delegation Standards
 
 ### Specialist Priority
 When delegating implementation work:

@@ -1,9 +1,9 @@
 ---
 name: "ensemble:create-trd-foreman"
 description: "Create Foreman-native structured Technical Requirements Document from PRD — omits adversarial review phase, outputs parser-compatible tables"
-version: "3.0.1"
+version: "3.1.0"
 category: "planning"
-last-updated: "2026-05-31"
+last-updated: "2026-09-22"
 argument-hint: "[prd-path] [--foundational]"
 model: "opus"
 ---
@@ -57,7 +57,7 @@ variables are absent and behavior is unchanged.
    - If --foundational with a short capability brief: skip this PRD-specific acceptance criteria review
    - Otherwise ensure each requirement has measurable acceptance criteria with Given/When/Then items
    - Otherwise verify AC-NNN-M sub-item format under each REQ-NNN
-   - Otherwise check that every Must requirement has at least 2 ACs (happy path + edge case)
+   - Otherwise check that every functional REQ-NNN has at least 3 AC-NNN-M sub-items spanning happy path, edge case, and error/negative case -- these are the minimum BDD scenario set reqnroll-cli will scaffold per requirement. Flag any REQ-NNN with fewer than 3 as insufficient BDD coverage and note it in the readiness scorecard.
    - Do NOT validate TRD traceability here -- the TRD has not been generated yet
 
 **4. Implementation Readiness Gate Check**
@@ -116,6 +116,7 @@ variables are absent and behavior is unchanged.
 
    - Generate unique task IDs following the pattern `[A-Z]+-T\d+` (for example `FSC-T001`, `AUTH-T001`)
    - Organize work under `### N.M Sprint N` headers and `#### Story N.M` headers only
+   - Immediately after each `### N.M Sprint N` heading, write a **Shippable State:** line: one sentence describing the visible capability available once every task in that sprint is done (e.g., 'Users can log in with email/password; profile editing is not yet available'). Infrastructure-only statements ('scaffolding complete') are not acceptable.
    - For every story, emit a markdown table with required columns `ID | Task | Est. | Deps`
    - Set every Status cell to `[ ]` so Foreman creates dispatchable native tasks rather than completed tasks
    - Use dependencies that reference other task IDs exactly as strings in the Dependencies column
