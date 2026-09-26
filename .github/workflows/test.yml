@@ -3,11 +3,13 @@ name: Test Plugins
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       matrix:
         node-version: [20, 22]
@@ -19,6 +21,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # packages/router's suite is Python. Without pytest here its test script
+      # skips, which is how 107 tests sat green-by-absence rather than by passing.
+      #
+      # Pinned so this newly-enabled gate is reproducible, and because it is the
+      # only dependency ingestion outside `npm ci`. 9.1.1 is the version the
+      # suite was verified against when this gate was turned on.
+      #
+      # Not the repo's only unpinned ingestion: the `uses:` action references
+      # across these workflows are mutable tags. Tracked separately in #79.
+      #
+      # Not pinned because of any version sensitivity in this repo: the suite has
+      # no async tests, declares no pytest-asyncio and carries no pytest config.
+      # An earlier draft of this comment blamed a `FixtureDef` ImportError on
+      # pytest 7.4.3; that came from a plugin auto-loading in one developer's
+      # global site-packages, not from anything CI installs.
+      - name: Install pytest
+        run: python3 -m pip install --quiet 'pytest==9.1.1'
 
       - name: Install dependencies
         run: npm ci --legacy-peer-deps

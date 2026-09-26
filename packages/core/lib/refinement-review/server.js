@@ -46,6 +46,7 @@ const http = require('http');
 const path = require('path');
 const { URL } = require('url');
 const session = require('./session');
+const overview = require('./overview');
 const { openUrl } = require('./opener');
 
 const DEFAULT_HOST = '127.0.0.1';
@@ -69,6 +70,83 @@ const sessions = new Map();
 // Invites are NOT burned on POST (multi-use). They live in-process and
 // are wiped on server restart, like nonces and sessions.
 const invites = new Map();
+// The `--collab` share URL is minted by startServer/setTunnelUrl and printed
+// for the reviewer to open. Two distinct failure classes produced the
+// reported intermittent 404s:
+//   1. TUNNEL WARM-UP RACE — fixed in tunnel.js: the QuickTunnel readiness
+//      probe now waits for the Cloudflare edge to route the URL before the
+//      server's share URL is printed/opened. (An edge 404/502/503 never
+//      reaches this server, so it cannot be handled here — only prevented.)
+//   2. STALE CREDENTIAL — a nonce/invite was already redeemed or expired
+//      (10-min TTL) before the reviewer clicked. The API keeps its original
+//      401 JSON contract (probers depend on it); browsers that navigate to
+//      a dead link get the human-readable diagnostic below instead of a
+//      bare "not found", so the failure is self-explanatory.
+// Path-style exchange URLs (`/api/exchange/nonce/<id>`) would make
+// credential delivery immune to query-string mangling — deferred, needs a
+// route + re-mint audit before adoption.
+
+/**
+ * One-line hint describing why a share credential was rejected.
+ * @param {'nonce'|'invite'} kind
+ * @param {object} [opts] - session opts (longLived)
+ */
+function shareCredentialHint(kind, opts = {}) {
+  if (kind === 'invite') {
+    return opts.longLived === true
+      ? 'The invite is expired or the session was completed/restarted. Ask the host for the current invite URL.'
+      : 'This session is not running in long-lived mode. Ask the host for a nonce URL.';
+  }
+  return 'Exchange nonces are single-use and expire 10 minutes after the server starts. Re-open the link the host just printed, or ask them to print a fresh one.';
+}
+
+/**
+ * True when the request looks like a top-level browser navigation (a
+ * reviewer clicking a share link) rather than an API fetch or a scripted
+ * probe. Browser navigations send `Accept: text/html`; API clients and
+ * curl-style probes do not.
+ * @param {import('http').IncomingMessage} req
+ */
+function wantsHtml(req) {
+  const accept = req.headers.accept;
+  return typeof accept === 'string' && /text\/html|application\/xml/.test(accept)
+    && !/application\/json/.test(accept);
+}
+
+/**
+ * Human-readable diagnostic page for a dead share link, served ONLY on
+ * browser navigation. API/probe callers keep the 401 JSON contract (they
+ * assert on it); a reviewer opening a stale link in a browser instead gets
+ * this — one short sentence explaining the single-use/10-minute nonce model
+ * and what to do next. 200 by design: a 404 here reads as "the server is
+ * missing", which is the wrong conclusion. The credential is already dead,
+ * so there is nothing sensitive to leak beyond the (public) review model.
+ */
+function writeShareDiagnostic(res, kind, hint) {
+  const body = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Review link expired</title>
+  <meta name="referrer" content="no-referrer" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 560px; margin: 4em auto; padding: 1em; color: #111; line-height: 1.5; }
+    h1 { font-size: 1.3em; margin: 0 0 0.5em; }
+    p { color: #333; }
+  </style>
+</head>
+<body>
+  <h1>This review link is no longer valid</h1>
+  <p>${escapeHtmlAttr(hint)}</p>
+</body>
+</html>`;
+  res.writeHead(200, securityHeaders({
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+  }));
+  res.end(body);
+}
 
 /**
  * Mint a single-use exchange nonce. Caller stores the returned id in a
@@ -649,7 +727,12 @@ function tearDownSseSubscribers() {
         }
         const invite = validateInvite(inviteId);
         if (!invite) {
-          writeJson(res, 401, { error: 'invalid or expired invite' });
+          const hint = shareCredentialHint('invite', opts);
+          if (wantsHtml(req)) {
+            writeShareDiagnostic(res, 'invite', hint);
+            return;
+          }
+          writeJson(res, 401, { error: 'invalid or expired invite', hint });
           return;
         }
         const html = renderIdentifyForm(inviteId);
@@ -671,7 +754,12 @@ function tearDownSseSubscribers() {
       // request gets a 401 (no nonce), which is the correct behavior.
       const record = consumeNonce(nonceId);
       if (!record) {
-        writeJson(res, 401, { error: 'invalid or expired nonce' });
+        const hint = shareCredentialHint('nonce', opts);
+        if (wantsHtml(req)) {
+          writeShareDiagnostic(res, 'nonce', hint);
+          return;
+        }
+        writeJson(res, 401, { error: 'invalid or expired nonce', hint });
         return;
       }
       const sid = mintSession({
@@ -882,6 +970,32 @@ function tearDownSseSubscribers() {
       writeJson(res, 200, envelope);
       return;
     }
+    // GET /api/overview — customer-facing summary for the approval tab.
+    // Prefers the summary authored by the refinement command; falls back to
+    // deriving one from the source markdown. Never 5xx's on an unreadable
+    // derivation: an empty payload renders as the UI's empty state.
+    if (method === 'GET' && url.pathname === '/api/overview') {
+      const envelope = session.loadSession(opts.sessionPath);
+      const authored = envelope.document.customerSummary;
+      if (typeof authored === 'string' && authored.trim()) {
+        writeJson(res, 200, {
+          source: 'authored',
+          title: `${envelope.document.kind.toUpperCase()} overview`,
+          markdown: authored,
+        });
+        return;
+      }
+      let derived = { title: 'Product overview', markdown: '', source: 'empty' };
+      try {
+        derived = overview.deriveCustomerOverview(
+          fs.readFileSync(envelope.document.sourcePath, 'utf8'),
+        );
+      } catch {
+        // Unreadable source (moved/deleted mid-session): empty state, not an error.
+      }
+      writeJson(res, 200, derived);
+      return;
+    }
     // GET /api/me (long-lived only): returns the cookie session's
     // display name so the SPA can auto-populate the author field
     // without forcing the reviewer to retype. Keeps the envelope
@@ -1037,6 +1151,45 @@ function tearDownSseSubscribers() {
       return;
     }
 
+    // POST /api/approval — record the customer's sign-off on the concept.
+    // Routed through `mutate` so it serializes with question/comment writes
+    // and broadcasts over SSE. A later decision overwrites the earlier one.
+    if (method === 'POST' && url.pathname === '/api/approval') {
+      let body;
+      try {
+        body = JSON.parse((await readBody(req)).toString('utf8'));
+      } catch (e) {
+        writeJson(res, 400, { error: 'invalid json' });
+        return;
+      }
+      try {
+        const next = await mutate(body.revision, (s) => {
+          if (typeof body.author !== 'string' || !body.author.trim())
+            throw Object.assign(new Error('author required'), { status: 400 });
+          if (body.decision !== 'approved' && body.decision !== 'changes-requested')
+            throw Object.assign(new Error('decision must be "approved" or "changes-requested"'), { status: 400 });
+          if (body.note !== undefined && body.note !== null && typeof body.note !== 'string')
+            throw Object.assign(new Error('note must be string or null'), { status: 400 });
+          if (body.decision === 'changes-requested' && !(body.note && body.note.trim()))
+            throw Object.assign(new Error('note required when requesting changes'), { status: 400 });
+          s.approval = {
+            decision: body.decision,
+            author: body.author,
+            note: body.note ? body.note : null,
+            decidedAt: new Date().toISOString(),
+          };
+        });
+        writeJson(res, 200, next);
+      } catch (e) {
+        writeJson(res, e.status || 500, {
+          error: e.message,
+          code: e.code,
+          currentRevision: e.currentRevision,
+        });
+      }
+      return;
+    }
+
     // POST /api/complete
     if (method === 'POST' && url.pathname === '/api/complete') {
       let body;
@@ -1086,6 +1239,7 @@ function tearDownSseSubscribers() {
             createdAt: c.createdAt,
             resolvedAt: c.resolvedAt,
           })),
+          approval: finalSession.approval || null,
         };
         session.writeJsonAtomic(artifactPath, artifact);
 

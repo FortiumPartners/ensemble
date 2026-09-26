@@ -30,6 +30,7 @@ const TARGET_COMMANDS: Record<string, string> = {
   'ensemble-implement-trd-beads': 'ensemble-implement-trd-beads',
   'ensemble-create-trd-foreman': 'ensemble-create-trd-foreman',
   'ensemble-beads-build': 'ensemble-beads-build',
+  'ensemble-pr-merge': 'ensemble-pr-merge',
 };
 
 /**

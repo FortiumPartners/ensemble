@@ -43,3 +43,10 @@ redirect
 
 # fsqlite (SQLite backend) namespace markers — local-only state
 beads.db-fsqlite-ns-*
+*-fsqlite-ns-gate
+*-fsqlite-ns-use
+*.vacuum-wal-cert*
+*.fsqlite-migration-state
+
+# Schema-migration / recovery receipts (local-only state)
+.br_recovery/

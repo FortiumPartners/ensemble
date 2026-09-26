@@ -263,6 +263,75 @@ if (!afterMigrate.questions[0].targetAnchor || afterMigrate.questions[0].targetA
 }
 try { fs.unlinkSync(freshSessionPath); } catch {}
 
+// The customer-facing Overview tab is authored through the exact bootstrap
+// contract: migrateOrCreate({ ... customerSummary }) must land the text on
+// document.customerSummary on first create, refresh it on re-run when the
+// summary changed, and leave a recorded approval decision untouched. If a
+// future release drops the parameter or the merge guard, this throws.
+const csDocPath = path.join(installPrefix, '__probe-customer-summary.md');
+const csSessionPath = path.join(installPrefix, '__probe-cs-session.json');
+fs.writeFileSync(csDocPath, '# Probe PRD\\n\\n## Goals\\n\\nShip it.\\n');
+try { fs.unlinkSync(csSessionPath); } catch {}
+const SUMMARY_V1 = '## What we are building\\n\\nFirst draft.\\n';
+const created = sess.migrateOrCreate({
+  sessionPath: csSessionPath,
+  kind: 'prd',
+  sourcePath: csDocPath,
+  questions: [{ id: 'q-cs', prompt: 'cs' }],
+  customerSummary: SUMMARY_V1,
+});
+if (created.session.document.customerSummary !== SUMMARY_V1) {
+  throw new Error('migrateOrCreate did not persist customerSummary on create');
+}
+sess.mutateSession({
+  sessionPath: csSessionPath,
+  expectedRevision: created.session.revision,
+  mutate(s) {
+    s.approval = {
+      decision: 'approved',
+      author: 'probe-customer',
+      note: null,
+      decidedAt: new Date().toISOString(),
+    };
+  },
+});
+const SUMMARY_V2 = '## What we are building\\n\\nSecond draft after edits.\\n';
+const rerun = sess.migrateOrCreate({
+  sessionPath: csSessionPath,
+  kind: 'prd',
+  sourcePath: csDocPath,
+  questions: [{ id: 'q-cs', prompt: 'cs' }],
+  customerSummary: SUMMARY_V2,
+  reopen: true,
+});
+if (rerun.session.document.customerSummary !== SUMMARY_V2) {
+  throw new Error('migrateOrCreate did not refresh customerSummary on re-run');
+}
+if (!rerun.session.approval || rerun.session.approval.decision !== 'approved') {
+  throw new Error('migrateOrCreate clobbered the recorded approval decision');
+}
+const noop = sess.migrateOrCreate({
+  sessionPath: csSessionPath,
+  kind: 'prd',
+  sourcePath: csDocPath,
+  questions: [{ id: 'q-cs', prompt: 'cs' }],
+  customerSummary: SUMMARY_V2,
+  reopen: true,
+});
+if (noop.session.document.customerSummary !== SUMMARY_V2) {
+  throw new Error('no-change re-run lost customerSummary');
+}
+const csOverview = core.refinementReview.overview;
+if (!csOverview || typeof csOverview.deriveCustomerOverview !== 'function') {
+  throw new Error('core.refinementReview.overview.deriveCustomerOverview is unavailable');
+}
+const derived = csOverview.deriveCustomerOverview(fs.readFileSync(csDocPath, 'utf8'));
+if (derived.source !== 'derived' || !/Ship it\\./.test(derived.markdown)) {
+  throw new Error('deriveCustomerOverview did not return the expected shape');
+}
+try { fs.unlinkSync(csSessionPath); } catch {}
+try { fs.unlinkSync(csDocPath); } catch {}
+
 process.stdout.write(JSON.stringify({
   piPkgJson: PI_PKG_JSON,
   corePkgJson,

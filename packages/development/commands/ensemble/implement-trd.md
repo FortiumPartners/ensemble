@@ -1,9 +1,9 @@
 ---
 name: "ensemble:implement-trd"
-description: "Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology"
-version: "2.6.0"
+description: "Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation, TDD methodology, and Reqnroll BDD acceptance testing for TRD-NNN-TEST tasks"
+version: "2.7.0"
 category: "implementation"
-last-updated: "2026-08-22"
+last-updated: "2026-09-19"
 model: "sonnet"
 ---
 <!-- DO NOT EDIT - Generated from implement-trd.yaml -->

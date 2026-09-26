@@ -108,5 +108,6 @@ module.exports = {
     server: require('./refinement-review/server'),
     opener: require('./refinement-review/opener'),
     tunnel: require('./refinement-review/tunnel'),
+    overview: require('./refinement-review/overview'),
   },
 };

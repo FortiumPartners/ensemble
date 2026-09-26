@@ -32,8 +32,8 @@ description: >-
   reports include the quickstart path and AC coverage.
 disable-model-invocation: true
 ---
-<!-- Command: ensemble-implement-trd | Version: 2.6.0 -->
-<!-- Description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation and TDD methodology -->
+<!-- Command: ensemble-implement-trd | Version: 2.7.0 -->
+<!-- Description: Complete TRD implementation using git-town workflow with ensemble-orchestrator delegation, TDD methodology, and Reqnroll BDD acceptance testing for TRD-NNN-TEST tasks -->
 
 # ensemble-implement-trd
 
