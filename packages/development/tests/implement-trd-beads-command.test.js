@@ -1,6 +1,43 @@
 const fs = require('fs');
 const path = require('path');
 
+describe('implement-trd-beads clean-tree gate', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+
+  test('a fresh run still HALTs on a dirty working directory', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('If ROOT_EPIC_ID was NOT found above — this is a fresh run — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
+  });
+
+  test('a resumed run warns and continues instead of halting', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('If ROOT_EPIC_ID WAS found — this is a resume — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('NOTE: resuming with a dirty working directory.');
+    expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
+  });
+
+  // The defect this guards against was ordering, not absence: the gate existed
+  // and ran three steps before the thing that knows whether it applies. A
+  // presence-only assertion passes against the broken file, so compare offsets.
+  test('the gate is decided after resume detection, never before it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const resumeDetection = text.indexOf('title: Resume Detection');
+    const haltDecision = text.indexOf('ERROR: working directory is dirty.');
+    expect(resumeDetection).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(resumeDetection);
+  });
+
+  test('preflight step 4 captures the status without deciding on it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('capture the output as WORKTREE_STATUS');
+    // The exact wording of the old unconditional gate. If this string comes
+    // back, the premature HALT came back with it.
+    expect(text).not.toContain('git status --porcelain — HALT if output non-empty');
+  });
+});
+
 describe('implement-trd-beads command progress behavior', () => {
   const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 

@@ -333,7 +333,7 @@ workflow:
             - "If RESOLVE_SDLC_RESULT.prBackend.needsResolution == false: set PR_BACKEND=RESOLVE_SDLC_RESULT.prBackend.backend (no prompt, no HALT)."
             - "Set BRANCHING_STRATEGY=RESOLVE_SDLC_RESULT.branchingStrategy.strategy. Both BRANCHING_STRATEGY and PR_BACKEND are re-resolved fresh on every invocation, including resumed TRDs, and are read by later Preflight/Feature-Branch-Creation/Quality-Gate steps in this file — never cached across sessions."
             - "If RESOLVE_SDLC_RESULT.consolidatedMessage is non-null: print it. If it is null (the pure-default case — git-town configured and remote is GitHub): print nothing new at all, matching today's exact output for existing git-town+GitHub users."
-            - "Run: git status --porcelain — HALT if output non-empty (dirty working directory)."
+            - "Run: git status --porcelain and capture the output as WORKTREE_STATUS. Do NOT decide on it here — the clean-tree gate moved to Resume Detection (Preflight step 7), because whether a dirty tree is a fault depends on whether this invocation is a resume, and that is not known yet at this point. Capturing here keeps the reading from a moment before any later step could have touched the tree."
 
         - order: 5
           title: TRD Selection and Validation
@@ -373,6 +373,9 @@ workflow:
             - "If found (either EXECUTE_ONLY=false or EXECUTE_ONLY=true — this is a resumed TRD): set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Preflight step 1) with TRD_SLUG to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute"
             - "Reconciliation notice (REQ-014/REQ-015): if a resume was just detected (ROOT_EPIC_ID found above) AND RESOLVE_SDLC_RESULT.consolidatedMessage (captured fresh in Preflight step 4 for THIS invocation) is non-null: print 'NOTE: this session resolved BRANCHING_STRATEGY=<BRANCHING_STRATEGY>, PR_BACKEND=<PR_BACKEND> for a TRD that was previously scaffolded/branched in an earlier session. The prior session's resolution is not persisted anywhere, so it cannot be named exactly here — if it differed from this session's values, any branches or PRs already created under it are unaffected going forward; only branches/PRs created from this point forward use the resolution above.' This is informational only — no branch or PR created in a prior session is rewritten, re-targeted, or otherwise touched (deliberate limitation, TRD §2.4)."
             - "If not found: proceed to Feature Branch Creation then Scaffold"
+            - "Clean-tree gate (moved here from Preflight step 4). If ROOT_EPIC_ID was NOT found above — this is a fresh run — and WORKTREE_STATUS is non-empty: print 'ERROR: working directory is dirty. Commit, stash or revert before starting a new build.' followed by WORKTREE_STATUS, and HALT. A fresh run gets exactly the behaviour it had before."
+            - "If ROOT_EPIC_ID WAS found — this is a resume — and WORKTREE_STATUS is non-empty: print 'NOTE: resuming with a dirty working directory. These paths are carried into the resumed build and nothing here commits, stashes or reverts them:' followed by WORKTREE_STATUS, then continue. A resumed build is re-entering work that was already modifying the tree, so a dirty tree is the expected state rather than a fault, and halting on it strands the very WIP the resume exists to continue. Never stash, commit, checkout or clean these paths to satisfy a gate."
+
         - order: 8
           title: TRD Staleness Gate
           description: |
