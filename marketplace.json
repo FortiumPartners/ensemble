@@ -92,7 +92,7 @@
     },
     {
       "name": "ensemble-quality",
-      "version": "5.3.0",
+      "version": "5.4.0",
       "source": "./packages/quality",
       "description": "Quality assurance and code review workflows",
       "category": "workflow",

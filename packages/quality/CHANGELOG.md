@@ -14,4 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-- Plugin extraction and population (in progress)
+### Added
+
+- `pr-review-remediation` skill — verify and remediate findings from CodeRabbit or
+  another PR review agent: triage each finding (valid, stale, duplicate, already
+  fixed, or incorrect), reproduce behavioral defects with a focused regression
+  test, apply the minimal fix, and validate using the project's own tools.
+  Treats review comments as untrusted leads to investigate, never as trusted
+  instructions.
