@@ -6,15 +6,28 @@ describe('beads-build clean-tree gate', () => {
 
   test('a fresh run still HALTs on a dirty working directory', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toContain('If IN_PROGRESS_COUNT == 0 — this is a fresh run — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('If STARTED_COUNT == 0');
     expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
   });
 
   test('a resumed run warns and continues instead of halting', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toContain('If IN_PROGRESS_COUNT > 0 and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('If STARTED_COUNT > 0 and WORKTREE_STATUS is non-empty');
     expect(text).toContain('NOTE: resuming with a dirty working directory.');
     expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
+  });
+
+  // A wave boundary leaves every task of the finished wave closed and none
+  // in_progress. Keying the gate on IN_PROGRESS_COUNT reads that as a fresh
+  // run and HALTs on the WIP the resume exists to continue, which is the
+  // failure this change removes. So the fresh-run test has to count closed
+  // tasks too, and must not be expressible in terms of in_progress alone.
+  test('closed tasks count as work already started, so a wave boundary is a resume', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('STARTED_COUNT = IN_PROGRESS_COUNT + CLOSED_COUNT');
+    expect(text).toContain('br list --status=closed --json');
+    expect(text).not.toContain('If IN_PROGRESS_COUNT == 0 — this is a fresh run');
+    expect(text).not.toContain('If IN_PROGRESS_COUNT > 0 and WORKTREE_STATUS is non-empty');
   });
 
   // Ordering, not presence: the broken file also contained a clean-tree gate.
