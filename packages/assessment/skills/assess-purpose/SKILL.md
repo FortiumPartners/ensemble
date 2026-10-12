@@ -50,22 +50,22 @@ Read key entry points to understand initialization and domain registration.
 
 Search for domain-specific patterns:
 
-### For API/Web services:
+### For API/Web services
 Search for `api|route|endpoint|handler|controller|router|request|response|GET|POST|PUT|DELETE`.
 
-### For Data/Analytics:
+### For Data/Analytics
 Search for `query|transform|aggregate|metric|dashboard|chart|report|analytics|event|stream`.
 
-### For Infrastructure/DevOps:
+### For Infrastructure/DevOps
 Search for `deploy|kubernetes|k8s|docker|container|orchestrate|pod|service|config`.
 
-### For Business Logic:
+### For Business Logic
 Search for `customer|user|order|invoice|payment|transaction|account|balance`.
 
-### For Healthcare:
+### For Healthcare
 Search for `patient|diagnosis|prescription|medical|health|clinical|ehr|emr`.
 
-### For Finance:
+### For Finance
 Search for `portfolio|trading|asset|equity|bond|derivative|settlement|ledger`.
 
 ## Phase 4: Directory Structure Analysis

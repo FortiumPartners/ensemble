@@ -455,7 +455,7 @@
     },
     {
       "name": "ensemble-pi",
-      "version": "1.6.12",
+      "version": "1.6.13",
       "source": "./packages/pi",
       "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
       "category": "core",
