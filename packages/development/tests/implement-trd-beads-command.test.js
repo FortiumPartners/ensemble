@@ -6,13 +6,16 @@ describe('implement-trd-beads clean-tree gate', () => {
 
   test('a fresh run still HALTs on a dirty working directory', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toContain('If ROOT_EPIC_ID was NOT found above — this is a fresh run — and WORKTREE_STATUS is non-empty');
+    // Keyed on the search result, not on ROOT_EPIC_ID: the bullet that assigns
+    // ROOT_EPIC_ID now sits BELOW the gate, because it is also the bullet that
+    // proceeds to Execute and leaves the step.
+    expect(text).toContain('If the search above matched NO epic — this is a fresh run — and WORKTREE_STATUS is non-empty');
     expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
   });
 
   test('a resumed run warns and continues instead of halting', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toContain('If ROOT_EPIC_ID WAS found — this is a resume — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('If the search above matched an epic — this is a resume — and WORKTREE_STATUS is non-empty');
     expect(text).toContain('NOTE: resuming with a dirty working directory.');
     expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
   });
@@ -27,6 +30,23 @@ describe('implement-trd-beads clean-tree gate', () => {
     expect(resumeDetection).toBeGreaterThan(-1);
     expect(haltDecision).toBeGreaterThan(-1);
     expect(haltDecision).toBeGreaterThan(resumeDetection);
+  });
+
+  // Being inside the right step is not enough. Two of that step's actions
+  // transfer control out of it — 'proceed to Execute' on the resume path and
+  // 'proceed to Feature Branch Creation' on the fresh one — so a gate written
+  // below either of them is unreachable on the path it exists to stop, and the
+  // step-title comparison above passes anyway.
+  test('the gate is decided before either action that leaves the step', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const haltDecision = text.indexOf('ERROR: working directory is dirty.');
+    const proceedToExecute = text.indexOf('skip Scaffold phase, proceed to Execute');
+    const proceedToBranch = text.indexOf('If not found: proceed to Feature Branch Creation');
+    expect(haltDecision).toBeGreaterThan(-1);
+    expect(proceedToExecute).toBeGreaterThan(-1);
+    expect(proceedToBranch).toBeGreaterThan(-1);
+    expect(haltDecision).toBeLessThan(proceedToExecute);
+    expect(haltDecision).toBeLessThan(proceedToBranch);
   });
 
   test('preflight step 4 captures the status without deciding on it', () => {
