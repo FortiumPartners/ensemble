@@ -25,7 +25,12 @@ describe('beads-build clean-tree gate', () => {
   test('closed tasks count as work already started, so a wave boundary is a resume', () => {
     const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).toContain('STARTED_COUNT = IN_PROGRESS_COUNT + CLOSED_COUNT');
-    expect(text).toContain('br list --status=closed --json');
+    // --all and --limit 0 both decide whether CLOSED_COUNT can be non-zero.
+    // `br list --help`: -a/--all is "Include closed issues (default excludes
+    // closed)" and --limit is "Maximum number of results (0 = unlimited,
+    // default: 50)". Drop either and the count reads 0 on a real database,
+    // which HALTs the resume this change exists to let through.
+    expect(text).toContain('br list --all --status=closed --limit 0 --json');
     expect(text).not.toContain('If IN_PROGRESS_COUNT == 0 — this is a fresh run');
     expect(text).not.toContain('If IN_PROGRESS_COUNT > 0 and WORKTREE_STATUS is non-empty');
   });
