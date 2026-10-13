@@ -621,6 +621,11 @@ workflow:
             - "  Store TRIAGE_RECOMMENDATIONS for use in wheel instructions"
             - "  On bv failure: echo 'WARNING: bv --robot-triage failed.'; continue without triage data"
             - "If BV_AVAILABLE == false: print 'ERROR: bv (beads_viewer) is required (contract: bv is required, line 122 of this skill). Install bv from https://github.com/Dicklesworthstone/beads_viewer and retry.' and HALT — the no-fallback contract forbids br-only sequential execution order."
+            - "If --foreman is present in arguments (and only then), mark the executable beads for Foreman dispatch. Run this ONLY after every bead and dependency edge exists and the bv --robot-plan call above succeeded, so a bead is never tagged before its dependencies are wired. Foreman and the iterate jobsite pick up only beads labeled foreman-exec."
+            - "  Tag task-level beads only: every bead id in TRD_TO_BEAD_MAP, plus any synthesized test task beads. NEVER tag the root epic or story beads -- they are containers that bv surfaces as actionable once their children close, and an agent dispatched on one would re-plan instead of implementing."
+            - "  For each task bead id run: br update <BEAD_ID> --add-label foreman-exec. NEVER use --labels or --set-labels: they replace the whole label set and would drop the TRD scope label."
+            - "  Then run: br sync --flush-only, and verify with br list --label foreman-exec --json that the count equals the number of task beads tagged. On a mismatch print ERROR: foreman-exec tagging incomplete with the expected and actual counts and HALT."
+            - "  Without --foreman, never add the foreman-exec label."
 
         - order: 9
           title: Scaffold Summary and BV Analysis
