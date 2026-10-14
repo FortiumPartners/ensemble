@@ -397,37 +397,45 @@ function diffBindingDrift(prd, csSources) {
  * the attribute is re-emitted from the PRD's canonical text. That is this
  * command's stated job, and drift resolves them the same way.
  *
+ * Rewriting runs over the ATTRIBUTE OCCURRENCES, using the same unanchored
+ * ATTR_RE the drift scanner does, rather than over lines. Splitting on '\n' to
+ * match a whole line dropped the '\r' of every attribute line in a CRLF file and
+ * silently ignored any shape that was not the attribute alone on its line — an
+ * attribute with a trailing comment, or with the method beside it — which drift
+ * nonetheless saw, so the two disagreed about what existed. Replacing in place
+ * touches nothing but the matched attribute, which is also what makes the
+ * byte-identical guarantee hold for line endings, bodies and comments alike.
+ *
  * @returns {{ content:string, rewritten:Array<{text,from,to}>, unmatched:string[] }}
  */
 function migrateStepAttributes(csText, prd) {
   const stepKey = (keyword, text) => `${attributeFor(keyword)}::${normalizeStepText(text)}`;
   const byStep = new Map(collectSteps(prd).map((s) => [stepKey(s.keyword, s.text), s]));
 
-  const lines = String(csText || '').split('\n');
   const rewritten = [];
   const unmatched = [];
 
-  for (let i = 0; i < lines.length; i++) {
-    const attr = /^(\s*)\[(Given|When|Then|And)\(@"((?:[^"]|"")*)"\)\]\s*$/.exec(lines[i]);
-    if (!attr) continue;
-
-    // Undo the generator's two layers in reverse, exactly as the drift scanner
-    // does, to recover the literal step text this attribute stands for.
-    const literal = unescapeCucumberExpression(attr[3].replace(/""/g, '"'));
-    const step = byStep.get(stepKey(attr[2], literal));
+  const content = String(csText || '').replace(ATTR_RE, (whole, keyword, quoted) => {
+    // Undo the C# verbatim doubling, then read the result two ways. A file
+    // generated after this patch holds Cucumber-escaped text; one generated
+    // before holds the raw step text, and a raw text containing a backslash
+    // unescapes into something that matches no step. Nothing in the file says
+    // which it is, so try the escaped reading and fall back to the raw one.
+    const raw = quoted.replace(/""/g, '"');
+    const step = byStep.get(stepKey(keyword, unescapeCucumberExpression(raw)))
+      || byStep.get(stepKey(keyword, raw));
     if (!step) {
-      unmatched.push(literal);
-      continue;
+      unmatched.push(unescapeCucumberExpression(raw));
+      return whole;
     }
 
     const expr = escapeCucumberExpression(step.text).replace(/"/g, '""');
-    const next = `${attr[1]}[${attributeFor(step.keyword)}(@"${expr}")]`;
-    if (next === lines[i]) continue;
-    rewritten.push({ text: step.text, from: attr[3], to: expr });
-    lines[i] = next;
-  }
+    const next = `[${attributeFor(step.keyword)}(@"${expr}")]`;
+    if (next !== whole) rewritten.push({ text: step.text, from: quoted, to: expr });
+    return next;
+  });
 
-  return { content: lines.join('\n'), rewritten, unmatched };
+  return { content, rewritten, unmatched };
 }
 
 module.exports = {

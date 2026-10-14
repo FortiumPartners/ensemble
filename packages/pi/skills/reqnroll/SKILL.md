@@ -44,7 +44,10 @@ node packages/product/lib/reqnroll-cli.js migrate-bindings <prd-path> [--out <di
 
 It matches each attribute to its step by the step text the attribute already
 carries, which is the same identity `check-binding-drift` uses, and re-escapes it in
-place. No method body is read, so every filled body survives byte-identical.
+place. No method body is read and no line is rewritten — only the attribute itself —
+so every filled body, comment and line ending survives byte-identical, CRLF files
+included. An attribute sharing its line with the method or a trailing comment is
+migrated like any other.
 
 An attribute whose text names no PRD step is **left alone and reported**. A second
 attribute you stacked on a method to bind an alias is the expected case here — it is

@@ -398,6 +398,85 @@ public partial class REQ001Steps
       expect(r.content.split('\n')).toHaveLength(collided.split('\n').length);
     });
   });
+
+  // Splitting on '\n' to match a whole line dropped the '\r' of every attribute
+  // line in a CRLF file, and counted specials-free attributes as rewritten
+  // because the rebuilt line could never equal the original.
+  describe('CRLF step files', () => {
+    const crlf = [
+      '[Binding]',
+      'public partial class REQ005Steps',
+      '{',
+      '    [Given(@"a paused/canceled future plan")]',
+      '    public void GivenAPausedCanceledFuturePlan()',
+      '        => _ctx["state"] = Plan.Initial;',
+      '',
+      '    [When(@"the occurrence is due")]',
+      '    public void WhenTheOccurrenceIsDue() => _ctx["due"] = true;',
+      '}',
+      '',
+    ].join('\r\n');
+
+    test('every CR survives', () => {
+      const r = migrateStepAttributes(crlf, slashPrd);
+      expect((r.content.match(/\r\n/g) || []).length).toBe((crlf.match(/\r\n/g) || []).length);
+      expect(r.content).not.toMatch(/[^\r]\n/);
+    });
+
+    test('escapes the slash and leaves the specials-free attribute alone', () => {
+      const r = migrateStepAttributes(crlf, slashPrd);
+      expect(r.content).toContain('[Given(@"a paused\\/canceled future plan")]');
+      expect(r.rewritten.map((x) => x.text)).toEqual(['a paused/canceled future plan']);
+    });
+
+    test('changes nothing but that one attribute', () => {
+      const r = migrateStepAttributes(crlf, slashPrd);
+      const diff = crlf.split('\r\n').filter((l, i) => l !== r.content.split('\r\n')[i]);
+      expect(diff).toEqual(['    [Given(@"a paused/canceled future plan")]']);
+    });
+  });
+
+  // The line-anchored match required the attribute to sit alone on its line,
+  // while the drift scanner's unanchored ATTR_RE saw these too, so migrate
+  // skipped silently what drift reported as present.
+  describe('attribute shapes that are not alone on their line', () => {
+    test('migrates an attribute with the method beside it', () => {
+      const inline = '[Given(@"a paused/canceled future plan")] public void G() { }\n';
+      const r = migrateStepAttributes(inline, slashPrd);
+      expect(r.content).toBe('[Given(@"a paused\\/canceled future plan")] public void G() { }\n');
+      expect(r.unmatched).toEqual([]);
+    });
+
+    test('migrates an attribute with a trailing comment', () => {
+      const commented = '    [Then(@"the URL/token is not sent")] // asserts no dispatch\n';
+      const r = migrateStepAttributes(commented, slashPrd);
+      expect(r.content).toContain('[Then(@"the URL\\/token is not sent")] // asserts no dispatch');
+    });
+  });
+
+  // A file generated BEFORE the escaping patch holds the raw step text. If that
+  // text contains a backslash, unescaping it yields something matching no step,
+  // so the attribute this command exists to fix was reported as unknown.
+  test('matches a legacy attribute whose raw text contains a backslash', () => {
+    const backslashPrd = parsePRD(`---
+document_id: PRD-2026-backslash
+label: backslash
+---
+
+# PRD-2026-backslash: Backslash
+
+### REQ-001: Paths [Must] [High]
+
+- **AC-001-1:** Given a path c:\\{env}/bin, when it runs, then nothing is logged.
+`);
+    const step = collectSteps(backslashPrd).find((s) => s.keyword === 'Given');
+    // Pre-patch generation wrote the step text through with no escaping.
+    const legacy = `    [Given(@"${step.text}")]\n    public void G() { }\n`;
+    const r = migrateStepAttributes(legacy, backslashPrd);
+    expect(r.unmatched).toEqual([]);
+    expect(r.rewritten.map((x) => x.text)).toEqual([step.text]);
+    expect(r.content).toContain(escapeCucumberExpression(step.text));
+  });
 });
 
 describe('renderProject', () => {
