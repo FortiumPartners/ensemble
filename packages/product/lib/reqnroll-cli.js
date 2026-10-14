@@ -139,18 +139,16 @@ function runMigrate(argv) {
 
   const changed = [];
   const unmatched = [];
-  const ambiguous = [];
   for (const file of files) {
     const before = fs.readFileSync(file, 'utf8');
     const res = migrateStepAttributes(before, parsed);
-    for (const m of res.unmatched) unmatched.push({ file, method: m });
-    for (const m of res.ambiguous) ambiguous.push({ file, method: m });
+    for (const text of res.unmatched) unmatched.push({ file, text });
     if (!res.rewritten.length) continue;
     changed.push({ file, rewritten: res.rewritten });
     if (!flags['dry-run']) writeFileAtomic(file, res.content);
   }
 
-  return { ok: true, slug, stepsDir, changed, unmatched, ambiguous, dryRun: !!flags['dry-run'] };
+  return { ok: true, slug, stepsDir, changed, unmatched, dryRun: !!flags['dry-run'] };
 }
 
 function runRun(argv) {
@@ -199,23 +197,19 @@ function reportDrift(r) {
 function reportMigrate(r) {
   if (r.noBindings) return r.message;
   const verb = r.dryRun ? 'Would rewrite' : 'Rewrote';
-  if (!r.changed.length && !r.unmatched.length && !r.ambiguous.length) {
+  if (!r.changed.length && !r.unmatched.length) {
     return `IN_SYNC — ${r.slug} step attributes already match the PRD.`;
   }
   const lines = [];
   for (const c of r.changed) {
     lines.push(`${verb} ${c.rewritten.length} attribute(s) in ${c.file}:`);
-    for (const w of c.rewritten) lines.push(`      ${w.method}: @"${w.from}" -> @"${w.to}"`);
+    for (const w of c.rewritten) lines.push(`      @"${w.from}" -> @"${w.to}"`);
   }
   if (r.unmatched.length) {
-    lines.push(`  ${r.unmatched.length} binding(s) left alone — no matching PRD step:`);
-    for (const u of r.unmatched) lines.push(`      ${u.method} (${u.file})`);
-    lines.push('  Run check-binding-drift to see whether those are orphaned.');
-  }
-  if (r.ambiguous.length) {
-    lines.push(`  ${r.ambiguous.length} binding(s) left alone — the method name is claimed by more than one PRD step:`);
-    for (const a of r.ambiguous) lines.push(`      ${a.method} (${a.file})`);
-    lines.push('  Reword one of the steps so the two produce different method names, then re-run.');
+    lines.push(`  ${r.unmatched.length} attribute(s) left alone — the text names no PRD step:`);
+    for (const u of r.unmatched) lines.push(`      @"${u.text}" (${u.file})`);
+    lines.push('  An alias you added by hand is expected here and is deliberately not rewritten.');
+    lines.push('  Run check-binding-drift to see whether the rest are orphaned.');
   }
   if (!r.dryRun && r.changed.length) lines.push('  Method bodies were not touched.');
   return lines.join('\n');
@@ -247,7 +241,10 @@ function main(argv) {
     if (cmd === 'migrate-bindings') {
       const r = runMigrate(rest);
       console.log(wantsJson ? JSON.stringify(r, null, 2) : reportMigrate(r));
-      return r.noBindings ? 1 : 0;
+      if (r.noBindings) return 1;
+      // Exit 2 on anything left alone, matching check-binding-drift's codes, so
+      // a script cannot read "migrated" off exit 0 while a binding is still wrong.
+      return r.unmatched.length ? 2 : 0;
     }
     if (cmd === 'check-binding-drift') {
       const r = runCheckDrift(rest);

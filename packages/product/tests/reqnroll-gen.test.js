@@ -257,16 +257,16 @@ public partial class REQ005Steps
   const res = migrateStepAttributes(filled, slashPrd);
 
   test('rewrites exactly the attributes that were wrong', () => {
-    expect(res.rewritten.map((r) => r.method).sort()).toEqual([
-      'GivenAPausedCanceledFuturePlan',
-      'ThenTheURLTokenIsNotSent',
+    expect(res.rewritten.map((r) => r.text).sort()).toEqual([
+      'a paused/canceled future plan',
+      'the URL/token is not sent',
     ]);
     expect(res.content).toContain('[Given(@"a paused\\/canceled future plan")]');
     expect(res.content).toContain('[Then(@"the URL\\/token is not sent")]');
   });
 
   test('leaves an already-correct attribute untouched', () => {
-    expect(res.rewritten.some((r) => r.method === 'WhenTheOccurrenceIsDue')).toBe(false);
+    expect(res.rewritten.some((r) => r.text === 'the occurrence is due')).toBe(false);
     expect(res.content).toContain('[When(@"the occurrence is due")]');
   });
 
@@ -309,13 +309,41 @@ public partial class REQ005Steps
 `
     );
     const r = migrateStepAttributes(extra, slashPrd);
-    expect(r.unmatched).toEqual(['GivenAStepNobodyDeclared']);
+    expect(r.unmatched).toEqual(['a step nobody declared']);
     expect(r.content).toContain('[Given(@"a step nobody declared")]');
   });
 
+  // Reqnroll lets you stack a second attribute on one method to bind an alias.
+  // Pairing each attribute line to the next declaration below it rewrote BOTH to
+  // the same step's text, destroying the alias with nothing reported.
+  describe('when an alias attribute is stacked on a generated method', () => {
+    const aliased = `[Binding]
+public partial class REQ005Steps
+{
+    [Given(@"a paused/canceled future plan")]
+    [Given(@"a plan that is not active")]
+    public void GivenAPausedCanceledFuturePlan()
+        => _ctx["state"] = Plan.Initial;
+}
+`;
+
+    test('escapes the generated attribute and leaves the alias intact', () => {
+      const r = migrateStepAttributes(aliased, slashPrd);
+      expect(r.content).toContain('[Given(@"a paused\\/canceled future plan")]');
+      expect(r.content).toContain('[Given(@"a plan that is not active")]');
+    });
+
+    test('reports the alias rather than silently overwriting it', () => {
+      const r = migrateStepAttributes(aliased, slashPrd);
+      expect(r.unmatched).toEqual(['a plan that is not active']);
+      expect(r.rewritten.map((x) => x.text)).toEqual(['a paused/canceled future plan']);
+    });
+  });
+
   // methodNameFor strips exactly the characters this migration escapes, so two
-  // distinct steps can land on one identifier. Keying on it alone rewrote the
-  // first step's binding to the second step's text and dropped the slash.
+  // distinct steps land on one identifier. Matching on the step text instead of
+  // the method name makes that irrelevant: each attribute already says which
+  // step it is, so both migrate correctly.
   describe('when two steps produce the same method name', () => {
     const collidePrd = parsePRD(`---
 document_id: PRD-2026-collide
@@ -344,26 +372,30 @@ public partial class REQ001Steps
       expect(methods.filter((m) => m === 'GivenAPausedCanceledPlan')).toHaveLength(2);
     });
 
-    test('leaves the ambiguous binding untouched instead of picking one step', () => {
+    test('escapes the colliding binding to ITS OWN step, not the other one', () => {
       const r = migrateStepAttributes(collided, collidePrd);
-      expect(r.rewritten).toEqual([]);
-      expect(r.ambiguous).toEqual(['GivenAPausedCanceledPlan']);
-      expect(r.content).toBe(collided);
+      expect(r.rewritten.map((x) => x.text)).toEqual(['a paused/canceled plan']);
+      expect(r.content).toContain('[Given(@"a paused\\/canceled plan")]');
+      // The defect this replaced: the attribute became the OTHER step's text.
+      expect(r.content).not.toContain('a paused canceled plan');
+      expect(r.unmatched).toEqual([]);
     });
 
-    test('an unambiguous binding in the same file is still migrated', () => {
-      const mixed = collided.replace(
-        '}\n',
-        `
-    [When(@"it is due")]
-    public void WhenItIsDue() => _ctx["due"] = true;
-}
-`
+    test('migrates the other colliding step correctly too', () => {
+      const other = collided.replace(
+        '[Given(@"a paused/canceled plan")]',
+        '[Given(@"a paused canceled plan")]'
       );
-      const r = migrateStepAttributes(mixed, collidePrd);
-      expect(r.ambiguous).toEqual(['GivenAPausedCanceledPlan']);
-      expect(r.content).toContain('[Given(@"a paused/canceled plan")]');
-      expect(r.content).toContain('[When(@"it is due")]');
+      const r = migrateStepAttributes(other, collidePrd);
+      // No specials in that text, so it is already correct and stays byte-identical.
+      expect(r.rewritten).toEqual([]);
+      expect(r.content).toBe(other);
+    });
+
+    test('a body is never read, so both survive byte-identical', () => {
+      const r = migrateStepAttributes(collided, collidePrd);
+      expect(r.content).toContain('        => _ctx["kept"] = true;');
+      expect(r.content.split('\n')).toHaveLength(collided.split('\n').length);
     });
   });
 });

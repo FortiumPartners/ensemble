@@ -371,75 +371,63 @@ function diffBindingDrift(prd, csSources) {
 // leaving every filled body byte-identical.
 // ---------------------------------------------------------------------------
 
-const METHOD_DECL_RE = /\b(?:public|internal|protected|private)\b[^(;]*?\b(\w+)\s*\(/;
-
 /**
  * Re-emit the step attributes in an existing Steps/*.cs source from the PRD's
  * current inventory, touching nothing else.
  *
  * Step files are write-once, so a plain regeneration cannot correct an attribute
- * and `--force` would discard the bodies with it. Escaping does not change the
- * generated method name (methodNameFor strips non-alphanumerics), so the method
- * name survives the rewrite and can carry the match.
+ * and `--force` would discard the bodies with it.
  *
- * It is not a UNIQUE key, though: methodNameFor strips the very characters this
- * migration exists to escape, so "a paused/canceled plan" and "a paused canceled
- * plan" are distinct steps that produce one identifier. Keying on it alone would
- * silently rewrite one step's binding to the other's text. A method name claimed
- * by more than one step is therefore ambiguous and left untouched.
+ * An attribute is matched to its step by the LITERAL step text it already
+ * carries, unescaped — the same identity diffBindingDrift uses, so the two agree
+ * by construction. The generated C# method name looks like the tidier key and is
+ * not one: methodNameFor strips exactly the punctuation this escaping exists for,
+ * so two steps can share an identifier, and pairing an attribute to its
+ * declaration means guessing at C# shape — stacked attributes, multi-line and
+ * generic declarations, a comment in between. Matching on the text needs none of
+ * that. An attribute either already names a step and is re-escaped in place, or
+ * it does not and is left alone and reported.
  *
- * An attribute whose method is not in the PRD inventory is left untouched and
- * reported too, never guessed at.
+ * Two consequences worth stating, because both are the point rather than a gap.
+ * A hand-added alias attribute is never overwritten: its text is not a step, so
+ * it is reported instead. And no method body is read at all, which is what keeps
+ * every one byte-identical.
  *
- * @returns {{ content:string, rewritten:Array<{method,from,to}>, unmatched:string[],
- *            ambiguous:string[] }}
+ * Where two steps differ only in whitespace or case, they share this identity and
+ * the attribute is re-emitted from the PRD's canonical text. That is this
+ * command's stated job, and drift resolves them the same way.
+ *
+ * @returns {{ content:string, rewritten:Array<{text,from,to}>, unmatched:string[] }}
  */
 function migrateStepAttributes(csText, prd) {
-  const byMethod = new Map();
-  const collides = new Set();
-  for (const step of collectSteps(prd)) {
-    const prior = byMethod.get(step.method);
-    if (prior && prior.text !== step.text) collides.add(step.method);
-    byMethod.set(step.method, step);
-  }
+  const stepKey = (keyword, text) => `${attributeFor(keyword)}::${normalizeStepText(text)}`;
+  const byStep = new Map(collectSteps(prd).map((s) => [stepKey(s.keyword, s.text), s]));
 
   const lines = String(csText || '').split('\n');
   const rewritten = [];
   const unmatched = [];
-  const ambiguous = [];
 
   for (let i = 0; i < lines.length; i++) {
     const attr = /^(\s*)\[(Given|When|Then|And)\(@"((?:[^"]|"")*)"\)\]\s*$/.exec(lines[i]);
     if (!attr) continue;
 
-    // The method this attribute binds is the next declaration below it.
-    let method = null;
-    for (let j = i + 1; j < lines.length; j++) {
-      if (/^\s*\[/.test(lines[j]) || lines[j].trim() === '') continue;
-      const decl = METHOD_DECL_RE.exec(lines[j]);
-      if (decl) method = decl[1];
-      break;
-    }
-    if (!method) continue;
-
-    const step = byMethod.get(method);
+    // Undo the generator's two layers in reverse, exactly as the drift scanner
+    // does, to recover the literal step text this attribute stands for.
+    const literal = unescapeCucumberExpression(attr[3].replace(/""/g, '"'));
+    const step = byStep.get(stepKey(attr[2], literal));
     if (!step) {
-      unmatched.push(method);
-      continue;
-    }
-    if (collides.has(method)) {
-      ambiguous.push(method);
+      unmatched.push(literal);
       continue;
     }
 
     const expr = escapeCucumberExpression(step.text).replace(/"/g, '""');
     const next = `${attr[1]}[${attributeFor(step.keyword)}(@"${expr}")]`;
     if (next === lines[i]) continue;
-    rewritten.push({ method, from: attr[3], to: expr });
+    rewritten.push({ text: step.text, from: attr[3], to: expr });
     lines[i] = next;
   }
 
-  return { content: lines.join('\n'), rewritten, unmatched, ambiguous };
+  return { content: lines.join('\n'), rewritten, unmatched };
 }
 
 module.exports = {

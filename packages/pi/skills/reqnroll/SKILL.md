@@ -42,15 +42,18 @@ byte-identical:
 node packages/product/lib/reqnroll-cli.js migrate-bindings <prd-path> [--out <dir>] [--dry-run]
 ```
 
-It reports each attribute it rewrote, and leaves any binding with no matching PRD
-step alone rather than guessing — run `check-binding-drift` to see whether those are
-orphaned.
+It matches each attribute to its step by the step text the attribute already
+carries, which is the same identity `check-binding-drift` uses, and re-escapes it in
+place. No method body is read, so every filled body survives byte-identical.
 
-It also declines a binding whose method name is claimed by more than one step. The
-method name drops the punctuation this escaping exists for, so `a paused/canceled
-plan` and `a paused canceled plan` both generate `GivenAPausedCanceledPlan`, and
-nothing in the file says which one the body implements. Those are reported, not
-rewritten; reword one of the steps so the two produce different method names.
+An attribute whose text names no PRD step is **left alone and reported**. A second
+attribute you stacked on a method to bind an alias is the expected case here — it is
+not a generated attribute, so it is never rewritten. Run `check-binding-drift` to see
+whether the rest are orphaned.
+
+Exit codes match `check-binding-drift`: `0` everything resolved, `2` something was
+left alone, `1` no step files found. Do not read success off exit `0` alone if you
+scripted it — `2` means a binding is still wrong.
 
 ## Package set (already wired by the generator)
 
