@@ -9,15 +9,23 @@
  * .ensemble/pr-review/, `git check-ignore` reports the path ignored so a
  * state report can never alter the PR head.
  *
- * The other two Test AC scenarios (vendored bundle contains the CLI and its
- * modules; packages/full mirror check passes) are covered by
- * packages/pi/tests/lib-bundler.test.ts ("vendors every real sibling module
- * pr-review-cli.js requires") and by `npm run validate`'s
- * validateFullLibMirror()/validateFullSkillsMirror() checks respectively.
+ * Scenario: mirror validation passes -- given the new pr-review-*.js lib
+ * files and the new pr-review-cycle skill exist, when
+ * validateFullLibMirror()/validateFullSkillsMirror() run (the same
+ * functions `npm run validate` calls), then neither reports a missing
+ * mirror for them.
+ *
+ * The remaining Test AC scenario (vendored bundle contains the CLI and its
+ * modules) is covered by packages/pi/tests/lib-bundler.test.ts ("vendors
+ * every real sibling module pr-review-cli.js requires").
  */
 
 const path = require('path');
 const { execFileSync } = require('child_process');
+const {
+  validateFullLibMirror,
+  validateFullSkillsMirror,
+} = require('../../../scripts/validate-all.js');
 
 const REPO_ROOT = path.join(__dirname, '..', '..', '..');
 
@@ -45,5 +53,19 @@ describe('pr-review review-state report packaging', () => {
     const fs = require('fs');
     const gitignore = fs.readFileSync(path.join(REPO_ROOT, '.gitignore'), 'utf-8');
     expect(gitignore).toContain('.ensemble/pr-review/');
+  });
+});
+
+describe('scenario: mirror validation passes', () => {
+  test('packages/full/lib mirrors every pr-review-*.js file', () => {
+    const failures = validateFullLibMirror();
+    const prReviewFailures = failures.filter((msg) => msg.includes('pr-review-'));
+    expect(prReviewFailures).toEqual([]);
+  });
+
+  test('packages/full/skills mirrors the pr-review-cycle skill', () => {
+    const failures = validateFullSkillsMirror();
+    const prReviewCycleFailures = failures.filter((msg) => msg.includes('pr-review-cycle'));
+    expect(prReviewCycleFailures).toEqual([]);
   });
 });
