@@ -86,12 +86,14 @@ describe('implement-trd-beads generated parity (TRD-015-TEST)', () => {
     expect(remoteAction).toBeDefined();
     expect(remoteAction).toContain(SKILL_PATH_PATTERN);
 
-    const completionReport = completion.steps.find((s) => s.title === 'Completion Report');
-    const singlePrGateAction = completionReport.actions.find((a) =>
-      a.startsWith('PR Review Gate (TRD-013, REQ-015): if COMPLETION_ACTION.createPr')
+    // The single-PR whole-branch gate runs in the check, BEFORE Epic Closure, and not again in Completion Report.
+    const singlePrGateAction = prReviewCheck.actions.find((a) =>
+      a.startsWith('Single-PR local review gate (TRD-013')
     );
     expect(singlePrGateAction).toBeDefined();
     expect(singlePrGateAction).toContain(SKILL_PATH_PATTERN);
+    const completionReport = completion.steps.find((s) => s.title === 'Completion Report');
+    expect(completionReport.actions.some((a) => /MODE='local'/.test(a))).toBe(false);
   });
 
   test.each(Object.entries(GENERATED_FILES))(
@@ -116,16 +118,20 @@ describe('implement-trd-beads generated parity (TRD-015-TEST)', () => {
   );
 
   test.each(Object.entries(GENERATED_FILES))(
-    '%s: carries both PR Review Gate call sites, before their respective propose/append and completion-PR actions',
+    '%s: carries both PR review gate call sites, the stacked one before its append and the single-PR one before Epic Closure',
     (label) => {
       const text = generated[label];
-      const gateOccurrences = text.split('PR Review Gate (TRD-013').length - 1;
-      expect(gateOccurrences).toBeGreaterThanOrEqual(2);
-
-      const firstGateIdx = text.indexOf('PR Review Gate (TRD-013');
+      const stackedGateIdx = text.indexOf('PR Review Gate (TRD-013');
+      const singleGateIdx = text.indexOf('Single-PR local review gate (TRD-013');
       const appendClauseIdx = text.indexOf('GATE_ACTION.appendNextBranch is set');
-      expect(firstGateIdx).toBeGreaterThan(-1);
-      expect(appendClauseIdx).toBeGreaterThan(firstGateIdx);
+      // The Epic Closure STEP is located by its own unique description text (see above).
+      const epicClosureStepIdx = text.indexOf('Close the root epic when all children are done');
+
+      expect(stackedGateIdx).toBeGreaterThan(-1);
+      expect(singleGateIdx).toBeGreaterThan(-1);
+      expect(appendClauseIdx).toBeGreaterThan(stackedGateIdx);
+      // A blocking whole-branch finding must halt before the epic can close (AC-016-3).
+      expect(epicClosureStepIdx).toBeGreaterThan(singleGateIdx);
     }
   );
 
@@ -169,25 +175,12 @@ describe('implement-trd-beads generated parity (TRD-015-TEST)', () => {
   });
 
   test(
-    'regeneration is idempotent, and generate:validate and the full validate suite both pass -- re-running generate, generate:pi, generate:codex, generate:validate and validate from the repo root produces zero further diff',
+    'generated artifacts validate -- generate:validate and the full validate suite both pass (read-only; regeneration idempotency is enforced by the CI generate check on a clean checkout, never by rewriting tracked output from inside a unit test)',
     () => {
-      execSync(
-        'npm run generate && npm run generate:pi && npm run generate:codex && npm run generate:validate && npm run validate',
-        {
-          cwd: REPO_ROOT,
-          stdio: 'pipe',
-        }
-      );
-
-      const relativePaths = [
-        ...Object.values(GENERATED_FILES).map((p) => path.relative(REPO_ROOT, p)),
-        path.relative(REPO_ROOT, COMPLETE_BEADS_PI_MIRROR_PATH),
-      ];
-      const diff = execSync(`git status --porcelain -- ${relativePaths.join(' ')}`, {
+      execSync('npm run generate:validate && npm run validate', {
         cwd: REPO_ROOT,
-        encoding: 'utf-8',
-      }).trim();
-      expect(diff).toBe('');
+        stdio: 'pipe',
+      });
     },
     120000
   );
