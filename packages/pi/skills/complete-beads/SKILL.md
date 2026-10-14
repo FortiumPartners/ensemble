@@ -53,7 +53,7 @@ LOOP:
 
 Reopens scoped `in_progress` beads from prior runs:
 
-1. Run `br list --status=in_progress --json`, filter by SCOPE
+1. Run `br list --status=in_progress --json` (the issue list is the parsed JSON if it is an array, otherwise its `.issues` array), filter by SCOPE
 2. For each in-progress bead, scan dispatch-comment markers
 3. **New-format marker** (`runId:` / `baseSha:` / `worktree:`):
    - If child branch + worktree still exist: resume that worker/result

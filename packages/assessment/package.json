@@ -1,0 +1,31 @@
+{
+  "name": "@sunstone-partners/ensemble-assessment",
+  "version": "1.0.0",
+  "description": "Repository, team, and AI-readiness assessment and diagnostic reporting skills",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint ."
+  },
+  "keywords": [
+    "assessment",
+    "diagnostic",
+    "audit",
+    "code-quality",
+    "security",
+    "ai-readiness",
+    "team",
+    "ensemble"
+  ],
+  "author": "Sunstone Partners",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sunstone-Partners/ensemble.git",
+    "directory": "packages/assessment"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

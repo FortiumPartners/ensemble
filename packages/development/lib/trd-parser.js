@@ -159,34 +159,38 @@ function splitFrontmatter(md) {
   return { frontmatter, body };
 }
 
+/** Frontmatter keys that carry the PRD a TRD was derived from, in priority order. */
+const PRD_REFERENCE_KEYS = ['prd_reference', 'prd', 'source_prd'];
+
+const normalizeKey = (k) => String(k).trim().toLowerCase().replace(/[\s_-]+/g, '_');
+
 /**
- * Extract the design readiness score from frontmatter, accepting both
- * `design_readiness_score` and `Design Readiness Score` keys.
+ * Read a frontmatter field by any of `names` (tried in order), ignoring case and
+ * treating spaces, hyphens and underscores alike, so `Document ID`, `document-id`
+ * and `document_id` are one key. TRD authors use all of these spellings.
+ * @returns {*} the first non-null value found, else undefined
+ */
+function getFrontmatterField(frontmatter, ...names) {
+  if (!frontmatter) return undefined;
+  const byKey = new Map();
+  for (const key of Object.keys(frontmatter)) {
+    if (!byKey.has(normalizeKey(key))) byKey.set(normalizeKey(key), frontmatter[key]);
+  }
+  for (const name of names) {
+    const v = byKey.get(normalizeKey(name));
+    if (v != null) return v;
+  }
+  return undefined;
+}
+
+/**
+ * Extract the design readiness score from frontmatter, accepting
+ * `design_readiness_score`, `Design Readiness Score` and similar spellings.
  * @returns {number|null}
  */
 function extractDesignReadinessScore(frontmatter) {
-  if (!frontmatter) return null;
-  const candidates = [
-    'design_readiness_score',
-    'Design Readiness Score',
-    'design readiness score',
-  ];
-  for (const key of candidates) {
-    if (Object.prototype.hasOwnProperty.call(frontmatter, key)) {
-      const v = frontmatter[key];
-      const n = typeof v === 'number' ? v : parseFloat(String(v));
-      if (!Number.isNaN(n)) return n;
-    }
-  }
-  // Case-insensitive fallback over all keys.
-  for (const key of Object.keys(frontmatter)) {
-    if (key.toLowerCase().replace(/[\s_]+/g, ' ') === 'design readiness score') {
-      const v = frontmatter[key];
-      const n = typeof v === 'number' ? v : parseFloat(String(v));
-      if (!Number.isNaN(n)) return n;
-    }
-  }
-  return null;
+  const n = parseFloat(String(getFrontmatterField(frontmatter, 'design_readiness_score')));
+  return Number.isNaN(n) ? null : n;
 }
 
 // ---------------------------------------------------------------------------
@@ -356,9 +360,10 @@ function extractPrdReference(body, frontmatter) {
     return prdLine[1];
   }
 
-  // Frontmatter fallback (prd_reference).
-  if (frontmatter && frontmatter.prd_reference && looksLikePath(String(frontmatter.prd_reference))) {
-    return String(frontmatter.prd_reference);
+  // Frontmatter fallback.
+  const fmRef = getFrontmatterField(frontmatter, ...PRD_REFERENCE_KEYS);
+  if (fmRef && looksLikePath(String(fmRef))) {
+    return String(fmRef);
   }
 
   return null;
@@ -842,7 +847,8 @@ function parseTRD(markdownString) {
 
   const { frontmatter, body } = splitFrontmatter(md);
   const designReadinessScore = extractDesignReadinessScore(frontmatter);
-  const status = frontmatter && frontmatter.status != null ? String(frontmatter.status) : null;
+  const statusField = getFrontmatterField(frontmatter, 'status');
+  const status = statusField != null ? String(statusField) : null;
 
   const allLines = body.split('\n');
 
@@ -1008,19 +1014,21 @@ function parseTRD(markdownString) {
     taskIds: p.taskIds,
   }));
 
-  const documentId =
-    frontmatter && frontmatter.document_id != null ? String(frontmatter.document_id) : null;
-  const label = frontmatter && frontmatter.label != null ? String(frontmatter.label) : null;
-  const kind =
-    frontmatter && frontmatter.kind != null ? String(frontmatter.kind).toLowerCase() : 'trd';
+  const documentIdField = getFrontmatterField(frontmatter, 'document_id');
+  const documentId = documentIdField != null ? String(documentIdField) : null;
+  const labelField = getFrontmatterField(frontmatter, 'label');
+  const label = labelField != null ? String(labelField) : null;
+  const kindField = getFrontmatterField(frontmatter, 'kind');
+  const kind = kindField != null ? String(kindField).toLowerCase() : 'trd';
 
   // Capabilities a (foundational) TRD provides. Accept a YAML list or a
   // comma-separated string; normalize to a trimmed, non-empty string array.
   let capabilities = [];
-  if (frontmatter && frontmatter.capabilities != null) {
-    const raw = Array.isArray(frontmatter.capabilities)
-      ? frontmatter.capabilities
-      : String(frontmatter.capabilities).split(',');
+  const capabilitiesField = getFrontmatterField(frontmatter, 'capabilities');
+  if (capabilitiesField != null) {
+    const raw = Array.isArray(capabilitiesField)
+      ? capabilitiesField
+      : String(capabilitiesField).split(',');
     capabilities = raw.map((c) => String(c).trim()).filter(Boolean);
   }
 
@@ -1043,4 +1051,10 @@ function parseTRD(markdownString) {
   };
 }
 
-module.exports = { parseTRD, normalizeLineEndings };
+module.exports = {
+  parseTRD,
+  normalizeLineEndings,
+  extractDesignReadinessScore,
+  getFrontmatterField,
+  PRD_REFERENCE_KEYS,
+};

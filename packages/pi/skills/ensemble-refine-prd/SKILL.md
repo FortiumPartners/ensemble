@@ -453,3 +453,17 @@ Save the refined PRD with updated metadata and changelog
 4. Add changelog entry at the bottom of the PRD: date, version, list of changes made during this refinement
 5. Save the updated PRD to the same file path (overwrite the original)
 6. Print summary: number of changes made, new version, updated readiness score and delta (if applicable)
+
+### Step 2: PRD Lock
+
+Close the refinement with an explicit lock decision, then hand off to create-trd
+
+**Actions:**
+1. This step ALWAYS runs, and it is the last thing this command does. The run does not end on a printed summary.
+2. Present the close-out through ask, not prose. Put the readiness score, its delta, and a ONE-LINE verdict in the question body, together with any genuine open question the refinement could not settle from the PRD or the constitution. Keep it to a few lines: the person answering this has not read the PRD and is not going to.
+3. Option 1, and the recommendation: LOCK the PRD. Set frontmatter `status: Locked`, save, and print the next step as '/ensemble-create-trd <prd path>'. Cost: none. Risk: a locked PRD that changes later forces the TRD to be re-created rather than refined, so lock when the requirements are settled.
+4. Option 2: another refine pass. Cost: one more run. Risk: none beyond time. Offer this when the readiness score fell, or when open questions remain unanswered.
+5. Option 3: leave the PRD unlocked and stop here. Cost: none now. Risk: create-trd will warn that the PRD was never locked, and nothing downstream can tell a settled PRD from a draft.
+6. Do NOT print '/ensemble-create-trd' anywhere before this question is answered, and print it only on the LOCK branch. An unlocked PRD has no business producing a TRD.
+7. Ask genuine open questions ONLY. A finding -- anything the PRD, the TRD or the constitution already contains a rule for -- is not a question: it was fixed during Synthesis. If nothing is genuinely open, say so in one line and offer the lock; never manufacture a question to fill the slot.
+8. If --foreman is set, skip the question, lock the PRD, and log the decision.

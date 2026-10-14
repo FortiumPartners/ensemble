@@ -647,4 +647,21 @@ describe('implement-trd-beads always-on team roster (team8)', () => {
     expect(stepBlock).toMatch(/--team-roles '<TEAM_ROLES_JSON>'/);
     expect(stepBlock).toMatch(/deprecated fallback accepted by beads-build/);
   });
+
+  test('--foreman tags only task beads with foreman-exec after bv planning, without replacing labels', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const stepStart = text.indexOf('title: BV Execution Planning');
+    const stepEnd = text.indexOf('title: Scaffold Summary and BV Analysis');
+    expect(stepStart).toBeGreaterThan(-1);
+    expect(stepEnd).toBeGreaterThan(stepStart);
+    const stepBlock = text.slice(stepStart, stepEnd);
+
+    expect(stepBlock.indexOf('bv --robot-plan --format toon')).toBeGreaterThan(-1);
+    expect(stepBlock.indexOf('br update <BEAD_ID> --add-label foreman-exec')).toBeGreaterThan(
+      stepBlock.indexOf('bv --robot-plan --format toon')
+    );
+    expect(stepBlock).toMatch(/NEVER tag the root epic or story beads/);
+    expect(stepBlock).toMatch(/NEVER use --labels or --set-labels/);
+    expect(stepBlock).not.toMatch(/br update <BEAD_ID> --labels/);
+  });
 });

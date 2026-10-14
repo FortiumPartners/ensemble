@@ -100,6 +100,7 @@ The plugin ecosystem is organized into 4 tiers; see the [wiki Architecture page]
 - **ensemble-permitter** - Permission-expansion hook with allowlist (opt-out via `ENSEMBLE_PERMITTER_DISABLE=1`)
 - **ensemble-multiplexer-adapters** - Terminal multiplexer abstraction layer
 - **ensemble-ai** - AI SDK skills for OpenAI, Anthropic, Perplexity, and Weaviate
+- **ensemble-assessment** - Repository, team, and AI-readiness assessment and diagnostic reporting
 
 ### Runtime Translation
 - **ensemble-opencode** (5.3.0) - OpenCode runtime support (translates Ensemble artifacts to OpenCode-compatible formats)

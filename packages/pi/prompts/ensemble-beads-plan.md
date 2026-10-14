@@ -13,7 +13,7 @@
 Parse epic-id or slug-pattern and max parallel N from arguments
 
 **Actions:**
-1. Parse $ARGUMENTS: if first token matches pattern beads-NNN or a numeric ID, treat as direct epic bead ID (EPIC_ID_MODE=true); otherwise treat as slug pattern (EPIC_ID_MODE=false)
+1. Parse $ARGUMENTS: take the first token as RAW_INPUT (no epic argument if it is absent or starts with "--"). Run br show <first-token> --json: exit code 0 means it is an existing bead of ANY id prefix (beads-12, cribs-l4pd, ...), so treat it as the direct epic bead ID (EPIC_ID_MODE=true); a non-zero exit means it is not a bead id, so treat it as a slug pattern (EPIC_ID_MODE=false). Never infer this from how the token is spelled.
 2. Parse "max parallel N" from $ARGUMENTS (e.g., "max parallel 3") — default MAX_PARALLEL=1 if not present
 3. Store parsed values: RAW_INPUT (the epic-id or slug text), MAX_PARALLEL
 
@@ -32,7 +32,7 @@ Locate the root epic bead using the provided ID or slug pattern
 
 **Actions:**
 1. If EPIC_ID_MODE=true: run br show <RAW_INPUT> to confirm epic exists; if exit code != 0 print "ERROR: Bead <RAW_INPUT> not found." and HALT; store ROOT_EPIC_ID=RAW_INPUT
-2. If EPIC_ID_MODE=false: run br list --status=open --json; parse JSON array; scan .title fields for entries containing RAW_INPUT as substring (case-insensitive); collect matches
+2. If EPIC_ID_MODE=false: run br list --status=open --json; the issue list is the parsed JSON if it is an array, otherwise its `.issues` array (br 0.2.x wraps list output as {issues:[...]}); scan .title fields for entries containing RAW_INPUT as substring (case-insensitive); collect matches
 3. If zero matches found: print "ERROR: No open epic found matching slug pattern '<RAW_INPUT>'. Run br list --status=open to see available epics." and HALT
 4. If multiple matches found: print "ERROR: Multiple epics match '<RAW_INPUT>':" followed by each matching title; print "Provide a more specific slug or use the direct bead ID." and HALT
 5. If exactly one match: store ROOT_EPIC_ID from .id field; derive EPIC_SLUG from .title field (lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens)
@@ -42,9 +42,9 @@ Locate the root epic bead using the provided ID or slug pattern
 Print a count of open, in_progress, closed, and blocked tasks under the epic
 
 **Actions:**
-1. Run: br list --status=open --json; filter entries whose .title contains EPIC_SLUG; count as OPEN_COUNT
-2. Run: br list --status=in_progress --json; filter entries whose .title contains EPIC_SLUG; count as IN_PROGRESS_COUNT
-3. Run: br list --status=closed --json; filter entries whose .title contains EPIC_SLUG; count as CLOSED_COUNT
+1. Run: br list --status=open --json; take its issue list (the parsed JSON if it is an array, otherwise its `.issues` array); filter entries whose .title contains EPIC_SLUG; count as OPEN_COUNT
+2. Run: br list --status=in_progress --json; take its issue list (same rule); filter entries whose .title contains EPIC_SLUG; count as IN_PROGRESS_COUNT
+3. Run: br list --status=closed --json; take its issue list (same rule); filter entries whose .title contains EPIC_SLUG; count as CLOSED_COUNT
 4. Print scope summary: "=== EPIC SCOPE: <EPIC_SLUG> (bead: <ROOT_EPIC_ID>) ==="; "Open: <OPEN_COUNT> | In-progress: <IN_PROGRESS_COUNT> | Closed: <CLOSED_COUNT>"
 
 ## Phase 2: BV Analysis

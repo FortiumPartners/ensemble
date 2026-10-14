@@ -1,6 +1,6 @@
 {
   "name": "ensemble",
-  "version": "6.9.7",
+  "version": "6.9.8",
   "description": "Official Sunstone Ensemble plugin marketplace - AI-augmented development workflows",
   "owner": {
     "name": "Sunstone Partners",
@@ -33,6 +33,11 @@
       "id": "utilities",
       "name": "Utilities",
       "description": "Productivity and monitoring tools"
+    },
+    {
+      "id": "assessment",
+      "name": "Assessment & Diagnostics",
+      "description": "Repository, team, and AI-readiness assessment and diagnostic reporting"
     }
   ],
   "plugins": [
@@ -54,7 +59,7 @@
     },
     {
       "name": "ensemble-product",
-      "version": "5.6.3",
+      "version": "5.6.4",
       "source": "./packages/product",
       "description": "Product management workflows - PRD and TRD creation",
       "category": "workflow",
@@ -71,7 +76,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "6.0.9",
+      "version": "6.0.10",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -87,7 +92,7 @@
     },
     {
       "name": "ensemble-quality",
-      "version": "5.3.0",
+      "version": "5.4.0",
       "source": "./packages/quality",
       "description": "Quality assurance and code review workflows",
       "category": "workflow",
@@ -135,7 +140,7 @@
     },
     {
       "name": "ensemble-e2e-testing",
-      "version": "5.3.0",
+      "version": "5.4.0",
       "source": "./packages/e2e-testing",
       "description": "End-to-end testing workflows with Playwright",
       "category": "testing",
@@ -399,7 +404,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "6.9.7",
+      "version": "6.9.8",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
@@ -450,7 +455,7 @@
     },
     {
       "name": "ensemble-pi",
-      "version": "1.6.12",
+      "version": "1.6.13",
       "source": "./packages/pi",
       "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
       "category": "core",
@@ -467,7 +472,7 @@
     },
     {
       "name": "ensemble-codex",
-      "version": "5.3.4",
+      "version": "5.3.5",
       "source": "./packages/codex",
       "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
       "category": "core",
@@ -481,6 +486,26 @@
       "author": {
         "name": "Sunstone Partners",
         "email": "info@sunstonepartners.com"
+      }
+    },
+    {
+      "name": "ensemble-assessment",
+      "version": "1.0.0",
+      "source": "./packages/assessment",
+      "description": "Repository, team, and AI-readiness assessment and diagnostic reporting skills",
+      "category": "assessment",
+      "tags": [
+        "assessment",
+        "diagnostic",
+        "audit",
+        "code-quality",
+        "security",
+        "ai-readiness",
+        "team"
+      ],
+      "author": {
+        "name": "Sunstone Partners",
+        "url": "https://github.com/Sunstone-Partners"
       }
     }
   ]
