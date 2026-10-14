@@ -312,6 +312,60 @@ public partial class REQ005Steps
     expect(r.unmatched).toEqual(['GivenAStepNobodyDeclared']);
     expect(r.content).toContain('[Given(@"a step nobody declared")]');
   });
+
+  // methodNameFor strips exactly the characters this migration escapes, so two
+  // distinct steps can land on one identifier. Keying on it alone rewrote the
+  // first step's binding to the second step's text and dropped the slash.
+  describe('when two steps produce the same method name', () => {
+    const collidePrd = parsePRD(`---
+document_id: PRD-2026-collide
+label: collide
+---
+
+# PRD-2026-collide: Collision
+
+### REQ-001: Collide [Must] [High]
+
+- **AC-001-1:** Given a paused/canceled plan, when it is due, then nothing is sent.
+- **AC-001-2:** Given a paused canceled plan, when it fires, then nothing is logged.
+`);
+
+    const collided = `[Binding]
+public partial class REQ001Steps
+{
+    [Given(@"a paused/canceled plan")]
+    public void GivenAPausedCanceledPlan()
+        => _ctx["kept"] = true;
+}
+`;
+
+    test('the two steps really do collide, or this test proves nothing', () => {
+      const methods = collectSteps(collidePrd).map((s) => s.method);
+      expect(methods.filter((m) => m === 'GivenAPausedCanceledPlan')).toHaveLength(2);
+    });
+
+    test('leaves the ambiguous binding untouched instead of picking one step', () => {
+      const r = migrateStepAttributes(collided, collidePrd);
+      expect(r.rewritten).toEqual([]);
+      expect(r.ambiguous).toEqual(['GivenAPausedCanceledPlan']);
+      expect(r.content).toBe(collided);
+    });
+
+    test('an unambiguous binding in the same file is still migrated', () => {
+      const mixed = collided.replace(
+        '}\n',
+        `
+    [When(@"it is due")]
+    public void WhenItIsDue() => _ctx["due"] = true;
+}
+`
+      );
+      const r = migrateStepAttributes(mixed, collidePrd);
+      expect(r.ambiguous).toEqual(['GivenAPausedCanceledPlan']);
+      expect(r.content).toContain('[Given(@"a paused/canceled plan")]');
+      expect(r.content).toContain('[When(@"it is due")]');
+    });
+  });
 });
 
 describe('renderProject', () => {

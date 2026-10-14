@@ -139,16 +139,18 @@ function runMigrate(argv) {
 
   const changed = [];
   const unmatched = [];
+  const ambiguous = [];
   for (const file of files) {
     const before = fs.readFileSync(file, 'utf8');
     const res = migrateStepAttributes(before, parsed);
     for (const m of res.unmatched) unmatched.push({ file, method: m });
+    for (const m of res.ambiguous) ambiguous.push({ file, method: m });
     if (!res.rewritten.length) continue;
     changed.push({ file, rewritten: res.rewritten });
     if (!flags['dry-run']) writeFileAtomic(file, res.content);
   }
 
-  return { ok: true, slug, stepsDir, changed, unmatched, dryRun: !!flags['dry-run'] };
+  return { ok: true, slug, stepsDir, changed, unmatched, ambiguous, dryRun: !!flags['dry-run'] };
 }
 
 function runRun(argv) {
@@ -197,7 +199,7 @@ function reportDrift(r) {
 function reportMigrate(r) {
   if (r.noBindings) return r.message;
   const verb = r.dryRun ? 'Would rewrite' : 'Rewrote';
-  if (!r.changed.length && !r.unmatched.length) {
+  if (!r.changed.length && !r.unmatched.length && !r.ambiguous.length) {
     return `IN_SYNC — ${r.slug} step attributes already match the PRD.`;
   }
   const lines = [];
@@ -209,6 +211,11 @@ function reportMigrate(r) {
     lines.push(`  ${r.unmatched.length} binding(s) left alone — no matching PRD step:`);
     for (const u of r.unmatched) lines.push(`      ${u.method} (${u.file})`);
     lines.push('  Run check-binding-drift to see whether those are orphaned.');
+  }
+  if (r.ambiguous.length) {
+    lines.push(`  ${r.ambiguous.length} binding(s) left alone — the method name is claimed by more than one PRD step:`);
+    for (const a of r.ambiguous) lines.push(`      ${a.method} (${a.file})`);
+    lines.push('  Reword one of the steps so the two produce different method names, then re-run.');
   }
   if (!r.dryRun && r.changed.length) lines.push('  Method bodies were not touched.');
   return lines.join('\n');

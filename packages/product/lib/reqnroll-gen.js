@@ -380,18 +380,33 @@ const METHOD_DECL_RE = /\b(?:public|internal|protected|private)\b[^(;]*?\b(\w+)\
  * Step files are write-once, so a plain regeneration cannot correct an attribute
  * and `--force` would discard the bodies with it. Escaping does not change the
  * generated method name (methodNameFor strips non-alphanumerics), so the method
- * name is a stable key: match on it and substitute only the expression.
+ * name survives the rewrite and can carry the match.
+ *
+ * It is not a UNIQUE key, though: methodNameFor strips the very characters this
+ * migration exists to escape, so "a paused/canceled plan" and "a paused canceled
+ * plan" are distinct steps that produce one identifier. Keying on it alone would
+ * silently rewrite one step's binding to the other's text. A method name claimed
+ * by more than one step is therefore ambiguous and left untouched.
  *
  * An attribute whose method is not in the PRD inventory is left untouched and
- * reported, never guessed at.
+ * reported too, never guessed at.
  *
- * @returns {{ content:string, rewritten:Array<{method,from,to}>, unmatched:string[] }}
+ * @returns {{ content:string, rewritten:Array<{method,from,to}>, unmatched:string[],
+ *            ambiguous:string[] }}
  */
 function migrateStepAttributes(csText, prd) {
-  const byMethod = new Map(collectSteps(prd).map((s) => [s.method, s]));
+  const byMethod = new Map();
+  const collides = new Set();
+  for (const step of collectSteps(prd)) {
+    const prior = byMethod.get(step.method);
+    if (prior && prior.text !== step.text) collides.add(step.method);
+    byMethod.set(step.method, step);
+  }
+
   const lines = String(csText || '').split('\n');
   const rewritten = [];
   const unmatched = [];
+  const ambiguous = [];
 
   for (let i = 0; i < lines.length; i++) {
     const attr = /^(\s*)\[(Given|When|Then|And)\(@"((?:[^"]|"")*)"\)\]\s*$/.exec(lines[i]);
@@ -412,6 +427,10 @@ function migrateStepAttributes(csText, prd) {
       unmatched.push(method);
       continue;
     }
+    if (collides.has(method)) {
+      ambiguous.push(method);
+      continue;
+    }
 
     const expr = escapeCucumberExpression(step.text).replace(/"/g, '""');
     const next = `${attr[1]}[${attributeFor(step.keyword)}(@"${expr}")]`;
@@ -420,7 +439,7 @@ function migrateStepAttributes(csText, prd) {
     lines[i] = next;
   }
 
-  return { content: lines.join('\n'), rewritten, unmatched };
+  return { content: lines.join('\n'), rewritten, unmatched, ambiguous };
 }
 
 module.exports = {

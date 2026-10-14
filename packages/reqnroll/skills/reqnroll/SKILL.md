@@ -44,6 +44,12 @@ It reports each attribute it rewrote, and leaves any binding with no matching PR
 step alone rather than guessing — run `check-binding-drift` to see whether those are
 orphaned.
 
+It also declines a binding whose method name is claimed by more than one step. The
+method name drops the punctuation this escaping exists for, so `a paused/canceled
+plan` and `a paused canceled plan` both generate `GivenAPausedCanceledPlan`, and
+nothing in the file says which one the body implements. Those are reported, not
+rewritten; reword one of the steps so the two produce different method names.
+
 ## Package set (already wired by the generator)
 
 ```xml
