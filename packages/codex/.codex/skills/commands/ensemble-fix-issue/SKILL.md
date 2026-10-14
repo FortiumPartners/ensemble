@@ -113,12 +113,36 @@ stage via issue-run-index.ts (Implementation AC 2, REQ-019).
 pass before creating PR.
 
 
-**2. PR Creation**
+**2. Local Review and Batch Fix**
+   Independent local review of the complete diff, triage, and one
+batched fix pass -- before any commit, push, or PR creation
+(TRD-009, REQ-011). Invokes the shared pr-review-cycle skill,
+located at
+"$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+in pre-publication (local) mode; that skill composes
+pr-review-remediation for the actual fixes and does not
+restate its triage/test/minimal-fix rules here.
+
+
+**3. PR Creation**
    Create comprehensive pull request with GitHub CLI
 
-**3. Record Stage Checkpoint**
+**4. Remote Review Disposition**
+   After the PR exists, invoke the shared pr-review-cycle skill,
+located at
+"$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+in remote mode to evaluate the head-bound CodeRabbit review and
+decide whether this run may report success (TRD-010, REQ-012,
+REQ-013). A pending or blocked review never completes the run
+-- it returns a resumable report instead.
+
+
+**5. Record Stage Checkpoint**
    Persist this phase's outcome and mark the run complete via
-issue-run-index.ts (Implementation AC 2, REQ-019).
+issue-run-index.ts (Implementation AC 2, REQ-019). Only
+reached when Remote Review Disposition's status is
+REVIEW_COMPLETE -- a pending or blocked outcome halts there
+instead (TRD-010, AC-012-1).
 
 
 ## Expected Output
