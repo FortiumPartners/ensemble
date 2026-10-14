@@ -62,6 +62,7 @@ Verify br is installed and detect bv availability
 1. "which br || { echo 'ERROR: br (beads_rust) not installed. Install from https://github.com/Dicklesworthstone/beads_rust'; exit 1; }"
 2. "br list --status=open > /dev/null 2>&1 || { echo 'ERROR: br not functional'; exit 1; }"
 3. "which bv && BV_AVAILABLE=true || { echo 'WARNING: bv (beads_viewer) not installed. Graph-aware triage will be unavailable. Install from https://github.com/Dicklesworthstone/beads_viewer'; BV_AVAILABLE=false; }"
+4. Verify the wave-runner agent is registered in this session. The Execute phase dispatches Task(subagent_type=beads-build-wave), so beads-build-wave (listed as ensemble-development:beads-build-wave) must be among the subagent types the Task tool currently accepts. An agent file on disk, or an entry in AGENT_ALIAS_MAP, does not prove the plugin registered it. If it is not available: print "ERROR: agent beads-build-wave is not registered in this session, so the wave loop cannot dispatch. The installed ensemble-development plugin is out of date or was loaded before this agent shipped. Run /ensemble-reinstall-plugins, start a new Claude Code session, and re-run." and HALT before any bead is read or changed.
 
 ### Step 3: Git-Town and Working Directory Verification
 

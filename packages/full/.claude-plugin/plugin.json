@@ -33,6 +33,7 @@
     "./agents/core/file-creator.md",
     "./agents/core/general-purpose.md",
     "./agents/development/api-documentation-specialist.md",
+    "./agents/development/beads-build-wave.md",
     "./agents/development/beads-scaffold-specialist.md",
     "./agents/development/backend-developer.md",
     "./agents/development/documentation-specialist.md",
