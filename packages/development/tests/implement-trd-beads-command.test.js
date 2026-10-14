@@ -1,6 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
+// Split a YAML block's `actions:` list into one string per action so assertions are about
+// which action does what and in what ORDER, not about line-wrapped literals.
+const actionsOf = (block) =>
+  block
+    .slice(block.indexOf('actions:'))
+    .split(/\n\s*- "/)
+    .slice(1);
+
 describe('implement-trd-beads command progress behavior', () => {
   const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 
@@ -721,31 +729,68 @@ describe('implement-trd-beads PR review gates at stacked-phase and single-PR bou
     );
   });
 
-  test('Scenario: single-PR gate precedes the completion PR -- the review runs once before the completion git town propose/gh pr create/ado/manual equivalents', () => {
-    const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
+  test('Scenario: single-PR gate precedes Epic Closure and the completion PR -- the whole-branch review runs once, in the PR Review Completion Check, never in Completion Report', () => {
+    const checkStart = text.indexOf('title: PR Review Completion Check');
+    const epicStart = text.indexOf('title: Epic Closure');
+    const reportStart = text.indexOf('title: Completion Report');
+    expect(checkStart).toBeGreaterThan(-1);
+    expect(epicStart).toBeGreaterThan(checkStart);
+    expect(reportStart).toBeGreaterThan(epicStart);
 
-    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
-    const ghGitTownIdx = block.indexOf("run git town propose --title '<COMPLETION_ACTION.proposeTitle>'");
-    const ghPlainGitIdx = block.indexOf('run git push -u origin <COMPLETION_ACTION.branch>, then run gh pr create');
-    const adoIdx = block.indexOf("PR_BACKEND=='ado': run git push -u origin <COMPLETION_ACTION.branch>; scan");
-    const manualIdx = block.indexOf("PR_BACKEND=='manual': print 'PR backend is manual");
+    const checkBlock = text.slice(checkStart, epicStart);
+    const reportBlock = text.slice(reportStart, text.indexOf('expectedInput:', reportStart));
 
-    expect(gateIdx).toBeGreaterThan(-1);
-    [ghGitTownIdx, ghPlainGitIdx, adoIdx, manualIdx].forEach((idx) => {
-      expect(idx).toBeGreaterThan(gateIdx);
+    // The local review is invoked exactly once, before Epic Closure ...
+    const gateActions = actionsOf(checkBlock).filter((a) => /MODE='local'/.test(a) && /<TRD_SLUG>-completion/.test(a));
+    expect(gateActions).toHaveLength(1);
+    // ... and never again in Completion Report, whose PR creation therefore runs on an already-reviewed head.
+    expect(reportBlock).not.toMatch(/MODE='local'/);
+    ['git town propose --title', 'gh pr create --title', "PR_BACKEND=='ado'", "PR_BACKEND=='manual'"].forEach((needle) => {
+      expect(reportBlock).toContain(needle);
     });
   });
 
-  test('Scenario: a blocked completion review halts before the completion PR is created', () => {
-    const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
-    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
-    const parseIdx = block.indexOf("Parse the skill's return {status, localPhase, reasons, reportPath}", gateIdx);
-    expect(parseIdx).toBeGreaterThan(gateIdx);
+  test('Scenario: a blocked completion review halts BEFORE Epic Closure, leaving the epic open and creating no PR', () => {
+    const checkBlock = text.slice(text.indexOf('title: PR Review Completion Check'), text.indexOf('title: Epic Closure'));
+    const [gate, parse] = actionsOf(checkBlock);
 
-    expect(block.slice(parseIdx)).toContain(
-      "COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED': print 'PR REVIEW GATE BLOCKED for the completion PR"
+    expect(gate).toMatch(/MODE='local'/);
+    expect(parse).toMatch(/COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED'/);
+    // The BLOCKED branch halts before closing the epic and before creating the completion PR.
+    const blockedBranch = parse.slice(
+      parse.indexOf("If COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED'"),
+      parse.indexOf("If COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_COMPLETE'")
     );
-    expect(block.slice(parseIdx)).toContain('do NOT create the completion PR');
+    expect(blockedBranch).toMatch(/HALT BEFORE Epic Closure/);
+    expect(blockedBranch).toMatch(/do not close <ROOT_EPIC_ID>/);
+    expect(blockedBranch).toMatch(/do not create the completion PR/);
+  });
+
+  test('Scenario: a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE', () => {
+    const { block } = sliceBetween('title: Gate Result Recording', 'title: Completion Verification');
+    const actions = actionsOf(block);
+
+    const gateIdx = actions.findIndex((a) => /^PR Review Gate \(TRD-013/.test(a));
+    const resultIdx = actions.findIndex((a) => /^Parse the skill's return \{status, localPhase/.test(a));
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(resultIdx).toBeGreaterThan(gateIdx);
+
+    // Any story close that can run BEFORE the review gate must be restricted to single-PR mode (no PR boundary).
+    actions.slice(0, gateIdx).filter((a) => /br close <STORY_BEAD_ID>/.test(a)).forEach((a) => {
+      expect(a).toMatch(/createPr == false/);
+      expect(a).toMatch(/do NOT close <STORY_BEAD_ID> yet/);
+    });
+
+    // The stacked-mode close lives in the review-result action, only on the COMPLETE branch; BLOCKED keeps the story open.
+    const result = actions[resultIdx];
+    const blocked = result.indexOf("If PHASE_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED'");
+    const complete = result.indexOf("If PHASE_LOCAL_REVIEW=='LOCAL_REVIEW_COMPLETE'");
+    const closeAt = result.indexOf('br close <STORY_BEAD_ID>');
+    expect(blocked).toBeGreaterThan(-1);
+    expect(complete).toBeGreaterThan(blocked);
+    expect(closeAt).toBeGreaterThan(complete);
+    expect(result.slice(blocked, complete)).toMatch(/<STORY_BEAD_ID> stays OPEN/);
+    expect(result.slice(blocked, complete)).not.toMatch(/br close/);
   });
 
   test('Scenario: existing safeguards intact -- pr-plan GATE_ACTION/COMPLETION_ACTION resolution, the Pre-PR test gate, and completion-verification are unchanged', () => {
@@ -826,20 +871,27 @@ describe('implement-trd-beads PR-review completion check, messaging, manual/ADO 
     const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
     const flat = block.replace(/\s+/g, ' ');
 
-    // Single-PR summary line
-    expect(flat).toContain("'Review: <PR_REVIEW_STATUS[completion]>'");
-    expect(flat).toContain(
-      "this command never describes a pending PR as merged or landed"
-    );
+    // Single-PR summary: a PR created in this very step is reported REVIEW_PENDING, never merged/landed.
+    expect(flat).toMatch(/'Review: REVIEW_PENDING \(PR just created/);
+    expect(flat).toContain('this command never describes a pending PR as merged or landed');
     // Stacked summary line
     expect(flat).toContain("-- review: <PR_REVIEW_STATUS[N]>'");
     expect(flat).toContain('never merged or landed until a human confirms it');
   });
 
-  test('this check never HALTs and never blocks Epic Closure -- PR_REVIEW_STATUS is informational only', () => {
-    const { block } = sliceBetween('title: PR Review Completion Check', 'title: Epic Closure');
-    expect(block).not.toMatch(/\bHALT\b/);
-    expect(block).toContain('This check never HALTs and never blocks Epic Closure');
+  test('the remote evaluation never HALTs or blocks Epic Closure -- the only HALT in the check is the single-PR local gate', () => {
+    const checkBlock = text.slice(text.indexOf('title: PR Review Completion Check'), text.indexOf('title: Epic Closure'));
+    const haltActions = actionsOf(checkBlock).filter((a) => /\bHALT\b/.test(a));
+
+    expect(haltActions.length).toBeGreaterThan(0);
+    // Every HALT belongs to the local gate result or to the explanatory note naming it as the only HALT.
+    haltActions.forEach((a) => {
+      expect(a).toMatch(/COMPLETION_LOCAL_REVIEW|The only HALT in this step is the single-PR local review gate/);
+    });
+    // No remote-evaluation action (MODE='remote' invocation or PR_REVIEW_STATUS assignment) halts.
+    actionsOf(checkBlock)
+      .filter((a) => /MODE='remote'|PR_REVIEW_STATUS\[entry\.n\]/.test(a))
+      .forEach((a) => expect(a).not.toMatch(/\bHALT\b/));
   });
 
   test('the completion-side remote check reuses the same canonical pr-review-cycle skill path as the TRD-013 local gates (MODE=remote, one call site)', () => {
