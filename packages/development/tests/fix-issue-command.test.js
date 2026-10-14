@@ -20,7 +20,7 @@ describe('Fix-Issue Command', () => {
       expect(commandYaml.metadata).toBeDefined();
       expect(commandYaml.metadata.name).toBe('ensemble:fix-issue');
       expect(commandYaml.metadata.description).toBe('Lightweight workflow for bug fixes and small issues');
-      expect(commandYaml.metadata.version).toBe('1.3.0');
+      expect(commandYaml.metadata.version).toBe('1.4.0');
       expect(commandYaml.metadata.category).toBe('implementation');
       expect(commandYaml.metadata.model).toBe('medium');
       expect(commandYaml.metadata.source).toBe('sunstone');
@@ -268,7 +268,7 @@ describe('Fix-Issue Command', () => {
       expect(phase.name).toBe('Validation & Delivery');
       expect(phase.order).toBe(4);
       expect(phase.steps).toBeInstanceOf(Array);
-      expect(phase.steps.length).toBe(4);
+      expect(phase.steps.length).toBe(5);
 
       // Step 1: Test Validation
       const step1 = phase.steps[0];
@@ -298,10 +298,21 @@ describe('Fix-Issue Command', () => {
       expect(step3.instructions).toContain('gh pr create');
       expect(step3.instructions).toContain('conventional commit');
 
-      // Step 4: Record Stage Checkpoint
+      // Step 4: Remote Review Disposition (TRD-010)
       const step4 = phase.steps[3];
-      expect(step4.title).toBe('Record Stage Checkpoint');
-      expect(step4.instructions).toContain('IssueRunIndexStore.complete(projectRoot, runId)');
+      expect(step4.title).toBe('Remote Review Disposition');
+      expect(step4.tool).toBe('Bash');
+      expect(step4.model).toBe('low');
+      expect(step4.description).toContain(
+        '"$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md"'
+      );
+      expect(step4.instructions).toContain("MODE='remote'");
+      expect(step4.instructions).toContain('REVIEW_COMPLETE');
+
+      // Step 5: Record Stage Checkpoint
+      const step5 = phase.steps[4];
+      expect(step5.title).toBe('Record Stage Checkpoint');
+      expect(step5.instructions).toContain('IssueRunIndexStore.complete(projectRoot, runId)');
     });
   });
 
@@ -631,6 +642,74 @@ describe('Fix-Issue Command', () => {
       const reviewStep = deliveryPhase.steps[1];
 
       expect(reviewStep.instructions).toMatch(/REVIEW_PENDING with reason\s+"tests skipped"/);
+    });
+  });
+
+  describe('TRD-010: Remote Review Disposition, Foreman artifact, resumable pending', () => {
+    test('Scenario: pending remote review is not success -- the run is not completed while the outcome is pending', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).toContain("IF REVIEW_STATUS is 'REVIEW_PENDING' or 'REVIEW_BLOCKED':");
+      expect(reviewStep.instructions).toContain('never call IssueRunIndexStore.complete() and never describe');
+      expect(reviewStep.instructions).toContain('record.stageOutcome = { kind: "approval_wait",');
+    });
+
+    test('Scenario: pending result is resumable -- the command returns a report with the exact next action', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).toContain('detail: `${REVIEW_STATUS}: ${REVIEW_NEXT_ACTION}`,');
+      expect(reviewStep.instructions).toContain('Print the resumable report (status, next action,');
+      expect(reviewStep.instructions).toContain('REVIEW_REPORT_PATH) and HALT -- do NOT proceed to Record');
+    });
+
+    test('Scenario: foreman never prompts or waits indefinitely -- no ask step and no unbounded wait', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).not.toContain('AskUserQuestion');
+      expect(reviewStep.description).not.toContain('AskUserQuestion');
+      expect(reviewStep.instructions).toContain('FOREMAN=<--foreman flag>.');
+    });
+
+    test('Scenario: artifact written to the exact path -- status, head SHA and ledger go to FOREMAN_ARTIFACT_PATH', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).toContain('IF --foreman is set and FOREMAN_ARTIFACT_PATH is non-empty:');
+      expect(reviewStep.instructions).toContain('write the phase report { status: REVIEW_STATUS, headSha,');
+      expect(reviewStep.instructions).toContain('ledger } to that exact path (creating parent directories as');
+      expect(reviewStep.instructions).toContain('in addition to the repo-local review-state report');
+    });
+
+    test('Scenario: unresolved human decision blocks -- REVIEW_BLOCKED states the decision and never dismisses the finding', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).toContain('needing a human decision under --foreman is already');
+      expect(reviewStep.instructions).toContain('REVIEW_BLOCKED from the skill itself (never dismissed to');
+      expect(reviewStep.instructions).toContain('force completion); this branch reports it the same way.');
+    });
+
+    test('Scenario: unset artifact path changes nothing -- no error, behavior unchanged', () => {
+      const deliveryPhase = commandYaml.workflow.phases[3];
+      const reviewStep = deliveryPhase.steps[3];
+
+      expect(reviewStep.instructions).toContain('no prompt and no indefinite wait. If FOREMAN_ARTIFACT_PATH');
+      expect(reviewStep.instructions).toContain("is unset, this step's behavior is unchanged and no error is");
+    });
+
+    test('Scenario: resume does not redo earlier stages -- a recorded PR with a REVIEW_ detail jumps straight to Remote Review Disposition', () => {
+      const entryPhase = commandYaml.workflow.phases[0];
+      const resumeStep = entryPhase.steps[0];
+
+      expect(resumeStep.instructions).toContain('"validation_delivery", its stageOutcome.kind is');
+      expect(resumeStep.instructions).toContain('"REVIEW_", and a `pr:`-prefixed beadRefs[] entry exists:');
+      expect(resumeStep.instructions).toContain('this is a resumable pending/blocked remote-review');
+      expect(resumeStep.instructions).toContain("directly to Validation & Delivery's Remote Review");
+      expect(resumeStep.instructions).toContain('Disposition step; do NOT re-run Test Validation, Local');
+      expect(resumeStep.instructions).toContain('Review and Batch Fix, or PR Creation.');
     });
   });
 });
