@@ -77,14 +77,18 @@ describe('create-prd constitution gate contract', () => {
   test.each([
     ['source YAML', sourcePath],
     ['generated command markdown', generatedPath],
-  ])('%s hard-blocks PRD save and create-TRD next step on violation', (_label, filePath) => {
+  // The gate blocks whatever next step this command prints. That step used to be
+  // create-trd and is now refine-prd -- a created PRD has not been reviewed, and
+  // refine-prd is the review. The contract is unchanged: on a violation, nothing
+  // downstream gets printed. Only the command named in it moved.
+  ])('%s hard-blocks PRD save and the next step on violation', (_label, filePath) => {
     const contract = contractSection(read(filePath));
 
     expect(contract).toContain('before creating docs/PRD/');
     expect(contract).toContain('writing any repo-local PRD artifact');
-    expect(contract).toContain('printing the /ensemble:create-trd next step');
+    expect(contract).toContain('printing the /ensemble:refine-prd next step');
     expect(contract).toContain('do not write docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md');
-    expect(contract).toContain('do not print /ensemble:create-trd next-step output');
+    expect(contract).toContain('do not print /ensemble:refine-prd next-step output');
   });
 
   test.each([

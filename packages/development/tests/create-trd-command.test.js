@@ -216,14 +216,19 @@ describe('create-trd constitution gate contract', () => {
   test.each([
     ['source YAML', sourcePath],
     ['generated command markdown', generatedPath],
-  ])('%s hard-blocks TRD save and implementation next steps on violation', (_label, filePath) => {
+  // The gate blocks whatever next step this command prints. That used to be
+  // configure-team and implement-trd-beads; it is now refine-trd alone, because a
+  // created TRD has not been reviewed and implementation is offered by refine-trd's
+  // closing go/no-go instead. The contract is unchanged: on a violation, nothing
+  // downstream gets printed. Only the command named in it moved.
+  ])('%s hard-blocks TRD save and the next step on violation', (_label, filePath) => {
     const contract = contractSection(read(filePath));
 
     expect(contract).toContain('before creating docs/TRD/');
     expect(contract).toContain('writing any repo-local TRD artifact');
-    expect(contract).toContain('printing /ensemble:configure-team or /ensemble:implement-trd-beads next steps');
+    expect(contract).toContain('printing the /ensemble:refine-trd next step');
     expect(contract).toContain('do not write docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md');
-    expect(contract).toContain('do not print /ensemble:configure-team or /ensemble:implement-trd-beads next-step output');
+    expect(contract).toContain('do not print /ensemble:refine-trd next-step output');
   });
 
   test.each([
@@ -281,5 +286,85 @@ describe('create-trd constitution gate contract', () => {
     expect(contract).toContain('Known limitation');
     expect(contract).toContain('keeps serving its first-loaded copy');
     expect(contract).toContain('Restart the session');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PRD -> refine -> TRD -> refine -> implement routing.
+//
+// create-trd used to print implement-trd-beads and configure-team as its next
+// steps, which walked a session straight past its own review. The next step is
+// now refine-trd and nothing else; implementation is offered by refine-trd's
+// closing go/no-go once the TRD has actually been refined.
+// ---------------------------------------------------------------------------
+describe('create-trd hands off to refine-trd, not to implementation', () => {
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s suggests refine-trd as the next step', (_label, filePath) => {
+    expect(read(filePath)).toContain("Suggest: '/ensemble:refine-trd");
+  });
+
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s never suggests an implement or configure-team next step', (_label, filePath) => {
+    const text = read(filePath);
+    expect(text).not.toContain("Suggest: '/ensemble:implement-trd-beads");
+    expect(text).not.toContain("Suggest: '/ensemble:implement-trd ");
+    expect(text).not.toContain("Suggest: '/ensemble:configure-team");
+    // The prohibition is stated, not merely absent, so a later edit that
+    // re-adds the suggestion has to delete this line to do it.
+    expect(text).toContain('Do NOT print /ensemble:implement-trd-beads');
+  });
+
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s warns when the source PRD was never refined', (_label, filePath) => {
+    const text = read(filePath);
+    expect(text).toContain('REFINE CHECK');
+    // refine-prd is the only writer of a PRD changelog, which is what makes
+    // its absence a usable signal that the PRD was never reviewed.
+    expect(text).toContain('## Changelog');
+    expect(text).toContain('has no refine-prd changelog entry');
+  });
+
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s re-creates rather than refines when the PRD moved', (_label, filePath) => {
+    const text = read(filePath);
+    expect(text).toContain('PRD-CHANGED CHECK');
+    expect(text).toContain('NOT to run /ensemble:refine-trd on the existing one');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The TRD's PRD link.
+//
+// trd-parser.js resolves frontmatter `prd_reference` through looksLikePath(),
+// which accepts a value only when it contains "/" or ends in ".md". A
+// document-id value is silently discarded and the TRD then reads as unlinked
+// with no error printed. The command has to specify the value's SHAPE, not
+// just the key's name.
+// ---------------------------------------------------------------------------
+describe('create-trd pins the PRD reference key and its value shape', () => {
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s names the exact frontmatter key', (_label, filePath) => {
+    expect(read(filePath)).toContain('`prd_reference`');
+  });
+
+  test.each([
+    ['source YAML', sourcePath],
+    ['generated command markdown', generatedPath],
+  ])('%s requires a path value, not a document id', (_label, filePath) => {
+    const text = read(filePath);
+    expect(text).toContain("VALUE IS THE PRD'S FILE PATH");
+    expect(text).toContain('prd_reference: docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md');
+    expect(text).toContain('It is not the PRD');
+    expect(text).toContain('looksLikePath');
   });
 });
