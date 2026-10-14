@@ -1,8 +1,8 @@
 metadata:
   name: ensemble:fix-issue
   description: Lightweight workflow for bug fixes and small issues
-  version: 1.2.0
-  lastUpdated: "2026-08-22"
+  version: 1.3.0
+  lastUpdated: "2026-10-14"
   category: implementation
   model: medium
   output_path: ensemble/fix-issue.md
@@ -104,6 +104,7 @@ mission:
     - Generate actionable task list and track progress with TodoWrite
     - Delegate implementation to appropriate agents (backend, frontend, infrastructure)
     - Run test suite with auto-fix retry logic (max 2 attempts)
+    - Run an independent local review and one batched fix pass before any commit, push, or PR is created, gating `prApprovedAt` on `LOCAL_REVIEW_COMPLETE` (REQ-011)
     - Create comprehensive PR with GitHub CLI
     - Provide clear error messages and recovery guidance
 
@@ -458,16 +459,79 @@ workflow:
             5. IF --skip-tests flag:
                - Log warning message
                - Skip test execution
-               - Proceed to PR creation
+               - Proceed to Local Review and Batch Fix
 
             6. On tests passing (Attempt 1, Attempt 2, or --skip-tests):
-               call IssueRunIndexStore.mutate(projectRoot, runId, revision,
-               (record) => { record.prApprovedAt = now(); }) to record this
-               workflow's own test-pass gate as the store-persisted-approval
-               checkpoint (TRD-019, AC-014-2), immediately before advancing
-               to PR Creation.
+               proceed to Local Review and Batch Fix. This step no longer
+               sets prApprovedAt itself -- the Local Review and Batch Fix
+               step alone does, once it reaches LOCAL_REVIEW_COMPLETE
+               (TRD-009, AC-011-2).
 
         - order: 2
+          title: Local Review and Batch Fix
+          description: |
+            Independent local review of the complete diff, triage, and one
+            batched fix pass -- before any commit, push, or PR creation
+            (TRD-009, REQ-011). Invokes the shared pr-review-cycle skill,
+            located at
+            "$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+            in pre-publication (local) mode; that skill composes
+            pr-review-remediation for the actual fixes and does not
+            restate its triage/test/minimal-fix rules here.
+          model: medium
+          instructions: |
+            1. Resolve the review scope against the real PR base -- never a
+               guessed one:
+               - DEFAULT_BRANCH: git symbolic-ref --short
+                 refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@',
+                 falling back to "main" if empty or the command fails.
+               - BASE_SHA: git merge-base HEAD <DEFAULT_BRANCH>.
+               - HEAD_SHA: git rev-parse HEAD.
+
+            2. Invoke the pr-review-cycle skill (via the skill system) with
+               MODE='local', BASE_SHA=<resolved above>, HEAD_SHA=<resolved
+               above>, PR_ID=<repo-slug>-<branch-name> (no PR number exists
+               yet), TEST_COMMAND=<the test command detected by Test
+               Validation>, SKIP_TESTS=<true when --skip-tests was passed>,
+               FOREMAN=<--foreman flag>.
+
+            3. Parse the skill's return value {status, localPhase, reasons,
+               ledger, reportPath}. Store as LOCAL_REVIEW_PHASE and
+               LOCAL_REVIEW_REPORT_PATH.
+
+            4. IF LOCAL_REVIEW_PHASE == 'LOCAL_REVIEW_COMPLETE' (this holds
+               whether or not --skip-tests was passed -- the review and
+               batch fix always run in full): call
+               IssueRunIndexStore.mutate(projectRoot, runId, revision,
+               (record) => { record.prApprovedAt = now(); }) to record this
+               workflow's own local-review-pass gate as the
+               store-persisted-approval checkpoint (TRD-009, AC-011-2). Test
+               Validation no longer sets prApprovedAt -- this step alone
+               does. Proceed to PR Creation.
+
+            5. IF LOCAL_REVIEW_PHASE == 'LOCAL_REVIEW_BLOCKED': do NOT call
+               mutate() to set prApprovedAt -- it stays null, so PR
+               Creation's existing "read prApprovedAt directly, null
+               denies" precondition denies the call with no commit, push
+               or PR even if reached. Call
+               IssueRunIndexStore.mutate(projectRoot, runId, revision,
+               (record) => { record.stageOutcome = { kind: "failure",
+               detail: `LOCAL_REVIEW_BLOCKED: ${reasons.join('; ')}`,
+               recordedAt: now() }; }) to persist this as a
+               paused-by-failure run at the CURRENT stage
+               (validation_delivery) -- do not advance `stage`. HALT the
+               workflow (do not create a PR); report the ledger and next
+               action.
+
+            6. --skip-tests never skips this step: SKIP_TESTS is passed
+               through to the skill, which records tests.skipped=true and
+               the exact test command, and the overall review status is
+               never REVIEW_COMPLETE while tests were skipped -- it is
+               REVIEW_PENDING with reason "tests skipped" (TRD-009,
+               AC-014-1, AC-014-2). The PR may still be created once
+               LOCAL_REVIEW_COMPLETE is reached.
+
+        - order: 3
           title: PR Creation
           description: Create comprehensive pull request with GitHub CLI
           tool: Bash
@@ -478,8 +542,8 @@ workflow:
             runId)'s current prApprovedAt directly -- never trust conversational
             or prompt text asserting approval was given. A null prApprovedAt
             denies the call outright, regardless of what the surrounding
-            context claims; only the Test Validation step's own mutate() call
-            legitimately sets it.
+            context claims; only the Local Review and Batch Fix step's own
+            mutate() call legitimately sets it (TRD-009, AC-011-2).
 
             NOTE: Commit + push + PR creation always happens by default in this step --
             there is no additional human-approval gate today beyond the
@@ -543,7 +607,7 @@ workflow:
                - "✓ Branch pushed: {branch-name}"
                - "✓ All tests passed"
 
-        - order: 3
+        - order: 4
           title: Record Stage Checkpoint
           description: |
             Persist this phase's outcome and mark the run complete via
