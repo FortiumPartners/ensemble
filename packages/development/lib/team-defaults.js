@@ -2,16 +2,38 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
+// js-yaml is absent from a marketplace-cache install (no `npm install` runs there),
+// so a bare require would crash the whole module. Same guard as trd-cli.js.
+let yaml;
+try { yaml = require('js-yaml'); } catch { yaml = null; }
 
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+/**
+ * Read the flat `default_agents:` map from configure-team.yaml without a YAML parser.
+ * ponytail: handles only that one `key: value` block; the rest of team_configuration
+ * (domain_keywords, ...) needs js-yaml. Nothing in this file reads those.
+ */
+function readDefaultAgents(text) {
+  const agents = {};
+  let inBlock = false;
+  for (const line of text.split(/\r?\n/)) {
+    if (/^\s*default_agents:\s*$/.test(line)) { inBlock = true; continue; }
+    if (!inBlock) continue;
+    const m = line.match(/^\s+([\w-]+):\s*([\w.-]+)\s*$/);
+    if (!m) break;
+    agents[m[1]] = m[2];
+  }
+  return agents;
+}
+
 function loadTeamConfiguration() {
   const configPath = path.join(__dirname, '..', 'commands', 'configure-team.yaml');
-  const parsed = yaml.load(fs.readFileSync(configPath, 'utf8'));
-  return parsed.team_configuration;
+  const text = fs.readFileSync(configPath, 'utf8');
+  if (yaml) return yaml.load(text).team_configuration;
+  return { default_agents: readDefaultAgents(text) };
 }
 
 function inferBuilderAgents(domains = [], teamConfiguration = loadTeamConfiguration()) {
