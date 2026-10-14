@@ -1043,4 +1043,4 @@ function parseTRD(markdownString) {
   };
 }
 
-module.exports = { parseTRD, normalizeLineEndings };
+module.exports = { parseTRD, normalizeLineEndings, extractDesignReadinessScore };
