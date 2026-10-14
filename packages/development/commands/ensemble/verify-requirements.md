@@ -70,7 +70,7 @@ completion-state is read from.
 
    - If MODE is 'beads': require BR_AVAILABLE=true. If not: print 'ERROR: --mode beads requires br (beads_rust).' and HALT (exit 1).
    - If MODE is 'checkbox': ignore BR_AVAILABLE. Proceed.
-   - If MODE is 'auto': run br list --status=open --json (if BR_AVAILABLE). If the output contains any epic whose title matches [trd:<TRD_SLUG>]: set BEADS_DETECTED=true. Otherwise set BEADS_DETECTED=false. Set MODE=effective:<beads|checkbox|both>. 'both' is chosen when BEADS_DETECTED=true AND the TRD has '- [ ]'/'- [x]' markers in the Master Task List section (independently parsed via grep on the file). 'beads' alone is chosen when BEADS_DETECTED=true but no TRD checkboxes found. 'checkbox' alone is chosen when BEADS_DETECTED=false.
+   - If MODE is 'auto': run br list --status=open --json (if BR_AVAILABLE; the issue list is the parsed JSON if it is an array, otherwise its `.issues` array). If the issue list contains any epic whose title matches [trd:<TRD_SLUG>]: set BEADS_DETECTED=true. Otherwise set BEADS_DETECTED=false. Set MODE=effective:<beads|checkbox|both>. 'both' is chosen when BEADS_DETECTED=true AND the TRD has '- [ ]'/'- [x]' markers in the Master Task List section (independently parsed via grep on the file). 'beads' alone is chosen when BEADS_DETECTED=true but no TRD checkboxes found. 'checkbox' alone is chosen when BEADS_DETECTED=false.
    - Print 'Mode: effective <MODE> (beads_leg:<y|n> checkbox_leg:<y|n>).'
    - If effective mode has zero legs (impossible in practice, defensive guard): print 'ERROR: --mode auto resolved to zero evidence legs. Pass --mode explicitly.' and HALT (exit 1).
 
@@ -102,7 +102,7 @@ completion-state is read from.
    For each tracked task bead, gather bead-level evidence
 
    - If MODE does not include the beads leg: skip and continue at step 5.
-   - Otherwise: br list --status=open --json | br list --status=closed --json | br list --status=in_progress --json. Search the union for entries whose title matches [trd:<TRD_SLUG>:task:TRD-NNN] (impl OR -TEST). Build TASK_BEAD_BY_TASK_ID.
+   - Otherwise: br list --status=open --json | br list --status=closed --json | br list --status=in_progress --json. Take each result's issue list (the parsed JSON if it is an array, otherwise its `.issues` array), then search the union for entries whose title matches [trd:<TRD_SLUG>:task:TRD-NNN] (impl OR -TEST). Build TASK_BEAD_BY_TASK_ID.
    - For each TASK_BEAD: read comments via br comment list <bead_id>. Parse each comment for tokens: status:closed qa:<agent> verdict:passed req-satisfied:<REQ> ac-proven:<list>. Also read req-verified: REQ-NNN (root-epic tokens handled separately at the epic level).
    - Per bead, capture: status, verdict, req_satisfied, acs_proven, qa_agent, commit_sha_if_present.
    - Edge case: if br comment list fails: print 'WARNING: comment list failed for <bead_id> - bead-level evidence will be incomplete.' Continue with bead without comment-derived tokens.

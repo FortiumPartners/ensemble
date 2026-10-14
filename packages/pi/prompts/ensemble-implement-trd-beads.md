@@ -37,7 +37,9 @@ trd_progress() {
   local counts
   counts=$(node -e '
     const fs = require("fs");
-    const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const raw = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    // br 0.2.x wraps list output as {issues:[...]}; older versions print a bare array.
+    const data = Array.isArray(raw) ? raw : (raw.issues || []);
     const slug = process.argv[2];
     const needle = "[trd:" + slug + ":";
     const matches = data.filter(b => (b.title || "").includes(needle));
@@ -73,7 +75,7 @@ Process --status and --reset-task arguments for early exit paths
 5. If $ARGUMENTS contains '--use-current-branch': set USE_CURRENT_BRANCH_REQUESTED=true; if $ARGUMENTS also contains '--branch=<name>': print 'ERROR: --use-current-branch and --branch=<name> are mutually exclusive.' and HALT before any git side effects. If flag absent: set USE_CURRENT_BRANCH_REQUESTED=false. If $ARGUMENTS contains '--branch=<name>': extract the branch name after '=' and store it as BRANCH_REQUESTED; if --use-current-branch is also present this is already caught and HALTed above.
 6. If $ARGUMENTS contains '--status' AND COMBINED_WORKSTREAM_MODE=true: capture all issues with explicit file redirection, e.g. ISSUES_JSON=$(mktemp); br list --all --limit 0 --json > "$ISSUES_JSON". If the user supplied --workstream <slug>, run node "$TRD_CLI" workstream-status --issues-json "$ISSUES_JSON" --workstream <slug>; otherwise omit --workstream and print all detected workstreams. Parse {ok,workstreams,trds,blocked,ready,parallelSafeStreams}; if ok is false, process exits non-zero, or JSON is malformed, print the error and HALT. Print release train progress, each TRD epic progress, blocked items, ready items, and parallel-safe streams; EXIT
 7. If $ARGUMENTS contains '--status' AND COMBINED_WORKSTREAM_MODE=false: derive TRD_SLUG (same derivation as Preflight step 5 TRD Selection — lowercase, non-alphanumeric → '-', strip leading/trailing '-'), then call trd_progress() (Preflight step 1) with TRD_SLUG to print the TRD-scoped progress summary, EXIT
-8. If $ARGUMENTS contains '--reset-task': derive TRD_SLUG (same derivation as Preflight step 5), extract TASK_ID from argument, run br list --status=open --json OR br list --status=in_progress --json (capture both via --all), filter JSON for entry whose title contains the literal token [trd:<TRD_SLUG>:task:<TASK_ID>]; if exactly one bead matches, run br update <BEAD_ID> --status=open and EXIT; if zero match, print 'ERROR: No bead found for TASK_ID=<TASK_ID> with TRD_SLUG=<TRD_SLUG>' and EXIT 1; if multiple match, print 'ERROR: Multiple beads match — ambiguous TASK_ID, please be more specific' and EXIT 1
+8. If $ARGUMENTS contains '--reset-task': derive TRD_SLUG (same derivation as Preflight step 5), extract TASK_ID from argument, run br list --status=open --json OR br list --status=in_progress --json (capture both via --all), filter the issue list (the parsed JSON if it is an array, otherwise its `.issues` array) for the entry whose title contains the literal token [trd:<TRD_SLUG>:task:<TASK_ID>]; if exactly one bead matches, run br update <BEAD_ID> --status=open and EXIT; if zero match, print 'ERROR: No bead found for TASK_ID=<TASK_ID> with TRD_SLUG=<TRD_SLUG>' and EXIT 1; if multiple match, print 'ERROR: Multiple beads match — ambiguous TASK_ID, please be more specific' and EXIT 1
 
 ### Step 3: Tool Availability Check
 
@@ -141,7 +143,7 @@ never written there and are always live-resolved).
 **Actions:**
 1. If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble-implement-trd-beads --plan first.' and EXIT.
 2. Run: br list --status=open --json
-3. Parse JSON output, search for entry where title matches pattern [trd:<TRD_SLUG>] with type epic
+3. Take the issue list from that JSON (the parsed JSON if it is an array, otherwise its `.issues` array — br 0.2.x wraps list output as {issues:[...]}) and search it for the entry where title matches pattern [trd:<TRD_SLUG>] with type epic
 4. If found (either EXECUTE_ONLY=false or EXECUTE_ONLY=true — this is a resumed TRD): set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Preflight step 1) with TRD_SLUG to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute
 5. Reconciliation notice (REQ-014/REQ-015): if a resume was just detected (ROOT_EPIC_ID found above) AND RESOLVE_SDLC_RESULT.consolidatedMessage (captured fresh in Preflight step 4 for THIS invocation) is non-null: print 'NOTE: this session resolved BRANCHING_STRATEGY=<BRANCHING_STRATEGY>, PR_BACKEND=<PR_BACKEND> for a TRD that was previously scaffolded/branched in an earlier session. The prior session's resolution is not persisted anywhere, so it cannot be named exactly here — if it differed from this session's values, any branches or PRs already created under it are unaffected going forward; only branches/PRs created from this point forward use the resolution above.' This is informational only — no branch or PR created in a prior session is rewritten, re-targeted, or otherwise touched (deliberate limitation, TRD §2.4).
 6. If not found: proceed to Feature Branch Creation then Scaffold
@@ -287,7 +289,7 @@ Cache existing beads to enable partial scaffold resume via title-prefix matching
 
 **Actions:**
 1. Run: br list --status=open --json (capture full JSON output once)
-2. Parse JSON array of bead objects with .id and .title fields
+2. The issue list is the parsed JSON if it is an array, otherwise its `.issues` array (br 0.2.x wraps list output as {issues:[...]}); its entries are bead objects with .id and .title fields
 3. Build EXISTING_BEADS map by matching title prefixes: [trd:<TRD_SLUG>] for epic, [trd:<TRD_SLUG>:pr:<N>] OR [trd:<TRD_SLUG>:phase:<N>] for stories (both accepted to support cross-session resume across format migrations), [trd:<TRD_SLUG>:task:<ID>] for tasks
 4. Map key is the title prefix pattern, value is the bead .id
 5. Use this cache for all 'already exists' checks during scaffold — do not re-query per bead
@@ -515,7 +517,7 @@ Close the root epic when all children are done
 
 **Actions:**
 1. Precondition: only proceed with epic closure if COMPLETION_VERDICT == 'COMPLETE', or COMPLETION_VERDICT == 'INCOMPLETE' AND COMPLETION_OVERRIDDEN == true (explicit user override recorded in the Completion Verification step). Otherwise this step must not run.
-2. Verify: run br list --status=open --json filtered by [trd:<TRD_SLUG>:task:] prefix to catch open task beads; also run br list --status=open --json filtered by [trd:<TRD_SLUG>:story:] prefix to catch open story beads (excluding <ROOT_EPIC_ID> itself which is intentionally still open); if any task or story beads remain open, do not close the epic — investigate and resolve first (open beads at this stage indicate incomplete work or a missed Quality Gate). Only <ROOT_EPIC_ID> may remain open.
+2. Verify (in each br list --json result the issue list is the parsed JSON if it is an array, otherwise its `.issues` array): run br list --status=open --json filtered by [trd:<TRD_SLUG>:task:] prefix to catch open task beads; also run br list --status=open --json filtered by [trd:<TRD_SLUG>:story:] prefix to catch open story beads (excluding <ROOT_EPIC_ID> itself which is intentionally still open); if any task or story beads remain open, do not close the epic — investigate and resolve first (open beads at this stage indicate incomplete work or a missed Quality Gate). Only <ROOT_EPIC_ID> may remain open.
 3. Run: br close <ROOT_EPIC_ID> --reason='TRD implementation complete'
 4. Run: br sync --flush-only
 

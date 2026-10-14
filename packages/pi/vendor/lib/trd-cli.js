@@ -568,10 +568,10 @@ function getBeadCounts(slug) {
     } catch {
       return { total: 0, open: 0, in_progress: 0, closed: 0 };
     }
-    const beads = JSON.parse(raw.toString('utf8'));
-    const matches = (Array.isArray(beads) ? beads : []).filter(
-      (b) => (b.title || '').includes(needle)
-    );
+    // br 0.2.x wraps list output as { issues: [...] }; older versions print a bare array.
+    const parsed = JSON.parse(raw.toString('utf8'));
+    const beads = Array.isArray(parsed) ? parsed : (parsed && parsed.issues) || [];
+    const matches = beads.filter((b) => (b.title || '').includes(needle));
     return {
       total: matches.length,
       open: matches.filter((b) => b.status === 'open').length,
@@ -1031,6 +1031,7 @@ module.exports = {
   // exported for unit testing of the helpers
   deriveSlug,
   parseArgs,
+  getBeadCounts,
 };
 
 if (require.main === module) {
