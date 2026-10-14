@@ -38,7 +38,12 @@ try { yaml = require('js-yaml'); } catch { yaml = null; }
 
 const { extractPrdContext } = require('./prd-parser');
 
-const { parseTRD, extractDesignReadinessScore } = require('./trd-parser');
+const {
+  parseTRD,
+  extractDesignReadinessScore,
+  getFrontmatterField,
+  PRD_REFERENCE_KEYS,
+} = require('./trd-parser');
 const {
   buildPhaseTaskIds,
   currentPhase,
@@ -536,8 +541,9 @@ const VALID_STATUSES = new Set(['Draft', 'In Progress', 'Approved', 'Completed',
  * @param {Object} beadCounts  {total, open, in_progress, closed}
  */
 function inferStatus(frontmatter, slug, beadCounts) {
-  if (frontmatter && frontmatter.status) {
-    const s = String(frontmatter.status).trim();
+  const declared = getFrontmatterField(frontmatter, 'status');
+  if (declared) {
+    const s = String(declared).trim();
     if (VALID_STATUSES.has(s)) return s;
   }
   if (beadCounts && (beadCounts.open > 0 || beadCounts.in_progress > 0)) {
@@ -640,17 +646,16 @@ function runList(argv) {
     }
 
     // Determine document_id from frontmatter or filename
-    const frontmatterId = frontmatter && (frontmatter.document_id || frontmatter.id || frontmatter.documentId)
-      ? (frontmatter.document_id || frontmatter.id || frontmatter.documentId)
-      : null;
+    const frontmatterId = getFrontmatterField(frontmatter, 'document_id', 'id', 'documentId');
+    const version = getFrontmatterField(frontmatter, 'version');
 
     items.push({
       id: frontmatterId || slug,
       slug,
       status,
       design_readiness_score,
-      version: frontmatter && frontmatter.version ? String(frontmatter.version) : null,
-      prd_reference: frontmatter && frontmatter.prd_reference ? frontmatter.prd_reference : null,
+      version: version ? String(version) : null,
+      prd_reference: getFrontmatterField(frontmatter, ...PRD_REFERENCE_KEYS) || null,
       last_modified: lastModified,
       total_beads: beadCounts.total,
       open_beads: beadCounts.open,
@@ -707,6 +712,7 @@ function runStatus(argv) {
       ? parseFloat(((beadCounts.closed / beadCounts.total) * 100).toFixed(1))
       : null;
   const days = stalenessDays(filePath);
+  const version = getFrontmatterField(frontmatter, 'version');
 
   return {
     ok: true,
@@ -717,8 +723,8 @@ function runStatus(argv) {
     design_readiness_score,
     completion_pct,
     staleness_days: days,
-    version: frontmatter && frontmatter.version ? String(frontmatter.version) : null,
-    prd_reference: frontmatter && frontmatter.prd_reference ? frontmatter.prd_reference : null,
+    version: version ? String(version) : null,
+    prd_reference: getFrontmatterField(frontmatter, ...PRD_REFERENCE_KEYS) || null,
     bead_counts: beadCounts,
     frontmatter: frontmatter || {},
   };
