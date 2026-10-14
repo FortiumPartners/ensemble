@@ -1,0 +1,51 @@
+{
+  "runId": "e1239678206c096a",
+  "projectRoot": "/Users/ldangelo/Development/Sunstone/ensemble.dev",
+  "idea": "can you read @docs/plans/pr-review-cycle-time-plan.md and implement solutions for the outlined plan?",
+  "status": "active",
+  "stage": "beads_plan",
+  "stageOutcome": {
+    "kind": "success",
+    "recordedAt": "2026-10-14T17:40:13.970Z"
+  },
+  "artifacts": [
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-82b6a138-pr-review-cycle-time.md",
+      "documentId": "PRD-2026-82b6a138",
+      "version": "1.0.0",
+      "producingStage": "prd_create",
+      "recordedAt": "2026-10-14T17:27:03.211Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-82b6a138-pr-review-cycle-time.md",
+      "documentId": "PRD-2026-82b6a138",
+      "version": "1.0.1",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-14T17:30:18.994Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-82b6a138-pr-review-cycle-time.md",
+      "documentId": "TRD-2026-82b6a138",
+      "version": "1.0.0",
+      "producingStage": "trd_create",
+      "recordedAt": "2026-10-14T17:37:23.427Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-82b6a138-pr-review-cycle-time.md",
+      "documentId": "TRD-2026-82b6a138",
+      "version": "1.0.1",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-14T17:40:13.970Z"
+    }
+  ],
+  "beadRefs": [],
+  "implementationApprovedAt": null,
+  "prApprovedAt": null,
+  "revision": 4,
+  "createdAt": "2026-10-14T16:18:00.912Z",
+  "updatedAt": "2026-10-14T17:40:13.970Z"
+}

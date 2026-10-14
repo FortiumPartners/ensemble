@@ -2,12 +2,12 @@
   "runId": "18d126c0f2ca04ce",
   "projectRoot": "/Users/ldangelo/Development/Sunstone/ensemble.dev",
   "idea": "Consolidate the ensemble command surface around task-oriented top-level commands, delegating to the existing specialist workflows underneath:\n\n- `ensemble-feature new <idea>` -- start the canonical feature lifecycle: PRD -> TRD -> validation/planning -> implementation, with the appropriate review and approval checkpoints. This becomes the front door and delegates to the existing resumable `ensemble-new-feature` workflow (the repo currently has both an older `ensemble-feature` pipeline and the newer resumable `new-feature` workflow -- consolidate to one canonical workflow underneath, with the other delegating during a compatibility period, rather than growing a third overlapping path).\n- `ensemble-feature resume|status|abandon` -- manage the durable run (mirrors new-feature's existing resume/status semantics).\n- `ensemble-issue fix <issue>` -- handle issue-driven investigation and repair, kept separate from feature work: a feature is usually planned from intent and artifacts; an issue starts from a reported problem and evidence. Add issue-specific actions as their semantics become clear.\n- `ensemble-prd create|refine|...` and `ensemble-trd create|refine|validate|implement|...` -- retained as direct, document- or capability-oriented specialist tools for expert use and targeted work; never turned into a catch-all for every PRD/TRD operation.\n\nGoal: give users an obvious front door (feature/issue as task-oriented commands) without taking away the composable specialist commands (PRD/TRD). Constraints: pick one canonical workflow name (not two synonymous \"new\" entry points indefinitely); keep ensemble-feature scoped to feature lifecycle only; keep issue work and feature work as distinct workflows even though their implementation stages overlap; name subcommands after their actual operation once behavior is settled (e.g. avoid an ambiguous \"re-create\" that could mean recreating an issue record, regenerating a plan, or retrying a failed fix).",
-  "status": "active",
-  "stage": "implementation",
+  "status": "completed",
+  "stage": "done",
   "stageOutcome": {
     "kind": "success",
-    "detail": "Bead plan scaffolded: epic br-2xtj, 4 PR stories, 38 tasks, 79 deps, 0 cycles",
-    "recordedAt": "2026-10-06T15:14:57.511Z"
+    "detail": "No PR requested at pr_approval: implementation already landed via separate merged PRs (epic br-2xtj closed); user declined PR creation.",
+    "recordedAt": "2026-10-14T16:16:43.573Z"
   },
   "artifacts": [
     {
@@ -52,7 +52,7 @@
   ],
   "implementationApprovedAt": "2026-10-06T15:15:32.084Z",
   "prApprovedAt": null,
-  "revision": 15,
+  "revision": 17,
   "createdAt": "2026-10-06T07:46:58.754Z",
-  "updatedAt": "2026-10-06T15:15:32.085Z"
+  "updatedAt": "2026-10-14T16:16:43.578Z"
 }
