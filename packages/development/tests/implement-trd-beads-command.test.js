@@ -760,10 +760,92 @@ describe('implement-trd-beads PR review gates at stacked-phase and single-PR bou
   });
 
   test('both PR Review Gate call sites resolve the shared pr-review-cycle skill by the canonical repo-root path (no duplicated review logic)', () => {
-    const occurrences = text.split(
-      '(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md'
+    // Exactly two MODE='local' call sites: Gate Result Recording (stacked) and
+    // Completion Report (single-PR). TRD-014 adds a third, MODE='remote' call
+    // site (PR Review Completion Check) -- covered separately in its own test.
+    const localOccurrences = text.split(
+      "pr-review-cycle/SKILL.md\\\", with MODE='local'"
     ).length - 1;
-    expect(occurrences).toBe(2);
+    expect(localOccurrences).toBe(2);
     expect(text).not.toMatch(/pr-review-cli\.js/);
+  });
+});
+
+describe('implement-trd-beads PR-review completion check, messaging, manual/ADO backends (TRD-014)', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  function sliceBetween(startMarker, endMarker, fromIdx = 0) {
+    const start = text.indexOf(startMarker, fromIdx);
+    expect(start).toBeGreaterThan(-1);
+    const end = text.indexOf(endMarker, start);
+    expect(end).toBeGreaterThan(start);
+    return { start, end, block: text.slice(start, end) };
+  }
+
+  test('Scenario: completion-verification stays authoritative -- Completion Verification runs first and the PR-review check is a separate step before Epic Closure', () => {
+    const yaml = require('js-yaml');
+    const doc = yaml.load(text);
+    const completion = doc.workflow.phases.find((p) => p.name === 'Completion');
+    const titles = completion.steps.map((s) => s.title);
+
+    expect(titles).toEqual([
+      'Completion Verification',
+      'PR Review Completion Check',
+      'Epic Closure',
+      'TRD Checkbox Sync',
+      'Completion Report',
+    ]);
+
+    const prCheck = completion.steps.find((s) => s.title === 'PR Review Completion Check');
+    const flatDesc = prCheck.description.replace(/\s+/g, ' ');
+    expect(flatDesc).toContain('Completion Verification (order 1, unchanged) remains the sole authority');
+    expect(flatDesc).toContain('never re-verifies task inventory, requirements, or tests');
+    expect(flatDesc).toContain('never gates Epic Closure');
+  });
+
+  test('Scenario: no evidence is claimed when none was gathered -- a never-created PR never has review evidence claimed, and a created PR is never called merged/landed from this check', () => {
+    const { block } = sliceBetween('title: PR Review Completion Check', 'title: Epic Closure');
+    const flat = block.replace(/\s+/g, ' ');
+
+    expect(flat).toContain('Never claim review evidence exists for a PR that was never created');
+    expect(flat).toContain('Never describe <entry.url> as merged or landed from this check');
+  });
+
+  test('Scenario: manual backend prints steps and reports pending -- PR_BACKEND manual or ado-without-MCP boundaries are reported PENDING with manual review steps, never silently', () => {
+    const { block } = sliceBetween('title: PR Review Completion Check', 'title: Epic Closure');
+    const flat = block.replace(/\s+/g, ' ');
+
+    expect(flat).toContain("whose url is unset (PR_BACKEND=='manual', or 'ado' with the MCP tool absent at that boundary)");
+    expect(flat).toContain("PR_REVIEW_STATUS[entry.n]='PENDING (no PR created)'");
+    expect(flat).toMatch(/no PR was auto-created \(manual backend, or the azure-devops MCP tool was not connected\)/);
+    expect(flat).toContain('have it reviewed manually (or by your configured review bot) before merging');
+  });
+
+  test('Scenario: pending remote review is never called merged -- the completion summary labels a pending/blocked review as pending and resumable, never merged or landed', () => {
+    const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
+    const flat = block.replace(/\s+/g, ' ');
+
+    // Single-PR summary line
+    expect(flat).toContain("'Review: <PR_REVIEW_STATUS[completion]>'");
+    expect(flat).toContain(
+      "this command never describes a pending PR as merged or landed"
+    );
+    // Stacked summary line
+    expect(flat).toContain("-- review: <PR_REVIEW_STATUS[N]>'");
+    expect(flat).toContain('never merged or landed until a human confirms it');
+  });
+
+  test('this check never HALTs and never blocks Epic Closure -- PR_REVIEW_STATUS is informational only', () => {
+    const { block } = sliceBetween('title: PR Review Completion Check', 'title: Epic Closure');
+    expect(block).not.toMatch(/\bHALT\b/);
+    expect(block).toContain('This check never HALTs and never blocks Epic Closure');
+  });
+
+  test('the completion-side remote check reuses the same canonical pr-review-cycle skill path as the TRD-013 local gates (MODE=remote, one call site)', () => {
+    const remoteOccurrences = text.split(
+      "pr-review-cycle/SKILL.md\\\", with MODE='remote'"
+    ).length - 1;
+    expect(remoteOccurrences).toBe(1);
   });
 });
