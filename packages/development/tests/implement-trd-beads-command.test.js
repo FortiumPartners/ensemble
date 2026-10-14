@@ -665,3 +665,105 @@ describe('implement-trd-beads always-on team roster (team8)', () => {
     expect(stepBlock).not.toMatch(/br update <BEAD_ID> --labels/);
   });
 });
+
+describe('implement-trd-beads PR review gates at stacked-phase and single-PR boundaries (TRD-013)', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  function sliceBetween(startMarker, endMarker, fromIdx = 0) {
+    const start = text.indexOf(startMarker, fromIdx);
+    expect(start).toBeGreaterThan(-1);
+    const end = text.indexOf(endMarker, start);
+    expect(end).toBeGreaterThan(start);
+    return { start, end, block: text.slice(start, end) };
+  }
+
+  test('Scenario: stacked gate precedes propose and append -- the review gate runs before git town propose and before the appendNextBranch clause', () => {
+    const { block } = sliceBetween('title: Gate Result Recording', 'title: Epic Closure');
+
+    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
+    const proposeIdx = block.indexOf("run git town propose --title '<GATE_ACTION.proposeTitle>'");
+    const appendIdx = block.indexOf('GATE_ACTION.appendNextBranch is set (more phases remain)');
+
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(proposeIdx).toBeGreaterThan(gateIdx);
+    expect(appendIdx).toBeGreaterThan(gateIdx);
+  });
+
+  test('Scenario: a blocked phase review halts before PR creation or branch append, without touching the existing gate_passed checkpoint', () => {
+    const { block } = sliceBetween('title: Gate Result Recording', 'title: Epic Closure');
+    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
+    const parseIdx = block.indexOf("Parse the skill's return {status, localPhase, reasons, reportPath}");
+    expect(parseIdx).toBeGreaterThan(gateIdx);
+    const parseClauseEnd = block.indexOf('If gate_passed AND GATE_ACTION.createPr == true: shippable');
+    const parseClause = block.slice(parseIdx, parseClauseEnd);
+
+    expect(parseClause).toContain("PHASE_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED': print 'PR REVIEW GATE BLOCKED");
+    expect(parseClause).toContain('do NOT create a PR for this phase and do NOT append the next branch');
+    expect(parseClause).toMatch(/and HALT/);
+    // The existing checkpoint-commit / gate_passed story-close logic (unchanged, REQ-015 AC-015-3)
+    // runs earlier in this same step and is untouched by the new gate.
+    const checkpointIdx = block.indexOf("br close <STORY_BEAD_ID> --reason='<bead_label> <N> complete - quality gate passed'");
+    expect(checkpointIdx).toBeGreaterThan(-1);
+    expect(checkpointIdx).toBeLessThan(gateIdx);
+  });
+
+  test('Scenario: a phase review excludes later phases -- PARENT_PHASE_TIP_SHA is the parent branch tip, excluding the parent phase\'s own commits and any later phase', () => {
+    const { block } = sliceBetween('title: Gate Result Recording', 'title: Epic Closure');
+    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
+    const gateClauseEnd = block.indexOf("Parse the skill's return", gateIdx);
+    const gateClause = block.slice(gateIdx, gateClauseEnd);
+
+    expect(gateClause).toContain('PARENT_PHASE_TIP_SHA = git merge-base HEAD <GATE_ACTION.parentBranch>');
+    expect(gateClause).toContain("BASE_SHA=<PARENT_PHASE_TIP_SHA>");
+    expect(gateClause).toContain(
+      "PARENT_PHASE_TIP_SHA excludes the parent phase's own commits and later phases do not exist yet at this point in the loop, so this reviews only phase <N>'s diff"
+    );
+  });
+
+  test('Scenario: single-PR gate precedes the completion PR -- the review runs once before the completion git town propose/gh pr create/ado/manual equivalents', () => {
+    const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
+
+    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
+    const ghGitTownIdx = block.indexOf("run git town propose --title '<COMPLETION_ACTION.proposeTitle>'");
+    const ghPlainGitIdx = block.indexOf('run git push -u origin <COMPLETION_ACTION.branch>, then run gh pr create');
+    const adoIdx = block.indexOf("PR_BACKEND=='ado': run git push -u origin <COMPLETION_ACTION.branch>; scan");
+    const manualIdx = block.indexOf("PR_BACKEND=='manual': print 'PR backend is manual");
+
+    expect(gateIdx).toBeGreaterThan(-1);
+    [ghGitTownIdx, ghPlainGitIdx, adoIdx, manualIdx].forEach((idx) => {
+      expect(idx).toBeGreaterThan(gateIdx);
+    });
+  });
+
+  test('Scenario: a blocked completion review halts before the completion PR is created', () => {
+    const { block } = sliceBetween('title: Completion Report', 'expectedInput:');
+    const gateIdx = block.indexOf('PR Review Gate (TRD-013, REQ-015)');
+    const parseIdx = block.indexOf("Parse the skill's return {status, localPhase, reasons, reportPath}", gateIdx);
+    expect(parseIdx).toBeGreaterThan(gateIdx);
+
+    expect(block.slice(parseIdx)).toContain(
+      "COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED': print 'PR REVIEW GATE BLOCKED for the completion PR"
+    );
+    expect(block.slice(parseIdx)).toContain('do NOT create the completion PR');
+  });
+
+  test('Scenario: existing safeguards intact -- pr-plan GATE_ACTION/COMPLETION_ACTION resolution, the Pre-PR test gate, and completion-verification are unchanged', () => {
+    // pr-plan topology (GATE_ACTION/COMPLETION_ACTION) is still the source of branch/title/parent data.
+    expect(text).toContain('PR sequencing is driven by GATE_ACTION = PR_ACTIONS[N]');
+    expect(text).toContain("Let COMPLETION_ACTION = the PR_ACTIONS entry with kind=='completion'");
+    // The pre-existing Pre-PR test gate (tests+coverage, independent of review) still runs and still HALTs on failure.
+    expect(text).toContain("Pre-PR test gate — run 'npm run test --workspaces --if-present'. If exit code != 0");
+    // completion-verification stays the full-suite/requirement authority (TRD-014 adds a later, separate check).
+    expect(text).toContain('packages/development/skills/completion-verification/SKILL.md');
+    expect(text).toContain("TRACKING_MODE='beads'");
+  });
+
+  test('both PR Review Gate call sites resolve the shared pr-review-cycle skill by the canonical repo-root path (no duplicated review logic)', () => {
+    const occurrences = text.split(
+      '(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md'
+    ).length - 1;
+    expect(occurrences).toBe(2);
+    expect(text).not.toMatch(/pr-review-cli\.js/);
+  });
+});
