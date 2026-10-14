@@ -43,3 +43,8 @@ __pycache__/
 CLAUDE.local.md
 .ensemble/runtime-log.jsonl
 .ensemble/*/active.lock
+
+# Untracked, resumable PR-review-cycle state reports (TRD-007/TRD-008):
+# committing one would change the PR head SHA and invalidate the very
+# review it records.
+.ensemble/pr-review/
