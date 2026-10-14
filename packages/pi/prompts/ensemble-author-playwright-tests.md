@@ -103,6 +103,24 @@ responds.
 4. If the consuming repo configures a base auth-state path at all, call deriveAuthStatePath(baseAuthStatePath, url) from $E2E_LIB/test-runner-mode.js to get an environment-scoped authStatePath — regardless of mode (TRD-037: many real harnesses reuse one stored auth state for every run, headed or headless alike); never reuse one static path across different resolved URLs, since a stored auth state is scoped to the origin it was captured against
 5. Carry the resolved URL forward as targetEnv, and (when derived) the environment-scoped authStatePath, for every delegation request in the REQ loop below
 
+### Step 3: Offer a Follow-Along Pause (Headed Only) — Once Per Session
+
+A headed run at full speed is hard to follow, so a QA engineer
+checking that a proposed test does what they intended can ask for
+a pause after each browser action. This is Playwright's own
+`SlowMo` launch option (the Run request's `slowMoMs`, resolved by
+test-runner-mode.js's resolveRunConfig) — a run-time setting, never text inserted into the test source, so
+there is nothing to strip before the test lands in Phase 4 step 3
+and no way to commit a pause by accident. Asked after the QA
+environment is verified, so a session that halts there never
+prompts for it.
+
+**Actions:**
+1. If the mode recorded in step 1 is headless: skip this step entirely — no human is watching, so never ask and never set slowMoMs (validateRunRequest and resolveRunConfig both reject it in headless mode)
+2. If the mode is headed, ask once: "Add a 1-second pause after each browser action so you can follow along? (yes / no / or a different pause, e.g. 2s or 500ms)"
+3. No preference, or "yes": slowMoMs = 1000. A duration: convert it to whole milliseconds (a positive integer). "no": leave slowMoMs unset. If the answer is not a usable duration, say so and ask once more rather than guessing
+4. Record the result for the remainder of the session; do not re-ask per AC. Carry slowMoMs forward (when set) for every Run-stage delegation request in Phase 4
+
 ## Phase 3: REQ Batching and Delegation
 
 ### Step 1: Batch by REQ, Skip Already-Complete REQs
@@ -162,7 +180,7 @@ a failing run is not automatically a regression — check for an
 environment-mismatch signal before framing it as one.
 
 **Actions:**
-1. Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath are Phase 2's resolved values
+1. Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath, slowMoMs} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath/slowMoMs are Phase 2's resolved values (omit slowMoMs when step 3 left it unset). The follow-along pause is a launch option applied at run time — never add a sleep or wait to proposedTest to get it
 2. Delegate the validated request to @playwright-tester, which runs the already-authored test per its own TRD-011 mode-aware logic (test-runner-mode.js's resolveRunConfig) — TRD-035: on a failed run, it also checks the live page for grounded-marker-checker.js's extractGroundedMarkers(groundingDiff.diffs) and reports whether an environment mismatch is suspected
 3. Validate the response with validateRunResponse(res) from delegation-contract.js
 4. Log the outcome via logAction({type: "run-result", acId, mode, runResult}) from $E2E_LIB/session-logger.js

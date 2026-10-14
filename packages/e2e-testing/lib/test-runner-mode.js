@@ -63,7 +63,30 @@ const VALID_MODES = ['headed', 'headless'];
  * @property {string|null} auth.authStatePath - path to the consuming
  *   project's stored auth-state file when a stored state was provided
  *   (regardless of mode); null when falling back to a live interactive login
+ * @property {number} [slowMo] - Playwright `SlowMo` launch option in ms; present
+ *   only when a follow-along pause was requested (headed mode only)
  */
+
+/**
+ * Follow-along pause (headed only): Playwright's own `SlowMo` launch option
+ * delays every browser action so the QA engineer can watch the run. It is a
+ * launch option, never test source, so there is nothing to strip before a
+ * test lands. Returns `{slowMo}` to spread into the run config, or `{}` when
+ * no pause was requested.
+ *
+ * @throws {Error} if slowMoMs is not a positive integer, or mode is not
+ *   'headed' (no human is watching a headless run -- strict, never ignored)
+ */
+function resolveSlowMo(mode, slowMoMs) {
+  if (slowMoMs === undefined || slowMoMs === null) return {};
+  if (!Number.isInteger(slowMoMs) || slowMoMs <= 0) {
+    throw new Error(`slowMoMs must be a positive integer (milliseconds) when provided (got: ${JSON.stringify(slowMoMs)})`);
+  }
+  if (mode !== 'headed') {
+    throw new Error('slowMoMs only applies to headed mode — no human is watching a headless run');
+  }
+  return { slowMo: slowMoMs };
+}
 
 /**
  * Resolve the auth/launch config a test run should use, given the session's
@@ -78,16 +101,20 @@ const VALID_MODES = ['headed', 'headless'];
  *   than one QA/staging deploy target). When present, used regardless of
  *   mode. When absent, mode 'headed' falls back to a live interactive login;
  *   mode 'headless' has no fallback and throws (no human present to log in)
+ * @param {{slowMoMs?: number}} [opts] - slowMoMs: follow-along pause in ms
+ *   (headed only); see resolveSlowMo. Omit for no pause.
  * @returns {RunConfig}
  * @throws {Error} if mode is not exactly 'headed'|'headless' (no silent
- *   default), or if mode is 'headless' with no authStatePath provided (can't
+ *   default), if slowMoMs is invalid or given in headless mode, or if mode is
+ *   'headless' with no authStatePath provided (can't
  *   run headless with no stored auth state — reported as a clear error
  *   rather than silently falling back to headed or crashing obscurely)
  */
-function resolveRunConfig(mode, authStatePath) {
+function resolveRunConfig(mode, authStatePath, opts = {}) {
   if (!VALID_MODES.includes(mode)) {
     throw new Error(`Invalid mode '${mode}': must be one of ${VALID_MODES.map((m) => `'${m}'`).join(', ')}`);
   }
+  const slowMo = resolveSlowMo(mode, opts.slowMoMs);
 
   // undefined/null mean "no stored state provided" (fall through to mode's
   // own fallback below); anything else provided must be a valid non-empty
@@ -104,6 +131,7 @@ function resolveRunConfig(mode, authStatePath) {
       mode,
       headless: mode === 'headless',
       auth: { strategy: 'stored-storage-state', authStatePath },
+      ...slowMo,
     };
   }
 
@@ -112,6 +140,7 @@ function resolveRunConfig(mode, authStatePath) {
       mode: 'headed',
       headless: false,
       auth: { strategy: 'interactive-login', authStatePath: null },
+      ...slowMo,
     };
   }
 
