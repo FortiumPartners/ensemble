@@ -9,6 +9,7 @@
  *
  * Subcommands:
  *   generate-bindings   <prd-path> [--out <dir>] [--sut <csproj>] [--dry-run] [--force]
+ *   migrate-bindings    <prd-path> [--out <dir>] [--dry-run] [--json]
  *   check-binding-drift <prd-path> [--out <dir>] [--json]
  *   run                 [--project <dir>] [--filter <expr>] [--json]
  *
@@ -27,6 +28,8 @@ const {
   writeBindingArtifacts,
   buildBindingArtifacts,
   diffBindingDrift,
+  migrateStepAttributes,
+  writeFileAtomic,
   MANIFEST_NAME,
 } = require('./reqnroll-gen');
 const { runTests, isGreen } = require('./reqnroll-run');
@@ -111,6 +114,43 @@ function runCheckDrift(argv) {
   return { ok: true, slug, stepsDir, drift };
 }
 
+/**
+ * Re-emit the step attributes in existing step files from the PRD, leaving every
+ * filled body untouched. Step files are write-once, so this is the only way to
+ * correct an attribute without `--force` discarding the bodies with it.
+ */
+function runMigrate(argv) {
+  const { positionals, flags } = parseArgs(argv, new Set(['out']));
+  const prdPath = positionals[0];
+  const { slug, parsed } = loadParsed(prdPath);
+  const outRoot = flags.out || DEFAULT_OUT;
+  const stepsDir = path.join(outRoot, slug, 'Steps');
+  const files = listStepFiles(stepsDir);
+
+  if (files.length === 0) {
+    return {
+      ok: false,
+      slug,
+      noBindings: true,
+      stepsDir,
+      message: `No step files under ${stepsDir} — run generate-bindings first.`,
+    };
+  }
+
+  const changed = [];
+  const unmatched = [];
+  for (const file of files) {
+    const before = fs.readFileSync(file, 'utf8');
+    const res = migrateStepAttributes(before, parsed);
+    for (const m of res.unmatched) unmatched.push({ file, method: m });
+    if (!res.rewritten.length) continue;
+    changed.push({ file, rewritten: res.rewritten });
+    if (!flags['dry-run']) writeFileAtomic(file, res.content);
+  }
+
+  return { ok: true, slug, stepsDir, changed, unmatched, dryRun: !!flags['dry-run'] };
+}
+
 function runRun(argv) {
   const { flags } = parseArgs(argv, new Set(['project', 'filter']));
   const projectDir = flags.project || '.';
@@ -154,6 +194,26 @@ function reportDrift(r) {
   return lines.join('\n');
 }
 
+function reportMigrate(r) {
+  if (r.noBindings) return r.message;
+  const verb = r.dryRun ? 'Would rewrite' : 'Rewrote';
+  if (!r.changed.length && !r.unmatched.length) {
+    return `IN_SYNC — ${r.slug} step attributes already match the PRD.`;
+  }
+  const lines = [];
+  for (const c of r.changed) {
+    lines.push(`${verb} ${c.rewritten.length} attribute(s) in ${c.file}:`);
+    for (const w of c.rewritten) lines.push(`      ${w.method}: @"${w.from}" -> @"${w.to}"`);
+  }
+  if (r.unmatched.length) {
+    lines.push(`  ${r.unmatched.length} binding(s) left alone — no matching PRD step:`);
+    for (const u of r.unmatched) lines.push(`      ${u.method} (${u.file})`);
+    lines.push('  Run check-binding-drift to see whether those are orphaned.');
+  }
+  if (!r.dryRun && r.changed.length) lines.push('  Method bodies were not touched.');
+  return lines.join('\n');
+}
+
 function reportRun(r) {
   const x = r.result;
   const head = r.green ? 'GREEN' : 'RED';
@@ -177,6 +237,11 @@ function main(argv) {
       console.log(wantsJson ? JSON.stringify(r, null, 2) : reportGenerate(r));
       return 0;
     }
+    if (cmd === 'migrate-bindings') {
+      const r = runMigrate(rest);
+      console.log(wantsJson ? JSON.stringify(r, null, 2) : reportMigrate(r));
+      return r.noBindings ? 1 : 0;
+    }
     if (cmd === 'check-binding-drift') {
       const r = runCheckDrift(rest);
       console.log(wantsJson ? JSON.stringify(r, null, 2) : reportDrift(r));
@@ -189,7 +254,7 @@ function main(argv) {
       return r.green ? 0 : 2;
     }
     console.error(
-      'Usage: reqnroll-cli <generate-bindings|check-binding-drift|run> [...] (see header)'
+      'Usage: reqnroll-cli <generate-bindings|migrate-bindings|check-binding-drift|run> [...] (see header)'
     );
     return 1;
   } catch (err) {

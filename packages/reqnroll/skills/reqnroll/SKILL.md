@@ -19,6 +19,31 @@ hand-edited attribute that no longer matches the scenario step becomes an *undef
 step*. Wrong/missing attribute text is a drift signal (see
 `/ensemble:check-binding-drift`), not something to fix by hand.
 
+That includes the escaping. Reqnroll reads an unanchored expression as a **Cucumber
+expression**, where `/` is alternation, `(…)` is optional text and `{…}` is a
+parameter, so step text containing those characters is emitted escaped:
+
+```csharp
+// PRD step: "a paused/canceled future plan"
+[Given(@"a paused\/canceled future plan")]
+```
+
+Without the backslash the attribute looks byte-identical to the feature file and
+matches nothing, so the scenario reports *undefined*. Leave the escaping in place.
+
+**To correct an attribute, re-emit it from the PRD.** Step files are write-once, so
+`generate-bindings` will not touch an existing one and `--force` would discard your
+bodies along with it. This rewrites the attributes and leaves every filled body
+byte-identical:
+
+```bash
+node packages/product/lib/reqnroll-cli.js migrate-bindings <prd-path> [--out <dir>] [--dry-run]
+```
+
+It reports each attribute it rewrote, and leaves any binding with no matching PRD
+step alone rather than guessing — run `check-binding-drift` to see whether those are
+orphaned.
+
 ## Package set (already wired by the generator)
 
 ```xml

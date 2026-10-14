@@ -37,6 +37,25 @@ function normalizeStepText(text) {
   return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
+// Reqnroll reads an unanchored expression with no regex markers as a Cucumber
+// expression, where `/` is alternation, `(…)` is optional text and `{…}` is a
+// parameter. Step text written as prose therefore has to be escaped or the
+// binding silently matches nothing and the scenario reports undefined — the
+// generated attribute looks byte-identical to the feature file while failing.
+// Escape the opening characters only, per the Cucumber Expressions spec, which
+// leaves an unpaired `)` or `}` literal. One pass, so a backslash inserted here
+// is never rescanned and re-escaped.
+const CUKE_SPECIAL_RE = /[\\{(/]/g;
+
+function escapeCucumberExpression(text) {
+  return String(text || '').replace(CUKE_SPECIAL_RE, (c) => `\\${c}`);
+}
+
+/** Inverse of escapeCucumberExpression — recovers the literal step text. */
+function unescapeCucumberExpression(text) {
+  return String(text || '').replace(/\\([\\{(/])/g, '$1');
+}
+
 function hashStep(keyword, text) {
   return crypto
     .createHash('sha256')
@@ -140,7 +159,8 @@ function renderStepClass(req, steps, opts = {}) {
   for (const s of steps) {
     const attr = attributeFor(s.keyword);
     lines.push('');
-    lines.push(`    [${attr}(@"${s.text.replace(/"/g, '""')}")]`);
+    const expr = escapeCucumberExpression(s.text).replace(/"/g, '""');
+    lines.push(`    [${attr}(@"${expr}")]`);
     lines.push(`    public void ${s.method}() => throw new PendingStepException();`);
   }
   lines.push('}');
@@ -314,7 +334,11 @@ function scanBindingAttributes(csText) {
   let m;
   ATTR_RE.lastIndex = 0;
   while ((m = ATTR_RE.exec(text)) !== null) {
-    out.push({ keyword: m[1], text: m[2].replace(/""/g, '"') });
+    // Undo the generator's two layers in reverse: C# verbatim quote doubling,
+    // then Cucumber-expression escaping. Drift identity stays the literal step
+    // text, so an escaped binding still matches its unescaped PRD step.
+    const literal = unescapeCucumberExpression(m[2].replace(/""/g, '"'));
+    out.push({ keyword: m[1], text: literal });
   }
   return out;
 }
@@ -342,9 +366,70 @@ function diffBindingDrift(prd, csSources) {
   return { inSync: unbound.length === 0 && orphaned.length === 0, unbound, orphaned };
 }
 
+// ---------------------------------------------------------------------------
+// Attribute migration — rewrite the generated attribute text in place while
+// leaving every filled body byte-identical.
+// ---------------------------------------------------------------------------
+
+const METHOD_DECL_RE = /\b(?:public|internal|protected|private)\b[^(;]*?\b(\w+)\s*\(/;
+
+/**
+ * Re-emit the step attributes in an existing Steps/*.cs source from the PRD's
+ * current inventory, touching nothing else.
+ *
+ * Step files are write-once, so a plain regeneration cannot correct an attribute
+ * and `--force` would discard the bodies with it. Escaping does not change the
+ * generated method name (methodNameFor strips non-alphanumerics), so the method
+ * name is a stable key: match on it and substitute only the expression.
+ *
+ * An attribute whose method is not in the PRD inventory is left untouched and
+ * reported, never guessed at.
+ *
+ * @returns {{ content:string, rewritten:Array<{method,from,to}>, unmatched:string[] }}
+ */
+function migrateStepAttributes(csText, prd) {
+  const byMethod = new Map(collectSteps(prd).map((s) => [s.method, s]));
+  const lines = String(csText || '').split('\n');
+  const rewritten = [];
+  const unmatched = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const attr = /^(\s*)\[(Given|When|Then|And)\(@"((?:[^"]|"")*)"\)\]\s*$/.exec(lines[i]);
+    if (!attr) continue;
+
+    // The method this attribute binds is the next declaration below it.
+    let method = null;
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^\s*\[/.test(lines[j]) || lines[j].trim() === '') continue;
+      const decl = METHOD_DECL_RE.exec(lines[j]);
+      if (decl) method = decl[1];
+      break;
+    }
+    if (!method) continue;
+
+    const step = byMethod.get(method);
+    if (!step) {
+      unmatched.push(method);
+      continue;
+    }
+
+    const expr = escapeCucumberExpression(step.text).replace(/"/g, '""');
+    const next = `${attr[1]}[${attributeFor(step.keyword)}(@"${expr}")]`;
+    if (next === lines[i]) continue;
+    rewritten.push({ method, from: attr[3], to: expr });
+    lines[i] = next;
+  }
+
+  return { content: lines.join('\n'), rewritten, unmatched };
+}
+
 module.exports = {
   MANIFEST_NAME,
   normalizeStepText,
+  escapeCucumberExpression,
+  unescapeCucumberExpression,
+  migrateStepAttributes,
+  writeFileAtomic,
   hashStep,
   methodNameFor,
   className,

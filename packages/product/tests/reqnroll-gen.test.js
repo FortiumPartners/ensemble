@@ -12,6 +12,9 @@ const {
   buildBindingArtifacts,
   writeBindingArtifacts,
   diffBindingDrift,
+  escapeCucumberExpression,
+  unescapeCucumberExpression,
+  migrateStepAttributes,
 } = require('../lib/reqnroll-gen');
 
 const SAMPLE = fs.readFileSync(
@@ -125,6 +128,189 @@ describe('renderStepClass', () => {
   test('every body is a Pending stub', () => {
     expect(cs).toContain('throw new PendingStepException();');
     expect(cs).not.toContain('// TODO real impl');
+  });
+});
+
+describe('Cucumber-expression escaping', () => {
+  test('escapes the opening specials and leaves unpaired closers literal', () => {
+    expect(escapeCucumberExpression('a paused/canceled plan')).toBe(
+      'a paused\\/canceled plan'
+    );
+    expect(escapeCucumberExpression('revoked access (temporarily)')).toBe(
+      'revoked access \\(temporarily)'
+    );
+    expect(escapeCucumberExpression('the {token} field')).toBe('the \\{token} field');
+    expect(escapeCucumberExpression('a back\\slash')).toBe('a back\\\\slash');
+  });
+
+  test('leaves text with no specials byte-identical', () => {
+    const plain = 'a user with valid credentials, then it fails.';
+    expect(escapeCucumberExpression(plain)).toBe(plain);
+  });
+
+  test('round-trips back to the literal step text', () => {
+    for (const s of [
+      'a paused/canceled future plan',
+      'revoked child access (temporarily)',
+      'the {token} and the URL/token pair',
+      'a back\\slash and a /slash',
+    ]) {
+      expect(unescapeCucumberExpression(escapeCucumberExpression(s))).toBe(s);
+    }
+  });
+});
+
+describe('literal slash bindings (ensemble#116)', () => {
+  // Reqnroll reads an unanchored expression with no regex markers as a Cucumber
+  // expression, so a raw `/` is alternation and the scenario reports undefined
+  // even though the attribute looks byte-identical to the feature file.
+  const slashPrd = parsePRD(`---
+document_id: PRD-2026-slash
+label: slash-literal
+---
+
+# PRD-2026-slash: Literal Slash
+
+### REQ-005: Suppress Reminders [Must] [High]
+
+- **AC-005-3:** Given a paused/canceled future plan, when the occurrence is due, then the URL/token is not sent.
+`);
+
+  const steps = collectSteps(slashPrd);
+  const cs = renderStepClass(slashPrd.reqs[0], steps);
+
+  test('emits the slash escaped so Reqnroll matches it literally', () => {
+    expect(cs).toContain('[Given(@"a paused\\/canceled future plan")]');
+    expect(cs).toContain('[Then(@"the URL\\/token is not sent")]');
+  });
+
+  test('never emits a bare slash in a step attribute', () => {
+    const attrs = cs.match(/\[(?:Given|When|Then)\(@"[^"]*"\)\]/g) || [];
+    expect(attrs.length).toBe(3);
+    for (const a of attrs) expect(a).not.toMatch(/[^\\]\//);
+  });
+
+  test('the method name is unchanged by escaping, so filled bodies stay bound', () => {
+    expect(cs).toContain('public void GivenAPausedCanceledFuturePlan()');
+  });
+
+  test('an escaped binding still matches its unescaped PRD step', () => {
+    const res = diffBindingDrift(slashPrd, [cs]);
+    expect(res.unbound).toEqual([]);
+    expect(res.orphaned).toEqual([]);
+    expect(res.inSync).toBe(true);
+  });
+
+  test('drift is still detected when a binding is genuinely absent', () => {
+    const truncated = cs.replace(
+      /\n*    \[Then\(@"the URL\\\/token is not sent"\)\]\n.*\n/,
+      '\n'
+    );
+    expect(truncated).not.toContain('the URL\\/token');
+    const res = diffBindingDrift(slashPrd, [truncated]);
+    expect(res.inSync).toBe(false);
+    expect(res.unbound.map((s) => s.text)).toEqual(['the URL/token is not sent']);
+  });
+});
+
+describe('migrateStepAttributes (ensemble#116 migration)', () => {
+  const slashPrd = parsePRD(`---
+document_id: PRD-2026-slash-migrate
+label: slash-migrate
+---
+
+# PRD-2026-slash-migrate: Literal Slash
+
+### REQ-005: Suppress Reminders [Must] [High]
+
+- **AC-005-3:** Given a paused/canceled future plan, when the occurrence is due, then the URL/token is not sent.
+`);
+
+  // A step file generated BEFORE the fix, with bodies since filled in.
+  const filled = `using Reqnroll;
+using FluentAssertions;
+
+namespace Acceptance.Tests;
+
+[Binding]
+public partial class REQ005Steps
+{
+    private readonly ScenarioContext _ctx;
+    public REQ005Steps(ScenarioContext ctx) => _ctx = ctx;
+
+    [Given(@"a paused/canceled future plan")]
+    public void GivenAPausedCanceledFuturePlan()
+        => _ctx["state"] = Plan.Evolve(Plan.Initial, new PlanPaused(DateOnly.MaxValue));
+
+    [When(@"the occurrence is due")]
+    public async Task WhenTheOccurrenceIsDue()
+    {
+        _ctx["events"] = await _sut.Dispatch(new OccurrenceDue());
+    }
+
+    [Then(@"the URL/token is not sent")]
+    public void ThenTheURLTokenIsNotSent()
+        => _ctx.Get<IReadOnlyList<object>>("events").Should().BeEmpty();
+}
+`;
+
+  const res = migrateStepAttributes(filled, slashPrd);
+
+  test('rewrites exactly the attributes that were wrong', () => {
+    expect(res.rewritten.map((r) => r.method).sort()).toEqual([
+      'GivenAPausedCanceledFuturePlan',
+      'ThenTheURLTokenIsNotSent',
+    ]);
+    expect(res.content).toContain('[Given(@"a paused\\/canceled future plan")]');
+    expect(res.content).toContain('[Then(@"the URL\\/token is not sent")]');
+  });
+
+  test('leaves an already-correct attribute untouched', () => {
+    expect(res.rewritten.some((r) => r.method === 'WhenTheOccurrenceIsDue')).toBe(false);
+    expect(res.content).toContain('[When(@"the occurrence is due")]');
+  });
+
+  test('every filled body survives byte-identical', () => {
+    for (const body of [
+      '        => _ctx["state"] = Plan.Evolve(Plan.Initial, new PlanPaused(DateOnly.MaxValue));',
+      '        _ctx["events"] = await _sut.Dispatch(new OccurrenceDue());',
+      '        => _ctx.Get<IReadOnlyList<object>>("events").Should().BeEmpty();',
+    ]) {
+      expect(res.content).toContain(body);
+    }
+    // Only the two attribute lines differ from the original.
+    const before = filled.split('\n');
+    const after = res.content.split('\n');
+    expect(after.length).toBe(before.length);
+    const changed = before.filter((l, i) => l !== after[i]);
+    expect(changed).toEqual([
+      '    [Given(@"a paused/canceled future plan")]',
+      '    [Then(@"the URL/token is not sent")]',
+    ]);
+  });
+
+  test('the migrated file is in sync with the PRD', () => {
+    expect(diffBindingDrift(slashPrd, [res.content]).inSync).toBe(true);
+  });
+
+  test('is idempotent', () => {
+    const again = migrateStepAttributes(res.content, slashPrd);
+    expect(again.rewritten).toEqual([]);
+    expect(again.content).toBe(res.content);
+  });
+
+  test('reports a binding absent from the PRD instead of guessing', () => {
+    const extra = filled.replace(
+      '}\n',
+      `
+    [Given(@"a step nobody declared")]
+    public void GivenAStepNobodyDeclared() => throw new PendingStepException();
+}
+`
+    );
+    const r = migrateStepAttributes(extra, slashPrd);
+    expect(r.unmatched).toEqual(['GivenAStepNobodyDeclared']);
+    expect(r.content).toContain('[Given(@"a step nobody declared")]');
   });
 });
 
