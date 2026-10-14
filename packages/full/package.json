@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-full",
-  "version": "6.9.7",
+  "version": "6.9.8",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "scripts": {
     "test": "jest --passWithNoTests",

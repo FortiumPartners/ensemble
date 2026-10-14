@@ -1,6 +1,6 @@
 {
   "name": "ensemble",
-  "version": "6.9.7",
+  "version": "6.9.8",
   "description": "Official Sunstone Ensemble plugin marketplace - AI-augmented development workflows",
   "owner": {
     "name": "Sunstone Partners",
@@ -59,7 +59,7 @@
     },
     {
       "name": "ensemble-product",
-      "version": "5.6.3",
+      "version": "5.6.4",
       "source": "./packages/product",
       "description": "Product management workflows - PRD and TRD creation",
       "category": "workflow",
@@ -76,7 +76,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "6.0.9",
+      "version": "6.0.10",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -140,7 +140,7 @@
     },
     {
       "name": "ensemble-e2e-testing",
-      "version": "5.3.0",
+      "version": "5.4.0",
       "source": "./packages/e2e-testing",
       "description": "End-to-end testing workflows with Playwright",
       "category": "testing",
@@ -404,7 +404,7 @@
     },
     {
       "name": "ensemble-full",
-      "version": "6.9.7",
+      "version": "6.9.8",
       "source": "./packages/full",
       "description": "Complete Ensemble suite - all plugins in one package",
       "category": "core",
@@ -472,7 +472,7 @@
     },
     {
       "name": "ensemble-codex",
-      "version": "5.3.4",
+      "version": "5.3.5",
       "source": "./packages/codex",
       "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
       "category": "core",
