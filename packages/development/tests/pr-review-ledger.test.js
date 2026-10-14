@@ -121,3 +121,25 @@ describe('pr-review-ledger: scopeViolations', () => {
     expect(violations).toEqual([]);
   });
 });
+
+describe('pr-review-ledger: TRD-002-TEST scenario reconciliation', () => {
+  test('uncertain finding is kept -- a finding of uncertain validity is marked adjudicate and remains in the ledger', () => {
+    const uncertain = finding({ id: 'f5', uncertain: true, disposition: 'adjudicate' });
+    const validation = validateLedger([uncertain]);
+    expect(validation.ok).toBe(true);
+    expect(validation.offendingIds).not.toContain('f5');
+    expect(isActionable(uncertain)).toBe(true);
+  });
+
+  test('actionability boundary -- unresolved thread and Major finding are actionable; a Minor finding needs an explicit disposition to defer', () => {
+    const unresolvedThread = finding({ id: 'f1', severity: 'minor', unresolvedThread: true });
+    const majorFinding = finding({ id: 'f2', severity: 'major' });
+    const minorNoDisposition = finding({ id: 'f3', severity: 'minor', disposition: undefined, reason: undefined });
+    const minorDeferredWithReason = finding({ id: 'f4', severity: 'minor', disposition: 'deferred', reason: 'cosmetic only' });
+
+    expect(isActionable(unresolvedThread)).toBe(true);
+    expect(isActionable(majorFinding)).toBe(true);
+    expect(isActionable(minorNoDisposition)).toBe(true);
+    expect(isActionable(minorDeferredWithReason)).toBe(false);
+  });
+});
