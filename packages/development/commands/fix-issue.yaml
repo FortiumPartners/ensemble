@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:fix-issue
   description: Lightweight workflow for bug fixes and small issues
-  version: 1.3.0
+  version: 1.4.0
   lastUpdated: "2026-10-14"
   category: implementation
   model: medium
@@ -106,6 +106,7 @@ mission:
     - Run test suite with auto-fix retry logic (max 2 attempts)
     - Run an independent local review and one batched fix pass before any commit, push, or PR is created, gating `prApprovedAt` on `LOCAL_REVIEW_COMPLETE` (REQ-011)
     - Create comprehensive PR with GitHub CLI
+    - After the PR is published, evaluate the head-bound remote CodeRabbit review before reporting success; a pending or blocked review returns a resumable report instead of a false completion (REQ-012, REQ-013)
     - Provide clear error messages and recovery guidance
 
 workflow:
@@ -161,14 +162,25 @@ workflow:
                  completely unchanged -- no automatic retry,
                  background scheduling, or unattended continuation ever
                  occurs (AC-014-1).
+               - If an active run is found and its stage is
+                 "validation_delivery", its stageOutcome.kind is
+                 "approval_wait", its stageOutcome.detail starts with
+                 "REVIEW_", and a `pr:`-prefixed beadRefs[] entry exists:
+                 this is a resumable pending/blocked remote-review
+                 disposition (TRD-010, REQ-012, AC-012-2) -- call
+                 IssueRunIndexStore.loadRun(projectRoot, runId) and jump
+                 directly to Validation & Delivery's Remote Review
+                 Disposition step; do NOT re-run Test Validation, Local
+                 Review and Batch Fix, or PR Creation.
                - If an active run is found and its stageOutcome.kind is
                  anything else ("success", "pending", or a freshly
                  created run that has never run a stage yet): no
                  confirmation gate applies -- call
                  IssueRunIndexStore.loadRun(projectRoot, runId) and
-                 resume execution at its recorded `stage` (AC-019-2) --
-                 never re-derive progress from conversation history or
-                 file-presence guessing alone.
+                 resume execution at its recorded `stage`, from that
+                 stage's first step (AC-019-2) -- never re-derive
+                 progress from conversation history or file-presence
+                 guessing alone.
 
         - order: 2
           title: "--status -- Read-Only Run Report"
@@ -486,7 +498,13 @@ workflow:
                  refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@',
                  falling back to "main" if empty or the command fails.
                - BASE_SHA: git merge-base HEAD <DEFAULT_BRANCH>.
-               - HEAD_SHA: git rev-parse HEAD.
+               - HEAD_SHA: the Execution phase's changes are not committed
+                 yet (PR Creation still owns the one real commit,
+                 unchanged) -- resolve a real, diffable SHA for them
+                 without creating or advancing any branch: git stash
+                 create, falling back to git rev-parse HEAD only when it
+                 prints nothing (a clean working tree -- nothing new to
+                 review beyond HEAD).
 
             2. Invoke the pr-review-cycle skill (via the skill system) with
                MODE='local', BASE_SHA=<resolved above>, HEAD_SHA=<resolved
@@ -608,19 +626,83 @@ workflow:
                - "✓ All tests passed"
 
         - order: 4
+          title: Remote Review Disposition
+          description: |
+            After the PR exists, invoke the shared pr-review-cycle skill,
+            located at
+            "$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+            in remote mode to evaluate the head-bound CodeRabbit review and
+            decide whether this run may report success (TRD-010, REQ-012,
+            REQ-013). A pending or blocked review never completes the run
+            -- it returns a resumable report instead.
+          tool: Bash
+          model: low
+          instructions: |
+            1. Record the PR reference once, regardless of outcome: call
+               IssueRunIndexStore.mutate(projectRoot, runId, revision,
+               (record) => { if (!record.beadRefs.includes(`pr:${prUrl}`))
+               record.beadRefs.push(`pr:${prUrl}`); }) so a later resume
+               always finds the PR even before a terminal outcome is
+               reached.
+
+            2. Invoke the pr-review-cycle skill (via the skill system) with
+               MODE='remote', PR_ID=<the SAME repo-slug>-<branch-name> key
+               used in Local Review and Batch Fix (never a PR-number form
+               -- the review-state report must resolve to the same key so
+               the local-phase facts recorded there carry forward),
+               PR_URL=<the URL from PR Creation>, HEAD_SHA=<git rev-parse
+               HEAD -- the real commit PR Creation pushed>,
+               BOT_LOGINS=<configured review-bot usernames>,
+               FOREMAN=<--foreman flag>.
+
+            3. Parse the skill's return value {status, localPhase,
+               remotePhase, reasons, ledger, nextAction, reportPath,
+               headSha}. Store as REVIEW_STATUS, REVIEW_NEXT_ACTION,
+               REVIEW_REPORT_PATH.
+
+            4. IF REVIEW_STATUS == 'REVIEW_COMPLETE': do not mutate
+               stageOutcome here -- proceed to Record Stage Checkpoint,
+               which alone marks the run done.
+
+            5. IF REVIEW_STATUS is 'REVIEW_PENDING' or 'REVIEW_BLOCKED':
+               never call IssueRunIndexStore.complete() and never describe
+               the PR as merged or landed. Call
+               IssueRunIndexStore.mutate(projectRoot, runId, revision,
+               (record) => { record.stageOutcome = { kind: "approval_wait",
+               detail: `${REVIEW_STATUS}: ${REVIEW_NEXT_ACTION}`,
+               recordedAt: now() }; }) -- `stage` stays "validation_delivery"
+               so a later bare invocation resumes here, not at "done".
+               Print the resumable report (status, next action,
+               REVIEW_REPORT_PATH) and HALT -- do NOT proceed to Record
+               Stage Checkpoint (TRD-010, AC-012-1, AC-012-2). A finding
+               needing a human decision under --foreman is already
+               REVIEW_BLOCKED from the skill itself (never dismissed to
+               force completion); this branch reports it the same way.
+
+            6. IF --foreman is set and FOREMAN_ARTIFACT_PATH is non-empty:
+               write the phase report { status: REVIEW_STATUS, headSha,
+               ledger } to that exact path (creating parent directories as
+               needed), in addition to the repo-local review-state report
+               pr-review-cycle already wrote at REVIEW_REPORT_PATH -- with
+               no prompt and no indefinite wait. If FOREMAN_ARTIFACT_PATH
+               is unset, this step's behavior is unchanged and no error is
+               raised.
+
+        - order: 5
           title: Record Stage Checkpoint
           description: |
             Persist this phase's outcome and mark the run complete via
-            issue-run-index.ts (Implementation AC 2, REQ-019).
+            issue-run-index.ts (Implementation AC 2, REQ-019). Only
+            reached when Remote Review Disposition's status is
+            REVIEW_COMPLETE -- a pending or blocked outcome halts there
+            instead (TRD-010, AC-012-1).
           tool: Bash
           instructions: |
-            1. IF a PR was created: call IssueRunIndexStore.mutate(projectRoot,
-               runId, revision, (record) => { record.beadRefs.push(\`pr:${prUrl}\`); })
-               to record the PR reference (TRD-017's "pr:" prefix).
-            2. Call IssueRunIndexStore.complete(projectRoot, runId) to mark
+            1. Call IssueRunIndexStore.complete(projectRoot, runId) to mark
                the run completed ("done") and release active.lock. The
-               run's own history file is never deleted.
-            3. On a thrown error (e.g. a revision conflict), halt the
+               run's own history file is never deleted. The PR reference
+               was already recorded by Remote Review Disposition.
+            2. On a thrown error (e.g. a revision conflict), halt the
                workflow and report the error.
 
 expectedInput:
