@@ -134,7 +134,7 @@ function buildEnv(projectRoot: string, eventJson: string): NodeJS.ProcessEnv {
 
 /** Why the process could not be started, in terms of what the user wrote. */
 function startFailureMessage(handler: ShellHandler, executable: string, projectRoot: string, error: unknown): string {
-  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+  const code = isRecord(error) ? error.code : undefined;
   const prefix = `could not start "${handler.command}"`;
   if (code === "ENOENT") {
     // Node reports a missing working directory exactly like a missing executable.
@@ -148,7 +148,7 @@ function startFailureMessage(handler: ShellHandler, executable: string, projectR
     return `${prefix}: no executable named "${handler.command}" on PATH${hint}`;
   }
   if (code === "EACCES") return `${prefix}: permission denied (is the file executable?)`;
-  return `${prefix}: ${error instanceof Error ? error.message : String(error)}`;
+  return `${prefix}: ${isRecord(error) && typeof error.message === "string" ? error.message : String(error)}`;
 }
 
 /** The last part of the captured output, trimmed, for `message`. */
