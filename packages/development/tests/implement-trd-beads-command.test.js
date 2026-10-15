@@ -1,6 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
+// Split a YAML block's `actions:` list into one string per action so assertions are about
+// which action does what and in what ORDER, not about line-wrapped literals.
+const actionsOf = (block) =>
+  block
+    .slice(block.indexOf('actions:'))
+    .split(/\n\s*- "/)
+    .slice(1);
+
+// Every literal the RAW skill field `localPhase` is compared with. A gate must key on the one good value
+// (LOCAL_REVIEW_COMPLETE); comparing the raw field with a bad literal is the fail-open shape, because any
+// other or missing value then slips past.
+const rawPhaseComparisons = (s) => [...s.matchAll(/\blocalPhase\s*==\s*'([A-Z_]+)'/g)].map((m) => m[1]);
+
 describe('implement-trd-beads command progress behavior', () => {
   const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 
@@ -663,5 +676,414 @@ describe('implement-trd-beads always-on team roster (team8)', () => {
     expect(stepBlock).toMatch(/NEVER tag the root epic or story beads/);
     expect(stepBlock).toMatch(/NEVER use --labels or --set-labels/);
     expect(stepBlock).not.toMatch(/br update <BEAD_ID> --labels/);
+  });
+});
+
+describe('implement-trd-beads PR review gates at stacked-phase and single-PR boundaries (TRD-013)', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  function sliceBetween(startMarker, endMarker, fromIdx = 0) {
+    const start = text.indexOf(startMarker, fromIdx);
+    expect(start).toBeGreaterThan(-1);
+    const end = text.indexOf(endMarker, start);
+    expect(end).toBeGreaterThan(start);
+    return { start, end, block: text.slice(start, end) };
+  }
+
+  // The Gate Result Recording step's actions in order, and where a given one sits among them.
+  const gateResultActions = () => actionsOf(sliceBetween('title: Gate Result Recording', 'title: Epic Closure').block);
+  const at = (actions, re) => actions.findIndex((a) => re.test(a));
+  const REVIEW_GATE = /^PR Review Gate \(TRD-013/;
+  const GATE_RESULT = /^Parse the skill's return \{status, localPhase/;
+
+  test('Scenario: stacked gate precedes propose and append -- the review gate runs before git town propose and before the appendNextBranch clause', () => {
+    const actions = gateResultActions();
+    const gateAt = at(actions, REVIEW_GATE);
+
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(at(actions, /git town propose/)).toBeGreaterThan(gateAt);
+    expect(at(actions, /git town append/)).toBeGreaterThan(gateAt);
+  });
+
+  test('Scenario: a blocked phase review halts before PR creation or branch append, without touching the existing gate_passed checkpoint', () => {
+    const actions = gateResultActions();
+    const gateAt = at(actions, REVIEW_GATE);
+    const resultAt = at(actions, GATE_RESULT);
+
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(resultAt).toBeGreaterThan(gateAt);
+    // The gate value is derived from the raw localPhase by a match on the one good value only ...
+    expect(rawPhaseComparisons(actions[resultAt])).toEqual(['LOCAL_REVIEW_COMPLETE']);
+    // ... every other outcome HALTs in this action, which precedes every action that creates the PR or appends the next branch.
+    expect(actions[resultAt]).toMatch(/\bHALT\b/);
+    expect(resultAt).toBeLessThan(at(actions, /git town propose/));
+    expect(resultAt).toBeLessThan(at(actions, /git town append/));
+    // The existing gate_passed checkpoint close runs earlier in the same step and is untouched by the new gate.
+    const checkpointAt = at(actions, /br close <STORY_BEAD_ID>/);
+    expect(checkpointAt).toBeGreaterThan(-1);
+    expect(checkpointAt).toBeLessThan(gateAt);
+  });
+
+  test("Scenario: a phase review excludes later phases -- PARENT_PHASE_TIP_SHA is the parent branch tip, so BASE_SHA excludes the parent phase's own commits and any later phase", () => {
+    const actions = gateResultActions();
+    const gate = actions[at(actions, REVIEW_GATE)];
+
+    expect(gate).toContain('PARENT_PHASE_TIP_SHA = git merge-base HEAD <GATE_ACTION.parentBranch>');
+    expect(gate).toContain('BASE_SHA=<PARENT_PHASE_TIP_SHA>');
+    expect(gate).toContain('HEAD_SHA=<git rev-parse HEAD>');
+  });
+
+  test('Scenario: single-PR gate precedes Epic Closure and the completion PR -- the whole-branch review runs once, in the PR Review Completion Check, never in Completion Report', () => {
+    const checkStart = text.indexOf('title: PR Review Completion Check');
+    const epicStart = text.indexOf('title: Epic Closure');
+    const reportStart = text.indexOf('title: Completion Report');
+    expect(checkStart).toBeGreaterThan(-1);
+    expect(epicStart).toBeGreaterThan(checkStart);
+    expect(reportStart).toBeGreaterThan(epicStart);
+
+    const checkBlock = text.slice(checkStart, epicStart);
+    const reportBlock = text.slice(reportStart, text.indexOf('expectedInput:', reportStart));
+
+    // The local review is invoked exactly once, before Epic Closure ...
+    const gateActions = actionsOf(checkBlock).filter((a) => /MODE='local'/.test(a) && /<TRD_SLUG>-completion/.test(a));
+    expect(gateActions).toHaveLength(1);
+    // ... and never again in Completion Report, whose PR creation therefore runs on an already-reviewed head.
+    expect(reportBlock).not.toMatch(/MODE='local'/);
+    ['git town propose --title', 'gh pr create --title', "PR_BACKEND=='ado'", "PR_BACKEND=='manual'"].forEach((needle) => {
+      expect(reportBlock).toContain(needle);
+    });
+  });
+
+  test('Scenario: a blocked completion review halts BEFORE Epic Closure, leaving the epic open and creating no PR', () => {
+    const checkBlock = text.slice(text.indexOf('title: PR Review Completion Check'), text.indexOf('title: Epic Closure'));
+    const [gate, parse] = actionsOf(checkBlock);
+
+    expect(gate).toMatch(/MODE='local'/);
+    // The verdict is derived from the raw localPhase by a match on the one good value only ...
+    expect(rawPhaseComparisons(parse)).toEqual(['LOCAL_REVIEW_COMPLETE']);
+    // ... every other outcome HALTs here, in the check that sits before Epic Closure ...
+    expect(parse).toMatch(/\bHALT\b/);
+    // ... and that branch closes nothing and publishes nothing.
+    const blockedAt = parse.indexOf("If COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED'");
+    const completeAt = parse.indexOf("If COMPLETION_LOCAL_REVIEW=='LOCAL_REVIEW_COMPLETE'");
+    expect(blockedAt).toBeGreaterThan(-1);
+    expect(completeAt).toBeGreaterThan(blockedAt);
+    expect(parse.slice(blockedAt, completeAt)).not.toMatch(/\bbr close\b|git town propose|gh pr create|git push/);
+  });
+
+  test('R2 fail-closed: the completion gate resolves its base from the default branch, blocks on an empty/unresolvable base, and Epic Closure re-checks the verdict', () => {
+    const checkBlock = text.slice(text.indexOf('title: PR Review Completion Check'), text.indexOf('title: Epic Closure'));
+    const [gate, parse] = actionsOf(checkBlock);
+
+    // No hardcoded base: it is derived from the default branch, with an explicit empty/unresolvable -> BLOCKED path.
+    expect(gate).not.toMatch(/BASE_SHA=<git merge-base HEAD main>/);
+    expect(gate).toContain('git symbolic-ref --short refs/remotes/origin/HEAD');
+    expect(gate).toMatch(/empty or does not resolve to a commit, skip the skill call and treat the gate as LOCAL_REVIEW_BLOCKED/);
+    expect(gate).toContain('BASE_SHA=<COMPLETION_BASE_SHA>');
+    expect(parse).toMatch(/empty\/unresolvable COMPLETION_BASE_SHA/);
+    // The halt covers anything other than exactly COMPLETE and a re-run starts a fresh review.
+    expect(parse).toMatch(/anything other than exactly 'LOCAL_REVIEW_COMPLETE'/);
+    expect(parse).toMatch(/FRESH review \(a prior BLOCKED result is never reused\)/);
+
+    // Epic Closure itself refuses to run on any other/unset verdict.
+    const epicBlock = text.slice(text.indexOf('title: Epic Closure'), text.indexOf('title: TRD Checkbox Sync'));
+    const precondition = actionsOf(epicBlock)[0];
+    expect(precondition).toMatch(/COMPLETION_LOCAL_REVIEW == 'LOCAL_REVIEW_COMPLETE'/);
+    expect(precondition).toMatch(/any other, unset or missing value blocks/);
+    expect(precondition).toMatch(/Otherwise this step must not run/);
+  });
+
+  test('Scenario: a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE', () => {
+    const { block } = sliceBetween('title: Gate Result Recording', 'title: Completion Verification');
+    const actions = actionsOf(block);
+
+    const gateIdx = actions.findIndex((a) => /^PR Review Gate \(TRD-013/.test(a));
+    const resultIdx = actions.findIndex((a) => /^Parse the skill's return \{status, localPhase/.test(a));
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(resultIdx).toBeGreaterThan(gateIdx);
+
+    // Any story close that can run BEFORE the review gate must be restricted to single-PR mode (no PR boundary).
+    actions.slice(0, gateIdx).filter((a) => /br close <STORY_BEAD_ID>/.test(a)).forEach((a) => {
+      expect(a).toMatch(/createPr == false/);
+      expect(a).toMatch(/do NOT close <STORY_BEAD_ID> yet/);
+    });
+
+    // The stacked-mode close lives in the review-result action, only on the COMPLETE branch; BLOCKED keeps the story open.
+    const result = actions[resultIdx];
+    const blocked = result.indexOf("If PHASE_LOCAL_REVIEW=='LOCAL_REVIEW_BLOCKED'");
+    const complete = result.indexOf("If PHASE_LOCAL_REVIEW=='LOCAL_REVIEW_COMPLETE'");
+    const closeAt = result.indexOf('br close <STORY_BEAD_ID>');
+    expect(blocked).toBeGreaterThan(-1);
+    expect(complete).toBeGreaterThan(blocked);
+    expect(closeAt).toBeGreaterThan(complete);
+    expect(result.slice(blocked, complete)).toMatch(/<STORY_BEAD_ID> stays OPEN/);
+    expect(result.slice(blocked, complete)).not.toMatch(/br close/);
+  });
+
+  test('Scenario: existing safeguards intact -- pr-plan GATE_ACTION/COMPLETION_ACTION resolution, the Pre-PR test gate (still ahead of the review gate), and completion-verification are unchanged', () => {
+    // pr-plan topology (GATE_ACTION/COMPLETION_ACTION) is still the source of branch/title/parent data.
+    expect(text).toContain('GATE_ACTION = PR_ACTIONS[N]');
+    expect(text).toContain("kind=='completion'");
+    // The pre-existing Pre-PR test gate (tests+coverage, independent of review) still runs, still HALTs on failure, and precedes the review gate.
+    const actions = gateResultActions();
+    const preTestAt = actions.findIndex((a) => /npm run test --workspaces --if-present/.test(a) && /\bHALT\b/.test(a));
+    expect(preTestAt).toBeGreaterThan(-1);
+    expect(preTestAt).toBeLessThan(at(actions, REVIEW_GATE));
+    // completion-verification stays the full-suite/requirement authority (TRD-014 adds a later, separate check).
+    expect(text).toContain('packages/development/skills/completion-verification/SKILL.md');
+    expect(text).toContain("TRACKING_MODE='beads'");
+  });
+
+  test('both PR Review Gate call sites resolve the shared pr-review-cycle skill by the canonical repo-root path (no duplicated review logic)', () => {
+    // Exactly two MODE='local' call sites: Gate Result Recording (stacked) and
+    // Completion Report (single-PR). TRD-014 adds a third, MODE='remote' call
+    // site (PR Review Completion Check) -- covered separately in its own test.
+    const localOccurrences = text.split(
+      "pr-review-cycle/SKILL.md\\\", with MODE='local'"
+    ).length - 1;
+    expect(localOccurrences).toBe(2);
+    expect(text).not.toMatch(/pr-review-cli\.js/);
+  });
+});
+
+describe('implement-trd-beads PR-review completion check, messaging, manual/ADO backends (TRD-014)', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  function sliceBetween(startMarker, endMarker, fromIdx = 0) {
+    const start = text.indexOf(startMarker, fromIdx);
+    expect(start).toBeGreaterThan(-1);
+    const end = text.indexOf(endMarker, start);
+    expect(end).toBeGreaterThan(start);
+    return { start, end, block: text.slice(start, end) };
+  }
+
+  // The PR Review Completion Check step's actions, in order.
+  const checkActions = () => actionsOf(sliceBetween('title: PR Review Completion Check', 'title: Epic Closure').block);
+
+  test('Scenario: completion-verification stays authoritative -- Completion Verification runs first and the PR-review check is a separate step before Epic Closure', () => {
+    const yaml = require('js-yaml');
+    const doc = yaml.load(text);
+    const completion = doc.workflow.phases.find((p) => p.name === 'Completion');
+    const titles = completion.steps.map((s) => s.title);
+
+    expect(titles).toEqual([
+      'Completion Verification',
+      'PR Review Completion Check',
+      'Epic Closure',
+      'TRD Checkbox Sync',
+      'Completion Report',
+    ]);
+
+    // The check owns no verification of its own: it never invokes completion-verification, tracks no progress, and closes no bead.
+    const prCheck = completion.steps.find((s) => s.title === 'PR Review Completion Check');
+    expect(prCheck.actions.join('\n')).not.toMatch(/completion-verification|trd_progress|TRACKING_MODE|\bbr close\b/);
+  });
+
+  test('Scenario: no evidence is claimed when none was gathered -- a never-created PR is marked PENDING and never evaluated, and no status can say merged or landed', () => {
+    const actions = checkActions();
+    const unset = actions.find((a) => /whose url is unset/.test(a));
+    const set = actions.find((a) => /whose url is set/.test(a));
+
+    expect(unset).toBeDefined();
+    expect(set).toBeDefined();
+    // A PR that was never created is marked PENDING and is never sent to the review skill ...
+    expect(unset).toContain("PR_REVIEW_STATUS[entry.n]='PENDING (no PR created)'");
+    expect(unset).not.toMatch(/MODE='remote'/);
+    // ... only a PR with a url is evaluated remotely.
+    expect(set).toMatch(/MODE='remote'/);
+    // The only statuses this check ever assigns are that marker and the skill's own verdict.
+    const assigned = [...actions.join('\n').matchAll(/PR_REVIEW_STATUS\[entry\.n\]=('[^']*'|\w+)/g)].map((m) => m[1]);
+    expect(assigned).toEqual(["'PENDING (no PR created)'", 'status']);
+  });
+
+  test('Scenario: manual backend prints steps and reports pending -- PR_BACKEND manual or ado-without-MCP boundaries are reported PENDING with manual review steps, never silently', () => {
+    const unset = checkActions().find((a) => /whose url is unset/.test(a));
+
+    expect(unset).toBeDefined();
+    // Both causes of an unset url are named, the PENDING marker is set, and the user is told what to do.
+    expect(unset).toContain("PR_BACKEND=='manual'");
+    expect(unset).toContain("'ado'");
+    expect(unset).toContain("PR_REVIEW_STATUS[entry.n]='PENDING (no PR created)'");
+    expect(unset).toMatch(/\bprint\b/);
+  });
+
+  test('Scenario: pending remote review is never called merged -- the completion summary reports the evaluated status and never claims a just-created PR is reviewed', () => {
+    const actions = actionsOf(sliceBetween('title: Completion Report', 'expectedInput:').block);
+    const single = actions.find((a) => /=== PR SUMMARY ===/.test(a));
+    const stacked = actions.find((a) => /=== STACKED PR SUMMARY ===/.test(a));
+
+    expect(single).toBeDefined();
+    expect(stacked).toBeDefined();
+    // A PR created in this very step has had no remote review: its summary is pending, never complete.
+    expect(single).toContain('REVIEW_PENDING');
+    expect(single).not.toContain('REVIEW_COMPLETE');
+    // The stacked summary reports each PR's evaluated status and flags a pending or blocked one as unfinished.
+    expect(stacked).toMatch(/review: <PR_REVIEW_STATUS\[N\]>/);
+    expect(stacked).toContain('REVIEW_PENDING or REVIEW_BLOCKED');
+  });
+
+  test('the remote evaluation never HALTs or blocks Epic Closure -- the only HALT in the check is the single-PR local gate', () => {
+    const actions = checkActions();
+    const halting = actions.filter((a) => /\bHALT\b/.test(a));
+
+    // The local gate's verdict action is where the check halts; any other mention is the note naming it as the only one.
+    expect(halting.length).toBeGreaterThan(0);
+    expect(halting.some((a) => /COMPLETION_LOCAL_REVIEW/.test(a))).toBe(true);
+    halting.forEach((a) => expect(a).toMatch(/COMPLETION_LOCAL_REVIEW|local review gate/));
+    // No remote-evaluation action (the MODE='remote' invocation or a PR_REVIEW_STATUS assignment) halts.
+    actions
+      .filter((a) => /MODE='remote'|PR_REVIEW_STATUS\[entry\.n\]/.test(a))
+      .forEach((a) => expect(a).not.toMatch(/\bHALT\b/));
+  });
+
+  test('the completion-side remote check reuses the same canonical pr-review-cycle skill path as the TRD-013 local gates (MODE=remote, one call site)', () => {
+    const remoteOccurrences = text.split(
+      "pr-review-cycle/SKILL.md\\\", with MODE='remote'"
+    ).length - 1;
+    expect(remoteOccurrences).toBe(1);
+  });
+});
+
+describe('implement-trd-beads PR review gate decision points are positive-only (R3-P3-F1 sweep)', () => {
+  // Every property is a pure function of a yaml text. The SAME function judges the shipped file (it must report nothing)
+  // and an in-memory mutant of it (it must report the defect), so no property here is a check that cannot fail.
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  const slice = (src, from, to) => {
+    const start = src.indexOf(from);
+    if (start < 0) throw new Error(`marker not found: ${from}`);
+    const end = src.indexOf(to, start + from.length);
+    if (end < 0) throw new Error(`marker not found: ${to}`);
+    return src.slice(start, end);
+  };
+  const guarded = (check) => (src) => {
+    try {
+      return check(src);
+    } catch (error) {
+      return [error.message];
+    }
+  };
+  // The one occurrence of `anchor` (any run of whitespace matches any run) replaced; zero or several is an error, because
+  // a mutant that silently changed nothing proves nothing.
+  const replaceOnce = (src, anchor, replacement) => {
+    const pattern = new RegExp(
+      anchor
+        .split(/\s+/)
+        .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('\\s+'),
+      'g'
+    );
+    const found = [...src.matchAll(pattern)];
+    if (found.length !== 1) throw new Error(`a mutation anchor must occur exactly once (found ${found.length}): ${anchor}`);
+    return src.slice(0, found[0].index) + replacement + src.slice(found[0].index + found[0][0].length);
+  };
+  const checkActions = (src) => actionsOf(slice(src, 'title: PR Review Completion Check', 'title: Epic Closure'));
+  const epicActions = (src) => actionsOf(slice(src, 'title: Epic Closure', 'title: TRD Checkbox Sync'));
+
+  // The whole-branch gate is skipped ONLY for a completion action positively recognised as stacked (it exists and its
+  // createPr is exactly false); a missing action or an odd createPr is not stacked mode, so the gate fails closed.
+  const completionGateProblems = (src) => {
+    const [gate, verdict] = checkActions(src);
+    const problems = [];
+    const skipAt = gate.search(/\bskip this action and the next\b/i);
+    if (skipAt < 0) return ['the completion gate has no skip clause'];
+    if (!/\bexactly false\b/.test(gate.slice(skipAt, skipAt + 200))) problems.push('the skip is not conditioned on an exactly-false createPr');
+    if (/If COMPLETION_ACTION\.createPr == false/.test(gate)) problems.push('the skip is keyed on the bad value alone, so an unrecognised shape would slip past');
+    const catchAllAt = gate.search(/\bmissing COMPLETION_ACTION\b/);
+    if (catchAllAt < skipAt || !/LOCAL_REVIEW_BLOCKED/.test(gate.slice(catchAllAt))) problems.push('an unrecognised completion action is not treated as BLOCKED');
+    if (!/unrecognised COMPLETION_ACTION/.test(verdict)) problems.push('the verdict does not derive BLOCKED for an unrecognised completion action');
+    return problems;
+  };
+  // Epic Closure proceeds for a positively recognised stacked run (positive control: it must still be reachable) or on
+  // the exact single-PR verdict; every other shape, unset value or unreadable listing blocks it.
+  const epicClosureProblems = (src) => {
+    const [precondition, verify] = epicActions(src);
+    const problems = [];
+    if (!/COMPLETION_ACTION exists and its createPr is exactly false/.test(precondition)) problems.push('the precondition does not positively recognise a stacked run, which must still reach Epic Closure');
+    if (!/COMPLETION_LOCAL_REVIEW == 'LOCAL_REVIEW_COMPLETE'/.test(precondition)) problems.push('the single-PR verdict is not required');
+    if (!/any other, unset or missing value blocks/.test(precondition)) problems.push('an unset or odd verdict is not stated to block');
+    if (!/missing COMPLETION_ACTION/.test(precondition)) problems.push('a missing completion action is not stated to block');
+    if (/in single-PR mode \(a completion action with createPr==true\)/.test(precondition)) problems.push('single-PR mode is recognised positively, so an unrecognised shape skips the gate');
+    if (!/Otherwise this step must not run/.test(precondition)) problems.push('the precondition has no catch-all');
+    if (!/listing that fails or cannot be parsed[^.]*open beads/.test(verify)) problems.push('an unreadable bead listing is not treated as open beads');
+    return problems;
+  };
+  // The remote evaluation only reports and never gates, but what it reports must be truthful: only an exact
+  // REVIEW_COMPLETE reads as complete, and a status this step does not recognise degrades to PENDING.
+  const remoteStatusProblems = (src) => {
+    const action = checkActions(src).find((a) => /Set PR_REVIEW_STATUS\[entry\.n\]=status/.test(a));
+    if (!action) return ['no action records the evaluated remote status'];
+    const problems = [];
+    if (!/exactly one of 'REVIEW_COMPLETE', 'REVIEW_PENDING' or 'REVIEW_BLOCKED'/.test(action)) problems.push('the recorded status is not limited to the three known words');
+    if (!/any other, missing or unparseable status[^.]*'REVIEW_PENDING'[^.]*never as REVIEW_COMPLETE/.test(action)) problems.push('an unrecognised status does not degrade to PENDING');
+    return problems;
+  };
+
+  const PROPERTIES = [
+    ['completion-gate-skips-only-explicit-stacked', completionGateProblems],
+    ['epic-closure-needs-stacked-or-exact-verdict', epicClosureProblems],
+    ['remote-status-degrades-to-pending', remoteStatusProblems],
+  ].map(([id, check]) => ({ id, check: guarded(check) }));
+
+  test.each(PROPERTIES)('Scenario: $id holds on the shipped yaml', ({ check }) => {
+    expect(check(text)).toEqual([]);
+  });
+
+  // Each mutant reverts or drops ONE guarantee in an in-memory copy of the shipped yaml; the property that guards it must report.
+  const MUTANTS = [
+    [
+      'skipping the gate on the bad value alone',
+      'completion-gate-skips-only-explicit-stacked',
+      (src) => replaceOnce(src, 'Skip this action and the next ONLY when COMPLETION_ACTION exists and its createPr is exactly false (stacked mode)', 'If COMPLETION_ACTION.createPr == false (stacked mode): skip this action and the next'),
+    ],
+    [
+      'dropping the unrecognised-completion-action catch-all',
+      'completion-gate-skips-only-explicit-stacked',
+      (src) => replaceOnce(src, 'A missing COMPLETION_ACTION, or a createPr that is neither exactly true nor exactly false, is not stacked mode: treat the gate as LOCAL_REVIEW_BLOCKED (never skip it on a shape this step does not recognise).', ''),
+    ],
+    [
+      'leaving the unrecognised action out of the BLOCKED causes of the verdict',
+      'completion-gate-skips-only-explicit-stacked',
+      (src) => replaceOnce(src, ', or an unrecognised COMPLETION_ACTION)', ')'),
+    ],
+    [
+      'recognising single-PR mode positively in the Epic Closure precondition',
+      'epic-closure-needs-stacked-or-exact-verdict',
+      (src) => replaceOnce(src, 'AND the PR review gate holds: either COMPLETION_ACTION exists and its createPr is exactly false (stacked mode: no completion PR exists and every phase gate already passed), or COMPLETION_LOCAL_REVIEW', 'AND, in single-PR mode (a completion action with createPr==true), COMPLETION_LOCAL_REVIEW'),
+    ],
+    [
+      'dropping the stacked exception (a stacked run could never close its epic)',
+      'epic-closure-needs-stacked-or-exact-verdict',
+      (src) => replaceOnce(src, 'either COMPLETION_ACTION exists and its createPr is exactly false (stacked mode: no completion PR exists and every phase gate already passed), or COMPLETION_LOCAL_REVIEW', 'COMPLETION_LOCAL_REVIEW'),
+    ],
+    [
+      'treating a missing completion action as stacked',
+      'epic-closure-needs-stacked-or-exact-verdict',
+      (src) => replaceOnce(src, ', and so does a missing COMPLETION_ACTION or a createPr that is not exactly false', ''),
+    ],
+    [
+      'trusting an unreadable bead listing',
+      'epic-closure-needs-stacked-or-exact-verdict',
+      (src) => replaceOnce(src, 'A listing that fails or cannot be parsed counts as open beads remaining: do not close the epic. ', ''),
+    ],
+    [
+      'letting an unrecognised remote status through unchanged',
+      'remote-status-degrades-to-pending',
+      (src) => replaceOnce(src, "; any other, missing or unparseable status, or no return at all, is recorded as 'REVIEW_PENDING' with the reasons it could not be read (never as REVIEW_COMPLETE)", ''),
+    ],
+  ].map(([name, property, mutate]) => ({ name, property, mutate, check: PROPERTIES.find((p) => p.id === property).check }));
+
+  test.each(MUTANTS)('negative control: $name is reported by $property', ({ mutate, check }) => {
+    const mutant = mutate(text);
+
+    expect(mutant).not.toBe(text);
+    expect(check(mutant).length).toBeGreaterThan(0);
+  });
+
+  test('every property has at least one mutant that it reports', () => {
+    PROPERTIES.forEach(({ id }) => expect(MUTANTS.some((mutant) => mutant.property === id)).toBe(true));
   });
 });
