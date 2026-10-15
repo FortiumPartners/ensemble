@@ -64,6 +64,103 @@ describe('collectSteps', () => {
   });
 });
 
+// methodNameFor collapses every run of non-alphanumerics to a word break, so two
+// steps that differ only in punctuation produce ONE C# identifier. They survive
+// dedup because normalizeStepText only lowercases and collapses whitespace, so
+// both land in the same partial class and the generated project does not compile
+// (CS0111: a member with the same name is already declared).
+describe('two steps differing only in punctuation (ensemble#120)', () => {
+  const collidePrd = parsePRD(`---
+document_id: PRD-2026-collide
+label: collide
+---
+
+# PRD-2026-collide: Collide
+
+### REQ-001: Plans [Must] [High]
+
+- **AC-001-1:** Given a paused/canceled plan, when the occurrence is due, then nothing is sent.
+- **AC-001-2:** Given a paused canceled plan, when the occurrence is skipped, then nothing is sent.
+`);
+  const collided = collectSteps(collidePrd);
+
+  test('both steps really are present, or this test proves nothing', () => {
+    const givens = collided.filter((s) => s.keyword === 'Given').map((s) => s.text);
+    expect(givens).toEqual(
+      expect.arrayContaining(['a paused/canceled plan', 'a paused canceled plan'])
+    );
+    expect(givens).toHaveLength(2);
+  });
+
+  test('they collapse to one identifier before disambiguation', () => {
+    const givens = collided.filter((s) => s.keyword === 'Given');
+    const bare = givens.map((s) => methodNameFor(s.keyword, s.text));
+    expect(new Set(bare).size).toBe(1);
+  });
+
+  test('every method name in a requirement is unique', () => {
+    const byReq = new Map();
+    for (const s of collided) {
+      if (!byReq.has(s.reqId)) byReq.set(s.reqId, []);
+      byReq.get(s.reqId).push(s.method);
+    }
+    for (const [reqId, methods] of byReq) {
+      expect(new Set(methods).size).toBe(methods.length);
+      expect(reqId).toBeTruthy();
+    }
+  });
+
+  test('the generated class declares no duplicate method', () => {
+    const cs = renderStepClass(collidePrd.reqs[0], collided);
+    const declared = (cs.match(/public void (\w+)\(\)/g) || []).map((m) =>
+      m.replace(/public void (\w+)\(\)/, '$1')
+    );
+    expect(declared).toHaveLength(collided.length);
+    expect(new Set(declared).size).toBe(declared.length);
+  });
+
+  test('every name is still a valid C# identifier', () => {
+    for (const s of collided) expect(s.method).toMatch(/^[A-Za-z][A-Za-z0-9_]*$/);
+  });
+
+  test('the disambiguator is the step hash, so it does not depend on PRD order', () => {
+    const reversed = parsePRD(`---
+document_id: PRD-2026-collide
+label: collide
+---
+
+# PRD-2026-collide: Collide
+
+### REQ-001: Plans [Must] [High]
+
+- **AC-001-1:** Given a paused canceled plan, when the occurrence is skipped, then nothing is sent.
+- **AC-001-2:** Given a paused/canceled plan, when the occurrence is due, then nothing is sent.
+`);
+    const byText = (list) =>
+      new Map(list.filter((s) => s.keyword === 'Given').map((s) => [s.text, s.method]));
+    expect(byText(collectSteps(reversed))).toEqual(byText(collided));
+  });
+
+  test('a step with no collision keeps its clean name', () => {
+    const lone = collided.find((s) => s.text === 'the occurrence is due');
+    expect(lone.method).toBe('WhenTheOccurrenceIsDue');
+  });
+
+  // The manifest is the binding-drift identity, and renderStepClass and the
+  // manifest read s.method from the same step objects. Disambiguating anywhere
+  // but collectSteps would let those two disagree.
+  test('the manifest records the same name the class declares', () => {
+    const arts = buildBindingArtifacts(collidePrd, 'collide');
+    const cs = arts.files.find((f) => f.relPath.endsWith('REQ-001.Steps.cs')).content;
+    const recorded = arts.manifest.steps.map((s) => s.method);
+    expect(recorded).toHaveLength(collided.length);
+    expect(new Set(recorded).size).toBe(recorded.length);
+    for (const method of recorded) {
+      expect(cs).toContain(`public void ${method}()`);
+    }
+  });
+});
+
 describe('diffBindingDrift', () => {
   test('reports stale bindings as orphaned when a structured AC needs clarification', () => {
     const marked = parsePRD(`---
