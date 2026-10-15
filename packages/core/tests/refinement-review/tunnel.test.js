@@ -10,6 +10,9 @@
 'use strict';
 
 const { EventEmitter } = require('events');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { resolveCloudflared } = require('../../lib/refinement-review/tunnel');
 
 /**
@@ -43,6 +46,40 @@ function fakeProc({ chunks = [], exitAfter = 5, exitCode = 0, signalCode = null,
 function spawnFactory(proc) {
   return () => proc;
 }
+
+/**
+ * Pin the binary resolution to a path this test owns.
+ *
+ * `resolveCloudflared` searches the host — ~/.cloudflared, /usr/local/bin,
+ * /opt/homebrew/bin, /usr/bin — and falls back to the bare name `cloudflared`
+ * only when it finds nothing. A test that injects `_spawn` but leaves
+ * resolution alone therefore asserts a different string depending on whether
+ * the host happens to have cloudflared installed, and the bare-name assertion
+ * holds only on a host that does not. Passing `cloudflaredPath` makes the
+ * assertion the same everywhere, and it is the override the module documents
+ * for exactly this.
+ *
+ * The file has to exist, because resolution skips a candidate it cannot stat.
+ * Registered for cleanup rather than removed in a `finally`, so the assertion
+ * stays readable.
+ */
+const pinnedBinaryDirs = [];
+function withPinnedBinary() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rr-bin-'));
+  pinnedBinaryDirs.push(dir);
+  const bin = path.join(dir, 'cloudflared');
+  fs.writeFileSync(bin, '#!/bin/sh\n');
+  return bin;
+}
+
+/** Match the `(attempted: …)` suffix for one resolved path, specials escaped. */
+function attemptedRe(bin) {
+  return new RegExp(`\\(attempted: ${bin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)`);
+}
+
+afterAll(() => {
+  for (const dir of pinnedBinaryDirs) fs.rmSync(dir, { recursive: true, force: true });
+});
 
 describe('QuickTunnel', () => {
   test('resolveCloudflared finds the explicit path', () => {
@@ -199,8 +236,10 @@ describe('QuickTunnel', () => {
 
   test('start() rejects with install hint when spawn throws synchronously with ENOENT', async () => {
     const { QuickTunnel } = require('../../lib/refinement-review/tunnel');
+    const bin = withPinnedBinary();
     const t = new QuickTunnel({
       targetUrl: 'http://127.0.0.1:1',
+      cloudflaredPath: bin,
       _spawn: () => {
         const err = new Error('spawn missing');
         err.code = 'ENOENT';
@@ -208,7 +247,7 @@ describe('QuickTunnel', () => {
       },
     });
     await expect(t.start()).rejects.toThrow(/brew install cloudflared/);
-    await expect(t.start()).rejects.toThrow(/\(attempted: cloudflared\)/);
+    await expect(t.start()).rejects.toThrow(attemptedRe(bin));
   });
 
   test('start() can retry after async ENOENT failure (clears stale proc state)', async () => {
@@ -292,8 +331,10 @@ describe('QuickTunnel', () => {
     proc.exitCode = null;
     proc.signalCode = null;
     proc.kill = () => {};
+    const bin = withPinnedBinary();
     const t = new QuickTunnel({
       targetUrl: 'http://127.0.0.1:1',
+      cloudflaredPath: bin,
       _spawn: () => proc,
     });
     const promise = t.start();
@@ -310,7 +351,7 @@ describe('QuickTunnel', () => {
       /developers\.cloudflare\.com\/cloudflare-one\/connections\/connect-networks\/downloads/,
     );
     await expect(promise).rejects.toThrow(/CLOUDFLARED_PATH/);
-    await expect(promise).rejects.toThrow(/\(attempted: cloudflared\)/);
+    await expect(promise).rejects.toThrow(attemptedRe(bin));
   });
 
   test('start() rejects with raw error when child emits non-ENOENT async error (e.g. EACCES)', async () => {
