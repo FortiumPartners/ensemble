@@ -27,73 +27,73 @@ future agent sessions. Always merge with existing standards rather than replacin
 **1. Tech Stack Detection**
    Identify the primary language, framework, test framework, and tooling
 
-   - Read package.json, Gemfile, requirements.txt, go.mod, mix.exs, *.csproj, or equivalent manifest files
-   - Identify primary language(s) and framework(s) (e.g., Next.js 14, Rails 7, Phoenix 1.7, ASP.NET Core 8)
-   - Detect test framework(s) from devDependencies, Gemfile, or test directory conventions
-   - Detect linter/formatter config (.eslintrc, .prettierrc, rustfmt.toml, .rubocop.yml, .editorconfig)
-   - Note monorepo structure if present (workspaces, packages/, apps/)
-   - Print detected stack summary before proceeding
+- Read package.json, Gemfile, requirements.txt, go.mod, mix.exs, *.csproj, or equivalent manifest files
+- Identify primary language(s) and framework(s) (e.g., Next.js 14, Rails 7, Phoenix 1.7, ASP.NET Core 8)
+- Detect test framework(s) from devDependencies, Gemfile, or test directory conventions
+- Detect linter/formatter config (.eslintrc, .prettierrc, rustfmt.toml, .rubocop.yml, .editorconfig)
+- Note monorepo structure if present (workspaces, packages/, apps/)
+- Print detected stack summary before proceeding
 
 **2. Convention Extraction**
    Sample representative source files to identify project-specific coding patterns
 
-   - Sample 5-10 representative source files from src/, lib/, app/, or equivalent
-   - Detect naming conventions (camelCase vs snake_case, PascalCase for classes, file naming patterns)
-   - Check for barrel exports, path aliases, and import ordering conventions
-   - Identify error handling patterns (Result types, try/catch style, custom error classes)
-   - Detect API patterns (REST routes, GraphQL resolvers, RPC definitions, controller conventions)
-   - Identify test file naming conventions (*.spec.ts, *_test.go, *_spec.rb, test_*.py)
-   - Run git log --oneline -20 to detect commit style (conventional commits, scope patterns)
+- Sample 5-10 representative source files from src/, lib/, app/, or equivalent
+- Detect naming conventions (camelCase vs snake_case, PascalCase for classes, file naming patterns)
+- Check for barrel exports, path aliases, and import ordering conventions
+- Identify error handling patterns (Result types, try/catch style, custom error classes)
+- Detect API patterns (REST routes, GraphQL resolvers, RPC definitions, controller conventions)
+- Identify test file naming conventions (*.spec.ts, *_test.go, *_spec.rb, test_*.py)
+- Run git log --oneline -20 to detect commit style (conventional commits, scope patterns)
 
 **3. Existing Standards Check**
    Read any previously discovered standards to enable merge rather than replace
 
-   - Check if standards/index.yml already exists
-   - If standards/index.yml exists, read it fully and note all existing rule IDs and categories
-   - Print "Existing standards found -- will merge" if the file is present
-   - Print "No existing standards -- will create fresh index" if not present
-   - Note the highest existing rule ID per category to avoid duplicate IDs on merge
+- Check if standards/index.yml already exists
+- If standards/index.yml exists, read it fully and note all existing rule IDs and categories
+- Print "Existing standards found -- will merge" if the file is present
+- Print "No existing standards -- will create fresh index" if not present
+- Note the highest existing rule ID per category to avoid duplicate IDs on merge
 
 ### Phase 2: Standards Generation
 
 **1. Build Standards Index**
    Compile all discovered conventions into a structured YAML index
 
-   - Create standards/index.yml with top-level keys: version, generated, stack, standards
-   - Under stack: set language, framework, test_framework, linter (use "none" if not found)
-   - Under standards: create category keys -- naming, testing, imports, error_handling, git, api
-   - For each rule entry use: id (category-NNN format, e.g., naming-001), rule (under 80 chars), example (optional, under 60 chars)
-   - Assign sequential IDs within each category, continuing from existing highest ID when merging
-   - Keep each rule under 80 characters -- this is a lookup table, not documentation
-   - Merge any pre-existing rules from the previous index into the new output
+- Create standards/index.yml with top-level keys: version, generated, stack, standards
+- Under stack: set language, framework, test_framework, linter (use "none" if not found)
+- Under standards: create category keys -- naming, testing, imports, error_handling, git, api
+- For each rule entry use: id (category-NNN format, e.g., naming-001), rule (under 80 chars), example (optional, under 60 chars)
+- Assign sequential IDs within each category, continuing from existing highest ID when merging
+- Keep each rule under 80 characters -- this is a lookup table, not documentation
+- Merge any pre-existing rules from the previous index into the new output
 
 **2. Write Standards Files**
    Persist the index and expanded category files to the standards/ directory
 
-   - Create standards/ directory if it does not already exist
-   - Write standards/index.yml with the compiled index content
-   - For each category that has more than 3 rules, write standards/<category>.md with expanded explanations and examples
-   - Print count on completion: "Standards discovered: N rules across M categories."
-   - List every file written to standards/
+- Create standards/ directory if it does not already exist
+- Write standards/index.yml with the compiled index content
+- For each category that has more than 3 rules, write standards/<category>.md with expanded explanations and examples
+- Print count on completion: "Standards discovered: N rules across M categories."
+- List every file written to standards/
 
 **3. CLAUDE.md Integration**
    Add a pointer to the standards index in CLAUDE.md if not already present
 
-   - Check if CLAUDE.md exists in the project root
-   - If CLAUDE.md exists, scan it for any reference to standards/index.yml or /ensemble:discover-standards
-   - If no reference found, append this block to CLAUDE.md: "## Standards\nSee `standards/index.yml` for coding conventions (auto-generated by /ensemble:discover-standards)."
-   - If CLAUDE.md does not exist, print "No CLAUDE.md found -- run /ensemble:fold-prompt to create one."
-   - If a reference already exists, print "CLAUDE.md already references standards -- skipping update."
+- Check if CLAUDE.md exists in the project root
+- If CLAUDE.md exists, scan it for any reference to standards/index.yml or /ensemble:discover-standards
+- If no reference found, append this block to CLAUDE.md: "## Standards\nSee `standards/index.yml` for coding conventions (auto-generated by /ensemble:discover-standards)."
+- If CLAUDE.md does not exist, print "No CLAUDE.md found -- run /ensemble:fold-prompt to create one."
+- If a reference already exists, print "CLAUDE.md already references standards -- skipping update."
 
 ### Phase 3: Report
 
 **1. Summary**
    Print a human-readable summary of all work performed
 
-   - Print the detected technology stack (language, framework, test framework, linter)
-   - Print the total count of standards discovered per category
-   - List all files written (standards/index.yml and any category .md files)
-   - Print suggested next command -- "/ensemble:inject-standards <task-description>"
+- Print the detected technology stack (language, framework, test framework, linter)
+- Print the total count of standards discovered per category
+- List all files written (standards/index.yml and any category .md files)
+- Print suggested next command -- "/ensemble:inject-standards <task-description>"
 
 ## Expected Output
 

@@ -26,23 +26,23 @@ same target files -- a signal that work should be extracted into one shared
 **1. Resolve the TRD set**
    Determine which TRDs to graph
 
-   - If the user passed a directory or explicit TRD paths, use them; otherwise default to docs/TRD/
+- If the user passed a directory or explicit TRD paths, use them; otherwise default to docs/TRD/
 
 **2. Build the graph**
    Invoke the deterministic CLI to build and emit the dependency graph
 
-   - Resolve TRD_GRAPH_CLI to first existing path among, in order: (1) "$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/lib/trd-graph-cli.js" (canonical monorepo root); (2) ${CLAUDE_PLUGIN_ROOT}/lib/trd-graph-cli.js; (3) packages/development/lib/trd-graph-cli.js (legacy CWD-relative); (4) the Pi/OMP vendor bundle path — resolve the ensemble-pi package's own declared install location via node -e "try{console.log(require.resolve('@sunstone-partners/ensemble-pi/package.json',{paths:[process.env.ENSEMBLE_PI_INSTALL_ROOT, require('os').homedir()+'/.omp/plugins', process.cwd()].filter(Boolean)}))}catch(e){process.exit(1)}" and join the directory of that output with /vendor/lib/trd-graph-cli.js. If missing, print error and HALT.
-   - Run: node "$TRD_GRAPH_CLI" graph <dir|paths> --format <json|mermaid|dot>
-   - Default to --format mermaid for a human-facing answer (renders in GitHub); use json when the caller needs machine output, dot for Graphviz
-   - Interpret exit code: 0 = acyclic, 2 = a dependency cycle was detected (report the cycle)
-   - Surface every stderr warning -- especially duplicate document_id collisions and unresolved cross-TRD references
+- Resolve TRD_GRAPH_CLI to first existing path among, in order: (1) "$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/lib/trd-graph-cli.js" (canonical monorepo root); (2) ${CLAUDE_PLUGIN_ROOT}/lib/trd-graph-cli.js; (3) packages/development/lib/trd-graph-cli.js (legacy CWD-relative); (4) the Pi/OMP vendor bundle path — resolve the ensemble-pi package's own declared install location via node -e "try{console.log(require.resolve('@sunstone-partners/ensemble-pi/package.json',{paths:[process.env.ENSEMBLE_PI_INSTALL_ROOT, require('os').homedir()+'/.omp/plugins', process.cwd()].filter(Boolean)}))}catch(e){process.exit(1)}" and join the directory of that output with /vendor/lib/trd-graph-cli.js. If missing, print error and HALT.
+- Run: node "$TRD_GRAPH_CLI" graph <dir|paths> --format <json|mermaid|dot>
+- Default to --format mermaid for a human-facing answer (renders in GitHub); use json when the caller needs machine output, dot for Graphviz
+- Interpret exit code: 0 = acyclic, 2 = a dependency cycle was detected (report the cycle)
+- Surface every stderr warning -- especially duplicate document_id collisions and unresolved cross-TRD references
 
 **3. Report duplicate work**
    Run the overlap report to flag probable duplication
 
-   - Run: node "$TRD_GRAPH_CLI" overlap <dir|paths>
-   - For each flagged pair, note the shared target files and suggest extracting the shared work into one foundational TRD that both reference via [depends: <trd-slug>#TRD-NNN]
-   - Present the graph (rendered) plus the cycle and overlap findings; do not modify any TRD
+- Run: node "$TRD_GRAPH_CLI" overlap <dir|paths>
+- For each flagged pair, note the shared target files and suggest extracting the shared work into one foundational TRD that both reference via [depends: <trd-slug>#TRD-NNN]
+- Present the graph (rendered) plus the cycle and overlap findings; do not modify any TRD
 
 ## Expected Output
 

@@ -24,63 +24,63 @@ minimal while ensuring the right conventions are surfaced at the right time.
 **1. Standards Discovery**
    Verify the standards index exists before proceeding
 
-   - Check if standards/index.yml exists in the project root
-   - If standards/index.yml does not exist: print "ERROR: No standards index found. Run /ensemble:discover-standards first." and stop
-   - If the file exists, read standards/index.yml fully into memory
-   - Note the stack metadata (language, framework) and the full list of categories and rules
+- Check if standards/index.yml exists in the project root
+- If standards/index.yml does not exist: print "ERROR: No standards index found. Run /ensemble:discover-standards first." and stop
+- If the file exists, read standards/index.yml fully into memory
+- Note the stack metadata (language, framework) and the full list of categories and rules
 
 **2. Task Analysis**
    Parse the task description and extract keyword signals for relevance matching
 
-   - Read $ARGUMENTS as TASK_DESCRIPTION
-   - If TASK_DESCRIPTION is empty: print "ERROR: Provide a task description, e.g., /ensemble:inject-standards 'implement user authentication endpoint'" and stop
-   - Convert TASK_DESCRIPTION to lowercase and extract individual keywords
-   - Identify technology terms (language names, framework names, library names)
-   - Identify domain nouns (user, order, payment, product, auth, session, etc.)
-   - Identify task verbs: implement, fix, test, refactor, add, remove, update, debug, review
+- Read $ARGUMENTS as TASK_DESCRIPTION
+- If TASK_DESCRIPTION is empty: print "ERROR: Provide a task description, e.g., /ensemble:inject-standards 'implement user authentication endpoint'" and stop
+- Convert TASK_DESCRIPTION to lowercase and extract individual keywords
+- Identify technology terms (language names, framework names, library names)
+- Identify domain nouns (user, order, payment, product, auth, session, etc.)
+- Identify task verbs: implement, fix, test, refactor, add, remove, update, debug, review
 
 ### Phase 2: Relevance Matching
 
 **1. Category Scoring**
    Score each standards category against the extracted task keywords
 
-   - Assign a base score of 0 to each category (naming, testing, imports, error_handling, git, api)
-   - Always boost naming by +10 -- naming conventions apply to every coding task
-   - Always boost git by +10 -- commit and branch conventions apply to every coding task
-   - Boost testing by +8 if TASK_DESCRIPTION contains: test, spec, coverage, unit, integration, e2e, fixture, mock
-   - Boost api by +8 if TASK_DESCRIPTION contains: api, endpoint, route, controller, handler, request, response, REST, GraphQL
-   - Boost error_handling by +8 if TASK_DESCRIPTION contains: fix, bug, error, exception, crash, failure, handle, rescue
-   - Boost imports by +5 if TASK_DESCRIPTION contains: import, require, module, dependency, package, library
-   - Rank categories by final score descending
+- Assign a base score of 0 to each category (naming, testing, imports, error_handling, git, api)
+- Always boost naming by +10 -- naming conventions apply to every coding task
+- Always boost git by +10 -- commit and branch conventions apply to every coding task
+- Boost testing by +8 if TASK_DESCRIPTION contains: test, spec, coverage, unit, integration, e2e, fixture, mock
+- Boost api by +8 if TASK_DESCRIPTION contains: api, endpoint, route, controller, handler, request, response, REST, GraphQL
+- Boost error_handling by +8 if TASK_DESCRIPTION contains: fix, bug, error, exception, crash, failure, handle, rescue
+- Boost imports by +5 if TASK_DESCRIPTION contains: import, require, module, dependency, package, library
+- Rank categories by final score descending
 
 **2. Rule Selection**
    Choose the top 5-8 individual rules most relevant to the task
 
-   - Always include all naming rules (naming conventions are universal)
-   - Always include all git rules (commit and branch conventions are universal)
-   - From remaining categories ordered by score, include all rules from the top-scoring category
-   - From the second-highest scoring non-universal category, include up to 3 rules
-   - Stop once the total selected rule count is between 5 and 8
-   - If fewer than 5 rules exist in the index total, include all rules
+- Always include all naming rules (naming conventions are universal)
+- Always include all git rules (commit and branch conventions are universal)
+- From remaining categories ordered by score, include all rules from the top-scoring category
+- From the second-highest scoring non-universal category, include up to 3 rules
+- Stop once the total selected rule count is between 5 and 8
+- If fewer than 5 rules exist in the index total, include all rules
 
 ### Phase 3: Context Injection
 
 **1. Standards Summary Output**
    Print a compact, agent-consumable standards block to stdout
 
-   - Print header: "=== RELEVANT STANDARDS FOR: <TASK_DESCRIPTION> ==="
-   - Print stack line: "Stack: <language> + <framework>"
-   - Print a blank line
-   - For each selected category, print the category name followed by each selected rule as a bullet
-   - For rules that have an example field, append it inline: "- <rule>  [example: <example>]"
-   - Print footer: "Full index: standards/index.yml"
-   - Print closing line: "====================================="
+- Print header: "=== RELEVANT STANDARDS FOR: <TASK_DESCRIPTION> ==="
+- Print stack line: "Stack: <language> + <framework>"
+- Print a blank line
+- For each selected category, print the category name followed by each selected rule as a bullet
+- For rules that have an example field, append it inline: "- <rule>  [example: <example>]"
+- Print footer: "Full index: standards/index.yml"
+- Print closing line: "====================================="
 
 **2. Handoff Note**
    Print instructions for the agent to proceed with the injected context
 
-   - Print: "Standards injected. Proceed with task using the above conventions."
-   - Print: "Run /ensemble:discover-standards to refresh the index if the codebase has changed."
+- Print: "Standards injected. Proceed with task using the above conventions."
+- Print: "Run /ensemble:discover-standards to refresh the index if the codebase has changed."
 
 ## Expected Output
 

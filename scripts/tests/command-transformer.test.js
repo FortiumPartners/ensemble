@@ -114,3 +114,19 @@ describe('transformCommandToMarkdown — dispatcher "## Subcommands" rendering',
     expect(markdown).not.toContain('## Subcommands');
   });
 });
+
+describe('transformCommandToMarkdown — workflow step actions', () => {
+  test('renders each action as a top-level list item with no leading indent (markdownlint MD007)', () => {
+    const command = dispatcherCommand([{ keyword: 'fix', ref: 'fix-issue', description: 'd' }]);
+    command.workflow.phases[0].steps[0].actions = ['First action.', 'Second action.'];
+    delete command.dispatch;
+    const markdown = transformCommandToMarkdown(
+      command,
+      path.join(REPO_ROOT, 'packages/development/commands/fix-issue.yaml')
+    );
+
+    expect(markdown).toMatch(/^- First action\.$/m);
+    expect(markdown).toMatch(/^- Second action\.$/m);
+    expect(markdown).not.toMatch(/^ +- (First|Second) action\./m);
+  });
+});
