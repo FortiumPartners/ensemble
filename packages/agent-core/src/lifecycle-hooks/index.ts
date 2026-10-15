@@ -5,3 +5,4 @@ export * from "./prompt-runner";
 export * from "./run-tracker";
 export * from "./shell-runner";
 export * from "./dispatch";
+export * from "./trust-store";
