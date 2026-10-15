@@ -84,14 +84,17 @@ export class CommandRunTracker {
   /**
    * Begin a run. A run still in flight is ended first as `cancelled`, naming
    * the missing completion signal, and returned as `superseded` so the caller
-   * can run its end handlers.
+   * can run its end handlers. The new id is produced before the old run ends,
+   * so an id source that cannot produce a unique id throws with the old run
+   * still in flight rather than losing its end.
    */
   begin(input: BeginInput): BeginResult {
+    const runId = this.uniqueId();
     const superseded = this.end("cancelled", {
       reason: `No completion signal was received before the next command (${input.command}) began; the previous run was superseded.`,
     });
     const run: ActiveRun = {
-      run_id: this.uniqueId(),
+      run_id: runId,
       command: input.command,
       arguments: input.arguments,
       cwd: input.cwd,
