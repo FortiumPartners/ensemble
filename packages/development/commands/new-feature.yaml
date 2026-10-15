@@ -48,6 +48,20 @@ parameters:
       reached (Steps 2-6 are evaluated in order, first match wins);
       omit `idea`/`path`/`status` for `abandon` to take effect.
 
+  - name: foreman
+    type: boolean
+    default: false
+    description: >-
+      Run in Foreman-native non-interactive mode, for automated Foreman
+      orchestration with no user present. Forwards `--foreman` to every
+      stage skill this command runs and replaces each of this command's own
+      user prompts (retry confirmation, implementation approval, PR
+      approval, abandon confirmation) with a deterministic, recorded,
+      non-interactive decision. Hard safety stops are unchanged:
+      RUN_ALREADY_ACTIVE, the --skip-refine rejection, stage-skill hard
+      HALTs, and the read-only --status report. An event payload is never
+      auto-approved. Without this flag nothing changes.
+
 constraints:
   - >-
     Stage order is fixed and never reordered at runtime: prd_create ->
@@ -62,6 +76,12 @@ constraints:
     on disk.
   - Single active run per project, enforced at create time by RunIndexStore.createRun()'s active.lock (TRD-010).
   - All stage transitions and artifact references are recorded through RunIndexStore (see TRD-002).
+  - >-
+    `--foreman` (FOREMAN == true) never bypasses RUN_ALREADY_ACTIVE, never
+    makes `--status` anything but a read-only report, and never retries a
+    failed stage more than once per invocation (Foreman owns any further
+    retry). It replaces this command's own user prompts with recorded
+    non-interactive decisions and forwards `--foreman` to every stage skill.
 
 mission:
   summary: |
@@ -97,6 +117,7 @@ workflow:
             - "If the invocation includes `--skip-refine` or any documented equivalent flag that would bypass prd_refine or trd_refine: reject immediately with 'Both PRD and TRD refinement are mandatory in new-feature's fixed stage order. To skip orchestration but not refinement, run the standalone /ensemble:refine-prd or /ensemble:refine-trd commands directly -- they are unmodified by new-feature.' and HALT. No stage executes, no run is created or mutated (AC-003-1, AC-003-2)."
             - "This check runs before Steps 2-4 below -- a rejected invocation never reaches createRun/resolveByArtifact."
             - "De-advertisement pointer (REQ-009): this workflow is the internal implementation behind the canonical front door `/ensemble:feature` (keywords `new`/`resume`/`status`/`abandon`). Direct invocation of this command still works and behaves identically -- same createRun/resolveByArtifact/mutate calls, same run record, same stage machine, zero behavior change. The only addition is one informational line appended after whichever of Steps 2-4 below prints its own output: 'Driven directly via /ensemble:new-feature; /ensemble:feature is the canonical front door for this workflow.' This line never gates, delays, or alters any step's own decision."
+            - "Foreman mode (REQ-001): set FOREMAN = true when the `--foreman` argument is present, otherwise FOREMAN = false. `--foreman` is a supported flag: it is never treated as a `--skip-refine` equivalent (it bypasses no refinement stage), it never changes the validation above, and when it is absent every prompt and message in this command is exactly what it is without this action. FOREMAN is the single switch for every `FOREMAN == true` branch below; nothing infers it from the environment, and this command does not set, clear or reinterpret any FOREMAN_* environment variable."
 
         - order: 2
           title: Idea Input -- Start a New Run
@@ -132,6 +153,7 @@ workflow:
             - "If `status` is false, `abandon` is not provided, and neither `idea` nor `path` is provided: call RunIndexStore.findActive(projectRoot)."
             - "status=false, not found: nothing to resume; print that no active run exists and how to start one (`--idea \"<description>\"`). Stop here."
             - "status=false, found, and ACTIVE_RUN.stageOutcome.kind is \"failure\": this is a paused-by-failure run. Print the parked stage, the recorded failure detail, and ask the user (AskUserQuestion or equivalent) 'Retry <stage>? [yes/no]' -- do NOT proceed to Stage Resolution on a bare invocation alone. Only an explicit 'yes' here (this is what TRD-008 means by \"explicit retry\") sets ACTIVE_RUN and proceeds to Stage Resolution; 'no' or no response stops here with stage/stageOutcome/revision completely unchanged -- no mutate() call is made merely by viewing this prompt (AC-006-3)."
+            - "Foreman mode (REQ-003): when FOREMAN == true and ACTIVE_RUN.stageOutcome.kind is \"failure\", do NOT ask 'Retry <stage>?' -- there is no user to answer (no question, no prompt, no wait). The invocation itself is the explicit retry: set ACTIVE_RUN and proceed to Stage Resolution, which retries the parked stage once. If that retry fails it is recorded at the same stage as a failure (Execute Stage step 3) and the run ends; nothing retries again in this invocation, and any further retry is a later invocation that Foreman chooses to make. When FOREMAN is not true the question above is asked as written."
             - "status=false, found, and ACTIVE_RUN.stageOutcome.kind is anything else (\"approval_wait\", \"decline\", or a freshly created run that has never run a stage yet): no confirmation gate applies -- set ACTIVE_RUN and proceed directly to Stage Resolution. Declined/approval-wait states are not failures; re-running them on resume is the normal, expected flow."
 
         - order: 5
@@ -148,6 +170,7 @@ workflow:
             - "If a config exists: call validateEventPayload(mapping, event) BEFORE any RunIndexStore call is made (TRD-018's ordering guarantee -- validation always precedes createRun()/mutate(), never after a partial state change). validateEventPayload is a pure function; it has no RunIndexStore side effect of its own."
             - "Rejected (`ok: false`, e.g. disallowed event type, missing source, or missing summary): create no PRD, advance no run, and report the exact `reason` string as the pending step (AC-009-3). Stop here."
             - "Accepted: present the event source and full payload to the user via AskUserQuestion for explicit review BEFORE any PRD-stage work begins (AC-009-2). This review is in addition to, not a substitute for, the same PRD elicitation manual /ensemble:create-prd invocation already requires -- the payload's `summary` only seeds elicitation, it is never treated as a complete PRD input by itself."
+            - "Foreman mode (REQ-007): when FOREMAN == true, an accepted payload is NOT auto-approved and nothing is presented to a user (there is none): create no PRD, start no PRD-stage work, create no run, and report the pending step as 'human review of the event payload is required; --foreman cannot approve an untrusted event payload'. Stop here. This is deliberate: an event payload is untrusted input and no user is available to review it, so the only safe non-interactive outcome is to refuse. The validation above still runs first and the default-deny above is unchanged. When FOREMAN is not true the review above happens as written."
             - "On user decline: create no PRD, advance no run, and report that PRD elicitation review was declined as the pending step (AC-009-3). Stop here."
             - "On approval: proceed exactly as Step 2 (Idea Input) above, using `event.summary` as the `idea` argument -- same createRun() call, same TRD-010 single-active-run exclusivity, same full PRD elicitation. Event-triggered and manual starts converge on the identical entry path from this point on."
 
@@ -163,6 +186,7 @@ workflow:
             - "If `abandon` is provided (a non-empty string or an empty string both count as provided -- only an entirely omitted parameter skips this step): call RunIndexStore.findActive(projectRoot)."
             - "Not found: print 'No active run exists for this project; nothing to abandon.' and stop -- no mutate()/abandon() call is made, no state is touched (AC-007-3 no-active-run case)."
             - "Found: ask the user for explicit confirmation (AskUserQuestion or equivalent) before calling RunIndexStore.abandon() -- name the run's identifier and current stage in the prompt. Declined or no response: make no mutate()/abandon() call; the run is left completely untouched, stage/stageOutcome/revision unchanged (AC-007-3 decline case)."
+            - "Foreman mode (REQ-006): when FOREMAN == true, do NOT ask for confirmation -- there is no user (no question, no prompt). The `--abandon` argument given together with `--foreman` is the explicit instruction: call RunIndexStore.abandon(projectRoot, runId, reason) directly, with `reason` as the `abandon` parameter's own text value, exactly as the confirmed case below does, and print the run's identifier and the stage it was abandoned at. With no active run the 'nothing to abandon' path above applies unchanged. When FOREMAN is not true the confirmation above is required as written."
             - "On explicit confirmation: call RunIndexStore.abandon(projectRoot, runId, reason), where `reason` is the `abandon` parameter's own text value (empty string if none was given). This sets status to \"abandoned\" and records the terminal outcome via the same mutate() path abandon() already wraps, then releases active.lock -- artifacts and history remain retained, exactly as a later `--status` invocation would still report them (AC-007-3 confirmed case)."
 
     - name: Stage Resolution
@@ -185,6 +209,7 @@ workflow:
             - "Else (stageOutcome.kind is \"approval_wait\", \"decline\", or \"failure\"): ELIGIBLE_STAGE is ACTIVE_RUN.stage itself -- the current stage has not completed, so it (and only it) is what runs next, regardless of what files already exist on disk with plausible names for a later stage."
             - "Never consult the filesystem (glob, ls, or similar) to decide ELIGIBLE_STAGE. The only input to this decision is RunIndexStore."
             - "Material-plan-change staleness check (TRD-015): if the computed ELIGIBLE_STAGE is \"implementation\" and ACTIVE_RUN.implementationApprovedAt is non-null, compare it against the recordedAt of every artifacts[] entry whose producingStage is \"trd_refine\" or \"beads_plan\". If any such entry's recordedAt is later than implementationApprovedAt, the approved plan has materially changed since approval (a different TRD version or a different bead set) -- call RunIndexStore.mutate() to set implementationApprovedAt = null and stage = \"implementation_approval\" in the same call, then re-run this step: ELIGIBLE_STAGE becomes \"implementation_approval\" again, never \"implementation\" on a stale approval (AC-010-3). If no later entry exists, approval is still current and ELIGIBLE_STAGE stays \"implementation\"."
+            - "Foreman mode (REQ-004): when FOREMAN == true and the staleness check above clears approval and returns ELIGIBLE_STAGE to \"implementation_approval\", approval is never silently kept and never left parked: Implementation Approval Checkpoint (Execute Stage step 5) re-grants it through its own recorded --foreman path, so the run record shows the new grant."
 
         - order: 2
           title: Dispatch to the Eligible Stage
@@ -209,6 +234,7 @@ workflow:
           actions:
             - "Dispatch ELIGIBLE_STAGE to its existing skill, in-session, exactly as that skill already runs standalone: prd_create -> ensemble-create-prd, input = the run's `idea`; prd_refine -> ensemble-refine-prd, input = the PRD artifacts[] entry `prd_create` (or the latest `prd_refine`) recorded; trd_create -> ensemble-create-trd, input = the PRD artifacts[] entry `prd_refine` recorded; trd_refine -> ensemble-refine-trd, input = the TRD artifacts[] entry `trd_create` recorded; beads_plan -> ensemble-implement-trd-beads --plan, input = the TRD artifacts[] entry `trd_refine` recorded."
             - "Never pass a freshly globbed or conversationally-recalled path to any of these -- always the exact `path` from the named artifacts[] entry (AC-004-2). `beads_plan`'s `--plan` flag is load-bearing: it stops after the beads-build Scaffold phase and never reaches beads-build's Execute phase, since nothing in this PR has granted implementation approval yet."
+            - "Foreman mode (REQ-002): when FOREMAN == true, append `--foreman` to the invocation of whichever skill is dispatched above: ensemble-create-prd --foreman, ensemble-refine-prd --foreman, ensemble-create-trd --foreman, ensemble-refine-trd --foreman, and ensemble-implement-trd-beads --plan --foreman. The input is unchanged (the run's `idea` as the product description, or the exact `path` from the named artifacts[] entry) and the `--plan` flag stays. This command does not set, clear or reinterpret any FOREMAN_* environment variable (FOREMAN_TASK_TITLE, FOREMAN_TASK_DESCRIPTION, FOREMAN_ARTIFACT_PATH): each stage skill keeps its own contract for them. When FOREMAN is not true, no `--foreman` is added and the dispatch is exactly as written above."
 
         - order: 2
           title: Record the Stage Outcome
@@ -218,6 +244,7 @@ workflow:
             - "On a PRD/TRD revision during prd_refine/trd_refine: append the new artifacts[] entry; do not overwrite or remove the prior entry for that document (AC-004-3) -- both remain for history and recovery."
             - "On the user declining to accept the stage's output (an explicit decline, not an error): call RunIndexStore.mutate() setting stageOutcome to { kind: \"decline\", detail: <reason>, recordedAt: now() }; stage does not advance; artifacts[] is unchanged. Ask the user for the correction/input needed to continue -- do not advance and do not silently retry with no new input (AC-007-1)."
             - "On an edit/regenerate request (the user asks for a revised PRD/TRD rather than declining outright): produce the new version, then call RunIndexStore.mutate() to append its artifacts[] entry exactly as step 1 above (preserving the prior version, per AC-004-3) -- but do NOT advance `stage` and do NOT set stageOutcome.kind to \"success\" until the user explicitly accepts the new version. No dependent stage may be dispatched while the edited version sits unaccepted (AC-007-2): Stage Resolution's ELIGIBLE_STAGE stays pinned to the current stage exactly as it does for any other non-success outcome."
+            - "Foreman mode (REQ-002): when FOREMAN == true there is no user to accept, decline or edit a stage's output, so none of that is offered and the user is not asked anything: a stage whose skill body completed with a real, saved output artifact is recorded as success by the first action above without asking for acceptance, and the decline and edit-and-regenerate paths above never apply. A stage-skill hard HALT (for example an Implementation Readiness Gate FAIL or a Constitution Gate Contract failure under --foreman) is still a failure recorded by step 3 and is never converted into success."
 
         - order: 3
           title: Handle Stage Failure
@@ -247,6 +274,7 @@ workflow:
             - "Wait for an explicit approval response."
             - "On explicit approval: call RunIndexStore.mutate() setting implementationApprovedAt = now() and advancing stage to \"implementation\", both inside the same mutate() call (no window where one is set without the other)."
             - "On absent or declined approval: perform no implementation work. Do not call mutate() at all -- the run stays parked at implementation_approval with implementationApprovedAt still null, exactly as before this invocation, ready for a later resume (AC-010-2)."
+            - "Foreman mode (REQ-004): when FOREMAN == true, do NOT present anything to a user or wait for a response (no question, no prompt) -- the Foreman dispatch has already been approved. Grant approval in a single mutate() call that sets implementationApprovedAt = now(), advances stage to \"implementation\", and sets stageOutcome to { kind: \"approval_wait\", detail: \"implementation approval granted by --foreman policy (no human present)\", recordedAt: now() } -- one call, so no window exists where one is set without the others. `--status` prints that detail, so an auto-grant is never mistaken for a human approval. When FOREMAN is not true the actions above apply as written."
 
         - order: 6
           title: PR Approval Checkpoint
@@ -260,6 +288,7 @@ workflow:
             - "If isAvailable() === true: present the target repo/branch/title/body (repo/branch from the run's recorded references, title/body proposed from the accepted PRD/TRD) to the user via AskUserQuestion, then require a separate, immediate explicit approval before calling createPullRequest() -- distinct from implementation's approval step (AC-011-2)."
             - "On absent/declined approval: create no PR, report the outcome, leave the completed implementation record untouched, and advance stage to \"done\" (AC-011-1)."
             - "On explicit approval: call RunIndexStore.mutate() setting prApprovedAt = now() and advancing stage to \"pr_create\", immediately before the create call -- never in the same mutate() call as implementationApprovedAt."
+            - "Foreman mode (REQ-005): when FOREMAN == true, do NOT ask for the opt-in and do NOT present repo/branch/title/body for approval (no question, no prompt) -- treat the opt-in above as yes. If isAvailable() is false, the rule above applies unchanged: create no PR, record stageOutcome detail \"no PR provider available\", and advance stage to \"done\". Otherwise call RunIndexStore.mutate() setting prApprovedAt = now(), advancing stage to \"pr_create\", and setting stageOutcome detail to \"PR approval granted by --foreman policy (no human present)\" -- never in the same mutate() call as implementationApprovedAt. PR Creation (step 7) still reads prApprovedAt from the loaded run and denies the call when it is null. When FOREMAN is not true the actions above apply as written."
 
         - order: 7
           title: "Execute Stage: PR Creation"
