@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { registerDispatcherCommand } from "./dispatcher-commands";
+import { registerLifecycleHooks } from "./lifecycle/adapter";
 
 /**
  * Walks up from `startDir` looking for a `.git` directory to find the
@@ -25,6 +26,9 @@ function resolveRepoRoot(startDir: string): string {
  * registerDispatcherCommand's own doc comment -- so this extension
  * loading globally in every session never pollutes an unrelated
  * repo's command list.
+ *
+ * It also registers the command lifecycle hooks adapter, which is likewise
+ * inert unless the repo has an `.ensemble/hooks.yaml`.
  */
 function activate(pi: ExtensionAPI): void {
   const repoRoot = resolveRepoRoot(process.cwd());
@@ -53,6 +57,8 @@ function activate(pi: ExtensionAPI): void {
     forwardTo: "ensemble:feature",
     description: "Dispatch to the feature-lifecycle workflow by keyword (new, resume, status, abandon)",
   });
+
+  registerLifecycleHooks(pi, repoRoot);
 }
 
 export default activate;
