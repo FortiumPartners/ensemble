@@ -518,14 +518,15 @@ function extractLabeledNumberedList(bodyLines, label) {
 
 /**
  * Extract checklist items ("- [ ]" / "- [x]") that appear under a labeled
- * block such as "Implementation AC:" / "Test AC:". Stops at the next labeled
+ * block such as "Implementation AC:" / "Test AC:" (an optional trailing
+ * "checklist" is accepted, matching create-trd). Stops at the next labeled
  * block at the same or lesser indent.
  */
 function extractLabeledChecklist(bodyLines, label) {
   const out = [];
   let inSection = false;
   let labelIndent = -1;
-  const labelRe = new RegExp(`^(\\s*)-?\\s*${label}\\s*:?\\s*$`, 'i');
+  const labelRe = new RegExp(`^(\\s*)-?\\s*${label}(?:\\s+checklist)?\\s*:?\\s*$`, 'i');
   for (const line of bodyLines) {
     const labelMatch = line.match(labelRe);
     if (labelMatch) {

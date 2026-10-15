@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `trd-parser.js` now accepts `Implementation AC checklist:` / `Test AC checklist:` labels. `create-trd` instructs authors to write that form, but the parser matched only `Implementation AC:` / `Test AC:`, so every acceptance criterion in a TRD written as instructed parsed as empty and `implement-trd-beads` could not scope task bodies.
 - Runner subagent dispatches now resolve. `beads-build.yaml` dispatched `Task(subagent_type=beads-build-wave)` and `implement-trd.yaml` dispatched `Task(subagent_type=implement-trd-task)`, but both targets shipped only as commands, never as agents — so neither dispatch could resolve and `/ensemble:beads-build`'s Execute phase and `/ensemble:implement-trd`'s Task Loop were both unreachable. Added thin runner agents that load their command as the single source of truth rather than duplicating the procedure.
 
 ## [6.9.2] - 2026-06-23
