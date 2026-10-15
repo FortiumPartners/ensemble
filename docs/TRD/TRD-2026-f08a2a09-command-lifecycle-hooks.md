@@ -4,7 +4,7 @@ label: trd-command-lifecycle-hooks
 kind: trd
 prd_reference: PRD-2026-f08a2a09
 prd_path: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md
-version: 1.0.1
+version: 1.0.2
 status: Draft
 date: 2026-10-15
 design_readiness_score: 4.0
@@ -49,6 +49,19 @@ Based on PRD: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md (v1.0.4, Loc
 | Extension entry point and bundle | `packages/pi-extension/src/extension.ts` (`activate`), `scripts/install.mjs` | The adapter is registered from `activate()` and ships in the same bundle. |
 | Pi events and API | `input`, `before_agent_start`, `agent_before_settle`, `agent_settled`, `session_shutdown`, `registerTool`, `ctx.isProjectTrusted()`, `ctx.abort()` | Observed in Pi 1.2.0 typings; start, `completed`/`error` outcomes confirmed live (PRD probe evidence). |
 | Existing test harness | `packages/agent-core/tests`, `packages/pi-extension/tests`, `scripts/smoke-activate.mjs` | New tests follow the same layout. |
+
+### Reuse check: `pi-yaml-hooks`
+
+Found after the first TRD draft, when the plan was already scaffolded. `pi-yaml-hooks` (third party, MIT, github.com/KristjanPikhof/pi-yaml-hooks, version 2026.9.26) is a YAML hook runner for Pi and OMP that is already installed in this repository owner's Pi settings. It overlaps this design in three places: YAML hook configuration, a trust gate (`/hooks-trust`) and bash actions that receive JSON on standard input. Its fixed events are `user.prompt.submit`, `tool.before.*`, `tool.after.*`, `file.changed`, `session.created`, `session.idle` and `session.deleted`.
+
+**Decision: build the lifecycle here rather than layer on it.** Checked in its source and docs:
+
+- It has no command start or end event, and no extension point for another package to add events. Its public surface is `registerHooksExtension(pi, profile)` plus type re-exports, its source says runtime internals stay private, and its `exports` map blocks deep imports. Layering would mean a fork or an upstream change.
+- It never listens to the `input` event. Its `user.prompt.submit` sees only the already-expanded text, so a command's name is gone, and it "cannot rewrite or reject the prompt". REQ-002 (a start handler's block enforced by the runtime) and REQ-003 (resolving a dispatcher to its target) cannot be met through it.
+- It serves Pi and OMP only, while this design keeps a harness-neutral core in `agent-core`.
+- The two extensions register independently and can be installed together.
+
+**What stays overlapping, on purpose:** a team may see two hook systems. They differ in scope (command lifecycle against sessions, tools and files), location (`.ensemble/hooks.yaml` in the project against `~/.pi/agent/hook/hooks.yaml` or a project hooks file) and trust (the host's project trust against its own `/hooks-trust`). TRD-014 keeps this status check from sharing a command name with it, and TRD-016 documents the difference.
 
 ## System Architecture
 
@@ -352,6 +365,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Given Pi's end definition, when declared, then it states that a command ends at the completion signal, an error or abort outcome, the next command, or session shutdown
     - [ ] Given a configured hook for a capability the active harness does not support, when the configuration loads, then the user sees a warning naming the hook and the capability, and the command runs
     - [ ] Given the status check is run, when no command runs, then it prints the table and whether the current project's hooks are active, and says hooks are inactive in harnesses with no adapter
+    - [ ] Given the status check, when implemented, then it is a script and no slash command named `/hooks-status`, `/hooks-validate` or any other `/hooks-*` is registered, so it cannot collide with the same-named commands of `pi-yaml-hooks`
 
 - [ ] **TRD-014-TEST** Capability and status behavior [Verifies TRD-014] [Satisfies REQ-014] [Depends: TRD-014] (2h)
   - Validates PRD ACs: AC-014-1, AC-014-2, AC-014-3, AC-014-4, AC-015-5, AC-017-1, AC-017-2
@@ -359,6 +373,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Scenario: table complete -- Given the table, When read, Then every harness states all three capabilities and the three adapter-less harnesses are all `false`
     - [ ] Scenario: warning not silent -- Given a hook that needs an unsupported capability, When loaded, Then a warning names it
     - [ ] Scenario: status without a command -- Given the status script, When run in a project, Then it prints the table and the activity of the project's hooks
+    - [ ] Scenario: no command-name collision -- Given `activate(fakePi)` with a hooks file, When the registered commands are listed, Then none starts with `hooks-`
 
 - [ ] **TRD-015** Entry-point integration test through `activate()` and the bundled build, with an opt-in live smoke (`packages/pi-extension/tests/lifecycle-entrypoint.test.ts`, `packages/pi-extension/scripts/smoke-lifecycle.mjs`) [satisfies REQ-015] [satisfies REQ-019] [Depends: TRD-010] [Depends: TRD-011] [Depends: TRD-012] [Depends: TRD-013] [Depends: TRD-014] (5h)
   - Validates PRD ACs: AC-015-1, AC-015-2, AC-015-3, AC-015-4, AC-019-3
@@ -379,6 +394,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Given the guide, when read, then it documents the two events, the payload, the hooks file, both handler types, exit and error semantics, the redaction patterns and sensitive variable names, the default timeouts and output bound, and a per-harness capability table
     - [ ] Given any best-effort path the guide mentions, when read, then it is labelled best-effort and never described as deterministic shell-hook execution
     - [ ] Given each YAML example in the guide, when run through the validator, then it validates
+    - [ ] Given the guide, when read, then it states how lifecycle hooks differ from `pi-yaml-hooks` in scope, file location, trust and blocking, and says both can be installed together
 
 - [ ] **TRD-016-TEST** Guide stays true [Verifies TRD-016] [Satisfies REQ-018] [Depends: TRD-016] (1h)
   - Validates PRD ACs: AC-016-1, AC-016-2, AC-018-1, AC-018-2
@@ -386,6 +402,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Scenario: examples validate -- Given the guide's YAML blocks, When validated, Then none is rejected
     - [ ] Scenario: table matches code -- Given the guide's capability table and the capability constants, When compared, Then they agree
     - [ ] Scenario: no overclaim -- Given the guide, When searched, Then a best-effort path never appears next to the word deterministic
+    - [ ] Scenario: relationship stated -- Given the guide, When searched, Then it names `pi-yaml-hooks` and says how the two differ
 
 - [ ] **TRD-017** Changelog and README entries (`packages/pi-extension/README.md`, `packages/development/CHANGELOG.md`) [satisfies REQ-018] [Depends: TRD-015] (1h)
   - Validates PRD ACs: AC-018-1
@@ -522,3 +539,4 @@ Constitution Gate: PASSED
 
 - 1.0.0 (2026-10-15): Initial draft.
 - 1.0.1 (2026-10-15): Refinement. TRD-001 and TRD-008 now cover the skill form of a command's input; TRD-012 states what happens when the shutdown budget is unusable; TRD-010 states where `session_id` comes from. No task added or removed; hours and dependencies unchanged. Design readiness score unchanged at 4.0.
+- 1.0.2 (2026-10-15): Reuse check against `pi-yaml-hooks` (a third-party Pi and OMP hook runner), found after the plan was scaffolded: recorded the evidence and the decision to build here; TRD-014 forbids a `/hooks-*` command name; TRD-016 documents the difference. Two acceptance criteria and two test scenarios added; no task added or removed, hours and dependencies unchanged.

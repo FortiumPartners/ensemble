@@ -6,8 +6,8 @@
   "stage": "implementation",
   "stageOutcome": {
     "kind": "approval_wait",
-    "detail": "Implementation approved by the user at the checkpoint (a human approval). Not started: the implementation stage is run separately with /ensemble-implement-trd-beads --execute.",
-    "recordedAt": "2026-10-15T22:01:59.193Z"
+    "detail": "Implementation re-approved by the user for TRD v1.0.2 after the pi-yaml-hooks reuse check (a human approval). Not started: run /ensemble-implement-trd-beads --execute separately.",
+    "recordedAt": "2026-10-15T22:11:11.325Z"
   },
   "artifacts": [
     {
@@ -49,6 +49,14 @@
       "version": "1.0.1",
       "producingStage": "trd_refine",
       "recordedAt": "2026-10-15T21:57:26.689Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "TRD-2026-f08a2a09",
+      "version": "1.0.2",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-15T22:07:23.157Z"
     }
   ],
   "beadRefs": [
@@ -57,9 +65,9 @@
     "br-mcut",
     "br-1gl3"
   ],
-  "implementationApprovedAt": "2026-10-15T22:01:59.193Z",
+  "implementationApprovedAt": "2026-10-15T22:11:11.325Z",
   "prApprovedAt": null,
-  "revision": 6,
+  "revision": 8,
   "createdAt": "2026-10-15T21:20:30.703Z",
-  "updatedAt": "2026-10-15T22:01:59.193Z"
+  "updatedAt": "2026-10-15T22:11:11.326Z"
 }
