@@ -4,7 +4,7 @@ label: trd-pr-review-cycle-time
 kind: trd
 prd_reference: PRD-2026-82b6a138
 prd_path: docs/PRD/PRD-2026-82b6a138-pr-review-cycle-time.md
-version: 1.0.1
+version: 1.0.6
 status: Draft
 date: 2026-10-14
 design_readiness_score: 4.38
@@ -12,6 +12,8 @@ Constitution compliance: passed
 ---
 
 # TRD-2026-82b6a138: PR Review Cycle-Time Workflow
+
+Based on PRD: docs/PRD/PRD-2026-82b6a138-pr-review-cycle-time.md
 
 ## Architecture Decision
 
@@ -133,6 +135,7 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
   - Validates PRD ACs: AC-007-1, AC-007-2, AC-007-3, AC-007-4
   - Implementation AC:
     - [ ] Given reviews, inline comments, threads and check runs for a PR, when `evaluateRemoteReview` runs, then all of them for the current head are returned (not only the latest summary) along with every unresolved thread
+    - [ ] Given any bound or unbound bot item, when `evaluateRemoteReview` decides, then every item kind and state has a defined verdict and the evaluator fails closed: a review in an unrecognised, missing or non-string state blocks; an effective `CHANGES_REQUESTED` (computed per author over all of that author's reviews on every head, superseded only by a later `APPROVED` or `DISMISSED`) blocks; a check run counts only with conclusion `success` or `neutral` and a failed, cancelled, timed-out, action-required, unfinished or unknown bot check blocks; a thread counts as resolved only when `resolved === true`; a malformed `access` or a missing collection never completes; a comment can be evidence but never overrides a block; and completion still requires positive evidence bound to the current head
     - [ ] Given a review whose commit identity differs from `headSha`, when it runs, then that review does not count and `remotePhase` is `REMOTE_REVIEW_PENDING` (including after a rebase or force-push)
     - [ ] Given reviews from several authors, when it runs, then only a review or check authored by a configured CodeRabbit bot login and bound to the exact head commit counts
     - [ ] Given only a summary comment with no commit identity, when it runs, then it is reported unverifiable and `remotePhase` is `REMOTE_REVIEW_PENDING`
@@ -190,6 +193,8 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
   - Validates PRD ACs: AC-009-1, AC-025-1, AC-025-2
   - Implementation AC:
     - [ ] Given JSON on stdin, when `scope|ledger|remote|status|state-read|state-write` runs, then it delegates to the matching module and prints JSON on stdout
+    - [ ] Given a required review fact is missing or invalid (a SHA that is not a full hex object id, a missing `reviewedHeadSha`, a non-numeric actionable count), when `scope` or `status` runs, then the result is never a completed phase: every returned `localPhase`/`remotePhase` is a member of the exported `LOCAL_PHASES`/`REMOTE_PHASES`, `LOCAL_REVIEW_BLOCKED` is actually emittable (access failure, missing facts, round limit), and `LOCAL_REVIEW_COMPLETE` additionally requires the tests to have passed or been explicitly skipped, so callers can gate on exactly `LOCAL_REVIEW_COMPLETE` and treat every other value as blocked (fail-closed)
+    - [ ] Given the local review is bound to a snapshot commit and the pushed commit is a different commit of the same files, when `status` or `state-read` receives matching `reviewedTreeSha`/`headTreeSha` (`treeSha`, full object ids), then the review is fresh and `REVIEW_COMPLETE` is reachable end to end; given different trees, a tree supplied on one side only, or an unreadable tree id, then it is stale or blocked and never complete (head equality alone also suffices)
     - [ ] Given unparseable JSON, when any subcommand runs, then it exits non-zero with a message and writes no state
     - [ ] Given the CLI is invoked from a shell, when run end to end, then the result equals the module's direct result (no divergence between CLI and library)
     - [ ] Given a 200-finding ledger and a 50-review remote payload, when `ledger` and `remote` run through the CLI, then each completes in under 1 second and makes no network call
@@ -247,6 +252,7 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
   - Validates PRD ACs: AC-011-1, AC-011-2, AC-011-3, AC-011-4, AC-014-1, AC-014-2
   - Implementation AC:
     - [ ] Given `fix-issue.yaml`, when the Validation & Delivery steps are read in `order`, then Test Validation (1) -> Local Review and Batch Fix (2) -> PR Creation (3) -> Remote Review Disposition (4) -> Record Stage Checkpoint (5), and the new step invokes `pr-review-cycle` in pre-publication mode against the resolved PR base
+    - [ ] Given any `localPhase` other than exactly `LOCAL_REVIEW_COMPLETE` (pending, blocked, a missing or unparseable result, or the skill returning nothing, for example when `pr-review-remediation` is not installed), when the step finishes, then `prApprovedAt` stays null, a failure `stageOutcome` is recorded, the Foreman artifact is written first under `--foreman`, and the run HALTs before any commit, push or PR; the reviewed head is a snapshot commit that includes untracked files (built from a temporary index, never `git stash create`) and is re-resolved after the batch fix
     - [ ] Given the local review returns `LOCAL_REVIEW_COMPLETE` (including on the `--skip-tests` path), when the Local Review and Batch Fix step ends, then it alone calls `IssueRunIndexStore.mutate()` to set `prApprovedAt`; Test Validation no longer sets it, so a `LOCAL_REVIEW_BLOCKED` or unfinished review leaves `prApprovedAt` null and PR Creation's existing "read prApprovedAt directly, null denies" precondition denies the call with no commit, push or PR
     - [ ] Given the existing prApprovedAt tests in `fix-issue-command.test.js` (the Test Validation and PR Creation cases), when this change lands, then they are updated in the same PR to assert the new location of the mutate
     - [ ] Given `--skip-tests`, when the review runs, then it still runs, the PR may be created as today, and the status is `REVIEW_PENDING` with reason `tests skipped` and the test command
@@ -265,7 +271,7 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
 - [ ] **TRD-010** fix-issue: Remote Review Disposition, Foreman artifact, resumable pending [satisfies REQ-012, REQ-013, REQ-025] [Depends: TRD-009] (5h)
   - Validates PRD ACs: AC-012-1, AC-012-2, AC-013-1, AC-013-2, AC-013-3, AC-013-4, AC-025-1
   - Implementation AC:
-    - [ ] Given the PR was created, when Remote Review Disposition runs, then it invokes `pr-review-cycle` in remote mode and, unless the status is `REVIEW_COMPLETE`, it does not call `IssueRunIndexStore.complete()`: it records `pr:<url>` and sets `stageOutcome` to `{ kind: "approval_wait", detail: "REVIEW_PENDING|REVIEW_BLOCKED: <next action>" }` and returns a resumable report with the exact next action
+    - [ ] Given the PR was created, when Remote Review Disposition runs, then it invokes `pr-review-cycle` in remote mode and only a status of exactly `REVIEW_COMPLETE` reaches Record Stage Checkpoint; every other outcome, including a missing, unparseable or unknown status, is an OTHERWISE branch that does not call `IssueRunIndexStore.complete()`: it records `pr:<url>` and sets `stageOutcome` to `{ kind: "approval_wait", detail: "REVIEW_PENDING|REVIEW_BLOCKED: <next action>" }` and returns a resumable report with the exact next action; on resume the PR URL is read from the recorded `pr:` bead reference (and a resume without one halts) instead of being re-derived from a PR Creation that did not run
     - [ ] Given a later bare invocation finds a run at `validation_delivery` whose recorded PR exists and whose outcome detail starts with `REVIEW_`, when it resumes, then it jumps to Remote Review Disposition and does not re-run Test Validation or PR Creation
     - [ ] Given `--foreman` with a non-empty `FOREMAN_ARTIFACT_PATH`, when the command ends, then the phase report with status, head SHA and ledger is written to that exact path in addition to any repo-local report, with no prompt and no indefinite wait; given the variable is unset, behavior is unchanged and no error is raised
     - [ ] Given a finding needs a human decision under `--foreman`, when status is derived, then it is `REVIEW_BLOCKED` stating the decision required and the finding is not dismissed
@@ -285,7 +291,7 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
   - Validates PRD ACs: AC-019-1, AC-019-2, AC-019-3
   - Implementation AC:
     - [ ] Given the `fix-issue.yaml` source, when `npm run generate`, `npm run generate:pi` and `npm run generate:codex` run, then the OMP prompt and Codex `ensemble-fix-issue` outputs contain the same review gate, status meanings and anti-early-completion behavior, with no hand edits to generated files, and the Codex output references `packages/development/skills/pr-review-cycle/SKILL.md` by the same repo-root path pattern `implement-trd-beads` uses for `completion-verification`
-    - [ ] Given the regeneration, when `npm run generate:validate` runs, then it passes
+    - [ ] Given the regeneration, when `npm run generate:validate` runs, then it passes; the generated-parity tests run only the read-only validators (`generate:validate`, `validate`) and never regenerate tracked output from inside a unit test (`generate:codex` deletes and rebuilds `.codex/`, so concurrent suites racing it deleted tracked files); regeneration idempotency stays with the CI generate check
     - [ ] Given the working tree, when the diff is inspected, then no unrelated generated artifact changed and no version was bumped outside the repository's version policy
 
 - [ ] **TRD-011-TEST** fix-issue generated parity [Verifies TRD-011] [Satisfies REQ-019] [Depends: TRD-011] (3h)
@@ -302,8 +308,9 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
   - Validates PRD ACs: AC-016-1, AC-016-2, AC-016-3, AC-016-4, AC-016-5
   - Implementation AC:
     - [ ] Given a worker or quality-gate result, when produced, then it carries the finding ledger and local review status (`LOCAL_REVIEW_COMPLETE|LOCAL_REVIEW_BLOCKED`), and `COMPLETE_BEADS_RESULT` gains `local_review` and `remote_review` fields per PR
-    - [ ] Given a story or phase roll-up, when it would close, then it closes only if the existing definition-of-done conditions pass and `LOCAL_REVIEW_COMPLETE` holds for it
-    - [ ] Given a blocking local finding on any PR the run owns, when root-epic closure is attempted, then the epic is not closed; given every owned PR is `LOCAL_REVIEW_COMPLETE` and remote review is `REMOTE_REVIEW_PENDING`, the epic may close and each PR is shown as pending
+    - [ ] Given a story or phase roll-up, when it would close, then it closes only if the existing definition-of-done conditions pass and `LOCAL_REVIEW_COMPLETE` holds for it; in stacked mode the story's `br close` is deferred until the PR Review Gate returns `LOCAL_REVIEW_COMPLETE` (a blocked gate leaves the story open)
+    - [ ] Given any PR the run owns without a recorded `LOCAL_REVIEW_COMPLETE` (a blocking finding, or no review recorded yet), when root-epic closure is attempted, then the epic is not closed (in single-PR mode the Quality Gate Review runs first); given every owned PR is `LOCAL_REVIEW_COMPLETE` and remote review is `REMOTE_REVIEW_PENDING`, the epic may close and each PR is shown as pending; in stacked mode a non-`LOCAL_REVIEW_COMPLETE` phase gate stops dispatch of later phases so the blocked phase branch is not contaminated
+    - [ ] Given a recorded `local_review` that is missing, is anything other than exactly `LOCAL_REVIEW_COMPLETE`, or is bound to a head SHA different from THAT PR's own branch tip (stacked phase PRs compare with the tip of their own phase branch, never the moving integration HEAD; the single-PR completion action compares with the current HEAD), when complete-beads is invoked again (for example after the user fixed a blocking finding), then a fresh Quality Gate Review of that PR alone runs before any roll-up or closure decision, so a recorded `LOCAL_REVIEW_BLOCKED` can recover to complete, a stale approval can never close an epic, and later phases never invalidate earlier valid reviews; the single-PR `completion` action resolves its base from the default branch and an empty or unresolvable base is `LOCAL_REVIEW_BLOCKED`
     - [ ] Given independently validated work, when the remote service has not responded, then integration of that work is not blocked for that reason alone
 
 - [ ] **TRD-012-TEST** complete-beads closure gating [Verifies TRD-012] [Satisfies REQ-016] [Depends: TRD-012] (4h)
@@ -318,8 +325,8 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
 - [ ] **TRD-013** implement-trd-beads: gates at stacked-phase and single-PR boundaries [satisfies REQ-015] [Depends: TRD-012] (5h)
   - Validates PRD ACs: AC-015-1, AC-015-2, AC-015-3, AC-002-3
   - Implementation AC:
-    - [ ] Given stacked mode, when a phase reaches Quality Gate "Gate Result Recording", then `pr-review-cycle` runs on that phase's exact branch and `parentBranch` before `git town propose`/`append` (or the `gh`/`ado`/manual equivalents), reviewing only that phase's diff
-    - [ ] Given single-PR mode, when Completion reaches the `completion` PR action, then `pr-review-cycle` runs once over the whole TRD branch diff before the PR is created
+    - [ ] Given stacked mode, when a phase reaches Quality Gate "Gate Result Recording", then `pr-review-cycle` runs on that phase's exact branch and `parentBranch` before `git town propose`/`append` (or the `gh`/`ado`/manual equivalents), reviewing only that phase's diff, and the phase's story bead is closed only after the gate passes
+    - [ ] Given single-PR mode, when Completion Verification returns, then the PR Review Completion Check runs `pr-review-cycle` once over the whole TRD branch diff BEFORE Epic Closure; a blocked review HALTs there (epic stays open, no completion PR is created), and the completion PR is created later in Completion Report on an already-reviewed head and reported `REVIEW_PENDING`
     - [ ] Given the change, when a TRD is implemented, then `pr-plan` topology, per-task reviewer/QA lifecycle, phase quality gates and the final full-suite and requirement verification are unchanged
 
 - [ ] **TRD-013-TEST** implement-trd-beads boundary gates [Verifies TRD-013] [Satisfies REQ-015] [Depends: TRD-013] (4h)
@@ -333,7 +340,7 @@ SKILL.md --> .ensemble/pr-review/<key>.json (untracked; never part of the PR hea
 - [ ] **TRD-014** implement-trd-beads: PR-review completion check, messaging, manual/ADO backends [satisfies REQ-017, REQ-018] [Depends: TRD-013] (4h)
   - Validates PRD ACs: AC-017-1, AC-017-2, AC-018-1, AC-018-2
   - Implementation AC:
-    - [ ] Given Completion, when `completion-verification` returns, then a separate PR-review check runs before Epic Closure and completion messaging, and `completion-verification` remains authoritative for task inventory, requirements and tests
+    - [ ] Given Completion, when `completion-verification` returns, then a separate PR-review check runs before Epic Closure and completion messaging; its only HALT is the single-PR local gate, its remote evaluation never blocks Epic Closure, and `completion-verification` remains authoritative for task inventory, requirements and tests
     - [ ] Given a PR the command owns has pending remote review, when completion is reported, then it is shown as pending and resumable and never described as merged or landed
     - [ ] Given `PR_BACKEND` is `manual` or the `ado` MCP tool is absent, when a PR boundary is reached, then the manual PR and review steps are printed and the status is reported pending, and no review evidence is claimed as gathered
 
@@ -509,3 +516,8 @@ Constitution compliance: passed
 |------|---------|---------|
 | 2026-10-14 | 1.0.0 | Initial TRD from PRD-2026-82b6a138 v1.0.1. |
 | 2026-10-14 | 1.0.1 | Refinement: moved `prApprovedAt` into the Local Review step with test updates (TRD-009); added the missing-remediation-skill `REVIEW_BLOCKED` halt (TRD-008); added Codex repo-path skill reference and the `lib-bundler.test.ts` entry-point update (TRD-007/011/015); rewired TRD-017 to depend on TRD-009 and TRD-012; added a bounded-latency AC to the CLI (TRD-006); readiness 4.25 -> 4.38. |
+| 2026-10-14 | 1.0.2 | Implementation notes: supervisor review of the built command found and fixed two ordering holes (stacked story closed before its review gate could block; single-PR whole-branch review ran after Epic Closure and the check mislabelled the not-yet-created PR), reflected in TRD-012/013/014; the generated-parity tests no longer regenerate tracked output (concurrent `generate:codex` runs deleted 37 tracked `.codex` files), reflected in TRD-011; PR 1 also regenerated the Pi skill/vendor bundle (`generate:pi` from the repo root) so the CI generate check passes on every PR in the stack; OMP/Codex renderers omit step `instructions:` bodies (fix-issue), so key rules are mirrored into step descriptions. |
+| 2026-10-14 | 1.0.3 | Added a body `Based on PRD:` path reference: `trd-cli` parses only a path-shaped PRD reference (a `docs/PRD/*.md` path in the body, or a path-like `prd_reference`), so the ID-only frontmatter left `prdReference` null and made `completion-verification` silently skip its REQ coverage check. |
+| 2026-10-14 | 1.0.4 | Local-review remediation (20 findings: 3 Critical, 10 Major, 7 Minor, from four independent per-phase reviews of the stack). Root cause was one fail-open pattern at three layers: the status grader defaulted missing facts to "fine", `LOCAL_REVIEW_BLOCKED` was documented and branched on but never emitted, and callers (fix-issue, complete-beads) tested for the one bad value instead of requiring the one good value. Contract now fail-closed and stated in TRD-006, TRD-009 and TRD-012; also bare-ref scope inputs rejected, remote review state respected (per-author effective reviewer state), dedupe/merge never drop a more severe finding, atomic state writes, snapshot head includes untracked files, stacked blocked phase stops dispatch. A vocabulary drift test now ties every review token in commands and skills to the status module. |
+| 2026-10-14 | 1.0.5 | Second (final) automatic remediation pass from the round-2 re-review of the remediated heads (14 findings: 1 Critical, 5 Major, 8 Minor), reflected in TRD-003, TRD-010 and the TRD-012 closure rules. Round 1 had patched the case each reviewer named and left siblings open, so this pass specified completeness by construction: the remote evaluator now has a defined verdict for every item kind and state; `status` re-validates SHAs and counts itself; ledger and CLI inputs fail closed on missing or mistyped keys; the fix-issue remote step has an OTHERWISE halt so a missing status can never reach `complete()`; complete-beads re-runs the Quality Gate Review whenever the recorded review is missing, not COMPLETE, or bound to a different HEAD; single-PR completion resolves its base from the default branch. The mutation harness copies the scope module, uses a private jest cache, and no longer leaks cache entries. |
+| 2026-10-14 | 1.0.6 | User-authorized manual fix pass for the 5 findings of the final re-review (3 Major, 2 Minor): tree-aware freshness so `REVIEW_COMPLETE` is reachable when the pushed commit differs from the review snapshot (TRD-006, TRD-009 wiring); per-PR branch-tip head binding in complete-beads so stacked phases do not re-stale each other (TRD-012); the fix-issue resume gate and `pr:` bead-reference recording mirrored into rendered step descriptions because the generators omit `instructions` (TRD-010, with parity assertions on the generated outputs); an empty-PR-URL halt that records a resumable `approval_wait` and writes the Foreman artifact; fork-point-first review scope. |
