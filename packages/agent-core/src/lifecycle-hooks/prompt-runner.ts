@@ -16,11 +16,16 @@ import * as path from "node:path";
 import { isRecord } from "../type-guards";
 import type { Finding, HandlerOutcome, PromptHandler, PromptResponse } from "./types";
 
-/** Runs a prompt against the event in a model and returns the model's raw stdout. */
+/**
+ * Runs a prompt against the event in a model and returns the model's raw stdout.
+ * `signal` aborts when the runner's timeout fires; an evaluator that started a
+ * process must stop it then, because the runner has already moved on.
+ */
 export type PromptEvaluator = (input: {
   prompt: string;
   eventJson: string;
   timeoutMs: number;
+  signal: AbortSignal;
 }) => Promise<string>;
 
 export interface PromptRunnerOptions {
@@ -201,17 +206,23 @@ export async function runPromptHandler(
     return outcome({ status: "failed", message: `could not read prompt file ${handler.prompt}: ${errorText(error)}` });
   }
 
+  const controller = new AbortController();
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
-    timer = setTimeout(() => resolve(TIMED_OUT), handler.timeout_ms);
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(TIMED_OUT);
+    }, handler.timeout_ms);
   });
 
   let raw: string | typeof TIMED_OUT;
   try {
     // Promise.resolve().then also turns a synchronous throw from the evaluator into a rejection.
     const evaluation = Promise.resolve().then(() =>
-      evaluator({ prompt, eventJson, timeoutMs: handler.timeout_ms }),
+      evaluator({ prompt, eventJson, timeoutMs: handler.timeout_ms, signal: controller.signal }),
     );
+    // The timeout may win the race; a later rejection must not become an unhandled one.
+    evaluation.catch(() => undefined);
     raw = await Promise.race([evaluation, timeout]);
   } catch (error) {
     return outcome({ status: "failed", message: `prompt evaluation failed: ${errorText(error)}` });
