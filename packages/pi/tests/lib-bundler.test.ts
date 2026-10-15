@@ -206,10 +206,12 @@ describe('bundleLibs against real packages directory', () => {
 
   it('bundles the real entry points plus their full require closure', async () => {
     const results = await bundleLibs(repoRoot, outputRoot, { dryRun: true });
-    // 3 entry points + trd-parser, prd-parser, phase-tracker, scaffold-planner,
+    // 4 entry points + trd-parser, prd-parser, phase-tracker, scaffold-planner,
     // workstream-planner, cross-trd-deps, workstream-status, workstream-trd,
-    // pr-strategy, quickstart-generator, trd-graph (closure) + validate-git-town.sh
-    expect(results.length).toBe(15);
+    // pr-strategy, quickstart-generator, trd-graph (closure) + pr-review-cli.js's
+    // own siblings (pr-review-scope, pr-review-ledger, pr-review-remote,
+    // pr-review-status, pr-review-state) + validate-git-town.sh
+    expect(results.length).toBe(21);
   });
 
   it('all results have type === "lib"', async () => {
@@ -238,6 +240,20 @@ describe('bundleLibs against real packages directory', () => {
     }
   });
 
+  it("vendors every real sibling module pr-review-cli.js requires", async () => {
+    const results = await bundleLibs(repoRoot, outputRoot, { dryRun: true });
+    const vendoredNames = results.map((r) => path.basename(r.outputPath));
+    for (const expected of [
+      'pr-review-scope.js',
+      'pr-review-ledger.js',
+      'pr-review-remote.js',
+      'pr-review-status.js',
+      'pr-review-state.js',
+    ]) {
+      expect(vendoredNames).toContain(expected);
+    }
+  });
+
   it('vendors trd-graph.js, the sibling trd-graph-cli.js requires', async () => {
     const results = await bundleLibs(repoRoot, outputRoot, { dryRun: true });
     const vendoredNames = results.map((r) => path.basename(r.outputPath));
@@ -252,7 +268,7 @@ describe('bundleLibs against real packages directory', () => {
     // entry point here — not a fixture — is the only way to catch that.
     await bundleLibs(repoRoot, outputRoot, {});
 
-    for (const entry of ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js']) {
+    for (const entry of ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js']) {
       const entryPath = path.join(outputRoot, 'vendor', 'lib', entry);
       expect(fs.existsSync(entryPath)).toBe(true);
 
