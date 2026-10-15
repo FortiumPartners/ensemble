@@ -1,7 +1,7 @@
 ---
 document_id: PRD-2026-f08a2a09
 label: prd-command-lifecycle-hooks
-version: 1.0.4
+version: 1.0.5
 status: Locked
 date: 2026-10-15
 scale_depth: STANDARD
@@ -80,7 +80,7 @@ A project-level `.ensemble/hooks.yaml` defines reusable handlers and selects the
 
 **Entry:**
 
-- The Pi extension's ability to observe an aborted run is confirmed in a running host (see Open Question 1). A command's start and a loop's completed or error outcome were already observed in Pi 1.2.0 (see Probe evidence).
+- The Pi abort signal, the `session_shutdown` wait and the default project-trust value were measured in Pi 1.2.0 (see Probe evidence, "Measured in the implementation probe"). Nothing remains to be probed before work starts.
 - Unrelated working-tree changes remain untouched.
 
 **Exit:**
@@ -247,12 +247,18 @@ Pi marks when an agent loop settles, but nothing marks that one command has fini
 - AC-021-6: Given a command performs its completion step twice, when the second occurs, then exactly one end has been produced.
 - AC-021-7: Given a command stops because its own workflow hit a hard stop or rejected its arguments, when it signals completion with outcome `failed`, then the end carries `failed` and that reason.
 
-### REQ-022: Hooks from an untrusted project do not run (Must) [RISK: a cloned repository could run arbitrary executables at its first command]
+### REQ-022: Hooks run only in a project the user has explicitly trusted (Must) [RISK: a cloned repository could run arbitrary executables at its first command]
+
+Measured in Pi 1.2.0: the host reports a project as trusted by default in every mode, with no prompt, and as untrusted only when the user passes `--no-approve`. Host trust alone therefore protects almost no one, so the user's explicit trust of a project's hooks is a separate, required condition.
 
 - AC-022-1: Given a project the host has not trusted, when a command runs, then no handler runs, and the user sees a warning that names the hooks file and says how trust is granted.
-- AC-022-2: Given the project is trusted, when a command runs, then the handlers run per the configuration.
+- AC-022-2: Given the host trusts the project and the user has explicitly trusted this project's hooks, when a command runs, then the handlers run per the configuration.
 - AC-022-3: Given the active harness offers no project-trust decision, when a command runs, then no handler runs and the user is told why.
 - AC-022-4: Given an untrusted project, when the hooks file is read, then it may be validated, but nothing it names is executed.
+- AC-022-5: Given the host trusts the project but the user has not explicitly trusted its hooks, when a command runs, then no handler runs, and the user sees a warning that names the hooks file and says how to trust it.
+- AC-022-6: Given the user trusted a project's hooks, when the hooks file or any handler file it names (an executable or a prompt file inside the project) later changes, then the next command runs no handler until the user trusts it again.
+- AC-022-7: Given a repository ships its own trust data or its own hooks file, when it is opened, then that data cannot grant trust, because the user's trust is stored outside the repository.
+- AC-022-8: Given the user is asked to trust a project's hooks, when the question is shown, then it lists every handler with its exact executable and arguments or prompt file, and trust is recorded only after an explicit confirmation made by the user, never by a model's tool call.
 
 ## Goals and Non-Goals
 
@@ -272,7 +278,7 @@ Pi marks when an agent loop settles, but nothing marks that one command has fini
 
 These become the interview agenda in `/ensemble:refine-prd`.
 
-1. Can the Pi extension host observe an aborted run? The probe below settled start and the `completed`/`error` outcomes only. An abort was not exercised; the typings declare an `aborted` outcome. A probe that aborts a running command is still needed. (REQ-004, REQ-021)
+1. Can the Pi extension host observe an aborted run? Settled by measurement: an abort emits no `agent_before_settle`, but `agent_settled` reports `aborted: true` (10 of 10 runs), so cancellation is observable. (REQ-004, REQ-021)
 2. What is the handler output bound? The TRD sets it; the PRD requires only that a documented bound exists. (AC-009-4)
 
 **Probe evidence (2026-10-15, Pi 1.2.0, `pi -p`, a throwaway extension logging events; not part of the repository):**
@@ -280,7 +286,14 @@ These become the interview agenda in `/ensemble:refine-prd`.
 - **Start is observable.** `input` fired with the raw slash text (`/probe-cmd hello`), then `before_agent_start` fired with the expanded template prompt, then `agent_start` and `turn_start`. The command's name and arguments are readable at `input`.
 - **A loop's end is observable, in this order:** `agent_end`, then `agent_before_settle`, then `agent_settled`.
 - **Outcome is carried by `agent_before_settle`.** It reported `outcome: "completed"` for a model that answered and `outcome: "error"` for three runs where the model call failed. In those error runs `agent_settled` still reported `aborted: false`, so `agent_settled` alone cannot tell success from failure.
-- **Not observed:** an `aborted` outcome, `ui_prompt_start` / `ui_prompt_end`, and any event that names one command's completion. This confirms that a completion step (REQ-021) is needed, because a loop's settling says only that the loop stopped.
+- **Not observed:** `ui_prompt_start` / `ui_prompt_end` and any event that names one command's completion. This confirms that a completion step (REQ-021) is needed, because a loop's settling says only that the loop stopped.
+
+**Measured in the implementation probe (2026-10-15, Pi 1.2.0; print, RPC and the interactive TUI; `litellm/qwen`):**
+
+- **Abort:** in 10 of 10 aborted runs `agent_before_settle` never fired, so no `aborted` outcome exists; the event order was `agent_end` then `agent_settled` with `aborted: true`. The reliable cancel signal is `agent_settled.aborted === true`. Completed runs fire `agent_before_settle` with `outcome: "completed"`; an error run fires it with `outcome: "error"` (observed earlier).
+- **Shutdown:** the host awaited an async `session_shutdown` handler on every normal exit measured (print, RPC stdin close and `SIGTERM`, TUI `/quit`, Ctrl+D, Ctrl+C twice), up to the longest wait tried, 100 000 ms. RPC `SIGINT` kills the process at once and runs no handler.
+- **Trust:** `ctx.isProjectTrusted()` was `true` in all six combinations of mode and directory with no prompt, and `false` only with `--no-approve`.
+- **Input forms:** a prompt template arrives as `/<name> <args>` and a skill as `/skill:<name> <args>`.
 - **Limits of this evidence:** one `completed` run, three `error` runs with the outcome logged, three runs that produced no settle event (timeout or no response), and print mode only. The first error run predates logging of the outcome field and is not counted.
 
 **Resolved in refinement (2026-10-15):**
@@ -292,7 +305,7 @@ These become the interview agenda in `/ensemble:refine-prd`.
 - A command's end in Pi is an explicit completion step (REQ-021).
 - Default timeouts are 5 seconds for shell handlers and 30 seconds for prompt handlers, overridable per handler (AC-009-5, AC-011-5).
 - Selections list each command explicitly; wildcards and groups are rejected (AC-006-4).
-- No handler runs until the project is trusted (REQ-022).
+- No handler runs until the host trusts the project **and** the user has explicitly trusted that project's hooks (REQ-022). The second condition was added after the Pi probe showed host trust is true by default; the user's trust is stored outside the repository and is voided when the hooks file or a handler file it names changes.
 - A settled loop never ends a command (AC-021-4); a command that never signals completion ends as `cancelled` when the session ends or the next command begins (AC-021-5). This replaced an earlier rule that ended it as `failed` on every settle, which would have ended any command that paused to ask the user a plain-text question. Found while designing the TRD (2026-10-15).
 - The completion instruction is carried by the adapter at run time rather than generated into every command (AC-021-1).
 
@@ -337,9 +350,9 @@ No circular dependencies.
 | Completeness | 4 | All feature areas covered; the handler output bound is deliberately left to the TRD. |
 | Testability | 4 | Every Must requirement has verifiable ACs. |
 | Clarity | 4 | Edge cases around rejected, blocked and unfinished invocations are decided or marked, not guessed. |
-| Feasibility | 3 | Start, the completed/error outcomes, tool registration, the trust check and per-turn injection are confirmed in Pi. An abort is not observed, and the completion signal is still performed by the model. |
+| Feasibility | 3 | Start, the completed/error outcomes, the abort signal, tool registration, the trust check and per-turn injection are confirmed in Pi. The completion signal is still performed by the model. |
 
-**Overall: 3.75 (CONCERNS), not re-scored.** The 1.0.3 amendment removed a rule that could not be implemented and closed one open question, but the score was not re-evaluated, so it is left as it was. The remaining concern is Open Question 1, an abort probe.
+**Overall: 3.75 (CONCERNS), not re-scored.** The amendments since 1.0.2 removed rules that could not be implemented and added the trust requirement, but the score was not re-evaluated, so it is left as it was. No open question remains except the handler output bound, which the TRD sets.
 
 ## Changelog
 
@@ -348,3 +361,4 @@ No circular dependencies.
 - 1.0.2 (2026-10-15): Second refinement pass. Recorded Pi 1.2.0 probe evidence (start, loop end, `completed`/`error` outcome from `agent_before_settle`); narrowed Open Question 1 to the pending-question and abort cases.
 - 1.0.3 (2026-10-15): Amended during TRD design. AC-021-1, AC-021-4 and AC-021-5 rewritten (a settle never ends a command; completion instruction carried at run time); Open Question 2 closed; clarification markers now 0. Readiness score not re-evaluated.
 - 1.0.4 (2026-10-15): Amended during TRD design. AC-002-1, AC-002-2, AC-017-2 and AC-021-2 rewritten, AC-021-7 added: `command.start` fires at input, a rejected invocation ends as `failed`, and adapter-less harnesses are covered by documentation and a status check. Readiness score not re-evaluated.
+- 1.0.5 (2026-10-15): Amended during implementation after the Pi probe. REQ-022 now requires the user's explicit trust of a project's hooks in addition to host trust, because host trust is true by default; AC-022-5 to AC-022-8 added. Open Question 1 closed by measurement (cancellation is observable through `agent_settled.aborted`). Probe measurements recorded. Readiness score not re-evaluated.

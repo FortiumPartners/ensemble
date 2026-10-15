@@ -4,7 +4,7 @@ label: trd-command-lifecycle-hooks
 kind: trd
 prd_reference: PRD-2026-f08a2a09
 prd_path: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md
-version: 1.0.2
+version: 1.0.4
 status: Draft
 date: 2026-10-15
 design_readiness_score: 4.0
@@ -13,7 +13,7 @@ Constitution compliance: passed
 
 # TRD-2026-f08a2a09: Command Lifecycle Hooks
 
-Based on PRD: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md (v1.0.4, Locked)
+Based on PRD: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md (v1.0.5, Locked)
 
 ## Architecture Decision
 
@@ -26,7 +26,8 @@ Based on PRD: docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md (v1.0.4, Loc
 - A command's completion is signalled by a silent `ensemble_command_complete` tool that the model is told to call last. The instruction is injected per turn by the adapter, not generated into every Pi prompt, so projects without hooks see no change.
 - A settled loop never ends a command. A command that never signals completion ends as `cancelled` when the session ends or the next command begins.
 - A prompt handler is evaluated by an isolated headless child (`pi -p --no-session -ne -nt -np`), parsed against a typed response contract.
-- No handler runs until the host reports the project as trusted (`ctx.isProjectTrusted()`).
+- No handler runs until the host reports the project as trusted (`ctx.isProjectTrusted()`) **and** the user has explicitly trusted this project's hooks. The Pi probe measured host trust as true by default in every mode, so it alone blocks nothing. The user's trust is recorded outside the repository against a digest of the hooks file and every handler file it names, and a change to any of them voids it.
+- Cancellation is detected from `agent_settled.aborted === true`, not from an `aborted` outcome: the probe found that an abort fires no `agent_before_settle`. An error is detected from `agent_before_settle.outcome === "error"`.
 - `on_error` is required on every handler. Default timeouts are 5 seconds for shell handlers and 30 seconds for prompt handlers.
 - Selections list commands by name. Wildcards and groups are rejected.
 - For harnesses with no adapter, the guide, a capability table and a status check say hooks are inactive. Nothing is shown at command time there.
@@ -130,9 +131,61 @@ commands:
 
 ## Probe results
 
-**Not yet run.** TRD-001 records here the Pi version, whether an aborted run produced an `aborted` outcome, the time a `session_shutdown` handler can run, the value of `ctx.isProjectTrusted()` in print mode and in an interactive session, and the raw `input` text for a prompt-template command and for a skill. Until it runs, the design assumes the unsafe answer for each: `command_end_on_cancel` is treated as unsupported, no shutdown time is assumed, and only the command forms already observed (the prompt-template form `/ensemble-<name>`) are resolved.
+Measured in a running Pi **1.2.0** (`/opt/homebrew/bin/pi`, which execs the Nix-built 1.2.0; model `litellm/qwen`) with a throwaway extension loaded by `pi -e <file> -ne` that logged every event with a millisecond timestamp. Modes: print (`pi -p --no-session`), RPC (`pi --mode rpc --no-session`, driven over JSON lines with `prompt` and `abort`), and the interactive TUI (driven through tmux). All four items below are **measured**. Every run listed completed; no run failed or was discarded. Where a count is given it is the number of separate Pi processes.
 
-Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw slash text, `before_agent_start` carries the expanded prompt, and `agent_before_settle` reports `outcome` as `completed` or `error`.
+### 1. Abort: no `agent_before_settle` is emitted
+
+- Runs: 10 aborted runs. Print mode, `ctx.abort()` called from `before_agent_start` +1.5 s while the model streamed: 3 runs. RPC `{"type":"abort"}` sent 1.5 s after `agent_start`, model streaming: 3 runs. RPC `abort` sent 1.5 s after `tool_execution_start` of a `bash` `sleep 60`: 3 runs. Interactive TUI, Escape pressed 2 s into a prompt: 1 run.
+- Observed in all 10: `agent_before_settle` **never fired**, so no `outcome: aborted` (or any other outcome) was observed. The event order was `agent_end` then `agent_settled`. `agent_settled.aborted` was `true` in all 10.
+- `agent_end.messages` last message: `stopReason: "aborted"` in the 7 runs that aborted during model streaming (print, RPC, TUI). In the 3 runs that aborted during the `bash` tool, the last message had `stopReason: "error"`; `agent_settled.aborted` was still `true`.
+- Control, completed runs (print 1, RPC 1, TUI 2): order `agent_end`, `agent_before_settle` with `outcome: "completed"` (event keys `type, outcome, entries, continue, context`), `agent_settled` with `aborted: false`.
+- RPC wire order on abort: `agent_end`, `agent_settled`, then the `abort` response (`success: true`), all within 5 ms of the abort request.
+- Answer: an abort does **not** produce outcome `aborted`; it produces no `agent_before_settle` at all. The reliable cancel signal is `agent_settled` with `aborted: true`. The `error` outcome was not exercised in this probe.
+
+### 2. Shutdown budget: the host waits, and no limit was reached
+
+Every `session_shutdown` event carried `reason: "quit"`. The handler awaited timed sleeps and logged before and after each.
+
+| Mode and exit trigger | Handler wait requested | Handler completed | Process exit |
+|---|---|---|---|
+| Print, normal end of run | 1, 2, 5, 10, 20 s in sequence (38 s total) | all five, 38.0 s | 0, immediately after the handler |
+| Print, normal end of run | one 100 s wait | yes, 100.0 s | 0, 60 ms after the handler |
+| RPC, stdin closed | 1, 2, 5, 10, 20 s (38 s total) | all five | 0, about 38 s after stdin closed |
+| RPC, `SIGTERM` | 1, 2, 5, 10, 20 s (38 s total) | all five | 143, about 38 s after the signal |
+| RPC, `SIGINT` | same | **handler never ran** (no `session_shutdown` logged) | killed by `SIGINT` within 10 ms |
+| TUI, `/quit` | 1, 2, 5, 10 s (18 s total) | all four | exited |
+| TUI, Ctrl+D | 1, 2, 5 s (8 s total) | all three | exited |
+| TUI, Ctrl+C twice | 1, 2, 5 s (8 s total) | all three | exited |
+
+- Runs: print 2, RPC 3, TUI 3.
+- Longest wait that completed: **100 000 ms** (print mode). The upper bound was not found; the host showed no timeout up to that value. Not measured: waits above 100 s, `SIGHUP`, `SIGKILL` (cannot run a handler), and `SIGTERM` or `SIGINT` in print and TUI modes.
+- Answer: the host awaits an async `session_shutdown` handler before exiting in every normal exit path measured. It does not run the handler when the process is killed by `SIGINT` in RPC mode.
+
+### 3. Trust: `ctx.isProjectTrusted()` is `true` by default in every mode
+
+| Mode | Directory | `session_start` | `input` |
+|---|---|---|---|
+| Print | this repo (has a `.pi` directory) | true | true |
+| Print | fresh empty `/tmp` directory | true | true |
+| RPC | this repo | true | true |
+| RPC | fresh empty `/tmp` directory | true | true |
+| TUI | this repo | true | true |
+| TUI | fresh empty `/tmp` directory | true | true |
+
+- Runs: 1 per row. Extra runs in print mode in this repo: with `--no-approve` it was `false` at both points; with `--approve` it was `true`.
+- Answer: the default is `true` with no trust prompt appearing in any mode, and `false` only when the user passes `--no-approve`. Whether a repository with untrusted project-local extensions reaches `false` without a flag was not exercised.
+
+### 4. Input forms: a skill arrives as `/skill:<name> <args>`
+
+Template `probe-cmd.md` loaded with `--prompt-template`; skill directory `probe-skill/SKILL.md` loaded with `--skill`. Each was invoked with the arguments `hello world`. Runs: 1 per form in print, RPC and TUI (6 total); the raw text and prompt were identical in all three modes.
+
+| Form | `input.text` (raw) | `before_agent_start.prompt` |
+|---|---|---|
+| Prompt template | `/probe-cmd hello world` | `Reply with the single word OK. Args: hello world` (the template body with `$ARGUMENTS` expanded; no command name) |
+| Skill | `/skill:probe-skill hello world` | `<skill name="probe-skill" location="/tmp/pi-probe2/skills/probe-skill/SKILL.md">\nReferences are relative to /tmp/pi-probe2/skills/probe-skill.\n\n<SKILL.md body>\n</skill>\n\nhello world` |
+
+- `input.source` was `"interactive"` in print mode and in the TUI, and `"rpc"` in RPC mode. The `input` event keys were `type, text, images, source, streamingBehavior`.
+- Answer: TRD-008 must resolve two raw forms from `input.text`: `/<template-name> <args>` and `/skill:<skill-name> <args>`. The skill body is wrapped in a `<skill name=... location=...>` block in the prompt, so the prompt cannot be used to recover the command name. In this probe the skill directory name and its frontmatter `name` were the same, so which of the two `<skill-name>` uses was not distinguished.
 
 ## Master Task List
 
@@ -146,7 +199,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Given a throwaway extension logging `agent_before_settle`, `agent_settled` and `session_shutdown` in an RPC or interactive Pi session, when a running command is aborted, then the recorded `outcome` and event order are written under "Probe results" with the Pi version
     - [ ] Given the same extension, when the session is shut down, then the time a `session_shutdown` handler can run before the host exits is measured and recorded
     - [ ] Given `ctx.isProjectTrusted()` read in print mode and in an interactive session, when each runs, then both values are recorded
-    - [ ] Given the probe results, when TRD-014 declares capabilities, then `command_end_on_cancel` is `true` only if an abort produced an `aborted` outcome in the probe
+    - [ ] Given the probe results, when TRD-014 declares capabilities, then `command_end_on_cancel` is `true` only if a reliable abort signal was observed in the probe (the signal need not be an `aborted` outcome; the probe measured `agent_settled.aborted === true` in 10 of 10 aborts)
     - [ ] Given a command available both as a prompt template and as a skill, when each is invoked in Pi, then the raw `input` text for each form is recorded under "Probe results", and TRD-008 resolves exactly the forms recorded there
 
 - [ ] **TRD-002** Types and the configuration validator with default timeouts (`packages/agent-core/src/lifecycle-hooks/types.ts`, `config.ts`) [satisfies REQ-006] [satisfies REQ-007] [satisfies REQ-010] (4h)
@@ -253,6 +306,25 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Scenario: supersede -- Given a run in flight, When another begins, Then the first ended as `cancelled` and the reason names the missing signal
     - [ ] Scenario: never succeeded by inference -- Given a run that never signalled completion, When the session ends, Then the end is `cancelled`, never `succeeded`
 
+- [ ] **TRD-019** Trust store: a digest of the hooks file and its handler files, and the user-level trust record (`packages/agent-core/src/lifecycle-hooks/trust-store.ts`) [satisfies REQ-022] [Depends: TRD-002] (4h)
+  - Validates PRD ACs: AC-022-5, AC-022-6, AC-022-7, AC-022-8
+  - Implementation AC:
+    - [ ] Given a project root and its valid hooks configuration, when a trust digest is computed, then it covers the hooks file's content and the content of every handler file the configuration names that lies inside the project (an executable path containing a slash, and each prompt file), each identified by its relative path and a SHA-256 of its content, in a stable order
+    - [ ] Given a trust record, when trust is recorded for a project, then an entry keyed by the project's real path holds the digest, in a store under the user's home directory (outside any repository), written atomically with owner-only permissions
+    - [ ] Given a stored digest, when trust is checked, then it is trusted only if the stored digest equals the current one, so a change to the hooks file or to any named handler file makes it untrusted; an unknown project, a missing store or a corrupted store is untrusted and never throws
+    - [ ] Given a repository that contains a file shaped like the trust store, when trust is checked, then that file is never read
+    - [ ] Given a valid configuration, when the confirmation text is built, then it lists every handler with its exact executable and arguments, or its prompt file, in configured order
+
+- [ ] **TRD-019-TEST** Trust store behavior [Verifies TRD-019] [Satisfies REQ-022] [Depends: TRD-019] (3h)
+  - Validates PRD ACs: AC-022-5, AC-022-6, AC-022-7, AC-022-8
+  - Test AC:
+    - [ ] Scenario: digest sensitivity -- Given a trusted project, When the hooks file, a named shell script or a named prompt file is edited, Then trust is false for each
+    - [ ] Scenario: digest ignores the unrelated -- Given a trusted project, When an unrelated file changes, Then trust is still true
+    - [ ] Scenario: record round trip -- Given a temporary home directory, When trust is recorded and checked, Then it is true, and the store file is outside the project and has owner-only permissions
+    - [ ] Scenario: real path key -- Given a symlink to the project, When trust is checked through it, Then it matches the real path's record
+    - [ ] Scenario: repository cannot grant trust -- Given a project containing a file named like the store with a matching digest, When trust is checked, Then it is false
+    - [ ] Scenario: bad store -- Given a corrupted or empty store, When trust is checked, Then it is false and nothing throws
+    - [ ] Scenario: confirmation text -- Given a configuration, When the text is built, Then it names each handler's exact command and arguments or prompt file
 ### PR 2: Pi adapter and the entry-point proof
 
 **Shippable State:** In a Pi project with a valid, trusted `.ensemble/hooks.yaml`, a command's start handlers run before its workflow, a start handler can block it, the model is given the completion instruction, and exactly one set of end handlers runs per command. A project with no hooks file is unchanged. The capability table and a status check say what Pi supports.
@@ -261,9 +333,9 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
   - Validates PRD ACs: AC-003-1, AC-003-2
   - Implementation AC:
     - [ ] Given the input `/ensemble-create-prd foo`, when resolved, then the command is `ensemble:create-prd` and the rest is its arguments
-    - [ ] Given a dispatcher input such as `/ensemble-prd create foo`, when resolved, then it uses the dispatcher YAML's keyword map to return the target `ensemble:create-prd`, not the dispatcher
-    - [ ] Given an input that is not a slash command or names no known command, when resolved, then it returns no command
-    - [ ] Given the skill form of a command recorded by TRD-001, when resolved, then it returns the same command name as the prompt-template form
+    - [ ] Given a dispatcher input such as `/ensemble-prd create foo`, when resolved, then it uses the dispatcher keyword map to return the target `ensemble:create-prd`, not the dispatcher; the map is embedded, because the dispatcher YAML exists only inside this repository, and a drift test compares it to that YAML
+    - [ ] Given an input that is not a slash command or names no known dispatcher keyword, when resolved, then it returns no command
+    - [ ] Given the skill form `/skill:ensemble-create-prd foo` (measured in the probe), when resolved, then it returns the same command name and arguments as the prompt-template form
 
 - [ ] **TRD-008-TEST** Command resolution behavior [Verifies TRD-008] [Satisfies REQ-003] [Depends: TRD-008] (1h)
   - Validates PRD ACs: AC-003-1, AC-003-2
@@ -271,24 +343,34 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
     - [ ] Scenario: direct -- Given `/ensemble-refine-prd x`, When resolved, Then `ensemble:refine-prd`
     - [ ] Scenario: dispatcher -- Given `/ensemble-prd create x`, When resolved, Then the target, never `ensemble:prd`
     - [ ] Scenario: dispatcher-only hook -- Given a hook configured for `ensemble:prd` only, When `/ensemble-prd create x` runs, Then no handler is selected
-    - [ ] Scenario: skill form -- Given the skill-form input recorded by TRD-001, When resolved, Then it returns the same command as the template form
+    - [ ] Scenario: skill form -- Given `/skill:ensemble-refine-prd x`, When resolved, Then it returns the same command as `/ensemble-refine-prd x`
 
-- [ ] **TRD-009** Adapter core: inert without a hooks file, validation errors, trust gate (`packages/pi-extension/src/lifecycle/adapter.ts`, `packages/pi-extension/src/extension.ts`) [satisfies REQ-006] [satisfies REQ-008] [satisfies REQ-022] [satisfies REQ-009] [Depends: TRD-002] [Depends: TRD-003] [Depends: TRD-008] (3h)
-  - Validates PRD ACs: AC-006-1, AC-007-4, AC-008-1, AC-008-2, AC-009-7, AC-022-1, AC-022-2, AC-022-3, AC-022-4
+- [ ] **TRD-009** Adapter core: inert without a hooks file, validation errors, the two-condition trust gate and the trust command (`packages/pi-extension/src/lifecycle/adapter.ts`, `packages/pi-extension/src/extension.ts`) [satisfies REQ-006] [satisfies REQ-008] [satisfies REQ-022] [satisfies REQ-009] [Depends: TRD-002] [Depends: TRD-003] [Depends: TRD-008] [Depends: TRD-019] (5h)
+  - Validates PRD ACs: AC-006-1, AC-007-4, AC-008-1, AC-008-2, AC-009-7, AC-022-1, AC-022-2, AC-022-3, AC-022-4, AC-022-5, AC-022-6, AC-022-7, AC-022-8
   - Implementation AC:
     - [ ] Given no `.ensemble/hooks.yaml`, when `activate()` runs, then nothing is registered and no output is produced
     - [ ] Given a hooks file for command A only, when command B runs, then no handler runs and no extra output appears
     - [ ] Given an invalid hooks file, when a command runs, then no handler runs and the user sees the validation errors
     - [ ] Given `ctx.isProjectTrusted()` is false, when a selected command runs, then no handler runs and a warning names the hooks file and how trust is granted; the file may still be validated
     - [ ] Given a harness context with no trust decision, when a selected command runs, then no handler runs and the user is told why
+    - [ ] Given the host trusts the project but no trust record matches the current digest (none exists, or the hooks file or a handler file it names changed), when a selected command runs, then no handler runs and a warning names the hooks file and says to run `/ensemble-lifecycle-trust`
+    - [ ] Given `/ensemble-lifecycle-trust` is run in a project with a valid hooks file and an interactive UI, when it runs, then it shows every handler's exact executable and arguments or prompt file and records trust only after the user confirms
+    - [ ] Given no interactive UI, when `/ensemble-lifecycle-trust` is run, then it refuses and records nothing
+    - [ ] Given the validation of a hooks file that names commands, when the configuration is loaded, then the adapter supplies the set of known commands (from the slash commands the host reports) so a hook for a command that does not exist is rejected
+    - [ ] Given the commands the adapter registers, when they are listed, then the trust command is named `ensemble-lifecycle-trust` (no `hooks-` prefix) and no tool the model can call can grant trust
     - [ ] Given the model's own output or tool calls, when a command runs, then no tool parameter or text can name a handler or executable to run
 
-- [ ] **TRD-009-TEST** Adapter inertness and trust behavior [Verifies TRD-009] [Satisfies REQ-022] [Depends: TRD-009] (2h)
-  - Validates PRD ACs: AC-006-1, AC-007-4, AC-008-1, AC-008-2, AC-009-7, AC-022-1, AC-022-2, AC-022-3, AC-022-4
+- [ ] **TRD-009-TEST** Adapter inertness and trust behavior [Verifies TRD-009] [Satisfies REQ-022] [Depends: TRD-009] (3h)
+  - Validates PRD ACs: AC-006-1, AC-007-4, AC-008-1, AC-008-2, AC-009-7, AC-022-1, AC-022-2, AC-022-3, AC-022-4, AC-022-5, AC-022-6, AC-022-7, AC-022-8
   - Test AC:
     - [ ] Scenario: inert -- Given a project with no hooks file, When `activate(fakePi)` runs, Then no handler and no tool is registered
-    - [ ] Scenario: untrusted -- Given a hooks file and `isProjectTrusted() === false`, When a selected command's input arrives, Then no executable runs
-    - [ ] Scenario: trusted -- Given the same file and trust true, When it arrives, Then the start handler runs
+    - [ ] Scenario: host untrusted -- Given a hooks file and `isProjectTrusted() === false`, When a selected command's input arrives, Then no executable runs
+    - [ ] Scenario: host trusted but not user-trusted -- Given the same file, trust true and no record, When it arrives, Then no executable runs and the warning names `/ensemble-lifecycle-trust`
+    - [ ] Scenario: both trusted -- Given the record exists for the current digest, When it arrives, Then the start handler runs
+    - [ ] Scenario: edit voids trust -- Given a trusted project, When the hooks file is edited, Then the next command runs no handler
+    - [ ] Scenario: trust command confirms -- Given a UI that declines, When `/ensemble-lifecycle-trust` runs, Then nothing is recorded; given one that confirms, Then trust is recorded
+    - [ ] Scenario: no UI -- Given no interactive UI, When the trust command runs, Then it refuses
+    - [ ] Scenario: no collision -- Given `activate(fakePi)` with a hooks file, When the registered commands are listed, Then none starts with `hooks-` and the trust command is `ensemble-lifecycle-trust`
     - [ ] Scenario: model cannot start handlers -- Given the completion tool's parameter schema, When read, Then it has no field that names a handler or executable
 
 - [ ] **TRD-010** Start path: input to start handlers, with runtime-enforced block (`packages/pi-extension/src/lifecycle/adapter.ts`) [satisfies REQ-001] [satisfies REQ-002] [satisfies REQ-004] [Depends: TRD-006] [Depends: TRD-007] [Depends: TRD-008] [Depends: TRD-009] (3h)
@@ -327,17 +409,17 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
 - [ ] **TRD-012** End path: settle outcomes, supersede, shutdown, visible results (`packages/pi-extension/src/lifecycle/adapter.ts`) [satisfies REQ-004] [satisfies REQ-013] [satisfies REQ-021] [Depends: TRD-001] [Depends: TRD-006] [Depends: TRD-007] [Depends: TRD-010] [Depends: TRD-011] (4h)
   - Validates PRD ACs: AC-004-1, AC-004-2, AC-004-3, AC-004-4, AC-013-1, AC-013-2, AC-021-3, AC-021-4, AC-021-5
   - Implementation AC:
-    - [ ] Given `agent_before_settle` reports `error`, when the loop settles, then the run ends as `failed`; given `aborted`, then `cancelled`; given `completed` with no completion signal, then the run stays in flight
+    - [ ] Given `agent_before_settle` reports `error`, when the loop settles, then the run ends as `failed`; given `agent_settled` reports `aborted: true` (an abort fires no `agent_before_settle`, measured), then `cancelled`; given `completed` with no completion signal, then the run stays in flight
     - [ ] Given a run has ended, when `agent_settled` fires, then the end handlers run once, serially, after the command's final output
-    - [ ] Given a run is in flight, when the session shuts down or a new selected command's input arrives, then it ends as `cancelled` with a reason naming the missing completion signal and the end handlers run within the shutdown budget recorded by TRD-001
+    - [ ] Given a run is in flight, when the session shuts down or a new selected command's input arrives, then it ends as `cancelled` with a reason naming the missing completion signal, and its end handlers run within the shutdown bound (the sum of their timeouts, capped at 60000 ms; the host awaited shutdown handlers for at least 100000 ms in every normal exit it measured)
     - [ ] Given any handler ran, when the event finishes, then the user sees each handler's status and duration, and a failed `continue` handler is shown as a handler failure, not a command failure
-    - [ ] Given the adapter cannot observe cancellation (TRD-001), when a command is cancelled, then no `cancelled` outcome is fabricated
-    - [ ] Given the shutdown budget recorded by TRD-001 is too short to run the end handlers, when a run ends at shutdown, then those end handlers are skipped and the user is told they were skipped, never silently
+    - [ ] Given `agent_settled` reports `aborted: false`, when a loop settles, then no `cancelled` outcome is produced
+    - [ ] Given the end handlers cannot all finish within the shutdown bound, when a run ends at shutdown, then those that cannot finish are skipped and the user is told they were skipped, never silently; the adapter also states that a process killed by `SIGINT` in RPC mode runs no handler, as measured
 
 - [ ] **TRD-012-TEST** End path behavior [Verifies TRD-012] [Satisfies REQ-004] [Depends: TRD-012] (3h)
   - Validates PRD ACs: AC-004-1, AC-004-2, AC-004-3, AC-004-4, AC-013-1, AC-013-2, AC-021-3, AC-021-4, AC-021-5
   - Test AC:
-    - [ ] Scenario: error and abort -- Given `agent_before_settle` with `error` then with `aborted`, When settled, Then the ends are `failed` and `cancelled`
+    - [ ] Scenario: error and abort -- Given `agent_before_settle` with `error`, then an abort that fires only `agent_settled` with `aborted: true`, When settled, Then the ends are `failed` and `cancelled`
     - [ ] Scenario: completed without signal -- Given `completed` and no completion call, When settled, Then no end handler ran
     - [ ] Scenario: end after output -- Given a completion call, When `agent_settled` fires, Then end handlers ran once
     - [ ] Scenario: shutdown and supersede -- Given a run in flight, When shutdown or another command arrives, Then the end is `cancelled` naming the missing signal
@@ -361,8 +443,8 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
 - [ ] **TRD-014** Capability table, unsupported-hook warning and the status check (`packages/agent-core/src/lifecycle-hooks/capabilities.ts`, `packages/pi-extension/scripts/hooks-status.mjs`) [satisfies REQ-014] [satisfies REQ-017] [Depends: TRD-001] [Depends: TRD-009] (3h)
   - Validates PRD ACs: AC-014-1, AC-014-2, AC-014-3, AC-014-4, AC-015-5, AC-017-1, AC-017-2
   - Implementation AC:
-    - [ ] Given the capability table, when read, then it states for Pi `command_start`, `command_end` and `command_end_on_cancel` (the last set from the TRD-001 probe), and `false` for all three for Claude Code, Codex and OpenCode
-    - [ ] Given Pi's end definition, when declared, then it states that a command ends at the completion signal, an error or abort outcome, the next command, or session shutdown
+    - [ ] Given the capability table, when read, then it states for Pi `command_start` true, `command_end` true and `command_end_on_cancel` true (detected through `agent_settled.aborted`, measured 10 of 10), and `false` for all three for Claude Code, Codex and OpenCode
+    - [ ] Given Pi's end definition, when declared, then it states that a command ends at the completion signal, an error outcome, an abort signal, the next command, or session shutdown
     - [ ] Given a configured hook for a capability the active harness does not support, when the configuration loads, then the user sees a warning naming the hook and the capability, and the command runs
     - [ ] Given the status check is run, when no command runs, then it prints the table and whether the current project's hooks are active, and says hooks are inactive in harnesses with no adapter
     - [ ] Given the status check, when implemented, then it is a script and no slash command named `/hooks-status`, `/hooks-validate` or any other `/hooks-*` is registered, so it cannot collide with the same-named commands of `pi-yaml-hooks`
@@ -421,7 +503,7 @@ Already observed in Pi 1.2.0 (PRD, "Probe evidence"): `input` carries the raw sl
 
 ### Sprint 1: Core and probe (PR 1)
 
-TRD-001 to TRD-007 with their test tasks. TRD-001 runs first because its result sets a capability and bounds TRD-012.
+TRD-001 to TRD-007 and TRD-019 with their test tasks. TRD-001 ran first; its measurements set a capability and corrected TRD-012 (see Probe results).
 
 ### Sprint 2: Pi adapter (PR 2)
 
@@ -435,7 +517,7 @@ TRD-016 to TRD-018.
 
 PR 1 has no dependency on PR 2 or PR 3. PR 2 depends on PR 1. PR 3 depends on PR 2. PR 1 and PR 2 merge as one stack because the capability is reachable only after PR 2 (Constitution rule 6).
 
-**Critical path:** TRD-002 -> TRD-004 -> TRD-006 -> TRD-010 -> TRD-012 -> TRD-015 -> TRD-016 -> TRD-018, about 29 hours of 87 hours total (4 + 5 + 3 + 3 + 4 + 5 + 3 + 2). Every arrow is a `Depends:` edge in the task list: TRD-004 depends on TRD-002; TRD-006 on TRD-004; TRD-010 on TRD-006; TRD-012 on TRD-010; TRD-015 on TRD-012; TRD-016 on TRD-015; TRD-018 on TRD-016. TRD-001 (the probe) is not on the critical path, but TRD-012 and TRD-014 depend on it.
+**Critical path:** TRD-002 -> TRD-019 -> TRD-009 -> TRD-010 -> TRD-012 -> TRD-015 -> TRD-016 -> TRD-018, about 30 hours of 97 hours total (4 + 4 + 5 + 3 + 4 + 5 + 3 + 2). Every arrow is a `Depends:` edge in the task list: TRD-019 depends on TRD-002; TRD-009 on TRD-019; TRD-010 on TRD-009; TRD-012 on TRD-010; TRD-015 on TRD-012; TRD-016 on TRD-015; TRD-018 on TRD-016. The trust store replaced the shell runner as the longest route into TRD-010. TRD-001 (the probe) is complete and not on the path.
 
 ## Acceptance Criteria Traceability
 
@@ -462,14 +544,14 @@ PR 1 has no dependency on PR 2 or PR 3. PR 2 depends on PR 1. PR 3 depends on PR
 | REQ-019 | TRD-015, TRD-018 |
 | REQ-020 | TRD-006, TRD-018 |
 | REQ-021 | TRD-001, TRD-007, TRD-011, TRD-012 |
-| REQ-022 | TRD-009 |
+| REQ-022 | TRD-009, TRD-019 |
 
 ## Traceability Validation
 
 Checked by running the repository's TRD parser (`trd-cli.js parse`) and a script over the PRD and this document:
 
-- The parser reports `ok` with 0 warnings and 32 tasks, every one with acceptance-criteria items and an hour estimate.
-- All 22 PRD requirements have at least one `[satisfies REQ-NNN]` task, and all 81 PRD acceptance criteria are cited by at least one task. No task cites an acceptance criterion the PRD does not have.
+- The parser reports `ok` with 0 warnings and 34 tasks, every one with acceptance-criteria items and an hour estimate; there are 52 dependency edges and none points at a missing task.
+- All 22 PRD requirements have at least one `[satisfies REQ-NNN]` task, and all 85 PRD acceptance criteria are cited by at least one task. No task cites an acceptance criterion the PRD does not have.
 - No task depends on a task that does not exist.
 
 ## Adversarial Review and Design Gate
@@ -503,11 +585,11 @@ Checked by running the repository's TRD parser (`trd-cli.js parse`) and a script
 | Dimension | Score | Note |
 | --- | --- | --- |
 | Architecture soundness | 4 | Core and adapter split; completion model-dependence is bounded, not removed. |
-| Task coverage | 4 | All 22 REQs and 81 ACs covered; AC-017-2 is met only partly by design. |
+| Task coverage | 4 | All 22 REQs and 85 ACs covered; AC-017-2 is met only partly by design. |
 | Dependency and estimate quality | 4 | Probe first; estimates unverified against runtime. |
 | Testability | 4 | Real entry point and real fixtures; live smoke is opt-in and model-dependent. |
 
-**Overall: 4.0.** The abort path and the shutdown budget are unmeasured until TRD-001 runs.
+**Overall: 4.0.** The abort path and the shutdown budget were measured by TRD-001 and the design corrected from them. Not re-scored.
 
 ## Risk Register
 
@@ -517,7 +599,7 @@ Checked by running the repository's TRD parser (`trd-cli.js parse`) and a script
 | Shutdown budget too short for end handlers | Medium | Some end handlers skipped at exit | Measured by TRD-001; skipped visibly, never silently |
 | Abort not observable in Pi | Low | `command_end_on_cancel` declared unsupported | TRD-001; capability declared from the result |
 | agent-core import does not bundle | Low | Extension fails to load | TRD-015 builds and loads the bundle |
-| Untrusted repository runs code | Medium | Arbitrary execution | REQ-022 trust gate, tested both ways |
+| Untrusted repository runs code | Medium | Arbitrary execution | REQ-022 two-condition gate: host trust (true by default in Pi, so alone it blocks nothing) and the user's explicit, digest-bound trust; tested both ways |
 | Prompt handler cost or unavailability | Medium | Handler fails per `on_error` | Stated in the guide; per-handler timeout |
 
 ## Constitution Gate
@@ -540,3 +622,5 @@ Constitution Gate: PASSED
 - 1.0.0 (2026-10-15): Initial draft.
 - 1.0.1 (2026-10-15): Refinement. TRD-001 and TRD-008 now cover the skill form of a command's input; TRD-012 states what happens when the shutdown budget is unusable; TRD-010 states where `session_id` comes from. No task added or removed; hours and dependencies unchanged. Design readiness score unchanged at 4.0.
 - 1.0.2 (2026-10-15): Reuse check against `pi-yaml-hooks` (a third-party Pi and OMP hook runner), found after the plan was scaffolded: recorded the evidence and the decision to build here; TRD-014 forbids a `/hooks-*` command name; TRD-016 documents the difference. Two acceptance criteria and two test scenarios added; no task added or removed, hours and dependencies unchanged.
+- 1.0.3 (2026-10-15): TRD-001 probe run in Pi 1.2.0 (print, RPC, interactive): an abort emits no `agent_before_settle`; `session_shutdown` handlers were awaited up to 100 s; `isProjectTrusted()` is `true` by default; a skill arrives as `/skill:<name> <args>`. Recorded under Probe results; no task changed.
+- 1.0.4 (2026-10-15): Corrections from the TRD-001 probe and a trust decision. Cancellation is detected from `agent_settled.aborted`, not an `aborted` outcome (TRD-001, TRD-012, TRD-014); the shutdown bound is stated (TRD-012); TRD-008 now describes the embedded dispatcher map and the `/skill:` form as built. Host trust is true by default, so REQ-022 now needs the user's explicit trust: TRD-019 (trust store) and TRD-019-TEST added, TRD-009 and TRD-009-TEST extended (trust command `ensemble-lifecycle-trust`, supplying the set of known commands). Two tasks added, 10 hours added, PRD reference moved to v1.0.5.
