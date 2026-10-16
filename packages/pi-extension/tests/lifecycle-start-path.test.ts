@@ -315,6 +315,7 @@ function fakeHost(project: Project, options: { getCommands?: () => { name: strin
       if (event === "input") inputHandlers.push(handler);
       else otherEvents.push(event);
     },
+    registerTool: () => undefined, // registerLifecycleHooks registers the completion tool
     registerCommand: (name: string, command: ExtensionCommand) => {
       extensionCommands.set(name, command);
     },
@@ -759,7 +760,7 @@ describe("a newer selected command", () => {
     expect(outcomeOf(second?.run_id ?? "")).toEqual(["succeeded"]);
   });
 
-  it("does not let a late block of the superseded run end the run that replaced it", async () => {
+  it("holds a newer command until the run in flight has finished its start handlers, so a late block cannot end the newer run", async () => {
     const project = makeProject(
       hooksFile(
         {
@@ -777,18 +778,32 @@ describe("a newer selected command", () => {
 
     const first = host.deliver("/ensemble-create-prd one", ctx); // its start handler blocks, once released
     await until(() => traceOf(project).some((line) => line.startsWith("slowgate begin")), "the slow start handler to begin");
-    const second = await host.deliver("/ensemble-refine-prd two", ctx);
-    release(project, "release-a");
-    const late = await first;
+    const second = host.deliver("/ensemble-refine-prd two", ctx); // sent while the first is still starting
+    await delay(150); // long enough for a handler to have begun, had the runtime let it
+    expect(eventsOf(project, "b-start")).toEqual([]);
+    expect(eventsOf(project, "a-end")).toEqual([]);
 
-    expect(second).toBe("continue");
-    expect(late).toBe("handled"); // the block is enforced even though its run was superseded
+    release(project, "release-a");
+    trust(project); // the release file is an argument of the handler, so it is now part of what the user trusts
+    expect(await first).toBe("handled"); // the block is enforced
+    expect(await second).toBe("continue");
+
+    const [a] = eventsOf(project, "slowgate");
     const [b] = eventsOf(project, "b-start");
     expect(host.runtime.trackerFor(ctx).current()).toMatchObject({ run_id: b.run_id, command: REFINE_PRD });
     expect(eventsOf(project, "b-end")).toEqual([]);
     const aEnds = eventsOf(project, "a-end");
     expect(aEnds).toHaveLength(1);
-    expect(aEnds[0].outcome).toBe("cancelled");
+    expect(aEnds[0]).toMatchObject({ run_id: a.run_id, outcome: "failed" }); // the block ended it; nothing superseded it
+    expect(traceOf(project)).toEqual([
+      `slowgate begin ${a.run_id}`,
+      "slowgate end",
+      `a-end begin ${a.run_id}`,
+      "a-end end",
+      `b-start begin ${b.run_id}`,
+      "b-start end",
+      "model-prompt /ensemble-refine-prd two",
+    ]);
     expect(host.toModel).toEqual(["/ensemble-refine-prd two"]);
   });
 });

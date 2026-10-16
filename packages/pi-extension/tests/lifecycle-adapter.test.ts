@@ -115,14 +115,16 @@ interface Registered {
 function fakePi(options: { getCommands?: () => { name: string }[] } = {}) {
   const commands = new Map<string, Registered>();
   const tools: string[] = [];
+  const toolDefinitions: Array<{ name: string; parameters: { properties: Record<string, unknown>; additionalProperties: boolean } }> = [];
   const events: string[] = [];
   const getCommands = jest.fn(options.getCommands ?? (() => HOST_COMMANDS));
   const pi = {
     on: (event: string) => {
       events.push(event);
     },
-    registerTool: (tool: { name: string }) => {
+    registerTool: (tool: { name: string; parameters: { properties: Record<string, unknown>; additionalProperties: boolean } }) => {
       tools.push(tool.name);
+      toolDefinitions.push(tool);
     },
     registerCommand: (name: string, o: unknown) => {
       commands.set(name, o as Registered);
@@ -133,7 +135,7 @@ function fakePi(options: { getCommands?: () => { name: string }[] } = {}) {
     sendMessage: () => undefined,
     getCommands,
   } as unknown as ExtensionAPI;
-  return { pi, commands, tools, events, getCommands };
+  return { pi, commands, tools, toolDefinitions, events, getCommands };
 }
 
 const NO_DECISION = Symbol("host gives no project-trust decision");
@@ -289,13 +291,15 @@ describe("what the adapter registers when the project has a hooks file", () => {
     expect(printed).toEqual([]);
   });
 
-  it("registers no tool: the model has nothing to call that names a handler or an executable", () => {
+  it("registers one tool, the completion tool, and nothing the model could call names a handler or an executable", () => {
     const project = makeProject();
-    const { pi, tools } = fakePi();
+    const { pi, tools, toolDefinitions } = fakePi();
 
     registerLifecycleHooks(pi, project.root, { storePath: project.storePath });
 
-    expect(tools).toEqual([]);
+    expect(tools).toEqual(["ensemble_command_complete"]);
+    expect(Object.keys(toolDefinitions[0].parameters.properties).sort()).toEqual(["artifacts", "outcome", "reason", "summary"]);
+    expect(toolDefinitions[0].parameters.additionalProperties).toBe(false);
   });
 
   it("does not let the trust command's arguments skip the confirmation", async () => {

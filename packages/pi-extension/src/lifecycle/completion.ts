@@ -27,10 +27,17 @@
  * executable, and nothing in `execute` could act on one. Trust is granted only
  * by the user (the trust command); this tool has no part in it.
  *
- * Known limit: the tracker has no run id guard on `complete`, and the
- * instruction is the same text for every command so it cannot carry an id.
- * A completion call that arrives after its run was superseded ends the run
- * that replaced it.
+ * Which run a call is about. The tracker has no run id guard on `complete`,
+ * and the instruction is the same text for every command, so a call carries no
+ * run id and is never matched to a run by name. The adapter supplies
+ * `mayComplete` instead: it refuses a call while the run in flight has not had
+ * its prompt delivered to the model (its start handlers are still running, or
+ * the host still holds its prompt in the queue behind a loop that was already
+ * streaming), because a call made then comes from an earlier command's loop,
+ * and ending the newer run with it would record a success that run never
+ * reached. Known limit: once the newer prompt has been delivered, a call that
+ * is really about the earlier command, made later in the same loop, cannot be
+ * told apart and ends the newer run.
  */
 import type { CommandRunTracker, CompletionInput, EndResult } from "@sunstone-partners/ensemble-agent-core";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -57,6 +64,14 @@ export const COMPLETION_ACKNOWLEDGEMENT = "Command completion recorded.";
 /** Acknowledgement when no run was in flight (a repeated call, or none ever began). Harmless, not an error. */
 export const COMPLETION_NOT_IN_FLIGHT = "No command run is in flight; nothing was recorded.";
 
+/**
+ * Acknowledgement when `mayComplete` refused the call: the run in flight has not
+ * begun its work, so the call belongs to an earlier command. It tells the model
+ * to call again once the current command's own work is done.
+ */
+export const COMPLETION_NOT_STARTED =
+  "Nothing was recorded: the command now in flight has not begun its work, so this call belongs to an earlier command. Call this tool again when the current command's own work is done.";
+
 /** What the adapter supplies. */
 export interface CompletionDeps {
   /**
@@ -72,6 +87,12 @@ export interface CompletionDeps {
    * a failed tool call.
    */
   onEnd: (ctx: ExtensionContext, end: EndResult) => void | Promise<void>;
+  /**
+   * Whether a call made now may end the run in flight. When it answers false the
+   * run stays in flight and the call is acknowledged with `COMPLETION_NOT_STARTED`.
+   * Defaults to always. It is not asked when no run is in flight.
+   */
+  mayComplete?: (ctx: ExtensionContext) => boolean;
 }
 
 /** The host surface this module uses. */
@@ -109,7 +130,7 @@ export const COMPLETION_PARAMETERS = {
  * calls the tool.
  */
 export function registerCompletion(pi: CompletionHost, deps: CompletionDeps): void {
-  const { trackerFor, onEnd } = deps;
+  const { trackerFor, onEnd, mayComplete } = deps;
 
   pi.registerTool({
     name: COMPLETION_TOOL_NAME,
@@ -124,10 +145,12 @@ export function registerCompletion(pi: CompletionHost, deps: CompletionDeps): vo
       if (params.summary !== undefined) input.summary = params.summary;
       if (params.artifacts !== undefined) input.artifacts = [...params.artifacts];
 
-      const end = trackerFor(ctx).complete(input);
+      const tracker = trackerFor(ctx);
+      const refused = tracker.current() !== undefined && mayComplete?.(ctx) === false;
+      const end = refused ? undefined : tracker.complete(input);
       if (end) await onEnd(ctx, end);
       return {
-        content: [{ type: "text", text: end ? COMPLETION_ACKNOWLEDGEMENT : COMPLETION_NOT_IN_FLIGHT }],
+        content: [{ type: "text", text: end ? COMPLETION_ACKNOWLEDGEMENT : refused ? COMPLETION_NOT_STARTED : COMPLETION_NOT_IN_FLIGHT }],
         details: { recorded: end !== undefined },
       };
     },
