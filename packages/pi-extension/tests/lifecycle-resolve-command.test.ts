@@ -1,12 +1,15 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as yaml from "js-yaml";
+import activate from "../src/extension";
 import { DISPATCHER_TARGETS, resolveCommand } from "../src/lifecycle/resolve-command";
 
 /**
  * Command resolution for the lifecycle adapter (TRD-008, AC-003-1, AC-003-2).
  * Inputs are the two raw forms Pi delivers in its `input` event (TRD-001
- * probe): `/<template> <args>` and `/skill:<skill> <args>`.
+ * probe): `/<template> <args>` and `/skill:<skill> <args>`, and the colon form
+ * that the dispatcher commands forward (measured in Pi 1.2.0, see the adapter).
  */
 
 const REPO_ROOT = resolve(__dirname, "../../..");
@@ -78,6 +81,62 @@ describe("resolveCommand", () => {
         command: "ensemble:create-prd",
         arguments: "x",
       });
+    });
+  });
+
+  describe("forwarded dispatcher form", () => {
+    const keywordCases = Object.entries(DISPATCHER_TARGETS).flatMap(([dispatcher, keywords]) =>
+      Object.entries(keywords).map(([keyword, ref]) => [dispatcher, keyword, ref] as const),
+    );
+
+    it.each(keywordCases)("resolves the colon form of %s with the keyword %s to %s, like the hyphen form", (dispatcher, keyword, ref) => {
+      const colon = `/ensemble:${dispatcher.slice("ensemble-".length)} ${keyword} some args`;
+      expect(resolveCommand(colon)).toEqual({ command: `ensemble:${ref}`, arguments: "some args" });
+      expect(resolveCommand(colon)).toEqual(resolveCommand(`/${dispatcher} ${keyword} some args`));
+    });
+
+    it.each([
+      ["a dispatcher with no keyword", "/ensemble:prd"],
+      ["a dispatcher with an unknown keyword", "/ensemble:prd nonsense x"],
+      ["a command that is not a dispatcher", "/ensemble:create-prd foo"],
+      ["a dispatcher in skill form", "/skill:ensemble:prd create x"],
+      ["a dispatcher in another case", "/ensemble:Prd create x"],
+      ["a dispatcher name glued to extra characters", "/ensemble:prd/x create y"],
+    ])("returns undefined for the colon form of %s", (_label, input) => {
+      expect(resolveCommand(input)).toBeUndefined();
+    });
+
+    it("resolves what the repository's own dispatcher commands forward to the target the typed text names", async () => {
+      // Runs the real registrations of extension.ts against a fake host and reads what each command forwards.
+      const commands = new Map<string, (args: string) => Promise<void>>();
+      const forwarded: string[] = [];
+      const pi = {
+        on: () => undefined,
+        registerCommand: (name: string, command: { handler: (args: string, ctx: unknown) => Promise<void> }) => {
+          commands.set(name, (args) => command.handler(args, {}));
+        },
+        sendUserMessage: (text: string) => {
+          forwarded.push(text);
+        },
+      } as unknown as ExtensionAPI;
+      const originalCwd = process.cwd();
+      process.chdir(REPO_ROOT);
+      try {
+        activate(pi);
+      } finally {
+        process.chdir(originalCwd);
+      }
+
+      expect([...commands.keys()].sort()).toEqual(Object.keys(DISPATCHER_TARGETS).sort());
+      for (const [name, keywords] of Object.entries(DISPATCHER_TARGETS)) {
+        for (const [keyword, ref] of Object.entries(keywords)) {
+          forwarded.length = 0;
+          await commands.get(name)?.(`${keyword} some args`);
+          expect(forwarded).toHaveLength(1);
+          expect(resolveCommand(forwarded[0])).toEqual({ command: `ensemble:${ref}`, arguments: "some args" });
+          expect(resolveCommand(forwarded[0])).toEqual(resolveCommand(`/${name} ${keyword} some args`));
+        }
+      }
     });
   });
 

@@ -6,6 +6,16 @@
  * skill, `/skill:ensemble-<name> <args>`. Both resolve to the command
  * `ensemble:<name>`.
  *
+ * A third form reaches `input` in this repository. Pi fires no `input` for the
+ * text of a registered extension command, and the dispatcher commands
+ * (dispatcher-commands.ts) are extension commands: they forward
+ * `/ensemble:<dispatcher> <args>` with `sendUserMessage`, and `input` then fires
+ * once for that forwarded text with source `extension` (measured, Pi 1.2.0).
+ * So `/ensemble:prd create foo` resolves exactly like `/ensemble-prd create foo`,
+ * and a dispatcher invocation starts one lifecycle whichever of the two reaches
+ * `input`. The colon form is accepted for the dispatchers only: Pi has no
+ * template or skill that answers to `/ensemble:create-prd`.
+ *
  * Four dispatcher commands (`ensemble-prd`, `ensemble-trd`, `ensemble-issue`,
  * `ensemble-feature`) take a keyword as their first argument that selects the
  * real target. The lifecycle belongs to the target, never the dispatcher, so
@@ -65,8 +75,10 @@ export interface ResolvedCommand {
   arguments: string;
 }
 
-// `/` or `/skill:`, then `ensemble-<kebab-name>`, then end of input or whitespace and the rest.
-const SLASH_INPUT = /^\/(?:skill:)?(ensemble-[a-z0-9]+(?:-[a-z0-9]+)*)(?:\s+([\s\S]*))?$/;
+const KEBAB = "[a-z0-9]+(?:-[a-z0-9]+)*";
+// `/` or `/skill:` then `ensemble-<kebab-name>`, or `/ensemble:<kebab-name>` (what a dispatcher forwards),
+// then end of input or whitespace and the rest.
+const SLASH_INPUT = new RegExp(`^/(?:(?:skill:)?(ensemble-${KEBAB})|ensemble:(${KEBAB}))(?:\\s+([\\s\\S]*))?$`);
 const FIRST_TOKEN = /^(\S+)(?:\s+([\s\S]*))?$/;
 
 /**
@@ -77,7 +89,13 @@ export function resolveCommand(inputText: string): ResolvedCommand | undefined {
   const match = SLASH_INPUT.exec(inputText);
   if (!match) return undefined;
 
-  const [, name, rest = ""] = match;
+  const templateName: string | undefined = match[1];
+  const forwardedName: string | undefined = match[2];
+  const rest = match[3] ?? "";
+  const name = templateName ?? `ensemble-${forwardedName}`;
+  // The colon form exists only for the dispatchers.
+  if (forwardedName !== undefined && !Object.hasOwn(DISPATCHER_TARGETS, name)) return undefined;
+
   if (!Object.hasOwn(DISPATCHER_TARGETS, name)) {
     return { command: `ensemble:${name.slice("ensemble-".length)}`, arguments: rest.trim() };
   }
