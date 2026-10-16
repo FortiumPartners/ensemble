@@ -1130,16 +1130,24 @@ describe("serialized operations", () => {
 
     const [a] = eventsOf(project, "a-start");
     const [b] = eventsOf(project, "b-start");
-    expect(traceOf(project)).toEqual([
+    const trace = traceOf(project);
+    // The runtime owns the order of the handlers: the first command's start handlers, then its end, then the newer command's start.
+    expect(trace.filter((line) => !line.startsWith("model-prompt"))).toEqual([
       `a-start begin ${a.run_id}`,
       "a-start end",
-      "model-prompt /ensemble-create-prd one",
       `a-end begin ${a.run_id}`,
       "a-end end",
       `b-start begin ${b.run_id}`,
       "b-start end",
-      "model-prompt /ensemble-refine-prd two",
     ]);
+    // The host writes a prompt to the model once its input handlers return. That write races, on a loaded machine, with the next
+    // queued operation (which spawns a real process a few microtasks earlier), so it is bounded by the runtime's order, not placed in it.
+    const promptOne = trace.indexOf("model-prompt /ensemble-create-prd one");
+    const promptTwo = trace.indexOf("model-prompt /ensemble-refine-prd two");
+    expect(promptOne).toBeGreaterThan(trace.indexOf("a-start end"));
+    expect(promptOne).toBeLessThan(trace.indexOf("b-start end"));
+    expect(promptTwo).toBeGreaterThan(trace.indexOf("b-start end"));
+    expect(trace).toHaveLength(8);
     expect(eventFor(project, "a-end", a.run_id)).toMatchObject({ outcome: "cancelled" });
     expect(host.runtime.trackerFor(ctx).current()?.run_id).toBe(b.run_id);
   });
