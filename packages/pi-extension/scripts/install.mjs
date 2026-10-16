@@ -16,14 +16,21 @@
  * extension file but not its node_modules lookups, so any bare specifier
  * fails regardless of module system. Bundling leaves nothing to resolve
  * except node: builtins.
+ *
+ * The bundle takes agent-core from its package entry, `dist/index.js`, which
+ * is a build product. This script builds it first: running it directly does
+ * not go through `npm run install:extension` and its `preinstall:extension`
+ * hook, and without that build bun cannot resolve agent-core at all.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, writeFileSync, statSync } from "node:fs";
+import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PKG = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const AGENT_CORE = resolve(PKG, "..", "agent-core");
 const EXT_DIR = join(homedir(), ".omp", "agent", "extensions");
 const SHIM = join(EXT_DIR, "ensemble-pi-extension.ts");
 const BUNDLE = join(PKG, "dist", "extension.bundle.cjs");
@@ -49,6 +56,12 @@ if (arg === "--uninstall") {
   }
   process.exit(0);
 }
+
+console.log("building agent-core...");
+execFileSync(process.execPath, [createRequire(import.meta.url).resolve("typescript/bin/tsc"), "-p", AGENT_CORE], {
+  cwd: PKG,
+  stdio: "inherit",
+});
 
 console.log("building bundle...");
 execFileSync(
