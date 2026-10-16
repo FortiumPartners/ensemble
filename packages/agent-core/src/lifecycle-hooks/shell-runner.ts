@@ -218,6 +218,8 @@ export function runShellHandler(
     let truncated = false;
     let finished = false;
     let timedOut = false;
+    // `finish` can run before the timer below is created (a spawn that fails at once), so the binding must exist first.
+    // eslint-disable-next-line prefer-const
     let timer: NodeJS.Timeout | undefined;
 
     const finish = (result: { status: HandlerStatus; exit_code?: number; reason?: string }): void => {
