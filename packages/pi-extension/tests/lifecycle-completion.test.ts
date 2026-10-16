@@ -57,17 +57,29 @@ function setup() {
   let ids = 0;
   const tracker = new CommandRunTracker({ sessionId: "s-1", now: () => 1000, newId: () => `run-${++ids}` });
   const ends: EndResult[] = [];
-  registerCompletion(host as unknown as CompletionHost, { tracker, onEnd: (end) => ends.push(end) });
+  const ctx = { sessionManager: { getSessionId: () => "s-1" } };
+  const trackerCtxs: unknown[] = [];
+  const endCtxs: unknown[] = [];
+  registerCompletion(host as unknown as CompletionHost, {
+    trackerFor: (c) => {
+      trackerCtxs.push(c);
+      return tracker;
+    },
+    onEnd: async (c, end) => {
+      endCtxs.push(c);
+      ends.push(end);
+    },
+  });
 
   const tool = tools[0];
   const beforeAgentStart = handlers.find((h) => h.event === "before_agent_start")?.handler;
   if (!tool || !beforeAgentStart) throw new Error("registerCompletion did not register the tool and the handler");
 
   const begin = (command: string, args = "") => tracker.begin({ command, arguments: args, cwd: "/work" });
-  const call = (params: Record<string, unknown>) => tool.execute("call-1", params, undefined, undefined, {});
+  const call = (params: Record<string, unknown>) => tool.execute("call-1", params, undefined, undefined, ctx);
   const turn = (systemPrompt = BASE_PROMPT) =>
-    beforeAgentStart({ type: "before_agent_start", prompt: "go", systemPrompt, systemPromptOptions: {} }, {});
-  return { host, tools, handlers, tracker, ends, tool, begin, call, turn };
+    beforeAgentStart({ type: "before_agent_start", prompt: "go", systemPrompt, systemPromptOptions: {} }, ctx);
+  return { host, tools, handlers, tracker, ends, ctx, trackerCtxs, endCtxs, tool, begin, call, turn };
 }
 
 const PROCESS_FUNCTIONS = ["spawn", "spawnSync", "exec", "execSync", "execFile", "execFileSync", "fork"] as const;
@@ -231,6 +243,37 @@ describe("tool execute", () => {
     } finally {
       watch.restore();
     }
+  });
+});
+
+describe("host context", () => {
+  it("resolves the tracker from the tool call's context and hands the same context to onEnd", async () => {
+    const { begin, call, ctx, trackerCtxs, endCtxs } = setup();
+    begin("ensemble:create-prd");
+    await call({ outcome: "succeeded" });
+    expect(trackerCtxs).toEqual([ctx]);
+    expect(trackerCtxs[0]).toBe(ctx);
+    expect(endCtxs).toHaveLength(1);
+    expect(endCtxs[0]).toBe(ctx);
+  });
+
+  it("resolves the tracker from the before_agent_start context", () => {
+    const { begin, turn, ctx, trackerCtxs } = setup();
+    begin("ensemble:create-prd");
+    turn();
+    expect(trackerCtxs).toHaveLength(1);
+    expect(trackerCtxs[0]).toBe(ctx);
+  });
+
+  it("does not ask for a tracker at registration, when no session id is readable yet", () => {
+    const { trackerCtxs } = setup();
+    expect(trackerCtxs).toEqual([]);
+  });
+
+  it("does not call onEnd when no run ended", async () => {
+    const { call, endCtxs } = setup();
+    await call({ outcome: "succeeded" });
+    expect(endCtxs).toEqual([]);
   });
 });
 

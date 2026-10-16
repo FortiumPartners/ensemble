@@ -10,7 +10,10 @@
  * Contract (see `CompletionDeps`). The caller, `registerLifecycleHooks` in
  * adapter.ts, owns the `CommandRunTracker` and calls `registerCompletion`
  * only when a hooks file exists; this module imports nothing from adapter.ts.
- * It reads the tracker for the run in flight and calls `tracker.complete`,
+ * The tracker needs the host session id, which only an event context carries,
+ * so the caller supplies `trackerFor(ctx)` (lazy, the same tracker every time)
+ * rather than a tracker. This module reads that tracker for the run in flight
+ * and calls `tracker.complete`,
  * and it hands the resulting `EndResult` to `deps.onEnd`. It never builds an
  * event and never runs a handler: the end handlers run later, at
  * `agent_settled`, from the adapter, which gates each one first. Redaction of
@@ -30,7 +33,7 @@
  * that replaced it.
  */
 import type { CommandRunTracker, CompletionInput, EndResult } from "@sunstone-partners/ensemble-agent-core";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** The tool's name; part of the model-facing instruction. */
 export const COMPLETION_TOOL_NAME = "ensemble_command_complete";
@@ -56,14 +59,19 @@ export const COMPLETION_NOT_IN_FLIGHT = "No command run is in flight; nothing wa
 
 /** What the adapter supplies. */
 export interface CompletionDeps {
-  /** The session's tracker, shared with the rest of the adapter. */
-  tracker: CommandRunTracker;
+  /**
+   * The session's tracker, shared with the rest of the adapter. Called with the
+   * context of the event or tool call at hand; it must return the same tracker
+   * on every call.
+   */
+  trackerFor: (ctx: ExtensionContext) => CommandRunTracker;
   /**
    * Called once for every call that ended a run, with the end the tracker
    * produced. The adapter queues it for the end handlers at `agent_settled`.
-   * A throw reaches the model as a failed tool call.
+   * Awaited before the tool result is returned; a throw reaches the model as
+   * a failed tool call.
    */
-  onEnd: (end: EndResult) => void;
+  onEnd: (ctx: ExtensionContext, end: EndResult) => void | Promise<void>;
 }
 
 /** The host surface this module uses. */
@@ -101,7 +109,7 @@ export const COMPLETION_PARAMETERS = {
  * calls the tool.
  */
 export function registerCompletion(pi: CompletionHost, deps: CompletionDeps): void {
-  const { tracker, onEnd } = deps;
+  const { trackerFor, onEnd } = deps;
 
   pi.registerTool({
     name: COMPLETION_TOOL_NAME,
@@ -109,14 +117,15 @@ export function registerCompletion(pi: CompletionHost, deps: CompletionDeps): vo
     description:
       "Record that the Ensemble command you are running has finished (succeeded) or failed. Call it once, when the command's work is over.",
     parameters: COMPLETION_PARAMETERS,
-    async execute(_toolCallId, params) {
+    // Pi 1.2.0 passes an ExtensionToolContext, which extends ExtensionContext.
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const input: CompletionInput = { outcome: params.outcome };
       if (params.reason !== undefined) input.reason = params.reason;
       if (params.summary !== undefined) input.summary = params.summary;
       if (params.artifacts !== undefined) input.artifacts = [...params.artifacts];
 
-      const end = tracker.complete(input);
-      if (end) onEnd(end);
+      const end = trackerFor(ctx).complete(input);
+      if (end) await onEnd(ctx, end);
       return {
         content: [{ type: "text", text: end ? COMPLETION_ACKNOWLEDGEMENT : COMPLETION_NOT_IN_FLIGHT }],
         details: { recorded: end !== undefined },
@@ -124,8 +133,8 @@ export function registerCompletion(pi: CompletionHost, deps: CompletionDeps): vo
     },
   });
 
-  pi.on("before_agent_start", (event) => {
-    if (!tracker.current()) return undefined;
+  pi.on("before_agent_start", (event, ctx) => {
+    if (!trackerFor(ctx).current()) return undefined;
     // Pi 1.2.0 replaces the whole system prompt with `systemPrompt`, so append.
     if (event.systemPrompt.includes(COMPLETION_INSTRUCTION)) return undefined;
     return { systemPrompt: `${event.systemPrompt}\n\n${COMPLETION_INSTRUCTION}` };
