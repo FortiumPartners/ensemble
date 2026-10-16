@@ -2,12 +2,12 @@
   "runId": "1bc064e356f20e8c",
   "projectRoot": "/Users/ldangelo/Development/Sunstone/ensemble.dev",
   "idea": "Add a --foreman flag to new-feature.yaml (and the feature front door) that passes --foreman to the underlying skills/commands, so Foreman can run the workflow with no user present and the model never stops to ask the user questions.",
-  "status": "active",
+  "status": "completed",
   "stage": "done",
   "stageOutcome": {
     "kind": "success",
-    "detail": "PR #165 opened (not merged). Epic br-x9ch stays open until it merges.",
-    "recordedAt": "2026-10-15T18:53:12.479Z"
+    "detail": "PR #165 merged to dev as 9966e8c; epic br-x9ch closed. Run closed out (it was left active at stage done by omission).",
+    "recordedAt": "2026-10-15T21:20:22.663Z"
   },
   "artifacts": [
     {
@@ -50,7 +50,7 @@
   ],
   "implementationApprovedAt": "2026-10-15T18:03:18.845Z",
   "prApprovedAt": "2026-10-15T18:52:59.489Z",
-  "revision": 10,
+  "revision": 12,
   "createdAt": "2026-10-15T17:28:14.716Z",
-  "updatedAt": "2026-10-15T18:53:12.479Z"
+  "updatedAt": "2026-10-15T21:20:22.668Z"
 }
