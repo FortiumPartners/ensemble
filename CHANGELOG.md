@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **packages/product:** generate literal Reqnroll regex expressions and migrate legacy attributes without replacing implemented bodies. Product version5.6.5.
+- **packages/core tests:** remove two environment-dependent assertions that required the bare `cloudflared` name even when a supported installed binary was resolved. Missing-binary behavior and install guidance remain covered. Core version5.6.3.
+- Bump the aggregate release to6.9.9 so existing full-plugin installations receive the changed package content.
+
+
 ## [6.9.8] - 2026-10-14
 
 ### Added

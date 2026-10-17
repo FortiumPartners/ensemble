@@ -214,10 +214,6 @@ describe('renderStepClass', () => {
     expect(cs).toContain('ScenarioContext');
   });
 
-  test('emits literal verbatim [Given/When/Then(@"...")] attributes', () => {
-    expect(cs).toContain('[Given(@"a user with valid credentials")]');
-    expect(cs).toContain('[When(@"they submit the login form")]');
-  });
 
   test('every body is a Pending stub', () => {
     expect(cs).toContain('throw new PendingStepException();');

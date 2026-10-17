@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Emit anchored literal Reqnroll expressions so slash alternatives, parentheses and other punctuation match the generated Gherkin.
+- Upgrade existing generated attributes without overwriting filled bodies; add `migrate-bindings --steps-dir` for renamed, split and nested binding files.
+- Keep logical binding drift identities stable and ignore attribute-shaped text inside comments, strings and collection expressions.
+
+
 ## [5.6.0] - 2026-06-20
 
 ### Added
