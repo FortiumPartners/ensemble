@@ -31,24 +31,24 @@ test-first starting point before bindings are filled in.
 **1. Resolve PRD and SUT**
    Determine the PRD to scaffold from and the system-under-test project to reference
 
-   - If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to use if ambiguous
-   - Ask for or accept --sut <path-to-SUT.csproj> so the test project can reference the code under test (optional; omit if the SUT does not exist yet)
+- If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to use if ambiguous
+- Ask for or accept --sut <path-to-SUT.csproj> so the test project can reference the code under test (optional; omit if the SUT does not exist yet)
 
 **2. Run the generator**
    Invoke the deterministic CLI to scaffold the project
 
-   - Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT.
-   - Run: node "$REQNROLL_CLI" generate-bindings <prd-path> --json
-   - Pass through --out <dir> (default: tests/), --sut <csproj>, --dry-run, and --force as requested
-   - The CLI writes Features/*.feature, Steps/*.Steps.cs, <Name>.Tests.csproj, reqnroll.json, and .reqnroll-trace.json under <out>/<prd-stem>/
+- Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT.
+- Run: node "$REQNROLL_CLI" generate-bindings <prd-path> --json
+- Pass through --out <dir> (default: tests/), --sut <csproj>, --dry-run, and --force as requested
+- The CLI writes Features/*.feature, Steps/*.Steps.cs, <Name>.Tests.csproj, reqnroll.json, and .reqnroll-trace.json under <out>/<prd-stem>/
 
 **3. Report results**
    Summarize the scaffold and the next move
 
-   - Report the output directory, feature count, and distinct step-binding count
-   - List any step files that were preserved (write-once) versus newly created
-   - Echo parser warnings and remind the user that needs-clarification ACs produce step-less scenarios until the PRD is fixed
-   - Point the user to /ensemble:reqnroll-tdd to fill the Pending() bodies test-first, or /ensemble:check-binding-drift to audit coverage later
+- Report the output directory, feature count, and distinct step-binding count
+- List any step files that were preserved (write-once) versus newly created
+- Echo parser warnings and remind the user that needs-clarification ACs produce step-less scenarios until the PRD is fixed
+- Point the user to /ensemble:reqnroll-tdd to fill the Pending() bodies test-first, or /ensemble:check-binding-drift to audit coverage later
 
 ## Expected Output
 

@@ -327,6 +327,7 @@ function buildScaffoldPlan(parsed, opts) {
     titlePrefix: epicPrefix(slug),
     title: clampTitle(epicPrefix(slug), `Implement TRD: ${title}`),
     type: 'epic',
+    labels: [slug],
     priority: DEFAULT_PRIORITY,
     description: summary,
   };
@@ -356,6 +357,7 @@ function buildScaffoldPlan(parsed, opts) {
       titlePrefix: prefix,
       title: clampTitle(prefix, `${beadLabel} ${phase.n}: ${phase.title}`),
       type: 'feature',
+      labels: [slug],
       priority: DEFAULT_PRIORITY,
       description,
       shippableState,
@@ -418,6 +420,7 @@ function buildScaffoldPlan(parsed, opts) {
       titlePrefix: prefix,
       title,
       type: 'task',
+      labels: [slug],
       priority,
       description: clamped ? `Full title: ${task.description}\n\n${description}` : description,
       isTest: !!task.isTest,
@@ -444,6 +447,7 @@ function buildScaffoldPlan(parsed, opts) {
         titlePrefix: prefix,
         title: clampTitle(prefix, subitemText), // full text is in the description's "Test objective"
         type: 'task',
+        labels: [slug],
         priority,
         description: buildSynthTestDescription(synthId, task, subitemText),
         verifies: task.id,
@@ -521,6 +525,10 @@ function buildScaffoldPlan(parsed, opts) {
   }
 
   return {
+    // The scoping label every bead below carries (`bv --robot-plan --label`, `br list --label`).
+    // It is the slug already inside each `[trd:<slug>...]` title, not the TRD's display-only
+    // frontmatter Label.
+    label: slug,
     epic,
     stories,
     tasks,

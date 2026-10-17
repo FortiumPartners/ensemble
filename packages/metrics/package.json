@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-metrics",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "Productivity metrics and analytics dashboard",
   "main": "lib/index.js",
   "scripts": {

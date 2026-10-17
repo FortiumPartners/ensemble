@@ -16,8 +16,8 @@
  * reqnroll-binding-specialist agent / a human to fill test-first.
  *
  * Idempotency: feature files, project files and the manifest are always
- * regenerated (deterministic, no timestamps). Step `.cs` files are WRITE-ONCE —
- * a filled body is never clobbered unless `--force` is passed.
+ * regenerated (deterministic, no timestamps). Existing step bodies are preserved
+ * unless --force is passed; recognized legacy literal attributes are upgraded.
  */
 
 const crypto = require('crypto');
@@ -104,7 +104,40 @@ function collectSteps(prd) {
       }
     }
   }
-  return out;
+  return disambiguateMethodNames(out);
+}
+
+/**
+ * Make every method name unique within its requirement.
+ *
+ * `methodNameFor` collapses each run of non-alphanumerics to a word break, so two
+ * steps differing only in punctuation — `a paused/canceled plan` and `a paused
+ * canceled plan` — yield one identifier. Both survive the dedup above, because
+ * `normalizeStepText` only lowercases and collapses whitespace, and a requirement
+ * renders to a single partial class, so the generated project fails to compile
+ * with CS0111.
+ *
+ * The suffix is the step's own `hash`, which is already this module's per-step
+ * identity and already written to the manifest, so a disambiguated method traces
+ * straight to its manifest entry. Taking it from the step's own text rather than
+ * its position means the name does not move when the PRD is reordered, and a name
+ * that does not collide is left alone.
+ *
+ * Uniqueness is scoped per requirement because that is the scope of the class:
+ * two requirements emitting one method name are two different classes, which
+ * compiles. A suffixed name cannot collide with a clean one either, since
+ * `methodNameFor` strips `_` along with every other non-alphanumeric.
+ */
+function disambiguateMethodNames(steps) {
+  const counts = new Map();
+  for (const s of steps) {
+    const key = `${s.reqId}::${s.method}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const s of steps) {
+    if (counts.get(`${s.reqId}::${s.method}`) > 1) s.method = `${s.method}_${s.hash}`;
+  }
+  return steps;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,6 +151,17 @@ function collectSteps(prd) {
 function attributeFor(keyword) {
   const k = keyword === 'And' ? 'Given' : keyword;
   return k;
+}
+
+/** Explicit regex markers avoid Reqnroll's Cucumber-expression heuristics. */
+function literalStepExpression(text) {
+  return `^${String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+}
+
+function decodeLiteralStepExpression(expression) {
+  if (!expression.startsWith('^') || !expression.endsWith('$')) return null;
+  const text = expression.slice(1, -1).replace(/\\(.)/gs, '$1');
+  return literalStepExpression(text) === expression ? text : null;
 }
 
 function renderStepClass(req, steps, opts = {}) {
@@ -140,7 +184,7 @@ function renderStepClass(req, steps, opts = {}) {
   for (const s of steps) {
     const attr = attributeFor(s.keyword);
     lines.push('');
-    lines.push(`    [${attr}(@"${s.text.replace(/"/g, '""')}")]`);
+    lines.push(`    [${attr}(@"${literalStepExpression(s.text).replace(/"/g, '""')}")]`);
     lines.push(`    public void ${s.method}() => throw new PendingStepException();`);
   }
   lines.push('}');
@@ -256,10 +300,23 @@ function buildBindingArtifacts(prd, slug, opts = {}) {
 // Disk I/O — atomic; write-once for step bindings
 // ---------------------------------------------------------------------------
 
-function writeFileAtomic(filePath, content) {
-  const tmp = `${filePath}.tmp-${process.pid}`;
-  fs.writeFileSync(tmp, content);
-  fs.renameSync(tmp, filePath);
+function writeFileAtomic(filePath, content, mode, expected) {
+  const tmp = `${filePath}.tmp-${process.pid}-${crypto.randomUUID()}`;
+  const descriptor = fs.openSync(tmp, 'wx', mode ?? 0o666);
+  try {
+    try {
+      fs.writeFileSync(descriptor, content);
+      if (mode !== undefined) fs.fchmodSync(descriptor, mode);
+    } finally {
+      fs.closeSync(descriptor);
+    }
+    if (expected !== undefined && (!fs.lstatSync(filePath).isFile()
+      || !fs.readFileSync(filePath).equals(expected)))
+      throw new Error(`Binding source changed during migration: ${filePath}`);
+    fs.renameSync(tmp, filePath);
+  } finally {
+    if (fs.existsSync(tmp)) fs.unlinkSync(tmp);
+  }
 }
 
 function isStepFile(relPath) {
@@ -285,9 +342,16 @@ function writeBindingArtifacts(prd, slug, outRoot, opts = {}) {
   for (const f of artifacts.files) {
     const dest = path.join(outDir, f.relPath);
     fs.mkdirSync(path.dirname(dest), { recursive: true });
-    // WRITE-ONCE: never clobber a (possibly filled) step binding unless --force.
+    // Preserve implementations while upgrading generator-owned expressions.
     if (isStepFile(f.relPath) && fs.existsSync(dest) && !opts.force) {
-      skipped.push(dest);
+      const stat = fs.lstatSync(dest);
+      if (!stat.isFile()) throw new Error(`Expected a regular binding file: ${dest}`);
+      const existing = fs.readFileSync(dest);
+      const upgraded = rewriteBindingExpressions(prd, existing);
+      if (upgraded.changes.length) {
+        writeFileAtomic(dest, upgraded.content, stat.mode & 0o777, existing);
+        written.push(dest);
+      } else skipped.push(dest);
       continue;
     }
     writeFileAtomic(dest, f.content);
@@ -305,18 +369,270 @@ function writeBindingArtifacts(prd, slug, outRoot, opts = {}) {
 // actually present in the step .cs files.
 // ---------------------------------------------------------------------------
 
-const ATTR_RE = /\[(Given|When|Then|And)\(@"((?:[^"]|"")*)"\)\]/g;
+const ATTR_RE = /\[\s*(Given|When|Then|And)\s*\(\s*@"((?:[^"]|"")*)"\s*\)\s*\]/y;
 
-/** Extract { keyword, text } from every step attribute in a .cs source string. */
-function scanBindingAttributes(csText) {
+function skipComment(source, start) {
+  if (source[start] === '#' && /^[ \t]*$/.test(source.slice(source.lastIndexOf('\n', start - 1) + 1, start))) {
+    // Preprocessor directive (`#region Don't`): a lone apostrophe is not a literal.
+    const end = source.indexOf('\n', start);
+    return end < 0 ? source.length : end + 1;
+  }
+  if (source.startsWith('//', start)) {
+    const end = source.indexOf('\n', start + 2);
+    return end < 0 ? source.length : end + 1;
+  }
+  if (source.startsWith('/*', start)) {
+    const end = source.indexOf('*/', start + 2);
+    if (end < 0) throw new Error('Unterminated C# block comment');
+    return end + 2;
+  }
+  return start;
+}
+
+// Skip literals rather than searching their contents for attribute-shaped text.
+// Interpolation expressions can themselves contain strings and comments.
+function skipInterpolation(source, start, closingCount) {
+  let depth = 0;
+  for (let i = start; i < source.length;) {
+    const commentEnd = skipComment(source, i);
+    if (commentEnd !== i) { i = commentEnd; continue; }
+    const literalEnd = skipLiteral(source, i);
+    if (literalEnd !== i) { i = literalEnd; continue; }
+    if (source[i] === '{') depth++;
+    if (source[i] === '}') {
+      if (depth === 0 && source.startsWith('}'.repeat(closingCount), i))
+        return i + closingCount;
+      if (depth > 0) depth--;
+    }
+    i++;
+  }
+  throw new Error('Unterminated C# interpolation');
+}
+
+function skipLiteral(source, start) {
+  let i = start;
+  let dollars = 0;
+  let verbatim = false;
+  if (source[i] === '@') {
+    verbatim = true;
+    i++;
+    if (source[i] === '$') { dollars++; i++; }
+  } else {
+    while (source[i] === '$') { dollars++; i++; }
+    if (source[i] === '@') { verbatim = true; i++; }
+  }
+  const quote = source[i];
+  if (quote !== '"' && !(quote === "'" && i === start)) return start;
+  let quoteCount = 1;
+  if (quote === '"' && !verbatim) {
+    while (source[i + quoteCount] === '"') quoteCount++;
+  }
+  const raw = quoteCount >= 3;
+  const delimiter = raw ? '"'.repeat(quoteCount) : quote;
+  i += raw ? quoteCount : 1;
+  while (i < source.length) {
+    if (!raw && !verbatim && source[i] === '\\') { i += 2; continue; }
+    if (source.startsWith(delimiter, i)) {
+      if (verbatim && source[i + 1] === '"') { i += 2; continue; }
+      return i + delimiter.length;
+    }
+    if (dollars && source[i] === '{') {
+      let count = 1;
+      while (source[i + count] === '{') count++;
+      if (!raw && count >= 2) { i += 2; continue; }
+      if (!raw || count >= dollars) {
+        i = skipInterpolation(source, i + (raw ? count : 1), raw ? dollars : 1);
+        continue;
+      }
+    }
+    i++;
+  }
+  throw new Error('Unterminated C# literal');
+}
+
+const IDENTIFIER_RE = /@?[\p{L}_][\p{L}\p{N}_]*/uy;
+const RANK_SPECIFIER_RE = /\[[\s,]*\]/y;
+
+function skipTrivia(source, start) {
+  let i = start;
+  while (i < source.length) {
+    if (/\s/.test(source[i])) { i++; continue; }
+    const end = skipComment(source, i);
+    if (end === i) break;
+    i = end;
+  }
+  return i;
+}
+
+// Balanced scan of `open`...`close` (generic arguments, tuple types). Returns
+// the index after the closer, or -1 when it never balances before a statement
+// or block boundary (so a stray `<` cannot swallow the rest of the file).
+function skipBalanced(source, start, open, close) {
+  let depth = 0;
+  for (let i = start; i < source.length;) {
+    const trivia = skipTrivia(source, i);
+    if (trivia !== i) { i = trivia; continue; }
+    const literalEnd = skipLiteral(source, i);
+    if (literalEnd !== i) { i = literalEnd; continue; }
+    if (source[i] === open) depth++;
+    else if (source[i] === close) { if (--depth === 0) return i + 1; }
+    else if (source[i] === ';' || source[i] === '{' || source[i] === '}') return -1;
+    i++;
+  }
+  return -1;
+}
+
+function matchIdentifier(source, start) {
+  IDENTIFIER_RE.lastIndex = start;
+  const match = IDENTIFIER_RE.exec(source);
+  return match ? start + match[0].length : -1;
+}
+
+// One modifier, or one (qualified, generic, nullable, array/pointer) type or
+// name. Returns the index after the item, or -1 if none starts at `start`.
+function skipTypeLike(source, start) {
+  let i = matchIdentifier(source, start);
+  if (i < 0) return -1;
+  for (;;) {
+    if (source[i] === '<') {
+      i = skipBalanced(source, i, '<', '>');
+      if (i < 0) return -1;
+    }
+    if (source.startsWith('::', i)) i += 2;
+    else if (source[i] === '.') i++;
+    else break;
+    const next = matchIdentifier(source, i);
+    if (next < 0) return -1;
+    i = next;
+  }
+  for (;;) {
+    const next = skipTrivia(source, i);
+    if (source[next] === '?' || source[next] === '*') { i = next + 1; continue; }
+    RANK_SPECIFIER_RE.lastIndex = next;
+    const rank = RANK_SPECIFIER_RE.exec(source);
+    if (!rank) return i;
+    i = next + rank[0].length;
+  }
+}
+
+// After the attribute lists: is this `[modifiers] ReturnType Name[<T>](`, i.e.
+// a method (or constructor) declaration with any return type, with or without
+// modifiers? Anything else (`;`, `,`, `)`, a lambda, a statement) is not a
+// declaration, so collection expressions like `return [Given(@"x")];` stay out.
+function startsMethodDeclaration(source, start) {
+  let i = skipTrivia(source, start);
+  let items = 0;
+  for (;;) {
+    if (source[i] === '(') {
+      // Either a tuple type or the parameter list. Only a parameter list can
+      // be followed by something other than another identifier (`where`
+      // constraints aside), so a following identifier means a tuple type.
+      const end = skipBalanced(source, i, '(', ')');
+      if (end < 0) return false;
+      const after = skipTrivia(source, end);
+      const wordEnd = matchIdentifier(source, after);
+      if (wordEnd < 0 || source.slice(after, wordEnd) === 'where') return items >= 2;
+      items++;
+      i = after;
+      continue;
+    }
+    const end = skipTypeLike(source, i);
+    if (end < 0) return false;
+    items++;
+    i = skipTrivia(source, end);
+    if (source[i] !== '(' && matchIdentifier(source, i) < 0) return false;
+  }
+}
+
+function hasBindingDeclaration(source, start) {
+  let i = start;
+  while (i < source.length) {
+    if (/\s/.test(source[i])) { i++; continue; }
+    const commentEnd = skipComment(source, i);
+    if (commentEnd !== i) { i = commentEnd; continue; }
+    if (source[i] !== '[') break;
+    // Other method attributes can intervene. Balance their argument brackets
+    // while ignoring strings, rather than mistaking a collection expression
+    // such as `return [Given(@"text")];` for a binding declaration.
+    let depth = 1;
+    i++;
+    while (i < source.length && depth) {
+      const end = skipComment(source, i);
+      if (end !== i) { i = end; continue; }
+      const literalEnd = skipLiteral(source, i);
+      if (literalEnd !== i) { i = literalEnd; continue; }
+      if (source[i] === '[') depth++;
+      if (source[i] === ']') depth--;
+      i++;
+    }
+    if (depth) throw new Error('Unterminated C# attribute list');
+  }
+  return i === source.length || startsMethodDeclaration(source, i);
+}
+
+function bindingAttributeSpans(csText) {
+  const source = String(csText || '');
   const out = [];
-  const text = String(csText || '');
-  let m;
-  ATTR_RE.lastIndex = 0;
-  while ((m = ATTR_RE.exec(text)) !== null) {
-    out.push({ keyword: m[1], text: m[2].replace(/""/g, '"') });
+  for (let i = 0; i < source.length;) {
+    const commentEnd = skipComment(source, i);
+    if (commentEnd !== i) { i = commentEnd; continue; }
+    if (source[i] === '[') {
+      ATTR_RE.lastIndex = i;
+      const match = ATTR_RE.exec(source);
+      if (match) {
+        if (!hasBindingDeclaration(source, i + match[0].length)) {
+          i += match[0].length;
+          continue;
+        }
+        const start = i + match[0].indexOf('@"') + 2;
+        out.push({
+          keyword: match[1],
+          expression: match[2].replace(/""/g, '"'),
+          start,
+          end: start + match[2].length,
+        });
+        i += match[0].length;
+        continue;
+      }
+    }
+    const literalEnd = skipLiteral(source, i);
+    i = literalEnd === i ? i + 1 : literalEnd;
   }
   return out;
+}
+
+/** Return logical text for generated literal regexes, not their encoding. */
+function scanBindingAttributes(csText) {
+  return bindingAttributeSpans(csText).map(({ keyword, expression }) => ({
+    keyword,
+    text: decodeLiteralStepExpression(expression) ?? expression,
+  }));
+}
+
+/** Upgrade only recognized generated attributes; every other byte survives. */
+function rewriteBindingExpressions(prd, csText) {
+  const source = Buffer.isBuffer(csText)
+    ? new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(csText)
+    : String(csText);
+  const steps = collectSteps(prd);
+  const legacy = new Map(steps.map((step) => [step.text, step]));
+  const current = new Map(steps.map((step) => [literalStepExpression(step.text), step]));
+  const changes = [];
+  const chunks = [];
+  let cursor = 0;
+  for (const attribute of bindingAttributeSpans(source)) {
+    const oldStep = legacy.get(attribute.expression);
+    const newStep = current.get(attribute.expression);
+    if (oldStep && newStep && oldStep.text !== newStep.text)
+      throw new Error('Ambiguous legacy/current binding expression; migration left the source unchanged');
+    if (!oldStep || newStep) continue;
+    chunks.push(source.slice(cursor, attribute.start));
+    chunks.push(literalStepExpression(oldStep.text).replace(/"/g, '""'));
+    cursor = attribute.end;
+    changes.push({ keyword: attribute.keyword, text: oldStep.text });
+  }
+  chunks.push(source.slice(cursor));
+  return { content: chunks.join(''), changes };
 }
 
 /**
@@ -349,10 +665,13 @@ module.exports = {
   methodNameFor,
   className,
   collectSteps,
+  literalStepExpression,
   renderStepClass,
   renderProject,
   buildBindingArtifacts,
   writeBindingArtifacts,
+  writeFileAtomic,
   scanBindingAttributes,
+  rewriteBindingExpressions,
   diffBindingDrift,
 };

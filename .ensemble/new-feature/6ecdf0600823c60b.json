@@ -1,0 +1,89 @@
+{
+  "runId": "6ecdf0600823c60b",
+  "projectRoot": "/Users/ldangelo/Development/Sunstone/ensemble.dev",
+  "idea": "Command lifecycle hooks for Ensemble: a logical command lifecycle (command.start / command.end, with outcome succeeded|failed|cancelled, run_id, one event per concrete command with dispatchers resolved first) with two handler types, shell and prompt, configured by a project-level .ensemble/hooks.yaml (reusable handlers plus per-command start/end selection, explicit type and on_error, separate hooks schema and validator), run serially, exposed through harness adapters that declare capabilities (command_start, command_end, command_end_on_cancel) rather than approximating command end with Claude session/turn events; open decision: runtime-owned command wrapper vs adapter-specific best-effort lifecycle.",
+  "status": "active",
+  "stage": "pr_create",
+  "stageOutcome": {
+    "kind": "success",
+    "detail": "PR opened: https://github.com/Sunstone-Partners/ensemble/pull/168",
+    "recordedAt": "2026-10-16T22:24:52.373Z"
+  },
+  "artifacts": [
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "PRD-2026-f08a2a09",
+      "version": "1.0.0",
+      "producingStage": "prd_create",
+      "recordedAt": "2026-10-15T21:27:31.415Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "PRD-2026-f08a2a09",
+      "version": "1.0.2",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-15T21:39:17.473Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "PRD-2026-f08a2a09",
+      "version": "1.0.4",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-15T21:56:00.337Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "TRD-2026-f08a2a09",
+      "version": "1.0.0",
+      "producingStage": "trd_create",
+      "recordedAt": "2026-10-15T21:56:00.337Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "TRD-2026-f08a2a09",
+      "version": "1.0.1",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-15T21:57:26.689Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "TRD-2026-f08a2a09",
+      "version": "1.0.2",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-15T22:07:23.157Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "PRD-2026-f08a2a09",
+      "version": "1.0.5",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-15T22:33:19.376Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-f08a2a09-command-lifecycle-hooks.md",
+      "documentId": "TRD-2026-f08a2a09",
+      "version": "1.0.4",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-15T22:33:19.376Z"
+    }
+  ],
+  "beadRefs": [
+    "br-5shl",
+    "br-n641",
+    "br-mcut",
+    "br-1gl3"
+  ],
+  "implementationApprovedAt": "2026-10-15T22:33:48.964Z",
+  "prApprovedAt": "2026-10-16T22:24:52.373Z",
+  "revision": 12,
+  "createdAt": "2026-10-15T21:20:30.703Z",
+  "updatedAt": "2026-10-16T22:26:31.356Z"
+}

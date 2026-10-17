@@ -126,8 +126,12 @@ After all PRs merge, archive the TRD and flush the bead state:
 
 ```bash
 mv docs/TRD/my-trd.md docs/TRD/completed/
-br sync --flush-only && git add .beads/ && git commit -m 'chore: final beads sync'
+br sync --flush-only && node "$TRD_CLI" beads-stage --match "[trd:<slug>" && git commit -m 'chore: final beads sync'
 ```
+
+If your repo tracks `.beads/issues.jsonl`, don't stage the whole `.beads/` directory: the beads
+database is shared across branches and would add other TRDs' beads to this commit. See
+[Repos that track `.beads/issues.jsonl`](beads-tracked-export.md).
 
 ---
 

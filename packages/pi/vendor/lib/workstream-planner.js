@@ -101,6 +101,7 @@ function buildWorkstreamPlan(items, opts = {}) {
     titlePrefix: releaseTrainPrefix(workstreamSlug),
     title: `${releaseTrainPrefix(workstreamSlug)} Combined Workstream`,
     type: 'epic',
+    labels: [`release-train-${workstreamSlug}`],
     priority: 2,
     description: [
       'Combined multi-TRD release train.',
@@ -132,6 +133,7 @@ function buildWorkstreamPlan(items, opts = {}) {
       titlePrefix: trdEpicPrefix(workstreamSlug, slug),
       title: clampTitle(trdEpicPrefix(workstreamSlug, slug), parsed.title || slug),
       type: 'epic',
+      labels: [slug],
       priority: 2,
       description: [
         `source_trd:${item.trdPath}`,

@@ -39,6 +39,7 @@ Your caller's payload is an object, and the command takes flags. Map them:
   MAX_PARALLEL -> --max-parallel
   TRD_PATH     -> --trd   (only when TRD_MODE is true)
   STRATEGY     -> --strategy
+  LABEL        -> --label   (only when set)
   TEAM_ROLES   -> --team-roles (JSON-encoded)
   wave_number  -> not a flag; carry it into the summary's wave_number field
                   so the parent can increment it for the next dispatch.

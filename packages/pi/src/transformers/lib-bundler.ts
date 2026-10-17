@@ -48,7 +48,7 @@ import { TransformResult } from '../types';
 const LIB_DIR = 'packages/development/lib';
 
 /** Entry-point .js modules, relative to LIB_DIR — seeds for require-closure walking. */
-const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js'];
+const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js'];
 
 /** Shell scripts vendored as-is, no dependency walking (src relative to sourceRoot). */
 const SCRIPT_FILES: Array<{ src: string; dest: string }> = [

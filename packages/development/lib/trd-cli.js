@@ -26,6 +26,8 @@
  *   create-workstream-trd <trd-path...> [--out path]
  *   workstream-plan <trd-path...> [--stacked]
  *   workstream-status [--workstream slug] [--issues-json path]
+ *   beads-label --label <l> --match <title-substring>
+ *   beads-stage --match <title-substring> [--label <l>] [--check] [--dry-run]
  *   quickstart <trd-path> --out <path> [--json]
  *   resolve-sdlc --git-town-exit-code <0-4> --remote-url <url>
  */
@@ -64,6 +66,8 @@ const {
   buildConsolidatedResolutionMessage,
 } = require('./pr-strategy');
 const { buildQuickstart } = require('./quickstart-generator');
+const { ensureLabel } = require('./beads-label');
+const { stageBeadsExport, checkStagedExport } = require('./beads-stage');
 
 // ---------------------------------------------------------------------------
 // Small utilities
@@ -441,6 +445,42 @@ function runWorkstreamPlan(argv, env) {
   const plan = buildWorkstreamPlan(items, { stackedPrs });
   const crossTrd = resolveCrossTrdDeps(plan.scaffoldPlans);
   return { ...plan, ok: plan.ok && crossTrd.ok, crossTrd };
+}
+
+/**
+ * `beads-label --label <l> --match <substr>` -> { ok:true, label, matched, labeled, already }
+ * Labels every bead whose title contains <substr> that lacks <l>. A "[trd:<slug>" substring (no
+ * closing bracket) matches only that exact slug, not "[trd:<slug>-other...".
+ */
+function runBeadsLabel(argv) {
+  const { flags } = parseArgs(argv, new Set(['label', 'match']));
+  return { ok: true, ...ensureLabel({ label: flags.label, match: flags.match }) };
+}
+
+/**
+ * `beads-stage --match <title-substring[,..]> [--label <l[,..]>] [--file <path>] [--check] [--dry-run]`
+ * Stages only this TRD's beads from a tracked .beads/issues.jsonl into the git index (the working
+ * file is left alone). A no-op when the export is not tracked. `--check` instead verifies the
+ * STAGED export touches no other TRD's beads and throws (exit 1) naming the ones that do.
+ */
+function runBeadsStage(argv) {
+  const { flags } = parseArgs(argv, new Set(['match', 'label', 'file']));
+  const split = (v) => (typeof v === 'string' && v ? v.split(',').filter(Boolean) : []);
+  const scope = { matches: split(flags.match), labels: split(flags.label) };
+  if (!scope.matches.length && !scope.labels.length) throw new Error('beads-stage needs --match or --label');
+  const file = typeof flags.file === 'string' && flags.file ? flags.file : undefined;
+
+  if (flags.check) {
+    const res = checkStagedExport({ ...scope, file });
+    if (!res.ok) {
+      throw new Error(
+        `staged ${file || '.beads/issues.jsonl'} touches beads outside this TRD: ${res.foreign.join(', ')}. ` +
+          'Run beads-stage to restage it.'
+      );
+    }
+    return { ok: true, ...res };
+  }
+  return { ok: true, ...stageBeadsExport({ ...scope, file, dryRun: !!flags['dry-run'] }) };
 }
 
 /** `workstream-status [--workstream slug] [--issues-json path]` -> combined status summary. */
@@ -955,6 +995,8 @@ const HANDLERS = {
   'create-workstream-trd': (argv) => runCreateWorkstreamTrd(argv),
   'workstream-plan': (argv) => runWorkstreamPlan(argv, process.env),
   'workstream-status': (argv) => runWorkstreamStatus(argv),
+  'beads-label': (argv) => runBeadsLabel(argv),
+  'beads-stage': (argv) => runBeadsStage(argv),
   quickstart: (argv) => runQuickstart(argv),
   'choices-read': (argv) => runChoicesRead(argv),
   'choices-write': (argv) => runChoicesWrite(argv),
@@ -980,7 +1022,7 @@ function main(argv) {
     process.stdout.write(
       JSON.stringify({
         error:
-          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan|resolve-sdlc|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|quickstart|list|status|migrate-frontmatter|choices-read|choices-write> <trd-path> [...]',
+          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan|resolve-sdlc|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|beads-stage|quickstart|list|status|migrate-frontmatter|choices-read|choices-write> <trd-path> [...]',
       }) + '\n'
     );
     return 1;
@@ -1022,6 +1064,8 @@ module.exports = {
   runCreateWorkstreamTrd,
   runWorkstreamPlan,
   runWorkstreamStatus,
+  runBeadsLabel,
+  runBeadsStage,
   main,
   runChoicesRead,
   runChoicesWrite,

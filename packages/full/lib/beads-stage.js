@@ -1,0 +1,1 @@
+../../development/lib/beads-stage.js

@@ -249,14 +249,14 @@ browser. The resulting artifact is the input to Enhancement.
 **1. Current TRD Analysis**
    Review existing TRD content and extract structural metadata
 
-   - Read the TRD file from the path provided in $ARGUMENTS
-   - Parse frontmatter for Document ID (TRD-YYYY-NNN), Version, PRD reference, Design Readiness Score
-   - Count total tasks (TRD-NNN pattern), total test tasks (TRD-NNN-TEST), total hours estimated
-   - Build dependency graph from [depends: TRD-NNN] annotations
-   - Check if Acceptance Criteria Traceability matrix exists
-   - Note current version number for bumping later
-   - PR format detection: scan TRD for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If found: set PR_FORMAT=true and log 'TRD format: PR-stack'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'.
-   - If PR_FORMAT=true: count PR boundary sections; for each ### PR N: heading check whether a **Shippable State:** line immediately follows it; record MISSING_SHIPPABLE[N] for any that don't; record INFRA_ONLY_SHIPPABLE[N] for any whose Shippable State text contains only infrastructure language (e.g., 'scaffolding', 'setup done', 'infrastructure complete') with no user-observable capability.
+- Read the TRD file from the path provided in $ARGUMENTS
+- Parse frontmatter for Document ID (TRD-YYYY-NNN), Version, PRD reference, Design Readiness Score
+- Count total tasks (TRD-NNN pattern), total test tasks (TRD-NNN-TEST), total hours estimated
+- Build dependency graph from [depends: TRD-NNN] annotations
+- Check if Acceptance Criteria Traceability matrix exists
+- Note current version number for bumping later
+- PR format detection: scan TRD for '### PR ' followed by a digit within the '## Master Task List' section (from '## Master Task List' heading to the next '##' heading or EOF). If found: set PR_FORMAT=true and log 'TRD format: PR-stack'. Else: set PR_FORMAT=false and log 'TRD format: legacy phase/sprint'.
+- If PR_FORMAT=true: count PR boundary sections; for each ### PR N: heading check whether a **Shippable State:** line immediately follows it; record MISSING_SHIPPABLE[N] for any that don't; record INFRA_ONLY_SHIPPABLE[N] for any whose Shippable State text contains only infrastructure language (e.g., 'scaffolding', 'setup done', 'infrastructure complete') with no user-observable capability.
 
 **2. Synthesis (skip when --collab or --long-lived in $ARGUMENTS)**
    If `--collab` or `--long-lived` is present in $ARGUMENTS, SKIP this
@@ -385,19 +385,19 @@ original feedback integration below.
 Incorporate stakeholder feedback collected during the interview into a change plan
 
 
-   - Apply interview answers to the relevant findings in SELECTED_ITEMS only
-   - For new tasks added, assign next sequential TRD-NNN ID
-   - For split tasks, preserve original [satisfies] annotations on child tasks
-   - For dependency changes, update the dependency graph and check for new circular deps
-   - Compile a change plan summarizing all modifications to be applied
+- Apply interview answers to the relevant findings in SELECTED_ITEMS only
+- For new tasks added, assign next sequential TRD-NNN ID
+- For split tasks, preserve original [satisfies] annotations on child tasks
+- For dependency changes, update the dependency graph and check for new circular deps
+- Compile a change plan summarizing all modifications to be applied
 
 ### Phase 3: Enhancement
 
 **1. List Available TRDs**
    If --list is passed, show available TRDs and exit
 
-   - If $ARGUMENTS contains '--list': Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js. If none of the 4 tiers resolve OR 'which node' fails: print 'ERROR: Node.js and the TRD CLI (lib/trd-cli.js) are required. Ensure Node.js is installed and the ensemble-development or ensemble-pi plugin bundle is present.' and HALT.
-   - If $ARGUMENTS contains '--list': run node "$TRD_CLI" list --type trd and parse {ok,type,items}. If ok is false or JSON is malformed, print the error and HALT. Print a formatted table of TRDs (columns: ID/Name, Status, Score, Last Modified). If $ARGUMENTS also contains '--foreman': skip the AskUserQuestion prompt below entirely -- auto-select the item with the highest design_readiness_score (fallback: most recently modified when scores are absent or tied), log 'Foreman mode: auto-selected <TRD_SLUG> (score: <score>)', and proceed directly to path derivation. Otherwise, call AskUserQuestion with id='trd_select', question='Select a TRD to refine:', options=items.map(i => ({id:i.slug, label:i.id||i.slug, description: 'Status: ' + i.status + (i.design_readiness_score != null ? ' | Score: ' + i.design_readiness_score : '') + (i.version ? ' | Version: ' + i.version : '') + (i.last_modified ? ' | Modified: ' + i.last_modified.split('T')[0] : '')})), multi=false, recommended=0. Parse answer id as the selected TRD_SLUG. Then derive TRD_FILE_PATH as docs/TRD/<basename matching the selected slug>.md (find by suffix/prefix match). If derived path does not exist, print 'ERROR: Could not resolve path for slug <TRD_SLUG>' and HALT. Set the derived path as the $ARGUMENTS positional and continue.
+- If $ARGUMENTS contains '--list': Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js. If none of the 4 tiers resolve OR 'which node' fails: print 'ERROR: Node.js and the TRD CLI (lib/trd-cli.js) are required. Ensure Node.js is installed and the ensemble-development or ensemble-pi plugin bundle is present.' and HALT.
+- If $ARGUMENTS contains '--list': run node "$TRD_CLI" list --type trd and parse {ok,type,items}. If ok is false or JSON is malformed, print the error and HALT. Print a formatted table of TRDs (columns: ID/Name, Status, Score, Last Modified). If $ARGUMENTS also contains '--foreman': skip the AskUserQuestion prompt below entirely -- auto-select the item with the highest design_readiness_score (fallback: most recently modified when scores are absent or tied), log 'Foreman mode: auto-selected <TRD_SLUG> (score: <score>)', and proceed directly to path derivation. Otherwise, call AskUserQuestion with id='trd_select', question='Select a TRD to refine:', options=items.map(i => ({id:i.slug, label:i.id||i.slug, description: 'Status: ' + i.status + (i.design_readiness_score != null ? ' | Score: ' + i.design_readiness_score : '') + (i.version ? ' | Version: ' + i.version : '') + (i.last_modified ? ' | Modified: ' + i.last_modified.split('T')[0] : '')})), multi=false, recommended=0. Parse answer id as the selected TRD_SLUG. Then derive TRD_FILE_PATH as docs/TRD/<basename matching the selected slug>.md (find by suffix/prefix match). If derived path does not exist, print 'ERROR: Could not resolve path for slug <TRD_SLUG>' and HALT. Set the derived path as the $ARGUMENTS positional and continue.
 
 **2. Content Refinement**
    Apply changes ONLY for the SELECTED_ITEMS identified in the Synthesis step.
@@ -427,70 +427,70 @@ Enhancements to apply (scoped to selected findings):
 **3. Validation**
    Verify structural integrity of the refined TRD before writing
 
-   - Verify all TRD-NNN IDs are unique and sequential
-   - Verify all [satisfies REQ-NNN] annotations reference valid PRD requirements
-   - Verify all [depends: TRD-NNN] annotations reference existing tasks
-   - Check no circular dependencies were introduced
-   - Verify all user-facing implementation tasks have paired TRD-NNN-TEST tasks
-   - Count tasks and hours to verify they haven't drifted from the Master Task List summary
-   - If PR_FORMAT=true: verify every ### PR N: heading in the Master Task List has an immediately-following **Shippable State:** line
-   - If PR_FORMAT=true: verify no task has a [depends: TRD-XXX] where TRD-XXX belongs to a later PR section (no forward dependencies across PR boundaries)
-   - If PR_FORMAT=true: verify the Master Task List section contains only ### PR N: headings (no mixed ### Phase N: or ### Sprint N: headings)
+- Verify all TRD-NNN IDs are unique and sequential
+- Verify all [satisfies REQ-NNN] annotations reference valid PRD requirements
+- Verify all [depends: TRD-NNN] annotations reference existing tasks
+- Check no circular dependencies were introduced
+- Verify all user-facing implementation tasks have paired TRD-NNN-TEST tasks
+- Count tasks and hours to verify they haven't drifted from the Master Task List summary
+- If PR_FORMAT=true: verify every ### PR N: heading in the Master Task List has an immediately-following **Shippable State:** line
+- If PR_FORMAT=true: verify no task has a [depends: TRD-XXX] where TRD-XXX belongs to a later PR section (no forward dependencies across PR boundaries)
+- If PR_FORMAT=true: verify the Master Task List section contains only ### PR N: headings (no mixed ### Phase N: or ### Sprint N: headings)
 
 ### Phase 4: Design Readiness Gate Re-Score
 
 **1. Re-Score Readiness Dimensions**
    Re-evaluate the Design Readiness Gate after refinement changes
 
-   - Score architecture completeness (1-5): are all components, interfaces, and data flows defined?
-   - Score task coverage (1-5): does every REQ-NNN have implementation and test tasks?
-   - Score dependency clarity (1-5): are dependencies explicit and acyclic?
-   - Score estimate confidence (1-5): are estimates consistent, reasonable, and granular enough?
-   - Compute overall score: average of all four dimensions
+- Score architecture completeness (1-5): are all components, interfaces, and data flows defined?
+- Score task coverage (1-5): does every REQ-NNN have implementation and test tasks?
+- Score dependency clarity (1-5): are dependencies explicit and acyclic?
+- Score estimate confidence (1-5): are estimates consistent, reasonable, and granular enough?
+- Compute overall score: average of all four dimensions
 
 **2. Compare With Previous Score**
    Compare new readiness score against the previous score from frontmatter
 
-   - Read previous Design Readiness Score from TRD frontmatter
-   - Print delta: 'Design Readiness: X.X -> Y.Y (improved/declined/unchanged)'
-   - If score dropped, warn the user and explain which dimensions declined
-   - If no previous readiness score exists, offer to run the gate for the first time
+- Read previous Design Readiness Score from TRD frontmatter
+- Print delta: 'Design Readiness: X.X -> Y.Y (improved/declined/unchanged)'
+- If score dropped, warn the user and explain which dimensions declined
+- If no previous readiness score exists, offer to run the gate for the first time
 
 **3. Assess Team Impact**
    Determine whether task changes warrant team reconfiguration
 
-   - Calculate task count delta (original vs refined)
-   - Calculate hour estimate delta (original vs refined)
-   - If task count changed by >20%, suggest: '/ensemble:configure-team <trd-path> to re-configure the team'
-   - Update the readiness score in frontmatter
+- Calculate task count delta (original vs refined)
+- Calculate hour estimate delta (original vs refined)
+- If task count changed by >20%, suggest: '/ensemble:configure-team <trd-path> to re-configure the team'
+- Update the readiness score in frontmatter
 
 ### Phase 5: Output Management
 
 **1. TRD Update**
    Write the refined TRD with version history and changelog
 
-   - Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1)
-   - Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate them on refine (beads and PRD/TRD correlation depend on the stable micro UUID id)
-   - Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
-   - Add changelog entry at the bottom: date, version, list of changes made
-   - Save the updated TRD to the same file path (overwrite)
-   - Print summary: changes made, new version, task count delta, hour estimate delta
-   - If the task count changed by more than 20%, include a line recommending /ensemble:configure-team be re-run. This is the only place that recommendation is emitted; expectedOutput declares it, so it has to come from somewhere.
+- Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1)
+- Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate them on refine (beads and PRD/TRD correlation depend on the stable micro UUID id)
+- Refresh the Acceptance Criteria Traceability matrix (recalculate from current task annotations)
+- Add changelog entry at the bottom: date, version, list of changes made
+- Save the updated TRD to the same file path (overwrite)
+- Print summary: changes made, new version, task count delta, hour estimate delta
+- If the task count changed by more than 20%, include a line recommending /ensemble:configure-team be re-run. This is the only place that recommendation is emitted; expectedOutput declares it, so it has to come from somewhere.
 
 **2. Implementation Go / No-Go**
    Close the refinement with an explicit go/no-go decision on implementing the TRD
 
-   - This step ALWAYS runs, and it is the last thing this command does. The run does not end on a printed summary.
-   - Before asking, confirm the TRD's source PRD is locked: read the PRD at this TRD's `prd_reference` and check its frontmatter `status`. If it is not Locked, say so in the question body -- implementing against an unlocked PRD means the requirements can still move underneath the build.
-   - If the source PRD's `version` is higher than the version this TRD was refined against, do NOT offer implementation at all. Report that the PRD moved and that the correct action is /ensemble:create-trd to re-create this TRD from the current PRD. A TRD refined against a PRD that has since changed is a refined copy of the wrong document.
-   - Present the close-out through AskUserQuestion, not prose. Put the design readiness score, its delta, the task count and the hour estimate in the question body, plus any genuine open question the refinement could not settle. A few lines: the person answering has not read the TRD and is not going to.
-   - Option 1, and the recommendation: GO. Print the next step as '/ensemble:implement-trd-beads <trd path>'. Cost: the full build. Risk: whatever the open questions above carry.
-   - Option 2: another refine pass. Cost: one more run. Risk: none beyond time. Offer this first when the design readiness score fell.
-   - Option 3: NO-GO, stop here. Cost: none. Risk: none.
-   - Do NOT print any implement command before this question is answered, and print it only on the GO branch.
-   - Prefer implement-trd-beads over implement-trd. They are separate commands, not a flag: implement-trd makes no beads calls and tracks progress in the TRD's own checkboxes, so it cannot resume across sessions. Name plain implement-trd only when the whole TRD lands as one PR in one sitting.
-   - Ask genuine open questions ONLY. Anything the TRD or the constitution already contains a rule for is a finding, and findings were applied during Synthesis, not asked about here.
-   - If --foreman is set, skip the question, record GO, and log the decision.
+- This step ALWAYS runs, and it is the last thing this command does. The run does not end on a printed summary.
+- Before asking, confirm the TRD's source PRD is locked: read the PRD at this TRD's `prd_reference` and check its frontmatter `status`. If it is not Locked, say so in the question body -- implementing against an unlocked PRD means the requirements can still move underneath the build.
+- If the source PRD's `version` is higher than the version this TRD was refined against, do NOT offer implementation at all. Report that the PRD moved and that the correct action is /ensemble:create-trd to re-create this TRD from the current PRD. A TRD refined against a PRD that has since changed is a refined copy of the wrong document.
+- Present the close-out through AskUserQuestion, not prose. Put the design readiness score, its delta, the task count and the hour estimate in the question body, plus any genuine open question the refinement could not settle. A few lines: the person answering has not read the TRD and is not going to.
+- Option 1, and the recommendation: GO. Print the next step as '/ensemble:implement-trd-beads <trd path>'. Cost: the full build. Risk: whatever the open questions above carry.
+- Option 2: another refine pass. Cost: one more run. Risk: none beyond time. Offer this first when the design readiness score fell.
+- Option 3: NO-GO, stop here. Cost: none. Risk: none.
+- Do NOT print any implement command before this question is answered, and print it only on the GO branch.
+- Prefer implement-trd-beads over implement-trd. They are separate commands, not a flag: implement-trd makes no beads calls and tracks progress in the TRD's own checkboxes, so it cannot resume across sessions. Name plain implement-trd only when the whole TRD lands as one PR in one sitting.
+- Ask genuine open questions ONLY. Anything the TRD or the constitution already contains a rule for is a finding, and findings were applied during Synthesis, not asked about here.
+- If --foreman is set, skip the question, record GO, and log the decision.
 
 ## Expected Output
 

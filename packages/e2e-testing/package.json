@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-e2e-testing",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "description": "End-to-end testing with Playwright integration",
   "main": "lib/index.js",
   "scripts": {

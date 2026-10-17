@@ -26,24 +26,24 @@ traceability continuous rather than a one-time snapshot, and the CLI exit code
 **1. Resolve the PRD path**
    Determine which PRD to check
 
-   - If the user passed a PRD path argument, use it
-   - Otherwise look under docs/PRD/ and ask the user which PRD to check if ambiguous
+- If the user passed a PRD path argument, use it
+- Otherwise look under docs/PRD/ and ask the user which PRD to check if ambiguous
 
 **2. Run the drift check**
    Invoke the deterministic CLI to diff the PRD against its manifest
 
-   - Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT.
-   - Run: node "$PRD_CLI" check-drift <prd-path> --json
-   - Pass through --out <dir> (default: features/) so the correct manifest is located
-   - Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no manifest yet
+- Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT.
+- Run: node "$PRD_CLI" check-drift <prd-path> --json
+- Pass through --out <dir> (default: features/) so the correct manifest is located
+- Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no manifest yet
 
 **3. Report and recommend**
    Explain the drift and the path back to sync
 
-   - If IN_SYNC: confirm the feature files match the PRD
-   - If ADDED/REMOVED/CHANGED: list the affected AC ids under each category
-   - If no manifest exists: tell the user to run /ensemble:generate-feature-tests first
-   - Recommend re-running /ensemble:generate-feature-tests to resync, then committing the updated features and manifest
+- If IN_SYNC: confirm the feature files match the PRD
+- If ADDED/REMOVED/CHANGED: list the affected AC ids under each category
+- If no manifest exists: tell the user to run /ensemble:generate-feature-tests first
+- Recommend re-running /ensemble:generate-feature-tests to resync, then committing the updated features and manifest
 
 ## Expected Output
 

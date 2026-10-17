@@ -7,7 +7,7 @@ metadata:
   output_path: ensemble/beads-build-wave.md
   source: sunstone
   model: medium
-  argument_hint: "--epic <id> [--max-parallel N] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [--team-roles <json>]"
+  argument_hint: "--epic <id> [--max-parallel N] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [--label <label>] [--team-roles <json>]"
   allowed_tools:
     - Read
     - Write
@@ -49,6 +49,7 @@ workflow:
             - 'Parse --max-parallel N from $ARGUMENTS (default 3). Set MAX_PARALLEL.'
             - 'Parse --trd <path> from $ARGUMENTS (optional); if present set TRD_MODE=true and TRD_PATH=<path>.'
             - 'Parse --strategy <value> from $ARGUMENTS (optional); valid: tdd, characterization, bug-fix, refactor, test-after, flexible.'
+            - 'Parse --label <L> from $ARGUMENTS (optional); if present set LABEL=<L>. LABEL scopes the bv plan to one TRD.'
             - 'Parse --team-roles <json> from $ARGUMENTS (optional); if present parse as TEAM_ROLES. If absent, parse deprecated --builder <agent> and synthesize compatibility TEAM_ROLES={lead:{agents:["tech-lead-orchestrator"],owns:["planning","escalation"]},builder:{agents:[<builder>],owns:["implementation"]},architect:{agents:["architect"],owns:["task-design"]},documentation:{agents:["documentation-specialist"],owns:["pr-boundary-doc-maintenance"]}}. If neither flag is present, set TEAM_ROLES={} and continue.'
         - order: 2
           title: Tool Availability Check
@@ -61,7 +62,7 @@ workflow:
           title: Working Directory and Branch Verification
           description: 'Confirm clean working directory AND that the caller already switched off the repository default branch; branch creation itself is still owned by the caller (beads-build.yaml or implement-trd-beads.yaml Feature Branch Creation) -- this step only verifies the precondition, it never creates or switches branches.'
           actions:
-            - 'Run: git status --porcelain -- HALT if output non-empty (dirty working directory).'
+            - 'Run: git status --porcelain -- . '':(exclude).beads'' and HALT if output non-empty (dirty working directory). .beads/ is br''s own state and is ignored.'
             - 'Run: git symbolic-ref --short HEAD to get CURRENT_BRANCH (HALT immediately with "ERROR: detached HEAD -- create or switch to a feature branch before dispatching a wave." if this fails/empty, i.e. detached HEAD).'
             - 'Run: git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed "s@^origin/@@" to get DEFAULT_BRANCH; if empty (no origin configured) fall back to DEFAULT_BRANCH=main.'
             - 'HARD PRECONDITION: if CURRENT_BRANCH == DEFAULT_BRANCH, print "ERROR: beads-build-wave refuses to dispatch on the repository default branch (<DEFAULT_BRANCH>). Run implement-trd-beads.yaml Feature Branch Creation (Preflight Step 10) first, or manually create/switch to a feature branch, then retry." and HALT. Do not implement work directly on <DEFAULT_BRANCH>.'
@@ -102,11 +103,12 @@ workflow:
             (just a count check) is the design goal, not enforcing continuation.
           actions:
             - 'Step 1 (sync): run br sync --flush-only (ensure JSONL is current before any bv call).'
-            - 'Step 2 (plan): run bv --robot-plan --format toon. Treat non-zero exit OR malformed TOON as HARD FAILURE: print "ERROR: bv --robot-plan failed" with captured diagnostics and HALT. There is no br ready fallback -- bv is the only scheduler. SCHEDULING SOURCE LOCK: do NOT derive scheduling decisions from .beads/*.jsonl directly; the persisted bead graph is opaque to this command and must only be read through bv.'
+            - 'Step 2 (plan): run bv --robot-plan --label <LABEL> --format toon when LABEL is set, otherwise bv --robot-plan --format toon. Treat non-zero exit OR malformed TOON as HARD FAILURE: print "ERROR: bv --robot-plan failed" with captured diagnostics and HALT. There is no br ready fallback -- bv is the only scheduler. SCHEDULING SOURCE LOCK: do NOT derive scheduling decisions from .beads/*.jsonl directly; the persisted bead graph is opaque to this command and must only be read through bv.'
             - 'Step 3 (parse tracks): parse the TOON output to extract the parallel tracks (up to MAX_PARALLEL). Each track is an ordered list of bead IDs. If zero tracks returned: skip to Step 7 (empty-plan edge).'
+            - 'Step 3b (scope check, only when LABEL is set; this verifies bv''s output and never replaces it as the scheduler): LABEL_IDS = the .id of every entry in the issue list of br list --all --label <LABEL> --json. If LABEL_IDS is empty, or any bead ID in the tracks is not in LABEL_IDS: print "ERROR: bv returned beads outside label <LABEL> (bv ignores an unknown label and returns the unscoped plan). Refusing to dispatch." and HALT; do not dispatch any track.'
             - 'Step 4 (build payload per track): for each track, construct an immutable track payload with the following fields:'
             - '  goal: free-text from parent invocation.'
-            - '  scope: { ROOT_EPIC_ID, EPIC_SLUG, TRD_PATH (or null), STRATEGY }.'
+            - '  scope: { ROOT_EPIC_ID, EPIC_SLUG, LABEL (or null), TRD_PATH (or null), STRATEGY }.'
             - '  team_roles: TEAM_ROLES object parsed from --team-roles or synthesized from deprecated --builder.'
             - '  track_beads: ordered string[] of bead IDs for this track only.'
             - '  lifecycle_contract: literal command sequence per bead, in order: (1) claim via ''br update <BEAD_ID> --status=in_progress''; (2) dispatch the implementing subagent; (3) COMMIT GATE (hard, non-skippable): after the subagent reports success, run ''git status --porcelain'' -- if non-empty, the subagent left uncommitted work, so commit it now (''git add -A && git commit -m "<conventional message referencing the bead/TRD task>"'') before proceeding; NEVER call br close while git status --porcelain is non-empty; a subagent''s self-reported success narrative is NOT sufficient evidence of a commit, the Commit Gate must independently verify git state; (4) close via ''br close <BEAD_ID>'' only after the Commit Gate passes; (5) sync via ''br sync --flush-only'' between operations.'
