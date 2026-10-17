@@ -1072,6 +1072,8 @@ Summary.
 - [ ] **TRD-005**: Single, unchanged (1h) [satisfies REQ-010]
 - [ ] **TRD-006**: Infra, unchanged (1h) [satisfies INFRA]
 - [ ] **TRD-007**: Arch, unchanged (1h) [satisfies ARCH]
+- [ ] **TRD-008**: Repeat in one bracket (1h) [satisfies REQ-011, REQ-011]
+- [ ] **TRD-009**: Repeat across brackets (1h) [satisfies REQ-012] [satisfies REQ-012]
 `;
 
   let result;
@@ -1104,11 +1106,28 @@ Summary.
     expect(result.tasksById['TRD-007'].satisfies).toEqual(['ARCH']);
   });
 
+  test('collapses a REQ repeated inside one bracket', () => {
+    // Reachable only once every id in the bracket is read, so it arrived with
+    // the fix rather than before it.
+    expect(result.tasksById['TRD-008'].satisfies).toEqual(['REQ-011']);
+  });
+
+  test('collapses a REQ repeated across two brackets on one task', () => {
+    // This one duplicated before the fix too; verify-requirements-evidence.js
+    // indexes task ids by REQ, so it listed the task twice for REQ-012.
+    expect(result.tasksById['TRD-009'].satisfies).toEqual(['REQ-012']);
+  });
+
   test('traceability counts every REQ the document names, not one per bracket', () => {
     // The point of the fix: a gate counting covered REQs off this parser saw 6
     // where the document names 10, and said nothing about the 4 it dropped.
+    // TRD-008/TRD-009 add REQ-011 and REQ-012, so the distinct total is 12.
     const all = Object.values(result.tasksById).flatMap((t) => t.satisfies);
     const reqs = all.filter((s) => s.startsWith('REQ-'));
-    expect(new Set(reqs).size).toBe(10);
+    expect(new Set(reqs).size).toBe(12);
+    // And no task carries a duplicate of its own.
+    for (const task of Object.values(result.tasksById)) {
+      expect(task.satisfies).toEqual([...new Set(task.satisfies)]);
+    }
   });
 });

@@ -403,7 +403,12 @@ function findMasterTaskListScope(lines) {
 // ---------------------------------------------------------------------------
 
 function extractSatisfies(text) {
-  const out = [];
+  // A Set, because reading every id in a bracket makes repeats reachable that
+  // the old single-match read could not produce: `[satisfies REQ-001, REQ-001]`
+  // would now yield two entries. verify-requirements-evidence.js indexes task
+  // ids by REQ, so a duplicate puts the same task twice in one requirement's
+  // evidence chain. Insertion order is preserved, so document order still holds.
+  const out = new Set();
   const re = /\[satisfies\s+([^\]]+)\]/gi;
   let m;
   while ((m = re.exec(text)) !== null) {
@@ -414,15 +419,15 @@ function extractSatisfies(text) {
     const reqMatches = token.match(/REQ-\d+/gi);
     if (reqMatches) {
       for (const req of reqMatches) {
-        out.push(req.toUpperCase());
+        out.add(req.toUpperCase());
       }
     } else if (/^(INFRA|ARCH)$/i.test(token)) {
-      out.push(token.toUpperCase());
+      out.add(token.toUpperCase());
     } else {
-      out.push(token);
+      out.add(token);
     }
   }
-  return out;
+  return Array.from(out);
 }
 
 function extractVerifies(text) {
