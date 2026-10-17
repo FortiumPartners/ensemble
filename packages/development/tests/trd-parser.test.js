@@ -1046,3 +1046,69 @@ describe('parseTRD — document identity (documentId/label/kind)', () => {
     expect(parseTRD(md).capabilities).toEqual(['order-domain', 'money-vo']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// A [satisfies] bracket may list more than one REQ
+// ---------------------------------------------------------------------------
+
+describe('satisfies brackets listing several REQs', () => {
+  // Every other fixture in this file puts one REQ in one bracket, which is why
+  // the single-value read below survived. create-trd's prose allows one bracket
+  // per task without forbidding a list, and TRDs in the wild use lists.
+  const MULTI_REQ_TRD = `# TRD-123: Multi-REQ Satisfies
+
+Summary.
+
+## Master Task List
+
+### PR 1: Feature
+
+**Shippable State:** Users can do the thing.
+
+- [ ] **TRD-001**: Comma separated (2h) [satisfies REQ-001, REQ-002]
+- [ ] **TRD-002**: Comma, no space (1h) [satisfies REQ-003,REQ-004]
+- [ ] **TRD-003**: Three of them (1h) [satisfies REQ-005, REQ-006, REQ-007]
+- [ ] **TRD-004**: Separate brackets (1h) [satisfies REQ-008] [satisfies REQ-009]
+- [ ] **TRD-005**: Single, unchanged (1h) [satisfies REQ-010]
+- [ ] **TRD-006**: Infra, unchanged (1h) [satisfies INFRA]
+- [ ] **TRD-007**: Arch, unchanged (1h) [satisfies ARCH]
+`;
+
+  let result;
+  beforeAll(() => {
+    result = parseTRD(MULTI_REQ_TRD);
+  });
+
+  test('keeps both REQs from a comma-separated bracket', () => {
+    expect(result.tasksById['TRD-001'].satisfies).toEqual(['REQ-001', 'REQ-002']);
+  });
+
+  test('keeps both REQs when the comma has no trailing space', () => {
+    expect(result.tasksById['TRD-002'].satisfies).toEqual(['REQ-003', 'REQ-004']);
+  });
+
+  test('keeps all three REQs from a longer list', () => {
+    expect(result.tasksById['TRD-003'].satisfies).toEqual(['REQ-005', 'REQ-006', 'REQ-007']);
+  });
+
+  test('still collects REQs from two separate brackets on one task', () => {
+    expect(result.tasksById['TRD-004'].satisfies).toEqual(['REQ-008', 'REQ-009']);
+  });
+
+  test('leaves a single-REQ bracket exactly as it was', () => {
+    expect(result.tasksById['TRD-005'].satisfies).toEqual(['REQ-010']);
+  });
+
+  test('leaves INFRA and ARCH tokens exactly as they were', () => {
+    expect(result.tasksById['TRD-006'].satisfies).toEqual(['INFRA']);
+    expect(result.tasksById['TRD-007'].satisfies).toEqual(['ARCH']);
+  });
+
+  test('traceability counts every REQ the document names, not one per bracket', () => {
+    // The point of the fix: a gate counting covered REQs off this parser saw 6
+    // where the document names 10, and said nothing about the 4 it dropped.
+    const all = Object.values(result.tasksById).flatMap((t) => t.satisfies);
+    const reqs = all.filter((s) => s.startsWith('REQ-'));
+    expect(new Set(reqs).size).toBe(10);
+  });
+});

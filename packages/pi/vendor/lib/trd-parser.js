@@ -407,11 +407,15 @@ function extractSatisfies(text) {
   const re = /\[satisfies\s+([^\]]+)\]/gi;
   let m;
   while ((m = re.exec(text)) !== null) {
-    // A single [satisfies ...] may contain a REQ id or INFRA/ARCH token.
+    // A single [satisfies ...] may list several REQ ids, or carry one
+    // INFRA/ARCH token. Matching without /g kept only the first id and dropped
+    // the rest silently, so traceability under-reported what the TRD named.
     const token = m[1].trim();
-    const reqMatch = token.match(/REQ-\d+/i);
-    if (reqMatch) {
-      out.push(reqMatch[0].toUpperCase());
+    const reqMatches = token.match(/REQ-\d+/gi);
+    if (reqMatches) {
+      for (const req of reqMatches) {
+        out.push(req.toUpperCase());
+      }
     } else if (/^(INFRA|ARCH)$/i.test(token)) {
       out.push(token.toUpperCase());
     } else {
