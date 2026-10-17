@@ -104,7 +104,40 @@ function collectSteps(prd) {
       }
     }
   }
-  return out;
+  return disambiguateMethodNames(out);
+}
+
+/**
+ * Make every method name unique within its requirement.
+ *
+ * `methodNameFor` collapses each run of non-alphanumerics to a word break, so two
+ * steps differing only in punctuation — `a paused/canceled plan` and `a paused
+ * canceled plan` — yield one identifier. Both survive the dedup above, because
+ * `normalizeStepText` only lowercases and collapses whitespace, and a requirement
+ * renders to a single partial class, so the generated project fails to compile
+ * with CS0111.
+ *
+ * The suffix is the step's own `hash`, which is already this module's per-step
+ * identity and already written to the manifest, so a disambiguated method traces
+ * straight to its manifest entry. Taking it from the step's own text rather than
+ * its position means the name does not move when the PRD is reordered, and a name
+ * that does not collide is left alone.
+ *
+ * Uniqueness is scoped per requirement because that is the scope of the class:
+ * two requirements emitting one method name are two different classes, which
+ * compiles. A suffixed name cannot collide with a clean one either, since
+ * `methodNameFor` strips `_` along with every other non-alphanumeric.
+ */
+function disambiguateMethodNames(steps) {
+  const counts = new Map();
+  for (const s of steps) {
+    const key = `${s.reqId}::${s.method}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (const s of steps) {
+    if (counts.get(`${s.reqId}::${s.method}`) > 1) s.method = `${s.method}_${s.hash}`;
+  }
+  return steps;
 }
 
 // ---------------------------------------------------------------------------

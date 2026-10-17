@@ -1,0 +1,1 @@
+../../development/lib/beads-label.js
