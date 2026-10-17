@@ -26,6 +26,7 @@
  *   create-workstream-trd <trd-path...> [--out path]
  *   workstream-plan <trd-path...> [--stacked]
  *   workstream-status [--workstream slug] [--issues-json path]
+ *   beads-label --label <l> --match <title-substring>
  *   quickstart <trd-path> --out <path> [--json]
  *   resolve-sdlc --git-town-exit-code <0-4> --remote-url <url>
  */
@@ -64,6 +65,7 @@ const {
   buildConsolidatedResolutionMessage,
 } = require('./pr-strategy');
 const { buildQuickstart } = require('./quickstart-generator');
+const { ensureLabel } = require('./beads-label');
 
 // ---------------------------------------------------------------------------
 // Small utilities
@@ -441,6 +443,15 @@ function runWorkstreamPlan(argv, env) {
   const plan = buildWorkstreamPlan(items, { stackedPrs });
   const crossTrd = resolveCrossTrdDeps(plan.scaffoldPlans);
   return { ...plan, ok: plan.ok && crossTrd.ok, crossTrd };
+}
+
+/**
+ * `beads-label --label <l> --match <substr>` -> { ok:true, label, matched, labeled, already }
+ * Labels every bead whose title contains <substr> (e.g. "[trd:<slug>") that lacks <l>.
+ */
+function runBeadsLabel(argv) {
+  const { flags } = parseArgs(argv, new Set(['label', 'match']));
+  return { ok: true, ...ensureLabel({ label: flags.label, match: flags.match }) };
 }
 
 /** `workstream-status [--workstream slug] [--issues-json path]` -> combined status summary. */
@@ -955,6 +966,7 @@ const HANDLERS = {
   'create-workstream-trd': (argv) => runCreateWorkstreamTrd(argv),
   'workstream-plan': (argv) => runWorkstreamPlan(argv, process.env),
   'workstream-status': (argv) => runWorkstreamStatus(argv),
+  'beads-label': (argv) => runBeadsLabel(argv),
   quickstart: (argv) => runQuickstart(argv),
   'choices-read': (argv) => runChoicesRead(argv),
   'choices-write': (argv) => runChoicesWrite(argv),
@@ -980,7 +992,7 @@ function main(argv) {
     process.stdout.write(
       JSON.stringify({
         error:
-          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan|resolve-sdlc|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|quickstart|list|status|migrate-frontmatter|choices-read|choices-write> <trd-path> [...]',
+          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|phase-status|next-task|pr-plan|resolve-sdlc|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|quickstart|list|status|migrate-frontmatter|choices-read|choices-write> <trd-path> [...]',
       }) + '\n'
     );
     return 1;
@@ -1022,6 +1034,7 @@ module.exports = {
   runCreateWorkstreamTrd,
   runWorkstreamPlan,
   runWorkstreamStatus,
+  runBeadsLabel,
   main,
   runChoicesRead,
   runChoicesWrite,
