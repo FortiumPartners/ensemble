@@ -7,12 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.9] - 2026-10-17
+
+### Added
+
+- **packages/pi-extension, packages/agent-core:** command lifecycle hooks
+  (`command.start` / `command.end`) — a trusted `hooks.yaml` per command can
+  observe or block command invocation, with a two-condition trust gate,
+  digest-bound per-user trust store, run tracker, prompt/event runner, and
+  bounded shutdown; `ensemble_command_complete` tool and per-turn instruction
+  (TRD-2026-f08a2a09, #168).
+- **packages/development:** `pr-review-cycle` skill plus
+  `lib/pr-review-*.js` / `pr-review-cli.js`: head-bound, base-correct review
+  loop with a finding ledger, terminal-status contract (`REVIEW_COMPLETE` /
+  `REVIEW_PENDING` / `REVIEW_BLOCKED`), bounded remediation rounds, and
+  fail-closed validation; integrated into `fix-issue`,
+  `implement-trd-beads`, and `complete-beads` at their PR boundaries.
+  `new-feature`/`feature` gain `--foreman` non-interactive mode.
+  (TRD-2026-82b6a138 #156-#159; #165.)
+- **packages/quality:** `pr-review-remediation` skill consumed by the above.
+
 ### Fixed
 
-- **packages/product:** generate literal Reqnroll regex expressions and migrate legacy attributes without replacing implemented bodies. Product version5.6.5.
-- **packages/core tests:** remove two environment-dependent assertions that required the bare `cloudflared` name even when a supported installed binary was resolved. Missing-binary behavior and install guidance remain covered. Core version5.6.3.
-- Bump the aggregate release to6.9.9 so existing full-plugin installations receive the changed package content.
+- **packages/product:** generated Reqnroll step bindings use literal Cucumber
+  expressions for special characters, and method names are unique within a
+  requirement; migration rewrites legacy attributes without replacing
+  implemented bodies (#154, #161, #162).
+- **packages/development:** beads are labelled by TRD and `bv` plans are
+  label-scoped; only the current TRD's beads are staged and `br`'s own export
+  no longer halts the gate; the clean-tree gate is decided after resume
+  detection; `trd-parser` accepts `AC checklist:` labels and keeps every REQ
+  in a multi-REQ `[satisfies …]` bracket (#129, #130, #145, #166).
+- **packages/core:** QuickTunnel missing-binary tests pin the binary
+  resolver, dropping the environment-dependent bare-`cloudflared` assertions
+  (#155).
+- **packages/development:** `new-feature` reads its invocation arguments from
+  `$ARGUMENTS` (#167).
 
+### Release plumbing
+
+- Aggregate release bumped so existing full-plugin installations receive the
+  changed content: `ensemble-full` 6.9.8 → 6.9.9, with content-change bumps
+  `ensemble-development` 6.0.10 → 6.0.11, `ensemble-codex` 5.3.5 → 5.3.6
+  (regenerated skills), `ensemble-e2e-testing` 5.4.0 → 5.4.1,
+  `ensemble-git` 5.3.1 → 5.3.2, `ensemble-metrics` 5.2.1 → 5.2.2, and
+  `ensemble-reqnroll` 1.0.0 → 1.0.1. `ensemble-pi` 1.6.15 is a prerequisite:
+  Pi vendors the skills above in its bundle.
 
 ## [6.9.8] - 2026-10-14
 

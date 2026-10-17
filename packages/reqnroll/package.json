@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-reqnroll",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Reqnroll + xUnit BDD bindings: fill PRD-generated step definitions test-first",
   "main": "lib/index.js",
   "scripts": {

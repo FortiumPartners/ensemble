@@ -76,7 +76,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "6.0.10",
+      "version": "6.0.11",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -124,7 +124,7 @@
     },
     {
       "name": "ensemble-git",
-      "version": "5.3.1",
+      "version": "5.3.2",
       "source": "./packages/git",
       "description": "Git workflow automation and best practices",
       "category": "workflow",
@@ -140,7 +140,7 @@
     },
     {
       "name": "ensemble-e2e-testing",
-      "version": "5.4.0",
+      "version": "5.4.1",
       "source": "./packages/e2e-testing",
       "description": "End-to-end testing workflows with Playwright",
       "category": "testing",
@@ -156,7 +156,7 @@
     },
     {
       "name": "ensemble-metrics",
-      "version": "5.2.1",
+      "version": "5.2.2",
       "source": "./packages/metrics",
       "description": "Development metrics and analytics",
       "category": "utilities",
@@ -333,7 +333,7 @@
     },
     {
       "name": "ensemble-reqnroll",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "source": "./packages/reqnroll",
       "description": "Reqnroll + xUnit BDD bindings: fill PRD-generated step definitions test-first",
       "category": "testing",
@@ -457,7 +457,7 @@
       "name": "ensemble-pi",
       "version": "1.6.15",
       "source": "./packages/pi",
-      "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
+      "description": "Pi runtime support \u2014 translates ensemble artifacts for Pi coding agent",
       "category": "core",
       "tags": [
         "pi",
@@ -472,7 +472,7 @@
     },
     {
       "name": "ensemble-codex",
-      "version": "5.3.5",
+      "version": "5.3.6",
       "source": "./packages/codex",
       "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
       "category": "core",
