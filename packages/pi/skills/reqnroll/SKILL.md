@@ -21,6 +21,13 @@ hand-edited attribute that no longer matches the scenario step becomes an *undef
 step*. Wrong/missing attribute text is a drift signal (see
 `/ensemble-check-binding-drift`), not something to fix by hand.
 
+A method name ending in `_` plus twelve hex characters is deliberate, not a glitch.
+The name is built from the step text, so two steps differing only in punctuation
+would otherwise produce one identifier and the project would not compile. Where
+that happens, each name carries the step's own fingerprint — the same `hash` the
+`.reqnroll-trace.json` manifest records, so you can look the method up there. Fill
+the body as you would any other.
+
 ## Package set (already wired by the generator)
 
 ```xml
