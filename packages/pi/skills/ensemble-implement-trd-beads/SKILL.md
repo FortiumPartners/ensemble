@@ -143,7 +143,7 @@ Verify git-town installed and working directory is clean; resolve branching stra
 9. If RESOLVE_SDLC_RESULT.prBackend.needsResolution == false: set PR_BACKEND=RESOLVE_SDLC_RESULT.prBackend.backend (no prompt, no HALT).
 10. Set BRANCHING_STRATEGY=RESOLVE_SDLC_RESULT.branchingStrategy.strategy. Both BRANCHING_STRATEGY and PR_BACKEND are re-resolved fresh on every invocation, including resumed TRDs, and are read by later Preflight/Feature-Branch-Creation/Quality-Gate steps in this file — never cached across sessions.
 11. If RESOLVE_SDLC_RESULT.consolidatedMessage is non-null: print it. If it is null (the pure-default case — git-town configured and remote is GitHub): print nothing new at all, matching today's exact output for existing git-town+GitHub users.
-12. Run: git status --porcelain — HALT if output non-empty (dirty working directory).
+12. Run: git status --porcelain and capture the output as WORKTREE_STATUS. Do NOT decide on it here — the clean-tree gate moved to Resume Detection (Preflight step 7), because whether a dirty tree is a fault depends on whether this invocation is a resume, and that is not known yet at this point. Capturing here keeps the reading from a moment before any later step could have touched the tree.
 
 ### Step 5: TRD Selection and Validation
 
@@ -183,9 +183,11 @@ never written there and are always live-resolved).
 1. If EXECUTE_ONLY=true: skip scaffold phase entirely. Run resume detection to find ROOT_EPIC_ID. If no existing scaffold found: print 'ERROR: --execute requires an existing bead scaffold. Run /ensemble-implement-trd-beads --plan first.' and EXIT.
 2. Run: br list --status=open --json
 3. Take the issue list from that JSON (the parsed JSON if it is an array, otherwise its `.issues` array — br 0.2.x wraps list output as {issues:[...]}) and search it for the entry where title matches pattern [trd:<TRD_SLUG>] with type epic
-4. If found (either EXECUTE_ONLY=false or EXECUTE_ONLY=true — this is a resumed TRD): set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Preflight step 1) with TRD_SLUG to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute
-5. Reconciliation notice (REQ-014/REQ-015): if a resume was just detected (ROOT_EPIC_ID found above) AND RESOLVE_SDLC_RESULT.consolidatedMessage (captured fresh in Preflight step 4 for THIS invocation) is non-null: print 'NOTE: this session resolved BRANCHING_STRATEGY=<BRANCHING_STRATEGY>, PR_BACKEND=<PR_BACKEND> for a TRD that was previously scaffolded/branched in an earlier session. The prior session's resolution is not persisted anywhere, so it cannot be named exactly here — if it differed from this session's values, any branches or PRs already created under it are unaffected going forward; only branches/PRs created from this point forward use the resolution above.' This is informational only — no branch or PR created in a prior session is rewritten, re-targeted, or otherwise touched (deliberate limitation, TRD §2.4).
-6. If not found: proceed to Feature Branch Creation then Scaffold
+4. Clean-tree gate (moved here from Preflight step 4), and it is decided HERE, before any action below transfers control. If the search above matched NO epic — this is a fresh run — and WORKTREE_STATUS is non-empty: print 'ERROR: working directory is dirty. Commit, stash or revert before starting a new build.' followed by WORKTREE_STATUS, and HALT. A fresh run gets exactly the behaviour it had before. The two bullets below carry 'proceed to Execute' and 'proceed to Feature Branch Creation', so an executor reading this step in order leaves it at one of them; a gate written after either one is unreachable on the path it is supposed to stop.
+5. If the search above matched an epic — this is a resume — and WORKTREE_STATUS is non-empty: print 'NOTE: resuming with a dirty working directory. These paths are carried into the resumed build and nothing here commits, stashes or reverts them:' followed by WORKTREE_STATUS, then continue. A resumed build is re-entering work that was already modifying the tree, so a dirty tree is the expected state rather than a fault, and halting on it strands the very WIP the resume exists to continue. Never stash, commit, checkout or clean these paths to satisfy a gate.
+6. If found (either EXECUTE_ONLY=false or EXECUTE_ONLY=true — this is a resumed TRD): set ROOT_EPIC_ID from JSON .id field, run br sync --flush-only, then call trd_progress() (Preflight step 1) with TRD_SLUG to show resumed TRD-scoped progress, skip Scaffold phase, proceed to Execute
+7. Reconciliation notice (REQ-014/REQ-015): if a resume was just detected (ROOT_EPIC_ID found above) AND RESOLVE_SDLC_RESULT.consolidatedMessage (captured fresh in Preflight step 4 for THIS invocation) is non-null: print 'NOTE: this session resolved BRANCHING_STRATEGY=<BRANCHING_STRATEGY>, PR_BACKEND=<PR_BACKEND> for a TRD that was previously scaffolded/branched in an earlier session. The prior session's resolution is not persisted anywhere, so it cannot be named exactly here — if it differed from this session's values, any branches or PRs already created under it are unaffected going forward; only branches/PRs created from this point forward use the resolution above.' This is informational only — no branch or PR created in a prior session is rewritten, re-targeted, or otherwise touched (deliberate limitation, TRD §2.4).
+8. If not found: proceed to Feature Branch Creation then Scaffold
 
 ### Step 8: TRD Staleness Gate
 
@@ -193,8 +195,8 @@ Check TRD freshness before committing to a feature branch. Skip on resume.
 Algorithm defined in the staleness-gate skill. Resolve its path per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/skills/staleness-gate/SKILL.md.
 
 **Actions:**
-1. If resume was detected in Preflight step 6 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to Preflight step 8 (Strategy Detection).
-2. If first invocation (IS_RESUME=false / no ROOT_EPIC_ID found in step 6): execute the TRD Staleness Gate using the staleness-gate skill (invoke its skill.md via the skill system), passing TRD_PATH from Preflight step 5 and IS_RESUME=false.
+1. If resume was detected in Preflight step 7 (ROOT_EPIC_ID is set / IS_RESUME=true): skip this step — staleness check does not apply to resuming an existing scaffold. Print 'Staleness check: skipped (resume detected)' and continue to Preflight step 9 (Strategy Detection).
+2. If first invocation (IS_RESUME=false / no ROOT_EPIC_ID found in step 7): execute the TRD Staleness Gate using the staleness-gate skill (invoke its skill.md via the skill system), passing TRD_PATH from Preflight step 5 and IS_RESUME=false.
 
 ### Step 9: Strategy Detection
 

@@ -1,6 +1,59 @@
 const fs = require('fs');
 const path = require('path');
 
+describe('beads-build clean-tree gate', () => {
+  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
+
+  test('a fresh run still HALTs on a dirty working directory', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('If STARTED_COUNT == 0');
+    expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
+  });
+
+  test('a resumed run warns and continues instead of halting', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('If STARTED_COUNT > 0 and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('NOTE: resuming with a dirty working directory.');
+    expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
+  });
+
+  // A wave boundary leaves every task of the finished wave closed and none
+  // in_progress. Keying the gate on IN_PROGRESS_COUNT reads that as a fresh
+  // run and HALTs on the WIP the resume exists to continue, which is the
+  // failure this change removes. So the fresh-run test has to count closed
+  // tasks too, and must not be expressible in terms of in_progress alone.
+  test('closed tasks count as work already started, so a wave boundary is a resume', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('STARTED_COUNT = IN_PROGRESS_COUNT + CLOSED_COUNT');
+    // --all and --limit 0 both decide whether CLOSED_COUNT can be non-zero.
+    // `br list --help`: -a/--all is "Include closed issues (default excludes
+    // closed)" and --limit is "Maximum number of results (0 = unlimited,
+    // default: 50)". Drop either and the count reads 0 on a real database,
+    // which HALTs the resume this change exists to let through.
+    expect(text).toContain('br list --all --status=closed --limit 0 --json');
+    expect(text).not.toContain('If IN_PROGRESS_COUNT == 0 — this is a fresh run');
+    expect(text).not.toContain('If IN_PROGRESS_COUNT > 0 and WORKTREE_STATUS is non-empty');
+  });
+
+  // Ordering, not presence: the broken file also contained a clean-tree gate.
+  // It sat in step 3, one step ahead of the IN_PROGRESS_COUNT that decides
+  // whether it applies.
+  test('the gate is decided after epic discovery, never before it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const epicDiscovery = text.indexOf('title: Epic Discovery');
+    const haltDecision = text.indexOf('ERROR: working directory is dirty.');
+    expect(epicDiscovery).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(epicDiscovery);
+  });
+
+  test('preflight step 3 captures the status without deciding on it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('capture the output as WORKTREE_STATUS');
+    expect(text).not.toContain('git status --porcelain — HALT if output non-empty');
+  });
+});
+
 describe('beads-build Preflight resolve-sdlc rewiring (TRD-013)', () => {
   const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
 

@@ -14,6 +14,63 @@ const actionsOf = (block) =>
 // other or missing value then slips past.
 const rawPhaseComparisons = (s) => [...s.matchAll(/\blocalPhase\s*==\s*'([A-Z_]+)'/g)].map((m) => m[1]);
 
+describe('implement-trd-beads clean-tree gate', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+
+  test('a fresh run still HALTs on a dirty working directory', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    // Keyed on the search result, not on ROOT_EPIC_ID: the bullet that assigns
+    // ROOT_EPIC_ID now sits BELOW the gate, because it is also the bullet that
+    // proceeds to Execute and leaves the step.
+    expect(text).toContain('If the search above matched NO epic — this is a fresh run — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
+  });
+
+  test('a resumed run warns and continues instead of halting', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('If the search above matched an epic — this is a resume — and WORKTREE_STATUS is non-empty');
+    expect(text).toContain('NOTE: resuming with a dirty working directory.');
+    expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
+  });
+
+  // The defect this guards against was ordering, not absence: the gate existed
+  // and ran three steps before the thing that knows whether it applies. A
+  // presence-only assertion passes against the broken file, so compare offsets.
+  test('the gate is decided after resume detection, never before it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const resumeDetection = text.indexOf('title: Resume Detection');
+    const haltDecision = text.indexOf('ERROR: working directory is dirty.');
+    expect(resumeDetection).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(-1);
+    expect(haltDecision).toBeGreaterThan(resumeDetection);
+  });
+
+  // Being inside the right step is not enough. Two of that step's actions
+  // transfer control out of it — 'proceed to Execute' on the resume path and
+  // 'proceed to Feature Branch Creation' on the fresh one — so a gate written
+  // below either of them is unreachable on the path it exists to stop, and the
+  // step-title comparison above passes anyway.
+  test('the gate is decided before either action that leaves the step', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    const haltDecision = text.indexOf('ERROR: working directory is dirty.');
+    const proceedToExecute = text.indexOf('skip Scaffold phase, proceed to Execute');
+    const proceedToBranch = text.indexOf('If not found: proceed to Feature Branch Creation');
+    expect(haltDecision).toBeGreaterThan(-1);
+    expect(proceedToExecute).toBeGreaterThan(-1);
+    expect(proceedToBranch).toBeGreaterThan(-1);
+    expect(haltDecision).toBeLessThan(proceedToExecute);
+    expect(haltDecision).toBeLessThan(proceedToBranch);
+  });
+
+  test('preflight step 4 captures the status without deciding on it', () => {
+    const text = fs.readFileSync(yamlPath, 'utf8');
+    expect(text).toContain('capture the output as WORKTREE_STATUS');
+    // The exact wording of the old unconditional gate. If this string comes
+    // back, the premature HALT came back with it.
+    expect(text).not.toContain('git status --porcelain — HALT if output non-empty');
+  });
+});
+
 describe('implement-trd-beads command progress behavior', () => {
   const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 
@@ -1085,5 +1142,38 @@ describe('implement-trd-beads PR review gate decision points are positive-only (
 
   test('every property has at least one mutant that it reports', () => {
     PROPERTIES.forEach(({ id }) => expect(MUTANTS.some((mutant) => mutant.property === id)).toBe(true));
+  });
+});
+
+describe('implement-trd-beads Preflight step cross-references', () => {
+  const yamlPath = path.join(__dirname, '../commands/implement-trd-beads.yaml');
+  const skillPath = path.join(__dirname, '../skills/staleness-gate/SKILL.md');
+  const text = fs.readFileSync(yamlPath, 'utf8');
+
+  // Preflight is the first `steps:` list in the workflow; the order of a step is the number a
+  // "Preflight step N" reference must use.
+  const preflight = text.slice(text.indexOf('name: Preflight'), text.indexOf('name: Scaffold'));
+  const orderOf = (title) => {
+    const m = preflight.match(new RegExp(`- order: (\\d+)\\s*\\n\\s*title: ${title}\\b`));
+    expect(m).not.toBeNull();
+    return Number(m[1]);
+  };
+
+  test('the TRD Staleness Gate step cites the real Resume Detection and Strategy Detection steps', () => {
+    const resume = orderOf('Resume Detection');
+    const strategy = orderOf('Strategy Detection');
+    const start = preflight.indexOf('title: TRD Staleness Gate');
+    const block = preflight.slice(start, preflight.indexOf('title: Strategy Detection'));
+
+    expect(block).toContain(`resume was detected in Preflight step ${resume} (`);
+    expect(block).toContain(`no ROOT_EPIC_ID found in step ${resume})`);
+    expect(block).toContain(`continue to Preflight step ${strategy} (Strategy Detection)`);
+  });
+
+  test('the staleness-gate skill cites the real Resume Detection step', () => {
+    const resume = orderOf('Resume Detection');
+    const skill = fs.readFileSync(skillPath, 'utf8');
+
+    expect(skill).toContain(`(Preflight step ${resume} — Resume Detection)`);
   });
 });
