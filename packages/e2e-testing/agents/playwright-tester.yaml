@@ -74,7 +74,14 @@ responsibilities:
       engineer performs themself (headless has no such fallback — no human is present to log in, so it requires
       authStatePath and throws without one). authStatePath itself is environment-scoped (TRD-036 — an
       environment-scoped stored auth state, never a single static path reused across different resolved
-      environment URLs; a stored auth state is scoped to the origin it was captured against). When a confirmed
+      environment URLs; a stored auth state is scoped to the origin it was captured against). When the Run request
+      carries slowMoMs (headed mode only — resolveRunConfig(mode, authStatePath, {slowMoMs}) returns it as
+      `slowMo`), apply it as Playwright's SlowMo launch option so the QA engineer can follow the run — for a
+      dotnet test harness, prefer the command-line override (`dotnet test -- Playwright.LaunchOptions.SlowMo=<ms>`)
+      over a replacement .runsettings file, which would discard the consuming repo's own settings. It is a launch
+      option only: never add a sleep/WaitForTimeout to proposedTest or edit any file in the consuming repo to get
+      it, since the confirmed test must run verbatim and land unchanged. If the harness does not honor it (no
+      visible pauses), tell the QA engineer rather than working around it in the test source. When a confirmed
       test fails on its first run, investigate (selector/timing/data issue) and either fix and rerun, or surface
       the failure to the QA engineer as an explicit blocker for that AC — never silently retry forever or report
       a false pass.
@@ -122,9 +129,10 @@ integrationProtocols:
         could not be authored at all.
         Run stage (validateRunRequest/validateRunResponse), delegated only after the QA engineer confirms the
         proposal via the orchestrator's decision loop: Request {acText, groundingDiff, proposedTest, targetEnv,
-        mode, authStatePath?} — mode is 'headed'|'headless' (TRD-007), proposedTest is the exact confirmed source
-        to execute verbatim (never re-authored), authStatePath (TRD-036) is the environment-scoped stored
-        auth-state path when the consuming repo uses one at all. Response {runResult}: always a pass/fail result
+        mode, authStatePath?, slowMoMs?} — mode is 'headed'|'headless' (TRD-007), proposedTest is the exact confirmed
+        source to execute verbatim (never re-authored), authStatePath (TRD-036) is the environment-scoped stored
+        auth-state path when the consuming repo uses one at all, slowMoMs is an optional headed-only follow-along
+        pause applied as the SlowMo launch option (never written into the test). Response {runResult}: always a pass/fail result
         object ({passed: boolean, details?, environmentMismatchSuspected?, groundedMarkersChecked?}) — authoring
         already succeeded in the Proposal stage, so a Run response is never an authoring failure.
         environmentMismatchSuspected/groundedMarkersChecked (TRD-035) are only ever set on a failed runResult —

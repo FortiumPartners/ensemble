@@ -542,6 +542,34 @@ describe('parseTRD — AC-block items do not leak into nestedSubitems', () => {
   });
 });
 
+// create-trd.yaml instructs authors to write "Implementation AC checklist:";
+// the parser used to accept only "Implementation AC:", so every AC item in a
+// TRD written as instructed was silently dropped.
+const AC_CHECKLIST_LABEL_TRD = `# TRD-113: AC Checklist Label
+
+Summary.
+
+## Master Task List
+
+### PR 1: Feature
+
+**Shippable State:** Users can do the thing.
+
+- [ ] **TRD-001**: Build it (2h) [satisfies REQ-001]
+  - Implementation AC checklist:
+    - Given input, when built, then output is correct
+  - Test AC checklist:
+    - [ ] Given a fixture, when tested, then it passes
+`;
+
+describe('parseTRD — "AC checklist:" labels', () => {
+  it('captures items under "Implementation AC checklist:" and "Test AC checklist:"', () => {
+    const task = parseTRD(AC_CHECKLIST_LABEL_TRD).tasksById['TRD-001'];
+    expect(task.implementationAc).toEqual(['Given input, when built, then output is correct']);
+    expect(task.testAc).toEqual(['Given a fixture, when tested, then it passes']);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Annotations
 // ---------------------------------------------------------------------------

@@ -48,7 +48,7 @@ disable-model-invocation: true
 Parse epic-id or slug pattern, --trd path, --strategy, --team-roles, deprecated --builder, and max parallel N
 
 **Actions:**
-1. Parse $ARGUMENTS: if first token matches pattern beads-NNN or a numeric ID, treat as direct epic bead ID (EPIC_ID_MODE=true); otherwise treat as slug pattern (EPIC_ID_MODE=false)
+1. Parse $ARGUMENTS: take the first token as RAW_INPUT (no epic argument if it is absent or starts with "--"). Run br show <first-token> --json: exit code 0 means it is an existing bead of ANY id prefix (beads-12, cribs-l4pd, ...), so treat it as the direct epic bead ID (EPIC_ID_MODE=true); a non-zero exit means it is not a bead id, so treat it as a slug pattern (EPIC_ID_MODE=false). Never infer this from how the token is spelled.
 2. Parse --trd <path> from $ARGUMENTS (optional); if present set TRD_MODE=true and TRD_PATH=<path>; if absent set TRD_MODE=false
 3. Parse --strategy <value> from $ARGUMENTS (optional); valid values: tdd, characterization, bug-fix, refactor, test-after, flexible
 4. Parse --team-roles <json> from $ARGUMENTS (optional); if present parse as TEAM_ROLES object. If absent, parse deprecated --builder <agent> and synthesize compatibility TEAM_ROLES={lead:{agents:[\"tech-lead-orchestrator\"],owns:[\"planning\",\"escalation\"]},builder:{agents:[<builder>],owns:[\"implementation\"]},architect:{agents:[\"architect\"],owns:[\"task-design\"]},documentation:{agents:[\"documentation-specialist\"],owns:[\"pr-boundary-doc-maintenance\"]}}. If neither flag is present, set TEAM_ROLES={} and continue — standalone beads-build may still run without team metadata.
@@ -62,6 +62,7 @@ Verify br is installed and detect bv availability
 1. "which br || { echo 'ERROR: br (beads_rust) not installed. Install from https://github.com/Dicklesworthstone/beads_rust'; exit 1; }"
 2. "br list --status=open > /dev/null 2>&1 || { echo 'ERROR: br not functional'; exit 1; }"
 3. "which bv && BV_AVAILABLE=true || { echo 'WARNING: bv (beads_viewer) not installed. Graph-aware triage will be unavailable. Install from https://github.com/Dicklesworthstone/beads_viewer'; BV_AVAILABLE=false; }"
+4. Verify the wave-runner agent is registered in this session. The Execute phase dispatches Task(subagent_type=beads-build-wave), so beads-build-wave (listed as ensemble-development:beads-build-wave) must be among the subagent types the Task tool currently accepts. An agent file on disk, or an entry in AGENT_ALIAS_MAP, does not prove the plugin registered it. If it is not available: print "ERROR: agent beads-build-wave is not registered in this session, so the wave loop cannot dispatch. The installed ensemble-development plugin is out of date or was loaded before this agent shipped. Run /ensemble-reinstall-plugins, start a new Claude Code session, and re-run." and HALT before any bead is read or changed.
 
 ### Step 3: Git-Town and Working Directory Verification
 
@@ -89,11 +90,11 @@ Locate the root epic bead using the provided ID or slug pattern, detect cross-se
 
 **Actions:**
 1. If EPIC_ID_MODE=true: run br show <RAW_INPUT> to confirm epic exists; if exit code != 0 print "ERROR: Bead <RAW_INPUT> not found." and HALT; store ROOT_EPIC_ID=RAW_INPUT; derive EPIC_SLUG from bead title
-2. If EPIC_ID_MODE=false: run br list --status=open --json; parse JSON array; scan .title fields for entries containing RAW_INPUT as substring (case-insensitive); collect matches
+2. If EPIC_ID_MODE=false: run br list --status=open --json; the issue list is the parsed JSON if it is an array, otherwise its `.issues` array (br 0.2.x wraps list output as {issues:[...]}); scan .title fields for entries containing RAW_INPUT as substring (case-insensitive); collect matches
 3. If zero matches found: print "ERROR: No open epic found matching slug pattern '<RAW_INPUT>'." and HALT
 4. If multiple matches found: print "ERROR: Multiple epics match '<RAW_INPUT>':" followed by each matching title; HALT
 5. If exactly one match: store ROOT_EPIC_ID from .id field; derive EPIC_SLUG (lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens)
-6. Check for existing in-progress tasks: run br list --status=in_progress --json; filter by EPIC_SLUG prefix; count IN_PROGRESS_COUNT
+6. Check for existing in-progress tasks: run br list --status=in_progress --json; take its issue list (the parsed JSON if it is an array, otherwise its `.issues` array); filter by EPIC_SLUG prefix; count IN_PROGRESS_COUNT
 7. If IN_PROGRESS_COUNT > 0: print "Resume detected: <IN_PROGRESS_COUNT> tasks already in_progress. Resuming from current state." and print bead IDs with their titles
 8. Count work already done under this epic: run br list --all --status=closed --limit 0 --json; filter by EPIC_SLUG prefix; count CLOSED_COUNT. Both flags are load-bearing and `br list --help` states why: -a/--all is "Include closed issues (default excludes closed)", so without it a closed-status query reads against a set closed issues were already removed from; and --limit is "Maximum number of results (0 = unlimited, default: 50)", so without --limit 0 this epic's closed tasks fall outside the first 50 rows of any long-lived beads database and the client-side EPIC_SLUG filter sees none of them. Both omissions fail the same way: CLOSED_COUNT reads 0, STARTED_COUNT reads 0 at a wave boundary, and the gate below HALTs the resume it exists to let through. The repo already passes --all --limit 0 wherever completeness matters (implement-trd-beads.yaml:267 and :308). Set STARTED_COUNT = IN_PROGRESS_COUNT + CLOSED_COUNT. IN_PROGRESS_COUNT alone is not the resume signal: between two waves every task of the finished wave is closed and none is in_progress yet, which is a resume that IN_PROGRESS_COUNT reads as a fresh run. The epic itself cannot carry the signal here the way ROOT_EPIC_ID does in implement-trd-beads, because this command HALTs above when the epic is absent, so by this line it always exists.
 9. Clean-tree gate (moved here from Preflight step 3). If STARTED_COUNT == 0 — nothing under this epic has been started or finished, so this is a fresh run — and WORKTREE_STATUS is non-empty: print "ERROR: working directory is dirty. Commit, stash or revert before starting a new build." followed by WORKTREE_STATUS, and HALT. A fresh run gets exactly the behaviour it had before. Everything after this step up to the Wave Loop is read-only, so the gate still precedes every side effect.
@@ -151,7 +152,7 @@ depth-1 subagent respects Codex's max_depth=1 constraint.
 
 **Actions:**
 1. Run: br sync --flush-only (ensure JSONL is current before the loop reads state).
-2. Step 1 (initial state read): REMAINING_SCOPED_COUNT = count from br list --status=open --json filtered by EPIC_SLUG (entries whose .title contains EPIC_SLUG). IN_PROGRESS_SCOPED_COUNT = count from br list --status=in_progress --json filtered by EPIC_SLUG. If REMAINING_SCOPED_COUNT == 0 AND IN_PROGRESS_SCOPED_COUNT == 0: print "=== Execution completed: no remaining scoped work ===" and proceed to Quality Gate.
+2. Step 1 (initial state read; in every br list --json result below the issue list is the parsed JSON if it is an array, otherwise its `.issues` array): REMAINING_SCOPED_COUNT = count from br list --status=open --json filtered by EPIC_SLUG (entries whose .title contains EPIC_SLUG). IN_PROGRESS_SCOPED_COUNT = count from br list --status=in_progress --json filtered by EPIC_SLUG. If REMAINING_SCOPED_COUNT == 0 AND IN_PROGRESS_SCOPED_COUNT == 0: print "=== Execution completed: no remaining scoped work ===" and proceed to Quality Gate.
 3. Step 2 (loop body, single tool turn): in a single tool turn, dispatch Task(subagent_type=<resolved-from-AGENT_ALIAS_MAP-beads-build-wave>, prompt=<wave_payload>) where wave_payload = { ROOT_EPIC_ID, EPIC_SLUG, MAX_PARALLEL, TRD_MODE, TRD_PATH, STRATEGY, TEAM_ROLES, wave_number }. Resolve the namespaced identifier through AGENT_ALIAS_MAP (built by implement-trd-beads.yaml Preflight step 12, or for standalone invocations by scanning packages/*/agents/*.yaml plus ~/.omp/plugins/node_modules/@*/*/agents/*.md). Never pass a bare "beads-build-wave" string.
 4. Step 3 (read summary): the subagent emits ONE JSON summary line at the end of stdout. Parse SUMMARY_JSON = { wave_number, tracks_dispatched, tracks_succeeded, tracks_failed, beads_closed_this_wave, remaining_scoped_count, in_progress_scoped_count, terminal_state, elapsed_seconds, next_action_hint }.
 5. Step 4 (decide, then continue or exit):
@@ -220,7 +221,7 @@ Record quality gate outcome as br comment and close story on pass
 Close the root epic when all children are done
 
 **Actions:**
-1. Verify: br list --status=open --json filtered by EPIC_SLUG returns no open tasks
+1. Verify: br list --status=open --json (issue list = the parsed JSON if it is an array, otherwise its `.issues` array) filtered by EPIC_SLUG returns no open tasks
 2. Run: br close <ROOT_EPIC_ID> --reason='Epic implementation complete'
 3. Run: br sync --flush-only
 

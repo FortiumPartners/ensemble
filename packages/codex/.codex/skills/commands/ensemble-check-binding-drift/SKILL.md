@@ -30,23 +30,23 @@ code (0 in-sync, 2 drift) lets the same check gate CI or a pre-commit hook.
 **1. Resolve PRD and project**
    Determine the PRD and the test project whose bindings to audit
 
-   - If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to check
-   - Pass through --out <dir> (default: tests/) so the correct Steps/ directory is located
+- If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to check
+- Pass through --out <dir> (default: tests/) so the correct Steps/ directory is located
 
 **2. Run the drift check**
    Invoke the deterministic CLI to diff PRD steps against the bindings
 
-   - Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT.
-   - Run: node "$REQNROLL_CLI" check-binding-drift <prd-path> --json
-   - Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no bindings generated yet
+- Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT.
+- Run: node "$REQNROLL_CLI" check-binding-drift <prd-path> --json
+- Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no bindings generated yet
 
 **3. Report and recommend**
    Explain the drift and how to resolve it
 
-   - If IN_SYNC: confirm the bindings cover the PRD's steps
-   - If UNBOUND: list the steps needing new bindings -- re-run /ensemble:generate-reqnroll-bindings to add stubs (write-once preserves filled bodies)
-   - If ORPHANED: list bindings whose acceptance criterion was removed or reworded -- update or delete them
-   - If no bindings exist yet: tell the user to run /ensemble:generate-reqnroll-bindings first
+- If IN_SYNC: confirm the bindings cover the PRD's steps
+- If UNBOUND: list the steps needing new bindings -- re-run /ensemble:generate-reqnroll-bindings to add stubs (write-once preserves filled bodies)
+- If ORPHANED: list bindings whose acceptance criterion was removed or reworded -- update or delete them
+- If no bindings exist yet: tell the user to run /ensemble:generate-reqnroll-bindings first
 
 ## Expected Output
 

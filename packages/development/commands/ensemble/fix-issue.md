@@ -1,9 +1,9 @@
 ---
 name: "ensemble:fix-issue"
 description: "Lightweight workflow for bug fixes and small issues"
-version: "1.2.0"
+version: "1.4.0"
 category: "implementation"
-last-updated: "2026-08-22"
+last-updated: "2026-10-14"
 model: "sonnet"
 ---
 <!-- DO NOT EDIT - Generated from fix-issue.yaml -->
@@ -46,7 +46,16 @@ dispatch it is simply absent and behavior is unchanged).
 the project starts a fresh run at stage analysis_planning.
 With neither argument (and no --status/--abandon), resume
 the project's active/paused run from its last recorded
-checkpoint.
+checkpoint, after two gates. A run parked by failure asks
+"Retry <stage>?" and only an explicit yes re-executes it. A
+run at stage validation_delivery whose stageOutcome is
+approval_wait with a REVIEW_ detail is a pending or blocked
+remote review: it resumes at Remote Review Disposition,
+never at Test Validation, and never re-runs Local Review
+and Batch Fix or PR Creation. That step reads the PR URL
+from the run's recorded `pr:` beadRef; with none recorded
+it halts and tells the user to find or supply the PR URL
+instead of restarting.
 
 
 **2. --status -- Read-Only Run Report**
@@ -109,12 +118,79 @@ stage via issue-run-index.ts (Implementation AC 2, REQ-019).
 pass before creating PR.
 
 
-**2. PR Creation**
+**2. Local Review and Batch Fix**
+   Independent local review of the complete diff, triage, and one
+batched fix pass -- before any commit, push, or PR creation
+(TRD-009, REQ-011). Invokes the shared pr-review-cycle skill,
+located at
+"$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+in pre-publication (local) mode; that skill composes
+pr-review-remediation for the actual fixes and does not
+restate its triage/test/minimal-fix rules here.
+Fail-closed gate: only a returned localPhase of exactly
+LOCAL_REVIEW_COMPLETE proceeds to PR Creation, and only that
+outcome sets prApprovedAt (COMPLETE already accounts for the
+test results, so this step grades nothing itself). EVERY other
+outcome -- LOCAL_REVIEW_PENDING, LOCAL_REVIEW_BLOCKED, a
+missing or unparseable result, or the skill returning nothing
+(for example pr-review-remediation not installed) -- leaves
+prApprovedAt null, records a failure stageOutcome at the
+current stage, writes the { status, headSha, ledger } report to
+the exact FOREMAN_ARTIFACT_PATH first when --foreman is set and
+that variable is non-empty, and only then HALTs with nothing
+committed, pushed, or published. The reviewed head is a
+snapshot commit of the working tree that includes untracked
+files, built from a temporary index (never git stash create),
+and it is re-resolved after the batch fix, before the
+re-review. The tree of that post-fix snapshot (git rev-parse
+'<SNAPSHOT_HEAD>^{tree}') is recorded as reviewedTreeSha, so
+Remote Review Disposition can recognise the real commit PR
+Creation makes -- a different SHA, the same content -- by its
+tree.
+
+**3. PR Creation**
    Create comprehensive pull request with GitHub CLI
 
-**3. Record Stage Checkpoint**
+**4. Remote Review Disposition**
+   After the PR exists: first record its URL once as a
+`pr:<url>` beadRef on the run (only when that exact entry is
+not already present, and never `pr:undefined`) so a later
+resume can find the PR; then invoke the shared pr-review-cycle
+skill, located at
+"$(git rev-parse --show-toplevel 2>/dev/null)/packages/development/skills/pr-review-cycle/SKILL.md",
+in remote mode to evaluate the head-bound CodeRabbit review and
+decide whether this run may report success (TRD-010, REQ-012,
+REQ-013). Pass it HEAD_SHA (git rev-parse HEAD) and
+HEAD_TREE_SHA (git rev-parse 'HEAD^{tree}'): PR Creation's real
+commit is not the snapshot Local Review bound its review to, so
+the review is fresh only when HEAD_SHA equals the reviewed head
+or HEAD_TREE_SHA equals the reviewedTreeSha Local Review
+recorded -- a different tree is stale, never complete. A
+pending or blocked review never completes the run
+-- it returns a resumable report instead (a later bare
+invocation resumes at this step, not at "done"). Only exactly
+REVIEW_COMPLETE proceeds to Record Stage Checkpoint; EVERY
+other outcome (REVIEW_PENDING, REVIEW_BLOCKED, null,
+unrecognised, missing or unparseable) records approval_wait and
+HALTs without calling complete(). On resume PR_URL is read from
+the record's `pr:` beadRef. With no PR URL (PR Creation
+extracted none, or the resumed record has no `pr:` beadRef) the
+skill is not invoked: the step takes that same blocked path --
+REVIEW_BLOCKED, approval_wait with the detail "REVIEW_BLOCKED: no PR URL recorded",
+the Foreman artifact first, then HALT -- and never restarts at
+Test Validation or re-runs PR Creation. Under --foreman
+with FOREMAN_ARTIFACT_PATH set and non-empty, the report
+{ status, headSha, ledger } is written to that exact path for
+EVERY status, before any halt; with the variable unset, behavior
+is unchanged. Foreman mode never prompts and never waits
+indefinitely.
+
+**5. Record Stage Checkpoint**
    Persist this phase's outcome and mark the run complete via
-issue-run-index.ts (Implementation AC 2, REQ-019).
+issue-run-index.ts (Implementation AC 2, REQ-019). Only
+reached when Remote Review Disposition's status is
+REVIEW_COMPLETE -- a pending or blocked outcome halts there
+instead (TRD-010, AC-012-1).
 
 
 ## Expected Output

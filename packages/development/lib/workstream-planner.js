@@ -6,7 +6,7 @@
  */
 
 const path = require('path');
-const { buildScaffoldPlan } = require('./scaffold-planner');
+const { buildScaffoldPlan, clampTitle } = require('./scaffold-planner');
 
 function slugify(value) {
   return String(value == null ? '' : value)
@@ -130,7 +130,7 @@ function buildWorkstreamPlan(items, opts = {}) {
       trdPath: item.trdPath,
       slug,
       titlePrefix: trdEpicPrefix(workstreamSlug, slug),
-      title: `${trdEpicPrefix(workstreamSlug, slug)} ${parsed.title || slug}`,
+      title: clampTitle(trdEpicPrefix(workstreamSlug, slug), parsed.title || slug),
       type: 'epic',
       priority: 2,
       description: [

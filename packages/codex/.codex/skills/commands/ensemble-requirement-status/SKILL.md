@@ -35,9 +35,9 @@ If br list returns no TRD-prefixed epics: print 'No TRD implementations found in
 **2. Root Epic Location**
    Find the root epic bead for this TRD.
 Run: br list --status=open --json
-Verify the output is valid JSON (starts with '['). If not: print 'ERROR: br command failed or returned non-JSON output. Is br installed and configured? Output: <first 200 chars>' and EXIT.
+Verify the output parses as JSON: a bare array, or an object with an `.issues` array (br 0.2.x wraps list output that way; the issue list is the parsed JSON if it is an array, otherwise its `.issues` array). If not: print 'ERROR: br command failed or returned non-JSON output. Is br installed and configured? Output: <first 200 chars>' and EXIT.
 Also run: br list --status=closed --json
-Verify the output is valid JSON (starts with '['). If not: print 'ERROR: br command failed or returned non-JSON output. Is br installed and configured? Output: <first 200 chars>' and EXIT.
+Verify the output parses as JSON: a bare array, or an object with an `.issues` array (br 0.2.x wraps list output that way; the issue list is the parsed JSON if it is an array, otherwise its `.issues` array). If not: print 'ERROR: br command failed or returned non-JSON output. Is br installed and configured? Output: <first 200 chars>' and EXIT.
 Parse combined JSON output, search for entry where title matches [trd:<TRD_SLUG>] with type epic.
 If found: ROOT_EPIC_ID = bead .id
 If not found: print 'ERROR: No root epic found for TRD slug <TRD_SLUG>. Run implement-trd-beads first.' and EXIT.
@@ -68,6 +68,7 @@ These comments are written by implement-trd-beads when test tasks close with PAS
 
 **2. Test Bead Status Scan**
    Scan all test task beads for in-progress requirement verification.
+In every br list --json result below, the issue list is the parsed JSON if it is an array, otherwise its `.issues` array.
 Run: br list --status=open --json
 If the call fails or returns non-JSON: print 'WARNING: Could not fetch open test beads — those tasks will appear in wrong status bucket.' Continue with empty list for that status.
 Run: br list --status=in_progress --json

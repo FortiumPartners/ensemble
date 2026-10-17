@@ -20,10 +20,10 @@ and technical leads.
 **1. Metrics Gathering**
    Collect productivity metrics from all sources
 
-   - Git commit history
-   - Test coverage reports
-   - Sprint task completion
-   - Code review metrics
+- Git commit history
+- Test coverage reports
+- Sprint task completion
+- Code review metrics
 
 ### Phase 2: Analysis
 

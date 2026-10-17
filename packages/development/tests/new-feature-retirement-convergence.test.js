@@ -27,9 +27,9 @@ function actionsText(step) {
 describe('Scenario: direct invocation of ensemble-new-feature still works and converges identically', () => {
   const newFeatureYaml = loadYaml('packages/development/commands/new-feature.yaml');
 
-  test('its parameters (idea/path/status/abandon) and fixed 10-stage constraints are unchanged -- same stage machine', () => {
+  test('its parameters (idea/path/status/abandon, plus the non-interactive foreman flag) and fixed 10-stage constraints are unchanged -- same stage machine', () => {
     const paramNames = newFeatureYaml.parameters.map((p) => p.name);
-    expect(paramNames).toEqual(['idea', 'path', 'status', 'abandon']);
+    expect(paramNames).toEqual(['idea', 'path', 'status', 'abandon', 'foreman']);
     expect(newFeatureYaml.constraints.join('\n')).toMatch(
       /prd_create -> *\s*prd_refine -> trd_create -> trd_refine -> beads_plan ->\s*implementation_approval -> implementation -> pr_approval -> pr_create ->\s*done/,
     );

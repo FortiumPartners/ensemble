@@ -86,6 +86,9 @@
  *   consuming repo has one — many real harnesses reuse one stored auth state for every run,
  *   headed or headless alike; optional, since not every target needs one (headed can still fall
  *   back to a live interactive login when omitted; headless has no such fallback)
+ * @property {number} [slowMoMs] - optional follow-along pause in ms (headed only), applied as
+ *   Playwright's `SlowMo` launch option so the QA engineer can watch the run. A launch option, never
+ *   injected into proposedTest — nothing to strip before the test lands. Omit for no pause.
  */
 
 /**
@@ -214,6 +217,13 @@ function validateRunRequest(req) {
   }
   if (req.authStatePath !== undefined && !isNonEmptyString(req.authStatePath)) {
     errors.push('authStatePath must be a non-empty string when present');
+  }
+  if (req.slowMoMs !== undefined) {
+    if (!Number.isInteger(req.slowMoMs) || req.slowMoMs <= 0) {
+      errors.push('slowMoMs must be a positive integer (milliseconds) when present');
+    } else if (req.mode !== 'headed') {
+      errors.push('slowMoMs only applies to headed mode — no human is watching a headless run');
+    }
   }
 
   return assertNoErrors('run request', errors);

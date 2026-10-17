@@ -280,12 +280,12 @@ browser. The resulting artifact is the input to Enhancement.
 **1. Current PRD Analysis**
    Review existing PRD content and establish baseline metrics
 
-   - Read the PRD file from the path provided in $ARGUMENTS
-   - Parse frontmatter for Document ID, Version, Status, and Readiness Score
-   - Count requirements by type (functional, non-functional) and priority (Must/Should/Could/Won't)
-   - Count acceptance criteria and compute AC coverage percentage (requirements with at least one AC / total requirements)
-   - Check if PRD Health summary exists and whether its numbers match actual requirement counts
-   - Note the current version number for version bumping later
+- Read the PRD file from the path provided in $ARGUMENTS
+- Parse frontmatter for Document ID, Version, Status, and Readiness Score
+- Count requirements by type (functional, non-functional) and priority (Must/Should/Could/Won't)
+- Count acceptance criteria and compute AC coverage percentage (requirements with at least one AC / total requirements)
+- Check if PRD Health summary exists and whether its numbers match actual requirement counts
+- Note the current version number for version bumping later
 
 **2. Synthesis (skip when --collab or --long-lived in $ARGUMENTS)**
    If `--collab` or `--long-lived` is present in $ARGUMENTS, SKIP this
@@ -413,36 +413,48 @@ Update or create the dependency map section if dependency gaps were selected.
 **2. Validation**
    Verify structural integrity of all changes made during refinement
 
-   - Verify all REQ-NNN IDs are unique and sequential (no duplicates, no gaps)
-   - Verify all AC-NNN-M IDs are properly formatted and co-located under their parent requirements
-   - Verify MoSCoW tags are present on all requirements touched during refinement
-   - Verify Given/When/Then format on all acceptance criteria touched during refinement
-   - Check that no requirements were accidentally removed during editing (compare count with baseline from Step 1.1)
+- Verify all REQ-NNN IDs are unique and sequential (no duplicates, no gaps)
+- Verify all AC-NNN-M IDs are properly formatted and co-located under their parent requirements
+- Verify MoSCoW tags are present on all requirements touched during refinement
+- Verify Given/When/Then format on all acceptance criteria touched during refinement
+- Check that no requirements were accidentally removed during editing (compare count with baseline from Step 1.1)
 
 ### Phase 4: Readiness Gate Re-Score
 
 **1. Readiness Assessment**
    Re-score the PRD after refinement to measure improvement
 
-   - Check frontmatter for an existing Readiness Score from a previous create-prd or refine-prd run
-   - If no previous score exists, inform the user: 'This PRD has no readiness score yet. Running the Implementation Readiness Gate for the first time.'
-   - Score these 4 dimensions (1-5 scale): Completeness (are all feature areas covered?), Testability (does every Must/Should requirement have verifiable ACs?), Clarity (could two developers read this and build the same thing?), Feasibility (are all requirements achievable within stated constraints?)
-   - Compute overall score: average of all 4 dimensions
-   - If a previous score exists, print delta: 'Readiness score: X.X -> Y.Y (improved/declined)'
-   - If the score dropped compared to previous, warn the user and identify which dimensions declined
-   - Update the Readiness Score in the PRD frontmatter
+- Check frontmatter for an existing Readiness Score from a previous create-prd or refine-prd run
+- If no previous score exists, inform the user: 'This PRD has no readiness score yet. Running the Implementation Readiness Gate for the first time.'
+- Score these 4 dimensions (1-5 scale): Completeness (are all feature areas covered?), Testability (does every Must/Should requirement have verifiable ACs?), Clarity (could two developers read this and build the same thing?), Feasibility (are all requirements achievable within stated constraints?)
+- Compute overall score: average of all 4 dimensions
+- If a previous score exists, print delta: 'Readiness score: X.X -> Y.Y (improved/declined)'
+- If the score dropped compared to previous, warn the user and identify which dimensions declined
+- Update the Readiness Score in the PRD frontmatter
 
 ### Phase 5: Output Management
 
 **1. PRD Update**
    Save the refined PRD with updated metadata and changelog
 
-   - Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1, 1.2.3 -> 1.2.4)
-   - Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate or renumber them on refine (downstream artifacts correlate by the micro UUID id)
-   - Update the PRD Health summary: recalculate requirement counts by priority, AC coverage percentage, risk flag count, dependency count
-   - Add changelog entry at the bottom of the PRD: date, version, list of changes made during this refinement
-   - Save the updated PRD to the same file path (overwrite the original)
-   - Print summary: number of changes made, new version, updated readiness score and delta (if applicable)
+- Bump version in frontmatter (increment patch: e.g. 1.0.0 -> 1.0.1, 1.2.3 -> 1.2.4)
+- Preserve the Document ID and Label frontmatter fields unchanged -- never regenerate or renumber them on refine (downstream artifacts correlate by the micro UUID id)
+- Update the PRD Health summary: recalculate requirement counts by priority, AC coverage percentage, risk flag count, dependency count
+- Add changelog entry at the bottom of the PRD: date, version, list of changes made during this refinement
+- Save the updated PRD to the same file path (overwrite the original)
+- Print summary: number of changes made, new version, updated readiness score and delta (if applicable)
+
+**2. PRD Lock**
+   Close the refinement with an explicit lock decision, then hand off to create-trd
+
+- This step ALWAYS runs, and it is the last thing this command does. The run does not end on a printed summary.
+- Present the close-out through AskUserQuestion, not prose. Put the readiness score, its delta, and a ONE-LINE verdict in the question body, together with any genuine open question the refinement could not settle from the PRD or the constitution. Keep it to a few lines: the person answering this has not read the PRD and is not going to.
+- Option 1, and the recommendation: LOCK the PRD. Set frontmatter `status: Locked`, save, and print the next step as '/ensemble:create-trd <prd path>'. Cost: none. Risk: a locked PRD that changes later forces the TRD to be re-created rather than refined, so lock when the requirements are settled.
+- Option 2: another refine pass. Cost: one more run. Risk: none beyond time. Offer this when the readiness score fell, or when open questions remain unanswered.
+- Option 3: leave the PRD unlocked and stop here. Cost: none now. Risk: create-trd will warn that the PRD was never locked, and nothing downstream can tell a settled PRD from a draft.
+- Do NOT print '/ensemble:create-trd' anywhere before this question is answered, and print it only on the LOCK branch. An unlocked PRD has no business producing a TRD.
+- Ask genuine open questions ONLY. A finding -- anything the PRD, the TRD or the constitution already contains a rule for -- is not a question: it was fixed during Synthesis. If nothing is genuinely open, say so in one line and offer the lock; never manufacture a question to fill the slot.
+- If --foreman is set, skip the question, lock the PRD, and log the decision.
 
 ## Expected Output
 

@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.8] - 2026-10-14
+
+### Added
+
+- **packages/e2e-testing:** follow-along SlowMo pause for headed
+  `author-playwright-tests` runs. Bumps `ensemble-e2e-testing` 5.3.0 → 5.4.0
+  (#149).
+- **packages/assessment:** new `ensemble-assessment` skill package at 1.0.0,
+  with Pi/OMP-specific tool references normalized to be runtime-generic
+  (#142, #143, #144).
+- **packages/quality:** `pr-review-remediation` skill. `ensemble-quality`
+  5.3.0 → 5.4.0 (#147).
+- **packages/development:** tag task beads `foreman-exec` under `--foreman`
+  after bv planning (#150).
+
+### Changed
+
+- **packages/product, packages/development:** the PRD/TRD workflow is now
+  `create-prd` → `refine-prd` → `create-trd` → `refine-trd` →
+  `implement-trd-beads`. `create-prd` and `create-trd` no longer print the
+  downstream implement/TRD commands; `refine-prd` ends with a PRD Lock and
+  `refine-trd` with an Implementation Go / No-Go, and each prints the next
+  command only on the approving branch. `create-trd` now pins
+  `prd_reference` to the PRD's file path, warns when the source PRD has no
+  `refine-prd` changelog entry, and detects a PRD whose version moved after
+  the TRD was built. `refine-trd` now emits its declared Configure-Team
+  Suggestion. Bumps `ensemble-product` 5.6.3 → 5.6.4 (#112, closes #100).
+
+### Fixed
+
+- **packages/development:** `trd-cli list/status` work again —
+  `extractDesignReadinessScore` is exported (#123); TRD frontmatter keys are
+  read regardless of case and spacing (#124); `team-defaults` loads without
+  `js-yaml` (#125); composed bead titles are clamped to br's 500-character
+  limit (#126); `beads-build-wave` is registered in the plugin manifests and
+  the command halts early without it (#127); br's wrapped list output and any
+  bead id prefix are accepted during epic discovery (#128). Bumps
+  `ensemble-development` 6.0.9 → 6.0.10.
+- **packages/pi:** regenerated `packages/pi/skills` — the assessment package
+  and `pr-review-remediation` were missing. `ensemble-pi` 1.6.12 → 1.6.13
+  (#148).
+
+### Release plumbing
+
+- `ensemble-codex` 5.3.4 → 5.3.5 (regenerated skills from the changes above)
+  and `ensemble-full` 6.9.7 → 6.9.8, which serves the changed packages
+  through symlinks.
+
 ## [6.9.7] - 2026-10-07
 
 ### Fixed

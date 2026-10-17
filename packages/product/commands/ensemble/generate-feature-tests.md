@@ -26,24 +26,24 @@ its PRD document id and AC id.
 **1. Resolve the PRD path**
    Determine which PRD to generate feature files from
 
-   - If the user passed a PRD path argument, use it
-   - Otherwise look under docs/PRD/ and ask the user which PRD to use if ambiguous
+- If the user passed a PRD path argument, use it
+- Otherwise look under docs/PRD/ and ask the user which PRD to use if ambiguous
 
 **2. Run the generator**
    Invoke the deterministic CLI to parse the PRD and write artifacts
 
-   - Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT.
-   - Run: node "$PRD_CLI" generate-features <prd-path> --json
-   - Pass through --out <dir> (default: features/) and --dry-run if the user requested a preview
-   - The CLI writes one <REQ-NNN>.feature per requirement plus a .prd-trace.json manifest under <out>/<prd-stem>/
+- Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT.
+- Run: node "$PRD_CLI" generate-features <prd-path> --json
+- Pass through --out <dir> (default: features/) and --dry-run if the user requested a preview
+- The CLI writes one <REQ-NNN>.feature per requirement plus a .prd-trace.json manifest under <out>/<prd-stem>/
 
 **3. Report results**
    Summarize what was generated and surface gaps
 
-   - Report the output directory, number of feature files, and total scenarios
-   - List every AC tagged @needs-clarification (free-form or carrying a [NEEDS CLARIFICATION] marker) so the author can fix the PRD
-   - Echo any parser warnings (e.g. requirements with no acceptance criteria)
-   - Remind the user to commit the generated features and run /ensemble:check-feature-drift after future PRD edits
+- Report the output directory, number of feature files, and total scenarios
+- List every AC tagged @needs-clarification (free-form or carrying a [NEEDS CLARIFICATION] marker) so the author can fix the PRD
+- Echo any parser warnings (e.g. requirements with no acceptance criteria)
+- Remind the user to commit the generated features and run /ensemble:check-feature-drift after future PRD edits
 
 ## Expected Output
 

@@ -11,9 +11,14 @@
     "src/"
   ],
   "scripts": {
+    "prebuild": "tsc -p ../agent-core",
     "build": "tsc",
+    "pretest": "tsc -p ../agent-core",
     "test": "jest",
+    "pretest:smoke": "tsc -p ../agent-core",
     "test:smoke": "node scripts/smoke-activate.mjs",
+    "test:smoke:lifecycle": "node scripts/smoke-lifecycle.mjs",
+    "preinstall:extension": "tsc -p ../agent-core",
     "install:extension": "node scripts/install.mjs",
     "uninstall:extension": "node scripts/install.mjs --uninstall"
   },

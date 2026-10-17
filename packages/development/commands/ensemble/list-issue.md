@@ -21,7 +21,7 @@ ownership of listing and triage. Integration section.
 **1. Run br/bv listing for ranked or flat output**
    Run `br list --status=open --json` for a flat list, or `bv --robot-triage` for ranked/scored triage output, per the caller's preference (default to `br list --status=open --json` if $ARGUMENTS is empty).
 
-   - Present the result to the user as-is. Do not create, modify, or close any issues. Do not invoke bare `bv` without a --robot-* flag (it launches a blocking interactive TUI).
+- Present the result to the user as-is. Do not create, modify, or close any issues. Do not invoke bare `bv` without a --robot-* flag (it launches a blocking interactive TUI).
 
 ## Expected Output
 

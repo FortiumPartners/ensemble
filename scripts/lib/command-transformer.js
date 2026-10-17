@@ -222,7 +222,7 @@ function transformCommandToMarkdown(commandData, sourceYamlPath, commandPathsByR
           // Step actions
           if (step.actions && step.actions.length > 0) {
             for (const action of step.actions) {
-              parts.push(`   - ${action}`);
+              parts.push(`- ${action}`);
             }
             parts.push('');
           }

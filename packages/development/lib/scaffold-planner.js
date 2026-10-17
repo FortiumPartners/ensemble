@@ -49,6 +49,25 @@
 
 const DEFAULT_PRIORITY = 2;
 
+// br rejects a title over 500 Unicode code points and then refuses to load the whole
+// tracker, so stay clear of the limit rather than at it.
+const MAX_TITLE_CHARS = 480;
+
+/**
+ * Join a bead title prefix and its text, truncating the text on a word boundary
+ * (with an ellipsis) so the whole title fits br's limit. Counts code points, as br
+ * does, so a surrogate pair is never split. A title that already fits is unchanged.
+ */
+function clampTitle(prefix, text, max = MAX_TITLE_CHARS) {
+  const chars = Array.from(String(text));
+  const room = max - Array.from(prefix).length - 1; // 1 = the joining space
+  if (chars.length <= room) return `${prefix} ${text}`;
+  const head = chars.slice(0, Math.max(room - 1, 0)).join(''); // 1 = the ellipsis
+  const lastSpace = head.lastIndexOf(' ');
+  const cut = lastSpace > head.length / 2 ? head.slice(0, lastSpace) : head;
+  return `${prefix} ${cut.trimEnd()}…`;
+}
+
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -306,7 +325,7 @@ function buildScaffoldPlan(parsed, opts) {
   // -------------------------------------------------------------------------
   const epic = {
     titlePrefix: epicPrefix(slug),
-    title: `${epicPrefix(slug)} Implement TRD: ${title}`,
+    title: clampTitle(epicPrefix(slug), `Implement TRD: ${title}`),
     type: 'epic',
     priority: DEFAULT_PRIORITY,
     description: summary,
@@ -335,7 +354,7 @@ function buildScaffoldPlan(parsed, opts) {
     stories.push({
       phaseN: phase.n,
       titlePrefix: prefix,
-      title: `${prefix} ${beadLabel} ${phase.n}: ${phase.title}`,
+      title: clampTitle(prefix, `${beadLabel} ${phase.n}: ${phase.title}`),
       type: 'feature',
       priority: DEFAULT_PRIORITY,
       description,
@@ -388,14 +407,19 @@ function buildScaffoldPlan(parsed, opts) {
       ? buildTestTaskDescription(task, descOpts)
       : buildImplTaskDescription(task, descOpts);
 
+    // The task's own text is not part of its bead description, so keep it whole there
+    // whenever the title had to be shortened.
+    const title = clampTitle(prefix, task.description);
+    const clamped = title !== `${prefix} ${task.description}`;
+
     tasks.push({
       id: task.id,
       phaseN: task.phaseN,
       titlePrefix: prefix,
-      title: `${prefix} ${task.description}`,
+      title,
       type: 'task',
       priority,
-      description,
+      description: clamped ? `Full title: ${task.description}\n\n${description}` : description,
       isTest: !!task.isTest,
       dependsOn: Array.isArray(task.dependsOn) ? task.dependsOn.slice() : [],
     });
@@ -418,7 +442,7 @@ function buildScaffoldPlan(parsed, opts) {
         parentId: task.id,
         phaseN: task.phaseN,
         titlePrefix: prefix,
-        title: `${prefix} ${subitemText}`,
+        title: clampTitle(prefix, subitemText), // full text is in the description's "Test objective"
         type: 'task',
         priority,
         description: buildSynthTestDescription(synthId, task, subitemText),
@@ -506,4 +530,4 @@ function buildScaffoldPlan(parsed, opts) {
   };
 }
 
-module.exports = { buildScaffoldPlan };
+module.exports = { buildScaffoldPlan, clampTitle };

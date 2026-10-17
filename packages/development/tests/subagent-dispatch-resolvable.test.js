@@ -52,6 +52,47 @@ describe('every subagent_type dispatched by a command resolves to a real agent',
     expect(file).toBeTruthy();
   });
 
+  // br-hn0: an agent file on disk is not enough. Claude Code's plugin manifest
+  // reference says an explicit `agents` array REPLACES auto-discovery of agents/, so a
+  // file that is on disk but not listed is never registered and Task(subagent_type=...)
+  // cannot reach it -- even on the latest release. The check is against THIS package's
+  // manifest, not any package's: `ensemble-full` and the Pi build mirror or
+  // auto-discover every agent, which would mask a standalone ensemble-development
+  // install that never registered the agent its own commands dispatch.
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(__dirname, '../.claude-plugin/plugin.json'), 'utf8')
+  );
+  const registeredAgents = new Set([].concat(manifest.agents || []).map((a) => path.basename(a, '.md')));
+
+  test('the manifest lists agents explicitly (this guard assumes replace-not-discover)', () => {
+    expect(registeredAgents.size).toBeGreaterThan(0);
+  });
+
+  test.each(dispatches)('%s dispatches $agent, which plugin.json registers', ({ agent }) => {
+    expect(registeredAgents.has(agent)).toBe(true);
+  });
+
+  // ensemble-full lists every agent explicitly too (as agents/<pkg>/<name>.md).
+  const fullManifest = JSON.parse(
+    fs.readFileSync(path.join(packagesDir, 'full/.claude-plugin/plugin.json'), 'utf8')
+  );
+  const fullRegistered = new Set(fullManifest.agents.map((a) => path.basename(a, '.md')));
+
+  test.each(dispatches)('%s dispatches $agent, which ensemble-full registers', ({ agent }) => {
+    expect(fullRegistered.has(agent)).toBe(true);
+  });
+
+  // br-hn0: a session that loaded an older plugin must fail at the start, naming the
+  // fix, instead of after preflight when the dispatch finds nothing to call.
+  test.each(['beads-build.yaml', 'implement-trd-beads.yaml'])(
+    '%s halts early when beads-build-wave is not registered',
+    (file) => {
+      const text = fs.readFileSync(path.join(commandsDir, file), 'utf8');
+      expect(text).toMatch(/agent beads-build-wave is not registered in this session/);
+      expect(text).toMatch(/\/ensemble:reinstall-plugins/);
+    }
+  );
+
   // The two that regressed. Named explicitly so deleting either agent fails
   // loudly even if the dispatch prose is reworded.
   test.each(['beads-build-wave'])(

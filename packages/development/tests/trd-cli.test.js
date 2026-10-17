@@ -21,6 +21,8 @@ const {
   runPrPlan,
   runResolveSdlc,
   runQuickstart,
+  runList,
+  runStatus,
   main,
   deriveSlug,
 } = require('../lib/trd-cli');
@@ -520,5 +522,33 @@ describe('executable smoke test (child_process)', () => {
     const parsed = JSON.parse(res.stdout);
     expect(parsed.error).toMatch(/Missing required --remote-url/);
     expect(parsed.ok).toBeUndefined();
+  });
+});
+
+// REGRESSION (br-f6v): trd-cli imported extractDesignReadinessScore from
+// trd-parser, which never exported it, so `list` and `status` threw
+// "extractDesignReadinessScore is not a function" on every call.
+describe('list and status read the design readiness score', () => {
+  let dir;
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'trd-cli-list-'));
+    fs.writeFileSync(
+      path.join(dir, 'TRD-2026-aaaaaaaa-demo.md'),
+      '---\ndesign_readiness_score: 9\n---\n# Demo\n'
+    );
+  });
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  test('runList returns the score from frontmatter', () => {
+    const res = runList(['--type', 'trd', '--dir', dir]);
+    expect(res.ok).toBe(true);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0].design_readiness_score).toBe(9);
+  });
+
+  test('runStatus returns the score from frontmatter', () => {
+    const res = runStatus(['demo', '--type', 'trd', '--dir', dir]);
+    expect(res.ok).toBe(true);
+    expect(res.design_readiness_score).toBe(9);
   });
 });

@@ -27,15 +27,15 @@ repo may be hosted on GitHub or Azure DevOps Repos — detect which
 before checking, never assume gh/GitHub.
 
 
-   - Resolve E2E_LIB — the directory holding this command's own helper modules — before any other action, reusing beads-build.yaml's resolution convention: (1) $(git rev-parse --show-toplevel 2>/dev/null) joined with /packages/e2e-testing/lib (canonical monorepo root); (2) the legacy CWD-relative packages/e2e-testing/lib; (3) the Claude Code plugin root ${CLAUDE_PLUGIN_ROOT}/lib, which is where the installed ensemble-e2e-testing plugin keeps them. Use the first that exists. If none do, HALT with: 'ERROR: cannot locate the helper modules this command needs. Install the ensemble-e2e-testing plugin, or run from the ensemble monorepo.'
-   - Every $E2E_LIB/<module>.js reference in the steps below resolves against that one value. These modules ship inside the plugin — the consuming repository is never expected to contain them, and a missing packages/ directory in the repo you are working in is not a reason to stop.
-   - Resolve the target branch: current git branch, or the branch backing the story/PR reference argument
-   - Call detectRepoHost() from $E2E_LIB/pr-state.js
-   - If host is "github" or "unknown": call checkPrState(branch) from the same module (unchanged gh-based behavior)
-   - If host is "azure-devops": call the Azure DevOps MCP server's PR-list tool (e.g. repo_list_pull_requests_by_repo_or_project) with detectRepoHost()'s resolved organization/project/repository, then call checkPrStateAdo(branch, prs) from the same module to get the normalized result
-   - If hasOpenPr is false: halt the session and print pr-state.js's NO_OPEN_PR_MESSAGE (run /ensemble:implement-trd-beads first) — do not proceed to grounding, execution, or sync
-   - If hasOpenPr is true: proceed with the session on that same branch/PR — all authored test commits land there
-   - Carry the result's baseBranch (the PR's real target branch, e.g. "integration" on some repos) forward as the session's resolved base branch — every groundImplementation() call in the next step passes it as opts.baseBranch, never letting that module fall back to guessing main/origin-main
+- Resolve E2E_LIB — the directory holding this command's own helper modules — before any other action, reusing beads-build.yaml's resolution convention: (1) $(git rev-parse --show-toplevel 2>/dev/null) joined with /packages/e2e-testing/lib (canonical monorepo root); (2) the legacy CWD-relative packages/e2e-testing/lib; (3) the Claude Code plugin root ${CLAUDE_PLUGIN_ROOT}/lib, which is where the installed ensemble-e2e-testing plugin keeps them. Use the first that exists. If none do, HALT with: 'ERROR: cannot locate the helper modules this command needs. Install the ensemble-e2e-testing plugin, or run from the ensemble monorepo.'
+- Every $E2E_LIB/<module>.js reference in the steps below resolves against that one value. These modules ship inside the plugin — the consuming repository is never expected to contain them, and a missing packages/ directory in the repo you are working in is not a reason to stop.
+- Resolve the target branch: current git branch, or the branch backing the story/PR reference argument
+- Call detectRepoHost() from $E2E_LIB/pr-state.js
+- If host is "github" or "unknown": call checkPrState(branch) from the same module (unchanged gh-based behavior)
+- If host is "azure-devops": call the Azure DevOps MCP server's PR-list tool (e.g. repo_list_pull_requests_by_repo_or_project) with detectRepoHost()'s resolved organization/project/repository, then call checkPrStateAdo(branch, prs) from the same module to get the normalized result
+- If hasOpenPr is false: halt the session and print pr-state.js's NO_OPEN_PR_MESSAGE (run /ensemble:implement-trd-beads first) — do not proceed to grounding, execution, or sync
+- If hasOpenPr is true: proceed with the session on that same branch/PR — all authored test commits land there
+- Carry the result's baseBranch (the PR's real target branch, e.g. "integration" on some repos) forward as the session's resolved base branch — every groundImplementation() call in the next step passes it as opts.baseBranch, never letting that module fall back to guessing main/origin-main
 
 **2. Parse PRD, Ground Every REQ, Flag Gaps, and Resume-Scan**
    TRD-025/TRD-042 (satisfies REQ-002, REQ-009, REQ-011): build the
@@ -58,12 +58,12 @@ exactly one of four kinds, never a generic "gap":
     there's simply no confirmed test for it yet.
 
 
-   - Call parsePrdAcs(prdText) from $E2E_LIB/prd-ac-parser.js to get {documentId, label, reqs: [{id, acs: [{id, text}]}]}
-   - For each REQ, call groundImplementation(reqId, trdPath, {baseBranch}) from $E2E_LIB/implementation-grounding.js, passing Step 1's resolved baseBranch every time — never omit it. A {grounded: false, gap: true, gapType, reason} result is a structural grounding gap: label every AC under that REQ with "TRD gap" when gapType is "trd-gap", or "Code gap" when gapType is "code-gap" — report the reason plainly, and do not proceed to the next action for that REQ's ACs (there is no diff yet to judge against an AC)
-   - For each AC under a grounded REQ, judge (agent reasoning, not a function call) whether the grounded diff actually produces that AC's stated Given/When/Then outcome. If it does not, call flagAcGap(acId, {reqId, groundingResult, reason}) from $E2E_LIB/ac-gap-detector.js, label it "AC gap" when presenting to the QA engineer, and record their call via resolveGapReview(acId, decision, details) — decision "confirmed" routes to Phase 6 (AC-Gap Task Filing) immediately, not deferred to session end; decision "override" re-runs groundImplementation with details.correctedTargetFiles (still passing the same {baseBranch}) and re-judges before moving on
-   - Scan the consuming application's existing E2E test project (its *.spec.ts/*.cs files) on disk and call scanAcCoverage(specTexts, expectedAcIds) from $E2E_LIB/resume-scan.js to split every expected AC into confirmed/manual/gap/pending — its "gap" here means a persisted @ac-gap marker from a prior session; label it "AC gap" the same as a freshly-judged one above, never a bare "gap"
-   - For each AC that reached this step with no gap of any kind (grounded REQ, AC judged satisfied, not manual, not confirmed by resume-scan) but resume-scan still reports it "pending": label it "Test coverage gap" — everything upstream is fine, it just has no test yet. This is the only one of the four kinds this session will actually resolve by delegating and landing a test; the other three need a human/TRD/code decision first
-   - Print the combined coverage report: every AC labeled with exactly one of TRD gap / Code gap / AC gap / Test coverage gap / Manual / Confirmed — this is PR 1's own Shippable State and must be shown even if the session goes on to do nothing else
+- Call parsePrdAcs(prdText) from $E2E_LIB/prd-ac-parser.js to get {documentId, label, reqs: [{id, acs: [{id, text}]}]}
+- For each REQ, call groundImplementation(reqId, trdPath, {baseBranch}) from $E2E_LIB/implementation-grounding.js, passing Step 1's resolved baseBranch every time — never omit it. A {grounded: false, gap: true, gapType, reason} result is a structural grounding gap: label every AC under that REQ with "TRD gap" when gapType is "trd-gap", or "Code gap" when gapType is "code-gap" — report the reason plainly, and do not proceed to the next action for that REQ's ACs (there is no diff yet to judge against an AC)
+- For each AC under a grounded REQ, judge (agent reasoning, not a function call) whether the grounded diff actually produces that AC's stated Given/When/Then outcome. If it does not, call flagAcGap(acId, {reqId, groundingResult, reason}) from $E2E_LIB/ac-gap-detector.js, label it "AC gap" when presenting to the QA engineer, and record their call via resolveGapReview(acId, decision, details) — decision "confirmed" routes to Phase 6 (AC-Gap Task Filing) immediately, not deferred to session end; decision "override" re-runs groundImplementation with details.correctedTargetFiles (still passing the same {baseBranch}) and re-judges before moving on
+- Scan the consuming application's existing E2E test project (its *.spec.ts/*.cs files) on disk and call scanAcCoverage(specTexts, expectedAcIds) from $E2E_LIB/resume-scan.js to split every expected AC into confirmed/manual/gap/pending — its "gap" here means a persisted @ac-gap marker from a prior session; label it "AC gap" the same as a freshly-judged one above, never a bare "gap"
+- For each AC that reached this step with no gap of any kind (grounded REQ, AC judged satisfied, not manual, not confirmed by resume-scan) but resume-scan still reports it "pending": label it "Test coverage gap" — everything upstream is fine, it just has no test yet. This is the only one of the four kinds this session will actually resolve by delegating and landing a test; the other three need a human/TRD/code decision first
+- Print the combined coverage report: every AC labeled with exactly one of TRD gap / Code gap / AC gap / Test coverage gap / Manual / Confirmed — this is PR 1's own Shippable State and must be shown even if the session goes on to do nothing else
 
 **3. Full-Session Idempotence Short-Circuit**
    TRD-030/TRD-023 (satisfies REQ-011, AC-011-2): a fully-covered
@@ -71,9 +71,9 @@ story makes no changes and ends here — never reaches the
 headed/headless prompt or the REQ loop below.
 
 
-   - Call isStoryFullyCovered(expectedAcIds, specTexts) from $E2E_LIB/resume-scan.js (same inputs as the coverage scan above)
-   - If true: print buildSessionSummary({alreadyComplete: true}) from $E2E_LIB/session-summary.js and end the session now — make no file writes, no delegation calls, and no Azure DevOps calls of any kind
-   - If false: continue to the Execution Setup phase below with only the pending ACs from the coverage scan
+- Call isStoryFullyCovered(expectedAcIds, specTexts) from $E2E_LIB/resume-scan.js (same inputs as the coverage scan above)
+- If true: print buildSessionSummary({alreadyComplete: true}) from $E2E_LIB/session-summary.js and end the session now — make no file writes, no delegation calls, and no Azure DevOps calls of any kind
+- If false: continue to the Execution Setup phase below with only the pending ACs from the coverage scan
 
 ### Phase 2: Execution Setup
 
@@ -87,9 +87,9 @@ single, one-time choice for the whole session, made once here
 before the first test run — do not re-ask per AC.
 
 
-   - Before running the first test this session, ask the QA engineer: "Would you like to watch these tests run (headed), or should I run them independently and report status back (headless)?"
-   - If they do not specify a preference, default to headed — this session is interactive by default
-   - Record the chosen mode for the remainder of the session; do not ask again for subsequent ACs/tests
+- Before running the first test this session, ask the QA engineer: "Would you like to watch these tests run (headed), or should I run them independently and report status back (headless)?"
+- If they do not specify a preference, default to headed — this session is interactive by default
+- Record the chosen mode for the remainder of the session; do not ask again for subsequent ACs/tests
 
 **2. Resolve and Verify the QA Environment**
    TRD-013/TRD-026 (satisfies REQ-013): safety-critical — never let a
@@ -104,11 +104,28 @@ right one for this session before proceeding, not just that it
 responds.
 
 
-   - Call resolveQaEnvUrl(opts) from $E2E_LIB/qa-env-guard.js with an explicit opts.url or opts.envVar naming where the target app's QA URL is configured — never hardcode or guess one
-   - Call checkQaEnvReachable(url) from the same module. If reachable is false, halt the session here: report the unreachable environment to the QA engineer and do not run, propose, or land any test this session — never fall back to another URL
-   - Ask the QA engineer to confirm: "Is <resolved URL> running the code from this session's branch/PR? If this repo uses per-branch or per-developer QA/staging deployments, provide the correct URL for this session instead." Never assume the configured default is correct just because it is reachable — if they provide a different URL, re-run the reachability check against it before proceeding
-   - If the consuming repo configures a base auth-state path at all, call deriveAuthStatePath(baseAuthStatePath, url) from $E2E_LIB/test-runner-mode.js to get an environment-scoped authStatePath — regardless of mode (TRD-037: many real harnesses reuse one stored auth state for every run, headed or headless alike); never reuse one static path across different resolved URLs, since a stored auth state is scoped to the origin it was captured against
-   - Carry the resolved URL forward as targetEnv, and (when derived) the environment-scoped authStatePath, for every delegation request in the REQ loop below
+- Call resolveQaEnvUrl(opts) from $E2E_LIB/qa-env-guard.js with an explicit opts.url or opts.envVar naming where the target app's QA URL is configured — never hardcode or guess one
+- Call checkQaEnvReachable(url) from the same module. If reachable is false, halt the session here: report the unreachable environment to the QA engineer and do not run, propose, or land any test this session — never fall back to another URL
+- Ask the QA engineer to confirm: "Is <resolved URL> running the code from this session's branch/PR? If this repo uses per-branch or per-developer QA/staging deployments, provide the correct URL for this session instead." Never assume the configured default is correct just because it is reachable — if they provide a different URL, re-run the reachability check against it before proceeding
+- If the consuming repo configures a base auth-state path at all, call deriveAuthStatePath(baseAuthStatePath, url) from $E2E_LIB/test-runner-mode.js to get an environment-scoped authStatePath — regardless of mode (TRD-037: many real harnesses reuse one stored auth state for every run, headed or headless alike); never reuse one static path across different resolved URLs, since a stored auth state is scoped to the origin it was captured against
+- Carry the resolved URL forward as targetEnv, and (when derived) the environment-scoped authStatePath, for every delegation request in the REQ loop below
+
+**3. Offer a Follow-Along Pause (Headed Only) — Once Per Session**
+   A headed run at full speed is hard to follow, so a QA engineer
+checking that a proposed test does what they intended can ask for
+a pause after each browser action. This is Playwright's own
+`SlowMo` launch option (the Run request's `slowMoMs`, resolved by
+test-runner-mode.js's resolveRunConfig) — a run-time setting, never text inserted into the test source, so
+there is nothing to strip before the test lands in Phase 4 step 3
+and no way to commit a pause by accident. Asked after the QA
+environment is verified, so a session that halts there never
+prompts for it.
+
+
+- If the mode recorded in step 1 is headless: skip this step entirely — no human is watching, so never ask and never set slowMoMs (validateRunRequest and resolveRunConfig both reject it in headless mode)
+- If the mode is headed, ask once: "Add a 1-second pause after each browser action so you can follow along? (yes / no / or a different pause, e.g. 2s or 500ms)"
+- No preference, or "yes": slowMoMs = 1000. A duration: convert it to whole milliseconds (a positive integer). "no": leave slowMoMs unset. If the answer is not a usable duration, say so and ask once more rather than guessing
+- Record the result for the remainder of the session; do not re-ask per AC. Carry slowMoMs forward (when set) for every Run-stage delegation request in Phase 4
 
 ### Phase 3: REQ Batching and Delegation
 
@@ -118,9 +135,9 @@ starts here — a REQ that is already fully confirmed is never
 re-processed, even mid-session on a resumed run.
 
 
-   - Call batchByReq(parsedAcs, confirmedAcIds) from $E2E_LIB/req-batcher.js, using Phase 1's parsed ACs and its resume-scan confirmed set, to get one {reqId, acs, allDone, checkpointSummary} entry per REQ, in order
-   - For each REQ where allDone is true: print its checkpointSummary and move to the next REQ without delegating anything
-   - For each REQ where allDone is false: proceed to the next step for each of its still-pending ACs (excluding any already marked manual or ac-gap by Phase 1's resume-scan)
+- Call batchByReq(parsedAcs, confirmedAcIds) from $E2E_LIB/req-batcher.js, using Phase 1's parsed ACs and its resume-scan confirmed set, to get one {reqId, acs, allDone, checkpointSummary} entry per REQ, in order
+- For each REQ where allDone is true: print its checkpointSummary and move to the next REQ without delegating anything
+- For each REQ where allDone is false: proceed to the next step for each of its still-pending ACs (excluding any already marked manual or ac-gap by Phase 1's resume-scan)
 
 **2. Delegate the Proposal (Ground + Author, No Run) to @playwright-tester**
    TRD-026/TRD-040 (satisfies REQ-005, REQ-013): the per-AC
@@ -132,10 +149,10 @@ real run against the QA environment is ever spent on a test
 they haven't seen yet.
 
 
-   - Build a request {acText, groundingDiff} and validate it with validateProposalRequest(req) from $E2E_LIB/delegation-contract.js — acText is this AC's own text (not the whole REQ), groundingDiff is Phase 1's groundImplementation() result for its REQ
-   - Delegate the validated request to @playwright-tester (the ensemble-e2e-testing plugin's playwright-tester agent, resolved by name — not by file path), which grounds the AC and authors a test, plus a plainEnglishSummary of what it does — never running it at this stage
-   - Validate the response with validateProposalResponse(res) from delegation-contract.js — it always carries either {proposedTest, selectorsUsed, plainEnglishSummary} or an explicit authoringFailure, never neither
-   - If the response is an authoringFailure with no viable alternative: call markManual(acId, reason) from $E2E_LIB/manual-ac-tracker.js, log via logAction({type: "manual-ac-marked", acId, reason}), and move to the next AC — never proceed to Phase 4 with nothing to present
+- Build a request {acText, groundingDiff} and validate it with validateProposalRequest(req) from $E2E_LIB/delegation-contract.js — acText is this AC's own text (not the whole REQ), groundingDiff is Phase 1's groundImplementation() result for its REQ
+- Delegate the validated request to @playwright-tester (the ensemble-e2e-testing plugin's playwright-tester agent, resolved by name — not by file path), which grounds the AC and authors a test, plus a plainEnglishSummary of what it does — never running it at this stage
+- Validate the response with validateProposalResponse(res) from delegation-contract.js — it always carries either {proposedTest, selectorsUsed, plainEnglishSummary} or an explicit authoringFailure, never neither
+- If the response is an authoringFailure with no viable alternative: call markManual(acId, reason) from $E2E_LIB/manual-ac-tracker.js, log via logAction({type: "manual-ac-marked", acId, reason}), and move to the next AC — never proceed to Phase 4 with nothing to present
 
    **Delegation:** @playwright-tester
    Ground one AC in code and propose a Playwright test, with a plain-English summary of what it does — do not run it yet, per $E2E_LIB/delegation-contract.js's Proposal stage.
@@ -154,11 +171,11 @@ PRD's intended accept-then-run order and spending a real QA-
 environment run on tests a QA engineer might still reject.
 
 
-   - Present the proposal's plainEnglishSummary to the QA engineer as the primary, easy-to-scan description of what the test does — the full proposedTest source is also available for anyone who wants to check the actual code
-   - Call recordDecision(decision, {acId, proposedTest, changeDescription, iterationCount}) from $E2E_LIB/ac-decision-loop.js with exactly one of "accept" | "request-changes" | "reject"
-   - outcome "revise": re-delegate the Proposal stage (REQ Batching and Delegation phase, step 2) with changeDescription folded into a fresh request for the same AC, incrementing iterationCount, and re-present the new plainEnglishSummary — never run a test the QA engineer hasn't yet confirmed
-   - outcome "manual-escape-hatch" (an outright reject): call markManual(acId, reason) from $E2E_LIB/manual-ac-tracker.js, log via logAction({type: "manual-ac-marked", acId, reason}), and move to the next AC — the test is never run
-   - outcome "accepted": continue to the next step to actually run the confirmed test
+- Present the proposal's plainEnglishSummary to the QA engineer as the primary, easy-to-scan description of what the test does — the full proposedTest source is also available for anyone who wants to check the actual code
+- Call recordDecision(decision, {acId, proposedTest, changeDescription, iterationCount}) from $E2E_LIB/ac-decision-loop.js with exactly one of "accept" | "request-changes" | "reject"
+- outcome "revise": re-delegate the Proposal stage (REQ Batching and Delegation phase, step 2) with changeDescription folded into a fresh request for the same AC, incrementing iterationCount, and re-present the new plainEnglishSummary — never run a test the QA engineer hasn't yet confirmed
+- outcome "manual-escape-hatch" (an outright reject): call markManual(acId, reason) from $E2E_LIB/manual-ac-tracker.js, log via logAction({type: "manual-ac-marked", acId, reason}), and move to the next AC — the test is never run
+- outcome "accepted": continue to the next step to actually run the confirmed test
 
 **2. Run the Confirmed Test**
    TRD-040 (satisfies REQ-005, REQ-013): now that the QA engineer
@@ -168,12 +185,12 @@ a failing run is not automatically a regression — check for an
 environment-mismatch signal before framing it as one.
 
 
-   - Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath are Phase 2's resolved values
-   - Delegate the validated request to @playwright-tester, which runs the already-authored test per its own TRD-011 mode-aware logic (test-runner-mode.js's resolveRunConfig) — TRD-035: on a failed run, it also checks the live page for grounded-marker-checker.js's extractGroundedMarkers(groundingDiff.diffs) and reports whether an environment mismatch is suspected
-   - Validate the response with validateRunResponse(res) from delegation-contract.js
-   - Log the outcome via logAction({type: "run-result", acId, mode, runResult}) from $E2E_LIB/session-logger.js
-   - If the run failed and runResult.environmentMismatchSuspected is true: lead the failure report with buildEnvironmentMismatchHint({markersChecked: runResult.groundedMarkersChecked, markersFound: []}) from $E2E_LIB/grounded-marker-checker.js — present this as the LEADING hypothesis, before any suggestion that the implementation itself is broken, and prompt the QA engineer to confirm the environment (Phase 2 Step 2's question) before deciding what to do next
-   - The pass/fail result is shown to the QA engineer (AC-005-1) — no further accept/reject decision is needed here, since that already happened in the previous step; a failure is handled per @playwright-tester's own investigate/fix-and-rerun/surface-as-blocker responsibility, not a re-ask. Continue to the next step to land the test only once runResult.passed is true
+- Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath, slowMoMs} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath/slowMoMs are Phase 2's resolved values (omit slowMoMs when step 3 left it unset). The follow-along pause is a launch option applied at run time — never add a sleep or wait to proposedTest to get it
+- Delegate the validated request to @playwright-tester, which runs the already-authored test per its own TRD-011 mode-aware logic (test-runner-mode.js's resolveRunConfig) — TRD-035: on a failed run, it also checks the live page for grounded-marker-checker.js's extractGroundedMarkers(groundingDiff.diffs) and reports whether an environment mismatch is suspected
+- Validate the response with validateRunResponse(res) from delegation-contract.js
+- Log the outcome via logAction({type: "run-result", acId, mode, runResult}) from $E2E_LIB/session-logger.js
+- If the run failed and runResult.environmentMismatchSuspected is true: lead the failure report with buildEnvironmentMismatchHint({markersChecked: runResult.groundedMarkersChecked, markersFound: []}) from $E2E_LIB/grounded-marker-checker.js — present this as the LEADING hypothesis, before any suggestion that the implementation itself is broken, and prompt the QA engineer to confirm the environment (Phase 2 Step 2's question) before deciding what to do next
+- The pass/fail result is shown to the QA engineer (AC-005-1) — no further accept/reject decision is needed here, since that already happened in the previous step; a failure is handled per @playwright-tester's own investigate/fix-and-rerun/surface-as-blocker responsibility, not a re-ask. Continue to the next step to land the test only once runResult.passed is true
 
 **3. Land the Confirmed, Passed Test**
    TRD-027 (satisfies REQ-006, REQ-014): write/append the test file
@@ -181,9 +198,9 @@ and apply its traceability tag — AC-006-2's existing-file append
 must be checked before scaffolding a redundant new one.
 
 
-   - Determine whether an existing spec file in the consuming application's E2E test project already covers this AC's REQ (e.g. from Phase 1's resume-scan); call writeOrAppendSpecFile(filePath, specDetails) from $E2E_LIB/spec-writer.js — it scaffolds a new file when none exists, or appends a [Test] method to the existing one, never both
-   - Call tagTestMethod(fileContent, {acId, acText, reqId, documentId}) from $E2E_LIB/traceability-tagger.js to turn spec-writer.js's plain anchor comment into the full `@hash:`/doc-id/`@REQ` traceability tag
-   - Log via logAction({type: "test-written", acId, testName, filePath, mode: "created"|"appended"}) from $E2E_LIB/session-logger.js
+- Determine whether an existing spec file in the consuming application's E2E test project already covers this AC's REQ (e.g. from Phase 1's resume-scan); call writeOrAppendSpecFile(filePath, specDetails) from $E2E_LIB/spec-writer.js — it scaffolds a new file when none exists, or appends a [Test] method to the existing one, never both
+- Call tagTestMethod(fileContent, {acId, acText, reqId, documentId}) from $E2E_LIB/traceability-tagger.js to turn spec-writer.js's plain anchor comment into the full `@hash:`/doc-id/`@REQ` traceability tag
+- Log via logAction({type: "test-written", acId, testName, filePath, mode: "created"|"appended"}) from $E2E_LIB/session-logger.js
 
 ### Phase 5: Azure DevOps Test Plan Sync
 
@@ -198,11 +215,11 @@ single release/iteration and later folded into a longer-lived
 regression plan), a real decision for the QA engineer to make.
 
 
-   - Fetch the project's existing Test Plans (e.g. via the Azure DevOps MCP server's testplan_list_test_plans-equivalent tool)
-   - Present the fetched list to the QA engineer and ask them to either pick an existing plan to reuse, or give a name for a new one — never auto-select the only existing plan and never invent a name, even when exactly one plan exists. If they are naming a new plan, mention that Test Plans are often scoped to a release/iteration and later merged into a longer-lived regression plan, so they may want to name it accordingly rather than something implying permanence
-   - Call resolveOrCreateTestPlan({existingPlans, selectedPlanId?, newPlanName?}) from $E2E_LIB/ado-test-plan.js with their choice
-   - If action is "create": call the MCP test-plan-creation tool with the decision's planName, then call recordCreatedPlan(decision, mcpResponse) to get the tracked {planId, planName}; if action is "resolve", the planId is already known — no MCP call needed
-   - Carry the resolved planId forward for every Test Suite call in the next step
+- Fetch the project's existing Test Plans (e.g. via the Azure DevOps MCP server's testplan_list_test_plans-equivalent tool)
+- Present the fetched list to the QA engineer and ask them to either pick an existing plan to reuse, or give a name for a new one — never auto-select the only existing plan and never invent a name, even when exactly one plan exists. If they are naming a new plan, mention that Test Plans are often scoped to a release/iteration and later merged into a longer-lived regression plan, so they may want to name it accordingly rather than something implying permanence
+- Call resolveOrCreateTestPlan({existingPlans, selectedPlanId?, newPlanName?}) from $E2E_LIB/ado-test-plan.js with their choice
+- If action is "create": call the MCP test-plan-creation tool with the decision's planName, then call recordCreatedPlan(decision, mcpResponse) to get the tracked {planId, planName}; if action is "resolve", the planId is already known — no MCP call needed
+- Carry the resolved planId forward for every Test Suite call in the next step
 
 **2. Resolve or Confirm the Story's Test Suite**
    TRD-039 (satisfies REQ-007): once per story, not once per AC.
@@ -212,9 +229,9 @@ one — confirm with the QA engineer first, same principle as the
 QA-environment-verification fix (TRD-034).
 
 
-   - Fetch the story's existing Test Suites within the resolved planId (e.g. via the Azure DevOps MCP server's testplan_list_test_suites-equivalent tool) and call resolveOrCreateTestSuite({planId, workItemId, storyTitle, existingSuites}) from $E2E_LIB/ado-test-suite.js
-   - If action is "create": before calling the MCP test-suite-creation tool, present the decision's suiteName to the QA engineer and confirm — create this new suite, or reuse one of the fetched existingSuites instead? If they pick an existing suite, re-call resolveOrCreateTestSuite with selectedSuiteId set to their choice and use its "resolve" result in place of the original "create" decision
-   - Once creation is confirmed: call the MCP test-suite-creation tool with the decision's planId/suiteName linked to workItemId, then call recordCreatedSuite(decision, mcpResponse) to get the tracked {suiteId, suiteName, workItemId, planId}; if action is "resolve" (whether an automatic match or a QA-engineer selection), the suiteId is already known — no MCP call needed
+- Fetch the story's existing Test Suites within the resolved planId (e.g. via the Azure DevOps MCP server's testplan_list_test_suites-equivalent tool) and call resolveOrCreateTestSuite({planId, workItemId, storyTitle, existingSuites}) from $E2E_LIB/ado-test-suite.js
+- If action is "create": before calling the MCP test-suite-creation tool, present the decision's suiteName to the QA engineer and confirm — create this new suite, or reuse one of the fetched existingSuites instead? If they pick an existing suite, re-call resolveOrCreateTestSuite with selectedSuiteId set to their choice and use its "resolve" result in place of the original "create" decision
+- Once creation is confirmed: call the MCP test-suite-creation tool with the decision's planId/suiteName linked to workItemId, then call recordCreatedSuite(decision, mcpResponse) to get the tracked {suiteId, suiteName, workItemId, planId}; if action is "resolve" (whether an automatic match or a QA-engineer selection), the suiteId is already known — no MCP call needed
 
 **3. Sync Each Landed Test's Steps as a Test Case**
    TRD-028 (satisfies REQ-007, REQ-008): AC-007-2's update-in-place
@@ -222,10 +239,10 @@ behavior on re-sync, and REQ-008's retry/flag-without-rollback
 resilience, both apply here.
 
 
-   - For each just-landed, tagged test: extract its ordered plain-text step descriptions (from its narration/comments) and check findAdoTestCaseTag(fileContent, acId) from $E2E_LIB/traceability-tagger.js for an already-synced id
-   - Call planTestCaseSync({acId, acText, steps, suiteId, existingAdoTestCaseId}) from $E2E_LIB/ado-test-case-sync.js, then call the MCP Test-Case create/update tool (testplan_create_test_case / add-to-suite equivalent) accordingly
-   - On success: call recordSyncedTestCase(decision, mcpResponse), then addAdoTestCaseTag(fileContent, acId, testCaseId) from traceability-tagger.js to persist the id for future re-syncs; log via logAction({type: "sync-result", acId, ...syncedRecord})
-   - On failure: call recordSyncAttempt(state, {success: false, error}) from $E2E_LIB/ado-sync-resilience.js. Decision "retry": troubleshoot per its note and retry this step for the same AC. Decision "flag-unsynced": call flagUnsynced(acId, state), log it, and move on — the local test file landed in the previous phase is NEVER rolled back regardless of sync outcome
+- For each just-landed, tagged test: extract its ordered plain-text step descriptions (from its narration/comments) and check findAdoTestCaseTag(fileContent, acId) from $E2E_LIB/traceability-tagger.js for an already-synced id
+- Call planTestCaseSync({acId, acText, steps, suiteId, existingAdoTestCaseId}) from $E2E_LIB/ado-test-case-sync.js, then call the MCP Test-Case create/update tool (testplan_create_test_case / add-to-suite equivalent) accordingly
+- On success: call recordSyncedTestCase(decision, mcpResponse), then addAdoTestCaseTag(fileContent, acId, testCaseId) from traceability-tagger.js to persist the id for future re-syncs; log via logAction({type: "sync-result", acId, ...syncedRecord})
+- On failure: call recordSyncAttempt(state, {success: false, error}) from $E2E_LIB/ado-sync-resilience.js. Decision "retry": troubleshoot per its note and retry this step for the same AC. Decision "flag-unsynced": call flagUnsynced(acId, state), log it, and move on — the local test file landed in the previous phase is NEVER rolled back regardless of sync outcome
 
 ### Phase 6: AC-Gap Task Filing
 
@@ -237,10 +254,10 @@ bundled, and this module's own shape enforces that (no batching
 parameter exists).
 
 
-   - For each AC whose Phase 1 resolveGapReview() call resolved to "gap-confirmed": call resolveImplementingAuthor(groundingResult.files) from $E2E_LIB/ac-gap-task-filer.js (never throws — an unresolved author still proceeds, unassigned)
-   - Resolve that git identity to an Azure DevOps identity via the MCP server's core_get_identity_ids-equivalent tool, then call planGapTaskFiling({acId, reqId, gapReason, storyWorkItemId, author}) to shape the Task request
-   - Call the MCP work-item-creation tool (wit_create_work_item + wit_add_child_work_items equivalent) linking the new Task under the PRD-referenced Story, then call recordFiledGapTask(decision, mcpResponse)
-   - Log via logAction({type: "gap-task-filed", ...gapRecord}) from $E2E_LIB/session-logger.js
+- For each AC whose Phase 1 resolveGapReview() call resolved to "gap-confirmed": call resolveImplementingAuthor(groundingResult.files) from $E2E_LIB/ac-gap-task-filer.js (never throws — an unresolved author still proceeds, unassigned)
+- Resolve that git identity to an Azure DevOps identity via the MCP server's core_get_identity_ids-equivalent tool, then call planGapTaskFiling({acId, reqId, gapReason, storyWorkItemId, author}) to shape the Task request
+- Call the MCP work-item-creation tool (wit_create_work_item + wit_add_child_work_items equivalent) linking the new Task under the PRD-referenced Story, then call recordFiledGapTask(decision, mcpResponse)
+- Log via logAction({type: "gap-task-filed", ...gapRecord}) from $E2E_LIB/session-logger.js
 
 ### Phase 7: Checkpoints and Session Summary
 
@@ -250,16 +267,16 @@ current REQ has been decided (confirmed, manual, or gap) —
 the QA engineer may stop here and resume later via Phase 1's resume-scan.
 
 
-   - Once a REQ's ACs are all decided, call buildSessionSummary({scope: "checkpoint", reqId, testsWritten, testsConfirmed, manualAcs, adoTestCasesSynced, gapTasksFiled}) from $E2E_LIB/session-summary.js, using this REQ's own accumulated items, and print it
-   - Ask the QA engineer whether to continue to the next REQ or stop the session here — either is a clean, resumable stopping point
+- Once a REQ's ACs are all decided, call buildSessionSummary({scope: "checkpoint", reqId, testsWritten, testsConfirmed, manualAcs, adoTestCasesSynced, gapTasksFiled}) from $E2E_LIB/session-summary.js, using this REQ's own accumulated items, and print it
+- Ask the QA engineer whether to continue to the next REQ or stop the session here — either is a clean, resumable stopping point
 
 **2. Final Session Summary**
    TRD-030 (satisfies REQ-012, REQ-016): printed once every REQ has
 been processed (or the session is stopped early).
 
 
-   - Call buildSessionSummary({scope: "session", testsWritten, testsConfirmed, manualAcs, adoTestCasesSynced, gapTasksFiled}) from $E2E_LIB/session-summary.js, using the whole session's accumulated items across every REQ, and print it as the session's closing message
-   - Every action taken anywhere in this workflow (test-written, run-result, sync-result, gap-task-filed, manual-ac-marked) must already have been logged via logAction as it happened ($E2E_LIB/session-logger.js) — this final summary is a rollup, not the only record of what occurred
+- Call buildSessionSummary({scope: "session", testsWritten, testsConfirmed, manualAcs, adoTestCasesSynced, gapTasksFiled}) from $E2E_LIB/session-summary.js, using the whole session's accumulated items across every REQ, and print it as the session's closing message
+- Every action taken anywhere in this workflow (test-written, run-result, sync-result, gap-task-filed, manual-ac-marked) must already have been logged via logAction as it happened ($E2E_LIB/session-logger.js) — this final summary is a rollup, not the only record of what occurred
 
 ## Expected Output
 

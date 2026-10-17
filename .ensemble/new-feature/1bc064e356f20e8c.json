@@ -1,0 +1,56 @@
+{
+  "runId": "1bc064e356f20e8c",
+  "projectRoot": "/Users/ldangelo/Development/Sunstone/ensemble.dev",
+  "idea": "Add a --foreman flag to new-feature.yaml (and the feature front door) that passes --foreman to the underlying skills/commands, so Foreman can run the workflow with no user present and the model never stops to ask the user questions.",
+  "status": "completed",
+  "stage": "done",
+  "stageOutcome": {
+    "kind": "success",
+    "detail": "PR #165 merged to dev as 9966e8c; epic br-x9ch closed. Run closed out (it was left active at stage done by omission).",
+    "recordedAt": "2026-10-15T21:20:22.663Z"
+  },
+  "artifacts": [
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-1d3e0dd6-new-feature-foreman-flag.md",
+      "documentId": "PRD-2026-1d3e0dd6",
+      "version": "1.0.0",
+      "producingStage": "prd_create",
+      "recordedAt": "2026-10-15T17:55:34.337Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-1d3e0dd6-new-feature-foreman-flag.md",
+      "documentId": "PRD-2026-1d3e0dd6",
+      "version": "1.0.1",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-15T17:57:16.382Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-1d3e0dd6-new-feature-foreman-flag.md",
+      "documentId": "TRD-2026-1d3e0dd6",
+      "version": "1.0.0",
+      "producingStage": "trd_create",
+      "recordedAt": "2026-10-15T17:59:35.327Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-1d3e0dd6-new-feature-foreman-flag.md",
+      "documentId": "TRD-2026-1d3e0dd6",
+      "version": "1.0.1",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-15T18:00:17.841Z"
+    }
+  ],
+  "beadRefs": [
+    "br-x9ch",
+    "br-tx0g",
+    "pr:https://github.com/Sunstone-Partners/ensemble/pull/165"
+  ],
+  "implementationApprovedAt": "2026-10-15T18:03:18.845Z",
+  "prApprovedAt": "2026-10-15T18:52:59.489Z",
+  "revision": 12,
+  "createdAt": "2026-10-15T17:28:14.716Z",
+  "updatedAt": "2026-10-15T21:20:22.668Z"
+}

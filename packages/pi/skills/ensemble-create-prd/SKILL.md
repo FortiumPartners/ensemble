@@ -262,7 +262,7 @@ Score the PRD on quality dimensions to determine if it is ready for TRD handoff
 Non-bypassable pre-save constitution validation
 
 **Actions:**
-1. Run this gate after the PRD draft and Implementation Readiness Gate score exist in memory, and before creating docs/PRD/, writing any repo-local PRD artifact, printing success, or printing the /ensemble-create-trd next step.
+1. Run this gate after the PRD draft and Implementation Readiness Gate score exist in memory, and before creating docs/PRD/, writing any repo-local PRD artifact, printing success, or printing the /ensemble-refine-prd next step.
 2. Immediately upon entering this phase, before resolving the constitution source or evaluating anything else, print the literal line `Constitution Gate: running`. This line MUST print on every single invocation, unconditionally, before any pass/fail/HALT determination -- its presence is what distinguishes 'gate ran' from 'gate never ran'; its absence from a transcript or saved artifact is itself a defect to report, independent of whether the gate ultimately passed or failed.
 3. Resolve the constitution source with strict precedence: use docs/standards/constitution.md as canonical when present; otherwise fall back to .specify/memory/constitution.md.
 4. If both docs/standards/constitution.md and .specify/memory/constitution.md exist and their normalized contents differ, print a warning naming both paths, but continue with docs/standards/constitution.md as canonical.
@@ -273,7 +273,7 @@ Non-bypassable pre-save constitution validation
 9. Format each violation with article id, article title when available, failing draft section, specific finding, and remediation hint. For multiple violations, list every failing article id; never collapse them to a generic constitution failure.
 10. Do not offer any proceed anyway, override, skip, soft-confirmation, default-proceed, or Foreman auto-proceed path for constitution source errors, unmapped article checks, or article violations.
 11. Existing CONCERNS-band Implementation Readiness Gate auto-proceed in Foreman mode is preserved only for non-constitution concerns and only when constitution compliance passes; constitution violations are excluded from CONCERNS auto-proceed.
-12. On constitution failure, do not write docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md, do not create docs/PRD/ as proof of success, do not print saved-file success output, and do not print /ensemble-create-trd next-step output.
+12. On constitution failure, do not write docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md, do not create docs/PRD/ as proof of success, do not print saved-file success output, and do not print /ensemble-refine-prd next-step output.
 13. If --foreman is active and FOREMAN_ARTIFACT_PATH is set and non-empty, write a failure phase report to that exact path, creating parent directories as needed; the report must identify CONSTITUTION_CONFIG_ERROR or the article-specific violations and must not claim a saved repo-local PRD artifact.
 14. On a HALT, print a corresponding one-line status in addition to the existing message it accompanies: `Constitution Gate: HALT (CONSTITUTION_CONFIG_ERROR)` on a missing/unmapped source, or `Constitution Gate: HALT (article violation: <article id>[, <article id>...])` listing every failing article id on a violation.
 15. Known limitation: this gate is enforced entirely as prose inside this command file, read by an LLM agent turn-by-turn -- it is not an independently executed check. A long-running or --continue'd session that already invoked this command once, before a plugin update installed or changed this gate, keeps serving its first-loaded copy of these instructions (including the running/HALT/PASSED lines here) for the rest of that session, regardless of what changes on disk afterward. Restart the session after updating ensemble-product to guarantee the currently-installed gate is what actually runs.
@@ -301,4 +301,5 @@ Save to docs/PRD/ directory and confirm
 **Actions:**
 1. Create docs/PRD/ directory if it doesn't exist only after the Constitution Gate Contract passes
 2. Save the PRD to docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md only after `Constitution compliance: passed` is recorded
-3. Print: file path, requirement count, readiness score, and suggested next step (e.g., '/ensemble-create-trd docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md') only after constitution compliance passes
+3. Print: file path, requirement count, readiness score, and suggested next step (e.g., '/ensemble-refine-prd docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md') only after constitution compliance passes
+4. The next step is ALWAYS refine-prd, never create-trd. A freshly created PRD has not been reviewed, and refine-prd is the review: it is where its open questions get answered and where the PRD is locked. Do not print /ensemble-create-trd here, and do not offer it as an alternative -- create-trd is what refine-prd suggests once the PRD is locked.

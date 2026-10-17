@@ -18,6 +18,7 @@
 6. **A capability is not done until it is reachable from the product entry point** — Code that is implemented, exported, and unit-tested but has no call path from the real `activate()` (or equivalent entry point) is not complete, regardless of test coverage. Acceptance must assert *through* the entry point, not around it.
 7. **A verification must be able to fail** — Any check that gates acceptance of a change must be shown capable of failing: prove it by breaking the thing it guards and observing the check fail. A green signal from a check that cannot fail is worse than no check, because it manufactures confidence.
 8. **What an end-user would plausibly change belongs in a prompt or skill, not in TypeScript** — Before encoding behavior in code, ask: "would an end-user reasonably want to modify this?" If yes, it must ship as a prompt, skill, or behavior-package file they can edit without a toolchain, a rebuild, or a release. Fix strategies, investigation instructions, tone, review criteria, and domain rules are user-owned artifacts. Code is for what must *not* be user-editable: enforcement boundaries, verification that grades a model's own claim, and anything whose bypass would defeat a guarantee. Hardcoding a user-owned artifact forces every consumer to share one strategy they cannot specialize, and silently converts a configuration question into a pull request.
+9. **A test asserts only the order the code under test owns** — Never pin a write made by one actor (a fake host, a test double, the harness) at an exact position among writes made by another actor, especially a spawned process, unless the code under test guarantees that order; the two race, and the test passes locally and fails on a loaded CI runner. Assert the order the runtime guarantees exactly, and bound the other actor's write by those guaranteed points.
 
 ## 2. Tech Stack
 
@@ -92,3 +93,4 @@ Every implementation must pass through:
 | 2026-09-24 | Initial constitution generated via `/init-project` | ensemble-create-prd workflow |
 | 2026-09-24 | Added Rules 6 (reachable from entry point) and 7 (a verification must be able to fail) | behavior-runtime work |
 | 2026-09-25 | Added Rule 8 (user-modifiable artifacts belong in prompts/skills, not TypeScript) | behavior-runtime work |
+| 2026-10-16 | Added Rule 9 (a test asserts only the order the code under test owns) | /ensemble-pr-merge (PR #168) |
