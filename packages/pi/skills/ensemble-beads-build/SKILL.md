@@ -83,7 +83,7 @@ Verify git-town is installed and the working directory is clean; resolve branchi
 11. Set BRANCHING_STRATEGY=RESOLVE_SDLC_RESULT.branchingStrategy.strategy. Both BRANCHING_STRATEGY and PR_BACKEND are re-resolved fresh on every invocation, including resumed epics, and are read by later Preflight/Execute/Quality-Gate/Completion steps in this file — never cached across sessions.
 12. If RESOLVE_SDLC_RESULT.consolidatedMessage is non-null: print it. If it is null (the pure-default case — git-town configured and remote is GitHub): print nothing new at all, matching today's exact output for existing git-town+GitHub users.
 13. Plain-git branch creation (TRD-014): this command drives an existing bead hierarchy on whatever branch is already checked out — unlike implement-trd-beads.yaml, it never creates or switches branches itself (the caller, e.g. implement-trd-beads.yaml's Feature Branch Creation step, or the user for a standalone invocation, is responsible for that). BRANCHING_STRATEGY is still resolved above for consistency with the other two consumer commands and for any future branch-mutating step added here, but today there is zero `git town` command anywhere in this file to make config-driven — the plain-git contract (REQ-004: zero git town commands issued when BRANCHING_STRATEGY==plain-git) is satisfied automatically, by this file never issuing branch-mutation commands of any kind, git-town or otherwise.
-14. Run: git status --porcelain and capture the output as WORKTREE_STATUS. Do NOT decide on it here — the clean-tree gate moved to Epic Discovery (Preflight step 4), because whether a dirty tree is a fault depends on whether this invocation is a resume, and STARTED_COUNT is not known until that step.
+14. Run: git status --porcelain -- . ':(exclude).beads' and capture the output as WORKTREE_STATUS. Do NOT decide on it here — the clean-tree gate moved to Epic Discovery (Preflight step 4), because whether a dirty tree is a fault depends on whether this invocation is a resume, and STARTED_COUNT is not known until that step. .beads/ is br's own state: br rewrites a tracked export on every write, so counting it would make this command halt on its own output (see docs/guides/beads-tracked-export.md).
 
 ### Step 4: Epic Discovery
 
@@ -103,6 +103,7 @@ Locate the root epic bead using the provided ID or slug pattern, detect cross-se
 11. Resolve LABEL: if LABEL is unset, run br show <ROOT_EPIC_ID> --json (it prints a one-element array; use the element) and, if its .labels has exactly one entry, set LABEL to it. Otherwise leave LABEL unset: scoping then falls back to the EPIC_SLUG title match, as before.
 12. If LABEL is set and the root epic title starts with [trd:<slug>] (a TRD-generated epic): backfill with node "$TRD_CLI" beads-label --label "<LABEL>" --match "[trd:<slug>" (TRD_CLI is resolved in Preflight step 3). If it fails, print the error and HALT. This labels beads scaffolded before labels existed and is a no-op otherwise.
 13. If LABEL is set: LABEL_IDS = the .id of every entry in the issue list of br list --all --label <LABEL> --json. If LABEL_IDS is empty: print "ERROR: no bead carries label <LABEL>. bv ignores an unknown label and would schedule every bead in the repo, so beads-build will not continue." and HALT.
+14. Resolve STAGE_SCOPE (what to stage from a tracked .beads/issues.jsonl; see docs/guides/beads-tracked-export.md): if the root epic title starts with [trd:<slug>], STAGE_SCOPE=--match "[trd:<slug>"; otherwise, if LABEL is set, STAGE_SCOPE=--label <LABEL>; otherwise leave it unset and skip the beads-stage step wherever it appears below.
 
 ### Step 5: TRD Augmentation Setup
 
@@ -215,7 +216,7 @@ Record quality gate outcome as br comment and close story on pass
 **Actions:**
 1. Run: br comment add <STORY_BEAD_ID> "Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>"
 2. Run: br sync --flush-only
-3. If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; git commit -m "chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)"
+3. If gate_passed: br close <STORY_BEAD_ID> --reason='Phase complete - quality gate passed'; br sync --flush-only; node "$TRD_CLI" beads-stage <STAGE_SCOPE> (stages only this epic's beads from a tracked export; skip when STAGE_SCOPE is unset; never stage the whole .beads/ directory and never commit with -a); git commit -m "chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)"
 4. If NOT gate_passed AND blocking strategy (tdd/refactor/bug-fix): print gate failure details; PAUSE for user: fix/skip/abort
 
 ## Phase 4: Completion
@@ -236,7 +237,7 @@ Update TRD file checkboxes to reflect bead closure state (TRD_MODE only)
 **Actions:**
 1. If TRD_MODE=false: skip this step
 2. If TRD_MODE=true: for each task in TRD Master Task List: if bead status == 'closed' -> replace "- [ ] **<task.id>**" with "- [x] **<task.id>**"
-3. git commit -m "docs(TRD): sync checkboxes to bead closure state"
+3. git add <TRD_PATH>; node "$TRD_CLI" beads-stage <STAGE_SCOPE> (skip when STAGE_SCOPE is unset); git commit -m "docs(TRD): sync checkboxes to bead closure state"
 
 ### Step 3: Completion Report
 
@@ -262,6 +263,6 @@ Print final summary, requirement satisfaction table (if TRD_MODE), and PR remind
 17. If PR_BACKEND=='gh': remind user: git diff main...<branch>; gh pr create; after merge: move any TRD file to docs/TRD/completed/
 18. If PR_BACKEND=='ado': remind user: git push -u origin <branch>; az repos pr create --source-branch <branch> --target-branch main --title "<title>"; or via the portal: Repos > Pull Requests > New Pull Request, source=<branch>, target=main; after merge: move any TRD file to docs/TRD/completed/
 19. If PR_BACKEND=='manual': remind user: git push -u origin <branch>; then create the PR yourself via gh pr create --base main (or the ADO CLI/portal equivalent if the remote is Azure DevOps); after merge: move any TRD file to docs/TRD/completed/
-20. Remind user: br sync --flush-only && git add .beads/ && git commit -m "chore: final beads sync"
+20. Remind user: br sync --flush-only && node "$TRD_CLI" beads-stage <STAGE_SCOPE> && git commit -m "chore: final beads sync" (do not stage the whole .beads/ directory: in a repo that tracks the export the shared beads database can add beads of other TRDs to this commit; see docs/guides/beads-tracked-export.md)
 21. TIP: The execution engine used here is also available via /ensemble-implement-trd-beads <trd-path> for TRD-driven workflows with full scaffold, traceability validation, and Design Readiness gate.
 22. Do NOT auto-create PR — user must create it manually per the PR_BACKEND-specific reminder above

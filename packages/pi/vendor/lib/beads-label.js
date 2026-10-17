@@ -20,12 +20,13 @@ function runBr(args) {
 }
 
 /**
- * Substring match that stops at a token boundary: "[trd:foo" must not match the beads of a
- * sibling TRD "[trd:foo-v2]". The match has to be followed by `]`, `:` or the end of the title
- * unless it already ends with one of them.
+ * Does `title` belong to the scope entry `match`? A TRD scope entry such as "[trd:foo" (no
+ * closing delimiter) must not match the beads of a sibling TRD "[trd:foo-v2]", so it has to be
+ * followed by `]`, `:` or the end of the title. Any other entry (a TRD entry that already ends
+ * with `]` or `:`, or a non-TRD entry) is a plain substring match.
  */
 function titleMatches(title, match) {
-  if (/[\]:]$/.test(match)) return title.includes(match);
+  if (!match.startsWith('[trd:') || /[\]:]$/.test(match)) return title.includes(match);
   for (let at = title.indexOf(match); at !== -1; at = title.indexOf(match, at + 1)) {
     const next = title[at + match.length];
     if (next === undefined || next === ']' || next === ':') return true;

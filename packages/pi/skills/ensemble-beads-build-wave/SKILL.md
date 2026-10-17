@@ -52,7 +52,7 @@ Verify br is installed and functional; bv is required (no graceful degradation)
 Confirm clean working directory AND that the caller already switched off the repository default branch; branch creation itself is still owned by the caller (beads-build.yaml or implement-trd-beads.yaml Feature Branch Creation) -- this step only verifies the precondition, it never creates or switches branches.
 
 **Actions:**
-1. Run: git status --porcelain -- HALT if output non-empty (dirty working directory).
+1. Run: git status --porcelain -- . ':(exclude).beads' and HALT if output non-empty (dirty working directory). .beads/ is br's own state and is ignored.
 2. Run: git symbolic-ref --short HEAD to get CURRENT_BRANCH (HALT immediately with "ERROR: detached HEAD -- create or switch to a feature branch before dispatching a wave." if this fails/empty, i.e. detached HEAD).
 3. Run: git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed "s@^origin/@@" to get DEFAULT_BRANCH; if empty (no origin configured) fall back to DEFAULT_BRANCH=main.
 4. HARD PRECONDITION: if CURRENT_BRANCH == DEFAULT_BRANCH, print "ERROR: beads-build-wave refuses to dispatch on the repository default branch (<DEFAULT_BRANCH>). Run implement-trd-beads.yaml Feature Branch Creation (Preflight Step 10) first, or manually create/switch to a feature branch, then retry." and HALT. Do not implement work directly on <DEFAULT_BRANCH>.
