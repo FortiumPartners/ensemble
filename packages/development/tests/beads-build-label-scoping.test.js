@@ -134,7 +134,17 @@ describe('beads-build-wave', () => {
     // Step 3 must not cut the plan before Step 3b has seen it.
     expect(wave).not.toMatch(/to extract the tracks \(up to MAX_PARALLEL\)/);
     // Step 2's pointer has to name the step that now owns the cut, or the spec contradicts itself.
-    expect(wave).toMatch(/MAX_PARALLEL truncation happens in Step 3b, after its filter/);
+    expect(wave).toMatch(/MAX_PARALLEL truncation happens after Step 3b''s filter, or in Step 3 when LABEL is unset/);
+  });
+
+  /**
+   * Step 3b is headed "only when LABEL is set", so moving the cut there left an unlabeled
+   * wave with no cap at all: every track in the repo-wide plan dispatched concurrently
+   * against a --max-parallel default of 3. Step 3 keeps the cut for that path, and only
+   * for that path, so the two cannot both truncate the same plan.
+   */
+  test('an unlabeled wave still truncates, in Step 3', () => {
+    expect(wave).toMatch(/When LABEL is unset, truncate to MAX_PARALLEL here/);
   });
 
   test('carries LABEL in each track scope', () => {
