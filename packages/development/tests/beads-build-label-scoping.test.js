@@ -119,7 +119,22 @@ describe('beads-build-wave', () => {
   });
 
   test('logs what it dropped, so a short wave is explainable without a rerun', () => {
-    expect(wave).toMatch(/log the dropped IDs/);
+    expect(wave).toMatch(/log dropped IDs/);
+  });
+
+  /**
+   * The filter runs BEFORE the MAX_PARALLEL cut, and the order is the whole point.
+   * The plan is repo-wide, so cutting to MAX_PARALLEL first can leave only out-of-label
+   * tracks; the filter then empties them and the wave reports blocked while in-label beads
+   * were ready in the tracks that the cut discarded. That turns the #127 over-refusal into
+   * a false blocked, which beads-build.yaml escalates as "EXECUTION BLOCKED".
+   */
+  test('filters first and truncates second, in Step 3b', () => {
+    expect(wave).toMatch(/THEN truncate to MAX_PARALLEL and dispatch what survives/);
+    // Step 3 must not cut the plan before Step 3b has seen it.
+    expect(wave).not.toMatch(/to extract the tracks \(up to MAX_PARALLEL\)/);
+    // Step 2's pointer has to name the step that now owns the cut, or the spec contradicts itself.
+    expect(wave).toMatch(/MAX_PARALLEL truncation happens in Step 3b, after its filter/);
   });
 
   test('carries LABEL in each track scope', () => {
