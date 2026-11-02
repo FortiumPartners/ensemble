@@ -89,6 +89,144 @@ function validateFullLibMirror() {
   return failures;
 }
 
+/** Extensions treated as bundled code whose requires must resolve. */
+const BUNDLE_CODE_EXTENSIONS = new Set(['.js', '.cjs', '.mjs']);
+
+/** Suffixes Node will try for a bare relative specifier, in its own order. */
+const BUNDLE_RESOLVE_SUFFIXES = ['', '.js', '.cjs', '.mjs', '.json'];
+
+/**
+ * Every relative specifier a file requires or imports. Both forms are matched
+ * because packages/full carries CommonJS and ESM side by side.
+ *
+ * @param {string} source File contents
+ * @returns {string[]} Relative specifiers, duplicates included
+ */
+function relativeSpecifiers(source) {
+  const found = [];
+  for (const pattern of [
+    /\brequire\(\s*['"](\.[^'"]+)['"]\s*\)/g,
+    /\bfrom\s+['"](\.[^'"]+)['"]/g,
+  ]) {
+    let match;
+    while ((match = pattern.exec(source)) !== null) found.push(match[1]);
+  }
+  return found;
+}
+
+/**
+ * Resolve `specifier` as Node would, from a file sitting at `fromFile`.
+ *
+ * @param {string} fromFile Absolute path of the requiring file
+ * @param {string} specifier Relative specifier
+ * @returns {boolean} Whether some candidate exists as a file
+ */
+function bundleRequireResolves(fromFile, specifier) {
+  const base = path.resolve(path.dirname(fromFile), specifier);
+  const candidates = BUNDLE_RESOLVE_SUFFIXES.map(suffix => `${base}${suffix}`)
+    .concat(BUNDLE_RESOLVE_SUFFIXES.filter(Boolean).map(suffix => path.join(base, `index${suffix}`)));
+  return candidates.some(candidate => {
+    try {
+      return fs.statSync(candidate).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Ensure every relative require in packages/full resolves INSIDE packages/full.
+ *
+ * packages/full is assembled out of symlinks into the other packages, and
+ * `claude plugin install` copies it with those links dereferenced. So the
+ * bundle has to be self-contained, and the repo is a poor witness for that:
+ * Node resolves a required path against a file's REALPATH, so a symlinked
+ * `packages/full/hooks/permitter.js` reaches `../lib/matcher` through
+ * `packages/permitter/lib/` and works perfectly here while the installed copy,
+ * flattened into plain files, cannot resolve it at all.
+ *
+ * That is why validateFullLibMirror above did not catch this: it compares two
+ * directory listings, and it only lists `*.js`, so a required subdirectory
+ * (`lib/toolchain/`) and a module mirrored from a package other than
+ * development (`lib/matcher.js`, from permitter) are both invisible to it.
+ * 8.1.0 shipped with 32 unresolved requires across three entry points:
+ * trd-cli.js, toolchain-cli.js and the permitter PermissionRequest hook, which
+ * meant every command that shells to trd-cli.js failed in every config root and
+ * every session ran a crashing hook.
+ *
+ * This resolves each specifier against the file's path as it sits in the
+ * bundle, which is what the install will have. Test files are skipped: their
+ * requires include fixture source written as string literals, and nothing a
+ * session runs loads them.
+ *
+ * @returns {string[]} One message per unresolved specifier
+ */
+function validateFullBundleRequires() {
+  const failures = [];
+  const fullDir = path.join(PACKAGES_DIR, 'full');
+  if (!fs.existsSync(fullDir)) {
+    return failures;
+  }
+
+  const files = [];
+  const walk = dir => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
+      const entryPath = path.join(dir, entry.name);
+      let stat;
+      try {
+        // statSync, not lstatSync: a symlinked directory is part of the bundle
+        // and the install will copy its contents in.
+        stat = fs.statSync(entryPath);
+      } catch {
+        continue; // a broken mirror is findDeSymlinkedMirrors' business
+      }
+      if (stat.isDirectory()) walk(entryPath);
+      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  };
+  walk(fullDir);
+
+  let checked = 0;
+  files.forEach(file => {
+    const relative = path.relative(PACKAGES_DIR, file);
+    let source;
+    try {
+      source = fs.readFileSync(file, 'utf8');
+    } catch {
+      return;
+    }
+    for (const specifier of relativeSpecifiers(source)) {
+      if (bundleRequireResolves(file, specifier)) {
+        checked++;
+      } else {
+        failures.push(
+          `packages/${relative} requires '${specifier}', which does not resolve inside packages/full - ` +
+          `the installed bundle dereferences symlinks, so add a mirror for it under packages/full/`
+        );
+      }
+    }
+  });
+
+  // State the denominator. A line reading "N relative require(s) resolve" while
+  // N counted every require it looked at, resolved or not, is the shape this
+  // whole check exists to stop.
+  const total = checked + failures.length;
+  console.log(
+    `  ${failures.length === 0 ? '✓' : '✗'} ${checked}/${total} relative require(s) ` +
+    `in ${files.length} packages/full file(s) resolve inside the bundle`
+  );
+  return failures;
+}
+
 /**
  * Parse a packages/full/skills/<entry> symlink target into the source package
  * it mirrors wholesale (`../../git/skills` -> `git`), or null for a per-skill
@@ -520,6 +658,14 @@ function main() {
     errors++;
   });
 
+  // packages/full must be self-contained once the install flattens its symlinks
+  console.log('\nValidating packages/full/ relative requires resolve inside the bundle...');
+  const fullRequireFailures = validateFullBundleRequires();
+  fullRequireFailures.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // packages/full/skills/ must reach every source package's skills (symlink drift check)
   console.log('\nValidating packages/full/skills/ mirrors source packages...');
   const fullSkillsFailures = validateFullSkillsMirror();
@@ -615,6 +761,9 @@ module.exports = {
   findDeSymlinkedMirrors,
   validateFullSkillsMirror,
   validateFullLibMirror,
+  validateFullBundleRequires,
+  relativeSpecifiers,
+  bundleRequireResolves,
   validateStepKeys,
   validateCapabilityIds,
   validateCapabilityInvocationDrift,
