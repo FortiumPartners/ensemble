@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { vendorToolchainLibrary } = require('../lib/toolchain-vendor');
+const { MIRROR_PACKAGES, owningPackage } = require('../lib/mirror-packages');
 
 // ---------------------------------------------------------------------------
 // CLI-001: Argument parsing (using commander, available in devDependencies)
@@ -41,7 +42,10 @@ const PACKAGES_DIR = path.join(ROOT, 'packages');
 // generated `packages/pi/skills/adapter-tracker-beads/` otherwise collides with the real
 // source at `packages/development/skills/adapter-tracker-beads/` in `SkillCopier`'s own
 // collision check (`packages/opencode/lib/skill-copier.js#execute`).
-const ADAPTER_SOURCE_EXCLUDED_PACKAGES = new Set(['pi', 'full']);
+// It applies to the command discovery below for the same reason, and
+// `scripts/lib/mirror-packages.js` now holds the one copy of this set and the
+// owning-package helper, shared with the translators here and the Codex generator.
+const ADAPTER_SOURCE_EXCLUDED_PACKAGES = MIRROR_PACKAGES;
 
 function createProgram() {
   const program = new Command();
@@ -184,12 +188,16 @@ function discoverCommandSourceFiles(packagesDir = PACKAGES_DIR) {
   try {
     const glob = require('glob');
     const pattern = path.join(packagesDir, '*/commands/*.yaml');
-    return glob.sync(pattern).sort();
+    return glob
+      .sync(pattern)
+      .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, packagesDir)))
+      .sort();
   } catch {
     // Fallback if glob not available
     const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
+      if (ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) continue;
       const cmdDir = path.join(packagesDir, entry.name, 'commands');
       if (fs.existsSync(cmdDir)) {
         const yamls = fs.readdirSync(cmdDir).filter((f) => f.endsWith('.yaml'));

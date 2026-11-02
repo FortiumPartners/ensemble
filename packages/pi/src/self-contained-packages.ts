@@ -28,3 +28,24 @@
  */
 
 export const SELF_CONTAINED_PI_PACKAGES: Record<string, true> = { assessment: true };
+
+/**
+ * Package directories that MIRROR other packages' content rather than owning any.
+ *
+ * `pi` is this generator's own output. `full` is the Claude Code bundle: a tree of
+ * symlinks into every other package, which `claude plugin install` copies dereferenced.
+ * Neither is a source, and reading one as a source produces a second agent, command or
+ * skill out of one source file.
+ *
+ * skill-copier has always skipped both. The agent and command discovery in generator.ts
+ * did not, because it reads one level inside each package's `agents/` and `commands/`
+ * directory and packages/full held only subdirectories there -- until it began mirroring
+ * `commands/configure-team.yaml` and `agents/documentation-specialist.yaml`, which
+ * `lib/team-defaults.js` and `lib/index.js` read by path, so the bundle has to carry
+ * them. That turned a latent gap into a 25th agent and a 42nd command.
+ *
+ * Test membership with Object.prototype.hasOwnProperty.call, for the reason above.
+ *
+ * @module ensemble-pi/self-contained-packages
+ */
+export const MIRROR_PACKAGES: Record<string, true> = { pi: true, full: true };

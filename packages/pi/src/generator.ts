@@ -24,7 +24,7 @@ import {
   generateCommandSkills,
   isCommandWrapperSkill,
 } from './transformers/command-skill-transformer';
-import { SELF_CONTAINED_PI_PACKAGES } from './self-contained-packages';
+import { SELF_CONTAINED_PI_PACKAGES, MIRROR_PACKAGES } from './self-contained-packages';
 import { GeneratorOptions, GenerateResult, TransformResult, CommandYaml } from './types';
 import { hasGeneratedMarker } from './generated-marker';
 import { transformCommand } from './transformers/command-transformer';
@@ -427,6 +427,16 @@ function isSelfContainedPackageDir(packageDir: string): boolean {
   return Object.prototype.hasOwnProperty.call(SELF_CONTAINED_PI_PACKAGES, packageDir);
 }
 
+/** Mirror packages own no source; see MIRROR_PACKAGES for what reading one as a source costs. */
+function isMirrorPackageDir(packageDir: string): boolean {
+  return Object.prototype.hasOwnProperty.call(MIRROR_PACKAGES, packageDir);
+}
+
+/** The owning package of a path under `packages/`, by its first segment rather than by dirname hops. */
+function owningPackageDir(sourceRoot: string, file: string): string {
+  return path.relative(path.join(sourceRoot, 'packages'), file).split(path.sep)[0] ?? '';
+}
+
 /** Read packages/*\/.claude-plugin/plugin.json (name + description), sorted by name. */
 function collectPackages(sourceRoot: string): PackageEntry[] {
   const files = listPackageFiles(sourceRoot, ['.claude-plugin'], (f) => f === 'plugin.json');
@@ -450,6 +460,10 @@ function collectAgentsByPackage(sourceRoot: string): Map<string, AgentEntry[]> {
   const byPackage = new Map<string, AgentEntry[]>();
   for (const file of files) {
     if (isSelfContainedPackageDir(path.basename(path.dirname(path.dirname(file))))) continue;
+    // packages/full mirrors agents/documentation-specialist.yaml, so without this the
+    // overview grows a "### full" group listing an agent that already appears under the
+    // package that owns it.
+    if (isMirrorPackageDir(owningPackageDir(sourceRoot, file))) continue;
     try {
       const raw = yaml.load(fs.readFileSync(file, 'utf-8')) as { metadata?: { name?: unknown; description?: unknown } };
       const name = raw?.metadata?.name;
@@ -720,7 +734,8 @@ export async function generate(options: GeneratorOptions): Promise<GenerateResul
   // none of their commands belong in ensemble-pi.
   const commandFiles = (await discoverYamlFiles(commandPattern)).filter((file) => {
     const packageName = path.basename(path.dirname(path.dirname(file)));
-    return !Object.prototype.hasOwnProperty.call(SELF_CONTAINED_PI_PACKAGES, packageName);
+    if (Object.prototype.hasOwnProperty.call(SELF_CONTAINED_PI_PACKAGES, packageName)) return false;
+    return !isMirrorPackageDir(owningPackageDir(sourceRoot, file));
   });
 
   if (verbose) {
@@ -734,7 +749,9 @@ export async function generate(options: GeneratorOptions): Promise<GenerateResul
   // 2. Discover and process agent YAML files
   // ------------------------------------------------------------------
   const agentPattern = path.join(sourceRoot, 'packages/*/agents/*.yaml');
-  const agentFiles = await discoverYamlFiles(agentPattern);
+  const agentFiles = (await discoverYamlFiles(agentPattern)).filter(
+    (file) => !isMirrorPackageDir(owningPackageDir(sourceRoot, file))
+  );
 
   if (verbose) {
     process.stdout.write(`Discovered ${agentFiles.length} agent YAML file(s).\n`);

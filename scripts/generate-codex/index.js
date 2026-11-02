@@ -11,19 +11,20 @@ const { globSync } = require('glob');
 // as orphaned.
 const { toGlobPattern } = require('../lib/file-discovery');
 const { vendorToolchainLibrary } = require('../lib/toolchain-vendor');
+const { MIRROR_PACKAGES, owningPackage } = require('../lib/mirror-packages');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
-// Packages that MIRROR every other package's skills/adapter-* directories (packages/pi's own
-// generator output, packages/full's curated symlink tree -- see
-// packages/pi/src/transformers/skill-copier.ts's own EXCLUDED_PACKAGES for the same rule on
-// the Pi side) must never be treated as a SECOND, independent adapter source: TRD-024 is the
-// first real adapter this monorepo ships, and it exposed a latent gap here -- `packages/pi`'s
-// generated `packages/pi/skills/adapter-tracker-beads/` otherwise collides with the real
-// source at `packages/development/skills/adapter-tracker-beads/`, a false positive this
-// generator's own collision check (below) would wrongly treat as two different packages
-// shipping the same adapter name.
-const ADAPTER_SOURCE_EXCLUDED_PACKAGES = new Set(['pi', 'full']);
+// A mirror package must never be treated as a SECOND, independent adapter source: TRD-024
+// is the first real adapter this monorepo ships, and it exposed a latent gap here --
+// `packages/pi`'s generated `packages/pi/skills/adapter-tracker-beads/` otherwise collides
+// with the real source at `packages/development/skills/adapter-tracker-beads/`, a false
+// positive this generator's own collision check (below) would wrongly treat as two
+// different packages shipping the same adapter name. The same exclusion applies to this
+// generator's agent and command globs -- see scripts/lib/mirror-packages.js, which both
+// JS generators now share, and packages/pi/src/self-contained-packages.ts for the Pi side.
+const ADAPTER_SOURCE_EXCLUDED_PACKAGES = MIRROR_PACKAGES;
+
 const CODEX_PACKAGE_DIR = path.join(PACKAGES_DIR, 'codex');
 const OUTPUT_DIR = path.join(CODEX_PACKAGE_DIR, '.codex');
 const AGENTS_OUTPUT = path.join(CODEX_PACKAGE_DIR, 'AGENTS.md');
@@ -308,7 +309,7 @@ function copyFrameworkSkills({ dryRun, verbose }) {
  */
 function copyAdapterSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, outputDir = OUTPUT_DIR }) {
   const adapterSkillFiles = globSync(toGlobPattern(path.join(packagesDir, '*/skills/adapter-*/SKILL.md')))
-    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(path.basename(path.dirname(path.dirname(path.dirname(file))))))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, packagesDir)))
     .sort();
 
   // Detect adapter directory-name collisions (TRD-020 P2 fix). Output is keyed purely by the
@@ -418,7 +419,9 @@ function generateCodexSubcommandsSection(subcommands, baseNameToYamlFile, source
 }
 
 function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, outputDir = OUTPUT_DIR, rootDir = ROOT }) {
-  const commandYamlFiles = globSync(toGlobPattern(path.join(packagesDir, '*/commands/*.yaml'))).sort();
+  const commandYamlFiles = globSync(toGlobPattern(path.join(packagesDir, '*/commands/*.yaml')))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, packagesDir)))
+    .sort();
   // Resolves each dispatch.subcommands[].ref to its sibling's own YAML path,
   // so we can validate the ref and derive that sibling's Codex output path.
   const baseNameToYamlFile = new Map(commandYamlFiles.map((f) => [path.basename(f, '.yaml'), f]));
@@ -505,7 +508,9 @@ function sandboxModeFor(agentName) {
 }
 
 function generateAgents({ dryRun, verbose }) {
-  const agentYamlFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/agents/*.yaml'))).sort();
+  const agentYamlFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/agents/*.yaml')))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, PACKAGES_DIR)))
+    .sort();
   const agents = [];
 
   for (const yamlFile of agentYamlFiles) {
