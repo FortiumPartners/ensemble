@@ -29,6 +29,7 @@ const {
   bareSpecifiers,
   specifierPackage,
 } = require('../validate-all');
+const { VENDORED, checkVendored, fileList } = require('../vendor-bundle-deps');
 
 describe('bareSpecifiers', () => {
   test('finds requires and imports, and ignores relative specifiers', () => {
@@ -146,6 +147,139 @@ describe('the gitignore negation', () => {
     expect(negation).toBeGreaterThan(-1);
     const after = lines.slice(negation + 1).filter(l => !l.startsWith('!'));
     expect(after).toEqual([]);
+  });
+});
+
+describe('checkVendored compares bytes, not names', () => {
+  // The names being present and the bytes being the ones npm installed are two
+  // questions, and only the first was ever asked. A review of this repo reads the
+  // handful of files a PR authors, not 598 files of third-party source, so if the
+  // vendored tree drifts from the copy npm verified against the lockfile, nothing but
+  // this comparison will say so.
+
+  /**
+   * @param {Record<string, Record<string, string>>} packages name -> { relPath: contents }
+   * @returns {string} the fixture directory
+   */
+  const writeTree = packages => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vendored-'));
+    for (const [name, files] of Object.entries(packages)) {
+      for (const [rel, contents] of Object.entries(files)) {
+        const file = path.join(dir, name, rel);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, contents);
+      }
+    }
+    return dir;
+  };
+
+  const manifestJson = (name, version) => JSON.stringify({ name, version });
+
+  test('the real tree matches the root node_modules', () => {
+    expect(checkVendored()).toEqual([]);
+  });
+
+  test('an identical fixture pair is clean', () => {
+    const files = { 'package.json': manifestJson('left-pad', '1.0.0'), 'index.js': 'module.exports = 1;\n' };
+    const source = writeTree({ 'left-pad': files });
+    const target = writeTree({ 'left-pad': files });
+    try {
+      expect(checkVendored({ sourceDir: source, targetDir: target, vendored: ['left-pad'] })).toEqual([]);
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('a changed byte in a vendored file is reported with the file named', () => {
+    const source = writeTree({
+      'left-pad': { 'package.json': manifestJson('left-pad', '1.0.0'), 'index.js': 'module.exports = 1;\n' },
+    });
+    const target = writeTree({
+      'left-pad': { 'package.json': manifestJson('left-pad', '1.0.0'), 'index.js': 'module.exports = 2;\n' },
+    });
+    try {
+      const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['left-pad'] });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('index.js (content differs)');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('the version alone staying equal does not clear a changed file', () => {
+    // The whole reason this is a content comparison: an altered file is exactly what
+    // leaves the version string untouched.
+    const source = writeTree({
+      pkg: { 'package.json': manifestJson('pkg', '2.3.4'), 'dist/pkg.js': 'ok\n' },
+    });
+    const target = writeTree({
+      pkg: { 'package.json': manifestJson('pkg', '2.3.4'), 'dist/pkg.js': 'ok\n// extra\n' },
+    });
+    try {
+      expect(checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] })).toHaveLength(1);
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('a file present only in the vendored copy is reported', () => {
+    const source = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    const target = writeTree({
+      pkg: { 'package.json': manifestJson('pkg', '1.0.0'), 'smuggled.js': 'require("child_process");\n' },
+    });
+    try {
+      const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('smuggled.js (not in the root copy)');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('a vendored package nothing in the closure needs is reported', () => {
+    const source = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    const target = writeTree({
+      pkg: { 'package.json': manifestJson('pkg', '1.0.0') },
+      stowaway: { 'package.json': manifestJson('stowaway', '1.0.0') },
+    });
+    try {
+      const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('stowaway: vendored but not in VENDORED');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('fileList skips the directories the vendoring skips, so the two walks compare', () => {
+    const dir = writeTree({
+      pkg: {
+        'package.json': manifestJson('pkg', '1.0.0'),
+        'index.js': 'x\n',
+        'test/index.test.js': 'x\n',
+        'coverage/lcov.info': 'x\n',
+        '.github/workflows/ci.yml': 'x\n',
+      },
+    });
+    try {
+      expect(fileList(path.join(dir, 'pkg')).sort()).toEqual(['index.js', 'package.json']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('uri-js and punycode are not vendored: ajv 8.17 resolves URIs with fast-uri', () => {
+    // They were vendored at first as "ajv's closure". ajv lists uri-js only in
+    // devDependencies, and punycode existed solely for uri-js, so both shipped ~60
+    // files of third-party code into every install with no runtime consumer.
+    expect(VENDORED).not.toContain('uri-js');
+    expect(VENDORED).not.toContain('punycode');
+    expect(VENDORED).toContain('fast-uri');
   });
 });
 

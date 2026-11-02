@@ -11,6 +11,7 @@ const promptBudget = require('./lib/prompt-budget');
 const { checkStepKeys } = require('./lib/step-keys-check');
 const { loadValidCapabilityIds, checkCapabilityIds, checkCapabilityInvocationDrift } = require('./lib/capability-ids-check');
 const { checkDefaultOnly, RESTRICTED_CATEGORIES } = require('./lib/default-only-check');
+const { checkVendored } = require('./vendor-bundle-deps');
 const yamlLib = require('js-yaml');
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
@@ -918,6 +919,20 @@ function main() {
     console.error(`✗ ${message}`);
     errors++;
   });
+
+  // The names being present is not the same question as the bytes being the ones npm
+  // installed and verified against the lockfile. The vendored tree is executing code in
+  // every install, and a review of this repo reads the nine files a PR authors, not 598
+  // files of third-party source, so the comparison has to be mechanical.
+  console.log('\nValidating the vendored tree matches the root node_modules, file for file...');
+  const vendoredProblems = checkVendored();
+  vendoredProblems.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+  if (vendoredProblems.length === 0) {
+    console.log('  ✓ every vendored file is byte-identical to the copy npm installed');
+  }
 
   // packages/full/skills/ must reach every source package's skills (symlink drift check)
   console.log('\nValidating packages/full/skills/ mirrors source packages...');
