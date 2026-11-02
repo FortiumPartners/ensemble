@@ -65,27 +65,63 @@ describe('bundleRequireResolves', () => {
 
   test('resolves an extensionless specifier through .js', () => {
     fs.writeFileSync(path.join(dir, 'matcher.js'), 'module.exports = {};');
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './matcher')).toBe(true);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './matcher', dir)).toBe(true);
   });
 
   test('resolves a directory through its index.js', () => {
     fs.mkdirSync(path.join(dir, 'toolchain'));
     fs.writeFileSync(path.join(dir, 'toolchain', 'index.js'), 'module.exports = {};');
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain')).toBe(true);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain', dir)).toBe(true);
   });
 
   test('a directory with no index does NOT resolve, which is the lib/toolchain shape', () => {
     // The 8.1.0 break: ./toolchain/config, not ./toolchain, is what was required.
     fs.mkdirSync(path.join(dir, 'toolchain'));
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain')).toBe(false);
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain/config')).toBe(false);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain', dir)).toBe(false);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain/config', dir)).toBe(false);
     fs.writeFileSync(path.join(dir, 'toolchain', 'config.js'), 'module.exports = {};');
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain/config')).toBe(true);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './toolchain/config', dir)).toBe(true);
   });
 
   test('a directory is not a module, so a bare directory hit is not a false pass', () => {
     fs.mkdirSync(path.join(dir, 'lib'));
-    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './lib')).toBe(false);
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './lib', dir)).toBe(false);
+  });
+
+  test('a specifier that climbs out of the bundle does not resolve, even though the file is there', () => {
+    // This is the whole defect in miniature. `../permitter/lib/matcher` from
+    // packages/full/hooks/permitter.js finds a real file in a checkout and
+    // finds nothing in the flattened install, which carries no sibling
+    // packages. Counting the checkout's answer is how 8.1.0 shipped broken.
+    const bundle = path.join(dir, 'full');
+    const sibling = path.join(dir, 'permitter', 'lib');
+    fs.mkdirSync(path.join(bundle, 'hooks'), { recursive: true });
+    fs.mkdirSync(sibling, { recursive: true });
+    fs.writeFileSync(path.join(sibling, 'matcher.js'), 'module.exports = {};');
+
+    const entry = path.join(bundle, 'hooks', 'permitter.js');
+    expect(fs.existsSync(path.join(sibling, 'matcher.js'))).toBe(true);
+    expect(bundleRequireResolves(entry, '../../permitter/lib/matcher', bundle)).toBe(false);
+
+    // A mirror inside the bundle is what makes it resolve.
+    fs.mkdirSync(path.join(bundle, 'lib'));
+    fs.writeFileSync(path.join(bundle, 'lib', 'matcher.js'), 'module.exports = {};');
+    expect(bundleRequireResolves(entry, '../lib/matcher', bundle)).toBe(true);
+  });
+
+  test('a sibling directory sharing the bundle name prefix is outside the bundle', () => {
+    // packages/full-extras must not satisfy a require from packages/full.
+    const bundle = path.join(dir, 'full');
+    const lookalike = path.join(dir, 'full-extras');
+    fs.mkdirSync(bundle);
+    fs.mkdirSync(lookalike);
+    fs.writeFileSync(path.join(lookalike, 'matcher.js'), 'module.exports = {};');
+    expect(bundleRequireResolves(path.join(bundle, 'entry.js'), '../full-extras/matcher', bundle)).toBe(false);
+  });
+
+  test('no boundary means nothing resolves, so a caller that forgets it fails loudly', () => {
+    fs.writeFileSync(path.join(dir, 'matcher.js'), 'module.exports = {};');
+    expect(bundleRequireResolves(path.join(dir, 'entry.js'), './matcher', undefined)).toBe(false);
   });
 });
 

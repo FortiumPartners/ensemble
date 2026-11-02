@@ -115,14 +115,37 @@ function relativeSpecifiers(source) {
 }
 
 /**
- * Resolve `specifier` as Node would, from a file sitting at `fromFile`.
+ * Resolve `specifier` as Node would, from a file sitting at `fromFile`, and
+ * only count it resolved if it lands inside `confineTo`.
+ *
+ * The confinement is the whole point rather than a hardening afterthought. A
+ * specifier that climbs out of the bundle -- `../../permitter/lib/matcher` from
+ * `packages/full/hooks/permitter.js` -- resolves perfectly in a checkout,
+ * because the sibling package really is there, and resolves to nothing in the
+ * flattened install, which contains no sibling packages at all. Without the
+ * confinement this function would answer the question the checkout asks
+ * instead of the one the install asks, which is the entire defect it exists to
+ * detect.
+ *
+ * `confineTo` is required rather than optional on purpose. Omitting it would
+ * answer the checkout's question again, silently, which is the defect; with no
+ * boundary to clear, every specifier reads unresolved and the caller hears
+ * about it.
  *
  * @param {string} fromFile Absolute path of the requiring file
  * @param {string} specifier Relative specifier
- * @returns {boolean} Whether some candidate exists as a file
+ * @param {string} confineTo Directory the result must sit inside
+ * @returns {boolean} Whether some candidate exists as a file within confineTo
  */
-function bundleRequireResolves(fromFile, specifier) {
+function bundleRequireResolves(fromFile, specifier, confineTo) {
+  if (!confineTo) {
+    return false;
+  }
   const base = path.resolve(path.dirname(fromFile), specifier);
+  const boundary = confineTo.endsWith(path.sep) ? confineTo : confineTo + path.sep;
+  if (!base.startsWith(boundary)) {
+    return false;
+  }
   const candidates = BUNDLE_RESOLVE_SUFFIXES.map(suffix => `${base}${suffix}`)
     .concat(BUNDLE_RESOLVE_SUFFIXES.filter(Boolean).map(suffix => path.join(base, `index${suffix}`)));
   return candidates.some(candidate => {
@@ -205,7 +228,7 @@ function validateFullBundleRequires() {
       return;
     }
     for (const specifier of relativeSpecifiers(source)) {
-      if (bundleRequireResolves(file, specifier)) {
+      if (bundleRequireResolves(file, specifier, fullDir)) {
         checked++;
       } else {
         failures.push(
