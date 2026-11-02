@@ -222,6 +222,169 @@ function specifierPackage(specifier) {
 }
 
 /**
+ * Every executable file under `dir`, with node_modules and test trees left out.
+ *
+ * `statSync` and not `dirent.isDirectory()`: packages/full is assembled out of symlinks,
+ * and the dirent of a symlinked directory is a link, not a directory.
+ *
+ * @param {string} dir Directory to walk
+ * @returns {string[]} Absolute paths
+ */
+function bundleCodeFiles(dir) {
+  const files = [];
+  const walk = current => {
+    let entries;
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
+      const entryPath = path.join(current, entry.name);
+      let stat;
+      try {
+        stat = fs.statSync(entryPath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) walk(entryPath);
+      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  };
+  walk(dir);
+  return files;
+}
+
+/**
+ * The literal segment lists of every `path.join(__dirname, ...)` / `path.resolve(__dirname, ...)`
+ * in `source` whose arguments are all string literals.
+ *
+ * A call carrying a variable is skipped rather than guessed at: there is no honest static
+ * answer for `path.join(__dirname, category + '.yaml')`, and reporting a guess as a
+ * missing file would fail `npm run validate` on a correct bundle. The count of skipped
+ * calls is printed so the gap is visible.
+ *
+ * @param {string} source File contents
+ * @returns {{segments: string[], line: number}[]} One entry per fully-literal call
+ */
+function dirnamePaths(source) {
+  const code = stripComments(source);
+  const out = [];
+  // `path.join(` / `path.resolve(`, `__dirname`, then only quoted literals to the close
+  // paren. Newlines are allowed between arguments: four of the six call sites in the
+  // bundle today are one-liners and the shape should not decide whether a path is checked.
+  const re = /path\.(?:join|resolve)\(\s*__dirname\s*((?:,\s*(?:'[^'\n]*'|"[^"\n]*")\s*)+)\)/g;
+  let match;
+  while ((match = re.exec(code)) !== null) {
+    const segments = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map(m => m[1]);
+    if (segments.length > 0) {
+      out.push({ segments, line: code.slice(0, match.index).split('\n').length });
+    }
+  }
+  return out;
+}
+
+/**
+ * Ensure every file and directory the bundle's code reaches by a `__dirname`-relative
+ * path is actually in the bundle.
+ *
+ * The third member of the family, after validateFullBundleRequires (does a RELATIVE
+ * REQUIRE resolve once the install flattens the symlinks) and validateBundleBareRequires
+ * (is the PACKAGE present at all). Both of those read module specifiers, so neither can
+ * see a DATA path, and 8.1.0 shipped three of them broken:
+ *
+ * - `lib/toolchain/config.js` -> `../../toolchain/toolchain.default.yaml`
+ * - `lib/toolchain/contracts.js` -> `../../toolchain/toolchain/categories`
+ * - `lib/toolchain/runner.js` -> `../../toolchain/schemas/normalized`
+ * - `lib/team-defaults.js` -> `../commands/configure-team.yaml`
+ * - `lib/index.js` -> `../agents/documentation-specialist.yaml`
+ *
+ * packages/full carried no `toolchain/` directory at all, and its `commands/` and
+ * `agents/` mirror the source packages' SUBDIRECTORIES, so neither top-level yaml file
+ * was there either. In a checkout every one of those resolves, because `lib/` is a
+ * directory of symlinks and Node and fs alike answer from the realpath inside
+ * packages/development. In an install they are real files under packages/full and the
+ * targets are absent: `toolchain-cli resolve` and `resolveCategory()` threw ENOENT,
+ * `loadTeamConfiguration()` and `inferBuilderAgents()` threw ENOENT, and `lib/index.js`
+ * silently loaded no agent config because its read is guarded by `existsSync`.
+ *
+ * So the resolution here is deliberately done against the file's BUNDLE path and never
+ * its realpath — the same distinction `bundleRequireResolves` draws, for the same reason.
+ * Resolving against the realpath answers the checkout's question, which is the one that
+ * was already passing while the install was broken.
+ *
+ * `fullDir` is an argument only so a test can point it at a fixture bundle; every caller
+ * in the repo takes the default, which is the real one.
+ *
+ * @param {string} [fullDir] The bundle directory to check
+ * @returns {string[]} One message per unreachable or escaping path
+ */
+function validateBundleDataPaths(fullDir = path.join(PACKAGES_DIR, 'full')) {
+  const failures = [];
+  if (!fs.existsSync(fullDir)) {
+    return failures;
+  }
+
+  const boundary = fullDir + path.sep;
+  let checked = 0;
+  let skipped = 0;
+
+  // lib/ and hooks/ only, matching validateBundleBareRequires' blocking scope: that is
+  // the code a command runs. A skill that reads its own data file is not an entry point.
+  for (const dir of [path.join(fullDir, 'lib'), path.join(fullDir, 'hooks')]) {
+    for (const file of bundleCodeFiles(dir)) {
+      let source;
+      try {
+        source = fs.readFileSync(file, 'utf8');
+      } catch {
+        continue;
+      }
+      skipped += (stripComments(source).match(/path\.(?:join|resolve)\(\s*__dirname/g) || []).length;
+      for (const { segments, line } of dirnamePaths(source)) {
+        skipped--;
+        const where = `${path.relative(fullDir, file)}:${line}`;
+        const asked = ['__dirname', ...segments].join(', ');
+        const target = path.join(path.dirname(file), ...segments);
+
+        // A path that leaves the bundle cannot exist in an install whatever is on this
+        // disk, so it fails here rather than being checked for existence.
+        if (!target.startsWith(boundary)) {
+          failures.push(
+            `${where} builds path.join(${asked}), which resolves outside the bundle - ` +
+            `the install copies only the bundle, so that path exists on no installed plugin`
+          );
+          continue;
+        }
+        checked++;
+        if (!fs.existsSync(target)) {
+          failures.push(
+            `${where} reads ${path.relative(fullDir, target)}, which the bundle does not ` +
+            `carry - it resolves in this checkout through lib/'s symlinks and not in an ` +
+            `install, so mirror it into packages/full the way lib/ and skills/ are mirrored`
+          );
+        }
+      }
+    }
+  }
+
+  console.log(
+    `  ${failures.length === 0 ? '✓' : '✗'} ${checked} __dirname-relative data path(s) in ` +
+    `lib/ and hooks/ resolve inside the bundle`
+  );
+  if (skipped > 0) {
+    // Stated, not blocking, for the reason dirnamePaths' doc comment gives.
+    console.log(
+      `  i ${skipped} __dirname path(s) built with a non-literal segment, not checked ` +
+      `(there is no static answer for a computed filename)`
+    );
+  }
+  return failures;
+}
+
+/**
  * Ensure every bare dependency the bundle requires is vendored beside it.
  *
  * The sibling of validateFullBundleRequires below, for the other half of the same
@@ -278,30 +441,7 @@ function validateBundleBareRequires() {
       : []
   );
 
-  const files = [];
-  const walk = dir => {
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
-      const entryPath = path.join(dir, entry.name);
-      let stat;
-      try {
-        stat = fs.statSync(entryPath);
-      } catch {
-        continue;
-      }
-      if (stat.isDirectory()) walk(entryPath);
-      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
-        files.push(entryPath);
-      }
-    }
-  };
-  walk(fullDir);
+  const files = bundleCodeFiles(fullDir);
 
   // The load-time graph: what a command pulls in before it does anything. A missing
   // package here is a dead entry point, which is the defect. Everything else is
@@ -912,6 +1052,14 @@ function main() {
     errors++;
   });
 
+  // ...and it must carry the data files its code reaches by path, which no module check sees
+  console.log('\nValidating packages/full/ __dirname-relative data paths resolve in the bundle...');
+  const dataPathFailures = validateBundleDataPaths();
+  dataPathFailures.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // ...and it must carry the packages it requires, because the install never fetches them
   console.log('\nValidating packages/full/ bare dependencies are vendored with the bundle...');
   const bareRequireFailures = validateBundleBareRequires();
@@ -1035,6 +1183,9 @@ module.exports = {
   validateBundleBareRequires,
   bareSpecifiers,
   specifierPackage,
+  bundleCodeFiles,
+  dirnamePaths,
+  validateBundleDataPaths,
   validateStepKeys,
   validateCapabilityIds,
   validateCapabilityInvocationDrift,
