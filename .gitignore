@@ -56,3 +56,20 @@ CLAUDE.local.md
 .ensemble/local-ci-runs/
 .ensemble/local-ci.secrets.env
 
+# The installed bundle's vendored runtime dependencies, which have to be IN the repo
+# because `claude plugin install` copies the plugin directory and never runs
+# `npm install`. They sit under lib/ rather than at packages/full/ because npm manages
+# a workspace's own node_modules and prunes anything it did not put there: a tree at
+# packages/full/node_modules is deleted by the next `npm install` (measured on this
+# repo, nine packages to zero in one run), while this path survives it.
+#
+# This block is LAST on purpose. Negations are beaten by any later matching pattern,
+# and `dist/`, `coverage/` and `*.log` above all match paths inside a vendored package.
+# With the block at the top of this file, ajv's own entry point -- dist/ajv.js -- was
+# excluded, so the tree worked from the untracked files on disk and a fresh clone would
+# have got a broken package.
+#
+# Refresh with `node scripts/vendor-bundle-deps.js`; see that directory's README.md.
+!packages/full/lib/node_modules/
+!packages/full/lib/node_modules/**
+
