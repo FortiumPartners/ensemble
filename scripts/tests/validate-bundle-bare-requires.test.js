@@ -29,7 +29,7 @@ const {
   bareSpecifiers,
   specifierPackage,
 } = require('../validate-all');
-const { VENDORED, checkVendored, fileList } = require('../vendor-bundle-deps');
+const { VENDORED, TARGET_NON_PACKAGES, checkVendored, fileList } = require('../vendor-bundle-deps');
 
 describe('bareSpecifiers', () => {
   test('finds requires and imports, and ignores relative specifiers', () => {
@@ -249,7 +249,58 @@ describe('checkVendored compares bytes, not names', () => {
     try {
       const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] });
       expect(problems).toHaveLength(1);
-      expect(problems[0]).toContain('stowaway: vendored but not in VENDORED');
+      expect(problems[0]).toContain('stowaway: at the vendored root but not in VENDORED');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  // The extra-entry scan above used to read only non-dot DIRECTORIES, which left the
+  // vendored root itself unchecked. Node resolves a bare `require('x')` to
+  // `node_modules/x.js` and to `node_modules/.x/` carrying a package.json just as readily
+  // as to `node_modules/x/`, so an entry the scan skipped could execute in every install
+  // with its bytes never compared -- and `glob` is already a bare require the bundle
+  // cannot resolve, so there is a caller waiting for a planted `glob.js`.
+  test('a stray top-level FILE at the vendored root is reported', () => {
+    const source = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    const target = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    try {
+      // `require('glob')` from anything under lib/ resolves this file.
+      fs.writeFileSync(path.join(target, 'glob.js'), 'module.exports = () => {};\n');
+      const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('glob.js: at the vendored root but not in VENDORED');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('a dot-prefixed directory at the vendored root is reported', () => {
+    const source = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    const target = writeTree({
+      pkg: { 'package.json': manifestJson('pkg', '1.0.0') },
+      '.glob': { 'package.json': manifestJson('.glob', '1.0.0'), 'index.js': 'module.exports = 1;\n' },
+    });
+    try {
+      const problems = checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] });
+      expect(problems).toHaveLength(1);
+      expect(problems[0]).toContain('.glob: at the vendored root but not in VENDORED');
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  test('README.md is still allowed, so the scan reports extras rather than everything', () => {
+    const source = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    const target = writeTree({ pkg: { 'package.json': manifestJson('pkg', '1.0.0') } });
+    try {
+      fs.writeFileSync(path.join(target, 'README.md'), 'why this tree exists\n');
+      expect(checkVendored({ sourceDir: source, targetDir: target, vendored: ['pkg'] })).toEqual([]);
+      // ...and the allowlist is what permits it, not the shape of the name.
+      expect(TARGET_NON_PACKAGES.has('README.md')).toBe(true);
     } finally {
       fs.rmSync(source, { recursive: true, force: true });
       fs.rmSync(target, { recursive: true, force: true });
