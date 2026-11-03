@@ -432,6 +432,142 @@ describe('loadAdapter/discoverAdapters: symlinked adapter directories', () => {
   });
 });
 
+describe('discoverAdapters: adapters grouped one level under an installed skills root (#138)', () => {
+  // The full bundle ships `packages/full/skills/git` as a symlink to `../../git/skills`, so the
+  // five git adapters sit one level deeper than the flat ones beside them
+  // (`adapter-tracker-beads` and friends). A scan of only a skills root's immediate children
+  // finds the flat ones and never sees `adapter-workflow-plain-git`, which is what made
+  // `beads-build-wave` stop at `HEALTH_FAILED: plain-git: could not load the adapter for
+  // category 'workflow'` with no track dispatched.
+  // The adapter id is deliberately NOT 'plain-git' here. These tests require the real,
+  // unmutated adapters.js in-process, so its library-relative roots include this repo's own
+  // packages/git/skills/adapter-workflow-plain-git -- asserting on 'plain-git' from a temp
+  // projectRoot passes by resolving the REAL adapter whether the nested scan works or not,
+  // which is a test that cannot fail. Hence a fixture-only id, and `withinProjectRoot` on
+  // every discovery assertion in this block.
+  test('an adapter inside a plain group directory under packages/<pkg>/skills resolves with origin installed', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-nested-plain-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-nested-plain-xdg-');
+    const adapterDir = writeAdapterDir(
+      path.join(projectRoot, 'packages', 'full', 'skills', 'git', 'adapter-workflow-grouped'),
+      validAdapterManifest({ adapter: 'grouped-workflow', categories: ['workflow'], contract: { workflow: '1.0' } })
+    );
+
+    const found = withinProjectRoot(
+      discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+      projectRoot
+    );
+    expect(found).toEqual([{ name: 'grouped-workflow', origin: 'installed', dir: adapterDir }]);
+
+    const result = loadAdapter('grouped-workflow', {
+      projectRoot,
+      env: { XDG_CONFIG_HOME: xdgConfigHome },
+      interactive: false
+    });
+    expect(result.origin).toBe('installed');
+    expect(result.dir).toBe(adapterDir);
+  });
+
+  test("an adapter inside a SYMLINKED group directory resolves too, which is the layout the full bundle actually ships", () => {
+    const projectRoot = mkTempDir('ensemble-adapters-nested-symlink-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-nested-symlink-xdg-');
+    // packages/git/skills/adapter-workflow-plain-git is the real home of the adapter...
+    const realGroup = path.join(projectRoot, 'packages', 'git', 'skills');
+    writeAdapterDir(
+      path.join(realGroup, 'adapter-workflow-plain-git'),
+      validAdapterManifest({ adapter: 'plain-git', categories: ['workflow'], contract: { workflow: '1.0' } })
+    );
+    // ...and packages/full/skills/git is a symlink to it, exactly as the bundle has it.
+    const fullSkills = path.join(projectRoot, 'packages', 'full', 'skills');
+    fs.mkdirSync(fullSkills, { recursive: true });
+    fs.symlinkSync(realGroup, path.join(fullSkills, 'git'), 'dir');
+    // A flat adapter beside the symlink, so the test shows the nested one is found IN ADDITION
+    // to what already worked rather than instead of it.
+    writeAdapterDir(
+      path.join(fullSkills, 'adapter-tracker-beads'),
+      validAdapterManifest({ adapter: 'beads' })
+    );
+
+    const found = withinProjectRoot(
+      discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+      projectRoot
+    );
+
+    expect(found.map((entry) => entry.name).sort()).toEqual(['beads', 'plain-git', 'plain-git']);
+    expect(found.every((entry) => entry.origin === 'installed')).toBe(true);
+  });
+
+  test('the descent is exactly one level: an adapter two levels under a skills root is NOT discovered', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-nested-depth-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-nested-depth-xdg-');
+    writeAdapterDir(
+      path.join(projectRoot, 'packages', 'full', 'skills', 'git', 'deeper', 'adapter-too-deep'),
+      validAdapterManifest({ adapter: 'too-deep' })
+    );
+
+    const found = withinProjectRoot(
+      discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+      projectRoot
+    );
+
+    expect(found).toEqual([]);
+  });
+
+  // Asked for by the session this bug blocked: a test that resolves `workflow: plain-git` from
+  // the full bundle's OWN location, not from a fixture. The fixture tests above would all stay
+  // green if someone moved the shipped adapters around; this one goes red. It reads the real
+  // packages/full/skills as an installed root, where `git` is the live symlink to
+  // ../../git/skills, so it exercises the same grouped-and-symlinked path the install does.
+  test("the SHIPPED bundle's own packages/full/skills resolves workflow:plain-git, which no fixture can promise", () => {
+    const projectRoot = mkTempDir('ensemble-adapters-shipped-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-shipped-xdg-');
+    const shippedSkills = path.resolve(__dirname, '..', '..', 'packages', 'full', 'skills');
+    const ctx = {
+      projectRoot,
+      env: { XDG_CONFIG_HOME: xdgConfigHome },
+      interactive: false,
+      installedRoots: [shippedSkills]
+    };
+
+    // Guard the premise: if the bundle ever stops grouping adapters, this test is measuring
+    // nothing and should say so rather than pass.
+    const groupedWorkflow = path.join(shippedSkills, 'git', 'adapter-workflow-plain-git');
+    expect(fs.existsSync(path.join(groupedWorkflow, 'adapter.yaml'))).toBe(true);
+
+    const result = loadAdapter('plain-git', ctx);
+    expect(result.origin).toBe('installed');
+    expect(fs.realpathSync(result.dir)).toBe(fs.realpathSync(groupedWorkflow));
+
+    // And the flat adapters beside the group are still found, so the descent added reach
+    // instead of redirecting it.
+    const names = new Set(
+      withinProjectRoot(discoverAdapters(ctx), shippedSkills).map((entry) => entry.name)
+    );
+    expect(names.has('plain-git')).toBe(true);
+    expect(names.has('beads')).toBe(true);
+  });
+
+  test('a group directory that declares its own adapter.yaml is that adapter, and its children are not also scanned', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-nested-self-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-nested-self-xdg-');
+    const groupDir = path.join(projectRoot, 'packages', 'full', 'skills', 'adapter-tracker-beads');
+    writeAdapterDir(groupDir, validAdapterManifest({ adapter: 'beads' }));
+    // A nested directory inside a REAL adapter directory is part of that adapter, not a second
+    // adapter: descending into it would invent one.
+    writeAdapterDir(
+      path.join(groupDir, 'vendored'),
+      validAdapterManifest({ adapter: 'not-a-separate-adapter' })
+    );
+
+    const found = withinProjectRoot(
+      discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+      projectRoot
+    );
+
+    expect(found.map((entry) => entry.name)).toEqual(['beads']);
+  });
+});
+
 describe('discoverAdapters: resilient listing (never throws a raw fs error)', () => {
   test('a missing adapters root is skipped, not thrown', () => {
     const projectRoot = mkTempDir('ensemble-adapters-missing-root-project-');
