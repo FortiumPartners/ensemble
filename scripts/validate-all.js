@@ -11,6 +11,7 @@ const promptBudget = require('./lib/prompt-budget');
 const { checkStepKeys } = require('./lib/step-keys-check');
 const { loadValidCapabilityIds, checkCapabilityIds, checkCapabilityInvocationDrift } = require('./lib/capability-ids-check');
 const { checkDefaultOnly, RESTRICTED_CATEGORIES } = require('./lib/default-only-check');
+const { checkVendored } = require('./vendor-bundle-deps');
 const yamlLib = require('js-yaml');
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
@@ -92,6 +93,14 @@ function validateFullLibMirror() {
 /** Extensions treated as bundled code whose requires must resolve. */
 const BUNDLE_CODE_EXTENSIONS = new Set(['.js', '.cjs', '.mjs']);
 
+/**
+ * Node's own builtins, from Node rather than a hand-written list, plus the `node:`
+ * prefixed spellings of each. A list written here would go stale against the runtime.
+ */
+const BUILTIN_MODULES = new Set(
+  require('module').builtinModules.flatMap(name => [name, `node:${name}`])
+);
+
 /** Suffixes Node will try for a bare relative specifier, in its own order. */
 const BUNDLE_RESOLVE_SUFFIXES = ['', '.js', '.cjs', '.mjs', '.json'];
 
@@ -155,6 +164,220 @@ function bundleRequireResolves(fromFile, specifier, confineTo) {
       return false;
     }
   });
+}
+
+/**
+ * Source with its comments blanked out, so a scanner cannot read prose as code.
+ *
+ * Needed because a bare specifier looks like an English word where a relative one does
+ * not. The first cut of bareSpecifiers() below scanned raw source and reported
+ * packages/full/lib/toolchain/mapping.js as requiring 'this is a literal brace the
+ * tool' -- a comment sentence of the form "...renamed from 'x y z'" matching an
+ * import pattern. validateFullBundleRequires has no such exposure: it matches only
+ * specifiers beginning with a dot, and prose does not contain `from './thing'`.
+ *
+ * Deliberately crude. It does not track whether a `//` sits inside a string literal,
+ * so `'https://x'` can lose its tail. That cannot produce a false positive, which is
+ * the only failure mode that matters here, and a specifier is never a URL.
+ *
+ * @param {string} source File contents
+ * @returns {string} Source with comment bodies removed
+ */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
+/**
+ * Every bare specifier a file requires or imports: a package name, not a path.
+ *
+ * The import form requires the `import` keyword rather than a bare `from`, for the
+ * reason stripComments() gives: `from 'two words'` is a sentence as often as it is code.
+ *
+ * @param {string} source File contents
+ * @returns {string[]} Bare specifiers, duplicates included
+ */
+function bareSpecifiers(source) {
+  const code = stripComments(source);
+  const found = [];
+  for (const pattern of [
+    /\brequire\(\s*['"]([^.'"][^'"]*)['"]\s*\)/g,
+    /\bimport\s*(?:[\w*{}\s,$]*?\bfrom\s*)?['"]([^.'"][^'"]*)['"]/g,
+  ]) {
+    let match;
+    while ((match = pattern.exec(code)) !== null) found.push(match[1]);
+  }
+  return found;
+}
+
+/**
+ * The package a bare specifier belongs to: `ajv/dist/core` -> `ajv`, and a scoped
+ * `@scope/name/sub` -> `@scope/name`.
+ *
+ * @param {string} specifier Bare specifier
+ * @returns {string} Package name
+ */
+function specifierPackage(specifier) {
+  const parts = specifier.split('/');
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+}
+
+/**
+ * Ensure every bare dependency the bundle requires is vendored beside it.
+ *
+ * The sibling of validateFullBundleRequires below, for the other half of the same
+ * packaging assumption. That one asks whether a RELATIVE path resolves once the
+ * install flattens the bundle's symlinks. This asks whether a PACKAGE is present at
+ * all, because `claude plugin install` copies the plugin directory and never runs
+ * `npm install`: a dependency declared in packages/full/package.json is never
+ * delivered to an installed plugin, however correctly it is declared.
+ *
+ * 8.1.0 shipped that way. lib/toolchain/config.js takes `js-yaml` and `ajv` unguarded
+ * at module scope, and trd-cli.js, toolchain-cli.js, beads-label.js and
+ * complexity-analyzer.js all require it, so four entry points died at load and every
+ * command that shells to trd-cli.js failed after a clean install.
+ *
+ * Two things are checked, because either alone passes while the bundle is broken:
+ *
+ * 1. Every bare specifier in the bundle's own code is a Node builtin or a vendored
+ *    package. That catches a new dependency the moment someone adds one.
+ * 2. Every vendored package's own `dependencies` are vendored too. That catches an
+ *    incomplete closure, which is how this was found: js-yaml alone moved the error
+ *    from 'js-yaml' to 'ajv', and ajv alone moved it on to 'fast-uri'.
+ *
+ * Static on purpose. Loading each entry point from a dereferenced copy is the truer
+ * test and is what the commit was verified with, but it means copying ~4 MB on every
+ * `npm run validate`; these two questions answer the same thing without the copy.
+ * packages/full/lib/node_modules/README.md has the copy-based command for a human.
+ *
+ * SCOPE, which is narrower than the bundle and says so out loud. Only `lib/` and
+ * `hooks/` are blocking: that is the module graph a command loads, and it is where the
+ * defect was. `skills/` is scanned and reported, never blocking, because some skills
+ * EMIT code -- skills/jest/generate-test.js writes `from '@testing-library/react'`
+ * into the tests it generates, and a scanner cannot tell that string from a module
+ * this file loads without parsing the template literals it sits in. Treating those as
+ * missing dependencies would have failed `npm run validate` on a correct bundle, and
+ * narrowing the scope silently to avoid it would have been the worse answer: the
+ * skill-level count is printed on every run so the gap is visible rather than assumed
+ * away. `glob`, required by skills/core/detect-stack/detect-stack.js, is in that
+ * reported set and is deliberately not vendored -- nothing loads that skill at
+ * command start, so no entry point dies on it.
+ *
+ * @returns {string[]} One message per missing package in the load-time graph
+ */
+function validateBundleBareRequires() {
+  const failures = [];
+  const fullDir = path.join(PACKAGES_DIR, 'full');
+  const vendorDir = path.join(fullDir, 'lib', 'node_modules');
+  if (!fs.existsSync(fullDir)) {
+    return failures;
+  }
+
+  const vendored = new Set(
+    fs.existsSync(vendorDir)
+      ? fs.readdirSync(vendorDir).filter(name => !name.startsWith('.') && name !== 'README.md')
+      : []
+  );
+
+  const files = [];
+  const walk = dir => {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
+      const entryPath = path.join(dir, entry.name);
+      let stat;
+      try {
+        stat = fs.statSync(entryPath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) walk(entryPath);
+      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  };
+  walk(fullDir);
+
+  // The load-time graph: what a command pulls in before it does anything. A missing
+  // package here is a dead entry point, which is the defect. Everything else is
+  // counted and reported, for the reason the doc comment gives.
+  const loadTimeDirs = [path.join(fullDir, 'lib'), path.join(fullDir, 'hooks')];
+  const isLoadTime = file => loadTimeDirs.some(dir => file.startsWith(dir + path.sep));
+
+  let checked = 0;
+  let loadTimeFiles = 0;
+  const missing = new Map();
+  const skillLevel = new Set();
+  files.forEach(file => {
+    let source;
+    try {
+      source = fs.readFileSync(file, 'utf8');
+    } catch {
+      return;
+    }
+    const loadTime = isLoadTime(file);
+    if (loadTime) loadTimeFiles++;
+    for (const specifier of bareSpecifiers(source)) {
+      const pkg = specifierPackage(specifier);
+      if (BUILTIN_MODULES.has(pkg) || vendored.has(pkg)) {
+        checked++;
+        continue;
+      }
+      if (loadTime) {
+        if (!missing.has(pkg)) missing.set(pkg, path.relative(PACKAGES_DIR, file));
+      } else {
+        skillLevel.add(pkg);
+      }
+    }
+  });
+
+  for (const [pkg, where] of missing) {
+    failures.push(
+      `packages/${where} requires '${pkg}', which is not vendored and is not a Node builtin - ` +
+      `the installed bundle never runs npm install, so add it to VENDORED in ` +
+      `scripts/vendor-bundle-deps.js and re-run that script`
+    );
+  }
+
+  // The closure. A vendored package whose own dependency is absent fails at the same
+  // load time and for the same reason, one `Cannot find module` further in.
+  for (const pkg of vendored) {
+    let manifest;
+    try {
+      manifest = JSON.parse(fs.readFileSync(path.join(vendorDir, pkg, 'package.json'), 'utf8'));
+    } catch {
+      failures.push(`packages/full/lib/node_modules/${pkg} has no readable package.json`);
+      continue;
+    }
+    for (const dep of Object.keys(manifest.dependencies || {})) {
+      if (!vendored.has(dep) && !BUILTIN_MODULES.has(dep)) {
+        failures.push(
+          `vendored ${pkg}@${manifest.version} depends on '${dep}', which is not vendored - ` +
+          `the closure is incomplete and the bundle fails at load one module further in`
+        );
+      }
+    }
+  }
+
+  console.log(
+    `  ${failures.length === 0 ? '✓' : '✗'} ${checked} bare require(s) across ${loadTimeFiles} ` +
+    `lib/ and hooks/ file(s) resolve to a builtin or one of ${vendored.size} vendored package(s)`
+  );
+  if (skillLevel.size > 0) {
+    // Stated, not blocking. Some of these are strings a generator emits rather than
+    // modules anything loads, and the two are indistinguishable without parsing the
+    // template literals they sit in. A reader who sees one that matters can vendor it.
+    console.log(
+      `  i ${skillLevel.size} unvendored package(s) named under skills/, not blocking ` +
+      `(emitted code and real skill dependencies are mixed here): ${[...skillLevel].sort().join(', ')}`
+    );
+  }
+  return failures;
 }
 
 /**
@@ -689,6 +912,28 @@ function main() {
     errors++;
   });
 
+  // ...and it must carry the packages it requires, because the install never fetches them
+  console.log('\nValidating packages/full/ bare dependencies are vendored with the bundle...');
+  const bareRequireFailures = validateBundleBareRequires();
+  bareRequireFailures.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
+  // The names being present is not the same question as the bytes being the ones npm
+  // installed and verified against the lockfile. The vendored tree is executing code in
+  // every install, and a review of this repo reads the nine files a PR authors, not 598
+  // files of third-party source, so the comparison has to be mechanical.
+  console.log('\nValidating the vendored tree matches the root node_modules, file for file...');
+  const vendoredProblems = checkVendored();
+  vendoredProblems.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+  if (vendoredProblems.length === 0) {
+    console.log('  ✓ every vendored file is byte-identical to the copy npm installed');
+  }
+
   // packages/full/skills/ must reach every source package's skills (symlink drift check)
   console.log('\nValidating packages/full/skills/ mirrors source packages...');
   const fullSkillsFailures = validateFullSkillsMirror();
@@ -787,6 +1032,9 @@ module.exports = {
   validateFullBundleRequires,
   relativeSpecifiers,
   bundleRequireResolves,
+  validateBundleBareRequires,
+  bareSpecifiers,
+  specifierPackage,
   validateStepKeys,
   validateCapabilityIds,
   validateCapabilityInvocationDrift,
