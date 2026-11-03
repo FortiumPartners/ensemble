@@ -92,9 +92,26 @@ describe('beads-build-wave', () => {
   });
 
   test('drops out-of-label beads from the tracks instead of refusing the whole plan', () => {
-    expect(wave).toMatch(/DROP every ID not in LABEL_IDS from every track/);
-    expect(wave).toMatch(/drop any emptied track/);
+    expect(wave).toMatch(/truncate every track \(an ordered list\) at its first ID not in LABEL_IDS/);
+    expect(wave).toMatch(/drop that ID and every ID after it/);
+    expect(wave).toMatch(/Drop any emptied track/);
     expect(wave).toMatch(/dispatch what survives/);
+  });
+
+  /**
+   * Tracks are ordered lists. For [A (out-of-label), B (in-label)] where B depends on A,
+   * dropping only A would dispatch B before A is done. The filter therefore truncates each
+   * track at its first out-of-label bead, and the MAX_PARALLEL cut happens once, after it.
+   */
+  test('truncates each track at the first out-of-label bead so dependents are not dispatched early', () => {
+    expect(wave).toMatch(/later in-label bead may depend on it and must not dispatch before it is done/);
+    expect(wave).toMatch(/never the out-of-label ID alone/);
+    // The old per-id filter that broke ordering must not return.
+    expect(wave).not.toMatch(/DROP every ID not in LABEL_IDS from every track/);
+    // Exactly one MAX_PARALLEL cut on the labeled path, after the truncate-at-first filter.
+    const step3b = wave.slice(wave.indexOf('Step 3b (scope filter'));
+    expect(step3b.indexOf('at its first ID not in LABEL_IDS')).toBeLessThan(step3b.indexOf('truncate to MAX_PARALLEL'));
+    expect((step3b.match(/truncate to MAX_PARALLEL/g) || []).length).toBe(1);
   });
 
   test('says an out-of-label bead is expected, so nobody reinstates the blanket refusal', () => {
