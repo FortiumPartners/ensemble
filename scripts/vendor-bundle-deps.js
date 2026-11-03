@@ -51,7 +51,16 @@ const VENDORED = [
 /** Files no runtime needs, and which triple the size of a vendored tree. */
 const SKIP_NAMES = new Set(['.github', '.vscode', 'test', 'tests', '__tests__', 'coverage']);
 
-/** Never reported as an extra vendored package: the note explaining the tree. */
+/**
+ * Never reported as an extra entry at the vendored root: the note explaining the tree.
+ *
+ * The allowlist is explicit rather than a shape test, because node resolves a bare
+ * `require('x')` to `node_modules/x.js` as readily as to `node_modules/x/`, and to a
+ * dot-prefixed directory carrying a package.json. Skipping files, or dot names, at this
+ * level would let a planted `glob.js` load with the integrity check reporting clean --
+ * and `glob` is a bare require the bundle already cannot resolve. So anything new here
+ * is a deliberate edit to this set.
+ */
 const TARGET_NON_PACKAGES = new Set(['README.md']);
 
 /** How many differing files to name before summarising the rest. */
@@ -134,12 +143,14 @@ function checkVendored({
 } = {}) {
   const problems = [];
 
-  let present = [];
+  // No initializer: the catch below returns, so every path that reaches the loop has
+  // assigned it, and a `[]` default would be dead code that reads like a fallback.
+  let present;
   try {
-    present = fs
-      .readdirSync(targetDir, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
-      .map(entry => entry.name);
+    // EVERY entry, files and dot names included. See TARGET_NON_PACKAGES: node loads
+    // `node_modules/x.js` and `node_modules/.x/` for a bare `require('x')`, so an entry
+    // this scan skips is an entry that can execute without its bytes ever being compared.
+    present = fs.readdirSync(targetDir, { withFileTypes: true }).map(entry => entry.name);
   } catch {
     problems.push(
       `${targetDir} does not exist - run \`node scripts/vendor-bundle-deps.js\``
@@ -150,7 +161,7 @@ function checkVendored({
   for (const name of present) {
     if (!wanted.includes(name) && !TARGET_NON_PACKAGES.has(name)) {
       problems.push(
-        `${name}: vendored but not in VENDORED in scripts/vendor-bundle-deps.js - ` +
+        `${name}: at the vendored root but not in VENDORED in scripts/vendor-bundle-deps.js - ` +
           `nothing in the bundle needs it, so re-run that script to drop it`
       );
     }
@@ -234,9 +245,11 @@ function main() {
   // edit rather than an edit plus a manual delete nobody remembers.
   let pruned = [];
   try {
+    // Same every-entry scan as checkVendored, and for the same reason: the two have to
+    // agree on what counts as an extra entry, or this script reports a stray file it
+    // cannot remove and `npm run validate` stays red until somebody deletes it by hand.
     pruned = fs
       .readdirSync(TARGET_DIR, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
       .map(entry => entry.name)
       .filter(name => !VENDORED.includes(name) && !TARGET_NON_PACKAGES.has(name));
   } catch {
@@ -260,4 +273,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { VENDORED, TARGET_DIR, checkVendored, fileList };
+module.exports = { VENDORED, TARGET_NON_PACKAGES, TARGET_DIR, checkVendored, fileList };
