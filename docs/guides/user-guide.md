@@ -38,9 +38,9 @@ The repository is an npm monorepo under `packages/`. Each package is both an npm
 | `ensemble-react`, `ensemble-nestjs`, `ensemble-rails`, `ensemble-phoenix`, `ensemble-blazor`, `ensemble-dotnet` | 7.0.1, 6.0.1, 6.0.1, 6.0.1, 7.0.1, 2.0.1 | One framework skill each (`react`, `nestjs`, `rails`, `phoenix`, `blazor`, `dotnet`) |
 | `ensemble-jest`, `ensemble-pytest`, `ensemble-rspec`, `ensemble-xunit`, `ensemble-exunit`, `ensemble-reqnroll` | 5.1.3, 5.2.1, 5.2.1, 5.2.1, 5.1.2, 1.0.2 | One test-framework skill each; `ensemble-reqnroll` also ships the `reqnroll-binding-specialist` agent |
 | `ensemble-full` | 8.1.0 | Bundle that depends on the plugins above |
-| `ensemble-pi`, `ensemble-codex`, `ensemble-opencode` | 1.6.19, 6.0.2, 5.4.1 | Runtime adapters that translate the Ensemble sources for Pi/OMP, Codex and OpenCode |
+| `ensemble-pi`, `ensemble-codex`, `ensemble-opencode` | 1.6.20, 6.0.2, 5.4.1 | Runtime adapters that translate the Ensemble sources for Pi/OMP, Codex and OpenCode |
 
-`ensemble-permitter` and the other support packages ship hooks and plumbing rather than workflow content. Versions come from `marketplace.json`; each package is versioned independently, so `ensemble-pi` is at 1.6.19 while the bundle is at 8.1.0.
+`ensemble-permitter` and the other support packages ship hooks and plumbing rather than workflow content. Versions come from `marketplace.json`; each package is versioned independently, so `ensemble-pi` is at 1.6.20 while the bundle is at 8.1.0.
 
 ### Skills, commands and agents
 

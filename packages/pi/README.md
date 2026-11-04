@@ -41,8 +41,37 @@ In OMP, invoke the generated workflow skills, for example:
 ```
 
 The package supplies agent definitions, not a delegation implementation for
-runtimes without a native `task` tool. This mapping does not configure model
-routing or change approval gates.
+runtimes without a native `task` tool. The `Task` mapping does not change
+approval gates. Model routing is a separate mechanism, described in the next
+section.
+
+### Model tiers and OMP roles
+
+Ensemble agents declare an abstract model tier (`high` or `medium`). The agent
+transformer writes it into the generated agent frontmatter as an OMP role-alias
+list: `model: "@high,@default"` (8 agents) or `model: "@medium,@default"` (16
+agents). OMP tries the list in order. `high` and `medium` are custom OMP roles,
+not OMP built-ins, so they only exist once you define them in the OMP config
+(`~/.omp/agent/config.yml`):
+
+```yaml
+modelRoles:
+  default: <provider>/<model>
+  high: <provider>/<model>
+  medium: <provider>/<model>
+```
+
+What an agent runs on depends on which roles are configured:
+
+1. The tier role is configured: the agent runs on that role's model.
+2. The tier role is not configured but `modelRoles.default` is: the agent runs
+   on the `default` model, so tiering has no effect.
+3. Neither the tier role nor `modelRoles.default` is configured: `@default`
+   resolves to nothing, the unresolved `@high` / `@medium` matches no model, and
+   the agent cannot start ("No model selected").
+
+To pin a single agent regardless of its tier, set `task.agentModelOverrides` in
+the OMP config (agent name to model or role).
 
 ## Generated Artifacts
 

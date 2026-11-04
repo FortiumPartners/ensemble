@@ -158,7 +158,7 @@ Versions below are taken from each package's `package.json`.
 | `ensemble-reqnroll` | 1.0.2 | `reqnroll` skill; `reqnroll-binding-specialist` agent |
 | `ensemble-permitter` | 5.2.3 | Permission-expansion hook with allowlist (opt out with `ENSEMBLE_PERMITTER_DISABLE=1`) |
 | `ensemble-opencode` | 5.4.1 | OpenCode runtime translation layer |
-| `ensemble-pi` | 1.6.19 | Pi runtime translation layer (own version line) |
+| `ensemble-pi` | 1.6.20 | Pi runtime translation layer (own version line) |
 | `ensemble-codex` | 6.0.2 | Codex CLI runtime translation layer |
 | `ensemble-agent-core` | 0.1.2 | Shared run-index I/O primitives for the `new-feature` and `fix-issue` workflows (library) |
 | `ensemble-pi-extension` | 0.1.2 | Pi extension providing native command completion for the dispatcher commands (no marketplace entry; installed from a checkout) |
