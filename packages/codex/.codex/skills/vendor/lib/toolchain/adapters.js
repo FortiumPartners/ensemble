@@ -453,8 +453,20 @@ function discoverAdapters(ctx = {}) {
         found.push({ name: manifest.adapter, origin: 'installed', dir });
         continue;
       }
-      // No manifest here, so this is a GROUP directory: scan its own children, one level and
-      // no deeper (#138). The full bundle's `skills/git` symlink puts the git adapters here.
+      // No manifest here, so this MAY be a GROUP directory: scan its own children, one level
+      // and no deeper (#138). The full bundle's `skills/git` symlink puts the git adapters here.
+      //
+      // A directory carrying its own SKILL.md is a SKILL, not a container of skills, so it is
+      // not descended into. That is what keeps the descent cheap: the installed roots hold 181
+      // non-adapter directories and all but a handful are ordinary skills. Measured on this
+      // repo, descending into every one of them costs 11.8ms per discovery against 5.2ms
+      // before #138, and `toolchain-cli explain` calls discovery enough times to turn that
+      // into ~2.5s -- which took scripts/tests/toolchain-detect.test.js's 5000ms subprocess
+      // budget from ~1.8s to ~4.5s and made it fail intermittently. Skipping skill
+      // directories costs 7.0ms and finds the SAME 51 adapters.
+      if (fs.existsSync(path.join(dir, SKILL_FILE))) {
+        continue;
+      }
       for (const nestedName of listSubdirs(dir)) {
         const nestedDir = path.join(dir, nestedName);
         const nestedManifest = readManifest(nestedDir);

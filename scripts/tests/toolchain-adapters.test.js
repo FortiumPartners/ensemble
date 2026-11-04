@@ -547,6 +547,39 @@ describe('discoverAdapters: adapters grouped one level under an installed skills
     expect(names.has('beads')).toBe(true);
   });
 
+  // The descent's cost bound, and the reason it exists: the installed roots hold 181
+  // non-adapter directories, nearly all ordinary skills. Descending into all of them took
+  // discovery from 5.2ms to 11.8ms per call, and `toolchain-cli explain` calls it enough times
+  // to add ~2.5s -- enough to make toolchain-detect.test.js's 5000ms subprocess budget fail
+  // intermittently (measured 1698/1792/2274ms before, 4131/4537/4702ms after, with one 5053ms
+  // failure). A directory that carries its own SKILL.md is a skill, not a container of skills.
+  test('a group directory that carries its own SKILL.md is a skill and is NOT descended into', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-skillmd-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-skillmd-xdg-');
+    // A skill directory that happens to contain a subdirectory carrying an adapter.yaml. The
+    // subdirectory belongs to that skill; it is not a separately installed adapter.
+    const skillDir = path.join(projectRoot, 'packages', 'full', 'skills', 'threat-model');
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), '# threat-model\n');
+    writeAdapterDir(
+      path.join(skillDir, 'examples'),
+      validAdapterManifest({ adapter: 'not-an-installed-adapter' })
+    );
+    // ...and a real group beside it, so the test shows the skip is selective rather than
+    // switching the descent off.
+    const groupedDir = writeAdapterDir(
+      path.join(projectRoot, 'packages', 'full', 'skills', 'git', 'adapter-workflow-grouped'),
+      validAdapterManifest({ adapter: 'grouped-workflow', categories: ['workflow'], contract: { workflow: '1.0' } })
+    );
+
+    const found = withinProjectRoot(
+      discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+      projectRoot
+    );
+
+    expect(found).toEqual([{ name: 'grouped-workflow', origin: 'installed', dir: groupedDir }]);
+  });
+
   test('a group directory that declares its own adapter.yaml is that adapter, and its children are not also scanned', () => {
     const projectRoot = mkTempDir('ensemble-adapters-nested-self-project-');
     const xdgConfigHome = mkTempDir('ensemble-adapters-nested-self-xdg-');
