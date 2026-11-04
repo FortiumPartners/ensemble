@@ -84,8 +84,10 @@ writeFileSync(
  * This extension loads in EVERY session but only registers native command
  * completion in repositories containing the corresponding dispatcher YAML
  * (packages/product/commands/prd.yaml, packages/development/commands/
- * {trd,issue,feature}.yaml). Elsewhere it registers nothing, does nothing,
- * and writes nothing.
+ * {trd,issue,feature}.yaml). Elsewhere it registers no command and writes
+ * nothing. The one exception is the model-role check, which is active in
+ * every session and says nothing unless an Ensemble agent asks for a tier
+ * role (high, medium) that is not set in modelRoles.
  */
 import { createRequire } from "node:module";
 
@@ -111,6 +113,7 @@ export default function (pi) {
 console.log(`installed ${SHIM}`);
 console.log(`  -> ${BUNDLE}`);
 console.log("");
-console.log("Active only in repositories containing a prd/trd/issue/feature dispatcher YAML.");
+console.log("Command completion is active only in repositories containing a prd/trd/issue/feature dispatcher YAML.");
+console.log("The model-role check is active in every session: it reports an unset high/medium model role when an Ensemble agent needs it.");
 console.log("Verify with:  omp -p --no-session 'hi'  in such a repo, then check the command is available.");
 console.log("Remove with:  node scripts/install.mjs --uninstall");

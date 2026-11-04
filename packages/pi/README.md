@@ -73,6 +73,15 @@ What an agent runs on depends on which roles are configured:
 To pin a single agent regardless of its tier, set `task.agentModelOverrides` in
 the OMP config (agent name to model or role).
 
+OMP itself reports neither case 2 nor case 3 usefully: case 2 is silent, and
+case 3 fails with a "No model selected" error that advises `/login`. The
+optional [`@sunstone-partners/ensemble-pi-extension`](../pi-extension/README.md#model-role-check),
+installed from a checkout, reports both: a once-per-session warning for case
+2, and for case 3 a refused spawn whose message names the missing
+`modelRoles.<role>` keys, `~/.omp/agent/config.yml` and an example. It never
+fires for a configured role or for an agent pinned with
+`task.agentModelOverrides`. Without the extension, OMP stays quiet.
+
 ## Generated Artifacts
 
 | Directory / File | Count | Description |
