@@ -111,7 +111,14 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
    * @returns {string} the fixture bundle directory
    */
   const writeBundle = files => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'data-paths-'));
+    // The bundle goes one level INSIDE a unique parent, so a test that needs a sibling of
+    // the bundle (the escaping-path case below writes `<bundle>/../development`) gets one
+    // inside its own fixture. With the bundle AS the mkdtemp dir, that sibling resolved to
+    // `$TMPDIR/development` -- a shared, predictable path this suite both created and then
+    // recursively deleted, destroying anything another process had there.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'data-paths-'));
+    const dir = path.join(root, 'bundle');
+    fs.mkdirSync(dir, { recursive: true });
     for (const [rel, contents] of Object.entries(files)) {
       const file = path.join(dir, rel);
       fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -128,7 +135,7 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
     try {
       expect(validateBundleDataPaths(dir)).toEqual([]);
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(path.dirname(dir), { recursive: true, force: true });
     }
   });
 
@@ -141,7 +148,7 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
       expect(problems).toHaveLength(1);
       expect(problems[0]).toContain('lib/reader.js:1 reads data/thing.yaml');
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(path.dirname(dir), { recursive: true, force: true });
     }
   });
 
@@ -151,14 +158,16 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
     const dir = writeBundle({
       'lib/reader.js': "const p = path.join(__dirname, '..', '..', 'development', 'toolchain');",
     });
-    fs.mkdirSync(path.join(dir, '..', 'development', 'toolchain'), { recursive: true });
+    // Inside the fixture's own unique parent, not under $TMPDIR directly.
+    const escapeTarget = path.join(dir, '..', 'development', 'toolchain');
+    expect(path.resolve(escapeTarget).startsWith(path.resolve(path.dirname(dir)))).toBe(true);
+    fs.mkdirSync(escapeTarget, { recursive: true });
     try {
       const problems = validateBundleDataPaths(dir);
       expect(problems).toHaveLength(1);
       expect(problems[0]).toContain('resolves outside the bundle');
     } finally {
-      fs.rmSync(path.join(dir, '..', 'development'), { recursive: true, force: true });
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(path.dirname(dir), { recursive: true, force: true });
     }
   });
 
@@ -171,7 +180,7 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
     try {
       expect(validateBundleDataPaths(dir)).toEqual([]);
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(path.dirname(dir), { recursive: true, force: true });
     }
   });
 
@@ -182,7 +191,7 @@ describe('validateBundleDataPaths on a fixture bundle', () => {
     try {
       expect(validateBundleDataPaths(dir)).toHaveLength(1);
     } finally {
-      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(path.dirname(dir), { recursive: true, force: true });
     }
   });
 });

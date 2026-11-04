@@ -297,7 +297,7 @@ function dirnamePaths(source) {
  * see a DATA path, and 8.1.0 shipped three of them broken:
  *
  * - `lib/toolchain/config.js` -> `../../toolchain/toolchain.default.yaml`
- * - `lib/toolchain/contracts.js` -> `../../toolchain/toolchain/categories`
+ * - `lib/toolchain/contracts.js` -> `../../toolchain/categories`
  * - `lib/toolchain/runner.js` -> `../../toolchain/schemas/normalized`
  * - `lib/team-defaults.js` -> `../commands/configure-team.yaml`
  * - `lib/index.js` -> `../agents/documentation-specialist.yaml`
