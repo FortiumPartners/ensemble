@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Generated agents now emit the OMP role alias (`model: "@high"` / `"@medium"`) for the abstract `high`/`medium` model tiers. OMP resolves a bare `model:` word as a model-name substring (`high` matched `openrouter/openai/o3-mini-high`), not as a role.
 - Regenerated skills, prompts and the `code-reviewer` agent for the code-review final fixes (gate ledger-unavailable wording, `disposition` output field); re-vendored `lib/pr-review-*.js`.
 - Preserve explicitly declared `Task` as native `task` in generated agents so OMP orchestrators can delegate, without granting delegation to agents whose source does not declare it.
 
