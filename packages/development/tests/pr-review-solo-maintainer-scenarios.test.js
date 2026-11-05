@@ -716,7 +716,10 @@ describe('solo maintainer: every description of the rule names the authenticated
   });
 
   test('the skill says a Directed by line is a claim: the inputs table and the gate reference', () => {
-    expect(readSkillReference('inputs.md')).toContain('it never lowers a floor by itself');
+    const inputs = readSkillReference('inputs.md').replace(/\s+/g, ' ');
+    expect(inputs).toContain('the gate does not authenticate it');
+    expect(inputs).toContain('never earns the solo-maintainer discount by itself');
+    expect(inputs).toContain("that discount also needs that person's own `APPROVED` review of the head");
     expect(readSkillReference('merge-gate.md').replace(/\s+/g, ' ')).toContain(
       'A `Directed by:` line alone never lowers the floor.'
     );

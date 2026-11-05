@@ -315,8 +315,9 @@ assigned tier still does not bypass the Low-waiver rule above.
 the commit (or tree) under review, so a push invalidates it. Bot approvals never count. Where an
 agent authored the PR on a person's instruction, the `Directed by:` line in the PR body makes that
 person count as one of the required reviewers, as if they had written the code themselves. It is a
-line the PR's author writes, so it never lowers a requirement: the `soloMaintainer` discount below
-also needs that person's own approval of the head.
+line the PR's author writes and the gate does not authenticate it, so it still fills one required
+slot as before, but it never earns the `soloMaintainer` discount by itself: that discount also needs
+that person's own approval of the head.
 
 Policy keys live in the fenced `ensemble-review-policy` block of the **root `REVIEW.md` on the base
 branch** — never the PR head, so a PR cannot loosen its own review:

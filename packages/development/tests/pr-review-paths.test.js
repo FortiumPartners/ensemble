@@ -490,6 +490,29 @@ describe('pr-review-paths: sensitive and High patterns that name a path are matc
     expect(result.high).toEqual(['packages/development/lib/trd-parser.js']);
   });
 
+  // A case-insensitive file system (APFS, NTFS) folds more than ASCII: U+212A KELVIN SIGN is `k` and U+017F LATIN SMALL
+  // LETTER LONG S is `s`. A path spelled that way is the same file, so it must be classified as the guard it aliases.
+  test.each([
+    ['packages/development/\u017Fkills/pr-review-cycle/SKILL.md', 'packages/**/skills/pr-review-cycle/**'],
+    ['packages/development/s\u212Aills/pr-review-cycle/SKILL.md', 'packages/**/skills/pr-review-cycle/**'],
+    ['packages/development/lib/pr-review-gate.js', 'packages/*/lib/pr-review-*'],
+  ])('the Unicode case fold of a guard path is the guard: %s', (changedPath, matchedBy) => {
+    const guarded = classifyPaths({
+      changedPaths: [changedPath],
+      declaration: { path: 'REVIEW.md', sourceSha: BASE, sensitive: ['packages/**/skills/pr-review-cycle/**', 'packages/*/lib/pr-review-*'], high: [] },
+      baseSha: BASE,
+    });
+    expect(guarded.sensitive).toEqual([changedPath]);
+    expect(detailFor(guarded, changedPath).matchedBy).toBe(matchedBy);
+  });
+
+  test('the Unicode fold does not make an unrelated path a guard', () => {
+    // U+0130 (I with dot above) and U+00DF (sharp s) have no simple case fold to an ASCII letter.
+    expect(matchesPattern('packages/**/skills/x', 'packages/a/\u00DFkills/x', { ignoreCase: true })).toBe(false);
+    expect(matchesPattern('packages/**/skills/x', 'packages/a/skills/x', { ignoreCase: true })).toBe(true);
+    expect(matchesPattern('packages/**/skills/x', 'packages/a/skills/x')).toBe(true);
+  });
+
   test('matchesPattern is case-sensitive unless asked: CODEOWNERS paths are, because GitHub resolves them on a case-sensitive file system', () => {
     expect(matchesPattern('src/**', 'SRC/a.js')).toBe(false);
     expect(matchesPattern('src/**', 'SRC/a.js', { ignoreCase: true })).toBe(true);

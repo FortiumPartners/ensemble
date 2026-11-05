@@ -885,7 +885,7 @@ Even a code owner lowering a PR to Low does not escape the human requirement whi
 
 ### 11.4 Approvals and the merge gate
 
-An approval counts only when it is **bound to the commit (or tree) under review**, so a later push invalidates it. A bot approval never counts. An author never fills a required slot. On an agent-authored PR, the person named on the `Directed by:` line counts as one of the required reviewers, as if they had written the code themselves. That line is text the PR's author writes, so it never lowers a requirement: the `soloMaintainer` discount in the table above also needs that person's own approval of the current head.
+An approval counts only when it is **bound to the commit (or tree) under review**, so a later push invalidates it. A bot approval never counts. An author never fills a required slot. On an agent-authored PR, the person named on the `Directed by:` line counts as one of the required reviewers, as if they had written the code themselves. That line is text the PR's author writes and the gate does not authenticate it, so it still fills one required slot as before, but it never earns the `soloMaintainer` discount by itself: that discount in the table above also needs that person's own approval of the current head.
 
 `/ensemble:pr-merge` requires `mergeable: true` from the gate, computed from freshly read GitHub state. The gate refuses — and names the blocker and a `nextAction` — on an open Important finding, an unanswered security finding, an incomplete description, approvals short of the tier, or review data it could not read. It never passes on missing data.
 
