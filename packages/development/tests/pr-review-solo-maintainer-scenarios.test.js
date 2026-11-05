@@ -5,13 +5,16 @@
  *
  * A repository with exactly one maintainer can never field two humans for a
  * High PR: the director of an agent-authored PR fills one slot, the PR author
- * never fills one, and nobody else exists. With the policy flag on, a High PR
- * that touches no sensitive path and was directed by that maintainer needs one
- * human instead of two -- the director, AUTHENTICATED: someone other than the
- * PR author, who has APPROVED the current head on the host. A `Directed by:`
- * line in the PR body is a claim, never evidence, so it alone never lowers the
- * floor. The security lane must still pass, and every other case keeps two
- * humans.
+ * never fills one as an approver, and nobody else exists. With the policy flag
+ * on, a High PR that touches no sensitive path and was directed by that
+ * maintainer needs one human instead of two -- the director. A director who is
+ * NOT the PR author is authenticated: they must have APPROVED the current head
+ * on the host, because a `Directed by:` line in the PR body is a claim, never
+ * evidence. A director who IS the PR author (every agent PR committed under the
+ * maintainer's own login) cannot be approved by the host, so the discount rests
+ * on their own credit as author-as-director, with a visible, non-blocking
+ * `solo-maintainer-self-credit` warning. The security lane must still pass, and
+ * every other case keeps two humans.
  *
  * Every input comes from the REAL chain (`classifyPaths` -> `assignTier` ->
  * `effectiveTier` -> `evaluateApprovals` -> `evaluateGate`), and every case
@@ -330,15 +333,58 @@ describe('solo maintainer: the director is authenticated, not merely named (F-01
   test.each([
     ['the same login', 'maintainer-m'],
     ['the same login written with an @ and other letter case', '@Maintainer-M'],
-  ])('a director who is also the PR author (%s) gets two humans: their own review is a self-approval', (_label, author) => {
-    const approvals = approvalsFor(tier, { author });
-    refusedBecause(approvals, 'solo-maintainer-director-is-author');
-    expect(approvals.ignored).toEqual([{ login: 'maintainer-m', reason: 'self-approval', commitSha: HEAD }]);
-    expect(gateFor({ tier, approvals }).mergeable).toBe(false);
+  ])('a director who is also the PR author (%s) is credited on their own word: one human, with a self-credit warning', (_label, author) => {
+    // No review exists and none can: the host refuses an author approving their own PR.
+    const approvals = approvalsFor(tier, { author, reviews: [] });
+    expect(approvals).toMatchObject({
+      satisfied: true,
+      humansRequired: 1,
+      humansCounted: 1,
+      soloMaintainer: true,
+      directedBy: 'maintainer-m',
+      approvedBy: ['maintainer-m'],
+    });
+    expect(approvals.reasons).toContain('solo-maintainer-applied');
+    expect(approvals.warnings).toEqual(['solo-maintainer-self-credit']);
+    expect(approvals.ignored).toEqual([]);
+
+    const gate = gateFor({ tier, approvals });
+    expect(codesOf(gate)).toEqual([]);
+    expect(gate.mergeable).toBe(true);
+    expect(gate.approvals.warnings).toContain('solo-maintainer-self-credit');
   });
 
-  test('a PR author nobody could read cannot be shown to differ from the director', () => {
+  test("the author-director's own review is still a self-approval that is ignored: they are credited once, as the director", () => {
+    const approvals = approvalsFor(tier, { author: 'maintainer-m' });
+    expect(approvals).toMatchObject({ satisfied: true, humansRequired: 1, humansCounted: 1, soloMaintainer: true, approvedBy: ['maintainer-m'] });
+    expect(approvals.ignored).toEqual([{ login: 'maintainer-m', reason: 'self-approval', commitSha: HEAD }]);
+    expect(approvals.warnings).toEqual(['solo-maintainer-self-credit']);
+  });
+
+  test('the authorship is the only difference: the same inputs under another author, with no approval, are refused', () => {
+    expect(approvalsFor(tier, { author: 'maintainer-m', reviews: [] })).toMatchObject({ satisfied: true, soloMaintainer: true });
+
+    const approvals = approvalsFor(tier, { author: 'agent-bot-author', reviews: [] });
+    refusedBecause(approvals, 'solo-maintainer-director-not-approved');
+    expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+  });
+
+  test('a self-credited PR still has its other approvals counted: the author-director plus another person is two humans', () => {
+    const approvals = approvalsFor(tier, { author: 'maintainer-m', reviews: [approval('someone-else')] });
+    expect(approvals).toMatchObject({
+      satisfied: true,
+      humansRequired: 1,
+      humansCounted: 2,
+      soloMaintainer: true,
+      approvedBy: ['maintainer-m', 'someone-else'],
+    });
+  });
+
+  test('a PR author nobody could read cannot be shown to differ from the director, with or without the director\'s review', () => {
     refusedBecause(approvalsFor(tier, { author: null }), 'solo-maintainer-author-unknown');
+    const bare = approvalsFor(tier, { author: null, reviews: [] });
+    refusedBecause(bare, 'solo-maintainer-author-unknown');
+    expect(bare.warnings).not.toContain('solo-maintainer-self-credit');
   });
 
   test('an approval bound to another commit is not an approval of this head', () => {
@@ -362,6 +408,193 @@ describe('solo maintainer: the director is authenticated, not merely named (F-01
     const approvals = approvalsFor(tier, { reviews: [approval('someone-else')] });
     expect(approvals).toMatchObject({ satisfied: true, humansRequired: 2, humansCounted: 2, soloMaintainer: false });
     expect(approvals.reasons).not.toContain('solo-maintainer-applied');
+  });
+});
+
+describe('solo maintainer: crediting an author-director relaxes nothing else', () => {
+  const AUTHOR = 'maintainer-m';
+
+  /** The author is the director and no review exists: the self-credit is all there is. */
+  const asAuthor = (tier, extra = {}) => approvalsFor(tier, { author: AUTHOR, reviews: [], ...extra });
+
+  /** Two humans stand: nothing was discounted, so there is no self-credit to warn about. */
+  const twoHumans = (approvals) => {
+    refused(approvals);
+    expect(approvals.reasons).not.toContain('solo-maintainer-applied');
+    expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+  };
+
+  const open = (tier, approvals, security) => {
+    const gate = gateFor({ tier, approvals, security });
+    expect(gate.mergeable).toBe(false);
+    return gate;
+  };
+
+  test('the control: a non-sensitive High PR the maintainer wrote and directed merges with one human', () => {
+    const tier = tierFor(HIGH_PATHS);
+    const approvals = asAuthor(tier);
+    expect(approvals).toMatchObject({ satisfied: true, humansRequired: 1, soloMaintainer: true });
+    expect(gateFor({ tier, approvals }).mergeable).toBe(true);
+  });
+
+  test.each([
+    ['a CI workflow (sensitive path)', ['.github/workflows/ci.yml']],
+    ['the review policy itself (declaration change)', ['REVIEW.md']],
+  ])('%s keeps two humans, and the gate refuses', (_label, changedPaths) => {
+    const tier = tierFor(changedPaths);
+    expect(tier.soloMaintainer.eligible).toBe(false);
+    const approvals = asAuthor(tier);
+    twoHumans(approvals);
+    expect(codesOf(open(tier, approvals))).toContain(BLOCKER_CODES.APPROVALS_UNSATISFIED);
+  });
+
+  test.each([
+    ['a second assessment asking for another person', () => raisedTierFor({ secondAssessment: { needsAnotherPerson: true, reason: 'touches billing' } })],
+    ['a proposal of High', () => raisedTierFor({ proposedTier: 'high' })],
+  ])('a tier raised to High by %s keeps two humans', (_label, make) => {
+    const tier = make();
+    expect(tier.effectiveTier).toBe('high');
+    expect(tier.soloMaintainer.eligible).toBe(false);
+    const approvals = asAuthor(tier);
+    twoHumans(approvals);
+    open(tier, approvals);
+  });
+
+  test.each([
+    ['a second assessment asking for another person', { assessment: { needsAnotherPerson: true, reason: 'touches billing' } }],
+    ['a proposal of High', { proposedTier: 'high' }],
+    ['an unreadable second assessment', { assessment: 'looks fine' }],
+    ['no second assessment (omitted)', { assessment: OMIT }],
+    ['a null second assessment', { assessment: null }],
+  ])('a peer demand (%s) on a PR already High keeps two humans', (_label, options) => {
+    const { effective: tier } = chainFor(HIGH_PATHS, options);
+    expect(tier.soloMaintainer.eligible).toBe(false);
+    const approvals = asAuthor(tier);
+    twoHumans(approvals);
+    open(tier, approvals);
+  });
+
+  describe('a changed-path list nobody can trust', () => {
+    const unlisted = () => {
+      const paths = { ...classifyPaths({ changedPaths: HIGH_PATHS, declaration: DECLARATION, baseSha: BASE }) };
+      delete paths.paths;
+      const assignment = assignTier({ paths, kinds: [{ kind: 'product', paths: HIGH_PATHS }], secondAssessment: NO_PEER });
+      return effectiveTier({ assignment, policy: SOLO_POLICY, author: AUTHOR });
+    };
+
+    test.each([
+      ['a name git quoted', () => chainFor([...HIGH_PATHS, '".github/workflows/\\303\\251.yml"']).effective],
+      ['a name with a line separator (U+2028) in it', () => chainFor([...HIGH_PATHS, 'packages/agent-core/src/a\u2028b.ts']).effective],
+      ['no list at all', unlisted],
+    ])('%s keeps two humans', (_label, make) => {
+      const tier = make();
+      expect(tier.soloMaintainer).toEqual({ eligible: false, login: null });
+      const approvals = asAuthor(tier);
+      twoHumans(approvals);
+      open(tier, approvals);
+    });
+  });
+
+  test('the policy flag off, or not exactly true, keeps two humans', () => {
+    for (const soloMaintainer of [false, 'true']) {
+      const policy = { ...SOLO_POLICY, soloMaintainer };
+      twoHumans(asAuthor(tierFor(HIGH_PATHS, policy), { policy }));
+    }
+  });
+
+  test('two maintainers keep two humans', () => {
+    const policy = { ...SOLO_POLICY, maintainerLogins: ['maintainer-m', 'maintainer-n'] };
+    twoHumans(asAuthor(tierFor(HIGH_PATHS, policy), { policy }));
+  });
+
+  test('a director who is not the sole maintainer gets no discount, even as the author', () => {
+    const tier = tierFor(HIGH_PATHS);
+    twoHumans(approvalsFor(tier, { author: 'someone-else', directedBy: 'someone-else', reviews: [] }));
+  });
+
+  test('a PR no agent wrote has no director to credit', () => {
+    twoHumans(asAuthor(tierFor(HIGH_PATHS), { agentAuthored: false }));
+  });
+
+  test('a bot director is never credited: the maintainer login configured as an automated account fills nothing', () => {
+    const policy = { ...SOLO_POLICY, botLogins: ['coderabbitai', 'maintainer-m'] };
+    const approvals = asAuthor(tierFor(HIGH_PATHS), { policy });
+    expect(approvals).toMatchObject({ satisfied: false, humansRequired: 2, humansCounted: 0, soloMaintainer: false, directedBy: null });
+    expect(approvals.ignored).toEqual([{ login: 'maintainer-m', reason: 'automated', commitSha: null }]);
+    expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+    open(tierFor(HIGH_PATHS), approvals);
+  });
+
+  test('a refusal recorded by the tier evaluator is carried and nothing is discounted', () => {
+    const tier = { ...tierFor(HIGH_PATHS), refusals: [{ code: 'low-waiver-unsupported', detail: 'no evidence', nextAction: 'ask a person' }] };
+    const approvals = asAuthor(tier);
+    expect(approvals).toMatchObject({ satisfied: false, reason: 'tier-relaxation-refused', humansRequired: 2, soloMaintainer: false });
+    expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+    open(tier, approvals);
+  });
+
+  test('a tier record that raised the requirement above two is not relaxed to one', () => {
+    const tier = { ...tierFor(HIGH_PATHS), humansRequired: 3 };
+    const approvals = asAuthor(tier);
+    expect(approvals).toMatchObject({ satisfied: false, humansRequired: 3, soloMaintainer: false });
+    expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+  });
+
+  test('a Medium PR is untouched: no discount is applied, so no self-credit is reported', () => {
+    const approvals = asAuthor(tierFor(['packages/development/lib/widget.js']));
+    expect(approvals).toMatchObject({ humansRequired: 1, soloMaintainer: false });
+    expect(approvals.warnings).toEqual([]);
+  });
+
+  test('an author nobody could read is refused, never credited', () => {
+    const approvals = approvalsFor(tierFor(HIGH_PATHS), { author: null, reviews: [] });
+    expect(approvals).toMatchObject({ satisfied: false, humansRequired: 2, soloMaintainer: false });
+    expect(approvals.warnings).toEqual(['solo-maintainer-author-unknown']);
+  });
+
+  describe('the security lane still blocks a self-credited High PR', () => {
+    const tier = tierFor(HIGH_PATHS);
+    const securityFinding = {
+      id: 'S-1',
+      source: 'security-reviewer',
+      locationOrLink: 'packages/development/lib/widget.js:44',
+      severity: 'important',
+      failureMode: 'the token is logged in plain text',
+      disposition: 'fix',
+      evidence: 'line 44 passes the bearer token to console.log',
+      originalTextOrLink: 'https://example.invalid/pr/1#discussion_r1',
+      headSha: HEAD,
+    };
+
+    test('a security review that did not run is refused', () => {
+      const gate = open(tier, asAuthor(tier), { status: 'not-run', findings: [] });
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.SECURITY_REVIEW_MISSING);
+    });
+
+    test('an open security finding is refused', () => {
+      const gate = open(tier, asAuthor(tier), { status: 'findings', findings: [securityFinding] });
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.SECURITY_FINDING_OPEN);
+    });
+  });
+
+  describe('the gate does not take a self-credit claim on trust', () => {
+    const solo = tierFor(HIGH_PATHS);
+
+    test('a self-credit claim against a tier that is not eligible is a tier mismatch', () => {
+      const gate = gateFor({ tier: tierFor(['.github/workflows/ci.yml']), approvals: asAuthor(solo) });
+      expect(gate.mergeable).toBe(false);
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.APPROVALS_TIER_MISMATCH);
+    });
+
+    test('a self-credit claim that names another director is a tier mismatch', () => {
+      const gate = gateFor({ tier: solo, approvals: { ...asAuthor(solo), directedBy: 'someone-else' } });
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.APPROVALS_TIER_MISMATCH);
+    });
+
+    test('a self-credit count lowered below the one-human floor is a tier mismatch', () => {
+      const gate = gateFor({ tier: solo, approvals: { ...asAuthor(solo), humansRequired: 0 } });
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.APPROVALS_TIER_MISMATCH);
+    });
   });
 });
 
@@ -618,7 +851,6 @@ describe("solo maintainer: through the subcommands the skill calls, under this r
   test.each([
     ['names the maintainer but has no review from them', { reviews: [] }],
     ['was written by an outsider who names the maintainer', { author: 'mallory', reviews: [] }],
-    ["was written by the maintainer's own login", { author: 'ldangelo' }],
     ['had no second assessment', { assessment: OMIT }],
     ['had a null second assessment', { assessment: null }],
   ])('a PR that %s keeps two humans', (_label, overrides) => {
@@ -626,6 +858,50 @@ describe("solo maintainer: through the subcommands the skill calls, under this r
     expect(approvals).toMatchObject({ satisfied: false, humansRequired: 2, soloMaintainer: false });
     expect(gate.mergeable).toBe(false);
     expect(codesOf(gate)).toContain(BLOCKER_CODES.APPROVALS_UNSATISFIED);
+  });
+
+  describe("a PR written under the maintainer's own login and directed by them", () => {
+    const OWN = { author: DIRECTOR, reviews: [] };
+
+    test('merges with one human: the maintainer\'s own credit as author-as-director, and the result says so', () => {
+      const { tier, approvals, gate } = run({ changedPaths: LIB, ...OWN });
+      expect(tier).toMatchObject({ ok: true, effectiveTier: 'high', soloMaintainer: { eligible: true, login: DIRECTOR } });
+      expect(approvals).toMatchObject({ satisfied: true, humansRequired: 1, soloMaintainer: true, approvedBy: [DIRECTOR] });
+      expect(approvals.warnings).toEqual(['solo-maintainer-self-credit']);
+      expect(gate).toMatchObject({ mergeable: true, blockers: [] });
+      expect(gate.approvals.warnings).toContain('solo-maintainer-self-credit');
+    });
+
+    test.each([
+      ['had no second assessment', { assessment: OMIT }],
+      ['had a null second assessment', { assessment: null }],
+      ['names someone else as the director', { directedBy: 'someone-else' }],
+    ])('a PR that %s keeps two humans', (_label, overrides) => {
+      const { approvals, gate } = run({ changedPaths: LIB, ...OWN, ...overrides });
+      expect(approvals).toMatchObject({ satisfied: false, humansRequired: 2, soloMaintainer: false });
+      expect(approvals.warnings).not.toContain('solo-maintainer-self-credit');
+      expect(gate.mergeable).toBe(false);
+      expect(codesOf(gate)).toContain(BLOCKER_CODES.APPROVALS_UNSATISFIED);
+    });
+
+    test.each([
+      '.ensemble/local-ci.yaml',
+      'packages/development/lib/pr-review-approvals.js',
+      'packages/pi/vendor/lib/pr-review-gate.js',
+      'packages/development/skills/pr-review-cycle/reference/merge-gate.md',
+      'REVIEW.md',
+    ])('%s is a guard: a PR that also changes it keeps two humans', (guard) => {
+      const { tier, approvals, gate } = run({ changedPaths: [...LIB, guard], ...OWN });
+      expect(tier.soloMaintainer).toEqual({ eligible: false, login: null });
+      expect(approvals).toMatchObject({ satisfied: false, humansRequired: 2, soloMaintainer: false });
+      expect(gate.mergeable).toBe(false);
+    });
+
+    test('a changed-path list holding a name git quoted keeps two humans', () => {
+      const { tier, gate } = run({ changedPaths: [...LIB, '".github/workflows/\\303\\251.yml"'], ...OWN });
+      expect(tier.soloMaintainer).toEqual({ eligible: false, login: null });
+      expect(gate.mergeable).toBe(false);
+    });
   });
 
   test.each([
@@ -699,33 +975,35 @@ describe('solo maintainer: every description of the rule names the authenticated
   const rowOf = (file) => read(file).split('\n').find((line) => line.startsWith('| `soloMaintainer`'));
 
   test.each(['REVIEW.md', 'README.md', 'docs/guides/user-guide.md'])(
-    '%s: the policy row says who must approve, and that the maintainer must not be the author',
+    '%s: the policy row says who must approve, and that an author-director stands on their own credit',
     (file) => {
       const row = rowOf(file);
       expect(row).toBeDefined();
       expect(row).toContain("not the PR's author");
-      expect(row).toContain('has approved the current head on the host');
+      expect(row).toContain('approved the current head on the host');
+      expect(row).toContain('author-as-director');
+      expect(row).toContain('`solo-maintainer-self-credit`');
       expect(row).toContain('`Directed by:` line alone never lowers');
     }
   );
 
   test('the CHANGELOG entry says the same', () => {
     const entry = read('CHANGELOG.md').split('\n').find((line) => line.includes('`soloMaintainer` review policy key'));
-    expect(entry).toContain("is not the PR's author and has approved the current head on the host");
+    expect(entry).toContain('unless that maintainer is also the author, they have approved the current head on the host');
+    expect(entry).toContain('author-as-director');
+    expect(entry).toContain('`solo-maintainer-self-credit`');
     expect(entry).toContain('never lowers the requirement');
   });
 
-  test('the skill says a Directed by line is a claim: the inputs table and the gate reference', () => {
-    const inputs = readSkillReference('inputs.md').replace(/\s+/g, ' ');
-    expect(inputs).toContain('the gate does not authenticate it');
-    expect(inputs).toContain('never earns the solo-maintainer discount by itself');
-    expect(inputs).toContain("that discount also needs that person's own `APPROVED` review of the head");
-    expect(readSkillReference('merge-gate.md').replace(/\s+/g, ' ')).toContain(
-      'A `Directed by:` line alone never lowers the floor.'
-    );
+  test('the skill says a Directed by line is a claim and that an author-director rests on their own credit: the inputs table and the gate reference', () => {
+    expect(readSkillReference('inputs.md')).toContain('it never lowers a floor by itself');
+    expect(readSkillReference('inputs.md')).toContain('author-as-director');
+    const gateReference = readSkillReference('merge-gate.md').replace(/\s+/g, ' ');
+    expect(gateReference).toContain('A `Directed by:` line alone never lowers the floor.');
+    expect(gateReference).toContain('the one human is the author-as-director');
   });
 
-  test('the warnings the gate reference names are exactly the ones the evaluator emits when it refuses', () => {
+  test('the warnings the gate reference names are exactly the ones the evaluator emits when it refuses or self-credits', () => {
     const named = new Set(readSkillReference('merge-gate.md').match(/solo-maintainer-[a-z-]+/g));
     const tier = tierFor(HIGH_PATHS);
     const emitted = new Set(

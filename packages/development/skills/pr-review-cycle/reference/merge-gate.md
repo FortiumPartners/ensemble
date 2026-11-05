@@ -157,18 +157,24 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    **The solo-maintainer discount is the one place a `directedBy` line is not
    enough.** `approvals` lowers High from two humans to one only when the
    `tier` record names exactly one eligible maintainer and that person is the
-   `directedBy` of an agent-authored PR, is **not** `author` (the PR author's
+   `directedBy` of an agent-authored PR and `author` is known (the PR author's
    login as the host reports it in 10d, never a name taken from the PR body
-   or a commit; with `author` missing the discount is refused) and has an
-   `APPROVED` review bound to the head in `reviews` -- the same binding as
+   or a commit; with `author` missing the discount is refused). Then one of
+   two things must hold. If the director is **not** `author`, they must have
+   an `APPROVED` review bound to the head in `reviews` -- the same binding as
    any approval, so a stale, withdrawn or automated review gives nothing. A
-   `Directed by:` line alone never lowers the floor. When the discount is
-   refused, `approvals.warnings` names the fact that failed
-   (`solo-maintainer-director-not-approved`,
-   `solo-maintainer-director-is-author` or `solo-maintainer-author-unknown`):
-   report it. A PR the maintainer's own login authored never qualifies -- its
-   author's review is a self-approval that never counts -- so it needs two
-   humans.
+   `Directed by:` line alone never lowers the floor. If the director **is**
+   `author` (an agent PR committed under the maintainer's own login), the
+   host refuses an author approving their own PR, so no approval is required
+   and none is looked for: the one human is the author-as-director, the
+   discount rests on their own credit, and `approvals.warnings` carries the
+   non-blocking `solo-maintainer-self-credit`. Report it: the discount rested
+   on self-credit, with no independent approval. Every other condition holds
+   in both cases (eligible tier record, no sensitive path, no raise, no peer
+   demand, a trustworthy path list, a non-bot director, the security lane).
+   When the discount is refused, `approvals.warnings` names the fact that
+   failed (`solo-maintainer-director-not-approved` or
+   `solo-maintainer-author-unknown`): report it, and the PR needs two humans.
 3. `node "$PR_REVIEW_CLI" gate` with
    `{ ledger, approvals, tier, description, security, headSha, unavailable }`
    -- `ledger` the findings carried in the review-state report for this head

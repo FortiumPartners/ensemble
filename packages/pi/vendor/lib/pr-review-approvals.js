@@ -26,11 +26,17 @@
  *     (AC-014-3). They fill exactly one slot, they are never also counted as
  *     an approver, and the PR author never fills a slot;
  *   - the SOLO-MAINTAINER discount (policy `soloMaintainer`) is the one place
- *     a director's word is not enough. It lowers High from two humans to one
- *     only for a director the host AUTHENTICATES: the tier record names them
- *     the sole maintainer, they are NOT the PR author, and they have an
- *     APPROVED review bound to the head. A `Directed by:` line is text the
- *     author of a PR writes, so on its own it never lowers the floor;
+ *     a director's word alone is not enough. It lowers High from two humans to
+ *     one only for a director the tier record names the sole maintainer, and
+ *     only when the PR author is known. A director who is NOT the PR author
+ *     must also have an APPROVED review bound to the head (a `Directed by:`
+ *     line is text the author writes, so on its own it never lowers the
+ *     floor). A director who IS the PR author -- every agent PR in a repo
+ *     whose agents commit under the maintainer's own login -- needs no host
+ *     approval (the host refuses an author approving their own PR, so none
+ *     can exist): the one human is the author-as-director, the discount rests
+ *     on their own credit (AC-014-3), and the result carries the non-blocking
+ *     warning `solo-maintainer-self-credit` so that is visible;
  *   - distinctness is per person: two approvals from one login are one human.
  *     High needs two DISTINCT people (AC-014-4);
  *   - the humans required come from the effective tier (`low` 0, `medium` 1,
@@ -260,12 +266,17 @@ function evaluateApprovals(input) {
 
   // Solo maintainer: the tier evaluator decides ELIGIBILITY (policy flag, one
   // maintainer, High, a path list it can trust, no sensitive path, nobody
-  // else demanded). The facts only this module sees are checked here, and
-  // together they AUTHENTICATE the director. A `Directed by:` line is text
-  // the PR's author writes, so it never lowers the floor by itself: the sole
-  // maintainer must also be someone other than the PR author, with an
-  // APPROVED review bound to this head -- which is exactly who is in
-  // `approvers` (a withdrawn, stale, automated or self-approval never is).
+  // else demanded). The facts only this module sees are checked here:
+  //   - the PR author must be known (else `solo-maintainer-author-unknown`);
+  //   - a director who is NOT the author must have an APPROVED review bound
+  //     to this head -- exactly who is in `approvers` (a withdrawn, stale,
+  //     automated or self-approval never is), else
+  //     `solo-maintainer-director-not-approved`;
+  //   - a director who IS the author (an agent PR committed under the
+  //     maintainer's own login) cannot be approved by the host, so the one
+  //     human is the author-as-director and the discount rests on that self-
+  //     credit: it applies, with the non-blocking warning
+  //     `solo-maintainer-self-credit`.
   // The security lane still blocks High in the gate. An unreadable tier
   // record, refusal, director or author leaves two humans required.
   const solo = isObject(tierResult.soloMaintainer) ? tierResult.soloMaintainer : null;
@@ -276,19 +287,19 @@ function evaluateApprovals(input) {
     humansRequired === HUMANS_REQUIRED.high &&
     !hasRefusal &&
     directedBy === soloLogin;
-  // The first fact of the director's authentication that fails, if any. They
-  // must not be the PR author (an author cannot vouch for their own work, and
-  // their review is a self-approval), and must be among `approvers`.
+  // The first fact that stops the discount, if any.
   let soloRefusal = null;
+  let soloSelfCredit = false;
   if (soloFactsHold) {
     if (author === null) soloRefusal = 'solo-maintainer-author-unknown';
-    else if (author === directedBy) soloRefusal = 'solo-maintainer-director-is-author';
+    else if (author === directedBy) soloSelfCredit = true;
     else if (!approvers.includes(directedBy)) soloRefusal = 'solo-maintainer-director-not-approved';
   }
   const soloApplies = soloFactsHold && soloRefusal === null;
   const required = soloApplies ? 1 : humansRequired;
   if (soloApplies) reasons.push('solo-maintainer-applied');
   else if (soloRefusal !== null) warnings.push(soloRefusal);
+  if (soloSelfCredit) warnings.push('solo-maintainer-self-credit');
 
   const satisfied = !hasRefusal && humansCounted >= required;
   const reason = satisfied

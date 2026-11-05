@@ -131,7 +131,7 @@ logins).
 | `sensitivePaths` | Owner-declared sensitive areas, added to the built-in floor. |
 | `highPaths` | Areas that start at the High risk tier. |
 | `lowWaiverEnabled` | Whether a Low-risk PR may waive review with evidence (off here). |
-| `soloMaintainer` | With exactly one maintainer login: a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two, provided that maintainer is not the PR's author and has approved the current head on the host. A `Directed by:` line alone never lowers the requirement. The security lane still blocks High. Sensitive-path PRs keep two humans. |
+| `soloMaintainer` | With exactly one maintainer login: a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. If that maintainer is not the PR's author they must have approved the current head on the host; if they are the author (an agent PR committed under their own login, which the host will not let them approve) the discount rests on their own credit as author-as-director and the gate result carries the warning `solo-maintainer-self-credit`. A PR whose author cannot be read keeps two humans, and a `Directed by:` line alone never lowers the requirement for any other author. The security lane still blocks High. Sensitive-path PRs keep two humans. |
 | `sliceThreshold` | Changed-line count above which a PR is reviewed in slices. |
 
 ## Ownership
