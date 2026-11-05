@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **packages/pi-extension:** model role check. When an Ensemble agent asks for the OMP tier role `high` or `medium` and `modelRoles` does not set it, the extension now says so loudly instead of OMP staying quiet. It handles OMP's `before_subagent_spawn` event, which carries the model list after `task.agentModelOverrides` and role expansion, so it never fires for a configured role or a pinned agent. A fallback that still resolves gets a once-per-session warning; when nothing resolves the spawn is refused with a message naming the missing `modelRoles.<role>` keys, `~/.omp/agent/config.yml` and an example, instead of OMP's "No model selected" and its advice to `/login`. Measured on omp 18.16.0; Pi and older OMP never emit the event and keep OMP's quiet fallback. The extension registers one handler in every session, and stays at 0.1.2: it has no marketplace entry and is installed from a checkout.
 
+### Fixed
+
+- **`trd-parser.js` resolves a PRD recorded as a document id (`packages/development`).** A TRD that puts the source PRD's document id (`PRD-2026-<uuid>`) in frontmatter `prd_reference` and the real path in a sibling `prd_path` parsed `prdReference: null`: `extractPrdReference()` accepted only path-shaped values (`looksLikePath()` requires `/` or a `.md` suffix), so `completion-verification` Step 3 and `trd-cli verify` skipped the PRD cross-check silently, with no error. The parser now falls back to `prd_path` (last-resort priority 5; body references and a path-shaped `prd_reference` still win, so an in-document path stays authoritative). The vendored Pi copy `packages/pi/vendor/lib/trd-parser.js` carries the same change.
+
 ## [8.1.0] - 2026-10-30
 
 ### Changed
