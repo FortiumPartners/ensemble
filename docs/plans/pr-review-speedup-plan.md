@@ -15,7 +15,7 @@ Source: agent session timestamps and the orchestrators' own reports. `[ESTIMATE]
 | #233 re-review | 4 reviewers + security lane: 26, 30, 33, 31, **48** min; then 5 verifiers: 30, 31, 32 min (+35 min re-run of one killed by a 429) | about 77 min, plus 35 |
 | #233 fix round 2 | one agent, 4 findings | 36 min |
 | #225 / #228 / #229 (3 run concurrently) | gate + deep review + gate verdict | 66 / 39 / 55 min |
-| Local-CI gate | one run | about 6 min; #225 needed 3 runs, #229 needed 2 (load average 12 to 72 flaked a wall-clock test that also flakes on the unmodified base) |
+| Local-CI gate | one run | about 6 min on a quiet machine, 8 to 9 min under load; #225 needed 3 runs, #229 needed 2 (load average 12 to 72 flaked wall-clock assertions in `toolchain-detect.test.js`, which also flake on the unmodified base) |
 | Per agent | reviewer 17 to 48 min, 73 to 144 tool calls; verifier 30 min, 86 to 129 tool calls for 45 candidates | |
 
 The critical path is `slowest reviewer -> slowest verifier -> verdict scripts`, and **a head change restarts all of it**. #233 has been through four such chains.
@@ -23,9 +23,9 @@ The critical path is `slowest reviewer -> slowest verifier -> verdict scripts`, 
 ### Causes, by impact
 
 1. **Serial restart on every push.** Fix, then re-gate, then re-review everything, then re-verify everything. About 2h per loop on a High PR.
-2. **Verifiers each vote on every candidate.** Five verifiers times 45 candidates is 225 verdicts, of which 180 re-confirmed already-settled round-3 results. Elapsed time is the slowest verifier, and each one spends minutes rebuilding the same probe environment.
+2. **Verifiers each vote on every candidate.** Five verifiers times 45 candidates is 225 verdicts, of which 145 (29 carried-over candidates times 5) re-confirmed already-settled round-3 results and 80 (16 new candidates times 5) were new. Elapsed time is the slowest verifier, and each one spends minutes rebuilding the same probe environment.
 3. **Reviewers read the whole range.** Four reviewers each read all 21 files. The slowest sets the pace; one ran 144 tool calls against a brief that caps it far lower.
-4. **No hard deadline.** The tool-call cap in the brief is advisory. Agents overshoot it (57 against 40, 144 in one case) and nothing stops them.
+4. **No hard deadline.** The tool-call cap in the brief is advisory. Agents overshoot it (57 against 40 on #202, 144 in one #233 reviewer) and nothing stops them.
 5. **Repeated setup.** Each agent re-derives snapshots, diffs, a baseline test run and probe helpers.
 6. **Failure handling loses work.** A 429 killed the orchestrator and one verifier; results existed only in session folders. Reviewer yields fail schema validation (a string instead of an object) and burn retries. An empty reviewer batch was re-dispatched in place.
 7. **Gate flakiness under concurrency.** Three gates and three review swarms on one machine push load to 25-72, flaking `toolchain-detect.test.js`; each flake is a 6-minute re-run.
@@ -46,7 +46,7 @@ Measured per stage so the claim is provable (section 5).
 ### A. Parallelism: shard instead of duplicate (largest win, about 3x on its own)
 
 - **Verify per candidate, not per verifier.** Each candidate is verified by K independent fresh agents (K = 3 Standard, 5 Deep, as the depth contract says), but each agent gets one or a few candidates (5 to 15 tool calls, 2 to 5 min). With up to 32 concurrent agents, verification takes the time of the slowest small agent, not 30 min. Independence per candidate is preserved: no verifier sees another's vote, and every candidate still gets K distinct verifiers. Needs: `depth`/`votes` to accept an explicit candidate-to-verifier assignment (the CLI already tallies per finding).
-- **Shard reviewers by slice and lens.** Replace 4 reviewers reading all files with 6 to 8 reviewers, each owning a slice of the range (the `slices` step already cuts the range) and one emphasis (correctness, security/approval-floor, tests, docs/mirrors). Smaller reading set means 5 to 10 min each. The depth floor (at least 2 reviewers over the whole range) still holds because slices cover every path; `verifyCoverage` already reports an unreviewed path.
+- **Shard reviewers by slice, and cross every slice with at least two lenses.** Replace 4 reviewers reading all files with 6 to 8 reviewers, each owning a slice of the range (the `slices` step already cuts the range) and one emphasis (correctness, security/approval-floor, tests, docs/mirrors). Smaller reading set means 5 to 10 min each. **Independence is not preserved by slicing alone:** `pr-review-depth.js` counts reviewers and `scope-guidance-depth.md` defines extra reviewers as independent passes over the same range, so disjoint slices give one pass per path where Standard and Deep require at least two. Each slice must therefore be read by at least two reviewers with different lenses (for example 4 slices times 2 lenses is 8 reviewers), and `verifyCoverage` must report a path read by fewer than two reviewers as under-reviewed, not covered.
 - **Start the gate with the head, not after.** Start `local-ci-cli.js gate` the moment the head SHA is read, concurrently with reviewers (the R4 run already does this). Add a precheck that runs approvals, description sections and branch protection first (seconds) and **posts the human-blocker list immediately**, so people act in parallel with the review.
 
 ### B. Incremental re-review (about 5x on re-review rounds)
@@ -67,7 +67,7 @@ A single deterministic script builds, once per head: the frozen snapshot tree, `
 
 ### E. Gate reliability
 
-- Fix the wall-clock assertion in `scripts/tests/toolchain-detect.test.js` (it flakes on the unmodified base under load) so one gate run is one run.
+- Fix the wall-clock assertions in `scripts/tests/toolchain-detect.test.js` (three of them; the one that failed in the gate runs compares two subprocess runs and also flakes on the unmodified base under load) so one gate run is one run.
 - Run at most one local-CI gate at a time per machine, queued, and never during a reviewer swarm that saturates the CPU; or run gates on a quiet runner.
 
 ### F. Replace LLM hunting with deterministic checks where the target is mechanical
@@ -92,6 +92,7 @@ Estimated combined effect on the High-PR critical path: reviewers 48 to about 12
 - Baseline cohort: the runs in section 1. Compare median and p75 wall time by tier, and the number of gate runs and review chains per PR, before and after each PR above.
 - Quality guard: re-run the #228 and #233 candidate sets through the new pipeline and require the same Important findings as the current deep review. A faster run that loses a real Important finding is a regression, not a win. Track false-negative rate against these known findings.
 - Do not claim the 5x target met until PR 4 has run on a real re-review.
+- **First measurement (2026-11-05, review of #234 itself, a docs-only Standard-depth PR).** Classifier, second assessor and security lane 4 s, 4 s and 38 s; four reviewers 1.3 to 2.1 min; verification split per candidate: 33 verifiers (11 groups of at most 3 candidates, 3 distinct verifiers per candidate) at 15 s to 1.3 min each; whole review about 11.7 min wall, against about 77 min for a #233 re-review round. This validates the per-candidate verification idea on a small PR; it says nothing yet about a High-tier PR, where reviewers read more and verifiers run probes. Findings from it (two real Important claims in this plan: the 145-versus-180 count and the slicing-independence claim) are fixed in this version.
 
 ## 6. What stays human-bound
 
