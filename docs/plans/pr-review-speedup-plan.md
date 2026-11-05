@@ -87,11 +87,11 @@ One deterministic runner (`review-run`, in `packages/development/lib/`) performs
 
 | | Light (Low and Medium tier) | Full (High tier, a sensitive path, or anything ambiguous) |
 |---|---|---|
-| Orchestration | The script alone runs the pipeline. Model turns only for reviewers, verifiers and an `adjudicate` outcome. | The script, plus a model orchestrator that plans each reviewer's adversarial emphasis and handles triage. |
-| Depth | As `depth` returns (Standard: at least 2 reviewers, 3 verifiers per finding). | Deep (at least 2 reviewers, 5 verifiers per finding) and the security lane. |
-| Re-review after a push | Delta only (section 3B). | Delta, with a full re-read when the delta touches a sensitive path. |
+| Orchestration | The script alone runs the pipeline. Model turns only for reviewers, verifiers and an `adjudicate` outcome. | The script, plus a model orchestrator that handles triage. Reviewer briefs are generated from templates in both modes. |
+| Depth | As `depth` returns (Standard: at least 2 reviewers, 3 verifiers per finding), plus the security lane: the gate requires it at Medium (`SECURITY_REQUIRED_TIERS` in `pr-review-gate.js`) as well as High. | Deep (at least 2 reviewers, 5 verifiers per finding) and the security lane. |
+| Re-review after a push | Delta (section 3B), with a full re-read on the first review of a head the CLI has never seen. | Delta, with a full re-read when the delta touches a High or sensitive path, and on a head the CLI has never seen. |
 
-What does not get lighter in either mode: the gate and approvals, the independence of reviewers and verifiers, `REVIEW_COMPLETE` computed only by the CLI, and closing an Important or security finding only by a fix or a stated reason. It is one runner with a mode, not two orchestrators, so there is one test surface and the modes cannot drift apart. The saving is measured only for small PRs (orchestrator-only time was 69% to 70% of wall time on #234 and #235); a High-tier run under the new design is unmeasured. [ESTIMATE] Ship the light mode first (delivery PR 1) and layer the full mode on top of it.
+What does not get lighter in either mode: the gate and approvals, the independence of reviewers and verifiers, the security lane wherever the gate requires it, `REVIEW_COMPLETE` computed only by the CLI, closing an Important or security finding only by a fix or a stated reason, and the operator's disposition of findings before the merge-approval question (section 3H). It is one runner with a mode, not two orchestrators, so there is one test surface and the modes cannot drift apart. The saving is measured only for small PRs (orchestrator-only time was 69% to 70% of wall time on #234 and #235); a High-tier run under the new design is unmeasured. [ESTIMATE] Ship the light mode first (delivery PR 1) and layer the full mode on top of it.
 
 ### H. Findings disposition: log as beads, never auto-fix, and let the operator choose before the final merge approval
 
@@ -123,6 +123,7 @@ What does not get lighter in either mode: the gate and approvals, the independen
 | 4 | B: verdict carry-over and delta review. | About 5x on re-review | Highest: wrong invalidation silently reuses a stale verdict. Needs a conservative rule (any touched cited hunk, dependency or High path forces re-verification) and mutation tests that a carried verdict is dropped when it should be |
 | 5 | E and F: de-flake the gate test; serialize gates; keep the property tests. | Removes about 6 min re-runs | Low |
 | 6 | H: bead logging, the findings list and the operator's selection before the merge-approval question. | Removes unselected fix rounds (on #233 a fix round plus its restarted chain was about 2 h: 1h 13m fixing, about 70 min re-reviewing) | Medium: touches `pr-review-cycle` MODE=gate and the `ensemble-pr-merge` flow; needs the acceptance tests in 3H, and must not relax the stopping rule |
+| 7 | G, full mode: the model orchestrator layered on the light-mode runner, for the High tier, a sensitive path or anything ambiguous. | Keeps today's depth for the PRs that need it; the saving is unmeasured. [ESTIMATE] | Medium: the mode boundary must fail closed, so it needs a test that an unreadable tier, a raised tier and any ambiguity each select Full. Depends on PR 1 |
 
 Estimated combined effect on the High-PR critical path: reviewers 41 to about 12 min (A+C), verification about 25 to about 4 min (A+C), re-verification of carried candidates about 0 (B), so about 16 min for a first review and 10 to 15 for a re-review, with the orchestrator (G) no longer adding about 70% on top. [ESTIMATE: to be replaced by section 5 measurements after PR 2.]
 
