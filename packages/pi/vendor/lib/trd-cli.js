@@ -1654,6 +1654,11 @@ module.exports = {
 };
 
 if (require.main === module) {
-  const code = main(process.argv.slice(2));
-  process.exit(code);
+  // `process.exit()` discards whatever is still sitting in stdout's buffer. When stdout is
+  // a pipe Node writes it asynchronously, so anything past the 64 KiB (65536-byte) pipe
+  // buffer - which is every large TRD's `parse`/`scaffold-plan` JSON - was silently truncated:
+  // the consumer saw invalid JSON cut at position 65536. Setting `process.exitCode` instead
+  // lets the event loop drain stdout and exit naturally with the same code, so piping and
+  // redirecting produce byte-identical output.
+  process.exitCode = main(process.argv.slice(2));
 }
