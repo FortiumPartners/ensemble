@@ -185,7 +185,11 @@ function compilePattern(pattern, ignoreCase) {
       // Letter case is loosened only for a pattern that names a path. A bare name (`REVIEW.md`, `*.yml`, `docs/`)
       // selects that name at any depth, and another-case spelling of it elsewhere is no alias of anything: loosening
       // it would make every `review.md` in the tree a review file.
-      regex: new RegExp(`^${globToRegExpSource(body)}$`, ignoreCase && !basenameOnly ? 'i' : ''),
+      // `iu`, not `i`: without `u` the ignore-case fold is ASCII-only, but a case-insensitive file system folds more
+      // (U+212A KELVIN SIGN reads as `k`, U+017F LATIN SMALL LETTER LONG S as `s`), so `\u017Fcripts/ci-local.js`
+      // would name the same file as `scripts/ci-local.js` yet escape the guard. Every source here is ASCII-literal
+      // plus the escaped metacharacters and the three glob forms, all valid under `u`.
+      regex: new RegExp(`^${globToRegExpSource(body)}$`, ignoreCase && !basenameOnly ? 'iu' : ''),
       basenameOnly,
       // Only a directory-shaped pattern stands in for the files beneath it.
       coversSubtree: directoryOnly || !/[*?]/.test(body),
