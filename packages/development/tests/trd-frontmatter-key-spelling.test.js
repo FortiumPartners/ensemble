@@ -83,6 +83,60 @@ describe('getFrontmatterField', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// REGRESSION (br-o701): create-trd-style frontmatter that records the PRD as
+// an id in `prd_reference` plus an explicit path in `prd_path` used to parse
+// to null, because the frontmatter fallback only looked at PRD_REFERENCE_KEYS
+// and looksLikePath() rejects a bare id. completion-verification then skips
+// its PRD cross-check step entirely (no PRD linked).
+// ---------------------------------------------------------------------------
+describe('parseTRD - prd_reference id plus prd_path', () => {
+  test('falls back to prd_path when prd_reference is a document id', () => {
+    const t = parseTRD(
+      withFrontmatter([
+        'document_id: TRD-2026-82b6a138',
+        'prd_reference: PRD-2026-82b6a138',
+        `prd_path: ${PRD}`,
+      ])
+    );
+    expect(t.prdReference).toBe(PRD);
+  });
+
+  test('a path-shaped prd_reference still wins over prd_path', () => {
+    const t = parseTRD(
+      withFrontmatter([
+        `prd_reference: ${PRD}`,
+        'prd_path: docs/PRD/PRD-2026-99999999-other.md',
+      ])
+    );
+    expect(t.prdReference).toBe(PRD);
+  });
+
+  test('prd_path is ignored when a body reference exists', () => {
+    const t =
+      parseTRD(
+        withFrontmatter([`prd_path: ${PRD}`]) +
+          '\nBased on PRD: docs/PRD/PRD-2026-11111111-body.md\n'
+      );
+    expect(t.prdReference).toBe('docs/PRD/PRD-2026-11111111-body.md');
+  });
+
+  test('stays null for an id-only reference with no path anywhere', () => {
+    const t = parseTRD(withFrontmatter(['prd_reference: PRD-2026-82b6a138']));
+    expect(t.prdReference).toBeNull();
+  });
+
+  test('a body docs/PRD path takes precedence over prd_path', () => {
+    const t = parseTRD(
+      withFrontmatter([
+        'prd_reference: PRD-2026-82b6a138',
+        'prd_path: docs/PRD/PRD-2026-99999999-frontmatter.md',
+      ]) + '\nSee docs/PRD/PRD-2026-11111111-body.md for the source.\n'
+    );
+    expect(t.prdReference).toBe('docs/PRD/PRD-2026-11111111-body.md');
+  });
+});
+
 describe('trd-cli list and status accept Title-Case frontmatter keys', () => {
   let dir;
   const originalCwd = process.cwd();
