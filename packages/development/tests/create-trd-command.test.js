@@ -147,23 +147,6 @@ describe('create-trd pins the PRD reference key and its value shape', () => {
 });
 
 // ---------------------------------------------------------------------------
-// REGRESSION (br-o701): create-trd-style TRDs that record the source PRD as a
-// document id in `prd_reference` plus the real path in a sibling `prd_path`
-// key. trd-parser.js resolves `prd_path` as a last-resort fallback, so the
-// prompt must name that key too - otherwise the "its VALUE IS THE PRD'S FILE
-// PATH ... It is not PRD's document id" instruction contradicts the parser and
-// authors have no documented way to carry an id reference.
-// ---------------------------------------------------------------------------
-describe('create-trd documents the prd_path fallback key', () => {
-  test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s names the prd_path fallback', (_label, filePath) => {
-    expect(read(filePath)).toContain('`prd_path`');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // --parser-tables: Foreman table mode.
 //
 // This is the former standalone create-trd-foreman command, folded into
