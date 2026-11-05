@@ -13,18 +13,16 @@
  * The fix assigns `process.exitCode` instead of calling `process.exit`, which lets the event loop
  * drain stdout before the process exits. Same exit codes, no truncation.
  *
- * WHY `spawnSync(...).stdout` IS THE RIGHT PROBE. Reading a captured child's stdout completes a
- * single synchronous `read()` at the fd, which is exactly what a shell pipeline (`node trd-cli.js
- * parse x | jq`) exposes the child to: the child sees stdout as a pipe and its queued bytes are
- * lost the moment it force-exits. Verified against the pre-fix binary — this file's assertions go
- * red at 65536 bytes and green at 124742. `execFileSync` is deliberately avoided for the payload
- * because it throws on the non-zero paths we also want to inspect.
+ * WHY A SHELL PIPELINE WITH A LATE READER IS THE PROBE. `spawnSync(...).stdout` is NOT a pipe test:
+ * Node gives that child a socketpair, whose buffer is larger than this fixture's output on Linux, so
+ * the unfixed CLI is not truncated there and the assertions would pass without the fix. The output
+ * tests therefore run `node CLI ... | (sleep 0.5; cat)` through `/bin/sh`: a real OS pipe whose
+ * reader starts late, so the unfixed CLI's queued bytes are still in flight when it force-exits.
+ * Checked against the pre-fix CLI on macOS and Linux: 65536 bytes before the fix, 124742 after.
  *
- * WHY NOT SHELL PIPELINES FOR STATUS: exit codes are asserted on `res.status` from a direct
- * `spawnSync('node', [CLI, ...])`. macOS `/bin/sh` is `dash`, which discards the exit status of a
- * pipeline's LEADER (`node x | cat` reports 0 even when `node x` exits 1), so a shell-based status
- * check could never go red on a Mac — an assertion that cannot fail proves nothing. The pipe
- * condition itself is what matters for truncation, and a captured pipe is a real pipe.
+ * WHY EXIT CODES ARE NOT READ THROUGH THAT PIPELINE: a pipeline's status is the reader's (`cat`'s),
+ * so a status assertion on it could never go red. Exit codes are asserted on `res.status` of a
+ * direct `spawnSync('node', [CLI, ...])` (`runDirect`).
  */
 
 const fs = require('fs');
@@ -41,14 +39,33 @@ const PIPE_BUFFER_BYTES = 65536;
 const FIXTURE_SLUG = 'trd-2026-999-stdout-flush';
 
 /**
- * Run the real CLI as a subprocess with stdout on a pipe, returning the bytes the pipe actually
- * delivered plus the child's exit status.
+ * Run the real CLI with stdout on a real OS pipe whose reader starts late, returning the bytes the
+ * reader received. `status` is the reader's, not the CLI's; use `runDirect` for exit codes.
  *
  * @param {string[]} cliArgs
  * @returns {{ stdout: string, bytes: number, status: number | null }}
  */
 function runThroughPipe(cliArgs) {
-  const res = spawnSync('node', [CLI, ...cliArgs], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const res = spawnSync('/bin/sh', ['-c', 'node "$0" "$@" | (sleep 0.5; cat)', CLI, ...cliArgs], {
+    encoding: 'utf8',
+    maxBuffer: 32 * 1024 * 1024,
+    timeout: 60000,
+  });
+  if (res.error) {
+    throw res.error;
+  }
+  return { stdout: res.stdout, bytes: Buffer.byteLength(res.stdout), status: res.status };
+}
+
+/**
+ * Run the real CLI directly (stdout captured by Node), for the child's own exit status and its
+ * small outputs. Not a pipe test: see the header.
+ *
+ * @param {string[]} cliArgs
+ * @returns {{ stdout: string, bytes: number, status: number | null }}
+ */
+function runDirect(cliArgs) {
+  const res = spawnSync('node', [CLI, ...cliArgs], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 60000 });
   if (res.error) {
     throw res.error;
   }
@@ -123,23 +140,23 @@ describe('regression: piped stdout is not truncated at 65536 bytes', () => {
 
 describe('exit-code contract still holds after replacing process.exit with process.exitCode', () => {
   test('happy path exits 0', () => {
-    expect(runThroughPipe(['parse', FIXTURE]).status).toBe(0);
+    expect(runDirect(['parse', FIXTURE]).status).toBe(0);
   });
 
   test('bad path exits 1 and still emits exactly one JSON {error}', () => {
-    const res = runThroughPipe(['parse', '/no/such/file-xyz.md']);
+    const res = runDirect(['parse', '/no/such/file-xyz.md']);
     expect(res.status).toBe(1);
     expect(JSON.parse(res.stdout).error).toMatch(/Cannot read/);
   });
 
   test('unknown subcommand exits 1', () => {
-    const res = runThroughPipe(['frobnicate', FIXTURE]);
+    const res = runDirect(['frobnicate', FIXTURE]);
     expect(res.status).toBe(1);
     expect(JSON.parse(res.stdout).error).toMatch(/Unknown subcommand/);
   });
 
   test('missing subcommand exits 1', () => {
-    const res = runThroughPipe([]);
+    const res = runDirect([]);
     expect(res.status).toBe(1);
     expect(JSON.parse(res.stdout).error).toMatch(/Missing subcommand/);
   });
