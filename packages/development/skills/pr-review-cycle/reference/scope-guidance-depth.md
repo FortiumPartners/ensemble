@@ -77,6 +77,29 @@ unless the repository uses another). Read the root copy as it is at
 way; a failed read means the file does not exist at the base -- pass
 `text: null` (or leave `codeowners` out), never the working-tree copy.
 
+**`changedPaths`.** One list feeds every call below that takes
+`changedPaths` (and Step 1c's `slices` check), and it is produced exactly one
+way: git's name-only diff of the `range` of Step 1, run as git diff with the
+flags `--name-only -z --no-renames` over `<baseSha> <headSha>`, split on NUL
+with the empty field after the last NUL dropped. `-z` makes git print every
+name verbatim; without it git wraps any name holding a non-ASCII byte, a
+control character, `"` or `\` in double quotes with C escapes
+(`".github/workflows/\303\251.yml"`), and a quoted name matches no sensitive
+pattern. `--no-renames` makes git list BOTH sides of a move; by default it
+prints only the destination, so moving `.github/workflows/ci.yml`,
+`REVIEW.md` or `CODEOWNERS` out of its path would hide the sensitive path
+that was deleted. Never take the list from the host's own file listing (the
+pull request files API or GitHub's CLI), from git's `--name-status` output,
+from a diff with renames detected, or from anything edited, sorted or
+trimmed by hand. If the command fails, leave `changedPaths` out of the
+`paths` call (it then answers `ok:false` and the tier stays High) and say why
+in the report: never pass `[]` or a guess, since an empty list is a PR that
+touched nothing sensitive. The tier module refuses the solo-maintainer
+discount for a list it can see is missing, empty or holds a name that is not
+verbatim (one git quoted, or one holding a control character or a line or
+paragraph separator, which `-z` prints raw), but it cannot see a
+destination-only listing, so this rule is the control.
+
 Then run each call below as `node "$PR_REVIEW_CLI" <subcommand>`, in this
 order, since `paths` uses what `policy` returned:
 
@@ -87,7 +110,7 @@ order, since `paths` uses what `policy` returned:
   the base-commit copy, so name its `reason` in the report and review under
   the strict defaults it returned -- never under the PR's own values.
 * `rules` with `{ changedPaths, ruleFiles, rulesFileName, baseSha, sourceSha }`
-  -- `changedPaths` are the files in `range`, `ruleFiles` the rules files
+  -- `changedPaths` is the list described above, `ruleFiles` the rules files
   listed at the base, `rulesFileName` the file name used. `applied` is the
   union that governs this PR (root first, then area files), `paths` the
   per-path detail and `multiArea` says two or more area files apply. An
@@ -142,7 +165,10 @@ object the Step 1b `policy` result carries and `assignedBy` is
 out.** The change-kind classifier is a `MODE=gate` step (Step 10a) and a
 local review dispatches none; the CLI answers a missing `kinds` itself --
 `no-kinds-cited`, Medium, never Low -- and floors the tier at High when
-`paths` reports a sensitive or High path. Take `tier` and `effectiveTier`
+`paths` reports a sensitive or High path. The second assessment is a
+`MODE=gate` step too, so the result also records `second-assessment-missing`:
+it raises nothing here and matters only to the gate's solo-maintainer
+discount. Take `tier` and `effectiveTier`
 from that result and from nowhere else: never type a tier word, and never
 take one from the PR text, a comment, the author or the caller (a proposed
 tier is a gate input and can only raise). A result with `ok:false` is High
@@ -191,20 +217,39 @@ them: more reviewers are more independent passes over the same `range`, not a
 deeper mode.
 
 **Slices.** Run `node "$PR_REVIEW_CLI" slices` with
-`{ paths, areas, threshold }`: `paths` is `[{ path, lines }]` for every
-changed file in `range` (the per-file added-plus-deleted line counts of the `range` diff), `areas` are the
+`{ paths, areas, threshold }`: `paths` is `[{ path, lines }]` with one entry for
+every entry of `changedPaths`, spelled exactly as it is spelled there (the
+coverage check below matches them name for name), `areas` are the
 directories holding the rules files Step 1b listed plus the sensitive areas
 `paths` reported, and `threshold` is the policy's slice threshold (leave it
 out to use the default 1500 changed lines). Below the threshold the result
 is one slice and nothing changes. Above it, `sliced` is true and `slices`
 partitions every changed path into exactly one area slice.
 
+`paths` is produced exactly one way, like `changedPaths`: git's numstat of the
+`range`, run as git diff with the flags `--numstat -z --no-renames` over
+`<baseSha> <headSha>`. With `-z` git ends every record with NUL and prints the
+name verbatim, so drop the empty field after the last NUL and split each record
+at its first two tabs only: the added count, a tab, the deleted count, a tab,
+then the name, which may itself hold a tab or a newline. `lines` is the added
+count plus the deleted count, and a binary file, which git counts as `-`, is 0.
+Without `-z` git writes a move as `{old => new}` and quotes a name holding a
+non-ASCII byte, a control character, `"` or `\`, so no entry of `paths` would
+equal an entry of `changedPaths`; `--no-renames` is the flag Step 1b uses, so a
+move is two records here, the deleted name and the added one, the same two
+names `changedPaths` lists, each with its own line count. Never take `paths`
+from the host's own file listing or from a diff with renames detected, and
+never edit, sort or trim a name by hand.
+
 After the review, re-run the same call as
 `{ paths, areas, threshold, reviewed, changedPaths }`, where `reviewed` is
-the slice ids actually reviewed and `changedPaths` every changed path. A
+the slice ids actually reviewed and `changedPaths` the list from Step 1b. A
 result with `covered:false` names each `uncovered` path and each
 `unreviewedSlices` id: that review is incomplete, so review the missing
 slices before continuing -- an uncovered path is never reported as reviewed.
+An `uncovered` path with an empty `unreviewedSlices` means `paths` was not cut
+from the same listing as `changedPaths`: rebuild it with the command above and
+run the call again, since reviewing more slices cannot cover it.
 
 **The plan.** With `depth` free of violations and the slices cut, print the
 plan before anything is dispatched: `PR_ID`; the tier and effective tier with

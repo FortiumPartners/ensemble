@@ -23,6 +23,7 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { HARNESS_CAPABILITIES, HOOKS_FILE_RELATIVE, defaultTrustStorePath, isRecord } from "@sunstone-partners/ensemble-agent-core";
 import type { LifecycleEvent } from "@sunstone-partners/ensemble-agent-core";
 import activate from "../src/extension";
+import { SPAWN_EVENT } from "../src/model-roles";
 
 /**
  * TRD-015: the entry-point proof (REQ-015, REQ-019; AC-015-1 .. AC-015-4, AC-019-3).
@@ -462,13 +463,13 @@ function expectQuiet(host: FakePi): void {
 // ---- Registration: what activate() does with and without a hooks file -----
 
 describe("what activate() registers (AC-008-1, REQ-008)", () => {
-  it("registers nothing, asks the host for nothing and writes nothing when the project has no hooks file", () => {
+  it("registers only the model-role check's handler, asks the host for nothing and writes nothing when the project has no hooks file", () => {
     const project = makeProject();
     const before = [readdirSync(project.root).sort(), readdirSync(join(project.root, ".ensemble"))];
 
     const host = loadExtension(project);
 
-    expect(host.registered).toEqual({ commands: [], tools: [], events: [] });
+    expect(host.registered).toEqual({ commands: [], tools: [], events: [SPAWN_EVENT] });
     expect([readdirSync(project.root).sort(), readdirSync(join(project.root, ".ensemble"))]).toEqual(before);
     expect(existsSync(join(tempHome, ".ensemble"))).toBe(false); // not even the trust store's directory
     expectQuiet(host);
@@ -477,7 +478,7 @@ describe("what activate() registers (AC-008-1, REQ-008)", () => {
   it("registers only the dispatcher when the repository holds its YAML but there is no hooks file", () => {
     const host = loadExtension(makeProject({ dispatcherYaml: true }));
 
-    expect(host.registered).toEqual({ commands: ["ensemble-prd"], tools: [], events: [] });
+    expect(host.registered).toEqual({ commands: ["ensemble-prd"], tools: [], events: [SPAWN_EVENT] });
     expectQuiet(host);
   });
 
@@ -487,7 +488,7 @@ describe("what activate() registers (AC-008-1, REQ-008)", () => {
     expect(host.registered).toEqual({
       commands: [TRUST_COMMAND],
       tools: [COMPLETION_TOOL],
-      events: ["agent_before_settle", "agent_settled", "before_agent_start", "input", "session_shutdown"],
+      events: ["agent_before_settle", "agent_settled", "before_agent_start", SPAWN_EVENT, "input", "session_shutdown"],
     });
     expectQuiet(host);
   });
@@ -1162,10 +1163,10 @@ bundledBuild(`the bundled extension, built as scripts/install.mjs builds it${SKI
     expect([...required].filter((specifier) => !specifier.startsWith("node:") && !builtins.has(specifier))).toEqual([]);
   });
 
-  it("loads from a directory with no node_modules, and activate registers nothing when the project has no hooks file", () => {
+  it("loads from a directory with no node_modules, and activate registers only the model-role check when the project has no hooks file", () => {
     const report = runBundle(bundle, makeProject(), "register");
 
-    expect(report.registered).toEqual({ commands: [], tools: [], events: [] });
+    expect(report.registered).toEqual({ commands: [], tools: [], events: [SPAWN_EVENT] });
   });
 
   it("given a hooks file, activate registers the trust command, the completion tool and an input handler", () => {
@@ -1173,7 +1174,7 @@ bundledBuild(`the bundled extension, built as scripts/install.mjs builds it${SKI
 
     expect(report.registered.commands).toEqual([TRUST_COMMAND]);
     expect(report.registered.tools).toEqual([COMPLETION_TOOL]);
-    expect(report.registered.events).toEqual(["agent_before_settle", "agent_settled", "before_agent_start", "input", "session_shutdown"]);
+    expect(report.registered.events).toEqual(["agent_before_settle", "agent_settled", "before_agent_start", SPAWN_EVENT, "input", "session_shutdown"]);
   });
 
   it("runs a command's start and end handlers through the bundled agent-core: trust, start, completion, end", () => {

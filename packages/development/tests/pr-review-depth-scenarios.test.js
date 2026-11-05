@@ -44,7 +44,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 /** The repository's own policy block, read from its own REVIEW.md. */
 function repositoryPolicy() {
   const text = fs.readFileSync(path.join(REPO_ROOT, 'REVIEW.md'), 'utf8');
-  const sourceSha = /"sourceSha":\s*"([0-9a-f]{40})"/.exec(text)[1];
+  const sourceSha = 'd'.repeat(40);
   const loaded = loadPolicy({ text, sourceSha, baseSha: sourceSha });
   expect(loaded.ok).toBe(true);
   return loaded.policy;

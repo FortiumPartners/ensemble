@@ -291,9 +291,9 @@ list marker or a blank line counts as MISSING, not answered.
 Written at the repository root. The fenced `ensemble-review-policy` block is
 the **only** place policy keys are read from, and only the copy on the base
 branch is read — a pull request cannot relax its own review by editing it.
-Set `sourceSha` to the commit the policy takes effect from
-(the HEAD commit id after the file lands); while it does not match a
-review's base commit, the strict defaults apply.
+Do not add a `sourceSha` key: a commit cannot name itself, so a declared one
+never matches the base and the whole block is rejected, leaving the strict
+defaults in force.
 
 ````markdown
 # Review Rules
@@ -319,7 +319,6 @@ area files conflict, the more restrictive instruction wins.
 
 ```ensemble-review-policy
 {
-  "sourceSha": "0000000000000000000000000000000000000000",
   "roundCap": 3,
   "maintainerLogins": ["@your-maintainer"],
   "botLogins": ["@coderabbitai"],
@@ -470,7 +469,7 @@ Not created (opt-in, not requested):
 
 Next steps:
   1. Review docs/standards/constitution.md and customize as needed
-  2. Set REVIEW.md sourceSha (git rev-parse HEAD) and list your maintainers
+  2. List your maintainers in the REVIEW.md policy block
   3. Create a PRD with /ensemble:create-prd for new features
   4. Generate TRD with /ensemble:create-trd from approved PRD
   5. Implement with /ensemble:implement-trd-beads

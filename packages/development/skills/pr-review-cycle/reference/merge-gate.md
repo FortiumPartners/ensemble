@@ -59,6 +59,18 @@ exactly `true` raises it one level (AC-012-3); **any other value is read as
 `true`** -- the fail-toward-more-review direction -- and again the module, not
 this prose, applies that rule.
 
+**An assessment nobody gave is not a `false`.** A subagent that failed, timed
+out, was skipped or answered something unparseable gave no reading, and the
+only honest payload is none: leave `secondAssessment` out of the `tier`
+payload (or pass what came back, `null` included) and never write
+`{ "needsAnotherPerson": false }` yourself. The tier module reads an absent
+or `null` assessment as *another person is demanded*: it raises nothing, so a
+Medium PR stays Medium, but the solo-maintainer discount is withheld and a
+High PR keeps two humans. There is no `unavailable` entry for this step: a
+missing assessment withholds that discount and changes nothing else (the Low
+waiver, off unless the policy turns it on, does not treat it as a demand),
+and a `false` typed in to fill the gap is what would grant the discount.
+
 **10c -- The security lane (fresh-context reviewer).** Dispatch a
 **fresh-context, read-only** security reviewer over the same `range`, with the
 sensitive `paths` Step 1b reported and this editable prompt:
@@ -129,8 +141,10 @@ subcommands in this order, each one JSON payload in, one JSON object out:
 2. `node "$PR_REVIEW_CLI" approvals` with
    `{ reviews, headSha, headTreeSha, tier, policy, author, directedBy,
    agentAuthored }` -- `reviews` exactly as `gh` returned them (each with its
-   `author`, `state` and `commitSha`), `tier` the `tier` result's effective
-   tier. A bot approval never counts, an approval bound to another commit
+   `author`, `state` and `commitSha`), `tier` the WHOLE `tier` result object,
+   not just its effective-tier word (the solo-maintainer relaxation reads
+   `soloMaintainer` from it, and an evaluator handed only a word answers
+   `invalid-tier`). A bot approval never counts, an approval bound to another commit
    never counts, and on an agent-authored PR the `directedBy` person counts as
    one of the required reviewers (AC-014-3). `headTreeSha` is `git rev-parse
    <headSha>^{tree}` and any review `treeSha` is `git rev-parse
@@ -139,6 +153,28 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    A review without a `treeSha` is counted only when its `commitSha` is the
    head itself; the host supplies no tree, so an unverified claim never vouches
    for an older commit.
+
+   **The solo-maintainer discount is the one place a `directedBy` line is not
+   enough.** `approvals` lowers High from two humans to one only when the
+   `tier` record names exactly one eligible maintainer and that person is the
+   `directedBy` of an agent-authored PR and `author` is known (the PR author's
+   login as the host reports it in 10d, never a name taken from the PR body
+   or a commit; with `author` missing the discount is refused). Then one of
+   two things must hold. If the director is **not** `author`, they must have
+   an `APPROVED` review bound to the head in `reviews` -- the same binding as
+   any approval, so a stale, withdrawn or automated review gives nothing. A
+   `Directed by:` line alone never lowers the floor. If the director **is**
+   `author` (an agent PR committed under the maintainer's own login), the
+   host refuses an author approving their own PR, so no approval is required
+   and none is looked for: the one human is the author-as-director, the
+   discount rests on their own credit, and `approvals.warnings` carries the
+   non-blocking `solo-maintainer-self-credit`. Report it: the discount rested
+   on self-credit, with no independent approval. Every other condition holds
+   in both cases (eligible tier record, no sensitive path, no raise, no peer
+   demand, a trustworthy path list, a non-bot director, the security lane).
+   When the discount is refused, `approvals.warnings` names the fact that
+   failed (`solo-maintainer-director-not-approved` or
+   `solo-maintainer-author-unknown`): report it, and the PR needs two humans.
 3. `node "$PR_REVIEW_CLI" gate` with
    `{ ledger, approvals, tier, description, security, headSha, unavailable }`
    -- `ledger` the findings carried in the review-state report for this head

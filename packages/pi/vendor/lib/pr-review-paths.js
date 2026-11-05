@@ -31,7 +31,9 @@
  * Glob matching is implemented here (no dependency, Constitution §4). The
  * semantics are the gitignore/CODEOWNERS ones callers already expect:
  *
- *   - `*` and `?` do not cross `/`; `**` does.
+ *   - `*` and `?` do not cross `/`; `**` does, and takes ANY character, line
+ *     terminators (\n, \r, U+2028, U+2029) included: a bare `.` skips them, so a
+ *     name holding one would be no match for `.github/workflows/**`.
  *   - A pattern with no `/` matches a basename at any depth (`*.yml`).
  *   - A leading `/` anchors the pattern to the repository root (`/*.yml`).
  *   - A trailing `/` makes the pattern directory-only (`docs/`).
@@ -43,6 +45,10 @@
  *     as its own entry rather than relying on `scripts/generate-*`.
  *   - Every other character is matched literally: a regex metacharacter in a
  *     pattern is escaped, never executed.
+ *   - Matching is case-sensitive, except that `classifyPaths` matches a
+ *     sensitive or High pattern that names a path (one with a `/`) ignoring
+ *     letter case (see there). A bare file name such as `REVIEW.md` and every
+ *     owner stay exact: GitHub resolves CODEOWNERS paths case-sensitively.
  */
 
 const { isObjectId } = require('./pr-review-scope');
@@ -127,8 +133,9 @@ const basenameOf = (path) => path.slice(path.lastIndexOf('/') + 1);
 const escapeLiteral = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Glob body -> regex source. `**` crosses `/`; `*` and `?` do not. Scanned
- * left to right so a `**` is never seen as two `*`.
+ * Glob body -> regex source. `**` crosses `/` and takes any character at all,
+ * line terminators included (`.` would skip \n, \r, U+2028 and U+2029); `*` and
+ * `?` do not cross `/`. Scanned left to right so a `**` is never seen as two `*`.
  */
 function globToRegExpSource(glob) {
   let source = '';
@@ -136,7 +143,7 @@ function globToRegExpSource(glob) {
     const char = glob[i];
     if (char === '*') {
       if (glob[i + 1] === '*') {
-        source += '.*';
+        source += '[\\s\\S]*';
         i += 1;
         // `a/**/b` must also match `a/b`: swallow the slash that follows.
         if (glob[i + 1] === '/') i += 1;
@@ -154,9 +161,14 @@ function globToRegExpSource(glob) {
 
 const COMPILED = new Map();
 
-/** Compiles (and caches) one pattern. Returns null for a pattern that cannot match anything. */
-function compilePattern(pattern) {
-  if (COMPILED.has(pattern)) return COMPILED.get(pattern);
+/**
+ * Compiles (and caches) one pattern, matching letter case exactly or, when
+ * asked, ignoring it for a pattern that names a PATH. Returns null for a
+ * pattern that cannot match anything.
+ */
+function compilePattern(pattern, ignoreCase) {
+  const key = `${ignoreCase ? 'i' : 's'}${pattern}`;
+  if (COMPILED.has(key)) return COMPILED.get(key);
 
   let body = pattern.trim().replace(/\\/g, '/');
   const anchored = body.startsWith('/');
@@ -164,18 +176,27 @@ function compilePattern(pattern) {
   const directoryOnly = body.endsWith('/');
   while (body.endsWith('/')) body = body.slice(0, -1);
 
+  // A pattern with no separator matches a basename at any depth, unless anchored.
+  const basenameOnly = !anchored && !body.includes('/');
+
   const compiled = body === ''
     ? null
     : {
-      regex: new RegExp(`^${globToRegExpSource(body)}$`),
-      // A pattern with no separator matches a basename at any depth, unless anchored.
-      basenameOnly: !anchored && !body.includes('/'),
+      // Letter case is loosened only for a pattern that names a path. A bare name (`REVIEW.md`, `*.yml`, `docs/`)
+      // selects that name at any depth, and another-case spelling of it elsewhere is no alias of anything: loosening
+      // it would make every `review.md` in the tree a review file.
+      // `iu`, not `i`: without `u` the ignore-case fold is ASCII-only, but a case-insensitive file system folds more
+      // (U+212A KELVIN SIGN reads as `k`, U+017F LATIN SMALL LETTER LONG S as `s`), so `\u017Fcripts/ci-local.js`
+      // would name the same file as `scripts/ci-local.js` yet escape the guard. Every source here is ASCII-literal
+      // plus the escaped metacharacters and the three glob forms, all valid under `u`.
+      regex: new RegExp(`^${globToRegExpSource(body)}$`, ignoreCase && !basenameOnly ? 'iu' : ''),
+      basenameOnly,
       // Only a directory-shaped pattern stands in for the files beneath it.
       coversSubtree: directoryOnly || !/[*?]/.test(body),
       directoryOnly,
     };
 
-  COMPILED.set(pattern, compiled);
+  COMPILED.set(key, compiled);
   return compiled;
 }
 
@@ -184,11 +205,12 @@ function compilePattern(pattern) {
  *
  * @param {string} pattern Glob in the gitignore/CODEOWNERS dialect described above.
  * @param {string} path    Repository-relative path of a changed file.
+ * @param {{ignoreCase?: boolean}} [options] `ignoreCase: true` matches letter case loosely; the default is exact.
  * @returns {boolean} false for any non-string input -- an unreadable pattern never matches.
  */
-function matchesPattern(pattern, path) {
+function matchesPattern(pattern, path, options) {
   if (typeof pattern !== 'string' || typeof path !== 'string') return false;
-  const compiled = compilePattern(pattern);
+  const compiled = compilePattern(pattern, isObject(options) && options.ignoreCase === true);
   if (!compiled) return false;
 
   const normalized = normalizePath(path);
@@ -207,10 +229,10 @@ function matchesPattern(pattern, path) {
   return false;
 }
 
-/** The first pattern in `patterns` that selects `path`, or null. */
-function firstMatch(patterns, path) {
+/** The first pattern in `patterns` that selects `path` (see `matchesPattern` for `options`), or null. */
+function firstMatch(patterns, path, options) {
   for (const pattern of patterns) {
-    if (matchesPattern(pattern, path)) return pattern;
+    if (matchesPattern(pattern, path, options)) return pattern;
   }
   return null;
 }
@@ -301,6 +323,17 @@ function blocked(reason) {
 }
 
 /**
+ * Sensitive and High patterns that name a path are matched ignoring letter case.
+ * A case-insensitive checkout (macOS, Windows) writes `PR-REVIEW-GATE.JS` over
+ * `pr-review-gate.js`, and a glob has no way to spell "either case", so such a
+ * pattern covers the other-case spellings of its paths. Matching more only asks
+ * for MORE review. A bare file name (`REVIEW.md`) stays exact, so `docs/review.md`
+ * is no review file, and owners are not matched this way at all, since GitHub
+ * resolves CODEOWNERS paths case-sensitively.
+ */
+const AREA_MATCH = Object.freeze({ ignoreCase: true });
+
+/**
  * Classifies every changed path as sensitive or not, naming the declaration
  * entry that matched.
  *
@@ -386,12 +419,12 @@ function classifyPaths(input) {
       matchedBy = normalized;
       source = 'declaration-file';
     } else {
-      const declaredMatch = firstMatch(declaredSensitive, normalized);
+      const declaredMatch = firstMatch(declaredSensitive, normalized, AREA_MATCH);
       if (declaredMatch !== null) {
         matchedBy = declaredMatch;
         source = 'declaration';
       } else {
-        const defaultMatch = firstMatch(DEFAULT_SENSITIVE_PATHS, normalized);
+        const defaultMatch = firstMatch(DEFAULT_SENSITIVE_PATHS, normalized, AREA_MATCH);
         if (defaultMatch !== null) {
           matchedBy = defaultMatch;
           source = 'default';
@@ -399,7 +432,7 @@ function classifyPaths(input) {
       }
     }
 
-    const highMatchedBy = firstMatch(declaredHigh, normalized);
+    const highMatchedBy = firstMatch(declaredHigh, normalized, AREA_MATCH);
     const { owners } = resolveOwners(ownerRules, normalized);
 
     const isSensitive = source !== null;

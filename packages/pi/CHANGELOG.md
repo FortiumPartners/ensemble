@@ -8,8 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Generated agents now emit an OMP role-alias list (`model: "@high,@default"` / `"@medium,@default"`) for the abstract `high`/`medium` model tiers. OMP resolves a bare `model:` word as a model-name substring (`high` matched `openrouter/openai/o3-mini-high`), not as a role. `high` and `medium` are custom OMP roles: define `modelRoles.high` / `modelRoles.medium` (and `modelRoles.default`) in the OMP config to get tiered models. Without them the agent runs on `modelRoles.default`, and without `modelRoles.default` it has no model (see "Model tiers and OMP roles" in the README).
 - Regenerated skills, prompts and the `code-reviewer` agent for the code-review final fixes (gate ledger-unavailable wording, `disposition` output field); re-vendored `lib/pr-review-*.js`.
 - Preserve explicitly declared `Task` as native `task` in generated agents so OMP orchestrators can delegate, without granting delegation to agents whose source does not declare it.
+
+### Changed
+- README: "Model tiers and OMP roles" now says that the optional `@sunstone-partners/ensemble-pi-extension` reports an unset tier role (a once-per-session warning when the agent falls back, a refused spawn when nothing resolves), and that OMP stays quiet without it.
 
 ### Security
 - Removed obsolete Claude Code/Agent SDK install guidance from the copied Anthropic skill.

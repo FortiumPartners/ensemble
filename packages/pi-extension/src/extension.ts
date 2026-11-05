@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { registerDispatcherCommand } from "./dispatcher-commands";
 import { registerLifecycleHooks } from "./lifecycle/adapter";
+import { registerModelRoleCheck } from "./model-roles";
 
 /**
  * Walks up from `startDir` looking for a `.git` directory to find the
@@ -29,6 +30,11 @@ function resolveRepoRoot(startDir: string): string {
  *
  * It also registers the command lifecycle hooks adapter, which is likewise
  * inert unless the repo has an `.ensemble/hooks.yaml`.
+ *
+ * Unlike those, the model-role check registers in every session: Ensemble
+ * agents run in any repository. Its handler says nothing unless a spawn asked
+ * for a tier role (`high`, `medium`) that the user has not set; see
+ * model-roles.ts.
  */
 function activate(pi: ExtensionAPI): void {
   const repoRoot = resolveRepoRoot(process.cwd());
@@ -71,6 +77,7 @@ function activate(pi: ExtensionAPI): void {
   });
 
   registerLifecycleHooks(pi, repoRoot);
+  registerModelRoleCheck(pi);
 }
 
 export default activate;

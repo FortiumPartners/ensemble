@@ -265,7 +265,9 @@ function areaFor(path, areas) {
  * slice), so every changed path appears in EXACTLY one slice.
  *
  * @param {Object} input
- * @param {Array<{path:string, lines:number}>} input.paths
+ * @param {Array<{path:string, lines:number}>} input.paths  One entry per changed path, spelled exactly as the
+ *   caller's `changedPaths` spells it (`git diff --numstat -z --no-renames`: a move is two entries, the deleted
+ *   name and the added one), because `verifyCoverage` matches them name for name.
  * @param {string[]} [input.areas]    Area roots: the directories holding REVIEW.md files and sensitive areas.
  * @param {number} [input.threshold]  Changed lines above which the PR is sliced; defaults to 1500.
  * @returns {{ok:boolean, sliced:boolean, slices:Array<{id:string, area:string, paths:string[], lines:number}>,
@@ -351,7 +353,9 @@ function coverageFailure(reason) {
  * @param {Array<{id:string, paths:string[]}>} input.slices
  * @param {string[]} input.reviewed        Slice ids that were reviewed.
  * @param {string[]} [input.changedPaths]  Every changed path, when the caller
- *   wants a path the plan never held to count as uncovered too.
+ *   wants a path the plan never held to count as uncovered too. An uncovered
+ *   path with no unreviewed slice is one the plan never held: its `paths` were
+ *   not cut from the same listing as these.
  * @returns {{ok:boolean, covered:boolean, uncovered:string[], reviewedSlices:string[],
  *   unreviewedSlices:string[], unknownReviewed:string[], reason?:string}}
  */

@@ -116,7 +116,11 @@
  *   approvals  { reviews[{ author|login, state, commitSha, treeSha?, isBot? }], headSha,
  *                headTreeSha?, tier, policy?, author?, directedBy?, agentAuthored? }
  *              -- `tier` is a `tier` result (or an `effectiveTier` one): the
- *              humans required come from it, never from this CLI
+ *              humans required come from it, never from this CLI. `author` is
+ *              what the solo-maintainer discount compares the director with:
+ *              a director who is not the author needs an APPROVED review of
+ *              the head; a director who is the author is credited on their
+ *              own word (warning `solo-maintainer-self-credit`)
  *   gate       { ledger[], approvals, tier?, description, security{ status, findings?, reason? },
  *                headSha?, unavailable?[] }
  *              -- the one answer to "may this PR merge?", with every blocker

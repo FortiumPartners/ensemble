@@ -38,9 +38,9 @@ The repository is an npm monorepo under `packages/`. Each package is both an npm
 | `ensemble-react`, `ensemble-nestjs`, `ensemble-rails`, `ensemble-phoenix`, `ensemble-blazor`, `ensemble-dotnet` | 7.0.1, 6.0.1, 6.0.1, 6.0.1, 7.0.1, 2.0.1 | One framework skill each (`react`, `nestjs`, `rails`, `phoenix`, `blazor`, `dotnet`) |
 | `ensemble-jest`, `ensemble-pytest`, `ensemble-rspec`, `ensemble-xunit`, `ensemble-exunit`, `ensemble-reqnroll` | 5.1.3, 5.2.1, 5.2.1, 5.2.1, 5.1.2, 1.0.2 | One test-framework skill each; `ensemble-reqnroll` also ships the `reqnroll-binding-specialist` agent |
 | `ensemble-full` | 8.1.0 | Bundle that depends on the plugins above |
-| `ensemble-pi`, `ensemble-codex`, `ensemble-opencode` | 1.6.19, 6.0.2, 5.4.1 | Runtime adapters that translate the Ensemble sources for Pi/OMP, Codex and OpenCode |
+| `ensemble-pi`, `ensemble-codex`, `ensemble-opencode` | 1.6.20, 6.0.2, 5.4.1 | Runtime adapters that translate the Ensemble sources for Pi/OMP, Codex and OpenCode |
 
-`ensemble-permitter` and the other support packages ship hooks and plumbing rather than workflow content. Versions come from `marketplace.json`; each package is versioned independently, so `ensemble-pi` is at 1.6.19 while the bundle is at 8.1.0.
+`ensemble-permitter` and the other support packages ship hooks and plumbing rather than workflow content. Versions come from `marketplace.json`; each package is versioned independently, so `ensemble-pi` is at 1.6.20 while the bundle is at 8.1.0.
 
 ### Skills, commands and agents
 
@@ -842,6 +842,7 @@ Policy *keys* are read from the **root** file only, from a fenced ` ```ensemble-
 | `sensitivePaths` | Globs that floor the risk tier at High | a strict built-in set |
 | `highPaths` | Globs that floor the risk tier at Medium or above | none |
 | `lowWaiverEnabled` | Whether a Low tier may actually mean Low | `false` |
+| `soloMaintainer` | With exactly one maintainer login: a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. A maintainer who is not the PR's author must have approved the current head on the host; a maintainer who is the author (an agent PR committed under their own login, which the host will not let them approve) is credited on their own word as author-as-director, and the result carries the warning `solo-maintainer-self-credit` (a `Directed by:` line alone never lowers the requirement for anyone else). The security lane still blocks High; a PR touching a sensitive path or the policy itself keeps two humans | `false` |
 | `sliceThreshold` | Changed lines above which a PR is reviewed area by area | `1500` |
 
 Two deliberate properties:
@@ -884,7 +885,7 @@ Even a code owner lowering a PR to Low does not escape the human requirement whi
 
 ### 11.4 Approvals and the merge gate
 
-An approval counts only when it is **bound to the commit (or tree) under review**, so a later push invalidates it. A bot approval never counts. An author never fills a required slot. On an agent-authored PR, the person named on the `Directed by:` line counts as one of the required reviewers, as if they had written the code themselves.
+An approval counts only when it is **bound to the commit (or tree) under review**, so a later push invalidates it. A bot approval never counts. An author never fills a required slot as an approver. On an agent-authored PR, the person named on the `Directed by:` line counts as one of the required reviewers, as if they had written the code themselves. That line is text the PR's author writes, so on its own it never lowers a requirement: the `soloMaintainer` discount in the table above needs that person's own approval of the current head unless they are the PR's author, and then it rests on their own credit as author-as-director and says so with a `solo-maintainer-self-credit` warning.
 
 `/ensemble:pr-merge` requires `mergeable: true` from the gate, computed from freshly read GitHub state. The gate refuses — and names the blocker and a `nextAction` — on an open Important finding, an unanswered security finding, an incomplete description, approvals short of the tier, or review data it could not read. It never passes on missing data.
 
