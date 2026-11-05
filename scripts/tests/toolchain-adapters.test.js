@@ -64,6 +64,9 @@ function withinProjectRoot(result, ...roots) {
 
 const SKILL_MD = ['# Example Adapter', '', '## Vocabulary', '', '- show: read a work item by id', ''].join('\n');
 
+/** The filename adapters.js treats as "this directory is a skill, not a container of skills". */
+const SKILL_FILE_NAME = 'SKILL.md';
+
 function validAdapterManifest(overrides = {}) {
   return {
     adapter: 'example-adapter',
@@ -493,9 +496,40 @@ describe('discoverAdapters: adapters grouped one level under an installed skills
       projectRoot
     );
 
+    // `plain-git` twice is correct, not a duplicate bug. The installed tier scans every
+    // `packages/*/skills` under projectRoot, so this one adapter is reachable by two roots:
+    // directly as a flat child of packages/git/skills, and again one level inside
+    // packages/full/skills via the `git` symlink. Both entries point at the same adapter after
+    // realpath. loadAdapter takes the first match, so the repeat is invisible to callers; it is
+    // asserted here so a future dedupe is a deliberate change rather than an accident.
     expect(found.map((entry) => entry.name).sort()).toEqual(['beads', 'plain-git', 'plain-git']);
     expect(found.every((entry) => entry.origin === 'installed')).toBe(true);
+    expect(new Set(found.map((entry) => fs.realpathSync(entry.dir))).size).toBe(2);
   });
+
+  // RT-3: every other test in this block uses a group literally named `git`. The descent is
+  // not keyed on the name, and the bundle groups under `infrastructure/`, `core/` and
+  // `e2e-testing/` as well, so a name-keyed regression would pass all of the above.
+  test.each(['infrastructure', 'core', 'e2e-testing'])(
+    'the group name is not special: an adapter under a group named %s resolves too',
+    (groupName) => {
+      const projectRoot = mkTempDir(`ensemble-adapters-group-${groupName}-project-`);
+      const xdgConfigHome = mkTempDir(`ensemble-adapters-group-${groupName}-xdg-`);
+      const adapterDir = writeAdapterDir(
+        path.join(projectRoot, 'packages', 'full', 'skills', groupName, 'adapter-iac-grouped'),
+        validAdapterManifest({ adapter: `grouped-under-${groupName}` })
+      );
+
+      const found = withinProjectRoot(
+        discoverAdapters({ projectRoot, env: { XDG_CONFIG_HOME: xdgConfigHome } }),
+        projectRoot
+      );
+
+      expect(found).toEqual([
+        { name: `grouped-under-${groupName}`, origin: 'installed', dir: adapterDir }
+      ]);
+    }
+  );
 
   test('the descent is exactly one level: an adapter two levels under a skills root is NOT discovered', () => {
     const projectRoot = mkTempDir('ensemble-adapters-nested-depth-project-');
@@ -536,7 +570,31 @@ describe('discoverAdapters: adapters grouped one level under an installed skills
 
     const result = loadAdapter('plain-git', ctx);
     expect(result.origin).toBe('installed');
-    expect(fs.realpathSync(result.dir)).toBe(fs.realpathSync(groupedWorkflow));
+
+    // The load-bearing assertion. `loadAdapter` alone cannot carry this test: the
+    // library-relative roots are derived from __dirname and come BEFORE ctx.installedRoots, so
+    // `plain-git` also resolves flat from this repo's own packages/git/skills -- and because
+    // packages/full/skills/git IS a symlink to packages/git/skills, the two realpath to the
+    // same directory. A realpath comparison therefore passes with or without the descent.
+    // What only the descent can produce is a discovery entry whose UNRESOLVED dir sits under
+    // the bundle's own grouped path.
+    const groupPrefix = path.join(shippedSkills, 'git') + path.sep;
+    const viaBundleGroup = discoverAdapters(ctx).filter(
+      (entry) => entry.name === 'plain-git' && entry.dir.startsWith(groupPrefix)
+    );
+    // TWO, not one: `plain-git` is declared by two directories in this group,
+    // `adapter-workflow-plain-git` and `adapter-worktree-plain-git`, each carrying one
+    // category of the same adapter id. So the group contributes two entries under that id and
+    // the workflow one is what this test pinned. (`loadAdapter` returns only the first match,
+    // which makes the worktree half of that id unreachable through it -- that predates this
+    // change and reproduces identically without the descent, so it is filed separately at
+    // https://github.com/FortiumPartners/ensemble/issues/146 rather than fixed here.)
+    expect(viaBundleGroup).toHaveLength(2);
+    const workflowEntry = viaBundleGroup.find(
+      (entry) => fs.realpathSync(entry.dir) === fs.realpathSync(groupedWorkflow)
+    );
+    expect(workflowEntry).toBeDefined();
+    expect(workflowEntry.origin).toBe('installed');
 
     // And the flat adapters beside the group are still found, so the descent added reach
     // instead of redirecting it.
@@ -584,7 +642,17 @@ describe('discoverAdapters: adapters grouped one level under an installed skills
     const projectRoot = mkTempDir('ensemble-adapters-nested-self-project-');
     const xdgConfigHome = mkTempDir('ensemble-adapters-nested-self-xdg-');
     const groupDir = path.join(projectRoot, 'packages', 'full', 'skills', 'adapter-tracker-beads');
-    writeAdapterDir(groupDir, validAdapterManifest({ adapter: 'beads' }));
+    // Deliberately NO SKILL.md on this adapter, which is what makes the test able to fail.
+    // `writeAdapterDir` writes one, and a SKILL.md would make the descent skip this directory
+    // anyway -- so with it, deleting the `continue` that ends the manifest branch changes
+    // nothing and the mutation goes green. Without it, that `continue` is the only thing
+    // stopping the scan from walking into a real adapter's own subdirectories.
+    fs.mkdirSync(groupDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(groupDir, 'adapter.yaml'),
+      yaml.dump(validAdapterManifest({ adapter: 'beads' }))
+    );
+    expect(fs.existsSync(path.join(groupDir, SKILL_FILE_NAME))).toBe(false);
     // A nested directory inside a REAL adapter directory is part of that adapter, not a second
     // adapter: descending into it would invent one.
     writeAdapterDir(

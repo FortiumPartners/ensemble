@@ -16,7 +16,8 @@
  *                   Any subdirectory of a package's `skills/` is a candidate; there is no
  *                   required directory-name prefix, since one manifest's declared `adapter` id
  *                   is what selects it, not its directory name (TRD interpretation I7). A
- *                   subdirectory that carries no `adapter.yaml` of its own is treated as a
+ *                   subdirectory with no VALID manifest of its own -- no `adapter.yaml`, YAML
+ *                   that will not parse, or no string `adapter` id in it -- is treated as a
  *                   GROUP and its own immediate children are scanned, one level and no deeper
  *                   (#138): `packages/full/skills/git` is a symlink to `../../git/skills`, so
  *                   in the full bundle the five git adapters sit one level below the flat ones
@@ -269,6 +270,16 @@ function installedPackagesRoot(projectRoot) {
  * `<projectRoot>/packages/<pkg>/skills` for each package directory, in ascending name order
  * (via `listSubdirs`). A missing or non-directory `packages/` root contributes none.
  *
+ * KNOWN GAP (RI-6/S-1), recorded rather than fixed here: these roots live inside the project
+ * being worked on, so an adapter one of them contributes is repo-supplied code that does NOT
+ * pass through the repo-local trust gate the `.ensemble/adapters` tier applies. A hostile
+ * checkout can therefore ship `packages/<anything>/skills/<dir>/adapter.yaml` and have it
+ * resolve untrusted. This predates #138 and is not widened by it: the one-level group descent
+ * finds more adapters under roots that were already being scanned, and reaches no root that was
+ * not already in the list. Tracked as its own issue, because the fix is a trust decision about
+ * the installed tier as a whole and does not belong in a discovery bug fix:
+ * https://github.com/FortiumPartners/ensemble/issues/145
+ *
  * @param {string} projectRoot
  * @returns {string[]}
  */
@@ -453,8 +464,11 @@ function discoverAdapters(ctx = {}) {
         found.push({ name: manifest.adapter, origin: 'installed', dir });
         continue;
       }
-      // No manifest here, so this MAY be a GROUP directory: scan its own children, one level
-      // and no deeper (#138). The full bundle's `skills/git` symlink puts the git adapters here.
+      // No VALID manifest here, so this MAY be a GROUP directory: scan its own children, one
+      // level and no deeper (#138). The full bundle's `skills/git` symlink puts the git
+      // adapters here. "No valid manifest" is wider than "no adapter.yaml" on purpose -- an
+      // absent file, YAML that will not parse, and a manifest with no string `adapter` id all
+      // reach this branch, because none of them names an adapter this directory could be.
       //
       // A directory carrying its own SKILL.md is a SKILL, not a container of skills, so it is
       // not descended into. That is what keeps the descent cheap: the installed roots hold 181
