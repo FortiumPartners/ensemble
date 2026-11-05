@@ -315,8 +315,9 @@ assigned tier still does not bypass the Low-waiver rule above.
 the commit (or tree) under review, so a push invalidates it. Bot approvals never count. Where an
 agent authored the PR on a person's instruction, the `Directed by:` line in the PR body makes that
 person count as one of the required reviewers, as if they had written the code themselves. It is a
-line the PR's author writes, so it never lowers a requirement: the `soloMaintainer` discount below
-also needs that person's own approval of the head.
+line the PR's author writes, so it never lowers a requirement on its own: the `soloMaintainer`
+discount below needs that person's own approval of the head unless they are the PR's author, in
+which case it rests on their own credit as author-as-director.
 
 Policy keys live in the fenced `ensemble-review-policy` block of the **root `REVIEW.md` on the base
 branch** — never the PR head, so a PR cannot loosen its own review:
@@ -325,7 +326,7 @@ branch** — never the PR head, so a PR cannot loosen its own review:
 |---|---|---|
 | `roundCap` | Shared review-round cap before escalating to the author | `3` (valid 1–5) |
 | `lowWaiverEnabled` | Whether a Low-tier PR may merge with no human approval | `false` |
-| `soloMaintainer` | With exactly one maintainer login, a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two, provided that maintainer is not the PR's author and has approved the current head on the host (a `Directed by:` line alone never lowers it); the security lane still blocks | `false` |
+| `soloMaintainer` | With exactly one maintainer login, a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. A maintainer who is not the PR's author must have approved the current head on the host; a maintainer who is the author (an agent PR under their own login) is credited on their own word as author-as-director, with the warning `solo-maintainer-self-credit` in the result (a `Directed by:` line alone never lowers it for anyone else); the security lane still blocks | `false` |
 | `botLogins` | Logins whose approvals are never counted | empty |
 | `maintainerLogins` | Logins eligible to enable the Low waiver | empty |
 | `sensitivePaths` / `highPaths` | Globs that floor the tier at Medium / High | empty |
