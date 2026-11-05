@@ -1,0 +1,2 @@
+<synthetic_tool_result name="edit">Error: Could not find edits[2] in packages/development/lib/trd-parser.js. The oldText must match exactly including all whitespace and newlines.
+</synthetic_tool_result>
