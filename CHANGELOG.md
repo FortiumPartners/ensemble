@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`trd-parser.js` resolves a PRD recorded as a document id (`packages/development`).** A TRD that puts the source PRD's document id (`PRD-2026-<uuid>`) in frontmatter `prd_reference` and the real path in a sibling `prd_path` parsed `prdReference: null`: `extractPrdReference()` accepted only path-shaped values (`looksLikePath()` requires `/` or a `.md` suffix), so `completion-verification` Step 3 and `trd-cli verify` skipped the PRD cross-check silently, with no error. The parser now falls back to `prd_path` (last-resort priority 5; body references and a path-shaped `prd_reference` still win, so an in-document path stays authoritative). The vendored Pi copy `packages/pi/vendor/lib/trd-parser.js` carries the same change.
 
+- **`extractReqPriorities()` reads an inline MoSCoW heading tag (`packages/development`).** A PRD that tags requirements in the heading (`### REQ-NNN: Title (Must)`, `[Should]`, optionally followed by a `[RISK: ...]` suffix) resolved every REQ to priority `null`, which `completion-verification` Step 3 treats as informational-only, so the Must/Should coverage gate never fired and the skill reported 0 gaps on a PRD it had not checked. The parser now reads the heading tag, falls back to the `**Priority:**` line when the heading has none, and canonicalizes the case of both. Step 3 also gets a coverage sanity check: when the extractor returns no REQ, or every REQ has a `null` priority, it records the new gap class `REQ-PRIORITY-UNPARSED`, which makes the verdict `INCOMPLETE` instead of a silent pass. The vendored Pi parser and the generated Pi skill carry the same change.
+
 ## [8.1.0] - 2026-10-30
 
 ### Changed

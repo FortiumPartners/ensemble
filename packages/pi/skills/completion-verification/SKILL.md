@@ -172,22 +172,16 @@ Skipped if `trd.prdReference` is empty/null (no PRD to cross-check).
        GAP: class=REQ-UNSATISFIED, req=<REQ-NNN>, priority=<Must|Should>
    ```
 
-4. Coverage sanity check. REQs item 2 never returned were never checked.
+4. Coverage sanity check. A PRD whose REQs all lack a priority was never checked.
 
    ```
-   IF the PRD declares any REQ-NNN (heading, table or list form) that item 2's
-   IDs omit:
-       GAP: class=REQ-PRIORITY-UNPARSED, req=<REQ-NNN>,
-            reason="<resolved PRD path>: <REQ-NNN> declared but not parsed"
-   ELSE IF item 2 returned 0 REQs, OR every parsed REQ has priority === null:
+   IF item 2 returned 0 REQs, OR every parsed REQ has priority === null:
        GAP: class=REQ-PRIORITY-UNPARSED,
             reason="<resolved PRD path>: <N> REQ(s), none with a MoSCoW priority"
    ```
 
-   The gap forces `INCOMPLETE`: an unparsed REQ means a check that never ran.
-   Deleted or superseded REQs count as covered only if the PRD says so.
-   Partially unclassified is not a gap: classified REQs gate in item 3.
-   Step 6's override accepts it knowingly.
+   The gap forces `INCOMPLETE`: the Must/Should gate in item 3 had nothing to
+   check. Partially unclassified is not a gap: classified REQs gate in item 3.
 
 ---
 
@@ -259,7 +253,7 @@ Total gaps: <N>
 - <reason>
 
 ### REQ-PRIORITY-UNPARSED (<count>)
-- <reason> (REQ not parsed, or no REQ priority classifiable)
+- <reason> (no REQ priority classifiable)
 
 ### TASK-OPEN (<count>)
 - TRD-NNN: still open

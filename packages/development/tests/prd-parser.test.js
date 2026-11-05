@@ -264,6 +264,14 @@ Body prose.
     expect(byId['REQ-002']).toBe('Should');
   });
 
+  test('canonicalizes the case of a **Priority:** line value', () => {
+    const prd = ['### REQ-001: Upper', '', '**Priority:** MUST', '', '### REQ-002: Lower', '', '**Priority:** should', '', "### REQ-003: Lower won't", '', "**Priority:** WON'T"].join('\n');
+    const byId = Object.fromEntries(extractReqPriorities(prd).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-001']).toBe('Must');
+    expect(byId['REQ-002']).toBe('Should');
+    expect(byId['REQ-003']).toBe("Won't");
+  });
+
   test('the inline-tag PRD in docs/PRD resolves every REQ to a gatable priority', () => {
     // The reported failing case end to end: pre-fix this returned 25 entries,
     // all null. Step 3 is only a real gate while the filter is non-empty.
