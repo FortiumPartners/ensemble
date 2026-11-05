@@ -12,11 +12,11 @@ Source: agent session timestamps and the orchestrators' own reports. `[ESTIMATE]
 |---|---|---|
 | #233 round 1 | gate + deep review + gate verdict | 1h 22m |
 | #233 fix round 1 | one agent, 3 findings | 1h 13m |
-| #233 re-review | 4 reviewers + security lane: 19, 23, 26, 25, **41** min; then 3 verifiers: 23, 24, 25 min (+28 min re-run of one killed by a 429) | about 70 min, plus 28 |
+| #233 re-review | 4 reviewers + security lane: 19, 23, 26, 24, **41** min; then 5 verifiers: 23, 24, 25, 24 (killed by a 429), 22 min (+28 min re-run of the killed one) | about 70 min, plus 28 |
 | #233 fix round 2 | one agent, 4 findings | 36 min |
 | #225 / #228 / #229 (3 run concurrently) | gate + deep review + gate verdict | 66 / 39 / 55 min |
 | Local-CI gate | one run | about 6 min on a quiet machine, 8 to 9 min under load; #225 needed 3 runs, #229 needed 2 (load average 12 to 72 flaked wall-clock assertions in `toolchain-detect.test.js`, which also flake on the unmodified base) |
-| Per agent | reviewer 17 to 41 min, 73 to 144 tool calls; verifier 23 to 28 min, 86 to 129 tool calls for 45 candidates | |
+| Per agent | reviewer 17 to 41 min, 73 to 144 tool calls; verifier 22 to 28 min, 86 to 129 tool calls for 45 candidates | |
 
 The critical path is `slowest reviewer -> slowest verifier -> verdict scripts`, and **a head change restarts all of it**. #233 has been through four such chains.
 
@@ -50,7 +50,7 @@ Measured per stage so the claim is provable (section 5).
 
 ### A. Parallelism: shard instead of duplicate (largest win, about 3x on its own)
 
-- **Verify per candidate, not per verifier.** Each candidate is verified by K independent fresh agents (K = 3 Standard, 5 Deep, as the depth contract says), but each agent gets one or a few candidates (5 to 15 tool calls, 2 to 5 min). With up to 32 concurrent agents, verification takes the time of the slowest small agent, not 30 min. Independence per candidate is preserved: no verifier sees another's vote, and every candidate still gets K distinct verifiers. Needs: `depth`/`votes` to accept an explicit candidate-to-verifier assignment (the CLI already tallies per finding).
+- **Verify per candidate, not per verifier.** Each candidate is verified by K independent fresh agents (K = 3 Standard, 5 Deep, as the depth contract says), but each agent gets one or a few candidates (5 to 15 tool calls, 2 to 5 min). With up to 32 concurrent agents, verification takes the time of the slowest small agent, not 22 to 28 min. Independence per candidate is preserved: no verifier sees another's vote, and every candidate still gets K distinct verifiers. Needs: `depth`/`votes` to accept an explicit candidate-to-verifier assignment (the CLI already tallies per finding).
 - **Shard reviewers by slice, and cross every slice with at least two lenses.** Replace 4 reviewers reading all files with 6 to 8 reviewers, each owning a slice of the range (the `slices` step already cuts the range) and one emphasis (correctness, security/approval-floor, tests, docs/mirrors). Smaller reading set means 5 to 10 min each. **Independence is not preserved by slicing alone:** `pr-review-depth.js` counts reviewers and `scope-guidance-depth.md` defines extra reviewers as independent passes over the same range, so disjoint slices give one pass per path where Standard and Deep require at least two. Each slice must therefore be read by at least two reviewers with different lenses (for example 4 slices times 2 lenses is 8 reviewers), and `verifyCoverage` must report a path read by fewer than two reviewers as under-reviewed, not covered.
 - **Start the gate with the head, not after.** Start `local-ci-cli.js gate` the moment the head SHA is read, concurrently with reviewers (the R4 run already does this). Add a precheck that runs approvals, description sections and branch protection first (seconds) and **posts the human-blocker list immediately**, so people act in parallel with the review.
 
