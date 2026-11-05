@@ -291,10 +291,23 @@ function evaluateGate(input) {
     const problems = [];
     const tierResult = isObject(input.tier) && input.tier.ok !== false ? input.tier : null;
     if (tierResult !== null && tier !== null) {
-      const floor = Math.max(
+      let floor = Math.max(
         HUMANS_REQUIRED[tier],
         Number.isInteger(tierResult.humansRequired) && tierResult.humansRequired >= 0 ? tierResult.humansRequired : 0
       );
+      // Solo maintainer: the tier record says the PR is eligible and the
+      // approvals result says the eligible maintainer directed it. Both must
+      // name the same person, else the two-human floor stands. The evaluator
+      // reports `soloMaintainer: true` only for a director it authenticated
+      // (not the PR author, with an APPROVED review bound to the head); the
+      // gate has no reviews to re-check that against, so it holds the claim to
+      // the same person, the same tier and the one-human floor, never lower.
+      const solo = isObject(tierResult.soloMaintainer) ? tierResult.soloMaintainer : null;
+      const soloLogin = solo !== null && solo.eligible === true && isText(solo.login) ? solo.login.trim().replace(/^@/, '').toLowerCase() : null;
+      const directed = isText(approvalsResult.directedBy) ? approvalsResult.directedBy.trim().replace(/^@/, '').toLowerCase() : null;
+      if (tier === 'high' && floor === HUMANS_REQUIRED.high && soloLogin !== null && approvalsResult.soloMaintainer === true && directed === soloLogin) {
+        floor = 1;
+      }
       const approvalsTier = isText(approvalsResult.tier) ? approvalsResult.tier.trim().toLowerCase() : null;
       const approvalsRank = approvalsTier === null ? -1 : TIERS.indexOf(approvalsTier);
       if (approvalsRank < TIERS.indexOf(tier)) {

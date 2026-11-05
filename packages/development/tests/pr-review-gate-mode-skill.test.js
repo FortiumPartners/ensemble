@@ -154,6 +154,24 @@ describe('TRD-027: the second assessment is its own fresh-context subagent with 
     // Not a boolean: the module fails toward more review, exactly as the prose says.
     expect(assignTier({ ...base, secondAssessment: { needsAnotherPerson: 'yes' } }).tier).toBe('high');
   });
+
+  test('an assessment nobody gave is never typed in as "no": the prose says so and the module agrees', () => {
+    expect(STEP_10_FLAT).toContain('**An assessment nobody gave is not a `false`.**');
+    expect(STEP_10_FLAT).toContain('leave `secondAssessment` out of the `tier` payload');
+    expect(STEP_10_FLAT).toContain('never write `{ "needsAnotherPerson": false }` yourself');
+    expect(STEP_10_FLAT).toContain(
+      'it raises nothing, so a Medium PR stays Medium, but the solo-maintainer discount is withheld and a High PR keeps two humans'
+    );
+
+    const base = { kinds: [{ kind: 'product', paths: ['src/a.js'] }], paths: { sensitive: [], high: [] } };
+    for (const secondAssessment of [undefined, null]) {
+      const result = assignTier({ ...base, secondAssessment });
+      expect(result.tier).toBe('medium');
+      expect(result.raised).toEqual([]);
+      expect(result.peerDemanded).toBe(true);
+    }
+    expect(assignTier({ ...base, secondAssessment: { needsAnotherPerson: false } }).peerDemanded).toBe(false);
+  });
 });
 
 describe('TRD-027: the security lane runs in gate mode and blocks what it should', () => {

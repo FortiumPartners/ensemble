@@ -116,12 +116,11 @@ describe('init-project scaffolds the review files (AC-002-4)', () => {
     const block = /```ensemble-review-policy\n([\s\S]*?)\n```/.exec(template);
     expect(block).not.toBeNull();
     const json = JSON.parse(block[1]);
-    expect(typeof json.sourceSha).toBe('string');
+    // A commit cannot name itself: a scaffolded `sourceSha` could never match
+    // the base, and the block would be rejected on every review.
+    expect(Object.prototype.hasOwnProperty.call(json, 'sourceSha')).toBe(false);
 
-    const loaded = loadPolicy({
-      text: template.replace(json.sourceSha, BASE_SHA),
-      baseSha: BASE_SHA,
-    });
+    const loaded = loadPolicy({ text: template, baseSha: BASE_SHA, sourceSha: BASE_SHA });
     expect(loaded.ok).toBe(true);
     expect(loaded.source).toBe('policy');
     expect(loaded.rejected).toEqual([]);

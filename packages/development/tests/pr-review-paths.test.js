@@ -124,6 +124,15 @@ describe('pr-review-paths: built-in default sensitive set (AC-003-2)', () => {
     ['generation pipeline directory', 'scripts/generate-codex/index.js'],
     ['project constitution', 'docs/standards/constitution.md'],
     ['root constitution', 'CONSTITUTION.md'],
+    // `**` takes ANY character: `.` would skip these four line terminators, so a name holding one would be no
+    // match for the built-in floor and a PR adding it would touch "no sensitive path" (N-01).
+    ['CI workflow whose name holds a line separator (U+2028)', '.github/workflows/ev\u2028il.yml'],
+    ['CI workflow whose name holds a paragraph separator (U+2029)', '.github/workflows/ev\u2029il.yml'],
+    ['CI workflow whose name holds a newline', '.github/workflows/ev\nil.yml'],
+    ['CI workflow whose name holds a carriage return', '.github/workflows/ev\ril.yml'],
+    ['CI composite action under a directory whose name holds a line separator', '.github/actions/a\u2028b/action.yml'],
+    ['CircleCI config whose name holds a paragraph separator', '.circleci/a\u2029b.yml'],
+    ['generation pipeline file whose name holds a line separator', 'scripts/generate-codex/a\u2028b.js'],
   ])('%s is sensitive with no owner declaration', (_label, path) => {
     const result = defaultsOnly(path);
     expect(result.sensitive).toEqual([path]);
@@ -369,6 +378,28 @@ describe('pr-review-paths: glob matching', () => {
     expect(matchesPattern(pattern, path)).toBe(expected);
   });
 
+  // `**` takes ANY character, line terminators included: `.` skips \n, \r, U+2028 and U+2029, so a name holding one
+  // slipped past `.github/workflows/**` (N-01). `*` and `?` never did, and neither of them crosses `/`. The rows carry
+  // their own label: these names would print as line breaks in a test title.
+  test.each([
+    ['`**` crosses a line separator', '.github/workflows/**', '.github/workflows/a\u2028b.yml', true],
+    ['`**` crosses a paragraph separator', '.github/workflows/**', '.github/workflows/a\u2029b.yml', true],
+    ['`**` crosses a newline', '.github/workflows/**', '.github/workflows/a\nb.yml', true],
+    ['`**` crosses a carriage return', '.github/workflows/**', '.github/workflows/a\rb.yml', true],
+    ['`**` crosses separators in every segment', '.github/workflows/**', '.github/workflows/a\u2028/b\u2029c/d\ne.yml', true],
+    ['`**/` in the middle crosses separators', 'src/**/x.js', 'src/a\u2028b/c\nd/x.js', true],
+    ['`**/` in the middle still matches no directory at all', 'src/**/x.js', 'src/x.js', true],
+    ['`**/` in the middle still needs the file it names', 'src/**/x.js', 'src/a\u2028b/y.js', false],
+    ['`*` matches a line separator inside a segment', 'src/*', 'src/a\u2028b', true],
+    ['`*` still stops at a slash after a line separator', 'src/*', 'src/a\u2028/b', false],
+    ['`*` still stops at a slash after a newline', 'src/*', 'src/a\nb/c', false],
+    ['`?` matches one line separator', 'a?c.js', 'a\u2028c.js', true],
+    ['`?` matches only one character', 'a?c.js', 'a\u2028\u2029c.js', false],
+    ['`?` still stops at a slash', 'a?c.js', 'a/c.js', false],
+  ])('%s', (_label, pattern, path, expected) => {
+    expect(matchesPattern(pattern, path)).toBe(expected);
+  });
+
   test('a regex metacharacter in a pattern is matched literally, not executed', () => {
     expect(matchesPattern('a+b.js', 'a+b.js')).toBe(true);
     expect(matchesPattern('a+b.js', 'aab.js')).toBe(false);
@@ -383,5 +414,86 @@ describe('pr-review-paths: glob matching', () => {
   test('a leading ./ in a changed path is normalized before matching', () => {
     const result = classifyPaths({ changedPaths: ['./.github/workflows/test.yml'], declaration: null, baseSha: BASE });
     expect(result.sensitive).toEqual(['./.github/workflows/test.yml']);
+  });
+});
+
+describe('pr-review-paths: a declared High path is High whatever its name holds (N-01)', () => {
+  const declaration = { path: 'REVIEW.md', sourceSha: BASE, sensitive: [], high: ['packages/agent-core/**'] };
+
+  test.each([
+    ['a line separator (U+2028)', '\u2028'],
+    ['a paragraph separator (U+2029)', '\u2029'],
+    ['a newline', '\n'],
+    ['a carriage return', '\r'],
+  ])('a name holding %s under a High area is still High', (_label, terminator) => {
+    const changed = `packages/agent-core/src/a${terminator}b.ts`;
+    const result = classifyPaths({ changedPaths: [changed], declaration, baseSha: BASE });
+    expect(result.high).toEqual([changed]);
+    expect(detailFor(result, changed)).toMatchObject({ high: true, highMatchedBy: 'packages/agent-core/**' });
+  });
+});
+
+describe('pr-review-paths: sensitive and High patterns that name a path are matched ignoring letter case (N-06)', () => {
+  // A case-insensitive checkout (macOS, Windows) writes `PR-REVIEW-GATE.JS` over `pr-review-gate.js`, and no glob
+  // can spell "either case", so a pattern that names a path also covers the other-case spellings of that path.
+  const declaration = {
+    path: 'REVIEW.md',
+    sourceSha: BASE,
+    sensitive: ['packages/*/lib/pr-review-*', 'docs/standards/constitution.md', 'REVIEW.md'],
+    high: ['packages/development/lib/**'],
+  };
+  const classify = (changedPath) => classifyPaths({ changedPaths: [changedPath], declaration, baseSha: BASE });
+
+  test.each([
+    ['packages/development/lib/PR-REVIEW-GATE.JS', 'packages/*/lib/pr-review-*'],
+    ['packages/development/lib/pr-review-gate.JS', 'packages/*/lib/pr-review-*'],
+    ['Packages/Development/Lib/Pr-Review-Gate', 'packages/*/lib/pr-review-*'],
+    ['DOCS/STANDARDS/CONSTITUTION.MD', 'docs/standards/constitution.md'],
+  ])('a declared sensitive area covers %s', (changedPath, matchedBy) => {
+    const result = classify(changedPath);
+    expect(result.sensitive).toEqual([changedPath]);
+    expect(detailFor(result, changedPath)).toMatchObject({ sensitive: true, matchedBy, source: 'declaration' });
+  });
+
+  test('a declared High area covers its other-case spelling', () => {
+    const result = classify('PACKAGES/DEVELOPMENT/LIB/foo.js');
+    expect(result.high).toEqual(['PACKAGES/DEVELOPMENT/LIB/foo.js']);
+    expect(result.sensitive).toEqual([]);
+  });
+
+  test.each([
+    ['.GitHub/Workflows/Release.yml'],
+    ['Scripts/Validate-All.js'],
+    ['SCRIPTS/GENERATE-CODEX/index.js'],
+  ])('the built-in floor covers %s too', (changedPath) => {
+    const result = classifyPaths({ changedPaths: [changedPath], declaration: null, baseSha: BASE });
+    expect(result.sensitive).toEqual([changedPath]);
+    expect(detailFor(result, changedPath).source).toBe('default');
+  });
+
+  // A bare file name selects that name at any depth; an other-case spelling of it elsewhere is no alias of anything.
+  // This repository has such a file: `docs/toolchain/contracts/review.md` is a page about review toolchains, not a
+  // review rules file.
+  test('a bare file name stays exact: REVIEW.md is sensitive at any depth, review.md is not', () => {
+    expect(classify('REVIEW.md').sensitive).toEqual(['REVIEW.md']);
+    expect(classify('packages/development/REVIEW.md').sensitive).toEqual(['packages/development/REVIEW.md']);
+    expect(classify('docs/toolchain/contracts/review.md').sensitive).toEqual([]);
+    const floor = classifyPaths({ changedPaths: ['JENKINSFILE', 'jenkinsfile'], declaration: null, baseSha: BASE });
+    expect(floor.sensitive).toEqual([]);
+    expect(matchesPattern('Jenkinsfile', 'ci/JENKINSFILE', { ignoreCase: true })).toBe(false);
+    expect(matchesPattern('*.yml', 'a.YML', { ignoreCase: true })).toBe(false);
+  });
+
+  test('a path no area names in either case is still not sensitive', () => {
+    const result = classify('packages/development/lib/trd-parser.js');
+    expect(result.sensitive).toEqual([]);
+    expect(result.high).toEqual(['packages/development/lib/trd-parser.js']);
+  });
+
+  test('matchesPattern is case-sensitive unless asked: CODEOWNERS paths are, because GitHub resolves them on a case-sensitive file system', () => {
+    expect(matchesPattern('src/**', 'SRC/a.js')).toBe(false);
+    expect(matchesPattern('src/**', 'SRC/a.js', { ignoreCase: true })).toBe(true);
+    expect(ownersFor('SRC/a.js', 'src/** @alice').owners).toEqual([]);
+    expect(ownersFor('src/a.js', 'src/** @alice').owners).toEqual(['@alice']);
   });
 });

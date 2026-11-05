@@ -25,12 +25,19 @@
  *     required reviewers, as if they had written the code themselves
  *     (AC-014-3). They fill exactly one slot, they are never also counted as
  *     an approver, and the PR author never fills a slot;
+ *   - the SOLO-MAINTAINER discount (policy `soloMaintainer`) is the one place
+ *     a director's word is not enough. It lowers High from two humans to one
+ *     only for a director the host AUTHENTICATES: the tier record names them
+ *     the sole maintainer, they are NOT the PR author, and they have an
+ *     APPROVED review bound to the head. A `Directed by:` line is text the
+ *     author of a PR writes, so on its own it never lowers the floor;
  *   - distinctness is per person: two approvals from one login are one human.
  *     High needs two DISTINCT people (AC-014-4);
  *   - the humans required come from the effective tier (`low` 0, `medium` 1,
- *     `high` 2). An effective-Low PR needs none -- and `effectiveTier` only
- *     reaches Low for a maintainer author with the recorded evidence, so the
- *     waiver can never relax a PR authored by anyone else (AC-014-5).
+ *     `high` 2, or 1 under the solo-maintainer discount). An effective-Low PR
+ *     needs none -- and `effectiveTier` only reaches Low for a maintainer
+ *     author with the recorded evidence, so the waiver can never relax a PR
+ *     authored by anyone else (AC-014-5).
  *
  * FAIL CLOSED. A request this module cannot read, a tier it cannot read, or a
  * refusal recorded by the tier evaluator, is `satisfied: false` with the
@@ -123,11 +130,11 @@ function bindingReason(review, headSha, headTreeSha) {
  * @param {string}  [input.headTreeSha]       The 40-char tree of `headSha`; without it only an exact commit match counts.
  * @param {Object}  input.tier                The `effectiveTier` result from `pr-review-tier.js`.
  * @param {Object}  [input.policy]            The policy block: `botLogins` is read from it.
- * @param {string}  [input.author]            The PR author's login; the author never fills a required slot.
- * @param {string}  [input.directedBy]        The person who directed an agent-authored PR (AC-014-3).
+ * @param {string}  [input.author]            The PR author's login; the author never fills a required slot, and without it the solo-maintainer discount is refused.
+ * @param {string}  [input.directedBy]        The person who directed an agent-authored PR (AC-014-3); the solo-maintainer discount also needs their APPROVED review.
  * @param {boolean} [input.agentAuthored]     True when an agent wrote the PR; `directedBy` is read only then.
  * @returns {{ok:boolean, satisfied:boolean, reason:string, tier:string, humansRequired:number,
- *   humansCounted:number, approvedBy:string[], directedBy:string|null,
+ *   soloMaintainer:boolean, humansCounted:number, approvedBy:string[], directedBy:string|null,
  *   ignored:Array<{login:string|null, reason:string, commitSha:string|null}>,
  *   refusals:Object[], reasons:string[], warnings:string[]}}
  */
@@ -141,8 +148,10 @@ function evaluateApprovals(input) {
   const effective = isText(tierResult.effectiveTier) ? tierResult.effectiveTier.trim().toLowerCase() : null;
   if (effective === null || !TIERS.includes(effective)) return blocked('unknown-tier');
 
-  // The tier's floor is never lowered: a provided count above it raises the
-  // requirement, one below it (or a missing one) cannot.
+  // The tier record's floor is never lowered here: a provided count above it
+  // raises the requirement, one below it (or a missing one) cannot. The
+  // solo-maintainer discount below is the one exception, and it is decided
+  // from the reviews, never from the tier record's say-so.
   const floor = HUMANS_REQUIRED[effective];
   const humansRequired = Number.isInteger(tierResult.humansRequired)
     ? Math.max(tierResult.humansRequired, floor)
@@ -249,9 +258,41 @@ function evaluateApprovals(input) {
   const hasRefusal = refusals.length > 0;
   if (hasRefusal) reasons.push('tier-relaxation-refused');
 
-  const satisfied = !hasRefusal && humansCounted >= humansRequired;
+  // Solo maintainer: the tier evaluator decides ELIGIBILITY (policy flag, one
+  // maintainer, High, a path list it can trust, no sensitive path, nobody
+  // else demanded). The facts only this module sees are checked here, and
+  // together they AUTHENTICATE the director. A `Directed by:` line is text
+  // the PR's author writes, so it never lowers the floor by itself: the sole
+  // maintainer must also be someone other than the PR author, with an
+  // APPROVED review bound to this head -- which is exactly who is in
+  // `approvers` (a withdrawn, stale, automated or self-approval never is).
+  // The security lane still blocks High in the gate. An unreadable tier
+  // record, refusal, director or author leaves two humans required.
+  const solo = isObject(tierResult.soloMaintainer) ? tierResult.soloMaintainer : null;
+  const soloLogin = solo !== null && solo.eligible === true ? normalizeLogin(solo.login) : null;
+  const soloFactsHold =
+    soloLogin !== null &&
+    effective === 'high' &&
+    humansRequired === HUMANS_REQUIRED.high &&
+    !hasRefusal &&
+    directedBy === soloLogin;
+  // The first fact of the director's authentication that fails, if any. They
+  // must not be the PR author (an author cannot vouch for their own work, and
+  // their review is a self-approval), and must be among `approvers`.
+  let soloRefusal = null;
+  if (soloFactsHold) {
+    if (author === null) soloRefusal = 'solo-maintainer-author-unknown';
+    else if (author === directedBy) soloRefusal = 'solo-maintainer-director-is-author';
+    else if (!approvers.includes(directedBy)) soloRefusal = 'solo-maintainer-director-not-approved';
+  }
+  const soloApplies = soloFactsHold && soloRefusal === null;
+  const required = soloApplies ? 1 : humansRequired;
+  if (soloApplies) reasons.push('solo-maintainer-applied');
+  else if (soloRefusal !== null) warnings.push(soloRefusal);
+
+  const satisfied = !hasRefusal && humansCounted >= required;
   const reason = satisfied
-    ? humansRequired === 0
+    ? required === 0
       ? 'no-human-approval-required'
       : 'required-approvals-present'
     : hasRefusal
@@ -265,7 +306,8 @@ function evaluateApprovals(input) {
     reason,
     tier: effective,
     headSha,
-    humansRequired,
+    humansRequired: required,
+    soloMaintainer: soloApplies,
     humansCounted,
     approvedBy: counted,
     directedBy,

@@ -25,9 +25,11 @@
  *      (AC-009-2, AC-009-3).
  *
  *   3. **Policy is data, and it comes from the base commit.** The block is
- *      read only when it carries a `sourceSha` that is a full object id
- *      equal to the review's `baseSha` (and when the caller names the commit
- *      it read the text from, that must match too). A PR therefore cannot
+ *      read only when the commit it came from is the review's `baseSha`: the
+ *      caller reads the text with `git show <baseSha>:REVIEW.md` and passes
+ *      `sourceSha` = `baseSha`, and that must match. A block that ALSO declares
+ *      a `sourceSha` must declare the base, which a commit can never do for
+ *      itself, so a repository's block leaves the key out. A PR therefore cannot
  *      relax its own review by editing `REVIEW.md`; prose anywhere else in
  *      the file -- or in the PR description -- is never read (AC-024-1,
  *      REQ-024). No value is ever executed, evaluated or compiled: keys are
@@ -84,6 +86,7 @@ const DEFAULT_POLICY = deepFreeze({
   sensitivePaths: [],
   highPaths: [],
   lowWaiverEnabled: false,
+  soloMaintainer: false,
   sliceThreshold: 1500,
   evalCasesDir: DEFAULT_EVAL_CASES_DIR,
 });
@@ -108,6 +111,7 @@ const SIMPLE_KEYS = Object.freeze({
   sensitivePaths: isPathList,
   highPaths: isPathList,
   lowWaiverEnabled: (value) => typeof value === 'boolean',
+  soloMaintainer: (value) => typeof value === 'boolean',
   sliceThreshold: (value) => Number.isInteger(value) && value >= 1,
   // A repository-relative directory: never absolute, never climbing out of the repository.
   evalCasesDir: (value) =>

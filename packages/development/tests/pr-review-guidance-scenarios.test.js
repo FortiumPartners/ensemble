@@ -221,9 +221,10 @@ function resolveGuidance(repo) {
     return result.status === 0 ? result.stdout : null;
   };
 
-  const changedPaths = git(root, 'diff', '--name-only', baseSha, headSha)
-    .split('\n')
-    .filter((line) => line.trim() !== '');
+  // The list Step 1b defines: NUL-delimited and rename-complete.
+  const changedPaths = git(root, 'diff', '--name-only', '-z', '--no-renames', baseSha, headSha)
+    .split('\0')
+    .filter((entry) => entry !== '');
 
   return {
     baseSha,
