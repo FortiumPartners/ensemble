@@ -77,7 +77,7 @@ function listFilesRecursive(dir) {
 function compareVendorSync({ sourceLibDir, sourceDataDir, bundles }) {
   const mismatches = [];
 
-  const topLevelFiles = ['toolchain-cli.js', 'complexity-analyzer.js'];
+  const topLevelFiles = ['toolchain-cli.js', 'complexity-analyzer.js', 'run-trace.js'];
   const toolchainSubFiles = fs
     .readdirSync(path.join(sourceLibDir, 'toolchain'), { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith('.js'))
@@ -177,6 +177,7 @@ describe('mutation proof: compareVendorSync detects a stale/missing vendored cop
     fs.mkdirSync(path.join(sourceDataDir, 'categories'), { recursive: true });
     fs.writeFileSync(path.join(sourceLibDir, 'toolchain-cli.js'), "module.exports = 'cli';\n");
     fs.writeFileSync(path.join(sourceLibDir, 'complexity-analyzer.js'), "module.exports = 'ca';\n");
+    fs.writeFileSync(path.join(sourceLibDir, 'run-trace.js'), "module.exports = 'rt';\n");
     fs.writeFileSync(path.join(sourceLibDir, 'toolchain', 'resolve.js'), "module.exports = 'resolve';\n");
     fs.writeFileSync(path.join(sourceDataDir, 'categories', 'tracker.yaml'), 'category: tracker\n');
 
@@ -190,6 +191,7 @@ describe('mutation proof: compareVendorSync detects a stale/missing vendored cop
         divergeFile === 'toolchain-cli.js' ? "module.exports = 'STALE';\n" : "module.exports = 'cli';\n"
       );
       fs.writeFileSync(path.join(libDir, 'complexity-analyzer.js'), "module.exports = 'ca';\n");
+      fs.writeFileSync(path.join(libDir, 'run-trace.js'), "module.exports = 'rt';\n");
       if (omitFile !== 'toolchain/resolve.js') {
         fs.writeFileSync(
           path.join(libDir, 'toolchain', 'resolve.js'),
