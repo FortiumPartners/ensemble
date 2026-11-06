@@ -99,6 +99,23 @@
  *                      interactive confirmation UI, or an operator confirming a session once up
  *                      front, calls this after a user says yes. Returns `{ok:true, capability,
  *                      adapter, source, data:{confirmed:true}}`.
+ *   trace start --run-id <id> --name <name> [--kind <k>] [--parent <span-id>] [--attr k=v ...]
+ *         [--json]
+ *   trace end --run-id <id> --span-id <id> [--status <s>] [--attr k=v ...] [--json]
+ *   trace summarize --run-id <id> [--json] [--brief]
+ *                      Per-run span tracing (kata acvv), backed by `./run-trace.js`: appends to
+ *                      `.ensemble/state/toolchain/trace-<runId>.jsonl` next to the ledger.
+ *                      `start` prints the new span id (`{ok:true, span_id}` with `--json`);
+ *                      `end` closes a span. Tracing must never fail the traced flow, so
+ *                      `start`/`end` ALWAYS exit 0: on any failure (unwritable dir, bad clock,
+ *                      invalid args, unknown span) they print exactly one stderr line
+ *                      `trace: unavailable (<reason>)` (`start` still prints a fresh, valid
+ *                      span id so the caller continues). `summarize` prints a text table, the
+ *                      full `--json` summary, or the compact `--brief` object
+ *                      (`{path, wall_ms, phases, unaccounted_ms, human_wait_ms, machine_ms,
+ *                      unfinished}`); when the trace is missing/unreadable it prints
+ *                      `trace: unavailable (<reason>)` (text) or `{"trace":"unavailable",
+ *                      "reason":...}` (`--json`/`--brief`) and exits 1 (0 for `--brief`).
  *
  * Output:
  *   - Default (no `--json`): a human-readable table with columns `category`, `adapter`,
@@ -117,7 +134,7 @@
  *     capability, adapter, source, data}` or `{ok:true, runId, categories, checkedAt}`, or
  *     `{ok:false, error:{code, message}}`) printed to stdout either way.
  *   - Unknown or missing subcommand: with `--json`, `{ok:false, error:{code:'UNKNOWN_SUBCOMMAND',
- *     message}}` to stdout; without `--json`, a human error line to stderr naming all seven
+ *     message}}` to stdout; without `--json`, a human error line to stderr naming all eight
  *     subcommands. Either way the process exits with code 2.
  *
  * The module is both importable (`resolve`, `explain`, `validate`, `run`, `preflight`,
@@ -160,6 +177,8 @@
  */
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { resolveCategory } = require('./toolchain/config');
 const { loadAdapter } = require('./toolchain/adapters');
 const { runCapability } = require('./toolchain/runner');
@@ -177,6 +196,7 @@ const {
 const { resolveWorkGraphAdapter } = require('./toolchain/work-graph-resolve');
 const { runWorkGraphCapability } = require('./toolchain/builtin/work-graph-links-fallback');
 const { assertKnownAdapter } = require('./toolchain/resolve-guard');
+const runTrace = require('./run-trace');
 
 const CATEGORIES = [
   'host',
@@ -848,6 +868,7 @@ function parseArgs(argv) {
   const args = {};
   const requires = [];
   const positionals = [];
+  const traceOpts = { attrs: {}, brief: false };
 
   const invalidArg = (message) => ({
     subcommand,
@@ -857,6 +878,7 @@ function parseArgs(argv) {
     runId,
     args,
     requires,
+    trace: traceOpts,
     error: { code: 'INVALID_ARG', message }
   });
 
@@ -888,6 +910,37 @@ function parseArgs(argv) {
       }
       args[pair.slice(0, eqIndex)] = pair.slice(eqIndex + 1);
       i += 1;
+    } else if (token === '--brief') {
+      traceOpts.brief = true;
+    } else if (
+      token === '--name' ||
+      token === '--kind' ||
+      token === '--parent' ||
+      token === '--span-id' ||
+      token === '--status'
+    ) {
+      const value = rest[i + 1];
+      if (typeof value !== 'string' || value.startsWith('--')) {
+        return invalidArg(
+          `${token} requires a value (got ${value === undefined ? 'nothing' : JSON.stringify(value)})`
+        );
+      }
+      const key = token === '--span-id' ? 'spanId' : token.slice(2);
+      traceOpts[key] = value;
+      i += 1;
+    } else if (token === '--attr') {
+      const pair = rest[i + 1];
+      if (typeof pair !== 'string' || pair.startsWith('--')) {
+        return invalidArg(
+          `--attr requires a 'key=value' value (got ${pair === undefined ? 'nothing' : JSON.stringify(pair)})`
+        );
+      }
+      const eqIndex = pair.indexOf('=');
+      if (eqIndex <= 0) {
+        return invalidArg(`--attr value ${JSON.stringify(pair)} is not in 'key=value' form`);
+      }
+      traceOpts.attrs[pair.slice(0, eqIndex)] = pair.slice(eqIndex + 1);
+      i += 1;
     } else if (token === '--require') {
       const value = rest[i + 1];
       if (typeof value !== 'string' || value.startsWith('--')) {
@@ -902,7 +955,7 @@ function parseArgs(argv) {
     }
   }
 
-  return { subcommand, json, nonInteractive, positionals, runId, args, requires };
+  return { subcommand, json, nonInteractive, positionals, runId, args, requires, trace: traceOpts };
 }
 
 /**
@@ -974,6 +1027,110 @@ function printResult(subcommand, json, result) {
 }
 
 /**
+ * `trace <start|end|summarize>` (kata acvv). Never throws. `start`/`end` always return 0 and
+ * degrade to a single `trace: unavailable (<reason>)` stderr line; see this file's header.
+ *
+ * @param {string[]} argv
+ * @param {ReturnType<typeof parseArgs>} parsed
+ * @param {{projectRoot?: string}} ctx
+ * @returns {number}
+ */
+function traceCommand(argv, parsed, ctx) {
+  const verb = argv[1];
+  const { json, trace: opts } = parsed;
+  const projectRoot = (ctx && ctx.projectRoot) || process.cwd();
+  const unavailable = (reason) => process.stderr.write(`trace: unavailable (${reason})\n`);
+
+  if (verb === 'start' || verb === 'end') {
+    let notice = null;
+    let spanId = verb === 'end' ? opts.spanId : undefined;
+    let failure = parsed.error ? parsed.error.message : null;
+    if (!failure && parsed.runId === undefined) failure = '--run-id is required';
+    if (!failure && verb === 'start' && !opts.name) failure = '--name is required';
+    if (!failure && verb === 'end' && !opts.spanId) failure = '--span-id is required';
+    if (!failure) {
+      const tracer = runTrace.createTracer({
+        runId: parsed.runId,
+        projectRoot,
+        onUnavailable: (reason) => {
+          notice = reason;
+        }
+      });
+      try {
+        if (verb === 'start') {
+          spanId = tracer.startSpan(opts.name, {
+            kind: opts.kind,
+            parentId: opts.parent,
+            attrs: opts.attrs
+          });
+        } else {
+          tracer.endSpan(opts.spanId, { status: opts.status, attrs: opts.attrs });
+        }
+      } catch (error) {
+        notice = notice || error.message;
+      }
+      failure = notice;
+    }
+    if (verb === 'start' && !spanId) spanId = crypto.randomBytes(6).toString('hex');
+    if (failure) unavailable(failure);
+    if (verb === 'start') {
+      process.stdout.write(
+        json ? JSON.stringify({ ok: true, span_id: spanId, ...(failure ? { trace: 'unavailable' } : {}) }) + '\n' : spanId + '\n'
+      );
+    } else if (json) {
+      process.stdout.write(
+        JSON.stringify(failure ? { ok: true, trace: 'unavailable', reason: failure } : { ok: true }) + '\n'
+      );
+    }
+    return 0;
+  }
+
+  if (verb === 'summarize') {
+    const brief = opts.brief;
+    const fail = (reason) => {
+      if (json || brief) process.stdout.write(JSON.stringify({ trace: 'unavailable', reason }) + '\n');
+      else unavailable(reason);
+      return brief ? 0 : 1;
+    };
+    if (parsed.error) return fail(parsed.error.message);
+    if (parsed.runId === undefined) return fail('--run-id is required');
+    let file;
+    try {
+      file = runTrace.tracePath(projectRoot, parsed.runId);
+    } catch (error) {
+      return fail(error.message.replace(/^trace: /, ''));
+    }
+    let read;
+    try {
+      read = runTrace.readTrace(file);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        let why = 'no span was recorded';
+        try {
+          fs.accessSync(path.dirname(file), fs.constants.W_OK);
+        } catch (accessError) {
+          why = `the trace dir is not writable (${accessError.code || accessError.message})`;
+        }
+        return fail(`cannot read ${file} (ENOENT): ${why}`);
+      }
+      return fail(`cannot read ${file}: ${error.code || error.message}`);
+    }
+    const summary = runTrace.summarize(read, { path: file });
+    if (!summary) return fail(`no spans recorded in ${file}`);
+    summary.warnings = read.warnings;
+    if (brief) process.stdout.write(JSON.stringify(runTrace.briefSummary(summary, { path: file })) + '\n');
+    else if (json) process.stdout.write(JSON.stringify(summary) + '\n');
+    else process.stdout.write(runTrace.formatSummary(summary) + '\n');
+    return 0;
+  }
+
+  const message = `Unknown trace verb '${verb === undefined ? '' : verb}'. Usage: toolchain-cli trace <start|end|summarize> --run-id <id> ...`;
+  if (json) process.stdout.write(JSON.stringify({ ok: false, error: { code: 'UNKNOWN_SUBCOMMAND', message } }) + '\n');
+  else process.stderr.write(message + '\n');
+  return 2;
+}
+
+/**
  * CLI entry point.
  *
  * @param {string[]} argv `process.argv.slice(2)`
@@ -991,6 +1148,10 @@ function main(argv, ctx = { projectRoot: process.cwd(), env: process.env, detect
   const parsed = parseArgs(argv);
   const { subcommand, json, positionals, error } = parsed;
 
+  if (subcommand === 'trace') {
+    return traceCommand(Array.isArray(argv) ? argv : [], parsed, ctx);
+  }
+
   if (error) {
     if (json) {
       process.stdout.write(JSON.stringify({ ok: false, error }) + '\n');
@@ -1004,7 +1165,7 @@ function main(argv, ctx = { projectRoot: process.cwd(), env: process.env, detect
 
   if (!handler) {
     const usage =
-      'Usage: toolchain-cli <resolve|explain|validate|run|preflight|confirm-status|confirm-record> [--json]';
+      'Usage: toolchain-cli <resolve|explain|validate|run|preflight|confirm-status|confirm-record|trace> [--json]';
     const message = subcommand
       ? `Unknown subcommand '${subcommand}'. ${usage}`
       : `Missing subcommand. ${usage}`;
