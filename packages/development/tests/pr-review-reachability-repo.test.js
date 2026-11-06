@@ -70,7 +70,7 @@ describe('TRD-037 AC-023-1: the real entry points reach the real behaviour', () 
       const trace = result.entryPoints.find((item) => item.id === entry.id);
       expect(trace).toBeDefined();
       expect(trace.unreachable).toEqual([]);
-      expect(trace.reached.slice().sort()).toEqual(['convergence', 'tier', 'verified-findings']);
+      expect(trace.reached.slice().sort()).toEqual(['convergence', 'mode', 'tier', 'verified-findings']);
     }
   });
 

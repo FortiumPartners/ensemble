@@ -19,7 +19,7 @@
  * -- so the proof is made THROUGH the entry point, never around it. Break any
  * one link and the capability is unreachable, however green its own tests are.
  *
- * The three capabilities are the behaviours AC-023-1 names, mapped to the
+ * The capabilities are the behaviours AC-023-1 names (plus `mode`, the review-run mode), mapped to the
  * subcommands that implement them in the TRD's data flow (architecture, line
  * "SKILL.md --> pr-review-cli.js depth | slices | ledger | status"):
  *
@@ -29,6 +29,8 @@
  *                                                     repeat suppression and
  *                                                     the delta re-review range
  *   tier               `tier`                      -- change-driven risk tier
+ *   mode               `mode`                      -- light or full review-run
+ *                                                     mode, from the tier
  *
  * Convergence needs ALL THREE of its subcommands: a round cap with no repeat
  * suppression still loops on the same finding, and neither converges without
@@ -55,6 +57,7 @@ const CAPABILITIES = Object.freeze({
   'verified-findings': Object.freeze(['votes']),
   convergence: Object.freeze(['status', 'ledger', 'scope']),
   tier: Object.freeze(['tier']),
+  mode: Object.freeze(['mode']),
 });
 
 /** The four runtimes REQ-006/AC-023-2 requires equivalence (or a stated reduction) across. */
