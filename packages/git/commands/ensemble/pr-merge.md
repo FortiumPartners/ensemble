@@ -1,9 +1,9 @@
 ---
 name: "ensemble:pr-merge"
 description: "Drive an open PR to green and merged by dispatching one subagent per failing CI check and unresolved review thread, routed through the correct orchestrator"
-version: "2.2.0"
+version: "2.3.0"
 category: "git"
-last-updated: "2026-10-27"
+last-updated: "2026-11-06"
 allowed-tools: "Read, Bash, Task, Grep, Glob, TodoWrite"
 capabilities-required: "host.change-request-view, host.change-request-checks, host.change-request-merge, host.change-request-reviews"
 capabilities-optional: "host.change-request-threads"
@@ -40,7 +40,7 @@ parallel, then re-verified against live state until green, then merged once the 
 **3. Baseline Findings Manifest**
    Same manifest shape is rebuilt at the top of every round.
 
-- Checks: run the local-ci-gate skill for the current head; its verdict (verified pass for this exact head, or no/failed/stale run) replaces waiting on hosted checks. Pass the skill the repo (owner/name), PR_NUMBER, and the PR's base branch ref (origin/<baseRefName>, fetched fresh) as baseRef. A failed gate run is a finding of kind check. Hosted checks are not watched to completion.
+- Checks: run the local-ci-gate skill for the current head; its verdict (verified pass for this exact head, or no/failed/stale run) replaces waiting on hosted checks. Pass the skill the repo (owner/name), PR_NUMBER, and the PR's base branch ref (origin/<baseRefName>, fetched fresh) as baseRef. A failed gate run is a finding of kind check.
 - Reviews: run node "$TOOLCHAIN_CLI" run host.change-request-reviews --run-id "$RUN_ID" --arg id=<PR_NUMBER> --json and parse as CR_REVIEWS (ok:false: print that review state cannot be verified through this host adapter and HALT for a human; never treat it as no reviews); classify each of data.reviews by its authorType field (Bot vs User), never by name. For a HUMAN reviewer whose latest decisive review is CHANGES_REQUESTED, every entry of data.threads (unresolved threads) is one finding. Bot-authored CHANGES_REQUESTED reviews and bot threads are not findings that block merge.
 - If the gate reports a verified pass for this head and no human reviewer's latest decisive review is CHANGES_REQUESTED and mergeable == MERGEABLE: skip to Merge and Report (skipping remediation never skips the Review Merge Gate, which still requires mergeable:true before merging).
 - Otherwise write a numbered manifest of { finding_id, kind: check|review_thread, name, raw_log_excerpt_or_comment_body, link }.
@@ -109,7 +109,7 @@ parallel, then re-verified against live state until green, then merged once the 
 
 **3. Final Report**
 
-- Last line of stdout, valid JSON, no prose after it: { pr_number, pr_url, rounds_executed, findings_total, findings_resolved, findings_escalated, merged (bool), halted_reason (string|null), gate_mergeable (bool), gate_blockers (array of blocker codes, empty when mergeable), gate_tier (string|null), branch_protection_enforced (bool|null -- null when the protection read failed, never true by assumption) }
+- Last line of stdout, valid JSON, no prose after it: { pr_number, pr_url, rounds_executed, findings_total, findings_resolved, findings_escalated, merged (bool), halted_reason (string|null), gate_mergeable (bool), gate_blockers (array of blocker codes, empty when mergeable), gate_tier (string|null), branch_protection_enforced (bool|null -- null when the protection read failed, never true by assumption), trace_summary }
 
 ## Expected Output
 
