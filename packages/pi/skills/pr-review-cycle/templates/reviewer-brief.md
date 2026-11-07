@@ -15,6 +15,15 @@ call, or when your timebox ends, STOP and return the findings you have so
 far, plus the paths you did not get to. A short honest list now is worth
 more than a complete one late.
 
+Before you spend calls on glob or path-matching edge cases in
+`pr-review-paths.js` or on approval-gate sequences, read the header of
+`packages/development/tests/pr-review-paths-property.test.js` (it lists the
+name forms it generates and the ones it does not) and the chains in
+`pr-review-gate-chain.test.js`. A form or transition they already cover is
+checked there: do not re-derive it. Report what they do not cover, and any
+rule you think is wrong: the oracle is written from the same rules as the
+matcher, so the test cannot show that a rule is the right one.
+
 Record each finding with its file and line, its failure mode and the
 evidence, as Step 2 describes.
 
