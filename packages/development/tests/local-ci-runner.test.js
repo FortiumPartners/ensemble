@@ -11,6 +11,7 @@ const {
   sweepStaleClones,
   findUnmirroredSteps,
   requiredNodeVersions,
+  worstCaseMs,
   RUNS_DIR,
 } = require('../lib/local-ci-runner');
 
@@ -288,6 +289,46 @@ status_context: ensemble/local-ci
     expect(r.ok).toBe(false);
     expect(r.failures[0].kind).toBe('node-version');
     expect(deps.calls).toHaveLength(0);
+  });
+});
+
+describe('local-ci-runner: worstCaseMs (what a waiter for the gate lock sizes its patience from)', () => {
+  const COMMAND_LIMIT_MS = 10 * 60 * 1000;
+
+  /** What the runner really allows: the limit it hands to deps.run for every command it starts (an absent limit is the default). */
+  function limitsGivenByRunner(extra) {
+    const base = fakeDeps();
+    const limits = [];
+    const deps = {
+      ...base,
+      run: (cmd, opts) => {
+        limits.push(opts.timeoutMs === undefined ? COMMAND_LIMIT_MS : opts.timeoutMs);
+        return base.run(cmd, opts);
+      },
+    };
+    expect(gate(extra, deps).ok).toBe(true);
+    return limits;
+  }
+
+  test('equals the sum of the limits the runner gives the commands it starts: per Node version, the node check plus every step', () => {
+    const limits = limitsGivenByRunner({});
+    expect(limits).toHaveLength(2 * (1 + CI_STEPS.length)); // two Node versions, one node check and three steps each
+    expect(worstCaseMs(approvalSet)).toBe(limits.reduce((a, b) => a + b, 0));
+    expect(worstCaseMs(approvalSet)).toBe(80 * 60 * 1000);
+  });
+
+  test('follows a per-step limit, while the node check keeps the default limit', () => {
+    const limits = limitsGivenByRunner({ stepTimeoutMs: 60 * 1000 });
+    expect(worstCaseMs(approvalSet, { stepTimeoutMs: 60 * 1000 })).toBe(limits.reduce((a, b) => a + b, 0));
+    expect(worstCaseMs(approvalSet, { stepTimeoutMs: 60 * 1000 })).toBe(2 * (COMMAND_LIMIT_MS + 3 * 60 * 1000));
+  });
+
+  test('counts each required Node version once and tolerates an approval set with nothing to run', () => {
+    const dup = { checks: [{ matrix: { 'node-version': 22 } }, { matrix: { 'node-version': 22 } }], steps: [{ name: 'a', cmd: 'x' }] };
+    expect(worstCaseMs(dup)).toBe(1 * (COMMAND_LIMIT_MS + 1 * COMMAND_LIMIT_MS));
+    expect(worstCaseMs({ checks: [], steps: [] })).toBe(0);
+    expect(worstCaseMs({})).toBe(0);
+    expect(worstCaseMs(undefined)).toBe(0);
   });
 });
 

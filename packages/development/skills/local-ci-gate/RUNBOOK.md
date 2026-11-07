@@ -127,3 +127,62 @@ that head (`MODE=gate`, this skill), confirm `posted:true` and `mergeReady:true`
 then open the PR. The status is attached to the commit, so the PR's head carries
 it from the moment it opens. If any commit is added afterwards the head moves and
 the gate must run again; a status on an older commit never counts.
+
+## One run at a time (lock, queue, capacity, load policy)
+
+`gate` and `run` take a lock around the run step (`lib/local-ci-lock.js`): both clone the head and run the repository's
+whole CI, so both queue. The lock is a PID lockfile at `~/.ensemble/locks/local-ci-gate.lock`: outside every worktree and
+persistent (never `/tmp`). It lives under the user's home directory, so it serializes the processes that share that home;
+another account, or a process started with a different `$HOME`, has its own lock. A holder whose pid is dead (or whose
+record is unreadable) is reclaimed; a live holder is honoured; a lock written by another host cannot be judged and is
+honoured. A second run waits its turn, polling (waiters are not served first-come-first-served), and the report carries
+`queued_ms`. Posting the status happens after the lock is released, and the lock is released when the run throws. The
+review precheck (`review-precheck-cli.js`) starts a detached `gate` per head; that gate takes the lock like any other,
+and while it waits its start marker stays live, so a second precheck for the same head starts nothing.
+
+A run that cannot get the lock stops at `stage:"lock"` with an `errorCode` and runs and posts nothing: `lock-timeout` (the
+wait ran out; the error names the holder pid, or the lock path when it holds no readable record, such as a dangling
+symlink), `load-too-high`, `bad-lock-policy`, or `lock-io` (the lock directory cannot be created, or the lock cannot be
+linked or read; the error names the path and the cause). If a holder's pid is gone but its number was reused by an
+unrelated process, or the path is a dangling symlink, remove the file by hand after checking: the gate never deletes a
+lock held by a live pid or one it cannot read.
+
+Policy comes from the maintainer's environment (the payload cannot carry it; a malformed value refuses the run with
+`errorCode` `bad-lock-policy`):
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `ENSEMBLE_LOCAL_CI_LOCK_DIR` | directory holding the lock file | `~/.ensemble/locks` |
+| `ENSEMBLE_LOCAL_CI_LOCK_TIMEOUT_MS` | longest wait for the lock (`0` = try once) | `1800000`, or one worst-case hold if longer |
+| `ENSEMBLE_LOCAL_CI_MAX_LOAD` | 1-minute load-average ceiling; unset = no load check | unset |
+| `ENSEMBLE_LOCAL_CI_LOAD_POLICY` | above the ceiling: `wait` (until the timeout) or `refuse` (`errorCode` `load-too-high`) | `wait` |
+
+### Capacity
+
+A waiter waits as long as the runs ahead of it take. One gate on this repository takes about 5 to 6 minutes on a quiet
+machine (`MEASUREMENT.md`: 334 s cold, 304 s warm) and 8 to 9 under load (plan, section 1). The floor of 30 minutes
+covers three runs ahead of yours at 9 minutes each, the three-swarm case the lock exists for; that is the supported queue
+depth at normal durations.
+
+The runner has no run-level deadline. Every command it starts (the Node version check of each required Node version,
+then each trusted step) is cut off after 10 minutes, and nothing else is bounded, so one run takes at worst
+`Node versions × (steps + 1) × 10 minutes`, plus the clone and the Node download, which have no timeout. For this
+repository's `.ensemble/local-ci.yaml` (2 Node versions, 9 steps) that is 200 minutes. A run asks for the lock with that
+figure for its own config, and the default wait is raised to it when it is longer than 30 minutes, so one holder that
+stays inside the runner's limits can never make a waiter give up. At that worst case the supported depth is one run
+ahead of yours. An explicit `ENSEMBLE_LOCAL_CI_LOCK_TIMEOUT_MS` always wins: for a deeper queue raise it to the number of
+runs ahead of yours times the duration you see, plus a margin; lower it to find a stuck lock sooner (a pid-reuse lock is
+refused only when the wait runs out).
+
+### Known gaps
+
+- A dead holder whose pid was reused by an unrelated live process stays "held" until the wait runs out.
+- A gate killed with SIGKILL leaves the CI step it was running alive: the runner starts every step in its own process
+  group, so killing the gate's group does not reach it, and the lock sees only the dead pid. The next run can start while
+  that step is still going. After killing a gate, look for its leftover step and stop that too.
+- A run that waits for the lock keeps the head it was started for. If the PR head moves meanwhile it still runs and
+  attests the old head, which never counts for the new one (statuses are per commit).
+
+Do not start gates (or `run`) during a reviewer swarm. The lock keeps runs from overlapping each other; it does not know
+about reviewer or verifier agents, so the caller sequences those: run the gate before they are dispatched or after they
+finish.

@@ -20,6 +20,13 @@ const BASE_REF = `origin/${BASE_BRANCH}`;
 const CONFIG_PATH = '.ensemble/local-ci.yaml';
 const roots = [];
 
+// Every test that imports this helper drives `gate`. Keep them off the machine's real gate lock (~/.ensemble/locks):
+// a maintainer's running gate must not stall the test run, and tests must not write into the home directory. Spawned
+// CLI processes inherit this. A test that wants a specific lock directory sets its own.
+if (!process.env.ENSEMBLE_LOCAL_CI_LOCK_DIR) {
+  process.env.ENSEMBLE_LOCAL_CI_LOCK_DIR = path.join(os.tmpdir(), `ensemble-test-gate-locks-${process.pid}`);
+}
+
 function makeBaseRepo({ config, files = {}, headFiles = {}, baseRef = BASE_REF } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-ci-base-'));
   roots.push(dir);

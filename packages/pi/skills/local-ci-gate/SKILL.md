@@ -12,12 +12,10 @@ description: >-
 # Local CI Gate
 
 Order the steps of the local CI gate for one PR head and report the outcome.
-This skill only sequences, calls `local-ci-cli.js` and reports. It never runs
-CI, never checks out or edits the working tree and never grades results: the
-runner (`local-ci-runner.js`, driven by the CLI) owns the clean clone, the CI
-run and its cleanup, and the CLI computes every verdict. Editable approval set
-and trusted command list: `.ensemble/local-ci.yaml` as committed at the PR's base
-branch ref (never the working tree).
+This skill only sequences, calls `local-ci-cli.js` and reports: the runner owns
+the clean clone and the CI run, and the CLI computes every verdict. The approval
+set and trusted command list come from `.ensemble/local-ci.yaml` at the PR's
+base branch ref, never the working tree.
 
 ---
 
@@ -67,10 +65,14 @@ refusal. Payloads over 1 MiB or malformed JSON are rejected with no effect.
 
 1. `gate` with `{repoRoot, headSha, baseRef, repo, pr, dryRun}` (`baseRef` as for
    `merge`: the freshly fetched `origin/<baseRefName>`; `pr` is the PR number). The CLI orders: prerequisites
-   (Node, git), config, run, record, post.
+   (Node, git), config, lock, run, record, post.
+
+   The run step (and `run`) holds a per-user lock: a second gate waits and reports `queued_ms`. Never start a gate during a
+   reviewer swarm. Policy knobs: `RUNBOOK.md`.
 2. Read the result and report, in this order of precedence:
    - `prerequisite` set: say which prerequisite is missing and that nothing was
      run or posted. Do not fall back to merging.
+   - `stage:"lock"`: not run (`errorCode`, `lockHolder.pid`); report it, never loop-retry or delete the lock file.
    - `cannotAttest:true`: say the gate cannot attest (the status could not be
      posted with the maintainer's `gh` login: not logged in, or the post failed),
      that nothing was published and the merge is refused.
@@ -167,10 +169,9 @@ when a command asks; they carry the same fail-closed rules.
 
 ## Rollout, rollback and the pre-PR step
 
-Enabling the gate as a required check, rolling it back, the owner approvals and
-the optional pre-PR gate step (run `gate` for the branch head, then open the PR)
-are in `RUNBOOK.md` beside this file. Enablement is refused until its
-preconditions hold; never change branch protection from this skill.
+Enabling, rolling back, owner approvals and the optional pre-PR gate step are in
+`RUNBOOK.md` beside this file. Enablement is refused until its preconditions
+hold; never change branch protection from this skill.
 
 ---
 
