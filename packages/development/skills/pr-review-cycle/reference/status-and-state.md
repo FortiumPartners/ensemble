@@ -147,3 +147,43 @@ rule exists to prevent.
 and `reasons`, with the reviewers and verifiers actually dispatched), so a
 reader of the report sees at what depth the review ran and why: a Standard
 review is never mistaken for a Deep one.
+
+**What the report records about timing.** `state` MAY carry a `timing` key: the
+answer of `node "$PR_REVIEW_CLI" timing` with `{ runId }` (or `{ runId, cwd }`),
+computed from the run's span trace (`toolchain-cli trace`,
+`.ensemble/state/toolchain/trace-<runId>.jsonl`, `lib/run-trace.js`), never from
+agent session files. The stage spans are `review` (the orchestrator's whole
+window; attrs `turns` and `tool_calls`), `review.head-read`, `review.gate` (one run
+of the Step 10 gate: the `review-gate` span of `/ensemble-pr-merge`'s own trace
+wraps that command's whole review step and is a different span, never read here),
+`review.classifier`, `review.second-assessor`, `review.security-lane`,
+`review.reviewer`, `review.verifier` and `review.verdict`, each optionally with a
+`round` attr (delta re-reviews are round 2 and later) and agents with an `agent`
+name; `lib/pr-review-timing.js` holds the contract. The answer is the window, the
+**orchestrator-only** time (wall time minus the union of the intervals in which at
+least one dispatched agent was active or a verdict was being computed: the critical
+path counts the verdict, so no minute is in both), the **critical path** (slowest
+reviewer, then slowest verifier, then verdict, per round, each step cut to the
+window, which a critical path needs) and a per-stage table. Three rules keep it
+honest. An agent ends at its **last message**, never at `session_exit`: close its
+span when its result arrives, or, if it can only be closed later, record the real
+end as the span attr `last_message_ts`. A span is as long as the recorder's
+`duration_ms` (monotonic-first), never the difference of two wall-clock timestamps
+(a span that ends at `last_message_ts` is the one exception, since the last message
+is only known as a wall-clock time), and one the recorder flagged `clock_anomaly` is
+unusable; when the wall clock stepped inside the window (a system sleep, a clock
+change), the figures that need positions (agents active, orchestrator-only, before
+the first dispatch, the critical path) are missing with that reason. That check sees
+a step only through a span that was open across it: a forward and a backward step
+both in the gaps between spans leave no trace in the recorder's data. And a figure
+nobody recorded is `{ ms: null, missing: true, reason }`, never zero: a critical path
+with no verdict span, or with two in one round, has no total, steps that overlap or
+run out of order are never summed (the total is missing and names the pair), and an
+unfinished agent makes the orchestrator-only time an upper bound (`bound: 'upper'`).
+Copy the answer into `state.timing` verbatim; do not round, fill in or drop a
+missing figure. Timing is observational only: a `timing` call that fails or answers
+`ok: false` is recorded as it answered, or left out, and never blocks the review,
+the gate or a merge. HONEST LIMIT: nothing in this procedure records the stage spans
+yet (the `review-run` runner is the intended recorder), so until it does a run
+without a hand-written trace has no `timing`, and the report says nothing about
+timing rather than a made-up figure.

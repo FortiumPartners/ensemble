@@ -12,7 +12,7 @@
  * direct `require(...)` call on the same input can never diverge. NO
  * business logic lives here, NO network calls, NO shell calls.
  *
- * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results> < payload.json
+ * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json
  *
  * `review-range` (TRD-013) is a thin pass-through to `chooseReviewRange`:
  * given `lastReviewedSha`, `commits` and `remediationShas` on top of what
@@ -153,6 +153,16 @@
  *              `deadlineAt` is the dispatcher's job, and nothing here may be read as enforcement. No skill or command
  *              calls `results` yet.
  *
+ * `timing` (kata gkt9) reads a run trace (lib/run-trace.js, recorded with `toolchain-cli trace`) and answers the review's
+ * timing from it, never from omp session files: the orchestrator window, orchestrator-only time (wall minus the union
+ * of the intervals in which a dispatched agent was active), the critical path (slowest reviewer -> slowest verifier ->
+ * verdict, per round) and a per-stage table. The stage span names and the rule that an agent ends at its last `message`,
+ * never at `session_exit`, are in lib/pr-review-timing.js. A figure that was not recorded is
+ * `{ ms: null, missing: true, reason }`, never zero. Store the answer under the state report's `timing` key.
+ *   timing     { runId, cwd? } | { spans }
+ *              -- `runId` reads `<cwd or the current directory>/.ensemble/state/toolchain/trace-<runId>.jsonl`;
+ *              `spans` takes materialized run-trace spans directly. Exactly one of the two is required.
+ *
  * The tier, approval and merge-gate subcommands (TRD-026) each take the facts
  * their module grades and answer with that module's result verbatim:
  *   tier       { kinds[{ kind, paths[] }], paths, secondAssessment?, proposedTier?,
@@ -225,6 +235,7 @@ const { resolveRuleFiles } = require('./pr-review-rules');
 const { classifyPaths } = require('./pr-review-paths');
 const { checkDescription } = require('./pr-review-description');
 const { reviewDeadlines, collectResults, toVotesInput, classifyAgentFailure } = require('./pr-review-results');
+const { computeReviewTiming, loadReviewTiming } = require('./pr-review-timing');
 const { tallyVotes } = require('./pr-review-votes');
 const { planVerification } = require('./pr-review-verify-assign');
 const { resolveDepth, checkBounds, boundsFor, planSlices, verifyCoverage } = require('./pr-review-depth');
@@ -697,6 +708,21 @@ function runResults(payload) {
   return { ok: false, reason: `unknown results action ${JSON.stringify(action)} (expected deadlines, collect or failure)` };
 }
 
+/**
+ * `timing` answers the review timing of one run trace. The file read lives in pr-review-timing.js (injectable deps);
+ * this dispatcher only checks the request: exactly one of `runId` (a trace on disk) or `spans` (already materialized).
+ * Anything else is an error, so a misspelt key can never be answered with an empty timing.
+ */
+function runTiming(payload) {
+  if (!isObject(payload)) throw new Error('timing payload must be a JSON object');
+  optionalKeys(payload, { runId: TEXT, cwd: TEXT, spans: ARRAY }, 'timing');
+  if ((payload.runId === undefined) === (payload.spans === undefined)) {
+    throw new Error("timing requires exactly one of the payload keys 'runId' or 'spans'");
+  }
+  if (payload.spans !== undefined) return computeReviewTiming({ spans: payload.spans });
+  return loadReviewTiming({ runId: payload.runId, projectRoot: payload.cwd || process.cwd() });
+}
+
 const HANDLERS = Object.freeze({
   scope: runScope,
   'review-range': runReviewRange,
@@ -726,6 +752,7 @@ const HANDLERS = Object.freeze({
   'eval-stale': runEvalStale,
   reachability: runReachability,
   results: runResults,
+  timing: runTiming,
 });
 
 /**
@@ -744,7 +771,7 @@ function main(argv) {
   if (handler === undefined) {
     process.stdout.write(
       JSON.stringify({
-        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results> < payload.json`,
+        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json`,
       }) + '\n'
     );
     return 1;
@@ -809,6 +836,7 @@ module.exports = {
   runEvalCompare,
   runEvalStale,
   runResults,
+  runTiming,
   LEDGER_ACTIONS,
   HANDLERS,
   main,
