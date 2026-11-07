@@ -106,15 +106,64 @@ capabilities:
   tracker.list:
     run: ["br", "list", "--all", "--limit", "0", "--json"]
 
-  # br create --json: real output not captured (create is a mutating command this task may
-  # not invoke for real -- see SKILL.md "Known limits"); root "$[0]" follows the same
-  # array-of-one convention `br schema commands` documents for every other single-entity br
-  # command (show/dep tree/label list/comments list/stale/ready all use shape="array").
+  # Find-by-key. `br list` has NO filter on `external_ref` (captured live: `--desc-contains`
+  # and `br search` do not see it), so this lists EVERY bead in the workspace (closed ones
+  # included, `--all`) and the caller-side exact match on each item's `external_ref` against
+  # the key happens in lib/tracker-findings.js#findByKey -- the manifest's declarative mapping
+  # cannot filter. It is deliberately NOT scoped by label: br enforces `external_ref`
+  # uniqueness across the whole workspace whatever the label (captured live: a second bead
+  # with the same key under another label is refused, exit 7, `CONFIG_ERROR ... already
+  # exists`; br-create-duplicate-key.error.json), so a label-scoped list can miss the bead
+  # that holds the key and a find-then-create then fails with an opaque duplicate error. Every
+  # listed item carries its own `labels`, so the caller judges scope. Known limit (captured
+  # live): a DELETED bead (status `tombstone`) still holds its key but neither `--all` nor
+  # `--status all` lists it (only `--status tombstone` does), so such a key reads as not found
+  # and creating it is refused. `${key}` is a declared contract input but deliberately absent
+  # from argv. Raw `{issues:[...]}` stdout, no `parse` block, same reason as tracker.list.
+  tracker.find-by-key:
+    run: ["br", "list", "--all", "--limit", "0", "--json"]
+
+  # br create --json: CAPTURED LIVE (br 0.6.0, scratch workspace under ~/.omp, never this
+  # repo's own .beads/; stored under scripts/tests/fixtures/toolchain/adapter-tracker-beads-
+  # samples/br-create-*.sample.json). It prints a BARE issue object, NOT an array-of-one like
+  # `show`/`update`/`close` -- the earlier `root: "$[0]"` here was an inference from `br schema
+  # commands` and was wrong: it made every real `tracker.create` fail `BAD_OUTPUT: mapOutput:
+  # path '$[0]' indexes '[0]' into a non-array value` AFTER the bead had already been created.
   tracker.create:
     run: ["br", "create", "--title", "${title}", "--type", "${type}", "-d", "${description}", "--json"]
     parse:
       format: json
-      root: "$[0]"
+      root: "$"
+      map:
+        id: "$.id"
+
+  # br create with labels, priority and an external dedupe key in ONE call (captured live,
+  # br-create-detailed.sample.json). `-l` takes a comma-separated list, `-p` a 0-4 number,
+  # `--external-ref` any string (it is br's only per-issue free-form key field; `br list` has
+  # no filter on it, see tracker.find-by-key). Every placeholder is mandatory (runner.js
+  # resolveArg); an empty string is accepted by br for labels/externalKey (captured live), but
+  # the caller-side wrapper (lib/tracker-findings.js) refuses an empty key. Output is the same
+  # bare issue object as tracker.create.
+  tracker.create-detailed:
+    run:
+      - br
+      - create
+      - "--title"
+      - "${title}"
+      - "--type"
+      - "${type}"
+      - "-d"
+      - "${description}"
+      - "-l"
+      - "${labels}"
+      - "-p"
+      - "${priority}"
+      - "--external-ref"
+      - "${externalKey}"
+      - "--json"
+    parse:
+      format: json
+      root: "$"
       map:
         id: "$.id"
 
@@ -122,9 +171,12 @@ capabilities:
   # is one opaque value, but br update takes one flag per field (--title/-d/-s/-p/...); this
   # adapter's run template is a fixed argv (packages/development/lib/toolchain/runner.js
   # `buildArgv` substitutes named placeholders into a static template, it cannot expand one
-  # input into a variable set of flags). `--notes` (free-form, additive, never destructive to
-  # the primary description) is the most general-purpose textual field br exposes, so
-  # "fields" is treated as the new notes text.
+  # input into a variable set of flags). `--notes` is the most general-purpose textual field br
+  # exposes (never touches the description), so "fields" is treated as the new notes text.
+  # CAPTURED LIVE (br 0.6.0): `--notes` REPLACES the whole notes field (two `--notes` calls
+  # leave only the second text); it is NOT additive, contrary to this entry's earlier comment.
+  # Callers that must keep history use tracker.update-detailed (`--append-notes`) or
+  # tracker.comment. Not changed here: refine-beads depends on this capability as shipped.
   tracker.update:
     run: ["br", "update", "${id}", "--notes", "${fields}", "--json"]
     parse:
@@ -185,6 +237,62 @@ capabilities:
         deferred: open
         in_review: in_progress
 
+  # br update <id> --title/--description/--priority/--append-notes --json (captured live,
+  # br-update-detailed.sample.json): array-of-one `[{"id","title","status","priority",
+  # "assignee","owner","updated_at","notes":{"appended","applied","chars_before",
+  # "chars_after","text"}}]`. `--append-notes` really appends (newline-joined); labels and
+  # status are deliberately NOT flags here, so a re-review never drops a label an operator
+  # added (br's `--add-label` rejects a comma list and, on any invalid label, fails the WHOLE
+  # update -- captured live -- so labels go through tracker.label instead).
+  tracker.update-detailed:
+    run:
+      - br
+      - update
+      - "${id}"
+      - "--title"
+      - "${title}"
+      - "--description"
+      - "${description}"
+      - "--priority"
+      - "${priority}"
+      - "--append-notes"
+      - "${notes}"
+      - "--json"
+    parse:
+      format: json
+      root: "$[0]"
+      map:
+        id: "$.id"
+
+  # br close <id> --reason <why> --transition-comment <text> --json (captured live,
+  # br-close-with-reason.sample.json): `[{"id","title","status":"closed","closed_at",
+  # "close_reason"}]`. br has no commit flag, so the resolving commit is recorded as a
+  # comment committed atomically with the close (`br comments list` shows it); `--reason`
+  # holds the human reason. `br close` may still refuse (open dependencies, close policy):
+  # that surfaces as TOOL_FAILED with br's own message, never as ok:true.
+  tracker.close-with-reason:
+    run:
+      - br
+      - close
+      - "${id}"
+      - "--reason"
+      - "${reason}"
+      - "--transition-comment"
+      - "closed at commit ${commit}"
+      - "--json"
+    parse:
+      format: json
+      root: "$[0]"
+      map:
+        id: "$.id"
+        status: "$.status"
+      statusMap:
+        open: open
+        in_progress: in_progress
+        closed: closed
+        deferred: open
+        in_review: in_progress
+
   # `br comments add <id> <text> --json` returns a bare comment object (confirmed live, `br`
   # 0.6.0: `{"id":454,"issue_id":"...","author":"...","text":"...","created_at":"..."}`) whose
   # `id` is the new COMMENT's own numeric id, not the issue id -- it is not a work-item shape
@@ -207,21 +315,26 @@ capabilities:
   tracker.comments:
     run: ["br", "comments", "list", "${id}", "--json"]
 
+  # br dep add/remove --json: CAPTURED LIVE (br 0.6.0, br-dep-add.sample.json /
+  # br-dep-remove.sample.json): a bare `{"status":"ok","issue_id","depends_on_id","type",
+  # "action"}` object with NO `id` field and no array wrapper. The earlier `root: "$[0]"` /
+  # `id: "$.id"` was inferred and could never map a real response (BAD_OUTPUT after the edge
+  # was already written); the issue the edge belongs to is `issue_id`.
   tracker.dep-add:
     run: ["br", "dep", "add", "${id}", "${dependsOnId}", "--type", "${type}", "--json"]
     parse:
       format: json
-      root: "$[0]"
+      root: "$"
       map:
-        id: "$.id"
+        id: "$.issue_id"
 
   tracker.dep-remove:
     run: ["br", "dep", "remove", "${id}", "${dependsOnId}", "--json"]
     parse:
       format: json
-      root: "$[0]"
+      root: "$"
       map:
-        id: "$.id"
+        id: "$.issue_id"
 
   # br label add <ids> -l <labels> --json: no `parse` block, same CATEGORY_NORMALIZED_SCHEMA
   # reason as tracker.list -- the declared output is [ids, labels], never "id".

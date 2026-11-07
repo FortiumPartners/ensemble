@@ -279,7 +279,8 @@ function brStubSource({ createdId = 'BR-100' } = {}) {
     "if (argv[0] === '--version') {",
     "  process.stdout.write('br stub 1.0.0\\n');",
     "} else if (argv[0] === 'create') {",
-    `  out([{ id: ${JSON.stringify(createdId)} }]);`,
+    // Real br create --json prints a BARE issue object (captured live, br 0.6.0), not array-of-one.
+    `  out({ id: ${JSON.stringify(createdId)} });`,
     "} else if (argv[0] === 'update') {",
     "  const statusIdx = argv.indexOf('--status');",
     "  const status = statusIdx === -1 ? undefined : argv[statusIdx + 1];",

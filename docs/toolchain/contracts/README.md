@@ -16,7 +16,7 @@ Each tool category has a versioned capability contract. Commands and agents call
 | [platform-cloud](platform-cloud.md) | `1.0` | 2 | 1 | 1 |
 | [review](review.md) | `1.0` | 3 | 2 | 1 |
 | [test-runner](test-runner.md) | `1.0` | 1 | 1 | 0 |
-| [tracker](tracker.md) | `1.0` | 13 | 4 | 9 |
+| [tracker](tracker.md) | `1.0` | 17 | 4 | 13 |
 | [work-graph](work-graph.md) | `2.0` | 3 | 0 | 3 |
 | [workflow](workflow.md) | `1.0` | 11 | 5 | 6 |
 | [worktree](worktree.md) | `1.0` | 4 | 2 | 2 |
