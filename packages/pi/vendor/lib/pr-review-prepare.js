@@ -18,7 +18,8 @@
  *     range.diff       BASE...HEAD
  *     delta.diff       lastReviewedSha..HEAD, only when `chooseReviewRange` says
  *                      mode=delta; otherwise ABSENT, with the reason in the manifest
- *     facts.json       policy, tier inputs, `paths` classification inputs and result,
+ *     facts.json       delta plan (`deltaPlan`: delta or full, with the read set of a delta),
+ *                      policy, tier inputs, `paths` classification inputs and result,
  *                      changedPaths: the union of `git diff --numstat -z --no-renames`
  *                      over `BASE HEAD` (the form the skill pins) and `BASE...HEAD`
  *                      (what range.diff shows), so no path the PR changes is dropped
@@ -85,14 +86,17 @@ const path = require('path');
 const { chooseReviewRange, isObjectId } = require('./pr-review-scope');
 const { loadPolicy } = require('./pr-review-policy');
 const { classifyPaths } = require('./pr-review-paths');
+const { planDeltaReview } = require('./pr-review-delta');
+const { buildImportGraph, mentionNeedles, SCANNED_EXTENSIONS } = require('./pr-review-import-graph');
 const { redact } = require('./pr-review-state');
 const { defaultDeps, PROBE_SOURCE, DEFAULT_BASELINE_TIMEOUT_MS, buildBaselineEnv, inheritedSecretValues, scrubSecretValues } = require('./review-prepare-runtime');
 
 /**
  * 2: changedPaths is the union of the two-argument and the merge-base listing (version 1 held the two-argument one
  * only), the directory is keyed by the fingerprint, and facts carry no `guidance.warnings`.
+ * 3: facts carry `delta` (the paths changed since the last reviewed head) and `deltaPlan` (what a delta re-review reads).
  */
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const FINGERPRINT_DIR_LENGTH = 16;
 const DEFAULT_STATE_ROOT = path.join('.ensemble', 'pr-review', 'prepare');
 /** The test files the default baseline runs: jest-style names. A caller with another runner passes `testFiles`/`testCommand`. */
@@ -274,7 +278,7 @@ function readInput(options) {
   const { repoRoot, runId } = options;
   if (!isText(repoRoot) || !path.isAbsolute(repoRoot)) throw new PrepareError('invalid-input', 'input', 'repoRoot must be an absolute path');
   if (!isText(runId)) throw new PrepareError('invalid-input', 'input', 'runId is required');
-  for (const key of ['baseSha', 'headSha', 'mergeBaseSha', 'prBaseSha', 'parentPhaseTipSha', 'lastReviewedSha']) {
+  for (const key of ['baseSha', 'headSha', 'mergeBaseSha', 'prBaseSha', 'parentPhaseTipSha', 'lastReviewedSha', 'reviewedHeadSha', 'reviewedBaseSha']) {
     const value = options[key];
     if (value !== undefined && value !== null && value !== '' && !isObjectId(value)) {
       throw new PrepareError('invalid-input', 'input', `${key} is not a full object id`);
@@ -516,10 +520,21 @@ function rangeFacts(range) {
 }
 
 /**
+ * What the caller says the last COMPLETED round recorded in the review-state report, as the delta plan takes it: on the
+ * caller's word, so it is an input like any other (facts.json states it, the fingerprint covers it). Only a delta range
+ * reads it; for any other range it is `null`.
+ */
+function reviewedRecord(options, range) {
+  if (range.mode !== 'delta') return null;
+  return { headSha: options.reviewedHeadSha || null, baseSha: options.reviewedBaseSha || null };
+}
+
+/**
  * Every input that decides what a preparation holds. Its sha256 names the directory and is checked on reuse, so two
  * preparations that differ in ANY of these never share (or replace) a directory: the resolved range decision (mode,
- * reason, reviewed head, the commits nobody vouched for), the baseline's inputs (test files, command, timeout, the
- * node_modules it resolves from) and the run and repository the directory belongs to.
+ * reason, reviewed head, the commits nobody vouched for), what the review state says the last completed round reviewed
+ * (it decides the delta plan), the baseline's inputs (test files, command, timeout, the node_modules it resolves from)
+ * and the run and repository the directory belongs to.
  */
 function fingerprintInputs(options, range, nodeModules) {
   return {
@@ -529,6 +544,7 @@ function fingerprintInputs(options, range, nodeModules) {
     baseSha: range.baseSha,
     headSha: range.headSha,
     range: rangeFacts(range),
+    reviewed: reviewedRecord(options, range),
     testFiles: options.testFiles ? [...options.testFiles].sort() : null,
     testCommand: options.testCommand || null,
     baselineTimeoutMs: options.baselineTimeoutMs || DEFAULT_BASELINE_TIMEOUT_MS,
@@ -626,6 +642,14 @@ function resultFrom(manifest, dir, reused) {
  * @param {string} [options.lastReviewedSha] The head the previous round reviewed; with `remediationShas` it decides
  *   (via `chooseReviewRange`) whether a `delta.diff` is produced.
  * @param {string[]} [options.remediationShas]
+ * @param {string} [options.reviewedHeadSha] The `reviewedHeadSha` the review-state report recorded for the last COMPLETED
+ *   round: a head that round reviewed. The delta plan treats `lastReviewedSha` as seen only when it is this head; without it
+ *   the plan is `full` (`head-never-seen`). The caller reads it from the state: this step never infers it from git, because
+ *   a commit the repository holds is not a head anyone reviewed.
+ * @param {string} [options.reviewedBaseSha] The `baseSha` the same report recorded: the resolved base that round reviewed
+ *   against. The delta plan is `full` (`base-moved`) when the base resolved now is another one (a retargeted PR, a moved
+ *   stacked-phase parent), and `full` (`reviewed-base-unknown`) without it. `chooseReviewRange` takes no reviewed base, so
+ *   `mode` and `delta.diff` still follow it: only the plan compares the two.
  * @param {string} [options.stateRoot]       Default `<repoRoot>/.ensemble/pr-review/prepare`.
  * @param {string[]} [options.testFiles]     Baseline test files; default: the test files the PR changed or whose
  *   source it changed.
@@ -667,11 +691,95 @@ function prepareReview(options, injected = {}) {
 }
 
 /**
+ * The lines of the head's source that can reference a file, for the graph (`referencesOf` decides what each one says): a
+ * quoted relative path whatever calls it, a `require` / `import()` / jest module call (so one with a computed specifier is
+ * seen, not skipped), an HTML `src` or `href`.
+ */
+const REFERENCE_LINE = [
+  '["\'`]\\.\\.?(/|["\'`])',
+  'require[[:alnum:]_.]*[[:space:]]*\\(',
+  'import[[:space:]]*\\(',
+  '(jest|vi)\\.(mock|doMock|unmock|dontMock|setMock|requireActual|requireMock|importActual|importMock|createMockFromModule)[[:space:]]*\\(',
+  '(src|href)[[:space:]]*=[[:space:]]*["\']',
+].join('|');
+
+/**
+ * One `git grep` over the head tree, no checkout: `[{ path, text }]`, or null when it failed (the plan then falls back to a
+ * full re-read). `matcher` is the pattern arguments; `pathspecs` are anchored at the repository top (`:(top)`), because
+ * `git grep` has no `--full-tree` and without the anchor it searches only the subtree of its working directory, which would
+ * make the answer depend on where the step runs (`ls-tree --full-tree` in the same flow does not).
+ */
+function grepHead(deps, repoRoot, headSha, matcher, pathspecs) {
+  const r = deps.git(['grep', '-I', '-n', '-z', '--full-name', ...matcher, headSha, '--', ...pathspecs], { cwd: repoRoot });
+  if (r.status === 1) return [];
+  if (r.status !== 0) return null;
+  // Each record is `<head>:<path>\0<line number>\0<text>\n`; the path is verbatim and may hold a newline, the text cannot.
+  const out = String(r.stdout);
+  const prefix = `${headSha}:`;
+  const lines = [];
+  let i = 0;
+  while (i < out.length) {
+    const pathEnd = out.indexOf('\0', i);
+    const numberEnd = pathEnd === -1 ? -1 : out.indexOf('\0', pathEnd + 1);
+    if (numberEnd === -1) return null;
+    let textEnd = out.indexOf('\n', numberEnd + 1);
+    if (textEnd === -1) textEnd = out.length;
+    const named = out.slice(i, pathEnd);
+    if (!named.startsWith(prefix)) return null;
+    lines.push({ path: named.slice(prefix.length), text: out.slice(numberEnd + 1, textEnd) });
+    i = textEnd + 1;
+  }
+  return lines;
+}
+
+/** The reference lines of every scanned file of the head, for the import graph. */
+function scanReferenceLines(deps, repoRoot, headSha) {
+  return grepHead(deps, repoRoot, headSha, ['-E', '-e', REFERENCE_LINE], SCANNED_EXTENSIONS.map((ext) => `:(top)*${ext}`));
+}
+
+/**
+ * The lines of `files` (the ones whose references the graph could not read) that may name a changed path; the planner
+ * decides which do. Only those files are searched: everything else was read exactly.
+ */
+function scanNameLines(deps, repoRoot, headSha, files, changedPaths) {
+  const needles = mentionNeedles(changedPaths);
+  if (needles.length === 0 || files.length === 0) return [];
+  return grepHead(deps, repoRoot, headSha, ['-F', ...needles.flatMap((needle) => ['-e', needle])], files.map((file) => `:(top,literal)${file}`));
+}
+
+/**
+ * What a delta re-review reads (kata 801a). The repo scans live here, outside the pure planner: the changed paths of the
+ * delta, their classification (same base-commit declaration as `paths`), what the review state says the last completed
+ * round reviewed (the caller's record, never inferred from git), the import graph of the head and, for the files the graph
+ * could not read, the lines that name a changed path. A full range is passed through unrefined.
+ */
+function deriveDelta(deps, options, range, entries, declarationInput) {
+  if (range.mode !== 'delta') return { delta: null, deltaPlan: planDeltaReview({ delta: range }) };
+  const { repoRoot } = options;
+  const deltaPaths = listChanged(deps, repoRoot, [range.lastReviewedSha, range.headSha]).map((f) => f.path);
+  const lines = scanReferenceLines(deps, repoRoot, range.headSha);
+  const importGraph = lines === null ? undefined : buildImportGraph({ filePaths: entries.map((entry) => entry.path), lines });
+  const nameLines = importGraph !== undefined && importGraph.computed.length > 0
+    ? scanNameLines(deps, repoRoot, range.headSha, importGraph.computed, deltaPaths)
+    : undefined;
+  const reviewed = reviewedRecord(options, range);
+  const deltaPlan = planDeltaReview({
+    delta: range,
+    changedPaths: deltaPaths,
+    pathsClassification: classifyPaths({ ...declarationInput, changedPaths: deltaPaths }),
+    reviewed,
+    importGraph,
+    nameLines,
+  });
+  return { delta: { lastReviewedSha: range.lastReviewedSha, reviewedHeadSha: reviewed.headSha, reviewedBaseSha: reviewed.baseSha, changedPaths: deltaPaths }, deltaPlan };
+}
+
+/**
  * Everything git, and this module, can tell about the head: the diffs, facts.json, probe.js. Held in memory (nothing is
  * written here) because it is what a published directory of these inputs must contain AND what gets published.
  * Returns `{ facts, changedPaths, absent, files: Map(name -> Buffer) }`.
  */
-function deriveFromGit(deps, options, range, nodeModules, treeSha) {
+function deriveFromGit(deps, options, range, nodeModules, treeSha, entries) {
   const { repoRoot } = options;
   const { baseSha, headSha } = range;
   const diffFlags = ['diff', '--no-ext-diff', '--no-textconv', '--no-color', '--unified=3', '--src-prefix=a/', '--dst-prefix=b/'];
@@ -702,6 +810,7 @@ function deriveFromGit(deps, options, range, nodeModules, treeSha) {
   const declaration = { sourceSha: baseSha, sensitive: policy.policy.sensitivePaths, high: policy.policy.highPaths };
   const pathsInput = { changedPaths, declaration, codeowners: codeowners === null ? undefined : codeowners, baseSha };
   const classification = classifyPaths(pathsInput);
+  const { delta, deltaPlan } = deriveDelta(deps, options, range, entries, pathsInput);
 
   const facts = {
     schema: SCHEMA_VERSION,
@@ -721,6 +830,8 @@ function deriveFromGit(deps, options, range, nodeModules, treeSha) {
       ],
     },
     changedPaths,
+    delta,
+    deltaPlan,
     numstat,
     totals: {
       files: numstat.length,
@@ -792,7 +903,7 @@ function prepare(rawOptions, deps, tracked) {
 
   // Everything git can tell, derived once and held in memory. It is derived BEFORE an existing directory is looked at:
   // hashes that agree with each other prove nothing about a directory somebody else wrote.
-  const derived = deriveFromGit(deps, options, range, nodeModules, treeSha);
+  const derived = deriveFromGit(deps, options, range, nodeModules, treeSha, entries);
   const expected = { runId: options.runId, baseSha, headSha, treeSha, range: derived.facts.range, absent: derived.absent, files: derived.files };
 
   // ---- already prepared with these inputs? what git can tell is compared, never taken on trust ---------
@@ -883,6 +994,8 @@ module.exports = {
   parseNumstatZ,
   verifySnapshot,
   parseLsTreeZ,
+  scanReferenceLines,
+  scanNameLines,
   defaultDeps,
   PROBE_SOURCE,
   SCHEMA_VERSION,

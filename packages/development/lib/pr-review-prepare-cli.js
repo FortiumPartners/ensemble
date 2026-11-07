@@ -11,7 +11,7 @@
  *
  * Usage: node pr-review-prepare-cli.js < payload.json
  *
- *   payload  { runId, baseSha, headSha, repoRoot?, headRef?, lastReviewedSha?, remediationShas?,
+ *   payload  { runId, baseSha, headSha, repoRoot?, headRef?, lastReviewedSha?, remediationShas?, reviewedHeadSha?, reviewedBaseSha?,
  *              mergeBaseSha?, prBaseSha?, parentPhaseTipSha?, stateRoot?, testFiles?, testCommand?,
  *              baselineTimeoutMs?, nodeModules? }
  *            `repoRoot` defaults to the current directory; every other key is documented on
