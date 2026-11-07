@@ -186,14 +186,45 @@ function boundsFailure(reason, warnings = []) {
 }
 
 /**
+ * The number of DISTINCT verifiers a candidate has, which is what the bounds mean by `verifiers`: the floor is
+ * "how many independent verifiers settle each candidate", never how many agents were dispatched in total.
+ * With the verification split into small per-candidate batches (`verify-assign`) 11 candidates x 3 verifiers
+ * can mean 33 agents, and counting those against a floor of 3 would pass a plan whose every candidate had only
+ * two verifiers.
+ *
+ * `value` is either that per-candidate count as a whole number, or the assignment list itself
+ * (`[{ id, verifiers: [name] }]`, what `planVerification` returns), graded as its WEAKEST candidate: the
+ * minimum distinct verifier count. A list naming no candidate counts as ZERO verifiers: an empty list is
+ * what a refused plan carries, and it must never pass a floor (`checkBounds` makes the single exception,
+ * a plan that states it was made for zero candidates). When `candidates` is given and the list names fewer
+ * candidates than that, the unlisted ones have zero verifiers, so the weakest is zero. Anything else cannot
+ * be read: `null`.
+ */
+function perCandidateVerifiers(value, candidates) {
+  if (isCount(value)) return { count: value };
+  if (!Array.isArray(value)) return null;
+  let weakest = value.length === 0 || (isCount(candidates) && value.length < candidates) ? 0 : null;
+  for (const entry of value) {
+    if (!isObject(entry) || !Array.isArray(entry.verifiers) || !entry.verifiers.every(isText)) return null;
+    const distinct = new Set(entry.verifiers.map((name) => name.trim().toLowerCase())).size;
+    weakest = weakest === null ? distinct : Math.min(weakest, distinct);
+  }
+  return { count: weakest };
+}
+
+/**
  * Grades planned and used reviewer/verifier counts against the mode's bounds
  * (AC-016-1). Each set given is graded on its own, so a plan that respected
  * the mode and a run that did not are both visible.
  *
  * @param {Object} input
  * @param {string} input.mode
- * @param {{reviewers:number, verifiers:number}} [input.planned]
- * @param {{reviewers:number, verifiers:number}} [input.used]
+ * @param {{reviewers:number, verifiers:number|Array<{id:string, verifiers:string[]}>, candidates?:number}} [input.planned]
+ * @param {{reviewers:number, verifiers:number|Array<{id:string, verifiers:string[]}>, candidates?:number}} [input.used]
+ *   `verifiers` is the number of distinct verifiers PER CANDIDATE (or the assignment list, graded as its
+ *   weakest candidate); see `perCandidateVerifiers`. `candidates` is how many candidates the round had
+ *   (`verify-assign` returns it): with `candidates: 0` and an empty list the verifier floor is vacuous (nothing
+ *   to verify), and a list naming fewer candidates than `candidates` grades the missing ones as zero verifiers.
  * @param {Object} [input.bounds]  Policy override, by mode.
  * @returns {{ok:boolean, mode:string|null, bounds:Object|null,
  *   violations:Array<{set:string, role:string|null, kind:string, bound:number|null, count:number|null}>,
@@ -212,16 +243,27 @@ function checkBounds(input) {
   for (const name of ['planned', 'used']) {
     const counts = input[name];
     if (counts === undefined) continue;
-    if (!isObject(counts) || !isCount(counts.reviewers) || !isCount(counts.verifiers)) {
+    if (!isObject(counts) || !isCount(counts.reviewers) || perCandidateVerifiers(counts.verifiers, counts.candidates) === null) {
       return boundsFailure(`${name} counts must be whole numbers of reviewers and verifiers`, warnings);
     }
-    sets.push([name, counts]);
+    if (counts.candidates !== undefined && !isCount(counts.candidates)) {
+      return boundsFailure(`${name} candidates must be a whole number when given`, warnings);
+    }
+    // The ONE vacuous case: the plan says it was made for zero candidates AND lists no assignment. An empty
+    // list without that statement is what a refused plan carries, and it still counts as zero verifiers.
+    const vacuous = counts.candidates === 0 && Array.isArray(counts.verifiers) && counts.verifiers.length === 0;
+    sets.push([
+      name,
+      { reviewers: counts.reviewers, verifiers: perCandidateVerifiers(counts.verifiers, counts.candidates).count, vacuous },
+    ]);
   }
   if (sets.length === 0) return boundsFailure('no planned or used counts to grade', warnings);
 
   const violations = [];
   for (const [name, counts] of sets) {
     for (const role of ['reviewers', 'verifiers']) {
+      // A round with zero candidates has nothing to verify: the verifier floor is vacuous there.
+      if (role === 'verifiers' && counts.vacuous) continue;
       const bound = bounds[role];
       const count = counts[role];
       if (bound.max !== null && count > bound.max) {

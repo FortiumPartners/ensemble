@@ -23,8 +23,9 @@
  * subcommands that implement them in the TRD's data flow (architecture, line
  * "SKILL.md --> pr-review-cli.js depth | slices | ledger | status"):
  *
- *   verified-findings  `votes`                     -- findings are voted on
- *                                                     before the author answers
+ *   verified-findings  `votes` + `verify-assign`   -- findings are voted on, by
+ *                                                     the verifiers assigned to
+ *                                                     each, before the author answers
  *   convergence        `status` + `ledger` + `scope` -- the shared round cap,
  *                                                     repeat suppression and
  *                                                     the delta re-review range
@@ -54,7 +55,7 @@ const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key
  * A capability is reached only when EVERY subcommand listed for it is reached.
  */
 const CAPABILITIES = Object.freeze({
-  'verified-findings': Object.freeze(['votes']),
+  'verified-findings': Object.freeze(['votes', 'verify-assign']),
   convergence: Object.freeze(['status', 'ledger', 'scope']),
   tier: Object.freeze(['tier']),
   mode: Object.freeze(['mode']),

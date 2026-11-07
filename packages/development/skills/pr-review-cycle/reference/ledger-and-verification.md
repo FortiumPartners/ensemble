@@ -82,12 +82,40 @@ Step 1c (`bounds.verifiers`: Quick none, Standard 3, Deep 5), each a
 **fresh-context subagent** given the diff, the candidate and the applied
 rules -- never the authoring conversation and never the reviewer's reasoning
 for raising it. **A verifier never votes on a finding it produced itself**:
-each candidate records the `reviewer` that raised it, and that reviewer is
-excluded from that finding's verifier set. When the dispatch cannot exclude
+each candidate records the `reviewer` that raised it (a ledger candidate's
+`source`, and each `mergedFrom[].source` of a merged finding, count the same),
+and that reviewer is excluded from that finding's verifier set. When the dispatch cannot exclude
 them (a single reviewer and a single verifier are the same agent), that
 finding has no usable verifier -- record it in `incompleteVerifiers` rather
 than letting the author of the finding confirm their own finding. A verifier
 meets the same agent requirement as a reviewer (Step 1c, "Which agent").
+
+**Who verifies what.** Every candidate gets K verifiers, but no verifier is
+handed every candidate. Plan the split with
+`node "$PR_REVIEW_CLI" verify-assign` and
+`{ candidates, depth, verifierPool | verifierCount, expectedVerifiers,
+maxCandidatesPerVerifier, allowShortPool }` (`candidates` are the Step 3
+ledger findings, each with its `id` and its `source`; a merged finding's
+`mergedFrom[].source` counts too, and a candidate naming no raiser is
+refused). It returns `assignments` -- per candidate, K **distinct**
+verifiers, spread evenly and never anyone who raised the candidate (`source`,
+`reviewer`, merged sources) -- and `agents`, per verifier agent, the
+candidates it is briefed
+on (one or a few: 5 to 15 tool calls, 2 to 5 minutes). Dispatch one agent per
+`agents` entry, in parallel (at most 32 at once), each briefed on its own
+candidates only: no verifier sees another's vote. A pool that cannot give
+every candidate K verifiers comes back `ok: false`, `reason:
+verifier-pool-too-small`, naming the candidates and how many verifiers each
+could have: enlarge the pool, or re-run with `allowShortPool: true`. Then
+each short candidate is planned with every verifier it can have and flagged
+`incomplete: true` (the result reads `complete: false`, with the
+`shortfalls`), `votes` accepts that entry and records the one finding
+`unverified` / `verifier-incomplete` (an `(unassigned)` entry in its
+`incompleteVerifiers`), and every other finding stays under the structural
+check. Never run a candidate with fewer than K by any other route, and never
+drop `assignment` for the round to get around a short pool.
+A round with no candidates is an `ok: true` plan with `candidates: 0`: there
+is nothing to dispatch; see `depth` below for grading it.
 
 Each verifier returns, per candidate, exactly one verdict: `real`,
 `not-real` or `abstain`. Anything else is not a vote and is ignored as one.
@@ -121,16 +149,41 @@ it with a hand-written brief. A dispatch that settles several findings is given
 each finding's rendered brief in turn.
 
 **Tallying.** Run `node "$PR_REVIEW_CLI" votes` with
-`{ findings, depth, expectedVerifiers, verificationCapability }`:
+`{ findings, depth, assignment, expectedVerifiers, verificationCapability }`:
 
 * `findings` are the candidates from Step 3, each
-  `{ id, severity, kind, security, reviewer, votes: [{ verifier, verdict }],
+  `{ id, severity, kind, security, source, mergedFrom, votes: [{ verifier, verdict }],
   incompleteVerifiers }`;
 * `depth` is the `mode` Step 1c resolved;
+* `assignment` is the `assignments` array `verify-assign` returned, unchanged.
+  It makes the tally structural: every finding must have exactly one entry
+  naming exactly K distinct verifiers (none of them who raised it: its
+  `source`, `reviewer` or a merged source; an entry flagged `incomplete` may
+  name fewer, and that finding alone is `unverified`), or the round
+  comes back `verification: blocked` with the reason (a wrong plan, not a
+  quiet verifier); a vote from someone not assigned to that finding is
+  ignored (`not-assigned`); and an assigned verifier with no counted vote --
+  none returned, or an unreadable verdict -- is named in that finding's
+  `incompleteVerifiers`
+  (reason `no-vote`) by `votes` itself, so you do not have to track who
+  stayed silent. One voter missing from a finding of K makes that finding
+  `unverified` / `verifier-incomplete`, never `present` on the strength of
+  the others;
 * `expectedVerifiers` is given only when the policy's bounds override the
   mode's count -- leave it out otherwise, so the denominator stays the count
-  the depth **expects**, never the number of votes that happened to arrive;
+  the depth **expects**, never the number of votes that happened to arrive.
+  Pass the same value to `verify-assign`;
 * `verificationCapability` is `false` only in the degraded case below.
+
+To grade the plan against the depth's bounds, send `depth` the assignment
+itself as `planned.verifiers` (or `used.verifiers`) with the plan's
+`candidates` count as `planned.candidates`: the bounds mean K distinct
+verifiers **per candidate**, graded as the weakest candidate, not the count
+of agents dispatched (11 groups of 3 is 3 verifiers, not 33). A plan for
+`candidates: 0` has nothing to verify, so its verifier floor is vacuous; an
+empty list that does not say it was planned for zero candidates (a refused
+plan) still fails the floor, and so does a list naming fewer candidates than
+`candidates`.
 
 **What the author is asked to answer.** Present exactly `presented[]` --
 the `present`, `disputed` and `unverified` findings -- and nothing else. A

@@ -12,7 +12,7 @@
  * direct `require(...)` call on the same input can never diverge. NO
  * business logic lives here, NO network calls, NO shell calls.
  *
- * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json
+ * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json
  *
  * `review-range` (TRD-013) is a thin pass-through to `chooseReviewRange`:
  * given `lastReviewedSha`, `commits` and `remediationShas` on top of what
@@ -104,7 +104,14 @@
  * The verification subcommands (TRD-018) each take the facts their module
  * grades and answer with that module's result verbatim:
  *   votes   { findings[{ id, severity?, kind?, security?, reviewer?, votes[{ verifier, verdict }],
- *             incompleteVerifiers? }], depth, expectedVerifiers?, verificationCapability? }
+ *             incompleteVerifiers? }], depth, expectedVerifiers?, verificationCapability?,
+ *             assignment?[{ id, verifiers[] }] }
+ *           -- with `assignment` (the `verify-assign` plan) every finding must be assigned exactly
+ *           K distinct verifiers; an assigned verifier with no vote makes the finding `unverified`
+ *   verify-assign { candidates[{ id, reviewer? }], depth, verifierPool[] | verifierCount, expectedVerifiers?,
+ *             maxCandidatesPerVerifier? }
+ *           -- plans which K distinct verifiers settle each candidate (never its own reviewer) and
+ *           which candidates each verifier agent is briefed on; a pool smaller than K is an error
  *   depth   { tier, effectiveTier?, requested?, lowWaiverEnabled?, planned?, used?, bounds? }
  *           -- resolves the mode AND, when planned or used counts are given,
  *           grades them against that mode's bounds in the same answer
@@ -171,6 +178,7 @@ const { resolveRuleFiles } = require('./pr-review-rules');
 const { classifyPaths } = require('./pr-review-paths');
 const { checkDescription } = require('./pr-review-description');
 const { tallyVotes } = require('./pr-review-votes');
+const { planVerification } = require('./pr-review-verify-assign');
 const { resolveDepth, checkBounds, boundsFor, planSlices, verifyCoverage } = require('./pr-review-depth');
 const { offerExplainers } = require('./pr-review-explainer-offer');
 const { renderBriefFromFiles } = require('./pr-review-brief-files');
@@ -352,6 +360,15 @@ function runDescription(payload) {
  */
 function runVotes(payload) {
   return tallyVotes(payload);
+}
+
+/**
+ * `verify-assign` is a pass-through to `planVerification`: which K distinct verifiers settle each candidate,
+ * and which candidates each verifier agent is briefed on. Its `assignments` go back into `votes` as
+ * `assignment`, which validates the tally against the plan.
+ */
+function runVerifyAssign(payload) {
+  return planVerification(payload);
 }
 
 /**
@@ -579,6 +596,7 @@ const HANDLERS = Object.freeze({
   paths: runPaths,
   description: runDescription,
   votes: runVotes,
+  'verify-assign': runVerifyAssign,
   depth: runDepth,
   slices: runSlices,
   tier: runTier,
@@ -611,7 +629,7 @@ function main(argv) {
   if (handler === undefined) {
     process.stdout.write(
       JSON.stringify({
-        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json`,
+        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json`,
       }) + '\n'
     );
     return 1;
@@ -661,6 +679,7 @@ module.exports = {
   runPaths,
   runDescription,
   runVotes,
+  runVerifyAssign,
   runDepth,
   runSlices,
   runTier,
