@@ -21,15 +21,18 @@ exists to prevent.
 
 **10a -- Classify the change (fresh-context subagent).** Dispatch one
 **fresh-context** subagent with the diff for `range` and this prompt, which is
-editable policy -- tune the wording here, never in the CLI:
+editable policy -- tune the wording here, never in the CLI. The prompt is
+`templates/classifier-brief.md`; render it with `node "$PR_REVIEW_CLI" brief`
+and `{ role: "classifier", vars: { range, diffPath } }` and send the `brief` it
+returns unedited.
 
-> You are classifying a pull request's changes for risk, not reviewing them.
-> For every changed path, name the kind of change it is, using exactly one of
-> these words: `docs`, `copy`, `additive-behind-flag`, `product`, `other`.
-> Cite the paths that put each kind in your answer. Judge only what the diff
-> does; who wrote it, why, and what it was meant to do are not inputs. If a
-> path does not clearly fit a kind, answer `other` for it. Return JSON only:
-> `{ "kinds": [{ "kind": "<one of the five>", "paths": ["<path>", ...] }] }`.
+Every gate brief takes tokens, not prose: `range` is `<baseSha>..<headSha>`,
+each a full 40 or 64 digit hexadecimal object id, `diffPath` and `snapshotDir`
+are paths, and `ruleFiles` and `sensitivePaths` are lists of repository-relative
+paths (letters, digits and `. _ @ + ~ = [ ] -` in `/`-separated segments; no
+whitespace, parentheses or `..`). A note about who wrote the change or why does
+not fit any of them: the renderer refuses it, and refuses a path outside the
+grammar.
 
 It returns exactly the contract `assignTier` expects: `kinds` is an array of
 `{ kind, paths[] }`, `kind` drawn from the closed set above and every kind
@@ -43,16 +46,10 @@ is a reading this step cannot use: carry it as `classifier` in `unavailable`
 subagent).** Dispatch a second **fresh-context** subagent -- not the
 classifier, and not a reviewer from an earlier step -- with the diff, the
 rules `applied` and the sensitivity `paths` from Step 1b, and this editable
-prompt:
-
-> You are deciding one thing about this pull request: does it need another
-> person to look at it, beyond what its size and file kinds would suggest?
-> Say yes when the change is subtle, crosses trust or ownership boundaries,
-> touches money, data loss, auth or privacy, is hard to reverse, or carries a
-> risk its diff does not show on its face. Cite the paths your reason rests
-> on. Return JSON only:
-> `{ "needsAnotherPerson": true|false, "reason": "<one sentence>",
-> "evidencePaths": ["<path>", ...] }`.
+prompt, `templates/second-assessor-brief.md`: render it with
+`node "$PR_REVIEW_CLI" brief` and
+`{ role: "second-assessor", vars: { range, diffPath, ruleFiles, sensitivePaths } }`
+and send the `brief` it returns unedited.
 
 It returns exactly `{ needsAnotherPerson, reason, evidencePaths[] }`. Pass it
 to `tier` as `secondAssessment`. Exactly `false` leaves the tier alone;
@@ -74,14 +71,10 @@ and a `false` typed in to fill the gap is what would grant the discount.
 
 **10c -- The security lane (fresh-context reviewer).** Dispatch a
 **fresh-context, read-only** security reviewer over the same `range`, with the
-sensitive `paths` Step 1b reported and this editable prompt:
-
-> Review this diff for security defects only: injection, authentication and
-> authorization gaps, secret or credential exposure, unsafe deserialization,
-> path traversal, SSRF, unsafe shell or SQL construction, missing input
-> validation at a trust boundary, and weakened cryptography. Report what the
-> diff does, not what it fails to add elsewhere. Record each finding with its
-> file and line, its failure mode and the evidence. Change nothing.
+sensitive `paths` Step 1b reported and this editable prompt,
+`templates/security-lane-brief.md`: render it with `node "$PR_REVIEW_CLI" brief`
+and `{ role: "security-lane", vars: { range, diffPath, snapshotDir, sensitivePaths } }`
+and send the `brief` it returns unedited.
 
 Shape its result as the lane record `gate` grades: `{ status, findings }`,
 where `status` is `clean` (ran, found nothing), `findings` (ran, found these),

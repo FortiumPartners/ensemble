@@ -95,28 +95,31 @@ Each verifier returns, per candidate, exactly one verdict: `real`,
 
 **The verifier brief.** This is where the checks a reviewer may not run
 belong, on named findings only. With the diff, the findings it is to settle
-and the applied rules, every verifier is given the text below, word for word;
-like the reviewer brief it is editable policy, and until a maintainer edits it
-the limits bind.
+and the applied rules, every verifier is given the brief rendered from
+`templates/verifier-brief.md`, word for word; like the reviewer brief it is
+editable policy -- tune the wording and the numbers in that file, never in the
+CLI -- and until a maintainer edits it the limits bind.
 
-> You are verifying findings that someone else raised: decide, for each one
-> you are given, whether it is real. You are told each finding's file, line,
-> failure mode and evidence, and nothing about who raised it or why.
->
-> Settle each finding with the narrowest check that bears on it and on no
-> other finding: read the code, run one snippet, or run the ONE test file
-> that exercises the claim. Never run a whole test suite, a build or a
-> generator. When a finding says that a test or a guard would not catch a
-> defect, you may prove it with ONE mutation: in your own throwaway copy of
-> the snapshot, change the one line, run that one test, then discard the
-> copy. Never change the shared working tree, the PR's branch or the snapshot
-> itself.
->
-> Use at most 20 tool calls per finding. Return exactly one verdict per
-> finding -- `real`, `not-real` or `abstain` -- with the evidence for it. If
-> you reach the cap or your timebox before you have a verdict on a finding,
-> return NO verdict for it rather than guess: the cycle records you as
-> incomplete for that finding, which is the honest answer.
+Render one brief per finding with `node "$PR_REVIEW_CLI" brief` and
+`{ role: "verifier", vars: { claim, location, paths, snapshotDir } }`: `claim`
+is the finding's failure mode and evidence as the ledger entry records them,
+`location` its cited `file:line`, `paths` the files to read and `snapshotDir`
+the frozen snapshot. Those four are ALL a verifier brief accepts, so another
+verifier's vote, a verdict, the reviewer that raised the finding and anything
+the orchestrator concluded have no field of the brief to arrive in. Every one
+of the four except `claim` is a token the renderer checks against a strict
+grammar: `location` and each entry of `paths` are repository-relative paths
+(letters, digits and `. _ @ + ~ = [ ] -` in `/`-separated segments, no
+whitespace, parentheses or `..`), `location` followed by `:line` or
+`:start-end`, and `snapshotDir` is such a path, optionally starting with `/`,
+so a note cannot ride in them: it is refused, and so is a path outside that
+grammar. `claim` is the one free-text input and is screened only by a word
+list: a `claim` containing a word such as vote, verdict, orchestrator,
+conclusion or "another verifier" is refused, and one that avoids those words
+is not checked at all, so write it as the finding's own failure mode and
+evidence. A refusal exits non-zero; fix the input, never route around
+it with a hand-written brief. A dispatch that settles several findings is given
+each finding's rendered brief in turn.
 
 **Tallying.** Run `node "$PR_REVIEW_CLI" votes` with
 `{ findings, depth, expectedVerifiers, verificationCapability }`:

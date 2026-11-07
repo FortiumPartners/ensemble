@@ -12,7 +12,7 @@
  * direct `require(...)` call on the same input can never diverge. NO
  * business logic lives here, NO network calls, NO shell calls.
  *
- * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json
+ * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json
  *
  * `review-range` (TRD-013) is a thin pass-through to `chooseReviewRange`:
  * given `lastReviewedSha`, `commits` and `remediationShas` on top of what
@@ -76,6 +76,15 @@
  * one explainer per touched sensitive module on a High-tier PR, and `generate`
  * stays empty until `requested` names one of them:
  *   explainer-offer  { tier, paths, requested? }
+ *
+ * `brief` renders one agent's brief from its template file
+ * (`skills/pr-review-cycle/templates/<role>-brief.md`, found by
+ * `pr-review-brief-files.js`); it refuses -- exit 1, an `error` -- an unknown
+ * role, a missing or undeclared input and, for a verifier, anything but the
+ * claim, its cited `file:line`, the path list and the snapshot directory:
+ *   brief            { role: reviewer|verifier|classifier|second-assessor|security-lane,
+ *                      vars: { ...the inputs that role declares } }
+ *                    -> { ok: true, role, brief }
  *
  * The metrics and eval subcommands (TRD-032) take the records a maintainer
  * fetched with `gh` (see docs/guides/pr-review-metrics.md) and answer with
@@ -164,6 +173,7 @@ const { checkDescription } = require('./pr-review-description');
 const { tallyVotes } = require('./pr-review-votes');
 const { resolveDepth, checkBounds, boundsFor, planSlices, verifyCoverage } = require('./pr-review-depth');
 const { offerExplainers } = require('./pr-review-explainer-offer');
+const { renderBriefFromFiles } = require('./pr-review-brief-files');
 const { assignTier, effectiveTier, tierRecord } = require('./pr-review-tier');
 const { selectMode } = require('./pr-review-mode');
 const { evaluateApprovals } = require('./pr-review-approvals');
@@ -497,6 +507,21 @@ function runExplainerOffer(payload) {
 }
 
 /**
+ * `brief` renders one agent brief from its template. It does not grade, it refuses:
+ * a role or input the renderer does not accept throws (exit 1), because a brief
+ * that was rendered from guessed input is exactly the hand-written brief this
+ * subcommand exists to replace. The file reads live in `pr-review-brief-files.js`.
+ */
+function runBrief(payload) {
+  requireKeys(payload, { role: TEXT, vars: OBJECT }, 'brief');
+  const extra = Object.keys(payload).filter((key) => key !== 'role' && key !== 'vars');
+  if (extra.length > 0) {
+    throw new Error(`brief does not accept payload key(s) ${extra.map((key) => `'${key}'`).join(', ')}; inputs go under 'vars'`);
+  }
+  return { ok: true, role: payload.role, brief: renderBriefFromFiles(payload.role, payload.vars) };
+}
+
+/**
  * The metrics and eval subcommands (TRD-032). Each is a pass-through to the
  * one module function that owns the question, graded IN BAND exactly like
  * the guidance subcommands: a cohort too small, a comparison it cannot read,
@@ -561,6 +586,7 @@ const HANDLERS = Object.freeze({
   approvals: runApprovals,
   gate: runGate,
   'explainer-offer': runExplainerOffer,
+  brief: runBrief,
   metrics: runMetrics,
   'metrics-compare': runMetricsCompare,
   'eval-score': runEvalScore,
@@ -585,7 +611,7 @@ function main(argv) {
   if (handler === undefined) {
     process.stdout.write(
       JSON.stringify({
-        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json`,
+        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability> < payload.json`,
       }) + '\n'
     );
     return 1;
@@ -642,6 +668,7 @@ module.exports = {
   runApprovals,
   runGate,
   runExplainerOffer,
+  runBrief,
   runMetrics,
   runMetricsCompare,
   runEvalScore,

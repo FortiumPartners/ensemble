@@ -53,7 +53,7 @@ it, never typed), else one local run. The result is `REVIEW_PENDING` whatever el
 complete, never `REVIEW_COMPLETE`; `localPhase` is never `LOCAL_REVIEW_COMPLETE`.
 
 **Wall-clock budget:** 45 minutes per cycle, 20 per independent
-reviewer; give each reviewer its timebox and the reviewer brief.
+reviewer; give each reviewer its timebox and its CLI `brief`.
 When spent, stop, derive status with the CLI (never `REVIEW_COMPLETE` from
 prose) and report what was not reviewed.
 

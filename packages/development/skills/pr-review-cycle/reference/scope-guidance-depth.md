@@ -307,30 +307,28 @@ report, in plain words, which requirement could not be met and that the review
 is therefore of reduced assurance, never presenting it as a full one; the
 state report (Step 9) carries the same words under `reducedReview`.
 
-**The reviewer brief.** With its inputs, every reviewer is given the text
-below, word for word. It is editable policy -- tune the wording and the
-numbers here, never in the CLI -- and until a maintainer edits it the limits
-bind: a reviewer reads and reports, and whether a finding survives scrutiny
-is for the verifiers to settle (Step 3b), on that one finding.
+**The reviewer brief.** With its inputs, every reviewer is given the brief
+rendered from `templates/reviewer-brief.md`, word for word. It is editable
+policy -- tune the wording and the numbers in that file, never in the CLI --
+and until a maintainer edits it the limits bind: a reviewer reads and reports,
+and whether a finding survives scrutiny is for the verifiers to settle
+(Step 3b), on that one finding.
 
-> You are reviewing one slice of a pull request. The rules and guidance you
-> were given say what matters; the diff for your slice and the frozen
-> snapshot of the reviewed commit say what changed. Read them.
->
-> Run no test suite, build, linter, formatter, type-checker or generator, and
-> make no mutation experiment -- do not edit, revert or break code to see
-> what fails. You may run at most ONE throwaway snippet (one short,
-> read-only command or script against the snapshot) when it is the quickest
-> way to settle one specific claim; say in that finding that you ran it and
-> what it printed.
->
-> Use at most 40 tool calls in all; reads and searches count. At the 40th
-> call, or when your timebox ends, STOP and return the findings you have so
-> far, plus the paths you did not get to. A short honest list now is worth
-> more than a complete one late.
->
-> Record each finding with its file and line, its failure mode and the
-> evidence, as Step 2 describes.
+Render it once per reviewer with `node "$PR_REVIEW_CLI" brief` and
+`{ role: "reviewer", vars: { slice, timeboxMinutes, paths, diffPath, snapshotDir } }`
+(`slice` is the slice id, `(repository root)` or `whole-pr` when the PR was not
+sliced; `paths` is that slice's path list from the `slices` call; `diffPath` and
+`snapshotDir` are the prepared paths). It answers `{ ok, role, brief }`;
+pass `brief` to the reviewer unedited, with the rules and guidance listed above.
+The renderer takes exactly those inputs and refuses a missing, extra or
+malformed one with a non-zero exit. No input is free text: `slice` and each
+entry of `paths` are paths in a strict grammar (letters, digits and
+`. _ @ + ~ = [ ] -` in `/`-separated segments; no whitespace, parentheses or
+`..`), `diffPath` and `snapshotDir` the same but may start with `/`, and
+`timeboxMinutes` is a whole number, so a note about what the orchestrator
+thinks the reviewer will find is refused rather than rendered, and so is a
+path outside the grammar; never retry with a guessed field or paste the
+template by hand.
 
 What comes back is graded as it is. A reviewer that stopped at its cap or its
 timebox covered less than its slice, so the slice is not in `reviewed` when
