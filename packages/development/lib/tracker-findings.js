@@ -248,8 +248,9 @@ function resolveManifest(projectRoot, env) {
     return { reason: error && error.message ? error.message : String(error) };
   }
   // A tracker whose workspace is not initialised in this repository is "no tracker": br reports
-  // that only on stdout, which the runner's TOOL_FAILED detail drops, so it cannot be recognised
-  // from the envelope.
+  // that on stdout (the runner's TOOL_FAILED detail now carries that stdout envelope, but the
+  // adapter's own marker check is the authoritative, text-independent signal), so recognise it
+  // from the workspace marker instead of parsing the message.
   const marker = WORKSPACE_MARKERS[manifest.adapter];
   if (marker && !require('fs').existsSync(require('path').join(projectRoot, marker))) {
     return { reason: `no '${marker}' workspace in ${projectRoot} for the '${manifest.adapter}' tracker` };
