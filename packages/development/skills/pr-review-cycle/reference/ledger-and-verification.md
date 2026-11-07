@@ -14,6 +14,18 @@ absent or misspelt one is a CLI error (non-zero exit), never an empty default.
 * `merge` -- `{ action, existingLedger, incomingFindings, headSha }`
 * `scopeViolations` -- `{ action, changedFiles, scope, ledger }`
 * `recordRound` -- `{ action, ledger, incoming, round }` (TRD-013)
+* `resolve` -- `{ action, finding, resolution }`, plus an optional `policy` -- records a decision on one finding (see below)
+
+`resolve` takes `resolution: { reason, by, headSha, at }` and refuses (CLI error)
+anything short of all four: `by` is the deciding login, `headSha` the head the
+decision was made against, `at` an ISO-8601 timestamp with a zone. Pass the Step 1b
+`policy` block as `policy` (the one key that may be left out): `by` must then not be one of its `botLogins` and, when it
+names `maintainerLogins`, must be one of them (without it the login is checked for
+shape only). Use it only with an answer the operator gave you for that finding; the
+merge gate ignores an Important or security resolution that lacks any of the four,
+names another head or comes from a login the policy refuses, and the CLI cannot tell
+whether the operator or this session wrote the words, so you never write them for the
+operator. Splice the returned `finding` back into the ledger before `state-write`.
 
 A finding missing a required field is rejected and must be completed, not
 dropped. Duplicates found within the same round's own findings are merged

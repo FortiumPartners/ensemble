@@ -430,6 +430,8 @@ describe('Scenario AC-017-1: a security finding blocks the merge until it is fix
     const resolved = recordResolution(securityFinding, {
       reason: 'the value logged is the request id, not the token; renamed to make that plain',
       by: 'owner-o',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
     expect(resolved.ok).toBe(true);
 
@@ -480,6 +482,8 @@ describe('Scenario AC-008-1: an open Important finding refuses the merge and nam
     const answered = recordResolution(finding({ id: 'F-OPEN' }), {
       reason: 'validated at the call site in the same commit',
       by: 'author-a',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
 
     const { gate } = runGate({ ledger: [answered.finding] });

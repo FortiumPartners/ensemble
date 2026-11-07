@@ -205,7 +205,7 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
 
   test('the blocking promise is the module\'s behaviour, not a hope', () => {
     expect(STEP_10_FLAT).toContain('**An open security finding blocks the merge** until it is fixed');
-    expect(STEP_10_FLAT).toContain('closed with a stated `resolution.reason` (AC-017-1)');
+    expect(STEP_10_FLAT).toContain('until it is fixed or the operator\'s own recorded decision closes it (`ledger` `resolve`, below)');
     expect(STEP_10_FLAT).toContain('a lane that did not run blocks Medium and High on its own');
     expect([...SECURITY_REQUIRED_TIERS].sort()).toEqual(['high', 'medium']);
 
@@ -247,6 +247,84 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
   test('a lane that did not run is never reported clean, and a finding is never downgraded', () => {
     expect(STEP_10_FLAT).toContain('Never downgrade a security finding to make the gate pass');
     expect(STEP_10_FLAT).toContain('never report `clean` for a lane that did not run');
+  });
+
+  test('the lane is told to report and never close: the closure the instructions used to ask for is one the gate ignores', () => {
+    // The brief used to ask the lane for `resolution: { reason }` on a finding "closed with a stated reason", and the prose
+    // said a stated `resolution.reason` closed an open finding. The gate takes neither: a lane entry carrying that closure
+    // is still open, so following those instructions produced blockers that do not count.
+    const asked = {
+      id: 'S1',
+      source: 'security-lane',
+      locationOrLink: 'src/auth.js:12',
+      severity: 'important',
+      failureMode: 'authz gap',
+      disposition: 'resolved',
+      evidence: 'the handler reads the record before checking the caller owns it',
+      originalTextOrLink: 'security-lane-note-1',
+      resolution: { reason: 'false positive' },
+    };
+    const verdict = evaluateGate({
+      ledger: [],
+      approvals: { ok: true, satisfied: true, tier: 'medium', humansRequired: 1, humansCounted: 1 },
+      tier: { ok: true, effectiveTier: 'medium' },
+      description: { ok: true, missing: [] },
+      security: { status: 'findings', findings: [asked] },
+      headSha: 'a'.repeat(40),
+    });
+    expect(verdict.mergeable).toBe(false);
+    expect(verdict.securityLane.open).toEqual(['S1']);
+
+    const lane = STEP_10_FLAT.slice(STEP_10_FLAT.indexOf('10c -- The security lane'), STEP_10_FLAT.indexOf('10d -- Read approvals'));
+    expect(lane.length).toBeGreaterThan(500);
+    expect(lane).not.toContain('resolution: { reason }');
+    expect(lane).not.toContain('stated reason');
+    expect(lane).not.toContain('stated `resolution.reason`');
+    expect(lane).toContain('**The lane reports and never closes.**');
+  });
+
+  test('SKILL.md says the same in its Step 10c line and its Safety rules: only the operator\'s own answer closes a security finding', () => {
+    const step10c = SKILL_MAIN.slice(SKILL_MAIN.indexOf('* 10c'), SKILL_MAIN.indexOf('* 10d')).replace(/\s+/g, ' ');
+    expect(step10c).toContain('it reports, never closes');
+    expect(step10c).toContain('the operator\'s own `ledger` `resolve` answer');
+
+    const safety = SKILL_MAIN.slice(SKILL_MAIN.indexOf('## Safety rules')).replace(/\s+/g, ' ');
+    expect(safety).toContain('An open security-lane finding blocks the merge until fixed or the operator records a decision (`ledger` `resolve`)');
+    expect(safety).not.toContain('closed with a stated reason');
+  });
+
+  test('the prose names what the gate reads and answers: policy in, deferralRejected out', () => {
+    expect(STEP_10_FLAT).toContain('`{ ledger, approvals, tier, description, security, headSha, policy, unavailable }`');
+    expect(STEP_10_FLAT).toContain('its blocker carrying `deferralRejected`');
+    expect(STEP_10_FLAT).toContain('given `policy`, `by` is not one of its `botLogins`');
+
+    const base = {
+      ledger: [],
+      approvals: { ok: true, headSha: 'a'.repeat(40), satisfied: true, tier: 'medium', humansRequired: 1, humansCounted: 1 },
+      tier: { ok: true, effectiveTier: 'medium' },
+      description: { ok: true, missing: [] },
+      security: { status: 'clean', findings: [] },
+      headSha: 'a'.repeat(40),
+    };
+    const finding = {
+      id: 'F1',
+      source: 'code-reviewer',
+      locationOrLink: 'src/a.js:1',
+      severity: 'important',
+      failureMode: 'bug',
+      disposition: 'deferred',
+      evidence: 'e',
+      originalTextOrLink: 'n',
+      blocking: false,
+      reason: 'opt-in component',
+    };
+    const deferred = evaluateGate({ ...base, ledger: [finding] });
+    expect(deferred.mergeable).toBe(false);
+    expect(deferred.blockers.find((entry) => entry.code === BLOCKER_CODES.OPEN_IMPORTANT_FINDING).deferralRejected).toEqual(expect.any(String));
+
+    const byBot = { ...finding, disposition: 'resolved', resolution: { reason: 'ok', by: '@coderabbitai', at: '2026-11-06T10:00:00Z', headSha: base.headSha } };
+    expect(evaluateGate({ ...base, ledger: [byBot] }).mergeable).toBe(true);
+    expect(evaluateGate({ ...base, policy: { botLogins: ['@coderabbitai'] }, ledger: [byBot] }).mergeable).toBe(false);
   });
 });
 
@@ -321,7 +399,7 @@ describe('TRD-027: the step grades through the CLI and returns evaluateGate outp
   test('the payload keys the prose documents are the keys those modules read', () => {
     expect(STEP_10_FLAT).toContain('{ kinds, paths, secondAssessment, proposedTier, proposedBy, policy, evidence, assignedBy, at }');
     expect(STEP_10_FLAT).toContain('{ reviews, headSha, headTreeSha, tier, policy, author, directedBy, agentAuthored }');
-    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, headSha, unavailable }');
+    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, headSha, policy, unavailable }');
   });
 
   test('trees that vouch for an older commit are computed by the run, never taken from review text', () => {

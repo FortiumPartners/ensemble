@@ -709,8 +709,151 @@ function recordResolution(finding, resolution) {
   const record = { reason: redact(resolution.reason.trim()) };
   if (isText(resolution.by)) record.by = redact(resolution.by.trim());
   if (isText(resolution.at)) record.at = resolution.at.trim();
+  if (isText(resolution.headSha)) record.headSha = resolution.headSha.trim();
 
   return { ok: true, finding: { ...normalizeFinding(finding), disposition: 'resolved', resolution: record } };
+}
+
+/**
+ * A GitHub-style login: no spaces, no prose. A SHAPE check only. It keeps a
+ * sentence out of `by`; it cannot tell a person from a bot or a stranger (that
+ * is `decidingLoginProblem`, and only when it is handed the repository's
+ * policy) and it cannot tell who typed it.
+ */
+const LOGIN_PATTERN = /^@?[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+
+/**
+ * A decision time: an ISO-8601 date and time WITH a zone. `Date.parse` alone
+ * also takes `1`, `Jan 1 2020`, a bare date and a time with no zone.
+ */
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+const isTimestamp = (value) => ISO_TIMESTAMP.test(value.trim()) && Number.isFinite(Date.parse(value.trim()));
+
+/** A login the way a platform compares one: no leading `@`, any letter case. */
+const loginKey = (login) => login.trim().replace(/^@/, '').toLowerCase();
+
+/** The logins a policy list names, or `null` when it is there but is not a list of text: unreadable, never "empty". */
+function readLoginList(list) {
+  if (list === undefined || list === null) return new Set();
+  if (!Array.isArray(list) || !everyEntry(list, isText)) return null;
+  return new Set(list.map(loginKey));
+}
+
+/**
+ * Whether the repository's policy lets `by` record a decision: a sentence
+ * naming why not, or `null`.
+ *
+ *   - a login in `botLogins` never can: a bot's word is not the operator's;
+ *   - when `maintainerLogins` names anyone, only they can; naming no one sets
+ *     no allow-list (the strict default names no one);
+ *   - no `policy` at all leaves nothing to check against, so the login is
+ *     judged by its shape alone: the caller hands over the base-branch policy
+ *     block, the same one `approvals` takes;
+ *   - a policy that is there but cannot be read refuses. It is never read as
+ *     "no check".
+ *
+ * @param {string} by A login (already shaped like one).
+ * @param {Object} [policy] The policy block: `botLogins` and `maintainerLogins` are read from it.
+ * @returns {string|null}
+ */
+function decidingLoginProblem(by, policy) {
+  if (policy === undefined || policy === null) return null;
+  const unreadable = 'the policy handed over cannot be read, so who may decide cannot be checked';
+  if (!isObject(policy)) return unreadable;
+  const bots = readLoginList(policy.botLogins);
+  const maintainers = readLoginList(policy.maintainerLogins);
+  if (bots === null || maintainers === null) return unreadable;
+  const login = loginKey(by);
+  if (bots.has(login)) return `${by.trim()} is a bot login the repository's policy lists (botLogins), and a bot is not the operator`;
+  if (maintainers.size > 0 && !maintainers.has(login)) return `${by.trim()} is not one of the repository's maintainerLogins`;
+  return null;
+}
+
+/**
+ * Whether a finding's recorded resolution carries the provenance the merge
+ * gate requires of an Important or security closure: a stated reason, the
+ * login of whoever decided (`by`), an ISO-8601 timestamp (`at`) and the head
+ * commit the decision was made against (`headSha`, equal to `headSha`, the
+ * commit the gate is being asked about). Given the repository's `policy`, `by`
+ * must also be a login the policy lets decide (`decidingLoginProblem`).
+ *
+ * HONEST LIMIT: this proves a reason is present, a login of the right shape
+ * is attached (a bot or a stranger is refused only when a policy says so) and
+ * the decision is bound to THIS head. It cannot prove a human typed it: an
+ * agent that writes a permitted login into `by` passes this check. The binding
+ * to the head and the named login make a claim attributable and stale on the
+ * next push; they do not authenticate it.
+ *
+ * Fail closed: anything unreadable is `false`.
+ *
+ * @param {Object} finding
+ * @param {string} headSha The commit the gate is evaluating.
+ * @param {Object} [policy] The policy block, to check who may decide.
+ * @returns {boolean}
+ */
+function hasResolutionProvenance(finding, headSha, policy) {
+  return resolutionProvenanceProblem(finding, headSha, policy) === null;
+}
+
+/**
+ * Why a finding's resolution fails `hasResolutionProvenance`, as a sentence a
+ * blocker can carry, or `null` when it carries full provenance.
+ *
+ * @param {Object} finding
+ * @param {string} headSha
+ * @param {Object} [policy]
+ * @returns {string|null}
+ */
+function resolutionProvenanceProblem(finding, headSha, policy) {
+  if (!isObject(finding) || !isObject(finding.resolution)) return 'it has no recorded resolution';
+  if (!isText(headSha)) return 'the gate was given no head commit to bind it to';
+  const { reason, by, at, headSha: decidedAt } = finding.resolution;
+  if (!isText(reason)) return 'the resolution states no reason';
+  if (!isText(by) || !LOGIN_PATTERN.test(by.trim())) return 'the resolution names no deciding login (by)';
+  const notAllowed = decidingLoginProblem(by, policy);
+  if (notAllowed !== null) return notAllowed;
+  if (!isText(at) || !isTimestamp(at)) return 'the resolution has no ISO-8601 timestamp with a zone (at)';
+  if (!isText(decidedAt)) return 'the resolution is not bound to a head commit (headSha)';
+  if (decidedAt.trim().toLowerCase() !== headSha.trim().toLowerCase()) {
+    return `the resolution was recorded against ${decidedAt.trim()}, not the current head ${headSha.trim()}`;
+  }
+  return null;
+}
+
+/**
+ * Records a decision on a finding with the provenance the merge gate demands
+ * of one: `recordResolution` plus `by` (a login), `headSha` (the head the
+ * decision was made against) and `at` (an ISO-8601 timestamp with a zone), all
+ * REQUIRED. A decision missing any of them, or one the gate would ignore (a
+ * login the policy refuses, a policy that cannot be read), is refused and the
+ * finding comes back unchanged and still blocking: this applies the gate's own
+ * check, `resolutionProvenanceProblem`, bound to the head the decision names.
+ * Nothing is defaulted: this library never reads a clock, so a caller that did
+ * not state when and about which head has not recorded a decision.
+ *
+ * It does not know who is typing. Whether `by` is the operator, and not a
+ * session that wrote a login there, is the skill's rule; see
+ * `hasResolutionProvenance` for what is and is not proven.
+ *
+ * @param {Object} finding
+ * @param {{reason:string, by:string, headSha:string, at:string}} decision
+ * @param {Object} [policy] The policy block, to check who may decide.
+ * @returns {{ok:true, finding:Object}|{ok:false, reason:string, finding:Object}}
+ */
+function recordOperatorResolution(finding, decision, policy) {
+  if (!isObject(finding)) return { ok: false, reason: 'a resolution needs a finding object', finding: redact(finding) };
+  if (!isObject(decision)) return { ok: false, reason: 'a resolution needs a decision object', finding: redact(finding) };
+  for (const key of ['reason', 'by', 'headSha', 'at']) {
+    if (!isText(decision[key])) {
+      return { ok: false, reason: `an operator resolution needs '${key}' as non-empty text`, finding: redact(finding) };
+    }
+  }
+  const problem = resolutionProvenanceProblem({ resolution: decision }, decision.headSha, policy);
+  if (problem !== null) {
+    return { ok: false, reason: `the gate would not honour this decision: ${problem}`, finding: redact(finding) };
+  }
+  return recordResolution(finding, decision);
 }
 
 /** One changed location: `'path'`, `'path:line'`, or `{ path, lines?: number[] }`. `lines: null` means the whole file. */
@@ -1060,6 +1203,9 @@ module.exports = {
   sortFindings,
   partitionFindings,
   recordResolution,
+  recordOperatorResolution,
+  hasResolutionProvenance,
+  resolutionProvenanceProblem,
   clearFixedFindings,
   fingerprintFinding,
   classFindings,

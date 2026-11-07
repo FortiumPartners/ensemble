@@ -226,6 +226,7 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
     ledger: () => [],
     incoming: () => [finding({ failureMode: 'bug' })],
     round: () => 1,
+    resolution: () => ({ reason: 'validated upstream', by: 'ldangelo', headSha: HEAD_SHA, at: '2026-11-06T10:00:00Z' }),
     // remote
     reviews: () => [{ id: 'r1', author: BOT, commitSha: HEAD_SHA, state: 'APPROVED' }],
     comments: () => [],

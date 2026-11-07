@@ -423,6 +423,11 @@ const LEDGER_PAYLOADS = {
   },
   scopeViolations: { action: 'scopeViolations', changedFiles: ['src/a.js'], scope: ['src/a.js'], ledger: [] },
   recordRound: { action: 'recordRound', ledger: [], incoming: [makeFinding()], round: 1 },
+  resolve: {
+    action: 'resolve',
+    finding: makeFinding(),
+    resolution: { reason: 'validated upstream', by: 'ldangelo', headSha: 'h1', at: '2026-11-06T10:00:00Z' },
+  },
 };
 const KEY_KINDS = {
   findings: 'array',
@@ -435,6 +440,7 @@ const KEY_KINDS = {
   ledger: 'array',
   incoming: 'array',
   round: 'integer',
+  resolution: 'object',
 };
 const KEY_CASES = Object.entries(LEDGER_PAYLOADS).flatMap(([action, payload]) =>
   Object.keys(payload)
@@ -501,9 +507,9 @@ describe('pr-review-cli: subcommands and ledger actions are matched as own prope
     expect(() => runLedger({ action, findings: [], changedFiles: [], scope: [], ledger: [] })).toThrow(/Unknown ledger action/);
   });
 
-  test('the ledger actions are exactly the documented six', () => {
+  test('the ledger actions are exactly the documented seven', () => {
     expect(Object.keys(LEDGER_ACTIONS).sort()).toEqual(
-      ['dedupe', 'isActionable', 'merge', 'recordRound', 'scopeViolations', 'validate']
+      ['dedupe', 'isActionable', 'merge', 'recordRound', 'resolve', 'scopeViolations', 'validate']
     );
   });
 });
@@ -1497,7 +1503,11 @@ describe('pr-review-cli: approvals and gate are pass-throughs to their one modul
     expect(runApprovals(APPROVALS).satisfied).toBe(true);
   });
 
-  test('gate returns evaluateGate verbatim', () => {
+  /** The keys the CLI adds to the gate's answer; everything else must be `evaluateGate`'s, untouched. */
+  const DISPOSITION_KEYS = ['dispositionChoices', 'dispositionGroups', 'mergeConfirmation', 'dispositionReason'];
+  const withoutDisposition = (result) => Object.fromEntries(Object.entries(result).filter(([key]) => !DISPOSITION_KEYS.includes(key)));
+
+  test('gate returns evaluateGate verbatim, plus only the operator decision list', () => {
     const payload = {
       ledger: [],
       approvals: runApprovals(APPROVALS),
@@ -1506,12 +1516,21 @@ describe('pr-review-cli: approvals and gate are pass-throughs to their one modul
       security: { status: 'clean' },
       headSha: HEAD_SHA,
     };
-    expect(runGate(payload)).toEqual(evaluateGate(payload));
+    const answer = runGate(payload);
+    expect(withoutDisposition(answer)).toEqual(evaluateGate(payload));
+    expect(Object.keys(answer).filter((key) => !(key in evaluateGate(payload))).sort()).toEqual(
+      ['dispositionChoices', 'dispositionGroups', 'mergeConfirmation']
+    );
   });
 
   test.each([null, undefined, [], 'x', 5, true, false, {}])('approvals and gate of %p equal the module called directly', (payload) => {
     expect(runApprovals(payload)).toEqual(evaluateApprovals(payload));
-    expect(runGate(payload)).toEqual(evaluateGate(payload));
+    const answer = runGate(payload);
+    expect(withoutDisposition(answer)).toEqual(evaluateGate(payload));
+    // An unreadable payload builds no decision list: the gate's refusal stands and nothing is offered.
+    expect(answer.mergeable).toBe(false);
+    expect(answer.dispositionChoices).toEqual([]);
+    expect(answer.mergeConfirmation).toBeNull();
   });
 });
 

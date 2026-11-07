@@ -154,6 +154,8 @@ describe('Scenario AC-008-1: an open Important finding refuses the merge and nam
     const answered = recordResolution(finding({ id: 'F-7' }), {
       reason: 'intentional: the caller validates the payload, see REVIEW.md',
       by: 'author-a',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
     expect(answered.ok).toBe(true);
 
@@ -318,6 +320,8 @@ describe('Scenario AC-017-1: the security lane blocks the merge until the issue 
       const closed = recordResolution(securityFinding(), {
         reason: 'false positive: the logger redacts this value before writing',
         by: 'author-a',
+        headSha: HEAD,
+        at: '2026-11-06T10:00:00Z',
       });
       expect(closed.ok).toBe(true);
       expect(closed.finding.resolution.reason).toContain('false positive');

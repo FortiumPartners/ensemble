@@ -80,15 +80,18 @@ Shape its result as the lane record `gate` grades: `{ status, findings }`,
 where `status` is `clean` (ran, found nothing), `findings` (ran, found these),
 `not-run` or `unavailable`. Every entry in `findings` is a **full ledger
 entry** -- the same fields Step 3 requires (`id`, `source`, `locationOrLink`,
-`severity`, `failureMode`, `disposition`, `evidence`, `originalTextOrLink`),
-plus `resolution: { reason }` when it was closed with a stated reason and
-`cleared: true` when a later head fixed it. A lane finding missing one of
-those fields is unreadable, and the gate answers `review-data-unavailable`
-naming it rather than passing: an unreadable security finding is never an
-absent one. **An open security finding blocks the merge** until it is fixed or
-closed with a stated `resolution.reason` (AC-017-1), and a lane that did not
-run blocks Medium and High on its own. Never downgrade a security finding to
-make the gate pass, and never report `clean` for a lane that did not run.
+`severity`, `failureMode`, `disposition`, `evidence`, `originalTextOrLink`).
+**The lane reports and never closes.** It sets no `resolution` and no
+`cleared` flag: a closure the lane (or this session) wrote for itself is not
+the operator's decision, and the gate ignores a `resolution` without the
+provenance under *Closing an Important or security finding* below. A lane
+finding missing one of those fields is unreadable, and the gate answers
+`review-data-unavailable` naming it rather than passing: an unreadable
+security finding is never an absent one. **An open security finding blocks the
+merge** until it is fixed or the operator's own recorded decision closes it
+(`ledger` `resolve`, below), and a lane that did not run blocks Medium and
+High on its own. Never downgrade a security finding to make the gate pass, and
+never report `clean` for a lane that did not run.
 
 **10d -- Read approvals, reviews and protection from the host.** Read, in this
 run:
@@ -170,11 +173,12 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    failed (`solo-maintainer-director-not-approved` or
    `solo-maintainer-author-unknown`): report it, and the PR needs two humans.
 3. `node "$PR_REVIEW_CLI" gate` with
-   `{ ledger, approvals, tier, description, security, headSha, unavailable }`
+   `{ ledger, approvals, tier, description, security, headSha, policy, unavailable }`
    -- `ledger` the findings carried in the review-state report for this head
    (Step 9), `description` the Step 1b `description` result, `security` the
-   lane from 10c, and `unavailable` the names of every read that failed twice
-   in 10d.
+   lane from 10c, `policy` the Step 1b policy block (the one `approvals` takes:
+   it names the bot and maintainer logins a decision is checked against), and
+   `unavailable` the names of every read that failed twice in 10d.
 
    **A missing ledger is unavailable, never empty.** When `state-read` finds
    no report for this head, or discards the one it found (it was written for
@@ -194,7 +198,56 @@ approvals say how many of how many are bound to the current commit, an open
 security finding is named, and `review-data-unavailable` names exactly what
 could not be read. Never summarise a blocker away, never re-grade a
 `mergeable:false` into a pass, and never answer this step from anything but
-the CLI's result.
+the CLI's result. Return the whole result object unchanged, including
+`dispositionChoices`, `dispositionGroups`, `mergeConfirmation` and
+`dispositionReason` (set only when the decision list could not be built).
+
+**Closing an Important or security finding (provenance).** The gate honours a
+recorded `resolution` on an Important finding, an unrecognised-severity finding
+or a security-lane finding of any severity (a Pre-existing lane entry too) only
+when it carries all four of `reason`, `by` (the deciding login), `at` (an
+ISO-8601 timestamp with a zone) and `headSha` (equal to the `headSha` the gate
+is asked about) and, given `policy`, `by` is not one of its `botLogins` and is
+one of its `maintainerLogins` when it names any. Anything less is ignored: the
+finding stays open and its blocker carries `resolutionRejected` saying why. The
+review's own deferral of an Important finding (`blocking: false`,
+`disposition: 'deferred'`, a `reason`: the stopping rule at the top of this
+skill) is not a decision either: the gate ignores it, and the finding stays open,
+its blocker carrying `deferralRejected`, until it is fixed or the operator
+records a decision. Record a decision only with `node "$PR_REVIEW_CLI"
+ledger` action `resolve`
+(`{ action, finding, resolution:{ reason, by, headSha, at }, policy }`, the same
+`policy`), and only from the operator's own answer: never type a reason, a
+login or a decision on the operator's behalf. A new push moves the head, so a
+decision made on an earlier head stops counting and is asked again. **What this
+proves and what it does not:** a reason is present, it names a login (a bot or a
+stranger is refused only when `policy` says so) and it is bound to this head; it
+cannot prove a human typed it, and a session that writes a permitted login into
+`by` defeats it. A `cleared: true` flag is likewise taken at its word. The
+control against that is this rule, not the code.
+
+**The operator's decision list.** Beside the verdict, `gate` returns
+`dispositionChoices` (one entry per undecided finding: `id`, `severity`,
+`locationOrLink`, `votes`, `beadId`, `group`, `choices[]`, `default`,
+`requiresReason`), `dispositionGroups` (what may be answered for a whole group
+at once) and `mergeConfirmation` (what the merge question must show: open beads,
+blocking findings accepted and why, blocking findings still undecided). Pass the
+Step 3b `votes` result as `votes` to include each finding's tally, and the same
+`policy`. The list asks the gate which findings block, so it cannot disagree
+with the verdict: a verifier-filtered Important finding is still listed while
+the gate blocks on it (its tally shows why), and a Pre-existing security-lane
+finding is a blocking entry. The list is
+ordered blocking Important and security findings first, then Nits, then
+Pre-existing, and many Nits in one file collapse into one entry (its id,
+`file:<path>`, is not a ledger id: expand it to its `members` before `ledger`
+`resolve`). Rules the list
+enforces and the skill must not undo: a blocking finding is offered Fix on this PR
+or Accept only and never defaults to Accept; Nits and Pre-existing default to
+Fix in a follow-on PR; accepting a security finding has no default, is never
+pre-selected or batched, and needs a reason the operator gives for that finding.
+`default` only pre-selects a choice in an interactive prompt: a non-interactive
+(`FOREMAN`) run never applies it and never fixes.
+The list never changes `mergeable`.
 
 A caller reaches all of this through this skill. `pr-merge` and every other
 command invoke `MODE=gate`; none of them runs `pr-review-cli.js` itself.
