@@ -77,8 +77,8 @@ minimise, hide, delete or `@coderabbitai resolve` a CodeRabbit comment, and
 never push a commit whose purpose is to make one disappear. The bot's thread
 is the evidence a reader checks the ledger against; suppressing it would
 destroy the only independent record that a finding was ever raised. Answer it
-in the normal way -- fix it, or reply with the recorded reason it is deferred
--- and leave the thread exactly as the bot left it. (Collecting these
+in the normal way -- a fix run the operator selects fixes it, or a reply gives the
+recorded reason it is deferred -- and leave the thread exactly as the bot left it. (Collecting these
 comments is Step 7's job in `MODE=remote`; this paragraph says what happens
 to them once collected, in either mode.)
 
