@@ -137,12 +137,27 @@ const FILE_PATH = Object.freeze({
   render: IDENTITY,
 });
 
-/** A slice id: `whole-pr`, `(repository root)` or the area directory the `slices` call named. */
+/**
+ * A slice id: `whole-pr`, `(repository root)` or the area directory the `slices` call named, each with the `~N` the
+ * size-driven split adds when it cuts one of them into several (`whole-pr~2`, `packages/x~1`; a merged `mixed~1`
+ * is a plain path token). `~` is a path character, so only the root's parenthesised name needs its own case.
+ */
 const SLICE_ID = Object.freeze({
   check(value, name) {
-    if (value === 'whole-pr' || value === '(repository root)') return null;
+    if (value === 'whole-pr' || value === '(repository root)' || /^\(repository root\)~[1-9][0-9]{0,3}$/.test(value)) return null;
     const problem = checkRepoPath(value, name);
-    return problem && `${problem} (or "whole-pr", or "(repository root)")`;
+    return problem && `${problem} (or "whole-pr", or "(repository root)", each optionally followed by "~" and a number)`;
+  },
+  render: IDENTITY,
+});
+
+/** A reviewer's lens: a lower-case token (`correctness`, `security`, `docs-mirrors`), never a sentence. */
+const LENS = Object.freeze({
+  check(value, name) {
+    if (typeof value !== 'string' || !/^[a-z0-9][a-z0-9-]{0,31}$/.test(value)) {
+      return `'${name}' must be a lens token: lower case letters, digits and "-", at most 32 characters`;
+    }
+    return null;
   },
   render: IDENTITY,
 });
@@ -231,6 +246,7 @@ const ROLES = Object.freeze({
     template: 'reviewer-brief.md',
     inputs: Object.freeze({
       slice: SLICE_ID,
+      lens: LENS,
       timeboxMinutes: MINUTES,
       paths: PATHS,
       diffPath: FILE_PATH,

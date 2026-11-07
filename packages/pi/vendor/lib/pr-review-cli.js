@@ -125,9 +125,14 @@
  *   depth   { tier, effectiveTier?, requested?, lowWaiverEnabled?, planned?, used?, bounds? }
  *           -- resolves the mode AND, when planned or used counts are given,
  *           grades them against that mode's bounds in the same answer
- *   slices  { paths[{ path, lines }], areas?, threshold?, reviewed?, changedPaths? }
- *           -- plans the areas and, when `reviewed` slice ids are given, names
- *           every changed path they did not cover
+ *   slices  { paths[{ path, lines }], areas?, threshold?, targetLines?, maxSlices?, mode?, lenses?, lensesPerSlice?,
+ *             reviewedBy?[{ sliceId, lens, reviewer, paths }], changedPaths? }
+ *           -- plans the areas (cut by size when `targetLines` is given) and the reviewer assignments
+ *           (`reviewerAssignments[{ reviewer, sliceId, lens }]`: every slice crossed with at least two distinct
+ *           lenses at Standard and Deep; at Quick ONE slice, however large the PR, and one reviewer); when
+ *           `reviewedBy` is given, names every changed path that was not read under enough distinct lenses
+ *           (`uncovered` when nobody read it, `underReviewed` when too few lenses did, or when no reviewer's `paths`
+ *           names it: a lens counts for the paths it read, never for the rest of its slice)
  *
  * `results` (kata et2k) is the file-based half of the verification subcommands:
  * agents write `out-<name>.json` and this reads them, instead of the orchestrator
@@ -135,14 +140,16 @@
  *   deadlines        { role, tier?, depth?, now?, policy? } -- the `dispatchedAt` (= `now`, default: the current time)
  *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15,
  *                    per-role overridable by the policy's `deadlineMinutes`
- *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, paths?, candidateIds? }], dir, now?,
+ *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds? }], dir, now?,
  *                    scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
  *                    arrived|missing|expired|invalid from `<dir>/out-<name>.json`. It arrived when the file's last
  *                    change (its inode change time, never the modification time a writer can set) is within
  *                    [dispatchedAt, deadlineAt]; an older file is stale, a later one expired. A reviewer given a
- *                    `sliceId` must give its `paths`. Each arrival is copied to scratch (default: the hidden sibling
- *                    `.<dir name>.collected` beside `dir`, never inside it), and the answer holds `reviewedSlices` (the
- *                    `reviewed` of `slices`) and, when `depth` is given, `votesInput` (the payload of `votes`). An
+ *                    `sliceId` must give its `paths` and its `lens`. Each arrival is copied to scratch (default: the hidden sibling
+ *                    `.<dir name>.collected` beside `dir`, never inside it), and the answer holds `reviewedBy` (the
+ *                    `reviewedBy` of `slices`: one `{ sliceId, lens, reviewer, paths }` per reviewer that arrived and
+ *                    covered its slice, `paths` being the paths it was asked to read and reported), `reviewedSlices`
+ *                    and, when `depth` is given, `votesInput` (the payload of `votes`). An
  *                    agent that did not arrive is never reviewed: its slice is unreviewed, its candidates unverified
  *   failure          { status?, retryAfterSec?, message?, attempt?, failFastAfterSec?, waitedSec?, deadlineAt?, now? }
  *                    -- retry, back off, fall back to the alternate model route, or fail fast to a recorded `partial`
@@ -490,20 +497,26 @@ function runDepth(payload) {
 }
 
 /**
- * `slices` plans the review by area and, when the caller names the slice ids
- * it actually reviewed, says which changed paths that left uncovered
- * (AC-018-1, AC-018-2). A plan the module refused is returned as the refusal
+ * `slices` plans the review by area and size and who reads each slice under which lens and, when the caller
+ * names who reviewed what (`reviewedBy`), says which changed paths were not read under enough distinct lenses
+ * (AC-018-1, AC-018-2, plan 3A). A plan the module refused is returned as the refusal
  * it is: coverage is never computed over an empty plan, because "no slices,
- * all reviewed" is exactly the false pass this gate exists to prevent.
+ * all reviewed" is exactly the false pass this gate exists to prevent. The old `reviewed` slice-id list is
+ * REFUSED, not ignored: a caller still sending it would otherwise get a plan back with no coverage verdict
+ * at all, which reads as a pass.
  */
 function runSlices(payload) {
   const plan = planSlices(payload);
   const request = isObject(payload) ? payload : {};
-  if (!plan.ok || request.reviewed === undefined) return plan;
+  if (plan.ok && request.reviewed !== undefined) {
+    return { ...plan, ok: false, reason: 'reviewed is no longer accepted: pass reviewedBy, an array of { sliceId, lens, reviewer, paths }' };
+  }
+  if (!plan.ok || request.reviewedBy === undefined) return plan;
 
   const coverage = verifyCoverage({
     slices: plan.slices,
-    reviewed: request.reviewed,
+    reviewedBy: request.reviewedBy,
+    mode: request.mode,
     changedPaths: request.changedPaths,
   });
 
@@ -512,6 +525,8 @@ function runSlices(payload) {
     ok: plan.ok && coverage.ok && coverage.covered,
     covered: coverage.covered,
     uncovered: coverage.uncovered,
+    underReviewed: coverage.underReviewed,
+    requiredLenses: coverage.requiredLenses,
     reviewedSlices: coverage.reviewedSlices,
     unreviewedSlices: coverage.unreviewedSlices,
     unknownReviewed: coverage.unknownReviewed,

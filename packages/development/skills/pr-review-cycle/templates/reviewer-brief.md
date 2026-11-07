@@ -26,8 +26,14 @@ matcher, so the test cannot show that a rule is the right one.
 Record each finding with its file and line, its failure mode and the
 evidence, as Step 2 describes.
 
+Your lens is your emphasis, not a limit on what you may report: read every
+path in your slice, spend your calls looking for what that lens exists to
+catch, and report anything you see. A different reviewer reads the same paths
+under a different lens, so do not stretch to cover theirs.
+
 Your slice: {{slice}}
 Timebox: {{timeboxMinutes}} minutes
+Your lens: {{lens}}
 
 Paths in your slice:
 

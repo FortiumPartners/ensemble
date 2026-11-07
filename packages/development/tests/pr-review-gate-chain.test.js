@@ -39,6 +39,7 @@ const { spawnSync } = require('child_process');
 
 const cli = require('../lib/pr-review-cli');
 const { recordResolution, recordOperatorResolution, clearFixedFindings } = require('../lib/pr-review-ledger');
+const { reviewedByOf } = require('./helpers/pr-review-reviewed-by');
 
 const CLI_PATH = path.join(__dirname, '..', 'lib', 'pr-review-cli.js');
 
@@ -875,54 +876,59 @@ describe('PR-review gate chains: a changed path nobody reviewed is reported, and
     changedPaths: ['a/x.js', 'b/y.js', 'c/z.js'],
   };
 
+  /** The plan's reviewers that arrived, as `collect` reports them: each with its lens and the paths it read. */
+  const reported = (planned, arrived = () => true) => reviewedByOf(planned, planned.reviewerAssignments.filter(arrived));
+
   test('45 slice b unreviewed: its path is uncovered and ok is false; reviewing every slice covers the diff', () => {
     const planned = inProcess('slices', plan);
     expect(planned.sliced).toBe(true);
     const ids = planned.slices.map((slice) => slice.id);
     expect(ids.sort()).toEqual(['(repository root)', 'a', 'b']);
 
-    const partial = inProcess('slices', { ...plan, reviewed: ['a', '(repository root)'] });
+    const partial = inProcess('slices', { ...plan, reviewedBy: reported(planned, (entry) => entry.sliceId !== 'b') });
     expect(partial.ok).toBe(false);
     expect(partial.covered).toBe(false);
     expect(partial.uncovered).toEqual(['b/y.js']);
     expect(partial.unreviewedSlices).toEqual(['b']);
 
-    const full = inProcess('slices', { ...plan, reviewed: ids });
+    const full = inProcess('slices', { ...plan, reviewedBy: reported(planned) });
     expect(full.ok).toBe(true);
     expect(full.covered).toBe(true);
     expect(full.uncovered).toEqual([]);
   });
 
   test('46 a changed path the plan never held is uncovered too, and an unknown reviewed slice id is reported rather than counted', () => {
-    const ids = inProcess('slices', plan).slices.map((slice) => slice.id);
-    const extra = inProcess('slices', { ...plan, reviewed: ids, changedPaths: [...plan.changedPaths, 'd/new.js'] });
+    const planned = inProcess('slices', plan);
+    const all = reported(planned);
+    const extra = inProcess('slices', { ...plan, reviewedBy: all, changedPaths: [...plan.changedPaths, 'd/new.js'] });
     expect(extra.covered).toBe(false);
     expect(extra.uncovered).toEqual(['d/new.js']);
-    const ghost = inProcess('slices', { ...plan, reviewed: [...ids, 'ghost-slice'] });
+    const ghostEntry = { sliceId: 'ghost-slice', lens: 'correctness', reviewer: 'ghost', paths: ['a/x.js'] };
+    const ghost = inProcess('slices', { ...plan, reviewedBy: [...all, ghostEntry] });
     expect(ghost.unknownReviewed).toEqual(['ghost-slice']);
-    const onlyGhost = inProcess('slices', { ...plan, reviewed: ['ghost-slice'] });
+    const onlyGhost = inProcess('slices', { ...plan, reviewedBy: [ghostEntry] });
     expect(onlyGhost.ok).toBe(false);
     expect(onlyGhost.uncovered).toEqual(expect.arrayContaining(['a/x.js', 'b/y.js', 'c/z.js']));
   });
 
   test('47 chain: the uncovered path is handed to the gate as unavailable review data -- refused while it is uncovered, merged once covered', () => {
-    const ids = inProcess('slices', plan).slices.map((slice) => slice.id);
-    const grade = (reviewed) => {
-      const coverage = inProcess('slices', { ...plan, reviewed });
+    const planned = inProcess('slices', plan);
+    const grade = (reviewedBy) => {
+      const coverage = inProcess('slices', { ...plan, reviewedBy });
       return attempt(inProcess, makePr({ unavailable: coverage.uncovered.map((p) => `unreviewed path ${p}`) })).gate;
     };
-    const before = grade(['a', '(repository root)']);
+    const before = grade(reported(planned, (entry) => entry.sliceId !== 'b'));
     expect(before.mergeable).toBe(false);
     expect(codes(before)).toEqual(['review-data-unavailable']);
     expect(before.blockers[0].missing).toEqual(['unreviewed path b/y.js']);
-    expect(grade(ids).mergeable).toBe(true);
+    expect(grade(reported(planned)).mergeable).toBe(true);
   });
 
   test('48 a plan built from no paths never covers a changed path; an unreadable plan is refused outright', () => {
-    const none = inProcess('slices', { paths: [], areas: [], reviewed: [], changedPaths: ['a.js'] });
+    const none = inProcess('slices', { paths: [], areas: [], reviewedBy: [], changedPaths: ['a.js'] });
     expect(none.ok).toBe(false);
     expect(none.uncovered).toEqual(['a.js']);
-    const unreadable = inProcess('slices', { reviewed: [] });
+    const unreadable = inProcess('slices', { reviewedBy: [] });
     expect(unreadable).toEqual(expect.objectContaining({ ok: false, reason: 'paths must be an array', slices: [] }));
   });
 });

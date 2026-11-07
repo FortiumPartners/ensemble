@@ -147,9 +147,10 @@ Detail: `reference/scope-guidance-depth.md`. `tier` first, over the Step 1b `pat
 `standard` (Medium) or `deep` (High). **A non-empty `violations` is binding**: re-plan and
 call `depth` again until empty; never dispatch a refused plan, never raise Quick's
 ceiling; an unreadable tier resolves to `deep`. Print the plan; `PLAN_ONLY` ends the run
-there. `slices` cuts a PR above the threshold into area slices; after review, re-run it
-with `reviewed` and `changedPaths`: `covered:false` means review the missing slices, and
-an uncovered path is never reported as reviewed. Reviewers and verifiers are fresh-context, read-only
+there. `slices` cuts the PR into lens-crossed slices; after review, re-run it with `reviewedBy` and
+`changedPaths`: `covered:false` means review the `uncovered` slices or add a lens (`underReviewed`);
+an uncovered path is never reported as reviewed.
+Reviewers and verifiers are fresh-context, read-only
 subagents (kind: "Which agent") under their briefs, never given the authoring conversation; record every
 candidate with its `source`.
 
