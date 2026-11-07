@@ -28,6 +28,8 @@ The resolver searches three locations in this order and uses the first match:
 
 A repo-local adapter is committed code that runs binaries on every contributor's machine. In a non-interactive run it is only used when its id is listed under `trustedRepoAdapters` in the user-level `toolchain.yaml` (never the project one); otherwise resolution fails with `UNTRUSTED_REPO_ADAPTER`.
 
+`toolchain-cli ... --project-root <path>` runs against a repository you did not start in, typically a PR head under review, so that tree is treated as untrusted: it supplies only the working directory, its `.ensemble/toolchain.yaml` and its `.ensemble/state/`. Its own `packages/*/skills/` is not searched, and a repo-local adapter under its `.ensemble/adapters/` needs the `trustedRepoAdapters` entry in every mode, interactive runs included. The shipped adapters, the user location and the trusted repo-local list are what run. Without the flag a project you started in keeps the three locations above unchanged.
+
 ### Selecting an adapter
 
 A project selects an adapter per category in `.ensemble/toolchain.yaml`, a user in `$XDG_CONFIG_HOME/ensemble/toolchain.yaml`:

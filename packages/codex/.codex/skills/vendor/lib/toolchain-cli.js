@@ -117,6 +117,48 @@
  *                      `trace: unavailable (<reason>)` (text) or `{"trace":"unavailable",
  *                      "reason":...}` (`--json`/`--brief`) and exits 1 (0 for `--brief`).
  *
+ * Global flag `--project-root <path>` (kata vsg4; accepted by every subcommand, at most once):
+ *   run the subcommand against the repository at `<path>` instead of `process.cwd()`. It sets
+ *   `ctx.projectRoot`, so adapter resolution (`.ensemble/toolchain.yaml`), the `cwd` of every
+ *   adapter command and preflight health check (the tracker's `br` reads THAT tree's
+ *   `.beads/`), and the preflight/confirm/ledger/failure/trace state under
+ *   `<path>/.ensemble/state/` all follow it. PR review runs in a sibling `../ensemble.*`
+ *   worktree, so without it `run tracker.*` would hit whatever tracker the CLI's own cwd
+ *   resolves to (for a LINKED worktree see the tracker-data note below). Precedence:
+ *   `--project-root` > `ctx.projectRoot` (programmatic callers) > `process.cwd()`. There is
+ *   deliberately NO environment-variable tier: the toolchain never reads
+ *   `ENSEMBLE_PROJECT_ROOT` (the lifecycle-hook runner sets it for hook-handler processes
+ *   only) and honouring it would silently change default behaviour. Without the flag nothing
+ *   changes. The value is the NEXT argument: the `--project-root=<path>` spelling is
+ *   `INVALID_ARG` naming the space form (it would otherwise fall through to the positionals,
+ *   be ignored, and run against the cwd tree -- the silent wrong-tree outcome this flag exists
+ *   to prevent).
+ *   The value must be an existing git repo root or linked-worktree root (`.git` dir or
+ *   `gitdir:` file); it is realpath'd; anything else is `INVALID_ARG` and nothing runs. For
+ *   `trace start`/`trace end`, which never fail the traced flow, that is the usual
+ *   `trace: unavailable (...)` on stderr and exit 0; `trace summarize` keeps its own contract
+ *   and exits 1 (0 with `--brief`).
+ *   TRUST MODEL (kata vsg4 review round 1): the named tree is a source of cwd, config
+ *   (`.ensemble/toolchain.yaml`) and state ONLY -- never of code to run. `main()` sets
+ *   `ctx.untrustedProjectRoot`, so `./toolchain/adapters.js` does not search the tree's
+ *   `packages/*\/skills/` (a PR head would otherwise supply the code of the tracker that
+ *   records and dedupes its own findings) and runs a repo-local adapter from its
+ *   `.ensemble/adapters/` only when the user-level `trustedRepoAdapters` lists its id, in
+ *   interactive runs too. Adapters therefore come from this library's own install, the user
+ *   tier and that trusted list. The tree still chooses WHICH of them runs (its
+ *   `.ensemble/toolchain.yaml`) and is where they run, so the tool an adapter invokes reads
+ *   the tree's own files; preflight/confirm records it carries are consent/health gates, not a
+ *   security boundary (`./toolchain/confirm.js`). Without the flag a project root the process
+ *   was started in keeps its `packages/*\/skills/` tier, unchanged.
+ *   A linked worktree is accepted and used VERBATIM (never mapped back to the main checkout):
+ *   it is the adapter's `cwd` and the root of `.ensemble/` config and state. Which tracker
+ *   DATA the adapter then reads is the adapter's own business: observed with br 0.6.0, `br`
+ *   run from a linked worktree uses the MAIN checkout's shared `.beads` database (the
+ *   worktree's checked-out `.beads/` holds only config + issues.jsonl), so for a linked
+ *   worktree the flag changes the adapter's cwd, config and state, NOT the tracker data a
+ *   real `br` reads: `--project-root <worktree>` and `--project-root <main>` read the same
+ *   beads while `.ensemble/state` stays per-path. `validate` accepts but never uses it.
+ *
  * Output:
  *   - Default (no `--json`): a human-readable table with columns `category`, `adapter`,
  *     `source`, one row per category, printed to stdout for `resolve`/`explain`; for
@@ -158,9 +200,12 @@
  * `installedRoots` is `./toolchain/adapters.js#discoverAdapters`'s own extra installed-tier
  * search-root override (PR 5 independent review: the shipped default adapter for a category
  * was unreachable from any consumer outside this monorepo -- see that module's header doc),
- * never wired by `main()`'s own default `ctx` (no CLI flag, no environment variable). A caller
- * that supplies its own `ctx` (including every existing test) gets exactly what it passes --
- * no detect/installedRoots, or stubbed ones -- unaffected by any of this.
+ * never wired by `main()`'s own default `ctx` (no CLI flag, no environment variable).
+ * `untrustedProjectRoot` (same module) is the one field `main()` itself adds, and only when
+ * `--project-root` is given (see the TRUST MODEL above); every handler passes it through with
+ * the rest of `ctx`. A caller that supplies its own `ctx` (including every existing test) gets
+ * exactly what it passes -- no detect/installedRoots, or stubbed ones -- unaffected by any of
+ * this.
  *
  * `main(argv, ctx)` takes an optional second `ctx` argument purely so callers (tests) can
  * exercise the full argv-parsing/JSON/table-rendering path against an injected
@@ -865,6 +910,7 @@ function parseArgs(argv) {
   const json = list.includes('--json');
   const nonInteractive = list.includes('--non-interactive');
   let runId;
+  let projectRoot;
   const args = {};
   const requires = [];
   const positionals = [];
@@ -876,6 +922,7 @@ function parseArgs(argv) {
     nonInteractive,
     positionals,
     runId,
+    projectRoot,
     args,
     requires,
     trace: traceOpts,
@@ -950,12 +997,42 @@ function parseArgs(argv) {
       }
       requires.push(value);
       i += 1;
+    } else if (token === '--project-root') {
+      const value = rest[i + 1];
+      if (typeof value !== 'string' || value === '' || value.startsWith('--')) {
+        return invalidArg(
+          `--project-root requires a path value (got ${value === undefined ? 'nothing' : JSON.stringify(value)})`
+        );
+      }
+      if (projectRoot !== undefined) {
+        return invalidArg('--project-root may be supplied at most once');
+      }
+      projectRoot = value;
+      i += 1;
+    } else if (token.startsWith('--project-root=')) {
+      // The value is the NEXT argument. Without this branch the `=` spelling would fall through
+      // to `positionals` below, be ignored, and run the subcommand against the cwd tree -- the
+      // silent wrong-tree outcome the flag exists to prevent -- so it is refused by name.
+      return invalidArg(
+        `--project-root=<path> is not supported (got ${JSON.stringify(token)}); pass the path as ` +
+          'the next argument: --project-root <path>'
+      );
     } else {
       positionals.push(token);
     }
   }
 
-  return { subcommand, json, nonInteractive, positionals, runId, args, requires, trace: traceOpts };
+  return {
+    subcommand,
+    json,
+    nonInteractive,
+    positionals,
+    runId,
+    projectRoot,
+    args,
+    requires,
+    trace: traceOpts
+  };
 }
 
 /**
@@ -1131,6 +1208,68 @@ function traceCommand(argv, parsed, ctx) {
 }
 
 /**
+ * Validate and resolve a `--project-root <path>` value (kata vsg4) to the real path every
+ * handler then uses as `ctx.projectRoot` (adapter `cwd`, ledger/failure/preflight/confirm/trace
+ * state directory, project toolchain config).
+ *
+ * Fail-closed (`INVALID_ARG`, nothing runs): the path must exist, be a directory, and be a git
+ * repo root (`.git` directory containing `HEAD`) or a linked-worktree root (`.git` FILE whose
+ * first line is `gitdir: <path>`). A subdirectory of a repo is NOT accepted: the explicit flag
+ * names the tree whose tracker/ledger is meant, so guessing an ancestor would silently pick one.
+ * The returned path is `fs.realpathSync`'d, so a symlinked path and its target share one ledger.
+ *
+ * A linked worktree is used VERBATIM, never mapped back to the main checkout: it becomes the
+ * adapter's `cwd` and the root of `.ensemble/` config/state. Which tracker data the adapter
+ * reads from there is the adapter's own behaviour (br 0.6.0 shares the main checkout's `.beads`
+ * database across linked worktrees); this function only decides WHICH tree is meant.
+ *
+ * @param {string} raw the flag value (relative paths resolve against `process.cwd()`)
+ * @returns {{projectRoot: string}|{error: {code: 'INVALID_ARG', message: string}}}
+ */
+function resolveProjectRootFlag(raw) {
+  const invalid = (reason) => ({
+    error: { code: 'INVALID_ARG', message: `--project-root ${JSON.stringify(raw)} ${reason}` }
+  });
+  let real;
+  try {
+    real = fs.realpathSync(path.resolve(raw));
+  } catch (error) {
+    return invalid(`does not exist or is not accessible (${error.code || error.message})`);
+  }
+  let stat;
+  try {
+    stat = fs.statSync(real);
+  } catch (error) {
+    return invalid(`is not accessible (${error.code || error.message})`);
+  }
+  if (!stat.isDirectory()) return invalid('is not a directory');
+
+  const notRepo = () =>
+    invalid(`is not a git repository root or linked-worktree root (no valid .git in ${real})`);
+  const gitEntry = path.join(real, '.git');
+  let gitStat;
+  try {
+    gitStat = fs.statSync(gitEntry);
+  } catch (error) {
+    return notRepo();
+  }
+  if (gitStat.isDirectory()) {
+    if (!fs.existsSync(path.join(gitEntry, 'HEAD'))) return notRepo();
+  } else if (gitStat.isFile()) {
+    let head = '';
+    try {
+      head = fs.readFileSync(gitEntry, 'utf8').split('\n', 1)[0];
+    } catch (error) {
+      return notRepo();
+    }
+    if (!/^gitdir: \S/.test(head)) return notRepo();
+  } else {
+    return notRepo();
+  }
+  return { projectRoot: real };
+}
+
+/**
  * CLI entry point.
  *
  * @param {string[]} argv `process.argv.slice(2)`
@@ -1146,6 +1285,20 @@ function traceCommand(argv, parsed, ctx) {
  */
 function main(argv, ctx = { projectRoot: process.cwd(), env: process.env, detect: detectAdapter }) {
   const parsed = parseArgs(argv);
+
+  // `--project-root` (kata vsg4): flag > `ctx.projectRoot` > `process.cwd()`. Resolved here, once,
+  // so every handler and `trace` see the same validated real path through `ctx.projectRoot`.
+  if (!parsed.error && parsed.projectRoot !== undefined) {
+    const resolved = resolveProjectRootFlag(parsed.projectRoot);
+    if (resolved.error) {
+      parsed.error = resolved.error;
+    } else {
+      // `untrustedProjectRoot`: the named tree supplies cwd, config and state, never adapter code
+      // (see this file's header, "TRUST MODEL", and `./toolchain/adapters.js`).
+      ctx = { ...ctx, projectRoot: resolved.projectRoot, untrustedProjectRoot: true };
+    }
+  }
+
   const { subcommand, json, positionals, error } = parsed;
 
   if (subcommand === 'trace') {
@@ -1165,7 +1318,7 @@ function main(argv, ctx = { projectRoot: process.cwd(), env: process.env, detect
 
   if (!handler) {
     const usage =
-      'Usage: toolchain-cli <resolve|explain|validate|run|preflight|confirm-status|confirm-record|trace> [--json]';
+      'Usage: toolchain-cli <resolve|explain|validate|run|preflight|confirm-status|confirm-record|trace> [--project-root <path>] [--json]';
     const message = subcommand
       ? `Unknown subcommand '${subcommand}'. ${usage}`
       : `Missing subcommand. ${usage}`;
@@ -1191,7 +1344,17 @@ function main(argv, ctx = { projectRoot: process.cwd(), env: process.env, detect
   return result.ok ? 0 : 1;
 }
 
-module.exports = { resolve, explain, validate, run, preflight, confirmStatus, confirmRecord, main };
+module.exports = {
+  resolve,
+  explain,
+  validate,
+  run,
+  preflight,
+  confirmStatus,
+  confirmRecord,
+  resolveProjectRootFlag,
+  main
+};
 
 if (require.main === module) {
   Promise.resolve(main(process.argv.slice(2))).then((code) => process.exit(code));
