@@ -61,6 +61,29 @@ const DEFAULT_EVAL_CASES_DIR = 'docs/review-eval/cases';
 const QUICK_MAX_REVIEWERS = 1;
 const QUICK_MAX_VERIFIERS = 0;
 
+/**
+ * Per-agent wall-clock budgets, in minutes (plan 3C): reviewer 15, verifier 5,
+ * security lane 15. A maintainer may move each between 1 and 60. Only the
+ * dispatcher stopping an agent at its deadline bounds the review's critical
+ * path; this key just supplies the number (`pr-review-results.js`), and nothing
+ * in this repository stops an agent yet.
+ */
+const DEADLINE_ROLES = Object.freeze(['reviewer', 'verifier', 'security']);
+const DEFAULT_DEADLINE_MINUTES = Object.freeze({ reviewer: 15, verifier: 5, security: 15 });
+const DEADLINE_MINUTES_MIN = 1;
+const DEADLINE_MINUTES_MAX = 60;
+
+/**
+ * How many agents the dispatcher should run at once, kept below the account's
+ * rate limit so a fan-out does not trigger the 429s it would then have to back
+ * off from; 32 is the most the orchestrator ever runs concurrently. Parsed and
+ * validated here only: nothing reads it yet, so no code limits concurrency
+ * until the dispatcher does.
+ */
+const DEFAULT_MAX_CONCURRENT_AGENTS = 8;
+const MAX_CONCURRENT_AGENTS_MIN = 1;
+const MAX_CONCURRENT_AGENTS_MAX = 32;
+
 /** Deep-freeze so no caller can edit the defaults for everyone else. */
 function deepFreeze(value) {
   if (value !== null && typeof value === 'object') {
@@ -89,6 +112,8 @@ const DEFAULT_POLICY = deepFreeze({
   soloMaintainer: false,
   sliceThreshold: 1500,
   evalCasesDir: DEFAULT_EVAL_CASES_DIR,
+  deadlineMinutes: { ...DEFAULT_DEADLINE_MINUTES },
+  maxConcurrentAgents: DEFAULT_MAX_CONCURRENT_AGENTS,
 });
 
 /** A GitHub login: alphanumerics and single inner hyphens, at most 39 characters. */
@@ -116,9 +141,11 @@ const SIMPLE_KEYS = Object.freeze({
   // A repository-relative directory: never absolute, never climbing out of the repository.
   evalCasesDir: (value) =>
     isNonEmptyString(value) && !value.trim().startsWith('/') && !value.split(/[\\/]/).includes('..'),
+  maxConcurrentAgents: (value) =>
+    Number.isInteger(value) && value >= MAX_CONCURRENT_AGENTS_MIN && value <= MAX_CONCURRENT_AGENTS_MAX,
 });
 
-const KNOWN_KEYS = Object.freeze(['sourceSha', 'roundCap', 'depth', ...Object.keys(SIMPLE_KEYS)]);
+const KNOWN_KEYS = Object.freeze(['sourceSha', 'roundCap', 'depth', 'deadlineMinutes', ...Object.keys(SIMPLE_KEYS)]);
 
 /** The answer when nothing can be trusted: strict defaults, named reason. */
 function strict(reason, warnings = []) {
@@ -270,6 +297,24 @@ function loadPolicy(input) {
     }
   }
 
+  if (Object.prototype.hasOwnProperty.call(parsed, 'deadlineMinutes')) {
+    const deadlines = parsed.deadlineMinutes;
+    if (!isObject(deadlines)) {
+      reject('deadlineMinutes', 'invalid-type', deadlines);
+    } else {
+      for (const role of Object.keys(deadlines)) {
+        const minutes = deadlines[role];
+        if (!DEADLINE_ROLES.includes(role)) {
+          reject(`deadlineMinutes.${role}`, 'unknown-key', minutes);
+        } else if (!Number.isInteger(minutes) || minutes < DEADLINE_MINUTES_MIN || minutes > DEADLINE_MINUTES_MAX) {
+          reject(`deadlineMinutes.${role}`, 'out-of-range', minutes);
+        } else {
+          policy.deadlineMinutes[role] = minutes;
+        }
+      }
+    }
+  }
+
   for (const [key, isValid] of Object.entries(SIMPLE_KEYS)) {
     if (!Object.prototype.hasOwnProperty.call(parsed, key)) continue;
     const value = parsed[key];
@@ -289,4 +334,11 @@ module.exports = {
   ROUND_CAP_MAX,
   POLICY_BLOCK_LANGUAGE,
   KNOWN_KEYS,
+  DEADLINE_ROLES,
+  DEFAULT_DEADLINE_MINUTES,
+  DEADLINE_MINUTES_MIN,
+  DEADLINE_MINUTES_MAX,
+  DEFAULT_MAX_CONCURRENT_AGENTS,
+  MAX_CONCURRENT_AGENTS_MIN,
+  MAX_CONCURRENT_AGENTS_MAX,
 };

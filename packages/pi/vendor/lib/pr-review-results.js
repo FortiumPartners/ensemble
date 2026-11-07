@@ -1,0 +1,937 @@
+'use strict';
+
+/**
+ * Review results by file, agent deadlines and agent-failure classification
+ * (kata et2k, epic ptqb, plan docs/plans/pr-review-speedup-plan.md section 3C).
+ *
+ * What this module does, and what it deliberately does not
+ * --------------------------------------------------------
+ *
+ * HONEST LIMIT. This is repository code that COMPUTES things: the deadline an
+ * agent is given, the state each expected result file is in, and what to do
+ * about an API failure. It does NOT kill, stop or time out any agent, and it
+ * cannot. Whatever dispatches the agents (the `runner` child owns dispatch)
+ * must stop an agent at the `deadlineAt` computed here, and must keep the
+ * number of agents running at once below the `maxConcurrentAgents` policy key,
+ * which this module never reads. Until it does, a deadline is a number in a
+ * report and that key is a validated number in a policy file: neither is
+ * enforcement, and nothing here, or in a document that cites this module, may
+ * claim otherwise. No skill or command calls this module yet.
+ *
+ * What this module DOES guarantee is the other half, against a writer that
+ * cannot move the system clock or act as another user: a result file counts as
+ * arrived only when its last change is no later than its deadline and no
+ * earlier than its dispatch. "Last change" is the inode change time (ctime),
+ * which `touch -t`, `cp -p` and renaming an early temp file into place cannot
+ * set backwards; the modification time, which any writer can set, is not used.
+ *
+ * Three pure-ish building blocks (fs is allowed in this module, and only
+ * `collectResults` touches it, through injectable `deps` as in
+ * local-ci-runner.js; `pr-review-cli.js` itself stays free of file reads):
+ *
+ *   reviewDeadlines({tier, depth, role, now, policy?}) -> {dispatchedAt, deadlineAt, ...}
+ *     reviewer 15 min, verifier 5 min, security lane 15 min, overridable per
+ *     role by the `deadlineMinutes` policy key (1..60 minutes, validated by
+ *     pr-review-policy.js). `tier` and `depth` are validated and echoed; they
+ *     do not change the budget (the plan sets none). `dispatchedAt` is `now`:
+ *     hand both it and `deadlineAt` to `collectResults`.
+ *
+ *   collectResults({expected, dir, now, scratchDir?}, deps?)
+ *     Each expected agent writes `out-<name>.json` into `dir`; its entry says
+ *     when it was dispatched (`dispatchedAt`) and when it must be done
+ *     (`deadlineAt`). Every agent is classified, from the files alone:
+ *       arrived  a valid result whose last change falls in
+ *                [dispatchedAt, deadlineAt];
+ *       missing  nothing from this dispatch yet, before the deadline
+ *                (`pending: true`: collect again). A file whose last change is
+ *                before `dispatchedAt` (another round's result in a reused
+ *                directory, a placeholder) is "nothing yet", with the reason
+ *                `stale-result-before-dispatch`;
+ *       expired  nothing valid in time: the deadline passed with nothing from
+ *                this dispatch, or the file's last change was after it.
+ *                Final, never read as reviewed;
+ *       invalid  a file exists but cannot be used: empty, truncated, not JSON,
+ *                not a regular file, too large, changed while it was read or
+ *                the wrong schema. The file is quarantined under
+ *                `<scratchDir>/quarantine/` with its reason and the agent
+ *                counts as not reviewed. (`pending` stays true until the
+ *                deadline, because an agent that is still writing
+ *                non-atomically can leave a half file that a later pass finds
+ *                complete. Dispatch should have agents write a temp file and
+ *                rename it. The rename is the change that counts, so an agent
+ *                that renames after its deadline is late.)
+ *     A yield that is a JSON STRING holding the object (the string-versus-object
+ *     retry the plan measured) is parsed once more and accepted; anything
+ *     deeper is invalid.
+ *     The moment a valid result is seen it is copied to `scratchDir`, with its
+ *     arrival (the change time above) stored as the copy's modification time.
+ *     A scratch copy of THIS dispatch is authoritative from then on:
+ *     classification is a function of (expected, dir contents, scratch
+ *     contents, now), so an orchestrator that crashed and is restarted
+ *     re-collects over the same directory and reaches the same answer, and an
+ *     agent that later rewrites or deletes its file changes nothing. A scratch
+ *     copy that arrived before `dispatchedAt` belongs to an earlier round: it
+ *     is ignored, with a warning, and replaced by the new arrival.
+ *     TRUST. `dir` is where the agents write, so nothing in it is trusted
+ *     beyond the one file `out-<name>.json`, and that file is read through a
+ *     single descriptor opened without following symlinks and without
+ *     blocking (a symlink, FIFO, device or directory there is `invalid:
+ *     not-a-regular-file`; a swap or rewrite while it is read is `invalid:
+ *     file-changed-during-read`). What the orchestrator itself keeps, scratch
+ *     copies and quarantine, therefore lives OUTSIDE `dir`: `scratchDir`
+ *     defaults to the hidden sibling `<parent of dir>/.<name of dir>.collected`
+ *     (`defaultScratchDir`), and a `scratchDir` inside `dir`, or containing
+ *     it, is refused. It is created mode 0700 and must be a real directory
+ *     (not a symlink) owned by this user and writable by nobody else;
+ *     otherwise it is neither read nor written, with a warning, and the result
+ *     files alone are judged. Every write to it is an exclusive create of a
+ *     randomly named temp file followed by a rename, so a symlink planted at a
+ *     guessable name is never followed. Limit: file modes do not stop an agent
+ *     that runs as the same user and deliberately goes looking for the scratch
+ *     directory; run agents so that they can write only inside `dir`.
+ *     An expired, missing or invalid agent never silently becomes "reviewed":
+ *       - a verifier that did not arrive is named in `incompleteVerifiers`
+ *         (with the candidate ids it was assigned, or null for every
+ *         candidate when the assignment is unknown), which `tallyVotes` turns
+ *         into `unverified` / `verifier-incomplete`, presented and never
+ *         counted as agreement;
+ *       - a reviewer that did not arrive, or arrived without having covered
+ *         every path of its slice, leaves that slice in `unreviewedSlices`.
+ *         A slice counts as reviewed only when EVERY reviewer assigned to it
+ *         arrived and covered it, so one expired lens leaves the slice not
+ *         reviewed (plan 3A crosses each slice with more than one lens). A
+ *         reviewer given a `sliceId` must also be given its `paths`: a slice
+ *         with no paths to check would count as reviewed by anyone, so such a
+ *         request is refused.
+ *     `ok` is true only when the request was readable and every agent
+ *     arrived; the lists are filled either way so a partial result is usable.
+ *
+ *   classifyAgentFailure({status, retryAfterSec, message, attempt?, waitedSec?, now?, deadlineAt?}) ->
+ *       {retry, delayMs, fallbackRoute, failFast, state, kind, reason}
+ *     Rate limits and overloads are retried after a backoff, on the alternate
+ *     model route; a retry-after beyond `failFastAfterSec` (default 300, the
+ *     length of a verifier's whole budget), unreadable failures, client errors
+ *     and exhausted retries fail fast to `state: 'partial'`, which the caller
+ *     records, instead of stalling for hours. That threshold caps the TOTAL
+ *     waiting too: the caller passes the seconds it has already waited for this
+ *     agent (`waitedSec`), so three 299 s retry-afters cannot eat a whole
+ *     budget. Given the agent's `deadlineAt` and the current `now`, a wait that
+ *     would end at or after that deadline fails fast as well: `now` already
+ *     contains the earlier waits, so waiting cannot run past the deadline.
+ *
+ * Wiring: `collectResults` -> `toVotesInput` produces the exact payload of the
+ * `votes` subcommand / `tallyVotes`; `reviewedSlices` is the `reviewed` array
+ * of the `slices` subcommand / `verifyCoverage`.
+ *
+ * FAIL CLOSED: an unreadable request returns `ok:false` with a reason and
+ * empty results ("no agents" is never "all reviewed"); a failure this module
+ * cannot classify is a fail-fast, never a retry loop.
+ */
+
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const { DEADLINE_ROLES, DEFAULT_DEADLINE_MINUTES, DEADLINE_MINUTES_MIN, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
+const { VERDICTS } = require('./pr-review-votes');
+
+const MINUTE_MS = 60 * 1000;
+
+/** The tiers and depths this module recognises when asked to echo them. */
+const TIERS = Object.freeze(['low', 'medium', 'high']);
+const DEPTHS = Object.freeze(['quick', 'standard', 'deep']);
+
+/** A result file larger than this is not a review result. */
+const MAX_RESULT_BYTES = 8 * 1024 * 1024;
+
+/** Safe to splice into a file name: no separators, no `..`, no leading dot. */
+const AGENT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+const RETRY_MAX_ATTEMPTS = 3;
+const DEFAULT_FAIL_FAST_AFTER_SEC = 300;
+const RATE_LIMIT_BACKOFF_MS = 30 * 1000;
+const TRANSIENT_BACKOFF_MS = 10 * 1000;
+
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isText = (value) => typeof value === 'string' && value.trim() !== '';
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/** Text identity for ids that may be written as a string or a finite number. */
+const identity = (value) => (isText(value) ? value.trim() : Number.isFinite(value) ? String(value) : null);
+
+/** The latest instant a Date can hold: a bigger number is not a time, and `toISOString` throws on it. */
+const MAX_EPOCH_MS = 8.64e15;
+
+/** Epoch milliseconds from a finite number or an ISO string; `null` when neither. */
+function toMillis(value) {
+  if (typeof value === 'number') return Number.isFinite(value) && value > 0 && value <= MAX_EPOCH_MS ? value : null;
+  if (isText(value)) {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Deadlines
+// ---------------------------------------------------------------------------
+
+function deadlineFailure(reason) {
+  return { ok: false, reason, deadlineAt: null, budgetMs: 0, warnings: [] };
+}
+
+/**
+ * The wall-clock deadline for one agent that starts at `now`.
+ *
+ * @param {Object} input
+ * @param {string} input.role      `reviewer` | `verifier` | `security`.
+ * @param {number|string} input.now  Epoch ms or ISO string: when the agent is dispatched.
+ * @param {string} [input.tier]    `low` | `medium` | `high`; validated and echoed.
+ * @param {string} [input.depth]   `quick` | `standard` | `deep`; validated and echoed.
+ * @param {Object} [input.policy]  A loaded policy (`loadPolicy(...).policy`); its
+ *   `deadlineMinutes[role]` overrides the default when it is a 1..60 integer.
+ * @returns {{ok:boolean, role?:string, dispatchedAt?:number, deadlineAt:number|null, deadlineAtIso?:string, budgetMs:number,
+ *   minutes?:number, source?:'default'|'policy', tier?:string, depth?:string, warnings:string[], reason?:string}}
+ */
+function reviewDeadlines(input) {
+  if (!isObject(input)) return deadlineFailure('invalid-input');
+  const role = isText(input.role) ? input.role.trim().toLowerCase() : null;
+  if (role === null || !DEADLINE_ROLES.includes(role)) {
+    return deadlineFailure(`unknown role ${JSON.stringify(input.role)} (expected ${DEADLINE_ROLES.join(', ')})`);
+  }
+  const now = toMillis(input.now);
+  if (now === null) return deadlineFailure('now must be epoch milliseconds or an ISO timestamp');
+
+  const result = { role };
+  for (const [key, allowed] of [['tier', TIERS], ['depth', DEPTHS]]) {
+    if (input[key] === undefined) continue;
+    const value = isText(input[key]) ? input[key].trim().toLowerCase() : null;
+    if (value === null || !allowed.includes(value)) {
+      return deadlineFailure(`unknown ${key} ${JSON.stringify(input[key])} (expected ${allowed.join(', ')})`);
+    }
+    result[key] = value;
+  }
+
+  const warnings = [];
+  let minutes = DEFAULT_DEADLINE_MINUTES[role];
+  let source = 'default';
+  const configured = isObject(input.policy) && isObject(input.policy.deadlineMinutes) ? input.policy.deadlineMinutes[role] : undefined;
+  if (configured !== undefined) {
+    if (Number.isInteger(configured) && configured >= DEADLINE_MINUTES_MIN && configured <= DEADLINE_MINUTES_MAX) {
+      minutes = configured;
+      source = 'policy';
+    } else {
+      warnings.push(`policy deadlineMinutes.${role} is out of range; the default applies`);
+    }
+  }
+
+  const budgetMs = minutes * MINUTE_MS;
+  const deadlineAt = now + budgetMs;
+  if (deadlineAt > MAX_EPOCH_MS) return deadlineFailure('now is too late to hold a deadline');
+  return {
+    ok: true,
+    ...result,
+    dispatchedAt: now,
+    deadlineAt,
+    deadlineAtIso: new Date(deadlineAt).toISOString(),
+    budgetMs,
+    minutes,
+    source,
+    warnings,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Result files
+// ---------------------------------------------------------------------------
+
+/** The facts this module reads about one entry: the entry itself, never what a symlink points at. */
+function statFacts(stat) {
+  return {
+    mtimeMs: stat.mtimeMs,
+    ctimeMs: stat.ctimeMs,
+    size: stat.size,
+    isFile: stat.isFile(),
+    isDirectory: stat.isDirectory(),
+    ino: stat.ino,
+    dev: stat.dev,
+    uid: stat.uid,
+    mode: stat.mode,
+  };
+}
+
+/** An error whose `code` this module maps to a named reason, like the `code` of an fs error. */
+function fileError(code, message) {
+  return Object.assign(new Error(message), { code });
+}
+
+/**
+ * Why a directory cannot hold the orchestrator's own state, or `null` when it can. It must be a real directory
+ * (a symlink could be aimed anywhere), owned by this user and writable by nobody else.
+ */
+function privateDirProblem(stat) {
+  if (!isObject(stat) || stat.isDirectory !== true) return 'not a real directory (a symlink, a file or unreadable)';
+  if (process.platform === 'win32') return null; // owner and mode bits mean nothing there
+  if (typeof process.getuid === 'function' && stat.uid !== process.getuid()) return 'owned by another user';
+  if ((stat.mode & 0o022) !== 0) return 'writable by group or others';
+  return null;
+}
+
+/** Creates (mode 0700) or re-checks a directory that holds orchestrator state; `EUNSAFE` when it is not private. */
+function ensurePrivateDir(target) {
+  fs.mkdirSync(target, { recursive: true, mode: 0o700 });
+  const problem = privateDirProblem(statFacts(fs.lstatSync(target)));
+  if (problem !== null) throw fileError('EUNSAFE', `${target} is ${problem}`);
+}
+
+/** open(2) flags for a path an agent controls: never follow a final symlink, never block opening a FIFO. */
+const READ_FLAGS = fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0);
+
+/**
+ * Injectable file access, so every failure case can be driven without a real disk:
+ *   lstat(file)                      facts about the entry itself (a symlink is not followed), or `null` when absent
+ *   readFile(file, expected?)        the text of one regular file within the size limit, or a coded error
+ *   writeFile(file, text, mtimeMs)   atomic, and never through a path an agent could have aimed
+ */
+function defaultDeps() {
+  return {
+    lstat(file) {
+      try {
+        return statFacts(fs.lstatSync(file));
+      } catch (error) {
+        if (error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return null;
+        throw error;
+      }
+    },
+    /**
+     * One descriptor decides everything. It is opened without following a final symlink and without blocking on a
+     * FIFO; the type, size and times come from the descriptor, not from the path (which can be swapped between a
+     * check and a read); and the bytes come from it, bounded. `expected` is the `lstat` taken just before: another
+     * inode, size or change time means the file was swapped or rewritten in between, and so does any change while
+     * it is read (`ECHANGED`), so the change time judged is the change time of the bytes returned.
+     */
+    readFile(file, expected) {
+      const fd = fs.openSync(file, READ_FLAGS);
+      try {
+        const before = fs.fstatSync(fd);
+        if (!before.isFile()) throw fileError('ENOTREG', `${file} is not a regular file`);
+        if (before.size > MAX_RESULT_BYTES) throw fileError('EFBIG', `${file} is larger than ${MAX_RESULT_BYTES} bytes`);
+        if (isObject(expected) && (before.ino !== expected.ino || before.dev !== expected.dev || before.size !== expected.size || before.ctimeMs !== expected.ctimeMs)) {
+          throw fileError('ECHANGED', `${file} was replaced or rewritten after it was inspected`);
+        }
+        const capacity = before.size + 1; // the spare byte notices a file that grew
+        const buffer = Buffer.allocUnsafe(capacity);
+        let filled = 0;
+        while (filled < capacity) {
+          const read = fs.readSync(fd, buffer, filled, capacity - filled, null);
+          if (read === 0) break;
+          filled += read;
+        }
+        const after = fs.fstatSync(fd);
+        if (filled > before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) {
+          throw fileError('ECHANGED', `${file} changed while it was read`);
+        }
+        return buffer.toString('utf8', 0, filled);
+      } finally {
+        fs.closeSync(fd);
+      }
+    },
+    /**
+     * An exclusive create (`wx`) of a randomly named temp file beside the target, so a symlink or file planted at any
+     * guessable name is never opened; then a rename, which replaces a symlink at the target instead of following it.
+     * The directory must be private (`ensurePrivateDir`).
+     */
+    writeFile(file, text, mtimeMs) {
+      const parent = path.dirname(file);
+      ensurePrivateDir(parent);
+      const temp = path.join(parent, `.${path.basename(file)}.${crypto.randomBytes(8).toString('hex')}.tmp`);
+      const fd = fs.openSync(temp, 'wx', 0o600);
+      try {
+        try {
+          fs.writeFileSync(fd, text);
+          if (Number.isFinite(mtimeMs)) fs.futimesSync(fd, mtimeMs / 1000, mtimeMs / 1000);
+        } finally {
+          fs.closeSync(fd);
+        }
+        fs.renameSync(temp, file);
+      } catch (error) {
+        try {
+          fs.unlinkSync(temp);
+        } catch (ignored) {
+          // never renamed into place, or already gone: nothing is left to clean up
+        }
+        throw error;
+      }
+    },
+  };
+}
+
+/** A schema check never throws: it answers the first reason the yield is unusable. */
+function checkReviewer(value) {
+  if (!Array.isArray(value.findings) || !value.findings.every(isObject)) return { reason: 'invalid-findings' };
+  if (!Array.isArray(value.pathsReviewed) || !value.pathsReviewed.every(isText)) return { reason: 'invalid-paths-reviewed' };
+  return {
+    findings: value.findings,
+    pathsReviewed: value.pathsReviewed.map((entry) => entry.trim().replace(/^\.\//, '')),
+  };
+}
+
+function checkVerifier(value) {
+  if (!Array.isArray(value.votes) || !value.votes.every(isObject)) return { reason: 'invalid-votes' };
+  const votes = [];
+  for (const vote of value.votes) {
+    const candidateId = identity(vote.candidateId);
+    if (candidateId === null) return { reason: 'vote-needs-candidate-id' };
+    const verdict = isText(vote.verdict) ? vote.verdict.trim().toLowerCase() : null;
+    if (verdict === null || !VERDICTS.includes(verdict)) return { reason: 'unknown-verdict' };
+    votes.push({ candidateId, verdict });
+  }
+  return { votes };
+}
+
+/**
+ * JSON text -> the agent's object. A string whose content is the JSON object is
+ * the "string instead of object" yield: parsed once more, and only once.
+ */
+function parseYield(text) {
+  const body = typeof text === 'string' ? text.replace(/^\uFEFF/, '') : '';
+  if (body.trim() === '') return { reason: 'empty-file' };
+  let value;
+  try {
+    value = JSON.parse(body);
+    if (typeof value === 'string') value = JSON.parse(value);
+  } catch (error) {
+    return { reason: 'unparseable-json' };
+  }
+  if (!isObject(value)) return { reason: 'yield-not-an-object' };
+  return { value };
+}
+
+/** The reason an unreadable file is named: the codes `readFile` throws for a symlink, a size, a swap or a rewrite. */
+function readFailureReason(error) {
+  const code = (error && error.code) || 'error';
+  if (code === 'ELOOP' || code === 'EMLINK' || code === 'ENOTREG') return 'not-a-regular-file';
+  if (code === 'EFBIG') return 'result-too-large';
+  if (code === 'ECHANGED') return 'file-changed-during-read';
+  return `unreadable-file:${code}`;
+}
+
+/**
+ * Reads and validates one result file. Never throws; every failure is a named reason.
+ *
+ * @param {string} file
+ * @param {{role:string, dispatchedAt:number}} agent
+ * @param {Object} io
+ * @param {'ctimeMs'|'mtimeMs'} timeField  Where the arrival comes from. A result file's own change time (ctime): the
+ *   agent that wrote it cannot set it backwards. A scratch copy's modification time: the orchestrator stored the
+ *   arrival there when it took the copy, in a directory only it can write.
+ * @returns `absent`; `stale` (it last changed before the dispatch, so it is not this dispatch's); `invalid` with a
+ *   reason (and the text, when it could be read); or `valid` with the checked data. Each carries `arrivedAt`.
+ */
+function inspectFile(file, agent, io, timeField) {
+  let stat;
+  try {
+    stat = io.lstat(file);
+  } catch (error) {
+    return { status: 'invalid', reason: `unreadable-file:${(error && error.code) || 'error'}` };
+  }
+  if (stat === null) return { status: 'absent' };
+  if (!stat.isFile) return { status: 'invalid', reason: 'not-a-regular-file' };
+  if (stat.size > MAX_RESULT_BYTES) return { status: 'invalid', reason: 'result-too-large' };
+  const arrivedAt = Number.isFinite(stat[timeField]) ? Math.round(stat[timeField]) : null;
+  if (arrivedAt === null) return { status: 'invalid', reason: 'no-arrival-time' };
+  if (arrivedAt < agent.dispatchedAt) return { status: 'stale', arrivedAt };
+
+  let text;
+  try {
+    text = io.readFile(file, stat);
+  } catch (error) {
+    return { status: 'invalid', reason: readFailureReason(error), arrivedAt };
+  }
+
+  const parsed = parseYield(text);
+  if (parsed.reason) return { status: 'invalid', reason: parsed.reason, arrivedAt, text };
+  const checked = agent.role === 'verifier' ? checkVerifier(parsed.value) : checkReviewer(parsed.value);
+  if (checked.reason) return { status: 'invalid', reason: checked.reason, arrivedAt, text };
+  return { status: 'valid', data: checked, arrivedAt, text };
+}
+
+function collectFailure(reason) {
+  return {
+    ok: false,
+    reason,
+    complete: false,
+    agents: [],
+    findings: [],
+    votes: [],
+    incompleteVerifiers: [],
+    reviewedSlices: [],
+    unreviewedSlices: [],
+    unreviewedDetail: [],
+    warnings: [],
+  };
+}
+
+/** One path is the other, or lies inside it. */
+function overlaps(a, b) {
+  const relative = path.relative(a, b);
+  return relative === '' || (relative.split(path.sep)[0] !== '..' && !path.isAbsolute(relative));
+}
+
+/**
+ * Where the orchestrator keeps its copies when the caller names no `scratchDir`: a hidden sibling of `dir`, never
+ * inside it, because the agents write inside `dir` and nothing they can write to can be trusted.
+ */
+function defaultScratchDir(dir) {
+  const resolved = path.resolve(dir);
+  return path.join(path.dirname(resolved), `.${path.basename(resolved)}.collected`);
+}
+
+/** Request validation: every problem is a refusal, because a guess here is a false "reviewed". */
+function readExpected(input) {
+  if (!isObject(input)) return { reason: 'invalid-input' };
+  if (!isText(input.dir)) return { reason: 'dir must be a non-empty string' };
+  if (!Array.isArray(input.expected) || input.expected.length === 0) {
+    return { reason: 'expected must be a non-empty array of agents' };
+  }
+  const now = toMillis(input.now);
+  if (now === null) return { reason: 'now must be epoch milliseconds or an ISO timestamp' };
+  if (input.scratchDir !== undefined && !isText(input.scratchDir)) return { reason: 'scratchDir must be a non-empty string' };
+
+  const dir = path.resolve(input.dir);
+  if (path.dirname(dir) === dir) return { reason: 'dir must not be a filesystem root' };
+  const scratchDir = input.scratchDir === undefined ? defaultScratchDir(dir) : path.resolve(input.scratchDir);
+  if (overlaps(dir, scratchDir) || overlaps(scratchDir, dir)) {
+    return { reason: 'scratchDir must be outside dir: the agents write in dir, so nothing kept there can be trusted' };
+  }
+
+  const agents = [];
+  const seen = new Set();
+  for (const [index, entry] of input.expected.entries()) {
+    const label = `expected[${index}]`;
+    if (!isObject(entry)) return { reason: `${label} must be an object` };
+    if (!isText(entry.name) || !AGENT_NAME.test(entry.name) || entry.name.includes('..')) {
+      return { reason: `${label}.name ${JSON.stringify(entry.name)} is not a safe file-name part` };
+    }
+    const key = entry.name.toLowerCase();
+    if (seen.has(key)) return { reason: `${label}.name ${JSON.stringify(entry.name)} is listed twice` };
+    seen.add(key);
+    const role = isText(entry.role) ? entry.role.trim().toLowerCase() : null;
+    if (role === null || !DEADLINE_ROLES.includes(role)) {
+      return { reason: `${label}.role must be one of ${DEADLINE_ROLES.join(', ')}` };
+    }
+    const deadlineAt = toMillis(entry.deadlineAt);
+    if (deadlineAt === null) return { reason: `${label}.deadlineAt must be epoch milliseconds or an ISO timestamp` };
+    const dispatchedAt = toMillis(entry.dispatchedAt);
+    if (dispatchedAt === null) {
+      return { reason: `${label}.dispatchedAt must be epoch milliseconds or an ISO timestamp: a result written before the dispatch is another round's` };
+    }
+    if (deadlineAt <= dispatchedAt) return { reason: `${label}.deadlineAt must be later than dispatchedAt` };
+
+    const agent = { name: entry.name, role, dispatchedAt, deadlineAt };
+    if (entry.sliceId !== undefined) {
+      if (!isText(entry.sliceId)) return { reason: `${label}.sliceId must be a non-empty string` };
+      agent.sliceId = entry.sliceId.trim();
+    }
+    if (entry.paths !== undefined) {
+      if (!Array.isArray(entry.paths) || !entry.paths.every(isText)) return { reason: `${label}.paths must be an array of paths` };
+      agent.paths = entry.paths.map((p) => p.trim().replace(/^\.\//, ''));
+    }
+    if (role !== 'verifier' && agent.sliceId !== undefined && (agent.paths === undefined || agent.paths.length === 0)) {
+      return { reason: `${label}.paths must list the paths of slice ${JSON.stringify(agent.sliceId)}: a slice with no paths to check would count as reviewed by anyone` };
+    }
+    if (entry.candidateIds !== undefined) {
+      const ids = Array.isArray(entry.candidateIds) ? entry.candidateIds.map(identity) : [null];
+      if (ids.includes(null)) return { reason: `${label}.candidateIds must be an array of ids` };
+      agent.candidateIds = ids;
+    }
+    agents.push(agent);
+  }
+  return { agents, now, dir, scratchDir };
+}
+
+/**
+ * Whether the scratch directory may be read and written. Absent is fine (the first write creates it, private); a
+ * symlink, or a directory that is foreign or shared, is not: an agent could have put anything in it, so its contents
+ * are neither read as arrivals nor added to.
+ */
+function checkScratch(io, scratchDir, warnings) {
+  let stat;
+  try {
+    stat = io.lstat(scratchDir);
+  } catch (error) {
+    const code = (error && error.code) || 'error';
+    warnings.push(`scratch directory ${scratchDir} could not be inspected (${code}); it was not used`);
+    return { usable: false, error: `scratch-unreadable:${code}` };
+  }
+  if (stat === null) return { usable: true };
+  const problem = privateDirProblem(stat);
+  if (problem === null) return { usable: true };
+  warnings.push(`scratch directory ${scratchDir} is ${problem}; it was not used`);
+  return { usable: false, error: 'unsafe-scratch-dir' };
+}
+
+/**
+ * Classifies every expected agent from its result file and builds the inputs
+ * `tallyVotes` and `verifyCoverage` consume. See the module header.
+ *
+ * @param {Object} input
+ * @param {Object[]} input.expected  `{name, role, dispatchedAt, deadlineAt, sliceId?, paths?, candidateIds?}` per
+ *   agent. `role` is reviewer|verifier|security; `dispatchedAt` and `deadlineAt` come from `reviewDeadlines` (a result
+ *   that last changed before `dispatchedAt` is not this dispatch's); a reviewer's `sliceId` says which slice it owns and
+ *   `paths` (required with `sliceId`) lists that slice's paths; a verifier's `candidateIds` say which candidates it was
+ *   assigned.
+ * @param {string} input.dir         Where the agents write `out-<name>.json`.
+ * @param {number|string} input.now  The moment of observation.
+ * @param {string} [input.scratchDir]  Defaults to `defaultScratchDir(dir)`; never inside `dir`.
+ * @param {Object} [deps]            `{lstat, readFile, writeFile}`; real fs by default (`defaultDeps()`).
+ */
+function collectResults(input, deps) {
+  const io = deps === undefined ? defaultDeps() : deps;
+  const request = readExpected(input);
+  if (request.reason) return collectFailure(request.reason);
+  const { agents, now, dir, scratchDir } = request;
+
+  const warnings = [];
+  const scratch = checkScratch(io, scratchDir, warnings);
+  const records = agents.map((agent) => {
+    const file = `out-${agent.name}.json`;
+    const primary = path.join(dir, file);
+    const kept = path.join(scratchDir, file);
+    const record = { name: agent.name, role: agent.role, dispatchedAt: agent.dispatchedAt, deadlineAt: agent.deadlineAt };
+    if (agent.sliceId !== undefined) record.sliceId = agent.sliceId;
+    if (agent.candidateIds !== undefined) record.candidateIds = agent.candidateIds.slice();
+
+    const safeWrite = (target, text, mtimeMs) => {
+      if (!scratch.usable) {
+        record.scratchError = scratch.error;
+        return false;
+      }
+      try {
+        io.writeFile(target, text, mtimeMs);
+        return true;
+      } catch (error) {
+        warnings.push(`could not write ${target}: ${(error && error.code) || 'error'}`);
+        record.scratchError = (error && error.code) || 'error';
+        return false;
+      }
+    };
+
+    // A scratch copy was validated when it was taken, so the first valid arrival of THIS dispatch is the one that
+    // counts. A copy that arrived before the dispatch is an earlier round's: it is ignored, never trusted.
+    const earlier = scratch.usable ? inspectFile(kept, agent, io, 'mtimeMs') : { status: 'absent' };
+    if (earlier.status === 'stale') warnings.push(`${kept}: ignored a scratch copy from before this dispatch`);
+    else if (earlier.status === 'invalid') warnings.push(`${kept}: ignored an unusable scratch copy (${earlier.reason})`);
+    const fromScratch = earlier.status === 'valid';
+    const seen = fromScratch ? earlier : inspectFile(primary, agent, io, 'ctimeMs');
+
+    if (seen.status === 'valid') {
+      if (fromScratch || safeWrite(kept, seen.text, seen.arrivedAt)) record.scratchPath = kept;
+      record.arrivedAt = seen.arrivedAt;
+      if (seen.arrivedAt <= agent.deadlineAt) {
+        record.state = 'arrived';
+        record.pending = false;
+        record.data = seen.data;
+      } else {
+        record.state = 'expired';
+        record.reason = 'arrived-after-deadline';
+        record.pending = false;
+      }
+    } else if (seen.status === 'invalid') {
+      record.state = 'invalid';
+      record.reason = seen.reason;
+      record.pending = now < agent.deadlineAt;
+      const quarantine = path.join(scratchDir, 'quarantine');
+      if (typeof seen.text === 'string') safeWrite(path.join(quarantine, file), seen.text, seen.arrivedAt);
+      safeWrite(path.join(quarantine, `out-${agent.name}.reason.json`), JSON.stringify({ name: agent.name, reason: seen.reason }) + '\n');
+      if (scratch.usable) record.quarantinePath = path.join(quarantine, file);
+    } else {
+      // Nothing of THIS dispatch has been written: no file, or only one that last changed before the dispatch.
+      const absentReason = seen.status === 'stale' ? 'stale-result-before-dispatch' : null;
+      if (now >= agent.deadlineAt) {
+        record.state = 'expired';
+        record.reason = absentReason === null ? 'deadline-passed' : absentReason;
+        record.pending = false;
+      } else {
+        record.state = 'missing';
+        record.reason = absentReason === null ? 'not-yet-written' : absentReason;
+        record.pending = true;
+      }
+    }
+    return { agent, record };
+  });
+
+  // --- Aggregation ------------------------------------------------------
+  const findings = [];
+  const votes = [];
+  const incompleteVerifiers = [];
+  const slices = new Map(); // id -> {reasons: [], missingPaths: []}
+
+  for (const { agent, record } of records) {
+    const arrived = record.state === 'arrived';
+    if (agent.role === 'verifier') {
+      if (!arrived) {
+        incompleteVerifiers.push({
+          verifier: agent.name,
+          reason: record.reason === undefined ? record.state : `${record.state}:${record.reason}`,
+          candidateIds: agent.candidateIds === undefined ? null : agent.candidateIds.slice(),
+        });
+        continue;
+      }
+      for (const vote of record.data.votes) votes.push({ verifier: agent.name, candidateId: vote.candidateId, verdict: vote.verdict });
+      continue;
+    }
+
+    // reviewer and security lane
+    let missingPaths = [];
+    if (arrived) {
+      for (const finding of record.data.findings) findings.push({ ...finding, reviewer: agent.name });
+      if (agent.paths !== undefined) {
+        const reviewedPaths = new Set(record.data.pathsReviewed);
+        missingPaths = agent.paths.filter((p) => !reviewedPaths.has(p));
+      }
+    }
+    if (agent.sliceId !== undefined) {
+      const slice = slices.get(agent.sliceId) || { reasons: [], missingPaths: [] };
+      if (!arrived) slice.reasons.push({ agent: agent.name, reason: `${record.state}:${record.reason}` });
+      else if (missingPaths.length > 0) {
+        slice.reasons.push({ agent: agent.name, reason: 'paths-not-reviewed' });
+        for (const p of missingPaths) if (!slice.missingPaths.includes(p)) slice.missingPaths.push(p);
+      }
+      slices.set(agent.sliceId, slice);
+    }
+  }
+
+  const reviewedSlices = [];
+  const unreviewedDetail = [];
+  for (const [id, slice] of slices) {
+    if (slice.reasons.length === 0) reviewedSlices.push(id);
+    else unreviewedDetail.push({ sliceId: id, reasons: slice.reasons, missingPaths: slice.missingPaths });
+  }
+
+  const complete = records.every(({ record }) => record.state === 'arrived');
+  const result = {
+    ok: complete,
+    complete,
+    agents: records.map(({ record }) => {
+      const { data, ...rest } = record;
+      return rest;
+    }),
+    findings,
+    votes,
+    incompleteVerifiers,
+    reviewedSlices,
+    unreviewedSlices: unreviewedDetail.map((entry) => entry.sliceId),
+    unreviewedDetail,
+    warnings,
+  };
+  if (!complete) result.reason = 'incomplete';
+  return result;
+}
+
+/**
+ * The `votes` payload for a collection: every candidate carries the votes cast
+ * on it and the verifiers that were assigned to it but returned nothing usable.
+ *
+ * @param {Object} collected  A `collectResults` answer.
+ * @param {Object} options
+ * @param {string} options.depth                `quick` | `standard` | `deep`.
+ * @param {number} [options.expectedVerifiers]
+ * @param {Object[]} [options.candidates]       The deduplicated candidate findings; defaults to the reviewers' findings.
+ * @returns {{findings:Object[], depth:string, expectedVerifiers?:number, ignoredVotes:Object[]}|{ok:false, reason:string}}
+ *   `ignoredVotes` lists votes dropped for naming a candidate the verifier was not assigned.
+ */
+function toVotesInput(collected, options) {
+  if (!isObject(collected) || !Array.isArray(collected.votes) || !Array.isArray(collected.incompleteVerifiers)) {
+    return { ok: false, reason: 'collected must be a collectResults answer' };
+  }
+  const opts = isObject(options) ? options : {};
+  const candidates = opts.candidates === undefined ? collected.findings : opts.candidates;
+  if (!Array.isArray(candidates)) return { ok: false, reason: 'candidates must be an array' };
+
+  const assigned = new Map(); // verifier -> Set(candidateId) | null (unknown = every candidate)
+  for (const entry of collected.incompleteVerifiers) assigned.set(entry.verifier, entry.candidateIds === null ? null : new Set(entry.candidateIds));
+  for (const agent of Array.isArray(collected.agents) ? collected.agents : []) {
+    if (agent.role === 'verifier' && agent.state === 'arrived' && Array.isArray(agent.candidateIds)) {
+      assigned.set(agent.name, new Set(agent.candidateIds));
+    }
+  }
+
+  const ignoredVotes = [];
+  const findings = candidates.map((candidate) => {
+    const id = isObject(candidate) ? identity(candidate.id) : null;
+    if (id === null) return candidate; // tallyVotes refuses a finding with no id, loudly
+    const cast = [];
+    for (const vote of collected.votes) {
+      if (vote.candidateId !== id) continue;
+      const scope = assigned.get(vote.verifier);
+      if (scope instanceof Set && !scope.has(id)) {
+        ignoredVotes.push({ verifier: vote.verifier, candidateId: id, reason: 'candidate-not-assigned' });
+        continue;
+      }
+      cast.push({ verifier: vote.verifier, verdict: vote.verdict });
+    }
+    const incomplete = collected.incompleteVerifiers
+      .filter((entry) => entry.candidateIds === null || entry.candidateIds.includes(id))
+      .map((entry) => ({ verifier: entry.verifier, reason: entry.reason }));
+    for (const [verifier, scope] of assigned) {
+      if (!(scope instanceof Set) || !scope.has(id)) continue;
+      if (incomplete.some((entry) => entry.verifier === verifier) || cast.some((vote) => vote.verifier === verifier)) continue;
+      incomplete.push({ verifier, reason: 'no-vote-for-candidate' });
+    }
+    return { ...candidate, votes: cast, incompleteVerifiers: incomplete };
+  });
+
+  const payload = { findings, depth: opts.depth, ignoredVotes };
+  if (opts.expectedVerifiers !== undefined) payload.expectedVerifiers = opts.expectedVerifiers;
+  return payload;
+}
+
+// ---------------------------------------------------------------------------
+// Agent failure classification
+// ---------------------------------------------------------------------------
+
+const UNIT_SECONDS = { h: 3600, m: 60, s: 1 };
+
+/** "try again in 27 hours" -> seconds; `null` when the message names no duration. */
+function retryAfterFromMessage(message) {
+  const match = /(?:retry|try again)[^0-9]{0,24}(\d+(?:\.\d+)?)\s*(hours?|hrs?|minutes?|mins?|seconds?|secs?|h|m|s)\b/i.exec(message);
+  if (match === null) return null;
+  return Number(match[1]) * UNIT_SECONDS[match[2][0].toLowerCase()];
+}
+
+function failureAnswer(fields) {
+  return { ok: true, retry: false, delayMs: 0, fallbackRoute: false, failFast: false, warnings: [], ...fields };
+}
+
+/**
+ * What to do about one failed agent API call. A retry is advised only when it can still finish inside the agent's
+ * deadline (see `deadlineAt` and `now` below).
+ *
+ * @param {Object} input
+ * @param {number|string} [input.status]       HTTP status of the failure.
+ * @param {number|string} [input.retryAfterSec] The server's retry-after, in seconds.
+ * @param {string} [input.message]             The error text; consulted for the kind and, when
+ *   `retryAfterSec` is absent, for a duration ("try again in 27 hours").
+ * @param {number} [input.attempt]             Retries already made (default 0); `3` is exhausted.
+ * @param {number} [input.failFastAfterSec]    A wait longer than this fails fast (default 300).
+ * @param {number} [input.waitedSec]           Seconds already spent waiting on earlier retries of this agent (default 0);
+ *   `waitedSec` plus this wait may not exceed `failFastAfterSec` either (`total-wait-too-long`).
+ * @param {number|string} [input.deadlineAt]   The agent's deadline (epoch ms or ISO). With it, a wait that would end
+ *   at or after the deadline fails fast (`retry-would-pass-deadline`); without it the retry is bounded only by
+ *   `failFastAfterSec` and the attempt count, and the answer carries the warning `no-deadline-given`.
+ * @param {number|string} [input.now]          The current time; required with `deadlineAt`. It already contains the
+ *   earlier waits, so the total time spent waiting cannot run past the deadline.
+ * @returns {{ok:boolean, kind:string, retry:boolean, delayMs:number, fallbackRoute:boolean, failFast:boolean,
+ *   state:'retry'|'partial', reason:string, warnings:string[]}}
+ *   `state: 'partial'` is the state to RECORD: the agent's slice or candidates are not reviewed.
+ */
+function classifyAgentFailure(input) {
+  if (!isObject(input)) {
+    return failureAnswer({ ok: false, kind: 'unknown', failFast: true, state: 'partial', reason: 'invalid-input' });
+  }
+  const warnings = [];
+  const message = typeof input.message === 'string' ? input.message : '';
+
+  const statusNumber = typeof input.status === 'string' && /^\d{3}$/.test(input.status.trim()) ? Number(input.status) : input.status;
+  const status = Number.isInteger(statusNumber) && statusNumber >= 100 && statusNumber <= 599 ? statusNumber : null;
+
+  let kind;
+  if (status === 429) kind = 'rate-limit';
+  else if (status === 529 || status === 503) kind = 'overloaded';
+  else if (status === 408) kind = 'timeout';
+  else if (status !== null && status >= 500) kind = 'server-error';
+  else if (status !== null && status >= 400) kind = 'client-error';
+  else if (/\b429\b|rate[ -]?limit|too many requests|quota/i.test(message)) kind = 'rate-limit';
+  else if (/overload|\b529\b|at capacity/i.test(message)) kind = 'overloaded';
+  else if (/timed? ?out|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|socket hang up/i.test(message)) kind = 'timeout';
+  else kind = 'unknown';
+
+  const attempt = input.attempt === undefined ? 0 : input.attempt;
+  if (!Number.isInteger(attempt) || attempt < 0) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'invalid-attempt', warnings });
+  }
+  const failFastAfterSec = input.failFastAfterSec === undefined ? DEFAULT_FAIL_FAST_AFTER_SEC : input.failFastAfterSec;
+  if (!Number.isFinite(failFastAfterSec) || failFastAfterSec < 0) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'invalid-failFastAfterSec', warnings });
+  }
+  const waitedSec = input.waitedSec === undefined ? 0 : input.waitedSec;
+  if (!Number.isFinite(waitedSec) || waitedSec < 0) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'invalid-waitedSec', warnings });
+  }
+
+  if (kind === 'client-error' || kind === 'unknown') {
+    // Nothing a retry changes (a 401, a 400) or nothing this module can read: record it, do not loop.
+    return failureAnswer({
+      kind,
+      failFast: true,
+      state: 'partial',
+      reason: kind === 'client-error' ? `client-error-${status}` : 'unclassified-failure',
+      warnings,
+    });
+  }
+
+  // The agent's own deadline bounds every retry. An unreadable one fails closed rather than lifting the bound.
+  let deadlineAt = null;
+  let now = null;
+  if (input.deadlineAt !== undefined && input.deadlineAt !== null) {
+    deadlineAt = toMillis(input.deadlineAt);
+    if (deadlineAt === null) return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'invalid-deadlineAt', warnings });
+    now = toMillis(input.now);
+    if (now === null) return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'invalid-now', warnings });
+  }
+
+  // Retry-after: the explicit field wins over a duration found in the text. A value that is not a
+  // number of seconds is ignored with a warning; `Infinity` is a wait with no end and fails fast.
+  let retryAfterSec = null;
+  if (input.retryAfterSec !== undefined && input.retryAfterSec !== null) {
+    const raw = typeof input.retryAfterSec === 'string' && input.retryAfterSec.trim() !== '' ? Number(input.retryAfterSec) : input.retryAfterSec;
+    if (typeof raw === 'number' && !Number.isNaN(raw) && raw >= 0) retryAfterSec = raw;
+    else warnings.push('unreadable-retry-after');
+  }
+  if (retryAfterSec === null) retryAfterSec = retryAfterFromMessage(message);
+
+  if (attempt >= RETRY_MAX_ATTEMPTS) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'retries-exhausted', warnings });
+  }
+  if (retryAfterSec !== null && retryAfterSec > failFastAfterSec) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'retry-after-too-long', warnings });
+  }
+
+  const backoffMs = (kind === 'rate-limit' || kind === 'overloaded' ? RATE_LIMIT_BACKOFF_MS : TRANSIENT_BACKOFF_MS) * 2 ** attempt;
+  const delayMs = retryAfterSec !== null ? Math.round(retryAfterSec * 1000) : backoffMs;
+  if (waitedSec + delayMs / 1000 > failFastAfterSec) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'total-wait-too-long', warnings });
+  }
+  if (deadlineAt === null) {
+    warnings.push('no-deadline-given');
+  } else if (now >= deadlineAt) {
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'deadline-passed', warnings });
+  } else if (now + delayMs >= deadlineAt) {
+    // The retry would resume with no time left, or after the agent was already stopped.
+    return failureAnswer({ kind, failFast: true, state: 'partial', reason: 'retry-would-pass-deadline', warnings });
+  }
+  return failureAnswer({
+    kind,
+    retry: true,
+    delayMs,
+    // A limit on one model route does not bind the alternate one; a plain timeout says nothing about the route.
+    fallbackRoute: kind === 'rate-limit' || kind === 'overloaded',
+    state: 'retry',
+    reason: retryAfterSec !== null ? 'retry-after' : 'backoff',
+    warnings,
+  });
+}
+
+module.exports = {
+  reviewDeadlines,
+  collectResults,
+  toVotesInput,
+  classifyAgentFailure,
+  defaultDeps,
+  defaultScratchDir,
+  DEADLINE_ROLES,
+  MAX_RESULT_BYTES,
+  RETRY_MAX_ATTEMPTS,
+  DEFAULT_FAIL_FAST_AFTER_SEC,
+};
