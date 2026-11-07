@@ -579,7 +579,7 @@ describe('bundleLibs against real packages directory', () => {
     // TRD-037 reachability and TRD-043 explainer modules). A failure here means the
     // closure changed: confirm the module belongs in the Pi bundle, then update this list.
     const names = results.map((r) => path.basename(r.outputPath));
-    for (const expected of ['trd-cli.js', 'trd-checks.js', 'pr-review-cli.js', 'pr-review-ledger.js', 'pr-review-tier.js', 'pr-review-approvals.js', 'pr-review-gate.js', 'pr-review-metrics.js', 'pr-review-eval.js', 'pr-review-votes.js', 'pr-review-depth.js', 'pr-review-explainer-offer.js', 'pr-review-reachability.js', 'local-ci-cli.js', 'local-ci-record.js', 'local-ci-runner.js']) {
+    for (const expected of ['trd-cli.js', 'trd-checks.js', 'pr-review-cli.js', 'pr-review-ledger.js', 'pr-review-tier.js', 'pr-review-approvals.js', 'pr-review-gate.js', 'pr-review-metrics.js', 'pr-review-eval.js', 'pr-review-votes.js', 'pr-review-depth.js', 'pr-review-explainer-offer.js', 'pr-review-reachability.js', 'pr-review-prepare-cli.js', 'pr-review-prepare.js', 'local-ci-cli.js', 'local-ci-record.js', 'local-ci-runner.js']) {
       expect(names).toContain(expected);
     }
     expect(new Set(names).size).toBe(names.length);
@@ -665,7 +665,7 @@ describe('bundleLibs against real packages directory', () => {
     try {
       await bundleLibs(repoRoot, entryPointOutputRoot, {});
 
-      for (const entry of ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'local-ci-cli.js']) {
+      for (const entry of ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'pr-review-prepare-cli.js', 'local-ci-cli.js']) {
         const entryPath = path.join(entryPointOutputRoot, 'vendor', 'lib', entry);
         expect(fs.existsSync(entryPath)).toBe(true);
 

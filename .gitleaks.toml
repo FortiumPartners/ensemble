@@ -18,4 +18,6 @@ paths = [
   '''^scripts/tests/fixtures/toolchain/broken-adapter/SKILL\.md$''',
   # Fake ghp_ token exercising the TRD-037 AC-024-2 secret-hygiene grader (it must detect and redact it).
   '''^packages/development/tests/pr-review-reachability\.test\.js$''',
+  # Fake AWS_SECRET_ACCESS_KEY / API-token canary values that prove the pr-review-prepare baseline run drops credentials from its environment.
+  '''^packages/development/tests/pr-review-prepare\.test\.js$''',
 ]
