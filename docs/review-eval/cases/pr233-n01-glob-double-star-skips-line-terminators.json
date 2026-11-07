@@ -1,0 +1,13 @@
+{
+  "id": "pr233-n01-glob-double-star-skips-line-terminators",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/233 head 86a8c9b553857fea292811af8ec115550125b6de",
+  "bug": "globToRegExpSource compiles ** to .* which does not match \\n, \\r, U+2028 or U+2029, so a workflow named with a line terminator matches no sensitive pattern and a High path holding one is not High, keeping the one-human discount.",
+  "location": {
+    "path": "packages/development/lib/pr-review-paths.js",
+    "startLine": 129,
+    "endLine": 153
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

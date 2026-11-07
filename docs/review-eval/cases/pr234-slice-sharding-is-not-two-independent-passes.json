@@ -1,0 +1,13 @@
+{
+  "id": "pr234-slice-sharding-is-not-two-independent-passes",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/234 commit c700622b6b2f5067c549bb5966c6f9316d629154",
+  "bug": "The plan shards reviewers by slice and one lens each, which gives every path one pass where the depth contract needs two independent ones; every slice must be crossed with at least two lenses.",
+  "location": {
+    "path": "docs/plans/pr-review-speedup-plan.md",
+    "startLine": 49,
+    "endLine": 49
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

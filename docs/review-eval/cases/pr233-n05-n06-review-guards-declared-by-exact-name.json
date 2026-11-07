@@ -1,0 +1,13 @@
+{
+  "id": "pr233-n05-n06-review-guards-declared-by-exact-name",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/233 head 86a8c9b553857fea292811af8ec115550125b6de",
+  "bug": "REVIEW.md declares the review guards by exact .js name only, so an extensionless sibling that Node loads first, a case-insensitive checkout that writes PR-REVIEW-GATE.JS over pr-review-gate.js, and the packages/full symlinks to the gate, skill and commands all change a guard without matching a sensitive pattern.",
+  "location": {
+    "path": "REVIEW.md",
+    "startLine": 98,
+    "endLine": 105
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}
