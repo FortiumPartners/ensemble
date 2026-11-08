@@ -1364,6 +1364,6 @@ describe('pr-review-cli results (real process)', () => {
   test('the subcommand is registered and listed in the usage text', () => {
     expect(HANDLERS.results).toBe(runResults);
     const { body } = run({}, 'no-such-subcommand');
-    expect(body.error).toMatch(/reachability\|results\|timing>/);
+    expect(body.error).toMatch(/reachability\|results\|timing\|walltime>/);
   });
 });

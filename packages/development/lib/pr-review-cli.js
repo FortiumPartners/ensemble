@@ -12,7 +12,7 @@
  * direct `require(...)` call on the same input can never diverge. NO
  * business logic lives here, NO network calls, NO shell calls.
  *
- * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json
+ * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing|walltime> < payload.json
  *
  * `review-range` (TRD-013) is a thin pass-through to `chooseReviewRange`:
  * given `lastReviewedSha`, `commits` and `remediationShas` on top of what
@@ -170,6 +170,21 @@
  *              -- `runId` reads `<cwd or the current directory>/.ensemble/state/toolchain/trace-<runId>.jsonl`;
  *              `spans` takes materialized run-trace spans directly. Exactly one of the two is required.
  *
+ * `walltime` (kata vrda) answers review WALL TIME by tier from cohort documents (the committed
+ * docs/guides/review-walltime-baseline-<date>.json is one) and compares a post-change cohort with that baseline:
+ * median and p75 per tier and round, gate runs and review chains per PR, and whether the 5x claim may be made. The
+ * schema, the minimum of three PRs per stratum, the 20% target and the carry rule are in lib/pr-review-walltime.js and
+ * docs/guides/pr-review-walltime.md. One `action` per call; a payload key the action does not know is an error (exit 1),
+ * never an ignored one. Everything else is graded in band (exit 0): a cohort it cannot read, a tier with too few PRs
+ * (`unknown`) and a 5x claim without a real re-review that carried verdicts are refusing RESULTS, never a clean pass.
+ *   walltime   { action: 'summarize', cohort } -- the statistics of one cohort document
+ *              { action: 'row', pr, tier, round, origin, runId, cwd? | timing, id?, source?, notes?, carry? }
+ *              -- one cohort row from a `timing` answer: `runId` reads the trace as `timing` does, `timing` takes a
+ *              `timing` answer directly (exactly one of the two); `carry` is `{ headSha, verdicts }` from the PR's state report
+ *              { action: 'compare', baseline, current, cwd? } -- two cohort documents. Each counted current row's wall time,
+ *              chains and gate runs are re-derived from the trace its `run_id` names (<cwd>/.ensemble/state/toolchain/), and a
+ *              5x `met` is withheld unless every such row of a required stratum passes; `fiveX.attestation` says what stays attested
+ *
  * The tier, approval and merge-gate subcommands (TRD-026) each take the facts
  * their module grades and answer with that module's result verbatim:
  *   tier       { kinds[{ kind, paths[] }], paths, secondAssessment?, proposedTier?,
@@ -302,6 +317,7 @@ const { evaluateApprovals } = require('./pr-review-approvals');
 const { evaluateGate } = require('./pr-review-gate');
 const { buildDispositionChoices } = require('./pr-review-disposition');
 const { computeMetrics, compareCohorts } = require('./pr-review-metrics');
+const { computeWalltimeCohort, compareWalltime, rowFromTiming } = require('./pr-review-walltime');
 const { scoreEval, compareEval, staleCases } = require('./pr-review-eval');
 const { traceCapabilities, compareRuntimes, gradeSecretHygiene } = require('./pr-review-reachability');
 
@@ -875,6 +891,100 @@ function runTiming(payload) {
   return loadReviewTiming({ runId: payload.runId, projectRoot: payload.cwd || process.cwd() });
 }
 
+/**
+ * `walltime` selects one function of pr-review-walltime.js via `action`, mirroring the `ledger` and `carry` precedent.
+ * The file read of `row` lives in pr-review-timing.js (injectable deps), as for `timing`; this dispatcher only checks
+ * the request. A payload key the action does not know is refused so that a misspelt `carry` or `cwd` can never be read
+ * as an absent one (a row without its carry evidence, a trace read from the wrong directory).
+ */
+function walltimeRow(payload) {
+  if ((payload.runId === undefined) === (payload.timing === undefined)) {
+    throw new Error("walltime action 'row' requires exactly one of the payload keys 'runId' or 'timing'");
+  }
+  if (payload.timing !== undefined && payload.cwd !== undefined) {
+    throw new Error("walltime action 'row' takes 'cwd' only with 'runId'");
+  }
+  const timing = payload.timing !== undefined ? payload.timing : loadReviewTiming({ runId: payload.runId, projectRoot: payload.cwd || process.cwd() });
+  return rowFromTiming({
+    timing,
+    pr: payload.pr,
+    tier: payload.tier,
+    round: payload.round,
+    origin: payload.origin,
+    id: payload.id,
+    source: payload.source,
+    notes: payload.notes,
+    carry: payload.carry,
+  });
+}
+
+/**
+ * Whether one current row's figures are what its trace says: the row's `run_id` names a trace under
+ * <cwd>/.ensemble/state/toolchain/, and its wall time, chains and gate runs equal what `timing` derives from it (the same
+ * derivation `walltime row` uses). Tier, round and origin are not in a trace, so they stay attested.
+ */
+function checkRowAgainstTrace(run, cwd) {
+  if (typeof run.run_id !== 'string' || run.run_id === '') return { ok: false, reason: 'the row names no trace (run_id), so its figures cannot be re-derived' };
+  let rebuilt;
+  try {
+    const timing = loadReviewTiming({ runId: run.run_id, projectRoot: cwd });
+    rebuilt = rowFromTiming({ timing, pr: run.pr, tier: run.tier, round: run.round, origin: run.origin, id: run.id });
+  } catch (error) {
+    return { ok: false, reason: `trace '${run.run_id}' cannot be read: ${error.message}` };
+  }
+  if (!rebuilt.ok) return { ok: false, reason: `trace '${run.run_id}' is not a readable review: ${rebuilt.reason}` };
+  const differs = ['wall_min', 'chains', 'gate_runs'].filter((key) => rebuilt.row[key] !== run[key]);
+  const same = differs.length === 0;
+  return same
+    ? { ok: true }
+    : { ok: false, reason: differs.map((key) => `${key} is ${JSON.stringify(run[key])}, its trace says ${JSON.stringify(rebuilt.row[key])}`).join('; ') };
+}
+
+/** `compare`: the module's grade, plus the trace check of every counted real current row that has a wall time. */
+function walltimeCompare(payload) {
+  const cwd = payload.cwd || process.cwd();
+  const runs = isObject(payload.current) && Array.isArray(payload.current.runs) ? payload.current.runs : [];
+  const traceChecks = {};
+  for (const run of runs) {
+    if (isObject(run) && typeof run.id === 'string' && run.origin === 'real' && run.wall_min !== null) traceChecks[run.id] = checkRowAgainstTrace(run, cwd);
+  }
+  return compareWalltime({ baseline: payload.baseline, current: payload.current, traceChecks });
+}
+
+const WALLTIME_ACTIONS = Object.freeze({
+  summarize: {
+    keys: { cohort: OBJECT },
+    run: (p) => computeWalltimeCohort(p.cohort),
+  },
+  row: {
+    keys: { pr: INTEGER, tier: TEXT, round: TEXT, origin: TEXT },
+    optional: { runId: TEXT, cwd: TEXT, timing: OBJECT, id: TEXT, source: TEXT, notes: TEXT, carry: OBJECT },
+    run: walltimeRow,
+  },
+  compare: {
+    keys: { baseline: OBJECT, current: OBJECT },
+    optional: { cwd: TEXT },
+    run: walltimeCompare,
+  },
+});
+
+function runWalltime(payload) {
+  if (!isObject(payload)) throw new Error('walltime payload must be a JSON object');
+  const name = payload.action;
+  const action = typeof name === 'string' && hasOwn(WALLTIME_ACTIONS, name) ? WALLTIME_ACTIONS[name] : undefined;
+  if (action === undefined) {
+    throw new Error(`Unknown walltime action ${shown(name)}. Expected one of: ${Object.keys(WALLTIME_ACTIONS).join(', ')}`);
+  }
+  requireKeys(payload, action.keys, `walltime action '${name}'`);
+  optionalKeys(payload, action.optional || {}, `walltime action '${name}'`);
+  const known = ['action', ...Object.keys(action.keys), ...Object.keys(action.optional || {})];
+  const extra = Object.keys(payload).filter((key) => !known.includes(key));
+  if (extra.length > 0) {
+    throw new Error(`walltime action '${name}' does not accept payload key(s) ${extra.map((key) => `'${key}'`).join(', ')}`);
+  }
+  return action.run(payload);
+}
+
 const HANDLERS = Object.freeze({
   scope: runScope,
   'review-range': runReviewRange,
@@ -906,6 +1016,7 @@ const HANDLERS = Object.freeze({
   reachability: runReachability,
   results: runResults,
   timing: runTiming,
+  walltime: runWalltime,
 });
 
 /**
@@ -924,7 +1035,7 @@ function main(argv) {
   if (handler === undefined) {
     process.stdout.write(
       JSON.stringify({
-        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json`,
+        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing|walltime> < payload.json`,
       }) + '\n'
     );
     return 1;

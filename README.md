@@ -274,6 +274,7 @@ no dashboard, no scheduler, no new dependency:
 |---|---|
 | `metrics` | Per-cohort human approvals per PR (median and p95), human comments, wait-on-human hours, rounds-to-pass, the share of PRs needing five or more rounds, and the noise rate. Bot reviewers are never counted. |
 | `metrics-compare` | A post-change cohort against the committed baseline: every target graded relative to baseline, plus a revert/incident guardrail that fails the cohort on its own. |
+| `walltime` | Review wall time by tier against the committed wall-time baseline (`docs/guides/review-walltime-baseline-<date>.json`): median and p75 per tier and round, gate runs and review chains per PR, and whether the 5x claim may be made. A tier with fewer than three PRs on either side is `unknown`, never `met`, and the claim is withheld unless a real re-review that carried verdicts is in the data. See [docs/guides/pr-review-walltime.md](docs/guides/pr-review-walltime.md). |
 | `eval-score` | Whether the reviewer found the bug in each eval case (a PR that caused an incident or a revert, confirmed by the code owner of the affected area). |
 | `eval-compare` | This eval run against the previous one, naming regressions. |
 | `eval-stale` | Which cases need re-review because their area's review rules changed. |
