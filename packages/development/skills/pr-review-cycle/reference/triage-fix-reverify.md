@@ -142,11 +142,62 @@ verification contract.
    candidates }`: `findings` the `votes` result's `findings`, `candidates` this round's hashed citations. It answers the
    settled verdict records, stamped with the PR, base, depth and verifier count; a finding it `skipped` is recorded
    nowhere and is verified again next round. The state report's `verdicts` (Step 9) are the plan's `carried` plus these.
-6. **Reconcile.** Run `carry` with `{ action: "reconcile", ledger, changedLocations, headSha, observations }`: `ledger`
-   the merged ledger, `changedLocations` the hunks of `delta.diff` (`{ path, lines }`) and `observations` EVERY finding
-   this round observed (the `votes` result's `findings`: present, disputed, unverified and filtered alike). A prior
-   finding that nobody observed again and whose cited location the push changed is cleared, which is how an `unmatched`
-   verdict ends; one that was observed again, whatever its verdict, is never cleared, and neither is a carried finding.
+6. **Reconcile (writes nothing).** Run `carry` with `{ action: "reconcile", ledger, changedLocations, headSha, observations }`:
+   `ledger` the merged ledger; the other three keys are still required and are not read. It answers the ledger read into
+   the current taxonomy and `cleared: []`: it never clears a finding. It used to clear one from the delta's hunks alone, at
+   the line numbers the ledger holds, and so marked defects that were still there as fixed (a line shifted across a skipped
+   round, a force-pushed head, a partial fix raised again and voted present). Only the clear verb below writes `cleared`, and
+   it reads git. A prior verdict nobody re-presents (`unmatched`) just is not carried.
+
+**Findings the new head fixed (CLI `pr-review-clear-cli.js`, kata `n350`, AC-008-3).** Once the
+new head's review has been through `ledger` `recordRound`, run `node "$PR_REVIEW_CLEAR_CLI"`
+(`pr-review-clear-cli.js`, in the same directory as `PR_REVIEW_CLI`) with `{ repoRoot, baseSha,
+headSha, lastReviewedSha, ledger, incoming }`. `repoRoot` is the repository under review (a git
+root or a linked worktree of it; there is no default). `lastReviewedSha` is the prior round's
+`reviewedHeadSha`, the same value `review-range` was given above: every finding carried over from
+that report was alive then, so what changed since is all that can have fixed it (without it, a
+finding's own `headSha` is the baseline, which also counts an edit the finding survived).
+`ledger` is the findings carried over. **`incoming` is required**: EVERY finding this head's review presented, whatever
+its verdict (the `votes` result's `findings`: present, disputed, unverified and filtered alike; `[]` when it presented
+nothing), not only the ones that settled as present. A call without it fails and clears nothing, because an omitted list
+would read every re-raised finding as fixed; a finding left out of it reads the same way.
+
+**Run the verb at every head, in order, and carry the `ledger` it returns forward in place of the
+one you sent.** A finding cites the line it had when it was recorded, and the verb moves that line
+through each round's diff: every finding it keeps comes back with its `file:line` in this head's
+numbering and `locationAsOf` set to this head (a re-raised one takes the location the new review
+gave it), and the next run compares from that stamp. So an edit above the line, an unrelated edit
+at the number the line used to have, and a fix made after an earlier round shifted the code are all
+read against the right line. A second run at the same head changes nothing (`location-current`).
+A finding's number belongs to the head the verb last moved it to (`locationAsOf`) or, when it never
+has, to the head it was raised at (its own `headSha`), and the verb moves the line from there to
+`lastReviewedSha` first. A round the verb was not run at reads the same way: the next run moves the
+line through that round's edits, it does not take them for a fix. When an edit in between touched its
+line, or that head does not lead to `lastReviewedSha` (a force-push replaced it, or the repository no
+longer holds it), its place is unknown (`location-unanchored`: kept, never cleared) until a review
+raises it again, which re-anchors it.
+
+The CLI reads git and writes nothing. It marks a carried finding `cleared`, with `clearedBy` the new
+head, when the diff from the baseline (`lastReviewedSha`, or the stamp when that is a later head) to `headSha` changed the
+file and line it cites and no finding this head's review raised is the same defect (same file,
+failure mode and class; the line is not part of that, so a defect re-reported lower after the file
+shifted counts). A mode-only change (a `chmod`) touches no line; deleting, creating or replacing a
+file does. A file that git's rename detection says was RENAMED keeps its findings as
+`location-unanchored` instead: the defect went with the file, the verb does not guess the new path,
+and a review that raises it under the new path adds a finding of its own, so a person decides the
+old one. A file deleted outright, or replaced by one too dissimilar for git to pair, is a deletion.
+Every other entry comes back with its reason in `kept[]` (`re-reported`, `location-unchanged`,
+`location-unanchored`, `recorded-head-not-on-pr`, ...). The gate stops
+blocking on a `cleared` finding, and the bead recorder (Step 10) closes its bead. This is the
+AC-008-3 heuristic and nothing more: a changed location is not proof the defect is gone, the
+re-review not raising it again is the other half, and a `lastReviewedSha` that is not on the PR (a
+force-push replaced it, or the repository no longer holds it) clears nothing, whatever stamp an
+entry carries, so that finding stays until it is fixed again or a person decides. This verb is the
+only writer of `cleared`: `carry reconcile` (step 6 above) writes none. A `cleared` mark written
+any other way, by hand, is outside this procedure, and the recorder still closes the bead of one
+that names a commit on the PR: it checks the commit, not how the mark was made. The verb reads the
+review ledger only: the security lane's findings are not
+passed (the lane reports and never closes), and it writes no `resolution`.
 
 The batch fix changes the tree, so re-resolve after it lands: the re-review
 diff (same base), `headSha`, `reviewedHeadSha` (Step 8) and `reviewedTreeSha`

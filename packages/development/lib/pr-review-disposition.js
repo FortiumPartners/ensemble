@@ -29,6 +29,10 @@
  *     never batchable;
  *   - a SECURITY finding's `accept` is never the default, never batchable and
  *     always needs its own reason; security findings are never collapsed;
+ *   - a bead is OPEN only when the ledger finding carries `beadId`. A live
+ *     finding whose bead a person closed carries `closedBeadId` instead: it is
+ *     its own state (`findingsWithClosedBead`), never counted as an open bead,
+ *     and it still counts as a finding without an open bead;
  *   - FAIL CLOSED: input this module cannot read, findings the gate cannot
  *     read included, yields `ok: false` with empty lists, never a quietly
  *     shorter list.
@@ -187,13 +191,16 @@ function batchChoicesOf(entries) {
 }
 
 /** One short human line for the merge question. */
-function summarize({ openBeads, acceptedBlocking, undecidedBlocking }) {
+function summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead }) {
   const accepted = acceptedBlocking.length === 0
     ? '0 blocking findings accepted'
     : `${acceptedBlocking.length} blocking finding(s) accepted (${acceptedBlocking
       .map((a) => `${a.id}: ${a.reason}`)
       .join('; ')})`;
-  return `${openBeads} open bead(s); ${accepted}; ${undecidedBlocking.length} blocking finding(s) undecided`;
+  const closed = findingsWithClosedBead.length === 0
+    ? ''
+    : `; ${findingsWithClosedBead.length} finding(s) live with a closed bead (${findingsWithClosedBead.join(', ')})`;
+  return `${openBeads} open bead(s); ${accepted}; ${undecidedBlocking.length} blocking finding(s) undecided${closed}`;
 }
 
 /**
@@ -321,6 +328,10 @@ function buildDispositionChoices(input) {
       emitted.add(key);
       const members = buckets.get(key);
       const beadIds = members.map((m) => m.finding.beadId).filter(isText);
+      const closedBeadIds = members
+        .filter((m) => !isText(m.finding.beadId))
+        .map((m) => m.finding.closedBeadId)
+        .filter(isText);
       const entry = {
         id: `file:${u.file}`,
         collapsed: true,
@@ -331,6 +342,7 @@ function buildDispositionChoices(input) {
         votes: aggregateVotes(members),
         beadId: null,
         beadIds,
+        closedBeadIds,
         group: u.group,
         security: false,
         choices,
@@ -347,6 +359,7 @@ function buildDispositionChoices(input) {
       locationOrLink: u.finding.locationOrLink,
       votes: u.votes,
       beadId: isText(u.finding.beadId) ? u.finding.beadId : null,
+      closedBeadId: isText(u.finding.beadId) || !isText(u.finding.closedBeadId) ? null : u.finding.closedBeadId,
       group: u.group,
       security: u.security,
       choices,
@@ -371,19 +384,23 @@ function buildDispositionChoices(input) {
     .filter((g) => g._size > 0)
     .map(({ _size, ...rest }) => rest);
 
-  const openBeads = undecided.filter((u) => isText(u.finding.beadId)).length;
+  const hasOpenBead = (u) => isText(u.finding.beadId);
+  const closedBeadOf = (u) => (!hasOpenBead(u) && isText(u.finding.closedBeadId) ? u.finding.closedBeadId : null);
+  const openBeads = undecided.filter(hasOpenBead).length;
+  const findingsWithClosedBead = undecided.filter((u) => closedBeadOf(u) !== null).map((u) => u.finding.id);
   const undecidedBlocking = entries.filter((entry) => entry.group === 'blocking').map((entry) => entry.id);
   const mergeConfirmation = {
     undecided: entries.map((entry) => entry.id),
     undecidedBlocking,
     openBeads,
     findingsWithoutBead: undecided.length - openBeads,
+    findingsWithClosedBead,
     acceptedBlocking,
     staleResolutions: undecided.filter((u) => u.stale).map((u) => u.finding.id),
   };
-  mergeConfirmation.summary = summarize({ openBeads, acceptedBlocking, undecidedBlocking });
+  mergeConfirmation.summary = summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead });
 
   return { ok: true, dispositionChoices: entries, groups, mergeConfirmation };
 }
 
-module.exports = { buildDispositionChoices, GROUPS, CHOICE_IDS, COLLAPSE_THRESHOLD };
+module.exports = { buildDispositionChoices, isSecurity, GROUPS, CHOICE_IDS, COLLAPSE_THRESHOLD };

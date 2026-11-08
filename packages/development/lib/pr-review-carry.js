@@ -85,8 +85,8 @@
  *   hunk-moved              the cited lines differ from the verdict's (identical text elsewhere in the file is not it);
  *   dependency-changed      a dependency file is among the changed paths, or the dependency set or a hash differs.
  *
- * A prior verdict nobody re-presents (no candidate at this head) is never carried: it is listed as `unmatched` and the
- * ledger reconciles it explicitly with `clearFixedFindings`.
+ * A prior verdict nobody re-presents (no candidate at this head) is never carried: it is listed as `unmatched`. That changes
+ * nothing in the ledger: a finding is cleared only by the clear verb (lib/pr-review-clear-cli.js), which reads git.
  *
  * What `carried` means for the ledger: each carried record's `head` is the CURRENT head (the finding is settled on it, so
  * `mergeFindings` does not re-open it and `clearFixedFindings` does not clear it) and `carriedFrom` is the head the verdict

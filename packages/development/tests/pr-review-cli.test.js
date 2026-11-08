@@ -2213,11 +2213,12 @@ describe('pr-review-cli: carry reads the PR\'s own state, stamps the ledger, rec
       action: 'reconcile', headSha: HEAD, ledger: [finding('a'), finding('b'), finding('c')], changedLocations, observations: [], ...over,
     });
 
-    test('a finding nobody reported again whose cited line the push changed is cleared; an untouched one stays', () => {
+    test('reconcile writes no mark: a finding nobody reported again whose cited line the push changed stays open (the clear verb is the one writer)', () => {
       const out = JSON.parse(cli(reconcileRequest()).stdout);
       expect(out.ok).toBe(true);
-      expect(out.cleared).toEqual(['a', 'b']);
-      expect(out.ledger.find((f) => f.id === 'c').cleared).toBeUndefined();
+      expect(out.cleared).toEqual([]);
+      expect(out.ledger.map((f) => f.id)).toEqual(['a', 'b', 'c']);
+      expect(out.ledger.every((f) => f.cleared === undefined && f.clearedBy === undefined)).toBe(true);
     });
 
     test('EVERY observation of the round counts as reported again: an unverified or disputed one on a touched line is not cleared', () => {
@@ -2250,10 +2251,24 @@ describe('pr-review-cli: carry reads the PR\'s own state, stamps the ledger, rec
       expect(JSON.parse(res.stdout).error).toMatch(message);
     });
 
-    test('a changed location the ledger module cannot read is an exit-1 error, not a clear-everything', () => {
+    test('a changed location is not read: whatever it holds, nothing is cleared by it', () => {
       const res = cli(reconcileRequest({ changedLocations: [5] }));
+      expect(res.status).toBe(0);
+      const out = JSON.parse(res.stdout);
+      expect(out.cleared).toEqual([]);
+      expect(out.ledger.every((f) => f.cleared === undefined)).toBe(true);
+    });
+
+    test('a ledger entry that is not an object is an exit-1 error, not a ledger with a hole in it', () => {
+      const res = cli(reconcileRequest({ ledger: [finding('a'), 5] }));
       expect(res.status).toBe(1);
-      expect(JSON.parse(res.stdout).error).toMatch(/changed location/);
+      expect(JSON.parse(res.stdout).error).toMatch(/only objects/);
+    });
+
+    test('the ledger comes back read into the current taxonomy (what is kept of the old job), and a mark already on an entry stays', () => {
+      const out = run(reconcileRequest({ ledger: [finding('a', { cleared: true, clearedBy: HEAD })] }));
+      expect(out.ledger[0]).toMatchObject({ id: 'a', severity: 'important', severityRecognised: true, cleared: true, clearedBy: HEAD });
+      expect(out.cleared).toEqual([]);
     });
   });
 });

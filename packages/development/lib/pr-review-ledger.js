@@ -1208,6 +1208,8 @@ module.exports = {
   resolutionProvenanceProblem,
   clearFixedFindings,
   fingerprintFinding,
+  fingerprintPath,
+  normalizeFailureMode,
   classFindings,
   recordRound,
   SEVERITIES,

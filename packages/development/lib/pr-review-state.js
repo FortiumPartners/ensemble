@@ -22,13 +22,59 @@ const { isObjectId } = require('./pr-review-scope');
 
 const STATE_DIR = path.join('.ensemble', 'pr-review');
 
+/**
+ * Credential shapes redacted from every string, replaced by `[REDACTED]`:
+ * GitHub tokens (`gh[pousr]_`, fine-grained `github_pat_`), `sk-` keys, Slack
+ * `xox*-` tokens, AWS access key ids (AKIA/ASIA/ABIA/ACCA/A3T), and:
+ * - PEM private key blocks, only THROUGH their END line. A header with no END
+ *   line (a truncated quoted key) is redacted together with the base64 body
+ *   lines that directly follow it (lines or JSON-escaped `\n` segments of 16+
+ *   base64 characters) and nothing else, so prose and footers after it survive.
+ * - `Bearer <credential>`: the credential is 16+ chars of `[A-Za-z0-9\-._~+/]`
+ *   containing at least one digit, optional `=` padding.
+ * - `Authorization:` followed by `Digest` or `AWS4-HMAC-SHA256` and the rest of the
+ *   line, by ANY single-word scheme (Bearer, Basic, Token, Api-Key, a scheme nobody
+ *   has heard of) and a credential of 8+ token characters, or by one token-shaped
+ *   value of 20+ chars. A scheme followed by a short word is prose and is kept
+ *   (`Authorization: header is required`); two longer words after the colon cannot be
+ *   told from a scheme and its credential, so `Authorization: scheme validation`
+ *   is redacted (the base redacted any two words).
+ * - generic `name = value` secrets (see GENERIC_SECRET_PATTERN).
+ *
+ * Rules the next reader relies on: redaction is idempotent (`[REDACTED]` is
+ * never re-wrapped or grown), and hex digests, shas and dedupe keys are not
+ * credential-shaped, so they survive untouched.
+ */
 const TOKEN_PATTERNS = [
+  /-----BEGIN [^\n-]*PRIVATE KEY-----(?:[\s\S]*?-----END [^\n-]*PRIVATE KEY-----|(?:(?:\r?\n|\\(?:r\\)?n)[ \t]*[A-Za-z0-9+/=]{16,}[ \t]*(?=\r?\n|\\(?:r\\)?n|$))*)/g,
   /gh[pousr]_[A-Za-z0-9]{20,}/g,
+  /github_pat_[A-Za-z0-9_]{22,}/g,
   /sk-[A-Za-z0-9]{20,}/g,
   /xox[baprs]-[A-Za-z0-9-]{10,}/g,
-  /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
-  /Authorization:\s*\S+(?:\s+\S+)?/gi,
+  /\b(?:AKIA|ASIA|ABIA|ACCA|A3T[A-Z0-9])[A-Z0-9]{16}\b/g,
+  /\bAuthorization:[ \t]*(?:(?:Digest|AWS4-HMAC-SHA256)[ \t]+[^\n]+|[A-Za-z][A-Za-z0-9._~+/-]*[ \t]+[A-Za-z0-9\-._~+/]{8,}=*|[A-Za-z0-9\-._~+/]{20,}=*)/gi,
+  /\bBearer\s+(?=[A-Za-z0-9\-._~+/]*\d)[A-Za-z0-9\-._~+/]{16,}=*/gi,
 ];
+
+/**
+ * `name = value` / `name: "value"`. The NAME is a whole secret-ish identifier:
+ * secret, token, password, passwd, pwd, api key (api_key/api-key/apikey), access
+ * key or private key, optionally prefixed (`db.`, `AWS_`, `client_`, `github`)
+ * and optionally followed by `_`/`.`/`-` segments, but never continued
+ * mid-word (`tokenBudget`, `monkeyPatch` and bare `key` are not names). Name
+ * and separator are kept; the VALUE is replaced. The VALUE is either quoted
+ * (4+ characters) or one unquoted token of 6+ chars of
+ * `[A-Za-z0-9+/=_\-!@#$%^&*]` that contains a digit and a letter, is not
+ * followed by `.`+non-space, `(` or more token chars, so `api_key =
+ * process.env.API_KEY` (code) and `password: required` (prose) are kept.
+ * The floor: `password=hunter2` (7 chars) is redacted; `password=abc12` is not. An
+ * unquoted value that is only letters (`password=correcthorsebatterystaple`) is not
+ * recognised either: it cannot be told from a word or an identifier (`token:
+ * authentication`, `secret = generateSecret`), so redacting it would rewrite prose
+ * and code again. Quote it and 4+ characters are redacted.
+ */
+const GENERIC_SECRET_PATTERN =
+  /([\w.-]*(?:secret|token|password|passwd|pwd|api[-_]?key|access[-_]?key|private[-_]?key)(?:[_.-][\w.-]*)?\\?["']?[ \t]*[:=][ \t]*)(?:"[^"\n]{4,}"|'[^'\n]{4,}'|(?=[A-Za-z0-9+/=_\-!@#$%^&*]*\d)(?=[A-Za-z0-9+/=_\-!@#$%^&*]*[A-Za-z])[A-Za-z0-9+/=_\-!@#$%^&*]{6,}(?![A-Za-z0-9+/=_\-!@#$%^&*(]|\.\S))/gi;
 
 const SENSITIVE_KEY_PATTERN = /token|secret|password|api[-_]?key|authorization/i;
 
@@ -41,7 +87,8 @@ function isText(value) {
 }
 
 function redactString(value) {
-  return TOKEN_PATTERNS.reduce((acc, pattern) => acc.replace(pattern, '[REDACTED]'), value);
+  return TOKEN_PATTERNS.reduce((acc, pattern) => acc.replace(pattern, '[REDACTED]'), value)
+    .replace(GENERIC_SECRET_PATTERN, (match, prefix) => `${prefix}[REDACTED]`);
 }
 
 /** Deep-redacts credential-shaped values (tokens, keys, Authorization headers). */

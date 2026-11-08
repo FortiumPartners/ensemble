@@ -232,10 +232,15 @@
  *                             joined to their hashed citations and stamped with the binding `plan` checks. Answers
  *                             { ok, verdicts[], skipped[{id, reason}] }; write the verdicts to the state report's `verdicts`.
  *                             A candidate stamped with another head than `headSha` is skipped (`candidate-head-mismatch`).
- *                reconcile  { ledger[], changedLocations[], headSha, observations[] } -- `clearFixedFindings` with EVERY
- *                             observation of this round as `reReported`: a finding no reviewer reported again whose cited
- *                             location the push changed is cleared; one that was observed again, whatever its verdict, is
- *                             not. Answers { ok, ledger[], cleared[] }.
+ *                reconcile  { ledger[], changedLocations[], headSha, observations[] } -- writes NO `cleared` mark. Answers
+ *                             { ok, ledger[], cleared: [] }: the ledger read into the current taxonomy and redacted, otherwise
+ *                             as sent (a mark already on an entry stays). `changedLocations`, `headSha` and `observations` are
+ *                             still required (a call written for the earlier contract keeps working) and are not read. It used to
+ *                             clear a finding from the delta's hunks and an exact `locationOrLink` + `failureMode` match of the
+ *                             observations, at the line numbers the ledger holds, so a defect that was still there was marked
+ *                             cleared (a line shifted across a skipped round, a force-pushed head, a partial fix raised again) and
+ *                             the gate and the bead recorder took it as fixed. The one writer of `cleared` is
+ *                             lib/pr-review-clear-cli.js, which reads git.
  *              `deltaPlan`, `deltaPaths`, `deltaRange`, `highPaths`, heads, `baseSha`, `depth` and every hash are graded in-band and a
  *              missing one means re-verification (exit 0). HONEST LIMITS: it never hashes anything -- `hunkHash`,
  *              `depHashes` and `dependents` are inputs the caller computed (lib/pr-review-carry-hash-cli.js; the `headSha`
@@ -274,7 +279,7 @@ const {
   scopeViolations,
   recordRound,
   recordOperatorResolution,
-  clearFixedFindings,
+  normalizeLedger,
 } = require('./pr-review-ledger');
 const { evaluateRemoteReview } = require('./pr-review-remote');
 const { deriveStatus } = require('./pr-review-status');
@@ -632,7 +637,7 @@ function runMode(payload) {
  *     PR's state report itself, at `lastReviewedSha`: a payload that supplies them is refused, so a verdict can never be
  *     injected from stdin. It answers the prior ledger with the carried findings stamped (`stampLedger`).
  *   - `record` builds the stamped verdict records of a finished round (`recordVerdicts`).
- *   - `reconcile` runs `clearFixedFindings` with every observation of the round as `reReported`.
+ *   - `reconcile` writes no mark: it answers the ledger normalized and `cleared: []`. The clear verb is the only writer.
  * The REQUEST parameters of each action (`prId`, `candidates`, `findings`, `ledger`, ...) are checked here (a missing or
  * misspelt key is an error, exit 1, never read as empty); every fact `planCarry` grades (heads, `baseSha`, `depth`,
  * `deltaPlan`, `deltaPaths`, `deltaRange`, `highPaths`, a hash) is graded in-band and a missing one means re-verification (exit 0).
@@ -694,9 +699,9 @@ const CARRY_ACTIONS = Object.freeze({
   reconcile: {
     keys: { ledger: ARRAY, changedLocations: ARRAY, headSha: TEXT, observations: ARRAY },
     run: (p) => {
-      const result = clearFixedFindings({ ledger: p.ledger, changedLocations: p.changedLocations, headSha: p.headSha, reReported: p.observations });
-      if (!result.ok) throw new Error(result.reason);
-      return { ok: true, ledger: result.findings, cleared: result.cleared };
+      const ledger = normalizeLedger(p.ledger);
+      if (!Array.isArray(ledger)) throw new Error(ledger.reason);
+      return { ok: true, ledger, cleared: [] };
     },
   },
 });

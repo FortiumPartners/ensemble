@@ -248,3 +248,66 @@ describe('buildDispositionChoices', () => {
     expect(result.dispositionChoices[0].votes).toEqual({ real: 3, notReal: 0, abstain: 0, expected: 3 });
   });
 });
+
+describe('buildDispositionChoices: a live finding whose bead was closed', () => {
+  test('a blocking finding with only closedBeadId is not an open bead, is reported as closed, and still blocks', () => {
+    const result = build([finding({ id: 'F-1', closedBeadId: 'bd-9' })]);
+    const mc = result.mergeConfirmation;
+
+    expect(mc.openBeads).toBe(0);
+    expect(mc.findingsWithoutBead).toBe(1);
+    expect(mc.findingsWithClosedBead).toEqual(['F-1']);
+    expect(mc.undecidedBlocking).toEqual(['F-1']);
+    expect(mc.summary).toContain('live with a closed bead (F-1)');
+    expect(mc.summary).toBe('0 open bead(s); 0 blocking findings accepted; 1 blocking finding(s) undecided; 1 finding(s) live with a closed bead (F-1)');
+    expect(result.dispositionChoices[0].beadId).toBeNull();
+    expect(result.dispositionChoices[0].closedBeadId).toBe('bd-9');
+  });
+
+  test('an open beadId wins over closedBeadId', () => {
+    const result = build([finding({ id: 'F-1', beadId: 'bd-1', closedBeadId: 'bd-9' })]);
+
+    expect(result.dispositionChoices[0].beadId).toBe('bd-1');
+    expect(result.dispositionChoices[0].closedBeadId).toBeNull();
+    expect(result.mergeConfirmation.openBeads).toBe(1);
+    expect(result.mergeConfirmation.findingsWithoutBead).toBe(0);
+    expect(result.mergeConfirmation.findingsWithClosedBead).toEqual([]);
+    expect(result.mergeConfirmation.summary).not.toContain('closed bead');
+  });
+
+  test('a collapsed nit group reports open and closed bead ids per member, in member order', () => {
+    const ledger = nits(4).map((f, i) => {
+      if (i === 0) return { ...f, beadId: 'bd-open-0' };
+      if (i === 1) return { ...f, closedBeadId: 'bd-closed-1' };
+      if (i === 2) return { ...f, beadId: 'bd-open-2', closedBeadId: 'bd-closed-2' };
+      return { ...f, closedBeadId: 'bd-closed-3' };
+    });
+    const result = build(ledger);
+    const collapsed = result.dispositionChoices[0];
+
+    expect(collapsed.collapsed).toBe(true);
+    expect(collapsed.beadIds).toEqual(['bd-open-0', 'bd-open-2']);
+    expect(collapsed.closedBeadIds).toEqual(['bd-closed-1', 'bd-closed-3']);
+    expect(result.mergeConfirmation.openBeads).toBe(2);
+    expect(result.mergeConfirmation.findingsWithoutBead).toBe(2);
+    expect(result.mergeConfirmation.findingsWithClosedBead).toEqual(['N-2', 'N-4']);
+  });
+
+  test('without any closedBeadId the merge confirmation is exactly the old one plus an empty findingsWithClosedBead', () => {
+    const result = build([
+      finding({ id: 'F-1', beadId: 'bd-1' }),
+      finding({ id: 'F-2' }),
+    ]);
+
+    expect(result.mergeConfirmation).toEqual({
+      undecided: ['F-1', 'F-2'],
+      undecidedBlocking: ['F-1', 'F-2'],
+      openBeads: 1,
+      findingsWithoutBead: 1,
+      findingsWithClosedBead: [],
+      acceptedBlocking: [],
+      staleResolutions: [],
+      summary: '1 open bead(s); 0 blocking findings accepted; 2 blocking finding(s) undecided',
+    });
+  });
+});

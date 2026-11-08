@@ -143,7 +143,39 @@ function createFinding(deps, { title, description, type = 'bug', labels, priorit
  */
 function findByKey(deps, { key } = {}) {
   if (!validKey(key)) return failure('INVALID_ARG', "findByKey: 'key' must be a non-empty string without whitespace");
-  const result = call(deps, 'tracker.find-by-key', { key });
+  const listed = readItems(deps, 'findByKey', key);
+  if (!listed.ok) return listed;
+  return matchKey(listed.items, key);
+}
+
+/**
+ * `findByKey` for several keys against ONE listing of the workspace (the listing is the whole
+ * workspace whatever the key, see tracker.find-by-key, so N lookups would be N identical
+ * `br list` runs). Every key gets the verdict `findByKey` would give it. A failure to list at
+ * all, or an invalid key, is one failure for the whole call: no partial verdicts. This relies on
+ * the category contract (toolchain/categories/tracker.yaml): `tracker.find-by-key` lists the
+ * whole tracker and the caller selects by key, so the `key` it is run with does not narrow the
+ * listing. An adapter that filtered by `${key}` would break the contract, not this function.
+ *
+ * @param {{run: Function}} deps
+ * @param {{keys: string[]}} input
+ * @returns {{ok:true, byKey:Object<string, object>} | object}  `byKey[key]` is a `findByKey` result
+ */
+function findByKeys(deps, { keys } = {}) {
+  if (!Array.isArray(keys)) return failure('INVALID_ARG', "findByKeys: 'keys' must be an array");
+  const bad = keys.find((key) => !validKey(key));
+  if (bad !== undefined) return failure('INVALID_ARG', "findByKeys: every key must be a non-empty string without whitespace");
+  const byKey = Object.create(null);
+  if (keys.length === 0) return { ok: true, byKey };
+  const listed = readItems(deps, 'findByKeys', keys[0]);
+  if (!listed.ok) return listed;
+  for (const key of keys) byKey[key] = matchKey(listed.items, key);
+  return { ok: true, byKey };
+}
+
+/** The bead list of the whole workspace (the `tracker.find-by-key` listing), parsed. */
+function readItems(deps, caller, anyKey) {
+  const result = call(deps, 'tracker.find-by-key', { key: anyKey });
   if (!result.ok) return result;
 
   let parsed = result.data;
@@ -151,13 +183,16 @@ function findByKey(deps, { key } = {}) {
     try {
       parsed = JSON.parse(parsed);
     } catch (_error) {
-      return failure('BAD_OUTPUT', 'findByKey: tracker output is not valid JSON');
+      return failure('BAD_OUTPUT', `${caller}: tracker output is not valid JSON`);
     }
   }
   // `br list --json` wraps as {issues:[...]}; an older br prints a bare array.
   const items = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.issues) ? parsed.issues : null;
-  if (!items) return failure('BAD_OUTPUT', 'findByKey: tracker output has no issue list');
+  if (!items) return failure('BAD_OUTPUT', `${caller}: tracker output has no issue list`);
+  return { ok: true, items };
+}
 
+function matchKey(items, key) {
   const matches = items.filter((item) => item && item.external_ref === key);
   if (matches.length === 0) return { ok: true, found: false };
   if (matches.length > 1) {
@@ -193,6 +228,31 @@ function closeFinding(deps, { id, reason, commit } = {}) {
     return failure('INVALID_ARG', "closeFinding: 'commit' must be a 7-40 character hex SHA");
   }
   return call(deps, 'tracker.close-with-reason', { id, reason, commit });
+}
+
+/**
+ * Add labels to a bead (`tracker.label`: br adds, it never removes). Same label rules as
+ * `createFinding`. A tracker that does not declare the capability is "unavailable" like the rest.
+ */
+function labelFinding(deps, { id, labels } = {}) {
+  if (!nonEmpty(id)) return failure('INVALID_ARG', "labelFinding: 'id' must be a non-empty string");
+  if (!validLabels(labels)) {
+    return failure(
+      'INVALID_ARG',
+      "labelFinding: 'labels' must be a non-empty list of [A-Za-z0-9_:-] labels that do not start with '-'"
+    );
+  }
+  return call(deps, 'tracker.label', { ids: id, labels: labels.join(',') });
+}
+
+/**
+ * Reopen a closed bead (`tracker.set-status` to `open`). Used when a finding a person did NOT
+ * close is back: the recorder reopens only a bead its own earlier close closed as fixed. A tracker
+ * that does not declare the capability is "unavailable" like the rest.
+ */
+function reopenFinding(deps, { id } = {}) {
+  if (!nonEmpty(id)) return failure('INVALID_ARG', "reopenFinding: 'id' must be a non-empty string");
+  return call(deps, 'tracker.set-status', { id, status: 'open' });
 }
 
 /** True when `file` is a regular file the current user may execute. */
@@ -235,15 +295,33 @@ function missingBinary(manifest, capability, searchPath, cwd) {
  * tracker can be resolved (no config/detect match, adapter not installed, manifest invalid, the
  * adapter's workspace not initialised here). Only failures to RESOLVE are reported; the requires
  * stay outside the try so a broken install propagates instead of reading as "no tracker".
+ *
+ * With `untrustedProjectRoot` the tree is a source of config and a working directory only,
+ * never of adapter code (the same rule `toolchain-cli --project-root` applies): the PR head
+ * under review must not supply the tracker that records and dedupes its own findings.
+ *
+ * With `baseConfig` the tree is not even a source of config: the project-level config is the
+ * text given (the `.ensemble/toolchain.yaml` as COMMITTED at the PR's base commit, or `null`
+ * when the base has none), the tree's own file is never read, and detection against the tree
+ * does not run. Precedence is then that config, the user's config, the shipped default: a head
+ * under review cannot switch its own findings' recording off by naming another tracker.
  */
-function resolveManifest(projectRoot, env) {
-  const { resolveCategory } = require('./toolchain/config');
+function resolveManifest(projectRoot, env, untrustedProjectRoot = false, baseConfig = undefined) {
+  const { resolveCategory, parseToolchainConfigText } = require('./toolchain/config');
   const { loadAdapter } = require('./toolchain/adapters');
   const { detectAdapter } = require('./toolchain/detect');
   let manifest;
   try {
-    const resolved = resolveCategory('tracker', { projectRoot, env, detect: detectAdapter });
-    manifest = loadAdapter(resolved.value, { projectRoot, env, interactive: false }).manifest;
+    const resolved =
+      baseConfig === undefined
+        ? resolveCategory('tracker', { projectRoot, env, detect: detectAdapter, untrustedProjectRoot })
+        : resolveCategory('tracker', {
+            projectRoot,
+            env,
+            projectConfig:
+              baseConfig.text === null ? null : parseToolchainConfigText(baseConfig.text, baseConfig.label || 'base toolchain config')
+          });
+    manifest = loadAdapter(resolved.value, { projectRoot, env, interactive: false, untrustedProjectRoot }).manifest;
   } catch (error) {
     return { reason: error && error.message ? error.message : String(error) };
   }
@@ -266,16 +344,20 @@ function resolveManifest(projectRoot, env) {
  * Everything the runner itself throws is a bug and propagates. Requires are lazy so the pure
  * functions above load without the toolchain.
  *
- * @param {{projectRoot: string, env?: NodeJS.ProcessEnv, timeoutMs?: number}} options
+ * @param {{projectRoot: string, env?: NodeJS.ProcessEnv, timeoutMs?: number, untrustedProjectRoot?: boolean,
+ *   baseConfig?: {text: string|null, label?: string}}} options
+ *   `untrustedProjectRoot: true` when `projectRoot` is a tree under review rather than this
+ *   install's own checkout: adapters are then never loaded from it (see `resolveManifest`).
+ *   `baseConfig` replaces the tree's own `.ensemble/toolchain.yaml` (see `resolveManifest`).
  * @returns {{run: (capability: string, args: object) => object}}
  */
-function createToolchainDeps({ projectRoot, env = process.env, timeoutMs } = {}) {
+function createToolchainDeps({ projectRoot, env = process.env, timeoutMs, untrustedProjectRoot = false, baseConfig } = {}) {
   let manifest;
   return {
     run(capability, args) {
       const { runCapabilitySync, buildChildEnv } = require('./toolchain/runner');
       if (!manifest) {
-        const resolved = resolveManifest(projectRoot, env);
+        const resolved = resolveManifest(projectRoot, env, untrustedProjectRoot, baseConfig);
         if (!resolved.manifest) return unavailable(`tracker is unavailable: ${resolved.reason}`);
         manifest = resolved.manifest;
       }
@@ -294,7 +376,10 @@ module.exports = {
   SKIP_FALLBACK,
   createFinding,
   findByKey,
+  findByKeys,
   updateFinding,
   closeFinding,
+  labelFinding,
+  reopenFinding,
   createToolchainDeps
 };

@@ -85,6 +85,26 @@ function loadDefaultToolchainConfig() {
 }
 
 /**
+ * Parse and validate the text of a toolchain config.
+ *
+ * @param {string} raw the YAML text of a `toolchain.yaml`
+ * @param {string} label what the text is, named in the error (a file path, or e.g. `<sha>:.ensemble/toolchain.yaml`)
+ * @returns {object} the parsed config (`{}` for empty text)
+ * @throws {Error} naming `label` and the offending key if the text fails schema validation
+ */
+function parseToolchainConfigText(raw, label) {
+  const parsed = yaml.load(raw) || {};
+
+  const validate = getValidator();
+  if (!validate(parsed)) {
+    const key = describeAjvError(validate.errors[0]);
+    throw new Error(`${label}: invalid toolchain config (${key})`);
+  }
+
+  return parsed;
+}
+
+/**
  * Read and validate a project- or user-level toolchain config file.
  *
  * @param {string} filePath absolute path to a `toolchain.yaml` config file
@@ -96,16 +116,7 @@ function loadToolchainConfigFile(filePath) {
     return null;
   }
 
-  const raw = fs.readFileSync(filePath, 'utf8');
-  const parsed = yaml.load(raw) || {};
-
-  const validate = getValidator();
-  if (!validate(parsed)) {
-    const key = describeAjvError(validate.errors[0]);
-    throw new Error(`${filePath}: invalid toolchain config (${key})`);
-  }
-
-  return parsed;
+  return parseToolchainConfigText(fs.readFileSync(filePath, 'utf8'), filePath);
 }
 
 /**
@@ -119,6 +130,12 @@ function loadToolchainConfigFile(filePath) {
  * @param {(category: string, ctx: object) => ({value: string, source?: string}|null|undefined)} [ctx.detect]
  *   optional detection hook (the TRD-016 injection point); contributes nothing when absent or
  *   when it returns a nullish value
+ * @param {object|null} [ctx.projectConfig] an ALREADY READ and validated project-level config
+ *   (`parseToolchainConfigText`), or `null` for "the project has none". When it is given (even as
+ *   `null`) it REPLACES `<projectRoot>/.ensemble/toolchain.yaml`, which is then never read: a
+ *   caller that must not let a working tree choose its own adapter (the PR-review bead recorder
+ *   reads the config as committed at the PR's base) supplies the config itself. Absent (the
+ *   default), the file under `projectRoot` is read exactly as before.
  * @returns {{value: string, source: 'project'|'user'|'env-compat'|'detection'|'default'|string}}
  * @throws {Error} if `category` is unknown to the shipped default config (and no earlier
  *   precedence step resolved it), or if a config file fails schema validation
@@ -126,7 +143,10 @@ function loadToolchainConfigFile(filePath) {
 function resolveCategory(category, ctx = {}) {
   const { projectRoot = process.cwd(), env = process.env, detect } = ctx;
 
-  const projectConfig = loadToolchainConfigFile(path.join(projectRoot, '.ensemble', 'toolchain.yaml'));
+  const projectConfig =
+    ctx.projectConfig !== undefined
+      ? ctx.projectConfig
+      : loadToolchainConfigFile(path.join(projectRoot, '.ensemble', 'toolchain.yaml'));
   if (projectConfig && projectConfig[category] != null) {
     return { value: projectConfig[category], source: 'project' };
   }
@@ -159,6 +179,7 @@ function resolveCategory(category, ctx = {}) {
 module.exports = {
   resolveCategory,
   loadToolchainConfigFile,
+  parseToolchainConfigText,
   loadDefaultToolchainConfig,
   DEFAULT_TOOLCHAIN_PATH,
   TOOLCHAIN_CONFIG_SCHEMA_PATH

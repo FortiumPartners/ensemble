@@ -440,33 +440,112 @@ function changelogEntry(...parts) {
 const CHANGELOG_ROOT = changelogEntry('CHANGELOG.md');
 const CHANGELOG_DEV = changelogEntry('packages', 'development', 'CHANGELOG.md');
 
-describe('bead recording is stated as not implemented while nothing creates a bead', () => {
-  test('premise: no CLI subcommand and no pr-review module records a bead yet', () => {
-    const { HANDLERS } = require('../lib/pr-review-cli');
-    const libDir = path.join(__dirname, '..', 'lib');
-    const recorders = fs
-      .readdirSync(libDir)
-      .filter((file) => /^(?:pr-review-.*|review-precheck-cli)\.js$/.test(file))
-      .filter((file) => /tracker-findings|create-detailed|tracker\.create/.test(fs.readFileSync(path.join(libDir, file), 'utf8')));
-    if (Object.keys(HANDLERS).includes('beads') || fs.existsSync(path.join(libDir, 'pr-review-beads.js')) || recorders.length > 0) {
-      throw new Error(
-        'A bead recorder exists now (kata n350). Replace the "not implemented yet" notes in ' +
-          'reference/merge-gate.md, docs/guides/user-guide.md and the two CHANGELOG entries with its call and skip path, ' +
-          'then delete this premise check.'
-      );
+describe('the bead recorder the skill names is a real entry point', () => {
+  test('merge-gate.md calls pr-review-beads-cli.js, and that file exists and exports the process entry point', () => {
+    expect(GATE_REF).toContain('pr-review-beads-cli.js');
+    const cli = path.join(__dirname, '..', 'lib', 'pr-review-beads-cli.js');
+    expect(fs.existsSync(cli)).toBe(true);
+    expect(typeof require(cli).main).toBe('function');
+  });
+
+  test('merge-gate.md defines both CLIs and names every status, refusal code and closed-bead field the recorder answers with', () => {
+    const flat = flatten(GATE_REF);
+    const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'pr-review-beads-cli.js'), 'utf8');
+    for (const needle of ['PR_REVIEW_BEADS_CLI', 'PR_REVIEW_CLEAR_CLI', 'UNAVAILABLE', 'REFUSED', 'PARTIAL', 'FAILED', 'closedBeadId', 'unverifiedFixes']) {
+      expect(flat).toContain(needle);
+    }
+    for (const code of ['cross-repository-head', 'head-repository-unknown', 'pr-unreadable', 'head-unverified', 'head-not-pr-head', 'no-primary-worktree', 'head-checked-out', 'head-checkout-unknown', 'base-unavailable', 'base-unverified', 'base-not-on-base-branch', 'base-tip-unavailable', 'base-config-unreadable']) {
+      expect(source).toContain(`'${code}'`);
+      expect(flat).toContain(code);
+    }
+    expect(fs.existsSync(path.join(__dirname, '..', 'lib', 'pr-review-clear-cli.js'))).toBe(true);
+    expect(typeof require('../lib/pr-review-clear-cli').main).toBe('function');
+  });
+
+  test('no doc still says the recorder or the producer of cleared is not implemented', () => {
+    for (const text of [GATE_REF, readRepo('docs', 'guides', 'user-guide.md'), readRepo('packages', 'development', 'skills', 'pr-review-cycle', 'reference', 'triage-fix-reverify.md')]) {
+      expect(flatten(text)).not.toMatch(/not (yet )?implemented|no producer|nothing writes (a )?`?cleared/i);
+    }
+  });
+});
+
+describe('the docs say where beads are recorded: the merge gate in full mode, not every review path (kata n350)', () => {
+  const headline = (...parts) => flatten(readRepo(...parts).split('\n').find((line) => /\(kata `n350`, plan/.test(line)));
+
+  test('the user guide scopes bead recording to MODE=gate in full mode and says the other paths record none', () => {
+    expect(GUIDE_RULE).toContain('**Only the merge gate records beads, and only in full mode:** `MODE=gate`');
+    expect(GUIDE_RULE).toContain('A review that stops short of the gate (`MODE=local`, `MODE=remote`) records none, and neither does a light-mode review (below).');
+    expect(GUIDE_RULE).toContain('does not call the bead recorder, so findings reviewed that way get no bead');
+    // The sentence that said every review of a PR records each presented finding, and the one that said pr-merge records none.
+    expect(GUIDE_RULE).not.toMatch(/A review of a PR \(local, remote or the merge gate\)[^.]*records each presented finding/);
+    expect(GUIDE_RULE).not.toMatch(/records no beads/);
+    expect(GUIDE_RULE).not.toMatch(/until kata `n350` lands/);
+  });
+
+  test('both changelogs headline the recorder as the merge gate\'s and name the paths that do not call it', () => {
+    for (const entry of [headline('CHANGELOG.md'), headline('packages', 'development', 'CHANGELOG.md')]) {
+      expect(entry).toMatch(/^- (\*\*packages\/development:\*\* )?[Tt]he merge gate records every presented PR-review finding as a bead \(kata `n350`/);
+      expect(entry).toContain('`MODE=gate` in full mode only');
+      expect(entry).toContain('`MODE=local`, `MODE=remote` and the light-mode runner (`lib/review-run-cli.js`) do not call the recorder');
     }
   });
 
-  test('merge-gate.md, the headline, the user guide and both changelogs say so instead of claiming the findings are recorded', () => {
-    expect(GATE_REF).toContain('**Recording every confirmed finding as a bead is not implemented yet.**');
-    expect(GATE_REF).toContain('The `beads` subcommand that would do it (kata `n350`) is not in `pr-review-cli.js`');
-    expect(GATE_REF).not.toContain('It records every confirmed finding as a bead');
-    expect(GATE_REF).not.toContain('Beads for the findings are recorded where the repository has a tracker');
-    expect(FLAT_MAIN).not.toMatch(/records findings as beads/);
-    expect(GUIDE_RULE).toContain('Recording each confirmed finding as a bead is not implemented yet');
-    expect(GUIDE_RULE).not.toContain('It records each confirmed finding as a bead');
-    expect(CHANGELOG_ROOT).toContain('Recording findings as beads awaits kata `n350`');
-    expect(CHANGELOG_DEV).toContain('Recording findings as beads is not implemented yet');
+  test('the sp4w entries no longer say recording beads is not implemented or awaits n350', () => {
+    for (const entry of [CHANGELOG_ROOT, CHANGELOG_DEV]) {
+      expect(entry).not.toMatch(/awaits (the `beads` subcommand, )?kata `n350`|not implemented yet/);
+      expect(entry).toContain('Recording findings as beads is kata `n350`');
+    }
+  });
+});
+
+describe('the docs say a round the clear verb was not run at is not read as a fix (kata n350)', () => {
+  const roundThree = (...parts) => flatten(readRepo(...parts).split('\n').find((line) => /hird review of the PR-review bead recorder/.test(line)));
+
+  test('the reference, the user guide and both changelogs say the next run moves each line through the skipped round instead of reading its edits as a fix', () => {
+    expect(TRIAGE).toContain("A round the verb was not run at reads the same way: the next run moves the line through that round's edits, it does not take them for a fix.");
+    expect(GUIDE_RULE).toContain("A round it was not run at is not read as a fix: the next run moves each line through that round's edits first.");
+    expect(GUIDE_RULE).toContain("(a skipped round's edit included)");
+    for (const entry of [roundThree('CHANGELOG.md'), roundThree('packages', 'development', 'CHANGELOG.md')]) {
+      expect(entry).toContain("A round the verb was not run at is not read as a fix either: an entry stamped at a head older than `lastReviewedSha` is moved through that round's edits first");
+    }
+  });
+});
+
+describe('the docs name one writer of a cleared mark: the clear verb (carry reconcile writes none) (kata n350, qw98)', () => {
+  test('premise: carry reconcile no longer clears (it does not call clearFixedFindings and answers cleared: [])', () => {
+    const cli = fs.readFileSync(path.join(__dirname, '..', 'lib', 'pr-review-cli.js'), 'utf8');
+    const action = cli.slice(cli.indexOf('  reconcile: {'), cli.indexOf('function runCarry'));
+    expect(action).toContain('normalizeLedger(p.ledger)');
+    expect(action).toContain('cleared: []');
+    expect(action).not.toMatch(/clearFixedFindings/);
+  });
+
+  test('the gate reference, the clear-verb reference, the carry guide, the user guide and the changelog headline say the clear verb is the only writer', () => {
+    expect(GATE_REF).toContain("the skill's only writer of it is `PR_REVIEW_CLEAR_CLI`, which derives it from git (Step 6); `carry reconcile` writes none");
+    expect(GATE_REF).toContain("The procedure's only writer of the mark is `PR_REVIEW_CLEAR_CLI` (`carry reconcile` writes none)");
+    expect(GATE_REF).not.toMatch(/writers of (it|the mark)/);
+    expect(GUIDE_RULE).toContain('The procedure writes the mark only through `lib/pr-review-clear-cli.js` (`carry reconcile` writes none)');
+    expect(GUIDE_RULE).not.toMatch(/in a delta round, through `carry reconcile`/);
+    expect(TRIAGE).toContain('6. **Reconcile (writes nothing).**');
+    expect(TRIAGE).toContain('This verb is the only writer of `cleared`: `carry reconcile` (step 6 above) writes none.');
+    expect(TRIAGE).not.toMatch(/is how an `unmatched` verdict ends/);
+    const carryGuide = flatten(readRepo('docs', 'guides', 'pr-review-carry.md'));
+    expect(carryGuide).toContain('It never clears: `cleared` is always empty and no entry gains a mark.');
+    expect(carryGuide).not.toContain('A finding no reviewer reported again whose cited location the push changed is cleared; one that was observed again');
+    const headline = flatten(readRepo('packages', 'development', 'CHANGELOG.md').split('\n').find((line) => /\(kata `n350`, plan/.test(line)));
+    expect(headline).toContain('is the only writer of `cleared` (`carry reconcile`, kata `qw98`, writes none)');
+    expect(headline).not.toContain('is a producer of `cleared`');
+  });
+
+  test('the docs say what incoming must hold, and that a lastReviewedSha off the PR clears nothing, whatever stamp an entry carries', () => {
+    expect(TRIAGE).toContain("**`incoming` is required**: EVERY finding this head's review presented, whatever its verdict");
+    expect(GUIDE_RULE).toContain("`incoming` (every finding the head's review presented, whatever its verdict, `[]` when none)");
+    expect(TRIAGE).toContain('(a force-push replaced it, or the repository no longer holds it) clears nothing, whatever stamp an entry carries');
+    expect(GUIDE_RULE).toContain('A `lastReviewedSha` that is not on the PR (a force-push replaced it) clears nothing.');
+    const header = flatten(fs.readFileSync(path.join(__dirname, '..', 'lib', 'pr-review-clear-cli.js'), 'utf8').replace(/^\s*\* ?/gm, ''));
+    expect(header).toContain('EVERY finding the review of `headSha` presented, whatever its verdict');
+    expect(header).toContain('This verb is the only writer of `cleared` in the procedure (`carry reconcile` writes none)');
+    expect(header).toContain('It has to be ON THE PR: one a force-push replaced keeps every entry (`recorded-head-not-on-pr`), stamped or not.');
   });
 });
 
