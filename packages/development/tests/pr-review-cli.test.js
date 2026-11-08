@@ -891,10 +891,10 @@ describe('pr-review-cli: the guidance subcommands are registered and documented 
   const SOURCE = fs.readFileSync(CLI, 'utf8');
   const GUIDANCE = ['policy', 'rules', 'paths', 'description'];
 
-  test('HANDLERS is exported, frozen, and holds exactly the twenty-nine subcommands', () => {
+  test('HANDLERS is exported, frozen, and holds exactly the thirty subcommands', () => {
     expect(Object.keys(HANDLERS).sort()).toEqual(
       [
-        'approvals', 'brief', 'depth', 'description', 'eval-compare', 'eval-score', 'eval-stale', 'explainer-offer', 'gate',
+        'approvals', 'brief', 'carry', 'depth', 'description', 'eval-compare', 'eval-score', 'eval-stale', 'explainer-offer', 'gate',
         'ledger', 'metrics', 'metrics-compare', 'mode', 'paths', 'policy', 'reachability', 'remote', 'results', 'review-range', 'rules',
         'scope', 'slices', 'state-read', 'state-write', 'status', 'tier', 'timing', 'verify-assign', 'votes',
       ].sort()
@@ -1829,5 +1829,431 @@ describe('pr-review-cli: status for a review of someone else\'s PR (review-only,
     const forgotten = runStatus(remoteFacts(read.state));
     expect(forgotten.status).toBe('REVIEW_BLOCKED');
     expect(forgotten.tests.passed).toBe(false);
+  });
+});
+
+describe('pr-review-cli: carry reads the PR\'s own state, stamps the ledger, records verdicts and reconciles (kata qw98)', () => {
+  const { planCarry, REASONS } = require('../lib/pr-review-carry');
+  const SHA = (c) => c.repeat(64);
+  const LAST = '1'.repeat(40);
+  const HEAD = '2'.repeat(40);
+  const BASE = '3'.repeat(40);
+  const PR = '268';
+  const CLAIM = 'Null deref on empty input';
+  const votes = [
+    { verifier: 'v1', verdict: 'real' },
+    { verifier: 'v2', verdict: 'real' },
+    { verifier: 'v3', verdict: 'not-real' },
+  ];
+  const finding = (id, over = {}) => ({ id, locationOrLink: `src/${id}.js:10`, failureMode: `${CLAIM} ${id}`, severity: 'Important', headSha: LAST, disposition: 'fix', ...over });
+  const prior = (id, over = {}) => ({
+    id, file: `src/${id}.js`, claim: `${CLAIM} ${id}`, lines: [10, 10], hunkHash: SHA(id), depHashes: { 'src/dep.js': SHA('d') }, head: LAST,
+    outcome: 'present', votes, prId: PR, baseSha: BASE, depth: 'standard', expectedVerifiers: 3, ...over,
+  });
+  const candidate = (id, over = {}) => ({ id, file: `src/${id}.js`, claim: `${CLAIM} ${id}`, lines: [10, 10], hunkHash: SHA(id), depHashes: { 'src/dep.js': SHA('d') }, dependents: [], headSha: HEAD, ...over });
+  /** The state report round 1 wrote for PR 268 at LAST: two findings, each with a settled verdict. */
+  const round1 = () => ({ headSha: LAST, reviewedHeadSha: LAST, baseSha: BASE, ledger: [finding('a'), finding('b')], verdicts: [prior('a'), prior('b')] });
+  const writeRound = (cwd, state = round1(), prId = PR) => {
+    const written = HANDLERS['state-write']({ prId, cwd, state });
+    expect(written.ok).toBe(true);
+  };
+  const plan = (cwd, over = {}) => ({
+    action: 'plan', prId: PR, cwd, headSha: HEAD, lastReviewedSha: LAST, baseSha: BASE, depth: 'standard',
+    deltaPlan: { mode: 'delta', readSet: [{ path: 'src/c.js', reasons: ['changed'] }] }, deltaPaths: ['src/c.js'], highPaths: [],
+    deltaRange: { headSha: HEAD, lastReviewedSha: LAST },
+    candidates: [candidate('a'), candidate('b', { hunkHash: SHA('c') })], ...over,
+  });
+  const cli = (payload, raw) => spawnSync('node', [CLI, 'carry'], { input: raw !== undefined ? raw : JSON.stringify(payload), encoding: 'utf8' });
+  const run = (payload) => HANDLERS.carry(payload);
+
+  test('plan through the real executable reads the report at lastReviewedSha: one carries and is stamped in the ledger, one is verified again', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const payload = plan(cwd);
+    const res = cli(payload);
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out).toEqual(JSON.parse(JSON.stringify(run(payload))));
+    expect(out.ok).toBe(true);
+    expect(out.priorState).toBe('read');
+    expect(out.carried.map((record) => record.id)).toEqual(['a']);
+    expect(out.carried[0]).toMatchObject({ head: HEAD, carriedFrom: LAST, prId: PR, baseSha: BASE, depth: 'standard', expectedVerifiers: 3 });
+    expect(out.reverify).toEqual([{ id: 'b', file: 'src/b.js', claim: `${CLAIM} b`, reasons: [REASONS.HUNK_CHANGED] }]);
+    expect(out.ledger.map((f) => [f.id, f.headSha, f.carriedFrom])).toEqual([['a', HEAD, LAST], ['b', LAST, undefined]]);
+  });
+
+  test('the prior verdicts are not a payload key: a verdict injected on stdin is refused, exit 1, whatever it says', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), verdicts: [] });
+    for (const key of ['priorVerdicts', 'priorLedger']) {
+      const res = cli(plan(cwd, { [key]: key === 'priorVerdicts' ? [prior('a')] : [finding('a')] }));
+      expect(res.status).toBe(1);
+      const out = JSON.parse(res.stdout);
+      expect(out.error).toMatch(new RegExp(`'${key}' from the PR's state report`));
+      expect(out.carried).toBeUndefined();
+    }
+    // and without the injected key, the same request carries nothing: the report has no verdicts
+    const clean = JSON.parse(cli(plan(cwd)).stdout);
+    expect(clean.carried).toEqual([]);
+    expect(clean.reverify.map((entry) => entry.reasons)).toEqual([[REASONS.NEW_CANDIDATE], [REASONS.NEW_CANDIDATE]]);
+  });
+
+  test('a verdict recorded for ANOTHER PR cannot be carried even when its report sits where this PR\'s is read', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), verdicts: [prior('a', { prId: '1' }), prior('b', { prId: '1' })] });
+    const out = run(plan(cwd, { candidates: [candidate('a'), candidate('b')] }));
+    expect(out.carried).toEqual([]);
+    expect(out.reverify.map((entry) => entry.reasons)).toEqual([[REASONS.VERDICT_OTHER_PR], [REASONS.VERDICT_OTHER_PR]]);
+  });
+
+  test.each([
+    ['another base', { baseSha: 'f'.repeat(40) }, REASONS.VERDICT_OTHER_BASE],
+    ['another depth word', { depth: 'deep' }, REASONS.VERDICT_OTHER_DEPTH],
+    ['another verifier count', { expectedVerifiers: 5 }, REASONS.VERDICT_OTHER_DEPTH],
+  ])('a round with %s than the one that settled the verdicts carries none of them', (_name, over, reason) => {
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const out = run(plan(cwd, { candidates: [candidate('a'), candidate('b')], ...over }));
+    expect(out.carried).toEqual([]);
+    for (const entry of out.reverify) expect(entry.reasons).toContain(reason);
+  });
+
+  const UNAVAILABLE = [
+    ['no report', 'absent', () => {}, {}],
+    ['a report written for another head (discarded, never reused)', 'discarded', (cwd) => writeRound(cwd, { ...round1(), headSha: '9'.repeat(40) }), {}],
+    ['a corrupt report', 'corrupt', (cwd) => {
+      fs.mkdirSync(path.dirname(statePath(PR, cwd)), { recursive: true });
+      fs.writeFileSync(statePath(PR, cwd), '{not json');
+    }, {}],
+    ['a payload with no lastReviewedSha (the report cannot be looked up)', 'unreadable', (cwd) => writeRound(cwd), { lastReviewedSha: undefined }],
+  ];
+
+  test.each(UNAVAILABLE)('%s carries nothing, is verified again with prior-state-unavailable, and answers a NULL ledger (an empty one would read as "no open findings")', (_name, priorState, setup, over) => {
+    const cwd = tmpCwd();
+    setup(cwd);
+    const out = run(plan(cwd, over));
+    expect(out.ok).toBe(true);
+    expect(out.priorState).toBe(priorState);
+    expect(out.carried).toEqual([]);
+    expect(out.reasons).toContain(REASONS.PRIOR_STATE_UNAVAILABLE);
+    for (const entry of out.reverify) expect(entry.reasons).toContain(REASONS.PRIOR_STATE_UNAVAILABLE);
+    expect(out.ledger).toBeNull();
+  });
+
+  test('through the real executable the unreadable states answer `"ledger": null` in the JSON, never `[]`; a report that was read answers an array', () => {
+    const answers = UNAVAILABLE.map(([, , setup, over]) => {
+      const cwd = tmpCwd();
+      setup(cwd);
+      return JSON.parse(cli(plan(cwd, over)).stdout);
+    });
+    expect(answers.map((out) => out.priorState)).toEqual(['absent', 'discarded', 'corrupt', 'unreadable']);
+    for (const out of answers) expect(Object.prototype.hasOwnProperty.call(out, 'ledger') && out.ledger === null).toBe(true);
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const read = JSON.parse(cli(plan(cwd)).stdout);
+    expect(read.priorState).toBe('read');
+    expect(Array.isArray(read.ledger)).toBe(true);
+    expect(read.ledger.map((f) => [f.id, f.headSha, f.carriedFrom])).toEqual([['a', HEAD, LAST], ['b', LAST, undefined]]);
+  });
+
+  test('a report that was read but holds an empty ledger answers `[]`: an array means "read", and only that', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), ledger: [], verdicts: [] });
+    const out = run(plan(cwd));
+    expect(out.priorState).toBe('read');
+    expect(out.ledger).toEqual([]);
+  });
+
+  const withoutLedger = (state) => {
+    const { ledger: _ledger, ...rest } = state;
+    return rest;
+  };
+
+  test.each([
+    ['no ledger key', withoutLedger],
+    ['a null ledger', (state) => ({ ...state, ledger: null })],
+    ['a ledger that is a string', (state) => ({ ...state, ledger: 'a' })],
+    ['a ledger that is an object, not a list', (state) => ({ ...state, ledger: { a: finding('a') } })],
+  ])('a report that was read but holds %s answers a NULL ledger, never `[]`: an array is a ledger, and only that', (_name, shape) => {
+    const cwd = tmpCwd();
+    writeRound(cwd, shape(round1()));
+    const out = run(plan(cwd));
+    expect(out.priorState).toBe('read');
+    expect(out.ledger).toBeNull();
+    // nothing carries, and the planner's own gate says why: the prior ledger is not a list of findings
+    expect(out.carried).toEqual([]);
+    expect(out.reasons).toContain(REASONS.LEDGER_UNREADABLE);
+  });
+
+  test('through the real executable a read report with no ledger key answers `"ledger": null` in the JSON; the same report with its ledger answers an array', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, withoutLedger(round1()));
+    const res = cli(plan(cwd));
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out.priorState).toBe('read');
+    expect(Object.prototype.hasOwnProperty.call(out, 'ledger') && out.ledger === null).toBe(true);
+    writeRound(cwd);
+    expect(Array.isArray(JSON.parse(cli(plan(cwd)).stdout).ledger)).toBe(true);
+  });
+
+  test('a report that was read keeps answering its own ledger when the answer is ok:false (unreadable verdicts): the ledger as read, an empty one `[]`, never null', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), ledger: [], verdicts: 'a' });
+    const empty = run(plan(cwd));
+    expect(empty.ok).toBe(false);
+    expect(empty.priorState).toBe('read');
+    expect(empty.ledger).toEqual([]);
+    writeRound(cwd, { ...round1(), verdicts: 'a' });
+    const full = run(plan(cwd));
+    expect(full.ok).toBe(false);
+    expect(full.carried).toEqual([]);
+    expect(full.ledger).toEqual(round1().ledger);
+  });
+
+  test('a corrupt report carries nothing', () => {
+    const cwd = tmpCwd();
+    fs.mkdirSync(path.dirname(statePath(PR, cwd)), { recursive: true });
+    fs.writeFileSync(statePath(PR, cwd), '{not json');
+    const out = run(plan(cwd));
+    expect(out.priorState).toBe('corrupt');
+    expect(out.carried).toEqual([]);
+    expect(out.reasons).toContain(REASONS.PRIOR_STATE_UNAVAILABLE);
+  });
+
+  test('a report with no verdicts (or no ledger) carries nothing and says so per candidate', () => {
+    const cwd = tmpCwd();
+    const { verdicts: _verdicts, ...noVerdicts } = round1();
+    writeRound(cwd, noVerdicts);
+    expect(run(plan(cwd)).reverify.map((entry) => entry.reasons)).toEqual([[REASONS.NEW_CANDIDATE], [REASONS.NEW_CANDIDATE]]);
+    const { ledger: _ledger, ...noLedger } = round1();
+    writeRound(cwd, noLedger);
+    const out = run(plan(cwd, { candidates: [candidate('a'), candidate('b')] }));
+    expect(out.carried).toEqual([]);
+    for (const entry of out.reverify) expect(entry.reasons).toContain(REASONS.LEDGER_UNREADABLE);
+  });
+
+  test('verdicts that are not a list make the whole answer ok:false: nothing carries', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), verdicts: 'a' });
+    const out = run(plan(cwd));
+    expect(out.ok).toBe(false);
+    expect(out.carried).toEqual([]);
+  });
+
+  test('a prior ledger that already holds a finding stamped with the current head is refused: ok:false, nothing carried', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd, { ...round1(), ledger: [finding('a'), finding('b', { headSha: HEAD })] });
+    const out = run(plan(cwd));
+    expect(out.ok).toBe(false);
+    expect(out.carried).toEqual([]);
+    expect(out.ledger).toBeNull();
+    expect(out.reasons[0]).toMatch(/already stamped with the current head/);
+  });
+
+  test('the answer is the planner\'s: on the same inputs plan\'s carried, reverify and unmatched are planCarry\'s', () => {
+    const cwd = tmpCwd();
+    const state = round1();
+    writeRound(cwd, state);
+    const payload = plan(cwd);
+    const direct = planCarry({ ...payload, priorVerdicts: state.verdicts, priorLedger: state.ledger });
+    const out = run(payload);
+    expect({ carried: out.carried, reverify: out.reverify, unmatched: out.unmatched, reasons: out.reasons }).toEqual({
+      carried: direct.carried, reverify: direct.reverify, unmatched: direct.unmatched, reasons: direct.reasons,
+    });
+  });
+
+  test('candidates hashed at another head than the one planned carry nothing and say candidate-head-mismatch, through the real executable', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const unchanged = (stale) => plan(cwd, { candidates: [candidate('a', stale ? { headSha: LAST } : {}), candidate('b')] });
+    // control: both candidates are hashed at HEAD and nothing they depend on changed, so both carry
+    const control = JSON.parse(cli(unchanged(false)).stdout);
+    expect(control.carried.map((record) => record.id)).toEqual(['a', 'b']);
+    // `a` was hashed at LAST: its hashes and dependents may be those of another tree, so it is verified again and is not stamped
+    const res = cli(unchanged(true));
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.reasons).toEqual([]);
+    expect(out.carried.map((record) => record.id)).toEqual(['b']);
+    expect(out.reverify).toEqual([{ id: 'a', file: 'src/a.js', claim: `${CLAIM} a`, reasons: [REASONS.CANDIDATE_HEAD_MISMATCH] }]);
+    expect(out.unmatched).toEqual([]);
+    expect(out.ledger.map((f) => [f.id, f.headSha, f.carriedFrom])).toEqual([['a', LAST, undefined], ['b', HEAD, LAST]]);
+  });
+
+  test('a candidate with no head stamp is stale too: nothing the planner is given may be of unknown origin', () => {
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const { headSha: _unstamped, ...bare } = candidate('a');
+    const out = run(plan(cwd, { candidates: [bare, candidate('b')] }));
+    expect(out.carried.map((record) => record.id)).toEqual(['b']);
+    expect(out.reverify.map((entry) => [entry.id, entry.reasons])).toEqual([['a', [REASONS.CANDIDATE_HEAD_MISMATCH]]]);
+  });
+
+  test.each([
+    ['missing', undefined],
+    ['not an object', 'x'],
+    ['without the last reviewed head', { headSha: HEAD }],
+    ['the range of the previous push (its head is LAST)', { headSha: LAST, lastReviewedSha: HEAD }],
+    ['another head', { headSha: '9'.repeat(40), lastReviewedSha: LAST }],
+    ['another last reviewed head', { headSha: HEAD, lastReviewedSha: '9'.repeat(40) }],
+  ])('a deltaRange that is %s carries nothing, in band (exit 0): delta-range-mismatch, and the ledger is not stamped', (_name, deltaRange) => {
+    const cwd = tmpCwd();
+    writeRound(cwd);
+    const both = { candidates: [candidate('a'), candidate('b')] };
+    // control: the very request with its own range carries both findings
+    expect(JSON.parse(cli(plan(cwd, both)).stdout).carried.map((record) => record.id)).toEqual(['a', 'b']);
+    const res = cli(plan(cwd, { ...both, deltaRange }));
+    expect(res.status).toBe(0);
+    const out = JSON.parse(res.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.carried).toEqual([]);
+    expect(out.reasons).toEqual([REASONS.DELTA_RANGE_MISMATCH]);
+    expect(out.reverify.map((entry) => entry.reasons)).toEqual([[REASONS.DELTA_RANGE_MISMATCH], [REASONS.DELTA_RANGE_MISMATCH]]);
+    expect(out.ledger.map((f) => [f.id, f.headSha, f.carriedFrom])).toEqual([['a', LAST, undefined], ['b', LAST, undefined]]);
+  });
+
+  test.each([
+    ['an unknown action', { action: 'apply' }, /Unknown carry action 'apply'/],
+    ['no action', { action: undefined }, /Unknown carry action/],
+    ['an inherited name as the action', { action: 'constructor' }, /Unknown carry action 'constructor'/],
+    ['no prId', { prId: undefined }, /carry action 'plan' requires payload key 'prId'/],
+    ['a prId that is a number', { prId: 268 }, /carry action 'plan' requires payload key 'prId'/],
+    ['candidates missing', { candidates: undefined }, /carry action 'plan' requires payload key 'candidates'/],
+    ['candidates misspelt', { candidate: [], candidates: undefined }, /carry action 'plan' requires payload key 'candidates'/],
+    ['candidates not an array', { candidates: 'x' }, /carry action 'plan' requires payload key 'candidates'/],
+    ['a cwd that is not text', { cwd: 5 }, /carry action 'plan' payload key 'cwd' must be a non-empty string when given/],
+  ])('%s is an exit-1 error, never read as empty', (_name, over, message) => {
+    const cwd = tmpCwd();
+    const payload = { ...plan(cwd), ...over };
+    const res = cli(payload);
+    expect(res.status).toBe(1);
+    const out = JSON.parse(res.stdout);
+    expect(out.error).toMatch(message);
+    expect(out.carried).toBeUndefined();
+  });
+
+  test('invalid JSON on stdin and a payload that is not an object are exit-1 errors', () => {
+    const res = cli(null, '{not json');
+    expect(res.status).toBe(1);
+    expect(JSON.parse(res.stdout).error).toMatch(/invalid JSON on stdin/);
+    const array = cli([1]);
+    expect(array.status).toBe(1);
+    expect(JSON.parse(array.stdout).error).toMatch(/carry payload must be a JSON object/);
+  });
+
+  test('redaction applies: a credential-shaped string in a ledger finding does not reach stdout', () => {
+    const token = `gh${'p'}_${'A1b2C3d4E5'.repeat(3)}`;
+    const cwd = tmpCwd();
+    // the report writer redacts what it stores, so the token is placed on disk as a plain file
+    fs.mkdirSync(path.dirname(statePath(PR, cwd)), { recursive: true });
+    fs.writeFileSync(statePath(PR, cwd), JSON.stringify({ ...round1(), ledger: [finding('a', { evidence: `seen ${token}` }), finding('b')] }));
+    const res = cli(plan(cwd));
+    expect(res.status).toBe(0);
+    expect(res.stdout).not.toContain(token);
+    expect(JSON.parse(res.stdout).carried).toHaveLength(1);
+  });
+
+  describe('record', () => {
+    const settled = (id, over = {}) => ({ id, locationOrLink: `src/${id}.js:10`, failureMode: `${CLAIM} ${id}`, severity: 'Important', outcome: 'present', votes, ...over });
+    const recordRequest = (over = {}) => ({
+      action: 'record', prId: PR, baseSha: BASE, headSha: HEAD, depth: 'standard',
+      findings: [settled('a'), settled('b', { outcome: 'unverified' })], candidates: [candidate('a'), candidate('b')], ...over,
+    });
+
+    test('stamps the settled findings and lists the rest as skipped, through the real executable', () => {
+      const payload = recordRequest();
+      const res = cli(payload);
+      expect(res.status).toBe(0);
+      const out = JSON.parse(res.stdout);
+      expect(out).toEqual(JSON.parse(JSON.stringify(run(payload))));
+      expect(out.ok).toBe(true);
+      expect(out.verdicts).toHaveLength(1);
+      expect(out.verdicts[0]).toMatchObject({ id: 'a', head: HEAD, prId: PR, baseSha: BASE, depth: 'standard', expectedVerifiers: 3, outcome: 'present' });
+      expect(out.skipped).toEqual([{ id: 'b', reason: 'not-settled' }]);
+    });
+
+    test('a candidate hashed at another head is skipped, never recorded: a verdict cannot be built from the hashes of a different head', () => {
+      const out = run(recordRequest({ findings: [settled('a'), settled('b')], candidates: [candidate('a', { headSha: LAST }), candidate('b')] }));
+      expect(out.ok).toBe(true);
+      expect(out.verdicts.map((record) => record.id)).toEqual(['b']);
+      expect(out.skipped).toEqual([{ id: 'a', reason: REASONS.CANDIDATE_HEAD_MISMATCH }]);
+    });
+
+    test('what record writes is what plan reads: written to a report at HEAD it carries into the next round', () => {
+      const cwd = tmpCwd();
+      const recorded = run(recordRequest({ headSha: LAST, findings: [settled('a')], candidates: [candidate('a', { headSha: LAST })] }));
+      writeRound(cwd, { headSha: LAST, baseSha: BASE, ledger: [finding('a')], verdicts: recorded.verdicts });
+      const out = run(plan(cwd, { candidates: [candidate('a')] }));
+      expect(out.carried.map((record) => record.id)).toEqual(['a']);
+    });
+
+    test.each([
+      ['no findings', { findings: undefined }, /carry action 'record' requires payload key 'findings'/],
+      ['candidates not an array', { candidates: {} }, /carry action 'record' requires payload key 'candidates'/],
+    ])('%s is an exit-1 error', (_name, over, message) => {
+      const res = cli({ ...recordRequest(), ...over });
+      expect(res.status).toBe(1);
+      expect(JSON.parse(res.stdout).error).toMatch(message);
+    });
+
+    test('an unreadable fact is a refused record (ok:false, exit 0), never an empty success', () => {
+      const res = cli(recordRequest({ baseSha: 'main' }));
+      expect(res.status).toBe(0);
+      const out = JSON.parse(res.stdout);
+      expect(out.ok).toBe(false);
+      expect(out.verdicts).toEqual([]);
+    });
+  });
+
+  describe('reconcile', () => {
+    const changedLocations = [{ path: 'src/a.js', lines: [10] }, { path: 'src/b.js', lines: [10] }];
+    const reconcileRequest = (over = {}) => ({
+      action: 'reconcile', headSha: HEAD, ledger: [finding('a'), finding('b'), finding('c')], changedLocations, observations: [], ...over,
+    });
+
+    test('a finding nobody reported again whose cited line the push changed is cleared; an untouched one stays', () => {
+      const out = JSON.parse(cli(reconcileRequest()).stdout);
+      expect(out.ok).toBe(true);
+      expect(out.cleared).toEqual(['a', 'b']);
+      expect(out.ledger.find((f) => f.id === 'c').cleared).toBeUndefined();
+    });
+
+    test('EVERY observation of the round counts as reported again: an unverified or disputed one on a touched line is not cleared', () => {
+      const observations = [
+        finding('a', { headSha: HEAD, outcome: 'unverified' }),
+        finding('b', { headSha: HEAD, outcome: 'disputed' }),
+      ];
+      const out = run(reconcileRequest({ observations }));
+      expect(out.cleared).toEqual([]);
+      expect(out.ledger.every((f) => f.cleared === undefined)).toBe(true);
+    });
+
+    test('a carried finding (stamped by plan) is never cleared even when its line was touched', () => {
+      const cwd = tmpCwd();
+      writeRound(cwd);
+      const planned = run(plan(cwd, { candidates: [candidate('a'), candidate('b')], deltaPlan: { mode: 'delta', readSet: [{ path: 'src/c.js', reasons: ['changed'] }] } }));
+      expect(planned.carried).toHaveLength(2);
+      const out = run(reconcileRequest({ ledger: planned.ledger, changedLocations }));
+      expect(out.cleared).toEqual([]);
+    });
+
+    test.each([
+      ['no observations key', { observations: undefined }, /carry action 'reconcile' requires payload key 'observations'/],
+      ['a ledger that is not an array', { ledger: 'a' }, /carry action 'reconcile' requires payload key 'ledger'/],
+      ['no changedLocations', { changedLocations: undefined }, /carry action 'reconcile' requires payload key 'changedLocations'/],
+      ['no headSha', { headSha: undefined }, /carry action 'reconcile' requires payload key 'headSha'/],
+    ])('%s is an exit-1 error: the observations can never be forgotten', (_name, over, message) => {
+      const res = cli({ ...reconcileRequest(), ...over });
+      expect(res.status).toBe(1);
+      expect(JSON.parse(res.stdout).error).toMatch(message);
+    });
+
+    test('a changed location the ledger module cannot read is an exit-1 error, not a clear-everything', () => {
+      const res = cli(reconcileRequest({ changedLocations: [5] }));
+      expect(res.status).toBe(1);
+      expect(JSON.parse(res.stdout).error).toMatch(/changed location/);
+    });
   });
 });

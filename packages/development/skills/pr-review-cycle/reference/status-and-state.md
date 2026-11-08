@@ -148,6 +148,17 @@ and `reasons`, with the reviewers and verifiers actually dispatched), so a
 reader of the report sees at what depth the review ran and why: a Standard
 review is never mistaken for a Deep one.
 
+**What the report records about settled verdicts.** `state` MAY carry `verdicts` (`state-write` stores it verbatim): the
+settled verification verdict records the NEXT round's `carry` `plan` reads. Never type one: they are the answers of
+`carry` (`record` for the verdicts this round settled, `plan`'s `carried` for those it kept), concatenated. A record is
+`{ id, file, claim, lines, hunkHash, depHashes, head, carriedFrom?, outcome, votes, prId, baseSha, depth,
+expectedVerifiers }`: only `present` and `filtered`, each with the votes of exactly `expectedVerifiers` distinct verifiers,
+bound to the PR, the base, the depth and verifier count it was settled under and to the ledger finding of that `id`. The
+delta round reads the report written for `lastReviewedSha`, so write it with `headSha` = the head this round reviewed, and
+keep `ledger` in it: `plan` refuses a verdict whose finding is not in that ledger. No `verdicts`, no carry. The report is
+an untracked file, so `depHashes` is redacted like any state: a dependency whose path matches the credential-key pattern
+(for example `lib/token-cache.js`) is stored as `[REDACTED]` and disables carry for that closure.
+
 **What the report records about timing.** `state` MAY carry a `timing` key: the
 answer of `node "$PR_REVIEW_CLI" timing` with `{ runId }` (or `{ runId, cwd }`),
 computed from the run's span trace (`toolchain-cli trace`,

@@ -96,6 +96,59 @@ cannot vouch for), fall back to the full base-correct range and report
 `reason` and `unvouched` verbatim: a push that cannot be vouched for is
 never trusted as "nothing else changed."
 
+**Carry settled verdicts (CLI `carry`).** Only when `review-range` answered `delta` AND the prepare facts'
+`deltaPlan.mode` is `delta`; on a `full` range, or when anything below is unreadable, `ok:false` or in doubt, verify
+everything and carry nothing. `carry` takes one `action` per call and reads the prior round from the PR's own state
+report, never from stdin. It saves a verifier run only for a finding the push cannot have changed; it never lowers the
+verification contract.
+
+1. **Hash.** Present as candidates the prior ledger's open findings, each with its own `id`, its `failureMode` verbatim as
+   `claim` and its `file` and `line` or `lines` (from `locationOrLink`), plus this round's new ones. Run
+   `node "$PR_REVIEW_CARRY_HASH_CLI"` (`pr-review-carry-hash-cli.js`, in the same directory as the `$PR_REVIEW_CLI` you
+   resolved; `{ repoRoot?, headSha, citations }`) at the new head. Each candidate comes back stamped with the `headSha` it
+   was hashed at, with `hunkHash`, `depHashes` and `dependents`, or with `hashError` and no hash: that one is verified
+   again. Pass the candidates to `plan` and `record` exactly as answered, and hash again after any push: a candidate
+   stamped with another head is `candidate-head-mismatch`, never carried and never recorded.
+2. **Plan.** Run `node "$PR_REVIEW_CLI" carry` with `{ action: "plan", prId, cwd?, headSha, lastReviewedSha, baseSha,
+   depth, expectedVerifiers?, deltaPlan, deltaPaths, deltaRange, highPaths, candidates }`: `deltaPlan` and `deltaPaths` are
+   the facts' `deltaPlan` and `delta.changedPaths` verbatim, `deltaRange` is `{ headSha: facts.headSha, lastReviewedSha:
+   facts.delta.lastReviewedSha }` copied from those same facts (the facts of THIS head: those of an earlier push carry
+   their own range, which is `delta-range-mismatch`, and nothing carries). Copy all three from that one set of facts and
+   never write `deltaRange` from your own `headSha` and `lastReviewedSha`: `plan` compares it with those two heads and
+   with nothing else, and it never reads the repository, so it cannot tell the facts of an earlier push from this push's.
+   A range written to match, over the earlier facts, lets stale verdicts carry across a caller this push added or an edit
+   to the cited file outside its window, and nothing says so. `highPaths` is the High and sensitive paths of `paths`,
+   `baseSha` the base of the range, and `depth` and `expectedVerifiers` the very ones Step 3b runs `votes` with. Never
+   pass `priorVerdicts` or `priorLedger`: `plan` reads them from the report written for `lastReviewedSha` (the report
+   `state-read` returns for that head) and refuses a payload that has them. `priorState` other than `read` (no report, a
+   discarded, a corrupt or an unreadable one) is `prior-state-unavailable`: nothing carries, and the answer's `ledger` is
+   `null`.
+3. **Use the answer's `ledger`.** It is the prior ledger with each carried finding stamped (`headSha` = the new head,
+   `carriedFrom` = the head it was first settled on). Make it this round's `existingLedger` for Step 3 (`dedupe`,
+   `recordRound`, `merge`). Never stamp by hand: a ledger already stamped with the new head is refused (`ok:false`).
+   A `null` ledger means `plan` has no ledger to give, in three cases: the prior state was not read (`priorState` other
+   than `read`); the report was read but holds no ledger list (`ledger-unreadable`: a missing, `null` or non-list
+   `ledger`); or the plan was refused (`ok:false`, the reason in `reasons`: a ledger finding is already stamped with the
+   new head, which is what a same-head or full-range plan produces). Nothing carries then: verify every candidate, and
+   NEVER substitute an empty ledger for the `null` -- an empty ledger reads as no open findings and drops the open
+   Important findings and their provenance. Use only a ledger you have read yourself with `state-read` for the head the
+   delta starts from. With none, there is no prior ledger to extend, and what that costs is said, not hidden: the prior
+   round's open findings are unknown to this round (neither carried nor verified again), so list them in the report as
+   unverified (by id, from the previous report or the PR's comments, when they can be named) and say that the prior
+   state was unavailable. A round that starts without a ledger does not say the prior findings are resolved.
+4. **Verify the rest.** Every `reverify` candidate and every new candidate goes through Step 3b exactly as in a first
+   review: K independent fresh verifiers each, the same `votes` call and `expectedVerifiers`. A `carried` verdict is not
+   verified again. Report each `reverify` reason.
+5. **Record.** Run `carry` with `{ action: "record", prId, baseSha, headSha, depth, expectedVerifiers?, findings,
+   candidates }`: `findings` the `votes` result's `findings`, `candidates` this round's hashed citations. It answers the
+   settled verdict records, stamped with the PR, base, depth and verifier count; a finding it `skipped` is recorded
+   nowhere and is verified again next round. The state report's `verdicts` (Step 9) are the plan's `carried` plus these.
+6. **Reconcile.** Run `carry` with `{ action: "reconcile", ledger, changedLocations, headSha, observations }`: `ledger`
+   the merged ledger, `changedLocations` the hunks of `delta.diff` (`{ path, lines }`) and `observations` EVERY finding
+   this round observed (the `votes` result's `findings`: present, disputed, unverified and filtered alike). A prior
+   finding that nobody observed again and whose cited location the push changed is cleared, which is how an `unmatched`
+   verdict ends; one that was observed again, whatever its verdict, is never cleared, and neither is a carried finding.
+
 The batch fix changes the tree, so re-resolve after it lands: the re-review
 diff (same base), `headSha`, `reviewedHeadSha` (Step 8) and `reviewedTreeSha`
 (its tree id, `REVIEWED_TREE_SHA`) all come from the

@@ -12,7 +12,7 @@
  * direct `require(...)` call on the same input can never diverge. NO
  * business logic lives here, NO network calls, NO shell calls.
  *
- * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json
+ * Usage: node pr-review-cli.js <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json
  *
  * `review-range` (TRD-013) is a thin pass-through to `chooseReviewRange`:
  * given `lastReviewedSha`, `commits` and `remediationShas` on top of what
@@ -205,6 +205,47 @@
  *              tally, and asking the gate which findings block.
  *              `evaluateGate`'s own answer is unchanged by it.
  *
+ *   carry      { action, ... } -- (lib/pr-review-carry.js) settled verification verdicts across heads. One `action` per call.
+ *              Its REQUEST parameters (`prId` and `candidates` for plan; `findings` and `candidates` for record; `ledger`,
+ *              `changedLocations`, `headSha` and `observations` for reconcile) are required, as `ledger`'s keys are: an absent or
+ *              misspelt one is exit 1. Every other fact is graded in band (re-verification, exit 0):
+ *                plan       { prId, headSha, lastReviewedSha, baseSha, depth, expectedVerifiers?, deltaPlan, deltaPaths[],
+ *                             deltaRange, highPaths[], candidates[], cwd? } -- which settled verdicts of the prior round still stand
+ *                             after a fix push. The prior verdicts and the prior ledger are NOT payload keys (one is refused):
+ *                             the CLI reads them from the PR's own state report at `lastReviewedSha` (state-read's rule), so
+ *                             a verdict can only come from a report written for this PR at the head the delta starts from.
+ *                             `deltaRange` is `{ headSha: facts.headSha, lastReviewedSha: facts.delta.lastReviewedSha }`, the
+ *                             range `deltaPlan` and `deltaPaths` were computed for, and it must be this round's `headSha` and
+ *                             `lastReviewedSha`: a missing, malformed or different one carries nothing (`delta-range-mismatch`).
+ *                             Answers { ok, carried[], reverify[], unmatched[], reasons[], ledger[]|null, priorState }: a
+ *                             carried record keeps its verdict and votes, is stamped `head` = this head and keeps `carriedFrom`;
+ *                             `ledger` is the prior ledger with exactly those findings stamped (`stampLedger`; refused,
+ *                             `ok:false`, when it already holds a finding stamped with this head, and then `null`); a `reverify`
+ *                             entry lists every reason (the module header has the table). A missing, discarded, corrupt or
+ *                             unreadable report (`priorState` other than `read`) carries nothing (`prior-state-unavailable`) and
+ *                             answers `ledger: null`, NEVER `[]`: the answer is the round's existing ledger, and an empty one
+ *                             reads as "no open findings". `candidates` are the hash step's answer as it gave
+ *                             it: each is stamped with the `headSha` it was hashed at, and one stamped with another head (or
+ *                             none) is verified again (`candidate-head-mismatch`), never carried.
+ *                record     { prId, baseSha, headSha, depth, expectedVerifiers?, findings[], candidates[] } -- the verdict
+ *                             records of a finished round (`recordVerdicts`): the settled findings of the `votes` result
+ *                             joined to their hashed citations and stamped with the binding `plan` checks. Answers
+ *                             { ok, verdicts[], skipped[{id, reason}] }; write the verdicts to the state report's `verdicts`.
+ *                             A candidate stamped with another head than `headSha` is skipped (`candidate-head-mismatch`).
+ *                reconcile  { ledger[], changedLocations[], headSha, observations[] } -- `clearFixedFindings` with EVERY
+ *                             observation of this round as `reReported`: a finding no reviewer reported again whose cited
+ *                             location the push changed is cleared; one that was observed again, whatever its verdict, is
+ *                             not. Answers { ok, ledger[], cleared[] }.
+ *              `deltaPlan`, `deltaPaths`, `deltaRange`, `highPaths`, heads, `baseSha`, `depth` and every hash are graded in-band and a
+ *              missing one means re-verification (exit 0). HONEST LIMITS: it never hashes anything -- `hunkHash`,
+ *              `depHashes` and `dependents` are inputs the caller computed (lib/pr-review-carry-hash-cli.js; the `headSha`
+ *              stamp names the head that step read, it cannot show the output was passed on unaltered), and the content of
+ *              `deltaPlan` and `deltaPaths` is taken to be what `prepare` computed for `deltaRange` (only their agreement with
+ *              each other and with the range is checked); only
+ *              `present`/`filtered` verdicts carry; a High or sensitive path touched by the delta carries nothing; a
+ *              `full` range carries nothing; the state report is untracked and writable by whoever can write the
+ *              repository, so binding stops a verdict from the wrong PR, base, depth or ledger, not a forged report.
+ *
  * FAIL CLOSED at the boundary. Two kinds of payload value are told apart:
  *   - the review FACTS of `scope`, `remote`, `status`, `policy`, `rules`,
  *     `paths` and `description` are graded in-band by their modules, so a
@@ -233,6 +274,7 @@ const {
   scopeViolations,
   recordRound,
   recordOperatorResolution,
+  clearFixedFindings,
 } = require('./pr-review-ledger');
 const { evaluateRemoteReview } = require('./pr-review-remote');
 const { deriveStatus } = require('./pr-review-status');
@@ -250,6 +292,7 @@ const { offerExplainers } = require('./pr-review-explainer-offer');
 const { renderBriefFromFiles } = require('./pr-review-brief-files');
 const { assignTier, effectiveTier, tierRecord } = require('./pr-review-tier');
 const { selectMode } = require('./pr-review-mode');
+const { planCarry, recordVerdicts, stampLedger, REASONS: CARRY_REASONS } = require('./pr-review-carry');
 const { evaluateApprovals } = require('./pr-review-approvals');
 const { evaluateGate } = require('./pr-review-gate');
 const { buildDispositionChoices } = require('./pr-review-disposition');
@@ -582,6 +625,95 @@ function runMode(payload) {
 }
 
 /**
+ * `carry` (lib/pr-review-carry.js; kata qw98), one `action` per call like `ledger`:
+ *   - `plan` says, after a fix push, which settled verification verdicts of the prior round still stand (`carried`,
+ *     re-stamped with the current head and keeping `carriedFrom`) and which must be verified again (`reverify`, with every
+ *     reason; `unmatched` for a prior verdict no candidate re-presents). It reads the prior verdicts and ledger from the
+ *     PR's state report itself, at `lastReviewedSha`: a payload that supplies them is refused, so a verdict can never be
+ *     injected from stdin. It answers the prior ledger with the carried findings stamped (`stampLedger`).
+ *   - `record` builds the stamped verdict records of a finished round (`recordVerdicts`).
+ *   - `reconcile` runs `clearFixedFindings` with every observation of the round as `reReported`.
+ * The REQUEST parameters of each action (`prId`, `candidates`, `findings`, `ledger`, ...) are checked here (a missing or
+ * misspelt key is an error, exit 1, never read as empty); every fact `planCarry` grades (heads, `baseSha`, `depth`,
+ * `deltaPlan`, `deltaPaths`, `deltaRange`, `highPaths`, a hash) is graded in-band and a missing one means re-verification (exit 0).
+ */
+
+/**
+ * What the PR's state report said about the round the delta starts from. `verdicts` and `ledger` are what `planCarry` is
+ * given: both empty when nothing was read (there is nothing to carry from); for a report that was read, what it holds
+ * (no `verdicts` is none, but no `ledger` is NOT an empty one: a ledger that is not a list is `ledger-unreadable`). That is
+ * not what the answer's `ledger` says either: only `priorState: 'read'` AND a ledger array make it a ledger.
+ */
+function readPriorRound(payload) {
+  const unavailable = (priorState) => ({ priorState, verdicts: [], ledger: [] });
+  const read = readState(statePath(payload.prId, payload.cwd || process.cwd()), payload.lastReviewedSha, { cwd: payload.cwd });
+  if (!read.ok) return unavailable(read.reason === 'corrupt' ? 'corrupt' : 'unreadable');
+  if (!read.exists) return unavailable('absent');
+  if (read.discarded || !isObject(read.state)) return unavailable('discarded');
+  const { verdicts, ledger } = read.state;
+  return { priorState: 'read', verdicts: verdicts === undefined ? [] : verdicts, ledger };
+}
+
+function carryPlan(payload) {
+  for (const key of ['priorVerdicts', 'priorLedger']) {
+    if (payload[key] !== undefined) throw new Error(`carry plan reads '${key}' from the PR's state report at lastReviewedSha; it is not a payload key`);
+  }
+  const prior = readPriorRound(payload);
+  const plan = planCarry({ ...payload, priorVerdicts: prior.verdicts, priorLedger: prior.ledger });
+  // The answer's `ledger` is the round's existing ledger, so an empty one reads as "no open findings": it is an array only
+  // for a prior state that was READ and holds a ledger array. An absent, discarded, corrupt or unreadable state, and a read
+  // report with no ledger list, answer `null`, never `[]`.
+  const answer = { ...plan, ledger: prior.priorState === 'read' && Array.isArray(prior.ledger) ? prior.ledger : null, priorState: prior.priorState };
+  if (prior.priorState !== 'read') {
+    const unavailable = CARRY_REASONS.PRIOR_STATE_UNAVAILABLE;
+    return {
+      ...answer,
+      reasons: [...new Set([...plan.reasons, unavailable])],
+      reverify: plan.reverify.map((entry) => ({ ...entry, reasons: [...new Set([...entry.reasons, unavailable])] })),
+    };
+  }
+  if (!plan.ok || !Array.isArray(prior.ledger) || typeof payload.headSha !== 'string' || payload.headSha.trim() === '') return answer;
+  const stamped = stampLedger({ ledger: prior.ledger, carried: plan.carried, headSha: payload.headSha });
+  if (!stamped.ok) {
+    return { ok: false, carried: [], reverify: [], unmatched: [], reasons: [stamped.reason], ledger: null, priorState: prior.priorState };
+  }
+  return { ...answer, ledger: stamped.ledger };
+}
+
+/** action -> the keys its payload must carry, and the call it delegates to. Looked up by own name only. */
+const CARRY_ACTIONS = Object.freeze({
+  plan: {
+    keys: { prId: TEXT, candidates: ARRAY },
+    optional: { cwd: TEXT },
+    run: carryPlan,
+  },
+  record: {
+    keys: { findings: ARRAY, candidates: ARRAY },
+    run: (p) => recordVerdicts(p),
+  },
+  reconcile: {
+    keys: { ledger: ARRAY, changedLocations: ARRAY, headSha: TEXT, observations: ARRAY },
+    run: (p) => {
+      const result = clearFixedFindings({ ledger: p.ledger, changedLocations: p.changedLocations, headSha: p.headSha, reReported: p.observations });
+      if (!result.ok) throw new Error(result.reason);
+      return { ok: true, ledger: result.findings, cleared: result.cleared };
+    },
+  },
+});
+
+function runCarry(payload) {
+  if (!isObject(payload)) throw new Error('carry payload must be a JSON object');
+  const name = payload.action;
+  const action = typeof name === 'string' && hasOwn(CARRY_ACTIONS, name) ? CARRY_ACTIONS[name] : undefined;
+  if (action === undefined) {
+    throw new Error(`Unknown carry action ${shown(name)}. Expected one of: ${Object.keys(CARRY_ACTIONS).join(', ')}`);
+  }
+  requireKeys(payload, action.keys, `carry action '${name}'`);
+  if (action.optional !== undefined) optionalKeys(payload, action.optional, `carry action '${name}'`);
+  return action.run(payload);
+}
+
+/**
  * `approvals` and `gate` are pass-throughs to the one module that owns each
  * question. Both grade their input IN BAND and fail closed: a request, a tier
  * or a review record they cannot read is `satisfied:false` / `mergeable:false`
@@ -756,6 +888,7 @@ const HANDLERS = Object.freeze({
   slices: runSlices,
   tier: runTier,
   mode: runMode,
+  carry: runCarry,
   approvals: runApprovals,
   gate: runGate,
   'explainer-offer': runExplainerOffer,
@@ -786,7 +919,7 @@ function main(argv) {
   if (handler === undefined) {
     process.stdout.write(
       JSON.stringify({
-        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json`,
+        error: `Unknown subcommand ${shown(subcommand)}. Usage: pr-review-cli <scope|review-range|ledger|remote|status|state-read|state-write|policy|rules|paths|description|votes|verify-assign|depth|slices|tier|mode|carry|approvals|gate|explainer-offer|brief|metrics|metrics-compare|eval-score|eval-compare|eval-stale|reachability|results|timing> < payload.json`,
       }) + '\n'
     );
     return 1;
@@ -841,6 +974,7 @@ module.exports = {
   runSlices,
   runTier,
   runMode,
+  runCarry,
   runApprovals,
   runGate,
   runExplainerOffer,

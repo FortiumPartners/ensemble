@@ -41,7 +41,7 @@ const skillText = (subcommands) =>
 const entryText = (skillPath = SKILL_PATH) =>
   `Invoke the shared pr-review-cycle skill, located at "$(git rev-parse --show-toplevel)/${skillPath}".`;
 
-const ALL_SUBCOMMANDS = ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'tier', 'mode'];
+const ALL_SUBCOMMANDS = ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'tier', 'mode', 'carry'];
 
 function healthy(overrides = {}) {
   return {
@@ -66,7 +66,7 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
     expect(result.unreachable).toEqual([]);
 
     const trace = traceOf(result, 'fix-issue');
-    expect(trace.reached.sort()).toEqual(['convergence', 'mode', 'tier', 'verified-findings']);
+    expect(trace.reached.sort()).toEqual(['carry-over', 'convergence', 'mode', 'tier', 'verified-findings']);
     expect(trace.unreachable).toEqual([]);
     expect(trace.skills).toEqual(['pr-review-cycle']);
 
@@ -91,14 +91,14 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
     const trace = traceOf(result, 'fix-issue');
     expect(trace.skills).toEqual([]);
     expect(trace.reached).toEqual([]);
-    expect(trace.unreachable.sort()).toEqual(['convergence', 'mode', 'tier', 'verified-findings']);
+    expect(trace.unreachable.sort()).toEqual(['carry-over', 'convergence', 'mode', 'tier', 'verified-findings']);
     expect(trace.reason).toBe('entry-point-reaches-no-skill');
   });
 
   test('REFUSED: a subcommand the CLI does not register is not reachable', () => {
     // The skill asks for `tier`, but the CLI has no such handler: the call
     // would fail at run time, so the capability is NOT reached.
-    const result = traceCapabilities(healthy({ subcommands: ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode'] }));
+    const result = traceCapabilities(healthy({ subcommands: ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode', 'carry'] }));
 
     expect(result.ok).toBe(false);
     const trace = traceOf(result, 'fix-issue');
@@ -110,7 +110,7 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
 
   test('REFUSED: a skill that never invokes the subcommand does not carry the capability', () => {
     const result = traceCapabilities(
-      healthy({ skills: [{ id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['status', 'ledger', 'scope', 'tier', 'mode']) }] })
+      healthy({ skills: [{ id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['status', 'ledger', 'scope', 'tier', 'mode', 'carry']) }] })
     );
 
     expect(result.ok).toBe(false);
@@ -119,11 +119,20 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
 
   test('REFUSED: a skill that never invokes `mode` leaves the mode capability unreachable', () => {
     const result = traceCapabilities(
-      healthy({ skills: [{ id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['votes', 'verify-assign', 'status', 'ledger', 'scope', 'tier']) }] })
+      healthy({ skills: [{ id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['votes', 'verify-assign', 'status', 'ledger', 'scope', 'tier', 'carry']) }] })
     );
 
     expect(result.ok).toBe(false);
     expect(traceOf(result, 'fix-issue').unreachable).toEqual(['mode']);
+  });
+
+  test('REFUSED: a skill that never invokes `carry` leaves the carry-over capability unreachable', () => {
+    const result = traceCapabilities(
+      healthy({ skills: [{ id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['votes', 'verify-assign', 'status', 'ledger', 'scope', 'tier', 'mode']) }] })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(traceOf(result, 'fix-issue').unreachable).toEqual(['carry-over']);
   });
 
   test('convergence needs the WHOLE of its evidence: round cap, repeats and delta range', () => {
@@ -146,7 +155,7 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
       healthy({
         entryPoints: [{ id: 'pr-merge', text: `${entryText()} It also uses docs/skills/gate/SKILL.md.` }],
         skills: [
-          { id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode']) },
+          { id: 'pr-review-cycle', path: SKILL_PATH, text: skillText(['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode', 'carry']) },
           { id: 'gate', path: 'docs/skills/gate/SKILL.md', text: skillText(['tier']) },
         ],
       })
@@ -201,10 +210,11 @@ describe('TRD-037 AC-023-1: capabilities are traced entry text -> skill -> CLI s
   });
 
   test('the capability map names the three behaviours the AC requires', () => {
-    expect(Object.keys(CAPABILITIES).sort()).toEqual(['convergence', 'mode', 'tier', 'verified-findings']);
+    expect(Object.keys(CAPABILITIES).sort()).toEqual(['carry-over', 'convergence', 'mode', 'tier', 'verified-findings']);
     expect(CAPABILITIES['verified-findings']).toEqual(['votes', 'verify-assign']);
     expect(CAPABILITIES.tier).toEqual(['tier']);
     expect(CAPABILITIES.mode).toEqual(['mode']);
+    expect(CAPABILITIES['carry-over']).toEqual(['carry']);
     expect(CAPABILITIES.convergence.slice().sort()).toEqual(['ledger', 'scope', 'status']);
   });
 });
@@ -253,7 +263,7 @@ describe('TRD-037 AC-023-2: runtimes match the baseline or the report states wha
 
   test('a runtime missing a subcommand is NOT equivalent and the reduction is stated', () => {
     const result = compareRuntimes({
-      runtimes: { ...full, pi: runtime(['pr-review-cycle', 'pr-review-eval'], ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode']) },
+      runtimes: { ...full, pi: runtime(['pr-review-cycle', 'pr-review-eval'], ['votes', 'verify-assign', 'status', 'ledger', 'scope', 'mode', 'carry']) },
       baseline: 'claude',
     });
 

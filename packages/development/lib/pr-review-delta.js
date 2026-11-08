@@ -183,4 +183,4 @@ function planDeltaReview(input) {
   };
 }
 
-module.exports = { planDeltaReview };
+module.exports = { planDeltaReview, isSizeable };
