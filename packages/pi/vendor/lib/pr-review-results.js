@@ -29,11 +29,15 @@
  * `collectResults` touches it, through injectable `deps` as in
  * local-ci-runner.js; `pr-review-cli.js` itself stays free of file reads):
  *
- *   reviewDeadlines({tier, depth, role, now, policy?}) -> {dispatchedAt, deadlineAt, ...}
+ *   reviewDeadlines({tier, depth, role, now, policy?, work?}) -> {dispatchedAt, deadlineAt, ...}
  *     reviewer 15 min, verifier 5 min, security lane 15 min, overridable per
  *     role by the `deadlineMinutes` policy key (1..60 minutes, validated by
  *     pr-review-policy.js). `tier` and `depth` are validated and echoed; they
- *     do not change the budget (the plan sets none). `dispatchedAt` is `now`:
+ *     do not change the budget. `work` ({files, lines}: what the agent is asked to
+ *     read) does, for a reviewer and the security lane (kata sfpb): the budget is then
+ *     a BASE that `pr-review-sizing.js` raises to the modelled time to read that much,
+ *     with headroom, up to the 60-minute maximum, and never lowers; a verifier's
+ *     does not depend on it. `dispatchedAt` is `now`:
  *     hand both it and `deadlineAt` to `collectResults`.
  *
  *   collectResults({expected, dir, now, scratchDir?}, deps?)
@@ -142,7 +146,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-const { DEADLINE_ROLES, DEFAULT_DEADLINE_MINUTES, DEADLINE_MINUTES_MIN, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
+const { DEADLINE_ROLES, DEFAULT_DEADLINE_MINUTES, DEADLINE_MINUTES_MIN, DEADLINE_MINUTES_MAX, DEFAULT_POLICY } = require('./pr-review-policy');
+const { SIZED_ROLES, isWork, isDeadlineHeadroom, sizedMinutes } = require('./pr-review-sizing');
 const { VERDICTS } = require('./pr-review-votes');
 const { LENS_TOKEN } = require('./pr-review-depth');
 
@@ -200,9 +205,16 @@ function deadlineFailure(reason) {
  * @param {string} [input.tier]    `low` | `medium` | `high`; validated and echoed.
  * @param {string} [input.depth]   `quick` | `standard` | `deep`; validated and echoed.
  * @param {Object} [input.policy]  A loaded policy (`loadPolicy(...).policy`); its
- *   `deadlineMinutes[role]` overrides the default when it is a 1..60 integer.
+ *   `deadlineMinutes[role]` overrides the default when it is a 1..60 integer, and its
+ *   `deadlineHeadroom` sets how many times the modelled reading time `work` is given.
+ * @param {{files:number, lines:number}} [input.work]  What the agent is asked to read, as whole non-negative counts.
+ *   With it, a reviewer's and the security lane's deadline is the larger of the base above and the modelled reading time
+ *   with its headroom (`pr-review-sizing.js`), at most 60 minutes; without it, or for a verifier, the base alone.
  * @returns {{ok:boolean, role?:string, dispatchedAt?:number, deadlineAt:number|null, deadlineAtIso?:string, budgetMs:number,
- *   minutes?:number, source?:'default'|'policy', tier?:string, depth?:string, warnings:string[], reason?:string}}
+ *   minutes?:number, source?:'default'|'policy'|'size', sizing?:Object, tier?:string, depth?:string, warnings:string[], reason?:string}}
+ *   `source` is `size` only when the model set `minutes` above the base. `sizing` (present when `work` was used) is
+ *   `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes, raised, capped}`: `capped` says the
+ *   modelled need is over the 60-minute maximum and the agent is given the maximum, which is less than the model says.
  */
 function reviewDeadlines(input) {
   if (!isObject(input)) return deadlineFailure('invalid-input');
@@ -236,6 +248,27 @@ function reviewDeadlines(input) {
     }
   }
 
+  // The base is what the policy (or the default) says; an agent with more to read than it allows is given longer, never shorter.
+  let sizing;
+  if (input.work !== undefined) {
+    if (!isWork(input.work)) return deadlineFailure('work must be { files, lines }, each a whole, non-negative number');
+    if (!SIZED_ROLES.includes(role)) {
+      warnings.push(`work does not change a ${role}'s deadline`);
+    } else {
+      let headroom = DEFAULT_POLICY.deadlineHeadroom;
+      const stated = isObject(input.policy) ? input.policy.deadlineHeadroom : undefined;
+      if (stated !== undefined) {
+        if (isDeadlineHeadroom(stated)) headroom = stated;
+        else warnings.push('policy deadlineHeadroom is out of range; the default applies');
+      }
+      const sized = sizedMinutes({ base: minutes, work: input.work, headroom, maximum: DEADLINE_MINUTES_MAX });
+      sizing = { files: input.work.files, lines: input.work.lines, baseMinutes: sized.base, estimateMinutes: sized.estimate, headroom: sized.headroom, modeledMinutes: sized.modeled, raised: sized.raised, capped: sized.capped };
+      if (sized.capped) warnings.push(`the modelled need of ${sized.modeled} minutes for this ${role} is over the ${DEADLINE_MINUTES_MAX}-minute maximum; the deadline is capped at ${DEADLINE_MINUTES_MAX}`);
+      if (sized.raised) source = 'size';
+      minutes = sized.minutes;
+    }
+  }
+
   const budgetMs = minutes * MINUTE_MS;
   const deadlineAt = now + budgetMs;
   if (deadlineAt > MAX_EPOCH_MS) return deadlineFailure('now is too late to hold a deadline');
@@ -248,6 +281,7 @@ function reviewDeadlines(input) {
     budgetMs,
     minutes,
     source,
+    ...(sizing === undefined ? {} : { sizing }),
     warnings,
   };
 }

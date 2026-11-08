@@ -545,6 +545,58 @@ describe('plan 3A: planSlices cuts by size and crosses every slice with >= 2 dis
     expect(planSlices({ paths, targetLines: 100 }).slices).toHaveLength(DEFAULT_MAX_SLICES);
   });
 
+  // kata sfpb: a reviewer must reach every path, and each path costs at least a read however few lines it holds, so a slice is
+  // closed by its PATH count as well as by its lines.
+  test('maxFiles closes a slice once it holds that many paths, however few lines they are, and balances the rest', () => {
+    const paths = files(20, 1);
+    const cut = planSlices({ paths, targetLines: 1000, maxFiles: 8, mode: 'standard' });
+    expect(cut.slices.map((slice) => slice.paths.length)).toEqual([7, 7, 6]);
+    expect(cut.slices.flatMap((slice) => slice.paths)).toEqual(paths.map((entry) => entry.path));
+    for (const slice of cut.slices) expect(slice.paths.length).toBeLessThanOrEqual(8);
+    // control: the same twenty one-line files without the path limit are ONE slice (20 lines is far under the target)
+    expect(planSlices({ paths, targetLines: 1000, mode: 'standard' }).slices).toHaveLength(1);
+    for (const slice of cut.slices) expect(new Set(lensesOf(cut, slice.id)).size).toBeGreaterThanOrEqual(2);
+  });
+
+  test('maxFiles applies only together with targetLines, like maxSlices: alone it cuts nothing', () => {
+    const result = planSlices({ paths: files(20, 1), maxFiles: 8, mode: 'standard' });
+    expect(result.slices).toHaveLength(1);
+    expect(result.warnings).toEqual([]);
+  });
+
+  test('maxFiles gives way to maxSlices: the slice count is the number of agents, so a slice that cannot be that small is bigger, never dropped', () => {
+    const paths = files(20, 1);
+    const capped = planSlices({ paths, targetLines: 1000, maxFiles: 4, maxSlices: 3, mode: 'standard' });
+    expect(capped.slices).toHaveLength(3);
+    expect(capped.slices.map((slice) => slice.paths.length)).toEqual([7, 7, 6]);
+    expect(capped.slices.flatMap((slice) => slice.paths)).toEqual(paths.map((entry) => entry.path));
+    // with room for the slices the limit asks for (5), it is honoured
+    expect(planSlices({ paths, targetLines: 1000, maxFiles: 4, maxSlices: 5, mode: 'standard' }).slices.map((slice) => slice.paths.length)).toEqual([4, 4, 4, 4, 4]);
+  });
+
+  test('maxFiles is applied inside every area and a path is never cut: one path to a slice at a limit of one', () => {
+    const mixed = [...files(10, 10, 'a'), ...files(3, 10, 'b')];
+    const byArea = planSlices({ paths: mixed, areas: ['a', 'b'], threshold: 100, targetLines: 1000, maxFiles: 4, mode: 'standard' });
+    expect(byArea.slices.map((slice) => [slice.id, slice.paths.length])).toEqual([['a~1', 4], ['a~2', 4], ['a~3', 2], ['b', 3]]);
+    const single = planSlices({ paths: files(3, 10), targetLines: 100, maxFiles: 1, mode: 'standard' });
+    expect(single.slices.map((slice) => slice.paths.length)).toEqual([1, 1, 1]);
+  });
+
+  test('Quick ignores maxFiles: one reviewer, one slice, whatever the size', () => {
+    const result = planSlices({ paths: files(20, 100), targetLines: 100, maxFiles: 2, mode: 'quick' });
+    expect(result.slices).toHaveLength(1);
+    expect(result.slices[0].paths).toHaveLength(20);
+  });
+
+  test('an unreadable maxFiles falls back with a warning and plans without it, never fewer lenses', () => {
+    for (const bad of [0, -1, 'big', 1.5, {}, null]) {
+      const result = planSlices({ paths: files(20, 1), targetLines: 1000, maxFiles: bad, mode: 'standard' });
+      expect(result.warnings).toEqual(['invalid-max-files']);
+      expect(result.slices).toHaveLength(1);
+      expect(lensesOf(result, 'whole-pr').length).toBe(2);
+    }
+  });
+
   test('nothing caps the slice count without targetLines: ten areas over the threshold are ten slices and twenty reviewers', () => {
     const areas = Array.from({ length: 10 }, (_, index) => `area${index}`);
     const paths = areas.map((area) => ({ path: `${area}/f.js`, lines: 200 }));

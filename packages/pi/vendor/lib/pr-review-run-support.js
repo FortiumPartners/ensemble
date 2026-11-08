@@ -10,6 +10,7 @@
  *   - `planDepth`          resolveDepth + checkBounds, re-planned until no bound is violated or refused;
  *   - `completeFinding`    a reviewer's finding -> a ledger entry, completing (never dropping) what is missing;
  *   - `parseDiffHunks`, `gradePreExisting`  a `pre-existing` label is a claim about provenance, checked against the diff and the head;
+ *   - `splitDiffBySlice`  the range diff cut into one text per slice, so a reviewer reads the diff of ITS slice (kata sfpb);
  *   - `planVerifierPool`   planVerification with a pool sized so no verifier holds more than 3 candidates;
  *   - `chunk`              agents -> waves of at most `maxConcurrentAgents`;
  *   - `reviewerContract`, `verifierContract`, `agentPrompt`  the text an agent is given (a reviewer's also states what the verifier brief refuses, kata 0g9n);
@@ -253,6 +254,70 @@ function parseDiffHunks(text) {
     }
   }
   return { files };
+}
+
+/**
+ * The names one `diff --git` section holds. A file that is not renamed or copied has ONE name, spelled twice in the header
+ * (`diff --git a/<path> b/<path>`), and the length of the header tells it from a path with ` b/` inside it; a renamed or
+ * copied file has two, which its `rename from`/`rename to` (`copy from`/`copy to`) lines give. A name git quoted (a tab, a
+ * quote, a non-ASCII byte) is unquoted. Hunk lines start with a space, `+`, `-` or a backslash, so no hunk line is read as one
+ * of these headers.
+ */
+function sectionNames(lines) {
+  const names = new Set();
+  const rest = lines[0].slice('diff --git '.length);
+  const half = (rest.length - 5) / 2;
+  if (Number.isInteger(half) && half >= 1 && rest.startsWith('a/') && rest.slice(2 + half) === ` b/${rest.slice(2, 2 + half)}`) names.add(rest.slice(2, 2 + half));
+  const quoted = /^"a\/((?:[^"\\]|\\.)*)" "b\/\1"$/.exec(rest);
+  if (quoted !== null) {
+    const name = unquoteGitPath(`"${quoted[1]}"`);
+    if (name !== null) names.add(name);
+  }
+  for (const line of lines) {
+    const moved = /^(?:rename|copy) (?:from|to) (.+)$/.exec(line);
+    if (moved === null) continue;
+    const name = unquoteGitPath(moved[1]);
+    if (name !== null) names.add(name);
+  }
+  return names;
+}
+
+/**
+ * A unified diff (`git diff`, prefixes a/ and b/) cut into one text per slice: every file section that names one of the
+ * slice's paths, in the order the diff has them, so a reviewer handed the slice reads the slice's hunks and not the whole
+ * pull request's. A section naming paths of two slices (a rename across them) is in both.
+ *
+ * FAIL CLOSED toward more to read, never less: a slice path that no section names is listed in `missing` (the diff has no
+ * hunk for it, or spells it in a way this does not read), and the caller then hands that slice the WHOLE diff.
+ *
+ * @param {string} text
+ * @param {Array<{id:string, paths:string[]}>} slices
+ * @returns {Array<{id:string, text:string, missing:string[]}>|null}  null when `text` is not a string
+ */
+function splitDiffBySlice(text, slices) {
+  if (typeof text !== 'string' || !Array.isArray(slices)) return null;
+  const lines = text.split('\n');
+  if (lines[lines.length - 1] === '') lines.pop();
+  const sections = [];
+  for (const line of lines) {
+    if (line.startsWith('diff --git ')) sections.push([line]);
+    else if (sections.length > 0) sections[sections.length - 1].push(line);
+  }
+  const holders = new Map(); // path -> indexes of the sections that name it
+  const rendered = sections.map((section, index) => {
+    for (const name of sectionNames(section)) holders.set(name, [...(holders.get(name) || []), index]);
+    return `${section.join('\n')}\n`;
+  });
+  return slices.map((slice) => {
+    const wanted = new Set();
+    const missing = [];
+    for (const path of slice.paths) {
+      const found = holders.get(path);
+      if (found === undefined) missing.push(path);
+      else for (const index of found) wanted.add(index);
+    }
+    return { id: slice.id, text: [...wanted].sort((a, b) => a - b).map((index) => rendered[index]).join(''), missing };
+  });
 }
 
 /** `file:line` or `file:start-end`. The file part holds no colon, so `file:12:5` is not read as a file named `file:12`. */
@@ -505,6 +570,7 @@ module.exports = {
   planDepth,
   completeFinding,
   parseDiffHunks,
+  splitDiffBySlice,
   gradePreExisting,
   planVerifierPool,
   chunk,

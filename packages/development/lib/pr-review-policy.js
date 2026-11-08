@@ -45,6 +45,7 @@
  */
 
 const { isObjectId } = require('./pr-review-scope');
+const { DEFAULT_HEADROOM, deriveLimits, isSliceMaxFiles, isSliceTargetLines, isDeadlineHeadroom } = require('./pr-review-sizing');
 
 /** The fence language a maintainer writes around the policy JSON. */
 const POLICY_BLOCK_LANGUAGE = 'ensemble-review-policy';
@@ -67,11 +68,26 @@ const QUICK_MAX_VERIFIERS = 0;
  * dispatcher stopping an agent at its deadline bounds the review's critical
  * path; this key just supplies the number (`pr-review-results.js`), and nothing
  * in this repository stops an agent yet.
+ *
+ * For a reviewer and the security lane the number is a BASE (kata sfpb): a deadline is
+ * never shorter than it, and `pr-review-sizing.js` raises it for an agent that has more
+ * to read than the base allows (`deadlineHeadroom` below). A loaded policy always holds
+ * every key, set or defaulted, so an explicit value cannot be told from the default and
+ * is a floor, never a pin.
  */
 const DEADLINE_ROLES = Object.freeze(['reviewer', 'verifier', 'security']);
 const DEFAULT_DEADLINE_MINUTES = Object.freeze({ reviewer: 15, verifier: 5, security: 15 });
 const DEADLINE_MINUTES_MIN = 1;
 const DEADLINE_MINUTES_MAX = 60;
+
+/**
+ * The sizing defaults (kata sfpb): how many paths and changed lines one reviewer is given, and
+ * how many times the modelled reading time an agent's deadline allows. Not set here: the limits
+ * are what `pr-review-sizing.js` derives from the one real full-mode run, the slice that just
+ * fits the base reviewer deadline with the headroom (8 paths, 612 lines, at 15 minutes and 2),
+ * and the headroom is that file's stated judgement (2), not a measurement.
+ */
+const DEFAULT_SLICE_LIMITS = deriveLimits({ baseMinutes: DEFAULT_DEADLINE_MINUTES.reviewer, headroom: DEFAULT_HEADROOM });
 
 /**
  * How many agents the dispatcher should run at once, kept below the account's
@@ -111,6 +127,9 @@ const DEFAULT_POLICY = deepFreeze({
   lowWaiverEnabled: false,
   soloMaintainer: false,
   sliceThreshold: 1500,
+  sliceMaxFiles: DEFAULT_SLICE_LIMITS.maxFiles,
+  sliceTargetLines: DEFAULT_SLICE_LIMITS.targetLines,
+  deadlineHeadroom: DEFAULT_HEADROOM,
   evalCasesDir: DEFAULT_EVAL_CASES_DIR,
   deadlineMinutes: { ...DEFAULT_DEADLINE_MINUTES },
   maxConcurrentAgents: DEFAULT_MAX_CONCURRENT_AGENTS,
@@ -138,6 +157,9 @@ const SIMPLE_KEYS = Object.freeze({
   lowWaiverEnabled: (value) => typeof value === 'boolean',
   soloMaintainer: (value) => typeof value === 'boolean',
   sliceThreshold: (value) => Number.isInteger(value) && value >= 1,
+  sliceMaxFiles: isSliceMaxFiles,
+  sliceTargetLines: isSliceTargetLines,
+  deadlineHeadroom: isDeadlineHeadroom,
   // A repository-relative directory: never absolute, never climbing out of the repository.
   evalCasesDir: (value) =>
     isNonEmptyString(value) && !value.trim().startsWith('/') && !value.split(/[\\/]/).includes('..'),

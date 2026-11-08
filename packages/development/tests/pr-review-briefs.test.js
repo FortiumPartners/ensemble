@@ -115,16 +115,64 @@ const CASES = {
       '- (none)',
     ],
   },
+  'range-reviewer': {
+    vars: {
+      lens: 'correctness',
+      timeboxMinutes: 36,
+      paths: ['lib/a.js', 'lib/b.js'],
+      diffPath: '/work/prep/range.diff',
+      snapshotDir: '/work/snap',
+    },
+    inputs: [
+      'Your scope: the whole range, every changed path',
+      'Timebox: 36 minutes',
+      'Your lens: correctness',
+      '',
+      'Paths in the range:',
+      '',
+      '- lib/a.js',
+      '- lib/b.js',
+      '',
+      'Diff for the whole range: /work/prep/range.diff',
+      'Frozen snapshot of the reviewed commit: /work/snap',
+    ],
+  },
 };
 
-const ROLE_NAMES = ['reviewer', 'verifier', 'classifier', 'second-assessor', 'security-lane'];
+const ROLE_NAMES = ['reviewer', 'range-reviewer', 'verifier', 'classifier', 'second-assessor', 'security-lane'];
 
 const expected = (role) => `${policy(role)}\n${CASES[role].inputs.join('\n')}\n`;
 
-describe('the role table and the fixtures cover the same five briefs', () => {
-  test('ROLES is exactly the five briefs the plan names', () => {
+describe('the role table and the fixtures cover the same six briefs', () => {
+  test('ROLES is exactly the five briefs the plan names and the runner\'s whole-range reader\'s', () => {
     expect(Object.keys(ROLES).sort()).toEqual([...ROLE_NAMES].sort());
     expect(Object.keys(CASES).sort()).toEqual([...ROLE_NAMES].sort());
+  });
+});
+
+describe('the whole-range reader\'s brief says what it reads and keeps the reviewer\'s rules (review of PR 274, round 3)', () => {
+  const reviewer = template('reviewer');
+  const range = template('range-reviewer');
+  const rulesOf = (text) => text.slice(text.indexOf('Run no test suite'), text.indexOf('as Step 2 describes.') + 'as Step 2 describes.'.length);
+
+  test('it is told it reads the WHOLE range and to look for defects that span slices, and never that it reads one slice', () => {
+    const rendered = renderBriefFromFiles('range-reviewer', CASES['range-reviewer'].vars);
+    expect(rendered).toMatch(/^You are reviewing the whole of a pull request/);
+    expect(rendered).toMatch(/spans two or\s+more slices/);
+    expect(rendered).toContain('Your scope: the whole range, every changed path');
+    expect(rendered).not.toMatch(/You are reviewing one slice|Your slice:|Diff for your slice/);
+    // and the slice reviewer's brief is unchanged by it
+    expect(renderBriefFromFiles('reviewer', CASES.reviewer.vars)).toMatch(/^You are reviewing one slice of a pull request/);
+  });
+
+  test('the rules a reviewer is bound by (no test run, the tool-call cap, the one snippet, how a finding is recorded) are byte-identical in both briefs, so they cannot drift apart', () => {
+    expect(rulesOf(reviewer).length).toBeGreaterThan(500);
+    expect(rulesOf(range)).toBe(rulesOf(reviewer));
+  });
+
+  test('it declares exactly the inputs a whole-range reader has: no slice id, the same kinds as the reviewer\'s', () => {
+    expect(Object.keys(ROLES['range-reviewer'].inputs).sort()).toEqual(['diffPath', 'lens', 'paths', 'snapshotDir', 'timeboxMinutes']);
+    for (const name of ['lens', 'timeboxMinutes', 'paths', 'diffPath', 'snapshotDir']) expect(ROLES['range-reviewer'].inputs[name]).toBe(ROLES.reviewer.inputs[name]);
   });
 });
 
@@ -227,6 +275,9 @@ describe('AC2: renderBrief refuses what it should not render', () => {
     ['reviewer', 'slice', 'S1\nS2'],
     ['classifier', 'range', 'a'.repeat(1025)],
     ['second-assessor', 'sensitivePaths', null],
+    ['range-reviewer', 'timeboxMinutes', 0],
+    ['range-reviewer', 'lens', 'Not A Lens'],
+    ['range-reviewer', 'paths', []],
   ])('%s: a malformed %s is refused (%j)', (role, name, value) => {
     const vars = { ...CASES[role].vars, [name]: value };
     expect(() => renderBrief(role, vars, template(role))).toThrow(/refuses its input/);
@@ -604,7 +655,7 @@ describe('the reviewer lens and the split slice ids', () => {
     expect(() => renderBrief('reviewer', vars, template('reviewer'))).toThrow(/requires input 'lens'/);
   });
 
-  test.each(ROLE_NAMES.filter((role) => role !== 'reviewer'))('%s: does not declare a lens, so one is refused', (role) => {
+  test.each(ROLE_NAMES.filter((role) => !['reviewer', 'range-reviewer'].includes(role)))('%s: does not declare a lens, so one is refused', (role) => {
     expect(() => renderBrief(role, { ...CASES[role].vars, lens: 'correctness' }, template(role))).toThrow(/does not accept 'lens'/);
   });
 
@@ -628,6 +679,7 @@ describe('AC3: the skill points at the templates instead of embedding the prose'
     classifier: 'merge-gate.md',
     'second-assessor': 'merge-gate.md',
     'security-lane': 'merge-gate.md',
+    'range-reviewer': 'review-run.md',
   };
 
   test.each(ROLE_NAMES)('%s: its reference names the template file and the brief subcommand', (role) => {

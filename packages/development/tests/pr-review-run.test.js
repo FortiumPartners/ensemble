@@ -15,7 +15,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { prepareRun, collectRun, PREPARE_KEYS, COLLECT_KEYS } = require('../lib/pr-review-run');
+const { prepareRun, collectRun, planRunSlices, PREPARE_KEYS, COLLECT_KEYS } = require('../lib/pr-review-run');
 const S = require('../lib/pr-review-run-support');
 const { collectResults } = require('../lib/pr-review-results');
 const { renderBriefFromFiles } = require('../lib/pr-review-brief-files');
@@ -2866,5 +2866,893 @@ describe('the review is sharded by slice and lens (the shared plan): each review
     expect(reviewers.map((agent) => agent.lens)).toEqual(['correctness', 'security']);
     expect(agents.find((agent) => agent.role === 'security')).toMatchObject({ lens: 'security' });
     for (const agent of reviewers) expect(fs.readFileSync(agent.briefPath, 'utf8')).toContain(`Your lens: ${agent.lens}`);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// kata sfpb: slices and deadlines follow what there is to read
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+describe('review sizing (kata sfpb): the plan follows what there is to read, and every fail-closed rule still holds', () => {
+  const MIN = 60 * 1000;
+  // the 19 changed paths of the one real full-mode run (PR 271), in path order, with the changed lines each had: the plan it needed
+  const REAL271 = [
+    ['CHANGELOG.md', 1],
+    ['docs/guides/pr-review-run.md', 127],
+    ['packages/development/CHANGELOG.md', 1],
+    ['packages/development/lib/pr-review-full.js', 159],
+    ['packages/development/lib/pr-review-run-support.js', 1],
+    ['packages/development/lib/pr-review-run.js', 145],
+    ['packages/development/lib/review-run-cli.js', 12],
+    ['packages/development/skills/pr-review-cycle/SKILL.md', 8],
+    ['packages/development/skills/pr-review-cycle/reference/review-run.md', 76],
+    ['packages/development/tests/pr-review-full.test.js', 125],
+    ['packages/development/tests/pr-review-run.test.js', 355],
+    ['packages/development/tests/review-run-cli.test.js', 38],
+    ['packages/full/lib/pr-review-full.js', 1],
+    ['packages/pi/skills/pr-review-cycle/SKILL.md', 8],
+    ['packages/pi/skills/pr-review-cycle/reference/review-run.md', 76],
+    ['packages/pi/vendor/lib/pr-review-full.js', 159],
+    ['packages/pi/vendor/lib/pr-review-run-support.js', 1],
+    ['packages/pi/vendor/lib/pr-review-run.js', 145],
+    ['packages/pi/vendor/lib/review-run-cli.js', 12],
+  ];
+  /** One diff section per path, as `git diff` writes a modified file. */
+  const sectionOf = (file) => [`diff --git a/${file} b/${file}`, 'index 1111111..2222222 100644', `--- a/${file}`, `+++ b/${file}`, '@@ -1,1 +1,2 @@', ' keep', `+added in ${file}`].join('\n');
+  const diffOf = (paths) => `${paths.map(sectionOf).join('\n')}\n`;
+  const sectionsIn = (text) => text.split('\n').filter((line) => line.startsWith('diff --git ')).map((line) => line.slice('diff --git a/'.length).split(' b/')[0]);
+
+  /** The real run's PR as the runner sees it: High (the repository declares packages/development/lib a High path), so full mode. */
+  const real271 = (over = {}) => {
+    const changedPaths = REAL271.map(([file]) => file);
+    return harness({ changedPaths, numstat: REAL271.map(([file, lines]) => ({ path: file, added: lines, deleted: 0 })), policyJson: { highPaths: ['packages/development/lib/**'], ...over.policyJson }, rangeDiff: diffOf(changedPaths), ...over.harness });
+  };
+  const sizesOf = (manifest) => manifest.sizing.slices.map((slice) => [slice.files, slice.lines]);
+  const agentOf = (manifest, name) => manifest.agents.find((a) => a.name === name);
+  const minutesBetween = (a) => (a.deadlineAt - a.dispatchedAt) / MIN;
+  const briefOf = (a) => fs.readFileSync(a.briefPath, 'utf8');
+
+  /** Moves an agent's dispatch `minutesAgo` into the past, with a `budget`-minute deadline from there: what the collector measures arrival against. */
+  function backdate(h, name, minutesAgo, budget) {
+    const file = path.join(h.runDir(), 'run.json');
+    const run = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const wave of run.waves) {
+      for (const a of wave.agents) {
+        if (a.name !== name) continue;
+        a.dispatchedAt = Date.now() - minutesAgo * MIN;
+        a.deadlineAt = a.dispatchedAt + budget * MIN;
+      }
+    }
+    fs.writeFileSync(file, JSON.stringify(run));
+  }
+
+  describe('the real run\'s PR (19 paths, 1450 changed lines, High) is planned so a reviewer can reach every path and the lane survives', () => {
+    test('three slices inside both limits, in ONE wave with the lane, every path read under two distinct lenses', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      expect(m).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review', wave: '1 of 1', mode: { mode: 'full' }, depth: { mode: 'deep' } });
+      expect(m.sizing.work).toEqual({ files: 19, lines: 1450 });
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 612, slicesAllowed: 3, slicesWanted: 3 });
+      expect(sizesOf(m)).toEqual([[8, 454], [3, 556], [8, 440]]);
+      expect(m.sizing.slices.map((slice) => [slice.id, slice.overLimit])).toEqual([['whole-pr~1', false], ['whole-pr~2', false], ['whole-pr~3', false]]);
+      expect(m.sizing.warnings).toEqual([]);
+      expect(m.sizing.model).toEqual({ minutesPerFile: 0.934, minutesPer100Lines: 1.224, headroom: 2, maxMinutes: 60, derivedFrom: 'real271' });
+      // two lenses on each of three slices, and the lane, all dispatched together under the default cap of 8
+      expect(m.agents.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b', 'security-lane']);
+      expect(m.agents.length).toBeLessThanOrEqual(m.maxConcurrentAgents);
+      const lensesByPath = new Map();
+      for (const a of m.agents.filter((agent) => agent.role === 'reviewer')) {
+        const lens = h.readRun().waves[0].agents.find((x) => x.name === a.name).lens;
+        for (const file of a.paths) lensesByPath.set(file, [...(lensesByPath.get(file) || []), lens]);
+      }
+      expect([...lensesByPath.keys()].sort()).toEqual(allPaths(h).slice().sort());
+      for (const lenses of lensesByPath.values()) expect(new Set(lenses).size).toBe(2);
+    });
+
+    test('every reviewer is given 15 minutes for at most 8 paths and 612 lines; the lane is given 36, which is 2x the 17m45s it needed', async () => {
+      const m = await real271().prepare();
+      for (const a of m.agents.filter((agent) => agent.role === 'reviewer')) {
+        expect(a.deadlineMinutes).toBe(15);
+        expect(minutesBetween(a)).toBe(15);
+        expect(a.work.files).toBeLessThanOrEqual(8);
+        expect(a.work.lines).toBeLessThanOrEqual(612);
+        expect(a.work).toEqual({ files: a.paths.length, lines: m.sizing.slices.find((slice) => slice.id === a.sliceId).lines });
+      }
+      const lane = agentOf(m, 'security-lane');
+      expect(lane).toMatchObject({ deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
+      expect(minutesBetween(lane)).toBe(36);
+      expect(lane.deadlineAt - lane.dispatchedAt).toBeGreaterThanOrEqual(17.75 * MIN * 2);
+    });
+
+    test('each brief carries its own timebox and ONLY its slice\'s paths; the lane\'s carries the whole range diff', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      const rangeDiff = h.readRun().prepared.rangeDiff;
+      const slices = h.readRun().slices;
+      for (const a of m.agents.filter((agent) => agent.role === 'reviewer')) {
+        const brief = briefOf(a);
+        expect(brief).toContain('Timebox: 15 minutes');
+        const slice = slices.find((s) => s.id === a.sliceId);
+        for (const file of slice.paths) expect(brief).toContain(`- ${file}\n`);
+        for (const file of allPaths(h).filter((f) => !slice.paths.includes(f))) expect(brief).not.toContain(`- ${file}\n`);
+      }
+      expect(briefOf(agentOf(m, 'security-lane'))).toContain(`Diff: ${rangeDiff}`);
+    });
+
+    test('a reviewer\'s brief names a diff of ITS slice (slices/slice-N.diff), holding the hunks of its paths and no one else\'s', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      const slices = h.readRun().slices;
+      slices.forEach((slice, index) => {
+        for (const a of m.agents.filter((agent) => agent.sliceId === slice.id)) {
+          const diffPath = /Diff for your slice: (\S+)/.exec(briefOf(a))[1];
+          expect(diffPath).toBe(path.join(h.runDir(), 'slices', `slice-${index + 1}.diff`));
+          expect(sectionsIn(fs.readFileSync(diffPath, 'utf8'))).toEqual(slice.paths);
+        }
+      });
+      expect(h.readRun().sizing.slices.map((slice) => slice.diff)).toEqual(['slice', 'slice', 'slice']);
+      expect(m.sizing.slices.map((slice) => slice.diff)).toEqual(['slice', 'slice', 'slice']);
+      // private, like every file of the run
+      expect(fs.statSync(path.join(h.runDir(), 'slices')).mode & 0o777).toBe(0o700);
+      expect(fs.statSync(path.join(h.runDir(), 'slices', 'slice-1.diff')).mode & 0o777).toBe(0o600);
+    });
+
+    test('a Medium PR of the same shape (light mode) is planned the same way, plus its one whole-range reader: the size model is no full-mode feature', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      expect(m).toMatchObject({ status: 'DISPATCH', wave: '1 of 1', mode: { mode: 'light' }, depth: { mode: 'standard' } });
+      expect(sizesOf(m)).toEqual([[8, 454], [3, 556], [8, 440]]);
+      expect(agentOf(m, 'security-lane').deadlineMinutes).toBe(36);
+      expect(m.agents.filter((a) => /^reviewer-s\d/.test(a.name)).every((a) => a.deadlineMinutes === 15)).toBe(true);
+    });
+  });
+
+  describe('the defect, reproduced and fixed: the lane that took 17m45s', () => {
+    const toTriage = async (h, { skip = [], partial = {} } = {}) => {
+      const m = await h.prepare();
+      answerReview(m, { skip, partial, lane: { findings: [], pathsReviewed: allPaths(h) } });
+      return { m, triage: await h.collect() };
+    };
+    const finish = (h) => h.collect({ triage: {} });
+
+    test('the lane arriving 17.75 minutes after dispatch is inside its 36-minute deadline: the lane is CLEAN and coverage complete', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      backdate(h, 'security-lane', 17.75, agentOf(m, 'security-lane').deadlineMinutes);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const triage = await h.collect();
+      expect(triage).toMatchObject({ status: 'TRIAGE', security: { status: 'clean' }, coverage: { complete: true, unreviewedSlices: [], uncovered: [] } });
+      const done = await finish(h);
+      expect(done).toMatchObject({ status: 'DONE', security: { status: 'clean' }, coverage: { complete: true } });
+      expect(done.notReviewed.expiredAgents).toEqual([]);
+      expect(done.gate.blockers.map((b) => b.code)).not.toContain('security-review-missing');
+    });
+
+    test('control: the SAME arrival against the old flat 15 minutes is the defect itself, expired and recorded not reviewed', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      backdate(h, 'security-lane', 17.75, 15);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const triage = await h.collect();
+      expect(triage.security).toMatchObject({ status: 'not-run', reason: expect.stringContaining('arrived-after-deadline') });
+      const done = await finish(h);
+      expect(done.notReviewed.expiredAgents).toEqual([expect.objectContaining({ name: 'security-lane', state: 'expired', reason: 'arrived-after-deadline' })]);
+      expect(done.gate.blockers.map((b) => b.code)).toContain('security-review-missing');
+    });
+
+    test('fail closed: a lane that arrives after its LARGER deadline is still expired, never clean, and the gate still blocks on it', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      const lane = agentOf(m, 'security-lane');
+      backdate(h, 'security-lane', lane.deadlineMinutes + 1, lane.deadlineMinutes);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const triage = await h.collect();
+      expect(triage.security).toMatchObject({ status: 'not-run', reason: expect.stringContaining('arrived-after-deadline') });
+      const done = await finish(h);
+      expect(done.security.status).not.toBe('clean');
+      expect(done.gate.mergeable).toBe(false);
+      expect(done.gate.blockers.map((b) => b.code)).toContain('security-review-missing');
+      expect(done.coverage.complete).toBe(false);
+    });
+
+    test('fail closed: a reviewer that lists fewer paths than its slice leaves THAT slice not reviewed, and the others reviewed', async () => {
+      const h = real271();
+      const { m, triage } = await toTriage(h, { partial: { 'reviewer-s2-a': [REAL271[8][0]] } });
+      const slice2 = h.readRun().slices[1];
+      expect(slice2.paths).toHaveLength(3);
+      expect(triage.coverage).toEqual({ complete: false, unreviewedSlices: ['whole-pr~2'], uncovered: slice2.paths });
+      const done = await finish(h);
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-pr~2']);
+      expect(done.notReviewed.unreviewedPaths).toEqual(slice2.paths);
+      expect(done.reducedReview).toMatch(/NOT REVIEWED: slice\(s\) whole-pr~2/);
+      expect(m.agents.length).toBe(7);
+    });
+
+    test('fail closed: a reviewer that arrives after its deadline is expired and its slice is not reviewed, the other slices are', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      backdate(h, 'reviewer-s1-a', 16, 15);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const triage = await h.collect();
+      expect(triage.coverage).toMatchObject({ complete: false, unreviewedSlices: ['whole-pr~1'] });
+      const done = await finish(h);
+      expect(done.notReviewed.expiredAgents).toEqual([expect.objectContaining({ name: 'reviewer-s1-a', state: 'expired', reason: 'arrived-after-deadline' })]);
+    });
+
+    test('with every agent inside its deadline and listing every path, coverage is complete and nothing is expired', async () => {
+      const h = real271();
+      const { triage } = await toTriage(h);
+      expect(triage).toMatchObject({ status: 'TRIAGE', security: { status: 'clean' }, coverage: { complete: true, unreviewedSlices: [], uncovered: [] } });
+    });
+
+    test('the TRIAGE answer carries the whole range diff and every slice\'s paths: what the orchestrator needs to look for an interaction between slices (review of PR 274, round 1)', async () => {
+      const h = real271();
+      const { triage } = await toTriage(h);
+      expect(triage.status).toBe('TRIAGE');
+      expect(triage.rangeDiff).toBe(h.readRun().prepared.rangeDiff);
+      expect(sectionsIn(fs.readFileSync(triage.rangeDiff, 'utf8')).sort()).toEqual(allPaths(h).slice().sort());
+      expect(triage.slices.map((slice) => [slice.id, slice.paths.length])).toEqual([['whole-pr~1', 8], ['whole-pr~2', 3], ['whole-pr~3', 8]]);
+      expect(triage.slices.flatMap((slice) => slice.paths).sort()).toEqual(allPaths(h).slice().sort());
+    });
+
+    test('the final answer says each reviewer read only its slice\'s diff, and what read the whole diff: the security lane and, in full mode, the TRIAGE step', async () => {
+      const h = real271();
+      await toTriage(h);
+      const done = await finish(h);
+      expect(done.reducedReview.split('\n')).toContain("cross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane and the TRIAGE step");
+    });
+
+    test('the cross-slice line counts only the slices that were really narrowed: one slice handed the whole range diff (its path had no section) is not one of them', async () => {
+      const changedPaths = REAL271.map(([file]) => file);
+      const h = real271({ harness: { rangeDiff: diffOf(changedPaths.filter((file) => file !== 'docs/guides/pr-review-run.md')) } });
+      await toTriage(h);
+      const done = await finish(h);
+      expect(done.reducedReview.split('\n')).toContain("cross-slice: 2 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane and the TRIAGE step");
+    });
+
+    test('light, three slices: ONE whole-range reader is the eighth agent of the one wave at the default cap, sized for the whole diff, handed the whole range diff, every path and a brief that says so (review of PR 274, rounds 2 and 3)', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      expect(m.sizing.wholeRangeReader).toBe(true);
+      expect(m).toMatchObject({ wave: '1 of 1', maxConcurrentAgents: 8 });
+      expect(m.agents.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b', 'reviewer-range', 'security-lane']);
+      expect(m.agents).toHaveLength(8); // 3 slices x 2 lenses + the reader + the lane: exactly the cap
+      const range = agentOf(m, 'reviewer-range');
+      expect(range).toMatchObject({ role: 'reviewer', sliceId: 'whole-range', deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
+      expect(range.paths).toEqual(allPaths(h)); // every changed path, not one slice's
+      expect(minutesBetween(range)).toBe(36);
+      // the lens of a general reader: the first of the pool, the same as the first reviewer of every slice, and never `security` (the lane's)
+      const lensOf = (name) => h.readRun().waves.flatMap((wave) => wave.agents).find((a) => a.name === name).lens;
+      expect(lensOf('reviewer-range')).toBe('correctness');
+      expect(lensOf('reviewer-range')).toBe(lensOf('reviewer-s1-a'));
+      const brief = briefOf(range);
+      expect(brief).toMatch(/^You are reviewing the whole of a pull request/);
+      expect(brief).toContain('Your scope: the whole range, every changed path');
+      expect(brief).toContain('Your lens: correctness');
+      expect(brief).toContain('Timebox: 36 minutes');
+      expect(brief).toContain(`Diff for the whole range: ${h.readRun().prepared.rangeDiff}`);
+      for (const file of allPaths(h)) expect(brief).toContain(`- ${file}\n`);
+      expect(brief).not.toMatch(/You are reviewing one slice|Your slice:|Diff for your slice/);
+      for (const a of m.agents.filter((agent) => /^reviewer-s\d/.test(agent.name))) {
+        expect(a.deadlineMinutes).toBe(15);
+        expect(briefOf(a)).toMatch(/^You are reviewing one slice of a pull request/);
+      }
+    });
+
+    test('light, one slice (the limits raised to hold the PR whole), and full mode: no whole-range reader (the slice reviewers read the whole diff, and a full run has TRIAGE)', async () => {
+      const one = await real271({ policyJson: { highPaths: [], sliceMaxFiles: 30, sliceTargetLines: 5000 } }).prepare();
+      expect(one.sizing.slices).toHaveLength(1);
+      expect(one.sizing.wholeRangeReader).toBe(false);
+      expect(one.agents.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'security-lane']);
+      const full = await real271().prepare();
+      expect(full.sizing.wholeRangeReader).toBe(false);
+      expect(full.agents.some((a) => a.name === 'reviewer-range')).toBe(false);
+    });
+
+    test.each([
+      [8, 3, true, 8, []],
+      [7, 3, false, 7, ['reader-not-planned']],
+      [6, 2, true, 6, ['slice-over-limit']],
+      [5, 2, false, 5, ['slice-over-limit', 'reader-not-planned']],
+      [4, 1, false, 3, ['slice-over-limit']],
+    ])('the cap arithmetic is explicit: at a cap of %i the real PR (light, with the lane) is %i slices, reader %s, %i agents at once, warnings %j (review of PR 274, round 3)', async (cap, slices, reader, agents, codes) => {
+      const m = await real271({ policyJson: { highPaths: [], maxConcurrentAgents: cap } }).prepare();
+      expect(m).toMatchObject({ wave: '1 of 1', maxConcurrentAgents: cap });
+      expect(m.sizing.slices).toHaveLength(slices);
+      expect(m.sizing.wholeRangeReader).toBe(reader);
+      expect(m.agents.some((a) => a.name === 'reviewer-range')).toBe(reader);
+      expect(m.agents).toHaveLength(agents);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toEqual(codes);
+    });
+
+    test('the warnings say what the plan holds and what would change it: no reader named where there is none, the cap that would hold the limits, the cap that would add the reader', async () => {
+      const warningsAt = async (cap) => (await real271({ policyJson: { highPaths: [], maxConcurrentAgents: cap } }).prepare()).sizing.warnings;
+      expect(await warningsAt(7)).toEqual([{ code: 'reader-not-planned', message: 'no whole-range reader is planned: 3 slices of 2 lenses and the security lane make 7 agents at once, the concurrency cap is 7 and the reader would be one more; raise maxConcurrentAgents to 8 (the policy allows at most 32) to add it' }]);
+      const [over6] = await warningsAt(6);
+      expect(over6.code).toBe('slice-over-limit');
+      expect(over6.message).toMatch(/those limits need 3 slices \(8 agents at once, the whole-range reader among them\), and the concurrency cap of 6 allows 2 slices of 2 lenses beside the security lane; raise maxConcurrentAgents to 8 /);
+      const [over4] = await warningsAt(4);
+      expect(over4.code).toBe('slice-over-limit');
+      for (const warning of [over6, over4]) expect(warning.message).not.toMatch(/beside (the security lane and )?the whole-range reader/);
+      const cap5 = await warningsAt(5);
+      expect(cap5.map((warning) => warning.code)).toEqual(['slice-over-limit', 'reader-not-planned']);
+      expect(cap5[1].message).toMatch(/2 slices of 2 lenses and the security lane make 5 agents at once, the concurrency cap is 5 and the reader would be one more; raise maxConcurrentAgents to 6 /);
+    });
+
+    describe('the reader\'s seat over the whole cap matrix: slices first, the reader only when the cap holds it too (review of PR 274, round 3)', () => {
+      const policy = loadPolicy({ text: null, baseSha: BASE }).policy;
+      const numstatOf = (count, lines) => Array.from({ length: count }, (_, i) => ({ path: `src/f${String(i).padStart(2, '0')}.js`, added: lines, deleted: 0 }));
+      const planFor = ({ cap, lenses, lane, paths, lines = 200, mode = 'light', depth = 'standard' }) => {
+        const planned = planRunSlices({ policy, policyRejected: [], depth: { mode: depth, reviewersPerSlice: lenses }, securityLane: lane === 1, mode: { mode }, maxConcurrentAgents: cap }, numstatOf(paths, lines));
+        expect(planned.ok).toBe(true);
+        return planned;
+      };
+      const rows = [];
+      for (const lane of [0, 1]) for (const lenses of [2, 3]) for (const cap of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12]) for (const paths of [2, 4, 8, 10, 13]) rows.push({ cap, lenses, lane, paths });
+
+      test('over caps 1 to 12, with and without the lane, two and three lenses, 2 to 13 paths: the reader never costs a slice, is planned only for several slices and only when the cap holds it, and a plan without it says so', () => {
+        for (const row of rows) {
+          const label = JSON.stringify(row);
+          const light = planFor(row);
+          const full = planFor({ ...row, mode: 'full', depth: 'deep' });
+          const wanted = planFor({ ...row, cap: 32 }).plan.slices.length;
+          const n = light.plan.slices.length;
+          const fits = n > 1 && n * row.lenses + row.lane + 1 <= row.cap;
+          const codes = light.sizing.warnings.map((warning) => warning.code);
+          expect([label, n]).toEqual([label, Math.min(wanted, Math.max(1, Math.floor((row.cap - row.lane) / row.lenses)))]);
+          expect([label, n]).toEqual([label, full.plan.slices.length]); // the reader never costs a slice: light and full are cut alike
+          expect([label, light.sizing.wholeRangeReader]).toEqual([label, fits]);
+          expect([label, codes.includes('reader-not-planned')]).toEqual([label, n > 1 && !fits]);
+          expect([label, codes.includes('slice-over-limit')]).toEqual([label, n < wanted]);
+          expect([label, full.sizing.wholeRangeReader, full.sizing.warnings.some((warning) => warning.code === 'reader-not-planned')]).toEqual([label, false, false]);
+          for (const warning of light.sizing.warnings) expect([label, /beside (the security lane and )?the whole-range reader/.test(warning.message)]).toEqual([label, false]);
+        }
+      });
+
+      test('the review\'s repros: no lane at a cap of 4 is two slices within the limits and no reader (it was one over-limit slice); no lane at the default cap with a 4-slice PR is four slices within the limits and no reader (it was three over-limit slices and a reader); a cap of 5 with the lane is two slices within the limits', () => {
+        const a = planFor({ cap: 4, lenses: 2, lane: 0, paths: 4 });
+        expect([a.plan.slices.length, a.sizing.wholeRangeReader, a.sizing.slices.every((slice) => !slice.overLimit), a.sizing.warnings.map((warning) => warning.code)]).toEqual([2, false, true, ['reader-not-planned']]);
+        const b = planFor({ cap: 8, lenses: 2, lane: 0, paths: 10 });
+        expect([b.plan.slices.length, b.sizing.wholeRangeReader, b.sizing.slices.every((slice) => !slice.overLimit), b.sizing.warnings.map((warning) => warning.code)]).toEqual([4, false, true, ['reader-not-planned']]);
+        expect(b.sizing.warnings[0].message).toContain('raise maxConcurrentAgents to 9 ');
+        const c = planFor({ cap: 5, lenses: 2, lane: 1, paths: 4 });
+        expect([c.plan.slices.length, c.sizing.wholeRangeReader, c.sizing.slices.every((slice) => !slice.overLimit)]).toEqual([2, false, true]);
+      });
+    });
+
+    test('with every agent in time and every path listed, the whole-range read is reviewed (coverage complete), and the notice names the reader and what it cannot do', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const done = await h.collect();
+      expect(done).toMatchObject({ status: 'DONE', coverage: { complete: true, unreviewedSlices: [], uncovered: [] } });
+      expect(done.notReviewed.unreviewedSlices).toEqual([]);
+      expect(done.reducedReview.split('\n')).toContain("cross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane and by one whole-range reader (reviewer-range: one pass under one lens, with no second reader of the whole diff)");
+    });
+
+    test('fail closed: a whole-range reader that lists fewer paths than the diff leaves THAT read not reviewed, and the slices stay reviewed', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) }, partial: { 'reviewer-range': allPaths(h).slice(0, 4) } });
+      const done = await h.collect();
+      expect(done.status).toBe('DONE');
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+      expect(done.notReviewed.unreviewedPaths).toEqual([]); // the slice reviewers covered every path under two lenses
+      expect(done.coverage.complete).toBe(false);
+      const lines = done.reducedReview.split('\n');
+      expect(lines).toContain('NOT REVIEWED: whole-range read');
+      expect(lines.find((line) => line.startsWith('whole-range read NOT REVIEWED (reviewer-range: paths-not-reviewed; paths it did not list: '))).toBeDefined();
+    });
+
+    test('fail closed: the reader is asked for EVERY changed path, not for one slice: a list that stops one path short (the whole first slice and more) still leaves the read not reviewed and names exactly the missing path', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      const paths = allPaths(h);
+      const last = paths[paths.length - 1];
+      answerReview(m, { lane: { findings: [], pathsReviewed: paths }, partial: { 'reviewer-range': paths.slice(0, -1) } });
+      const done = await h.collect();
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+      expect(done.coverage.complete).toBe(false);
+      expect(done.reducedReview).toContain(`whole-range read NOT REVIEWED (reviewer-range: paths-not-reviewed; paths it did not list: ${last})`);
+    });
+
+    test('fail closed: a whole-range reader that arrives after its 36-minute deadline is expired and its read is not reviewed; the slices and the lane are unaffected', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      const range = agentOf(m, 'reviewer-range');
+      backdate(h, 'reviewer-range', range.deadlineMinutes + 1, range.deadlineMinutes);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const done = await h.collect();
+      expect(done.notReviewed.expiredAgents).toEqual([expect.objectContaining({ name: 'reviewer-range', state: 'expired', reason: 'arrived-after-deadline' })]);
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+      expect(done.security.status).toBe('clean');
+      expect(done.reducedReview).toMatch(/whole-range read NOT REVIEWED \(reviewer-range: expired:arrived-after-deadline\)/);
+    });
+
+    test('a finding the whole-range reader raises goes through the same verification as any reviewer\'s: it is a candidate, and verifiers (never the reader) are assigned', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      const at = `${allPaths(h)[10]}:3`;
+      answerReview(m, { findingsFor: (name) => (name === 'reviewer-range' ? [finding({ locationOrLink: at, originalTextOrLink: at })] : []), lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const verify = await h.collect();
+      expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+      expect(h.readRun().candidates.map((c) => c.source)).toEqual(['reviewer-range']);
+      expect(verify.agents.length).toBeGreaterThanOrEqual(3);
+      expect(verify.agents.some((a) => a.name === 'reviewer-range')).toBe(false);
+    });
+
+    test('the reader never masks a missing slice reviewer: both reviewers of slice 2 expire while the reader and the lane arrive in full, and slice 2 is still NOT REVIEWED, by name, with its paths (review of PR 274, round 3)', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      for (const name of ['reviewer-s2-a', 'reviewer-s2-b']) {
+        const a = agentOf(m, name);
+        backdate(h, name, a.deadlineMinutes + 1, a.deadlineMinutes);
+      }
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const done = await h.collect();
+      const slice2 = h.readRun().slices[1].paths;
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-pr~2']);
+      expect([...done.notReviewed.unreviewedPaths].sort()).toEqual([...slice2].sort());
+      expect(done.coverage.complete).toBe(false);
+      expect(done.reducedReview.split('\n').find((line) => line.startsWith('NOT REVIEWED: slice(s) whole-pr~2; path(s) '))).toBeDefined();
+      expect(done.reducedReview).not.toMatch(/whole-range read NOT REVIEWED/); // the reader arrived in full: it is not what failed
+    });
+
+    test('the same when one slice reviewer lists too few paths: THAT slice is not reviewed, and the reader\'s full read does not cover for it', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) }, partial: { 'reviewer-s2-a': [REAL271[8][0]] } });
+      const done = await h.collect();
+      const slice2 = h.readRun().slices[1];
+      expect(done.coverage).toMatchObject({ complete: false, unreviewedSlices: ['whole-pr~2'], uncovered: slice2.paths });
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-pr~2']);
+      expect(done.notReviewed.unreviewedPaths).toEqual(slice2.paths);
+    });
+
+    test('a slice and the reader both failing are each named, the reader not as a slice: NOT REVIEWED: slice(s) whole-pr~2; whole-range read; path(s) ...', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      for (const name of ['reviewer-s2-a', 'reviewer-s2-b', 'reviewer-range']) {
+        const a = agentOf(m, name);
+        backdate(h, name, a.deadlineMinutes + 1, a.deadlineMinutes);
+      }
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const done = await h.collect();
+      expect(done.notReviewed.unreviewedSlices).toEqual(['whole-pr~2', 'whole-range']);
+      expect(done.reducedReview).toMatch(/^NOT REVIEWED: slice\(s\) whole-pr~2; whole-range read; path\(s\) /m);
+      expect(done.reducedReview).not.toMatch(/slice\(s\) [^;\n]*whole-range/);
+    });
+
+    test('the notice credits only what read the whole diff: a reader that expired is not credited, a lane that expired is not credited, and with neither it says by no agent (review of PR 274, round 3)', async () => {
+      const linesOf = async ({ expire }) => {
+        const h = real271({ policyJson: { highPaths: [] } });
+        const m = await h.prepare();
+        for (const name of expire) {
+          const a = agentOf(m, name);
+          backdate(h, name, a.deadlineMinutes + 1, a.deadlineMinutes);
+        }
+        answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+        return (await h.collect()).reducedReview.split('\n');
+      };
+      const prefix = "cross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole";
+      const reader = 'one whole-range reader (reviewer-range: one pass under one lens, with no second reader of the whole diff)';
+      // the reader expired: the lane alone read the whole diff, in both lines
+      const readerOut = await linesOf({ expire: ['reviewer-range'] });
+      expect(readerOut).toContain(`${prefix} only by the security lane (this mode has no TRIAGE step)`);
+      expect(readerOut.find((line) => line.startsWith('whole-range read NOT REVIEWED'))).toMatch(/: an interaction between slices was then read as a whole only by the security lane$/);
+      // the lane expired: the reader alone read it, and the lane's own line says why it is not credited
+      const laneOut = await linesOf({ expire: ['security-lane'] });
+      expect(laneOut).toContain(`${prefix} only by ${reader}`);
+      expect(laneOut.some((line) => line.startsWith('security lane not-run: '))).toBe(true);
+      // both expired: nobody read it as a whole
+      const noneOut = await linesOf({ expire: ['reviewer-range', 'security-lane'] });
+      expect(noneOut).toContain(`${prefix} by no agent (this mode has no TRIAGE step)`);
+      expect(noneOut.find((line) => line.startsWith('whole-range read NOT REVIEWED'))).toMatch(/: an interaction between slices was then read as a whole by no agent$/);
+    });
+
+    test('with no reader planned (a cap of 7) the notice names the security lane alone and carries the plan\'s reader-not-planned line; nothing failed, so nothing is NOT REVIEWED', async () => {
+      const h = real271({ policyJson: { highPaths: [], maxConcurrentAgents: 7 } });
+      const m = await h.prepare();
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const done = await h.collect();
+      const lines = done.reducedReview.split('\n');
+      expect(lines).toContain("cross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane (this mode has no TRIAGE step)");
+      expect(lines.some((line) => line.startsWith('plan reader-not-planned: no whole-range reader is planned'))).toBe(true);
+      expect(done.notReviewed.unreviewedSlices).toEqual([]);
+      expect(done.coverage.complete).toBe(true);
+    });
+
+    test('a full run whose security lane expired credits the TRIAGE step alone for a read of the whole diff', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      const lane = agentOf(m, 'security-lane');
+      backdate(h, 'security-lane', lane.deadlineMinutes + 1, lane.deadlineMinutes);
+      answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+      await h.collect();
+      const done = await finish(h);
+      expect(done.reducedReview.split('\n')).toContain("cross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the TRIAGE step");
+    });
+
+    test('nothing was narrowed when the PR is one slice (the limits raised to hold it whole): no cross-slice line', async () => {
+      const h = real271({ policyJson: { sliceMaxFiles: 30, sliceTargetLines: 5000 } });
+      const { m } = await toTriage(h);
+      expect(m.sizing.slices).toHaveLength(1);
+      const done = await finish(h);
+      expect(done.reducedReview).not.toMatch(/cross-slice/);
+    });
+
+    test('the plan\'s own warnings reach the verdict: a slice over its limits (the cap held fewer slices than the limits ask for) is named in reducedReview', async () => {
+      const h = real271({ policyJson: { sliceTargetLines: 300, maxConcurrentAgents: 12 } });
+      await toTriage(h);
+      const done = await finish(h);
+      expect(done.reducedReview).toMatch(/^plan slice-over-limit: slice whole-pr~\d.* raise maxConcurrentAgents to 13/m);
+    });
+  });
+
+  describe('a PR the limits cannot hold in one wave: the plan is bigger than the limits and SAYS so', () => {
+    const core = (count, lines = 100) => Array.from({ length: count }, (_, index) => `core/f${String(index).padStart(2, '0')}.js`).map((file) => [file, lines]);
+    const wideRun = (count, over = {}) => {
+      const entries = core(count, over.lines);
+      return harness({ changedPaths: entries.map(([file]) => file), numstat: entries.map(([file, lines]) => ({ path: file, added: lines, deleted: 0 })), policyJson: { highPaths: ['core/**'], ...over.policyJson }, rangeDiff: diffOf(entries.map(([file]) => file)) });
+    };
+
+    test('40 paths and 4000 lines at the cap of 8: three slices (the most one wave holds), flagged over their limits, with the agents that would hold them', async () => {
+      const m = await wideRun(40).prepare();
+      expect(m).toMatchObject({ status: 'DISPATCH', wave: '1 of 1' });
+      expect(m.agents).toHaveLength(7); // six reviewers and the lane: one wave, the lane never queued behind reviewers
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 612, slicesAllowed: 3, slicesWanted: 7 });
+      expect(sizesOf(m)).toEqual([[14, 1400], [14, 1400], [12, 1200]]);
+      expect(m.sizing.slices.every((slice) => slice.overLimit)).toBe(true);
+      const over = m.sizing.warnings.find((warning) => warning.code === 'slice-over-limit');
+      expect(over.message).toMatch(/limits need 7 slices \(15 agents at once\)/);
+      expect(over.message).toMatch(/concurrency cap of 8 allows 3 slices of 2 lenses beside the security lane/);
+      expect(over.message).toMatch(/raise maxConcurrentAgents to 15/);
+      expect(over.message).toMatch(/reported not reviewed/);
+    });
+
+    test('a reviewer given more than the limits is given longer: the model raises its deadline above the base', async () => {
+      const m = await wideRun(40).prepare();
+      for (const a of m.agents.filter((agent) => agent.role === 'reviewer')) {
+        expect(a.deadlineMinutes).toBeGreaterThan(15);
+        expect(a.deadlineMinutes).toBeLessThan(60);
+        expect(minutesBetween(a)).toBe(a.deadlineMinutes);
+        expect(briefOf(a)).toContain(`Timebox: ${a.deadlineMinutes} minutes`);
+      }
+    });
+
+    test('a lane whose modelled need is over 60 minutes is capped at 60 and the plan says it may not finish', async () => {
+      const m = await wideRun(40).prepare();
+      expect(agentOf(m, 'security-lane').deadlineMinutes).toBe(60);
+      const capped = m.sizing.warnings.filter((warning) => warning.code === 'deadline-capped');
+      expect(capped).toHaveLength(1);
+      expect(capped[0].message).toMatch(/^the security lane: reading 40 paths and 4000 changed lines is modelled at 98 minutes, over the 60-minute maximum/);
+      expect(capped[0].message).toMatch(/reported not reviewed/);
+    });
+
+    test('raising maxConcurrentAgents to what the plan said holds the limits: seven slices of at most 6 paths, no over-limit warning, still one wave', async () => {
+      const m = await wideRun(40, { policyJson: { maxConcurrentAgents: 16 } }).prepare();
+      expect(m).toMatchObject({ status: 'DISPATCH', wave: '1 of 1' });
+      expect(m.agents).toHaveLength(15);
+      expect(m.sizing.limits).toMatchObject({ slicesAllowed: 7, slicesWanted: 7 });
+      expect(m.sizing.slices.map((slice) => slice.files)).toEqual([6, 6, 6, 6, 6, 6, 4]);
+      expect(m.sizing.slices.some((slice) => slice.overLimit)).toBe(false);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toEqual(['deadline-capped']);
+      expect(m.agents.filter((a) => a.role === 'reviewer').every((a) => a.deadlineMinutes === 15)).toBe(true);
+    });
+
+    test('a cap too small for the lane and one slice still plans every path: one slice, never a PR with no reviewer', async () => {
+      const m = await wideRun(12, { policyJson: { maxConcurrentAgents: 1 } }).prepare();
+      expect(m.sizing.limits).toMatchObject({ slicesAllowed: 1 });
+      expect(m.sizing.slices).toHaveLength(1);
+      expect(m.sizing.slices[0].files).toBe(12);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toContain('slice-over-limit');
+    });
+
+    test('a slice over the FILE limit alone (many paths, few lines) is flagged too: a small line count does not excuse it', async () => {
+      const m = await wideRun(12, { lines: 1, policyJson: { maxConcurrentAgents: 1 } }).prepare();
+      expect(m.sizing.slices).toEqual([expect.objectContaining({ files: 12, lines: 12, overLimit: true })]);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toEqual(['slice-over-limit']);
+      expect(m.sizing.warnings[0].message).toMatch(/more than 8 paths or 612 changed lines/);
+    });
+
+    test('a lone path over the line limit is NOT flagged: a path is never cut, so no cap or limit could change that slice', async () => {
+      const m = await wideRun(1, { lines: 1000 }).prepare();
+      expect(m.sizing.slices).toEqual([expect.objectContaining({ files: 1, lines: 1000, overLimit: false })]);
+      expect(m.sizing.warnings).toEqual([]);
+    });
+  });
+
+  describe('the three policy keys and the base deadline reach the plan', () => {
+    test('sliceMaxFiles and maxConcurrentAgents: five paths to a slice, four slices, one wave of nine', async () => {
+      const m = await real271({ policyJson: { sliceMaxFiles: 5, maxConcurrentAgents: 12 } }).prepare();
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 5, sliceTargetLines: 612, slicesAllowed: 5, slicesWanted: 4 });
+      expect(m.sizing.slices).toHaveLength(4);
+      for (const slice of m.sizing.slices) expect(slice.files).toBeLessThanOrEqual(5);
+      expect(m.sizing.warnings).toEqual([]);
+      expect(m).toMatchObject({ wave: '1 of 1' });
+      expect(m.agents).toHaveLength(9);
+    });
+
+    test('sliceTargetLines: a smaller target cuts the same PR into more slices (a path is never cut, so the 355-line file stays one slice)', async () => {
+      const m = await real271({ policyJson: { sliceTargetLines: 300, maxConcurrentAgents: 14 } }).prepare();
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 300, slicesAllowed: 6, slicesWanted: 6 });
+      expect(m.sizing.slices).toHaveLength(6);
+      for (const slice of m.sizing.slices) expect(slice.files === 1 || slice.lines <= 300).toBe(true);
+      expect(m.sizing.slices.some((slice) => slice.files === 1 && slice.lines === 355)).toBe(true);
+      expect(m.sizing.warnings).toEqual([]);
+      expect(m).toMatchObject({ wave: '1 of 1' });
+    });
+
+    test('a cap that holds fewer slices than the target asks for says so, and plans every path in what it can hold', async () => {
+      const m = await real271({ policyJson: { sliceTargetLines: 300, maxConcurrentAgents: 12 } }).prepare();
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 300, slicesAllowed: 5, slicesWanted: 6 });
+      expect(m.sizing.slices).toHaveLength(5);
+      expect(m.sizing.slices.some((slice) => slice.overLimit)).toBe(true);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toEqual(['slice-over-limit']);
+      expect(m.sizing.warnings[0].message).toMatch(/raise maxConcurrentAgents to 13/);
+    });
+
+    test('deadlineHeadroom scales the lane: 3x the 17.75 minutes is 54', async () => {
+      const m = await real271({ policyJson: { deadlineHeadroom: 3 } }).prepare();
+      expect(m.sizing.model.headroom).toBe(3);
+      expect(agentOf(m, 'security-lane').deadlineMinutes).toBe(54);
+    });
+
+    test('deadlineMinutes is a floor: a larger base is kept, and a smaller one is raised by the model', async () => {
+      const m = await real271({ policyJson: { deadlineMinutes: { security: 45, reviewer: 20 } } }).prepare();
+      expect(agentOf(m, 'security-lane').deadlineMinutes).toBe(45);
+      expect(m.agents.filter((a) => a.role === 'reviewer').every((a) => a.deadlineMinutes === 20)).toBe(true);
+      const lower = await real271({ policyJson: { deadlineMinutes: { security: 5 } } }).prepare();
+      expect(agentOf(lower, 'security-lane').deadlineMinutes).toBe(36);
+    });
+
+    test('a policy value the facts hold unreadably is named in the plan and the default applies', async () => {
+      const changedPaths = REAL271.map(([file]) => file);
+      const facts = makeFacts({ changedPaths, numstat: REAL271.map(([file, lines]) => ({ path: file, added: lines, deleted: 0 })), policyJson: { highPaths: ['packages/development/lib/**'] } });
+      facts.policy.policy.sliceMaxFiles = 'many';
+      facts.policy.policy.deadlineHeadroom = 0;
+      const m = await harness({ facts, rangeDiff: diffOf(changedPaths) }).prepare();
+      expect(m.sizing.limits.sliceMaxFiles).toBe(8);
+      expect(m.sizing.model.headroom).toBe(2);
+      expect(m.sizing.warnings.map((warning) => warning.code)).toEqual(['invalid-sliceMaxFiles', 'invalid-deadlineHeadroom']);
+      expect(agentOf(m, 'security-lane').deadlineMinutes).toBe(36);
+    });
+
+    test('a sizing key the policy loader REJECTED (it never reaches run.policy) is named in the plan, with its value and the loader\'s own reason, and the default applies', async () => {
+      const changedPaths = REAL271.map(([file]) => file);
+      // the rejection is what the REAL loader emitted for the invalid values below, not a reason typed into the fixture (review of PR 274, round 2)
+      const facts = makeFacts({ changedPaths, numstat: REAL271.map(([file, lines]) => ({ path: file, added: lines, deleted: 0 })), policyJson: { highPaths: ['packages/development/lib/**'], sliceMaxFiles: 0, roundCap: 9 } });
+      const rejected = facts.policy.rejected.find((entry) => entry.key === 'sliceMaxFiles');
+      expect(rejected).toMatchObject({ value: 0 });
+      expect(typeof rejected.reason).toBe('string');
+      expect(facts.policy.rejected.map((entry) => entry.key)).toContain('roundCap'); // a rejected key that is not a sizing key is not named here
+      const m = await harness({ facts, rangeDiff: diffOf(changedPaths) }).prepare();
+      expect(m.sizing.limits.sliceMaxFiles).toBe(8);
+      expect(m.sizing.warnings).toEqual([{ code: 'invalid-sliceMaxFiles', message: `the policy's sliceMaxFiles (0) was rejected (${rejected.reason}), so the default applies` }]);
+    });
+  });
+
+  describe('the diff a reviewer is handed: its slice\'s, or the whole range when the slice cannot be placed in it', () => {
+    test('a path the range diff has no section for leaves ITS slice the whole range diff (more to read, never less); the others get their own', async () => {
+      const changedPaths = REAL271.map(([file]) => file);
+      const missing = 'docs/guides/pr-review-run.md';
+      const h = real271({ harness: { rangeDiff: diffOf(changedPaths.filter((file) => file !== missing)) } });
+      const m = await h.prepare();
+      expect(m.sizing.slices.map((slice) => slice.diff)).toEqual(['whole-range', 'slice', 'slice']);
+      const rangeDiff = h.readRun().prepared.rangeDiff;
+      expect(/Diff for your slice: (\S+)/.exec(briefOf(agentOf(m, 'reviewer-s1-a')))[1]).toBe(rangeDiff);
+      expect(/Diff for your slice: (\S+)/.exec(briefOf(agentOf(m, 'reviewer-s2-a')))[1]).toBe(path.join(h.runDir(), 'slices', 'slice-2.diff'));
+      expect(fs.existsSync(path.join(h.runDir(), 'slices', 'slice-1.diff'))).toBe(false);
+      // the reviewer handed the whole diff is sized for the whole diff (36 minutes, 19 paths, 1450 lines), the others for their slice
+      expect(agentOf(m, 'reviewer-s1-a')).toMatchObject({ deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
+      expect(briefOf(agentOf(m, 'reviewer-s1-a'))).toContain('Timebox: 36 minutes');
+      expect(agentOf(m, 'reviewer-s2-a')).toMatchObject({ deadlineMinutes: 15, work: { files: 3, lines: 556 } });
+    });
+
+    test('a range diff that cannot be read leaves every slice the whole range diff, and the run is still planned and dispatched', async () => {
+      const h = real271();
+      fs.rmSync(path.join(h.root, 'prepared', 'range.diff'));
+      const m = await h.prepare();
+      expect(m.status).toBe('DISPATCH');
+      expect(m.sizing.slices.map((slice) => slice.diff)).toEqual(['whole-range', 'whole-range', 'whole-range']);
+      expect(fs.existsSync(path.join(h.runDir(), 'slices'))).toBe(false);
+    });
+
+    test('a slice file that cannot be written leaves that slice the whole range diff instead of failing the run', async () => {
+      const h = real271();
+      const real = h.deps.fs;
+      h.deps.fs = { ...real, writeAtomic: (file, text, mode) => (file.includes(`${path.sep}slices${path.sep}`) ? (() => { throw new Error('disk full'); })() : real.writeAtomic(file, text, mode)) };
+      const m = await h.prepare();
+      expect(m.status).toBe('DISPATCH');
+      expect(m.sizing.slices.map((slice) => slice.diff)).toEqual(['whole-range', 'whole-range', 'whole-range']);
+    });
+
+    test('one slice is the whole range diff itself, and the diff is not even read at prepare', async () => {
+      const reads = [];
+      const h = harness({ rangeDiff: diffOf(['src/a.js']) });
+      const real = h.deps.fs;
+      h.deps.fs = { ...real, readText: (file) => (reads.push(path.basename(file)), real.readText(file)) };
+      const m = await h.prepare();
+      expect(m.sizing.slices.map((slice) => slice.diff)).toEqual(['whole-range']);
+      expect(reads.filter((name) => name === 'range.diff')).toEqual([]);
+      expect(/Diff for your slice: (\S+)/.exec(briefOf(m.agents[0]))[1]).toBe(h.readRun().prepared.rangeDiff);
+    });
+  });
+
+  describe('what is unchanged', () => {
+    test('a one-slice PR is planned as before: one slice, 15 minutes each, its work recorded', async () => {
+      const h = harness();
+      const m = await h.prepare();
+      expect(m).toMatchObject({ wave: '1 of 1' });
+      expect(m.sizing.slices).toEqual([{ id: 'whole-pr', files: 1, lines: 12, overLimit: false, diff: 'whole-range' }]);
+      expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 612, slicesAllowed: 3, slicesWanted: 1 });
+      expect(m.sizing.warnings).toEqual([]);
+      for (const a of m.agents) expect(a).toMatchObject({ deadlineMinutes: 15, work: { files: 1, lines: 12 } });
+    });
+
+    test('a verifier is given its 5 minutes whatever the PR\'s size, and the verify manifest carries no sizing', async () => {
+      const h = real271({ policyJson: { highPaths: [] } });
+      const m = await h.prepare();
+      answerReview(m, { findingsFor: (name) => (name === 'reviewer-s1-a' ? [finding({ locationOrLink: 'CHANGELOG.md:1', originalTextOrLink: 'CHANGELOG.md:1' })] : []), lane: { findings: [], pathsReviewed: allPaths(h) } });
+      const verify = await h.collect();
+      expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+      expect(verify.sizing).toBeUndefined();
+      for (const a of verify.agents) {
+        expect(a.deadlineMinutes).toBe(5);
+        expect(a.work).toBeUndefined();
+        expect(minutesBetween(a)).toBe(5);
+      }
+    });
+
+    test('the sizing is in run.json, with every agent\'s work and minutes, so a later collect and a reader see what the plan was', async () => {
+      const h = real271();
+      const m = await h.prepare();
+      const run = h.readRun();
+      expect(run.sizing).toEqual(m.sizing);
+      expect(run.waves[0].agents.map((a) => [a.name, a.deadlineMinutes])).toEqual(m.agents.map((a) => [a.name, a.deadlineMinutes]));
+      expect(run.waves[0].agents.every((a) => a.work !== undefined)).toBe(true);
+    });
+  });
+});
+
+describe('splitDiffBySlice: the range diff cut into one text per slice', () => {
+  const section = (file, body = ['@@ -1,1 +1,2 @@', ' keep', '+new']) => [`diff --git a/${file} b/${file}`, 'index 1111111..2222222 100644', `--- a/${file}`, `+++ b/${file}`, ...body].join('\n');
+  const diff = (...sections) => `${sections.join('\n')}\n`;
+  const textOf = (result, id) => result.find((entry) => entry.id === id).text;
+
+  test('every slice gets the sections of its own paths, in the diff\'s order, and nothing else', () => {
+    const text = diff(section('a.js'), section('b.js'), section('c.js'), section('d.js'));
+    const cut = S.splitDiffBySlice(text, [{ id: 's1', paths: ['d.js', 'a.js'] }, { id: 's2', paths: ['c.js', 'b.js'] }]);
+    expect(cut.map((entry) => [entry.id, entry.missing])).toEqual([['s1', []], ['s2', []]]);
+    expect(textOf(cut, 's1')).toBe(diff(section('a.js'), section('d.js')));
+    expect(textOf(cut, 's2')).toBe(diff(section('b.js'), section('c.js')));
+  });
+
+  test('a path with no section is listed in `missing`, so the caller can hand that slice the whole diff', () => {
+    const cut = S.splitDiffBySlice(diff(section('a.js')), [{ id: 's1', paths: ['a.js', 'gone.js'] }]);
+    expect(cut[0].missing).toEqual(['gone.js']);
+    expect(cut[0].text).toBe(diff(section('a.js')));
+  });
+
+  test('a path that only SOUNDS like another is not placed by it: a.js is not ba.js and src/a.js is not a.js', () => {
+    const cut = S.splitDiffBySlice(diff(section('ba.js'), section('src/a.js')), [{ id: 's1', paths: ['a.js'] }]);
+    expect(cut[0].missing).toEqual(['a.js']);
+    expect(cut[0].text).toBe('');
+  });
+
+  test('a path holding " b/" and one with a space are placed by the length of the header, not by splitting on the first " b/"', () => {
+    const tricky = 'dir/x b/y.js';
+    const spaced = 'my dir/file name.js';
+    const cut = S.splitDiffBySlice(diff(section(tricky), section(spaced), section('x.js')), [{ id: 's1', paths: [tricky] }, { id: 's2', paths: [spaced] }, { id: 's3', paths: ['x.js'] }]);
+    expect(cut.map((entry) => entry.missing)).toEqual([[], [], []]);
+    expect(textOf(cut, 's1')).toBe(diff(section(tricky)));
+    expect(textOf(cut, 's2')).toBe(diff(section(spaced)));
+    expect(textOf(cut, 's3')).toBe(diff(section('x.js')));
+  });
+
+  test('a name git quoted (a tab, a quote, a non-ASCII byte) is unquoted and placed', () => {
+    const text = diff(
+      ['diff --git "a/tab\\tname.js" "b/tab\\tname.js"', 'index 1111111..2222222 100644', '--- "a/tab\\tname.js"', '+++ "b/tab\\tname.js"', '@@ -1 +1 @@', '-x', '+y'].join('\n'),
+      ['diff --git "a/caf\\303\\251.js" "b/caf\\303\\251.js"', 'index 1111111..2222222 100644', '--- "a/caf\\303\\251.js"', '+++ "b/caf\\303\\251.js"', '@@ -1 +1 @@', '-x', '+y'].join('\n'),
+    );
+    const cut = S.splitDiffBySlice(text, [{ id: 's1', paths: ['tab\tname.js'] }, { id: 's2', paths: ['café.js'] }]);
+    expect(cut.map((entry) => entry.missing)).toEqual([[], []]);
+    expect(textOf(cut, 's1')).toContain('tab\\tname.js');
+    expect(textOf(cut, 's2')).toContain('caf\\303\\251.js');
+  });
+
+  test('a rename is ONE section that names both paths: it is placed for the old name and for the new, in each slice that holds one', () => {
+    const rename = ['diff --git a/old/name.js b/new/name.js', 'similarity index 100%', 'rename from old/name.js', 'rename to new/name.js'].join('\n');
+    const cut = S.splitDiffBySlice(diff(section('a.js'), rename), [{ id: 's1', paths: ['old/name.js'] }, { id: 's2', paths: ['new/name.js', 'a.js'] }, { id: 's3', paths: ['a.js'] }]);
+    expect(cut.map((entry) => entry.missing)).toEqual([[], [], []]);
+    expect(textOf(cut, 's1')).toBe(diff(rename));
+    expect(textOf(cut, 's2')).toBe(diff(section('a.js'), rename));
+    expect(textOf(cut, 's3')).toBe(diff(section('a.js')));
+  });
+
+  test('a renamed file\'s header is not read as ONE name: only its rename lines name it, so a prefix of a name is not placed by it', () => {
+    // `a/dir/aa.js b/x/bb.js` is 21 characters after `diff --git `: read as one name repeated it would be the 8 characters `dir/aa.j`
+    const shorter = ['diff --git a/dir/aa.js b/x/bb.js', 'similarity index 90%', 'rename from dir/aa.js', 'rename to x/bb.js', 'index 1111111..2222222 100644', '--- a/dir/aa.js', '+++ b/x/bb.js', '@@ -1 +1 @@', '-x', '+y'].join('\n');
+    // and the other way round: `a/a.js b/src/b.js` read as one name repeated would be `a.js b`
+    const longer = ['diff --git a/a.js b/src/b.js', 'similarity index 90%', 'rename from a.js', 'rename to src/b.js'].join('\n');
+    const cut = S.splitDiffBySlice(diff(shorter, longer), [{ id: 's1', paths: ['dir/aa.j'] }, { id: 's2', paths: ['a.js b'] }, { id: 's3', paths: ['dir/aa.js', 'src/b.js'] }]);
+    expect(cut[0]).toEqual({ id: 's1', text: '', missing: ['dir/aa.j'] });
+    expect(cut[1]).toEqual({ id: 's2', text: '', missing: ['a.js b'] });
+    expect(cut[2]).toEqual({ id: 's3', text: diff(shorter, longer), missing: [] });
+  });
+
+  test('binary and mode-only sections have a header and no hunk, and are placed all the same', () => {
+    const binary = ['diff --git a/img.png b/img.png', 'index 1111111..2222222 100644', 'Binary files a/img.png and b/img.png differ'].join('\n');
+    const mode = ['diff --git a/run.sh b/run.sh', 'old mode 100644', 'new mode 100755'].join('\n');
+    const cut = S.splitDiffBySlice(diff(binary, mode), [{ id: 's1', paths: ['img.png', 'run.sh'] }]);
+    expect(cut[0].missing).toEqual([]);
+    expect(cut[0].text).toBe(diff(binary, mode));
+  });
+
+  test('a hunk line that reads like a header never starts a section: an added "diff --git" line is content', () => {
+    const body = ['@@ -1,1 +1,3 @@', ' keep', '+diff --git a/z.js b/z.js', '+rename from nowhere'];
+    const cut = S.splitDiffBySlice(diff(section('a.js', body), section('b.js')), [{ id: 's1', paths: ['a.js'] }, { id: 's2', paths: ['z.js'] }]);
+    expect(cut[0].missing).toEqual([]);
+    expect(textOf(cut, 's1')).toBe(diff(section('a.js', body)));
+    expect(cut[1].missing).toEqual(['z.js']);
+  });
+
+  test('every section of the diff is in some slice that holds its path, none is lost or cut: the slices put back together hold the whole diff', () => {
+    const files = ['a.js', 'b.js', 'c.js', 'd.js', 'e.js'];
+    const text = diff(...files.map((file) => section(file)));
+    const cut = S.splitDiffBySlice(text, [{ id: 's1', paths: ['a.js', 'b.js'] }, { id: 's2', paths: ['c.js'] }, { id: 's3', paths: ['d.js', 'e.js'] }]);
+    expect(cut.map((entry) => entry.text).join('')).toBe(text);
+  });
+
+  test('an empty diff, a diff with no header and an empty slice list: nothing placed, nothing thrown', () => {
+    expect(S.splitDiffBySlice('', [{ id: 's1', paths: ['a.js'] }])).toEqual([{ id: 's1', text: '', missing: ['a.js'] }]);
+    expect(S.splitDiffBySlice('not a diff\n', [{ id: 's1', paths: ['a.js'] }])[0].missing).toEqual(['a.js']);
+    expect(S.splitDiffBySlice(diff(section('a.js')), [])).toEqual([]);
+  });
+
+  test('something that is not a diff text or not a slice list is null, never a guess', () => {
+    expect(S.splitDiffBySlice(null, [])).toBeNull();
+    expect(S.splitDiffBySlice(undefined, [])).toBeNull();
+    expect(S.splitDiffBySlice('', 'slices')).toBeNull();
+  });
+
+  test('against REAL git output: a modified file, a rename, a file with a space and a non-ASCII name are all placed (numstat --no-renames lists a rename twice)', () => {
+    const git = (cwd, ...args) => spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.invalid', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.invalid' } });
+    fs.mkdirSync(SCRATCH, { recursive: true });
+    const root = fs.mkdtempSync(path.join(SCRATCH, 'git-'));
+    roots.push(root);
+    const put = (file, text) => {
+      fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      fs.writeFileSync(path.join(root, file), text);
+    };
+    const lines = (prefix, n) => `${Array.from({ length: n }, (_, i) => `${prefix} line ${i + 1}`).join('\n')}\n`;
+    expect(git(root, 'init', '-q', '-b', 'main').status).toBe(0);
+    put('src/keep.js', lines('keep', 12));
+    put('src/old-name.js', lines('moving', 30));
+    put('my dir/file name.js', lines('spaced', 12));
+    put('café.js', lines('accent', 12));
+    expect(git(root, 'add', '-A').status).toBe(0);
+    expect(git(root, 'commit', '-q', '-m', 'base').status).toBe(0);
+    const base = git(root, 'rev-parse', 'HEAD').stdout.trim();
+    put('src/keep.js', `${lines('keep', 12)}added\n`);
+    fs.renameSync(path.join(root, 'src', 'old-name.js'), path.join(root, 'src', 'new-name.js'));
+    put('my dir/file name.js', `${lines('spaced', 12)}added\n`);
+    put('café.js', `${lines('accent', 12)}added\n`);
+    expect(git(root, 'add', '-A').status).toBe(0);
+    expect(git(root, 'commit', '-q', '-m', 'change').status).toBe(0);
+    const head = git(root, 'rev-parse', 'HEAD').stdout.trim();
+
+    // exactly the flags prepare uses for range.diff, and the listing it uses for the paths
+    const text = git(root, 'diff', '--no-ext-diff', '--no-textconv', '--no-color', '--unified=3', '--src-prefix=a/', '--dst-prefix=b/', `${base}...${head}`).stdout;
+    const listed = git(root, 'diff', '--numstat', '-z', '--no-renames', `${base}...${head}`).stdout.split('\0').filter(Boolean).map((record) => record.split('\t').slice(2).join('\t'));
+    expect(listed.sort()).toEqual(['café.js', 'my dir/file name.js', 'src/keep.js', 'src/new-name.js', 'src/old-name.js']);
+    expect(text).toMatch(/rename from src\/old-name\.js/); // git did see a rename, so the diff holds ONE section for two listed paths
+    const cut = S.splitDiffBySlice(text, [{ id: 's1', paths: ['src/keep.js', 'src/old-name.js'] }, { id: 's2', paths: ['src/new-name.js', 'my dir/file name.js', 'café.js'] }]);
+    expect(cut.map((entry) => entry.missing)).toEqual([[], []]);
+    expect(textOf(cut, 's1')).toContain('diff --git a/src/keep.js b/src/keep.js');
+    expect(textOf(cut, 's1')).toContain('rename from src/old-name.js');
+    expect(textOf(cut, 's2')).toContain('diff --git a/my dir/file name.js b/my dir/file name.js');
+    expect(textOf(cut, 's2')).toContain('rename to src/new-name.js');
+    expect(textOf(cut, 's2')).not.toContain('src/keep.js');
   });
 });

@@ -294,6 +294,18 @@ const ROLES = Object.freeze({
       snapshotDir: FILE_PATH,
     }),
   }),
+  // the whole-range reader of a light run cut into several slices (`lib/pr-review-run.js`): the same rules as `reviewer`, framed for the
+  // whole range (no slice id: its scope is every changed path)
+  'range-reviewer': Object.freeze({
+    template: 'range-reviewer-brief.md',
+    inputs: Object.freeze({
+      lens: LENS,
+      timeboxMinutes: MINUTES,
+      paths: PATHS,
+      diffPath: FILE_PATH,
+      snapshotDir: FILE_PATH,
+    }),
+  }),
   verifier: Object.freeze({
     template: 'verifier-brief.md',
     inputs: Object.freeze({

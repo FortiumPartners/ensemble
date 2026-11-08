@@ -440,6 +440,7 @@ const STATUS_FILES = [
   'lib/pr-review-status.js',
   'lib/pr-review-scope.js',
   'lib/pr-review-policy.js',
+  'lib/pr-review-sizing.js', // required by pr-review-policy.js since kata sfpb
   'lib/pr-review-ci-tests.js',
   'lib/pr-review-remote.js',
   'tests/pr-review-status.test.js',

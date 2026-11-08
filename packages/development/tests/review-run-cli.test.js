@@ -25,7 +25,10 @@ const CLI = path.join(__dirname, '..', 'lib', 'review-run-cli.js');
 const PR_REVIEW_CLI = path.join(__dirname, '..', 'lib', 'pr-review-cli.js');
 const FIXTURES = path.join(os.homedir(), '.omp', 'pr-review-speedup', 'znd1', 'fixtures');
 const BODY = '## Testing\nran the relevant tests\n\n## Risk\nlow\n\n## How to revert\nrevert the commit\n';
-const POLICY = '# Review\n\n```ensemble-review-policy\n{"sensitivePaths":["secure/**"]}\n```\n';
+const POLICY = '# Review\n\n```ensemble-review-policy\n{"sensitivePaths":["secure/**"],"highPaths":["wide/**"]}\n```\n';
+/** The changed lines of the 19 paths of the one real full-mode run (PR 271), in path order: the `wide` branch adds one new file of each size (kata sfpb). */
+const WIDE_LINES = [1, 127, 1, 159, 1, 145, 12, 8, 76, 125, 355, 38, 1, 8, 76, 159, 1, 145, 12];
+const widePath = (index) => `wide/a${String(index + 1).padStart(2, '0')}.js`;
 
 const GH_STUB = `#!/usr/bin/env node
 const fs = require('fs');
@@ -88,6 +91,18 @@ function buildFixture() {
   git(work, 'add', '.');
   git(work, 'commit', '-q', '-m', 'touch a sensitive path');
   git(work, 'checkout', '-q', 'main');
+  // a High PR of the shape of the one real full-mode run: 19 new files holding 1450 changed lines between them (kata sfpb)
+  git(work, 'checkout', '-q', '-b', 'wide');
+  WIDE_LINES.forEach((count, index) => write(work, widePath(index), `${Array.from({ length: count }, (_, line) => `// line ${line + 1}`).join('\n')}\n`));
+  git(work, 'add', '.');
+  git(work, 'commit', '-q', '-m', 'a wide High PR');
+  git(work, 'checkout', '-q', 'main');
+  // the same shape as a MEDIUM PR: 19 files under a path no policy declares, so the run is light (kata sfpb, review round 2)
+  git(work, 'checkout', '-q', '-b', 'medwide');
+  WIDE_LINES.forEach((count, index) => write(work, widePath(index).replace(/^wide\//, 'med/'), `${Array.from({ length: count }, (_, line) => `// line ${line + 1}`).join('\n')}\n`));
+  git(work, 'add', '.');
+  git(work, 'commit', '-q', '-m', 'a wide Medium PR');
+  git(work, 'checkout', '-q', 'main');
   git(work, 'checkout', '-q', '-b', 'feature');
   write(work, 'src/a.js', 'module.exports = (list) => list.map((x, i) => list[i + 1] + x);\n');
   write(work, 'src/b.js', 'module.exports = () => 1;\n');
@@ -108,7 +123,7 @@ function buildFixture() {
   git(work, 'checkout', '-q', 'feature');
   // the review state is gitignored in real repositories; the fixture does the same so `git status` can be exact
   fs.appendFileSync(path.join(work, '.git', 'info', 'exclude'), '.ensemble/\n');
-  return { root, origin, work, bin, marker, head: git(work, 'rev-parse', 'feature'), high: git(work, 'rev-parse', 'high'), exec: git(work, 'rev-parse', 'exec'), link: git(work, 'rev-parse', 'link'), stateFile: path.join(root, 'gh-state.json'), logFile: path.join(root, 'gh.log') };
+  return { root, origin, work, bin, marker, head: git(work, 'rev-parse', 'feature'), high: git(work, 'rev-parse', 'high'), wide: git(work, 'rev-parse', 'wide'), medwide: git(work, 'rev-parse', 'medwide'), exec: git(work, 'rev-parse', 'exec'), link: git(work, 'rev-parse', 'link'), stateFile: path.join(root, 'gh-state.json'), logFile: path.join(root, 'gh.log') };
 }
 
 beforeAll(() => {
@@ -154,10 +169,10 @@ const writeResult = (agent, object) => {
 const reviewerFinding = (over = {}) => ({ locationOrLink: 'src/a.js:1', severity: 'important', failureMode: 'list[i + 1] reads one past the end on the last element', disposition: 'fix', evidence: 'src/a.js line 1 indexes list[list.length]', originalTextOrLink: 'src/a.js:1', ...over });
 
 /** Answers a review manifest as real agents would: every reviewer covers its paths, the lane covers every changed path. */
-function answerReview(manifest, { findings = {}, skip = [], changed = ['src/a.js', 'src/b.js'] } = {}) {
+function answerReview(manifest, { findings = {}, skip = [], changed = ['src/a.js', 'src/b.js'], partial = {} } = {}) {
   for (const agent of manifest.agents) {
     if (skip.includes(agent.name)) continue;
-    if (agent.role === 'reviewer') writeResult(agent, { findings: findings[agent.name] || [], pathsReviewed: agent.paths });
+    if (agent.role === 'reviewer') writeResult(agent, { findings: findings[agent.name] || [], pathsReviewed: partial[agent.name] || agent.paths });
     else writeResult(agent, { findings: findings[agent.name] || [], pathsReviewed: changed });
   }
 }
@@ -408,6 +423,125 @@ describe('the real CLI process on a real git fixture', () => {
     expect(done.out.ledger.map((e) => e.source)).toEqual(['reviewer-s1-a', 'orchestrator']);
     expect(JSON.parse(fs.readFileSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), 'utf8'))).toMatchObject({ mode: 'full' });
     process.stderr.write(`\nSMOKE full-mode: ${JSON.stringify({ wallMs: done.out.metrics.wallMs, orchestratorTurns: done.out.metrics.orchestratorTurns.atLeast, triageCalls: done.out.metrics.triageCalls, agents: done.out.metrics.agentsByRole })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
+  test('a High PR of the real full-mode run\'s shape (19 paths, 1450 changed lines) through the real process: three slices in one wave, a diff per slice cut from real git output, the lane given 36 minutes (kata sfpb)', () => {
+    setGh({ head: fx.wide });
+    fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+    const before = snapshotRepo();
+    const r = prep({ runId: 'wide' });
+    expect(r.code).toBe(0);
+    const m = r.out;
+    expect(m).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review', wave: '1 of 1', mode: { mode: 'full' }, depth: { mode: 'deep' }, maxConcurrentAgents: 8 });
+    expect(m.mode.reasons).toContain('high-path');
+    // the plan: three slices inside the limits, the whole round (six reviewers and the lane) in ONE wave
+    expect(m.sizing.work).toEqual({ files: 19, lines: 1450 });
+    expect(m.sizing.limits).toEqual({ sliceMaxFiles: 8, sliceTargetLines: 612, slicesAllowed: 3, slicesWanted: 3 });
+    expect(m.sizing.slices.map((slice) => [slice.files, slice.lines, slice.overLimit, slice.diff])).toEqual([[8, 454, false, 'slice'], [3, 556, false, 'slice'], [8, 440, false, 'slice']]);
+    expect(m.sizing.warnings).toEqual([]);
+    const reviewers = m.agents.filter((a) => a.role === 'reviewer');
+    expect(reviewers.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b']);
+    for (const a of reviewers) expect(a).toMatchObject({ deadlineMinutes: 15 });
+    // the deadlines: 15 minutes for a slice the model says fits, 36 for the lane that took 17m45s on the run this is the shape of
+    const lane = m.agents.find((a) => a.role === 'security');
+    expect(lane).toMatchObject({ deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
+    expect((lane.deadlineAt - lane.dispatchedAt) / 60000).toBe(36);
+    expect(lane.deadlineAt - lane.dispatchedAt).toBeGreaterThanOrEqual(17.75 * 60000 * 2);
+    // each reviewer's brief names the diff of its slice, cut from the REAL `git diff`: the sections of its own paths and no one else's
+    const sections = (text) => text.split('\n').filter((line) => line.startsWith('diff --git ')).map((line) => line.slice('diff --git a/'.length).split(' b/')[0]);
+    for (const a of reviewers) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      const diffPath = /Diff for your slice: (\S+)/.exec(brief)[1];
+      expect(diffPath).toMatch(/\/slices\/slice-[123]\.diff$/);
+      expect(sections(fs.readFileSync(diffPath, 'utf8'))).toEqual(a.paths);
+      expect(brief).toContain('Timebox: 15 minutes');
+    }
+    const rangeDiff = /Diff: (\S+)/.exec(fs.readFileSync(lane.briefPath, 'utf8'))[1];
+    expect(path.basename(rangeDiff)).toBe('range.diff');
+    expect(sections(fs.readFileSync(rangeDiff, 'utf8'))).toHaveLength(19);
+    // stand-in agents: every reviewer lists every path of its slice and the lane lists all 19, so nothing is left unreviewed
+    answerReview(m, { changed: WIDE_LINES.map((_, index) => widePath(index)) });
+    expect(coll('wide').out).toMatchObject({ ok: true, status: 'TRIAGE', security: { status: 'clean' }, coverage: { complete: true, unreviewedSlices: [], uncovered: [] } });
+    process.stderr.write(`\nSMOKE sizing (the real run's shape): ${JSON.stringify({ wave: m.wave, agents: m.agents.length, limits: m.sizing.limits, slices: m.sizing.slices.map((slice) => ({ id: slice.id, files: slice.files, lines: slice.lines, diff: slice.diff })), deadlineMinutes: Object.fromEntries(m.agents.map((a) => [a.name, a.deadlineMinutes])) })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
+  test('a High PR of the real run\'s shape (three slices) whose reviewer raises a candidate the verifier brief refuses: through the real process it ends DONE with that candidate UNVERIFIED (unbriefable), and every slice still carries its sized deadline (kata sfpb with kata 0g9n)', () => {
+    setGh({ head: fx.wide });
+    fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+    const before = snapshotRepo();
+    const r = prep({ runId: 'wide-refused' });
+    expect(r.code).toBe(0);
+    const m = r.out;
+    expect(m).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review', wave: '1 of 1', mode: { mode: 'full' } });
+    expect(m.sizing.slices.map((slice) => [slice.files, slice.diff])).toEqual([[8, 'slice'], [3, 'slice'], [8, 'slice']]);
+    const sized = { 'reviewer-s1-a': 15, 'reviewer-s1-b': 15, 'reviewer-s2-a': 15, 'reviewer-s2-b': 15, 'reviewer-s3-a': 15, 'reviewer-s3-b': 15, 'security-lane': 36 };
+    expect(Object.fromEntries(m.agents.map((a) => [a.name, a.deadlineMinutes]))).toEqual(sized);
+    const changed = WIDE_LINES.map((_, index) => widePath(index));
+    const KEY = 'compares the submitted key with the stored value using a loose equality so a type juggled key passes the check';
+    // the reviewer of the SECOND slice (its 355-line file) raises a defect in its own slice whose wording the verifier brief refuses
+    answerReview(m, { changed, findings: { 'reviewer-s2-a': [reviewerFinding({ locationOrLink: `${widePath(10)}:1`, originalTextOrLink: `${widePath(10)}:1`, failureMode: `the orchestrator ${KEY}` })] } });
+    const triage = coll('wide-refused');
+    expect(triage.code).toBe(0);
+    expect(triage.out).toMatchObject({ ok: true, status: 'TRIAGE', security: { status: 'clean' }, coverage: { complete: true, unreviewedSlices: [], uncovered: [] } });
+    expect(triage.out.candidates.map((c) => [c.id, c.unbriefable && c.unbriefable.kind])).toEqual([['f1', 'leak']]);
+    expect(triage.out.slices.map((slice) => slice.paths.length)).toEqual([8, 3, 8]);
+    const done = coll('wide-refused', { triage: {} });
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', mode: { mode: 'full' }, votes: { reason: 'unbriefable-candidates' } });
+    expect(done.out.notReviewed.unbriefable.map((u) => [u.id, u.kind])).toEqual([['f1', 'leak']]);
+    expect(done.out.votes.outcomes.map((o) => [o.id, o.outcome, o.reason])).toEqual([['f1', 'unverified', 'unbriefable']]);
+    expect(done.out.reducedReview).toMatch(/verification not-performed: unbriefable-candidates/);
+    expect(done.out.reducedReview).toMatch(/UNVERIFIED, no verifier was asked [^\n]*: f1 \(leak, claim\)/);
+    expect(done.out.reducedReview).toMatch(/cross-slice: 3 of 3 slices were each reviewed on their own slice's diff/);
+    // the sized plan survived the unbriefable record: the same deadlines and slice diffs in the stored run, and no verify wave (nothing a verifier can be briefed with)
+    const run = JSON.parse(fs.readFileSync(path.join(runDir('wide-refused'), 'run.json'), 'utf8'));
+    expect(Object.fromEntries(run.waves[0].agents.map((a) => [a.name, a.deadlineMinutes]))).toEqual(sized);
+    expect(run.sizing.slices.map((slice) => slice.diff)).toEqual(['slice', 'slice', 'slice']);
+    expect(run.waves.map((wave) => wave.round)).toEqual(['review']);
+    process.stderr.write(`\nSMOKE sized+refused: ${JSON.stringify({ deadlines: sized, outcomes: done.out.votes.outcomes.map((o) => `${o.id}:${o.outcome}:${o.reason}`), verification: done.out.votes.verification })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
+  test('a MEDIUM PR of the real run\'s shape through the real process (light mode, three slices): ONE whole-range reader joins the slice reviewers and the lane in the one wave; a path it does not list leaves ITS read not reviewed while the slices stay reviewed; pr-review-cli timing stays ok (kata sfpb, review round 2)', () => {
+    setGh({ head: fx.medwide });
+    fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+    const before = snapshotRepo();
+    const r = prep({ runId: 'medwide' });
+    expect(r.code).toBe(0);
+    const m = r.out;
+    expect(m).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review', wave: '1 of 1', mode: { mode: 'light' }, depth: { mode: 'standard' }, maxConcurrentAgents: 8 });
+    expect(m.sizing.slices.map((slice) => [slice.files, slice.lines, slice.diff])).toEqual([[8, 454, 'slice'], [3, 556, 'slice'], [8, 440, 'slice']]);
+    expect(m.sizing.wholeRangeReader).toBe(true);
+    expect(m.agents.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b', 'reviewer-range', 'security-lane']);
+    const range = m.agents.find((a) => a.name === 'reviewer-range');
+    expect(range).toMatchObject({ role: 'reviewer', deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
+    // its brief hands it the WHOLE range diff (a real git diff of all 19 files) and its deadline is the whole diff's
+    const rangeBrief = fs.readFileSync(range.briefPath, 'utf8');
+    expect(rangeBrief).toMatch(/^You are reviewing the whole of a pull request/); // its own brief: it reads the whole range, not a slice
+    expect(rangeBrief).not.toMatch(/You are reviewing one slice|Your slice:/);
+    const rangeDiff = /Diff for the whole range: (\S+)/.exec(rangeBrief)[1];
+    expect(path.basename(rangeDiff)).toBe('range.diff');
+    expect(fs.readFileSync(rangeDiff, 'utf8').split('\n').filter((line) => line.startsWith('diff --git '))).toHaveLength(19);
+    // stand-in agents: the slice reviewers and the lane list everything; the whole-range reader stops after four paths
+    const medPaths = WIDE_LINES.map((_, index) => widePath(index).replace(/^wide\//, 'med/'));
+    answerReview(m, { changed: medPaths, partial: { 'reviewer-range': medPaths.slice(0, 4) } });
+    const done = coll('medwide');
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', mode: { mode: 'light' }, security: { status: 'clean' } });
+    expect(done.out.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+    expect(done.out.notReviewed.unreviewedPaths).toEqual([]);
+    expect(done.out.coverage.complete).toBe(false);
+    expect(done.out.reducedReview).toMatch(/^NOT REVIEWED: whole-range read$/m);
+    expect(done.out.reducedReview).toMatch(/whole-range read NOT REVIEWED \(reviewer-range: paths-not-reviewed; paths it did not list: med\/a05\.js/);
+    // timing: ok, all eight agents counted, the reader is one more reviewer span in the same wave
+    const t = spawnSync(process.execPath, [PR_REVIEW_CLI, 'timing'], { input: JSON.stringify({ runId: 'medwide', cwd: fx.work }), env: cliEnv(), encoding: 'utf8', cwd: fx.root });
+    expect(t.status).toBe(0);
+    const timing = JSON.parse(t.stdout);
+    expect(timing.ok).toBe(true);
+    expect(timing.agents).toMatchObject({ count: 8, unusable: [], byRole: { reviewer: { count: 7 }, 'security-lane': { count: 1 } } });
+    process.stderr.write(`\nSMOKE medium-wide: ${JSON.stringify({ agents: m.agents.map((a) => `${a.name}:${a.deadlineMinutes}`), notReviewed: done.out.notReviewed.unreviewedSlices })}\n`);
     expect(snapshotRepo()).toEqual(before);
   });
 

@@ -92,7 +92,7 @@
  * `pr-review-brief-files.js`); it refuses -- exit 1, an `error` -- an unknown
  * role, a missing or undeclared input and, for a verifier, anything but the
  * claim, its cited `file:line`, the path list and the snapshot directory:
- *   brief            { role: reviewer|verifier|classifier|second-assessor|security-lane,
+ *   brief            { role: reviewer|range-reviewer|verifier|classifier|second-assessor|security-lane,
  *                      vars: { ...the inputs that role declares } }
  *                    -> { ok: true, role, brief }
  *

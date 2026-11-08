@@ -376,12 +376,15 @@ function areaFor(path, areas) {
 const byPath = (a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
 const sumLines = (entries) => entries.reduce((sum, entry) => sum + entry.lines, 0);
 
-/** Contiguous runs of `entries` (already in path order), none over `limit` lines unless one entry alone is. */
-function greedyChunks(entries, limit) {
+/**
+ * Contiguous runs of `entries` (already in path order), none over `limit` lines and none holding more than `maxFiles`
+ * entries, unless one entry alone is over the line limit (a path is never cut).
+ */
+function greedyChunks(entries, limit, maxFiles = Infinity) {
   const chunks = [];
   let current = null;
   for (const entry of entries) {
-    if (current === null || current.lines + entry.lines > limit) {
+    if (current === null || current.lines + entry.lines > limit || current.entries.length >= maxFiles) {
       current = { entries: [], lines: 0 };
       chunks.push(current);
     }
@@ -394,26 +397,28 @@ function greedyChunks(entries, limit) {
 /**
  * `entries` cut into at most `count` contiguous runs, as even as contiguity allows: the smallest line limit that
  * still fits in `count` runs. Contiguous in path order, so a chunk is a set of neighbouring files a reviewer can
- * hold in mind, not a scatter that balances line counts.
+ * hold in mind, not a scatter that balances line counts. A `maxFiles` limit that `count` runs cannot honour (the slice
+ * ceiling binds) is dropped, and the runs are balanced by lines alone: the count wins, because it is the number of agents.
  */
-function balancedChunks(entries, count) {
+function balancedChunks(entries, count, maxFiles = Infinity) {
+  const files = Math.ceil(entries.length / maxFiles) <= count ? maxFiles : Infinity;
   let low = entries.reduce((max, entry) => Math.max(max, entry.lines), 0);
   let high = sumLines(entries);
   while (low < high) {
     const mid = Math.floor((low + high) / 2);
-    if (greedyChunks(entries, mid).length <= count) high = mid;
+    if (greedyChunks(entries, mid, files).length <= count) high = mid;
     else low = mid + 1;
   }
-  return greedyChunks(entries, low);
+  return greedyChunks(entries, low, files);
 }
 
 /**
  * Cuts the base slices (one per area, or the whole PR) by size: every base is split into runs of about
- * `targetLines`, and the total is held to `maxSlices` by merging the smallest bases once there are too many and by
- * coarsening the cheapest splits first. A path is never cut (one huge file stays one slice's whole), and every path
- * stays in exactly one slice.
+ * `targetLines` (and of at most `maxFiles` paths), and the total is held to `maxSlices` by merging the smallest bases
+ * once there are too many and by coarsening the cheapest splits first. A path is never cut (one huge file stays one
+ * slice's whole), and every path stays in exactly one slice.
  */
-function sizeSplit(bases, targetLines, maxSlices) {
+function sizeSplit(bases, targetLines, maxSlices, maxFiles = Infinity) {
   let groups = bases.map((base) => ({ ...base, merged: false }));
   while (groups.length > maxSlices) {
     groups.sort((a, b) => a.lines - b.lines || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -427,7 +432,7 @@ function sizeSplit(bases, targetLines, maxSlices) {
   let mergedCount = 0;
   for (const group of groups) if (group.merged) group.id = `mixed~${(mergedCount += 1)}`;
 
-  const counts = groups.map((group) => (group.entries.length === 0 ? 1 : greedyChunks(group.entries, targetLines).length));
+  const counts = groups.map((group) => (group.entries.length === 0 ? 1 : greedyChunks(group.entries, targetLines, maxFiles).length));
   let total = counts.reduce((sum, count) => sum + count, 0);
   while (total > maxSlices) {
     let pick = -1;
@@ -445,7 +450,7 @@ function sizeSplit(bases, targetLines, maxSlices) {
 
   const slices = [];
   groups.forEach((group, index) => {
-    const chunks = counts[index] === 1 ? [{ entries: group.entries, lines: group.lines }] : balancedChunks(group.entries, counts[index]);
+    const chunks = counts[index] === 1 ? [{ entries: group.entries, lines: group.lines }] : balancedChunks(group.entries, counts[index], maxFiles);
     chunks.forEach((chunk, position) => {
       slices.push({
         id: chunks.length === 1 ? group.id : `${group.id}~${position + 1}`,
@@ -500,6 +505,10 @@ function assignReviewers(slices, lenses, perSlice, quick) {
  * @param {number} [input.threshold]  Changed lines above which the PR is sliced by area; defaults to 1500. Ignored at
  *   Quick.
  * @param {number} [input.targetLines]  Lines per slice to aim for; absent means no size-driven split. Ignored at Quick.
+ * @param {number} [input.maxFiles]   Most paths one slice of a size-driven split may hold: a slice is closed once it holds
+ *   that many, however few lines they are (a reviewer must reach every path, and each path costs at least a read). Like
+ *   `maxSlices` it applies ONLY together with `targetLines`, and it gives way to `maxSlices`: when the slice ceiling cannot
+ *   hold every path at that many to a slice, the slices are balanced by lines alone (the number of agents wins). Ignored at Quick.
  * @param {number} [input.maxSlices]  Most slices a size-driven split may produce (default 4 once `targetLines` is
  *   given); smaller bases are merged into `mixed~N` slices to hold it. It applies ONLY together with `targetLines`:
  *   without one the slices are one per area above the threshold, with no cap, and each is read under at least two
@@ -562,6 +571,12 @@ function planSlices(input) {
     targetLines = readPositive(input.targetLines);
     if (targetLines === null) warnings.push('invalid-target-lines');
   }
+  let maxFiles = Infinity;
+  if (input.maxFiles !== undefined) {
+    const read = readPositive(input.maxFiles);
+    if (read === null) warnings.push('invalid-max-files');
+    else maxFiles = read;
+  }
   let maxSlices = DEFAULT_MAX_SLICES;
   if (input.maxSlices !== undefined) {
     const read = readPositive(input.maxSlices);
@@ -593,7 +608,7 @@ function planSlices(input) {
 
   let slices;
   if (targetLines !== null && !quick) {
-    slices = sizeSplit(bases, targetLines, maxSlices);
+    slices = sizeSplit(bases, targetLines, maxSlices, maxFiles);
   } else {
     slices = bases.map((base) => ({ id: base.id, area: base.area, paths: base.entries.map((entry) => entry.path), lines: base.lines }));
   }
