@@ -19,6 +19,7 @@ const { prepareRun, collectRun, PREPARE_KEYS, COLLECT_KEYS } = require('../lib/p
 const S = require('../lib/pr-review-run-support');
 const { collectResults } = require('../lib/pr-review-results');
 const { renderBriefFromFiles } = require('../lib/pr-review-brief-files');
+const { claimRules } = require('../lib/pr-review-briefs');
 const { classifyPaths } = require('../lib/pr-review-paths');
 const { loadPolicy } = require('../lib/pr-review-policy');
 const { realFs, headFile } = require('../lib/review-run-cli');
@@ -579,6 +580,105 @@ describe('full mode (kata dqcs): the same runner, with Deep depth, the security 
       expect(triage).toMatchObject({ status: 'TRIAGE', candidates: [] });
       const done = await h.collect({ triage: {} });
       expect(done).toMatchObject({ status: 'DONE', mode: { mode: 'full' }, ledger: [] });
+    });
+
+    // kata 0g9n: a reviewer's candidate the verifier brief refuses cannot be reworded by anyone in this run, so TRIAGE says it will
+    // not be verified, and the one lever the orchestrator has (it may ADD a candidate) works: an entry that restates it is not a
+    // duplicate of anything a verifier will check, so it is kept and verified, and the refused candidate stays as it was.
+    describe('a reviewer candidate the verifier brief refuses (kata 0g9n)', () => {
+      const KEY_TEXT = 'compares the submitted key with the stored value using a loose equality so a type juggled key passes the check';
+      const LEAKY_KEY = `the orchestrator ${KEY_TEXT}`;
+      const OTHER = 'a second unrelated defect in the retry loop of the client library leaks a handle on every timeout';
+      const raised = (n) => {
+        if (n === 'reviewer-s1-a') return [keyFinding({ failureMode: LEAKY_KEY })];
+        if (n === 'reviewer-s1-b') return [keyFinding({ locationOrLink: 'secure/key.js:20', originalTextOrLink: 'secure/key.js:20', failureMode: OTHER })];
+        return [];
+      };
+      const restated = { locationOrLink: 'secure/key.js:3', failureMode: `the submitted key is ${KEY_TEXT.replace('compares the submitted key', 'compared')}` };
+
+      test('TRIAGE marks it (kind, input, the renderer\'s reason), leaves the verifiable one unmarked and says how its defect can still get an independent check', async () => {
+        const h = sensitive();
+        const { triage } = await toTriage(h, { findingsFor: raised });
+        expect(triage.candidates.map((c) => [c.id, c.source])).toEqual([['f1', 'reviewer-s1-a'], ['f2', 'reviewer-s1-b']]);
+        expect(triage.candidates[0].unbriefable).toEqual({ kind: 'leak', input: 'claim', reason: expect.stringContaining('reads as the orchestrator') });
+        expect(triage.candidates[0].failureMode).toBe(LEAKY_KEY); // shown as written: the orchestrator is not a verifier
+        expect(triage.candidates[1]).not.toHaveProperty('unbriefable');
+        expect(triage.rules.join(' ')).toMatch(/marked `unbriefable`[^]*will NOT be put to any verifier[^]*You cannot reword or remove it[^]*ADD a candidate for it/);
+        // asking again repeats the same answer and decides nothing
+        expect((await h.collect()).candidates[0].unbriefable).toMatchObject({ kind: 'leak' });
+        expect(h.readRun().phase).toBe('triage');
+      });
+
+      test('an entry that restates it is kept and verified by five verifiers; the refused candidate and the other one stay exactly as they were', async () => {
+        const h = sensitive();
+        await toTriage(h, { findingsFor: raised });
+        const before = h.readRun().candidates;
+        const verify = await h.collect({ triage: { additionalCandidates: [restated] } });
+        expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+        const run = h.readRun();
+        expect(run.candidates.map((c) => [c.id, c.source])).toEqual([['f1', 'reviewer-s1-a'], ['f2', 'reviewer-s1-b'], ['f3', 'orchestrator']]);
+        expect(run.candidates.slice(0, 2)).toEqual(before); // triage still only ADDS
+        expect(run.triage).toMatchObject({ requested: 1, additionalCandidateIds: ['f3'], mergedIntoExisting: 0 });
+        const asked = new Map();
+        for (const a of verify.agents) for (const id of a.candidateIds) asked.set(id, [...(asked.get(id) || []), a.name]);
+        expect([...asked.keys()].sort()).toEqual(['f2', 'f3']);
+        for (const names of asked.values()) expect(new Set(names).size).toBe(5);
+        for (const a of verify.agents) {
+          const brief = fs.readFileSync(a.briefPath, 'utf8');
+          expect(brief).toContain('type juggled');
+          expect(brief).not.toContain(LEAKY_KEY); // the refused claim reaches no verifier, and nor does its word
+          expect(brief).not.toMatch(/orchestrator/i);
+        }
+        voteAll(verify, () => 'real');
+        const done = await h.collect();
+        const byId = new Map(done.ledger.map((e) => [e.id, e]));
+        expect(byId.get('f1').verification).toMatchObject({ outcome: 'unverified', reason: 'unbriefable', tally: null, assigned: [] });
+        expect(byId.get('f2').verification).toMatchObject({ outcome: 'present' });
+        expect(byId.get('f3')).toMatchObject({ source: 'orchestrator', verification: { outcome: 'present', tally: { real: 5, expected: 5 } } });
+        expect(done.notReviewed.unbriefable.map((u) => u.id)).toEqual(['f1']);
+        expect(done.votes).toMatchObject({ verification: 'partial', reason: 'unbriefable-candidates' });
+      });
+
+      test('an entry that restates a candidate a verifier WILL check is still dropped: only a refused candidate stops being a duplicate target', async () => {
+        const h = sensitive();
+        // f1 is refused; f2 and f3 are not, and the entry restates f2 -- in a round of three findings, where the dedupe can tell the
+        // defect from the topic the round shares
+        await toTriage(h, {
+          findingsFor: (n) => {
+            if (n === 'reviewer-s1-a') return [keyFinding({ locationOrLink: 'secure/key.js:10', originalTextOrLink: 'secure/key.js:10', failureMode: 'the orchestrator ignores a stale entry in the cache after a reload' }), keyFinding({ failureMode: KEY_TEXT.replace('compares', 'the key check compares') })];
+            if (n === 'reviewer-s1-b') return [keyFinding({ locationOrLink: 'secure/key.js:20', originalTextOrLink: 'secure/key.js:20', failureMode: OTHER })];
+            return [];
+          },
+        });
+        const before = h.readRun().candidates;
+        expect(before.map((c) => c.id)).toEqual(['f1', 'f2', 'f3']);
+        const verify = await h.collect({ triage: { additionalCandidates: [restated] } });
+        expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+        const run = h.readRun();
+        expect(run.candidates).toEqual(before);
+        expect(run.triage).toMatchObject({ requested: 1, additionalCandidateIds: [], mergedIntoExisting: 1 });
+      });
+
+      test('an entry that is itself refused still refuses the whole payload, with the renderer\'s reason, and keeps nothing: the restatement must pass the same screen', async () => {
+        const h = sensitive();
+        await toTriage(h, { findingsFor: raised });
+        const before = h.readRun();
+        const refused = await h.collect({ triage: { additionalCandidates: [{ locationOrLink: 'secure/key.js:3', failureMode: LEAKY_KEY }] } });
+        expect(refused).toMatchObject({ ok: false, status: 'RUN_FAILED', reason: 'triage-refused', error: expect.stringMatching(/additionalCandidates\[0\][^]*cannot be briefed to a verifier[^]*reads as the orchestrator/) });
+        expect(h.readRun()).toMatchObject({ phase: 'triage', candidates: before.candidates, triage: before.triage });
+      });
+
+      test('when nothing is added the refused candidate simply stays: verification covers the others, and the run is DONE with it named', async () => {
+        const h = sensitive();
+        await toTriage(h, { findingsFor: raised });
+        const verify = await h.collect({ triage: {} });
+        expect([...new Set(verify.agents.flatMap((a) => a.candidateIds))]).toEqual(['f2']);
+        voteAll(verify, () => 'real');
+        const done = await h.collect();
+        expect(done.status).toBe('DONE');
+        expect(done.notReviewed.unbriefable).toEqual([{ id: 'f1', kind: 'leak', input: 'claim', reason: expect.any(String) }]);
+        expect(done.votes.outcomes.map((o) => [o.id, o.outcome, o.reason])).toEqual([['f1', 'unverified', 'unbriefable'], ['f2', 'present', 'verifier-majority']]);
+      });
     });
 
     const refusals = [
@@ -1702,7 +1802,7 @@ describe('the verify round', () => {
     expect(out.gate.findings.open).toEqual(['f1']);
   });
 
-  test('an unbriefable candidate is KEPT: recorded unbriefable with the reason, unverified, and listed in the result', async () => {
+  test('an unbriefable candidate is KEPT: recorded unbriefable with the reason and its kind, unverified, and listed in the result', async () => {
     const h = harness();
     const m = await toVerify(h, [finding({ failureMode: 'the verdict of the cache is stale after reload' }), finding({ locationOrLink: 'src/a.js:20', failureMode: 'an unrelated defect in the retry loop of the client' })]);
     expect(m.status).toBe('DISPATCH');
@@ -1711,7 +1811,8 @@ describe('the verify round', () => {
     voteAll(m, () => 'real');
     const out = await h.collect();
     expect(out.ledger.map((e) => e.id).sort()).toEqual(['f1', 'f2']);
-    expect(out.notReviewed.unbriefable).toEqual([{ id: 'f1', reason: expect.stringContaining('verdict') }]);
+    // kata 0g9n: the record also says WHY (the renderer's own tag, not parsed from its message) and which input
+    expect(out.notReviewed.unbriefable).toEqual([{ id: 'f1', kind: 'leak', input: 'claim', reason: expect.stringContaining('verdict') }]);
     const kept = out.votes.outcomes.find((o) => o.id === 'f1');
     expect(kept.outcome).toBe('unverified');
     expect(out.notReviewed.unbriefable).toHaveLength(1);
@@ -1773,6 +1874,184 @@ describe('the verify round', () => {
     expect(new Set(names).size).toBe(names.length);
     expect(out.votes.outcomes.every((o) => o.outcome === 'present')).toBe(true);
     expect(out.metrics.dispatchRounds).toBe(2 + total);
+  });
+});
+
+describe('a candidate the verifier brief refuses (kata 0g9n): never verified, never dropped, never read as verified', () => {
+  // Reviewers of review infrastructure write these words about the code; the verifier brief refuses them in a claim (by design:
+  // the claim must be reworded by whoever wrote it), so the candidate cannot be put to a verifier. The REAL renderer is used.
+  const LEAKY = 'the orchestrator never rereads the list after the cache went stale';
+  const leaky = (over = {}) => finding({ failureMode: LEAKY, ...over });
+  const clean = (n) => finding({ locationOrLink: `src/a.js:${n * 10}`, originalTextOrLink: `src/a.js:${n * 10}`, failureMode: `distinct defect number ${n} in a different subsystem ${'x'.repeat(n)}` });
+  const toVerify = async (h, findings) => (await reviewRound(h, { findingsFor: (name) => (name === 'reviewer-s1-a' ? findings : []) })).next;
+  const askedOf = (m) => {
+    const byCandidate = new Map();
+    for (const a of m.agents) for (const id of a.candidateIds) byCandidate.set(id, [...(byCandidate.get(id) || []), a.name]);
+    return byCandidate;
+  };
+
+  test('the verification plan is for the candidates a verifier can be briefed with: each gets K distinct verifiers, the pool is sized for them alone and the refused one has no slot', async () => {
+    const h = harness();
+    const m = await toVerify(h, [leaky(), clean(2), clean(3), clean(4)]);
+    expect(m).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    const asked = askedOf(m);
+    expect([...asked.keys()].sort()).toEqual(['f2', 'f3', 'f4']);
+    for (const names of asked.values()) expect(new Set(names).size).toBe(3); // K = 3 distinct verifiers, nobody short
+    expect(m.agents).toHaveLength(3); // a pool for three candidates; planned for four it would be four agents
+    const run = h.readRun();
+    expect(run.assignment.map((a) => a.id)).toEqual(['f2', 'f3', 'f4']);
+    expect(run.assignment.every((a) => a.verifiers.length === 3 && !a.verifiers.includes('reviewer-s1-a'))).toBe(true);
+    expect(run.unbriefable).toEqual([{ id: 'f1', kind: 'leak', input: 'claim', reason: expect.stringContaining('reads as the orchestrator') }]);
+    // independence: no verifier is handed the refused claim, and nothing about the orchestrator reaches a brief
+    for (const a of m.agents) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      expect(brief).not.toContain(LEAKY);
+      expect(brief).not.toMatch(/orchestrator/i);
+    }
+  });
+
+  test('it ends UNVERIFIED with a named reason in the ledger, the votes, the notice, the state report and the operator\'s list; its tally is none, never a zero count', async () => {
+    const h = harness();
+    const m = await toVerify(h, [leaky(), clean(2)]);
+    voteAll(m, () => 'real');
+    const out = await h.collect();
+    expect(out.status).toBe('DONE');
+    const f1 = out.ledger.find((e) => e.id === 'f1');
+    expect(f1.failureMode).toBe(LEAKY); // the reviewer's claim is kept exactly as written
+    expect(f1.verification).toEqual({
+      outcome: 'unverified',
+      reason: 'unbriefable',
+      authorLabel: 'unverified',
+      presented: true,
+      tally: null,
+      assigned: [],
+      incompleteVerifiers: [],
+      ignoredVotes: [],
+      unbriefable: { kind: 'leak', input: 'claim', reason: expect.stringContaining('reads as the orchestrator') },
+    });
+    expect(out.ledger.find((e) => e.id === 'f2').verification).toMatchObject({ outcome: 'present', tally: { real: 3, expected: 3 } });
+    // the verification summary is never `performed` while a candidate was never asked about
+    expect(out.votes).toMatchObject({ verification: 'partial', reason: 'unbriefable-candidates', recoveryAction: 'reword-the-claim-or-decide' });
+    expect(out.votes.outcomes.find((o) => o.id === 'f1')).toEqual({ id: 'f1', outcome: 'unverified', reason: 'unbriefable', authorLabel: 'unverified', tally: null });
+    expect(out.notReviewed.unbriefable).toEqual([{ id: 'f1', kind: 'leak', input: 'claim', reason: expect.stringContaining('orchestrator') }]);
+    expect(out.reducedReview).toMatch(/verification partial: unbriefable-candidates/);
+    expect(out.reducedReview).toMatch(/UNVERIFIED, no verifier was asked[^\n]*: f1 \(leak, claim\)/);
+    // the gate holds it open like any other Important finding; the operator is told it was not verified, and by what
+    expect(out.gate.findings.open).toEqual(expect.arrayContaining(['f1', 'f2']));
+    expect(out.gate.dispositionChoices.find((c) => c.id === 'f1')).toMatchObject({
+      group: 'blocking',
+      votes: null,
+      verification: { outcome: 'unverified', reason: 'unbriefable', unbriefable: { kind: 'leak', input: 'claim', reason: expect.stringContaining('orchestrator') } },
+    });
+    expect(out.gate.dispositionChoices.find((c) => c.id === 'f2')).not.toHaveProperty('verification');
+    const state = h.stateWrites[h.stateWrites.length - 1].state;
+    expect(state.notReviewed.unbriefable.map((u) => u.id)).toEqual(['f1']);
+    expect(state.verification).toMatchObject({ verification: 'partial', reason: 'unbriefable-candidates' });
+    expect(state.ledger.find((e) => e.id === 'f1').verification).toMatchObject({ outcome: 'unverified', reason: 'unbriefable' });
+  });
+
+  test('when every candidate is refused there is no verify wave: the run goes straight to DONE, verification is not-performed and each candidate is named', async () => {
+    const h = harness();
+    const { next } = await reviewRound(h, { findingsFor: (n) => (n === 'reviewer-s1-a' ? [leaky(), finding({ locationOrLink: 'src/my file.js:1', originalTextOrLink: 'src/my file.js:1', failureMode: 'a file name with a space in it is read without a length check' })] : []) });
+    expect(next.status).toBe('DONE');
+    expect(h.readRun().waves.filter((w) => w.round === 'verify')).toEqual([]);
+    expect(next.votes).toMatchObject({ verification: 'not-performed', reason: 'unbriefable-candidates', recoveryAction: 'reword-the-claim-or-decide' });
+    expect(next.votes.outcomes.map((o) => [o.id, o.outcome, o.reason])).toEqual([['f1', 'unverified', 'unbriefable'], ['f2', 'unverified', 'unbriefable']]);
+    expect(next.notReviewed.unbriefable.map((u) => [u.id, u.kind, u.input])).toEqual([['f1', 'leak', 'claim'], ['f2', 'path', 'location']]);
+    expect(next.gate.mergeable).toBe(false);
+    expect(next.gate.findings.open).toEqual(['f1', 'f2']);
+  });
+
+  test('a refusal the renderer did not tag is recorded as kind other, and a kind outside the vocabulary is not trusted', async () => {
+    // A stand-in renderer that throws a plain Error (a missing template, a broken install) or an Error with a made-up kind: the run
+    // still keeps the candidate unverified and names why, in the closed vocabulary, without reading the message.
+    const refusing = (thrown) => harness({ overrides: { renderBrief: (role, vars) => {
+      if (role === 'verifier' && /STANDIN/.test(vars.claim)) throw thrown;
+      return renderBriefFromFiles(role, vars);
+    } } });
+    for (const [thrown, expected] of [
+      [new Error('the template store is unreachable'), { id: 'f1', kind: 'other', reason: expect.stringContaining('the template store is unreachable') }],
+      [Object.assign(new Error('an odd refusal'), { kind: 'weird', input: 'claim' }), { id: 'f1', kind: 'other', input: 'claim', reason: expect.stringContaining('an odd refusal') }],
+    ]) {
+      const h = refusing(thrown);
+      const m = await toVerify(h, [finding({ failureMode: 'STANDIN the cache is read after it was cleared' }), clean(2)]);
+      expect([...askedOf(m).keys()]).toEqual(['f2']);
+      expect(h.readRun().unbriefable).toEqual([expected]);
+    }
+  });
+
+  test.each([
+    ['a path with whitespace', { locationOrLink: 'src/my file.js:3', originalTextOrLink: 'src/my file.js:3' }, 'path', 'location'],
+    ['a path with parentheses', { locationOrLink: 'src/a(1).js:3', originalTextOrLink: 'src/a(1).js:3' }, 'path', 'location'],
+    ['a location with no line', { locationOrLink: 'src/a.js', originalTextOrLink: 'src/a.js' }, 'location', 'location'],
+    ['a claim with placeholder braces', { failureMode: 'the template {{name}} is rendered twice' }, 'claim', 'claim'],
+    ['a claim over the length cap', { failureMode: 'x'.repeat(4001) }, 'claim', 'claim'],
+    ['a claim that reads as a vote', { failureMode: 'three verifiers voted real on this' }, 'leak', 'claim'],
+    ['a claim that reads as a conclusion', { failureMode: 'the guard is a real bug that never runs' }, 'leak', 'claim'],
+  ])('%s ends in the same named state as a claim that names the orchestrator: kept, unverified, kind %s on input %s, and the others still get their K verifiers', async (_label, over, kind, input) => {
+    const h = harness();
+    const m = await toVerify(h, [finding(over), clean(2)]);
+    expect([...askedOf(m).keys()]).toEqual(['f2']);
+    expect(askedOf(m).get('f2')).toHaveLength(3);
+    voteAll(m, () => 'real');
+    const out = await h.collect();
+    expect(out.notReviewed.unbriefable).toEqual([{ id: 'f1', kind, input, reason: expect.any(String) }]);
+    expect(out.ledger.find((e) => e.id === 'f1').verification).toMatchObject({ outcome: 'unverified', reason: 'unbriefable', tally: null, assigned: [], unbriefable: { kind, input } });
+    expect(out.ledger.find((e) => e.id === 'f2').verification).toMatchObject({ outcome: 'present' });
+    expect(out.gate.dispositionChoices.find((c) => c.id === 'f1')).toMatchObject({ votes: null, verification: { reason: 'unbriefable', unbriefable: { kind, input } } });
+  });
+
+  test('a vote for a refused candidate counts for nothing: nobody was asked, so it can never make the candidate present or filtered', async () => {
+    const h = harness();
+    const m = await toVerify(h, [leaky(), clean(2)]);
+    for (const agent of m.agents) writeResult(agent, { votes: [...agent.candidateIds, 'f1'].map((id) => ({ candidateId: id, verdict: 'real', evidence: 'x' })) });
+    const out = await h.collect();
+    expect(out.ledger.find((e) => e.id === 'f1').verification).toMatchObject({ outcome: 'unverified', reason: 'unbriefable', tally: null, assigned: [] });
+    expect(out.votes.outcomes.find((o) => o.id === 'f1')).toMatchObject({ outcome: 'unverified', reason: 'unbriefable' });
+    expect(out.ledger.find((e) => e.id === 'f2').verification).toMatchObject({ outcome: 'present', tally: { real: 3 } });
+  });
+
+  test('a run stored before refused candidates were planned out (every candidate assigned K verifiers) is still read: the plan for the refused one is ignored, not blocked on', async () => {
+    const h = harness();
+    const m = await toVerify(h, [leaky(), clean(2)]);
+    const stored = h.readRun();
+    stored.assignment = [{ id: 'f1', verifiers: ['verifier-1', 'verifier-2', 'verifier-3'] }, ...stored.assignment];
+    fs.writeFileSync(path.join(h.runDir(), 'run.json'), JSON.stringify(stored));
+    voteAll(m, () => 'real');
+    const out = await h.collect();
+    expect(out.status).toBe('DONE');
+    expect(out.votes.outcomes.find((o) => o.id === 'f1')).toMatchObject({ outcome: 'unverified', reason: 'unbriefable' });
+  });
+
+  test('a briefable candidate is untouched by all of this: no unbriefable record, a performed verification and no verification field in the operator\'s list', async () => {
+    const h = harness();
+    const m = await toVerify(h, [clean(2), clean(3)]);
+    voteAll(m, () => 'real');
+    const out = await h.collect();
+    expect(out.notReviewed.unbriefable).toEqual([]);
+    expect(out.votes).toMatchObject({ verification: 'performed' });
+    expect(out.votes.reason).toBeUndefined();
+    expect(out.reducedReview).not.toMatch(/UNVERIFIED|unbriefable/);
+    expect(out.gate.dispositionChoices.every((c) => c.verification === undefined)).toBe(true);
+  });
+
+  test('every reviewer is told what the verifier brief refuses, in the renderer\'s own words; the security lane, whose findings are never put to verifiers, is not', async () => {
+    const h = harness();
+    const m = await h.prepare();
+    const rules = claimRules();
+    expect(rules.refusedWords.length).toBeGreaterThan(10);
+    for (const agent of m.agents) {
+      const brief = fs.readFileSync(agent.briefPath, 'utf8');
+      if (agent.role === 'reviewer') {
+        for (const word of rules.refusedWords) expect(brief).toContain(`"${word}"`);
+        expect(brief).toContain(rules.pathGrammar);
+        expect(brief).toContain(`at most ${rules.maxClaimLength} characters`);
+        expect(brief).toMatch(/a finding it refuses is NOT verified: the run lists it as unbriefable and a person must decide it without a verifier's help/);
+        expect(brief).not.toMatch(/\{\{/); // an instruction about braces must not itself look like an unrendered placeholder
+      } else {
+        expect(brief).not.toMatch(/unbriefable|verifier brief/);
+      }
+    }
   });
 });
 

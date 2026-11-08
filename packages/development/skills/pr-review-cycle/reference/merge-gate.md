@@ -229,15 +229,23 @@ this rule, not the code.
 
 **The operator's decision list.** Beside the verdict, `gate` returns
 `dispositionChoices` (one entry per undecided finding: `id`, `severity`,
-`locationOrLink`, `votes`, `beadId`, `group`, `choices[]`, `default`,
-`requiresReason`), `dispositionGroups` (what may be answered for a whole group
+`locationOrLink`, `votes`, `verification` (when its outcome is `unverified`),
+`beadId`, `group`, `choices[]`, `default`, `requiresReason`),
+`dispositionGroups` (what may be answered for a whole group
 at once) and `mergeConfirmation` (what the merge question must show: open beads,
 blocking findings accepted and why, blocking findings still undecided). Pass the
 Step 3b `votes` result as `votes` to include each finding's tally, and the same
 `policy`. The list asks the gate which findings block, so it cannot disagree
 with the verdict: a verifier-filtered Important finding is still listed while
 the gate blocks on it (its tally shows why), and a Pre-existing security-lane
-finding is a blocking entry. The list is
+finding is a blocking entry. A finding whose outcome is `unverified` (its claim is
+one the verifier brief refuses, kata `0g9n`, or its verifiers did not all answer)
+carries `verification` (`outcome: "unverified"`, `reason`, and for a refused claim
+`unbriefable` with its `kind`, `input` and the renderer's reason): show it as not
+verified with that reason, never as a tally. A refused claim has `votes` null
+because nobody was asked. With no `votes` input (this `MODE=gate` path reads the
+recorded ledger) `verification` is read from the ledger finding's own record and
+`votes` stays null; a person decides it with no verifier's help. The list is
 ordered blocking Important and security findings first, then Nits, then
 Pre-existing, and many Nits in one file collapse into one entry (its id,
 `file:<path>`, is not a ledger id: expand it to its `members` before `ledger`
@@ -382,8 +390,9 @@ own remediation subagents.
 1. **Unbuildable list.** `dispositionReason` set, or no `dispositionChoices` array: print the
    reason, ask no merge question, merge nothing, halt `disposition-unavailable`.
 2. **Show.** Print `dispositionChoices` as one numbered list in the order returned, under the
-   `dispositionGroups` labels: number, severity, `locationOrLink`, votes, `beadId` or "no
-   bead"; a collapsed entry shows its member count. Beads are only those the result shows.
+   `dispositionGroups` labels: number, severity, `locationOrLink`, votes (an entry with
+   `verification` is printed as "not verified" and its reason, in place of votes), `beadId` or
+   "no bead"; a collapsed entry shows its member count. Beads are only those the result shows.
 3. **`--dry-run`.** Print the list and the gate's `mergeable` and blockers, then stop with the
    merge-readiness report: no question, no `resolve`, no fix run and no push. A dry run never
    answers for the operator and never moves the head.

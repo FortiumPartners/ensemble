@@ -33,6 +33,14 @@
  *     that file, it is graded Important.
  *   - An agent that did not arrive is never read as reviewed: its slice is in `notReviewed`, a verifier's candidates are
  *     `unverified`, a missing security lane is not `clean`.
+ *   - A candidate whose verifier brief the renderer refuses (a claim that reads as a vote, a verdict, the orchestrator or a
+ *     conclusion, a path or location outside the closed grammar, an unusable claim) is never verified, never dropped and never
+ *     read as verified: it is planned out of the verification round (K verifiers for every OTHER candidate still hold), recorded in
+ *     `notReviewed.unbriefable` with the renderer's reason and its `kind`, and its ledger entry says `unverified` /
+ *     `unbriefable` with no tally, no assigned verifier and no vote: nobody was asked. The renderer's rules never move to make a
+ *     run complete; what moves is the claim: reviewers are told the rules in their output contract, a full run's TRIAGE answer
+ *     names the refused candidates (the orchestrator may ADD a candidate whose claim the brief accepts), and a person decides
+ *     the rest (kata 0g9n).
  *   - An unreadable, ambiguous, raised, High or sensitive tier selects FULL mode, which runs in this same runner (Deep depth,
  *     the security lane, a model-orchestrator TRIAGE stop, the re-review scope rule: pr-review-full.js). The mode comes from
  *     `selectMode` alone and is stored in the run. Every later call only CHECKS that label against `selectMode` over the tier
@@ -111,6 +119,7 @@ const { buildDispositionChoices } = require('./pr-review-disposition');
 const { deriveStatus } = require('./pr-review-status');
 const { statePath } = require('./pr-review-state');
 const { assessProtection } = require('./pr-review-precheck');
+const { REFUSAL_KINDS } = require('./pr-review-briefs');
 const S = require('./pr-review-run-support');
 const F = require('./pr-review-full');
 const { STAGES, STAGE_KINDS } = require('./pr-review-timing');
@@ -139,7 +148,8 @@ const RULES = Object.freeze([
 /** What a TRIAGE answer tells the orchestrating model, on top of RULES. */
 const TRIAGE_RULES = Object.freeze([
   'This is a FULL-mode run: nothing is dispatched on this answer. Read the candidates, the coverage and the security lane, then call `collect` again with `triage`.',
-  'Triage can only ADD candidates the reviewers missed (for example an interaction between slices): `{"triage":{"additionalCandidates":[{"locationOrLink":"path/file.js:12","failureMode":"what goes wrong","severity":"important|nit","evidence":"what you read"}]}}`. `{"triage":{}}` adds none. A location must be a line of a regular file of the head, named by a repository-relative path; an entry that matches a candidate the reviewers already raised is dropped and theirs stays as it was. Every entry must also be one a verifier can be briefed with: an entry the verifier brief refuses (for example a claim that reads as a vote, a verdict or a conclusion, or a path with whitespace) is refused as `triage-refused`, naming the entry and why, and nothing of that payload is kept: reword it or leave it out.',
+  'Triage can only ADD candidates the reviewers missed (for example an interaction between slices): `{"triage":{"additionalCandidates":[{"locationOrLink":"path/file.js:12","failureMode":"what goes wrong","severity":"important|nit","evidence":"what you read"}]}}`. `{"triage":{}}` adds none. A location must be a line of a regular file of the head, named by a repository-relative path; an entry that matches a candidate a verifier will be asked about is dropped and theirs stays as it was. Every entry must also be one a verifier can be briefed with: an entry the verifier brief refuses (for example a claim that reads as a vote, a verdict, the orchestrator or a conclusion, or a path with whitespace) is refused as `triage-refused`, naming the entry and why, and nothing of that payload is kept: reword it or leave it out.',
+  'A candidate marked `unbriefable` (its `kind` and `reason` are given) will NOT be put to any verifier: the verifier brief refuses what it carries, so it stays in the ledger as `unverified` and a person decides it. You cannot reword or remove it. If the defect is real and worth an independent check, ADD a candidate for it whose claim the verifier brief accepts (say what goes wrong in plain words about the code, avoiding what the reason names): it is verified like any other, and the unbriefable one stays as it is.',
   'Every candidate, yours included, is then settled by independent fresh-context verifiers who are briefed with the claim and its location only. You can not remove, merge away, re-grade, close or waive a candidate, mark a slice reviewed, or decide a verdict: the gate and whether the review is complete are computed by the runner alone.',
   'A `collect` without `triage` repeats this answer; the run cannot reach verification without it.',
 ]);
@@ -737,41 +747,75 @@ function processReview(run, deps, { deferVerification = false } = {}) {
 
 /**
  * The verifier's brief for one candidate; THROWS the renderer's refusal. The one place the claim, the location and the path a
- * verifier is briefed with are assembled: `planVerifyRound` calls it for every candidate, and `triageStep` calls it for what
- * the orchestrator adds before the run depends on it, so triage accepts exactly what the renderer will brief and the grammar
- * and the leak screen live in the renderer alone.
+ * verifier is briefed with are assembled: `briefCandidates` (the verify plan, the TRIAGE answer and the triage dedupe) calls it
+ * for every candidate, and `triageStep` calls it for what the orchestrator adds before the run depends on it, so triage
+ * accepts exactly what the renderer will brief and the grammar and the leak screen live in the renderer alone.
  */
 function verifierBrief(run, deps, candidate) {
   const file = S.locationFile(candidate.locationOrLink);
   return deps.renderBrief('verifier', { claim: candidate.failureMode, location: candidate.locationOrLink, paths: file === null ? [] : [file], snapshotDir: run.prepared.snapshotDir });
 }
 
-/** Plans and briefs the verify round for `run.candidates`. Null on success, a RUN_FAILED answer otherwise. */
-function planVerifyRound(run, deps) {
-  const deduped = run.candidates;
-  const k = run.depth.verifiersPerCandidate;
-  const plan = S.planVerifierPool({ candidates: deduped, mode: run.depth.mode, k });
-  if (plan.ok !== true) return failure('RUN_FAILED', { reason: 'verify-plan-refused', error: plan.reason });
-  run.assignment = plan.assignments;
-  run.unbriefable = [];
-  run.verifyAgents = [];
-  if (k === 0 || deduped.length === 0) return null;
+/**
+ * What the run records for a candidate the verifier brief refused: the renderer's own message (`reason`), why in the closed
+ * vocabulary of `BriefRefusal.kind` (`kind`: anything the renderer did not tag, a stand-in that threw a plain Error included,
+ * is `other`) and the refused input (`input`, when the renderer named it). Nothing here reads the message.
+ */
+function refusalRecord(candidate, error) {
+  const tagged = isObject(error) ? error : {};
+  return { id: candidate.id, reason: msg(error), kind: REFUSAL_KINDS.includes(tagged.kind) ? tagged.kind : 'other', ...(isText(tagged.input) ? { input: tagged.input } : {}) };
+}
 
-  const dir = runDirOf(run.repoRoot, run.runId);
-  const sections = new Map();
-  for (const candidate of deduped) {
+/**
+ * Asks the renderer, once per candidate, whether a verifier can be briefed with it: `briefs` is id -> brief for the ones it
+ * accepts, `refused` the records (`refusalRecord`) of the ones it refuses, in candidate order. The single predicate behind
+ * the verify plan, the TRIAGE answer and the triage dedupe, so they cannot disagree about which candidates are verifiable.
+ */
+function briefCandidates(run, deps, candidates) {
+  const briefs = new Map();
+  const refused = [];
+  for (const candidate of candidates) {
     try {
-      sections.set(candidate.id, verifierBrief(run, deps, candidate));
+      briefs.set(candidate.id, verifierBrief(run, deps, candidate));
     } catch (error) {
-      run.unbriefable.push({ id: candidate.id, reason: msg(error) });
+      refused.push(refusalRecord(candidate, error));
     }
   }
+  return { briefs, refused };
+}
+
+/**
+ * Plans and briefs the verify round for `run.candidates`. Null on success, a RUN_FAILED answer otherwise.
+ *
+ * Only the candidates a verifier can be briefed with are planned: each of THEM gets its K distinct verifiers, and the pool is
+ * sized for them alone. A candidate the renderer refuses has no verifier slot at all (it would be an assigned verifier nobody
+ * asks), is recorded in `run.unbriefable`, and stays in the ledger unverified, named and unmistakable (`buildLedger`).
+ */
+function planVerifyRound(run, deps) {
+  const candidates = run.candidates;
+  const k = run.depth.verifiersPerCandidate;
+  run.unbriefable = [];
+  run.verifyAgents = [];
+  // Quick (no verifier is expected) and an empty list plan nothing to brief.
+  if (k === 0 || candidates.length === 0) {
+    const plan = S.planVerifierPool({ candidates, mode: run.depth.mode, k });
+    if (plan.ok !== true) return failure('RUN_FAILED', { reason: 'verify-plan-refused', error: plan.reason });
+    run.assignment = plan.assignments;
+    return null;
+  }
+
+  const { briefs, refused } = briefCandidates(run, deps, candidates);
+  run.unbriefable = refused;
+  const plan = S.planVerifierPool({ candidates: candidates.filter((candidate) => briefs.has(candidate.id)), mode: run.depth.mode, k });
+  if (plan.ok !== true) return failure('RUN_FAILED', { reason: 'verify-plan-refused', error: plan.reason });
+  run.assignment = plan.assignments;
+
+  const dir = runDirOf(run.repoRoot, run.runId);
   for (const entry of plan.agents) {
-    const ids = entry.candidates.filter((id) => sections.has(id));
-    if (ids.length === 0) continue;
+    const ids = entry.candidates;
     const name = entry.verifier;
     const record = { name, role: 'verifier', candidateIds: ids, briefPath: path.join(dir, 'briefs', `${name}.md`), outPath: path.join(dir, 'results', 'verify', `out-${name}.json`) };
-    const body = ids.map((id) => `### Candidate ${id}\n\n${sections.get(id).replace(/\s*$/, '\n')}`).join('\n---\n\n');
+    const body = ids.map((id) => `### Candidate ${id}\n\n${briefs.get(id).replace(/\s*$/, '\n')}`).join('\n---\n\n');
     deps.fs.mkdirp(path.dirname(record.briefPath), 0o700);
     deps.fs.writeAtomic(record.briefPath, `# Findings to settle (${ids.length})\n\nEach finding below is a separate claim. Settle each on its own.\n\n${body}\n${S.verifierContract(record)}`, 0o600);
     run.verifyAgents.push(record);
@@ -786,23 +830,68 @@ function addWaves(run, round, agents) {
 
 /* ------------------------------------------------------------- finalisation */
 
+/**
+ * The tally entry of a candidate nobody could be asked about, because the verifier brief refused it. It is in no tally: it has
+ * no assignment, no vote and no tally to show (`tally: null`, never a zero count that would read as "0 of 5 voted real"), and
+ * says so: `unverified` / `unbriefable`, with the kind, the refused input and the renderer's reason. It is presented, never
+ * hidden, and the gate reads it like every other finding (its severity and the operator's decision, not its verification).
+ * Never `present` or `filtered`: those need votes, and nobody voted.
+ */
+function unbriefableEntry(candidate, refusal) {
+  return {
+    ...candidate,
+    outcome: 'unverified',
+    reason: 'unbriefable',
+    authorLabel: 'unverified',
+    presented: true,
+    tally: null,
+    ignoredVotes: [],
+    assigned: [],
+    incompleteVerifiers: [],
+    unbriefable: { kind: REFUSAL_KINDS.includes(refusal.kind) ? refusal.kind : 'other', ...(isText(refusal.input) ? { input: refusal.input } : {}), reason: refusal.reason },
+  };
+}
+
+/**
+ * What a round with unbriefable candidates says about its verification. `tallyVotes` ranges over the candidates a verifier was
+ * asked about, so on its own it would call a round `performed` whatever was never asked: a round with an unbriefable candidate
+ * is at best `partial`, and `not-performed` when no candidate could be asked about (or none of the others was verified). The
+ * tally's own reason and recovery stay when it has them (a missing vote can still be supplied); otherwise a person decides.
+ */
+function withUnbriefable(tally, findings, refused) {
+  const verification = refused === findings.length || tally.verification === 'not-performed' ? 'not-performed' : 'partial';
+  return {
+    ...tally,
+    verification,
+    reason: [tally.reason, 'unbriefable-candidates'].filter(isText).join('; '),
+    recoveryAction: isText(tally.recoveryAction) ? tally.recoveryAction : 'reword-the-claim-or-decide',
+    findings,
+    presented: findings.filter((f) => f.presented === true),
+  };
+}
+
 function buildLedger(run) {
   const verifyWaves = run.waves.filter((w) => w.round === 'verify' && w.status === 'collected');
   const votes = verifyWaves.flatMap((w) => w.result.votes);
   const incompleteVerifiers = verifyWaves.flatMap((w) => w.result.incompleteVerifiers);
   const agents = verifyWaves.flatMap((w) => w.agents.map((a) => ({ name: a.name, role: a.role, state: a.state, candidateIds: a.candidateIds })));
-  const input = toVotesInput({ votes, incompleteVerifiers, agents, findings: [] }, { depth: run.depth.mode, expectedVerifiers: run.depth.verifiersPerCandidate, candidates: run.candidates });
+  // The tally and the plan range over the candidates a verifier was asked about; the others (`run.unbriefable`) are never
+  // given an assignment, a vote or a tally (a plan stored before they were planned out lists them too: it is read as if not).
+  const refusals = new Map(run.unbriefable.map((u) => [String(u.id), u]));
+  const verifiable = run.candidates.filter((candidate) => !refusals.has(String(candidate.id)));
+  const planned = new Set(verifiable.map((candidate) => String(candidate.id)));
+  const input = toVotesInput({ votes, incompleteVerifiers, agents, findings: [] }, { depth: run.depth.mode, expectedVerifiers: run.depth.verifiersPerCandidate, candidates: verifiable });
   if (input.ok === false) return { ok: false, reason: input.reason };
-  const unbriefable = new Map(run.unbriefable.map((u) => [u.id, u.reason]));
-  const findings = input.findings.map((finding) => (unbriefable.has(finding.id) ? { ...finding, incompleteVerifiers: [...(finding.incompleteVerifiers || []), { verifier: '(unbriefable)', reason: `unbriefable: ${unbriefable.get(finding.id)}` }] } : finding));
-  const tally = tallyVotes({ findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: run.assignment });
-  if (tally.ok !== true) return { ok: false, reason: `votes blocked: ${tally.reason}` };
-  const byId = new Map(tally.findings.map((f) => [String(f.id), f]));
+  const asked = tallyVotes({ findings: input.findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: run.assignment.filter((entry) => planned.has(String(entry.id))) });
+  if (asked.ok !== true) return { ok: false, reason: `votes blocked: ${asked.reason}` };
+  const byId = new Map(asked.findings.map((f) => [String(f.id), f]));
+  const findings = run.candidates.map((candidate) => (refusals.has(String(candidate.id)) ? unbriefableEntry(candidate, refusals.get(String(candidate.id))) : byId.get(String(candidate.id))));
+  const tally = refusals.size === 0 ? asked : withUnbriefable(asked, findings, refusals.size);
   // The ledger is every deduped candidate, unchanged, with its verification outcome UNDER `verification`: tally fields
   // such as `reason` would otherwise read as a ledger deferral reason.
-  const ledger = run.candidates.map((candidate) => {
-    const t = byId.get(String(candidate.id));
-    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes } };
+  const ledger = run.candidates.map((candidate, index) => {
+    const t = findings[index];
+    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes, ...(t.unbriefable === undefined ? {} : { unbriefable: t.unbriefable }) } };
   });
   return { ok: true, ledger, tally };
 }
@@ -917,7 +1006,7 @@ function reducedReviewNotice(run, built, notReviewed, stage) {
   if (notReviewed.unreviewedSlices.length > 0) lines.push(`NOT REVIEWED: slice(s) ${notReviewed.unreviewedSlices.join(', ')}; path(s) ${notReviewed.unreviewedPaths.join(', ')}`);
   if (run.security.status !== 'clean') lines.push(`security lane ${run.security.status}${run.security.reason ? `: ${run.security.reason}` : ''}`);
   if (built.tally.verification !== 'performed') lines.push(`verification ${built.tally.verification}${built.tally.reason ? `: ${built.tally.reason}` : ''}`);
-  if (notReviewed.unbriefable.length > 0) lines.push(`unbriefable candidate(s) kept, unverified: ${notReviewed.unbriefable.map((u) => u.id).join(', ')}`);
+  if (notReviewed.unbriefable.length > 0) lines.push(`UNVERIFIED, no verifier was asked (the verifier brief refuses the candidate, so a person decides it; the renderer's reason is in notReviewed.unbriefable): ${notReviewed.unbriefable.map((u) => `${u.id} (${u.kind || 'other'}${u.input ? `, ${u.input}` : ''})`).join(', ')}`);
   const regraded = built.ledger.filter((entry) => entry.claimedSeverity !== undefined);
   if (regraded.length > 0) lines.push(`graded Important, not pre-existing as the reviewer called them, because the diff does not bear the label out: ${regraded.map((entry) => `${entry.id} (${entry.locationOrLink})`).join(', ')}`);
   if (stage.tests === undefined) lines.push('tests not shown: no baseline run, a timed-out one, or no relevant test files');
@@ -1062,8 +1151,13 @@ function applyAdjudications(ledger, listed, adjudications, now) {
   return { ok: true, ledger: next };
 }
 
-/** The TRIAGE answer: the full-mode stop where the orchestrating model may add candidates, and nothing else. Dispatches nothing. */
-function triageManifest(run) {
+/**
+ * The TRIAGE answer: the full-mode stop where the orchestrating model may add candidates, and nothing else. Dispatches nothing.
+ * A candidate the verifier brief refuses carries `unbriefable: {kind, reason}` (`input` when named): it will not be verified,
+ * and the orchestrator is told before it decides what to add, instead of learning it from the ledger.
+ */
+function triageManifest(run, deps) {
+  const refused = new Map(briefCandidates(run, deps, run.candidates).refused.map((record) => [String(record.id), record]));
   return {
     ok: true,
     status: 'TRIAGE',
@@ -1074,7 +1168,10 @@ function triageManifest(run) {
     reReview: run.reReview,
     depth: { mode: run.depth.mode, reviewersPerSlice: run.depth.reviewersPerSlice, verifiersPerCandidate: run.depth.verifiersPerCandidate },
     dispatched: [],
-    candidates: run.candidates.map((c) => ({ id: c.id, locationOrLink: c.locationOrLink, severity: c.severity, failureMode: c.failureMode, source: c.source })),
+    candidates: run.candidates.map((c) => {
+      const refusal = refused.get(String(c.id));
+      return { id: c.id, locationOrLink: c.locationOrLink, severity: c.severity, failureMode: c.failureMode, source: c.source, ...(refusal === undefined ? {} : { unbriefable: { kind: refusal.kind, ...(refusal.input === undefined ? {} : { input: refusal.input }), reason: refusal.reason } }) };
+    }),
     coverage: { complete: run.coverage.complete, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },
     security: { status: run.security.status, findings: run.security.findings.length, ...(run.security.reason === undefined ? {} : { reason: run.security.reason }) },
     maxAdditionalCandidates: F.MAX_ADDITIONAL_CANDIDATES,
@@ -1092,7 +1189,7 @@ function triageStep(run, input, deps, tracer, startedAt, now) {
   if (input.triage === undefined) {
     logCall(run, 'collect', startedAt, deps, false, { triage: true });
     saveRun(deps, run);
-    return triageManifest(run);
+    return triageManifest(run, deps);
   }
   const validated = F.validateTriage(input.triage);
   if (validated.ok !== true) return failure('RUN_FAILED', { reason: 'triage-refused', error: validated.reason, runId: run.runId });
@@ -1118,16 +1215,21 @@ function triageStep(run, input, deps, tracer, startedAt, now) {
   const top = used.map((id) => /^f(\d+)$/.exec(String(id))).filter((m) => m !== null).map((m) => Number(m[1]));
   const first = Math.max(0, ...top) + 1;
   const entries = validated.additional.map((raw, index) => S.completeFinding(raw, F.ORCHESTRATOR, `f${first + index}`));
-  // An entry the dedupe would merge with an existing candidate is dropped: the existing candidate stays exactly as it was
-  // (id, source, severity), so triage can never displace or re-grade one. Only a distinct entry is appended, unchanged, and
-  // only when a verifier can be briefed with it. An entry the verifier brief refuses (verifierBrief is the call the verify
-  // round makes) would be kept unverified and block the gate, and the orchestrator that wrote it is the one who can reword it
-  // in this run, so the whole payload is refused here, naming the entry and the renderer's own reason, before anything is kept.
+  // An entry the dedupe would merge with a candidate a verifier will be asked about is dropped: that candidate stays exactly as
+  // it was (id, source, severity), so triage can never displace or re-grade one. A candidate the verifier brief refuses is not
+  // one of them: nobody will check what it says, so an entry that restates it is not a duplicate of anything verifiable and is
+  // kept (the only way its defect gets an independent check), and the refused candidate stays as it is. Only a distinct entry is
+  // appended, unchanged, and only when a verifier can be briefed with it. An entry the verifier brief refuses (verifierBrief is
+  // the call the verify round makes) would be kept unverified and block the gate, and the orchestrator that wrote it is the one
+  // who can reword it in this run, so the whole payload is refused here, naming the entry and the renderer's own reason, before
+  // anything is kept.
   let candidates = run.candidates;
+  const unverifiable = new Set(briefCandidates(run, deps, candidates).refused.map((record) => String(record.id)));
   for (const [index, entry] of entries.entries()) {
-    const combined = dedupeFindings([...candidates, entry]);
+    const verifiable = candidates.filter((candidate) => !unverifiable.has(String(candidate.id)));
+    const combined = dedupeFindings([...verifiable, entry]);
     if (!Array.isArray(combined)) return failure('RUN_FAILED', { reason: 'triage-refused', error: combined.reason, runId: run.runId });
-    if (combined.length <= candidates.length) continue;
+    if (combined.length <= verifiable.length) continue;
     try {
       verifierBrief(run, deps, entry);
     } catch (error) {
@@ -1269,7 +1371,7 @@ async function collectStages(input, deps, ctx) {
       run.triage = { turns: 0, requested: 0, additionalCandidateIds: [], mergedIntoExisting: 0 };
       logCall(run, 'collect', startedAt, deps, false, { triage: true });
       saveRun(deps, run);
-      return triageManifest(run);
+      return triageManifest(run, deps);
     }
     if (run.verifyAgents.length > 0) {
       addWaves(run, 'verify', run.verifyAgents);

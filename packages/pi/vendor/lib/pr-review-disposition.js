@@ -29,6 +29,11 @@
  *     never batchable;
  *   - a SECURITY finding's `accept` is never the default, never batchable and
  *     always needs its own reason; security findings are never collapsed;
+ *   - a finding nobody could vote on is never shown as if somebody had: an entry whose outcome is `unverified` carries
+ *     `verification` (`outcome`, `reason`, and for a claim the verifier brief refused, `unbriefable` with its kind and the
+ *     renderer's reason), and its `votes` is null when it has no tally. A list built with no `votes` (the recorded state
+ *     report, `MODE=gate`) reads the record from the ledger finding itself. The operator decides such a finding with no
+ *     verifier's help, and the entry says so (kata 0g9n);
  *   - a bead is OPEN only when the ledger finding carries `beadId`. A live
  *     finding whose bead a person closed carries `closedBeadId` instead: it is
  *     its own state (`findingsWithClosedBead`), never counted as an open bead,
@@ -171,6 +176,27 @@ function tallyOf(votesById, id) {
   return { real, notReal, abstain, expected };
 }
 
+/**
+ * What the operator must be told about a finding nobody could vote on: its outcome is `unverified`, so a tally beside it (or
+ * none) is not a verdict. `{outcome, reason, unbriefable?}`; `unbriefable` (`kind`, `reason`, `input`) is present when the
+ * verifier brief refused the claim or the location and no verifier was ever asked. Null for every other outcome: a `present`
+ * or `filtered` finding is described by its tally, as before.
+ *
+ * The run's tally speaks first. A list built from the recorded state report is given no votes, so it reads the `verification`
+ * record the ledger finding carries (the review runner writes it there): the finding is named as not verified on that path
+ * too, and no vote is invented for it (`votes` stays null).
+ */
+function verificationOf(votesById, finding) {
+  const entry = votesById.get(keyOf(finding.id)) || (isObject(finding.verification) ? finding.verification : null);
+  if (!entry || entry.outcome !== 'unverified') return null;
+  const refusal = isObject(entry.unbriefable) ? entry.unbriefable : null;
+  return {
+    outcome: 'unverified',
+    reason: isText(entry.reason) ? entry.reason : null,
+    ...(refusal === null ? {} : { unbriefable: { kind: refusal.kind, ...(isText(refusal.input) ? { input: refusal.input } : {}), reason: refusal.reason } }),
+  };
+}
+
 function aggregateVotes(members) {
   const withVotes = members.filter((m) => m.votes !== null);
   if (withVotes.length === 0) return null;
@@ -294,6 +320,7 @@ function buildDispositionChoices(input) {
       group,
       severity,
       votes: tallyOf(votesById, finding.id),
+      verification: verificationOf(votesById, finding),
       stale: finding.resolution !== undefined && finding.resolution !== null,
       file: fileOf(finding),
       index: undecided.length,
@@ -367,6 +394,7 @@ function buildDispositionChoices(input) {
       requiresReason: u.group === 'blocking' || u.security,
     };
     if (u.security) entry.reasonPerFinding = true;
+    if (u.verification !== null) entry.verification = u.verification;
     if (u.stale) entry.staleResolution = true;
     entries.push(entry);
   }

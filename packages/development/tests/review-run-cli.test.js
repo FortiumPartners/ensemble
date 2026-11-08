@@ -433,6 +433,91 @@ describe('the real CLI process on a real git fixture', () => {
     expect(fs.existsSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'))).toBe(false);
   });
 
+  // kata 0g9n, through the real process on the real git fixture and the real renderer: a candidate whose claim names the
+  // orchestrator or a verdict, or whose path has whitespace, ends in a defined, named state -- never silently unverified.
+  test('a LIGHT run: candidates that name the orchestrator or a verdict, or cite a path with a space, are kept UNVERIFIED with a named reason; the verifiable one still gets its three verifiers; the repository is untouched', () => {
+    const before = snapshotRepo();
+    const prepared = prep({ runId: 'refused-light' });
+    expect(prepared.code).toBe(0);
+    // the reviewers are told, in their own brief, what the verifier brief refuses
+    const reviewerBrief = fs.readFileSync(prepared.out.agents[0].briefPath, 'utf8');
+    expect(reviewerBrief).toMatch(/"orchestrator"[^]*"verdict"|"verdict"[^]*"orchestrator"/);
+    expect(reviewerBrief).toMatch(/a finding it refuses is NOT verified/);
+    expect(fs.readFileSync(prepared.out.agents.find((a) => a.role === 'security').briefPath, 'utf8')).not.toMatch(/unbriefable/);
+    answerReview(prepared.out, {
+      findings: {
+        'reviewer-s1-a': [
+          reviewerFinding({ failureMode: 'the orchestrator never rereads the list after the cache went stale' }),
+          reviewerFinding({ failureMode: 'the verdict of the comparison is wrong for an empty list', locationOrLink: 'src/b.js:1', originalTextOrLink: 'src/b.js:1' }),
+          reviewerFinding({ failureMode: 'a file name with a space in it is read without a length check', locationOrLink: 'src/my file.js:1', originalTextOrLink: 'src/my file.js:1' }),
+          reviewerFinding({ failureMode: 'list[i + 1] reads one past the end on the last element and returns undefined' }),
+        ],
+      },
+    });
+    const verify = coll('refused-light');
+    expect(verify.code).toBe(0);
+    expect(verify.out).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    const asked = {};
+    for (const a of verify.out.agents) for (const id of a.candidateIds) asked[id] = (asked[id] || 0) + 1;
+    expect(asked).toEqual({ f4: 3 }); // f1 (orchestrator), f2 (verdict) and f3 (a space) are not briefable; f4 is, by three verifiers
+    answerVotes(verify.out, 'real');
+    const done = coll('refused-light');
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', votes: { verification: 'partial', reason: 'unbriefable-candidates' } });
+    expect(done.out.notReviewed.unbriefable.map((u) => [u.id, u.kind, u.input])).toEqual([['f1', 'leak', 'claim'], ['f2', 'leak', 'claim'], ['f3', 'path', 'location']]);
+    expect(done.out.votes.outcomes.map((o) => [o.id, o.outcome, o.reason])).toEqual([['f1', 'unverified', 'unbriefable'], ['f2', 'unverified', 'unbriefable'], ['f3', 'unverified', 'unbriefable'], ['f4', 'present', 'verifier-majority']]);
+    expect(done.out.reducedReview).toMatch(/UNVERIFIED, no verifier was asked[^\n]*: f1 \(leak, claim\), f2 \(leak, claim\), f3 \(path, location\)/);
+    // the gate holds every one of them open, and the operator's list says which were never put to a verifier, and why
+    expect(done.out.gate.mergeable).toBe(false);
+    const list = done.out.gate.dispositionChoices;
+    expect(list.filter((c) => c.verification !== undefined).map((c) => [c.id, c.votes, c.verification.reason])).toEqual([['f1', null, 'unbriefable'], ['f2', null, 'unbriefable'], ['f3', null, 'unbriefable']]);
+    expect(list.find((c) => c.id === 'f4')).toMatchObject({ votes: { real: 3, expected: 3 } });
+    // the state report the gate and the merge flow read carries the same named state
+    const state = JSON.parse(fs.readFileSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), 'utf8'));
+    expect(state.notReviewed.unbriefable).toHaveLength(3);
+    expect(state.ledger.filter((e) => e.verification.reason === 'unbriefable').map((e) => e.id)).toEqual(['f1', 'f2', 'f3']);
+    expect(state.verification).toMatchObject({ verification: 'partial', reason: 'unbriefable-candidates', recoveryAction: 'reword-the-claim-or-decide' });
+    process.stderr.write(`\nSMOKE refused-light: ${JSON.stringify({ asked, votes: done.out.votes.verification, reason: done.out.votes.reason, unbriefable: done.out.notReviewed.unbriefable.map((u) => `${u.id}:${u.kind}:${u.input}`), operatorList: list.map((c) => ({ id: c.id, votes: c.votes, verification: c.verification && c.verification.reason })) })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
+  test('a FULL run: TRIAGE names the refused candidate, the orchestrator ADDs a restatement that the renderer accepts, five verifiers settle it, and the refused one stays unverified, named, for a person', () => {
+    setGh({ head: fx.high });
+    fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+    const before = snapshotRepo();
+    const r = prep({ runId: 'refused-full' });
+    expect(r.out).toMatchObject({ ok: true, status: 'DISPATCH', mode: { mode: 'full' } });
+    const KEY = 'compares the submitted key with the stored value using a loose equality so a type juggled key passes the check';
+    answerReview(r.out, {
+      changed: ['secure/key.js'],
+      findings: {
+        'reviewer-s1-a': [reviewerFinding({ locationOrLink: 'secure/key.js:1', originalTextOrLink: 'secure/key.js:1', failureMode: `the orchestrator ${KEY}` })],
+        'reviewer-s1-b': [reviewerFinding({ locationOrLink: 'secure/key.js:1', originalTextOrLink: 'secure/key.js:1', failureMode: 'a second unrelated defect in the retry loop of the client library leaks a handle on every timeout' })],
+      },
+    });
+    const triage = coll('refused-full');
+    expect(triage.code).toBe(0);
+    expect(triage.out).toMatchObject({ ok: true, status: 'TRIAGE' });
+    expect(triage.out.candidates.map((c) => [c.id, c.unbriefable && c.unbriefable.kind])).toEqual([['f1', 'leak'], ['f2', undefined]]);
+    expect(triage.out.rules.join(' ')).toMatch(/will NOT be put to any verifier/);
+    const verify = coll('refused-full', { triage: { additionalCandidates: [{ locationOrLink: 'secure/key.js:1', failureMode: `the submitted key is ${KEY.replace('compares the submitted key', 'compared')}`, severity: 'important' }] } });
+    expect(verify.code).toBe(0);
+    expect(verify.out).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    const asked = {};
+    for (const a of verify.out.agents) for (const id of a.candidateIds) asked[id] = (asked[id] || 0) + 1;
+    expect(asked).toEqual({ f2: 5, f3: 5 });
+    answerVotes(verify.out, 'real');
+    const done = coll('refused-full');
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', mode: { mode: 'full' }, triage: { requested: 1, additionalCandidateIds: ['f3'], mergedIntoExisting: 0 } });
+    expect(done.out.notReviewed.unbriefable.map((u) => [u.id, u.kind])).toEqual([['f1', 'leak']]);
+    expect(done.out.votes.outcomes.map((o) => [o.id, o.outcome, o.reason])).toEqual([['f1', 'unverified', 'unbriefable'], ['f2', 'present', 'verifier-majority'], ['f3', 'present', 'verifier-majority']]);
+    expect(done.out.ledger.map((e) => e.source)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'orchestrator']);
+    expect(done.out.gate.dispositionChoices.find((c) => c.id === 'f1')).toMatchObject({ votes: null, verification: { reason: 'unbriefable', unbriefable: { kind: 'leak', input: 'claim' } } });
+    process.stderr.write(`\nSMOKE refused-full: ${JSON.stringify({ triageFlag: triage.out.candidates[0].unbriefable.kind, asked, outcomes: done.out.votes.outcomes.map((o) => `${o.id}:${o.outcome}:${o.reason}`) })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
   test('a head that moves between prepare and collect is RUN_INVALIDATED: exit 1, no ledger, no gate, no state report', () => {
     fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
     const review = prep({ runId: 'moved' }).out;

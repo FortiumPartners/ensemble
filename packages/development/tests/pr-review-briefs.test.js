@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const { ROLES, renderBrief, checkTemplate, placeholdersOf } = require('../lib/pr-review-briefs');
+const { ROLES, VERIFIER_LEAKS, REFUSAL_KINDS, BriefRefusal, renderBrief, claimRules, checkTemplate, placeholdersOf } = require('../lib/pr-review-briefs');
 const { loadTemplate, renderBriefFromFiles, defaultTemplateDirs } = require('../lib/pr-review-brief-files');
 
 const DEV_ROOT = path.resolve(__dirname, '..');
@@ -250,6 +250,101 @@ describe('AC2: renderBrief refuses what it should not render', () => {
   test('inherited property names are not inputs', () => {
     const vars = Object.create({ range: 'aaa..bbb', diffPath: '/d' });
     expect(() => renderBrief('classifier', vars, template('classifier'))).toThrow(/requires input 'range'/);
+  });
+});
+
+describe('a refused input is a BriefRefusal that says which input and why (kata 0g9n)', () => {
+  const verifier = (over) => ({ ...CASES.verifier.vars, ...over });
+  const refusal = (role, vars, text) => {
+    try {
+      renderBrief(role, vars, text === undefined ? template(role) : text);
+    } catch (error) {
+      return error;
+    }
+    throw new Error('the brief was rendered, but a refusal was expected');
+  };
+
+  test('the kinds are the closed vocabulary the review runner records', () => {
+    expect(REFUSAL_KINDS).toEqual(['leak', 'claim', 'location', 'path', 'other']);
+  });
+
+  test.each([
+    ['a claim that names the orchestrator', verifier({ claim: 'the orchestrator never rereads the list' }), 'leak', 'claim', /reads as the orchestrator \("orchestrator"\)/],
+    ['a claim that names a verdict', verifier({ claim: 'the verdict of the cache is stale' }), 'leak', 'claim', /reads as a verdict \("verdict"\)/],
+    ['a claim that is a conclusion', verifier({ claim: 'the guard is a real bug' }), 'leak', 'claim', /reads as a conclusion/],
+    ['an empty claim', verifier({ claim: '   ' }), 'claim', 'claim', /must be a non-empty string/],
+    ['a claim over the length cap', verifier({ claim: 'x'.repeat(4001) }), 'claim', 'claim', /longer than 4000/],
+    ['a claim with a control character', verifier({ claim: 'a\u0007b' }), 'claim', 'claim', /control characters/],
+    ['a claim with placeholder braces', verifier({ claim: 'renders {{name}} twice' }), 'claim', 'claim', /"\{\{" or "\}\}"/],
+    ['a location with no line', verifier({ location: 'lib/x.js' }), 'location', 'location', /'file:line'/],
+    ['a location that is not one line', verifier({ location: 'lib/x.js:12\nmore' }), 'location', 'location', /single line/],
+    ['a location whose path has whitespace', verifier({ location: 'lib/my x.js:12' }), 'path', 'location', /no whitespace/],
+    ['a location whose path has parentheses', verifier({ location: 'lib/x(1).js:12' }), 'path', 'location', /parentheses/],
+    ['a path with whitespace in the list', verifier({ paths: ['lib/my x.js'] }), 'path', 'paths', /'paths\[0\]'[^]*no whitespace/],
+    ['an empty path list', verifier({ paths: [] }), 'path', 'paths', /must not be empty/],
+    ['a snapshot directory with whitespace', verifier({ snapshotDir: '/work/my snap' }), 'path', 'snapshotDir', /no whitespace/],
+  ])('%s is refused: kind %s, input %s', (_label, vars, kind, input, message) => {
+    const error = refusal('verifier', vars);
+    expect(error).toBeInstanceOf(BriefRefusal);
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toMatchObject({ name: 'BriefRefusal', role: 'verifier', kind, input });
+    expect(error.message).toMatch(message);
+    expect(error.message).toMatch(/^the verifier brief refuses (its input|input 'claim')/);
+  });
+
+  test('an input no candidate owns is refused as kind other', () => {
+    expect(refusal('reviewer', { ...CASES.reviewer.vars, timeboxMinutes: 0 })).toMatchObject({ kind: 'other', input: 'timeboxMinutes' });
+    expect(refusal('classifier', { ...CASES.classifier.vars, range: 'abc..def' })).toMatchObject({ kind: 'other', input: 'range' });
+    expect(refusal('reviewer', { ...CASES.reviewer.vars, lens: 'Not A Lens' })).toMatchObject({ kind: 'other', input: 'lens' });
+  });
+
+  test('a role, an undeclared or missing input and a template fault are plain Errors, not refusals of an input', () => {
+    const missing = { ...CASES.verifier.vars };
+    delete missing.claim;
+    for (const error of [refusal('nope', {}, 'x'), refusal('verifier', { ...CASES.verifier.vars, extra: 'x' }), refusal('verifier', missing)]) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).not.toBeInstanceOf(BriefRefusal);
+    }
+    expect(() => renderBrief('nope', {}, 'x')).toThrow(/unknown brief role/);
+    expect(() => renderBrief('verifier', CASES.verifier.vars, 'no placeholders')).toThrow(/never shows declared input/);
+  });
+});
+
+describe('what a reviewer is told to avoid is what the renderer refuses (kata 0g9n)', () => {
+  const claimWith = (text) => ({ ...CASES.verifier.vars, claim: `The list at lib/x.js:12 is read after ${text} runs.` });
+
+  test('every entry of the screen names words, and each word matches its own entry and is refused in a claim', () => {
+    expect(VERIFIER_LEAKS.length).toBeGreaterThan(0);
+    for (const [pattern, what, words] of VERIFIER_LEAKS) {
+      expect(words.length).toBeGreaterThan(0); // a screen entry a reviewer is never told about would refuse a claim without warning
+      for (const word of words) {
+        expect(pattern.test(word)).toBe(true);
+        expect(() => renderBrief('verifier', claimWith(word), template('verifier'))).toThrow(new RegExp(`reads as ${what}`));
+      }
+    }
+  });
+
+  test('claimRules lists exactly the words of the screen, the length cap and the path grammar the renderer enforces', () => {
+    const rules = claimRules();
+    expect(rules.refusedWords).toEqual(VERIFIER_LEAKS.flatMap((entry) => entry[2]));
+    expect(rules.maxClaimLength).toBe(4000);
+    expect(() => renderBrief('verifier', { ...CASES.verifier.vars, claim: 'x'.repeat(rules.maxClaimLength) }, template('verifier'))).not.toThrow();
+    expect(() => renderBrief('verifier', { ...CASES.verifier.vars, claim: 'x'.repeat(rules.maxClaimLength + 1) }, template('verifier'))).toThrow(/longer than 4000/);
+    expect(rules.pathGrammar).toMatch(/no whitespace, parentheses, quotes/);
+    expect(() => Object.assign(rules.refusedWords, { length: 0 })).toThrow(); // frozen: nothing downstream can edit the rules
+  });
+
+  test('a claim reworded without those words is accepted, and nothing else about the screen moved: the same sentence with a word is still refused even when it is about code', () => {
+    const about = 'the decision of the cache is stale after a reload at lib/x.js:12';
+    expect(renderBrief('verifier', { ...CASES.verifier.vars, claim: about }, template('verifier'))).toContain(`- Claim: ${about}`);
+    expect(() => renderBrief('verifier', { ...CASES.verifier.vars, claim: 'the verdict of the cache is stale after a reload at lib/x.js:12' }, template('verifier'))).toThrow(/reads as a verdict/);
+    expect(() => renderBrief('verifier', { ...CASES.verifier.vars, claim: 'the orchestrator triage entry displaces a candidate' }, template('verifier'))).toThrow(/reads as the orchestrator/);
+  });
+
+  test('the words that made the real run\'s candidates unbriefable are among the words a reviewer is told to avoid', () => {
+    // PR 271 had two refused claims, one naming the orchestrator and one a verdict. The list is generated from the same table
+    // the screen uses, so a word that left the table would leave the screen too; this pins the ones that bit, independently.
+    expect(claimRules().refusedWords).toEqual(expect.arrayContaining(['orchestrator', 'verdict', 'vote', 'conclusion']));
   });
 });
 

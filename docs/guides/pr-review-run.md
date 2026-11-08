@@ -80,7 +80,7 @@ and is only for the `TRIAGE` status.
 |---|---|---|
 | `DISPATCH` | true | manifest: `runId`, `round` (`review` or `verify`), `wave`, `headSha`, `mode`, `tier`, `depth`, `maxConcurrentAgents`, `agents[]` (`name`, `role`, `briefPath`, `outPath`, `prompt`, `dispatchedAt`, `deadlineAt`, `deadlineAtIso`, and `sliceId`, `paths`, `candidateIds` where they apply), `next`, `rules` |
 | `PENDING` | true | agents still outstanding: `waitingOn`, `retryAfterMs`, `earliestDeadlineAt`; call `collect` again |
-| `TRIAGE` | true | full mode only. After the last review wave is collected the runner has deduplicated the candidates and planned verification, and dispatched nothing. The answer carries the candidate list (`id`, `locationOrLink`, `severity`, `failureMode`, `source`), the coverage (`unreviewedSlices`, uncovered paths), the security lane status, the `reReview` decision and the rules. Call `collect` again with `triage` |
+| `TRIAGE` | true | full mode only. After the last review wave is collected the runner has deduplicated the candidates and planned verification, and dispatched nothing. The answer carries the candidate list (`id`, `locationOrLink`, `severity`, `failureMode`, `source`, and `unbriefable: {kind, input, reason}` on a candidate the verifier brief refuses), the coverage (`unreviewedSlices`, uncovered paths), the security lane status, the `reReview` decision and the rules. Call `collect` again with `triage` |
 | `DONE` | true | `gate`, `reviewStatus`, `ledger`, `votes`, `notReviewed`, `precheck`, `statePath`, `metrics`, `mode`, `reReview`, `triage` (`{turns, additionalCandidateIds}`) |
 | `ADJUDICATE` | true | as `DONE`, plus `adjudicate: [{ id, why }]`; the gate already treats those items as open |
 | `RUN_INVALIDATED` | false | the head moved, at any `collect` including one on a finished run (`reason: head-moved`); the run's answer is never repeated for the new head, and a started run that was invalidated before it finished stays so |
@@ -114,8 +114,80 @@ verifier brief refuses, for example a claim that reads as a vote, a verdict, the
 with whitespace) is `RUN_FAILED` with reason `triage-refused`; it is not terminal: fix the payload and call again. For the
 verifier brief the answer names the entry (`additionalCandidates[n]`) and the renderer's own reason (the check is the
 renderer's, not a copy of its rules), and one refused entry refuses the whole payload: nothing of it is kept. Without that
-check such an entry would be kept unverified and block the gate. An entry that matches a candidate the reviewers already
-raised is dropped: that candidate stays exactly as it was.
+check such an entry would be kept unverified and block the gate. An entry that matches a candidate a verifier will be asked
+about is dropped: that candidate stays exactly as it was. A candidate the verifier brief refuses is not one of those (nobody
+will check what it says), so an entry that restates it is kept and verified: see "A candidate the verifier brief refuses".
+
+## A candidate the verifier brief refuses
+
+The verifier brief carries a claim and its location and nothing anyone concluded about them. `lib/pr-review-briefs.js`
+refuses a `failureMode` that reads as a vote, a verdict, the orchestrator, a conclusion or another verifier (a word
+screen: `verdict`, `vote`, `orchestrator`, `conclusion`, "another verifier", "confirmed real", "is a real bug" and the
+rest of its table, even when the claim is only about code: a reviewer of review infrastructure writes them naturally; 2
+of the 5 candidates of the real full-mode run named the orchestrator or a verdict), a claim that is empty, over 4000
+characters or has control characters or double braces, and a `locationOrLink` that is not `path:line` or
+`path:start-end` with a repository path of letters, digits and `. _ @ + ~ = [ ] -` (no whitespace, parentheses or
+quotes: a file name is untrusted input, which is why the grammar is closed). A reviewer-raised candidate the brief
+refuses cannot be put to a verifier, and nobody can reword it inside the review round.
+
+**The state.** The candidate ends in one defined state, never a silent one:
+
+- Kept as written, never dropped, never hidden, never read as verified: its ledger entry has `verification: {outcome:
+  "unverified", reason: "unbriefable", authorLabel: "unverified", tally: null, assigned: [], incompleteVerifiers: [],
+  unbriefable: {kind, input, reason}}`. `kind` is `leak` (the word screen), `claim` (empty, too long, control characters,
+  double braces), `location` (not `path:line`) or `path` (outside the grammar); `input` is the refused input and `reason`
+  the renderer's own message (the runner reads a tag the renderer sets, never the message). It has no tally, because a
+  zero count would read as "0 of 5 voted real" when nobody was asked; no verifier is assigned to it; a vote for it
+  counts for nothing, so it can never be `present` or `filtered`.
+- Planned out of the verification round: each OTHER candidate still gets its K distinct verifiers (3 Standard, 5 Deep)
+  and the verifier pool is sized for them alone. Before, the refused candidate held K verifier slots nobody was asked to
+  fill (its ledger listed them as verifiers that cast no vote).
+- Reported where a person looks: `notReviewed.unbriefable` (`id`, `kind`, `input`, `reason`), `votes.outcomes`
+  (`unverified` / `unbriefable`), `votes.verification` (`partial`; `not-performed` when no candidate could be put to a
+  verifier or none of the others was verified; reason `unbriefable-candidates`, recovery `reword-the-claim-or-decide`),
+  the `reducedReview` notice, the state report, and the operator's decision list, where the entry carries
+  `verification` and `votes: null`, so it cannot be read as a candidate the verifiers looked at.
+- Decided by a person with no verifier's help. The gate reads it like every other finding: an Important one blocks until it
+  is fixed or the operator records a decision, and nothing about verification opens or closes it (a `not-real` majority
+  never did either). It is not an adjudication item: the orchestrator does not decide it.
+
+**Why this, and not a rewrite or a re-run.** The renderer's rules do not move to make a run complete: the screen is the
+guard that keeps a verdict or the orchestrator's reading out of a verifier's brief, and its own test pins that a claim
+with one of its words is refused "even when it is about code", to be reworded by whoever wrote it. Three ways to get such
+a candidate checked were weighed against what the gate must stay:
+
+1. Neutralise the words in the claim the verifier sees, with a recorded marker. Rejected: it cannot be both leak-proof and
+   meaning-preserving. "The orchestrator confirmed this is real" and "an orchestrator triage entry displaces a
+   candidate" use the same token; a word-level rewrite either keeps the first (the leak stays in the brief) or changes the
+   second (the verifiers settle a different claim than the ledger holds: the real run's f1 would read "a [term] triage
+   entry displaces that candidate"), and telling them apart is the classifier the screen already is, with the same
+   errors. A rewrite that cannot be shown to preserve meaning would also let a vote on altered words stand as a vote on
+   the reviewer's claim.
+2. Ask the reviewer to restate the claim (a re-run). Rejected: the reviewer is gone (a fresh agent would paraphrase a claim it
+   did not write), it adds an agent round to the wall time the runner exists to cut, it is not deterministic, it needs a
+   new role, brief and trace stage, and the verifiers would settle the paraphrase, not the claim. Nothing proves the
+   two say the same thing.
+3. Report it unverified with a named reason and leave the decision to a person. Chosen: it changes nothing a verifier is
+   shown, never labels a candidate verified that no verifier saw, keeps every candidate and its words, and is
+   deterministic. The cost is stated: such a candidate has no independent check.
+
+The cost is kept small where it can be, without moving a guard. Reviewers are told the rules in their output contract
+(`claimRules`, built from the renderer's own table, so the instruction and the refusal cannot drift: the words and
+forms the brief refuses, the length cap and the path grammar), which is where a claim is cheapest to word. In full mode,
+`TRIAGE` names each refused candidate (`unbriefable`) before the orchestrator decides what to add; the orchestrator can
+still only ADD, and an entry that restates a refused candidate in words the brief accepts is kept (the dedupe compares an
+entry only with candidates a verifier will be asked about) and verified by its own five verifiers, while the refused
+candidate stays as it was. An entry the brief refuses is still refused at triage, with the renderer's reason, and nothing of
+its payload is kept: the same predicate (`briefCandidates`) answers the verify plan, the `TRIAGE` answer and the triage
+dedupe, so they cannot disagree about which candidates are verifiable.
+
+**Limits.** A refused candidate has no independent check: its claim and its severity are the reviewer's word alone, and
+the decision is a person's. The screen is a word list and stays one: it refuses a claim that is only about code, and it
+cannot tell that a claim avoiding its words carries no opinion (an unchanged limit). The contract is an instruction, not
+an enforcement: a reviewer can still write what the brief refuses, and then this state is the result. A light run has no
+`TRIAGE`, so there is no restatement: the state is the end. When two reviewers raise one defect the dedupe keeps one
+entry, and it can be the one whose wording the brief refuses (the other raiser is in `mergedFrom`). The `kind` of a
+refusal that is not an input's fault (a missing template, a stand-in renderer that throws a plain Error) is `other`.
 
 ## Re-review scope (`reReview`)
 
@@ -159,8 +231,9 @@ answer is not returned; nothing is recorded, so it is that commit's answer again
   reviewer or security-lane brief the renderer refuses (for example a path with a space in it) answers
   `NEEDS_FULL_MODE` (nothing dispatched; the narrated Steps 1-10 are the manual procedure); in full mode it is
   `RUN_FAILED` with reason `brief-refused` and a stated decision (never lowered to light, no verdict, the operator's two
-  ways forward: see Statuses). A refused verifier brief keeps its candidate, unverified, and lists it under
-  `notReviewed.unbriefable`; for an entry the orchestrator adds at triage the refusal comes first, as `triage-refused`.
+  ways forward: see Statuses). A refused verifier brief keeps its candidate, unverified and named, and lists it under
+  `notReviewed.unbriefable` (see "A candidate the verifier brief refuses"); for an entry the orchestrator adds at triage
+  the refusal comes first, as `triage-refused`.
 - The final answer and `run.json` carry `mode` (the real mode), `triage` (`{turns, additionalCandidateIds}`) and
   `reReview`.
 - A head from outside this repository is never reviewed (`cross-repository-head`, `head-repository-unknown`), whatever
@@ -267,16 +340,16 @@ What kata znd1 asked for and this runner does not do (none is claimed):
 - Deadlines and the concurrency cap are the dispatcher's to enforce. Tier kinds come from paths, not from a classifier agent.
   Carry-over of verdicts, delta-only reading and sharding are not built.
 
-Known defects the one real full-mode run found. None is fixed in this change; each is tracked on its own:
+Known defects the one real full-mode run found that are still open; each is tracked on its own:
 
 - The default 15-minute deadline for a reviewer or the security lane is too short for a large whole-PR slice. A Deep
   run's security lane can arrive late, be recorded `expired` and leave the gate on `security-review-missing` (kata `sfpb`).
   In the real run the lane needed 17m45s and the gate named `security-review-missing`.
-- The verifier brief refuses a claim that names the orchestrator or a verdict, and a path with whitespace (kata `0g9n`). A
-  reviewer-raised candidate like that stays `unverified`, listed under `notReviewed.unbriefable`, and blocks the gate. An
-  entry the orchestrator adds is refused at triage instead, so it can be reworded in the same run.
 - `review-run-cli.js` `peekRun` reads `run.json` at a `runId` it has not validated yet, before `collect` rejects a bad
   one (kata `yz76`). Only `repo` and `pr` are taken from it.
+
+The third defect that run found, the verifier brief refusing a claim that names the orchestrator or a verdict and a path
+with whitespace (kata `0g9n`), is handled: see "A candidate the verifier brief refuses".
 
 ## Worked example
 

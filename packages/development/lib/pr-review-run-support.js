@@ -12,7 +12,7 @@
  *   - `parseDiffHunks`, `gradePreExisting`  a `pre-existing` label is a claim about provenance, checked against the diff and the head;
  *   - `planVerifierPool`   planVerification with a pool sized so no verifier holds more than 3 candidates;
  *   - `chunk`              agents -> waves of at most `maxConcurrentAgents`;
- *   - `reviewerContract`, `verifierContract`, `agentPrompt`  the text an agent is given;
+ *   - `reviewerContract`, `verifierContract`, `agentPrompt`  the text an agent is given (a reviewer's also states what the verifier brief refuses, kata 0g9n);
  *   - `adjudicateList`     the findings a person must decide;
  *   - `computeMetrics`     the AC5 timing record, from the run's own call log and agent times.
  */
@@ -22,6 +22,7 @@ const path = require('path');
 const { resolveDepth, checkBounds } = require('./pr-review-depth');
 const { normalizeSeverity } = require('./pr-review-ledger');
 const { planVerification } = require('./pr-review-verify-assign');
+const { claimRules } = require('./pr-review-briefs');
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
@@ -359,6 +360,17 @@ function locationFile(location) {
   return match === null ? null : match[1];
 }
 
+/**
+ * What a reviewer is told about the claim it writes (kata 0g9n): the verifier brief refuses some claims and locations, and a
+ * finding it refuses is not verified. Built from `claimRules`, the tables the renderer itself checks with, so the instruction
+ * and the refusal cannot disagree. The security lane's findings are never put to verifiers, so its contract omits it.
+ */
+function claimRuleBullet() {
+  const rules = claimRules();
+  const words = rules.refusedWords.map((word) => `"${word}"`).join(', ');
+  return `- Each finding's \`failureMode\` and \`locationOrLink\` are handed, word for word, to independent verifiers who must judge the claim for themselves, so the verifier brief refuses anything that could carry a verdict, and a finding it refuses is NOT verified: the run lists it as unbriefable and a person must decide it without a verifier's help. Say what goes wrong in the code in your own words, and name the code (the function, the step, the field) rather than the review machinery. In \`failureMode\` never use these words or phrases, or their other forms: ${words}; no doubled curly braces, no control characters, at most ${rules.maxClaimLength} characters. \`locationOrLink\` must be one \`path:line\` or \`path:start-end\` with a repository-relative path of ${rules.pathGrammar}.`;
+}
+
 /** The text a reviewer or the lane writes its result as. */
 function reviewerContract(agent) {
   return [
@@ -382,6 +394,7 @@ function reviewerContract(agent) {
     '- Set `"uncertain": true` on a finding you cannot settle yourself; a person then decides it.',
     '- Do not write `resolution`, `cleared` or `blocking`: they are ignored.',
     '- Use severity `pre-existing` only for a defect in lines this change did not touch. The runner checks the `file:line` you cite against the diff and the head: a pre-existing finding whose cited lines are inside a hunk of the diff, whose location it cannot place, whose path is not a regular file at the head (cite the full repository-relative path, spelled exactly; a symlink is not followed) or whose line is past the end of that file is graded Important.',
+    ...(agent.role === 'reviewer' ? [claimRuleBullet()] : []),
     `- Write the file atomically: a temp file in the same directory, then rename it to \`${agent.outPath}\`. Finish before ${agent.deadlineAtIso || 'your deadline'}; a result that arrives later is not read.`,
     '',
   ].join('\n');

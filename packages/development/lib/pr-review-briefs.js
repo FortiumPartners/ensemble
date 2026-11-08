@@ -45,6 +45,12 @@
  *     opinion. The claim is the finding's own failure mode and evidence, so what it
  *     says is the finding's; the structural guarantees above are the ones that hold.
  *
+ * A refused INPUT is a `BriefRefusal`: the message is the one reported to a person, and `input` and `kind` (REFUSAL_KINDS:
+ * leak, claim, location, path, other) are for a caller that must route the refusal. The review runner keeps a candidate
+ * whose verifier brief is refused, unverified and named, so a refusal here is the one place that says why. The renderer's
+ * rules do not move to make a run complete: a claim that names a verdict is refused even when it is about code, and the
+ * claim must be reworded by whoever wrote it. `claimRules` states those rules to the reviewers who write claims.
+ *
  * TRD/plan reference: docs/plans/pr-review-speedup-plan.md section 3G.
  */
 
@@ -66,22 +72,52 @@ const MAX_PROSE = 4000;
 const MAX_MINUTES = 24 * 60;
 
 /**
- * What a verifier's claim must not read as. Each pattern names a way an orchestrator or
- * a sibling verifier's reading leaks into the text a fresh verifier is meant to judge
- * for itself.
+ * What a verifier's claim must not read as. Each entry is `[pattern, what, words]`: a way an orchestrator or a sibling
+ * verifier's reading leaks into the text a fresh verifier is meant to judge for itself, and `words`, each of which the
+ * pattern matches: the strings a reviewer is told to avoid (`claimRules`), so what a reviewer reads and what the screen
+ * refuses cannot drift apart (a test refuses every one of them, and every entry must have some).
  */
 const VERIFIER_LEAKS = Object.freeze([
-  [/\bverdicts?\b/i, 'a verdict'],
-  [/\bvot(?:e|es|ed|ing)\b/i, 'a vote'],
-  [/\bnot-real\b/i, 'a verdict'],
-  [/\babstain(?:s|ed)?\b/i, 'a verdict'],
-  [/\borchestrat(?:or|ors|ed|ion)\b/i, 'the orchestrator'],
-  [/\bconclu(?:de|des|ded|sion|sions)\b/i, 'a conclusion'],
-  [/\b(?:other|another|previous|earlier|prior|first|second|third) verifiers?\b/i, 'another verifier'],
-  [/\bverifiers? (?:said|found|confirmed|agreed|disagreed|judged)\b/i, 'another verifier'],
-  [/\b(?:confirmed|judged|ruled|deemed|found|established|verified) (?:to be |as )?real\b/i, 'a conclusion'],
-  [/\b(?:is|are) (?:a |an )?(?:real|confirmed) (?:bug|issue|finding|defect|problem)\b/i, 'a conclusion'],
+  [/\bverdicts?\b/i, 'a verdict', Object.freeze(['verdict'])],
+  [/\bvot(?:e|es|ed|ing)\b/i, 'a vote', Object.freeze(['vote', 'voted', 'voting'])],
+  [/\bnot-real\b/i, 'a verdict', Object.freeze(['not-real'])],
+  [/\babstain(?:s|ed)?\b/i, 'a verdict', Object.freeze(['abstain'])],
+  [/\borchestrat(?:or|ors|ed|ion)\b/i, 'the orchestrator', Object.freeze(['orchestrator', 'orchestration'])],
+  [/\bconclu(?:de|des|ded|sion|sions)\b/i, 'a conclusion', Object.freeze(['conclude', 'conclusion'])],
+  [/\b(?:other|another|previous|earlier|prior|first|second|third) verifiers?\b/i, 'another verifier', Object.freeze(['another verifier', 'first verifier'])],
+  [/\bverifiers? (?:said|found|confirmed|agreed|disagreed|judged)\b/i, 'another verifier', Object.freeze(['verifiers said', 'verifier confirmed'])],
+  [/\b(?:confirmed|judged|ruled|deemed|found|established|verified) (?:to be |as )?real\b/i, 'a conclusion', Object.freeze(['confirmed real', 'judged to be real'])],
+  [/\b(?:is|are) (?:a |an )?(?:real|confirmed) (?:bug|issue|finding|defect|problem)\b/i, 'a conclusion', Object.freeze(['is a real bug', 'is a confirmed defect'])],
 ]);
+
+/**
+ * Why a brief refuses one input, as a closed vocabulary a caller can act on without reading the message:
+ *   leak      a claim that reads as a vote, a verdict, the orchestrator, a conclusion or another verifier (`VERIFIER_LEAKS`);
+ *   claim     a claim that is not acceptable text: empty, over `MAX_PROSE`, with control characters or with placeholder braces;
+ *   location  a cited location that is not `file:line` or `file:start-end`;
+ *   path      a path outside the closed path grammar (whitespace, parentheses, quotes, "..");
+ *   other     anything else (an input no candidate owns: a range, a lens, a minutes count, a prepared directory).
+ */
+const REFUSAL_KINDS = Object.freeze(['leak', 'claim', 'location', 'path', 'other']);
+
+/** The kind an input's refusal has unless its check names one: what the input is. */
+const INPUT_KIND = Object.freeze({ claim: 'claim', location: 'location', paths: 'path', snapshotDir: 'path', diffPath: 'path', ruleFiles: 'path', sensitivePaths: 'path' });
+
+/**
+ * A brief refused an input. The message is the one the renderer has always thrown; `input` names the refused input and
+ * `kind` (one of REFUSAL_KINDS) says why, so a caller that must record or route a refusal (the review runner keeps the
+ * candidate unverified and names the kind) never parses the message. An unknown role, an undeclared or missing input and a
+ * bad template stay plain Errors: they are the caller's or the installation's fault, not the input's.
+ */
+class BriefRefusal extends Error {
+  constructor(message, { role, input, kind }) {
+    super(message);
+    this.name = 'BriefRefusal';
+    this.role = role;
+    this.input = input;
+    this.kind = kind;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Input kinds
@@ -173,14 +209,19 @@ const COMMIT_RANGE = Object.freeze({
   render: IDENTITY,
 });
 
-/** `path:line` or `path:start-end`, the path in the repository-path grammar. */
+/**
+ * `path:line` or `path:start-end`, the path in the repository-path grammar. A check answers `null`, a message (its kind is
+ * the input's: `INPUT_KIND`) or `{kind, message}` when it knows better: here, a path that is outside the grammar is a
+ * `path` refusal, not a `location` one.
+ */
 const LOCATION = Object.freeze({
   check(value, name) {
     const problem = checkLine(value, name);
     if (problem) return problem;
     const match = /^(.+):(\d+)(?:-(\d+))?$/.exec(value);
     if (!match) return `'${name}' must be 'file:line' or 'file:start-end'`;
-    return checkRepoPath(match[1], name);
+    const pathProblem = checkRepoPath(match[1], name);
+    return pathProblem === null ? null : { kind: 'path', message: pathProblem };
   },
   render: IDENTITY,
 });
@@ -221,7 +262,7 @@ function proseKind(leaks) {
       if (value.length > MAX_PROSE) return `'${name}' is longer than ${MAX_PROSE} characters`;
       for (const [pattern, what] of leaks) {
         const hit = pattern.exec(value);
-        if (hit) return `'${name}' reads as ${what} ("${hit[0]}"); a brief carries the claim and nothing anyone concluded about it`;
+        if (hit) return { kind: 'leak', message: `'${name}' reads as ${what} ("${hit[0]}"); a brief carries the claim and nothing anyone concluded about it` };
       }
       return null;
     },
@@ -336,13 +377,29 @@ function checkTemplate(role, templateText) {
 }
 
 /**
+ * The strings a claim must avoid and the form it must take, for whoever writes a claim a verifier will be briefed with: a
+ * reviewer's output contract states them (`pr-review-run-support.js`). Derived from the same tables the renderer checks with,
+ * so a reviewer is never told one thing and refused for another.
+ *
+ * @returns {{refusedWords:string[], maxClaimLength:number, pathGrammar:string}}
+ */
+function claimRules() {
+  return Object.freeze({
+    refusedWords: Object.freeze(VERIFIER_LEAKS.flatMap((entry) => entry[2])),
+    maxClaimLength: MAX_PROSE,
+    pathGrammar: GRAMMAR_HINT,
+  });
+}
+
+/**
  * Render one brief.
  *
  * @param {string} role          one of `ROLES`
  * @param {object} vars          exactly the inputs the role declares
  * @param {string} templateText  the text of the role's template file
  * @returns {string}
- * @throws when the role, the template or any input is unacceptable (see the file comment)
+ * @throws a BriefRefusal (`input`, `kind`) when an input is unacceptable; a plain Error when the role, the template or the
+ *   shape of the inputs is (see the file comment)
  */
 function renderBrief(role, vars, templateText) {
   const spec = roleSpec(role);
@@ -364,9 +421,14 @@ function renderBrief(role, vars, templateText) {
   for (const name of declared) {
     const kind = spec.inputs[name];
     const problem = kind.check(vars[name], name);
-    if (problem) throw new Error(`the ${role} brief refuses its input: ${problem}`);
+    if (problem) {
+      const { kind: why = INPUT_KIND[name] || 'other', message } = typeof problem === 'string' ? { message: problem } : problem;
+      throw new BriefRefusal(`the ${role} brief refuses its input: ${message}`, { role, input: name, kind: why });
+    }
     const text = kind.render(vars[name]);
-    if (/\{\{|\}\}/.test(text)) throw new Error(`the ${role} brief refuses input '${name}': it contains "{{" or "}}"`);
+    if (/\{\{|\}\}/.test(text)) {
+      throw new BriefRefusal(`the ${role} brief refuses input '${name}': it contains "{{" or "}}"`, { role, input: name, kind: INPUT_KIND[name] || 'other' });
+    }
     rendered[name] = text;
   }
 
@@ -376,7 +438,11 @@ function renderBrief(role, vars, templateText) {
 
 module.exports = {
   ROLES,
+  VERIFIER_LEAKS,
+  REFUSAL_KINDS,
+  BriefRefusal,
   renderBrief,
+  claimRules,
   checkTemplate,
   placeholdersOf,
 };
