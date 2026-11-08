@@ -106,6 +106,14 @@ guessed input.
 
 ---
 
+## Light-mode runner
+
+When `selectMode` answers `light`, `MODE=local` and `MODE=gate` run `prepare` then `collect` of
+`lib/review-run-cli.js` (`$REVIEW_RUN_CLI`) per `reference/review-run.md`, not the Steps below.
+`NEEDS_FULL_MODE`: the narrated Steps 1-10, unchanged.
+
+---
+
 ## Algorithm
 
 The steps run in this fixed order. No step is reordered, skipped, or
@@ -260,11 +268,8 @@ explainer is produced only on request, and generate only what `generate` names
 ### Step 9 -- Write state (CLI `state-write`)
 
 Detail: `reference/status-and-state.md`. Run `state-write` with `{ prId, state }` (the
-full status result); `ok:false` wrote nothing -- report `reason`. The report lives at
-`.ensemble/pr-review/pr-<PR_ID>.json`, is gitignored and never committed (committing
-changes the head and invalidates the review). Resume with `state-read`
-(`{ prId, headSha, treeSha }`); a report whose head or reviewed tree does not match is
-discarded.
+full status result); `ok:false` wrote nothing -- report `reason`. The report
+(`.ensemble/pr-review/pr-<PR_ID>.json`) is gitignored and never committed.
 
 ### Step 10 -- Merge gate (`MODE=gate` only)
 
