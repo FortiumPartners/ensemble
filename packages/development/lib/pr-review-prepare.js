@@ -808,7 +808,12 @@ function deriveFromGit(deps, options, range, nodeModules, treeSha, entries) {
   }
   const policy = loadPolicy({ text: reviewText, baseSha, sourceSha: baseSha });
   const declaration = { sourceSha: baseSha, sensitive: policy.policy.sensitivePaths, high: policy.policy.highPaths };
-  const pathsInput = { changedPaths, declaration, codeowners: codeowners === null ? undefined : codeowners, baseSha };
+  // An untrusted policy (ok:false: foreign or stale sourceSha, unparseable, ...) must not lower the tier: every path is
+  // High and the reason is carried in the classification warnings (kata vhpf).
+  const pathsInput = {
+    changedPaths, declaration, codeowners: codeowners === null ? undefined : codeowners, baseSha,
+    ...(policy.ok === false ? { policyUntrusted: policy.reason || 'policy-untrusted' } : {}),
+  };
   const classification = classifyPaths(pathsInput);
   const { delta, deltaPlan } = deriveDelta(deps, options, range, entries, pathsInput);
 

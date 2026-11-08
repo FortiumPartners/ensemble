@@ -407,11 +407,17 @@ const AREA_MATCH = Object.freeze({ ignoreCase: true });
 function classifyPaths(input) {
   if (!isObject(input)) return blocked('invalid-input');
 
-  const { changedPaths, declaration, codeowners, baseSha } = input;
+  const { changedPaths, declaration, codeowners, baseSha, policyUntrusted } = input;
   if (!Array.isArray(changedPaths)) return blocked('invalid-changed-paths');
   if (!changedPaths.every((entry) => isNonEmptyString(entry))) return blocked('invalid-path-entry');
 
   const warnings = [];
+
+  // A policy that could not be trusted (stale or foreign identity, unparseable) carries no highPaths, so strict
+  // defaults would silently LOWER the tier below what the real policy implies (kata vhpf). Fail up instead: every
+  // changed path is High, named by the reason, until a trusted policy is in force. Never lowers anything.
+  const untrustedReason = typeof policyUntrusted === 'string' && policyUntrusted.trim() !== '' ? policyUntrusted.trim() : null;
+  if (untrustedReason !== null) warnings.push(`policy-untrusted-all-high:${untrustedReason}`);
 
   // --- Which declaration, if any, is in force (REQ-024) -------------------
   let declaredSensitive = [];
@@ -488,7 +494,9 @@ function classifyPaths(input) {
 
     // The matchers get the name as git printed it: they try it both with and without its surrounding whitespace, and
     // a name already trimmed here would lose the second spelling.
-    const highMatchedBy = firstMatch(declaredHigh, original, AREA_MATCH);
+    const highMatchedBy = untrustedReason !== null
+      ? `policy-untrusted:${untrustedReason}`
+      : firstMatch(declaredHigh, original, AREA_MATCH);
     const { owners } = resolveOwners(ownerRules, original);
 
     const isSensitive = source !== null;

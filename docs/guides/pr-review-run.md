@@ -396,6 +396,17 @@ answer is not returned; nothing is recorded, so it is that commit's answer again
   `prepare`; `lastReviewedSha` feeds the `reReview` decision only, and reviewers read the full range.
 - `prepare` runs the precheck: it posts one PR comment and starts the local-CI gate in the background unless
   `dryRun` or `skipPrecheck` is set.
+  When the gate does not start, the comment and the answer name the real cause (`missing-file`, `unreadable-file`,
+  `parse-error`, `invalid-config`, `missing-dependency`, `validation-failed`, `config-reader-failed`): a checkout without `node_modules` is a
+  `missing-dependency` refusal naming the module, never "no readable .ensemble/local-ci.yaml".
+- An untrusted policy never lowers the tier (kata `vhpf`): when the base's `REVIEW.md` policy block cannot be used (a
+  stale or foreign `sourceSha` is `policy-not-from-base`, an unparseable block is `policy-unparseable`), the strict
+  defaults have no `highPaths`, so `prepare` classifies every changed path High (`policy-untrusted:<reason>` in
+  `facts.paths`, in the tier's `reasons` and as `policyStatus` in the run state) so a stale base never reviews the PR
+  more lightly than current `dev` would. The cost: it can review MORE heavily than current `dev` (a one-file PR goes
+  to full mode), and a light multi-slice PR becomes a full-mode run, which plans no whole-range reader (open owner
+  decision, pinned by a test). A missing `REVIEW.md` or block is still the documented defaults. A rejected
+  `highPaths` key inside an otherwise valid block (`ok:true`) is not covered.
 - The baseline test run executes the head's own test code in a scratch directory. It is not a sandbox; see
   `docs/guides/pr-review-prepare.md`. It runs the relevant test files only. When it produced no usable result (no
   relevant test files, a timeout) the status fact is `tests skipped`, never a pass and never a failure it did not

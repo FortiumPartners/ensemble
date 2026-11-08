@@ -698,6 +698,8 @@ async function prepareStages(input, deps, ctx) {
     changedPaths: facts.changedPaths,
     numstat: facts.numstat,
     policy: isObject(facts.policy) && isObject(facts.policy.policy) ? facts.policy.policy : null,
+    // Whether the base policy was usable; ok:false names why every path is High (kata vhpf).
+    policyStatus: isObject(facts.policy) ? { ok: facts.policy.ok !== false, reason: facts.policy.ok === false ? facts.policy.reason || 'policy-untrusted' : null } : null,
     policyRejected: isObject(facts.policy) && Array.isArray(facts.policy.rejected) ? facts.policy.rejected : [],
     sensitivePaths: isObject(facts.paths) && Array.isArray(facts.paths.sensitive) ? facts.paths.sensitive : [],
     phase: 'preparing',

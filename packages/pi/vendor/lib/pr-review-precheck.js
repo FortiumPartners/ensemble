@@ -194,8 +194,16 @@ function assessProtection(protectionResult, baseRefName, approvals) {
  * - nothing                                                            -> `start`;
  * - statuses or config unreadable -> `unknown`, do not start (a duplicate gate costs minutes of CPU; the report says so).
  */
-function decideGate({ statusesResult, statusContext, headSha }) {
-  if (!isText(statusContext)) return { action: 'unknown', reason: 'the local-CI status context is not known (no readable .ensemble/local-ci.yaml at the base ref)' };
+function decideGate({ statusesResult, statusContext, headSha, configResult }) {
+  if (!isText(statusContext)) {
+    // Carry the real cause (kata zy6j): a missing file, an unreadable one, a parse error and a missing runner dependency are
+    // four different problems with four different fixes. Only a reader that gave no error at all gets the generic words.
+    const cause = isObject(configResult) && isText(configResult.cause) ? `${configResult.cause}: ` : '';
+    const why = isObject(configResult) && configResult.ok === false && isText(configResult.error)
+      ? `${cause}${configResult.error}`
+      : 'no answer from the local-CI config reader';
+    return { action: 'unknown', reason: `the local-CI status context is not known (${why})` };
+  }
   if (!isObject(statusesResult) || statusesResult.ok !== true || !Array.isArray(statusesResult.statuses)) {
     return { action: 'unknown', reason: `commit statuses could not be read: ${errorText(statusesResult)}` };
   }
@@ -386,7 +394,7 @@ async function runPrecheck(input, deps) {
 
   // The gate: decided from what GitHub says now (see `startOnce` for the order of the start).
   const statusContext = isObject(configResult) && configResult.ok === true ? configResult.statusContext : undefined;
-  const decision = decideGate({ statusesResult, statusContext, headSha });
+  const decision = decideGate({ statusesResult, statusContext, headSha, configResult });
   let gate;
   if (decision.action === 'status-present') gate = { ...decision };
   else if (decision.action === 'unknown') gate = { action: 'not-started', reason: decision.reason };

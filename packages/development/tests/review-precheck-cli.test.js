@@ -811,3 +811,69 @@ describe('main', () => {
     expect(await main({ ...base, readJson: () => ({ repo: 'o/r', pr: 9, repoRoot: root }), deps: { ...goodDeps, readPr: async () => ({ ok: false, error: 'gone' }) } })).toBe(1);
   });
 });
+
+describe('readGateConfig names the real cause (kata zy6j)', () => {
+  const gitIn = (cwd, ...args) => cp.execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } }).trim();
+  /** A real work tree whose origin/dev holds `.ensemble/local-ci.yaml` with `yaml` (absent when null). */
+  function repoWith(yaml) {
+    const origin = path.join(root, 'origin.git');
+    const work = path.join(root, 'work');
+    fs.mkdirSync(work);
+    gitIn(root, 'init', '--quiet', '--bare', origin);
+    gitIn(work, 'init', '--quiet', '-b', 'dev');
+    gitIn(work, 'remote', 'add', 'origin', origin);
+    fs.writeFileSync(path.join(work, 'a.txt'), '1');
+    if (yaml !== null) {
+      fs.mkdirSync(path.join(work, '.ensemble'));
+      fs.writeFileSync(path.join(work, '.ensemble', 'local-ci.yaml'), yaml);
+      gitIn(work, 'add', '.ensemble/local-ci.yaml');
+    }
+    gitIn(work, 'add', 'a.txt');
+    gitIn(work, 'commit', '--quiet', '-m', 'c1');
+    gitIn(work, 'push', '--quiet', 'origin', 'HEAD:refs/heads/dev');
+    return work;
+  }
+  const read = (work) => makeDeps({ repo: 'o/r', pr: 9, repoRoot: work }).readGateConfig('dev');
+
+  it('a valid config answers its status context', async () => {
+    expect(await read(repoWith(CONFIG_YAML))).toEqual({ ok: true, statusContext: CONTEXT });
+  });
+  it('no file at the base: missing-file', async () => {
+    expect(await read(repoWith(null))).toMatchObject({ ok: false, cause: 'missing-file' });
+  });
+  it('unparseable YAML: parse-error, with the parser text', async () => {
+    const r = await read(repoWith('a: [unclosed\n  b: : :\n'));
+    expect(r).toMatchObject({ ok: false, cause: 'parse-error' });
+    expect(r.error).toMatch(/not valid YAML/);
+  });
+  it('a parseable config the validator refuses: invalid-config, not parse-error', async () => {
+    expect(await read(repoWith('status_context: x\n'))).toMatchObject({ ok: false, cause: 'invalid-config' });
+  });
+  it('an unreadable blob (git show fails though the object exists): unreadable-file', async () => {
+    const work = repoWith(CONFIG_YAML);
+    const wrapped = makeDeps({
+      repo: 'o/r', pr: 9, repoRoot: work,
+      run: async (cmd, args, opts) => (cmd === 'git' && args[0] === 'show' && args[1].endsWith('local-ci.yaml') ? fail('fatal: disk on fire') : require('child_process').spawnSync(cmd, args, { ...opts, encoding: 'utf8' })),
+    });
+    expect(await wrapped.readGateConfig('dev')).toMatchObject({ ok: false, cause: 'unreadable-file' });
+  });
+  it('a checkout without js-yaml (real process, lib copied where no node_modules is reachable): missing-dependency, naming the module', async () => {
+    const work = repoWith(CONFIG_YAML);
+    const libCopy = path.join(root, 'libcopy');
+    fs.cpSync(path.join(__dirname, '..', 'lib'), libCopy, { recursive: true });
+    const script = `const {makeDeps}=require(${JSON.stringify(path.join(libCopy, 'review-precheck-cli.js'))});` +
+      `makeDeps({repo:'o/r',pr:9,repoRoot:${JSON.stringify(work)}}).readGateConfig('dev').then(r=>console.log(JSON.stringify(r)));`;
+    const out = JSON.parse(cp.execFileSync(process.execPath, ['-e', script], { encoding: 'utf8', env: { ...process.env, NODE_PATH: '' } }));
+    expect(out).toMatchObject({ ok: false, cause: 'missing-dependency' });
+    expect(out.error).toMatch(/js-yaml/);
+    expect(out.error).toMatch(/npm install/);
+  });
+  it('the precheck answer carries the underlying cause, not "no readable .ensemble/local-ci.yaml"', async () => {
+    const { run } = fakeRun(table());
+    const d = { ...deps({ run }), readGateConfig: async () => ({ ok: false, cause: 'missing-dependency', error: 'lacks js-yaml' }) };
+    const r = await runPrecheck({}, d);
+    expect(r.gate.action).toBe('not-started');
+    expect(r.gate.reason).toContain('missing-dependency: lacks js-yaml');
+    expect(r.gate.reason).not.toContain('no readable');
+  });
+});

@@ -361,16 +361,32 @@ function makeDeps({ repo, pr, repoRoot, run = defaultRun, spawnProcess = spawn, 
       const rev = await git(['rev-parse', '--verify', '--end-of-options', `refs/remotes/origin/${baseRefName}^{commit}`]);
       const baseSha = String(rev.stdout || '').trim();
       if (rev.status !== 0 || !SHA_RE.test(baseSha)) return { ok: false, error: `origin/${baseRefName} does not resolve to a commit in ${root}` };
+      // Tell the causes apart (kata zy6j): missing file, unreadable file, missing runner dependency, parse error, invalid config.
       const shown = await git(['show', `${baseSha}:.ensemble/local-ci.yaml`]);
-      if (shown.status !== 0) return { ok: false, error: `no .ensemble/local-ci.yaml at origin/${baseRefName}: local CI is not configured for this base` };
+      if (shown.status !== 0) {
+        const has = await git(['cat-file', '-e', `${baseSha}:.ensemble/local-ci.yaml`]);
+        if (has.status !== 0) return { ok: false, cause: 'missing-file', error: `no .ensemble/local-ci.yaml at origin/${baseRefName}: local CI is not configured for this base` };
+        return { ok: false, cause: 'unreadable-file', error: `.ensemble/local-ci.yaml at origin/${baseRefName} could not be read: ${tail(shown.stderr) || `exit ${shown.status}`}` };
+      }
+      let validate;
+      try {
+        validate = require('./local-ci-config').validateConfig;
+      } catch (e) {
+        if (e && e.code === 'MODULE_NOT_FOUND') {
+          return { ok: false, cause: 'missing-dependency', error: `the runner environment lacks a module the local-ci config reader needs (${String(e.message).split('\n')[0]}); run npm install in the checkout that runs review-precheck` };
+        }
+        return { ok: false, cause: 'config-reader-failed', error: `the local-ci config reader could not be loaded: ${e && e.message}` };
+      }
       let cfg;
       try {
-        cfg = require('./local-ci-config').validateConfig(shown.stdout);
+        cfg = validate(shown.stdout);
       } catch (e) {
-        return { ok: false, error: `the local-ci config could not be validated: ${e.message}` };
+        return { ok: false, cause: 'validation-failed', error: `the local-ci config could not be validated: ${e && e.message}` };
       }
       if (!cfg || cfg.ok !== true || !cfg.approvalSet || !isText(cfg.approvalSet.statusContext)) {
-        return { ok: false, error: `unusable .ensemble/local-ci.yaml at origin/${baseRefName}: ${((cfg && cfg.problems) || ['invalid']).join('; ').slice(0, 300)}` };
+        const problems = (cfg && cfg.problems) || ['invalid'];
+        const parse = problems.some((x) => /not valid YAML/.test(String(x)));
+        return { ok: false, cause: parse ? 'parse-error' : 'invalid-config', error: `unusable .ensemble/local-ci.yaml at origin/${baseRefName}: ${problems.join('; ').slice(0, 300)}` };
       }
       return { ok: true, statusContext: cfg.approvalSet.statusContext };
     },

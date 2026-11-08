@@ -40,7 +40,7 @@ const out = (value) => { process.stdout.write(JSON.stringify(value)); process.ex
 const fail = (stderr, stdout) => { process.stderr.write(stderr); if (stdout) process.stdout.write(stdout); process.exit(1); };
 const joined = args.join(' ');
 if (args[0] === 'pr' && args[1] === 'view') {
-  const pr = { headRefOid: state.head, baseRefName: 'main', state: state.prState || 'OPEN', body: state.body, author: { login: 'alice' }, isCrossRepository: state.isCrossRepository === undefined ? false : state.isCrossRepository };
+  const pr = { headRefOid: state.head, baseRefName: state.baseRefName || 'main', state: state.prState || 'OPEN', body: state.body, author: { login: 'alice' }, isCrossRepository: state.isCrossRepository === undefined ? false : state.isCrossRepository };
   if (state.isCrossRepository === 'omit') delete pr.isCrossRepository;
   out(pr);
 }
@@ -208,6 +208,57 @@ describe('the real CLI process on a real git fixture', () => {
     expect(fs.readFileSync(path.join(snapshot, 'src', 'b.js'), 'utf8')).toBe('module.exports = () => 1;\n');
     expect(brief).toMatch(/- src\/a\.js\n- src\/b\.js/);
     process.stderr.write(`\nSMOKE manifest: ${JSON.stringify({ status: m.status, runId: m.runId, round: m.round, wave: m.wave, tier: m.tier.effectiveTier, depth: m.depth, agents: m.agents.map((a) => ({ name: a.name, role: a.role, outPath: path.relative(fx.work, a.outPath), deadlineAtIso: a.deadlineAtIso })) })}\n`);
+  });
+
+  /** A base branch whose REVIEW.md policy block carries a stale sourceSha, and a head branch off it holding `files` (rel -> text). */
+  function staleBranches(name, files) {
+    const baseSha = git(fx.work, 'rev-parse', 'main');
+    git(fx.work, 'checkout', '-q', '-b', `${name}base`, baseSha);
+    write(fx.work, 'REVIEW.md', '# Review\n\n```ensemble-review-policy\n{"sourceSha":"4c1639e0000000000000000000000000000000aa","highPaths":["lib/**"]}\n```\n');
+    git(fx.work, 'add', '.');
+    git(fx.work, 'commit', '-q', '-m', 'stale policy base');
+    git(fx.work, 'push', '-q', 'origin', `${name}base`);
+    git(fx.work, 'checkout', '-q', '-b', `${name}head`);
+    for (const [rel, text] of Object.entries(files)) write(fx.work, rel, text);
+    git(fx.work, 'add', '.');
+    git(fx.work, 'commit', '-q', '-m', 'the PR');
+    const head = git(fx.work, 'rev-parse', 'HEAD');
+    git(fx.work, 'checkout', '-q', 'main');
+    return { head, baseRefName: `${name}base` };
+  }
+
+  test('a base whose REVIEW.md policy block is stale (policy-not-from-base) never lowers the tier: the PR is High, with the reason named (kata vhpf)', () => {
+    const { head, baseRefName } = staleBranches('stale', { 'lib/bdd-mode.js': 'module.exports = 1;\n' });
+    setGh({ head, baseRefName });
+    const r = prep({ runId: 'stale' });
+    expect(r.code).toBe(0);
+    expect(r.out.status).toBe('DISPATCH');
+    expect(r.out.tier).toMatchObject({ tier: 'high', effectiveTier: 'high' });
+    expect(r.out.tier.reasons).toEqual(expect.arrayContaining(['owner-high-path', 'policy-untrusted:policy-not-from-base']));
+    expect(r.out.mode).toMatchObject({ mode: 'full' });
+    const state = JSON.parse(fs.readFileSync(path.join(runDir('stale'), 'run.json'), 'utf8'));
+    expect(state.policyStatus).toEqual({ ok: false, reason: 'policy-not-from-base' });
+    const prepared = path.join(fx.work, '.ensemble', 'pr-review', 'prepare', 'stale');
+    const found = fs.readdirSync(prepared, { recursive: true }).filter((f) => String(f).endsWith('facts.json'));
+    expect(found).toHaveLength(1);
+    const facts = JSON.parse(fs.readFileSync(path.join(prepared, found[0]), 'utf8'));
+    expect(facts.policy).toMatchObject({ ok: false, reason: 'policy-not-from-base' });
+    expect(facts.paths.warnings).toContain('policy-untrusted-all-high:policy-not-from-base');
+  });
+
+  test('PINS CURRENT BEHAVIOUR (owner decision pending): a multi-slice PR on a stale base goes light -> full and loses the whole-range reader', () => {
+    const files = {};
+    for (let i = 0; i < 20; i += 1) files[`lib/m${i}.js`] = `${Array.from({ length: 60 }, (_, n) => `// ${i} ${n}`).join('\n')}\n`;
+    const stale = staleBranches('multi', files);
+    setGh(stale);
+    const r = prep({ runId: 'multistale' });
+    expect(r.code).toBe(0);
+    expect(r.out.status).toBe('DISPATCH');
+    expect(r.out.tier.effectiveTier).toBe('high');
+    expect(r.out.mode.mode).toBe('full');
+    const readers = r.out.agents.filter((a) => a.role === 'reviewer');
+    expect(readers.length).toBeGreaterThan(1);
+    expect(r.out.agents.some((a) => /whole|range/i.test(a.name))).toBe(false);
   });
 
   test('prepare -> agents -> collect -> verify wave -> collect -> ADJUDICATE -> adjudicate -> DONE, with the repository untouched', () => {
