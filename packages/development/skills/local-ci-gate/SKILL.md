@@ -155,9 +155,9 @@ whole command list; `merge` requires it and refuses a different one.
 `config` validates the base-ref file (`{repoRoot, baseRef}`) or a `{source}` text,
 `record` builds/parses/verifies the status
 description, `run` (`{repoRoot, headSha, baseRef}` only) runs the runner without posting, `post` posts one status,
-`review` classifies reviews (bots never block), `sweep` lists unrecorded
-findings and CI failures, `timing` checks the enablement note. Use them only
-when a command asks; they carry the same fail-closed rules.
+`review` classifies reviews (bots never block), `sweep` records unrecorded
+findings and CI failures as beads (`SWEEP.md`), `timing` checks the enablement note. Use them only
+when a command asks; same fail-closed rules.
 
 ---
 

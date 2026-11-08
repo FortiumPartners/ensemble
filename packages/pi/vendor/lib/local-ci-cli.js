@@ -14,7 +14,7 @@
  *   run      {repoRoot, headSha, baseRef}          runGate (never publishes; takes the same lock as `gate`)
  *   post     {input:{repo,sha,state,context,description}}  postStatus (maintainer's own gh login)
  *   review   {action: classify|decide, reviews}    classifyReviews / decideBlock
- *   sweep    {facts, trackedKeys}                  findUntracked
+ *   sweep    {facts, repoRoot, repo, pr, headSha, baseSha, dryRun?}  record each untracked finding/CI failure as a bead
  *   timing   {action: ready|verdict|record|fidelity|note, input}
  *   merge    {headSha, statuses, repoRoot, baseRef, reviews?}  merge readiness for a PR
  *   gate     {repoRoot, headSha, baseRef, repo, dryRun?}  full gate run
@@ -29,6 +29,13 @@
  * TRUST (honest actor): the status is posted with the maintainer's own `gh` login. pr-merge verifies the head-SHA binding,
  * the run record and review state; it does NOT verify who posted the status. There is no GitHub App, key or token here.
  *
+ * TRUST (sweep): `sweep` is the one subcommand here that writes to a tracker, so before it writes it asks what the PR-review
+ * recorder asks (local-ci-sweep-record.js, which runs pr-review-beads-cli.js `checkTrust`): the host is asked about `repo`/`pr`
+ * (a head on a fork, an unreadable pull request, a head that is not the PR's head and a `baseSha` that is not on its base branch
+ * are REFUSED by name), the tracker runs in the repository's primary checkout, never in a worktree or clone of the head, with the
+ * tracker choice read from `.ensemble/toolchain.yaml` as committed at `baseSha` and no adapter code loaded from any tree. The
+ * dedupe set is built from the tracker, never from the payload: a `trackedKeys` key is rejected like any other unknown key.
+ *
  * FAIL CLOSED: malformed or oversized (> MAX_STDIN_BYTES) JSON is rejected
  * before any handler runs (exit 1, `{error}`, no side effects). Every string
  * emitted passes through redact(). A result with `ok:false` exits 1.
@@ -41,7 +48,6 @@ const { spawnSync } = require('child_process');
 const { buildRecord, parseRecord, verifyRecord } = require('./local-ci-record');
 const { postStatus, redact, MAX_DESCRIPTION, CANNOT_ATTEST } = require('./local-ci-status');
 const { classifyReviews, decideBlock } = require('./local-ci-review');
-const { findUntracked } = require('./local-ci-sweep');
 const timing = require('./local-ci-timing');
 const gateLock = require('./local-ci-lock');
 const rollout = require('./local-ci-rollout');
@@ -62,6 +68,7 @@ const CONFIG_KEYS = ['source', 'repoRoot', 'baseRef'];
 const RUN_KEYS = ['repoRoot', 'headSha', 'baseRef'];
 const GATE_KEYS = ['repoRoot', 'headSha', 'baseRef', 'repo', 'pr', 'dryRun'];
 const MERGE_KEYS = ['headSha', 'statuses', 'repoRoot', 'baseRef', 'repo', 'pr', 'reviews'];
+const SWEEP_KEYS = ['facts', 'repoRoot', 'repo', 'pr', 'headSha', 'baseSha', 'dryRun'];
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -144,6 +151,12 @@ function defaultDeps() {
     // for the config at hand, which sizes a waiter's default patience. The policy knobs come from the process
     // environment: the lock belongs to whoever runs this CLI, not to the step environment `env` below.
     acquireGateLock: (hold) => gateLock.acquireFromEnv(process.env, undefined, hold),
+    // The sweep's reads of the repository and of the host, and its tracker (local-ci-sweep-record.js). `repoGit` has the shape
+    // pr-review-repo.js injects, `(args, {cwd})`, and no GIT_* variable of this process reaches it. Required lazily, so no other
+    // subcommand loads any of it. The tracker is built per call: it needs the checkout and config the trust checks resolve.
+    repoGit: (args, options) => require('./review-record-runtime').defaultGit()(args, options),
+    readPr: (request) => require('./review-record-runtime').makeReadPr()(request),
+    trackerFor: (options) => require('./tracker-findings').createToolchainDeps(options),
     env: process.env,
   };
 }
@@ -239,11 +252,11 @@ function loadGateConfig(deps, repoRoot, baseRef, headSha) {
   return problem ? { ok: false, problems: [problem] } : cfg;
 }
 
-/** Fail closed on any payload key a caller could use to smuggle options. */
-function rejectUnknownKeys(payload, allowed, what) {
+/** Fail closed on any payload key a caller could use to smuggle options. `because` says why the allowed keys are all there is. */
+function rejectUnknownKeys(payload, allowed, what, because = `Configuration comes only from the maintainer's ${DEFAULT_CONFIG_PATH}`) {
   const unknown = Object.keys(payload).filter((k) => !allowed.includes(k));
   if (unknown.length > 0) {
-    throw new Error(`${what}: unknown payload key(s) ${unknown.map(shown).join(', ')}; allowed: ${allowed.join(', ')}. Configuration comes only from the maintainer's ${DEFAULT_CONFIG_PATH}`);
+    throw new Error(`${what}: unknown payload key(s) ${unknown.map(shown).join(', ')}; allowed: ${allowed.join(', ')}. ${because}`);
   }
 }
 
@@ -342,9 +355,26 @@ function runReview(payload) {
   return REVIEW_ACTIONS[action](payload.reviews);
 }
 
-function runSweep(payload) {
+/**
+ * `sweep`: record each finding and CI failure the tracker does not hold yet as a bead (local-ci-sweep-record.js). The facts
+ * are already fetched by the caller; the dedupe set is built from the tracker, so no `trackedKeys` is accepted. Never
+ * ordered against the merge here: the caller runs it before and after, and a result never authorizes or blocks a merge.
+ */
+function runSweep(payload, deps) {
+  if (!isObject(payload)) throw new Error('payload must be a JSON object');
+  rejectUnknownKeys(payload, SWEEP_KEYS, 'sweep', 'The keys the tracker already holds come only from the tracker, and which tracker only from .ensemble/toolchain.yaml at baseSha');
+  const isSha = (v) => typeof v === 'string' && SHA_RE.test(v);
   const facts = need(payload, 'facts', isObject, 'sweep');
-  return findUntracked(facts, payload.trackedKeys || []);
+  const repoRoot = need(payload, 'repoRoot', isText, 'sweep');
+  const repo = need(payload, 'repo', isRepo, 'sweep');
+  const pr = need(payload, 'pr', isPrNumber, 'sweep');
+  const headSha = need(payload, 'headSha', isSha, 'sweep');
+  const baseSha = need(payload, 'baseSha', isSha, 'sweep');
+  if (payload.dryRun !== undefined && typeof payload.dryRun !== 'boolean') throw new Error('sweep: dryRun must be true or false when given');
+  return require('./local-ci-sweep-record').sweep(
+    { facts, repoRoot, repo, pr, headSha, baseSha, dryRun: payload.dryRun === true },
+    { git: deps.repoGit, readPr: deps.readPr, trackerFor: deps.trackerFor, env: deps.env }
+  );
 }
 
 const TIMING_ACTIONS = Object.freeze({
@@ -631,6 +661,7 @@ module.exports = {
   HANDLERS,
   MAX_STDIN_BYTES,
   defaultDeps,
+  SWEEP_KEYS,
 };
 
 if (require.main === module) {

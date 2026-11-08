@@ -322,9 +322,9 @@ describe('CLI boundary and output', () => {
   });
 
   it('delegating subcommands return the module verdicts verbatim', async () => {
-    const call = async (sub, payload) => {
+    const call = async (sub, payload, injected = {}) => {
       let out = '';
-      const code = await cli.main([sub], { ...cli.defaultDeps(), io: { readJson: () => payload, write: (s) => (out += s) } });
+      const code = await cli.main([sub], { ...cli.defaultDeps(), ...injected, io: { readJson: () => payload, write: (s) => (out += s) } });
       return { code, body: JSON.parse(out) };
     };
     const fx = repoWith();
@@ -334,7 +334,26 @@ describe('CLI boundary and output', () => {
     expect((await call('record', { action: 'parse', input: built.body.description })).body.fields).toEqual(built.body.fields);
     expect((await call('record', { action: 'parse', input: 'garbage' })).code).toBe(1);
     expect((await call('review', { action: 'decide', reviews: 'nope' })).body.blocked).toBe(true);
-    expect((await call('sweep', { facts: { findings: [{ prNumber: 1, commentId: 2 }], failures: [] }, trackedKeys: [] })).body.findings).toHaveLength(1);
+    // `sweep` records what the tracker does not hold: the dedupe set comes from the tracker, never from the payload.
+    const sweepFx = repoWith();
+    sweepFx.git('checkout', '-q', '--detach', sweepFx.baseSha); // the primary checkout sits on the base, as a maintainer's does
+    sweepFx.git('remote', 'add', 'origin', 'https://github.com/owner/name.git'); // the checkout is the repository the sweep names
+    const issues = [];
+    const tracker = {
+      run: (capability, args) =>
+        capability === 'tracker.find-by-key'
+          ? { ok: true, data: JSON.stringify({ issues }) }
+          : (issues.push({ id: 'bd-1', external_ref: args.externalKey, status: 'open' }), { ok: true, data: { id: 'bd-1' } }),
+    };
+    const hostSays = () => ({ ok: true, isCrossRepository: false, headRefOid: sweepFx.sha, baseRefName: 'trusted-base', baseRefOid: sweepFx.baseSha, state: 'OPEN' });
+    const sweepPayload = { facts: { findings: [{ prNumber: 1, commentId: 2 }], failures: [] }, repoRoot: sweepFx.dir, repo: 'owner/name', pr: PR, headSha: sweepFx.sha, baseSha: sweepFx.baseSha };
+    const swept = await call('sweep', sweepPayload, { readPr: hostSays, trackerFor: () => tracker });
+    expect(swept.code).toBe(0);
+    expect(swept.body).toMatchObject({ ok: true, status: 'RECORDED', counts: { create: 1 }, beads: { 'finding:pr1:comment2': { action: 'create', beadId: 'bd-1' } } });
+    expect((await call('sweep', sweepPayload, { readPr: hostSays, trackerFor: () => tracker })).body.counts).toEqual({ create: 0, skip: 1, error: 0 });
+    const oldStyle = await call('sweep', { facts: sweepPayload.facts, trackedKeys: [] });
+    expect(oldStyle.code).toBe(1);
+    expect(oldStyle.body.error).toContain('trackedKeys');
     expect((await call('timing', { action: 'verdict', input: { localMs: 10, hostedMs: 20, toleranceMs: 1 } })).body.verdict).toBe('faster');
     expect((await call('timing', { action: 'ready', input: { note: '' } })).code).toBe(1);
     expect((await call('record', { action: 'constructor', input: {} })).code).toBe(1);

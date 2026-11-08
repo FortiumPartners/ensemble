@@ -54,6 +54,13 @@ const TOKEN_PATTERNS = [
   /\b(?:AKIA|ASIA|ABIA|ACCA|A3T[A-Z0-9])[A-Z0-9]{16}\b/g,
   /\bAuthorization:[ \t]*(?:(?:Digest|AWS4-HMAC-SHA256)[ \t]+[^\n]+|[A-Za-z][A-Za-z0-9._~+/-]*[ \t]+[A-Za-z0-9\-._~+/]{8,}=*|[A-Za-z0-9\-._~+/]{20,}=*)/gi,
   /\bBearer\s+(?=[A-Za-z0-9\-._~+/]*\d)[A-Za-z0-9\-._~+/]{16,}=*/gi,
+  // After the header patterns, which take a whole `Authorization:` or `Bearer` credential. A JSON web token: three base64url
+  // segments, the first two of which are JSON (`eyJ` is `{"`); an unsigned one ends in a dot.
+  /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*/g,
+  // Stripe live secret and restricted keys, Google API keys, GitLab personal access tokens.
+  /\b[sr]k_live_[A-Za-z0-9]{16,}/g,
+  /\bAIza[0-9A-Za-z_-]{35}/g,
+  /\bglpat-[A-Za-z0-9_-]{20,}/g,
 ];
 
 /**
