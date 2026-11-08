@@ -239,6 +239,7 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
     reviewedTreeSha: () => TREE,
     headTreeSha: () => TREE,
     findingCounts: () => ({ total: 0, actionable: 0, deferred: 0 }),
+    coverage: () => ({ status: 'complete', gaps: [] }),
     tests: () => ({ exitCode: 0, skipped: false, command: 'npm test' }),
     remotePhase: () => 'REMOTE_REVIEW_COMPLETE',
     roundsUsed: () => 0,
@@ -356,6 +357,7 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
       [
         'access',
         'baseSha',
+        'coverage',
         'findingCounts',
         'headSha',
         'headTreeSha',
@@ -375,7 +377,7 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
     const complete = run('status', payloadWithout(undefined)).out;
     expect([complete.status, complete.localPhase, complete.remotePhase]).toEqual(['REVIEW_COMPLETE', 'LOCAL_REVIEW_COMPLETE', 'REMOTE_REVIEW_COMPLETE']);
     // The skill names these as required; dropping any one of them must never leave a completed phase.
-    for (const key of ['baseSha', 'headSha', 'reviewedHeadSha', 'findingCounts', 'tests', 'remotePhase']) {
+    for (const key of ['baseSha', 'headSha', 'reviewedHeadSha', 'findingCounts', 'coverage', 'tests', 'remotePhase']) {
       expect([key, run('status', payloadWithout(key)).out.status]).not.toEqual([key, 'REVIEW_COMPLETE']);
     }
   });

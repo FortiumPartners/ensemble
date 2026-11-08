@@ -103,6 +103,7 @@ function makePr(overrides = {}) {
     approvalsEvaluatedAt: undefined, // evaluate approvals against another head than the gate's (a stale result)
     ledger: [],
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     body: DESCRIPTION,
     unavailable: undefined,
     ...overrides,
@@ -140,6 +141,7 @@ function attempt(run, pr) {
     tier,
     description,
     security: pr.security,
+    coverage: pr.coverage,
     unavailable: pr.unavailable,
   });
   return { tier, approvals, description, gate };
@@ -686,6 +688,7 @@ function attemptWithTamper(run, pr) {
     tier: real.tier,
     description: real.description,
     security: pr.security,
+    coverage: pr.coverage,
     unavailable: pr.unavailable,
   });
   return { ...real, gate };
@@ -727,6 +730,7 @@ describe('PR-review gate chains: review completion (status) before and after the
     headSha: HEAD_A,
     reviewedHeadSha: HEAD_A,
     findingCounts: { total: 0, actionable: 0, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0 },
     remotePhase: 'REMOTE_REVIEW_COMPLETE',
     roundsUsed: 1,
@@ -961,6 +965,7 @@ describe('PR-review gate chains: recorded state on disk across a head change', (
       headSha: HEAD_B,
       reviewedHeadSha: HEAD_A,
       findingCounts: { total: 1, actionable: 1, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0 },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
       roundsUsed: 1,
@@ -1029,6 +1034,7 @@ describe('PR-review gate chains: unusable gate input is refused with a named rea
       tier: baseline.tier,
       description: baseline.description,
       security: { status: 'clean', findings: [] },
+      coverage: { status: 'complete', gaps: [] },
       ...over,
     });
     expect(inProcess('gate', gateInput({})).mergeable).toBe(true);
@@ -1042,6 +1048,9 @@ describe('PR-review gate chains: unusable gate input is refused with a named rea
       ['description', { description: { ok: true, missing: 'risk' } }],
       ['security', { security: undefined }],
       ['security', { security: 'clean' }],
+      ['coverage', { coverage: undefined }],
+      ['coverage', { coverage: 'complete' }],
+      ['coverage', { coverage: { status: 'unavailable', gaps: [], reason: 'the slice plan could not be read' } }],
       ['headSha', { headSha: '   ' }],
     ];
     for (const [named, over] of broken) {
@@ -1065,7 +1074,7 @@ describe('PR-review gate chains: unusable gate input is refused with a named rea
     const baseline = good();
     const approve2 = (tier) => inProcess('approvals', { reviews: [approve('human-a'), approve('human-b')], headSha: HEAD_A, tier, policy: POLICY, author: 'author-a' });
     const gateWith = (tier, approvals) =>
-      inProcess('gate', { headSha: HEAD_A, ledger: [], approvals, tier, description: baseline.description, security: { status: 'clean', findings: [] } });
+      inProcess('gate', { headSha: HEAD_A, ledger: [], approvals, tier, description: baseline.description, security: { status: 'clean', findings: [] }, coverage: { status: 'complete', gaps: [] } });
 
     for (const [label, tier, reason] of [
       ['unknown tier', { ok: true, effectiveTier: 'ultra' }, 'unknown-tier'],
@@ -1087,7 +1096,7 @@ describe('PR-review gate chains: unusable gate input is refused with a named rea
   test('58 a tier the gate cannot read (but approvals could) falls back to the approvals tier; one neither can read is unavailable data', () => {
     const baseline = good();
     const gateWith = (tier, approvals) =>
-      inProcess('gate', { headSha: HEAD_A, ledger: [], approvals, tier, description: baseline.description, security: { status: 'clean', findings: [] } });
+      inProcess('gate', { headSha: HEAD_A, ledger: [], approvals, tier, description: baseline.description, security: { status: 'clean', findings: [] }, coverage: { status: 'complete', gaps: [] } });
     expect(gateWith(undefined, baseline.approvals).mergeable).toBe(true);
     const unreadable = gateWith(undefined, { ...baseline.approvals, tier: 'ultra' });
     expect(unreadable.mergeable).toBe(false);
@@ -1101,7 +1110,7 @@ describe('PR-review gate chains: unusable gate input is refused with a named rea
     pr.changedPaths = ['packages/development/lib/widget.js', '.github/workflows/ci.yml'];
     const { tier: highTier } = attempt(inProcess, pr);
     expect(highTier.effectiveTier).toBe('high');
-    const gate = inProcess('gate', { headSha: HEAD_A, ledger: [], approvals: before.approvals, tier: highTier, description: before.description, security: pr.security });
+    const gate = inProcess('gate', { headSha: HEAD_A, ledger: [], approvals: before.approvals, tier: highTier, description: before.description, security: pr.security, coverage: pr.coverage });
     expect(codes(gate)).toEqual(['approvals-tier-mismatch']);
     pr.reviews.push(approve('human-b'));
     expect(attempt(inProcess, pr).gate.mergeable).toBe(true);

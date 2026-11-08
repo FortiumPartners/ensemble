@@ -7,12 +7,12 @@ Companion to `SKILL.md`; every rule here is normative.
 
 Run `node "$PR_REVIEW_CLI" status` with the accumulated facts: `{ baseSha,
 headSha, reviewedHeadSha, reviewedTreeSha, headTreeSha,
-findingCounts:{total, actionable, deferred}, tests:{exitCode, skipped, command},
+findingCounts:{total, actionable, deferred}, coverage:{status, gaps}, tests:{exitCode, skipped, command},
 remotePhase, roundsUsed, roundCap, access, prUrl, reportPath, reviewOnly }`. `baseSha`, `headSha` and
 `reviewedHeadSha` (full 40- or 64-hex
-object ids, never a bare ref) and `findingCounts` (`total`, `actionable` and
-`deferred`: non-negative integers with `total >= actionable + deferred`) are
-required, `roundsUsed`, when given, is a non-negative integer, `roundCap`,
+object ids, never a bare ref), `findingCounts` (`total`, `actionable` and
+`deferred`: non-negative integers with `total >= actionable + deferred`) and
+`coverage` (below) are required, `roundsUsed`, when given, is a non-negative integer, `roundCap`,
 when given, is the policy's integer 1-5 (absent means the strict default of
 3, and a value outside the range is refused with the default applied), and
 `tests`,
@@ -25,6 +25,22 @@ naming the missing facts. The result is exactly one of
 `REVIEW_COMPLETE` / `REVIEW_PENDING` / `REVIEW_BLOCKED` plus `localPhase`,
 `remotePhase` and `reasons`. `REVIEW_COMPLETE` requires `LOCAL_REVIEW_COMPLETE`
 **and** `REMOTE_REVIEW_COMPLETE` -- never return it from prose judgment.
+
+**Coverage (`coverage`, required).** The record of what the reviewers did NOT read: `{ status:
+'complete' | 'incomplete' | 'unavailable', gaps }`, exactly as `slices` (with `reviewedBy`),
+`review-run` (its state report) and `carry` with `action: 'coverage'` answer it -- never typed,
+never shortened. `incomplete` names one gap per unread slice, per lost whole-range reader, per
+path no slice held and per path read under too few lenses; the status is then
+`LOCAL_REVIEW_PENDING` with `next: complete-review-coverage` and every gap in `reasons`,
+whatever else is complete (a review that did not read everything cannot say what is left to
+fix). Read it again (re-run the review on this head), or the operator decides the gap through
+the existing path: `ledger` `resolve` on the gap (Step 10's decision list, `Accept` with a
+reason) records `{ reason, by, headSha, at }`, graded by the same rules as a finding's
+resolution, so `cleared`, a deferral and a decision for another head close nothing. Pass the Step
+10 `policy` result as `policy` when there is one: it names who may decide. A missing,
+unreadable or `unavailable` coverage is `LOCAL_REVIEW_BLOCKED` naming `coverage`: an unknown
+coverage is never a complete one. `status` echoes `coverage`, so `state-write` records it; in
+`MODE=remote` copy it from the `state-read` report like the other local-phase facts.
 
 **Review-only runs (`REVIEW_ONLY`).** Add `reviewOnly: true` to the facts. The result
 is then `REVIEW_PENDING` with a reason that says why, whatever else is complete --

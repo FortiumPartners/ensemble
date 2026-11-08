@@ -65,6 +65,7 @@ function completeStatusFacts(overrides = {}) {
     headSha: HEAD_SHA,
     reviewedHeadSha: HEAD_SHA,
     findingCounts: { total: 0, actionable: 0, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false, command: 'npm test' },
     remotePhase: 'REMOTE_REVIEW_COMPLETE',
     ...overrides,
@@ -1294,7 +1295,7 @@ describe('pr-review-cli: slices plans the areas and verifies the coverage (TRD-0
   test('every slice reviewed under both its lenses is full coverage, and it equals verifyCoverage on the same plan', () => {
     const plan = planOf();
     const reviewedBy = reviewedByOf(plan);
-    const result = runSlices({ paths: PATHS, areas: AREAS, threshold: 1500, reviewedBy });
+    const result = runSlices({ paths: PATHS, areas: AREAS, threshold: 1500, reviewedBy, changedPaths: PATHS.map((entry) => entry.path) });
 
     expect(result.covered).toBe(true);
     expect(result.uncovered).toEqual([]);
@@ -1356,7 +1357,7 @@ describe('pr-review-cli: slices plans the areas and verifies the coverage (TRD-0
     expect(quick.reviewerAssignments).toEqual([{ reviewer: 'r1-correctness', sliceId: 'whole-pr', lens: 'correctness' }]);
     const reviewedBy = reviewedByOf(quick);
 
-    const result = runSlices({ paths: PATHS, areas: AREAS, threshold: 1500, mode: 'quick', reviewedBy });
+    const result = runSlices({ paths: PATHS, areas: AREAS, threshold: 1500, mode: 'quick', reviewedBy, changedPaths: PATHS.map((entry) => entry.path) });
     expect(result).toMatchObject({ ok: true, covered: true, requiredLenses: 1, underReviewed: [], uncovered: [] });
   });
 

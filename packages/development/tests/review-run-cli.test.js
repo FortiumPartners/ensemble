@@ -545,6 +545,57 @@ describe('the real CLI process on a real git fixture', () => {
     expect(snapshotRepo()).toEqual(before);
   });
 
+  test('kata k48x, through the real process with stand-in agents: a MEDIUM PR holding the one approval it needs is mergeable when every reader arrived whole, and NOT mergeable when the whole-range reader is short or expired (a named blocker, a pending local phase, an Accept-only list entry); a replay says the same', () => {
+    const approval = { user: { login: 'bob', type: 'User' }, state: 'APPROVED', commit_id: fx.medwide, submitted_at: '2026-01-01T00:00:00Z' };
+    const medPaths = WIDE_LINES.map((_, index) => widePath(index).replace(/^wide\//, 'med/'));
+    /** The reader's deadline passed with no result: what the collector measures arrival against is the stored run. */
+    const expireAgent = (runId, name) => {
+      const file = path.join(runDir(runId), 'run.json');
+      const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+      for (const wave of stored.waves) {
+        for (const agent of wave.agents) {
+          if (agent.name !== name) continue;
+          agent.dispatchedAt = Date.now() - 40 * 60 * 1000;
+          agent.deadlineAt = Date.now() - 60 * 1000;
+        }
+      }
+      fs.writeFileSync(file, JSON.stringify(stored));
+    };
+    const run = (runId, { answer = {}, expire } = {}) => {
+      setGh({ head: fx.medwide, reviews: [approval] });
+      fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+      const r = prep({ runId });
+      expect(r.code).toBe(0);
+      expect(r.out.agents.map((a) => a.name)).toContain('reviewer-range');
+      answerReview(r.out, { changed: medPaths, ...answer });
+      if (expire !== undefined) expireAgent(runId, expire);
+      const done = coll(runId);
+      expect(done.code).toBe(0);
+      expect(done.out.status).toBe('DONE');
+      return done.out;
+    };
+
+    const complete = run('cov-complete');
+    expect(complete.gate).toMatchObject({ mergeable: true, blockers: [], coverage: { status: 'complete' } });
+    expect(complete.reviewStatus.reasons.join(' ')).not.toMatch(/incomplete review coverage/);
+
+    for (const [runId, options] of [
+      ['cov-short', { answer: { partial: { 'reviewer-range': medPaths.slice(0, 4) } } }],
+      ['cov-expired', { answer: { skip: ['reviewer-range'] }, expire: 'reviewer-range' }],
+    ]) {
+      const out = run(runId, options);
+      expect([runId, out.gate.mergeable]).toEqual([runId, false]);
+      expect([runId, out.gate.blockers.map((b) => b.code)]).toEqual([runId, ['review-coverage-incomplete']]); // approvals, description and the lane are fine: the coverage alone stops it
+      expect(out.gate.blockers[0]).toMatchObject({ gapId: 'coverage:whole-range', gapType: 'whole-range' });
+      expect(out.gate.coverage).toMatchObject({ status: 'incomplete', open: ['coverage:whole-range'] });
+      expect(out.reviewStatus).toMatchObject({ status: 'REVIEW_PENDING', next: 'complete-review-coverage' });
+      expect(out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+      expect(out.gate.dispositionChoices.map((c) => [c.id, c.choices.map((x) => x.id)])).toEqual([['coverage:whole-range', ['accept']]]);
+      expect(out.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+      expect(coll(runId).out.gate.mergeable).toBe(false); // the replay of the finished run is the stored answer, gap included
+    }
+  });
+
   test('through the real process: a triage claim the verifier brief refuses is triage-refused (exit 1, not terminal), and a mode label rewritten to light is mode-invariant (exit 1, nothing finalised) (review of PR 271)', () => {
     setGh({ head: fx.high });
     fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });

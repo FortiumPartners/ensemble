@@ -436,7 +436,7 @@ describe('AC1: expired agents become not-reviewed automatically', () => {
     };
 
     const slicesOf = (collected) =>
-      runSlices({ paths, areas: ['a', 'b'], threshold: 1000, reviewedBy: collected.reviewedBy });
+      runSlices({ paths, areas: ['a', 'b'], threshold: 1000, reviewedBy: collected.reviewedBy, changedPaths: paths.map((entry) => entry.path) });
 
     test('the plan really has two slices, each with two lenses (so the checks below cannot pass vacuously)', () => {
       expect(plan.slices.map((slice) => slice.id)).toHaveLength(2);

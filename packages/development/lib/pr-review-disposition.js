@@ -40,7 +40,14 @@
  *     and it still counts as a finding without an open bead;
  *   - FAIL CLOSED: input this module cannot read, findings the gate cannot
  *     read included, yields `ok: false` with empty lists, never a quietly
- *     shorter list.
+ *     shorter list;
+ *   - a COVERAGE GAP (a slice, the whole-range read or a path nobody read, kata k48x) is listed in its own group,
+ *     `coverage` ("Not reviewed"), once the gate holds it open: Accept is its only choice (it is never defaulted, never
+ *     batched and always needs its own reason; there is nothing to fix on this PR, the remedy is to run the review again),
+ *     and the entry says what was not read. The gate decides which gaps are open (`coverageHeldOpen`) and takes the
+ *     operator's decision on one exactly as it takes it on a finding, so an accepted gap is reported in
+ *     `mergeConfirmation.acceptedCoverage`. A coverage the gate reports `unavailable` has no gap to decide: the gate says
+ *     so, and the findings are still listed.
  */
 
 const {
@@ -48,10 +55,10 @@ const {
   anchorOf,
   hasResolutionProvenance,
 } = require('./pr-review-ledger');
-const { findingsHeldOpen } = require('./pr-review-gate');
+const { findingsHeldOpen, coverageHeldOpen } = require('./pr-review-gate');
 
 /** The groups, in the order they are presented. */
-const GROUPS = Object.freeze(['blocking', 'nit', 'pre-existing']);
+const GROUPS = Object.freeze(['blocking', 'coverage', 'nit', 'pre-existing']);
 
 /** The only dispositions an operator can pick. */
 const CHOICE_IDS = Object.freeze(['fix-here', 'follow-on', 'accept']);
@@ -61,6 +68,7 @@ const COLLAPSE_THRESHOLD = 3;
 
 const GROUP_LABELS = Object.freeze({
   blocking: 'Blocking',
+  coverage: 'Not reviewed',
   nit: 'Nits',
   'pre-existing': 'Pre-existing',
 });
@@ -217,7 +225,7 @@ function batchChoicesOf(entries) {
 }
 
 /** One short human line for the merge question. */
-function summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead }) {
+function summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead, undecidedCoverage = [], acceptedCoverage = [] }) {
   const accepted = acceptedBlocking.length === 0
     ? '0 blocking findings accepted'
     : `${acceptedBlocking.length} blocking finding(s) accepted (${acceptedBlocking
@@ -226,13 +234,74 @@ function summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWit
   const closed = findingsWithClosedBead.length === 0
     ? ''
     : `; ${findingsWithClosedBead.length} finding(s) live with a closed bead (${findingsWithClosedBead.join(', ')})`;
-  return `${openBeads} open bead(s); ${accepted}; ${undecidedBlocking.length} blocking finding(s) undecided${closed}`;
+  // Said only when there is a gap to say it about, so a review whose coverage is complete reads exactly as it always did.
+  const gapsUndecided = undecidedCoverage.length === 0 ? '' : `; ${undecidedCoverage.length} coverage gap(s) undecided (${undecidedCoverage.join(', ')})`;
+  const gapsAccepted = acceptedCoverage.length === 0
+    ? ''
+    : `; ${acceptedCoverage.length} coverage gap(s) accepted as not reviewed (${acceptedCoverage.map((a) => `${a.id}: ${a.reason}`).join('; ')})`;
+  return `${openBeads} open bead(s); ${accepted}; ${undecidedBlocking.length} blocking finding(s) undecided${closed}${gapsUndecided}${gapsAccepted}`;
+}
+
+/** What Accept means for each kind of gap, said where the operator reads it (a gap is not always a path nobody read). */
+const COVERAGE_ACCEPT_NOTES = {
+  'whole-range': 'Records that the whole-range reader (the one read of an interaction between slices) did not read the whole diff: the slice reviewers read these paths one slice at a time. You accept merging without that read.',
+  uncovered: 'Records that no slice held these paths and no reviewer read them, and you accept merging without that read.',
+  'under-reviewed': 'Records that these paths were read under fewer distinct lenses than the mode requires, and you accept merging with that shorter review.',
+  unnamed: 'Records that the review reported incomplete coverage without saying what it missed, so every changed path counts as not reviewed, and you accept merging without that read.',
+};
+const COVERAGE_ACCEPT_TAIL = ' The other way out is to run the review again.';
+
+/** Why a slice's reviewers failed, as the gap carries it: `reviewer-s1-b: expired:deadline-passed; ...`. */
+const reasonsLine = (gap) => (Array.isArray(gap.reasons) ? gap.reasons.filter(isObject).map((entry) => `${entry.agent}: ${entry.reason}`).join('; ') : '');
+
+/**
+ * A slice counts as reviewed only when EVERY reviewer of it arrived in time and listed every path, so a slice one of its two reviewers
+ * did read is still a gap: the note says what failed and why that slice does not count, instead of calling it unread.
+ */
+function sliceAcceptNote(gap) {
+  const why = reasonsLine(gap);
+  return why === ''
+    ? 'Records that no reviewer result covered this slice and you accept merging without that read.'
+    : `Records that this slice was not fully reviewed (${why}): a slice counts as reviewed only when every reviewer of it arrived in time and listed every path, so it does not count even where another reviewer of it did read its paths. You accept merging without the full review.`;
+}
+const coverageAcceptNote = (gap) => `${gap.gapType === 'slice' ? sliceAcceptNote(gap) : COVERAGE_ACCEPT_NOTES[gap.gapType] || COVERAGE_ACCEPT_NOTES.unnamed}${COVERAGE_ACCEPT_TAIL}`;
+
+/**
+ * The operator's list entry for one coverage gap the gate holds open: Accept is its only choice (it is never defaulted, never
+ * batched and always needs its own reason: there is no code to change, so there is nothing to fix on this PR or in a follow-on).
+ */
+function coverageEntry(gap) {
+  const stale = isObject(gap.resolution);
+  return {
+    id: gap.id,
+    severity: 'important',
+    locationOrLink: gap.locationOrLink,
+    votes: null,
+    beadId: isText(gap.beadId) ? gap.beadId : null,
+    closedBeadId: isText(gap.beadId) || !isText(gap.closedBeadId) ? null : gap.closedBeadId,
+    group: 'coverage',
+    security: false,
+    choices: [{ id: 'accept', label: CHOICE_LABELS.accept, requiresReason: true, batchable: false, default: false, note: coverageAcceptNote(gap) }],
+    default: null,
+    requiresReason: true,
+    reasonPerFinding: true,
+    coverage: {
+      gapType: gap.gapType,
+      ...(isText(gap.sliceId) ? { sliceId: gap.sliceId } : {}),
+      paths: gap.paths.slice(),
+      ...(Array.isArray(gap.reasons) && gap.reasons.length > 0 ? { reasons: gap.reasons } : {}),
+      ...(isText(gap.carriedFrom) ? { carriedFrom: gap.carriedFrom } : {}),
+      failureMode: gap.failureMode,
+    },
+    ...(stale ? { staleResolution: true } : {}),
+  };
 }
 
 /**
  * Build the per-finding disposition choices and the merge-confirmation data.
  *
  * @param {{ledger: object[], security?: {status?: string, findings?: object[]},
+ *   coverage?: {status?: string, gaps?: object[]},
  *   votes?: {ok?: boolean, findings?: object[]}, policy?: object, headSha: string}} input
  *   `policy` is the base-branch policy block, handed to the gate so a decision
  *   by a login it refuses is not counted here either.
@@ -262,6 +331,25 @@ function buildDispositionChoices(input) {
   // What blocks is the gate's to say, and what the gate cannot read is refused here too.
   const held = findingsHeldOpen({ ledger: input.ledger, laneFindings: securityFindings, headSha, policy });
   if (!held.ok) return failClosed(held.reason);
+
+  // A coverage gap is listed once the gate holds it open (its own `coverageHeldOpen`: the rule is the gate's, never copied here).
+  // `coverage` is optional HERE (the gate is the one that requires it and says so); one that is given and cannot be read is
+  // refused like unreadable findings. A coverage the gate calls `unavailable` has no gap to decide.
+  const openGaps = [];
+  const acceptedCoverage = [];
+  if (input.coverage !== undefined && input.coverage !== null) {
+    if (!isObject(input.coverage)) return failClosed('coverage must be an object');
+    const heldCoverage = coverageHeldOpen({ coverage: input.coverage, headSha, policy });
+    if (!heldCoverage.ok) return failClosed(heldCoverage.reason);
+    const gaps = Array.isArray(input.coverage.gaps) ? input.coverage.gaps : [];
+    for (const gap of gaps) {
+      if (heldCoverage.open.has(String(gap.id))) openGaps.push(gap);
+    }
+    for (const decided of heldCoverage.decided) {
+      const gap = gaps.find((candidate) => String(candidate.id) === decided.id);
+      acceptedCoverage.push({ id: decided.id, paths: gap.paths.slice(), reason: decided.reason, by: decided.by, at: decided.at });
+    }
+  }
 
   // One finding per id, whichever list it came in. Each copy was graded by the gate on its own.
   const merged = new Map();
@@ -399,6 +487,11 @@ function buildDispositionChoices(input) {
     entries.push(entry);
   }
 
+  // The coverage group sits right after the blocking findings.
+  const coverageEntries = openGaps.map(coverageEntry);
+  const firstOther = entries.findIndex((entry) => entry.group !== 'blocking');
+  entries.splice(firstOther === -1 ? entries.length : firstOther, 0, ...coverageEntries);
+
   const groups = GROUPS.map((group) => {
     const inGroup = entries.filter((entry) => entry.group === group);
     return {
@@ -417,6 +510,7 @@ function buildDispositionChoices(input) {
   const openBeads = undecided.filter(hasOpenBead).length;
   const findingsWithClosedBead = undecided.filter((u) => closedBeadOf(u) !== null).map((u) => u.finding.id);
   const undecidedBlocking = entries.filter((entry) => entry.group === 'blocking').map((entry) => entry.id);
+  const undecidedCoverage = coverageEntries.map((entry) => entry.id);
   const mergeConfirmation = {
     undecided: entries.map((entry) => entry.id),
     undecidedBlocking,
@@ -424,9 +518,10 @@ function buildDispositionChoices(input) {
     findingsWithoutBead: undecided.length - openBeads,
     findingsWithClosedBead,
     acceptedBlocking,
-    staleResolutions: undecided.filter((u) => u.stale).map((u) => u.finding.id),
+    staleResolutions: [...undecided.filter((u) => u.stale).map((u) => u.finding.id), ...coverageEntries.filter((entry) => entry.staleResolution === true).map((entry) => entry.id)],
+    ...(input.coverage === undefined || input.coverage === null ? {} : { undecidedCoverage, acceptedCoverage }),
   };
-  mergeConfirmation.summary = summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead });
+  mergeConfirmation.summary = summarize({ openBeads, acceptedBlocking, undecidedBlocking, findingsWithClosedBead, undecidedCoverage, acceptedCoverage });
 
   return { ok: true, dispositionChoices: entries, groups, mergeConfirmation };
 }

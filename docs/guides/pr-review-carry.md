@@ -149,6 +149,28 @@ whole-round gates hold for every candidate: when one holds, nothing carries.
 | `dependency-changed` | A dependency file is among the changed paths, or the dependency set or a hash differs. |
 | `no-current-candidate` | Not a `reverify` reason: the `unmatched` entry of a prior verdict that no candidate re-presents. |
 
+## Coverage is carried too (`carry` `action: 'coverage'`, kata `k48x`)
+
+A settled verdict is carried so it is not re-argued; a coverage gap is carried so it is not forgotten. A delta round reads only
+what changed, so a slice or path the round before did not read is still unread after it. `carry` with `action: 'coverage'` and
+`{ prId, coverage, lastReviewedSha, deltaPlan }` (`coverage`: this round's own record, `slices` with `reviewedBy` answers it) reads
+the state report of `lastReviewedSha` (the same `state-read` rule: a report for another head is discarded) and answers the record
+`gate` and `status` take:
+
+- a delta round carries EVERY gap of that report, stamped `carriedFrom`, beside this round's own gaps (a gap id both rounds hold
+  keeps both: the carried one gets the suffix `@<7 characters of the earlier head>`); the earlier operator decision on a carried gap is stale
+  at the new head, so the gap blocks again until it is decided again or read;
+- a round of the FULL range (`deltaPlan.mode: 'full'`) read every path itself and carries nothing: its own record replaces the
+  earlier one;
+- no earlier report, a report written for another head, one with no `coverage` (every report written before this release) or one this
+  module cannot read answers `unavailable` with the reason and `fullRangeRequired: true`, never `complete`, and `gate` and `status` then
+  refuse as for any unreadable coverage. Only a round of the FULL range clears it: re-run that round once with `deltaPlan.mode: 'full'` (a
+  delta re-review stays unavailable, and so does every delta round after it); its record is then written and the next delta round carries it;
+- the earlier record is read from the report, never from the payload (`priorCoverage` is refused), so a caller cannot trade a gap
+  for a clean sheet.
+
+Nothing here touches verdicts: `carry plan` and `carry record` are unchanged, and a carried verdict never makes a coverage complete.
+
 ## Honest limits
 
 - `carry plan` never hashes: `hunkHash`, `depHashes` and `dependents` are inputs, and it trusts them; it cannot tell a wrong hash from a right one. They must be taken at `headSha`: the hash step stamps each candidate with the head it read, and `plan` and `record` refuse a candidate stamped with another head, so a candidate list from before the push cannot carry. The stamp is only as honest as the step that wrote it: nothing proves the hashing was done at the head it names, or that the output was passed on unaltered.

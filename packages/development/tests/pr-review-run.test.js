@@ -3756,3 +3756,139 @@ describe('splitDiffBySlice: the range diff cut into one text per slice', () => {
     expect(textOf(cut, 's2')).not.toContain('src/keep.js');
   });
 });
+
+describe('review coverage (kata k48x): what nobody read stops the gate and the local phase, through the real gate, status and decision list', () => {
+  const APPROVED = () => ({ ok: true, reviews: [{ login: 'bob', authorType: 'User', state: 'APPROVED', commitSha: HEAD, submittedAt: '2026-01-01T00:00:00Z' }] });
+  const PASSED = { ran: true, exitCode: 0, timedOut: false, command: ['jest'], selection: [{ file: 't/a.test.js', why: 'related' }] };
+  // the 19 changed paths of the one real full-mode run (PR 271) as a MEDIUM PR: light mode, three slices, ONE whole-range reader
+  const LINES = [1, 127, 1, 159, 1, 145, 12, 8, 76, 125, 355, 38, 1, 8, 76, 159, 1, 145, 12];
+  const wideSection = (file) => [`diff --git a/${file} b/${file}`, 'index 1111111..2222222 100644', `--- a/${file}`, `+++ b/${file}`, '@@ -1,1 +1,2 @@', ' keep', `+added in ${file}`].join('\n');
+  const wide = (over = {}) => {
+    const changedPaths = LINES.map((_, index) => `wide/f${String(index + 1).padStart(2, '0')}.js`);
+    return harness({ changedPaths, numstat: changedPaths.map((file, index) => ({ path: file, added: LINES[index], deleted: 0 })), rangeDiff: `${changedPaths.map(wideSection).join('\n')}\n`, baseline: PASSED, ...over });
+  };
+  /** One review round, every agent answered but `skip`, collected after the last deadline (an agent still missing is expired). */
+  async function round(h, { skip = [], partial = {} } = {}) {
+    h.reviews = APPROVED();
+    const m = await h.prepare();
+    expect(m.status).toBe('DISPATCH');
+    answerReview(m, { skip, partial, lane: { findings: [], pathsReviewed: allPaths(h) } });
+    return { m, late: Math.max(...m.agents.map((a) => a.deadlineAt)) + 1000 };
+  }
+  const codesOf = (out) => out.gate.blockers.map((blocker) => blocker.code);
+
+  test('control: a complete run with the one approval it needs is mergeable and LOCAL_REVIEW_COMPLETE, and its state report records a complete coverage', async () => {
+    const h = wide();
+    const { m, late } = await round(h);
+    expect(m.agents.map((a) => a.name)).toContain('reviewer-range');
+    const out = await h.collect({ now: late });
+    expect(out.status).toBe('DONE');
+    expect(out.gate).toMatchObject({ mergeable: true, blockers: [], coverage: { status: 'complete', open: [], decided: [] } });
+    expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_COMPLETE');
+    expect(out.reviewStatus.coverage).toMatchObject({ status: 'complete', gaps: [] });
+    expect(h.stateWrites.at(-1).state.coverage).toMatchObject({ status: 'complete' });
+  });
+
+  test.each([
+    ['an expired whole-range reader', { skip: ['reviewer-range'] }],
+    ['a whole-range reader that listed too few paths', { partial: { 'reviewer-range': ['wide/f01.js', 'wide/f02.js'] } }],
+  ])('%s: NOT mergeable, not LOCAL_REVIEW_COMPLETE, a named blocker, an Accept-only list entry and the state report says so', async (_label, answer) => {
+    const h = wide();
+    const { late } = await round(h, answer);
+    const out = await h.collect({ now: late });
+    expect(out.status).toBe('DONE');
+    expect(out.gate.mergeable).toBe(false);
+    expect(codesOf(out)).toEqual(['review-coverage-incomplete']); // approvals, description, tests and the lane are all fine: the coverage alone stops it
+    expect(out.gate.blockers[0]).toMatchObject({ gapId: 'coverage:whole-range', gapType: 'whole-range', sliceId: 'whole-range' });
+    expect(out.gate.blockers[0].message).toMatch(/NOT REVIEWED: the whole-range read of 19 changed paths/);
+    expect(out.gate.coverage).toMatchObject({ status: 'incomplete', open: ['coverage:whole-range'] });
+    expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
+    expect(out.reviewStatus).toMatchObject({ next: 'complete-review-coverage', status: 'REVIEW_PENDING' });
+    expect(out.reviewStatus.reasons.join(' ')).toMatch(/incomplete review coverage: .*whole-range/);
+    expect(out.gate.dispositionChoices.map((entry) => [entry.id, entry.group, entry.choices.map((choice) => choice.id)])).toEqual([['coverage:whole-range', 'coverage', ['accept']]]);
+    expect(out.notReviewed.unreviewedSlices).toEqual(['whole-range']);
+    expect(out.coverage.complete).toBe(false);
+    expect(out.reducedReview).toMatch(/the merge gate is NOT MERGEABLE on 1 coverage gap\(s\) \(coverage:whole-range\)/);
+    expect(h.stateWrites.at(-1).state.coverage).toMatchObject({ status: 'incomplete' });
+    expect(h.stateWrites.at(-1).state.coverage.gaps.map((gap) => gap.id)).toEqual(['coverage:whole-range']);
+    // a replay of the finished run answers the same: the stored answer, gap included, never a recomputed pass
+    const again = await h.collect({ now: late });
+    expect(again.gate.mergeable).toBe(false);
+    expect(codesOf(again)).toEqual(['review-coverage-incomplete']);
+  });
+
+  test('an expired slice reviewer leaves its whole slice unread: a slice gap naming the slice and its paths, while the other slices stay read', async () => {
+    const h = wide();
+    const { m, late } = await round(h, { skip: ['reviewer-s2-a'] });
+    const slice = m.agents.find((a) => a.name === 'reviewer-s2-a');
+    const out = await h.collect({ now: late });
+    expect(out.gate.mergeable).toBe(false);
+    expect(out.gate.blockers).toHaveLength(1);
+    expect(out.gate.blockers[0]).toMatchObject({ code: 'review-coverage-incomplete', gapType: 'slice', sliceId: slice.sliceId, paths: slice.paths });
+    expect(out.gate.blockers[0].message).toContain(`NOT REVIEWED: slice ${slice.sliceId}`);
+    expect(out.gate.blockers[0].reasons.map((entry) => entry.agent)).toContain('reviewer-s2-a');
+    expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
+  });
+
+  test('a Quick run (a docs-only PR) whose reviewers never arrived is not mergeable either: every unread slice is a gap', async () => {
+    const h = harness({ changedPaths: ['README.md'], baseline: PASSED });
+    h.reviews = APPROVED();
+    const m = await h.prepare();
+    expect(m.status).toBe('DISPATCH');
+    const reviewers = m.agents.filter((a) => a.role === 'reviewer').map((a) => a.name);
+    answerReview(m, { skip: reviewers, lane: { findings: [], pathsReviewed: allPaths(h) } });
+    const out = await h.collect({ now: Math.max(...m.agents.map((a) => a.deadlineAt)) + 1000 });
+    expect(out.gate.mergeable).toBe(false);
+    expect(codesOf(out)).toEqual(['review-coverage-incomplete']);
+    expect(out.gate.blockers[0].paths).toEqual(['README.md']);
+    expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
+  });
+
+  test('full mode: the TRIAGE answer shows the unread slice, and the DONE answer after it is not mergeable (the orchestrator\'s own read is not a reviewer\'s coverage)', async () => {
+    const h = harness({ policyJson: { highPaths: ['src/**'] }, baseline: PASSED });
+    h.reviews = APPROVED();
+    const m = await h.prepare();
+    expect(m.mode).toMatchObject({ mode: 'full' });
+    const skipped = m.agents.find((a) => a.role === 'reviewer').name;
+    answerReview(m, { skip: [skipped], lane: { findings: [], pathsReviewed: allPaths(h) } });
+    const late = Math.max(...m.agents.map((a) => a.deadlineAt)) + 1000;
+    const triage = await h.collect({ now: late });
+    expect(triage.status).toBe('TRIAGE');
+    const done = await h.collect({ now: late, triage: {} });
+    expect(done.status).toBe('DONE');
+    expect(done.gate.mergeable).toBe(false);
+    expect(codesOf(done)).toContain('review-coverage-incomplete'); // a High PR also wants a second human: the coverage is one of its blockers, never hidden by the others
+    expect(done.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
+  });
+
+  test('the runner decides nothing about a gap: no adjudication, no replay and no later collect accepts it', async () => {
+    const h = wide();
+    const { late } = await round(h, { skip: ['reviewer-range'] });
+    await h.collect({ now: late });
+    const stored = JSON.parse(fs.readFileSync(path.join(h.runDir(), 'final.json'), 'utf8'));
+    expect(JSON.stringify(stored.gate.coverage)).not.toMatch(/"decided":\[\{/);
+    expect(JSON.stringify(stored)).not.toMatch(/"resolution"/);
+    const gaps = h.stateWrites.at(-1).state.coverage.gaps;
+    expect(gaps.every((gap) => gap.resolution === undefined && gap.cleared !== true && gap.disposition === 'adjudicate')).toBe(true);
+  });
+});
+
+describe('review coverage through the runner: a path read under fewer lenses than the mode requires is the under-reviewed gap (kata k48x, review of PR 278, round 2)', () => {
+  test('the stored plan gives the second lens one path of two: the other path is read under one lens, a gap the gate and the status stop on', async () => {
+    const h = harness({ changedPaths: ['src/a.js', 'src/b.js'], baseline: { ran: true, exitCode: 0, timedOut: false, command: ['jest'], selection: [{ file: 't/a.test.js', why: 'related' }] } });
+    h.reviews = { ok: true, reviews: [{ login: 'bob', authorType: 'User', state: 'APPROVED', commitSha: HEAD, submittedAt: '2026-01-01T00:00:00Z' }] };
+    const m = await h.prepare();
+    expect(m.status).toBe('DISPATCH');
+    const file = path.join(h.runDir(), 'run.json');
+    const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const wave of stored.waves) for (const agent of wave.agents) if (agent.name === 'reviewer-s1-b') agent.paths = ['src/a.js'];
+    fs.writeFileSync(file, JSON.stringify(stored));
+    answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+    const out = await h.collect({ now: Math.max(...m.agents.map((a) => a.deadlineAt)) + 1000 });
+    expect(out.status).toBe('DONE');
+    expect(out.gate.mergeable).toBe(false);
+    expect(out.gate.blockers.map((b) => [b.code, b.gapId, b.paths])).toEqual([['review-coverage-incomplete', 'coverage:under-reviewed', ['src/b.js']]]);
+    expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
+    expect(out.notReviewed.underReviewedPaths.map((entry) => entry.path)).toEqual(['src/b.js']);
+  });
+});

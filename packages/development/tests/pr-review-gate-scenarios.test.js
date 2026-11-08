@@ -126,6 +126,7 @@ function mergeAttempt(overrides = {}) {
     tier,
     description: checkDescription({ body: FULL_DESCRIPTION, agentAuthored: false }),
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...overrides,
   };
 }
@@ -277,6 +278,7 @@ describe('Scenario AC-017-1: the security lane blocks the merge until the issue 
         tier,
         description: checkDescription({ body: FULL_DESCRIPTION, agentAuthored: false }),
         security: { status: 'findings', findings: ledger },
+        coverage: { status: 'complete', gaps: [] },
       };
     };
 

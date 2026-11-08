@@ -139,6 +139,7 @@ function reviewStep(options = {}) {
       reviewedTreeSha: TREE,
       headTreeSha: TREE,
       findingCounts: { total: findings.length, actionable: 0, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npx jest' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
       roundsUsed: 1,

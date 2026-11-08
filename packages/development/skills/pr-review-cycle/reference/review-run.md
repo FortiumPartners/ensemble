@@ -77,6 +77,10 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    was asked about, with its reason: say that a person decides those. `collect` on a finished run re-reads the PR first and returns
    the stored result only while the head is still the reviewed one on an open PR: a head that moved after `DONE` is
    `RUN_INVALIDATED`, and the old answer is not repeated.
+   A path no reader read stops the gate: `gate.coverage.status` is `incomplete` and `gate.blockers` holds a
+   `review-coverage-incomplete` entry per unread slice, whole-range read or path (`reviewStatus.localPhase` is then not
+   `LOCAL_REVIEW_COMPLETE`). Report each by its `message`; the way out is to run the review again on this head, or the
+   operator's own decision about the gap (`reference/merge-gate.md`), never yours.
 
 ## Statuses
 

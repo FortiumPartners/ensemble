@@ -296,6 +296,10 @@ under-reviewed one.
 An `uncovered` path with an empty `unreviewedSlices` means `paths` was not cut
 from the same listing as `changedPaths`: rebuild it with the command above and
 run the call again, since reviewing more slices cannot cover it.
+The answer also carries `coverage`, the record `status` (fact `coverage`) and `gate` (input `coverage`) take: pass it as
+it is, never typed. `covered:false` is `incomplete` with one named gap per unread slice, per `uncovered` path and per
+`underReviewed` path; `covered:true` is `complete`; a call that could not compute it is `unavailable`. A gap stops
+`LOCAL_REVIEW_COMPLETE` and the gate until the review is run again or the operator decides it (`reference/merge-gate.md`).
 
 **The plan.** With `depth` free of violations and the slices cut, print the
 plan before anything is dispatched: `PR_ID`; the tier and effective tier with

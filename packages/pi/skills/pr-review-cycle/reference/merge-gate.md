@@ -173,12 +173,14 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    failed (`solo-maintainer-director-not-approved` or
    `solo-maintainer-author-unknown`): report it, and the PR needs two humans.
 3. `node "$PR_REVIEW_CLI" gate` with
-   `{ ledger, approvals, tier, description, security, headSha, policy, unavailable }`
+   `{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }`
    -- `ledger` the findings carried in the review-state report for this head
    (Step 9), `description` the Step 1b `description` result, `security` the
-   lane from 10c, `policy` the Step 1b policy block (the one `approvals` takes:
-   it names the bot and maintainer logins a decision is checked against), and
-   `unavailable` the names of every read that failed twice in 10d.
+   lane from 10c, `coverage` the review's coverage record (the report's
+   `coverage` for this head, below), `policy` the Step 1b policy block (the one
+   `approvals` takes: it names the bot and maintainer logins a decision is
+   checked against), and `unavailable` the names of every read that failed
+   twice in 10d.
 
    **A missing ledger is unavailable, never empty.** When `state-read` finds
    no report for this head, or discards the one it found (it was written for
@@ -188,6 +190,17 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    so the gate answers `review-data-unavailable`, and tell the caller to run
    `MODE=local` / `MODE=remote` for this head first. Pass `[]` only when a
    report for this exact head was read and it recorded no findings.
+
+   **A missing coverage is unavailable, never complete.** `coverage` is the
+   record the review wrote into the same report (`{ status, gaps[] }`: the
+   runner's, or the `slices` answer's `coverage`): `complete`, `incomplete` with
+   one gap per slice, whole-range read or path nobody read, or `unavailable`.
+   Pass the report's `coverage` as it stands, with any operator decision
+   spliced into its `gaps` (below). A report with no `coverage` (one written
+   before the coverage existed), or no report, has none to pass: omit it and the
+   gate answers `review-data-unavailable` naming `coverage`; run `MODE=local`
+   for this head again. Never write `{ "status": "complete" }` yourself: an
+   unread path reported as read is the false pass this gate exists to refuse.
 
 **What this step returns.** The `gate` result verbatim: `mergeable`,
 `blockers[]` (each with its `code`, `message` and `nextAction`), `warnings`,
@@ -259,6 +272,17 @@ pre-selected or batched, and needs a reason the operator gives for that finding.
 (`FOREMAN`) run never applies it and never fixes.
 The list never changes `mergeable`.
 
+**A review that did not read everything is on the list too (kata `k48x`).** The gate input `coverage` (the record `slices`
+with `reviewedBy`, a `review-run` state report or `carry` `coverage` answers; missing or unreadable is `review-data-unavailable`)
+makes one `review-coverage-incomplete` blocker of every slice, whole-range read or path nobody read. Each is also a
+`dispositionChoices` entry in the `Not reviewed` (`coverage`) group: `id` `coverage:...`, a `coverage` block (`gapType`,
+`sliceId`, `paths`, `reasons`), `choices` Accept only, never batched, `requiresReason`, no `default`. Two ways out, and an
+agent takes neither: re-run the review on this head so the path is read, or the operator accepts it as not reviewed. Accepting is
+`ledger` `resolve` on the gap (the object of that `id` in the record's `gaps`, not in the ledger) with the operator's login,
+this head and a timestamp, the same provenance as a finding's and graded by the same code; put the answer's `finding` back in
+that gap's place in the state report's `coverage.gaps` (`state-write`), as a resolved finding goes back into the ledger. The gate
+then warns `coverage-gap-accepted` and the gap's bead says who accepted it and why.
+
 **The review never fixes -- record, ask, then record who decided.** A review run edits no
 tracked file, commits nothing and pushes nothing (it writes only the gitignored state
 report). **Every presented finding is recorded as a bead** by `node "$PR_REVIEW_BEADS_CLI"`
@@ -276,8 +300,9 @@ it as its own state, never counted among the open beads.
 
 **Light mode does not call it yet.** When `selectMode` answers `light`, the runner
 (`reference/review-run.md`) builds the gate and the decision list itself and nothing in that
-path runs this recorder, so the findings of a light-mode review get no bead and the list shows
-none. Wiring the recorder into the runner is not part of this change.
+none. The same holds for coverage gaps (kata `k48x`): the recorder reads a `coverage` input, but a light-mode run never calls
+it, so its gaps get no bead (the decision list still shows each one, and a gap accepted there is recorded only in the state
+report). Wiring the recorder into the runner is not part of this change.
 
 **What the head under review cannot control.** First the recorder binds the checkout to the pull
 request's repository (`repo`), before the host or the tracker is asked anything: the repository's
@@ -418,6 +443,7 @@ own remediation subagents.
    that caps options per question pages the same question over the group. A multi-select
    cannot carry three choices per finding, so this question carries Fix only; follow-on and
    Accept are asked after it, in step 8.
+   A group whose entries offer no `fix-here` (the `coverage` group) gets no such question.
 7. **Any Fix on this PR selected:** ask nothing more and `resolve` nothing (every decision is
    bound to the head the fix moves). Run, in this order: (a) ONE `MODE=local` fix run with
    `FIX_SELECTION` (`[{ id, by, at, headSha }]`, each `id` a ledger id), which pushes once and
@@ -438,6 +464,8 @@ own remediation subagents.
    through `ledger` `resolve` (a collapsed `file:<path>` entry expands to its members first).
    The reason of a follow-on is `follow-on: <bead id>`, or `follow-on` when the entry has no
    bead.
+   A coverage entry offers Accept only as well: one at a time, for a reason the operator types, through `ledger` `resolve`
+   on its gap (above); re-running the review is the other way out.
 9. **Re-gate.** Re-read the head and run `MODE=gate` for the same head with fresh state: the
    gate reads the recorded decisions, they are never assumed. An entry still listed, or a
    review-finding blocker still open, is asked again; unanswered, halt `disposition-incomplete`.

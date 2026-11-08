@@ -71,6 +71,7 @@ function gateInput(extra = {}) {
     tier: { ok: true, tier: 'medium', effectiveTier: 'medium', humansRequired: 1, refusals: [], reasons: [], warnings: [] },
     description: { ok: true, missing: [], present: ['testing', 'risk', 'rollback'], empty: [], ready: true, warnings: [] },
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...extra,
   };
 }
@@ -79,6 +80,7 @@ function listFor(input) {
   return buildDispositionChoices({
     ledger: input.ledger,
     security: input.security,
+    coverage: input.coverage,
     votes: input.votes,
     policy: input.policy,
     headSha: HEAD,

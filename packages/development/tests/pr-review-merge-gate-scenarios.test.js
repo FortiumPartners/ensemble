@@ -136,6 +136,7 @@ function runGate(options = {}) {
     reviews = [{ author: 'human-a', state: 'APPROVED', commitSha: HEAD, treeSha: TREE }],
     ledger = [],
     security = { status: 'clean', findings: [] },
+    coverage = { status: 'complete', gaps: [] },
     description = agentAuthored && directedBy !== undefined ? directedDescription(directedBy) : FULL_DESCRIPTION,
   } = options;
 
@@ -157,6 +158,7 @@ function runGate(options = {}) {
     tier,
     description: checkDescription({ body: description, agentAuthored }),
     security,
+    coverage,
     headSha: HEAD,
   });
 

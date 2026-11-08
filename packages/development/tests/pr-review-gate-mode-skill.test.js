@@ -294,7 +294,7 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
   });
 
   test('the prose names what the gate reads and answers: policy in, deferralRejected out', () => {
-    expect(STEP_10_FLAT).toContain('`{ ledger, approvals, tier, description, security, headSha, policy, unavailable }`');
+    expect(STEP_10_FLAT).toContain('`{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }`');
     expect(STEP_10_FLAT).toContain('its blocker carrying `deferralRejected`');
     expect(STEP_10_FLAT).toContain('given `policy`, `by` is not one of its `botLogins`');
 
@@ -304,6 +304,7 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
       tier: { ok: true, effectiveTier: 'medium' },
       description: { ok: true, missing: [] },
       security: { status: 'clean', findings: [] },
+      coverage: { status: 'complete', gaps: [] },
       headSha: 'a'.repeat(40),
     };
     const finding = {
@@ -399,7 +400,7 @@ describe('TRD-027: the step grades through the CLI and returns evaluateGate outp
   test('the payload keys the prose documents are the keys those modules read', () => {
     expect(STEP_10_FLAT).toContain('{ kinds, paths, secondAssessment, proposedTier, proposedBy, policy, evidence, assignedBy, at }');
     expect(STEP_10_FLAT).toContain('{ reviews, headSha, headTreeSha, tier, policy, author, directedBy, agentAuthored }');
-    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, headSha, policy, unavailable }');
+    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }');
   });
 
   test('trees that vouch for an older commit are computed by the run, never taken from review text', () => {

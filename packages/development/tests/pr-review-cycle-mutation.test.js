@@ -442,6 +442,9 @@ const STATUS_FILES = [
   'lib/pr-review-policy.js',
   'lib/pr-review-sizing.js', // required by pr-review-policy.js since kata sfpb
   'lib/pr-review-ci-tests.js',
+  'lib/pr-review-coverage.js', // required by pr-review-status.js since kata k48x: grades the coverage record
+  'lib/pr-review-ledger.js', // required by pr-review-coverage.js: the one provenance rule a decision must meet
+  'lib/pr-review-state.js', // required by pr-review-ledger.js
   'lib/pr-review-remote.js',
   'tests/pr-review-status.test.js',
 ];
@@ -455,7 +458,7 @@ describe('Guard 2: no early REVIEW_COMPLETE (pr-review-status.js)', () => {
     targetRel: 'lib/pr-review-status.js',
     testFileRel: 'tests/pr-review-status.test.js',
     testTitle: 'a single local blocker keeps the local phase pending, not complete: unresolved finding',
-    mutate: (text, a) => a.replace(text, 'actionableCount === 0 && !isStale', '!isStale'),
+    mutate: (text, a) => a.replace(text, 'actionableCount === 0 && coverageOpen === 0 && !isStale', 'coverageOpen === 0 && !isStale'),
   });
 
   proveGuardMutationIsCaught({
@@ -466,7 +469,7 @@ describe('Guard 2: no early REVIEW_COMPLETE (pr-review-status.js)', () => {
     targetRel: 'lib/pr-review-status.js',
     testFileRel: 'tests/pr-review-status.test.js',
     testTitle: 'a single local blocker keeps the local phase pending, not complete: stale SHA',
-    mutate: (text, a) => a.replace(text, 'actionableCount === 0 && !isStale', 'actionableCount === 0'),
+    mutate: (text, a) => a.replace(text, 'actionableCount === 0 && coverageOpen === 0 && !isStale', 'actionableCount === 0 && coverageOpen === 0'),
   });
 
   proveGuardMutationIsCaught({

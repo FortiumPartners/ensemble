@@ -88,6 +88,7 @@ function cleanInput(overrides = {}) {
     tier: tier('medium'),
     description: description(),
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...overrides,
   };
 }

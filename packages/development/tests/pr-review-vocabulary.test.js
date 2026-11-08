@@ -62,6 +62,7 @@ const passing = {
   headSha: SHA_HEAD,
   reviewedHeadSha: SHA_HEAD,
   findingCounts: { total: 0, actionable: 0, deferred: 0 },
+  coverage: { status: 'complete', gaps: [] },
   tests: { exitCode: 0, skipped: false, command: 'npm test' },
   remotePhase: 'REMOTE_REVIEW_COMPLETE',
 };

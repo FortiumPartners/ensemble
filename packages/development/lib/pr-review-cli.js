@@ -55,8 +55,15 @@
  * nothing here re-grades, trims or defaults a recorded decision.
  *
  * `status` grades the accumulated review facts IN BAND (a missing or invalid fact is a BLOCKED result, never a default):
- *   status     { baseSha, headSha, reviewedHeadSha, findingCounts{ total, actionable, deferred }, tests?, remotePhase?,
- *                reviewedTreeSha?, headTreeSha?, roundsUsed?, roundCap?, access?, prUrl?, reportPath?, reviewOnly? }
+ *   status     { baseSha, headSha, reviewedHeadSha, findingCounts{ total, actionable, deferred }, coverage, tests?, remotePhase?,
+ *                reviewedTreeSha?, headTreeSha?, roundsUsed?, roundCap?, access?, prUrl?, reportPath?, reviewOnly?, policy? }
+ *              `coverage` (kata k48x) is the review's coverage record (lib/pr-review-coverage.js: the `coverage` the `slices`
+ *              answer carries when it is given `reviewedBy`, or the one `carry` `coverage` answers for a delta round) and is a
+ *              REQUIRED fact: absent, unreadable or `unavailable` is a missing fact (LOCAL_REVIEW_BLOCKED, named), and an open
+ *              gap (a slice, the whole-range read or a path nobody read, with no operator decision bound to this head) is
+ *              LOCAL_REVIEW_PENDING (`next: complete-review-coverage`): a review that left a path unread is never
+ *              LOCAL_REVIEW_COMPLETE. The record is echoed as `coverage`, so the state report written from this result carries it.
+ *              `policy` (optional) is the base-branch policy block: a gap's decision counts only from a login it lets decide.
  *              `tests` is ONE of two facts, and `passed` is never supplied -- it is derived:
  *                { exitCode, skipped?, command? }     a LOCAL run the caller really made (`skipped: true` needs no exit code)
  *                { source: 'ci', checkRuns[{ id?, name?, commitSha, conclusion }], totalCount, command? }
@@ -132,7 +139,10 @@
  *           lenses at Standard and Deep; at Quick ONE slice, however large the PR, and one reviewer); when
  *           `reviewedBy` is given, names every changed path that was not read under enough distinct lenses
  *           (`uncovered` when nobody read it, `underReviewed` when too few lenses did, or when no reviewer's `paths`
- *           names it: a lens counts for the paths it read, never for the rest of its slice)
+ *           names it: a lens counts for the paths it read, never for the rest of its slice) and answers `coverage`, the
+ *           coverage record (lib/pr-review-coverage.js) `status` and `gate` take as it is (kata k48x): `complete`, or
+ *           `incomplete` with one gap per unread slice, per unplanned path and per under-read path, or `unavailable` (always so
+ *           when `changedPaths` is not given: a plan cannot be held against files it was never cut from).
  *
  * `results` (kata et2k) is the file-based half of the verification subcommands:
  * agents write `out-<name>.json` and this reads them, instead of the orchestrator
@@ -203,7 +213,7 @@
  *              a director who is not the author needs an APPROVED review of
  *              the head; a director who is the author is credited on their
  *              own word (warning `solo-maintainer-self-credit`)
- *   gate       { ledger[], approvals, tier?, description, security{ status, findings?, reason? },
+ *   gate       { ledger[], approvals, tier?, description, security{ status, findings?, reason? }, coverage{ status, gaps?, reason? },
  *                headSha?, policy?, unavailable?[] }
  *              -- the one answer to "may this PR merge?", with every blocker
  *              carrying its code, message and next action. An Important or
@@ -219,8 +229,15 @@
  *              an optional `votes` (a `votes` result) for the per-finding
  *              tally, and asking the gate which findings block.
  *              `evaluateGate`'s own answer is unchanged by it.
+ *              `coverage` (kata k48x) is REQUIRED, like `security`: the review's coverage record (the state report's `coverage`
+ *              for this head, or the `slices` answer's). Absent or `unavailable` is `review-data-unavailable`; an open gap is a
+ *              `review-coverage-incomplete` blocker naming the slice and paths; an operator's decision on a gap (`ledger resolve`,
+ *              the same four-key resolution as for a finding, spliced into `coverage.gaps`) closes it only on this head. The
+ *              decision list carries each open gap in its own `coverage` group (Accept is its only choice).
  *
  *   carry      { action, ... } -- (lib/pr-review-carry.js) settled verification verdicts across heads. One `action` per call.
+ *              A carried verdict is a verification fact about a finding and never a claim that anyone read a path: `coverage`
+ *              carries what a delta round did not read (below).
  *              Its REQUEST parameters (`prId` and `candidates` for plan; `findings` and `candidates` for record; `ledger`,
  *              `changedLocations`, `headSha` and `observations` for reconcile) are required, as `ledger`'s keys are: an absent or
  *              misspelt one is exit 1. Every other fact is graded in band (re-verification, exit 0):
@@ -265,6 +282,15 @@
  *              `present`/`filtered` verdicts carry; a High or sensitive path touched by the delta carries nothing; a
  *              `full` range carries nothing; the state report is untracked and writable by whoever can write the
  *              repository, so binding stops a verdict from the wrong PR, base, depth or ledger, not a forged report.
+ *                coverage   { prId, coverage, lastReviewedSha, deltaPlan?, cwd? } -- the coverage record of a review round that
+ *                             reads a delta (kata k48x). `coverage` is this round's own record; the prior round's is read from the
+ *                             PR's state report at `lastReviewedSha` (a payload `priorCoverage` is refused). Answers
+ *                             { ok, carried[], reasons[], coverage, priorState }: a delta round carries EVERY gap of the round it
+ *                             starts from (re-stamped `carriedFrom`; an old decision stays on it and is stale at the new head), so a
+ *                             delta can never turn an incomplete coverage into a complete one; `deltaPlan.mode: 'full'` (the whole
+ *                             range was read) carries none. A prior state that was not read, or one with no readable coverage,
+ *                             answers `unavailable` (never `complete`): what the delta did not read is unknown. Hand the answer's
+ *                             `coverage` to `status` and `gate`.
  *
  * FAIL CLOSED at the boundary. Two kinds of payload value are told apart:
  *   - the review FACTS of `scope`, `remote`, `status`, `policy`, `rules`,
@@ -308,6 +334,7 @@ const { computeReviewTiming, loadReviewTiming } = require('./pr-review-timing');
 const { tallyVotes } = require('./pr-review-votes');
 const { planVerification } = require('./pr-review-verify-assign');
 const { resolveDepth, checkBounds, boundsFor, planSlices, verifyCoverage } = require('./pr-review-depth');
+const { buildCoverage, carryCoverage } = require('./pr-review-coverage');
 const { offerExplainers } = require('./pr-review-explainer-offer');
 const { renderBriefFromFiles } = require('./pr-review-brief-files');
 const { assignTier, effectiveTier, tierRecord } = require('./pr-review-tier');
@@ -584,6 +611,33 @@ function runSlices(payload) {
     changedPaths: request.changedPaths,
   });
 
+  const changedGiven = Array.isArray(request.changedPaths);
+  const planned = plan.slices.flatMap((slice) => slice.paths);
+  const notChanged = changedGiven ? planned.filter((file) => !request.changedPaths.includes(file)) : [];
+  // A plan is only as complete as the paths it was cut from: with no `changedPaths` to hold it against, a changed file the plan
+  // never held cannot be seen, and a plan holding a path `changedPaths` does not name was cut from another listing. Either way the
+  // record is `unavailable` (never complete) instead of graded against the plan's own paths.
+  const unavailable =
+    coverage.ok !== true
+      ? coverage.reason || 'the coverage could not be computed'
+      : !changedGiven
+        ? 'changedPaths was not given, so the plan cannot be checked against the changed files: a changed file the plan never held would read as covered'
+        : notChanged.length > 0
+          ? `the plan holds paths that changedPaths does not name (${notChanged.slice(0, 5).join(', ')}${notChanged.length > 5 ? ', ...' : ''}), so the two lists were not cut from one listing and the plan cannot be graded against the changed files`
+          : null;
+  // The record `status` and `gate` take: a path nobody read is a named gap there, never a quiet `covered:false` a caller can drop.
+  const record = buildCoverage({
+    changedPaths: changedGiven ? request.changedPaths : plan.slices.flatMap((slice) => slice.paths),
+    slices: plan.slices,
+    unreviewedSlices: coverage.unreviewedSlices,
+    uncovered: coverage.uncovered,
+    underReviewed: coverage.underReviewed,
+    requiredLenses: coverage.requiredLenses,
+    incomplete: coverage.covered !== true,
+    origin: 'slices coverage (reviewedBy)',
+    ...(unavailable === null ? {} : { unavailable }),
+  });
+
   const result = {
     ...plan,
     ok: plan.ok && coverage.ok && coverage.covered,
@@ -594,8 +648,16 @@ function runSlices(payload) {
     reviewedSlices: coverage.reviewedSlices,
     unreviewedSlices: coverage.unreviewedSlices,
     unknownReviewed: coverage.unknownReviewed,
+    coverage: record,
   };
   if (coverage.reason !== undefined) result.coverageReason = coverage.reason;
+  // The verdict and the record must not disagree: a plan the record does not call complete (no `changedPaths`, a plan and a changed
+  // list cut from different listings, or no path at all) is not `covered`.
+  if (coverage.ok === true && coverage.covered === true && record.status !== 'complete') {
+    result.ok = false;
+    result.covered = false;
+    result.coverageReason = record.reason || 'the coverage record lists gaps the verdict did not';
+  }
   return result;
 }
 
@@ -666,13 +728,13 @@ function runMode(payload) {
  * not what the answer's `ledger` says either: only `priorState: 'read'` AND a ledger array make it a ledger.
  */
 function readPriorRound(payload) {
-  const unavailable = (priorState) => ({ priorState, verdicts: [], ledger: [] });
+  const unavailable = (priorState) => ({ priorState, verdicts: [], ledger: [], coverage: null });
   const read = readState(statePath(payload.prId, payload.cwd || process.cwd()), payload.lastReviewedSha, { cwd: payload.cwd });
   if (!read.ok) return unavailable(read.reason === 'corrupt' ? 'corrupt' : 'unreadable');
   if (!read.exists) return unavailable('absent');
   if (read.discarded || !isObject(read.state)) return unavailable('discarded');
-  const { verdicts, ledger } = read.state;
-  return { priorState: 'read', verdicts: verdicts === undefined ? [] : verdicts, ledger };
+  const { verdicts, ledger, coverage } = read.state;
+  return { priorState: 'read', verdicts: verdicts === undefined ? [] : verdicts, ledger, coverage: coverage === undefined ? null : coverage };
 }
 
 function carryPlan(payload) {
@@ -701,6 +763,24 @@ function carryPlan(payload) {
   return { ...answer, ledger: stamped.ledger };
 }
 
+/**
+ * `carry coverage`: the coverage record of a delta round, with every gap of the round it starts from carried in (see
+ * `carryCoverage`). The prior record is read from the PR's own state report at `lastReviewedSha`, never from the payload.
+ */
+function carryCoverageAction(payload) {
+  if (payload.priorCoverage !== undefined) throw new Error("carry coverage reads 'priorCoverage' from the PR's state report at lastReviewedSha; it is not a payload key");
+  const prior = readPriorRound(payload);
+  const fullRange = isObject(payload.deltaPlan) && payload.deltaPlan.mode === 'full';
+  const answer = carryCoverage({
+    current: payload.coverage,
+    prior: prior.coverage,
+    priorState: prior.priorState,
+    priorHeadSha: payload.lastReviewedSha,
+    fullRange,
+  });
+  return { ...answer, priorState: prior.priorState };
+}
+
 /** action -> the keys its payload must carry, and the call it delegates to. Looked up by own name only. */
 const CARRY_ACTIONS = Object.freeze({
   plan: {
@@ -711,6 +791,11 @@ const CARRY_ACTIONS = Object.freeze({
   record: {
     keys: { findings: ARRAY, candidates: ARRAY },
     run: (p) => recordVerdicts(p),
+  },
+  coverage: {
+    keys: { prId: TEXT, coverage: OBJECT },
+    optional: { cwd: TEXT },
+    run: carryCoverageAction,
   },
   reconcile: {
     keys: { ledger: ARRAY, changedLocations: ARRAY, headSha: TEXT, observations: ARRAY },
@@ -765,6 +850,7 @@ function runGate(payload) {
   const disposition = buildDispositionChoices({
     ledger: request.ledger,
     security: request.security,
+    coverage: request.coverage,
     votes: request.votes,
     policy: request.policy,
     headSha: request.headSha,

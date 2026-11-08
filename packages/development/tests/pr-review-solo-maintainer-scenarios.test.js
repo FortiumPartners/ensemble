@@ -140,6 +140,7 @@ function gateFor({ tier, approvals, security = { status: 'clean', findings: [] }
     tier,
     description: checkDescription({ body: DESCRIPTION, agentAuthored: false }),
     security,
+    coverage: { status: 'complete', gaps: [] },
   });
 }
 
@@ -832,6 +833,7 @@ describe("solo maintainer: through the subcommands the skill calls, under this r
       tier,
       description: HANDLERS.description({ body: DESCRIPTION, agentAuthored: false }),
       security: { status: 'clean', findings: [] },
+      coverage: { status: 'complete', gaps: [] },
       headSha: HEAD,
     });
     return { paths, tier, approvals, gate };

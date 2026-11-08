@@ -82,6 +82,12 @@
  *     redacted once more as a whole, because the store is tracked by git.
  *   - FAIL CLOSED. Input this module cannot read yields `{ok:false, reason}` and no action. A
  *     finding that cannot be keyed (no claim) is reported as skipped, never dropped silently.
+ *   - COVERAGE GAPS (kata k48x). `input.coverage`, the record of `pr-review-coverage.js`, adds one bead per OPEN gap (a slice, the
+ *     whole-range read or the paths nobody read), keyed by repository, kind, slice and sorted paths: never by why it was not read
+ *     or at which head, so the same gap at a later head is the same bead (updated, one note per head). A gap is Important and
+ *     never collapsed; this recorder never closes its bead (absence is not a fix: a person closes it); the operator's decision
+ *     about it, when there is one, is written into the text. A `complete` or `unavailable` coverage records nothing; one this
+ *     module cannot read is refused (`ok:false`), never a quietly shorter plan.
  */
 
 const crypto = require('crypto');
@@ -166,6 +172,20 @@ function reviewGroupKey({ repo, file, group } = {}) {
 }
 
 /**
+ * The key of the bead of one coverage gap: repository, kind of gap, slice and the sorted paths nobody read. Cannot equal a
+ * finding's key or a collapsed bead's (`coverage:`).
+ *
+ * @returns {string|null}  `null` when the repository, the kind or the paths cannot be read.
+ */
+function reviewCoverageKey({ repo, gapType, sliceId, paths } = {}) {
+  const normalizedRepo = normalizeRepo(repo);
+  if (normalizedRepo === null || !isText(gapType) || !Array.isArray(paths) || paths.length === 0) return null;
+  const files = paths.map(normalizeFile);
+  if (files.some((file) => file === null)) return null;
+  return `${KEY_PREFIX}${normalizedRepo}:coverage:${digest(gapType.trim(), isText(sliceId) ? sliceId.trim() : '', [...new Set(files)].sort().join('\n'))}`;
+}
+
+/**
  * The claim of a finding as the ledger's repeat suppression reads it: its failure mode,
  * lower-cased with punctuation and whitespace flattened, and its class. A class finding's
  * failure mode carries its instance count, which moves, so it is identified by its class alone.
@@ -222,6 +242,18 @@ function readInput(input) {
     }
   }
 
+  let coverageGaps = [];
+  if (input.coverage !== undefined && input.coverage !== null) {
+    const { coverage } = input;
+    if (!isObject(coverage) || !Array.isArray(coverage.gaps)) return { reason: "input 'coverage' must be a coverage record with a gaps array" };
+    if (coverage.status === 'incomplete') {
+      if (coverage.gaps.length === 0) return { reason: "input 'coverage' says incomplete and lists no gap" };
+      coverageGaps = coverage.gaps;
+    } else if (coverage.status !== 'complete' && coverage.status !== 'unavailable') {
+      return { reason: "input 'coverage.status' must be complete, incomplete or unavailable" };
+    }
+  }
+
   const votesById = new Map();
   if (input.votes !== undefined && input.votes !== null) {
     if (!isObject(input.votes) || !Array.isArray(input.votes.findings)) {
@@ -263,8 +295,30 @@ function readInput(input) {
       byId.set(id, { id, finding, fromLane });
     }
   }
+  for (const gap of coverageGaps) {
+    if (!isObject(gap) || !isText(gap.id)) return { reason: 'every coverage gap must be an object with an id' };
+    const id = gap.id.trim();
+    if (!byId.has(id)) byId.set(id, { id, finding: gap, fromLane: false, coverage: true });
+  }
 
-  const entries = [...byId.values()].map(({ id, finding, fromLane }) => {
+  const entries = [...byId.values()].map(({ id, finding, fromLane, coverage }) => {
+    if (coverage === true) {
+      return {
+        id,
+        finding,
+        group: 'important',
+        security: false,
+        coverage: true,
+        severityWord: 'not reviewed',
+        file: null,
+        line: null,
+        location: isText(finding.locationOrLink) ? finding.locationOrLink.trim() : id,
+        claim: isText(finding.failureMode) ? finding.failureMode : null,
+        key: reviewCoverageKey({ repo, gapType: finding.gapType, sliceId: finding.sliceId, paths: finding.paths }),
+        vote: undefined,
+        followOn: followOn.has(id),
+      };
+    }
     const canonical = normalizeSeverity(finding.severity);
     // An unreadable severity is treated as Important: the ledger never ranks it below a Nit.
     const group = canonical === 'nit' || canonical === 'pre-existing' ? canonical : 'important';
@@ -304,6 +358,8 @@ function readInput(input) {
 function stateOf(entry, commitsOnPr) {
   const { finding } = entry;
   if (entry.key === null) return { kind: 'skip', reason: 'unkeyable' };
+  // A coverage gap is live for as long as the review lists it: no mark closes its bead, only a person does.
+  if (entry.coverage === true) return { kind: 'live' };
   if (finding.cleared === true) {
     const written = isText(finding.clearedBy) ? finding.clearedBy.trim().toLowerCase() : '';
     if (!COMMIT_RE.test(written)) return { kind: 'skip', reason: 'cleared-without-commit' };
@@ -344,10 +400,42 @@ function footer(context) {
   ];
 }
 
+/** What each kind of gap says about itself in its bead: the title's prefix and the heading over its paths (a gap is not always unread). */
+const GAP_BEAD_WORDS = {
+  slice: { prefix: 'Not reviewed', heading: 'Paths of a slice that was not fully reviewed (a slice counts as reviewed only when every reviewer of it arrived and listed every path):' },
+  'whole-range': { prefix: 'Whole-range read missing', heading: 'Paths the whole-range read did not cover (the slice reviewers read each slice on its own):' },
+  uncovered: { prefix: 'Not reviewed', heading: 'Paths no slice held and no reviewer read:' },
+  'under-reviewed': { prefix: 'Under-reviewed', heading: 'Paths read under fewer distinct lenses than the mode requires:' },
+  unnamed: { prefix: 'Not reviewed', heading: 'Paths treated as not reviewed (the review named none):' },
+};
+
+/** The bead of one coverage gap: what was not read, why, and what the operator decided about it. */
+function renderGap(entry, context) {
+  const gap = entry.finding;
+  const words = GAP_BEAD_WORDS[gap.gapType] || GAP_BEAD_WORDS.unnamed;
+  const paths = Array.isArray(gap.paths) ? gap.paths : [];
+  const lines = [`PR review coverage gap in ${context.repo}, PR #${context.prNumber}`, '', 'Claim: ' + flat(gap.failureMode, CLAIM_MAX), '', words.heading];
+  paths.slice(0, MEMBERS_LISTED_MAX).forEach((file) => lines.push(`- ${flat(file, 200)}`));
+  if (paths.length > MEMBERS_LISTED_MAX) lines.push(`- ... and ${paths.length - MEMBERS_LISTED_MAX} more`);
+  if (isText(gap.evidence)) lines.push('', 'Evidence: ' + flat(gap.evidence, EVIDENCE_MAX));
+  const resolution = isObject(gap.resolution) ? gap.resolution : null;
+  if (resolution !== null && isText(resolution.reason)) {
+    lines.push('', `Operator decision: accepted by ${flat(resolution.by, 80)}${isText(resolution.at) ? ` at ${flat(resolution.at, 40)}` : ''}: ${flat(resolution.reason, 300)}`);
+  }
+  lines.push('', ...footer(context));
+  return {
+    title: clean(`[${words.prefix}] ${flat(entry.location, 200)}`),
+    description: clean(lines.join('\n')),
+    priority: PRIORITY.important,
+    type: 'task',
+  };
+}
+
 /** The bead of one claim: one or more locations of one defect. */
 function renderUnit(unit, context) {
   const { entries } = unit;
   const first = entries[0];
+  if (first.coverage === true) return renderGap(first, context);
   const security = unit.security ? ', security' : '';
   const word = flat(unit.severityWord, 40);
   const head = `PR review finding (${word}${security}) in ${context.repo}, PR #${context.prNumber}`;
@@ -745,6 +833,7 @@ module.exports = {
   KEY_PREFIX,
   reviewFindingKey,
   reviewGroupKey,
+  reviewCoverageKey,
   claimOf,
   beadKeys,
   planBeads,

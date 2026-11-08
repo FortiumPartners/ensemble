@@ -90,6 +90,7 @@ function gateInput(extra = {}) {
     tier: { ok: true, tier: 'medium', effectiveTier: 'medium', humansRequired: 1, refusals: [], reasons: [], warnings: [] },
     description: { ok: true, missing: [], present: ['testing', 'risk', 'rollback'], empty: [], ready: true, warnings: [] },
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...extra,
   };
 }

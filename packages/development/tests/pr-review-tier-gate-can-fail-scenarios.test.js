@@ -173,6 +173,7 @@ function gateInput(overrides = {}) {
     tier: tierResult('medium'),
     description: description(),
     security: { status: 'clean' },
+    coverage: { status: 'complete', gaps: [] },
     headSha: HEAD,
     ...overrides,
   };

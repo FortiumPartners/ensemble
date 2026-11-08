@@ -12,11 +12,21 @@
  *   - the effective tier            (pr-review-tier.js)
  *   - the PR description check      (pr-review-description.js)
  *   - the security lane's result    (the review's security pass)
+ *   - the review's coverage         (pr-review-coverage.js: which changed paths nobody read)
  *
  * It is mergeable ONLY when no Important finding is open (including every open
- * security-lane finding), approvals are satisfied, and no required description
- * section is missing (AC-008-1, AC-017-1, AC-002-3). Nit and Pre-existing
- * findings never block (AC-008-4).
+ * security-lane finding), approvals are satisfied, no required description
+ * section is missing and no changed path went unread (AC-008-1, AC-017-1,
+ * AC-002-3, kata k48x). Nit and Pre-existing findings never block (AC-008-4).
+ *
+ * An INCOMPLETE COVERAGE blocks like an expired security lane does: a slice, the
+ * whole-range reader or a path the review did not read is named in a
+ * `review-coverage-incomplete` blocker and the review is not mergeable until the
+ * review is run again, or the operator's recorded decision on the gap (the same
+ * `resolution` with provenance as below, `ledger resolve`) accepts it. Coverage is
+ * a REQUIRED input: one that is absent, unreadable or `unavailable` is
+ * `review-data-unavailable`, never "nothing was missed". `cleared`, `blocking:false`
+ * and a deferral decide nothing for a gap.
  *
  * An Important, unrecognised-severity or security-lane finding is closed only
  * by a later head that cleared it or by the operator's recorded decision: a
@@ -48,6 +58,7 @@ const {
   normalizeSeverity,
   resolutionProvenanceProblem,
 } = require('./pr-review-ledger');
+const { gradeCoverage } = require('./pr-review-coverage');
 const { TIERS, HUMANS_REQUIRED } = require('./pr-review-tier');
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -62,6 +73,7 @@ const BLOCKER_CODES = Object.freeze({
   APPROVALS_UNSATISFIED: 'approvals-unsatisfied',
   APPROVALS_TIER_MISMATCH: 'approvals-tier-mismatch',
   DESCRIPTION_SECTION_MISSING: 'description-section-missing',
+  COVERAGE_INCOMPLETE: 'review-coverage-incomplete',
   REVIEW_DATA_UNAVAILABLE: 'review-data-unavailable',
 });
 
@@ -94,6 +106,7 @@ function unreadable(missing) {
     warnings: [],
     findings: { important: 0, nits: 0, preExisting: 0, unrecognised: 0, open: [] },
     securityLane: { status: 'unavailable', open: [], cleared: [], resolved: [] },
+    coverage: { status: 'unavailable', open: [], decided: [], unreadable: [] },
     approvals: null,
     tier: null,
     reasons: ['review-data-unavailable'],
@@ -285,6 +298,26 @@ function gradeSecurityLane(lane, tier, headSha, policy) {
 }
 
 /**
+ * The blocker of one open coverage gap (kata k48x): what was not read, why, and the two things that end it. The gap's own
+ * sentence is the message (it names the slice and the paths); every path is in `paths`.
+ */
+function coverageBlocker({ gap, rejectedBecause }) {
+  return blocker(
+    BLOCKER_CODES.COVERAGE_INCOMPLETE,
+    rejectedBecause === null ? String(gap.failureMode) : `${String(gap.failureMode)}: its recorded decision does not count (${rejectedBecause})`,
+    'run the review again on this head so these paths are read, or have the operator accept the gap on the current head with their login, a timestamp and a reason (ledger resolve)',
+    {
+      gapId: String(gap.id),
+      gapType: isText(gap.gapType) ? gap.gapType : null,
+      sliceId: isText(gap.sliceId) ? gap.sliceId : null,
+      paths: gap.paths.slice(),
+      ...(Array.isArray(gap.reasons) && gap.reasons.length > 0 ? { reasons: gap.reasons } : {}),
+      ...(rejectedBecause === null ? {} : { resolutionRejected: rejectedBecause }),
+    }
+  );
+}
+
+/**
  * Decide whether a PR may merge.
  *
  * @param {Object} input
@@ -293,12 +326,14 @@ function gradeSecurityLane(lane, tier, headSha, policy) {
  * @param {Object}   [input.tier]        The `effectiveTier` result; falls back to `approvals.tier`.
  * @param {Object}   input.description   The `checkDescription` result.
  * @param {Object}   input.security      `{ status: 'clean'|'findings'|'not-run'|'unavailable', findings?, reason? }`.
+ * @param {Object}   input.coverage      `{ status: 'complete'|'incomplete'|'unavailable', gaps?, reason? }` (pr-review-coverage.js). REQUIRED: absent is `review-data-unavailable`.
  * @param {string}   [input.headSha]     The commit the gate was asked about; echoed back. A resolution counts only when it was decided against this commit.
  * @param {Object}   [input.policy]      The policy block (`botLogins`, `maintainerLogins`): a resolution counts only from a login it lets decide. Without one the login is checked for shape alone.
  * @param {string[]} [input.unavailable] Data the caller could not collect (for example `gh-unreachable`).
  * @returns {{ok:boolean, mergeable:boolean, blockers:Object[], warnings:string[],
  *   findings:{important:number, nits:number, preExisting:number, unrecognised:number, open:string[]},
- *   securityLane:Object, approvals:Object|null, tier:string|null, reasons:string[]}}
+ *   securityLane:Object, coverage:{status:string, open:string[], decided:Object[], unreadable:string[]},
+ *   approvals:Object|null, tier:string|null, reasons:string[]}}
  */
 function evaluateGate(input) {
   if (!isObject(input)) return unreadable(['the gate payload is not an object']);
@@ -480,6 +515,25 @@ function evaluateGate(input) {
     for (const entry of graded.missing) missing.push(`security: ${entry}`);
   }
 
+  // --- Review coverage (kata k48x) ---------------------------------------
+  // A path nobody read is never read as reviewed. An open gap blocks until the review is run again or the operator's decision
+  // on it (a resolution with provenance, bound to this head) is recorded; coverage that cannot be read is unavailable data.
+  let coverageRecord = { status: 'unavailable', open: [], decided: [], unreadable: [] };
+  if (!isObject(input.coverage)) {
+    missing.push('coverage');
+  } else {
+    const graded = gradeCoverage(input.coverage, { headSha: isText(input.headSha) ? input.headSha : null, policy: input.policy });
+    coverageRecord = {
+      status: graded.status === null ? 'unavailable' : graded.status,
+      open: graded.open.map(({ gap }) => String(gap.id)),
+      decided: graded.decided.map(({ gap, reason, by, at }) => ({ id: String(gap.id), reason, by, at })),
+      unreadable: graded.missing.slice(),
+    };
+    for (const entry of graded.open) blockers.push(coverageBlocker(entry));
+    if (graded.decided.length > 0) warnings.push('coverage-gap-accepted');
+    for (const entry of graded.missing) missing.push(`coverage: ${entry}`);
+  }
+
   // --- Unavailable data outranks everything -------------------------------
   if (missing.length > 0) {
     blockers.unshift(
@@ -502,6 +556,7 @@ function evaluateGate(input) {
     warnings,
     findings: findingsRecord,
     securityLane,
+    coverage: coverageRecord,
     approvals: approvalsResult,
     tier,
     headSha: isText(input.headSha) ? input.headSha.trim() : null,
@@ -543,4 +598,23 @@ function findingsHeldOpen({ ledger, laneFindings = [], headSha, policy }) {
   return { ok: true, ledgerOpen: new Set(verdict.findings.open), laneOpen: new Set(verdict.securityLane.open) };
 }
 
-module.exports = { evaluateGate, findingsHeldOpen, BLOCKER_CODES, SECURITY_STATUSES, SECURITY_REQUIRED_TIERS };
+/**
+ * Which coverage gaps this gate holds open, asked of the gate itself (the same reason `findingsHeldOpen` exists): the
+ * operator's decision list must say what the verdict says about what blocks, so it keeps no copy of the rule.
+ *
+ * @param {{coverage:Object, headSha:string, policy?:Object}} input
+ * @returns {{ok:true, open:Set<string>, decided:Object[], unavailable:boolean}|{ok:false, reason:string}}
+ *   `open` are the gap ids (as `String(id)`) the gate holds open; `decided` the `{ id, reason, by, at }` it takes as the
+ *   operator's decision. A coverage the gate cannot read answers `ok: false`, never an empty set. A coverage that SAYS
+ *   `unavailable` is readable (the gate reports it as missing data, `unavailable: true`) and has no gap to decide.
+ */
+function coverageHeldOpen({ coverage, headSha, policy }) {
+  if (!isObject(coverage)) return { ok: false, reason: 'coverage must be an object' };
+  const verdict = evaluateGate({ headSha, policy, coverage, ledger: [], security: { status: 'clean', findings: [] } });
+  const declared = isText(coverage.status) ? coverage.status.trim().toLowerCase() : null;
+  if (declared === 'unavailable') return { ok: true, open: new Set(), decided: [], unavailable: true };
+  if (verdict.coverage.unreadable.length > 0) return { ok: false, reason: `unusable coverage (${verdict.coverage.unreadable.join('; ')})` };
+  return { ok: true, open: new Set(verdict.coverage.open), decided: verdict.coverage.decided, unavailable: false };
+}
+
+module.exports = { evaluateGate, findingsHeldOpen, coverageHeldOpen, BLOCKER_CODES, SECURITY_STATUSES, SECURITY_REQUIRED_TIERS };

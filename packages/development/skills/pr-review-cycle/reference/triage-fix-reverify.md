@@ -148,6 +148,14 @@ verification contract.
    the line numbers the ledger holds, and so marked defects that were still there as fixed (a line shifted across a skipped
    round, a force-pushed head, a partial fix raised again and voted present). Only the clear verb below writes `cleared`, and
    it reads git. A prior verdict nobody re-presents (`unmatched`) just is not carried.
+7. **Carry the coverage (writes nothing).** Run `carry` with `{ action: "coverage", prId, cwd?, lastReviewedSha, deltaPlan,
+   coverage }`: `coverage` is this round's own record (`slices` with `reviewedBy`), `deltaPlan` the `review-range` answer. A delta
+   round reads only what changed, so the gaps of the report of `lastReviewedSha` are still unread: it answers the record with
+   every one of them added (`carriedFrom`, and their old decisions stale at this head); a `full` range carries none. No such
+   report, or one it cannot read (every report written before the coverage existed has none), answers `unavailable`, never `complete`,
+   with `fullRangeRequired: true`: re-run THIS round once over the full range (`deltaPlan.mode: "full"`); a delta re-review stays
+   unavailable, and so does every delta round after it, and the later delta rounds carry the record the full range wrote. Pass the answer's `coverage` to `status` and `gate`:
+   a carried verdict never turns an incomplete coverage into a complete one.
 
 **Findings the new head fixed (CLI `pr-review-clear-cli.js`, kata `n350`, AC-008-3).** Once the
 new head's review has been through `ledger` `recordRound`, run `node "$PR_REVIEW_CLEAR_CLI"`
