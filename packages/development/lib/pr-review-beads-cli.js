@@ -42,6 +42,15 @@
  *
  *   WHAT THE HEAD UNDER REVIEW CONTROLS: nothing about whether or where its own findings are
  *   recorded. Before anything is read from or written to the tracker this process
+ *     0. binds the checkout to the pull request's repository, before the host is asked anything: the
+ *        repository's PRIMARY checkout (`repoRoot` may be a linked worktree of it) must have an
+ *        `origin` remote, every fetch and push URL of it, that names `repo` (`owner/name`, compared
+ *        without regard to case; https, ssh and scp-like URLs). An `origin` that names another
+ *        repository (a fork checkout, whatever other remote names `repo`) is REFUSED
+ *        `repository-mismatch`; no `origin`, URLs that name no `owner/name`, or a git that cannot
+ *        list them is REFUSED `repository-unknown`; a repository with no primary checkout is
+ *        REFUSED `no-primary-worktree`: beads never land in another repository's tracker
+ *        (`pr-review-repo.js` `bindRepository`, the same binding the merge sweep uses);
  *     1. asks the HOST (`gh pr view`) about the pull request and refuses, by name, a head on a fork
  *        (`cross-repository-head`), a head whose repository the host did not state
  *        (`head-repository-unknown`), a pull request it could not read (`pr-unreadable`), a
@@ -220,12 +229,26 @@ const TOOLCHAIN_CONFIG = path.posix.join('.ensemble', 'toolchain.yaml');
 
 /**
  * The trust checks. `{ok:true, trackerRoot, baseConfig}` or `{ok:false, result}` (a REFUSED result).
- * See the file header, "What the head under review controls".
+ * See the file header, "What the head under review controls". The repository binding comes first: nothing is asked of the host
+ * or the tracker for a checkout that is not the pull request's repository.
  */
 function checkTrust({ input, repoRoot, baseSha, git, readPr }) {
   const refuse = (code, reason) => ({ ok: false, result: refused(code, reason) });
 
-  const pr = readPr({ repo: input.repo.trim(), prNumber: input.prNumber });
+  const repo = input.repo.trim();
+
+  // The checkout the beads land in must BE the pull request's repository, and that is settled before the host or the tracker is
+  // asked anything. The tracker is in the PRIMARY checkout (`repoRoot` may be a linked worktree of it, which can carry its own
+  // remote configuration), so that is the checkout whose `origin` is compared: a fork checkout, or a checkout of any other
+  // repository, would otherwise receive the findings of a pull request that is not its own.
+  const primary = repoFacts.primaryWorktree(git, repoRoot);
+  if (!primary.ok) {
+    return refuse('no-primary-worktree', `the repository's primary checkout, which holds its tracker, could not be found from ${repoRoot} (${primary.reason}): nothing was recorded`);
+  }
+  const bound = repoFacts.bindRepository(git, primary.path, repo);
+  if (!bound.ok) return refuse(bound.code, bound.reason);
+
+  const pr = readPr({ repo, prNumber: input.prNumber });
   if (!isObject(pr) || pr.ok !== true) {
     const why = isObject(pr) && pr.error ? pr.error : 'no answer';
     return refuse('pr-unreadable', `the pull request could not be read from the host (${why}), so its head is not known to be on this repository: nothing was recorded`);
@@ -247,10 +270,6 @@ function checkTrust({ input, repoRoot, baseSha, git, readPr }) {
     return refuse('head-not-pr-head', `headSha ${headSha} is not the current head of the pull request (the host reports ${hostHead}): nothing was recorded; review the current head, then record`);
   }
 
-  const primary = repoFacts.primaryWorktree(git, repoRoot);
-  if (!primary.ok) {
-    return refuse('no-primary-worktree', `the repository's primary checkout, which holds its tracker, could not be found from ${repoRoot} (${primary.reason}): nothing was recorded`);
-  }
   const holds = repoFacts.holdsHead(git, primary.path, headSha);
   if (holds !== false) {
     return refuse(

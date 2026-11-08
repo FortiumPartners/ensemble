@@ -186,6 +186,40 @@ describe('primaryWorktree', () => {
   });
 });
 
+describe('bindRepository (shared by the PR-review recorder and the merge sweep)', () => {
+  const remoteV = (lines) => () => ({ status: 0, stdout: lines.join('\n') + '\n', stderr: '' });
+  const both = (name, url) => [`${name}\t${url} (fetch)`, `${name}\t${url} (push)`];
+
+  test('names the repository: every fetch and push URL of origin, any case, any URL form', () => {
+    for (const url of ['https://github.com/Acme/Widgets.git', 'https://github.com/acme/widgets', 'ssh://git@github.com:2222/Acme/Widgets.git/', 'git@github.com:ACME/Widgets.git']) {
+      expect(repo.bindRepository(remoteV(both('origin', url)), '/r', 'Acme/Widgets')).toEqual({ ok: true });
+    }
+  });
+
+  test('another repository is repository-mismatch, also from the push URL alone and whatever another remote says', () => {
+    const mismatch = (lines) => repo.bindRepository(remoteV(lines), '/r', 'Acme/Widgets');
+    expect(mismatch(both('origin', 'https://github.com/o/Widgets.git'))).toMatchObject({ ok: false, code: 'repository-mismatch' });
+    expect(mismatch([...both('origin', 'https://github.com/o/Widgets.git'), ...both('upstream', 'https://github.com/Acme/Widgets.git')])).toMatchObject({ ok: false, code: 'repository-mismatch' });
+    expect(mismatch(['origin\thttps://github.com/Acme/Widgets.git (fetch)', 'origin\thttps://github.com/o/Widgets.git (push)'])).toMatchObject({ ok: false, code: 'repository-mismatch' });
+  });
+
+  test('no origin, a URL naming no owner/name, and a git that fails or answers nothing usable are repository-unknown', () => {
+    const unknown = (git) => repo.bindRepository(git, '/r', 'Acme/Widgets');
+    expect(unknown(remoteV([]))).toMatchObject({ ok: false, code: 'repository-unknown' });
+    expect(unknown(remoteV(both('github', 'https://github.com/Acme/Widgets.git')))).toMatchObject({ ok: false, code: 'repository-unknown' });
+    expect(unknown(remoteV(both('origin', '/srv/git/widgets.git')))).toMatchObject({ ok: false, code: 'repository-unknown' });
+    expect(unknown(() => ({ status: 128, stdout: 'origin\thttps://github.com/Acme/Widgets.git (fetch)\n', stderr: '' }))).toMatchObject({ ok: false, code: 'repository-unknown' });
+    expect(unknown(() => undefined)).toMatchObject({ ok: false, code: 'repository-unknown' });
+    expect(unknown(() => null)).toMatchObject({ ok: false, code: 'repository-unknown' });
+  });
+
+  test('asks git for the remotes of the checkout it was given', () => {
+    const calls = [];
+    repo.bindRepository((args, options) => (calls.push([args, options]), { status: 0, stdout: both('origin', 'https://github.com/Acme/Widgets.git').join('\n'), stderr: '' }), '/some/root', 'Acme/Widgets');
+    expect(calls).toEqual([[['remote', '-v'], { cwd: '/some/root' }]]);
+  });
+});
+
 describe('holdsHead', () => {
   test('true on the head and when HEAD is a descendant; false on the base and for a sha not in the repository', () => {
     expect(repo.holdsHead(git, dir, p2)).toBe(true);

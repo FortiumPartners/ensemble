@@ -87,6 +87,51 @@ function primaryWorktree(git, cwd) {
   return { ok: true, path: primary };
 }
 
+/** The git remote URL forms that name a GitHub-style `owner/name`: `scheme://[userinfo@]host[:port]/owner/name[.git][/]` and scp-like `[user@]host:owner/name[.git][/]`. */
+const REMOTE_URL_FORMS = [
+  /^[a-z][a-z0-9+.-]*:\/\/(?:[^/@]*@)?[^/:@]+(?::\d+)?\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
+  /^(?:[^/@:]+@)?[^/:@]+:([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
+];
+
+/** The lower-cased `owner/name` a remote URL names, or null (a local path, or a URL of another shape, names none). */
+function remoteRepo(url) {
+  for (const form of REMOTE_URL_FORMS) {
+    const match = form.exec(url);
+    if (match) return `${match[1]}/${match[2]}`.toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * Whether the checkout at `root` (the PRIMARY checkout, which holds the tracker) is the repository `repo` (`owner/name`, any
+ * case): its `origin` names it, by EVERY fetch and push URL it has (https, ssh and scp-like forms, with or without `.git`
+ * and a port). Beads go into the tracker of this checkout and are committed with it, so a checkout of another repository (a
+ * fork, whose `origin` is the fork) would record this pull request's findings there, and another remote that happens to name
+ * `repo` does not make it the repository. Shared by the PR-review recorder and the merge sweep (`checkTrust`).
+ *
+ * @returns {{ok: true} | {ok: false, code: 'repository-unknown' | 'repository-mismatch', reason: string}}
+ */
+function bindRepository(git, root, repo) {
+  const fail = (code, reason) => ({ ok: false, code, reason });
+  const listed = git(['remote', '-v'], { cwd: root });
+  if (listed === null || typeof listed !== 'object' || listed.status !== 0) {
+    return fail('repository-unknown', `the remotes of ${root} could not be read, so it is not known to be ${repo}: nothing was recorded`);
+  }
+  const urls = [];
+  for (const line of String(listed.stdout).split('\n')) {
+    const match = /^(\S+)\s+(\S+)\s+\((?:fetch|push)\)\s*$/.exec(line);
+    if (match && match[1] === 'origin') urls.push(match[2]);
+  }
+  if (urls.length === 0) return fail('repository-unknown', `${root} has no remote named origin, so it is not known to be ${repo}: nothing was recorded`);
+  const named = urls.map(remoteRepo);
+  if (named.includes(null)) {
+    return fail('repository-unknown', `the origin of ${root} is not a URL that names an owner/name, so it is not known to be ${repo}: nothing was recorded`);
+  }
+  const others = [...new Set(named.filter((id) => id !== repo.toLowerCase()))];
+  if (others.length > 0) return fail('repository-mismatch', `the origin of ${root} names ${others.join(', ')}, not ${repo}: nothing was recorded`);
+  return { ok: true };
+}
+
 /** Whether the checkout at `cwd` has `headSha` checked out or built on it. */
 function holdsHead(git, cwd, headSha) {
   if (resolveCommit(git, cwd, headSha) === null) return false;
@@ -210,6 +255,8 @@ module.exports = {
   isAncestor,
   commitOnPr,
   primaryWorktree,
+  bindRepository,
+  remoteRepo,
   holdsHead,
   readBlobAt,
   changedOldLines,

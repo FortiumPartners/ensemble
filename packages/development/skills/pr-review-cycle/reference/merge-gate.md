@@ -278,8 +278,17 @@ it as its own state, never counted among the open beads.
 path runs this recorder, so the findings of a light-mode review get no bead and the list shows
 none. Wiring the recorder into the runner is not part of this change.
 
-**What the head under review cannot control.** Before it reads or writes the tracker the
-recorder asks the HOST (its pull-request view) about the pull request and refuses, by name, a head on a
+**What the head under review cannot control.** First the recorder binds the checkout to the pull
+request's repository (`repo`), before the host or the tracker is asked anything: the repository's
+PRIMARY checkout (`repoRoot` may be a linked worktree of it, whose own remote configuration is
+never consulted) must have an `origin` remote, every fetch and push URL of it, that names `repo`
+(`owner/name`, any case; https, ssh and scp-like URLs). An `origin` that names another repository
+(a fork checkout, whatever other remote names `repo`) is refused `repository-mismatch`; no `origin`,
+URLs that name no `owner/name`, or a git that cannot list them is refused `repository-unknown`:
+beads never land in another repository's tracker (a repository with no primary checkout is
+`no-primary-worktree`; the merge sweep makes the same check, one function for both). Then, before
+it reads or writes the tracker, the recorder asks the HOST (its pull-request view) about the pull
+request and refuses, by name, a head on a
 fork (`cross-repository-head`), a head whose repository the host did not state
 (`head-repository-unknown`) and a pull request it could not read (`pr-unreadable`), as the
 precheck and the review runner do. It also binds itself to what the host reports: `headSha` must

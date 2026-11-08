@@ -438,11 +438,13 @@ function commitAll(cwd, message) {
  * src/widget.js, `p2` edits its line 12 (the fix), and `p3` is a hostile head that commits a toolchain
  * config naming a tracker that does not exist.
  */
-function makeRepo() {
+function makeRepo({ remote = 'https://github.com/Acme/Widgets.git' } = {}) {
   const sandbox = tempDir('pr-review-beads-repo-');
   const primary = path.join(sandbox, 'primary');
   fs.mkdirSync(primary);
   gitIn(primary, 'init', '-q', '-b', 'main');
+  // The primary checkout's `origin` is the repository the recorder is bound to (`Acme/Widgets`, the payload's `repo`).
+  if (remote !== null) gitIn(primary, 'remote', 'add', 'origin', remote);
   gitIn(primary, 'config', 'user.name', 'ci');
   gitIn(primary, 'config', 'user.email', 'ci@example.invalid');
   gitIn(primary, 'config', 'commit.gpgsign', 'false');
@@ -819,6 +821,153 @@ describe('what the head under review cannot control: the recorder refuses, by na
     const { out } = run(mainPayload([finding()]), { deps: tracker, git: broken });
     expect(out.status).toBe('REFUSED');
     expect(tracker.calls).toEqual([]);
+  });
+});
+
+describe("the recorder's checkout must be the pull request's repository (kata 97ra: the hole the merge sweep closed in kata mdfr)", () => {
+  let fx;
+  beforeAll(() => {
+    fx = makeRepo();
+  });
+
+  /** Replace the primary's remotes (its linked worktrees share them) with exactly these. */
+  const remotes = (...list) => {
+    for (const name of gitIn(fx.primary, 'remote').split('\n').filter(Boolean)) gitIn(fx.primary, 'remote', 'remove', name);
+    for (const [name, url] of list) gitIn(fx.primary, 'remote', 'add', name, url);
+  };
+  const realGit = require('../lib/review-record-runtime').defaultGit();
+  /** The real entry point (`main`), the real git, a host that says everything is fine: only the repository can fail. */
+  const run = (over = {}, io = {}) => {
+    const tracker = fakeTracker();
+    const readPr = jest.fn(() => ({ ok: true, isCrossRepository: false, headRefOid: fx.p3, baseRefName: 'main', baseRefOid: fx.base, state: 'OPEN' }));
+    const out = [];
+    const code = main({ readJson: () => ({ ...payload([finding()], { headSha: fx.p3 }), baseSha: fx.base, repoRoot: fx.worktree, ...over }), emit: (value) => out.push(value), now: () => 0, readPr, deps: tracker, ...io });
+    return { code, out: out[0], tracker, readPr };
+  };
+  const REFUSAL = { ok: true, status: 'REFUSED', recorded: false, fallback: 'skip-finding-beads', actions: [], beads: {} };
+  const nothingAsked = ({ readPr, tracker }) => {
+    expect(readPr).not.toHaveBeenCalled();
+    expect(tracker.calls).toEqual([]);
+    expect(tracker.issues).toEqual([]);
+  };
+
+  test.each([
+    ['another owner', 'https://github.com/Attacker/Widgets.git'],
+    ['another name', 'https://github.com/Acme/Widgets-fork.git'],
+    ['an owner that merely starts with it', 'git@github.com:Acme-evil/Widgets.git'],
+    ['a name that merely starts with it', 'ssh://git@github.com/Acme/WidgetsX'],
+  ])('a checkout of %s is REFUSED repository-mismatch: the host and the tracker are never asked and no bead is recorded', (_name, url) => {
+    remotes(['origin', url]);
+    const asked = run();
+    expect(asked.code).toBe(0);
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+    expect(asked.out.reason).toContain('not Acme/Widgets');
+    nothingAsked(asked);
+  });
+
+  test.each([
+    ['https', 'https://github.com/Acme/Widgets.git'],
+    ['https without .git', 'https://github.com/Acme/Widgets'],
+    ['https with a trailing slash', 'https://github.com/Acme/Widgets/'],
+    ['https with credentials in it', ['https://ci-user', 'placeholder@github.com/Acme/Widgets.git'].join(':')],
+    ['ssh', 'ssh://git@github.com/Acme/Widgets.git'],
+    ['ssh with a port', 'ssh://git@github.com:22/Acme/Widgets.git'],
+    ['scp-like', 'git@github.com:Acme/Widgets.git'],
+    ['a different case', 'git@github.com:ACME/widgets.git'],
+    ['an enterprise host', 'https://ghe.example.invalid/Acme/Widgets.git'],
+  ])('a checkout whose remote is %s is the repository: the recorder goes on and records', (_name, url) => {
+    remotes(['origin', url]);
+    const { code, out, tracker } = run();
+    expect(code).toBe(0);
+    expect(out).toMatchObject({ ok: true, status: 'RECORDED' });
+    expect(tracker.issues).toHaveLength(1);
+  });
+
+  test('a fork checkout is REFUSED even when another remote names the repository: the origin is what the checkout is', () => {
+    remotes(['origin', 'https://github.com/someone/Widgets.git'], ['upstream', 'https://github.com/Acme/Widgets.git']);
+    const asked = run();
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+    expect(asked.out.reason).toContain('someone/widgets');
+    nothingAsked(asked);
+  });
+
+  test('an origin whose push URL names another repository than its fetch URL is REFUSED, whichever of the two is the repository', () => {
+    for (const [fetchUrl, pushUrl] of [
+      ['https://github.com/Acme/Widgets.git', 'https://github.com/attacker/Widgets.git'],
+      ['https://github.com/attacker/Widgets.git', 'https://github.com/Acme/Widgets.git'],
+    ]) {
+      remotes(['origin', fetchUrl]);
+      gitIn(fx.primary, 'remote', 'set-url', '--push', 'origin', pushUrl);
+      const asked = run();
+      expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+      nothingAsked(asked);
+    }
+  });
+
+  test.each([
+    ['no remote at all', [], 'no remote named origin'],
+    ['only a remote that is not called origin, even if it names the repository', [['github', 'https://github.com/Acme/Widgets.git']], 'no remote named origin'],
+    ['an origin that is a local path', [['origin', '/srv/git/widgets.git']], 'not a URL that names an owner/name'],
+  ])('%s is REFUSED repository-unknown, before the host or the tracker is asked', (_name, list, why) => {
+    remotes(...list);
+    const asked = run();
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-unknown' });
+    expect(asked.out.reason).toContain(why);
+    nothingAsked(asked);
+  });
+
+  test('a git that cannot list the remotes is REFUSED repository-unknown, and nothing is asked', () => {
+    remotes(['origin', 'https://github.com/Acme/Widgets.git']);
+    const asked = run({}, { git: (args, options) => (args[0] === 'remote' ? { status: 128, stdout: '', stderr: 'fatal: broken' } : realGit(args, options)) });
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-unknown' });
+    expect(asked.out.reason).toContain('could not be read');
+    nothingAsked(asked);
+  });
+
+  test('a primary checkout that cannot be found is REFUSED no-primary-worktree, before the host is asked', () => {
+    remotes(['origin', 'https://github.com/Acme/Widgets.git']);
+    const asked = run({}, { git: () => ({ status: 128, stdout: '', stderr: 'fatal: boom' }) });
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'no-primary-worktree' });
+    nothingAsked(asked);
+  });
+
+  test('a dry run is refused too: the tracker is not even read for another repository', () => {
+    remotes(['origin', 'https://github.com/Attacker/Widgets.git']);
+    const asked = run({ dryRun: true });
+    expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+    nothingAsked(asked);
+  });
+
+  test('the repository is bound whether repoRoot is the primary checkout or its linked worktree', () => {
+    remotes(['origin', 'https://github.com/Attacker/Widgets.git']);
+    for (const repoRoot of [fx.primary, fx.worktree]) {
+      const asked = run({ repoRoot });
+      expect(asked.out).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+      nothingAsked(asked);
+    }
+  });
+
+  test("the identity checked is the PRIMARY checkout's, which holds the tracker: a linked worktree's own remote configuration cannot stand in for it", () => {
+    const own = makeRepo({ remote: 'https://github.com/attacker/Widgets.git' });
+    gitIn(own.primary, 'config', 'extensions.worktreeConfig', 'true');
+    gitIn(own.worktree, 'config', '--worktree', 'url.https://github.com/Acme/.insteadOf', 'https://github.com/attacker/');
+    // The precondition: from the worktree the repository looks like Acme/Widgets (its own configuration rewrites the URL), from the
+    // primary checkout, where the tracker is, it does not.
+    expect(gitIn(own.worktree, 'remote', 'get-url', 'origin')).toBe('https://github.com/Acme/Widgets.git');
+    expect(gitIn(own.primary, 'remote', 'get-url', 'origin')).toBe('https://github.com/attacker/Widgets.git');
+    const tracker = fakeTracker();
+    const readPr = jest.fn(() => ({ ok: true, isCrossRepository: false, headRefOid: own.p3, baseRefName: 'main', baseRefOid: own.base, state: 'OPEN' }));
+    const out = [];
+    main({ readJson: () => ({ ...payload([finding()], { headSha: own.p3 }), baseSha: own.base, repoRoot: own.worktree }), emit: (value) => out.push(value), now: () => 0, readPr, deps: tracker });
+    expect(out[0]).toMatchObject({ ...REFUSAL, code: 'repository-mismatch' });
+    nothingAsked({ readPr, tracker });
+  });
+
+  test('the binding is what refuses: with the right origin the very same payload records', () => {
+    remotes(['origin', 'https://github.com/Acme/Widgets.git']);
+    const { out, tracker } = run();
+    expect(out).toMatchObject({ ok: true, status: 'RECORDED' });
+    expect(tracker.issues).toHaveLength(1);
   });
 });
 
