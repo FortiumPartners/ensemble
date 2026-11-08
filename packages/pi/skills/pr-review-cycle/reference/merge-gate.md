@@ -284,5 +284,61 @@ chooses for the operator, applies a `default`, or types a login or reason.
   gate, no operator list and no push by this skill, so Step 5 there is the author revising
   its own working tree. Any other run never enters Step 5 by itself.
 
+**Driving the list from `/ensemble-pr-merge` (Operator Disposition).** The command runs this
+after every `MODE=gate` and before any merge-confirmation question, on every path that reaches
+the merge (including the one that skips remediation). It never sends a review finding to its
+own remediation subagents.
+
+1. **Unbuildable list.** `dispositionReason` set, or no `dispositionChoices` array: print the
+   reason, ask no merge question, merge nothing, halt `disposition-unavailable`.
+2. **Show.** Print `dispositionChoices` as one numbered list in the order returned, under the
+   `dispositionGroups` labels: number, severity, `locationOrLink`, votes, `beadId` or "no
+   bead"; a collapsed entry shows its member count. Beads are only those the result shows.
+3. **`--dry-run`.** Print the list and the gate's `mergeable` and blockers, then stop with the
+   merge-readiness report: no question, no `resolve`, no fix run and no push. A dry run never
+   answers for the operator and never moves the head.
+4. **`--foreman`.** Log the list. Ask nothing, `resolve` nothing, run no fix agent, apply no
+   `default`, waive nothing. `mergeable:false` halts `findings-need-operator`.
+5. **Who decides.** Ask once, as free text, which GitHub login the operator is deciding as, and
+   use only that as `by`. Never infer one, never the PR author's or a bot's.
+6. **One multi-select question per group**, in `dispositionGroups` order: the group's numbered
+   findings are the options, a selected finding is **Fix on this PR**, and the text says the
+   head moves and approvals reset. A collapsed `file:<path>` entry is not a ledger id, and a
+   fix run refuses an id the ledger lacks, so offer its `members` (each a ledger id) as the
+   options instead of the entry. Nothing is pre-selected, no `default` is applied; a runtime
+   that caps options per question pages the same question over the group. A multi-select
+   cannot carry three choices per finding, so this question carries Fix only; follow-on and
+   Accept are asked after it, in step 8.
+7. **Any Fix on this PR selected:** ask nothing more and `resolve` nothing (every decision is
+   bound to the head the fix moves). Run, in this order: (a) ONE `MODE=local` fix run with
+   `FIX_SELECTION` (`[{ id, by, at, headSha }]`, each `id` a ledger id), which pushes once and
+   re-reviews nothing; (b) a delta re-review of the NEW head: `MODE=local` of this PR (set
+   `PR_NUMBER`, `PR_URL` and `PR_ID`, give no `FIX_SELECTION`; without a PR identity it would
+   be a pre-publication snapshot), which records the review the gate reads, because a gate on
+   a head with no recorded review blocks `review-data-unavailable`; (c) `MODE=gate` for that
+   head and this procedure again, so the unfixed findings are asked again. (a) to (c) are ONE
+   round against the round cap: at the cap start no new fix run, halt and escalate as the
+   command's round loop does (the final report lists every still-open finding; ask the author
+   to reconsider the approach).
+8. **Nothing selected for fixing.** Decide every finding with only the choices its entry
+   allows. A blocking or security finding offers Accept only (it has no follow-on), asked one
+   finding at a time for a reason the operator types (no reason leaves it undecided; a
+   security finding is never batched). Only a non-security Nit or Pre-existing group gets
+   follow-on: ONE single-choice question, follow-on (recommended) or Accept, with one typed
+   reason for the group when `dispositionGroups` lists `accept` as a batch choice. Record each
+   through `ledger` `resolve` (a collapsed `file:<path>` entry expands to its members first).
+   The reason of a follow-on is `follow-on: <bead id>`, or `follow-on` when the entry has no
+   bead.
+9. **Re-gate.** Re-read the head and run `MODE=gate` for the same head with fresh state: the
+   gate reads the recorded decisions, they are never assumed. An entry still listed, or a
+   review-finding blocker still open, is asked again; unanswered, halt `disposition-incomplete`.
+   A decision the gate rejects (`resolutionRejected`) is reported and the finding stays open.
+   `mergeable:false` with only approvals, description, security-review or review-data blockers
+   halts `gate-blocked`: nothing here clears them.
+10. **Merge summary.** Print `mergeConfirmation.summary`, `openBeads` and each
+    `acceptedBlocking` finding with its reason and login before the Merge step, whether or not
+    a confirmation is asked; the merge-confirmation question carries them too and is asked only
+    after this procedure has finished on this head.
+
 A caller reaches all of this through this skill. `pr-merge` and every other
 command invoke `MODE=gate`; none of them runs `pr-review-cli.js` itself.

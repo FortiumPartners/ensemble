@@ -142,7 +142,11 @@ describe('safety constraints preserved', () => {
   });
 
   test('--dry-run behaviour and parameter unchanged', () => {
-    const dryAction = (src) => actionsOf(src.workflow.phases.find((p) => p.name === 'Merge and Report')).find((a) => /--dry-run/.test(a));
+    // The Merge step's own dry-run stop. The Operator Disposition step (kata 6k8d) sits before it in the same phase and
+    // also names --dry-run (it prints the list and stops before any question), so the first match in the whole phase is
+    // no longer this action; the assertion is unchanged for the step the local-ci change touched.
+    const dryAction = (src) =>
+      src.workflow.phases.find((p) => p.name === 'Merge and Report').steps.find((s) => s.title === 'Merge').actions.find((a) => /--dry-run/.test(a));
     expect(dryAction(source)).toBe(dryAction(committed));
     const param = (src) => src.expectedInput.sections.find((s) => s.name === 'Dry Run');
     expect(param(source)).toEqual(param(committed));

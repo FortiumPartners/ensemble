@@ -470,25 +470,22 @@ describe('bead recording is stated as not implemented while nothing creates a be
   });
 });
 
-describe('the docs do not claim more than /ensemble:pr-merge does', () => {
-  test('premise: pr-merge still dispatches remediation subagents that commit and push to the PR branch', () => {
-    const prMerge = readRepo('packages', 'git', 'commands', 'pr-merge.yaml');
-    if (!/name: Parallel Remediation Dispatch/.test(prMerge) || !/commit and git push to HEAD_REF/.test(prMerge)) {
-      throw new Error(
-        'pr-merge no longer pushes remediation fixes (kata 6k8d landed?). Remove the "Not yet true of /ensemble:pr-merge" ' +
-          'notes from docs/guides/user-guide.md and the two CHANGELOG entries, then delete this premise check.'
-      );
+describe('the docs say /ensemble:pr-merge follows the no-fix rule (kata 6k8d)', () => {
+  test('the user guide and both changelogs say pr-merge follows it and no longer carry the "not yet true" note', () => {
+    expect(GUIDE_RULE).toContain('> **`/ensemble:pr-merge` follows this.**');
+    expect(GUIDE_RULE).toContain('It never sends a review finding to a fix agent by itself');
+    expect(GUIDE_RULE).not.toContain('Not yet true of');
+    for (const entry of [CHANGELOG_ROOT, CHANGELOG_DEV]) {
+      expect(entry).toContain('`/ensemble:pr-merge` follows the rule since kata `6k8d`');
+      expect(entry).not.toContain('Not yet true of');
     }
   });
 
-  test('the user guide and both changelogs say the no-fix rule does not bind pr-merge until kata 6k8d lands', () => {
-    expect(GUIDE_RULE).toContain('> **Not yet true of `/ensemble:pr-merge`.**');
-    expect(GUIDE_RULE).toContain('Until kata `6k8d` lands, `pr-merge` shows no decision list and still runs its own remediation stage');
-    expect(GUIDE_RULE).toContain('subagents commit and push fixes for findings to the PR branch before it asks the gate');
-    for (const entry of [CHANGELOG_ROOT, CHANGELOG_DEV]) {
-      expect(entry).toContain('Not yet true of `/ensemble:pr-merge`: until kata `6k8d` lands it still runs its own remediation stage');
-      expect(entry).toContain('commit and push fixes for findings to the PR branch before the gate');
-    }
+  test('premise: pr-merge still remediates check failures and human threads with pushing subagents, so the guide must keep saying only those', () => {
+    const prMerge = readRepo('packages', 'git', 'commands', 'pr-merge.yaml');
+    expect(prMerge).toMatch(/name: Parallel Remediation Dispatch/);
+    expect(prMerge).toMatch(/commit and git push to HEAD_REF/);
+    expect(GUIDE_RULE).toContain('only failing checks and unresolved human review threads are still fixed automatically');
   });
 });
 
