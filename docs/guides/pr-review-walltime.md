@@ -24,9 +24,10 @@ interchangeable.
 | **wall_min** | The run's wall time in minutes: the plan's section 1 figure for a baseline row, `timing.wall` (the orchestrator window) for a row built from a trace. `null` with a reason when the run never reached a verdict or the figure was not recorded. |
 | **chains** | Review chains the run covers. A head change restarts the whole reviewer, verifier and verdict chain, so a run that went through two heads is two chains. |
 | **gate_runs** | Local-CI gate runs the run needed (a flake re-run counts). `null` with a reason when it was not recorded, never zero. |
+| **review_gate_spans** | Optional. The `review.gate` spans a review trace holds: the runner's merge-gate evaluations (one per `collect` that reaches the gate, again after an adjudication), so 2 for a run with one adjudication. It is not `gate_runs`: the statistics never use it, and the trace check compares it when a row carries it. A row built by `walltime row` carries it; the baseline's rows do not. |
 | **origin** | `real` (a real review of a real PR), `stand-in` (scripted agents) or `fixture`. Only `real` rows count. |
 
-A PR's gate runs and review chains are the sums over its rows. A median is taken over runs; the
+`walltime row` states `gate_runs: null` with a reason: a review trace never records local-CI gate starts (the only record of one is the commit status the gate posts to the host), so the figure is not guessed from `review.gate` spans, so `compare` shows no current gate runs for such rows (`unknown`, with the reason `current-no-figure`, never a number of another meaning). `compare` also checks every real current row against its trace (a row with no wall time too) and leaves the `gate_runs` of a row whose trace does not confirm it out of the per-tier and per-PR gate-run comparison; every failed check is a `trace-check-failed` warning, whatever the claim is. Rows written by an earlier `walltime row`, which counted `review.gate` spans as `gate_runs`, fail that check until they are regenerated with `walltime row`. A PR's gate runs and review chains are the sums over its rows. A median is taken over runs; the
 minimum below is counted over distinct PRs.
 
 ## 2. The rule for `met`, `not-met` and `unknown`

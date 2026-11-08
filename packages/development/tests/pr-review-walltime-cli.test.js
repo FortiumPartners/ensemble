@@ -69,7 +69,16 @@ describe('walltime is registered and answers what the module answers', () => {
     expect(status).toBe(0);
     const direct = JSON.parse(JSON.stringify(compareWalltime({ baseline: payload.baseline, current: payload.current })));
     // The same grades; only the claim differs, because these hand-typed rows name no trace to re-derive.
-    expect({ ...out, fiveX: undefined, warnings: undefined }).toEqual({ ...direct, fiveX: undefined, warnings: undefined });
+    // The gate run counts of the hand-typed rows are not confirmed by any trace, so the entry point leaves them out of the
+    // gate-run comparison (kata 755m); the direct module call, which checks nothing, still counts them as written.
+    const same = (answer) => ({ ...answer, fiveX: undefined, warnings: undefined, counts: undefined, perPr: undefined });
+    expect(same(out)).toEqual(same(direct));
+    expect(direct.counts.find((entry) => entry.tier === 'high').gateRunsPerPr.current.prs).toBe(6);
+    const high = out.counts.find((entry) => entry.tier === 'high').gateRunsPerPr;
+    expect(high.current).toMatchObject({ prs: 0, prsWithoutFigure: 6, total: null, median: null });
+    expect(high.status).toBe('unknown');
+    expect(high.reasons).toEqual([expect.stringContaining('current-no-figure')]);
+    expect(out.perPr.current.every((entry) => entry.gateRuns === null)).toBe(true);
     expect(direct.fiveX.claim).toBe('met');
     expect(out.fiveX.claim).toBe('unknown');
     expect(out.fiveX.attestation.tracesChecked).toBe(true);
@@ -136,7 +145,8 @@ describe('row from a trace on disk, exactly as `timing` reads it', () => {
         wall_min: 19.661,
         chains: 1,
         gate_runs: null,
-        gate_runs_reason: "no 'review.gate' span was recorded",
+        gate_runs_reason: "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+        review_gate_spans: 0,
         source: 'pr-review-cli timing on run review-pr234',
         run_id: 'review-pr234',
       },
@@ -270,6 +280,24 @@ describe('compare re-derives each counted current row from its trace, and a met 
     expect(out.fiveX.reasons).toEqual(["trace: row 'h-501' was not re-derived from its trace (wall_min is 3, its trace says 19.661)"]);
   });
 
+  test('a row that counts review.gate spans as gate_runs is refused against its trace (kata 755m)', () => {
+    const current = tracedCurrent();
+    const edited = current.runs.find((run) => run.id === 'h-501');
+    edited.gate_runs = 2;
+    delete edited.gate_runs_reason;
+    const { out } = compareIn(current, { cwd: dir });
+    expect(out.fiveX.claim).toBe('unknown');
+    expect(out.fiveX.reasons).toEqual([expect.stringContaining("gate_runs is 2, its trace says null")]);
+  });
+
+  test('a row whose review_gate_spans differs from its trace is named, one that carries none is not', () => {
+    const current = tracedCurrent();
+    current.runs.find((run) => run.id === 'h-501').review_gate_spans = 2;
+    current.runs.find((run) => run.id === 'h-502').review_gate_spans = 0;
+    const { out } = compareIn(current, { cwd: dir });
+    expect(out.fiveX.reasons).toEqual([expect.stringContaining("review_gate_spans is 2, its trace says 0")]);
+  });
+
   test('a row that names no trace is not re-derived', () => {
     const current = tracedCurrent();
     delete current.runs.find((run) => run.id === 'r-601').run_id;
@@ -281,5 +309,46 @@ describe('compare re-derives each counted current row from its trace, and a met 
   test('cwd must be text, and a misspelt key is still an error', () => {
     expect(compareIn(tracedCurrent(), { cwd: 5 }).status).toBe(1);
     expect(compareIn(tracedCurrent(), { cwdd: dir }).status).toBe(1);
+  });
+});
+
+describe('compare keeps a review.gate count out of the gate-run comparison and says a failed trace check whatever the claim (review round 1 of kata 755m)', () => {
+  const os2 = require('os');
+  let dir;
+  // Rows as the old `walltime row` wrote them: gate_runs = the number of review.gate spans, with a run_id whose trace says null.
+  const legacy = (id, pr) => row(id, pr, 'high', 'first', 19.661, { gate_runs: 2, run_id: `rid-${id}` });
+  const legacyCurrent = () => ({ schema: SCHEMA, runs: [400, 401, 402].map((pr) => legacy(`l-${pr}`, pr)) });
+
+  beforeAll(() => {
+    dir = fs.mkdtempSync(path.join(os2.tmpdir(), 'walltime-legacy-'));
+    const traces = path.join(dir, '.ensemble', 'state', 'toolchain');
+    fs.mkdirSync(traces, { recursive: true });
+    const text = fs.readFileSync(FIXTURE, 'utf8');
+    for (const run of legacyCurrent().runs) fs.writeFileSync(path.join(traces, `trace-${run.run_id}.jsonl`), text.split('review-pr234').join(run.run_id));
+  });
+  afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  test('legacy rows are not compared with the baseline local-CI gate runs, and each failed check is a warning with a not-met claim', () => {
+    const { out } = walltime({ action: 'compare', baseline: BASELINE, current: legacyCurrent(), cwd: dir });
+    const high = out.counts.find((entry) => entry.tier === 'high').gateRunsPerPr;
+    expect(high.status).toBe('unknown');
+    expect(high.change).toBeNull();
+    expect(high.current).toMatchObject({ prs: 0, prsWithoutFigure: 3, total: null });
+    expect(high.reasons).toEqual([expect.stringContaining('current-no-figure')]);
+    expect(out.perPr.current.map((entry) => entry.gateRuns)).toEqual([null, null, null]);
+    expect(out.fiveX.claim).not.toBe('met');
+    const failed = out.warnings.filter((text) => text.startsWith('trace-check-failed'));
+    expect(failed).toHaveLength(3);
+    expect(failed[0]).toContain("row 'l-400'");
+    expect(failed[0]).toContain('gate_runs is 2, its trace says null');
+  });
+
+  test('a row with no wall time is checked too, and a clean row raises no warning', () => {
+    const noWall = row('n-1', 410, 'high', 'first', null, { wall_min_reason: 'no verdict', gate_runs: 2 });
+    const { out } = walltime({ action: 'compare', baseline: BASELINE, current: { schema: SCHEMA, runs: [noWall] }, cwd: dir });
+    expect(out.warnings.some((text) => text.startsWith("trace-check-failed: row 'n-1'"))).toBe(true);
+    expect(out.perPr.current[0].gateRuns).toBeNull();
+    const clean = walltime({ action: 'compare', baseline: BASELINE, current: { schema: SCHEMA, runs: [] }, cwd: dir });
+    expect(clean.out.warnings.filter((text) => text.startsWith('trace-check-failed'))).toEqual([]);
   });
 });

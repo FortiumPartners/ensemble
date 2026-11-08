@@ -310,7 +310,8 @@ describe('the statistics: medians and nearest-rank p75 over real runs with a wal
   test('medium and high are always listed per tier, with null (not zero) medians when empty', () => {
     const tiers = computeWalltimeCohort(doc([])).tiers;
     expect(tiers.map((entry) => entry.tier)).toEqual(['medium', 'high']);
-    expect(tiers[0].gateRunsPerPr).toEqual({ prs: 0, prsWithoutFigure: 0, total: 0, median: null, p75: null });
+    // no PR has a count: the total is null, not a 0 that would read as zero gate runs
+    expect(tiers[0].gateRunsPerPr).toEqual({ prs: 0, prsWithoutFigure: 0, total: null, median: null, p75: null });
   });
 
   test('a cohort the schema refuses has no statistics', () => {
@@ -671,7 +672,7 @@ describe('a row from a timing answer', () => {
     stage('verdict', 500, 510, { round: 2 }),
   ];
 
-  test('wall is the orchestrator window in minutes, chains the rounds, gate_runs the gate spans', () => {
+  test('wall is the orchestrator window in minutes, chains the rounds, gate_runs null (a review trace has no local-CI gate starts), review_gate_spans the review.gate spans', () => {
     const result = rowFromTiming({ ...meta, timing: timingOf(twoRounds()) });
     expect(result.ok).toBe(true);
     expect(result.row).toEqual({
@@ -682,7 +683,9 @@ describe('a row from a timing answer', () => {
       origin: 'real',
       wall_min: 10,
       chains: 2,
-      gate_runs: 2,
+      gate_runs: null,
+      gate_runs_reason: "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+      review_gate_spans: 2,
       source: 'pr-review-cli timing on run run-1',
       run_id: 'run-1',
     });
@@ -694,10 +697,26 @@ describe('a row from a timing answer', () => {
     expect(built).toMatchObject({ id: 'q3a9-high-first', source: 'the q3a9 real run', notes: 'a note' });
   });
 
-  test('no gate span recorded is gate_runs null with the reason, never zero', () => {
-    const { row: built } = rowFromTiming({ ...meta, timing: timingOf([root(0, 100), stage('reviewer', 10, 50)]) });
-    expect(built.gate_runs).toBeNull();
-    expect(built.gate_runs_reason).toBe("no 'review.gate' span was recorded");
+  test('gate_runs is never a review.gate span count: null with a reason whatever the trace holds, spans counted apart', () => {
+    const none = rowFromTiming({ ...meta, timing: timingOf([root(0, 100), stage('reviewer', 10, 50)]) }).row;
+    expect(none.gate_runs).toBeNull();
+    expect(none.gate_runs_reason).toContain('no local-CI gate starts');
+    expect(none.review_gate_spans).toBe(0);
+    const three = rowFromTiming({ ...meta, timing: timingOf([...twoRounds(), stage('gate', 520, 530)]) }).row;
+    expect(three.gate_runs).toBeNull();
+    expect(three.review_gate_spans).toBe(3);
+    expect(validateCohort(doc([three])).ok).toBe(true);
+  });
+
+  test('review_gate_spans must be a non-negative integer when a row carries it', () => {
+    const bad = row('x', 1, 'high', 'first', 50, { review_gate_spans: -1 });
+    expect(validateCohort(doc([bad])).errors.join(' ')).toContain('review_gate_spans to be a non-negative integer');
+  });
+
+  test('compare lists no review.gate count as gate runs: rows built from traces leave gateRunsPerPr without a figure', () => {
+    const rows = [1, 2, 3].map((pr) => rowFromTiming({ ...meta, pr, timing: timingOf(twoRounds()) }).row);
+    const { perPr } = compare([], rows.map((r, i) => ({ ...r, id: `r${i}`, origin: 'real' })));
+    expect(perPr.current.every((entry) => entry.gateRuns === null)).toBe(true);
   });
 
   test('a wall the timing answer could not state is wall_min null with ITS reason', () => {
@@ -767,7 +786,7 @@ describe('a row from a timing answer', () => {
     const timing = computeReviewTiming({ spans: trace.spans, runId: 'review-pr234', warnings: trace.warnings });
     const result = rowFromTiming({ pr: 234, tier: 'medium', round: 'first', origin: 'fixture', timing });
     expect(result.ok).toBe(true);
-    expect(result.row).toMatchObject({ wall_min: 19.661, chains: 1, gate_runs: null, origin: 'fixture', run_id: 'review-pr234' });
+    expect(result.row).toMatchObject({ wall_min: 19.661, chains: 1, gate_runs: null, review_gate_spans: 0, origin: 'fixture', run_id: 'review-pr234' });
   });
 });
 
@@ -882,7 +901,7 @@ describe('trace checks: a met needs every counted current row of a required stra
     expect(result.fiveX.met).toBe(false);
     expect(result.fiveX.reasons).toEqual(["trace: row 'high-first-501' was not re-derived from its trace (wall_min is 10, its trace says 19.661)"]);
     expect(result.fiveX.attestation.rowsWithoutTraceCheck).toEqual(['high-first-501']);
-    expect(result.warnings).toEqual([]);
+    expect(result.warnings).toEqual(["trace-check-failed: row 'high-first-501' is not what its trace says (wall_min is 10, its trace says 19.661)"]);
   });
 
   test('a row with no check at all is not checked', () => {

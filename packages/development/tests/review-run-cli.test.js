@@ -17,7 +17,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync, execFileSync } = require('child_process');
 
-const { execute, main, buildDeps } = require('../lib/review-run-cli');
+const { execute, main, buildDeps, peekRun, realFs } = require('../lib/review-run-cli');
 const { defaultDeps: prepareGit } = require('../lib/review-prepare-runtime');
 const { prepareReview } = require('../lib/pr-review-prepare');
 
@@ -959,5 +959,140 @@ describe('in-process: every process the runner starts is recorded', () => {
     expect(code).toBe(1);
     expect(JSON.parse(text)).toMatchObject({ ok: false, reason: 'invalid-input' });
     expect(buildDeps({ repo: 'o/r', pr: 1, repoRoot: fx.work }, {}).notices).toEqual([]);
+  });
+});
+
+describe('collect reads nothing for a runId collect would refuse (kata yz76: peekRun before validateCollect)', () => {
+  const SCRATCH = path.join(os.homedir(), '.omp', 'pr-review-speedup', 'yz76', `t${process.pid}`);
+  const root = path.join(SCRATCH, 'repo');
+  const runBase = path.join(root, '.ensemble', 'pr-review', 'run');
+  const outside = path.join(SCRATCH, 'outside');
+  const canary = JSON.stringify({ repo: 'evil/evil', pr: 99 });
+  let reads;
+  let spy;
+
+  beforeEach(() => {
+    fs.rmSync(SCRATCH, { recursive: true, force: true });
+    fs.mkdirSync(runBase, { recursive: true });
+    fs.mkdirSync(outside, { recursive: true });
+    fs.writeFileSync(path.join(outside, 'run.json'), canary);
+    fs.mkdirSync(path.join(runBase, 'real'));
+    fs.writeFileSync(path.join(runBase, 'real', 'run.json'), JSON.stringify({ repo: 'o/r', pr: 7 }));
+    reads = [];
+    const original = fs.readFileSync;
+    spy = jest.spyOn(fs, 'readFileSync').mockImplementation((file, ...rest) => {
+      if (typeof file === 'string' && file.startsWith(SCRATCH)) reads.push(file);
+      return original.call(fs, file, ...rest);
+    });
+  });
+  afterEach(() => {
+    spy.mockRestore();
+    fs.rmSync(SCRATCH, { recursive: true, force: true });
+  });
+
+  const collectOf = (payload) => execute('collect', { readJson: () => payload });
+  const peeked = () => reads.filter((file) => file.endsWith('run.json'));
+
+  test.each([
+    ['dot-dot segments', '../../../../outside'],
+    ['four dot-dots reaching the outside run.json', '../../../../outside'],
+    ['a nested path', 'real/../real'],
+    ['an absolute path', outside],
+    ['a backslash path', '..\\outside'],
+    ['a dotted name', 'real.json'],
+    ['empty', ''],
+    ['over-long (129 characters)', 'a'.repeat(129)],
+    ['a NUL byte', 'real\0x'],
+    ['not text', 7],
+  ])('%s: invalid-input and run.json is never read', async (_label, runId) => {
+    const answer = await collectOf({ repoRoot: root, runId });
+    expect(answer.code).toBe(1);
+    expect(answer.result).toMatchObject({ ok: false, reason: 'invalid-input' });
+    expect(peeked()).toEqual([]);
+  });
+
+  test('a relative repoRoot is not read from either', async () => {
+    const answer = await collectOf({ repoRoot: path.relative(process.cwd(), root), runId: 'real' });
+    expect(answer.result).toMatchObject({ ok: false, reason: 'invalid-input' });
+    expect(peeked()).toEqual([]);
+  });
+
+  test('a run directory that is a symlink out of the run area is not followed', async () => {
+    fs.symlinkSync(outside, path.join(runBase, 'linked'));
+    expect(peekRun({ repoRoot: root, runId: 'linked' })).toEqual({});
+    expect(peeked()).toEqual([]);
+  });
+
+  test('a run.json that is a symlink to a file elsewhere is not read', async () => {
+    fs.mkdirSync(path.join(runBase, 'sneaky'));
+    fs.symlinkSync(path.join(outside, 'run.json'), path.join(runBase, 'sneaky', 'run.json'));
+    expect(peekRun({ repoRoot: root, runId: 'sneaky' })).toEqual({});
+    expect(peeked()).toEqual([]);
+  });
+
+  test('a real run is still peeked (the guard does not refuse good input)', async () => {
+    expect(peekRun({ repoRoot: root, runId: 'real' })).toEqual({ repo: 'o/r', pr: 7 });
+    expect(peeked()).toEqual([path.join(runBase, 'real', 'run.json')]);
+  });
+
+  // ---- the loader and the writers: the same containment, not only the peek (review round 1)
+  const stored = () => JSON.stringify({ schema: 1, runId: 'linked', repoRoot: root, repo: 'o/r', pr: 7, phase: 'collecting', marker: 'untouched' });
+  const noRun = { run: async () => ({ code: 1, stdout: '', stderr: 'no process runs here' }) };
+  const answerOf = (promise) => promise.then((answer) => answer.result);
+  const link = (name, target) => fs.symlinkSync(target, path.join(runBase, name));
+
+  test('collect does not load or rewrite a run through a symlinked run directory', async () => {
+    fs.writeFileSync(path.join(outside, 'run.json'), stored());
+    link('linked', outside);
+    const result = await answerOf(execute('collect', { readJson: () => ({ repoRoot: root, runId: 'linked' }), ...noRun }));
+    expect(result.ok).toBe(false);
+    expect(result.reason).not.toBe('mode-invariant');
+    expect(fs.readFileSync(path.join(outside, 'run.json'), 'utf8')).toBe(stored());
+    expect(fs.readdirSync(outside)).toEqual(['run.json']);
+  });
+
+  test('collect does not load a symlinked run.json, and leaves its target and the link as they were', async () => {
+    fs.mkdirSync(path.join(runBase, 'linked'));
+    fs.writeFileSync(path.join(outside, 'target.json'), stored());
+    fs.symlinkSync(path.join(outside, 'target.json'), path.join(runBase, 'linked', 'run.json'));
+    const result = await answerOf(execute('collect', { readJson: () => ({ repoRoot: root, runId: 'linked' }), ...noRun }));
+    expect(result.ok).toBe(false);
+    expect(result.reason).not.toBe('mode-invariant');
+    expect(fs.readFileSync(path.join(outside, 'target.json'), 'utf8')).toBe(stored());
+    expect(fs.lstatSync(path.join(runBase, 'linked', 'run.json')).isSymbolicLink()).toBe(true);
+  });
+
+  test('a dangling run.json link is refused, never written through or replaced', () => {
+    fs.mkdirSync(path.join(runBase, 'linked'));
+    fs.symlinkSync(path.join(outside, 'nothing.json'), path.join(runBase, 'linked', 'run.json'));
+    const area = realFs({ runArea: runBase });
+    expect(() => area.readText(path.join(runBase, 'linked', 'run.json'))).toThrow(/symbolic link/);
+    expect(() => area.writeAtomic(path.join(runBase, 'linked', 'run.json'), 'x', 0o600)).toThrow(/symbolic link/);
+    expect(fs.existsSync(path.join(outside, 'nothing.json'))).toBe(false);
+    expect(fs.lstatSync(path.join(runBase, 'linked', 'run.json')).isSymbolicLink()).toBe(true);
+  });
+
+  test('the guard covers a link at any depth below the run area, directories and writes included, and nothing outside it', () => {
+    link('linked', outside);
+    const area = realFs({ runArea: runBase });
+    expect(() => area.mkdirp(path.join(runBase, 'linked', 'results'), 0o700)).toThrow(/symbolic link/);
+    expect(() => area.writeAtomic(path.join(runBase, 'linked', 'results', 'final.json'), 'x', 0o600)).toThrow(/symbolic link/);
+    expect(fs.readdirSync(outside).sort()).toEqual(['run.json']);
+    expect(area.readText(path.join(runBase, 'real', 'run.json'))).toContain('o/r');
+    expect(area.readText(path.join(runBase, 'real', 'missing.json'))).toBeNull();
+    expect(area.readText(path.join(outside, 'run.json'))).toBe(canary);
+  });
+
+  test('the result collector is not pointed through a link either', () => {
+    link('linked', outside);
+    const deps = buildDeps({ repo: 'o/r', pr: 7, repoRoot: root }, noRun);
+    expect(() => deps.collectResults({ expected: [], dir: path.join(runBase, 'linked', 'results', '1'), now: Date.now() })).toThrow(/symbolic link/);
+  });
+
+  test('prepare does not treat a symlinked run directory as an existing run or write through it', async () => {
+    link('linked', outside);
+    const result = await answerOf(execute('prepare', { readJson: () => ({ repo: 'o/r', pr: 7, repoRoot: root, runId: 'linked', agentAuthored: false }), ...noRun }));
+    expect(result.ok).toBe(false);
+    expect(fs.readdirSync(outside)).toEqual(['run.json']);
   });
 });
