@@ -37,7 +37,7 @@ const POLICY_RELAXED = '# Review\n\n```ensemble-review-policy\n{"sensitivePaths"
  * base -> reviewed (R) -> head (H): R changes lib/thing.js; H is a remediation commit that changes it again and adds
  * awkward names, a binary file, a rename and a relaxed REVIEW.md. `refs/heads/pr` points at H.
  */
-function makeFixture({ extra = {} } = {}) {
+function makeFixture({ extra = {}, headReview = POLICY_RELAXED } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prepare-fixture-'));
   roots.push(root);
   git(root, ['init', '-q', '-b', 'main']);
@@ -61,7 +61,7 @@ function makeFixture({ extra = {} } = {}) {
   write(root, '\u00fcn\u00ef/caf\u00e9.txt', 'unicode\n');
   fs.writeFileSync(path.join(root, 'blob.bin'), Buffer.from([0, 1, 2, 0, 255]));
   git(root, ['mv', 'lib/old-name.js', 'lib/new-name.js']);
-  write(root, 'REVIEW.md', POLICY_RELAXED);
+  write(root, 'REVIEW.md', headReview);
   write(root, 'tests/thing.test.js', "const test = require('node:test');\nconst assert = require('node:assert');\nconst fs = require('fs');\ntest('thing', () => { fs.writeFileSync('written-by-test.txt', 'x'); assert.strictEqual(require('../lib/thing.js')(), 'v2'); });\n");
   git(root, ['add', '-A']);
   git(root, ['commit', '-q', '-m', 'remediation']);
@@ -389,6 +389,34 @@ describe('delta.diff is absent with a reason unless review-range says delta (AC4
     const r = prepareReview(opts(fx, { lastReviewedSha: fx.head }));
     expect(r.mode).toBe('delta');
     expect(fs.readFileSync(r.artifacts['delta.diff'].path, 'utf8')).toBe('');
+  });
+});
+
+describe('the severity guide comes from the BASE REVIEW.md, never from the head (kata yg7k)', () => {
+  const sev = (word) => `## Severity\n\n- **Important** \u2014 ${word}-important.\n- **Nit** \u2014 ${word}-nit.\n- **Pre-existing** \u2014 ${word}-pre.\n\n`;
+  const factsOfFixture = (fx) => {
+    const r = prepareReview(opts(fx, { lastReviewedSha: undefined, remediationShas: undefined }));
+    return JSON.parse(fs.readFileSync(r.artifacts['facts.json'].path, 'utf8'));
+  };
+
+  it('a head whose REVIEW.md rewrites the Severity section does not steer: the guide is the base\'s', () => {
+    const fx = makeFixture({ extra: { 'REVIEW.md': `${sev('base')}${POLICY_BASE}` }, headReview: `${sev('head')}${POLICY_RELAXED}` });
+    const facts = factsOfFixture(fx);
+    expect(facts.guidance.severityGuide).toContain('base-important.');
+    expect(facts.guidance.severityGuide).not.toContain('head-');
+    expect(facts.guidance.severityGuideProblem).toBeNull();
+  });
+
+  it('a head that ADDS a Severity section to a base without one does not steer either: the problem is named and no guide is carried', () => {
+    const fx = makeFixture({ headReview: `${sev('head')}${POLICY_RELAXED}` });
+    const facts = factsOfFixture(fx);
+    expect(facts.guidance.severityGuide).toBeNull();
+    expect(facts.guidance.severityGuideProblem).toBe('severity-section-missing');
+  });
+
+  it('a base REVIEW.md with a malformed section names why', () => {
+    const facts = factsOfFixture(makeFixture({ extra: { 'REVIEW.md': `## Severity\n\n- **Important:** a.\n\n${POLICY_BASE}` } }));
+    expect(facts.guidance).toMatchObject({ severityGuide: null, severityGuideProblem: 'severity-bullets-malformed' });
   });
 });
 

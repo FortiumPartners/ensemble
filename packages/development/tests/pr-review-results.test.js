@@ -167,6 +167,74 @@ describe('policy keys deadlineMinutes and maxConcurrentAgents', () => {
   });
 });
 
+describe('extractSeverityGuide: the Severity bullets of REVIEW.md at the base (kata yg7k)', () => {
+  const { extractSeverityGuide } = require('../lib/pr-review-policy');
+  const { DEFAULT_SEVERITY_GUIDE } = require('../lib/pr-review-run-support');
+  const SECTION = '## Severity\n\nintro\n\n- **Important** \u2014 a wrong thing,\n  over two lines.\n- **Nit** \u2014 a preference.\n- **Pre-existing** \u2014 an old defect.\n\nOlder ledgers.\n\n## Next\n- **Important** \u2014 not this one.\n';
+
+  test('the three bullets, a wrapped bullet joined to one line, nothing from another section, no problem', () => {
+    expect(extractSeverityGuide(SECTION)).toEqual({ guide: '- **Important** \u2014 a wrong thing, over two lines.\n- **Nit** \u2014 a preference.\n- **Pre-existing** \u2014 an old defect.', problem: null });
+  });
+
+  test.each([
+    ['no section', '# Review\n', 'severity-section-missing'],
+    ['a renamed heading', '## Severity levels\n- **Important** \u2014 a.\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.\n', 'severity-section-missing'],
+    ['a missing bullet', '## Severity\n- **Important** \u2014 a.\n- **Nit** \u2014 b.\n', 'severity-bullets-malformed'],
+    ['a colon inside the bold word', '## Severity\n- **Important:** a.\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.\n', 'severity-bullets-malformed'],
+    ['a repeated word instead of the third', '## Severity\n- **Important** \u2014 a.\n- **Nit** \u2014 b.\n- **Nit** \u2014 c.\n', 'severity-bullets-malformed'],
+    ['a fourth bullet repeating a word', '## Severity\n- **Important** \u2014 a.\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.\n- **Nit** \u2014 d.\n', 'severity-bullets-malformed'],
+    ['a control character', '## Severity\n- **Important** \u2014 a\u0001.\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.\n', 'severity-section-control-characters'],
+    ['an oversized section', `## Severity\n- **Important** \u2014 ${'x'.repeat(2100)}\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.\n`, 'severity-section-too-long'],
+    ['no file at all', null, 'no-rules-file'],
+  ])('%s: no guide and the problem is NAMED (%s), so the caller can say why the built-in copy applies', (_name, text, problem) => {
+    expect(extractSeverityGuide(text)).toEqual({ guide: null, problem });
+  });
+
+  test('the repository\'s REVIEW.md and the built-in copy say the same, so the default never drifts from what a maintainer governs', () => {
+    const review = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'REVIEW.md'), 'utf8');
+    expect(extractSeverityGuide(review).guide).toBe(DEFAULT_SEVERITY_GUIDE);
+  });
+});
+
+describe('policy keys reviewerToolCalls and reviewerSnippets (kata yg7k)', () => {
+  const load = (policy) =>
+    loadPolicy({ baseSha: BASE_SHA, sourceSha: BASE_SHA, text: `\`\`\`ensemble-review-policy\n${JSON.stringify(policy)}\n\`\`\`\n` });
+
+  test('defaults: 40 tool calls and 3 snippets', () => {
+    expect(DEFAULT_POLICY.reviewerToolCalls).toBe(40);
+    expect(DEFAULT_POLICY.reviewerSnippets).toBe(3);
+  });
+
+  test.each([9, 201, 40.5, '40', null, -1])('reviewerToolCalls = %j is rejected by name and 40 stays', (value) => {
+    const result = load({ reviewerToolCalls: value });
+    expect(result.rejected.map((entry) => entry.key)).toEqual(['reviewerToolCalls']);
+    expect(result.policy.reviewerToolCalls).toBe(40);
+  });
+
+  test.each([0, 11, 1.5, '3', null])('reviewerSnippets = %j is rejected by name and 3 stays', (value) => {
+    const result = load({ reviewerSnippets: value });
+    expect(result.rejected.map((entry) => entry.key)).toEqual(['reviewerSnippets']);
+    expect(result.policy.reviewerSnippets).toBe(3);
+  });
+
+  test('snippets count toward the cap: an allowance at or above the cap is rejected by name and 3 stays; one below it is accepted', () => {
+    const over = load({ reviewerToolCalls: 10, reviewerSnippets: 10 });
+    expect(over.rejected).toEqual([{ key: 'reviewerSnippets', reason: 'exceeds-tool-calls', value: 10 }]);
+    expect(over.policy).toMatchObject({ reviewerToolCalls: 10, reviewerSnippets: 3 });
+    expect(load({ reviewerToolCalls: 11, reviewerSnippets: 10 }).rejected).toEqual([]);
+  });
+
+  test('an out-of-range value is reported as invalid-type, as every simple key does (precedent: maxConcurrentAgents)', () => {
+    expect(load({ reviewerToolCalls: 9 }).rejected).toEqual([{ key: 'reviewerToolCalls', reason: 'invalid-type', value: 9 }]);
+    expect(load({ maxConcurrentAgents: 0 }).rejected).toEqual([{ key: 'maxConcurrentAgents', reason: 'invalid-type', value: 0 }]);
+  });
+
+  test('both bounds of each are accepted', () => {
+    expect(load({ reviewerToolCalls: 10, reviewerSnippets: 1 }).policy).toMatchObject({ reviewerToolCalls: 10, reviewerSnippets: 1 });
+    expect(load({ reviewerToolCalls: 200, reviewerSnippets: 10 }).policy).toMatchObject({ reviewerToolCalls: 200, reviewerSnippets: 10 });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // collectResults: classification
 // ---------------------------------------------------------------------------

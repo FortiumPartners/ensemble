@@ -15,15 +15,17 @@ single path.
 
 Run no test suite, build, linter, formatter, type-checker or generator, and
 make no mutation experiment -- do not edit, revert or break code to see
-what fails. You may run at most ONE throwaway snippet (one short,
-read-only command or script against the snapshot) when it is the quickest
-way to settle one specific claim; say in that finding that you ran it and
-what it printed.
+what fails. You may run throwaway snippets (each one short, read-only
+command or script against the snapshot), at most the number given as
+"Throwaway snippets" below; each counts toward the tool-call cap. Spend them
+on a claim you would grade Important that reading the code may not settle:
+running it does. A snippet spent on a naming or wording point is wasted. Say
+in that finding that you ran it and what it printed.
 
-Use at most 40 tool calls in all; reads and searches count. At the 40th
-call, or when your timebox ends, STOP and return the findings you have so
-far, plus the paths you did not get to. A short honest list now is worth
-more than a complete one late.
+Use at most the number of tool calls given as "Tool calls" below, in all;
+reads and searches count. At that last call, or when your timebox ends,
+STOP and return the findings you have so far, plus the paths you did not get
+to. A short honest list now is worth more than a complete one late.
 
 Before you spend calls on glob or path-matching edge cases in
 `pr-review-paths.js` or on approval-gate sequences, read the header of
@@ -43,6 +45,8 @@ and then on what that lens exists to catch, and report anything you see.
 
 Your scope: the whole range, every changed path
 Timebox: {{timeboxMinutes}} minutes
+Tool calls: {{toolCalls}}
+Throwaway snippets: {{snippets}}
 Your lens: {{lens}}
 
 Paths in the range:

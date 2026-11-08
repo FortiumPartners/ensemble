@@ -1627,6 +1627,57 @@ describe('a `pre-existing` label is a claim about provenance and is checked agai
     expect(fs.readFileSync(m.agents[0].briefPath, 'utf8')).toMatch(/pre-existing[^\n]*checks the `file:line` you cite against the diff[^\n]*graded Important/);
   });
 
+  test('what a reviewer may spend is stated from the policy: the default 40 tool calls and 3 snippets, and a REVIEW.md value when it sets one (kata yg7k)', async () => {
+    const plain = await harness().prepare();
+    for (const a of plain.agents.filter((agent) => agent.role === 'reviewer')) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      expect(brief).toMatch(/^Tool calls: 40$/m);
+      expect(brief).toMatch(/^Throwaway snippets: 3$/m);
+    }
+    const set = await harness({ policyJson: { reviewerToolCalls: 90, reviewerSnippets: 6 } }).prepare();
+    for (const a of set.agents.filter((agent) => agent.role === 'reviewer')) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      expect(brief).toMatch(/^Tool calls: 90$/m);
+      expect(brief).toMatch(/^Throwaway snippets: 6$/m);
+      expect(brief).not.toMatch(/^Tool calls: 40$/m);
+    }
+  });
+
+  test('every agent that writes findings, the security lane included, is given the severity words\' meaning from REVIEW.md\'s own bullets, and no example or extra category (kata yg7k)', async () => {
+    const m = await harness().prepare();
+    for (const a of m.agents) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      expect(brief).toContain('- **Important** \u2014 the change is wrong, unsafe or unproven: a defect a user or another agent would hit');
+      expect(brief).toContain('- **Nit** \u2014 a preference that does not change behaviour');
+      // nothing is added to the repository's words: no sentence about opt-in paths, no root-cause rule, no example
+      expect(brief).not.toMatch(/opt-in|new or rare|Report one root cause/);
+    }
+  });
+
+  test('a REVIEW.md whose Severity section cannot be read is NAMED in the manifest warnings and the built-in copy applies; no file, or facts from before this key, say nothing (kata yg7k)', async () => {
+    const base = makeFacts({ changedPaths: ['src/a.js'], numstat: [{ path: 'src/a.js', added: 10, deleted: 2 }] });
+    const warned = async (guidance) => (await harness({ facts: { ...base, guidance } }).prepare()).sizing.warnings.filter((w) => w.code === 'severity-guide-fallback');
+    const named = await warned({ severityGuide: null, severityGuideProblem: 'severity-bullets-malformed' });
+    expect(named).toHaveLength(1);
+    expect(named[0].message).toMatch(/severity-bullets-malformed/);
+    expect(await warned({ severityGuide: null, severityGuideProblem: 'severity-section-missing' })).toHaveLength(1);
+    expect(await warned({ severityGuide: null, severityGuideProblem: 'no-rules-file' })).toEqual([]);
+    expect(await warned({})).toEqual([]);
+    expect(await warned({ severityGuide: '- **Important** \u2014 a.\n- **Nit** \u2014 b.\n- **Pre-existing** \u2014 c.', severityGuideProblem: null })).toEqual([]);
+  });
+
+  test('the meaning comes from the REVIEW.md Severity section read at the base when facts carry it, else the built-in copy (kata yg7k)', async () => {
+    const guide = '- **Important** \u2014 marker-important text.\n- **Nit** \u2014 marker-nit text.\n- **Pre-existing** \u2014 marker-pre text.';
+    const base = makeFacts({ changedPaths: ['src/a.js'], numstat: [{ path: 'src/a.js', added: 10, deleted: 2 }] });
+    const h = harness({ facts: { ...base, guidance: { severityGuide: guide } } });
+    const m = await h.prepare();
+    for (const a of m.agents) {
+      const brief = fs.readFileSync(a.briefPath, 'utf8');
+      expect(brief).toContain('marker-important text.');
+      expect(brief).not.toContain('a defect a user or another agent would hit');
+    }
+  });
+
   test('the reviewer is told that a symlink is not followed and that a line past the end of the file is graded Important', async () => {
     const h = harness();
     const m = await h.prepare();

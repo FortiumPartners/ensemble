@@ -1,0 +1,138 @@
+{
+  "pr": 207,
+  "repo": "Sunstone-Partners/ensemble",
+  "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+  "source": "Six Important findings an earlier multi-reviewer review published on this head (2026-10-30, each probe-confirmed). Kept as DATA for scoring a review run; never given to a reviewer or a verifier.",
+  "items": [
+    {
+      "id": "E1",
+      "summary": "Microsoft.Playwright.Xunit (PageTest base class) is classified xunit but the xUnit scaffold cannot write such a project",
+      "terms": [
+        [
+          "microsoft.playwright.xunit"
+        ],
+        [
+          "pagetest",
+          "xunit"
+        ]
+      ],
+      "note": "The package name is specific; 'pagetest' + 'xunit' also matches a finding about the xUnit scaffold's missing base class."
+    },
+    {
+      "id": "E2",
+      "summary": "inferFramework/appendTestMethod probe matches NUnit's [Theory] as well as xUnit's, so an NUnit file reads as xUnit",
+      "terms": [
+        [
+          "[theory]",
+          "nunit"
+        ],
+        [
+          "theory",
+          "nunit",
+          "matches"
+        ]
+      ],
+      "note": "Needs [Theory] and NUnit in one finding; [Theory] alone is mentioned by unrelated test findings."
+    },
+    {
+      "id": "E3",
+      "summary": "findClassBodyRange splices a method into the FIRST class of the file, which is a [CollectionDefinition] marker class when one comes first",
+      "terms": [
+        [
+          "collectiondefinition"
+        ],
+        [
+          "marker class"
+        ],
+        [
+          "findclassbodyrange"
+        ]
+      ],
+      "note": "Phrases specific to the splice position; read matchedBy."
+    },
+    {
+      "id": "E4",
+      "summary": "scaffoldNewSpecFile throws for a new xUnit file because no step supplies collection, fixtureType or usings",
+      "terms": [
+        [
+          "usings",
+          "fixturetype"
+        ],
+        [
+          "usings",
+          "collection"
+        ],
+        [
+          "collection must be",
+          "usings"
+        ]
+      ],
+      "note": "'usings' alone is generic, so it is paired with another word the defect uses; read matchedBy."
+    },
+    {
+      "id": "E5",
+      "summary": "detectE2eFrameworkInDir throws ENOENT/ENOTDIR on a non-existent directory or a file path instead of returning null",
+      "terms": [
+        [
+          "enoent"
+        ],
+        [
+          "enotdir"
+        ],
+        [
+          "readdirsync"
+        ],
+        [
+          "non-existent",
+          "directory"
+        ],
+        [
+          "nonexistent",
+          "directory"
+        ],
+        [
+          "detecte2eframeworkindir",
+          "does not exist"
+        ],
+        [
+          "detecte2eframeworkindir",
+          "no such"
+        ],
+        [
+          "detecte2eframeworkindir",
+          "not a directory"
+        ]
+      ],
+      "note": "Several phrasings: the readdir call, the error codes, or the function named with a does-not-exist wording."
+    },
+    {
+      "id": "E6",
+      "summary": "headed / slow-mo overrides are inert for the xUnit shape: the Run request carries no framework",
+      "terms": [
+        [
+          "slow-mo"
+        ],
+        [
+          "slowmo"
+        ],
+        [
+          "headed",
+          "xunit"
+        ],
+        [
+          "headed",
+          "inert"
+        ],
+        [
+          "headed",
+          "never"
+        ],
+        [
+          "headed",
+          "framework"
+        ]
+      ],
+      "note": "Whole-word match: 'slow-motion' does not match 'slow-mo'."
+    }
+  ]
+}

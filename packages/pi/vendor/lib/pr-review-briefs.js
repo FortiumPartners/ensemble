@@ -253,6 +253,22 @@ const MINUTES = Object.freeze({
   render: (value) => String(value),
 });
 
+/** A positive whole number of tool calls or snippets a reviewer may spend (the policy bounds it tighter; this only refuses nonsense). */
+const MAX_COUNT = 1000;
+function countKind(what) {
+  return Object.freeze({
+    check(value, name) {
+      if (!Number.isInteger(value) || value < 1 || value > MAX_COUNT) {
+        return `'${name}' must be a whole number of ${what} between 1 and ${MAX_COUNT}`;
+      }
+      return null;
+    },
+    render: (value) => String(value),
+  });
+}
+const TOOL_CALLS = countKind('tool calls');
+const SNIPPETS = countKind('snippets');
+
 /** Free text the author of the claim wrote: multi-line allowed, bounded, and screened. */
 function proseKind(leaks) {
   return Object.freeze({
@@ -289,6 +305,8 @@ const ROLES = Object.freeze({
       slice: SLICE_ID,
       lens: LENS,
       timeboxMinutes: MINUTES,
+      toolCalls: TOOL_CALLS,
+      snippets: SNIPPETS,
       paths: PATHS,
       diffPath: FILE_PATH,
       snapshotDir: FILE_PATH,
@@ -301,6 +319,8 @@ const ROLES = Object.freeze({
     inputs: Object.freeze({
       lens: LENS,
       timeboxMinutes: MINUTES,
+      toolCalls: TOOL_CALLS,
+      snippets: SNIPPETS,
       paths: PATHS,
       diffPath: FILE_PATH,
       snapshotDir: FILE_PATH,

@@ -535,13 +535,15 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     expect(unreleased).toContain('reader-not-planned');
   });
 
-  test('the CHANGELOG entry is in Unreleased and says the model is one run and nothing is relaxed', () => {
-    // the newest entry goes at the top of the list (kata k48x), so this entry is found by its own opening words, not by position
+  test('the CHANGELOG has the sizing entry in Unreleased and it says the model is one run and nothing is relaxed', () => {
     const unreleased = changelog.slice(changelog.indexOf('## [Unreleased]'));
-    const at = unreleased.indexOf('- **packages/development:** `review-run` sizes its slices and deadlines to what there is to read (kata `sfpb`');
-    expect(at).toBeGreaterThan(-1);
-    const first = unreleased.slice(at);
-    const entry = first.slice(0, first.indexOf('- **packages/development:**', 10));
+    const start = unreleased.search(/- \*\*packages\/development:\*\* `review-run` sizes its slices and deadlines to what there is to read \(kata `sfpb`/);
+    expect(start).toBeGreaterThanOrEqual(0);
+    const first = unreleased.slice(start);
+    // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
+    const next = first.slice(10).search(/ - (?:\*\*|`)/);
+    expect(next).toBeGreaterThan(0);
+    const entry = first.slice(0, next + 10);
     expect(entry).toMatch(/Nothing is relaxed/);
     expect(entry).toMatch(/one observed run/);
   });

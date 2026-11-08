@@ -134,7 +134,7 @@ agents the manifest names and stop each at its own `deadlineAtIso`; the deadline
   beside the slices and the lane: `slices x lenses + lane + 1 <= maxConcurrentAgents` (a 3-slice run at the default cap is 6
   reviewers + the reader + the lane = 8). A slice that fits the limits is never given up for it: when the cap does not hold it the
   plan has no reader and says so (`reader-not-planned`, naming the cap that would). It reads the WHOLE range diff and every path
-  under one lens with a brief of its own (`templates/range-reviewer-brief.md`, rendered like the others with `{ role: "range-reviewer", vars: { lens, timeboxMinutes, paths, diffPath, snapshotDir } }`),
+  under one lens with a brief of its own (`templates/range-reviewer-brief.md`, rendered like the others with `{ role: "range-reviewer", vars: { lens, timeboxMinutes, toolCalls, snippets, paths, diffPath, snapshotDir } }`; the runner renders it itself, with `toolCalls` and `snippets` from the policy keys `reviewerToolCalls` and `reviewerSnippets`),
   and its deadline is sized for the whole diff; start it like any other agent. If it expires or lists fewer paths its read is in
   `notReviewed` (`whole-range`), and the final answer's `reducedReview` says what it covers (interactions between slices) and
   what it cannot (one pass, one lens, no second reader of the whole diff).

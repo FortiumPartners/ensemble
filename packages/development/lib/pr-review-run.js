@@ -455,6 +455,13 @@ function buildReviewAgents(run, deps, ctx) {
     }
     return answer;
   };
+  // What a reviewer may spend (policy `reviewerToolCalls`, `reviewerSnippets`; the default when the policy holds neither).
+  const stated = (key, fallback) => (run.policy && Number.isInteger(run.policy[key]) ? run.policy[key] : fallback);
+  // a REVIEW.md whose Severity section could not be read is NAMED, never replaced by the built-in copy in silence ('no-rules-file' is the documented defaults)
+  if (run.severityGuide === null && run.severityGuideProblem !== null && run.severityGuideProblem !== 'no-rules-file') {
+    run.sizing.warnings.push({ code: 'severity-guide-fallback', message: `REVIEW.md at the base has no readable Severity section (${run.severityGuideProblem}), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a "## Severity" heading with one "- **Important** ...", "- **Nit** ..." and "- **Pre-existing** ..." bullet, under 2000 characters)` });
+  }
+  const budget = { toolCalls: stated('reviewerToolCalls', DEFAULT_POLICY.reviewerToolCalls), snippets: stated('reviewerSnippets', DEFAULT_POLICY.reviewerSnippets) };
   run.slices.forEach((slice, sliceIndex) => {
     // a reviewer handed the WHOLE range diff (its slice could not be cut from it) reads the whole diff: its deadline is sized for that
     const wholeDiff = run.slices.length > 1 && run.sizing.slices[sliceIndex].diff === 'whole-range';
@@ -462,7 +469,7 @@ function buildReviewAgents(run, deps, ctx) {
     // one reviewer per (slice, lens) pass; the lenses come from the shared plan (planSlices), the names stay `reviewer-s<n>-<a|b|..>`
     run.assignments.filter((assignment) => assignment.sliceId === slice.id).forEach((assignment, lensIndex) => {
       const agent = { name: `reviewer-s${sliceIndex + 1}-${S.LENSES[lensIndex]}`, role: 'reviewer', sliceId: slice.id, lens: assignment.lens, paths: slice.paths, work, _role: 'reviewer' };
-      agent._vars = { slice: slice.id, lens: assignment.lens, timeboxMinutes: deadline(agent, work, `slice ${slice.id}`).minutes, paths: slice.paths, diffPath: diffs[sliceIndex], snapshotDir: run.prepared.snapshotDir };
+      agent._vars = { slice: slice.id, lens: assignment.lens, timeboxMinutes: deadline(agent, work, `slice ${slice.id}`).minutes, ...budget, paths: slice.paths, diffPath: diffs[sliceIndex], snapshotDir: run.prepared.snapshotDir };
       agents.push(agent);
     });
   });
@@ -471,7 +478,7 @@ function buildReviewAgents(run, deps, ctx) {
     const lens = run.assignments[0].lens;
     // its own brief (`range-reviewer`): the whole range, and what only a reader of the whole range can find
     const reader = { name: RANGE_NAME, role: 'reviewer', sliceId: RANGE_COVERAGE_SLICE, lens, paths: run.changedPaths, work, _role: 'range-reviewer' };
-    reader._vars = { lens, timeboxMinutes: deadline(reader, work, 'the whole-range reader').minutes, paths: run.changedPaths, diffPath: run.prepared.rangeDiff, snapshotDir: run.prepared.snapshotDir };
+    reader._vars = { lens, timeboxMinutes: deadline(reader, work, 'the whole-range reader').minutes, ...budget, paths: run.changedPaths, diffPath: run.prepared.rangeDiff, snapshotDir: run.prepared.snapshotDir };
     agents.push(reader);
   }
   if (run.securityLane) {
@@ -487,7 +494,7 @@ function buildReviewAgents(run, deps, ctx) {
     const rendered = deps.renderBrief(_role, _vars);
     const full = { ...record, briefPath, outPath };
     deps.fs.mkdirp(path.dirname(briefPath), 0o700);
-    deps.fs.writeAtomic(briefPath, `${rendered.replace(/\s*$/, '\n')}\n${S.reviewerContract(full)}`, 0o600);
+    deps.fs.writeAtomic(briefPath, `${rendered.replace(/\s*$/, '\n')}\n${S.reviewerContract(full, run.severityGuide)}`, 0o600);
     return full;
   });
 }
@@ -701,6 +708,9 @@ async function prepareStages(input, deps, ctx) {
     // Whether the base policy was usable; ok:false names why every path is High (kata vhpf).
     policyStatus: isObject(facts.policy) ? { ok: facts.policy.ok !== false, reason: facts.policy.ok === false ? facts.policy.reason || 'policy-untrusted' : null } : null,
     policyRejected: isObject(facts.policy) && Array.isArray(facts.policy.rejected) ? facts.policy.rejected : [],
+    // the Severity bullets of REVIEW.md at the base (null: a cached prepare without them, or a REVIEW.md without the section)
+    severityGuide: isObject(facts.guidance) && typeof facts.guidance.severityGuide === 'string' ? facts.guidance.severityGuide : null,
+    severityGuideProblem: isObject(facts.guidance) && typeof facts.guidance.severityGuideProblem === 'string' ? facts.guidance.severityGuideProblem : null,
     sensitivePaths: isObject(facts.paths) && Array.isArray(facts.paths.sensitive) ? facts.paths.sensitive : [],
     phase: 'preparing',
     waves: [],

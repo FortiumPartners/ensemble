@@ -136,6 +136,8 @@ logins).
 | `sliceMaxFiles` | Most paths in one reviewer's slice (default 8, derived from the one real full-mode run, kata `sfpb`). |
 | `sliceTargetLines` | Changed lines to aim for in one reviewer's slice (default 612). |
 | `deadlineHeadroom` | Times the modelled time to read its work an agent's deadline allows (1-10, default 2: a judgement, not a measurement). |
+| `reviewerToolCalls` | Most tool calls one reviewer may spend (10-200, default 40). More buys deeper reading and costs time and tokens per reviewer; raise `deadlineMinutes.reviewer` with it; a reviewer that stops with unread paths leaves coverage incomplete, which stops the gate. Advisory: the runner sizes deadlines from paths and lines only and does not check it. |
+| `reviewerSnippets` | Most throwaway read-only snippets one reviewer may run to settle a claim about what code does (1-10, below `reviewerToolCalls` because snippets count toward it; default 3: a judgement, not a measurement). |
 | `deadlineMinutes` | Per-agent deadline base in minutes (reviewer 15, verifier 5, security 15). The review runner raises a reviewer's and the security lane's above it by what they have to read, at most 60 minutes, and never lowers it. |
 
 ## Ownership

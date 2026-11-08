@@ -355,11 +355,11 @@ and whether a finding survives scrutiny is for the verifiers to settle
 (Step 3b), on that one finding.
 
 Render it once per reviewer with `node "$PR_REVIEW_CLI" brief` and
-`{ role: "reviewer", vars: { slice, timeboxMinutes, lens, paths, diffPath, snapshotDir } }`
+`{ role: "reviewer", vars: { slice, timeboxMinutes, toolCalls, snippets, lens, paths, diffPath, snapshotDir } }`
 (`slice` is the `sliceId` of that reviewer's assignment: a slice id such as
 `whole-pr`, `whole-pr~2`, `(repository root)~1` or `mixed~1`; `lens` is its `lens`;
 `paths` is that slice's path list from the `slices` call; `diffPath` and
-`snapshotDir` are the prepared paths). It answers `{ ok, role, brief }`;
+`snapshotDir` are the prepared paths; `toolCalls` and `snippets` are the policy's `reviewerToolCalls` and `reviewerSnippets`, 40 and 3 when the policy sets neither). It answers `{ ok, role, brief }`;
 pass `brief` to the reviewer unedited, with the rules and guidance listed above.
 The renderer takes exactly those inputs and refuses a missing, extra or
 malformed one with a non-zero exit. No input is free text: `slice` and each
@@ -368,7 +368,7 @@ entry of `paths` are paths in a strict grammar (letters, digits and
 `..`; a slice id may also be `(repository root)` with a `~N` suffix), `lens` is
 a lower-case token (letters, digits and `-`, at most 32), `diffPath` and
 `snapshotDir` the same but may start with `/`, and
-`timeboxMinutes` is a whole number, so a note about what the orchestrator
+`timeboxMinutes`, `toolCalls` and `snippets` are whole numbers, so a note about what the orchestrator
 thinks the reviewer will find is refused rather than rendered, and so is a
 path outside the grammar; never retry with a guessed field or paste the
 template by hand.
