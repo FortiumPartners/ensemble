@@ -106,11 +106,11 @@ guessed input.
 
 ---
 
-## Light-mode runner
+## Runner
 
-When `selectMode` answers `light`, `MODE=local` and `MODE=gate` run `prepare` then `collect` of
-`lib/review-run-cli.js` (`$REVIEW_RUN_CLI`) per `reference/review-run.md`, not the Steps below.
-`NEEDS_FULL_MODE`: the narrated Steps 1-10, unchanged.
+`MODE=local` and `MODE=gate` run `prepare` then `collect` of `lib/review-run-cli.js` per
+`reference/review-run.md`, not the Steps below. Full adds `TRIAGE`.
+Light, brief refused: `NEEDS_FULL_MODE`: the narrated Steps 1-10, unchanged.
 
 ---
 

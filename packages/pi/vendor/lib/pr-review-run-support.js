@@ -479,6 +479,7 @@ function computeMetrics(run, endAt) {
     agentsDispatched: agents.length,
     agentsByRole,
     adjudicationCalls: calls.filter((c) => c.adjudication === true).length,
+    ...(run.mode && run.mode.mode === 'full' ? { triageCalls: calls.filter((c) => c.triage === true).length } : {}),
     orchestratorTurns: { atLeast: calls.length + waves.length, basis: ORCHESTRATOR_TURNS_BASIS },
     runnerMs,
     agentActiveMs,

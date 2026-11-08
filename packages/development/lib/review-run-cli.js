@@ -11,12 +11,14 @@
  * prepare payload: { repo:"owner/name", pr:<int>, repoRoot:"<absolute clone>", runId?, traceRunId?, baseSha? (must equal
  *   the merge base), lastReviewedSha?, remediationShas?, dryRun?, skipPrecheck?, testFiles?, testCommand?,
  *   baselineTimeoutMs?, nodeModules?, stateRoot?, agentAuthored? }
- * collect payload: { repoRoot:"<absolute clone>", runId, now?, adjudications?:[{id, disposition:"fix|deferred|not-applicable", reason}] }
+ * collect payload: { repoRoot:"<absolute clone>", runId, now?, adjudications?:[{id, disposition:"fix|deferred|not-applicable", reason}],
+ *   triage?:{additionalCandidates:[{locationOrLink:"file:line", failureMode, severity?:"important|nit", evidence?}]} (full mode only) }
  *
- * stdout: ONE JSON object, token-shaped strings redacted. `ok:true` (exit 0): DISPATCH | PENDING | DONE | ADJUDICATE.
- * `ok:false` (exit 1): NEEDS_FULL_MODE | RUN_INVALIDATED | RUN_FAILED (also: an unknown subcommand, invalid JSON or an
- * unknown payload key, as `{ok:false, error}`). The protocol, its re-entrancy and its honest limits are documented in
- * pr-review-run.js and in skills/pr-review-cycle/reference/review-run.md.
+ * stdout: ONE JSON object, token-shaped strings redacted. `ok:true` (exit 0): DISPATCH | PENDING | TRIAGE | DONE | ADJUDICATE.
+ * `ok:false` (exit 1): NEEDS_FULL_MODE (a light run whose brief the renderer refuses) | RUN_INVALIDATED | RUN_FAILED (also: an
+ * unknown subcommand, invalid JSON or an unknown payload key, as `{ok:false, error}`). The protocol, its re-entrancy and its
+ * honest limits are documented in pr-review-run.js and in skills/pr-review-cycle/reference/review-run.md. Full mode (High
+ * tier, sensitive path, anything ambiguous) runs in the same runner: see pr-review-full.js.
  *
  * WHAT A RUN TOUCHES -- all of it:
  *   - everything review-precheck-cli.js touches, unless `skipPrecheck` (it posts ONE PR comment, starts the local-CI gate for
