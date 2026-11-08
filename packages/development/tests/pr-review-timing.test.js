@@ -236,6 +236,44 @@ describe('span lengths come from the recorder, never from a stepped wall clock (
     expect(t.wall.ms).toBe(durationMs); // the length is the recorder's either way
   });
 
+  test('a verdict the recorded stamps place a millisecond past the end of the root is rounding, not a cut (the numbers of a real run)', () => {
+    // The root's whole-millisecond stamp is truncated late in its millisecond and the verdict's early in its own, and each duration is rounded:
+    // the verdict really ended 0.14 ms before the root, and the stamps put its end 1 ms after the root's (a real review-run printed
+    // 'verdict 12ms [lower bound] [cut to the window by 1ms]' for it and made the whole critical path a lower bound).
+    let wall = T0;
+    let mono = 5000000;
+    const tracer = createTracer({ runId: 'rounding', projectRoot: dir, clock: { now: () => wall, mono: () => mono } });
+    const moveTo = (wallMs, monoMs) => {
+      wall = T0 + wallMs;
+      mono = 5000000 + monoMs;
+    };
+    const rootId = tracer.startSpan(STAGES.root);
+    moveTo(100, 100);
+    const reviewer = tracer.startSpan(STAGES.reviewer, { kind: 'agent', parentId: rootId, attrs: { agent: 'RevA' } });
+    moveTo(5100, 5100);
+    tracer.endSpan(reviewer);
+    const verifier = tracer.startSpan(STAGES.verifier, { kind: 'agent', parentId: rootId, attrs: { agent: 'Ver1' } });
+    moveTo(8100, 8100);
+    tracer.endSpan(verifier);
+    moveTo(10706, 10705.027);
+    const verdictSpan = tracer.startSpan(STAGES.verdict, { parentId: rootId });
+    moveTo(10718, 10717.959);
+    tracer.endSpan(verdictSpan);
+    moveTo(10718, 10718.099);
+    tracer.endSpan(rootId);
+    const trace = readTrace(path.join(dir, '.ensemble', 'state', 'toolchain', 'trace-rounding.jsonl'));
+    expect(trace.spans.map((s) => [s.name, s.duration_ms])).toEqual([
+      [STAGES.root, 10718],
+      [STAGES.reviewer, 5000],
+      [STAGES.verifier, 3000],
+      [STAGES.verdict, 13], // 12.932 rounded: placed from its start it ends at 10719, the root at 10718
+    ]);
+    const t = computeReviewTiming(trace);
+    expect(t.criticalPath.rounds[0].steps[2]).toEqual({ stage: 'verdict', ms: 12, missing: false });
+    expect(t.criticalPath).toMatchObject({ ms: 8012, missing: false });
+    expect(t.criticalPath.lowerBound).toBeUndefined();
+  });
+
   test('a backward wall-clock step is a clock anomaly the recorder flags: the spans are UNUSABLE and the reason names it', () => {
     const trace = reviewerSpanningAStep('anomaly', -540, 60);
     expect(trace.spans.map((s) => s.attrs.clock_anomaly)).toEqual([true, true]); // the recorder's own flag
@@ -701,6 +739,38 @@ describe('the critical path never exceeds the window and counts the verdict once
     expect(criticalPath).toMatchObject({ ms: 210000, lowerBound: true });
   });
 
+  // What the recorder writes: `start_ts` in whole milliseconds, and `readTrace` rounds each `duration_ms` to a millisecond. The runner closes
+  // the root an instant after the verdict, so the verdict ends within a fraction of a millisecond of the window's end, and placed from the
+  // rounded numbers it can seem to end after it (see the real-recorder case in the clock tests above).
+  const placed = (name, startMs, durationMs, attrs = {}) => ({
+    ...span(name, 0, 1, attrs),
+    start_ts: new Date(T0 + startMs).toISOString(),
+    end_ts: new Date(T0 + Math.floor(startMs + durationMs)).toISOString(),
+    duration_ms: durationMs,
+  });
+  const verdictOvershooting = (overshootMs) =>
+    computeReviewTiming([
+      placed(STAGES.root, 0, 400000, { turns: 10, tool_calls: 12 }), // the window ends at 400000 ms
+      agent('reviewer', 0, 300),
+      agent('verifier', 300, 390),
+      placed(STAGES.verdict, 399990, 10 + overshootMs), // starts 10 ms before the window ends
+    ]);
+
+  test.each([[0.5], [1]])('a verdict that overshoots the window by %p ms, no more than the stamps resolve, is rounding and not a cut', (over) => {
+    const t = verdictOvershooting(over);
+    expect(t.criticalPath.rounds[0].steps[2]).toEqual({ stage: 'verdict', ms: 10, missing: false });
+    expect(t.criticalPath).toMatchObject({ ms: 390010, missing: false }); // 300 s + 90 s + 10 ms
+    expect(t.criticalPath.lowerBound).toBeUndefined();
+    expect(formatReviewTiming(t)).not.toContain('cut to the window');
+  });
+
+  test.each([[1.5], [2]])('an overshoot of %p ms, more than the stamps resolve, is still a cut and says so', (over) => {
+    const t = verdictOvershooting(over);
+    expect(t.criticalPath.rounds[0].steps[2]).toEqual({ stage: 'verdict', ms: 10, missing: false, lowerBound: true, clippedMs: over });
+    expect(t.criticalPath).toMatchObject({ ms: 390010, lowerBound: true });
+    expect(formatReviewTiming(t)).toContain('[cut to the window by');
+  });
+
   test('a span wholly outside the window changes nothing: an exact step stays exact', () => {
     const { criticalPath } = computeReviewTiming([...sequential[0][1], agent('reviewer', 300, 400)]);
     expect(criticalPath).toMatchObject({ ms: 150000, missing: false });
@@ -777,6 +847,329 @@ describe('the critical path never exceeds the window and counts the verdict once
     const text = formatReviewTiming(computeReviewTiming([root(0, 160), agent('reviewer', 0, 100), agent('verifier', 50, 150), verdict(150, 160)]));
     expect(text).toContain('MISSING (round (unnumbered): verifier starts 50.0s before reviewer ends');
     expect(text).toContain('[MISSING: verifier starts 50.0s before reviewer ends');
+  });
+});
+
+describe('the critical path across waves: agents run in waves, one wave after another (review of PR 270, round 1)', () => {
+  const verdict = (start, end, attrs = { round: 1 }) => span(STAGES.verdict, start, end, attrs);
+  const w = (wave, extra = {}) => ({ round: 1, wave, ...extra });
+
+  // maxConcurrentAgents splits a round's agents into waves and a wave is dispatched only after the one before it was
+  // collected, so two waves are two steps of the chain, not one: 40 s, then 20 s, then a 10 s verifier, then the verdict.
+  const twoReviewWaves = [
+    root(0, 200),
+    agent('reviewer', 0, 40, { agent: 'RevA', ...w(1) }),
+    agent('reviewer', 0, 25, { agent: 'RevB', ...w(1) }),
+    agent('reviewer', 41, 61, { agent: 'RevC', ...w(2) }),
+    agent('verifier', 62, 72, { agent: 'VerA', ...w(1) }),
+    verdict(72, 73),
+  ];
+
+  test('two review waves: the slowest reviewer of EACH wave is a step and they are summed (40 s + 20 s, not the one slowest 40 s)', () => {
+    const { criticalPath } = computeReviewTiming(twoReviewWaves);
+    expect(criticalPath.rounds[0].steps).toEqual([
+      { stage: 'reviewer', wave: 1, ms: 40000, missing: false, name: 'RevA' },
+      { stage: 'reviewer', wave: 2, ms: 20000, missing: false, name: 'RevC' },
+      { stage: 'verifier', ms: 10000, missing: false, name: 'VerA' },
+      { stage: 'verdict', ms: 1000, missing: false },
+    ]);
+    expect(criticalPath).toMatchObject({ ms: 71000, missing: false });
+    expect(criticalPath.lowerBound).toBeUndefined();
+  });
+
+  test('verify waves are summed the same way (20 s + 8 s); a stage in a single wave stays one step with no wave named', () => {
+    const { criticalPath } = computeReviewTiming([
+      root(0, 300),
+      agent('reviewer', 0, 30, { agent: 'RevA', ...w(1) }),
+      agent('verifier', 31, 51, { agent: 'VerA', ...w(1) }),
+      agent('verifier', 31, 41, { agent: 'VerB', ...w(1) }),
+      agent('verifier', 52, 60, { agent: 'VerC', ...w(2) }),
+      verdict(60, 61),
+    ]);
+    expect(criticalPath.rounds[0].steps.map((s) => [s.stage, s.wave, s.ms, s.name])).toEqual([
+      ['reviewer', undefined, 30000, 'RevA'],
+      ['verifier', 1, 20000, 'VerA'],
+      ['verifier', 2, 8000, 'VerC'],
+      ['verdict', undefined, 1000, undefined],
+    ]);
+    expect(criticalPath).toMatchObject({ ms: 59000, missing: false });
+  });
+
+  test('waves are numbered per round: every round has its own wave 1, and the rounds are summed', () => {
+    const second = (wave) => ({ round: 2, wave });
+    const { criticalPath } = computeReviewTiming([
+      root(0, 400),
+      ...twoReviewWaves.slice(1),
+      agent('reviewer', 100, 110, { agent: 'RevD', ...second(1) }),
+      agent('reviewer', 111, 131, { agent: 'RevE', ...second(2) }),
+      agent('verifier', 132, 142, { agent: 'VerB', ...second(1) }),
+      verdict(142, 143, { round: 2 }),
+    ]);
+    expect(criticalPath.rounds.map((r) => [r.round, r.ms])).toEqual([
+      [1, 71000],
+      [2, 41000],
+    ]);
+    expect(criticalPath).toMatchObject({ ms: 112000, missing: false });
+  });
+
+  test('a wave named by a decimal string (what `trace start --attr wave=2` records) counts, as round does', () => {
+    const asStrings = twoReviewWaves.map((s) => (s.attrs.wave === undefined ? s : { ...s, attrs: { ...s.attrs, round: String(s.attrs.round), wave: String(s.attrs.wave) } }));
+    expect(computeReviewTiming(asStrings).criticalPath).toMatchObject({ ms: 71000, missing: false });
+  });
+
+  test('spans that name no wave are one wave: the slowest of them, as before (a trace that predates the attr, the narrated flow)', () => {
+    const { criticalPath } = computeReviewTiming([
+      root(0, 200),
+      agent('reviewer', 0, 40, { agent: 'RevA' }),
+      agent('reviewer', 0, 20, { agent: 'RevB' }),
+      agent('verifier', 41, 51),
+      verdict(51, 52, {}),
+    ]);
+    expect(criticalPath.rounds[0].steps.map((s) => [s.stage, s.wave, s.ms])).toEqual([
+      ['reviewer', undefined, 40000],
+      ['verifier', undefined, 10000],
+      ['verdict', undefined, 1000],
+    ]);
+    expect(criticalPath.ms).toBe(51000);
+  });
+
+  test('a wave that holds no reviewer (only the security lane ran in it) is no step of the chain: the total is a lower bound that names the wave', () => {
+    // a cap of 2 on two reviewers and the lane: wave 1 is both reviewers, wave 2 is the lane alone
+    const spans = [
+      root(0, 200),
+      agent('reviewer', 0, 40, { agent: 'RevA', ...w(1) }),
+      agent('reviewer', 0, 30, { agent: 'RevB', ...w(1) }),
+      agent('security-lane', 41, 71, { agent: 'security-lane', ...w(2) }),
+      agent('verifier', 72, 82, { agent: 'VerA', ...w(1) }),
+      verdict(82, 83),
+    ];
+    const t = computeReviewTiming(spans);
+    expect(t.criticalPath).toMatchObject({ ms: 51000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0]).toMatchObject({ round: 1, lowerBound: true, uncountedWaves: [2] });
+    expect(formatReviewTiming(t)).toContain('[lower bound: no reviewer in review wave 2, so no step counts it]');
+    // the lane in the SAME wave as the reviewers leaves no wave uncounted, but it ends 31 s after the slowest of them and the
+    // verifier waited for it: the excess is named and the total a lower bound (this case was pinned as exact before review
+    // round 2, which found that silent understatement: the lane that outlasts its wave's reviewers is the common case)
+    const together = computeReviewTiming(spans.map((s) => (s.name === STAGES['security-lane'] ? { ...s, attrs: { ...s.attrs, wave: 1 } } : s)));
+    expect(together.criticalPath.rounds[0].uncountedWaves).toBeUndefined();
+    expect(together.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'security-lane', wave: 1, byMs: 31000 }]);
+    expect(together.criticalPath.lowerBound).toBe(true);
+    // a lane inside the reviewers' wave that ends with them leaves nothing: the total is exact
+    const inside = computeReviewTiming(spans.map((s) => (s.name === STAGES['security-lane'] ? { ...s, start_ts: at(0), end_ts: at(30), duration_ms: 30000, attrs: { ...s.attrs, wave: 1 } } : s)));
+    expect(inside.criticalPath.rounds[0].uncountedWaves).toBeUndefined();
+    expect(inside.criticalPath.lowerBound).toBeUndefined();
+  });
+
+  test('waves that overlap in time are never summed: the total is MISSING and names the pair, each step still measured', () => {
+    const { criticalPath } = computeReviewTiming([root(0, 200), agent('reviewer', 0, 40, w(1)), agent('reviewer', 30, 60, w(2)), agent('verifier', 60, 70, w(1)), verdict(70, 71)]);
+    expect(criticalPath).toMatchObject({ ms: null, missing: true });
+    expect(criticalPath.reason).toContain('reviewer wave 2 starts 10.0s before reviewer wave 1 ends');
+    expect(criticalPath.rounds[0].steps.every((s) => !s.missing)).toBe(true);
+  });
+
+  test('a wave whose every span is unusable is a missing step that names the wave; one unusable span among usable ones makes the step a lower bound', () => {
+    const base = [root(0, 200), agent('reviewer', 0, 40, w(1)), agent('verifier', 62, 72, w(1)), verdict(72, 73)];
+    const none = computeReviewTiming([...base, agent('reviewer', 41, null, w(2))]).criticalPath;
+    expect(none).toMatchObject({ ms: null, missing: true });
+    expect(none.reason).toContain('reviewer wave 2: every reviewer span is unusable');
+    const some = computeReviewTiming([...base, agent('reviewer', 41, 61, w(2)), agent('reviewer', 41, null, w(2))]).criticalPath;
+    expect(some).toMatchObject({ ms: 71000, missing: false, lowerBound: true });
+    expect(some.rounds[0].steps[1]).toMatchObject({ stage: 'reviewer', wave: 2, ms: 20000, lowerBound: true, unusable: 1 });
+  });
+
+  test('spans of a stage that name a wave beside spans that do not: a warning, and the unnumbered ones are one extra wave', () => {
+    const t = computeReviewTiming([root(0, 200), agent('reviewer', 0, 40, w(1)), agent('reviewer', 41, 61, { round: 1 }), agent('verifier', 62, 72, w(1)), verdict(72, 73)]);
+    expect(t.warnings.join(' ')).toContain('round 1: some reviewer spans carry a wave and some do not');
+    expect(t.criticalPath.rounds[0].steps.map((s) => [s.stage, s.wave, s.ms])).toEqual([
+      ['reviewer', 1, 40000],
+      ['reviewer', null, 20000],
+      ['verifier', undefined, 10000],
+      ['verdict', undefined, 1000],
+    ]);
+    expect(t.criticalPath.ms).toBe(71000);
+    expect(formatReviewTiming(t)).toContain('reviewer (unnumbered wave) 20.0s');
+  });
+
+  test('the text report names each wave', () => {
+    const text = formatReviewTiming(computeReviewTiming(twoReviewWaves));
+    expect(text).toContain('round 1: reviewer wave 1 40.0s (RevA) -> reviewer wave 2 20.0s (RevC) -> verifier 10.0s (VerA) -> verdict 1.0s');
+    expect(text).toMatch(/critical path:\s+1m11s\n/);
+  });
+});
+
+describe('agents that are no step of the chain: the security lane that outlasts the reviewers of its wave (review of PR 270, round 2)', () => {
+  const verdict = (start, end) => span(STAGES.verdict, start, end, { round: 1 });
+  const rev = (start, end, attrs) => agent('reviewer', start, end, { agent: 'RevA', round: 1, wave: 1, ...attrs });
+  const lane = (start, end, attrs) => agent('security-lane', start, end, { agent: 'security-lane', round: 1, wave: 1, ...attrs });
+  const ver = (start, end, attrs) => agent('verifier', start, end, { agent: 'VerA', round: 1, wave: 1, ...attrs });
+
+  test('a lane in the reviewers\' wave that ends after them is named and makes the total a lower bound: the verifier waited for it (the default cap puts the lane in that wave)', () => {
+    const t = computeReviewTiming([root(0, 200), rev(0, 10), lane(0, 60), ver(61, 71), verdict(71, 72)]);
+    expect(t.criticalPath).toMatchObject({ ms: 21000, missing: false, lowerBound: true }); // the chain is 71 s long: 10 + 50 for the lane + 10 + 1
+    expect(t.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'security-lane', wave: 1, byMs: 50000 }]);
+    expect(t.criticalPath.rounds[0].uncountedWaves).toBeUndefined();
+    expect(formatReviewTiming(t)).toContain('[lower bound: security-lane ran 50.0s past the slowest reviewer of its wave 1, which no step counts]');
+  });
+
+  test.each([
+    ['ends before the slowest reviewer', lane(0, 5)],
+    ['ends exactly when it ends', lane(0, 10)],
+  ])('a lane that %s leaves the total exact: nothing is hidden', (_, other) => {
+    const t = computeReviewTiming([root(0, 200), rev(0, 10), other, ver(11, 21), verdict(21, 22)]);
+    expect(t.criticalPath).toMatchObject({ ms: 21000, missing: false });
+    expect(t.criticalPath.lowerBound).toBeUndefined();
+    expect(t.criticalPath.rounds[0].outlasted).toBeUndefined();
+  });
+
+  test('the lane is compared with the reviewer of ITS wave: in a round of two waves, a lane that outlasts only the second wave\'s reviewer is named with that wave', () => {
+    const t = computeReviewTiming([
+      root(0, 300),
+      rev(0, 40, { agent: 'RevA' }),
+      lane(0, 30, { agent: 'lane-a' }), // inside wave 1: no excess
+      rev(41, 61, { agent: 'RevB', wave: 2 }),
+      lane(41, 100, { agent: 'lane-b', wave: 2 }), // 39 s past RevB
+      ver(101, 111),
+      verdict(111, 112),
+    ]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 20000 + 10000 + 1000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'lane-b', wave: 2, byMs: 39000 }]);
+  });
+
+  test('a trace that names no wave at all is one wave: a lane that ends after the slowest reviewer is named, with no wave', () => {
+    const t = computeReviewTiming([root(0, 200), rev(0, 40, { wave: undefined }), lane(0, 70, { wave: undefined }), ver(71, 81, { wave: undefined }), verdict(81, 82)]);
+    expect(t.criticalPath).toMatchObject({ ms: 51000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'security-lane', byMs: 30000 }]);
+  });
+
+  test('an agent that names no wave beside reviewers that do cannot be placed: it is compared with the last reviewer step, so a classifier that ended before them is no excess and a lane after them is', () => {
+    const t = computeReviewTiming([
+      root(0, 300),
+      rev(0, 40),
+      rev(41, 61, { agent: 'RevB', wave: 2 }),
+      agent('classifier', 0, 5, { agent: 'classifier', round: 1 }),
+      agent('security-lane', 41, 90, { agent: 'security-lane', round: 1 }),
+      ver(91, 101),
+      verdict(101, 102),
+    ]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 20000 + 10000 + 1000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'security-lane', byMs: 29000 }]);
+  });
+
+  test('a numbered lane wave beside reviewers that name none is still flagged: no reviewer is known to have run in it (review of PR 270, round 2, nit)', () => {
+    const t = computeReviewTiming([root(0, 200), rev(0, 40, { wave: undefined }), lane(41, 90, { wave: 2 }), ver(91, 101, { wave: undefined }), verdict(101, 102)]);
+    expect(t.criticalPath).toMatchObject({ ms: 51000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0].uncountedWaves).toEqual([2]);
+  });
+
+  test('a lane whose length is unknown may have outlasted the reviewers: it is listed with the reason and the total is a lower bound', () => {
+    const t = computeReviewTiming([root(0, 200), rev(0, 10), lane(0, null), ver(61, 71), verdict(71, 72)]);
+    expect(t.criticalPath).toMatchObject({ ms: 21000, missing: false, lowerBound: true });
+    expect(t.criticalPath.rounds[0].outlasted).toEqual([{ stage: 'security-lane', name: 'security-lane', wave: 1, unusable: 'unfinished' }]);
+    expect(formatReviewTiming(t)).toContain('security-lane has no usable length (unfinished), so it may have outlasted the reviewers, which no step counts');
+  });
+
+  test('another round\'s lane is not this round\'s excess', () => {
+    const t = computeReviewTiming([
+      root(0, 500),
+      rev(0, 10, { round: 1 }),
+      ver(11, 21, { round: 1 }),
+      span(STAGES.verdict, 21, 22, { round: 1 }),
+      rev(100, 110, { round: 2 }),
+      lane(100, 160, { round: 2 }),
+      ver(161, 171, { round: 2 }),
+      span(STAGES.verdict, 171, 172, { round: 2 }),
+    ]);
+    expect(t.criticalPath.rounds.map((r) => [r.round, r.lowerBound === true])).toEqual([
+      [1, false],
+      [2, true],
+    ]);
+  });
+});
+
+describe('spans that carry one wave number were dispatched together (review of PR 270, round 2)', () => {
+  const w = (wave, extra) => ({ round: 1, wave, ...extra });
+  const verdict = (start, end) => span(STAGES.verdict, start, end, { round: 1 });
+
+  test('two real waves stamped with the same number are not one wave: the step is MISSING and names it, a shorter chain is not passed off as the whole (true chain 71 s, one slowest span would say 51 s)', () => {
+    const t = computeReviewTiming([
+      root(0, 200),
+      agent('reviewer', 0, 40, w(1, { agent: 'RevA' })),
+      agent('reviewer', 0, 25, w(1, { agent: 'RevB' })),
+      agent('reviewer', 41, 61, w(1, { agent: 'RevC' })),
+      agent('verifier', 62, 72, w(1)),
+      verdict(72, 73),
+    ]);
+    expect(t.criticalPath).toMatchObject({ ms: null, missing: true });
+    expect(t.criticalPath.reason).toContain('reviewer wave 1: its spans start 41.0s apart, more than the 5.0s within which the agents of one wave are dispatched');
+    expect(t.criticalPath.rounds[0].steps[0]).toMatchObject({ stage: 'reviewer', wave: 1, missing: true });
+    expect(t.criticalPath.rounds[0].steps.slice(1).every((s) => !s.missing)).toBe(true); // the others are still measured
+  });
+
+  test('agents of one wave that start a moment apart (the dispatch loop takes a moment) are one wave', () => {
+    const t = computeReviewTiming([root(0, 200), agent('reviewer', 0, 40, w(1)), agent('reviewer', 2, 25, w(1)), agent('reviewer', 5, 30, w(1)), agent('verifier', 41, 51, w(1)), verdict(51, 52)]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 10000 + 1000, missing: false }); // 5.0 s apart is the tolerance itself
+    const apart = computeReviewTiming([root(0, 200), agent('reviewer', 0, 40, w(1)), agent('reviewer', 5.001, 25, w(1)), agent('verifier', 41, 51, w(1)), verdict(51, 52)]);
+    expect(apart.criticalPath).toMatchObject({ ms: null, missing: true });
+  });
+
+  test('a merged wave among several leaves that wave MISSING and the other waves measured', () => {
+    const t = computeReviewTiming([
+      root(0, 300),
+      agent('reviewer', 0, 40, w(1)),
+      agent('reviewer', 41, 61, w(2)),
+      agent('reviewer', 100, 110, w(2)), // a third wave stamped 2
+      agent('verifier', 111, 121, w(1)),
+      verdict(121, 122),
+    ]);
+    expect(t.criticalPath.reason).toContain('reviewer wave 2: its spans start 59.0s apart');
+    expect(t.criticalPath.rounds[0].steps.map((s) => [s.stage, s.wave, s.missing])).toEqual([
+      ['reviewer', 1, false],
+      ['reviewer', 2, true],
+      ['verifier', undefined, false],
+      ['verdict', undefined, false],
+    ]);
+  });
+
+  test('verify waves follow the same rule', () => {
+    const t = computeReviewTiming([root(0, 300), agent('reviewer', 0, 10, w(1)), agent('verifier', 11, 21, w(1)), agent('verifier', 60, 70, w(1)), verdict(70, 71)]);
+    expect(t.criticalPath).toMatchObject({ ms: null, missing: true });
+    expect(t.criticalPath.reason).toContain('verifier wave 1: its spans start 49.0s apart');
+  });
+
+  test('spans that name no wave are never checked: a narrated dispatch staggers its agents, and one slowest span is the figure as before', () => {
+    const t = computeReviewTiming([root(0, 300), agent('reviewer', 0, 40, { round: 1 }), agent('reviewer', 30, 50, { round: 1 }), agent('verifier', 51, 61, { round: 1 }), verdict(61, 62)]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 10000 + 1000, missing: false });
+  });
+});
+
+describe('a verdict span that ended in error is a verdict that was not recorded (review of PR 270, round 2)', () => {
+  const verdict = (start, end, status = 'ok') => ({ ...span(STAGES.verdict, start, end, { round: 1 }), status });
+  const chain = [root(0, 300), agent('reviewer', 0, 40, { round: 1 }), agent('verifier', 41, 51, { round: 1 })];
+
+  test('the failed attempt and the retry that recorded the verdict are ONE verdict: the retry\'s is the step, the total is computed, not MISSING for two verdicts', () => {
+    const t = computeReviewTiming([...chain, verdict(51, 52, 'error'), verdict(53, 54)]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 10000 + 1000, missing: false });
+    expect(t.criticalPath.rounds[0].steps[2]).toEqual({ stage: 'verdict', ms: 1000, missing: false });
+    expect(t.stages[STAGES.verdict].count).toBe(2); // both attempts are in the trace and in the per-stage table
+  });
+
+  test('an error verdict that is the longer one is not taken for the step: the slowest rule does not choose a verdict that was never recorded', () => {
+    const t = computeReviewTiming([...chain, verdict(51, 80, 'error'), verdict(81, 82)]);
+    expect(t.criticalPath).toMatchObject({ ms: 40000 + 10000 + 1000, missing: false });
+  });
+
+  test('a round whose only verdict span ended in error has no verdict: MISSING, with that reason, the other steps still measured', () => {
+    const t = computeReviewTiming([...chain, verdict(51, 52, 'error')]);
+    expect(t.criticalPath).toMatchObject({ ms: null, missing: true });
+    expect(t.criticalPath.reason).toContain('verdict: every verdict span ended in error: no verdict was recorded');
+    expect(t.criticalPath.rounds[0].steps.slice(0, 2).every((s) => !s.missing)).toBe(true);
+  });
+
+  test('only the status `error` is excluded: a verdict that ended in another status still counts, and two of them are still two', () => {
+    expect(computeReviewTiming([...chain, verdict(51, 52, 'blocked')]).criticalPath).toMatchObject({ ms: 51000, missing: false });
+    const two = computeReviewTiming([...chain, verdict(51, 52, 'blocked'), verdict(53, 54)]).criticalPath;
+    expect(two).toMatchObject({ ms: null, missing: true });
+    expect(two.reason).toContain('2 verdict spans recorded in the round');
   });
 });
 

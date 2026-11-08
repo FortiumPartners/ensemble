@@ -41,6 +41,30 @@
  * Coverage is the agents' own report (`pathsReviewed`) and their read-only access an instruction nobody here enforces. The
  * baseline test run (head code) happens inside prepare, before the tier is known. `agentAuthored` is the caller's word.
  *
+ * STAGE SPANS (kata k0sh): the run records, through `makeTracer`, exactly the span names `lib/pr-review-timing.js` reads (its
+ * STAGES and STAGE_KINDS are imported, never respelled here): one `review` root per run (opened by prepare, closed by the call
+ * that ends the run, so it is the orchestrator window), `review.head-read` (fetching the base and head and finding the merge
+ * base), `review.gate` (the host reads and the gate), `review.verdict` (deriving the review status and recording it: the state
+ * report, `final.json` and the run file) and one `review.<role>`
+ * span per dispatched agent with its `agent` name and its `wave`. Every one carries `round` (1, or 2 when `lastReviewedSha`
+ * makes it a delta re-review; the runner cannot know how many re-reviews came before). `wave` is the agent's place among the
+ * dispatch groups of its kind (the review agents, then the verifiers): the cap splits a round's agents into waves, each
+ * dispatched only after the one before was collected, so the reader sums the slowest reviewer of every review wave and the
+ * slowest verifier of every verify wave instead of taking one slowest across them (the security lane is no step of that
+ * chain: the reader names a lane that outlasts the reviewers of its wave and makes the total a lower bound). An agent span
+ * opens when the agent is dispatched and closes when its result is collected, with
+ * `last_message_ts` = the moment its result file arrived, so the agent counts to its last message and never to the collect
+ * call or the session's exit. A result dated before the agent was dispatched is no message of this dispatch (a stale file):
+ * none is stamped. One dated well after the collect call that read it (clock skew) cannot be placed, so it is stamped as it
+ * is, the reader refuses that agent's interval, and `deps.notices` says so in both cases. The verdict span ends ok when the
+ * verdict was recorded and error when that attempt did not get that far (a failed state write, a throw); the reader takes an
+ * error span for no verdict, so a collect retried after a failure leaves ONE verdict in the window (two would leave the
+ * critical path without the verdict that ends its chain). An adjudication after the root has closed re-runs the gate and the
+ * verdict outside the window, which the reader leaves out. HONEST LIMITS: the root opens after the
+ * first read of the PR head (the run id depends on it), and does not record `turns` or `tool_calls` (the runner cannot see the
+ * model). A trace file that already holds another `review` root (a second run sharing `traceRunId`) has no usable window: give
+ * each run its own trace.
+ *
  * deps (every function may be async):
  *   now()                                    epoch ms
  *   makeTracer(traceRunId)                   -> {startSpan(name,{kind,attrs}), endSpan(id,{status,attrs})}   (never throws)
@@ -56,6 +80,7 @@
  *   fs.{mkdirp(dir,mode), writeAtomic(file,text,mode), readText(file) -> string|null}
  *   fs.headFile(root, rel)                   -> {lines}|null     the regular file `rel` names in the head snapshot `root`, exactly spelled, never followed
  *   redact(value)                            optional deep redaction applied to everything written or returned
+ *   notices                                  optional array a note for the caller is pushed to (the CLI adds it to the answer's `warnings`)
  */
 
 const path = require('path');
@@ -75,6 +100,7 @@ const { deriveStatus } = require('./pr-review-status');
 const { statePath } = require('./pr-review-state');
 const { assessProtection } = require('./pr-review-precheck');
 const S = require('./pr-review-run-support');
+const { STAGES, STAGE_KINDS } = require('./pr-review-timing');
 
 const SCHEMA = 1;
 const RUN_SUBDIR = path.join('.ensemble', 'pr-review', 'run');
@@ -274,7 +300,8 @@ function dispatchWave(run, wave, now, deps, tracer) {
     agent.deadlineAt = deadline.deadlineAt;
     agent.deadlineAtIso = deadline.deadlineAtIso;
     agent.prompt = S.agentPrompt(agent);
-    agent.spanId = tracer.start(`agent:${agent.name}`, 'agent', { role: agent.role, round: wave.round, wave: wave.wave });
+    const stage = stageOfAgent(agent);
+    agent.spanId = tracer.start(stage, STAGE_KINDS[stage], { agent: agent.name, role: agent.role, round: run.round, wave: wave.wave });
     dispatched.push(agent);
   }
   wave.status = 'dispatched';
@@ -311,7 +338,36 @@ function manifestOf(run, wave) {
   };
 }
 
+/** The span a dispatched agent is recorded under: `review.<role>`, the security lane being `review.security-lane`. */
+function stageOfAgent(agent) {
+  return agent.name === LANE_NAME ? STAGES['security-lane'] : STAGES[agent.role];
+}
+
+/** Closes the `review` root span (when one is open), whatever the run's outcome. */
+function endRoot(tracer, rootSpanId, status, attrs) {
+  if (tracer !== null && rootSpanId !== null && rootSpanId !== undefined) tracer.end(rootSpanId, status, attrs);
+}
+
+/**
+ * Prepare. The `review` root span opens inside and stays open on DISPATCH (the run carries its id; collect closes it when the
+ * run ends); every other outcome is the end of the run, so it is closed here.
+ */
 async function prepareRun(input, deps) {
+  const ctx = { tracer: null, root: null };
+  let answer;
+  try {
+    answer = await prepareStages(input, deps, ctx);
+  } catch (error) {
+    endRoot(ctx.tracer, ctx.root, 'error', { error: msg(error) });
+    throw error;
+  }
+  if (!(isObject(answer) && answer.ok === true && answer.status === 'DISPATCH')) {
+    endRoot(ctx.tracer, ctx.root, isObject(answer) && answer.ok === true ? 'ok' : 'error', { status: isObject(answer) ? answer.status : undefined });
+  }
+  return answer;
+}
+
+async function prepareStages(input, deps, ctx) {
   const startedAt = deps.now();
   const invalid = validatePrepare(input);
   if (invalid !== null) return failure('RUN_FAILED', { reason: 'invalid-input', error: invalid });
@@ -347,23 +403,27 @@ async function prepareRun(input, deps) {
     return failure('RUN_FAILED', { reason: 'run-exists', error: `run ${runId} already exists; call collect, or choose another runId` });
   }
   const tracer = safeTracer(deps, traceRunId);
+  const round = input.lastReviewedSha === undefined ? 1 : 2;
+  ctx.tracer = tracer;
+  ctx.root = tracer.start(STAGES.root, STAGE_KINDS[STAGES.root], { pr: input.pr, round, headSha });
 
   // 2. precheck (advisory: a failed precheck never stops the review)
   let precheck;
   if (input.skipPrecheck === true) {
     precheck = { skipped: true, reason: 'requested' };
   } else {
-    const span = tracer.start('precheck', 'io', { pr: input.pr });
     precheck = summarisePrecheck(await settle(() => deps.precheck({ dryRun: input.dryRun === true })));
-    tracer.end(span, precheck.ok ? 'ok' : 'error', { ok: precheck.ok });
   }
 
   // base: always the merge base of the freshly fetched base branch and the head. A caller-stated baseSha is checked
   // against it, never trusted: a commit inside the PR would narrow the changed paths, tier, slices and coverage to the
   // suffix, and the gate would grade only that suffix with no sign that the earlier commits went unreviewed.
+  const headReadSpan = tracer.start(STAGES.headRead, STAGE_KINDS[STAGES.headRead], { headSha, round });
   const refs = await settle(() => deps.fetchRefs({ headSha, baseRefName }));
-  if (!isObject(refs) || refs.ok !== true) return failure('RUN_FAILED', { reason: 'refs-unavailable', error: isObject(refs) && refs.error ? refs.error : 'the base and head could not be fetched', precheck });
-  const mb = await settle(() => deps.git(['merge-base', `refs/remotes/origin/${baseRefName}`, headSha]));
+  const refsFetched = isObject(refs) && refs.ok === true;
+  const mb = refsFetched ? await settle(() => deps.git(['merge-base', `refs/remotes/origin/${baseRefName}`, headSha])) : null;
+  tracer.end(headReadSpan, refsFetched ? 'ok' : 'error', {});
+  if (!refsFetched) return failure('RUN_FAILED', { reason: 'refs-unavailable', error: isObject(refs) && refs.error ? refs.error : 'the base and head could not be fetched', precheck });
   const baseSha = isObject(mb) && mb.status === 0 ? String(mb.stdout).trim().toLowerCase() : '';
   if (!SHA.test(baseSha)) return failure('RUN_FAILED', { reason: 'base-unresolved', error: `no merge base of origin/${baseRefName} and ${headSha}`, precheck });
   if (input.baseSha !== undefined && input.baseSha !== baseSha) {
@@ -371,11 +431,9 @@ async function prepareRun(input, deps) {
   }
 
   // 3. prepare (snapshot, diffs, facts, baseline)
-  const prepSpan = tracer.start('prepare-head', 'phase', { headSha });
   const options = { repoRoot: input.repoRoot, runId, baseSha, headSha };
   for (const key of ['lastReviewedSha', 'remediationShas', 'stateRoot', 'testFiles', 'testCommand', 'baselineTimeoutMs', 'nodeModules']) if (input[key] !== undefined) options[key] = input[key];
   const prepared = await settle(() => deps.prepareReview(options));
-  tracer.end(prepSpan, isObject(prepared) && prepared.ok === true ? 'ok' : 'error', {});
   if (!isObject(prepared) || prepared.ok !== true) {
     return failure('RUN_FAILED', { reason: 'prepare-failed', error: isObject(prepared) ? `${prepared.reason || 'unknown'}: ${prepared.detail || ''}`.trim() : 'prepare returned nothing', stage: isObject(prepared) ? prepared.stage : undefined, precheck });
   }
@@ -402,6 +460,7 @@ async function prepareRun(input, deps) {
     schema: SCHEMA,
     runId,
     traceRunId,
+    round,
     repo: input.repo,
     pr: input.pr,
     repoRoot: input.repoRoot,
@@ -482,6 +541,7 @@ async function prepareRun(input, deps) {
   const now = deps.now();
   dispatchWave(run, run.waves[0], now, deps, tracer);
   run.phase = 'review-dispatched';
+  run.rootSpanId = ctx.root;
   logCall(run, 'prepare', startedAt, deps);
   saveRun(deps, run);
   return { ...manifestOf(run, run.waves[0]), precheck, prState: run.prState };
@@ -503,14 +563,56 @@ function expectedOf(wave) {
   return wave.agents.map((a) => ({ name: a.name, role: a.role, dispatchedAt: a.dispatchedAt, deadlineAt: a.deadlineAt, ...(a.sliceId !== undefined ? { sliceId: a.sliceId, lens: a.lens, paths: a.paths } : {}), ...(a.candidateIds !== undefined ? { candidateIds: a.candidateIds } : {}) }));
 }
 
+/**
+ * How far after the clock read of the call that collected it a result file's change time may lie before it is skew and not
+ * the clock's resolution (the collector rounds a change time to the millisecond, so it can lie a millisecond past the call).
+ */
+const ARRIVAL_JITTER_MS = 1000;
+
+/** A note for the caller: the CLI adds `deps.notices` to the answer's `warnings`. Nothing when the deps carry no such channel. */
+function notify(deps, text) {
+  if (Array.isArray(deps.notices)) deps.notices.push(text);
+}
+
+/**
+ * The span attr that ends an agent at its last message: the arrival of its result file. An agent that never arrived has none
+ * (its span ends where the collect call found it). A change time before the agent was dispatched is no message of this
+ * dispatch (a stale file of an earlier round): none is stamped, the agent is listed in `problems.before`, and the span ends
+ * at the collect call as it does for an agent that never arrived. A change time a little past the call's own clock reading
+ * is the clock's resolution and is read as the call. One further past cannot be placed: it is stamped as it is, so the
+ * reader refuses that agent's interval instead of counting the agent to the collect call, and the agent is listed in
+ * `problems.after`.
+ */
+function lastMessageOf(agent, record, closedAt, problems) {
+  if (!Number.isFinite(record.arrivedAt)) return {};
+  let at = record.arrivedAt;
+  if (at < agent.dispatchedAt) {
+    problems.before.push(agent.name);
+    return {};
+  }
+  if (at > closedAt) {
+    if (at - closedAt <= ARRIVAL_JITTER_MS) at = closedAt;
+    else problems.after.push(agent.name);
+  }
+  return { last_message_ts: new Date(at).toISOString() };
+}
+
 /** Records one collected wave in the run and ends its agents' spans. */
-function recordWave(run, wave, collected, now, tracer) {
+function recordWave(run, wave, collected, now, tracer, deps) {
+  const problems = { before: [], after: [] };
   for (const record of collected.agents) {
     const agent = wave.agents.find((a) => a.name === record.name);
     agent.state = record.state;
     agent.reason = record.reason;
     if (Number.isFinite(record.arrivedAt)) agent.arrivedAt = record.arrivedAt;
-    tracer.end(agent.spanId, record.state === 'arrived' ? 'ok' : record.state, { state: record.state, reason: record.reason });
+    const lastMessage = lastMessageOf(agent, record, deps.now(), problems);
+    tracer.end(agent.spanId, record.state === 'arrived' ? 'ok' : record.state, { state: record.state, reason: record.reason, ...lastMessage });
+  }
+  if (problems.before.length > 0) {
+    notify(deps, `trace: the result file of ${problems.before.join(', ')} is dated before the agent was dispatched (a stale file of an earlier round?), so no last message is recorded for it: its span ends at the collect call`);
+  }
+  if (problems.after.length > 0) {
+    notify(deps, `trace: the result file of ${problems.after.join(', ')} is dated more than ${ARRIVAL_JITTER_MS / 1000} s after the collect call that read it (clock skew?), so its last message cannot be placed: the span is recorded as it is and \`pr-review-cli timing\` will refuse that agent's interval rather than count it to the collect call`);
   }
   wave.status = 'collected';
   wave.collectedAt = now;
@@ -672,6 +774,7 @@ async function treeOf(deps, sha) {
  * Returns `{invalid}` (head moved / unreadable) or the graded pieces.
  */
 async function gateStage(run, built, deps, tracer) {
+  const span = tracer.start(STAGES.gate, STAGE_KINDS[STAGES.gate], { headSha: run.headSha, round: run.round });
   const unavailable = [];
   const warnings = [];
   const reviewsRead = await twice(() => deps.readReviews());
@@ -680,9 +783,18 @@ async function gateStage(run, built, deps, tracer) {
   if (protectionRead.ok !== true) unavailable.push('branch-protection');
 
   const head = await readHead(deps);
-  if (!head.ok) return { invalid: failure('RUN_FAILED', { reason: 'head-unreadable', error: head.error, runId: run.runId }) };
-  if (head.headSha !== run.headSha) return { invalid: failure('RUN_INVALIDATED', { reason: 'head-moved', runId: run.runId, expectedHead: run.headSha, currentHead: head.headSha }), moved: true };
-  if (head.pr.state !== 'OPEN') return { invalid: notOpen(head.pr.state, run.runId), moved: false };
+  if (!head.ok) {
+    tracer.end(span, 'error', { reason: 'head-unreadable' });
+    return { invalid: failure('RUN_FAILED', { reason: 'head-unreadable', error: head.error, runId: run.runId }) };
+  }
+  if (head.headSha !== run.headSha) {
+    tracer.end(span, 'error', { reason: 'head-moved' });
+    return { invalid: failure('RUN_INVALIDATED', { reason: 'head-moved', runId: run.runId, expectedHead: run.headSha, currentHead: head.headSha }), moved: true };
+  }
+  if (head.pr.state !== 'OPEN') {
+    tracer.end(span, 'error', { reason: 'pr-not-open' });
+    return { invalid: notOpen(head.pr.state, run.runId), moved: false };
+  }
 
   const headTreeSha = await treeOf(deps, run.headSha);
   if (headTreeSha === undefined) warnings.push('head-tree-unreadable: only approvals given on the head commit itself are counted');
@@ -703,29 +815,42 @@ async function gateStage(run, built, deps, tracer) {
   const description = checkDescription({ body: head.pr.body, agentAuthored: run.agentAuthored });
   const policy = run.policy === null ? undefined : run.policy;
   const approvals = evaluateApprovals({ reviews, headSha: run.headSha, headTreeSha, tier: run.tier, policy, author: run.author, directedBy: description.directedBy || undefined, agentAuthored: run.agentAuthored });
-  const span = tracer.start('gate', 'gate', { headSha: run.headSha });
   const gate = evaluateGate({ ledger: built.ledger, approvals, tier: run.tier, description, security: run.security, headSha: run.headSha, policy, unavailable });
   const disposition = buildDispositionChoices({ ledger: built.ledger, security: run.security, votes: built.tally, policy, headSha: run.headSha });
   tracer.end(span, gate.mergeable === true ? 'ok' : 'blocked', { mergeable: gate.mergeable, blockers: gate.blockers.length });
   const gated = { ...gate, dispositionChoices: disposition.dispositionChoices, dispositionGroups: disposition.groups, mergeConfirmation: disposition.mergeConfirmation, ...(disposition.ok === true ? {} : { dispositionReason: disposition.reason }) };
+  const protection = assessProtection(protectionRead, run.baseRefName, { required: approvals.humansRequired });
 
-  const actionable = built.ledger.filter((entry) => isActionable(entry)).length;
-  const deferred = built.ledger.filter((entry) => !isActionable(entry) && entry.disposition === 'deferred').length;
-  const tests = testsFact(run.baseline);
-  const reviewStatus = deriveStatus({
-    baseSha: run.baseSha,
-    headSha: run.headSha,
-    reviewedHeadSha: run.headSha,
-    ...(headTreeSha === undefined ? {} : { reviewedTreeSha: headTreeSha, headTreeSha }),
-    findingCounts: { total: built.ledger.length, actionable, deferred },
-    // No usable baseline (no relevant test files, a timed-out run, none at all) is a run that did not happen, never a
-    // failure it did not have: recorded as skipped, so the status reads `tests skipped` and can never be complete.
-    tests: tests === undefined ? { skipped: true, command: 'none: the baseline run produced no usable result (no relevant test files, a timed-out run or no run)' } : tests,
-    roundsUsed: 0,
-    ...(run.policy && Number.isInteger(run.policy.roundCap) ? { roundCap: run.policy.roundCap } : {}),
-    reportPath: statePath(run.pr, run.repoRoot),
-  });
-  return { gate: gated, approvals, description, reviewStatus, headTreeSha, tests, protection: assessProtection(protectionRead, run.baseRefName, { required: approvals.humansRequired }), unavailable, warnings, headState: head.pr.state };
+  // The verdict span covers the verdict from deriving the status to recording it, and `finalise` ends it: ok when the verdict
+  // was recorded, error when this attempt did not get that far (a failed state write, a throw). The reader takes an error
+  // span for no verdict, so a collect retried after a failure leaves ONE verdict in the window; two would leave the critical
+  // path without the verdict that ends its chain. After the root has closed (an adjudication) the re-run lies outside the
+  // window, which the reader leaves out.
+  const verdictSpan = tracer.start(STAGES.verdict, STAGE_KINDS[STAGES.verdict], { headSha: run.headSha, round: run.round });
+  let reviewStatus;
+  let tests;
+  try {
+    const actionable = built.ledger.filter((entry) => isActionable(entry)).length;
+    const deferred = built.ledger.filter((entry) => !isActionable(entry) && entry.disposition === 'deferred').length;
+    tests = testsFact(run.baseline);
+    reviewStatus = deriveStatus({
+      baseSha: run.baseSha,
+      headSha: run.headSha,
+      reviewedHeadSha: run.headSha,
+      ...(headTreeSha === undefined ? {} : { reviewedTreeSha: headTreeSha, headTreeSha }),
+      findingCounts: { total: built.ledger.length, actionable, deferred },
+      // No usable baseline (no relevant test files, a timed-out run, none at all) is a run that did not happen, never a
+      // failure it did not have: recorded as skipped, so the status reads `tests skipped` and can never be complete.
+      tests: tests === undefined ? { skipped: true, command: 'none: the baseline run produced no usable result (no relevant test files, a timed-out run or no run)' } : tests,
+      roundsUsed: 0,
+      ...(run.policy && Number.isInteger(run.policy.roundCap) ? { roundCap: run.policy.roundCap } : {}),
+      reportPath: statePath(run.pr, run.repoRoot),
+    });
+  } catch (error) {
+    tracer.end(verdictSpan, 'error', { error: msg(error) });
+    throw error;
+  }
+  return { gate: gated, approvals, description, reviewStatus, headTreeSha, tests, protection, unavailable, warnings, headState: head.pr.state, verdictSpan };
 }
 
 function reducedReviewNotice(run, built, notReviewed, stage) {
@@ -753,11 +878,33 @@ function notReviewedOf(run) {
   };
 }
 
-/** The final computation, from a run whose waves are all collected. `ledger`/`tally` may come from an adjudication. */
+/**
+ * The final computation, from a run whose waves are all collected. `ledger`/`tally` may come from an adjudication. The verdict
+ * span opened by the gate stage ends here: ok once the verdict is recorded, error when this attempt did not get that far, so
+ * that a retried collect leaves one verdict in the window (the reader takes an error span for no verdict). The root span
+ * closes right after the verdict that ends the run.
+ */
 async function finalise(run, built, deps, now, startedAt, tracer, extra) {
   const stage = await gateStage(run, built, deps, tracer);
   if (stage.invalid) return { invalid: stage.invalid, moved: stage.moved === true };
+  let outcome;
+  try {
+    outcome = await recordFinal(run, built, stage, deps, now, startedAt, extra);
+  } catch (error) {
+    tracer.end(stage.verdictSpan, 'error', { error: msg(error) });
+    throw error;
+  }
+  if (outcome.answer === undefined) {
+    tracer.end(stage.verdictSpan, 'error', { reason: outcome.invalid.reason });
+    return outcome;
+  }
+  tracer.end(stage.verdictSpan, 'ok', { status: isObject(stage.reviewStatus) ? stage.reviewStatus.status : undefined });
+  if (outcome.closesRoot) endRoot(tracer, run.rootSpanId, 'ok', { phase: 'done' });
+  return { answer: outcome.answer };
+}
 
+/** Records the verdict of a run: the state report, `final.json` and the run file. `{invalid, moved}` when the state report cannot be written. */
+async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
   const notReviewed = notReviewedOf(run);
   const adjudicate = S.adjudicateList(built.ledger);
   const reducedReview = reducedReviewNotice(run, built, notReviewed, stage);
@@ -817,8 +964,12 @@ async function finalise(run, built, deps, now, startedAt, tracer, extra) {
   run.finalLedger = built.ledger;
   run.metrics = metrics;
   if (extra.adjudications) run.adjudications = extra.adjudications;
+  // The root span closes right after the verdict (`finalise` ends it), and the run file records that in THIS write: a second
+  // save for it could fail after the review was recorded, and the caller would see a failure for a review that completed.
+  const closesRoot = run.rootSpanId !== null && run.rootSpanId !== undefined && run.rootEnded !== true;
+  if (closesRoot) run.rootEnded = true;
   saveRun(deps, run);
-  return { answer };
+  return { answer, closesRoot };
 }
 
 /** Validates and applies adjudications; only findings that were LISTED can be decided, and no decision closes an Important. */
@@ -849,7 +1000,31 @@ function applyAdjudications(ledger, listed, adjudications, now) {
   return { ok: true, ledger: next };
 }
 
+const TERMINAL_PHASES = Object.freeze(['done', 'invalidated', 'needs-full-mode', 'failed']);
+
+/**
+ * Collect. The `review` root span stays open across PENDING and DISPATCH answers and is closed by the call after which the
+ * run is over, once: the run records that it did. A finished run closes it in `finalise`, in the write that records the
+ * verdict; this closes it for a run that ended without one (invalidated, failed) and records that in a write of its own,
+ * which is trace bookkeeping: a failure of it never changes the answer of a call whose run is already over.
+ */
 async function collectRun(input, deps) {
+  const ctx = { tracer: null, run: null };
+  const answer = await collectStages(input, deps, ctx);
+  const { run, tracer } = ctx;
+  if (run !== null && run.rootSpanId !== null && run.rootSpanId !== undefined && run.rootEnded !== true && TERMINAL_PHASES.includes(run.phase)) {
+    endRoot(tracer, run.rootSpanId, run.phase === 'done' ? 'ok' : 'error', { phase: run.phase });
+    run.rootEnded = true;
+    try {
+      saveRun(deps, run);
+    } catch (_error) {
+      // the root is closed in the trace; a later collect tries the bookkeeping again
+    }
+  }
+  return answer;
+}
+
+async function collectStages(input, deps, ctx) {
   const startedAt = deps.now();
   const invalid = validateCollect(input);
   if (invalid !== null) return failure('RUN_FAILED', { reason: 'invalid-input', error: invalid });
@@ -859,6 +1034,8 @@ async function collectRun(input, deps) {
   if (run === null) return failure('RUN_FAILED', { reason: 'run-not-found', error: `no run ${input.runId} under ${input.repoRoot}` });
   if (run === undefined) return failure('RUN_FAILED', { reason: 'run-unreadable', error: 'run.json is not a run of this version' });
   const tracer = safeTracer(deps, run.traceRunId);
+  ctx.run = run;
+  ctx.tracer = tracer;
 
   if (['invalidated', 'needs-full-mode', 'failed'].includes(run.phase)) return run.result;
 
@@ -913,7 +1090,7 @@ async function collectRun(input, deps) {
       saveRun(deps, run);
       return { ok: true, status: 'PENDING', runId: run.runId, round: wave.round, wave: `${wave.wave} of ${wave.of}`, waitingOn: pending.map((a) => a.name), retryAfterMs: Math.max(1000, Math.min(15000, earliest - now)), earliestDeadlineAt: earliest, earliestDeadlineAtIso: new Date(earliest).toISOString() };
     }
-    recordWave(run, wave, collected, now, tracer);
+    recordWave(run, wave, collected, now, tracer, deps);
     saveRun(deps, run);
   }
 

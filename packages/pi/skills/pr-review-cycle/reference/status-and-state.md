@@ -171,12 +171,14 @@ wraps that command's whole review step and is a different span, never read here)
 `review.classifier`, `review.second-assessor`, `review.security-lane`,
 `review.reviewer`, `review.verifier` and `review.verdict`, each optionally with a
 `round` attr (delta re-reviews are round 2 and later) and agents with an `agent`
-name; `lib/pr-review-timing.js` holds the contract. The answer is the window, the
+name and a `wave` (the dispatch group, from 1; waves run one after another);
+`lib/pr-review-timing.js` holds the contract. The answer is the window, the
 **orchestrator-only** time (wall time minus the union of the intervals in which at
 least one dispatched agent was active or a verdict was being computed: the critical
 path counts the verdict, so no minute is in both), the **critical path** (slowest
 reviewer, then slowest verifier, then verdict, per round, each step cut to the
-window, which a critical path needs) and a per-stage table. Three rules keep it
+window, which a critical path needs; agents dispatched in several waves count the
+slowest of each wave, summed) and a per-stage table. Three rules keep it
 honest. An agent ends at its **last message**, never at `session_exit`: close its
 span when its result arrives, or, if it can only be closed later, record the real
 end as the span attr `last_message_ts`. A span is as long as the recorder's
@@ -189,13 +191,18 @@ the first dispatch, the critical path) are missing with that reason. That check 
 a step only through a span that was open across it: a forward and a backward step
 both in the gaps between spans leave no trace in the recorder's data. And a figure
 nobody recorded is `{ ms: null, missing: true, reason }`, never zero: a critical path
-with no verdict span, or with two in one round, has no total, steps that overlap or
-run out of order are never summed (the total is missing and names the pair), and an
-unfinished agent makes the orchestrator-only time an upper bound (`bound: 'upper'`).
+with no verdict span, or with two in one round, has no total (a verdict span that
+ended in error was never recorded and counts for neither), steps that overlap or
+run out of order are never summed (the total is missing and names the pair), spans
+that carry one wave number but started more than 5 s apart are not one wave (that step
+is missing), a security lane that ended after the slowest reviewer of its wave, or ran
+in a wave no reviewer ran in, is no step, so the round names it (`outlasted`,
+`uncountedWaves`) and its total is a lower bound, and an unfinished agent makes the
+orchestrator-only time an upper bound (`bound: 'upper'`).
 Copy the answer into `state.timing` verbatim; do not round, fill in or drop a
 missing figure. Timing is observational only: a `timing` call that fails or answers
 `ok: false` is recorded as it answered, or left out, and never blocks the review,
-the gate or a merge. HONEST LIMIT: nothing in this procedure records the stage spans
-yet (the `review-run` runner is the intended recorder), so until it does a run
-without a hand-written trace has no `timing`, and the report says nothing about
-timing rather than a made-up figure.
+the gate or a merge. `review-run` (`lib/review-run-cli.js`) records these stage spans for a
+light-mode run into its own trace (it does not record `turns` or `tool_calls`), so `timing` with that run's id answers.
+HONEST LIMIT: the narrated Steps 1-10 record no stage spans, so a run without a hand-written trace has no `timing`, and
+the report says nothing about timing rather than a made-up figure.
