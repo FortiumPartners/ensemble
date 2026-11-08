@@ -336,6 +336,48 @@ describe('the real CLI process on a real git fixture', () => {
     expect(fs.statSync(path.join(runDir('flow'), 'run.json')).mode & 0o777).toBe(0o600);
   });
 
+  test('rolling verification through the real process (kata 630v): nine candidates need nine verifiers at a cap of 8; the first verifier to arrive frees a slot and the ninth starts at once, in the same plan, and the run ends DONE', () => {
+    const before = snapshotRepo();
+    const claims = ['the loop reads one past the end of the list', 'the cache key ignores the tenant so entries leak', 'the retry never backs off and hammers the host', 'the parser accepts a negative length and allocates it', 'the lock is released before the write completes', 'the timeout is read in seconds but compared in milliseconds', 'the path join lets a dotted segment climb out of the root', 'the counter is incremented twice on the error branch', 'the callback runs after the handle was closed'];
+    const findings = claims.map((failureMode, i) => reviewerFinding({ locationOrLink: i % 2 === 0 ? 'src/a.js:1' : 'src/b.js:1', failureMode, evidence: `read ${failureMode}`, originalTextOrLink: i % 2 === 0 ? 'src/a.js:1' : 'src/b.js:1' }));
+    const review = prep({ runId: 'rolling' }).out;
+    answerReview(review, { findings: { 'reviewer-s1-a': findings } });
+    const v1 = coll('rolling').out;
+    expect(v1).toMatchObject({ ok: true, status: 'DISPATCH', round: 'verify', wave: '1 of 2', maxConcurrentAgents: 8 });
+    expect(v1.agents.map((a) => a.name)).toEqual(Array.from({ length: 8 }, (_, i) => `verifier-${i + 1}`));
+
+    // nobody has arrived: PENDING, nothing new dispatched
+    expect(coll('rolling').out).toMatchObject({ status: 'PENDING', round: 'verify' });
+
+    // one verifier arrives: one slot is free and ONE verifier is left (the plan's ninth): it is dispatched while seven still run
+    answerVotes({ agents: v1.agents.slice(0, 1) });
+    const v2 = coll('rolling');
+    expect(v2.code).toBe(0);
+    expect(v2.out).toMatchObject({ ok: true, status: 'DISPATCH', round: 'verify', refill: true, wave: '2 (rolling)' });
+    expect(v2.out.agents.map((a) => a.name)).toEqual(['verifier-9']);
+    expect(v2.out.stillRunning).toEqual(v1.agents.slice(1).map((a) => a.name));
+    expect(v2.out.stillRunning.length + v2.out.agents.length).toBeLessThanOrEqual(8);
+    expect(v2.out.agents[0].deadlineAt - v2.out.agents[0].dispatchedAt).toBe(5 * 60 * 1000);
+
+    // the plan: nine verifiers, each candidate with three DISTINCT ones
+    const run = JSON.parse(fs.readFileSync(path.join(runDir('rolling'), 'run.json'), 'utf8'));
+    expect([...v1.agents, ...v2.out.agents].map((a) => a.candidateIds)).toEqual(run.verifyAgents.map((a) => a.candidateIds));
+    const perCandidate = new Map();
+    for (const a of run.verifyAgents) for (const id of a.candidateIds) perCandidate.set(id, [...(perCandidate.get(id) || []), a.name]);
+    expect(perCandidate.size).toBe(9);
+    for (const names of perCandidate.values()) expect(new Set(names).size).toBe(3);
+
+    answerVotes({ agents: v1.agents.slice(1) });
+    answerVotes(v2.out);
+    const done = coll('rolling');
+    expect(done.code).toBe(0);
+    expect(['DONE', 'ADJUDICATE']).toContain(done.out.status);
+    expect(done.out.votes).toMatchObject({ verification: 'performed' });
+    expect(done.out.votes.outcomes).toHaveLength(9);
+    expect(done.out.metrics).toMatchObject({ agentsDispatched: 3 + 9 });
+    expect(snapshotRepo()).toEqual(before);
+  });
+
   test('the trace review-run writes is the stage contract pr-review-cli timing reads: ok, every stage found, a critical path inside the window (kata k0sh)', () => {
     const review = prep({ runId: 'timed' }).out;
     answerReview(review, { findings: { 'reviewer-s1-a': [reviewerFinding({ uncertain: true })] } });
@@ -503,8 +545,8 @@ describe('the real CLI process on a real git fixture', () => {
     expect(m.sizing.warnings).toEqual([]);
     const reviewers = m.agents.filter((a) => a.role === 'reviewer');
     expect(reviewers.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b']);
-    for (const a of reviewers) expect(a).toMatchObject({ deadlineMinutes: 15 });
-    // the deadlines: 15 minutes for a slice the model says fits, 36 for the lane that took 17m45s on the run this is the shape of
+    for (const a of reviewers) expect(a).toMatchObject({ deadlineMinutes: 22 });
+    // the deadlines: 22 minutes (the fixed-cost floor, kata d9sy) for a slice the model says fits, 36 for the lane that took 17m45s on the run this is the shape of
     const lane = m.agents.find((a) => a.role === 'security');
     expect(lane).toMatchObject({ deadlineMinutes: 36, work: { files: 19, lines: 1450 } });
     expect((lane.deadlineAt - lane.dispatchedAt) / 60000).toBe(36);
@@ -516,7 +558,7 @@ describe('the real CLI process on a real git fixture', () => {
       const diffPath = /Diff for your slice: (\S+)/.exec(brief)[1];
       expect(diffPath).toMatch(/\/slices\/slice-[123]\.diff$/);
       expect(sections(fs.readFileSync(diffPath, 'utf8'))).toEqual(a.paths);
-      expect(brief).toContain('Timebox: 15 minutes');
+      expect(brief).toContain('Timebox: 22 minutes');
     }
     const rangeDiff = /Diff: (\S+)/.exec(fs.readFileSync(lane.briefPath, 'utf8'))[1];
     expect(path.basename(rangeDiff)).toBe('range.diff');
@@ -537,7 +579,7 @@ describe('the real CLI process on a real git fixture', () => {
     const m = r.out;
     expect(m).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review', wave: '1 of 1', mode: { mode: 'full' } });
     expect(m.sizing.slices.map((slice) => [slice.files, slice.diff])).toEqual([[8, 'slice'], [3, 'slice'], [8, 'slice']]);
-    const sized = { 'reviewer-s1-a': 15, 'reviewer-s1-b': 15, 'reviewer-s2-a': 15, 'reviewer-s2-b': 15, 'reviewer-s3-a': 15, 'reviewer-s3-b': 15, 'security-lane': 36 };
+    const sized = { 'reviewer-s1-a': 22, 'reviewer-s1-b': 22, 'reviewer-s2-a': 22, 'reviewer-s2-b': 22, 'reviewer-s3-a': 22, 'reviewer-s3-b': 22, 'security-lane': 36 };
     expect(Object.fromEntries(m.agents.map((a) => [a.name, a.deadlineMinutes]))).toEqual(sized);
     const changed = WIDE_LINES.map((_, index) => widePath(index));
     const KEY = 'compares the submitted key with the stored value using a loose equality so a type juggled key passes the check';

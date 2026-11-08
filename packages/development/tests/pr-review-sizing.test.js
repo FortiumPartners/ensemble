@@ -19,11 +19,14 @@ const path = require('path');
 
 const sizing = require('../lib/pr-review-sizing');
 const { DEFAULT_POLICY, loadPolicy, DEADLINE_MINUTES_MAX, DEFAULT_DEADLINE_MINUTES, KNOWN_KEYS } = require('../lib/pr-review-policy');
-const { reviewDeadlines } = require('../lib/pr-review-results');
+const { reviewDeadlines, floorOverrideMessage } = require('../lib/pr-review-results');
 const { planSlices } = require('../lib/pr-review-depth');
 
 const {
   OBSERVED,
+  OBSERVED_HI_EFFORT,
+  FLOOR_FACTOR,
+  MIN_AGENT_MINUTES,
   MODEL,
   MINUTES_PER_FILE,
   MINUTES_PER_100_LINES,
@@ -141,7 +144,8 @@ describe('estimateMinutes: whichever of the per-file and per-line terms is large
 });
 
 describe('sizedMinutes: the base is a floor, the maximum a ceiling, and a modelled need over it is said', () => {
-  const sized = (work, over = {}) => sizedMinutes({ base: 15, work, headroom: 2, maximum: 60, ...over });
+  // floor: 0 isolates the size model; the fixed-cost floor has its own describe below
+  const sized = (work, over = {}) => sizedMinutes({ base: 15, work, headroom: 2, maximum: 60, floor: 0, ...over });
 
   test('a small read keeps the base: the model never LOWERS a deadline', () => {
     expect(sized({ files: 3, lines: 33 })).toMatchObject({ minutes: 15, base: 15, raised: false, capped: false });
@@ -305,8 +309,8 @@ describe('reviewDeadlines with `work`: the base is a floor and the model raises 
   });
 
   test('a reviewer on a slice that fits keeps the base, and one on a slice that does not is given longer', () => {
-    expect(ask('reviewer', { files: 8, lines: 556 })).toMatchObject({ minutes: 15, source: 'default' });
-    expect(ask('reviewer', { files: 8, lines: 556 }).sizing).toMatchObject({ raised: false });
+    expect(ask('reviewer', { files: 8, lines: 556 })).toMatchObject({ minutes: MIN_AGENT_MINUTES, source: 'size' });
+    expect(ask('reviewer', { files: 8, lines: 556 }).sizing).toMatchObject({ raised: true, floored: true, floorMinutes: MIN_AGENT_MINUTES });
     expect(ask('reviewer', { files: 19, lines: 1450 })).toMatchObject({ minutes: 36, source: 'size' });
   });
 
@@ -314,12 +318,13 @@ describe('reviewDeadlines with `work`: the base is a floor and the model raises 
     const { policy } = load({ deadlineMinutes: { reviewer: 45, security: 5 } });
     expect(ask('reviewer', REAL, { policy })).toMatchObject({ minutes: 45, source: 'policy' });
     expect(ask('security', REAL, { policy })).toMatchObject({ minutes: 36, source: 'size' });
-    expect(ask('security', { files: 1, lines: 1 }, { policy })).toMatchObject({ minutes: 5, source: 'policy' });
+    // a policy base below the measured floor is not honoured: the floor holds (kata d9sy)
+    expect(ask('security', { files: 1, lines: 1 }, { policy })).toMatchObject({ minutes: MIN_AGENT_MINUTES, source: 'size' });
   });
 
   test('the policy headroom scales the modelled need', () => {
     expect(ask('security', REAL, { policy: load({ deadlineHeadroom: 3 }).policy }).minutes).toBe(54);
-    expect(ask('security', REAL, { policy: load({ deadlineHeadroom: 1 }).policy }).minutes).toBe(18);
+    expect(ask('security', REAL, { policy: load({ deadlineHeadroom: 1 }).policy }).minutes).toBe(MIN_AGENT_MINUTES); // 18 modelled, the floor is 22
   });
 
   test('an unreadable headroom in a hand-handed policy is NAMED and the default applies', () => {
@@ -414,7 +419,7 @@ describe('the defect on the real run, and the plan that fixes it', () => {
     for (const slice of plan().slices) {
       const answer = reviewDeadlines({ role: 'reviewer', now: T0, work: { files: slice.paths.length, lines: slice.lines } });
       expect(answer.sizing.modeledMinutes).toBeLessThanOrEqual(answer.minutes);
-      expect(answer.minutes).toBe(15);
+      expect(answer.minutes).toBe(MIN_AGENT_MINUTES);
       // the slowest observed reader (a path in 0.93 minutes) finishes the slice's paths inside HALF that
       expect(slice.paths.length * MINUTES_PER_FILE).toBeLessThanOrEqual(answer.minutes / DEFAULT_HEADROOM + 1e-9);
     }
@@ -482,7 +487,7 @@ describe('the docs state the numbers the code derives: a number that drifts fail
 
   test('the sfpb defect is no longer listed as unfixed anywhere the docs list defects', () => {
     expect(guide).not.toContain('None is fixed in this change');
-    expect(guide).toMatch(/The 15-minute deadline \(kata `sfpb`\) is addressed by a size model[^;]*not yet measured on a live run/);
+    expect(guide).toMatch(/The 15-minute deadline \(kata `sfpb`\) is addressed by a size model[^;]*; the first live measurements \(effort `hi`, kata `q3a9`\) found its flat floor too tight for a SMALL slice/);
     expect(guide).not.toMatch(/is fixed by the size model/);
     expect(reference).not.toContain('are NOT fixed here and are tracked on their own: (a)');
     expect(reference).toMatch(/One is NOT fixed here and is tracked on its own: `review-run-cli\.js` `peekRun`/);
@@ -535,10 +540,16 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     expect(unreleased).toContain('reader-not-planned');
   });
 
-  test('the CHANGELOG has the sizing entry in Unreleased and it says the model is one run and nothing is relaxed', () => {
+  test('the CHANGELOG has the sizing entry in Unreleased, among the first entries (the newer ones named), and it says the model is one run and nothing is relaxed', () => {
+    // the newest entry goes at the top of the list (kata k48x), so this entry is found by its own opening words, and its place is pinned relative to the newer ones
     const unreleased = changelog.slice(changelog.indexOf('## [Unreleased]'));
     const start = unreleased.search(/- \*\*packages\/development:\*\* `review-run` sizes its slices and deadlines to what there is to read \(kata `sfpb`/);
     expect(start).toBeGreaterThanOrEqual(0);
+    // the text collapses whitespace: entries are told apart by their prefix; an entry filed far from the top is a misplaced one
+    const newer = unreleased.slice(0, start).split('- **packages/development:**').slice(1);
+    expect(newer.length).toBeLessThanOrEqual(8);
+    // the entries known to sit above it: this change (katas d9sy and 630v) is the first
+    expect(newer[0]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
     const first = unreleased.slice(start);
     // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
     const next = first.slice(10).search(/ - (?:\*\*|`)/);
@@ -546,5 +557,91 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     const entry = first.slice(0, next + 10);
     expect(entry).toMatch(/Nothing is relaxed/);
     expect(entry).toMatch(/one observed run/);
+  });
+});
+
+describe('the fixed cost of an agent: a small slice is not given a deadline its own size says (kata d9sy)', () => {
+  const SMALL_4_PATHS = { files: 4, lines: 280 }; // the slice whose reviewer did not arrive inside 15 minutes (run pr277-first-q3a9)
+  const slowestFinished = Math.max(...OBSERVED_HI_EFFORT.finishedReviewerMinutes);
+  const REAL = { files: OBSERVED.files, lines: OBSERVED.changedLines };
+  const ask = (role, work, extra = {}) => reviewDeadlines({ role, now: T0, work, ...extra });
+
+  test('the defect: the old model gave the 4-path, 280-line slice 15 minutes, and a reviewer measured at 12.8, 14.6 and >15 needed them all', () => {
+    const answer = reviewDeadlines({ role: 'reviewer', now: T0, work: SMALL_4_PATHS });
+    expect(answer.sizing.modeledMinutes).toBe(8); // the model alone: 2 x 3.7 minutes, so the base of 15 decided
+    expect(answer.minutes).toBe(MIN_AGENT_MINUTES);
+    expect(answer.minutes).toBeGreaterThan(Math.max(...OBSERVED_HI_EFFORT.expiredReviewerMinutes) + 5);
+    expect(answer.sizing).toMatchObject({ floored: true, floorMinutes: MIN_AGENT_MINUTES, raised: true });
+    expect(answer.source).toBe('size');
+  });
+
+  test('the floor is derived from the measured reviewers, not typed: the slowest finished one times FLOOR_FACTOR, rounded up', () => {
+    expect(slowestFinished).toBe(14.58);
+    expect(MIN_AGENT_MINUTES).toBe(Math.ceil(slowestFinished * FLOOR_FACTOR));
+    expect(MIN_AGENT_MINUTES).toBe(22);
+    expect(FLOOR_FACTOR).toBeGreaterThanOrEqual(1.5);
+    for (const minutes of OBSERVED_HI_EFFORT.finishedReviewerMinutes) expect(MIN_AGENT_MINUTES).toBeGreaterThan(minutes);
+    // every measured reviewer of a small slice, finished or not, was inside the slice limits: size does not explain the spread
+    expect(Math.max(...OBSERVED_HI_EFFORT.finishedReviewerMinutes)).toBeGreaterThan(2 * Math.min(...OBSERVED_HI_EFFORT.finishedReviewerMinutes));
+  });
+
+  test('the floor binds the sized roles and nothing else: a verifier keeps its 5 minutes and a large read keeps its modelled deadline', () => {
+    expect(reviewDeadlines({ role: 'verifier', now: T0, work: SMALL_4_PATHS }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.verifier);
+    expect(reviewDeadlines({ role: 'verifier', now: T0 }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.verifier);
+    expect(reviewDeadlines({ role: 'security', now: T0, work: SMALL_4_PATHS }).minutes).toBe(MIN_AGENT_MINUTES);
+    expect(ask('security', REAL).minutes).toBe(36); // the model's own deadline is above the floor: unchanged
+    expect(reviewDeadlines({ role: 'reviewer', now: T0 }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.reviewer); // no work: the base alone, as ever
+  });
+
+  test('a policy base above the floor is kept, one below it is raised to it, and the 60-minute maximum still caps', () => {
+    expect(ask('reviewer', SMALL_4_PATHS, { policy: load({ deadlineMinutes: { reviewer: 40 } }).policy })).toMatchObject({ minutes: 40, source: 'policy' });
+    expect(ask('reviewer', SMALL_4_PATHS, { policy: load({ deadlineMinutes: { reviewer: 10 } }).policy }).minutes).toBe(MIN_AGENT_MINUTES);
+    expect(sizing.sizedMinutes({ base: 15, work: SMALL_4_PATHS, headroom: 2, maximum: 20 }).minutes).toBe(20);
+  });
+
+  test('a policy base the floor overrides is NAMED, with the policy value and the floor, and recorded; the default and a larger value are not (independent review round 1)', () => {
+    const over = ask('reviewer', SMALL_4_PATHS, { policy: load({ deadlineMinutes: { reviewer: 10 } }).policy });
+    expect(over.minutes).toBe(MIN_AGENT_MINUTES);
+    expect(over.sizing).toMatchObject({ floored: true, floorMinutes: MIN_AGENT_MINUTES, overridesPolicy: true });
+    expect(over.warnings).toEqual([`policy deadlineMinutes.reviewer (10) is below the ${MIN_AGENT_MINUTES}-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is ${MIN_AGENT_MINUTES} minutes`]);
+    expect(ask('security', SMALL_4_PATHS, { policy: load({ deadlineMinutes: { security: 3 } }).policy }).warnings.join()).toContain('deadlineMinutes.security (3)');
+    // the default (a loaded policy holds every key, so 15 cannot be told from unset) and values at or above the floor say nothing
+    for (const policy of [load({}).policy, load({ deadlineMinutes: { reviewer: MIN_AGENT_MINUTES } }).policy, load({ deadlineMinutes: { reviewer: 40 } }).policy]) {
+      const quiet = ask('reviewer', SMALL_4_PATHS, { policy });
+      expect(quiet.warnings).toEqual([]);
+      expect(quiet.sizing.overridesPolicy).toBe(false);
+    }
+    // work that needs more than the floor is the model's doing, not the floor's: nothing to name
+    expect(ask('security', REAL, { policy: load({ deadlineMinutes: { security: 5 } }).policy }).warnings).toEqual([]);
+  });
+
+  test('F2 (second independent review): a policy value the policy SET is named whatever it equals, 15 included; an unset one is raised without a warning, and the sizing records what the policy set', () => {
+    const set15 = load({ deadlineMinutes: { reviewer: 15 } });
+    expect(set15.explicit).toEqual({ deadlineMinutes: { reviewer: 15 } });
+    const named = ask('reviewer', SMALL_4_PATHS, { policy: set15.policy, explicit: set15.explicit });
+    expect(named.minutes).toBe(MIN_AGENT_MINUTES);
+    expect(named.sizing).toMatchObject({ floored: true, policyMinutes: 15, overridesPolicy: true });
+    expect(named.warnings).toEqual([floorOverrideMessage({ role: 'reviewer', policyMinutes: 15, floorMinutes: MIN_AGENT_MINUTES })]);
+    expect(named.warnings[0]).toContain('deadlineMinutes.reviewer (15)');
+    // not set: the default is raised silently (the manifest says the floor decided: deadlineFloored), and no policy value is recorded
+    const unset = load({});
+    expect(unset.explicit).toEqual({ deadlineMinutes: {} });
+    const quiet = ask('reviewer', SMALL_4_PATHS, { policy: unset.policy, explicit: unset.explicit });
+    expect(quiet.minutes).toBe(MIN_AGENT_MINUTES);
+    expect(quiet.warnings).toEqual([]);
+    expect(quiet.sizing).toMatchObject({ floored: true, policyMinutes: null, overridesPolicy: false });
+    // set to the floor or above: nothing is overridden; a role the policy did not set keeps null
+    const atFloor = load({ deadlineMinutes: { reviewer: MIN_AGENT_MINUTES } });
+    expect(ask('reviewer', SMALL_4_PATHS, { policy: atFloor.policy, explicit: atFloor.explicit }).warnings).toEqual([]);
+    expect(ask('security', SMALL_4_PATHS, { policy: set15.policy, explicit: set15.explicit }).sizing.policyMinutes).toBeNull();
+    // a value the loader rejected was never set
+    const rejected = load({ deadlineMinutes: { reviewer: 0 } });
+    expect(rejected.explicit).toEqual({ deadlineMinutes: {} });
+  });
+
+  test('the floor relaxes no rule: the deadline is the floor and no more, and the 60-minute maximum stays above it', () => {
+    const answer = reviewDeadlines({ role: 'reviewer', now: T0, work: SMALL_4_PATHS });
+    expect(answer.deadlineAt).toBe(T0 + MIN_AGENT_MINUTES * 60 * 1000);
+    expect(answer.deadlineAt).toBeLessThan(T0 + DEADLINE_MINUTES_MAX * 60 * 1000);
   });
 });

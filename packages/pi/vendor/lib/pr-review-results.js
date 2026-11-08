@@ -196,6 +196,11 @@ function deadlineFailure(reason) {
   return { ok: false, reason, deadlineAt: null, budgetMs: 0, warnings: [] };
 }
 
+/** The one sentence a floor that overrides a policy `deadlineMinutes` is reported in (the warning here and the run's sizing warning). */
+function floorOverrideMessage({ role, policyMinutes, floorMinutes }) {
+  return `policy deadlineMinutes.${role} (${policyMinutes}) is below the ${floorMinutes}-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is ${floorMinutes} minutes`;
+}
+
 /**
  * The wall-clock deadline for one agent that starts at `now`.
  *
@@ -207,14 +212,18 @@ function deadlineFailure(reason) {
  * @param {Object} [input.policy]  A loaded policy (`loadPolicy(...).policy`); its
  *   `deadlineMinutes[role]` overrides the default when it is a 1..60 integer, and its
  *   `deadlineHeadroom` sets how many times the modelled reading time `work` is given.
+ * @param {Object} [input.explicit]  What the policy block SET (`loadPolicy(...).explicit`, `{deadlineMinutes: {role: minutes}}`): with it
+ *   a policy value below the floor is named whatever it equals (15 included); without it only a value that differs from the default is.
  * @param {{files:number, lines:number}} [input.work]  What the agent is asked to read, as whole non-negative counts.
- *   With it, a reviewer's and the security lane's deadline is the larger of the base above and the modelled reading time
- *   with its headroom (`pr-review-sizing.js`), at most 60 minutes; without it, or for a verifier, the base alone.
+ *   With it, a reviewer's and the security lane's deadline is the larger of the base above, the modelled reading time with its
+ *   headroom and the fixed-cost floor of an agent (`MIN_AGENT_MINUTES`, kata d9sy), at most 60 minutes; without it, or for a
+ *   verifier, the base alone.
  * @returns {{ok:boolean, role?:string, dispatchedAt?:number, deadlineAt:number|null, deadlineAtIso?:string, budgetMs:number,
  *   minutes?:number, source?:'default'|'policy'|'size', sizing?:Object, tier?:string, depth?:string, warnings:string[], reason?:string}}
- *   `source` is `size` only when the model set `minutes` above the base. `sizing` (present when `work` was used) is
- *   `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes, raised, capped}`: `capped` says the
- *   modelled need is over the 60-minute maximum and the agent is given the maximum, which is less than the model says.
+ *   `source` is `size` only when the size model or the floor set `minutes` above the base. `sizing` (present when `work` was used) is
+ *   `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes, floorMinutes, floored, raised, capped}`: `floored` says
+ *   the floor decided the deadline; `capped` says the modelled need is over the 60-minute maximum and the agent is given the maximum,
+ *   which is less than the model says it needs.
  */
 function reviewDeadlines(input) {
   if (!isObject(input)) return deadlineFailure('invalid-input');
@@ -262,7 +271,14 @@ function reviewDeadlines(input) {
         else warnings.push('policy deadlineHeadroom is out of range; the default applies');
       }
       const sized = sizedMinutes({ base: minutes, work: input.work, headroom, maximum: DEADLINE_MINUTES_MAX });
-      sizing = { files: input.work.files, lines: input.work.lines, baseMinutes: sized.base, estimateMinutes: sized.estimate, headroom: sized.headroom, modeledMinutes: sized.modeled, raised: sized.raised, capped: sized.capped };
+      // A policy value the policy SET below the floor is overridden, and that is said (a value equal to the default included).
+      // `input.explicit` (loadPolicy's `explicit`: what the policy block set) tells a set value from the policy's defaults; a
+      // caller without it can only tell a value that differs from the default.
+      const setByPolicy = isObject(input.explicit) && isObject(input.explicit.deadlineMinutes) ? input.explicit.deadlineMinutes[role] : undefined;
+      const policyMinutes = isObject(input.explicit) ? (Number.isInteger(setByPolicy) ? setByPolicy : null) : source === 'policy' && minutes !== DEFAULT_DEADLINE_MINUTES[role] ? minutes : null;
+      const overridesPolicy = sized.floored && policyMinutes !== null && policyMinutes < sized.floor;
+      sizing = { files: input.work.files, lines: input.work.lines, baseMinutes: sized.base, estimateMinutes: sized.estimate, headroom: sized.headroom, modeledMinutes: sized.modeled, floorMinutes: sized.floor, floored: sized.floored, policyMinutes, overridesPolicy, raised: sized.raised, capped: sized.capped };
+      if (overridesPolicy) warnings.push(floorOverrideMessage({ role, policyMinutes, floorMinutes: sized.floor }));
       if (sized.capped) warnings.push(`the modelled need of ${sized.modeled} minutes for this ${role} is over the ${DEADLINE_MINUTES_MAX}-minute maximum; the deadline is capped at ${DEADLINE_MINUTES_MAX}`);
       if (sized.raised) source = 'size';
       minutes = sized.minutes;
@@ -991,6 +1007,7 @@ function classifyAgentFailure(input) {
 
 module.exports = {
   reviewDeadlines,
+  floorOverrideMessage,
   collectResults,
   toVotesInput,
   classifyAgentFailure,

@@ -91,7 +91,7 @@
  * `maxConcurrentAgents` (the lane is the longest agent: it must not wait behind a wave of reviewers). With several slices each
  * reviewer's brief names a diff of ITS slice (`slices/slice-<n>.diff`), not the whole range. An agent's deadline is the policy's
  * `deadlineMinutes` as a floor, raised to the modelled time to read what it was given (a reviewer: its slice; the lane: every
- * changed path), with headroom, at most 60 minutes. Everything is recorded in `run.sizing` and the DISPATCH manifest, and nothing
+ * changed path), with headroom, never below the fixed cost of an agent (`MIN_AGENT_MINUTES`, kata d9sy; a policy value SET below it is overridden and named in `run.sizing.warnings`), at most 60 minutes. Everything is recorded in `run.sizing` and the DISPATCH manifest, and nothing
  * relaxes a fail-closed rule: an agent that arrives after its (larger) deadline is `expired`, a reviewer that lists fewer paths
  * than its slice leaves the slice not reviewed, a slice or deadline the limits cannot hold is a recorded warning and not a pass.
  *
@@ -124,7 +124,7 @@ const { isValidRunId } = require('./toolchain/run-id');
 const { assignTier, effectiveTier, tierRecord } = require('./pr-review-tier');
 const { selectMode } = require('./pr-review-mode');
 const { planSlices, verifyCoverage } = require('./pr-review-depth');
-const { reviewDeadlines, toVotesInput } = require('./pr-review-results');
+const { reviewDeadlines, toVotesInput, floorOverrideMessage } = require('./pr-review-results');
 const { DEFAULT_POLICY, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
 const SZ = require('./pr-review-sizing');
 const { dedupeFindings, isActionable, normalizeSeverity, validateLedger } = require('./pr-review-ledger');
@@ -160,6 +160,7 @@ const COLLECT_KEYS = Object.freeze(['repoRoot', 'runId', 'now', 'adjudications',
 const RULES = Object.freeze([
   'Start exactly the agents of `agents`, in fresh contexts with READ-ONLY access, and pass each `prompt` through unedited; compose nothing yourself.',
   'Never run more agents at once than `maxConcurrentAgents`. The runner records the cap and cannot enforce it: the dispatcher must.',
+  'A DISPATCH with `refill: true` lists only NEW verifiers: start exactly those, and keep waiting for the agents in `stillRunning`, which are still running (the cap counts both).',
   'Stop every agent at its `deadlineAtIso`. The runner records the deadline and cannot stop an agent: the dispatcher must. A result written later is not read.',
   'When the agents are done (or their deadlines have passed), call `collect`. Never read a result file, tally votes or decide a gate yourself.',
   'On ADJUDICATE decide only the findings listed, with a reason, and call `collect` with `adjudications`.',
@@ -394,8 +395,10 @@ function planRunSlices(run, numstat) {
       message: `no whole-range reader is planned: ${plan.slices.length} slices of ${lenses} lenses${lane === 1 ? ' and the security lane' : ''} make ${withReader - 1} agents at once, the concurrency cap is ${run.maxConcurrentAgents} and the reader would be one more; raise maxConcurrentAgents to ${withReader} (the policy allows at most 32) to add it`,
     });
   }
+  // the deadlineMinutes the policy block SET for a role (null: none, the default applies), so the floor's override is auditable
+  const policySet = (role) => (isObject(run.policyExplicit) && isObject(run.policyExplicit.deadlineMinutes) && Number.isInteger(run.policyExplicit.deadlineMinutes[role]) ? run.policyExplicit.deadlineMinutes[role] : null);
   const sizing = {
-    model: { ...SZ.MODEL, headroom: resolved.headroom, maxMinutes: DEADLINE_MINUTES_MAX, derivedFrom: SZ.OBSERVED.run },
+    model: { ...SZ.MODEL, headroom: resolved.headroom, maxMinutes: DEADLINE_MINUTES_MAX, derivedFrom: SZ.OBSERVED.run, fixedCostFloorMinutes: SZ.MIN_AGENT_MINUTES, policyDeadlineMinutes: { reviewer: policySet('reviewer'), security: policySet('security') } },
     limits: { sliceMaxFiles: resolved.maxFiles, sliceTargetLines: resolved.targetLines, slicesAllowed: maxSlices, slicesWanted: wanted.slices.length },
     work: { files: paths.length, lines: plan.totalLines },
     slices,
@@ -447,11 +450,15 @@ function buildReviewAgents(run, deps, ctx) {
   // The deadline the agent is given at dispatch (`dispatchWave` asks the same question of the same inputs), so a brief's timebox is
   // its deadline. A modelled need over the maximum is capped and said, once per slice or lane.
   const deadline = (agent, work, label) => {
-    const answer = reviewDeadlines({ role: agent.role, now: ctx.now, tier: run.tier.effectiveTier, depth: run.depth.mode, policy: run.policy, work });
+    const answer = reviewDeadlines({ role: agent.role, now: ctx.now, tier: run.tier.effectiveTier, depth: run.depth.mode, policy: run.policy, explicit: run.policyExplicit, work });
     if (answer.ok !== true) throw new Error(`no deadline for ${agent.name}: ${answer.reason}`);
     if (answer.sizing !== undefined && answer.sizing.capped) {
       const message = `${label}: reading ${work.files} paths and ${work.lines} changed lines is modelled at ${answer.sizing.modeledMinutes} minutes, over the ${DEADLINE_MINUTES_MAX}-minute maximum, so its deadline is capped at ${DEADLINE_MINUTES_MAX} minutes; if it does not arrive in time it is reported not reviewed`;
       if (!run.sizing.warnings.some((warning) => warning.message === message)) run.sizing.warnings.push({ code: 'deadline-capped', message });
+    }
+    if (answer.sizing !== undefined && answer.sizing.overridesPolicy) {
+      const message = floorOverrideMessage({ role: agent.role, policyMinutes: answer.sizing.policyMinutes, floorMinutes: answer.sizing.floorMinutes });
+      if (!run.sizing.warnings.some((warning) => warning.message === message)) run.sizing.warnings.push({ code: 'deadline-floor-over-policy', message });
     }
     return answer;
   };
@@ -511,9 +518,10 @@ function dispatchWave(run, wave, now, deps, tracer) {
     agent.deadlineAt = deadline.deadlineAt;
     agent.deadlineAtIso = deadline.deadlineAtIso;
     agent.deadlineMinutes = deadline.minutes;
+    if (deadline.sizing !== undefined && deadline.sizing.floored === true) agent.deadlineFloored = true;
     agent.prompt = S.agentPrompt(agent);
     const stage = stageOfAgent(agent);
-    agent.spanId = tracer.start(stage, STAGE_KINDS[stage], { agent: agent.name, role: agent.role, round: run.round, wave: wave.wave });
+    agent.spanId = tracer.start(stage, STAGE_KINDS[stage], { agent: agent.name, role: agent.role, round: run.round, wave: wave.wave, ...(wave.refill === true ? { refill: true, cap: run.maxConcurrentAgents, running: wave.stillRunning.length } : {}) });
     dispatched.push(agent);
   }
   wave.status = 'dispatched';
@@ -527,13 +535,14 @@ function manifestOf(run, wave) {
     status: 'DISPATCH',
     runId: run.runId,
     round: wave.round,
-    wave: `${wave.wave} of ${wave.of}`,
+    wave: waveLabel(wave),
     headSha: run.headSha,
     mode: run.mode,
     ...(run.reReview === undefined ? {} : { reReview: run.reReview }),
     tier: run.tier,
     depth: { mode: run.depth.mode, reviewersPerSlice: run.depth.reviewersPerSlice, verifiersPerCandidate: run.depth.verifiersPerCandidate, bounds: run.depth.bounds },
     maxConcurrentAgents: run.maxConcurrentAgents,
+    ...(wave.refill === true ? { refill: true, stillRunning: wave.stillRunning } : {}),
     ...(wave.round === 'review' && run.sizing !== undefined ? { sizing: run.sizing } : {}),
     agents: wave.agents.map((a) => ({
       name: a.name,
@@ -545,6 +554,7 @@ function manifestOf(run, wave) {
       deadlineAt: a.deadlineAt,
       deadlineAtIso: a.deadlineAtIso,
       ...(a.deadlineMinutes === undefined ? {} : { deadlineMinutes: a.deadlineMinutes }),
+      ...(a.deadlineFloored === true ? { deadlineFloored: true } : {}),
       ...(a.work === undefined ? {} : { work: a.work }),
       ...(a.sliceId !== undefined && a.role === 'reviewer' ? { sliceId: a.sliceId, paths: a.paths } : {}),
       ...(a.candidateIds !== undefined ? { candidateIds: a.candidateIds } : {}),
@@ -708,6 +718,8 @@ async function prepareStages(input, deps, ctx) {
     // Whether the base policy was usable; ok:false names why every path is High (kata vhpf).
     policyStatus: isObject(facts.policy) ? { ok: facts.policy.ok !== false, reason: facts.policy.ok === false ? facts.policy.reason || 'policy-untrusted' : null } : null,
     policyRejected: isObject(facts.policy) && Array.isArray(facts.policy.rejected) ? facts.policy.rejected : [],
+    // what the policy block SET (loadPolicy's `explicit`), apart from the defaults a loaded policy always holds
+    policyExplicit: isObject(facts.policy) && isObject(facts.policy.explicit) ? facts.policy.explicit : { deadlineMinutes: {} },
     // the Severity bullets of REVIEW.md at the base (null: a cached prepare without them, or a REVIEW.md without the section)
     severityGuide: isObject(facts.guidance) && typeof facts.guidance.severityGuide === 'string' ? facts.guidance.severityGuide : null,
     severityGuideProblem: isObject(facts.guidance) && typeof facts.guidance.severityGuideProblem === 'string' ? facts.guidance.severityGuideProblem : null,
@@ -1022,6 +1034,46 @@ function addWaves(run, round, agents) {
   groups.forEach((group, index) => run.waves.push({ round, wave: index + 1, of: groups.length, status: 'planned', agents: group }));
 }
 
+/**
+ * Rolling verification (kata 630v). A verify round with more verifiers than the cap used to run in barrier waves: wave 2 was
+ * dispatched only when EVERY agent of wave 1 had arrived, so each wave lasted as long as its slowest verifier while the slots
+ * its faster verifiers freed stood idle (measured: 17 verifiers at cap 8, waves of 4.5, 5.0 and 1.9 minutes, 11.4 minutes for 49
+ * agent-minutes of work). Now, while some verifiers of the dispatched waves are still running, a `collect` that finds free slots
+ * dispatches the next planned verifiers into them, so the round lasts about its total work divided by the cap.
+ *
+ * What does not change: the plan. `run.verifyAgents` (which candidates each verifier is briefed with, K distinct verifiers per
+ * candidate, nobody verifying a finding they raised) was fixed before the first dispatch, and a refill only takes the next agents
+ * of that plan in order; briefs and deadlines are the agent's own (the deadline starts at ITS dispatch). The cap: agents still
+ * running (not arrived, not past their deadline, in any dispatched wave) plus the agents of the refill never exceed
+ * `maxConcurrentAgents`. The refill is at least a quarter of the cap (or all that is left), so the orchestrator is not asked
+ * for a manifest per freed slot. Review waves keep the barrier: their agents differ in kind and the lane is the longest.
+ *
+ * @param {Object} run
+ * @param {string[]} running  Names of the agents of the dispatched waves that have not arrived and are not past their deadline.
+ * @returns {Object|null}  the new wave (planned, to be emitted), or null when nothing is to be dispatched yet.
+ */
+function refillVerifyWave(run, running) {
+  const planned = run.waves.filter((w) => w.round === 'verify' && w.status === 'planned');
+  const free = run.maxConcurrentAgents - running.length;
+  if (planned.length === 0 || free < 1) return null;
+  const queue = planned.flatMap((w) => w.agents);
+  const batch = Math.min(queue.length, Math.max(1, Math.floor(run.maxConcurrentAgents / 4)));
+  if (free < batch) return null;
+  const take = queue.slice(0, free);
+  const rest = queue.slice(free);
+  // A wave already dispatched keeps its number and its total; the waves from here on are numbered on and carry no total (`of: null`):
+  // how many more there will be depends on when verifiers arrive.
+  run.waves = run.waves.filter((w) => !(w.round === 'verify' && w.status === 'planned'));
+  let number = run.waves.filter((w) => w.round === 'verify').length;
+  const refill = { round: 'verify', wave: (number += 1), of: null, status: 'planned', refill: true, stillRunning: [...running], agents: take };
+  run.waves.push(refill);
+  for (const group of S.chunk(rest, run.maxConcurrentAgents)) run.waves.push({ round: 'verify', wave: (number += 1), of: null, status: 'planned', agents: group });
+  return refill;
+}
+
+/** `1 of 3`; a wave of a rolling verify round has no total: `2 (rolling)`. */
+const waveLabel = (wave) => (wave.of === null || wave.of === undefined ? `${wave.wave} (rolling)` : `${wave.wave} of ${wave.of}`);
+
 /* ------------------------------------------------------------- finalisation */
 
 /**
@@ -1297,7 +1349,7 @@ async function finalise(run, built, deps, now, startedAt, tracer, extra) {
     return outcome;
   }
   tracer.end(stage.verdictSpan, 'ok', { status: isObject(stage.reviewStatus) ? stage.reviewStatus.status : undefined });
-  if (outcome.closesRoot) endRoot(tracer, run.rootSpanId, 'ok', { phase: 'done' });
+  if (outcome.closesRoot) endRoot(tracer, run.rootSpanId, 'ok', { phase: 'done', max_concurrent_agents: run.maxConcurrentAgents });
   return { answer: outcome.answer };
 }
 
@@ -1517,7 +1569,7 @@ async function collectRun(input, deps) {
   const answer = await collectStages(input, deps, ctx);
   const { run, tracer } = ctx;
   if (run !== null && run.rootSpanId !== null && run.rootSpanId !== undefined && run.rootEnded !== true && TERMINAL_PHASES.includes(run.phase)) {
-    endRoot(tracer, run.rootSpanId, run.phase === 'done' ? 'ok' : 'error', { phase: run.phase });
+    endRoot(tracer, run.rootSpanId, run.phase === 'done' ? 'ok' : 'error', { phase: run.phase, max_concurrent_agents: run.maxConcurrentAgents });
     run.rootEnded = true;
     try {
       saveRun(deps, run);
@@ -1592,23 +1644,33 @@ async function collectStages(input, deps, ctx) {
     if (triaged !== null) return triaged;
   }
 
-  // ---- 2. the outstanding wave
-  const wave = run.waves.find((w) => w.status === 'dispatched');
-  if (wave !== undefined) {
+  // ---- 2. the outstanding waves. Exactly one, except in the verify round, where a wave may be dispatched while agents of an
+  // earlier one are still running (refillVerifyWave).
+  const outstanding = run.waves.filter((w) => w.status === 'dispatched');
+  const waiting = [];
+  for (const wave of outstanding) {
     const collected = await settle(() => deps.collectResults({ expected: expectedOf(wave), dir: path.join(runDirOf(run.repoRoot, run.runId), 'results', wave.round), now }));
     if (!isObject(collected) || !Array.isArray(collected.agents)) {
       return failure('RUN_FAILED', { reason: 'collect-refused', error: isObject(collected) ? collected.reason || collected.error : 'no answer', runId: run.runId });
     }
     const pending = collected.agents.filter((a) => a.pending === true);
     if (pending.length > 0) {
-      const earliest = Math.min(...pending.map((a) => a.deadlineAt));
-      logCall(run, 'collect', startedAt, deps);
-      saveRun(deps, run);
-      return { ok: true, status: 'PENDING', runId: run.runId, round: wave.round, wave: `${wave.wave} of ${wave.of}`, waitingOn: pending.map((a) => a.name), retryAfterMs: Math.max(1000, Math.min(15000, earliest - now)), earliestDeadlineAt: earliest, earliestDeadlineAtIso: new Date(earliest).toISOString() };
+      waiting.push({ wave, pending });
+      continue;
     }
     recordWave(run, wave, collected, now, tracer, deps);
-    saveRun(deps, run);
   }
+  if (waiting.length > 0) {
+    const running = waiting.flatMap((entry) => entry.pending);
+    const refill = outstanding.every((w) => w.round === 'verify') ? refillVerifyWave(run, running.map((a) => a.name)) : null;
+    if (refill !== null) return emit(run, refill, deps, tracer, startedAt, now);
+    const first = waiting[0].wave;
+    const earliest = Math.min(...running.map((a) => a.deadlineAt));
+    logCall(run, 'collect', startedAt, deps);
+    saveRun(deps, run);
+    return { ok: true, status: 'PENDING', runId: run.runId, round: first.round, wave: waveLabel(first), waitingOn: running.map((a) => a.name), retryAfterMs: Math.max(1000, Math.min(15000, earliest - now)), earliestDeadlineAt: earliest, earliestDeadlineAtIso: new Date(earliest).toISOString() };
+  }
+  if (outstanding.length > 0) saveRun(deps, run);
 
   // ---- 3. what comes next: another planned wave, the verify round, or the end
   const next = run.waves.find((w) => w.status === 'planned');

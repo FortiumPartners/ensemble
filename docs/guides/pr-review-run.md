@@ -48,8 +48,10 @@ unknown payload key are `{ok:false, error}`.
 2. The dispatcher starts the manifest's agents (fresh context, read-only), each with its `prompt` unedited, at
    most `maxConcurrentAgents` at once, each stopped at its `deadlineAtIso`.
 3. `collect` re-reads the head, collects what has arrived and answers one of the statuses below. Verifier agents
-   beyond the concurrency cap come in later waves, each with fresh deadlines, so a queued agent never spends its
-   deadline waiting.
+   beyond the concurrency cap come in later waves, each with its own deadline from its dispatch, so a queued agent never spends
+   its deadline waiting. In the verify round a `collect` that finds free slots dispatches the next verifiers into them while
+   the earlier ones still run (`DISPATCH` with `refill: true` and `stillRunning`: start only the agents it lists; the
+   others are still yours to await; the cap counts both).
 4. Repeat 2-3 on `DISPATCH` and `PENDING` until `DONE` or `ADJUDICATE`. In full mode, after the last review wave is
    collected, `collect` answers `TRIAGE` instead of dispatching verifiers; see Triage.
 
@@ -79,7 +81,7 @@ and is only for the `TRIAGE` status.
 
 | status | ok | meaning |
 |---|---|---|
-| `DISPATCH` | true | manifest: `runId`, `round` (`review` or `verify`), `wave`, `headSha`, `mode`, `tier`, `depth`, `maxConcurrentAgents`, `sizing` (the review round only: the size model, limits, slices and warnings, see Slices and deadlines), `agents[]` (`name`, `role`, `briefPath`, `outPath`, `prompt`, `dispatchedAt`, `deadlineAt`, `deadlineAtIso`, `deadlineMinutes`, and `sliceId`, `paths`, `work`, `candidateIds` where they apply), `next`, `rules` |
+| `DISPATCH` | true | manifest: `runId`, `round` (`review` or `verify`), `wave`, `headSha`, `mode`, `tier`, `depth`, `maxConcurrentAgents`, `refill` and `stillRunning` (a verify refill only: Rolling verification), `sizing` (the review round only: the size model, limits, slices and warnings, see Slices and deadlines), `agents[]` (`name`, `role`, `briefPath`, `outPath`, `prompt`, `dispatchedAt`, `deadlineAt`, `deadlineAtIso`, `deadlineMinutes`, and `sliceId`, `paths`, `work`, `candidateIds` where they apply), `next`, `rules` |
 | `PENDING` | true | agents still outstanding: `waitingOn`, `retryAfterMs`, `earliestDeadlineAt`; call `collect` again |
 | `TRIAGE` | true | full mode only. After the last review wave is collected the runner has deduplicated the candidates and planned verification, and dispatched nothing. The answer carries the candidate list (`id`, `locationOrLink`, `severity`, `failureMode`, `source`, and `unbriefable: {kind, input, reason}` on a candidate the verifier brief refuses), the coverage (`unreviewedSlices`, uncovered paths), the security lane status, the `reReview` decision and the rules. Call `collect` again with `triage` |
 | `DONE` | true | `gate`, `reviewStatus`, `ledger`, `votes`, `notReviewed`, `precheck`, `statePath`, `metrics`, `mode`, `reReview`, `triage` (`{turns, additionalCandidateIds}`) |
@@ -286,7 +288,7 @@ What the cap does to the real PR (19 paths, three slices wanted, two lenses, wit
 | 4 | 1 (`slice-over-limit`) | no: one slice is the whole range | 3 |
 
 **Deadlines.** For a reviewer and for the lane the policy's `deadlineMinutes` (15) is a BASE: the deadline is
-`clamp(ceil(estimate x headroom), base, 60)` minutes, so the model only ever raises it. The reviewer's work is its slice (the
+`clamp(max(ceil(estimate x headroom), base, 22), 60)` minutes (22: the fixed cost, below), so the model only ever raises it. The reviewer's work is its slice (the
 whole diff when it was handed the whole range diff); the whole-range reader's and the lane's is every changed path. A verifier
 settles at most three claims whatever the PR's size and keeps its 5 minutes.
 `deadlineMinutes` is a floor and not a pin because a loaded policy always holds every key, set or defaulted, and an explicit
@@ -294,20 +296,39 @@ value cannot be told from the default. The brief's timebox is the deadline the a
 
 | agent | work | deadline |
 |---|---|---|
-| a reviewer on a slice at the limits (8 paths, 612 lines) | 7.49 min | 15 (the base: modelled 14.98) |
+| a reviewer on a slice at the limits (8 paths, 612 lines) | 7.49 min | 22 (the fixed-cost floor; modelled 15, which is 14.98 rounded up, base 15) |
+| a reviewer on 4 paths, 280 lines (kata `d9sy`) | 12.8 min, over 15 (stopped), and 7.2 and 7.3 in one re-review | 22 (modelled 8, base 15) |
 | the security lane of the real run (19 paths, 1450 lines) | 17.75 min | 36 (2.03 x what it took; it was given 15) |
 | a verifier | not sized | 5 |
+
+**The fixed cost (kata `d9sy`).** The model is proportional through the origin and was derived at the default effort. The first
+live runs at effort `hi` (kata `q3a9`) show a reviewer's time on a small slice does not follow its size: 77 lines took 14.6 and 9.1
+minutes, 327 lines 10.6 and 9.4, 323 lines 8.2 and 10.6, the 727-line whole-range reader 13.9, and the same four paths (280 lines)
+took 12.8 minutes for one reviewer and more than 15 for another (stopped at its deadline; the slice was reported not reviewed),
+while two other reviewers of a re-review of those four paths took 7.2 and 7.3. What this establishes: no delay at the spawn
+call (the orchestrator's dispatch logs put it 10 to 11 ms after the manifest for the review rounds and about 0.4 s for the verify
+rounds, one wave of three agents under a cap of 8, and the deadline starts at dispatch) and no size effect on a small slice. What
+it does NOT establish: why the lost reviewer was lost. It has no arrival and no last message, so a slow agent cannot be told from
+a hung one, and the agent's own start time is not recorded, so queueing after the spawn call is not excluded. The floor helps the slow case only; a hung agent now holds the run 22 minutes instead of 15 and its slice is still
+reported not reviewed. So a reviewer, the whole-range reader and the lane have a floor, `MIN_AGENT_MINUTES`: the slowest FINISHED
+reviewer measured (14.58 minutes) times `FLOOR_FACTOR` (1.5, a judgement like the headroom), 22 minutes, whatever the policy's
+`deadlineMinutes` says (a policy raises a deadline above it, never below it; a value the policy SETS below it, 15 included, is named in the sizing warnings and recorded in `sizing.model.policyDeadlineMinutes`; an unset value is raised without a warning and the agent is marked `deadlineFloored`).
+It was measured at effort `hi` and the runner records no effort, so it applies at whatever effort the dispatcher uses. The slice
+limits and the headroom are unchanged, because a finer slice does not shorten a fixed cost. A reviewer slower than 22 minutes is
+still `expired` and its slice reported not reviewed. Re-dispatching a lost reviewer is not built.
 
 **The record.** The DISPATCH manifest of the review round and `run.json` carry `sizing`: `model` (the two rates, the
 headroom, the 60-minute maximum and the run it derives from), `limits` (`sliceMaxFiles`, `sliceTargetLines`,
 `slicesAllowed` by the cap, `slicesWanted` by the limits), `work` (the whole PR), `slices[]` (`id`, `files`, `lines`,
 `overLimit`, `diff`) and `warnings[]` (`{code, message}`): `slice-over-limit` (the cap holds fewer slices than the limits ask
 for, so a slice is bigger than they say; the message names the `maxConcurrentAgents` that would hold them), `deadline-capped`
-(the modelled need is over 60 minutes, so the agent is given 60 and may not finish) and `invalid-<key>` (a policy value the
+(the modelled need is over 60 minutes, so the agent is given 60 and may not finish), `deadline-floor-over-policy` (a policy
+`deadlineMinutes` below the 22-minute floor was overridden; the message names the value and the floor, `model.fixedCostFloorMinutes`
+records the floor and an agent whose deadline the floor decided carries `deadlineFloored: true`) and `invalid-<key>` (a policy value the
 facts held unreadably; the default applied). Each agent in the manifest carries its `deadlineMinutes` and its `work`.
 
 For the PR the numbers came from, the plan is three slices of 8, 3 and 8 paths (454, 556 and 440 changed lines), six
-reviewers at 15 minutes and the lane at 36, all in one wave.
+reviewers at 22 minutes (the fixed-cost floor) and the lane at 36, all in one wave.
 
 **Nothing is relaxed.** An agent that arrives after its deadline is `expired` whatever the deadline is: the lane that
 arrives at minute 37 of 36 is not clean and the gate still names `security-review-missing`. A reviewer that lists fewer
@@ -487,8 +508,8 @@ dated before the agent was dispatched is no message of this dispatch (a stale fi
 dated well after the `collect` that read it (clock skew) cannot be placed: it is recorded as it is, so the reader refuses
 that agent's interval instead of counting it to the `collect` call. The answer's `warnings` say so in both cases.
 
-Waves. `maxConcurrentAgents` splits a round's agents into waves, and a wave is dispatched only after the one before it
-was collected, so waves run one after another. `wave` is the agent's number among its kind (the review agents, and apart
+Waves. `maxConcurrentAgents` splits a round's agents into waves. A REVIEW wave is dispatched only after the one before it was
+collected, so review waves run one after another (the verify round is the exception: Rolling verification, below). `wave` is the agent's number among its kind (the review agents, and apart
 from them the verifiers), from 1. The reader's critical path therefore takes the slowest reviewer of each review wave and
 the slowest verifier of each verify wave and sums them (`reviewer wave 1 -> reviewer wave 2 -> verifier -> verdict`), not
 the one slowest agent across the waves. The agents of a wave are dispatched together, so spans that carry one wave number
@@ -500,6 +521,39 @@ with the excess in `byMs` (the default cap puts the lane in the reviewers' wave,
 the usual case: the verifier waited for it), and under `uncountedWaves` each wave that holds no reviewer, which a small
 cap makes (a cap of 2 on two reviewers and the lane leaves the lane alone in wave 2). Whether the lane should be a step
 is the owner's decision; until then the figure says what it leaves out.
+
+Rolling verification (kata `630v`). The first live Medium review (PR 207: 17 candidates x 3 verifiers, at most 3 claims each, 17
+verifiers at a cap of 8) took three barrier waves; `pr-review-cli timing` reads them at 4.5, 5.0 (a verifier stopped at its
+5-minute deadline) and 1.9 minutes, 11.4 minutes of steps and 11.7 from the first dispatch to the last result, for 49.3
+agent-minutes of work: each wave lasted as long as its slowest verifier while the slots of its faster ones stood idle. A `collect`
+that finds verifiers of the dispatched waves still running and slots free (cap minus the agents still running, never more) now
+dispatches the next verifiers of the plan into them: a `DISPATCH` whose manifest carries `refill: true`, `stillRunning` (the agents
+of earlier waves that you keep waiting for) and only the new agents. A refill is at least a quarter of the cap (or everything that
+is left), so the orchestrator is not asked for a manifest per freed slot. The plan is unchanged: `run.verifyAgents` was fixed
+before the first dispatch, the refill takes its next agents in order, each is briefed with its own candidates only, every
+candidate keeps its K distinct verifiers (none a reviewer, none its raiser), each deadline starts at that agent's own dispatch,
+and the run is not collected until every agent of every wave has arrived or expired. An expired verifier is not running, so its
+slot is refilled, and it stays `expired` in the record. A wave dispatched after a refill carries no total (`2 (rolling)`): how
+many there will be depends on when verifiers arrive. The review round is not rolling: its agents differ in kind and the lane is
+the longest.
+
+`pr-review-cli timing` reads the refill waves as ONE `verifier` step (`rolling: true`, `waves: n`): the time at least one verifier
+was running (the union of their intervals, so a gap between two dispatches is not verification time). It does so only when the trace
+bears the marks out: no wave number stamped on spans dispatched apart, wave numbers that agree with the times, every wave that
+overlaps an earlier one marked on every span with `cap` (equal to the review span's `max_concurrent_agents`, which `collect` records
+when it closes the review) and `running` (`running` plus the wave's agents within the cap, no more earlier spans running at its start
+than `running`), and never more verifier spans at once than the cap. Otherwise a warning names the reason and the waves are read one
+after another, so an overlap is refused as before.
+
+The numbers are reproducible: the test `the replay behind the documented verify-round numbers` in `pr-review-run.test.js` drives
+the REAL runner (`collect` on a simulated clock, cap 8) over the 17 measured verifier times and prints the figures
+(`npx jest --runInBand packages/development/tests/pr-review-run.test.js -t "replay behind"`). Barrier: 11.4 to 11.5 minutes (the
+measured 11.7 includes the harness turnaround between waves). Rolling: 7.3 (a poll every second), 7.4 (every 7.5 s) and 7.8
+minutes (every 15 s), saving 4.1, 4.1 and 3.8 minutes (33 to 36% of the verify round), which puts the run at about 22.9 of the
+measured 26.8 minutes; the lower bound is 49.3 / 8 = 6.2 minutes. This is a replay of one run's times, not a live measurement. The
+PR's 8-13 minute target is NOT reached by this: the slowest reviewer alone took 14.6 minutes. Verifying the candidates of the
+reviewers that finish early (8.2 to 10.6 minutes) while the slowest still runs is not built: a duplicate finding of a late reviewer
+would merge into a candidate already settled.
 
 One verdict stays in the window. The verdict span ends `ok` when the verdict was recorded and `error` when that attempt
 did not get that far (a failed state write, or a throw such as `final.json` failing to write); the reader takes an `error`
@@ -532,7 +586,8 @@ What kata znd1 asked for and this runner does not do (none is claimed):
   Carry-over of verdicts, delta-only reading and sharding are not built.
 
 Known defects the one real full-mode run found. The 15-minute deadline (kata `sfpb`) is addressed by a size model (Slices and
-deadlines, above) that is not yet measured on a live run; the one other still open is tracked on its own:
+deadlines, above); the first live measurements (effort `hi`, kata `q3a9`) found its flat floor too tight for a SMALL slice and
+added the fixed-cost floor (kata `d9sy`, under Deadlines); the one other still open is tracked on its own:
 
 - `review-run-cli.js` `peekRun` reads `run.json` at a `runId` it has not validated yet, before `collect` rejects a bad
   one (kata `yz76`). Only `repo` and `pr` are taken from it.

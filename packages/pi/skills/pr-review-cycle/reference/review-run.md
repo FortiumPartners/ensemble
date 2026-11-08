@@ -43,7 +43,9 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    runner records deadlines but cannot stop an agent.
 3. When the agents have finished (or been stopped), call `collect` with `{ repoRoot, runId }` (`runId` from the
    manifest). Only those keys, plus `triage` in step 5 or `adjudications` in step 6.
-4. `DISPATCH` again (the next verify wave, with fresh deadlines): repeat step 2. `PENDING`: wait for
+4. `DISPATCH` again (the next verify wave, with its own deadlines): repeat step 2. In the verify round a `DISPATCH` with
+   `refill: true` is dispatched while earlier verifiers still run: start only the agents it lists (`stillRunning` names the
+   ones you keep waiting for; the cap counts both). `PENDING`: wait for
    `waitingOn` (about `retryAfterMs`), then call `collect` again; never treat a pending agent as having reviewed.
 5. `TRIAGE` (ok:true, full mode only): the review round is collected and the candidates are deduplicated, and nothing
    is dispatched. The answer lists every candidate (`id`, `locationOrLink`, `severity`, `failureMode`, `source`, and
@@ -139,15 +141,19 @@ agents the manifest names and stop each at its own `deadlineAtIso`; the deadline
   `notReviewed` (`whole-range`), and the final answer's `reducedReview` says what it covers (interactions between slices) and
   what it cannot (one pass, one lens, no second reader of the whole diff).
 * Deadlines: `deadlineMinutes` is the BASE for a reviewer and the lane (15), raised to the modelled time to read the agent's
-  `work` with headroom (`deadlineHeadroom`, 2: a judgement), at most 60 minutes: `clamp(ceil(max(paths x 0.934, changed lines / 100 x
-  1.224) x headroom), base, 60)`. A reviewer's `work` is its slice, the lane's is every changed path, a verifier is not sized
-  and keeps 5. The run these numbers came from (19 paths, 1450 changed lines) is three slices of 8, 3 and 8 paths with
-  reviewers at 15 minutes and the lane at 36, where it needed 17.75.
+  `work` with headroom (`deadlineHeadroom`, 2: a judgement), at most 60 minutes, and never below the fixed-cost floor of 22
+  minutes (kata `d9sy`: reviewers at effort `hi` took 7 to 15 minutes on slices of 77 to 327 lines, one over 15 on 4 paths, so
+  the time is a per-agent cost, not a rate; the floor is the slowest finished reviewer, 14.58, times 1.5):
+  `clamp(max(ceil(max(paths x 0.934, changed lines / 100 x 1.224) x headroom), base, 22), 60)`. A reviewer's `work` is its slice,
+  the lane's is every changed path, a verifier is not sized and keeps 5. The run these numbers came from (19 paths, 1450
+  changed lines) is three slices of 8, 3 and 8 paths with reviewers at 22 minutes and the lane at 36, where it needed 17.75.
 * `sizing` in the review round's manifest and in `run.json` says what was planned: `model`, `limits`, `work`, `slices[]`
   (`overLimit`, `diff`) and `warnings[]`. Report every warning with the run: `slice-over-limit` (the cap holds fewer slices
   than the limits ask for; the message names the `maxConcurrentAgents` that would hold them), `reader-not-planned` (the cap
   holds the slices but not a whole-range reader beside them; the message names the cap that would), `deadline-capped` (a modelled
-  need over 60 minutes: that agent may not finish) and `invalid-<key>` (an unreadable policy value; the default applied).
+  need over 60 minutes: that agent may not finish), `deadline-floor-over-policy` (a policy `deadlineMinutes` below the 22-minute
+  floor was overridden; `model.fixedCostFloorMinutes` records the floor, `deadlineFloored` marks an agent it decided) and
+  `invalid-<key>` (an unreadable policy value; the default applied).
 * Nothing is relaxed. An agent that arrives after its (larger) deadline is `expired`, and a reviewer that lists fewer paths
   than its slice leaves that slice not reviewed: both are reported in `notReviewed`, never hidden by a bigger deadline or a
   smaller slice.
@@ -228,8 +234,9 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   absent is the strictest reading. A stated value is named in the answer's `warnings`.
 * Trace: spans go to `.ensemble/state/toolchain/trace-<traceRunId>.jsonl` under the names `pr-review-cli timing` reads
   (`review`, `review.head-read`, `review.gate`, `review.verdict`, `review.<role>` per agent, each with `round`, agents
-  also with their `wave`; an agent ends at its last message, `last_message_ts`). Waves run one after another, so the
-  critical path sums the slowest reviewer of each review wave and the slowest verifier of each verify wave. The security
+  also with their `wave`; an agent ends at its last message, `last_message_ts`). Review waves run one after another, so the
+  critical path sums the slowest reviewer of each review wave and the slowest verifier of each verify wave; verifier waves
+  dispatched as a refill overlap, so, when each is marked with its cap facts and the trace bears them out, they are ONE step (`verifier`, `rolling: true`, `waves: n`: the time at least one verifier ran, so a gap between dispatches is not counted); otherwise the overlap is refused with a warning. The security
   lane is no step of it, so `timing` reports a lower bound, naming the agent, when a lane ended after the slowest
   reviewer of its wave (`outlasted`, the usual case at the default cap) or ran in a wave no reviewer ran in
   (`uncountedWaves`). A verdict that was not recorded (a failed state write, retried) is a span that ended in error and
@@ -250,7 +257,8 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   current verdict.
 * Defects the one real full-mode run found. The default 15-minute deadline, too short for the lane of a large whole-PR slice
   (kata `sfpb`: that run's lane needed 17m45s and its gate named `security-review-missing`), is addressed by the size model
-  under Slices and deadlines above, which is not yet measured on a live run. One is NOT fixed here and is tracked on its
+  under Slices and deadlines above; the first live runs (effort `hi`, kata `q3a9`) found it too tight for a small slice too and
+  added the fixed-cost floor (kata `d9sy`). One is NOT fixed here and is tracked on its
   own: `review-run-cli.js` `peekRun` reads `run.json` at a `runId` it has not validated yet (kata `yz76`).
 * A candidate the verifier brief refuses gets no independent check at all: its claim and its severity are the
   reviewer's word alone, and a person decides it. The screen is a word list, not a proof: it refuses a claim that is only
