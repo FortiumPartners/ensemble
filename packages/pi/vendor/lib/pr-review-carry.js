@@ -587,4 +587,4 @@ function stampLedger(input) {
   return { ok: true, ledger: out };
 }
 
-module.exports = { planCarry, recordVerdicts, stampLedger, normalizeClaim, REASONS, SETTLED_OUTCOMES };
+module.exports = { planCarry, recordVerdicts, stampLedger, normalizeClaim, keyOf, REASONS, SETTLED_OUTCOMES };

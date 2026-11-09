@@ -762,7 +762,8 @@ function scanNameLines(deps, repoRoot, headSha, files, changedPaths) {
 function deriveDelta(deps, options, range, entries, declarationInput) {
   if (range.mode !== 'delta') return { delta: null, deltaPlan: planDeltaReview({ delta: range }) };
   const { repoRoot } = options;
-  const deltaPaths = listChanged(deps, repoRoot, [range.lastReviewedSha, range.headSha]).map((f) => f.path);
+  const deltaNumstat = listChanged(deps, repoRoot, [range.lastReviewedSha, range.headSha]);
+  const deltaPaths = deltaNumstat.map((f) => f.path);
   const lines = scanReferenceLines(deps, repoRoot, range.headSha);
   const importGraph = lines === null ? undefined : buildImportGraph({ filePaths: entries.map((entry) => entry.path), lines });
   const nameLines = importGraph !== undefined && importGraph.computed.length > 0
@@ -777,7 +778,7 @@ function deriveDelta(deps, options, range, entries, declarationInput) {
     importGraph,
     nameLines,
   });
-  return { delta: { lastReviewedSha: range.lastReviewedSha, reviewedHeadSha: reviewed.headSha, reviewedBaseSha: reviewed.baseSha, changedPaths: deltaPaths }, deltaPlan };
+  return { delta: { lastReviewedSha: range.lastReviewedSha, reviewedHeadSha: reviewed.headSha, reviewedBaseSha: reviewed.baseSha, changedPaths: deltaPaths, numstat: deltaNumstat }, deltaPlan };
 }
 
 /**

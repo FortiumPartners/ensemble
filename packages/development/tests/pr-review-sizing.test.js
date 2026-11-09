@@ -548,8 +548,9 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     // the text collapses whitespace: entries are told apart by their prefix; an entry filed far from the top is a misplaced one
     const newer = unreleased.slice(0, start).split('- **packages/development:**').slice(1);
     expect(newer.length).toBeLessThanOrEqual(8);
-    // the entries known to sit above it: this change (katas d9sy and 630v) is the first
-    expect(newer[0]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
+    // the entries known to sit above it: the re-review delta (kata xb4j) is the first, the small-slice deadlines (katas d9sy and 630v) the next
+    expect(newer[0]).toMatch(/^ review-run re-review plans a delta/);
+    expect(newer[1]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
     const first = unreleased.slice(start);
     // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
     const next = first.slice(10).search(/ - (?:\*\*|`)/);

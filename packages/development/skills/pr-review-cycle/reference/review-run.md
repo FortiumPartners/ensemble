@@ -109,13 +109,23 @@ pass a light-mode verdict off for a full-mode one: the answer's `mode` says whic
 
 ## Re-review scope (`reReview`)
 
-The run, the `TRIAGE` answer and the final answer record `reReview: {scope, reasons: [...]}`. `delta` only when a
-previous reviewed head was supplied (`lastReviewedSha`), the prepared range is a readable delta whose plan says delta,
-the CLI has seen that head (the review state recorded it) and no path in the delta is High or sensitive. `full` (a full
-re-read) whenever the delta touches a High or sensitive path, the head was never seen, or anything is unreadable.
-`first-review` when there is no previous head. The honest limit: the runner has no delta-only read path yet (carry-over
-of verdicts is kata qw98, PR #268), so every run still has reviewers read the whole range, the superset;
-`reReview.appliedRange` is always `full-range` today and records the decision for the carry-over work to consume.
+Ask for a re-review with `lastReviewedSha` and `remediationShas` only; the runner reads the previously reviewed head and base
+from the state it recorded at `lastReviewedSha` and the run record that wrote it (kata `xb4j`). The run, the `TRIAGE` answer
+and the final answer record `reReview: {scope, reasons: [...], appliedRange}`. `delta` only when that state is on record and
+whole (a finished run of that head, its verdicts and ledger, nothing unreviewed, no security-lane finding), the prepared range
+is a readable delta of your `remediationShas`, the plan says delta and no path in it is High or sensitive. `full` (a full
+re-read) in every other case, with `prior-round-unusable:<reason>` saying why the last round could not be stood on; a head
+the runner never saw is a full review, never a skip. `first-review` when there is no previous head.
+
+A delta round reads only the delta plan's read set, on `delta.diff`: fewer slices, fewer agents (`reReview.delta` says
+`agentsPlanned` against `agentsFullRead`), and `appliedRange` is `delta`. Candidates are hashed at the head; a candidate the
+push left alone (its hunk, dependencies and dependents untouched, its file outside the delta) keeps the prior verdict and is
+not verified again (the verify manifest's `carry` says how many), every other one is verified again. The ledger keeps the
+prior findings: carried ones restamped (`carriedFrom`), fixed ones cleared, re-reported ones replaced, the rest as recorded.
+The security lane and the whole-range reader keep the whole range. Your job does not change: dispatch what the manifest lists and
+call `collect`. The honest limits are listed in the answer (`reReview.delta.limits`): the read set is the changed files, their direct
+importers and tests; a High or sensitive file can be in it as a caller of a changed file; `remediationShas` is your statement of which
+commits are the fix round's own.
 
 ## Slices and deadlines (kata `sfpb`)
 
@@ -199,8 +209,9 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
 ## Honest limits
 
 * Deadlines and the concurrency cap are enforced by whoever dispatches (you), not by the runner.
-* Carry-over of verdicts, sharding and verification pools are not built. `remediationShas` is only passed through to
-  `prepare`; `lastReviewedSha` feeds the `reReview` decision only, and reviewers read the full range.
+* Sharding is not built. `remediationShas` is your statement of which commits are the fix round's own; it is passed to
+  `prepare`, where it decides whether the delta is vouched for. The reviewed head and base of a re-review come from the state
+  the runner recorded, never from the payload.
 * `prepare` runs the precheck first: it posts one PR comment and starts the local-CI gate in the background
   unless `dryRun` or `skipPrecheck` is set. A precheck that fails is recorded and does not stop the run.
 * The baseline test run executes the head's own test code in a scratch directory; it is not a sandbox

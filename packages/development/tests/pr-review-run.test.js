@@ -959,11 +959,13 @@ describe('full mode (kata dqcs): the same runner, with Deep depth, the security 
       expect(m.reReview).toMatchObject({ scope: 'first-review', reasons: ['no-previous-head'] });
     });
 
-    test('a delta that touches no High or sensitive path, on a head the CLI has seen: delta (and the run still reads the whole range)', async () => {
+    // kata xb4j: the facts alone no longer make a delta. The head the plan calls seen must be one THIS runner recorded (its state
+    // report and the run record that wrote it); facts that say delta with no such record are a full read, and say why.
+    test('facts that say delta, with no state report of the last round to stand on: a full read (head-never-seen), never a delta', async () => {
       const h = deltaHarness(deltaFacts());
       const m = await h.prepare({ lastReviewedSha });
-      expect(m).toMatchObject({ status: 'DISPATCH', mode: { mode: 'full' }, reReview: { scope: 'delta', reasons: [], appliedRange: 'full-range' } });
-      expect(h.readRun().reReview).toMatchObject({ scope: 'delta' });
+      expect(m).toMatchObject({ status: 'DISPATCH', mode: { mode: 'full' }, reReview: { scope: 'full', reasons: expect.arrayContaining(['prior-round-unusable:state-unreadable']), appliedRange: 'full-range' } });
+      expect(h.readRun().reReview).toMatchObject({ scope: 'full' });
     });
 
     test('a delta that touches a sensitive path is a full re-read, even when the plan said delta', async () => {
@@ -984,8 +986,8 @@ describe('full mode (kata dqcs): the same runner, with Deep depth, the security 
       const h = deltaHarness(deltaFacts());
       const m = await h.prepare({ lastReviewedSha });
       answerReview(m, { lane: { findings: [], pathsReviewed: allPaths(h) } });
-      expect(await h.collect()).toMatchObject({ status: 'TRIAGE', reReview: { scope: 'delta' } });
-      expect(await h.collect({ triage: {} })).toMatchObject({ status: 'DONE', reReview: { scope: 'delta' }, triage: { requested: 0 } });
+      expect(await h.collect()).toMatchObject({ status: 'TRIAGE', reReview: { scope: 'full', reasons: expect.arrayContaining(['prior-round-unusable:state-unreadable']) } });
+      expect(await h.collect({ triage: {} })).toMatchObject({ status: 'DONE', reReview: { scope: 'full' }, triage: { requested: 0 } });
     });
   });
 });
