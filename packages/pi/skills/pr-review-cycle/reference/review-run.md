@@ -122,7 +122,8 @@ pass a light-mode verdict off for a full-mode one: the answer's `mode` says whic
 Ask for a re-review with `lastReviewedSha` and `remediationShas` only; the runner reads the previously reviewed head and base
 from the state it recorded at `lastReviewedSha` and the run record that wrote it (kata `xb4j`). The run, the `TRIAGE` answer
 and the final answer record `reReview: {scope, reasons: [...], appliedRange}`. `delta` only when that state is on record and
-whole (a finished run of that head, its verdicts and ledger, nothing unreviewed, no security-lane finding), the prepared range
+whole (a finished run of that head, its verdicts and ledger, nothing left unread, no security-lane finding; a verifier that did not
+return is no gap in what was read), the prepared range
 is a readable delta of your `remediationShas`, the plan says delta and no path in it is High or sensitive. `full` (a full
 re-read) in every other case, with `prior-round-unusable:<reason>` saying why the last round could not be stood on; a head
 the runner never saw is a full review, never a skip. `first-review` when there is no previous head.
@@ -132,6 +133,10 @@ A delta round reads only the delta plan's read set, on `delta.diff`: fewer slice
 push left alone (its hunk, dependencies and dependents untouched, its file outside the delta) keeps the prior verdict and is
 not verified again (the verify manifest's `carry` says how many), every other one is verified again. The ledger keeps the
 prior findings: carried ones restamped (`carriedFrom`), fixed ones cleared, re-reported ones replaced, the rest as recorded.
+A candidate the last round left unverified, or settled on a majority (kata `dx53`), because a verifier did not return is verified again when the push left its code alone
+(`reReview.delta.unverifiedFromLastRound` counts them; the verify manifest's `carry.unverifiedFromLastRound` lists the ones put to
+verifiers again and the ones kept unverified, each with why); one kept stays unverified in the ledger and the round's verification reads
+`partial`. A lost reviewer or security lane is still a full re-read.
 The security lane and the whole-range reader keep the whole range. Your job does not change: dispatch what the manifest lists and
 call `collect`. The honest limits are listed in the answer (`reReview.delta.limits`): the read set is the changed files, their direct
 importers and tests; a High or sensitive file can be in it as a caller of a changed file; `remediationShas` is your statement of which

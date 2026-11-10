@@ -260,6 +260,11 @@ function deriveCleared(input) {
         ? lines === null || lines.length > 0
         : lines === null || lines.some((n) => n >= cited.line && n <= cited.endLine);
     if (!touched) {
+      // No line was touched, but a path the head does not hold (renamed or deleted before the baseline, so the diff since is empty) has no
+      // line that stayed put: the finding cannot be placed in this head. Kept as recorded, never located (kata p5dt).
+      const atHead = repo.readBlobAt(git, cwd, head, cited.file);
+      if (!atHead.ok) return keep(entry, 'diff-failed');
+      if (atHead.text === null) return keep(entry, 'location-unanchored');
       const moved = cited.line === null ? null : movedLocation(numbered, changed.hunks);
       return moved === null ? keep(entry, 'location-unchanged') : keepMoved(entry, 'location-unchanged', moved);
     }

@@ -187,6 +187,18 @@ describe('deriveCleared rules', () => {
     expect(r.kept).toEqual([{ id: 'same', reason: 'location-unchanged' }]);
   });
 
+  test('a cited file the head does not hold is kept location-unanchored, never location-unchanged: an empty diff does not say a line stayed put in a file that is not there (kata p5dt)', () => {
+    const r = derive([
+      finding('ghost', 'src/never-there.js:2', 'bad', { headSha: p1 }),
+      finding('ghostfile', 'src/never-there.js', 'bad', { headSha: p1 }),
+      finding('same', 'src/other.js:2', 'bad', { headSha: p1 })
+    ]);
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'ghost', reason: 'location-unanchored' }, { id: 'ghostfile', reason: 'location-unanchored' }, { id: 'same', reason: 'location-unchanged' }]);
+    // as recorded: neither moved nor stamped
+    expect(r.ledger[0]).toEqual(finding('ghost', 'src/never-there.js:2', 'bad', { headSha: p1 }));
+  });
+
   test('a changed line OTHER than the cited one does not clear a line-anchored finding', () => {
     const r = derive([finding('x', 'src/widget.js:13', 'bad', { headSha: p1 })]);
     expect(r.kept).toEqual([{ id: 'x', reason: 'location-unchanged' }]);

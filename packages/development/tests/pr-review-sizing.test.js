@@ -550,11 +550,12 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     // the text collapses whitespace: entries are told apart by their prefix; an entry filed far from the top is a misplaced one
     const newer = unreleased.slice(0, start).split('- **packages/development:**').slice(1);
     expect(newer.length).toBeLessThanOrEqual(8);
-    // the entries known to sit above it: the verifier deadline and the majority rule (kata dx53) is the first, the result files read again (kata 271n) the next, the re-review delta (kata xb4j) after it, the small-slice deadlines (katas d9sy and 630v) after that
-    expect(newer[0]).toMatch(/^ `review-run` gives a verifier the time its first live runs showed it needs and settles a candidate on the strict majority of its verifiers when one did not return \(kata `dx53`/);
-    expect(newer[1]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
-    expect(newer[2]).toMatch(/^ review-run re-review plans a delta/);
-    expect(newer[3]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
+    // the entries known to sit above it: the re-review that is a delta although a verifier was lost (kata p5dt) is the first, the verifier deadline and the majority rule (kata dx53) the next, the result files read again (kata 271n) after it, the re-review delta (kata xb4j) after that, the small-slice deadlines (katas d9sy and 630v) last
+    expect(newer[0]).toMatch(/^ a re-review is a delta, not a full re-read, when the first round lost a verifier, and the delta verifies what that verifier left unverified \(kata `p5dt`/);
+    expect(newer[1]).toMatch(/^ `review-run` gives a verifier the time its first live runs showed it needs and settles a candidate on the strict majority of its verifiers when one did not return \(kata `dx53`/);
+    expect(newer[2]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
+    expect(newer[3]).toMatch(/^ review-run re-review plans a delta/);
+    expect(newer[4]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
     const first = unreleased.slice(start);
     // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
     const next = first.slice(10).search(/ - (?:\*\*|`)/);

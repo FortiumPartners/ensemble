@@ -34,11 +34,61 @@ const sameId = (a, b) => isObjectId(a) && isObjectId(b) && a.toLowerCase() === b
 const identity = (value) => (isText(value) ? value.trim() : Number.isFinite(value) ? String(value) : null);
 
 /**
- * The lists of a state report's `notReviewed` that must all be empty before the round can stand for the paths a delta does not read.
- * `changedResults` (kata 271n): a round whose result files were rewritten after the runner read them counted the first versions, so
- * its verdicts may miss a vote or a finding and cannot be carried.
+ * The lists of a state report's `notReviewed`, every one of which must be a list. Five of them must also be EMPTY before the round can
+ * stand for the paths a delta does not read (`UNREAD_LISTS`): what no agent read (unreviewed slices and paths, paths read under too few
+ * lenses), a claim no verifier could be asked about (`unbriefable`) and, kata 271n, a result file rewritten after the runner read it
+ * (`changedResults`: the round counted the first version, so its verdicts may miss a vote or a finding and cannot be carried). The other
+ * two (`VERIFIER_LISTS`) are what a verifier that did not return leaves, which is no gap in what was READ (kata p5dt): see
+ * `verifierGapAccounted`.
  */
 const NOT_REVIEWED_LISTS = Object.freeze(['unreviewedSlices', 'unreviewedPaths', 'underReviewedPaths', 'incompleteVerifiers', 'unbriefable', 'expiredAgents', 'changedResults']);
+const VERIFIER_LISTS = Object.freeze(['incompleteVerifiers', 'expiredAgents']);
+const UNREAD_LISTS = Object.freeze(NOT_REVIEWED_LISTS.filter((key) => !VERIFIER_LISTS.includes(key)));
+
+/**
+ * A finding the last round could not settle with its whole electorate because a verifier that was to vote on it did not return: the
+ * `verifier-incomplete` outcome of the votes contract (`unverified`: presented and marked, never confirmed and never refuted), or, since
+ * kata dx53, a finding `present` that a strict majority of the EXPECTED verifiers settled while the missing ones stayed named
+ * (`verification.settledOnMajority`). The second is never carried (a carry needs every expected vote: `recordVerdicts` skips it), so a
+ * delta round has to verify it again like the first: it is no more a verdict of this head than an unverified finding is.
+ */
+const lacksVerifier = (entry) => isObject(entry) && isObject(entry.verification)
+  && ((entry.verification.outcome === 'unverified' && entry.verification.reason === 'verifier-incomplete')
+    || (entry.verification.outcome === 'present' && entry.verification.settledOnMajority === true));
+const settledOnMajority = (entry) => isObject(entry) && isObject(entry.verification) && entry.verification.settledOnMajority === true;
+
+/** The findings of a ledger the last round left without their whole electorate for want of a verifier (see `lacksVerifier`) and that nothing has cleared since. */
+const lastRoundUnverified = (ledger) => (Array.isArray(ledger) ? ledger.filter((entry) => lacksVerifier(entry) && entry.cleared !== true) : []);
+
+/**
+ * Whether the verifiers a round lost are accounted for by its ledger (kata p5dt). A verifier that returned nothing leaves no part of the
+ * diff unread: the reviewers read every path and the lane found nothing, and each candidate the verifier held stands in the ledger
+ * `unverified`, where a delta round can verify it again. So a round whose ONLY missing agents are verifiers is a delta base, provided
+ * that every missing verifier is named with the candidates it was assigned, every one of those candidates stands in the ledger unverified
+ * for want of a verifier (or settled on a majority without it, kata dx53), and the agents `expiredAgents` lists are exactly the verifiers `incompleteVerifiers` names. Anything that does
+ * not add up is no base: a lost reviewer or security lane is never a verifier gap.
+ *
+ * @param {{incompleteVerifiers:Array, expiredAgents:Array}} notReviewed  both already known to be lists
+ * @param {Object[]} ledger
+ */
+function verifierGapAccounted(notReviewed, ledger) {
+  const lost = notReviewed.incompleteVerifiers;
+  const expired = notReviewed.expiredAgents;
+  if (lost.length === 0 && expired.length === 0) return true;
+  const waiting = new Set(ledger.filter(lacksVerifier).map((entry) => identity(entry.id)));
+  const named = new Set();
+  for (const entry of lost) {
+    if (!isObject(entry) || !isText(entry.verifier) || !Array.isArray(entry.candidateIds) || entry.candidateIds.length === 0) return false;
+    if (!entry.candidateIds.every((id) => identity(id) !== null && waiting.has(identity(id)))) return false;
+    named.add(entry.verifier.trim().toLowerCase());
+  }
+  const gone = new Set();
+  for (const agent of expired) {
+    if (!isObject(agent) || agent.role !== 'verifier' || !isText(agent.name)) return false;
+    gone.add(agent.name.trim().toLowerCase());
+  }
+  return named.size === gone.size && [...named].every((name) => gone.has(name));
+}
 
 /**
  * What a delta round does NOT see, said in its answer (kata xb4j review): the plan's read set is the changed files, their direct
@@ -46,16 +96,21 @@ const NOT_REVIEWED_LISTS = Object.freeze(['unreviewedSlices', 'unreviewedPaths',
  * graph cannot resolve are in no read set (the security lane and the whole-range reader keep the whole range); the carry's own
  * declared limits hold (direct dependents only, bare npm packages and lockfile changes unseen, symlinks and computed specifiers
  * fail closed); a High or sensitive file can be in the read set as a caller of a changed file, while a changed path never is.
+ * `unverified` (kata p5dt): how many candidates the last round left unverified for want of a verifier, and what the round does with them.
  */
-function deltaLimits({ lane, reader, triage }) {
+function deltaLimits({ lane, reader, triage, unverified = 0 }) {
   const whole = [lane ? 'the security lane' : null, reader ? 'the whole-range reader' : null, triage ? 'the TRIAGE step' : null].filter((name) => name !== null);
-  return Object.freeze([
+  const limits = [
     'read-set: changed files, their direct importers and tests, and name matches; not the modules a changed file imports, nor callers of callers',
     whole.length > 0 ? `read on the whole range in this round: ${whole.join(', ')}` : 'no agent of this round reads the whole range: a defect outside the read set is seen by no one',
     'carry: direct dependents only; bare npm packages and lockfile changes are not seen; symlinks and computed specifiers re-verify',
     'a High or sensitive file can be in the read set as a caller of a changed file; a changed path never is',
     'remediationShas is the caller\'s statement of which commits are the fix round\'s own',
-  ]);
+  ];
+  if (unverified > 0) {
+    limits.push(`the last round left ${unverified} ${unverified === 1 ? 'candidate' : 'candidates'} unverified or settled on a majority (a verifier did not return): the ones in code this push left alone are verified again here, one the push fixed is cleared, and one this head cannot place stays as recorded, without its whole electorate`);
+  }
+  return Object.freeze(limits);
 }
 
 const no = (reason) => ({ ok: false, reason });
@@ -102,9 +157,10 @@ function priorRound(input) {
 
   if (!Array.isArray(state.ledger) || !state.ledger.every(isObject)) return no('state-ledger-unreadable');
   if (!Array.isArray(state.verdicts) || !state.verdicts.every(isObject)) return no('state-verdicts-unrecorded');
-  // A delta read stands for the rest of the PR only when the round it follows read all of it.
+  // A delta read stands for the rest of the PR only when the round it follows read all of it. A verifier that did not return is the one
+  // gap that is not a gap in what was read (kata p5dt), and only when the ledger accounts for it.
   const notReviewed = state.notReviewed;
-  if (!isObject(notReviewed) || NOT_REVIEWED_LISTS.some((key) => !Array.isArray(notReviewed[key]) || notReviewed[key].length > 0)) {
+  if (!isObject(notReviewed) || NOT_REVIEWED_LISTS.some((key) => !Array.isArray(notReviewed[key])) || UNREAD_LISTS.some((key) => notReviewed[key].length > 0) || !verifierGapAccounted(notReviewed, state.ledger)) {
     return no('state-round-incomplete');
   }
   // The security lane's findings are not in the ledger: a delta round would drop them, so a round that holds any is re-read whole.
@@ -282,7 +338,10 @@ function composeDeltaLedger(run, fresh, derive) {
   const prior = run.priorRound;
   const carry = run.carry;
   const carried = isObject(carry) ? carry.carried : [];
-  let base = prior.ledger;
+  // The last round's unverified candidates this round put to verifiers again are the SAME findings (their ids, their records): the
+  // fresh entry takes the prior one's place whatever the fixed-finding check says, so no ledger holds one finding twice (kata p5dt).
+  const again = new Set(isObject(run.reverifyPrior) && Array.isArray(run.reverifyPrior.reverified) ? run.reverifyPrior.reverified.map(String) : []);
+  let base = prior.ledger.filter((entry) => !again.has(String(entry.id)));
   if (carried.length > 0) {
     const stamped = stampLedger({ ledger: base, carried, headSha: run.headSha });
     if (stamped.ok !== true) return { ok: false, reason: `the prior ledger cannot be restamped: ${stamped.reason}` };
@@ -330,4 +389,96 @@ function verdictRecords(run, findings) {
   return { verdicts: [...carried, ...fresh], recorded: fresh.length, skipped: recorded.ok === true ? recorded.skipped : [{ id: null, reason: recorded.reason }] };
 }
 
-module.exports = { deltaLimits, priorRound, deltaScope, idSeed, hashCandidates, carryFacts, planRunCarry, composeDeltaLedger, verdictRecords, NOT_REVIEWED_LISTS };
+/**
+ * What `reverifyPrior` leaves out when it copies a ledger entry into a candidate: the old verification, and the marks of earlier
+ * fixed-finding checks and carries (this round stamps its own).
+ */
+const NOT_COPIED = Object.freeze(['verification', 'locationAsOf', 'cleared', 'clearedBy', 'clearedReason', 'headSha', 'carriedFrom']);
+
+/**
+ * The last round's candidates that no verifier returned for (unverified, or settled on a majority without it, kata dx53), put to verifiers again in this round (kata p5dt). They stand in the prior
+ * ledger `unverified` (never confirmed, never refuted), so a delta round that only kept them would keep them unverified for good, and the
+ * full re-read this replaces dropped the ones nobody raised again. Which ones come back is the fixed-finding check's call, the same one
+ * `composeDeltaLedger` applies to every prior finding (`deriveCleared`: git, the cited lines against the push):
+ *   - the push touched the cited lines and nobody raised the finding again: it is CLEARED, like any prior finding, and is not verified;
+ *   - a candidate of this round is the same defect (`re-reported`: the same path and claim): that candidate is verified, as itself;
+ *   - the cited lines are untouched (`location-unchanged`): the finding comes back as a candidate of this round, the ledger entry as it
+ *     was recorded (its id, its raiser, its adjudication, everything but the old verification) at the line this head numbers it, and K
+ *     fresh verifiers are asked about it from the claim and the place alone. The votes that did arrive last round are not counted again:
+ *     they were cast on another head, and a verdict is only ever this round's verifiers' own;
+ *   - anything else (a renamed file, a place the check cannot move, a check that cannot run): it is NOT verified again. It stays in the
+ *     ledger as recorded, unverified, and the round says so (`kept`, and a `partial` verification status).
+ *
+ * @param {Object} run   `run.priorRound`, and the heads and repository `deriveCleared` needs
+ * @param {Object[]} fresh  every candidate this round's reviewers raised (what a prior finding is `re-reported` by)
+ * @param {?function(Object):Object} derive  `deriveCleared`
+ * @returns {{candidates:Object[], reverified:Array, kept:Array<{id:*, reason:string}>}}
+ *   `candidates` are to be verified this round, `reverified` their ids (the prior findings' own), `kept` the ones left unverified, with why.
+ */
+function reverifyPrior(run, fresh, derive) {
+  const prior = isObject(run.priorRound) ? run.priorRound : null;
+  const waiting = new Set(prior === null ? [] : lastRoundUnverified(prior.ledger));
+  const out = { candidates: [], reverified: [], kept: [] };
+  if (waiting.size === 0) return out;
+  const keepAll = (reason) => ({ ...out, kept: [...waiting].map((entry) => ({ id: entry.id, reason })) });
+  if (typeof derive !== 'function') return keepAll('fixed-finding-check-unavailable');
+  let derived;
+  try {
+    derived = derive({ cwd: run.repoRoot, baseSha: run.baseSha, headSha: run.headSha, lastReviewedSha: run.lastReviewedSha, ledger: prior.ledger, incoming: fresh });
+  } catch (error) {
+    derived = { ok: false, reason: error && error.message ? error.message : String(error) };
+  }
+  if (!isObject(derived) || derived.ok !== true || !Array.isArray(derived.ledger) || derived.ledger.length !== prior.ledger.length) {
+    return keepAll(`fixed-finding-check-unavailable: ${isObject(derived) && isText(derived.reason) ? derived.reason : 'no usable answer'}`);
+  }
+  const why = new Map((Array.isArray(derived.kept) ? derived.kept : []).filter(isObject).map((entry) => [identity(entry.id), entry.reason]));
+  const cleared = new Set((Array.isArray(derived.cleared) ? derived.cleared : []).filter(isObject).map((entry) => identity(entry.id)));
+  prior.ledger.forEach((entry, index) => {
+    if (!waiting.has(entry)) return;
+    const id = identity(entry.id);
+    if (id !== null && (cleared.has(id) || why.get(id) === 're-reported')) return;
+    const moved = derived.ledger[index];
+    const placed = id !== null && why.get(id) === 'location-unchanged' && isObject(moved) && identity(moved.id) === id && isText(moved.locationOrLink) && isText(moved.failureMode);
+    if (!placed) {
+      out.kept.push({ id: entry.id, reason: id !== null && isText(why.get(id)) && why.get(id) !== 'location-unchanged' ? why.get(id) : 'not-placed' });
+      return;
+    }
+    // a candidate with no raiser cannot be given verifiers who are not its raiser: it would fail the whole verification plan
+    if (!isText(moved.source) && !isText(moved.reviewer)) {
+      out.kept.push({ id: entry.id, reason: 'no-raiser' });
+      return;
+    }
+    const candidate = { ...moved };
+    for (const key of NOT_COPIED) delete candidate[key];
+    out.candidates.push(candidate);
+    out.reverified.push(entry.id);
+  });
+  return out;
+}
+
+/**
+ * The last round's unverified candidates still in the finished round's ledger that this round did not put to verifiers (and nothing
+ * cleared), each with why (`run.reverifyPrior.kept`, else just that it was not verified again). `fresh` is the ids of this round's own
+ * candidates.
+ */
+function leftoverUnverified(run, ledger, fresh) {
+  const why = new Map((isObject(run.reverifyPrior) && Array.isArray(run.reverifyPrior.kept) ? run.reverifyPrior.kept : []).filter(isObject).map((entry) => [String(entry.id), entry.reason]));
+  return lastRoundUnverified(ledger).filter((entry) => !fresh.has(String(entry.id))).map((entry) => ({ id: entry.id, reason: `${settledOnMajority(entry) ? 'settled-on-a-majority, ' : ''}${why.get(String(entry.id)) || 'not-verified-again'}` }));
+}
+
+/**
+ * The round's verification status with that leftover in its ledger (kata p5dt). The votes of a round range over the candidates it asked
+ * verifiers about, so on their own they would call it `performed` whatever its ledger still holds unverified: such a round is at best
+ * `partial`, and the tally's own reason and recovery stay when it has them.
+ */
+function withLastRoundUnverified(tally, leftover) {
+  if (leftover.length === 0) return tally;
+  return {
+    ...tally,
+    verification: tally.verification === 'not-performed' ? 'not-performed' : 'partial',
+    reason: [tally.reason, `unverified-from-the-last-round: ${leftover.map((entry) => `${entry.id} (${entry.reason})`).join(', ')}`].filter(isText).join('; '),
+    recoveryAction: isText(tally.recoveryAction) ? tally.recoveryAction : 'supply-the-missing-votes',
+  };
+}
+
+module.exports = { deltaLimits, priorRound, deltaScope, idSeed, hashCandidates, carryFacts, planRunCarry, composeDeltaLedger, verdictRecords, reverifyPrior, leftoverUnverified, withLastRoundUnverified, lastRoundUnverified, lacksVerifier, NOT_REVIEWED_LISTS, UNREAD_LISTS, VERIFIER_LISTS };

@@ -203,8 +203,9 @@ itself, from the review state it recorded at `lastReviewedSha` (`.ensemble/pr-re
 that wrote it (kata `xb4j`). `reviewedHeadSha` and `reviewedBaseSha` are not payload keys, so a caller cannot name them.
 
 `delta` only when all of these hold: the state names that head and PR, the run record it points at is a finished run of
-the same head, base and PR, the state holds that round's verdicts, ledger and a complete coverage (`notReviewed` empty:
-no unreviewed slice or path, no incomplete verifier, no unbriefable candidate, no expired agent) and a security lane that
+the same head, base and PR, the state holds that round's verdicts, ledger and a complete coverage (everything was read:
+`notReviewed` has no unreviewed slice or path, no path read under too few lenses, no unbriefable candidate, no result that changed
+after it was read, and no expired agent but a verifier that did not return, which is no gap in what was read: see "A round that lost a verifier") and a security lane that
 found nothing, or was not asked for (the lane's findings are not in the ledger, so a round that holds any is read whole again); the prepared
 range is a readable delta, every commit of it is one of `remediationShas`, the delta plan says delta and no path in the
 delta is High or sensitive. Anything else is `full` (a full re-read), with every reason listed, and the run says why the
@@ -239,6 +240,49 @@ fixed (its cited lines touched, nobody re-reported it) is cleared by the same ru
 code nobody re-read stays, as recorded, and keeps blocking. Candidate ids continue after the prior ledger's, so no two
 findings share an id. If the fixed-finding check cannot run, nothing is cleared and nothing is dropped.
 
+**A round that lost a verifier (kata `p5dt`).** A verifier that never returns (its deadline passed, or its file was invalid) leaves
+no path unread: the reviewers read every path and the lane found nothing, and the candidates it held stand in the ledger
+`unverified` / `verifier-incomplete` (presented, never confirmed, never refuted: the votes contract) or, under the majority rule (kata `dx53`), `present` on a strict majority of
+the expected verifiers with the missing one still named (`settledOnMajority`): a verdict that is never carried, because a carry needs every
+expected vote. Such a round is a delta base,
+but only when its state accounts for the loss: `notReviewed.expiredAgents` lists only verifiers, each named in `incompleteVerifiers`
+with the candidates it held, and each of those candidates is in the ledger unverified for want of a verifier or settled on a majority without it. A lost reviewer, a lost
+security lane, an unreviewed slice or path, an unbriefable candidate, a changed result, or a state that does not add up is still
+`prior-round-unusable:state-round-incomplete`. This was the measured reason a High re-review was a full re-read (scratch PR 286, the
+final-code measurement of kata `q3a9`): 3 of the first round's 12 verifiers expired at their deadline, the round had read everything
+and its lane was clean, and `prepare` answered `full`: 8 agents, 16.5 minutes against a plan of 10 to 15, 0 carried.
+
+A delta round then puts the last round's unverified candidates, and the ones settled on a majority without a verifier, to verifiers again (`reReview.delta.unverifiedFromLastRound` counts
+them), each sorted by the fixed-finding check that already decides what a push fixed (`lib/pr-review-clear-cli.js`: git, the cited
+lines against the push):
+
+- the push touched the cited lines and no reviewer of this round raised the finding again: it is **cleared**, like any prior finding (it
+  was never verified, so it is neither confirmed nor refuted, and it stays in the ledger marked cleared);
+- a reviewer of this round raised the same defect (the same path and claim): that candidate is verified, as itself, and replaces the old entry;
+- the cited lines are untouched: the finding comes back as a **candidate of this round under its own id**, its ledger entry as recorded
+  (raiser, adjudication, everything but the old verification) at the line this head numbers it. K fresh verifiers are briefed with the
+  claim and the place alone, like any candidate; the votes that did arrive last round are not counted again, because they were cast on
+  another head and a verdict is only ever the votes of the round that records it. It settles or stays unverified like any other, and a
+  settled one is recorded for the next round's carry;
+- anything else is **not** verified again: a place the check cannot give (a renamed file, a location it cannot move), a check that cannot
+  run, an entry that names no raiser. It stays in the ledger exactly as recorded, unverified, and blocking if its severity blocks. The round
+  says so: `carry.unverifiedFromLastRound` is `{verifiedAgain: [ids], kept: [{id, reason}]}` (the verify manifest's `carry` carries it
+  too), and the round's own verification status is `partial` with the reason `unverified-from-the-last-round: ...` however its votes came out.
+
+The TRIAGE answer marks those candidates `fromLastRound: true` (they will be verified; the orchestrator can still only add). Nothing is
+dropped and nothing is counted refuted for want of a vote: a candidate no verifier returns for again is unverified again under the same
+id, and the round that records it is a base again. Limits, said plainly: the delta's verify round now includes every untouched candidate
+the last round left unverified, so when most of a first round's verifiers were lost the delta's verification can be as large as a first
+round's while its reading stays the delta's; `carried` still needs a settled verdict whose candidate this round's reviewers raise again
+(see "Hash, plan, record"); and whether the path is faster in a real review was not measured here (no model-agent run was made for this change).
+
+Three more limits, said plainly. A candidate the delta clears because the push fixed its lines was never verified: `carry.cleared` lists its
+id alone, and the beads recorder closes it as fixed although no verifier ever confirmed it (not new in kind, but this widens it to the candidates
+of a lost verifier). A candidate verified again keeps the disposition, reason and adjudication its entry already had (only the old verification
+and the stamps are dropped), so a Nit deferred with a reason stays deferred whatever the new verdict says, and `adjudicateList` does not present
+it again. And `reReview.delta.unverifiedFromLastRound` is a count while `carry.unverifiedFromLastRound` is an object, whose `verifiedAgain` lists the
+candidates put to verifiers again, some of which can come back unverified again, so it overstates what was verified.
+
 **What stays whole.** The security lane, the whole-range reader (when the light run is cut into several slices) and the TRIAGE
 step (full mode) read the whole range (`range.diff`, every changed path of the PR) in a delta round too; a round that planned
 none of them says so in its limits (`reReview.delta.limits` names exactly the ones it planned). A delta's slices are labelled
@@ -254,10 +298,11 @@ or sensitive files as callers of a changed file (they are read, not exempt); `re
 that those commits are the fix round's own (the runner cannot tell who pushed a commit); a carried verdict was settled by the
 verifiers of the round before, under the carry's declared limits (direct dependents only, bare npm packages and lockfile changes
 unseen, symlinks and computed specifiers re-verify). A carried finding is never coverage: coverage of a delta round is its own
-readers', and a last round with anything unreviewed (an unreviewed slice or path, an expired agent such as a security lane that
-never returned) is never a base for a delta. The delta-read reasons `delta-read-set-unreadable`, `delta-paths-unreadable` and
-`delta-diff-unreadable` also make a round full. A `not-run` lane (a tier that asked for none) is accepted as a base only when
-no agent expired.
+readers', and a last round with anything unread (an unreviewed slice or path, an expired reviewer, or a security lane that never
+returned) is never a base for a delta; a verifier that did not return is the one expired agent that is not a gap in what was read (see
+"A round that lost a verifier"). The delta-read reasons `delta-read-set-unreadable`, `delta-paths-unreadable` and
+`delta-diff-unreadable` also make a round full. A `not-run` lane (a tier that asked for none) is accepted as a base only when no reviewer or
+lane expired.
 
 ## Slices and deadlines (the size model)
 

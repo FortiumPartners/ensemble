@@ -632,7 +632,10 @@ function manifestOf(run, wave) {
 /** The verify round's plan in a delta round: how many verdicts were kept and how many candidates a verifier is asked about again. */
 function carryPlanOf(run) {
   const carry = isObject(run.carry) ? run.carry : { carriedIds: [], reasons: ['no-carry-plan'] };
-  return { carried: carry.carriedIds.length, verified: run.candidates.length - carry.carriedIds.length, reasons: carry.reasons };
+  const again = isObject(run.reverifyPrior) ? run.reverifyPrior : { reverified: [], kept: [] };
+  // kata p5dt: of the candidates verified, the ones that are the last round's own findings no verifier returned for
+  const lastRound = again.reverified.length > 0 || again.kept.length > 0 ? { unverifiedFromLastRound: { verifiedAgain: again.reverified, kept: again.kept } } : {};
+  return { carried: carry.carriedIds.length, verified: run.candidates.length - carry.carriedIds.length, reasons: carry.reasons, ...lastRound };
 }
 
 /** The span a dispatched agent is recorded under: `review.<role>`, the security lane being `review.security-lane`. */
@@ -871,7 +874,9 @@ async function prepareStages(input, deps, ctx) {
   if (deltaRead !== null) {
     // What the same push would have cost as a full re-read, so the plan shows the saving it makes.
     const whole = planRunSlices(run, facts.numstat);
-    run.reReview = { ...run.reReview, appliedRange: 'delta', delta: { lastReviewedSha: input.lastReviewedSha, changedPaths: deltaRead.changedPaths.length, readPaths: deltaRead.readPaths.length, agentsPlanned: agentCountOf(run, sliced), agentsFullRead: whole.ok === true ? agentCountOf(run, whole) : null, limits: D.deltaLimits({ lane: run.securityLane, reader: sliced.sizing.wholeRangeReader === true, triage: isFull }) } };
+    // kata p5dt: how many of the last round's candidates were left unverified for want of a verifier (a delta base now can be one)
+    const unverified = D.lastRoundUnverified(run.priorRound.ledger).length;
+    run.reReview = { ...run.reReview, appliedRange: 'delta', delta: { lastReviewedSha: input.lastReviewedSha, changedPaths: deltaRead.changedPaths.length, readPaths: deltaRead.readPaths.length, agentsPlanned: agentCountOf(run, sliced), agentsFullRead: whole.ok === true ? agentCountOf(run, whole) : null, ...(unverified > 0 ? { unverifiedFromLastRound: unverified } : {}), limits: D.deltaLimits({ lane: run.securityLane, reader: sliced.sizing.wholeRangeReader === true, triage: isFull, unverified }) } };
   }
   run.slices = sliced.plan.slices;
   run.assignments = sliced.plan.reviewerAssignments;
@@ -1215,6 +1220,14 @@ function processReview(run, deps, { deferVerification = false } = {}) {
   const deduped = dedupeFindings(completed);
   if (!Array.isArray(deduped)) return failure('RUN_FAILED', { reason: 'dedupe-refused', error: deduped.reason });
   run.candidates = deduped;
+  // kata p5dt: a delta round puts the last round's candidates that no verifier returned for to verifiers again, when the push left them
+  // alone (lib/pr-review-run-delta.js `reverifyPrior`). They join the candidates of this round, so they are planned, briefed, hashed and
+  // verified like any other and replace their own ledger entries.
+  if (run.priorRound !== undefined) {
+    const again = D.reverifyPrior(run, deduped, typeof deps.deriveCleared === 'function' ? deps.deriveCleared : null);
+    run.reverifyPrior = { reverified: again.reverified, kept: again.kept };
+    run.candidates = [...deduped, ...again.candidates];
+  }
 
   // coverage: a slice is reviewed only when no wave lists it unreviewed
   const unreviewed = new Map();
@@ -1467,7 +1480,10 @@ function buildLedger(run, deps) {
   const composed = D.composeDeltaLedger(run, freshEntries, typeof deps.deriveCleared === 'function' ? deps.deriveCleared : null);
   if (composed.ok !== true) return { ok: false, reason: composed.reason };
   const tally = { ...freshTally, findings: [...freshTally.findings, ...carriedTally], presented: [...freshTally.presented, ...carriedTally.filter((entry) => entry.presented === true)] };
-  return { ok: true, ledger: composed.ledger, tally, verdicts, cleared: composed.cleared, notes: composed.notes };
+  // kata p5dt: a candidate the last round left unverified that this round did not put to verifiers stays in the ledger as recorded, unverified:
+  // the round is then at best `partial`, and the answer names it (`carry.unverifiedFromLastRound.kept`)
+  const leftover = D.leftoverUnverified(run, composed.ledger, new Set(fresh.map((candidate) => String(candidate.id))));
+  return { ok: true, ledger: composed.ledger, tally: D.withLastRoundUnverified(tally, leftover), verdicts, cleared: composed.cleared, notes: composed.notes, unverifiedKept: leftover };
 }
 
 function testsFact(baseline) {
@@ -1703,7 +1719,10 @@ function carrySummaryOf(run) {
   const base = { appliedRange: 'full-range', carried: 0, reverified: Array.isArray(run.candidates) ? run.candidates.length : 0, recorded: info.recorded || 0, skipped: Array.isArray(info.skipped) ? info.skipped : [] };
   if (run.priorRound === undefined) return base;
   const carry = isObject(run.carry) ? run.carry : { carriedIds: [], unmatched: 0, reasons: ['no-carry-plan'] };
-  const delta = isObject(run.deltaLedger) ? run.deltaLedger : { cleared: [], notes: [] };
+  const delta = isObject(run.deltaLedger) ? run.deltaLedger : { cleared: [], notes: [], unverifiedKept: [] };
+  // kata p5dt: the last round's unverified candidates this round put to verifiers again, and the ones it could not
+  const verifiedAgain = isObject(run.reverifyPrior) && Array.isArray(run.reverifyPrior.reverified) ? run.reverifyPrior.reverified : [];
+  const kept = Array.isArray(delta.unverifiedKept) ? delta.unverifiedKept : [];
   return {
     ...base,
     appliedRange: 'delta',
@@ -1715,6 +1734,7 @@ function carrySummaryOf(run) {
     reasons: carry.reasons,
     cleared: delta.cleared,
     notes: delta.notes,
+    ...(verifiedAgain.length > 0 || kept.length > 0 ? { unverifiedFromLastRound: { verifiedAgain, kept } } : {}),
     limits: run.reReview.delta.limits,
   };
 }
@@ -1723,7 +1743,7 @@ function carrySummaryOf(run) {
 async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
   // The verdicts and the delta's clearing are recorded once, by the build that made the ledger; an adjudication re-records them.
   if (built.verdicts !== undefined) run.verdictInfo = built.verdicts;
-  if (built.cleared !== undefined) run.deltaLedger = { cleared: built.cleared, notes: built.notes || [] };
+  if (built.cleared !== undefined) run.deltaLedger = { cleared: built.cleared, notes: built.notes || [], unverifiedKept: built.unverifiedKept || [] };
   const carry = carrySummaryOf(run);
   const notReviewed = notReviewedOf(run);
   const adjudicate = S.adjudicateList(built.ledger);
@@ -1839,6 +1859,7 @@ function applyAdjudications(ledger, listed, adjudications, now) {
  */
 function triageManifest(run, deps) {
   const refused = new Map(briefCandidates(run, deps, run.candidates).refused.map((record) => [String(record.id), record]));
+  const fromLastRound = new Set(isObject(run.reverifyPrior) && Array.isArray(run.reverifyPrior.reverified) ? run.reverifyPrior.reverified.map(String) : []);
   return {
     ok: true,
     status: 'TRIAGE',
@@ -1851,7 +1872,7 @@ function triageManifest(run, deps) {
     dispatched: [],
     candidates: run.candidates.map((c) => {
       const refusal = refused.get(String(c.id));
-      return { id: c.id, locationOrLink: c.locationOrLink, severity: c.severity, failureMode: c.failureMode, source: c.source, ...(refusal === undefined ? {} : { unbriefable: { kind: refusal.kind, ...(refusal.input === undefined ? {} : { input: refusal.input }), reason: refusal.reason } }) };
+      return { id: c.id, locationOrLink: c.locationOrLink, severity: c.severity, failureMode: c.failureMode, source: c.source, ...(fromLastRound.has(String(c.id)) ? { fromLastRound: true } : {}), ...(refusal === undefined ? {} : { unbriefable: { kind: refusal.kind, ...(refusal.input === undefined ? {} : { input: refusal.input }), reason: refusal.reason } }) };
     }),
     // a result that changed after it was read makes the coverage incomplete (kata 271n); named once, here, so the orchestrator is not told to triage as if the review were whole
     coverage: { complete: run.coverage.complete && changesOf(run).length === 0, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered, ...(changesOf(run).length > 0 ? { changedResults: changesOf(run).map((change) => change.agent) } : {}) },
