@@ -490,7 +490,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
       return { ok: false, error: { code: error.code || 'RESOLVE_FAILED', message: error.message } };
     }
     try {
-      loaded = loadAdapter(adapterId, { ...ctx, interactive });
+      loaded = loadAdapter(adapterId, { ...ctx, category, interactive });
     } catch (error) {
       return { ok: false, error: { code: error.code || 'NOT_INSTALLED', message: error.message } };
     }
@@ -740,7 +740,7 @@ function confirmStatus(ctx = {}, positionals = [], parsed = {}) {
       return { ok: false, error: { code: error.code || 'RESOLVE_FAILED', message: error.message } };
     }
     try {
-      loaded = loadAdapter(adapterId, { ...ctx, interactive });
+      loaded = loadAdapter(adapterId, { ...ctx, category, interactive });
     } catch (error) {
       return { ok: false, error: { code: error.code || 'NOT_INSTALLED', message: error.message } };
     }
@@ -821,7 +821,7 @@ function confirmRecord(ctx = {}, positionals = [], parsed = {}) {
       return { ok: false, error: { code: error.code || 'RESOLVE_FAILED', message: error.message } };
     }
     try {
-      loadAdapter(adapterId, { ...ctx, interactive });
+      loadAdapter(adapterId, { ...ctx, category, interactive });
     } catch (error) {
       return { ok: false, error: { code: error.code || 'NOT_INSTALLED', message: error.message } };
     }

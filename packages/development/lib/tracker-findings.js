@@ -321,7 +321,7 @@ function resolveManifest(projectRoot, env, untrustedProjectRoot = false, baseCon
             projectConfig:
               baseConfig.text === null ? null : parseToolchainConfigText(baseConfig.text, baseConfig.label || 'base toolchain config')
           });
-    manifest = loadAdapter(resolved.value, { projectRoot, env, interactive: false, untrustedProjectRoot }).manifest;
+    manifest = loadAdapter(resolved.value, { projectRoot, env, category: 'tracker', interactive: false, untrustedProjectRoot }).manifest;
   } catch (error) {
     return { reason: error && error.message ? error.message : String(error) };
   }

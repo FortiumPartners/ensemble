@@ -89,7 +89,10 @@
  * its own manifest (never inferred from a directory name, since an installed-package
  * directory may be named anything and one manifest can implement several categories -- TRD
  * interpretation I7), honoring the search order above and the repo-local trust rule for
- * non-interactive runs (TRD interpretation I5, PRD AC-007-3). When more than one directory in
+ * non-interactive runs (TRD interpretation I5, PRD AC-007-3). An id declared by several
+ * directories one category each is resolved by passing `ctx.category`, which narrows the
+ * candidates to the directories declaring it before any tie-break applies (#146); the
+ * tie-break below then settles the remaining ambiguity. When more than one directory in
  * the same location declares the same `adapter` id, the tie-break is discovery order: first by
  * origin priority (repo-local, then user, then installed, matching the search order above),
  * then -- for "installed" -- by each "skills root"'s own position in the ordered list
@@ -520,11 +523,20 @@ function discoverAdapters(ctx = {}) {
  * @param {string[]} [ctx.installedRoots] extra installed-tier "skills root" directories; see
  *   `discoverAdapters`'s own doc
  * @param {boolean} [ctx.untrustedProjectRoot] defaults to `false`; see the module doc
+ * @param {string|null} [ctx.category] the toolchain category being resolved. When given, only
+ *   directories whose manifest `categories` list includes it are candidates, so an id declared
+ *   by several directories one category each (the shipped `plain-git`: `workflow` in one
+ *   directory, `worktree` in another) resolves to the right half instead of whichever sorted
+ *   first (#146). The narrowing happens before the origin walk, so origin priority decides
+ *   only among directories that declare the category. Omitted, resolution keys on the id alone
+ *   exactly as it always did.
  * @returns {{origin: 'repo-local'|'user'|'installed', dir: string, manifest: object,
  *   skillMd: {ok: true, content: string} | {ok: false, error: string}}}
  * @throws {Error} with `.code === 'NOT_INSTALLED'` naming `name` and every location actually
  *   searched (repo-local, user, and every "installed" skills root for this call), and an
- *   install hint, when no location has a matching adapter; with
+ *   install hint, when no location has a matching adapter -- or, when `ctx.category` is given
+ *   and the id DID resolve to directories that all declare other categories, naming the
+ *   category and what each of those directories declares instead of an install hint; with
  *   `.code === 'UNTRUSTED_REPO_ADAPTER'` naming `name` and the `trustedRepoAdapters` setting
  *   when a repo-local match exists but the trust requirement is not met (non-interactive, or
  *   `ctx.untrustedProjectRoot` in any mode); with
@@ -537,15 +549,42 @@ function loadAdapter(name, ctx = {}) {
     env = process.env,
     interactive = false,
     installedRoots,
-    untrustedProjectRoot = false
+    untrustedProjectRoot = false,
+    category = null
   } = ctx;
 
-  const candidates = discoverAdapters({
+  const byName = discoverAdapters({
     projectRoot,
     env,
     installedRoots,
     untrustedProjectRoot
   }).filter((entry) => entry.name === name);
+
+  // An `adapter` id may legitimately be declared by more than one directory, one category
+  // each: the shipped `plain-git` is `adapter-workflow-plain-git` (workflow) plus
+  // `adapter-worktree-plain-git` (worktree), kept apart so each carries only the allowlist its
+  // own category needs (TRD-042's AC requires the worktree half to permit `git worktree` and
+  // nothing else, which a merged manifest could not satisfy). Resolving on the id alone
+  // returned whichever directory sorted first and made every other category of that id
+  // unreachable -- `worktree: plain-git` is the shipped default and `worktree.create` came back
+  // UNAVAILABLE (#146). `ctx.category` narrows the candidates to the directories that actually
+  // declare the category being resolved, BEFORE the origin walk below, so origin priority
+  // still decides between two directories that both declare it and a wrong-category adapter in
+  // a higher-priority tier no longer shadows the right one in a lower tier.
+  //
+  // Optional on purpose: every caller that resolves a category has one in hand and passes it,
+  // while a call with no category in view (a manifest test asserting on an id, a tool listing
+  // adapters) keeps the historical id-only tie-break rather than being forced to invent a
+  // category it does not have.
+  const candidates =
+    category == null
+      ? byName
+      : byName.filter((entry) => {
+          const manifest = readManifest(entry.dir);
+          return (
+            manifest && Array.isArray(manifest.categories) && manifest.categories.includes(category)
+          );
+        });
   const byOrigin = (origin) => candidates.find((entry) => entry.origin === origin);
 
   const repoLocalMatch = byOrigin('repo-local');
@@ -605,6 +644,30 @@ function loadAdapter(name, ctx = {}) {
       manifest: readManifest(installedMatch.dir),
       skillMd: readSkillMd(installedMatch.dir)
     };
+  }
+
+  // The id itself resolved to at least one directory and every one of them was rejected for
+  // the category asked for. Saying only "not installed" would send a reader looking for a
+  // missing install when the install is present and the category is the thing missing, so this
+  // names the category and what each directory does declare instead.
+  if (category != null && byName.length > 0) {
+    const rejected = byName
+      .map((entry) => {
+        const manifest = readManifest(entry.dir);
+        const declared =
+          manifest && Array.isArray(manifest.categories) && manifest.categories.length > 0
+            ? manifest.categories.join(', ')
+            : '(none)';
+        return `${entry.dir} declares [${declared}]`;
+      })
+      .join('; ');
+    const error = new Error(
+      `adapter '${name}' is installed but no directory declaring it provides the '${category}' category: ` +
+        `${rejected}. Add '${category}' to the \`categories\` list of whichever manifest implements it, ` +
+        `or configure a different adapter for '${category}'.`
+    );
+    error.code = 'NOT_INSTALLED';
+    throw error;
   }
 
   const repoLocalRoot = repoLocalAdaptersRoot(projectRoot);

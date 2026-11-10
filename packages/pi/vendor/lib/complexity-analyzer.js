@@ -301,7 +301,7 @@ function collectRepoFacts(text, repoRoot, exec = defaultExec) {
 function resolveTrackerAdapter(cwd) {
   const env = process.env;
   const resolved = resolveCategory('tracker', { projectRoot: cwd, env, detect: detectAdapter });
-  const loaded = loadAdapter(resolved.value, { projectRoot: cwd, env, interactive: false });
+  const loaded = loadAdapter(resolved.value, { projectRoot: cwd, env, category: 'tracker', interactive: false });
   return { manifest: loaded.manifest };
 }
 

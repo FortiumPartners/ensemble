@@ -719,6 +719,72 @@ function validateDefaultOnly() {
 }
 
 /**
+ * No two shipped adapter directories may declare the same `adapter` id FOR THE SAME category.
+ *
+ * One id across several directories, one category each, is legitimate and shipped:
+ * `adapter-workflow-plain-git` and `adapter-worktree-plain-git` both declare
+ * `adapter: plain-git`, kept apart so each carries only the allowlist its own category needs.
+ * Resolution is keyed on (id, category) to make both halves reachable (#146), which leaves a
+ * duplicate PAIR as the thing that cannot be resolved: two directories declaring the same id
+ * and the same category differ only by sort order, and the loser's capabilities are silently
+ * unreachable with nothing reported -- exactly the failure #146 was, one level down. This
+ * check turns that into a validation error at authoring time.
+ *
+ * Source packages only: pi/codex/opencode are generated output and full/ mirrors the sources,
+ * so including any of them would report every real adapter as its own duplicate.
+ *
+ * @param {string} [packagesDir] the packages root to scan; defaults to this repo's own, and is
+ *   a parameter for the same reason `checkDefaultOnly(categoriesDir, PACKAGES_DIR)` takes one:
+ *   so a test can plant a real duplicate pair in a temp tree and prove this check fails on it
+ *   without writing a second adapter into the shipped packages.
+ * @returns {string[]} One message per (id, category) pair declared by more than one directory
+ */
+function validateAdapterIdCategoryUniqueness(packagesDir = PACKAGES_DIR) {
+  const seen = new Map();
+  const failures = [];
+  let checked = 0;
+
+  for (const pkg of fs.readdirSync(packagesDir)) {
+    if (pkg === 'pi' || pkg === 'codex' || pkg === 'opencode' || pkg === 'full') continue;
+    const skillsDir = path.join(packagesDir, pkg, 'skills');
+    if (!fs.existsSync(skillsDir)) continue;
+    for (const entry of fs.readdirSync(skillsDir)) {
+      const manifestPath = path.join(skillsDir, entry, 'adapter.yaml');
+      if (!fs.existsSync(manifestPath)) continue;
+      let manifest;
+      try {
+        manifest = yamlLib.load(fs.readFileSync(manifestPath, 'utf8'));
+      } catch (error) {
+        failures.push(`packages/${pkg}/skills/${entry}/adapter.yaml: cannot be parsed (${error.message})`);
+        continue;
+      }
+      checked++;
+      const id = manifest && manifest.adapter;
+      const categories = manifest && Array.isArray(manifest.categories) ? manifest.categories : [];
+      if (typeof id !== 'string') continue;
+      for (const category of categories) {
+        const key = `${id}\u0000${category}`;
+        const rel = path.join('packages', pkg, 'skills', entry);
+        if (seen.has(key)) {
+          failures.push(
+            `adapter id '${id}' is declared for category '${category}' by two directories ` +
+              `(${seen.get(key)} and ${rel}); one of them is unreachable, since resolution ` +
+              `returns a single directory per (id, category) pair`
+          );
+          continue;
+        }
+        seen.set(key, rel);
+      }
+    }
+  }
+
+  if (failures.length === 0) {
+    console.log(`  ✓ ${checked} adapter manifest(s) declare a unique (id, category) pair each`);
+  }
+  return failures;
+}
+
+/**
  * Every command YAML's body prose (`run <id>`, `preflight --require <id>`, `confirm-status
  * <id>`) must only reference capability ids that file's own `metadata.capabilities.{required,
  * optional}` declares (PR 7 independent review item 7). Source packages only: pi/codex/
@@ -990,6 +1056,12 @@ function main() {
     errors++;
   });
 
+  console.log('\nValidating adapter (id, category) uniqueness...');
+  validateAdapterIdCategoryUniqueness().forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // Prompt word-budget ratchet (see scripts/lib/prompt-budget.js)
   console.log('\nValidating prompt word budgets...');
   const sizes = promptBudget.collectSizes(PACKAGES_DIR);
@@ -1039,4 +1111,5 @@ module.exports = {
   validateCapabilityIds,
   validateCapabilityInvocationDrift,
   validateDefaultOnly,
+  validateAdapterIdCategoryUniqueness,
 };

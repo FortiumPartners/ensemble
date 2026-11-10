@@ -167,6 +167,134 @@ describe('loadAdapter: duplicate-id tie-break (first by origin priority, then so
   });
 });
 
+describe('loadAdapter: ctx.category keys resolution on (id, category), not id alone (#146)', () => {
+  // The shipped `plain-git` is declared by two directories, one category each
+  // (`adapter-workflow-plain-git` -> workflow, `adapter-worktree-plain-git` -> worktree), so
+  // resolving by id alone returned whichever sorted first and made the OTHER category's
+  // capabilities unreachable: `worktree: plain-git` is the shipped default and
+  // `worktree.create` failed UNAVAILABLE. These fixtures reproduce that shape without
+  // depending on the real shipped manifests.
+  test('two installed directories split one id by category: ctx.category selects the one declaring it, in both directions', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-catkey-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-catkey-xdg-');
+    const env = { XDG_CONFIG_HOME: xdgConfigHome };
+
+    // `aaa-` sorts first, so without category keying every lookup lands on the tracker half
+    // whatever category it asked for -- which is exactly the defect.
+    const trackerDir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'aaa-split-tracker');
+    writeAdapterDir(
+      trackerDir,
+      validAdapterManifest({ adapter: 'split-id', categories: ['tracker'], contract: { tracker: '1.0' } })
+    );
+    const lintDir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'zzz-split-lint');
+    writeAdapterDir(
+      lintDir,
+      validAdapterManifest({
+        adapter: 'split-id',
+        categories: ['lint'],
+        contract: { lint: '1.0' },
+        capabilities: { 'lint.run': { run: ['example-tool', 'lint'] } }
+      })
+    );
+
+    // The later-sorting half is the one the old code could never reach.
+    expect(loadAdapter('split-id', { projectRoot, env, category: 'lint' }).dir).toBe(lintDir);
+    expect(loadAdapter('split-id', { projectRoot, env, category: 'tracker' }).dir).toBe(trackerDir);
+    // Both directions asserted on purpose: a resolver that ignored `category` and simply
+    // returned the LAST match would satisfy the `lint` expectation alone.
+  });
+
+  test('a manifest declaring several categories matches each of them (the adapter-tracker-beads shape)', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-multicat-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-multicat-xdg-');
+    const env = { XDG_CONFIG_HOME: xdgConfigHome };
+
+    const dir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'multi');
+    writeAdapterDir(
+      dir,
+      validAdapterManifest({
+        adapter: 'multi-id',
+        categories: ['tracker', 'work-graph'],
+        contract: { tracker: '1.0', 'work-graph': '2.0' }
+      })
+    );
+
+    expect(loadAdapter('multi-id', { projectRoot, env, category: 'tracker' }).dir).toBe(dir);
+    expect(loadAdapter('multi-id', { projectRoot, env, category: 'work-graph' }).dir).toBe(dir);
+  });
+
+  test('origin priority applies among the candidates declaring the category: a wrong-category user adapter never shadows the right installed one', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-catprio-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-catprio-xdg-');
+    const env = { XDG_CONFIG_HOME: xdgConfigHome };
+
+    const userDir = userAdapterDir(xdgConfigHome, 'shadow-owner');
+    writeAdapterDir(userDir, validAdapterManifest({ adapter: 'shadowed-id', categories: ['tracker'] }));
+    const installedDir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'the-lint-half');
+    writeAdapterDir(
+      installedDir,
+      validAdapterManifest({
+        adapter: 'shadowed-id',
+        categories: ['lint'],
+        contract: { lint: '1.0' },
+        capabilities: { 'lint.run': { run: ['example-tool', 'lint'] } }
+      })
+    );
+
+    const lint = loadAdapter('shadowed-id', { projectRoot, env, category: 'lint' });
+    expect(lint.origin).toBe('installed');
+    expect(lint.dir).toBe(installedDir);
+
+    // Control: for the category the user adapter DOES declare, user still wins over installed,
+    // so the category filter narrows the candidate set without reordering it.
+    const tracker = loadAdapter('shadowed-id', { projectRoot, env, category: 'tracker' });
+    expect(tracker.origin).toBe('user');
+    expect(tracker.dir).toBe(userDir);
+  });
+
+  test('omitting ctx.category keeps the historical id-only tie-break, so every existing caller is unaffected', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-catopt-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-catopt-xdg-');
+    const env = { XDG_CONFIG_HOME: xdgConfigHome };
+
+    const firstDir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'aaa-half');
+    writeAdapterDir(firstDir, validAdapterManifest({ adapter: 'optional-cat-id', categories: ['tracker'] }));
+    const secondDir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'zzz-half');
+    writeAdapterDir(
+      secondDir,
+      validAdapterManifest({
+        adapter: 'optional-cat-id',
+        categories: ['lint'],
+        contract: { lint: '1.0' },
+        capabilities: { 'lint.run': { run: ['example-tool', 'lint'] } }
+      })
+    );
+
+    expect(loadAdapter('optional-cat-id', { projectRoot, env }).dir).toBe(firstDir);
+  });
+
+  test('an id that exists but declares no such category fails NOT_INSTALLED naming the category, the id and the directories that were rejected for it', () => {
+    const projectRoot = mkTempDir('ensemble-adapters-catmiss-project-');
+    const xdgConfigHome = mkTempDir('ensemble-adapters-catmiss-xdg-');
+    const env = { XDG_CONFIG_HOME: xdgConfigHome };
+
+    const dir = path.join(projectRoot, 'packages', 'pkg-a', 'skills', 'tracker-only');
+    writeAdapterDir(dir, validAdapterManifest({ adapter: 'narrow-id', categories: ['tracker'] }));
+
+    expect.assertions(4);
+    try {
+      loadAdapter('narrow-id', { projectRoot, env, category: 'worktree' });
+    } catch (error) {
+      expect(error.code).toBe('NOT_INSTALLED');
+      expect(error.message).toContain('narrow-id');
+      expect(error.message).toContain('worktree');
+      // The id DID resolve to a directory; saying only "not installed" would send a reader
+      // looking for a missing install instead of a missing category.
+      expect(error.message).toContain(dir);
+    }
+  });
+});
+
 describe('loadAdapter: NOT_INSTALLED', () => {
   test('AC-007-2: a name found in no search location fails with code NOT_INSTALLED naming the adapter, every search location (repo-local, user, project packages, and this library\'s own installed-tier roots), and a marketplace install hint', () => {
     const projectRoot = mkTempDir('ensemble-adapters-missing-project-');

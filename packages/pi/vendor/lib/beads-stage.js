@@ -53,7 +53,7 @@ const DEFAULT_FILE = '.beads/issues.jsonl';
 function resolveTrackerAdapter(root) {
   const env = process.env;
   const resolved = resolveCategory('tracker', { projectRoot: root, env, detect: detectAdapter });
-  const loaded = loadAdapter(resolved.value, { projectRoot: root, env, interactive: false });
+  const loaded = loadAdapter(resolved.value, { projectRoot: root, env, category: 'tracker', interactive: false });
   return { manifest: loaded.manifest };
 }
 

@@ -26,6 +26,8 @@ The resolver searches three locations in this order and uses the first match:
 2. User: `$XDG_CONFIG_HOME/ensemble/adapters/<dir>/`. When `XDG_CONFIG_HOME` is unset the root falls back to `~/.config/ensemble/` if `~/.config` exists, otherwise `~/.ensemble/`.
 3. Installed: the `skills/<dir>/` directory of every installed Ensemble package, which is where the shipped adapters live.
 
+Resolution is keyed on the pair (adapter id, category), not the id alone. One id may therefore be declared by several directories, one category each, which is how the shipped `plain-git` ships: `adapter-workflow-plain-git` provides `workflow` and `adapter-worktree-plain-git` provides `worktree`, so each carries only the allowlist its own category needs. The same id and the same category in two directories is an error `npm run validate` rejects, because only one of them could ever be reached.
+
 A repo-local adapter is committed code that runs binaries on every contributor's machine. In a non-interactive run it is only used when its id is listed under `trustedRepoAdapters` in the user-level `toolchain.yaml` (never the project one); otherwise resolution fails with `UNTRUSTED_REPO_ADAPTER`.
 
 `toolchain-cli ... --project-root <path>` runs against a repository you did not start in, typically a PR head under review, so that tree is treated as untrusted: it supplies only the working directory, its `.ensemble/toolchain.yaml` and its `.ensemble/state/`. Its own `packages/*/skills/` is not searched, and a repo-local adapter under its `.ensemble/adapters/` needs the `trustedRepoAdapters` entry in every mode, interactive runs included. The shipped adapters, the user location and the trusted repo-local list are what run. Without the flag a project you started in keeps the three locations above unchanged.
@@ -47,7 +49,7 @@ Keys are the 14 category names, values are manifest `adapter:` ids. Categories y
 
 | Field | Meaning |
 | --- | --- |
-| `adapter` | Unique adapter id, for example `github`. |
+| `adapter` | The adapter id, for example `github`. Unique per (id, category) pair, not globally: see [Where adapters are found](#where-adapters-are-found). |
 | `version` | The adapter's own version, independent of contract versions. |
 | `categories` | The categories it implements. One manifest may implement several. |
 | `contract` | The `major.minor` contract version targeted, keyed by category. Every entry in `categories` needs a matching key. |

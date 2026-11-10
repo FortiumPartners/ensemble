@@ -269,6 +269,11 @@ async function runPreflight(input = {}, ctx = {}) {
           ...ctx,
           projectRoot,
           env,
+          // Resolution is keyed on (id, category), not the id alone: an id split across two
+          // directories by category (the shipped `plain-git`) otherwise resolves to whichever
+          // sorted first and `requireCapabilities` below then fails for every capability of
+          // the half that lost (#146).
+          category,
           interactive: !isNonInteractive({ nonInteractive, env })
         });
       } catch (error) {

@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-development",
-  "version": "7.0.2",
+  "version": "7.0.3",
   "description": "Development agents for frontend/backend implementation",
   "main": "lib/index.js",
   "scripts": {
