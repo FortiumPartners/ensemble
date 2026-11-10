@@ -27,6 +27,7 @@ const { realFs, headFile } = require('../lib/review-run-cli');
 const { redact, statePath } = require('../lib/pr-review-state');
 const { createTracer } = require('../lib/run-trace');
 const { loadReviewTiming } = require('../lib/pr-review-timing');
+const { MIN_VERIFIER_MINUTES } = require('../lib/pr-review-sizing');
 
 const SCRATCH = path.join(os.homedir(), '.omp', 'pr-review-speedup', 'znd1', 'scratch');
 const HEAD = 'a'.repeat(40);
@@ -1827,22 +1828,87 @@ describe('the verify round', () => {
     expect(h.stateWrites[0].state.verification.verification).toBe('performed');
   });
 
-  test('a verifier that never arrived: the candidate is unverified, never read as agreement, even when the others voted real', async () => {
-    const h = harness();
-    const m = await toVerify(h, [finding()]);
-    voteAll(m, () => 'real', [m.agents[2].name]);
-    const out = await h.collect({ now: m.agents[2].deadlineAt + 1000 });
-    expect(out.status).toBe('DONE');
-    const outcome = out.votes.outcomes[0];
-    expect(outcome.outcome).toBe('unverified');
-    expect(outcome.reason).toBe('verifier-incomplete');
-    expect(outcome.outcome).not.toBe('present');
-    expect(out.notReviewed.incompleteVerifiers.map((v) => v.verifier)).toEqual([m.agents[2].name]);
-    expect(out.notReviewed.expiredAgents.map((a) => a.name)).toEqual([m.agents[2].name]);
-    expect(out.votes.verification).toBe('not-performed');
-    expect(out.reducedReview).toMatch(/verification not-performed/);
-    // unverified is presented, and still open at the gate
-    expect(out.gate.findings.open).toEqual(['f1']);
+  // kata dx53: the FIRST version of this test ("a verifier that never arrived: the candidate is unverified, never read as agreement, even
+  // when the others voted real") pinned AC-006-3 at its strictest through the runner: ONE missing verifier made a candidate unverified
+  // whatever the others voted. The runner now settles on a strict majority of the EXPECTED verifiers (the stated, opt-in rule of
+  // `tallyVotes`: pr-review-votes.test.js), because the measured rounds lost 14 candidates to it that the verifiers that returned had
+  // already confirmed. What that test guarded stays pinned below: a missing verifier is never read as agreement.
+  describe('a verifier that never arrived (kata dx53): a majority of the EXPECTED verifiers settles a candidate, the missing ones named; nothing less does', () => {
+    const pastDeadline = (m, names) => Math.max(...m.agents.filter((a) => names.includes(a.name)).map((a) => a.deadlineAt)) + 1000;
+
+    test('2 real of 3 expected and one never arrived: present, SETTLED ON A MAJORITY, the missing verifier named wherever the verdict is read, the round partial', async () => {
+      const h = harness();
+      const m = await toVerify(h, [finding()]);
+      voteAll(m, () => 'real', [m.agents[2].name]);
+      const out = await h.collect({ now: pastDeadline(m, [m.agents[2].name]) });
+      expect(out.status).toBe('DONE');
+      expect(out.votes.outcomes[0]).toMatchObject({ id: 'f1', outcome: 'present', reason: 'verifier-majority', settledOnMajority: true, missing: [m.agents[2].name], tally: { real: 2, notReal: 0, abstain: 0, expected: 3, needed: 2 } });
+      // never a complete round: the verifier is named in the verdict, the stored ledger, `notReviewed` and the notice
+      expect(out.votes).toMatchObject({ verification: 'partial', reason: 'some-verifiers-did-not-return', recoveryAction: 'supply-the-missing-votes' });
+      expect(out.ledger[0].verification).toMatchObject({ outcome: 'present', settledOnMajority: true, incompleteVerifiers: [{ verifier: m.agents[2].name, reason: 'expired:deadline-passed' }] });
+      expect(out.notReviewed.incompleteVerifiers.map((v) => v.verifier)).toEqual([m.agents[2].name]);
+      expect(out.notReviewed.expiredAgents.map((a) => a.name)).toEqual([m.agents[2].name]);
+      expect(out.reducedReview).toMatch(/verification partial: some-verifiers-did-not-return/);
+      expect(out.reducedReview).toMatch(/SETTLED ON A MAJORITY, verifiers missing[^\n]*f1 \(2 of 3 real; verifier-3 did not return\)/);
+      expect(h.stateWrites[0].state.verification).toMatchObject({ verification: 'partial', reason: 'some-verifiers-did-not-return' });
+      // it is a present Important finding: still open at the gate, exactly as a complete round's
+      expect(out.gate.findings.open).toEqual(['f1']);
+      expect(out.gate.blockers.map((b) => b.code)).toEqual(expect.arrayContaining(['open-important-finding']));
+    });
+
+    test('only ONE real of three expected is never read as agreement, whoever else is missing: unverified, named, the round not performed', async () => {
+      const h = harness();
+      const m = await toVerify(h, [finding()]);
+      voteAll(m, () => 'real', [m.agents[1].name, m.agents[2].name]);
+      const out = await h.collect({ now: pastDeadline(m, [m.agents[1].name, m.agents[2].name]) });
+      expect(out.status).toBe('DONE');
+      const outcome = out.votes.outcomes[0];
+      expect(outcome).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete', tally: { real: 1, expected: 3, needed: 2 } });
+      expect(outcome.settledOnMajority).toBeUndefined();
+      expect(out.ledger[0].verification.settledOnMajority).toBeUndefined();
+      expect(out.notReviewed.incompleteVerifiers.map((v) => v.verifier).sort()).toEqual([m.agents[1].name, m.agents[2].name]);
+      expect(out.votes.verification).toBe('not-performed');
+      expect(out.reducedReview).toMatch(/verification not-performed/);
+      expect(out.reducedReview).not.toMatch(/SETTLED ON A MAJORITY/);
+      // unverified is presented, and still open at the gate
+      expect(out.gate.findings.open).toEqual(['f1']);
+    });
+
+    test('a refutation is never settled on partial votes: 2 not-real of 3 expected with one missing stays unverified and in the list, never filtered', async () => {
+      const h = harness();
+      const m = await toVerify(h, [finding()]);
+      voteAll(m, () => 'not-real', [m.agents[2].name]);
+      const out = await h.collect({ now: pastDeadline(m, [m.agents[2].name]) });
+      expect(out.votes.outcomes[0]).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete', tally: { real: 0, notReal: 2, expected: 3 } });
+      expect(out.ledger[0].verification).toMatchObject({ outcome: 'unverified', presented: true });
+      expect(out.gate.findings.open).toEqual(['f1']);
+    });
+
+    test('a split is not settled either: 1 real and 1 not-real of 3 expected with one missing stays unverified', async () => {
+      const h = harness();
+      const m = await toVerify(h, [finding()]);
+      voteAll(m, (name) => (name === m.agents[0].name ? 'real' : 'not-real'), [m.agents[2].name]);
+      const out = await h.collect({ now: pastDeadline(m, [m.agents[2].name]) });
+      expect(out.votes.outcomes[0]).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete', tally: { real: 1, notReal: 1, expected: 3 } });
+      expect(out.votes.outcomes[0].settledOnMajority).toBeUndefined();
+    });
+
+    test('a verifier that arrived with no vote for one claim is missing for that claim only: the candidate it did answer is complete, the other is settled on the rest', async () => {
+      const h = harness();
+      const m = await toVerify(h, [finding(), finding({ locationOrLink: 'src/a.js:20', failureMode: 'an unrelated defect in the retry loop of the client' })]);
+      // verifier-3 answers f1 and leaves f2 out ("a candidate you reached no conclusion on gets NO entry")
+      voteAll(m, () => 'real');
+      const third = m.agents[2];
+      writeResult(third, { votes: third.candidateIds.filter((id) => id === 'f1').map((id) => ({ candidateId: id, verdict: 'real', evidence: 'checked' })) });
+      const out = await h.collect();
+      const f1 = out.votes.outcomes.find((o) => o.id === 'f1');
+      const f2 = out.votes.outcomes.find((o) => o.id === 'f2');
+      expect(f1).toMatchObject({ outcome: 'present', tally: { real: 3 } });
+      expect(f1.settledOnMajority).toBeUndefined();
+      expect(f2).toMatchObject({ outcome: 'present', settledOnMajority: true, missing: [third.name], tally: { real: 2, expected: 3 } });
+      expect(out.votes.verification).toBe('partial');
+      expect(out.notReviewed.incompleteVerifiers.map((v) => [v.verifier, v.reason])).toEqual([]); // it ARRIVED: nothing expired, the missing vote is per candidate
+    });
   });
 
   test('verifiers that vote not-real do not delete the finding: it stays in the ledger and the gate still holds it open', async () => {
@@ -1998,7 +2064,7 @@ describe('rolling verification (kata 630v): freed slots take the next verifiers,
     const v2 = await h.collect({ now: later });
     expect(v2.refill).toBe(true);
     expect(v2.agents[0].dispatchedAt).toBe(later);
-    expect(v2.agents[0].deadlineAt).toBe(later + 5 * 60 * 1000);
+    expect(v2.agents[0].deadlineAt).toBe(later + MIN_VERIFIER_MINUTES * 60 * 1000); // kata dx53: a verifier's deadline is its floor now (this line pinned a flat 5 minutes)
     expect(v2.agents[0].deadlineAt).toBeGreaterThan(v1.agents[0].deadlineAt);
   });
 
@@ -2101,6 +2167,12 @@ describe('the replay behind the documented verify-round numbers (kata 630v, revi
   // on that run's trace reads the three barrier waves at 4.5, 5.0 and 1.9 minutes (11.4 minutes of steps, 11.7 from the first dispatch to the last result).
   const MEASURED = [2.03, 2.13, 2.27, 3.13, 4.5, 2.49, 2.06, 2.68, 3.3, 3.89, 3.42, null, 1.5, 4.41, 2.44, 2.11, 1.9];
   const MIN = 60 * 1000;
+  // The measured run gave every verifier 5 minutes and stopped verifier-12 at its deadline. A verifier has an 8-minute floor now (kata dx53),
+  // so the replay takes the stop from the runner's own manifest, the stored `deadlineAt` of the stopped verifier, and every dispatch is
+  // checked to carry the floor: the figures below are the floor's and they move when the floor does. With the measured 5-minute stop the
+  // same replay gave a barrier of 11.4 to 11.5 minutes and a rolling round of 7.3, 7.4 and 7.8 (the figures of the guide's measurement).
+  const STOPPED_AFTER = MIN_VERIFIER_MINUTES * MIN;
+  const stopAt = (agent) => agent.deadlineAt;
   const SEVENTEEN = (n) => (n === 'reviewer-s1-a' ? Array.from({ length: 17 }, (_, i) => finding({ locationOrLink: `src/a.js:${(i % 6) + 1}`, failureMode: `distinct defect number ${i} in a different subsystem ${'x'.repeat(i)} and ${'y'.repeat(17 - i)}` })) : []);
 
   // The agent's arrival time from its dispatch; null = never arrives (stopped at its deadline).
@@ -2113,13 +2185,14 @@ describe('the replay behind the documented verify-round numbers (kata 630v, revi
     answerReview(m1, { findingsFor: SEVENTEEN, lane: { findings: [], pathsReviewed: allPaths(h) } });
     const v1 = await h.collect();
     expect(v1.agents).toHaveLength(8);
+    expect(v1.agents.every((a) => a.deadlineAt - a.dispatchedAt === STOPPED_AFTER)).toBe(true); // the runner stores the floor for every verifier
     const start = v1.agents[0].dispatchedAt;
     let clock = start;
     h.deps.collectResults = ({ expected }) => ({
       agents: expected.map((a) => {
         const at = arrival(a);
         if (at !== null && at <= clock) return { name: a.name, role: a.role, state: 'arrived', arrivedAt: at, pending: false };
-        if (clock >= a.deadlineAt) return { name: a.name, role: a.role, state: 'expired', reason: 'deadline-passed', pending: false };
+        if (clock >= stopAt(a)) return { name: a.name, role: a.role, state: 'expired', reason: 'deadline-passed', pending: false };
         return { name: a.name, role: a.role, pending: true, deadlineAt: a.deadlineAt };
       }),
       findings: [], votes: [], incompleteVerifiers: [], reviewedSlices: [], unreviewedDetail: [], warnings: [],
@@ -2130,9 +2203,12 @@ describe('the replay behind the documented verify-round numbers (kata 630v, revi
     for (let tick = 1; tick < 10000; tick += 1) {
       clock = start + tick * pollMs;
       const answer = await h.collect({ now: clock });
-      running = new Map([...running].filter(([, a]) => (arrival(a) === null ? clock < a.deadlineAt : arrival(a) > clock)));
+      running = new Map([...running].filter(([, a]) => (arrival(a) === null ? clock < stopAt(a) : arrival(a) > clock)));
       if (answer.status === 'DISPATCH') {
-        for (const a of answer.agents) running.set(a.name, a);
+        for (const a of answer.agents) {
+          expect(a.deadlineAt - a.dispatchedAt).toBe(STOPPED_AFTER); // the runner's own deadline for every verifier: its floor
+          running.set(a.name, a);
+        }
         dispatched += answer.agents.length;
         peak = Math.max(peak, running.size);
         expect(running.size).toBeLessThanOrEqual(8); // the cap, at every dispatch
@@ -2149,7 +2225,7 @@ describe('the replay behind the documented verify-round numbers (kata 630v, revi
     const poll = pollMs / MIN;
     let t = 0;
     for (let i = 0; i < MEASURED.length; i += 8) {
-      const wave = MEASURED.slice(i, i + 8).map((m) => (m === null ? 5 : m));
+      const wave = MEASURED.slice(i, i + 8).map((m) => (m === null ? MIN_VERIFIER_MINUTES : m));
       t = Math.ceil((t + Math.max(...wave)) / poll - 1e-9) * poll;
     }
     return t;
@@ -2165,16 +2241,18 @@ describe('the replay behind the documented verify-round numbers (kata 630v, revi
       expect(r.minutes).toBeLessThan(b);
     }
     process.stderr.write(`\nREPLAY verify round (minutes): ${JSON.stringify(rows)}\n`);
-    // the documented rows (docs/guides/pr-review-run.md, Rolling verification), pinned to 0.1 minute: the barrier model gives 11.4 to 11.5
-    // minutes against the measured 11.7 (the difference is the harness turnaround between waves), the real runner's rolling round 7.3,
-    // 7.4 and 7.8, so it saves 4.1, 4.1 and 3.8. The freed-slot release of an expired verifier is pinned by its own test, not by these figures.
+    // the documented rows (docs/guides/pr-review-run.md, Rolling verification), pinned to 0.1 minute, at the verifier floor of kata dx53 (8 minutes,
+    // which the stopped verifier now holds its slot for, where the measured run stopped it at 5): the barrier model gives 14.4 to 14.5 minutes
+    // (11.4 to 11.5 at the measured 5-minute stop, against the measured 11.7: the difference is the harness turnaround between waves), the real
+    // runner's rolling round 10.3, 10.4 and 10.5 (7.3, 7.4 and 7.8), so it saves 4.1, 4.1 and 4.0 (4.1, 4.1 and 3.8): the saving is about the
+    // same and the round is about 3 minutes longer. The freed-slot release of an expired verifier is pinned by its own test, not by these figures.
     const tenth = (minutes) => Math.round(minutes * 10 + 1e-9) / 10;
     expect(rows.map((row) => [row.pollS, tenth(row.barrier), tenth(row.rolling), tenth(row.saved)])).toEqual([
-      [1, 11.4, 7.3, 4.1],
-      [7.5, 11.5, 7.4, 4.1],
-      [15, 11.5, 7.8, 3.8],
+      [1, 14.4, 10.3, 4.1],
+      [7.5, 14.5, 10.4, 4.1],
+      [15, 14.5, 10.5, 4],
     ]);
-    expect(rows.every((row) => row.rolling > 6.2)).toBe(true); // the lower bound: 49.3 agent-minutes / cap 8
+    expect(rows.every((row) => row.rolling > 6.5)).toBe(true); // the lower bound: 52.3 agent-minutes (49.3, and the 3 the stopped verifier now holds its slot longer) / cap 8
   });
 });
 
@@ -3237,7 +3315,7 @@ describe('review sizing (kata sfpb): the plan follows what there is to read, and
       expect(sizesOf(m)).toEqual([[8, 454], [3, 556], [8, 440]]);
       expect(m.sizing.slices.map((slice) => [slice.id, slice.overLimit])).toEqual([['whole-pr~1', false], ['whole-pr~2', false], ['whole-pr~3', false]]);
       expect(m.sizing.warnings).toEqual([]);
-      expect(m.sizing.model).toEqual({ minutesPerFile: 0.934, minutesPer100Lines: 1.224, headroom: 2, maxMinutes: 60, derivedFrom: 'real271', fixedCostFloorMinutes: 22, policyDeadlineMinutes: { reviewer: null, security: null } });
+      expect(m.sizing.model).toEqual({ minutesPerFile: 0.934, minutesPer100Lines: 1.224, headroom: 2, maxMinutes: 60, derivedFrom: 'real271', fixedCostFloorMinutes: 22, verifierFloorMinutes: 8, policyDeadlineMinutes: { reviewer: null, verifier: null, security: null } });
       // two lenses on each of three slices, and the lane, all dispatched together under the default cap of 8
       expect(m.agents.map((a) => a.name)).toEqual(['reviewer-s1-a', 'reviewer-s1-b', 'reviewer-s2-a', 'reviewer-s2-b', 'reviewer-s3-a', 'reviewer-s3-b', 'security-lane']);
       expect(m.agents.length).toBeLessThanOrEqual(m.maxConcurrentAgents);
@@ -3812,10 +3890,10 @@ describe('review sizing (kata sfpb): the plan follows what there is to read, and
       // a policy that SETS the default value is overridden too, and named (second independent review, F2); one that sets nothing is not
       const set15 = await real271({ policyJson: { deadlineMinutes: { reviewer: 15 } } }).prepare();
       expect(set15.agents.filter((a) => a.role === 'reviewer').every((a) => a.deadlineMinutes === 22)).toBe(true);
-      expect(set15.sizing.model.policyDeadlineMinutes).toEqual({ reviewer: 15, security: null });
+      expect(set15.sizing.model.policyDeadlineMinutes).toEqual({ reviewer: 15, verifier: null, security: null });
       expect(set15.sizing.warnings).toEqual([{ code: 'deadline-floor-over-policy', message: expect.stringContaining('policy deadlineMinutes.reviewer (15) is below the 22-minute fixed-cost floor') }]);
       const unset = await real271({ policyJson: {} }).prepare();
-      expect(unset.sizing.model.policyDeadlineMinutes).toEqual({ reviewer: null, security: null });
+      expect(unset.sizing.model.policyDeadlineMinutes).toEqual({ reviewer: null, verifier: null, security: null });
       expect(unset.sizing.warnings).toEqual([]);
       const lower = await real271({ policyJson: { deadlineMinutes: { security: 5 } } }).prepare();
       expect(agentOf(lower, 'security-lane').deadlineMinutes).toBe(36);
@@ -3905,7 +3983,8 @@ describe('review sizing (kata sfpb): the plan follows what there is to read, and
       for (const a of m.agents) expect(a).toMatchObject({ deadlineMinutes: 22, work: { files: 1, lines: 12 } });
     });
 
-    test('a verifier is given its 5 minutes whatever the PR\'s size, and the verify manifest carries no sizing', async () => {
+    // kata dx53: this test pinned a verifier at 5 minutes. It still pins that a verifier is not sized and its verify manifest carries no sizing.
+    test('a verifier is given its fixed-cost floor whatever the PR\'s size, marked floored, and the verify manifest carries no sizing', async () => {
       const h = real271({ policyJson: { highPaths: [] } });
       const m = await h.prepare();
       answerReview(m, { findingsFor: (name) => (name === 'reviewer-s1-a' ? [finding({ locationOrLink: 'CHANGELOG.md:1', originalTextOrLink: 'CHANGELOG.md:1' })] : []), lane: { findings: [], pathsReviewed: allPaths(h) } });
@@ -3913,10 +3992,40 @@ describe('review sizing (kata sfpb): the plan follows what there is to read, and
       expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
       expect(verify.sizing).toBeUndefined();
       for (const a of verify.agents) {
-        expect(a.deadlineMinutes).toBe(5);
+        expect(a.deadlineMinutes).toBe(MIN_VERIFIER_MINUTES);
+        expect(a.deadlineFloored).toBe(true);
         expect(a.work).toBeUndefined();
-        expect(minutesBetween(a)).toBe(5);
+        expect(minutesBetween(a)).toBe(MIN_VERIFIER_MINUTES);
       }
+      // what the verifier is told is what the runner will stop it at: its prompt names the instant of the deadline the manifest carries
+      for (const a of verify.agents) {
+        expect(a.deadlineAtIso).toBe(new Date(a.deadlineAt).toISOString());
+        expect(a.prompt).toContain(`Finish before ${a.deadlineAtIso}.`);
+      }
+      expect(h.readRun().waves.filter((w) => w.round === 'verify').flatMap((w) => w.agents).every((a) => a.deadlineMinutes === MIN_VERIFIER_MINUTES && a.deadlineAt - a.dispatchedAt === MIN_VERIFIER_MINUTES * 60 * 1000)).toBe(true);
+    });
+
+    test('a policy base above the verifier floor is kept and not marked floored; one the policy SET below it is overridden and NAMED in the plan, once (kata dx53)', async () => {
+      const verifyOf = async (policyJson) => {
+        const h = real271({ policyJson: { highPaths: [], ...policyJson } });
+        const m = await h.prepare();
+        answerReview(m, { findingsFor: (name) => (name === 'reviewer-s1-a' ? [finding({ locationOrLink: 'CHANGELOG.md:1', originalTextOrLink: 'CHANGELOG.md:1' })] : []), lane: { findings: [], pathsReviewed: allPaths(h) } });
+        return { m, verify: await h.collect() };
+      };
+      const above = await verifyOf({ deadlineMinutes: { verifier: 12 } });
+      expect(above.verify.agents.every((a) => a.deadlineMinutes === 12 && a.deadlineFloored === undefined)).toBe(true);
+      expect(above.m.sizing.model.policyDeadlineMinutes.verifier).toBe(12);
+      expect(above.m.sizing.warnings).toEqual([]);
+      const below = await verifyOf({ deadlineMinutes: { verifier: 6 } });
+      expect(below.verify.agents.every((a) => a.deadlineMinutes === MIN_VERIFIER_MINUTES && a.deadlineFloored === true)).toBe(true);
+      expect(below.m.sizing.model).toMatchObject({ verifierFloorMinutes: MIN_VERIFIER_MINUTES, policyDeadlineMinutes: { verifier: 6 } });
+      expect(below.m.sizing.warnings).toEqual([{ code: 'deadline-floor-over-policy', message: `policy deadlineMinutes.verifier (6) is below the ${MIN_VERIFIER_MINUTES}-minute fixed-cost floor of a verifier (kata dx53); the deadline is ${MIN_VERIFIER_MINUTES} minutes` }]);
+      // the default value set by the policy is overridden and named too (an unset one is not)
+      const set5 = await verifyOf({ deadlineMinutes: { verifier: 5 } });
+      expect(set5.m.sizing.warnings.map((w) => w.message)).toEqual([expect.stringContaining('policy deadlineMinutes.verifier (5) is below the 8-minute fixed-cost floor of a verifier')]);
+      const unset = await verifyOf({});
+      expect(unset.m.sizing.warnings).toEqual([]);
+      expect(unset.verify.agents.every((a) => a.deadlineMinutes === MIN_VERIFIER_MINUTES && a.deadlineFloored === true)).toBe(true);
     });
 
     test('the sizing is in run.json, with every agent\'s work and minutes, so a later collect and a reader see what the plan was', async () => {

@@ -93,7 +93,7 @@ and is only for the `TRIAGE` status.
 | `RUN_FAILED` | false | a stage failed or a refusal: `head-unreadable` and `pr-not-open` leave a started run retryable; `triage-refused` is not terminal (fix the `triage` payload and call again); `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); `mode-invariant` is a stored run whose mode label, depth, verifier count or lane no longer says what it was prepared as; `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` at `prepare` mean nothing was run |
 
 An agent that never arrives is reported, never read as having reviewed: its slice is in `notReviewed`, it is a gap of the
-coverage record (below) that stops the merge gate and the local phase, and a verifier that did not arrive leaves its finding unverified. `REVIEW_COMPLETE` is only ever relayed from the
+coverage record (below) that stops the merge gate and the local phase, and a verifier that did not arrive leaves its finding unverified unless a strict majority of the expected verifiers already voted it real (what a candidate needs of its verifiers, under Deadlines). `REVIEW_COMPLETE` is only ever relayed from the
 review status function. Adjudication applies only to items that were listed, records `adjudicatedBy:
 "orchestrator"`, and cannot clear an Important or security finding. `NEEDS_FULL_MODE` (light mode only) means nothing
 was dispatched and the narrated Steps 1-10 in the skill remain the manual procedure; it is never the way into full mode.
@@ -346,7 +346,7 @@ What the cap does to the real PR (19 paths, three slices wanted, two lenses, wit
 **Deadlines.** For a reviewer and for the lane the policy's `deadlineMinutes` (15) is a BASE: the deadline is
 `clamp(max(ceil(estimate x headroom), base, 22), 60)` minutes (22: the fixed cost, below), so the model only ever raises it. The reviewer's work is its slice (the
 whole diff when it was handed the whole range diff); the whole-range reader's and the lane's is every changed path. A verifier
-settles at most three claims whatever the PR's size and keeps its 5 minutes.
+is not sized: its policy base (5) is raised to its own fixed-cost floor, 8 minutes (kata `dx53`, below).
 `deadlineMinutes` is a floor and not a pin because a loaded policy always holds every key, set or defaulted, and an explicit
 value cannot be told from the default. The brief's timebox is the deadline the agent is given.
 
@@ -355,7 +355,7 @@ value cannot be told from the default. The brief's timebox is the deadline the a
 | a reviewer on a slice at the limits (8 paths, 612 lines) | 7.49 min | 22 (the fixed-cost floor; modelled 15, which is 14.98 rounded up, base 15) |
 | a reviewer on 4 paths, 280 lines (kata `d9sy`) | 12.8 min, over 15 (stopped), and 7.2 and 7.3 in one re-review | 22 (modelled 8, base 15) |
 | the security lane of the real run (19 paths, 1450 lines) | 17.75 min | 36 (2.03 x what it took; it was given 15) |
-| a verifier | not sized | 5 |
+| a verifier | not sized | 8 (its own floor, below; base 5) |
 
 **The fixed cost (kata `d9sy`).** The model is proportional through the origin and was derived at the default effort. The first
 live runs at effort `hi` (kata `q3a9`) show a reviewer's time on a small slice does not follow its size: 77 lines took 14.6 and 9.1
@@ -373,14 +373,109 @@ It was measured at effort `hi` and the runner records no effort, so it applies a
 limits and the headroom are unchanged, because a finer slice does not shorten a fixed cost. A reviewer slower than 22 minutes is
 still `expired` and its slice reported not reviewed. Re-dispatching a lost reviewer is not built.
 
+**The verifier floor (kata `dx53`).** A verifier settles at most three claims whatever the PR's size, so the size model never
+applied to it and it kept the policy's flat 5 minutes. Both real-model measurements (kata `q3a9`, effort `hi`, every verifier
+given those 5 minutes) put that deadline inside the body of the distribution, not past its tail. Every time and every vote is in
+`review-speedup-measurement-2026-11-09-after/verifier-deadline-evidence.json` (the times from the committed traces), and
+`tests/pr-review-verifier-deadline.test.js` re-derives each number below from it:
+
+| | verifiers | arrived | stopped at the deadline |
+|---|---|---|---|
+| before kata `630v` (`8afd3e3`), three rounds | 29 | 28 | 1 (3%) |
+| `aea0b19`, three rounds (Medium first review, High first review, High re-review) | 31 | 23 | 8 (26%): 3, 3 and 2, one or more in every round |
+| all | 60 | 51 (1.49 to 4.97 minutes, median 2.5) | 9 (15%) |
+
+(The kata `dx53` quotes 1 min 44 s to 4 min 53 s for the verifiers that finished; the traces give 1.49, 1 min 29 s, to 4.97,
+4 min 58 s, and the floor uses the traces.)
+
+What the record shows, and what the design follows from it:
+
+- **A verifier's time does not follow what it is given, so there is nothing to size from.** 2 of the 7 verifiers that held two
+  claims were stopped and 7 of the 53 that held three; 4 of the 14 that cited one path, 3 of 25 that cited two, 2 of 21 that cited
+  three. In the High re-review all five verifiers held the same two claims: three arrived, at 2.07, 3.35 and 4.97 minutes, and
+  two were stopped at 5, at least 2.4 times between verifiers on identical work. The kata asked for a deadline "sized from its
+  claims"; the claims do not explain the time, so the answer is a floor, as for a reviewer (kata `d9sy`), and no size term.
+- **A second verifier on the same claim meets the same odds as the first**, because the spread is between agents on the same
+  work. That is why a stopped verifier is not re-dispatched (below).
+- **A stop costs every claim the verifier holds.** It writes its one result file when it has finished all of them, so the 8
+  stopped verifiers left 15 of the last measurement's 23 candidates unverified (a candidate needs every one of its verifiers
+  back), and 2 more were left by verifiers that arrived with no vote for one claim: 17 of 23.
+
+**The number.** The floor is the reviewers' rule applied to the verifiers: the slowest verifier that arrived (4.97 minutes)
+times `FLOOR_FACTOR` (1.5), rounded up, **8 minutes** (`MIN_VERIFIER_MINUTES` in `lib/pr-review-sizing.js`), whatever the
+policy's `deadlineMinutes.verifier` says: the base (5) is raised to it, a larger policy value is kept, and a value the policy
+SETS below it, 5 included, is overridden and named in the sizing warnings (`deadline-floor-over-policy`; `sizing.model` records
+`verifierFloorMinutes` and `policyDeadlineMinutes.verifier`) and the agent is marked `deadlineFloored`. What it is not: a
+measurement of how long a verifier needs. Every verifier that arrived is under 5 minutes by construction (one past it was
+stopped, and its time is only known to exceed 5: censored), so 4.97, three seconds inside the deadline, is the censoring deadline
+showing, and the floor is 1.5 times that deadline, a judgement on one sample like the factor itself. As a cross-check (the test
+re-derives it), a censored lognormal fit to the 31 verifiers of the last measurement has its median at 3.4 minutes and its 90th,
+95th and 99th percentiles at 6.6, 8.0 and 11.5, so 8 minutes is about its 95th percentile: one verifier in twenty is still
+expected to be stopped (a Weibull fit gives under 2%). Pooling hides a change of regime: 1 of the 29 verifiers before the rolling
+refill (kata `630v`) was stopped and 8 of the 31 after it, and the fit is to the 31. A verifier slower than 8 minutes is `expired`
+and its candidates are not verified by it. The floor was measured at effort `hi`, with verifiers holding two or three claims (the
+planner's cap), and the runner records no effort. What it costs: a round with a stopped verifier waits up to 3 minutes longer for
+it (8 minus 5), and a verifier that is going to be stopped also holds one of the cap's slots of the rolling refill for those 3
+minutes; a round without one is unchanged, and 51 of the 60 verifiers arrived in under 5 minutes.
+
+**What a candidate needs of its verifiers (kata `dx53`).** The tally's rule is unchanged: a finding is `present` only when a
+strict majority of the EXPECTED verifiers (2 of 3 at Standard, 3 of 5 at Deep) voted it real, the denominator is the expected
+count and never the votes that arrived, and a finding with an assigned verifier that returned nothing is `unverified` /
+`verifier-incomplete` however the others voted (AC-006-3). Of the last measurement's 17 unverified candidates, 14 already had a
+strict majority in hand: 2 real of 3 with one verifier missing, 3 or 4 real of 5 with two or one missing. The runner, and only
+the runner, now passes `settleOnMajority` to `tallyVotes`: a candidate whose strict majority of the expected verifiers voted it
+**real** is `present` although another assigned verifier returned nothing. What keeps that from being a relaxation, each pinned
+by a test:
+
+- It cannot change an outcome. `present` needs `real >= needed` and a vote that never arrived can only add to `real`, so the
+  candidate is `present` in every completion of the round; the test tries every completion of every candidate it settles on the
+  measured rounds (18 candidates, 78 completions, all `present`).
+- The missing verifiers stay named: `incompleteVerifiers` on the finding and in the stored ledger (`verification`),
+  `settledOnMajority: true` and `missing` in `votes.outcomes[]`, `notReviewed.incompleteVerifiers`, and a `SETTLED ON A MAJORITY,
+  verifiers missing` line in `reducedReview`. The round is `partial` (`some-verifiers-did-not-return`), never `performed`, and a
+  settled candidate is as open at the gate as a complete round's `present` one.
+- Only a confirmation is settled. 2 not-real of 3 with one missing, a split, and anything short of the strict majority stay
+  `unverified` (a refuted finding is dropped from the author's list, and nothing is dropped on an incomplete electorate). A
+  candidate the planner could not give its verifiers (`verifier-pool-too-small`), a non-finding, and anything without the
+  explicit assignment are never settled.
+- It is not carried. A verdict recorded for the next round to carry needs a full electorate (`lib/pr-review-carry.js`, the
+  votes are exactly the expected number), so a candidate settled on a majority is re-verified in a delta round, never carried.
+- The narrated procedure is unchanged: the CLI `votes` (Step 3b of the skill) keeps the strict rule, and drops a
+  `settleOnMajority` key from its payload whatever its value, because only the runner calls the tally with the option.
+
+On the measured rounds this takes the candidates left unverified from 22 of 47 to 4, with the verifier times as they were; of
+the last measurement's 23, from 17 to 3 (two in the Medium run and one in the High first review: each had one or two real votes
+and too few verifiers back, whether stopped or arrived with no vote for it).
+
+**What was not done, and why.**
+
+- *A deadline sized from the claims.* No data supports a claim-proportional rate (above), so a size term would be a number
+  with nothing behind it.
+- *Re-dispatching a stopped verifier once.* A fresh verifier of the same claim meets the same odds (the spread above is on
+  identical work), the second attempt has its own deadline, so a round with a stopped verifier waits up to a second deadline,
+  more than the 3 minutes the floor costs, and it needs a new identity for the replacement in a plan whose invariant is K
+  distinct verifiers, none of them the raiser, in the runner's most sensitive path, which only live agents can prove.
+- *Counting the votes that arrived against the arrived count* (2 real of the 2 that arrived out of 5 expected, or a refutation on
+  partial votes). That moves the denominator from the expected count to the arrived votes, so a short electorate could agree
+  with itself.
+- *Ending the wait as soon as every candidate of a running verifier is settled.* The High re-review's last five minutes waited
+  on two verifiers whose votes could no longer change anything, but ending a round while agents the runner started still run is
+  not in the dispatch contract. Not built.
+- *Telling a verifier its time box in its brief* (a reviewer is told its own). Not measured, so not changed.
+
+**Not verified.** No live model run was made for this change. The floor and the rule are tested through the real runner and CLI
+process with stand-in agents, and the numbers above are the measured ones; whether 8 minutes stops about one verifier in
+twenty on a live run, and what a round's wall time becomes, is for the re-measurement the epic asks for.
+
 **The record.** The DISPATCH manifest of the review round and `run.json` carry `sizing`: `model` (the two rates, the
 headroom, the 60-minute maximum and the run it derives from), `limits` (`sliceMaxFiles`, `sliceTargetLines`,
 `slicesAllowed` by the cap, `slicesWanted` by the limits), `work` (the whole PR), `slices[]` (`id`, `files`, `lines`,
 `overLimit`, `diff`) and `warnings[]` (`{code, message}`): `slice-over-limit` (the cap holds fewer slices than the limits ask
 for, so a slice is bigger than they say; the message names the `maxConcurrentAgents` that would hold them), `deadline-capped`
 (the modelled need is over 60 minutes, so the agent is given 60 and may not finish), `deadline-floor-over-policy` (a policy
-`deadlineMinutes` below the 22-minute floor was overridden; the message names the value and the floor, `model.fixedCostFloorMinutes`
-records the floor and an agent whose deadline the floor decided carries `deadlineFloored: true`) and `invalid-<key>` (a policy value the
+`deadlineMinutes` below a floor, 22 minutes for a reviewer or the lane and 8 for a verifier, was overridden; the message names
+the value and the floor, `model.fixedCostFloorMinutes` and `model.verifierFloorMinutes` record the floors and an agent whose
+deadline a floor decided carries `deadlineFloored: true`) and `invalid-<key>` (a policy value the
 facts held unreadably; the default applied). Each agent in the manifest carries its `deadlineMinutes` and its `work`.
 
 For the PR the numbers came from, the plan is three slices of 8, 3 and 8 paths (454, 556 and 440 changed lines), six
@@ -422,7 +517,8 @@ time, and narrow what each reviewer reads (the cross-slice limit below).
   was read from the planner and the collector, not run end to end here.
 - A missing agent holds the run until its own deadline: `collect` answers `PENDING` until the earliest outstanding deadline, so a
   lane that never arrives now keeps a run waiting 36 minutes for the PR the numbers came from (up to 60 for a larger one), where
-  it waited 15. That is the fail-closed cost of the longer deadline.
+  it waited 15, and a verifier that never arrives keeps its round waiting 8 minutes where it waited 5. That is the fail-closed
+  cost of the longer deadline.
 - Like every deadline here, the runner computes it and the dispatcher must enforce it.
 
 ## Coverage: what nobody read stops the gate (kata `k48x`)
@@ -666,11 +762,15 @@ after another, so an overlap is refused as before.
 
 The numbers are reproducible: the test `the replay behind the documented verify-round numbers` in `pr-review-run.test.js` drives
 the REAL runner (`collect` on a simulated clock, cap 8) over the 17 measured verifier times and prints the figures
-(`npx jest --runInBand packages/development/tests/pr-review-run.test.js -t "replay behind"`). Barrier: 11.4 to 11.5 minutes (the
-measured 11.7 includes the harness turnaround between waves). Rolling: 7.3 (a poll every second), 7.4 (every 7.5 s) and 7.8
-minutes (every 15 s), saving 4.1, 4.1 and 3.8 minutes (33 to 36% of the verify round), which puts the run at about 22.9 of the
-measured 26.8 minutes; the lower bound is 49.3 / 8 = 6.2 minutes. This is a replay of one run's times, not a live measurement. The
-PR's 8-13 minute target is NOT reached by this: the slowest reviewer alone took 14.6 minutes. Verifying the candidates of the
+(`npx jest --runInBand packages/development/tests/pr-review-run.test.js -t "replay behind"`). The stopped verifier is stopped at the
+deadline the runner stores for it, its 8-minute floor since kata `dx53` (the measured run gave it 5), so the figures are the
+floor's: barrier 14.4 to 14.5 minutes (11.4 to 11.5 with the measured 5-minute stop; the measured 11.7 includes the harness
+turnaround between waves). Rolling: 10.3 (a poll every second), 10.4 (every 7.5 s) and 10.5 minutes (every 15 s) (7.3, 7.4 and 7.8
+with the 5-minute stop), saving 4.1, 4.1 and 4.0 minutes (28 to 29% of the verify round: the saving is about the same as before and
+the round is about 3 minutes longer), which puts the run at about 25.6 of 29.8 minutes (22.9 of the measured 26.8 with the 5-minute
+stop); the lower bound is 52.3 / 8 = 6.5 minutes (49.3, and the 3 the stopped verifier now holds its slot longer). This is a replay
+of one run's times, not a live measurement. The PR's 8-13 minute target is NOT reached by this, and a stopped verifier now takes the
+verify round 3 minutes further from it: the slowest reviewer alone took 14.6 minutes. Verifying the candidates of the
 reviewers that finish early (8.2 to 10.6 minutes) while the slowest still runs is not built: a duplicate finding of a late reviewer
 would merge into a candidate already settled.
 

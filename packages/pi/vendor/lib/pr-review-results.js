@@ -37,7 +37,10 @@
  *     read) does, for a reviewer and the security lane (kata sfpb): the budget is then
  *     a BASE that `pr-review-sizing.js` raises to the modelled time to read that much,
  *     with headroom, up to the 60-minute maximum, and never lowers; a verifier's
- *     does not depend on it. `dispatchedAt` is `now`:
+ *     does not depend on it. Those numbers are BASES: a reviewer and the lane are never
+ *     given less than a fixed-cost floor of 22 minutes (kata d9sy) and a verifier never
+ *     less than 8 (kata dx53), whatever the policy says; a policy value set below a
+ *     floor is overridden and named in `warnings`. `dispatchedAt` is `now`:
  *     hand both it and `deadlineAt` to `collectResults`.
  *
  *   collectResults({expected, dir, now, scratchDir?}, deps?)
@@ -185,7 +188,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { DEADLINE_ROLES, DEFAULT_DEADLINE_MINUTES, DEADLINE_MINUTES_MIN, DEADLINE_MINUTES_MAX, DEFAULT_POLICY } = require('./pr-review-policy');
-const { SIZED_ROLES, isWork, isDeadlineHeadroom, sizedMinutes } = require('./pr-review-sizing');
+const { SIZED_ROLES, isWork, isDeadlineHeadroom, sizedMinutes, verifierMinutes } = require('./pr-review-sizing');
 const { VERDICTS } = require('./pr-review-votes');
 const { LENS_TOKEN } = require('./pr-review-depth');
 
@@ -236,7 +239,19 @@ function deadlineFailure(reason) {
 
 /** The one sentence a floor that overrides a policy `deadlineMinutes` is reported in (the warning here and the run's sizing warning). */
 function floorOverrideMessage({ role, policyMinutes, floorMinutes }) {
-  return `policy deadlineMinutes.${role} (${policyMinutes}) is below the ${floorMinutes}-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is ${floorMinutes} minutes`;
+  const holder = role === 'verifier' ? 'a verifier (kata dx53)' : 'a reviewer or security agent (kata d9sy)';
+  return `policy deadlineMinutes.${role} (${policyMinutes}) is below the ${floorMinutes}-minute fixed-cost floor of ${holder}; the deadline is ${floorMinutes} minutes`;
+}
+
+/**
+ * The `deadlineMinutes` the policy block SET for `role`, or null when it set none. `input.explicit` (loadPolicy's `explicit`: what the
+ * policy block set) tells a set value from the policy's defaults, a value equal to the default included; a caller without it can only
+ * tell a value that differs from the default.
+ */
+function policySetMinutes(input, role, minutes, source) {
+  const setByPolicy = isObject(input.explicit) && isObject(input.explicit.deadlineMinutes) ? input.explicit.deadlineMinutes[role] : undefined;
+  if (isObject(input.explicit)) return Number.isInteger(setByPolicy) ? setByPolicy : null;
+  return source === 'policy' && minutes !== DEFAULT_DEADLINE_MINUTES[role] ? minutes : null;
 }
 
 /**
@@ -254,14 +269,17 @@ function floorOverrideMessage({ role, policyMinutes, floorMinutes }) {
  *   a policy value below the floor is named whatever it equals (15 included); without it only a value that differs from the default is.
  * @param {{files:number, lines:number}} [input.work]  What the agent is asked to read, as whole non-negative counts.
  *   With it, a reviewer's and the security lane's deadline is the larger of the base above, the modelled reading time with its
- *   headroom and the fixed-cost floor of an agent (`MIN_AGENT_MINUTES`, kata d9sy), at most 60 minutes; without it, or for a
- *   verifier, the base alone.
+ *   headroom and the fixed-cost floor of an agent (`MIN_AGENT_MINUTES`, kata d9sy), at most 60 minutes; without it the base alone
+ *   (the floor of a reviewer or the lane applies only with `work`). A verifier's deadline is never sized: it is the larger of the
+ *   base and its own fixed-cost floor (`MIN_VERIFIER_MINUTES`, kata dx53, at most 60 minutes), with or without `work`.
  * @returns {{ok:boolean, role?:string, dispatchedAt?:number, deadlineAt:number|null, deadlineAtIso?:string, budgetMs:number,
  *   minutes?:number, source?:'default'|'policy'|'size', sizing?:Object, tier?:string, depth?:string, warnings:string[], reason?:string}}
- *   `source` is `size` only when the size model or the floor set `minutes` above the base. `sizing` (present when `work` was used) is
- *   `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes, floorMinutes, floored, raised, capped}`: `floored` says
- *   the floor decided the deadline; `capped` says the modelled need is over the 60-minute maximum and the agent is given the maximum,
- *   which is less than the model says it needs.
+ *   `source` is `size` only when the size model or a floor set `minutes` above the base. `sizing` (present when `work` was used for a
+ *   reviewer or the lane, and always for a verifier) is `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes,
+ *   floorMinutes, floored, raised, capped}` for the sized roles: `floored` says the floor decided the deadline; `capped` says the
+ *   modelled need is over the 60-minute maximum and the agent is given the maximum, which is less than the model says it needs. For
+ *   a verifier it is `{baseMinutes, floorMinutes, floored, policyMinutes, overridesPolicy, raised}`: `overridesPolicy` says the
+ *   policy SET a value below the floor and the floor was applied (named in `warnings`).
  */
 function reviewDeadlines(input) {
   if (!isObject(input)) return deadlineFailure('invalid-input');
@@ -310,10 +328,7 @@ function reviewDeadlines(input) {
       }
       const sized = sizedMinutes({ base: minutes, work: input.work, headroom, maximum: DEADLINE_MINUTES_MAX });
       // A policy value the policy SET below the floor is overridden, and that is said (a value equal to the default included).
-      // `input.explicit` (loadPolicy's `explicit`: what the policy block set) tells a set value from the policy's defaults; a
-      // caller without it can only tell a value that differs from the default.
-      const setByPolicy = isObject(input.explicit) && isObject(input.explicit.deadlineMinutes) ? input.explicit.deadlineMinutes[role] : undefined;
-      const policyMinutes = isObject(input.explicit) ? (Number.isInteger(setByPolicy) ? setByPolicy : null) : source === 'policy' && minutes !== DEFAULT_DEADLINE_MINUTES[role] ? minutes : null;
+      const policyMinutes = policySetMinutes(input, role, minutes, source);
       const overridesPolicy = sized.floored && policyMinutes !== null && policyMinutes < sized.floor;
       sizing = { files: input.work.files, lines: input.work.lines, baseMinutes: sized.base, estimateMinutes: sized.estimate, headroom: sized.headroom, modeledMinutes: sized.modeled, floorMinutes: sized.floor, floored: sized.floored, policyMinutes, overridesPolicy, raised: sized.raised, capped: sized.capped };
       if (overridesPolicy) warnings.push(floorOverrideMessage({ role, policyMinutes, floorMinutes: sized.floor }));
@@ -321,6 +336,18 @@ function reviewDeadlines(input) {
       if (sized.raised) source = 'size';
       minutes = sized.minutes;
     }
+  }
+
+  // A verifier is never sized (its time does not follow its claims: pr-review-sizing.js, kata dx53) and has a fixed-cost floor of its
+  // own, with or without `work`: the base, or the floor when that is longer. A policy value SET below it is overridden, and that is said.
+  if (role === 'verifier') {
+    const fixed = verifierMinutes({ base: minutes, maximum: DEADLINE_MINUTES_MAX });
+    const policyMinutes = policySetMinutes(input, role, minutes, source);
+    const overridesPolicy = fixed.floored && policyMinutes !== null && policyMinutes < fixed.floor;
+    sizing = { baseMinutes: fixed.base, floorMinutes: fixed.floor, floored: fixed.floored, policyMinutes, overridesPolicy, raised: fixed.raised };
+    if (overridesPolicy) warnings.push(floorOverrideMessage({ role, policyMinutes, floorMinutes: fixed.floor }));
+    if (fixed.raised) source = 'size';
+    minutes = fixed.minutes;
   }
 
   const budgetMs = minutes * MINUTE_MS;

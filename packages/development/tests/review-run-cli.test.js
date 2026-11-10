@@ -20,6 +20,7 @@ const { spawnSync, execFileSync } = require('child_process');
 const { execute, main, buildDeps, peekRun, realFs } = require('../lib/review-run-cli');
 const { defaultDeps: prepareGit } = require('../lib/review-prepare-runtime');
 const { prepareReview } = require('../lib/pr-review-prepare');
+const { MIN_VERIFIER_MINUTES } = require('../lib/pr-review-sizing');
 
 const CLI = path.join(__dirname, '..', 'lib', 'review-run-cli.js');
 const PR_REVIEW_CLI = path.join(__dirname, '..', 'lib', 'pr-review-cli.js');
@@ -357,7 +358,7 @@ describe('the real CLI process on a real git fixture', () => {
     expect(v2.out.agents.map((a) => a.name)).toEqual(['verifier-9']);
     expect(v2.out.stillRunning).toEqual(v1.agents.slice(1).map((a) => a.name));
     expect(v2.out.stillRunning.length + v2.out.agents.length).toBeLessThanOrEqual(8);
-    expect(v2.out.agents[0].deadlineAt - v2.out.agents[0].dispatchedAt).toBe(5 * 60 * 1000);
+    expect(v2.out.agents[0].deadlineAt - v2.out.agents[0].dispatchedAt).toBe(MIN_VERIFIER_MINUTES * 60 * 1000); // kata dx53: the floor (this line pinned a flat 5 minutes)
 
     // the plan: nine verifiers, each candidate with three DISTINCT ones
     const run = JSON.parse(fs.readFileSync(path.join(runDir('rolling'), 'run.json'), 'utf8'));
@@ -874,6 +875,119 @@ describe('the real CLI process on a real git fixture', () => {
     expect(r.stdout).not.toContain(secret);
     expect(fs.readFileSync(path.join(runDir('secret'), 'final.json'), 'utf8')).not.toContain(secret);
     expect(fs.readFileSync(path.join(runDir('secret'), 'run.json'), 'utf8')).not.toContain(secret);
+  });
+});
+
+// kata dx53, through the real process with stand-in agents. The last real-model measurement stopped 8 of 31 verifiers at their flat 5
+// minutes and left 17 of its 23 candidates unverified. A verifier has a measured floor of its own now (MIN_VERIFIER_MINUTES), and a
+// candidate whose strict majority of the EXPECTED verifiers voted it real is settled although another verifier returned nothing, with
+// the missing one named; a refutation and a candidate short of the majority stay unverified, and nothing settled this way is carried.
+describe('kata dx53: verifiers that do not arrive, through the real process', () => {
+  const MINUTE = 60 * 1000;
+  const CLAIMS = [
+    ['src/a.js:1', 'the loop reads one past the end of the list'],
+    ['src/b.js:1', 'the cache key ignores the tenant so entries leak'],
+    ['src/a.js:1', 'the retry never backs off and hammers the host'],
+  ];
+  const stateOnDisk = () => JSON.parse(fs.readFileSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), 'utf8'));
+
+  /** prepare -> the reviewers' three findings -> collect: the verify DISPATCH (three candidates, so three verifiers each holding all three). */
+  function verifyRound(runId) {
+    fs.rmSync(path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json'), { force: true });
+    const review = prep({ runId }).out;
+    const findings = CLAIMS.map(([location, failureMode]) => reviewerFinding({ locationOrLink: location, originalTextOrLink: location, failureMode, evidence: `read ${failureMode}` }));
+    answerReview(review, { findings: { 'reviewer-s1-a': findings } });
+    const verify = coll(runId).out;
+    expect(verify).toMatchObject({ ok: true, status: 'DISPATCH', round: 'verify', wave: '1 of 1' });
+    expect(verify.agents.map((a) => [a.name, a.candidateIds.join()])).toEqual([['verifier-1', 'f1,f2,f3'], ['verifier-2', 'f1,f2,f3'], ['verifier-3', 'f1,f2,f3']]);
+    return verify;
+  }
+  /** Time passes: the named agents were dispatched `minutes` ago, their deadlines with them. The collector measures arrival against the stored run. */
+  function age(runId, names, minutes) {
+    const file = path.join(runDir(runId), 'run.json');
+    const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+    for (const wave of stored.waves) {
+      for (const agent of wave.agents) {
+        if (!names.includes(agent.name)) continue;
+        agent.dispatchedAt -= minutes * MINUTE;
+        agent.deadlineAt -= minutes * MINUTE;
+      }
+    }
+    fs.writeFileSync(file, JSON.stringify(stored));
+  }
+  const vote = (agent, entries) => writeResult(agent, { votes: entries.map(([candidateId, verdict]) => ({ candidateId, verdict, evidence: 'read it' })) });
+
+  test('a verifier is given its floor, and one that arrives 6 minutes after its dispatch counts where the old flat 5 would have stopped it; past the floor it is still stopped', () => {
+    const before = snapshotRepo();
+    const verify = verifyRound('dx53-floor');
+    for (const a of verify.agents) {
+      expect(a).toMatchObject({ deadlineMinutes: MIN_VERIFIER_MINUTES, deadlineFloored: true });
+      expect(a.deadlineAt - a.dispatchedAt).toBe(MIN_VERIFIER_MINUTES * MINUTE);
+      expect(a.deadlineAt - a.dispatchedAt).toBeGreaterThan(5 * MINUTE);
+      expect(a.prompt).toContain(`Finish before ${a.deadlineAtIso}.`);
+    }
+    // 6 minutes after dispatch: a flat 5 would have stopped these two a minute ago and the floor leaves them two minutes. The third was
+    // dispatched a minute longer ago than the floor allows, and never wrote
+    age('dx53-floor', ['verifier-1', 'verifier-2'], 6);
+    age('dx53-floor', ['verifier-3'], MIN_VERIFIER_MINUTES + 1);
+    for (const a of verify.agents.slice(0, 2)) vote(a, [['f1', 'real'], ['f2', 'real'], ['f3', 'real']]);
+    const done = coll('dx53-floor');
+    expect(done.code).toBe(0);
+    expect(['DONE', 'ADJUDICATE']).toContain(done.out.status);
+    // still stopped at ITS deadline: the floor relaxes nothing, it only moves the time
+    expect(done.out.notReviewed.expiredAgents).toEqual([{ name: 'verifier-3', role: 'verifier', state: 'expired', reason: 'deadline-passed' }]);
+    // the two that arrived at the 6-minute mark were READ: their votes are in every tally
+    expect(done.out.votes.outcomes.map((o) => o.tally.real)).toEqual([2, 2, 2]);
+    expect(snapshotRepo()).toEqual(before);
+    process.stderr.write(`\nSMOKE verifier floor: ${JSON.stringify({ deadlineMinutes: verify.agents.map((a) => a.deadlineMinutes), arrivedAtMinutes: 6, expired: done.out.notReviewed.expiredAgents.map((a) => a.name), reals: done.out.votes.outcomes.map((o) => o.tally.real) })}\n`);
+  });
+
+  test('2 real of 3 expected settles a candidate although a verifier never arrived, the missing one named everywhere; a refutation and a candidate short of the majority stay unverified; nothing settled this way is carried', () => {
+    const before = snapshotRepo();
+    const verify = verifyRound('dx53-rule');
+    const [v1, v2, v3] = verify.agents;
+    // verifier-3 never writes. f1: real and real. f2: not-real and not-real (refuted by the two that arrived). f3: real, and NO entry from verifier-2
+    vote(v1, [['f1', 'real'], ['f2', 'not-real'], ['f3', 'real']]);
+    vote(v2, [['f1', 'real'], ['f2', 'not-real']]);
+    const done = coll('dx53-rule', { now: v3.deadlineAt + 1000 });
+    expect(done.code).toBe(0);
+    expect(['DONE', 'ADJUDICATE']).toContain(done.out.status);
+    expect(done.out.notReviewed.expiredAgents.map((a) => a.name)).toEqual(['verifier-3']);
+    const byId = Object.fromEntries(done.out.votes.outcomes.map((o) => [o.id, o]));
+    expect(byId.f1).toMatchObject({ outcome: 'present', reason: 'verifier-majority', settledOnMajority: true, missing: ['verifier-3'], tally: { real: 2, notReal: 0, expected: 3, needed: 2 } });
+    expect(byId.f2).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete', tally: { real: 0, notReal: 2, expected: 3 } });
+    expect(byId.f3).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete', tally: { real: 1, expected: 3 } });
+    expect(byId.f2.settledOnMajority).toBeUndefined();
+    expect(byId.f3.settledOnMajority).toBeUndefined();
+    // the round is partial, never complete: it says who is missing and what was settled on a majority
+    expect(done.out.votes).toMatchObject({ verification: 'partial', reason: 'some-verifiers-did-not-return', recoveryAction: 'supply-the-missing-votes' });
+    expect(done.out.notReviewed.incompleteVerifiers).toEqual([expect.objectContaining({ verifier: 'verifier-3', reason: 'expired:deadline-passed', candidateIds: ['f1', 'f2', 'f3'] })]);
+    expect(done.out.reducedReview).toMatch(/verification partial: some-verifiers-did-not-return/);
+    expect(done.out.reducedReview).toMatch(/^SETTLED ON A MAJORITY, verifiers missing .*: f1 \(2 of 3 real; verifier-3 did not return\)$/m);
+    // all three are Important and none is closed: a settled finding is present, the others unverified, and all are open at the gate
+    expect(done.out.gate.findings.open).toEqual(['f1', 'f2', 'f3']);
+    expect(done.out.gate.mergeable).toBe(false);
+    // the state report on disk says the same
+    const state = stateOnDisk();
+    expect(state.ledger.map((entry) => [entry.id, entry.verification.outcome, entry.verification.settledOnMajority === true])).toEqual([['f1', 'present', true], ['f2', 'unverified', false], ['f3', 'unverified', false]]);
+    expect(state.ledger[0].verification.incompleteVerifiers).toEqual([{ verifier: 'verifier-3', reason: 'expired:deadline-passed' }]);
+    expect(state.verification).toMatchObject({ verification: 'partial', reason: 'some-verifiers-did-not-return' });
+    // the carry guard: a verdict settled on a majority has no full electorate, so it is no settled verdict a later round could carry
+    expect(state.verdicts.map((verdict) => verdict.id)).not.toContain('f1');
+    expect(snapshotRepo()).toEqual(before);
+    process.stderr.write(`\nSMOKE settle on a majority: ${JSON.stringify({ outcomes: done.out.votes.outcomes.map((o) => [o.id, o.outcome, o.settledOnMajority === true, o.tally.real]), verification: done.out.votes.verification, missing: done.out.notReviewed.incompleteVerifiers.map((v) => v.verifier) })}\n`);
+  });
+
+  test('control: the same round with every verifier back is complete, and records the verdicts a later round may carry (so the guard above is the missing electorate, not the fixture)', () => {
+    const verify = verifyRound('dx53-complete');
+    for (const a of verify.agents) vote(a, [['f1', 'real'], ['f2', 'real'], ['f3', 'real']]);
+    const done = coll('dx53-complete');
+    expect(done.code).toBe(0);
+    expect(done.out.votes).toMatchObject({ verification: 'performed' });
+    expect(done.out.votes.outcomes.every((o) => o.outcome === 'present' && o.settledOnMajority === undefined)).toBe(true);
+    expect(done.out.notReviewed.incompleteVerifiers).toEqual([]);
+    expect(done.out.reducedReview).not.toMatch(/SETTLED ON A MAJORITY/);
+    expect(stateOnDisk().verdicts.map((verdict) => verdict.id)).toEqual(['f1', 'f2', 'f3']);
   });
 });
 

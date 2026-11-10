@@ -32,7 +32,8 @@
  *     that names no regular file of the head (a mis-spelled, mis-cased or invented path, a symlink) or on a line past the end of
  *     that file, it is graded Important.
  *   - An agent that did not arrive is never read as reviewed: its slice is in `notReviewed`, a verifier's candidates are
- *     `unverified`, a missing security lane is not `clean`.
+ *     `unverified` unless a strict majority of the EXPECTED verifiers already voted them real (`settleOnMajority`, kata dx53: the
+ *     missing verifiers stay named, a refutation or a split never settles), a missing security lane is not `clean`.
  *   - A result file an agent REWRITES after the runner read it is never lost in silence (kata 271n). The runner cannot tell that an
  *     agent has finished, so it records what it read of every result (`agent.read`: size, mtime, ctime and sha256, next to
  *     `arrivedAt`; a run stored without it is compared with the copy the collector took at the read) and, at every later `collect`,
@@ -108,6 +109,14 @@
  * changed path), with headroom, never below the fixed cost of an agent (`MIN_AGENT_MINUTES`, kata d9sy; a policy value SET below it is overridden and named in `run.sizing.warnings`), at most 60 minutes. Everything is recorded in `run.sizing` and the DISPATCH manifest, and nothing
  * relaxes a fail-closed rule: an agent that arrives after its (larger) deadline is `expired`, a reviewer that lists fewer paths
  * than its slice leaves the slice not reviewed, a slice or deadline the limits cannot hold is a recorded warning and not a pass.
+ *
+ * VERIFIERS (kata dx53): a verifier is not sized (its time does not follow its claims, `lib/pr-review-sizing.js`) and has a fixed-cost
+ * floor of its own, `MIN_VERIFIER_MINUTES` (8: the slowest of the 51 verifiers that arrived, 4.97 minutes, times the floor factor),
+ * raised from the policy's 5 and recorded in the manifest (`deadlineMinutes`, `deadlineFloored`); one slower than it is still `expired`.
+ * What a candidate needs of its verifiers is `tallyVotes`' rule plus the one opt-in the runner sets, `settleOnMajority`: a candidate
+ * whose strict majority of the EXPECTED verifiers voted it real is `present` although another verifier returned nothing, with the
+ * missing verifiers named (`incompleteVerifiers`, `settledOnMajority`) and the round `partial`; a refutation or a split never settles,
+ * and such a verdict is not carried into a delta (it has no full electorate).
  *
  * A light run cut into several slices has no TRIAGE step, so it gets ONE more reviewer, `reviewer-range`: the whole range diff, every
  * changed path, one lens, graded like any reviewer (a failed read is its own `whole-range` entry among the unreviewed slices). It is
@@ -437,7 +446,7 @@ function planRunSlices(run, numstat) {
   // the deadlineMinutes the policy block SET for a role (null: none, the default applies), so the floor's override is auditable
   const policySet = (role) => (isObject(run.policyExplicit) && isObject(run.policyExplicit.deadlineMinutes) && Number.isInteger(run.policyExplicit.deadlineMinutes[role]) ? run.policyExplicit.deadlineMinutes[role] : null);
   const sizing = {
-    model: { ...SZ.MODEL, headroom: resolved.headroom, maxMinutes: DEADLINE_MINUTES_MAX, derivedFrom: SZ.OBSERVED.run, fixedCostFloorMinutes: SZ.MIN_AGENT_MINUTES, policyDeadlineMinutes: { reviewer: policySet('reviewer'), security: policySet('security') } },
+    model: { ...SZ.MODEL, headroom: resolved.headroom, maxMinutes: DEADLINE_MINUTES_MAX, derivedFrom: SZ.OBSERVED.run, fixedCostFloorMinutes: SZ.MIN_AGENT_MINUTES, verifierFloorMinutes: SZ.MIN_VERIFIER_MINUTES, policyDeadlineMinutes: { reviewer: policySet('reviewer'), verifier: policySet('verifier'), security: policySet('security') } },
     limits: { sliceMaxFiles: resolved.maxFiles, sliceTargetLines: resolved.targetLines, slicesAllowed: maxSlices, slicesWanted: wanted.slices.length },
     work: { files: paths.length, lines: plan.totalLines },
     slices,
@@ -506,6 +515,15 @@ function buildReviewAgents(run, deps, ctx) {
   // a REVIEW.md whose Severity section could not be read is NAMED, never replaced by the built-in copy in silence ('no-rules-file' is the documented defaults)
   if (run.severityGuide === null && run.severityGuideProblem !== null && run.severityGuideProblem !== 'no-rules-file') {
     run.sizing.warnings.push({ code: 'severity-guide-fallback', message: `REVIEW.md at the base has no readable Severity section (${run.severityGuideProblem}), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a "## Severity" heading with one "- **Important** ...", "- **Nit** ..." and "- **Pre-existing** ..." bullet, under 2000 characters)` });
+  }
+  // A verifier has a fixed-cost floor of its own (kata dx53). The verify round is dispatched by a later `collect`, which carries no sizing,
+  // so a policy `deadlineMinutes.verifier` SET below the floor is named here, once, with the reviewers' warnings.
+  if (run.depth.verifiersPerCandidate > 0) {
+    const verifier = reviewDeadlines({ role: 'verifier', now: ctx.now, tier: run.tier.effectiveTier, depth: run.depth.mode, policy: run.policy, explicit: run.policyExplicit });
+    if (verifier.ok === true && verifier.sizing !== undefined && verifier.sizing.overridesPolicy) {
+      const message = floorOverrideMessage({ role: 'verifier', policyMinutes: verifier.sizing.policyMinutes, floorMinutes: verifier.sizing.floorMinutes });
+      if (!run.sizing.warnings.some((warning) => warning.message === message)) run.sizing.warnings.push({ code: 'deadline-floor-over-policy', message });
+    }
   }
   const budget = { toolCalls: stated('reviewerToolCalls', DEFAULT_POLICY.reviewerToolCalls), snippets: stated('reviewerSnippets', DEFAULT_POLICY.reviewerSnippets) };
   run.slices.forEach((slice, sliceIndex) => {
@@ -1430,7 +1448,8 @@ function buildLedger(run, deps) {
   const planned = new Set(verifiable.map((candidate) => String(candidate.id)));
   const input = toVotesInput({ votes, incompleteVerifiers, agents, findings: [] }, { depth: run.depth.mode, expectedVerifiers: run.depth.verifiersPerCandidate, candidates: verifiable });
   if (input.ok === false) return { ok: false, reason: input.reason };
-  const asked = tallyVotes({ findings: input.findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: run.assignment.filter((entry) => planned.has(String(entry.id))) });
+  // `settleOnMajority` (kata dx53): the one caller that opts in. A candidate whose strict majority of the expected verifiers voted it real is present although another verifier returned nothing; the missing ones stay named.
+  const asked = tallyVotes({ findings: input.findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: run.assignment.filter((entry) => planned.has(String(entry.id))), settleOnMajority: true });
   if (asked.ok !== true) return { ok: false, reason: `votes blocked: ${asked.reason}` };
   const byId = new Map(asked.findings.map((f) => [String(f.id), f]));
   const findings = fresh.map((candidate) => (refusals.has(String(candidate.id)) ? unbriefableEntry(candidate, refusals.get(String(candidate.id))) : byId.get(String(candidate.id))));
@@ -1439,7 +1458,7 @@ function buildLedger(run, deps) {
   // such as `reason` would otherwise read as a ledger deferral reason.
   const freshEntries = fresh.map((candidate, index) => {
     const t = findings[index];
-    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes, ...(t.unbriefable === undefined ? {} : { unbriefable: t.unbriefable }) } };
+    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes, ...(t.settledOnMajority === true ? { settledOnMajority: true } : {}), ...(t.unbriefable === undefined ? {} : { unbriefable: t.unbriefable }) } };
   });
   // What this round settled, for the next one to carry: the verdicts it carried and the ones it just recorded.
   const verdicts = D.verdictRecords(run, asked.findings);
@@ -1623,6 +1642,9 @@ function reducedReviewNotice(run, built, notReviewed, stage) {
   }
   if (run.security.status !== 'clean') lines.push(`security lane ${run.security.status}${run.security.reason ? `: ${run.security.reason}` : ''}`);
   if (built.tally.verification !== 'performed') lines.push(`verification ${built.tally.verification}${built.tally.reason ? `: ${built.tally.reason}` : ''}`);
+  // a candidate settled on a majority of the expected verifiers although a verifier did not return (kata dx53): the verdict stands, and the missing ones are said where the report is read
+  const settled = built.tally.findings.filter((f) => f.settledOnMajority === true);
+  if (settled.length > 0) lines.push(`SETTLED ON A MAJORITY, verifiers missing (a strict majority of the expected verifiers voted each of these real, so no vote still missing could change its outcome; notReviewed.incompleteVerifiers names them): ${settled.map((f) => `${f.id} (${f.tally.real} of ${f.tally.expected} real; ${f.incompleteVerifiers.map((v) => v.verifier).join(', ')} did not return)`).join(', ')}`);
   if (notReviewed.unbriefable.length > 0) lines.push(`UNVERIFIED, no verifier was asked (the verifier brief refuses the candidate, so a person decides it; the renderer's reason is in notReviewed.unbriefable): ${notReviewed.unbriefable.map((u) => `${u.id} (${u.kind || 'other'}${u.input ? `, ${u.input}` : ''})`).join(', ')}`);
   const regraded = built.ledger.filter((entry) => entry.claimedSeverity !== undefined);
   if (regraded.length > 0) lines.push(`graded Important, not pre-existing as the reviewer called them, because the diff does not bear the label out: ${regraded.map((entry) => `${entry.id} (${entry.locationOrLink})`).join(', ')}`);
@@ -1748,7 +1770,7 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     reviewStatus: stage.reviewStatus,
     ledger: built.ledger,
     carry,
-    votes: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, outcomes: built.tally.findings.map((f) => ({ id: f.id, outcome: f.outcome, reason: f.reason, authorLabel: f.authorLabel, tally: f.tally })) },
+    votes: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, outcomes: built.tally.findings.map((f) => ({ id: f.id, outcome: f.outcome, reason: f.reason, authorLabel: f.authorLabel, tally: f.tally, ...(f.settledOnMajority === true ? { settledOnMajority: true, missing: f.incompleteVerifiers.map((v) => v.verifier) } : {}) })) },
     security: run.security,
     // kata 271n: a result that changed after it was read means the coverage is not complete, whatever the slices say
     coverage: { complete: run.coverage.complete && run.security.status !== 'not-run' && notReviewed.changedResults.length === 0, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },

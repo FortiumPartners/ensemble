@@ -164,14 +164,25 @@ agents the manifest names and stop each at its own `deadlineAtIso`; the deadline
   minutes (kata `d9sy`: reviewers at effort `hi` took 7 to 15 minutes on slices of 77 to 327 lines, one over 15 on 4 paths, so
   the time is a per-agent cost, not a rate; the floor is the slowest finished reviewer, 14.58, times 1.5):
   `clamp(max(ceil(max(paths x 0.934, changed lines / 100 x 1.224) x headroom), base, 22), 60)`. A reviewer's `work` is its slice,
-  the lane's is every changed path, a verifier is not sized and keeps 5. The run these numbers came from (19 paths, 1450
+  the lane's is every changed path, a verifier is not sized: its base (5) is raised to its own floor of 8 minutes (kata `dx53`,
+  below). The run these numbers came from (19 paths, 1450
   changed lines) is three slices of 8, 3 and 8 paths with reviewers at 22 minutes and the lane at 36, where it needed 17.75.
+* Verifiers (kata `dx53`): the first real runs (effort `hi`, 60 verifiers) stopped 9 at the old flat 5 minutes (8 of 31 in the last
+  measurement) and left 17 of its 23 candidates unverified. A verifier's time does not follow its claims or paths (on identical
+  work the spread is 2.4 times at least), so it has a floor and no size term: the slowest verifier that arrived, 4.97 minutes, times
+  1.5, rounded up, 8 minutes, whatever the policy's `deadlineMinutes.verifier` says. A verifier slower than that is still `expired`
+  and its candidates are not verified by it; stop it at its `deadlineAtIso` like any agent. The manifest marks it `deadlineFloored`
+  and `sizing.model.verifierFloorMinutes` records the floor. A candidate is `present` when a strict majority of the EXPECTED
+  verifiers (2 of 3, 3 of 5) voted it real, even if another assigned verifier returned nothing (`settledOnMajority: true` and
+  `missing` in `votes.outcomes[]`, the missing verifier still in `notReviewed.incompleteVerifiers`, a `SETTLED ON A MAJORITY`
+  line in `reducedReview`, the round `partial`): no vote still missing could change that outcome. Fewer than the majority, a
+  refutation and a split stay `unverified`, and a candidate settled this way is re-verified, never carried, in a delta round.
 * `sizing` in the review round's manifest and in `run.json` says what was planned: `model`, `limits`, `work`, `slices[]`
   (`overLimit`, `diff`) and `warnings[]`. Report every warning with the run: `slice-over-limit` (the cap holds fewer slices
   than the limits ask for; the message names the `maxConcurrentAgents` that would hold them), `reader-not-planned` (the cap
   holds the slices but not a whole-range reader beside them; the message names the cap that would), `deadline-capped` (a modelled
-  need over 60 minutes: that agent may not finish), `deadline-floor-over-policy` (a policy `deadlineMinutes` below the 22-minute
-  floor was overridden; `model.fixedCostFloorMinutes` records the floor, `deadlineFloored` marks an agent it decided) and
+  need over 60 minutes: that agent may not finish), `deadline-floor-over-policy` (a policy `deadlineMinutes` below a floor, 22
+  minutes for a reviewer or the lane and 8 for a verifier, was overridden; `model.fixedCostFloorMinutes` and `model.verifierFloorMinutes` record the floors, `deadlineFloored` marks an agent a floor decided) and
   `invalid-<key>` (an unreadable policy value; the default applied).
 * Nothing is relaxed. An agent that arrives after its (larger) deadline is `expired`, and a reviewer that lists fewer paths
   than its slice leaves that slice not reviewed: both are reported in `notReviewed`, never hidden by a bigger deadline or a

@@ -196,7 +196,54 @@ const FLOOR_FACTOR = 1.5;
 /** The least any sized agent (reviewer, whole-range reader, security lane) is given: 22 minutes. */
 const MIN_AGENT_MINUTES = Math.ceil(SLOWEST_FINISHED_MINUTES * FLOOR_FACTOR);
 
-/** The roles whose time depends on how much they read. A verifier settles at most three claims, whatever the PR's size. */
+/**
+ * THE VERIFIER'S FIXED COST (kata dx53). A verifier settles at most MAX_CANDIDATES_PER_VERIFIER (3) claims whatever the PR's size, so
+ * the size model above never applied to it and it kept the policy's flat 5 minutes. Both real-model measurements (kata q3a9, effort
+ * `hi`, every verifier given those 5 minutes) put that deadline inside the body of the distribution, not past its tail. The times are
+ * in the committed traces; `docs/guides/review-speedup-measurement-2026-11-09-after/verifier-deadline-evidence.json` lists every
+ * verifier and the votes of every candidate, and the tests re-derive the numbers below from them:
+ *
+ *   60 verifiers, six rounds           51 arrived (1.49 to 4.97 minutes, median 2.5), 9 had no result at the deadline and were stopped
+ *   before #282 and #283 (8afd3e3)     1 stopped of 29 (3%)
+ *   at aea0b19                         8 stopped of 31 (26%), in each of the three rounds
+ *
+ * What the record shows. (1) A verifier's time does not follow what it is given: 2 of the 7 verifiers that held two claims were stopped
+ * and 7 of the 53 that held three; 4 of 14 that cited one path, 3 of 25 that cited two, 2 of 21 that cited three. In the High re-review all
+ * five verifiers held the same two claims: three arrived, at 2.07, 3.35 and 4.97 minutes, and two were stopped at 5, a spread of at least
+ * 2.4 times on identical work. So there is no claim-proportional rate to size from (the size model needs one, and has none here), and a
+ * second verifier on the same claim meets the same odds as the first. (2) A stop costs every claim the verifier holds: it writes its
+ * one result file when it has finished all of them, so the 8 stopped verifiers of the last measurement left 15 of its 23 candidates
+ * unverified (a candidate needs every one of its verifiers back), and 2 more were left by verifiers that arrived with no vote for one claim.
+ *
+ * What it does NOT show: how long a stopped verifier needed, or the tail. Every verifier that arrived is under the 5-minute deadline by
+ * construction (one past it was stopped, and its time is only known to exceed 5: censored), so the slowest FINISHED verifier, 4.97, three
+ * seconds inside the deadline, is the censoring deadline showing, not a measure of how long a verifier needs. The floor is therefore 1.5
+ * times the deadline the record was censored at: the rule of the reviewers' floor above applied to the slowest finished verifier,
+ * 4.97 x FLOOR_FACTOR = 7.46, rounded up to 8 minutes. It is a judgement on one sample, like FLOOR_FACTOR itself, cross-checked by a
+ * censored lognormal fit to the 31 verifiers of the last measurement (the test derives it: median 3.4, 90th 6.6, 95th 8.0, 99th 11.5; about 5%
+ * of verifiers still past 8 minutes, and a Weibull fit gives under 2%), so about one verifier in twenty is still expected to be stopped.
+ * Pooling hides a change of regime: 1 of 29 verifiers was stopped before the rolling refill (kata 630v) and 8 of 31 after it. A verifier
+ * slower than the floor is still `expired` and its candidates are still not verified by it: nothing here relaxes that. What the floor
+ * costs: a round that has a stopped verifier waits for it up to 3 minutes longer (8 minus 5), and a verifier that is going to be stopped also
+ * holds one of the cap's slots of the rolling refill for those 3 minutes; the verifiers that arrive in under 5 minutes, 51 of 60, are not
+ * affected. It was measured at effort `hi` (the runner records no effort), with verifiers holding 2 or 3 claims.
+ */
+const OBSERVED_VERIFIERS = deepFreeze({
+  run: 'q3a9',
+  /** The deadline every one of these verifiers was given, in minutes. */
+  deadlineMinutes: 5,
+  /** The most claims one of them held: the planner's cap, which a test pins to MAX_CANDIDATES_PER_VERIFIER. */
+  maxClaims: 3,
+  /** Minutes from dispatch to the arrival of the result file, of the verifiers that arrived, in ascending order. */
+  finishedMinutes: [1.49, 1.5, 1.51, 1.72, 1.9, 1.96, 1.99, 2.01, 2.02, 2.05, 2.06, 2.07, 2.09, 2.1, 2.12, 2.26, 2.27, 2.29, 2.31, 2.32, 2.41, 2.43, 2.44, 2.48, 2.48, 2.52, 2.67, 2.7, 2.76, 2.79, 2.85, 2.88, 2.94, 2.98, 3.04, 3.13, 3.27, 3.29, 3.35, 3.38, 3.41, 3.44, 3.53, 3.65, 3.88, 4.26, 4.41, 4.49, 4.83, 4.83, 4.97],
+  /** Verifiers with no result at their deadline: their time is only bounded below by it (censored), so the floor is not computed from them. */
+  stopped: 9,
+});
+const SLOWEST_FINISHED_VERIFIER_MINUTES = Math.max(...OBSERVED_VERIFIERS.finishedMinutes);
+/** The least a verifier is given, whatever the policy's `deadlineMinutes.verifier` says: 8 minutes. */
+const MIN_VERIFIER_MINUTES = Math.ceil(SLOWEST_FINISHED_VERIFIER_MINUTES * FLOOR_FACTOR);
+
+/** The roles whose time depends on how much they read. A verifier settles at most three claims whatever the PR's size and its time does not follow them: it has a floor and no size term (kata dx53, above). */
 const SIZED_ROLES = Object.freeze(['reviewer', 'security']);
 
 const isSliceMaxFiles = (value) => Number.isInteger(value) && value >= 1;
@@ -243,6 +290,22 @@ function sizedMinutes({ base, work, headroom, maximum, floor = MIN_AGENT_MINUTES
     floored: floor > modeled && floor > base && minutes === floor,
     capped: modeled > maximum,
   };
+}
+
+/**
+ * A verifier's deadline in whole minutes: the policy's base (`deadlineMinutes.verifier`) or the fixed-cost floor (MIN_VERIFIER_MINUTES,
+ * kata dx53), whichever is longer, never above `maximum`. There is no size term: the record shows none to model.
+ *
+ * @param {Object} input
+ * @param {number} input.base      The base deadline in minutes (the policy's `deadlineMinutes.verifier`).
+ * @param {number} input.maximum   The most any deadline may be (60 minutes).
+ * @param {number} [input.floor]   The fixed-cost floor in minutes (default MIN_VERIFIER_MINUTES).
+ * @returns {{minutes:number, base:number, floor:number, raised:boolean, floored:boolean}}
+ *   `raised` says `minutes` is longer than `base`; `floored` says the floor, not the base, decided it.
+ */
+function verifierMinutes({ base, maximum, floor = MIN_VERIFIER_MINUTES }) {
+  const minutes = Math.min(Math.max(base, floor), maximum);
+  return { minutes, base, floor, raised: minutes > base, floored: floor > base && minutes === floor };
 }
 
 /**
@@ -300,6 +363,8 @@ module.exports = {
   OBSERVED_HI_EFFORT,
   FLOOR_FACTOR,
   MIN_AGENT_MINUTES,
+  OBSERVED_VERIFIERS,
+  MIN_VERIFIER_MINUTES,
   HEADROOM_MIN,
   HEADROOM_MAX,
   SIZED_ROLES,
@@ -309,6 +374,7 @@ module.exports = {
   isDeadlineHeadroom,
   estimateMinutes,
   sizedMinutes,
+  verifierMinutes,
   deriveLimits,
   resolveSizing,
 };

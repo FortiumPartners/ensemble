@@ -73,7 +73,9 @@ const QUICK_MAX_VERIFIERS = 0;
  * never shorter than it, and `pr-review-sizing.js` raises it for an agent that has more
  * to read than the base allows (`deadlineHeadroom` below). A loaded policy always holds
  * every key, set or defaulted, so an explicit value cannot be told from the default and
- * is a floor, never a pin.
+ * is a floor, never a pin. Every role also has a measured fixed-cost floor that the
+ * number cannot lower (a reviewer and the lane 22 minutes, kata d9sy; a verifier 8,
+ * kata dx53), so a verifier's 5 is a base the floor raises.
  */
 const DEADLINE_ROLES = Object.freeze(['reviewer', 'verifier', 'security']);
 const DEFAULT_DEADLINE_MINUTES = Object.freeze({ reviewer: 15, verifier: 5, security: 15 });

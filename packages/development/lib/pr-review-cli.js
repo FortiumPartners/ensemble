@@ -148,8 +148,9 @@
  * agents write `out-<name>.json` and this reads them, instead of the orchestrator
  * parsing what an agent yielded. One payload selects one function via `action`:
  *   deadlines        { role, tier?, depth?, now?, policy? } -- the `dispatchedAt` (= `now`, default: the current time)
- *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15,
- *                    per-role overridable by the policy's `deadlineMinutes`
+ *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15 (bases),
+ *                    per-role overridable by the policy's `deadlineMinutes`, and never below a measured floor: a verifier 8 min
+ *                    (kata dx53), a reviewer or the lane 22 min when `work` is given (kata d9sy)
  *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds?, read?, reread? }], dir,
  *                    now?, scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
  *                    arrived|missing|expired|invalid from `<dir>/out-<name>.json`. It arrived when the file's last
@@ -520,13 +521,20 @@ function runDescription(payload) {
  * is graded IN BAND by its module: a payload the module cannot read is a
  * blocked, deepest-mode or no-plan RESULT (exit 0), never a clean pass.
  *
- * `votes` is a pass-through. `depth` and `slices` each call exactly two
- * functions of their one module -- resolve then grade, plan then verify --
+ * `votes` is a pass-through but for one key: `settleOnMajority` (kata dx53) is the review runner's option, which calls the tally
+ * itself, and the narrated procedure keeps the strict rule (AC-006-3), so the key is dropped from the payload here, whatever its
+ * value, and the answer is the one the payload without it gives (the caller's object is not changed). `depth` and `slices` each
+ * call exactly two functions of their one module -- resolve then grade, plan then verify --
  * because that is the single question the skill asks; the dispatcher still
  * decides nothing itself, and the only value it combines is `ok`, which it
  * can only make stricter.
  */
 function runVotes(payload) {
+  if (payload !== null && typeof payload === 'object' && !Array.isArray(payload) && Object.prototype.hasOwnProperty.call(payload, 'settleOnMajority')) {
+    const strict = { ...payload };
+    delete strict.settleOnMajority;
+    return tallyVotes(strict);
+  }
   return tallyVotes(payload);
 }
 

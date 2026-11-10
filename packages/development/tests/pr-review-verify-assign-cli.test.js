@@ -12,6 +12,8 @@
 
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { runVotes } = require('../lib/pr-review-cli');
+const { tallyVotes } = require('../lib/pr-review-votes');
 
 const CLI = path.join(__dirname, '..', 'lib', 'pr-review-cli.js');
 
@@ -92,6 +94,36 @@ describe('verify-assign through the CLI: the #234-shaped round (11 groups, 3 ver
     // Without the plan the same votes still read as a 2-of-3 majority: the plan is what catches the loss.
     const unplanned = runCli('votes', { depth: 'standard', findings });
     expect(unplanned.result.findings.find((entry) => entry.id === lostId).outcome).toBe('present');
+  });
+
+  test('chained: the narrated `votes` does not honour the runner-only `settleOnMajority` (kata dx53): 2 real of 3 expected with one missing stays unverified', () => {
+    const dropped = plan.agents[0];
+    const lostId = dropped.candidates[0];
+    const findings = castVotes(plan).map((entry) =>
+      entry.id === lostId ? { ...entry, votes: entry.votes.filter((item) => item.verifier !== dropped.verifier) } : entry
+    );
+    const strict = runCli('votes', { depth: 'standard', assignment: plan.assignments, findings });
+    const asked = runCli('votes', { depth: 'standard', assignment: plan.assignments, findings, settleOnMajority: true });
+    expect(strict.result.findings.find((entry) => entry.id === lostId)).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete' });
+    expect(asked.code).toBe(0);
+    expect(asked.result).toEqual(strict.result);
+    expect(asked.result.findings.find((entry) => entry.id === lostId).settledOnMajority).toBeUndefined();
+    expect(asked.result.verification).toBe('partial');
+  });
+
+  test('the handler drops the key whatever its value and leaves the caller\'s payload alone (kata dx53)', () => {
+    const payload = {
+      depth: 'standard',
+      assignment: [{ id: 'F1', verifiers: ['v1', 'v2', 'v3'] }],
+      findings: [{ id: 'F1', severity: 'major', kind: 'defect', reviewer: 'r1', votes: [{ verifier: 'v1', verdict: 'real' }, { verifier: 'v2', verdict: 'real' }] }],
+    };
+    const strict = tallyVotes(payload);
+    expect(strict.findings[0]).toMatchObject({ outcome: 'unverified', reason: 'verifier-incomplete' });
+    for (const value of [true, false, 'true', 1, null]) {
+      const asked = { ...payload, settleOnMajority: value };
+      expect(runVotes(asked)).toEqual(strict);
+      expect(asked.settleOnMajority).toBe(value);
+    }
   });
 
   test('chained: a duplicate vote by one verifier is refused and a vote by a stranger does not stand in for the missing one', () => {

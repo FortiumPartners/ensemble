@@ -27,6 +27,7 @@ const {
   OBSERVED_HI_EFFORT,
   FLOOR_FACTOR,
   MIN_AGENT_MINUTES,
+  MIN_VERIFIER_MINUTES,
   MODEL,
   MINUTES_PER_FILE,
   MINUTES_PER_100_LINES,
@@ -341,10 +342,11 @@ describe('reviewDeadlines with `work`: the base is a floor and the model raises 
     expect(answer.warnings.join(' ')).toMatch(/over the 60-minute maximum/);
   });
 
-  test('a verifier is not sized: work is ignored for it, and the answer says so', () => {
+  test('a verifier is not sized: work is ignored for it, the answer says so, and its fixed-cost floor applies (kata dx53; this test pinned a flat 5)', () => {
     const answer = ask('verifier', REAL);
-    expect(answer).toMatchObject({ ok: true, minutes: 5, source: 'default' });
-    expect(answer.sizing).toBeUndefined();
+    expect(answer).toMatchObject({ ok: true, minutes: MIN_VERIFIER_MINUTES, source: 'size' });
+    // no size model is claimed: only the base, the floor and what decided it
+    expect(answer.sizing).toEqual({ baseMinutes: 5, floorMinutes: MIN_VERIFIER_MINUTES, floored: true, policyMinutes: null, overridesPolicy: false, raised: true });
     expect(answer.warnings.join(' ')).toMatch(/does not change a verifier/);
   });
 
@@ -548,10 +550,11 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     // the text collapses whitespace: entries are told apart by their prefix; an entry filed far from the top is a misplaced one
     const newer = unreleased.slice(0, start).split('- **packages/development:**').slice(1);
     expect(newer.length).toBeLessThanOrEqual(8);
-    // the entries known to sit above it: the result files read again (kata 271n) is the first, the re-review delta (kata xb4j) the next, the small-slice deadlines (katas d9sy and 630v) after it
-    expect(newer[0]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
-    expect(newer[1]).toMatch(/^ review-run re-review plans a delta/);
-    expect(newer[2]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
+    // the entries known to sit above it: the verifier deadline and the majority rule (kata dx53) is the first, the result files read again (kata 271n) the next, the re-review delta (kata xb4j) after it, the small-slice deadlines (katas d9sy and 630v) after that
+    expect(newer[0]).toMatch(/^ `review-run` gives a verifier the time its first live runs showed it needs and settles a candidate on the strict majority of its verifiers when one did not return \(kata `dx53`/);
+    expect(newer[1]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
+    expect(newer[2]).toMatch(/^ review-run re-review plans a delta/);
+    expect(newer[3]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
     const first = unreleased.slice(start);
     // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
     const next = first.slice(10).search(/ - (?:\*\*|`)/);
@@ -587,9 +590,12 @@ describe('the fixed cost of an agent: a small slice is not given a deadline its 
     expect(Math.max(...OBSERVED_HI_EFFORT.finishedReviewerMinutes)).toBeGreaterThan(2 * Math.min(...OBSERVED_HI_EFFORT.finishedReviewerMinutes));
   });
 
-  test('the floor binds the sized roles and nothing else: a verifier keeps its 5 minutes and a large read keeps its modelled deadline', () => {
-    expect(reviewDeadlines({ role: 'verifier', now: T0, work: SMALL_4_PATHS }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.verifier);
-    expect(reviewDeadlines({ role: 'verifier', now: T0 }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.verifier);
+  // kata dx53: this test pinned a verifier at its flat 5 minutes (`DEFAULT_DEADLINE_MINUTES.verifier`); a verifier has a floor of its own now
+  test('the reviewers\' floor binds the sized roles and nothing else: a verifier has its own floor and no size term, and a large read keeps its modelled deadline', () => {
+    expect(reviewDeadlines({ role: 'verifier', now: T0, work: SMALL_4_PATHS }).minutes).toBe(MIN_VERIFIER_MINUTES);
+    expect(reviewDeadlines({ role: 'verifier', now: T0 }).minutes).toBe(MIN_VERIFIER_MINUTES);
+    expect(reviewDeadlines({ role: 'verifier', now: T0, work: REAL }).minutes).toBe(MIN_VERIFIER_MINUTES); // work never moves a verifier
+    expect(MIN_VERIFIER_MINUTES).toBeLessThan(MIN_AGENT_MINUTES); // its own, smaller, measured floor: 8 against 22
     expect(reviewDeadlines({ role: 'security', now: T0, work: SMALL_4_PATHS }).minutes).toBe(MIN_AGENT_MINUTES);
     expect(ask('security', REAL).minutes).toBe(36); // the model's own deadline is above the floor: unchanged
     expect(reviewDeadlines({ role: 'reviewer', now: T0 }).minutes).toBe(DEFAULT_DEADLINE_MINUTES.reviewer); // no work: the base alone, as ever

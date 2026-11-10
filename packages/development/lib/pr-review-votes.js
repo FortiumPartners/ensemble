@@ -57,6 +57,23 @@
  *     `re-run-verification` for a structural failure or a round with no
  *     capability at all, `supply-the-missing-votes` for per-finding
  *     incomplete coverage.
+ *
+ * SETTLING ON A MAJORITY (kata dx53; OPT-IN: only `input.settleOnMajority === true`, which the review runner sets and nothing
+ * else does: the CLI `votes` drops the key from its payload, so the narrated procedure keeps the rule above to the letter). The last real-model measurement put 8 of 31
+ * verifiers past their deadline, and 17 of the 23 candidates of those rounds ended `unverified`, 14 of them although the
+ * verifiers that did return were already a strict majority. With the option a candidate whose STRICT
+ * MAJORITY of the verifiers the depth expects voted `real` is `present` although another assigned verifier returned nothing
+ * (expired, or no vote for it). It is not a relaxation, and what keeps it from being one is stated here and tested:
+ *   - the denominator is still the expected count, never the arrived votes: 2 real of 3 expected is a majority, 2 real of 2 that
+ *     arrived out of 5 expected is not read as one, and 1 real of 3 stays `unverified`;
+ *   - no vote still missing can change the outcome: `present` needs `real >= needed` and a missing vote can only add to `real`,
+ *     so the finding is `present` in every completion of the round (the same outcome the round would have given);
+ *   - the missing verifiers stay NAMED on the finding (`incompleteVerifiers`, and `settledOnMajority: true`), so it is never read
+ *     as a complete electorate, and `result.verification` is `partial` while any finding has one;
+ *   - only a confirmation is settled: a candidate the arrived votes would REFUTE stays `unverified`, because a refuted finding is
+ *     dropped from the author's list and nothing is dropped on an incomplete electorate; a split stays `unverified` too;
+ *   - nothing is settled without the explicit `assignment` (only a plan names who was expected), for a candidate the planner could
+ *     not give its verifiers (`verifier-pool-too-small`: a short electorate is never read as agreement) or for a non-finding.
  */
 
 /** The exact word the author sees for an outcome/reason pair; `undefined` when none applies. */
@@ -335,6 +352,10 @@ function countVotes(finding, assigned) {
  *   stays structural. A vote from someone not assigned to that finding does not count (`not-assigned`); and
  *   an assigned verifier with no counted vote is named in the finding's `incompleteVerifiers` (reason
  *   `no-vote`), so the finding is `unverified` / `verifier-incomplete` however the other votes fell.
+ * @param {boolean} [input.settleOnMajority]  `true` (nothing else counts) settles a finding as `present` when a strict
+ *   majority of the EXPECTED verifiers voted it real although another assigned verifier returned nothing (kata dx53;
+ *   see SETTLING ON A MAJORITY above for what keeps it from being a relaxation). Needs `assignment`. Default: off, and
+ *   a missing verifier makes a finding `unverified` / `verifier-incomplete` however the other votes fell (AC-006-3).
  * @param {boolean} [input.verificationCapability]  `false` means no subagent
  *   capability ran this round at all: every finding comes back `unverified`
  *   and nothing is dropped (AC-006-3). Anything other than an explicit
@@ -363,6 +384,8 @@ function tallyVotes(input) {
   const needed = majorityOf(expected);
   const quick = expected === 0;
   const capable = input.verificationCapability !== false;
+  /** The one opt-in that lets the arrived votes settle a finding some assigned verifier did not answer (kata dx53). */
+  const settle = input.settleOnMajority === true;
 
   /** Verifiers named on `finding.incompleteVerifiers` that returned no usable vote for it. */
   const incompleteVerifiersOf = (finding) => {
@@ -424,6 +447,14 @@ function tallyVotes(input) {
     }
 
     if (incompleteVerifiers.length > 0) {
+      // Settling on a majority (opt-in, kata dx53): the strict majority of the EXPECTED verifiers already voted it real, so no vote still
+      // missing can change the outcome (present needs real >= needed, and a missing vote can only add to real). The missing verifiers stay
+      // named. Never for a refutation or a split (they stay unverified: nothing is dropped on an incomplete electorate), without the
+      // explicit assignment, for a candidate the planner could not give its verifiers, or for a non-finding (filtered, not presented).
+      const shortElectorate = assignment !== null && assignment.incomplete.has(identity(finding.id));
+      if (settle && assignment !== null && !shortElectorate && !isNonFinding(finding) && votes.counted.real >= needed) {
+        return withLabel({ ...entry, outcome: 'present', reason: 'verifier-majority', presented: true, incompleteVerifiers, settledOnMajority: true });
+      }
       // Coverage for THIS finding is incomplete (timeout, tool failure): degraded even if the
       // votes that did arrive would otherwise reach a majority (AC-006-3).
       return withLabel({
@@ -480,7 +511,8 @@ function tallyVotes(input) {
     verification = 'not-performed';
     reason = 'verifier-incomplete';
     recoveryAction = 'supply-the-missing-votes';
-  } else if (degraded.length > 0) {
+  } else if (degraded.length > 0 || cleaned.some((entry) => entry.settledOnMajority === true)) {
+    // some finding is unverified, or every finding is settled but a verifier assigned to one of them returned nothing: not a complete round
     verification = 'partial';
     reason = 'some-verifiers-did-not-return';
     recoveryAction = 'supply-the-missing-votes';

@@ -31,8 +31,9 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const crypto = require('crypto');
 
-const { reviewDeadlines, collectResults, toVotesInput, classifyAgentFailure, defaultDeps, defaultScratchDir } = require('../lib/pr-review-results');
+const { reviewDeadlines, floorOverrideMessage, collectResults, toVotesInput, classifyAgentFailure, defaultDeps, defaultScratchDir } = require('../lib/pr-review-results');
 const { loadPolicy, DEFAULT_POLICY } = require('../lib/pr-review-policy');
+const { MIN_VERIFIER_MINUTES, MIN_AGENT_MINUTES } = require('../lib/pr-review-sizing');
 const { tallyVotes } = require('../lib/pr-review-votes');
 const { runSlices, runResults, HANDLERS } = require('../lib/pr-review-cli');
 
@@ -92,15 +93,27 @@ const stateOf = (result, name) => result.agents.find((agent) => agent.name === n
 // ---------------------------------------------------------------------------
 
 describe('reviewDeadlines', () => {
+  // A reviewer and the lane keep their flat base without `work` (the floor of a sized agent applies with it, kata d9sy); a verifier is
+  // never sized and never given less than its own fixed-cost floor (kata dx53): the REPLACED version of this test pinned a flat 5.
   test.each([
     ['reviewer', 15],
-    ['verifier', 5],
     ['security', 15],
   ])('%s gets %i minutes from the start by default', (role, minutes) => {
     const result = reviewDeadlines({ role, now: T0, tier: 'high', depth: 'deep' });
     expect(result).toMatchObject({ ok: true, role, minutes, source: 'default', tier: 'high', depth: 'deep' });
     expect(result.deadlineAt).toBe(T0 + minutes * MIN);
     expect(result.deadlineAtIso).toBe(new Date(T0 + minutes * MIN).toISOString());
+  });
+
+  test('a verifier gets its fixed-cost floor from the start, not the flat 5 of the base (kata dx53)', () => {
+    const result = reviewDeadlines({ role: 'verifier', now: T0, tier: 'high', depth: 'deep' });
+    expect(MIN_VERIFIER_MINUTES).toBe(8);
+    expect(result).toMatchObject({ ok: true, role: 'verifier', minutes: MIN_VERIFIER_MINUTES, source: 'size', tier: 'high', depth: 'deep', warnings: [] });
+    expect(result.deadlineAt).toBe(T0 + MIN_VERIFIER_MINUTES * MIN);
+    expect(result.deadlineAtIso).toBe(new Date(T0 + MIN_VERIFIER_MINUTES * MIN).toISOString());
+    expect(result.budgetMs).toBe(MIN_VERIFIER_MINUTES * MIN);
+    // what decided it is on the record: the base (5), the floor (8) and that the floor, not the policy, set the minutes
+    expect(result.sizing).toEqual({ baseMinutes: 5, floorMinutes: MIN_VERIFIER_MINUTES, floored: true, policyMinutes: null, overridesPolicy: false, raised: true });
   });
 
   test('a policy override moves one role and leaves the others', () => {
@@ -112,6 +125,53 @@ describe('reviewDeadlines', () => {
     expect(reviewDeadlines({ role: 'verifier', now: T0, policy })).toMatchObject({ minutes: 9, source: 'policy' });
     expect(reviewDeadlines({ role: 'reviewer', now: T0, policy })).toMatchObject({ minutes: 15 });
     expect(reviewDeadlines({ role: 'reviewer', now: T0 })).toMatchObject({ minutes: 15, source: 'default' });
+  });
+
+  describe('the verifier floor (kata dx53)', () => {
+    const load = (deadlineMinutes) => loadPolicy({ baseSha: BASE_SHA, sourceSha: BASE_SHA, text: `\`\`\`ensemble-review-policy\n${JSON.stringify({ deadlineMinutes })}\n\`\`\`\n` });
+
+    test('a policy base above the floor is kept, exactly the floor is not below it, and the 60-minute maximum still caps', () => {
+      const nine = load({ verifier: 9 });
+      expect(reviewDeadlines({ role: 'verifier', now: T0, policy: nine.policy, explicit: nine.explicit })).toMatchObject({ minutes: 9, source: 'policy', warnings: [], sizing: { floored: false, raised: false, overridesPolicy: false, policyMinutes: 9 } });
+      const exact = load({ verifier: MIN_VERIFIER_MINUTES });
+      expect(reviewDeadlines({ role: 'verifier', now: T0, policy: exact.policy, explicit: exact.explicit })).toMatchObject({ minutes: MIN_VERIFIER_MINUTES, source: 'policy', warnings: [], sizing: { floored: false, overridesPolicy: false } });
+      expect(reviewDeadlines({ role: 'verifier', now: T0, policy: load({ verifier: 60 }).policy })).toMatchObject({ minutes: 60, budgetMs: 60 * MIN });
+    });
+
+    test.each([1, 5, 7])('a policy value SET below the floor (%i) is overridden and NAMED, the default 5 included, when the policy block\'s `explicit` says it was set', (value) => {
+      const loaded = load({ verifier: value });
+      const answer = reviewDeadlines({ role: 'verifier', now: T0, policy: loaded.policy, explicit: loaded.explicit });
+      expect(answer).toMatchObject({ ok: true, minutes: MIN_VERIFIER_MINUTES, source: 'size' });
+      expect(answer.deadlineAt).toBe(T0 + MIN_VERIFIER_MINUTES * MIN);
+      expect(answer.sizing).toEqual({ baseMinutes: value, floorMinutes: MIN_VERIFIER_MINUTES, floored: true, policyMinutes: value, overridesPolicy: true, raised: true });
+      expect(answer.warnings).toEqual([`policy deadlineMinutes.verifier (${value}) is below the ${MIN_VERIFIER_MINUTES}-minute fixed-cost floor of a verifier (kata dx53); the deadline is ${MIN_VERIFIER_MINUTES} minutes`]);
+      expect(answer.warnings).toEqual([floorOverrideMessage({ role: 'verifier', policyMinutes: value, floorMinutes: MIN_VERIFIER_MINUTES })]);
+    });
+
+    test('without `explicit` only a value that differs from the default can be named: a caller cannot tell a set 5 from the unset default', () => {
+      const five = reviewDeadlines({ role: 'verifier', now: T0, policy: load({ verifier: 5 }).policy });
+      expect(five).toMatchObject({ minutes: MIN_VERIFIER_MINUTES, warnings: [], sizing: { policyMinutes: null, overridesPolicy: false, floored: true } });
+      const seven = reviewDeadlines({ role: 'verifier', now: T0, policy: load({ verifier: 7 }).policy });
+      expect(seven).toMatchObject({ minutes: MIN_VERIFIER_MINUTES, sizing: { policyMinutes: 7, overridesPolicy: true } });
+      expect(seven.warnings).toHaveLength(1);
+      // an unset value is raised without a warning
+      expect(reviewDeadlines({ role: 'verifier', now: T0, policy: DEFAULT_POLICY, explicit: { deadlineMinutes: {} } })).toMatchObject({ minutes: MIN_VERIFIER_MINUTES, warnings: [], sizing: { policyMinutes: null, overridesPolicy: false, floored: true } });
+    });
+
+    test('`work` changes nothing for a verifier: the floor applies with it, the answer still says the work was ignored, and no size model is claimed', () => {
+      const answer = reviewDeadlines({ role: 'verifier', now: T0, work: { files: 19, lines: 1450 } });
+      expect(answer).toMatchObject({ ok: true, minutes: MIN_VERIFIER_MINUTES, source: 'size' });
+      expect(answer.warnings.join(' ')).toMatch(/does not change a verifier/);
+      expect(answer.sizing).toEqual({ baseMinutes: 5, floorMinutes: MIN_VERIFIER_MINUTES, floored: true, policyMinutes: null, overridesPolicy: false, raised: true });
+    });
+
+    test('the reviewers\' floor and its warning are untouched: 22 minutes with `work`, the base alone without it, and the old sentence word for word', () => {
+      expect(floorOverrideMessage({ role: 'reviewer', policyMinutes: 10, floorMinutes: MIN_AGENT_MINUTES })).toBe('policy deadlineMinutes.reviewer (10) is below the 22-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is 22 minutes');
+      expect(floorOverrideMessage({ role: 'security', policyMinutes: 10, floorMinutes: MIN_AGENT_MINUTES })).toBe('policy deadlineMinutes.security (10) is below the 22-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is 22 minutes');
+      expect(reviewDeadlines({ role: 'reviewer', now: T0, work: { files: 4, lines: 280 } })).toMatchObject({ minutes: MIN_AGENT_MINUTES });
+      expect(reviewDeadlines({ role: 'reviewer', now: T0 })).toMatchObject({ minutes: 15, source: 'default' });
+      expect(reviewDeadlines({ role: 'reviewer', now: T0 }).sizing).toBeUndefined();
+    });
   });
 
   test('a policy value outside 1..60 is not used even when the caller hands it over unvalidated', () => {
@@ -1678,7 +1738,8 @@ describe('pr-review-cli results (real process)', () => {
   });
 
   test('deadlines and failure answer through the CLI, an unknown action is refused', () => {
-    expect(run({ action: 'deadlines', role: 'verifier', now: T0 }).body).toMatchObject({ ok: true, dispatchedAt: T0, deadlineAt: T0 + 5 * MIN });
+    // the narrated procedure's `results deadlines` answers the same floor the runner dispatches with (kata dx53; this line pinned a flat 5 minutes)
+    expect(run({ action: 'deadlines', role: 'verifier', now: T0 }).body).toMatchObject({ ok: true, dispatchedAt: T0, deadlineAt: T0 + MIN_VERIFIER_MINUTES * MIN, minutes: MIN_VERIFIER_MINUTES });
     expect(run({ action: 'failure', status: 429, retryAfterSec: 299, now: T0 + 240 * 1000, deadlineAt: T0 + 5 * MIN }).body).toMatchObject({
       failFast: true,
       reason: 'retry-would-pass-deadline',

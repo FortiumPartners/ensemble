@@ -510,6 +510,7 @@ function recordVerdicts(input) {
     const id = identity(finding.id);
     if (id === null) { skip('no-id'); continue; }
     if (!SETTLED_OUTCOMES.includes(finding.outcome)) { skip('not-settled'); continue; }
+    if (finding.settledOnMajority === true) { skip('settled-on-majority'); continue; } // kata dx53: settled with a verifier missing, so no full electorate stands behind it, whatever votes it carries
     const candidate = byId.get(id);
     if (candidate === undefined) { skip('no-candidate'); continue; }
     if (candidate === null) { skip('ambiguous-candidate'); continue; }
