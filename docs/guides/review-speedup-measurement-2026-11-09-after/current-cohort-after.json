@@ -1,0 +1,47 @@
+{
+ "schema": "review-walltime-cohort/1",
+ "runs": [
+  {
+   "id": "pr207-first-after-pr207-first",
+   "pr": 207,
+   "tier": "medium",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 22.13,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run after-pr207-first",
+   "run_id": "after-pr207-first"
+  },
+  {
+   "id": "pr286-first-after-pr286-first",
+   "pr": 286,
+   "tier": "high",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 18.785,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run after-pr286-first",
+   "run_id": "after-pr286-first"
+  },
+  {
+   "id": "pr286-re-review-after-pr286-re",
+   "pr": 286,
+   "tier": "high",
+   "round": "re-review",
+   "origin": "real",
+   "wall_min": 16.544,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run after-pr286-re",
+   "run_id": "after-pr286-re"
+  }
+ ]
+}
