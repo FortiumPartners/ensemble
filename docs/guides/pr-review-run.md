@@ -52,6 +52,8 @@ unknown payload key are `{ok:false, error}`.
    its deadline waiting. In the verify round a `collect` that finds free slots dispatches the next verifiers into them while
    the earlier ones still run (`DISPATCH` with `refill: true` and `stillRunning`: start only the agents it lists; the
    others are still yours to await; the cap counts both).
+   Call `collect` only after the agents have finished or been stopped, never on the first sight of a result file: see
+   Result files that change after they were read.
 4. Repeat 2-3 on `DISPATCH` and `PENDING` until `DONE` or `ADJUDICATE`. In full mode, after the last review wave is
    collected, `collect` answers `TRIAGE` instead of dispatching verifiers; see Triage.
 
@@ -84,7 +86,7 @@ and is only for the `TRIAGE` status.
 | `DISPATCH` | true | manifest: `runId`, `round` (`review` or `verify`), `wave`, `headSha`, `mode`, `tier`, `depth`, `maxConcurrentAgents`, `refill` and `stillRunning` (a verify refill only: Rolling verification), `sizing` (the review round only: the size model, limits, slices and warnings, see Slices and deadlines), `agents[]` (`name`, `role`, `briefPath`, `outPath`, `prompt`, `dispatchedAt`, `deadlineAt`, `deadlineAtIso`, `deadlineMinutes`, and `sliceId`, `paths`, `work`, `candidateIds` where they apply), `next`, `rules` |
 | `PENDING` | true | agents still outstanding: `waitingOn`, `retryAfterMs`, `earliestDeadlineAt`; call `collect` again |
 | `TRIAGE` | true | full mode only. After the last review wave is collected the runner has deduplicated the candidates and planned verification, and dispatched nothing. The answer carries the candidate list (`id`, `locationOrLink`, `severity`, `failureMode`, `source`, and `unbriefable: {kind, input, reason}` on a candidate the verifier brief refuses), the coverage (`unreviewedSlices`, uncovered paths), the security lane status, the `reReview` decision and the rules. Call `collect` again with `triage` |
-| `DONE` | true | `gate`, `reviewStatus`, `ledger`, `votes`, `notReviewed`, `precheck`, `statePath`, `metrics`, `mode`, `reReview`, `triage` (`{turns, additionalCandidateIds}`) |
+| `DONE` | true | `gate`, `reviewStatus`, `ledger`, `votes`, `notReviewed` (with `changedResults`), `precheck`, `statePath`, `metrics`, `mode`, `reReview`, `triage` (`{turns, additionalCandidateIds}`), and, only when they apply, `rereadResults` (a later version replaced the first before its round was used) and `restated` (a replay that differs from the answer that was stored) |
 | `ADJUDICATE` | true | as `DONE`, plus `adjudicate: [{ id, why }]`; the gate already treats those items as open |
 | `RUN_INVALIDATED` | false | the head moved, at any `collect` including one on a finished run (`reason: head-moved`); the run's answer is never repeated for the new head, and a started run that was invalidated before it finished stays so |
 | `NEEDS_FULL_MODE` | false | light mode only, a brief the renderer refuses (for example a path with a space): nothing was dispatched and the runner cannot review mechanically; the narrated Steps 1-10 in the skill remain the manual procedure |
@@ -453,6 +455,68 @@ record from the stored run, `lib/pr-review-coverage.js`: `{ status: 'complete' |
   answer, gap included. The runner always reads the full range, so it carries nothing; a delta round by the narrated procedure
   carries every gap of the report of the head it resumes (`carry` `coverage`), and only a round of the full range replaces them,
   so a carried verdict never turns an incomplete coverage into a complete one.
+
+## Result files that change after they were read (kata `271n`)
+
+An agent's result is a file, and the runner cannot tell that an agent has finished: a file that exists is the file as it was
+when `collect` looked. Before this section the collector read each result once, when it first saw it, and never again, so a
+verifier that rewrote its vote, or a reviewer that rewrote its findings, afterwards was lost in silence (9 of 37 files in the
+final measurement of epic `ptqb`: one verifier's flip would have confirmed a finding, and one reviewer's second Nit reached no
+candidate and no ledger).
+
+**The contract.** The dispatcher calls `collect` only after the agents have FINISHED (their processes ended) or have been
+stopped at their deadlines, never on the first sight of a file. Each agent is told, in its brief, its output contract and its
+prompt, to write its result ONCE, when it is completely finished, and never to touch it again. The runner records what it read
+of every result in the run state beside `arrivedAt` (`agent.read`: `size`, `mtimeMs`, `ctimeMs`, `sha256`). At every later
+`collect`, at the moment a round's results are USED (the candidates are formed from the review round; the verdict is computed
+from the verify round) and when a finished run is replayed, it looks at every file it read again and compares the bytes: a
+touch, a copy or a rewrite with the same bytes is not a change. A run recorded before the fingerprint existed is compared with
+the copy the collector took at the read, when there is one.
+
+| what the runner finds | the round's results are NOT used yet | the round's results ARE used |
+|---|---|---|
+| a valid later version, written in time (by the agent's deadline) | RE-READ: the latest such version replaces the first and its votes and findings count (`run.rereads`, a `result-reread:` warning, `rereadResults` in the answer) | FLAGGED, never read: `result-changed-after-read` |
+| a later version that is late, unparseable, empty, of the wrong schema, too large, or swapped for a link or a directory | never adopted; the next look may still find the finished file; if it still stands when the round is used it is flagged | FLAGGED |
+| the file is deleted | a notice (`result-removed:`); the run keeps the version it read | the same |
+| the same bytes | nothing | nothing |
+
+Why the line is there. Before a round's results are used, a later version is simply that agent's result, so taking it loses
+nothing and hides nothing. After, the verifiers were briefed on candidates formed from the first reviewer files and the verdict
+was computed from the first votes: counting a later file would mean doing the round again, so the runner neither counts it nor
+hides it. A late file is never counted in either case, because a result that arrives after the deadline is never read.
+
+**What a flag does.** It is the expired-agent mechanism of the Coverage section, with no new approval path. The change is
+latched in `run.resultChanges` and listed in `notReviewed.changedResults` (agent, role, round, the file, both fingerprints, the
+paths it is about), and it becomes a coverage gap `coverage:result-changed:<agent>` (gap type `result-changed`): the gate's
+blocker `review-coverage-incomplete`, an Accept-only entry in the disposition list, `coverage.complete: false`, a state report
+with an incomplete coverage (`REVIEW_PENDING`, next `complete-review-coverage`) and a `RESULT CHANGED AFTER READ` line in
+`reducedReview`. Only the operator's recorded decision on this head, or a new run, ends it. The first version stays the one
+counted: the verdict never uses the later file. The security lane and the whole-range reader are agents like the others.
+
+**A finished run.** A replay is the stored answer, byte for byte, while nothing changed. When a file changed after the verdict,
+the next `collect` re-finalises: the answer says `restated: {reason: 'result-changed-after-read', agents, previous: {status,
+mergeable}, at}`, the state report and `final.json` are rewritten with the gap, and every later replay is that answer again. A
+restate is not an adjudication call (`metrics.adjudicationCalls` does not count it). A run never repeats a `mergeable: true`
+it can no longer vouch for. That replay re-derives the gate from the live reviews, branch protection and PR body, not from the stored
+answer, so its blocker set can differ from the stored answer's (a blocker that has since cleared is gone) and an earlier accept is
+not carried into it: `restated` names only the result change.
+
+**A delta re-review.** A round that ends with a changed result is not a base for the next delta: a recorded
+`notReviewed.changedResults` that is not an empty list is `prior-round-unusable:state-round-incomplete`, and that re-review reads
+the whole range. `prepare` also looks at the last round's result files again before it carries their verdicts (read-only: the prior
+run is not restated or rewritten): an arrived result whose bytes differ from what that run read, including one rewritten after the
+run finished and before any `collect` saw it, is `prior-round-unusable:prior-result-changed:<agents>` and the re-review reads the
+whole range. A state report written before this change has no `changedResults`, so the first delta re-review of each in-flight PR
+is a full re-review once. **A refused look.** A collector answer that does not account for every agent of a wave (a request it refused)
+is `RUN_FAILED` with reason `collect-refused`, at the round, at a later look and at a replay: an empty answer is never read as
+"nothing to report".
+
+**Honest limits.** The runner cannot know that an agent has finished: this flags a rewrite, it cannot prevent one, and
+collecting early is the dispatcher's error. The comparison is on bytes, not on what the votes mean: a rewrite that restates the
+same votes in other words is a change. A change after the call that finalised the run is seen by the next `collect` only, and
+one after the last `collect` anyone makes is seen by nobody. A re-read vote is the same verifier's later opinion, not a fresh
+one, and a verifier that changes its mind is still one vote. A deleted file is not a change of the result (the run keeps the
+copy it read), only a notice.
 
 ## Run directory
 

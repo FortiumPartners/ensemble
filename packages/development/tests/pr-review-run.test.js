@@ -11,6 +11,7 @@
  */
 
 const fs = require('fs');
+const crypto = require('crypto');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -4204,5 +4205,247 @@ describe('review coverage through the runner: a path read under fewer lenses tha
     expect(out.gate.blockers.map((b) => [b.code, b.gapId, b.paths])).toEqual([['review-coverage-incomplete', 'coverage:under-reviewed', ['src/b.js']]]);
     expect(out.reviewStatus.localPhase).toBe('LOCAL_REVIEW_PENDING');
     expect(out.notReviewed.underReviewedPaths.map((entry) => entry.path)).toEqual(['src/b.js']);
+  });
+});
+
+// kata 271n: the runner read an agent's result file once and never again, so a file the agent rewrote afterwards was lost in silence. These
+// tests run the real collector over real files: the runner records what it read, looks at every file again at every later collect, takes
+// the latest valid version in time while the results of a round are not used yet, and flags a change once they are.
+describe('kata 271n: a result file the runner already read is looked at again at every later collect (the real collector)', () => {
+  const PASSED = { ran: true, exitCode: 0, timedOut: false, command: ['jest'], selection: [{ file: 't/a.test.js', why: 'related' }] };
+  const APPROVED = () => ({ ok: true, reviews: [{ login: 'bob', authorType: 'User', state: 'APPROVED', commitSha: HEAD, submittedAt: '2026-01-01T00:00:00Z' }] });
+  /** A run whose gate would be mergeable but for what a test provokes; `notices` keeps what the runner tells its caller. */
+  const clean = (over = {}) => {
+    const h = harness({ baseline: PASSED, overrides: { notices: [], ...over } });
+    h.reviews = APPROVED();
+    return h;
+  };
+  const nit = (over = {}) => finding({ severity: 'nit', ...over });
+  const agentOf = (manifest, name) => manifest.agents.find((agent) => agent.name === name);
+  const stored = (h, name) => h.readRun().waves.flatMap((wave) => wave.agents).find((agent) => agent.name === name);
+  const sha = (file) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  const codesOf = (out) => out.gate.blockers.map((blocker) => blocker.code);
+  const laneOf = (h) => ({ findings: [], pathsReviewed: allPaths(h) });
+  const rewrite = (manifest, name, over = {}) => {
+    const agent = agentOf(manifest, name);
+    writeResult(agent, { findings: [], pathsReviewed: agent.paths, ...over });
+  };
+  const vote = (agent, verdict) => voteAll({ agents: [agent] }, () => verdict);
+  const same = (value) => JSON.parse(JSON.stringify(value));
+  /** A review round in which reviewer-s1-a raises one Nit and the round is collected: its results are USED and the verify round is dispatched. */
+  async function toVerify(h) {
+    const { manifest, next } = await reviewRound(h, { findingsFor: (name) => (name === 'reviewer-s1-a' ? [nit()] : []) });
+    expect(next).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    return { manifest, verify: next };
+  }
+
+  test('an agent that arrived has the fingerprint of the bytes read stored beside arrivedAt (size, mtime, ctime, sha256); one that has not arrived has none', async () => {
+    const h = clean();
+    const m = await h.prepare();
+    answerReview(m, { skip: ['reviewer-s1-b'], lane: laneOf(h) });
+    expect((await h.collect()).status).toBe('PENDING');
+    const a = agentOf(m, 'reviewer-s1-a');
+    expect(stored(h, 'reviewer-s1-a').read).toEqual({ size: fs.statSync(a.outPath).size, mtimeMs: expect.any(Number), ctimeMs: expect.any(Number), sha256: sha(a.outPath) });
+    expect(stored(h, 'security-lane').read.sha256).toBe(sha(agentOf(m, 'security-lane').outPath));
+    expect(stored(h, 'reviewer-s1-b').read).toBeUndefined();
+    rewrite(m, 'reviewer-s1-b');
+    expect((await h.collect()).status).toBe('DONE');
+    expect(stored(h, 'reviewer-s1-b')).toMatchObject({ state: 'arrived', read: { sha256: sha(agentOf(m, 'reviewer-s1-b').outPath) }, arrivedAt: expect.any(Number) });
+  });
+
+  test('a reviewer rewrites its result while the review round is open: the later version is the one counted (its Nit is a candidate), recorded in run.rereads and said in a notice', async () => {
+    const h = clean();
+    const m = await h.prepare();
+    answerReview(m, { skip: ['reviewer-s1-b'], lane: laneOf(h) });
+    expect((await h.collect()).status).toBe('PENDING');
+    const first = stored(h, 'reviewer-s1-a').read;
+    rewrite(m, 'reviewer-s1-a', { findings: [nit()] });
+    rewrite(m, 'reviewer-s1-b');
+    const verify = await h.collect();
+    expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' }); // before kata 271n this was DONE: the Nit was in no candidate
+    const run = h.readRun();
+    expect(run.candidates.map((candidate) => candidate.id)).toEqual(['f1']);
+    expect(run.rereads).toEqual([{ agent: 'reviewer-s1-a', role: 'reviewer', round: 'review', from: first, to: stored(h, 'reviewer-s1-a').read, at: expect.any(Number) }]);
+    expect(stored(h, 'reviewer-s1-a').read.sha256).toBe(sha(agentOf(m, 'reviewer-s1-a').outPath));
+    expect(run.resultChanges).toBeUndefined();
+    expect(h.deps.notices.filter((note) => note.startsWith('result-reread: reviewer-s1-a rewrote its result after it was read and before the review round was used'))).toHaveLength(1);
+    voteAll(verify, () => 'real');
+    const done = await h.collect();
+    expect(done).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] }, notReviewed: { changedResults: [] } });
+    expect(done.rereadResults).toEqual([expect.objectContaining({ agent: 'reviewer-s1-a', role: 'reviewer', round: 'review' })]);
+  });
+
+  test.each([
+    ['a reviewer', 'reviewer-s1-b', 'reviewer'],
+    ['the security lane', 'security-lane', 'security'],
+  ])('%s rewrites its result after the review round was used: the later version is never read, the change is flagged with both fingerprints, and the coverage gap alone holds the gate open', async (_label, name, role) => {
+    const h = clean();
+    const { manifest, verify } = await toVerify(h);
+    const before = stored(h, name).read;
+    const agent = agentOf(manifest, name);
+    writeResult(agent, { findings: [finding({ locationOrLink: 'src/a.js:9', failureMode: 'a second defect that the first file never mentioned anywhere' })], pathsReviewed: allPaths(h) });
+    voteAll(verify, () => 'real');
+    const done = await h.collect();
+    expect(done.status).toBe('DONE');
+    expect(done.ledger.map((entry) => entry.id)).toEqual(['f1']); // the later finding is in no ledger: said, not hidden
+    expect(done.notReviewed.changedResults).toEqual([expect.objectContaining({ agent: name, role, round: 'review', reason: 'result-changed-after-read', detail: 'rewritten-after-use', paths: ['src/a.js'], read: before, now: expect.objectContaining({ sha256: sha(agent.outPath) }) })]);
+    expect(done.gate.mergeable).toBe(false);
+    expect(codesOf(done)).toEqual(['review-coverage-incomplete']);
+    expect(done.gate.blockers[0]).toMatchObject({ gapId: `coverage:result-changed:${name}`, gapType: 'result-changed', sliceId: name });
+    expect(done.coverage.complete).toBe(false);
+    expect(done.reducedReview).toMatch(new RegExp(`RESULT CHANGED AFTER READ: ${name}`));
+    expect(h.readRun().resultChanges.map((change) => change.agent)).toEqual([name]);
+    expect(h.stateWrites.at(-1).state.coverage.gaps.map((gap) => gap.id)).toEqual([`coverage:result-changed:${name}`]);
+    expect(h.deps.notices.some((note) => note.startsWith(`result-changed-after-read: ${name} `))).toBe(true);
+    expect(await h.collect()).toEqual(same(done)); // the stored answer, byte for byte
+    expect(h.stateWrites).toHaveLength(1);
+  });
+
+  test('a verifier rewrites its vote while the verify round is open: the later vote counts and flips the finding (the measured f7: 3 real in the files, 2 counted)', async () => {
+    const h = clean();
+    const { verify } = await toVerify(h);
+    const [v1, v2, v3] = verify.agents;
+    expect(verify.agents).toHaveLength(3);
+    vote(v1, 'real');
+    vote(v2, 'not-real');
+    expect(await h.collect()).toMatchObject({ status: 'PENDING', waitingOn: [v3.name] });
+    vote(v2, 'real'); // verifier-2 was not finished
+    vote(v3, 'not-real');
+    const done = await h.collect();
+    expect(done.status).toBe('DONE');
+    expect(done.votes.outcomes[0]).toMatchObject({ id: 'f1', outcome: 'present' });
+    expect(done.ledger[0].verification.tally).toMatchObject({ real: 2 });
+    expect(done.rereadResults).toEqual([expect.objectContaining({ agent: v2.name, role: 'verifier', round: 'verify' })]);
+    expect(done.notReviewed.changedResults).toEqual([]);
+  });
+
+  test('a verifier rewrites its vote after the run finished: the next collect restates the stored mergeable answer and says so, records it once, is stable from then on, and a restate is no adjudication call', async () => {
+    const h = clean();
+    const { verify } = await toVerify(h);
+    const [v1, v2, v3] = verify.agents;
+    vote(v1, 'not-real');
+    vote(v2, 'not-real');
+    vote(v3, 'real');
+    const done = await h.collect();
+    expect(done).toMatchObject({ status: 'DONE', gate: { mergeable: true } });
+    expect(await h.collect()).toEqual(same(done)); // nothing changed: the stored answer
+    expect(h.stateWrites).toHaveLength(1);
+    vote(v2, 'real');
+    const replay = await h.collect();
+    expect(replay.gate.mergeable).toBe(false);
+    expect(replay.restated).toMatchObject({ reason: 'result-changed-after-read', agents: [v2.name], previous: { status: 'DONE', mergeable: true } });
+    expect(replay.votes.outcomes[0].outcome).toBe(done.votes.outcomes[0].outcome); // the vote that was used is the vote that is reported
+    expect(replay.metrics.adjudicationCalls).toBe(0);
+    expect(h.stateWrites).toHaveLength(2);
+    expect(await h.collect()).toEqual(same(replay));
+    expect(h.stateWrites).toHaveLength(2);
+    expect(JSON.parse(fs.readFileSync(path.join(h.runDir(), 'final.json'), 'utf8'))).toEqual(same(replay));
+  });
+
+  test('a later version that arrives after the agent\'s deadline is never read, even while the round is open: the first version stands and the change is flagged as rewritten after the deadline', async () => {
+    const h = clean();
+    const m = await h.prepare();
+    answerReview(m, { skip: ['reviewer-s1-b'], lane: laneOf(h) });
+    expect((await h.collect()).status).toBe('PENDING');
+    const a = agentOf(m, 'reviewer-s1-a');
+    const run = h.readRun();
+    for (const wave of run.waves) for (const agent of wave.agents) if (agent.name === 'reviewer-s1-a') agent.deadlineAt = Math.ceil(fs.statSync(a.outPath).ctimeMs) + 20; // it passes just after the first file arrived
+    fs.writeFileSync(path.join(h.runDir(), 'run.json'), JSON.stringify(run));
+    await pause(80);
+    rewrite(m, 'reviewer-s1-a', { findings: [nit()] });
+    rewrite(m, 'reviewer-s1-b');
+    const done = await h.collect();
+    expect(done.status).toBe('DONE'); // no candidate: the late Nit was not read
+    expect(done.ledger).toEqual([]);
+    expect(done.notReviewed.changedResults).toEqual([expect.objectContaining({ agent: 'reviewer-s1-a', detail: 'rewritten-after-deadline' })]);
+    expect(done.gate.mergeable).toBe(false);
+    expect(h.readRun().rereads).toBeUndefined();
+  });
+
+  test('a half-written later version is never taken: while the round is open the next look still takes the finished file, and one still unusable when the round is used is flagged with the first version standing', async () => {
+    const mid = async (h) => {
+      const m = await h.prepare();
+      answerReview(m, { skip: ['reviewer-s1-b'], lane: laneOf(h) });
+      expect((await h.collect()).status).toBe('PENDING');
+      fs.writeFileSync(agentOf(m, 'reviewer-s1-a').outPath, '{"findings": ['); // mid-write
+      expect((await h.collect()).status).toBe('PENDING');
+      expect(h.readRun().resultChanges).toBeUndefined(); // the round is open: nothing is flagged yet
+      return m;
+    };
+    const finished = clean();
+    const m = await mid(finished);
+    rewrite(m, 'reviewer-s1-a', { findings: [nit()] });
+    rewrite(m, 'reviewer-s1-b');
+    expect(await finished.collect()).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    expect(finished.readRun().rereads).toHaveLength(1);
+
+    const unfinished = clean();
+    const n = await mid(unfinished);
+    rewrite(n, 'reviewer-s1-b');
+    const done = await unfinished.collect();
+    expect(done.status).toBe('DONE');
+    expect(done.notReviewed.changedResults).toEqual([expect.objectContaining({ agent: 'reviewer-s1-a', detail: expect.stringMatching(/^rewritten-unusable:/) })]);
+    expect(done.gate.mergeable).toBe(false);
+  });
+
+  test('a result file that was deleted after it was read is a notice, not a change: the run keeps the version it read, and nothing is flagged', async () => {
+    const h = clean();
+    const { manifest, verify } = await toVerify(h);
+    fs.rmSync(agentOf(manifest, 'reviewer-s1-a').outPath);
+    voteAll(verify, () => 'real');
+    const done = await h.collect();
+    expect(done).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] }, notReviewed: { changedResults: [] } });
+    expect(done.ledger.map((entry) => entry.id)).toEqual(['f1']);
+    expect(h.deps.notices.some((note) => /^result-removed: the file of reviewer-s1-a no longer exists/.test(note))).toBe(true);
+    expect(h.readRun().resultChanges).toBeUndefined();
+  });
+
+  test('a collector that does not answer for every agent is a refusal, never an empty wave: RUN_FAILED collect-refused at the round, at a look at a recorded wave and at a replay', async () => {
+    const refuse = () => ({ ok: false, reason: 'expected[0].read must be the fingerprint a collect answered for this agent', agents: [] });
+    const a = clean({ collectResults: refuse });
+    const m = await a.prepare();
+    answerReview(m, { lane: laneOf(a) });
+    expect(await a.collect()).toMatchObject({ ok: false, status: 'RUN_FAILED', reason: 'collect-refused', error: expect.stringContaining('fingerprint') });
+    expect(a.readRun().waves[0].status).toBe('dispatched'); // nothing was recorded
+
+    const b = clean();
+    await toVerify(b);
+    b.deps.collectResults = refuse;
+    expect(await b.collect()).toMatchObject({ ok: false, status: 'RUN_FAILED', reason: 'collect-refused' });
+
+    const c = clean();
+    await reviewRound(c);
+    expect(c.readRun().phase).toBe('done');
+    c.deps.collectResults = refuse;
+    expect(await c.collect()).toMatchObject({ ok: false, status: 'RUN_FAILED', reason: 'collect-refused' });
+  });
+
+  test('the agents are told to write their result once, when finished; the dispatcher is told to collect only after they finished and that a rewrite is flagged', async () => {
+    const h = clean();
+    const m = await h.prepare();
+    for (const agent of m.agents) {
+      expect(agent.prompt).toMatch(/ONCE, when you are completely finished/);
+      expect(fs.readFileSync(agent.briefPath, 'utf8')).toMatch(/Write the file ONCE, when you are completely finished, and never touch it again/);
+    }
+    expect(m.rules.join(' ')).toMatch(/Call `collect` only when the agents have FINISHED[^]*never on the first sight of a result file[^]*`result-changed-after-read`/);
+    const { verify } = await toVerify(clean());
+    expect(fs.readFileSync(verify.agents[0].briefPath, 'utf8')).toMatch(/Write the file ONCE, when you are completely finished/);
+  });
+
+  test('a wave already collected is looked at again while the round is still open: a reviewer of wave 1 that rewrites its result while wave 2 runs has the later version counted', async () => {
+    const h = harness({ baseline: PASSED, policyJson: { maxConcurrentAgents: 2 }, overrides: { notices: [] } });
+    h.reviews = APPROVED();
+    const first = await h.prepare();
+    expect(first).toMatchObject({ round: 'review', wave: '1 of 2' });
+    answerReview(first, { lane: laneOf(h) });
+    const second = await h.collect();
+    expect(second).toMatchObject({ status: 'DISPATCH', round: 'review', wave: '2 of 2' });
+    expect(second.agents.map((agent) => agent.name)).toEqual(['security-lane']);
+    rewrite(first, 'reviewer-s1-a', { findings: [nit()] }); // reviewer-s1-a was not finished: its file changes while the lane runs
+    answerReview(second, { lane: laneOf(h) });
+    const verify = await h.collect();
+    expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' }); // the later Nit is a candidate
+    expect(h.readRun().rereads.map((entry) => entry.agent)).toEqual(['reviewer-s1-a']);
+    expect(h.readRun().resultChanges).toBeUndefined();
   });
 });

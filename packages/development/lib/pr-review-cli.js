@@ -150,8 +150,8 @@
  *   deadlines        { role, tier?, depth?, now?, policy? } -- the `dispatchedAt` (= `now`, default: the current time)
  *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15,
  *                    per-role overridable by the policy's `deadlineMinutes`
- *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds? }], dir, now?,
- *                    scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
+ *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds?, read?, reread? }], dir,
+ *                    now?, scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
  *                    arrived|missing|expired|invalid from `<dir>/out-<name>.json`. It arrived when the file's last
  *                    change (its inode change time, never the modification time a writer can set) is within
  *                    [dispatchedAt, deadlineAt]; an older file is stale, a later one expired. A reviewer given a

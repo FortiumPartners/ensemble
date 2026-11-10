@@ -454,6 +454,14 @@ function severityBullet(guide) {
   return `- Severity (the repository's REVIEW.md, "Severity"):\n${text.split('\n').map((line) => `  ${line}`).join('\n')}`;
 }
 
+/**
+ * What an agent is told about WHEN to write (kata 271n). The runner cannot tell that an agent has finished: it reads a result file as
+ * soon as it sees one, and a file the agent rewrites later is not read in place of the first once its round is used. It is looked at
+ * again, and reported as changed after it was read, which holds the review open until a person decides it: a rewrite buys the agent
+ * nothing it can keep.
+ */
+const WRITE_ONCE_BULLET = '- Write the file ONCE, when you are completely finished, and never touch it again. The runner reads it when the dispatcher collects, which is done only after you have finished: a later version of the file counts only until the review of your results starts (until the verdict, for a verifier), and a rewrite after that is reported as changed after it was read and holds the review open until a person decides it. Put everything in the first file you write.';
+
 /** The text a reviewer or the lane writes its result as. */
 function reviewerContract(agent, severityGuide) {
   return [
@@ -480,6 +488,7 @@ function reviewerContract(agent, severityGuide) {
     severityBullet(severityGuide),
     ...(agent.role === 'reviewer' ? [claimRuleBullet()] : []),
     `- Write the file atomically: a temp file in the same directory, then rename it to \`${agent.outPath}\`. Finish before ${agent.deadlineAtIso || 'your deadline'}; a result that arrives later is not read.`,
+    WRITE_ONCE_BULLET,
     '',
   ].join('\n');
 }
@@ -497,6 +506,7 @@ function verifierContract(agent) {
     '',
     '- A candidate you reached no conclusion on gets NO entry: you are then recorded as incomplete for it, which is the honest answer.',
     `- Write the file atomically: a temp file in the same directory, then rename it to \`${agent.outPath}\`. Finish before ${agent.deadlineAtIso || 'your deadline'}; a result that arrives later is not read.`,
+    WRITE_ONCE_BULLET,
     '',
   ].join('\n');
 }
@@ -506,7 +516,7 @@ function agentPrompt(agent) {
   return [
     `You are the ${agent.role} agent "${agent.name}" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.`,
     `1. Read the brief at ${agent.briefPath} and follow it exactly.`,
-    `2. Write your JSON result atomically (a temp file in the same directory, then rename) to ${agent.outPath}.`,
+    `2. Write your JSON result atomically (a temp file in the same directory, then rename) to ${agent.outPath}, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.`,
     `3. Finish before ${agent.deadlineAtIso}. A result that arrives after that is not read and you are recorded as not having reviewed.`,
     'Do not add, edit or interpret anything the brief does not ask for.',
   ].join('\n');

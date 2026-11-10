@@ -31,6 +31,9 @@
  *                             did not arrive or did not list every changed path
  *           'uncovered'       changed paths no planned slice held and nobody read
  *           'under-reviewed'  paths read under fewer distinct lenses than the mode requires
+ *           'result-changed'  a result file the review read and its agent rewrote afterwards (kata 271n): the review counted the
+ *                             first version, so a finding or a vote that only the later one holds is not counted. One gap per agent
+ *                             (`coverage:result-changed:<agent>`, with the agent in `sliceId`), `paths` the paths that result is about
  *           'unnamed'         the caller said "incomplete" and named nothing: every changed path is treated as unread
  *
  * WHAT COUNTS AS INCOMPLETE is decided where the facts are known (the runner, `slices`); this module only carries and
@@ -60,7 +63,9 @@ const { validateLedger, resolutionProvenanceProblem } = require('./pr-review-led
 const COVERAGE_STATUSES = Object.freeze(['complete', 'incomplete', 'unavailable']);
 const GAP_KIND = 'coverage-gap';
 const GAP_SOURCE = 'review-coverage';
-const GAP_TYPES = Object.freeze(['slice', 'whole-range', 'uncovered', 'under-reviewed', 'unnamed']);
+const GAP_TYPES = Object.freeze(['slice', 'whole-range', 'uncovered', 'under-reviewed', 'result-changed', 'unnamed']);
+/** The named outcome of a result file that holds other bytes than the review read (kata 271n), as the runner records it. */
+const RESULT_CHANGED = 'result-changed-after-read';
 /** The id the whole-range reader's coverage is kept under (never one of the plan's slices). */
 const WHOLE_RANGE_ID = 'whole-range';
 /** How many paths a gap's one-line text names before it says how many more there are (the full list is in `paths`). */
@@ -78,6 +83,19 @@ function listPaths(paths, max = LISTED_PATHS) {
 }
 
 const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/** `212 bytes, sha256 1a2b3c4d5e6f`: the fingerprint of a result file as a person reads it, or `not readable`. */
+const printOf = (print) => (isObject(print) && Number.isFinite(print.size) && isText(print.sha256) ? `${print.size} bytes, sha256 ${print.sha256.slice(0, 12)}` : 'not readable');
+
+/** Why a changed result was not counted, from the runner's `detail` of it (kata 271n). */
+function changeWhy(detail) {
+  if (detail === 'rewritten-after-use') return 'the later version was never read: the results of its round had already been used';
+  if (detail === 'rewritten-after-deadline') return "the later version arrived after the agent's deadline, so it is never read";
+  if (detail.startsWith('rewritten-unusable:')) return `the later version cannot be used: ${detail.slice('rewritten-unusable:'.length)}`;
+  if (detail.startsWith('replaced:')) return `it is no regular file any more: ${detail.slice('replaced:'.length)}`;
+  if (detail.startsWith('unreadable:')) return `it cannot be read now: ${detail.slice('unreadable:'.length)}`;
+  return detail;
+}
 
 /** `reviewer-s2-a: expired:deadline-passed; reviewer-s2-b: paths-not-reviewed`, or '' when nothing is known. */
 function reasonsText(reasons) {
@@ -128,6 +146,8 @@ function unavailableRecord(reason) {
  * @param {Array<{sliceId:string, reasons?:Array<{agent:string, reason:string}>, missingPaths?:string[]}>} [input.detail]
  *   Why each unreviewed slice (and the reader) failed, from the result collector. Absent: the reason is not known.
  * @param {boolean}  [input.incomplete]     The caller's own `complete: false`, so a record that names nothing still cannot be read as complete.
+ * @param {Object[]} [input.changedResults] Result files that changed after the review read them (kata 271n), one entry per agent:
+ *   `{agent, role?, round?, detail?, paths[], read?, now?, file?}`. Each is a `result-changed` gap (`coverage:result-changed:<agent>`).
  * @param {string}   [input.unavailable]    Why the coverage could not be computed at all.
  * @param {string}   [input.origin]         Where the reads were collected (for example the run id); default `review coverage`.
  * @returns {{status:string, gaps:Object[], reason?:string}}
@@ -242,6 +262,34 @@ function buildCoverage(input) {
     );
   }
 
+  // a result file the review read and its agent rewrote afterwards (kata 271n): the review counted the first version, so whatever only the
+  // later one holds (a finding, a vote) is not counted. One gap per agent, decided like any other: the operator's recorded decision on
+  // this head, or a new run. An entry the record cannot read is never skipped: nothing is then known to be covered.
+  const seenAgents = new Set();
+  for (const change of Array.isArray(input.changedResults) ? input.changedResults : []) {
+    if (!isObject(change) || !isText(change.agent) || seenAgents.has(change.agent.trim())) {
+      return unavailableRecord('a changed result could not be read, so every changed path is treated as not reviewed');
+    }
+    const agent = change.agent.trim();
+    seenAgents.add(agent);
+    const held = texts(change.paths);
+    const paths = held.length > 0 ? held : changed;
+    const who = `${agent}${isText(change.role) ? ` (${change.role.trim()})` : ''}`;
+    gaps.push(
+      makeGap({
+        id: `coverage:result-changed:${agent}`,
+        gapType: 'result-changed',
+        sliceId: agent,
+        paths,
+        reasons: [{ agent, reason: RESULT_CHANGED }],
+        locationOrLink: `result of ${agent}: ${listPaths(paths, 3)}`,
+        failureMode: `RESULT CHANGED AFTER READ: the result file of ${who} holds other bytes now than the review read (first read: ${printOf(change.read)}; now: ${printOf(change.now)}), so the review counted the first version and a finding or a vote that only the later one holds is not counted${isText(change.detail) ? ` (${changeWhy(change.detail.trim())})` : ''}; it concerns ${plural(paths.length, 'path')} (${listPaths(paths)})${isText(change.file) ? `; read the file before deciding: ${change.file.trim()}` : ''}`,
+        evidence: `the agent rewrote its result after the runner read it${isText(change.file) ? `: ${change.file.trim()}` : ''}; a result is read once its round is used and a later version is never read, so the dispatcher collected before the agent had finished, or the agent kept writing`,
+        origin,
+      })
+    );
+  }
+
   // the caller says incomplete and names nothing: never complete
   if (gaps.length === 0 && input.incomplete === true) {
     gaps.push(
@@ -346,7 +394,7 @@ function gradeCoverage(record, context = {}) {
 /** One line naming the open gaps, for a status reason or a notice. */
 function summarizeOpen(open) {
   return open
-    .map(({ gap }) => (gap.gapType === 'slice' ? `slice ${gap.sliceId} (${listPaths(gap.paths, 3)})` : gap.gapType === 'whole-range' ? 'the whole-range read' : `${gap.gapType}: ${listPaths(gap.paths, 3)}`))
+    .map(({ gap }) => (gap.gapType === 'slice' ? `slice ${gap.sliceId} (${listPaths(gap.paths, 3)})` : gap.gapType === 'whole-range' ? 'the whole-range read' : gap.gapType === 'result-changed' ? `the result of ${gap.sliceId} changed after it was read` : `${gap.gapType}: ${listPaths(gap.paths, 3)}`))
     .join('; ');
 }
 

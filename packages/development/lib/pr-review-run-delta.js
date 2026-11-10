@@ -33,8 +33,12 @@ const isText = (value) => typeof value === 'string' && value.trim() !== '';
 const sameId = (a, b) => isObjectId(a) && isObjectId(b) && a.toLowerCase() === b.toLowerCase();
 const identity = (value) => (isText(value) ? value.trim() : Number.isFinite(value) ? String(value) : null);
 
-/** The lists of a state report's `notReviewed` that must all be empty before the round can stand for the paths a delta does not read. */
-const NOT_REVIEWED_LISTS = Object.freeze(['unreviewedSlices', 'unreviewedPaths', 'underReviewedPaths', 'incompleteVerifiers', 'unbriefable', 'expiredAgents']);
+/**
+ * The lists of a state report's `notReviewed` that must all be empty before the round can stand for the paths a delta does not read.
+ * `changedResults` (kata 271n): a round whose result files were rewritten after the runner read them counted the first versions, so
+ * its verdicts may miss a vote or a finding and cannot be carried.
+ */
+const NOT_REVIEWED_LISTS = Object.freeze(['unreviewedSlices', 'unreviewedPaths', 'underReviewedPaths', 'incompleteVerifiers', 'unbriefable', 'expiredAgents', 'changedResults']);
 
 /**
  * What a delta round does NOT see, said in its answer (kata xb4j review): the plan's read set is the changed files, their direct

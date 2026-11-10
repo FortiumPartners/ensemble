@@ -9,7 +9,7 @@ const BASE = 'b'.repeat(40);
 const goodState = () => ({
   prId: '7', runId: 'r1', headSha: HEAD, reviewedHeadSha: HEAD, baseSha: BASE,
   ledger: [{ id: 'f1' }], verdicts: [{ id: 'f1' }],
-  notReviewed: { unreviewedSlices: [], unreviewedPaths: [], underReviewedPaths: [], incompleteVerifiers: [], unbriefable: [], expiredAgents: [] },
+  notReviewed: { unreviewedSlices: [], unreviewedPaths: [], underReviewedPaths: [], incompleteVerifiers: [], unbriefable: [], expiredAgents: [], changedResults: [] },
   security: { status: 'clean', findings: [] },
 });
 const goodRun = () => ({ schema: 1, phase: 'done', headSha: HEAD, baseSha: BASE, pr: 7 });
@@ -53,7 +53,11 @@ describe('priorRound: the last round the runner can stand on', () => {
     ['an incomplete verifier', (s) => ({ ...s, notReviewed: { ...s.notReviewed, incompleteVerifiers: [{ name: 'verifier-1' }] } }), 'state-round-incomplete'],
     ['an unreviewed path', (s) => ({ ...s, notReviewed: { ...s.notReviewed, unreviewedPaths: ['src/a.js'] } }), 'state-round-incomplete'],
     ['a path read under too few lenses (coverage kata k48x)', (s) => ({ ...s, notReviewed: { ...s.notReviewed, underReviewedPaths: [{ path: 'src/x.js' }] } }), 'state-round-incomplete'],
-    ['a state written before under-reviewed paths were recorded', (s) => ({ ...s, notReviewed: { unreviewedSlices: [], unreviewedPaths: [], incompleteVerifiers: [], unbriefable: [], expiredAgents: [] } }), 'state-round-incomplete'],
+    ['a state written before under-reviewed paths were recorded', (s) => ({ ...s, notReviewed: { unreviewedSlices: [], unreviewedPaths: [], incompleteVerifiers: [], unbriefable: [], expiredAgents: [], changedResults: [] } }), 'state-round-incomplete'],
+    // kata 271n: a round whose result file an agent rewrote after the runner read it counted the first version, so its verdicts may miss a vote or a finding
+    ['a result file that changed after it was read', (s) => ({ ...s, notReviewed: { ...s.notReviewed, changedResults: [{ agent: 'verifier-2', role: 'verifier', round: 'verify', reason: 'result-changed-after-read' }] } }), 'state-round-incomplete'],
+    ['a state written before changed results were recorded', (s) => ({ ...s, notReviewed: { unreviewedSlices: [], unreviewedPaths: [], underReviewedPaths: [], incompleteVerifiers: [], unbriefable: [], expiredAgents: [] } }), 'state-round-incomplete'],
+    ['a changed-results list that is not a list', (s) => ({ ...s, notReviewed: { ...s.notReviewed, changedResults: 'none' } }), 'state-round-incomplete'],
     ['an unbriefable candidate', (s) => ({ ...s, notReviewed: { ...s.notReviewed, unbriefable: [{ id: 'f2' }] } }), 'state-round-incomplete'],
     ['a missing coverage list', (s) => ({ ...s, notReviewed: { unreviewedSlices: [] } }), 'state-round-incomplete'],
     ['a security finding', (s) => ({ ...s, security: { status: 'findings', findings: [{}] } }), 'state-security-open'],

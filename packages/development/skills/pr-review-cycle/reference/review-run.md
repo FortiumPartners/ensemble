@@ -40,8 +40,11 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    UNEDITED to a fresh-context, read-only subagent. Never run more at once than `maxConcurrentAgents`, and stop an
    agent that has not finished at its own `deadlineAtIso` (the deadlines are not all alike: see Slices and deadlines): the
    runner records deadlines but cannot stop an agent.
-3. When the agents have finished (or been stopped), call `collect` with `{ repoRoot, runId }` (`runId` from the
-   manifest). Only those keys, plus `triage` in step 5 or `adjudications` in step 6.
+3. When the agents have FINISHED (their processes ended) or been stopped at their deadlines, call `collect` with `{ repoRoot, runId }`
+   (`runId` from the manifest). Only those keys, plus `triage` in step 5 or `adjudications` in step 6. Never collect on the first
+   sight of a result file: the runner cannot tell that an agent is done, and a file an agent rewrites after the runner read it is
+   re-read only while that round's results are not used yet; after that it is flagged (`result-changed-after-read`) and the
+   review is not mergeable until the operator decides it. Agents are told to write their result once.
 4. `DISPATCH` again (the next verify wave, with its own deadlines): repeat step 2. In the verify round a `DISPATCH` with
    `refill: true` is dispatched while earlier verifiers still run: start only the agents it lists (`stillRunning` names the
    ones you keep waiting for; the cap counts both). `PENDING`: wait for
@@ -83,6 +86,12 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    `review-coverage-incomplete` entry per unread slice, whole-range read or path (`reviewStatus.localPhase` is then not
    `LOCAL_REVIEW_COMPLETE`). Report each by its `message`; the way out is to run the review again on this head, or the
    operator's own decision about the gap (`reference/merge-gate.md`), never yours.
+   A result file an agent rewrote after the runner read it is never lost in silence. If the round was still open the later
+   version counted and `rereadResults` names it. Otherwise `notReviewed.changedResults` names the agent and both fingerprints,
+   `gate.coverage` holds a `coverage:result-changed:<agent>` gap and `gate.blockers` a `review-coverage-incomplete` entry, so the
+   review is not mergeable until the operator decides it: report each by name. A repeat `collect` on a finished run whose file
+   changed after the verdict answers `restated` (what the stored answer said and why this one differs); report the restated
+   answer, not the stored one.
 
 ## Statuses
 
@@ -261,7 +270,7 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   (the 5x target is not claimed for it). Measuring it is kata `q3a9`'s job, not this runner's.
 * Triage is a model judgement, but it can only add candidates, and what it adds is verified by fresh-context verifiers
   that never see its reasoning; it never removes, grades or closes anything, and never sets a verdict.
-* Call `collect` one at a time per run: the run file has no lock, and two overlapping calls can each emit the next wave.
+* Call `collect` one at a time per run: the run file has no lock, and two overlapping calls can each emit the next wave. The same holds for a `collect` and a replay racing on a finished run, and the fields kata `271n` added (`agent.read`, `resultChanges`, `rereads`) raise the cost of an entry lost that way.
 * A finished run's stored answer is as of its finalise: a repeat `collect` re-reads only the head and the PR's open
   state, so the approvals, branch protection and `mergeable` it holds can be out of date. Start a new run for a
   current verdict.
@@ -275,5 +284,16 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   about code, and it cannot tell that a claim that avoids the words carries no opinion. The contract is an instruction,
   so a reviewer can still write what the brief refuses. When two reviewers raise one defect, the entry that survives the
   dedupe can be the one whose wording the brief refuses (the other raiser is in `mergedFrom`).
+* A result file is read when `collect` first sees it and looked at again at every later `collect`, at the use of its round and at a
+  replay (kata `271n`): the runner cannot know an agent has finished, so a rewrite is flagged (or, while the round is open,
+  re-read), never prevented, and collecting before the agents finish is the dispatcher's error. The comparison is on bytes, not on
+  what the votes mean; a deleted file is only a notice; a change after the call that finalised the run is seen by the next
+  `collect` only. A round that ends with a changed result is no base for a delta re-review, and `prepare` looks at the last round's
+  result files again before it carries their verdicts (a file whose bytes differ from what that run read is
+  `prior-round-unusable:prior-result-changed:<agents>`, a full re-review; the prior run is not restated or rewritten). A state report
+  written before this change has no `changedResults`, so the first delta re-review of each in-flight PR is a full re-review once. A
+  restated replay re-derives the gate from the live reviews, branch protection and PR body, so its blocker set can differ from the
+  stored answer's and an earlier accept is not carried into it (`restated` names only the result change). The rules are in
+  `docs/guides/pr-review-run.md`, "Result files that change after they were read".
 
 Guide with a worked example: `docs/guides/pr-review-run.md`.

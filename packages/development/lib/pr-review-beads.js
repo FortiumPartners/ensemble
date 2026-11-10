@@ -406,6 +406,7 @@ const GAP_BEAD_WORDS = {
   'whole-range': { prefix: 'Whole-range read missing', heading: 'Paths the whole-range read did not cover (the slice reviewers read each slice on its own):' },
   uncovered: { prefix: 'Not reviewed', heading: 'Paths no slice held and no reviewer read:' },
   'under-reviewed': { prefix: 'Under-reviewed', heading: 'Paths read under fewer distinct lenses than the mode requires:' },
+  'result-changed': { prefix: 'Result changed after read', heading: 'Paths the changed result is about (the review counted the first version of the result, not the later one):' },
   unnamed: { prefix: 'Not reviewed', heading: 'Paths treated as not reviewed (the review named none):' },
 };
 

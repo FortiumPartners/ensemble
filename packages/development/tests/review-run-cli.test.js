@@ -877,6 +877,191 @@ describe('the real CLI process on a real git fixture', () => {
   });
 });
 
+// kata 271n, through the real process with stand-in agents. The runner read an agent's result file once, when collect first saw it, and a
+// file the agent rewrote afterwards was never read again and nothing said so (9 of 37 files in three live runs: a vote that would have
+// confirmed a finding, a second Nit that reached no candidate and no ledger). The runner cannot know an agent has finished, so: a later
+// version is read (once per look, the latest valid one in time) while the data it replaces has not been used, and is flagged -- a named
+// coverage gap the gate holds open -- once it has.
+describe('kata 271n: a result file rewritten after the runner read it is re-read while the round is open and flagged after, never lost silently', () => {
+  const approved = (head = fx.head) => ({ head, reviews: [{ user: { login: 'bob', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-01-01T00:00:00Z' }] });
+  const stateFile = () => path.join(fx.work, '.ensemble', 'pr-review', 'pr-7.json');
+  /** A run on the feature head that holds the one approval it needs, so only what the test provokes can stop its gate. */
+  const start = (runId, over = {}) => {
+    setGh({ ...approved(), ...over });
+    fs.rmSync(stateFile(), { force: true });
+    const r = prep({ runId });
+    expect(r.code).toBe(0);
+    expect(r.out).toMatchObject({ ok: true, status: 'DISPATCH', round: 'review' });
+    return r.out;
+  };
+  const agentOf = (manifest, name) => manifest.agents.find((a) => a.name === name);
+  const nit = (over = {}) => reviewerFinding({ severity: 'nit', locationOrLink: 'src/b.js:1', originalTextOrLink: 'src/b.js:1', failureMode: 'the exported function ignores its arguments entirely', ...over });
+  const vote = (agent, verdict) => answerVotes({ agents: [agent] }, verdict);
+
+  test('a reviewer rewrites its result while the review round is still open: the later version is the one counted, so its second finding reaches a candidate, and the answer says it was re-read', () => {
+    const before = snapshotRepo();
+    const review = start('rw-rev-open');
+    const a = agentOf(review, 'reviewer-s1-a');
+    // everyone is done but the lane; the first file of reviewer-s1-a holds no finding
+    answerReview(review, { skip: ['security-lane'] });
+    expect(coll('rw-rev-open').out).toMatchObject({ status: 'PENDING', waitingOn: ['security-lane'] });
+    // reviewer-s1-a was not finished: it rewrites its file with the Nit it found next, then the lane answers
+    writeResult(a, { findings: [nit()], pathsReviewed: a.paths });
+    writeResult(agentOf(review, 'security-lane'), { findings: [], pathsReviewed: ['src/a.js', 'src/b.js'] });
+    const verify = coll('rw-rev-open');
+    expect(verify.code).toBe(0);
+    expect(verify.out).toMatchObject({ ok: true, status: 'DISPATCH', round: 'verify' }); // before the fix this was DONE: the Nit was in no candidate
+    expect(verify.out.agents.every((v) => v.candidateIds.join() === 'f1')).toBe(true);
+    expect(verify.out.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/^result-reread: reviewer-s1-a /)]));
+    answerVotes(verify.out, 'real');
+    const done = coll('rw-rev-open');
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] }, notReviewed: { changedResults: [] } });
+    expect(done.out.ledger.map((entry) => [entry.id, entry.source, entry.severity])).toEqual([['f1', 'reviewer-s1-a', 'nit']]);
+    expect(done.out.rereadResults).toEqual([expect.objectContaining({ agent: 'reviewer-s1-a', role: 'reviewer', round: 'review' })]);
+    expect(done.out.rereadResults[0].from.sha256).not.toBe(done.out.rereadResults[0].to.sha256);
+    process.stderr.write(`\nSMOKE 271n reviewer re-read: ${JSON.stringify({ verify: verify.out.status, candidates: [...new Set(verify.out.agents.flatMap((v) => v.candidateIds))], ledger: done.out.ledger.map((e) => `${e.id}:${e.source}:${e.severity}`), reread: done.out.rereadResults.map((r) => r.agent), warning: verify.out.warnings.find((w) => w.startsWith('result-reread')) })}\n`);
+    expect(snapshotRepo()).toEqual(before);
+  });
+
+  test('a reviewer rewrites its result after the review round was used: the later version is NOT read, the answer names the agent and both versions, and the gate is held open by the named coverage gap alone', () => {
+    const review = start('rw-rev-used');
+    const a = agentOf(review, 'reviewer-s1-a');
+    answerReview(review, { findings: { 'reviewer-s1-b': [nit()] } }); // a Nit to verify, so a verify round follows the review round
+    const verify = coll('rw-rev-used').out;
+    expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    const first = fs.readFileSync(a.outPath);
+    // the candidates are formed and the verifiers briefed: this is the second version of the file, an Important finding the first lacked
+    writeResult(a, { findings: [reviewerFinding({ locationOrLink: 'src/b.js:1', originalTextOrLink: 'src/b.js:1', failureMode: 'the exported function returns a constant for every input' })], pathsReviewed: a.paths });
+    const waiting = coll('rw-rev-used');
+    expect(waiting.out).toMatchObject({ ok: true, status: 'PENDING', round: 'verify' });
+    answerVotes(verify, 'real');
+    const done = coll('rw-rev-used');
+    expect(done.code).toBe(0);
+    expect(done.out.status).toBe('DONE');
+    expect(done.out.gate.mergeable).toBe(false); // before the fix: true, on a review that never read the later version of reviewer-s1-a's file
+    expect(waiting.out.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/^result-changed-after-read: reviewer-s1-a /)]));
+    expect(done.out.ledger.map((entry) => entry.id)).toEqual(['f1']); // the later finding is in no candidate and no ledger: said, not hidden
+    const changed = done.out.notReviewed.changedResults;
+    expect(changed).toEqual([expect.objectContaining({ agent: 'reviewer-s1-a', role: 'reviewer', round: 'review', reason: 'result-changed-after-read' })]);
+    expect(changed[0].read).toMatchObject({ size: first.length, sha256: expect.stringMatching(/^[0-9a-f]{64}$/) });
+    expect(changed[0].now.size).toBe(fs.readFileSync(a.outPath).length);
+    expect(changed[0].now.sha256).not.toBe(changed[0].read.sha256);
+    // the gate does not pass on it: the coverage gap is the only blocker, and its only choice is the operator's Accept
+    expect(done.out.gate.mergeable).toBe(false);
+    expect(done.out.gate.blockers.map((b) => b.code)).toEqual(['review-coverage-incomplete']);
+    expect(done.out.gate.blockers[0]).toMatchObject({ gapId: 'coverage:result-changed:reviewer-s1-a', gapType: 'result-changed' });
+    expect(done.out.gate.coverage).toMatchObject({ status: 'incomplete', open: ['coverage:result-changed:reviewer-s1-a'] });
+    expect(done.out.coverage.complete).toBe(false);
+    expect(done.out.reviewStatus).toMatchObject({ status: 'REVIEW_PENDING', next: 'complete-review-coverage' });
+    expect(done.out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+    const entry = done.out.gate.dispositionChoices.find((c) => c.id === 'coverage:result-changed:reviewer-s1-a');
+    expect(entry).toMatchObject({ group: 'coverage', coverage: { gapType: 'result-changed', sliceId: 'reviewer-s1-a' }, choices: [expect.objectContaining({ id: 'accept', requiresReason: true, batchable: false, default: false })] });
+    expect(entry.choices[0].note).toMatch(/rewrote its result after the review read it/);
+    expect(done.out.reducedReview).toMatch(/^RESULT CHANGED AFTER READ: reviewer-s1-a /m);
+    // the state report the merge flow reads holds the same gap, and a replay is the stored answer, byte for byte
+    expect(JSON.parse(fs.readFileSync(stateFile(), 'utf8')).coverage.gaps.map((g) => g.id)).toEqual(['coverage:result-changed:reviewer-s1-a']);
+    expect(coll('rw-rev-used').out).toEqual(done.out);
+    process.stderr.write(`\nSMOKE 271n reviewer flagged: ${JSON.stringify({ status: done.out.status, mergeable: done.out.gate.mergeable, blockers: done.out.gate.blockers.map((b) => `${b.code}:${b.gapId}`), changed: changed.map((c) => `${c.agent}:${c.reason}:${c.read.size}->${c.now.size}`), warning: waiting.out.warnings.find((w) => w.startsWith('result-changed')) })}\n`);
+  });
+
+  test('a verifier rewrites its vote while the verify round is open: the later vote counts, and it flips the finding (the measured f7: 3 real in the files, 2 counted)', () => {
+    const review = start('rw-ver-open');
+    answerReview(review, { findings: { 'reviewer-s1-a': [nit()] } });
+    const verify = coll('rw-ver-open').out;
+    expect(verify).toMatchObject({ status: 'DISPATCH', round: 'verify' });
+    const [v1, v2, v3] = verify.agents;
+    expect(verify.agents).toHaveLength(3);
+    vote(v1, 'real');
+    vote(v2, 'not-real');
+    expect(coll('rw-ver-open').out).toMatchObject({ status: 'PENDING', waitingOn: [v3.name] });
+    // verifier-2 was not finished: it settles on real, and verifier-3 answers not-real
+    vote(v2, 'real');
+    vote(v3, 'not-real');
+    const done = coll('rw-ver-open');
+    expect(done.code).toBe(0);
+    expect(done.out.status).toBe('DONE');
+    expect(done.out.votes.outcomes.map((o) => [o.id, o.outcome])).toEqual([['f1', 'present']]); // before the fix: filtered, on a vote the verifier had withdrawn
+    expect(done.out.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/^result-reread: verifier-2 /)]));
+    expect(done.out.ledger[0].verification.tally).toMatchObject({ real: 2 });
+    expect(done.out.rereadResults).toEqual([expect.objectContaining({ agent: 'verifier-2', role: 'verifier', round: 'verify' })]);
+    expect(done.out.notReviewed.changedResults).toEqual([]);
+    expect(done.out.gate).toMatchObject({ mergeable: true, blockers: [] });
+    process.stderr.write(`\nSMOKE 271n verifier re-read: ${JSON.stringify({ outcome: done.out.votes.outcomes[0].outcome, tally: done.out.ledger[0].verification.tally, reread: done.out.rereadResults.map((r) => `${r.agent}:${r.from.size}->${r.to.size}`) })}\n`);
+  });
+
+  test('a verifier rewrites its vote after the run finished: the next collect re-reads nothing, says so by name, and restates the stored mergeable answer as not mergeable; from then on it is stable', () => {
+    const review = start('rw-ver-done');
+    answerReview(review, { findings: { 'reviewer-s1-a': [nit()] } });
+    const verify = coll('rw-ver-done').out;
+    const [v1, v2, v3] = verify.agents;
+    vote(v1, 'not-real');
+    vote(v2, 'not-real');
+    vote(v3, 'real');
+    const done = coll('rw-ver-done');
+    expect(done.out).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] } });
+    expect(done.out.votes.outcomes.map((o) => [o.id, o.outcome])).toEqual([['f1', 'filtered']]);
+    expect(coll('rw-ver-done').out).toEqual(done.out); // while nothing changes a replay is the stored answer, byte for byte
+    // verifier-2 was not finished after all: the vote that would have confirmed the finding arrives after the verdict was recorded
+    vote(v2, 'real');
+    const replay = coll('rw-ver-done');
+    expect(replay.code).toBe(0);
+    expect(replay.out.gate.mergeable).toBe(false); // before the fix: the stored `mergeable: true`, repeated
+    expect(replay.out.gate.blockers.map((b) => [b.code, b.gapId, b.gapType])).toEqual([['review-coverage-incomplete', 'coverage:result-changed:verifier-2', 'result-changed']]);
+    expect(replay.out.notReviewed.changedResults).toEqual([expect.objectContaining({ agent: 'verifier-2', role: 'verifier', round: 'verify', reason: 'result-changed-after-read' })]);
+    expect(replay.out.votes.outcomes.map((o) => [o.id, o.outcome])).toEqual([['f1', 'filtered']]); // the vote that was used is the vote that is reported
+    // the replay differs from the answer that was stored, and says so
+    expect(replay.out.restated).toMatchObject({ reason: 'result-changed-after-read', agents: ['verifier-2'], previous: { status: 'DONE', mergeable: true } });
+    expect(JSON.parse(fs.readFileSync(stateFile(), 'utf8')).coverage.gaps.map((g) => g.id)).toEqual(['coverage:result-changed:verifier-2']);
+    expect(JSON.parse(fs.readFileSync(path.join(runDir('rw-ver-done'), 'final.json'), 'utf8'))).toEqual(replay.out);
+    expect(coll('rw-ver-done').out).toEqual(replay.out); // and from here on it is stable again
+    process.stderr.write(`\nSMOKE 271n verifier restated: ${JSON.stringify({ before: { status: done.out.status, mergeable: done.out.gate.mergeable, outcome: 'filtered' }, after: { mergeable: replay.out.gate.mergeable, blockers: replay.out.gate.blockers.map((b) => b.gapId), restated: replay.out.restated } })}\n`);
+  });
+
+  test('a reviewer rewrites its result after the run finished mergeable: the next collect restates the answer as not mergeable, and the finding that was never read is not in the ledger', () => {
+    const review = start('rw-rev-done');
+    answerReview(review);
+    const done = coll('rw-rev-done');
+    expect(done.out).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] } });
+    const a = agentOf(review, 'reviewer-s1-a');
+    writeResult(a, { findings: [reviewerFinding({ locationOrLink: 'src/b.js:1', originalTextOrLink: 'src/b.js:1', failureMode: 'the exported function returns a constant for every input' })], pathsReviewed: a.paths });
+    const replay = coll('rw-rev-done');
+    expect(replay.code).toBe(0);
+    expect(replay.out).toMatchObject({ status: 'DONE', gate: { mergeable: false }, ledger: [], restated: { reason: 'result-changed-after-read', agents: ['reviewer-s1-a'], previous: { status: 'DONE', mergeable: true } } });
+    expect(replay.out.gate.blockers.map((b) => b.gapId)).toEqual(['coverage:result-changed:reviewer-s1-a']);
+    expect(replay.out.notReviewed.changedResults.map((c) => c.agent)).toEqual(['reviewer-s1-a']);
+  });
+
+  test('the whole-range reader of a Medium PR rewrites its result: while the round is open its later, whole read replaces the short first one (the gate sees a complete read); after the run finished the same kind of rewrite is flagged by name and restates the answer', () => {
+    const medPaths = WIDE_LINES.map((_, index) => widePath(index).replace(/^wide\//, 'med/'));
+    setGh({ head: fx.medwide, reviews: [{ user: { login: 'bob', type: 'User' }, state: 'APPROVED', commit_id: fx.medwide, submitted_at: '2026-01-01T00:00:00Z' }] });
+    fs.rmSync(stateFile(), { force: true });
+    const r = prep({ runId: 'rw-range' });
+    expect(r.code).toBe(0);
+    const wide = r.out;
+    const range = agentOf(wide, 'reviewer-range');
+    // the reader's first file lists four paths of nineteen; the lane has not answered yet
+    answerReview(wide, { changed: medPaths, partial: { 'reviewer-range': medPaths.slice(0, 4) }, skip: ['security-lane'] });
+    expect(coll('rw-range').out).toMatchObject({ status: 'PENDING', waitingOn: ['security-lane'] });
+    // the reader was not finished: its second file lists every path, then the lane answers
+    writeResult(range, { findings: [], pathsReviewed: medPaths });
+    writeResult(agentOf(wide, 'security-lane'), { findings: [], pathsReviewed: medPaths });
+    const done = coll('rw-range');
+    expect(done.code).toBe(0);
+    expect(done.out).toMatchObject({ status: 'DONE', gate: { mergeable: true, blockers: [] }, coverage: { complete: true } });
+    expect(done.out.notReviewed.unreviewedSlices).toEqual([]); // before kata 271n the first, short file stood and the whole-range gap held the gate
+    expect(done.out.rereadResults.map((entry) => entry.agent)).toEqual(['reviewer-range']);
+    // after the verdict the reader rewrites once more, now with the short list: that is not what was counted, and it is said
+    writeResult(range, { findings: [], pathsReviewed: medPaths.slice(0, 4) });
+    const replay = coll('rw-range');
+    expect(replay.code).toBe(0);
+    expect(replay.out.gate.mergeable).toBe(false);
+    expect(replay.out.gate.blockers.map((b) => b.gapId)).toEqual(['coverage:result-changed:reviewer-range']);
+    expect(replay.out.restated).toMatchObject({ reason: 'result-changed-after-read', agents: ['reviewer-range'], previous: { status: 'DONE', mergeable: true } });
+    expect(coll('rw-range').out).toEqual(replay.out);
+  });
+});
+
 describe('a head from outside this repository is never run (review of PR 264, P0)', () => {
   // `node` runs each related test file as a script: the head's own code, exactly what the baseline executes.
   const withNode = { testCommand: [process.execPath] };

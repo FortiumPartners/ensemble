@@ -247,6 +247,7 @@ const COVERAGE_ACCEPT_NOTES = {
   'whole-range': 'Records that the whole-range reader (the one read of an interaction between slices) did not read the whole diff: the slice reviewers read these paths one slice at a time. You accept merging without that read.',
   uncovered: 'Records that no slice held these paths and no reviewer read them, and you accept merging without that read.',
   'under-reviewed': 'Records that these paths were read under fewer distinct lenses than the mode requires, and you accept merging with that shorter review.',
+  'result-changed': 'Records that this agent rewrote its result after the review read it, so the review counted the first version and not the later one: a finding or a vote that only the later version holds was not counted. Read the file named in the gap before you accept; you accept merging without what the later version holds.',
   unnamed: 'Records that the review reported incomplete coverage without saying what it missed, so every changed path counts as not reviewed, and you accept merging without that read.',
 };
 const COVERAGE_ACCEPT_TAIL = ' The other way out is to run the review again.';

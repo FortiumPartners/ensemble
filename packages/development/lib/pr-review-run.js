@@ -33,6 +33,20 @@
  *     that file, it is graded Important.
  *   - An agent that did not arrive is never read as reviewed: its slice is in `notReviewed`, a verifier's candidates are
  *     `unverified`, a missing security lane is not `clean`.
+ *   - A result file an agent REWRITES after the runner read it is never lost in silence (kata 271n). The runner cannot tell that an
+ *     agent has finished, so it records what it read of every result (`agent.read`: size, mtime, ctime and sha256, next to
+ *     `arrivedAt`; a run stored without it is compared with the copy the collector took at the read) and, at every later `collect`,
+ *     at the moment a round's results are used (the candidates formed from the review
+ *     round; the verdict computed from the verify round) and when a finished run is replayed, looks at each file again and
+ *     compares its bytes. While the results of a wave are not yet used the LATEST valid version in time replaces the earlier one
+ *     (a re-read, recorded in `run.rereads` and named in `warnings` and `rereadResults`: the vote then counts); once they are used,
+ *     a version that differs, or that cannot be used (late, unreadable, invalid, swapped for a link), is never read and is FLAGGED:
+ *     `run.resultChanges`, `notReviewed.changedResults`, and a coverage gap `coverage:result-changed:<agent>` that the gate holds
+ *     open like any unread slice (only the operator's recorded decision on this head, or a new run, ends it). A finished run that
+ *     finds such a change on a replay is restated (`restated`: what the stored answer said and why this one differs) and
+ *     recorded; until something changes a replay is the stored answer. A file merely touched, rewritten with the same bytes or
+ *     deleted (the run keeps what it read) is not a change. The dispatcher still has to call `collect` only after the agent
+ *     has finished or been stopped: this flags a rewrite, it cannot prevent one.
  *   - A candidate whose verifier brief the renderer refuses (a claim that reads as a vote, a verdict, the orchestrator or a
  *     conclusion, a path or location outside the closed grammar, an unusable claim) is never verified, never dropped and never
  *     read as verified: it is planned out of the verification round (K verifiers for every OTHER candidate still hold), recorded in
@@ -154,6 +168,8 @@ const RANGE_COVERAGE_SLICE = 'whole-range';
 const SHA = /^[0-9a-f]{40}$/;
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 const ADJUDICATION_DISPOSITIONS = Object.freeze(['fix', 'deferred', 'not-applicable']);
+/** The named outcome of a result file that holds other bytes than the runner read (kata 271n). */
+const RESULT_CHANGED = 'result-changed-after-read';
 
 const PREPARE_KEYS = Object.freeze(['repo', 'pr', 'repoRoot', 'runId', 'traceRunId', 'baseSha', 'lastReviewedSha', 'remediationShas', 'dryRun', 'skipPrecheck', 'testFiles', 'testCommand', 'baselineTimeoutMs', 'nodeModules', 'stateRoot', 'agentAuthored']);
 const COLLECT_KEYS = Object.freeze(['repoRoot', 'runId', 'now', 'adjudications', 'triage']);
@@ -163,7 +179,7 @@ const RULES = Object.freeze([
   'Never run more agents at once than `maxConcurrentAgents`. The runner records the cap and cannot enforce it: the dispatcher must.',
   'A DISPATCH with `refill: true` lists only NEW verifiers: start exactly those, and keep waiting for the agents in `stillRunning`, which are still running (the cap counts both).',
   'Stop every agent at its `deadlineAtIso`. The runner records the deadline and cannot stop an agent: the dispatcher must. A result written later is not read.',
-  'When the agents are done (or their deadlines have passed), call `collect`. Never read a result file, tally votes or decide a gate yourself.',
+  'Call `collect` only when the agents have FINISHED (their processes ended) or have been stopped at their deadlines, never on the first sight of a result file: the runner cannot tell that an agent is done. A result file an agent rewrites after the runner read it is re-read only while the results of its round are not yet used; after that it is flagged `result-changed-after-read` and the review is not mergeable until the operator decides it. Never read a result file, tally votes or decide a gate yourself.',
   'On ADJUDICATE decide only the findings listed, with a reason, and call `collect` with `adjudications`.',
   'Coverage is self-reported: the runner counts a slice as reviewed when the agent lists its paths in `pathsReviewed`, and cannot tell a read from a claim. Read-only access is an instruction in the prompt that the runner cannot enforce: the dispatcher must.',
 ]);
@@ -698,12 +714,19 @@ async function prepareStages(input, deps, ctx) {
   for (const key of ['lastReviewedSha', 'remediationShas', 'stateRoot', 'testFiles', 'testCommand', 'baselineTimeoutMs', 'nodeModules']) if (input[key] !== undefined) options[key] = input[key];
   // A re-review's previously reviewed head and base are what THIS runner recorded at `lastReviewedSha` (kata xb4j), never a
   // caller's word: the state report and the run record that wrote it say so, or prepare is not told and the round is a full read.
-  const prior = input.lastReviewedSha === undefined ? null : D.priorRound({
+  let prior = input.lastReviewedSha === undefined ? null : D.priorRound({
     read: (head) => (typeof deps.readState === 'function' ? deps.readState(statePath(input.pr, input.repoRoot), head) : null),
     readRun: (id) => loadRunRecord(deps, input.repoRoot, id),
     pr: input.pr,
     lastReviewedSha: input.lastReviewedSha,
   });
+  // kata 271n: the stored report says nothing of a result file rewritten after that run finished (no collect saw it). Look at the run's
+  // files again, read-only, before any verdict of it is carried: a file that differs from what the run read makes the round no base.
+  if (prior !== null && prior.ok === true) {
+    const priorRun = loadRunRecord(deps, input.repoRoot, prior.runId);
+    const changed = isObject(priorRun) ? await priorResultsChanged(priorRun, deps) : ['unreadable'];
+    if (changed.length > 0) prior = { ok: false, reason: `prior-result-changed:${changed.join(',')}` };
+  }
   if (prior !== null && prior.ok === true) {
     options.reviewedHeadSha = prior.state.reviewedHeadSha;
     options.reviewedBaseSha = prior.state.baseSha;
@@ -872,8 +895,23 @@ function validateCollect(input) {
   return null;
 }
 
-function expectedOf(wave) {
-  return wave.agents.map((a) => ({ name: a.name, role: a.role, dispatchedAt: a.dispatchedAt, deadlineAt: a.deadlineAt, ...(a.sliceId !== undefined ? { sliceId: a.sliceId, lens: a.lens, paths: a.paths } : {}), ...(a.candidateIds !== undefined ? { candidateIds: a.candidateIds } : {}) }));
+/**
+ * What the collector is asked about a wave: each agent, and (kata 271n) the fingerprint of the version of its result the run
+ * recorded as read, so the collector can tell a file that was rewritten since. `reread` says the results of this wave are not
+ * used yet, so a later valid version in time may replace the one first read; once they are used it stays false and a
+ * different file is only reported back.
+ */
+function expectedOf(wave, { reread = false } = {}) {
+  return wave.agents.map((a) => ({
+    name: a.name,
+    role: a.role,
+    dispatchedAt: a.dispatchedAt,
+    deadlineAt: a.deadlineAt,
+    ...(a.sliceId !== undefined ? { sliceId: a.sliceId, lens: a.lens, paths: a.paths } : {}),
+    ...(a.candidateIds !== undefined ? { candidateIds: a.candidateIds } : {}),
+    ...(isObject(a.read) ? { read: a.read } : {}),
+    ...(reread ? { reread: true } : {}),
+  }));
 }
 
 /**
@@ -917,6 +955,7 @@ function recordWave(run, wave, collected, now, tracer, deps) {
     const agent = wave.agents.find((a) => a.name === record.name);
     agent.state = record.state;
     agent.reason = record.reason;
+    if (record.state === 'arrived' && isObject(record.read)) agent.read = record.read;
     if (Number.isFinite(record.arrivedAt)) agent.arrivedAt = record.arrivedAt;
     const lastMessage = lastMessageOf(agent, record, deps.now(), problems);
     tracer.end(agent.spanId, record.state === 'arrived' ? 'ok' : record.state, { state: record.state, reason: record.reason, ...lastMessage });
@@ -929,7 +968,189 @@ function recordWave(run, wave, collected, now, tracer, deps) {
   }
   wave.status = 'collected';
   wave.collectedAt = now;
-  wave.result = { findings: collected.findings, votes: collected.votes, incompleteVerifiers: collected.incompleteVerifiers, reviewedSlices: collected.reviewedSlices, unreviewedDetail: collected.unreviewedDetail, warnings: collected.warnings };
+  wave.result = resultOf(collected);
+}
+
+/* ------------------------------------------------ result files that change after they were read (kata 271n) */
+
+/** What a collected wave leaves in the run: what the later stages read. */
+function resultOf(collected) {
+  return { findings: collected.findings, votes: collected.votes, incompleteVerifiers: collected.incompleteVerifiers, reviewedSlices: collected.reviewedSlices, unreviewedDetail: collected.unreviewedDetail, warnings: collected.warnings };
+}
+
+/** The changes a run has flagged and the later versions it re-read (a run stored before kata 271n has neither). */
+const changesOf = (run) => (Array.isArray(run.resultChanges) ? run.resultChanges : []);
+const rereadsOf = (run) => (Array.isArray(run.rereads) ? run.rereads : []);
+
+const resultDirOf = (run, wave) => path.join(runDirOf(run.repoRoot, run.runId), 'results', wave.round);
+
+/** `212 bytes, sha256 1a2b3c4d5e6f`: a fingerprint as a person reads it. */
+const printOf = (print) => (isObject(print) ? `${print.size} bytes, sha256 ${String(print.sha256).slice(0, 12)}` : 'not readable');
+const samePrint = (a, b) => (isObject(a) && isObject(b) ? a.sha256 === b.sha256 : !isObject(a) && !isObject(b));
+
+/**
+ * Whether the results of a wave were already USED: the review round's findings, coverage and security lane once the candidates
+ * are formed from them (`processReview`), the verify round's votes once the verdict is recorded (a run that is `done`). A change
+ * after that cannot be counted without doing the round again, so it is flagged; before it, the later version counts.
+ */
+const resultsUsed = (run, wave) => (wave.round === 'review' ? run.candidates !== undefined : run.phase === 'done');
+
+/** The paths a changed result is about: what its reviewer was asked to read, or the files its verifier's candidates cite. */
+function pathsOfResult(run, agent) {
+  if (agent.role !== 'verifier') return Array.isArray(agent.paths) && agent.paths.length > 0 ? agent.paths.slice() : run.changedPaths.slice();
+  const assigned = Array.isArray(agent.candidateIds) ? new Set(agent.candidateIds.map(String)) : null;
+  const files = [];
+  for (const candidate of Array.isArray(run.candidates) ? run.candidates : []) {
+    if (assigned !== null && !assigned.has(String(candidate.id))) continue;
+    const file = S.locationFile(candidate.locationOrLink);
+    if (file !== null && !files.includes(file)) files.push(file);
+  }
+  return files.length > 0 ? files : run.changedPaths.slice();
+}
+
+/** What a flagged change is called: when the later version could not have been used anyway, or could, had its round been open. */
+function detailOf(change) {
+  if (change.kind !== 'rewritten') return `${change.kind}:${change.why}`;
+  if (change.usable) return 'rewritten-after-use';
+  return change.why === 'arrived-after-deadline' ? 'rewritten-after-deadline' : `rewritten-unusable:${change.why}`;
+}
+
+/**
+ * Latches a change of a result the run already used into `run.resultChanges`, once per agent: a look that finds the same bytes
+ * again changes nothing, one that finds others updates the entry (the latest observation, the first read kept). True when the run's
+ * record changed.
+ */
+function flagChange(run, wave, agent, change, now) {
+  const entry = {
+    agent: agent.name,
+    role: agent.role,
+    round: wave.round,
+    ...(agent.sliceId !== undefined ? { sliceId: agent.sliceId } : {}),
+    reason: RESULT_CHANGED,
+    ...(isText(agent.outPath) ? { file: agent.outPath } : {}),
+    detail: detailOf(change),
+    paths: pathsOfResult(run, agent),
+    read: isObject(agent.read) ? agent.read : change.read,
+    now: change.now,
+    detectedAt: now,
+  };
+  run.resultChanges = changesOf(run);
+  const known = run.resultChanges.find((c) => c.round === entry.round && c.agent === entry.agent);
+  if (known === undefined) {
+    run.resultChanges.push(entry);
+    return true;
+  }
+  if (known.detail === entry.detail && samePrint(known.now, entry.now)) return false;
+  Object.assign(known, { detail: entry.detail, now: entry.now, detectedAt: entry.detectedAt });
+  return true;
+}
+
+/** One later version that replaced an earlier one before its round was used: recorded, and said in the answer of the call that saw it. */
+function noteReread(run, wave, agent, reread, now, deps, announce) {
+  run.rereads = rereadsOf(run);
+  run.rereads.push({ agent: agent.name, role: agent.role, round: wave.round, from: reread.from, to: reread.to, at: now });
+  if (announce) notify(deps, `result-reread: ${agent.name} rewrote its result after it was read and before the ${wave.round} round was used: the later version (${printOf(reread.to)}) counts, not the first (${printOf(reread.from)})`);
+}
+
+/**
+ * Stores, for every agent of a wave that arrived, the fingerprint of the version it was read as (`agent.read`, beside `arrivedAt`), so
+ * each later look can compare. A later version that replaced the first while the wave was still outstanding is noted the same way.
+ */
+function noteReads(run, wave, collected, now, deps) {
+  for (const record of collected.agents) {
+    const agent = wave.agents.find((candidate) => candidate.name === record.name);
+    if (agent === undefined) continue;
+    if (record.state === 'arrived' && isObject(record.read)) agent.read = record.read;
+    if (isObject(record.reread)) noteReread(run, wave, agent, record.reread, now, deps, true);
+  }
+}
+
+/**
+ * Looks again at the result files the run read in the waves it has RECORDED (kata 271n), at every collect, at the moment a round's
+ * results are used (`consuming`) and when a finished run is replayed. For a wave whose results are not used yet, the collector is
+ * asked to take the latest valid version in time (a re-read: `wave.result` is replaced, the vote then counts); for one whose
+ * results are used, or are about to be, a file that holds other bytes is FLAGGED (`flagChange`) and never read. A file that is gone
+ * is said and ignored: the run keeps the copy it read. The wave's stored result is replaced only by one that still accounts for
+ * every agent read, so a look can never shrink what the run holds. What a file is compared with is the fingerprint the run stored
+ * when it read it (`agent.read`); a run recorded before that was stored has none, and the collector then compares with the copy it
+ * took at the read (when there is one: with neither there is nothing to compare, and the file is not looked at).
+ *
+ * @returns {{refused: ?string, changed: boolean, agents: string[]}}  `changed`: the run's record changed (a re-read or a flag);
+ *   `agents`: whose; `refused`: why the collector could not be asked (the run must not go on: a file it cannot compare is unverified).
+ */
+async function lookAgain(run, deps, now, { rounds = ['review', 'verify'], consuming = [], replay = false } = {}) {
+  const outcome = { refused: null, changed: false, agents: [] };
+  for (const wave of run.waves) {
+    if (wave.status !== 'collected' || !rounds.includes(wave.round)) continue;
+    if (!wave.agents.some((agent) => agent.state === 'arrived')) continue;
+    const used = resultsUsed(run, wave);
+    const flagging = used || consuming.includes(wave.round);
+    // Never earlier than the call that recorded the wave: an agent expired then is expired now, whatever `now` a caller passes.
+    const asked = Math.max(now, Number.isFinite(wave.collectedAt) ? wave.collectedAt : now);
+    const collected = await settle(() => deps.collectResults({ expected: expectedOf(wave, { reread: !used }), dir: resultDirOf(run, wave), now: asked }));
+    if (!isObject(collected) || !Array.isArray(collected.agents) || collected.agents.length !== wave.agents.length) {
+      outcome.refused = (isObject(collected) && (collected.reason || collected.error)) || 'no answer';
+      return outcome;
+    }
+    const rereads = collected.agents.filter((record) => isObject(record.reread));
+    const intact = wave.agents.every((agent) => agent.state !== 'arrived' || collected.agents.some((record) => record.name === agent.name && record.state === 'arrived'));
+    const applied = rereads.length > 0 && intact;
+    if (applied) {
+      for (const record of rereads) {
+        const agent = wave.agents.find((candidate) => candidate.name === record.name);
+        agent.read = record.read;
+        noteReread(run, wave, agent, record.reread, now, deps, !replay);
+        outcome.agents.push(agent.name);
+      }
+      wave.result = resultOf(collected);
+      outcome.changed = true;
+    }
+    for (const record of collected.agents) {
+      const agent = wave.agents.find((candidate) => candidate.name === record.name);
+      if (agent === undefined || agent.state !== 'arrived') continue;
+      const unapplied = isObject(record.reread) && !applied; // taken by the collector, but not applicable to this wave's record
+      const change = unapplied ? { kind: 'rewritten', read: record.reread.from, now: record.reread.to, usable: true } : isObject(record.changed) ? record.changed : null;
+      if (change === null) continue;
+      if (change.kind === 'removed') {
+        if (!replay) notify(deps, `result-removed: the file of ${agent.name} no longer exists; the run keeps the version it read (${printOf(agent.read)})`);
+        continue;
+      }
+      // Before the results are used the next look may still re-read what cannot be taken now (a file mid-write); a change that
+      // could not be applied, and every change once the results are used, is flagged.
+      if (!flagging && !unapplied) continue;
+      if (flagChange(run, wave, agent, change, now)) {
+        outcome.changed = true;
+        outcome.agents.push(agent.name);
+        if (!replay) notify(deps, `${RESULT_CHANGED}: ${agent.name} (${agent.role}) changed after it was read (${detailOf(change)}): the ${wave.round} round had used the first version (${printOf(agent.read)}), the file now holds ${printOf(change.now)}; the gate holds this open until the operator decides it or the review is run again`);
+      }
+    }
+  }
+  return outcome;
+}
+
+/**
+ * The agents of a PRIOR run whose result file holds other bytes than the run read (kata 271n). The delta planner carries a finished
+ * round's stored verdicts after checking its state report; a result file rewritten after that run finished, and before any collect saw
+ * it, is in no state report, so `prepare` looks at the files again before it carries anything. A round whose results changed counted
+ * the first versions: its verdicts may miss a vote or a finding and are not carried (the re-review reads the whole range). READ-ONLY on
+ * the prior run: it is not restated and nothing of it is rewritten here. A file that is gone is no change (the run kept what it read);
+ * a collector that cannot answer for every agent is `unreadable`: a round that cannot be looked at is not carried.
+ *
+ * @returns {Promise<string[]>}  the agents whose result changed (`unreadable` when the round could not be looked at); empty when none did
+ */
+async function priorResultsChanged(prior, deps) {
+  const changed = [];
+  for (const wave of Array.isArray(prior.waves) ? prior.waves : []) {
+    if (wave.status !== 'collected' || !Array.isArray(wave.agents) || !wave.agents.some((agent) => agent.state === 'arrived')) continue;
+    const asked = Math.max(deps.now(), Number.isFinite(wave.collectedAt) ? wave.collectedAt : 0);
+    const collected = await settle(() => deps.collectResults({ expected: expectedOf(wave), dir: resultDirOf(prior, wave), now: asked }));
+    if (!isObject(collected) || !Array.isArray(collected.agents) || collected.agents.length !== wave.agents.length) return ['unreadable'];
+    for (const record of collected.agents) {
+      const agent = wave.agents.find((candidate) => candidate.name === record.name);
+      if (agent !== undefined && agent.state === 'arrived' && isObject(record.changed) && record.changed.kind !== 'removed') changed.push(agent.name);
+    }
+  }
+  return changed;
 }
 
 /** Everything after the review round: complete and dedupe the findings, the lane, the coverage, the verification plan. */
@@ -1242,7 +1463,8 @@ function testsFact(baseline) {
  * lenses, with why each failed. A coverage the run could not compute is `unavailable`. A run that says `complete: false` and names
  * nothing (one stored by an earlier version, which kept no `underReviewed`) is still incomplete: it names every changed path.
  * Nothing here is a decision: it is a pure function of the run, so every `finalise` of one run (an adjudication included) answers
- * the same coverage.
+ * the same coverage. A result file that changed after the run read it (kata 271n, `run.resultChanges`) is one more gap, one per
+ * agent, held open like an unread slice: the review counted the first version, so what only the later one holds is not counted.
  */
 function coverageOf(run) {
   const covered = run.coverage;
@@ -1254,6 +1476,7 @@ function coverageOf(run) {
     underReviewed: covered.underReviewed,
     requiredLenses: covered.requiredLenses,
     detail: covered.detail,
+    changedResults: changesOf(run),
     incomplete: covered.complete !== true,
     origin: `review run ${run.runId}`,
     ...(covered.ok === true ? {} : { unavailable: covered.reason || 'the coverage module refused its input' }),
@@ -1378,6 +1601,11 @@ function reducedReviewNotice(run, built, notReviewed, stage) {
   const gaps = stage.coverage.status === 'complete' ? [] : stage.coverage.gaps;
   if (stage.coverage.status === 'unavailable') lines.push(`coverage UNAVAILABLE (${stage.coverage.reason}): the merge gate is not mergeable until the review is run again`);
   else if (gaps.length > 0) lines.push(`the merge gate is NOT MERGEABLE on ${gaps.length} coverage gap(s) (${gaps.map((gap) => gap.id).join(', ')}) until the review is run again on this head or the operator accepts each with a recorded reason`);
+  // A result file that changed after the run read it: the review counted the first version, whatever the later one holds.
+  if (notReviewed.changedResults.length > 0) {
+    const named = notReviewed.changedResults.map((c) => `${c.agent} (${c.detail}: first read ${printOf(c.read)}, now ${printOf(c.now)})`).join(', ');
+    lines.push(`RESULT CHANGED AFTER READ: ${named}: the review counted the first version of each of these results, so a finding or a vote that only the later one holds is not counted; the files are named in notReviewed.changedResults, and the way out is the operator's decision on each gap or a new run once the agents have finished`);
+  }
   const sizing = isObject(run.sizing) ? run.sizing : null;
   if (sizing !== null && Array.isArray(sizing.warnings)) for (const warning of sizing.warnings) lines.push(`plan ${warning.code}: ${warning.message}`);
   const rangeDetail = isObject(run.coverage) && Array.isArray(run.coverage.detail) ? run.coverage.detail.find((d) => d.sliceId === RANGE_COVERAGE_SLICE) : undefined;
@@ -1413,6 +1641,8 @@ function notReviewedOf(run) {
     incompleteVerifiers: verifyWaves.flatMap((w) => w.result.incompleteVerifiers),
     unbriefable: run.unbriefable,
     expiredAgents: agents.filter((a) => a.state !== 'arrived').map((a) => ({ name: a.name, role: a.role, state: a.state, reason: a.reason })),
+    // kata 271n: results the run read and the agent rewrote afterwards, flagged and never read: each is a coverage gap
+    changedResults: changesOf(run).map((change) => ({ ...change })),
   };
 }
 
@@ -1501,7 +1731,7 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     return { invalid: failure('RUN_FAILED', { reason: 'state-write-failed', error: isObject(written) ? written.reason || written.error : 'no answer', runId: run.runId }), moved: false };
   }
 
-  logCall(run, extra.call, startedAt, deps, extra.adjudications !== undefined, extra.flags || {});
+  logCall(run, extra.call, startedAt, deps, extra.adjudicationCall === true, extra.flags || {});
   const metrics = S.computeMetrics(run, deps.now());
   const answer = {
     ok: true,
@@ -1520,7 +1750,8 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     carry,
     votes: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, outcomes: built.tally.findings.map((f) => ({ id: f.id, outcome: f.outcome, reason: f.reason, authorLabel: f.authorLabel, tally: f.tally })) },
     security: run.security,
-    coverage: { complete: run.coverage.complete && run.security.status !== 'not-run', unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },
+    // kata 271n: a result that changed after it was read means the coverage is not complete, whatever the slices say
+    coverage: { complete: run.coverage.complete && run.security.status !== 'not-run' && notReviewed.changedResults.length === 0, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },
     notReviewed,
     approvals: stage.approvals,
     protection: stage.protection,
@@ -1532,6 +1763,10 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     metrics,
     ...(adjudicate.length > 0 ? { adjudicate } : {}),
     ...(extra.adjudications ? { adjudicatedBy: 'orchestrator', adjudications: extra.adjudications } : {}),
+    // later versions that replaced the first before their round was used (the vote or finding then counts): recorded, never silent
+    ...(rereadsOf(run).length > 0 ? { rereadResults: rereadsOf(run).map((entry) => ({ ...entry })) } : {}),
+    // a finished run that found a result changed after its verdict: this answer differs from the one that was stored, and says how
+    ...(extra.restated === undefined ? {} : { restated: extra.restated }),
   };
   deps.fs.writeAtomic(path.join(runDirOf(run.repoRoot, run.runId), 'final.json'), `${JSON.stringify(redactor(deps)(answer), null, 2)}\n`, 0o600);
   run.phase = 'done';
@@ -1596,7 +1831,8 @@ function triageManifest(run, deps) {
       const refusal = refused.get(String(c.id));
       return { id: c.id, locationOrLink: c.locationOrLink, severity: c.severity, failureMode: c.failureMode, source: c.source, ...(refusal === undefined ? {} : { unbriefable: { kind: refusal.kind, ...(refusal.input === undefined ? {} : { input: refusal.input }), reason: refusal.reason } }) };
     }),
-    coverage: { complete: run.coverage.complete, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },
+    // a result that changed after it was read makes the coverage incomplete (kata 271n); named once, here, so the orchestrator is not told to triage as if the review were whole
+    coverage: { complete: run.coverage.complete && changesOf(run).length === 0, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered, ...(changesOf(run).length > 0 ? { changedResults: changesOf(run).map((change) => change.agent) } : {}) },
     // the TRIAGE step reads the WHOLE range in a delta round too (like the lane and the whole-range reader)
     rangeDiff: isObject(run.prepared) && typeof run.prepared.rangeDiff === 'string' ? run.prepared.rangeDiff : null,
     slices: Array.isArray(run.slices) ? run.slices.map((slice) => ({ id: slice.id, paths: slice.paths })) : [],
@@ -1743,12 +1979,24 @@ async function collectStages(input, deps, ctx) {
       final = null;
     }
     if (!isObject(final)) return failure('RUN_FAILED', { reason: 'final-unreadable', error: 'final.json of a done run cannot be read', runId: run.runId });
-    if (input.adjudications === undefined) return final;
-    const listed = S.adjudicateList(run.finalLedger);
-    const applied = applyAdjudications(run.finalLedger, listed, input.adjudications, now);
-    if (applied.ok !== true) return failure('RUN_FAILED', { reason: 'adjudication-refused', error: applied.reason, runId: run.runId });
-    const history = [...(run.adjudications || []), ...input.adjudications];
-    const outcome = await finalise(run, { ledger: applied.ledger, tally: run.votesResult }, deps, now, startedAt, tracer, { call: 'collect', adjudications: history });
+    // A replay looks at the result files the run read again (kata 271n). While nothing changed it is the stored answer, byte for byte.
+    // A file that holds other bytes now is a change the stored verdict never counted: the verdict is restated with it as a coverage
+    // gap (never in silence: `restated` says what the stored answer was and why this one differs) and that answer is the stored one
+    // from then on. The collector must be answerable: a file the run cannot compare is not a file it can vouch for.
+    const replayed = await lookAgain(run, deps, now, { replay: true });
+    if (replayed.refused !== null) return failure('RUN_FAILED', { reason: 'collect-refused', error: replayed.refused, runId: run.runId });
+    if (!replayed.changed && input.adjudications === undefined) return final;
+    let ledger = run.finalLedger;
+    let history = run.adjudications;
+    if (input.adjudications !== undefined) {
+      const listed = S.adjudicateList(run.finalLedger);
+      const applied = applyAdjudications(run.finalLedger, listed, input.adjudications, now);
+      if (applied.ok !== true) return failure('RUN_FAILED', { reason: 'adjudication-refused', error: applied.reason, runId: run.runId });
+      ledger = applied.ledger;
+      history = [...(run.adjudications || []), ...input.adjudications];
+    }
+    const restated = replayed.changed ? { reason: RESULT_CHANGED, agents: [...new Set(replayed.agents)], previous: { status: final.status, mergeable: isObject(final.gate) ? final.gate.mergeable : undefined }, at: new Date(now).toISOString() } : undefined;
+    const outcome = await finalise(run, { ledger, tally: run.votesResult }, deps, now, startedAt, tracer, { call: 'collect', adjudications: history, adjudicationCall: input.adjudications !== undefined, ...(restated === undefined ? {} : { restated }) });
     // The stored answer stays the answer for the old head: a moved head decides nothing new.
     return outcome.invalid ? outcome.invalid : outcome.answer;
   }
@@ -1761,6 +2009,12 @@ async function collectStages(input, deps, ctx) {
   }
   if (head.pr.state !== 'OPEN') return notOpen(head.pr.state, run.runId);
 
+  // ---- 1a. the result files the run already read, looked at again (kata 271n): a later version is re-read while its round's
+  // results are not used, and flagged once they are
+  const seen = await lookAgain(run, deps, now);
+  if (seen.refused !== null) return failure('RUN_FAILED', { reason: 'collect-refused', error: seen.refused, runId: run.runId });
+  if (seen.changed) saveRun(deps, run);
+
   // ---- 1b. a full run waits here for the orchestrator's triage; it cannot reach the ledger without passing through it
   if (run.phase === 'triage') {
     const triaged = triageStep(run, input, deps, tracer, startedAt, now);
@@ -1772,10 +2026,12 @@ async function collectStages(input, deps, ctx) {
   const outstanding = run.waves.filter((w) => w.status === 'dispatched');
   const waiting = [];
   for (const wave of outstanding) {
-    const collected = await settle(() => deps.collectResults({ expected: expectedOf(wave), dir: path.join(runDirOf(run.repoRoot, run.runId), 'results', wave.round), now }));
-    if (!isObject(collected) || !Array.isArray(collected.agents)) {
+    const collected = await settle(() => deps.collectResults({ expected: expectedOf(wave, { reread: true }), dir: resultDirOf(run, wave), now }));
+    // a refused request answers no agents at all: an empty collection is never read as "nothing to report"
+    if (!isObject(collected) || !Array.isArray(collected.agents) || collected.agents.length !== wave.agents.length) {
       return failure('RUN_FAILED', { reason: 'collect-refused', error: isObject(collected) ? collected.reason || collected.error : 'no answer', runId: run.runId });
     }
+    noteReads(run, wave, collected, now, deps);
     const pending = collected.agents.filter((a) => a.pending === true);
     if (pending.length > 0) {
       waiting.push({ wave, pending });
@@ -1800,6 +2056,9 @@ async function collectStages(input, deps, ctx) {
   if (next !== undefined) return emit(run, next, deps, tracer, startedAt, now);
 
   if (run.candidates === undefined) {
+    // the review round's results are used here: take the latest valid version of each, and flag what cannot be taken
+    const reviewed = await lookAgain(run, deps, now, { rounds: ['review'], consuming: ['review'] });
+    if (reviewed.refused !== null) return failure('RUN_FAILED', { reason: 'collect-refused', error: reviewed.refused, runId: run.runId });
     const isFull = run.mode.mode === 'full';
     const failed = processReview(run, deps, { deferVerification: isFull });
     if (failed !== null) return terminate(run, 'failed', { ...failed, runId: run.runId }, 'collect', startedAt, deps);
@@ -1817,6 +2076,9 @@ async function collectStages(input, deps, ctx) {
     saveRun(deps, run);
   }
 
+  // the verify round's results are used here: the verdict is computed from them
+  const voted = await lookAgain(run, deps, now, { rounds: ['verify'], consuming: ['verify'] });
+  if (voted.refused !== null) return failure('RUN_FAILED', { reason: 'collect-refused', error: voted.refused, runId: run.runId });
   const built = buildLedger(run, deps);
   if (built.ok !== true) return terminate(run, 'failed', failure('RUN_FAILED', { reason: 'ledger-refused', error: built.reason, runId: run.runId }), 'collect', startedAt, deps);
   const validation = validateLedger(built.ledger);

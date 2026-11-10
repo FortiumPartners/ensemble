@@ -762,6 +762,275 @@ describe('AC3: re-collecting over the same directory reproduces the classificati
 });
 
 // ---------------------------------------------------------------------------
+// kata 271n: a result file that changes after it was read
+// ---------------------------------------------------------------------------
+
+describe('kata 271n: a result file rewritten after it was read is looked at again, re-read while its result is unused and reported when it is not', () => {
+  const sha = (text) => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+  const first = () => ballot(['f1', 'real']);
+  const later = () => ballot(['f1', 'not-real']);
+  const textOf = (body) => JSON.stringify(body);
+  /** `expected` with the fingerprint an earlier answer gave for each agent (what the runner stores beside `arrivedAt`). */
+  const withReads = (result, expected, extra = {}) => expected.map((entry) => ({ ...entry, ...(stateOf(result, entry.name).read === undefined ? {} : { read: stateOf(result, entry.name).read }), ...extra }));
+
+  test('every arrived record carries the fingerprint of the bytes read: size, modification and change time, sha256', () => {
+    const file = write('ver1', first());
+    const result = collect([verifier('ver1')]);
+    expect(stateOf(result, 'ver1').read).toEqual({ size: Buffer.byteLength(textOf(first())), mtimeMs: fs.statSync(file).mtimeMs, ctimeMs: fs.statSync(file).mtimeMs, sha256: sha(textOf(first())) });
+    expect(stateOf(result, 'ver1').read.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(stateOf(result, 'ver1').changed).toBeUndefined();
+    expect(stateOf(result, 'ver1').reread).toBeUndefined();
+  });
+
+  test('an agent that did not arrive has no fingerprint, and one that arrived late has none either: nothing was read', () => {
+    write('ver2', first(), T0 + 5 * MIN + 1);
+    const result = collect([verifier('ver1'), verifier('ver2')], T0 + 6 * MIN);
+    expect(stateOf(result, 'ver1')).toMatchObject({ state: 'expired' });
+    expect(stateOf(result, 'ver2')).toMatchObject({ state: 'expired', reason: 'arrived-after-deadline' });
+    expect(stateOf(result, 'ver1').read).toBeUndefined();
+    expect(stateOf(result, 'ver2').read).toBeUndefined();
+  });
+
+  test('a pass over an untouched directory answers byte for byte the same, whether the fingerprint is handed back or taken from the scratch copy', () => {
+    write('ver1', first());
+    write('rev1', review([{ id: 'f1' }], ['a.js']));
+    const expected = [verifier('ver1'), reviewer('rev1', { sliceId: 's1', lens: 'correctness', paths: ['a.js'] })];
+    const view = (result) => JSON.stringify({ ...result, warnings: [] });
+    const one = collect(expected);
+    const two = collect(expected);
+    const three = collect(withReads(one, expected));
+    expect(view(two)).toBe(view(one));
+    expect(view(three)).toBe(view(one));
+    expect(one.warnings).toEqual([]);
+    expect(three.warnings).toEqual([]);
+  });
+
+  test('a file that is only touched, or rewritten with the same bytes, is not a change, and the first fingerprint stays the one on record', () => {
+    const file = write('ver1', first());
+    const one = collect([verifier('ver1')]);
+    fs.utimesSync(file, (T0 + 3 * MIN) / 1000, (T0 + 3 * MIN) / 1000);
+    write('ver1', first(), T0 + 4 * MIN);
+    const two = collect(withReads(one, [verifier('ver1')], { reread: true }));
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', read: stateOf(one, 'ver1').read });
+    expect(stateOf(two, 'ver1').changed).toBeUndefined();
+    expect(stateOf(two, 'ver1').reread).toBeUndefined();
+    expect(two.warnings).toEqual([]);
+  });
+
+  test('a rewrite that keeps the size and changes the bytes is a change: the comparison is on the hash, not on the size', () => {
+    const reorder = (value) => (Array.isArray(value) ? value.map(reorder) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reorder(item)])) : value);
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    const swapped = reorder(first());
+    expect(Buffer.byteLength(textOf(swapped))).toBe(Buffer.byteLength(textOf(first())));
+    expect(textOf(swapped)).not.toBe(textOf(first()));
+    write('ver1', swapped, T0 + 2 * MIN);
+    const two = collect(withReads(one, [verifier('ver1')]), T0 + 3 * MIN);
+    expect(stateOf(two, 'ver1').changed).toMatchObject({ kind: 'rewritten', usable: true });
+    expect(stateOf(two, 'ver1').changed.now.sha256).toBe(sha(textOf(swapped)));
+  });
+
+  test.each([
+    ['with the fingerprint handed back', true],
+    ['with only the scratch copy to compare with (a crash lost the record)', false],
+  ])('a file rewritten after it was read is reported as changed, the first version stays the one counted, and the warning names it, %s', (_name, handBack) => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    const file = write('ver1', later(), T0 + 2 * MIN);
+    const two = collect(handBack ? withReads(one, [verifier('ver1')]) : [verifier('ver1')], T0 + 3 * MIN);
+    const record = stateOf(two, 'ver1');
+    expect(record).toMatchObject({ state: 'arrived', arrivedAt: T0 });
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]); // before kata 271n the later vote was not even looked at
+    expect(record.changed).toEqual({
+      kind: 'rewritten',
+      read: handBack ? stateOf(one, 'ver1').read : { size: stateOf(one, 'ver1').read.size, sha256: stateOf(one, 'ver1').read.sha256 },
+      now: { size: Buffer.byteLength(textOf(later())), mtimeMs: fs.statSync(file).mtimeMs, ctimeMs: fs.statSync(file).mtimeMs, sha256: sha(textOf(later())) },
+      usable: true,
+    });
+    expect(record.read).toEqual(handBack ? stateOf(one, 'ver1').read : { size: stateOf(one, 'ver1').read.size, sha256: stateOf(one, 'ver1').read.sha256 }); // the version in use is the one first read (the lost record kept only its size and hash on the copy)
+    expect(record.reread).toBeUndefined();
+    expect(two.warnings.join('\n')).toMatch(/out-ver1\.json: changed after it was read \(first read \d+ bytes, sha256 [0-9a-f]{12}, now \d+ bytes, sha256 [0-9a-f]{12}\); the version first read stands/);
+  });
+
+  test('with reread, a later version that is valid and in time REPLACES the first: its votes count, the arrival is its change time, the record says reread and not changed, and the scratch copy now holds it', () => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    write('ver1', later(), T0 + 2 * MIN);
+    const two = collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 3 * MIN);
+    const record = stateOf(two, 'ver1');
+    expect(record).toMatchObject({ state: 'arrived', arrivedAt: T0 + 2 * MIN });
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'not-real' }]);
+    expect(record.reread).toEqual({ from: stateOf(one, 'ver1').read, to: record.read });
+    expect(record.read).toMatchObject({ size: Buffer.byteLength(textOf(later())), sha256: sha(textOf(later())) });
+    expect(record.changed).toBeUndefined();
+    expect(two.warnings.join('\n')).toMatch(/out-ver1\.json: rewritten after it was read and before its result was used: the later version replaces the first/);
+    // the copy that stands for the read now holds the later bytes, stamped with the later arrival
+    expect(fs.readFileSync(path.join(scratch(), 'out-ver1.json'), 'utf8')).toBe(textOf(later()));
+    expect(fs.statSync(path.join(scratch(), 'out-ver1.json')).mtimeMs).toBe(T0 + 2 * MIN);
+    // and it stays: a pass that is handed the new fingerprint, or only the copy, finds nothing to report
+    for (const expected of [withReads(two, [verifier('ver1')], { reread: true }), [verifier('ver1')]]) {
+      const three = collect(expected, T0 + 4 * MIN);
+      expect(three.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'not-real' }]);
+      expect(stateOf(three, 'ver1').changed).toBeUndefined();
+      expect(stateOf(three, 'ver1').reread).toBeUndefined();
+    }
+  });
+
+  test('the latest of several later versions wins, each look taking the newest valid one in time', () => {
+    write('ver1', ballot(['f1', 'abstain']), T0);
+    let result = collect([verifier('ver1')]);
+    write('ver1', ballot(['f1', 'not-real']), T0 + MIN);
+    result = collect(withReads(result, [verifier('ver1')], { reread: true }), T0 + 2 * MIN);
+    write('ver1', ballot(['f1', 'real']), T0 + 3 * MIN);
+    result = collect(withReads(result, [verifier('ver1')], { reread: true }), T0 + 4 * MIN);
+    expect(result.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]);
+    expect(stateOf(result, 'ver1')).toMatchObject({ arrivedAt: T0 + 3 * MIN });
+  });
+
+  test('a later version that arrives after the deadline is never read, even when the result is unused: the first version stands and the change says why (a late result is not read)', () => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    write('ver1', later(), T0 + 5 * MIN + 1); // one millisecond past the verifier's deadline
+    const two = collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 6 * MIN);
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', arrivedAt: T0, changed: { kind: 'rewritten', usable: false, why: 'arrived-after-deadline' } });
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]);
+    expect(stateOf(two, 'ver1').reread).toBeUndefined();
+    expect(fs.readFileSync(path.join(scratch(), 'out-ver1.json'), 'utf8')).toBe(textOf(first()));
+    // a later version before the deadline, by the same stamp rule, is read
+    write('ver1', later(), T0 + 5 * MIN);
+    expect(collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 6 * MIN).votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'not-real' }]);
+  });
+
+  test.each([
+    ['unparseable JSON (a half-written file)', '{"votes":[', 'unparseable-json'],
+    ['an empty file', '', 'empty-file'],
+    ['a wrong schema', JSON.stringify({ votes: [{ candidateId: 'f1', verdict: 'maybe' }] }), 'unknown-verdict'],
+  ])('a later version that is %s is never taken, even when the result is unused: the first version stays arrived and the change names the reason', (_name, body, why) => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    write('ver1', body, T0 + 2 * MIN);
+    const two = collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 3 * MIN);
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', changed: { kind: 'rewritten', usable: false, why, now: { sha256: sha(body) } } });
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]);
+    expect(stateOf(two, 'ver1').reread).toBeUndefined();
+    // a half-written file completes: the next look takes it
+    write('ver1', later(), T0 + 4 * MIN);
+    expect(collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 5 * MIN).votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'not-real' }]);
+  });
+
+  test('a file swapped for a link, a directory or something too large is reported (replaced / unreadable) and never read; the first version stands', () => {
+    write('ver1', first(), T0);
+    write('ver2', first(), T0);
+    write('ver3', first(), T0);
+    const expected = [verifier('ver1'), verifier('ver2'), verifier('ver3')];
+    const one = collect(expected);
+    fs.rmSync(path.join(dir, 'out-ver1.json'));
+    fs.symlinkSync(path.join(root, 'elsewhere.json'), path.join(dir, 'out-ver1.json'));
+    fs.rmSync(path.join(dir, 'out-ver2.json'));
+    fs.mkdirSync(path.join(dir, 'out-ver2.json'));
+    fs.writeFileSync(path.join(dir, 'out-ver3.json'), Buffer.alloc(8 * 1024 * 1024 + 1, 'x'));
+    const two = collect(withReads(one, expected, { reread: true }), T0 + 3 * MIN);
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', changed: { kind: 'replaced', usable: false, why: 'not-a-regular-file', now: null } });
+    expect(stateOf(two, 'ver2')).toMatchObject({ state: 'arrived', changed: { kind: 'replaced', usable: false, why: 'not-a-regular-file', now: null } });
+    expect(stateOf(two, 'ver3')).toMatchObject({ state: 'arrived', changed: { kind: 'unreadable', usable: false, why: 'result-too-large', now: null } });
+    expect(two.votes).toHaveLength(3);
+    expect(two.votes.every((vote) => vote.verdict === 'real')).toBe(true);
+  });
+
+  test('a file that is gone is reported as removed, never as a change of the result: the copy taken stands and nothing was lost', () => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    fs.rmSync(path.join(dir, 'out-ver1.json'));
+    const two = collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 3 * MIN);
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', read: stateOf(one, 'ver1').read, changed: { kind: 'removed', usable: false, now: null } });
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]);
+    expect(two.warnings.join('\n')).toMatch(/out-ver1\.json: removed after it was read; the copy taken stands/);
+  });
+
+  test('a later version the scratch copy cannot be updated with is NOT taken: the data in use must stay the copy that stands for the read', () => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    write('ver1', later(), T0 + 2 * MIN);
+    const failing = { ...stamped, writeFile: () => { throw Object.assign(new Error('disk full'), { code: 'ENOSPC' }); } };
+    const two = collectResults({ expected: withReads(one, [verifier('ver1')], { reread: true }), dir, now: T0 + 3 * MIN }, failing);
+    expect(stateOf(two, 'ver1')).toMatchObject({ state: 'arrived', changed: { kind: 'rewritten', usable: false, why: 'scratch-not-updated' } });
+    expect(stateOf(two, 'ver1').reread).toBeUndefined();
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]);
+    expect(fs.readFileSync(path.join(scratch(), 'out-ver1.json'), 'utf8')).toBe(textOf(first()));
+  });
+
+  test('a scratch copy that is not the version the caller recorded as read is ignored, with a warning: the file is read and compared with the record instead', () => {
+    write('ver1', first(), T0);
+    const one = collect([verifier('ver1')]);
+    // somebody replaced the copy that stands for the read
+    fs.writeFileSync(path.join(scratch(), 'out-ver1.json'), textOf(ballot(['f1', 'abstain'])));
+    fs.utimesSync(path.join(scratch(), 'out-ver1.json'), T0 / 1000, T0 / 1000);
+    const two = collect(withReads(one, [verifier('ver1')]), T0 + MIN);
+    expect(two.warnings.join('\n')).toMatch(/ignored a scratch copy that is not the version recorded as read/);
+    expect(two.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'real' }]); // the data is what the record says was read, from the file
+    expect(stateOf(two, 'ver1').changed).toBeUndefined();
+    expect(fs.readFileSync(path.join(scratch(), 'out-ver1.json'), 'utf8')).toBe(textOf(first())); // and the copy is taken again
+  });
+
+  test('without a usable scratch directory the first version is kept nowhere: the result files alone are judged, and a later version is said to have replaced it', () => {
+    write('ver1', first(), T0);
+    fs.mkdirSync(scratch(), { mode: 0o755 });
+    fs.chmodSync(scratch(), 0o777); // writable by others: unsafe, so neither read nor written
+    const one = collect([verifier('ver1')]);
+    expect(stateOf(one, 'ver1')).toMatchObject({ state: 'arrived', scratchError: 'unsafe-scratch-dir' });
+    write('ver1', later(), T0 + 2 * MIN);
+    const kept = collect(withReads(one, [verifier('ver1')]), T0 + 3 * MIN);
+    expect(stateOf(kept, 'ver1')).toMatchObject({ state: 'arrived', changed: { kind: 'rewritten', usable: true, kept: false } });
+    expect(kept.warnings.join('\n')).toMatch(/changed after it was read .*; no copy of the version first read is kept, so this pass counts what the file holds now/);
+    expect(kept.votes).toEqual([{ verifier: 'ver1', candidateId: 'f1', verdict: 'not-real' }]); // the file is all there is: its later bytes are this pass's data
+    const taken = collect(withReads(one, [verifier('ver1')], { reread: true }), T0 + 3 * MIN);
+    expect(stateOf(taken, 'ver1')).toMatchObject({ state: 'arrived', reread: { from: stateOf(one, 'ver1').read } });
+    expect(stateOf(taken, 'ver1').changed).toBeUndefined();
+  });
+
+  test('a reviewer re-read before its result is used reports the later findings and the later paths: the slice is judged on the version in use', () => {
+    write('rev1', review([{ id: 'F1' }], ['a.js']), T0);
+    const expected = [reviewer('rev1', { sliceId: 's1', lens: 'correctness', paths: ['a.js', 'b.js'] })];
+    const one = collect(expected);
+    expect(one.unreviewedSlices).toEqual(['s1']); // it listed one of the two paths
+    expect(one.findings.map((finding) => finding.id)).toEqual(['F1']);
+    write('rev1', review([{ id: 'F1' }, { id: 'F2' }], ['a.js', 'b.js']), T0 + 2 * MIN);
+    // without reread the same later file changes nothing counted, and is reported
+    const three = collect(withReads(one, expected), T0 + 3 * MIN);
+    expect(three.findings.map((finding) => finding.id)).toEqual(['F1']);
+    expect(three.unreviewedSlices).toEqual(['s1']);
+    expect(stateOf(three, 'rev1').changed).toMatchObject({ kind: 'rewritten', usable: true });
+    expect(stateOf(three, 'rev1').changed.kept).toBeUndefined(); // the copy of the first version stands
+    const two = collect(withReads(one, expected, { reread: true }), T0 + 3 * MIN);
+    expect(two.findings.map((finding) => finding.id)).toEqual(['F1', 'F2']);
+    expect(two.reviewedSlices).toEqual(['s1']);
+    expect(two.reviewedBy).toEqual([{ sliceId: 's1', lens: 'correctness', reviewer: 'rev1', paths: ['a.js', 'b.js'] }]);
+  });
+
+  test.each([
+    ['a read that is not an object', 'x'],
+    ['a read without sha256', { size: 3 }],
+    ['a sha256 that is not 64 hex characters', { size: 3, sha256: 'abc' }],
+    ['an upper-case sha256', { size: 3, sha256: 'A'.repeat(64) }],
+    ['a negative size', { size: -1, sha256: 'a'.repeat(64) }],
+    ['a fractional size', { size: 1.5, sha256: 'a'.repeat(64) }],
+    ['a non-finite modification time', { size: 3, sha256: 'a'.repeat(64), mtimeMs: 'now' }],
+  ])('%s is a refusal of the request, never a guess about what was read', (_name, read) => {
+    write('ver1', first());
+    const result = collect([verifier('ver1', { read })]);
+    expect(result).toMatchObject({ ok: false, agents: [] });
+    expect(result.reason).toMatch(/expected\[0\]\.read must be the fingerprint/);
+  });
+
+  test('a reread that is not true or false is refused', () => {
+    write('ver1', first());
+    const result = collect([verifier('ver1', { reread: 'yes' })]);
+    expect(result).toMatchObject({ ok: false, agents: [] });
+    expect(result.reason).toMatch(/reread must be true or false/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // classifyAgentFailure
 // ---------------------------------------------------------------------------
 
