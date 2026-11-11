@@ -22,6 +22,8 @@
 const fs = require('fs');
 const { readSkillBundle } = require('./helpers/pr-review-cycle-skill');
 const path = require('path');
+const yaml = require('js-yaml');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
 
 const {
   traceCapabilities,
@@ -57,7 +59,13 @@ const skillRecords = (base) =>
 // ---------------------------------------------------------------------------
 
 describe('TRD-037 AC-023-1: the real entry points reach the real behaviour', () => {
-  const entryPoints = ENTRY_POINTS.map((entry) => ({ id: entry.id, text: read(entry.file) }));
+  // fix-issue and implement-trd-beads are skill-backed: the entry point's text is its manifest plus
+  // its skill prose (SKILL.md + references/*.md); pr-merge is a plain command (its own YAML text).
+  const entryText = (entry) => {
+    const yamlText = read(entry.file);
+    return readCommandProse(path.join(REPO_ROOT, entry.file), yaml.load(yamlText), yamlText);
+  };
+  const entryPoints = ENTRY_POINTS.map((entry) => ({ id: entry.id, text: entryText(entry) }));
   const skills = skillRecords('packages/development/skills');
   const subcommands = Object.keys(HANDLERS);
   const result = traceCapabilities({ entryPoints, skills, subcommands });
@@ -134,9 +142,9 @@ describe('TRD-037 AC-023-1: the real entry points reach the real behaviour', () 
  * and the CLI. Codex and OpenCode generate command artifacts but bundle only
  * FRAMEWORK skills -- `scripts/generate-codex/index.js` rewrites a fixed
  * framework list, and `scripts/generate-opencode` copies
- * `packages/<pkg>/skills/SKILL.md`, a layout the multi-skill development
- * package does not use. That is a real reduction, and it is stated rather
- * than papered over.
+ * `packages/<pkg>/skills/<pkg>/SKILL.md`, a skill named after its package,
+ * which the multi-skill development package does not have. That is a real
+ * reduction, and it is stated rather than papered over.
  */
 function runtimeInventory() {
   const subcommandsOf = (relative) => {

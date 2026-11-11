@@ -1,0 +1,47 @@
+[
+ {
+  "agent": "verifier-3",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T20:33:54.016Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T20:33:49.411Z"
+ },
+ {
+  "agent": "verifier-1",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T20:34:40.606Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T20:34:27.699Z"
+ },
+ {
+  "agent": "verifier-2",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T20:35:13.267Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T20:35:08.428Z"
+ },
+ {
+  "agent": "verifier-5",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T20:35:57.959Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T20:35:51.192Z"
+ },
+ {
+  "agent": "verifier-4",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T20:36:32.469Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T20:36:29.301Z"
+ }
+]

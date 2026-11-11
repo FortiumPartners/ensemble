@@ -51,7 +51,7 @@ import { SPAWN_EVENT } from "../src/model-roles";
  *   - `{ action: "handled" }` from an `input` handler stops the prompt: no model call, no `before_agent_start`. A
  *     handler that throws does not stop it: the input continues and the error is kept in `hostErrors`.
  *   - `input` does not fire for the text of a registered extension command. The dispatcher commands are extension
- *     commands when the repository holds their YAML; their handler forwards `/ensemble:<dispatcher> <args>` with
+ *     commands when the repository holds their skill; their handler forwards `/ensemble:<dispatcher> <args>` with
  *     `sendUserMessage(text, { expandPromptTemplates: true })`, and `input` fires once for that text with source
  *     `extension`.
  *   - A loop that completes fires `agent_before_settle` (outcome `completed`), then `agent_settled` with
@@ -66,8 +66,8 @@ import { SPAWN_EVENT } from "../src/model-roles";
 const PACKAGE_ROOT = resolve(__dirname, "..");
 const REPO_ROOT = resolve(PACKAGE_ROOT, "../..");
 const INSTALL_SCRIPT = join(PACKAGE_ROOT, "scripts", "install.mjs");
-/** The dispatcher YAML whose presence makes `activate()` register `/ensemble-prd` as an extension command. */
-const PRD_DISPATCHER_YAML = join("packages", "product", "commands", "prd.yaml");
+/** The dispatcher skill whose presence makes `activate()` register `/ensemble-prd` as an extension command. */
+const PRD_DISPATCHER_SKILL = join("packages", "product", "skills", "ensemble-prd", "SKILL.md");
 
 const CREATE_PRD = "ensemble:create-prd";
 const PRD_DISPATCHER = "ensemble:prd";
@@ -169,8 +169,8 @@ interface HooksSpec {
 interface ProjectSpec {
   /** The project's hooks file. Absent means the project has none. */
   hooks?: HooksSpec;
-  /** The repository holds the dispatcher's own YAML, as the Ensemble repository does. */
-  dispatcherYaml?: boolean;
+  /** The repository holds the dispatcher's own skill, as the Ensemble repository does. */
+  dispatcherSkill?: boolean;
 }
 
 interface Project {
@@ -190,9 +190,9 @@ function makeProject(spec: ProjectSpec = {}): Project {
     chmodSync(join(root, "scripts", file), 0o755);
   }
   if (spec.hooks) writeFileSync(join(root, HOOKS_FILE_RELATIVE), yaml.dump({ version: 1, ...spec.hooks }, { lineWidth: -1 }));
-  if (spec.dispatcherYaml) {
-    mkdirSync(join(root, dirname(PRD_DISPATCHER_YAML)), { recursive: true });
-    copyFileSync(join(REPO_ROOT, PRD_DISPATCHER_YAML), join(root, PRD_DISPATCHER_YAML));
+  if (spec.dispatcherSkill) {
+    mkdirSync(join(root, dirname(PRD_DISPATCHER_SKILL)), { recursive: true });
+    copyFileSync(join(REPO_ROOT, PRD_DISPATCHER_SKILL), join(root, PRD_DISPATCHER_SKILL));
   }
   return { root, trace: join(root, "trace.log") };
 }
@@ -475,8 +475,8 @@ describe("what activate() registers (AC-008-1, REQ-008)", () => {
     expectQuiet(host);
   });
 
-  it("registers only the dispatcher when the repository holds its YAML but there is no hooks file", () => {
-    const host = loadExtension(makeProject({ dispatcherYaml: true }));
+  it("registers only the dispatcher when the repository holds its skill but there is no hooks file", () => {
+    const host = loadExtension(makeProject({ dispatcherSkill: true }));
 
     expect(host.registered).toEqual({ commands: ["ensemble-prd"], tools: [], events: [SPAWN_EVENT] });
     expectQuiet(host);
@@ -806,9 +806,9 @@ describe("the lifecycle of a command (AC-015-1, AC-015-2)", () => {
 
 describe("a dispatcher fires the lifecycle once, for the target (AC-015-3, REQ-003)", () => {
   /** The hooks file selects both the dispatcher and its target, so a lifecycle fired for either would leave a mark. */
-  function dispatcherProject(dispatcherYaml: boolean): Project {
+  function dispatcherProject(dispatcherSkill: boolean): Project {
     return makeProject({
-      dispatcherYaml,
+      dispatcherSkill,
       hooks: {
         hooks: {
           "dispatcher-start": recorder("dispatcher-start"),
@@ -842,7 +842,7 @@ describe("a dispatcher fires the lifecycle once, for the target (AC-015-3, REQ-0
   }
 
   it("typed form: /ensemble-prd create foo reaches input as typed, and starts the target's run only", async () => {
-    const project = dispatcherProject(false); // no dispatcher YAML, so no extension command intercepts the text
+    const project = dispatcherProject(false); // no dispatcher skill, so no extension command intercepts the text
     const host = loadExtension(project);
     expect(host.commands.has("ensemble-prd")).toBe(false);
     await trustHooks(host);
@@ -857,7 +857,7 @@ describe("a dispatcher fires the lifecycle once, for the target (AC-015-3, REQ-0
   });
 
   it("forwarded form: the registered dispatcher forwards /ensemble:prd create foo as an extension message, and the target's run starts once", async () => {
-    const project = dispatcherProject(true); // the repository holds prd.yaml, so activate() registered the dispatcher command
+    const project = dispatcherProject(true); // the repository holds the prd skill, so activate() registered the dispatcher command
     const host = loadExtension(project);
     expect(host.commands.has("ensemble-prd")).toBe(true);
     await trustHooks(host);
@@ -873,8 +873,8 @@ describe("a dispatcher fires the lifecycle once, for the target (AC-015-3, REQ-0
   });
 
   it("a dispatcher with no keyword, or an unknown one, starts no lifecycle: not for the dispatcher and not for any target", async () => {
-    for (const dispatcherYaml of [false, true]) {
-      const project = dispatcherProject(dispatcherYaml);
+    for (const dispatcherSkill of [false, true]) {
+      const project = dispatcherProject(dispatcherSkill);
       const host = loadExtension(project);
       await trustHooks(host);
 

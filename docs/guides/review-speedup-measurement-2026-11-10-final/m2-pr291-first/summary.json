@@ -1,0 +1,240 @@
+{
+ "runId": "m2-pr291-first",
+ "pr": 291,
+ "tier": "high",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "9594d1c1f716f6573231557bbae6aa90e357e88d",
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 3,
+  "recorded": 2
+ },
+ "metrics": {
+  "wallMs": 1242930,
+  "runnerCalls": 8,
+  "dispatchRounds": 2,
+  "agentsDispatched": 8,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 5
+  },
+  "turnsAtLeast": 10
+ },
+ "triage": {
+  "turns": 1,
+  "requested": 0,
+  "additionalCandidateIds": [],
+  "mergedIntoExisting": 0,
+  "at": "2026-11-10T20:14:25.219Z"
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "gateBlockers": [
+  "open-important-finding:f3",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 3,
+  "bySeverity": {
+   "important/fix": 1,
+   "nit/fix": 1,
+   "pre-existing/deferred": 1
+  },
+  "present": 3,
+  "presentOnMajority": 0,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s1-b",
+    "loc": "scripts/tests/toolchain-adapters.test.js:583-601",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/lib/toolchain/adapters.js:602",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/lib/toolchain/adapters.js:579-587",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 78484,
+  "startedAt": "2026-11-10T20:00:24.896Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T20:06:44.920Z",
+  "durationMin": 6.33,
+  "ok": true,
+  "stage": "attest",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": true
+   },
+   {
+    "node": 24,
+    "ok": true
+   }
+  ],
+  "failures": []
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 20.67555,
+  "window": [
+   "2026-11-10T20:00:23.727Z",
+   "2026-11-10T20:21:04.260Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 74867,
+   "missing": false,
+   "pct": 6
+  },
+  "beforeFirstDispatch": 10385,
+  "activeMs": 1165665,
+  "criticalPath": {
+   "ms": 1165666,
+   "missing": false,
+   "lowerBound": true,
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 771572,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 394093,
+       "missing": false,
+       "name": "verifier-3"
+      },
+      {
+       "stage": "verdict",
+       "ms": 1,
+       "missing": false,
+       "lowerBound": true,
+       "clippedMs": 15
+      }
+     ],
+     "ms": 1165666,
+     "missing": false,
+     "lowerBound": true
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    8
+   ],
+   "review.gate": [
+    2,
+    1603
+   ],
+   "review.verdict": [
+    2,
+    21
+   ],
+   "review.security-lane": [
+    1,
+    394953
+   ],
+   "review.reviewer": [
+    2,
+    771572
+   ],
+   "review.verifier": [
+    5,
+    394093
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr291-first-m2-pr291-first",
+  "pr": 291,
+  "tier": "high",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 20.676,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run m2-pr291-first",
+  "run_id": "m2-pr291-first"
+ }
+}

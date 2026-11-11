@@ -207,7 +207,9 @@ function votesLine(vote) {
   if (!isObject(tally)) return `no tally (${outcome})`;
   const n = (value) => flat(value, 12);
   const abstain = Number(tally.abstain) > 0 ? ` / ${n(tally.abstain)} abstain` : '';
-  return `${n(tally.real)} real / ${n(tally.notReal)} not-real${abstain} of ${n(tally.expected)} expected (${outcome})`;
+  // kata 3ezq: a finding settled quorum-first names its mode, so "2 of 3 expected" is not read as a verifier that disagreed or was lost
+  const quorum = vote.quorumSettled === true ? `, quorum-settled: the first ${n(tally.real)} verifiers all voted real and ${n(vote.unaskedVerifiers)} not asked` : '';
+  return `${n(tally.real)} real / ${n(tally.notReal)} not-real${abstain} of ${n(tally.expected)} expected (${outcome}${quorum})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,6 +408,7 @@ const GAP_BEAD_WORDS = {
   'whole-range': { prefix: 'Whole-range read missing', heading: 'Paths the whole-range read did not cover (the slice reviewers read each slice on its own):' },
   uncovered: { prefix: 'Not reviewed', heading: 'Paths no slice held and no reviewer read:' },
   'under-reviewed': { prefix: 'Under-reviewed', heading: 'Paths read under fewer distinct lenses than the mode requires:' },
+  'result-changed': { prefix: 'Result changed after read', heading: 'Paths the changed result is about (the review counted the first version of the result, not the later one):' },
   unnamed: { prefix: 'Not reviewed', heading: 'Paths treated as not reviewed (the review named none):' },
 };
 

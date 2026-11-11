@@ -8,15 +8,15 @@
  * libraries. `pr-review-run.js` calls these over the facts it already holds.
  *
  * One runner, two modes. Full mode differs from light in exactly four things and nothing else, and the fourth changes what
- * the runner RECORDS, not what a reviewer reads: reviewers read the whole range in both modes until verdict carry-over
- * (kata qw98) lands.
+ * the runner RECORDS: reviewers read the whole range unless the runner's own delta round applies the decision (kata xb4j,
+ * lib/pr-review-run-delta.js).
  *   1. Deep depth always (`FULL_DEPTH_TIER`): at least 2 reviewers per slice and 5 verifiers per finding, whatever the
  *      tier word says -- an unreadable tier has no depth of its own, and the runner must not hand it a lighter one;
  *   2. the security lane always;
  *   3. a model-orchestrator TRIAGE stop between the review round and the verify round (`validateTriage`): the one
  *      place the orchestrator may act, and it may only ADD candidates the reviewers missed;
  *   4. the re-review scope rule (`planReReview`): delta only when nothing makes a delta unsafe, a full re-read otherwise;
- *      recorded in the run and in the answers, with `appliedRange` always `full-range` today.
+ *      recorded in the run and in the answers, with `appliedRange` (`full-range`, or `delta` when the runner applied it).
  *
  * `modeInvariant` is the guard behind "no code path downgrades a full run": it reads the stored run, refuses a mode label
  * that is not what `selectMode` says for the tier the run stores (rewritten to light, removed or unknown), and refuses a
@@ -54,11 +54,12 @@ const stringList = (value) => Array.isArray(value) && value.every(isText);
  * re-read, with every applicable reason listed. The plan module already refuses a delta for these; this is checked again
  * from the run's own classification so that a plan that is missing, stale or wrong cannot narrow a High-tier review.
  *
- * `appliedRange` states what the runner actually has the reviewers read: today always the whole range (the superset),
- * because verdict carry-over (kata qw98) is what lets a round read only a delta and still account for every path.
+ * `appliedRange` states what the runner actually has the reviewers read. This pure rule answers `full-range`, the superset;
+ * the runner replaces it with `delta` only for a round it can stand behind (the last round on record, whole, with its verdicts:
+ * lib/pr-review-run-delta.js), because only then does a delta read still account for every path.
  *
  * @param {{lastReviewedSha?:string, rangeMode?:string, deltaPlan?:Object, delta?:Object, paths?:Object}} input
- * @returns {{scope:'first-review'|'delta'|'full', reasons:string[], appliedRange:'full-range'}}
+ * @returns {{scope:'first-review'|'delta'|'full', reasons:string[], appliedRange:'full-range'}}  (the runner may record `delta`, see above)
  */
 function planReReview(input) {
   const request = isObject(input) ? input : {};

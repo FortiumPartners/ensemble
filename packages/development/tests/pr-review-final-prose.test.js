@@ -18,7 +18,7 @@ describe('final review prose and versions', () => {
   });
 
   test('pr-merge refuses to pass an empty ledger when no review is recorded', () => {
-    const cmd = read('packages/git/commands/pr-merge.yaml');
+    const cmd = read('packages/git/skills/ensemble-pr-merge/SKILL.md');
     expect(cmd).toMatch(/never be given an empty ledger/);
     expect(cmd).toMatch(/MODE=local\/remote/);
   });

@@ -1,7 +1,7 @@
 # @sunstone-partners/ensemble-pi-extension
 
 Thin Pi-specific extension providing native command completion for the
-`prd`/`trd`/`issue`/`feature` dispatcher commands, via Pi's native,
+`prd`/`trd`/`issue`/`feature`/`reqnroll`/`standards` dispatcher commands, via Pi's native,
 documented extension mechanism (`pi.registerCommand`, `pi.sendUserMessage`).
 No fork or patch of Pi's agent loop. It also reports, loudly, an OMP model
 role that an Ensemble agent needs and you have not set (see "Model role
@@ -9,8 +9,9 @@ check" below).
 
 Each dispatcher registration (`registerDispatcherCommand` in
 `src/dispatcher-commands.ts`) is a no-op in any repo that doesn't have the
-corresponding YAML (`packages/product/commands/prd.yaml`,
-`packages/development/commands/{trd,issue,feature}.yaml`), so this
+corresponding dispatcher skill (`packages/product/skills/ensemble-{prd,reqnroll}/SKILL.md`,
+`packages/development/skills/ensemble-{trd,issue,feature}/SKILL.md`,
+`packages/core/skills/ensemble-standards/SKILL.md`), so this
 extension loading globally in every session never pollutes an unrelated
 repo's command list.
 

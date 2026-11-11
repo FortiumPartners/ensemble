@@ -1,0 +1,110 @@
+[
+ {
+  "agent": "verifier-8",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:36:23.105Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:36:19.498Z"
+ },
+ {
+  "agent": "verifier-7",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:36:33.635Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:36:24.744Z"
+ },
+ {
+  "agent": "verifier-6",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:36:48.288Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:36:43.005Z"
+ },
+ {
+  "agent": "verifier-4",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:39:53.278Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:39:51.253Z"
+ },
+ {
+  "agent": "verifier-9",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:40:19.912Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:40:14.771Z"
+ },
+ {
+  "agent": "verifier-3",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:40:58.507Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:40:56.631Z"
+ },
+ {
+  "agent": "verifier-1",
+  "role": "verifier",
+  "round": "verify",
+  "how": "killed-at-deadline",
+  "detectedAt": "2026-11-10T23:41:13.080Z",
+  "fileExists": false,
+  "fileMtime": null
+ },
+ {
+  "agent": "verifier-2",
+  "role": "verifier",
+  "round": "verify",
+  "how": "killed-at-deadline",
+  "detectedAt": "2026-11-10T23:41:13.087Z",
+  "fileExists": false,
+  "fileMtime": null
+ },
+ {
+  "agent": "verifier-5",
+  "role": "verifier",
+  "round": "verify",
+  "how": "killed-at-deadline",
+  "detectedAt": "2026-11-10T23:41:13.096Z",
+  "fileExists": true,
+  "fileMtime": null
+ },
+ {
+  "agent": "verifier-10",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:43:03.763Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:43:02.213Z"
+ },
+ {
+  "agent": "verifier-11",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-10T23:43:36.351Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-10T23:43:28.916Z"
+ },
+ {
+  "agent": "verifier-12",
+  "role": "verifier",
+  "round": "verify",
+  "how": "killed-at-deadline",
+  "detectedAt": "2026-11-10T23:47:55.133Z",
+  "fileExists": false,
+  "fileMtime": null
+ }
+]

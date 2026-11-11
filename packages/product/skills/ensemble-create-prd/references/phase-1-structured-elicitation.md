@@ -1,0 +1,48 @@
+# Phase 1: Structured Elicitation
+
+**1. Scale Detection**
+   Determine project complexity to calibrate PRD depth
+
+- HALT CHECK (run first, before anything else in this command): IF $ARGUMENTS contains BOTH --from-meeting and --foreman, HALT immediately and print: 'ERROR: --from-meeting takes the PRD subject from the meeting summary in $ARGUMENTS, while --foreman takes it from FOREMAN_TASK_TITLE / FOREMAN_TASK_DESCRIPTION; the two cannot be combined. Drop one of the two flags.' Do not read the meeting summary, do not read FOREMAN_TASK_TITLE, and do not write any file.
+- IF --from-meeting flag is set: skip this step and every other step in this phase -- there is no one to interview. Scale depth is inferred from the meeting summary, and the Problem Space and Creative Elicitation questions are answered from it (or marked [NEEDS CLARIFICATION: ...]), in the Meeting Summary Intake phase.
+- IF --foreman flag is set: the PRD subject is FOREMAN_TASK_TITLE and its requirements input is FOREMAN_TASK_DESCRIPTION. Read both before anything else, print the title you read, and use them everywhere these steps say 'the product description provided as arguments'. If FOREMAN_TASK_TITLE is unset or empty AND no product description was passed as arguments, STOP here -- write no PRD and report that the subject was never delivered. Never substitute a subject inferred from the repository, git history, or docs/PRD/ contents.
+- IF --foreman flag is set: skip asking, default depth level to STANDARD, and announce that STANDARD was auto-selected (not asked) because foreman mode is active -- then proceed directly to the next step.
+- Ask the user: 'Is this a solo/side project, small team (2-5), or enterprise/multi-team effort?'
+- If user provided a product description as arguments, read it first, then ask -- don't make them repeat themselves
+- Set depth level: LIGHT (solo -- 5-10 requirements, minimal ceremony), STANDARD (small team -- 10-25 requirements, full ACs), DEEP (enterprise -- 25+ requirements, risk analysis, compliance section)
+- Announce the chosen depth level so the user can override if needed
+
+**2. Problem Space Interview**
+   Gather core product context through a one-question-at-a-time interview
+
+- IF --from-meeting flag is set: skip this step entirely -- do not ask any of these questions. The Meeting Summary Intake phase maps the meeting summary onto Q1-Q5 and marks every unanswered one [NEEDS CLARIFICATION: ...] instead.
+- IF --foreman flag is set: do not ask any of these questions. For each one, either resolve it with the most reasonable default based on the provided product description and note the assumption in the PRD, or -- if genuinely unresolvable without human input -- mark it inline in the generated PRD as [NEEDS CLARIFICATION: <question>] per this repo's convention. Do not block; proceed to the next step.
+- INTERVIEW PROTOCOL: Ask exactly ONE question, wait for the user's full answer, then ask the next. Never batch questions.
+- Determine which of these questions are NOT already answered by the product description provided as arguments, then ask only the unanswered ones in order:
+- Q1: 'What problem does this solve, and who feels the pain today?'
+- Q2: 'Who are the primary users? (describe by role, not by name)'
+- Q3: 'What does success look like -- ideally with specific metrics?'
+- Q4: 'What constraints apply? (budget, timeline, regulatory/compliance obligations, platforms the users must be able to reach, etc.)'
+- Q5: 'What existing solutions have been tried or considered, and why weren't they enough?'
+- After each answer: acknowledge it briefly (1 sentence), then ask the next question
+- After the final answer: summarize what you heard in 3-4 sentences and ask the user to confirm before continuing
+
+**3. Creative Elicitation**
+   Surface hidden and edge-case requirements through a structured one-question-at-a-time interview
+
+- IF --from-meeting flag is set: skip this step entirely -- do not ask any SCAMPER, failure-scenario or scope-boundary question. The Meeting Summary Intake phase does not attempt creative elicitation (it captures an edge case, risk or alternative only if the summary surfaces one), and Approvals and Decision Ownership / Entry and Exit Criteria are derived from the summary in Requirements Definition.
+- IF --foreman flag is set: do not ask any SCAMPER or failure-scenario questions. Instead, reason through the same angles internally, resolving each with a reasonable default and noting the assumption, or marking genuinely unresolvable items inline as [NEEDS CLARIFICATION: <question>] in the generated PRD. Do not block.
+- INTERVIEW PROTOCOL: Ask ONE question at a time, wait for the answer, then ask the next.
+- Choose 2-3 SCAMPER angles most relevant to this product and ask them sequentially:
+- - Substitute angle: 'What if [key component] were replaced or unavailable? What would break?'
+- - Combine angle: 'What adjacent problem could this solve at the same time?'
+- - Adapt angle: 'What existing product does this most resemble, and where must yours differ?'
+- - Eliminate angle: 'What is the simplest version that still solves the core problem?'
+- After SCAMPER, run the failure scenario interview -- ask one failure scenario at a time:
+- Ask: 'What happens if [scenario]?' -- use data loss, abuse, scale failure, accessibility, and offline as failure scenario prompts
+- Record every insight -- these become requirements or risk flags
+- Close the interview with two scope-boundary questions, and record both answers as explicit PRD sections:
+- - 'Who signs off that this is the right thing to build, and what are their acceptance criteria?' -- becomes *Approvals and Decision Ownership*, naming the approver/role and the criteria they will judge against.
+- - 'What has to be true before we start, and what has to be true before we can call this done?' -- becomes *Entry and Exit Criteria*: preconditions the work assumes, and the observable conditions that end it.
+- For LIGHT depth: 2 SCAMPER questions + 2 failure scenario questions
+- For DEEP depth: all 4 SCAMPER angles + 5+ failure scenario questions

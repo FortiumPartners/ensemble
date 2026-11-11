@@ -9,6 +9,10 @@
  * their own: their commands are kept out of packages/pi and generated into the
  * package itself (see generateSelfContainedPackages).
  *
+ * A command YAML with a top-level `skill` is a manifest (a skill-backed command): its prompt is a
+ * stub that points at the skill, which ships as it is (skill-copier) and gets no command-wrapper
+ * skill of its own.
+ *
  * Stale output is pruned on every run: a generated file (one that carries a generated marker,
  * see generated-marker.ts) that the run did not reproduce is removed, so a removed or renamed
  * command, agent or skill leaves nothing behind (see pruneStaleArtifacts).
@@ -26,7 +30,7 @@ import {
 } from './transformers/command-skill-transformer';
 import { SELF_CONTAINED_PI_PACKAGES } from './self-contained-packages';
 import { GeneratorOptions, GenerateResult, TransformResult, CommandYaml } from './types';
-import { hasGeneratedMarker } from './generated-marker';
+import { hasGeneratedMarker, isValidSkillName, skillOfPrompt } from './generated-marker';
 import { transformCommand } from './transformers/command-transformer';
 import { buildAgentResult } from './transformers/agent-transformer';
 import { copySkills } from './transformers/skill-copier';
@@ -151,12 +155,18 @@ export function promptOutputPath(
  *
  *   prompt   prompts/*.md and prompts/_hidden/*.md   generated marker (generated-marker.ts)
  *   agent    agents/*.md                             generated marker, after the frontmatter
- *   skill    skills/<name>/*.md                      generated marker (what copySkills writes)
+ *   skill    skills/<name>/*.md, and the .md files   generated marker (what copySkills writes)
+ *            below skills/<name>/references/
  *   wrapper  skills/ensemble-<cmd>/SKILL.md          the wrapper's own proof, see
  *                                                    isCommandWrapperSkill
  *
+ * A skill-backed command has no wrapper: its skill is copied by copySkills (a `skill`) or, in a
+ * self-contained package, hand-authored in place, and generateWrappersAndPrune protects either.
+ * The references/ directory of a copied skill is copied with it, so its files are pruned with it.
+ *
  * Nothing else is looked at: not a file elsewhere in the output root (AGENTS.md, vendor/),
- * not a subdirectory of a skill, not a symlink, not a placeholder such as .gitkeep.
+ * not any other subdirectory of a skill, not a symlink (a references/ that is one included),
+ * not a placeholder such as .gitkeep.
  */
 export type ArtifactKind = 'prompt' | 'agent' | 'skill' | 'wrapper';
 
@@ -171,11 +181,44 @@ function entriesOf(dir: string): fs.Dirent[] {
   }
 }
 
-/** The regular .md files directly in `dir`. */
-function markdownFilesIn(dir: string): string[] {
-  return entriesOf(dir)
+/** The directory of a skill that holds its extra documents (the Agent Skills layout). */
+const SKILL_REFERENCES_DIR = 'references';
+
+/** The regular .md files among `entries`, the entries of `dir`. */
+function markdownAmong(dir: string, entries: fs.Dirent[]): string[] {
+  return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
     .map((entry) => path.join(dir, entry.name));
+}
+
+/** The regular .md files directly in `dir`. */
+function markdownFilesIn(dir: string): string[] {
+  return markdownAmong(dir, entriesOf(dir));
+}
+
+/** The regular .md files below `dir`, at any depth. A symlink, to a file or to a directory, is never followed. */
+function markdownFilesBelow(dir: string): string[] {
+  const entries = entriesOf(dir);
+  return [
+    ...markdownAmong(dir, entries),
+    ...entries
+      .filter((entry) => entry.isDirectory())
+      .flatMap((entry) => markdownFilesBelow(path.join(dir, entry.name))),
+  ];
+}
+
+/**
+ * The markdown files of the skill directory `skillDir` that the generator may have written: those
+ * directly in it (SKILL.md, REFERENCE.md) and every one below its references/ directory. A
+ * references/ that is a symlink is not a directory to look into.
+ */
+function skillMarkdownFiles(skillDir: string): string[] {
+  const entries = entriesOf(skillDir);
+  const hasReferences = entries.some((entry) => entry.isDirectory() && entry.name === SKILL_REFERENCES_DIR);
+  return [
+    ...markdownAmong(skillDir, entries),
+    ...(hasReferences ? markdownFilesBelow(path.join(skillDir, SKILL_REFERENCES_DIR)) : []),
+  ];
 }
 
 /** The regular files among `files` whose content `proof` accepts. */
@@ -212,7 +255,7 @@ export function listGeneratedFiles(outputRoot: string, kind: ArtifactKind): stri
     case 'agent':
       return filesProving(markdownFilesIn(path.join(outputRoot, 'agents')), hasGeneratedMarker);
     case 'skill':
-      return filesProving(skillDirs.flatMap(markdownFilesIn), hasGeneratedMarker);
+      return filesProving(skillDirs.flatMap(skillMarkdownFiles), hasGeneratedMarker);
     case 'wrapper':
       return filesProving(
         skillDirs.map((dir) => path.join(dir, 'SKILL.md')),
@@ -235,7 +278,11 @@ function producedPaths(results: readonly TransformResult[]): Set<string> {
   return new Set(results.map((result) => foldPath(result.outputPath)));
 }
 
-/** Remove `dir` if it is empty and not one of the `keep` roots; anything inside it is safe. */
+/**
+ * Remove `dir` if it is empty and not one of the `keep` roots, then the same for each parent that
+ * this empties in turn (the skill directory once its last references/ file is gone); anything
+ * inside a directory keeps it.
+ */
 function removeIfEmpty(dir: string, keep: ReadonlySet<string>): void {
   if (keep.has(dir)) return;
   try {
@@ -243,7 +290,9 @@ function removeIfEmpty(dir: string, keep: ReadonlySet<string>): void {
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code !== 'ENOTEMPTY' && code !== 'EEXIST' && code !== 'ENOENT') throw err;
+    return;
   }
+  removeIfEmpty(path.dirname(dir), keep);
 }
 
 /**
@@ -298,6 +347,12 @@ export function pruneStaleArtifacts(
  * neither output nor protected from pruning. `prompts.written` are the prompts this run writes
  * or, on a dry run, would write: such a prompt may not be on disk yet, so generateCommandSkills
  * cannot see it, but an existing wrapper of it is not stale.
+ *
+ * A prompt that is the stub of a skill-backed command gets no wrapper (skillOfPrompt). What its
+ * command owns at skills/<skill>/SKILL.md is the skill, copied there by copySkills or hand-authored
+ * in place in a self-contained package, so that path is protected from pruning even when the skill
+ * happens to open like a wrapper. A wrapper the command left at another path, which renaming its
+ * skill leaves behind, is stale and goes.
  */
 async function generateWrappersAndPrune(
   outputRoot: string,
@@ -306,6 +361,11 @@ async function generateWrappersAndPrune(
 ): Promise<{ results: TransformResult[]; pruned: string[] }> {
   const { dryRun, verbose, hideFromClaudeCode, pruneWrappers = true } = options;
   const gone = new Set(prompts.pruned.map(foldPath));
+  // A prompt this run writes as a stub gets no wrapper, whatever stands in its place on disk: on a
+  // dry run the prompt it would replace is still there, and generateCommandSkills would wrap that.
+  for (const prompt of prompts.written) {
+    if (skillOfPrompt(prompt.content) !== undefined) gone.add(foldPath(prompt.outputPath));
+  }
   const results = (await generateCommandSkills(outputRoot, { dryRun, verbose, hideFromClaudeCode })).filter(
     (result) => !gone.has(foldPath(result.sourcePath))
   );
@@ -313,9 +373,15 @@ async function generateWrappersAndPrune(
   const produced = producedPaths(results);
   const promptsDir = path.join(outputRoot, 'prompts'); // hidden prompts (prompts/_hidden/) get no wrapper
   for (const prompt of prompts.written) {
-    if (path.dirname(prompt.outputPath) === promptsDir) {
-      produced.add(foldPath(commandSkillPath(outputRoot, prompt.outputPath)));
-    }
+    if (path.dirname(prompt.outputPath) !== promptsDir) continue;
+    const skill = skillOfPrompt(prompt.content);
+    produced.add(
+      foldPath(
+        skill === undefined
+          ? commandSkillPath(outputRoot, prompt.outputPath)
+          : path.join(outputRoot, 'skills', skill, 'SKILL.md')
+      )
+    );
   }
   const pruned = pruneWrappers
     ? pruneStaleArtifacts(outputRoot, produced, ['wrapper'], { dryRun, verbose })
@@ -330,9 +396,13 @@ async function generateWrappersAndPrune(
 /**
  * Validate required fields in a parsed command YAML.
  * Throws with a specific message if any required field is absent.
+ *
+ * A skill-backed command (a top-level `skill` key) is a manifest: its metadata plus the name of
+ * the skill that carries the prompt, so it has no workflow, and the skill must exist.
  */
 function validateCommandYaml(data: unknown, filePath: string): CommandYaml {
   const d = data as Record<string, unknown>;
+  const skillBacked = d?.skill !== undefined;
 
   const requiredFields: Array<{ fieldName: string; present: boolean }> = [
     {
@@ -354,9 +424,10 @@ function validateCommandYaml(data: unknown, filePath: string): CommandYaml {
     {
       fieldName: 'workflow.phases',
       present:
-        typeof d?.workflow === 'object' &&
-        d.workflow !== null &&
-        Array.isArray((d.workflow as Record<string, unknown>).phases),
+        skillBacked ||
+        (typeof d?.workflow === 'object' &&
+          d.workflow !== null &&
+          Array.isArray((d.workflow as Record<string, unknown>).phases)),
     },
   ];
 
@@ -366,7 +437,33 @@ function validateCommandYaml(data: unknown, filePath: string): CommandYaml {
     }
   }
 
+  if (skillBacked) validateSkillRef(d.skill, filePath);
+
   return d as unknown as CommandYaml;
+}
+
+/**
+ * A skill-backed command names the skill that carries its prompt. The skill is a directory of the
+ * command's own package (packages/<pkg>/skills/<skill>/SKILL.md, beside packages/<pkg>/commands/):
+ * the stub prompt points at it, so a missing one would ship a command that loads nothing. The name
+ * is joined into that path, and what isValidSkillName admits has no separator or dot.
+ */
+function validateSkillRef(skill: unknown, filePath: string): void {
+  if (!isValidSkillName(skill)) {
+    throw new Error(
+      `Invalid field: skill must be a skill directory name (lowercase letters, digits, single hyphens, at most 64 characters) in ${filePath}`
+    );
+  }
+  const skillFile = path.join(path.dirname(path.dirname(filePath)), 'skills', skill, 'SKILL.md');
+  let isFile = false;
+  try {
+    isFile = fs.statSync(skillFile).isFile();
+  } catch {
+    // reported below with the path that was looked at
+  }
+  if (!isFile) {
+    throw new Error(`Missing skill: ${filePath} names skill '${skill}', but ${skillFile} does not exist`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -555,6 +652,44 @@ function buildCommandResult(
   );
   const content = transformCommand(commandYaml, sourcePath, { verbose, commandPathsByRef });
   return { sourcePath, outputPath, content, type: 'command' };
+}
+
+/**
+ * Fail when a command-wrapper skill would land on a skill that ships as it is: the wrapper would
+ * overwrite that skill, and the stub of a skill-backed command would then load another prompt. The
+ * shipped skills are the ones `copied` into the output root (skill-copier) and the one each stub
+ * names (which is in place in a self-contained package). A stub gets no wrapper and a hidden
+ * prompt (prompts/_hidden/) gets none either, so neither can collide.
+ *
+ * Called before any wrapper is written, so the shipped skill is never replaced.
+ */
+function assertNoWrapperCollisions(
+  commandResults: readonly TransformResult[],
+  outputRoot: string,
+  copied: readonly TransformResult[]
+): void {
+  const shipped = new Map<string, string>(); // folded skill path -> where the skill comes from
+  for (const result of copied) {
+    shipped.set(foldPath(result.outputPath), `copied from ${result.sourcePath}`);
+  }
+  for (const result of commandResults) {
+    const skill = skillOfPrompt(result.content);
+    if (skill !== undefined) {
+      shipped.set(foldPath(path.join(outputRoot, 'skills', skill, 'SKILL.md')), `named by ${result.sourcePath}`);
+    }
+  }
+
+  const promptsDir = path.join(outputRoot, 'prompts');
+  for (const result of commandResults) {
+    if (path.dirname(result.outputPath) !== promptsDir || skillOfPrompt(result.content) !== undefined) continue;
+    const wrapperPath = commandSkillPath(outputRoot, result.outputPath);
+    const origin = shipped.get(foldPath(wrapperPath));
+    if (origin !== undefined) {
+      throw new Error(
+        `The command-wrapper skill of ${result.sourcePath} would overwrite the skill ${wrapperPath} (${origin})`
+      );
+    }
+  }
 }
 
 /**
@@ -791,6 +926,7 @@ export async function generate(options: GeneratorOptions): Promise<GenerateResul
   // ------------------------------------------------------------------
   const skillResults = await copySkills(sourceRoot, outputRoot, { dryRun, verbose });
   results.push(...skillResults);
+  assertNoWrapperCollisions(commandResults, outputRoot, skillResults);
 
   // ------------------------------------------------------------------
   // 3b. Vendored lib/script files (trd-cli.js, trd-graph-cli.js, prd-cli.js,
@@ -938,6 +1074,7 @@ export async function generateSelfContainedPackages(
     }
 
     const commandResults = buildCommandResults(commandFiles, packageRoot, sourceRoot, verbose);
+    assertNoWrapperCollisions(commandResults, packageRoot, []);
     if (!dryRun) {
       for (const result of commandResults) {
         writeResult(result);

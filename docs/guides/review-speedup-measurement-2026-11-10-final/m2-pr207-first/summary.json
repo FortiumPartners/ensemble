@@ -1,0 +1,468 @@
+{
+ "runId": "m2-pr207-first",
+ "pr": 207,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 17,
+  "recorded": 17
+ },
+ "metrics": {
+  "wallMs": 1589437,
+  "runnerCalls": 18,
+  "dispatchRounds": 7,
+  "agentsDispatched": 25,
+  "agentsByRole": {
+   "reviewer": 7,
+   "security": 1,
+   "verifier": 17
+  },
+  "turnsAtLeast": 25
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "gateBlockers": [
+  "open-important-finding:f3",
+  "open-important-finding:f4",
+  "open-important-finding:f16",
+  "open-important-finding:f7",
+  "open-important-finding:f9",
+  "open-important-finding:f12",
+  "open-important-finding:f13",
+  "open-important-finding:f15",
+  "open-important-finding:f17",
+  "open-important-finding:f18",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "security-finding-open:s1"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 17,
+  "bySeverity": {
+   "nit/deferred": 3,
+   "important/fix": 10,
+   "nit/fix": 4
+  },
+  "present": 17,
+  "presentOnMajority": 0,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:1...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/e2e-testing/agents/playwright-tester.yaml:61",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:213-223",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "important",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:419-424",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f16",
+    "severity": "important",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/e2e-framework.js:24-25",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:168-183",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f7",
+    "severity": "important",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:217-229",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f8",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/tests/author-playwright-tests-evidence....",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f9",
+    "severity": "important",
+    "source": "reviewer-s3-a",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:109-110",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f10",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f11",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/pi/agents/playwright-tester.md:60",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f12",
+    "severity": "important",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:181",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f13",
+    "severity": "important",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/agents/playwright-tester.md:60",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f15",
+    "severity": "important",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:1...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f17",
+    "severity": "important",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/e2e-framework.js:25",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f18",
+    "severity": "important",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:240-245",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f19",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/ado-test-case-sync.js:13-16",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 10889,
+  "startedAt": "2026-11-10T20:36:36.845Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T20:42:07.729Z",
+  "durationMin": 5.51,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 26.450416666666666,
+  "window": [
+   "2026-11-10T20:36:35.683Z",
+   "2026-11-10T21:03:02.708Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 25017,
+   "missing": false,
+   "pct": 2
+  },
+  "beforeFirstDispatch": 14471,
+  "activeMs": 1562000,
+  "criticalPath": {
+   "ms": 1562008,
+   "missing": false,
+   "lowerBound": true,
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 833240,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 728760,
+       "missing": false,
+       "rolling": true,
+       "waves": 6
+      },
+      {
+       "stage": "verdict",
+       "ms": 8,
+       "missing": false,
+       "lowerBound": true,
+       "clippedMs": 21
+      }
+     ],
+     "ms": 1562008,
+     "missing": false,
+     "lowerBound": true
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    6
+   ],
+   "review.gate": [
+    2,
+    1430
+   ],
+   "review.verdict": [
+    2,
+    29
+   ],
+   "review.security-lane": [
+    1,
+    404293
+   ],
+   "review.reviewer": [
+    7,
+    833240
+   ],
+   "review.verifier": [
+    17,
+    400980
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr207-first-m2-pr207-first",
+  "pr": 207,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 26.45,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run m2-pr207-first",
+  "run_id": "m2-pr207-first"
+ }
+}

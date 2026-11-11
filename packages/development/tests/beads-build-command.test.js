@@ -1,17 +1,28 @@
 const fs = require('fs');
 const path = require('path');
 
-describe('beads-build clean-tree gate', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
 
+// beads-build is a skill-backed command: its YAML is a manifest and the prompt is its skill
+// (SKILL.md + references/). The contract is pinned against the whole prompt.
+const skillText = readDevelopmentSkill('ensemble-beads-build').prompt;
+
+// Index of the `#### Step N.M: <title>` heading whose title is `title`.
+function stepAt(text, title) {
+  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^#### Step [\\d.]+: ${escaped}`, 'm').exec(text);
+  return match ? match.index : -1;
+}
+
+describe('beads-build clean-tree gate', () => {
   test('a fresh run still HALTs on a dirty working directory', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('If STARTED_COUNT == 0');
     expect(text).toContain('ERROR: working directory is dirty. Commit, stash or revert before starting a new build.');
   });
 
   test('a resumed run warns and continues instead of halting', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('If STARTED_COUNT > 0 and WORKTREE_STATUS is non-empty');
     expect(text).toContain('NOTE: resuming with a dirty working directory.');
     expect(text).toContain('Never stash, commit, checkout or clean these paths to satisfy a gate.');
@@ -23,7 +34,7 @@ describe('beads-build clean-tree gate', () => {
   // failure this change removes. So the fresh-run test has to count closed
   // tasks too, and must not be expressible in terms of in_progress alone.
   test('closed tasks count as work already started, so a wave boundary is a resume', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('STARTED_COUNT = IN_PROGRESS_COUNT + CLOSED_COUNT');
     // --all and --limit 0 both decide whether CLOSED_COUNT can be non-zero.
     // `br list --help`: -a/--all is "Include closed issues (default excludes
@@ -41,8 +52,8 @@ describe('beads-build clean-tree gate', () => {
   // It sat in step 3, one step ahead of the IN_PROGRESS_COUNT that decides
   // whether it applies.
   test('the gate is decided after epic discovery, never before it', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const epicDiscovery = text.indexOf('title: Epic Discovery');
+    const text = skillText;
+    const epicDiscovery = stepAt(text, 'Epic Discovery');
     const haltDecision = text.indexOf('ERROR: working directory is dirty.');
     expect(epicDiscovery).toBeGreaterThan(-1);
     expect(haltDecision).toBeGreaterThan(-1);
@@ -50,7 +61,7 @@ describe('beads-build clean-tree gate', () => {
   });
 
   test('preflight step 3 captures the status without deciding on it', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('run workflow.status');
     expect(text).toContain('as WORKTREE_STATUS');
     expect(text).not.toContain('git status --porcelain — HALT if output non-empty');
@@ -58,12 +69,10 @@ describe('beads-build clean-tree gate', () => {
 });
 
 describe('beads-build Preflight resolve-sdlc rewiring (TRD-013)', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test('no unconditional HALT tied to validate-git-town.sh exit codes 1 or 2', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const stepStart = text.indexOf('title: Git-Town and Working Directory Verification');
-    const stepEnd = text.indexOf('title: Epic Discovery');
+    const text = skillText;
+    const stepStart = stepAt(text, 'Git-Town and Working Directory Verification');
+    const stepEnd = stepAt(text, 'Epic Discovery');
     expect(stepStart).toBeGreaterThan(-1);
     expect(stepEnd).toBeGreaterThan(stepStart);
     const stepBlock = text.slice(stepStart, stepEnd);
@@ -72,34 +81,34 @@ describe('beads-build Preflight resolve-sdlc rewiring (TRD-013)', () => {
   });
 
   test('resolve-sdlc invocation is present', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('node "$TRD_CLI" resolve-sdlc --git-town-exit-code');
     expect(text).toContain('RESOLVE_SDLC_RESULT');
   });
 
   test('four-option AskUserQuestion block for PR backend resolution is present', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const stepStart = text.indexOf('title: Git-Town and Working Directory Verification');
-    const stepEnd = text.indexOf('title: Epic Discovery');
+    const text = skillText;
+    const stepStart = stepAt(text, 'Git-Town and Working Directory Verification');
+    const stepEnd = stepAt(text, 'Epic Discovery');
     const stepBlock = text.slice(stepStart, stepEnd);
-    expect(stepBlock).toContain("id=''pr_backend''");
-    expect(stepBlock).toContain("label:''ado''");
-    expect(stepBlock).toContain("label:''manual''");
-    expect(stepBlock).toContain("label:''proceed with gh anyway (not recommended)''");
-    expect(stepBlock).toContain("label:''abort''");
+    expect(stepBlock).toContain("id='pr_backend'");
+    expect(stepBlock).toContain("label:'ado'");
+    expect(stepBlock).toContain("label:'manual'");
+    expect(stepBlock).toContain("label:'proceed with gh anyway (not recommended)'");
+    expect(stepBlock).toContain("label:'abort'");
     expect(stepBlock).toMatch(/INTERACTIVE=false, or INTERACTIVE detection is itself uncertain[\s\S]*HALT/);
   });
 
   test('beads-build and the implement-trd-beads reference skill consume the same resolve-sdlc contract', () => {
-    const beadsBuildText = fs.readFileSync(yamlPath, 'utf8');
+    const beadsBuildText = skillText;
     const implText = fs.readFileSync(
       path.join(__dirname, '../skills/implement-trd-beads-reference/SKILL.md'),
       'utf8'
     );
     const beadsBuildStep = beadsBuildText
       .slice(
-        beadsBuildText.indexOf('title: Git-Town and Working Directory Verification'),
-        beadsBuildText.indexOf('title: Epic Discovery')
+        stepAt(beadsBuildText, 'Git-Town and Working Directory Verification'),
+        stepAt(beadsBuildText, 'Epic Discovery')
       )
       .replace(/''/g, "'");
 
@@ -127,16 +136,14 @@ describe('beads-build Preflight resolve-sdlc rewiring (TRD-013)', () => {
 });
 
 describe('beads-build has no branch-creation logic of its own (TRD-014)', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test('states that it never creates or switches branches itself', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('This command never creates or switches branches');
     expect(text).toContain('it issues no branching-tool command under any BRANCHING_STRATEGY');
   });
 
   test('zero real git-town branch-creation invocations anywhere in the file (git town hack/append/propose)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     // No actual command invocations anywhere in this file — only prose describing why there are none.
     expect(text).not.toMatch(/run git town (hack|propose|append)/);
     expect(text).not.toMatch(/git town (hack|propose|append) <[A-Z_]/);
@@ -146,21 +153,19 @@ describe('beads-build has no branch-creation logic of its own (TRD-014)', () => 
   });
 
   test('BRANCHING_STRATEGY is still resolved (for consistency with the other two consumer commands) even though unused for mutation', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
+    const text = skillText;
     expect(text).toContain('Set BRANCHING_STRATEGY=RESOLVE_SDLC_RESULT.branchingStrategy.strategy');
   });
 });
 
 describe('beads-build backend-aware completion reminder (TRD-015)', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test("Completion Report names all three backends' distinct reminder text", () => {
-    const rawText = fs.readFileSync(yamlPath, 'utf8');
+    const rawText = skillText;
     // This file uses single-quoted YAML scalars, so literal single quotes are escaped as ''.
     // Normalize so assertions can use plain, readable quoting regardless of escaping style.
     const text = rawText.replace(/''/g, "'");
-    const stepStart = text.indexOf('title: Completion Report');
-    const stepEnd = text.indexOf('expectedInput:');
+    const stepStart = stepAt(text, 'Completion Report');
+    const stepEnd = text.indexOf('#### Step', stepStart + 1);
     expect(stepStart).toBeGreaterThan(-1);
     expect(stepEnd).toBeGreaterThan(stepStart);
     const stepBlock = text.slice(stepStart, stepEnd);
@@ -185,10 +190,10 @@ describe('beads-build backend-aware completion reminder (TRD-015)', () => {
   });
 
   test('all three PR_BACKEND branches are mutually exclusive if/else-style clauses, not a single generic message', () => {
-    const rawText = fs.readFileSync(yamlPath, 'utf8');
+    const rawText = skillText;
     const text = rawText.replace(/''/g, "'");
-    const stepStart = text.indexOf('title: Completion Report');
-    const stepEnd = text.indexOf('expectedInput:');
+    const stepStart = stepAt(text, 'Completion Report');
+    const stepEnd = text.indexOf('#### Step', stepStart + 1);
     const stepBlock = text.slice(stepStart, stepEnd);
     const ghIdx = stepBlock.indexOf("If PR_BACKEND=='gh':");
     const adoIdx = stepBlock.indexOf("If PR_BACKEND=='ado':");
@@ -200,12 +205,10 @@ describe('beads-build backend-aware completion reminder (TRD-015)', () => {
 });
 
 describe('beads-build team-roles delegation contract', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test('Argument Parsing accepts --team-roles and keeps deprecated --builder fallback', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const stepStart = text.indexOf('title: Argument Parsing');
-    const stepEnd = text.indexOf('title: Tool Capability Preflight');
+    const text = skillText;
+    const stepStart = stepAt(text, 'Argument Parsing');
+    const stepEnd = stepAt(text, 'Tool Capability Preflight');
     expect(stepStart).toBeGreaterThan(-1);
     expect(stepEnd).toBeGreaterThan(stepStart);
     const stepBlock = text.slice(stepStart, stepEnd);
@@ -216,8 +219,8 @@ describe('beads-build team-roles delegation contract', () => {
   });
 
   test('beads-build-wave payload includes team_roles roster (moved from inline Track Orchestrator)', () => {
-    const wavePath = path.join(__dirname, '../commands/beads-build-wave.yaml');
-    const text = fs.readFileSync(wavePath, 'utf8');
+    // beads-build-wave is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const text = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
     expect(text).toMatch(/team_roles/);
     expect(text).toMatch(/lifecycle_contract/);
     expect(text).toMatch(/quality_loop/);
@@ -227,12 +230,10 @@ describe('beads-build team-roles delegation contract', () => {
 });
 
 describe('beads-build PR-boundary doc hook contract', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test('Phase Completion Detection runs doc-maintenance before PR/reporting follow-up', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const stepStart = text.indexOf('title: Phase Completion Detection');
-    const stepEnd = text.indexOf('title: Test Execution');
+    const text = skillText;
+    const stepStart = stepAt(text, 'Phase Completion Detection');
+    const stepEnd = stepAt(text, 'Test Execution');
     expect(stepStart).toBeGreaterThan(-1);
     expect(stepEnd).toBeGreaterThan(stepStart);
     const stepBlock = text.slice(stepStart, stepEnd);
@@ -246,11 +247,9 @@ describe('beads-build PR-boundary doc hook contract', () => {
 });
 
 describe('beads-build PM clarification guard contract', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
   test('beads-build-wave payload documents a 3-round PM clarification cap (moved from inline Track Orchestrator)', () => {
-    const wavePath = path.join(__dirname, '../commands/beads-build-wave.yaml');
-    const text = fs.readFileSync(wavePath, 'utf8');
+    // beads-build-wave is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const text = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
     expect(text).toMatch(/pm_clarification_guard/);
     expect(text).toMatch(/maximum 3 PM clarification rounds per task/);
     expect(text).toMatch(/On the 4th request, HALT/);

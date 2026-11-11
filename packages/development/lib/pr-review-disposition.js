@@ -54,6 +54,7 @@ const {
   normalizeSeverity,
   anchorOf,
   hasResolutionProvenance,
+  isCritical,
 } = require('./pr-review-ledger');
 const { findingsHeldOpen, coverageHeldOpen } = require('./pr-review-gate');
 
@@ -115,15 +116,16 @@ function failClosed(reason) {
 
 /**
  * Security if it came through the security lane, is flagged, sits on the
- * security lane, or is Critical. Broader is the safe direction. This only
- * decides how an `accept` is offered (never batched, its own reason); whether
- * the finding BLOCKS is the gate's.
+ * security lane, or is Critical (as written or read into the taxonomy since:
+ * `isCritical`). Broader is the safe direction. This only decides how an
+ * `accept` is offered (never batched, its own reason); whether the finding
+ * BLOCKS is the gate's.
  */
 function isSecurity(finding, fromSecurityLane) {
   if (fromSecurityLane) return true;
   if (flagged(finding.security) || flagged(finding.securityRelevant)) return true;
   if (isText(finding.lane) && finding.lane.trim().toLowerCase() === 'security') return true;
-  return isText(finding.severity) && finding.severity.trim().toLowerCase() === 'critical';
+  return isCritical(finding);
 }
 
 /** The severity word shown for a finding: the canonical one, else the word as written. */
@@ -247,6 +249,7 @@ const COVERAGE_ACCEPT_NOTES = {
   'whole-range': 'Records that the whole-range reader (the one read of an interaction between slices) did not read the whole diff: the slice reviewers read these paths one slice at a time. You accept merging without that read.',
   uncovered: 'Records that no slice held these paths and no reviewer read them, and you accept merging without that read.',
   'under-reviewed': 'Records that these paths were read under fewer distinct lenses than the mode requires, and you accept merging with that shorter review.',
+  'result-changed': 'Records that this agent rewrote its result after the review read it, so the review counted the first version and not the later one: a finding or a vote that only the later version holds was not counted. Read the file named in the gap before you accept; you accept merging without what the later version holds.',
   unnamed: 'Records that the review reported incomplete coverage without saying what it missed, so every changed path counts as not reviewed, and you accept merging without that read.',
 };
 const COVERAGE_ACCEPT_TAIL = ' The other way out is to run the review again.';

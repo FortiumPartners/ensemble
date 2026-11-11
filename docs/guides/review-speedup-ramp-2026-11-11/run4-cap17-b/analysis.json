@@ -1,0 +1,263 @@
+{
+ "dir": "ramp4-cap17b",
+ "wallMin": 22.09,
+ "window": {
+  "startMs": 1794427460530,
+  "endMs": 1794428785727,
+  "startIso": "2026-11-11T20:04:20.530Z",
+  "endIso": "2026-11-11T20:26:25.727Z"
+ },
+ "rootMaxConcurrentAgents": 17,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-s2-b",
+  "slowestMin": 14.07,
+  "laneMin": 6.81,
+  "expired": []
+ },
+ "firstDispatchToReviewEndMin": 14.07,
+ "handoffToVerifySec": 7.12,
+ "verify": {
+  "count": 14,
+  "arrived": 14,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 1,
+  "refills": 0,
+  "firstWaveSize": 14,
+  "stageMin": 7.54,
+  "stageSec": 452.36,
+  "startedAtIso": "2026-11-11T20:18:47.867Z",
+  "startedOffsetMin": 14.46,
+  "slowestMin": 7.54,
+  "slowestArrivedMin": 7.54,
+  "medianMin": 5.61,
+  "meanMin": 5.66,
+  "p75Min": 6.66,
+  "p90Min": 7.11,
+  "minMin": 3.76,
+  "sumAgentMin": 79.23,
+  "peakVerifierOverlap": 14,
+  "peakAnyAgentOverlap": 14,
+  "queueWaitMedianMin": 0,
+  "lastStartOffsetMin": 0,
+  "durationsSec": [
+   271.9,
+   331.17,
+   376.9,
+   225.32,
+   426.47,
+   362.82,
+   342.27,
+   278.74,
+   404.72,
+   452.36,
+   399.57,
+   251.46,
+   312.36,
+   318.01
+  ],
+  "replaySec": {
+   "8": 724.26,
+   "12": 569.46,
+   "17": 452.36,
+   "24": 452.36
+  },
+  "replayMin": {
+   "8": 12.07,
+   "12": 9.49,
+   "17": 7.54,
+   "24": 7.54
+  },
+  "stageVsOwnCapReplayMin": {
+   "measured": 7.54,
+   "replayAtOwnCap": 7.54,
+   "measuredMinusReplay": 0
+  }
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 6.88,
+  "startedAt": "2026-11-11T20:04:21.914Z",
+  "finishedAt": "2026-11-11T20:11:14.809Z",
+  "failures": [
+   "step-failed:scripts-tests:node 22",
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.38,
+  "finishedOffsetMin": 6.9,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 7.55
+ },
+ "ledger": {
+  "candidates": 14,
+  "bySeverity": {
+   "important/fix": 6,
+   "nit/fix": 5,
+   "pre-existing/deferred": 2,
+   "nit/deferred": 1
+  },
+  "present": 14,
+  "presentOnMajority": 0,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 28.775,
+ "beforeFirstDispatchSec": 16.185,
+ "criticalPath": {
+  "ms": 1296403,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 844036,
+    "name": "reviewer-s2-b"
+   },
+   {
+    "stage": "verifier",
+    "ms": 452361,
+    "name": "verifier-10"
+   },
+   {
+    "stage": "verdict",
+    "ms": 6
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 14
+ },
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 145,
+   "requestsMean": 20.71,
+   "costTotalUsd": 12.73,
+   "contextTokensMax": 242784,
+   "harnessDurMedianSec": 723.92,
+   "harnessDurMaxSec": 848.36,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 20,
+   "requestsMean": 20,
+   "costTotalUsd": 1.28,
+   "contextTokensMax": 188005,
+   "harnessDurMedianSec": 411.84,
+   "harnessDurMaxSec": 411.84,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 14,
+   "requestsTotal": 221,
+   "requestsMean": 15.79,
+   "costTotalUsd": 13.4,
+   "contextTokensMax": 169597,
+   "harnessDurMedianSec": 342.26,
+   "harnessDurMaxSec": 453.76,
+   "statuses": {
+    "completed": 14
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 14
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 14,
+ "recallGuard": {
+  "falseNegativeRate": 0.6666666666666666,
+  "notRaisedRate": 0.3333333333333333,
+  "found": [
+   "E1",
+   "E4"
+  ],
+  "downgraded": [
+   "E2",
+   "E3"
+  ],
+  "notRaised": [
+   "E5",
+   "E6"
+  ],
+  "unmatchedImportant": [
+   "f2",
+   "f14"
+  ]
+ },
+ "load": {
+  "run": {
+   "samples": 44,
+   "load1Mean": 15.33,
+   "load1Max": 36.48,
+   "load1Min": 4.98,
+   "samplesAbove20": 14,
+   "load5Mean": 17.01,
+   "jestProcsMax": 40,
+   "samplesWithJest": 17,
+   "samplesWithFullSuiteLock": 0
+  },
+  "verifyStage": {
+   "samples": 15,
+   "load1Mean": 6.78,
+   "load1Max": 10.09,
+   "load1Min": 4.98,
+   "samplesAbove20": 0,
+   "load5Mean": 9.91,
+   "jestProcsMax": 0,
+   "samplesWithJest": 0,
+   "samplesWithFullSuiteLock": 0
+  },
+  "beforeRun15min": {
+   "samples": 30,
+   "load1Mean": 19.82,
+   "load1Max": 38.79,
+   "load1Min": 7.31,
+   "samplesAbove20": 13,
+   "load5Mean": 18.19,
+   "jestProcsMax": 39,
+   "samplesWithJest": 17,
+   "samplesWithFullSuiteLock": 0
+  }
+ },
+ "cap": 17,
+ "order": 4,
+ "tag": "b",
+ "runId": "ramp4-cap17b",
+ "capProofAllAgree": true,
+ "recallGuardExitDefaultThreshold": 1
+}

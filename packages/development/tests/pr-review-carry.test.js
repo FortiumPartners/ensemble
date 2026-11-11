@@ -1261,6 +1261,7 @@ describe('recordVerdicts: the one producer of verdict records, and what it stamp
     ['votes short of the verifier count', { findings: [finding({ votes: VOTES.slice(0, 2) })] }, 'votes-unsupported'],
     ['votes that do not give the outcome', { findings: [finding({ outcome: 'present', votes: REJECTED_VOTES })] }, 'votes-unsupported'],
     ['votes that are not a list', { findings: [finding({ votes: 'real' })] }, 'votes-unsupported'],
+    ['a finding settled on a majority with a verifier missing (kata dx53), even when its votes number the expected count', { findings: [finding({ settledOnMajority: true })] }, 'settled-on-majority'],
   ])('%s is skipped (%s) and recorded nowhere', (_name, over, reason) => {
     const result = recordVerdicts(request(over));
     expect(result.ok).toBe(true);

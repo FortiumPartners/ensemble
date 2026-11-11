@@ -35,6 +35,14 @@
  * most a fifth of the baseline median AND the current p75 at most a fifth of the baseline p75 (the tail must not hide
  * behind the median). Where the plan's own figure is ambiguous the baseline takes the SMALLER (harder) reading.
  *
+ * A RE-BASED FACTOR. `compareWalltime({ targetFactors: { '<tier>/<round>': factor } })` grades the named strata at `factor`
+ * (a finite number >= 1; anything else, or an id that is not a compared stratum, is refused) instead of 5, for the plan's
+ * re-based targets (docs/plans/pr-review-speed-plan-v2.md, V2-5). The default is 5 and a stratum at 5 is printed exactly as
+ * before. A stratum at another factor says so in its own `targetFactor` and `rebased: true` (and the payload in `rebased`,
+ * `targetFactors` and a `stratum-rebased` warning), and `fiveX` never reads it: `fiveX` is computed from every stratum at
+ * the 5x, and is `not-met` (its reason naming the factor) while a required stratum is re-based. A factor is not an absolute
+ * target: the plan's per-minute targets for thin baseline strata (section 1.4) are not an input here.
+ *
  * AC3 -- THE 5x CLAIM. `compareWalltime().fiveX.claim` is `met` only when every required stratum (`REQUIRED_STRATA`,
  * the three rows of the plan's section 2) is `met` AND the current cohort holds a real HIGH-tier re-review, with a
  * wall time, in which verdicts were carried across heads: a row of the `high/re-review` stratum itself, the stratum
@@ -460,10 +468,33 @@ function refused(reason) {
   };
 }
 
-/** `current` is at most 1/SPEEDUP_TARGET of `baseline` (a hair of tolerance for decimal arithmetic). */
-const meetsTarget = (current, baseline) => current * SPEEDUP_TARGET <= baseline + 1e-9;
+/** `current` is at most 1/`factor` of `baseline` (a hair of tolerance for decimal arithmetic). */
+const meetsTarget = (current, baseline, factor) => current * factor <= baseline + 1e-9;
 
-function gradeStratum(baseline, current) {
+/** A factor is a finite number of at least 1: below 1 the "target" would be slower than the baseline. */
+const isFactor = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 1;
+
+/**
+ * Checks the optional `targetFactors` input (stratum id -> factor) and returns the refusal reason, or null.
+ * A key that names no compared stratum is refused rather than ignored: a factor that silently did nothing would let a
+ * misspelt id pass for a re-based result.
+ */
+function targetFactorsProblem(targetFactors, ids) {
+  if (targetFactors === undefined) return null;
+  if (!isObject(targetFactors)) return 'targetFactors must be an object of stratum id to a target factor';
+  for (const [id, factor] of Object.entries(targetFactors)) {
+    if (!ids.has(id)) return `targetFactors names '${id}', which is not a compared stratum (${[...ids].join(', ')})`;
+    if (!isFactor(factor)) return `targetFactors['${id}'] must be a finite number of at least 1, got ${JSON.stringify(factor)}`;
+  }
+  return null;
+}
+
+/**
+ * Grades one stratum at `factor` (default: the 5x yardstick). A stratum graded at any other factor says so in its own
+ * fields (`targetFactor`, `rebased: true`); one graded at the default carries neither, so the default output is
+ * byte-for-byte what it was before the factor existed.
+ */
+function gradeStratum(baseline, current, factor = SPEEDUP_TARGET) {
   const reasons = [];
   if (baseline.prs < MINIMUMS.prsPerStratum) reasons.push(`baseline-too-few-prs: ${baseline.prs} of the ${MINIMUMS.prsPerStratum} needed`);
   if (current.prs < MINIMUMS.prsPerStratum) reasons.push(`current-too-few-prs: ${current.prs} of the ${MINIMUMS.prsPerStratum} needed`);
@@ -473,9 +504,10 @@ function gradeStratum(baseline, current) {
     tier: baseline.tier,
     round: baseline.round,
     required: baseline.required,
+    ...(factor === SPEEDUP_TARGET ? {} : { targetFactor: factor, rebased: true }),
     baseline: view(baseline),
     current: view(current),
-    target: baseline.medianMin === null ? null : { medianMin: round3(baseline.medianMin / SPEEDUP_TARGET), p75Min: round3(baseline.p75Min / SPEEDUP_TARGET) },
+    target: baseline.medianMin === null ? null : { medianMin: round3(baseline.medianMin / factor), p75Min: round3(baseline.p75Min / factor) },
     status: 'unknown',
     medianMet: null,
     p75Met: null,
@@ -484,8 +516,8 @@ function gradeStratum(baseline, current) {
   };
   if (reasons.length > 0) return out;
 
-  out.medianMet = meetsTarget(current.raw.median, baseline.raw.median);
-  out.p75Met = meetsTarget(current.raw.p75, baseline.raw.p75);
+  out.medianMet = meetsTarget(current.raw.median, baseline.raw.median, factor);
+  out.p75Met = meetsTarget(current.raw.p75, baseline.raw.p75, factor);
   out.speedup = { median: round3(baseline.raw.median / current.raw.median), p75: round3(baseline.raw.p75 / current.raw.p75) };
   out.status = out.medianMet && out.p75Met ? 'met' : 'not-met';
   if (!out.medianMet) reasons.push('median-above-target');
@@ -521,7 +553,8 @@ const isCarryEvidence = (run) =>
  * Compares a post-change cohort with the baseline, per (tier, round) stratum, and answers whether the 5x claim may be
  * made.
  *
- * @param {{baseline: {runs: Row[]}, current: {runs: Row[]}}} input  two cohort documents
+ * @param {{baseline: {runs: Row[]}, current: {runs: Row[]}, traceChecks?: Object, targetFactors?: Object}} input  two cohort documents;
+ *   `targetFactors` maps a stratum id to its target factor (default 5, see A RE-BASED FACTOR)
  * @returns {{ok: boolean, reason?: string, minimums: Object, speedupTarget: number,
  *   strata: Array<{id, tier, round, required, baseline, current, target, status: 'met'|'not-met'|'unknown',
  *     medianMet: ?boolean, p75Met: ?boolean, speedup: ?Object, reasons: string[]}>,
@@ -545,6 +578,8 @@ function compareWalltime(input) {
   for (const side of ['baseline', 'current']) {
     for (const run of checked[side].runs) if (isCounted(run)) ids.add(stratumId(run.tier, run.round));
   }
+  const factorProblem = targetFactorsProblem(input.targetFactors, ids);
+  if (factorProblem !== null) return refused(factorProblem);
   const baseline = summarize(checked.baseline.runs, [...ids]);
   // A current gate run count is shown only where the row's trace confirms it. A review trace records no local-CI gate starts, so
   // a count it does not confirm (a row written when `walltime row` counted its review.gate spans as gate runs, or one nobody
@@ -557,7 +592,13 @@ function compareWalltime(input) {
       : { ...run, gate_runs: null, gate_runs_reason: 'the row states a gate run count its trace does not confirm (a review trace records no local-CI gate starts), so it is not compared' }));
   const current = summarize(currentRuns, [...ids]);
 
-  const strata = baseline.strata.map((entry, index) => gradeStratum(entry, current.strata[index]));
+  // `yardstick` is every stratum graded at the 5x and is all the `fiveX` claim ever reads. `strata` is what is reported: the
+  // same grade, except a stratum with an explicit factor other than 5, which is graded at it and marked `rebased`.
+  const yardstick = baseline.strata.map((entry, index) => gradeStratum(entry, current.strata[index]));
+  const factors = input.targetFactors || {};
+  const strata = baseline.strata.map((entry, index) => (
+    hasOwn(factors, entry.id) && factors[entry.id] !== SPEEDUP_TARGET ? gradeStratum(entry, current.strata[index], factors[entry.id]) : yardstick[index]));
+  const rebased = strata.filter((entry) => entry.rebased === true);
   const counts = baseline.tiers
     .concat(current.tiers.filter((entry) => !baseline.tiers.some((own) => own.tier === entry.tier)))
     .map((entry) => entry.tier)
@@ -584,7 +625,7 @@ function compareWalltime(input) {
     reason: evidence.length > 0 ? null : 'no real high-tier re-review with carried verdicts and a wall time is in the current cohort',
   };
 
-  const required = strata.filter((entry) => entry.required);
+  const required = yardstick.filter((entry) => entry.required);
   // What a `met` rests on: every counted current row with a wall time in a required stratum, re-derived from its trace.
   const needed = checked.current.runs.filter((run) => isGraded(run) && REQUIRED_STRATA.includes(stratumId(run.tier, run.round)));
   const { traceChecks } = input;
@@ -592,7 +633,14 @@ function compareWalltime(input) {
   const unchecked = traceChecks === undefined ? [] : needed.filter((run) => !passed(run));
   const reasons = [];
   let claim;
-  if (required.some((entry) => entry.status === 'not-met')) {
+  if (rebased.some((entry) => entry.required)) {
+    // A stratum graded at another factor is not a 5x result, so the 5x claim is not made, whatever it says at that factor.
+    claim = 'not-met';
+    for (const entry of rebased.filter((own) => own.required)) {
+      reasons.push(`${entry.id}: evaluated at target factor ${entry.targetFactor}, not the ${SPEEDUP_TARGET}x yardstick (rebased); fiveX needs the ${SPEEDUP_TARGET}x`);
+    }
+    for (const entry of required.filter((own) => own.status === 'not-met')) reasons.push(`${entry.id}: not met at ${SPEEDUP_TARGET}x (${entry.reasons.join(', ')})`);
+  } else if (required.some((entry) => entry.status === 'not-met')) {
     claim = 'not-met';
     for (const entry of required.filter((own) => own.status === 'not-met')) reasons.push(`${entry.id}: not met (${entry.reasons.join(', ')})`);
   } else {
@@ -620,6 +668,9 @@ function compareWalltime(input) {
   for (const entry of strata.filter((own) => !own.required && own.status === 'not-met')) {
     warnings.push(`stratum-not-met: ${entry.id} is not met (${entry.reasons.join(', ')}); it is not one of the required strata, so the claim does not depend on it`);
   }
+  for (const entry of rebased) {
+    warnings.push(`stratum-rebased: ${entry.id} is graded at target factor ${entry.targetFactor}, not the ${SPEEDUP_TARGET}x yardstick; its status is not a ${SPEEDUP_TARGET}x result and fiveX does not use it`);
+  }
   if (claim === 'met') {
     const how = traceChecks === undefined ? 'no row was checked against a trace' : `the wall time, chains and gate runs of ${needed.length} row(s) were re-derived from their traces`;
     warnings.push(`claim-met-attested: origin and the carried-verdict evidence are what the rows' writers state (nothing signs a row; a state report is an untracked file); ${how}`);
@@ -629,6 +680,7 @@ function compareWalltime(input) {
     ok: true,
     minimums: MINIMUMS,
     speedupTarget: SPEEDUP_TARGET,
+    ...(rebased.length === 0 ? {} : { rebased: true, targetFactors: Object.fromEntries(rebased.map((entry) => [entry.id, entry.targetFactor])) }),
     strata,
     counts,
     perPr: { baseline: baseline.perPr, current: current.perPr },

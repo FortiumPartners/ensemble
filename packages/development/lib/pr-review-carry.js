@@ -76,6 +76,9 @@
  *   verdict-retally-differs its votes, counted again under this round's verifier count, do not give its outcome (exactly K
  *                           distinct voters; `present` needs a strict majority of K `real`, `filtered` must not have one);
  *   verdict-not-in-ledger   the prior ledger holds no finding with the verdict's id, file and claim;
+ *   verdict-quorum-settled  the prior ledger's finding was settled QUORUM-FIRST (kata 3ezq): only a strict majority of its electorate was ever
+ *                           asked, so no full electorate stands behind it, whatever votes the record carries. `recordVerdicts` never
+ *                           records such a verdict (it skips the finding by name, `quorum-settled`); this guards a record that names one anyway;
  *   hash-missing            the prior or the current hunk hash, its location, or either dependency hash map is missing;
  *   dependents-missing      the candidate's dependents are not a list of paths;
  *   cited-file-in-delta     the cited file is among the delta's changed paths (whatever the hashes say);
@@ -124,6 +127,7 @@ const REASONS = Object.freeze({
   VERDICT_OTHER_DEPTH: 'verdict-other-depth',
   VERDICT_RETALLY_DIFFERS: 'verdict-retally-differs',
   VERDICT_NOT_IN_LEDGER: 'verdict-not-in-ledger',
+  VERDICT_QUORUM_SETTLED: 'verdict-quorum-settled',
   HASH_MISSING: 'hash-missing',
   DEPENDENTS_MISSING: 'dependents-missing',
   CITED_FILE_IN_DELTA: 'cited-file-in-delta',
@@ -397,6 +401,8 @@ function planCarry(input) {
         const finding = ledger.get(identity(prior.id));
         const inLedger = isObject(finding) && fileOfFinding(finding) === normalizePath(prior.file) && normalizeClaim(finding.failureMode) === normalizeClaim(prior.claim);
         if (!inLedger) reasons.push(REASONS.VERDICT_NOT_IN_LEDGER);
+        // kata 3ezq: a finding settled quorum-first has no full electorate behind it and is never carried, whatever the verdict record says
+        if (inLedger && isObject(finding.verification) && finding.verification.quorumSettled === true) reasons.push(REASONS.VERDICT_QUORUM_SETTLED);
       }
 
       const priorDeps = readDepHashes(prior.depHashes);
@@ -471,7 +477,11 @@ function refused(reason) {
  * of the same id and stamped with what `planCarry` binds a verdict to (`prId`, `baseSha`, `depth`, `expectedVerifiers`) and
  * the head it was settled on. A finding that is not settled, has no usable hash, was hashed at another head than `headSha`,
  * cites another file or claim than its ledger entry says, or whose votes do not give its outcome under the round's
- * verifier count is `skipped` with the reason and recorded NOWHERE: the next round verifies it again.
+ * verifier count is `skipped` with the reason and recorded NOWHERE: the next round verifies it again. Two settled outcomes
+ * have no full electorate behind them and are skipped BY NAME, whatever votes they carry, so no count of votes is what keeps
+ * them out: `settled-on-majority` (kata dx53: a verifier that was asked returned nothing) and `quorum-settled` (kata 3ezq: the
+ * first strict majority all voted real and the rest were never asked; owner decision D4, carry stays as it was: a delta verifies
+ * such a candidate again, even when its cited hunks and dependencies are untouched).
  *
  * @param {Object} input
  * @param {string|number} input.prId
@@ -510,6 +520,8 @@ function recordVerdicts(input) {
     const id = identity(finding.id);
     if (id === null) { skip('no-id'); continue; }
     if (!SETTLED_OUTCOMES.includes(finding.outcome)) { skip('not-settled'); continue; }
+    if (finding.settledOnMajority === true) { skip('settled-on-majority'); continue; } // kata dx53: settled with a verifier missing, so no full electorate stands behind it, whatever votes it carries
+    if (finding.quorumSettled === true) { skip('quorum-settled'); continue; } // kata 3ezq: settled by the first strict majority of its electorate, the rest never asked: never carried, even when its cited hunks are untouched
     const candidate = byId.get(id);
     if (candidate === undefined) { skip('no-candidate'); continue; }
     if (candidate === null) { skip('ambiguous-candidate'); continue; }
@@ -587,4 +599,4 @@ function stampLedger(input) {
   return { ok: true, ledger: out };
 }
 
-module.exports = { planCarry, recordVerdicts, stampLedger, normalizeClaim, REASONS, SETTLED_OUTCOMES };
+module.exports = { planCarry, recordVerdicts, stampLedger, normalizeClaim, keyOf, REASONS, SETTLED_OUTCOMES };

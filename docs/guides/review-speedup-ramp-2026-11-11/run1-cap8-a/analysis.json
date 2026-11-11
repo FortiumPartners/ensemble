@@ -1,0 +1,260 @@
+{
+ "dir": "ramp1-cap8a",
+ "wallMin": 24.62,
+ "window": {
+  "startMs": 1794422409355,
+  "endMs": 1794423886527,
+  "startIso": "2026-11-11T18:40:09.355Z",
+  "endIso": "2026-11-11T19:04:46.527Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-range",
+  "slowestMin": 14.39,
+  "laneMin": 7.33,
+  "expired": []
+ },
+ "firstDispatchToReviewEndMin": 14.39,
+ "handoffToVerifySec": 7.54,
+ "verify": {
+  "count": 11,
+  "arrived": 11,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 3,
+  "refills": 2,
+  "firstWaveSize": 8,
+  "stageMin": 9.83,
+  "stageSec": 589.67,
+  "startedAtIso": "2026-11-11T18:54:51.429Z",
+  "startedOffsetMin": 14.7,
+  "slowestMin": 6.77,
+  "slowestArrivedMin": 6.77,
+  "medianMin": 4.63,
+  "meanMin": 4.44,
+  "p75Min": 5.37,
+  "p90Min": 5.77,
+  "minMin": 2.65,
+  "sumAgentMin": 48.81,
+  "peakVerifierOverlap": 8,
+  "peakAnyAgentOverlap": 8,
+  "queueWaitMedianMin": 0,
+  "lastStartOffsetMin": 3.83,
+  "durationsSec": [
+   277.69,
+   158.89,
+   305.59,
+   180.27,
+   255.2,
+   346.32,
+   226.01,
+   282.69,
+   406.15,
+   167.31,
+   322.2
+  ],
+  "replaySec": {
+   "8": 565.03,
+   "12": 406.15,
+   "17": 406.15,
+   "24": 406.15
+  },
+  "replayMin": {
+   "8": 9.42,
+   "12": 6.77,
+   "17": 6.77,
+   "24": 6.77
+  },
+  "stageVsOwnCapReplayMin": {
+   "measured": 9.83,
+   "replayAtOwnCap": 9.42,
+   "measuredMinusReplay": 0.41
+  }
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 14.95,
+  "startedAt": "2026-11-11T18:40:10.566Z",
+  "finishedAt": "2026-11-11T18:55:07.274Z",
+  "failures": [
+   "step-failed:scripts-tests:node 22",
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.21,
+  "finishedOffsetMin": 14.97,
+  "verificationStartedAfterGateFinished": false,
+  "verifyStartMinusGateEndMin": -0.26
+ },
+ "ledger": {
+  "candidates": 11,
+  "bySeverity": {
+   "nit/deferred": 2,
+   "pre-existing/deferred": 1,
+   "important/fix": 6,
+   "nit/fix": 2
+  },
+  "present": 11,
+  "presentOnMajority": 0,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 24.13,
+ "beforeFirstDispatchSec": 11.194,
+ "criticalPath": {
+  "ms": 1453021,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 863339,
+    "name": "reviewer-range"
+   },
+   {
+    "stage": "verifier",
+    "ms": 589669,
+    "waves": 3
+   },
+   {
+    "stage": "verdict",
+    "ms": 13
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 11
+ },
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 148,
+   "requestsMean": 21.14,
+   "costTotalUsd": 14.21,
+   "contextTokensMax": 280248,
+   "harnessDurMedianSec": 725.27,
+   "harnessDurMaxSec": 869.11,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 25,
+   "requestsMean": 25,
+   "costTotalUsd": 1.43,
+   "contextTokensMax": 191296,
+   "harnessDurMedianSec": 444.65,
+   "harnessDurMaxSec": 444.65,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 11,
+   "requestsTotal": 165,
+   "requestsMean": 15,
+   "costTotalUsd": 8.91,
+   "contextTokensMax": 166761,
+   "harnessDurMedianSec": 279.34,
+   "harnessDurMaxSec": 408.14,
+   "statuses": {
+    "completed": 11
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 11
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 8,
+ "recallGuard": {
+  "falseNegativeRate": 0.6666666666666666,
+  "notRaisedRate": 0.5,
+  "found": [
+   "E1",
+   "E4"
+  ],
+  "downgraded": [
+   "E2"
+  ],
+  "notRaised": [
+   "E3",
+   "E5",
+   "E6"
+  ],
+  "unmatchedImportant": [
+   "f4",
+   "f5"
+  ]
+ },
+ "load": {
+  "run": {
+   "samples": 50,
+   "load1Mean": 14.12,
+   "load1Max": 37.96,
+   "load1Min": 5.9,
+   "samplesAbove20": 13,
+   "load5Mean": 13.32,
+   "jestProcsMax": 21,
+   "samplesWithJest": 33,
+   "samplesWithFullSuiteLock": 0
+  },
+  "verifyStage": {
+   "samples": 19,
+   "load1Mean": 11.61,
+   "load1Max": 35.5,
+   "load1Min": 5.9,
+   "samplesAbove20": 3,
+   "load5Mean": 9.78,
+   "jestProcsMax": 20,
+   "samplesWithJest": 6,
+   "samplesWithFullSuiteLock": 0
+  },
+  "beforeRun15min": {
+   "samples": 7,
+   "load1Mean": 12.2,
+   "load1Max": 18.85,
+   "load1Min": 8.02,
+   "samplesAbove20": 0,
+   "load5Mean": 14.17,
+   "jestProcsMax": 0,
+   "samplesWithJest": 0,
+   "samplesWithFullSuiteLock": 0
+  }
+ },
+ "cap": 8,
+ "order": 1,
+ "tag": "a",
+ "runId": "ramp1-cap8a",
+ "capProofAllAgree": true,
+ "recallGuardExitDefaultThreshold": 1
+}

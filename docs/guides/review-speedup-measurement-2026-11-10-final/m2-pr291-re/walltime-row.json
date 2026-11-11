@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "row": {
+  "id": "pr291-re-review-m2-pr291-re",
+  "pr": 291,
+  "tier": "high",
+  "round": "re-review",
+  "origin": "real",
+  "wall_min": 13.95,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 1,
+  "source": "pr-review-cli timing on run m2-pr291-re",
+  "run_id": "m2-pr291-re"
+ }
+}

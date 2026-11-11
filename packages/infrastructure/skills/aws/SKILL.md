@@ -1,5 +1,5 @@
 ---
-name: aws-cloud
+name: aws
 description: "Use when writing or reviewing AWS infrastructure as Terraform (ECS/Fargate, networking, IAM); not for GCP, Azure or Fly.io."
 ---
 

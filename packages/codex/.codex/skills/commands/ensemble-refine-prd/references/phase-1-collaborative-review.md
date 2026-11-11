@@ -1,0 +1,260 @@
+### Phase 1: Collaborative Review
+
+Browser-based collaborative refinement session. ONLY runs when
+`--collab` or `--long-lived` is present in $ARGUMENTS. When
+neither is present, skip this phase entirely and proceed to PRD
+Review (Phase 1). `--collab` triggers the single-nonce flow
+(optionally with `--reviewers N` for fan-out); `--long-lived`
+triggers the invite+presence flow with QuickTunnel implicit.
+
+#### Step 1.1: Session Bootstrap
+
+HALT CHECK (run first, before the GUARD below or any other
+bootstrap work): If $ARGUMENTS contains BOTH `--collab` and
+`--foreman`, HALT immediately and print:
+"ERROR: --collab requires a human reviewer and cannot be
+combined with --foreman (non-interactive mode). Drop one of
+the two flags." Do not resolve the PRD path, do not generate
+questions, do not bootstrap a session, do not start a server.
+This check runs even before the GUARD below.
+
+SECOND HALT CHECK (also before the GUARD below): If $ARGUMENTS
+contains `--from-meeting` together with any of `--collab`,
+`--long-lived` or `--foreman`, HALT immediately and print:
+"ERROR: --from-meeting takes its feedback from a meeting summary
+and cannot be combined with --collab, --long-lived or --foreman.
+Drop one of the flags." Do not resolve the PRD path, do not read
+the meeting summary, do not bootstrap a session, do not start a
+server, and do not edit the PRD. This check runs even before the
+GUARD below.
+
+GUARD: If BOTH `--collab` and `--long-lived` are absent from
+$ARGUMENTS, skip this entire step and proceed directly to Phase 2
+(PRD Review). Do not bootstrap a session, do not start a server,
+do not block on an artifact. All other steps in this phase are
+likewise skipped because the phase contains only this step.
+Bootstrap a refinement-review session for collaborative editing of
+the PRD, then wait for the reviewer to mark it complete in the
+browser. The resulting artifact is the input to Enhancement.
+
+1. Resolve the PRD path from $ARGUMENTS (first non-flag token).
+2. Generate 5–10 refinement questions drawn from the PRD content.
+   Each question MUST have this shape:
+   ```js
+   {
+     id: 'q-<short-kebab>',
+     prompt: '<multi-line question shown to reviewer>',
+     context: '<why this question matters, cited from PRD>',
+     targetAnchor: { lineStart: <1-based>, lineEnd: <1-based, inclusive> },
+     options: [
+       { id: '<option-kebab>', label: '<short verb phrase>',
+         description: '<one-sentence clarification>' },
+       // 2–5 total, mutually exclusive
+     ],
+     recommendedOptionId: '<one of the option ids>',
+   }
+   ```
+   - For each `[NEEDS CLARIFICATION]` marker present, add a question
+     whose `context` quotes the marker text verbatim.
+   - Add a "top N gaps" question inferred from the PRD Health
+     summary (MoSCoW coverage, missing ACs, missing REQ IDs).
+   - `targetAnchor.lineStart`/`lineEnd` MUST point at the smallest
+     line range in the PRD that the reviewer should focus on. For
+     metadata-level questions (frontmatter author, version), use
+     `{lineStart: 1, lineEnd: <first heading> + 1}`.
+   - `options` is REQUIRED for collab. Provide 2–5 mutually
+     exclusive options. Always include an option labeled
+     "Skip — leave as-is" / "No — leave unchanged" as the last
+     choice so the reviewer can opt out per question.
+   - `recommendedOptionId` MUST be the `id` of the option you
+     want to default-select. Always pick the option you would
+     apply if the reviewer hit Save immediately.
+   `customerSummary` is a separate document field, not a question
+   field: pass it to `migrateOrCreate` as its own top-level key
+   alongside `questions`. Its shape and rules are in step 2b.
+2b. Write the `customerSummary` for the session document. This is
+   the plain-language text a customer reads on the Overview tab
+   before deciding whether the concept is right, so it must be
+   understandable to someone who has never seen the PRD:
+   - Exactly these six `##` sections, in this order:
+     `## What we're building`, `## Who it's for`,
+     `## Why it matters`, `## What changes for you`,
+     `## What's not included`, `## What we need from you`.
+   - Length: 150-400 words total.
+   - Forbidden: requirement IDs of any kind (REQ-, AC-, NFR-),
+     `[RISK: ...]` or `[NEEDS CLARIFICATION: ...]` markers, the
+     risk register, complexity or effort estimates, markdown
+     tables, Given/When/Then blocks, file paths, module or service
+     names, and any description of how the work will be
+     implemented. If a sentence needs a system diagram to be
+     understood, it does not belong here.
+   - `## What we need from you` states, in one or two sentences,
+     what approving commits the customer to (e.g. "Approving means
+     we build billing for monthly plans and will not cover usage
+     pricing in this release") and who owns the decision.
+   - Derive it from the PRD content you just read, not from the
+     questions.
+   On a re-run (`--collab` against an existing session), regenerate
+   `customerSummary` whenever the PRD body has changed since the
+   last run. Do not clear or alter the customer's existing approval
+   decision just because the summary text changed.
+   The Overview tab derives its own text from the PRD when no
+   `customerSummary` is present; that derivation also drops
+   `[RISK: ...]` lines, so an internal risk register can never reach
+   the customer through either path.
+3. Pick a session file path under a cache directory returned by
+   `getLogsPath()` or equivalent (gitignored). The bootstrap script
+   is generated outside the PI package's install directory, so plain
+   `require('@sunstone-partners/ensemble-core')` will fail with
+   `Cannot find module` — Node's caller-relative `node_modules`
+   search does not walk back to the PI package's `node_modules`.
+   **Anchor all package imports to the installed PI package's
+   `package.json` via `createRequire`.** The bootstrap script
+   resolves the PI package at runtime from well-known install
+   locations (an explicit `ENSEMBLE_PI_INSTALL_ROOT` env var is
+   honored for the packed-install test; the OMP plugin root and
+   the current working directory are the production fallbacks):
+   ```js
+   const { createRequire } = require('module');
+   const path = require('path');
+   const os = require('os');
+   const PI_PKG_JSON = require.resolve(
+     '@sunstone-partners/ensemble-pi/package.json',
+     {
+       paths: [
+         process.env.ENSEMBLE_PI_INSTALL_ROOT,
+         path.join(os.homedir(), '.omp', 'plugins'),
+         process.cwd(),
+       ].filter(Boolean),
+     },
+   );
+   const piRequire = createRequire(PI_PKG_JSON);
+   const { refinementReview } = piRequire('@sunstone-partners/ensemble-core');
+   ```
+   Call
+   `refinementReview.session.migrateOrCreate({ sessionPath, kind: 'prd', sourcePath, questions, reopen: true })`,
+   where `migrateOrCreate` returns `{ session, token }` synchronously.
+   It loads any prior session file at `sessionPath`; if the prior
+   session was already completed (frozen by a prior `/api/complete`
+   call), `reopen: true` clears `completedAt`/`completedBy` and
+   bumps the revision so the iterative refinement loop can
+   revisit the same sessionPath. User answers, comments, and
+   `selectedOptionId` survive reopen. Without `reopen: true`,
+   completed sessions throw `SESSION_COMPLETED` (preserving the
+   prior guard behavior). It uses `mutateSession` to merge in
+   new additive metadata (`options`, `recommendedOptionId`,
+   missing `targetAnchor`) while preserving user-entered
+   `answer`, `comments`, `selectedOptionId`, and revision
+   history; falls back to `createSession` when no prior file
+   is present.
+4. Resolve the static UI directory by deriving it from the PI
+   package's `node_modules` (where core actually resolves):
+   ```js
+   const corePkgJson = piRequire.resolve('@sunstone-partners/ensemble-core/package.json');
+   const uiDir = path.join(path.dirname(corePkgJson), 'lib/refinement-review/ui');
+   ```
+   Compute the open intent once as
+   `shouldOpen = !$ARGUMENTS.contains('--no-open') && process.env.CI !== 'true'`,
+   and pass `open = shouldOpen && tunnel !== 'quick'` to
+   `startServer`. Auto-open is deferred when `--tunnel=quick`
+   is set because the opener should fire on the public URL
+   (post-tunnel), not the local URL; the bootstrap fires the
+   opener itself (using `shouldOpen`, not `open`) once
+   `setTunnelUrl` has rewritten the review URL.
+   **DO NOT gate on `process.stdout.isTTY`** — the bootstrap is
+   typically launched from a process supervisor (hub, nohup,
+   background shell) whose captured stdout is not a TTY, but the
+   host GUI is fully functional. TTY is not a valid open-gate.
+  The right opt-outs are `--no-open` and `CI=true`.
+  **Long-lived mode (`--long-lived`):** before calling
+  `startServer`, validate that `--reviewers` is NOT also
+  present in $ARGUMENTS — the two modes are mutually
+  exclusive and the bootstrap MUST abort with a clear
+  error if both are supplied. Force `tunnel = 'quick'`
+  regardless of any explicit `--tunnel` value (long-lived
+  implies QuickTunnel). Parse `--ttl <duration>` (default
+  `6h`); reject durations that parse to less than 6h with
+  a clear error. Call `startServer({ sessionPath, token,
+  uiDir, longLived: true, ttlMs: <ms>, port: 0, log,
+  logError, open: false })`. `port: 0` lets the OS pick
+  the actual port (the server result fills in `url`/
+  `port`); `open: false` because the bootstrap fires the
+  opener itself on the tunneled invite URL after step 5.
+5. If `tunnel === 'quick'`: instantiate
+   `new refinementReview.tunnel.QuickTunnel({ targetUrl: server.url })`,
+   `await tunnel.start()`, then call
+   `server.setTunnelUrl(tunnel.url)` which re-mints the share
+   credential against the tunnel origin and rewrites
+   `reviewUrl`/`publicUrl` on the server result. The minted
+   field is `shareInvite` when `opts.longLived === true`
+   and `shareNonce` otherwise; the URL shape is
+   `<origin>/api/exchange?invite=<id>` for long-lived and
+   `<origin>/api/exchange?nonce=<id>` for the default flow.
+   Then (if `shouldOpen` is truthy) fire
+   `refinementReview.opener.openUrl(tunneled.reviewUrl, {})`.
+   The share URL never carries the bearer token. **Do not
+   print the URL here** — step 6 owns the consolidated print
+   so the listing reflects any mode-specific shape.
+6. **If `$ARGUMENTS` contains `--long-lived`:** skip the fan-out
+   logic below entirely. After step 5 (tunnel setup),
+   `server.reviewUrl` already carries the invite URL of the form
+   `<origin>/api/exchange?invite=<id>`. Print the URL listing:
+   `Local: <url>`, `Public: <publicUrl>`, `URL: <reviewUrl>`
+   (same format as the tunnel+single-reviewer case). The invite
+   is multi-use and any reviewer self-identifies through the
+   form at `/api/exchange?invite=<id>`; there is no per-reviewer
+   nonce to mint.
+   Parse `--reviewers <N>` from $ARGUMENTS otherwise: extract
+   `N` as a positive integer in `[1, 50]`.
+   Default to `1` when
+   the flag is absent. Validate strictly: a non-integer,
+   a value `< 1`, or a value `> 50` MUST cause the
+   bootstrap to abort with a clear error message rather
+   than silently truncate to `1`. When `N > 1`, mint
+   `(N - 1)` additional share URLs by calling
+   `server.createShareUrl()` `N - 1` times — each call
+   returns an independent `{ reviewUrl, shareNonce,
+   publicUrl }` triple bound to the current public origin
+   (tunnel origin when `--tunnel=quick`, local origin
+   otherwise). Print the final URL listing to the user:
+   - When `N === 1` (the default): print the original
+     additive flow — `URL: <reviewUrl>` for the no-tunnel
+     case, or `Local: <url>`, `Public: <publicUrl>`,
+     `URL: <reviewUrl>` for the tunnel case. This format
+     is preserved verbatim from the pre-fan-out behavior.
+   - When `N > 1`: print `Local: <url>` and `Public:
+     <publicUrl>` headers (tunnel case only) followed
+     by `URL #1: <original reviewUrl>` through
+     `URL #N: <(N-1)th createShareUrl().reviewUrl>`.
+   Each reviewer redeems their own nonce independently
+   through `/api/exchange`; the server burns the nonce
+   atomically on first use, so a leaked `#k` URL cannot
+   be replayed by a second reviewer, and all reviewers
+   authenticate to the same session (same document, same
+   answer set). The `--reviewers` flag is independent of
+   `--tunnel`; both apply, and the fan-out URLs all share
+   the same `publicUrl` (local origin when no tunnel,
+   tunnel origin when `--tunnel=quick`).
+7. **Run startServer in the foreground and `await` its
+   `completed` promise** (returned alongside `url`, `port`,
+   `reviewUrl`, `openResult`, and `stop`). This promise resolves
+   with `{ artifactPath, session }` when the reviewer hits
+   Complete in the UI — there is no need to poll or watch the
+   artifact file. Do not background or detach the server: the
+   bootstrap script must keep the request alive until the UI
+   session ends so the next workflow step can continue
+   automatically. Wrap the body in `try { ... } finally
+   { await server.stop(); if (tunnel) await tunnel.stop(); }`
+   so the HTTP listener and the cloudflared process are closed
+   even if reading or recap throws — an open listener would
+   keep the foreground Node process alive and block the
+   workflow.
+8. Once `completed` resolves, the artifact is already on disk at
+   `artifactPath`. Read it and initialize `SELECTED_ITEMS` to the
+   union of every question with `status === 'answered'` and every
+   comment whose anchor is non-null. Map each comment to a finding
+   against its anchor's section.
+9. Print a session recap: answered count, comment count, artifact
+   path. Carry `SELECTED_ITEMS` into the Enhancement phase. The
+   PRD Review phase below will short-circuit on its Synthesis,
+   Interview, and Feedback Integration steps.

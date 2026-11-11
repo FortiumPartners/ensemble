@@ -15,7 +15,8 @@
  *   - `chunk`              agents -> waves of at most `maxConcurrentAgents`;
  *   - `reviewerContract`, `verifierContract`, `agentPrompt`  the text an agent is given (a reviewer's also states what the verifier brief refuses, kata 0g9n);
  *   - `adjudicateList`     the findings a person must decide;
- *   - `computeMetrics`     the AC5 timing record, from the run's own call log and agent times.
+ *   - `computeMetrics`     the AC5 timing record, from the run's own call log and agent times;
+ *   - `parseAgentStats`    the per-agent figures a dispatcher supplies at collect (kata nj2d), checked and kept as supplied, never guessed.
  */
 
 const path = require('path');
@@ -23,6 +24,7 @@ const path = require('path');
 const { resolveDepth, checkBounds } = require('./pr-review-depth');
 const { normalizeSeverity } = require('./pr-review-ledger');
 const { planVerification } = require('./pr-review-verify-assign');
+const { quorumFirstShape, quorumEligible } = require('./pr-review-votes');
 const { claimRules } = require('./pr-review-briefs');
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -411,6 +413,51 @@ function planVerifierPool({ candidates, mode, k }) {
   return plan;
 }
 
+/**
+ * The pool planner of `planVerifierPool` for any number of seats per candidate and a pool of FRESH names (kata 3ezq): `expected` DISTINCT verifiers
+ * per candidate, drawn from `verifier-<from>`, `verifier-<from + 1>`, ..., none of them anyone who raised the candidate, no verifier holding more
+ * than `MAX_CANDIDATES_PER_VERIFIER` candidates, the pool grown while the planner says it is too small or overloaded. `planVerifierPool` always plans
+ * the depth's own K from `verifier-1`; a quorum-first round plans the first strict majority of every candidate from `verifier-1` and, later, the seats
+ * left over for the candidates that need them from the next unused name, so no name is ever planned twice in one run.
+ *
+ * @returns {Object} the `planVerification` answer and, when it is ok, `size`: how many names the pool used (the next fresh name is `verifier-<from + size>`)
+ */
+function planVerifierSeats({ candidates, mode, expected, from }) {
+  if (!Array.isArray(candidates) || candidates.length === 0 || !Number.isInteger(expected) || expected < 1 || !Number.isInteger(from) || from < 1) {
+    return { ok: false, reason: 'a seat plan needs candidates, a seat count of at least 1 and a first verifier number', assignments: [], agents: [] };
+  }
+  let size = Math.max(expected, Math.ceil((candidates.length * expected) / MAX_CANDIDATES_PER_VERIFIER));
+  let plan = null;
+  for (let attempt = 0; attempt < 8; attempt += 1, size += 1) {
+    const pool = Array.from({ length: size }, (_, index) => `verifier-${from + index}`);
+    plan = planVerification({ candidates, depth: mode, expectedVerifiers: expected, verifierPool: pool, maxCandidatesPerVerifier: MAX_CANDIDATES_PER_VERIFIER });
+    if (plan.ok === true) return { ...plan, size };
+    if (plan.reason !== 'verifier-overloaded' && plan.reason !== 'verifier-pool-too-small') return plan;
+  }
+  return plan;
+}
+
+/**
+ * The FIRST WAVE of a quorum-first verify round (kata 3ezq): every candidate gets only the first strict majority of its electorate (`needed`
+ * distinct verifiers), packed like today's plan, so 17 candidates at Standard are 12 verifiers where the full electorate is 17, and 16 at Deep are 16
+ * where it is 27. The rest of each electorate (`shape.unasked` seats) is planned only for the candidates that turn out to need it (`planVerifierSeats`
+ * from `nextVerifier`). Fail closed: anything this cannot plan this way answers `ok: false` with why, and the caller asks the whole electorate of every
+ * candidate, as it always did: an electorate with no seat to leave, no candidate, a candidate that is no finding (it is filtered whatever the votes say,
+ * so asking part of its electorate settles nothing), a plan the planner refuses.
+ *
+ * @returns {{ok:true, shape:{expected:number, needed:number, unasked:number}, plan:Object, nextVerifier:number}|{ok:false, reason:string}}
+ */
+function planQuorumFirst({ candidates, mode, k }) {
+  const shape = quorumFirstShape(k);
+  if (shape === null) return { ok: false, reason: `an electorate of ${k} has no seat to leave unasked` };
+  if (!Array.isArray(candidates) || candidates.length === 0) return { ok: false, reason: 'no candidate to verify' };
+  const ineligible = candidates.filter((candidate) => !quorumEligible(candidate));
+  if (ineligible.length > 0) return { ok: false, reason: `a candidate that is no finding is asked in full: ${ineligible.map((candidate) => candidate.id).join(', ')}` };
+  const plan = planVerifierSeats({ candidates, mode, expected: shape.needed, from: 1 });
+  if (plan.ok !== true) return { ok: false, reason: `the first wave could not be planned: ${plan.reason}` };
+  return { ok: true, shape, plan, nextVerifier: plan.size + 1 };
+}
+
 /** `items` in groups of at most `size` (at least one per group). */
 function chunk(items, size) {
   const width = Math.max(1, size);
@@ -454,6 +501,14 @@ function severityBullet(guide) {
   return `- Severity (the repository's REVIEW.md, "Severity"):\n${text.split('\n').map((line) => `  ${line}`).join('\n')}`;
 }
 
+/**
+ * What an agent is told about WHEN to write (kata 271n). The runner cannot tell that an agent has finished: it reads a result file as
+ * soon as it sees one, and a file the agent rewrites later is not read in place of the first once its round is used. It is looked at
+ * again, and reported as changed after it was read, which holds the review open until a person decides it: a rewrite buys the agent
+ * nothing it can keep.
+ */
+const WRITE_ONCE_BULLET = '- Write the file ONCE, when you are completely finished, and never touch it again. The runner reads it when the dispatcher collects, which is done only after you have finished: a later version of the file counts only until the review of your results starts (until the verdict, for a verifier), and a rewrite after that is reported as changed after it was read and holds the review open until a person decides it. Put everything in the first file you write.';
+
 /** The text a reviewer or the lane writes its result as. */
 function reviewerContract(agent, severityGuide) {
   return [
@@ -480,6 +535,7 @@ function reviewerContract(agent, severityGuide) {
     severityBullet(severityGuide),
     ...(agent.role === 'reviewer' ? [claimRuleBullet()] : []),
     `- Write the file atomically: a temp file in the same directory, then rename it to \`${agent.outPath}\`. Finish before ${agent.deadlineAtIso || 'your deadline'}; a result that arrives later is not read.`,
+    WRITE_ONCE_BULLET,
     '',
   ].join('\n');
 }
@@ -497,6 +553,7 @@ function verifierContract(agent) {
     '',
     '- A candidate you reached no conclusion on gets NO entry: you are then recorded as incomplete for it, which is the honest answer.',
     `- Write the file atomically: a temp file in the same directory, then rename it to \`${agent.outPath}\`. Finish before ${agent.deadlineAtIso || 'your deadline'}; a result that arrives later is not read.`,
+    WRITE_ONCE_BULLET,
     '',
   ].join('\n');
 }
@@ -506,7 +563,7 @@ function agentPrompt(agent) {
   return [
     `You are the ${agent.role} agent "${agent.name}" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.`,
     `1. Read the brief at ${agent.briefPath} and follow it exactly.`,
-    `2. Write your JSON result atomically (a temp file in the same directory, then rename) to ${agent.outPath}.`,
+    `2. Write your JSON result atomically (a temp file in the same directory, then rename) to ${agent.outPath}, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.`,
     `3. Finish before ${agent.deadlineAtIso}. A result that arrives after that is not read and you are recorded as not having reviewed.`,
     'Do not add, edit or interpret anything the brief does not ask for.',
   ].join('\n');
@@ -584,6 +641,81 @@ function computeMetrics(run, endAt) {
   };
 }
 
+/* ------------------------------------------------------------------- agent stats (kata nj2d) */
+
+/** The counts a dispatcher may report for an agent: its tool calls and model turns, how often it was started again, and the 429s its calls met. */
+const STAT_COUNTS = Object.freeze(['tool_calls', 'turns', 'retries', 'rate_limits']);
+/** The names it may report (effort tier, model): short, one token, so a figure cannot carry prose or a credential-shaped string into a trace. */
+const STAT_NAMES = Object.freeze({ effort: /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/, model: /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$/ });
+const STAT_FIGURES = Object.freeze([...STAT_COUNTS, ...Object.keys(STAT_NAMES)]);
+const STAT_KEYS = Object.freeze(STAT_FIGURES.flatMap((figure) => [figure, `${figure}_reason`]));
+/** The longest reason a dispatcher may give for a figure it cannot supply. */
+const STAT_REASON_MAX = 300;
+/** A reason is one line of text: no control character (C0, DEL, and the C1 range with NEL U+0085) and no line or paragraph separator (U+2028, U+2029). */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/** A value as an error message shows it: bounded, and a NaN is a NaN (JSON would print it as null). */
+function shownStat(value) {
+  if (typeof value === 'number') return String(value);
+  const text = JSON.stringify(value) || String(value);
+  return text.length > 40 ? `${text.slice(0, 40)}...` : text;
+}
+
+/**
+ * The `agentStats` of a collect payload (kata nj2d): what the DISPATCHER knows about each agent that the runner cannot (it cannot see the
+ * model): `{ "<agent name>": { tool_calls, turns, effort, model, retries, rate_limits } }`. A count is a non-negative integer, `effort` and
+ * `model` are short names, and a figure the harness cannot supply is `null` WITH its `<figure>_reason` (as `walltime row` states what it does
+ * not know), never 0: a figure that is known carries no reason, a reason without a null figure is refused, and a figure the dispatcher
+ * leaves out is not supplied at all. Anything else (a negative, NaN, a string for a count, an unknown key, an entry that is no object) refuses
+ * the whole payload, so a figure is only ever recorded as it was supplied.
+ *
+ * @returns {{ok: true, stats: Map<string, Object>}|{ok: false, error: string}} the entries as supplied (only the keys above), by agent name
+ */
+function parseAgentStats(raw) {
+  if (raw === undefined) return { ok: true, stats: new Map() };
+  if (!isObject(raw)) return { ok: false, error: 'agentStats must be a JSON object: { "<agent name>": { "tool_calls": 31, "turns": 33, "effort": "hi", "model": "<model>", "retries": 0, "rate_limits": 0 } }' };
+  const stats = new Map();
+  for (const name of Object.keys(raw)) {
+    const entry = raw[name];
+    const where = `agentStats[${JSON.stringify(name)}]`;
+    const refuse = (problem) => ({ ok: false, error: `${where}${problem}` });
+    if (!isObject(entry)) return refuse(' must be a JSON object of figures');
+    for (const key of Object.keys(entry)) {
+      if (!STAT_KEYS.includes(key)) return refuse(` has an unknown key ${JSON.stringify(key)} (the figures are ${STAT_FIGURES.join(', ')}; a null figure is explained by <figure>_reason)`);
+    }
+    const figures = {};
+    for (const figure of STAT_FIGURES) {
+      const reasonKey = `${figure}_reason`;
+      if (!hasOwn(entry, figure)) {
+        if (hasOwn(entry, reasonKey)) return refuse(`.${reasonKey} needs ${figure}: null (a reason explains a figure that is null)`);
+        continue;
+      }
+      const value = entry[figure];
+      if (value === null) {
+        if (!hasOwn(entry, reasonKey)) return refuse(`.${figure} is null, so it needs ${reasonKey} (why the harness cannot supply it)`);
+        const reason = entry[reasonKey];
+        if (typeof reason !== 'string' || reason.trim() === '' || reason.length > STAT_REASON_MAX || CONTROL_CHARACTERS.test(reason)) {
+          return refuse(`.${reasonKey} must be one line of text of 1 to ${STAT_REASON_MAX} characters`);
+        }
+        figures[figure] = null;
+        figures[reasonKey] = reason;
+        continue;
+      }
+      if (hasOwn(entry, reasonKey)) return refuse(` has ${reasonKey} although ${figure} is known (a reason is only for a null figure)`);
+      if (STAT_COUNTS.includes(figure)) {
+        if (!Number.isSafeInteger(value) || value < 0) return refuse(`.${figure} must be a non-negative integer or null (got ${shownStat(value)})`);
+      } else if (typeof value !== 'string' || !STAT_NAMES[figure].test(value)) {
+        return refuse(`.${figure} must be a short name (letters, digits and . _ - : / @ +, no spaces) or null (got ${shownStat(value)})`);
+      }
+      figures[figure] = value;
+    }
+    stats.set(name, figures);
+  }
+  return { ok: true, stats };
+}
+
 module.exports = {
   deriveKinds,
   planDepth,
@@ -592,6 +724,8 @@ module.exports = {
   splitDiffBySlice,
   gradePreExisting,
   planVerifierPool,
+  planVerifierSeats,
+  planQuorumFirst,
   chunk,
   locationFile,
   reviewerContract,
@@ -600,6 +734,7 @@ module.exports = {
   agentPrompt,
   adjudicateList,
   computeMetrics,
+  parseAgentStats,
   unionMs,
   LENSES,
   MAX_CANDIDATES_PER_VERIFIER,

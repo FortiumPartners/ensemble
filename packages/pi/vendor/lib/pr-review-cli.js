@@ -148,10 +148,11 @@
  * agents write `out-<name>.json` and this reads them, instead of the orchestrator
  * parsing what an agent yielded. One payload selects one function via `action`:
  *   deadlines        { role, tier?, depth?, now?, policy? } -- the `dispatchedAt` (= `now`, default: the current time)
- *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15,
- *                    per-role overridable by the policy's `deadlineMinutes`
- *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds? }], dir, now?,
- *                    scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
+ *                    and the `deadlineAt` an agent must be stopped by: reviewer 15 min, verifier 5, security lane 15 (bases),
+ *                    per-role overridable by the policy's `deadlineMinutes`, and never below a measured floor: a verifier 8 min
+ *                    (kata dx53), a reviewer or the lane 22 min when `work` is given (kata d9sy)
+ *   collect          { expected[{ name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds?, read?, reread? }], dir,
+ *                    now?, scratchDir?, depth?, expectedVerifiers?, candidates? } -- classifies each agent
  *                    arrived|missing|expired|invalid from `<dir>/out-<name>.json`. It arrived when the file's last
  *                    change (its inode change time, never the modification time a writer can set) is within
  *                    [dispatchedAt, deadlineAt]; an older file is stale, a later one expired. A reviewer given a
@@ -179,6 +180,9 @@
  *   timing     { runId, cwd? } | { spans }
  *              -- `runId` reads `<cwd or the current directory>/.ensemble/state/toolchain/trace-<runId>.jsonl`;
  *              `spans` takes materialized run-trace spans directly. Exactly one of the two is required.
+ *              The answer ends with `hostLoad` and `agentStats` (kata nj2d): the host's 1-minute load average from `lib/pr-review-load.js`
+ *              samples next to the trace, and, per agent and by role, the tool calls, turns, effort, model, retries and 429s the dispatcher
+ *              supplied at `review-run collect` (`agentStats`). A figure nobody supplied is `null` with a reason in `without`, never 0.
  *
  * `walltime` (kata vrda) answers review WALL TIME by tier from cohort documents (the committed
  * docs/guides/review-walltime-baseline-<date>.json is one) and compares a post-change cohort with that baseline:
@@ -191,9 +195,11 @@
  *              { action: 'row', pr, tier, round, origin, runId, cwd? | timing, id?, source?, notes?, carry? }
  *              -- one cohort row from a `timing` answer: `runId` reads the trace as `timing` does, `timing` takes a
  *              `timing` answer directly (exactly one of the two); `carry` is `{ headSha, verdicts }` from the PR's state report
- *              { action: 'compare', baseline, current, cwd? } -- two cohort documents. Each counted current row's wall time,
+ *              { action: 'compare', baseline, current, cwd?, targetFactors? } -- two cohort documents. Each counted current row's wall time,
  *              chains and gate runs are re-derived from the trace its `run_id` names (<cwd>/.ensemble/state/toolchain/), and a
  *              5x `met` is withheld unless every such row of a required stratum passes; `fiveX.attestation` says what stays attested
+ *              `targetFactors` ({ '<tier>/<round>': factor >= 1 }, default 5) grades a stratum at another factor, marked `rebased`;
+ *              `fiveX` never reads it (kata js1p)
  *
  * The tier, approval and merge-gate subcommands (TRD-026) each take the facts
  * their module grades and answer with that module's result verbatim:
@@ -520,13 +526,22 @@ function runDescription(payload) {
  * is graded IN BAND by its module: a payload the module cannot read is a
  * blocked, deepest-mode or no-plan RESULT (exit 0), never a clean pass.
  *
- * `votes` is a pass-through. `depth` and `slices` each call exactly two
- * functions of their one module -- resolve then grade, plan then verify --
+ * `votes` is a pass-through but for two keys: `settleOnMajority` (kata dx53) and `quorumFirst` (kata 3ezq) are the review runner's options, which
+ * calls the tally itself, and the narrated procedure keeps the strict rule (AC-006-3) and the whole electorate, so both keys are dropped from the
+ * payload here, whatever their value, and the answer is the one the payload without them gives (the caller's object is not changed; an assignment
+ * entry that leaves seats `unasked` is then refused by the tally, since only a quorum-first tally accepts one). `depth` and `slices` each
+ * call exactly two functions of their one module -- resolve then grade, plan then verify --
  * because that is the single question the skill asks; the dispatcher still
  * decides nothing itself, and the only value it combines is `ok`, which it
  * can only make stricter.
  */
 function runVotes(payload) {
+  if (payload !== null && typeof payload === 'object' && !Array.isArray(payload) && ['settleOnMajority', 'quorumFirst'].some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
+    const strict = { ...payload };
+    delete strict.settleOnMajority;
+    delete strict.quorumFirst;
+    return tallyVotes(strict);
+  }
   return tallyVotes(payload);
 }
 
@@ -1034,7 +1049,7 @@ function walltimeCompare(payload) {
   for (const run of runs) {
     if (isObject(run) && typeof run.id === 'string' && run.origin === 'real') traceChecks[run.id] = checkRowAgainstTrace(run, cwd);
   }
-  return compareWalltime({ baseline: payload.baseline, current: payload.current, traceChecks });
+  return compareWalltime({ baseline: payload.baseline, current: payload.current, traceChecks, targetFactors: payload.targetFactors });
 }
 
 const WALLTIME_ACTIONS = Object.freeze({
@@ -1049,7 +1064,7 @@ const WALLTIME_ACTIONS = Object.freeze({
   },
   compare: {
     keys: { baseline: OBJECT, current: OBJECT },
-    optional: { cwd: TEXT },
+    optional: { cwd: TEXT, targetFactors: OBJECT },
     run: walltimeCompare,
   },
 });

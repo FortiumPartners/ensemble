@@ -1,0 +1,28 @@
+# Phase 3: Research and Context
+
+**1. Codebase Reconnaissance**
+   Understand existing patterns and constraints before writing requirements
+
+- Check for existing codebase (package.json, src/, app/, lib/) and identify the tech stack -- record it as research *context* only; the stack is never a requirement, and requirements MUST NOT name a technology
+- Read CLAUDE.md or CONTRIBUTING.md for coding standards the PRD should respect
+- Identify existing authentication, authorization, and data patterns the new feature must integrate with
+- If no codebase exists (greenfield), note this and skip to step 2
+
+**2. Existing PRD Review**
+   Maintain consistency with prior product documentation
+
+- Check docs/PRD/ for existing PRDs -- read the most recent one for style and conventions
+- Generate a collision-resistant micro UUID for the document id: 8 lowercase hex characters from a UUID/random source (e.g., `node -e "console.log(require('crypto').randomUUID().replace(/-/g,'').slice(0,8))"`). Do NOT scan for highest sequence numbers or increment NNN; teams create PRDs concurrently.
+- Set Document ID to PRD-{current_year}-{micro_uuid}, for example PRD-2026-a1b2c3d4
+- Set a human-readable Label: prd-<stem>, where <stem> is a short lowercase-kebab handle for the effort (a few words), derived from the working title by default but overridable if the user offers a shorter codename. Example: title 'Multi-Factor Login' -> label prd-login-mfa. The label is display-only for humans to reference the doc at a glance; it is NEVER a reference key (all cross-document references use the micro UUID Document ID) and need not be globally unique.
+- Note any cross-cutting requirements from existing PRDs that this feature must respect
+- IF --from-meeting flag is set: if the meeting summary itself references an existing PRD or feature by name, flag that as a candidate for /ensemble:refine-prd <prd-path> --from-meeting <meeting-summary-or-path> instead -- this mode is for new PRDs, not extending an existing one
+
+**3. Business Integration Points**
+   Identify which systems, partners, or regulations the product must satisfy -- the what, not the how
+
+- Name each external system or partner the product depends on BY CAPABILITY, not by product or endpoint (e.g. 'must charge cards through a payment provider', not 'Stripe checkout API'). Implementation choices -- SDKs, schemas, wire formats, call direction -- belong to the TRD.
+- State what must be true of each: the business outcome it serves and any obligation it carries (data residency, settlement timing, accessibility, audit trail).
+- Flag constraints that limit what can be promised (e.g. must work offline, max 100ms perceived latency, must support IE11) as requirements, not as technology decisions.
+- For LIGHT depth: bullet list of dependencies is sufficient
+- For DEEP depth: list each dependency with its capability, business outcome, and obligation -- still no interface or data-flow design

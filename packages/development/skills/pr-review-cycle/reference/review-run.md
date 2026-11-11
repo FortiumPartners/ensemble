@@ -40,8 +40,12 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    UNEDITED to a fresh-context, read-only subagent. Never run more at once than `maxConcurrentAgents`, and stop an
    agent that has not finished at its own `deadlineAtIso` (the deadlines are not all alike: see Slices and deadlines): the
    runner records deadlines but cannot stop an agent.
-3. When the agents have finished (or been stopped), call `collect` with `{ repoRoot, runId }` (`runId` from the
-   manifest). Only those keys, plus `triage` in step 5 or `adjudications` in step 6.
+3. When the agents have FINISHED (their processes ended) or been stopped at their deadlines, call `collect` with `{ repoRoot, runId }`
+   (`runId` from the manifest). Only those keys, plus `triage` in step 5, `adjudications` in step 6 or, optionally, `agentStats`
+   (Agent stats, below). Never collect on the first
+   sight of a result file: the runner cannot tell that an agent is done, and a file an agent rewrites after the runner read it is
+   re-read only while that round's results are not used yet; after that it is flagged (`result-changed-after-read`) and the
+   review is not mergeable until the operator decides it. Agents are told to write their result once.
 4. `DISPATCH` again (the next verify wave, with its own deadlines): repeat step 2. In the verify round a `DISPATCH` with
    `refill: true` is dispatched while earlier verifiers still run: start only the agents it lists (`stillRunning` names the
    ones you keep waiting for; the cap counts both). `PENDING`: wait for
@@ -83,6 +87,12 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    `review-coverage-incomplete` entry per unread slice, whole-range read or path (`reviewStatus.localPhase` is then not
    `LOCAL_REVIEW_COMPLETE`). Report each by its `message`; the way out is to run the review again on this head, or the
    operator's own decision about the gap (`reference/merge-gate.md`), never yours.
+   A result file an agent rewrote after the runner read it is never lost in silence. If the round was still open the later
+   version counted and `rereadResults` names it. Otherwise `notReviewed.changedResults` names the agent and both fingerprints,
+   `gate.coverage` holds a `coverage:result-changed:<agent>` gap and `gate.blockers` a `review-coverage-incomplete` entry, so the
+   review is not mergeable until the operator decides it: report each by name. A repeat `collect` on a finished run whose file
+   changed after the verdict answers `restated` (what the stored answer said and why this one differs); report the restated
+   answer, not the stored one.
 
 ## Statuses
 
@@ -95,7 +105,7 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
 | `DONE` | true | stop and report |
 | `NEEDS_FULL_MODE` | false | light mode only, and only when a brief the renderer refuses (for example a path with a space) means the runner cannot review mechanically: nothing was dispatched, run the narrated Steps 1-10 from the start |
 | `RUN_INVALIDATED` | false | the head moved (at any `collect`, a finished run's included): the run is over and nothing it produced is usable; start a new run on the new head |
-| `RUN_FAILED` | false | report the `reason` and the error: the review did not run to a verdict, so treat it as blocked. `head-unreadable` and `pr-not-open` leave a started run retryable by a later `collect`; `triage-refused` is not terminal either (fix the `triage` payload and call again); `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); at `prepare` the refusals `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` mean nothing was fetched, run or posted |
+| `RUN_FAILED` | false | report the `reason` and the error: the review did not run to a verdict, so treat it as blocked. `head-unreadable` and `pr-not-open` leave a started run retryable by a later `collect`; `triage-refused` is not terminal either (fix the `triage` payload and call again), nor is an `invalid-input` refusal (for example of a malformed `agentStats`): it recorded nothing, so fix the payload or leave the key out and call again; `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); at `prepare` the refusals `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` mean nothing was fetched, run or posted |
 
 `NEEDS_FULL_MODE` is the light-mode fallback, not an error to work around, and never a way to full mode: full mode runs
 in this runner. When a light run cannot review mechanically, nothing was dispatched and the narrated procedure is
@@ -109,13 +119,28 @@ pass a light-mode verdict off for a full-mode one: the answer's `mode` says whic
 
 ## Re-review scope (`reReview`)
 
-The run, the `TRIAGE` answer and the final answer record `reReview: {scope, reasons: [...]}`. `delta` only when a
-previous reviewed head was supplied (`lastReviewedSha`), the prepared range is a readable delta whose plan says delta,
-the CLI has seen that head (the review state recorded it) and no path in the delta is High or sensitive. `full` (a full
-re-read) whenever the delta touches a High or sensitive path, the head was never seen, or anything is unreadable.
-`first-review` when there is no previous head. The honest limit: the runner has no delta-only read path yet (carry-over
-of verdicts is kata qw98, PR #268), so every run still has reviewers read the whole range, the superset;
-`reReview.appliedRange` is always `full-range` today and records the decision for the carry-over work to consume.
+Ask for a re-review with `lastReviewedSha` and `remediationShas` only; the runner reads the previously reviewed head and base
+from the state it recorded at `lastReviewedSha` and the run record that wrote it (kata `xb4j`). The run, the `TRIAGE` answer
+and the final answer record `reReview: {scope, reasons: [...], appliedRange}`. `delta` only when that state is on record and
+whole (a finished run of that head, its verdicts and ledger, nothing left unread, no security-lane finding; a verifier that did not
+return is no gap in what was read), the prepared range
+is a readable delta of your `remediationShas`, the plan says delta and no path in it is High or sensitive. `full` (a full
+re-read) in every other case, with `prior-round-unusable:<reason>` saying why the last round could not be stood on; a head
+the runner never saw is a full review, never a skip. `first-review` when there is no previous head.
+
+A delta round reads only the delta plan's read set, on `delta.diff`: fewer slices, fewer agents (`reReview.delta` says
+`agentsPlanned` against `agentsFullRead`), and `appliedRange` is `delta`. Candidates are hashed at the head; a candidate the
+push left alone (its hunk, dependencies and dependents untouched, its file outside the delta) keeps the prior verdict and is
+not verified again (the verify manifest's `carry` says how many), every other one is verified again. The ledger keeps the
+prior findings: carried ones restamped (`carriedFrom`), fixed ones cleared, re-reported ones replaced, the rest as recorded.
+A candidate the last round left unverified, or settled on a majority (kata `dx53`), because a verifier did not return is verified again when the push left its code alone
+(`reReview.delta.unverifiedFromLastRound` counts them; the verify manifest's `carry.unverifiedFromLastRound` lists the ones put to
+verifiers again and the ones kept unverified, each with why); one kept stays unverified in the ledger and the round's verification reads
+`partial`. A lost reviewer or security lane is still a full re-read.
+The security lane and the whole-range reader keep the whole range. Your job does not change: dispatch what the manifest lists and
+call `collect`. The honest limits are listed in the answer (`reReview.delta.limits`): the read set is the changed files, their direct
+importers and tests; a High or sensitive file can be in it as a caller of a changed file; `remediationShas` is your statement of which
+commits are the fix round's own.
 
 ## Slices and deadlines (kata `sfpb`)
 
@@ -144,14 +169,34 @@ agents the manifest names and stop each at its own `deadlineAtIso`; the deadline
   minutes (kata `d9sy`: reviewers at effort `hi` took 7 to 15 minutes on slices of 77 to 327 lines, one over 15 on 4 paths, so
   the time is a per-agent cost, not a rate; the floor is the slowest finished reviewer, 14.58, times 1.5):
   `clamp(max(ceil(max(paths x 0.934, changed lines / 100 x 1.224) x headroom), base, 22), 60)`. A reviewer's `work` is its slice,
-  the lane's is every changed path, a verifier is not sized and keeps 5. The run these numbers came from (19 paths, 1450
+  the lane's is every changed path, a verifier is not sized: its base (5) is raised to its own floor of 8 minutes (kata `dx53`,
+  below). The run these numbers came from (19 paths, 1450
   changed lines) is three slices of 8, 3 and 8 paths with reviewers at 22 minutes and the lane at 36, where it needed 17.75.
+* Verifiers (kata `dx53`): the first real runs (effort `hi`, 60 verifiers) stopped 9 at the old flat 5 minutes (8 of 31 in the last
+  measurement) and left 17 of its 23 candidates unverified. A verifier's time does not follow its claims or paths (on identical
+  work the spread is 2.4 times at least), so it has a floor and no size term: the slowest verifier that arrived, 4.97 minutes, times
+  1.5, rounded up, 8 minutes, whatever the policy's `deadlineMinutes.verifier` says. A verifier slower than that is still `expired`
+  and its candidates are not verified by it; stop it at its `deadlineAtIso` like any agent. The manifest marks it `deadlineFloored`
+  and `sizing.model.verifierFloorMinutes` records the floor. A candidate is `present` when a strict majority of the EXPECTED
+  verifiers (2 of 3, 3 of 5) voted it real, even if another assigned verifier returned nothing (`settledOnMajority: true` and
+  `missing` in `votes.outcomes[]`, the missing verifier still in `notReviewed.incompleteVerifiers`, a `SETTLED ON A MAJORITY`
+  line in `reducedReview`, the round `partial`): no vote still missing could change that outcome. Fewer than the majority, a
+  refutation and a split stay `unverified`, and a candidate settled this way is re-verified, never carried, in a delta round.
+* Quorum-first verification (kata `3ezq`; the policy key `quorumFirstVerification`, read from the base commit's `REVIEW.md`, off unless it
+  is the boolean `true`): the verify round asks only the first strict majority of each candidate's verifiers (2 of 3, 3 of 5; the manifest
+  says `quorumFirst: { expected, needed, secondWave }`) and the rest only for a candidate whose first votes are not all real (a not-real, an
+  abstain or a missing vote). `collect` then answers another `DISPATCH` of the verify round whose agents carry `secondWave: true`: start them
+  like any verifier, stop each at its `deadlineAtIso`, and call `collect` again; nothing else changes for you. The electorate (3 or 5) and the
+  vote rule are unchanged, so the outcome is the one the whole electorate gives; a candidate its first votes settle is `quorumSettled: true`
+  in `votes.outcomes[]` (present; the verifiers not asked were never expected to vote, so no verifier is missing and the round is not
+  `partial` for it) and is never carried, so a delta verifies it again. What is lost is the not-real count of a settled candidate. A round
+  the runner cannot ask in part is asked in full and `reducedReview` says why. Detail: `docs/guides/pr-review-run.md`.
 * `sizing` in the review round's manifest and in `run.json` says what was planned: `model`, `limits`, `work`, `slices[]`
   (`overLimit`, `diff`) and `warnings[]`. Report every warning with the run: `slice-over-limit` (the cap holds fewer slices
   than the limits ask for; the message names the `maxConcurrentAgents` that would hold them), `reader-not-planned` (the cap
   holds the slices but not a whole-range reader beside them; the message names the cap that would), `deadline-capped` (a modelled
-  need over 60 minutes: that agent may not finish), `deadline-floor-over-policy` (a policy `deadlineMinutes` below the 22-minute
-  floor was overridden; `model.fixedCostFloorMinutes` records the floor, `deadlineFloored` marks an agent it decided) and
+  need over 60 minutes: that agent may not finish), `deadline-floor-over-policy` (a policy `deadlineMinutes` below a floor, 22
+  minutes for a reviewer or the lane and 8 for a verifier, was overridden; `model.fixedCostFloorMinutes` and `model.verifierFloorMinutes` record the floors, `deadlineFloored` marks an agent a floor decided) and
   `invalid-<key>` (an unreadable policy value; the default applied).
 * Nothing is relaxed. An agent that arrives after its (larger) deadline is `expired`, and a reviewer that lists fewer paths
   than its slice leaves that slice not reviewed: both are reported in `notReviewed`, never hidden by a bigger deadline or a
@@ -196,11 +241,32 @@ output contract (the words and forms the brief refuses, generated from the rende
 the refused candidate stays as it was). A light run has no `TRIAGE`, so there the state above is the end. The
 reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `docs/guides/pr-review-run.md`.
 
+## Agent stats (optional, kata `nj2d`)
+
+On the omp harness a finished agent shows only its status, duration and structured output, so `tool_calls`, `turns` and `rate_limits` come out `null` with a reason (V2-1 does not deliver the reviewer-cost data that plan options O5 and O6 need), `effort` and `model` are what you asked for, not what ran, and a retry or 429 the harness handles inside is invisible.
+
+The runner cannot see an agent's tool calls, turns, effort, model, retries or 429s, so the dispatcher passes the ones it knows. Add
+`agentStats` to the `collect` that records an agent's wave (the one after the agents finished; a `PENDING` answer records nothing, so send
+them again then): `{ "<agent name>": { "tool_calls": 31, "turns": 33, "effort": "hi", "model": "<model id>", "retries": 0,
+"rate_limits": 0 } }`, an entry for each agent you have something for and each figure only when you have it. A count is a non-negative
+integer; `effort` and `model` are one short token. A figure you cannot get is left out, or is `null` with `"<figure>_reason": "why"` (one
+line): never `0` for what you do not know, a zero is a count. A malformed `agentStats` (a negative, NaN, a string for a count, an unknown
+key, a `null` with no reason, a name that is no agent of the run) is `RUN_FAILED` `invalid-input` before anything is recorded. The runner stamps each
+figure on its agent's trace span and never reads it back: it decides no verdict, gate or time, and `pr-review-cli timing` reports it by role. Figures for an
+agent this call did not record come back in `warnings`. Where a figure comes from is the harness's: the runner reads no session file (owner decision D8).
+The omp `task` job result reports status, duration and output only (observed 2026-11-11), so there pass `effort` and `model` when you chose them and leave
+the rest out or `null` with that reason.
+
+Host load is optional too: start `node "$PR_REVIEW_LOAD_CLI" sample --run-id <runId> --cwd <repoRoot> &` BEFORE `prepare` (pass that `runId` to `prepare`) and stop it when the review is over
+(`PR_REVIEW_LOAD_CLI` is resolved the way `PR_REVIEW_CLI` is, file `lib/pr-review-load.js`). It appends a load-average sample every 30 s beside the trace; `timing`
+reports `hostLoad` and each agent's highest load, MISSING with the reason when no sampler ran. Nothing waits for it.
+
 ## Honest limits
 
 * Deadlines and the concurrency cap are enforced by whoever dispatches (you), not by the runner.
-* Carry-over of verdicts, sharding and verification pools are not built. `remediationShas` is only passed through to
-  `prepare`; `lastReviewedSha` feeds the `reReview` decision only, and reviewers read the full range.
+* Sharding is not built. `remediationShas` is your statement of which commits are the fix round's own; it is passed to
+  `prepare`, where it decides whether the delta is vouched for. The reviewed head and base of a re-review come from the state
+  the runner recorded, never from the payload.
 * `prepare` runs the precheck first: it posts one PR comment and starts the local-CI gate in the background
   unless `dryRun` or `skipPrecheck` is set. A precheck that fails is recorded and does not stop the run.
 * The baseline test run executes the head's own test code in a scratch directory; it is not a sandbox
@@ -243,6 +309,7 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   defaults to the review's own `runId`, so a review has a trace file of its own; keep it that way for `timing` (two runs
   sharing one file have two `review` roots and no window). Its spans join a `/ensemble-pr-merge` run's trace only when
   the caller passes that run's id; nothing passes it today.
+  An agent's span also carries what the dispatcher supplied in `agentStats` (Agent stats, above); one it did not name has none.
 * `metrics.orchestratorTurns.atLeast` counts the model turns the protocol itself requires (runner calls plus dispatch
   rounds): a lower bound, not a transcript count. `metrics.wallMs` and `metrics.orchestratorTurns` are recorded
   honestly and `metrics.triageCalls` counts the `triage` calls. No before/after comparison against the narrated flow has
@@ -250,7 +317,7 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   (the 5x target is not claimed for it). Measuring it is kata `q3a9`'s job, not this runner's.
 * Triage is a model judgement, but it can only add candidates, and what it adds is verified by fresh-context verifiers
   that never see its reasoning; it never removes, grades or closes anything, and never sets a verdict.
-* Call `collect` one at a time per run: the run file has no lock, and two overlapping calls can each emit the next wave.
+* Call `collect` one at a time per run: the run file has no lock, and two overlapping calls can each emit the next wave. The same holds for a `collect` and a replay racing on a finished run, and the fields kata `271n` added (`agent.read`, `resultChanges`, `rereads`) raise the cost of an entry lost that way.
 * A finished run's stored answer is as of its finalise: a repeat `collect` re-reads only the head and the PR's open
   state, so the approvals, branch protection and `mergeable` it holds can be out of date. Start a new run for a
   current verdict.
@@ -264,5 +331,16 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   about code, and it cannot tell that a claim that avoids the words carries no opinion. The contract is an instruction,
   so a reviewer can still write what the brief refuses. When two reviewers raise one defect, the entry that survives the
   dedupe can be the one whose wording the brief refuses (the other raiser is in `mergedFrom`).
+* A result file is read when `collect` first sees it and looked at again at every later `collect`, at the use of its round and at a
+  replay (kata `271n`): the runner cannot know an agent has finished, so a rewrite is flagged (or, while the round is open,
+  re-read), never prevented, and collecting before the agents finish is the dispatcher's error. The comparison is on bytes, not on
+  what the votes mean; a deleted file is only a notice; a change after the call that finalised the run is seen by the next
+  `collect` only. A round that ends with a changed result is no base for a delta re-review, and `prepare` looks at the last round's
+  result files again before it carries their verdicts (a file whose bytes differ from what that run read is
+  `prior-round-unusable:prior-result-changed:<agents>`, a full re-review; the prior run is not restated or rewritten). A state report
+  written before this change has no `changedResults`, so the first delta re-review of each in-flight PR is a full re-review once. A
+  restated replay re-derives the gate from the live reviews, branch protection and PR body, so its blocker set can differ from the
+  stored answer's and an earlier accept is not carried into it (`restated` names only the result change). The rules are in
+  `docs/guides/pr-review-run.md`, "Result files that change after they were read".
 
 Guide with a worked example: `docs/guides/pr-review-run.md`.

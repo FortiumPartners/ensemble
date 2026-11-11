@@ -1,7 +1,6 @@
 ---
 name: adapter-ci-local-act
 description: nektos/act `ci-local` toolchain adapter (TRD-2026-8d825f54 TRD-042). Loaded by the toolchain resolver, not invoked directly by name. Shipped default ci-local adapter.
-user-invocable: true
 ---
 
 # Act Local CI Adapter

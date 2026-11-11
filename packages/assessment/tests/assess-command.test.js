@@ -45,7 +45,14 @@ const ROUTE = /^`([a-z][a-z-]*)`(?: \(alias `([a-z][a-z-]*)`\))? -> `skill:\/\/(
 const LOOKS_LIKE_ROUTE = /^`[^`]+`.* -> /;
 
 const command = yaml.load(fs.readFileSync(COMMAND_YAML, 'utf8'));
-const steps = command.workflow.phases.flatMap((phase) => phase.steps);
+// The command is a manifest; the routing prose lives in the skill it names. Each
+// "### Step N: ..." section carries its actions as a numbered list.
+const SKILL_FILE = skillFile(command.skill);
+const skillText = fs.readFileSync(SKILL_FILE, 'utf8');
+const steps = [...skillText.matchAll(/^### Step (\d+): .*$([\s\S]*?)(?=^#{1,3} |(?![\s\S]))/gm)].map((match) => ({
+  order: Number(match[1]),
+  actions: [...match[2].matchAll(/^\d+\. (.*)$/gm)].map((item) => item[1]),
+}));
 const stepActions = (order) =>
   steps
     .filter((step) => step.order === order)

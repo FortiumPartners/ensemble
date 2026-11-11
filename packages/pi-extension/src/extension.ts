@@ -23,7 +23,7 @@ function resolveRepoRoot(startDir: string): string {
 /**
  * Registers native Pi/OMP completion for the six markdown-prompt
  * dispatcher commands (prd/trd/issue/feature/reqnroll/standards). Each registration is a
- * no-op in any repo that doesn't have the corresponding YAML -- see
+ * no-op in any repo that doesn't have the corresponding dispatcher skill -- see
  * registerDispatcherCommand's own doc comment -- so this extension
  * loading globally in every session never pollutes an unrelated
  * repo's command list.
@@ -41,37 +41,37 @@ function activate(pi: ExtensionAPI): void {
 
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-prd",
-    yamlRelPath: "packages/product/commands/prd.yaml",
+    skillRelPath: "packages/product/skills/ensemble-prd/SKILL.md",
     forwardTo: "ensemble:prd",
     description: "Dispatch to a PRD-management subcommand (create, refine, ...)",
   });
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-trd",
-    yamlRelPath: "packages/development/commands/trd.yaml",
+    skillRelPath: "packages/development/skills/ensemble-trd/SKILL.md",
     forwardTo: "ensemble:trd",
     description: "Dispatch to a TRD-management subcommand (create, refine, analyze, ...)",
   });
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-issue",
-    yamlRelPath: "packages/development/commands/issue.yaml",
+    skillRelPath: "packages/development/skills/ensemble-issue/SKILL.md",
     forwardTo: "ensemble:issue",
     description: "Dispatch to an issue-management subcommand by keyword (fix, list, resume, status, abandon)",
   });
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-feature",
-    yamlRelPath: "packages/development/commands/feature.yaml",
+    skillRelPath: "packages/development/skills/ensemble-feature/SKILL.md",
     forwardTo: "ensemble:feature",
     description: "Dispatch to the feature-lifecycle workflow by keyword (new, resume, status, abandon)",
   });
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-reqnroll",
-    yamlRelPath: "packages/product/commands/reqnroll.yaml",
+    skillRelPath: "packages/product/skills/ensemble-reqnroll/SKILL.md",
     forwardTo: "ensemble:reqnroll",
     description: "Dispatch to a PRD-to-Reqnroll acceptance-test subcommand by keyword (features, feature-drift, bindings, binding-drift, tdd)",
   });
   registerDispatcherCommand(pi, repoRoot, {
     name: "ensemble-standards",
-    yamlRelPath: "packages/core/commands/standards.yaml",
+    skillRelPath: "packages/core/skills/ensemble-standards/SKILL.md",
     forwardTo: "ensemble:standards",
     description: "Dispatch to a coding-standards subcommand by keyword (discover, inject, fold)",
   });

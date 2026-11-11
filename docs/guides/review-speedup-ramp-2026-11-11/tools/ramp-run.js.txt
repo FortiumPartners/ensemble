@@ -1,0 +1,113 @@
+'use strict';
+// One ramp run, start to finish (kata j1wb). Scratch; a copy goes into the evidence directory as text.
+const fs = require('fs');
+const path = require('path');
+const L = require('./ramp-lib.js');
+const A = require('./ramp-analyze.js');
+
+const RATE_RE = /429|rate[- ]?limit|too many requests|overloaded|throttl|quota/i;
+
+/**
+ * The gate of a head is claimed once per (PR, head) by a marker file under .ensemble/pr-review/, so a second run on the same head in the same
+ * worktree answers `already-started` and starts none (run 2 found this). Every ramp run must start its own gate, as a real review does:
+ * the previous gate's three state files are copied into the previous run's directory and removed, after checking that its process is gone.
+ */
+function clearGateState(archiveDir) {
+  const d = path.join(L.REPO_ROOT, '.ensemble', 'pr-review');
+  const files = fs.readdirSync(d).filter((f) => /^precheck-pr-207-[0-9a-f]{40}\.dry\.gate(-input)?\.(json|log)$/.test(f));
+  for (const f of files) {
+    if (/\.dry\.gate\.json$/.test(f)) {
+      let pid = null; try { pid = JSON.parse(fs.readFileSync(path.join(d, f), 'utf8')).pid; } catch (e) { /* unreadable */ }
+      let alive = false; if (Number.isInteger(pid)) { try { process.kill(pid, 0); alive = true; } catch (e) { alive = e.code === 'EPERM'; } }
+      if (alive) throw new Error('the previous gate (pid ' + pid + ') is still running: not starting the next run');
+    }
+  }
+  if (files.length && archiveDir) {
+    fs.mkdirSync(path.join(archiveDir, 'gate-state'), { recursive: true });
+    for (const f of files) fs.copyFileSync(path.join(d, f), path.join(archiveDir, 'gate-state', f));
+  }
+  for (const f of files) fs.unlinkSync(path.join(d, f));
+  return files;
+}
+
+async function runOne(tool, { n, cap, tag, prefix, prevDir, requireGate = false }) {
+  const runId = `ramp${n}-cap${cap}${tag}`;
+  const dir = path.join(L.SCRATCH, 'runs', runId);
+  if (fs.existsSync(dir)) throw new Error(`run directory exists, refusing to overwrite: ${dir}`);
+  fs.mkdirSync(dir, { recursive: true });
+  const clearedGateState = clearGateState(prevDir);
+  fs.writeFileSync(dir + '/gate-state-cleared.json', JSON.stringify({ clearedBeforeThisRun: clearedGateState, archivedIn: prevDir || null }, null, 1));
+  const snaps = [];
+  const snap = async (phase) => {
+    snaps.push({ at: L.iso(Date.now()), phase, load: L.loadSamples().slice(-1)[0] === undefined ? null : L.loadSamples().slice(-1)[0], procs: await L.procSnapshot(tool) });
+    fs.writeFileSync(dir + '/procs.json', JSON.stringify(snaps, null, 1));
+  };
+  const payload = { repo: L.REPO, pr: L.PR, repoRoot: L.REPO_ROOT, runId, dryRun: true, nodeModules: L.REPO_ROOT + '/node_modules' };
+  fs.writeFileSync(dir + '/prepare.json', JSON.stringify(payload, null, 1));
+  await snap('before-prepare');
+  const startedMs = Date.now();
+  const p = L.prepareCall(payload, cap, dir + '/prepare.out');
+  if (!(p.answer.ok === true && p.answer.status === 'DISPATCH')) return { runId, failed: 'prepare', status: p.answer.status, error: L.clip(JSON.stringify(p.answer), 800) };
+  if (requireGate) {
+    const g = (p.answer.precheck && p.answer.precheck.gate) || {};
+    if (g.action !== 'started') return { runId, failed: 'gate-not-started', gate: g };
+  }
+  const hooks = {
+    onDispatch: async (a) => {
+      if (a.round === 'review') await snap('review-dispatch');
+      else if (a.round === 'verify' && !a.refill) await snap('verify-dispatch');
+    },
+  };
+  const d = await L.drive(tool, { runId, dir, prefix, answer: p.answer, startedMs, hooks });
+  await snap('drive-end');
+  if (d.aborted) return { runId, aborted: d.aborted, log: d.log.slice(-6) };
+  let a = d.answer;
+  if (a.status === 'ADJUDICATE') {
+    const adj = L.autoAdjudicate(a, dir, runId);
+    if (adj.manual) return { runId, failed: 'manual-adjudication', manual: adj.manual };
+    a = adj.answer;
+  }
+  if (a.status !== 'DONE') return { runId, failed: 'not-done', status: a.status, error: L.clip(JSON.stringify(a), 800) };
+  const tier = (p.answer.tier && p.answer.tier.tier) || 'medium';
+  const extra = { cap, order: n, tag, driverPeakTrackedActive: d.peak, highLoadSeen: d.highLoadSeen, startedMs, endedMs: Date.now() };
+  const summary = L.finishRun({ runId, pr: L.PR, tier, round: 'first', dir, answer: a, prepareAnswer: p.answer, extra });
+  fs.copyFileSync(path.join(L.REPO_ROOT, '.ensemble', 'state', 'toolchain', 'trace-' + runId + '.jsonl'), dir + '/trace.jsonl');
+  const proof = L.capProof({ runId, cap, dir, prepareAnswer: p.answer });
+  const guard = L.recallGuard(a, dir);
+  const rec = A.analyzeRun(dir, { loadLog: L.LOADLOG });
+  rec.cap = cap; rec.order = n; rec.tag = tag; rec.runId = runId; rec.capProofAllAgree = proof.allCapsAgree; rec.recallGuardExitDefaultThreshold = guard.exitDefaultThreshold;
+  if (rec.verify) rec.verify.stageVsOwnCapReplayMin = { measured: rec.verify.stageMin, replayAtOwnCap: rec.verify.replayMin[cap], measuredMinusReplay: A.r2(rec.verify.stageMin - rec.verify.replayMin[cap]) };
+  fs.writeFileSync(dir + '/analysis.json', JSON.stringify(rec, null, 1));
+  return { runId, ok: true, rec, summaryStatus: summary.status, endedAt: L.iso(Date.now()) };
+}
+
+/** The rollback trigger of the owner: a rise over the cap-8 control in stopped verifiers, stopped agents of any role or 429s. */
+function triggerCheck(rec, control) {
+  const stoppedVerifiers = (r) => (r.verify ? r.verify.expired : 0);
+  const stoppedAgents = (r) => stoppedVerifiers(r) + r.reviewers.expired.length;
+  const rateNotes = (r) => (r.harness ? r.harness.agentsWithEnvelopeNote.filter((x) => RATE_RE.test(x)).length : 0);
+  const failed = (r) => (r.harness ? r.harness.nonCompleted.length : 0);
+  const o = {
+    stoppedVerifiers: [stoppedVerifiers(rec), stoppedVerifiers(control)],
+    stoppedAgents: [stoppedAgents(rec), stoppedAgents(control)],
+    rateLimitNotes429: [rateNotes(rec), rateNotes(control)],
+    failedJobs: [failed(rec), failed(control)],
+  };
+  o.fired = o.stoppedVerifiers[0] > o.stoppedVerifiers[1] || o.stoppedAgents[0] > o.stoppedAgents[1] || o.rateLimitNotes429[0] > o.rateLimitNotes429[1] || o.failedJobs[0] > o.failedJobs[1];
+  return o;
+}
+
+function brief(rec) {
+  const v = rec.verify || {};
+  const g = rec.gate || {};
+  return [
+    `${rec.runId} cap ${rec.cap}: wall ${rec.wallMin} min | review ${rec.firstDispatchToReviewEndMin} min (slowest ${rec.reviewers.slowestName} ${rec.reviewers.slowestMin}) | handoff ${rec.handoffToVerifySec}s | verify stage ${v.stageMin} min (replay own cap ${v.replayMin && v.replayMin[rec.cap]}; cap8 ${v.replayMin && v.replayMin[8]}) | verifiers ${v.count} (arrived ${v.arrived}, expired ${v.expired}) waves ${v.waves} | slowest ${v.slowestMin} median ${v.medianMin} p75 ${v.p75Min} max ${v.slowestArrivedMin}`,
+    `  peakVerifierOverlap ${v.peakVerifierOverlap} (driver ${rec.driverPeakTrackedActive}) | candidates ${rec.ledger && rec.ledger.candidates} present ${rec.ledger && rec.ledger.present} unverified ${rec.ledger && rec.ledger.unverified} | flags ${JSON.stringify(rec.flags)} | capProofAgree ${rec.capProofAllAgree}`,
+    `  gate ${g.action} ok=${g.ok} ${g.durationMin} min (ended ${g.finishedOffsetMin} min into run; verify started ${g.verifyStartMinusGateEndMin} min after) afterGate=${g.verificationStartedAfterGateFinished}`,
+    `  load run mean ${rec.load && rec.load.run && rec.load.run.load1Mean} max ${rec.load && rec.load.run && rec.load.run.load1Max} (n ${rec.load && rec.load.run && rec.load.run.samples}) | verify mean ${rec.load && rec.load.verifyStage && rec.load.verifyStage.load1Mean} max ${rec.load && rec.load.verifyStage && rec.load.verifyStage.load1Max} | jest samples ${rec.load && rec.load.run && rec.load.run.samplesWithJest} lock samples ${rec.load && rec.load.run && rec.load.run.samplesWithFullSuiteLock}`,
+    `  harness ${JSON.stringify(rec.harness)} | guard FN ${rec.recallGuard && rec.recallGuard.falseNegativeRate} found ${rec.recallGuard && rec.recallGuard.found} exit ${rec.recallGuardExitDefaultThreshold}`,
+    `  jobs ${JSON.stringify(rec.jobs && Object.fromEntries(Object.entries(rec.jobs).map(([k, x]) => [k, { n: x.n, req: x.requestsMean, cost: x.costTotalUsd, st: x.statuses, models: x.modelsAndThinking }])))}`,
+  ].join('\n');
+}
+
+module.exports = { runOne, triggerCheck, brief, clearGateState };

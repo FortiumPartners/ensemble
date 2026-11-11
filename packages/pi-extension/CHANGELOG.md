@@ -14,4 +14,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `activate()` now registers one handler, for `before_subagent_spawn`, in every session, including repositories with no dispatcher YAML or hooks file, where it registered nothing before. The handler says nothing unless a spawn asked for an unset tier role. The installed shim's comment and the installer's closing message say so.
+- Dispatcher completions (`/ensemble-prd <TAB>` and the other five) now read the `## Subcommands` bullets of the dispatcher's skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`) instead of `dispatch.subcommands` in its command YAML, which is now only a manifest. `registerDispatcherCommand` takes `skillRelPath` instead of `yamlRelPath` and still registers only when that file exists. `tests/lifecycle-resolve-command.test.ts` compares `DISPATCHER_TARGETS` to the same bullets.
+- `activate()` now registers one handler, for `before_subagent_spawn`, in every session, including repositories with no dispatcher skill or hooks file, where it registered nothing before. The handler says nothing unless a spawn asked for an unset tier role. The installed shim's comment and the installer's closing message say so.

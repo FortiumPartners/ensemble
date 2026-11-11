@@ -1,0 +1,1586 @@
+{
+ "loadLimit": 12,
+ "streakSamples": 5,
+ "runs": {
+  "1": {
+   "run": 1,
+   "runId": "ramp1-cap8a",
+   "cap": 8,
+   "rep": "a",
+   "wallMin": 24.62,
+   "reviewStageMin": 14.39,
+   "slowestReviewerMin": 14.39,
+   "handoffSec": 7.54,
+   "verifyStageMin": 9.83,
+   "verifyStartMin": 14.7,
+   "verifiers": 11,
+   "arrived": 11,
+   "expired": 0,
+   "expiredNames": [],
+   "waves": 3,
+   "firstWave": 8,
+   "peakVerifierOverlap": 8,
+   "slowestMin": 6.77,
+   "slowestArrivedMin": 6.77,
+   "medianMin": 4.63,
+   "p75Min": 5.37,
+   "p90Min": 5.77,
+   "meanMin": 4.44,
+   "sumAgentMin": 48.81,
+   "replayMin": {
+    "8": 9.42,
+    "12": 6.77,
+    "17": 6.77,
+    "24": 6.77
+   },
+   "stageMinusOwnCapReplay": 0.41,
+   "candidates": 11,
+   "present": 11,
+   "unverified": 0,
+   "gate": {
+    "action": "started",
+    "ok": false,
+    "durationMin": 14.95,
+    "finishedMin": 14.97,
+    "verifyStartMinusGateEndMin": -0.26,
+    "afterGate": false
+   },
+   "guard": {
+    "falseNegativeRate": 0.6666666666666666,
+    "notRaisedRate": 0.5,
+    "found": [
+     "E1",
+     "E4"
+    ],
+    "downgraded": [
+     "E2"
+    ],
+    "notRaised": [
+     "E3",
+     "E5",
+     "E6"
+    ],
+    "unmatchedImportant": [
+     "f4",
+     "f5"
+    ]
+   },
+   "flags": {
+    "rereadResults": 0,
+    "restated": 0,
+    "changedResults": 0,
+    "warnings": 0
+   },
+   "harness": {
+    "agentsWithEnvelopeNote": [],
+    "nonCompleted": [],
+    "killedAtDeadline": [],
+    "unusualWidgetStates": []
+   },
+   "capProofAgree": true,
+   "jobs": {
+    "reviewer": {
+     "n": 7,
+     "requestsTotal": 148,
+     "requestsMean": 21.14,
+     "costTotalUsd": 14.21,
+     "contextTokensMax": 280248,
+     "harnessDurMedianSec": 725.27,
+     "harnessDurMaxSec": 869.11,
+     "statuses": {
+      "completed": 7
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 7
+     }
+    },
+    "security": {
+     "n": 1,
+     "requestsTotal": 25,
+     "requestsMean": 25,
+     "costTotalUsd": 1.43,
+     "contextTokensMax": 191296,
+     "harnessDurMedianSec": 444.65,
+     "harnessDurMaxSec": 444.65,
+     "statuses": {
+      "completed": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 1
+     }
+    },
+    "verifier": {
+     "n": 11,
+     "requestsTotal": 165,
+     "requestsMean": 15,
+     "costTotalUsd": 8.91,
+     "contextTokensMax": 166761,
+     "harnessDurMedianSec": 279.34,
+     "harnessDurMaxSec": 408.14,
+     "statuses": {
+      "completed": 11
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 11
+     }
+    }
+   },
+   "load": {
+    "whole": {
+     "samples": 50,
+     "above12": 22,
+     "mean": 14.12,
+     "max": 37.96,
+     "longestStreakSamples": 17,
+     "streaks": [
+      {
+       "fromMin": 0.54,
+       "toMin": 8.56,
+       "samples": 17,
+       "maxLoad1": 28.31,
+       "meanLoad1": 19.89
+      },
+      {
+       "fromMin": 22.59,
+       "toMin": 24.59,
+       "samples": 5,
+       "maxLoad1": 37.96,
+       "meanLoad1": 29.53
+      }
+     ]
+    },
+    "wholeOutsideGate": {
+     "above12": 5,
+     "longestStreakSamples": 5,
+     "streaks": [
+      {
+       "fromMin": 22.59,
+       "toMin": 24.59,
+       "samples": 5,
+       "maxLoad1": 37.96,
+       "meanLoad1": 29.53
+      }
+     ]
+    },
+    "verify": {
+     "fromMin": 14.7,
+     "toMin": 24.53,
+     "samples": 19,
+     "above": 4,
+     "mean": 11.61,
+     "max": 35.5,
+     "streaks": [
+      {
+       "fromMin": 22.59,
+       "toMin": 24.09,
+       "samples": 4,
+       "maxLoad1": 35.5,
+       "meanLoad1": 27.42
+      }
+     ],
+     "longestStreakSamples": 4,
+     "fractionAbove": 0.21,
+     "jestSamplesMax": 20,
+     "fullSuiteLockSamples": 0,
+     "attribution": null
+    },
+    "gateWindowMin": [
+     0.02,
+     14.97
+    ],
+    "ruleR1StrictStreak": false,
+    "ruleR2Broad": false,
+    "wholeRunAttribution": null
+   },
+   "verifierDurationVsLifeLoad": {
+    "n": 11,
+    "spearman": 0.14
+   },
+   "secondsPerRequest": 17.75,
+   "verifierRequestsMean": 15,
+   "durationsSec": [
+    277.69,
+    158.89,
+    305.59,
+    180.27,
+    255.2,
+    346.32,
+    226.01,
+    282.69,
+    406.15,
+    167.31,
+    322.2
+   ]
+  },
+  "2": {
+   "run": 2,
+   "runId": "ramp2-cap12a",
+   "cap": 12,
+   "rep": "a",
+   "wallMin": 24.68,
+   "reviewStageMin": 15.67,
+   "slowestReviewerMin": 15.67,
+   "handoffSec": 4.44,
+   "verifyStageMin": 8.61,
+   "verifyStartMin": 16.01,
+   "verifiers": 14,
+   "arrived": 14,
+   "expired": 0,
+   "expiredNames": [],
+   "waves": 2,
+   "firstWave": 12,
+   "peakVerifierOverlap": 12,
+   "slowestMin": 6.47,
+   "slowestArrivedMin": 6.47,
+   "medianMin": 5.32,
+   "p75Min": 5.6,
+   "p90Min": 6.36,
+   "meanMin": 4.89,
+   "sumAgentMin": 68.46,
+   "replayMin": {
+    "8": 11.17,
+    "12": 8.34,
+    "17": 6.47,
+    "24": 6.47
+   },
+   "stageMinusOwnCapReplay": 0.27,
+   "candidates": 14,
+   "present": 14,
+   "unverified": 0,
+   "gate": {
+    "action": "already-started",
+    "finishedMin": null,
+    "verifyStartMinusGateEndMin": null,
+    "afterGate": null
+   },
+   "guard": {
+    "falseNegativeRate": 0.6666666666666666,
+    "notRaisedRate": 0.5,
+    "found": [
+     "E1",
+     "E4"
+    ],
+    "downgraded": [
+     "E2"
+    ],
+    "notRaised": [
+     "E3",
+     "E5",
+     "E6"
+    ],
+    "unmatchedImportant": []
+   },
+   "flags": {
+    "rereadResults": 0,
+    "restated": 0,
+    "changedResults": 0,
+    "warnings": 0
+   },
+   "harness": {
+    "agentsWithEnvelopeNote": [],
+    "nonCompleted": [],
+    "killedAtDeadline": [],
+    "unusualWidgetStates": []
+   },
+   "capProofAgree": true,
+   "jobs": {
+    "reviewer": {
+     "n": 7,
+     "requestsTotal": 141,
+     "requestsMean": 20.14,
+     "costTotalUsd": 13.52,
+     "contextTokensMax": 282858,
+     "harnessDurMedianSec": 806.19,
+     "harnessDurMaxSec": 943.04,
+     "statuses": {
+      "completed": 7
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 7
+     }
+    },
+    "security": {
+     "n": 1,
+     "requestsTotal": 22,
+     "requestsMean": 22,
+     "costTotalUsd": 1.38,
+     "contextTokensMax": 184234,
+     "harnessDurMedianSec": 450.19,
+     "harnessDurMaxSec": 450.19,
+     "statuses": {
+      "completed": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 1
+     }
+    },
+    "verifier": {
+     "n": 14,
+     "requestsTotal": 245,
+     "requestsMean": 17.5,
+     "costTotalUsd": 12.28,
+     "contextTokensMax": 156969,
+     "harnessDurMedianSec": 321.82,
+     "harnessDurMaxSec": 389.9,
+     "statuses": {
+      "completed": 14
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 14
+     }
+    }
+   },
+   "load": {
+    "whole": {
+     "samples": 49,
+     "above12": 4,
+     "mean": 8.55,
+     "max": 19.47,
+     "longestStreakSamples": 4,
+     "streaks": [
+      {
+       "fromMin": 12.25,
+       "toMin": 13.76,
+       "samples": 4,
+       "maxLoad1": 19.47,
+       "meanLoad1": 17.22
+      }
+     ]
+    },
+    "wholeOutsideGate": {
+     "above12": 4,
+     "longestStreakSamples": 4,
+     "streaks": [
+      {
+       "fromMin": 12.25,
+       "toMin": 13.76,
+       "samples": 4,
+       "maxLoad1": 19.47,
+       "meanLoad1": 17.22
+      }
+     ]
+    },
+    "verify": {
+     "fromMin": 16.01,
+     "toMin": 24.62,
+     "samples": 17,
+     "above": 0,
+     "mean": 8.12,
+     "max": 11.42,
+     "streaks": [],
+     "longestStreakSamples": 0,
+     "fractionAbove": 0,
+     "jestSamplesMax": 2,
+     "fullSuiteLockSamples": 0,
+     "attribution": null
+    },
+    "gateWindowMin": null,
+    "ruleR1StrictStreak": false,
+    "ruleR2Broad": false,
+    "wholeRunAttribution": null
+   },
+   "verifierDurationVsLifeLoad": {
+    "n": 14,
+    "spearman": 0.18
+   },
+   "secondsPerRequest": 16.77,
+   "verifierRequestsMean": 17.5,
+   "durationsSec": [
+    164.61,
+    243.47,
+    151.24,
+    321.49,
+    388.45,
+    335.71,
+    195.88,
+    381.63,
+    298.14,
+    301.81,
+    332.28,
+    327.42,
+    348.92,
+    316.62
+   ]
+  },
+  "3": {
+   "run": 3,
+   "runId": "ramp3-cap17a",
+   "cap": 17,
+   "rep": "a",
+   "wallMin": 21.96,
+   "reviewStageMin": 13.61,
+   "slowestReviewerMin": 13.61,
+   "handoffSec": 4.86,
+   "verifyStageMin": 8.01,
+   "verifyStartMin": 13.92,
+   "verifiers": 15,
+   "arrived": 14,
+   "expired": 1,
+   "expiredNames": [
+    "verifier-14"
+   ],
+   "waves": 1,
+   "firstWave": 15,
+   "peakVerifierOverlap": 15,
+   "slowestMin": 8.01,
+   "slowestArrivedMin": 6.39,
+   "medianMin": 4.36,
+   "p75Min": 5.06,
+   "p90Min": 5.49,
+   "meanMin": 4.15,
+   "sumAgentMin": 66.06,
+   "replayMin": {
+    "8": 11.56,
+    "12": 10.41,
+    "17": 8.01,
+    "24": 8.01
+   },
+   "stageMinusOwnCapReplay": 0,
+   "candidates": 15,
+   "present": 12,
+   "unverified": 1,
+   "gate": {
+    "action": "started",
+    "ok": false,
+    "durationMin": 14.35,
+    "finishedMin": 14.37,
+    "verifyStartMinusGateEndMin": -0.45,
+    "afterGate": false
+   },
+   "guard": {
+    "falseNegativeRate": 0.8333333333333334,
+    "notRaisedRate": 0.5,
+    "found": [
+     "E4"
+    ],
+    "downgraded": [
+     "E1",
+     "E6"
+    ],
+    "notRaised": [
+     "E2",
+     "E3",
+     "E5"
+    ],
+    "unmatchedImportant": []
+   },
+   "flags": {
+    "rereadResults": 0,
+    "restated": 0,
+    "changedResults": 0,
+    "warnings": 0
+   },
+   "harness": {
+    "agentsWithEnvelopeNote": [],
+    "nonCompleted": [],
+    "killedAtDeadline": [
+     "verifier-14"
+    ],
+    "unusualWidgetStates": []
+   },
+   "capProofAgree": true,
+   "jobs": {
+    "reviewer": {
+     "n": 7,
+     "requestsTotal": 127,
+     "requestsMean": 18.14,
+     "costTotalUsd": 12.99,
+     "contextTokensMax": 253633,
+     "harnessDurMedianSec": 680.75,
+     "harnessDurMaxSec": 819.86,
+     "statuses": {
+      "completed": 7
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 7
+     }
+    },
+    "security": {
+     "n": 1,
+     "requestsTotal": 18,
+     "requestsMean": 18,
+     "costTotalUsd": 1.13,
+     "contextTokensMax": 177909,
+     "harnessDurMedianSec": 343.31,
+     "harnessDurMaxSec": 343.31,
+     "statuses": {
+      "completed": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 1
+     }
+    },
+    "verifier": {
+     "n": 15,
+     "requestsTotal": 206,
+     "requestsMean": 13.73,
+     "costTotalUsd": 11.26,
+     "contextTokensMax": 169744,
+     "harnessDurMedianSec": 274.67,
+     "harnessDurMaxSec": 480,
+     "statuses": {
+      "completed": 14,
+      "cancelled(killed)": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 15
+     }
+    }
+   },
+   "load": {
+    "whole": {
+     "samples": 43,
+     "above12": 21,
+     "mean": 14.05,
+     "max": 38.79,
+     "longestStreakSamples": 10,
+     "streaks": [
+      {
+       "fromMin": 1.97,
+       "toMin": 4.97,
+       "samples": 7,
+       "maxLoad1": 18.18,
+       "meanLoad1": 14.71
+      },
+      {
+       "fromMin": 12.98,
+       "toMin": 17.5,
+       "samples": 10,
+       "maxLoad1": 27.98,
+       "meanLoad1": 19
+      },
+      {
+       "fromMin": 20,
+       "toMin": 21.5,
+       "samples": 4,
+       "maxLoad1": 38.79,
+       "meanLoad1": 31.8
+      }
+     ]
+    },
+    "wholeOutsideGate": {
+     "above12": 11,
+     "longestStreakSamples": 7,
+     "streaks": [
+      {
+       "fromMin": 14.48,
+       "toMin": 17.5,
+       "samples": 7,
+       "maxLoad1": 27.98,
+       "meanLoad1": 18.1
+      },
+      {
+       "fromMin": 20,
+       "toMin": 21.5,
+       "samples": 4,
+       "maxLoad1": 38.79,
+       "meanLoad1": 31.8
+      }
+     ]
+    },
+    "verify": {
+     "fromMin": 13.92,
+     "toMin": 21.93,
+     "samples": 16,
+     "above": 12,
+     "mean": 19.75,
+     "max": 38.79,
+     "streaks": [
+      {
+       "fromMin": 13.98,
+       "toMin": 17.5,
+       "samples": 8,
+       "maxLoad1": 27.98,
+       "meanLoad1": 19.13
+      },
+      {
+       "fromMin": 20,
+       "toMin": 21.5,
+       "samples": 4,
+       "maxLoad1": 38.79,
+       "meanLoad1": 31.8
+      }
+     ],
+     "longestStreakSamples": 8,
+     "fractionAbove": 0.75,
+     "jestSamplesMax": 39,
+     "fullSuiteLockSamples": 0,
+     "attribution": null
+    },
+    "gateWindowMin": [
+     0.02,
+     14.37
+    ],
+    "ruleR1StrictStreak": true,
+    "ruleR2Broad": true,
+    "wholeRunAttribution": null
+   },
+   "verifierDurationVsLifeLoad": {
+    "n": 14,
+    "spearman": -0.99
+   },
+   "secondsPerRequest": 18.73,
+   "verifierRequestsMean": 13.29,
+   "durationsSec": [
+    143.74,
+    213.05,
+    144.15,
+    187.5,
+    273.03,
+    166.6,
+    167.04,
+    383.36,
+    329.42,
+    321.68,
+    302.85,
+    296.61,
+    303.89,
+    480.72,
+    249.97
+   ]
+  },
+  "4": {
+   "run": 4,
+   "runId": "ramp4-cap17b",
+   "cap": 17,
+   "rep": "b",
+   "wallMin": 22.09,
+   "reviewStageMin": 14.07,
+   "slowestReviewerMin": 14.07,
+   "handoffSec": 7.12,
+   "verifyStageMin": 7.54,
+   "verifyStartMin": 14.46,
+   "verifiers": 14,
+   "arrived": 14,
+   "expired": 0,
+   "expiredNames": [],
+   "waves": 1,
+   "firstWave": 14,
+   "peakVerifierOverlap": 14,
+   "slowestMin": 7.54,
+   "slowestArrivedMin": 7.54,
+   "medianMin": 5.61,
+   "p75Min": 6.66,
+   "p90Min": 7.11,
+   "meanMin": 5.66,
+   "sumAgentMin": 79.23,
+   "replayMin": {
+    "8": 12.07,
+    "12": 9.49,
+    "17": 7.54,
+    "24": 7.54
+   },
+   "stageMinusOwnCapReplay": 0,
+   "candidates": 14,
+   "present": 14,
+   "unverified": 0,
+   "gate": {
+    "action": "started",
+    "ok": false,
+    "durationMin": 6.88,
+    "finishedMin": 6.9,
+    "verifyStartMinusGateEndMin": 7.55,
+    "afterGate": true
+   },
+   "guard": {
+    "falseNegativeRate": 0.6666666666666666,
+    "notRaisedRate": 0.3333333333333333,
+    "found": [
+     "E1",
+     "E4"
+    ],
+    "downgraded": [
+     "E2",
+     "E3"
+    ],
+    "notRaised": [
+     "E5",
+     "E6"
+    ],
+    "unmatchedImportant": [
+     "f2",
+     "f14"
+    ]
+   },
+   "flags": {
+    "rereadResults": 0,
+    "restated": 0,
+    "changedResults": 0,
+    "warnings": 0
+   },
+   "harness": {
+    "agentsWithEnvelopeNote": [],
+    "nonCompleted": [],
+    "killedAtDeadline": [],
+    "unusualWidgetStates": []
+   },
+   "capProofAgree": true,
+   "jobs": {
+    "reviewer": {
+     "n": 7,
+     "requestsTotal": 145,
+     "requestsMean": 20.71,
+     "costTotalUsd": 12.73,
+     "contextTokensMax": 242784,
+     "harnessDurMedianSec": 723.92,
+     "harnessDurMaxSec": 848.36,
+     "statuses": {
+      "completed": 7
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 7
+     }
+    },
+    "security": {
+     "n": 1,
+     "requestsTotal": 20,
+     "requestsMean": 20,
+     "costTotalUsd": 1.28,
+     "contextTokensMax": 188005,
+     "harnessDurMedianSec": 411.84,
+     "harnessDurMaxSec": 411.84,
+     "statuses": {
+      "completed": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 1
+     }
+    },
+    "verifier": {
+     "n": 14,
+     "requestsTotal": 221,
+     "requestsMean": 15.79,
+     "costTotalUsd": 13.4,
+     "contextTokensMax": 169597,
+     "harnessDurMedianSec": 342.26,
+     "harnessDurMaxSec": 453.76,
+     "statuses": {
+      "completed": 14
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 14
+     }
+    }
+   },
+   "load": {
+    "whole": {
+     "samples": 44,
+     "above12": 20,
+     "mean": 15.33,
+     "max": 36.48,
+     "longestStreakSamples": 20,
+     "streaks": [
+      {
+       "fromMin": 1.06,
+       "toMin": 10.59,
+       "samples": 20,
+       "maxLoad1": 36.48,
+       "meanLoad1": 24.77
+      }
+     ]
+    },
+    "wholeOutsideGate": {
+     "above12": 8,
+     "longestStreakSamples": 8,
+     "streaks": [
+      {
+       "fromMin": 7.07,
+       "toMin": 10.59,
+       "samples": 8,
+       "maxLoad1": 34.43,
+       "meanLoad1": 25.67
+      }
+     ]
+    },
+    "verify": {
+     "fromMin": 14.46,
+     "toMin": 21.99,
+     "samples": 15,
+     "above": 0,
+     "mean": 6.78,
+     "max": 10.09,
+     "streaks": [],
+     "longestStreakSamples": 0,
+     "fractionAbove": 0,
+     "jestSamplesMax": 0,
+     "fullSuiteLockSamples": 0,
+     "attribution": null
+    },
+    "gateWindowMin": [
+     0.02,
+     6.9
+    ],
+    "ruleR1StrictStreak": false,
+    "ruleR2Broad": false,
+    "wholeRunAttribution": {
+     "samplesWithProcs": 20,
+     "meanCpuPct": {
+      "gate": 6,
+      "ramp": 55,
+      "otherWorktrees": 184,
+      "other": 547,
+      "all": 792
+     },
+     "otherWorktreeJestMax": 21,
+     "gateJestMax": 0,
+     "topProcessesByCount": [
+      "com.apple.Virtualization.VirtualMachine x17",
+      "wakatime-cli x15",
+      "mds_stores x13",
+      "node x4",
+      "Jump Desktop x4",
+      "fseventsd x2"
+     ]
+    }
+   },
+   "verifierDurationVsLifeLoad": {
+    "n": 14,
+    "spearman": 0.99
+   },
+   "secondsPerRequest": 21.51,
+   "verifierRequestsMean": 15.79,
+   "durationsSec": [
+    271.9,
+    331.17,
+    376.9,
+    225.32,
+    426.47,
+    362.82,
+    342.27,
+    278.74,
+    404.72,
+    452.36,
+    399.57,
+    251.46,
+    312.36,
+    318.01
+   ]
+  },
+  "5": {
+   "run": 5,
+   "runId": "ramp5-cap8b",
+   "cap": 8,
+   "rep": "b",
+   "wallMin": 25.86,
+   "reviewStageMin": 14.17,
+   "slowestReviewerMin": 14.17,
+   "handoffSec": 4.6,
+   "verifyStageMin": 11.29,
+   "verifyStartMin": 14.49,
+   "verifiers": 11,
+   "arrived": 11,
+   "expired": 0,
+   "expiredNames": [],
+   "waves": 3,
+   "firstWave": 8,
+   "peakVerifierOverlap": 8,
+   "slowestMin": 6.51,
+   "slowestArrivedMin": 6.51,
+   "medianMin": 5.72,
+   "p75Min": 5.95,
+   "p90Min": 6.35,
+   "meanMin": 5.05,
+   "sumAgentMin": 55.6,
+   "replayMin": {
+    "8": 10.94,
+    "12": 6.51,
+    "17": 6.51,
+    "24": 6.51
+   },
+   "stageMinusOwnCapReplay": 0.35,
+   "candidates": 11,
+   "present": 11,
+   "unverified": 0,
+   "gate": {
+    "action": "started",
+    "ok": false,
+    "durationMin": 5.3,
+    "finishedMin": 5.32,
+    "verifyStartMinusGateEndMin": 9.18,
+    "afterGate": true
+   },
+   "guard": {
+    "falseNegativeRate": 0.6666666666666666,
+    "notRaisedRate": 0.5,
+    "found": [
+     "E1",
+     "E4"
+    ],
+    "downgraded": [
+     "E2"
+    ],
+    "notRaised": [
+     "E3",
+     "E5",
+     "E6"
+    ],
+    "unmatchedImportant": [
+     "f11"
+    ]
+   },
+   "flags": {
+    "rereadResults": 0,
+    "restated": 0,
+    "changedResults": 0,
+    "warnings": 0
+   },
+   "harness": {
+    "agentsWithEnvelopeNote": [],
+    "nonCompleted": [],
+    "killedAtDeadline": [],
+    "unusualWidgetStates": []
+   },
+   "capProofAgree": true,
+   "jobs": {
+    "reviewer": {
+     "n": 7,
+     "requestsTotal": 144,
+     "requestsMean": 20.57,
+     "costTotalUsd": 12.96,
+     "contextTokensMax": 263589,
+     "harnessDurMedianSec": 636.67,
+     "harnessDurMaxSec": 853.58,
+     "statuses": {
+      "completed": 7
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 7
+     }
+    },
+    "security": {
+     "n": 1,
+     "requestsTotal": 23,
+     "requestsMean": 23,
+     "costTotalUsd": 1.21,
+     "contextTokensMax": 179255,
+     "harnessDurMedianSec": 342.06,
+     "harnessDurMaxSec": 342.06,
+     "statuses": {
+      "completed": 1
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 1
+     }
+    },
+    "verifier": {
+     "n": 11,
+     "requestsTotal": 196,
+     "requestsMean": 17.82,
+     "costTotalUsd": 9.88,
+     "contextTokensMax": 160358,
+     "harnessDurMedianSec": 345.05,
+     "harnessDurMaxSec": 391.91,
+     "statuses": {
+      "completed": 11
+     },
+     "envelopeNotes": 0,
+     "modelsAndThinking": {
+      "anthropic/claude-sonnet-5-5:max|max": 11
+     }
+    }
+   },
+   "load": {
+    "whole": {
+     "samples": 52,
+     "above12": 20,
+     "mean": 12.15,
+     "max": 38.87,
+     "longestStreakSamples": 16,
+     "streaks": [
+      {
+       "fromMin": 0.66,
+       "toMin": 0.66,
+       "samples": 1,
+       "maxLoad1": 12.47,
+       "meanLoad1": 12.47
+      },
+      {
+       "fromMin": 3.68,
+       "toMin": 4.18,
+       "samples": 2,
+       "maxLoad1": 15.47,
+       "meanLoad1": 14.05
+      },
+      {
+       "fromMin": 13.7,
+       "toMin": 21.21,
+       "samples": 16,
+       "maxLoad1": 38.87,
+       "meanLoad1": 19.13
+      },
+      {
+       "fromMin": 24.23,
+       "toMin": 24.23,
+       "samples": 1,
+       "maxLoad1": 12.7,
+       "meanLoad1": 12.7
+      }
+     ]
+    },
+    "wholeOutsideGate": {
+     "above12": 17,
+     "longestStreakSamples": 16,
+     "streaks": [
+      {
+       "fromMin": 13.7,
+       "toMin": 21.21,
+       "samples": 16,
+       "maxLoad1": 38.87,
+       "meanLoad1": 19.13
+      },
+      {
+       "fromMin": 24.23,
+       "toMin": 24.23,
+       "samples": 1,
+       "maxLoad1": 12.7,
+       "meanLoad1": 12.7
+      }
+     ]
+    },
+    "verify": {
+     "fromMin": 14.49,
+     "toMin": 25.79,
+     "samples": 23,
+     "above": 15,
+     "mean": 14.86,
+     "max": 38.87,
+     "streaks": [
+      {
+       "fromMin": 14.7,
+       "toMin": 21.21,
+       "samples": 14,
+       "maxLoad1": 38.87,
+       "meanLoad1": 18.53
+      },
+      {
+       "fromMin": 24.23,
+       "toMin": 24.23,
+       "samples": 1,
+       "maxLoad1": 12.7,
+       "meanLoad1": 12.7
+      }
+     ],
+     "longestStreakSamples": 14,
+     "fractionAbove": 0.65,
+     "jestSamplesMax": 18,
+     "fullSuiteLockSamples": 0,
+     "attribution": {
+      "samplesWithProcs": 15,
+      "meanCpuPct": {
+       "gate": 0,
+       "ramp": 4,
+       "otherWorktrees": 119,
+       "other": 610,
+       "all": 733
+      },
+      "otherWorktreeJestMax": 18,
+      "gateJestMax": 0,
+      "topProcessesByCount": [
+       "com.apple.Virtualization.VirtualMachine x13",
+       "mds_stores x12",
+       "wakatime-cli x9",
+       "zoom.us x4",
+       "beam.smp x3",
+       "mds x1"
+      ]
+     }
+    },
+    "gateWindowMin": [
+     0.02,
+     5.32
+    ],
+    "ruleR1StrictStreak": true,
+    "ruleR2Broad": true,
+    "wholeRunAttribution": {
+     "samplesWithProcs": 20,
+     "meanCpuPct": {
+      "gate": 0,
+      "ramp": 5,
+      "otherWorktrees": 134,
+      "other": 549,
+      "all": 688
+     },
+     "otherWorktreeJestMax": 19,
+     "gateJestMax": 0,
+     "topProcessesByCount": [
+      "com.apple.Virtualization.VirtualMachine x18",
+      "wakatime-cli x12",
+      "mds_stores x12",
+      "Jump Desktop x4",
+      "beam.smp x4",
+      "zoom.us x4"
+     ]
+    }
+   },
+   "verifierDurationVsLifeLoad": {
+    "n": 11,
+    "spearman": -0.18
+   },
+   "secondsPerRequest": 17.02,
+   "verifierRequestsMean": 17.82,
+   "durationsSec": [
+    132.94,
+    328.86,
+    343.97,
+    357.02,
+    354.74,
+    380.84,
+    312.97,
+    390.53,
+    166.03,
+    224.58,
+    343.27
+   ]
+  }
+ },
+ "pooledByCap": {
+  "8": {
+   "runs": [
+    1,
+    5
+   ],
+   "verifiers": 22,
+   "arrived": 22,
+   "stopped": 0,
+   "medianMin": 5.15,
+   "p75Min": 5.77,
+   "p90Min": 6.35,
+   "maxArrivedMin": 6.77,
+   "meanMin": 4.75,
+   "arrivedSortedMin": [
+    2.22,
+    2.65,
+    2.77,
+    2.79,
+    3,
+    3.74,
+    3.77,
+    4.25,
+    4.63,
+    4.71,
+    5.09,
+    5.22,
+    5.37,
+    5.48,
+    5.72,
+    5.73,
+    5.77,
+    5.91,
+    5.95,
+    6.35,
+    6.51,
+    6.77
+   ]
+  },
+  "12": {
+   "runs": [
+    2
+   ],
+   "verifiers": 14,
+   "arrived": 14,
+   "stopped": 0,
+   "medianMin": 5.32,
+   "p75Min": 5.6,
+   "p90Min": 6.36,
+   "maxArrivedMin": 6.47,
+   "meanMin": 4.89,
+   "arrivedSortedMin": [
+    2.52,
+    2.74,
+    3.26,
+    4.06,
+    4.97,
+    5.03,
+    5.28,
+    5.36,
+    5.46,
+    5.54,
+    5.6,
+    5.82,
+    6.36,
+    6.47
+   ]
+  },
+  "17": {
+   "runs": [
+    3,
+    4
+   ],
+   "verifiers": 29,
+   "arrived": 28,
+   "stopped": 1,
+   "medianMin": 5.06,
+   "p75Min": 5.7,
+   "p90Min": 6.75,
+   "maxArrivedMin": 7.54,
+   "meanMin": 4.9,
+   "arrivedSortedMin": [
+    2.4,
+    2.4,
+    2.78,
+    2.78,
+    3.12,
+    3.55,
+    3.76,
+    4.17,
+    4.19,
+    4.53,
+    4.55,
+    4.65,
+    4.94,
+    5.05,
+    5.06,
+    5.21,
+    5.3,
+    5.36,
+    5.49,
+    5.52,
+    5.7,
+    6.05,
+    6.28,
+    6.39,
+    6.66,
+    6.75,
+    7.11,
+    7.54
+   ]
+  }
+ },
+ "comparisons": {
+  "both": {
+   "controlWallMean": 25.24,
+   "controlWallMedian": 25.24,
+   "controlVerifyMean": 10.56,
+   "controlVerifyMedian": 10.56,
+   "controlVerifiers": [
+    11,
+    11
+   ],
+   "controlReplay8": [
+    9.42,
+    10.94
+   ],
+   "cap12": {
+    "wallMean": 24.68,
+    "verifyMean": 8.61,
+    "wallDelta": -0.56,
+    "verifyDelta": -1.95,
+    "replayPredictedVerifyDelta": -2.83,
+    "caps": [
+     12
+    ]
+   },
+   "cap17both": {
+    "wallMean": 22.03,
+    "verifyMean": 7.78,
+    "wallDelta": -3.22,
+    "verifyDelta": -2.78,
+    "replayPredictedVerifyDelta": -4.04,
+    "caps": [
+     17,
+     17
+    ]
+   },
+   "cap17run3": {
+    "wallMean": 21.96,
+    "verifyMean": 8.01,
+    "wallDelta": -3.28,
+    "verifyDelta": -2.55,
+    "replayPredictedVerifyDelta": -3.55,
+    "caps": [
+     17
+    ]
+   },
+   "cap17run4": {
+    "wallMean": 22.09,
+    "verifyMean": 7.54,
+    "wallDelta": -3.15,
+    "verifyDelta": -3.02,
+    "replayPredictedVerifyDelta": -4.53,
+    "caps": [
+     17
+    ]
+   }
+  },
+  "run1Only": {
+   "controlWallMean": 24.62,
+   "controlWallMedian": 24.62,
+   "controlVerifyMean": 9.83,
+   "controlVerifyMedian": 9.83,
+   "controlVerifiers": [
+    11
+   ],
+   "controlReplay8": [
+    9.42
+   ],
+   "cap12": {
+    "wallMean": 24.68,
+    "verifyMean": 8.61,
+    "wallDelta": 0.06,
+    "verifyDelta": -1.22,
+    "replayPredictedVerifyDelta": -2.83,
+    "caps": [
+     12
+    ]
+   },
+   "cap17both": {
+    "wallMean": 22.03,
+    "verifyMean": 7.78,
+    "wallDelta": -2.6,
+    "verifyDelta": -2.05,
+    "replayPredictedVerifyDelta": -4.04,
+    "caps": [
+     17,
+     17
+    ]
+   },
+   "cap17run3": {
+    "wallMean": 21.96,
+    "verifyMean": 8.01,
+    "wallDelta": -2.66,
+    "verifyDelta": -1.82,
+    "replayPredictedVerifyDelta": -3.55,
+    "caps": [
+     17
+    ]
+   },
+   "cap17run4": {
+    "wallMean": 22.09,
+    "verifyMean": 7.54,
+    "wallDelta": -2.53,
+    "verifyDelta": -2.29,
+    "replayPredictedVerifyDelta": -4.53,
+    "caps": [
+     17
+    ]
+   }
+  },
+  "run5Only": {
+   "controlWallMean": 25.86,
+   "controlWallMedian": 25.86,
+   "controlVerifyMean": 11.29,
+   "controlVerifyMedian": 11.29,
+   "controlVerifiers": [
+    11
+   ],
+   "controlReplay8": [
+    10.94
+   ],
+   "cap12": {
+    "wallMean": 24.68,
+    "verifyMean": 8.61,
+    "wallDelta": -1.18,
+    "verifyDelta": -2.68,
+    "replayPredictedVerifyDelta": -2.83,
+    "caps": [
+     12
+    ]
+   },
+   "cap17both": {
+    "wallMean": 22.03,
+    "verifyMean": 7.78,
+    "wallDelta": -3.84,
+    "verifyDelta": -3.51,
+    "replayPredictedVerifyDelta": -4.04,
+    "caps": [
+     17,
+     17
+    ]
+   },
+   "cap17run3": {
+    "wallMean": 21.96,
+    "verifyMean": 8.01,
+    "wallDelta": -3.9,
+    "verifyDelta": -3.28,
+    "replayPredictedVerifyDelta": -3.55,
+    "caps": [
+     17
+    ]
+   },
+   "cap17run4": {
+    "wallMean": 22.09,
+    "verifyMean": 7.54,
+    "wallDelta": -3.77,
+    "verifyDelta": -3.75,
+    "replayPredictedVerifyDelta": -4.53,
+    "caps": [
+     17
+    ]
+   }
+  }
+ },
+ "reviewStage": {
+  "minutes": [
+   14.39,
+   15.67,
+   13.61,
+   14.07,
+   14.17
+  ],
+  "range": 2.06
+ },
+ "spreads": {
+  "cap8Wall": [
+   24.62,
+   25.86,
+   1.24
+  ],
+  "cap8Verify": [
+   9.83,
+   11.29,
+   1.46
+  ],
+  "cap17Wall": [
+   21.96,
+   22.09,
+   0.13
+  ],
+  "cap17Verify": [
+   8.01,
+   7.54,
+   -0.47
+  ],
+  "cap8Median": [
+   4.63,
+   5.72
+  ],
+  "cap17Median": [
+   4.36,
+   5.61
+  ]
+ },
+ "stops": {
+  "atCapAtMost12": {
+   "stopped": 0,
+   "verifiers": 36
+  },
+  "atCap17": {
+   "stopped": 1,
+   "verifiers": 29
+  },
+  "fisherP": 0.45,
+  "upper95Cap17": 0.15,
+  "upper95AtMost12": 0.08,
+  "earlierR3Cap8": {
+   "stopped": 9,
+   "verifiers": 111,
+   "rate": 0.08
+  }
+ },
+ "replayCurves": {
+  "1": {
+   "cap8Min": 9.42,
+   "poolMin": 6.77,
+   "lowestCapFor90pct": 11,
+   "at12": [
+    12,
+    6.77,
+    1
+   ],
+   "at16": [
+    16,
+    6.77,
+    1
+   ],
+   "at17": [
+    17,
+    6.77,
+    1
+   ]
+  },
+  "2": {
+   "cap8Min": 11.17,
+   "poolMin": 6.47,
+   "lowestCapFor90pct": 14,
+   "at12": [
+    12,
+    8.34,
+    0.6
+   ],
+   "at16": [
+    16,
+    6.47,
+    1
+   ],
+   "at17": [
+    17,
+    6.47,
+    1
+   ]
+  },
+  "3": {
+   "cap8Min": 11.56,
+   "poolMin": 8.01,
+   "lowestCapFor90pct": 14,
+   "at12": [
+    12,
+    10.41,
+    0.32
+   ],
+   "at16": [
+    16,
+    8.01,
+    1
+   ],
+   "at17": [
+    17,
+    8.01,
+    1
+   ]
+  },
+  "4": {
+   "cap8Min": 12.07,
+   "poolMin": 7.54,
+   "lowestCapFor90pct": 14,
+   "at12": [
+    12,
+    9.49,
+    0.57
+   ],
+   "at16": [
+    16,
+    7.54,
+    1
+   ],
+   "at17": [
+    17,
+    7.54,
+    1
+   ]
+  },
+  "5": {
+   "cap8Min": 10.94,
+   "poolMin": 6.51,
+   "lowestCapFor90pct": 11,
+   "at12": [
+    12,
+    6.51,
+    1
+   ],
+   "at16": [
+    16,
+    6.51,
+    1
+   ],
+   "at17": [
+    17,
+    6.51,
+    1
+   ]
+  }
+ }
+}

@@ -150,7 +150,7 @@ describe('facts.json deltaPlan, from a real repository', () => {
     const result = prepareReview(options(fx));
     expect(result).toMatchObject({ ok: true, mode: 'delta' });
     const facts = factsOf(result);
-    expect(facts.delta).toEqual({ lastReviewedSha: fx.reviewed, reviewedHeadSha: fx.reviewed, reviewedBaseSha: fx.base, changedPaths: ['src/thing.js'] });
+    expect(facts.delta).toEqual({ lastReviewedSha: fx.reviewed, reviewedHeadSha: fx.reviewed, reviewedBaseSha: fx.base, changedPaths: ['src/thing.js'], numstat: [expect.objectContaining({ path: 'src/thing.js', binary: false })] });
     expect(facts.deltaPlan.mode).toBe('delta');
     expect(facts.deltaPlan.readSet.map((e) => e.path)).toEqual(['src/app.js', 'src/thing.js', 'tests/thing.test.js']);
     // the importer of the importer is not part of the radius, and nothing unrelated is read

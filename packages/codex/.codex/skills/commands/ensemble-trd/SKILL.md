@@ -1,35 +1,16 @@
 ---
 name: ensemble-trd
-description: Dispatch to a TRD-authoring, analysis, or implementation subcommand by keyword (Codex skill for /ensemble:trd)
-user-invocable: true
-argument-hint: <create|refine|implement|analyze|complexity|validate|verify|status|graph> [subcommand args...]
+description: "Dispatch to a TRD-authoring, analysis, or implementation subcommand by keyword"
+disable-model-invocation: true
+metadata:
+  version: "1.1.0"
+  category: planning
 ---
-
-# Ensemble Command: /ensemble:trd
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:trd`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-## Subcommands
-
-- **`create`** - Create a Technical Requirements Document from a PRD (add --parser-tables for a Foreman-native structured TRD with parser-compatible sprint/story tables and no adversarial review phase). see the `ensemble-create-trd` skill (`packages/codex/.codex/skills/commands/ensemble-create-trd/SKILL.md`).
-- **`refine`** - Refine and enhance an existing TRD with stakeholder feedback. see the `ensemble-refine-trd` skill (`packages/codex/.codex/skills/commands/ensemble-refine-trd/SKILL.md`).
-- **`implement`** - Implement a TRD with beads project management (persistent bead hierarchy, br/bv-driven execution, cross-session resumability); --workstream <trd1> <trd2> ... generates and implements one normalized workstream TRD from multiple source TRDs, and --workstream --generate-only [--out path] [--allow-invalid] only generates it. see the `ensemble-implement-trd-beads` skill (`packages/codex/.codex/skills/commands/ensemble-implement-trd-beads/SKILL.md`).
-- **`analyze`** - Pre-implementation cross-artifact consistency sweep (PRD-TRD-beads alignment). see the `ensemble-analyze-requirements` skill (`packages/codex/.codex/skills/commands/ensemble-analyze-requirements/SKILL.md`).
-- **`complexity`** - Score work complexity and choose an adaptive Ensemble planning route. see the `ensemble-analyze-complexity` skill (`packages/codex/.codex/skills/commands/ensemble-analyze-complexity/SKILL.md`).
-- **`validate`** - Pre-implementation traceability gate (REQ-NNN coverage and TEST task pairing between PRD and TRD). see the `ensemble-validate-requirements` skill (`packages/codex/.codex/skills/commands/ensemble-validate-requirements/SKILL.md`).
-- **`verify`** - Post-implementation REQ-AC-code traceability verifier with a proof report. see the `ensemble-verify-requirements` skill (`packages/codex/.codex/skills/commands/ensemble-verify-requirements/SKILL.md`).
-- **`status`** - On-demand requirement satisfaction report scanned from bead comments. see the `ensemble-requirement-status` skill (`packages/codex/.codex/skills/commands/ensemble-requirement-status/SKILL.md`).
-- **`graph`** - Build a dependency graph across TRDs and report likely-duplicate work. see the `ensemble-trd-dependency-graph` skill (`packages/codex/.codex/skills/commands/ensemble-trd-dependency-graph/SKILL.md`).
-
-<!-- DO NOT EDIT - Generated from trd.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Thin routing layer over the existing TRD-adjacent commands (authoring, refinement,
 beads-driven implementation, and the cross-artifact analysis/validation/verification/
 status/dependency-graph tools). Reads and follows the matching sibling command's own
-generated file for this runtime, passing the rest of $ARGUMENTS unchanged, and does not
+SKILL.md, passing the rest of $ARGUMENTS unchanged, and does not
 re-implement any of their phases. Variants of a command are flags on that command rather
 than keywords: `create --parser-tables` produces a Foreman-native structured TRD, and
 `implement --workstream [--generate-only]` generates a normalized executable workstream TRD
@@ -37,19 +18,26 @@ from multiple source TRDs. This group is intentionally heterogeneous -- not ever
 subcommand below is a simple CRUD variant of one workflow, so read each one's own
 description carefully before picking it.
 
+## Subcommands
+
+- **`create`** - Create a Technical Requirements Document from a PRD (add --parser-tables for a Foreman-native structured TRD with parser-compatible sprint/story tables and no adversarial review phase). Invoke `/ensemble:create-trd` directly, or read and follow `../ensemble-create-trd/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`refine`** - Refine and enhance an existing TRD with stakeholder feedback. Invoke `/ensemble:refine-trd` directly, or read and follow `../ensemble-refine-trd/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`implement`** - Implement a TRD with beads project management (persistent bead hierarchy, br/bv-driven execution, cross-session resumability); --workstream <trd1> <trd2> ... generates and implements one normalized workstream TRD from multiple source TRDs, and --workstream --generate-only [--out path] [--allow-invalid] only generates it. Invoke `/ensemble:implement-trd-beads` directly, or read and follow `../ensemble-implement-trd-beads/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`analyze`** - Pre-implementation cross-artifact consistency sweep (PRD-TRD-beads alignment). Invoke `/ensemble:analyze-requirements` directly, or read and follow `../ensemble-analyze-requirements/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`complexity`** - Score work complexity and choose an adaptive Ensemble planning route. Invoke `/ensemble:analyze-complexity` directly, or read and follow `../ensemble-analyze-complexity/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`validate`** - Pre-implementation traceability gate (REQ-NNN coverage and TEST task pairing between PRD and TRD). Invoke `/ensemble:validate-requirements` directly, or read and follow `../ensemble-validate-requirements/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`verify`** - Post-implementation REQ-AC-code traceability verifier with a proof report. Invoke `/ensemble:verify-requirements` directly, or read and follow `../ensemble-verify-requirements/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`status`** - On-demand requirement satisfaction report scanned from bead comments. Invoke `/ensemble:requirement-status` directly, or read and follow `../ensemble-requirement-status/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+- **`graph`** - Build a dependency graph across TRDs and report likely-duplicate work. Invoke `/ensemble:trd-dependency-graph` directly, or read and follow `../ensemble-trd-dependency-graph/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS.
+
 ## Workflow
 
 ### Phase 1: Dispatch
 
-**1. Route by first argument token**
-   Parse $ARGUMENTS and hand off to the matching sibling command
+#### Step 1.1: Route by first argument token
+
+Parse $ARGUMENTS and hand off to the matching sibling command
 
 - Parse $ARGUMENTS. The first whitespace-delimited token selects a subcommand by its keyword below; the remaining text, unmodified, becomes that subcommand's own argument input.
-- If the first token matches a keyword below: read and follow that subcommand's own generated command file for this runtime (see the Subcommands section this file renders), passing the remaining argument text through unmodified. Do not re-implement its phases here.
+- If the first token matches a keyword below: read and follow that subcommand's own sibling skill (its path is in the Subcommands section above), passing the remaining argument text through unmodified. Do not re-implement its phases here.
 - If the first token matches no keyword, or $ARGUMENTS is empty: print the keyword table below (keyword + one-line description) and HALT without side effects.
-
-## Usage
-
-```
-/ensemble:trd <create|refine|implement|analyze|complexity|validate|verify|status|graph> [subcommand args...]
-```

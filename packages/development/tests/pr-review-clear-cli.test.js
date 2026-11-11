@@ -187,6 +187,18 @@ describe('deriveCleared rules', () => {
     expect(r.kept).toEqual([{ id: 'same', reason: 'location-unchanged' }]);
   });
 
+  test('a cited file the head does not hold is kept location-unanchored, never location-unchanged: an empty diff does not say a line stayed put in a file that is not there (kata p5dt)', () => {
+    const r = derive([
+      finding('ghost', 'src/never-there.js:2', 'bad', { headSha: p1 }),
+      finding('ghostfile', 'src/never-there.js', 'bad', { headSha: p1 }),
+      finding('same', 'src/other.js:2', 'bad', { headSha: p1 })
+    ]);
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'ghost', reason: 'location-unanchored' }, { id: 'ghostfile', reason: 'location-unanchored' }, { id: 'same', reason: 'location-unchanged' }]);
+    // as recorded: neither moved nor stamped
+    expect(r.ledger[0]).toEqual(finding('ghost', 'src/never-there.js:2', 'bad', { headSha: p1 }));
+  });
+
   test('a changed line OTHER than the cited one does not clear a line-anchored finding', () => {
     const r = derive([finding('x', 'src/widget.js:13', 'bad', { headSha: p1 })]);
     expect(r.kept).toEqual([{ id: 'x', reason: 'location-unchanged' }]);
@@ -864,6 +876,164 @@ describe('a renamed file keeps its findings (a rename is not a fix: the defect w
     const r = at('delete', { ledger: [lineEntry()], git: flaky });
     expect(r.cleared).toEqual([]);
     expect(r.kept).toEqual([{ id: 'F', reason: 'diff-failed' }]);
+  });
+});
+
+// kata bh8w. A fix that only ADDS lines changes no OLD line: `git diff -U0` writes it as a pure-insertion hunk (`@@ -587,0 +588,5 @@`,
+// five lines after old line 587). The scratch PR 291 fix did exactly that inside the range an Important finding cited (583-601), the
+// finding was not re-raised, and the verb kept it, moving its range to 583-606. An insertion BETWEEN two cited lines now counts as
+// touching the range; one before the first or after the last cited line, or beside a one-line citation, does not.
+describe('a fix that only ADDS lines clears the finding it fixes (kata bh8w)', () => {
+  const SCRATCH = path.join(os.homedir(), '.omp', 'pr-review-speedup', 'prs-carry', 'fixtures');
+  let w;
+  let b0;
+  let r1;
+  const heads = {};
+  const at = (head, extra = {}) => deriveCleared({ git: defaultGit(), cwd: w, baseSha: b0, headSha: heads[head], lastReviewedSha: r1, incoming: [], now: () => 0, ...extra });
+  /** `numbered(count)` with `added` new lines put right after old line `after` (git: `@@ -after,0 +(after+1),added @@`). */
+  const inserted = (after, added = 5, count = 30) => {
+    const rows = numbered(count).trimEnd().split('\n');
+    rows.splice(after, 0, ...Array.from({ length: added }, (_, i) => `added ${i + 1}`));
+    return `${rows.join('\n')}\n`;
+  };
+  const from = (name, files, message = name) => {
+    sh(w, ['checkout', '-q', '-b', name, r1]);
+    heads[name] = commit(w, files, message);
+  };
+  const range = (id = 'F', location = 'src/t.js:10-20') => finding(id, location, 'defect', { headSha: r1 });
+
+  beforeAll(() => {
+    fs.mkdirSync(SCRATCH, { recursive: true });
+    w = fs.realpathSync(fs.mkdtempSync(path.join(SCRATCH, 'insert-')));
+    roots.push(w);
+    sh(w, ['init', '-q', '-b', 'main']);
+    sh(w, ['config', 'user.name', 'T']);
+    sh(w, ['config', 'user.email', 't@example.com']);
+    sh(w, ['config', 'commit.gpgsign', 'false']);
+    b0 = commit(w, { 'README.md': 'base\n' }, 'base');
+    r1 = commit(w, { 'src/t.js': numbered(30), 'src/big.js': numbered(650), 'src/other.js': numbered(5) }, 'r1');
+    // the measured fix: five lines after old line 587 of a 650-line file, inside the 583-601 the finding cited
+    from('measured', { 'src/big.js': inserted(587, 5, 650) });
+    from('measured-after', { 'src/big.js': inserted(601, 5, 650) });
+    // insertions at every position around the range 10-20 (the number is the old line the new lines follow)
+    for (const after of [0, 9, 10, 14, 15, 19, 20, 25]) from(`after-${after}`, { 'src/t.js': inserted(after) });
+    // an insertion inside, and an unrelated edit elsewhere in the same push
+    from('inside-and-edit', { 'src/t.js': inserted(14).replace('line 28\n', 'EDITED 28\n') });
+    // another file only
+    from('other-file', { 'src/other.js': inserted(2, 3, 5) });
+    // the fix that only adds lines to the file after the mid-review round (below)
+    sh(w, ['checkout', '-q', 'after-14']);
+    sh(w, ['checkout', '-q', '-b', 'later']);
+    heads.later = commit(w, { 'src/t.js': inserted(14).replace('line 28\n', 'LATER 28\n') }, 'later');
+    sh(w, ['checkout', '-q', 'main']);
+  });
+
+  test('the measured case: five lines after old line 587 inside 583-601 clear the finding, which was not raised again', () => {
+    const f3 = finding('f3', 'src/big.js:583-601', 'the test cannot fail', { headSha: r1 });
+    const r = at('measured', { ledger: [f3] });
+    expect(r.ok).toBe(true);
+    expect(r.kept).toEqual([]);
+    expect(r.cleared).toEqual([{ id: 'f3', clearedBy: heads.measured, recordedAt: '1970-01-01T00:00:00.000Z' }]);
+    // cleared as recorded: the range is not grown to 583-606 and kept
+    expect(r.ledger[0]).toEqual({ ...f3, cleared: true, clearedBy: heads.measured, clearedReason: 'location-changed' });
+  });
+
+  test('control: the same five lines after the last cited line leave the finding where it was', () => {
+    const f3 = finding('f3', 'src/big.js:583-601', 'the test cannot fail', { headSha: r1 });
+    const r = at('measured-after', { ledger: [f3] });
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'f3', reason: 'location-unchanged' }]);
+    expect(r.ledger[0]).toEqual({ ...f3, locationOrLink: 'src/big.js:583-601', locationAsOf: heads['measured-after'] });
+  });
+
+  test.each([
+    // [old line the new lines follow, cleared?, where a kept finding moves to]
+    [0, false, 'src/t.js:15-25'], // at the top of the file
+    [9, false, 'src/t.js:15-25'], // right before the first cited line
+    [10, true, null], // after the first cited line: one cited line on each side of it
+    [14, true, null], // in the middle
+    [19, true, null], // right before the last cited line
+    [20, false, 'src/t.js:10-20'], // right after the last cited line
+    [25, false, 'src/t.js:10-20'], // below the range
+  ])('an insertion after old line %i of the range 10-20: cleared %p', (after, cleared, where) => {
+    const e = range();
+    const r = at(`after-${after}`, { ledger: [e] });
+    if (cleared) {
+      expect(r.cleared.map((c) => c.id)).toEqual(['F']);
+      expect(r.kept).toEqual([]);
+      expect(r.ledger[0]).toMatchObject({ id: 'F', cleared: true, clearedBy: heads[`after-${after}`], clearedReason: 'location-changed', locationOrLink: 'src/t.js:10-20' });
+    } else {
+      expect(r.cleared).toEqual([]);
+      expect(r.kept).toEqual([{ id: 'F', reason: 'location-unchanged' }]);
+      // moved as a range of the same length: never grown over the lines put above or below it
+      expect(r.ledger[0]).toEqual({ ...e, locationOrLink: where, locationAsOf: heads[`after-${after}`] });
+    }
+  });
+
+  test('a one-line citation has no inside: new lines right before or after it only move it', () => {
+    for (const [after, line] of [[14, 20], [15, 15], [0, 20]]) {
+      const r = at(`after-${after}`, { ledger: [finding('S', 'src/t.js:15', 'defect', { headSha: r1 })] });
+      expect(r.cleared).toEqual([]);
+      expect(r.kept).toEqual([{ id: 'S', reason: 'location-unchanged' }]);
+      expect(r.ledger[0].locationOrLink).toBe(`src/t.js:${line}`);
+    }
+  });
+
+  test('a file-only citation has no range to be inside of: as before, only a modified or removed line touches it (a stated limit)', () => {
+    const e = finding('A', 'src/t.js', 'defect', { headSha: r1 });
+    const added = at('after-25', { ledger: [e] });
+    expect(added.cleared).toEqual([]);
+    expect(added.kept).toEqual([{ id: 'A', reason: 'location-unchanged' }]);
+    expect(added.ledger[0]).toEqual(e);
+    // control: an edited line of the same file still clears it
+    const edited = at('inside-and-edit', { ledger: [e] });
+    expect(edited.cleared.map((c) => c.id)).toEqual(['A']);
+  });
+
+  test('an insertion in another file touches nothing', () => {
+    const r = at('other-file', { ledger: [range()] });
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'F', reason: 'location-unchanged' }]);
+  });
+
+  test('a finding a review raised again at this head is kept whatever the push did to its range, as it always was', () => {
+    const e = range();
+    const r = at('after-14', { ledger: [e], incoming: [finding('N', 'src/t.js:10-25', 'DEFECT!')] });
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'F', reason: 're-reported' }]);
+    expect(r.ledger[0]).toEqual({ ...e, locationOrLink: 'src/t.js:10-25', locationAsOf: heads['after-14'] });
+  });
+
+  test('an insertion inside plus an unrelated edit in the same push clears it once, not twice', () => {
+    const r = at('inside-and-edit', { ledger: [range()] });
+    expect(r.cleared.map((c) => c.id)).toEqual(['F']);
+    expect(r.kept).toEqual([]);
+  });
+
+  test('a second run over its own output changes nothing', () => {
+    const first = at('after-14', { ledger: [range()] });
+    const second = at('after-14', { ledger: first.ledger });
+    expect(second.kept).toEqual([{ id: 'F', reason: 'already-cleared' }]);
+    expect(second.ledger).toEqual(first.ledger);
+  });
+
+  test('the earlier span of a late first run still grows the range over lines inserted before the baseline: the finding was alive after them', () => {
+    // recorded at r1 (never moved); the round that reviewed `after-14` raised nothing about it and the verb skipped it, so the
+    // number is moved r1 -> after-14 (the five lines inside grow 10-20 to 10-25) and then compared with the push after that
+    const e = range();
+    const r = deriveCleared({ git: defaultGit(), cwd: w, baseSha: b0, headSha: heads.later, lastReviewedSha: heads['after-14'], ledger: [e], incoming: [], now: () => 0 });
+    expect(r.cleared).toEqual([]);
+    expect(r.kept).toEqual([{ id: 'F', reason: 'location-unchanged' }]);
+    expect(r.ledger[0]).toEqual({ ...e, locationOrLink: 'src/t.js:10-25', locationAsOf: heads.later });
+  });
+
+  test('the real process, the repro of kata bh8w: the entry is cleared and nothing is kept', () => {
+    const payload = { repoRoot: w, baseSha: b0, headSha: heads.measured, lastReviewedSha: r1, ledger: [finding('f3', 'src/big.js:583-601', 'the test cannot fail', { headSha: r1 })], incoming: [] };
+    const r = spawnSync('node', [CLI], { input: JSON.stringify(payload), encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    const out = JSON.parse(r.stdout);
+    expect(out).toMatchObject({ ok: true, status: 'DERIVED', kept: [], cleared: [{ id: 'f3', clearedBy: heads.measured }] });
+    expect(out.ledger[0]).toMatchObject({ id: 'f3', cleared: true, clearedReason: 'location-changed', locationOrLink: 'src/big.js:583-601' });
   });
 });
 

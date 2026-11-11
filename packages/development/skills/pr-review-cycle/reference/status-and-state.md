@@ -186,7 +186,7 @@ wraps that command's whole review step and is a different span, never read here)
 `review.classifier`, `review.second-assessor`, `review.security-lane`,
 `review.reviewer`, `review.verifier` and `review.verdict`, each optionally with a
 `round` attr (delta re-reviews are round 2 and later) and agents with an `agent`
-name and a `wave` (the dispatch group, from 1; waves run one after another);
+name and a `wave` (the dispatch group, from 1; waves run one after another) and, when the dispatcher supplied them at `review-run collect`, `tool_calls`, `turns`, `effort`, `model`, `retries` and `rate_limits` (`timing` reports them as `agentStats`, a figure nobody supplied as `null` with a reason, with `hostLoad`);
 `lib/pr-review-timing.js` holds the contract. The answer is the window, the
 **orchestrator-only** time (wall time minus the union of the intervals in which at
 least one dispatched agent was active or a verdict was being computed: the critical
@@ -218,6 +218,6 @@ Copy the answer into `state.timing` verbatim; do not round, fill in or drop a
 missing figure. Timing is observational only: a `timing` call that fails or answers
 `ok: false` is recorded as it answered, or left out, and never blocks the review,
 the gate or a merge. `review-run` (`lib/review-run-cli.js`) records these stage spans for a
-light-mode run into its own trace (it does not record `turns` or `tool_calls`), so `timing` with that run's id answers.
+light-mode run into its own trace (its `review` span records no `turns` or `tool_calls`; an agent's figures are what the dispatcher passed as `agentStats`), so `timing` with that run's id answers.
 HONEST LIMIT: the narrated Steps 1-10 record no stage spans, so a run without a hand-written trace has no `timing`, and
 the report says nothing about timing rather than a made-up figure.

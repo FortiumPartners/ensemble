@@ -55,6 +55,8 @@ const {
   validateLedger,
   partitionFindings,
   isActionable,
+  isCritical,
+  claimsStoppingRuleDeferral,
   normalizeSeverity,
   resolutionProvenanceProblem,
 } = require('./pr-review-ledger');
@@ -132,6 +134,13 @@ function resolutionReason(finding) {
  */
 const DEFERRAL_NOT_AN_ANSWER = "a deferral is the review's own classification (the stopping rule), not an operator's decision";
 
+/**
+ * Why a Critical's deferral closes nothing. For a Critical it is not the review's own classification that the gate chose not to
+ * take: the stopping rule never defers a Critical, so there was no deferral to take. The blocker says that instead of calling a
+ * deferral the stopping rule does not allow "the review's own classification".
+ */
+const CRITICAL_NEVER_DEFERRED = "a Critical is never deferrable: the stopping rule does not apply to it, and a deferral is not an operator's decision either";
+
 /** The clause a blocker adds when the gate refused a closure that would have ended it: what did not count, and why. */
 function refusalNote(rejectedBecause, deferralRejected) {
   const notes = [];
@@ -157,7 +166,10 @@ function refusalNote(rejectedBecause, deferralRejected) {
  *     deferred, a `reason`) is the triager's word, so an Important finding is
  *     read without its `blocking` flag and grades as open. `isActionable`
  *     itself still reads the deferral: the review cycle's question is not the
- *     gate's.
+ *     gate's. (It never reads one on a Critical, written as such or read into
+ *     the taxonomy since: the stopping rule does not apply to a Critical, so
+ *     the gate does not rest on the line above for it, and the blocker says so,
+ *     `CRITICAL_NEVER_DEFERRED`.)
  *
  * What stays: `cleared: true` (a later head fixed it) is taken as written, and
  * an open thread or an uncertain flag outranks every closure, as in
@@ -175,7 +187,8 @@ function refusalNote(rejectedBecause, deferralRejected) {
  *   `rejectedBecause` is set only when a resolution WAS recorded, would have
  *   closed the finding, and was refused (always, for a lane entry, so the
  *   blocker can say why it is still open); `deferralRejected` only when the
- *   deferral alone would have closed it, and was ignored.
+ *   deferral alone would have closed it, and was ignored, or when a Critical
+ *   was written with a deferral (`CRITICAL_NEVER_DEFERRED`).
  */
 function applyProvenance(entry, headSha, lane, policy) {
   const severity = normalizeSeverity(entry.severity);
@@ -196,7 +209,12 @@ function applyProvenance(entry, headSha, lane, policy) {
   const resolutionWouldHaveClosed = refusal !== null && !isActionable(severity === 'important' ? withoutDeferral(entry) : entry);
   const rejectedBecause = refusal !== null && (lane || (resolutionWouldHaveClosed && stillOpen)) ? refusal : null;
   const deferralWouldHaveClosed = !lane && severity === 'important' && entry.blocking !== undefined && !isActionable(withoutResolution);
-  const deferralRejected = deferralWouldHaveClosed && stillOpen ? DEFERRAL_NOT_AN_ANSWER : null;
+  // `isActionable` never lets a deferral close a Critical, so `deferralWouldHaveClosed` is never true for one: a Critical written
+  // with the stopping rule's deferral is named here, or its blocker would say nothing of the deferral at all.
+  const criticalDeferred = !lane && severity === 'important' && isCritical(entry) && claimsStoppingRuleDeferral(entry);
+  let deferralRejected = null;
+  if (stillOpen && criticalDeferred) deferralRejected = CRITICAL_NEVER_DEFERRED;
+  else if (stillOpen && deferralWouldHaveClosed) deferralRejected = DEFERRAL_NOT_AN_ANSWER;
   return { entry: reading, rejectedBecause, deferralRejected };
 }
 
@@ -374,12 +392,15 @@ function evaluateGate(input) {
           const id = String(entry.id);
           open.push(id);
           const unrecognised = severity === null;
+          // A Critical reads as Important once a ledger has been read (`normalizeFinding`), so `entry.severity` cannot name it:
+          // the blocker asks `isCritical`, the one reading, and says what the finding is. The verdict is the same either way.
+          const critical = !unrecognised && isCritical(entry);
           blockers.push(
             blocker(
               unrecognised ? BLOCKER_CODES.OPEN_UNRECOGNISED_FINDING : BLOCKER_CODES.OPEN_IMPORTANT_FINDING,
               (unrecognised
                 ? `finding ${nameOf(entry)} carries a severity this gate cannot read ('${String(entry.severity)}'), so it is treated as Important and is still open`
-                : `Important finding ${nameOf(entry)} is still open`) + refusalNote(rejectedBecause, deferralRejected),
+                : `${critical ? 'Critical' : 'Important'} finding ${nameOf(entry)} is still open`) + refusalNote(rejectedBecause, deferralRejected),
               rejectedBecause !== null
                 ? 'fix it, or have the operator record the decision again on the current head with their login, a timestamp and a reason (ledger resolve)'
                 : unrecognised
@@ -388,7 +409,7 @@ function evaluateGate(input) {
               {
                 findingId: id,
                 locationOrLink: entry.locationOrLink || null,
-                severity: entry.severity,
+                severity: critical ? 'critical' : entry.severity,
                 ...(rejectedBecause === null ? {} : { resolutionRejected: rejectedBecause }),
                 ...(deferralRejected === null ? {} : { deferralRejected }),
               }

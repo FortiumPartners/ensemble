@@ -1,0 +1,16 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-measure2",
+ "runId": "m2-pr293-re",
+ "adjudications": [
+  {
+   "id": "f19",
+   "disposition": "deferred",
+   "reason": "Nit; 5 real, 0 not-real and 0 abstaining of 5 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f21",
+   "disposition": "fix",
+   "reason": "Important finding; 5 real, 0 not-real and 0 abstaining of 5 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  }
+ ]
+}

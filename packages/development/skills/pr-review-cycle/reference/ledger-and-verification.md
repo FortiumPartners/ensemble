@@ -54,13 +54,20 @@ to the findings carried over in the review-state report (empty on round 1),
 current round number. Its result names three outcomes per incoming finding:
 a `repeat` (the same path, failure mode and class already recorded -- the
 first record stands and only gains the round it was seen again in; it is
-never presented twice), an `attached` instance of a class already flagged
+never presented twice unless it is worse than the record, see below), an `attached` instance of a class already flagged
 (joins that one class finding instead of opening a new one), or a `new`
 finding. Report `repeats` as suppressed by name (not silently dropped) and
 `classes` by naming the class and listing every instance found so the batch
 fix in Step 5 covers all of them, not just the one just reported. Carry
 `findings` forward into the next round's `ledger` in the state report
 (Step 9).
+
+A repeat that is **worse** than the first record (`reason: severity-escalated`: a Critical report of a recorded Major,
+an Important one of a Nit) is an escalation, not noise. The record's severity rises and it is presented again, and a
+decision recorded on it is **cleared**, because nobody was asked about the worse finding: the repeat says
+`resolutionCleared: true`, the finding is open again, the operator decides it anew with a reason of their own on the
+current head, and the old decision stays on the record in `supersededResolutions`. Name each escalation, and each
+cleared decision, in the report. A repeat that is no worse leaves the record, and its decision, alone.
 
 **Ingesting CodeRabbit and other review-bot findings (REQ-005, AC-005-3).**
 A finding posted by CodeRabbit (or any login in `BOT_LOGINS`) on this PR is

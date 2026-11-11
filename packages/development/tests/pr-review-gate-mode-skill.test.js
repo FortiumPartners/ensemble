@@ -43,14 +43,18 @@ const SKILL_MAIN = fs.readFileSync(SKILL_PATH, 'utf8');
 const SKILL = readSkillBundle();
 const FLAT = SKILL.replace(/\s+/g, ' ');
 
-const PR_MERGE_YAML = fs.readFileSync(path.join(REPO_ROOT, 'packages/git/commands/pr-merge.yaml'), 'utf8');
+// pr-merge is a skill-backed command: packages/git/commands/pr-merge.yaml is a manifest with no prompt, so
+// the prose is read from its skill.
+const PR_MERGE_YAML = fs.readFileSync(path.join(REPO_ROOT, 'packages/git/skills/ensemble-pr-merge/SKILL.md'), 'utf8');
 const PR_MERGE_FLAT = PR_MERGE_YAML.replace(/\s+/g, ' ');
 
-/** Every shipped rendering of the pr-merge command: a stale one ships the old gate-less merge. */
+/**
+ * Every shipped rendering of the pr-merge command that carries its prose: a stale one ships the old gate-less
+ * merge. The Claude command (md) and the pi prompt are stubs that point at the skill and carry no prose, so
+ * they are not listed; the skill is the source they delegate to.
+ */
 const PR_MERGE_SURFACES = {
-  'command (yaml)': 'packages/git/commands/pr-merge.yaml',
-  'claude (md)': 'packages/git/commands/ensemble/pr-merge.md',
-  'pi (prompt)': 'packages/pi/prompts/ensemble-pr-merge.md',
+  'skill (source)': 'packages/git/skills/ensemble-pr-merge/SKILL.md',
   'pi (skill)': 'packages/pi/skills/ensemble-pr-merge/SKILL.md',
   'codex (skill)': 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md',
 };
@@ -492,7 +496,7 @@ describe('TRD-027: pr-merge requires mergeable:true from the gate, on freshly re
     expect(PR_MERGE_FLAT).toContain('branch_protection_enforced (bool|null -- null when the protection read failed, never true by assumption)');
   });
 
-  test('every shipped rendering of pr-merge carries the gate, not just the YAML source', () => {
+  test('every shipped rendering of pr-merge carries the gate, not just the skill source', () => {
     for (const [surface, relative] of Object.entries(PR_MERGE_SURFACES)) {
       const flat = fs.readFileSync(path.join(REPO_ROOT, relative), 'utf8').replace(/\s+/g, ' ');
       for (const promise of [

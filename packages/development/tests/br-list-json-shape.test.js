@@ -13,9 +13,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const yaml = require('js-yaml');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
 
 const COMMANDS = path.join(__dirname, '..', 'commands');
-const read = (f) => fs.readFileSync(path.join(COMMANDS, f), 'utf8');
+// A skill-backed command's YAML is a manifest; its prompt is in its skill (SKILL.md + references/),
+// so the prose assertions read the manifest plus that skill. Non-skill-backed files read as before.
+const read = (f) => {
+  const file = path.join(COMMANDS, f);
+  const raw = fs.readFileSync(file, 'utf8');
+  return readCommandProse(file, yaml.load(raw), raw);
+};
 
 const ISSUES = [
   { id: 't-1', title: '[trd:demo:task:TRD-001] first', status: 'closed' },

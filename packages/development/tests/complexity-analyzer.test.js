@@ -4,7 +4,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const vm = require('vm');
+const yaml = require('js-yaml');
 const analyzer = require('../lib/complexity-analyzer');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
+
+// analyze-complexity is a skill-backed command: the YAML is a manifest (metadata + skill) and the
+// prompt lives in its skill, so the contract is pinned against the manifest plus the skill prose.
+function readCommand() {
+  const commandPath = path.join(__dirname, '../commands/analyze-complexity.yaml');
+  const raw = fs.readFileSync(commandPath, 'utf8');
+  return readCommandProse(commandPath, yaml.load(raw), raw);
+}
 
 describe('complexity-analyzer input contract', () => {
   test('uses interactive arguments outside Foreman mode', () => {
@@ -172,20 +182,18 @@ describe('complexity-analyzer audit and artifacts', () => {
     expect(analyzer.sidecarPath('/tmp/run/phase-4.md')).toBe('/tmp/run/phase-4.classification.json');
   });
 
-  test('command YAML declares generated artifact and Foreman contracts', () => {
-    const commandPath = path.join(__dirname, '../commands/analyze-complexity.yaml');
-    const command = fs.readFileSync(commandPath, 'utf8');
+  test('command manifest and skill declare generated artifact and Foreman contracts', () => {
+    const command = readCommand();
     expect(command).toContain('name: ensemble:analyze-complexity');
     expect(command).toContain('output_path: ensemble/analyze-complexity.md');
     for (const name of ['description', 'route', 'no-adaptive-planning', 'foreman']) {
-      expect(command).toContain(`name: ${name}`);
+      expect(command).toContain(`**\`${name}\`**`);
     }
     expect(command).toContain('FOREMAN_ARTIFACT_PATH');
   });
 
-  test('command YAML resolves the analyzer rather than hardcoding a monorepo path', () => {
-    const commandPath = path.join(__dirname, '../commands/analyze-complexity.yaml');
-    const command = fs.readFileSync(commandPath, 'utf8');
+  test('command skill resolves the analyzer rather than hardcoding a monorepo path', () => {
+    const command = readCommand();
     // A bare packages/development/lib/... path only exists in the monorepo, so Phase 1
     // step 1 could not run from a consuming project with only the plugin installed.
     expect(command).not.toContain('node packages/development/lib/');

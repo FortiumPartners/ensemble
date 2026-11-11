@@ -6,7 +6,7 @@ const path = require('path');
 const { execFileSync, spawnSync } = require('child_process');
 
 /**
- * Regression test for packages/pytest/skills/run-test.py's pytest-json-report integration
+ * Regression test for packages/pytest/skills/pytest/run-test.py's pytest-json-report integration
  * (TRD-2026-8d825f54 TRD-043). run-test.py previously hardcoded `passed: 0, failed: 0,
  * total: 0` and never parsed pytest's own `--json-report` output; this test genuinely spawns
  * `pytest` against a real 2-pass/1-fail fixture (it does not mock pytest's JSON) and asserts
@@ -21,7 +21,7 @@ const { execFileSync, spawnSync } = require('child_process');
  * reports `Could not run pytest` and exits non-zero.
  */
 
-const RUN_TEST_SCRIPT = path.join(__dirname, '..', 'skills', 'run-test.py');
+const RUN_TEST_SCRIPT = path.join(__dirname, '..', 'skills', 'pytest', 'run-test.py');
 
 const PYTEST_AVAILABLE =
   spawnSync('pytest', ['--version'], { encoding: 'utf8' }).status === 0 &&

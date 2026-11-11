@@ -6,6 +6,7 @@
 'use strict';
 
 const { yamlScalar } = require('./yaml-scalar');
+const { isSkillBacked, resolveSkillFile } = require('./skill-backed-command');
 
 // NOTE: model: tier aliases in source YAML (high/medium/low) are emitted as
 // Claude Code's portable model aliases (opus/sonnet/haiku) in the generated .md.
@@ -186,6 +187,62 @@ function generateSubcommandsSection(subcommands, commandPathsByRef, sourceYamlPa
 }
 
 /**
+ * Claude Code stub for a skill-backed command: the instruction that points a slash command
+ * at its skill. It tells Claude to READ the skill file rather than invoke the skill. An
+ * invocation is refused when the skill sets `disable-model-invocation: true` (which the
+ * skill backing a command does), while reading the file works -- both verified against
+ * Claude Code 2.1.311. Claude Code substitutes EVERY `$ARGUMENTS` in a command body
+ * (verified), so the sigil appears exactly once, as the value; the explanatory clause says
+ * "its ARGUMENTS" without it, or it would be expanded into the user's text as well.
+ *
+ * The relative-path clause is for a skill split into `references/*.md`: its SKILL.md names
+ * those files by path relative to itself, and Claude opens SKILL.md by the absolute path
+ * above, so without the clause it has no stated directory to resolve them against. The
+ * directory is spelled with `${CLAUDE_PLUGIN_ROOT}` for the same reason the SKILL.md path is
+ * (Claude Code expands it when it loads the command), and Claude Code reads the plugin
+ * directory directly, so the reference files are there without any copy step.
+ * @param {string} skill - Skill directory name (validated by resolveSkillFile)
+ * @returns {string}
+ */
+function generateSkillStubBody(skill) {
+  return (
+    `Read the file \${CLAUDE_PLUGIN_ROOT}/skills/${skill}/SKILL.md and follow its instructions exactly; ` +
+    `resolve any relative paths in it against \${CLAUDE_PLUGIN_ROOT}/skills/${skill}/. ` +
+    'Wherever that file refers to its ARGUMENTS, use this value: $ARGUMENTS'
+  );
+}
+
+/**
+ * Transform a skill-backed command manifest (metadata + `skill`) into the Claude Code stub
+ * command. The frontmatter comes from the same generateCommandFrontmatter every other
+ * command uses, so name, description, argument hint, model alias, visibility and
+ * capabilities are emitted exactly as they would be for a full command; the one addition is
+ * the `Read` grant (merged with the manifest's own allowed_tools) the stub needs to open the
+ * skill file. The body is a fixed pointer -- the prompt itself is never copied here.
+ * @param {object} commandData - Command manifest (carries `skill`)
+ * @param {string} sourceYamlPath - Path to the manifest YAML (locates the skill, names the header)
+ * @returns {string} Generated Markdown
+ * @throws {Error} If the manifest's skill does not resolve to an existing SKILL.md
+ */
+function transformSkillBackedCommandToStub(commandData, sourceYamlPath) {
+  // Fail generation, not the user's first invocation, when the skill is not there.
+  resolveSkillFile(sourceYamlPath, commandData.skill);
+
+  const manifestTools = commandData.metadata?.allowed_tools || [];
+  const allowedTools = manifestTools.includes('Read') ? manifestTools : [...manifestTools, 'Read'];
+  const stubData = {
+    ...commandData,
+    metadata: { ...commandData.metadata, allowed_tools: allowedTools }
+  };
+
+  return [
+    generateCommandFrontmatter(stubData),
+    generateDoNotEditHeader(path.basename(sourceYamlPath)) + generateSkillStubBody(commandData.skill),
+    ''
+  ].join('\n');
+}
+
+/**
  * Transform command YAML to Markdown
  * @param {object} commandData - Validated command YAML
  * @param {string} sourceYamlPath - Path to source YAML (for header)
@@ -195,6 +252,11 @@ function generateSubcommandsSection(subcommands, commandPathsByRef, sourceYamlPa
  * @returns {string} Generated Markdown
  */
 function transformCommandToMarkdown(commandData, sourceYamlPath, commandPathsByRef) {
+  // A skill-backed command carries no prompt of its own; its skill is the prompt.
+  if (isSkillBacked(commandData)) {
+    return transformSkillBackedCommandToStub(commandData, sourceYamlPath);
+  }
+
   const parts = [];
   const sourceFile = path.basename(sourceYamlPath);
 
@@ -321,6 +383,7 @@ function transformCommandToMarkdown(commandData, sourceYamlPath, commandPathsByR
 module.exports = {
   RENDERED_STEP_KEYS,
   transformCommandToMarkdown,
+  transformSkillBackedCommandToStub,
   generateCommandFrontmatter,
   generateDoNotEditHeader,
   generateArgumentsSection

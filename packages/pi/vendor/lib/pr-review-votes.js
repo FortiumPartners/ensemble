@@ -57,6 +57,41 @@
  *     `re-run-verification` for a structural failure or a round with no
  *     capability at all, `supply-the-missing-votes` for per-finding
  *     incomplete coverage.
+ *
+ * SETTLING ON A MAJORITY (kata dx53; OPT-IN: only `input.settleOnMajority === true`, which the review runner sets and nothing
+ * else does: the CLI `votes` drops the key from its payload, so the narrated procedure keeps the rule above to the letter). The last real-model measurement put 8 of 31
+ * verifiers past their deadline, and 17 of the 23 candidates of those rounds ended `unverified`, 14 of them although the
+ * verifiers that did return were already a strict majority. With the option a candidate whose STRICT
+ * MAJORITY of the verifiers the depth expects voted `real` is `present` although another assigned verifier returned nothing
+ * (expired, or no vote for it). It is not a relaxation, and what keeps it from being one is stated here and tested:
+ *   - the denominator is still the expected count, never the arrived votes: 2 real of 3 expected is a majority, 2 real of 2 that
+ *     arrived out of 5 expected is not read as one, and 1 real of 3 stays `unverified`;
+ *   - no vote still missing can change the outcome: `present` needs `real >= needed` and a missing vote can only add to `real`,
+ *     so the finding is `present` in every completion of the round (the same outcome the round would have given);
+ *   - the missing verifiers stay NAMED on the finding (`incompleteVerifiers`, and `settledOnMajority: true`), so it is never read
+ *     as a complete electorate, and `result.verification` is `partial` while any finding has one;
+ *   - only a confirmation is settled: a candidate the arrived votes would REFUTE stays `unverified`, because a refuted finding is
+ *     dropped from the author's list and nothing is dropped on an incomplete electorate; a split stays `unverified` too;
+ *   - nothing is settled without the explicit `assignment` (only a plan names who was expected), for a candidate the planner could
+ *     not give its verifiers (`verifier-pool-too-small`: a short electorate is never read as agreement) or for a non-finding.
+ *
+ * QUORUM-FIRST (kata 3ezq, plan v2 section 3 O3a and section 5 child V2-3; owner decision D4: "3 verifiers per finding" means DECIDING, not
+ * dispatched). OPT-IN, like the option above: only `input.quorumFirst === true`, which the review runner sets when the policy key
+ * `quorumFirstVerification` is on and nothing else does (the CLI `votes` drops the key, so the narrated procedure keeps the rule above to the
+ * letter). The electorate and the vote rule do not change: a finding is `present` when `real >= needed`, a strict majority of the verifiers the
+ * depth EXPECTS. What changes is who is asked. The runner dispatches the first `needed` verifiers of a candidate and the rest only when one of
+ * those votes is not-real, abstain or missing (`quorumFirstWave`). A candidate whose first `needed` all voted real is decided already: a vote
+ * still to come can only add to `real`, so no completion of the votes nobody asked for changes the outcome (the argument of `settleOnMajority`).
+ * It is recorded `quorumSettled: true` (with `unaskedVerifiers`, how many seats of the electorate were never asked), and it is a state of its own:
+ *   - not `settledOnMajority`: no verifier that was asked returned nothing, and the ones not asked were never expected to vote, so nothing is
+ *     named in `incompleteVerifiers` and the round is NOT `partial` on its account;
+ *   - not a complete electorate either, and it says so: its votes are `needed` of `expected`, the next round never carries it
+ *     (`pr-review-carry.js` skips it by name), and the seats not asked are counted, never hidden.
+ * An assignment entry `{ id, verifiers, unasked }` names the verifiers that WERE asked and counts the seats that were not (`verifiers.length +
+ * unasked` is the expected count); `unasked` is accepted only with `quorumFirst: true`, and the asked verifiers must still be a strict majority.
+ * Fail closed: a candidate with unasked seats that the verifiers asked do not settle on their own (a not-real, an abstain or a missing vote, fewer
+ * than `needed` real, a non-finding) is `unverified` / `verifier-incomplete` with the seats named as `not-asked`: a verdict nobody asked for is
+ * never read as agreement, and nothing is dropped.
  */
 
 /** The exact word the author sees for an outcome/reason pair; `undefined` when none applies. */
@@ -90,6 +125,9 @@ const identity = (value) => (isText(value) ? value.trim() : Number.isFinite(valu
 
 /** The name recorded on a finding's `incompleteVerifiers` for a verifier slot the planner could not fill. */
 const UNASSIGNED_VERIFIER = '(unassigned)';
+
+/** The name recorded on a finding's `incompleteVerifiers` for the seats a quorum-first round never asked (kata 3ezq), when the asked verifiers did not settle it. */
+const UNASKED_VERIFIER = '(not-asked)';
 
 /** Lower-cased names from a text or a list of texts; `null` when present but not readable as names. */
 function namesFrom(value) {
@@ -135,6 +173,16 @@ function majorityOf(expected) {
   return Math.floor(expected / 2) + 1;
 }
 
+/**
+ * The shape of a quorum-first electorate: `needed`, the verifiers asked first (a strict majority), and `unasked`, the seats left for a second
+ * wave. `null` when the electorate has none to leave (fewer than 3: 1 of 1 and 2 of 2 are asked in full), which is the fail-closed answer: a
+ * round that cannot be asked in part is asked in full.
+ */
+function quorumFirstShape(expected) {
+  const needed = majorityOf(expected);
+  return needed === null || !Number.isInteger(expected) || expected - needed < 1 ? null : { expected, needed, unasked: expected - needed };
+}
+
 /** The fail-closed answer: nothing verified, nothing presented as agreed, the reason named. */
 function blocked(reason) {
   return { ok: false, verification: 'blocked', reason, recoveryAction: 're-run-verification', findings: [], presented: [] };
@@ -151,12 +199,28 @@ function flagged(value) {
   return true;
 }
 
-/** Whether a finding is in the security lane: a person adjudicates it, never a vote alone. */
+/** The words `normalizeSeverity` (pr-review-ledger.js) reads as Nit or Pre-existing: a finding that carries one is below Important. */
+const BELOW_IMPORTANT = new Set(['minor', 'nitpick', 'nit', 'pre-existing', 'preexisting', 'pre existing']);
+
+/** Whether a written severity is the word Critical: text, any letter case, surrounding space ignored. */
+function isCriticalWord(word) {
+  return isText(word) && word.trim().toLowerCase() === 'critical';
+}
+
+/**
+ * Whether a finding is in the security lane: a person adjudicates it, never a vote alone. A Critical is, whether it is written
+ * as such or was read into the current taxonomy since (`normalizeFinding` turns the word into `important` and keeps it as
+ * `originalSeverity`: a Critical must not lose the person-decides rule because a ledger was read). The reading is
+ * `isCritical` in pr-review-ledger.js: the word as `severity`, or as `originalSeverity` unless the finding itself reads Nit or
+ * Pre-existing (a stale claim, which `isActionable` and the merge gate never read either). This module imports nothing, so it
+ * mirrors that reading, and a test pins that the two agree.
+ */
 function isSecurityLane(finding) {
   if (flagged(finding.security)) return true;
   if (isText(finding.lane) && finding.lane.trim().toLowerCase() === 'security') return true;
   if (flagged(finding.critical)) return true;
-  return isText(finding.severity) && finding.severity.trim().toLowerCase() === 'critical';
+  if (isCriticalWord(finding.severity)) return true;
+  return isCriticalWord(finding.originalSeverity) && !(typeof finding.severity === 'string' && BELOW_IMPORTANT.has(finding.severity.toLowerCase()));
 }
 
 /** Whether a finding needs no answer: style, diagnostic or cleanup. The security lane is never one. */
@@ -205,6 +269,8 @@ function readAssignment(input, findings, expected) {
 
   const byId = new Map();
   const incompleteIds = new Map();
+  const unaskedIds = new Map();
+  const quorum = input.quorumFirst === true;
   for (const entry of input.assignment) {
     const id = isObject(entry) ? identity(entry.id) : null;
     if (id === null || !Array.isArray(entry.verifiers) || !entry.verifiers.every(isText)) {
@@ -213,9 +279,16 @@ function readAssignment(input, findings, expected) {
     if (entry.incomplete !== undefined && typeof entry.incomplete !== 'boolean') {
       return { ok: false, reason: 'an assignment entry\'s incomplete flag must be true or false when given' };
     }
+    if (entry.unasked !== undefined && (!Number.isInteger(entry.unasked) || entry.unasked < 0)) {
+      return { ok: false, reason: 'an assignment entry\'s unasked count must be a whole number when given' };
+    }
+    if (entry.unasked > 0 && !quorum) {
+      return { ok: false, reason: 'an assignment entry names unasked verifiers, which only a quorum-first tally (quorumFirst: true) accepts' };
+    }
     if (byId.has(id)) return { ok: false, reason: `assignment names finding ${JSON.stringify(id)} more than once` };
     byId.set(id, entry.verifiers.map((name) => name.trim()));
     incompleteIds.set(id, entry.incomplete === true);
+    unaskedIds.set(id, entry.unasked === undefined ? 0 : entry.unasked);
   }
 
   const known = new Set(findings.map((finding) => identity(finding.id)));
@@ -241,20 +314,28 @@ function readAssignment(input, findings, expected) {
     if (expected > 0 && raisers.names.length === 0) {
       return { ok: false, reason: `finding ${JSON.stringify(id)} names no reviewer or source, so its own raiser cannot be excluded` };
     }
-    if (keys.length > expected || (keys.length < expected && incompleteIds.get(id) !== true)) {
+    const unasked = unaskedIds.get(id);
+    const wanted = expected - unasked;
+    if (unasked > 0 && (incompleteIds.get(id) === true || keys.length < majorityOf(expected))) {
       return {
         ok: false,
-        reason: `finding ${JSON.stringify(id)} is assigned ${keys.length} distinct verifiers but the depth expects ${expected}`,
+        reason: `finding ${JSON.stringify(id)} leaves ${unasked} of ${expected} verifiers unasked, but a strict majority (${majorityOf(expected)}) must be asked and a short pool is no quorum`,
       };
     }
-    if (incompleteIds.get(id) === true && keys.length === expected) {
+    if (keys.length > wanted || (keys.length < wanted && incompleteIds.get(id) !== true)) {
+      return {
+        ok: false,
+        reason: `finding ${JSON.stringify(id)} is assigned ${keys.length} distinct verifiers but the depth expects ${wanted === expected ? expected : `${expected} (${unasked} not asked)`}`,
+      };
+    }
+    if (incompleteIds.get(id) === true && keys.length === wanted) {
       return { ok: false, reason: `finding ${JSON.stringify(id)} is marked incomplete but is assigned all ${expected} verifiers` };
     }
     if (keys.some((key) => raisers.names.includes(key))) {
       return { ok: false, reason: `finding ${JSON.stringify(id)} is assigned its own reviewer as a verifier` };
     }
   }
-  return { ok: true, byId, incomplete: new Set([...incompleteIds].filter(([, flag]) => flag).map(([id]) => id)) };
+  return { ok: true, byId, unasked: unaskedIds, incomplete: new Set([...incompleteIds].filter(([, flag]) => flag).map(([id]) => id)) };
 }
 
 /**
@@ -314,6 +395,37 @@ function countVotes(finding, assigned) {
 }
 
 /**
+ * Whether a finding may be verified quorum-first at all (kata 3ezq): a plain finding. A non-finding (style, diagnostic, cleanup) is filtered
+ * whatever the votes say, so asking part of its electorate would settle nothing the tally would not already do: the runner asks all of it.
+ */
+function quorumEligible(finding) {
+  return isObject(finding) && !isNonFinding(finding);
+}
+
+/**
+ * What the FIRST WAVE of a quorum-first round says about one candidate (kata 3ezq): settled by those votes alone, or the rest of its electorate
+ * is needed. `first` are the verifiers asked first, exactly `needed` of them. The candidate is settled only when every one of them cast a
+ * counted `real` vote; anything else (a not-real vote, an abstention, a vote that is missing, unreadable or that the tally would not count)
+ * says why in `reasons` (`not-real`, `abstain`, `missing`, or the tally's own `unreadable-votes`) and asks for the remaining verifiers.
+ * Read with `countVotes`, the reading `tallyVotes` makes, so what the runner takes for settled is what the tally will take for settled.
+ * Fail closed: a finding or a first wave this cannot read is never settled.
+ *
+ * @returns {{settled:boolean, reasons:string[]}}
+ */
+function quorumFirstWave(finding, first, needed) {
+  if (!isObject(finding)) return { settled: false, reasons: ['unreadable-finding'] };
+  if (!Array.isArray(first) || !first.every(isText) || !Number.isInteger(needed) || needed < 1 || first.length !== needed) return { settled: false, reasons: ['unexpected-first-wave'] };
+  if (!quorumEligible(finding)) return { settled: false, reasons: ['non-finding'] };
+  const votes = countVotes(finding, first);
+  if (!votes.ok) return { settled: false, reasons: [votes.reason] };
+  const reasons = [];
+  if (votes.counted.notReal > 0) reasons.push('not-real');
+  if (votes.counted.abstain > 0) reasons.push('abstain');
+  if (votes.silent.length > 0) reasons.push('missing');
+  return { settled: reasons.length === 0 && votes.counted.real === needed, reasons };
+}
+
+/**
  * Tallies verifier votes over the candidate findings of one review round.
  *
  * @param {Object} input
@@ -335,6 +447,14 @@ function countVotes(finding, assigned) {
  *   stays structural. A vote from someone not assigned to that finding does not count (`not-assigned`); and
  *   an assigned verifier with no counted vote is named in the finding's `incompleteVerifiers` (reason
  *   `no-vote`), so the finding is `unverified` / `verifier-incomplete` however the other votes fell.
+ * @param {boolean} [input.settleOnMajority]  `true` (nothing else counts) settles a finding as `present` when a strict
+ *   majority of the EXPECTED verifiers voted it real although another assigned verifier returned nothing (kata dx53;
+ *   see SETTLING ON A MAJORITY above for what keeps it from being a relaxation). Needs `assignment`. Default: off, and
+ *   a missing verifier makes a finding `unverified` / `verifier-incomplete` however the other votes fell (AC-006-3).
+ * @param {boolean} [input.quorumFirst]  `true` (nothing else counts) lets an assignment entry leave seats of the electorate unasked
+ *   (`unasked`, see QUORUM-FIRST above): a finding whose asked verifiers all voted real, at least `needed` of them, is `present` with
+ *   `quorumSettled: true` and no incomplete verifier; one the asked verifiers do not settle is `unverified` / `verifier-incomplete` with
+ *   the seats named `not-asked`. Needs `assignment`. Default: off, and an entry that names fewer verifiers than the depth expects blocks the round.
  * @param {boolean} [input.verificationCapability]  `false` means no subagent
  *   capability ran this round at all: every finding comes back `unverified`
  *   and nothing is dropped (AC-006-3). Anything other than an explicit
@@ -363,6 +483,8 @@ function tallyVotes(input) {
   const needed = majorityOf(expected);
   const quick = expected === 0;
   const capable = input.verificationCapability !== false;
+  /** The one opt-in that lets the arrived votes settle a finding some assigned verifier did not answer (kata dx53). */
+  const settle = input.settleOnMajority === true;
 
   /** Verifiers named on `finding.incompleteVerifiers` that returned no usable vote for it. */
   const incompleteVerifiersOf = (finding) => {
@@ -423,7 +545,34 @@ function tallyVotes(input) {
       return withLabel({ ...entry, outcome: 'unverified', reason: 'verification-not-performed', presented: true });
     }
 
+    // Quorum-first (opt-in, kata 3ezq): some seats of the electorate were never asked (`readAssignment` accepts `unasked` only with
+    // `quorumFirst: true`). The verifiers asked settle the finding on their own only when none of them returned nothing and `needed` of
+    // them voted it real: a vote still to come can only add to `real`, so no completion of the seats not asked changes the outcome.
+    // Anything else is NOT settled and is not read as agreement: it is degraded and presented, the seats named, because a verdict is
+    // never taken from votes nobody asked for. A quorum-settled finding names no incomplete verifier, so it never makes the round partial.
+    const unasked = assignment === null ? 0 : assignment.unasked.get(identity(finding.id));
+    if (unasked > 0) {
+      if (incompleteVerifiers.length === 0 && !isNonFinding(finding) && votes.counted.real >= needed) {
+        return withLabel({ ...entry, outcome: 'present', reason: 'verifier-majority', presented: true, quorumSettled: true, unaskedVerifiers: unasked });
+      }
+      return withLabel({
+        ...entry,
+        outcome: 'unverified',
+        reason: 'verifier-incomplete',
+        presented: true,
+        incompleteVerifiers: [...incompleteVerifiers, { verifier: UNASKED_VERIFIER, reason: 'not-asked', missing: unasked }],
+      });
+    }
+
     if (incompleteVerifiers.length > 0) {
+      // Settling on a majority (opt-in, kata dx53): the strict majority of the EXPECTED verifiers already voted it real, so no vote still
+      // missing can change the outcome (present needs real >= needed, and a missing vote can only add to real). The missing verifiers stay
+      // named. Never for a refutation or a split (they stay unverified: nothing is dropped on an incomplete electorate), without the
+      // explicit assignment, for a candidate the planner could not give its verifiers, or for a non-finding (filtered, not presented).
+      const shortElectorate = assignment !== null && assignment.incomplete.has(identity(finding.id));
+      if (settle && assignment !== null && !shortElectorate && !isNonFinding(finding) && votes.counted.real >= needed) {
+        return withLabel({ ...entry, outcome: 'present', reason: 'verifier-majority', presented: true, incompleteVerifiers, settledOnMajority: true });
+      }
       // Coverage for THIS finding is incomplete (timeout, tool failure): degraded even if the
       // votes that did arrive would otherwise reach a majority (AC-006-3).
       return withLabel({
@@ -480,7 +629,8 @@ function tallyVotes(input) {
     verification = 'not-performed';
     reason = 'verifier-incomplete';
     recoveryAction = 'supply-the-missing-votes';
-  } else if (degraded.length > 0) {
+  } else if (degraded.length > 0 || cleaned.some((entry) => entry.settledOnMajority === true)) {
+    // some finding is unverified, or every finding is settled but a verifier assigned to one of them returned nothing: not a complete round
     verification = 'partial';
     reason = 'some-verifiers-did-not-return';
     recoveryAction = 'supply-the-missing-votes';
@@ -497,4 +647,4 @@ function tallyVotes(input) {
   return result;
 }
 
-module.exports = { tallyVotes, majorityOf, resolveExpected, raisersOf, EXPECTED_VERIFIERS, VERDICTS, NON_FINDING_KINDS };
+module.exports = { tallyVotes, majorityOf, resolveExpected, raisersOf, quorumFirstShape, quorumFirstWave, quorumEligible, UNASKED_VERIFIER, EXPECTED_VERIFIERS, VERDICTS, NON_FINDING_KINDS };

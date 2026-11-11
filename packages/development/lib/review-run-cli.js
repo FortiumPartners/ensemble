@@ -12,7 +12,9 @@
  *   the merge base), lastReviewedSha?, remediationShas?, dryRun?, skipPrecheck?, testFiles?, testCommand?,
  *   baselineTimeoutMs?, nodeModules?, stateRoot?, agentAuthored? }
  * collect payload: { repoRoot:"<absolute clone>", runId, now?, adjudications?:[{id, disposition:"fix|deferred|not-applicable", reason}],
- *   triage?:{additionalCandidates:[{locationOrLink:"file:line", failureMode, severity?:"important|nit", evidence?}]} (full mode only) }
+ *   triage?:{additionalCandidates:[{locationOrLink:"file:line", failureMode, severity?:"important|nit", evidence?}]} (full mode only),
+ *   agentStats?:{"<agent name>":{tool_calls?, turns?, effort?, model?, retries?, rate_limits?, <figure>_reason?}} (kata nj2d: what the
+ *   dispatcher knows of each agent, only recorded on its trace span; a malformed one is RUN_FAILED invalid-input) }
  *
  * stdout: ONE JSON object, token-shaped strings redacted. `ok:true` (exit 0): DISPATCH | PENDING | TRIAGE | DONE | ADJUDICATE.
  * `ok:false` (exit 1): NEEDS_FULL_MODE (a light run whose brief the renderer refuses) | RUN_INVALIDATED | RUN_FAILED (also: an
@@ -48,7 +50,9 @@ const { runPrecheck } = require('./pr-review-precheck');
 const { prepareReview } = require('./pr-review-prepare');
 const { collectResults } = require('./pr-review-results');
 const { renderBriefFromFiles } = require('./pr-review-brief-files');
-const { writeState, redact } = require('./pr-review-state');
+const { writeState, readState, redact } = require('./pr-review-state');
+const { hashCitations } = require('./pr-review-carry-hash');
+const { deriveCleared } = require('./pr-review-clear-cli');
 const { createTracer } = require('./run-trace');
 const { prepareRun, collectRun, RUN_SUBDIR } = require('./pr-review-run');
 const { isValidRunId } = require('./toolchain/run-id');
@@ -206,7 +210,8 @@ function realFs({ runArea } = {}) {
 
 /**
  * The deps of one run. `injected` may replace `run` (the process boundary), `spawnProcess` (how the precheck starts a
- * gate), `now` (epoch ms), `prepareReview`, `collectResults`, `writeState`, `renderBrief` and `createTracer`.
+ * gate), `now` (epoch ms), `prepareReview`, `collectResults`, `writeState`, `readState`, `hashCitations`, `deriveCleared`,
+ * `renderBrief` and `createTracer`.
  */
 function buildDeps({ repo, pr, repoRoot }, injected = {}) {
   const run = injected.run || defaultRun;
@@ -232,6 +237,11 @@ function buildDeps({ repo, pr, repoRoot }, injected = {}) {
     }),
     renderBrief: injected.renderBrief || ((role, vars) => renderBriefFromFiles(role, vars)),
     writeState: injected.writeState || ((target, state) => writeState(target, state, { cwd: repoRoot })),
+    // a re-review's prior round, the hash of what each candidate cites, and the findings a push fixed (kata xb4j): the same
+    // local, read-only steps the carry-hash and clear CLIs make, called in this process
+    readState: injected.readState || ((target, head) => readState(target, head, { cwd: repoRoot })),
+    hashCitations: injected.hashCitations || ((request) => hashCitations(request)),
+    deriveCleared: injected.deriveCleared || ((input) => deriveCleared(input)),
     makeTracer: (traceRunId) => (injected.createTracer || createTracer)({ runId: traceRunId, projectRoot: repoRoot, onUnavailable: (reason) => notices.push(`trace unavailable: ${reason}`) }),
   };
 }

@@ -1,7 +1,6 @@
 ---
 name: adapter-iac-terraform
 description: Terraform `iac` toolchain adapter (TRD-2026-8d825f54 TRD-044). Loaded by the toolchain resolver, not invoked directly by name. Shipped default iac adapter.
-user-invocable: true
 ---
 
 # Terraform IaC Adapter

@@ -18,7 +18,7 @@ mission:
   summary: |
     Expert .NET backend developer specialising in ASP.NET Core Web API, Minimal API, Wolverine CQRS/message bus,
     MartenDB document storage and event sourcing, and idiomatic C# patterns. Loads the dotnet skill
-    from packages/dotnet/skills/SKILL.md at task start for project conventions and gotchas.
+    from packages/dotnet/skills/dotnet/SKILL.md at task start for project conventions and gotchas.
 
     Core Strengths:
     - **ASP.NET Core**: Controller-based and Minimal API design with OpenAPI, versioning, and middleware
@@ -31,7 +31,7 @@ mission:
 
   skillLoading: |
     At the start of every task:
-    1. Read packages/dotnet/skills/SKILL.md for conventions and gotchas
+    1. Read packages/dotnet/skills/dotnet/SKILL.md for conventions and gotchas
 
     Detection signals (use these to confirm a .NET backend project):
     - *.csproj referencing Microsoft.AspNetCore or Wolverine or Marten
@@ -65,7 +65,7 @@ expertise:
       At task start, load the dotnet skill:
 
       ```bash
-      Read packages/dotnet/skills/SKILL.md
+      Read packages/dotnet/skills/dotnet/SKILL.md
       ```
 
       Detection: confirm project is .NET by checking for *.csproj files or
@@ -118,7 +118,7 @@ responsibilities:
     title: Skill Loading at Task Start
     description: |
       Before writing any code:
-      1. Read packages/dotnet/skills/SKILL.md
+      1. Read packages/dotnet/skills/dotnet/SKILL.md
       2. Identify relevant patterns (controller vs Minimal API, CQRS, event sourcing)
       5. Confirm .NET SDK version from *.csproj TargetFramework element
 

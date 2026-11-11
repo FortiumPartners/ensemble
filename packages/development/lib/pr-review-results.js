@@ -37,7 +37,10 @@
  *     read) does, for a reviewer and the security lane (kata sfpb): the budget is then
  *     a BASE that `pr-review-sizing.js` raises to the modelled time to read that much,
  *     with headroom, up to the 60-minute maximum, and never lowers; a verifier's
- *     does not depend on it. `dispatchedAt` is `now`:
+ *     does not depend on it. Those numbers are BASES: a reviewer and the lane are never
+ *     given less than a fixed-cost floor of 22 minutes (kata d9sy) and a verifier never
+ *     less than 8 (kata dx53), whatever the policy says; a policy value set below a
+ *     floor is overridden and named in `warnings`. `dispatchedAt` is `now`:
  *     hand both it and `deadlineAt` to `collectResults`.
  *
  *   collectResults({expected, dir, now, scratchDir?}, deps?)
@@ -72,10 +75,48 @@
  *     A scratch copy of THIS dispatch is authoritative from then on:
  *     classification is a function of (expected, dir contents, scratch
  *     contents, now), so an orchestrator that crashed and is restarted
- *     re-collects over the same directory and reaches the same answer, and an
- *     agent that later rewrites or deletes its file changes nothing. A scratch
+ *     re-collects over the same directory and reaches the same answer, and a
+ *     file the agent later deletes changes nothing; one it later REWRITES is
+ *     looked at again and reported (A RESULT FILE THAT CHANGES AFTER IT WAS
+ *     READ, below), never silently kept or silently dropped. A scratch
  *     copy that arrived before `dispatchedAt` belongs to an earlier round: it
  *     is ignored, with a warning, and replaced by the new arrival.
+ *     A RESULT FILE THAT CHANGES AFTER IT WAS READ (kata 271n). The collector
+ *     cannot know whether an agent has finished writing, and the first valid
+ *     file it saw used to be the only one it ever read: a rewrite a minute later
+ *     (measured: 9 of 37 files in three live runs, one a vote that would have
+ *     confirmed a finding, one a finding that reached no candidate) was lost
+ *     without a word. Now every `arrived` record carries `read`, the fingerprint
+ *     `{ size, mtimeMs, ctimeMs, sha256 }` of the version in use, which the
+ *     caller stores next to the arrival and hands back as `expected[].read`
+ *     (without it the fingerprint of the scratch copy, the bytes taken, is the
+ *     baseline). Each later pass looks at the file again and compares its BYTES
+ *     (sha256) with the baseline:
+ *       the same bytes  nothing changed; a touched file, or one rewritten with
+ *                       the same content, is not a change;
+ *       other bytes     `changed: { kind: 'rewritten', read, now, usable, why? }`:
+ *                       `read` and `now` are the two fingerprints. `usable` is
+ *                       true when the later version is a valid result whose change
+ *                       time lies in [dispatchedAt, deadlineAt]. With
+ *                       `expected[].reread: true` (the caller has not used this
+ *                       agent's result yet) a usable later version REPLACES the
+ *                       scratch copy and the record says `reread: { from, to }`
+ *                       instead of `changed`: the latest usable version wins, and
+ *                       the arrival is its change time. Without `reread`, or when
+ *                       the later version is invalid, late (`why:
+ *                       arrived-after-deadline`, a late result is never read),
+ *                       or the copy could not be updated, the version first read
+ *                       stands and `changed` says what the file holds now: the
+ *                       caller MUST flag it and never keep it silently;
+ *       swapped         `kind: 'replaced'` (no longer a regular file) or
+ *                       `'unreadable'` (it cannot be read now, or is too large);
+ *       gone            `kind: 'removed'`: the copy stands and nothing was lost,
+ *                       so it is reported and is not a change of the result.
+ *     A malformed `read` or `reread` is a refusal of the request. Without a usable
+ *     scratch directory the first version is kept nowhere: the result files alone
+ *     are judged, so a later version is the data of that pass, and `changed` says
+ *     so (`kept: false`: no copy of the first version stands). A pass over an
+ *     untouched directory answers byte for byte the same.
  *     TRUST. `dir` is where the agents write, so nothing in it is trusted
  *     beyond the one file `out-<name>.json`, and that file is read through a
  *     single descriptor opened without following symlinks and without
@@ -147,7 +188,7 @@ const fs = require('fs');
 const path = require('path');
 
 const { DEADLINE_ROLES, DEFAULT_DEADLINE_MINUTES, DEADLINE_MINUTES_MIN, DEADLINE_MINUTES_MAX, DEFAULT_POLICY } = require('./pr-review-policy');
-const { SIZED_ROLES, isWork, isDeadlineHeadroom, sizedMinutes } = require('./pr-review-sizing');
+const { SIZED_ROLES, isWork, isDeadlineHeadroom, sizedMinutes, verifierMinutes } = require('./pr-review-sizing');
 const { VERDICTS } = require('./pr-review-votes');
 const { LENS_TOKEN } = require('./pr-review-depth');
 
@@ -198,7 +239,19 @@ function deadlineFailure(reason) {
 
 /** The one sentence a floor that overrides a policy `deadlineMinutes` is reported in (the warning here and the run's sizing warning). */
 function floorOverrideMessage({ role, policyMinutes, floorMinutes }) {
-  return `policy deadlineMinutes.${role} (${policyMinutes}) is below the ${floorMinutes}-minute fixed-cost floor of a reviewer or security agent (kata d9sy); the deadline is ${floorMinutes} minutes`;
+  const holder = role === 'verifier' ? 'a verifier (kata dx53)' : 'a reviewer or security agent (kata d9sy)';
+  return `policy deadlineMinutes.${role} (${policyMinutes}) is below the ${floorMinutes}-minute fixed-cost floor of ${holder}; the deadline is ${floorMinutes} minutes`;
+}
+
+/**
+ * The `deadlineMinutes` the policy block SET for `role`, or null when it set none. `input.explicit` (loadPolicy's `explicit`: what the
+ * policy block set) tells a set value from the policy's defaults, a value equal to the default included; a caller without it can only
+ * tell a value that differs from the default.
+ */
+function policySetMinutes(input, role, minutes, source) {
+  const setByPolicy = isObject(input.explicit) && isObject(input.explicit.deadlineMinutes) ? input.explicit.deadlineMinutes[role] : undefined;
+  if (isObject(input.explicit)) return Number.isInteger(setByPolicy) ? setByPolicy : null;
+  return source === 'policy' && minutes !== DEFAULT_DEADLINE_MINUTES[role] ? minutes : null;
 }
 
 /**
@@ -216,14 +269,17 @@ function floorOverrideMessage({ role, policyMinutes, floorMinutes }) {
  *   a policy value below the floor is named whatever it equals (15 included); without it only a value that differs from the default is.
  * @param {{files:number, lines:number}} [input.work]  What the agent is asked to read, as whole non-negative counts.
  *   With it, a reviewer's and the security lane's deadline is the larger of the base above, the modelled reading time with its
- *   headroom and the fixed-cost floor of an agent (`MIN_AGENT_MINUTES`, kata d9sy), at most 60 minutes; without it, or for a
- *   verifier, the base alone.
+ *   headroom and the fixed-cost floor of an agent (`MIN_AGENT_MINUTES`, kata d9sy), at most 60 minutes; without it the base alone
+ *   (the floor of a reviewer or the lane applies only with `work`). A verifier's deadline is never sized: it is the larger of the
+ *   base and its own fixed-cost floor (`MIN_VERIFIER_MINUTES`, kata dx53, at most 60 minutes), with or without `work`.
  * @returns {{ok:boolean, role?:string, dispatchedAt?:number, deadlineAt:number|null, deadlineAtIso?:string, budgetMs:number,
  *   minutes?:number, source?:'default'|'policy'|'size', sizing?:Object, tier?:string, depth?:string, warnings:string[], reason?:string}}
- *   `source` is `size` only when the size model or the floor set `minutes` above the base. `sizing` (present when `work` was used) is
- *   `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes, floorMinutes, floored, raised, capped}`: `floored` says
- *   the floor decided the deadline; `capped` says the modelled need is over the 60-minute maximum and the agent is given the maximum,
- *   which is less than the model says it needs.
+ *   `source` is `size` only when the size model or a floor set `minutes` above the base. `sizing` (present when `work` was used for a
+ *   reviewer or the lane, and always for a verifier) is `{files, lines, baseMinutes, estimateMinutes, headroom, modeledMinutes,
+ *   floorMinutes, floored, raised, capped}` for the sized roles: `floored` says the floor decided the deadline; `capped` says the
+ *   modelled need is over the 60-minute maximum and the agent is given the maximum, which is less than the model says it needs. For
+ *   a verifier it is `{baseMinutes, floorMinutes, floored, policyMinutes, overridesPolicy, raised}`: `overridesPolicy` says the
+ *   policy SET a value below the floor and the floor was applied (named in `warnings`).
  */
 function reviewDeadlines(input) {
   if (!isObject(input)) return deadlineFailure('invalid-input');
@@ -272,10 +328,7 @@ function reviewDeadlines(input) {
       }
       const sized = sizedMinutes({ base: minutes, work: input.work, headroom, maximum: DEADLINE_MINUTES_MAX });
       // A policy value the policy SET below the floor is overridden, and that is said (a value equal to the default included).
-      // `input.explicit` (loadPolicy's `explicit`: what the policy block set) tells a set value from the policy's defaults; a
-      // caller without it can only tell a value that differs from the default.
-      const setByPolicy = isObject(input.explicit) && isObject(input.explicit.deadlineMinutes) ? input.explicit.deadlineMinutes[role] : undefined;
-      const policyMinutes = isObject(input.explicit) ? (Number.isInteger(setByPolicy) ? setByPolicy : null) : source === 'policy' && minutes !== DEFAULT_DEADLINE_MINUTES[role] ? minutes : null;
+      const policyMinutes = policySetMinutes(input, role, minutes, source);
       const overridesPolicy = sized.floored && policyMinutes !== null && policyMinutes < sized.floor;
       sizing = { files: input.work.files, lines: input.work.lines, baseMinutes: sized.base, estimateMinutes: sized.estimate, headroom: sized.headroom, modeledMinutes: sized.modeled, floorMinutes: sized.floor, floored: sized.floored, policyMinutes, overridesPolicy, raised: sized.raised, capped: sized.capped };
       if (overridesPolicy) warnings.push(floorOverrideMessage({ role, policyMinutes, floorMinutes: sized.floor }));
@@ -283,6 +336,18 @@ function reviewDeadlines(input) {
       if (sized.raised) source = 'size';
       minutes = sized.minutes;
     }
+  }
+
+  // A verifier is never sized (its time does not follow its claims: pr-review-sizing.js, kata dx53) and has a fixed-cost floor of its
+  // own, with or without `work`: the base, or the floor when that is longer. A policy value SET below it is overridden, and that is said.
+  if (role === 'verifier') {
+    const fixed = verifierMinutes({ base: minutes, maximum: DEADLINE_MINUTES_MAX });
+    const policyMinutes = policySetMinutes(input, role, minutes, source);
+    const overridesPolicy = fixed.floored && policyMinutes !== null && policyMinutes < fixed.floor;
+    sizing = { baseMinutes: fixed.base, floorMinutes: fixed.floor, floored: fixed.floored, policyMinutes, overridesPolicy, raised: fixed.raised };
+    if (overridesPolicy) warnings.push(floorOverrideMessage({ role, policyMinutes, floorMinutes: fixed.floor }));
+    if (fixed.raised) source = 'size';
+    minutes = fixed.minutes;
   }
 
   const budgetMs = minutes * MINUTE_MS;
@@ -319,6 +384,41 @@ function statFacts(stat) {
     uid: stat.uid,
     mode: stat.mode,
   };
+}
+
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/** The sha256 of a result file's text, as lower-case hex: what two reads of the same bytes have in common. */
+const sha256Of = (text) => crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+
+/**
+ * What one read of a result file saw, so a later look can tell whether it is still that file (kata 271n): its size, its
+ * modification and change times (when the entry reports them) and the sha256 of its bytes. The BYTES decide whether it
+ * changed; the rest is what a person reads beside them (`first read 212 bytes, now 240`).
+ */
+function fingerprintOf(stat, text) {
+  const print = { size: Number.isSafeInteger(stat.size) && stat.size >= 0 ? stat.size : Buffer.byteLength(text, 'utf8') };
+  if (Number.isFinite(stat.mtimeMs)) print.mtimeMs = stat.mtimeMs;
+  if (Number.isFinite(stat.ctimeMs)) print.ctimeMs = stat.ctimeMs;
+  print.sha256 = sha256Of(text);
+  return print;
+}
+
+/** A fingerprint a caller handed back (`expected[].read`): a size, a sha256 and, when given, finite times. */
+function isFingerprint(value) {
+  if (!isObject(value)) return false;
+  if (!Number.isSafeInteger(value.size) || value.size < 0) return false;
+  if (typeof value.sha256 !== 'string' || !SHA256_HEX.test(value.sha256)) return false;
+  return ['mtimeMs', 'ctimeMs'].every((key) => value[key] === undefined || Number.isFinite(value[key]));
+}
+
+/** A copy of a checked fingerprint with exactly its own keys, in the order `fingerprintOf` writes them. */
+function copyFingerprint(value) {
+  const print = { size: value.size };
+  if (value.mtimeMs !== undefined) print.mtimeMs = value.mtimeMs;
+  if (value.ctimeMs !== undefined) print.ctimeMs = value.ctimeMs;
+  print.sha256 = value.sha256;
+  return print;
 }
 
 /** An error whose `code` this module maps to a named reason, like the `code` of an fs error. */
@@ -487,7 +587,8 @@ function readFailureReason(error) {
  *   agent that wrote it cannot set it backwards. A scratch copy's modification time: the orchestrator stored the
  *   arrival there when it took the copy, in a directory only it can write.
  * @returns `absent`; `stale` (it last changed before the dispatch, so it is not this dispatch's); `invalid` with a
- *   reason (and the text, when it could be read); or `valid` with the checked data. Each carries `arrivedAt`.
+ *   reason (and the text and its fingerprint `read`, when it could be read); or `valid` with the checked data, the text
+ *   and its fingerprint. Each carries `arrivedAt` once the change time is known.
  */
 function inspectFile(file, agent, io, timeField) {
   let stat;
@@ -511,10 +612,11 @@ function inspectFile(file, agent, io, timeField) {
   }
 
   const parsed = parseYield(text);
-  if (parsed.reason) return { status: 'invalid', reason: parsed.reason, arrivedAt, text };
+  const read = fingerprintOf(stat, text);
+  if (parsed.reason) return { status: 'invalid', reason: parsed.reason, arrivedAt, text, read };
   const checked = agent.role === 'verifier' ? checkVerifier(parsed.value) : checkReviewer(parsed.value);
-  if (checked.reason) return { status: 'invalid', reason: checked.reason, arrivedAt, text };
-  return { status: 'valid', data: checked, arrivedAt, text };
+  if (checked.reason) return { status: 'invalid', reason: checked.reason, arrivedAt, text, read };
+  return { status: 'valid', data: checked, arrivedAt, text, read };
 }
 
 function collectFailure(reason) {
@@ -620,6 +722,14 @@ function readExpected(input) {
       if (ids.includes(null)) return { reason: `${label}.candidateIds must be an array of ids` };
       agent.candidateIds = ids;
     }
+    if (entry.read !== undefined) {
+      if (!isFingerprint(entry.read)) return { reason: `${label}.read must be the fingerprint a collect answered for this agent: { size, sha256 (64 hex characters) and, when given, finite mtimeMs and ctimeMs }` };
+      agent.read = copyFingerprint(entry.read);
+    }
+    if (entry.reread !== undefined) {
+      if (typeof entry.reread !== 'boolean') return { reason: `${label}.reread must be true or false` };
+      agent.reread = entry.reread;
+    }
     agents.push(agent);
   }
   return { agents, now, dir, scratchDir };
@@ -646,16 +756,63 @@ function checkScratch(io, scratchDir, warnings) {
   return { usable: false, error: 'unsafe-scratch-dir' };
 }
 
+/** `212 bytes, sha256 1a2b3c4d5e6f`: a fingerprint as a person reads it in a warning. */
+const describePrint = (print) => (isObject(print) ? `${print.size} bytes, sha256 ${String(print.sha256).slice(0, 12)}` : 'not readable');
+
+/**
+ * What the result file holds now (`live`, a look by `inspectFile`) against what was read (`baseline`, a fingerprint), or `null`
+ * when it still holds the bytes that were read (a touch, or a rewrite with the same content, is not a change). Otherwise the
+ * change: `{ kind, now, usable, why? }`:
+ *   removed     the entry is gone; the copy taken stands and nothing was lost, so a caller does not count it as a change
+ *   replaced    it is no regular file any more (a link, a directory, a FIFO)
+ *   unreadable  it cannot be read now (too large, changed under the read, no change time, permission), or lies before the dispatch
+ *   rewritten   other bytes. `usable` when they are a valid result whose change time is within the deadline: a caller that has
+ *               not used the result may take them. Otherwise `why` says what is wrong (the validation reason, or
+ *               `arrived-after-deadline`: a late result is never read).
+ */
+function compareWithRead(live, baseline, agent) {
+  if (live.status === 'absent') return { kind: 'removed', now: null, usable: false, why: 'removed' };
+  if (live.read === undefined) {
+    const why = live.status === 'stale' ? 'stale-result-before-dispatch' : live.reason || 'unreadable-file';
+    return { kind: why === 'not-a-regular-file' ? 'replaced' : 'unreadable', now: null, usable: false, why };
+  }
+  if (live.read.sha256 === baseline.sha256) return null;
+  if (live.status !== 'valid') return { kind: 'rewritten', now: live.read, usable: false, why: live.reason };
+  if (live.arrivedAt > agent.deadlineAt) return { kind: 'rewritten', now: live.read, usable: false, why: 'arrived-after-deadline' };
+  return { kind: 'rewritten', now: live.read, usable: true };
+}
+
+/**
+ * The warning a change after the read is reported as in the answer of the pass that saw it. `kept` is whether a copy still stands
+ * for the first read: without one (no usable scratch directory, or a copy that is not the version recorded) the pass counts what
+ * the file holds now, and says so.
+ */
+function changeWarning(file, changed, kept) {
+  const first = describePrint(changed.read);
+  const stands = kept ? 'the version first read stands' : 'no copy of the version first read is kept, so this pass counts what the file holds now';
+  if (changed.kind === 'removed') return `${file}: removed after it was read; ${kept ? 'the copy taken stands' : 'no copy of it is kept'} (${first})`;
+  if (changed.kind === 'rewritten') {
+    const now = describePrint(changed.now);
+    if (changed.usable) return `${file}: changed after it was read (first read ${first}, now ${now}); ${stands}`;
+    return `${file}: changed after it was read (first read ${first}, now ${now}) and the later version cannot be used (${changed.why}); ${stands}`;
+  }
+  return `${file}: ${changed.kind === 'replaced' ? 'replaced by something that is not a regular file' : 'no longer readable'} after it was read (${changed.why}); ${stands} (${first})`;
+}
+
 /**
  * Classifies every expected agent from its result file and builds the inputs
  * `tallyVotes` and `verifyCoverage` consume. See the module header.
  *
  * @param {Object} input
- * @param {Object[]} input.expected  `{name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds?}` per
+ * @param {Object[]} input.expected  `{name, role, dispatchedAt, deadlineAt, sliceId?, lens?, paths?, candidateIds?, read?, reread?}` per
  *   agent. `role` is reviewer|verifier|security; `dispatchedAt` and `deadlineAt` come from `reviewDeadlines` (a result
  *   that last changed before `dispatchedAt` is not this dispatch's); a reviewer's `sliceId` says which slice it owns,
  *   `paths` (required with `sliceId`) lists that slice's paths and `lens` (required with `sliceId`) the emphasis it
- *   reads them under; a verifier's `candidateIds` say which candidates it was assigned.
+ *   reads them under; a verifier's `candidateIds` say which candidates it was assigned. `read` is the fingerprint an earlier
+ *   answer gave for this agent's `arrived` record (`{size, mtimeMs?, ctimeMs?, sha256}`), the version the caller has used or
+ *   will use; `reread: true` says the caller has NOT used the result yet, so a later valid version in time replaces it (kata
+ *   271n: see the module header). Every `arrived` record answers its `read`, and a file that holds other bytes than it
+ *   answers `changed` (or `reread`), however many passes ago the first read was.
  * @param {string} input.dir         Where the agents write `out-<name>.json`.
  * @param {number|string} input.now  The moment of observation.
  * @param {string} [input.scratchDir]  Defaults to `defaultScratchDir(dir)`; never inside `dir`.
@@ -695,11 +852,51 @@ function collectResults(input, deps) {
 
     // A scratch copy was validated when it was taken, so the first valid arrival of THIS dispatch is the one that
     // counts. A copy that arrived before the dispatch is an earlier round's: it is ignored, never trusted.
-    const earlier = scratch.usable ? inspectFile(kept, agent, io, 'mtimeMs') : { status: 'absent' };
+    let earlier = scratch.usable ? inspectFile(kept, agent, io, 'mtimeMs') : { status: 'absent' };
     if (earlier.status === 'stale') warnings.push(`${kept}: ignored a scratch copy from before this dispatch`);
     else if (earlier.status === 'invalid') warnings.push(`${kept}: ignored an unusable scratch copy (${earlier.reason})`);
+    // A copy that is not the version the caller recorded as used is not the data in use (a crash between taking the copy and
+    // recording it, or a copy somebody edited): it is ignored, and the file itself is read and compared with the record.
+    if (earlier.status === 'valid' && agent.read !== undefined && earlier.read.sha256 !== agent.read.sha256) {
+      warnings.push(`${kept}: ignored a scratch copy that is not the version recorded as read`);
+      earlier = { status: 'absent' };
+    }
     const fromScratch = earlier.status === 'valid';
-    const seen = fromScratch ? earlier : inspectFile(primary, agent, io, 'ctimeMs');
+    // What was read first (kata 271n): the caller's record, else the bytes of the copy taken, when it arrived in time. Without either
+    // there is nothing to compare and this is the first look.
+    const baseline = agent.read !== undefined ? agent.read : fromScratch && earlier.arrivedAt <= agent.deadlineAt ? { size: earlier.read.size, sha256: earlier.read.sha256 } : null;
+    // What the result file holds NOW: with a copy standing for the first read this is a second look, without one it is the first.
+    const live = inspectFile(primary, agent, io, 'ctimeMs');
+    let seen = fromScratch ? earlier : live;
+    const difference = baseline === null ? null : compareWithRead(live, baseline, agent);
+    // A later version that is valid and in time replaces the copy that stands for the first read ONLY when the caller has not used the
+    // result yet (`reread`); otherwise the version first read stands and the change is reported, never kept or dropped in silence.
+    let adopted = false;
+    if (difference !== null && difference.usable && agent.reread === true) {
+      if (!fromScratch) {
+        adopted = true; // no copy stands for the first read: the file itself is this pass's data already
+      } else if (safeWrite(kept, live.text, live.arrivedAt)) {
+        seen = live;
+        adopted = true;
+      } else {
+        difference.usable = false;
+        difference.why = 'scratch-not-updated';
+      }
+    }
+    if (adopted) {
+      record.reread = { from: baseline, to: live.read };
+      warnings.push(`${primary}: rewritten after it was read and before its result was used: the later version replaces the first (first read ${describePrint(baseline)}, now ${describePrint(live.read)})`);
+    } else if (difference !== null) {
+      record.changed = { kind: difference.kind, read: baseline, now: difference.now, usable: difference.usable, ...(difference.why === undefined ? {} : { why: difference.why }), ...(fromScratch ? {} : { kept: false }) };
+      warnings.push(changeWarning(primary, record.changed, fromScratch));
+    }
+    // The fingerprint of the version whose data this pass uses.
+    const inUse = () => {
+      if (adopted) return live.read;
+      if (agent.read !== undefined && (difference === null || fromScratch)) return agent.read;
+      if (fromScratch) return difference === null ? live.read : baseline;
+      return seen.read;
+    };
 
     if (seen.status === 'valid') {
       if (fromScratch || safeWrite(kept, seen.text, seen.arrivedAt)) record.scratchPath = kept;
@@ -708,6 +905,7 @@ function collectResults(input, deps) {
         record.state = 'arrived';
         record.pending = false;
         record.data = seen.data;
+        record.read = inUse();
       } else {
         record.state = 'expired';
         record.reason = 'arrived-after-deadline';

@@ -69,6 +69,26 @@ plan's section 5 rule: "Do not claim the 5x target met until PR 4 has run on a r
 A stratum that is not required (a `low` tier, a `medium/re-review`) is graded and reported, and a miss
 is a warning, but the claim does not depend on it.
 
+### A re-based target (`targetFactors`)
+
+The yardstick is 5x. To report a stratum against a different ratio, beside and never in place of it (plan
+`docs/plans/pr-review-speed-plan-v2.md`, V2-5), name the stratum and its factor in the payload:
+`"targetFactors": {"high/first": 2}`. A factor is a finite number of at least 1; any other value, a
+non-object `targetFactors`, or a stratum id that is not compared (a misspelt one) refuses the whole compare
+(`ok: false`, exit 0), and `MINIMUMS` is not touched by it (a thin stratum stays `unknown` at any factor).
+
+- The default is 5. With no `targetFactors`, or a factor of 5, the answer is byte-for-byte the one it always was:
+  no field is added (a golden test pins it to `review-speedup-measurement-2026-11-10-final/walltime-compare.json`).
+- A stratum graded at another factor carries `targetFactor` and `rebased: true`, its `target` minutes are the
+  baseline divided by that factor, the payload carries `rebased: true` and `targetFactors`, and a
+  `stratum-rebased` warning says its status is not a 5x result. With the committed baseline and the final cohort,
+  `{"high/first": 2}` makes the stratum `met` (2.183x median, 2.222x p75).
+- `fiveX` never reads a re-based grade. It is computed from every stratum at the 5x, and while a required
+  stratum is re-based it is `not-met` and its first reason names the factor (`high/first: evaluated at target
+  factor 2, not the 5x yardstick (rebased); fiveX needs the 5x`). A factor can never make the 5x `met`.
+- A factor is a ratio to the baseline. The plan's section 1.4 absolute targets (minutes, for the strata whose
+  baseline is one PR) are not an input.
+
 ## 3. The committed baseline
 
 [`review-walltime-baseline-2026-11-07.json`](review-walltime-baseline-2026-11-07.json) is the BEFORE

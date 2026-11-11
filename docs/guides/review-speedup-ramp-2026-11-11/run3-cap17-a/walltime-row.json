@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "row": {
+  "id": "pr207-first-ramp3-cap17a",
+  "pr": 207,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 21.962,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run ramp3-cap17a",
+  "run_id": "ramp3-cap17a"
+ }
+}

@@ -10,6 +10,7 @@ const { checkFrontmatter } = require('./lib/frontmatter-check');
 const promptBudget = require('./lib/prompt-budget');
 const { checkStepKeys } = require('./lib/step-keys-check');
 const { loadValidCapabilityIds, checkCapabilityIds, checkCapabilityInvocationDrift } = require('./lib/capability-ids-check');
+const { readCommandProse } = require('./lib/skill-backed-command');
 const { checkDefaultOnly, RESTRICTED_CATEGORIES } = require('./lib/default-only-check');
 const { checkVendored } = require('./vendor-bundle-deps');
 const yamlLib = require('js-yaml');
@@ -548,8 +549,7 @@ function validateFullSkillsMirror() {
 
     for (const skillEntry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (!skillEntry.isDirectory() && !skillEntry.isSymbolicLink()) continue;
-      // Only real skills (a SKILL.md of their own) count — excludes asset
-      // subdirectories like a top-level-layout skill's examples/ or templates/.
+      // Only real skills (a SKILL.md of their own) count.
       if (!fs.existsSync(path.join(skillsDir, skillEntry.name, 'SKILL.md'))) continue;
       total++;
       const skillName = skillEntry.name;
@@ -785,27 +785,37 @@ function validateAdapterIdCategoryUniqueness(packagesDir = PACKAGES_DIR) {
 }
 
 /**
- * Every command YAML's body prose (`run <id>`, `preflight --require <id>`, `confirm-status
+ * Every command's body prose (`run <id>`, `preflight --require <id>`, `confirm-status
  * <id>`) must only reference capability ids that file's own `metadata.capabilities.{required,
- * optional}` declares (PR 7 independent review item 7). Source packages only: pi/codex/
- * opencode are generated output and would only reflect the same drift their source already
- * has.
+ * optional}` declares (PR 7 independent review item 7). A skill-backed command's prose is its
+ * skill -- the SKILL.md and the `references/*.md` files beside it -- so all of that gets
+ * scanned for it. Source packages only: pi/codex/opencode are generated output and would
+ * only reflect the same drift their source already has.
  *
+ * @param {string} [packagesDir] The packages/ directory to scan (defaults to the repo's own)
  * @returns {string[]} One message per invoked-but-undeclared capability id
  */
-function validateCapabilityInvocationDrift() {
+function validateCapabilityInvocationDrift(packagesDir = PACKAGES_DIR) {
   const failures = [];
   let checked = 0;
-  for (const pkg of fs.readdirSync(PACKAGES_DIR)) {
+  for (const pkg of fs.readdirSync(packagesDir)) {
     if (pkg === 'pi' || pkg === 'codex' || pkg === 'opencode') continue;
-    const dir = path.join(PACKAGES_DIR, pkg, 'commands');
+    const dir = path.join(packagesDir, pkg, 'commands');
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
       const rel = path.join('packages', pkg, 'commands', file);
-      const rawText = fs.readFileSync(path.join(dir, file), 'utf8');
+      const yamlPath = path.join(dir, file);
+      const rawText = fs.readFileSync(yamlPath, 'utf8');
       const commandData = yamlLib.load(rawText);
-      failures.push(...checkCapabilityInvocationDrift(commandData, rel, rawText));
       checked++;
+      let prose;
+      try {
+        prose = readCommandProse(yamlPath, commandData, rawText);
+      } catch (error) {
+        failures.push(`${rel}: cannot scan for capability drift: ${error.message}`);
+        continue;
+      }
+      failures.push(...checkCapabilityInvocationDrift(commandData, rel, prose));
     }
   }
   console.log(`  ✓ ${checked} command YAML file(s) checked for capability declaration/invocation drift`);

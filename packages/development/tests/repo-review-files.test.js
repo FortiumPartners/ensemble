@@ -214,6 +214,8 @@ describe('the review guards are sensitive under every name and copy that can sha
     ['the Pi prompt generated from it', 'packages/pi/prompts/ensemble-pr-merge.md'],
     ['the Pi skill generated from it', 'packages/pi/skills/ensemble-pr-merge/SKILL.md'],
     ['the Codex skill generated from it', 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md'],
+    ['the skill that is now the pr-merge prompt source', 'packages/git/skills/ensemble-pr-merge/SKILL.md'],
+    ['a reference file the pr-merge skill gains later', 'packages/git/skills/ensemble-pr-merge/references/phase-1-preflight.md'],
     ['the local CI runner script the approval set mirrors', 'scripts/ci-local.js'],
   ])('%s: %s is sensitive', (_label, changedPath) => {
     expectSensitive([changedPath]);
@@ -250,6 +252,7 @@ describe('the review guards are sensitive under every name and copy that can sha
         'packages/pi/prompts/ensemble-pr-merge.md',
         'packages/pi/skills/ensemble-pr-merge/SKILL.md',
         'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md',
+        'packages/git/skills/ensemble-pr-merge/SKILL.md',
       ])
     );
     expectSensitive(copies);

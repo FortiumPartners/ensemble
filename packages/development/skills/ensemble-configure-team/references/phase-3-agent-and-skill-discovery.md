@@ -1,0 +1,54 @@
+### Phase 3: Agent and Skill Discovery
+
+Discover available agents and skills from the ensemble plugin ecosystem.
+Only executes when TEAM_TIER is Medium or Complex (or --team was passed).
+
+#### Step 3.1: Agent Auto-Discovery
+
+Build AGENT_REGISTRY from BOTH source packages/*/agents/*.yaml AND the runtime-visible
+Task agent registry exposed by installed plugins. The runtime fallback is critical when
+this command runs from a consumer repo (e.g. a project that does not vendor the ensemble
+monorepo) — without it, only the project's local agents (typically a tiny set like
+planner/reviewer/worker) are visible, and the full team roster (tech-lead-orchestrator,
+code-reviewer, test-runner, etc.) is incorrectly absent.
+
+- Step 1a — Source packages scan: Use Glob tool to scan packages/*/agents/*.yaml relative to CWD. For each discovered YAML file use Read tool to extract name and description fields from front matter. Also extract the '## Mission' section body text (first paragraph after heading).
+- Step 1b — Runtime plugin agent fallback (REQUIRED): Use Glob tool to scan BOTH '~/.omp/plugins/node_modules/@*/*/agents/*.md' (scoped npm packages, e.g. @sunstone-partners/ensemble-pi/agents/*.md) AND '~/.omp/plugins/node_modules/*/agents/*.md' (unscoped fallback). The two-pattern glob is required because the @*/agents/*.md shorthand misses the package segment; without it only the project's local agents are visible and the full team roster (tech-lead-orchestrator, code-reviewer, test-runner, etc.) is incorrectly absent. SYMLINK FALLBACK (REQUIRED): OMP's Glob does not always traverse plugin directory symlinks (live install at ~/.omp/plugins/node_modules/@sunstone-partners/ensemble-pi is a symlink). If Glob returns zero matches OR fewer than 4 plugin agents are discovered, run via Bash: 'find -L ~/.omp/plugins/node_modules -path "*/agents/*.md" -type f' and treat each returned absolute path as an agent file. PATH PARSING: derive <plugin> by stripping the trailing '/agents/<basename>' from the file's absolute path (e.g. '/Users/ldangelo/.omp/plugins/node_modules/@sunstone-partners/ensemble-pi/agents/deep-debugger.md' → strip '/agents/deep-debugger.md' → '/Users/ldangelo/.omp/plugins/node_modules/@sunstone-partners/ensemble-pi' → <plugin> = '@sunstone-partners/ensemble-pi'). Derive <agent_name> from the file basename without the .md extension (e.g. 'deep-debugger'). Do NOT use the file's parent directory (that is 'agents'); use dirname(dirname(file)) to reach the plugin root reliably for both scoped ('@scope/pkg') and unscoped ('pkg') layouts. Merge these into AGENT_REGISTRY before proceeding. For each discovered agent markdown file (whether via Glob or find -L), derive a runtime agent identifier of the form '<plugin>:<agent_name>' by combining the plugin directory name (e.g. ensemble-pi -> 'ensemble-full' when the plugin's marketplace name is ensemble-full, otherwise the raw plugin directory name) with the basename without .md extension. Also include the unqualified basename as an alias. This ensures AGENT_REGISTRY reflects agents the Task tool can actually invoke in the current runtime, not just agents vendored in the consumer repo's source tree.
+- Step 1c — Router-rules overlay: If .claude/router-rules.json exists in CWD, read it and merge any custom agent names defined there into AGENT_REGISTRY (these are user-defined aliases the runtime resolves).
+- Step 1d — Dedupe and freeze: Build AGENT_REGISTRY as Map of agent_name to {description, mission_keywords, source_file, runtime_id, source}. When the same agent_name appears in both source packages and runtime plugins, prefer the runtime entry (it carries the most accurate description and the runtime_id the Task tool consumes). Sort AGENT_REGISTRY keys alphabetically for deterministic downstream behavior.
+- Step 1e — Capability keywords: Extract capability keywords from description and mission text (tokenize, lowercase). Used by Step 3 (Builder Agent Matching) for keyword-overlap ranking.
+
+#### Step 3.2: Skill Auto-Discovery
+
+Scan packages/*/skills/ AND the runtime-visible skill directories exposed by installed
+OMP plugins at ~/.omp/plugins/node_modules/<pkg>/skills/<skill>/SKILL.md. The runtime
+fallback is critical when this command runs from a consumer repo (e.g. a project that
+does not vendor the ensemble monorepo) — without it only the project's local skills
+(typically empty) are visible, and the full skill catalog (foreman-workflow-pipeline,
+foreman-doc-gate, foreman-safe-recovery, etc.) is incorrectly absent.
+
+- Step 2a — Source packages scan: Use Glob tool to scan packages/*/skills/ relative to CWD.
+- Step 2b — Runtime plugin skill fallback (REQUIRED): Use Glob tool to scan BOTH '~/.omp/plugins/node_modules/@*/*/skills/*/SKILL.md' (scoped npm packages, e.g. @sunstone-partners/ensemble-pi/skills/<skill>/SKILL.md) AND '~/.omp/plugins/node_modules/*/skills/*/SKILL.md' (unscoped fallback). The two-pattern glob is required to match the directory-per-skill layout used by OMP plugins. SYMLINK FALLBACK (REQUIRED): OMP's Glob does not always traverse plugin directory symlinks. If Glob returns zero matches OR fewer than 5 plugin SKILL.md files are discovered, run via Bash: 'find -L ~/.omp/plugins/node_modules -path "*/skills/*/SKILL.md" -type f' and treat each returned absolute path as a skill file. PATH PARSING: derive <skill_name> by stripping '/SKILL.md' from the file's basename path (e.g. for '/Users/ldangelo/.omp/plugins/node_modules/@sunstone-partners/ensemble-pi/skills/writing-playwright-tests/SKILL.md' → match the regex /\/skills\/([^/]+)\/SKILL\.md$/ → skill_name = 'writing-playwright-tests'). Derive <plugin> by stripping the trailing '/skills/<skill_name>/SKILL.md' from the file's absolute path (e.g. dirname(dirname(dirname(file))) → '/Users/ldangelo/.omp/plugins/node_modules/@sunstone-partners/ensemble-pi' → <plugin> = '@sunstone-partners/ensemble-pi'). Do NOT confuse the skill directory (parent of SKILL.md) or the 'skills' directory (grandparent) with the plugin root (great-grandparent). The plugin root is three dirname() levels above the SKILL.md file for both scoped ('@scope/pkg') and unscoped ('pkg') layouts. Merge these into SKILL_REGISTRY before proceeding. For each discovered SKILL.md, read its frontmatter to extract name and description; record the plugin directory as the source. Also include the unqualified <skill-name> as an alias so downstream gap analysis can match by short name.
+- Step 2c — Dedupe and freeze: Build SKILL_REGISTRY as Map of skill_name to {description, source_plugin, source_file, runtime_path}. When the same skill_name appears in both source packages and runtime plugins, prefer the runtime entry (it carries the live SKILL.md path). Sort SKILL_REGISTRY keys alphabetically for deterministic downstream behavior.
+- Registry is used by marketplace gap analysis to detect skill gaps
+
+#### Step 3.3: Builder Agent Matching
+
+Select the best builder agents for each detected domain
+
+- Check for .claude/router-rules.json in project root; if present parse ROUTER_OVERRIDES (domain to agent)
+- For each domain in COMPLEXITY_METRICS.domains_list select builder agent by priority
+- Priority 1: Router rules override for this domain (from .claude/router-rules.json)
+- Priority 2: Keyword match -- compare domain keywords against AGENT_REGISTRY descriptions and missions; select agent with highest keyword overlap
+- Priority 3: Default fallback from team_configuration.default_agents mapping
+- Build BUILDER_AGENTS list; deduplicate (one agent covering multiple domains listed once with all owned domains)
+
+#### Step 3.4: Agent Existence Validation
+
+Validate all selected team agents exist in the discovered registry
+
+- For every agent in BUILDER_AGENTS list verify presence in AGENT_REGISTRY
+- Validate lead agent (tech-lead-orchestrator) exists in AGENT_REGISTRY
+- Validate reviewer agent (code-reviewer) exists in AGENT_REGISTRY
+- Validate QA agent (test-runner) exists
+- If any selected agent is absent from registry log warning and substitute with nearest available or default

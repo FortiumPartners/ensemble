@@ -1,0 +1,37 @@
+### Phase 5: Completion
+
+#### Step 5.1: Completion verification
+
+Sole authority for task inventory, requirements and tests. Runs before any epic closure or completion message.
+
+- Invoke the completion-verification skill (packages/development/skills/completion-verification/SKILL.md via tool-path-resolution) with TRD_FILE_PATH, TRD_SLUG, TRACKING_MODE='beads', ROOT_EPIC_ID, TRD_TO_BEAD_MAP. It returns `{verdict, gapCount, reportPath}`.
+- `INCOMPLETE`: print 'COMPLETION VERIFICATION FAILED: <gapCount> gap(s) found. Report: <reportPath>'. Interactive: ask 'Proceed anyway (override)' / 'Stop — fix gaps first'; only an explicit override sets COMPLETION_OVERRIDDEN. Otherwise (including non-interactive) HALT before Epic Closure: do not close the epic, sync checkboxes or print completion messaging.
+- `COMPLETE`: print 'Completion verification: PASSED (0 gaps). Report: <reportPath>' and continue.
+
+#### Step 5.2: PR review completion check
+
+Whole-branch local review in single-PR mode; remote review status is informational only.
+
+- COMPLETION_ACTION = the `PR_ACTIONS` entry with `kind=='completion'`. Skip the local gate ONLY when COMPLETION_ACTION exists and `createPr` is exactly false (stacked mode; each phase already passed its gate). A missing entry or any other `createPr` value is treated as LOCAL_REVIEW_BLOCKED, never skipped.
+- Single-PR local gate: COMPLETION_BASE_SHA = the `sha` output of node "$TOOLCHAIN_CLI" run workflow.merge-base --arg refA=HEAD --arg refB=<default branch> (default = the remote's default branch minus `origin/`, else `main`); empty or unresolvable -> BLOCKED without calling the skill. Else invoke pr-review-cycle (PR_REVIEW_SKILL) with MODE='local', BASE_SHA=<COMPLETION_BASE_SHA>, HEAD_SHA=<HEAD SHA>, PR_ID='<TRD_SLUG>-completion', TEST_COMMAND=<FULL_TEST_COMMAND>, FOREMAN as above. COMPLETION_LOCAL_REVIEW is 'LOCAL_REVIEW_COMPLETE' only when `localPhase=='LOCAL_REVIEW_COMPLETE'`; any other, missing or unparseable result is BLOCKED -> print 'PR REVIEW GATE BLOCKED for the completion PR: <reasons>. Report: <reportPath>.' and HALT before Epic Closure (epic open, no completion PR, a later re-run reviews fresh).
+- Remote status (never HALTs, never blocks closure): for each stacked phase with `PHASE_PR_MAP[N]` set, invoke pr-review-cycle with MODE='remote', PR_ID='<TRD_SLUG>-phase-<N>', PR_URL, HEAD_SHA=<head of that branch>, BOT_LOGINS=<configured review bots>, FOREMAN as above. `PR_REVIEW_STATUS[N]` = the returned `status` if exactly REVIEW_COMPLETE / REVIEW_PENDING / REVIEW_BLOCKED, else REVIEW_PENDING. Phases whose PR was never created (manual backend, ado without MCP) are 'PENDING (no PR created)'. Never call a PR merged or landed; only a human confirming the merge does.
+
+#### Step 5.3: Epic closure and TRD checkboxes
+
+Close the epic only after verification and review gates held.
+
+- Proceed only if (verdict COMPLETE, or INCOMPLETE with COMPLETION_OVERRIDDEN) AND (COMPLETION_ACTION.createPr is exactly false, or COMPLETION_LOCAL_REVIEW == 'LOCAL_REVIEW_COMPLETE').
+- No open task or story bead for this TRD may remain: list open beads with `[trd:<TRD_SLUG>:task:` / `[trd:<TRD_SLUG>:story:` titles; a listing that fails or cannot be parsed counts as 'open beads remain'. If any, investigate instead of closing.
+- node "$TOOLCHAIN_CLI" run tracker.close --arg id=<ROOT_EPIC_ID> (no reason arg), then tracker.sync the same way.
+- Sync the TRD: for each Master Task List task whose bead is closed, change `- [ ] **<id>**` to `- [x] **<id>**`; then stage <TRD_FILE_PATH> (that file only), `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`, and commit via node "$TOOLCHAIN_CLI" run workflow.commit --arg message="docs(TRD): sync checkboxes to bead closure state".
+
+#### Step 5.4: Completion report
+
+Final summary, completion PR (single-PR mode) and next steps.
+
+- Write tracker.list's `data` to ISSUES_FILE; run `node "$TOOLCHAIN_CLI" run tracker.comments --arg id=<ROOT_EPIC_ID>`; on `{ok:true}` extract `req-verified:REQ-NNN` tokens into VERIFIED_REQS (else empty); run `node "$TRD_CLI" req-status "<TRD_FILE_PATH>" --issues-json <ISSUES_FILE> --verified <VERIFIED_REQS>` (omit when empty). Print TRD file, branch, strategy, epic id, `node "$TRD_CLI" status <TRD_SLUG>` progress, SATISFIED/NOT VERIFIED per requirement, and total.
+- Single-PR mode (`COMPLETION_ACTION.createPr == true`): the whole-branch review already passed in step 2; do not re-run it. Pre-PR test gate FULL_TEST_COMMAND (failing -> HALT). Create the PR per `PR_BACKEND` using COMPLETION_ACTION (base = default branch, body COMPLETION_BODY per reference section 3, graded through the pr-review-cycle skill with AGENT_AUTHORED=true, never the review CLI; fill missing sections first). Every agent-authored PR body MUST have Testing, Risk and How to revert sections and a `Directed by: @<login of whoever asked, never the agent>` line. Print a PR SUMMARY with the URL and 'Review: REVIEW_PENDING (head-bound remote review has not run; re-invoke pr-review-cycle MODE=remote for PR_ID <TRD_SLUG>-completion)', or, if no PR was auto-created, 'PR: not auto-created' and 'Review: PENDING (no PR created)'.
+- Stacked mode (`STACKED_PRS=true`): print a STACKED PR SUMMARY, one line per `PHASE_BRANCH_MAP` entry: `<PR|Phase> <N>: <url or 'not auto-created — see manual instructions printed at that phase gate'> (branch -> parent) -- review: <PR_REVIEW_STATUS[N]>`, plus `Shippable: <state>` when PR_FORMAT is true. Say to merge PR 1 first (it targets the default branch); git-town auto-retargets the rest, plain-git needs manual retargeting.
+- Remind user: after all PRs merge run `mv <trd_file> docs/TRD/completed/`. Beads-backed quickstart.md generation is unsupported.
+- Remind user: node "$TOOLCHAIN_CLI" run tracker.sync (optional) && node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>" && node "$TOOLCHAIN_CLI" run workflow.commit --arg message="chore: final beads sync"
+

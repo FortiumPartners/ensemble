@@ -18,8 +18,21 @@
 const fs = require('fs');
 const path = require('path');
 
+const yaml = require('js-yaml');
+const { resolveSkillFile, listSkillReferences, readSkillProse } = require('../../../scripts/lib/skill-backed-command');
+
+// author-playwright-tests is skill-backed: its YAML is a manifest, and the orchestrator
+// prompt is its skill -- SKILL.md, then each phase file under references/. 'text' is that
+// whole prompt (the order the generators emit it in).
 const yamlPath = path.join(__dirname, '../commands/author-playwright-tests.yaml');
-const text = fs.readFileSync(yamlPath, 'utf8');
+const manifest = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+const skillFile = resolveSkillFile(yamlPath, manifest.skill);
+const text = readSkillProse(skillFile);
+// The phase files alone: SKILL.md's phase index also names the phases, so positional
+// assertions (which phase text comes first) search only the phases themselves.
+const phaseText = listSkillReferences(skillFile)
+  .map((file) => fs.readFileSync(file, 'utf8'))
+  .join('\n');
 
 // One entry per lib/*.js module in the TRD's Component Boundaries table
 // (excluding index.js, which is plugin-skill boilerplate, not part of this
@@ -57,7 +70,8 @@ describe('author-playwright-tests.yaml orchestrator wiring (PR 5)', () => {
   });
 
   test('every module is first referenced in pipeline order', () => {
-    const firstIndex = EXPECTED_MODULE_ORDER.map((module) => text.indexOf(module));
+    // phaseText, not text: SKILL.md's phase index names the phase-7 file, whose name contains "session-summary".
+    const firstIndex = EXPECTED_MODULE_ORDER.map((module) => phaseText.indexOf(module));
     expect(firstIndex.every((index) => index !== -1)).toBe(true);
 
     for (let i = 1; i < firstIndex.length; i++) {
@@ -66,7 +80,7 @@ describe('author-playwright-tests.yaml orchestrator wiring (PR 5)', () => {
   });
 
   test('delegates to @playwright-tester per the TRD-008/TRD-040 two-stage contract', () => {
-    expect(text).toContain('agent: playwright-tester');
+    expect(text).toContain('**Delegation:** @playwright-tester');
     expect(text).toContain('validateProposalRequest');
     expect(text).toContain('validateProposalResponse');
     expect(text).toContain('validateRunRequest');
@@ -74,8 +88,8 @@ describe('author-playwright-tests.yaml orchestrator wiring (PR 5)', () => {
   });
 
   test('the pre-run decision happens before the confirmed test is ever run (TRD-040)', () => {
-    const decisionIndex = text.indexOf("Record the QA Engineer's Pre-Run Decision");
-    const runIndex = text.indexOf('Run the Confirmed Test');
+    const decisionIndex = phaseText.indexOf("Record the QA Engineer's Pre-Run Decision");
+    const runIndex = phaseText.indexOf('Run the Confirmed Test');
     expect(decisionIndex).toBeGreaterThan(-1);
     expect(runIndex).toBeGreaterThan(-1);
     expect(decisionIndex).toBeLessThan(runIndex);
@@ -87,8 +101,8 @@ describe('author-playwright-tests.yaml orchestrator wiring (PR 5)', () => {
   });
 
   test('the full-session idempotence short-circuit runs before the REQ loop', () => {
-    const idempotenceIndex = text.indexOf('isStoryFullyCovered');
-    const reqBatchingIndex = text.indexOf('REQ Batching and Delegation');
+    const idempotenceIndex = phaseText.indexOf('isStoryFullyCovered');
+    const reqBatchingIndex = phaseText.indexOf('REQ Batching and Delegation');
     expect(idempotenceIndex).toBeGreaterThan(-1);
     expect(reqBatchingIndex).toBeGreaterThan(-1);
     expect(idempotenceIndex).toBeLessThan(reqBatchingIndex);
