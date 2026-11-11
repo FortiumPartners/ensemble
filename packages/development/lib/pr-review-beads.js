@@ -207,7 +207,9 @@ function votesLine(vote) {
   if (!isObject(tally)) return `no tally (${outcome})`;
   const n = (value) => flat(value, 12);
   const abstain = Number(tally.abstain) > 0 ? ` / ${n(tally.abstain)} abstain` : '';
-  return `${n(tally.real)} real / ${n(tally.notReal)} not-real${abstain} of ${n(tally.expected)} expected (${outcome})`;
+  // kata 3ezq: a finding settled quorum-first names its mode, so "2 of 3 expected" is not read as a verifier that disagreed or was lost
+  const quorum = vote.quorumSettled === true ? `, quorum-settled: the first ${n(tally.real)} verifiers all voted real and ${n(vote.unaskedVerifiers)} not asked` : '';
+  return `${n(tally.real)} real / ${n(tally.notReal)} not-real${abstain} of ${n(tally.expected)} expected (${outcome}${quorum})`;
 }
 
 // ---------------------------------------------------------------------------

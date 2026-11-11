@@ -12,6 +12,9 @@
  *     violation, which is what keeps "Quick" from quietly becoming Deep.
  *   - Standard and Deep are FLOORS: at least two reviewers, and 3 and 5
  *     verifiers. Running fewer is a violation; running more is allowed.
+ *     Kata 3ezq, owner decision D4: the floor is the ELECTORATE that decides (3 and 5). The review runner's opt-in quorum-first mode (policy key
+ *     `quorumFirstVerification`, off by default) keeps that electorate and the vote rule and dispatches only the first strict majority of it, the
+ *     rest when one of those votes is not real; the depth the runner plans and records is still 3 and 5, and it grades only that electorate here (`planDepth`), never a dispatch count.
  * What each mode MEANS is editable policy (AC-016-2): a caller may pass its
  * own `bounds` from the policy block, and only Quick's ceiling is fixed here.
  *

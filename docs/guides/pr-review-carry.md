@@ -139,6 +139,7 @@ whole-round gates hold for every candidate: when one holds, nothing carries.
 | `verdict-other-depth` | The verdict was settled at another depth or verifier count than this round runs. |
 | `verdict-retally-differs` | Its votes, counted again under this round's verifier count, do not give its outcome (exactly K distinct voters; `present` needs a strict majority of K `real`, `filtered` must not have one). |
 | `verdict-not-in-ledger` | The prior ledger holds no finding with the verdict's id, file and claim. |
+| `verdict-quorum-settled` | The prior ledger's finding was settled quorum-first (kata `3ezq`, `verification.quorumSettled`): only a strict majority of its electorate was ever asked, so no full electorate stands behind it, whatever votes the record carries. `record` never writes such a verdict (it skips the finding as `quorum-settled`, as it skips `settled-on-majority`); this reason guards a record that names one anyway. A candidate that is re-raised in a delta round is verified again, even when its cited hunks and dependencies are untouched (owner decision D4). |
 | `hash-missing` | The prior or the current hunk hash, its location, or either dependency hash map is missing. |
 | `dependents-missing` | The candidate's dependents are not a list of paths. |
 | `cited-file-in-delta` | The cited file is among the delta's changed paths (whatever the hashes say). |

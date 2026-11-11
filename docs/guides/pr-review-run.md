@@ -573,6 +573,130 @@ time, and narrow what each reviewer reads (the cross-slice limit below).
   cost of the longer deadline.
 - Like every deadline here, the runner computes it and the dispatcher must enforce it.
 
+## Quorum-first verification (kata `3ezq`)
+
+An opt-in policy key, `quorumFirstVerification` (default `false`; only a JSON `true` turns it on, `"yes"` and `1` do not), lets the runner
+dispatch fewer verifiers for the same decision. With it off nothing below applies: every candidate goes to its whole electorate (3 verifiers
+at Standard and Medium, 5 at Deep) and a run is what it was before; the one difference in its files is `quorumFirstVerification: false`
+among the policy values `run.json` and `facts.json` record. With it on, **who is asked** changes. The electorate, the vote rule and the
+independence of the verifiers do not.
+
+**The rule, unchanged.** A candidate's electorate is K = 3 (5 at Deep) distinct fresh verifiers, none of them anyone who raised it, and the
+candidate is `present` only when a strict majority of the K (`needed`: 2 of 3, 3 of 5) voted it `real`. The denominator is K and never the
+votes that arrived. The runner still calls the tally with `settleOnMajority` (kata `dx53`, above) and nothing else about the tally's rule
+moves.
+
+**What changes.** The runner plans only the first `needed` verifiers of every candidate (2 of 3, 3 of 5), packed as today's plan packs them (at
+most three candidates per verifier, `verifier-1` onwards), and dispatches those. When every first-wave verifier of a candidate has been
+collected, the runner reads that candidate's first votes (`quorumFirstWave` in `lib/pr-review-votes.js`):
+
+| the first `needed` votes of a candidate | the runner | the candidate |
+|---|---|---|
+| all of them `real` | asks nobody else | `present` / `verifier-majority` with `quorumSettled: true` and `unaskedVerifiers` = K - `needed` |
+| one is `not-real`, one is `abstain`, or one is missing (the verifier did not return, or wrote no entry for this candidate) | dispatches the other K - `needed` verifiers of that candidate, once | decided by the votes of the whole electorate exactly as with the key off: `present`, `filtered`, `unverified`, or settled on a majority when a verifier stays missing |
+
+The second wave is made of fresh agents (`verifier-<n>`, a number the run never used, so a first-wave verifier is never asked about the same
+candidate twice and the K verifiers of a candidate stay distinct and none of them its raiser), at most three candidates each, marked
+`secondWave: true` in the manifest. They join the rolling verify queue (kata `630v`) at its head, so `maxConcurrentAgents` and the verifier
+deadline floor (8 minutes, kata `dx53`) hold for them as for the first wave. A candidate its first votes settled waits for nobody; the round
+ends when the second wave's verifiers have arrived or been stopped.
+
+**What it dispatches.** Derived from the committed `summary.json` of the nine final runs (`tests/pr-review-quorum-first-replay.test.js`
+plans each run's verified candidates both ways, and the full-electorate plan reproduces every committed `agentsByRole.verifier` count): the
+first wave is 12 verifiers where the full electorate is 17 (-29.4%, #207), 14 where it is 20 (-30%, #205), 4 where it is 6 (-33.3%, #294) and,
+at Deep depth, 16 where it is 27 (-40.7%, #293). Those are the verifiers before any second wave: a candidate whose first votes are not all
+`real` draws its remaining seats, so a round with dissent or a lost verifier dispatches more than that.
+
+**What the plan and the owner said.** The plan (`docs/plans/pr-review-speed-plan-v2.md`, section 3, O3a) says: "Dispatch `needed` verifiers per
+candidate (2 at Standard, 3 at Deep) and the rest only when a vote is not-real, abstain or missing. Under the rule `present` is already decided
+once `needed` real votes are in, because a missing vote can only add to `real` (the argument of `settleOnMajority`, kata `dx53`, which the runner
+already applies to a verifier that fails to return)." It names the cost to the contract: "**This is not free of the contract:**
+`pr-review-depth.js` states that Standard and Deep are floors of 3 and 5 verifiers and that "running fewer is a violation" (a PRD bound,
+AC-016-1). Quorum-first keeps the electorate at 3 and 5 and the decision rule unchanged but dispatches fewer. Whether "3 verifiers per finding"
+means dispatched or deciding is decision D4." The owner decided D4 (recorded 2026-11-11): "**D4 decided, "3 verifiers per finding" means
+deciding, not dispatched.** The electorate stays 3 (5 at Deep) and the vote rule is unchanged; carry is unchanged, so a quorum-settled candidate
+is never carried and a delta verifies it again." So, with the key on, the floor of 3 (5) is the electorate that decides and not the number
+dispatched (`pr-review-depth.js` says so beside the floor, and still grades only the electorate the runner plans); with the key off the floor is
+read as it always was.
+
+**Why the outcome cannot change, and what that argument needs (independence).**
+
+- *The votes stay independent.* A verifier is a fresh agent briefed with the claim and the code, never with another verifier's vote or with how
+  many have voted. A second-wave verifier gets the brief a first-wave one gets, and the first wave decides only whether a second verifier is
+  dispatched, never what it is told. The K verifiers of a candidate are distinct and none is its raiser, in both waves: the planner draws the
+  first wave and, later, the second from names that are never planned twice in a run, and the tally refuses an assignment that names a verifier
+  twice, names the raiser, or names fewer than the strict majority.
+- *K = 3, `needed` = 2.* The decision is `real >= 2`. If the two first-wave verifiers voted `real`, `real` is already 2 and the third vote can
+  only add one (3 of 3) or add nothing (2 of 3): the candidate is `present` in every completion, which is the argument of `settleOnMajority`. If
+  either first vote is not real, abstains or is missing, the third verifier is dispatched and the decision is taken on the whole electorate.
+- *K = 5, `needed` = 3 (Deep).* Three `real` first votes are `real >= 3`; the other two votes can bring the tally to 3, 4 or 5 and never below 3.
+  Any other first wave dispatches the other two, and the decision is taken on all five.
+- *So* for every assignment of verdicts to the seats of a candidate, the outcome and its reason are the full electorate's. The replay test
+  (`tests/pr-review-quorum-first-replay.test.js`) checks this on all 129 candidates the plan counts (47 whose votes are recorded per verifier,
+  in `docs/guides/review-speedup-measurement-2026-11-09-after/verifier-deadline-evidence.json`, and 82 in the nine final runs' `summary.json`,
+  which hold tallies only): every candidate in every arrangement of its recorded votes over its seats (the 47 under every choice of which
+  verifiers are asked first, the 82 under every ordering of their tallies; 395 arrangements, 228 of which the first wave settles), and the
+  quorum-first outcome differs from the full electorate's in none. Of the 129, 93 settle in the first wave however their votes are arranged,
+  27 only in some arrangement, and 9 in none; on the 47 whose real plan order is recorded, the first two verifiers of that plan would have
+  settled 31 and the other 16 would have drawn a second wave (those 47 are the runs of the old 5-minute verifier deadline: 30 of their seats
+  never returned). The one thing that is not the same is the label: a candidate the first wave settles is `quorum-settled` where the full
+  electorate would show its full tally.
+
+**What it loses.** Stated plainly, because the argument above is about the outcome and not about everything a third (or fourth and fifth)
+verifier would have said:
+
+- *The dissent signal.* A candidate that the first wave settles reads `real: 2, notReal: 0, expected: 3` (`real: 3, notReal: 0, expected: 5` at
+  Deep). The 0 means no verifier that was asked disagreed; it can never mean that none would have. With the full electorate a third verifier
+  who disagreed shows as `2 real / 1 not-real` (at Deep a 3-2 confirmation shows apart from a 5-0 one), and a person reading the tally sees a
+  contested claim. The rule ignores that vote, so the outcome is the same, but the tally loses its `notReal` count on every quorum-settled
+  candidate. The measured data holds one not-real vote in 442 (129 candidates, none filtered), so the signal is rare there; whether it is
+  rare because the reviewers are precise or because verifiers agree with whatever they are shown, the data cannot say (plan section 2.3).
+- *A refuter who is never asked.* If the first majority is wrong (two verifiers confirm a claim that is false), the third verifier who would
+  have refuted it is never dispatched. Under a strict majority that refuter would not have changed the outcome either (2 real beat 1 not-real),
+  so what is lost is only that the refutation would have been visible; it is not a check the rule had.
+- *Reads per candidate.* Two independent reads of a claim instead of three (three instead of five at Deep). D4 is the decision that the floor
+  names the electorate that decides. The gate reads the outcome (`present`, `filtered`, `unverified`, `disputed`), never the tally, so no gate
+  decision depends on a count this mode drops; the operator's decision list (`pr-review-disposition.js`) shows the plain tally beside a finding, as
+  it does for one settled on a majority, so there a quorum-settled finding reads 2 real of 3 expected, and `reducedReview` is what says why.
+
+**What it costs.** A *missing* first-wave vote now costs a second dispatch. Today a candidate with two `real` votes and one verifier missing
+is settled at once on the majority (`settledOnMajority`, the round `partial`, no replacement is dispatched). With the key on, the same candidate,
+when the missing verifier was one of the first `needed`, waits for the first wave's deadline (as today) and then for a new verifier (median 3.4
+minutes by the fit above, at most the 8-minute floor when it is stopped), and ends as the full electorate would have ended with the same votes:
+`present`, settled on a majority, the missing verifier still named, the round `partial` because a verifier that was asked is lost. The outcome
+does not change; the round gains a wave. How often that happens is how often a verifier fails to return (9 of 111 at the floor in the nine final
+runs, 30 of the seats of the 47 older candidates at the old 5-minute deadline). The plan did not simulate this second dispatch ("Not simulated:
+the second dispatch when a first vote is not real") and this change did not measure it either: the plan's replay of the saving (verify stage at
+cap 8 from 12.15 to 9.20 and from 10.85 to 9.09, the run's agent-minutes down to 87% and 88%) assumes no second wave.
+
+**What carry does with it (D4, kata `p5dt`).** A quorum-settled candidate is never carried into a later round, even when its cited hunks and
+dependencies are untouched: `recordVerdicts` skips it by name (`quorum-settled`, beside `settled-on-majority`), and `planCarry` refuses a verdict
+record that names one (`verdict-quorum-settled`, `docs/guides/pr-review-carry.md`). A delta round verifies it again when a reviewer raises it
+again; a finding nobody raises again stays in the ledger as recorded and keeps blocking, like any finding in code nobody re-read. A
+quorum-settled round is a normal complete round for the delta base (kata `p5dt`, #289): no verifier of it is missing, so it is not counted by
+`lacksVerifier` or `reReview.delta.unverifiedFromLastRound`, and `priorRound` is unchanged. Carry itself is untouched; as the plan says, quorum-first
+makes every first-round candidate non-carriable, which costs nothing while carry carries nothing (kata `tmf5`, open) and will cost a
+re-verification the day it does.
+
+**Where the mode is named.** With the key on, never silently: the verify manifest carries `quorumFirst: { expected, needed, secondWave }`
+and each second-wave agent `secondWave: true`; `votes.outcomes[]` carry `quorumSettled` and `unaskedVerifiers`, and `votes.quorumFirst` (in the
+answer and the state report) lists the electorate, the candidates the first wave settled, the ones given the rest of their electorate with the
+reasons (`not-real`, `abstain`, `missing`) and the verifiers asked, and any candidate whose rest could not be planned (`notGivenTheRest`);
+the ledger entry's `verification` carries `quorumSettled`; `reducedReview` has a `QUORUM-FIRST verification` line; the beads comment names a
+quorum-settled finding's mode. The gate, the state report and the beads writer treat a quorum-settled candidate as the verified-real finding it
+is (`outcome: present`).
+
+**It fails closed.** A round the runner cannot ask in part is asked in full, as it always was, and says why (`run.quorum` and the
+`reducedReview` line): an electorate of fewer than 3, a candidate that is no finding (style, diagnostic, cleanup: filtered whatever the votes say),
+a plan the planner refuses. A candidate whose second wave cannot be briefed or planned stays `unverified` /
+`verifier-incomplete` with the seats named `(not-asked)`: a verdict is never taken from votes nobody asked for, and nothing is dropped. The
+narrated `votes` command (Step 3b of the skill) keeps the strict rule and the whole electorate: it drops a `quorumFirst` key from its payload
+whatever its value and refuses an assignment that leaves seats unasked.
+
+**Not verified.** No live model run was made for this change. The saving is derived from the committed runs' candidate counts and the planner;
+the equality of the outcome is replayed on the committed candidates; the flow is tested through the real runner and CLI process with stand-in
+agents. What a live run's wall time, second-wave rate and agent-minutes become with the key on is for a measurement the plan assigns to V2-6.
+
 ## Coverage: what nobody read stops the gate (kata `k48x`)
 
 Reporting an unread slice beside a mergeable verdict let a PR merge on a review that never read part of it (the whole-range

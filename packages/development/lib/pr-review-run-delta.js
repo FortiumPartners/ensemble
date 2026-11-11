@@ -51,6 +51,11 @@ const UNREAD_LISTS = Object.freeze(NOT_REVIEWED_LISTS.filter((key) => !VERIFIER_
  * kata dx53, a finding `present` that a strict majority of the EXPECTED verifiers settled while the missing ones stayed named
  * (`verification.settledOnMajority`). The second is never carried (a carry needs every expected vote: `recordVerdicts` skips it), so a
  * delta round has to verify it again like the first: it is no more a verdict of this head than an unverified finding is.
+ *
+ * A finding settled QUORUM-FIRST (kata 3ezq, `verification.quorumSettled`) is NOT one of these, and the test below says so by what it does not read: the
+ * verifiers it never asked were never expected to vote, so no verifier of its round is missing, the round is a complete one and a delta base like any
+ * other (`verifierGapAccounted` and `priorRound` are unchanged by it). It is no carried verdict either (`recordVerdicts` skips it by name, owner
+ * decision D4): a delta verifies it again whenever a reviewer raises it again, even when its cited hunks and dependencies are untouched.
  */
 const lacksVerifier = (entry) => isObject(entry) && isObject(entry.verification)
   && ((entry.verification.outcome === 'unverified' && entry.verification.reason === 'verifier-incomplete')

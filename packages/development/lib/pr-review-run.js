@@ -118,6 +118,14 @@
  * missing verifiers named (`incompleteVerifiers`, `settledOnMajority`) and the round `partial`; a refutation or a split never settles,
  * and such a verdict is not carried into a delta (it has no full electorate).
  *
+ * QUORUM-FIRST (kata 3ezq; opt-in policy key `quorumFirstVerification`, off unless the BASE REVIEW.md says `true`; owner decision D4: "3 verifiers per
+ * finding" means DECIDING, not dispatched): the electorate stays 3 (5 at Deep) and the vote rule stays, but only the first strict majority of each
+ * candidate's verifiers is dispatched (12 verifiers for 17 candidates where the full electorate is 17). The rest of an electorate is dispatched, as a
+ * SECOND WAVE that joins the verify queue (so the cap, the rolling refill and the verifier's deadline floor apply to it like to any verifier), only for
+ * a candidate whose first votes are not all `real` (a not-real, an abstain, a missing one). A candidate its first votes settle is `quorum-settled`
+ * (`verification.quorumSettled`): present, no lost verifier, the round not `partial` on its account, never carried. Anything the runner cannot plan this
+ * way is asked in full, as it always was (`run.quorum.reason`).
+ *
  * A light run cut into several slices has no TRIAGE step, so it gets ONE more reviewer, `reviewer-range`: the whole range diff, every
  * changed path, one lens, graded like any reviewer (a failed read is its own `whole-range` entry among the unreviewed slices). It is
  * planned only when the cap holds it beside the slices and the lane (`slices x lenses + lane + 1 <= maxConcurrentAgents`): a slice
@@ -151,7 +159,7 @@ const { reviewDeadlines, toVotesInput, floorOverrideMessage } = require('./pr-re
 const { DEFAULT_POLICY, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
 const SZ = require('./pr-review-sizing');
 const { dedupeFindings, isActionable, normalizeSeverity, validateLedger } = require('./pr-review-ledger');
-const { tallyVotes } = require('./pr-review-votes');
+const { tallyVotes, quorumFirstWave } = require('./pr-review-votes');
 const { evaluateApprovals } = require('./pr-review-approvals');
 const { checkDescription } = require('./pr-review-description');
 const { evaluateGate, SECURITY_REQUIRED_TIERS } = require('./pr-review-gate');
@@ -608,6 +616,7 @@ function manifestOf(run, wave) {
     maxConcurrentAgents: run.maxConcurrentAgents,
     ...(wave.refill === true ? { refill: true, stillRunning: wave.stillRunning } : {}),
     ...(wave.round === 'review' && run.sizing !== undefined ? { sizing: run.sizing } : {}),
+    ...(wave.round === 'verify' && isObject(run.quorum) && run.quorum.applied === true ? { quorumFirst: { expected: run.quorum.expected, needed: run.quorum.needed, secondWave: wave.agents.some((a) => a.secondWave === true) } } : {}),
     agents: wave.agents.map((a) => ({
       name: a.name,
       role: a.role,
@@ -622,6 +631,7 @@ function manifestOf(run, wave) {
       ...(a.work === undefined ? {} : { work: a.work }),
       ...(a.sliceId !== undefined && a.role === 'reviewer' ? { sliceId: a.sliceId, paths: a.paths } : {}),
       ...(a.candidateIds !== undefined ? { candidateIds: a.candidateIds } : {}),
+      ...(a.secondWave === true ? { secondWave: true } : {}),
     })),
     ...(wave.round === 'verify' && run.priorRound !== undefined ? { carry: carryPlanOf(run) } : {}),
     next: `node review-run-cli.js collect  (payload {"repoRoot": ${JSON.stringify(run.repoRoot)}, "runId": ${JSON.stringify(run.runId)}})`,
@@ -1342,21 +1352,152 @@ function planVerifyRound(run, deps) {
 
   const { briefs, refused } = briefCandidates(run, deps, candidates);
   run.unbriefable = refused;
-  const plan = S.planVerifierPool({ candidates: candidates.filter((candidate) => briefs.has(candidate.id)), mode: run.depth.mode, k });
+  const verifiable = candidates.filter((candidate) => briefs.has(candidate.id));
+  // kata 3ezq: with the policy key on, the first strict majority of each electorate is asked and the rest only when it is needed. Whatever the
+  // quorum planner cannot plan is asked in full, as it always was: `run.quorum` says which, and why.
+  const quorum = quorumWanted(run) ? S.planQuorumFirst({ candidates: verifiable, mode: run.depth.mode, k }) : null;
+  const firstWave = quorum !== null && quorum.ok === true;
+  if (quorum !== null) run.quorum = firstWave ? { requested: true, applied: true, expected: quorum.shape.expected, needed: quorum.shape.needed, nextVerifier: quorum.nextVerifier, secondWave: [], skipped: [] } : { requested: true, applied: false, reason: quorum.reason };
+  const plan = firstWave ? quorum.plan : S.planVerifierPool({ candidates: verifiable, mode: run.depth.mode, k });
   if (plan.ok !== true) return failure('RUN_FAILED', { reason: 'verify-plan-refused', error: plan.reason });
   run.assignment = plan.assignments;
+  run.verifyAgents.push(...writeVerifyAgents(run, deps, plan.agents, briefs));
+  return null;
+}
 
+/* ------------------------------------------------------------- quorum-first verification (kata 3ezq) */
+
+/**
+ * Whether this run verifies quorum-first: the policy key `quorumFirstVerification`, read from the policy of the BASE commit like every key, is the
+ * boolean `true`. A run with no readable policy, or with any other value, asks the whole electorate.
+ */
+const quorumWanted = (run) => isObject(run.policy) && run.policy.quorumFirstVerification === true;
+
+/** Writes the brief of every planned verifier agent and returns the agents' records, in the plan's order. */
+function writeVerifyAgents(run, deps, agents, briefs) {
   const dir = runDirOf(run.repoRoot, run.runId);
-  for (const entry of plan.agents) {
+  const records = [];
+  for (const entry of agents) {
     const ids = entry.candidates;
     const name = entry.verifier;
     const record = { name, role: 'verifier', candidateIds: ids, briefPath: path.join(dir, 'briefs', `${name}.md`), outPath: path.join(dir, 'results', 'verify', `out-${name}.json`) };
     const body = ids.map((id) => `### Candidate ${id}\n\n${briefs.get(id).replace(/\s*$/, '\n')}`).join('\n---\n\n');
     deps.fs.mkdirp(path.dirname(record.briefPath), 0o700);
     deps.fs.writeAtomic(record.briefPath, `# Findings to settle (${ids.length})\n\nEach finding below is a separate claim. Settle each on its own.\n\n${body}\n${S.verifierContract(record)}`, 0o600);
-    run.verifyAgents.push(record);
+    records.push(record);
   }
-  return null;
+  return records;
+}
+
+/** The candidates a verifier can be asked about in this round: not carried from the last one, not refused by the verifier brief. */
+function verifiableOf(run) {
+  const carried = new Set(run.carry === null || run.carry === undefined ? [] : run.carry.carriedIds);
+  const refused = new Set(run.unbriefable.map((u) => String(u.id)));
+  return run.candidates.filter((candidate) => !carried.has(String(candidate.id)) && !refused.has(String(candidate.id)));
+}
+
+/**
+ * The `votes` payload of what the collected verify waves hold so far: each candidate with the votes cast on it and the verifiers that were asked
+ * and returned nothing (`toVotesInput`). The one reading both the final tally and the second-wave decision make of the votes.
+ */
+function votesInputOf(run, candidates) {
+  const verifyWaves = run.waves.filter((w) => w.round === 'verify' && w.status === 'collected');
+  const votes = verifyWaves.flatMap((w) => w.result.votes);
+  const incompleteVerifiers = verifyWaves.flatMap((w) => w.result.incompleteVerifiers);
+  const agents = verifyWaves.flatMap((w) => w.agents.map((a) => ({ name: a.name, role: a.role, state: a.state, candidateIds: a.candidateIds })));
+  return toVotesInput({ votes, incompleteVerifiers, agents, findings: [] }, { depth: run.depth.mode, expectedVerifiers: run.depth.verifiersPerCandidate, candidates });
+}
+
+/** The verify queue with `agents` at its head: every planned verifier, in waves of at most the cap, numbered on like a refill's (`of: null`). */
+function requeueVerify(run, agents) {
+  const queue = [...agents, ...run.waves.filter((w) => w.round === 'verify' && w.status === 'planned').flatMap((w) => w.agents)];
+  run.waves = run.waves.filter((w) => !(w.round === 'verify' && w.status === 'planned'));
+  let number = run.waves.filter((w) => w.round === 'verify').length;
+  for (const group of S.chunk(queue, run.maxConcurrentAgents)) run.waves.push({ round: 'verify', wave: (number += 1), of: null, status: 'planned', agents: group });
+}
+
+/**
+ * The second wave of a quorum-first verify round. A candidate whose first-wave verifiers have ALL been collected is decided by `quorumFirstWave`, the
+ * tally's own reading of its votes: settled when every one of them voted real, otherwise (a not-real vote, an abstention, a vote that is missing,
+ * unreadable or not counted) it is given the rest of its electorate. Those verifiers are FRESH agents (names after every verifier planned so far, nobody
+ * who raised the candidate, nobody twice), briefed with the claim and its location only, packed at most three candidates to an agent like the first wave,
+ * and queued at the head of the verify queue: the cap, the rolling refill and the verifier's deadline floor apply to them like to any verifier. It is done
+ * at most once for a candidate. Fail closed: a candidate the second wave cannot be briefed or planned for stays as it is, is named in
+ * `run.quorum.skipped`, and the tally then records it `unverified` with the seats it never asked, never settled and never dropped.
+ *
+ * @returns {number} how many candidates were given the rest of their electorate
+ */
+function planSecondWave(run, deps, now) {
+  const q = run.quorum;
+  const collected = new Set(run.waves.filter((w) => w.round === 'verify' && w.status === 'collected').flatMap((w) => w.agents.map((a) => a.name)));
+  if (collected.size === 0) return 0;
+  const verifiable = verifiableOf(run);
+  const input = votesInputOf(run, verifiable);
+  if (input.ok === false) return 0; // the final tally reports a vote payload it cannot read
+  const findingOf = new Map(input.findings.map((finding) => [String(finding.id), finding]));
+  const given = new Set(q.skipped.map((entry) => String(entry.id)));
+  const wanted = [];
+  for (const entry of run.assignment) {
+    const id = String(entry.id);
+    if (entry.verifiers.length !== q.needed || given.has(id) || !entry.verifiers.every((name) => collected.has(name))) continue;
+    const candidate = verifiable.find((c) => String(c.id) === id);
+    const finding = findingOf.get(id);
+    if (candidate === undefined || finding === undefined) continue;
+    const decided = quorumFirstWave(finding, entry.verifiers, q.needed);
+    if (decided.settled !== true) wanted.push({ candidate, reasons: decided.reasons });
+  }
+  if (wanted.length === 0) return 0;
+
+  const { briefs, refused } = briefCandidates(run, deps, wanted.map((w) => w.candidate));
+  for (const record of refused) q.skipped.push({ id: record.id, reason: `second-wave-unbriefable: ${record.reason}` });
+  const askable = wanted.filter((w) => briefs.has(w.candidate.id));
+  if (askable.length === 0) return 0;
+  const plan = S.planVerifierSeats({ candidates: askable.map((w) => w.candidate), mode: run.depth.mode, expected: q.expected - q.needed, from: q.nextVerifier });
+  if (plan.ok !== true) {
+    for (const w of askable) q.skipped.push({ id: w.candidate.id, reason: `second-wave-plan-refused: ${plan.reason}` });
+    return 0;
+  }
+  const records = writeVerifyAgents(run, deps, plan.agents, briefs);
+  for (const record of records) record.secondWave = true;
+  q.nextVerifier += plan.size;
+  for (const w of askable) {
+    const id = String(w.candidate.id);
+    const seats = plan.assignments.find((a) => String(a.id) === id).verifiers;
+    run.assignment.find((a) => String(a.id) === id).verifiers.push(...seats);
+    q.secondWave.push({ id: w.candidate.id, reasons: w.reasons, verifiers: seats, at: now });
+  }
+  requeueVerify(run, records);
+  return askable.length;
+}
+
+/**
+ * What the state report and the answer say of the quorum-first round: `null` when the policy key is off (nothing is said, the record is the one it
+ * always was), otherwise whether it was applied (and why not), the electorate and the strict majority asked first, the candidates its first votes
+ * settled, the ones that drew the rest of their electorate (with the first votes' reasons) and any the second wave could not be planned for.
+ */
+function quorumSummaryOf(run, built) {
+  const q = run.quorum;
+  if (!isObject(q) || q.requested !== true) return null;
+  if (q.applied !== true) return { applied: false, reason: q.reason };
+  return {
+    applied: true,
+    expected: q.expected,
+    needed: q.needed,
+    settled: built.tally.findings.filter((f) => f.quorumSettled === true).map((f) => f.id),
+    secondWave: q.secondWave.map((s) => ({ id: s.id, reasons: s.reasons, verifiers: s.verifiers })),
+    ...(q.skipped.length > 0 ? { notGivenTheRest: q.skipped } : {}),
+  };
+}
+
+/** The one line of `reducedReview` that names the quorum-first mode, or `null` when there is nothing to say (the key is off, or no verify round ran). */
+function quorumNotice(run, built) {
+  const summary = quorumSummaryOf(run, built);
+  if (summary === null) return null;
+  if (summary.applied !== true) return run.verifyAgents.length === 0 ? null : `QUORUM-FIRST verification was asked for (policy quorumFirstVerification) and was NOT applied (${summary.reason}): the whole electorate of every candidate was asked`;
+  const settled = summary.settled.length === 0 ? 'none' : `${summary.settled.join(', ')} (no verifier is missing for them: the ones not asked were never expected to vote, the round is not partial on their account, and a delta verifies them again because they are never carried)`;
+  const second = summary.secondWave.length === 0 ? 'none' : summary.secondWave.map((s) => `${s.id} (${s.reasons.join(', ')}; asked ${s.verifiers.join(', ')})`).join(', ');
+  const lost = summary.notGivenTheRest === undefined ? '' : `; the rest of the electorate could not be asked for ${summary.notGivenTheRest.map((s) => `${s.id} (${s.reason})`).join(', ')}, so they stay unverified`;
+  return `QUORUM-FIRST verification (policy quorumFirstVerification; the electorate stays ${summary.expected} and the vote rule is unchanged): the first ${summary.needed} verifiers of each candidate were asked and the rest only when one of those did not vote real. Settled by their first ${summary.needed} real votes: ${settled}. Given the rest of their electorate: ${second}${lost}`;
 }
 
 function addWaves(run, round, agents) {
@@ -1447,10 +1588,6 @@ function withUnbriefable(tally, findings, refused) {
 }
 
 function buildLedger(run, deps) {
-  const verifyWaves = run.waves.filter((w) => w.round === 'verify' && w.status === 'collected');
-  const votes = verifyWaves.flatMap((w) => w.result.votes);
-  const incompleteVerifiers = verifyWaves.flatMap((w) => w.result.incompleteVerifiers);
-  const agents = verifyWaves.flatMap((w) => w.agents.map((a) => ({ name: a.name, role: a.role, state: a.state, candidateIds: a.candidateIds })));
   // The tally and the plan range over the candidates a verifier was asked about; the others (`run.unbriefable`) are never
   // given an assignment, a vote or a tally (a plan stored before they were planned out lists them too: it is read as if not).
   const refusals = new Map(run.unbriefable.map((u) => [String(u.id), u]));
@@ -1459,10 +1596,14 @@ function buildLedger(run, deps) {
   const fresh = run.candidates.filter((candidate) => !carriedIds.has(String(candidate.id)));
   const verifiable = fresh.filter((candidate) => !refusals.has(String(candidate.id)));
   const planned = new Set(verifiable.map((candidate) => String(candidate.id)));
-  const input = toVotesInput({ votes, incompleteVerifiers, agents, findings: [] }, { depth: run.depth.mode, expectedVerifiers: run.depth.verifiersPerCandidate, candidates: verifiable });
+  const input = votesInputOf(run, verifiable);
   if (input.ok === false) return { ok: false, reason: input.reason };
+  // kata 3ezq: a quorum-first round names, per candidate, the verifiers that were ASKED and how many seats of the electorate never were (`unasked`): a
+  // candidate its first votes settle is quorum-settled, one they do not (and no second wave could be asked for) stays unverified, never settled on votes nobody asked for.
+  const quorum = isObject(run.quorum) && run.quorum.applied === true;
+  const assignment = run.assignment.filter((entry) => planned.has(String(entry.id)));
   // `settleOnMajority` (kata dx53): the one caller that opts in. A candidate whose strict majority of the expected verifiers voted it real is present although another verifier returned nothing; the missing ones stay named.
-  const asked = tallyVotes({ findings: input.findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: run.assignment.filter((entry) => planned.has(String(entry.id))), settleOnMajority: true });
+  const asked = tallyVotes({ findings: input.findings, depth: input.depth, expectedVerifiers: input.expectedVerifiers, assignment: quorum ? assignment.map((entry) => (run.quorum.expected > entry.verifiers.length ? { ...entry, unasked: run.quorum.expected - entry.verifiers.length } : entry)) : assignment, settleOnMajority: true, ...(quorum ? { quorumFirst: true } : {}) });
   if (asked.ok !== true) return { ok: false, reason: `votes blocked: ${asked.reason}` };
   const byId = new Map(asked.findings.map((f) => [String(f.id), f]));
   const findings = fresh.map((candidate) => (refusals.has(String(candidate.id)) ? unbriefableEntry(candidate, refusals.get(String(candidate.id))) : byId.get(String(candidate.id))));
@@ -1471,7 +1612,7 @@ function buildLedger(run, deps) {
   // such as `reason` would otherwise read as a ledger deferral reason.
   const freshEntries = fresh.map((candidate, index) => {
     const t = findings[index];
-    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes, ...(t.settledOnMajority === true ? { settledOnMajority: true } : {}), ...(t.unbriefable === undefined ? {} : { unbriefable: t.unbriefable }) } };
+    return { ...candidate, verification: { outcome: t.outcome, reason: t.reason, authorLabel: t.authorLabel, presented: t.presented, tally: t.tally, assigned: t.assigned, incompleteVerifiers: t.incompleteVerifiers, ignoredVotes: t.ignoredVotes, ...(t.settledOnMajority === true ? { settledOnMajority: true } : {}), ...(t.quorumSettled === true ? { quorumSettled: true, unaskedVerifiers: t.unaskedVerifiers } : {}), ...(t.unbriefable === undefined ? {} : { unbriefable: t.unbriefable }) } };
   });
   // What this round settled, for the next one to carry: the verdicts it carried and the ones it just recorded.
   const verdicts = D.verdictRecords(run, asked.findings);
@@ -1661,6 +1802,8 @@ function reducedReviewNotice(run, built, notReviewed, stage) {
   // a candidate settled on a majority of the expected verifiers although a verifier did not return (kata dx53): the verdict stands, and the missing ones are said where the report is read
   const settled = built.tally.findings.filter((f) => f.settledOnMajority === true);
   if (settled.length > 0) lines.push(`SETTLED ON A MAJORITY, verifiers missing (a strict majority of the expected verifiers voted each of these real, so no vote still missing could change its outcome; notReviewed.incompleteVerifiers names them): ${settled.map((f) => `${f.id} (${f.tally.real} of ${f.tally.expected} real; ${f.incompleteVerifiers.map((v) => v.verifier).join(', ')} did not return)`).join(', ')}`);
+  const quorumLine = quorumNotice(run, built);
+  if (quorumLine !== null) lines.push(quorumLine);
   if (notReviewed.unbriefable.length > 0) lines.push(`UNVERIFIED, no verifier was asked (the verifier brief refuses the candidate, so a person decides it; the renderer's reason is in notReviewed.unbriefable): ${notReviewed.unbriefable.map((u) => `${u.id} (${u.kind || 'other'}${u.input ? `, ${u.input}` : ''})`).join(', ')}`);
   const regraded = built.ledger.filter((entry) => entry.claimedSeverity !== undefined);
   if (regraded.length > 0) lines.push(`graded Important, not pre-existing as the reviewer called them, because the diff does not bear the label out: ${regraded.map((entry) => `${entry.id} (${entry.locationOrLink})`).join(', ')}`);
@@ -1748,6 +1891,7 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
   const notReviewed = notReviewedOf(run);
   const adjudicate = S.adjudicateList(built.ledger);
   const reducedReview = reducedReviewNotice(run, built, notReviewed, stage);
+  const quorumFirst = quorumSummaryOf(run, built);
   const fullFields = run.mode.mode === 'full' ? { reReview: run.reReview, triage: run.triage } : run.reReview === undefined ? {} : { reReview: run.reReview };
   const state = {
     ...stage.reviewStatus,
@@ -1756,7 +1900,7 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     mode: run.mode.mode,
     tier: run.tier,
     depth: { mode: run.depth.mode, reasons: run.depth.reasons, reviewersPerSlice: run.depth.reviewersPerSlice, verifiersPerCandidate: run.depth.verifiersPerCandidate },
-    verification: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction },
+    verification: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, ...(quorumFirst === null ? {} : { quorumFirst }) },
     reducedReview,
     ledger: built.ledger,
     // What the next round may carry (kata xb4j): the settled verdicts, each bound to the hunk and dependency hashes of this head.
@@ -1790,7 +1934,7 @@ async function recordFinal(run, built, stage, deps, now, startedAt, extra) {
     reviewStatus: stage.reviewStatus,
     ledger: built.ledger,
     carry,
-    votes: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, outcomes: built.tally.findings.map((f) => ({ id: f.id, outcome: f.outcome, reason: f.reason, authorLabel: f.authorLabel, tally: f.tally, ...(f.settledOnMajority === true ? { settledOnMajority: true, missing: f.incompleteVerifiers.map((v) => v.verifier) } : {}) })) },
+    votes: { verification: built.tally.verification, reason: built.tally.reason, recoveryAction: built.tally.recoveryAction, ...(quorumFirst === null ? {} : { quorumFirst }), outcomes: built.tally.findings.map((f) => ({ id: f.id, outcome: f.outcome, reason: f.reason, authorLabel: f.authorLabel, tally: f.tally, ...(f.settledOnMajority === true ? { settledOnMajority: true, missing: f.incompleteVerifiers.map((v) => v.verifier) } : {}), ...(f.quorumSettled === true ? { quorumSettled: true, unaskedVerifiers: f.unaskedVerifiers } : {}) })) },
     security: run.security,
     // kata 271n: a result that changed after it was read means the coverage is not complete, whatever the slices say
     coverage: { complete: run.coverage.complete && run.security.status !== 'not-run' && notReviewed.changedResults.length === 0, unreviewedSlices: run.coverage.unreviewedSlices, uncovered: run.coverage.uncovered },
@@ -2082,6 +2226,9 @@ async function collectStages(input, deps, ctx) {
     }
     recordWave(run, wave, collected, now, tracer, deps);
   }
+  // ---- 2a. a quorum-first verify round (kata 3ezq): a candidate whose first wave did not settle it is given the rest of its electorate, which joins the
+  // planned verifiers below, so the rolling refill (the cap) or the next wave dispatches it
+  if (isObject(run.quorum) && run.quorum.applied === true) planSecondWave(run, deps, now);
   if (waiting.length > 0) {
     const running = waiting.flatMap((entry) => entry.pending);
     const refill = outstanding.every((w) => w.round === 'verify') ? refillVerifyWave(run, running.map((a) => a.name)) : null;

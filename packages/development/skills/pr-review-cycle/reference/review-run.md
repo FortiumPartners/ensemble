@@ -181,6 +181,15 @@ agents the manifest names and stop each at its own `deadlineAtIso`; the deadline
   `missing` in `votes.outcomes[]`, the missing verifier still in `notReviewed.incompleteVerifiers`, a `SETTLED ON A MAJORITY`
   line in `reducedReview`, the round `partial`): no vote still missing could change that outcome. Fewer than the majority, a
   refutation and a split stay `unverified`, and a candidate settled this way is re-verified, never carried, in a delta round.
+* Quorum-first verification (kata `3ezq`; the policy key `quorumFirstVerification`, read from the base commit's `REVIEW.md`, off unless it
+  is the boolean `true`): the verify round asks only the first strict majority of each candidate's verifiers (2 of 3, 3 of 5; the manifest
+  says `quorumFirst: { expected, needed, secondWave }`) and the rest only for a candidate whose first votes are not all real (a not-real, an
+  abstain or a missing vote). `collect` then answers another `DISPATCH` of the verify round whose agents carry `secondWave: true`: start them
+  like any verifier, stop each at its `deadlineAtIso`, and call `collect` again; nothing else changes for you. The electorate (3 or 5) and the
+  vote rule are unchanged, so the outcome is the one the whole electorate gives; a candidate its first votes settle is `quorumSettled: true`
+  in `votes.outcomes[]` (present; the verifiers not asked were never expected to vote, so no verifier is missing and the round is not
+  `partial` for it) and is never carried, so a delta verifies it again. What is lost is the not-real count of a settled candidate. A round
+  the runner cannot ask in part is asked in full and `reducedReview` says why. Detail: `docs/guides/pr-review-run.md`.
 * `sizing` in the review round's manifest and in `run.json` says what was planned: `model`, `limits`, `work`, `slices[]`
   (`overLimit`, `diff`) and `warnings[]`. Report every warning with the run: `slice-over-limit` (the cap holds fewer slices
   than the limits ask for; the message names the `maxConcurrentAgents` that would hold them), `reader-not-planned` (the cap

@@ -118,6 +118,18 @@ const REVIEWER_SNIPPETS_MAX = 10;
 const MAX_CONCURRENT_AGENTS_MIN = 1;
 const MAX_CONCURRENT_AGENTS_MAX = 32;
 
+/**
+ * Quorum-first verification (kata 3ezq, plan v2 section 5 child V2-3, owner decision D4). OPT-IN and OFF unless the policy block says
+ * `true`: with it off the review runner dispatches the whole electorate of every candidate (3 verifiers at Standard, 5 at Deep), as it
+ * always has. With it on, a candidate's electorate is still 3 (5) and the vote rule is unchanged (a strict majority of the electorate
+ * decides: 2 of 3, 3 of 5), but only the first strict majority of its verifiers is dispatched; the rest are dispatched only when one
+ * of those first votes is not-real, abstain or missing. A candidate the first majority all voted real is recorded `quorum-settled`: the
+ * verifiers never asked are not lost verifiers (nobody expected them to vote) and the round is not `partial` for it. D4 reads "3
+ * verifiers per finding" as DECIDING, not dispatched. What this can lose, and what it cannot, is stated in
+ * docs/guides/pr-review-run.md ("Quorum-first verification"). Anything the runner cannot plan this way is dispatched in full.
+ */
+const DEFAULT_QUORUM_FIRST_VERIFICATION = false;
+
 /** Deep-freeze so no caller can edit the defaults for everyone else. */
 function deepFreeze(value) {
   if (value !== null && typeof value === 'object') {
@@ -153,6 +165,7 @@ const DEFAULT_POLICY = deepFreeze({
   maxConcurrentAgents: DEFAULT_MAX_CONCURRENT_AGENTS,
   reviewerToolCalls: DEFAULT_REVIEWER_TOOL_CALLS,
   reviewerSnippets: DEFAULT_REVIEWER_SNIPPETS,
+  quorumFirstVerification: DEFAULT_QUORUM_FIRST_VERIFICATION,
 });
 
 /** A GitHub login: alphanumerics and single inner hyphens, at most 39 characters. */
@@ -189,6 +202,8 @@ const SIMPLE_KEYS = Object.freeze({
     Number.isInteger(value) && value >= REVIEWER_TOOL_CALLS_MIN && value <= REVIEWER_TOOL_CALLS_MAX,
   reviewerSnippets: (value) =>
     Number.isInteger(value) && value >= REVIEWER_SNIPPETS_MIN && value <= REVIEWER_SNIPPETS_MAX,
+  // only a boolean: a loose "yes" or 1 must not turn on a rule that dispatches fewer verifiers
+  quorumFirstVerification: (value) => typeof value === 'boolean',
 });
 
 const KNOWN_KEYS = Object.freeze(['sourceSha', 'roundCap', 'depth', 'deadlineMinutes', ...Object.keys(SIMPLE_KEYS)]);
@@ -441,4 +456,5 @@ module.exports = {
   DEFAULT_REVIEWER_SNIPPETS,
   REVIEWER_SNIPPETS_MIN,
   REVIEWER_SNIPPETS_MAX,
+  DEFAULT_QUORUM_FIRST_VERIFICATION,
 };

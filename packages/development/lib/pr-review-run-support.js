@@ -23,6 +23,7 @@ const path = require('path');
 const { resolveDepth, checkBounds } = require('./pr-review-depth');
 const { normalizeSeverity } = require('./pr-review-ledger');
 const { planVerification } = require('./pr-review-verify-assign');
+const { quorumFirstShape, quorumEligible } = require('./pr-review-votes');
 const { claimRules } = require('./pr-review-briefs');
 
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -411,6 +412,51 @@ function planVerifierPool({ candidates, mode, k }) {
   return plan;
 }
 
+/**
+ * The pool planner of `planVerifierPool` for any number of seats per candidate and a pool of FRESH names (kata 3ezq): `expected` DISTINCT verifiers
+ * per candidate, drawn from `verifier-<from>`, `verifier-<from + 1>`, ..., none of them anyone who raised the candidate, no verifier holding more
+ * than `MAX_CANDIDATES_PER_VERIFIER` candidates, the pool grown while the planner says it is too small or overloaded. `planVerifierPool` always plans
+ * the depth's own K from `verifier-1`; a quorum-first round plans the first strict majority of every candidate from `verifier-1` and, later, the seats
+ * left over for the candidates that need them from the next unused name, so no name is ever planned twice in one run.
+ *
+ * @returns {Object} the `planVerification` answer and, when it is ok, `size`: how many names the pool used (the next fresh name is `verifier-<from + size>`)
+ */
+function planVerifierSeats({ candidates, mode, expected, from }) {
+  if (!Array.isArray(candidates) || candidates.length === 0 || !Number.isInteger(expected) || expected < 1 || !Number.isInteger(from) || from < 1) {
+    return { ok: false, reason: 'a seat plan needs candidates, a seat count of at least 1 and a first verifier number', assignments: [], agents: [] };
+  }
+  let size = Math.max(expected, Math.ceil((candidates.length * expected) / MAX_CANDIDATES_PER_VERIFIER));
+  let plan = null;
+  for (let attempt = 0; attempt < 8; attempt += 1, size += 1) {
+    const pool = Array.from({ length: size }, (_, index) => `verifier-${from + index}`);
+    plan = planVerification({ candidates, depth: mode, expectedVerifiers: expected, verifierPool: pool, maxCandidatesPerVerifier: MAX_CANDIDATES_PER_VERIFIER });
+    if (plan.ok === true) return { ...plan, size };
+    if (plan.reason !== 'verifier-overloaded' && plan.reason !== 'verifier-pool-too-small') return plan;
+  }
+  return plan;
+}
+
+/**
+ * The FIRST WAVE of a quorum-first verify round (kata 3ezq): every candidate gets only the first strict majority of its electorate (`needed`
+ * distinct verifiers), packed like today's plan, so 17 candidates at Standard are 12 verifiers where the full electorate is 17, and 16 at Deep are 16
+ * where it is 27. The rest of each electorate (`shape.unasked` seats) is planned only for the candidates that turn out to need it (`planVerifierSeats`
+ * from `nextVerifier`). Fail closed: anything this cannot plan this way answers `ok: false` with why, and the caller asks the whole electorate of every
+ * candidate, as it always did: an electorate with no seat to leave, no candidate, a candidate that is no finding (it is filtered whatever the votes say,
+ * so asking part of its electorate settles nothing), a plan the planner refuses.
+ *
+ * @returns {{ok:true, shape:{expected:number, needed:number, unasked:number}, plan:Object, nextVerifier:number}|{ok:false, reason:string}}
+ */
+function planQuorumFirst({ candidates, mode, k }) {
+  const shape = quorumFirstShape(k);
+  if (shape === null) return { ok: false, reason: `an electorate of ${k} has no seat to leave unasked` };
+  if (!Array.isArray(candidates) || candidates.length === 0) return { ok: false, reason: 'no candidate to verify' };
+  const ineligible = candidates.filter((candidate) => !quorumEligible(candidate));
+  if (ineligible.length > 0) return { ok: false, reason: `a candidate that is no finding is asked in full: ${ineligible.map((candidate) => candidate.id).join(', ')}` };
+  const plan = planVerifierSeats({ candidates, mode, expected: shape.needed, from: 1 });
+  if (plan.ok !== true) return { ok: false, reason: `the first wave could not be planned: ${plan.reason}` };
+  return { ok: true, shape, plan, nextVerifier: plan.size + 1 };
+}
+
 /** `items` in groups of at most `size` (at least one per group). */
 function chunk(items, size) {
   const width = Math.max(1, size);
@@ -602,6 +648,8 @@ module.exports = {
   splitDiffBySlice,
   gradePreExisting,
   planVerifierPool,
+  planVerifierSeats,
+  planQuorumFirst,
   chunk,
   locationFile,
   reviewerContract,

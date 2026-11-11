@@ -523,18 +523,20 @@ function runDescription(payload) {
  * is graded IN BAND by its module: a payload the module cannot read is a
  * blocked, deepest-mode or no-plan RESULT (exit 0), never a clean pass.
  *
- * `votes` is a pass-through but for one key: `settleOnMajority` (kata dx53) is the review runner's option, which calls the tally
- * itself, and the narrated procedure keeps the strict rule (AC-006-3), so the key is dropped from the payload here, whatever its
- * value, and the answer is the one the payload without it gives (the caller's object is not changed). `depth` and `slices` each
+ * `votes` is a pass-through but for two keys: `settleOnMajority` (kata dx53) and `quorumFirst` (kata 3ezq) are the review runner's options, which
+ * calls the tally itself, and the narrated procedure keeps the strict rule (AC-006-3) and the whole electorate, so both keys are dropped from the
+ * payload here, whatever their value, and the answer is the one the payload without them gives (the caller's object is not changed; an assignment
+ * entry that leaves seats `unasked` is then refused by the tally, since only a quorum-first tally accepts one). `depth` and `slices` each
  * call exactly two functions of their one module -- resolve then grade, plan then verify --
  * because that is the single question the skill asks; the dispatcher still
  * decides nothing itself, and the only value it combines is `ok`, which it
  * can only make stricter.
  */
 function runVotes(payload) {
-  if (payload !== null && typeof payload === 'object' && !Array.isArray(payload) && Object.prototype.hasOwnProperty.call(payload, 'settleOnMajority')) {
+  if (payload !== null && typeof payload === 'object' && !Array.isArray(payload) && ['settleOnMajority', 'quorumFirst'].some((key) => Object.prototype.hasOwnProperty.call(payload, key))) {
     const strict = { ...payload };
     delete strict.settleOnMajority;
+    delete strict.quorumFirst;
     return tallyVotes(strict);
   }
   return tallyVotes(payload);
