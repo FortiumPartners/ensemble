@@ -86,8 +86,8 @@ describe('TRD-029: the generated pr-merge artifacts carry the merge gate on ever
    * The shipped pr-merge renderings. pr-merge is a skill-backed command: the Claude command and the pi prompt
    * are stubs that point at the skill and carry no prose, so on those two runtimes the prose a runtime reads
    * is the skill itself (Claude: packages/git/skills/ensemble-pr-merge/SKILL.md, which the stub names; pi: its
-   * vendored copy). OpenCode generates into the gitignored `dist/`, so it is asserted only when it has been
-   * generated -- never silently skipped for the runtimes that ARE committed.
+   * vendored copy). OpenCode has the same shape (a stub plus the skill it ships), but its output lands in the
+   * gitignored `dist/`: its source-side check always runs and its generated-tree check runs when generated.
    */
   const ARTIFACTS = [
     { runtime: 'claude', file: 'packages/git/skills/ensemble-pr-merge/SKILL.md' },
@@ -126,14 +126,66 @@ describe('TRD-029: the generated pr-merge artifacts carry the merge gate on ever
     expect(text).toMatch(/[Nn]ever call pr-review-cli\.js|never the CLI/);
   });
 
-  test('the OpenCode rendering carries the gate too, when it has been generated', () => {
-    const file = 'dist/opencode/.opencode/commands/ensemble/pr-merge.md';
-    if (!exists(file)) {
-      // Generated output is gitignored; `npm run generate:opencode` produces it.
+  /**
+   * OpenCode, like Claude and Pi, is skill-backed for pr-merge: its command is a thin stub that tells the agent
+   * to load the `ensemble-pr-merge` skill, and the SkillCopier ships that skill byte for byte under
+   * `.opencode/skill/`. The gate therefore reaches OpenCode users through the stub PLUS the shipped skill; it
+   * is not (and must not be) in the stub text. The delivery contract has two halves, asserted separately:
+   *
+   *   1. the SOURCE side always runs: the real generator turns the real manifest into a stub that names the
+   *      skill, and hands exactly that skill (which carries MODE=gate) to the SkillCopier;
+   *   2. the GENERATED side runs only when `dist/opencode` exists (it is gitignored; `npm run generate:opencode`
+   *      produces it): the stub names a skill that is really shipped, byte for byte, with the gate in it.
+   *
+   * Half 2 is inherently conditional, so half 1 is what keeps a regression visible in a clean checkout.
+   */
+  const OPENCODE_SKILL = 'ensemble-pr-merge';
+  const OPENCODE_STUB = 'dist/opencode/.opencode/commands/ensemble/pr-merge.md';
+  const SOURCE_SKILL = 'packages/git/skills/ensemble-pr-merge/SKILL.md';
+
+  const stubNamesSkill = (stub) => {
+    const match = /Load the `([^`]+)` skill with the skill tool/.exec(stub);
+    return match === null ? null : match[1];
+  };
+
+  test('the OpenCode generator stubs pr-merge to the skill and ships that skill, which carries the gate', () => {
+    const { CommandTranslator } = require(path.join(REPO_ROOT, 'scripts/generate-opencode/src/command-translator.js'));
+    const { discoverCommandSkills } = require(path.join(REPO_ROOT, 'scripts/generate-opencode/index.js'));
+
+    const { commands, errors } = new CommandTranslator({
+      packagesDir: path.join(REPO_ROOT, 'packages'),
+      outputDir: path.join(REPO_ROOT, 'dist/opencode/.opencode/commands'),
+      dryRun: true,
+      verbose: false,
+    }).executeSync();
+    expect(errors).toEqual([]);
+    const stub = commands.find((command) => command.sourcePath.endsWith(path.join('git', 'commands', 'pr-merge.yaml')));
+    expect(stub).toBeDefined();
+    expect(stubNamesSkill(stub.markdownContent)).toBe(OPENCODE_SKILL);
+
+    // The skill the stub names is one the generator ships, and it is the skill that carries the gate.
+    const shipped = discoverCommandSkills(path.join(REPO_ROOT, 'packages')).find((skill) => skill.name === OPENCODE_SKILL);
+    expect(shipped).toBeDefined();
+    expect(fs.realpathSync(path.join(shipped.skillPath, 'SKILL.md'))).toBe(fs.realpathSync(path.join(REPO_ROOT, SOURCE_SKILL)));
+    expect(read(SOURCE_SKILL)).toMatch(/MODE=gate/);
+    expect(read(SOURCE_SKILL)).toMatch(/mergeable/);
+  });
+
+  test('the generated OpenCode tree ships the skill the pr-merge stub names, with the gate (when generated)', () => {
+    if (!exists(OPENCODE_STUB)) {
+      // Generated output is gitignored; the source-side test above is the one that always runs.
       expect(exists('scripts/generate-opencode/index.js')).toBe(true);
       return;
     }
-    expect(read(file)).toMatch(/MODE=gate/);
+    const skillName = stubNamesSkill(read(OPENCODE_STUB));
+    expect(skillName).toBe(OPENCODE_SKILL);
+
+    const shippedSkill = `dist/opencode/.opencode/skill/${skillName}/SKILL.md`;
+    expect(exists(shippedSkill)).toBe(true);
+    // Byte for byte the source skill: nothing re-serialized, so the gate cannot have been lost on the way.
+    expect(read(shippedSkill)).toBe(read(SOURCE_SKILL));
+    expect(read(shippedSkill)).toMatch(/MODE=gate/);
+    expect(read(shippedSkill)).toMatch(/mergeable/);
   });
 });
 
