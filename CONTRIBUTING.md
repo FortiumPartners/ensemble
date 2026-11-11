@@ -243,6 +243,17 @@ Skills provide context-specific knowledge:
 1. **SKILL.md**: Quick reference (target: <25KB)
 2. **REFERENCE.md**: Comprehensive guide
 
+### Skill Format
+
+Skills follow the [Agent Skills specification](https://agentskills.io/specification):
+
+- One skill is one directory, `packages/<pkg>/skills/<name>/SKILL.md`, and the directory name must equal the `name` in the frontmatter (lowercase letters, digits and hyphens).
+- Frontmatter may only use `name`, `description` (max 1024 characters), `license`, `compatibility`, `metadata` and `allowed-tools`. Put a version in `metadata.version` (a quoted string), not a top-level `version:`.
+- Keep `SKILL.md` under 500 lines; move detail into `REFERENCE.md` or other files in the skill directory.
+- Run `npm run validate:skills` before opening a PR (it also runs as part of `npm run validate`). It checks the source skills and the generated pi and codex output, so regenerate first if you changed a skill.
+
+One exemption: skills whose directory name starts with `ensemble-` may carry the host keys `user-invocable`, `disable-model-invocation`, `argument-hint`, `model` and `capabilities` at the top level. The generators emit these command-wrapper skills with such keys, and Claude Code reads `ensemble-assess` straight from the plugin directory, where the keys must stay top-level to hide it from the slash menu. Any other skill using them fails the gate.
+
 ## Testing
 
 ### Running Tests
