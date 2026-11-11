@@ -25,8 +25,10 @@ const { listSkillReferences } = require('../../../../scripts/lib/skill-backed-co
 
 const PACKAGE_DIR = path.join(__dirname, '..', '..');
 const FRONTMATTER = /^---\n([\s\S]*?)\n---\n/;
-const PHASE_HEADING = /^# Phase (\d+): (.+)$/;
-const STEP_HEADING = /^\*\*(\d+)\. (.+)\*\*$/;
+// Two layouts: create-prd's (`# Phase N: name`, `**N. title**`) and the one the migration
+// script emits (`### Phase N: name`, `#### Step N.M: title`), used by e.g. refine-prd.
+const PHASE_HEADING = /^(?:#|###) Phase (\d+): (.+)$/;
+const STEP_HEADING = /^(?:\*\*(\d+)\. (.+)\*\*|#### Step \d+\.(\d+): (.+))$/;
 
 /**
  * A skill of a package: its SKILL.md path, parsed frontmatter and body text, its reference
@@ -116,7 +118,7 @@ function parsePhases(text) {
     match = STEP_HEADING.exec(line);
     if (match) {
       closeStep();
-      step = { order: Number(match[1]), title: match[2], description: '', actions: [] };
+      step = { order: Number(match[1] || match[3]), title: match[2] || match[4], description: '', actions: [] };
       phase.steps.push(step);
       inActions = false;
       continue;

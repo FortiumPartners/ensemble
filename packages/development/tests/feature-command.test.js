@@ -182,16 +182,18 @@ describe('Feature Dispatcher Command', () => {
       expect(generatedMarkdown).toMatch(/category:\s*"implementation"/);
     });
 
-    test('documents all four keywords in the rendered Subcommands section, each pointing at new-feature.md', () => {
+    test('documents all four keywords in the rendered Subcommands section, each pointing at the new-feature skill', () => {
       ['new', 'resume', 'status', 'abandon'].forEach((keyword) => {
         expect(generatedMarkdown).toContain(
           `- **\`${keyword}\`** -`
         );
       });
+      // new-feature is skill-backed: the dispatcher renders a pointer to its SKILL.md rather
+      // than to a generated new-feature.md.
       const newFeatureReferenceCount = (
-        generatedMarkdown.match(/packages\/development\/commands\/ensemble\/new-feature\.md/g) || []
+        generatedMarkdown.match(/packages\/development\/skills\/ensemble-new-feature\/SKILL\.md/g) || []
       ).length;
-      // One reference per keyword (4) -- every subcommand targets the same sibling file.
+      // One reference per keyword (4) -- every subcommand targets the same skill.
       expect(newFeatureReferenceCount).toBe(4);
     });
 

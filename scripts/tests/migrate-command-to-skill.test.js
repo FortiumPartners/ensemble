@@ -19,7 +19,6 @@ const { isSkillBacked, readSkillProse } = require('../lib/skill-backed-command')
 const { extractFrontmatter } = require('../lib/frontmatter-check');
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'migrate-command', 'demo-cmd.yaml');
-const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 let roots = [];
 afterEach(() => {
@@ -81,14 +80,15 @@ describe('dry run', () => {
     expect(text).not.toContain('WARNING');
   });
 
-  test('a real command in the repository: summary printed, tree unchanged', () => {
-    const real = path.join(REPO_ROOT, 'packages', 'product', 'commands', 'refine-prd.yaml');
-    const skillDir = path.join(REPO_ROOT, 'packages', 'product', 'skills', 'ensemble-refine-prd');
-    const yamlBefore = fs.readFileSync(real, 'utf8');
+  test('the checked-in fixture command, dry-run in place: summary printed, tree unchanged', () => {
+    // A fixture, not a real package command: real commands get converted over time and would
+    // turn this test into a failing no-op on a manifest.
+    const skillDir = path.join(path.dirname(path.dirname(FIXTURE)), 'skills', 'ensemble-demo-cmd');
+    const yamlBefore = fs.readFileSync(FIXTURE, 'utf8');
     const out = quiet();
-    expect(migrate.main([real], out)).toBe(0);
-    expect(out.logs.join('\n')).toContain('ensemble-refine-prd');
-    expect(fs.readFileSync(real, 'utf8')).toBe(yamlBefore);
+    expect(migrate.main([FIXTURE], out)).toBe(0);
+    expect(out.logs.join('\n')).toContain('ensemble-demo-cmd');
+    expect(fs.readFileSync(FIXTURE, 'utf8')).toBe(yamlBefore);
     expect(fs.existsSync(skillDir)).toBe(false);
   });
 

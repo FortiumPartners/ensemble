@@ -4,7 +4,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
+
+const { readNewFeature } = require('./helpers/new-feature-skill');
 
 const FIXED_STAGE_ORDER = [
   'prd_create',
@@ -31,14 +32,44 @@ function actionsText(step) {
   return (step.actions || []).join('\n');
 }
 
+describe('new-feature is a skill-backed command', () => {
+  const feature = readNewFeature();
+
+  test('its YAML is a manifest -- metadata and a skill, no prompt of its own', () => {
+    expect(Object.keys(feature.manifest).sort()).toEqual(['metadata', 'skill']);
+    expect(feature.manifest.skill).toBe('ensemble-new-feature');
+    expect(feature.skill.frontmatter.name).toBe(feature.manifest.skill);
+  });
+
+  test('SKILL.md indexes every phase file by its relative path, and every indexed file exists', () => {
+    const indexed = [...feature.body.matchAll(/`(references\/[^`]+\.md)`/g)].map((m) => m[1]).sort();
+    const present = feature.references.map((r) => `references/${path.basename(r.file)}`);
+    expect(present).toHaveLength(3);
+    expect(indexed).toEqual(present);
+  });
+
+  test('each phase lives in its own reference file, not in SKILL.md', () => {
+    for (const [name, heading] of [
+      ['phase-1-entry-point-resolution.md', '### Phase 1: Entry Point Resolution'],
+      ['phase-2-stage-resolution.md', '### Phase 2: Stage Resolution'],
+      ['phase-3-execute-stage.md', '### Phase 3: Execute Stage'],
+    ]) {
+      const reference = feature.references.find((r) => path.basename(r.file) === name);
+      expect(reference).toBeDefined();
+      expect(reference.text.startsWith(heading)).toBe(true);
+      expect(feature.body).not.toContain(heading);
+    }
+  });
+});
+
 describe('New-Feature Command', () => {
   let commandYaml;
-  let yamlContent;
 
   beforeAll(() => {
-    const commandPath = path.join(__dirname, '../commands/new-feature.yaml');
-    yamlContent = fs.readFileSync(commandPath, 'utf-8');
-    commandYaml = yaml.load(yamlContent);
+    // The pre-skill YAML shape (metadata, parameters, constraints, workflow.phases),
+    // rebuilt from the manifest and the skill the prompt now lives in.
+    const feature = readNewFeature();
+    commandYaml = { ...feature.manifest, ...feature };
   });
 
   describe('Metadata', () => {
@@ -353,8 +384,10 @@ describe('New-Feature Command', () => {
     test('the codex skill file exists, carries codex frontmatter, and is user-invocable', () => {
       expect(fs.existsSync(codexPath)).toBe(true);
       const content = fs.readFileSync(codexPath, 'utf8');
+      // A skill-backed command ships its skill as the codex skill: the user invokes it by
+      // name and the model never starts it on its own (disable-model-invocation).
       expect(content).toMatch(/name:\s*ensemble-new-feature/);
-      expect(content).toMatch(/user-invocable:\s*true/);
+      expect(content).toMatch(/disable-model-invocation:\s*true/);
     });
 
     test('AC-013-2: new-feature appears alongside fix-issue in the product-command runtime (no separate catalog/manifest -- same file-presence discovery mechanism both commands share)', () => {

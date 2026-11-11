@@ -9,6 +9,8 @@ description: >-
   logic.
 disable-model-invocation: true
 user-invocable: false
+metadata:
+  version: "1.0.0"
 ---
 <!-- Command: ensemble-assess | Version: 1.0.0 -->
 <!-- Description: Dispatch to a repository, team, config, or report assessment by keyword; repo --only <dimension> runs a single dimension -->

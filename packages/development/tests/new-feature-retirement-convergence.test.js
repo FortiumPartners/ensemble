@@ -14,6 +14,8 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
+const { readNewFeature } = require('./helpers/new-feature-skill');
+
 const repoRoot = path.resolve(__dirname, '..', '..', '..');
 
 function loadYaml(relPath) {
@@ -24,8 +26,15 @@ function actionsText(step) {
   return (step.actions || []).join('\n');
 }
 
+// new-feature is skill-backed: its prompt (parameters, constraints, workflow) is read from
+// its skill, its metadata from the manifest.
+function loadNewFeature() {
+  const feature = readNewFeature();
+  return { ...feature.manifest, ...feature };
+}
+
 describe('Scenario: direct invocation of ensemble-new-feature still works and converges identically', () => {
-  const newFeatureYaml = loadYaml('packages/development/commands/new-feature.yaml');
+  const newFeatureYaml = loadNewFeature();
 
   test('its parameters (idea/path/status/abandon, plus the non-interactive foreman flag) and fixed 10-stage constraints are unchanged -- same stage machine', () => {
     const paramNames = newFeatureYaml.parameters.map((p) => p.name);
@@ -38,7 +47,7 @@ describe('Scenario: direct invocation of ensemble-new-feature still works and co
 
 describe('Scenario: skill/command convergence -- "start a new feature" names the same canonical workflow', () => {
   const featureYaml = loadYaml('packages/development/commands/feature.yaml');
-  const newFeatureYaml = loadYaml('packages/development/commands/new-feature.yaml');
+  const newFeatureYaml = loadNewFeature();
 
   test('feature.yaml\'s own mission names ensemble:feature as the single canonical front door for the feature lifecycle', () => {
     expect(featureYaml.mission.summary).toMatch(/Single canonical front door for the feature lifecycle/);

@@ -20,7 +20,7 @@ commands, not separate keywords: `create --from-meeting <summary>` and
 ## Subcommands
 
 - **`create`** - Create a new PRD through a live structured interview, or from a meeting summary with --from-meeting. Invoke `/ensemble:create-prd` directly, or read and follow `packages/product/skills/ensemble-create-prd/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`refine`** - Refine an existing PRD with stakeholder feedback, or with a meeting summary as the feedback source via --from-meeting. Invoke `/ensemble:refine-prd` directly, or read and follow `packages/product/commands/ensemble/refine-prd.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`refine`** - Refine an existing PRD with stakeholder feedback, or with a meeting summary as the feedback source via --from-meeting. Invoke `/ensemble:refine-prd` directly, or read and follow `packages/product/skills/ensemble-refine-prd/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 
 ## Workflow
 

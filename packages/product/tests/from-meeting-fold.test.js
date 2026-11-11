@@ -242,15 +242,20 @@ describe('create-prd --from-meeting', () => {
 });
 
 describe('refine-prd --from-meeting', () => {
-  const doc = load('refine-prd');
-  const text = allText(doc);
+  // refine-prd is skill-backed too: constraints and arguments are its SKILL.md, each workflow
+  // phase a file under references/. parseWorkflow reads the phase files back into the
+  // phases/steps/actions the YAML used to hold.
+  const manifest = load('refine-prd');
+  const skill = readSkill(manifest.skill);
+  const doc = { workflow: { phases: parseWorkflow(skill) } };
+  const text = collapse(skill.prompt);
 
   test('is a boolean parameter, advertised in the argument hint and description', () => {
-    const param = doc.parameters.find((p) => p.name === 'from-meeting');
-    expect(param).toMatchObject({ type: 'boolean', default: false });
-    expect(doc.metadata.argument_hint).toContain('--from-meeting');
-    expect(doc.metadata.description).toContain('--from-meeting');
-    expect(doc.metadata.description.length).toBeLessThanOrEqual(200);
+    expect(section(skill.body, 'Arguments')).toContain('- **`from-meeting`** (boolean, optional, default: `false`)');
+    expect(manifest.metadata.argument_hint).toContain('--from-meeting');
+    expect(manifest.metadata.description).toContain('--from-meeting');
+    expect(manifest.metadata.description.length).toBeLessThanOrEqual(200);
+    expect(skill.frontmatter.description).toContain('--from-meeting');
   });
 
   test('has a delimited meeting phase after PRD Review, with sequential phase numbers', () => {
@@ -292,7 +297,7 @@ describe('refine-prd --from-meeting', () => {
     for (const flag of ['`--from-meeting`', '`--collab`', '`--long-lived`', '`--foreman`']) {
       expect(second.slice(0, second.indexOf('GUARD:'))).toContain(flag);
     }
-    expect(doc.constraints.join('\n')).toContain('--from-meeting cannot be combined with --collab, --long-lived or --foreman');
+    expect(section(skill.body, 'Constraints')).toContain('--from-meeting cannot be combined with --collab, --long-lived or --foreman');
   });
 
   test('a meeting-sourced pass never locks the PRD or changes its Status', () => {
@@ -331,8 +336,8 @@ describe('refine-prd --from-meeting', () => {
     expect(text).toContain(phrase);
   });
 
-  test('the rendered Claude command shows the mode gates, not only the unrendered constraints', () => {
-    const md = render('refine-prd');
+  test('the skill prompt carries the mode gates, not only the constraints', () => {
+    const md = text;
     for (const phrase of [
       'Meeting-Sourced Review (--from-meeting only)',
       'SECOND HALT CHECK',
@@ -375,8 +380,8 @@ describe('every rendered slot of the folded commands is a string', () => {
     return bad;
   }
 
-  // create-prd is skill-backed: its YAML holds no slot to render, and its prompt is Markdown.
-  test.each(['refine-prd', 'prd'])('%s', (slug) => {
+  // create-prd and refine-prd are skill-backed: their YAML holds no slot to render, and their prompt is Markdown.
+  test.each(['prd'])('%s', (slug) => {
     expect(nonStringSlots(load(slug))).toEqual([]);
   });
 });

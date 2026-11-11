@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as yaml from "js-yaml";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -134,8 +134,19 @@ describe("Whole-surface delivery smoke (TRD-012 / TRD-012-TEST)", () => {
       // Prove `new-feature` is a real, resumable, multi-phase stage
       // machine -- not a stub -- so "reaches the stage machine" is a
       // structural fact about the shipped artifact, not an assumption.
-      const newFeatureYaml = loadYaml("packages/development/commands/new-feature.yaml");
-      const phases = (newFeatureYaml.workflow?.phases ?? []).map((p) => p.name);
+      // new-feature is skill-backed: its manifest names the skill and the stage machine's phases
+      // are the `### Phase N: <name>` headings of that skill's SKILL.md plus references/*.md.
+      const newFeatureYaml = loadYaml("packages/development/commands/new-feature.yaml") as { skill?: string };
+      expect(newFeatureYaml.skill).toBe("ensemble-new-feature");
+      const skillDir = resolve(REPO_ROOT, "packages/development/skills", newFeatureYaml.skill as string);
+      const skillText = [
+        readFileSync(resolve(skillDir, "SKILL.md"), "utf8"),
+        ...readdirSync(resolve(skillDir, "references"))
+          .filter((f) => f.endsWith(".md"))
+          .sort()
+          .map((f) => readFileSync(resolve(skillDir, "references", f), "utf8")),
+      ].join("\n");
+      const phases = [...skillText.matchAll(/^### Phase \d+: (.+)$/gm)].map((m) => m[1].trim());
       expect(phases).toEqual(expect.arrayContaining(["Entry Point Resolution", "Stage Resolution", "Execute Stage"]));
       expect(phases.length).toBeGreaterThan(1);
     });

@@ -7,13 +7,20 @@ const path = require('path');
 let yaml;
 try { yaml = require('js-yaml'); } catch { yaml = null; }
 
+// The team_configuration data of the configure-team command. It lives in the skill's
+// references/ (which every runtime ships beside SKILL.md), not in the command manifest:
+// the skill prompt and this module read the one file.
+const TEAM_CONFIGURATION_PATH = path.join(
+  __dirname, '..', 'skills', 'ensemble-configure-team', 'references', 'team-configuration.yaml'
+);
+
 function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
 /**
- * Read the flat `default_agents:` map from configure-team.yaml without a YAML parser.
- * ponytail: handles only that one `key: value` block; the rest of team_configuration
+ * Read the flat `default_agents:` map from team-configuration.yaml without a YAML parser.
+ * ponytail: handles only that one `key: value` block; the rest of the file
  * (domain_keywords, ...) needs js-yaml. Nothing in this file reads those.
  */
 function readDefaultAgents(text) {
@@ -30,9 +37,8 @@ function readDefaultAgents(text) {
 }
 
 function loadTeamConfiguration() {
-  const configPath = path.join(__dirname, '..', 'commands', 'configure-team.yaml');
-  const text = fs.readFileSync(configPath, 'utf8');
-  if (yaml) return yaml.load(text).team_configuration;
+  const text = fs.readFileSync(TEAM_CONFIGURATION_PATH, 'utf8');
+  if (yaml) return yaml.load(text);
   return { default_agents: readDefaultAgents(text) };
 }
 

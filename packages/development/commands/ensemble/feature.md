@@ -22,10 +22,10 @@ re-implemented here.
 
 ## Subcommands
 
-- **`new`** - Start a new feature run from an idea. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/commands/ensemble/new-feature.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`resume`** - Resume the project's active/paused run from its last recorded checkpoint. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/commands/ensemble/new-feature.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`status`** - Show the active/most-recent run's stage, outcome, and references without advancing it (read-only). Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/commands/ensemble/new-feature.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`abandon`** - Abandon the project's active/paused run after explicit confirmation. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/commands/ensemble/new-feature.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`new`** - Start a new feature run from an idea. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/skills/ensemble-new-feature/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`resume`** - Resume the project's active/paused run from its last recorded checkpoint. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/skills/ensemble-new-feature/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`status`** - Show the active/most-recent run's stage, outcome, and references without advancing it (read-only). Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/skills/ensemble-new-feature/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`abandon`** - Abandon the project's active/paused run after explicit confirmation. Invoke `/ensemble:new-feature` directly, or read and follow `packages/development/skills/ensemble-new-feature/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 
 ## Workflow
 
