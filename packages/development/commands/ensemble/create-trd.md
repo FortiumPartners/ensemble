@@ -1,11 +1,11 @@
 ---
 name: "ensemble:create-trd"
 description: "Create Technical Requirements Document from PRD with architecture design and adversarial review; --parser-tables emits Foreman parser-compatible tables instead"
-version: "3.5.0"
+version: "3.6.0"
 category: "planning"
 last-updated: "2026-10-17"
 allowed-tools: "Read"
-argument-hint: "[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables]"
+argument-hint: "[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables] [--bdd | --no-bdd]"
 model: "opus"
 ---
 <!-- DO NOT EDIT - Generated from create-trd.yaml -->

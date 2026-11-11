@@ -1,7 +1,7 @@
 ---
 name: "ensemble:implement-trd-beads"
 description: "Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via toolchain-cli tracker/work-graph capabilities, and cross-session resumability"
-version: "3.1.0"
+version: "3.2.0"
 category: "implementation"
 last-updated: "2026-10-21"
 allowed-tools: "Read, Write, Edit, Bash, Grep, Glob, Task"

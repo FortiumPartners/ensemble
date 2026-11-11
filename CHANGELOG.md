@@ -326,6 +326,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PRDs and TRDs:** `PRD-2026-bd69b524` (delivery-flow improvements, Draft v1.0.0, #203) and PRD/TRD 2026-4dec59b8 (local CI PR approval) with the gate's `RUNBOOK.md`, `PROOF.md`, `MEASUREMENT.md` and `BASELINE.md` under `packages/development/skills/local-ci-gate/`.
 - **`AGENTS.md`:** a standing rule never to create worktrees, clones or scratch files under `/tmp`; use siblings of the main checkout and `~/.omp/<task-dir>/` instead (#216).
 
+### Changed
+
+- **packages/development:** BDD/Reqnroll stays on by default in `/ensemble:create-trd` and `/ensemble:implement-trd-beads`, and a repo that does not use it can opt out. One resolver, `trd-cli resolve-bdd`, decides from `--bdd` / `--no-bdd`, the `ENSEMBLE_BDD` environment variable, or the TRD's `test_approach` frontmatter; with `--no-bdd` or `ENSEMBLE_BDD=0` the standard path is used and nothing is scaffolded through Reqnroll. Nothing changes for a repo that does not opt out. See [Optional BDD](packages/development/README.md#optional-bdd-reqnroll).
+
 ### Removed
 
 - **packages/router, packages/metrics:** the `ensemble-router` and `ensemble-metrics` packages (routing hook; dashboard hooks and `/ensemble:manager-dashboard` with `manager-dashboard-agent`). The router hook registration is dropped from `packages/full/hooks/hooks.json`; `ensemble-permitter` stays. Telemetry lives in `packages/telemetry`.

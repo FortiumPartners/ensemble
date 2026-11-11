@@ -47,15 +47,16 @@ describe('create-trd command document ids', () => {
     expect(text.slice(start, next)).toContain(phrase);
   });
 
-  test('Task Coverage Analysis self-checks the draft Master Task List via trd-cli.js parse', () => {
+  test('TRD_CLI is resolved once, early, and Task Coverage Analysis self-checks the draft Master Task List via trd-cli.js parse', () => {
     const text = skillText;
+    const resolve = text.indexOf('Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js');
     const start = stepStart(text, 'Task Coverage Analysis');
     const next = stepStart(text, 'Dependency and Estimate Review');
-    expect(start).toBeGreaterThan(-1);
+    expect(resolve).toBeGreaterThan(-1);
+    expect(text.indexOf('Resolve TRD_CLI per the tool-path-resolution skill', resolve + 1)).toBe(-1);
+    expect(start).toBeGreaterThan(resolve);
     expect(next).toBeGreaterThan(start);
-    const scoped = text.slice(start, next);
-    expect(scoped).toContain('Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js');
-    expect(scoped).toContain('node "$TRD_CLI" parse');
+    expect(text.slice(start, next)).toContain('node "$TRD_CLI" parse');
   });
 
   test('keeps the companion artifact output contract', () => {
@@ -185,7 +186,7 @@ describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', 
   // [phase, title] of every standard step that table mode replaces or omits.
   const REPLACED_STEPS = [
     ['Task Breakdown and Planning', 'Master Task List Generation'],
-    ['Task Breakdown and Planning', 'Test Task Generation (BDD)'],
+    ['Task Breakdown and Planning', 'Test Task Generation'],
     ['Task Breakdown and Planning', 'Dependency Mapping and PR Boundary Design'],
     ['Adversarial Review and Design Gate', 'Architecture Self-Critique'],
     ['Adversarial Review and Design Gate', 'Task Coverage Analysis'],
@@ -316,7 +317,7 @@ describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', 
   });
 
   test('the manifest advertises the flag, and the skill carries the flag, the mode steps and the foreman sling prd next step', () => {
-    expect(manifest.metadata.argument_hint).toBe('[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables]');
+    expect(manifest.metadata.argument_hint).toBe('[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables] [--bdd | --no-bdd]');
     expect(skill.body).toContain('- **`parser-tables`** (boolean, optional, default: `false`)');
     for (const [, title] of MODE_STEPS) {
       expect(skillText).toContain(title);

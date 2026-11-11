@@ -9,14 +9,22 @@ Resolve the PRD from the argument, --list, or FOREMAN_SOURCE_PRD_PATH
 - If --list: resolve PRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/prd-cli.js, run `node "$PRD_CLI" list --type prd` and parse {ok,type,items}; on failure print the error and HALT. Show a table (ID/Name, Status, Score, Version, Last Modified) and ask the user to pick one via ask (id `prd_select`). Under --foreman see the parameter rules: one candidate auto-selects, otherwise print `ERROR: --list with --foreman requires an unambiguous PRD. Candidates: <list>. Pass a specific prd-path instead.` and HALT. Map the selected slug to docs/PRD/<file>.md; HALT if it does not exist.
 - Read the PRD. With --foundational and no full PRD, accept a short capability brief, skip PRD-structure validation and the readiness gate, and register capabilities instead of REQ-NNN IDs.
 
-#### Step 1.2: Requirements Validation
+#### Step 1.2: Resolve Test Approach
 
-Check PRD completeness and the BDD scenario floor
+Decide BDD_MODE (Reqnroll path on or off)
+
+- If $ARGUMENTS contains '--parser-tables': skip this step; BDD_MODE is disabled.
+- Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js. If none of the 4 tiers resolve OR `which node` fails: print "ERROR: Node.js and the TRD CLI (lib/trd-cli.js) are required. Ensure Node.js is installed and the ensemble-development or ensemble-pi plugin bundle is present." and HALT.
+- Run `node "$TRD_CLI" resolve-bdd` adding `--bdd` or `--no-bdd` if $ARGUMENTS has it, parse {enabled,source,message} as BDD_MODE and print `message`. An `error` key -> HALT.
+
+#### Step 1.3: Requirements Validation
+
+Check PRD completeness and the scenario floor
 
 - Unless --foundational with a brief: verify the PRD has Product Summary, User Analysis, Goals, Technical Requirements, Acceptance Criteria; REQ-NNN numbering is consistent; acceptance criteria are testable Given/When/Then with AC-NNN-M sub-items; constraints and non-goals are documented. Build the REQ registry for traceability.
-- Flag any functional REQ-NNN with fewer than 3 AC-NNN-M sub-items (happy path, edge, error) as insufficient BDD coverage in the readiness scorecard.
+- If BDD_MODE.enabled, flag any functional REQ-NNN with fewer than 3 AC-NNN-M sub-items (happy path, edge, error) as insufficient BDD coverage in the readiness scorecard; otherwise only note it (never blocks or lowers the score).
 
-#### Step 1.3: Implementation Readiness Gate Check
+#### Step 1.4: Implementation Readiness Gate Check
 
 Check the PRD's own readiness gate and review history
 

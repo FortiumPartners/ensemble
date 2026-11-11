@@ -1,13 +1,13 @@
 metadata:
   name: ensemble:create-trd
   description: Create Technical Requirements Document from PRD with architecture design and adversarial review; --parser-tables emits Foreman parser-compatible tables instead
-  version: 3.5.0
+  version: 3.6.0
   lastUpdated: "2026-10-17"
   category: planning
   output_path: ensemble/create-trd.md
   source: sunstone
   model: high
-  argument_hint: "[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables]"
+  argument_hint: "[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables] [--bdd | --no-bdd]"
 
 # Skill-backed command: the prompt is packages/development/skills/ensemble-create-trd/SKILL.md,
 # the single source of truth. Edit the skill, not this manifest.

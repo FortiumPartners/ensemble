@@ -39,7 +39,8 @@ Locate the TRD and validate it before any side effect.
 - TRD_FILE_PATH priority: `.md` argument -> name search in `docs/TRD/` -> the single in-progress TRD in `docs/TRD/` -> ask. It must exist, contain `## Master Task List` and at least one `- [ ] **TRD-` entry.
 - TRD_SLUG = filename lowercased, non-alphanumerics -> `-`, trimmed of leading/trailing `-`. TRD_LABEL = TRD_SLUG: the label every scaffolded bead carries and the work-graph scheduler scopes by (not the TRD's display-only frontmatter Label).
 - Design readiness (frontmatter `design_readiness_score`): >= 4.0 pass; 3.0-3.99 warn and ask to continue (non-interactive: continue); < 3.0 HALT suggesting /ensemble-refine-trd; absent: note and continue.
-- Traceability: run `node "$TRD_CLI" validate "<TRD_FILE_PATH>"`. `error` key -> HALT. Print `errors`, `warnings` and `skipped`. `ok:false` -> HALT ('Fix orphaned [satisfies] annotations ... run /ensemble-validate-requirements for details'); warnings alone continue. No beads or git changes have been made at this point.
+- Traceability: run `node "$TRD_CLI" validate "<TRD_FILE_PATH>"`. `error` key -> HALT. Print `errors`, `warnings` and `skipped`. `ok:false` -> HALT ('Fix orphaned [satisfies] annotations ... run /ensemble-validate-requirements for details'); warnings alone continue.
+- `node "$TRD_CLI" resolve-bdd --trd "<TRD_FILE_PATH>"` -> BDD_MODE {enabled,source,message}; print `message`; `error` -> HALT.
 
 #### Step 1.5: Resume detection, staleness gate, strategy
 

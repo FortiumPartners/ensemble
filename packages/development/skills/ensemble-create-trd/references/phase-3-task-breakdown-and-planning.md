@@ -9,15 +9,15 @@ Generate task list with TRD-NNN IDs and traceability annotations
 - Every task line MUST begin with a GitHub checkbox -- `- [ ] ` (or `- [x] ` if already complete) -- immediately before **TRD-NNN**; without it trd-cli.js and implement-trd-beads create zero task beads.
 - Each task includes: description, hour estimate (Nh), [satisfies REQ-NNN] annotation (use [satisfies INFRA] or [satisfies ARCH] when there is no direct REQ), a `Validates PRD ACs:` field listing the AC-NNN-M items covered, and an `Implementation AC:` checklist of Given/When/Then items.
 
-#### Step 3.2: Test Task Generation (BDD)
+#### Step 3.2: Test Task Generation
 
-Generate a paired BDD/Reqnroll test task for every user-facing implementation task
+Generate a paired test task for every user-facing implementation task
 
 - If $ARGUMENTS contains '--parser-tables': skip this step.
-- For every user-facing TRD-NNN task generate a TRD-NNN-TEST task. Every TRD-NNN-TEST line MUST begin with the same checkbox-prefix requirement as implementation tasks -- `- [ ] ` (or `- [x] ` if already complete) -- immediately before **TRD-NNN-TEST**. implement-trd-beads routes any task whose id matches `-TEST` through the reqnroll BDD path.
+- For every user-facing TRD-NNN task generate a TRD-NNN-TEST task. Every TRD-NNN-TEST line MUST begin with the same checkbox-prefix requirement as implementation tasks -- `- [ ] ` (or `- [x] ` if already complete) -- immediately before **TRD-NNN-TEST**.
 - Test tasks carry `[verifies TRD-NNN] [satisfies REQ-NNN] [depends: TRD-NNN]` annotations and a `Validates PRD ACs: AC-NNN-M, ...` field.
-- Under each test task add a `Test AC:` checklist with one single-line `- [ ] Scenario: <title> -- Given <...>, When <...>, Then <...>` item per AC-NNN-M in its Validates PRD ACs, indented strictly deeper than the `Test AC:` label (items at the same or shallower indent are silently dropped by the parser). This is the only place scenario text goes; no separate `## Scenarios` heading. Because each functional REQ has >=3 ACs, each test task carries >=3 scenario items.
-- implement-trd-beads later scaffolds these as .feature files via reqnroll-cli and delegates reqnroll-binding-specialist (see packages/reqnroll/skills/reqnroll/SKILL.md); this command only specifies titles and Given/When/Then text.
+- Under each test task add a `Test AC:` checklist with one single-line `- [ ] Scenario: <title> -- Given <...>, When <...>, Then <...>` item per AC-NNN-M in its Validates PRD ACs, indented strictly deeper than the `Test AC:` label (items at the same or shallower indent are silently dropped by the parser). This is the only place scenario text goes; no separate `## Scenarios` heading.
+- If BDD_MODE.enabled each test task carries >=3 scenario items and implement-trd-beads routes `-TEST` tasks through Reqnroll ("TRD commands" in `packages/reqnroll/skills/reqnroll/SKILL.md`); otherwise write one item per AC-NNN-M and never mention Reqnroll.
 
 #### Step 3.3: Dependency Mapping and PR Boundary Design
 
@@ -42,7 +42,7 @@ Generate a parser-compatible Foreman task breakdown with deterministic markdown 
 
 Generate paired validation tasks that still satisfy Foreman table parsing
 
-- Runs only when $ARGUMENTS contains '--parser-tables'. If it is absent, skip this step. It replaces Test Task Generation (BDD).
+- Runs only when $ARGUMENTS contains '--parser-tables'. If it is absent, skip this step. It replaces Test Task Generation.
 - For every user-facing implementation task add a validation/test task using the same table format (never narrative bullet lists), with the prerequisite implementation task IDs in the Dependencies column rather than free-form annotations. Cover at least one happy path and one edge case per major feature area. All test/validation Status cells must also be `[ ]`.
 
 #### Step 3.6: Foreman Dependency Mapping (--parser-tables)

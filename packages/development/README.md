@@ -37,11 +37,26 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 `/ensemble:implement-trd-beads` does not generate a `quickstart.md` validation runbook in v1. No standalone command currently generates this artifact.
 
-### BDD Scenario Generation (Reqnroll)
+### Optional BDD (Reqnroll)
 
-`/ensemble:create-trd` requires >=3 Given/When/Then scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist (`- [ ] Scenario: <title> -- Given ..., When ..., Then ...`, indented deeper than the `Test AC:` label so the TRD/beads parsers pick it up).
+BDD/Reqnroll stays **on by default**, exactly as before; a repo that does not use it can opt out. `/ensemble:create-trd` and `/ensemble:implement-trd-beads` both ask `node trd-cli.js resolve-bdd` whether it is on, so they always agree. First match wins:
 
-`/ensemble:implement-trd-beads` routes any task whose id matches `-TEST` through the Reqnroll BDD path: resolve `reqnroll-cli`, resolve the target `.csproj`, run `generate-bindings` to scaffold `.feature` files and `Pending()` step stubs, confirm RED, delegate `reqnroll-binding-specialist` to fill step bodies test-first, then re-confirm RED before handing off to GREEN implementation. It carries the same `Test AC:`/`validatesAcs` content verbatim into each TRD-NNN-TEST bead's description via `scaffold-planner.js`, so the contract holds regardless of which specialist later executes the bead.
+| Order | Source | Result |
+| --- | --- | --- |
+| 1 | `--bdd` / `--no-bdd` (`create-trd` only) | on / off |
+| 2 | `ENSEMBLE_BDD` environment variable | `1`, `true`, `on`, `yes` / `0`, `false`, `off`, `no` |
+| 3 | `test_approach:` in the TRD frontmatter (`implement-trd-beads` reads it; `create-trd` writes it unless the answer was only the default) | `bdd-reqnroll` / `standard` |
+| 4 | none of the above | **on** |
+
+Nothing changes for a repo that uses Reqnroll: with nothing set, the commands behave as they always did. A repo that does not use it (a Playwright + xUnit repo, a Node or Rails repo) opts out once, by setting `ENSEMBLE_BDD=0` in the environment or passing `--no-bdd` to `create-trd`; either way the TRD records `test_approach: standard`, so `implement-trd-beads` follows it. `create-trd` records `test_approach` only for an explicit choice (a flag or the environment variable), so a TRD written on the default carries none. `--bdd` or `ENSEMBLE_BDD=1` overrides a stamped `standard`. The stamp is read wherever the TRD puts its frontmatter, including under an H1 or an HTML comment. An unrecognised `ENSEMBLE_BDD` or `test_approach` value is ignored with a warning, whichever source then decides (BDD stays on if none does); the warning is always printed.
+
+`implement-trd-beads` asks about the TRD it is about to implement with `resolve-bdd --trd <path>`. A relative path is read as given and then from the repo root, and a path that cannot be read, or `--trd` with no path, is an `error` (exit 1, so the command HALTs) rather than a silent fall back to the default: BDD would otherwise run on for a TRD that opted out.
+
+**BDD off.** The `-TEST` task pairing and one `Test AC:` item per AC-NNN-M are unchanged, because `validate`, `analyze`, `req-status` and the `req-verified` evidence tokens depend on them. There is no minimum scenario count: a functional REQ with fewer than 3 ACs is listed as a coverage note in the readiness scorecard, which never blocks and never lowers the score. `-TEST` beads are implemented in the repo's own test framework from their `Test AC:` items, confirmed RED, and run through the `test-runner.run` capability. Nothing is scaffolded through `reqnroll-cli` and no `reqnroll-binding-specialist` is involved.
+
+**BDD on.** `/ensemble:create-trd` requires >=3 Given/When/Then scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist (`- [ ] Scenario: <title> -- Given ..., When ..., Then ...`, indented deeper than the `Test AC:` label so the TRD/beads parsers pick it up).
+
+`/ensemble:implement-trd-beads` then routes any task whose id matches `-TEST` through the Reqnroll BDD path: resolve `reqnroll-cli`, resolve the target `.csproj`, run `generate-bindings` to scaffold `.feature` files and `Pending()` step stubs, confirm RED, delegate `reqnroll-binding-specialist` to fill step bodies test-first, then re-confirm RED before handing off to GREEN implementation. It carries the same `Test AC:`/`validatesAcs` content verbatim into each TRD-NNN-TEST bead's description via `scaffold-planner.js`, so the contract holds regardless of which specialist later executes the bead.
 
 ### Foreman Table Mode (`create-trd --parser-tables`)
 
