@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { readDevelopmentSkill, parseWorkflow, parseParameters } = require('./helpers/skill-workflow');
 
 // implement-trd-beads is a thin orchestrator: these tests pin the machine contracts it
 // shares with other components (flags, CLI invocations, gate ordering, fail-closed gates),
@@ -9,13 +10,27 @@ const yaml = require('js-yaml');
 
 const YAML_PATH = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 const REF_PATH = path.join(__dirname, '../skills/implement-trd-beads-reference/SKILL.md');
-const text = fs.readFileSync(YAML_PATH, 'utf8');
+// implement-trd-beads is a skill-backed command: the YAML is a manifest (metadata + skill) and
+// the prompt is its skill -- SKILL.md plus the phase files under references/.
+const manifest = yaml.load(fs.readFileSync(YAML_PATH, 'utf8'));
+const skill = readDevelopmentSkill(manifest.skill);
+const text = skill.prompt;
 // The reference skill's companion files (reference/*.md) hold detail moved out of the budgeted SKILL.md.
 const REF_DIR = path.join(path.dirname(REF_PATH), 'reference');
 const ref = [REF_PATH, ...fs.readdirSync(REF_DIR).sort().map((f) => path.join(REF_DIR, f))]
   .map((f) => fs.readFileSync(f, 'utf8'))
   .join('\n');
-const doc = yaml.load(text);
+// The `## Expected Output` bullets of SKILL.md: `- **<name>**: <description>`.
+const expectedOutputSection = skill.body.slice(skill.body.indexOf('\n## Expected Output\n'), skill.body.indexOf('\n## Expected Input\n'));
+const doc = {
+  metadata: manifest.metadata,
+  parameters: parseParameters(skill.body),
+  mission: { summary: skill.body.slice(0, skill.body.indexOf('\n## Capabilities\n')) },
+  expectedOutput: {
+    structure: [...expectedOutputSection.matchAll(/^- \*\*(.+?)\*\*:/gm)].map((m) => ({ name: m[1] })),
+  },
+  workflow: { phases: parseWorkflow(skill) },
+};
 
 const phase = (name) => doc.workflow.phases.find((p) => p.name === name);
 const step = (phaseName, title) => phase(phaseName).steps.find((s) => s.title === title);
@@ -350,7 +365,7 @@ describe('implement-trd-beads bead references contract', () => {
 
 describe('implement-trd-beads source shape', () => {
   test('the dead executionContract/comment-spec prose is gone and the YAML stays thin', () => {
-    expect(doc.executionContract).toBeUndefined();
+    expect(text).not.toContain('executionContract');
     const words = text.split(/\s+/).filter(Boolean).length;
     expect(words).toBeLessThanOrEqual(4500);
   });

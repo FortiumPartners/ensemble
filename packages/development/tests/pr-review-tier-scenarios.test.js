@@ -44,7 +44,7 @@ const { loadPolicy } = require('../lib/pr-review-policy');
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const REVIEW_MD = fs.readFileSync(path.join(REPO_ROOT, 'REVIEW.md'), 'utf8');
 const CODEOWNERS = fs.readFileSync(path.join(REPO_ROOT, '.github/CODEOWNERS'), 'utf8');
-const BASE_SHA = /"sourceSha":\s*"([0-9a-f]{40})"/.exec(REVIEW_MD)[1];
+const BASE_SHA = 'd'.repeat(40);
 
 const POLICY = (() => {
   const loaded = loadPolicy({ text: REVIEW_MD, sourceSha: BASE_SHA, baseSha: BASE_SHA });

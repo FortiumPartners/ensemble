@@ -32,10 +32,15 @@
 const fs = require('fs');
 const path = require('path');
 
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
+
 const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
-const itb = read('commands/implement-trd-beads.yaml');
-const build = read('commands/beads-build.yaml');
-const wave = read('commands/beads-build-wave.yaml');
+// beads-build and implement-trd-beads are skill-backed: the prompt is the skill (SKILL.md +
+// references/); the manifest YAML keeps only metadata such as argument_hint.
+const itb = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+const build = readDevelopmentSkill('ensemble-beads-build').prompt;
+const buildManifest = read('commands/beads-build.yaml');
+const wave = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
 const waveAgent = read('agents/beads-build-wave.yaml');
 
 describe('implement-trd-beads labels the beads it scaffolds', () => {
@@ -58,7 +63,7 @@ describe('implement-trd-beads labels the beads it scaffolds', () => {
 
 describe('beads-build.yaml', () => {
   test('advertises and parses --label', () => {
-    expect(build).toMatch(/argument_hint: .*--label <label>/);
+    expect(buildManifest).toMatch(/argument_hint: .*--label <label>/);
     expect(build).toMatch(/Parse --label <L> from \$ARGUMENTS/);
   });
 });
@@ -151,7 +156,7 @@ describe('beads-build-wave', () => {
     // Step 3 must not cut the plan before Step 3b has seen it.
     expect(wave).not.toMatch(/to extract the tracks \(up to MAX_PARALLEL\)/);
     // Step 2's pointer has to name the step that now owns the cut, or the spec contradicts itself.
-    expect(wave).toMatch(/MAX_PARALLEL truncation happens after Step 3b''s filter, or in Step 3 when LABEL is unset/);
+    expect(wave).toMatch(/MAX_PARALLEL truncation happens after Step 3b's filter, or in Step 3 when LABEL is unset/);
   });
 
   /**

@@ -1,9 +1,10 @@
 /**
  * TRD-015-TEST: implement-trd-beads generated parity
  *
- * Proves that regenerating implement-trd-beads.yaml's OMP (Claude + Pi) and
- * Codex outputs carries the same
- * PR-review-gate structure as the source: the stacked-phase PR Review Gate
+ * Proves that regenerating implement-trd-beads (a skill-backed command: the YAML is a
+ * manifest and the prompt is the skill, SKILL.md + references/) carries the same
+ * PR-review-gate structure into every runtime's copy of the skill (Pi skill, Codex skill)
+ * and that the Claude Code command and Pi prompt are stubs pointing at it, as the source: the stacked-phase PR Review Gate
  * (Gate Result Recording), the single-PR PR Review Gate (Completion Report),
  * and the PR Review Completion Check, in the right order relative to each
  * other and to Epic Closure; their shared pr-review-cycle skill reference by
@@ -13,10 +14,9 @@
  * -- plus that regeneration is idempotent (no further drift) and that both
  * generate:validate and the full validate suite pass.
  *
- * The generic markdown/Pi/Codex generators render each workflow step's
- * `title`, `description` and `actions[]` only (never an `instructions` key
- * -- confirmed project-wide; see fix-issue-generated-parity.test.js). Every
- * content assertion below is scoped to what actually survives generation.
+ * The Claude Code markdown and the Pi prompt of a skill-backed command carry no prompt text
+ * (they are stubs), so the content assertions that used to run against them run against the
+ * skill prose of the source skill and of the Pi and Codex copies of the skill.
  */
 
 const fs = require('fs');
@@ -24,12 +24,21 @@ const path = require('path');
 const { execSync } = require('child_process');
 const yaml = require('js-yaml');
 
+const { readSkillProse } = require('../../../scripts/lib/skill-backed-command');
+const { readDevelopmentSkill, parseWorkflow } = require('./helpers/skill-workflow');
+
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 const SOURCE_PATH = path.join(__dirname, '../commands/implement-trd-beads.yaml');
 
-const GENERATED_FILES = {
+// Entry points that are stubs pointing at the skill (no prompt text of their own).
+const STUB_FILES = {
   'Claude/OMP markdown': path.join(__dirname, '../commands/ensemble/implement-trd-beads.md'),
   'Pi prompt': path.join(__dirname, '../../pi/prompts/ensemble-implement-trd-beads.md'),
+};
+
+// Every copy of the skill: SKILL.md plus its references/*.md, read as one prose.
+const GENERATED_FILES = {
+  'Skill source': path.join(__dirname, '../skills/ensemble-implement-trd-beads/SKILL.md'),
   'Pi skill': path.join(__dirname, '../../pi/skills/ensemble-implement-trd-beads/SKILL.md'),
   'Codex skill': path.join(
     __dirname,
@@ -44,12 +53,27 @@ describe('implement-trd-beads generated parity (TRD-015-TEST)', () => {
   let generated;
 
   beforeAll(() => {
-    sourceYaml = yaml.load(fs.readFileSync(SOURCE_PATH, 'utf-8'));
+    const manifest = yaml.load(fs.readFileSync(SOURCE_PATH, 'utf-8'));
+    const skill = readDevelopmentSkill(manifest.skill);
+    sourceYaml = {
+      mission: { summary: skill.body },
+      workflow: { phases: parseWorkflow(skill) },
+    };
     generated = {};
     for (const [label, filePath] of Object.entries(GENERATED_FILES)) {
-      generated[label] = fs.readFileSync(filePath, 'utf-8');
+      generated[label] = readSkillProse(filePath);
     }
   });
+
+  test.each(Object.entries(STUB_FILES))(
+    '%s: is a stub that points at the ensemble-implement-trd-beads skill',
+    (label, filePath) => {
+      const text = fs.readFileSync(filePath, 'utf-8');
+      expect(text).toContain('ensemble-implement-trd-beads');
+      expect(text).toMatch(/skill/i);
+      expect(text).toContain('$ARGUMENTS');
+    }
+  );
 
   test('source: Completion steps run verification, the PR review completion check, then epic closure; the gate and checks reference the skill by PR_REVIEW_SKILL', () => {
     const qualityGate = sourceYaml.workflow.phases.find((p) => p.name === 'Quality Gate');

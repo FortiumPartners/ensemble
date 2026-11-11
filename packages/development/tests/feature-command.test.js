@@ -1,5 +1,5 @@
 /**
- * Unit tests for feature.yaml command structure (TRD-002, TRD-002-TEST)
+ * Unit tests for the feature dispatcher (TRD-002, TRD-002-TEST)
  *
  * `ensemble:feature` is a thin dispatcher: every keyword (`new`/`resume`/`status`/
  * `abandon`) forwards into the existing, already-tested `/ensemble:new-feature`
@@ -8,11 +8,15 @@
  * constructs the correct forwarding invocation per keyword, performs zero
  * stage-machine logic of its own, and falls back to the keyword table/HALT
  * pattern shared with trd.yaml/issue.yaml on no-match or empty input.
+ *
+ * feature is skill-backed: commands/feature.yaml is a manifest (`metadata` + `skill`) and the
+ * prompt is skills/ensemble-feature/SKILL.md, read through helpers/feature-skill.js.
  */
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
+
+const { readFeature } = require('./helpers/feature-skill');
 
 /**
  * Join a step's `actions[]` array into one string for .toContain()/.toMatch()
@@ -23,21 +27,23 @@ function actionsText(step) {
 }
 
 describe('Feature Dispatcher Command', () => {
+  let feature;
   let commandYaml;
-  let yamlContent;
+  let skillContent;
   let generatedMarkdown;
   let dispatchStep;
 
-  const repoRoot = path.resolve(__dirname, '..', '..', '..');
-  const yamlPath = path.join(__dirname, '..', 'commands', 'feature.yaml');
+  const packageDir = path.join(__dirname, '..');
+  const repoRoot = path.resolve(packageDir, '..', '..');
   const markdownPath = path.join(repoRoot, 'packages/development/commands/ensemble/feature.md');
 
   beforeAll(() => {
-    yamlContent = fs.readFileSync(yamlPath, 'utf-8');
-    commandYaml = yaml.load(yamlContent);
+    feature = readFeature();
+    commandYaml = feature.manifest;
+    skillContent = fs.readFileSync(feature.skill.file, 'utf-8');
     generatedMarkdown = fs.readFileSync(markdownPath, 'utf8');
 
-    const dispatchPhase = commandYaml.workflow.phases.find((p) => p.name === 'Dispatch');
+    const dispatchPhase = feature.workflow.phases.find((p) => p.name === 'Dispatch');
     dispatchStep = dispatchPhase.steps.find((s) => s.order === 1);
   });
 
@@ -53,14 +59,24 @@ describe('Feature Dispatcher Command', () => {
     test('argument_hint documents all four keywords', () => {
       expect(commandYaml.metadata.argument_hint).toMatch(/new\|resume\|status\|abandon/);
     });
+
+    test('the manifest is skill-backed: it names the ensemble-feature skill and carries no prompt of its own', () => {
+      expect(commandYaml.skill).toBe('ensemble-feature');
+      expect(commandYaml.mission).toBeUndefined();
+      expect(commandYaml.dispatch).toBeUndefined();
+      expect(commandYaml.workflow).toBeUndefined();
+    });
   });
 
-  describe('dispatch.subcommands[] declares exactly the four lifecycle keywords', () => {
-    test('new/resume/status/abandon, each referencing the new-feature sibling command', () => {
-      const subcommands = commandYaml.dispatch.subcommands;
+  describe('## Subcommands declares exactly the four lifecycle keywords', () => {
+    test('new/resume/status/abandon, each referencing the new-feature sibling skill', () => {
+      const subcommands = feature.subcommands;
       expect(subcommands.map((s) => s.keyword)).toEqual(['new', 'resume', 'status', 'abandon']);
       subcommands.forEach((sub) => {
         expect(sub.ref).toBe('new-feature');
+        expect(sub.path).toBe('../ensemble-new-feature/SKILL.md');
+        // The sibling path resolves against this skill's directory.
+        expect(fs.existsSync(path.resolve(path.dirname(feature.skill.file), sub.path))).toBe(true);
       });
     });
   });
@@ -126,9 +142,11 @@ describe('Feature Dispatcher Command', () => {
       '[Step 2/5]',
     ];
 
-    test("the YAML source contains no trace of the old 5-step linear pipeline's stage vocabulary", () => {
+    test("the manifest and skill source contain no trace of the old 5-step linear pipeline's stage vocabulary", () => {
+      const manifestContent = fs.readFileSync(path.join(packageDir, 'commands', 'feature.yaml'), 'utf-8');
       forbiddenStageTokens.forEach((token) => {
-        expect(yamlContent).not.toContain(token);
+        expect(manifestContent).not.toContain(token);
+        expect(skillContent).not.toContain(token);
       });
     });
 
@@ -145,8 +163,10 @@ describe('Feature Dispatcher Command', () => {
     });
 
     test('this is a single-phase, single-step dispatcher -- no multi-phase pipeline orchestration', () => {
-      expect(commandYaml.workflow.phases).toHaveLength(1);
-      expect(commandYaml.workflow.phases[0].steps).toHaveLength(1);
+      expect(feature.workflow.phases).toHaveLength(1);
+      expect(feature.workflow.phases[0].steps).toHaveLength(1);
+      expect(skillContent.match(/^### Phase /gm)).toHaveLength(1);
+      expect(skillContent.match(/^#### Step /gm)).toHaveLength(1);
     });
   });
 
@@ -182,21 +202,20 @@ describe('Feature Dispatcher Command', () => {
       expect(generatedMarkdown).toMatch(/category:\s*"implementation"/);
     });
 
-    test('documents all four keywords in the rendered Subcommands section, each pointing at new-feature.md', () => {
+    test('is a stub pointing at the ensemble-feature skill, which carries all four keywords in its Subcommands section', () => {
+      expect(generatedMarkdown).toContain('skills/ensemble-feature/SKILL.md');
       ['new', 'resume', 'status', 'abandon'].forEach((keyword) => {
-        expect(generatedMarkdown).toContain(
-          `- **\`${keyword}\`** -`
-        );
+        expect(skillContent).toContain(`- **\`${keyword}\`** -`);
+        expect(generatedMarkdown).not.toContain(`- **\`${keyword}\`** -`);
       });
-      const newFeatureReferenceCount = (
-        generatedMarkdown.match(/packages\/development\/commands\/ensemble\/new-feature\.md/g) || []
-      ).length;
-      // One reference per keyword (4) -- every subcommand targets the same sibling file.
+      // new-feature is skill-backed: the dispatcher points at its sibling SKILL.md rather
+      // than at a generated new-feature.md -- one reference per keyword (4), all the same skill.
+      const newFeatureReferenceCount = (skillContent.match(/\.\.\/ensemble-new-feature\/SKILL\.md/g) || []).length;
       expect(newFeatureReferenceCount).toBe(4);
     });
 
-    test('Usage section documents the <new|resume|status|abandon> argument shape', () => {
-      expect(generatedMarkdown).toContain('/ensemble:feature <new|resume|status|abandon> [args...]');
+    test('the argument-hint documents the <new|resume|status|abandon> argument shape', () => {
+      expect(generatedMarkdown).toContain('argument-hint: "<new|resume|status|abandon> [args...]"');
     });
   });
 });

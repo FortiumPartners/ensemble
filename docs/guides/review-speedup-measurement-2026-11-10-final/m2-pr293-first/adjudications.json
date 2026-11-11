@@ -1,0 +1,31 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-measure2",
+ "runId": "m2-pr293-first",
+ "adjudications": [
+  {
+   "id": "f3",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 5 real, 0 not-real and 0 abstaining of 5 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f4",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 5 real, 0 not-real and 0 abstaining of 5 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f5",
+   "disposition": "deferred",
+   "reason": "Nit; 4 real, 0 not-real and 0 abstaining of 5 expected verifiers (present, settled on a majority with a verifier missing). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f17",
+   "disposition": "deferred",
+   "reason": "Nit; 5 real, 0 not-real and 0 abstaining of 5 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f18",
+   "disposition": "deferred",
+   "reason": "Nit; 4 real, 0 not-real and 0 abstaining of 5 expected verifiers (present, settled on a majority with a verifier missing). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  }
+ ]
+}

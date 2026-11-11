@@ -8,11 +8,20 @@
 
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
+const { resolveSkillFile, listSkillReferences } = require('../../../scripts/lib/skill-backed-command');
 const { resolveRunConfig } = require('../lib/test-runner-mode');
 const { validateRunRequest } = require('../lib/delegation-contract');
 
-const yamlText = fs.readFileSync(path.join(__dirname, '../commands/author-playwright-tests.yaml'), 'utf8');
+// author-playwright-tests is skill-backed: its prompt is its skill. The positional
+// assertions below search the phase files alone (SKILL.md's phase index also names the
+// phases), which read as the old workflow did.
+const yamlPath = path.join(__dirname, '../commands/author-playwright-tests.yaml');
+const manifest = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+const phaseText = listSkillReferences(resolveSkillFile(yamlPath, manifest.skill))
+  .map((file) => fs.readFileSync(file, 'utf8'))
+  .join('\n');
 const agentText = fs.readFileSync(path.join(__dirname, '../agents/playwright-tester.yaml'), 'utf8');
 
 describe('resolveRunConfig slowMoMs', () => {
@@ -78,22 +87,22 @@ describe('validateRunRequest slowMoMs', () => {
 
 describe('author-playwright-tests.yaml wiring', () => {
   test('the pause prompt comes after QA-env verification and before the REQ loop', () => {
-    const envIndex = yamlText.indexOf('Resolve and Verify the QA Environment');
-    const pauseIndex = yamlText.indexOf('Offer a Follow-Along Pause');
-    const reqLoopIndex = yamlText.indexOf('REQ Batching and Delegation');
+    const envIndex = phaseText.indexOf('Resolve and Verify the QA Environment');
+    const pauseIndex = phaseText.indexOf('Offer a Follow-Along Pause');
+    const reqLoopIndex = phaseText.indexOf('REQ Batching and Delegation');
     expect(envIndex).toBeGreaterThan(-1);
     expect(pauseIndex).toBeGreaterThan(envIndex);
     expect(pauseIndex).toBeLessThan(reqLoopIndex);
   });
 
   test('the prompt is skipped in headless mode and defaults to 1000 ms', () => {
-    const step = yamlText.slice(yamlText.indexOf('Offer a Follow-Along Pause'), yamlText.indexOf('REQ Batching and Delegation'));
+    const step = phaseText.slice(phaseText.indexOf('Offer a Follow-Along Pause'), phaseText.indexOf('REQ Batching and Delegation'));
     expect(step).toMatch(/headless: skip this step entirely/);
     expect(step).toContain('slowMoMs = 1000');
   });
 
   test('the Run request carries slowMoMs and forbids sleeping in the test source', () => {
-    const runStep = yamlText.slice(yamlText.indexOf('Run the Confirmed Test'), yamlText.indexOf('Land the Confirmed, Passed Test'));
+    const runStep = phaseText.slice(phaseText.indexOf('Run the Confirmed Test'), phaseText.indexOf('Land the Confirmed, Passed Test'));
     expect(runStep).toContain('slowMoMs');
     expect(runStep).toMatch(/never add a sleep or wait to proposedTest/);
   });

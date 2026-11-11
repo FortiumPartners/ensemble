@@ -1,0 +1,1 @@
+../../permitter/lib/allowlist-loader.js

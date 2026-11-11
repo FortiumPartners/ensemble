@@ -398,6 +398,18 @@ function requiredNodeVersions(approvalSet) {
   return [...set].sort((a, b) => a - b);
 }
 
+/**
+ * The longest one run can take inside its own limits: every required Node version runs `node --version`, then every
+ * trusted step, and each command is cut off after DEFAULT_STEP_TIMEOUT_MS (a step after `stepTimeoutMs` when given).
+ * There is no run-level deadline, and the clone and the Node download have no timeout, so this is what the step limits
+ * allow, not a cap on the whole run. Whoever waits for a run (the gate lock) sizes its patience from it.
+ */
+function worstCaseMs(approvalSet, options) {
+  const perStep = options && Number.isFinite(options.stepTimeoutMs) && options.stepTimeoutMs > 0 ? options.stepTimeoutMs : DEFAULT_STEP_TIMEOUT_MS;
+  const steps = approvalSet && Array.isArray(approvalSet.steps) ? approvalSet.steps.length : 0;
+  return requiredNodeVersions(approvalSet || {}).length * (DEFAULT_STEP_TIMEOUT_MS + steps * perStep);
+}
+
 /* --------------------------------------------------------------- reporting */
 
 function tail(text) {
@@ -722,6 +734,7 @@ module.exports = {
   sweepStaleClones,
   findUnmirroredSteps,
   requiredNodeVersions,
+  worstCaseMs,
   loadSecrets,
   parseSecretsFile,
   redact,

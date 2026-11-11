@@ -1,0 +1,47 @@
+### Phase 1: Preflight
+
+#### Step 1.1: Argument Parsing
+
+Parse --epic, --max-parallel, --trd, --strategy, --team-roles, deprecated --builder
+
+- Parse $ARGUMENTS: --epic <id> sets ROOT_EPIC_ID. If absent: print 'ERROR: --epic <id> is required' and HALT.
+- Parse --max-parallel N from $ARGUMENTS (default 3). Set MAX_PARALLEL.
+- Parse --trd <path> from $ARGUMENTS (optional); if present set TRD_MODE=true and TRD_PATH=<path>.
+- Parse --strategy <value> from $ARGUMENTS (optional); valid: tdd, characterization, bug-fix, refactor, test-after, flexible.
+- Parse --label <L> from $ARGUMENTS (optional); if present set LABEL=<L>. LABEL scopes the scheduling plan to one TRD.
+- Parse --team-roles <json> from $ARGUMENTS (optional); if present parse as TEAM_ROLES. If absent, parse deprecated --builder <agent> and synthesize compatibility TEAM_ROLES={lead:{agents:["tech-lead-orchestrator"],owns:["planning","escalation"]},builder:{agents:[<builder>],owns:["implementation"]},architect:{agents:["architect"],owns:["task-design"]},documentation:{agents:["documentation-specialist"],owns:["pr-boundary-doc-maintenance"]}}. If neither flag is present, set TEAM_ROLES={} and continue.
+
+#### Step 1.2: Toolchain Preflight
+
+Resolve toolchain-cli and verify tracker/work-graph capability health before any tracker or scheduling call
+
+- Resolve TOOLCHAIN_CLI (RELATIVE_PATH packages/development/lib/toolchain-cli.js) with the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md). If it does not resolve print "ERROR: could not locate toolchain-cli" and HALT.
+- Run: node "$TOOLCHAIN_CLI" preflight --require tracker.show --require tracker.set-status --require tracker.close --require tracker.comment --require work-graph.ready --require workflow.status --require workflow.commit --json [add --non-interactive when --foreman is present] and parse stdout as PREFLIGHT_RESULT. ok:false -> print PREFLIGHT_RESULT.error.message and HALT. Store RUN_ID = PREFLIGHT_RESULT.runId; every later toolchain-cli call in this invocation (and every call this wave's track payload hands to the dispatched orchestrator) passes --run-id "$RUN_ID". tracker.list is optional and NOT in this preflight's required set (only Step 3b needs it, only when --label is set). tracker.sync is ALSO optional and not preflighted (no server-side tracker, e.g. jira, azure-boards, implements a local flush step); every tracker.sync call below skips silently on {ok:false}, never HALTing.
+
+#### Step 1.3: Working Directory and Branch Verification
+
+Confirm clean working directory AND that the caller already switched off the repository default branch; branch creation itself is still owned by the caller (beads-build.yaml or implement-trd-beads.yaml Feature Branch Creation) -- this step only verifies the precondition, it never creates or switches branches.
+
+- Run: node "$TOOLCHAIN_CLI" run workflow.status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present]; HALT if any changed path outside .beads/ (the tracker adapter's own state) remains (dirty working directory).
+- CURRENT_BRANCH = the current branch name (HALT immediately with "ERROR: detached HEAD -- create or switch to a feature branch before dispatching a wave." if this fails/empty, i.e. detached HEAD).
+- DEFAULT_BRANCH = the remote's default branch without the origin/ prefix; if empty (no origin configured) fall back to DEFAULT_BRANCH=main.
+- HARD PRECONDITION: if CURRENT_BRANCH == DEFAULT_BRANCH, print "ERROR: beads-build-wave refuses to dispatch on the repository default branch (<DEFAULT_BRANCH>). Run implement-trd-beads.yaml Feature Branch Creation (Preflight Step 10) first, or manually create/switch to a feature branch, then retry." and HALT. Do not implement work directly on <DEFAULT_BRANCH>.
+- Note: this command does NOT create or switch branches itself; it only verifies the caller already did. This file remains branch-mutation-free.
+
+#### Step 1.4: Epic and TRD Resolution
+
+Confirm ROOT_EPIC_ID exists; load TRD file when TRD_MODE=true; rebuild TASK_TRACEABILITY on resume
+
+- Run: node "$TOOLCHAIN_CLI" run tracker.show --run-id "$RUN_ID" --arg id=<ROOT_EPIC_ID> --json [add --non-interactive when --foreman is present]; non-ok -> print "ERROR: Bead <ROOT_EPIC_ID> not found." and HALT.
+- Derive EPIC_SLUG from the epic bead title (lowercase, replace non-alphanumeric with hyphens, strip leading/trailing hyphens).
+- If TRD_MODE=true: verify TRD_PATH file exists on disk; if not found print "ERROR: TRD file not found at <TRD_PATH>" and HALT. Re-parse the TRD to rebuild TASK_TRACEABILITY on every invocation (this is the cross-session resume path; do NOT cache).
+- If TRD_MODE=false: TASK_TRACEABILITY remains empty; print "TRD augmentations: disabled (no --trd flag)".
+- Print "Wave runner invoked for EPIC=<ROOT_EPIC_ID> slug=<EPIC_SLUG> max_parallel=<MAX_PARALLEL> trd_mode=<TRD_MODE>".
+
+#### Step 1.5: Strategy Detection
+
+Determine implementation strategy from arguments, TRD content, or auto-detection
+
+- Priority: --strategy arg -> TRD explicit (if TRD_MODE) -> auto-detect from bead titles/descriptions -> default (tdd)
+- Auto-detect: legacy/brownfield/untested -> characterization; bug fix/regression -> bug-fix; refactor/tech debt -> refactor; prototype/spike/POC -> test-after; default -> tdd
+- Store STRATEGY; print "Strategy: <STRATEGY>".

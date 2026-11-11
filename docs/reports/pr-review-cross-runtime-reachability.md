@@ -76,8 +76,8 @@ procedure skill, the other three `pr-review-*` skills, or a vendored
   (`react`, `nestjs`, `rails`, `phoenix`, `blazor`, `dotnet`, `jest`,
   `pytest`, `rspec`, `xunit`, `exunit`) into `.codex/skills/`. Procedure
   skills are not in that list.
-- `scripts/generate-opencode` copies `packages/<pkg>/skills/SKILL.md` — a
-  single-skill-per-package layout. The multi-skill
+- `scripts/generate-opencode` copies `packages/<pkg>/skills/<pkg>/SKILL.md`, the
+  one skill a package names after itself. The multi-skill
   `packages/development/skills/<name>/SKILL.md` layout is not discovered.
 
 **Consequence for a user on Codex or OpenCode.** The generated `pr-merge`

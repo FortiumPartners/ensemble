@@ -1,7 +1,6 @@
 ---
 name: adapter-tracker-jira
 description: Jira Cloud `tracker` toolchain adapter (TRD-2026-8d825f54 TRD-032, PRD REQ-016). Loaded by the toolchain resolver, not invoked directly by name.
-user-invocable: true
 ---
 
 # Jira Cloud Tracker Adapter

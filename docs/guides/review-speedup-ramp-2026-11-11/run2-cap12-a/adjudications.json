@@ -1,0 +1,36 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-ramp",
+ "runId": "ramp2-cap12a",
+ "adjudications": [
+  {
+   "id": "f2",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f6",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f8",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f10",
+   "disposition": "fix",
+   "reason": "Important finding; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f12",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f13",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  }
+ ]
+}

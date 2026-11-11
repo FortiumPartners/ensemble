@@ -61,20 +61,29 @@ An owner declares sensitive areas in the `sensitivePaths` list below. A pull
 request touching one of them is treated as sensitive by every review and
 approval rule that consults sensitivity. The declared list **adds to** the
 built-in floor (CI workflows, release gates, installers, the generation
-pipeline and the project constitution); it can never shrink it.
+pipeline and the project constitution); it can never shrink it. The review
+guards are declared here too -- the review and local-CI gate code under any
+file name or extension and every copy of it (the vendored ones and the full
+bundle's links), the local-CI approval set and its runner script, the whole
+`pr-review-cycle` skill, which is the procedure that feeds the gate, and the
+`pr-merge` command source with its generated copies -- so a change to them
+always keeps two humans, whatever `soloMaintainer` says. A pattern that names
+a path is matched ignoring letter case, because a case-insensitive checkout
+(macOS, Windows) writes `PR-REVIEW-GATE.JS` over `pr-review-gate.js`; a bare
+file name such as `REVIEW.md` is matched exactly, at any depth.
 
 ## Policy
 
-The fenced block below is the only place policy keys are read from. Keep
-`sourceSha` pointing at the commit this policy takes effect from — refresh it
-with `git rev-parse HEAD` after a change to this block lands on the default
-branch. While it does not match a review's base commit, the strict defaults
-apply (round cap 3, Quick at one reviewer and no verifier, no Low waiver),
-which is the safe outcome, never a relaxed one.
+The fenced block below is the only place policy keys are read from. The
+review reads it from the base commit of the PR, and that commit is the policy's
+identity. Do NOT add a `sourceSha` key: a commit cannot name itself, so a
+declared `sourceSha` can never equal the base and the whole block is rejected
+(`policy-not-from-base`), leaving the strict defaults in force (round cap 3,
+Quick at one reviewer and no verifier, no Low waiver, no maintainer or bot
+logins).
 
 ```ensemble-review-policy
 {
-  "sourceSha": "4c1639e25ae0bba09d2dd533ffd9b7c29f9c8aa5",
   "roundCap": 3,
   "maintainerLogins": ["@ldangelo"],
   "botLogins": ["@coderabbitai", "@claude", "@github-actions"],
@@ -91,7 +100,18 @@ which is the safe outcome, never a relaxed one.
     "REVIEW.md",
     ".github/CODEOWNERS",
     ".github/pull_request_template.md",
-    "packages/development/lib/pr-review-*.js"
+    "packages/**/lib/pr-review-*",
+    "packages/**/lib/local-ci-*",
+    ".ensemble/local-ci.yaml",
+    "scripts/ci-local.js",
+    "packages/**/skills/pr-review-cycle",
+    "packages/**/skills/pr-review-cycle/**",
+    "packages/git/commands/pr-merge.yaml",
+    "packages/**/commands/ensemble/pr-merge.md",
+    "packages/**/ensemble-pr-merge.md",
+    "packages/**/ensemble-pr-merge/SKILL.md",
+    "packages/**/ensemble-pr-merge/**",
+    "packages/full/commands/git"
   ],
   "highPaths": [
     "packages/development/lib/**",
@@ -99,20 +119,28 @@ which is the safe outcome, never a relaxed one.
     "packages/pi-extension/**"
   ],
   "lowWaiverEnabled": false,
+  "soloMaintainer": true,
   "sliceThreshold": 1500
 }
 ```
 
 | Key | Meaning |
 |---|---|
-| `sourceSha` | The commit this policy is in force at. A mismatch means strict defaults. |
 | `roundCap` | Review rounds before the cycle escalates (1–5; 3 here). |
 | `maintainerLogins` | Logins whose approval counts for this repository. |
 | `botLogins` | Review bots. A bot approval never satisfies a human-approval requirement. |
 | `sensitivePaths` | Owner-declared sensitive areas, added to the built-in floor. |
 | `highPaths` | Areas that start at the High risk tier. |
 | `lowWaiverEnabled` | Whether a Low-risk PR may waive review with evidence (off here). |
-| `sliceThreshold` | Changed-line count above which a PR is reviewed in slices. |
+| `soloMaintainer` | With exactly one maintainer login: a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. If that maintainer is not the PR's author they must have approved the current head on the host; if they are the author (an agent PR committed under their own login, which the host will not let them approve) the discount rests on their own credit as author-as-director and the gate result carries the warning `solo-maintainer-self-credit`. A PR whose author cannot be read keeps two humans, and a `Directed by:` line alone never lowers the requirement for any other author. The security lane still blocks High. Sensitive-path PRs keep two humans. |
+| `sliceThreshold` | Changed-line count above which `planSlices` splits a PR area by area. The review runner does not use it to decide whether to slice: it cuts every PR by size (`sliceMaxFiles`, `sliceTargetLines`) and the threshold only names the one slice. |
+| `sliceMaxFiles` | Most paths in one reviewer's slice (default 8, derived from the one real full-mode run, kata `sfpb`). |
+| `sliceTargetLines` | Changed lines to aim for in one reviewer's slice (default 612). |
+| `deadlineHeadroom` | Times the modelled time to read its work an agent's deadline allows (1-10, default 2: a judgement, not a measurement). |
+| `reviewerToolCalls` | Most tool calls one reviewer may spend (10-200, default 40). More buys deeper reading and costs time and tokens per reviewer; raise `deadlineMinutes.reviewer` with it; a reviewer that stops with unread paths leaves coverage incomplete, which stops the gate. Advisory: the runner sizes deadlines from paths and lines only and does not check it. |
+| `reviewerSnippets` | Most throwaway read-only snippets one reviewer may run to settle a claim about what code does (1-10, below `reviewerToolCalls` because snippets count toward it; default 3: a judgement, not a measurement). |
+| `quorumFirstVerification` | Boolean, off unless `true` (default `false`; `"yes"` and `1` do not turn it on; not set here). On: the review runner dispatches only the first strict majority of each candidate's verifiers (2 of 3, 3 of 5) and the rest only for a candidate whose first votes are not all `real` (a not-real, an abstain or a missing vote). The electorate and the vote rule are unchanged, so the outcome is the full electorate's (kata `3ezq`; owner decision D4: "3 verifiers per finding" means deciding, not dispatched). A candidate its first votes settle is `quorum-settled`: never carried into a re-review, and its tally has no not-real count to show because the verifiers not asked never voted; a missing first vote costs a second dispatch. See `docs/guides/pr-review-run.md`. |
+| `deadlineMinutes` | Per-agent deadline base in minutes (reviewer 15, verifier 5, security 15). The review runner raises a reviewer's and the security lane's above it by what they have to read, at most 60 minutes, and never gives them less than a fixed-cost floor of 22 minutes (measured: a reviewer's time on a small slice does not follow its size): a value the policy sets below 22 (15 included) is overridden and the run's sizing warnings say so; an unset value is raised without a warning (the manifest marks the agent `deadlineFloored`). A verifier is not sized and is never given less than its own fixed-cost floor of 8 minutes (measured: 9 of 60 verifiers were stopped at the old flat 5, and their time does not follow their claims): a value the policy sets below 8 (5 included) is overridden and named the same way. |
 
 ## Ownership
 

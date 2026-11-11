@@ -173,6 +173,7 @@ function gateInput(overrides = {}) {
     tier: tierResult('medium'),
     description: description(),
     security: { status: 'clean' },
+    coverage: { status: 'complete', gaps: [] },
     headSha: HEAD,
     ...overrides,
   };
@@ -400,7 +401,12 @@ describe('AC-025-1 / AC-025-2: the blocking security lane', () => {
         id: 'S-1',
         failureMode: 'token logged in plaintext',
         disposition: 'resolved',
-        resolution: { reason: 'false positive: the logger redacts the token before write (src/log.js:40)' },
+        resolution: {
+          reason: 'false positive: the logger redacts the token before write (src/log.js:40)',
+          by: 'maintainer-m',
+          headSha: HEAD,
+          at: '2026-11-06T10:00:00Z',
+        },
       }),
     ],
   };
@@ -465,7 +471,16 @@ describe('AC-025-1 / AC-025-2: the blocking security lane', () => {
 describe('AC-025-1 / AC-025-2: the finding-answered merge block', () => {
   const openImportant = [finding({ id: 'F-9' })];
   const answeredImportant = [
-    finding({ id: 'F-9', disposition: 'resolved', resolution: { reason: 'intentional: the retry is bounded by the caller' } }),
+    finding({
+      id: 'F-9',
+      disposition: 'resolved',
+      resolution: {
+        reason: 'intentional: the retry is bounded by the caller',
+        by: 'maintainer-m',
+        headSha: HEAD,
+        at: '2026-11-06T10:00:00Z',
+      },
+    }),
   ];
   const nitOnly = [finding({ id: 'F-2', severity: 'nit' })];
 

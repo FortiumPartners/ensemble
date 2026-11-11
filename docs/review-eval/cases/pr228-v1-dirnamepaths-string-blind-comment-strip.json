@@ -1,0 +1,13 @@
+{
+  "id": "pr228-v1-dirnamepaths-string-blind-comment-strip",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/228 head 7d4d9d280e9d50756c4dc6f5810f92794c9afaaf",
+  "bug": "dirnamePaths strips comments with a stripper that is not string-aware, so a real path.join(__dirname, 'absent.yaml') after a quoted 'http://x' or a quoted glob followed by a later */ is neither checked nor counted and the data-path gate passes.",
+  "location": {
+    "path": "scripts/validate-all.js",
+    "startLine": 273,
+    "endLine": 284
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

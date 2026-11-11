@@ -1,0 +1,101 @@
+---
+name: ensemble-create-prd
+description: "Create a comprehensive Product Requirements Document (PRD) through structured elicitation, contextual research and adversarial self-review, or from a meeting summary with --from-meeting. Use when the user wants to write, draft or spec a PRD, product requirements or a feature specification, even if they do not say \"PRD\". Adapts depth from solo developer to enterprise scale and runs an Implementation Readiness Gate before saving."
+disable-model-invocation: true
+metadata:
+  version: "2.7.0"
+  category: planning
+---
+
+Create a comprehensive Product Requirements Document (PRD) through structured elicitation,
+contextual research, and adversarial self-review. Adapts depth to project scale (solo dev
+through enterprise). Uses clarifying interviews and creative elicitation techniques to surface
+hidden requirements before writing. Every PRD passes an Implementation Readiness Gate before
+being saved to ensure handoff quality.
+Foreman subject contract: under --foreman the dispatched task -- not the repository --
+decides what this PRD is about. FOREMAN_TASK_TITLE carries that task's title and
+FOREMAN_TASK_DESCRIPTION its description (Foreman dispatch sets them; nothing else
+does). When FOREMAN_TASK_TITLE is set and non-empty it is the authoritative subject:
+write the PRD about exactly that, treat FOREMAN_TASK_DESCRIPTION as the product
+description this command would otherwise receive as arguments, and print the title you
+read before writing anything so the delivered subject is visible in the phase output.
+NEVER infer the subject from repository contents, git history, docs/PRD/ entries, the
+most recent PRD, or a plausible-looking gap you noticed: a Foreman command phase
+receives no conversation and no arguments, so an inferred subject is an invented one.
+If NEITHER a product description was passed as arguments NOR FOREMAN_TASK_TITLE is set
+and non-empty, STOP immediately -- write no PRD and report that the subject was never
+delivered, naming FOREMAN_TASK_TITLE. Halting is correct there: a well-formed PRD about
+a subject nobody asked for is worse than no PRD, because the run reports success.
+Outside Foreman dispatch both variables are simply absent, and behavior is unchanged --
+the arguments are the product description.
+Meeting-summary mode (--from-meeting): create the PRD from a meeting summary rather than a
+live interactive interview -- the asynchronous counterpart to the default mode, for capturing
+requirements discussed in a meeting a human wasn't available to interview about afterward.
+$ARGUMENTS (with the flag removed) is the meeting summary, inline text or a path to one, and
+replaces the product description. Extracts what the summary actually states, marks every gap
+the live interview would normally have filled with [NEEDS CLARIFICATION], and produces the
+same PRD structure, Implementation Readiness Gate and Constitution Gate as the default mode
+so a later human-run refine-prd pass closes the gaps interactively. Source-agnostic by
+design: works from any adapter that normalizes its meeting-summary output into the expected
+shape, not tied to any one meeting platform. --from-meeting and --foreman are mutually
+exclusive.
+
+## Constraints
+
+- DO NOT implement, build, or execute any work described in the product description (or, with --from-meeting, in the meeting summary)
+- This command creates ONLY a PRD document
+- The arguments describe what should be documented, not what should be built
+- After creating the PRD, stop and wait for user approval before any implementation
+- DO NOT skip the elicitation phase -- always ask clarifying questions before generating requirements (unless --foreman or --from-meeting is set, see parameters)
+- DO NOT save the PRD until it passes the Implementation Readiness Gate (--from-meeting excepted: it saves a Draft on any score, see the --from-meeting constraints below)
+- DO NOT save the PRD until the Constitution Gate Contract passes
+- Mark every unresolved ambiguity inline with [NEEDS CLARIFICATION: <specific question>] rather than making a best-guess assumption — these markers drive the refine-prd interview
+- When --foreman is set, Scale Detection and all clarifying-question interviews are force-skipped in favor of best-effort defaults and inline [NEEDS CLARIFICATION: ...] markers; the CONCERNS-level Implementation Readiness Gate confirmation defaults to proceeding (with the warning still shown) only for non-constitution concerns; constitution violations are excluded from CONCERNS auto-proceed and always HALT; the FAIL-level HALT is unaffected
+- --from-meeting: $ARGUMENTS is a normalized meeting summary, or a path to one -- not raw audio/video, not a live interview transcript to conduct
+- --from-meeting: DO NOT invent requirements, decisions, or constraints that are not actually present in the provided meeting summary -- mark every gap with [NEEDS CLARIFICATION] instead of guessing, since there is no human present to ask
+- --from-meeting: DO NOT skip the Ambiguity Marking Pass -- everything the live interview would normally ask must become a [NEEDS CLARIFICATION] marker here instead
+- --from-meeting: save the PRD as Status Draft even on a low Readiness Gate score -- see the Implementation Readiness Gate step for why this differs from the default mode. The Constitution Gate Contract still applies unchanged: its failures hard HALT in this mode too
+- --from-meeting: the meeting-summary input contract is source-agnostic -- any adapter (Teams, Zoom, Otter, a manually pasted transcript) that normalizes its output into the shape described in the Meeting Summary Intake phase can feed this command; do not assume Teams-specific formatting anywhere in this workflow
+- --from-meeting cannot be combined with --foreman (the subject comes from the meeting summary, not from FOREMAN_TASK_TITLE) -- HALT if both are passed
+
+## Arguments
+
+- **`foreman`** (boolean, optional, default: `false`): Run in Foreman-native non-interactive mode -- skip the Scale Detection question and all clarifying-question interviews, using best-effort defaults (STANDARD depth) and marking unresolved ambiguity inline with [NEEDS CLARIFICATION: ...] instead of asking. Soft "proceed anyway?" confirmations are skipped (default to proceeding, with the warning still logged). Hard gate failures (e.g. Implementation Readiness Gate FAIL) still HALT unchanged. Constitution Gate Contract failures also hard HALT; --foreman cannot bypass missing-source, unmapped-check, or article violation failures. For automated Foreman orchestration.
+- **`from-meeting`** (boolean, optional, default: `false`): Draft the PRD from a meeting summary instead of a live interview -- the asynchronous counterpart to the default mode, for capturing requirements discussed in a meeting a human was not available to interview about afterward. $ARGUMENTS (with this flag removed) is a normalized meeting summary, inline text or a path to one -- not raw audio/video, and not a free-form product description (use the default mode for that). Skips every interview question: scale depth is inferred from the summary, what the summary states is extracted, and every gap the interview would have filled is marked [NEEDS CLARIFICATION: ...] instead of guessed. The Implementation Readiness Gate never blocks the save in this mode: a CONCERNS or FAIL score still saves the PRD with Status Draft and reports the result, because there is no live user to ask. The Constitution Gate Contract is unchanged and its failures still hard HALT. Cannot be combined with --foreman (passing both HALTs with an error): --foreman takes the PRD subject from FOREMAN_TASK_TITLE / FOREMAN_TASK_DESCRIPTION, while this mode takes it from the meeting summary.
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| 1. Structured Elicitation | `references/phase-1-structured-elicitation.md` | Scale Detection; Problem Space Interview; Creative Elicitation |
+| 2. Meeting Summary Intake (--from-meeting only) | `references/phase-2-meeting-summary-intake.md` | Parse Meeting Summary; Scale Detection (inferred, not asked); Extraction |
+| 3. Research and Context | `references/phase-3-research-and-context.md` | Codebase Reconnaissance; Existing PRD Review; Business Integration Points |
+| 4. Requirements Definition | `references/phase-4-requirements-definition.md` | Functional Requirements; Non-Functional Requirements; Acceptance Criteria; Ambiguity Marking Pass; Dependency Map |
+| 5. Adversarial Review and Readiness Gate | `references/phase-5-adversarial-review-and-readiness-gate.md` | Self-Critique; Issue Resolution; Implementation Readiness Gate |
+| 6. Constitution Gate | `references/phase-6-constitution-gate.md` | Constitution Gate Contract |
+| 7. Output Management | `references/phase-7-output-management.md` | PRD Document Generation; File Organization |
+
+## Expected Output
+
+**Format:** Product Requirements Document (PRD)
+
+**Structure:**
+- **PRD Health Summary**: Document metadata (ID, version, status, date, scale depth, readiness score) plus risk-flag and dependency listings; counts are derived from the REQ/AC structure, not restated
+- **Product Summary**: Problem statement, solution overview, value proposition, target users
+- **User Analysis**: User roles, personas, pain points, success metrics
+- **Requirements by Feature Area**: REQ-NNN identified requirements grouped by feature area with MoSCoW priority (business value only; no effort or complexity tags)
+- **Goals and Non-Goals**: Objectives, success criteria, explicit scope boundaries -- stated as outcomes, with no effort or technology claims
+- **Approvals and Decision Ownership**: Named approver (role, not person-dependent prose) for the product decision, plus the criteria they judge it against; the accountable counterpart to the customer-facing approve/request-changes step
+- **Entry and Exit Criteria**: Preconditions that must hold before work starts, and the observable conditions that mark the effort delivered
+- **Acceptance Criteria**: ACs co-located under each REQ-NNN in Given/When/Then format (AC-NNN-M)
+- **Dependency Map**: Cross-requirement dependencies and implementation clusters
+- **Readiness Scorecard**: Implementation Readiness Gate scores for completeness, testability, clarity, and feasibility
+- **Clarification Agenda (--from-meeting only)**: Count and list of [NEEDS CLARIFICATION] markers -- the agenda for the human-run refine-prd pass a meeting-sourced draft expects to follow it
+
+## Usage
+
+```
+/ensemble:create-prd [product-description] [--foreman] | --from-meeting <meeting-summary-or-path>
+```

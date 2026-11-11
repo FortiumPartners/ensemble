@@ -46,10 +46,10 @@ const skill = {
  * @returns {string} Path to documentation file
  */
 function loadSkill(type = 'quick') {
-  const skillsDir = path.join(__dirname, '..', 'skills');
+  const skillDir = path.join(__dirname, '..', 'skills', 'exunit');
   return type === 'comprehensive'
-    ? path.join(skillsDir, 'REFERENCE.md')
-    : path.join(skillsDir, 'SKILL.md');
+    ? path.join(skillDir, 'REFERENCE.md')
+    : path.join(skillDir, 'SKILL.md');
 }
 
 /**

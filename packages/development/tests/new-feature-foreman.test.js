@@ -9,12 +9,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
 const { checkNewFeature, flat, step, actions, FOREMAN_RE, STAGE_SKILLS } = require('./helpers/foreman-invariants');
+const { readNewFeature } = require('./helpers/new-feature-skill');
 
 const REPO_ROOT = path.join(__dirname, '../../..');
-const load = () =>
-  yaml.load(fs.readFileSync(path.join(__dirname, '../commands/new-feature.yaml'), 'utf-8'));
+// new-feature is skill-backed: the document the checks run over is rebuilt from its skill
+// (SKILL.md + references/), in the shape its YAML had before the prompt moved there.
+const load = () => readNewFeature();
 const clone = (doc) => JSON.parse(JSON.stringify(doc));
 
 describe('new-feature --foreman', () => {
@@ -133,19 +134,34 @@ describe('new-feature --foreman', () => {
   });
 
   describe('generated artifacts carry the behavior (REQ-010, read-only)', () => {
-    const rendered = [
-      'packages/development/commands/ensemble/new-feature.md',
-      'packages/pi/prompts/ensemble-new-feature.md',
-      'packages/codex/.codex/skills/commands/ensemble-new-feature/SKILL.md',
-    ];
-    test.each(rendered)('%s forwards --foreman to every stage skill', (rel) => {
-      const text = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
+    const assertForwards = (text) => {
       expect(text).toMatch(/--foreman/);
       for (const skill of STAGE_SKILLS) {
         // some line mentions this skill and --foreman together
         expect(text.split('\n').some((l) => l.includes(skill) && l.includes('--foreman'))).toBe(true);
       }
       expect(text).toMatch(/granted by --foreman policy/);
+    };
+
+    // The Claude Code command and the Pi prompt are thin entry points that load the skill;
+    // the behavior lives in the skill they name, which is what they must point at.
+    test.each([
+      'packages/development/commands/ensemble/new-feature.md',
+      'packages/pi/prompts/ensemble-new-feature.md',
+    ])('%s is an entry point to the skill that forwards --foreman to every stage skill', (rel) => {
+      const text = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
+      expect(text).toContain('ensemble-new-feature');
+      assertForwards(doc.prompt);
+    });
+
+    // The Codex skill is a copy of the skill: its SKILL.md and the files of references/.
+    test('the codex skill (SKILL.md and references/) forwards --foreman to every stage skill', () => {
+      const dir = path.join(REPO_ROOT, 'packages/codex/.codex/skills/commands/ensemble-new-feature');
+      const referencesDir = path.join(dir, 'references');
+      const references = fs.existsSync(referencesDir)
+        ? fs.readdirSync(referencesDir).sort().map((name) => fs.readFileSync(path.join(referencesDir, name), 'utf-8'))
+        : [];
+      assertForwards([fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf-8'), ...references].join('\n'));
     });
   });
 });

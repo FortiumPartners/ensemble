@@ -736,22 +736,90 @@ describe('production wiring: main() uses the real detectAdapter via its unmodifi
  * example (`'a'.repeat(40) + '!'`).
  */
 describe('remote_url_matches: bounded regex evaluation (PR 4 review Finding 4)', () => {
-  test('a catastrophic-backtracking pattern against a real near-matching origin URL throws a named DETECTION_SIGNAL_ERROR within a few hundred ms, never hangs (unit level: testRemoteUrlPattern, the function detectAdapter delegates the actual evaluation to)', () => {
-    const start = Date.now();
-    let thrown;
+  // Upper bound for the vm deadline `testRemoteUrlPattern` may hand to the regex engine (the
+  // shipped deadline is 200ms; the wall-clock assertion this replaces allowed 2000ms). It is
+  // asserted on the `timeout` OPTION, never on elapsed time, so it cannot flake under load or
+  // on a faster runner, while a deadline raised a lot (e.g. 15x) or removed fails by name.
+  const MAX_REMOTE_URL_DEADLINE_MS = 1000;
+  const isBoundedDeadlineMs = (ms) =>
+    Number.isFinite(ms) && ms > 0 && ms <= MAX_REMOTE_URL_DEADLINE_MS;
+
+  function expectBoundedDeadlines(deadlinesMs) {
+    // At least one evaluation must have been observed, or this check would pass vacuously
+    // (for example if the evaluation ever moved off `vm.Script#runInContext`).
+    expect(deadlinesMs.length).toBeGreaterThan(0);
+    // toStrictEqual, not toEqual: toEqual ignores `undefined` array items, so `[undefined]`
+    // (a REMOVED timeout) would compare equal to `[]` and pass.
+    expect(deadlinesMs.filter((ms) => !isBoundedDeadlineMs(ms))).toStrictEqual([]);
+  }
+
+  /**
+   * Run `evaluate(pattern, url)` (a `testRemoteUrlPattern`) while recording every `timeout`
+   * option it hands to `vm.Script#runInContext`, the one place the evaluation deadline is
+   * enforced. A call whose timeout is not a bounded deadline is REFUSED (it throws) instead of
+   * evaluated: an exponential pattern with a removed or huge deadline would block this Jest
+   * worker for seconds up to forever, so a bad deadline has to fail fast and by name here.
+   * Returns `{ thrown, deadlinesMs }`; the spy is always restored.
+   */
+  function evaluateRecordingDeadlines(evaluate, pattern, url) {
+    const vm = require('vm');
+    const realRunInContext = vm.Script.prototype.runInContext;
+    const deadlinesMs = [];
+    const spy = jest
+      .spyOn(vm.Script.prototype, 'runInContext')
+      .mockImplementation(function (contextifiedObject, options) {
+        const timeout = options && options.timeout;
+        deadlinesMs.push(timeout);
+        if (!isBoundedDeadlineMs(timeout)) {
+          throw new Error(
+            `refused to evaluate: vm timeout ${timeout} is not a positive number <= ` +
+              `${MAX_REMOTE_URL_DEADLINE_MS}ms`
+          );
+        }
+        return realRunInContext.call(this, contextifiedObject, options);
+      });
     try {
-      testRemoteUrlPattern('^(a+)+$', 'a'.repeat(40) + '!');
+      evaluate(pattern, url);
+      return { thrown: undefined, deadlinesMs };
     } catch (error) {
-      thrown = error;
+      return { thrown: error, deadlinesMs };
+    } finally {
+      spy.mockRestore();
     }
-    const elapsedMs = Date.now() - start;
+  }
+
+  test('a catastrophic-backtracking pattern against a real near-matching origin URL throws a named DETECTION_SIGNAL_ERROR via the deadline path (not the invalid-regex path) (unit level: testRemoteUrlPattern, the function detectAdapter delegates the actual evaluation to)', () => {
+    // No wall-clock assertion: how long the deadline took is load-dependent. The deadline path
+    // is identified deterministically by the thrown message (it differs from the invalid-regex
+    // path), and the deadline's MAGNITUDE is pinned by the next test, which asserts the `timeout`
+    // option itself. The call goes through the recording spy so that a removed or inflated
+    // deadline is refused (a fast, named failure) instead of blocking this Jest worker on an
+    // exponential pattern.
+    const { thrown } = evaluateRecordingDeadlines(
+      testRemoteUrlPattern,
+      '^(a+)+$',
+      'a'.repeat(40) + '!'
+    );
 
     expect(thrown).toBeDefined();
     expect(thrown.code).toBe('DETECTION_SIGNAL_ERROR');
     expect(thrown.pattern).toBe('^(a+)+$');
     expect(thrown.message).toContain('^(a+)+$');
-    // Generous margin above the ~200ms deadline: proves this returns promptly, never hangs.
-    expect(elapsedMs).toBeLessThan(2000);
+    expect(thrown.message).toContain('possible catastrophic backtracking');
+    expect(thrown.message).not.toContain('is invalid');
+  });
+
+  test('the deadline testRemoteUrlPattern hands to the regex engine is bounded: every vm timeout it passes is a positive number no larger than 1000ms (deterministic: asserts the option itself, never elapsed time)', () => {
+    // `^(a+)+$` against 40 a's and a '!' can only end through the deadline, so this is the
+    // evaluation whose bound matters. The mutation-proof tests below show this check fails
+    // when the deadline is raised 15x or removed.
+    const { deadlinesMs } = evaluateRecordingDeadlines(
+      testRemoteUrlPattern,
+      '^(a+)+$',
+      'a'.repeat(40) + '!'
+    );
+
+    expectBoundedDeadlines(deadlinesMs);
   });
 
   test('an oversized pattern is rejected by name, never evaluated (unit level: testRemoteUrlPattern)', () => {
@@ -816,11 +884,12 @@ describe('remote_url_matches: bounded regex evaluation (PR 4 review Finding 4)',
       cwd: projectRoot,
       env: { PATH: process.env.PATH, XDG_CONFIG_HOME: xdgConfigHome },
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
 
-    // Never killed by the 5s subprocess timeout: the real deadline bounds this to a few
-    // hundred ms, nowhere near the kill timeout.
+    // Never killed by the subprocess hang bound (a kill timeout far above any plausible load
+    // stall: it signals a hang, not slowness; the deadline's magnitude is asserted by the
+    // bounded-deadline test above).
     expect(result.signal).toBeNull();
     expect(result.status).toBe(1);
     const parsed = JSON.parse(result.stdout);
@@ -880,8 +949,8 @@ describe('remote_url_matches: bounded regex evaluation (PR 4 review Finding 4)',
 
         // With the deadline removed, the mutant never finishes within the 2s kill window --
         // spawnSync reports it was killed (signal set / ETIMEDOUT), and it never printed
-        // 'completed' -- exactly what the real (unmutated) "within a few hundred ms" test
-        // above disproves.
+        // 'completed' -- exactly what the real (unmutated) deadline-path and bounded-deadline
+        // tests above disprove.
         expect(child.stdout).not.toBe('completed');
         expect(child.signal !== null || (child.error && child.error.code === 'ETIMEDOUT')).toBe(
           true
@@ -889,6 +958,56 @@ describe('remote_url_matches: bounded regex evaluation (PR 4 review Finding 4)',
       } finally {
         mutantRoot.cleanup();
       }
+    });
+  });
+
+  describe('mutation-proof: a raised or removed vm timeout fails the bounded-deadline check', () => {
+    // Each mutant is a throwaway copy of detect.js (never the real source), required
+    // in-process. The recording spy REFUSES an out-of-bounds deadline before any pattern runs,
+    // so neither mutant can hang this worker and no wall-clock bound is involved.
+    function recordMutantDeadlines(needle, replacement) {
+      const mutantRoot = makeMutantToolchainRoot();
+      try {
+        const mutated = mutateAndRequire(
+          mutantRoot.toolchainLibDir + '/detect.js',
+          needle,
+          replacement
+        );
+        return evaluateRecordingDeadlines(
+          mutated.testRemoteUrlPattern,
+          '^(a+)+$',
+          'a'.repeat(40) + '!'
+        ).deadlinesMs;
+      } finally {
+        mutantRoot.cleanup();
+      }
+    }
+
+    test('raising the deadline 15x fails expectBoundedDeadlines, the exact assertion the bounded-deadline test above makes on the real code (200ms -> 3000ms at the shipped value)', () => {
+      const deadlinesMs = recordMutantDeadlines(
+        '    script.runInContext(sandbox, { timeout: REMOTE_URL_MATCH_TIMEOUT_MS });',
+        '    script.runInContext(sandbox, { timeout: REMOTE_URL_MATCH_TIMEOUT_MS * 15 });'
+      );
+
+      // The mutation took effect (one evaluation, above the bound), so the throw below is the
+      // bound check rejecting it, not an empty observation.
+      expect(deadlinesMs).toHaveLength(1);
+      expect(deadlinesMs[0]).toBeGreaterThan(MAX_REMOTE_URL_DEADLINE_MS);
+      expect(() => expectBoundedDeadlines(deadlinesMs)).toThrow();
+    });
+
+    test('removing the timeout option (no deadline at all) fails expectBoundedDeadlines instead of hanging the worker on an exponential pattern', () => {
+      const deadlinesMs = recordMutantDeadlines(
+        '    script.runInContext(sandbox, { timeout: REMOTE_URL_MATCH_TIMEOUT_MS });',
+        '    script.runInContext(sandbox);'
+      );
+
+      expect(deadlinesMs).toStrictEqual([undefined]);
+      expect(() => expectBoundedDeadlines(deadlinesMs)).toThrow();
+    });
+
+    test('an evaluation that never reaches vm.Script#runInContext (nothing observed) fails expectBoundedDeadlines instead of passing vacuously', () => {
+      expect(() => expectBoundedDeadlines([])).toThrow();
     });
   });
 });
@@ -964,7 +1083,7 @@ describe("remote_url_matches: a bad pattern excludes only that candidate (PR 4 r
     expect(stderr).toContain('^(x+x)+$');
   });
 
-  test('production wiring: toolchain-cli explain --json surfaces detectionDiagnostics for the excluded adapter while the good adapter still resolves, other categories unaffected and fast', () => {
+  test('production wiring: toolchain-cli explain --json surfaces detectionDiagnostics for the excluded adapter while the good adapter still resolves, other categories unaffected', () => {
     const projectRoot = mkTempDir('toolchain-detect-scope-explain-');
     initGitRepo(projectRoot);
     setGitRemote(projectRoot, 'x'.repeat(40) + '!');
@@ -1009,13 +1128,15 @@ describe("remote_url_matches: a bad pattern excludes only that candidate (PR 4 r
     );
 
     const xdgConfigHome = mkTempDir('toolchain-detect-scope-explain-xdg-');
-    const start = Date.now();
+    // Hang bound only (a kill timeout far above any plausible load stall), never a speed
+    // assertion: a hang is signalled by `res.signal` being set, not by comparing elapsed time.
     const res = spawnSync('node', [CLI, 'explain', '--json'], {
       cwd: projectRoot,
       env: { PATH: process.env.PATH, XDG_CONFIG_HOME: xdgConfigHome },
-      encoding: 'utf8'
+      encoding: 'utf8',
+      timeout: 120000
     });
-    const elapsedMs = Date.now() - start;
+    expect(res.signal).toBeNull();
 
     expect(res.status).toBe(0);
     const parsed = JSON.parse(res.stdout);
@@ -1038,8 +1159,9 @@ describe("remote_url_matches: a bad pattern excludes only that candidate (PR 4 r
     for (const category of otherCategories) {
       expect(parsed.data[category].detectionDiagnostics).toBeUndefined();
     }
-    // Generous margin: one ~200ms deadline, not a hang and not a cascading per-category cost.
-    expect(elapsedMs).toBeLessThan(5000);
+    // Excluded-adapter bookkeeping is asserted on content, not on how long it took; the
+    // one-evaluation-per-pattern cost model is proven by the cache-miss-count tests in the
+    // memoization describe block below.
     expect(res.stderr).toContain("adapter 'bad-explain-tracker'");
   });
 
@@ -1202,10 +1324,12 @@ describe('remote_url_matches pattern evaluation: not a sandbox, hostile patterns
  * once per category `detectAdapter` is asked about.
  */
 describe('remote_url_matches: per-process memoization (PR 4 review round 2, Finding 3)', () => {
-  function mkManyCategoryProject(prefix) {
+  // `url`/`pattern` default to the `^(x+x)+$` fixture the in-process tests use; the CLI test
+  // below passes the exponential fixture instead (see there).
+  function mkManyCategoryProject(prefix, { url = 'x'.repeat(40) + '!', pattern = '^(x+x)+$' } = {}) {
     const projectRoot = mkTempDir(prefix);
     initGitRepo(projectRoot);
-    setGitRemote(projectRoot, 'x'.repeat(40) + '!');
+    setGitRemote(projectRoot, url);
 
     // Neither 'tracker' nor 'host' appears here: the real, installed `adapter-tracker-
     // azure-boards` adapter (TRD-033) declares 'tracker' with its own `remote_url_matches`
@@ -1236,7 +1360,7 @@ describe('remote_url_matches: per-process memoization (PR 4 review round 2, Find
       fixtureManifest({
         adapter: 'bad-memo-tracker',
         categories,
-        detect: [{ signal: 'remote_url_matches', pattern: '^(x+x)+$' }]
+        detect: [{ signal: 'remote_url_matches', pattern }]
       })
     );
 
@@ -1256,61 +1380,57 @@ describe('remote_url_matches: per-process memoization (PR 4 review round 2, Find
     expect(__getRemoteUrlMatchCacheMissesForTests()).toBe(1);
   });
 
-  test('production wiring: toolchain-cli explain --json across all 14 categories with the SAME catastrophic-pattern candidate declared everywhere pays one 200ms deadline over a benign baseline, not 14', () => {
+  test('production wiring: toolchain-cli explain --json across all 14 categories with the SAME catastrophic-pattern candidate declared everywhere resolves every category to the good adapter and reports the excluded one exactly once', () => {
     const allCategories = [
       'host', 'workflow', 'worktree', 'tracker', 'work-graph', 'ci-local', 'review', 'lint',
       'test-runner', 'e2e-quality', 'container-deploy', 'iac', 'platform-cloud', 'package-runner'
     ];
-    // Runs the full 14-category `explain` sweep with a second adapter whose remote_url_matches
-    // pattern is `pattern`, returning wall-clock ms. Absolute wall-clock is dominated by node
-    // process spawn + module load and swings by seconds on loaded CI runners, so the assertion
-    // below is on the DELTA between a catastrophic pattern and a benign one in otherwise
-    // identical runs: that delta is the guard cost alone, and process/spawn overhead cancels.
-    const runSweep = (prefix, pattern) => {
-      const { projectRoot } = mkManyCategoryProject(prefix);
-      writeInstalledAdapter(
-        projectRoot,
-        'fixture-pkg',
-        'good-memo-tracker',
-        fixtureManifest({
-          adapter: 'good-memo-tracker',
-          categories: allCategories,
-          detect: [{ signal: 'file_exists', path: 'marker.txt' }]
-        })
-      );
-      writeInstalledAdapter(
-        projectRoot,
-        'fixture-pkg',
-        'bad-memo-tracker',
-        fixtureManifest({
-          adapter: 'bad-memo-tracker',
-          categories: allCategories,
-          detect: [{ signal: 'remote_url_matches', pattern }]
-        })
-      );
-      const xdgConfigHome = mkTempDir(prefix + 'xdg-');
-      const start = Date.now();
-      const res = spawnSync('node', [CLI, 'explain', '--json'], {
-        cwd: projectRoot,
-        env: { PATH: process.env.PATH, XDG_CONFIG_HOME: xdgConfigHome },
-        encoding: 'utf8'
-      });
-      const elapsedMs = Date.now() - start;
-      expect(res.status).toBe(0);
-      const parsed = JSON.parse(res.stdout);
-      expect(parsed.ok).toBe(true);
-      for (const category of allCategories) {
-        expect(parsed.data[category].adapter).toBe('good-memo-tracker');
-      }
-      return elapsedMs;
-    };
-
-    const baselineMs = runSweep('toolchain-detect-memo-cli-base-', '^y');
-    const catastrophicMs = runSweep('toolchain-detect-memo-cli-', '^(x+x)+$');
-    const guardCostMs = catastrophicMs - baselineMs;
-    // Memoized: ~one 200ms deadline over baseline. Unmemoized: 14 * 200ms = 2800ms over baseline.
-    // 1400ms is the midpoint, so it tolerates ~1.2s of noise yet still fails without the cache.
-    expect(guardCostMs).toBeLessThan(1400);
+    // No wall-clock assertion: absolute and baseline-relative timings both flake under load
+    // (the baseline and the catastrophic run are sequential and see different load). The
+    // memoization guarantee (one evaluation per pattern per process) is proven deterministically
+    // by counting cache misses: the in-process test above and the mutation-proof test below.
+    // This test covers the real CLI entry point end to end; the spawnSync timeout is only a
+    // hang bound, so a hang shows up as `res.signal`, never as a speed comparison.
+    // The exponential fixture (`^(a+)+$` against 40 a's and a '!') can only end through the
+    // evaluation deadline, so the "excluded adapter reported exactly once" stderr check below
+    // never depends on how fast the runner (or V8's regexp tier) happens to be.
+    const catastrophic = { url: 'a'.repeat(40) + '!', pattern: '^(a+)+$' };
+    const { projectRoot } = mkManyCategoryProject('toolchain-detect-memo-cli-', catastrophic);
+    writeInstalledAdapter(
+      projectRoot,
+      'fixture-pkg',
+      'good-memo-tracker',
+      fixtureManifest({
+        adapter: 'good-memo-tracker',
+        categories: allCategories,
+        detect: [{ signal: 'file_exists', path: 'marker.txt' }]
+      })
+    );
+    writeInstalledAdapter(
+      projectRoot,
+      'fixture-pkg',
+      'bad-memo-tracker',
+      fixtureManifest({
+        adapter: 'bad-memo-tracker',
+        categories: allCategories,
+        detect: [{ signal: 'remote_url_matches', pattern: catastrophic.pattern }]
+      })
+    );
+    const xdgConfigHome = mkTempDir('toolchain-detect-memo-cli-xdg-');
+    const res = spawnSync('node', [CLI, 'explain', '--json'], {
+      cwd: projectRoot,
+      env: { PATH: process.env.PATH, XDG_CONFIG_HOME: xdgConfigHome },
+      encoding: 'utf8',
+      timeout: 120000
+    });
+    expect(res.signal).toBeNull();
+    expect(res.status).toBe(0);
+    const parsed = JSON.parse(res.stdout);
+    expect(parsed.ok).toBe(true);
+    for (const category of allCategories) {
+      expect(parsed.data[category].adapter).toBe('good-memo-tracker');
+    }
+    expect(res.stderr.split("adapter 'bad-memo-tracker'").length - 1).toBe(1);
   });
 
   describe('mutation-proof: removing the memoization cache re-evaluates the same pattern once per category', () => {
@@ -1392,7 +1512,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
       cwd: projectRoot,
       env,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
     expect(explainResult.status).toBe(0);
     const explained = JSON.parse(explainResult.stdout);
@@ -1402,7 +1522,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
     const preflightResult = spawnSync(
       'node',
       [CLI, 'preflight', '--require', 'tracker.show', '--json'],
-      { cwd: projectRoot, env, encoding: 'utf8', timeout: 10000 }
+      { cwd: projectRoot, env, encoding: 'utf8', timeout: 120000 }
     );
     expect(preflightResult.status).toBe(0);
     const preflight = JSON.parse(preflightResult.stdout);
@@ -1423,7 +1543,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
       cwd: projectRoot,
       env,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
     expect(explainResult.status).toBe(0);
     const explained = JSON.parse(explainResult.stdout);
@@ -1433,7 +1553,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
     const preflightResult = spawnSync(
       'node',
       [CLI, 'preflight', '--require', 'tracker.show', '--json'],
-      { cwd: projectRoot, env, encoding: 'utf8', timeout: 10000 }
+      { cwd: projectRoot, env, encoding: 'utf8', timeout: 120000 }
     );
     expect(preflightResult.status).toBe(0);
     const preflight = JSON.parse(preflightResult.stdout);
@@ -1452,7 +1572,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
       cwd: projectRoot,
       env,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
     expect(explainResult.status).toBe(0);
     const explained = JSON.parse(explainResult.stdout);
@@ -1484,7 +1604,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
       cwd: projectRoot,
       env,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
     expect(explainResult.status).toBe(1);
     const explained = JSON.parse(explainResult.stdout);
@@ -1512,7 +1632,7 @@ describe('I2 refinement (PR 9 independent fix): the 7 required real-CLI-subproce
       cwd: projectRoot,
       env,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 120000
     });
     expect(explainResult.status).toBe(0);
     const explained = JSON.parse(explainResult.stdout);

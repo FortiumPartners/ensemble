@@ -1,44 +1,46 @@
 ---
 name: ensemble-onboard
-description: Onboard onto an existing (brownfield) codebase - architecture overview, exact build/test/lint commands, hotspots, optional debt backlog (Codex skill for /ensemble:onboard)
-user-invocable: true
-argument-hint: '[path]'
-model: gpt-5.1-codex
-capabilities:
-  required:
-    - tracker.create
+description: "Onboard onto an existing (brownfield) codebase - architecture overview, exact build/test/lint commands, hotspots, optional debt backlog"
+disable-model-invocation: true
+metadata:
+  version: "2.0.0"
+  category: analysis
 ---
 
-# Ensemble Command: /ensemble:onboard
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:onboard`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from onboard.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
-
 Build a verified mental model of an unfamiliar codebase and leave a durable, reviewable record of it.
+
+## Constraints
+
+- Read-only except docs/architecture/overview.md and, after explicit user confirmation, CLAUDE.md/AGENTS.md and beads
+- Idempotent - if docs/architecture/overview.md exists, read it and update it in place instead of rewriting from scratch
+- Report only what the repo shows; every command and path you state must come from a file you read or a command you ran. Mark anything unverified as unknown
+- DO NOT implement, refactor, or fix anything found
+
+## Capabilities
+
+**Required:** tracker.create
 
 ## Workflow
 
 ### Phase 1: Survey
 
-**1. Resolve toolchain-cli and preflight capabilities**
-   Resolve TOOLCHAIN_CLI (RELATIVE_PATH packages/development/lib/toolchain-cli.js) per the tool-path-resolution skill (skills/tool-path-resolution/SKILL.md). If it does not resolve print "ERROR: could not locate toolchain-cli" and HALT.
+#### Step 1.1: Resolve toolchain-cli and preflight capabilities
+
+Resolve TOOLCHAIN_CLI (RELATIVE_PATH packages/development/lib/toolchain-cli.js) per the tool-path-resolution skill (skills/tool-path-resolution/SKILL.md). If it does not resolve print "ERROR: could not locate toolchain-cli" and HALT.
 Run: node "$TOOLCHAIN_CLI" preflight --require tracker.create [add --non-interactive when FOREMAN_TASK_TITLE is set] --json; on a non-ok result print the error and HALT before any debt bead is offered. tracker.create is only invoked later, after explicit per-item user approval (Offer Debt Backlog).
 
+#### Step 1.2: Map the Repository
 
-**2. Map the Repository**
-   Gather facts with parallel read-only exploration (Explore-style subagents per top-level module, LSP for symbols and references, file reads for configuration)
+Gather facts with parallel read-only exploration (Explore-style subagents per top-level module, LSP for symbols and references, file reads for configuration)
 
 - Read manifests and tool config (package.json, Makefile, justfile, pyproject.toml, go.mod, mix.exs, *.csproj, Cargo.toml, CI workflow files, Dockerfile, docker-compose, IaC) to find the EXACT commands to build, test, lint, format and run. Copy them verbatim, including per-package variants in monorepos
 - Identify entry points (mains, servers, CLIs, workers, handlers) and the module/package map with one line of responsibility each
 - Identify data stores (databases, caches, queues, migrations directories) and external integrations (HTTP clients, SDKs, env var names for credentials - names only, never values)
 - Identify deployment shape from CI/CD, container, and infrastructure files
 
-**3. Find Hotspots**
-   Combine git churn with file size to rank the riskiest files
+#### Step 1.3: Find Hotspots
+
+Combine git churn with file size to rank the riskiest files
 
 - Run: git log --since=6.months --name-only --pretty=format: | sort | uniq -c | sort -rn | head -20 (drop blank lines, lockfiles, generated and vendored paths)
 - For each remaining file get its line count (wc -l) and, where cheap, a complexity signal (function count or deepest nesting via LSP symbols)
@@ -46,28 +48,32 @@ Run: node "$TOOLCHAIN_CLI" preflight --require tracker.create [add --non-interac
 
 ### Phase 2: Record
 
-**1. Write the Architecture Overview**
-   Write docs/architecture/overview.md (create docs/architecture/ if missing) with these sections
+#### Step 2.1: Write the Architecture Overview
+
+Write docs/architecture/overview.md (create docs/architecture/ if missing) with these sections
 
 - Sections: Purpose, Entry Points, Module Map, Data Stores, External Integrations, Build/Test/Lint/Run (exact commands), Deployment Shape, Hotspots, Unknowns and Open Questions
 - Keep it factual and under about 300 lines; link to files with relative paths rather than quoting code
 
-**2. Propose Agent Instructions**
-   Print a ready-to-paste build/test/lint/run commands block for the project's CLAUDE.md or AGENTS.md
+#### Step 2.2: Propose Agent Instructions
+
+Print a ready-to-paste build/test/lint/run commands block for the project's CLAUDE.md or AGENTS.md
 
 - Show the block and the target file; if the file already contains equivalent commands, show only the differences
 - Ask the user whether to append it. Write to CLAUDE.md/AGENTS.md ONLY after an explicit yes; never overwrite existing content
 
 ### Phase 3: Follow-ups
 
-**1. Offer Debt Backlog**
-   Offer to seed a debt backlog as beads
+#### Step 3.1: Offer Debt Backlog
+
+Offer to seed a debt backlog as beads
 
 - Propose up to 10 debt items drawn from hotspots and unknowns, each with title, the files involved, and why it matters
 - Create nothing until the user approves. For each approved item, before the FIRST tracker.create call run: node "$TOOLCHAIN_CLI" confirm-status tracker.create [add --non-interactive when FOREMAN_TASK_TITLE is set] --json; if data.required is true and data.confirmed is false and the session is interactive, ask via AskUserQuestion "Create <N> debt bead(s) via the tracker adapter? [yes/no]" and on yes run node "$TOOLCHAIN_CLI" confirm-record tracker.create --json before proceeding (under --non-interactive/--foreman, never prompt; proceed only if confirm-status already reports confirmed:true or required:false). Then for each approved item run: node "$TOOLCHAIN_CLI" run tracker.create --arg title="<title>" --arg type=task --arg description="<files and rationale>" --json. Print created IDs from each result's data.id
 
-**2. Offer Next Commands**
-   Print the next steps
+#### Step 3.2: Offer Next Commands
+
+Print the next steps
 
 - Offer /ensemble:discover-standards to extract coding conventions into standards/index.yml and /ensemble:inject-standards to apply them to a task
 - List every file written, and every proposal the user declined or has not yet answered
@@ -77,10 +83,5 @@ Run: node "$TOOLCHAIN_CLI" preflight --require tracker.create [add --non-interac
 **Format:** docs/architecture/overview.md plus proposals (CLAUDE.md/AGENTS.md commands block, debt beads) awaiting user approval
 
 **Structure:**
+
 - **docs/architecture/overview.md**: Entry points, module map, data stores, external integrations, exact build/test/lint/run commands, deployment shape, hotspots, unknowns
-
-## Usage
-
-```
-/ensemble:onboard [path]
-```

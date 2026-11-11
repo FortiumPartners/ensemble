@@ -36,7 +36,7 @@ describe('PR7 independent review item 7: zero capability declaration/invocation 
   });
 
   describe('mutation proof: reintroducing an undeclared run <capability> invocation in a /tmp copy of a real command is caught', () => {
-    test('a /tmp copy of list-issue.yaml with an undeclared tracker.comment call added is flagged; the real tree stays clean', () => {
+    test('a /tmp copy of list-issue prose (manifest + skill) with an undeclared tracker.comment call added is flagged; the real tree stays clean', () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr7-drift-mutation-'));
       try {
         // Mirror the whole commands/ directory into the tmp copy (validateCapabilityInvocationDrift
@@ -49,20 +49,25 @@ describe('PR7 independent review item 7: zero capability declaration/invocation 
         const { checkCapabilityInvocationDrift } = require('../lib/capability-ids-check');
         const yaml = require('js-yaml');
 
+        // list-issue is skill-backed: its manifest holds no prose, the prose lives in its skill, so the
+        // mutation goes in the skill's text and the check scans manifest + skill the way the real
+        // gate does (readCommandProse).
+        const { readCommandProse } = require('../lib/skill-backed-command');
         const src = path.join(COMMANDS_DIR, 'list-issue.yaml');
-        const original = fs.readFileSync(src, 'utf8');
+        const manifestText = fs.readFileSync(src, 'utf8');
+        const manifestData = yaml.load(manifestText);
+        const original = readCommandProse(src, manifestData, manifestText);
         const mutated = original.replace(
           'Present the result to the user as-is',
           'Also run tracker.comment to log the listing, then present the result to the user as-is'
         );
         expect(mutated).not.toBe(original);
 
-        const copyPath = path.join(tmpDir, 'list-issue.yaml');
+        const copyPath = path.join(tmpDir, 'list-issue.txt');
         fs.writeFileSync(copyPath, mutated, 'utf8');
 
         const mutatedText = fs.readFileSync(copyPath, 'utf8');
-        const mutatedData = yaml.load(mutatedText);
-        const failures = checkCapabilityInvocationDrift(mutatedData, 'packages/development/commands/list-issue.yaml', mutatedText);
+        const failures = checkCapabilityInvocationDrift(manifestData, 'packages/development/commands/list-issue.yaml', mutatedText);
         expect(failures.length).toBeGreaterThan(0);
         expect(failures[0]).toContain('tracker.comment');
 

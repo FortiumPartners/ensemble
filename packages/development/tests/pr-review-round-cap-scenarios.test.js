@@ -39,6 +39,7 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI = path.join(REPO_ROOT, 'packages/development/lib/pr-review-cli.js');
 
 const { DEFAULT_ROUND_CAP, ROUND_CAP_MIN, ROUND_CAP_MAX } = require('../lib/pr-review-policy');
+const { readSkillProse } = require('../../../scripts/lib/skill-backed-command');
 
 const BASE_SHA = '8b87a6d71146cd2e36e09c4fc265b6bb336f8798';
 const HEAD_SHA = 'b8fe66aeb70b304237e584311a2b481a3c990f91';
@@ -60,6 +61,27 @@ const PROCEDURES = {
 
 const read = (relative) => fs.readFileSync(path.join(REPO_ROOT, relative), 'utf8');
 
+// beads-build-wave is skill-backed: its YAML is a manifest and its generated Claude command and Pi
+// prompt are stubs that point at the skill, so the procedure text those three paths stand for is the
+// skill (SKILL.md + references/). Each is read as that skill prose, which is where the cap lives now.
+// pr-merge is skill-backed the same way: its YAML, its Claude command and its pi prompt stand for its skill.
+const SKILL_BY_PROCEDURE_PATH = new Map([
+  ...[
+    'packages/development/commands/beads-build-wave.yaml',
+    'packages/development/commands/ensemble/beads-build-wave.md',
+    'packages/pi/prompts/_hidden/ensemble-beads-build-wave.md',
+  ].map((p) => [p, 'packages/development/skills/ensemble-beads-build-wave/SKILL.md']),
+  ...[
+    'packages/git/commands/pr-merge.yaml',
+    'packages/git/commands/ensemble/pr-merge.md',
+    'packages/pi/prompts/ensemble-pr-merge.md',
+  ].map((p) => [p, 'packages/git/skills/ensemble-pr-merge/SKILL.md']),
+]);
+const readProcedure = (relative) =>
+  SKILL_BY_PROCEDURE_PATH.has(relative)
+    ? readSkillProse(path.join(REPO_ROOT, SKILL_BY_PROCEDURE_PATH.get(relative)))
+    : read(relative);
+
 /** One fresh CLI process, the way a procedure actually reaches the grader. */
 function runCli(subcommand, payload) {
   const out = execFileSync('node', [CLI, subcommand], { input: JSON.stringify(payload), encoding: 'utf8', cwd: REPO_ROOT });
@@ -73,6 +95,7 @@ function factsWithOpenFinding(overrides = {}) {
     headSha: HEAD_SHA,
     reviewedHeadSha: HEAD_SHA,
     findingCounts: { total: 1, actionable: 1, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false, command: 'npm test' },
     ...overrides,
   };
@@ -112,7 +135,7 @@ describe('Scenario AC-009-1: at the cap the procedure stops iterating and asks t
   });
 
   test.each(Object.keys(PROCEDURES))('%s tells its operator to stop and reconsider at the cap, not to open another round', (name) => {
-    const text = read(PROCEDURES[name]);
+    const text = readProcedure(PROCEDURES[name]);
     expect(text).toMatch(/reconsider/i);
     expect(text).toMatch(/round cap|ROUND_CAP|roundCap/);
   });
@@ -199,7 +222,7 @@ describe('Scenario AC-009-3: every procedure uses the repository cap and none ke
   const NAMES_THE_SHARED_CAP = /1-5, default 3|1 to 5, default 3|shared (?:policy )?round cap|lower(?:s)? (?:it|the shared)/i;
 
   test.each(Object.keys(PROCEDURES))('%s states no round budget of its own', (name) => {
-    const text = read(PROCEDURES[name]);
+    const text = readProcedure(PROCEDURES[name]);
     const offending = text.split('\n').filter((line) => PRIVATE_NUMBER.test(line) && !NAMES_THE_SHARED_CAP.test(line));
     expect(offending).toEqual([]);
   });

@@ -13,17 +13,29 @@
  * from text, so re-running yields the same key.
  *
  * FAIL CLOSED: an entry whose identity cannot be read is never dropped or
- * treated as tracked; it is reported in `invalid`. Malformed top-level input
- * throws.
+ * treated as tracked; it is reported in `invalid` with its kind, its raw entry
+ * and its position (`index`) in its list. Malformed top-level input throws.
  */
 
-function isId(value) {
+// A host id as it appears in a key: a number or its digits (the REST id), or, for a comment or a check run, a GitHub node
+// id (`IC_kwDO...`: a capitalised type prefix, an underscore, a base64url body). Nothing else: the id becomes part of a key
+// that a tracker stores (and git tracks), so a free-form id would carry text, a credential for one, into it.
+const DIGITS_RE = /^[0-9]{1,18}$/;
+const NODE_ID_RE = /^[A-Z][A-Za-z]{0,7}_[A-Za-z0-9_-]{6,60}$/;
+
+/** A pull request number: a non-negative integer, or its digits. */
+function isCount(value) {
   if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0;
-  return typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value);
+  return typeof value === 'string' && DIGITS_RE.test(value);
+}
+
+/** A comment or check run id: a number, its digits, or a node id. */
+function isId(value) {
+  return isCount(value) || (typeof value === 'string' && NODE_ID_RE.test(value));
 }
 
 function findingKey(prNumber, commentId) {
-  if (!isId(prNumber) || !isId(commentId)) return null;
+  if (!isCount(prNumber) || !isId(commentId)) return null;
   return `finding:pr${prNumber}:comment${commentId}`;
 }
 
@@ -52,16 +64,16 @@ function findUntracked(facts, trackedKeys) {
   const result = { findings: [], failures: [], invalid: [] };
   const seen = new Set();
 
-  for (const entry of findings) {
+  for (const [index, entry] of findings.entries()) {
     const key = isObject(entry) ? findingKey(entry.prNumber, entry.commentId) : null;
-    if (key === null) { result.invalid.push({ kind: 'finding', entry }); continue; }
+    if (key === null) { result.invalid.push({ kind: 'finding', entry, index }); continue; }
     if (entry.resolved === true || tracked.has(key) || seen.has(key)) continue;
     seen.add(key);
     result.findings.push({ ...entry, key });
   }
-  for (const entry of failures) {
+  for (const [index, entry] of failures.entries()) {
     const key = isObject(entry) ? failureKey(entry.checkRunId) : null;
-    if (key === null) { result.invalid.push({ kind: 'failure', entry }); continue; }
+    if (key === null) { result.invalid.push({ kind: 'failure', entry, index }); continue; }
     if (tracked.has(key) || seen.has(key)) continue;
     seen.add(key);
     result.failures.push({ ...entry, key });
@@ -69,4 +81,4 @@ function findUntracked(facts, trackedKeys) {
   return result;
 }
 
-module.exports = { findUntracked, findingKey, failureKey };
+module.exports = { findUntracked, findingKey, failureKey, isId, isCount };

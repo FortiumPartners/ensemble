@@ -1,31 +1,30 @@
 ---
 name: ensemble-discover-standards
-description: Analyze codebase and extract coding conventions into a standards/ directory with index.yml (Codex skill for /ensemble:discover-standards)
-user-invocable: false
-argument-hint: '[path]'
-model: gpt-5.1-codex
+description: "Analyze codebase and extract coding conventions into a standards/ directory with index.yml"
+disable-model-invocation: true
+metadata:
+  version: "1.0.0"
+  category: analysis
 ---
-
-# Ensemble Command: /ensemble:discover-standards
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:discover-standards`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from discover-standards.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Analyze a project codebase to extract coding conventions, naming patterns, error handling
 styles, test structures, and git commit practices. Write discovered standards to a
 standards/ directory with a machine-readable index.yml for token-efficient reference by
 future agent sessions. Always merge with existing standards rather than replacing them.
 
+## Constraints
+
+- DO NOT implement, build, or execute any application code
+- This command reads the codebase and writes to the standards/ directory ONLY
+- Never overwrite standards/index.yml without reading existing content first (merge-first)
+
 ## Workflow
 
 ### Phase 1: Codebase Scan
 
-**1. Tech Stack Detection**
-   Identify the primary language, framework, test framework, and tooling
+#### Step 1.1: Tech Stack Detection
+
+Identify the primary language, framework, test framework, and tooling
 
 - Read package.json, Gemfile, requirements.txt, go.mod, mix.exs, *.csproj, or equivalent manifest files
 - Identify primary language(s) and framework(s) (e.g., Next.js 14, Rails 7, Phoenix 1.7, ASP.NET Core 8)
@@ -34,8 +33,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 - Note monorepo structure if present (workspaces, packages/, apps/)
 - Print detected stack summary before proceeding
 
-**2. Convention Extraction**
-   Sample representative source files to identify project-specific coding patterns
+#### Step 1.2: Convention Extraction
+
+Sample representative source files to identify project-specific coding patterns
 
 - Sample 5-10 representative source files from src/, lib/, app/, or equivalent
 - Detect naming conventions (camelCase vs snake_case, PascalCase for classes, file naming patterns)
@@ -45,8 +45,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 - Identify test file naming conventions (*.spec.ts, *_test.go, *_spec.rb, test_*.py)
 - Run git log --oneline -20 to detect commit style (conventional commits, scope patterns)
 
-**3. Existing Standards Check**
-   Read any previously discovered standards to enable merge rather than replace
+#### Step 1.3: Existing Standards Check
+
+Read any previously discovered standards to enable merge rather than replace
 
 - Check if standards/index.yml already exists
 - If standards/index.yml exists, read it fully and note all existing rule IDs and categories
@@ -56,8 +57,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 
 ### Phase 2: Standards Generation
 
-**1. Build Standards Index**
-   Compile all discovered conventions into a structured YAML index
+#### Step 2.1: Build Standards Index
+
+Compile all discovered conventions into a structured YAML index
 
 - Create standards/index.yml with top-level keys: version, generated, stack, standards
 - Under stack: set language, framework, test_framework, linter (use "none" if not found)
@@ -67,8 +69,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 - Keep each rule under 80 characters -- this is a lookup table, not documentation
 - Merge any pre-existing rules from the previous index into the new output
 
-**2. Write Standards Files**
-   Persist the index and expanded category files to the standards/ directory
+#### Step 2.2: Write Standards Files
+
+Persist the index and expanded category files to the standards/ directory
 
 - Create standards/ directory if it does not already exist
 - Write standards/index.yml with the compiled index content
@@ -76,8 +79,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 - Print count on completion: "Standards discovered: N rules across M categories."
 - List every file written to standards/
 
-**3. CLAUDE.md Integration**
-   Add a pointer to the standards index in CLAUDE.md if not already present
+#### Step 2.3: CLAUDE.md Integration
+
+Add a pointer to the standards index in CLAUDE.md if not already present
 
 - Check if CLAUDE.md exists in the project root
 - If CLAUDE.md exists, scan it for any reference to standards/index.yml or /ensemble:standards discover
@@ -87,8 +91,9 @@ future agent sessions. Always merge with existing standards rather than replacin
 
 ### Phase 3: Report
 
-**1. Summary**
-   Print a human-readable summary of all work performed
+#### Step 3.1: Summary
+
+Print a human-readable summary of all work performed
 
 - Print the detected technology stack (language, framework, test framework, linter)
 - Print the total count of standards discovered per category
@@ -100,12 +105,7 @@ future agent sessions. Always merge with existing standards rather than replacin
 **Format:** standards/ directory with index.yml and optional per-category markdown files
 
 **Structure:**
+
 - **standards/index.yml**: Machine-readable index of all discovered standards with stack metadata, categories, rule IDs, rules, and optional examples
 - **standards/<category>.md**: Expanded explanations for categories with more than 3 rules (naming, testing, imports, error_handling, git, api)
 - **CLAUDE.md (updated)**: Pointer section appended if CLAUDE.md exists and does not already reference the standards index
-
-## Usage
-
-```
-/ensemble:discover-standards [path]
-```

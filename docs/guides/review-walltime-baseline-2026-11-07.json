@@ -1,0 +1,321 @@
+{
+  "schema": "review-walltime-cohort/1",
+  "captured_on": "2026-11-07",
+  "repository": "Sunstone-Partners/ensemble",
+  "cohort": {
+    "definition": "The review runs of docs/plans/pr-review-speedup-plan.md section 1 (the BEFORE side): one review orchestrator per run, an LLM agent that dispatched the classifier, reviewers, security lane and verifiers by hand and ran the gate and verdict scripts, on PRs #225, #228, #229 and #233 of Sunstone-Partners/ensemble.",
+    "measured_between": [
+      "2026-11-04T02:09:04Z",
+      "2026-11-05T00:50:05Z"
+    ],
+    "note": "Six runs on four PRs: a record of what the plan measured, not a statistical sample. By tier, high/first has three PRs (the minimum pr-review-walltime.js needs to compare a stratum), medium/first one (#225) and high/re-review one (#233), so a comparison against those two is `unknown` until more pre-speedup runs are added here or the minimum is changed in code. Figures are the plan's whole minutes; the interval each one measures is in its source and in provenance."
+  },
+  "runs": [
+    {
+      "id": "pr225-first",
+      "pr": 225,
+      "tier": "medium",
+      "round": "first",
+      "origin": "real",
+      "wall_min": 66,
+      "chains": 1,
+      "gate_runs": 3,
+      "source": "plan section 1, row '#225 / #228 / #229 (3 run concurrently)', first figure: 66 min. The orchestrator task of Merge225, from its start to its report (the parent session's task result says 1h6m).",
+      "notes": "Tier medium: pr-review-cli tier gave effectiveTier medium, humansRequired 1. Gate runs: the plan says '#225 needed 3 runs'; the session started gate225, gate225b and gate225c. One reviewer wave (3 reviewers and the security lane) and one verifier wave (3 verifiers): one chain."
+    },
+    {
+      "id": "pr228-first",
+      "pr": 228,
+      "tier": "high",
+      "round": "first",
+      "origin": "real",
+      "wall_min": 39,
+      "chains": 1,
+      "gate_runs": 1,
+      "source": "plan section 1, row '#225 / #228 / #229 (3 run concurrently)', second figure: 39 min. The orchestrator task of Merge228 (task result 39m21s).",
+      "notes": "Tier high: effectiveTier high, reason sensitive-path. Gate runs: 1 (service gate228; the plan names no re-run). One reviewer wave (2 reviewers and the security lane) and one verifier wave (5 verifiers, Deep): one chain."
+    },
+    {
+      "id": "pr229-first",
+      "pr": 229,
+      "tier": "high",
+      "round": "first",
+      "origin": "real",
+      "wall_min": 55,
+      "chains": 1,
+      "gate_runs": 2,
+      "source": "plan section 1, row '#225 / #228 / #229 (3 run concurrently)', third figure: 55 min. The orchestrator task of Merge229 (task result 55m21s).",
+      "notes": "Tier high: the first assessment said medium and the second raised it to high (originalTier medium, finalTier high: the change widens which directories the toolchain resolver trusts). Gate runs: the plan says '#229 needed 2'; the session started gate229 and gate229b. One reviewer wave (3 reviewers) and one verifier wave (5 verifiers): one chain."
+    },
+    {
+      "id": "pr233-first",
+      "pr": 233,
+      "tier": "high",
+      "round": "first",
+      "origin": "real",
+      "wall_min": 82,
+      "chains": 2,
+      "gate_runs": 2,
+      "source": "plan section 1, row '#233 round 1': 1h 22m. The orchestrator task of Merge233 from its first record (2026-11-04T18:00:23Z) to its report (19:22:43Z), 82.3 min.",
+      "notes": "Tier high (effectiveTier high, humansRequired 2). The PR's head moved during the run: ea93ae5 was reviewed first, then the live head 3967472 (found 18:11:47Z; classifier, second assessor, security lane and two reviewers re-dispatched at 18:13:41Z), and the verdict is for 3967472. Two heads, so two chains and two gate runs (gate1-pr233 at ea93ae5, gate2-pr233 at 3967472; the report says one run per head, no flakes)."
+    },
+    {
+      "id": "pr233-rereview-1",
+      "pr": 233,
+      "tier": "high",
+      "round": "re-review",
+      "origin": "real",
+      "wall_min": 70,
+      "chains": 1,
+      "gate_runs": 1,
+      "source": "plan section 1, row '#233 re-review': about 70 min, restated from each agent's last message (correction C01). From the first agent start of this chain (21:25:13Z) to the last verifier's last message (22:35:39Z), 70.4 min; measured to session_exit it would be 77.4.",
+      "notes": "Head 86a8c9b (the fix of round 1). Gate runs: 1 (gate3-pr233 at 21:18:00Z). This interval leaves out the orchestrator's 8.4 min before its first dispatch (its window, from the follow-up message at 21:16:47Z to its last message, is 79.7 min) and the 28.1 min re-run of the verifier a 429 killed (Ver233R3D2, the plan's 'plus 28'). Both make the baseline smaller than the whole chain, which is the harder reading for a 5x claim."
+    },
+    {
+      "id": "pr233-rereview-2",
+      "pr": 233,
+      "tier": "high",
+      "round": "re-review",
+      "origin": "real",
+      "wall_min": null,
+      "wall_min_reason": "the orchestrator (Merge233R4) was aborted at 2026-11-05T00:50:05Z ('Request was aborted'), 47.4 min after it began and before any verdict: its reviewers and security lane had finished and no verifier had been dispatched. A chain that never reached a verdict has no wall time.",
+      "chains": 1,
+      "gate_runs": 1,
+      "source": "omp session Merge233R4 (head 67764f6). The plan's section 1 table has no row for it; it is counted because the plan says '#233 has been through four such chains' (round 1 covers two, then the re-review and this one) and the session shows one gate run (gate-r4-1 at 00:03:48Z) and one reviewer wave.",
+      "notes": "Tier high (reason sensitive-path)."
+    }
+  ],
+  "unmeasured": [
+    {
+      "stratum": "low/first",
+      "reason": "no low-tier PR among the section 1 runs: a tier with no data is null, not zero"
+    },
+    {
+      "stratum": "low/re-review",
+      "reason": "no low-tier PR among the section 1 runs"
+    },
+    {
+      "stratum": "medium/re-review",
+      "reason": "no medium-tier re-review among the section 1 runs"
+    }
+  ],
+  "excluded": [
+    {
+      "what": "plan section 1, '#233 fix round 1' (1h 13m) and '#233 fix round 2' (36 min)",
+      "reason": "a fix agent's work between two chains, not a review chain; the review changes of the plan do not shorten it (section 3H leaves the fix decision to the operator)"
+    },
+    {
+      "what": "plan section 1, 'Local-CI gate' (about 6 min on a quiet machine, 8 to 9 under load)",
+      "reason": "the duration of one gate run, not review wall time; the number of gate runs per PR is carried on each run's gate_runs"
+    },
+    {
+      "what": "plan section 1, 'Per agent' (reviewer 17 to 41 min, verifier 22 to 28 min)",
+      "reason": "per-agent figures, not the wall time of a review"
+    },
+    {
+      "what": "PR #202",
+      "reason": "the plan cites it only for an agent overshooting its tool-call cap (57 against 40) and gives no wall time; it was reviewed from the interactive session with no orchestrator task, so there is no review window to measure"
+    },
+    {
+      "what": "PRs #234 and #235 (plan section 1 correction, section 5 measurements)",
+      "reason": "reviewed with the prototype per-candidate-verification orchestration (Merge234Fast, Merge235Fast), which is neither the pre-speedup process (this side) nor the shipped pipeline (the current side); their trace is a test fixture (packages/development/tests/fixtures/pr-review-timing)"
+    }
+  ],
+  "provenance": {
+    "plan": "docs/plans/pr-review-speedup-plan.md section 1: the table and the paragraph 'Restated (review finding C01)'. packages/development/tests/pr-review-walltime-baseline.test.js checks each plan figure used here against that text, so a figure that drifts from the plan fails CI.",
+    "sessions": {
+      "root": "~/.omp/agent/sessions/-Development-Sunstone-ensemble.local-ci/2026-10-24T23-07-57-756Z_01a1702b-bfbc-73ff-9648-26dd9df425c6",
+      "layout": "one <Orchestrator>.jsonl per review orchestrator and <Orchestrator>/<Agent>.jsonl per dispatched agent; <root>.jsonl records each orchestrator's task result and duration",
+      "method": "The interval of each check is stated on the check, because its end point differs. Merge225, Merge228 and Merge229: the first record of the orchestrator's session file to its last record of type 'message'. Merge233 round 1: the first record of its file to the report that ended the first stage (the same file goes on into the re-review, so its own last message is hours later and is not the figure). The #233 re-review chain: the earliest first record among the chain's agent files to the latest 'message' among them, never to 'session_exit' (the idle linger after the final yield, exactly 7:00: plan correction C01). The plan's figures are the task results' durations cut to whole minutes. Every wall figure is derivable from record timestamps and record types alone (no message content). The gate-run counts of #228 and #233 are counted from the session's gate service starts, that is from session content; only #225's and #229's are also stated in the plan's text.",
+      "available_to_ci": false,
+      "checked_on": "2026-11-07",
+      "checks": [
+        {
+          "run": "pr225-first",
+          "session": "Merge225",
+          "interval": "first record to last message",
+          "minutes": 66.6,
+          "task_result": "1h6m",
+          "tier": "medium",
+          "gate_runs": 3,
+          "gate_runs_source": "the plan's text ('#225 needed 3 runs') and the session's three gate service starts (gate225, gate225b, gate225c)"
+        },
+        {
+          "run": "pr228-first",
+          "session": "Merge228",
+          "interval": "first record to last message",
+          "minutes": 39.3,
+          "task_result": "39m21s",
+          "tier": "high",
+          "gate_runs": 1,
+          "gate_runs_source": "the session's gate service start (gate228) only: the plan states no count for #228"
+        },
+        {
+          "run": "pr229-first",
+          "session": "Merge229",
+          "interval": "first record to last message",
+          "minutes": 55.4,
+          "task_result": "55m21s",
+          "tier": "high",
+          "gate_runs": 2,
+          "gate_runs_source": "the plan's text ('#229 needed 2') and the session's two gate service starts (gate229, gate229b)"
+        },
+        {
+          "run": "pr233-first",
+          "session": "Merge233",
+          "interval": "first record (2026-11-04T18:00:23.161Z) to the report of the first stage (2026-11-04T19:22:43.595Z); the file goes on into the re-review, so its own last message (22:36:28Z, 276.1 min) is not this figure",
+          "minutes": 82.3,
+          "task_result": "1h22m",
+          "tier": "high",
+          "gate_runs": 2,
+          "gate_runs_source": "the session's gate service starts (gate1-pr233, gate2-pr233) only: the plan states no count"
+        },
+        {
+          "run": "pr233-rereview-1",
+          "session": "Merge233 (Cls233R3, Second233R3, Rev233R3A-D, Sec233R3, Ver233R3A-E)",
+          "interval": "first R3 agent start (2026-11-04T21:25:13.744Z, Cls233R3) to the last verifier's last message (2026-11-04T22:35:39.343Z, Ver233R3C), over the agents' own session files",
+          "minutes": 70.4,
+          "minutes_if_session_exit_were_used": 77.4,
+          "tier": "high",
+          "gate_runs": 1,
+          "gate_runs_source": "the session's gate service start (gate3-pr233) only: the plan states no count"
+        },
+        {
+          "run": "pr233-rereview-2",
+          "session": "Merge233R4",
+          "interval": "first record (2026-11-05T00:02:43.696Z) to last message (2026-11-05T00:50:05.298Z): aborted, not used as a wall time",
+          "minutes": 47.4,
+          "tier": "high",
+          "gate_runs": 1,
+          "gate_runs_source": "the session's gate service start (gate-r4-1) only: the plan states no count"
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "runCount": 6,
+    "prCount": 4,
+    "strata": [
+      {
+        "id": "medium/first",
+        "tier": "medium",
+        "round": "first",
+        "required": true,
+        "runs": 1,
+        "prs": 1,
+        "runsWithoutWall": 0,
+        "medianMin": 66,
+        "p75Min": 66,
+        "reason": null
+      },
+      {
+        "id": "high/first",
+        "tier": "high",
+        "round": "first",
+        "required": true,
+        "runs": 3,
+        "prs": 3,
+        "runsWithoutWall": 0,
+        "medianMin": 55,
+        "p75Min": 82,
+        "reason": null
+      },
+      {
+        "id": "high/re-review",
+        "tier": "high",
+        "round": "re-review",
+        "required": true,
+        "runs": 1,
+        "prs": 1,
+        "runsWithoutWall": 1,
+        "medianMin": 70,
+        "p75Min": 70,
+        "reason": null
+      }
+    ],
+    "tiers": [
+      {
+        "tier": "medium",
+        "prs": 1,
+        "gateRunsPerPr": {
+          "prs": 1,
+          "prsWithoutFigure": 0,
+          "total": 3,
+          "median": 3,
+          "p75": 3
+        },
+        "reviewChainsPerPr": {
+          "prs": 1,
+          "prsWithoutFigure": 0,
+          "total": 1,
+          "median": 1,
+          "p75": 1
+        }
+      },
+      {
+        "tier": "high",
+        "prs": 3,
+        "gateRunsPerPr": {
+          "prs": 3,
+          "prsWithoutFigure": 0,
+          "total": 7,
+          "median": 2,
+          "p75": 4
+        },
+        "reviewChainsPerPr": {
+          "prs": 3,
+          "prsWithoutFigure": 0,
+          "total": 6,
+          "median": 1,
+          "p75": 4
+        }
+      }
+    ],
+    "perPr": [
+      {
+        "pr": 225,
+        "tier": "medium",
+        "runs": [
+          "pr225-first"
+        ],
+        "reviewChains": 1,
+        "gateRuns": 3,
+        "wallMinTotal": 66
+      },
+      {
+        "pr": 228,
+        "tier": "high",
+        "runs": [
+          "pr228-first"
+        ],
+        "reviewChains": 1,
+        "gateRuns": 1,
+        "wallMinTotal": 39
+      },
+      {
+        "pr": 229,
+        "tier": "high",
+        "runs": [
+          "pr229-first"
+        ],
+        "reviewChains": 1,
+        "gateRuns": 2,
+        "wallMinTotal": 55
+      },
+      {
+        "pr": 233,
+        "tier": "high",
+        "runs": [
+          "pr233-first",
+          "pr233-rereview-1",
+          "pr233-rereview-2"
+        ],
+        "reviewChains": 4,
+        "gateRuns": 4,
+        "wallMinTotal": null,
+        "wallMinTotalReason": "1 of 3 runs without a wall time (pr233-rereview-2): the PR's total is not stated"
+      }
+    ],
+    "excluded": []
+  }
+}

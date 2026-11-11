@@ -190,7 +190,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     expect(g.error).toContain(repo.headSha);
     expect(runGate).not.toHaveBeenCalled();
     expect(poster.calls).toHaveLength(0);
-    expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/pr-self' }, d).ok).toBe(false);
+    expect((await cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/pr-self' }, d)).ok).toBe(false);
     const m = cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: 'origin/pr-self', repo: REPO, pr: PR, statuses: [] }, { ...cli.defaultDeps(), prInfo });
     expect(m.mergeReady).toBe(false);
     expect(m.reason).toMatch(/own base/);
@@ -210,7 +210,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     const base = { repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/attacker-main' };
     const prInfo = prInfoFor(repo, { baseRefName: 'attacker-main' });
     const { d, runGate } = deps(repo, { prInfo });
-    const run = cli.runRun(base, d);
+    const run = await cli.runRun(base, d);
     expect(run.ok).toBe(false);
     expect(JSON.stringify(run)).toMatch(/descendant of the PR head/);
     expect(runGate).not.toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     repo.git('commit', '-qm', 'base advanced');
     repo.git('update-ref', `refs/remotes/${repo.baseRef}`, repo.git('rev-parse', 'HEAD'));
     repo.git('checkout', '-q', repo.headSha);
-    const c = cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: repo.baseRef }, deps(repo).d);
+    const c = await cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: repo.baseRef }, deps(repo).d);
     expect(JSON.stringify(c)).not.toMatch(/descendant|own base|shares no history/);
   });
 });

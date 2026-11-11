@@ -170,11 +170,12 @@ packages/jest/
 │   ├── generate-test.js     # Test generator
 │   └── run-test.js          # Test runner
 ├── skills/                   # Skill documentation
-│   ├── SKILL.md             # Quick reference guide
-│   ├── REFERENCE.md         # Comprehensive API reference
-│   └── templates/           # Test file templates
-│       ├── unit-test.template.js
-│       └── integration-test.template.js
+│   └── jest/                # The jest skill
+│       ├── SKILL.md         # Quick reference guide
+│       ├── REFERENCE.md     # Comprehensive API reference
+│       └── templates/       # Test file templates
+│           ├── unit-test.template.js
+│           └── integration-test.template.js
 ├── tests/                    # Plugin tests (future)
 ├── CHANGELOG.md             # Version history
 ├── package.json             # NPM package configuration
@@ -331,8 +332,8 @@ The plugin provides structured error output for easy debugging:
 
 ## Documentation
 
-- **[SKILL.md](skills/SKILL.md)**: Quick reference guide for using the Jest skill
-- **[REFERENCE.md](skills/REFERENCE.md)**: Comprehensive API reference and best practices
+- **[SKILL.md](skills/jest/SKILL.md)**: Quick reference guide for using the Jest skill
+- **[REFERENCE.md](skills/jest/REFERENCE.md)**: Comprehensive API reference and best practices
 
 ## Plugin Dependencies
 
@@ -355,7 +356,7 @@ Apache License 2.0. See the repository [LICENSE](../../LICENSE) and [NOTICE](../
 For issues, questions, or contributions:
 - **Email**: info@sunstonepartners.com
 - **Repository**: https://github.com/Sunstone-Partners/ensemble
-- **Documentation**: See [skills/](skills/) directory for detailed guides
+- **Documentation**: See [skills/jest/](skills/jest/) directory for detailed guides
 
 ## Related Plugins
 

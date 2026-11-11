@@ -1,0 +1,23 @@
+#!/bin/bash
+# Scratch: one line every 30 s into $1 attributing the CPU in use to a group, so a load spike can be tied to a visible reason.
+#   gate           processes whose command line is under the ramp's TMPDIR (the local-CI gate's clone: its jest workers, npx, node 22/24)
+#   ramp           other processes whose command line names the ramp worktree or the ramp scratch directory (the runner, the head's baseline jest)
+#   otherEnsemble  processes of any other ensemble worktree or any jest not above (another agent's test run)
+#   other          everything else (macOS services, apps, the harness itself)
+# %CPU is the sum over the group of ps's per-process figure (a process on 3 cores counts 300). `top` lists the 5 busiest commands.
+OUT="$1"
+mkdir -p "$(dirname "$OUT")"
+while :; do
+  TS=$(date -u +%FT%TZ)
+  TOP=$(ps -Ao pcpu=,comm= -r | head -5 | awk '{p=$1; $1=""; n=split($0, a, "/"); printf "%s:%s ", p, a[n]}')
+  ps -Ao pcpu=,command= | awk -v ts="$TS" -v top="$TOP" '
+    { cpu = $1; $1 = ""; cmd = substr($0, 2); total += cpu; n += 1
+      if (index(cmd, "/.omp/pr-review-speedup/ramp/tmp/") > 0) g = "gate"
+      else if (index(cmd, "ensemble.prs-ramp") > 0 || index(cmd, "/.omp/pr-review-speedup/ramp/") > 0) g = "ramp"
+      else if (index(cmd, "/Development/Sunstone/ensemble") > 0 || cmd ~ /jest/) g = "otherEnsemble"
+      else g = "other"
+      c[g] += 1; s[g] += cpu
+      if (cmd ~ /jest/) j[g] += 1 }
+    END { printf "%s cpuAll=%.0f procs=%d | gate n=%d cpu=%.0f jest=%d | ramp n=%d cpu=%.0f jest=%d | otherEnsemble n=%d cpu=%.0f jest=%d | other n=%d cpu=%.0f | top %s\n", ts, total, n, c["gate"], s["gate"], j["gate"], c["ramp"], s["ramp"], j["ramp"], c["otherEnsemble"], s["otherEnsemble"], j["otherEnsemble"], c["other"], s["other"], top }' | tee -a "$OUT"
+  sleep 30
+done

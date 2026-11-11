@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { loadDispatchSubcommands, registerDispatcherCommand } from "../src/dispatcher-commands";
+import { loadDispatchSubcommands, parseSubcommandsSection, registerDispatcherCommand } from "../src/dispatcher-commands";
+import { dispatcherSkill, subcommandBullet } from "./helpers/dispatcher-skill";
 
 /**
  * /ensemble-prd, /ensemble-trd, /ensemble-issue's native completion layer.
@@ -17,52 +18,93 @@ import { loadDispatchSubcommands, registerDispatcherCommand } from "../src/dispa
 const dirs: string[] = [];
 afterAll(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
 
-function fixtureRepo(yamlRelPath: string, yamlContent: string | null): string {
+function fixtureRepo(skillRelPath: string, skillContent: string | null): string {
   const root = mkdtempSync(join(tmpdir(), "dispatcher-cmd-"));
   dirs.push(root);
-  if (yamlContent !== null) {
-    mkdirSync(join(root, ...yamlRelPath.split("/").slice(0, -1)), { recursive: true });
-    writeFileSync(join(root, yamlRelPath), yamlContent);
+  if (skillContent !== null) {
+    mkdirSync(join(root, ...skillRelPath.split("/").slice(0, -1)), { recursive: true });
+    writeFileSync(join(root, skillRelPath), skillContent);
   }
   return root;
 }
 
-const ISSUE_YAML = `metadata:
-  name: ensemble:issue
-dispatch:
-  subcommands:
-    - keyword: fix
-      ref: fix-issue
-      description: Fix a bug or small issue end to end
-    - keyword: list
-      ref: list-issue
-      description: List open Beads issues via br/bv
-`;
+const ISSUE_SKILL = dispatcherSkill("issue", [
+  { keyword: "fix", ref: "fix-issue", description: "Fix a bug or small issue end to end" },
+  { keyword: "list", ref: "list-issue", description: "List open Beads issues via br/bv" },
+]);
+
+describe("parseSubcommandsSection", () => {
+  it("reads one entry per bullet, in file order, keeping keyword, ref and description", () => {
+    expect(parseSubcommandsSection(ISSUE_SKILL)).toEqual([
+      { keyword: "fix", ref: "fix-issue", description: "Fix a bug or small issue end to end" },
+      { keyword: "list", ref: "list-issue", description: "List open Beads issues via br/bv" },
+    ]);
+  });
+
+  it("ignores bullets outside the Subcommands section, even ones shaped like subcommand bullets", () => {
+    const text = [
+      "- **`early`** - before the section. Invoke `/ensemble:early` directly.",
+      "## Subcommands",
+      subcommandBullet({ keyword: "fix", ref: "fix-issue", description: "Fix it" }),
+      "## Workflow",
+      subcommandBullet({ keyword: "late", ref: "late-issue", description: "After the section" }),
+    ].join("\n");
+    expect(parseSubcommandsSection(text).map((s) => s.keyword)).toEqual(["fix"]);
+  });
+
+  it("keeps a description that itself contains periods, dashes and backticks", () => {
+    const text = [
+      "## Subcommands",
+      subcommandBullet({
+        keyword: "create",
+        ref: "create-trd",
+        description: "Create a TRD (add --parser-tables for a `Foreman-native` v1.2 table. No adversarial phase)",
+      }),
+    ].join("\n");
+    expect(parseSubcommandsSection(text)).toEqual([
+      {
+        keyword: "create",
+        ref: "create-trd",
+        description: "Create a TRD (add --parser-tables for a `Foreman-native` v1.2 table. No adversarial phase)",
+      },
+    ]);
+  });
+
+  it("skips lines in the section that are not subcommand bullets, and reads CRLF files", () => {
+    const text = ["## Subcommands", "", "Some prose.", "- plain bullet", subcommandBullet({ keyword: "fix", ref: "fix-issue", description: "Fix it" })].join("\r\n");
+    expect(parseSubcommandsSection(text)).toEqual([{ keyword: "fix", ref: "fix-issue", description: "Fix it" }]);
+  });
+
+  it("returns an empty array when there is no Subcommands section", () => {
+    expect(parseSubcommandsSection("# ensemble:fix-issue\n\n## Workflow\n- step\n")).toEqual([]);
+  });
+});
 
 describe("loadDispatchSubcommands", () => {
-  const YAML_PATH = "packages/development/commands/issue.yaml";
+  const SKILL_PATH = "packages/development/skills/ensemble-issue/SKILL.md";
 
-  it("parses dispatch.subcommands from a real YAML file", () => {
-    const root = fixtureRepo(YAML_PATH, ISSUE_YAML);
-    expect(loadDispatchSubcommands(root, YAML_PATH)).toEqual([
+  it("parses the Subcommands bullets from a real skill file", () => {
+    const root = fixtureRepo(SKILL_PATH, ISSUE_SKILL);
+    expect(loadDispatchSubcommands(root, SKILL_PATH)).toEqual([
       { keyword: "fix", ref: "fix-issue", description: "Fix a bug or small issue end to end" },
       { keyword: "list", ref: "list-issue", description: "List open Beads issues via br/bv" },
     ]);
   });
 
   it("returns an empty array when the file doesn't exist", () => {
-    const root = fixtureRepo(YAML_PATH, null);
-    expect(loadDispatchSubcommands(root, YAML_PATH)).toEqual([]);
+    const root = fixtureRepo(SKILL_PATH, null);
+    expect(loadDispatchSubcommands(root, SKILL_PATH)).toEqual([]);
   });
 
-  it("returns an empty array when the YAML has no dispatch field", () => {
-    const root = fixtureRepo(YAML_PATH, "metadata:\n  name: ensemble:fix-issue\n");
-    expect(loadDispatchSubcommands(root, YAML_PATH)).toEqual([]);
+  it("returns an empty array when the skill has no Subcommands section", () => {
+    const root = fixtureRepo(SKILL_PATH, "---\nname: ensemble-fix-issue\n---\n\n# ensemble:fix-issue\n");
+    expect(loadDispatchSubcommands(root, SKILL_PATH)).toEqual([]);
   });
 
-  it("returns an empty array, not a throw, for unparsable YAML", () => {
-    const root = fixtureRepo(YAML_PATH, "metadata: [unterminated\n");
-    expect(loadDispatchSubcommands(root, YAML_PATH)).toEqual([]);
+  it("returns an empty array, not a throw, when the path is a directory rather than a file", () => {
+    const root = fixtureRepo(SKILL_PATH, null);
+    mkdirSync(join(root, SKILL_PATH), { recursive: true });
+    expect(loadDispatchSubcommands(root, SKILL_PATH)).toEqual([]);
   });
 });
 
@@ -82,26 +124,26 @@ function harness() {
 }
 
 describe("registerDispatcherCommand", () => {
-  const YAML_PATH = "packages/development/commands/issue.yaml";
+  const SKILL_PATH = "packages/development/skills/ensemble-issue/SKILL.md";
 
-  it("does not register when the backing YAML doesn't exist in this repo", () => {
-    const root = fixtureRepo(YAML_PATH, null);
+  it("does not register when the backing skill doesn't exist in this repo", () => {
+    const root = fixtureRepo(SKILL_PATH, null);
     const { pi, commands } = harness();
     registerDispatcherCommand(pi, root, {
       name: "ensemble-issue",
-      yamlRelPath: YAML_PATH,
+      skillRelPath: SKILL_PATH,
       forwardTo: "ensemble:issue",
       description: "d",
     });
     expect(commands.size).toBe(0);
   });
 
-  it("registers with the given name and description when the backing YAML exists", () => {
-    const root = fixtureRepo(YAML_PATH, ISSUE_YAML);
+  it("registers with the given name and description when the backing skill exists", () => {
+    const root = fixtureRepo(SKILL_PATH, ISSUE_SKILL);
     const { pi, commands } = harness();
     registerDispatcherCommand(pi, root, {
       name: "ensemble-issue",
-      yamlRelPath: YAML_PATH,
+      skillRelPath: SKILL_PATH,
       forwardTo: "ensemble:issue",
       description: "Dispatch to an issue-management subcommand",
     });
@@ -109,11 +151,11 @@ describe("registerDispatcherCommand", () => {
   });
 
   it("getArgumentCompletions returns every subcommand for an empty prefix, filtered for a partial one", () => {
-    const root = fixtureRepo(YAML_PATH, ISSUE_YAML);
+    const root = fixtureRepo(SKILL_PATH, ISSUE_SKILL);
     const { pi, commands } = harness();
     registerDispatcherCommand(pi, root, {
       name: "ensemble-issue",
-      yamlRelPath: YAML_PATH,
+      skillRelPath: SKILL_PATH,
       forwardTo: "ensemble:issue",
       description: "d",
     });
@@ -134,11 +176,11 @@ describe("registerDispatcherCommand", () => {
   });
 
   it("handler forwards the typed text verbatim into the colon-named markdown command, with prompt-template expansion on", async () => {
-    const root = fixtureRepo(YAML_PATH, ISSUE_YAML);
+    const root = fixtureRepo(SKILL_PATH, ISSUE_SKILL);
     const { pi, commands, sent } = harness();
     registerDispatcherCommand(pi, root, {
       name: "ensemble-issue",
-      yamlRelPath: YAML_PATH,
+      skillRelPath: SKILL_PATH,
       forwardTo: "ensemble:issue",
       description: "d",
     });
@@ -149,11 +191,11 @@ describe("registerDispatcherCommand", () => {
   });
 
   it("handler forwards with no trailing text when invoked with empty args", async () => {
-    const root = fixtureRepo(YAML_PATH, ISSUE_YAML);
+    const root = fixtureRepo(SKILL_PATH, ISSUE_SKILL);
     const { pi, commands, sent } = harness();
     registerDispatcherCommand(pi, root, {
       name: "ensemble-issue",
-      yamlRelPath: YAML_PATH,
+      skillRelPath: SKILL_PATH,
       forwardTo: "ensemble:issue",
       description: "d",
     });

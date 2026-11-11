@@ -1,8 +1,8 @@
 ---
 name: rspec
 description: Execute and generate RSpec tests for Ruby projects with let bindings, before hooks, shared examples, and mocking support
-version: 1.0.0
-user-invocable: true
+metadata:
+  version: 1.0.0
 ---
 
 # RSpec Test Framework
@@ -31,7 +31,7 @@ ruby generate-test.rb \
 ```
 
 The generated example is marked `skip` until you replace the Arrange/Act/Assert
-placeholders, so an unfinished spec is reported as skipped, never as passing.
+placeholders; an unfinished spec is reported as skipped, never as passing.
 
 ### Execute Tests
 

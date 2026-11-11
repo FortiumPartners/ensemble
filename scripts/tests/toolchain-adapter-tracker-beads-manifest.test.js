@@ -51,6 +51,10 @@ const EXPECTED_CAPABILITIES = [
   'tracker.label',
   'tracker.sync',
   'tracker.stage-export',
+  'tracker.create-detailed',
+  'tracker.find-by-key',
+  'tracker.update-detailed',
+  'tracker.close-with-reason',
   'work-graph.ready',
   'work-graph.plan',
   'work-graph.graph-health'

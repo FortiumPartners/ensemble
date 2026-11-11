@@ -1,15 +1,14 @@
 /**
- * Unit tests for feature.yaml's delegation-availability guard (TRD-004, TRD-004-TEST, REQ-006)
+ * Unit tests for the feature skill's delegation-availability guard (TRD-004, TRD-004-TEST, REQ-006)
  *
  * `ensemble:feature`'s Dispatch step 1 confirms `/ensemble:new-feature`'s
- * generated command file resolves before doing anything else. This file
+ * sibling skill resolves before doing anything else. This file
  * proves the guard's own 3 Implementation AC scenarios against the actual
- * action text, same convention as feature-command.test.js (TRD-002).
+ * action text of skills/ensemble-feature/SKILL.md, same convention as
+ * feature-command.test.js (TRD-002).
  */
 
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
+const { readFeature } = require('./helpers/feature-skill');
 
 function actionsText(step) {
   return (step.actions || []).join('\n');
@@ -18,13 +17,19 @@ function actionsText(step) {
 describe('Feature delegation-availability guard (TRD-004)', () => {
   let dispatchStep;
 
-  const yamlPath = path.join(__dirname, '..', 'commands', 'feature.yaml');
-
   beforeAll(() => {
-    const yamlContent = fs.readFileSync(yamlPath, 'utf-8');
-    const commandYaml = yaml.load(yamlContent);
-    const dispatchPhase = commandYaml.workflow.phases.find((p) => p.name === 'Dispatch');
+    const dispatchPhase = readFeature().workflow.phases.find((p) => p.name === 'Dispatch');
     dispatchStep = dispatchPhase.steps.find((s) => s.order === 1);
+  });
+
+  test('the guard confirms the new-feature sibling skill, whose path the Subcommands section carries', () => {
+    const feature = readFeature();
+    expect(dispatchStep.actions[0]).toContain(
+      "`/ensemble:new-feature`'s sibling skill (its path is in the Subcommands section above)",
+    );
+    feature.subcommands.forEach((sub) => {
+      expect(sub.path).toBe('../ensemble-new-feature/SKILL.md');
+    });
   });
 
   test('the guard is the very first action in Dispatch step 1, ahead of per-keyword routing', () => {

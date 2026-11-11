@@ -1,0 +1,108 @@
+{
+ "note": "local-CI gate started by the runner at prepare (dryRun: nothing posted). finishedAt = last write of the gate log (+-1 s). Nodes 22 and 24 provided by npx.",
+ "runs": {
+  "after-pr207-first": {
+   "action": "started",
+   "pid": 52990,
+   "startedAt": "2026-11-09T20:18:16.651Z",
+   "finishedAt": "2026-11-09T20:23:37.893Z",
+   "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+   "ok": false,
+   "stage": "run",
+   "dryRun": true,
+   "posted": false,
+   "nodes": [
+    {
+     "node": 22,
+     "ok": false
+    },
+    {
+     "node": 24,
+     "ok": false
+    }
+   ],
+   "error": "local CI did not pass",
+   "failures": [
+    {
+     "kind": "step-failed",
+     "job": "node 22",
+     "step": "generated-drift",
+     "message": "step \"generated-drift\" failed on Node 22 at 48c862c416af218bc1fa32305493fb8855602b31 (exit 1); full output: /Users/ldangelo/Development/Sunstone/ensemble.prs-measure/.ensemble/local-ci-runs/logs/48c862c416af-node22-gener"
+    },
+    {
+     "kind": "step-failed",
+     "job": "node 22",
+     "step": "test",
+     "message": "step \"test\" failed on Node 22 at 48c862c416af218bc1fa32305493fb8855602b31 (exit 1); full output: /Users/ldangelo/Development/Sunstone/ensemble.prs-measure/.ensemble/local-ci-runs/logs/48c862c416af-node22-test.log: ...t/p"
+    },
+    {
+     "kind": "step-failed",
+     "job": "node 24",
+     "step": "generated-drift",
+     "message": "step \"generated-drift\" failed on Node 24 at 48c862c416af218bc1fa32305493fb8855602b31 (exit 1); full output: /Users/ldangelo/Development/Sunstone/ensemble.prs-measure/.ensemble/local-ci-runs/logs/48c862c416af-node24-gener"
+    },
+    {
+     "kind": "step-failed",
+     "job": "node 24",
+     "step": "test",
+     "message": "step \"test\" failed on Node 24 at 48c862c416af218bc1fa32305493fb8855602b31 (exit 1); full output: /Users/ldangelo/Development/Sunstone/ensemble.prs-measure/.ensemble/local-ci-runs/logs/48c862c416af-node24-test.log: ...no "
+    },
+    {
+     "kind": "clone-tampered",
+     "job": null,
+     "step": null,
+     "message": "a step changed tracked content of the clean clone at 48c862c416af218bc1fa32305493fb8855602b31; not counting the run: tracked file modified: .claude-plugin/marketplace.json; tracked file modified: marketplace.json; tracke"
+    }
+   ],
+   "durationMin": 5.35
+  },
+  "after-pr286-first": {
+   "action": "started",
+   "pid": 34901,
+   "startedAt": "2026-11-09T20:43:22.978Z",
+   "finishedAt": "2026-11-09T20:48:56.208Z",
+   "headSha": "b433a9e7d602fb2fea2e6fdc9d169b748106c9d7",
+   "ok": true,
+   "stage": "attest",
+   "dryRun": true,
+   "posted": false,
+   "nodes": [
+    {
+     "node": 22,
+     "ok": true
+    },
+    {
+     "node": 24,
+     "ok": true
+    }
+   ],
+   "error": null,
+   "failures": [],
+   "durationMin": 5.55
+  },
+  "after-pr286-re": {
+   "action": "started",
+   "pid": 467,
+   "startedAt": "2026-11-09T21:03:28.617Z",
+   "finishedAt": "2026-11-09T21:09:22.531Z",
+   "headSha": "85ffa9fba388b56494b1af640e40e7eb6e8833c9",
+   "ok": true,
+   "stage": "attest",
+   "dryRun": true,
+   "posted": false,
+   "nodes": [
+    {
+     "node": 22,
+     "ok": true
+    },
+    {
+     "node": 24,
+     "ok": true
+    }
+   ],
+   "error": null,
+   "failures": [],
+   "durationMin": 5.9
+  }
+ }
+}

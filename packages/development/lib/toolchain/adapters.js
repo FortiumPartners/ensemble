@@ -116,6 +116,29 @@
  * supplied, even if `ctx.env` omits a key that `process.env` happens to set. Any discrepancy
  * this surfaces (for example a missing `XDG_CONFIG_HOME`) falls through to
  * `config-path.js`'s own documented fallback chain, never to `process.env` directly.
+ *
+ * `ctx.untrustedProjectRoot` (boolean, default `false`; kata vsg4 review round 1) marks
+ * `ctx.projectRoot` as a tree the caller did not start in and does not own: `toolchain-cli.js`
+ * sets it whenever `--project-root <path>` names one explicitly (typically a PR head under
+ * review). Such a tree is a source of working directory, `.ensemble/toolchain.yaml` config and
+ * `.ensemble/state` ONLY -- it must never supply code this library hands to a process. Both
+ * effects below live here, in the shared discovery/load path, so every caller that passes
+ * `ctx` through (`./detect.js`, `./resolve-guard.js`, `./work-graph-resolve.js`,
+ * `./preflight.js`) gets them without knowing about the flag:
+ *
+ *   - the project-relative installed tier (3a above, `<projectRoot>/packages/*\/skills/`) is
+ *     NOT searched; the library-relative roots (3b), the user tier and `ctx.installedRoots`
+ *     are the installed tier. A manifest dropped under the named tree's `packages/` therefore
+ *     neither resolves nor runs.
+ *   - a repo-local match (`<projectRoot>/.ensemble/adapters/`) needs the user-level
+ *     `trustedRepoAdapters` entry in EVERY mode, interactive runs included: the interactive
+ *     first-use confirmation only covers side-effecting capabilities and shows the allowlist
+ *     of a repo-local adapter, it cannot stand in for trust in a tree the caller never
+ *     inspected. Trust is by adapter id (unchanged), so an id listed there is trusted from any
+ *     tree.
+ *
+ * Without it (every caller that does not pass it) nothing changes: a project root the process
+ * was started in keeps the tiers and the trust rule documented above.
  */
 
 const fs = require('fs');
@@ -365,15 +388,17 @@ function libraryRelativeSkillsRoots() {
  * `fs.realpathSync` (first occurrence wins) so a root reachable two different ways (for
  * example running inside this monorepo itself, where the project-relative and library-
  * relative roots for `packages/development` are the literal same directory) is only ever
- * scanned once.
+ * scanned once. With `untrustedProjectRoot` the project-relative roots are left out entirely
+ * (see the module doc's `ctx.untrustedProjectRoot` section).
  *
  * @param {string} projectRoot
  * @param {string[]} [installedRootsOverride] `ctx.installedRoots`
+ * @param {boolean} [untrustedProjectRoot] `ctx.untrustedProjectRoot`; defaults to `false`
  * @returns {string[]}
  */
-function installedSkillsRoots(projectRoot, installedRootsOverride) {
+function installedSkillsRoots(projectRoot, installedRootsOverride, untrustedProjectRoot = false) {
   const ordered = [
-    ...projectPackagesSkillsRoots(projectRoot),
+    ...(untrustedProjectRoot ? [] : projectPackagesSkillsRoots(projectRoot)),
     ...libraryRelativeSkillsRoots(),
     ...(Array.isArray(installedRootsOverride) ? installedRootsOverride : [])
   ];
@@ -411,10 +436,18 @@ function installedSkillsRoots(projectRoot, installedRootsOverride) {
  * @param {NodeJS.ProcessEnv} [ctx.env] defaults to `process.env`
  * @param {string[]} [ctx.installedRoots] extra installed-tier "skills root" directories,
  *   appended after the derived project-relative and library-relative roots
+ * @param {boolean} [ctx.untrustedProjectRoot] defaults to `false`; when `true` the project-
+ *   relative installed tier (`<projectRoot>/packages/*\/skills/`) is not searched (see the
+ *   module doc)
  * @returns {Array<{name: string, origin: 'repo-local'|'user'|'installed', dir: string}>}
  */
 function discoverAdapters(ctx = {}) {
-  const { projectRoot = process.cwd(), env = process.env, installedRoots } = ctx;
+  const {
+    projectRoot = process.cwd(),
+    env = process.env,
+    installedRoots,
+    untrustedProjectRoot = false
+  } = ctx;
   const found = [];
 
   const repoLocalRoot = repoLocalAdaptersRoot(projectRoot);
@@ -435,7 +468,7 @@ function discoverAdapters(ctx = {}) {
     }
   }
 
-  for (const skillsRoot of installedSkillsRoots(projectRoot, installedRoots)) {
+  for (const skillsRoot of installedSkillsRoots(projectRoot, installedRoots, untrustedProjectRoot)) {
     for (const entryName of listSubdirs(skillsRoot)) {
       const dir = path.join(skillsRoot, entryName);
       const manifest = readManifest(dir);
@@ -464,6 +497,10 @@ function discoverAdapters(ctx = {}) {
  * exists but fails its own schema validation, resolution fails with `CONFIG_INVALID` naming the
  * offending file rather than letting the raw parse/validation error propagate.
  *
+ * With `ctx.untrustedProjectRoot` (see the module doc) that trust requirement applies in EVERY
+ * mode, `interactive` included, and the project-relative installed tier is not searched: the
+ * named tree is a source of working directory/config/state only, never of code to run.
+ *
  * `ctx.env`, when supplied, replaces `process.env` wholesale for both the discovery pass and
  * this trust lookup -- it is never shallow-merged with `process.env` -- so a caller testing
  * trust resolution with a deliberately partial environment never accidentally reads a real
@@ -482,27 +519,38 @@ function discoverAdapters(ctx = {}) {
  * @param {boolean} [ctx.interactive] defaults to `false`
  * @param {string[]} [ctx.installedRoots] extra installed-tier "skills root" directories; see
  *   `discoverAdapters`'s own doc
+ * @param {boolean} [ctx.untrustedProjectRoot] defaults to `false`; see the module doc
  * @returns {{origin: 'repo-local'|'user'|'installed', dir: string, manifest: object,
  *   skillMd: {ok: true, content: string} | {ok: false, error: string}}}
  * @throws {Error} with `.code === 'NOT_INSTALLED'` naming `name` and every location actually
  *   searched (repo-local, user, and every "installed" skills root for this call), and an
  *   install hint, when no location has a matching adapter; with
  *   `.code === 'UNTRUSTED_REPO_ADAPTER'` naming `name` and the `trustedRepoAdapters` setting
- *   when a repo-local match exists but the non-interactive trust requirement is not met; with
+ *   when a repo-local match exists but the trust requirement is not met (non-interactive, or
+ *   `ctx.untrustedProjectRoot` in any mode); with
  *   `.code === 'CONFIG_INVALID'` naming the user `toolchain.yaml` path when that file exists
  *   but fails schema validation during the trust lookup.
  */
 function loadAdapter(name, ctx = {}) {
-  const { projectRoot = process.cwd(), env = process.env, interactive = false, installedRoots } = ctx;
+  const {
+    projectRoot = process.cwd(),
+    env = process.env,
+    interactive = false,
+    installedRoots,
+    untrustedProjectRoot = false
+  } = ctx;
 
-  const candidates = discoverAdapters({ projectRoot, env, installedRoots }).filter(
-    (entry) => entry.name === name
-  );
+  const candidates = discoverAdapters({
+    projectRoot,
+    env,
+    installedRoots,
+    untrustedProjectRoot
+  }).filter((entry) => entry.name === name);
   const byOrigin = (origin) => candidates.find((entry) => entry.origin === origin);
 
   const repoLocalMatch = byOrigin('repo-local');
   if (repoLocalMatch) {
-    if (!interactive) {
+    if (!interactive || untrustedProjectRoot) {
       const userConfigPath = getUserToolchainConfigPath(env);
       let userConfig;
       try {
@@ -518,9 +566,14 @@ function loadAdapter(name, ctx = {}) {
       }
       const trustedRepoAdapters = Array.isArray(userConfig.trustedRepoAdapters) ? userConfig.trustedRepoAdapters : [];
       if (!trustedRepoAdapters.includes(name)) {
+        const reason = untrustedProjectRoot
+          ? 'lies in a project root named explicitly (--project-root), where repo-local adapters ' +
+            'are untrusted in every mode'
+          : 'this run is non-interactive';
         const error = new Error(
-          `adapter '${name}' is repo-local (${repoLocalMatch.dir}) and this run is non-interactive; ` +
-            `add '${name}' to trustedRepoAdapters in ${userConfigPath} to allow it without an interactive confirmation`
+          `adapter '${name}' is repo-local (${repoLocalMatch.dir}) and ${reason}; ` +
+            `add '${name}' to trustedRepoAdapters in ${userConfigPath} to allow it` +
+            (untrustedProjectRoot ? '' : ' without an interactive confirmation')
         );
         error.code = 'UNTRUSTED_REPO_ADAPTER';
         throw error;
@@ -557,16 +610,22 @@ function loadAdapter(name, ctx = {}) {
   const repoLocalRoot = repoLocalAdaptersRoot(projectRoot);
   const userRoot = userAdaptersRoot(env);
   const packagesRoot = installedPackagesRoot(projectRoot);
-  const searchedInstalledRoots = installedSkillsRoots(projectRoot, installedRoots);
+  const searchedInstalledRoots = installedSkillsRoots(projectRoot, installedRoots, untrustedProjectRoot);
   const installedLocations =
     searchedInstalledRoots.length > 0
       ? searchedInstalledRoots.map((root) => path.join(root, name)).join(', ')
       : '(no package subdirectories found)';
+  const installedSearched = untrustedProjectRoot
+    ? `and every installed-tier skills root this library ships adapters alongside (NOT the ` +
+      `project's own ${packagesRoot}: the project root was named explicitly and is untrusted): ` +
+      `${installedLocations} `
+    : `every installed package's skills directory under ${packagesRoot}, and every other ` +
+      `installed-tier skills root this library ships adapters alongside: ${installedLocations} `;
   const error = new Error(
     `adapter '${name}' is not installed: ensemble looked for a '${name}' skill directory in the repo-local ` +
       `adapters directory (${path.join(repoLocalRoot, name)}), the user adapters directory ` +
-      `(${path.join(userRoot, name)}), every installed package's skills directory under ${packagesRoot}, ` +
-      `and every other installed-tier skills root this library ships adapters alongside: ${installedLocations} ` +
+      `(${path.join(userRoot, name)}), ` +
+      installedSearched +
       `(each as <root>/<dir>/adapter.yaml declaring \`adapter: ${name}\`); install a marketplace package ` +
       `that provides '${name}' (for example, "/plugin install <package>@ensemble" in Claude Code) or place its ` +
       `skill directory in one of the locations above.`

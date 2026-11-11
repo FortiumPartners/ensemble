@@ -1,0 +1,68 @@
+---
+name: ensemble-create-trd
+description: "Create Technical Requirements Document from PRD with architecture design and adversarial review; --parser-tables emits Foreman parser-compatible tables instead"
+disable-model-invocation: true
+metadata:
+  version: "3.5.0"
+  category: planning
+---
+
+Create a TRD from a PRD: validate the PRD, design architecture with alternatives, break work into traceable tasks and PR boundaries, self-review with a Design Readiness Gate, run the Constitution Gate, and save to docs/TRD/. Team configuration is handled by /ensemble:configure-team.
+Foreman subject contract (--foreman): FOREMAN_TASK_TITLE / FOREMAN_TASK_DESCRIPTION carry the dispatched task; when FOREMAN_TASK_TITLE is set, print it before writing anything and plan exactly that task. FOREMAN_SOURCE_PRD_PATH, when set, is the only PRD you may read (an input, not an output path). Confirm its subject matches FOREMAN_TASK_TITLE, else STOP and quote both subjects. If it is set but missing on disk, STOP and report the path. If neither a prd-path argument nor FOREMAN_SOURCE_PRD_PATH exists, STOP and report that no PRD was delivered. NEVER choose a PRD by recency, glob, or plausibility. Outside Foreman these variables are absent.
+
+## Constraints
+
+- DO NOT implement, build, or execute any technical work described in the requirements; this command creates ONLY a TRD document, then stops for user approval
+- DO NOT save the TRD until the Constitution Gate passes
+- Every functional REQ-NNN decomposes into multiple Given/When/Then AC-NNN-M scenarios (happy path, edge, error); each AC-NNN-M becomes one BDD scenario consumed by reqnroll-cli during implementation. This command SPECIFIES scenarios; it does not generate .feature files.
+- When --parser-tables is set (Foreman table mode): the Master Task List MUST be parser-compatible sprint/story markdown tables (never prose checklists or PR-section checkboxes), the adversarial review phase MUST NOT run, every task Status cell MUST be `[ ]` (never `[x]` or `done`), and after creating the TRD stop for user approval; the only next step printed is `foreman sling prd <original-prd-path>`.
+
+## Arguments
+
+- **`foreman`** (boolean, optional, default: `false`): Foreman-native non-interactive mode: skip questions that only gather optional human preference. Auto-select the PRD for --list only when exactly one candidate exists (otherwise HALT with the candidate list), proceed past the CONCERNS-band (3.0-3.9) PRD readiness warning, and auto-pick Option C for the architecture. Hard FAIL gates (PRD readiness < 3.0, Design Readiness Gate FAIL, Constitution Gate failures) still HALT. Never implements; the command stops after producing the TRD. When --foreman is present and FOREMAN_ARTIFACT_PATH is set and non-empty, write the phase report to that exact path (creating parent directories) in addition to any repo-local report. Never invent or alter the path; an unset FOREMAN_ARTIFACT_PATH is not an error.
+- **`parser-tables`** (boolean, optional, default: `false`): Foreman table mode -- folds in the former standalone /ensemble:create-trd-foreman command. The Master Task List is parser-compatible sprint/story markdown tables that Foreman's parseTrd() reads (for `foreman sling prd`), and the adversarial review phase is OMITTED: no Architecture Self-Critique, Task Coverage Analysis, Dependency and Estimate Review, Testability Review or Design Readiness Gate. Steps titled "(--parser-tables)" run only in this mode and replace the standard steps. Asks the user nothing (only the optional --list picker is interactive): the PRD readiness CONCERNS band proceeds with a logged warning, the architecture option is chosen automatically unless interactive architecture review was explicitly requested, and constitution violations stay non-bypassable. Writes exactly one TRD file (no companion artifacts), does not auto-run configure-team for --team, and prints `foreman sling prd <original-prd-path>` as its only next step. Not the same as --foreman, which keeps the standard checkbox TRD (### PR N: headings, adversarial review, Design Readiness Gate) and only removes prompts and adds the Foreman artifact/subject contracts. The flags combine: --foreman --parser-tables applies those contracts to this mode.
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| 1. PRD Ingestion and Validation | `references/phase-1-prd-ingestion-and-validation.md` | Select PRD; Requirements Validation; Implementation Readiness Gate Check |
+| 2. Architecture Design | `references/phase-2-architecture-design.md` | Domain Analysis; Capability Reuse Check; Architecture Alternatives; System Architecture Design |
+| 3. Task Breakdown and Planning | `references/phase-3-task-breakdown-and-planning.md` | Master Task List Generation; Test Task Generation (BDD); Dependency Mapping and PR Boundary Design; Foreman Master Task List Generation (--parser-tables); Foreman Test Task Generation (--parser-tables); Foreman Dependency Mapping (--parser-tables) |
+| 4. Adversarial Review and Design Gate | `references/phase-4-adversarial-review-and-design-gate.md` | Architecture Self-Critique; Task Coverage Analysis; Dependency and Estimate Review; Testability Review; Design Readiness Gate |
+| 5. Constitution Gate | `references/phase-5-constitution-gate.md` | Constitution Gate |
+| 6. Output Management | `references/phase-6-output-management.md` | TRD Document Generation; Acceptance Criteria Traceability; File Save and Next Steps; Foreman TRD Document Generation (--parser-tables); Foreman Traceability Validation (--parser-tables); Foreman File Save and Next Steps (--parser-tables) |
+
+## Expected Output
+
+**Format:** Technical Requirements Document (TRD)
+
+**Structure:**
+
+- **Architecture Decision**: Chosen approach with alternatives, rationale, tradeoffs
+- **Master Task List**: TRD-NNN tasks with [satisfies REQ-NNN], Validates PRD ACs, Implementation AC checklists, and paired TRD-NNN-TEST tasks
+- **System Architecture**: Components, data flow, integration points, technology choices
+- **Acceptance Criteria Traceability**: Matrix linking REQ-NNN to implementation and test tasks
+- **Quality Requirements**: Security, performance, accessibility, testing standards
+- **Design Readiness Scorecard**: Scores for architecture completeness, task coverage, dependency clarity, estimate confidence
+- **Foreman Master Task List (--parser-tables)**: Replaces the Master Task List in Foreman table mode -- parser-compatible sprint/story task tables only, with exact headers `id | task | estimate | dependencies | files | status` (lowercase `id` required) and `[ ]` status cells for every task row; no Design Readiness Scorecard is produced
+
+## Expected Input
+
+```yaml
+format: Product Requirements Document (PRD)
+sections:
+  - name: Product Summary
+    required: true
+  - name: User Analysis
+    required: true
+  - name: Goals & Non-Goals
+    required: true
+  - name: Technical Requirements
+    required: true
+  - name: Acceptance Criteria
+    required: true
+    description: Measurable criteria with REQ-NNN IDs and Given/When/Then AC-NNN-M sub-items
+```

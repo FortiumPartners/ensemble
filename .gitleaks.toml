@@ -3,7 +3,7 @@ title = "ensemble gitleaks config"
 [extend]
 useDefault = true
 
-[allowlist]
+[[allowlists]]
 description = "Intentional fake secrets used as redaction/telemetry test fixtures"
 paths = [
   # Fake jwt / private-key / slack-token strings that exercise payload redaction.
@@ -18,4 +18,19 @@ paths = [
   '''^scripts/tests/fixtures/toolchain/broken-adapter/SKILL\.md$''',
   # Fake ghp_ token exercising the TRD-037 AC-024-2 secret-hygiene grader (it must detect and redact it).
   '''^packages/development/tests/pr-review-reachability\.test\.js$''',
+  # Fake AWS_SECRET_ACCESS_KEY / API-token canary values that prove the pr-review-prepare baseline run drops credentials from its environment.
+  '''^packages/development/tests/pr-review-prepare\.test\.js$''',
+]
+
+# Fake `name = value` strings that exercise the shared redact() (it must remove them). Narrower than a path entry: the
+# secret must also be one of these two fixture values, so a real secret pasted into this test file is still reported.
+# (gitleaks does not accept `[allowlist]` next to `[[allowlists]]`, so the block above is one too: same paths, same effect.)
+[[allowlists]]
+description = "Fake name = value fixtures in the shared redact() tests"
+condition = "AND"
+paths = [
+  '''^packages/development/tests/pr-review-state\.test\.js$''',
+]
+regexes = [
+  '''^abcdef(?:123456|0123456789)$''',
 ]

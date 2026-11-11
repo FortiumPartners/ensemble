@@ -4,16 +4,17 @@
 /**
  * Local CI gate CLI (TRD-005). Thin JSON-in/JSON-out dispatcher over the
  * local-ci-* modules: one JSON payload on stdin per subcommand, one JSON
- * object on stdout. The only logic here is ORDERING (`gate`: prerequisites ->
- * run -> record -> post) and the merge-readiness decision (`merge`), both of
- * which only combine verdicts the modules already produce.
+ * object on stdout. The only logic here is ORDERING (`gate`: prerequisites -> lock -> run -> record -> post) and the
+ * merge-readiness decision (`merge`), both of which only combine verdicts the modules already produce. `gate` and `run`
+ * are the two subcommands that run CI: each takes the lock (local-ci-lock.js), so they run one at a time per home
+ * directory, and each reports its wait as `queued_ms`.
  *
  *   config   {source|repoRoot, baseRef}            validateConfig (source: text check only)
  *   record   {action: build|parse|verify, input}   buildRecord / parseRecord / verifyRecord
- *   run      {repoRoot, headSha, baseRef}          runGate (never publishes)
+ *   run      {repoRoot, headSha, baseRef}          runGate (never publishes; takes the same lock as `gate`)
  *   post     {input:{repo,sha,state,context,description}}  postStatus (maintainer's own gh login)
  *   review   {action: classify|decide, reviews}    classifyReviews / decideBlock
- *   sweep    {facts, trackedKeys}                  findUntracked
+ *   sweep    {facts, repoRoot, repo, pr, headSha, baseSha, dryRun?}  record each untracked finding/CI failure as a bead
  *   timing   {action: ready|verdict|record|fidelity|note, input}
  *   merge    {headSha, statuses, repoRoot, baseRef, reviews?}  merge readiness for a PR
  *   gate     {repoRoot, headSha, baseRef, repo, dryRun?}  full gate run
@@ -28,6 +29,13 @@
  * TRUST (honest actor): the status is posted with the maintainer's own `gh` login. pr-merge verifies the head-SHA binding,
  * the run record and review state; it does NOT verify who posted the status. There is no GitHub App, key or token here.
  *
+ * TRUST (sweep): `sweep` is the one subcommand here that writes to a tracker, so before it writes it asks what the PR-review
+ * recorder asks (local-ci-sweep-record.js, which runs pr-review-beads-cli.js `checkTrust`): the host is asked about `repo`/`pr`
+ * (a head on a fork, an unreadable pull request, a head that is not the PR's head and a `baseSha` that is not on its base branch
+ * are REFUSED by name), the tracker runs in the repository's primary checkout, never in a worktree or clone of the head, with the
+ * tracker choice read from `.ensemble/toolchain.yaml` as committed at `baseSha` and no adapter code loaded from any tree. The
+ * dedupe set is built from the tracker, never from the payload: a `trackedKeys` key is rejected like any other unknown key.
+ *
  * FAIL CLOSED: malformed or oversized (> MAX_STDIN_BYTES) JSON is rejected
  * before any handler runs (exit 1, `{error}`, no side effects). Every string
  * emitted passes through redact(). A result with `ok:false` exits 1.
@@ -40,14 +48,15 @@ const { spawnSync } = require('child_process');
 const { buildRecord, parseRecord, verifyRecord } = require('./local-ci-record');
 const { postStatus, redact, MAX_DESCRIPTION, CANNOT_ATTEST } = require('./local-ci-status');
 const { classifyReviews, decideBlock } = require('./local-ci-review');
-const { findUntracked } = require('./local-ci-sweep');
 const timing = require('./local-ci-timing');
+const gateLock = require('./local-ci-lock');
 const rollout = require('./local-ci-rollout');
 
 // config and runner need js-yaml. They load on first use so the CLI still starts
 // (and reports a usable error) where js-yaml is not resolvable, e.g. a bare vendor dir.
 const validateConfig = (source) => require('./local-ci-config').validateConfig(source);
 const runGate = (options, injected) => require('./local-ci-runner').runGate(options, injected);
+const runnerWorstCaseMs = (approvalSet, options) => require('./local-ci-runner').worstCaseMs(approvalSet, options);
 
 /** Largest accepted stdin payload: 1 MiB. */
 const MAX_STDIN_BYTES = 1024 * 1024;
@@ -59,6 +68,7 @@ const CONFIG_KEYS = ['source', 'repoRoot', 'baseRef'];
 const RUN_KEYS = ['repoRoot', 'headSha', 'baseRef'];
 const GATE_KEYS = ['repoRoot', 'headSha', 'baseRef', 'repo', 'pr', 'dryRun'];
 const MERGE_KEYS = ['headSha', 'statuses', 'repoRoot', 'baseRef', 'repo', 'pr', 'reviews'];
+const SWEEP_KEYS = ['facts', 'repoRoot', 'repo', 'pr', 'headSha', 'baseSha', 'dryRun'];
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -137,6 +147,16 @@ function defaultDeps() {
         return { ok: false, error: 'gh pr view returned output that is not JSON' };
       }
     },
+    // Serializes CI runs (`gate` and `run`) per user home (see local-ci-lock.js). `hold` is the runner's worst-case hold
+    // for the config at hand, which sizes a waiter's default patience. The policy knobs come from the process
+    // environment: the lock belongs to whoever runs this CLI, not to the step environment `env` below.
+    acquireGateLock: (hold) => gateLock.acquireFromEnv(process.env, undefined, hold),
+    // The sweep's reads of the repository and of the host, and its tracker (local-ci-sweep-record.js). `repoGit` has the shape
+    // pr-review-repo.js injects, `(args, {cwd})`, and no GIT_* variable of this process reaches it. Required lazily, so no other
+    // subcommand loads any of it. The tracker is built per call: it needs the checkout and config the trust checks resolve.
+    repoGit: (args, options) => require('./review-record-runtime').defaultGit()(args, options),
+    readPr: (request) => require('./review-record-runtime').makeReadPr()(request),
+    trackerFor: (options) => require('./tracker-findings').createToolchainDeps(options),
     env: process.env,
   };
 }
@@ -232,11 +252,11 @@ function loadGateConfig(deps, repoRoot, baseRef, headSha) {
   return problem ? { ok: false, problems: [problem] } : cfg;
 }
 
-/** Fail closed on any payload key a caller could use to smuggle options. */
-function rejectUnknownKeys(payload, allowed, what) {
+/** Fail closed on any payload key a caller could use to smuggle options. `because` says why the allowed keys are all there is. */
+function rejectUnknownKeys(payload, allowed, what, because = `Configuration comes only from the maintainer's ${DEFAULT_CONFIG_PATH}`) {
   const unknown = Object.keys(payload).filter((k) => !allowed.includes(k));
   if (unknown.length > 0) {
-    throw new Error(`${what}: unknown payload key(s) ${unknown.map(shown).join(', ')}; allowed: ${allowed.join(', ')}. Configuration comes only from the maintainer's ${DEFAULT_CONFIG_PATH}`);
+    throw new Error(`${what}: unknown payload key(s) ${unknown.map(shown).join(', ')}; allowed: ${allowed.join(', ')}. ${because}`);
   }
 }
 
@@ -278,7 +298,33 @@ function runnerOptions(repoRoot, headSha, cfg) {
   };
 }
 
-function runRun(payload, deps) {
+/**
+ * Run `work`, which starts the runner, while holding the gate lock. `gate` and `run` both go through here, so neither
+ * starts CI without it. The lock covers `work` and nothing else and is released whether `work` returns or throws.
+ * `cfg` sizes a waiting caller's patience: the runner's worst-case hold for this config. Resolves `{value, queuedMs}`
+ * once `work` ran, or `{refusal: {error, fields}}` when the lock could not be had or is not available: `work` did not run.
+ */
+async function underGateLock(deps, cfg, options, work) {
+  if (typeof deps.acquireGateLock !== 'function') {
+    return { refusal: { error: 'gate lock is not available; refusing to run an unserialized gate', fields: {} } };
+  }
+  const lock = await deps.acquireGateLock({ worstCaseHoldMs: runnerWorstCaseMs(cfg.approvalSet, options) });
+  if (!lock.acquired) {
+    return {
+      refusal: {
+        error: `${lock.code}: ${lock.error}`,
+        fields: { errorCode: lock.code, queued_ms: lock.queuedMs, ...(lock.holder ? { lockHolder: lock.holder } : {}) },
+      },
+    };
+  }
+  try {
+    return { value: work(), queuedMs: lock.queuedMs };
+  } finally {
+    lock.release();
+  }
+}
+
+async function runRun(payload, deps) {
   if (!isObject(payload)) throw new Error('payload must be a JSON object');
   rejectUnknownKeys(payload, RUN_KEYS, 'run');
   const repoRoot = path.resolve(need(payload, 'repoRoot', isText, 'run'));
@@ -286,7 +332,11 @@ function runRun(payload, deps) {
   const baseRef = need(payload, 'baseRef', isBaseRef, 'run');
   const cfg = loadGateConfig(deps, repoRoot, baseRef, headSha);
   if (!cfg.ok) return { ok: false, error: `local CI config invalid: ${cfg.problems.join('; ')}` };
-  return deps.runGate(runnerOptions(repoRoot, headSha, cfg), deps.runnerDeps);
+  // `run` clones and runs the same CI as `gate`, so it queues behind the same lock and is refused the same way.
+  const options = runnerOptions(repoRoot, headSha, cfg);
+  const held = await underGateLock(deps, cfg, options, () => deps.runGate(options, deps.runnerDeps));
+  if (held.refusal) return { ok: false, stage: 'lock', error: held.refusal.error, ...held.refusal.fields };
+  return isObject(held.value) ? { ...held.value, queued_ms: held.queuedMs } : held.value;
 }
 
 async function runPost(payload, deps) {
@@ -305,9 +355,26 @@ function runReview(payload) {
   return REVIEW_ACTIONS[action](payload.reviews);
 }
 
-function runSweep(payload) {
+/**
+ * `sweep`: record each finding and CI failure the tracker does not hold yet as a bead (local-ci-sweep-record.js). The facts
+ * are already fetched by the caller; the dedupe set is built from the tracker, so no `trackedKeys` is accepted. Never
+ * ordered against the merge here: the caller runs it before and after, and a result never authorizes or blocks a merge.
+ */
+function runSweep(payload, deps) {
+  if (!isObject(payload)) throw new Error('payload must be a JSON object');
+  rejectUnknownKeys(payload, SWEEP_KEYS, 'sweep', 'The keys the tracker already holds come only from the tracker, and which tracker only from .ensemble/toolchain.yaml at baseSha');
+  const isSha = (v) => typeof v === 'string' && SHA_RE.test(v);
   const facts = need(payload, 'facts', isObject, 'sweep');
-  return findUntracked(facts, payload.trackedKeys || []);
+  const repoRoot = need(payload, 'repoRoot', isText, 'sweep');
+  const repo = need(payload, 'repo', isRepo, 'sweep');
+  const pr = need(payload, 'pr', isPrNumber, 'sweep');
+  const headSha = need(payload, 'headSha', isSha, 'sweep');
+  const baseSha = need(payload, 'baseSha', isSha, 'sweep');
+  if (payload.dryRun !== undefined && typeof payload.dryRun !== 'boolean') throw new Error('sweep: dryRun must be true or false when given');
+  return require('./local-ci-sweep-record').sweep(
+    { facts, repoRoot, repo, pr, headSha, baseSha, dryRun: payload.dryRun === true },
+    { git: deps.repoGit, readPr: deps.readPr, trackerFor: deps.trackerFor, env: deps.env }
+  );
 }
 
 const TIMING_ACTIONS = Object.freeze({
@@ -467,8 +534,15 @@ async function runGateFlow(payload, deps) {
   const cfg = loadGateConfig(deps, repoRoot, baseRef, headSha);
   if (!cfg.ok) return stop('config', `local CI config invalid: ${cfg.problems.join('; ')}`);
 
-  // 3. Run in a clean clone at the exact head (the runner owns checkout and cleanup).
-  const result = deps.runGate(runnerOptions(repoRoot, headSha, cfg), deps.runnerDeps);
+  // 3. Run in a clean clone at the exact head (the runner owns checkout and cleanup), one run per user home at a time:
+  // wait for the lock (recording how long), run, and always release it, whether the run returns or throws. Nothing
+  // else holds the lock: posting the status below happens after release. Config and PR checks above stay outside it so
+  // an invalid request never queues behind a long run.
+  const options = runnerOptions(repoRoot, headSha, cfg);
+  const held = await underGateLock(deps, cfg, options, () => deps.runGate(options, deps.runnerDeps));
+  if (held.refusal) return stop('lock', held.refusal.error, held.refusal.fields);
+  report.queued_ms = held.queuedMs;
+  const result = held.value;
   report.stage = 'run';
   report.nodes = (result.nodes || []).map((n) => ({ node: n.node, ok: n.ok }));
 
@@ -587,6 +661,7 @@ module.exports = {
   HANDLERS,
   MAX_STDIN_BYTES,
   defaultDeps,
+  SWEEP_KEYS,
 };
 
 if (require.main === module) {

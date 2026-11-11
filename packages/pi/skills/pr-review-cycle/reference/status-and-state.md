@@ -7,12 +7,12 @@ Companion to `SKILL.md`; every rule here is normative.
 
 Run `node "$PR_REVIEW_CLI" status` with the accumulated facts: `{ baseSha,
 headSha, reviewedHeadSha, reviewedTreeSha, headTreeSha,
-findingCounts:{total, actionable, deferred}, tests:{exitCode, skipped, command},
+findingCounts:{total, actionable, deferred}, coverage:{status, gaps}, tests:{exitCode, skipped, command},
 remotePhase, roundsUsed, roundCap, access, prUrl, reportPath, reviewOnly }`. `baseSha`, `headSha` and
 `reviewedHeadSha` (full 40- or 64-hex
-object ids, never a bare ref) and `findingCounts` (`total`, `actionable` and
-`deferred`: non-negative integers with `total >= actionable + deferred`) are
-required, `roundsUsed`, when given, is a non-negative integer, `roundCap`,
+object ids, never a bare ref), `findingCounts` (`total`, `actionable` and
+`deferred`: non-negative integers with `total >= actionable + deferred`) and
+`coverage` (below) are required, `roundsUsed`, when given, is a non-negative integer, `roundCap`,
 when given, is the policy's integer 1-5 (absent means the strict default of
 3, and a value outside the range is refused with the default applied), and
 `tests`,
@@ -25,6 +25,22 @@ naming the missing facts. The result is exactly one of
 `REVIEW_COMPLETE` / `REVIEW_PENDING` / `REVIEW_BLOCKED` plus `localPhase`,
 `remotePhase` and `reasons`. `REVIEW_COMPLETE` requires `LOCAL_REVIEW_COMPLETE`
 **and** `REMOTE_REVIEW_COMPLETE` -- never return it from prose judgment.
+
+**Coverage (`coverage`, required).** The record of what the reviewers did NOT read: `{ status:
+'complete' | 'incomplete' | 'unavailable', gaps }`, exactly as `slices` (with `reviewedBy`),
+`review-run` (its state report) and `carry` with `action: 'coverage'` answer it -- never typed,
+never shortened. `incomplete` names one gap per unread slice, per lost whole-range reader, per
+path no slice held and per path read under too few lenses; the status is then
+`LOCAL_REVIEW_PENDING` with `next: complete-review-coverage` and every gap in `reasons`,
+whatever else is complete (a review that did not read everything cannot say what is left to
+fix). Read it again (re-run the review on this head), or the operator decides the gap through
+the existing path: `ledger` `resolve` on the gap (Step 10's decision list, `Accept` with a
+reason) records `{ reason, by, headSha, at }`, graded by the same rules as a finding's
+resolution, so `cleared`, a deferral and a decision for another head close nothing. Pass the Step
+10 `policy` result as `policy` when there is one: it names who may decide. A missing,
+unreadable or `unavailable` coverage is `LOCAL_REVIEW_BLOCKED` naming `coverage`: an unknown
+coverage is never a complete one. `status` echoes `coverage`, so `state-write` records it; in
+`MODE=remote` copy it from the `state-read` report like the other local-phase facts.
 
 **Review-only runs (`REVIEW_ONLY`).** Add `reviewOnly: true` to the facts. The result
 is then `REVIEW_PENDING` with a reason that says why, whatever else is complete --
@@ -148,3 +164,61 @@ rule exists to prevent.
 and `reasons`, with the reviewers and verifiers actually dispatched), so a
 reader of the report sees at what depth the review ran and why: a Standard
 review is never mistaken for a Deep one.
+
+**What the report records about settled verdicts.** `state` MAY carry `verdicts` (`state-write` stores it verbatim): the
+settled verification verdict records the NEXT round's `carry` `plan` reads. Never type one: they are the answers of
+`carry` (`record` for the verdicts this round settled, `plan`'s `carried` for those it kept), concatenated. A record is
+`{ id, file, claim, lines, hunkHash, depHashes, head, carriedFrom?, outcome, votes, prId, baseSha, depth,
+expectedVerifiers }`: only `present` and `filtered`, each with the votes of exactly `expectedVerifiers` distinct verifiers,
+bound to the PR, the base, the depth and verifier count it was settled under and to the ledger finding of that `id`. The
+delta round reads the report written for `lastReviewedSha`, so write it with `headSha` = the head this round reviewed, and
+keep `ledger` in it: `plan` refuses a verdict whose finding is not in that ledger. No `verdicts`, no carry. The report is
+an untracked file, so `depHashes` is redacted like any state: a dependency whose path matches the credential-key pattern
+(for example `lib/token-cache.js`) is stored as `[REDACTED]` and disables carry for that closure.
+
+**What the report records about timing.** `state` MAY carry a `timing` key: the
+answer of `node "$PR_REVIEW_CLI" timing` with `{ runId }` (or `{ runId, cwd }`),
+computed from the run's span trace (`toolchain-cli trace`,
+`.ensemble/state/toolchain/trace-<runId>.jsonl`, `lib/run-trace.js`), never from
+agent session files. The stage spans are `review` (the orchestrator's whole
+window; attrs `turns` and `tool_calls`), `review.head-read`, `review.gate` (one run
+of the Step 10 gate: the `review-gate` span of `/ensemble-pr-merge`'s own trace
+wraps that command's whole review step and is a different span, never read here),
+`review.classifier`, `review.second-assessor`, `review.security-lane`,
+`review.reviewer`, `review.verifier` and `review.verdict`, each optionally with a
+`round` attr (delta re-reviews are round 2 and later) and agents with an `agent`
+name and a `wave` (the dispatch group, from 1; waves run one after another) and, when the dispatcher supplied them at `review-run collect`, `tool_calls`, `turns`, `effort`, `model`, `retries` and `rate_limits` (`timing` reports them as `agentStats`, a figure nobody supplied as `null` with a reason, with `hostLoad`);
+`lib/pr-review-timing.js` holds the contract. The answer is the window, the
+**orchestrator-only** time (wall time minus the union of the intervals in which at
+least one dispatched agent was active or a verdict was being computed: the critical
+path counts the verdict, so no minute is in both), the **critical path** (slowest
+reviewer, then slowest verifier, then verdict, per round, each step cut to the
+window, which a critical path needs; agents dispatched in several waves count the
+slowest of each wave, summed) and a per-stage table. Three rules keep it
+honest. An agent ends at its **last message**, never at `session_exit`: close its
+span when its result arrives, or, if it can only be closed later, record the real
+end as the span attr `last_message_ts`. A span is as long as the recorder's
+`duration_ms` (monotonic-first), never the difference of two wall-clock timestamps
+(a span that ends at `last_message_ts` is the one exception, since the last message
+is only known as a wall-clock time), and one the recorder flagged `clock_anomaly` is
+unusable; when the wall clock stepped inside the window (a system sleep, a clock
+change), the figures that need positions (agents active, orchestrator-only, before
+the first dispatch, the critical path) are missing with that reason. That check sees
+a step only through a span that was open across it: a forward and a backward step
+both in the gaps between spans leave no trace in the recorder's data. And a figure
+nobody recorded is `{ ms: null, missing: true, reason }`, never zero: a critical path
+with no verdict span, or with two in one round, has no total (a verdict span that
+ended in error was never recorded and counts for neither), steps that overlap or
+run out of order are never summed (the total is missing and names the pair), spans
+that carry one wave number but started more than 5 s apart are not one wave (that step
+is missing), a security lane that ended after the slowest reviewer of its wave, or ran
+in a wave no reviewer ran in, is no step, so the round names it (`outlasted`,
+`uncountedWaves`) and its total is a lower bound, and an unfinished agent makes the
+orchestrator-only time an upper bound (`bound: 'upper'`).
+Copy the answer into `state.timing` verbatim; do not round, fill in or drop a
+missing figure. Timing is observational only: a `timing` call that fails or answers
+`ok: false` is recorded as it answered, or left out, and never blocks the review,
+the gate or a merge. `review-run` (`lib/review-run-cli.js`) records these stage spans for a
+light-mode run into its own trace (its `review` span records no `turns` or `tool_calls`; an agent's figures are what the dispatcher passed as `agentStats`), so `timing` with that run's id answers.
+HONEST LIMIT: the narrated Steps 1-10 record no stage spans, so a run without a hand-written trace has no `timing`, and
+the report says nothing about timing rather than a made-up figure.

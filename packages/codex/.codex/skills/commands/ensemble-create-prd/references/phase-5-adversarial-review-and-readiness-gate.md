@@ -1,0 +1,42 @@
+# Phase 5: Adversarial Review and Readiness Gate
+
+**1. Self-Critique**
+   Find issues in the draft PRD before presenting to the user
+
+- IF --from-meeting flag is set: do NOT present these issues to the user for live resolution -- there is no interview in this mode, so the Issue Resolution step is skipped entirely. Review the draft PRD for issues in the same 5 categories (gaps, contradictions, ambiguity, missing edge cases, testability), resolve what's directly resolvable from the meeting summary's own content, and convert everything else into an additional [NEEDS CLARIFICATION] marker instead of asking. The at-least-5 / at-least-10 issue minimums and the 'present each issue' action below do not apply.
+- Review the draft PRD and identify at least 5 potential issues from these categories:
+- - Gaps: missing requirements that the elicitation phase hinted at
+- - Contradictions: requirements that conflict with each other
+- - Ambiguity: requirements vague enough to be implemented two different ways
+- - Missing edge cases: failure scenarios from the elicitation phase not covered by ACs
+- - Testability: ACs that cannot be objectively verified
+- For DEEP depth: find at least 10 issues
+- Present each issue with a recommended resolution
+
+**2. Issue Resolution**
+   Walk through issues one at a time and incorporate user decisions
+
+- IF --from-meeting flag is set: skip this step entirely -- Self-Critique already resolved what the meeting summary could resolve and converted the rest into [NEEDS CLARIFICATION] markers. There is no live user to walk through issues; do NOT invoke AskUserQuestion here.
+- IF --foreman flag is set: do not ask the user to confirm resolutions. For each issue, apply your recommended resolution directly and note it was auto-applied under foreman mode; if an issue genuinely cannot be resolved without human input, mark it inline as [NEEDS CLARIFICATION: <question>] in the generated PRD instead of blocking.
+- INTERVIEW PROTOCOL: Present ONE issue at a time. Do not list all issues upfront.
+- For each issue: state the problem, give your recommended resolution, then ask 'Does this resolution work for you, or would you like to adjust it?'
+- Wait for the user's response before moving to the next issue
+- After each decision: acknowledge briefly, apply the change mentally, then present the next issue
+- After all issues are resolved: summarize the changes made and confirm before updating the PRD
+- If new requirements emerge from issue resolution, assign REQ-NNN IDs and add ACs
+
+**3. Implementation Readiness Gate**
+   Score the PRD on quality dimensions to determine if it is ready for TRD handoff
+
+- Score these dimensions (1-5 scale):
+- - Completeness: are all feature areas covered with requirements?
+- - Testability: does every Must/Should requirement have verifiable ACs?
+- - Clarity: could two different developers read this and build the same thing?
+- - Feasibility: are all requirements technically achievable within stated constraints?
+- Compute overall score: average of all dimensions
+- IF --from-meeting flag is set: expect a LOWER score than a live run would typically produce, roughly proportional to the [NEEDS CLARIFICATION] marker count -- that reflects reality, not a failure of this mode
+- IF --from-meeting flag is set: the CONCERNS and FAIL branches below do NOT apply. Neither asking the user (CONCERNS) nor refusing to save (FAIL) fits this mode: there is no live user to ask, and its entire purpose is producing a starting draft for a human's later refine-prd pass, so refusing to save a low-scoring async draft would defeat that purpose. Do NOT invoke AskUserQuestion for this branch. On PASS (4.0+), CONCERNS (3.0-3.9) or FAIL (below 3.0) alike, continue to the Constitution Gate and then save the PRD with Status set to Draft. Report the PASS/CONCERNS/FAIL result plainly, list the specific concerns (same categories as Self-Critique), and say clearly that a human refine-prd pass is expected next given the score.
+- PASS (4.0+): proceed to the Constitution Gate before saving the PRD
+- CONCERNS (3.0-3.9): list specific concerns, ask user if they want to address them or proceed. IF --foreman flag is set: skip the question -- log the concerns clearly and default to proceeding to the Constitution Gate before saving the PRD, without pausing for confirmation.
+- FAIL (<3.0): do not save -- identify the weakest dimensions and loop back to fix them. This is a hard gate and HALTs unchanged regardless of --foreman. Only --from-meeting differs, per the action above.
+- Present the scorecard to the user with the gate decision

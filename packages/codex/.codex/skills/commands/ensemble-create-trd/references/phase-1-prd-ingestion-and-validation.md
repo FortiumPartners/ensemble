@@ -1,0 +1,24 @@
+### Phase 1: PRD Ingestion and Validation
+
+#### Step 1.1: Select PRD
+
+Resolve the PRD from the argument, --list, or FOREMAN_SOURCE_PRD_PATH
+
+- If FOREMAN_SOURCE_PRD_PATH is set it is THE PRD (overrides --list); apply the Foreman subject contract above.
+- If --list: resolve PRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/prd-cli.js, run `node "$PRD_CLI" list --type prd` and parse {ok,type,items}; on failure print the error and HALT. Show a table (ID/Name, Status, Score, Version, Last Modified) and ask the user to pick one via AskUserQuestion (id `prd_select`). Under --foreman see the parameter rules: one candidate auto-selects, otherwise print `ERROR: --list with --foreman requires an unambiguous PRD. Candidates: <list>. Pass a specific prd-path instead.` and HALT. Map the selected slug to docs/PRD/<file>.md; HALT if it does not exist.
+- Read the PRD. With --foundational and no full PRD, accept a short capability brief, skip PRD-structure validation and the readiness gate, and register capabilities instead of REQ-NNN IDs.
+
+#### Step 1.2: Requirements Validation
+
+Check PRD completeness and the BDD scenario floor
+
+- Unless --foundational with a brief: verify the PRD has Product Summary, User Analysis, Goals, Technical Requirements, Acceptance Criteria; REQ-NNN numbering is consistent; acceptance criteria are testable Given/When/Then with AC-NNN-M sub-items; constraints and non-goals are documented. Build the REQ registry for traceability.
+- Flag any functional REQ-NNN with fewer than 3 AC-NNN-M sub-items (happy path, edge, error) as insufficient BDD coverage in the readiness scorecard.
+
+#### Step 1.3: Implementation Readiness Gate Check
+
+Check the PRD's own readiness gate and review history
+
+- Read PRD frontmatter Readiness Score. >= 4.0 proceed; 3.0-3.9 (CONCERNS) warn and ask whether to proceed (--foreman or --parser-tables: skip the ask -- log the warning and proceed automatically); < 3.0 HALT and recommend /ensemble:refine-prd (even under --foreman or --parser-tables); absent: proceed noting the PRD was not gate-checked.
+- REFINE CHECK. refine-prd is the only command that writes a `## Changelog` (or `## Version History`) section into a PRD. If the PRD has none, or it has no entry, print `WARNING: <path> has no refine-prd changelog entry. This PRD has not been reviewed.` and ask via AskUserQuestion whether to run /ensemble:refine-prd first (recommended) or proceed. Advisory, not a HALT. If --foreman or --parser-tables is set, skip the ask, log the warning, and proceed.
+- PRD-CHANGED CHECK. If a TRD already exists for this PRD (a docs/TRD file whose `prd_reference` resolves to this PRD path, or whose TRD_MICRO_UUID matches) and the PRD frontmatter `version` is higher than the version that TRD was built from, the correct action is to RE-CREATE the TRD from the current PRD, which is this command. It is NOT to run /ensemble:refine-trd on the existing one -- that refines the wrong document. Overwrite the existing TRD path rather than creating a second TRD for the same PRD.

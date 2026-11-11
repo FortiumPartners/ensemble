@@ -12,7 +12,7 @@
 // on this machine, so the result may contain more than our one extension —
 // we find ours by resolvedPath rather than assuming array length 1.
 //
-// This repo (not this fixture) has no dispatcher YAML at its own root, so
+// This repo (not this fixture) has no dispatcher skill at its own root, so
 // registerDispatcherCommand's own no-op contract applies here: zero
 // commands registered is the correct, expected outcome for this checkout.
 // The real registration path is covered by

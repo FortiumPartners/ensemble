@@ -22,13 +22,15 @@
  * to nothing (URLs, user-project files like `package.json`, dangling names) are ignored and
  * never fail generation.
  *
- * Discovery pattern:
- *   - packages/*\/skills\/<subdir>\/SKILL.md  (subdirectory layout)
- *   - packages/*\/skills\/SKILL.md            (top-level layout, e.g. blazor, nestjs)
+ * A skill split into a references/ directory (phase files, say) ships whole by the same rule,
+ * provided its SKILL.md names each file by its path from the skill root (`references/phase-1-x.md`):
+ * in a table cell, a list or prose alike, since the token is found wherever it stands. A file that
+ * nothing names is left out.
  *
- * Output layout:
- *   - Subdirectory layout: packages/pi/skills/<subdir>/<relative path>
- *   - Top-level layout:    packages/pi/skills/<package-name>/<relative path>
+ * Discovery pattern: packages/*\/skills\/<name>\/SKILL.md. A skill is a directory named after
+ * the skill (the Agent Skills layout), whether the package ships one skill or many.
+ *
+ * Output layout: packages/pi/skills/<name>/<relative path>
  *
  * Packages named in EXCLUDED_PACKAGES are not scanned: `pi` (the output target, avoids
  * self-referential copies), `full` (symlink mirror of other packages' skills) and every
@@ -40,8 +42,9 @@
  * Every copied markdown file starts with the generated marker (../generated-marker.ts), on its
  * first line or right after the frontmatter: it is how a later generator run recognises a stale
  * copy of a removed or renamed skill as its own output and prunes it (see generator.ts, which
- * only inspects markdown directly inside a skill directory). Non-markdown files (scripts, data)
- * are copied byte for byte, with their file mode.
+ * inspects the markdown directly inside a skill directory and everything below its references/
+ * directory: a references/ file that the skill stops naming goes with the rest). Non-markdown
+ * files (scripts, data) are copied byte for byte, with their file mode, and carry no marker.
  *
  * SKILL.md files are normalized for Pi compatibility:
  *   - `name` is always overridden with the output skill directory name
@@ -343,11 +346,8 @@ function shippedFiles(root: string, dirName: string): string[] {
 /**
  * Discover the files to ship for every skill across all packages.
  *
- * Handles two layouts:
- *   1. Subdirectory layout: packages/<pkg>/skills/<subdir>/SKILL.md
- *      → skillDirName = <subdir>
- *   2. Top-level layout: packages/<pkg>/skills/SKILL.md
- *      → skillDirName = <pkg>
+ * A skill is a directory packages/<pkg>/skills/<name>/ that holds a SKILL.md (symlinked
+ * directories included); skillDirName = <name>.
  *
  * Skips packages in EXCLUDED_PACKAGES (pi, full and the self-contained Pi packages).
  */
@@ -411,10 +411,7 @@ function discoverSkillFiles(packagesDir: string): SkillFileEntry[] {
       continue;
     }
 
-    // Top-level layout: skills/SKILL.md
-    addSkill(skillsDir, pkgName, `packages/${pkgName}/skills`);
-
-    // Subdirectory layout: skills/<name>/SKILL.md (directories, including symlinked ones)
+    // Skills: skills/<name>/SKILL.md (directories, including symlinked ones)
     for (const skillDirent of skillDirents) {
       const subPath = path.join(skillsDir, skillDirent.name);
       if (!isDir(subPath)) continue;
@@ -496,8 +493,16 @@ export async function copySkills(
       // that point at ensemble:<cmd> would otherwise reference names that do not
       // resolve in Pi. Source stays authored in the Claude-canonical colon form.
       // The generated marker goes on last, so it never feeds description extraction above.
+      // A command's own skill (a directory named ensemble-*, the command-skill convention) is
+      // the prompt the command's prompt used to carry, and that prompt had AskUserQuestion
+      // mapped to Pi/OMP's native question tool, `ask` (command-transformer.ts). A skill the
+      // command's prompt now points at gets the same mapping, or the agent is told to call a
+      // tool Pi does not have. Other skills keep their text.
+      const commandRewritten = normalizedContent.replace(/ensemble:([a-z0-9-]+)/g, 'ensemble-$1');
       content = withGeneratedMarker(
-        normalizedContent.replace(/ensemble:([a-z0-9-]+)/g, 'ensemble-$1'),
+        entry.skillDirName.startsWith('ensemble-')
+          ? commandRewritten.replace(/AskUserQuestion/g, 'ask')
+          : commandRewritten,
         entry.sourceLabel
       );
       toWrite = content;

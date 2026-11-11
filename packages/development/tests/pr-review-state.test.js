@@ -39,6 +39,201 @@ describe('pr-review-state: redact', () => {
   });
 });
 
+describe('pr-review-state: redact widened credential shapes', () => {
+  const R = '[REDACTED]';
+  const alnum = (n) => 'aB3dE5gH7jK9mN1pQ3sT5vW7yZ0'.repeat(4).slice(0, n);
+  const GITHUB_PAT = 'github_pat_' + alnum(22) + '_' + alnum(59);
+  const AWS_ID = 'AKIA' + 'IOSFODNN7EXAMPLE';
+  const BODY = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj';
+  const pemBegin = '-----BEGIN ' + 'RSA PRIVATE KEY-----';
+  const pemEnd = '-----END ' + 'RSA PRIVATE KEY-----';
+
+  test('redacts an AKIA access key id', () => {
+    expect(redact(`key ${AWS_ID} leaked`)).toBe(`key ${R} leaked`);
+  });
+
+  test('redacts an ASIA access key id', () => {
+    expect(redact('tmp ' + 'ASIA' + 'IOSFODNN7EXAMPLE' + ' end')).toBe(`tmp ${R} end`);
+  });
+
+  test('redacts a fine-grained github_pat_ token', () => {
+    expect(GITHUB_PAT).toHaveLength(93);
+    expect(redact(`token is ${GITHUB_PAT}.`)).toBe(`token is ${R}.`);
+  });
+
+  test('redacts a complete PEM private key block and keeps surrounding prose', () => {
+    const out = redact(`before\n${pemBegin}\n${BODY}\n${BODY}\n${pemEnd}\nafter`);
+    expect(out).toBe(`before\n${R}\nafter`);
+  });
+
+  test('redacts a truncated PEM block with no END line: header plus the base64 body lines that follow', () => {
+    const out = redact(`quoted: ${pemBegin}\n${BODY}\n${BODY}`);
+    expect(out).not.toContain(BODY);
+    expect(out).toBe(`quoted: ${R}`);
+  });
+
+  test('redacts an AWS_SECRET_ACCESS_KEY assignment but keeps the name', () => {
+    const secret = alnum(40);
+    expect(redact(`AWS_SECRET_ACCESS_KEY=${secret}`)).toBe(`AWS_SECRET_ACCESS_KEY=${R}`);
+  });
+
+  test('redacts a quoted password and keeps name and separator', () => {
+    expect(redact('password: "s3cretValue!"')).toBe(`password: ${R}`);
+    expect(redact('{"api_key": "abcdef123456"}')).toBe(`{"api_key": ${R}}`);
+    expect(redact("x-api-key: 'abcdef123456'")).toBe(`x-api-key: ${R}`);
+  });
+
+  test('redacts an unquoted token assignment', () => {
+    expect(redact('token = abcdef0123456789')).toBe(`token = ${R}`);
+    expect(redact('password=hunter2hunter2')).toBe(`password=${R}`);
+    expect(redact('db.password=hunter2hunter2')).toBe(`db.password=${R}`);
+  });
+
+  test('still redacts the original shapes', () => {
+    expect(redact('a ' + 'ghp_' + alnum(30))).toBe(`a ${R}`);
+    expect(redact('a ' + 'sk-' + alnum(30))).toBe(`a ${R}`);
+    expect(redact('a ' + 'xoxb-' + '1234567890-abcdef')).toBe(`a ${R}`);
+    expect(redact('Bearer abc123def456.ghi789')).toBe(R);
+    expect(redact('Authorization: Basic dXNlcjpwYXNz')).toBe(R);
+  });
+
+  test.each([
+    ['a 40-hex commit sha', '02a7a498a3af1a5fab6692185eed26da02a7a498'],
+    ['a 64-hex object id', '02a7a498a3af1a5fab6692185eed26da02a7a498a3af1a5fab6692185eed26da'],
+    ['a bead dedupe key', 'pr-review:v1:acme/widgets:02a7a498a3af1a5fab6692185eed26da'],
+    ['a 32-hex digest', '02a7a498a3af1a5fab6692185eed26da'],
+    ['prose about passwords', 'password handling is documented here'],
+    ['prose about tokens', 'the token count is 5'],
+    ['a lowercase akia word', 'akia' + 'iosfodnn7example'],
+    ['a too-short AKIA string', 'AKIA' + 'SHORT123'],
+  ])('leaves %s untouched', (_name, text) => {
+    expect(redact(text)).toBe(text);
+  });
+
+  test('redacts deep structures, leaves non-strings alone and is idempotent', () => {
+    const input = {
+      n: 5,
+      ok: true,
+      nothing: null,
+      list: [`id ${AWS_ID}`, { inner: `password=hunter2hunter2 and ${GITHUB_PAT}` }, 7],
+      quoted: 'secret: "abcdef123456"',
+    };
+    const once = redact(input);
+    expect(once).toEqual({
+      n: 5,
+      ok: true,
+      nothing: null,
+      list: [`id ${R}`, { inner: `password=${R} and ${R}` }, 7],
+      quoted: `secret: ${R}`,
+    });
+    expect(redact(once)).toEqual(once);
+  });
+});
+
+describe('redact does not mangle ordinary text', () => {
+  const R = '[REDACTED]';
+  const BODY = 'MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj';
+  const pemBegin = '-----BEGIN ' + 'RSA PRIVATE KEY-----';
+  const pemEnd = '-----END ' + 'RSA PRIVATE KEY-----';
+  const SHA = '3f2a9c1d7e04b5a6c8d9e0f1a2b3c4d5e6f70819';
+
+  test.each([
+    ['a 40-hex git sha', SHA],
+    ['a sha inside prose', `Last confirmed at head ${SHA}, still open.`],
+    ['a uuid', '123e4567-e89b-12d3-a456-426614174000'],
+    ['a base64 literal in a code sample', 'const logo = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";'],
+    ['Bearer prose', 'Bearer tokens are sent in the Authorization header.'],
+    ['Authorization prose', 'Authorization: header is required'],
+    ['bare key=value prose', 'the key=value pairs in the config'],
+    ['a camelCase name that merely starts with token', 'tokenBudget = 12345678'],
+    ['a name containing key mid-word', 'monkeyPatch=abcdefgh1'],
+    ['a code reference assigned to a secret name', 'api_key = process.env.API_KEY'],
+    ['password prose', 'password: required'],
+  ])('leaves %s untouched', (_name, text) => {
+    expect(redact(text)).toBe(text);
+  });
+
+  test('a header quoted in prose does not erase the prose or footer after it', () => {
+    const text = `The check misses ${pemBegin} headers in comments.\n\nLast confirmed: o/r PR #1 at head abcdef1`;
+    const out = redact(text);
+    expect(out).toContain('headers in comments.');
+    expect(out).toContain('\n\nLast confirmed: o/r PR #1 at head abcdef1');
+    expect(out).toBe(`The check misses ${R} headers in comments.\n\nLast confirmed: o/r PR #1 at head abcdef1`);
+  });
+
+  test('a truncated PEM loses its body but the line after the body survives', () => {
+    const out = redact(`key:\n${pemBegin}\n${BODY}\n${BODY}\nLast confirmed: o/r PR #1`);
+    expect(out).not.toContain(BODY);
+    expect(out).toBe(`key:\n${R}\nLast confirmed: o/r PR #1`);
+  });
+
+  test('a JSON-escaped PEM with END is redacted through the END and not beyond', () => {
+    const json = JSON.stringify(`pre ${pemBegin}\n${BODY}\n${BODY}\n${pemEnd}\nafter`);
+    expect(json).toContain('\\n');
+    const out = redact(json);
+    expect(out).not.toContain(BODY);
+    expect(out).toBe(`"pre ${R}\\nafter"`);
+  });
+
+  test('a truncated JSON-escaped PEM loses body segments only', () => {
+    const out = redact(`"${pemBegin}\\n${BODY}\\n${BODY}\\nLast confirmed: o/r PR #1"`);
+    expect(out).not.toContain(BODY);
+    expect(out).toBe(`"${R}\\nLast confirmed: o/r PR #1"`);
+  });
+
+  test('true positives: short passwords, client secrets, Authorization and Bearer credentials', () => {
+    expect(redact('password=hunter2')).toBe(`password=${R}`);
+    expect(redact('client_secret: "s3cretV4lue"')).toBe(`client_secret: ${R}`);
+    const jwtish = 'eyJhbGciOiJIUzI1NiJ9' + '.eyJzdWIiOiIxMjM0NTY3ODkwIn0.fakeSig123';
+    expect(redact(`Authorization: Bearer ${jwtish}`)).toBe(R);
+    expect(redact(`sent Bearer ${'abcdEFGH1234ijklMNOP5678'} ok`)).toBe(`sent ${R} ok`);
+  });
+
+  test.each([
+    ['an Api-Key scheme', 'Authorization: Api-Key abc123xyzSECRET'],
+    ['an ApiKey scheme', 'Authorization: ApiKey s3cr3tvalue1'],
+    ['an X-Api-Key scheme', 'Authorization: X-Api-Key AbCdEfGhIjKlMnOp'],
+    ['a scheme nobody has heard of', 'Authorization: Frobnicate 0123456789abcdef'],
+    ['a lower-case header name and scheme', 'authorization: api-key abc123xyzSECRET'],
+    ['a credential that is only letters', 'Authorization: Api-Key correcthorsebatterystaple'],
+    ['a Token scheme', 'Authorization: Token abcdef0123456789'],
+  ])('redacts the whole Authorization header with %s', (_name, text) => {
+    expect(redact(text)).toBe(R);
+  });
+
+  test('the text around an Authorization credential survives', () => {
+    expect(redact('sent Authorization: Api-Key abc123xyzSECRET to the proxy')).toBe(`sent ${R} to the proxy`);
+    expect(redact('Authorization: Api-Key abc123xyzSECRET\nLast confirmed: o/r PR #1')).toBe(`${R}\nLast confirmed: o/r PR #1`);
+  });
+
+  test.each([
+    ['a short word after a word', 'Authorization: header is required'],
+    ['a scheme with no credential', 'Authorization: Api-Key'],
+    ['a scheme and a short word', 'Authorization: Bearer tokens are rejected'],
+    ['no colon', 'Authorization header validation is required'],
+    ['the word on its own', 'Authorization: required'],
+  ])('keeps %s', (_name, text) => {
+    expect(redact(text)).toBe(text);
+  });
+
+  test('stated limit: an unquoted secret that is only letters is not told from a word; quote it and it is redacted', () => {
+    expect(redact('password=correcthorsebatterystaple')).toBe('password=correcthorsebatterystaple');
+    expect(redact('password="correcthorsebatterystaple"')).toBe(`password=${R}`);
+    expect(redact('token: authentication required')).toBe('token: authentication required');
+  });
+
+  test('Authorization redaction is idempotent', () => {
+    const once = redact('a Authorization: Api-Key abc123xyzSECRET b Authorization: Token abcdef0123456789 c');
+    expect(once).toBe(`a ${R} b ${R} c`);
+    expect(redact(once)).toBe(once);
+  });
+
+  test('redaction of these shapes is idempotent', () => {
+    const once = redact(`password=hunter2 Bearer abcdEFGH1234ijklMNOP5678 ${pemBegin}\n${BODY}`);
+    expect(redact(once)).toBe(once);
+  });
+});
+
 describe('pr-review-state: writeState / readState', () => {
   test('secrets are redacted on disk -- a ledger entry containing a token leaves no token value in the file', () => {
     const cwd = tmpCwd();

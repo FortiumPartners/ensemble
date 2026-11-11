@@ -7,38 +7,40 @@
 
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
-const sourcePath = path.join(__dirname, '../commands/refine-trd.yaml');
-const generatedPath = path.join(__dirname, '../commands/ensemble/refine-trd.md');
+const { transformCommandToMarkdown } = require('../../../scripts/lib/command-transformer');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
 
-function read(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
-}
+const manifestPath = path.join(__dirname, '../commands/refine-trd.yaml');
+const manifest = yaml.load(fs.readFileSync(manifestPath, 'utf8'));
 
-const bothForms = [
-  ['source YAML', sourcePath],
-  ['generated command markdown', generatedPath],
-];
+// refine-trd is a skill-backed command: its YAML is a manifest (metadata + skill) and the
+// prompt is its skill -- the SKILL.md and the phase files under references/. The contract
+// below is pinned against the whole prompt (skill.prompt); the Claude Code command is only a
+// stub that points at it.
+const skill = readDevelopmentSkill(manifest.skill);
+const skillText = skill.prompt;
+
+const bothForms = [['skill prompt', skillText]];
 
 describe('refine-trd closes with a go/no-go', () => {
-  test.each(bothForms)('%s has an Implementation Go / No-Go step', (_label, filePath) => {
-    expect(read(filePath)).toContain('Implementation Go / No-Go');
+  test.each(bothForms)('%s has an Implementation Go / No-Go step', (_label, text) => {
+    expect(text).toContain('Implementation Go / No-Go');
   });
 
-  test.each(bothForms)('%s always runs the decision step last', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s always runs the decision step last', (_label, text) => {
     expect(text).toContain('This step ALWAYS runs, and it is the last thing this command does');
     expect(text).toContain('The run does not end on a printed summary');
   });
 
-  test.each(bothForms)('%s asks through AskUserQuestion, not prose', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s asks through AskUserQuestion, not prose', (_label, text) => {
     expect(text).toContain('Present the close-out through AskUserQuestion, not prose');
     expect(text).toContain('has not read the TRD and is not going to');
   });
 
-  test.each(bothForms)('%s gates the implement command behind GO', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s gates the implement command behind GO', (_label, text) => {
     expect(text).toContain('Option 1, and the recommendation: GO');
     expect(text).toContain('print it only on the GO branch');
   });
@@ -46,15 +48,13 @@ describe('refine-trd closes with a go/no-go', () => {
   // The PRD is locked before the TRD exists. A TRD refined against a PRD that
   // has since moved is a refined copy of the wrong document, so this path has to
   // refuse implementation outright rather than warn and carry on.
-  test.each(bothForms)('%s checks the source PRD is locked', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s checks the source PRD is locked', (_label, text) => {
     expect(text).toContain('confirm the TRD');
     expect(text).toContain('status');
     expect(text).toContain('the requirements can still move underneath the build');
   });
 
-  test.each(bothForms)('%s refuses to offer implementation when the PRD moved', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s refuses to offer implementation when the PRD moved', (_label, text) => {
     expect(text).toContain('do NOT offer implementation at all');
     expect(text).toContain('/ensemble:create-trd to re-create this TRD');
     expect(text).toContain('a refined copy of the wrong document');
@@ -62,26 +62,78 @@ describe('refine-trd closes with a go/no-go', () => {
 
   // implement-trd-beads and implement-trd are separate commands, not a flag.
   // Plain implement-trd makes no beads calls and cannot resume across sessions.
-  test.each(bothForms)('%s prefers implement-trd-beads and says why', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s prefers implement-trd-beads and says why', (_label, text) => {
     expect(text).toContain('Prefer implement-trd-beads over implement-trd');
     expect(text).toContain('separate commands, not a flag');
   });
 
-  test.each(bothForms)('%s asks only genuinely open questions', (_label, filePath) => {
-    expect(read(filePath)).toContain('Ask genuine open questions ONLY');
+  test.each(bothForms)('%s asks only genuinely open questions', (_label, text) => {
+    expect(text).toContain('Ask genuine open questions ONLY');
   });
 
-  test.each(bothForms)('%s auto-goes under --foreman', (_label, filePath) => {
-    expect(read(filePath)).toContain('If --foreman is set, skip the question, record GO');
+  test.each(bothForms)('%s auto-goes under --foreman', (_label, text) => {
+    expect(text).toContain('If --foreman is set, skip the question, record GO');
   });
 
   // expectedOutput has always declared a Configure-Team Suggestion, but no step
   // emitted it. A declared output that nothing produces is a check measuring
   // nothing.
-  test.each(bothForms)('%s actually emits the configure-team recommendation it declares', (_label, filePath) => {
-    const text = read(filePath);
+  test.each(bothForms)('%s actually emits the configure-team recommendation it declares', (_label, text) => {
     expect(text).toContain('Configure-Team Suggestion');
     expect(text).toContain('recommending /ensemble:configure-team be re-run');
+  });
+});
+
+describe('refine-trd is a skill-backed command', () => {
+  const referenceNamed = (name) => skill.references.find((reference) => path.basename(reference.file) === name);
+
+  test('its YAML is a manifest -- metadata and a skill, no prompt of its own', () => {
+    expect(Object.keys(manifest).sort()).toEqual(['metadata', 'skill']);
+    expect(manifest.skill).toBe('ensemble-refine-trd');
+    expect(path.basename(path.dirname(skill.file))).toBe(manifest.skill);
+    expect(skill.frontmatter.name).toBe(manifest.skill);
+  });
+
+  test('SKILL.md indexes every phase file by its relative path, and every indexed file exists', () => {
+    const indexed = [...skill.body.matchAll(/`(references\/[^`]+\.md)`/g)].map((match) => match[1]).sort();
+    const present = skill.references.map((reference) => `references/${path.basename(reference.file)}`);
+    expect(present).toHaveLength(5);
+    expect(indexed).toEqual(present);
+  });
+
+  // One phrase per phase that is in that phase's file and nowhere else, so a phase body
+  // deleted from references/ -- or pasted back into SKILL.md -- fails here.
+  test.each([
+    ['phase-5-output-management.md', 'This step ALWAYS runs, and it is the last thing this command does'],
+    ['phase-5-output-management.md', 'Present the close-out through AskUserQuestion, not prose'],
+  ])('%s holds its phase, which SKILL.md does not repeat: %s', (name, phrase) => {
+    const reference = referenceNamed(name);
+    expect(reference).toBeDefined();
+    expect(reference.text).toContain(phrase);
+    expect(skill.body).not.toContain(phrase);
+    expect(skillText).toContain(phrase);
+  });
+
+  test('the prose the gates scan for this command is its SKILL.md and every phase file', () => {
+    const prose = readCommandProse(manifestPath, manifest, fs.readFileSync(manifestPath, 'utf8'));
+    expect(prose).toContain(skill.body);
+    for (const reference of skill.references) {
+      expect(prose).toContain(reference.text);
+    }
+  });
+});
+
+describe('refine-trd Claude Code stub', () => {
+  const stubBody = transformCommandToMarkdown(manifest, manifestPath).replace(/^---\n[\s\S]*?\n---\n/, '');
+
+  test('tells Claude to read the skill, resolve its relative paths and passes $ARGUMENTS through; it carries no prompt text', () => {
+    expect(stubBody).toBe(
+      '<!-- DO NOT EDIT - Generated from refine-trd.yaml -->\n' +
+      '<!-- To modify this file, edit the YAML source and run: npm run generate -->\n' +
+      '\n' +
+      'Read the file ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-refine-trd/SKILL.md and follow its instructions exactly; ' +
+      'resolve any relative paths in it against ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-refine-trd/. ' +
+      'Wherever that file refers to its ARGUMENTS, use this value: $ARGUMENTS\n'
+    );
   });
 });

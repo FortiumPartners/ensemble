@@ -4,21 +4,23 @@
  * The flag is removed before validation (so the existing validation sentences, which
  * the existing suites pin, keep reading correctly) and inserted into the invocation
  * after it is constructed. Read-only: no file writes, no generators.
+ *
+ * feature is skill-backed: the prompt is skills/ensemble-feature/SKILL.md, read through
+ * helpers/feature-skill.js into the phases/steps/actions shape the checks take.
  */
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
 const { checkFrontDoor, flat, step } = require('./helpers/foreman-invariants');
+const { readFeature } = require('./helpers/feature-skill');
 
 const REPO_ROOT = path.join(__dirname, '../../..');
-const load = () => yaml.load(fs.readFileSync(path.join(__dirname, '../commands/feature.yaml'), 'utf-8'));
 const clone = (doc) => JSON.parse(JSON.stringify(doc));
 
 describe('feature front door --foreman', () => {
   let doc;
   beforeAll(() => {
-    doc = load();
+    doc = readFeature();
   });
 
   test('extraction: a leading --foreman is removed immediately after the keyword, before validation', () => {
@@ -34,9 +36,10 @@ describe('feature front door --foreman', () => {
   });
 
   test('the dispatcher still lists exactly the four keywords and still forwards to new-feature', () => {
-    const keywords = doc.dispatch.subcommands.map((s) => s.keyword);
+    const keywords = doc.subcommands.map((s) => s.keyword);
     expect(keywords).toEqual(['new', 'resume', 'status', 'abandon']);
-    expect(new Set(doc.dispatch.subcommands.map((s) => s.ref))).toEqual(new Set(['new-feature']));
+    expect(new Set(doc.subcommands.map((s) => s.ref))).toEqual(new Set(['new-feature']));
+    expect(new Set(doc.subcommands.map((s) => s.path))).toEqual(new Set(['../ensemble-new-feature/SKILL.md']));
   });
 
   describe('the checks can fail (TRD-011-TEST)', () => {
@@ -85,14 +88,23 @@ describe('feature front door --foreman', () => {
   });
 
   describe('generated artifacts carry the behavior (REQ-010, read-only)', () => {
+    // The command entry points are stubs pointing at the skill; the skill copies shipped to
+    // Pi and Codex carry the leading --foreman handling.
     test.each([
-      'packages/development/commands/ensemble/feature.md',
-      'packages/pi/prompts/ensemble-feature.md',
+      'packages/pi/skills/ensemble-feature/SKILL.md',
       'packages/codex/.codex/skills/commands/ensemble-feature/SKILL.md',
     ])('%s describes the leading --foreman handling', (rel) => {
       const text = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
       expect(text).toMatch(/--foreman/);
       expect(text).toMatch(/immediately after the keyword/);
+    });
+
+    test.each([
+      'packages/development/commands/ensemble/feature.md',
+      'packages/pi/prompts/ensemble-feature.md',
+    ])('%s is a stub that points at the ensemble-feature skill', (rel) => {
+      const text = fs.readFileSync(path.join(REPO_ROOT, rel), 'utf-8');
+      expect(text).toMatch(/skills\/ensemble-feature\//);
     });
   });
 });

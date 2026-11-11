@@ -308,6 +308,7 @@ describe('Scenario AC-015-1 / AC-015-2: the gate CLI grades against the recorded
       tier,
       description: { ok: true, missing: [], present: ['testing', 'risk', 'rollback'], empty: [], ready: true, warnings: [] },
       security: { status: 'clean' },
+      coverage: { status: 'complete', gaps: [] },
       headSha: HEAD_SHA,
     });
     return { tier, approvals, gate };

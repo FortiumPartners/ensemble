@@ -88,6 +88,7 @@ function cleanInput(overrides = {}) {
     tier: tier('medium'),
     description: description(),
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...overrides,
   };
 }
@@ -116,7 +117,11 @@ describe('TRD-025 AC-1: mergeable only when findings, approvals and description 
   });
 
   test('an Important finding answered with a recorded reason stops blocking', () => {
-    const answered = finding({ id: 'F-7', disposition: 'resolved', resolution: { reason: 'intentional, documented in REVIEW.md' } });
+    const answered = finding({
+      id: 'F-7',
+      disposition: 'resolved',
+      resolution: { reason: 'intentional, documented in REVIEW.md', by: 'maintainer-m', headSha: HEAD, at: '2026-11-06T10:00:00Z' },
+    });
     const result = evaluateGate(cleanInput({ ledger: [answered] }));
 
     expect(result.mergeable).toBe(true);
@@ -204,7 +209,15 @@ describe('TRD-025 AC-3: the security lane blocks, clears and records its reasons
   });
 
   test('a security finding closed with a stated reason stops blocking and the reason is recorded (AC-017-3)', () => {
-    const closed = securityFinding({ disposition: 'resolved', resolution: { reason: 'false positive: the token never leaves the process' } });
+    const closed = securityFinding({
+      disposition: 'resolved',
+      resolution: {
+        reason: 'false positive: the token never leaves the process',
+        by: 'maintainer-m',
+        headSha: HEAD,
+        at: '2026-11-06T10:00:00Z',
+      },
+    });
     const result = evaluateGate(cleanInput({ security: { status: 'findings', findings: [closed] } }));
 
     expect(result.mergeable).toBe(true);

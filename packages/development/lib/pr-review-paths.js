@@ -31,7 +31,12 @@
  * Glob matching is implemented here (no dependency, Constitution §4). The
  * semantics are the gitignore/CODEOWNERS ones callers already expect:
  *
- *   - `*` and `?` do not cross `/`; `**` does.
+ *   - `*` and `?` do not cross `/`; `**` does, and takes ANY character, line
+ *     terminators (\n, \r, U+2028, U+2029) included: a bare `.` skips them, so a
+ *     name holding one would be no match for `.github/workflows/**`. A double
+ *     star that is a whole segment inside a pattern (`a`, `**`, `b`, joined by
+ *     slashes) is zero or more whole directories: it takes `a/b` and `a/x/b`,
+ *     never `a/xb`.
  *   - A pattern with no `/` matches a basename at any depth (`*.yml`).
  *   - A leading `/` anchors the pattern to the repository root (`/*.yml`).
  *   - A trailing `/` makes the pattern directory-only (`docs/`).
@@ -43,6 +48,27 @@
  *     as its own entry rather than relying on `scripts/generate-*`.
  *   - Every other character is matched literally: a regex metacharacter in a
  *     pattern is escaped, never executed.
+ *   - Matching is case-sensitive, except that `classifyPaths` matches a
+ *     sensitive or High pattern that names a path (one with a `/`) ignoring
+ *     letter case (see there). A bare file name such as `REVIEW.md` and every
+ *     owner stay exact: GitHub resolves CODEOWNERS paths case-sensitively.
+ *     "Ignoring letter case" is the full Unicode case fold a case-insensitive
+ *     file system applies (U+212A, U+017F, U+00DF, U+FB00..U+FB06 read as the
+ *     letters they spell), not the narrower fold of a regex flag. A name is
+ *     read two ways and either selects it: by the letters of its full fold
+ *     (U+00DF is `ss`, so `??` takes it) and as written with the regex flag's
+ *     one-to-one fold (U+00DF is one character, so `?` takes it). Keeping the
+ *     second reading means the full fold only ever ADDS matches to what the
+ *     regex flag selected, `?` included. A name that would need both readings
+ *     at once (`a/?ss/b` against `a/\u00DF\u00DF/b`) is not selected.
+ *   - `?` takes one code point: an astral name is one character, in exact-case
+ *     patterns too.
+ *   - A name is matched both as git printed it and with its surrounding
+ *     whitespace dropped, so neither spelling escapes a guarded area.
+ *
+ * `tests/pr-review-paths-property.test.js` compares `matchesPattern` and
+ * `classifyPaths` with an independent oracle over seeded generated cases; its
+ * header says which name forms it generates and which it does not.
  */
 
 const { isObjectId } = require('./pr-review-scope');
@@ -105,8 +131,9 @@ const isOptionalPathSpec = (value) =>
   value === undefined || isNonEmptyString(value) || (Array.isArray(value) && value.every((e) => isNonEmptyString(e)));
 
 /** Repository-relative form: `./a` and `/a` both mean `a`; trailing slashes are dropped. */
-function normalizePath(value) {
-  let path = String(value).trim().replace(/\\/g, '/');
+function normalizePath(value, trim = true) {
+  const spelled = String(value).replace(/\\/g, '/');
+  let path = trim ? spelled.trim() : spelled;
   while (path.startsWith('./')) path = path.slice(2);
   while (path.startsWith('/')) path = path.slice(1);
   while (path.endsWith('/')) path = path.slice(0, -1);
@@ -127,8 +154,9 @@ const basenameOf = (path) => path.slice(path.lastIndexOf('/') + 1);
 const escapeLiteral = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Glob body -> regex source. `**` crosses `/`; `*` and `?` do not. Scanned
- * left to right so a `**` is never seen as two `*`.
+ * Glob body -> regex source. `**` crosses `/` and takes any character at all,
+ * line terminators included (`.` would skip \n, \r, U+2028 and U+2029); `*` and
+ * `?` do not cross `/`. Scanned left to right so a `**` is never seen as two `*`.
  */
 function globToRegExpSource(glob) {
   let source = '';
@@ -136,10 +164,15 @@ function globToRegExpSource(glob) {
     const char = glob[i];
     if (char === '*') {
       if (glob[i + 1] === '*') {
-        source += '.*';
         i += 1;
-        // `a/**/b` must also match `a/b`: swallow the slash that follows.
-        if (glob[i + 1] === '/') i += 1;
+        if (glob[i + 1] === '/') {
+          // `**/` is zero or more WHOLE directories: `a/**/b` is `a/b` and `a/x/y/b`, never `a/xb`, and `**/foo` is
+          // `foo` or `x/foo`, never `xfoo`.
+          source += '(?:[\\s\\S]*/)?';
+          i += 1;
+        } else {
+          source += '[\\s\\S]*';
+        }
       } else {
         source += '[^/]*';
       }
@@ -154,9 +187,29 @@ function globToRegExpSource(glob) {
 
 const COMPILED = new Map();
 
-/** Compiles (and caches) one pattern. Returns null for a pattern that cannot match anything. */
-function compilePattern(pattern) {
-  if (COMPILED.has(pattern)) return COMPILED.get(pattern);
+/**
+ * Full case fold, one code point at a time: what a case-insensitive file system treats as the same name. The `i`
+ * regex flag folds only one letter to one letter, so U+FB02 (`fl`), U+00DF and U+1E9E (`ss`) and U+FB00..U+FB06
+ * would be no alias of the ASCII letters they spell on APFS: `.github/work\uFB02ows/ci.yml` is the same file as
+ * `.github/workflows/ci.yml` there. Lower -> upper -> lower reaches the multi-letter folds (U+212A and U+017F
+ * too), and going per code point keeps Greek final sigma, which is context-sensitive, from folding differently in
+ * a pattern than in a path. U+0131 (dotless i) is the one letter whose upper case is an ASCII letter yet which
+ * Unicode folds only under Turkic rules (CaseFolding.txt status T), so it stays itself: APFS does not alias it.
+ */
+function foldCase(text) {
+  let out = '';
+  for (const char of text) out += char === '\u0131' ? char : char.toLowerCase().toUpperCase().toLowerCase();
+  return out;
+}
+
+/**
+ * Compiles (and caches) one pattern, matching letter case exactly or, when
+ * asked, ignoring it for a pattern that names a PATH. Returns null for a
+ * pattern that cannot match anything.
+ */
+function compilePattern(pattern, ignoreCase) {
+  const key = `${ignoreCase ? 'i' : 's'}${pattern}`;
+  if (COMPILED.has(key)) return COMPILED.get(key);
 
   let body = pattern.trim().replace(/\\/g, '/');
   const anchored = body.startsWith('/');
@@ -164,18 +217,34 @@ function compilePattern(pattern) {
   const directoryOnly = body.endsWith('/');
   while (body.endsWith('/')) body = body.slice(0, -1);
 
+  // A pattern with no separator matches a basename at any depth, unless anchored.
+  const basenameOnly = !anchored && !body.includes('/');
+
+  // Letter case is loosened only for a pattern that names a path. A bare name (`REVIEW.md`, `*.yml`, `docs/`)
+  // selects that name at any depth, and another-case spelling of it elsewhere is no alias of anything: loosening
+  // it would make every `review.md` in the tree a review file.
+  // Loosened by folding pattern AND path with `foldCase` and matching the folded forms exactly, not by the `i`/`iu`
+  // regex flags: those fold one letter to one letter, so U+FB02 would escape `workflows`.
+  const fold = ignoreCase && !basenameOnly;
   const compiled = body === ''
     ? null
     : {
-      regex: new RegExp(`^${globToRegExpSource(body)}$`),
-      // A pattern with no separator matches a basename at any depth, unless anchored.
-      basenameOnly: !anchored && !body.includes('/'),
+      // `u`: `?` and `[^/]` take one code point, not half of a surrogate pair, so an astral name is one character
+      // here as it is to the file system. Every source is escaped literals plus the glob forms, all valid under `u`.
+      regex: new RegExp(`^${globToRegExpSource(fold ? foldCase(body) : body)}$`, 'u'),
+      // The fold turns one character into several letters (U+00DF into `ss`), and `?` then takes one LETTER, so the
+      // folded form alone would stop a `?` from taking such a character, which it takes as written. The name as
+      // written, read with the regex flag's one-to-one fold, is therefore tried as well: the full fold adds matches
+      // and takes none away.
+      written: fold ? new RegExp(`^${globToRegExpSource(body)}$`, 'iu') : null,
+      fold,
+      basenameOnly,
       // Only a directory-shaped pattern stands in for the files beneath it.
       coversSubtree: directoryOnly || !/[*?]/.test(body),
       directoryOnly,
     };
 
-  COMPILED.set(pattern, compiled);
+  COMPILED.set(key, compiled);
   return compiled;
 }
 
@@ -184,33 +253,40 @@ function compilePattern(pattern) {
  *
  * @param {string} pattern Glob in the gitignore/CODEOWNERS dialect described above.
  * @param {string} path    Repository-relative path of a changed file.
+ * @param {{ignoreCase?: boolean}} [options] `ignoreCase: true` matches letter case loosely; the default is exact.
  * @returns {boolean} false for any non-string input -- an unreadable pattern never matches.
  */
-function matchesPattern(pattern, path) {
+function matchesPattern(pattern, path, options) {
   if (typeof pattern !== 'string' || typeof path !== 'string') return false;
-  const compiled = compilePattern(pattern);
+  const compiled = compilePattern(pattern, isObject(options) && options.ignoreCase === true);
   if (!compiled) return false;
 
-  const normalized = normalizePath(path);
-  if (normalized === '') return false;
-
-  // The path itself matches unless the pattern is directory-only. Ancestor
-  // directories are tried only for a pattern that names a directory, which
-  // is how `docs/` and `src/auth` cover the files beneath them without
-  // letting `src/*` reach `src/a/b.js`.
-  const self = compiled.directoryOnly ? [] : [normalized];
-  const candidates = compiled.coversSubtree ? [...self, ...ancestors(normalized)] : self;
-  for (const candidate of candidates) {
-    if (compiled.regex.test(candidate)) return true;
-    if (compiled.basenameOnly && compiled.regex.test(basenameOf(candidate))) return true;
+  // Both spellings of the name are tried: with surrounding whitespace dropped (a Windows checkout drops it, so
+  // `ci.yml ` is `ci.yml`) and as git printed it (a file named ` ` under a guarded directory is still under it).
+  // Matching more only asks for more review.
+  const spellings = new Set([normalizePath(path), normalizePath(path, false)]);
+  spellings.delete('');
+  for (const normalized of spellings) {
+    // The path itself matches unless the pattern is directory-only. Ancestor
+    // directories are tried only for a pattern that names a directory, which
+    // is how `docs/` and `src/auth` cover the files beneath them without
+    // letting `src/*` reach `src/a/b.js`.
+    const self = compiled.directoryOnly ? [] : [normalized];
+    const candidates = compiled.coversSubtree ? [...self, ...ancestors(normalized)] : self;
+    for (const named of candidates) {
+      const candidate = compiled.fold ? foldCase(named) : named;
+      if (compiled.regex.test(candidate)) return true;
+      if (compiled.written !== null && compiled.written.test(named)) return true;
+      if (compiled.basenameOnly && compiled.regex.test(basenameOf(candidate))) return true;
+    }
   }
   return false;
 }
 
-/** The first pattern in `patterns` that selects `path`, or null. */
-function firstMatch(patterns, path) {
+/** The first pattern in `patterns` that selects `path` (see `matchesPattern` for `options`), or null. */
+function firstMatch(patterns, path, options) {
   for (const pattern of patterns) {
-    if (matchesPattern(pattern, path)) return pattern;
+    if (matchesPattern(pattern, path, options)) return pattern;
   }
   return null;
 }
@@ -301,6 +377,17 @@ function blocked(reason) {
 }
 
 /**
+ * Sensitive and High patterns that name a path are matched ignoring letter case.
+ * A case-insensitive checkout (macOS, Windows) writes `PR-REVIEW-GATE.JS` over
+ * `pr-review-gate.js`, and a glob has no way to spell "either case", so such a
+ * pattern covers the other-case spellings of its paths. Matching more only asks
+ * for MORE review. A bare file name (`REVIEW.md`) stays exact, so `docs/review.md`
+ * is no review file, and owners are not matched this way at all, since GitHub
+ * resolves CODEOWNERS paths case-sensitively.
+ */
+const AREA_MATCH = Object.freeze({ ignoreCase: true });
+
+/**
  * Classifies every changed path as sensitive or not, naming the declaration
  * entry that matched.
  *
@@ -320,11 +407,17 @@ function blocked(reason) {
 function classifyPaths(input) {
   if (!isObject(input)) return blocked('invalid-input');
 
-  const { changedPaths, declaration, codeowners, baseSha } = input;
+  const { changedPaths, declaration, codeowners, baseSha, policyUntrusted } = input;
   if (!Array.isArray(changedPaths)) return blocked('invalid-changed-paths');
   if (!changedPaths.every((entry) => isNonEmptyString(entry))) return blocked('invalid-path-entry');
 
   const warnings = [];
+
+  // A policy that could not be trusted (stale or foreign identity, unparseable) carries no highPaths, so strict
+  // defaults would silently LOWER the tier below what the real policy implies (kata vhpf). Fail up instead: every
+  // changed path is High, named by the reason, until a trusted policy is in force. Never lowers anything.
+  const untrustedReason = typeof policyUntrusted === 'string' && policyUntrusted.trim() !== '' ? policyUntrusted.trim() : null;
+  if (untrustedReason !== null) warnings.push(`policy-untrusted-all-high:${untrustedReason}`);
 
   // --- Which declaration, if any, is in force (REQ-024) -------------------
   let declaredSensitive = [];
@@ -386,12 +479,12 @@ function classifyPaths(input) {
       matchedBy = normalized;
       source = 'declaration-file';
     } else {
-      const declaredMatch = firstMatch(declaredSensitive, normalized);
+      const declaredMatch = firstMatch(declaredSensitive, original, AREA_MATCH);
       if (declaredMatch !== null) {
         matchedBy = declaredMatch;
         source = 'declaration';
       } else {
-        const defaultMatch = firstMatch(DEFAULT_SENSITIVE_PATHS, normalized);
+        const defaultMatch = firstMatch(DEFAULT_SENSITIVE_PATHS, original, AREA_MATCH);
         if (defaultMatch !== null) {
           matchedBy = defaultMatch;
           source = 'default';
@@ -399,8 +492,12 @@ function classifyPaths(input) {
       }
     }
 
-    const highMatchedBy = firstMatch(declaredHigh, normalized);
-    const { owners } = resolveOwners(ownerRules, normalized);
+    // The matchers get the name as git printed it: they try it both with and without its surrounding whitespace, and
+    // a name already trimmed here would lose the second spelling.
+    const highMatchedBy = untrustedReason !== null
+      ? `policy-untrusted:${untrustedReason}`
+      : firstMatch(declaredHigh, original, AREA_MATCH);
+    const { owners } = resolveOwners(ownerRules, original);
 
     const isSensitive = source !== null;
     if (isSensitive) sensitive.push(original);

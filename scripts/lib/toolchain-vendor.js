@@ -17,6 +17,7 @@
  *
  *   <vendorRoot>/lib/toolchain-cli.js
  *   <vendorRoot>/lib/complexity-analyzer.js   (required by toolchain/ledger.js, toolchain/preflight.js via '../complexity-analyzer')
+ *   <vendorRoot>/lib/run-trace.js             (required by toolchain-cli.js for the `trace` subcommand)
  *   <vendorRoot>/lib/toolchain/*.js
  *   <vendorRoot>/toolchain/**                 (categories/, schemas/, toolchain.default.yaml)
  *   <vendorRoot>/package.json                 (declares the ajv/js-yaml deps the vendored
@@ -45,6 +46,9 @@ const TOOLCHAIN_CLI_REL = path.join('packages', 'development', 'lib', 'toolchain
 
 /** Sibling lib module required by toolchain/ledger.js and toolchain/preflight.js via '../complexity-analyzer'. */
 const COMPLEXITY_ANALYZER_REL = path.join('packages', 'development', 'lib', 'complexity-analyzer.js');
+
+/** Sibling lib module `toolchain-cli.js` requires for the `trace` subcommand (kata acvv). */
+const RUN_TRACE_REL = path.join('packages', 'development', 'lib', 'run-trace.js');
 
 /** toolchain-cli.js's own submodule directory, relative to the monorepo root. */
 const TOOLCHAIN_LIB_DIR_REL = path.join('packages', 'development', 'lib', 'toolchain');
@@ -185,11 +189,15 @@ function vendorToolchainLibrary({ sourceRoot, vendorRoot, packageName, dryRun = 
   const existingToolchainLibFiles = listFilesRecursive(toolchainLibDest);
   const existingToolchainDataFiles = listFilesRecursive(toolchainDataDest);
 
+  const runTraceSource = path.join(sourceRoot, RUN_TRACE_REL);
   if (fs.existsSync(cliSource)) {
     files.push(copyFileEnsured(cliSource, path.join(libDest, 'toolchain-cli.js'), dryRun));
   }
   if (fs.existsSync(complexityAnalyzerSource)) {
     files.push(copyFileEnsured(complexityAnalyzerSource, path.join(libDest, 'complexity-analyzer.js'), dryRun));
+  }
+  if (fs.existsSync(runTraceSource)) {
+    files.push(copyFileEnsured(runTraceSource, path.join(libDest, 'run-trace.js'), dryRun));
   }
   const writtenToolchainLibFiles = copyDirRecursive(toolchainLibSource, toolchainLibDest, dryRun);
   const writtenToolchainDataFiles = copyDirRecursive(toolchainDataSource, toolchainDataDest, dryRun);

@@ -11,7 +11,7 @@ const path = require('path');
 class JestTestGenerator {
   constructor(options) {
     this.options = options;
-    this.templateDir = path.join(__dirname, '..', 'skills', 'templates');
+    this.templateDir = path.join(__dirname, '..', 'skills', 'jest', 'templates');
   }
 
   async generate() {

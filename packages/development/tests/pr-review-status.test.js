@@ -24,6 +24,7 @@ function baseFacts(overrides = {}) {
     reviewedHeadSha: HEAD_SHA,
     roundsUsed: 0,
     findingCounts: { total: 0, actionable: 0, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false, command: 'npx jest tests/foo.test.js' },
     remotePhase: 'REMOTE_REVIEW_COMPLETE',
     access: { ok: true },

@@ -1,0 +1,51 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-measure2",
+ "runId": "m2-pr207-first",
+ "adjudications": [
+  {
+   "id": "f1",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f2",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f3",
+   "disposition": "fix",
+   "reason": "Important finding; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f7",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f9",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f11",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f13",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f17",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f18",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  }
+ ]
+}

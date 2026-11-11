@@ -1,0 +1,25 @@
+### Phase 4: Production Deployment
+
+#### Step 4.1: Deploy to Production (Canary)
+
+Deploy to production using canary strategy
+
+- Deploy to canary infrastructure
+- Route 5% traffic to canary
+- Execute canary smoke tests (smoke-test-runner skill); promote only on a passed verdict
+- Monitor error rate for 2 minutes
+- If pass: Route 25% traffic, execute smoke tests
+- If pass: Route 100% traffic, execute final smoke tests
+- If fail at any stage: Trigger automated rollback
+
+**Delegation:** @deployment-orchestrator
+Release version, production environment, canary strategy
+
+#### Step 4.2: Post-Production Smoke Tests
+
+Final verification of production deployment (use the smoke-test-runner skill)
+
+- Execute full 5-category smoke test suite
+- Use production-specific configuration
+- Monitor error rate for 5 minutes
+- Trigger rollback on a failed or incomplete smoke verdict or error rate >5%

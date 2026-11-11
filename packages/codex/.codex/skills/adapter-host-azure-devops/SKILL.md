@@ -1,7 +1,6 @@
 ---
 name: adapter-host-azure-devops
 description: Azure DevOps `host` toolchain adapter (TRD-2026-8d825f54 TRD-040, PRD REQ-017). Loaded by the toolchain resolver, not invoked directly by name.
-user-invocable: true
 ---
 
 # Azure DevOps Host Adapter

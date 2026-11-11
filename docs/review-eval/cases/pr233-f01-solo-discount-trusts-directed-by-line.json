@@ -1,0 +1,13 @@
+{
+  "id": "pr233-f01-solo-discount-trusts-directed-by-line",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/233 head 396747227c98b6a377b9578fd82b1ea0e898e920",
+  "bug": "evaluateApprovals lowers High from two humans to one when directedBy equals the sole maintainer, but directedBy is read from the PR body that the PR's author writes, so an author can name the maintainer and halve the approvals; the director is never authenticated (not the author, with an APPROVED review bound to the head).",
+  "location": {
+    "path": "packages/development/lib/pr-review-approvals.js",
+    "startLine": 252,
+    "endLine": 266
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

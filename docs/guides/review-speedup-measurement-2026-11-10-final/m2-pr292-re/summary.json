@@ -1,0 +1,332 @@
+{
+ "runId": "m2-pr292-re",
+ "pr": 292,
+ "tier": "high",
+ "round": "re-review",
+ "status": "DONE",
+ "headSha": "e85040e7788cf338b420c7c2f299beaf7d3f6e21",
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "reReview": {
+  "scope": "full",
+  "reasons": [
+   "delta-plan-full",
+   "high-path-touched"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 7,
+  "recorded": 3
+ },
+ "metrics": {
+  "wallMs": 1611518,
+  "runnerCalls": 14,
+  "dispatchRounds": 4,
+  "agentsDispatched": 17,
+  "agentsByRole": {
+   "reviewer": 4,
+   "security": 1,
+   "verifier": 12
+  },
+  "turnsAtLeast": 18
+ },
+ "triage": {
+  "turns": 1,
+  "requested": 0,
+  "additionalCandidateIds": [],
+  "mergedIntoExisting": 0,
+  "at": "2026-11-10T23:33:11.921Z"
+ },
+ "stoppedAtDeadline": [
+  "verifier-1(verifier)",
+  "verifier-2(verifier)",
+  "verifier-5(verifier)",
+  "verifier-12(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-1:f1/f3/f5",
+  "verifier-2:f1/f3/f6",
+  "verifier-12:f3/f5"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "open-important-finding:f5",
+  "open-important-finding:f6",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 7,
+  "bySeverity": {
+   "important/fix": 4,
+   "nit/fix": 1,
+   "pre-existing/deferred": 1,
+   "nit/deferred": 1
+  },
+  "present": 3,
+  "presentOnMajority": 2,
+  "unverified": 2,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/commands/beads-build-wave.yaml:118",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-4:no-vote-for-candidate"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/commands/beads-build-wave.yaml:117",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f3",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "package-lock.json:9378",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-12:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/commands/beads-build-wave.yaml:127",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f5",
+    "severity": "important",
+    "source": "reviewer-s2-a",
+    "loc": "packages/pi/prompts/_hidden/ensemble-beads-build-wave.md:84",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-12:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f6",
+    "severity": "important",
+    "source": "reviewer-s2-b",
+    "loc": "packages/pi/prompts/_hidden/ensemble-beads-build-wave.md:84",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "incomplete": [
+     "verifier-2:expired:deadline-passed",
+     "verifier-4:no-vote-for-candidate"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f7",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/development/tests/beads-build-label-scoping.test.js...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 26407,
+  "startedAt": "2026-11-10T23:21:09.172Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T23:27:01.741Z",
+  "durationMin": 5.88,
+  "ok": true,
+  "stage": "attest",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": true
+   },
+   {
+    "node": 24,
+    "ok": true
+   }
+  ],
+  "failures": []
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 26.820866666666667,
+  "window": [
+   "2026-11-10T23:21:07.816Z",
+   "2026-11-10T23:47:57.068Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 18506,
+   "missing": false,
+   "pct": 1
+  },
+  "beforeFirstDispatch": 13743,
+  "activeMs": 1590746,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 2: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 2,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 707645,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 883101,
+       "missing": false,
+       "rolling": true,
+       "waves": 3
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    10
+   ],
+   "review.gate": [
+    2,
+    1373
+   ],
+   "review.verdict": [
+    2,
+    20
+   ],
+   "review.security-lane": [
+    1,
+    249849
+   ],
+   "review.reviewer": [
+    4,
+    707645
+   ],
+   "review.verifier": [
+    12,
+    481908
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr292-re-review-m2-pr292-re",
+  "pr": 292,
+  "tier": "high",
+  "round": "re-review",
+  "origin": "real",
+  "wall_min": 26.821,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run m2-pr292-re",
+  "run_id": "m2-pr292-re"
+ }
+}
