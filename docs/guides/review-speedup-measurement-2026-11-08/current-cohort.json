@@ -1,0 +1,43 @@
+{
+ "schema": "review-walltime-cohort/1",
+ "runs": [
+  {
+   "id": "pr207-first-pr207-hi-q3c",
+   "pr": 207,
+   "tier": "medium",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 26.825,
+   "chains": 1,
+   "gate_runs": 2,
+   "source": "pr-review-cli timing on run pr207-hi-q3c",
+   "run_id": "pr207-hi-q3c"
+  },
+  {
+   "id": "pr277-first-pr277-first-q3a9",
+   "pr": 277,
+   "tier": "high",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 20.806,
+   "chains": 1,
+   "gate_runs": 2,
+   "source": "pr-review-cli timing on run pr277-first-q3a9",
+   "notes": "scratch re-creation of #229 at 5351850 (PR 277); like-for-like diff, not the same PR object",
+   "run_id": "pr277-first-q3a9"
+  },
+  {
+   "id": "pr277-re-review-pr277-re-q3a9",
+   "pr": 277,
+   "tier": "high",
+   "round": "re-review",
+   "origin": "real",
+   "wall_min": 10.922,
+   "chains": 1,
+   "gate_runs": 2,
+   "source": "pr-review-cli timing on run pr277-re-q3a9",
+   "notes": "scratch re-creation of #229 at 5351850 plus a 5-line test fix push (7dc49e9); no verdict carried: the runner does not consume carry and prepare found the delta plan full (head-never-seen)",
+   "run_id": "pr277-re-q3a9"
+  }
+ ]
+}

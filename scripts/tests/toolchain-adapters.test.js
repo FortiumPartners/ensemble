@@ -325,6 +325,127 @@ describe('loadAdapter: ctx.env replaces process.env wholesale for the trust look
   });
 });
 
+/**
+ * kata vsg4 review round 1: `ctx.untrustedProjectRoot` (set by `toolchain-cli.js` for an explicit
+ * `--project-root`) makes the named tree a source of cwd, config and state only -- never of code.
+ * Every test pairs the flagged result with a no-flag control over the SAME fixture, so a flagged
+ * refusal cannot be a broken fixture.
+ */
+describe('ctx.untrustedProjectRoot: the named tree supplies config and state, never adapter code', () => {
+  const SHIPPED_BEADS_DIR = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    'packages',
+    'development',
+    'skills',
+    'adapter-tracker-beads'
+  );
+  let projectRoot;
+  let xdgConfigHome;
+  let env;
+
+  beforeEach(() => {
+    projectRoot = mkTempDir('ensemble-adapters-untrusted-project-');
+    xdgConfigHome = mkTempDir('ensemble-adapters-untrusted-xdg-');
+    env = { XDG_CONFIG_HOME: xdgConfigHome };
+  });
+
+  function thrown(fn) {
+    try {
+      fn();
+    } catch (error) {
+      return error;
+    }
+    throw new Error('expected the call to throw');
+  }
+
+  test("discoverAdapters skips <root>/packages/*/skills but still lists repo-local, user and the library's own shipped adapters", () => {
+    writeAdapterDir(
+      path.join(projectRoot, 'packages', 'evil', 'skills', 'evil-skill'),
+      validAdapterManifest({ adapter: 'shadow-adapter' })
+    );
+    writeAdapterDir(
+      path.join(projectRoot, '.ensemble', 'adapters', 'rl'),
+      validAdapterManifest({ adapter: 'repo-local-adapter' })
+    );
+    writeAdapterDir(userAdapterDir(xdgConfigHome, 'u'), validAdapterManifest({ adapter: 'user-adapter' }));
+    const seededNames = (extraCtx) =>
+      withinProjectRoot(discoverAdapters({ projectRoot, env, ...extraCtx }), projectRoot, xdgConfigHome)
+        .map((entry) => entry.name)
+        .sort();
+
+    expect(seededNames({})).toEqual(['repo-local-adapter', 'shadow-adapter', 'user-adapter']); // control
+    expect(seededNames({ untrustedProjectRoot: true })).toEqual(['repo-local-adapter', 'user-adapter']);
+
+    // The library's own shipped adapters (installed tier, library-relative) are not touched.
+    const shipped = discoverAdapters({ projectRoot, env, untrustedProjectRoot: true }).find(
+      (entry) => entry.name === 'beads'
+    );
+    expect(shipped.origin).toBe('installed');
+    expect(fs.realpathSync(shipped.dir)).toBe(fs.realpathSync(SHIPPED_BEADS_DIR));
+  });
+
+  test('a same-id shadow of a shipped adapter under packages/*/skills wins without the flag and loses to the shipped adapter with it', () => {
+    const shadowDir = path.join(projectRoot, 'packages', 'evil', 'skills', 'evil-beads');
+    writeAdapterDir(shadowDir, validAdapterManifest({ adapter: 'beads' }));
+
+    // Control: a project the process was started in keeps its packages/*/skills tier, unchanged.
+    expect(loadAdapter('beads', { projectRoot, env }).dir).toBe(shadowDir);
+
+    const flagged = loadAdapter('beads', { projectRoot, env, untrustedProjectRoot: true });
+    expect(flagged.origin).toBe('installed');
+    expect(fs.realpathSync(flagged.dir)).toBe(fs.realpathSync(SHIPPED_BEADS_DIR));
+  });
+
+  test('an adapter only the tree ships is NOT_INSTALLED under the flag, and the error says its own packages are not searched', () => {
+    const dir = path.join(projectRoot, 'packages', 'pkg', 'skills', 'tree-only');
+    writeAdapterDir(dir, validAdapterManifest({ adapter: 'tree-only' }));
+
+    expect(loadAdapter('tree-only', { projectRoot, env }).dir).toBe(dir); // control
+
+    const error = thrown(() => loadAdapter('tree-only', { projectRoot, env, untrustedProjectRoot: true }));
+    expect(error.code).toBe('NOT_INSTALLED');
+    expect(error.message).toContain("'tree-only'");
+    expect(error.message).toContain('untrusted');
+    expect(error.message).not.toContain(dir); // never listed as a searched location
+  });
+
+  test('a repo-local adapter needs trustedRepoAdapters in EVERY mode under the flag, and the tree cannot vouch for itself', () => {
+    const dir = path.join(projectRoot, '.ensemble', 'adapters', 'foo');
+    writeAdapterDir(dir, validAdapterManifest({ adapter: 'foo' }));
+    // A project-level toolchain.yaml that names the adapter as trusted must NOT count: only the
+    // user-level file is ever read for trust.
+    fs.writeFileSync(
+      path.join(projectRoot, '.ensemble', 'toolchain.yaml'),
+      yaml.dump({ trustedRepoAdapters: ['foo'] })
+    );
+
+    // Control: without the flag an interactive call resolves it (TRD I5/AC-007-3, unchanged).
+    expect(loadAdapter('foo', { projectRoot, env, interactive: true }).origin).toBe('repo-local');
+
+    for (const interactive of [true, false]) {
+      const error = thrown(() =>
+        loadAdapter('foo', { projectRoot, env, interactive, untrustedProjectRoot: true })
+      );
+      expect({ interactive, code: error.code }).toEqual({ interactive, code: 'UNTRUSTED_REPO_ADAPTER' });
+      expect(error.message).toContain("'foo'");
+      expect(error.message).toContain('trustedRepoAdapters');
+      expect(error.message).toContain('--project-root');
+    }
+
+    writeUserToolchainConfig(xdgConfigHome, { trustedRepoAdapters: ['foo'] });
+    for (const interactive of [true, false]) {
+      const result = loadAdapter('foo', { projectRoot, env, interactive, untrustedProjectRoot: true });
+      expect({ interactive, origin: result.origin, dir: result.dir }).toEqual({
+        interactive,
+        origin: 'repo-local',
+        dir
+      });
+    }
+  });
+});
+
 describe('loadAdapter: no caching (Implementation AC 4)', () => {
   test('an edited capability run template between two calls in the same process is reflected on the second call', () => {
     const projectRoot = mkTempDir('ensemble-adapters-fresh-project-');

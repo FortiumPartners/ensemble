@@ -144,6 +144,7 @@ function copyRuntimeBundle(
 
   copyFileSync(cliSrc, path.join(libDest, 'toolchain-cli.js'));
   copyFileSync(complexitySrc, path.join(libDest, 'complexity-analyzer.js'));
+  copyFileSync(path.join(path.dirname(complexitySrc), 'run-trace.js'), path.join(libDest, 'run-trace.js'));
   fs.cpSync(toolchainLibSrc, toolchainLibDest, { recursive: true });
   fs.cpSync(toolchainDataSrc, toolchainDataDest, { recursive: true });
 

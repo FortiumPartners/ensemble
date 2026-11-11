@@ -243,6 +243,39 @@ Skills provide context-specific knowledge:
 1. **SKILL.md**: Quick reference (target: <25KB)
 2. **REFERENCE.md**: Comprehensive guide
 
+### Skill Format
+
+Skills follow the [Agent Skills specification](https://agentskills.io/specification):
+
+- One skill is one directory, `packages/<pkg>/skills/<name>/SKILL.md`, and the directory name must equal the `name` in the frontmatter (lowercase letters, digits and hyphens).
+- Frontmatter may only use `name`, `description` (max 1024 characters), `license`, `compatibility`, `metadata` and `allowed-tools`. Put a version in `metadata.version` (a quoted string), not a top-level `version:`.
+- Keep `SKILL.md` under 500 lines; move detail into `REFERENCE.md` or other files in the skill directory.
+- Run `npm run validate:skills` before opening a PR (it also runs as part of `npm run validate`). It checks the source skills and the generated pi and codex output, so regenerate first if you changed a skill.
+
+One exemption: skills whose directory name starts with `ensemble-` may carry the host keys `user-invocable`, `disable-model-invocation`, `argument-hint`, `model` and `capabilities` at the top level. The generators emit these command-wrapper skills with such keys, and Claude Code reads `ensemble-assess` straight from the plugin directory, where the keys must stay top-level to hide it from the slash menu. Any other skill using them fails the gate.
+
+### Command Skills
+
+A command can be backed by a skill so that one prompt serves every runtime. Put the prompt in `packages/<pkg>/skills/ensemble-<name>/SKILL.md` (spec frontmatter plus `disable-model-invocation: true`, `metadata.version`) and reduce `packages/<pkg>/commands/<name>.yaml` to its `metadata` block plus `skill: ensemble-<name>`. Do not add `mission`, `workflow`, `constraints` or other prompt keys to a manifest; the schema rejects them. Edit the prompt in the `SKILL.md` (and its `references/*.md`, one level deep, if the skill is split), then run `npm run generate`, `generate:pi` and `generate:codex`. A stub for the command is generated for each runtime; do not edit those. When converting an existing command, carry over every section the old command rendered on any runtime (Pi and OpenCode render `constraints`, Claude did not), or the skill silently drops behaviour. Keep `SKILL.md` under 500 lines and about 5k tokens: move long phases into `references/`, name each one in a backticked relative path in `SKILL.md` so every runtime ships it, and tell the model to open it with its file-reading tool. The prompt-word budget counts `SKILL.md` plus its references.
+
+- **Dispatchers are manifests too.** A manifest cannot carry `dispatch:`, so a dispatcher's routing table is the `## Subcommands` section of its `SKILL.md`: one bullet per keyword with the description, `/ensemble:<ref>` and the sibling path `../ensemble-<ref>/SKILL.md` (every target is a skill in the same package). The Pi extension's tab completion reads that section.
+- **Reference files** hold the long phases of a skill. Keep them one level deep and name each in `SKILL.md` as a backticked relative path. The 1,500-word prompt ceiling counts `SKILL.md` plus its references and is ratcheted by `scripts/prompt-budget-baseline.json`; refresh it with `node scripts/validate-all.js --update-prompt-baseline` after a deliberate change.
+- **Structured data stays structured.** Data that code reads, such as `references/team-configuration.yaml` in `ensemble-configure-team` (also read by `packages/development/lib/team-defaults.js`), is a data file in `references/`, not prose in `SKILL.md`.
+- **Tool grants.** The manifest keeps `metadata.allowed_tools`; Claude's generated stub adds `Read` so it can open the skill.
+- **Pi tool names.** The Pi skill copier maps `AskUserQuestion` to `ask` in skills whose directory starts with `ensemble-`; write the Claude name in the source.
+- **Codex implicit invocation.** `disable-model-invocation: true` is honoured by Claude, Pi and OMP. Codex ignores it, so `npm run generate:codex` writes `agents/openai.yaml` (`policy.allow_implicit_invocation: false`) beside each command skill that declares the key, dispatchers included; the skill is then only used when invoked explicitly. Dropping the key removes the file on the next generate.
+
+#### Migrating an existing command
+
+`scripts/migrate-command-to-skill.js` does the mechanical part of a conversion. The Claude render omits `constraints` while Pi and OpenCode render them, so converting from one render silently drops text; the tool builds the skill from the union of all three and proves it. Top-level keys no runtime renders and the manifest cannot hold (`expectedInput`, `team_configuration`, `usageExamples`, ...) are carried into `SKILL.md` as `## <Title>` sections and checked by the parity step, so no authored content is lost (but every runtime's model now sees that text).
+
+1. **Dry run** (writes nothing): `node scripts/migrate-command-to-skill.js packages/<pkg>/commands/<cmd>.yaml [--name ensemble-<cmd>]`. It prints the files it would write and a size estimate, and warns above 5k tokens or 500 lines (split phases into `references/*.md`, one level deep, named as backticked relative paths in `SKILL.md`). It refuses to run when the skill directory already exists.
+2. **Write**: add `--write`. This creates `skills/<name>/SKILL.md` (frontmatter `name`, `description`, `disable-model-invocation: true`, `metadata.version`, `metadata.category`) and shrinks the YAML to its unchanged `metadata:` block plus `skill:`; the manifest is schema-validated before it is written. For a dispatcher the routing table becomes the skill's `## Subcommands` section, each keyword pointing at `../ensemble-<ref>/SKILL.md`; the converter warns about any target that has no sibling skill.
+3. **Parity**: `node scripts/migrate-command-to-skill.js <cmd>.yaml --check-parity [--base <ref>]` reads the pre-migration YAML with `git show <ref>:<path>` (default `HEAD`; use the pre-migration commit once the manifest is committed) and fails, listing them, if any sentence or list item of the Claude, Pi or OpenCode render is missing from `SKILL.md` plus `references/*.md`. Re-run it after every edit that trims or splits the skill.
+4. **Regenerate**: `npm run generate && npm run generate:pi && npm run generate:codex`.
+5. **Validate**: `npm run validate`, then the targeted jest suites (re-point anything that read the command's YAML prompt: capability drift gate, prompt budget, default-equivalence goldens).
+6. **Live probe**: `claude -p "/<plugin>:<cmd> <args>" --plugin-dir packages/<pkg> --output-format stream-json --verbose` with an argument that triggers a HALT text that exists only in `SKILL.md` or a reference.
+
 ## Testing
 
 ### Running Tests

@@ -15,6 +15,9 @@ replace it:
 - what is here is the part a maintainer repeats: fetching the inputs, running the subcommands, and
   reading the verdicts.
 
+Review **wall time** (how long a review takes, by tier, against the plan's 5x target) is a different
+cohort with a different baseline file: see [`pr-review-walltime.md`](pr-review-walltime.md).
+
 ---
 
 ## 1. The cohort rule, before anything else

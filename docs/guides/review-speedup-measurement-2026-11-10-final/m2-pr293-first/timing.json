@@ -1,0 +1,165 @@
+{
+ "ok": true,
+ "runId": "m2-pr293-first",
+ "wall": {
+  "ms": 2214670,
+  "missing": false,
+  "start": "2026-11-10T22:23:18.649Z",
+  "end": "2026-11-10T23:00:13.319Z"
+ },
+ "turns": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record turns"
+ },
+ "toolCalls": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record tool_calls"
+ },
+ "agents": {
+  "count": 34,
+  "lingerMs": 3776933,
+  "unusable": [],
+  "byRole": {
+   "classifier": {
+    "count": 0,
+    "slowest": {
+     "stage": "classifier",
+     "ms": null,
+     "missing": true,
+     "reason": "no classifier span recorded"
+    }
+   },
+   "second-assessor": {
+    "count": 0,
+    "slowest": {
+     "stage": "second-assessor",
+     "ms": null,
+     "missing": true,
+     "reason": "no second-assessor span recorded"
+    }
+   },
+   "security-lane": {
+    "count": 1,
+    "slowest": {
+     "stage": "security-lane",
+     "ms": 471744,
+     "missing": false,
+     "name": "security-lane"
+    }
+   },
+   "reviewer": {
+    "count": 6,
+    "slowest": {
+     "stage": "reviewer",
+     "ms": 830101,
+     "missing": false,
+     "name": "reviewer-s2-b"
+    }
+   },
+   "verifier": {
+    "count": 27,
+    "slowest": {
+     "stage": "verifier",
+     "ms": 480489,
+     "missing": false,
+     "name": "verifier-22"
+    }
+   }
+  }
+ },
+ "activeMs": {
+  "ms": 1858713,
+  "missing": false
+ },
+ "orchestratorOnly": {
+  "ms": 355957,
+  "missing": false,
+  "pct": 16
+ },
+ "beforeFirstDispatch": {
+  "ms": 14657,
+  "missing": false
+ },
+ "criticalPath": {
+  "ms": null,
+  "missing": true,
+  "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+  "rounds": [
+   {
+    "round": 1,
+    "steps": [
+     {
+      "stage": "reviewer",
+      "ms": 830101,
+      "missing": false,
+      "name": "reviewer-s2-b"
+     },
+     {
+      "stage": "verifier",
+      "ms": 1028612,
+      "missing": false,
+      "rolling": true,
+      "waves": 10
+     },
+     {
+      "stage": "verdict",
+      "ms": null,
+      "missing": true,
+      "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+     }
+    ],
+    "ms": null,
+    "missing": true,
+    "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+   }
+  ]
+ },
+ "stages": {
+  "review.head-read": {
+   "count": 1,
+   "ms": 6,
+   "missing": false
+  },
+  "review.gate": {
+   "count": 2,
+   "ms": 1380,
+   "missing": false
+  },
+  "review.verdict": {
+   "count": 2,
+   "ms": 24,
+   "missing": false
+  },
+  "review.classifier": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.second-assessor": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.security-lane": {
+   "count": 1,
+   "ms": 471744,
+   "missing": false
+  },
+  "review.reviewer": {
+   "count": 6,
+   "ms": 830101,
+   "missing": false
+  },
+  "review.verifier": {
+   "count": 27,
+   "ms": 480489,
+   "missing": false
+  }
+ },
+ "warnings": [],
+ "tracePath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-measure2/.ensemble/state/toolchain/trace-m2-pr293-first.jsonl"
+}

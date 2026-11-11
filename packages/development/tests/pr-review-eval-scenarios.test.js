@@ -90,10 +90,20 @@ function withTempRepo(run) {
 }
 
 describe('AC-020-1: a case records the change, the bug and its location, confirmed by the code owner', () => {
-  test('the repository ships no eval cases yet: a real case needs a real owner confirmation', () => {
-    // This is a recorded fact, not a gap in the test: cases are added by a
-    // maintainer with the code owner's confirmation (TRD-033).
-    expect(fs.existsSync(path.join(REPO_ROOT, DEFAULT_EVAL_CASES_DIR))).toBe(false);
+  test('every eval case the repository ships is owner-confirmed: a real case needs a real owner confirmation', () => {
+    // Cases are added by a maintainer with the code owner's confirmation
+    // (TRD-033); kata cwd4 shipped the first set. This used to pin "no cases
+    // exist", which was a fact about one moment, not a rule; the rule is that
+    // nothing in the directory is unconfirmed.
+    const dir = path.join(REPO_ROOT, DEFAULT_EVAL_CASES_DIR);
+    expect(fs.existsSync(dir)).toBe(true);
+    const names = fs.readdirSync(dir).filter((name) => name.endsWith('.json'));
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
+      const record = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+      const result = validateCase({ case: record, codeowners: CODEOWNERS, path: `${DEFAULT_EVAL_CASES_DIR}/${name}` });
+      expect({ name, errors: result.errors }).toEqual({ name, errors: [] });
+    }
   });
 
   test('a complete case, confirmed by the real CODEOWNERS owner of the path, is accepted', () => {

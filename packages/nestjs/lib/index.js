@@ -11,5 +11,5 @@ const skillsDir = path.join(__dirname, '..', 'skills');
 module.exports = {
   name: 'ensemble-nestjs',
   skillsDir,
-  skillPath: path.join(skillsDir, 'SKILL.md')
+  skillPath: path.join(skillsDir, 'nestjs', 'SKILL.md')
 };

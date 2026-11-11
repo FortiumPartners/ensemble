@@ -1,0 +1,165 @@
+{
+ "ok": true,
+ "runId": "m2-pr291-first",
+ "wall": {
+  "ms": 1240533,
+  "missing": false,
+  "start": "2026-11-10T20:00:23.727Z",
+  "end": "2026-11-10T20:21:04.260Z"
+ },
+ "turns": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record turns"
+ },
+ "toolCalls": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record tool_calls"
+ },
+ "agents": {
+  "count": 8,
+  "lingerMs": 940450,
+  "unusable": [],
+  "byRole": {
+   "classifier": {
+    "count": 0,
+    "slowest": {
+     "stage": "classifier",
+     "ms": null,
+     "missing": true,
+     "reason": "no classifier span recorded"
+    }
+   },
+   "second-assessor": {
+    "count": 0,
+    "slowest": {
+     "stage": "second-assessor",
+     "ms": null,
+     "missing": true,
+     "reason": "no second-assessor span recorded"
+    }
+   },
+   "security-lane": {
+    "count": 1,
+    "slowest": {
+     "stage": "security-lane",
+     "ms": 394953,
+     "missing": false,
+     "name": "security-lane"
+    }
+   },
+   "reviewer": {
+    "count": 2,
+    "slowest": {
+     "stage": "reviewer",
+     "ms": 771572,
+     "missing": false,
+     "name": "reviewer-s1-a"
+    }
+   },
+   "verifier": {
+    "count": 5,
+    "slowest": {
+     "stage": "verifier",
+     "ms": 394093,
+     "missing": false,
+     "name": "verifier-3"
+    }
+   }
+  }
+ },
+ "activeMs": {
+  "ms": 1165665,
+  "missing": false
+ },
+ "orchestratorOnly": {
+  "ms": 74867,
+  "missing": false,
+  "pct": 6
+ },
+ "beforeFirstDispatch": {
+  "ms": 10385,
+  "missing": false
+ },
+ "criticalPath": {
+  "ms": 1165666,
+  "missing": false,
+  "lowerBound": true,
+  "rounds": [
+   {
+    "round": 1,
+    "steps": [
+     {
+      "stage": "reviewer",
+      "ms": 771572,
+      "missing": false,
+      "name": "reviewer-s1-a"
+     },
+     {
+      "stage": "verifier",
+      "ms": 394093,
+      "missing": false,
+      "name": "verifier-3"
+     },
+     {
+      "stage": "verdict",
+      "ms": 1,
+      "missing": false,
+      "lowerBound": true,
+      "clippedMs": 15
+     }
+    ],
+    "ms": 1165666,
+    "missing": false,
+    "lowerBound": true
+   }
+  ]
+ },
+ "stages": {
+  "review.head-read": {
+   "count": 1,
+   "ms": 8,
+   "missing": false
+  },
+  "review.gate": {
+   "count": 2,
+   "ms": 1603,
+   "missing": false
+  },
+  "review.verdict": {
+   "count": 2,
+   "ms": 21,
+   "missing": false
+  },
+  "review.classifier": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.second-assessor": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.security-lane": {
+   "count": 1,
+   "ms": 394953,
+   "missing": false
+  },
+  "review.reviewer": {
+   "count": 2,
+   "ms": 771572,
+   "missing": false
+  },
+  "review.verifier": {
+   "count": 5,
+   "ms": 394093,
+   "missing": false
+  }
+ },
+ "warnings": [],
+ "tracePath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-measure2/.ensemble/state/toolchain/trace-m2-pr291-first.jsonl"
+}

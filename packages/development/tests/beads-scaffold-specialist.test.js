@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
+
 describe('beads-scaffold-specialist agent', () => {
   test('is registered and bounded to scaffold-only graph work', () => {
     const plugin = JSON.parse(fs.readFileSync(path.join(__dirname, '../.claude-plugin/plugin.json'), 'utf8'));
@@ -16,8 +18,9 @@ describe('beads-scaffold-specialist agent', () => {
   });
 
   test('implement-trd-beads reserves scaffold work for the scaffold specialist', () => {
-    const yaml = fs.readFileSync(path.join(__dirname, '../commands/implement-trd-beads.yaml'), 'utf8');
-    expect(yaml).toContain('beads-scaffold-specialist');
-    expect(yaml).toMatch(/never backend-developer/);
+    // implement-trd-beads is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const prose = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+    expect(prose).toContain('beads-scaffold-specialist');
+    expect(prose).toMatch(/never backend-developer/);
   });
 });

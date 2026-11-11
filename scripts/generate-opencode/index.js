@@ -24,6 +24,9 @@ const path = require('path');
 const crypto = require('crypto');
 const { vendorToolchainLibrary } = require('../lib/toolchain-vendor');
 const { MIRROR_PACKAGES, owningPackage } = require('../lib/mirror-packages');
+const { isSkillBacked, resolveSkillFile } = require('../lib/skill-backed-command');
+const { listSkillReferenceFiles } = require('../../packages/opencode/lib/skill-copier.js');
+const yaml = require('js-yaml');
 
 // ---------------------------------------------------------------------------
 // CLI-001: Argument parsing (using commander, available in devDependencies)
@@ -150,9 +153,11 @@ class StepTimer {
 
 /**
  * Discover source files for a given category to compute hashes. Includes every
- * `skills/adapter-NAME/{SKILL.md,adapter.yaml}` pair (TRD-020, PRD REQ-021) alongside the
- * flat `skills/SKILL.md`/`skills/REFERENCE.md` sources, so an adapter.yaml-only edit still
- * invalidates the incremental hash cache instead of being silently skipped as "unchanged".
+ * `skills/adapter-NAME/{SKILL.md,adapter.yaml}` pair (TRD-020, PRD REQ-021) alongside each
+ * package's framework skill (`skills/<pkg>/SKILL.md` and `skills/<pkg>/REFERENCE.md`), so an
+ * adapter.yaml-only edit still invalidates the incremental hash cache instead of being silently
+ * skipped as "unchanged". The skills that skill-backed commands ship count too, with every file of
+ * their `references/` directory.
  */
 function discoverSkillSourceFiles(packagesDir = PACKAGES_DIR) {
   const files = [];
@@ -160,23 +165,36 @@ function discoverSkillSourceFiles(packagesDir = PACKAGES_DIR) {
   const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const skillPath = path.join(packagesDir, entry.name, 'skills');
-    if (fs.existsSync(skillPath)) {
-      const skillFile = path.join(skillPath, 'SKILL.md');
-      const refFile = path.join(skillPath, 'REFERENCE.md');
+    const skillsPath = path.join(packagesDir, entry.name, 'skills');
+    if (fs.existsSync(skillsPath)) {
+      const frameworkPath = path.join(skillsPath, entry.name);
+      const skillFile = path.join(frameworkPath, 'SKILL.md');
+      const refFile = path.join(frameworkPath, 'REFERENCE.md');
       if (fs.existsSync(skillFile)) files.push(skillFile);
       if (fs.existsSync(refFile)) files.push(refFile);
 
       if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
-        for (const sub of fs.readdirSync(skillPath, { withFileTypes: true })) {
+        for (const sub of fs.readdirSync(skillsPath, { withFileTypes: true })) {
           if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
-          const adapterPath = path.join(skillPath, sub.name);
+          const adapterPath = path.join(skillsPath, sub.name);
           const adapterSkillFile = path.join(adapterPath, 'SKILL.md');
           const adapterYamlFile = path.join(adapterPath, 'adapter.yaml');
           if (fs.existsSync(adapterSkillFile)) files.push(adapterSkillFile);
           if (fs.existsSync(adapterYamlFile)) files.push(adapterYamlFile);
         }
       }
+    }
+  }
+
+  // The skills that skill-backed commands ship are named by their manifests, so their files are
+  // sources of the skill output too: editing one must invalidate the hash cache. That includes the
+  // files of their references/ directory, which ship beside the SKILL.md.
+  for (const { skillPath } of discoverCommandSkills(packagesDir)) {
+    files.push(path.join(skillPath, 'SKILL.md'));
+    const refFile = path.join(skillPath, 'REFERENCE.md');
+    if (fs.existsSync(refFile)) files.push(refFile);
+    for (const rel of listSkillReferenceFiles(skillPath)) {
+      files.push(path.join(skillPath, 'references', ...rel.split('/')));
     }
   }
   return files;
@@ -208,6 +226,36 @@ function discoverCommandSourceFiles(packagesDir = PACKAGES_DIR) {
     }
     return files.sort();
   }
+}
+
+/**
+ * The skills that skill-backed commands ship (a command YAML with a top-level `skill`, see
+ * scripts/lib/skill-backed-command.js). Such a skill is neither a framework skill (skills/<pkg>/)
+ * nor an adapter, so SkillCopier cannot find it by layout: the manifest names it, and it is handed
+ * to SkillCopier from here. Two manifests naming one skill give one entry. A command YAML that does
+ * not parse is left to the CommandTranslator, which reports it for its own step.
+ * @returns {Array<{name: string, skillPath: string}>}
+ * @throws {Error} naming the manifest whose skill is invalid or does not exist
+ */
+function discoverCommandSkills(packagesDir = PACKAGES_DIR) {
+  const skills = new Map();
+  for (const commandYaml of discoverCommandSourceFiles(packagesDir)) {
+    let data;
+    try {
+      data = yaml.load(fs.readFileSync(commandYaml, 'utf-8'));
+    } catch {
+      continue;
+    }
+    if (!isSkillBacked(data)) continue;
+    let skillFile;
+    try {
+      skillFile = resolveSkillFile(commandYaml, data.skill);
+    } catch (err) {
+      throw new Error(`${commandYaml}: ${err.message}`, { cause: err });
+    }
+    skills.set(skillFile, { name: data.skill, skillPath: path.dirname(skillFile) });
+  }
+  return [...skills.values()];
 }
 
 async function runPipeline(opts) {
@@ -272,6 +320,7 @@ async function runPipeline(opts) {
           injectFrontmatter: true,
           dryRun,
           verbose,
+          commandSkills: discoverCommandSkills(packagesDir),
         });
 
         skillResult = await copier.execute();
@@ -574,7 +623,7 @@ async function main() {
 }
 
 // Export for testing
-module.exports = { createProgram, runPipeline, loadHashCache, saveHashCache, hashFile, formatDuration, discoverSkillSourceFiles };
+module.exports = { createProgram, runPipeline, loadHashCache, saveHashCache, hashFile, formatDuration, discoverSkillSourceFiles, discoverCommandSkills };
 
 if (require.main === module) {
   main().catch((err) => {

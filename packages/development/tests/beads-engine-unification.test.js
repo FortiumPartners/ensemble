@@ -5,15 +5,30 @@
  * through the workflow.branch-create/host.change-request-create toolchain capabilities instead
  * of the other engines' resolve-sdlc branching/PR_BACKEND policy.
  *
- * These checks read the source YAML and assert policy that has to hold across all of
+ * These checks read the source YAML (for the skill-backed commands: the skill prose, since their YAML is
+ * only a manifest) and assert policy that has to hold across all of
  * them, so a contradiction between the entry points fails here.
  */
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
+const { readDevelopmentSkill, parseWorkflow } = require('./helpers/skill-workflow');
+
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+
+// implement-trd-beads, beads-build, implement-bead and beads-build-wave are skill-backed: their YAML is a manifest
+// (metadata + skill) and the prompt is the skill (SKILL.md + references/). `prose` returns the
+// prompt for those and the source text for the rest.
+const SKILL_BACKED = {
+  'commands/implement-trd-beads.yaml': 'ensemble-implement-trd-beads',
+  'commands/beads-build.yaml': 'ensemble-beads-build',
+  'commands/implement-bead.yaml': 'ensemble-implement-bead',
+  'commands/beads-build-wave.yaml': 'ensemble-beads-build-wave',
+};
+const prose = (rel) => (SKILL_BACKED[rel] ? readDevelopmentSkill(SKILL_BACKED[rel]).prompt : read(rel));
+const manifest = (rel) => yaml.load(read(rel));
 
 const ENGINE_FILES = [
   'commands/implement-trd-beads.yaml',
@@ -29,7 +44,7 @@ describe('beads engine sources', () => {
   });
 
   test.each(ENGINE_FILES)('%s only mentions broad staging when forbidding it', (rel) => {
-    const text = read(rel);
+    const text = prose(rel);
     const staging = /git add -A|git add \.(?![\w/])|git add \.beads\/?|git commit -a(?!\w)|commit -a(?!\w)/g;
     for (const m of text.matchAll(staging)) {
       const before = text.slice(Math.max(0, m.index - 200), m.index);
@@ -38,7 +53,7 @@ describe('beads engine sources', () => {
   });
 
   test.each(ENGINE_FILES)('%s does not treat bv as required', (rel) => {
-    const text = read(rel);
+    const text = prose(rel);
     expect(text).not.toMatch(/bv \(beads_viewer\) is required/);
     expect(text).not.toMatch(/bv is required/i);
     expect(text).not.toMatch(/no graceful-degradation/);
@@ -47,21 +62,21 @@ describe('beads engine sources', () => {
   });
 
   test('the wave command and beads-build both define the work-graph.plan/work-graph.ready scheduling fallback', () => {
-    expect(read('commands/beads-build-wave.yaml')).toMatch(/work-graph\.ready capability when plan is unavailable/);
-    const build = yaml.load(read('commands/beads-build.yaml'));
+    expect(prose('commands/beads-build-wave.yaml')).toMatch(/work-graph\.ready capability when plan is unavailable/);
+    const build = manifest('commands/beads-build.yaml');
     expect(build.metadata.capabilities.required).toContain('work-graph.ready');
     expect(build.metadata.capabilities.optional).toContain('work-graph.plan');
-    expect(read('commands/implement-trd-beads.yaml')).toMatch(/work-graph\.ready \(graph-aware parallel tracks[^)]*\) or plan order when that is unavailable/);
+    expect(prose('commands/implement-trd-beads.yaml')).toMatch(/work-graph\.ready \(graph-aware parallel tracks[^)]*\) or plan order when that is unavailable/);
   });
 });
 
 describe('beads-build --plan mode (replaces beads-plan)', () => {
-  const build = yaml.load(read('commands/beads-build.yaml'));
-  const plan = build.workflow.phases.find((p) => p.name === 'Plan Mode');
+  const build = manifest('commands/beads-build.yaml');
+  const plan = parseWorkflow(readDevelopmentSkill('ensemble-beads-build')).find((p) => p.name === 'Plan Mode');
 
   test('is advertised and parsed', () => {
     expect(build.metadata.argument_hint).toMatch(/\[--plan\]/);
-    expect(read('commands/beads-build.yaml')).toMatch(/Parse --plan from \$ARGUMENTS/);
+    expect(prose('commands/beads-build.yaml')).toMatch(/Parse --plan from \$ARGUMENTS/);
   });
 
   test('exists as its own phase and is read-only', () => {
@@ -73,7 +88,7 @@ describe('beads-build --plan mode (replaces beads-plan)', () => {
 });
 
 describe('implement-bead shares the engine policy', () => {
-  const text = read('commands/implement-bead.yaml');
+  const text = prose('commands/implement-bead.yaml');
 
   test('opens its change request and creates its branch through the host/workflow toolchain capabilities, not resolve-sdlc PR_BACKEND', () => {
     expect(text).not.toMatch(/resolve-sdlc --git-town-exit-code/);
@@ -96,8 +111,8 @@ describe('implement-bead shares the engine policy', () => {
 
 describe('bead context contract is mandatory before any dispatch', () => {
   const actionsOf = (rel) => {
-    const d = yaml.load(read(rel));
-    return d.workflow.phases.flatMap((ph) => ph.steps.flatMap((s) => s.actions || []));
+    const phases = SKILL_BACKED[rel] ? parseWorkflow(readDevelopmentSkill(SKILL_BACKED[rel])) : yaml.load(read(rel)).workflow.phases;
+    return phases.flatMap((ph) => ph.steps.flatMap((s) => s.actions || []));
   };
   const CMD = 'node "$TRD_CLI" bead-context --bead <BEAD_ID>';
 

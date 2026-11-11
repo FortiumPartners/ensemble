@@ -1,7 +1,6 @@
 ---
 name: adapter-e2e-quality-playwright
 description: Playwright/Lighthouse-CI `e2e-quality` toolchain adapter (TRD-2026-8d825f54 TRD-043, PRD REQ-006). Loaded by the toolchain resolver, not invoked directly by name. Shipped default e2e-quality adapter.
-user-invocable: true
 ---
 
 # Playwright E2E Quality Adapter

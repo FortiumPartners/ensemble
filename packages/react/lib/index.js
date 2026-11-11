@@ -11,5 +11,5 @@ const skillsDir = path.join(__dirname, '..', 'skills');
 module.exports = {
   name: 'ensemble-react',
   skillsDir,
-  skillPath: path.join(skillsDir, 'SKILL.md')
+  skillPath: path.join(skillsDir, 'react', 'SKILL.md')
 };

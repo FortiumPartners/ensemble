@@ -1,0 +1,19 @@
+---
+name: dotnet
+description: "Use when implementing .NET 8+ ASP.NET Core backend code, especially Wolverine message handling and Marten document/event storage; not for Blazor UI components."
+metadata:
+  version: "2.0.0"
+---
+
+# .NET backend conventions
+
+Follow the solution's existing layering and the `dotnet-backend-expert` agent's rules; check `Directory.Packages.props` for Wolverine/Marten versions before using any API.
+
+Gotchas:
+- Wolverine handlers are discovered by convention (`Handle`/`Consume` methods); return cascading messages instead of calling the bus inline.
+- Marten events: events are immutable and append-only; evolve state with `Apply` methods, never edit persisted events, and add upcasters for schema changes.
+- Marten: one `IDocumentSession` per unit of work; call `SaveChangesAsync` once (or use Wolverine's transactional middleware).
+- Prefer minimal APIs/controllers consistent with the project; bind DTOs, never entities.
+- Async all the way; pass `CancellationToken`.
+- Options pattern for config; secrets from user-secrets or environment, never appsettings.
+- Tests: xUnit; behavior specs via the `reqnroll` skill.

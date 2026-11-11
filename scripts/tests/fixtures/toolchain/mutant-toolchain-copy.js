@@ -15,6 +15,7 @@
  * <root>/node_modules                              -> symlink to <repoRoot>/node_modules
  * <root>/packages/development/lib/complexity-analyzer.js
  * <root>/packages/development/lib/toolchain-cli.js
+ * <root>/packages/development/lib/run-trace.js
  * <root>/packages/development/lib/toolchain/*.js
  * <root>/packages/development/toolchain/**          (categories, schemas, toolchain.default.yaml)
  * ```
@@ -106,6 +107,7 @@ function makeMutantToolchainRoot(options = {}) {
     path.join(REPO_DEV_PKG, 'lib', 'toolchain-cli.js'),
     path.join(libDir, 'toolchain-cli.js')
   );
+  copyFileSync(path.join(REPO_DEV_PKG, 'lib', 'run-trace.js'), path.join(libDir, 'run-trace.js'));
 
   const dataToolchainDir = path.join(devPkgRoot, 'toolchain');
   // Recursive, whole-directory copy (not a per-extension cherry-pick): `config.js` needs

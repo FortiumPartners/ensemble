@@ -1,8 +1,8 @@
 ---
 name: pytest
 description: Execute and generate pytest tests for Python projects with fixtures, parametrization, and mocking support
-version: 1.0.0
-user-invocable: true
+metadata:
+  version: 1.0.0
 ---
 
 # pytest Test Framework

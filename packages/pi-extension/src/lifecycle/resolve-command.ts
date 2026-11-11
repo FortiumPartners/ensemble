@@ -26,14 +26,16 @@
 /**
  * dispatcher command name -> (keyword -> target command ref).
  *
- * Copied from the `dispatch.subcommands` list of each dispatcher's YAML
- * (`packages/product/commands/prd.yaml` and `reqnroll.yaml`,
- * `packages/core/commands/standards.yaml`, and `trd.yaml`, `issue.yaml`,
- * `feature.yaml` under `packages/development/commands/`). Those files exist
- * only in the Ensemble repo, not in a user's project, so the extension cannot
- * read them at runtime. tests/lifecycle-resolve-command.test.ts compares this
- * data to the YAML and fails on any difference. Refs are the YAML's bare
- * `ref` values, without the `ensemble:` prefix.
+ * Copied from the `## Subcommands` bullets of each dispatcher's skill
+ * (`packages/product/skills/ensemble-{prd,reqnroll}/SKILL.md`,
+ * `packages/core/skills/ensemble-standards/SKILL.md`, and
+ * `packages/development/skills/ensemble-{trd,issue,feature}/SKILL.md`). The
+ * dispatcher command YAMLs are only manifests that name those skills. The
+ * skills exist only in the Ensemble repo, not in a user's project, so the
+ * extension cannot read them at runtime from here.
+ * tests/lifecycle-resolve-command.test.ts parses the bullets and fails on any
+ * difference. Refs are the bullets' bare `/ensemble:<ref>` values, without the
+ * `ensemble:` prefix.
  */
 export const DISPATCHER_TARGETS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   "ensemble-prd": {

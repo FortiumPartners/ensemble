@@ -1,0 +1,532 @@
+{
+ "ledger": [
+  {
+   "id": "f1",
+   "source": "reviewer-s1-a",
+   "locationOrLink": "packages/e2e-testing/agents/playwright-tester.yaml:61",
+   "severity": "important",
+   "failureMode": "A project that references Microsoft.Playwright.Xunit is classified as 'xunit' by detectE2eFramework, but the Proposal-stage instruction says framework 'xunit' means there is no PageTest Page, and the xunit branch of spec-writer that the landing step calls emits a plain class with a constructor-injected fixture, takes no base class and throws unless collection and fixtureType are supplied; tests written against Microsoft.Playwright.Xunit derive from PageTest and use Page, so for those projects the authoring guidance is wrong and a new spec file either cannot be landed or is landed without the PageTest base, leaving Page undefined in the body the agent wrote.",
+   "disposition": "fix",
+   "evidence": "Read, not run. (1) packages/e2e-testing/lib/e2e-framework.js:24-25 maps any package name starting with 'xunit' and the exact name 'microsoft.playwright.xunit' to xunit, and packages/e2e-testing/tests/e2e-framework.test.js:30 pins 'Microsoft.Playwright.Xunit' as xunit. (2) The text this change adds says, in packages/e2e-testing/agents/playwright-tester.yaml:61 (same sentence in agents/playwright-tester.md, packages/codex/.codex/agents/playwright-tester.toml and packages/pi/agents/playwright-tester.md): framework 'xunit' means no PageTest `Page`: build the context and page as the project's sibling tests do. The command text (commands/author-playwright-tests.yaml, Phase 3 step 2) repeats that an xunit test builds its own page. (3) packages/e2e-testing/lib/spec-writer.js scaffoldNewSpecFile (184-193) sends xunit to scaffoldXunitFile (217-251), which destructures only className, ns, collection, fixtureType and usings, throws when collection or fixtureType is missing, and emits 'public class <name>' with a '_fixture' field and no base class; baseClass is validated only for nunit. The command's landing step (commands/author-playwright-tests.yaml:226) likewise says a new xunit file needs {collection, fixtureType} copied from a sibling spec class. (4) Playwright's own documentation (https://playwright.dev/dotnet/docs/test-runners) says Playwright provides base classes for xUnit through the Microsoft.Playwright.Xunit package and shows 'using Microsoft.Playwright.Xunit; public class UnitTest1 : PageTest { [Fact] public async Task ... { await Page.GotoAsync(...); } }'. So a project on that package is routed into the core-Microsoft.Playwright-plus-[Collection]-fixture shape, the only xUnit shape the two CHANGELOG entries say is supported, and neither the command nor the agent text tells the agent to stop or ask when the sibling tests derive from PageTest. Appending to an existing xunit file still works; the break is for a new spec file. Possible fixes: stop classifying Microsoft.Playwright.Xunit as the fixture shape (return null or a separate value), or let spec-writer emit a PageTest-derived class, and make the agent text say which shape applies.",
+   "originalTextOrLink": "packages/e2e-testing/agents/playwright-tester.yaml:61",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-3"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f2",
+   "source": "reviewer-s1-b",
+   "reportedId": "f1",
+   "locationOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:151",
+   "severity": "nit",
+   "failureMode": "The new Execution Setup action tells the command to carry detectE2eFrameworkInDir's result forward as framework 'nunit' whenever it returns null, so an explicit 'nunit' reaches specDetails.framework in the Phase 4 step 3 call to writeOrAppendSpecFile. appendTestMethod in spec-writer.js only infers the framework from an existing spec file when specDetails.framework is absent; with an explicit 'nunit' and an existing xUnit spec file it throws 'framework mismatch' instead. Detection returns null exactly when it cannot tell (neither or both frameworks referenced, or xunit declared outside the scanned .csproj files, for example in a Directory.Build.props), which is the case where inferring from the sibling spec file would have worked; delegation-contract.js documents the framework field as 'Omit when unknown'.",
+   "disposition": "deferred",
+   "evidence": "Read the added bullet (author-playwright-tests.yaml:151, mirrored in commands/ensemble/author-playwright-tests.md:119 and the codex SKILL.md:123); lib/spec-writer.js:419-424 (requested is undefined only when specDetails.framework is absent; when requested and inferred are both set and differ it throws 'framework mismatch'; otherwise the framework is requested, then inferred, then nunit); lib/e2e-framework.js:28 and 33-48 (null for neither or both; only .csproj files are read); lib/delegation-contract.js:50-52 (framework documented as 'Omit when unknown (NUnit)'). Read only; nothing was executed.",
+   "originalTextOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:151",
+   "fixId": "f2",
+   "originalLinks": [
+    "packages/e2e-testing/commands/author-playwright-tests.yaml:151",
+    "packages/e2e-testing/commands/author-playwright-tests.yaml:151"
+   ],
+   "mergedFrom": [
+    {
+     "id": "f2",
+     "source": "reviewer-s1-b",
+     "locationOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:151"
+    },
+    {
+     "id": "f5",
+     "source": "reviewer-s2-a",
+     "locationOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:151"
+    }
+   ],
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-4",
+     "verifier-5",
+     "verifier-6"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "uncertain": false,
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "deferred",
+    "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f3",
+   "source": "reviewer-s2-a",
+   "reportedId": "f1",
+   "locationOrLink": "packages/e2e-testing/lib/spec-writer.js:37-38",
+   "severity": "important",
+   "failureMode": "The new xUnit scaffold (scaffoldXunitFile) writes only the usings System.Threading.Tasks, Microsoft.Playwright and Xunit plus whatever the caller passes in specDetails.usings, but the `usings` option is not named anywhere a caller reads: not in the spec-writer.js header (which lists only collection, fixtureType and testBody for a new xUnit file), not in the scaffoldNewSpecFile JSDoc, and not in the command's landing step, which says a new xunit file also needs {collection, fixtureType}. When the authored testBody uses a namespace beyond those three (for example FluentAssertions' .Should(), a project helper namespace, or the EvidenceCapture helper's namespace when it is not an enclosing namespace of the new file's), the new xUnit file is written without the matching using line and does not compile.",
+   "disposition": "fix",
+   "evidence": "Read spec-writer.js lines 35-40 and 217-251 and the command's landing step (author-playwright-tests.yaml:226). A grep for `usings` across packages/e2e-testing (node_modules excluded) hits only spec-writer.js (the destructuring and validation inside scaffoldXunitFile) and spec-writer-xunit.test.js; nothing in the command, the playwright-tester agent, the header or the JSDoc. The test itself passes usings ['FluentAssertions', 'bt.testing.shared'] for the BT3 shape and its sibling class calls .Should(), so the author knew such bodies need extra usings, but the instruction to the caller omits the option.",
+   "originalTextOrLink": "packages/e2e-testing/lib/spec-writer.js:37-38",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-7",
+     "verifier-8",
+     "verifier-9"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f9",
+   "source": "reviewer-s2-b",
+   "reportedId": "f1",
+   "locationOrLink": "packages/e2e-testing/lib/e2e-framework.js:24-25",
+   "severity": "important",
+   "failureMode": "detectE2eFramework decides NUnit versus xUnit by package-name prefix (name.startsWith('nunit') and name.startsWith('xunit') on lines 24-25), so look-alike packages that are loggers or helpers rather than test frameworks flip the flags. A csproj that lists xunit, Microsoft.Playwright and NunitXml.TestLogger sets both flags, the function returns null (neither or both), and the command turns null into the explicit framework 'nunit'. A genuine xUnit project then gets a NUnit-shaped new file, and appending to an existing xUnit file is refused with a framework-mismatch error because the explicit 'nunit' overrides the file-based inference in appendTestMethod. The same null follows when the Include attribute is written with single quotes, because only double-quoted attributes match. None of the detection tests uses a look-alike package name or a single-quoted attribute, so the false-positive side of the prefix rule is untested.",
+   "disposition": "fix",
+   "evidence": "Ran a throwaway node snippet that required lib/e2e-framework.js from the frozen snapshot: detectE2eFramework on a csproj with xunit + Microsoft.Playwright + NunitXml.TestLogger printed null; NUnit + XunitXml.TestLogger printed null; Include='xunit' with single quotes printed null; Microsoft.Playwright.Xunit + xunit printed xunit. Read e2e-framework.js:24-25 (the startsWith prefix rule) and all of tests/e2e-framework.test.js (only positive names: xunit, xunit.v3, XUnit, NUnit, NUnit3TestAdapter, Microsoft.Playwright.Xunit and .NUnit, MSTest.TestFramework; no look-alike). Read commands/author-playwright-tests.yaml Phase 2 step 4 ('carry the result forward as framework (\"nunit\" when it returns null)', pinned at tests/author-playwright-tests-framework.test.js:25) and spec-writer.js:419-424 (an explicit 'nunit' against an inferred xunit file throws).",
+   "originalTextOrLink": "packages/e2e-testing/lib/e2e-framework.js:24",
+   "fixId": "f4",
+   "originalLinks": [
+    "packages/e2e-testing/lib/e2e-framework.js:24-25",
+    "packages/e2e-testing/lib/e2e-framework.js:24",
+    "packages/e2e-testing/lib/e2e-framework.js:24-25"
+   ],
+   "mergedFrom": [
+    {
+     "id": "f4",
+     "source": "reviewer-s2-a",
+     "locationOrLink": "packages/e2e-testing/lib/e2e-framework.js:24-25"
+    },
+    {
+     "id": "f9",
+     "source": "reviewer-s2-b",
+     "locationOrLink": "packages/e2e-testing/lib/e2e-framework.js:24-25"
+    },
+    {
+     "id": "f17",
+     "source": "reviewer-range",
+     "locationOrLink": "packages/e2e-testing/lib/e2e-framework.js:24-25"
+    }
+   ],
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-10",
+     "verifier-11",
+     "verifier-12"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f6",
+   "source": "reviewer-s2-a",
+   "reportedId": "f4",
+   "locationOrLink": "packages/e2e-testing/lib/spec-writer.js:218",
+   "severity": "nit",
+   "failureMode": "scaffoldXunitFile can only write [Collection(\"...\")] with a string literal, and COLLECTION_NAME_RE accepts dots, so a collection copied from a sibling that names it through a constant or nameof (for example [Collection(PlaywrightCollection.Name)]) passes validation and is emitted as the string \"PlaywrightCollection.Name\" instead of the constant's value; the new class then sits in a different collection than the shared fixture's and xUnit cannot supply the fixture constructor argument when the test runs.",
+   "disposition": "deferred",
+   "evidence": "Read spec-writer.js lines 73 and 217-236. Ran a throwaway node snippet: scaffoldNewSpecFile with framework 'xunit', collection 'PlaywrightCollection.Name' and a valid fixtureType printed the attribute line `    [Collection(\"PlaywrightCollection.Name\")]` and raised no error. The command (author-playwright-tests.yaml:226) only says to copy {collection, fixtureType} from a sibling spec class.",
+   "originalTextOrLink": "packages/e2e-testing/lib/spec-writer.js:218",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-13",
+     "verifier-14",
+     "verifier-1"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "uncertain": false,
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "deferred",
+    "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f7",
+   "source": "reviewer-s2-a",
+   "reportedId": "f5",
+   "locationOrLink": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68",
+   "severity": "nit",
+   "failureMode": "The check 'every $E2E_LIB module the command names exists in the package' collects names with /\\$E2E_LIB\\/([a-z-]+)\\.js/, a character class without digits, so it skips the new `$E2E_LIB/e2e-framework.js` (the digit in 'e2e') and would still pass if lib/e2e-framework.js were missing or misspelled; only the separate existence check in author-playwright-tests-framework.test.js covers that module.",
+   "disposition": "fix",
+   "evidence": "Ran a throwaway node snippet over commands/author-playwright-tests.yaml: matchAll with the test's regex returned 22 module names without e2e-framework; the same pass with [A-Za-z0-9-]+ returned 23 names and the extra one was e2e-framework.",
+   "originalTextOrLink": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-2",
+     "verifier-3",
+     "verifier-4"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f8",
+   "source": "reviewer-s2-a",
+   "reportedId": "f6",
+   "locationOrLink": "packages/e2e-testing/lib/spec-writer.js:109-110",
+   "severity": "nit",
+   "failureMode": "inferFramework recognises an existing file only by a `using Xunit;` / `using NUnit.Framework;` line or a [Fact]/[Theory]/[Test]/[TestFixture] attribute, so an NUnit class whose methods are all [TestCase] or [TestCaseSource] and which gets NUnit.Framework from a project-level global using shows no framework; appendTestMethod's mismatch refusal then does not fire, and a [Fact] method is appended into that NUnit class when framework 'xunit' is requested.",
+   "disposition": "deferred",
+   "evidence": "Ran a throwaway node snippet: inferFramework on a class with one [TestCase(1)] method and no using lines printed null; appendTestMethod on it with {framework:'xunit', testName:'T', testBody:'await Task.CompletedTask;'} returned content containing [Fact] and threw nothing.",
+   "originalTextOrLink": "packages/e2e-testing/lib/spec-writer.js:109-110",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-5",
+     "verifier-6",
+     "verifier-7"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "uncertain": false,
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "deferred",
+    "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f10",
+   "source": "reviewer-s2-b",
+   "reportedId": "f2",
+   "locationOrLink": "packages/e2e-testing/lib/spec-writer.js:217-223",
+   "severity": "important",
+   "failureMode": "detectE2eFramework returns 'xunit' for any project that references Microsoft.Playwright.Xunit (line 25 of e2e-framework.js, and a test pins it), but that package's documented usage is a test class deriving from its PageTest base class and using the inherited Page property. The xunit branch of scaffoldNewSpecFile cannot produce that shape: scaffoldXunitFile throws unless the caller supplies a Collection name and a fixtureType, which a PageTest-derived project typically does not have, and the baseClass option is ignored in the xunit branch, so even with invented collection and fixtureType values the generated class has no PageTest base while a body that uses Page does not compile. The authoring guidance pinned by author-playwright-tests-framework.test.js (framework 'xunit' means no PageTest Page) and the spec-writer-xunit test title (xUnit has nothing to inherit a page from) say the opposite of how Microsoft.Playwright.Xunit works. For such projects the command cannot land a new spec file and tells the authoring agent something false, and no test pushes a Microsoft.Playwright.Xunit PageTest project through the scaffold path; the detection test only asserts that the package name maps to 'xunit'.",
+   "disposition": "fix",
+   "evidence": "Ran a throwaway node snippet against the snapshot: scaffoldNewSpecFile with framework 'xunit', baseClass 'PageTest', a testBody calling Page.GotoAsync and no collection threw \"collection must be the project's xUnit collection name (got: undefined) -- copy it from a sibling spec class.\"; with collection 'C' and fixtureType 'F' it emitted 'public class A' with no base class and the body calling Page.GotoAsync, baseClass dropped silently. detectE2eFramework(Microsoft.Playwright.Xunit + xunit) printed xunit. Playwright's own docs (playwright.dev/dotnet/docs/test-runners) show xUnit tests as 'public class UnitTest1 : PageTest' with [Fact] and the inherited Page, from Microsoft.Playwright.Xunit.PageTest. Read spec-writer.js:184-251, e2e-framework.js:25, tests/e2e-framework.test.js:30, tests/author-playwright-tests-framework.test.js:53, agents/playwright-tester.yaml:61 and tests/spec-writer-xunit.test.js:114.",
+   "originalTextOrLink": "packages/e2e-testing/lib/spec-writer.js:217",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-8",
+     "verifier-9",
+     "verifier-10"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "uncertain": false,
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "fix",
+    "reason": "Important finding; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f11",
+   "source": "reviewer-s2-b",
+   "reportedId": "f3",
+   "locationOrLink": "packages/e2e-testing/lib/spec-writer.js:424",
+   "severity": "nit",
+   "failureMode": "appendTestMethod resolves the framework as requested || inferred || 'nunit' (line 424), but no test appends with an explicit framework to an existing class whose text shows neither framework, for example a class with no test methods whose usings come from global or implicit usings: every explicit-framework append test uses a file that agrees with the request or contradicts it, and the one unrecognizable-file test passes no framework. A change that dropped the explicit request there and emitted a NUnit [Test] into an xUnit class would pass the suite.",
+   "disposition": "fix",
+   "evidence": "Read spec-writer.js:419-424 and every appendTestMethod, writeOrAppendSpec and writeOrAppendSpecFile case in tests/spec-writer-xunit.test.js: explicit-framework appends use EXISTING or a scaffolded xunit file (agree) or a scaffolded NUnit file asked for xunit (contradict); the bare-class case passes no framework. tests/spec-writer.test.js has no framework case (grep for framework, xunit, Xunit and [Fact] found nothing).",
+   "originalTextOrLink": "packages/e2e-testing/lib/spec-writer.js:424",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-11",
+     "verifier-12",
+     "verifier-13"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f12",
+   "source": "reviewer-s2-b",
+   "reportedId": "f4",
+   "locationOrLink": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68",
+   "severity": "pre-existing",
+   "failureMode": "The existing test 'every $E2E_LIB module the command names exists in the package' collects module names with a pattern whose name class is lowercase letters and hyphen only, with no digits, so any module whose name contains a digit is never iterated. This change adds the module e2e-framework, which that pattern skips (the command names 23 modules, the test iterates 22); the change compensates with a one-off existence test for that module in author-playwright-tests-framework.test.js, but the general check stays blind to any later digit-containing module name and would keep passing if such a file were missing.",
+   "disposition": "deferred",
+   "evidence": "Ran a throwaway node snippet over commands/author-playwright-tests.yaml in the snapshot: the test's pattern finds 22 modules, the same pattern with digits allowed finds 23, and the one named but never iterated is e2e-framework. Line 68 is outside every hunk of this change's diff of that file (hunks start at lines 49 and 103). The dedicated test at tests/author-playwright-tests-framework.test.js:57-61 covers e2e-framework only.",
+   "originalTextOrLink": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-14",
+     "verifier-1",
+     "verifier-2"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "uncertain": false,
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it.",
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "deferred",
+    "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f13",
+   "source": "reviewer-s3-a",
+   "reportedId": "f1",
+   "locationOrLink": "packages/pi/agents/playwright-tester.md:60",
+   "severity": "important",
+   "failureMode": "The Proposal-stage instruction in the playwright-tester agent says framework 'xunit' means no PageTest `Page`, but detectE2eFramework in packages/e2e-testing/lib/e2e-framework.js returns 'xunit' for a project that references Microsoft.Playwright.Xunit (its test file pins that package as xunit), and that official Playwright package supplies a PageTest base class whose tests use the inherited `Page`. For such a project the authoring request carries framework 'xunit' and the agent is told something that contradicts the project's own sibling tests, and landing a new spec file through scaffoldXunitFile in packages/e2e-testing/lib/spec-writer.js throws unless collection and fixtureType are supplied, which PageTest-derived classes have no sibling to copy them from; so the command cannot land a new test for that xUnit setup even though detection classifies it as xunit.",
+   "disposition": "fix",
+   "evidence": "Read the agent line (packages/pi/agents/playwright-tester.md:60), e2e-framework.js detectE2eFramework (the `name === 'microsoft.playwright.xunit'` branch), e2e-framework.test.js:30 (pins Microsoft.Playwright.Xunit and xunit.v3 as xunit), spec-writer.js scaffoldXunitFile (collection and fixtureType checks) and the root CHANGELOG entry, which scopes xUnit support to 'core Microsoft.Playwright with a [Collection] fixture'. The Playwright .NET docs (playwright.dev/dotnet/docs/test-runners) state that the Microsoft.Playwright.Xunit package provides base classes and show `public class UnitTest1 : PageTest { [Fact] ... await Page.GotoAsync(...) }`. Ran a throwaway node snippet against the snapshot: detectE2eFramework on csproj text with PackageReference Include=Microsoft.Playwright.Xunit plus xunit printed 'xunit'; scaffoldNewSpecFile({framework:'xunit', className:'UnitTest1', testName:'B', testBody:'await Page.GotoAsync(\"/b\");'}) threw \"collection must be the project's xUnit collection name (got: undefined) -- copy it from a sibling spec class.\" Marked uncertain: whether PageTest-based xUnit projects are meant to be in scope is a maintainer decision (the CHANGELOG narrows support to the fixture shape); either narrow the detector for that package, or word this line and the CHANGELOG as 'xunit on core Microsoft.Playwright'.",
+   "originalTextOrLink": "packages/pi/agents/playwright-tester.md:60",
+   "uncertain": false,
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-3",
+     "verifier-4",
+     "verifier-5"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   },
+   "adjudicatedBy": "orchestrator",
+   "adjudication": {
+    "by": "orchestrator",
+    "disposition": "fix",
+    "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it.",
+    "at": "2026-11-11T19:33:43.149Z"
+   }
+  },
+  {
+   "id": "f14",
+   "source": "reviewer-s3-a",
+   "reportedId": "f2",
+   "locationOrLink": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250",
+   "severity": "nit",
+   "failureMode": "The inferFramework test row labelled 'only in a string' passes the input var s = \"using Xunit;\"; which cannot match inferFramework's using-regex because that regex is anchored at the start of a line and this line starts with var; the row therefore returns null even if string-literal masking were removed from inferFramework, so it cannot catch such a change. An input such as var s = \"[Fact]\"; would exercise the masking.",
+   "disposition": "fix",
+   "evidence": "Ran a throwaway node snippet against the snapshot: the two unmasked regexes used by inferFramework return false for `var s = \"using Xunit;\";` (so the row passes without any string masking), while `var s = \"[Fact]\";` gives null from inferFramework (masked) and true from the unmasked regex, i.e. that input would discriminate. The neighbouring 'only in a comment' row is discriminating (`/* [Fact] */` matches unmasked). All other assertions in the file that I traced by hand against spec-writer.js (NUnit golden vs the unchanged template in the diff, xUnit scaffold, extra usings, refusals, append and mismatch cases) match the implementation; the snippet also reproduced the inferFramework rows and the append tail/evidence assertions.",
+   "originalTextOrLink": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250",
+   "fixId": "f14",
+   "originalLinks": [
+    "packages/e2e-testing/tests/spec-writer-xunit.test.js:250",
+    "packages/e2e-testing/tests/spec-writer-xunit.test.js:250"
+   ],
+   "mergedFrom": [
+    {
+     "id": "f14",
+     "source": "reviewer-s3-a",
+     "locationOrLink": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250"
+    },
+    {
+     "id": "f16",
+     "source": "reviewer-s3-b",
+     "locationOrLink": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250"
+    }
+   ],
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-6",
+     "verifier-7",
+     "verifier-8"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f15",
+   "source": "reviewer-s3-b",
+   "reportedId": "f1",
+   "locationOrLink": "packages/pi/prompts/ensemble-author-playwright-tests.md:181",
+   "severity": "nit",
+   "failureMode": "Step 'Land the Confirmed, Passed Test' (action 1) names {collection, fixtureType} as the only extra inputs a new xunit file needs, but writeOrAppendSpecFile for xunit (new file and append alike) also throws 'testBody is required for xunit' unless specDetails.testBody carries the test statements, and the class scaffoldXunitFile generates always names the injected fixture `_fixture` (constructor parameter `fixture`). The step never names testBody, never says how the QA-approved proposedTest becomes it (spec-writer takes raw statements for a method body, while the proposal contract only calls proposedTest 'the authored Playwright test source'), and the authoring guidance only says to build the page 'as the project's sibling tests do'. An agent that supplies only what the step lists is refused at the first xunit landing, and a body copied from a sibling class that names its fixture differently refers to a member the generated class does not have.",
+   "disposition": "fix",
+   "evidence": "Read the pi prompt line 181 (identical text at line 190 of the pi skill SKILL.md, and in the YAML source packages/e2e-testing/commands/author-playwright-tests.yaml, the e2e-testing command .md and the codex skill; a parity script I ran found the changed action strings present verbatim in all four mirrors, so this is a gap in the source text, not mirror drift). Read packages/e2e-testing/lib/spec-writer.js: renderTestMethodBlock lines 145-149 throws when the framework is xunit and testBody is blank (reached by scaffoldNewSpecFile and by appendTestMethod); scaffoldXunitFile lines 240-244 hard-codes `private readonly <fixtureType> _fixture;` and the constructor parameter `fixture`; the module header lines 35-39 says testBody is required, the command does not. A grep for testBody|specDetails over the command, agent, pi and codex docs shows specDetails is never defined and testBody is never mentioned there; delegation-contract.js line 67 describes proposedTest only as 'the authored Playwright test source'. Read-only analysis. Constraint for a fix: I ran the repo's own word counter (scripts/lib/prompt-budget.js collectSizes) and it printed 4075 words for the command YAML against a baseline of 4078 (3 words of headroom; agent YAML 1307 against 1313), so added words must be offset elsewhere in the command.",
+   "originalTextOrLink": "packages/pi/prompts/ensemble-author-playwright-tests.md:181",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-9",
+     "verifier-10",
+     "verifier-11"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  },
+  {
+   "id": "f18",
+   "source": "reviewer-range",
+   "reportedId": "f2",
+   "locationOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:226",
+   "severity": "nit",
+   "failureMode": "scaffoldXunitFile in spec-writer.js accepts an optional usings list for the extra namespaces a new xUnit class needs, but the Land step of the command (and the same step in its four generated copies) tells the caller to supply only specDetails.framework and {collection, fixtureType}, so a new xUnit file written through the documented flow gets just System.Threading.Tasks, Microsoft.Playwright and Xunit and an authored body that uses a sibling's assertion library or fixture namespace will not compile once the file lands.",
+   "disposition": "fix",
+   "evidence": "Read the Land step action at author-playwright-tests.yaml:226 and its mirrors (commands/ensemble md, pi prompt, pi skill, codex skill): they name specDetails.framework and {collection, fixtureType} only. In the range diff the word usings appears only in spec-writer.js (lines 217-229) and in spec-writer-xunit.test.js (the 'extra usings are added once' test, whose sample uses FluentAssertions and bt.testing.shared); it is absent from the command, the playwright-tester agent text, and the spec-writer header comment. The JSDoc of renderTestMethodBlock, scaffoldNewSpecFile and appendTestMethod (spec-writer.js:126-136, 168-183, 401-410) also still lists only the NUnit fields. The NUnit path never had such an option, so this is a documentation gap in the new path, not a regression.",
+   "originalTextOrLink": "packages/e2e-testing/commands/author-playwright-tests.yaml:226",
+   "verification": {
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "presented": true,
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "assigned": [
+     "verifier-12",
+     "verifier-13",
+     "verifier-14"
+    ],
+    "incompleteVerifiers": [],
+    "ignoredVotes": []
+   }
+  }
+ ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "pr233-f02-solo-discount-trusts-unverified-changed-paths",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/233 head 396747227c98b6a377b9578fd82b1ea0e898e920",
+  "bug": "soloEligibility grants the discount from sensitivePaths and declarationChanged without checking that the changed-path list they came from is present, non-empty and verbatim; a missing list or a name git quoted matches no sensitive pattern, so a PR touching a guard keeps the one-human floor.",
+  "location": {
+    "path": "packages/development/lib/pr-review-tier.js",
+    "startLine": 292,
+    "endLine": 300
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

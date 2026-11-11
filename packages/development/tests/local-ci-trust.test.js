@@ -204,26 +204,26 @@ describe('merge: payload cannot carry config', () => {
 });
 
 describe('run and config subcommands', () => {
-  it('run accepts only repoRoot, headSha and baseRef and builds the runner options from the base-committed file', () => {
+  it('run accepts only repoRoot, headSha and baseRef and builds the runner options from the base-committed file', async () => {
     const repo = maintainer();
     const { deps, runGate } = makeDeps(undefined, repo);
-    cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef }, deps);
+    await cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef }, deps);
     expect(runGate.mock.calls[0][0].approvalSet).toEqual(TRUSTED.approvalSet);
     for (const bad of [{ options: { nodeVersions: [1] } }, { config: TRUSTED_TEXT }, { remote: 'x' }, { keep: true }, { env: {} }]) {
-      expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef, ...bad }, deps)).toThrow(/unknown payload key/);
+      await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef, ...bad }, deps)).rejects.toThrow(/unknown payload key/);
     }
     expect(runGate).toHaveBeenCalledTimes(1);
   });
 
-  it('run requires baseRef and refuses a base equal to the head without running', () => {
+  it('run requires baseRef and refuses a base equal to the head without running', async () => {
     const repo = maintainer();
     const { deps, runGate } = makeDeps(undefined, repo);
-    expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha }, deps)).toThrow(/baseRef/);
+    await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha }, deps)).rejects.toThrow(/baseRef/);
     repo.git('update-ref', 'refs/remotes/origin/pr-self', repo.sha);
-    const r = cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: 'origin/pr-self' }, deps);
+    const r = await cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: 'origin/pr-self' }, deps);
     expect(r.ok).toBe(false);
     expect(JSON.stringify(r)).toMatch(/own base/);
-    expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.sha }, deps)).toThrow(/baseRef/);
+    await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.sha }, deps)).rejects.toThrow(/baseRef/);
     expect(runGate).not.toHaveBeenCalled();
   });
 

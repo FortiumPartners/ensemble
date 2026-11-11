@@ -20,17 +20,18 @@ const os = require('os');
 // For testing, we require the compiled JS or use a test-friendly wrapper.
 // Since this is a Node.js project, we'll create a CJS-compatible wrapper.
 
-// Helper: create a temporary directory structure mirroring packages/*/skills/
+// Helper: create a temporary directory structure mirroring packages/*/skills/<pkg>/ (a
+// package's framework skill is the skill named after the package)
 function createTempPackages(tmpDir, packages) {
   const packagesDir = path.join(tmpDir, 'packages');
   fs.mkdirSync(packagesDir, { recursive: true });
 
   for (const [pkgName, files] of Object.entries(packages)) {
-    const skillsDir = path.join(packagesDir, pkgName, 'skills');
-    fs.mkdirSync(skillsDir, { recursive: true });
+    const skillDir = path.join(packagesDir, pkgName, 'skills', pkgName);
+    fs.mkdirSync(skillDir, { recursive: true });
 
     for (const [fileName, content] of Object.entries(files)) {
-      fs.writeFileSync(path.join(skillsDir, fileName), content, 'utf-8');
+      fs.writeFileSync(path.join(skillDir, fileName), content, 'utf-8');
     }
   }
 
@@ -153,10 +154,10 @@ describe('OC-S1-SK-001: SkillCopier discovery', () => {
     // Create a package with no skills/ directory
     fs.mkdirSync(path.join(packagesDir, 'core'), { recursive: true });
     // Create a package WITH a skills directory
-    const skillsDir = path.join(packagesDir, 'react', 'skills');
-    fs.mkdirSync(skillsDir, { recursive: true });
+    const skillDir = path.join(packagesDir, 'react', 'skills', 'react');
+    fs.mkdirSync(skillDir, { recursive: true });
     fs.writeFileSync(
-      path.join(skillsDir, 'SKILL.md'),
+      path.join(skillDir, 'SKILL.md'),
       '# React Skill',
       'utf-8'
     );
@@ -174,6 +175,29 @@ describe('OC-S1-SK-001: SkillCopier discovery', () => {
 
     const result = await copier.execute();
     expect(result.skillsCopied).toBe(1);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('should not discover a flat skills/SKILL.md: a skill lives in skills/<name>/, named after its package', async () => {
+    const flatSkillsDir = path.join(tmpDir, 'packages', 'react', 'skills');
+    fs.mkdirSync(flatSkillsDir, { recursive: true });
+    fs.writeFileSync(path.join(flatSkillsDir, 'SKILL.md'), '# React Skill', 'utf-8');
+    fs.writeFileSync(path.join(flatSkillsDir, 'REFERENCE.md'), '# React Reference', 'utf-8');
+
+    const outputDir = path.join(tmpDir, 'dist', 'opencode', '.opencode', 'skill');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const copier = new SkillCopier({
+      packagesDir: path.join(tmpDir, 'packages'),
+      outputDir,
+      injectFrontmatter: true,
+      dryRun: true,
+      verbose: false,
+    });
+
+    const result = await copier.execute();
+    expect(result.skillsCopied).toBe(0);
+    expect(result.referencesConverted).toBe(0);
     expect(result.errors).toHaveLength(0);
   });
 
@@ -684,7 +708,7 @@ describe('OC-S1-SK-006: Source files not modified (regression safety)', () => {
     await copier.execute();
 
     // The source file MUST be unchanged
-    const sourceFile = path.join(packagesDir, 'react', 'skills', 'SKILL.md');
+    const sourceFile = path.join(packagesDir, 'react', 'skills', 'react', 'SKILL.md');
     const afterContent = fs.readFileSync(sourceFile, 'utf-8');
     expect(afterContent).toBe(originalContent);
   });
@@ -710,7 +734,7 @@ describe('OC-S1-SK-006: Source files not modified (regression safety)', () => {
 
     await copier.execute();
 
-    const sourceFile = path.join(packagesDir, 'react', 'skills', 'REFERENCE.md');
+    const sourceFile = path.join(packagesDir, 'react', 'skills', 'react', 'REFERENCE.md');
     const afterContent = fs.readFileSync(sourceFile, 'utf-8');
     expect(afterContent).toBe(originalContent);
   });
@@ -737,7 +761,7 @@ describe('OC-S1-SK-006: Source files not modified (regression safety)', () => {
 
     await copier.execute();
 
-    const sourceFile = path.join(packagesDir, 'jest', 'skills', 'SKILL.md');
+    const sourceFile = path.join(packagesDir, 'jest', 'skills', 'jest', 'SKILL.md');
     const afterContent = fs.readFileSync(sourceFile, 'utf-8');
     expect(afterContent).toBe(originalContent);
   });
@@ -850,7 +874,7 @@ describe('OC-S1-SK integration: full pipeline', () => {
     });
 
     // Make the file unreadable (if possible)
-    const skillFile = path.join(packagesDir, 'react', 'skills', 'SKILL.md');
+    const skillFile = path.join(packagesDir, 'react', 'skills', 'react', 'SKILL.md');
     try {
       fs.chmodSync(skillFile, 0o000);
     } catch {
@@ -916,8 +940,8 @@ describe('OC-S1-SK: real packages integration', () => {
 describe('OC-S1-SK adapter directories (TRD-020, PRD REQ-021)', () => {
   let tmpDir;
 
-  // Build a `packages/<pkg>/skills/adapter-<name>/{SKILL.md,adapter.yaml}` layout one level
-  // deeper than createTempPackages's flat `skills/SKILL.md` layout.
+  // Build a `packages/<pkg>/skills/adapter-<name>/{SKILL.md,adapter.yaml}` layout: an adapter
+  // directory sits beside the package's framework skill `skills/<pkg>/` that createTempPackages builds.
   function createAdapterPackage(root, pkgName, adapterDirName, files) {
     const adapterDir = path.join(root, 'packages', pkgName, 'skills', adapterDirName);
     fs.mkdirSync(adapterDir, { recursive: true });
@@ -998,7 +1022,7 @@ describe('OC-S1-SK adapter directories (TRD-020, PRD REQ-021)', () => {
     expect(fs.existsSync(path.join(outputDir, 'adapter-linear', 'adapter.yaml'))).toBe(true);
   });
 
-  it('a plain skills/SKILL.md with no adapter subdirectory is byte-identical before and after this feature (no adapter.yaml spuriously appears)', async () => {
+  it('a plain framework skill (skills/<pkg>/SKILL.md) with no adapter.yaml is byte-identical before and after this feature (no adapter.yaml spuriously appears)', async () => {
     const packagesDir = createTempPackages(tmpDir, {
       plainpkg: { 'SKILL.md': '# Plain skill\n\nNo adapters here.' },
     });

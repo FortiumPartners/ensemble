@@ -9,41 +9,6 @@ metadata:
   model: medium
   argument_hint: "[prd-path] [trd-path]"
 
-constraints:
-  - DO NOT implement or execute any work described in the documents
-  - Read-only and advisory (not a CI gate)
-  - Statistics come from `trd-cli analyze`; only the contradiction scan is your judgement
-
-mission:
-  summary: |
-    Run `node "$TRD_CLI" analyze <trd-path> --prd <prd-path>`, interpret the JSON, and add a PRD-vs-TRD
-    contradiction scan. Task ids are checkbox lines `- [ ] **TRD-NNN**: Title` under `## Master Task List`
-    (not headings); PRD ids are `### REQ-NNN:` and `- AC-NNN-M:`.
-
-workflow:
-  phases:
-    - name: Analyze
-      order: 1
-      steps:
-        - order: 1
-          title: Run the CLI
-          description: |
-            Require PRD then TRD path, both existing; else print the error and exit 1.
-            Resolve TRD_CLI per the tool-path-resolution skill, run `node "$TRD_CLI" analyze "<trd>" --prd "<prd>"`;
-            on `{"error":...}` print it and exit 1.
-        - order: 2
-          title: Contradiction scan
-          description: |
-            Read both documents for conflicts on one feature (sync vs async, differing limits, auth, SLAs); cite PRD and TRD lines.
-        - order: 3
-          title: Report
-          description: |
-            Print `verdict` (count contradictions as warnings: errors -> NOT READY, >5 -> CAUTION, >0 -> MOSTLY READY, else READY),
-            `phases`, `dependencies`, `estimates.missing`, `traceability`, `prdWarnings`, and `validation` findings,
-            each with a one-line remediation.
-
-expectedInput:
-  format: PRD and TRD paths
-
-expectedOutput:
-  format: Readiness report with verdict and findings
+# Skill-backed command: the prompt is packages/development/skills/ensemble-analyze-requirements/SKILL.md,
+# the single source of truth. Edit the skill, not this manifest.
+skill: ensemble-analyze-requirements

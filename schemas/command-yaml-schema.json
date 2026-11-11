@@ -2,10 +2,10 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://sunstonepartners.com/schemas/command-yaml-schema.json",
   "title": "Ensemble Command YAML Schema",
-  "description": "Schema for validating ensemble plugin command YAML files",
+  "description": "Schema for validating ensemble plugin command YAML files. A command is one of two shapes: a full command (metadata, mission, workflow, ...) or a skill-backed manifest (metadata and skill only, the prompt living in the skill's SKILL.md).",
   "type": "object",
   "additionalProperties": true,
-  "required": ["metadata", "mission", "workflow"],
+  "required": ["metadata"],
   "properties": {
     "metadata": {
       "type": "object",
@@ -84,6 +84,12 @@
           "description": "Slash-menu visibility. 'hidden' keeps the command generated and readable by path (dispatchers invoke it) but removes it from the user-facing command surface on every runtime. Defaults to 'visible'."
         }
       }
+    },
+    "skill": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Makes this command a skill-backed manifest: the directory name of the skill, in this same package (packages/<pkg>/skills/<skill>/SKILL.md), whose body is the command's prompt and single source of truth. A manifest carries only `metadata` and `skill` (mission, workflow, constraints, parameters, expectedOutput and the rest belong in the skill) and each runtime emits a thin entry point that points at the skill. That the skill exists is checked by scripts/lib/schema-validator.js."
     },
     "mission": {
       "type": "object",
@@ -220,5 +226,11 @@
         }
       }
     }
-  }
+  },
+  "if": { "required": ["skill"] },
+  "then": {
+    "properties": { "metadata": {}, "skill": {} },
+    "additionalProperties": false
+  },
+  "else": { "required": ["mission", "workflow"] }
 }

@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { readCommandProse } = require('../../../../scripts/lib/skill-backed-command');
 
 const DEV_ROOT = path.join(__dirname, '..', '..');
 
@@ -101,7 +102,11 @@ const callerText = (name) => {
   const file = CALLER_PATHS[name];
   if (file === undefined) throw new Error(`unknown caller: ${name}`);
   const companions = (BODY_COMPANIONS[name] || []).map((f) => fs.readFileSync(f, 'utf8'));
-  return [prose(fs.readFileSync(file, 'utf8')), ...companions].join('\n');
+  // fix-issue and implement-trd-beads are skill-backed: the manifest holds no prose, so the command's
+  // text is its manifest plus its skill (SKILL.md + references/*.md), then the body companions.
+  const manifest = fs.readFileSync(file, 'utf8');
+  const commandProse = readCommandProse(file, yaml.load(manifest), manifest);
+  return [prose(manifest), commandProse, ...companions].join('\n');
 };
 
 /**

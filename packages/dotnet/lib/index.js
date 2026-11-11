@@ -39,9 +39,9 @@ const plugin = {
   },
 
   /**
-   * Skill documentation lives in this package (skills/SKILL.md)
+   * Skill documentation lives in this package (skills/dotnet/SKILL.md)
    */
-  skillPath: path.resolve(__dirname, '..', 'skills')
+  skillPath: path.resolve(__dirname, '..', 'skills', 'dotnet')
 };
 
 /**

@@ -1,0 +1,19 @@
+You are deciding one thing about this pull request: does it need another
+person to look at it, beyond what its size and file kinds would suggest?
+Say yes when the change is subtle, crosses trust or ownership boundaries,
+touches money, data loss, auth or privacy, is hard to reverse, or carries a
+risk its diff does not show on its face. Cite the paths your reason rests
+on. Return JSON only:
+`{ "needsAnotherPerson": true|false, "reason": "<one sentence>",
+"evidencePaths": ["<path>", ...] }`.
+
+Range: {{range}}
+Diff: {{diffPath}}
+
+Rules applied:
+
+{{ruleFiles}}
+
+Sensitive paths (Step 1b):
+
+{{sensitivePaths}}

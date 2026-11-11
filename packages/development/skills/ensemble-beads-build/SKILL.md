@@ -1,0 +1,81 @@
+---
+name: ensemble-beads-build
+description: "Drive an existing bead hierarchy to completion through the full builder, code-review, and close pipeline"
+disable-model-invocation: true
+metadata:
+  version: "1.4.0"
+  category: implementation
+---
+
+Drive an existing bead hierarchy (epic -> stories -> tasks) to completion through
+the full builder -> code-review -> close pipeline. This is the canonical build
+engine — works for raw beads with no TRD required. implement-trd-beads and
+implement-bead delegate to it; --plan prints the analysis without executing.
+Loop: the parent (this command) checks bead-graph state via the tracker/work-graph
+capabilities (through toolchain-cli; see metadata.capabilities) and dispatches a
+fresh Task(subagent_type=beads-build-wave, prompt=...) per wave. The wave-runner
+agent runs ONE wave (plan + concurrent Task() track dispatch + barrier) and emits
+a JSON summary line; the parent decides on remaining_scoped_count whether to
+dispatch another. No recursion (Codex max_depth=1): wave-runners are depth-1
+subagents.
+
+Scheduler: work-graph.ready (graph-aware parallel tracks when the resolved
+tracker adapter exposes dependency links — data.orderingSource=="tracker-links" —
+else one single-bead track per ready bead in plan order,
+data.orderingSource=="plan-order"). Each wave partitions the ready set into
+parallel tracks (up to --max-parallel; default 3) and dispatches each
+concurrently to a tech-lead-orchestrator Bead-Track subagent. A barrier sits
+between waves: every track completes before the next work-graph.ready call.
+Records all state transitions in beads for cross-session resumability. When
+--trd is provided, enables TRD augmentations: traceability tokens, TRD checkbox
+sync, and requirement satisfaction report.
+
+Key behaviors:
+- Each wave is a barrier: dispatch all tracks, wait for every track, then re-plan.
+- The parent loop body is mechanical: read count, dispatch wave-runner, read
+  JSON summary, repeat. No narrative reasoning happens between iterations.
+- Quality gates: phase completion triggers test delegation; results recorded via tracker.comment
+- Sync: tracker.sync before work-graph.ready (optional, skips {ok:false}). Never read .beads/*.jsonl to schedule.
+- TRD mode: optional --trd flag enables traceability tokens, checkbox sync, requirement report
+
+## Capabilities
+
+**Required:** tracker.show, tracker.list, tracker.comment, tracker.close, work-graph.ready, workflow.status, workflow.remote-url, workflow.commit
+**Optional:** work-graph.plan, tracker.comments, tracker.sync, host.change-request-create, workflow.push, workflow.diff
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| 1. Preflight | `references/phase-1-preflight.md` | Argument Parsing; Tool Capability Preflight; Git-Town and Working Directory Verification; Epic Discovery; TRD Augmentation Setup; TRD Staleness Gate; Strategy Detection |
+| 2. Execute | `references/phase-2-execute.md` | Wave Loop (single-wave subagent dispatch); Debug Loop (TRD-019); Error Handling |
+| 3. Quality Gate | `references/phase-3-quality-gate.md` | Phase Completion Detection; Test Execution; Gate Result Recording |
+| 4. Completion | `references/phase-4-completion.md` | Epic Closure; TRD Checkbox Sync; Completion Report |
+| 5. Plan Mode | `references/phase-5-plan-mode.md` | Read-only Plan (only when PLAN_ONLY=true) |
+
+## Expected Output
+
+**Format:** Implemented features with quality gates and beads tracking
+
+**Structure:**
+
+- **Closed Beads**: All task and story beads closed with quality gate comments recorded via tracker.comment
+- **Feature Branch**: Git feature branch with implementation commits and phase checkpoint commits
+- **TRD Checkboxes**: TRD Master Task List updated with completed checkboxes synced to bead closure state (TRD_MODE only)
+- **Completion Report**: Summary with epic ID, coverage metrics, PR creation reminder, and optional Requirement Satisfaction Table
+- **Requirement Satisfaction Report**: Table of PRD REQ-NNN requirements with SATISFIED/NOT VERIFIED status, test task references, and proven AC sub-IDs (TRD_MODE only)
+
+## Expected Input
+
+```yaml
+format: Bead hierarchy reference with optional TRD path
+sections:
+  - name: Epic ID or Slug Pattern
+    required: true
+    description: Direct bead ID (any prefix, e.g. beads-12 or cribs-l4pd) or text substring to search in epic titles
+  - name: TRD Path
+    required: false
+    description: Path to TRD file for enabling traceability tokens, checkbox sync, and requirement report
+```

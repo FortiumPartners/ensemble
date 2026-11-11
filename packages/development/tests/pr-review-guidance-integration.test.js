@@ -25,6 +25,7 @@ const fs = require('fs');
 const { readSkillBundle } = require('./helpers/pr-review-cycle-skill');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
 
 const DEV_ROOT = path.join(__dirname, '..');
 const SKILL_PATH = path.join(DEV_ROOT, 'skills', 'pr-review-cycle', 'SKILL.md');
@@ -256,7 +257,10 @@ const CALLERS = CALLER_PATHS;
 const SKILL_REFERENCE = 'packages/development/skills/pr-review-cycle/SKILL.md (via tool-path-resolution)';
 
 describe.each(Object.keys(CALLERS))('%s builds a PR body the real checker accepts (TRD-006)', (name) => {
-  const text = fs.readFileSync(CALLERS[name], 'utf8');
+  // The command's own text: its manifest plus, for the skill-backed callers, its skill prose
+  // (SKILL.md + references/*.md), where the instructions the executor reads now live.
+  const manifestText = fs.readFileSync(CALLERS[name], 'utf8');
+  const text = readCommandProse(CALLERS[name], require('js-yaml').load(manifestText), manifestText);
 
   // Every body a caller can publish: fix-issue has one template, implement-trd-beads builds a
   // phase body and a completion body. A regex that found fewer would grade less than it claims.

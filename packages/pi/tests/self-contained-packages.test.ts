@@ -337,6 +337,11 @@ describe.each(SELF_CONTAINED)('committed output: %s', (pkg) => {
           path.join(scratch, 'packages', pkg, 'commands', file)
         );
       }
+      // A skill-backed command's prompt is its skill (packages/<pkg>/skills/<skill>/SKILL.md),
+      // which the generator must be able to find beside the command sources.
+      if (fs.existsSync(path.join(pkgDir, 'skills'))) {
+        fs.cpSync(path.join(pkgDir, 'skills'), path.join(scratch, 'packages', pkg, 'skills'), { recursive: true });
+      }
       await generateSelfContainedPackages({ dryRun: false, verbose: false, validate: false, sourceRoot: scratch });
 
       const fresh = path.join(scratch, 'packages', pkg);

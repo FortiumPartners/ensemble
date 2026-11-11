@@ -32,8 +32,8 @@ Part of the ensemble plugin ecosystem for Claude Code. This plugin provides comp
 
 Execute and generate pytest tests with comprehensive Python testing patterns.
 
-**Quick Reference**: `skills/SKILL.md` - Essential pytest commands and patterns
-**Comprehensive Guide**: `skills/REFERENCE.md` - Deep dive into fixtures, parametrization, mocking
+**Quick Reference**: `skills/pytest/SKILL.md` - Essential pytest commands and patterns
+**Comprehensive Guide**: `skills/pytest/REFERENCE.md` - Deep dive into fixtures, parametrization, mocking
 
 ## Usage
 
@@ -166,8 +166,9 @@ packages/pytest/
 ├── .claude-plugin/
 │   └── plugin.json          # Plugin configuration
 ├── skills/
-│   ├── SKILL.md            # Quick reference guide
-│   └── REFERENCE.md        # Comprehensive pytest patterns
+│   └── pytest/
+│       ├── SKILL.md        # Quick reference guide
+│       └── REFERENCE.md    # Comprehensive pytest patterns
 ├── lib/
 │   ├── generate-test.py    # Test generation utility
 │   ├── run-test.py         # Test execution utility
@@ -294,8 +295,8 @@ def test_exception():
 
 ## Documentation
 
-- **Skills Reference**: See `skills/SKILL.md` for quick reference
-- **Comprehensive Guide**: See `skills/REFERENCE.md` for detailed patterns
+- **Skills Reference**: See `skills/pytest/SKILL.md` for quick reference
+- **Comprehensive Guide**: See `skills/pytest/REFERENCE.md` for detailed patterns
 - **Main Repository**: [ensemble](https://github.com/Sunstone-Partners/ensemble)
 
 ## Support

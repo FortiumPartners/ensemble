@@ -251,6 +251,42 @@ describe('runPreflight: health check timeout (Implementation AC bullet 3)', () =
 });
 
 /**
+ * kata vsg4 review round 1: health checks used to inherit the CLI process's own cwd, so under
+ * `toolchain-cli.js --project-root <path>` the health gate of the flagged tree was certified by a
+ * command that ran in another repository. Every check must be spawned with `cwd` set to
+ * `ctx.projectRoot` -- the directory `run` gives the capability the gate protects. (The real-
+ * process counterpart, a health command that writes a marker which must land in the flagged tree,
+ * lives in packages/development/tests/toolchain-cli-project-root.test.js.)
+ */
+describe('runPreflight: health checks run in ctx.projectRoot, not the process cwd (kata vsg4 review round 1)', () => {
+  test('every health check is spawned with cwd = ctx.projectRoot, which is not the process cwd', async () => {
+    const projectRoot = mkProjectRoot();
+    mkProjectConfig(projectRoot, { tracker: 'fixture-tracker' });
+    mkInstalledAdapter(projectRoot, 'fixture-tracker', {
+      health: [
+        { id: 'check-a', run: ['fixture-tool', 'check-a'], timeoutMs: 5000 },
+        { id: 'check-b', run: ['fixture-tool', 'check-b'], timeoutMs: 5000 }
+      ],
+      allowlist: [{ bin: 'fixture-tool', sub: ['show', 'check-a', 'check-b'] }]
+    });
+
+    execFile.mockImplementation((file, cmdArgs, options, callback) => {
+      setTimeout(() => callback(null, '', ''), 0);
+    });
+
+    const ctx = { projectRoot, env: {} };
+    const result = await runPreflight({ categories: ['tracker'], runId: 'cwd-r1' }, ctx);
+
+    expect(result.ok).toBe(true);
+    expect(projectRoot).not.toBe(process.cwd());
+    expect(execFile).toHaveBeenCalledTimes(2);
+    for (const [, , calledOptions] of execFile.mock.calls) {
+      expect(calledOptions.cwd).toBe(projectRoot);
+    }
+  });
+});
+
+/**
  * TRD-014-TEST AC-013-1 (fourth bullet): three health checks that each sleep 400ms run
  * concurrently, not sequentially.
  */

@@ -112,6 +112,12 @@ describe('TRD-035: the same reviewers and the same verification a PR gets', () =
     expect(FLAT).toContain('No reviewer edits, stages, commits or pushes anything');
   });
 
+  test('Step 5 dispatches one reviewer per reviewerAssignments entry, each under its lens (review of #263, F7)', () => {
+    const step5 = FLAT.slice(FLAT.indexOf('### Step 5'), FLAT.indexOf('### Step 6'));
+    expect(step5).toContain('Dispatch one reviewer per `reviewerAssignments` entry');
+    expect(step5).toContain('under its `lens`');
+  });
+
   test('the verifier counts the prose names are the counts the module expects', () => {
     expect(FLAT).toContain('the depth\'s verifiers (Standard 3, Deep 5)');
     expect(EXPECTED_VERIFIERS.standard).toBe(3);

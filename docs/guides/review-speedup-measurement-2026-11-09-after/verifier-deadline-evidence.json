@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "about": "The verifiers of the six real-model review runs of the two speedup measurements (kata q3a9), all at effort hi and all given the flat 5-minute verifier deadline, for kata dx53. Facts only: names, ids, counts, verdicts and times; no agent text. Times come from the committed trace of each run (a review.verifier span starts at the dispatch and its last_message_ts is the arrival of the result file; a verifier that was stopped at its deadline has none). The plan and the votes come from the run.json of each run (waves[].agents[], assignment, votesResult.findings[]), which is kept on the maintainer machine and not committed. pr-review-verifier-deadline.test.js re-derives every time here from the traces and replays every candidate through the vote tally.",
+  "deadlineMinutes": 5,
+  "runs": {
+    "pr207-hi-q3c": {
+      "measurement": "before", "what": "PR 207, Medium first review", "depth": "standard", "verifiersPerCandidate": 3,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-08/trace-pr207-hi-q3c.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":3,"citedPaths":3,"state":"arrived","minutes":2.02},
+        {"name":"verifier-2","claims":3,"citedPaths":3,"state":"arrived","minutes":2.12},
+        {"name":"verifier-3","claims":3,"citedPaths":3,"state":"arrived","minutes":2.26},
+        {"name":"verifier-4","claims":3,"citedPaths":3,"state":"arrived","minutes":3.13},
+        {"name":"verifier-5","claims":3,"citedPaths":3,"state":"arrived","minutes":4.49},
+        {"name":"verifier-6","claims":3,"citedPaths":3,"state":"arrived","minutes":2.48},
+        {"name":"verifier-7","claims":3,"citedPaths":3,"state":"arrived","minutes":2.05},
+        {"name":"verifier-8","claims":3,"citedPaths":3,"state":"arrived","minutes":2.67},
+        {"name":"verifier-9","claims":3,"citedPaths":2,"state":"arrived","minutes":3.29},
+        {"name":"verifier-10","claims":3,"citedPaths":2,"state":"arrived","minutes":3.88},
+        {"name":"verifier-11","claims":3,"citedPaths":2,"state":"arrived","minutes":3.41},
+        {"name":"verifier-12","claims":3,"citedPaths":3,"state":"stopped","minutes":null},
+        {"name":"verifier-13","claims":3,"citedPaths":3,"state":"arrived","minutes":1.5},
+        {"name":"verifier-14","claims":3,"citedPaths":3,"state":"arrived","minutes":4.41},
+        {"name":"verifier-15","claims":3,"citedPaths":3,"state":"arrived","minutes":2.43},
+        {"name":"verifier-16","claims":3,"citedPaths":3,"state":"arrived","minutes":2.1},
+        {"name":"verifier-17","claims":3,"citedPaths":3,"state":"arrived","minutes":1.9}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"important","raisers":["reviewer-s1-a"],"expected":3,"assigned":["verifier-1","verifier-2","verifier-3"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f2","severity":"nit","raisers":["reviewer-s1-a","reviewer-s1-b"],"expected":3,"assigned":["verifier-4","verifier-5","verifier-6"],"votes":[["verifier-4","real"],["verifier-5","real"],["verifier-6","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f4","severity":"nit","raisers":["reviewer-s1-b","reviewer-s2-a","reviewer-range"],"expected":3,"assigned":["verifier-7","verifier-8","verifier-9"],"votes":[["verifier-7","real"],["verifier-8","real"],["verifier-9","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f5","severity":"nit","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-10","verifier-11","verifier-12"],"votes":[["verifier-10","real"],["verifier-11","real"]],"silent":[["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f7","severity":"nit","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-13","verifier-14","verifier-15"],"votes":[["verifier-13","real"],["verifier-14","real"],["verifier-15","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f8","severity":"nit","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-16","verifier-17","verifier-1"],"votes":[["verifier-1","real"],["verifier-16","real"],["verifier-17","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f9","severity":"nit","raisers":["reviewer-s2-a","reviewer-s3-b"],"expected":3,"assigned":["verifier-2","verifier-3","verifier-4"],"votes":[["verifier-2","real"],["verifier-3","real"],["verifier-4","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f10","severity":"nit","raisers":["reviewer-s2-b"],"expected":3,"assigned":["verifier-5","verifier-6","verifier-7"],"votes":[["verifier-5","real"],["verifier-6","real"],["verifier-7","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f11","severity":"nit","raisers":["reviewer-s2-b"],"expected":3,"assigned":["verifier-8","verifier-9","verifier-10"],"votes":[["verifier-8","real"],["verifier-9","real"],["verifier-10","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f12","severity":"nit","raisers":["reviewer-s2-b"],"expected":3,"assigned":["verifier-11","verifier-12","verifier-13"],"votes":[["verifier-11","real"],["verifier-13","real"]],"silent":[["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f13","severity":"important","raisers":["reviewer-s3-a"],"expected":3,"assigned":["verifier-14","verifier-15","verifier-16"],"votes":[["verifier-14","real"],["verifier-15","real"],["verifier-16","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f14","severity":"nit","raisers":["reviewer-s3-a"],"expected":3,"assigned":["verifier-17","verifier-1","verifier-2"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-17","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f15","severity":"nit","raisers":["reviewer-s3-a"],"expected":3,"assigned":["verifier-3","verifier-4","verifier-5"],"votes":[["verifier-3","real"],["verifier-4","real"],["verifier-5","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f17","severity":"nit","raisers":["reviewer-s3-b"],"expected":3,"assigned":["verifier-6","verifier-7","verifier-8"],"votes":[["verifier-6","real"],["verifier-7","real"],["verifier-8","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f18","severity":"important","raisers":["reviewer-range"],"expected":3,"assigned":["verifier-9","verifier-10","verifier-11"],"votes":[["verifier-9","real"],["verifier-10","real"],["verifier-11","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f19","severity":"nit","raisers":["reviewer-range"],"expected":3,"assigned":["verifier-12","verifier-13","verifier-14"],"votes":[["verifier-13","real"],["verifier-14","real"]],"silent":[["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f20","severity":"nit","raisers":["reviewer-range"],"expected":3,"assigned":["verifier-15","verifier-16","verifier-17"],"votes":[["verifier-15","real"],["verifier-16","real"],["verifier-17","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"}
+      ]
+    },
+    "pr277-first-q3a9": {
+      "measurement": "before", "what": "scratch PR 277 (the #229 diff), High first review", "depth": "deep", "verifiersPerCandidate": 5,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-08/trace-pr277-first-q3a9.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":3,"citedPaths":2,"state":"arrived","minutes":3.44},
+        {"name":"verifier-2","claims":3,"citedPaths":2,"state":"arrived","minutes":3.38},
+        {"name":"verifier-3","claims":3,"citedPaths":2,"state":"arrived","minutes":2.29},
+        {"name":"verifier-4","claims":3,"citedPaths":2,"state":"arrived","minutes":2.85},
+        {"name":"verifier-5","claims":3,"citedPaths":2,"state":"arrived","minutes":2.76}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"pre-existing","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-4","real"],["verifier-5","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f2","severity":"important","raisers":["orchestrator"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-4","real"],["verifier-5","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f3","severity":"nit","raisers":["orchestrator"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-4","real"],["verifier-5","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"}
+      ]
+    },
+    "pr277-re-q3a9": {
+      "measurement": "before", "what": "scratch PR 277 after a fix push, High re-review", "depth": "deep", "verifiersPerCandidate": 5,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-08/trace-pr277-re-q3a9.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":3,"citedPaths":2,"state":"arrived","minutes":2.01},
+        {"name":"verifier-2","claims":3,"citedPaths":1,"state":"arrived","minutes":2.79},
+        {"name":"verifier-3","claims":3,"citedPaths":1,"state":"arrived","minutes":2.7},
+        {"name":"verifier-4","claims":3,"citedPaths":2,"state":"arrived","minutes":2.52},
+        {"name":"verifier-5","claims":3,"citedPaths":2,"state":"arrived","minutes":3.04},
+        {"name":"verifier-6","claims":3,"citedPaths":2,"state":"arrived","minutes":2.98},
+        {"name":"verifier-7","claims":2,"citedPaths":2,"state":"arrived","minutes":2.41}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"nit","raisers":["reviewer-s1-a"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-4","not-real"],["verifier-5","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f2","severity":"nit","raisers":["reviewer-s1-a"],"expected":5,"assigned":["verifier-6","verifier-7","verifier-1","verifier-2","verifier-3"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-6","real"],["verifier-7","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f3","severity":"nit","raisers":["reviewer-s1-a"],"expected":5,"assigned":["verifier-4","verifier-5","verifier-6","verifier-7","verifier-1"],"votes":[["verifier-1","real"],["verifier-5","real"],["verifier-6","real"],["verifier-7","real"]],"silent":[["verifier-4","no-vote-for-candidate"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f4","severity":"pre-existing","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-2","verifier-3","verifier-4","verifier-5","verifier-6"],"votes":[["verifier-2","abstain"],["verifier-3","real"],["verifier-4","abstain"],["verifier-6","real"]],"silent":[["verifier-5","no-vote-for-candidate"]],"outcome":"unverified","reason":"verifier-incomplete"}
+      ]
+    },
+    "after-pr207-first": {
+      "measurement": "after", "what": "PR 207, Medium first review", "depth": "standard", "verifiersPerCandidate": 3,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-09-after/trace-after-pr207-first.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":3,"citedPaths":3,"state":"arrived","minutes":4.26},
+        {"name":"verifier-2","claims":3,"citedPaths":3,"state":"arrived","minutes":2.44},
+        {"name":"verifier-3","claims":3,"citedPaths":2,"state":"arrived","minutes":1.96},
+        {"name":"verifier-4","claims":3,"citedPaths":1,"state":"stopped","minutes":null},
+        {"name":"verifier-5","claims":3,"citedPaths":2,"state":"arrived","minutes":2.48},
+        {"name":"verifier-6","claims":3,"citedPaths":3,"state":"arrived","minutes":3.65},
+        {"name":"verifier-7","claims":3,"citedPaths":2,"state":"arrived","minutes":4.83},
+        {"name":"verifier-8","claims":3,"citedPaths":3,"state":"arrived","minutes":1.49},
+        {"name":"verifier-9","claims":3,"citedPaths":3,"state":"arrived","minutes":2.94},
+        {"name":"verifier-10","claims":3,"citedPaths":3,"state":"stopped","minutes":null},
+        {"name":"verifier-11","claims":3,"citedPaths":3,"state":"arrived","minutes":2.32},
+        {"name":"verifier-12","claims":3,"citedPaths":2,"state":"stopped","minutes":null},
+        {"name":"verifier-13","claims":3,"citedPaths":2,"state":"arrived","minutes":3.53},
+        {"name":"verifier-14","claims":3,"citedPaths":2,"state":"arrived","minutes":2.88}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"important","raisers":["reviewer-s1-b"],"expected":3,"assigned":["verifier-1","verifier-2","verifier-3"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f2","severity":"nit","raisers":["reviewer-s1-b"],"expected":3,"assigned":["verifier-4","verifier-5","verifier-6"],"votes":[["verifier-5","real"],["verifier-6","real"]],"silent":[["verifier-4","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f3","severity":"important","raisers":["reviewer-s2-a","reviewer-range"],"expected":3,"assigned":["verifier-7","verifier-8","verifier-9"],"votes":[["verifier-7","real"],["verifier-8","real"],["verifier-9","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f4","severity":"important","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-10","verifier-11","verifier-12"],"votes":[["verifier-11","real"]],"silent":[["verifier-10","expired:deadline-passed"],["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f5","severity":"nit","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-13","verifier-14","verifier-1"],"votes":[["verifier-1","real"],["verifier-13","real"],["verifier-14","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f6","severity":"nit","raisers":["reviewer-s2-a"],"expected":3,"assigned":["verifier-2","verifier-3","verifier-4"],"votes":[["verifier-2","real"],["verifier-3","real"]],"silent":[["verifier-4","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f7","severity":"nit","raisers":["reviewer-s2-b"],"expected":3,"assigned":["verifier-5","verifier-6","verifier-7"],"votes":[["verifier-5","real"],["verifier-7","real"]],"silent":[["verifier-6","no-vote-for-candidate"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f8","severity":"nit","raisers":["reviewer-s2-b"],"expected":3,"assigned":["verifier-8","verifier-9","verifier-10"],"votes":[["verifier-8","real"],["verifier-9","real"]],"silent":[["verifier-10","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f9","severity":"important","raisers":["reviewer-s3-a","reviewer-s3-b"],"expected":3,"assigned":["verifier-11","verifier-12","verifier-13"],"votes":[["verifier-11","real"],["verifier-13","real"]],"silent":[["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f10","severity":"nit","raisers":["reviewer-s3-a"],"expected":3,"assigned":["verifier-14","verifier-1","verifier-2"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-14","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f11","severity":"nit","raisers":["reviewer-s3-a"],"expected":3,"assigned":["verifier-3","verifier-4","verifier-5"],"votes":[["verifier-3","real"],["verifier-5","real"]],"silent":[["verifier-4","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f12","severity":"important","raisers":["reviewer-s3-b"],"expected":3,"assigned":["verifier-6","verifier-7","verifier-8"],"votes":[["verifier-6","real"]],"silent":[["verifier-7","no-vote-for-candidate"],["verifier-8","no-vote-for-candidate"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f13","severity":"nit","raisers":["reviewer-s3-b"],"expected":3,"assigned":["verifier-9","verifier-10","verifier-11"],"votes":[["verifier-9","real"],["verifier-11","real"]],"silent":[["verifier-10","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f16","severity":"important","raisers":["reviewer-range"],"expected":3,"assigned":["verifier-12","verifier-13","verifier-14"],"votes":[["verifier-13","real"],["verifier-14","real"]],"silent":[["verifier-12","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"}
+      ]
+    },
+    "after-pr286-first": {
+      "measurement": "after", "what": "scratch PR 286 (the #229 diff), High first review", "depth": "deep", "verifiersPerCandidate": 5,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-09-after/trace-after-pr286-first.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":3,"citedPaths":2,"state":"arrived","minutes":2.31},
+        {"name":"verifier-2","claims":3,"citedPaths":2,"state":"arrived","minutes":2.06},
+        {"name":"verifier-3","claims":3,"citedPaths":2,"state":"arrived","minutes":2.27},
+        {"name":"verifier-4","claims":3,"citedPaths":2,"state":"stopped","minutes":null},
+        {"name":"verifier-5","claims":3,"citedPaths":2,"state":"arrived","minutes":4.83},
+        {"name":"verifier-6","claims":3,"citedPaths":2,"state":"stopped","minutes":null},
+        {"name":"verifier-7","claims":3,"citedPaths":1,"state":"stopped","minutes":null},
+        {"name":"verifier-8","claims":3,"citedPaths":1,"state":"arrived","minutes":3.27},
+        {"name":"verifier-9","claims":3,"citedPaths":1,"state":"arrived","minutes":1.51},
+        {"name":"verifier-10","claims":3,"citedPaths":1,"state":"arrived","minutes":2.09},
+        {"name":"verifier-11","claims":3,"citedPaths":1,"state":"arrived","minutes":1.99},
+        {"name":"verifier-12","claims":2,"citedPaths":1,"state":"arrived","minutes":1.72}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"important","raisers":["reviewer-s1-a","reviewer-s1-b"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-5","real"]],"silent":[["verifier-4","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f2","severity":"nit","raisers":["reviewer-s1-a"],"expected":5,"assigned":["verifier-6","verifier-7","verifier-8","verifier-9","verifier-10"],"votes":[["verifier-8","real"],["verifier-9","real"],["verifier-10","real"]],"silent":[["verifier-6","expired:deadline-passed"],["verifier-7","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f3","severity":"pre-existing","raisers":["reviewer-s1-a"],"expected":5,"assigned":["verifier-11","verifier-12","verifier-1","verifier-2","verifier-3"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"],["verifier-11","real"],["verifier-12","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f5","severity":"pre-existing","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-4","verifier-5","verifier-6","verifier-7","verifier-8"],"votes":[["verifier-5","real"],["verifier-8","real"]],"silent":[["verifier-4","expired:deadline-passed"],["verifier-6","expired:deadline-passed"],["verifier-7","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f6","severity":"pre-existing","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-9","verifier-10","verifier-11","verifier-12","verifier-1"],"votes":[["verifier-1","real"],["verifier-9","real"],["verifier-10","real"],["verifier-11","real"],["verifier-12","real"]],"silent":[],"outcome":"present","reason":"verifier-majority"},
+        {"id":"f7","severity":"nit","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-2","verifier-3","verifier-4","verifier-5","verifier-6"],"votes":[["verifier-2","real"],["verifier-3","real"],["verifier-5","real"]],"silent":[["verifier-4","expired:deadline-passed"],["verifier-6","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f8","severity":"nit","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-7","verifier-8","verifier-9","verifier-10","verifier-11"],"votes":[["verifier-8","real"],["verifier-9","real"],["verifier-10","real"],["verifier-11","real"]],"silent":[["verifier-7","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"}
+      ]
+    },
+    "after-pr286-re": {
+      "measurement": "after", "what": "scratch PR 286 after a fix push, High re-review", "depth": "deep", "verifiersPerCandidate": 5,
+      "trace": "docs/guides/review-speedup-measurement-2026-11-09-after/trace-after-pr286-re.jsonl",
+      "verifiers": [
+        {"name":"verifier-1","claims":2,"citedPaths":1,"state":"arrived","minutes":4.97},
+        {"name":"verifier-2","claims":2,"citedPaths":1,"state":"arrived","minutes":3.35},
+        {"name":"verifier-3","claims":2,"citedPaths":1,"state":"arrived","minutes":2.07},
+        {"name":"verifier-4","claims":2,"citedPaths":1,"state":"stopped","minutes":null},
+        {"name":"verifier-5","claims":2,"citedPaths":1,"state":"stopped","minutes":null}
+      ],
+      "candidates": [
+        {"id":"f1","severity":"pre-existing","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"]],"silent":[["verifier-4","expired:deadline-passed"],["verifier-5","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"},
+        {"id":"f2","severity":"nit","raisers":["reviewer-s1-b"],"expected":5,"assigned":["verifier-1","verifier-2","verifier-3","verifier-4","verifier-5"],"votes":[["verifier-1","real"],["verifier-2","real"],["verifier-3","real"]],"silent":[["verifier-4","expired:deadline-passed"],["verifier-5","expired:deadline-passed"]],"outcome":"unverified","reason":"verifier-incomplete"}
+      ]
+    }
+  }
+}

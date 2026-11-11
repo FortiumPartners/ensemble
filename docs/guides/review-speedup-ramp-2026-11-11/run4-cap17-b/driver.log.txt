@@ -1,0 +1,18 @@
+2026-11-11T20:04:36.737Z dispatched review wave 1 of 1: 8 agents at 2026-11-11T20:04:36.734Z cap 17
+2026-11-11T20:07:37.366Z LOAD: load1 above 20 in the last 5 samples
+2026-11-11T20:18:47.879Z collect#1 -> DISPATCH verify wave 1 of 1 at 2026-11-11T20:18:46.981Z (897 ms)
+2026-11-11T20:18:47.887Z dispatched verify wave 1 of 1: 14 agents at 2026-11-11T20:18:47.885Z cap 17
+2026-11-11T20:22:39.056Z collect#2 -> PENDING verify wave 1 of 1 at 2026-11-11T20:22:38.482Z (574 ms)
+2026-11-11T20:23:01.654Z collect#3 -> PENDING verify wave 1 of 1 at 2026-11-11T20:23:01.082Z (571 ms)
+2026-11-11T20:23:22.291Z collect#4 -> PENDING verify wave 1 of 1 at 2026-11-11T20:23:21.679Z (612 ms)
+2026-11-11T20:23:32.856Z collect#5 -> PENDING verify wave 1 of 1 at 2026-11-11T20:23:32.296Z (560 ms)
+2026-11-11T20:24:03.376Z collect#6 -> PENDING verify wave 1 of 1 at 2026-11-11T20:24:02.895Z (481 ms)
+2026-11-11T20:24:13.833Z collect#7 -> PENDING verify wave 1 of 1 at 2026-11-11T20:24:13.380Z (453 ms)
+2026-11-11T20:24:30.363Z collect#8 -> PENDING verify wave 1 of 1 at 2026-11-11T20:24:29.848Z (515 ms)
+2026-11-11T20:24:40.873Z collect#9 -> PENDING verify wave 1 of 1 at 2026-11-11T20:24:40.366Z (507 ms)
+2026-11-11T20:24:53.387Z collect#10 -> PENDING verify wave 1 of 1 at 2026-11-11T20:24:52.879Z (508 ms)
+2026-11-11T20:25:09.943Z collect#11 -> PENDING verify wave 1 of 1 at 2026-11-11T20:25:09.408Z (535 ms)
+2026-11-11T20:25:30.556Z collect#12 -> PENDING verify wave 1 of 1 at 2026-11-11T20:25:29.959Z (596 ms)
+2026-11-11T20:25:41.111Z collect#13 -> PENDING verify wave 1 of 1 at 2026-11-11T20:25:40.558Z (553 ms)
+2026-11-11T20:25:57.618Z collect#14 -> PENDING verify wave 1 of 1 at 2026-11-11T20:25:57.122Z (496 ms)
+2026-11-11T20:26:25.731Z collect#15 -> ADJUDICATE at 2026-11-11T20:26:23.647Z (2084 ms)

@@ -21,6 +21,7 @@ import {
   registerLifecycleHooks,
 } from "../src/lifecycle/adapter";
 import type { GateDecision } from "../src/lifecycle/adapter";
+import { SPAWN_EVENT } from "../src/model-roles";
 
 /**
  * TRD-009-TEST: the adapter's inertness, its two-condition trust gate and the
@@ -218,7 +219,7 @@ describe("inert without a hooks file", () => {
     expect(existsSync(project.storePath)).toBe(false);
   });
 
-  it("registers no handler and no tool when activate(fakePi) runs in such a project", () => {
+  it("registers no lifecycle handler and no tool when activate(fakePi) runs in such a project; the model-role check's one handler is all it registers", () => {
     const project = makeProject(null);
     process.chdir(project.root);
     const { pi, commands, tools, events } = fakePi();
@@ -227,7 +228,7 @@ describe("inert without a hooks file", () => {
 
     expect([...commands.keys()]).toEqual([]);
     expect(tools).toEqual([]);
-    expect(events).toEqual([]);
+    expect(events).toEqual([SPAWN_EVENT]);
     expect(printed).toEqual([]);
   });
 
@@ -241,7 +242,7 @@ describe("inert without a hooks file", () => {
 
     expect([...commands.keys()]).toEqual([]);
     expect(tools).toEqual([]);
-    expect(events).toEqual([]);
+    expect(events).toEqual([SPAWN_EVENT]);
     expect(printed).toEqual([]);
   });
 

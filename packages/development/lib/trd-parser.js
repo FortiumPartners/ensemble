@@ -161,6 +161,12 @@ function splitFrontmatter(md) {
 
 /** Frontmatter keys that carry the PRD a TRD was derived from, in priority order. */
 const PRD_REFERENCE_KEYS = ['prd_reference', 'prd', 'source_prd'];
+/**
+ * Frontmatter key carrying the source PRD's file path for TRDs whose
+ * `prd_reference` holds a document id instead of a path. Looked up with the
+ * same case/spacing tolerance as PRD_REFERENCE_KEYS.
+ */
+const PRD_PATH_KEYS = ['prd_path'];
 
 const normalizeKey = (k) => String(k).trim().toLowerCase().replace(/[\s_-]+/g, '_');
 
@@ -340,6 +346,15 @@ function looksLikePath(s) {
  *   (1) docs/PRD/*.md markdown link or bare path anywhere
  *   (2) "Based on PRD: <path>"
  *   (3) "PRD: <path>"
+ *   (4) frontmatter prd_reference / prd / source_prd, when path-shaped
+ *   (5) frontmatter prd_path
+ *
+ * (5) exists because a TRD may record its source PRD as a document id in
+ * `prd_reference` (`PRD-2026-<uuid>`) and the actual path in a sibling
+ * `prd_path`. looksLikePath() rejects the bare id, so without this fallback
+ * such a TRD silently parses as "no PRD linked" and PRD-cross-checking
+ * callers (completion-verification Step 3, `trd-cli verify`) skip it.
+ * Body references keep winning, so an in-document path stays authoritative.
  */
 function extractPrdReference(body, frontmatter) {
   // Priority 1: docs/PRD/*.md path (markdown link target or bare).
@@ -364,6 +379,13 @@ function extractPrdReference(body, frontmatter) {
   const fmRef = getFrontmatterField(frontmatter, ...PRD_REFERENCE_KEYS);
   if (fmRef && looksLikePath(String(fmRef))) {
     return String(fmRef);
+  }
+
+  // prd_reference may hold the PRD's document id rather than a path; the path
+  // then lives in the sibling prd_path key.
+  const fmPath = getFrontmatterField(frontmatter, ...PRD_PATH_KEYS);
+  if (fmPath && looksLikePath(String(fmPath))) {
+    return String(fmPath);
   }
 
   return null;
@@ -1067,4 +1089,5 @@ module.exports = {
   extractDesignReadinessScore,
   getFrontmatterField,
   PRD_REFERENCE_KEYS,
+  PRD_PATH_KEYS,
 };

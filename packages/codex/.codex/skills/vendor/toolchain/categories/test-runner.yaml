@@ -5,7 +5,7 @@ version: "1.0"
 # workflow.yaml (TRD-2026-8d825f54 TRD-035).
 
 capabilities:
-  # Normalized output shape matches what packages/xunit/skills/run-test.sh already prints
+  # Normalized output shape matches what packages/xunit/skills/xunit/run-test.sh already prints
   # (`{success, passed, failed, skipped, total, duration, failures[]}`) -- the most complete
   # of the five shipped per-language runners (TRD-2026-8d825f54 TRD-043). `framework` selects
   # which per-language runner an adapter dispatches to (e.g. `adapter-test-runner-default`'s

@@ -158,7 +158,7 @@ Versions below are taken from each package's `package.json`.
 | `ensemble-reqnroll` | 1.0.2 | `reqnroll` skill; `reqnroll-binding-specialist` agent |
 | `ensemble-permitter` | 5.2.3 | Permission-expansion hook with allowlist (opt out with `ENSEMBLE_PERMITTER_DISABLE=1`) |
 | `ensemble-opencode` | 5.4.1 | OpenCode runtime translation layer |
-| `ensemble-pi` | 1.6.19 | Pi runtime translation layer (own version line) |
+| `ensemble-pi` | 1.6.20 | Pi runtime translation layer (own version line) |
 | `ensemble-codex` | 6.0.2 | Codex CLI runtime translation layer |
 | `ensemble-agent-core` | 0.1.2 | Shared run-index I/O primitives for the `new-feature` and `fix-issue` workflows (library) |
 | `ensemble-pi-extension` | 0.1.2 | Pi extension providing native command completion for the dispatcher commands (no marketplace entry; installed from a checkout) |
@@ -167,7 +167,9 @@ Versions below are taken from each package's `package.json`.
 
 ## Commands
 
-Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 40 command definitions (`packages/*/commands/*.yaml`); **32 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 41 command definitions (`packages/*/commands/*.yaml`), all of them skill-backed manifests. **33 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+
+A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`, plus `references/` for long phases), and the command itself is a thin entry point per runtime: a stub that reads the skill in Claude Code, a stub prompt in Pi, the skill itself in Codex, and a stub in OpenCode. To change what a command does, edit its skill, not its YAML. The six dispatchers (`prd`, `trd`, `issue`, `feature`, `reqnroll`, `standards`) are manifests like every other command; their routing table is the `## Subcommands` section of their `SKILL.md` (keyword, description, `/ensemble:<ref>` and the sibling path `../ensemble-<ref>/SKILL.md`), which the Pi extension reads for tab completion.
 
 ### Product and requirements
 
@@ -274,6 +276,7 @@ no dashboard, no scheduler, no new dependency:
 |---|---|
 | `metrics` | Per-cohort human approvals per PR (median and p95), human comments, wait-on-human hours, rounds-to-pass, the share of PRs needing five or more rounds, and the noise rate. Bot reviewers are never counted. |
 | `metrics-compare` | A post-change cohort against the committed baseline: every target graded relative to baseline, plus a revert/incident guardrail that fails the cohort on its own. |
+| `walltime` | Review wall time by tier against the committed wall-time baseline (`docs/guides/review-walltime-baseline-<date>.json`): median and p75 per tier and round, gate runs and review chains per PR, and whether the 5x claim may be made. A tier with fewer than three PRs on either side is `unknown`, never `met`, and the claim is withheld unless a real re-review that carried verdicts is in the data. See [docs/guides/pr-review-walltime.md](docs/guides/pr-review-walltime.md). |
 | `eval-score` | Whether the reviewer found the bug in each eval case (a PR that caused an incident or a revert, confirmed by the code owner of the affected area). |
 | `eval-compare` | This eval run against the previous one, naming regressions. |
 | `eval-stale` | Which cases need re-review because their area's review rules changed. |
@@ -314,7 +317,10 @@ assigned tier still does not bypass the Low-waiver rule above.
 **Approvals are bound to a commit and to a person.** An approval counts only when it is bound to
 the commit (or tree) under review, so a push invalidates it. Bot approvals never count. Where an
 agent authored the PR on a person's instruction, the `Directed by:` line in the PR body makes that
-person count as one of the required reviewers, as if they had written the code themselves.
+person count as one of the required reviewers, as if they had written the code themselves. It is a
+line the PR's author writes, so it never lowers a requirement on its own: the `soloMaintainer`
+discount below needs that person's own approval of the head unless they are the PR's author, in
+which case it rests on their own credit as author-as-director.
 
 Policy keys live in the fenced `ensemble-review-policy` block of the **root `REVIEW.md` on the base
 branch** — never the PR head, so a PR cannot loosen its own review:
@@ -323,6 +329,7 @@ branch** — never the PR head, so a PR cannot loosen its own review:
 |---|---|---|
 | `roundCap` | Shared review-round cap before escalating to the author | `3` (valid 1–5) |
 | `lowWaiverEnabled` | Whether a Low-tier PR may merge with no human approval | `false` |
+| `soloMaintainer` | With exactly one maintainer login, a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. A maintainer who is not the PR's author must have approved the current head on the host; a maintainer who is the author (an agent PR under their own login) is credited on their own word as author-as-director, with the warning `solo-maintainer-self-credit` in the result (a `Directed by:` line alone never lowers it for anyone else); the security lane still blocks | `false` |
 | `botLogins` | Logins whose approvals are never counted | empty |
 | `maintainerLogins` | Logins eligible to enable the Low waiver | empty |
 | `sensitivePaths` / `highPaths` | Globs that floor the tier at Medium / High | empty |
@@ -412,7 +419,7 @@ Other options: `--framework=<name>`, `--provider=<name>`, `--tools=<comma-separa
 
 ## Skills
 
-Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`, plus the single-skill framework packages).
+Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`).
 
 | Package | Skills |
 |---------|--------|

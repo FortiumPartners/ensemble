@@ -11,6 +11,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const yaml = require('js-yaml');
 const { ValidationError } = require('./error-handler');
+const { isSkillBacked, isValidSkillName, resolveSkillFile, readSkillVersion } = require('./skill-backed-command');
 const { checkStepKeys } = require('./step-keys-check');
 
 // Initialize AJV with all errors mode
@@ -27,6 +28,32 @@ const validateCommandJsonSchema = ajv.compile(commandSchema);
 const validateAgentJsonSchema = ajv.compile(agentSchema);
 
 /**
+ * One ValidationError for an AJV error. Inside a skill-backed manifest an extra key is a
+ * prompt field the skill already owns, which AJV's generic "additional properties" wording
+ * does not say.
+ * @param {object} err - AJV error object
+ * @param {string} filePath - Original file path (for errors)
+ * @returns {ValidationError}
+ */
+function toValidationError(err, filePath) {
+  if (err.keyword === 'additionalProperties' && err.schemaPath.startsWith('#/then/')) {
+    const key = err.params.additionalProperty;
+    return new ValidationError(
+      filePath,
+      key,
+      `'${key}' is not allowed in a skill-backed command manifest: a manifest carries only 'metadata' and 'skill', ` +
+      'and the prompt, parameters and constraints belong in the skill\'s SKILL.md'
+    );
+  }
+
+  return new ValidationError(
+    filePath,
+    err.instancePath || 'root',
+    `${err.message}${err.params ? ` (${JSON.stringify(err.params)})` : ''}`
+  );
+}
+
+/**
  * Validate command YAML against schema
  * @param {object} commandData - Parsed command YAML
  * @param {string} filePath - Original file path (for errors)
@@ -41,13 +68,12 @@ function validateCommandSchema(commandData, filePath, agentNames = new Set(), co
   // 1. JSON Schema validation
   const valid = validateCommandJsonSchema(commandData);
   if (!valid) {
-    validateCommandJsonSchema.errors.forEach(err => {
-      errors.push(new ValidationError(
-        filePath,
-        err.instancePath || 'root',
-        `${err.message}${err.params ? ` (${JSON.stringify(err.params)})` : ''}`
-      ));
-    });
+    validateCommandJsonSchema.errors
+      // The schema's `skill` if/then/else adds one 'must match "then"/"else" schema' error
+      // that only repeats the specific errors beside it; reporting it would change the
+      // output for every command that fails.
+      .filter(err => err.keyword !== 'if')
+      .forEach(err => errors.push(toValidationError(err, filePath)));
   }
 
   // 1b. Step keys the command transformer would silently drop
@@ -126,6 +152,30 @@ function validateCommandSchema(commandData, filePath, agentNames = new Set(), co
         ));
       }
     });
+  }
+
+  // 6. Semantic validation: a skill-backed command's skill exists in its own package.
+  // A malformed name is the JSON Schema's finding and is not reported twice.
+  if (isSkillBacked(commandData) && isValidSkillName(commandData.skill)) {
+    try {
+      const skillFile = resolveSkillFile(filePath, commandData.skill);
+      // The version lives in the manifest (the command's metadata) and in the skill's
+      // frontmatter; they are one fact, so a release that bumps one must bump both. A manifest
+      // with no metadata.version is the JSON Schema's finding and is not reported twice.
+      const skillVersion = readSkillVersion(skillFile);
+      const declared = commandData.metadata && commandData.metadata.version;
+      const manifestVersion = declared === undefined || declared === null ? null : String(declared);
+      if (manifestVersion !== null && skillVersion !== manifestVersion) {
+        errors.push(new ValidationError(
+          filePath,
+          'metadata.version',
+          `manifest version '${manifestVersion}' does not match the skill's metadata.version ` +
+          `'${skillVersion}' in ${skillFile}; bump both together`
+        ));
+      }
+    } catch (error) {
+      errors.push(new ValidationError(filePath, 'skill', error.message));
+    }
   }
 
   if (errors.length > 0) {

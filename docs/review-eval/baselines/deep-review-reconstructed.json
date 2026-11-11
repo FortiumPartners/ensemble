@@ -1,0 +1,108 @@
+{
+  "provenance": "Reconstructed, not machine-captured: the raw review ledgers for #228 and #233 were never persisted. Each finding below is taken from the PR #228 merge-review comment (2026-11-04T12:42Z), the fix-commit messages of #233 (86a8c9b, 67764f6) or the #234 correction commit (8a202c6), anchored at the commit the case pins. Severity 'Important' is as the review reported it for V-1; for the #233 and #234 findings it is inferred from 'the review found ... errors' / 'ways to keep the discount' wording and is a [INFERENCE] the code owner confirms by merging this set.",
+  "reviewer": "deep-review (current pipeline, reconstructed)",
+  "findingsByCase": {
+    "pr228-v1-dirnamepaths-string-blind-comment-strip": [
+      {
+        "id": "V-1",
+        "severity": "Important",
+        "locationOrLink": "scripts/validate-all.js:273",
+        "claim": "dirnamePaths reuses the non-string-aware stripComments; a real path.join(__dirname, ...) after a quoted URL or glob is neither checked nor counted and the gate passes.",
+        "source": "PR #228 merge review, 5/5 verifiers real"
+      },
+      {
+        "id": "V-3",
+        "severity": "Nit",
+        "locationOrLink": "scripts/validate-all.js:284",
+        "claim": "Reported line numbers are wrong because block-comment newlines are dropped.",
+        "source": "PR #228 merge review (deferred nit; in range on purpose: a Nit must never count)"
+      },
+      {
+        "id": "V-2",
+        "severity": "Nit",
+        "locationOrLink": "scripts/validate-all.js:331",
+        "claim": "A real path.join(__dirname, \"..\") in lib/ is reported as outside the bundle (latent).",
+        "source": "PR #228 merge review"
+      },
+      {
+        "id": "V-4",
+        "severity": "Nit",
+        "locationOrLink": "scripts/validate-all.js:787",
+        "claim": "The de-symlink guard skips toolchain/; add it to the walk roots.",
+        "source": "PR #228 merge review"
+      }
+    ],
+    "pr233-f01-solo-discount-trusts-directed-by-line": [
+      {
+        "id": "F-01",
+        "severity": "Important",
+        "locationOrLink": "packages/development/lib/pr-review-approvals.js:259",
+        "claim": "The solo discount trusts directedBy, text the PR author writes; the director is never authenticated.",
+        "source": "PR #233 fix commit 86a8c9b"
+      }
+    ],
+    "pr233-f02-solo-discount-trusts-unverified-changed-paths": [
+      {
+        "id": "F-02",
+        "severity": "Important",
+        "locationOrLink": "packages/development/lib/pr-review-tier.js:299",
+        "claim": "The discount is granted from sensitivePaths/declarationChanged without proving the changed-path list is present and verbatim.",
+        "source": "PR #233 fix commit 86a8c9b"
+      }
+    ],
+    "pr233-f03-missing-second-assessment-reads-as-no": [
+      {
+        "id": "F-03",
+        "severity": "Important",
+        "locationOrLink": "packages/development/lib/pr-review-tier.js:194",
+        "claim": "An omitted or null second assessment demands nothing, so it reads as \"no\".",
+        "source": "PR #233 fix commit 86a8c9b"
+      }
+    ],
+    "pr233-n01-glob-double-star-skips-line-terminators": [
+      {
+        "id": "N-01",
+        "severity": "Important",
+        "locationOrLink": "packages/development/lib/pr-review-paths.js:139",
+        "claim": "** compiles to .*, which skips line terminators, so a sensitive name holding one matches no pattern.",
+        "source": "PR #233 fix commit 67764f6"
+      }
+    ],
+    "pr233-n05-n06-review-guards-declared-by-exact-name": [
+      {
+        "id": "N-05/N-06",
+        "severity": "Important",
+        "locationOrLink": "REVIEW.md:98",
+        "claim": "The guards are declared by exact .js name; an extensionless sibling, a case-insensitive checkout and the packages/full symlinks bypass them.",
+        "source": "PR #233 fix commit 67764f6 (two findings recorded as one)"
+      }
+    ],
+    "pr233-n12-slices-check-unsatisfiable-without-a-paths-source": [
+      {
+        "id": "N-12",
+        "severity": "Important",
+        "locationOrLink": "packages/development/skills/pr-review-cycle/reference/scope-guidance-depth.md:217",
+        "claim": "The slices paths have no stated source and git numstat quoting/rename form makes the coverage check unsatisfiable.",
+        "source": "PR #233 fix commit 67764f6"
+      }
+    ],
+    "pr234-verdict-count-145-not-180": [
+      {
+        "id": "P234-1",
+        "severity": "Important",
+        "locationOrLink": "docs/plans/pr-review-speedup-plan.md:26",
+        "claim": "180 re-confirmed verdicts is wrong; it is 145 (29 times 5), with 80 new.",
+        "source": "PR #234 correction commit 8a202c6"
+      }
+    ],
+    "pr234-slice-sharding-is-not-two-independent-passes": [
+      {
+        "id": "P234-2",
+        "severity": "Important",
+        "locationOrLink": "docs/plans/pr-review-speedup-plan.md:49",
+        "claim": "Sharding by slice with one lens gives one pass per path where the depth contract needs two; cross every slice with at least two lenses.",
+        "source": "PR #234 correction commit 8a202c6"
+      }
+    ]
+  }
+}

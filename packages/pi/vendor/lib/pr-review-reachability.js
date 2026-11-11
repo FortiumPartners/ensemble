@@ -19,16 +19,22 @@
  * -- so the proof is made THROUGH the entry point, never around it. Break any
  * one link and the capability is unreachable, however green its own tests are.
  *
- * The three capabilities are the behaviours AC-023-1 names, mapped to the
+ * The capabilities are the behaviours AC-023-1 names (plus `mode`, the review-run mode), mapped to the
  * subcommands that implement them in the TRD's data flow (architecture, line
  * "SKILL.md --> pr-review-cli.js depth | slices | ledger | status"):
  *
- *   verified-findings  `votes`                     -- findings are voted on
- *                                                     before the author answers
+ *   verified-findings  `votes` + `verify-assign`   -- findings are voted on, by
+ *                                                     the verifiers assigned to
+ *                                                     each, before the author answers
  *   convergence        `status` + `ledger` + `scope` -- the shared round cap,
  *                                                     repeat suppression and
  *                                                     the delta re-review range
  *   tier               `tier`                      -- change-driven risk tier
+ *   mode               `mode`                      -- light or full review-run
+ *                                                     mode, from the tier
+ *   carry-over         `carry`                     -- settled verdicts carried
+ *                                                     across heads on a delta
+ *                                                     re-review
  *
  * Convergence needs ALL THREE of its subcommands: a round cap with no repeat
  * suppression still loops on the same finding, and neither converges without
@@ -52,9 +58,11 @@ const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key
  * A capability is reached only when EVERY subcommand listed for it is reached.
  */
 const CAPABILITIES = Object.freeze({
-  'verified-findings': Object.freeze(['votes']),
+  'verified-findings': Object.freeze(['votes', 'verify-assign']),
   convergence: Object.freeze(['status', 'ledger', 'scope']),
   tier: Object.freeze(['tier']),
+  mode: Object.freeze(['mode']),
+  'carry-over': Object.freeze(['carry']),
 });
 
 /** The four runtimes REQ-006/AC-023-2 requires equivalence (or a stated reduction) across. */

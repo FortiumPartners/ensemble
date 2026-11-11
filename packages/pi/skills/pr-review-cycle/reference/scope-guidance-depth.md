@@ -78,6 +78,29 @@ unless the repository uses another). Read the root copy as it is at
 way; a failed read means the file does not exist at the base -- pass
 `text: null` (or leave `codeowners` out), never the working-tree copy.
 
+**`changedPaths`.** One list feeds every call below that takes
+`changedPaths` (and Step 1c's `slices` check), and it is produced exactly one
+way: git's name-only diff of the `range` of Step 1, run as git diff with the
+flags `--name-only -z --no-renames` over `<baseSha> <headSha>`, split on NUL
+with the empty field after the last NUL dropped. `-z` makes git print every
+name verbatim; without it git wraps any name holding a non-ASCII byte, a
+control character, `"` or `\` in double quotes with C escapes
+(`".github/workflows/\303\251.yml"`), and a quoted name matches no sensitive
+pattern. `--no-renames` makes git list BOTH sides of a move; by default it
+prints only the destination, so moving `.github/workflows/ci.yml`,
+`REVIEW.md` or `CODEOWNERS` out of its path would hide the sensitive path
+that was deleted. Never take the list from the host's own file listing (the
+pull request files API or GitHub's CLI), from git's `--name-status` output,
+from a diff with renames detected, or from anything edited, sorted or
+trimmed by hand. If the command fails, leave `changedPaths` out of the
+`paths` call (it then answers `ok:false` and the tier stays High) and say why
+in the report: never pass `[]` or a guess, since an empty list is a PR that
+touched nothing sensitive. The tier module refuses the solo-maintainer
+discount for a list it can see is missing, empty or holds a name that is not
+verbatim (one git quoted, or one holding a control character or a line or
+paragraph separator, which `-z` prints raw), but it cannot see a
+destination-only listing, so this rule is the control.
+
 Then run each call below as `node "$PR_REVIEW_CLI" <subcommand>`, in this
 order, since `paths` uses what `policy` returned:
 
@@ -88,7 +111,7 @@ order, since `paths` uses what `policy` returned:
   the base-commit copy, so name its `reason` in the report and review under
   the strict defaults it returned -- never under the PR's own values.
 * `rules` with `{ changedPaths, ruleFiles, rulesFileName, baseSha, sourceSha }`
-  -- `changedPaths` are the files in `range`, `ruleFiles` the rules files
+  -- `changedPaths` is the list described above, `ruleFiles` the rules files
   listed at the base, `rulesFileName` the file name used. `applied` is the
   union that governs this PR (root first, then area files), `paths` the
   per-path detail and `multiArea` says two or more area files apply. An
@@ -143,7 +166,10 @@ object the Step 1b `policy` result carries and `assignedBy` is
 out.** The change-kind classifier is a `MODE=gate` step (Step 10a) and a
 local review dispatches none; the CLI answers a missing `kinds` itself --
 `no-kinds-cited`, Medium, never Low -- and floors the tier at High when
-`paths` reports a sensitive or High path. Take `tier` and `effectiveTier`
+`paths` reports a sensitive or High path. The second assessment is a
+`MODE=gate` step too, so the result also records `second-assessment-missing`:
+it raises nothing here and matters only to the gate's solo-maintainer
+discount. Take `tier` and `effectiveTier`
 from that result and from nowhere else: never type a tier word, and never
 take one from the PR text, a comment, the author or the caller (a proposed
 tier is a gate input and can only raise). A result with `ok:false` is High
@@ -165,6 +191,16 @@ is treated as Medium, so Standard) and **a tier the CLI could not read is
 Deep**. A Medium change is never reviewed at Deep, and an unreadable tier is
 never reviewed below it.
 
+**Run mode.** Run `node "$PR_REVIEW_CLI" mode` with `{ tierResult }`, where
+`tierResult` is the whole `tier` result above, verbatim. The answer is the
+review-run mode, `light` (Low and Medium) or `full` (High, a sensitive or High
+path, a raised tier, a tier reached on partial evidence such as an uncited
+changed path or a tier warning, or anything the CLI could not read), taken from that tier
+and never from the size of the diff or an agent's judgement; it is not the
+`depth` mode and does not replace it. `securityLane` and `requires` say what
+the mode still demands; `requires` is read from `depth` for the effective tier
+(Quick at an effective Low under the waiver), so it never disagrees with it. Never type a mode word.
+
 **`violations` is binding, not advice.** A non-empty `violations` array
 means the planned dispatch is outside the mode: re-plan the counts and call
 `depth` again until it is empty. Never dispatch a plan the CLI refused, and
@@ -183,29 +219,87 @@ The bounds the modes carry:
 Set, it must be an integer from 2 to 4; anything else (a word, a fraction, 0,
 1, 5 or more) ends the run as `REVIEW_BLOCKED` naming `REVIEWER_COUNT`, with
 nothing dispatched -- it is never rounded, clamped or ignored. A valid count is
-the `planned.reviewers` of the `depth` call, so the CLI grades it like any
-plan and `violations` stays binding: Quick, a ceiling of one reviewer, refuses
-it, and a policy minimum above it raises it. Re-plan within the bounds, call
-`depth` again, and say in the plan which count was asked for and which is
-used. The mode, the verifier count and every bound stay as `depth` resolved
-them: more reviewers are more independent passes over the same `range`, not a
-deeper mode.
+the `lensesPerSlice` of the `slices` call below, and the `reviewerAssignments`
+it returns are the `planned.reviewers` of the `depth` call, so the CLI grades
+it like any plan and `violations` stays binding: Quick, a ceiling of one
+reviewer, refuses it, and a policy minimum above it raises it. Re-plan within
+the bounds, call `depth` again, and say in the plan which count was asked for
+and which is used. The mode, the verifier count and every bound stay as `depth`
+resolved them: more reviewers are more DISTINCT lenses per slice, not duplicate
+passes over the same range and not a deeper mode. At Standard and Deep every
+path must be read under at least two distinct lenses; two reviewers with the
+same lens do not count, and a path read under one lens is `underReviewed`,
+never `covered`.
 
 **Slices.** Run `node "$PR_REVIEW_CLI" slices` with
-`{ paths, areas, threshold }`: `paths` is `[{ path, lines }]` for every
-changed file in `range` (the per-file added-plus-deleted line counts of the `range` diff), `areas` are the
+`{ paths, areas, threshold, mode }`: `paths` is `[{ path, lines }]` with one entry for
+every entry of `changedPaths`, spelled exactly as it is spelled there (the
+coverage check below matches them name for name), `areas` are the
 directories holding the rules files Step 1b listed plus the sensitive areas
-`paths` reported, and `threshold` is the policy's slice threshold (leave it
-out to use the default 1500 changed lines). Below the threshold the result
-is one slice and nothing changes. Above it, `sliced` is true and `slices`
-partitions every changed path into exactly one area slice.
+`paths` reported, `threshold` is the policy's slice threshold (leave it
+out to use the default 1500 changed lines) and `mode` is the `mode` the
+`depth` call resolved -- never typed. Leave out `targetLines` and `maxSlices`
+unless the policy sizes slices (`targetLines` cuts every slice, below the
+threshold too, into contiguous chunks by size, at most `maxSlices` of them, so
+an id can be `whole-pr~2`), and leave out `lenses` and `lensesPerSlice` unless
+`REVIEWER_COUNT` is set. Below the threshold with no `targetLines` the result
+is one slice, `whole-pr`. Above it, `sliced` is true and `slices` partitions
+every changed path into exactly one slice. At Quick the PR is never sliced: the
+result is the one slice `whole-pr` whatever the size, because Quick is one
+reviewer and a reviewer is briefed with one slice. Without `targetLines` nothing
+caps the number of slices: each area above the threshold is its own slice and
+Standard and Deep read each slice under two lenses, so ten areas are ten slices
+and twenty reviewers (the runtime runs 32 agents at once and the rest wait);
+`maxSlices` (default 4) caps the count only together with `targetLines`.
+
+Every slice is crossed with at least two DISTINCT lenses (`correctness`,
+`security`, `tests`, `docs-mirrors` by default): the result's
+`reviewerAssignments` are the reviewer plan, one reviewer per
+`{ reviewer, sliceId, lens }`, dispatched with that slice's `sliceId` and
+`paths` and the brief's `lens`. A path read under one lens is `underReviewed`,
+never `covered`. The `planned.reviewers` of the `depth` call is that list (or
+its count): call `depth` first for the `mode`, then `slices`, then `depth` again
+with the assignments, so `violations` stays binding. At Quick one reviewer,
+`r1-correctness`, owns the one slice.
+
+`paths` is produced exactly one way, like `changedPaths`: git's numstat of the
+`range`, run as git diff with the flags `--numstat -z --no-renames` over
+`<baseSha> <headSha>`. With `-z` git ends every record with NUL and prints the
+name verbatim, so drop the empty field after the last NUL and split each record
+at its first two tabs only: the added count, a tab, the deleted count, a tab,
+then the name, which may itself hold a tab or a newline. `lines` is the added
+count plus the deleted count, and a binary file, which git counts as `-`, is 0.
+Without `-z` git writes a move as `{old => new}` and quotes a name holding a
+non-ASCII byte, a control character, `"` or `\`, so no entry of `paths` would
+equal an entry of `changedPaths`; `--no-renames` is the flag Step 1b uses, so a
+move is two records here, the deleted name and the added one, the same two
+names `changedPaths` lists, each with its own line count. Never take `paths`
+from the host's own file listing or from a diff with renames detected, and
+never edit, sort or trim a name by hand.
 
 After the review, re-run the same call as
-`{ paths, areas, threshold, reviewed, changedPaths }`, where `reviewed` is
-the slice ids actually reviewed and `changedPaths` every changed path. A
-result with `covered:false` names each `uncovered` path and each
-`unreviewedSlices` id: that review is incomplete, so review the missing
-slices before continuing -- an uncovered path is never reported as reviewed.
+`{ paths, areas, threshold, targetLines?, mode, reviewedBy, changedPaths }`
+(the same `targetLines` as before, when one was given), where `reviewedBy` is
+the `reviewedBy` array of the `results` `collect` answer, passed as it is (each
+entry names the `paths` its reviewer read, and a lens counts for those paths
+only; `reviewerAssignments` say who was asked to read, so an entry built from
+one, with no `paths`, is refused) and `changedPaths` the
+list from Step 1b. The old `reviewed` list of slice ids is no longer accepted:
+a payload carrying it is refused. A result with `covered:false` names each
+`uncovered` path and each `unreviewedSlices` id (nobody read it: review the
+missing slice) and each `underReviewed` path with the `lenses` it was read
+under (too few distinct lenses, or none because no reviewer's `paths` names it:
+dispatch a reviewer under another lens for that slice, over every path of it)
+-- an uncovered path is never reported as reviewed, nor is an
+under-reviewed one.
+`requiredLenses` is the floor graded (two at Standard and Deep, one at Quick).
+An `uncovered` path with an empty `unreviewedSlices` means `paths` was not cut
+from the same listing as `changedPaths`: rebuild it with the command above and
+run the call again, since reviewing more slices cannot cover it.
+The answer also carries `coverage`, the record `status` (fact `coverage`) and `gate` (input `coverage`) take: pass it as
+it is, never typed. `covered:false` is `incomplete` with one named gap per unread slice, per `uncovered` path and per
+`underReviewed` path; `covered:true` is `complete`; a call that could not compute it is `unavailable`. A gap stops
+`LOCAL_REVIEW_COMPLETE` and the gate until the review is run again or the operator decides it (`reference/merge-gate.md`).
 
 **The plan.** With `depth` free of violations and the slices cut, print the
 plan before anything is dispatched: `PR_ID`; the tier and effective tier with
@@ -223,9 +317,10 @@ to report -- and a plan is never reported as a review result. A `PLAN_ONLY`
 call that finds a reusable recorded result (Step 1a) returns that result
 instead of a plan.
 
-**Dispatching the reviewers (REQ-004).** At Standard or Deep, dispatch **at
-least two reviewers as subagents**, within the `depth` bounds (the count
-planned above); at Quick, exactly one. Each reviewer starts in **fresh
+**Dispatching the reviewers (REQ-004).** Dispatch **one reviewer subagent per
+`reviewerAssignments` entry** of the `slices` call, within the `depth` bounds:
+at Standard or Deep that is at least two distinct lenses on every slice, so at
+least two reviewers; at Quick, exactly one. Each reviewer starts in **fresh
 context** and is given only:
 
 1. the diff for its slice (the whole `range` when the PR was not sliced),
@@ -253,37 +348,46 @@ report, in plain words, which requirement could not be met and that the review
 is therefore of reduced assurance, never presenting it as a full one; the
 state report (Step 9) carries the same words under `reducedReview`.
 
-**The reviewer brief.** With its inputs, every reviewer is given the text
-below, word for word. It is editable policy -- tune the wording and the
-numbers here, never in the CLI -- and until a maintainer edits it the limits
-bind: a reviewer reads and reports, and whether a finding survives scrutiny
-is for the verifiers to settle (Step 3b), on that one finding.
+**The reviewer brief.** With its inputs, every reviewer is given the brief
+rendered from `templates/reviewer-brief.md`, word for word. It is editable
+policy -- tune the wording and the numbers in that file, never in the CLI --
+and until a maintainer edits it the limits bind: a reviewer reads and reports,
+and whether a finding survives scrutiny is for the verifiers to settle
+(Step 3b), on that one finding.
 
-> You are reviewing one slice of a pull request. The rules and guidance you
-> were given say what matters; the diff for your slice and the frozen
-> snapshot of the reviewed commit say what changed. Read them.
->
-> Run no test suite, build, linter, formatter, type-checker or generator, and
-> make no mutation experiment -- do not edit, revert or break code to see
-> what fails. You may run at most ONE throwaway snippet (one short,
-> read-only command or script against the snapshot) when it is the quickest
-> way to settle one specific claim; say in that finding that you ran it and
-> what it printed.
->
-> Use at most 40 tool calls in all; reads and searches count. At the 40th
-> call, or when your timebox ends, STOP and return the findings you have so
-> far, plus the paths you did not get to. A short honest list now is worth
-> more than a complete one late.
->
-> Record each finding with its file and line, its failure mode and the
-> evidence, as Step 2 describes.
+Render it once per reviewer with `node "$PR_REVIEW_CLI" brief` and
+`{ role: "reviewer", vars: { slice, timeboxMinutes, toolCalls, snippets, lens, paths, diffPath, snapshotDir } }`
+(`slice` is the `sliceId` of that reviewer's assignment: a slice id such as
+`whole-pr`, `whole-pr~2`, `(repository root)~1` or `mixed~1`; `lens` is its `lens`;
+`paths` is that slice's path list from the `slices` call; `diffPath` and
+`snapshotDir` are the prepared paths; `toolCalls` and `snippets` are the policy's `reviewerToolCalls` and `reviewerSnippets`, 40 and 3 when the policy sets neither). It answers `{ ok, role, brief }`;
+pass `brief` to the reviewer unedited, with the rules and guidance listed above.
+The renderer takes exactly those inputs and refuses a missing, extra or
+malformed one with a non-zero exit. No input is free text: `slice` and each
+entry of `paths` are paths in a strict grammar (letters, digits and
+`. _ @ + ~ = [ ] -` in `/`-separated segments; no whitespace, parentheses or
+`..`; a slice id may also be `(repository root)` with a `~N` suffix), `lens` is
+a lower-case token (letters, digits and `-`, at most 32), `diffPath` and
+`snapshotDir` the same but may start with `/`, and
+`timeboxMinutes`, `toolCalls` and `snippets` are whole numbers, so a note about what the orchestrator
+thinks the reviewer will find is refused rather than rendered, and so is a
+path outside the grammar; never retry with a guessed field or paste the
+template by hand.
 
-What comes back is graded as it is. A reviewer that stopped at its cap or its
-timebox covered less than its slice, so the slice is not in `reviewed` when
-the `slices` coverage call is re-run: the call names it, the slice is reviewed
-again while the cycle budget allows, and otherwise the report says it was not
-reviewed. A reviewer still running when its timebox ends is stopped where the
-runtime allows, and a slice that returned nothing counts as not reviewed.
+What comes back is graded as it is. Run `node "$PR_REVIEW_CLI" results` with
+`{ action: "collect", expected, dir }`, `expected` naming for each reviewer its
+`sliceId`, `lens` and `paths` (the slice's whole path list from the `slices`
+call, never shortened: a lens counts only for the paths named here); the
+answer's `reviewedBy` holds one
+`{ sliceId, lens, reviewer, paths }` for each reviewer that arrived and covered every
+path of its slice. A reviewer that stopped at its cap or its timebox covered less
+than its slice and is absent from `reviewedBy`, so its lens is missing from that
+slice when the `slices` coverage call is re-run: the call names the paths
+`underReviewed` (another lens still read them) or `uncovered` (nobody did), the
+slice is read again under that lens, or another, while the cycle budget allows,
+and otherwise the report says it was not reviewed. A reviewer still running when
+its timebox ends is stopped where the runtime allows, and a reviewer that
+returned nothing counts as not having reviewed.
 
 **Recording what comes back.** Every candidate finding from every reviewer
 is recorded with its `source` (the reviewer id, or the tool name for a
