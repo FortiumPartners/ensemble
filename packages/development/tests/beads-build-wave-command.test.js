@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
+
 describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () => {
   const yamlPath = path.join(__dirname, '../commands/beads-build-wave.yaml');
 
@@ -115,34 +117,31 @@ describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () 
 });
 
 describe('beads-build v1.2.0 wave-loop contract', () => {
-  const yamlPath = path.join(__dirname, '../commands/beads-build.yaml');
-
-  test('Execute phase step 1 is now the two-tier Wave Loop (was inline Track Orchestrator)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execStart = text.indexOf('- name: Execute');
-    const execEnd = text.indexOf('title: Debug Loop');
+  // beads-build is skill-backed: the prompt is its skill (SKILL.md + references/), the YAML a manifest.
+  const skillText = readDevelopmentSkill('ensemble-beads-build').prompt;
+  const executeBlock = () => {
+    const execStart = skillText.indexOf('### Phase 2: Execute');
+    const execEnd = skillText.indexOf('#### Step 2.2: Debug Loop');
     expect(execStart).toBeGreaterThan(-1);
     expect(execEnd).toBeGreaterThan(execStart);
-    const execBlock = text.slice(execStart, execEnd);
-    expect(execBlock).toMatch(/title: Wave Loop \(single-wave subagent dispatch\)/);
-    expect(execBlock).not.toMatch(/title: Track Orchestrator \(bv --robot-plan scheduler \+ track dispatch\)/);
+    return skillText.slice(execStart, execEnd);
+  };
+
+  test('Execute phase step 1 is now the two-tier Wave Loop (was inline Track Orchestrator)', () => {
+    const execBlock = executeBlock();
+    expect(execBlock).toMatch(/Step 2.1: Wave Loop \(single-wave subagent dispatch\)/);
+    expect(execBlock).not.toMatch(/Step 2.1: Track Orchestrator \(bv --robot-plan scheduler \+ track dispatch\)/);
   });
 
   test('Wave Loop body dispatches Task() to a wave-runner (not bv --robot-plan inline)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execStart = text.indexOf('- name: Execute');
-    const execEnd = text.indexOf('title: Debug Loop');
-    const execBlock = text.slice(execStart, execEnd);
+    const execBlock = executeBlock();
     expect(execBlock).toMatch(/Task\(subagent_type=<resolved-from-AGENT_ALIAS_MAP-beads-build-wave>/);
     expect(execBlock).toMatch(/does NOT call work-graph\.ready\/work-graph\.plan for scheduling/);
     expect(execBlock).toMatch(/Two-tier non-recursive dispatch loop/);
   });
 
   test('Wave Loop reads JSON summary line and decides based on terminal_state', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execStart = text.indexOf('- name: Execute');
-    const execEnd = text.indexOf('title: Debug Loop');
-    const execBlock = text.slice(execStart, execEnd);
+    const execBlock = executeBlock();
     expect(execBlock).toMatch(/terminal_state == "complete"/);
     expect(execBlock).toMatch(/terminal_state == "blocked"/);
     expect(execBlock).toMatch(/terminal_state == "in_progress"/);
@@ -150,19 +149,12 @@ describe('beads-build v1.2.0 wave-loop contract', () => {
   });
 
   test('Cross-platform constraint acknowledged (Codex max_depth=1)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execStart = text.indexOf('- name: Execute');
-    const execEnd = text.indexOf('title: Debug Loop');
-    const execBlock = text.slice(execStart, execEnd);
+    const execBlock = executeBlock();
     expect(execBlock).toMatch(/Codex's max_depth=1 constraint/);
   });
 
   test('mission summary states the parent-loop / one-wave-per-runner contract', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const missionBlock = text.slice(
-      text.indexOf('mission:'),
-      text.indexOf('workflow:')
-    );
+    const missionBlock = skillText.slice(0, skillText.indexOf('## Workflow'));
     expect(missionBlock).toMatch(/remaining_scoped_count/);
     expect(missionBlock).toMatch(/No recursion/);
     expect(missionBlock).toMatch(/beads-build-wave/);

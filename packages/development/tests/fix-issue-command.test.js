@@ -1,17 +1,17 @@
 /**
- * fix-issue.yaml: machine contracts only.
+ * fix-issue: machine contracts only.
  *
- * Generators render a step's title/description (see scripts/lib/step-keys-check.js),
- * so the contract lives in descriptions. Assertions here check that what the
- * descriptions name actually exists in the code and skills they call, and that
- * the gate structure holds -- never exact wording.
+ * fix-issue is a skill-backed command: commands/fix-issue.yaml is a manifest (metadata +
+ * skill) and the prompt is skills/ensemble-fix-issue/ -- SKILL.md plus one
+ * references/phase-N-*.md file per phase. The contract lives in the step descriptions there.
+ * Assertions here check that what the descriptions name actually exists in the code and
+ * skills they call, and that the gate structure holds -- never exact wording.
  */
 
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
-const { transformCommandToMarkdown } = require('../../../scripts/lib/command-transformer');
-const { checkStepKeys } = require('../../../scripts/lib/step-keys-check');
+const { listSkillReferences } = require('../../../scripts/lib/skill-backed-command');
 
 const COMMAND_PATH = path.join(__dirname, '../commands/fix-issue.yaml');
 const STORE_SRC = fs.readFileSync(
@@ -23,14 +23,94 @@ const SKILL_SRC = fs.readFileSync(path.join(__dirname, '../skills/pr-review-cycl
 
 const unique = (list) => [...new Set(list)];
 
+// Self-contained on purpose: scripts/ and agent-core/ are all the mutation harness
+// (pr-review-cycle-mutation.test.js) mirrors beside this package, so no other package's helpers.
+const FRONTMATTER = /^---\n[\s\S]*?\n---\n/;
+const PARAMETER = /^- \*\*`([^`]+)`\*\* \(([^,)]+)(?:, (optional|required))?(?:, default: `(.+?)`)?\): (.*)$/;
+
+/** The skill's SKILL.md body (no frontmatter), its file, and its references/*.md files in name order. */
+function readSkill(skill) {
+  const file = path.join(__dirname, '../skills', skill, 'SKILL.md');
+  const body = fs.readFileSync(file, 'utf-8').replace(FRONTMATTER, '');
+  const references = listSkillReferences(file).map((reference) => ({ file: reference, text: fs.readFileSync(reference, 'utf-8') }));
+  return { file, body, references };
+}
+
+/** The `## Arguments` bullets as [{name, type, default, description}]. */
+function parseParameters(body) {
+  const section = body.slice(body.indexOf('\n## Arguments\n') + '\n## Arguments\n'.length);
+  return section
+    .slice(0, section.indexOf('\n## '))
+    .split('\n')
+    .filter((line) => line.startsWith('- '))
+    .map((line) => {
+      const [, name, type, , rawDefault, description] = PARAMETER.exec(line);
+      return { name, type, default: rawDefault === undefined ? undefined : JSON.parse(rawDefault), description };
+    });
+}
+
+const PHASE_HEADING = /^### Phase (\d+): (.+)$/;
+const STEP_HEADING = /^#### Step (\d+)\.(\d+): (.+)$/;
+
+/**
+ * The phases of the skill's reference files as `[{order, name, steps: [{order, title, description}]}]`.
+ * A step's description is everything under its `#### Step N.M: <title>` heading (bullets
+ * included) up to the next heading, so assertions see the step's whole text.
+ */
+function parsePhases(references) {
+  const phases = [];
+  let phase = null;
+  let step = null;
+  for (const reference of references) {
+    for (const line of reference.text.split('\n')) {
+      const phaseMatch = PHASE_HEADING.exec(line);
+      if (phaseMatch) {
+        phase = { order: Number(phaseMatch[1]), name: phaseMatch[2], steps: [] };
+        phases.push(phase);
+        step = null;
+        continue;
+      }
+      const stepMatch = STEP_HEADING.exec(line);
+      if (stepMatch && phase) {
+        step = { phaseOrder: Number(stepMatch[1]), order: Number(stepMatch[2]), title: stepMatch[3], lines: [] };
+        phase.steps.push(step);
+        continue;
+      }
+      if (step) step.lines.push(line);
+    }
+  }
+  phases.forEach((p) => p.steps.forEach((st) => { st.description = st.lines.join('\n').trim(); }));
+  return phases;
+}
+
+/** Bullets of one `- **\`key\`**:` list under the skill's `## Validation` section. */
+function validationList(body, key) {
+  const section = body.slice(body.indexOf('\n## Validation\n'));
+  const start = section.indexOf(`- **${key}**:\n`);
+  if (start === -1) throw new Error(`no ${key} in ## Validation`);
+  const items = [];
+  for (const line of section.slice(start).split('\n').slice(1)) {
+    const match = /^ {2}- (.+)$/.exec(line);
+    if (!match) break;
+    items.push(match[1]);
+  }
+  return items;
+}
+
 describe('Fix-Issue Command', () => {
   let commandYaml;
+  let skill;
+  let phases;
+  let parameters;
   let steps; // [{ phase, ...step }] in document order
   let descriptionOf; // title (+ optional phase) -> description
 
   beforeAll(() => {
     commandYaml = yaml.load(fs.readFileSync(COMMAND_PATH, 'utf-8'));
-    steps = commandYaml.workflow.phases.flatMap((phase) => phase.steps.map((step) => ({ ...step, phase: phase.name })));
+    skill = readSkill(commandYaml.skill);
+    phases = parsePhases(skill.references);
+    parameters = parseParameters(skill.body);
+    steps = phases.flatMap((phase) => phase.steps.map((step) => ({ ...step, phase: phase.name })));
     descriptionOf = (title, phase) =>
       steps.find((s) => s.title === title && (!phase || s.phase === phase)).description;
   });
@@ -38,39 +118,48 @@ describe('Fix-Issue Command', () => {
   const allText = () => steps.map((s) => s.description).join('\n');
 
   describe('structure', () => {
-    test('metadata and the 9 parameters', () => {
+    test('metadata (manifest) and the 9 parameters (skill)', () => {
+      expect(commandYaml.skill).toBe('ensemble-fix-issue');
       expect(commandYaml.metadata.name).toBe('ensemble:fix-issue');
       expect(commandYaml.metadata.output_path).toBe('ensemble/fix-issue.md');
-      expect(commandYaml.parameters.map((p) => p.name)).toEqual([
+      expect(parameters.map((p) => p.name)).toEqual([
         'description', 'issue', 'branch', 'skip-tests', 'draft-pr', 'interactive', 'foreman', 'status', 'abandon',
       ]);
-      const types = Object.fromEntries(commandYaml.parameters.map((p) => [p.name, p.type]));
+      const types = Object.fromEntries(parameters.map((p) => [p.name, p.type]));
       expect(types.issue).toBe('number');
       ['skip-tests', 'draft-pr', 'interactive', 'foreman', 'status', 'abandon'].forEach((name) => {
-        const param = commandYaml.parameters.find((p) => p.name === name);
+        const param = parameters.find((p) => p.name === name);
         expect({ name, type: param.type, default: param.default }).toEqual({ name, type: 'boolean', default: false });
       });
     });
 
     test('four phases and every step numbered sequentially', () => {
-      expect(commandYaml.workflow.phases.map((p) => p.name)).toEqual([
+      expect(phases.map((p) => p.name)).toEqual([
         'Entry Point Resolution', 'Analysis & Planning', 'Execution', 'Validation & Delivery',
       ]);
-      commandYaml.workflow.phases.forEach((phase, i) => {
+      phases.forEach((phase, i) => {
         expect(phase.order).toBe(i + 1);
-        phase.steps.forEach((step, j) => expect(step.order).toBe(j + 1));
+        phase.steps.forEach((step, j) => {
+          expect(step.phaseOrder).toBe(i + 1);
+          expect(step.order).toBe(j + 1);
+        });
       });
     });
 
     test('Validation & Delivery step order puts the local review before PR creation and the remote review after', () => {
-      const vd = commandYaml.workflow.phases[3].steps.map((s) => s.title);
+      const vd = phases[3].steps.map((s) => s.title);
       expect(vd).toEqual([
         'Test Validation', 'Local Review and Batch Fix', 'PR Creation', 'Remote Review Disposition', 'Record Stage Checkpoint',
       ]);
     });
 
-    test('no step carries a key the command generators drop', () => {
-      expect(checkStepKeys(commandYaml, 'fix-issue.yaml')).toEqual([]);
+    test('the manifest carries no prompt: only metadata and the skill, and the skill index names every phase file', () => {
+      expect(Object.keys(commandYaml).sort()).toEqual(['metadata', 'skill']);
+      skill.references.forEach((reference) => {
+        const relative = path.relative(path.dirname(skill.file), reference.file).split(path.sep).join('/');
+        expect({ relative, indexed: skill.body.includes(`\`${relative}\``) }).toEqual({ relative, indexed: true });
+      });
+      expect(skill.references).toHaveLength(4);
     });
 
     test('every required agent is a real agent, and delegation targets named in descriptions are required', () => {
@@ -83,14 +172,14 @@ describe('Fix-Issue Command', () => {
             : [];
         })
       );
-      commandYaml.validation.required_agents.forEach((agent) => expect({ agent, known: known.has(agent) }).toEqual({ agent, known: true }));
+      const requiredAgents = validationList(skill.body, 'required_agents');
+      requiredAgents.forEach((agent) => expect({ agent, known: known.has(agent) }).toEqual({ agent, known: true }));
       const named = unique(allText().match(/\b[a-z]+(?:-[a-z]+)*-(?:developer|orchestrator|runner)\b/g) || []);
-      named.forEach((agent) => expect(commandYaml.validation.required_agents).toContain(agent));
+      named.forEach((agent) => expect(requiredAgents).toContain(agent));
     });
 
-    test('rendered command stays within the prompt word ceiling', () => {
-      const md = transformCommandToMarkdown(commandYaml, COMMAND_PATH, new Map());
-      expect(md.split(/\s+/).length).toBeLessThan(2500);
+    test('SKILL.md stays under the skill word ceiling (the phases live in references/)', () => {
+      expect(skill.body.split(/\s+/).length).toBeLessThan(1500);
     });
   });
 
@@ -203,7 +292,7 @@ describe('Fix-Issue Command', () => {
         expect(text).toContain('FOREMAN_ARTIFACT_PATH');
         expect(text).toContain('--foreman');
       });
-      expect(commandYaml.parameters.find((p) => p.name === 'foreman').description).toContain('FOREMAN_ARTIFACT_PATH');
+      expect(parameters.find((p) => p.name === 'foreman').description).toContain('FOREMAN_ARTIFACT_PATH');
     });
 
     test('only exactly LOCAL_REVIEW_COMPLETE passes the local review gate; every other outcome fails closed', () => {

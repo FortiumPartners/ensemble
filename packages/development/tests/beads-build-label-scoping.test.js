@@ -19,9 +19,14 @@
 const fs = require('fs');
 const path = require('path');
 
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
+
 const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
-const itb = read('commands/implement-trd-beads.yaml');
-const build = read('commands/beads-build.yaml');
+// beads-build and implement-trd-beads are skill-backed: the prompt is the skill (SKILL.md +
+// references/); the manifest YAML keeps only metadata such as argument_hint.
+const itb = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+const build = readDevelopmentSkill('ensemble-beads-build').prompt;
+const buildManifest = read('commands/beads-build.yaml');
 const wave = read('commands/beads-build-wave.yaml');
 const waveAgent = read('agents/beads-build-wave.yaml');
 
@@ -45,7 +50,7 @@ describe('implement-trd-beads labels the beads it scaffolds', () => {
 
 describe('beads-build.yaml', () => {
   test('advertises and parses --label', () => {
-    expect(build).toMatch(/argument_hint: .*--label <label>/);
+    expect(buildManifest).toMatch(/argument_hint: .*--label <label>/);
     expect(build).toMatch(/Parse --label <L> from \$ARGUMENTS/);
   });
 });

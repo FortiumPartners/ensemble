@@ -18,6 +18,7 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const yaml = require('js-yaml');
+const { readCommandProse } = require('../lib/skill-backed-command');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const COMMANDS_DIR = path.join(REPO_ROOT, 'packages', 'development', 'commands');
@@ -42,6 +43,15 @@ function findInvocationLines(contents, pattern) {
     .filter(({ line }) => pattern.test(line));
 }
 
+// refine-beads and implement-bead are skill-backed: their YAML is a manifest (metadata +
+// `skill`) and the prompt lives in the skill (SKILL.md + references/*.md). proseOf gives the
+// text these checks scan: the YAML for a plain command, manifest + whole skill for a skill-backed one.
+function proseOf(file) {
+  const yamlPath = path.join(COMMANDS_DIR, file);
+  const raw = fs.readFileSync(yamlPath, 'utf8');
+  return readCommandProse(yamlPath, yaml.load(raw), raw);
+}
+
 function readPreRefactorFile(relPath) {
   return execFileSync('git', ['show', `${PRE_REFACTOR_REF}:${relPath}`], {
     cwd: REPO_ROOT,
@@ -52,12 +62,12 @@ function readPreRefactorFile(relPath) {
 describe('PR7 Track029: no literal br/bv tracker-binary invocation in refactored command YAMLs', () => {
   for (const file of TARGET_FILES) {
     test(`${file} contains zero br/bv invocations (broad sweep)`, () => {
-      const contents = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+      const contents = proseOf(file);
       expect(findInvocationLines(contents, TRACKER_BINARY_INVOCATION)).toEqual([]);
     });
 
     test(`${file} contains zero matches for the literal AC-1 grep pattern`, () => {
-      const contents = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+      const contents = proseOf(file);
       expect(findInvocationLines(contents, AC1_PATTERN)).toEqual([]);
     });
   }
@@ -78,37 +88,30 @@ describe('PR7 Track029: no literal br/bv tracker-binary invocation in refactored
     expect(currentLine).toBe(preLine);
   });
 
-  test('mutation proof: reintroducing a literal br/bv invocation in a /tmp copy is caught', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'track029-mutation-'));
-    try {
-      const src = path.join(COMMANDS_DIR, 'implement-bead.yaml');
-      const copyPath = path.join(tmpDir, 'implement-bead.yaml');
-      const original = fs.readFileSync(src, 'utf8');
-      fs.writeFileSync(copyPath, original, 'utf8');
+  test('mutation proof: reintroducing a literal br/bv invocation into the implement-bead prose is caught', () => {
+    {
+      const original = proseOf('implement-bead.yaml');
 
-      // Sanity: the unmutated copy has no invocations (proves the detector isn't vacuously
+      // Sanity: the unmutated prose has no invocations (proves the detector isn't vacuously
       // true before we assert it catches the reintroduced one).
-      expect(findInvocationLines(fs.readFileSync(copyPath, 'utf8'), TRACKER_BINARY_INVOCATION)).toEqual([]);
-      expect(findInvocationLines(fs.readFileSync(copyPath, 'utf8'), AC1_PATTERN)).toEqual([]);
+      expect(findInvocationLines(original, TRACKER_BINARY_INVOCATION)).toEqual([]);
+      expect(findInvocationLines(original, AC1_PATTERN)).toEqual([]);
 
       const needle = 'node "$TOOLCHAIN_CLI" run tracker.show --run-id "$RUN_ID" --arg id=<BEAD_ID> --json';
       expect(original).toContain(needle);
       const mutated = original.replace(needle, 'br show <BEAD_ID> --json');
       expect(mutated).not.toBe(original);
-      fs.writeFileSync(copyPath, mutated, 'utf8');
 
-      const mutatedContents = fs.readFileSync(copyPath, 'utf8');
+      const mutatedContents = mutated;
       const hitsBroad = findInvocationLines(mutatedContents, TRACKER_BINARY_INVOCATION);
       const hitsAc1 = findInvocationLines(mutatedContents, AC1_PATTERN);
       expect(hitsBroad.length).toBeGreaterThan(0);
       expect(hitsAc1.length).toBeGreaterThan(0);
       expect(hitsBroad[0].line).toContain('br show <BEAD_ID> --json');
 
-      // Confirm again against the real, unmutated source: still zero.
-      expect(findInvocationLines(fs.readFileSync(src, 'utf8'), TRACKER_BINARY_INVOCATION)).toEqual([]);
-      expect(findInvocationLines(fs.readFileSync(src, 'utf8'), AC1_PATTERN)).toEqual([]);
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
+      // Confirm again against the real, unmutated prose: still zero.
+      expect(findInvocationLines(proseOf('implement-bead.yaml'), TRACKER_BINARY_INVOCATION)).toEqual([]);
+      expect(findInvocationLines(proseOf('implement-bead.yaml'), AC1_PATTERN)).toEqual([]);
     }
   });
 });
@@ -119,7 +122,7 @@ describe('PR7 Track029 scenario 3: refine-beads.yaml repair-plan entries name a 
   const REPAIR_PLAN_LINE_PATTERN = /repair[ _]plan/i;
 
   test('every repair-plan line in refine-beads.yaml is free of literal br/bv tracker-binary invocations', () => {
-    const contents = fs.readFileSync(path.join(COMMANDS_DIR, 'refine-beads.yaml'), 'utf8');
+    const contents = proseOf('refine-beads.yaml');
     const repairPlanLines = findInvocationLines(contents, REPAIR_PLAN_LINE_PATTERN);
     expect(repairPlanLines.length).toBeGreaterThan(0);
 
@@ -130,7 +133,7 @@ describe('PR7 Track029 scenario 3: refine-beads.yaml repair-plan entries name a 
   });
 
   test('the repair-plan execution step names a tracker.* capability id invoked with --arg, not a bare command', () => {
-    const contents = fs.readFileSync(path.join(COMMANDS_DIR, 'refine-beads.yaml'), 'utf8');
+    const contents = proseOf('refine-beads.yaml');
     const repairPlanLines = findInvocationLines(contents, REPAIR_PLAN_LINE_PATTERN);
 
     const executionLine = repairPlanLines.find(
@@ -149,17 +152,18 @@ describe('PR7 Track029 scenario 4: command preamble lists exactly its required c
     return [...preflightLine.matchAll(/--require\s+(\S+)/g)].map((m) => m[1]).sort();
   }
 
-  function metadataRequired(contents) {
-    const doc = yaml.load(contents);
+  // The declared capabilities are manifest metadata, never skill prose.
+  function metadataRequired(file) {
+    const doc = yaml.load(fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8'));
     const required = (doc.metadata && doc.metadata.capabilities && doc.metadata.capabilities.required) || [];
     return [...required].sort();
   }
 
   for (const file of TARGET_FILES) {
     test(`${file} preflight --require set matches metadata.capabilities.required exactly`, () => {
-      const contents = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+      const contents = proseOf(file);
       const fromPreflight = extractRequiredFromPreflightLine(contents);
-      const fromMetadata = metadataRequired(contents);
+      const fromMetadata = metadataRequired(file);
 
       expect(fromPreflight).not.toBeNull();
       expect(fromMetadata.length).toBeGreaterThan(0);
@@ -167,7 +171,7 @@ describe('PR7 Track029 scenario 4: command preamble lists exactly its required c
     });
 
     test(`${file} gates its first tracker write behind a confirm-status check`, () => {
-      const contents = fs.readFileSync(path.join(COMMANDS_DIR, file), 'utf8');
+      const contents = proseOf(file);
       const confirmIdx = contents.indexOf('confirm-status');
       const writeMatch = contents.match(/run tracker\.(?:update|close|comment|sync|dep-add|dep-remove)\b/);
 
@@ -178,34 +182,20 @@ describe('PR7 Track029 scenario 4: command preamble lists exactly its required c
   }
 
   test('mutation proof: a preflight --require set drifting from metadata.capabilities.required is caught', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'track029-mutation-scenario4-'));
-    try {
-      const src = path.join(COMMANDS_DIR, 'refine-beads.yaml');
-      const copyPath = path.join(tmpDir, 'refine-beads.yaml');
-      const original = fs.readFileSync(src, 'utf8');
-      fs.writeFileSync(copyPath, original, 'utf8');
+    const original = proseOf('refine-beads.yaml');
 
-      // Sanity: the unmutated copy's preflight --require set matches metadata exactly (proves
-      // the detector isn't vacuously true before we assert it catches a drift).
-      expect(extractRequiredFromPreflightLine(fs.readFileSync(copyPath, 'utf8'))).toEqual(
-        metadataRequired(fs.readFileSync(copyPath, 'utf8'))
-      );
+    // Sanity: the unmutated prose's preflight --require set matches metadata exactly (proves
+    // the detector isn't vacuously true before we assert it catches a drift).
+    expect(extractRequiredFromPreflightLine(original)).toEqual(metadataRequired('refine-beads.yaml'));
 
-      const needle = '--require tracker.comment --json';
-      expect(original).toContain(needle);
-      const mutated = original.replace(needle, '--json');
-      expect(mutated).not.toBe(original);
-      fs.writeFileSync(copyPath, mutated, 'utf8');
+    const needle = '--require tracker.comment --json';
+    expect(original).toContain(needle);
+    const mutated = original.replace(needle, '--json');
+    expect(mutated).not.toBe(original);
 
-      const mutatedContents = fs.readFileSync(copyPath, 'utf8');
-      expect(extractRequiredFromPreflightLine(mutatedContents)).not.toEqual(metadataRequired(mutatedContents));
+    expect(extractRequiredFromPreflightLine(mutated)).not.toEqual(metadataRequired('refine-beads.yaml'));
 
-      // Confirm again against the real, unmutated source: still matches.
-      expect(extractRequiredFromPreflightLine(fs.readFileSync(src, 'utf8'))).toEqual(
-        metadataRequired(fs.readFileSync(src, 'utf8'))
-      );
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
+    // Confirm again against the real, unmutated prose: still matches.
+    expect(extractRequiredFromPreflightLine(proseOf('refine-beads.yaml'))).toEqual(metadataRequired('refine-beads.yaml'));
   });
 });

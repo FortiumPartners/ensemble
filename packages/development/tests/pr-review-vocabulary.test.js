@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const { deriveStatus, STATUSES, LOCAL_PHASES, REMOTE_PHASES } = require('../lib/pr-review-status.js');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
 
 const DEV_ROOT = path.join(__dirname, '..');
 const SCANNED = [
@@ -53,7 +54,13 @@ const badPhaseComparisons = (text) =>
 /** Members of `vocabulary` that none of `emitted` ever produced. */
 const unreachable = (vocabulary, emitted) => vocabulary.filter((word) => !emitted.has(word));
 
-const readScanned = (rel) => fs.readFileSync(path.join(DEV_ROOT, rel), 'utf8');
+// fix-issue and implement-trd-beads are skill-backed: their YAML is a manifest, the review words
+// live in the skill (SKILL.md + references/*.md), so scan manifest + skill prose.
+const readScanned = (rel) => {
+  const file = path.join(DEV_ROOT, rel);
+  const text = fs.readFileSync(file, 'utf8');
+  return rel.endsWith('.yaml') ? readCommandProse(file, require('js-yaml').load(text), text) : text;
+};
 
 const SHA_BASE = 'b'.repeat(40);
 const SHA_HEAD = 'a'.repeat(40);

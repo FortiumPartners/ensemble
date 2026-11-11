@@ -20,11 +20,11 @@ stage-machine logic is re-implemented here.
 
 ## Subcommands
 
-- **`fix`** - Fix a bug or small issue end to end (analysis, planning, delegated implementation, PR). Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/commands/ensemble/fix-issue.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`list`** - List open Beads issues via br/bv for triage. Invoke `/ensemble:list-issue` directly, or read and follow `packages/development/commands/ensemble/list-issue.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`resume`** - Resume the project's active/paused issue run from its last recorded checkpoint. Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/commands/ensemble/fix-issue.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`status`** - Show the active/most-recent issue run's stage, outcome, and references without advancing it (read-only). Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/commands/ensemble/fix-issue.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`abandon`** - Abandon the project's active/paused issue run after explicit confirmation. Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/commands/ensemble/fix-issue.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`fix`** - Fix a bug or small issue end to end (analysis, planning, delegated implementation, PR). Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/skills/ensemble-fix-issue/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`list`** - List open Beads issues via br/bv for triage. Invoke `/ensemble:list-issue` directly, or read and follow `packages/development/skills/ensemble-list-issue/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`resume`** - Resume the project's active/paused issue run from its last recorded checkpoint. Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/skills/ensemble-fix-issue/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`status`** - Show the active/most-recent issue run's stage, outcome, and references without advancing it (read-only). Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/skills/ensemble-fix-issue/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`abandon`** - Abandon the project's active/paused issue run after explicit confirmation. Invoke `/ensemble:fix-issue` directly, or read and follow `packages/development/skills/ensemble-fix-issue/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 
 ## Workflow
 

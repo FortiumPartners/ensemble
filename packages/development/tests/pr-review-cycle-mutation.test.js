@@ -103,7 +103,7 @@ const firstLine = (text) => (String(text || '').split('\n').find((line) => line.
  */
 function buildTempTree(relEntries) {
   // Nested as <root>/packages/development so a contract test's `../../../scripts/lib/...` and `../../agent-core/...`
-  // requires resolve exactly as in the real repo; those two repo siblings are symlinked in, never copied or mutated.
+  // requires resolve exactly as in the real repo; those repo siblings (scripts, agent-core, product) are symlinked in, never copied or mutated.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), TEMP_PREFIX));
   const dir = path.join(root, 'packages', 'development');
   fs.mkdirSync(dir, { recursive: true });
@@ -121,6 +121,8 @@ function buildTempTree(relEntries) {
   fs.symlinkSync(path.join(REPO_ROOT, 'node_modules'), path.join(dir, 'node_modules'), 'dir');
   fs.symlinkSync(path.join(REPO_ROOT, 'scripts'), path.join(root, 'scripts'), 'dir');
   fs.symlinkSync(path.join(REPO_ROOT, 'packages', 'agent-core'), path.join(root, 'packages', 'agent-core'), 'dir');
+  // tests/helpers/skill-workflow.js reads a skill through packages/product/tests/helpers/skill-prompt.js.
+  fs.symlinkSync(path.join(REPO_ROOT, 'packages', 'product'), path.join(root, 'packages', 'product'), 'dir');
   return dir;
 }
 
@@ -347,7 +349,17 @@ function anchorsFor(id, targetRel) {
     return at;
   };
 
-  return { fail, find, replace, swap, findLine, stepStart, stepEnd };
+  /** Index of the `#### Step N.M: <title>` heading that opens the step titled `title` of a skill reference file. */
+  const mdStepStart = (lines, title) =>
+    findLine(lines, new RegExp(`^#### Step \\d+\\.\\d+: ${escapeRegExp(title)}\\s*$`), { label: `#### Step N.M: ${title}` });
+
+  /** Index of the next `#### Step` or `### Phase` heading after the one at `start`, else the end of the file. */
+  const mdStepEnd = (lines, start) => {
+    const at = lines.findIndex((line, index) => index > start && /^#{3,4} (?:Step|Phase) /.test(line));
+    return at < 0 ? lines.length : at;
+  };
+
+  return { fail, find, replace, swap, findLine, stepStart, stepEnd, mdStepStart, mdStepEnd };
 }
 
 // ---------------------------------------------------------------------------
@@ -607,68 +619,74 @@ describe('Guard 3c/3d: cross-round repeat suppression (pr-review-ledger.js)', ()
 });
 
 // ---------------------------------------------------------------------------
-// Guard 4 -- review-before-publication ordering in commands/fix-issue.yaml:
+// Guard 4 -- review-before-publication ordering in the ensemble-fix-issue skill (the
+// manifest commands/fix-issue.yaml carries no prompt; the workflow is its references/):
 // Local Review and Batch Fix must happen before PR Creation.
 // ---------------------------------------------------------------------------
 
-describe('Guard 4: review-before-publication ordering (fix-issue.yaml)', () => {
+// fix-issue is skill-backed: the manifest, its whole skill (SKILL.md + references/), the review skill it calls.
+const FIX_ISSUE_FILES = ['commands/fix-issue.yaml', 'skills/ensemble-fix-issue', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'];
+const FIX_ISSUE_PHASE_4 = 'skills/ensemble-fix-issue/references/phase-4-validation-and-delivery.md';
+
+describe('Guard 4: review-before-publication ordering (fix-issue skill)', () => {
   proveGuardMutationIsCaught({
     id: 'Guard 4',
     label:
       'Scenario: swapping the Local Review and PR Creation step blocks reverses publication order -- "Validation & Delivery step order puts the local review before PR creation and the remote review after" fails against the mutant',
-    files: ['commands/fix-issue.yaml', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'],
-    targetRel: 'commands/fix-issue.yaml',
+    files: FIX_ISSUE_FILES,
+    targetRel: FIX_ISSUE_PHASE_4,
     testFileRel: 'tests/fix-issue-command.test.js',
     testTitle: 'Validation & Delivery step order puts the local review before PR creation and the remote review after',
     mutate(text, a) {
       const lines = text.split('\n');
-      const review = a.stepStart(lines, 'Local Review and Batch Fix');
-      const creation = a.stepStart(lines, 'PR Creation');
-      const remote = a.stepStart(lines, 'Remote Review Disposition');
+      const review = a.mdStepStart(lines, 'Local Review and Batch Fix');
+      const creation = a.mdStepStart(lines, 'PR Creation');
+      const remote = a.mdStepStart(lines, 'Remote Review Disposition');
       if (!(review < creation && creation < remote)) {
         throw a.fail('the steps Local Review and Batch Fix, PR Creation, Remote Review Disposition', 'are no longer in that order');
       }
       // Swap the two whole step blocks so PR Creation physically precedes Local Review and Batch Fix, then put the
-      // `- order: N` lines back in their slots so sequential numbering (a different test's contract) still holds.
+      // step numbers (`#### Step 4.N:`) back in their slots so sequential numbering (a different test's contract) still holds.
+      const stepNumber = (heading) => heading.match(/^#### Step ([\d.]+):/)[1];
       const swapped = [...lines.slice(creation, remote), ...lines.slice(review, creation)];
-      swapped[0] = lines[review];
-      swapped[remote - creation] = lines[creation];
+      swapped[0] = lines[creation].replace(stepNumber(lines[creation]), stepNumber(lines[review]));
+      swapped[remote - creation] = lines[review].replace(stepNumber(lines[review]), stepNumber(lines[creation]));
       return [...lines.slice(0, review), ...swapped, ...lines.slice(remote)].join('\n');
     },
   });
 });
 
 // ---------------------------------------------------------------------------
-// Guard 5 -- Foreman artifact in commands/fix-issue.yaml's Remote Review
+// Guard 5 -- Foreman artifact in the ensemble-fix-issue skill's Remote Review
 // Disposition step: the artifact write must run for EVERY status, before any
 // pending/blocked HALT.
 // ---------------------------------------------------------------------------
 
-describe('Guard 5: Foreman artifact written before the HALT (fix-issue.yaml)', () => {
+describe('Guard 5: Foreman artifact written before the HALT (fix-issue skill)', () => {
   proveGuardMutationIsCaught({
     id: 'Guard 5',
     label:
       'Scenario: moving the Foreman artifact paragraph after the HALT paragraph -- "the Foreman artifact is written before the pending/blocked halt in Remote Review Disposition" fails against the mutant',
-    files: ['commands/fix-issue.yaml', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'],
-    targetRel: 'commands/fix-issue.yaml',
+    files: FIX_ISSUE_FILES,
+    targetRel: FIX_ISSUE_PHASE_4,
     testFileRel: 'tests/fix-issue-command.test.js',
     testTitle: 'the Foreman artifact is written before the pending/blocked halt in Remote Review Disposition',
     mutate(text, a) {
       const lines = text.split('\n');
-      const first = a.stepStart(lines, 'Remote Review Disposition');
-      const end = a.stepEnd(lines, first);
-      const artifact = a.findLine(lines, /^\s*Foreman artifact, for EVERY status/, {
+      const first = a.mdStepStart(lines, 'Remote Review Disposition');
+      const end = a.mdStepEnd(lines, first);
+      const artifact = a.findLine(lines, /^Foreman artifact, for EVERY status/, {
         from: first,
         to: end,
         label: 'the "Foreman artifact, for EVERY status" paragraph of the Remote Review Disposition description',
       });
-      const halt = a.findLine(lines, /^\s*Only exactly REVIEW_COMPLETE proceeds/, {
+      const halt = a.findLine(lines, /^Only exactly REVIEW_COMPLETE proceeds/, {
         from: first,
         to: end,
         label: 'the "Only exactly REVIEW_COMPLETE proceeds" paragraph of the Remote Review Disposition description',
       });
-      // Each paragraph is one line of the literal block, so exchanging the two lines puts the HALT paragraph ahead of
-      // the artifact write while both keep their indentation and the YAML stays valid.
+      // Each paragraph is one line of the step's text, so exchanging the two lines puts the HALT paragraph ahead of
+      // the artifact write.
       [lines[artifact], lines[halt]] = [lines[halt], lines[artifact]];
       return lines.join('\n');
     },
@@ -676,20 +694,33 @@ describe('Guard 5: Foreman artifact written before the HALT (fix-issue.yaml)', (
 });
 
 // ---------------------------------------------------------------------------
-// Guard 7 -- commands/implement-trd-beads.yaml:
+// Guard 7 -- the ensemble-implement-trd-beads skill (the command is skill-backed; its prompt is
+// SKILL.md plus one references/phase-N-*.md per phase):
 //   7a) the stacked-story `br close` is deferred until after the PR Review
 //       Gate returns LOCAL_REVIEW_COMPLETE.
 //   7b) the single-PR whole-branch gate (PR Review Completion Check) sits
 //       BEFORE Epic Closure.
 // ---------------------------------------------------------------------------
 
-describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement-trd-beads.yaml)', () => {
+// The manifest, the whole skill (SKILL.md + references/), the contract test and its helpers.
+const IMPLEMENT_TRD_BEADS_FILES = [
+  'commands/implement-trd-beads.yaml',
+  'skills/ensemble-implement-trd-beads',
+  'skills/implement-trd-beads-reference',
+  'tests/implement-trd-beads-command.test.js',
+  'tests/helpers/skill-workflow.js',
+  'lib',
+];
+const IMPLEMENT_TRD_BEADS_PHASE_4 = 'skills/ensemble-implement-trd-beads/references/phase-4-quality-gate.md';
+const IMPLEMENT_TRD_BEADS_PHASE_5 = 'skills/ensemble-implement-trd-beads/references/phase-5-completion.md';
+
+describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement-trd-beads skill)', () => {
   proveGuardMutationIsCaught({
     id: 'Guard 7a',
     label:
       'Scenario 7a: swapping which branch runs the deferred story close -- "a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE" fails against the mutant',
-    files: ['commands/implement-trd-beads.yaml', 'skills/implement-trd-beads-reference', 'tests/implement-trd-beads-command.test.js', 'lib'],
-    targetRel: 'commands/implement-trd-beads.yaml',
+    files: IMPLEMENT_TRD_BEADS_FILES,
+    targetRel: IMPLEMENT_TRD_BEADS_PHASE_4,
     testFileRel: 'tests/implement-trd-beads-command.test.js',
     testTitle: 'a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE',
     // Swap just the two branch labels in place: the deferred `br close` prose now hangs off the BLOCKED branch and
@@ -702,29 +733,29 @@ describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement
     id: 'Guard 7b',
     label:
       'Scenario 7b: swapping the Epic Closure and PR Review Completion Check step titles -- "completion-verification stays authoritative" fails against the mutant',
-    files: ['commands/implement-trd-beads.yaml', 'skills/implement-trd-beads-reference', 'tests/implement-trd-beads-command.test.js', 'lib'],
-    targetRel: 'commands/implement-trd-beads.yaml',
+    files: IMPLEMENT_TRD_BEADS_FILES,
+    targetRel: IMPLEMENT_TRD_BEADS_PHASE_5,
     testFileRel: 'tests/implement-trd-beads-command.test.js',
     testTitle: 'completion-verification stays authoritative',
-    // Swap just the two titles in place: the Completion phase's step order now reads ['Completion Verification',
+    // Swap just the two step headings in place (the reference file's `#### Step N.M: <title>` lines): the Completion phase's step order now reads ['Completion Verification',
     // 'Epic Closure', 'PR Review Completion Check', ...] -- the whole-branch local gate no longer precedes epic closure.
-    mutate: (text, a) => a.swap(text, 'title: PR review completion check', 'title: Epic closure and TRD checkboxes'),
+    mutate: (text, a) => a.swap(text, 'Step 5.2: PR review completion check', 'Step 5.3: Epic closure and TRD checkboxes'),
   });
 });
 
 // ---------------------------------------------------------------------------
-// Guard 8 -- the fail-closed local review gate in commands/fix-issue.yaml:
+// Guard 8 -- the fail-closed local review gate in the ensemble-fix-issue skill:
 // only a returned localPhase of exactly LOCAL_REVIEW_COMPLETE may proceed to
 // PR Creation; PENDING, BLOCKED and anything else halt.
 // ---------------------------------------------------------------------------
 
-describe('Guard 8: fix-issue local review gate is keyed on exactly LOCAL_REVIEW_COMPLETE (fix-issue.yaml)', () => {
+describe('Guard 8: fix-issue local review gate is keyed on exactly LOCAL_REVIEW_COMPLETE (fix-issue skill)', () => {
   proveGuardMutationIsCaught({
     id: 'Guard 8',
     label:
       'Scenario: letting a PENDING local review proceed -- "only exactly LOCAL_REVIEW_COMPLETE passes the local review gate" fails against the mutant',
-    files: ['commands/fix-issue.yaml', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'],
-    targetRel: 'commands/fix-issue.yaml',
+    files: FIX_ISSUE_FILES,
+    targetRel: FIX_ISSUE_PHASE_4,
     testFileRel: 'tests/fix-issue-command.test.js',
     testTitle: 'only exactly LOCAL_REVIEW_COMPLETE passes the local review gate',
     mutate: (text, a) =>
@@ -1261,7 +1292,7 @@ describe('Harness self-checks: the verdict rejects every way a guard could pass 
       await expect(
         proveGuard({
           id: 'Decoy A',
-          files: ['commands/fix-issue.yaml', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'],
+          files: FIX_ISSUE_FILES,
           targetRel: 'commands/fix-issue.yaml',
           testFileRel: 'tests/fix-issue-command.test.js',
           testTitle: 'the Foreman artifact is written before the pending/blocked halt in Remote Review Disposition',

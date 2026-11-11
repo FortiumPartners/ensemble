@@ -13,46 +13,6 @@ metadata:
       - tracker.list
       - tracker.comments
 
-allowed_tools:
-  - Read
-  - Write
-  - Bash
-  - Grep
-  - Glob
-
-constraints:
-  - Read-only except the report file; NEVER modify code, close tasks, or commit
-  - Evidence is deterministic and computed by `trd-cli verify`
-  - Exit 0 when the chain was built (PARTIAL/MISSING are findings); exit 1 when the CLI errors
-
-mission:
-  summary: |
-    Chain REQ-NNN -> AC -> impl task -> -TEST task -> files -> commits -> test result via `node "$TRD_CLI" verify <trd-path> ...`.
-
-workflow:
-  phases:
-    - name: Verify
-      order: 1
-      steps:
-        - order: 1
-          title: Preflight
-          description: |
-            Require `--trd <path>`; node and git are required. Resolve TRD_CLI and TOOLCHAIN_CLI (RELATIVE_PATH packages/development/lib/trd-cli.js and packages/development/lib/toolchain-cli.js) per the tool-path-resolution skill.
-            Default report: `docs/req-traceability/<trd-slug>-<YYYY-MM-DD>.md` under the git toplevel; `--no-write-report` suppresses it.
-        - order: 2
-          title: Beads evidence (optional)
-          description: |
-            Only if `--mode` is not `checkbox`: run `node "$TOOLCHAIN_CLI" run tracker.list --json`. `{ok:false}` (including UNAVAILABLE) -> print a warning and skip this step entirely (checkbox parsing only, no beads evidence) -- tracker.list/tracker.comments are both optional with exactly this fallback, so neither is preflighted with `--require`. `{ok:true}` -> for beads titled `[trd:<slug>:task:TRD-NNN]` (the issue list is `data` parsed as JSON if an array, else its `.issues`), per matching bead run `node "$TOOLCHAIN_CLI" run tracker.comments --arg id=<id> --json` and write FILE mapping task id -> `{status, verdict, req_satisfied, acs_proven, qa_agent, commit_sha}`
-            from `status:closed qa:<agent> verdict:passed req-satisfied:<REQ> ac-proven:<ACs>` tokens. A single bead's tracker.comments call failing warns and excludes only that task id from FILE; it does not abort the step.
-        - order: 3
-          title: Run and report
-          description: |
-            Run `node "$TRD_CLI" verify "<trd>" [--prd P] [--mode M] [--beads-evidence FILE] [--run-tests] [--report-path R]`
-            (omit `--report-path` under `--no-write-report`); on `{"error":...}` print it and exit 1.
-            Print per-REQ lines (icon, impl -> test, files, commits, test result), `summary`, `verdict`, report path.
-
-expectedInput:
-  format: TRD path plus optional flags
-
-expectedOutput:
-  format: Console summary and markdown report
+# Skill-backed command: the prompt is packages/development/skills/ensemble-verify-requirements/SKILL.md,
+# the single source of truth. Edit the skill, not this manifest.
+skill: ensemble-verify-requirements

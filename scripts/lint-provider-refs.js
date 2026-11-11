@@ -77,10 +77,13 @@ const BASELINE_REL = 'scripts/lint-provider-refs.baseline.json';
 
 /**
  * NAMED sources: zero violations regardless of baseline. Matches the source file and its
- * generated `commands/ensemble/*.md` counterpart (root-relative POSIX paths).
+ * generated `commands/ensemble/*.md` counterpart (root-relative POSIX paths). A skill-backed
+ * command's prose lives in its skill (SKILL.md and references/), so the skill directory of each
+ * converted named command is named too: converting a command must not lift its zero tolerance.
  */
 const NAMED_SOURCE_PATTERNS = [
   /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\.(?:yaml|md)$/,
+  /^packages\/development\/skills\/ensemble-(?:implement-trd-beads|beads-build|implement-bead|refine-beads|fix-issue)\//,
   /^packages\/git\/commands\/(?:ensemble\/)?pr-merge\.(?:yaml|md)$/,
   /^packages\/git\/skills\/git-town\//,
   /^packages\/development\/skills\/pr-review-cycle\//

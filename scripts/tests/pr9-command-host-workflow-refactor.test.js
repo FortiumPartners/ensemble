@@ -39,6 +39,7 @@ const { spawnSync } = require('child_process');
 const yaml = require('js-yaml');
 
 const { validateCapabilityIds, validateCapabilityInvocationDrift } = require('../validate-all');
+const { readCommandProse } = require('../lib/skill-backed-command');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const VALIDATE_ALL_PATH = path.join(REPO_ROOT, 'scripts', 'validate-all.js');
@@ -64,9 +65,13 @@ const RELATIVE_PATHS = [
   path.join('packages', 'development', 'commands', 'implement-bead.yaml')
 ];
 
+// `rawText` is the command's prose: the YAML text itself for pr-merge (not skill-backed), the
+// manifest plus its skill (SKILL.md + references/*.md) for the skill-backed fix-issue and
+// implement-bead. `parsed` is always the YAML (metadata incl. capabilities).
 function loadCommand(filePath) {
-  const rawText = fs.readFileSync(filePath, 'utf8');
-  return { rawText, parsed: yaml.load(rawText) };
+  const yamlText = fs.readFileSync(filePath, 'utf8');
+  const parsed = yaml.load(yamlText);
+  return { rawText: readCommandProse(filePath, parsed, yamlText), parsed };
 }
 
 function escapeRegExp(s) {
