@@ -2,7 +2,7 @@
 name: "ensemble:beads-build-wave"
 description: "Run a single beads-build wave (one work-graph.plan/work-graph.ready schedule + concurrent Task() dispatch + barrier) and emit a JSON summary suitable for the parent loop"
 user-invocable: false
-version: "1.3.0"
+version: "1.4.0"
 category: "implementation"
 last-updated: "2026-10-23"
 allowed-tools: "Read, Write, Edit, Bash, Grep, Glob, Task"
