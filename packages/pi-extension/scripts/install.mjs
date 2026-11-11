@@ -82,9 +82,8 @@ writeFileSync(
  * Edit the source package, then re-run that script. Changes here are lost.
  *
  * This extension loads in EVERY session but only registers native command
- * completion in repositories containing the corresponding dispatcher YAML
- * (packages/product/commands/prd.yaml, packages/development/commands/
- * {trd,issue,feature}.yaml). Elsewhere it registers no command and writes
+ * completion in repositories containing the corresponding dispatcher skill
+ * (packages/{product,development,core}/skills/ensemble-<dispatcher>/SKILL.md). Elsewhere it registers no command and writes
  * nothing. The one exception is the model-role check, which is active in
  * every session and says nothing unless an Ensemble agent asks for a tier
  * role (high, medium) that is not set in modelRoles.
@@ -113,7 +112,7 @@ export default function (pi) {
 console.log(`installed ${SHIM}`);
 console.log(`  -> ${BUNDLE}`);
 console.log("");
-console.log("Command completion is active only in repositories containing a prd/trd/issue/feature dispatcher YAML.");
+console.log("Command completion is active only in repositories containing a prd/trd/issue/feature/reqnroll/standards dispatcher skill.");
 console.log("The model-role check is active in every session: it reports an unset high/medium model role when an Ensemble agent needs it.");
 console.log("Verify with:  omp -p --no-session 'hi'  in such a repo, then check the command is available.");
 console.log("Remove with:  node scripts/install.mjs --uninstall");

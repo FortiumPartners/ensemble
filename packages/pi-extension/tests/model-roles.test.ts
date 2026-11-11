@@ -622,7 +622,7 @@ describe("registration", () => {
     it("refuses a spawn whose tier role is unset in a repository that has nothing of Ensemble's", () => {
       const repo = mkdtempSync(join(tmpdir(), "model-roles-activate-"));
       dirs.push(repo);
-      process.chdir(repo); // no dispatcher YAML, no hooks file: the other registrations are inert here
+      process.chdir(repo); // no dispatcher skill, no hooks file: the other registrations are inert here
       const { pi, handlers } = fakePi();
 
       activate(pi);

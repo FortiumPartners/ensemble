@@ -4,23 +4,14 @@
  * canonical front door `/ensemble:feature`.
  *
  * `ensemble:new-feature` remains fully functional -- it's `ensemble:feature`'s
- * own internal implementation (see feature.yaml's mission summary) -- but is
+ * own internal implementation (see the feature skill's mission summary) -- but is
  * no longer advertised as a top-level entry point in product documentation,
  * and a natural-language "start a new feature" request should converge on
  * the same canonical name both commands already agree on.
  */
 
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
-
 const { readNewFeature } = require('./helpers/new-feature-skill');
-
-const repoRoot = path.resolve(__dirname, '..', '..', '..');
-
-function loadYaml(relPath) {
-  return yaml.load(fs.readFileSync(path.join(repoRoot, relPath), 'utf-8'));
-}
+const { readFeature } = require('./helpers/feature-skill');
 
 function actionsText(step) {
   return (step.actions || []).join('\n');
@@ -46,16 +37,18 @@ describe('Scenario: direct invocation of ensemble-new-feature still works and co
 });
 
 describe('Scenario: skill/command convergence -- "start a new feature" names the same canonical workflow', () => {
-  const featureYaml = loadYaml('packages/development/commands/feature.yaml');
+  // feature is skill-backed too: its mission and routing table live in its SKILL.md.
+  const feature = readFeature();
   const newFeatureYaml = loadNewFeature();
 
-  test('feature.yaml\'s own mission names ensemble:feature as the single canonical front door for the feature lifecycle', () => {
-    expect(featureYaml.mission.summary).toMatch(/Single canonical front door for the feature lifecycle/);
+  test('the feature skill\'s own mission names ensemble:feature as the single canonical front door for the feature lifecycle', () => {
+    expect(feature.mission).toMatch(/Single canonical front door for the feature lifecycle/);
   });
 
-  test('feature.yaml\'s "new" keyword and new-feature.yaml\'s own idea parameter describe the identical starting workflow (idea -> PRD -> TRD -> beads -> implementation)', () => {
-    const newKeyword = featureYaml.dispatch.subcommands.find((s) => s.keyword === 'new');
+  test('the feature skill\'s "new" keyword and new-feature.yaml\'s own idea parameter describe the identical starting workflow (idea -> PRD -> TRD -> beads -> implementation)', () => {
+    const newKeyword = feature.subcommands.find((s) => s.keyword === 'new');
     expect(newKeyword.description).toMatch(/Start a new feature run from an idea/);
+    expect(newKeyword.ref).toBe('new-feature');
     expect(newFeatureYaml.metadata.description).toMatch(
       /Resumable, checkpointed workflow from an idea through PRD, TRD, bead\s*planning, and approved implementation/,
     );

@@ -47,7 +47,7 @@ The repository is an npm monorepo under `packages/`. Each package is both an npm
 | Kind | What it is | How it runs |
 | --- | --- | --- |
 | Skill | A `SKILL.md` that teaches the model a technology or a procedure (`jira`, `detect-stack`, `assess-security`) | Loaded by name, automatically by agents or when you ask for it |
-| Command | A workflow entry point defined under `packages/<pkg>/commands/*.yaml`: a manifest pointing at a skill that holds the phases, gates and expected outputs (a dispatcher keeps its routing table in the YAML) | You type `/ensemble:<name>` (Claude Code) or the runtime-specific form in section 2 |
+| Command | A workflow entry point defined under `packages/<pkg>/commands/*.yaml`: a manifest pointing at a skill that holds the phases, gates and expected outputs (a dispatcher keeps its routing table in the `## Subcommands` section of its skill) | You type `/ensemble:<name>` (Claude Code) or the runtime-specific form in section 2 |
 | Agent | A role definition (`backend-developer`, `code-reviewer`, ...) that commands and orchestrators delegate to | Dispatched by commands; you rarely invoke one directly |
 
 Since 7.0.0 skill names equal the technology name (`jira`, not `managing-jira-issues`). The 68 source skills and 35 agents are listed in sections 6 and 7.

@@ -195,12 +195,20 @@ function renderCapabilities(capabilities) {
   return lines;
 }
 
+/**
+ * The routing table of a dispatcher. Every target of the six dispatchers lives in the dispatcher's
+ * own package, so a sibling path (`../ensemble-<ref>/SKILL.md`, relative to this skill's directory)
+ * resolves in every runtime. Hidden targets cannot be invoked as commands, so the read-and-follow
+ * path is the only way to reach them and must always be present.
+ */
 function renderSubcommands(subcommands) {
   const lines = ['## Subcommands', ''];
   for (const sub of subcommands) {
     const desc = sub.description ? `${sub.description.trim().replace(/\s+/g, ' ')}. ` : '';
     lines.push(
-      `- **\`${sub.keyword}\`** - ${desc}Run \`/ensemble:${sub.ref}\`, passing the remaining arguments through as its ARGUMENTS.`
+      `- **\`${sub.keyword}\`** - ${desc}Invoke \`/ensemble:${sub.ref}\` directly, or read and follow ` +
+        `\`../ensemble-${sub.ref}/SKILL.md\` (relative to this skill's directory), ` +
+        'passing the remaining arguments through as its $ARGUMENTS.'
     );
   }
   lines.push('');
@@ -381,11 +389,19 @@ function planMigration(yamlPath, options = {}) {
       '(every runtime\'s model now sees this text; mention the behaviour change in the PR)'
     );
   }
-  if (parsed.dispatch) {
-    warnings.push(
-      'dispatcher command: subcommands are rendered as `/ensemble:<ref>` lines; point them at the sibling skills ' +
-      'by hand (buildCommandPathMap in scripts/lib/file-discovery.js) before generating'
-    );
+  if (parsed.dispatch && Array.isArray(parsed.dispatch.subcommands)) {
+    // The routing table points at `../ensemble-<ref>/SKILL.md`; that only resolves for a target skill
+    // that sits beside this one, in the same package.
+    const missing = parsed.dispatch.subcommands
+      .map((sub) => sub.ref)
+      .filter((ref, i, all) => all.indexOf(ref) === i)
+      .filter((ref) => !fs.existsSync(path.join(pkgDir, 'skills', `ensemble-${ref}`, 'SKILL.md')));
+    if (missing.length) {
+      warnings.push(
+        'dispatcher command: these targets have no sibling skill ' +
+        `packages/${path.basename(pkgDir)}/skills/ensemble-<ref>/SKILL.md, so their read-and-follow path will not resolve: ${missing.join(', ')}`
+      );
+    }
   }
 
   return {

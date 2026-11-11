@@ -347,3 +347,67 @@ timing_budget: Finish within five minutes of wall clock.
     expect(result.missing.some((m) => m.runtime.startsWith('carried:'))).toBe(true);
   });
 });
+
+describe('dispatcher commands', () => {
+  const DISPATCHER_YAML = `${fs.readFileSync(FIXTURE, 'utf8').trimEnd()}
+
+dispatch:
+  subcommands:
+    - keyword: alpha
+      ref: alpha-cmd
+      description: Run the alpha flow
+    - keyword: beta
+      ref: beta-cmd
+      description: Run the beta flow
+`;
+  const siblingSkill = (repo, ref) => {
+    const dir = path.join(repo.pkgDir, 'skills', `ensemble-${ref}`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'SKILL.md'), `---\nname: ensemble-${ref}\n---\nbody\n`);
+  };
+
+  test('each keyword gets its slash command and a sibling-skill path, so a hidden target is still reachable', () => {
+    const repo = createRepo(DISPATCHER_YAML);
+    siblingSkill(repo, 'alpha-cmd');
+    siblingSkill(repo, 'beta-cmd');
+    const plan = migrate.planMigration(repo.yamlPath);
+    expect(plan.warnings.join('\n')).not.toContain('no sibling skill');
+    migrate.writeMigration(plan);
+    const skill = fs.readFileSync(path.join(repo.skillDir, 'SKILL.md'), 'utf8');
+    expect(skill).toContain(
+      "- **`alpha`** - Run the alpha flow. Invoke `/ensemble:alpha-cmd` directly, or read and follow `../ensemble-alpha-cmd/SKILL.md` (relative to this skill's directory), passing the remaining arguments through as its $ARGUMENTS."
+    );
+    expect(skill).toContain('`../ensemble-beta-cmd/SKILL.md`');
+  });
+
+  test('the dispatch key does not survive in the manifest (the schema forbids it next to skill:) and parity passes', () => {
+    const repo = createRepo(DISPATCHER_YAML);
+    siblingSkill(repo, 'alpha-cmd');
+    siblingSkill(repo, 'beta-cmd');
+    migrate.writeMigration(migrate.planMigration(repo.yamlPath));
+    const manifest = yaml.load(fs.readFileSync(repo.yamlPath, 'utf8'));
+    expect(Object.keys(manifest).sort()).toEqual(['metadata', 'skill']);
+    expect(migrate.checkMigrationParity(repo.yamlPath, repo.skillDir)).toMatchObject({ ok: true, missing: [] });
+  });
+
+  test('a target with no sibling SKILL.md is named in a warning; a target that has one is not', () => {
+    const repo = createRepo(DISPATCHER_YAML);
+    siblingSkill(repo, 'alpha-cmd');
+    // A directory without a SKILL.md is not a skill, so it must still warn.
+    fs.mkdirSync(path.join(repo.pkgDir, 'skills', 'ensemble-beta-cmd'), { recursive: true });
+    const text = migrate.planMigration(repo.yamlPath).warnings.join('\n');
+    expect(text).toContain('no sibling skill');
+    expect(text).toContain('beta-cmd');
+    expect(text).not.toContain('alpha-cmd');
+  });
+
+  test('a repeated target (resume/status/abandon all route to one command) is reported once', () => {
+    const yamlText = DISPATCHER_YAML.replace(
+      '    - keyword: beta\n      ref: beta-cmd\n',
+      '    - keyword: beta\n      ref: alpha-cmd\n'
+    );
+    const repo = createRepo(yamlText);
+    const text = migrate.planMigration(repo.yamlPath).warnings.join('\n');
+    expect(text.match(/alpha-cmd/g)).toHaveLength(1);
+  });
+});
