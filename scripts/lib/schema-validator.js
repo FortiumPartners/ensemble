@@ -11,7 +11,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const yaml = require('js-yaml');
 const { ValidationError } = require('./error-handler');
-const { isSkillBacked, isValidSkillName, resolveSkillFile } = require('./skill-backed-command');
+const { isSkillBacked, isValidSkillName, resolveSkillFile, readSkillVersion } = require('./skill-backed-command');
 const { checkStepKeys } = require('./step-keys-check');
 
 // Initialize AJV with all errors mode
@@ -158,7 +158,21 @@ function validateCommandSchema(commandData, filePath, agentNames = new Set(), co
   // A malformed name is the JSON Schema's finding and is not reported twice.
   if (isSkillBacked(commandData) && isValidSkillName(commandData.skill)) {
     try {
-      resolveSkillFile(filePath, commandData.skill);
+      const skillFile = resolveSkillFile(filePath, commandData.skill);
+      // The version lives in the manifest (the command's metadata) and in the skill's
+      // frontmatter; they are one fact, so a release that bumps one must bump both. A manifest
+      // with no metadata.version is the JSON Schema's finding and is not reported twice.
+      const skillVersion = readSkillVersion(skillFile);
+      const declared = commandData.metadata && commandData.metadata.version;
+      const manifestVersion = declared === undefined || declared === null ? null : String(declared);
+      if (manifestVersion !== null && skillVersion !== manifestVersion) {
+        errors.push(new ValidationError(
+          filePath,
+          'metadata.version',
+          `manifest version '${manifestVersion}' does not match the skill's metadata.version ` +
+          `'${skillVersion}' in ${skillFile}; bump both together`
+        ));
+      }
     } catch (error) {
       errors.push(new ValidationError(filePath, 'skill', error.message));
     }

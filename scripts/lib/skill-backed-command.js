@@ -149,11 +149,29 @@ function readCommandProse(sourceYamlPath, commandData, rawText) {
   return `${rawText}\n${readSkillProse(resolveSkillFile(sourceYamlPath, commandData.skill))}`;
 }
 
+/**
+ * `metadata.version` from a SKILL.md's frontmatter, as a string, or null when the
+ * frontmatter or the key is absent. Quoted ("2.7.0") and bare YAML scalars both read back as
+ * text, so a quoting difference is not a version difference.
+ * @param {string} skillFile - Absolute path to the skill's SKILL.md
+ * @returns {string|null}
+ */
+function readSkillVersion(skillFile) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/.exec(fs.readFileSync(skillFile, 'utf8'));
+  if (!match) {
+    return null;
+  }
+  const frontmatter = require('js-yaml').load(match[1]);
+  const version = frontmatter && frontmatter.metadata && frontmatter.metadata.version;
+  return version === undefined || version === null ? null : String(version);
+}
+
 module.exports = {
   isSkillBacked,
   isValidSkillName,
   resolveSkillFile,
   listSkillReferences,
   readSkillProse,
+  readSkillVersion,
   readCommandProse
 };

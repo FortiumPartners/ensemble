@@ -428,6 +428,30 @@ describe('generate-markdown CLI -- skill-backed manifests', () => {
     expect(status).toBe(1);
     expect(output).toContain("'constraints' is not allowed in a skill-backed command manifest");
   });
+
+  test('fails when the skill and the manifest disagree on the version', () => {
+    const pkg = tracked({
+      'commands/demo.yaml': MANIFEST,
+      'skills/ensemble-demo/SKILL.md': skillFile('ensemble-demo', undefined, '1.0.1')
+    });
+
+    const { status, output } = run(pkg.yamlPath('demo'));
+
+    expect(status).toBe(1);
+    expect(output).toContain("manifest version '1.0.0' does not match the skill's metadata.version '1.0.1'");
+  });
+
+  test('fails when the skill carries no metadata.version at all', () => {
+    const pkg = tracked({
+      'commands/demo.yaml': MANIFEST,
+      'skills/ensemble-demo/SKILL.md': '---\nname: ensemble-demo\ndescription: Demo skill without a version.\n---\n\nBody.\n'
+    });
+
+    const { status, output } = run(pkg.yamlPath('demo'));
+
+    expect(status).toBe(1);
+    expect(output).toContain("does not match the skill's metadata.version 'null'");
+  });
 });
 
 describe('buildCommandPathMap (dispatcher "read and follow" targets)', () => {

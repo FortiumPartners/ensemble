@@ -16,12 +16,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-/** A minimal, valid SKILL.md for a skill named `name`. */
-function skillFile(name, body = 'Do the demo work for $ARGUMENTS.') {
+/** A minimal, valid SKILL.md for a skill named `name`, at `version` (the manifest's version). */
+function skillFile(name, body = 'Do the demo work for $ARGUMENTS.', version = '1.0.0') {
   return [
     '---',
     `name: ${name}`,
     'description: Demo skill backing a command in the skill-backed command tests.',
+    'metadata:',
+    `  version: "${version}"`,
     '---',
     '',
     body,
