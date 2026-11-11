@@ -59,7 +59,17 @@
  *   7. cites no file                         -> no-location (as given)
  *   8. `git diff` of the cited file from the baseline to this head cannot be read
  *      -> diff-failed (as given); the cited line (or, for a file-only citation, any line) is
- *      untouched -> location-unchanged: the line is moved to this head's numbering
+ *      untouched -> location-unchanged: the line is moved to this head's numbering.
+ *      TOUCHED means a cited line was modified or removed, or new lines were put BETWEEN two cited lines (kata bh8w): a
+ *      pure-insertion hunk (`git diff -U0`: `@@ -587,0 +588,5 @@` is five lines after old line 587) is inside the range
+ *      583-601, and a fix that only adds an assertion, a guard or a fixture there changes no old line but does change what
+ *      the entry cites. The rule: with `a` the old line the insertion follows, it is inside `s-e` when `s <= a < e`, with at
+ *      least one cited line on each side. New lines before the first cited line (`a = s - 1`) or after the last (`a = e`)
+ *      are outside it, and a one-line citation has no inside: they only move the line, because the verb cannot tell a fix
+ *      from unrelated code next to the finding and clearing on adjacency would hide findings (the re-review raising the
+ *      finding again is the safety net). A file-only citation has no range to be inside of: as before, only a modified or
+ *      removed line of that file (or a replaced file) touches it, so a fix that only adds lines to a file cited without a
+ *      line is not seen (a stated limit).
  *   9. touched, but git's rename detection (`-M`, 50% similarity) says the cited FILE was renamed
  *      -> location-unanchored (as given): the defect went with the file to a path this entry does not
  *      name, and the verb does not guess it. A review that raises it under the new path adds an entry
@@ -84,13 +94,16 @@
  * location-unanchored (as given, not stamped, never cleared; a review that raises it again re-anchors it).
  * A mode-only change (chmod) touches no line; deleting, creating or replacing a file with binary content does,
  * and so does a rename (rule 9 then keeps the entry). A file deleted outright, or replaced by one too
- * dissimilar for git to pair, is a deletion, not a rename.
+ * dissimilar for git to pair, is a deletion, not a rename. In that earlier span (the line is moved to the baseline) lines
+ * inserted between two cited lines grow the range, as before: the finding was alive after them.
  * The output ledger has the input's length and order; a second run over its own output changes
  * nothing; the input is never mutated.
  *
  * Honest limits: a changed location is the AC-008-3 heuristic, not proof the defect is
- * gone; the re-review not raising it again is the other half. This verb is the only writer of
- * `cleared` in the procedure (`carry reconcile` writes none), so a force-push that rewrites the
+ * gone; the re-review not raising it again is the other half. An insertion between two cited lines counts like a modified
+ * one (kata bh8w), so it clears the entry although the added lines need not be the fix: a cleared entry was never verified
+ * as fixed, only seen to change, and a finding in code the push merely grew stays cleared until a review raises it again.
+ * This verb is the only writer of `cleared` in the procedure (`carry reconcile` writes none), so a force-push that rewrites the
  * recorded head, or a `lastReviewedSha` that is not on the PR, clears nothing: such a bead stays
  * open and a person closes it. A mark written by hand is outside this verb.
  */
@@ -254,11 +267,16 @@ function deriveCleared(input) {
 
     const changed = repo.changedOldLines(git, cwd, { from: recorded, to: head, file: cited.file });
     if (!changed.ok) return keep(entry, 'diff-failed');
-    const { lines } = changed;
+    const { lines, hunks } = changed;
+    // Touched: a cited line was modified or removed, or new lines were put BETWEEN two cited lines. A fix that only ADDS lines (a
+    // missing assertion, a guard, a second fixture inside the cited block) changes no old line, so it never touched the range by
+    // the old lines alone (kata bh8w: a fixed Important stayed open). New lines before the first cited line, after the last one or
+    // beside a one-line citation do not touch it (they only move it): `insertsWithin` states the boundary. A citation with no line
+    // has no range to be inside of: as before, only a modified or removed line of the file (or a replaced file) touches it.
     const touched =
       cited.line === null
         ? lines === null || lines.length > 0
-        : lines === null || lines.some((n) => n >= cited.line && n <= cited.endLine);
+        : lines === null || lines.some((n) => n >= cited.line && n <= cited.endLine) || repo.insertsWithin(hunks, cited.line, cited.endLine);
     if (!touched) {
       // No line was touched, but a path the head does not hold (renamed or deleted before the baseline, so the diff since is empty) has no
       // line that stayed put: the finding cannot be placed in this head. Kept as recorded, never located (kata p5dt).

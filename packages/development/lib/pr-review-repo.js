@@ -250,6 +250,17 @@ function advanceLine(hunks, line) {
   return { touched: false, line: line + shift };
 }
 
+/**
+ * Whether `hunks` (of `changedOldLines`) put new lines BETWEEN two lines of the old range `start..end`: a pure insertion
+ * (`oldCount: 0`) sits after old line `oldStart` (git's `-U0` convention: `@@ -587,0 +588,5 @@` is five lines after old line 587),
+ * so it lands inside the range when `start <= oldStart < end`, that is with at least one cited line on each side of it. One
+ * before the first cited line (`oldStart < start`) or after the last (`oldStart >= end`) is outside the range, and a range of one
+ * line has no inside at all. Pure.
+ */
+function insertsWithin(hunks, start, end) {
+  return hunks.some(({ oldStart, oldCount }) => oldCount === 0 && start <= oldStart && oldStart < end);
+}
+
 module.exports = {
   resolveCommit,
   isAncestor,
@@ -261,5 +272,6 @@ module.exports = {
   readBlobAt,
   changedOldLines,
   renamedPaths,
-  advanceLine
+  advanceLine,
+  insertsWithin
 };

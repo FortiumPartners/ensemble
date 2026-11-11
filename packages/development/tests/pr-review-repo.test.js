@@ -481,6 +481,49 @@ describe('advanceLine', () => {
   });
 });
 
+describe('insertsWithin (kata bh8w)', () => {
+  const h = (oldStart, oldCount, newStart, newCount) => ({ oldStart, oldCount, newStart, newCount });
+
+  test('new lines are inside a range when at least one cited line is on each side of them', () => {
+    // `@@ -587,0 +588,5 @@` is five lines after old line 587: inside 583-601
+    expect(repo.insertsWithin([h(587, 0, 588, 5)], 583, 601)).toBe(true);
+    expect(repo.insertsWithin([h(10, 0, 11, 1)], 10, 20)).toBe(true); // right after the first cited line
+    expect(repo.insertsWithin([h(19, 0, 20, 1)], 10, 20)).toBe(true); // right before the last cited line
+    expect(repo.insertsWithin([h(9, 0, 10, 1)], 10, 20)).toBe(false); // right before the first cited line
+    expect(repo.insertsWithin([h(20, 0, 21, 1)], 10, 20)).toBe(false); // right after the last cited line
+    expect(repo.insertsWithin([h(0, 0, 1, 3)], 10, 20)).toBe(false); // the top of the file
+    expect(repo.insertsWithin([h(40, 0, 41, 3)], 10, 20)).toBe(false); // far below
+  });
+
+  test('a one-line range has no inside', () => {
+    for (const after of [14, 15, 16]) expect(repo.insertsWithin([h(after, 0, after + 1, 2)], 15, 15)).toBe(false);
+  });
+
+  test('only a PURE insertion counts: a modified or removed range is the old lines\' business', () => {
+    expect(repo.insertsWithin([h(12, 2, 12, 3)], 10, 20)).toBe(false);
+    expect(repo.insertsWithin([h(12, 1, 11, 0)], 10, 20)).toBe(false);
+  });
+
+  test('any of several hunks may be the one, and no hunk is none', () => {
+    expect(repo.insertsWithin([h(2, 0, 3, 1), h(15, 0, 16, 1), h(30, 1, 31, 1)], 10, 20)).toBe(true);
+    expect(repo.insertsWithin([h(2, 0, 3, 1), h(30, 0, 31, 1)], 10, 20)).toBe(false);
+    expect(repo.insertsWithin([], 10, 20)).toBe(false);
+  });
+
+  test('applied to the hunks git printed for a real fix that only adds lines', () => {
+    const w = mkdir('prr-ins-');
+    initRepo(w);
+    const a = commit(w, { 'f.txt': numbered(40) }, 'a');
+    const b = commit(w, { 'f.txt': numbered(40).replace('line 14\n', 'line 14\nnew 1\nnew 2\nnew 3\n') }, 'b');
+    const { lines, hunks } = repo.changedOldLines(git, w, { from: a, to: b, file: 'f.txt' });
+    expect(lines).toEqual([]);
+    expect(hunks).toEqual([h(14, 0, 15, 3)]);
+    expect(repo.insertsWithin(hunks, 10, 20)).toBe(true);
+    expect(repo.insertsWithin(hunks, 15, 20)).toBe(false);
+    expect(repo.insertsWithin(hunks, 10, 14)).toBe(false);
+  });
+});
+
 describe('defaultGit is bound to the cwd, not to the caller\'s environment', () => {
   const cases = [
     ['GIT_DIR', (other) => path.join(other, '.git'), ['rev-parse', '--git-dir']],

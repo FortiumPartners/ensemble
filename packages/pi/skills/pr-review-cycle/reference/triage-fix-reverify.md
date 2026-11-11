@@ -190,7 +190,9 @@ The CLI reads git and writes nothing. It marks a carried finding `cleared`, with
 head, when the diff from the baseline (`lastReviewedSha`, or the stamp when that is a later head) to `headSha` changed the
 file and line it cites and no finding this head's review raised is the same defect (same file,
 failure mode and class; the line is not part of that, so a defect re-reported lower after the file
-shifted counts). A mode-only change (a `chmod`) touches no line; deleting, creating or replacing a
+shifted counts). A mode-only change (a `chmod`) touches no line; a push that only ADDS lines (a pure-insertion hunk, `@@ -587,0 +588,5 @@`) touches a
+cited range when the insertion lies strictly inside it, with a cited line on each side (kata `bh8w`), but not when it lands right before the
+first cited line, right after the last, or into a one-line citation, and a file-only citation is not touched by an insertion alone; deleting, creating or replacing a
 file does. A file that git's rename detection says was RENAMED keeps its findings as
 `location-unanchored` instead: the defect went with the file, the verb does not guess the new path,
 and a review that raises it under the new path adds a finding of its own, so a person decides the

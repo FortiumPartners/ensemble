@@ -257,7 +257,11 @@ them), each sorted by the fixed-finding check that already decides what a push f
 lines against the push):
 
 - the push touched the cited lines and no reviewer of this round raised the finding again: it is **cleared**, like any prior finding (it
-  was never verified, so it is neither confirmed nor refuted, and it stays in the ledger marked cleared);
+  was never verified, so it is neither confirmed nor refuted, and it stays in the ledger marked cleared). A push that only ADDS lines
+  (`git diff -U0`: `@@ -587,0 +588,5 @@`) touches a cited range when the insertion lies strictly inside it, with a cited line on each side
+  (kata `bh8w`: the measured case was five lines added inside 583-601, which kept the finding open until a person closed it); an insertion
+  right before the first cited line, right after the last, or into a one-line citation does not clear it, and a file-only citation is
+  unchanged (an insertion alone does not touch it);
 - a reviewer of this round raised the same defect (the same path and claim): that candidate is verified, as itself, and replaces the old entry;
 - the cited lines are untouched: the finding comes back as a **candidate of this round under its own id**, its ledger entry as recorded
   (raiser, adjudication, everything but the old verification) at the line this head numbers it. K fresh verifiers are briefed with the
@@ -282,6 +286,9 @@ of a lost verifier). A candidate verified again keeps the disposition, reason an
 and the stamps are dropped), so a Nit deferred with a reason stays deferred whatever the new verdict says, and `adjudicateList` does not present
 it again. And `reReview.delta.unverifiedFromLastRound` is a count while `carry.unverifiedFromLastRound` is an object, whose `verifiedAgain` lists the
 candidates put to verifiers again, some of which can come back unverified again, so it overstates what was verified.
+
+One more limit, said plainly. A push that only adds lines inside a cited range clears the finding (kata `bh8w`) even when the added lines are a
+comment and the defect is still there, unless a reviewer of the round raises it again: "cleared" means never verified and never refuted, not fixed.
 
 **What stays whole.** The security lane, the whole-range reader (when the light run is cut into several slices) and the TRIAGE
 step (full mode) read the whole range (`range.diff`, every changed path of the PR) in a delta round too; a round that planned
