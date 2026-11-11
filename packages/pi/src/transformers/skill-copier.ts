@@ -22,13 +22,10 @@
  * to nothing (URLs, user-project files like `package.json`, dangling names) are ignored and
  * never fail generation.
  *
- * Discovery pattern:
- *   - packages/*\/skills\/<subdir>\/SKILL.md  (subdirectory layout)
- *   - packages/*\/skills\/SKILL.md            (top-level layout, e.g. blazor, nestjs)
+ * Discovery pattern: packages/*\/skills\/<name>\/SKILL.md. A skill is a directory named after
+ * the skill (the Agent Skills layout), whether the package ships one skill or many.
  *
- * Output layout:
- *   - Subdirectory layout: packages/pi/skills/<subdir>/<relative path>
- *   - Top-level layout:    packages/pi/skills/<package-name>/<relative path>
+ * Output layout: packages/pi/skills/<name>/<relative path>
  *
  * Packages named in EXCLUDED_PACKAGES are not scanned: `pi` (the output target, avoids
  * self-referential copies), `full` (symlink mirror of other packages' skills) and every
@@ -343,11 +340,8 @@ function shippedFiles(root: string, dirName: string): string[] {
 /**
  * Discover the files to ship for every skill across all packages.
  *
- * Handles two layouts:
- *   1. Subdirectory layout: packages/<pkg>/skills/<subdir>/SKILL.md
- *      → skillDirName = <subdir>
- *   2. Top-level layout: packages/<pkg>/skills/SKILL.md
- *      → skillDirName = <pkg>
+ * A skill is a directory packages/<pkg>/skills/<name>/ that holds a SKILL.md (symlinked
+ * directories included); skillDirName = <name>.
  *
  * Skips packages in EXCLUDED_PACKAGES (pi, full and the self-contained Pi packages).
  */
@@ -411,10 +405,7 @@ function discoverSkillFiles(packagesDir: string): SkillFileEntry[] {
       continue;
     }
 
-    // Top-level layout: skills/SKILL.md
-    addSkill(skillsDir, pkgName, `packages/${pkgName}/skills`);
-
-    // Subdirectory layout: skills/<name>/SKILL.md (directories, including symlinked ones)
+    // Skills: skills/<name>/SKILL.md (directories, including symlinked ones)
     for (const skillDirent of skillDirents) {
       const subPath = path.join(skillsDir, skillDirent.name);
       if (!isDir(subPath)) continue;

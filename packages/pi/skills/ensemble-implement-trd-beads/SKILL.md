@@ -12,22 +12,7 @@ description: >-
   is unavailable. Never read .beads/*.jsonl to schedule. - Every `node
   "$TOOLCHAIN_CLI"` `run`/`confirm-*` call below carries `--run-id "$RUN_ID"
   $NON_INTERACTIVE_ARGS --json` even where not spelled out. - Never stage
-  broadly (no blanket, whole-directory or auto-staging commit). Stage beads only
-  via `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`; every commit is
-  `node "$TOOLCHAIN_CLI" run workflow.commit --arg message="<message>"`. -
-  PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md (via
-  tool-path-resolution); every pr-review-cycle call below reads it. -
-  FULL_TEST_COMMAND = `node "$TOOLCHAIN_CLI" run package-runner.run-script --arg
-  script=test --run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json` (full suite): the
-  Pre-PR test gate (non-ok or non-zero fails) and the pr-review-cycle
-  TEST_COMMAND. - In every `tracker.list` result the issue list is `data` parsed
-  as JSON if it is an array, otherwise its `.issues` array. - Scaffold work is
-  delegated only to @beads-scaffold-specialist (never backend-developer); no
-  product code is written during Scaffold. - Branch intent, PR creation,
-  workstream mode and resume/recovery detail: `implement-trd-beads-reference`
-  skill; read only the section a step points at. Terminal states: HALT (error
-  printed, nothing further runs), EXIT (early-exit mode finished), COMPLETE
-  (epic closed, report printed).
+  broadly (no blanket, whole-directory or auto-staging commit).
 disable-model-invocation: true
 ---
 <!-- Command: ensemble-implement-trd-beads | Version: 3.1.0 -->

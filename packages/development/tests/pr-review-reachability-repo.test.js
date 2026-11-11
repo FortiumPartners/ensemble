@@ -134,9 +134,9 @@ describe('TRD-037 AC-023-1: the real entry points reach the real behaviour', () 
  * and the CLI. Codex and OpenCode generate command artifacts but bundle only
  * FRAMEWORK skills -- `scripts/generate-codex/index.js` rewrites a fixed
  * framework list, and `scripts/generate-opencode` copies
- * `packages/<pkg>/skills/SKILL.md`, a layout the multi-skill development
- * package does not use. That is a real reduction, and it is stated rather
- * than papered over.
+ * `packages/<pkg>/skills/<pkg>/SKILL.md`, a skill named after its package,
+ * which the multi-skill development package does not have. That is a real
+ * reduction, and it is stated rather than papered over.
  */
 function runtimeInventory() {
   const subcommandsOf = (relative) => {

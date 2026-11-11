@@ -44,6 +44,10 @@ const FRAMEWORK_SKILL_REWRITES = [
   [/skills\/\{framework\}\//g, '.codex/skills/<framework>/'],
 ];
 
+// Framework skills ship to Codex lean: SKILL.md only (packages/codex/tests/package-structure.test.js
+// pins that for react). These also carry their REFERENCE.md.
+const FRAMEWORK_SKILLS_WITH_REFERENCE = new Set(['reqnroll']);
+
 function parseArgs(argv) {
   return {
     dryRun: argv.includes('--dry-run'),
@@ -244,46 +248,40 @@ function detectAgentSkills(name, content) {
   return Array.from(skills).filter((skill) => AVAILABLE_SKILLS.has(skill)).sort();
 }
 
+/**
+ * An ordinary (non command-wrapper) skill keeps the frontmatter its source declares and gains no
+ * host keys: `user-invocable` belongs to the `ensemble-*` wrapper skills alone. A source with no
+ * frontmatter gets a name and a description synthesized from its body.
+ */
+function skillFrontmatter(parsed, name) {
+  return Object.keys(parsed.data).length > 0
+    ? parsed.data
+    : { name, description: firstMeaningfulLine(parsed.content) };
+}
+
+/**
+ * Copy the framework skills (react, jest, reqnroll, ...). Each is a skill named after the
+ * package that owns it, at `packages/<pkg>/skills/<pkg>/SKILL.md`, and lands at
+ * `.codex/skills/<pkg>/SKILL.md`.
+ */
 function copyFrameworkSkills({ dryRun, verbose }) {
-  const skillFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/skills/SKILL.md'))).sort();
+  const packageNames = fs.readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
   let count = 0;
 
-  for (const skillFile of skillFiles) {
-    const packageName = path.basename(path.dirname(path.dirname(skillFile)));
+  for (const packageName of packageNames) {
+    const skillDir = path.join(PACKAGES_DIR, packageName, 'skills', packageName);
+    const skillFile = path.join(skillDir, 'SKILL.md');
+    if (!fs.existsSync(skillFile)) continue;
+
     const dest = path.join(OUTPUT_DIR, 'skills', packageName, 'SKILL.md');
-    const raw = readFile(skillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: packageName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
+    const parsed = parseFrontmatter(readFile(skillFile));
+    writeFile(dest, `${yamlFrontmatter(skillFrontmatter(parsed, packageName))}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
 
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
-    count += 1;
-  }
-
-
-  const reqnrollSkillFile = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'SKILL.md');
-  if (fs.existsSync(reqnrollSkillFile)) {
-    const packageName = 'reqnroll';
-    const dest = path.join(OUTPUT_DIR, 'skills', packageName, 'SKILL.md');
-    const raw = readFile(reqnrollSkillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: packageName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
-
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
-
-    const referencePath = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'REFERENCE.md');
-    if (fs.existsSync(referencePath)) {
+    const referencePath = path.join(skillDir, 'REFERENCE.md');
+    if (FRAMEWORK_SKILLS_WITH_REFERENCE.has(packageName) && fs.existsSync(referencePath)) {
       writeFile(path.join(OUTPUT_DIR, 'skills', packageName, 'REFERENCE.md'), `${normalizeSkillBody(readFile(referencePath))}\n`, dryRun, verbose);
     }
     count += 1;
@@ -339,17 +337,9 @@ function copyAdapterSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, output
     const adapterDir = path.dirname(skillFile);
     const adapterName = path.basename(adapterDir);
     const dest = path.join(outputDir, 'skills', adapterName, 'SKILL.md');
-    const raw = readFile(skillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: adapterName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
+    const parsed = parseFrontmatter(readFile(skillFile));
 
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
+    writeFile(dest, `${yamlFrontmatter(skillFrontmatter(parsed, adapterName))}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
     count += 1;
 
     const adapterYaml = path.join(adapterDir, 'adapter.yaml');

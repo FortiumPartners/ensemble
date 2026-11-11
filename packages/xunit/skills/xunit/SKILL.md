@@ -1,7 +1,8 @@
 ---
 name: xunit
 description: Execute and generate xUnit tests for C#/.NET projects with FluentAssertions and Moq support
-version: 1.0.0
+metadata:
+  version: "1.0.0"
 ---
 
 # xUnit Test Framework
@@ -28,7 +29,7 @@ dotnet run generate-test.cs -- \
   --namespace=MyApp.Tests
 ```
 
-The generated `[Fact]` ends in `Assert.Fail(...)` so the scaffold fails until you replace it with a real Arrange/Act/Assert that reproduces the bug.
+The generated `[Fact]` ends in `Assert.Fail(...)`; the scaffold fails until you replace it with a real Arrange/Act/Assert that reproduces the bug.
 
 ### Execute Tests
 

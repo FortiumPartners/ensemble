@@ -14,29 +14,6 @@ description: >-
   that, treat FOREMAN_TASK_DESCRIPTION as the product description this command
   would otherwise receive as arguments, and print the title you read before
   writing anything so the delivered subject is visible in the phase output.
-  NEVER infer the subject from repository contents, git history, docs/PRD/
-  entries, the most recent PRD, or a plausible-looking gap you noticed: a
-  Foreman command phase receives no conversation and no arguments, so an
-  inferred subject is an invented one. If NEITHER a product description was
-  passed as arguments NOR FOREMAN_TASK_TITLE is set and non-empty, STOP
-  immediately -- write no PRD and report that the subject was never delivered,
-  naming FOREMAN_TASK_TITLE. Halting is correct there: a well-formed PRD about a
-  subject nobody asked for is worse than no PRD, because the run reports
-  success. Outside Foreman dispatch both variables are simply absent, and
-  behavior is unchanged -- the arguments are the product description.
-  Meeting-summary mode (--from-meeting): create the PRD from a meeting summary
-  rather than a live interactive interview -- the asynchronous counterpart to
-  the default mode, for capturing requirements discussed in a meeting a human
-  wasn't available to interview about afterward. $ARGUMENTS (with the flag
-  removed) is the meeting summary, inline text or a path to one, and replaces
-  the product description. Extracts what the summary actually states, marks
-  every gap the live interview would normally have filled with [NEEDS
-  CLARIFICATION], and produces the same PRD structure, Implementation Readiness
-  Gate and Constitution Gate as the default mode so a later human-run refine-prd
-  pass closes the gaps interactively. Source-agnostic by design: works from any
-  adapter that normalizes its meeting-summary output into the expected shape,
-  not tied to any one meeting platform. --from-meeting and --foreman are
-  mutually exclusive.
 disable-model-invocation: true
 ---
 <!-- Command: ensemble-create-prd | Version: 2.7.0 -->

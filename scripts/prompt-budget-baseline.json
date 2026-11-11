@@ -25,6 +25,6 @@
   "packages/product/commands/create-prd.yaml": 6059,
   "packages/product/commands/refine-prd.yaml": 5929,
   "packages/quality/agents/test-runner.yaml": 1527,
-  "packages/rspec/skills/SKILL.md": 2008,
-  "packages/xunit/skills/SKILL.md": 1816
+  "packages/rspec/skills/rspec/SKILL.md": 2008,
+  "packages/xunit/skills/xunit/SKILL.md": 1816
 }

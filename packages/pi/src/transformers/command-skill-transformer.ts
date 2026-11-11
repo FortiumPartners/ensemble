@@ -29,6 +29,34 @@ function stripHeader(content: string): string {
   return content.replace(/^<!--[\s\S]*?-->\n*/m, '');
 }
 
+/** Agent Skills spec limit for a SKILL.md `description` (https://agentskills.io/specification). */
+export const MAX_DESCRIPTION_LENGTH = 1024;
+
+/**
+ * Cap `description` at MAX_DESCRIPTION_LENGTH characters. A description already within
+ * the limit is returned unchanged. Otherwise it is cut after the last sentence end
+ * (`.`, `!` or `?` followed by whitespace) that fits, else at the last word boundary,
+ * else hard at the limit. The wrapper body still carries the complete command text.
+ */
+export function capDescription(description: string): string {
+  if (description.length <= MAX_DESCRIPTION_LENGTH) return description;
+
+  // One extra character so a sentence ending exactly at the limit is recognised.
+  const window = description.slice(0, MAX_DESCRIPTION_LENGTH + 1);
+
+  let sentenceEnd = -1;
+  for (const m of window.matchAll(/[.!?](?=\s)/g)) {
+    const end = (m.index ?? 0) + 1;
+    if (end <= MAX_DESCRIPTION_LENGTH) sentenceEnd = end;
+  }
+  if (sentenceEnd > 0) return description.slice(0, sentenceEnd);
+
+  const wordEnd = window.search(/\s\S*$/);
+  if (wordEnd > 0) return description.slice(0, wordEnd).trimEnd();
+
+  return description.slice(0, MAX_DESCRIPTION_LENGTH);
+}
+
 /**
  * Extract the description from frontmatter or the first > **Mission:** paragraph.
  */
@@ -123,7 +151,8 @@ export async function generateCommandSkills(
       continue;
     }
 
-    const description = extractDescription(promptContent, skillName);
+    // The spec caps `description` at 1024 chars; the full Mission text stays in the body.
+    const description = capDescription(extractDescription(promptContent, skillName));
     const promptBody = stripHeader(promptContent);
 
     // Build SKILL.md with frontmatter + embedded prompt body.

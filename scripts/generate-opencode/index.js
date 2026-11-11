@@ -146,9 +146,10 @@ class StepTimer {
 
 /**
  * Discover source files for a given category to compute hashes. Includes every
- * `skills/adapter-NAME/{SKILL.md,adapter.yaml}` pair (TRD-020, PRD REQ-021) alongside the
- * flat `skills/SKILL.md`/`skills/REFERENCE.md` sources, so an adapter.yaml-only edit still
- * invalidates the incremental hash cache instead of being silently skipped as "unchanged".
+ * `skills/adapter-NAME/{SKILL.md,adapter.yaml}` pair (TRD-020, PRD REQ-021) alongside each
+ * package's framework skill (`skills/<pkg>/SKILL.md` and `skills/<pkg>/REFERENCE.md`), so an
+ * adapter.yaml-only edit still invalidates the incremental hash cache instead of being silently
+ * skipped as "unchanged".
  */
 function discoverSkillSourceFiles(packagesDir = PACKAGES_DIR) {
   const files = [];
@@ -156,17 +157,18 @@ function discoverSkillSourceFiles(packagesDir = PACKAGES_DIR) {
   const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    const skillPath = path.join(packagesDir, entry.name, 'skills');
-    if (fs.existsSync(skillPath)) {
-      const skillFile = path.join(skillPath, 'SKILL.md');
-      const refFile = path.join(skillPath, 'REFERENCE.md');
+    const skillsPath = path.join(packagesDir, entry.name, 'skills');
+    if (fs.existsSync(skillsPath)) {
+      const frameworkPath = path.join(skillsPath, entry.name);
+      const skillFile = path.join(frameworkPath, 'SKILL.md');
+      const refFile = path.join(frameworkPath, 'REFERENCE.md');
       if (fs.existsSync(skillFile)) files.push(skillFile);
       if (fs.existsSync(refFile)) files.push(refFile);
 
       if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
-        for (const sub of fs.readdirSync(skillPath, { withFileTypes: true })) {
+        for (const sub of fs.readdirSync(skillsPath, { withFileTypes: true })) {
           if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
-          const adapterPath = path.join(skillPath, sub.name);
+          const adapterPath = path.join(skillsPath, sub.name);
           const adapterSkillFile = path.join(adapterPath, 'SKILL.md');
           const adapterYamlFile = path.join(adapterPath, 'adapter.yaml');
           if (fs.existsSync(adapterSkillFile)) files.push(adapterSkillFile);

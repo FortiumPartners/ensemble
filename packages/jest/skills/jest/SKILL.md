@@ -1,7 +1,8 @@
 ---
 name: jest
 description: Execute and generate Jest tests for JavaScript/TypeScript projects with support for unit, integration, and E2E testing
-version: 1.0.0
+metadata:
+  version: "1.0.0"
 ---
 
 # Jest Test Framework

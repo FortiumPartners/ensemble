@@ -1,8 +1,8 @@
 ---
-name: Reqnroll BDD Bindings
+name: reqnroll
 description: Fill Reqnroll + xUnit step definitions test-first against the system under test
-version: 1.0.0
-user-invocable: true
+metadata:
+  version: 1.0.0
 ---
 
 # Reqnroll BDD Bindings (xUnit)

@@ -1,7 +1,6 @@
 ---
 name: adapter-container-deploy-docker-kubectl
 description: Docker+kubectl `container-deploy` toolchain adapter (TRD-2026-8d825f54 TRD-044). Loaded by the toolchain resolver, not invoked directly by name. Shipped default container-deploy adapter.
-user-invocable: true
 ---
 
 # Docker + kubectl Container-Deploy Adapter

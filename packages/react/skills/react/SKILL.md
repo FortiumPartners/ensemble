@@ -1,7 +1,8 @@
 ---
 name: react
 description: "Use when editing a React 18+ codebase (react dependency, .jsx/.tsx) and you need to match its conventions; not for Vue/Angular/Svelte or non-UI TypeScript."
-version: 2.0.0
+metadata:
+  version: "2.0.0"
 ---
 
 # React conventions

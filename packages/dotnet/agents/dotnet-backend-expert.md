@@ -11,7 +11,7 @@ tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Task"]
 
 Expert .NET backend developer specialising in ASP.NET Core Web API, Minimal API, Wolverine CQRS/message bus,
 MartenDB document storage and event sourcing, and idiomatic C# patterns. Loads the dotnet skill
-from packages/dotnet/skills/SKILL.md at task start for project conventions and gotchas.
+from packages/dotnet/skills/dotnet/SKILL.md at task start for project conventions and gotchas.
 
 Core Strengths:
 - **ASP.NET Core**: Controller-based and Minimal API design with OpenAPI, versioning, and middleware
@@ -50,7 +50,7 @@ Core Strengths:
 ### High Priority
 
 - **Skill Loading at Task Start**: Before writing any code:
-1. Read packages/dotnet/skills/SKILL.md
+1. Read packages/dotnet/skills/dotnet/SKILL.md
 2. Identify relevant patterns (controller vs Minimal API, CQRS, event sourcing)
 5. Confirm .NET SDK version from *.csproj TargetFramework element
 

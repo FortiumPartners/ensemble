@@ -1,8 +1,8 @@
 ---
 name: blazor
 description: Use when building Blazor Server/WebAssembly/Web App components on .NET 8+ (.razor files, render modes, forms); not for ASP.NET Core APIs or Wolverine/Marten backends (see dotnet).
-version: 2.0.0
-user-invocable: true
+metadata:
+  version: 2.0.0
 ---
 
 # Blazor conventions

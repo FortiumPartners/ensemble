@@ -1,7 +1,8 @@
 ---
 name: phoenix
 description: "Use when working in a Phoenix/Elixir project (mix.exs with :phoenix: contexts, Ecto, LiveView, Channels); not for non-Phoenix Elixir libraries or other web frameworks."
-version: 2.0.0
+metadata:
+  version: "2.0.0"
 ---
 
 # Phoenix conventions

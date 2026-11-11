@@ -1,7 +1,7 @@
 // SkillCopier - Discovers and copies SKILL.md files to OpenCode paths
 //
 // Responsibilities:
-//   - Discover all SKILL.md files across packages/[pkg]/skills/
+//   - Discover each package's framework skill (packages/[pkg]/skills/[pkg]/) and its adapters
 //   - Inject frontmatter (name, description) for OpenCode discovery
 //   - Convert REFERENCE.md to SKILL.md format where needed
 //   - Copy validated skills to dist/opencode/.opencode/skill/[framework]/
@@ -308,7 +308,8 @@ class SkillCopier {
   }
 
   /**
-   * Discover all packages that have a skills/ directory, plus every
+   * Discover every skill to copy: each package's framework skill, the skill named after the
+   * package at `skills/<pkg>/` (react, jest, reqnroll, ...), plus every
    * `skills/adapter-NAME` subdirectory (TRD-020, PRD REQ-021): an adapter directory ships a
    * SKILL.md describing it plus an adapter.yaml manifest the toolchain resolver reads, and is
    * keyed by its OWN directory name (not the owning package name) so two adapters shipped
@@ -329,30 +330,31 @@ class SkillCopier {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const skillPath = path.join(this.packagesDir, entry.name, 'skills');
-      if (fs.existsSync(skillPath) && fs.statSync(skillPath).isDirectory()) {
-        // Check if there's a SKILL.md or REFERENCE.md
-        const hasSkill = fs.existsSync(path.join(skillPath, 'SKILL.md'));
-        const hasRef = fs.existsSync(path.join(skillPath, 'REFERENCE.md'));
+      const skillsPath = path.join(this.packagesDir, entry.name, 'skills');
+      if (!fs.existsSync(skillsPath) || !fs.statSync(skillsPath).isDirectory()) continue;
 
-        if (hasSkill || hasRef) {
-          results.push({
-            packageName: entry.name,
-            skillPath,
-          });
-        }
+      // Framework skill: packages/<pkg>/skills/<pkg>/ holding a SKILL.md or REFERENCE.md
+      const frameworkPath = path.join(skillsPath, entry.name);
+      if (
+        fs.existsSync(path.join(frameworkPath, 'SKILL.md')) ||
+        fs.existsSync(path.join(frameworkPath, 'REFERENCE.md'))
+      ) {
+        results.push({
+          packageName: entry.name,
+          skillPath: frameworkPath,
+        });
+      }
 
-        if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
-          for (const sub of fs.readdirSync(skillPath, { withFileTypes: true })) {
-            if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
-            const adapterPath = path.join(skillPath, sub.name);
-            if (fs.existsSync(path.join(adapterPath, 'SKILL.md'))) {
-              results.push({
-                packageName: sub.name,
-                skillPath: adapterPath,
-                isAdapter: true,
-              });
-            }
+      if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
+        for (const sub of fs.readdirSync(skillsPath, { withFileTypes: true })) {
+          if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
+          const adapterPath = path.join(skillsPath, sub.name);
+          if (fs.existsSync(path.join(adapterPath, 'SKILL.md'))) {
+            results.push({
+              packageName: sub.name,
+              skillPath: adapterPath,
+              isAdapter: true,
+            });
           }
         }
       }

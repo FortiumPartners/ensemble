@@ -12,24 +12,7 @@ description: >-
   agent runs ONE wave (plan + concurrent Task() track dispatch + barrier) and
   emits a JSON summary line; the parent decides on remaining_scoped_count
   whether to dispatch another. No recursion (Codex max_depth=1): wave-runners
-  are depth-1 subagents. Scheduler: work-graph.ready (graph-aware parallel
-  tracks when the resolved tracker adapter exposes dependency links —
-  data.orderingSource=="tracker-links" — else one single-bead track per ready
-  bead in plan order, data.orderingSource=="plan-order"). Each wave partitions
-  the ready set into parallel tracks (up to --max-parallel; default 3) and
-  dispatches each concurrently to a tech-lead-orchestrator Bead-Track subagent.
-  A barrier sits between waves: every track completes before the next
-  work-graph.ready call. Records all state transitions in beads for
-  cross-session resumability. When --trd is provided, enables TRD augmentations:
-  traceability tokens, TRD checkbox sync, and requirement satisfaction report.
-  Key behaviors: - Each wave is a barrier: dispatch all tracks, wait for every
-  track, then re-plan. - The parent loop body is mechanical: read count,
-  dispatch wave-runner, read JSON summary, repeat. No narrative reasoning
-  happens between iterations. - Quality gates: phase completion triggers test
-  delegation; results recorded via tracker.comment - Sync: tracker.sync before
-  work-graph.ready (optional, skips {ok:false}). Never read .beads/*.jsonl to
-  schedule. - TRD mode: optional --trd flag enables traceability tokens,
-  checkbox sync, requirement report
+  are depth-1 subagents.
 disable-model-invocation: true
 ---
 <!-- Command: ensemble-beads-build | Version: 1.4.0 -->

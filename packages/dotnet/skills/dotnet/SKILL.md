@@ -1,7 +1,8 @@
 ---
 name: dotnet
 description: "Use when implementing .NET 8+ ASP.NET Core backend code, especially Wolverine message handling and Marten document/event storage; not for Blazor UI components."
-version: 2.0.0
+metadata:
+  version: "2.0.0"
 ---
 
 # .NET backend conventions

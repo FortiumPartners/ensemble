@@ -1,7 +1,6 @@
 ---
 name: adapter-worktree-plain-git
 description: Plain-git `worktree` toolchain adapter (TRD-2026-8d825f54 TRD-042). Loaded by the toolchain resolver, not invoked directly by name. Shipped default worktree adapter.
-user-invocable: true
 ---
 
 # Plain Git Worktree Adapter

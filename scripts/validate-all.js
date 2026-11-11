@@ -548,8 +548,7 @@ function validateFullSkillsMirror() {
 
     for (const skillEntry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (!skillEntry.isDirectory() && !skillEntry.isSymbolicLink()) continue;
-      // Only real skills (a SKILL.md of their own) count — excludes asset
-      // subdirectories like a top-level-layout skill's examples/ or templates/.
+      // Only real skills (a SKILL.md of their own) count.
       if (!fs.existsSync(path.join(skillsDir, skillEntry.name, 'SKILL.md'))) continue;
       total++;
       const skillName = skillEntry.name;

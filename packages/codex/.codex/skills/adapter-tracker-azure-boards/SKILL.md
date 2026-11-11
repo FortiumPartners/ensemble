@@ -1,7 +1,6 @@
 ---
 name: adapter-tracker-azure-boards
 description: Azure Boards (Azure DevOps Services) `tracker` toolchain adapter (TRD-2026-8d825f54 TRD-033, PRD REQ-016). Loaded by the toolchain resolver, not invoked directly by name.
-user-invocable: true
 ---
 
 # Azure Boards Tracker Adapter

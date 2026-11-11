@@ -1,7 +1,8 @@
 ---
 name: nestjs
 description: "Use when working in a NestJS codebase (@nestjs/* dependencies: modules, providers, guards, DTOs); not for Express/Fastify apps without Nest."
-version: 2.0.0
+metadata:
+  version: "2.0.0"
 ---
 
 # NestJS conventions

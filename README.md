@@ -417,7 +417,7 @@ Other options: `--framework=<name>`, `--provider=<name>`, `--tools=<comma-separa
 
 ## Skills
 
-Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`, plus the single-skill framework packages).
+Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`).
 
 | Package | Skills |
 |---------|--------|
