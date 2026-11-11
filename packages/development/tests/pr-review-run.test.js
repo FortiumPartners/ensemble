@@ -352,7 +352,7 @@ describe('prepare: the dispatch manifest', () => {
     expect((await h.prepare()).status).toBe('DISPATCH');
     expect(await h.prepare()).toMatchObject({ ok: false, reason: 'run-exists' });
     expect(PREPARE_KEYS).toContain('stateRoot');
-    expect(COLLECT_KEYS).toEqual(['repoRoot', 'runId', 'now', 'adjudications', 'triage']);
+    expect(COLLECT_KEYS).toEqual(['repoRoot', 'runId', 'now', 'adjudications', 'triage', 'agentStats']);
     expect(await h.collect({ extra: 1 })).toMatchObject({ ok: false, reason: 'invalid-input' });
   });
 });

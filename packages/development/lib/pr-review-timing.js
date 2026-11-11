@@ -101,6 +101,16 @@
  * verdict, so it is neither the verdict step nor a second verdict, and a round whose every verdict span ended in error has
  * no verdict (MISSING).
  *
+ * AGENT STATS AND HOST LOAD (kata nj2d, plan v2 section 5 child V2-1). The answer's `agentStats` reports, per agent span and by role, what the
+ * dispatcher supplied at `collect` (`review-run`'s `agentStats` payload, which `recordWave` stamps on the agent span's END attrs): `tool_calls`,
+ * `turns`, `effort`, `model`, `retries` and `rate_limits`, each with an optional `<attr>_reason` when the dispatcher could not supply it. A figure
+ * that was not stamped is `{ missing, reason }` (the dispatcher's reason, else that none was supplied, that the span is unfinished, or what the attr
+ * holds instead), NEVER 0, and the by-role aggregates are `lowerBound` while any agent has none. The rows are compact (`null` plus `without`, the
+ * agents lacking a figure grouped by reason) because the answer leaves through `process.exit` and a pipe holds only 64 KiB on macOS. `hostLoad` is the
+ * 1-minute load average from the samples `lib/pr-review-load.js` appends beside the trace (`io.readLoad`), over the orchestrator window and, per
+ * agent, while it ran; no sample is `{ missing: true, reason }`. Nothing read here is a session file, and none of it enters the window, the critical
+ * path or a verdict: the existing keys, and their order, are unchanged, and `hostLoad` and `agentStats` come last, in that order.
+ *
  * `computeReviewTiming` is pure. `loadReviewTiming` reads one trace file through injectable
  * `deps` (as local-ci-runner.js and pr-review-results.js do); `pr-review-cli.js` stays free of
  * file reads.
@@ -622,15 +632,207 @@ function stageTable(spans) {
   return table;
 }
 
+// ---------------------------------------------------------------------------
+// What the dispatcher supplied for each agent (kata nj2d), and the host load while the agents ran
+// ---------------------------------------------------------------------------
+
+/**
+ * The figures a dispatcher may supply for an agent (the span attr, the key of the report, the label of the text report, whether it is a count):
+ * `asCount` reads a count (`trace end --attr k=v` records strings), a name is short text.
+ */
+const AGENT_STATS = Object.freeze([
+  { attr: 'tool_calls', key: 'toolCalls', label: 'tool calls', count: true },
+  { attr: 'turns', key: 'turns', label: 'turns', count: true },
+  { attr: 'effort', key: 'effort', label: 'effort', count: false },
+  { attr: 'model', key: 'model', label: 'model', count: false },
+  { attr: 'retries', key: 'retries', label: 'retries', count: true },
+  { attr: 'rate_limits', key: 'rateLimits', label: '429s', count: true },
+]);
+/** The longest name figure the report keeps. */
+const STAT_TEXT_MAX = 200;
+const NO_LOAD_SAMPLES = 'no load samples were read for this trace';
+
+const round2 = (value) => Math.round(value * 100) / 100;
+const stat = (value) => ({ value, missing: false });
+const noStat = (reason) => ({ value: null, missing: true, reason });
+
+/** A span attr as an error message shows it: bounded. */
+function shownAttr(value) {
+  const text = JSON.stringify(value);
+  if (text === undefined) return String(value);
+  return text.length > 40 ? `${text.slice(0, 40)}...` : text;
+}
+
+/**
+ * One figure of one agent span, from the attr the collect that ended the span stamped. A figure that is not there is `{ value: null, missing:
+ * true, reason }`: the dispatcher's own reason when it stamped `<attr>_reason` (it said it could not supply it), else that nobody supplied it;
+ * an attr that holds something else than a count (or a name) says what it holds. Never 0: a count of 0 is a figure the dispatcher stamped.
+ */
+function statOf(span, attr, isCount) {
+  const attrs = isObject(span.attrs) ? span.attrs : {};
+  const raw = attrs[attr];
+  if (raw !== undefined && raw !== null) {
+    if (isCount) {
+      const n = asCount(raw);
+      if (n !== null) return stat(n);
+    } else if (isText(raw)) {
+      return stat(raw.trim().replace(/\s+/g, ' ').slice(0, STAT_TEXT_MAX));
+    }
+    return noStat(`the span records ${attr} as ${shownAttr(raw)}, which is not ${isCount ? 'a non-negative integer' : 'a name'}`);
+  }
+  const why = attrs[`${attr}_reason`];
+  if (isText(why)) return noStat(why.trim());
+  if (span.end_ts === null || span.status === 'unfinished') return noStat("the agent's span is unfinished: its figures are stamped when its result is collected");
+  return noStat(`the dispatcher supplied no ${attr} for this agent at collect`);
+}
+
+/** The middle gap between consecutive samples (ms), or null with fewer than two. */
+function medianGap(samples) {
+  const gaps = samples.slice(1).map((s, i) => s.tsMs - samples[i].tsMs).sort((a, b) => a - b);
+  if (gaps.length === 0) return null;
+  const mid = Math.floor(gaps.length / 2);
+  return Math.round(gaps.length % 2 === 1 ? gaps[mid] : (gaps[mid - 1] + gaps[mid]) / 2);
+}
+
+/**
+ * The load samples `computeReviewTiming` was given, ready to read: `{ samples (usable, by time), reason }` where `reason` is why there are none.
+ * A sample without a finite time or a non-negative number load is left out and counted in `warnings`, never read as a load of 0.
+ */
+function loadInfoOf(load, warnings) {
+  if (!isObject(load)) return { samples: [], reason: NO_LOAD_SAMPLES };
+  if (load.ok !== true) return { samples: [], reason: isText(load.reason) ? load.reason : 'the load samples could not be read' };
+  const given = Array.isArray(load.samples) ? load.samples : [];
+  const samples = given.filter((s) => isObject(s) && Number.isFinite(s.tsMs) && typeof s.load1 === 'number' && Number.isFinite(s.load1) && s.load1 >= 0).sort((a, b) => a.tsMs - b.tsMs);
+  if (samples.length < given.length) warnings.push(`${given.length - samples.length} load sample(s) without a usable time or load were left out`);
+  if (Array.isArray(load.warnings)) for (const warning of load.warnings) warnings.push(`load: ${warning}`);
+  return { samples, reason: samples.length === 0 ? 'the load samples hold no usable sample' : undefined };
+}
+
+/**
+ * The lowest, the highest and the sum of a list of numbers, by a loop: a sampler that ran for hours leaves a very long list, and a spread of one into
+ * Math.min or Math.max is a RangeError (about 125,000 arguments), which would end `timing` instead of reporting the figure.
+ */
+function extremes(values) {
+  let min = Infinity;
+  let max = -Infinity;
+  let sum = 0;
+  for (const value of values) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+    sum += value;
+  }
+  return { min, max, sum };
+}
+
+/** The host load over the orchestrator window (or over every sample when the window is unknown): the 1-minute average's lowest, mean and highest. */
+function hostLoadFigure(info, window) {
+  if (info.reason !== undefined) return { missing: true, reason: info.reason };
+  const scoped = window === null ? info.samples : info.samples.filter((s) => s.tsMs >= window.start && s.tsMs <= window.end);
+  if (scoped.length === 0) return { missing: true, reason: 'no load sample lies inside the orchestrator window' };
+  const { min, max, sum } = extremes(scoped.map((s) => s.load1));
+  const cpus = [...scoped].reverse().map((s) => s.cpus).find((n) => Number.isInteger(n) && n > 0);
+  return {
+    missing: false,
+    scope: window === null ? 'every sample (the orchestrator window is unknown)' : 'orchestrator window',
+    samples: scoped.length,
+    load1: { min: round2(min), mean: round2(sum / scoped.length), max: round2(max) },
+    cpus: cpus === undefined ? null : cpus,
+    intervalMs: medianGap(scoped),
+  };
+}
+
+/** The highest 1-minute load among the samples taken while one agent ran, or why there is none. */
+function agentHostLoad(interval, info) {
+  if (info.reason !== undefined) return { missing: true, reason: info.reason };
+  if (!interval.ok) return { missing: true, reason: `the agent has no usable interval (${interval.reason})` };
+  const inside = info.samples.filter((s) => s.tsMs >= interval.start && s.tsMs <= interval.end);
+  if (inside.length === 0) {
+    const gap = medianGap(info.samples);
+    return { missing: true, reason: `no load sample was taken while this agent ran${gap === null ? '' : ` (the samples are about ${Math.round(gap / 1000)} s apart)`}` };
+  }
+  let highest = -Infinity;
+  for (const s of inside) if (s.load1 > highest) highest = s.load1;
+  return { missing: false, samples: inside.length, load1Max: round2(highest) };
+}
+
+/** A role's count figures over its agents: how many have one, the total, the lowest and the highest of those, and a lower bound while some agent has none. */
+function countAggregate(figures, attr, role) {
+  const known = figures.filter((figure) => !figure.missing).map((figure) => figure.value);
+  const absent = figures.length - known.length;
+  if (known.length === 0) {
+    return { known: 0, missing: absent, total: null, min: null, max: null, reason: figures.length === 0 ? 'no agent of this role was recorded' : `none of the ${figures.length} ${role} agent(s) has a ${attr} figure` };
+  }
+  return { known: known.length, missing: absent, total: known.reduce((sum, n) => sum + n, 0), min: Math.min(...known), max: Math.max(...known), ...(absent > 0 ? { lowerBound: true } : {}) };
+}
+
+/** The names a role's agents carry (effort, model), counted by value, with the agents that carry none beside them. */
+function nameAggregate(figures) {
+  const values = new Map();
+  let absent = 0;
+  for (const figure of figures) {
+    if (figure.missing) absent += 1;
+    else values.set(figure.value, (values.get(figure.value) || 0) + 1);
+  }
+  return { values: Object.fromEntries(values), missing: absent };
+}
+
+/** The agents of a role that have no figure of one kind, grouped by the reason: `[{ figure, reason, agents }]`. */
+function withoutFigure(key, entries, figureOf) {
+  const groups = new Map();
+  for (const entry of entries) {
+    const figure = figureOf(entry);
+    if (figure.missing) groups.set(figure.reason, [...(groups.get(figure.reason) || []), agentLabel(entry.span)]);
+  }
+  return [...groups].map(([reason, agents]) => ({ figure: key, reason, agents }));
+}
+
+/**
+ * What the dispatcher supplied for each agent, compactly: one row per agent span (its role, round, wave, length, each figure as its value or null, and the
+ * highest load while it ran) and, by role, what the figures add up to and `without`: every agent that has no figure, with the reason, by figure. A null in
+ * a row is explained there, or (the load, when no sample was read at all) by the run's `hostLoad`. Pure reading: nothing here moves a wall time, a critical
+ * path or an orchestrator-only figure.
+ */
+function agentStatsOf(agentSpans, info) {
+  const entries = agentSpans.map((span) => {
+    const interval = intervalOf(span);
+    return { span, interval, figures: Object.fromEntries(AGENT_STATS.map(({ attr, key, count }) => [key, statOf(span, attr, count)])), load: agentHostLoad(interval, info) };
+  });
+  const agents = entries.map(({ span, interval, figures, load }) => ({
+    role: roleOf(span),
+    name: agentLabel(span),
+    round: roundOf(span),
+    wave: waveOf(span),
+    durationMs: interval.ok ? interval.end - interval.start : null,
+    ...Object.fromEntries(AGENT_STATS.map(({ key }) => [key, figures[key].value])),
+    hostLoad: load.missing ? null : { samples: load.samples, load1Max: load.load1Max },
+  }));
+  const byRole = {};
+  for (const role of AGENT_ROLES) {
+    const own = entries.filter(({ span }) => roleOf(span) === role);
+    const aggregate = { count: own.length };
+    const without = [];
+    for (const { attr, key, count } of AGENT_STATS) {
+      const figures = own.map((entry) => entry.figures[key]);
+      aggregate[key] = count ? countAggregate(figures, attr, role) : nameAggregate(figures);
+      without.push(...withoutFigure(key, own, (entry) => entry.figures[key]));
+    }
+    // an agent with no load is explained here only when there are samples at all: with none, the run's `hostLoad` says why
+    if (info.reason === undefined) without.push(...withoutFigure('hostLoad', own, (entry) => entry.load));
+    byRole[role] = { ...aggregate, without };
+  }
+  return { byRole, agents };
+}
+
 /**
  * Compute the review timing from a materialized trace.
  *
- * @param {object[]|{spans: object[], runId?: string, warnings?: string[]}} input
- *   a `readTrace()` result, or just its `spans`.
+ * @param {object[]|{spans: object[], runId?: string, warnings?: string[], load?: {ok: boolean, samples?: object[], warnings?: string[], reason?: string}}} input
+ *   a `readTrace()` result, or just its `spans`; `load` is what `pr-review-load.js#readLoadSamples` answers (the host-load samples of the run).
  * @returns {object} `{ ok: false, reason }` for input that is not a span list, else
  *   `{ ok: true, runId, wall, turns, toolCalls, agents, activeMs, orchestratorOnly,
- *      beforeFirstDispatch, criticalPath, stages, warnings }`. Every figure is
- *   `{ms, missing: false}` or `{ms: null, missing: true, reason}`.
+ *      beforeFirstDispatch, criticalPath, stages, warnings, hostLoad, agentStats }`. Every figure is
+ *   `{ms, missing: false}` or `{ms: null, missing: true, reason}`; the figures of `agentStats` (what the dispatcher supplied per agent) are
+ *   `{value, missing: false}` or `{value: null, missing: true, reason}`, and `hostLoad` is `{missing: false, ...}` or `{missing: true, reason}`.
  */
 function computeReviewTiming(input) {
   const spans = Array.isArray(input) ? input : isObject(input) ? input.spans : undefined;
@@ -738,7 +940,7 @@ function computeReviewTiming(input) {
     }
   }
 
-  return {
+  const result = {
     ok: true,
     runId,
     wall,
@@ -752,19 +954,26 @@ function computeReviewTiming(input) {
     stages: stageTable(spans),
     warnings,
   };
+  // What the dispatcher supplied per agent and the host load come last: everything above is exactly what it was without them.
+  const loadInfo = loadInfoOf(isObject(input) ? input.load : undefined, warnings);
+  result.hostLoad = hostLoadFigure(loadInfo, window);
+  result.agentStats = agentStatsOf(agentSpans, loadInfo);
+  return result;
 }
 
 function defaultDeps() {
   const runTrace = require('./run-trace');
-  return { readTrace: runTrace.readTrace, tracePath: runTrace.tracePath };
+  const load = require('./pr-review-load');
+  return { readTrace: runTrace.readTrace, tracePath: runTrace.tracePath, readLoad: load.readLoadSamples };
 }
 
 /**
  * Read `trace-<runId>.jsonl` under `<projectRoot>/.ensemble/state/toolchain/` and compute its
- * review timing. An unreadable or absent trace is `{ ok: false, reason }`, never an empty timing.
+ * review timing. An unreadable or absent trace is `{ ok: false, reason }`, never an empty timing. The host-load samples beside it
+ * (`load-<runId>.jsonl`, written by `pr-review-load.js`) are optional: without them `hostLoad` is missing with the reason.
  *
  * @param {{runId: string, projectRoot: string}} request
- * @param {{readTrace: Function, tracePath: Function}} [deps] real run-trace by default
+ * @param {{readTrace: Function, tracePath: Function, readLoad?: Function}} [deps] real run-trace and load reader by default
  */
 function loadReviewTiming(request, deps) {
   if (!isObject(request) || !isText(request.runId) || !isText(request.projectRoot)) {
@@ -779,7 +988,15 @@ function loadReviewTiming(request, deps) {
   } catch (error) {
     return { ok: false, reason: `cannot read the run trace: ${error && error.message ? error.message : String(error)}` };
   }
-  const result = computeReviewTiming({ spans: trace.spans, runId: request.runId, warnings: trace.warnings });
+  let load;
+  if (typeof io.readLoad === 'function') {
+    try {
+      load = io.readLoad(request.projectRoot, request.runId);
+    } catch (error) {
+      load = { ok: false, reason: `the load samples cannot be read: ${error && error.message ? error.message : String(error)}` };
+    }
+  }
+  const result = computeReviewTiming({ spans: trace.spans, runId: request.runId, warnings: trace.warnings, load });
   return result.ok ? { ...result, tracePath: file } : result;
 }
 
@@ -799,6 +1016,47 @@ function fmtFigure(figure) {
   return `${fmtMs(figure.ms)}${figure.pct !== undefined && figure.pct !== null ? ` (${figure.pct}%)` : ''}${tags.length ? ` [${tags.join(', ')}]` : ''}`;
 }
 
+const fmtStat = (value) => (value === null ? 'MISSING' : String(value));
+
+/** The run's host load: the 1-minute average's highest, mean and lowest, or why there is none. */
+function fmtHostLoad(load) {
+  if (load.missing) return `MISSING (${load.reason})`;
+  const apart = load.intervalMs === null ? '' : ` ${Math.round(load.intervalMs / 1000)}s apart`;
+  return `max ${load.load1.max.toFixed(2)}, mean ${load.load1.mean.toFixed(2)}, min ${load.load1.min.toFixed(2)} over ${load.samples} sample(s)${apart}${load.cpus === null ? '' : `, ${load.cpus} cpus`}`;
+}
+
+/**
+ * The agents' figures by role: one line per agent (every figure, or MISSING), what the role adds up to, and why each figure is missing (the
+ * `without` of the role). A figure nobody supplied is never printed as 0.
+ */
+function formatAgentStats(timing) {
+  const stats = timing.agentStats;
+  if (!isObject(stats) || !Array.isArray(stats.agents) || stats.agents.length === 0) return [];
+  const withLoad = isObject(timing.hostLoad) && timing.hostLoad.missing === false;
+  const lines = ['  agent figures from the collect payload (a figure nobody supplied is MISSING, never 0):'];
+  for (const role of AGENT_ROLES) {
+    const rows = stats.agents.filter((row) => row.role === role);
+    if (rows.length === 0) continue;
+    lines.push(`    ${role} (${rows.length} agent${rows.length === 1 ? '' : 's'})`);
+    for (const row of rows) {
+      const where = [row.round === null ? null : `round ${row.round}`, row.wave === null ? null : `wave ${row.wave}`].filter(Boolean).join(' ');
+      const figures = AGENT_STATS.map(({ key, label }) => `${label} ${fmtStat(row[key])}`).join('  ');
+      const load = withLoad ? `  load ${row.hostLoad === null ? 'MISSING' : `max ${row.hostLoad.load1Max.toFixed(2)}`}` : '';
+      lines.push(`      ${row.name}  ${where === '' ? '' : `${where}  `}${row.durationMs === null ? 'MISSING' : fmtMs(row.durationMs)}  ${figures}${load}`);
+    }
+    const aggregate = stats.byRole[role];
+    const totals = AGENT_STATS.filter(({ key, count }) => count && aggregate[key].known > 0).map(({ key, label }) => `${label} ${aggregate[key].total}${aggregate[key].lowerBound ? ' or more' : ''} (${aggregate[key].known} of ${aggregate.count} have one)`);
+    lines.push(`      totals: ${totals.length > 0 ? totals.join(', ') : 'no count was supplied'}`);
+    const groupsOf = (key) => aggregate.without.filter((group) => group.figure === key).length;
+    const why = aggregate.without.map((group) => {
+      const label = group.figure === 'hostLoad' ? 'load' : AGENT_STATS.find(({ key }) => key === group.figure).label;
+      return `${label}: ${group.reason}${group.figure === 'hostLoad' || groupsOf(group.figure) > 1 ? ` (${group.agents.join(', ')})` : ''}`;
+    });
+    if (why.length > 0) lines.push(`      MISSING: ${why.join('; ')}`);
+  }
+  return lines;
+}
+
 /** Human-readable report for a `computeReviewTiming` result. */
 function formatReviewTiming(timing) {
   if (!timing || timing.ok !== true) return `Review timing unavailable: ${timing && timing.reason ? timing.reason : 'no result'}`;
@@ -810,6 +1068,7 @@ function formatReviewTiming(timing) {
   out.push(`  agents active (union):       ${fmtFigure(timing.activeMs)}`);
   out.push(`  orchestrator-only:           ${fmtFigure(timing.orchestratorOnly)}`);
   out.push(`  before first dispatch:       ${fmtFigure(timing.beforeFirstDispatch)}`);
+  if (isObject(timing.hostLoad)) out.push(`  host load (1-minute average): ${fmtHostLoad(timing.hostLoad)}`);
   out.push(`  critical path:               ${fmtFigure(timing.criticalPath)}`);
   for (const round of timing.criticalPath.rounds) {
     const steps = round.steps
@@ -827,6 +1086,7 @@ function formatReviewTiming(timing) {
   }
   out.push(`  dispatched agents: ${timing.agents.count} (${timing.agents.unusable.length} unusable)`);
   if (timing.agents.lingerMs > 0) out.push(`  idle linger after the agents' last messages, not counted: ${fmtMs(timing.agents.lingerMs)}`);
+  out.push(...formatAgentStats(timing));
   out.push('  slowest per stage:');
   for (const name of STAGE_NAMES) {
     const row = timing.stages[name];

@@ -41,7 +41,8 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
    agent that has not finished at its own `deadlineAtIso` (the deadlines are not all alike: see Slices and deadlines): the
    runner records deadlines but cannot stop an agent.
 3. When the agents have FINISHED (their processes ended) or been stopped at their deadlines, call `collect` with `{ repoRoot, runId }`
-   (`runId` from the manifest). Only those keys, plus `triage` in step 5 or `adjudications` in step 6. Never collect on the first
+   (`runId` from the manifest). Only those keys, plus `triage` in step 5, `adjudications` in step 6 or, optionally, `agentStats`
+   (Agent stats, below). Never collect on the first
    sight of a result file: the runner cannot tell that an agent is done, and a file an agent rewrites after the runner read it is
    re-read only while that round's results are not used yet; after that it is flagged (`result-changed-after-read`) and the
    review is not mergeable until the operator decides it. Agents are told to write their result once.
@@ -104,7 +105,7 @@ nobody reviewed is reported as not reviewed" are the same as in light mode.
 | `DONE` | true | stop and report |
 | `NEEDS_FULL_MODE` | false | light mode only, and only when a brief the renderer refuses (for example a path with a space) means the runner cannot review mechanically: nothing was dispatched, run the narrated Steps 1-10 from the start |
 | `RUN_INVALIDATED` | false | the head moved (at any `collect`, a finished run's included): the run is over and nothing it produced is usable; start a new run on the new head |
-| `RUN_FAILED` | false | report the `reason` and the error: the review did not run to a verdict, so treat it as blocked. `head-unreadable` and `pr-not-open` leave a started run retryable by a later `collect`; `triage-refused` is not terminal either (fix the `triage` payload and call again); `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); at `prepare` the refusals `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` mean nothing was fetched, run or posted |
+| `RUN_FAILED` | false | report the `reason` and the error: the review did not run to a verdict, so treat it as blocked. `head-unreadable` and `pr-not-open` leave a started run retryable by a later `collect`; `triage-refused` is not terminal either (fix the `triage` payload and call again), nor is an `invalid-input` refusal (for example of a malformed `agentStats`): it recorded nothing, so fix the payload or leave the key out and call again; `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); at `prepare` the refusals `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` mean nothing was fetched, run or posted |
 
 `NEEDS_FULL_MODE` is the light-mode fallback, not an error to work around, and never a way to full mode: full mode runs
 in this runner. When a light run cannot review mechanically, nothing was dispatched and the narrated procedure is
@@ -240,6 +241,26 @@ output contract (the words and forms the brief refuses, generated from the rende
 the refused candidate stays as it was). A light run has no `TRIAGE`, so there the state above is the end. The
 reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `docs/guides/pr-review-run.md`.
 
+## Agent stats (optional, kata `nj2d`)
+
+On the omp harness a finished agent shows only its status, duration and structured output, so `tool_calls`, `turns` and `rate_limits` come out `null` with a reason (V2-1 does not deliver the reviewer-cost data that plan options O5 and O6 need), `effort` and `model` are what you asked for, not what ran, and a retry or 429 the harness handles inside is invisible.
+
+The runner cannot see an agent's tool calls, turns, effort, model, retries or 429s, so the dispatcher passes the ones it knows. Add
+`agentStats` to the `collect` that records an agent's wave (the one after the agents finished; a `PENDING` answer records nothing, so send
+them again then): `{ "<agent name>": { "tool_calls": 31, "turns": 33, "effort": "hi", "model": "<model id>", "retries": 0,
+"rate_limits": 0 } }`, an entry for each agent you have something for and each figure only when you have it. A count is a non-negative
+integer; `effort` and `model` are one short token. A figure you cannot get is left out, or is `null` with `"<figure>_reason": "why"` (one
+line): never `0` for what you do not know, a zero is a count. A malformed `agentStats` (a negative, NaN, a string for a count, an unknown
+key, a `null` with no reason, a name that is no agent of the run) is `RUN_FAILED` `invalid-input` before anything is recorded. The runner stamps each
+figure on its agent's trace span and never reads it back: it decides no verdict, gate or time, and `pr-review-cli timing` reports it by role. Figures for an
+agent this call did not record come back in `warnings`. Where a figure comes from is the harness's: the runner reads no session file (owner decision D8).
+The omp `task` job result reports status, duration and output only (observed 2026-11-11), so there pass `effort` and `model` when you chose them and leave
+the rest out or `null` with that reason.
+
+Host load is optional too: start `node "$PR_REVIEW_LOAD_CLI" sample --run-id <runId> --cwd <repoRoot> &` BEFORE `prepare` (pass that `runId` to `prepare`) and stop it when the review is over
+(`PR_REVIEW_LOAD_CLI` is resolved the way `PR_REVIEW_CLI` is, file `lib/pr-review-load.js`). It appends a load-average sample every 30 s beside the trace; `timing`
+reports `hostLoad` and each agent's highest load, MISSING with the reason when no sampler ran. Nothing waits for it.
+
 ## Honest limits
 
 * Deadlines and the concurrency cap are enforced by whoever dispatches (you), not by the runner.
@@ -288,6 +309,7 @@ reasoning, and why a rewrite or a re-run of the reviewer was not chosen, is in `
   defaults to the review's own `runId`, so a review has a trace file of its own; keep it that way for `timing` (two runs
   sharing one file have two `review` roots and no window). Its spans join a `/ensemble-pr-merge` run's trace only when
   the caller passes that run's id; nothing passes it today.
+  An agent's span also carries what the dispatcher supplied in `agentStats` (Agent stats, above); one it did not name has none.
 * `metrics.orchestratorTurns.atLeast` counts the model turns the protocol itself requires (runner calls plus dispatch
   rounds): a lower bound, not a transcript count. `metrics.wallMs` and `metrics.orchestratorTurns` are recorded
   honestly and `metrics.triageCalls` counts the `triage` calls. No before/after comparison against the narrated flow has

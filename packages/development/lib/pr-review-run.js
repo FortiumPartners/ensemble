@@ -100,6 +100,15 @@
  * model). A trace file that already holds another `review` root (a second run sharing `traceRunId`) has no usable window: give
  * each run its own trace.
  *
+ * AGENT STATS (kata nj2d, plan v2 section 5 child V2-1; owner decision D8: nothing is read from a session file): the runner cannot see an
+ * agent's tool calls, turns, effort, model, retries or 429s either, so the DISPATCHER supplies the ones it knows in the collect payload's
+ * `agentStats` (`{ "<agent name>": { tool_calls, turns, effort, model, retries, rate_limits } }`, `S.parseAgentStats`: a count is a
+ * non-negative integer, a figure the harness cannot supply is `null` WITH its `<figure>_reason`, never 0, and anything malformed refuses the
+ * whole payload as `invalid-input` before anything is recorded). `recordWave` stamps each agent's figures on its span as it ends it, so they
+ * are supplied with the collect that records the agent's wave; figures for an agent that call did not record are named in `warnings`, and
+ * for an agent the run does not have the payload is refused. A collect without `agentStats` ends every span exactly as it always did,
+ * and nothing here reads a figure back: stats are a record, never an input to a verdict, a gate or a wall time. `pr-review-cli timing` reports them.
+ *
  * SIZE (kata sfpb): what an agent has to read decides how it is planned. `planRunSlices` cuts the changed paths into slices of at
  * most `sliceMaxFiles` paths and about `sliceTargetLines` changed lines (policy keys; defaults derived from the one real full-mode
  * run, `lib/pr-review-sizing.js`), never more slices than let the whole review round, security lane included, run in ONE wave at
@@ -189,7 +198,7 @@ const ADJUDICATION_DISPOSITIONS = Object.freeze(['fix', 'deferred', 'not-applica
 const RESULT_CHANGED = 'result-changed-after-read';
 
 const PREPARE_KEYS = Object.freeze(['repo', 'pr', 'repoRoot', 'runId', 'traceRunId', 'baseSha', 'lastReviewedSha', 'remediationShas', 'dryRun', 'skipPrecheck', 'testFiles', 'testCommand', 'baselineTimeoutMs', 'nodeModules', 'stateRoot', 'agentAuthored']);
-const COLLECT_KEYS = Object.freeze(['repoRoot', 'runId', 'now', 'adjudications', 'triage']);
+const COLLECT_KEYS = Object.freeze(['repoRoot', 'runId', 'now', 'adjudications', 'triage', 'agentStats']);
 
 const RULES = Object.freeze([
   'Start exactly the agents of `agents`, in fresh contexts with READ-ONLY access, and pass each `prompt` through unedited; compose nothing yourself.',
@@ -925,6 +934,8 @@ function validateCollect(input) {
   if (input.now !== undefined && !Number.isFinite(typeof input.now === 'string' ? Date.parse(input.now) : input.now)) return 'now must be epoch milliseconds or an ISO timestamp';
   if (input.adjudications !== undefined && !Array.isArray(input.adjudications)) return 'adjudications must be an array';
   if (input.triage !== undefined && !isObject(input.triage)) return 'triage must be a JSON object';
+  const stats = S.parseAgentStats(input.agentStats);
+  if (!stats.ok) return stats.error;
   return null;
 }
 
@@ -981,8 +992,12 @@ function lastMessageOf(agent, record, closedAt, problems) {
   return { last_message_ts: new Date(at).toISOString() };
 }
 
-/** Records one collected wave in the run and ends its agents' spans. */
-function recordWave(run, wave, collected, now, tracer, deps) {
+/**
+ * Records one collected wave in the run and ends its agents' spans. `stats` (kata nj2d) holds what the dispatcher supplied at this collect, by agent
+ * name: each agent's figures are stamped on its span as supplied (and redacted like everything else written), and the entry is taken out of the map, so
+ * what is left in it afterwards is what this call could not place. A span without an entry ends with exactly what it always ended with.
+ */
+function recordWave(run, wave, collected, now, tracer, deps, stats) {
   const problems = { before: [], after: [] };
   for (const record of collected.agents) {
     const agent = wave.agents.find((a) => a.name === record.name);
@@ -991,7 +1006,9 @@ function recordWave(run, wave, collected, now, tracer, deps) {
     if (record.state === 'arrived' && isObject(record.read)) agent.read = record.read;
     if (Number.isFinite(record.arrivedAt)) agent.arrivedAt = record.arrivedAt;
     const lastMessage = lastMessageOf(agent, record, deps.now(), problems);
-    tracer.end(agent.spanId, record.state === 'arrived' ? 'ok' : record.state, { state: record.state, reason: record.reason, ...lastMessage });
+    const figures = stats === undefined ? undefined : stats.get(record.name);
+    if (figures !== undefined) stats.delete(record.name);
+    tracer.end(agent.spanId, record.state === 'arrived' ? 'ok' : record.state, { state: record.state, reason: record.reason, ...lastMessage, ...(figures === undefined ? {} : redactor(deps)(figures)) });
   }
   if (problems.before.length > 0) {
     notify(deps, `trace: the result file of ${problems.before.join(', ')} is dated before the agent was dispatched (a stale file of an earlier round?), so no last message is recorded for it: its span ends at the collect call`);
@@ -1002,6 +1019,29 @@ function recordWave(run, wave, collected, now, tracer, deps) {
   wave.status = 'collected';
   wave.collectedAt = now;
   wave.result = resultOf(collected);
+}
+
+/** The names of every agent the run has dispatched or planned, whatever its wave. */
+const agentNamesOf = (run) => new Set((Array.isArray(run.waves) ? run.waves : []).flatMap((wave) => wave.agents.map((agent) => agent.name)));
+
+/**
+ * Said in the answer's `warnings` when a collect was given figures for agents it did not record (kata nj2d): a span takes its attributes when it
+ * ends, so figures for an agent whose wave is still outstanding are not kept (send them with the collect that records the wave), and neither are
+ * figures for one a call already recorded. Grouped by what holds the agent's span.
+ */
+function unplacedStatsNotice(run, names) {
+  const why = (name) => {
+    const wave = (Array.isArray(run.waves) ? run.waves : []).find((w) => w.agents.some((a) => a.name === name));
+    if (wave === undefined || wave.status === 'planned') return 'not dispatched yet';
+    return wave.status === 'collected' ? 'its span was recorded by an earlier collect and takes no attributes after it ended' : 'their wave is still outstanding';
+  };
+  const groups = new Map();
+  for (const name of names) {
+    const reason = why(name);
+    groups.set(reason, [...(groups.get(reason) || []), name]);
+  }
+  const parts = [...groups].map(([reason, group]) => `${group.join(', ')} (${reason})`);
+  return `agent-stats: not recorded for ${parts.join('; ')}: the figures of an agent are stamped by the collect that records its wave, so send them with that call`;
 }
 
 /* ------------------------------------------------ result files that change after they were read (kata 271n) */
@@ -2111,7 +2151,7 @@ const TERMINAL_PHASES = Object.freeze(['done', 'invalidated', 'needs-full-mode',
  * which is trace bookkeeping: a failure of it never changes the answer of a call whose run is already over.
  */
 async function collectRun(input, deps) {
-  const ctx = { tracer: null, run: null };
+  const ctx = { tracer: null, run: null, stats: null };
   const answer = await collectStages(input, deps, ctx);
   const { run, tracer } = ctx;
   if (run !== null && run.rootSpanId !== null && run.rootSpanId !== undefined && run.rootEnded !== true && TERMINAL_PHASES.includes(run.phase)) {
@@ -2123,6 +2163,8 @@ async function collectRun(input, deps) {
       // the root is closed in the trace; a later collect tries the bookkeeping again
     }
   }
+  // figures the dispatcher supplied for agents this call did not record are said, never dropped in silence (kata nj2d)
+  if (ctx.stats !== null && ctx.stats.size > 0) notify(deps, unplacedStatsNotice(run, [...ctx.stats.keys()]));
   return answer;
 }
 
@@ -2136,8 +2178,17 @@ async function collectStages(input, deps, ctx) {
   if (run === null) return failure('RUN_FAILED', { reason: 'run-not-found', error: `no run ${input.runId} under ${input.repoRoot}` });
   if (run === undefined) return failure('RUN_FAILED', { reason: 'run-unreadable', error: 'run.json is not a run of this version' });
   const tracer = safeTracer(deps, run.traceRunId);
+  // an agent the run does not have is refused by name (a mistyped name is never dropped in silence): the figures belong to an agent of THIS run.
+  // The refusal comes BEFORE `ctx` takes the run up, so it writes nothing at all: `collectRun` closes the root span of a run that is over, and saves
+  // the run, only for a call that took it up (a refused payload on a run whose root span is still open must not do that bookkeeping).
+  const stats = S.parseAgentStats(input.agentStats).stats;
+  const names = agentNamesOf(run);
+  for (const name of stats.keys()) {
+    if (!names.has(name)) return failure('RUN_FAILED', { reason: 'invalid-input', error: `agentStats names ${JSON.stringify(name)}, which is no agent of run ${run.runId} (agents are named in the DISPATCH manifests; a verifier exists only once its wave is dispatched)` });
+  }
   ctx.run = run;
   ctx.tracer = tracer;
+  ctx.stats = stats;
 
   if (['invalidated', 'needs-full-mode', 'failed'].includes(run.phase)) return run.result;
 
@@ -2224,7 +2275,7 @@ async function collectStages(input, deps, ctx) {
       waiting.push({ wave, pending });
       continue;
     }
-    recordWave(run, wave, collected, now, tracer, deps);
+    recordWave(run, wave, collected, now, tracer, deps, stats);
   }
   // ---- 2a. a quorum-first verify round (kata 3ezq): a candidate whose first wave did not settle it is given the rest of its electorate, which joins the
   // planned verifiers below, so the rolling refill (the cap) or the next wave dispatches it

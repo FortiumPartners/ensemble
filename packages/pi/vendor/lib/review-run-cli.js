@@ -12,7 +12,9 @@
  *   the merge base), lastReviewedSha?, remediationShas?, dryRun?, skipPrecheck?, testFiles?, testCommand?,
  *   baselineTimeoutMs?, nodeModules?, stateRoot?, agentAuthored? }
  * collect payload: { repoRoot:"<absolute clone>", runId, now?, adjudications?:[{id, disposition:"fix|deferred|not-applicable", reason}],
- *   triage?:{additionalCandidates:[{locationOrLink:"file:line", failureMode, severity?:"important|nit", evidence?}]} (full mode only) }
+ *   triage?:{additionalCandidates:[{locationOrLink:"file:line", failureMode, severity?:"important|nit", evidence?}]} (full mode only),
+ *   agentStats?:{"<agent name>":{tool_calls?, turns?, effort?, model?, retries?, rate_limits?, <figure>_reason?}} (kata nj2d: what the
+ *   dispatcher knows of each agent, only recorded on its trace span; a malformed one is RUN_FAILED invalid-input) }
  *
  * stdout: ONE JSON object, token-shaped strings redacted. `ok:true` (exit 0): DISPATCH | PENDING | TRIAGE | DONE | ADJUDICATE.
  * `ok:false` (exit 1): NEEDS_FULL_MODE (a light run whose brief the renderer refuses) | RUN_INVALIDATED | RUN_FAILED (also: an

@@ -180,6 +180,9 @@
  *   timing     { runId, cwd? } | { spans }
  *              -- `runId` reads `<cwd or the current directory>/.ensemble/state/toolchain/trace-<runId>.jsonl`;
  *              `spans` takes materialized run-trace spans directly. Exactly one of the two is required.
+ *              The answer ends with `hostLoad` and `agentStats` (kata nj2d): the host's 1-minute load average from `lib/pr-review-load.js`
+ *              samples next to the trace, and, per agent and by role, the tool calls, turns, effort, model, retries and 429s the dispatcher
+ *              supplied at `review-run collect` (`agentStats`). A figure nobody supplied is `null` with a reason in `without`, never 0.
  *
  * `walltime` (kata vrda) answers review WALL TIME by tier from cohort documents (the committed
  * docs/guides/review-walltime-baseline-<date>.json is one) and compares a post-change cohort with that baseline:

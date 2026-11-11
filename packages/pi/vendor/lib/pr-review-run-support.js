@@ -15,7 +15,8 @@
  *   - `chunk`              agents -> waves of at most `maxConcurrentAgents`;
  *   - `reviewerContract`, `verifierContract`, `agentPrompt`  the text an agent is given (a reviewer's also states what the verifier brief refuses, kata 0g9n);
  *   - `adjudicateList`     the findings a person must decide;
- *   - `computeMetrics`     the AC5 timing record, from the run's own call log and agent times.
+ *   - `computeMetrics`     the AC5 timing record, from the run's own call log and agent times;
+ *   - `parseAgentStats`    the per-agent figures a dispatcher supplies at collect (kata nj2d), checked and kept as supplied, never guessed.
  */
 
 const path = require('path');
@@ -640,6 +641,81 @@ function computeMetrics(run, endAt) {
   };
 }
 
+/* ------------------------------------------------------------------- agent stats (kata nj2d) */
+
+/** The counts a dispatcher may report for an agent: its tool calls and model turns, how often it was started again, and the 429s its calls met. */
+const STAT_COUNTS = Object.freeze(['tool_calls', 'turns', 'retries', 'rate_limits']);
+/** The names it may report (effort tier, model): short, one token, so a figure cannot carry prose or a credential-shaped string into a trace. */
+const STAT_NAMES = Object.freeze({ effort: /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/, model: /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$/ });
+const STAT_FIGURES = Object.freeze([...STAT_COUNTS, ...Object.keys(STAT_NAMES)]);
+const STAT_KEYS = Object.freeze(STAT_FIGURES.flatMap((figure) => [figure, `${figure}_reason`]));
+/** The longest reason a dispatcher may give for a figure it cannot supply. */
+const STAT_REASON_MAX = 300;
+/** A reason is one line of text: no control character (C0, DEL, and the C1 range with NEL U+0085) and no line or paragraph separator (U+2028, U+2029). */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/** A value as an error message shows it: bounded, and a NaN is a NaN (JSON would print it as null). */
+function shownStat(value) {
+  if (typeof value === 'number') return String(value);
+  const text = JSON.stringify(value) || String(value);
+  return text.length > 40 ? `${text.slice(0, 40)}...` : text;
+}
+
+/**
+ * The `agentStats` of a collect payload (kata nj2d): what the DISPATCHER knows about each agent that the runner cannot (it cannot see the
+ * model): `{ "<agent name>": { tool_calls, turns, effort, model, retries, rate_limits } }`. A count is a non-negative integer, `effort` and
+ * `model` are short names, and a figure the harness cannot supply is `null` WITH its `<figure>_reason` (as `walltime row` states what it does
+ * not know), never 0: a figure that is known carries no reason, a reason without a null figure is refused, and a figure the dispatcher
+ * leaves out is not supplied at all. Anything else (a negative, NaN, a string for a count, an unknown key, an entry that is no object) refuses
+ * the whole payload, so a figure is only ever recorded as it was supplied.
+ *
+ * @returns {{ok: true, stats: Map<string, Object>}|{ok: false, error: string}} the entries as supplied (only the keys above), by agent name
+ */
+function parseAgentStats(raw) {
+  if (raw === undefined) return { ok: true, stats: new Map() };
+  if (!isObject(raw)) return { ok: false, error: 'agentStats must be a JSON object: { "<agent name>": { "tool_calls": 31, "turns": 33, "effort": "hi", "model": "<model>", "retries": 0, "rate_limits": 0 } }' };
+  const stats = new Map();
+  for (const name of Object.keys(raw)) {
+    const entry = raw[name];
+    const where = `agentStats[${JSON.stringify(name)}]`;
+    const refuse = (problem) => ({ ok: false, error: `${where}${problem}` });
+    if (!isObject(entry)) return refuse(' must be a JSON object of figures');
+    for (const key of Object.keys(entry)) {
+      if (!STAT_KEYS.includes(key)) return refuse(` has an unknown key ${JSON.stringify(key)} (the figures are ${STAT_FIGURES.join(', ')}; a null figure is explained by <figure>_reason)`);
+    }
+    const figures = {};
+    for (const figure of STAT_FIGURES) {
+      const reasonKey = `${figure}_reason`;
+      if (!hasOwn(entry, figure)) {
+        if (hasOwn(entry, reasonKey)) return refuse(`.${reasonKey} needs ${figure}: null (a reason explains a figure that is null)`);
+        continue;
+      }
+      const value = entry[figure];
+      if (value === null) {
+        if (!hasOwn(entry, reasonKey)) return refuse(`.${figure} is null, so it needs ${reasonKey} (why the harness cannot supply it)`);
+        const reason = entry[reasonKey];
+        if (typeof reason !== 'string' || reason.trim() === '' || reason.length > STAT_REASON_MAX || CONTROL_CHARACTERS.test(reason)) {
+          return refuse(`.${reasonKey} must be one line of text of 1 to ${STAT_REASON_MAX} characters`);
+        }
+        figures[figure] = null;
+        figures[reasonKey] = reason;
+        continue;
+      }
+      if (hasOwn(entry, reasonKey)) return refuse(` has ${reasonKey} although ${figure} is known (a reason is only for a null figure)`);
+      if (STAT_COUNTS.includes(figure)) {
+        if (!Number.isSafeInteger(value) || value < 0) return refuse(`.${figure} must be a non-negative integer or null (got ${shownStat(value)})`);
+      } else if (typeof value !== 'string' || !STAT_NAMES[figure].test(value)) {
+        return refuse(`.${figure} must be a short name (letters, digits and . _ - : / @ +, no spaces) or null (got ${shownStat(value)})`);
+      }
+      figures[figure] = value;
+    }
+    stats.set(name, figures);
+  }
+  return { ok: true, stats };
+}
+
 module.exports = {
   deriveKinds,
   planDepth,
@@ -658,6 +734,7 @@ module.exports = {
   agentPrompt,
   adjudicateList,
   computeMetrics,
+  parseAgentStats,
   unionMs,
   LENSES,
   MAX_CANDIDATES_PER_VERIFIER,

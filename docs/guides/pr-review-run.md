@@ -74,10 +74,11 @@ records that. A precheck that fails is recorded, not fatal.
 fork (`cross-repository-head`), a head whose repository GitHub did not state (`head-repository-unknown`) and a PR that is
 not OPEN (`pr-not-open`). A `baseSha` that is not the merge base (`base-not-merge-base`) is refused before prepare.
 
-`collect`: `{ repoRoot, runId, now?, adjudications?, triage? }` and nothing else; everything else is read from the run
+`collect`: `{ repoRoot, runId, now?, adjudications?, triage?, agentStats? }` and nothing else; everything else is read from the run
 directory. `adjudications` is `[{ id, disposition: "fix" | "deferred" | "not-applicable", reason }]`. `triage` is
 `{ additionalCandidates: [{ locationOrLink: "path/file.js:12", failureMode, severity: "important" | "nit", evidence }] }`
-and is only for the `TRIAGE` status.
+and is only for the `TRIAGE` status. `agentStats` is optional and only a record: `{ "<agent name>": { tool_calls?, turns?, effort?, model?, retries?,
+rate_limits? } }` (Agent stats and host load, below).
 
 ## Statuses
 
@@ -90,7 +91,7 @@ and is only for the `TRIAGE` status.
 | `ADJUDICATE` | true | as `DONE`, plus `adjudicate: [{ id, why }]`; the gate already treats those items as open |
 | `RUN_INVALIDATED` | false | the head moved, at any `collect` including one on a finished run (`reason: head-moved`); the run's answer is never repeated for the new head, and a started run that was invalidated before it finished stays so |
 | `NEEDS_FULL_MODE` | false | light mode only, a brief the renderer refuses (for example a path with a space): nothing was dispatched and the runner cannot review mechanically; the narrated Steps 1-10 in the skill remain the manual procedure |
-| `RUN_FAILED` | false | a stage failed or a refusal: `head-unreadable` and `pr-not-open` leave a started run retryable; `triage-refused` is not terminal (fix the `triage` payload and call again); `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); `mode-invariant` is a stored run whose mode label, depth, verifier count or lane no longer says what it was prepared as; `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` at `prepare` mean nothing was run |
+| `RUN_FAILED` | false | a stage failed or a refusal: `head-unreadable` and `pr-not-open` leave a started run retryable; `triage-refused` is not terminal (fix the `triage` payload and call again), nor is `invalid-input` (a malformed payload, `agentStats` included: nothing was recorded, so fix it or leave the key out and call again); `brief-refused` is a full-mode brief the renderer refuses, and its answer carries `decision` and `fallback` (below); `mode-invariant` is a stored run whose mode label, depth, verifier count or lane no longer says what it was prepared as; `cross-repository-head`, `head-repository-unknown`, `pr-not-open` and `base-not-merge-base` at `prepare` mean nothing was run |
 
 An agent that never arrives is reported, never read as having reviewed: its slice is in `notReviewed`, it is a gap of the
 coverage record (below) that stops the merge gate and the local phase, and a verifier that did not arrive leaves its finding unverified unless a strict majority of the expected verifiers already voted it real (what a candidate needs of its verifiers, under Deadlines). `REVIEW_COMPLETE` is only ever relayed from the
@@ -959,13 +960,66 @@ and the verdict after the root has closed and records both there; those spans li
 leaves them out of the critical path. The runner no longer writes `precheck` and `prepare-head` spans (the reader never
 read them).
 
-Limits: the root opens after the first read of the PR head (the run id depends on it), `turns` and `tool_calls` are not
-recorded (the runner cannot see the model, so the reader reports them missing), and a `Quick` review has no verifier, so
+Limits: the root opens after the first read of the PR head (the run id depends on it), the review span's `turns` and `tool_calls` are not
+recorded (the runner cannot see the model, so the reader reports them missing; an AGENT's figures are the dispatcher's, below), and a `Quick` review has no verifier, so
 its critical path is missing. `traceRunId` defaults to the review's own `runId`, so a review writes a trace file of its
 own, which is what `timing` needs: its spans land in the same file as a `/ensemble-pr-merge` run's trace only when the
 caller passes that run's id as `traceRunId`, and a file that holds two `review` roots (two runs sharing a `traceRunId`)
 has no usable window. Nothing passes it automatically and the `/ensemble-pr-merge` prose does not today. Tracing never
 fails a run.
+
+## Agent stats and host load (kata `nj2d`)
+
+**On the omp harness this records almost none of what V2-1 was meant to measure.** A finished agent shows only its status, duration and structured output, so `tool_calls`, `turns` and `rate_limits` are `null` with a reason, and V2-1 does NOT deliver the per-agent tool calls, effort and 429s that plan options O5 and O6 (the reviewer budget and tier decisions) need. `effort` and `model` are what the dispatcher ASKED for, not what was used, and a retry or 429 the harness handles inside is invisible. The table below shows what the harness exposes.
+
+Plan v2 section 5 child V2-1 (`docs/plans/pr-review-speed-plan-v2.md`), under owner decision D8: how many tool calls, turns, retries and 429s an
+agent had, and at what effort and model, is recorded from what the HARNESS exposes and never from a session file; a figure it cannot supply is
+`null` with a reason, never 0. The runner cannot see the model, so the dispatcher passes what it knows in `collect`.
+
+**Payload.** `agentStats: { "<agent name>": { "tool_calls": 31, "turns": 33, "effort": "hi", "model": "<model id>", "retries": 0, "rate_limits": 0 } }`,
+an entry for each agent the dispatcher has something for and each figure only when it has it. A count is a non-negative integer (a string, a
+negative, NaN or a fraction is refused), `effort` and `model` are one token of at most 32 and 100 characters. A figure that is not known is left out, or is
+`null` with `"<figure>_reason"` (one line of at most 300 characters); a known figure carries no reason and a reason with no `null` figure is refused. Any
+malformed entry, an unknown key, or a name that is no agent of the run (the verifiers exist only once their wave is dispatched) refuses the whole
+payload as `RUN_FAILED` `invalid-input` before anything is recorded: not terminal, and the same `collect` without the key (or corrected) goes on. The
+checks are `parseAgentStats` in `lib/pr-review-run-support.js`.
+
+**What is recorded.** `recordWave` stamps each figure on the end of its agent's span as it was supplied (redacted like everything the runner writes),
+so figures are sent with the `collect` that records the agent's wave (the one after the agents finished: a `PENDING` answer records nothing). Figures
+for an agent that call did not record (its wave is still outstanding, an earlier `collect` recorded it, or the run is over) are not kept, and the answer's
+`warnings` name them. Nothing reads a figure back: a collect with stats answers exactly what the same collect without them answers, and one without any ends
+every span with exactly `state`, `reason` and `last_message_ts`, as before (`tests/pr-review-agent-stats.test.js` pins both against the bytes the runner
+produced before this change). Wall time, the gate and the verdict are unchanged.
+
+**What `pr-review-cli timing` reports** (`agentStats`, beside the figures it always had): a row per agent span (`role`, `name`, `round`, `wave`, `durationMs`, each
+figure as its value or `null`, and `hostLoad`) and, by role, `toolCalls`, `turns`, `retries` and `rateLimits` as `{ known, missing, total, min, max }` (a lower bound,
+`lowerBound: true`, while some agent has none; `total`, `min` and `max` are `null` with a `reason` when none has), `effort` and `model` counted by value, and
+`without`: every agent that has no figure, grouped by figure and reason (the dispatcher's own `<figure>_reason`, else "the dispatcher supplied no <figure> for this
+agent at collect"). So the answer prints each agent's tool calls, or names the agent without one and says why. It stays compact (about 0.4 KB per agent; the
+61-agent trace of the first measurement is 24 KB). The text form (`node pr-review-timing.js <runId>`) prints a line per agent with every figure or MISSING.
+
+**What the harness offers** (observed 2026-11-11 on the omp `task` tool with two throwaway `scout` agents; no transcript or session file was opened):
+
+| Surface | What it shows |
+|---|---|
+| the `task` call | `Spawned agent <id> (job <id>)` |
+| the follow-up message, and `read proc://<id>` | `<task-result id="<id>" agent="scout" status="completed" duration="42.9s">` and the agent's `<output>` (its structured output) |
+| `read agent://<id>` | finished: the output only; running: "No final output yet ... Nothing produced yet." |
+| `read proc://` (the list) | finished: `<id> [task] completed in 42.9s -- <label>`; running: `<id> [task] running up 14.6s -- <label> -- 5 req . ctx 27K/197K` (model requests so far and context in use; gone once the agent finishes) |
+
+After an agent finishes the harness offers a status, a duration and the output: no tool-call count, turns, requests, tokens, cost, model, effort, retries or 429s.
+So with this harness the dispatcher can pass `effort` and `model` (the values it gave the `task` call: what it asked for, not what the harness reports) and `retries` (its
+own count of starting the agent again), and leaves `tool_calls`, `turns` and `rate_limits` out or `null` with that reason. The live `req` count is not final, and this change does not use it.
+
+**Host load.** `node lib/pr-review-load.js sample --run-id <runId> --cwd <repoRoot>` (see its header) appends a load-average sample every 30 s (`--interval-sec`) to
+`<repoRoot>/.ensemble/state/toolchain/load-<runId>.jsonl`, beside the trace, until it is stopped (SIGTERM or SIGINT, exit 0), has taken `--max-samples` or has run
+`--max-minutes` (default 120). Start it before `prepare` in the background with the `runId` you pass to `prepare`; a review does not wait for it and one without
+samples reports `hostLoad` as `{ missing: true, reason }`. `timing` summarizes the samples inside the orchestrator window (`load1` lowest, mean and highest, `cpus`,
+`intervalMs`) and gives each agent the highest 1-minute load while it ran (`hostLoad: { samples, load1Max }`, or `null` and named in `without`). A platform
+without load averages (win32 reports 0 for all three) is refused rather than written as 0, and a line that is no sample is skipped with its line number, never read as 0.
+
+**Not done.** `summary.json` of the measurement runs (slice sizes, per-reviewer finding counts and every round's per-candidate vote tallies, which V2-1 wants
+committed) is written by the measurement driver, which is not in the repository, so it is not changed here.
 
 ## Left open
 
