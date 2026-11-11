@@ -18,8 +18,8 @@ $ARGUMENTS unchanged, and does not re-implement any of their phases.
 
 ## Subcommands
 
-- **`discover`** - Analyze the codebase and extract coding conventions into a standards/ directory with index.yml. Invoke `/ensemble:discover-standards` directly, or read and follow `packages/core/commands/ensemble/discover-standards.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`inject`** - Selectively inject relevant standards from standards/index.yml into agent context based on the current task. Invoke `/ensemble:inject-standards` directly, or read and follow `packages/core/commands/ensemble/inject-standards.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`discover`** - Analyze the codebase and extract coding conventions into a standards/ directory with index.yml. Invoke `/ensemble:discover-standards` directly, or read and follow `packages/core/skills/ensemble-discover-standards/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`inject`** - Selectively inject relevant standards from standards/index.yml into agent context based on the current task. Invoke `/ensemble:inject-standards` directly, or read and follow `packages/core/skills/ensemble-inject-standards/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 - **`fold`** - Optimize CLAUDE.md for token efficiency, standards discovery, and progressive context loading. Invoke `/ensemble:fold-prompt` directly, or read and follow `packages/core/skills/ensemble-fold-prompt/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 
 ## Workflow

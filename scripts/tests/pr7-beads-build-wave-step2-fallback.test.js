@@ -25,8 +25,13 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+const { readSkillProse } = require('../lib/skill-backed-command');
+
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const SOURCE_PATH = path.join(REPO_ROOT, 'packages', 'development', 'commands', 'beads-build-wave.yaml');
+// beads-build-wave is skill-backed: its YAML is a manifest, the prompt (source of truth) is its skill
+// (SKILL.md + references/). SOURCE_PATH is that skill; the source-text assertions read its prose.
+const SOURCE_PATH = path.join(REPO_ROOT, 'packages', 'development', 'skills', 'ensemble-beads-build-wave', 'SKILL.md');
+const readSource = () => readSkillProse(SOURCE_PATH);
 const CLAUDE_GENERATED_PATH = path.join(
   REPO_ROOT,
   'packages',
@@ -54,12 +59,12 @@ const BUGGY_TRIGGER_PHRASE = /unavailable, errors, or returns zero tracks/;
 
 describe('PR7 independent review P1: beads-build-wave.yaml Step 2 fallback condition is never inverted, in source or in any generated runtime copy', () => {
   test('source YAML does not contain the buggy "unavailable, errors, or returns zero tracks" trigger phrase', () => {
-    const contents = fs.readFileSync(SOURCE_PATH, 'utf8');
+    const contents = readSource();
     expect(contents).not.toMatch(BUGGY_TRIGGER_PHRASE);
     // Sanity: the file still documents the CORRECT condition explicitly, so this isn't merely
     // an accidental rewording that silently dropped the fallback altogether.
     expect(contents).toContain('If the result is {ok:false} (UNAVAILABLE or any other error)');
-    expect(contents).toContain("that is an EMPTY PLAN, handled at Step 3''s empty-plan edge (Step 7), never a fallback trigger");
+    expect(contents).toContain("that is an EMPTY PLAN, handled at Step 3's empty-plan edge (Step 7), never a fallback trigger");
   });
 
   test('claude/markdown generated copy (packages/development/commands/ensemble/beads-build-wave.md) does not contain the buggy phrase', () => {
@@ -108,7 +113,7 @@ describe('PR7 independent review P1: beads-build-wave.yaml Step 2 fallback condi
     test('a /tmp copy with Step 2 reverted to the inverted condition is caught by the same assertion', () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr7-beads-build-wave-mutant-'));
       try {
-        const original = fs.readFileSync(SOURCE_PATH, 'utf8');
+        const original = readSource();
         const needle = 'If the result is {ok:false} (UNAVAILABLE or any other error): run';
         expect(original).toContain(needle);
         const mutated = original.replace(
@@ -123,7 +128,7 @@ describe('PR7 independent review P1: beads-build-wave.yaml Step 2 fallback condi
         expect(fs.readFileSync(copyPath, 'utf8')).toMatch(BUGGY_TRIGGER_PHRASE);
 
         // Confirm again against the real, unmutated source: still clean.
-        expect(fs.readFileSync(SOURCE_PATH, 'utf8')).not.toMatch(BUGGY_TRIGGER_PHRASE);
+        expect(readSource()).not.toMatch(BUGGY_TRIGGER_PHRASE);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }

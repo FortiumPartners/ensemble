@@ -36,7 +36,10 @@ describe('every subagent_type dispatched by a command resolves to a real agent',
     .readdirSync(commandsDir)
     .filter((f) => f.endsWith('.yaml'))
     .flatMap((file) => {
-      const text = fs.readFileSync(path.join(commandsDir, file), 'utf8');
+      // skill-backed commands keep their prompt in the skill (SKILL.md + references/)
+      const yamlPath = path.join(commandsDir, file);
+      const raw = fs.readFileSync(yamlPath, 'utf8');
+      const text = readCommandProse(yamlPath, require('js-yaml').load(raw), raw);
       const matches = text.match(/subagent_type=(?:"|')?([^,)"'\s]*)/g) || [];
       return matches.map((m) => ({
         file,

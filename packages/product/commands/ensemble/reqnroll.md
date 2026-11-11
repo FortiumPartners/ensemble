@@ -20,11 +20,11 @@ reached only through this dispatcher.
 
 ## Subcommands
 
-- **`features`** - Generate Gherkin .feature files and a traceability manifest from a PRD's acceptance criteria. Invoke `/ensemble:generate-feature-tests` directly, or read and follow `packages/product/commands/ensemble/generate-feature-tests.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`feature-drift`** - Detect drift between a PRD's acceptance criteria and its generated Gherkin feature files. Invoke `/ensemble:check-feature-drift` directly, or read and follow `packages/product/commands/ensemble/check-feature-drift.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`bindings`** - Scaffold a runnable Reqnroll + xUnit test project (features, step stubs, project files) from a PRD. Invoke `/ensemble:generate-reqnroll-bindings` directly, or read and follow `packages/product/commands/ensemble/generate-reqnroll-bindings.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`binding-drift`** - Detect drift between a PRD's acceptance-criteria steps and the Reqnroll step bindings on disk. Invoke `/ensemble:check-binding-drift` directly, or read and follow `packages/product/commands/ensemble/check-binding-drift.md`, passing the remaining arguments through as its $ARGUMENTS.
-- **`tdd`** - Drive PRD acceptance criteria to green via an outside-in, red-gated Reqnroll + xUnit test-first loop. Invoke `/ensemble:reqnroll-tdd` directly, or read and follow `packages/product/commands/ensemble/reqnroll-tdd.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`features`** - Generate Gherkin .feature files and a traceability manifest from a PRD's acceptance criteria. Invoke `/ensemble:generate-feature-tests` directly, or read and follow `packages/product/skills/ensemble-generate-feature-tests/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`feature-drift`** - Detect drift between a PRD's acceptance criteria and its generated Gherkin feature files. Invoke `/ensemble:check-feature-drift` directly, or read and follow `packages/product/skills/ensemble-check-feature-drift/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`bindings`** - Scaffold a runnable Reqnroll + xUnit test project (features, step stubs, project files) from a PRD. Invoke `/ensemble:generate-reqnroll-bindings` directly, or read and follow `packages/product/skills/ensemble-generate-reqnroll-bindings/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`binding-drift`** - Detect drift between a PRD's acceptance-criteria steps and the Reqnroll step bindings on disk. Invoke `/ensemble:check-binding-drift` directly, or read and follow `packages/product/skills/ensemble-check-binding-drift/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
+- **`tdd`** - Drive PRD acceptance criteria to green via an outside-in, red-gated Reqnroll + xUnit test-first loop. Invoke `/ensemble:reqnroll-tdd` directly, or read and follow `packages/product/skills/ensemble-reqnroll-tdd/SKILL.md`, passing the remaining arguments through as its $ARGUMENTS.
 
 ## Workflow
 

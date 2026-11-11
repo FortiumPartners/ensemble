@@ -18,13 +18,14 @@ const { readDevelopmentSkill, parseWorkflow } = require('./helpers/skill-workflo
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-// implement-trd-beads, beads-build and implement-bead are skill-backed: their YAML is a manifest
+// implement-trd-beads, beads-build, implement-bead and beads-build-wave are skill-backed: their YAML is a manifest
 // (metadata + skill) and the prompt is the skill (SKILL.md + references/). `prose` returns the
 // prompt for those and the source text for the rest.
 const SKILL_BACKED = {
   'commands/implement-trd-beads.yaml': 'ensemble-implement-trd-beads',
   'commands/beads-build.yaml': 'ensemble-beads-build',
   'commands/implement-bead.yaml': 'ensemble-implement-bead',
+  'commands/beads-build-wave.yaml': 'ensemble-beads-build-wave',
 };
 const prose = (rel) => (SKILL_BACKED[rel] ? readDevelopmentSkill(SKILL_BACKED[rel]).prompt : read(rel));
 const manifest = (rel) => yaml.load(read(rel));
@@ -61,7 +62,7 @@ describe('beads engine sources', () => {
   });
 
   test('the wave command and beads-build both define the work-graph.plan/work-graph.ready scheduling fallback', () => {
-    expect(read('commands/beads-build-wave.yaml')).toMatch(/work-graph\.ready capability when plan is unavailable/);
+    expect(prose('commands/beads-build-wave.yaml')).toMatch(/work-graph\.ready capability when plan is unavailable/);
     const build = manifest('commands/beads-build.yaml');
     expect(build.metadata.capabilities.required).toContain('work-graph.ready');
     expect(build.metadata.capabilities.optional).toContain('work-graph.plan');

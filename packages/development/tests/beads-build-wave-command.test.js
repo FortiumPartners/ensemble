@@ -5,76 +5,63 @@ const { readDevelopmentSkill } = require('./helpers/skill-workflow');
 
 describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () => {
   const yamlPath = path.join(__dirname, '../commands/beads-build-wave.yaml');
+  // beads-build-wave is skill-backed: the prompt is its skill (SKILL.md + references/), the YAML a manifest.
+  const waveSkill = readDevelopmentSkill('ensemble-beads-build-wave');
+  const text = waveSkill.prompt;
+  const execBlock = waveSkill.references.find((r) => r.file.includes('phase-2-')).text;
 
   test('metadata declares the single-wave primitive contract', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toMatch(/name: ensemble:beads-build-wave/);
+    expect(fs.readFileSync(yamlPath, 'utf8')).toMatch(/name: ensemble:beads-build-wave/);
     expect(text).toMatch(/Single-wave primitive/);
     expect(text).toMatch(/non-recursive/);
   });
 
   test('required --epic argument and HALT on absence', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     const block = text.slice(
-      text.indexOf('title: Argument Parsing'),
-      text.indexOf('title: Tool Availability Check')
+      text.indexOf('#### Step 1.1: Argument Parsing'),
+      text.indexOf('#### Step 1.2: Toolchain Preflight')
     );
     expect(block).toMatch(/--epic <id> sets ROOT_EPIC_ID/);
     expect(block).toMatch(/ERROR: --epic <id> is required/);
   });
 
   test('bv is optional: falls back to work-graph.ready, one bead per track', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).not.toMatch(/bv \(beads_viewer\) is required/);
     expect(text).toMatch(/work-graph\.ready/);
     expect(text).toMatch(/single-bead track/);
   });
 
   test('stages explicit paths, never a blanket stage or .beads', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).toMatch(/stage exactly the files the wave modified/);
     expect(text).toMatch(/NEVER a blanket or whole-directory stage, an auto-staging commit, or anything under \.beads\//);
     expect(text).toMatch(/run workflow\.commit/);
   });
 
   test('workflow is exactly two phases: Preflight + Execute (no Quality Gate, no Completion)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toMatch(/- name: Preflight/);
-    expect(text).toMatch(/- name: Execute/);
-    expect(text).not.toMatch(/- name: Quality Gate/);
-    expect(text).not.toMatch(/- name: Completion/);
+    // The phases are the `### Phase N: <name>` headings of the reference files.
+    expect(text).toMatch(/^### Phase 1: Preflight$/m);
+    expect(text).toMatch(/^### Phase 2: Execute$/m);
+    expect(text).not.toMatch(/^### Phase \d+: Quality Gate$/m);
+    expect(text).not.toMatch(/^### Phase \d+: Completion$/m);
+    expect(waveSkill.references).toHaveLength(2);
   });
 
   test('Execute phase has exactly one step: Single-Wave Dispatch', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execBlock = text.slice(
-      text.indexOf('- name: Execute'),
-      text.indexOf('expectedInput:')
-    );
-    expect(execBlock).toMatch(/title: Single-Wave Dispatch/);
-    expect(execBlock).toMatch(/Step 1 \(sync\): before this command''s first tracker write/);
+    expect(execBlock).toMatch(/#### Step 2\.1: Single-Wave Dispatch/);
+    expect(execBlock.match(/^#### Step /gm)).toHaveLength(1);
+    expect(execBlock).toMatch(/Step 1 \(sync\): before this command's first tracker write/);
     expect(execBlock).toMatch(/Step 5 \(concurrent dispatch\)/);
     expect(execBlock).toMatch(/Step 6 \(barrier\)/);
     expect(execBlock).toMatch(/Step 8 \(build summary\)/);
   });
 
   test('no-recursion contract: command must NOT call itself or sibling wave-runners', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execBlock = text.slice(
-      text.indexOf('- name: Execute'),
-      text.indexOf('expectedInput:')
-    );
     expect(execBlock).toMatch(/Does NOT loop/);
     expect(execBlock).toMatch(/Does NOT call itself recursively/);
     expect(execBlock).toMatch(/Does NOT invoke any sibling wave-runner subagent/);
   });
 
   test('JSON summary schema is documented and is the only output', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    const execBlock = text.slice(
-      text.indexOf('- name: Execute'),
-      text.indexOf('expectedInput:')
-    );
     expect(execBlock).toMatch(/remaining_scoped_count/);
     expect(execBlock).toMatch(/terminal_state/);
     expect(execBlock).toMatch(/next_action_hint/);
@@ -83,7 +70,6 @@ describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () 
   });
 
   test('payload per track includes goal, scope, team_roles, track_beads, lifecycle_contract', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).toMatch(/track_beads/);
     expect(text).toMatch(/lifecycle_contract/);
     expect(text).toMatch(/context_contract/);
@@ -92,8 +78,7 @@ describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () 
   });
 
   test('Preflight refuses to dispatch on the repository default branch (hard precondition, no self-serve branch creation)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
-    expect(text).toMatch(/title: Working Directory and Branch Verification/);
+    expect(text).toMatch(/#### Step 1\.3: Working Directory and Branch Verification/);
     expect(text).toMatch(/CURRENT_BRANCH/);
     expect(text).toMatch(/DEFAULT_BRANCH/);
     expect(text).toMatch(/HARD PRECONDITION/);
@@ -103,14 +88,12 @@ describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () 
   });
 
   test('lifecycle_contract has a Commit Gate that blocks br close until workflow.status is clean (self-reported success is not sufficient evidence)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).toMatch(/COMMIT GATE/);
     expect(text).toMatch(/NEVER call tracker\.close while workflow\.status lists non-\.beads\/ paths/);
     expect(text).toMatch(/self-reported success is NOT evidence of a commit/);
   });
 
   test('cross-platform: works with Task() on claude/pi/codex/opencode (mentioned in mission)', () => {
-    const text = fs.readFileSync(yamlPath, 'utf8');
     expect(text).toMatch(/claude\/pi\/codex\/opencode/);
     expect(text).toMatch(/universal Task\(\) primitive/);
   });

@@ -503,7 +503,7 @@ describe('ratchet baseline', () => {
   });
 
   test('isNamedSource keeps the zero tolerance after a named command becomes skill-backed: its skill and references are named', () => {
-    for (const cmd of ['implement-trd-beads', 'beads-build', 'implement-bead', 'refine-beads', 'fix-issue']) {
+    for (const cmd of ['implement-trd-beads', 'beads-build', 'beads-build-wave', 'implement-bead', 'refine-beads', 'fix-issue']) {
       expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/SKILL.md`)).toBe(true);
       expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/references/phase-1-x.md`)).toBe(true);
     }

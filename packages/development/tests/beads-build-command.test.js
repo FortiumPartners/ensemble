@@ -219,8 +219,8 @@ describe('beads-build team-roles delegation contract', () => {
   });
 
   test('beads-build-wave payload includes team_roles roster (moved from inline Track Orchestrator)', () => {
-    const wavePath = path.join(__dirname, '../commands/beads-build-wave.yaml');
-    const text = fs.readFileSync(wavePath, 'utf8');
+    // beads-build-wave is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const text = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
     expect(text).toMatch(/team_roles/);
     expect(text).toMatch(/lifecycle_contract/);
     expect(text).toMatch(/quality_loop/);
@@ -248,8 +248,8 @@ describe('beads-build PR-boundary doc hook contract', () => {
 
 describe('beads-build PM clarification guard contract', () => {
   test('beads-build-wave payload documents a 3-round PM clarification cap (moved from inline Track Orchestrator)', () => {
-    const wavePath = path.join(__dirname, '../commands/beads-build-wave.yaml');
-    const text = fs.readFileSync(wavePath, 'utf8');
+    // beads-build-wave is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const text = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
     expect(text).toMatch(/pm_clarification_guard/);
     expect(text).toMatch(/maximum 3 PM clarification rounds per task/);
     expect(text).toMatch(/On the 4th request, HALT/);

@@ -27,7 +27,7 @@ const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
 const itb = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
 const build = readDevelopmentSkill('ensemble-beads-build').prompt;
 const buildManifest = read('commands/beads-build.yaml');
-const wave = read('commands/beads-build-wave.yaml');
+const wave = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
 const waveAgent = read('agents/beads-build-wave.yaml');
 
 describe('implement-trd-beads labels the beads it scaffolds', () => {

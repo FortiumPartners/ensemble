@@ -35,6 +35,7 @@ const AC1_PATTERN = /\b(?:br|bv) (?:show|list|update|close|comment|comments|dep|
 
 const PRE_REFACTOR_REF = 'dfbd1f1';
 const WAVE_SCHEMA_LINE_PREFIX = "- 'Schema (one line, valid JSON): {";
+const WAVE_SCHEMA_BULLET_PREFIX = '- Schema (one line, valid JSON): {';
 
 function findInvocationLines(contents, pattern) {
   return contents
@@ -73,19 +74,23 @@ describe('PR7 Track029: no literal br/bv tracker-binary invocation in refactored
   }
 
   test('beads-build-wave.yaml JSON summary schema line is byte-identical to the pre-refactor contract', () => {
+    // The pre-refactor YAML carried the line as a single-quoted action (`- 'Schema ...'`); the skill
+    // prose (beads-build-wave is skill-backed, its YAML a manifest) carries the same text as a bare
+    // bullet (`- Schema ...`). Compare the action text itself, unquoted.
     const preRefactor = readPreRefactorFile('packages/development/commands/beads-build-wave.yaml');
-    const current = fs.readFileSync(path.join(COMMANDS_DIR, 'beads-build-wave.yaml'), 'utf8');
+    const current = proseOf('beads-build-wave.yaml');
 
     const preLine = preRefactor
       .split('\n')
       .find((line) => line.trim().startsWith(WAVE_SCHEMA_LINE_PREFIX));
     const currentLine = current
       .split('\n')
-      .find((line) => line.trim().startsWith(WAVE_SCHEMA_LINE_PREFIX));
+      .find((line) => line.trim().startsWith(WAVE_SCHEMA_BULLET_PREFIX));
 
     expect(preLine).toBeTruthy();
     expect(currentLine).toBeTruthy();
-    expect(currentLine).toBe(preLine);
+    const preAction = preLine.trim().slice(3, -1).replace(/''/g, "'");
+    expect(currentLine.trim().slice(2)).toBe(preAction);
   });
 
   test('mutation proof: reintroducing a literal br/bv invocation into the implement-bead prose is caught', () => {
