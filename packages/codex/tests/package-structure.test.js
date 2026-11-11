@@ -4,6 +4,8 @@ const path = require('path');
 const yaml = require('js-yaml');
 const { generateCommandSkills } = require('../../../scripts/generate-codex/index.js');
 
+const { MIRROR_PACKAGES } = require('../../../scripts/lib/mirror-packages');
+
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const PACKAGE_DIR = path.join(ROOT, 'packages', 'codex');
 const CODEX_DIR = path.join(PACKAGE_DIR, '.codex');
@@ -45,7 +47,9 @@ describe('ensemble-codex package structure', () => {
     const files = fs.readdirSync(agentDir).filter((file) => file.endsWith('.toml'));
     const sourceAgents = fs
       .readdirSync(path.join(ROOT, 'packages'), { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
+      // A mirror package carries another package's agent YAML, so counting it here expects
+      // the duplicate .toml the generator deliberately does not write.
+      .filter((entry) => entry.isDirectory() && !MIRROR_PACKAGES.has(entry.name))
       .flatMap((entry) => {
         const dir = path.join(ROOT, 'packages', entry.name, 'agents');
         return fs.existsSync(dir) ? fs.readdirSync(dir).filter((file) => file.endsWith('.yaml')) : [];

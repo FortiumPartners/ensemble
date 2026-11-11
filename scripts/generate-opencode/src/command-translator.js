@@ -22,6 +22,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const glob = require('glob');
+const { MIRROR_PACKAGES, owningPackage } = require('../../lib/mirror-packages');
 const { isSkillBacked, resolveSkillFile } = require('../../lib/skill-backed-command');
 
 // ---------------------------------------------------------------------------
@@ -435,7 +436,7 @@ class CommandTranslator {
    */
   discoverCommandFiles() {
     const pattern = path.join(this.packagesDir, '*/commands/*.yaml');
-    const files = glob.sync(pattern);
+    const files = glob.sync(pattern).filter((file) => !MIRROR_PACKAGES.has(owningPackage(file, this.packagesDir)));
     return files.sort();
   }
 
