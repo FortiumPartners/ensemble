@@ -1,0 +1,87 @@
+{
+ "runId": "ramp2-cap12a",
+ "capRequested": 12,
+ "prepareAnswerMaxConcurrentAgents": 12,
+ "runJsonMaxConcurrentAgents": 12,
+ "runJsonPolicyMaxConcurrentAgents": 12,
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": "severity-section-missing",
+ "runJsonBaseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "runJsonBaseRefName": "feature/e2e-evidence-screenshots",
+ "runJsonHeadSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 5,
+  "slicesWanted": 3
+ },
+ "sizingWarnings": [
+  {
+   "code": "severity-guide-fallback",
+   "message": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)"
+  }
+ ],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 8,
+   "refill": false
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 12,
+   "refill": false
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 2,
+   "refill": true
+  }
+ ],
+ "verifierSpansByWave": {
+  "1": 12,
+  "2": 2
+ },
+ "refillSpanCaps": [
+  {
+   "agent": "verifier-13",
+   "cap": 12,
+   "running": 10
+  },
+  {
+   "agent": "verifier-14",
+   "cap": 12,
+   "running": 10
+  }
+ ],
+ "rootSpanMaxConcurrentAgents": [
+  12
+ ],
+ "refillSpanCapsAllEqualRequested": true,
+ "allCapsAgree": true,
+ "seam": {
+  "cap": 12,
+  "scratchReviewMdBlob": "1db11cb4df09e9fd1ed070dc11f6656d0b0df489",
+  "scratchReviewMdSha256": "45bb58dae00725b0fa7205605c626532736ce5b44fc3664647bdc35f3b17576c",
+  "served": [
+   {
+    "call": "ls-tree",
+    "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45"
+   },
+   {
+    "call": "cat-file",
+    "blob": "1db11cb4df09e9fd1ed070dc11f6656d0b0df489"
+   }
+  ]
+ }
+}

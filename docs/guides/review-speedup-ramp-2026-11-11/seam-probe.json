@@ -1,0 +1,171 @@
+{
+ "what": "prepare answers of PR 207 (skipPrecheck, dryRun) through ramp-prepare.js: the committed code path without the seam (ctl) and with the REVIEW.md seam at caps 8, 12, 17 and 24; differences from the control after normalising timestamps and run ids",
+ "code": "3fcd155",
+ "cases": {
+  "c8": {
+   "maxConcurrentAgents": 8,
+   "mode": "light",
+   "tier": "medium",
+   "depth": "standard",
+   "agents": [
+    "reviewer-s1-a",
+    "reviewer-s1-b",
+    "reviewer-s2-a",
+    "reviewer-s2-b",
+    "reviewer-s3-a",
+    "reviewer-s3-b",
+    "reviewer-range",
+    "security-lane"
+   ],
+   "slicesWanted": 3,
+   "slicesAllowed": 3,
+   "promptsEqualToControl": true,
+   "deadlineMinutesEqualToControl": true,
+   "differencesFromControl": [
+    {
+     "path": "sizing.warnings.0.code",
+     "seam": "severity-guide-fallback"
+    },
+    {
+     "path": "sizing.warnings.0.message",
+     "seam": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your "
+    }
+   ]
+  },
+  "c12": {
+   "maxConcurrentAgents": 12,
+   "mode": "light",
+   "tier": "medium",
+   "depth": "standard",
+   "agents": [
+    "reviewer-s1-a",
+    "reviewer-s1-b",
+    "reviewer-s2-a",
+    "reviewer-s2-b",
+    "reviewer-s3-a",
+    "reviewer-s3-b",
+    "reviewer-range",
+    "security-lane"
+   ],
+   "slicesWanted": 3,
+   "slicesAllowed": 5,
+   "promptsEqualToControl": true,
+   "deadlineMinutesEqualToControl": true,
+   "differencesFromControl": [
+    {
+     "path": "maxConcurrentAgents",
+     "control": 8,
+     "seam": 12
+    },
+    {
+     "path": "sizing.limits.slicesAllowed",
+     "control": 3,
+     "seam": 5
+    },
+    {
+     "path": "sizing.warnings.0.code",
+     "seam": "severity-guide-fallback"
+    },
+    {
+     "path": "sizing.warnings.0.message",
+     "seam": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your "
+    }
+   ]
+  },
+  "c17": {
+   "maxConcurrentAgents": 17,
+   "mode": "light",
+   "tier": "medium",
+   "depth": "standard",
+   "agents": [
+    "reviewer-s1-a",
+    "reviewer-s1-b",
+    "reviewer-s2-a",
+    "reviewer-s2-b",
+    "reviewer-s3-a",
+    "reviewer-s3-b",
+    "reviewer-range",
+    "security-lane"
+   ],
+   "slicesWanted": 3,
+   "slicesAllowed": 8,
+   "promptsEqualToControl": true,
+   "deadlineMinutesEqualToControl": true,
+   "differencesFromControl": [
+    {
+     "path": "maxConcurrentAgents",
+     "control": 8,
+     "seam": 17
+    },
+    {
+     "path": "sizing.limits.slicesAllowed",
+     "control": 3,
+     "seam": 8
+    },
+    {
+     "path": "sizing.warnings.0.code",
+     "seam": "severity-guide-fallback"
+    },
+    {
+     "path": "sizing.warnings.0.message",
+     "seam": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your "
+    }
+   ]
+  },
+  "c24": {
+   "maxConcurrentAgents": 24,
+   "mode": "light",
+   "tier": "medium",
+   "depth": "standard",
+   "agents": [
+    "reviewer-s1-a",
+    "reviewer-s1-b",
+    "reviewer-s2-a",
+    "reviewer-s2-b",
+    "reviewer-s3-a",
+    "reviewer-s3-b",
+    "reviewer-range",
+    "security-lane"
+   ],
+   "slicesWanted": 3,
+   "slicesAllowed": 11,
+   "promptsEqualToControl": true,
+   "deadlineMinutesEqualToControl": true,
+   "differencesFromControl": [
+    {
+     "path": "maxConcurrentAgents",
+     "control": 8,
+     "seam": 24
+    },
+    {
+     "path": "sizing.limits.slicesAllowed",
+     "control": 3,
+     "seam": 11
+    },
+    {
+     "path": "sizing.warnings.0.code",
+     "seam": "severity-guide-fallback"
+    },
+    {
+     "path": "sizing.warnings.0.message",
+     "seam": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your "
+    }
+   ]
+  }
+ },
+ "control": {
+  "maxConcurrentAgents": 8,
+  "agents": [
+   "reviewer-s1-a",
+   "reviewer-s1-b",
+   "reviewer-s2-a",
+   "reviewer-s2-b",
+   "reviewer-s3-a",
+   "reviewer-s3-b",
+   "reviewer-range",
+   "security-lane"
+  ],
+  "slicesWanted": 3,
+  "slicesAllowed": 3
+ }
+}
