@@ -340,6 +340,299 @@ describe('generateCommandSkills — metadata.capabilities (temp-root smoke run, 
   });
 });
 
+describe('generateCommandSkills — skill-backed commands (temp-root smoke run)', () => {
+  // A source skill written to defeat any re-serialization: a comment in the frontmatter, a
+  // double-quoted description with escaped quotes, nested metadata, a trailing blank line.
+  const SKILL_SOURCE = [
+    '---',
+    '# kept verbatim, not re-dumped',
+    'name: ensemble-skilled',
+    'description: "Do the skilled thing, with \\"quoted\\" words. Use when asked."',
+    'disable-model-invocation: true',
+    'metadata:',
+    '  version: "1.0.0"',
+    '  category: planning',
+    '---',
+    '',
+    'Do the skilled thing described by $ARGUMENTS.',
+    '',
+    'When done, suggest /ensemble:next-thing.',
+    '',
+    '',
+  ].join('\n');
+
+  // What Claude's generator writes for it: a stub that must never reach the Codex bundle.
+  const CLAUDE_STUB = [
+    '---',
+    'name: ensemble:skilled',
+    'description: Fixture skill-backed command',
+    '---',
+    'Read the file ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-skilled/SKILL.md and follow its instructions exactly; resolve any relative paths in it against ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-skilled/. Wherever that file refers to its ARGUMENTS, use this value: $ARGUMENTS',
+    '',
+  ].join('\n');
+
+  const manifest = (name, skill) =>
+    [
+      'metadata:',
+      `  name: ensemble:${name}`,
+      `  description: Fixture command ${name}`,
+      '  version: 1.0.0',
+      '  argument_hint: "[thing]"',
+      '  model: high',
+      `skill: ${skill}`,
+      '',
+    ].join('\n');
+
+  const roots = [];
+  // A throwaway packages/ with the real, ordinary fix-issue command (the control) plus `files`,
+  // given relative to a fixture package
+  function fixtureRoot(files) {
+    const tmp = makeCodexTempRoot();
+    roots.push(tmp);
+    tmp.seedFile(path.join('packages', 'development', 'commands', 'fix-issue.yaml'));
+    tmp.seedFile(path.join('packages', 'development', 'commands', 'ensemble', 'fix-issue.md'));
+    for (const [relPath, content] of Object.entries(files)) {
+      const target = path.join(tmp.packagesDir, 'codex-skillbacked-fixture', relPath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, content);
+    }
+    return tmp;
+  }
+  const generate = (tmp, overrides = {}) =>
+    generateCommandSkills({
+      dryRun: false,
+      verbose: false,
+      packagesDir: tmp.packagesDir,
+      outputDir: tmp.outputDir,
+      rootDir: tmp.rootDir,
+      ...overrides,
+    });
+  const commandsDir = (tmp) => path.join(tmp.outputDir, 'skills', 'commands');
+  const skillFile = (tmp, skill) => path.join(commandsDir(tmp), skill, 'SKILL.md');
+
+  afterEach(() => {
+    for (const tmp of roots.splice(0)) tmp.cleanup();
+  });
+
+  test('copies the skill verbatim to the command skill location: no wrapper, nothing injected, Claude\'s stub never read', () => {
+    const tmp = fixtureRoot({
+      'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled'),
+      'commands/ensemble/skilled.md': CLAUDE_STUB,
+      'skills/ensemble-skilled/SKILL.md': SKILL_SOURCE,
+    });
+    const count = generate(tmp);
+
+    const shipped = fs.readFileSync(skillFile(tmp, 'ensemble-skilled'), 'utf-8');
+    expect(shipped).toBe(SKILL_SOURCE); // frontmatter and body, byte for byte
+    expect(shipped).not.toContain('user-invocable');
+    expect(shipped).not.toContain('Ensemble Command: /ensemble:skilled'); // the wrapper's title
+    expect(shipped).not.toContain('CLAUDE_PLUGIN_ROOT');
+
+    // One skill for the command, and only its SKILL.md
+    expect(fs.readdirSync(path.join(commandsDir(tmp), 'ensemble-skilled'))).toEqual(['SKILL.md']);
+    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-fix-issue', 'ensemble-skilled']);
+    // The command count is the number of command skills, which is what AGENTS.md says it is
+    expect(count).toBe(2);
+    expect(buildCodexAgentsMd(count, 1, 1)).toContain('2 command skills');
+  });
+
+  test('leaves an ordinary command byte-identical whether or not a skill-backed one sits beside it', () => {
+    const baseline = fixtureRoot({});
+    generate(baseline);
+    const withManifest = fixtureRoot({
+      'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled'),
+      'skills/ensemble-skilled/SKILL.md': SKILL_SOURCE,
+    });
+    generate(withManifest);
+
+    const before = fs.readFileSync(skillFile(baseline, 'ensemble-fix-issue'));
+    const after = fs.readFileSync(skillFile(withManifest, 'ensemble-fix-issue'));
+    expect(before.length).toBeGreaterThan(0);
+    expect(after.equals(before)).toBe(true);
+    // and it is still a rendered wrapper, not a copy of something
+    expect(after.toString('utf-8')).toContain('user-invocable');
+  });
+
+  test('ships a skill that is not named after the command, and a dispatcher refers to it by that name', () => {
+    const tmp = fixtureRoot({
+      'commands/renamed.yaml': manifest('renamed', 'other-skill-name'),
+      'skills/other-skill-name/SKILL.md': SKILL_SOURCE.replace('ensemble-skilled', 'other-skill-name'),
+      'commands/hub.yaml': [
+        'metadata:',
+        '  name: ensemble:hub',
+        '  description: Fixture dispatcher',
+        'dispatch:',
+        '  subcommands:',
+        '    - keyword: go',
+        '      ref: renamed',
+        '      description: Skill-backed leaf',
+        '',
+      ].join('\n'),
+    });
+    generate(tmp);
+
+    expect(fs.existsSync(skillFile(tmp, 'other-skill-name'))).toBe(true);
+    expect(fs.existsSync(path.join(commandsDir(tmp), 'ensemble-renamed'))).toBe(false);
+    const hub = fs.readFileSync(skillFile(tmp, 'ensemble-hub'), 'utf-8');
+    expect(hub).toContain(
+      '- **`go`** - Skill-backed leaf. see the `other-skill-name` skill (`packages/codex/.codex/skills/commands/other-skill-name/SKILL.md`).'
+    );
+    expect(hub).not.toContain('ensemble-renamed');
+  });
+
+  test('counts skills, not commands, when two commands name one skill', () => {
+    const tmp = fixtureRoot({
+      'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled'),
+      'commands/skilled-alias.yaml': manifest('skilled-alias', 'ensemble-skilled'),
+      'skills/ensemble-skilled/SKILL.md': SKILL_SOURCE,
+    });
+    const count = generate(tmp);
+
+    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-fix-issue', 'ensemble-skilled']);
+    expect(count).toBe(2);
+  });
+
+  test('a dry run writes nothing and still reports the skills a real run writes', () => {
+    const tmp = fixtureRoot({
+      'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled'),
+      'skills/ensemble-skilled/SKILL.md': SKILL_SOURCE,
+    });
+    expect(generate(tmp, { dryRun: true })).toBe(2);
+    expect(fs.existsSync(tmp.outputDir)).toBe(false);
+  });
+
+  describe('the references/ directory of a skill', () => {
+    // The skill is named otherwise than its command (`ensemble-skilled`), so a destination worked out
+    // from the command name lands in the wrong directory.
+    const SKILL = 'renamed-skill';
+    const SKILL_DIR = `skills/${SKILL}`;
+    // Two documents a SKILL.md would name by relative path. The first has CRLF line ends, a non-ASCII
+    // character and a command reference that the Pi generator rewrites, so any normalization or
+    // re-serialization shows; the second sits one level deeper.
+    const REF_A = '# Phase 1\r\nHand off to /ensemble:next-thing \u2014 caf\u00e9.\r\n';
+    const REF_B = '# Nested\n\nDeeper still.\n';
+    const WITH_REFERENCES = {
+      'commands/skilled.yaml': manifest('skilled', SKILL),
+      [`${SKILL_DIR}/SKILL.md`]: SKILL_SOURCE,
+      [`${SKILL_DIR}/references/a.md`]: REF_A,
+      [`${SKILL_DIR}/references/nested/b.md`]: REF_B,
+    };
+    const SHIPPED = ['SKILL.md', 'references/a.md', 'references/nested/b.md'];
+
+    /** Every file below `dir`, relative to it, `/`-separated and sorted. */
+    const walk = (dir, prefix = '') =>
+      fs
+        .readdirSync(dir, { withFileTypes: true })
+        .flatMap((entry) =>
+          entry.isDirectory() ? walk(path.join(dir, entry.name), `${prefix}${entry.name}/`) : [`${prefix}${entry.name}`]
+        )
+        .sort();
+    const shippedTree = (tmp, skill) => walk(path.join(commandsDir(tmp), skill));
+    const shippedFile = (tmp, rel) => fs.readFileSync(path.join(commandsDir(tmp), SKILL, rel));
+
+    test('ships it beside the SKILL.md, each file at its own relative path and byte for byte, and no other file of the skill', () => {
+      const tmp = fixtureRoot({
+        ...WITH_REFERENCES,
+        // Beside the SKILL.md rather than in references/: authoring material the bundle leaves out
+        [`${SKILL_DIR}/notes.txt`]: 'scratch\n',
+        [`${SKILL_DIR}/README.md`]: '# readme\n',
+        [`${SKILL_DIR}/REFERENCE.md`]: '# a framework skill\'s reference, not a references/ file\n',
+        [`${SKILL_DIR}/scripts/run.js`]: 'process.exit(0);\n',
+      });
+      generate(tmp);
+
+      expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED);
+      expect(shippedFile(tmp, 'references/a.md').equals(Buffer.from(REF_A, 'utf-8'))).toBe(true);
+      expect(shippedFile(tmp, 'references/nested/b.md').equals(Buffer.from(REF_B, 'utf-8'))).toBe(true);
+      expect(shippedFile(tmp, 'SKILL.md').toString('utf-8')).toBe(SKILL_SOURCE);
+      expect(fs.existsSync(path.join(commandsDir(tmp), 'ensemble-skilled'))).toBe(false);
+    });
+
+    test('leaves out a dotfile of references/: it is one machine\'s leftover, not part of the skill', () => {
+      const tmp = fixtureRoot({
+        ...WITH_REFERENCES,
+        [`${SKILL_DIR}/references/.DS_Store`]: 'finder\n',
+        [`${SKILL_DIR}/references/.hidden/c.md`]: '# in a hidden directory\n',
+      });
+      generate(tmp);
+
+      expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED);
+    });
+
+    test('adds no references/ to a skill that has none, nor to an ordinary command\'s wrapper', () => {
+      const tmp = fixtureRoot({
+        ...WITH_REFERENCES,
+        'commands/bare.yaml': manifest('bare', 'bare-skill'),
+        'skills/bare-skill/SKILL.md': SKILL_SOURCE.replace('ensemble-skilled', 'bare-skill'),
+      });
+      generate(tmp);
+
+      expect(shippedTree(tmp, 'bare-skill')).toEqual(['SKILL.md']);
+      expect(shippedTree(tmp, 'ensemble-fix-issue')).toEqual(['SKILL.md']);
+      expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED); // the skill that has them still ships them
+    });
+
+    test('counts the skills, not the files of their references/: the number AGENTS.md states', () => {
+      const tmp = fixtureRoot(WITH_REFERENCES);
+      const count = generate(tmp);
+
+      expect(shippedTree(tmp, SKILL)).toHaveLength(3);
+      expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-fix-issue', SKILL]);
+      expect(count).toBe(2);
+      expect(buildCodexAgentsMd(count, 1, 1)).toContain('2 command skills');
+    });
+
+    test('ships a skill that two commands name once, which is no collision of the skill with itself', () => {
+      const tmp = fixtureRoot({
+        ...WITH_REFERENCES,
+        'commands/skilled-alias.yaml': manifest('skilled-alias', SKILL),
+      });
+      const count = generate(tmp);
+
+      expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED);
+      expect(count).toBe(2);
+    });
+
+    test('a dry run writes none of it, and still counts the skills a real run writes', () => {
+      const tmp = fixtureRoot(WITH_REFERENCES);
+      expect(generate(tmp, { dryRun: true })).toBe(2);
+      expect(fs.existsSync(tmp.outputDir)).toBe(false);
+    });
+  });
+
+  test('fails, writing nothing, when the skill does not exist', () => {
+    const tmp = fixtureRoot({ 'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled') });
+    expect(() => generate(tmp)).toThrow(/skilled\.yaml: skill-backed command points at skill 'ensemble-skilled', but .* does not exist/);
+    expect(fs.existsSync(tmp.outputDir)).toBe(false);
+  });
+
+  test('fails when the skill is only in another package: it must be in the command\'s own', () => {
+    const tmp = fixtureRoot({ 'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled') });
+    fs.mkdirSync(path.join(tmp.packagesDir, 'other', 'skills', 'ensemble-skilled'), { recursive: true });
+    fs.writeFileSync(path.join(tmp.packagesDir, 'other', 'skills', 'ensemble-skilled', 'SKILL.md'), SKILL_SOURCE);
+    expect(() => generate(tmp)).toThrow(/does not exist/);
+  });
+
+  test.each([['a path', '../elsewhere'], ['an upper-case name', 'Ensemble-Skilled'], ['an empty value', '""']])(
+    'fails when skill is %s',
+    (_label, value) => {
+      const tmp = fixtureRoot({ 'commands/skilled.yaml': manifest('skilled', value) });
+      expect(() => generate(tmp)).toThrow(/skilled\.yaml: skill .* is not a valid skill directory name/);
+    }
+  );
+
+  test('fails, naming both sources, when the skill of a manifest is the wrapper another command would write', () => {
+    const tmp = fixtureRoot({
+      // fix-issue's wrapper is skills/commands/ensemble-fix-issue/SKILL.md, the skill this manifest ships
+      'commands/other.yaml': manifest('other', 'ensemble-fix-issue'),
+      'skills/ensemble-fix-issue/SKILL.md': SKILL_SOURCE.replace('ensemble-skilled', 'ensemble-fix-issue'),
+    });
+    expect(() => generate(tmp)).toThrow(
+      /Codex command skill collision: .*ensemble-fix-issue.SKILL\.md would come from both .* and .*/
+    );
+  });
+});
+
 describe('detectAgentSkills — dotnet skill is separate from blazor', () => {
   test.each([
     ['an ASP.NET mention', 'Builds ASP.NET Core APIs'],

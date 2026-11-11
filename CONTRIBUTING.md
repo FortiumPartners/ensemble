@@ -254,6 +254,10 @@ Skills follow the [Agent Skills specification](https://agentskills.io/specificat
 
 One exemption: skills whose directory name starts with `ensemble-` may carry the host keys `user-invocable`, `disable-model-invocation`, `argument-hint`, `model` and `capabilities` at the top level. The generators emit these command-wrapper skills with such keys, and Claude Code reads `ensemble-assess` straight from the plugin directory, where the keys must stay top-level to hide it from the slash menu. Any other skill using them fails the gate.
 
+### Command Skills
+
+A command can be backed by a skill so that one prompt serves every runtime. Put the prompt in `packages/<pkg>/skills/ensemble-<name>/SKILL.md` (spec frontmatter plus `disable-model-invocation: true`, `metadata.version`) and reduce `packages/<pkg>/commands/<name>.yaml` to its `metadata` block plus `skill: ensemble-<name>`. Do not add `mission`, `workflow`, `constraints` or other prompt keys to a manifest; the schema rejects them. Edit the prompt in the `SKILL.md` (and its `references/*.md`, one level deep, if the skill is split), then run `npm run generate`, `generate:pi` and `generate:codex`. A stub for the command is generated for each runtime; do not edit those. When converting an existing command, carry over every section the old command rendered on any runtime (Pi and OpenCode render `constraints`, Claude did not), or the skill silently drops behaviour. Keep `SKILL.md` under 500 lines and about 5k tokens: move long phases into `references/`, name each one in a backticked relative path in `SKILL.md` so every runtime ships it, and tell the model to open it with its file-reading tool. The prompt-word budget counts `SKILL.md` plus its references.
+
 ## Testing
 
 ### Running Tests

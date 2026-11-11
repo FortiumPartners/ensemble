@@ -5,7 +5,9 @@
  * exists check). See local://dispatcher-command-design.md.
  */
 
+const path = require('path');
 const { validateCommandSchema } = require('../lib/schema-validator');
+const { createPackage, skillFile } = require('./fixtures/skill-backed/temp-package');
 
 function baseCommand(dispatch) {
   return {
@@ -171,5 +173,84 @@ describe('validateCommandSchema — metadata.capabilities', () => {
       thrown = errors;
     }
     expect(Array.isArray(thrown)).toBe(true);
+  });
+});
+
+describe('validateCommandSchema — skill-backed manifests', () => {
+  let pkg;
+  beforeEach(() => {
+    pkg = createPackage({ 'skills/ensemble-demo/SKILL.md': skillFile('ensemble-demo') });
+  });
+  afterEach(() => pkg.cleanup());
+
+  const metadata = {
+    name: 'ensemble:demo',
+    description: 'Demonstrate a skill-backed command manifest',
+    version: '1.0.0',
+    lastUpdated: '2026-10-17',
+    category: 'planning'
+  };
+  const manifest = (extra = {}) => ({ metadata, skill: 'ensemble-demo', ...extra });
+  const errorsOf = (data) => {
+    try {
+      validateCommandSchema(data, pkg.yamlPath('demo'));
+    } catch (errors) {
+      return errors;
+    }
+    return [];
+  };
+
+  test('accepts metadata and a skill that exists, with no mission or workflow', () => {
+    expect(errorsOf(manifest())).toEqual([]);
+  });
+
+  // Each value is schema-valid on its own, so the only finding is that the manifest carries it.
+  test.each([
+    ['mission', { summary: 'A mission long enough to pass its own schema.' }],
+    ['workflow', { phases: [{ name: 'Only phase', order: 1 }] }],
+    ['dispatch', { subcommands: [{ keyword: 'go', ref: 'demo' }] }],
+    ['expectedOutput', { format: 'Markdown' }],
+    ['constraints', ['Never do the thing.']],
+    ['parameters', [{ name: 'flag', type: 'boolean' }]],
+    ['expectedInput', { description: 'free-form' }]
+  ])('rejects %s on a manifest once, naming it and pointing at the skill', (key, value) => {
+    const errors = errorsOf(manifest({ [key]: value }));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe(key);
+    expect(errors[0].details).toContain(`'${key}' is not allowed in a skill-backed command manifest`);
+    expect(errors[0].details).toContain('SKILL.md');
+  });
+
+  test.each(['Upper', '../escape', 'a/b', 'two--hyphens', '', 'a'.repeat(65), 5, null])(
+    'rejects %p as a skill name with the schema\'s finding alone',
+    (skill) => {
+      const errors = errorsOf(manifest({ skill }));
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0].field).toBe('/skill');
+    }
+  );
+
+  test('rejects a skill that is not in the same package, saying where it looked', () => {
+    const errors = errorsOf(manifest({ skill: 'ensemble-missing' }));
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('skill');
+    expect(errors[0].details).toContain(path.join(pkg.dir, 'skills', 'ensemble-missing', 'SKILL.md'));
+  });
+
+  test('still needs metadata', () => {
+    const errors = errorsOf({ skill: 'ensemble-demo' });
+    expect(errors.map((e) => e.details)).toEqual(['must have required property \'metadata\' ({"missingProperty":"metadata"})']);
+  });
+
+  test('a command without skill: still needs both mission and workflow, reported exactly as before', () => {
+    const errors = errorsOf({ metadata });
+
+    expect(errors.map((e) => `${e.field}: ${e.details}`)).toEqual([
+      'root: must have required property \'mission\' ({"missingProperty":"mission"})',
+      'root: must have required property \'workflow\' ({"missingProperty":"workflow"})'
+    ]);
   });
 });

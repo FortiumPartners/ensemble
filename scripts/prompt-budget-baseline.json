@@ -22,8 +22,8 @@
   "packages/infrastructure/agents/infrastructure-specialist.yaml": 1776,
   "packages/infrastructure/skills/supabase/SKILL.md": 1676,
   "packages/product/agents/product-management-orchestrator.yaml": 2356,
-  "packages/product/commands/create-prd.yaml": 6059,
   "packages/product/commands/refine-prd.yaml": 5929,
+  "packages/product/skills/ensemble-create-prd/SKILL.md": 6105,
   "packages/quality/agents/test-runner.yaml": 1527,
   "packages/rspec/skills/rspec/SKILL.md": 2008,
   "packages/xunit/skills/xunit/SKILL.md": 1816

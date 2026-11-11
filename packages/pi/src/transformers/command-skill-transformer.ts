@@ -9,6 +9,10 @@
  * hardcoded allowlist, so a new command prompt gets a SKILL.md wrapper
  * automatically with no source change required.
  *
+ * The prompt of a skill-backed command (a manifest YAML naming its skill) is a stub, and it gets
+ * no wrapper: the skill it points at is the command's own skill and ships as it is, so a wrapper
+ * would only overwrite it whenever that skill is named `ensemble-<cmd>` (see skillOfPrompt).
+ *
  * @module ensemble-pi/transformers/command-skill-transformer
  */
 
@@ -16,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import { TransformResult } from '../types';
-import { COMMAND_HEADER_PREFIX } from '../generated-marker';
+import { COMMAND_HEADER_PREFIX, skillOfPrompt } from '../generated-marker';
 import matter from 'gray-matter';
 
 /**
@@ -102,7 +106,7 @@ export function commandSkillPath(outputRoot: string, promptPath: string): string
 }
 
 /**
- * Generate SKILL.md wrappers for every command prompt.
+ * Generate SKILL.md wrappers for every command prompt except the stubs of skill-backed commands.
  *
  * Discovers every prompts/*.md file dynamically and writes a SKILL.md with
  * the full command body embedded directly so each skill is self-contained.
@@ -148,6 +152,15 @@ export async function generateCommandSkills(
       process.stderr.write(
         `  command-skill: warning — cannot read ${promptPath}: ${(err as Error).message}\n`
       );
+      continue;
+    }
+
+    // A stub prompt has no wrapper: the skill it names is the command's one skill (see above).
+    const stubOf = skillOfPrompt(promptContent);
+    if (stubOf !== undefined) {
+      if (verbose) {
+        process.stdout.write(`  command-skill: ${promptPath} is the stub of skill ${stubOf}, no wrapper\n`);
+      }
       continue;
     }
 

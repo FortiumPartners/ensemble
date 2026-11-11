@@ -12,7 +12,7 @@ It generates:
 - `.codex/config.toml` for custom agent registration
 - `.codex/agents/*.toml` for 28 translated Ensemble agents
 - `.codex/skills/<package>/` for lean framework and workflow skills (SKILL.md only for published runtime)
-- `.codex/skills/commands/ensemble-*/SKILL.md` for Codex-invocable command skills
+- `.codex/skills/commands/ensemble-*/SKILL.md` for Codex-invocable command skills (a skill-backed command's skill also ships its `references/*.md` beside it)
 
 ## Generate
 

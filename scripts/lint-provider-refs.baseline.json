@@ -854,14 +854,8 @@
       "count": 2
     },
     {
-      "file": "packages/product/commands/create-prd.yaml",
-      "class": "BINARY_IN_COMMAND",
-      "binary": "node",
-      "count": 1
-    },
-    {
-      "file": "packages/product/commands/ensemble/create-prd.md",
-      "class": "BINARY_IN_COMMAND",
+      "file": "packages/product/skills/ensemble-create-prd/references/phase-3-research-and-context.md",
+      "class": "BINARY_IN_SKILL",
       "binary": "node",
       "count": 1
     },

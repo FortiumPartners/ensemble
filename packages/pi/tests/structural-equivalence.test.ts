@@ -21,13 +21,36 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { skillOfPrompt } from '../src/generated-marker';
 
 const PROMPTS_DIR = path.resolve(__dirname, '..', 'prompts');
+const SKILLS_DIR = path.resolve(__dirname, '..', 'skills');
 
 // Reads a generated prompt template by its Windows-safe "ensemble-<cmd>.md"
 // filename from prompts/ — the pi-native home that both native pi and OMP load.
 function readPrompt(name: string): string {
   return fs.readFileSync(path.join(PROMPTS_DIR, name), 'utf8');
+}
+
+// What a command instructs: its prompt, or, for a skill-backed command, the skill its prompt is a
+// stub for. That skill is where the instructions live: its SKILL.md and, when the skill is split, the
+// files of its references/ directory (in name order) that the SKILL.md indexes. It ships as written,
+// so a phase is an H3 heading under the Workflow of a SKILL.md, or the H1 title of a references/ file,
+// not an H2 section of a rendered prompt.
+function readInstructions(name: string): string {
+  const prompt = readPrompt(name);
+  const skill = skillOfPrompt(prompt);
+  if (skill === undefined) return prompt;
+
+  const referencesDir = path.join(SKILLS_DIR, skill, 'references');
+  const references = fs.existsSync(referencesDir)
+    ? fs
+        .readdirSync(referencesDir)
+        .filter((file) => file.endsWith('.md'))
+        .sort()
+        .map((file) => fs.readFileSync(path.join(referencesDir, file), 'utf8'))
+    : [];
+  return [fs.readFileSync(path.join(SKILLS_DIR, skill, 'SKILL.md'), 'utf8'), ...references].join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -36,9 +59,11 @@ function readPrompt(name: string): string {
 
 describe('PRD template structural equivalence', () => {
   let createPrd: string;
+  let createPrdPrompt: string;
 
   beforeAll(() => {
-    createPrd = readPrompt('ensemble-create-prd.md');
+    createPrd = readInstructions('ensemble-create-prd.md');
+    createPrdPrompt = readPrompt('ensemble-create-prd.md');
   });
 
   it('has document frontmatter instructions', () => {
@@ -66,7 +91,7 @@ describe('PRD template structural equivalence', () => {
 
   it('has all 5 expected phases', () => {
     // create-prd has: Elicitation, Research, Requirements, Review, Output
-    const phaseCount = (createPrd.match(/^## Phase \d+/gm) || []).length;
+    const phaseCount = (createPrd.match(/^#{1,3} Phase \d+/gm) || []).length;
     expect(phaseCount).toBeGreaterThanOrEqual(4);
   });
 
@@ -74,8 +99,8 @@ describe('PRD template structural equivalence', () => {
     expect(createPrd).toMatch(/\bask\b|INTERVIEW PROTOCOL/);
   });
 
-  it('has no AskUserQuestion references', () => {
-    expect(createPrd).not.toContain('AskUserQuestion');
+  it('has no AskUserQuestion references in its prompt', () => {
+    expect(createPrdPrompt).not.toContain('AskUserQuestion');
   });
 });
 
@@ -85,9 +110,11 @@ describe('PRD template structural equivalence', () => {
 
 describe('TRD template structural equivalence', () => {
   let createTrd: string;
+  let createTrdPrompt: string;
 
   beforeAll(() => {
-    createTrd = readPrompt('ensemble-create-trd.md');
+    createTrd = readInstructions('ensemble-create-trd.md');
+    createTrdPrompt = readPrompt('ensemble-create-trd.md');
   });
 
   it('has architecture decision section', () => {
@@ -112,12 +139,12 @@ describe('TRD template structural equivalence', () => {
   });
 
   it('has all expected phases', () => {
-    const phaseCount = (createTrd.match(/^## Phase \d+/gm) || []).length;
+    const phaseCount = (createTrd.match(/^#{2,3} Phase \d+/gm) || []).length;
     expect(phaseCount).toBeGreaterThanOrEqual(4);
   });
 
-  it('has no AskUserQuestion references', () => {
-    expect(createTrd).not.toContain('AskUserQuestion');
+  it('has no AskUserQuestion references in its prompt', () => {
+    expect(createTrdPrompt).not.toContain('AskUserQuestion');
   });
 });
 
@@ -127,9 +154,11 @@ describe('TRD template structural equivalence', () => {
 
 describe('Refine-PRD template structural equivalence', () => {
   let refinePrd: string;
+  let refinePrdPrompt: string;
 
   beforeAll(() => {
-    refinePrd = readPrompt('ensemble-refine-prd.md');
+    refinePrd = readInstructions('ensemble-refine-prd.md');
+    refinePrdPrompt = readPrompt('ensemble-refine-prd.md');
   });
 
   it('has interview protocol for gathering feedback', () => {
@@ -140,8 +169,8 @@ describe('Refine-PRD template structural equivalence', () => {
     expect(refinePrd).toMatch(/write|update|save|Write/i);
   });
 
-  it('has no AskUserQuestion references', () => {
-    expect(refinePrd).not.toContain('AskUserQuestion');
+  it('has no AskUserQuestion references in its prompt', () => {
+    expect(refinePrdPrompt).not.toContain('AskUserQuestion');
   });
 });
 

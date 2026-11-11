@@ -285,7 +285,7 @@ describe('Pi generator: pruning stale generated output', () => {
         '---\nname: ensemble-hand-wrapper\ndescription: hand\ndisable-model-invocation: true\n---\n\n# ensemble-hand-wrapper\n',
       // Shares a pruned skill's directory
       'skills/gone-skill/NOTES.md': '# notes kept next to a generated skill\n',
-      // Deeper than anything the generator writes, even though it carries a marker
+      // In a subdirectory the generator does not look into (only references/ is), even though it carries a marker
       'skills/gone-skill/examples/sample.md': withGeneratedMarker('# example\n', 'by-hand'),
       'prompts/notes/ensemble-nested.md': withGeneratedMarker('# nested\n', 'by-hand'),
     };
@@ -513,6 +513,107 @@ describe('Pi generator: pruning stale generated output', () => {
       // A wrapper whose prompt was pruned in the same run would be regenerated and outlive it
       expect(exists('skills/ensemble-gone/SKILL.md')).toBe(false);
       expect((await gen()).pruned).toEqual([]);
+    });
+  });
+
+  describe('the references/ directory of a copied skill is pruned with its skill', () => {
+    /** A skill whose SKILL.md names a file of references/ and one a level deeper. */
+    const addReferencedSkill = (name: string, names = ['references/a.md', 'references/deep/b.md']): void => {
+      source(`skills/${name}/SKILL.md`, `${skillMd(name)}\nSee ${names.map((file) => `\`${file}\``).join(' and ')}.\n`);
+      source(`skills/${name}/references/a.md`, '# a\n');
+      source(`skills/${name}/references/deep/b.md`, '# b\n');
+    };
+
+    it('writes the references with the marker, so every file of the skill is provably the generator\'s', async () => {
+      addReferencedSkill('ref-skill');
+      addSkill('anchor-skill');
+      await gen();
+
+      expect(walk(path.join(out, 'skills', 'ref-skill'))).toEqual(['SKILL.md', 'references/a.md', 'references/deep/b.md']);
+      expect(relative(listGeneratedFiles(out, 'skill')).sort()).toEqual([
+        'skills/anchor-skill/REFERENCE.md',
+        'skills/anchor-skill/SKILL.md',
+        'skills/ref-skill/SKILL.md',
+        'skills/ref-skill/references/a.md',
+        'skills/ref-skill/references/deep/b.md',
+      ]);
+    });
+
+    it('prunes the references of a removed skill, nested ones included, and every directory this empties', async () => {
+      addReferencedSkill('gone-skill');
+      addSkill('anchor-skill');
+      await gen();
+
+      removeSource('skills/gone-skill');
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual([
+        'skills/gone-skill/SKILL.md',
+        'skills/gone-skill/references/a.md',
+        'skills/gone-skill/references/deep/b.md',
+      ]);
+      expect(exists('skills/gone-skill')).toBe(false);
+      expect(exists('skills/anchor-skill/SKILL.md')).toBe(true);
+    });
+
+    it('prunes a nested reference its SKILL.md stops naming, with the directory it empties, and keeps its siblings', async () => {
+      addReferencedSkill('ref-skill');
+      addSkill('anchor-skill');
+      await gen();
+
+      addReferencedSkill('ref-skill', ['references/a.md']);
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual(['skills/ref-skill/references/deep/b.md']);
+      expect(exists('skills/ref-skill/references/deep')).toBe(false);
+      expect(exists('skills/ref-skill/references/a.md')).toBe(true);
+      expect(exists('skills/ref-skill/SKILL.md')).toBe(true);
+    });
+
+    it('leaves a hand-authored file of references/ alone, and the directories that hold it', async () => {
+      addReferencedSkill('gone-skill');
+      addSkill('anchor-skill');
+      await gen();
+      hand('skills/gone-skill/references/mine.md', '# my own notes, no marker\n');
+      hand('skills/gone-skill/references/deep/mine.md', '# nested notes, no marker\n');
+
+      removeSource('skills/gone-skill');
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual([
+        'skills/gone-skill/SKILL.md',
+        'skills/gone-skill/references/a.md',
+        'skills/gone-skill/references/deep/b.md',
+      ]);
+      expect(walk(path.join(out, 'skills', 'gone-skill'))).toEqual(['references/deep/mine.md', 'references/mine.md']);
+    });
+
+    it('never follows a references/ that is a symlink, to a directory outside the output', async () => {
+      addSkill('anchor-skill');
+      await gen();
+      const outside = path.join(src, 'outside');
+      fs.mkdirSync(outside);
+      const marked = withGeneratedMarker('# outside\n', 'x');
+      fs.writeFileSync(path.join(outside, 'target.md'), marked, 'utf-8');
+      hand('skills/linked-skill/SKILL.md', withGeneratedMarker('# stale skill\n', 'x'));
+      fs.symlinkSync(outside, path.join(out, 'skills', 'linked-skill', 'references'));
+
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual(['skills/linked-skill/SKILL.md']); // the scan ran, and stopped at the link
+      expect(fs.lstatSync(path.join(out, 'skills', 'linked-skill', 'references')).isSymbolicLink()).toBe(true);
+      expect(fs.readFileSync(path.join(outside, 'target.md'), 'utf-8')).toBe(marked);
+    });
+
+    it('never removes the skills/ root when the last references/ file of the last skill goes', () => {
+      const mark = (file: string): void => hand(file, withGeneratedMarker('# generated\n', 'gone.yaml'));
+      mark('skills/only/SKILL.md');
+      mark('skills/only/references/a.md');
+
+      const pruned = pruneStaleArtifacts(out, new Set(), ['skill'], { dryRun: false, verbose: false });
+
+      expect(relative(pruned)).toEqual(['skills/only/SKILL.md', 'skills/only/references/a.md']);
+      expect(fs.readdirSync(path.join(out, 'skills'))).toEqual([]);
     });
   });
 
