@@ -192,9 +192,11 @@
  *              { action: 'row', pr, tier, round, origin, runId, cwd? | timing, id?, source?, notes?, carry? }
  *              -- one cohort row from a `timing` answer: `runId` reads the trace as `timing` does, `timing` takes a
  *              `timing` answer directly (exactly one of the two); `carry` is `{ headSha, verdicts }` from the PR's state report
- *              { action: 'compare', baseline, current, cwd? } -- two cohort documents. Each counted current row's wall time,
+ *              { action: 'compare', baseline, current, cwd?, targetFactors? } -- two cohort documents. Each counted current row's wall time,
  *              chains and gate runs are re-derived from the trace its `run_id` names (<cwd>/.ensemble/state/toolchain/), and a
  *              5x `met` is withheld unless every such row of a required stratum passes; `fiveX.attestation` says what stays attested
+ *              `targetFactors` ({ '<tier>/<round>': factor >= 1 }, default 5) grades a stratum at another factor, marked `rebased`;
+ *              `fiveX` never reads it (kata js1p)
  *
  * The tier, approval and merge-gate subcommands (TRD-026) each take the facts
  * their module grades and answer with that module's result verbatim:
@@ -1042,7 +1044,7 @@ function walltimeCompare(payload) {
   for (const run of runs) {
     if (isObject(run) && typeof run.id === 'string' && run.origin === 'real') traceChecks[run.id] = checkRowAgainstTrace(run, cwd);
   }
-  return compareWalltime({ baseline: payload.baseline, current: payload.current, traceChecks });
+  return compareWalltime({ baseline: payload.baseline, current: payload.current, traceChecks, targetFactors: payload.targetFactors });
 }
 
 const WALLTIME_ACTIONS = Object.freeze({
@@ -1057,7 +1059,7 @@ const WALLTIME_ACTIONS = Object.freeze({
   },
   compare: {
     keys: { baseline: OBJECT, current: OBJECT },
-    optional: { cwd: TEXT },
+    optional: { cwd: TEXT, targetFactors: OBJECT },
     run: walltimeCompare,
   },
 });
