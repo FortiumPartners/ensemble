@@ -1,7 +1,7 @@
 ---
 name: "ensemble:author-playwright-tests"
 description: "Interactive, post-implementation Playwright test-authoring session grounded in shipped code and PRD acceptance criteria"
-version: "2.5.0"
+version: "2.6.0"
 category: "testing"
 last-updated: "2026-08-27"
 allowed-tools: "Read"

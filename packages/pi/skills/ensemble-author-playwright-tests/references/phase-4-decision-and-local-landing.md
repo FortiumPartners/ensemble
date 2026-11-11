@@ -5,13 +5,8 @@
 
 TRD-027/TRD-040 (satisfies REQ-003, REQ-017): the accept/
 request-changes/reject decision point now happens BEFORE the test
-ever runs against the QA environment — matching REQ-005's own
-wording ("a test the QA engineer HAS ACCEPTED... its pass/fail
-result is shown"). Found while adding this step: the prior
-single-delegation design actually ran the test before this
-decision point could ever be reached, silently inverting the
-PRD's intended accept-then-run order and spending a real QA-
-environment run on tests a QA engineer might still reject.
+ever runs against the QA environment (REQ-005: "a test the QA
+engineer HAS ACCEPTED... its pass/fail result is shown").
 
 - Present the proposal's plainEnglishSummary to the QA engineer as the primary, easy-to-scan description of what the test does — the full proposedTest source is also available for anyone who wants to check the actual code
 - Call recordDecision(decision, {acId, proposedTest, changeDescription, iterationCount}) from $E2E_LIB/ac-decision-loop.js with exactly one of "accept" | "request-changes" | "reject"
@@ -27,12 +22,12 @@ headless, per Phase 2''s resolved mode/environment/auth. TRD-035:
 a failing run is not automatically a regression — check for an
 environment-mismatch signal before framing it as one.
 
-- Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath, slowMoMs} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath/slowMoMs are Phase 2's resolved values (omit slowMoMs when step 3 left it unset). The follow-along pause is a launch option applied at run time — never add a sleep or wait to proposedTest to get it
+- Build a request {acText, groundingDiff, proposedTest, targetEnv, mode, authStatePath, slowMoMs, acId, evidenceDir} and validate it with validateRunRequest(req) from $E2E_LIB/delegation-contract.js — proposedTest is the exact confirmed source from the previous step (never re-authored), acText/groundingDiff are repeated from Phase 3 step 2 (this is a fresh, stateless delegation with no memory of the Proposal stage), targetEnv/mode/authStatePath/slowMoMs are Phase 2's resolved values (omit slowMoMs when step 3 left it unset), acId/evidenceDir are this AC's id and Phase 2 step 4's directory. The follow-along pause is a launch option applied at run time — never add a sleep or wait to proposedTest to get it
 - Delegate the validated request to @playwright-tester, which runs the already-authored test per its own TRD-011 mode-aware logic (test-runner-mode.js's resolveRunConfig) — TRD-035: on a failed run, it also checks the live page for grounded-marker-checker.js's extractGroundedMarkers(groundingDiff.diffs) and reports whether an environment mismatch is suspected
-- Validate the response with validateRunResponse(res) from delegation-contract.js
+- Validate the response with validateRunResponse(res, req) from delegation-contract.js — it rejects any run, pass or fail, with no screenshot at runResult.evidencePath: re-delegate the Run once, then report the AC as blocked with its message
 - Log the outcome via logAction({type: "run-result", acId, mode, runResult}) from $E2E_LIB/session-logger.js
 - If the run failed and runResult.environmentMismatchSuspected is true: lead the failure report with buildEnvironmentMismatchHint({markersChecked: runResult.groundedMarkersChecked, markersFound: []}) from $E2E_LIB/grounded-marker-checker.js — present this as the LEADING hypothesis, before any suggestion that the implementation itself is broken, and prompt the QA engineer to confirm the environment (Phase 2 Step 2's question) before deciding what to do next
-- The pass/fail result is shown to the QA engineer (AC-005-1) — no further accept/reject decision is needed here, since that already happened in the previous step; a failure is handled per @playwright-tester's own investigate/fix-and-rerun/surface-as-blocker responsibility, not a re-ask. Continue to the next step to land the test only once runResult.passed is true
+- The pass/fail result and its screenshot path (runResult.evidencePath) are shown to the QA engineer (AC-005-1) — no further accept/reject decision is needed here, since that already happened in the previous step; a failure is handled per @playwright-tester's own investigate/fix-and-rerun/surface-as-blocker responsibility, not a re-ask. Continue to the next step to land the test only once runResult.passed is true
 
 #### Step 4.3: Land the Confirmed, Passed Test
 

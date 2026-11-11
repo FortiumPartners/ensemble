@@ -50,8 +50,8 @@ export default defineConfig({
     // Collect trace on first retry
     trace: 'on-first-retry',
 
-    // Screenshot on failure
-    screenshot: 'only-on-failure',
+    // Screenshot of every test's end state, pass or fail
+    screenshot: 'on',
 
     // Video on failure (CI only to save space)
     video: process.env.CI ? 'retain-on-failure' : 'off',

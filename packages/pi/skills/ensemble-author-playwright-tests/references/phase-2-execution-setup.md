@@ -19,14 +19,10 @@ before the first test run — do not re-ask per AC.
 
 TRD-013/TRD-026 (satisfies REQ-013): safety-critical — never let a
 test run against anything but the designated QA environment.
-TRD-034 (found live-dogfooding this feature): reachable is not the
-same as "running this branch's code." Many repos have more than
-one QA/staging deploy target (per-branch or per-developer slots
-are a common pattern, not specific to any one project) — a
-reachable-but-wrong slot produces test failures indistinguishable
-from a real regression. Confirm the resolved URL is actually the
-right one for this session before proceeding, not just that it
-responds.
+TRD-034: reachable is not the same as "running this branch's
+code" — a reachable-but-wrong per-branch or per-developer slot
+produces failures indistinguishable from a real regression, so
+confirm the URL is the right one, not just that it responds.
 
 - Call resolveQaEnvUrl(opts) from $E2E_LIB/qa-env-guard.js with an explicit opts.url or opts.envVar naming where the target app's QA URL is configured — never hardcode or guess one
 - Call checkQaEnvReachable(url) from the same module. If reachable is false, halt the session here: report the unreachable environment to the QA engineer and do not run, propose, or land any test this session — never fall back to another URL
@@ -36,17 +32,21 @@ responds.
 
 #### Step 2.3: Offer a Follow-Along Pause (Headed Only) — Once Per Session
 
-A headed run at full speed is hard to follow, so a QA engineer
-checking that a proposed test does what they intended can ask for
-a pause after each browser action. This is Playwright's own
-`SlowMo` launch option (the Run request's `slowMoMs`, resolved by
-test-runner-mode.js's resolveRunConfig) — a run-time setting, never text inserted into the test source, so
-there is nothing to strip before the test lands in Phase 4 step 3
-and no way to commit a pause by accident. Asked after the QA
-environment is verified, so a session that halts there never
-prompts for it.
+A headed run at full speed is hard to follow, so the QA engineer can
+ask for a pause after each browser action: Playwright's own `SlowMo`
+launch option (the Run request's `slowMoMs`, resolved by
+test-runner-mode.js's resolveRunConfig), never text inserted into
+the test source. Asked after the QA environment is verified, so a
+session that halts there never prompts for it.
 
 - If the mode recorded in step 1 is headless: skip this step entirely — no human is watching, so never ask and never set slowMoMs (validateRunRequest and resolveRunConfig both reject it in headless mode)
 - If the mode is headed, ask once: "Add a 1-second pause after each browser action so you can follow along? (yes / no / or a different pause, e.g. 2s or 500ms)"
 - No preference, or "yes": slowMoMs = 1000. A duration: convert it to whole milliseconds (a positive integer). "no": leave slowMoMs unset. If the answer is not a usable duration, say so and ask once more rather than guessing
 - Record the result for the remainder of the session; do not re-ask per AC. Carry slowMoMs forward (when set) for every Run-stage delegation request in Phase 4
+
+#### Step 2.4: Ensure the Screenshot Helper
+
+Every confirmed test opens an EvidenceCapture scope, so its end state is screenshotted on a pass and on a failure.
+
+- Call resolveEvidenceDir(process.env) from $E2E_LIB/evidence-capture.js; carry it forward as evidenceDir for every Run request
+- If the consuming E2E test project has no EvidenceCapture.cs, write renderEvidenceHelper({namespace}) from the same module into it and tell the QA engineer it lands in this PR — confirmed tests call it, so it must exist before the first Run

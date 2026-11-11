@@ -20,16 +20,10 @@ before checking, never assume gh/GitHub.
 #### Step 1.2: Parse PRD, Ground Every REQ, Flag Gaps, and Resume-Scan
 
 TRD-025/TRD-042 (satisfies REQ-002, REQ-009, REQ-011): build the
-story's full coverage picture before asking anything else. This is
-what makes PR 1's promise real — "lists every AC for that story,
-whether it already has a confirmed test, and which REQ's
-implementation code was found." TRD-042 (found presenting this
-report to a QA engineer): a bare "gap" label doesn't say what's
-actually wrong — every gap in the report must be labeled with
-exactly one of four kinds, never a generic "gap":
-  - TRD gap: the TRD itself doesn't say what implements this REQ
-    at all (groundImplementation()'s gapType: 'trd-gap') — the
-    planning document has a hole, not the codebase.
+story's full coverage picture before asking anything else. Label
+every gap with exactly one of four kinds, never a generic "gap":
+  - TRD gap: the TRD names no implementation for this REQ
+    (groundImplementation()'s gapType: 'trd-gap').
   - Code gap: the TRD does say what should implement this REQ,
     but that code isn't actually there (gapType: 'code-gap').
   - AC gap: the code was found, but an agent's judgment (or a
