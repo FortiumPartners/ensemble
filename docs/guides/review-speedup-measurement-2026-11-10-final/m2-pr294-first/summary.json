@@ -1,0 +1,295 @@
+{
+ "runId": "m2-pr294-first",
+ "pr": 294,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "2629d8a8c251eff436c5c83ad72807de95a1fce0",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 6,
+  "recorded": 3
+ },
+ "metrics": {
+  "wallMs": 1528019,
+  "runnerCalls": 7,
+  "dispatchRounds": 2,
+  "agentsDispatched": 9,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 6
+  },
+  "turnsAtLeast": 9
+ },
+ "stoppedAtDeadline": [
+  "verifier-1(verifier)",
+  "verifier-2(verifier)",
+  "verifier-3(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-1:f1/f3/f5",
+  "verifier-2:f1/f3/f5",
+  "verifier-3:f1/f3/f5"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "open-important-finding:f3",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 6,
+  "bySeverity": {
+   "important/fix": 3,
+   "nit/fix": 2,
+   "nit/deferred": 1
+  },
+  "present": 3,
+  "presentOnMajority": 0,
+  "unverified": 3,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/core/skills/detect-stack/detect-stack.js:57",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-3:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/core/skills/detect-stack/detect-stack.js:71-80",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/pi/package.json:3",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-3:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/core/skills/detect-stack/SKILL.md:125",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f5",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/core/skills/detect-stack/detect-stack.js:52",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-3:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f8",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "packages/core/skills/detect-stack/detect-stack.js:32-33",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 83425,
+  "startedAt": "2026-11-10T21:57:51.442Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T22:03:41.871Z",
+  "durationMin": 5.84,
+  "ok": true,
+  "stage": "attest",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": true
+   },
+   {
+    "node": 24,
+    "ok": true
+   }
+  ],
+  "failures": []
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 25.429233333333332,
+  "window": [
+   "2026-11-10T21:57:50.334Z",
+   "2026-11-10T22:23:16.088Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 30409,
+   "missing": false,
+   "pct": 2
+  },
+  "beforeFirstDispatch": 16753,
+  "activeMs": 1495345,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 1014152,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 481193,
+       "missing": false,
+       "name": "verifier-2"
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    8
+   ],
+   "review.gate": [
+    2,
+    1378
+   ],
+   "review.verdict": [
+    2,
+    21
+   ],
+   "review.security-lane": [
+    1,
+    244577
+   ],
+   "review.reviewer": [
+    2,
+    1014152
+   ],
+   "review.verifier": [
+    6,
+    481193
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr294-first-m2-pr294-first",
+  "pr": 294,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 25.429,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run m2-pr294-first",
+  "run_id": "m2-pr294-first"
+ }
+}

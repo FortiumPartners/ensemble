@@ -1,0 +1,350 @@
+{
+ "ok": true,
+ "minimums": {
+  "prsPerStratum": 3,
+  "wallMin": 1
+ },
+ "speedupTarget": 5,
+ "strata": [
+  {
+   "id": "medium/first",
+   "tier": "medium",
+   "round": "first",
+   "required": true,
+   "baseline": {
+    "runs": 1,
+    "prs": 1,
+    "runsWithoutWall": 0,
+    "medianMin": 66,
+    "p75Min": 66
+   },
+   "current": {
+    "runs": 3,
+    "prs": 3,
+    "runsWithoutWall": 0,
+    "medianMin": 26.45,
+    "p75Min": 28.411
+   },
+   "target": {
+    "medianMin": 13.2,
+    "p75Min": 13.2
+   },
+   "status": "unknown",
+   "medianMet": null,
+   "p75Met": null,
+   "speedup": null,
+   "reasons": [
+    "baseline-too-few-prs: 1 of the 3 needed"
+   ]
+  },
+  {
+   "id": "high/first",
+   "tier": "high",
+   "round": "first",
+   "required": true,
+   "baseline": {
+    "runs": 3,
+    "prs": 3,
+    "runsWithoutWall": 0,
+    "medianMin": 55,
+    "p75Min": 82
+   },
+   "current": {
+    "runs": 3,
+    "prs": 3,
+    "runsWithoutWall": 0,
+    "medianMin": 25.196,
+    "p75Min": 36.911
+   },
+   "target": {
+    "medianMin": 11,
+    "p75Min": 16.4
+   },
+   "status": "not-met",
+   "medianMet": false,
+   "p75Met": false,
+   "speedup": {
+    "median": 2.183,
+    "p75": 2.222
+   },
+   "reasons": [
+    "median-above-target",
+    "p75-above-target"
+   ]
+  },
+  {
+   "id": "high/re-review",
+   "tier": "high",
+   "round": "re-review",
+   "required": true,
+   "baseline": {
+    "runs": 1,
+    "prs": 1,
+    "runsWithoutWall": 1,
+    "medianMin": 70,
+    "p75Min": 70
+   },
+   "current": {
+    "runs": 3,
+    "prs": 3,
+    "runsWithoutWall": 0,
+    "medianMin": 17.233,
+    "p75Min": 26.821
+   },
+   "target": {
+    "medianMin": 14,
+    "p75Min": 14
+   },
+   "status": "unknown",
+   "medianMet": null,
+   "p75Met": null,
+   "speedup": null,
+   "reasons": [
+    "baseline-too-few-prs: 1 of the 3 needed"
+   ]
+  }
+ ],
+ "counts": [
+  {
+   "tier": "medium",
+   "baselinePrs": 1,
+   "currentPrs": 3,
+   "gateRunsPerPr": {
+    "status": "unknown",
+    "baseline": {
+     "prs": 1,
+     "prsWithoutFigure": 0,
+     "total": 3,
+     "median": 3,
+     "p75": 3
+    },
+    "current": {
+     "prs": 0,
+     "prsWithoutFigure": 3,
+     "total": null,
+     "median": null,
+     "p75": null
+    },
+    "change": null,
+    "reasons": [
+     "baseline-too-few-prs: 1 of the 3 needed",
+     "current-no-figure: none of the 3 PR(s) of the tier states it (a row without it counts for nothing)"
+    ]
+   },
+   "reviewChainsPerPr": {
+    "status": "unknown",
+    "baseline": {
+     "prs": 1,
+     "prsWithoutFigure": 0,
+     "total": 1,
+     "median": 1,
+     "p75": 1
+    },
+    "current": {
+     "prs": 3,
+     "prsWithoutFigure": 0,
+     "total": 3,
+     "median": 1,
+     "p75": 1
+    },
+    "change": null,
+    "reasons": [
+     "baseline-too-few-prs: 1 of the 3 needed"
+    ]
+   }
+  },
+  {
+   "tier": "high",
+   "baselinePrs": 3,
+   "currentPrs": 3,
+   "gateRunsPerPr": {
+    "status": "unknown",
+    "baseline": {
+     "prs": 3,
+     "prsWithoutFigure": 0,
+     "total": 7,
+     "median": 2,
+     "p75": 4
+    },
+    "current": {
+     "prs": 0,
+     "prsWithoutFigure": 3,
+     "total": null,
+     "median": null,
+     "p75": null
+    },
+    "change": null,
+    "reasons": [
+     "current-no-figure: none of the 3 PR(s) of the tier states it (a row without it counts for nothing)"
+    ]
+   },
+   "reviewChainsPerPr": {
+    "status": "compared",
+    "baseline": {
+     "prs": 3,
+     "prsWithoutFigure": 0,
+     "total": 6,
+     "median": 1,
+     "p75": 4
+    },
+    "current": {
+     "prs": 3,
+     "prsWithoutFigure": 0,
+     "total": 6,
+     "median": 2,
+     "p75": 2
+    },
+    "change": {
+     "median": 1,
+     "p75": -2
+    },
+    "reasons": []
+   }
+  }
+ ],
+ "perPr": {
+  "baseline": [
+   {
+    "pr": 225,
+    "tier": "medium",
+    "runs": [
+     "pr225-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": 3,
+    "wallMinTotal": 66
+   },
+   {
+    "pr": 228,
+    "tier": "high",
+    "runs": [
+     "pr228-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": 1,
+    "wallMinTotal": 39
+   },
+   {
+    "pr": 229,
+    "tier": "high",
+    "runs": [
+     "pr229-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": 2,
+    "wallMinTotal": 55
+   },
+   {
+    "pr": 233,
+    "tier": "high",
+    "runs": [
+     "pr233-first",
+     "pr233-rereview-1",
+     "pr233-rereview-2"
+    ],
+    "reviewChains": 4,
+    "gateRuns": 4,
+    "wallMinTotal": null,
+    "wallMinTotalReason": "1 of 3 runs without a wall time (pr233-rereview-2): the PR's total is not stated"
+   }
+  ],
+  "current": [
+   {
+    "pr": 205,
+    "tier": "medium",
+    "runs": [
+     "pr205-first-m2-pr205-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": null,
+    "gateRunsReason": "1 of 1 runs without a gate run count (pr205-first-m2-pr205-first)",
+    "wallMinTotal": 28.411
+   },
+   {
+    "pr": 207,
+    "tier": "medium",
+    "runs": [
+     "pr207-first-m2-pr207-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": null,
+    "gateRunsReason": "1 of 1 runs without a gate run count (pr207-first-m2-pr207-first)",
+    "wallMinTotal": 26.45
+   },
+   {
+    "pr": 291,
+    "tier": "high",
+    "runs": [
+     "pr291-first-m2-pr291-first",
+     "pr291-re-review-m2-pr291-re"
+    ],
+    "reviewChains": 2,
+    "gateRuns": null,
+    "gateRunsReason": "2 of 2 runs without a gate run count (pr291-first-m2-pr291-first, pr291-re-review-m2-pr291-re)",
+    "wallMinTotal": 34.626
+   },
+   {
+    "pr": 292,
+    "tier": "high",
+    "runs": [
+     "pr292-first-m2-pr292-first",
+     "pr292-re-review-m2-pr292-re"
+    ],
+    "reviewChains": 2,
+    "gateRuns": null,
+    "gateRunsReason": "2 of 2 runs without a gate run count (pr292-first-m2-pr292-first, pr292-re-review-m2-pr292-re)",
+    "wallMinTotal": 52.017
+   },
+   {
+    "pr": 293,
+    "tier": "high",
+    "runs": [
+     "pr293-first-m2-pr293-first",
+     "pr293-re-review-m2-pr293-re"
+    ],
+    "reviewChains": 2,
+    "gateRuns": null,
+    "gateRunsReason": "2 of 2 runs without a gate run count (pr293-first-m2-pr293-first, pr293-re-review-m2-pr293-re)",
+    "wallMinTotal": 54.144
+   },
+   {
+    "pr": 294,
+    "tier": "medium",
+    "runs": [
+     "pr294-first-m2-pr294-first"
+    ],
+    "reviewChains": 1,
+    "gateRuns": null,
+    "gateRunsReason": "1 of 1 runs without a gate run count (pr294-first-m2-pr294-first)",
+    "wallMinTotal": 25.429
+   }
+  ]
+ },
+ "carry": {
+  "present": false,
+  "evidence": [],
+  "reason": "no real high-tier re-review with carried verdicts and a wall time is in the current cohort"
+ },
+ "fiveX": {
+  "claim": "not-met",
+  "met": false,
+  "required": [
+   "medium/first",
+   "high/first",
+   "high/re-review"
+  ],
+  "reasons": [
+   "high/first: not met (median-above-target, p75-above-target)"
+  ],
+  "attestation": {
+   "tracesChecked": true,
+   "rowsWithoutTraceCheck": [],
+   "statement": "origin and the carried-verdict evidence are what the rows state: nothing signs a row, and a state report is an untracked file. The wall time, chains and gate runs of a row can be re-derived from its trace (walltime compare does, from each row run_id), and a met needs that for every counted current row of a required stratum."
+  }
+ },
+ "excluded": {
+  "baseline": [],
+  "current": []
+ },
+ "warnings": []
+}

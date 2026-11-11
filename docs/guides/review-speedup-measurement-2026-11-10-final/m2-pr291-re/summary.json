@@ -1,0 +1,285 @@
+{
+ "runId": "m2-pr291-re",
+ "pr": 291,
+ "tier": "high",
+ "round": "re-review",
+ "status": "DONE",
+ "headSha": "99946cc594df96b890964006fd30ce52e96d4487",
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "reReview": {
+  "scope": "delta",
+  "reasons": [],
+  "appliedRange": "delta",
+  "delta": {
+   "lastReviewedSha": "9594d1c1f716f6573231557bbae6aa90e357e88d",
+   "changedPaths": 1,
+   "readPaths": 1,
+   "agentsPlanned": 3,
+   "agentsFullRead": 3,
+   "limits": [
+    "read-set: changed files, their direct importers and tests, and name matches; not the modules a changed file imports, nor callers of callers",
+    "read on the whole range in this round: the security lane, the TRIAGE step",
+    "carry: direct dependents only; bare npm packages and lockfile changes are not seen; symlinks and computed specifiers re-verify",
+    "a High or sensitive file can be in the read set as a caller of a changed file; a changed path never is",
+    "remediationShas is the caller's statement of which commits are the fix round's own"
+   ]
+  }
+ },
+ "carry": {
+  "appliedRange": "delta",
+  "carried": 0,
+  "reverified": 2,
+  "recorded": 0
+ },
+ "metrics": {
+  "wallMs": 837387,
+  "runnerCalls": 8,
+  "dispatchRounds": 2,
+  "agentsDispatched": 8,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 5
+  },
+  "turnsAtLeast": 10
+ },
+ "triage": {
+  "turns": 1,
+  "requested": 0,
+  "additionalCandidateIds": [],
+  "mergedIntoExisting": 0,
+  "at": "2026-11-10T20:31:39.063Z"
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "gateBlockers": [
+  "open-important-finding:f3",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 5,
+  "bySeverity": {
+   "important/fix": 1,
+   "nit/fix": 2,
+   "pre-existing/deferred": 1,
+   "pre-existing/fix": 1
+  },
+  "present": 5,
+  "presentOnMajority": 0,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s1-b",
+    "loc": "scripts/tests/toolchain-adapters.test.js:583-606",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/lib/toolchain/adapters.js:602",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/lib/toolchain/adapters.js:579-587",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f5",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "scripts/tests/toolchain-adapters.test.js:592",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f6",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "scripts/tests/toolchain-adapters.test.js:745",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 56655,
+  "startedAt": "2026-11-10T20:22:39.034Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T20:28:40.972Z",
+  "durationMin": 6.03,
+  "ok": true,
+  "stage": "attest",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": true
+   },
+   {
+    "node": 24,
+    "ok": true
+   }
+  ],
+  "failures": []
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 13.949816666666667,
+  "window": [
+   "2026-11-10T20:22:37.904Z",
+   "2026-11-10T20:36:34.893Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 99115,
+   "missing": false,
+   "pct": 12
+  },
+  "beforeFirstDispatch": 11434,
+  "activeMs": 737868,
+  "criticalPath": {
+   "ms": 737874,
+   "missing": false,
+   "lowerBound": true,
+   "rounds": [
+    {
+     "round": 2,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 448143,
+       "missing": false,
+       "name": "reviewer-s1-b"
+      },
+      {
+       "stage": "verifier",
+       "ms": 289725,
+       "missing": false,
+       "name": "verifier-4"
+      },
+      {
+       "stage": "verdict",
+       "ms": 6,
+       "missing": false,
+       "lowerBound": true,
+       "clippedMs": 11
+      }
+     ],
+     "ms": 737874,
+     "missing": false,
+     "lowerBound": true
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    8
+   ],
+   "review.gate": [
+    1,
+    1510
+   ],
+   "review.verdict": [
+    1,
+    17
+   ],
+   "review.security-lane": [
+    1,
+    335641
+   ],
+   "review.reviewer": [
+    2,
+    448143
+   ],
+   "review.verifier": [
+    5,
+    289725
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr291-re-review-m2-pr291-re",
+  "pr": 291,
+  "tier": "high",
+  "round": "re-review",
+  "origin": "real",
+  "wall_min": 13.95,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 1,
+  "source": "pr-review-cli timing on run m2-pr291-re",
+  "run_id": "m2-pr291-re"
+ }
+}
