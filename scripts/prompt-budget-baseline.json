@@ -21,6 +21,7 @@
   "packages/dotnet/agents/dotnet-backend-expert.yaml": 1755,
   "packages/e2e-testing/agents/playwright-tester.yaml": 1313,
   "packages/e2e-testing/skills/ensemble-author-playwright-tests/SKILL.md": 4069,
+  "packages/git/skills/ensemble-pr-merge/SKILL.md": 2429,
   "packages/git/skills/ensemble-release/SKILL.md": 2010,
   "packages/infrastructure/agents/infrastructure-developer.yaml": 3197,
   "packages/infrastructure/agents/infrastructure-specialist.yaml": 1776,

@@ -25,6 +25,51 @@ const {
 } = require('../generate-codex/index.js');
 const { makeCodexTempRoot } = require('./fixtures/codex-generate/temp-codex-root');
 
+// The control the temp-root runs below generate beside the fixture under test: an ordinary command, one
+// that is neither skill-backed (no `skill:`) nor a dispatcher (no `dispatch:`), so the generator renders a
+// wrapper for it. Every real command is now one or the other, so it is a synthetic fixture written into
+// the temp root, not a copy of a real one.
+const ORDINARY_NAME = 'ordinary-control';
+const ORDINARY_SKILL = `ensemble-${ORDINARY_NAME}`;
+function seedOrdinaryControl(tmp) {
+  const commandsDir = path.join(tmp.packagesDir, 'git', 'commands');
+  fs.mkdirSync(path.join(commandsDir, 'ensemble'), { recursive: true });
+  fs.writeFileSync(
+    path.join(commandsDir, `${ORDINARY_NAME}.yaml`),
+    [
+      'metadata:',
+      `  name: ensemble:${ORDINARY_NAME}`,
+      '  description: Fixture ordinary command (neither skill-backed nor a dispatcher)',
+      '  version: 1.0.0',
+      'workflow:',
+      '  phases:',
+      '    - order: 1',
+      '      name: Only Phase',
+      '      steps:',
+      '        - order: 1',
+      '          title: Only Step',
+      '          actions:',
+      '            - Do the one thing.',
+      '',
+    ].join('\n')
+  );
+  fs.writeFileSync(
+    path.join(commandsDir, 'ensemble', `${ORDINARY_NAME}.md`),
+    [
+      '---',
+      `name: "ensemble:${ORDINARY_NAME}"`,
+      'description: "Fixture ordinary command (neither skill-backed nor a dispatcher)"',
+      'version: "1.0.0"',
+      '---',
+      '',
+      '# Only Phase',
+      '',
+      'Do the one thing.',
+      '',
+    ].join('\n')
+  );
+}
+
 describe('parseFrontmatter — CRLF line endings', () => {
   const CRLF_CONTENT =
     '---\r\nname: my-agent\r\ndescription: A test agent\r\n---\r\n\r\n# Body\r\n';
@@ -123,14 +168,13 @@ describe('generateCommandSkills — dispatcher commands (temp-root smoke run, TR
   }
 
   beforeAll(() => {
-    // Two isolated temp roots, both seeded with the same real, pre-existing dispatch-free
-    // command (pr-merge): baseRoot has nothing else, fixtureRoot additionally has the
-    // throwaway dispatcher fixture. Comparing pr-merge's generated output between the two is
+    // Two isolated temp roots, both seeded with the same synthetic dispatch-free
+    // command (the ordinary control): baseRoot has nothing else, fixtureRoot additionally has the
+    // throwaway dispatcher fixture. Comparing the control's generated output between the two is
     // an A/B idempotency proof that the fixture doesn't perturb unrelated output -- without
     // ever reading, writing, or deleting anything under the live repo's generated output.
     baseRoot = makeCodexTempRoot();
-    baseRoot.seedFile(path.join('packages', 'git', 'commands', 'pr-merge.yaml'));
-    baseRoot.seedFile(path.join('packages', 'git', 'commands', 'ensemble', 'pr-merge.md'));
+    seedOrdinaryControl(baseRoot);
     generateCommandSkills({
       dryRun: false,
       verbose: false,
@@ -140,8 +184,7 @@ describe('generateCommandSkills — dispatcher commands (temp-root smoke run, TR
     });
 
     fixtureRoot = makeCodexTempRoot();
-    fixtureRoot.seedFile(path.join('packages', 'git', 'commands', 'pr-merge.yaml'));
-    fixtureRoot.seedFile(path.join('packages', 'git', 'commands', 'ensemble', 'pr-merge.md'));
+    seedOrdinaryControl(fixtureRoot);
     writeFixtureCommands(fixtureRoot.packagesDir);
     generateCommandSkills({
       dryRun: false,
@@ -178,14 +221,14 @@ describe('generateCommandSkills — dispatcher commands (temp-root smoke run, TR
     const leafSkill = fs.readFileSync(path.join(leafSkillDir, 'SKILL.md'), 'utf-8');
     expect(leafSkill).not.toContain('## Subcommands');
 
-    // Idempotency/no-regression proof: a real, pre-existing, dispatch-free command
-    // (pr-merge) generates byte-identical output whether or not the fixture dispatcher
+    // Idempotency/no-regression proof: the ordinary, dispatch-free control command
+    // generates byte-identical output whether or not the fixture dispatcher
     // package is also present in packagesDir.
     const baselineFixIssue = fs.readFileSync(
-      path.join(baseRoot.outputDir, 'skills', 'commands', 'ensemble-pr-merge', 'SKILL.md')
+      path.join(baseRoot.outputDir, 'skills', 'commands', ORDINARY_SKILL, 'SKILL.md')
     );
     const afterFixIssue = fs.readFileSync(
-      path.join(fixtureRoot.outputDir, 'skills', 'commands', 'ensemble-pr-merge', 'SKILL.md')
+      path.join(fixtureRoot.outputDir, 'skills', 'commands', ORDINARY_SKILL, 'SKILL.md')
     );
     expect(afterFixIssue.equals(baselineFixIssue)).toBe(true);
   });
@@ -384,13 +427,12 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
     ].join('\n');
 
   const roots = [];
-  // A throwaway packages/ with the real, ordinary pr-merge command (the control) plus `files`,
+  // A throwaway packages/ with the ordinary control command (see seedOrdinaryControl) plus `files`,
   // given relative to a fixture package
   function fixtureRoot(files) {
     const tmp = makeCodexTempRoot();
     roots.push(tmp);
-    tmp.seedFile(path.join('packages', 'git', 'commands', 'pr-merge.yaml'));
-    tmp.seedFile(path.join('packages', 'git', 'commands', 'ensemble', 'pr-merge.md'));
+    seedOrdinaryControl(tmp);
     for (const [relPath, content] of Object.entries(files)) {
       const target = path.join(tmp.packagesDir, 'codex-skillbacked-fixture', relPath);
       fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -430,7 +472,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
 
     // One skill for the command, and only its SKILL.md
     expect(fs.readdirSync(path.join(commandsDir(tmp), 'ensemble-skilled'))).toEqual(['SKILL.md']);
-    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-pr-merge', 'ensemble-skilled']);
+    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual([ORDINARY_SKILL, 'ensemble-skilled']);
     // The command count is the number of command skills, which is what AGENTS.md says it is
     expect(count).toBe(2);
     expect(buildCodexAgentsMd(count, 1, 1)).toContain('2 command skills');
@@ -445,8 +487,8 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
     });
     generate(withManifest);
 
-    const before = fs.readFileSync(skillFile(baseline, 'ensemble-pr-merge'));
-    const after = fs.readFileSync(skillFile(withManifest, 'ensemble-pr-merge'));
+    const before = fs.readFileSync(skillFile(baseline, ORDINARY_SKILL));
+    const after = fs.readFileSync(skillFile(withManifest, ORDINARY_SKILL));
     expect(before.length).toBeGreaterThan(0);
     expect(after.equals(before)).toBe(true);
     // and it is still a rendered wrapper, not a copy of something
@@ -488,7 +530,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
     });
     const count = generate(tmp);
 
-    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-pr-merge', 'ensemble-skilled']);
+    expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual([ORDINARY_SKILL, 'ensemble-skilled']);
     expect(count).toBe(2);
   });
 
@@ -568,7 +610,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
       generate(tmp);
 
       expect(shippedTree(tmp, 'bare-skill')).toEqual(['SKILL.md']);
-      expect(shippedTree(tmp, 'ensemble-pr-merge')).toEqual(['SKILL.md']);
+      expect(shippedTree(tmp, ORDINARY_SKILL)).toEqual(['SKILL.md']);
       expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED); // the skill that has them still ships them
     });
 
@@ -577,7 +619,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
       const count = generate(tmp);
 
       expect(shippedTree(tmp, SKILL)).toHaveLength(3);
-      expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual(['ensemble-pr-merge', SKILL]);
+      expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual([ORDINARY_SKILL, SKILL]);
       expect(count).toBe(2);
       expect(buildCodexAgentsMd(count, 1, 1)).toContain('2 command skills');
     });
@@ -623,12 +665,12 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
 
   test('fails, naming both sources, when the skill of a manifest is the wrapper another command would write', () => {
     const tmp = fixtureRoot({
-      // pr-merge's wrapper is skills/commands/ensemble-pr-merge/SKILL.md, the skill this manifest ships
-      'commands/other.yaml': manifest('other', 'ensemble-pr-merge'),
-      'skills/ensemble-pr-merge/SKILL.md': SKILL_SOURCE.replace('ensemble-skilled', 'ensemble-pr-merge'),
+      // the ordinary control's wrapper is skills/commands/ensemble-ordinary-control/SKILL.md, the skill this manifest ships
+      'commands/other.yaml': manifest('other', ORDINARY_SKILL),
+      'skills/ensemble-ordinary-control/SKILL.md': SKILL_SOURCE.replace('ensemble-skilled', ORDINARY_SKILL),
     });
     expect(() => generate(tmp)).toThrow(
-      /Codex command skill collision: .*ensemble-pr-merge.SKILL\.md would come from both .* and .*/
+      /Codex command skill collision: .*ensemble-ordinary-control.SKILL\.md would come from both .* and .*/
     );
   });
 });

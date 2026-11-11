@@ -83,19 +83,29 @@ describe('TRD-029: the Pi vendor bundle carries the PR 4 modules the CLI require
 
 describe('TRD-029: the generated pr-merge artifacts carry the merge gate on every runtime', () => {
   /**
-   * The shipped pr-merge renderings. OpenCode generates into the gitignored
-   * `dist/`, so it is asserted only when it has been generated -- never
-   * silently skipped for the runtimes that ARE committed.
+   * The shipped pr-merge renderings. pr-merge is a skill-backed command: the Claude command and the pi prompt
+   * are stubs that point at the skill and carry no prose, so on those two runtimes the prose a runtime reads
+   * is the skill itself (Claude: packages/git/skills/ensemble-pr-merge/SKILL.md, which the stub names; pi: its
+   * vendored copy). OpenCode generates into the gitignored `dist/`, so it is asserted only when it has been
+   * generated -- never silently skipped for the runtimes that ARE committed.
    */
   const ARTIFACTS = [
-    { runtime: 'claude', file: 'packages/git/commands/ensemble/pr-merge.md' },
-    { runtime: 'pi', file: 'packages/pi/prompts/ensemble-pr-merge.md' },
+    { runtime: 'claude', file: 'packages/git/skills/ensemble-pr-merge/SKILL.md' },
+    { runtime: 'pi', file: 'packages/pi/skills/ensemble-pr-merge/SKILL.md' },
     { runtime: 'codex', file: 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md' },
   ];
+  const STUBS = [
+    { runtime: 'claude', file: 'packages/git/commands/ensemble/pr-merge.md' },
+    { runtime: 'pi', file: 'packages/pi/prompts/ensemble-pr-merge.md' },
+  ];
 
-  test.each(ARTIFACTS)('the $runtime artifact exists and is generated from the one YAML source', ({ file }) => {
+  test.each([...ARTIFACTS, ...STUBS])('the $runtime artifact $file exists and is generated from the one YAML source', ({ file }) => {
     expect(exists(file)).toBe(true);
     expect(read(file).trim()).not.toBe('');
+  });
+
+  test.each(STUBS)('the $runtime command stub points at the skill that carries the gate', ({ file }) => {
+    expect(read(file)).toMatch(/ensemble-pr-merge/);
   });
 
   test.each(ARTIFACTS)('the $runtime artifact requires mergeable:true from MODE=gate', ({ file }) => {

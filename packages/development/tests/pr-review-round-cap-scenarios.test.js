@@ -64,14 +64,22 @@ const read = (relative) => fs.readFileSync(path.join(REPO_ROOT, relative), 'utf8
 // beads-build-wave is skill-backed: its YAML is a manifest and its generated Claude command and Pi
 // prompt are stubs that point at the skill, so the procedure text those three paths stand for is the
 // skill (SKILL.md + references/). Each is read as that skill prose, which is where the cap lives now.
-const WAVE_SKILL_PATHS = new Set([
-  'packages/development/commands/beads-build-wave.yaml',
-  'packages/development/commands/ensemble/beads-build-wave.md',
-  'packages/pi/prompts/_hidden/ensemble-beads-build-wave.md',
+// pr-merge is skill-backed the same way: its YAML, its Claude command and its pi prompt stand for its skill.
+const SKILL_BY_PROCEDURE_PATH = new Map([
+  ...[
+    'packages/development/commands/beads-build-wave.yaml',
+    'packages/development/commands/ensemble/beads-build-wave.md',
+    'packages/pi/prompts/_hidden/ensemble-beads-build-wave.md',
+  ].map((p) => [p, 'packages/development/skills/ensemble-beads-build-wave/SKILL.md']),
+  ...[
+    'packages/git/commands/pr-merge.yaml',
+    'packages/git/commands/ensemble/pr-merge.md',
+    'packages/pi/prompts/ensemble-pr-merge.md',
+  ].map((p) => [p, 'packages/git/skills/ensemble-pr-merge/SKILL.md']),
 ]);
 const readProcedure = (relative) =>
-  WAVE_SKILL_PATHS.has(relative)
-    ? readSkillProse(path.join(REPO_ROOT, 'packages/development/skills/ensemble-beads-build-wave/SKILL.md'))
+  SKILL_BY_PROCEDURE_PATH.has(relative)
+    ? readSkillProse(path.join(REPO_ROOT, SKILL_BY_PROCEDURE_PATH.get(relative)))
     : read(relative);
 
 /** One fresh CLI process, the way a procedure actually reaches the grader. */

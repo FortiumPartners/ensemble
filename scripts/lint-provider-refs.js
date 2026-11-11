@@ -85,6 +85,7 @@ const NAMED_SOURCE_PATTERNS = [
   /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\.(?:yaml|md)$/,
   /^packages\/development\/skills\/ensemble-(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\//,
   /^packages\/git\/commands\/(?:ensemble\/)?pr-merge\.(?:yaml|md)$/,
+  /^packages\/git\/skills\/ensemble-pr-merge\//,
   /^packages\/git\/skills\/git-town\//,
   /^packages\/development\/skills\/pr-review-cycle\//
 ];

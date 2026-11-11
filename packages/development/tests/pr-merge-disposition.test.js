@@ -23,7 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const yaml = require('js-yaml');
+const { COMMAND, SKILL_REL, SKILL_TEXT } = require('./helpers/pr-merge-skill');
 
 const { BLOCKER_CODES } = require('../lib/pr-review-gate');
 const { COLLAPSE_THRESHOLD } = require('../lib/pr-review-disposition');
@@ -37,15 +37,22 @@ const flat = (s) => s.replace(/\s+/g, ' ');
 const sentencesOf = (text) => text.split(/(?<=\.)\s+/);
 
 const COMMAND_PATH = 'packages/git/commands/pr-merge.yaml';
-const COMMAND = yaml.load(read(...COMMAND_PATH.split('/')));
 const GATE_REF = flat(readSkillReference('merge-gate.md'));
 
-/** Every shipped rendering. The Claude and Codex ones carry the workflow only; `constraints` reach the pi ones. */
+/**
+ * Every shipped rendering that carries the prose: the skill (the one source -- the command YAML
+ * is a manifest with no prompt) and its verbatim copies for pi and Codex. The `constraints` are
+ * part of the skill, so every one of these carries them. The Claude command and the pi prompt
+ * are stubs that point at the skill; see STUBS.
+ */
 const SURFACES = {
-  claude: 'packages/git/commands/ensemble/pr-merge.md',
-  'pi prompt': 'packages/pi/prompts/ensemble-pr-merge.md',
+  skill: SKILL_REL,
   'pi skill': 'packages/pi/skills/ensemble-pr-merge/SKILL.md',
   codex: 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md',
+};
+const STUBS = {
+  claude: 'packages/git/commands/ensemble/pr-merge.md',
+  'pi prompt': 'packages/pi/prompts/ensemble-pr-merge.md',
 };
 const surfaceText = (file) => flat(read(...file.split('/')));
 
@@ -161,7 +168,7 @@ describe('AC1: the merge-confirmation question is not asked until the operator a
     expect(COMMAND.metadata.allowed_tools).toContain('AskUserQuestion');
   });
 
-  test.each(Object.entries(SURFACES))('%s: the step says the answer comes before the merge question (the Claude and Codex renderings have no constraints block)', (_name, file) => {
+  test.each(Object.entries(SURFACES))('%s: the step says the answer comes before the merge question', (_name, file) => {
     const text = surfaceText(file);
     expect(text).toContain("Every review finding gets the operator's answer BEFORE the merge-confirmation question; this command never fixes one itself.");
     expect(text).toContain('asked only after this step has finished on this head');
@@ -261,7 +268,7 @@ describe('review findings are never auto-fixed (plan 3H.7): the routing, pinned 
   test('the pi constraint forbids auto-dispatching or looping on a review-cycle finding and names the operator-selected Fix on this PR as the only way one is fixed', () => {
     const constraint = COMMAND.constraints.find((c) => /NEVER auto-dispatch or loop on a review-cycle finding/.test(c));
     expect(constraint).toContain("NEVER auto-dispatch or loop on a review-cycle finding (any dispositionChoices entry): only the operator's Fix on this PR selection fixes one");
-    for (const file of [SURFACES['pi prompt'], SURFACES['pi skill']]) expect(surfaceText(file)).toContain(flat(constraint));
+    for (const file of [SURFACES.skill, SURFACES['pi skill']]) expect(surfaceText(file)).toContain(flat(constraint));
   });
 
   test('no rule forbids the Fix on this PR path this command adds: the constraint and the routing sentence carve it out, and FIX_SELECTION appears only in Operator Disposition', () => {
@@ -452,13 +459,14 @@ describe('follow-on applies to non-blocking findings only', () => {
 
 describe('the command stays within the word budget without a baseline entry', () => {
   test('pr-merge.yaml is within the command ceiling (it was exactly at it on dev) and is not baselined', () => {
-    expect(countWords(read(...COMMAND_PATH.split('/')))).toBeLessThanOrEqual(CEILINGS.command);
+    expect(countWords(SKILL_TEXT)).toBeLessThanOrEqual(CEILINGS.command);
     expect(loadBaseline()).not.toHaveProperty([COMMAND_PATH]);
+    expect(loadBaseline()[SKILL_REL]).toBeGreaterThanOrEqual(countWords(SKILL_TEXT));
   });
 });
 
 describe('the prose names only what the real gate and its reference provide', () => {
-  const yamlText = flat(read(...COMMAND_PATH.split('/')));
+  const yamlText = flat(SKILL_TEXT);
 
   test('the review-finding blocker codes the command lists are exactly the gate\'s finding blockers', () => {
     const gateFindingCodes = Object.values(BLOCKER_CODES).filter((code) => /finding/.test(code)).sort();
@@ -508,9 +516,18 @@ describe('AC4: every shipped rendering carries the disposition step, in order, a
     expect(question).toBeGreaterThan(disposition);
   });
 
-  test('the renderings that state a version carry the YAML version (a stale generation would not)', () => {
-    for (const name of ['claude', 'pi prompt', 'pi skill']) {
-      expect([name, read(...SURFACES[name].split('/')).includes(COMMAND.metadata.version)]).toEqual([name, true]);
+  test('the stubs and the pi skill carry the YAML version (a stale generation would not)', () => {
+    for (const [name, file] of [...Object.entries(STUBS), ['pi skill', SURFACES['pi skill']]]) {
+      expect([name, read(...file.split('/')).includes(COMMAND.metadata.version)]).toEqual([name, true]);
+    }
+    expect(SKILL_TEXT).toContain(`version: "${COMMAND.metadata.version}"`);
+  });
+
+  test('the Claude command and the pi prompt are stubs that point at the skill and carry no prose of their own', () => {
+    for (const [name, file] of Object.entries(STUBS)) {
+      const text = read(...file.split('/'));
+      expect([name, /ensemble-pr-merge/.test(text)]).toEqual([name, true]);
+      expect([name, text.includes('Operator Disposition')]).toEqual([name, false]);
     }
   });
 
@@ -520,10 +537,11 @@ describe('AC4: every shipped rendering carries the disposition step, in order, a
   });
 
   test('the pi renderings call the question tool ask, not AskUserQuestion', () => {
-    for (const file of [SURFACES['pi prompt'], SURFACES['pi skill']]) {
-      const text = read(...file.split('/'));
-      expect(text).not.toContain('AskUserQuestion');
-      expect(text).toMatch(/multi-select ask per group/);
-    }
+    // The pi prompt is a stub that names no tool. The pi skill is the copy of the skill the Pi
+    // skill copier maps AskUserQuestion to ask in, as the command's prompt always was.
+    expect(read(...STUBS['pi prompt'].split('/'))).not.toContain('AskUserQuestion');
+    const piSkill = surfaceText(SURFACES['pi skill']);
+    expect(piSkill).not.toContain('AskUserQuestion');
+    expect(piSkill).toMatch(/multi-select ask per group/);
   });
 });

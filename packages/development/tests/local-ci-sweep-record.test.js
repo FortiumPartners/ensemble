@@ -1087,14 +1087,15 @@ describe('through the real process: the real entry point, the real adapter, a st
 // ---------------------------------------------------------------------------
 
 describe('the instructions that drive the sweep agree with the code', () => {
-  const yaml = require('js-yaml');
+  const { COMMAND: PR_MERGE, SKILL_TEXT } = require('./helpers/pr-merge-skill');
   const REPO_ROOT = path.resolve(__dirname, '../../..');
   const SKILL_DIR = 'packages/development/skills/local-ci-gate';
   const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
   const SWEEP_DOC = read(`${SKILL_DIR}/SWEEP.md`);
   const SKILL = read(`${SKILL_DIR}/SKILL.md`);
-  const COMMAND = read('packages/git/commands/pr-merge.yaml');
-  const mergeActions = yaml.load(COMMAND).workflow.phases.find((p) => p.name === 'Merge and Report').steps.find((s) => s.title === 'Merge').actions;
+  // The pr-merge prompt lives in its skill (the command YAML is a manifest with no prompt).
+  const COMMAND = SKILL_TEXT;
+  const mergeActions = PR_MERGE.workflow.phases.find((p) => p.name === 'Merge and Report').steps.find((s) => s.title === 'Merge').actions;
   const sweepActions = mergeActions.filter((a) => /local-ci-cli\.js sweep/.test(a));
 
   test('SWEEP.md documents exactly the payload keys the CLI accepts, in order', () => {

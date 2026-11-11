@@ -110,6 +110,7 @@ logins).
     "packages/**/commands/ensemble/pr-merge.md",
     "packages/**/ensemble-pr-merge.md",
     "packages/**/ensemble-pr-merge/SKILL.md",
+    "packages/**/ensemble-pr-merge/**",
     "packages/full/commands/git"
   ],
   "highPaths": [

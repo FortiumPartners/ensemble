@@ -65,9 +65,9 @@ const RELATIVE_PATHS = [
   path.join('packages', 'development', 'commands', 'implement-bead.yaml')
 ];
 
-// `rawText` is the command's prose: the YAML text itself for pr-merge (not skill-backed), the
-// manifest plus its skill (SKILL.md + references/*.md) for the skill-backed fix-issue and
-// implement-bead. `parsed` is always the YAML (metadata incl. capabilities).
+// `rawText` is the command's prose: the manifest plus its skill (SKILL.md + references/*.md) for the
+// skill-backed pr-merge, fix-issue and implement-bead. `parsed` is always the YAML (metadata incl.
+// capabilities).
 function loadCommand(filePath) {
   const yamlText = fs.readFileSync(filePath, 'utf8');
   const parsed = yaml.load(yamlText);
@@ -158,7 +158,8 @@ describe('TRD-039-TEST mutation proof: the forbidden-invocation sweep can actual
     expect(findForbiddenInvocations(reviewsMutated)).toEqual(['gh pr']);
 
     // The file on disk is untouched -- `mutated` only ever existed as a local string.
-    expect(fs.readFileSync(COMMANDS['pr-merge.yaml'], 'utf8')).toEqual(real);
+    // (`real` is the manifest plus its skill, so a fresh read of both must equal it)
+    expect(loadCommand(COMMANDS['pr-merge.yaml']).rawText).toEqual(real);
   });
 });
 
@@ -168,7 +169,9 @@ describe('TRD-039-TEST Scenario: Merge safety rules unchanged', () => {
   // the exact head; reviews read from the host). After the rebase onto dev the safety
   // conditions are asserted against the CURRENT wording, and every review-state read goes
   // through host.change-request-reviews (no literal `gh`), failing closed.
-  const { parsed } = loadCommand(COMMANDS['pr-merge.yaml']);
+  // pr-merge is skill-backed: its YAML is a manifest (metadata only), so the constraints and the workflow are
+  // read back from its skill (packages/git/skills/ensemble-pr-merge/SKILL.md) in the shape the YAML used to hold.
+  const parsed = require('../../packages/development/tests/helpers/pr-merge-skill').COMMAND;
   const rule = parsed.constraints.find((c) => c.startsWith('NEVER merge'));
   const actionsOfPhase = (name) =>
     parsed.workflow.phases.find((p) => p.name === name).steps.flatMap((s) => s.actions || []);

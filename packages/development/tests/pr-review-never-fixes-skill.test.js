@@ -562,8 +562,8 @@ describe('the docs say /ensemble:pr-merge follows the no-fix rule (kata 6k8d)', 
   });
 
   test('premise: pr-merge still remediates check failures and human threads with pushing subagents, so the guide must keep saying only those', () => {
-    const prMerge = readRepo('packages', 'git', 'commands', 'pr-merge.yaml');
-    expect(prMerge).toMatch(/name: Parallel Remediation Dispatch/);
+    const prMerge = readRepo('packages', 'git', 'skills', 'ensemble-pr-merge', 'SKILL.md');
+    expect(prMerge).toMatch(/### Phase 3: Parallel Remediation Dispatch/);
     expect(prMerge).toMatch(/commit and git push to HEAD_REF/);
     expect(GUIDE_RULE).toContain('only failing checks and unresolved human review threads are still fixed automatically');
   });

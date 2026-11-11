@@ -508,6 +508,10 @@ describe('ratchet baseline', () => {
       expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/references/phase-1-x.md`)).toBe(true);
     }
     expect(isNamedSource('packages/development/skills/ensemble-retro/SKILL.md')).toBe(false);
+    // pr-merge (a named command in packages/git) is skill-backed too: its skill directory is named.
+    expect(isNamedSource('packages/git/skills/ensemble-pr-merge/SKILL.md')).toBe(true);
+    expect(isNamedSource('packages/git/skills/ensemble-pr-merge/references/phase-1-x.md')).toBe(true);
+    expect(isNamedSource('packages/git/skills/ensemble-release/SKILL.md')).toBe(false);
   });
 
   test('--update-baseline writes the baseline from the tree', () => {

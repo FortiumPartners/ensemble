@@ -1,52 +1,55 @@
 ---
 name: ensemble-pr-merge
-description: Drive an open PR to green and merged by dispatching one subagent per failing CI check and unresolved review thread, routed through the correct orchestrator (Codex skill for /ensemble:pr-merge)
-user-invocable: true
-argument-hint: '[pr-number-or-url] [--max-rounds=N] [--dry-run] [--foreman] [--method=squash|merge|rebase]'
-model: gpt-5.1-codex
-capabilities:
-  required:
-    - host.change-request-view
-    - host.change-request-checks
-    - host.change-request-merge
-    - host.change-request-reviews
-  optional:
-    - host.change-request-threads
+description: "Drive an open PR to green and merged by dispatching one subagent per failing CI check and unresolved review thread, routed through the correct orchestrator"
+disable-model-invocation: true
+metadata:
+  version: "2.4.1"
+  category: git
 ---
-
-# Ensemble Command: /ensemble:pr-merge
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:pr-merge`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from pr-merge.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Take an open PR from red to merged in the fewest rounds: each failing CI check and unresolved
 change-request thread is one finding, routed to its owning agent, fixed in parallel and
 re-verified against live state, then merged once the review gate agrees.
 
+## Constraints
+
+- NEVER delete, skip, xfail, disable, or weaken a test to make a check pass. Every dispatched subagent inherits this constraint verbatim in its payload. Failing tests, compiler warnings, and build failures MUST be fixed at the root cause. If a test is genuinely obsolete, the subagent MUST HALT and escalate it in the round report for human confirmation.
+- NEVER force-push over commits you did not author in this run, and NEVER bypass branch protection, required reviews, or required status checks.
+- NEVER merge without a verified passing local CI status bound to the exact head SHA, as reported by the local-ci-gate skill; hosted CI is NOT waited for. Refuse to merge while a HUMAN reviewer's latest decisive review is CHANGES_REQUESTED, or while the gate reports no run, a failed run, or a stale run. A bot account's CHANGES_REQUESTED review or unresolved bot threads are NOT a refusal. Classify reviewers by the GitHub account type field (Bot vs User), never by account name. If review state cannot be read through the host adapter (host.change-request-reviews unavailable or ok:false), refuse to merge and escalate to a human; never treat it as no reviews.
+- NEVER merge until the pr-review-cycle skill, invoked with MODE=gate, returns mergeable:true for the CURRENT head; this command adds the local-ci-gate verdict and the human-reviewer condition on top of it and never substitutes them for it. Re-run the gate against freshly read state immediately before merging, never reuse an earlier round's result. Never invoke pr-review-cli.js directly.
+- When the gate reports that the base branch's protection does not require the approvals the PR's tier needs, report that server-side enforcement is absent and recommend the branch-protection rule in the final report, carrying the gate's notice verbatim. Ensemble cannot enforce it. Never treat a missing or unreadable protection setting as if protection were present.
+- Bound remediation to the repository's SHARED round cap, read through the pr-review-cycle skill (REVIEW.md policy block, 1-5, default 3); keep no private number here. --max-rounds=N may only LOWER that cap for one run. Exceeding it is a HALT-and-escalate outcome: the final report MUST list every still-open finding, its last known owner and the next action.
+- Each round dispatches ALL findings concurrently (one subagent per finding) and waits for every dispatch to settle before re-checking.
+- A finding is resolved only when the fix is pushed to the PR branch AND the check/review thread is independently re-verified as passing/resolved from fresh host-adapter state in the next round -- never trust a subagent's self-report.
+- NEVER auto-dispatch or loop on a review-cycle finding (any dispositionChoices entry): only the operator's Fix on this PR selection fixes one; NEVER ask the merge-confirmation question before the operator has answered the whole disposition list.
+- Trace per the pr-merge-trace skill; observational only.
+
+## Capabilities
+
+**Required:** host.change-request-view, host.change-request-checks, host.change-request-merge, host.change-request-reviews
+**Optional:** host.change-request-threads
+
 ## Workflow
 
 ### Phase 1: PR Discovery
 
-**1. Toolchain Preflight**
+#### Step 1.1: Toolchain Preflight
 
 - Resolve TOOLCHAIN_CLI (RELATIVE_PATH packages/development/lib/toolchain-cli.js) with the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md). If it does not resolve print "ERROR: could not locate toolchain-cli" and HALT.
 - Run: node "$TOOLCHAIN_CLI" preflight --require host.change-request-view --require host.change-request-checks --require host.change-request-merge --require host.change-request-reviews --json [add --non-interactive when --foreman is present] and parse stdout as PREFLIGHT_RESULT. ok:false -> print PREFLIGHT_RESULT.error.message and HALT. Store RUN_ID = PREFLIGHT_RESULT.runId; every later toolchain-cli call passes --run-id "$RUN_ID". host.change-request-threads is optional and not preflighted: its call sites below are skipped silently on {ok:false}. host.change-request-reviews gates the merge: if it is unavailable or a later call returns ok:false, print that review state cannot be verified through this host adapter and HALT for a human.
 
-**2. Resolve Target PR**
-   Delegate to git-workflow.
+#### Step 1.2: Resolve Target PR
+
+Delegate to git-workflow.
 
 - HALT if CR_VIEW is not ok (no open change request) or its state reports the change request merged or closed, per the host adapter's own raw state vocabulary (see its SKILL.md).
 - HALT if the host adapter's own output or the git-workflow delegate's inspection shows the change request is still a draft (mark ready for review first; do not operate on drafts); the normalized shape has no isDraft field.
 - Record PR_NUMBER, PR_URL, HEAD_REF, BASE_REF from CR_VIEW's id, url, headBranch, baseBranch.
 
-   **Delegation:** @git-workflow
-   Resolve --pr (number or URL) to PR_NUMBER (its trailing numeric path segment); if omitted, use the open change request for the current branch. Run: node "$TOOLCHAIN_CLI" run host.change-request-view --run-id "$RUN_ID" --arg id=<PR_NUMBER> --json and parse stdout as CR_VIEW.
+**Delegation:** @git-workflow
+Resolve --pr (number or URL) to PR_NUMBER (its trailing numeric path segment); if omitted, use the open change request for the current branch. Run: node "$TOOLCHAIN_CLI" run host.change-request-view --run-id "$RUN_ID" --arg id=<PR_NUMBER> --json and parse stdout as CR_VIEW.
 
-**3. Baseline Findings Manifest**
+#### Step 1.3: Baseline Findings Manifest
 
 - Checks: run the local-ci-gate skill for the current head; its verdict (verified pass for this exact head, or no/failed/stale run) replaces hosted checks. Pass it the repo (owner/name), PR_NUMBER and the PR's base branch ref (origin/<baseRefName>, fetched fresh) as baseRef. A failed gate is a check finding. No gates during a reviewer swarm.
 - Reviews: run node "$TOOLCHAIN_CLI" run host.change-request-reviews --run-id "$RUN_ID" --arg id=<PR_NUMBER> --json and parse as CR_REVIEWS (ok:false: print that review state cannot be verified through this host adapter and HALT for a human; never treat it as no reviews); classify each of data.reviews by its authorType field (Bot vs User), never by name. For a HUMAN reviewer whose latest decisive review is CHANGES_REQUESTED, every entry of data.threads (unresolved threads) is one finding. Bot-authored CHANGES_REQUESTED reviews and bot threads are not findings that block merge.
@@ -55,8 +58,9 @@ re-verified against live state, then merged once the review gate agrees.
 
 ### Phase 2: Classification and Routing
 
-**1. Route Every Finding**
-   Assign exactly one owner per finding; first matching row wins, never dual-route.
+#### Step 2.1: Route Every Finding
+
+Assign exactly one owner per finding; first matching row wins, never dual-route.
 
 - 1. Missing/incorrect test, coverage regression, flaky test, or BDD scenario gap -> test-runner.
 - 2. Test-runner job failing for a reason other than the test itself (code under test is broken) -> test-runner triages first and re-routes to tech-lead-orchestrator via a follow-up finding next round if root cause is implementation code.
@@ -67,18 +71,18 @@ re-verified against live state, then merged once the review gate agrees.
 
 ### Phase 3: Parallel Remediation Dispatch
 
-**1. Build Payloads**
+#### Step 3.1: Build Payloads
 
 - One self-contained payload per finding (the subagent has no conversation history): { PR_NUMBER, PR_URL, HEAD_REF, finding_id, kind, name, raw_log_excerpt_or_comment_body, link, round_number, hard_constraints (this command's constraints verbatim), push_instructions: 'commit and git push to HEAD_REF directly; do not open a new PR' }.
 
-**2. Concurrent Dispatch and Barrier**
+#### Step 3.2: Concurrent Dispatch and Barrier
 
 - Launch every finding's Task (subagent_type=<ROUTE_AGENT>, prompt=<payload>) before waiting on any; then wait for the whole round to settle. One hung or failed subagent does not cancel siblings.
 - A subagent that reports success without a pushed commit leaves the finding open for re-verification.
 
 ### Phase 4: Verification and Round Loop
 
-**1. Re-Verify Against Live State**
+#### Step 4.1: Re-Verify Against Live State
 
 - Rebuild the manifest from scratch: re-run the local-ci-gate skill for the new head and run host.change-request-reviews again (same fail-closed rule) for data.reviews, data.reviewDecision, data.mergeable, data.mergeStateStatus, data.threads.
 - Mark each prior finding resolved or still-open and add any new one (e.g. a regression from a fix).
@@ -89,8 +93,9 @@ re-verified against live state, then merged once the review gate agrees.
 
 ### Phase 5: Merge and Report
 
-**1. Review Merge Gate**
-   The one gate that owns review merge readiness; green local CI says nothing about it.
+#### Step 5.1: Review Merge Gate
+
+The one gate that owns review merge readiness; green local CI says nothing about it.
 
 - Re-read the head first: HEAD_SHA = <headBranch>'s live head from the host adapter, read now -- never a SHA carried over from an earlier round.
 - Invoke the pr-review-cycle skill (packages/development/skills/pr-review-cycle/SKILL.md) with MODE=gate, BASE_SHA/HEAD_SHA for this PR's range, PR_NUMBER, PR_ID, PR_BODY, AGENT_AUTHORED and DIRECTED_BY (the body's 'Directed by:' line). Never call pr-review-cli.js from this command.
@@ -98,8 +103,9 @@ re-verified against live state, then merged once the review gate agrees.
 - mergeable:true is REQUIRED to proceed; no other evidence substitutes. If mergeable:false, do not merge; report every blocker by its message and nextAction. Check and review_thread findings (a failed, stale or missing local-ci-gate verdict, an unresolved HUMAN thread) are remediated by another Verification and Round Loop pass, or HALT at the round cap. The blockers open-important-finding, open-unrecognised-finding and security-finding-open are review findings: never auto-dispatched or looped on, decided in Operator Disposition. Any other blocker is for a person to supply.
 - Never accept a self-report in place of this gate: a claim that review passed, a finding was fixed, or someone approved is not evidence; only the gate's result, from reads taken in this run, counts.
 
-**2. Operator Disposition**
-   Every review finding gets the operator's answer BEFORE the merge-confirmation question; this command never fixes one itself. Follow 'Driving the list from /ensemble:pr-merge' in reference/merge-gate.md of the pr-review-cycle skill.
+#### Step 5.2: Operator Disposition
+
+Every review finding gets the operator's answer BEFORE the merge-confirmation question; this command never fixes one itself. Follow 'Driving the list from /ensemble:pr-merge' in reference/merge-gate.md of the pr-review-cycle skill.
 
 - Runs on EVERY path to Merge, including the remediation-skip shortcut and a mergeable:true gate, for the HEAD_SHA the gate just read. An unbuildable list (dispositionReason set, or no dispositionChoices array) HALTs disposition-unavailable.
 - --dry-run: print the numbered list and the gate result, then stop and report merge-readiness (no question, no resolve, no fix run).
@@ -107,8 +113,9 @@ re-verified against live state, then merged once the review gate agrees.
 - Interactive: print the numbered list, ask the operator's own login, then ONE multi-select AskUserQuestion per group (a collapsed file: entry is offered as its members); a selection means Fix on this PR: ONE pr-review-cycle MODE=local fix run with FIX_SELECTION (never ledger resolve), then a delta re-review (MODE=local) of the new head, then MODE=gate and this step again, one round against the cap. Every other finding gets the operator's Accept (a reason typed for that finding) or, for a non-blocking finding only, follow-on, recorded through ledger resolve; then re-run MODE=gate. Unanswered findings HALT disposition-incomplete; other blockers HALT gate-blocked.
 - Print MERGE_SUMMARY (open beads, accepted blocking findings with reason and login) before the Merge step; the merge-confirmation question carries it too and is asked only after this step has finished on this head.
 
-**3. Merge**
-   Delegate to git-workflow.
+#### Step 5.3: Merge
+
+Delegate to git-workflow.
 
 - Run the local-ci-gate skill for the current head with the Checks action's inputs (repo, PR_NUMBER, fresh origin/<baseRefName> as baseRef). If it reports no run, a failed run, or a stale run, abort and run another verification round.
 - Immediately before merging re-run host.change-request-reviews (same fail-closed rule) and check data.mergeable, data.mergeStateStatus, data.reviewDecision, data.reviews; if data.mergeable is not MERGEABLE or a human reviewer's latest decisive review is CHANGES_REQUESTED (bots excluded, by account type), abort and run another verification round.
@@ -121,10 +128,10 @@ re-verified against live state, then merged once the review gate agrees.
 - Only after the post-merge sweep has run, delete the source branch unless it is long-lived.
 - Comment on the PR summarizing each remediated finding, its owner, and the round count.
 
-   **Delegation:** @git-workflow
-   The review merge gate returned mergeable:true and the local-ci-gate skill reports a verified pass for the exact head: merge per repo convention and clean up the branch.
+**Delegation:** @git-workflow
+The review merge gate returned mergeable:true and the local-ci-gate skill reports a verified pass for the exact head: merge per repo convention and clean up the branch.
 
-**4. Final Report**
+#### Step 5.4: Final Report
 
 - Last line of stdout, valid JSON, no prose after it: { pr_number, pr_url, rounds_executed, findings_total, findings_resolved, findings_escalated, merged (bool), halted_reason (string|null), gate_mergeable (bool), gate_blockers (array of blocker codes, empty when mergeable), gate_tier (string|null), dispositions ({ listed, fix_on_pr, follow_on, accepted, undecided }), branch_protection_enforced (bool|null -- null when the protection read failed, never true by assumption), trace_summary }
 
@@ -133,11 +140,16 @@ re-verified against live state, then merged once the review gate agrees.
 **Format:** Progress narration per round, then a single JSON summary line
 
 **Structure:**
+
 - **Round Narration**: Per round: findings manifest, routing, dispatch/barrier, re-verification diff
 - **Merge Gate Result**: The MODE=gate answer: mergeable, risk tier, blockers, any SERVER-SIDE ENFORCEMENT ABSENT notice.
 
-## Usage
+## Expected Input
 
-```
-/ensemble:pr-merge [pr-number-or-url] [--max-rounds=N] [--dry-run] [--foreman] [--method=squash|merge|rebase]
+```yaml
+format: PR reference plus optional flags
+sections:
+  - name: Dry Run
+    required: false
+    description: '--dry-run stops before the actual merge and reports merge-readiness only'
 ```
