@@ -154,14 +154,27 @@ describe('ensemble-codex: skill-backed commands of the real sources', () => {
       .sort();
   }
 
-  test('each ships the references/ of its skill with it, file for file and byte for byte, and no other file of the skill', () => {
+  test('each ships the references/ of its skill with it, file for file and byte for byte, plus the Codex policy file when the skill opts out of implicit use, and no other file of the skill', () => {
     for (const { yamlFile, skill } of skillBackedCommands()) {
       const sourceDir = path.join(path.dirname(path.dirname(yamlFile)), 'skills', skill);
       const referencesDir = path.join(sourceDir, 'references');
       const references = fs.existsSync(referencesDir) ? filesBelow(referencesDir).map((rel) => `references/${rel}`) : [];
       const shippedDir = path.join(commandsDir, skill);
+      // Codex does not read `disable-model-invocation`; it reads agents/openai.yaml instead.
+      const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(fs.readFileSync(path.join(sourceDir, 'SKILL.md'), 'utf8'));
+      const optsOut = frontmatter !== null && /^disable-model-invocation:\s*true\s*$/m.test(frontmatter[1]);
+      const policy = optsOut ? ['agents/openai.yaml'] : [];
 
-      expect({ yamlFile, shipped: filesBelow(shippedDir) }).toEqual({ yamlFile, shipped: ['SKILL.md', ...references].sort() });
+      expect({ yamlFile, shipped: filesBelow(shippedDir) }).toEqual({
+        yamlFile,
+        shipped: ['SKILL.md', ...policy, ...references].sort(),
+      });
+      if (optsOut) {
+        expect({ yamlFile, policy: fs.readFileSync(path.join(shippedDir, 'agents/openai.yaml'), 'utf8') }).toEqual({
+          yamlFile,
+          policy: 'policy:\n  allow_implicit_invocation: false\n',
+        });
+      }
       for (const rel of references) {
         const identical = fs.readFileSync(path.join(shippedDir, rel)).equals(fs.readFileSync(path.join(sourceDir, rel)));
         expect({ yamlFile, rel, identical }).toEqual({ yamlFile, rel, identical: true });

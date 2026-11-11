@@ -75,6 +75,8 @@ This makes the published package directly usable without cloning the Ensemble mo
 - Let agents preload relevant framework/test skills automatically
 - Re-run `npm run generate:codex` after changing source YAML, markdown, or skill content
 
+Command skills whose source declares `disable-model-invocation: true` also ship `agents/openai.yaml` with `policy: allow_implicit_invocation: false`. Claude, Pi and OMP read the frontmatter key; Codex ignores it and reads this file instead, so these skills are not injected into the model context by default and run only when invoked explicitly (for example `$ensemble-create-prd`).
+
 ## Release automation
 
 Sync versions across `packages/codex/package.json`, `.claude-plugin/plugin.json`, and `marketplace.json`:

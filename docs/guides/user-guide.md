@@ -47,7 +47,7 @@ The repository is an npm monorepo under `packages/`. Each package is both an npm
 | Kind | What it is | How it runs |
 | --- | --- | --- |
 | Skill | A `SKILL.md` that teaches the model a technology or a procedure (`jira`, `detect-stack`, `assess-security`) | Loaded by name, automatically by agents or when you ask for it |
-| Command | A workflow defined in YAML under `packages/<pkg>/commands/*.yaml`, with phases, gates and expected outputs | You type `/ensemble:<name>` (Claude Code) or the runtime-specific form in section 2 |
+| Command | A workflow entry point defined under `packages/<pkg>/commands/*.yaml`: a manifest pointing at a skill that holds the phases, gates and expected outputs (a dispatcher keeps its routing table in the YAML) | You type `/ensemble:<name>` (Claude Code) or the runtime-specific form in section 2 |
 | Agent | A role definition (`backend-developer`, `code-reviewer`, ...) that commands and orchestrators delegate to | Dispatched by commands; you rarely invoke one directly |
 
 Since 7.0.0 skill names equal the technology name (`jira`, not `managing-jira-issues`). The 68 source skills and 35 agents are listed in sections 6 and 7.
@@ -538,8 +538,10 @@ The Package column names the marketplace plugin that ships the command. Argument
 | `/ensemble:pr-merge` | `[pr-number-or-url] [--max-rounds=N] [--dry-run]` | Drive an open PR to green and merged | `ensemble-git` |
 | `/ensemble:release` | `--version X.Y.Z [--type standard\|hotfix\|rollback] [--from <b>] [--to <b>] [--rollback] [--draft] [--dry-run]` | Release workflow with quality gates and rollback | `ensemble-git` |
 | `/ensemble:author-playwright-tests` | `[story-or-pr-reference]` | Interactive Playwright test authoring grounded in shipped code and PRD acceptance criteria | `ensemble-e2e-testing` |
+| `/ensemble:onboard` | `[path]` | Onboard onto an existing (brownfield) codebase: architecture overview, exact build/test/lint commands, hotspots, optional debt backlog | `ensemble-development` |
+| `/ensemble:retro` | `--release vX.Y.Z \| --since <ref>` | Post-release retrospective: estimate accuracy, PRD success-metric status, incidents, proposed follow-ups | `ensemble-development` |
 
-That is 35 typable commands.
+That is 34 typable commands.
 
 ### 5.2 Hidden commands
 
@@ -558,7 +560,7 @@ Hidden commands are not typable. Each is reached through one dispatcher keyword 
 
 `/ensemble:fold-prompt` stays typable; `/ensemble:standards fold` reaches it as well.
 
-Together the 35 typable and 8 hidden commands make the 43 generated commands.
+Together the 34 typable and 8 hidden commands make the 42 commands, 41 of them defined in `packages/*/commands/*.yaml` and `/ensemble:init-project` hand-authored.
 
 ## 6. Skills reference
 

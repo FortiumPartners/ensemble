@@ -470,8 +470,8 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
     expect(shipped).not.toContain('Ensemble Command: /ensemble:skilled'); // the wrapper's title
     expect(shipped).not.toContain('CLAUDE_PLUGIN_ROOT');
 
-    // One skill for the command, and only its SKILL.md
-    expect(fs.readdirSync(path.join(commandsDir(tmp), 'ensemble-skilled'))).toEqual(['SKILL.md']);
+    // One skill for the command: its SKILL.md and the Codex policy file its frontmatter key calls for
+    expect(fs.readdirSync(path.join(commandsDir(tmp), 'ensemble-skilled')).sort()).toEqual(['SKILL.md', 'agents']);
     expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual([ORDINARY_SKILL, 'ensemble-skilled']);
     // The command count is the number of command skills, which is what AGENTS.md says it is
     expect(count).toBe(2);
@@ -559,7 +559,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
       [`${SKILL_DIR}/references/a.md`]: REF_A,
       [`${SKILL_DIR}/references/nested/b.md`]: REF_B,
     };
-    const SHIPPED = ['SKILL.md', 'references/a.md', 'references/nested/b.md'];
+    const SHIPPED = ['SKILL.md', 'agents/openai.yaml', 'references/a.md', 'references/nested/b.md'];
 
     /** Every file below `dir`, relative to it, `/`-separated and sorted. */
     const walk = (dir, prefix = '') =>
@@ -609,7 +609,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
       });
       generate(tmp);
 
-      expect(shippedTree(tmp, 'bare-skill')).toEqual(['SKILL.md']);
+      expect(shippedTree(tmp, 'bare-skill')).toEqual(['SKILL.md', 'agents/openai.yaml']);
       expect(shippedTree(tmp, ORDINARY_SKILL)).toEqual(['SKILL.md']);
       expect(shippedTree(tmp, SKILL)).toEqual(SHIPPED); // the skill that has them still ships them
     });
@@ -618,7 +618,7 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
       const tmp = fixtureRoot(WITH_REFERENCES);
       const count = generate(tmp);
 
-      expect(shippedTree(tmp, SKILL)).toHaveLength(3);
+      expect(shippedTree(tmp, SKILL)).toHaveLength(4);
       expect(fs.readdirSync(commandsDir(tmp)).sort()).toEqual([ORDINARY_SKILL, SKILL]);
       expect(count).toBe(2);
       expect(buildCodexAgentsMd(count, 1, 1)).toContain('2 command skills');
@@ -638,6 +638,56 @@ describe('generateCommandSkills — skill-backed commands (temp-root smoke run)'
     test('a dry run writes none of it, and still counts the skills a real run writes', () => {
       const tmp = fixtureRoot(WITH_REFERENCES);
       expect(generate(tmp, { dryRun: true })).toBe(2);
+      expect(fs.existsSync(tmp.outputDir)).toBe(false);
+    });
+  });
+
+  describe('agents/openai.yaml (the Codex implicit-invocation policy)', () => {
+    const POLICY = 'policy:\n  allow_implicit_invocation: false\n';
+    const policyFile = (tmp, skill) => path.join(commandsDir(tmp), skill, 'agents', 'openai.yaml');
+    const files = (source) => ({
+      'commands/skilled.yaml': manifest('skilled', 'ensemble-skilled'),
+      'skills/ensemble-skilled/SKILL.md': source,
+    });
+
+    test('is written, with exactly the policy, for a skill whose frontmatter has disable-model-invocation: true', () => {
+      const tmp = fixtureRoot(files(SKILL_SOURCE));
+      generate(tmp);
+
+      expect(fs.readFileSync(policyFile(tmp, 'ensemble-skilled'), 'utf-8')).toBe(POLICY);
+      // the wrapper of an ordinary command declares no such key and gets none
+      expect(fs.existsSync(policyFile(tmp, ORDINARY_SKILL))).toBe(false);
+    });
+
+    test('is absent for a skill without the key, or with it set to false', () => {
+      const without = SKILL_SOURCE.replace('disable-model-invocation: true\n', '');
+      const tmp = fixtureRoot(files(without));
+      generate(tmp);
+      expect(fs.existsSync(path.join(commandsDir(tmp), 'ensemble-skilled', 'agents'))).toBe(false);
+
+      const off = fixtureRoot(files(SKILL_SOURCE.replace('disable-model-invocation: true', 'disable-model-invocation: false')));
+      generate(off);
+      expect(fs.existsSync(policyFile(off, 'ensemble-skilled'))).toBe(false);
+    });
+
+    test('disappears on regeneration once the source drops the key', () => {
+      const tmp = fixtureRoot(files(SKILL_SOURCE));
+      generate(tmp);
+      expect(fs.existsSync(policyFile(tmp, 'ensemble-skilled'))).toBe(true);
+
+      fs.writeFileSync(
+        path.join(tmp.packagesDir, 'codex-skillbacked-fixture', 'skills', 'ensemble-skilled', 'SKILL.md'),
+        SKILL_SOURCE.replace('disable-model-invocation: true\n', '')
+      );
+      generate(tmp);
+
+      expect(fs.existsSync(path.join(commandsDir(tmp), 'ensemble-skilled', 'agents'))).toBe(false);
+      expect(fs.readdirSync(path.join(commandsDir(tmp), 'ensemble-skilled'))).toEqual(['SKILL.md']);
+    });
+
+    test('a dry run writes none of it', () => {
+      const tmp = fixtureRoot(files(SKILL_SOURCE));
+      generate(tmp, { dryRun: true });
       expect(fs.existsSync(tmp.outputDir)).toBe(false);
     });
   });

@@ -446,6 +446,34 @@ function skillReferenceFiles(skillDir) {
   return fs.existsSync(referencesDir) && fs.statSync(referencesDir).isDirectory() ? filesBelow(referencesDir) : [];
 }
 
+/** Where a skill keeps its Codex-only machine config (Codex skill-creator layout), relative to the skill. */
+const OPENAI_YAML_PATH = path.join('agents', 'openai.yaml');
+
+/**
+ * Codex does not read `disable-model-invocation`; it reads `agents/openai.yaml`. This is that file for
+ * a skill that must not be injected into the model context by default (still invocable as `$skill`).
+ * Strings would be quoted and keys are not, per the Codex reference; this has neither.
+ */
+const OPENAI_YAML_NO_IMPLICIT = 'policy:\n  allow_implicit_invocation: false\n';
+
+/**
+ * Write `agents/openai.yaml` beside a shipped command skill when its source SKILL.md frontmatter has
+ * `disable-model-invocation: true`; otherwise remove one a previous run left, so dropping the key in
+ * the source drops the file on regeneration. The `agents/` directory goes with it when that empties it.
+ */
+function syncOpenAiPolicy(skillFile, destDir, dryRun, verbose) {
+  const destFile = path.join(destDir, OPENAI_YAML_PATH);
+  const { data } = parseFrontmatter(readFile(skillFile));
+  if (data['disable-model-invocation'] === true) {
+    writeFile(destFile, OPENAI_YAML_NO_IMPLICIT, dryRun, verbose);
+    return;
+  }
+  if (dryRun) return;
+  fs.rmSync(destFile, { force: true });
+  const agentsDir = path.dirname(destFile);
+  if (fs.existsSync(agentsDir) && fs.readdirSync(agentsDir).length === 0) fs.rmdirSync(agentsDir);
+}
+
 /**
  * Write one Codex skill per command, `<outputDir>/skills/commands/<skill>/SKILL.md`, and return how
  * many skills that is (distinct skill directories, not the files in them nor the commands).
@@ -519,6 +547,7 @@ function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, ou
         claim(dest, from);
         copyFile(from, dest, dryRun, verbose);
       }
+      syncOpenAiPolicy(skillFile, destDir, dryRun, verbose);
       continue;
     }
 

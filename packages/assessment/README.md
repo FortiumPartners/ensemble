@@ -63,12 +63,13 @@ The command is spelled per runtime: `/ensemble:assess` on Claude Code, `/ensembl
 Pi, `/skill:ensemble-assess` on OMP. The leaf skills stay directly invokable
 (`/skill:assess-security`), so the command is an addition, not a replacement.
 
-Three files are generated from `commands/assess.yaml` and must not be edited by hand:
-`commands/ensemble/assess.md` (`npm run generate`), and `prompts/ensemble-assess.md` plus
-`skills/ensemble-assess/SKILL.md` (`npm run generate:pi`). Both commands run from the
-repository root. `skills/ensemble-assess/` is the Pi/OMP command wrapper, not a 23rd
-assessment skill; it carries `user-invocable: false` (ignored by Pi and OMP) so Claude Code,
-where `/ensemble:assess` is the entry point, does not list it a second time.
+The command's prompt is the source skill `skills/ensemble-assess/SKILL.md`; edit it there.
+`commands/assess.yaml` is only a manifest that points at it. Two files are generated from the
+manifest and must not be edited by hand: `commands/ensemble/assess.md` (`npm run generate`) and
+`prompts/ensemble-assess.md` (`npm run generate:pi`). Both commands run from the repository root.
+`skills/ensemble-assess/` is the Pi/OMP command skill, not a 23rd assessment skill; it carries
+`user-invocable: false` (ignored by Pi and OMP) so Claude Code, where `/ensemble:assess` is the
+entry point, does not list it a second time.
 
 ## Description
 
