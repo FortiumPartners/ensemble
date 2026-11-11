@@ -1298,8 +1298,10 @@ describe('run(): interactive repo-local adapter reaches confirmation; non-intera
     test("reverting run()'s loadAdapter call to the old bare ctx (no derived interactive flag) makes a genuinely interactive run fail UNTRUSTED_REPO_ADAPTER instead of reaching CONFIRMATION_REQUIRED", async () => {
       const mutantRoot = makeMutantToolchainRoot();
       try {
-        const needle = '    loaded = loadAdapter(adapterId, { ...ctx, interactive });';
-        const replacement = '    loaded = loadAdapter(adapterId, ctx);';
+        // Drops only the derived `interactive` flag, keeping the `category` pass-through
+        // (#146) so this proof stays about the trust derivation and nothing else.
+        const needle = '    loaded = loadAdapter(adapterId, { ...ctx, category, interactive });';
+        const replacement = '    loaded = loadAdapter(adapterId, { ...ctx, category });';
         const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
 
         const markerPath = path.join(os.tmpdir(), `toolchain-cli-marker-mutant-${Date.now()}.txt`);

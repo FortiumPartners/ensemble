@@ -60,7 +60,7 @@ function resolveWorkGraphAdapter(ctx = {}) {
   const resolved = resolveCategory('work-graph', ctx);
 
   if (resolved.value !== 'auto') {
-    const loaded = loadAdapter(resolved.value, ctx);
+    const loaded = loadAdapter(resolved.value, { ...ctx, category: 'work-graph' });
     return { value: resolved.value, source: resolved.source, autoVia: null, ...loaded };
   }
 
@@ -71,7 +71,9 @@ function resolveWorkGraphAdapter(ctx = {}) {
   // otherwise misattribute a 'tracker' detection exclusion under 'work-graph' instead).
   const trackerCtx = { ...ctx, diagnostics: [] };
   const trackerResolved = resolveCategory('tracker', trackerCtx);
-  const trackerLoaded = loadAdapter(trackerResolved.value, trackerCtx);
+  // Loaded as the tracker it is (resolution is keyed on (id, category) -- #146), then asked
+  // whether that same manifest also declares `work-graph`, which is what `auto` means here.
+  const trackerLoaded = loadAdapter(trackerResolved.value, { ...trackerCtx, category: 'tracker' });
   const trackerProvidesWorkGraph =
     Array.isArray(trackerLoaded.manifest && trackerLoaded.manifest.categories) &&
     trackerLoaded.manifest.categories.includes('work-graph');
