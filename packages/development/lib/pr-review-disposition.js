@@ -54,6 +54,7 @@ const {
   normalizeSeverity,
   anchorOf,
   hasResolutionProvenance,
+  isCritical,
 } = require('./pr-review-ledger');
 const { findingsHeldOpen, coverageHeldOpen } = require('./pr-review-gate');
 
@@ -115,15 +116,16 @@ function failClosed(reason) {
 
 /**
  * Security if it came through the security lane, is flagged, sits on the
- * security lane, or is Critical. Broader is the safe direction. This only
- * decides how an `accept` is offered (never batched, its own reason); whether
- * the finding BLOCKS is the gate's.
+ * security lane, or is Critical (as written or read into the taxonomy since:
+ * `isCritical`). Broader is the safe direction. This only decides how an
+ * `accept` is offered (never batched, its own reason); whether the finding
+ * BLOCKS is the gate's.
  */
 function isSecurity(finding, fromSecurityLane) {
   if (fromSecurityLane) return true;
   if (flagged(finding.security) || flagged(finding.securityRelevant)) return true;
   if (isText(finding.lane) && finding.lane.trim().toLowerCase() === 'security') return true;
-  return isText(finding.severity) && finding.severity.trim().toLowerCase() === 'critical';
+  return isCritical(finding);
 }
 
 /** The severity word shown for a finding: the canonical one, else the word as written. */

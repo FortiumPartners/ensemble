@@ -168,12 +168,28 @@ function flagged(value) {
   return true;
 }
 
-/** Whether a finding is in the security lane: a person adjudicates it, never a vote alone. */
+/** The words `normalizeSeverity` (pr-review-ledger.js) reads as Nit or Pre-existing: a finding that carries one is below Important. */
+const BELOW_IMPORTANT = new Set(['minor', 'nitpick', 'nit', 'pre-existing', 'preexisting', 'pre existing']);
+
+/** Whether a written severity is the word Critical: text, any letter case, surrounding space ignored. */
+function isCriticalWord(word) {
+  return isText(word) && word.trim().toLowerCase() === 'critical';
+}
+
+/**
+ * Whether a finding is in the security lane: a person adjudicates it, never a vote alone. A Critical is, whether it is written
+ * as such or was read into the current taxonomy since (`normalizeFinding` turns the word into `important` and keeps it as
+ * `originalSeverity`: a Critical must not lose the person-decides rule because a ledger was read). The reading is
+ * `isCritical` in pr-review-ledger.js: the word as `severity`, or as `originalSeverity` unless the finding itself reads Nit or
+ * Pre-existing (a stale claim, which `isActionable` and the merge gate never read either). This module imports nothing, so it
+ * mirrors that reading, and a test pins that the two agree.
+ */
 function isSecurityLane(finding) {
   if (flagged(finding.security)) return true;
   if (isText(finding.lane) && finding.lane.trim().toLowerCase() === 'security') return true;
   if (flagged(finding.critical)) return true;
-  return isText(finding.severity) && finding.severity.trim().toLowerCase() === 'critical';
+  if (isCriticalWord(finding.severity)) return true;
+  return isCriticalWord(finding.originalSeverity) && !(typeof finding.severity === 'string' && BELOW_IMPORTANT.has(finding.severity.toLowerCase()));
 }
 
 /** Whether a finding needs no answer: style, diagnostic or cleanup. The security lane is never one. */
