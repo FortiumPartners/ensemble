@@ -549,17 +549,18 @@ describe('the docs state the numbers the code derives: a number that drifts fail
     expect(start).toBeGreaterThanOrEqual(0);
     // the text collapses whitespace: entries are told apart by their prefix; an entry filed far from the top is a misplaced one
     const newer = unreleased.slice(0, start).split('- **packages/development:**').slice(1);
-    expect(newer.length).toBeLessThanOrEqual(12);
-    // the entries known to sit above it: agent stats and the host-load sampler (kata nj2d) are the first, quorum-first verification (kata 3ezq) the next, the walltime compare factor (kata js1p) after it, the insertion clear (kata bh8w) next, the re-review that is a delta although a verifier was lost (kata p5dt) after that, the verifier deadline and the majority rule (kata dx53) next, the result files read again (kata 271n) after that, the re-review delta (kata xb4j) next, the small-slice deadlines (katas d9sy and 630v) last
-    expect(newer[0]).toMatch(/^ `review-run` records what the dispatcher knows of each agent on its trace span, and `pr-review-cli timing` reports it by role and per agent \(kata `nj2d`/);
-    expect(newer[1]).toMatch(/^ quorum-first verification, an opt-in policy key that dispatches fewer verifiers for the same decision \(kata `3ezq`/);
-    expect(newer[2]).toMatch(/^ `walltime compare` takes an explicit per-stratum target factor \(kata `js1p`/);
-    expect(newer[3]).toMatch(/^ a fix that only adds lines inside a cited range clears the finding it fixes \(kata `bh8w`/);
-    expect(newer[4]).toMatch(/^ a re-review is a delta, not a full re-read, when the first round lost a verifier, and the delta verifies what that verifier left unverified \(kata `p5dt`/);
-    expect(newer[5]).toMatch(/^ `review-run` gives a verifier the time its first live runs showed it needs and settles a candidate on the strict majority of its verifiers when one did not return \(kata `dx53`/);
-    expect(newer[6]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
-    expect(newer[7]).toMatch(/^ review-run re-review plans a delta/);
-    expect(newer[8]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
+    expect(newer.length).toBeLessThanOrEqual(13);
+    // the entries known to sit above it: the hosted-CI reuse of the local gate (kata fwj0, landed by ehsm) is the first, agent stats and the host-load sampler (kata nj2d) the next, quorum-first verification (kata 3ezq) after it, the walltime compare factor (kata js1p) the next, the insertion clear (kata bh8w) after that, the re-review that is a delta although a verifier was lost (kata p5dt) next, the verifier deadline and the majority rule (kata dx53) after that, the result files read again (kata 271n) next, the re-review delta (kata xb4j) after that, the small-slice deadlines (katas d9sy and 630v) last
+    expect(newer[0]).toMatch(/^ the local CI gate reuses hosted CI results for the same head instead of re-running them \(kata `fwj0`, landed by kata `ehsm`/);
+    expect(newer[1]).toMatch(/^ `review-run` records what the dispatcher knows of each agent on its trace span, and `pr-review-cli timing` reports it by role and per agent \(kata `nj2d`/);
+    expect(newer[2]).toMatch(/^ quorum-first verification, an opt-in policy key that dispatches fewer verifiers for the same decision \(kata `3ezq`/);
+    expect(newer[3]).toMatch(/^ `walltime compare` takes an explicit per-stratum target factor \(kata `js1p`/);
+    expect(newer[4]).toMatch(/^ a fix that only adds lines inside a cited range clears the finding it fixes \(kata `bh8w`/);
+    expect(newer[5]).toMatch(/^ a re-review is a delta, not a full re-read, when the first round lost a verifier, and the delta verifies what that verifier left unverified \(kata `p5dt`/);
+    expect(newer[6]).toMatch(/^ `review-run` gives a verifier the time its first live runs showed it needs and settles a candidate on the strict majority of its verifiers when one did not return \(kata `dx53`/);
+    expect(newer[7]).toMatch(/^ `review-run` no longer loses an agent's result file when the agent rewrites it after `collect` read it \(kata `271n`/);
+    expect(newer[8]).toMatch(/^ review-run re-review plans a delta/);
+    expect(newer[9]).toMatch(/^ `review-run` gives a small slice the time the first live runs showed it needs.*\(kata `d9sy` and `630v`/);
     const first = unreleased.slice(start);
     // the entry ends where the next bullet starts (the file is read with whitespace collapsed, so a bullet is ' - ' + a bold or code opener)
     const next = first.slice(10).search(/ - (?:\*\*|`)/);

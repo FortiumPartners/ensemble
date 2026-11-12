@@ -268,7 +268,7 @@ function protectionLines(p, approvals) {
 function gateLine(gate) {
   switch (gate.action) {
     case 'started':
-      return `Local CI gate: started in the background at ${gate.startedAt || 'this run'}${gate.dryRun ? ' (dry run: it will not post a status)' : ''}${gate.logPath ? `, log \`${gate.logPath}\`` : ''}.${gate.dryRun ? '' : ` It posts \`${gate.statusContext}\` on this head when it finishes.`}`;
+      return `Local CI gate: started in the background at ${gate.startedAt || 'this run'}${gate.dryRun ? ' (dry run: it will not post a status)' : ''}${gate.logPath ? `, log \`${gate.logPath}\`` : ''}.${gate.dryRun ? '' : ` It posts \`${gate.statusContext}\` on this head when it finishes, unless hosted CI already verified the head: then it runs nothing and posts nothing (its log says \`stage hosted\`).`}`;
     case 'already-started': {
       const e = isObject(gate.existing) ? gate.existing : {};
       if (e.orphaned === true) {
@@ -278,7 +278,7 @@ function gateLine(gate) {
       return `Local CI gate: already started${e.startedAt ? ` at ${e.startedAt}` : ''}; not started again.${e.alive === false ? ' That process is no longer running and has posted no status: read its log before relying on it.' : ''}`;
     }
     case 'status-present':
-      return `Local CI gate: \`${gate.statusContext}\` is already posted on this head (${gate.state}); not started.`;
+      return `Local CI gate: \`${gate.statusContext}\` is already posted on this head (${gate.state}); not started.${gate.state === 'pending' ? ' A pending status that no run is working on (a dead gate leaves one) needs a gate run with `forceLocal:true`.' : ''}`;
     case 'start-failed':
       return `Local CI gate: could NOT be started (${gate.reason}).${gate.mayBeRunning ? ' A gate process may still be running, so the start stays recorded and no second one is started.' : ''}`;
     default:

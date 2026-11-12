@@ -29,7 +29,8 @@
  *   - the ONE PR comment it creates or edits (`gh api -X POST|PATCH`), redacted and with local paths stripped;
  *   - the gate it starts, a detached `local-ci-cli.js gate`: it clones the head into
  *     `<repoRoot>/.ensemble/local-ci-runs/<sha>` (removed when it finishes), runs the base-ref command list there and, unless
- *     `dryRun`, posts the commit status on the head. The recorded pid leads the gate's process group and its steps run in that
+ *     `dryRun`, posts the commit status on the head, except when hosted CI already verified the head: then it runs nothing, posts
+ *     nothing and its log says `stage hosted`. The recorded pid leads the gate's process group and its steps run in that
  *     group, so stop a gate with `kill -KILL -- -<pid>`: killing the pid alone leaves its steps running.
  *
  * Why not the host adapter: `host.yaml` has no PR-comment, commit-status-list or branch-protection capability, and the

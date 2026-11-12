@@ -1,9 +1,9 @@
 ---
 name: "ensemble:pr-merge"
 description: "Drive an open PR to green and merged by dispatching one subagent per failing CI check and unresolved review thread, routed through the correct orchestrator"
-version: "2.4.1"
+version: "2.4.2"
 category: "git"
-last-updated: "2026-11-08"
+last-updated: "2026-11-10"
 allowed-tools: "Read, Bash, Task, Grep, Glob, TodoWrite, AskUserQuestion"
 capabilities-required: "host.change-request-view, host.change-request-checks, host.change-request-merge, host.change-request-reviews"
 capabilities-optional: "host.change-request-threads"

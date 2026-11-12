@@ -69,6 +69,12 @@ describe('gate start (AC1)', () => {
     expect(calls.startGate).toBe(1);
   });
 
+  it('says the detached gate posts the status when it finishes unless hosted CI already verified the head (then it posts nothing)', async () => {
+    const { deps } = makeDeps();
+    const r = await runPrecheck({}, deps);
+    expect(r.comment.body).toContain(`It posts \`${CONTEXT}\` on this head when it finishes, unless hosted CI already verified the head: then it runs nothing and posts nothing (its log says \`stage hosted\`).`);
+  });
+
   it('does not start it when the configured status is already on this head, whatever its state', async () => {
     for (const state of ['success', 'failure', 'pending', 'error']) {
       const { deps, calls } = makeDeps({ readStatuses: async () => ({ ok: true, statuses: [{ context: CONTEXT, state, sha: HEAD }] }) });
@@ -184,6 +190,15 @@ describe('the gate runs the head\'s own code, so only a same-repository head sta
     const { deps, calls } = makeDeps({ readPr: prFrom({ isCrossRepository: false }) });
     expect((await runPrecheck({}, deps)).gate.action).toBe('started');
     expect(calls.startGate).toBe(1);
+  });
+
+  it('says a pending status that no run is working on needs forceLocal:true, and only for pending', async () => {
+    for (const [state, expected] of [['pending', true], ['failure', false], ['success', false]]) {
+      const { deps } = makeDeps({ readStatuses: async () => ({ ok: true, statuses: [{ context: CONTEXT, state, sha: HEAD }] }) });
+      const body = (await runPrecheck({}, deps)).comment.body;
+      expect(body).toContain(`is already posted on this head (${state}); not started.`);
+      expect(body.includes('needs a gate run with `forceLocal:true`')).toBe(expected);
+    }
   });
 
   it('reports a status already on a fork head as it is: nothing is started either way', async () => {

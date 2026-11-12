@@ -20,6 +20,8 @@ paths = [
   '''^packages/development/tests/pr-review-reachability\.test\.js$''',
   # Fake AWS_SECRET_ACCESS_KEY / API-token canary values that prove the pr-review-prepare baseline run drops credentials from its environment.
   '''^packages/development/tests/pr-review-prepare\.test\.js$''',
+  # Fake GH_TOKEN / AWS_SECRET_ACCESS_KEY / hosts.yml canary values that prove the local CI gate runner hands the PR head's steps none of the maintainer's credentials (the fake gh posts only if it finds one).
+  '''^packages/development/tests/helpers/local-ci-iso\.js$''',
 ]
 
 # Fake `name = value` strings that exercise the shared redact() (it must remove them). Narrower than a path entry: the

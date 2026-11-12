@@ -20,10 +20,14 @@
  * runGate(options, deps?) -> {
  *   ok, sha, error?, failures:[{kind, step, node, sha, message}],
  *   unmirrored:[{workflow, job, step}], nodes:[{node, ok, steps:[{name,status}]}],
- *   staleRemoved:[dirName], clonePath
+ *   staleRemoved:[dirName], clonePath, leftoverProcessesKilled? (only when > 0; informative, never a failure)
  * }
+ *
+ * The steps are the PR head's code and run as the maintainer's OS user. They are kept away from the maintainer's GitHub
+ * credential as far as an environment can (ENV_ALLOWLIST, prepareScratch, reapLeftovers); that is not a sandbox.
  */
 
+const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -59,7 +63,8 @@ function defaultDeps() {
       // command's status, so a failure in the middle of a multi-command step (a loop, a script block) would be graded as a pass
       // here while hosted CI fails it. --noprofile --norc keeps the maintainer's shell startup files out of the step.
       // A hung step must fail, not block the gate forever: `timeout` SIGKILLs bash, and `detached` makes bash a process-group
-      // leader so the whole group (its children) is SIGKILLed too. Limit: a descendant that calls setsid() escapes the group.
+      // leader so the whole group (its children) is SIGKILLed too. A descendant that calls setsid() escapes the group; runGate
+      // therefore also sweeps, when the run ends, the processes that carry the run's marker (reapLeftovers). `pid` is the group's.
       const r = spawnSync('bash', ['--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', cmd], {
         cwd, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: timeoutMs, killSignal: 'SIGKILL', detached: true,
       });
@@ -67,7 +72,7 @@ function defaultDeps() {
       if (timedOut && r.pid) {
         try { process.kill(-r.pid, 'SIGKILL'); } catch { /* group already gone */ }
       }
-      return { status: r.error ? 127 : r.status, stdout: r.stdout || '', stderr: r.stderr || (r.error ? String(r.error.message) : ''), timedOut };
+      return { status: r.error ? 127 : r.status, stdout: r.stdout || '', stderr: r.stderr || (r.error ? String(r.error.message) : ''), timedOut, pid: r.pid };
     },
     resolveNodeBinDir(major) {
       const r = spawnSync('npx', ['--yes', '-p', `node@${major}`, 'node', '-p', 'process.execPath'], { encoding: 'utf8' });
@@ -75,6 +80,14 @@ function defaultDeps() {
         throw new Error(`could not obtain Node ${major} via npx: ${(r.stderr || (r.error && r.error.message) || '').trim()}`);
       }
       return path.dirname(r.stdout.trim().split('\n').pop());
+    },
+    /** The environment of the current user's processes as [{pid, tokens}], or null where this platform cannot list them. */
+    listProcesses() {
+      return listProcessEnvironments();
+    },
+    /** Signal a process (pid > 0) or a process group (pid < 0); throws as process.kill does. */
+    kill(pid, signal) {
+      process.kill(pid, signal);
     },
   };
 }
@@ -137,6 +150,56 @@ function redactDeep(value, secretValues) {
   return value;
 }
 
+/* ------------------------------------------------------------ tree removal */
+
+/**
+ * Make every directory under `p` readable and writable by the owner so a removal can succeed. A step of the head can leave
+ * `chmod 000` directories behind. Symlinks are SKIPPED (lstat, never stat): a link to anything outside the clone must
+ * never be chmod-ed, entered or followed. Errors are ignored: this is best effort, the retry decides.
+ */
+function repairPermissions(p) {
+  let st;
+  try {
+    st = fs.lstatSync(p);
+  } catch {
+    return;
+  }
+  if (st.isSymbolicLink() || !st.isDirectory()) return;
+  try {
+    fs.chmodSync(p, 0o700);
+  } catch {
+    /* the retry reports it */
+  }
+  let names;
+  try {
+    names = fs.readdirSync(p);
+  } catch {
+    return;
+  }
+  for (const name of names) repairPermissions(path.join(p, name));
+}
+
+/**
+ * Remove the tree at `p` and NEVER throw: a head's step controls what is in there, and an exception from a cleanup must
+ * not replace the result of the run (round 4, R1). Removes, and on an error repairs the permissions and retries once.
+ * Returns null on success, else the error message.
+ */
+function removeTree(p) {
+  const remove = () => fs.rmSync(p, { recursive: true, force: true, maxRetries: 2 });
+  try {
+    remove();
+    return null;
+  } catch {
+    repairPermissions(p);
+  }
+  try {
+    remove();
+    return null;
+  } catch (err) {
+    return err && err.message ? String(err.message) : String(err);
+  }
+}
+
 /* ------------------------------------------------------------- stale sweep */
 
 /**
@@ -165,7 +228,8 @@ function sweepStaleClones({ repoRoot, maxAgeMs = DEFAULT_STALE_MS, now = Date.no
     }
     if (!st.isDirectory() || st.isSymbolicLink()) continue;
     if (now - st.mtimeMs <= maxAgeMs) continue;
-    fs.rmSync(p, { recursive: true, force: true });
+    const problem = removeTree(p);
+    if (problem !== null) throw new Error(`could not remove stale clone ${p}: ${problem}`);
     removed.push(name);
   }
   return removed;
@@ -281,11 +345,14 @@ function symlinkStaysInside(dir, abs) {
 /**
  * Every file in the clone that is not tracked, whatever the head's .gitignore says (`ls-files --others` without
  * `--exclude-standard` lists them all; `git status` honours the head's own ignore rules, so a head could hide a planted
- * file from it). Returns an array of repo-relative paths, or null when git could not answer (callers fail closed).
+ * file from it). Returns an array of repo-relative paths, or null when git could not answer or skipped an unreadable directory (callers fail closed).
  */
 function untrackedFiles({ dir, deps }) {
   const r = deps.git(['ls-files', '-z', '--others'], { cwd: dir });
   if (r.status !== 0) return null;
+  // git exits 0 and skips a directory it cannot open, printing only this warning: a step could hide files in one
+  // (`chmod 000`). Fail closed: we cannot see inside, so the clone cannot be inspected (also for the baseline: null stays null).
+  if (/could not open directory/i.test(String(r.stderr || ''))) return null;
   return String(r.stdout).split('\0').filter(Boolean);
 }
 
@@ -453,13 +520,62 @@ const SECRET_NAME_RE = /TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|AUTH/i;
 const MIN_SECRET_LENGTH = 6;
 
 /**
- * The only inherited variables a step sees (plus CI, a scratch HOME, the Node-pinned PATH and the configured secret
- * names). The full maintainer environment is never passed on. HOME is NOT inherited: a step runs the PR head's code, and
- * with the real HOME it could rewrite ~/.gitconfig, ~/.npmrc or shell profiles (which outlive the run) or read ~/.ssh
- * and ~/.aws. Each run gets a fresh scratch HOME instead; the npm cache is pointed back at the maintainer's real cache so
- * installs stay warm (npm verifies cache entries by integrity hash).
+ * The only inherited variables a step sees. The rest of the maintainer's environment stays behind: GH_TOKEN, GITHUB_TOKEN,
+ * GH_ENTERPRISE_TOKEN, GITHUB_ENTERPRISE_TOKEN, GITLAB_TOKEN, NPM_TOKEN, NODE_AUTH_TOKEN, SSH_AUTH_SOCK, GIT_ASKPASS,
+ * SSH_ASKPASS, GH_HOST, GH_CONFIG_DIR, XDG_*, AWS_* and every other variable are NOT passed on. TMPDIR is on the list (the
+ * list is pinned equal to the baseline run's in lib/review-prepare-runtime.js) but is always overridden by the scratch dir's own
+ * tmp dir (buildStepEnv), so the maintainer's value never reaches a step. The configured secrets are the one deliberate
+ * exception: the maintainer names them.
+ *
+ * A step is the PR head's code and runs as the maintainer's OS user, so this isolates what a step INHERITS; it is not a
+ * sandbox. It closes: a credential handed down through the environment, gh's, git's and the XDG tools' config, cache and
+ * data directories (all scratch, see prepareScratch), a bare `gh` (it resolves to a stub that refuses), and processes a
+ * step leaves running when the run ends (reapLeftovers). It does NOT close: head code that learns the real home
+ * (os.userInfo().homedir, getent) or names a credential file by absolute path, the macOS keychain (`security`,
+ * git-credential-osxkeychain), a child that scrubs its environment AND leaves the process group, or any other credential
+ * store the maintainer's user can read. HOME redirection is not a boundary. A sandbox (sandbox-exec, bwrap/unshare), another
+ * OS user or a container for the steps, or a status-posting identity the steps cannot reach would be one; none is done here.
+ * Each run gets a fresh scratch HOME, so a step cannot rewrite ~/.gitconfig, ~/.npmrc or shell profiles (which outlive the
+ * run); the npm cache is pointed back at the maintainer's real cache so installs stay warm (npm verifies cache entries by
+ * integrity hash).
  */
 const ENV_ALLOWLIST = ['USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'NODE_OPTIONS'];
+
+/** In every step's environment; the value is a fresh random id per run. reapLeftovers finds the run's processes by it. */
+const RUN_MARKER_VAR = 'ENSEMBLE_LOCAL_CI_RUN';
+
+/** What a bare `gh` resolves to inside a step (see prepareScratch): it never runs the maintainer's gh. */
+const GH_STUB = `#!/bin/sh
+echo "gh: refused. The local CI gate does not give the PR head's code its GitHub credential, so a gate step cannot run the maintainer's gh." >&2
+exit 127
+`;
+
+/** Create `p` owner-only. The mode is set again after the mkdir so the umask cannot widen or narrow it. */
+function ownerDir(p) {
+  fs.mkdirSync(p, { mode: 0o700 });
+  fs.chmodSync(p, 0o700);
+  return p;
+}
+
+/**
+ * Lay out the per-run scratch dir `home` (made by mkdtemp) that the steps get as HOME. Everything a tool looks up under a
+ * home directory lives INSIDE it, each directory owner-only: gh's config dir, the XDG dirs and a tmp dir. The shadow dir
+ * holds ONE executable, a `gh` that refuses; buildStepEnv puts it on PATH ahead of the maintainer's PATH.
+ */
+function prepareScratch(home) {
+  const xdgConfigHome = ownerDir(path.join(home, '.config'));
+  const ghConfigDir = ownerDir(path.join(xdgConfigHome, 'gh'));
+  const xdgCacheHome = ownerDir(path.join(home, '.cache'));
+  const local = ownerDir(path.join(home, '.local'));
+  const xdgDataHome = ownerDir(path.join(local, 'share'));
+  const xdgStateHome = ownerDir(path.join(local, 'state'));
+  const tmpDir = ownerDir(path.join(home, 'tmp'));
+  const shadowDir = ownerDir(path.join(home, 'shadow-bin'));
+  const stub = path.join(shadowDir, 'gh');
+  fs.writeFileSync(stub, GH_STUB);
+  fs.chmodSync(stub, 0o755);
+  return { home, xdgConfigHome, ghConfigDir, xdgCacheHome, xdgDataHome, xdgStateHome, tmpDir, shadowDir };
+}
 
 function inheritedSecretValues(env) {
   const out = [];
@@ -469,18 +585,148 @@ function inheritedSecretValues(env) {
   return out;
 }
 
-function buildStepEnv({ env, secrets, binDir, scratchHome }) {
+function buildStepEnv({ env, secrets, binDir, scratch, marker }) {
   const stepEnv = {};
   for (const name of ENV_ALLOWLIST) if (typeof env[name] === 'string') stepEnv[name] = env[name];
-  stepEnv.HOME = scratchHome;
   const realCache = typeof env.npm_config_cache === 'string' && env.npm_config_cache
     ? env.npm_config_cache
     : typeof env.HOME === 'string' && env.HOME ? path.join(env.HOME, '.npm') : null;
   if (realCache) stepEnv.npm_config_cache = realCache;
+  // The configured secrets are the maintainer's explicit choice. They come BEFORE what follows, so a secret can never
+  // undo the scratch HOME, the empty git configuration or the marker.
   Object.assign(stepEnv, secrets);
+  stepEnv.HOME = scratch.home;
+  stepEnv.GH_CONFIG_DIR = scratch.ghConfigDir;
+  stepEnv.XDG_CONFIG_HOME = scratch.xdgConfigHome;
+  stepEnv.XDG_CACHE_HOME = scratch.xdgCacheHome;
+  stepEnv.XDG_DATA_HOME = scratch.xdgDataHome;
+  stepEnv.XDG_STATE_HOME = scratch.xdgStateHome;
+  stepEnv.TMPDIR = scratch.tmpDir;
+  stepEnv.GIT_CONFIG_GLOBAL = os.devNull;
+  stepEnv.GIT_CONFIG_SYSTEM = os.devNull;
+  stepEnv.GIT_CONFIG_NOSYSTEM = '1';
+  stepEnv.GIT_TERMINAL_PROMPT = '0';
+  stepEnv.GH_PROMPT_DISABLED = '1';
+  stepEnv.GH_NO_UPDATE_NOTIFIER = '1';
+  stepEnv[RUN_MARKER_VAR] = marker;
   stepEnv.CI = 'true';
-  stepEnv.PATH = `${binDir}${path.delimiter}${env.PATH || ''}`;
+  // binDir (the pinned Node) first, then the dir whose only content is the refusing `gh`, then the maintainer's PATH
+  // UNCHANGED: the steps need the maintainer's toolchain, and dropping entries would add no security (an absolute path still works).
+  stepEnv.PATH = `${binDir}${path.delimiter}${scratch.shadowDir}${path.delimiter}${env.PATH || ''}`;
   return stepEnv;
+}
+
+/* ------------------------------------------------------- leftover processes */
+
+/**
+ * Is any process still in the group `pid` leads? Signal 0 only probes; EPERM means a member exists that we may not signal.
+ * Asked when a step ends: a group is signalled at the end of the run ONLY if it was seen alive here, so a pid that was
+ * recycled for an unrelated process in the meantime is never signalled blindly.
+ */
+function groupHasMembers(kill, pid) {
+  try {
+    kill(-pid, 0);
+    return true;
+  } catch (err) {
+    return !!err && err.code === 'EPERM';
+  }
+}
+
+/** Linux: the environment of every process whose /proc entry we may read, as [{pid, tokens}] (NUL separated, so exact). */
+function readProcEnvirons(procDir = '/proc') {
+  const out = [];
+  for (const name of fs.readdirSync(procDir)) {
+    if (!/^[0-9]+$/.test(name)) continue;
+    let raw;
+    try {
+      raw = fs.readFileSync(path.join(procDir, name, 'environ'), 'latin1');
+    } catch {
+      continue; // another user's process, or one that exited meanwhile
+    }
+    out.push({ pid: Number(name), tokens: raw.split('\0').filter(Boolean) });
+  }
+  return out;
+}
+
+/** macOS: parse `ps -axww -E -o pid=,command=`, one process per line: the pid, then the command line, then the environment. */
+function parsePsEnvironments(text) {
+  const out = [];
+  for (const line of String(text).split('\n')) {
+    const m = /^\s*(\d+)\s+(.*)$/.exec(line);
+    if (m) out.push({ pid: Number(m[1]), tokens: m[2].split(/\s+/).filter(Boolean) });
+  }
+  return out;
+}
+
+/**
+ * The environment of the current user's processes as [{pid, tokens}] (each token one whitespace/NUL separated word, so an
+ * entry is matched whole); null where this platform has no way to list them (the sweep then does nothing).
+ *   linux:  /proc/<pid>/environ.
+ *   darwin: `ps -axww -E -o pid=,command=`. MEASURED on macOS 27.2: it prints the environment of processes that are not
+ *           Apple platform binaries (Homebrew bash, node, ...) and NOTHING for Apple's own (/bin/sh, /bin/sleep,
+ *           /usr/bin/perl, system python). The sweep cannot see those; the group kill still reaches them while they stay in
+ *           the step's process group. Newlines in a value are printed as \012, so a process cannot forge another line.
+ */
+function listProcessEnvironments(platform = process.platform) {
+  if (platform === 'linux') return readProcEnvirons('/proc');
+  if (platform === 'darwin') {
+    const r = spawnSync('/bin/ps', ['-axww', '-E', '-o', 'pid=,command='], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: 30 * 1000, killSignal: 'SIGKILL' });
+    if (r.error || r.status !== 0) throw new Error(`ps could not list the processes (${r.error ? r.error.message : `exit ${r.status}`})`);
+    return parsePsEnvironments(r.stdout);
+  }
+  return null;
+}
+
+/**
+ * SIGKILL every process whose environment carries the whole token `ENSEMBLE_LOCAL_CI_RUN=<marker>`. A child that called
+ * setsid() and was re-parented left the step's process group but kept the environment it inherited. NEVER throws (a
+ * listing error or a kill error is swallowed: this is a courtesy, never a verdict), never signals pid <= 1 (kill(0) would hit
+ * a whole group), the runner itself or its parent (`protect`), and matches the token WHOLE, not as a substring of another
+ * entry or of another run's id. Returns how many processes it signalled.
+ */
+function sweepMarkedProcesses({ marker, list, kill, protect = [process.pid, process.ppid] }) {
+  if (typeof marker !== 'string' || marker === '') return 0;
+  const token = `${RUN_MARKER_VAR}=${marker}`;
+  let processes;
+  try {
+    processes = list();
+  } catch {
+    return 0;
+  }
+  if (!Array.isArray(processes)) return 0;
+  let killed = 0;
+  for (const p of processes) {
+    if (!isObject(p) || !Number.isInteger(p.pid) || p.pid <= 1 || protect.includes(p.pid)) continue;
+    if (!Array.isArray(p.tokens) || !p.tokens.includes(token)) continue;
+    try {
+      kill(p.pid, 'SIGKILL');
+      killed += 1;
+    } catch {
+      /* gone already, or not ours */
+    }
+  }
+  return killed;
+}
+
+/**
+ * The end of a run that started step processes: (a) SIGKILL the process group of every step process that still had a member
+ * when its step ended, then (b) sweep the processes carrying the run's marker (the ones that left their group). A step that
+ * exits normally keeps the background processes it started until HERE, so one that a step starts still serves the next. Both are a courtesy
+ * against a detached child that would post a commit status after the gate's final one; a head that scrubs its child's
+ * environment AND leaves the process group survives them. Never throws. Returns how many it killed (a group counts once,
+ * however many processes it held).
+ */
+function reapLeftovers({ kill, listProcesses, marker, groups }) {
+  let killed = 0;
+  for (const pid of groups) {
+    try {
+      kill(-pid, 'SIGKILL');
+      killed += 1;
+    } catch {
+      /* the group emptied since the step ended, or it is not ours */
+    }
+  }
+  return killed + sweepMarkedProcesses({ marker, list: listProcesses, kill });
 }
 
 /** The trusted list must be a non-empty list of {name, cmd} with unique names. */
@@ -513,8 +759,8 @@ function validateSteps(steps) {
  *   excludedSteps  [{workflow, job, step, reason}] steps recorded as not runnable locally
  *   secretNames    names of secrets steps need; values from secretsFile or env
  *   secretsFile    repo-relative gitignored file (default .ensemble/local-ci.secrets.env)
- *   env            the maintainer environment (default process.env); only ENV_ALLOWLIST,
- *                  the configured secrets, CI and PATH reach a step
+ *   env            the maintainer environment (default process.env); only ENV_ALLOWLIST, the configured secrets and what
+ *                  buildStepEnv sets (scratch HOME, gh and XDG dirs, TMPDIR, an empty git config, CI, the run marker, PATH) reach a step
  *   remote         git remote to fetch a missing head from (default origin)
  *   staleMs, now   stale-clone threshold and clock
  *   keep           keep the clone (debugging only)
@@ -597,129 +843,181 @@ function runGate(options, injected) {
   // a caller that supplies none gets the defaults, never "everything is allowed".
   const untrackedBefore = untrackedFiles({ dir, deps });
   const outputPaths = Array.isArray(opts.approvalSet.outputPaths) ? opts.approvalSet.outputPaths : ['node_modules', 'coverage', '.cache', 'dist'];
-  // A throwaway HOME outside the clone for the steps (see ENV_ALLOWLIST); removed in `finally` whatever happens.
+  // A throwaway HOME outside the clone for the steps (see ENV_ALLOWLIST); removed after the run whatever happens.
   const scratchHome = fs.mkdtempSync(path.join(os.tmpdir(), 'local-ci-home-'));
 
-  try {
-    // Read the REQUIRED workflows at the PR head as DATA and compare with the
-    // trusted list. The head can only make this stricter.
-    const workflows = [];
-    const realDir = fs.realpathSync(dir);
-    for (const wf of opts.approvalSet.workflows) {
-      let doc;
-      try {
-        // The head controls what this path resolves to (a committed symlink, or a symlinked parent directory).
-        // Resolve it and refuse anything that leaves the clone, so a head cannot make the gate read, and treat
-        // as its own workflow, a file from the maintainer's disk.
-        const real = fs.realpathSync(path.join(dir, wf.file));
-        if (real !== realDir && !real.startsWith(realDir + path.sep)) {
-          fail('unreadable-workflow', wf.file, undefined, `workflow ${wf.file} resolves outside the clone (symlink); refusing to read it`);
-          doc = undefined;
-        } else if (!fs.statSync(real).isFile()) {
-          fail('unreadable-workflow', wf.file, undefined, `workflow ${wf.file} is not a regular file at the PR head`);
-          doc = undefined;
-        } else {
-          doc = yaml.load(fs.readFileSync(real, 'utf8'));
-        }
-      } catch (err) {
-        doc = undefined;
-      }
-      workflows.push({ file: wf.file, doc });
+  // The processes this run starts for its steps. `marker` is in every step's environment (see reapLeftovers). `stepGroups`
+  // holds the process group of each step process that still had a member when its step ended. Only a process the runner's
+  // own process runner started (it reports a pid) can carry the marker, so a fake runner that reports none starts none.
+  const marker = crypto.randomBytes(16).toString('hex');
+  const stepGroups = new Set();
+  let startedProcess = false;
+  const runCmd = (cmd, runOpts) => {
+    const r = deps.run(cmd, runOpts);
+    const pid = r && r.pid;
+    if (Number.isInteger(pid) && pid > 1 && pid !== process.pid && pid !== process.ppid) {
+      startedProcess = true;
+      if (groupHasMembers(deps.kill, pid)) stepGroups.add(pid);
     }
-    result.unmirrored = findUnmirroredSteps({
-      workflows,
-      approvalSet: opts.approvalSet,
-      runnable: steps,
-      equivalents: opts.equivalents,
-      ignoredActions: opts.ignoredActions,
-      excludedSteps: opts.excludedSteps,
-    });
-    for (const u of result.unmirrored) {
-      fail('unmirrored-step', u.step, undefined, `required workflow step "${u.step}" (${u.workflow} job ${u.job}) is not mirrored: ${u.reason}`);
-    }
-    if (result.unmirrored.length > 0) return finish();
+    return r;
+  };
 
-    const versions = requiredNodeVersions(opts.approvalSet);
-    if (versions.length === 0) {
-      fail('node-version', null, undefined, 'no required Node versions are configured; refusing to run on the machine default');
+  // The evaluation never throws and always yields a snapshot of `result`. Cleanup runs AFTER it (below) and a cleanup
+  // problem is merged into that result: a `finally` that removes a head-controlled tree can throw and would REPLACE the
+  // result (round 4, R1: the failure was lost and nothing was published).
+  const evaluate = () => {
+    try {
+      // Read the REQUIRED workflows at the PR head as DATA and compare with the
+      // trusted list. The head can only make this stricter.
+      const workflows = [];
+      const realDir = fs.realpathSync(dir);
+      for (const wf of opts.approvalSet.workflows) {
+        let doc;
+        try {
+          // The head controls what this path resolves to (a committed symlink, or a symlinked parent directory).
+          // Resolve it and refuse anything that leaves the clone, so a head cannot make the gate read, and treat
+          // as its own workflow, a file from the maintainer's disk.
+          const real = fs.realpathSync(path.join(dir, wf.file));
+          if (real !== realDir && !real.startsWith(realDir + path.sep)) {
+            fail('unreadable-workflow', wf.file, undefined, `workflow ${wf.file} resolves outside the clone (symlink); refusing to read it`);
+            doc = undefined;
+          } else if (!fs.statSync(real).isFile()) {
+            fail('unreadable-workflow', wf.file, undefined, `workflow ${wf.file} is not a regular file at the PR head`);
+            doc = undefined;
+          } else {
+            doc = yaml.load(fs.readFileSync(real, 'utf8'));
+          }
+        } catch (err) {
+          doc = undefined;
+        }
+        workflows.push({ file: wf.file, doc });
+      }
+      result.unmirrored = findUnmirroredSteps({
+        workflows,
+        approvalSet: opts.approvalSet,
+        runnable: steps,
+        equivalents: opts.equivalents,
+        ignoredActions: opts.ignoredActions,
+        excludedSteps: opts.excludedSteps,
+      });
+      for (const u of result.unmirrored) {
+        fail('unmirrored-step', u.step, undefined, `required workflow step "${u.step}" (${u.workflow} job ${u.job}) is not mirrored: ${u.reason}`);
+      }
+      if (result.unmirrored.length > 0) return finish();
+
+      const versions = requiredNodeVersions(opts.approvalSet);
+      if (versions.length === 0) {
+        fail('node-version', null, undefined, 'no required Node versions are configured; refusing to run on the machine default');
+        return finish();
+      }
+
+      // The steps' scratch HOME, gh and XDG directories and the refusing `gh`; a failure here is a runner-error (catch below).
+      const scratch = prepareScratch(scratchHome);
+
+      for (const major of versions) {
+        const node = { node: major, ok: false, steps: [] };
+        result.nodes.push(node);
+
+        let binDir;
+        try {
+          binDir = deps.resolveNodeBinDir(major);
+        } catch (err) {
+          fail('node-version', null, major, `required Node ${major} cannot be provided: ${err.message}`);
+          continue;
+        }
+        const stepEnv = buildStepEnv({ env, secrets, binDir, scratch, marker });
+
+        const ver = runCmd('node --version', { cwd: dir, env: stepEnv });
+        const reported = ver.status === 0 ? /^v(\d+)\./.exec(ver.stdout.trim()) : null;
+        if (!reported || Number(reported[1]) !== major) {
+          fail('node-version', null, major, `required Node ${major} is not what ran (got ${tail(ver.stdout) || 'no version'}); not counting it`);
+          continue;
+        }
+
+        // Every trusted command is run by the runner; the verdict is its exit status.
+        for (const s of steps) {
+          const r = runCmd(s.cmd, { cwd: dir, env: stepEnv, timeoutMs: opts.stepTimeoutMs });
+          if (r.status === 0 && !r.timedOut) {
+            node.steps.push({ name: s.name, status: 'PASS' });
+          } else {
+            node.steps.push({ name: s.name, status: 'FAIL' });
+            const logFile = opts.failureLogDir
+              ? writeFailureLog({ dir: opts.failureLogDir, sha, major, stepName: s.name, cmd: s.cmd, status: r.status, stdout: r.stdout, stderr: r.stderr, secretValues })
+              : null;
+            const why = r.timedOut
+              ? `step ${s.name} timed out after ${Math.round((opts.stepTimeoutMs || DEFAULT_STEP_TIMEOUT_MS) / 1000)}s (hung?)`
+              : `step "${s.name}" failed on Node ${major} at ${sha} (exit ${r.status})`;
+            fail('step-failed', s.name, major, `${why}${logFile ? `; full output: ${logFile}` : ''}: ${tail(`${r.stdout}\n${r.stderr}`)}`);
+          }
+          // After EVERY step, whether it passed or not: a step may only leave untracked files under the base config's
+          // output_paths. Anything else is a file the next command (or this step's own test) could read as permission.
+          const stray = unexpectedOutput({ dir, deps, before: untrackedBefore, outputPaths });
+          if (stray === null) {
+            fail('clone-tampered', s.name, major, `could not inspect the clone for files left by step "${s.name}"; not counting the run`);
+          } else if (stray.length > 0) {
+            fail('unexpected-output', s.name, major, `step "${s.name}" left untracked files outside output_paths (${outputPaths.join(', ')}): ${stray.slice(0, 5).join(', ')}${stray.length > 5 ? `, and ${stray.length - 5} more` : ''}; not counting the run`);
+          }
+        }
+        node.ok = executedMatches(node.steps, steps) && node.steps.every((x) => x.status === 'PASS');
+      }
+
+      // The attestation is bound to `sha`: a step that moved the clone's HEAD voids the run.
+      const head = deps.git(['rev-parse', 'HEAD'], { cwd: dir });
+      if (head.status !== 0 || head.stdout.trim() !== sha) {
+        fail('clone-moved', null, undefined, `the clean clone no longer sits at ${sha} after the steps ran (got ${tail(head.stdout) || 'no HEAD'}); not counting the run`);
+      }
+
+      // The steps must not have rewritten what they claim to have tested: tracked content is compared by hash against the
+      // tree of `sha` (see trackedIntegrity), and the clone's own git config must be unchanged. Untracked files are held
+      // to the same standard after every step (see unexpectedOutput), so a step cannot plant one for a later step to read.
+      const tampered = trackedIntegrity({ dir, sha, deps });
+      if (tampered.length > 0) {
+        fail('clone-tampered', null, undefined, `a step changed tracked content of the clean clone at ${sha}; not counting the run: ${tampered.slice(0, 5).join('; ')}${tampered.length > 5 ? `; and ${tampered.length - 5} more` : ''}`);
+      }
+      const configAfter = cloneGitConfig({ dir, deps });
+      if (configBefore === null || configAfter === null || configAfter !== configBefore) {
+        fail('clone-config-changed', null, undefined, `the clone's git configuration changed (or could not be read) while the steps ran; not counting the run`);
+      }
+
+      result.ok = result.failures.length === 0 && result.nodes.length === versions.length && result.nodes.every((n) => n.ok);
+      return finish();
+    } catch (err) {
+      result.error = `local CI runner error: ${err.message}`;
+      fail('runner-error', null, undefined, result.error);
       return finish();
     }
+  };
 
-    for (const major of versions) {
-      const node = { node: major, ok: false, steps: [] };
-      result.nodes.push(node);
+  let out = evaluate();
 
-      let binDir;
-      try {
-        binDir = deps.resolveNodeBinDir(major);
-      } catch (err) {
-        fail('node-version', null, major, `required Node ${major} cannot be provided: ${err.message}`);
-        continue;
-      }
-      const stepEnv = buildStepEnv({ env, secrets, binDir, scratchHome });
-
-      const ver = deps.run('node --version', { cwd: dir, env: stepEnv });
-      const reported = ver.status === 0 ? /^v(\d+)\./.exec(ver.stdout.trim()) : null;
-      if (!reported || Number(reported[1]) !== major) {
-        fail('node-version', null, major, `required Node ${major} is not what ran (got ${tail(ver.stdout) || 'no version'}); not counting it`);
-        continue;
-      }
-
-      // Every trusted command is run by the runner; the verdict is its exit status.
-      for (const s of steps) {
-        const r = deps.run(s.cmd, { cwd: dir, env: stepEnv, timeoutMs: opts.stepTimeoutMs });
-        if (r.status === 0 && !r.timedOut) {
-          node.steps.push({ name: s.name, status: 'PASS' });
-        } else {
-          node.steps.push({ name: s.name, status: 'FAIL' });
-          const logFile = opts.failureLogDir
-            ? writeFailureLog({ dir: opts.failureLogDir, sha, major, stepName: s.name, cmd: s.cmd, status: r.status, stdout: r.stdout, stderr: r.stderr, secretValues })
-            : null;
-          const why = r.timedOut
-            ? `step ${s.name} timed out after ${Math.round((opts.stepTimeoutMs || DEFAULT_STEP_TIMEOUT_MS) / 1000)}s (hung?)`
-            : `step "${s.name}" failed on Node ${major} at ${sha} (exit ${r.status})`;
-          fail('step-failed', s.name, major, `${why}${logFile ? `; full output: ${logFile}` : ''}: ${tail(`${r.stdout}\n${r.stderr}`)}`);
-        }
-        // After EVERY step, whether it passed or not: a step may only leave untracked files under the base config's
-        // output_paths. Anything else is a file the next command (or this step's own test) could read as permission.
-        const stray = unexpectedOutput({ dir, deps, before: untrackedBefore, outputPaths });
-        if (stray === null) {
-          fail('clone-tampered', s.name, major, `could not inspect the clone for files left by step "${s.name}"; not counting the run`);
-        } else if (stray.length > 0) {
-          fail('unexpected-output', s.name, major, `step "${s.name}" left untracked files outside output_paths (${outputPaths.join(', ')}): ${stray.slice(0, 5).join(', ')}${stray.length > 5 ? `, and ${stray.length - 5} more` : ''}; not counting the run`);
-        }
-      }
-      node.ok = executedMatches(node.steps, steps) && node.steps.every((x) => x.status === 'PASS');
+  // The end of the run, on EVERY path that returned a result after a step process was started (pass, step failure, timeout,
+  // tamper refusal, runner-error): kill what the steps left running BEFORE the clone and the scratch home are removed and
+  // before this returns (the caller publishes its final status after that). Reported, not judged: no verdict changes here.
+  if (startedProcess) {
+    const killed = reapLeftovers({ kill: deps.kill, listProcesses: deps.listProcesses, marker, groups: stepGroups });
+    if (killed > 0) {
+      result.leftoverProcessesKilled = killed;
+      out = finish();
     }
-
-    // The attestation is bound to `sha`: a step that moved the clone's HEAD voids the run.
-    const head = deps.git(['rev-parse', 'HEAD'], { cwd: dir });
-    if (head.status !== 0 || head.stdout.trim() !== sha) {
-      fail('clone-moved', null, undefined, `the clean clone no longer sits at ${sha} after the steps ran (got ${tail(head.stdout) || 'no HEAD'}); not counting the run`);
-    }
-
-    // The steps must not have rewritten what they claim to have tested: tracked content is compared by hash against the
-    // tree of `sha` (see trackedIntegrity), and the clone's own git config must be unchanged. Untracked files are held
-    // to the same standard after every step (see unexpectedOutput), so a step cannot plant one for a later step to read.
-    const tampered = trackedIntegrity({ dir, sha, deps });
-    if (tampered.length > 0) {
-      fail('clone-tampered', null, undefined, `a step changed tracked content of the clean clone at ${sha}; not counting the run: ${tampered.slice(0, 5).join('; ')}${tampered.length > 5 ? `; and ${tampered.length - 5} more` : ''}`);
-    }
-    const configAfter = cloneGitConfig({ dir, deps });
-    if (configBefore === null || configAfter === null || configAfter !== configBefore) {
-      fail('clone-config-changed', null, undefined, `the clone's git configuration changed (or could not be read) while the steps ran; not counting the run`);
-    }
-
-    result.ok = result.failures.length === 0 && result.nodes.length === versions.length && result.nodes.every((n) => n.ok);
-    return finish();
-  } catch (err) {
-    result.error = `local CI runner error: ${err.message}`;
-    fail('runner-error', null, undefined, result.error);
-    return finish();
-  } finally {
-    fs.rmSync(scratchHome, { recursive: true, force: true });
-    if (!opts.keep) fs.rmSync(dir, { recursive: true, force: true });
   }
+
+  // Cleanup, after the result exists. `removeTree` never throws; a tree it cannot remove (even after repairing the
+  // permissions a step left) is a head-bound `runner-error` MERGED into the result, which keeps every earlier failure.
+  // A passing run whose clone cannot be removed is therefore not a pass: a leftover clone also makes the next run of
+  // this sha refuse to start, so it must be loud, and a refusal here is published as a failure like any other.
+  const problems = [];
+  const homeProblem = removeTree(scratchHome);
+  if (homeProblem !== null) problems.push(`could not remove the scratch home ${scratchHome}: ${homeProblem}`);
+  if (!opts.keep) {
+    const cloneProblem = removeTree(dir);
+    if (cloneProblem !== null) problems.push(`could not remove the clean clone ${dir}: ${cloneProblem}; remove it by hand before re-running`);
+  }
+  if (problems.length > 0) {
+    for (const message of problems) fail('runner-error', null, undefined, message);
+    if (!result.error) result.error = problems[0];
+    out = finish();
+  }
+  return out;
 }
 
 /** Fail closed: the executed names must be exactly the trusted list, in order. */
@@ -741,4 +1039,9 @@ module.exports = {
   RUNS_DIR,
   DEFAULT_STALE_MS,
   DEFAULT_IGNORED_ACTIONS,
+  sweepMarkedProcesses,
+  readProcEnvirons,
+  parsePsEnvironments,
+  listProcessEnvironments,
+  RUN_MARKER_VAR,
 };

@@ -88,24 +88,28 @@ describe('runGateFlow and the gate lock', () => {
     });
     const origPost = deps.postStatus;
     deps.postStatus = (req) => {
-      seen.heldDuringPost = fs.existsSync(lockPath);
+      (seen.posts = seen.posts || []).push([req.state, fs.existsSync(lockPath)]);
       return origPost(req);
     };
     const r = await cli.runGateFlow(payload(fx), deps);
     expect(r).toMatchObject({ ok: true, posted: true, queued_ms: expect.any(Number) });
-    expect(seen).toEqual({ heldDuringRun: true, heldDuringPost: false });
-    expect(post.calls).toHaveLength(1);
+    // the write-ahead pending is posted INSIDE the lock (a refused lock posts nothing); the final status after it is released
+    expect(seen).toEqual({ heldDuringRun: true, posts: [['pending', true], ['success', false]] });
+    expect(post.calls).toHaveLength(2);
     expect(fs.existsSync(lockPath)).toBe(false);
   });
 
-  it('a run that throws still releases the lock, so the next gate starts at once (AC3)', async () => {
+  it('a run that throws still releases the lock, so the next gate starts at once (AC3); the throw is published as a runner-error failure', async () => {
     const fx = flowFixture();
     const lockDir = tmpDir();
-    const { deps, lockPath } = flowDeps(fx, lockDir);
+    const { deps, post, lockPath } = flowDeps(fx, lockDir);
     deps.runGate = jest.fn(() => {
       throw new Error('runner exploded');
     });
-    await expect(cli.runGateFlow(payload(fx), deps)).rejects.toThrow('runner exploded');
+    const thrown = await cli.runGateFlow(payload(fx), deps);
+    expect(thrown).toMatchObject({ ok: false, stage: 'run', posted: true });
+    expect(thrown.failures[0]).toMatchObject({ kind: 'runner-error', message: 'local CI runner threw: runner exploded' });
+    expect(post.statuses().map((p) => p.body.state)).toEqual(['pending', 'failure']);
     expect(fs.existsSync(lockPath)).toBe(false);
 
     const next = flowDeps(fx, lockDir);

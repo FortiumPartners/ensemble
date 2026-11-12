@@ -465,7 +465,7 @@ describe('TRD-027: pr-merge requires mergeable:true from the gate, on freshly re
     expect(PR_MERGE_FLAT).toContain('NEVER merge until the pr-review-cycle skill, invoked with MODE=gate, returns mergeable:true for the CURRENT head');
     expect(PR_MERGE_FLAT).toContain('this command adds the local-ci-gate verdict and the human-reviewer condition on top of it and never substitutes them for it');
     // The pre-existing conditions are still there: the gate adds to them.
-    expect(PR_MERGE_FLAT).toContain('NEVER merge without a verified passing local CI status bound to the exact head SHA');
+    expect(PR_MERGE_FLAT).toContain('NEVER merge without the local-ci-gate skill reporting a verified pass bound to the exact head SHA (local status or verified hosted jobs)');
   });
 
   test('the merge step requires the gate, the local CI verdict and the fresh review read', () => {
