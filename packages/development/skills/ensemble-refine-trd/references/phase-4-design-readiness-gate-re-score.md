@@ -1,0 +1,9 @@
+### Phase 4: Design Readiness Gate Re-Score
+
+#### Step 4.1: Re-Score Readiness Dimensions
+
+Re-evaluate after refinement
+
+- Score 1-5: architecture completeness, task coverage (REQ -> implementation + test tasks), dependency clarity, estimate confidence; overall = average.
+- Read the previous score from frontmatter and print 'Design Readiness: X.X -> Y.Y (improved/declined/unchanged)'; if it dropped, say which dimensions declined; if none existed, this is the first score.
+- If the task count changed by more than 20%, suggest '/ensemble:configure-team <trd-path>'. Update the readiness score in frontmatter.

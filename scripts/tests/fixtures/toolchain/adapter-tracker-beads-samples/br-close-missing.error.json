@@ -1,0 +1,11 @@
+{
+  "error": {
+    "code": "ISSUE_NOT_FOUND",
+    "message": "Issue not found: nope-123",
+    "hint": "Run 'br list' to see available issues.",
+    "retryable": false,
+    "context": {
+      "searched_id": "nope-123"
+    }
+  }
+}

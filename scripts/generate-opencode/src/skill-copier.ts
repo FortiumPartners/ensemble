@@ -2,7 +2,7 @@
  * SkillCopier - Discovers and copies SKILL.md files to OpenCode paths
  *
  * Responsibilities:
- *   - Discover all SKILL.md files across packages/<pkg>/skills/
+ *   - Discover each package's framework skill at packages/<pkg>/skills/<pkg>/
  *   - Inject frontmatter (name, description) for OpenCode discovery
  *   - Convert REFERENCE.md to SKILL.md format where needed
  *   - Copy validated skills to dist/opencode/.opencode/skill/<framework>/
@@ -239,7 +239,8 @@ export class SkillCopier {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const skillPath = path.join(this.packagesDir, entry.name, 'skills');
+      // Framework skill: packages/<pkg>/skills/<pkg>/
+      const skillPath = path.join(this.packagesDir, entry.name, 'skills', entry.name);
       if (fs.existsSync(skillPath) && fs.statSync(skillPath).isDirectory()) {
         const hasSkill = fs.existsSync(path.join(skillPath, 'SKILL.md'));
         const hasRef = fs.existsSync(path.join(skillPath, 'REFERENCE.md'));

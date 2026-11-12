@@ -1,0 +1,169 @@
+domain_keywords:
+  backend:
+    - api
+    - endpoint
+    - server
+    - service
+    - controller
+    - repository
+    - middleware
+    - rest
+    - graphql
+    - backend
+  frontend:
+    - ui
+    - component
+    - react
+    - vue
+    - angular
+    - svelte
+    - css
+    - html
+    - page
+    - frontend
+    - interface
+    - form
+  infrastructure:
+    - deploy
+    - docker
+    - kubernetes
+    - k8s
+    - aws
+    - cloud
+    - terraform
+    - ci-cd
+    - continuous-integration
+    - continuous-delivery
+    - pipeline
+    - infra
+    - infrastructure
+  documentation:
+    - docs
+    - readme
+    - documentation
+    - changelog
+    - guide
+    - api-docs
+    - swagger
+    - openapi
+    - document
+  testing:
+    - test
+    - spec
+    - e2e
+    - unit
+    - integration
+    - coverage
+    - jest
+    - pytest
+    - rspec
+    - playwright
+    - vitest
+    - exunit
+  database:
+    - database
+    - sql
+    - schema
+    - migration
+    - query
+    - postgres
+    - mysql
+    - mongodb
+    - redis
+  security:
+    - security
+    - auth
+    - authentication
+    - authorization
+    - permission
+    - encrypt
+    - ssl
+    - tls
+    - vulnerability
+    - cve
+  devops:
+    - devops
+    - monitoring
+    - logging
+    - alerting
+    - metrics
+    - observability
+    - helm
+    - ansible
+    - provisioning
+default_agents:
+  backend: backend-developer
+  frontend: frontend-developer
+  infrastructure: infrastructure-developer
+  documentation: documentation-specialist
+  testing: test-runner
+  database: postgresql-specialist
+  security: code-reviewer
+  devops: infrastructure-developer
+  lead: tech-lead-orchestrator
+  reviewer: code-reviewer
+  qa: test-runner
+complexity_tiers:
+  simple:
+    description: Single-agent execution; no team config generated
+    conditions:
+      task_count_lt: 10
+      domain_count_eq: 1
+      estimated_hours_lt: 20
+    note: ALL three conditions must be met for Simple classification
+  medium:
+    description: Lead + builder team; no reviewer or QA
+    conditions:
+      task_count_min: 10
+      task_count_max: 25
+      domain_count_min: 2
+      estimated_hours_min: 20
+      estimated_hours_max: 60
+    note: ANY single condition triggers Medium (unless Complex condition also met)
+  complex:
+    description: Full team; lead + builder(s) + reviewer + QA
+    conditions:
+      task_count_gt: 25
+      domain_count_gte: 3
+      estimated_hours_gt: 60
+    note: ANY single Complex condition triggers Complex tier
+marketplace_mappings:
+  domain_to_plugins:
+    backend:
+      - ensemble-nestjs
+      - ensemble-rails
+      - ensemble-phoenix
+      - ensemble-dotnet
+    frontend:
+      - ensemble-react
+      - ensemble-blazor
+    infrastructure:
+      - ensemble-infrastructure
+    testing:
+      - ensemble-e2e-testing
+      - ensemble-jest
+      - ensemble-pytest
+      - ensemble-rspec
+      - ensemble-xunit
+      - ensemble-exunit
+    database:
+      - ensemble-infrastructure
+    security:
+      - ensemble-quality
+    devops:
+      - ensemble-infrastructure
+      - ensemble-git
+  framework_keyword_to_plugin:
+    react: ensemble-react
+    nest: ensemble-nestjs
+    nestjs: ensemble-nestjs
+    rails: ensemble-rails
+    phoenix: ensemble-phoenix
+    blazor: ensemble-blazor
+    dotnet: ensemble-dotnet
+    jest: ensemble-jest
+    pytest: ensemble-pytest
+    rspec: ensemble-rspec
+    xunit: ensemble-xunit
+    exunit: ensemble-exunit
+    playwright: ensemble-e2e-testing

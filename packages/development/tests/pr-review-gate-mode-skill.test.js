@@ -43,14 +43,18 @@ const SKILL_MAIN = fs.readFileSync(SKILL_PATH, 'utf8');
 const SKILL = readSkillBundle();
 const FLAT = SKILL.replace(/\s+/g, ' ');
 
-const PR_MERGE_YAML = fs.readFileSync(path.join(REPO_ROOT, 'packages/git/commands/pr-merge.yaml'), 'utf8');
+// pr-merge is a skill-backed command: packages/git/commands/pr-merge.yaml is a manifest with no prompt, so
+// the prose is read from its skill.
+const PR_MERGE_YAML = fs.readFileSync(path.join(REPO_ROOT, 'packages/git/skills/ensemble-pr-merge/SKILL.md'), 'utf8');
 const PR_MERGE_FLAT = PR_MERGE_YAML.replace(/\s+/g, ' ');
 
-/** Every shipped rendering of the pr-merge command: a stale one ships the old gate-less merge. */
+/**
+ * Every shipped rendering of the pr-merge command that carries its prose: a stale one ships the old gate-less
+ * merge. The Claude command (md) and the pi prompt are stubs that point at the skill and carry no prose, so
+ * they are not listed; the skill is the source they delegate to.
+ */
 const PR_MERGE_SURFACES = {
-  'command (yaml)': 'packages/git/commands/pr-merge.yaml',
-  'claude (md)': 'packages/git/commands/ensemble/pr-merge.md',
-  'pi (prompt)': 'packages/pi/prompts/ensemble-pr-merge.md',
+  'skill (source)': 'packages/git/skills/ensemble-pr-merge/SKILL.md',
   'pi (skill)': 'packages/pi/skills/ensemble-pr-merge/SKILL.md',
   'codex (skill)': 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md',
 };
@@ -205,7 +209,7 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
 
   test('the blocking promise is the module\'s behaviour, not a hope', () => {
     expect(STEP_10_FLAT).toContain('**An open security finding blocks the merge** until it is fixed');
-    expect(STEP_10_FLAT).toContain('closed with a stated `resolution.reason` (AC-017-1)');
+    expect(STEP_10_FLAT).toContain('until it is fixed or the operator\'s own recorded decision closes it (`ledger` `resolve`, below)');
     expect(STEP_10_FLAT).toContain('a lane that did not run blocks Medium and High on its own');
     expect([...SECURITY_REQUIRED_TIERS].sort()).toEqual(['high', 'medium']);
 
@@ -247,6 +251,85 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
   test('a lane that did not run is never reported clean, and a finding is never downgraded', () => {
     expect(STEP_10_FLAT).toContain('Never downgrade a security finding to make the gate pass');
     expect(STEP_10_FLAT).toContain('never report `clean` for a lane that did not run');
+  });
+
+  test('the lane is told to report and never close: the closure the instructions used to ask for is one the gate ignores', () => {
+    // The brief used to ask the lane for `resolution: { reason }` on a finding "closed with a stated reason", and the prose
+    // said a stated `resolution.reason` closed an open finding. The gate takes neither: a lane entry carrying that closure
+    // is still open, so following those instructions produced blockers that do not count.
+    const asked = {
+      id: 'S1',
+      source: 'security-lane',
+      locationOrLink: 'src/auth.js:12',
+      severity: 'important',
+      failureMode: 'authz gap',
+      disposition: 'resolved',
+      evidence: 'the handler reads the record before checking the caller owns it',
+      originalTextOrLink: 'security-lane-note-1',
+      resolution: { reason: 'false positive' },
+    };
+    const verdict = evaluateGate({
+      ledger: [],
+      approvals: { ok: true, satisfied: true, tier: 'medium', humansRequired: 1, humansCounted: 1 },
+      tier: { ok: true, effectiveTier: 'medium' },
+      description: { ok: true, missing: [] },
+      security: { status: 'findings', findings: [asked] },
+      headSha: 'a'.repeat(40),
+    });
+    expect(verdict.mergeable).toBe(false);
+    expect(verdict.securityLane.open).toEqual(['S1']);
+
+    const lane = STEP_10_FLAT.slice(STEP_10_FLAT.indexOf('10c -- The security lane'), STEP_10_FLAT.indexOf('10d -- Read approvals'));
+    expect(lane.length).toBeGreaterThan(500);
+    expect(lane).not.toContain('resolution: { reason }');
+    expect(lane).not.toContain('stated reason');
+    expect(lane).not.toContain('stated `resolution.reason`');
+    expect(lane).toContain('**The lane reports and never closes.**');
+  });
+
+  test('SKILL.md says the same in its Step 10c line and its Safety rules: only the operator\'s own answer closes a security finding', () => {
+    const step10c = SKILL_MAIN.slice(SKILL_MAIN.indexOf('* 10c'), SKILL_MAIN.indexOf('* 10d')).replace(/\s+/g, ' ');
+    expect(step10c).toContain('it reports, never closes');
+    expect(step10c).toContain('the operator\'s own `ledger` `resolve` answer');
+
+    const safety = SKILL_MAIN.slice(SKILL_MAIN.indexOf('## Safety rules')).replace(/\s+/g, ' ');
+    expect(safety).toContain('An open security-lane finding blocks the merge until fixed or the operator records a decision (`ledger` `resolve`)');
+    expect(safety).not.toContain('closed with a stated reason');
+  });
+
+  test('the prose names what the gate reads and answers: policy in, deferralRejected out', () => {
+    expect(STEP_10_FLAT).toContain('`{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }`');
+    expect(STEP_10_FLAT).toContain('its blocker carrying `deferralRejected`');
+    expect(STEP_10_FLAT).toContain('given `policy`, `by` is not one of its `botLogins`');
+
+    const base = {
+      ledger: [],
+      approvals: { ok: true, headSha: 'a'.repeat(40), satisfied: true, tier: 'medium', humansRequired: 1, humansCounted: 1 },
+      tier: { ok: true, effectiveTier: 'medium' },
+      description: { ok: true, missing: [] },
+      security: { status: 'clean', findings: [] },
+      coverage: { status: 'complete', gaps: [] },
+      headSha: 'a'.repeat(40),
+    };
+    const finding = {
+      id: 'F1',
+      source: 'code-reviewer',
+      locationOrLink: 'src/a.js:1',
+      severity: 'important',
+      failureMode: 'bug',
+      disposition: 'deferred',
+      evidence: 'e',
+      originalTextOrLink: 'n',
+      blocking: false,
+      reason: 'opt-in component',
+    };
+    const deferred = evaluateGate({ ...base, ledger: [finding] });
+    expect(deferred.mergeable).toBe(false);
+    expect(deferred.blockers.find((entry) => entry.code === BLOCKER_CODES.OPEN_IMPORTANT_FINDING).deferralRejected).toEqual(expect.any(String));
+
+    const byBot = { ...finding, disposition: 'resolved', resolution: { reason: 'ok', by: '@coderabbitai', at: '2026-11-06T10:00:00Z', headSha: base.headSha } };
+    expect(evaluateGate({ ...base, ledger: [byBot] }).mergeable).toBe(true);
+    expect(evaluateGate({ ...base, policy: { botLogins: ['@coderabbitai'] }, ledger: [byBot] }).mergeable).toBe(false);
   });
 });
 
@@ -321,7 +404,7 @@ describe('TRD-027: the step grades through the CLI and returns evaluateGate outp
   test('the payload keys the prose documents are the keys those modules read', () => {
     expect(STEP_10_FLAT).toContain('{ kinds, paths, secondAssessment, proposedTier, proposedBy, policy, evidence, assignedBy, at }');
     expect(STEP_10_FLAT).toContain('{ reviews, headSha, headTreeSha, tier, policy, author, directedBy, agentAuthored }');
-    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, headSha, unavailable }');
+    expect(STEP_10_FLAT).toContain('{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }');
   });
 
   test('trees that vouch for an older commit are computed by the run, never taken from review text', () => {
@@ -382,7 +465,7 @@ describe('TRD-027: pr-merge requires mergeable:true from the gate, on freshly re
     expect(PR_MERGE_FLAT).toContain('NEVER merge until the pr-review-cycle skill, invoked with MODE=gate, returns mergeable:true for the CURRENT head');
     expect(PR_MERGE_FLAT).toContain('this command adds the local-ci-gate verdict and the human-reviewer condition on top of it and never substitutes them for it');
     // The pre-existing conditions are still there: the gate adds to them.
-    expect(PR_MERGE_FLAT).toContain('NEVER merge without a verified passing local CI status bound to the exact head SHA');
+    expect(PR_MERGE_FLAT).toContain('NEVER merge without the local-ci-gate skill reporting a verified pass bound to the exact head SHA (local status or verified hosted jobs)');
   });
 
   test('the merge step requires the gate, the local CI verdict and the fresh review read', () => {
@@ -413,7 +496,7 @@ describe('TRD-027: pr-merge requires mergeable:true from the gate, on freshly re
     expect(PR_MERGE_FLAT).toContain('branch_protection_enforced (bool|null -- null when the protection read failed, never true by assumption)');
   });
 
-  test('every shipped rendering of pr-merge carries the gate, not just the YAML source', () => {
+  test('every shipped rendering of pr-merge carries the gate, not just the skill source', () => {
     for (const [surface, relative] of Object.entries(PR_MERGE_SURFACES)) {
       const flat = fs.readFileSync(path.join(REPO_ROOT, relative), 'utf8').replace(/\s+/g, ' ');
       for (const promise of [

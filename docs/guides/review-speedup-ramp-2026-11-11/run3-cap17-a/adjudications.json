@@ -1,0 +1,41 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-ramp",
+ "runId": "ramp3-cap17a",
+ "adjudications": [
+  {
+   "id": "f3",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f5",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled on a majority with a verifier missing). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f7",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f11",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled on a majority with a verifier missing). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f12",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f16",
+   "disposition": "deferred",
+   "reason": "Nit; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f19",
+   "disposition": "deferred",
+   "reason": "Nit; 1 real, 1 not-real and 0 abstaining of 3 expected verifiers (unverified). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  }
+ ]
+}

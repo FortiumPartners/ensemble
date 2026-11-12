@@ -1,0 +1,6 @@
+Review this diff for security defects only: injection, authentication and
+authorization gaps, secret or credential exposure, unsafe deserialization,
+path traversal, SSRF, unsafe shell or SQL construction, missing input
+validation at a trust boundary, and weakened cryptography. Report what the
+diff does, not what it fails to add elsewhere. Record each finding with its
+file and line, its failure mode and the evidence. Change nothing.

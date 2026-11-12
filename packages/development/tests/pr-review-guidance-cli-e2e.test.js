@@ -282,6 +282,7 @@ describe('TRD-005-TEST / AC-002-3: a description missing a section is not ready,
       reviewedHeadSha: HEAD_SHA,
       roundsUsed: 0,
       findingCounts: { total: description.result.missing.length, actionable: description.result.missing.length, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
     });
@@ -312,6 +313,7 @@ describe('TRD-005-TEST / AC-002-3: a description missing a section is not ready,
       reviewedHeadSha: HEAD_SHA,
       roundsUsed: 0,
       findingCounts: { total: 0, actionable: 0, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
     });
@@ -491,6 +493,7 @@ describe('TRD-005-TEST: policy -> rules -> paths -> description -> status, each 
       reviewedHeadSha: HEAD_SHA,
       roundsUsed: 0,
       findingCounts: { total: actionable, actionable, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
     });
@@ -554,6 +557,7 @@ describe('TRD-005-TEST: policy -> rules -> paths -> description -> status, each 
       reviewedHeadSha: HEAD_SHA,
       roundsUsed: 0,
       findingCounts: { total: 0, actionable: 0, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
     });

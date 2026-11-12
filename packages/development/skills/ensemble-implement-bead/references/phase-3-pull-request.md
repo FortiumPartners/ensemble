@@ -1,0 +1,8 @@
+### Phase 3: Pull Request
+
+#### Step 3.1: Open the Change Request
+
+- Run: node "$TOOLCHAIN_CLI" run workflow.push --run-id "$RUN_ID" --arg branch=<branch> --json [add --non-interactive when --foreman is present] (resolves to the configured workflow adapter internally; ok:false -> print the error and HALT). PR title = BEAD_TITLE; body = Bead <BEAD_ID>, description, changes summary, test plan.
+- Before this command's first host write: run node "$TOOLCHAIN_CLI" confirm-status host.change-request-create --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present] and parse as CONFIRM_STATUS. If CONFIRM_STATUS.data.required is true and CONFIRM_STATUS.data.confirmed is false: when --foreman is not present ask via AskUserQuestion "Allow the host adapter to open a change request for this session? [yes/no]"; on yes run node "$TOOLCHAIN_CLI" confirm-record host.change-request-create --run-id "$RUN_ID" --json. Under --foreman, never prompt (non-interactive already passed; the CLI auto-confirms and logs).
+- Run: node "$TOOLCHAIN_CLI" run host.change-request-create --run-id "$RUN_ID" --arg baseBranch=<base> --arg headBranch=<branch> --arg title="<BEAD_TITLE>" --arg description="<body>" --json [add --non-interactive when --foreman is present] and parse as CR_CREATE_RESULT. ok:true -> URL = CR_CREATE_RESULT.data.url. ok:false (for example no host adapter resolves, or the confirm gate denied it) -> print the push result and tell the user to open the change request themselves; URL = "manual".
+- node "$TOOLCHAIN_CLI" run tracker.comment --run-id "$RUN_ID" --arg id=<BEAD_ID> --arg text="pr:<URL or manual>" --json [add --non-interactive when --foreman is present]; print "Bead <BEAD_ID> complete. PR: <URL> | Branch: <branch>".

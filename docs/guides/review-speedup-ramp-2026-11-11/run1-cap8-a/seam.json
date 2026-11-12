@@ -1,0 +1,17 @@
+{
+ "seam": true,
+ "cap": 8,
+ "scratchReviewMd": "# REVIEW.md: scratch policy of the verify-concurrency ramp (kata j1wb)\n\nServed to `prepare` in place of the base commit's REVIEW.md. It sets one key.\n\n```ensemble-review-policy\n{\n  \"maxConcurrentAgents\": 8\n}\n```\n",
+ "scratchReviewMdBlob": "512ee46fbd7dbe657f0e37886ded14ffc462928a",
+ "scratchReviewMdSha256": "3adf23ddc333333cf6f0edc12344752b2ab02d88376d758f692ca873bb655444",
+ "served": [
+  {
+   "call": "ls-tree",
+   "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45"
+  },
+  {
+   "call": "cat-file",
+   "blob": "512ee46fbd7dbe657f0e37886ded14ffc462928a"
+  }
+ ]
+}

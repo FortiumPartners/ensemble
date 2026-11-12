@@ -167,7 +167,9 @@ Versions below are taken from each package's `package.json`.
 
 ## Commands
 
-Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 40 command definitions (`packages/*/commands/*.yaml`); **32 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 41 command definitions (`packages/*/commands/*.yaml`), all of them skill-backed manifests. **33 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+
+A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`, plus `references/` for long phases), and the command itself is a thin entry point per runtime: a stub that reads the skill in Claude Code, a stub prompt in Pi, the skill itself in Codex, and a stub in OpenCode. To change what a command does, edit its skill, not its YAML. The six dispatchers (`prd`, `trd`, `issue`, `feature`, `reqnroll`, `standards`) are manifests like every other command; their routing table is the `## Subcommands` section of their `SKILL.md` (keyword, description, `/ensemble:<ref>` and the sibling path `../ensemble-<ref>/SKILL.md`), which the Pi extension reads for tab completion.
 
 ### Product and requirements
 
@@ -274,6 +276,7 @@ no dashboard, no scheduler, no new dependency:
 |---|---|
 | `metrics` | Per-cohort human approvals per PR (median and p95), human comments, wait-on-human hours, rounds-to-pass, the share of PRs needing five or more rounds, and the noise rate. Bot reviewers are never counted. |
 | `metrics-compare` | A post-change cohort against the committed baseline: every target graded relative to baseline, plus a revert/incident guardrail that fails the cohort on its own. |
+| `walltime` | Review wall time by tier against the committed wall-time baseline (`docs/guides/review-walltime-baseline-<date>.json`): median and p75 per tier and round, gate runs and review chains per PR, and whether the 5x claim may be made. A tier with fewer than three PRs on either side is `unknown`, never `met`, and the claim is withheld unless a real re-review that carried verdicts is in the data. See [docs/guides/pr-review-walltime.md](docs/guides/pr-review-walltime.md). |
 | `eval-score` | Whether the reviewer found the bug in each eval case (a PR that caused an incident or a revert, confirmed by the code owner of the affected area). |
 | `eval-compare` | This eval run against the previous one, naming regressions. |
 | `eval-stale` | Which cases need re-review because their area's review rules changed. |
@@ -381,7 +384,7 @@ Passing two or more TRD paths directly now halts with an error. Generate one nor
 
 ### Reqnroll acceptance tests
 
-For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `implement-trd-beads` also routes `-TEST` tasks through the Reqnroll path and delegates step bodies to `reqnroll-binding-specialist`.
+For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `create-trd` and `implement-trd-beads` use the Reqnroll path (`-TEST` tasks scaffolded as features, step bodies delegated to `reqnroll-binding-specialist`) by default, as before; a repo that does not use Reqnroll opts out with `--no-bdd` or `ENSEMBLE_BDD=0` and gets the repo's own test framework. See [Optional BDD](packages/development/README.md#optional-bdd-reqnroll).
 
 ## Assessment
 
@@ -416,7 +419,7 @@ Other options: `--framework=<name>`, `--provider=<name>`, `--tools=<comma-separa
 
 ## Skills
 
-Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`, plus the single-skill framework packages).
+Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`).
 
 | Package | Skills |
 |---------|--------|

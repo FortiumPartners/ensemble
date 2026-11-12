@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import * as yaml from "js-yaml";
 import activate from "../src/extension";
+import { parseSubcommandsSection } from "../src/dispatcher-commands";
 import { DISPATCHER_TARGETS, resolveCommand } from "../src/lifecycle/resolve-command";
 
 /**
@@ -14,13 +14,13 @@ import { DISPATCHER_TARGETS, resolveCommand } from "../src/lifecycle/resolve-com
 
 const REPO_ROOT = resolve(__dirname, "../../..");
 
-const DISPATCHER_YAMLS: Record<string, string> = {
-  "ensemble-prd": "packages/product/commands/prd.yaml",
-  "ensemble-trd": "packages/development/commands/trd.yaml",
-  "ensemble-issue": "packages/development/commands/issue.yaml",
-  "ensemble-feature": "packages/development/commands/feature.yaml",
-  "ensemble-reqnroll": "packages/product/commands/reqnroll.yaml",
-  "ensemble-standards": "packages/core/commands/standards.yaml",
+const DISPATCHER_SKILLS: Record<string, string> = {
+  "ensemble-prd": "packages/product/skills/ensemble-prd/SKILL.md",
+  "ensemble-trd": "packages/development/skills/ensemble-trd/SKILL.md",
+  "ensemble-issue": "packages/development/skills/ensemble-issue/SKILL.md",
+  "ensemble-feature": "packages/development/skills/ensemble-feature/SKILL.md",
+  "ensemble-reqnroll": "packages/product/skills/ensemble-reqnroll/SKILL.md",
+  "ensemble-standards": "packages/core/skills/ensemble-standards/SKILL.md",
 };
 
 describe("resolveCommand", () => {
@@ -241,20 +241,39 @@ describe("resolveCommand", () => {
     });
   });
 
-  describe("embedded dispatcher map matches the dispatcher YAML (drift guard)", () => {
+  describe("embedded dispatcher map matches the dispatcher skills (drift guard)", () => {
     it("covers exactly the dispatchers", () => {
-      expect(Object.keys(DISPATCHER_TARGETS).sort()).toEqual(Object.keys(DISPATCHER_YAMLS).sort());
+      expect(Object.keys(DISPATCHER_TARGETS).sort()).toEqual(Object.keys(DISPATCHER_SKILLS).sort());
     });
 
-    it.each(Object.entries(DISPATCHER_YAMLS))("%s equals the keyword -> ref list in %s", (dispatcher, yamlPath) => {
-      const doc = yaml.load(readFileSync(join(REPO_ROOT, yamlPath), "utf8")) as {
-        dispatch?: { subcommands?: { keyword: string; ref: string }[] };
-      };
-      const subcommands = doc.dispatch?.subcommands;
-      expect(Array.isArray(subcommands)).toBe(true);
-      const fromYaml = Object.fromEntries((subcommands ?? []).map((s) => [s.keyword, s.ref]));
-      expect(Object.keys(fromYaml)).toHaveLength((subcommands ?? []).length); // no duplicate keywords
-      expect(DISPATCHER_TARGETS[dispatcher]).toEqual(fromYaml);
+    it.each(Object.entries(DISPATCHER_SKILLS))("%s equals the keyword -> ref list in the Subcommands section of %s", (dispatcher, skillPath) => {
+      const text = readFileSync(join(REPO_ROOT, skillPath), "utf8");
+      const subcommands = parseSubcommandsSection(text);
+      expect(subcommands.length).toBeGreaterThan(0);
+
+      // Every bullet in the section must have been understood: a malformed
+      // bullet would otherwise be silently dropped and escape this guard.
+      const section = text.split(/\r?\n/);
+      const start = section.findIndex((l) => /^##\s+Subcommands\s*$/.test(l));
+      const rest = section.slice(start + 1);
+      const end = rest.findIndex((l) => /^##\s/.test(l));
+      const bullets = (end === -1 ? rest : rest.slice(0, end)).filter((l) => l.startsWith("- "));
+      expect(subcommands).toHaveLength(bullets.length);
+
+      const fromSkill = Object.fromEntries(subcommands.map((s) => [s.keyword, s.ref]));
+      expect(Object.keys(fromSkill)).toHaveLength(subcommands.length); // no duplicate keywords
+      expect(DISPATCHER_TARGETS[dispatcher]).toEqual(fromSkill);
+    });
+
+    it.each(Object.entries(DISPATCHER_SKILLS))("%s: every bullet names its target's sibling skill path, and that skill exists in the same package", (_dispatcher, skillPath) => {
+      const text = readFileSync(join(REPO_ROOT, skillPath), "utf8");
+      const skillDir = join(REPO_ROOT, skillPath, "..");
+      const lines = text.split(/\r?\n/);
+      for (const { keyword, ref } of parseSubcommandsSection(text)) {
+        const bullet = lines.find((l) => l.startsWith(`- **\`${keyword}\`**`))!;
+        expect(bullet).toContain(`\`../ensemble-${ref}/SKILL.md\``);
+        expect(existsSync(join(skillDir, "..", `ensemble-${ref}`, "SKILL.md"))).toBe(true);
+      }
     });
 
     it("every embedded target is itself a real Ensemble prompt template (visible, or under prompts/_hidden)", () => {

@@ -21,6 +21,36 @@ function referencedFiles(skillText, skillDir = SKILL_DIR) {
     .map((f) => path.join(refDir, f));
 }
 
+/**
+ * The agent briefs live in templates/<role>-brief.md, not in the reference prose; a reference
+ * names each one in the paragraph that used to carry the prose. The shipped skill still SAYS
+ * what the brief says (the Pi copier ships a template because a shipped file names it), so
+ * the skill's text is the reference with each named template laid in, as a blockquote,
+ * right after the paragraph that names it -- the shape the prose had before it moved.
+ * A name that resolves to no file is left alone, so a dangling pointer supplies no text.
+ */
+function withTemplates(text, skillDir = SKILL_DIR) {
+  const out = [];
+  for (const paragraph of text.split(/\n{2,}/)) {
+    out.push(paragraph);
+    const seen = new Set();
+    for (const match of paragraph.matchAll(/templates\/([a-z-]+-brief\.md)/g)) {
+      const file = path.join(skillDir, 'templates', match[1]);
+      if (seen.has(match[1]) || !fs.existsSync(file)) continue;
+      seen.add(match[1]);
+      out.push(
+        fs
+          .readFileSync(file, 'utf8')
+          .trimEnd()
+          .split('\n')
+          .map((line) => (line === '' ? '>' : `> ${line}`))
+          .join('\n')
+      );
+    }
+  }
+  return out.join('\n\n');
+}
+
 /** SKILL.md alone. */
 function readSkillMain(skillDir = SKILL_DIR) {
   return fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
@@ -46,7 +76,7 @@ const body = (text) => text.replace(/^# [^\n]*\n\nCompanion to `SKILL.md`[^\n]*\
 function readSkillBundle(skillDir = SKILL_DIR) {
   const main = readSkillMain(skillDir);
   const named = new Set(referencedFiles(main, skillDir).map((f) => path.basename(f)));
-  const refText = (name) => body(fs.readFileSync(path.join(skillDir, 'reference', name), 'utf8'));
+  const refText = (name) => withTemplates(body(fs.readFileSync(path.join(skillDir, 'reference', name), 'utf8')), skillDir);
   const at = (label) => {
     const i = main.indexOf(label);
     if (i < 0) throw new Error(`SKILL.md lacks ${label}`);
@@ -64,7 +94,7 @@ function readSkillBundle(skillDir = SKILL_DIR) {
 function readSkillReference(name, skillDir = SKILL_DIR) {
   const main = readSkillMain(skillDir);
   if (!main.includes(`reference/${name}`)) throw new Error(`SKILL.md does not name reference/${name}`);
-  return fs.readFileSync(path.join(skillDir, 'reference', name), 'utf8');
+  return withTemplates(fs.readFileSync(path.join(skillDir, 'reference', name), 'utf8'), skillDir);
 }
 
 module.exports = { SKILL_DIR, readSkillMain, readSkillBundle, readSkillReference };

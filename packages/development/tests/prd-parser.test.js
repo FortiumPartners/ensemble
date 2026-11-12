@@ -169,4 +169,119 @@ Just prose, no Priority line here.
     const reqs = extractReqPriorities(MINIMAL_PRD);
     expect(reqs).toEqual([]);
   });
+
+  // Regression: beads:ensemble:br-mvaw. MoSCoW priority inline in the heading
+  // (the shape create-trd emits, and the one
+  // docs/PRD/PRD-2026-82b6a138-pr-review-cycle-time.md uses for all 25 REQs)
+  // resolved to priority: null, so completion-verification Step 3's
+  // Must/Should gate was vacuous and the skill reported a clean 0-gap pass.
+  const INLINE_TAG_PRD = `
+### REQ-001: One shared review procedure (Must)
+
+Body prose.
+
+### REQ-010: Explicit overrides never relabel (Should)
+
+Body prose.
+
+#### REQ-017: Truthful completion messaging (Must) [RISK: weakens a human checkpoint, so the record must be unambiguous]
+
+Body prose.
+
+### REQ-018: Delivered in phases [Could]
+
+Body prose.
+
+### REQ-019: Deferred work (Wont)
+
+Body prose.
+
+### REQ-020: No tag at all
+
+Body prose.
+`.trim();
+
+  test('reads a MoSCoW priority written inline as "(Must)" at the end of the heading', () => {
+    const byId = Object.fromEntries(extractReqPriorities(INLINE_TAG_PRD).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-001']).toBe('Must');
+  });
+
+  test('reads "(Should)" and bracketed "[Could]" inline tags', () => {
+    const byId = Object.fromEntries(extractReqPriorities(INLINE_TAG_PRD).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-010']).toBe('Should');
+    expect(byId['REQ-018']).toBe('Could');
+  });
+
+  test('reads an inline tag when a "[RISK: ...]" suffix follows it', () => {
+    const byId = Object.fromEntries(extractReqPriorities(INLINE_TAG_PRD).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-017']).toBe('Must');
+  });
+
+  test("normalizes the unapostrophised inline tag '(Wont)' to \"Won't\"", () => {
+    const byId = Object.fromEntries(extractReqPriorities(INLINE_TAG_PRD).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-019']).toBe("Won't");
+  });
+
+  test('canonicalizes a lower/upper-case priority tag to the documented spelling', () => {
+    const prd = [
+      '### REQ-001: Lowercase tag (must)',
+      '### REQ-002: Uppercase tag [SHOULD]',
+      "### REQ-003: Mixed case (Won'T)",
+      '### REQ-004: Could (COULD)',
+    ].join('\n');
+    const byId = Object.fromEntries(extractReqPriorities(prd).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-001']).toBe('Must');
+    expect(byId['REQ-002']).toBe('Should');
+    expect(byId['REQ-003']).toBe("Won't");
+    expect(byId['REQ-004']).toBe('Could');
+  });
+
+  test('a heading with neither an inline tag nor a Priority line still resolves to null', () => {
+    const byId = Object.fromEntries(extractReqPriorities(INLINE_TAG_PRD).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-020']).toBeNull();
+  });
+
+  test('does not misread a title word or an FR ref as a priority tag', () => {
+    const prd = [
+      '### REQ-001: Completion contract must be truthful (Must)',
+      '### REQ-002: What the reviewer must say',
+      '### REQ-003: Message should arrive',
+      '### REQ-004: The Must have list',
+      '### REQ-005: Titles ending in won\'t',
+      '#### REQ-006 (FR1.1): Dashboard spawns in terminal',
+    ].join('\n');
+    const reqs = extractReqPriorities(prd);
+    const byId = Object.fromEntries(reqs.map((r) => [r.id, r.priority]));
+    expect(reqs.map((r) => r.id)).toEqual(['REQ-001', 'REQ-002', 'REQ-003', 'REQ-004', 'REQ-005', 'REQ-006']);
+    expect(byId['REQ-001']).toBe('Must');
+    expect(['REQ-002', 'REQ-003', 'REQ-004', 'REQ-005', 'REQ-006'].every((id) => byId[id] === null)).toBe(true);
+  });
+
+  test('a dedicated **Priority:** line still works when the heading has no tag', () => {
+    const prd = ['### REQ-001: Inline only (Must)', '', 'Prose.', '', '### REQ-002: Line only', '', '**Priority:** Should | **Complexity:** Low'].join('\n');
+    const byId = Object.fromEntries(extractReqPriorities(prd).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-001']).toBe('Must');
+    expect(byId['REQ-002']).toBe('Should');
+  });
+
+  test('canonicalizes the case of a **Priority:** line value', () => {
+    const prd = ['### REQ-001: Upper', '', '**Priority:** MUST', '', '### REQ-002: Lower', '', '**Priority:** should', '', "### REQ-003: Lower won't", '', "**Priority:** WON'T"].join('\n');
+    const byId = Object.fromEntries(extractReqPriorities(prd).map((r) => [r.id, r.priority]));
+    expect(byId['REQ-001']).toBe('Must');
+    expect(byId['REQ-002']).toBe('Should');
+    expect(byId['REQ-003']).toBe("Won't");
+  });
+
+  test('the inline-tag PRD in docs/PRD resolves every REQ to a gatable priority', () => {
+    // The reported failing case end to end: pre-fix this returned 25 entries,
+    // all null. Step 3 is only a real gate while the filter is non-empty.
+    const fs = require('fs');
+    const path = require('path');
+    const prdPath = path.join(__dirname, '..', '..', '..', 'docs', 'PRD', 'PRD-2026-82b6a138-pr-review-cycle-time.md');
+    const reqs = extractReqPriorities(fs.readFileSync(prdPath, 'utf8'));
+    expect(reqs.length).toBeGreaterThan(0);
+    expect(reqs.every((r) => r.priority === 'Must' || r.priority === 'Should')).toBe(true);
+    expect(reqs.find((r) => r.id === 'REQ-001').priority).toBe('Must');
+    expect(reqs.find((r) => r.id === 'REQ-010').priority).toBe('Should');
+  });
 });

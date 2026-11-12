@@ -3,11 +3,16 @@
  * Tests for the dispatcher-command "## Subcommands" rendering in
  * scripts/lib/command-transformer.js's transformCommandToMarkdown (see
  * local://dispatcher-command-design.md). Mirrors the equivalent Codex
- * coverage in scripts/tests/generate-codex.test.js.
+ * coverage in scripts/tests/generate-codex.test.js. Also covers the Claude Code stub a
+ * skill-backed command renders to, and that a command without `skill:` renders as it always did.
  */
 
 const path = require('path');
 const { transformCommandToMarkdown } = require('../lib/command-transformer');
+const yaml = require('js-yaml');
+const { extractFrontmatter } = require('../lib/frontmatter-check');
+const { createPackage, skillFile } = require('./fixtures/skill-backed/temp-package');
+const { plainCommand, PLAIN_COMMAND_EXPECTED } = require('./fixtures/skill-backed/plain-command');
 
 // Matches the real repoRoot computation inside command-transformer.js
 // (path.resolve(__dirname, '../..') from scripts/lib) so relative-path
@@ -167,5 +172,101 @@ describe('transformCommandToMarkdown — capabilities frontmatter length-gating 
     const absent = renderFrontmatter(undefined);
     expect(empty).not.toContain('capabilities-');
     expect(empty).toBe(absent);
+  });
+});
+
+describe('transformCommandToMarkdown — skill-backed command stub', () => {
+  let pkg;
+  beforeEach(() => {
+    pkg = createPackage({ 'skills/ensemble-demo/SKILL.md': skillFile('ensemble-demo') });
+  });
+  afterEach(() => pkg.cleanup());
+
+  function manifest(metadataExtras = {}, skill = 'ensemble-demo') {
+    return {
+      metadata: {
+        name: 'ensemble:demo',
+        description: 'Demonstrate a skill-backed command manifest',
+        version: '1.0.0',
+        lastUpdated: '2026-10-17',
+        category: 'planning',
+        model: 'high',
+        argument_hint: '[thing] [--flag]',
+        ...metadataExtras
+      },
+      skill
+    };
+  }
+
+  const render = (data) => transformCommandToMarkdown(data, pkg.yamlPath('demo'));
+  const frontmatterOf = (markdown) => yaml.load(extractFrontmatter(markdown));
+  const bodyOf = (markdown) => markdown.replace(/^---\n[\s\S]*?\n---\n/, '');
+
+  test('emits the command frontmatter through the code path a full command uses, plus Read', () => {
+    expect(frontmatterOf(render(manifest()))).toEqual({
+      name: 'ensemble:demo',
+      description: 'Demonstrate a skill-backed command manifest',
+      version: '1.0.0',
+      category: 'planning',
+      'last-updated': '2026-10-17',
+      'allowed-tools': 'Read',
+      'argument-hint': '[thing] [--flag]',
+      model: 'opus'
+    });
+  });
+
+  test('the body is the DO NOT EDIT header and a fixed pointer at the skill, nothing else', () => {
+    expect(bodyOf(render(manifest()))).toBe(
+      '<!-- DO NOT EDIT - Generated from demo.yaml -->\n' +
+      '<!-- To modify this file, edit the YAML source and run: npm run generate -->\n' +
+      '\n' +
+      'Read the file ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-demo/SKILL.md and follow its instructions exactly; ' +
+      'resolve any relative paths in it against ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-demo/. ' +
+      'Wherever that file refers to its ARGUMENTS, use this value: $ARGUMENTS\n'
+    );
+  });
+
+  // Claude Code substitutes EVERY $ARGUMENTS in a command body, so the sigil may appear only
+  // as the value; the relative-path clause for a skill's references/ must not repeat it.
+  test('the $ARGUMENTS sigil appears exactly once, however many clauses the pointer has', () => {
+    expect(bodyOf(render(manifest())).match(/\$ARGUMENTS/g)).toHaveLength(1);
+  });
+
+  test('merges Read into the tools the manifest already grants, once', () => {
+    expect(frontmatterOf(render(manifest({ allowed_tools: ['Bash', 'Grep'] })))['allowed-tools']).toBe('Bash, Grep, Read');
+    expect(frontmatterOf(render(manifest({ allowed_tools: ['Read', 'Bash'] })))['allowed-tools']).toBe('Read, Bash');
+  });
+
+  test('leaves the manifest it was given untouched', () => {
+    const data = manifest({ allowed_tools: ['Bash'] });
+    render(data);
+    expect(data.metadata.allowed_tools).toEqual(['Bash']);
+  });
+
+  test('keeps visibility and capabilities in the frontmatter exactly as a full command would', () => {
+    const frontmatter = frontmatterOf(
+      render(manifest({ visibility: 'hidden', capabilities: { required: ['tracker.show'], optional: ['work-graph.ready'] } }))
+    );
+    expect(frontmatter['user-invocable']).toBe(false);
+    expect(frontmatter['capabilities-required']).toBe('tracker.show');
+    expect(frontmatter['capabilities-optional']).toBe('work-graph.ready');
+  });
+
+  test('fails generation, naming the skill and the path it looked at, when the skill does not exist', () => {
+    expect(() => render(manifest({}, 'ensemble-missing'))).toThrow(
+      `skill 'ensemble-missing', but ${path.join(pkg.dir, 'skills', 'ensemble-missing', 'SKILL.md')} does not exist`
+    );
+  });
+
+  test.each(['../escape', 'Upper', 'two--hyphens', ''])('refuses %p as a skill name', (skill) => {
+    expect(() => render(manifest({}, skill))).toThrow(/is not a valid skill directory name/);
+  });
+});
+
+describe('transformCommandToMarkdown — a command without skill: renders exactly as it did before', () => {
+  test('matches the output frozen from the transformer as it stood before skill-backed commands', () => {
+    expect(
+      transformCommandToMarkdown(plainCommand(), path.join(REPO_ROOT, 'packages/demo/commands/demo-plain.yaml'))
+    ).toBe(PLAIN_COMMAND_EXPECTED);
   });
 });

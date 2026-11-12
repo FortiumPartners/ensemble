@@ -94,7 +94,14 @@ function fakeGitHub() {
     posts.push({ repo: m[1], sha: m[2], state: field('state'), context: field('context'), description: field('description') });
     return { status: 0, stdout: JSON.stringify({ id: posts.length }), stderr: '' };
   };
-  return { run, runs, posts, state };
+  /** What GitHub lists for `sha`: the accepted posts, newest first, in GitHub's shape. */
+  const list = (sha) =>
+    posts
+      .map((p, i) => ({ id: i + 1, state: p.state, context: p.context, description: p.description, sha: p.sha }))
+      .filter((p) => p.sha === sha)
+      .reverse()
+      .map(({ sha: _sha, ...rest }) => rest);
+  return { run, runs, posts, state, list };
 }
 
 describe('local CI gate can fail and can pass (TRD-006)', () => {
@@ -138,6 +145,11 @@ describe('local CI gate can fail and can pass (TRD-006)', () => {
       ...defaultDeps(),
       env: { ...process.env },
       postStatus: (req) => postStatus({ ...req, run: gh.run, env: {} }),
+      // merge reads the head's statuses from GitHub: the fake lists what it accepted, newest first, without a per-status sha
+      ghApi: (apiPath) => {
+        const m = /^repos\/[^/]+\/[^/]+\/commits\/([0-9a-f]{40})\/statuses\?per_page=100$/.exec(apiPath);
+        return m ? { ok: true, json: gh.list(m[1]) } : { ok: false, error: `unexpected lookup: ${apiPath}` };
+      },
       runGate,
       runnerDeps: { resolveNodeBinDir: () => NODE_BIN_DIR },
     };
@@ -167,8 +179,10 @@ describe('local CI gate can fail and can pass (TRD-006)', () => {
     expect(named[0].step).toBe('unit-check');
     expect(named[0].sha).toBe(shaF);
 
-    expect(failedPosts).toHaveLength(1);
-    expect(failedPosts[0]).toMatchObject({ repo: REPO, sha: shaF, state: 'failure', context: CONTEXT });
+    expect(failedPosts).toHaveLength(2);
+    expect(failedPosts.map((p) => p.state)).toEqual(['pending', 'failure']);
+    expect(failedPosts[0]).toMatchObject({ repo: REPO, sha: shaF, state: 'pending', context: CONTEXT });
+    expect(failedPosts[1]).toMatchObject({ repo: REPO, sha: shaF, state: 'failure', context: CONTEXT });
     expect(failedPosts.some((p) => p.state === 'success')).toBe(false);
     expect(failedReport.posted).toBe(true);
   });
@@ -187,8 +201,8 @@ describe('local CI gate can fail and can pass (TRD-006)', () => {
     const successes = gh.posts.filter((p) => p.state === 'success');
     expect(successes).toHaveLength(1);
     expect(successes[0]).toMatchObject({ repo: REPO, sha: shaP, context: CONTEXT });
-    // exactly one failure (for F) and one success (for P): nothing else was ever posted
-    expect(gh.posts.map((p) => `${p.state}@${p.sha}`)).toEqual([`failure@${shaF}`, `success@${shaP}`]);
+    // for each head the pending went first: F got pending then failure, P got pending then success; nothing else was ever posted
+    expect(gh.posts.map((p) => `${p.state}@${p.sha}`)).toEqual([`pending@${shaF}`, `failure@${shaF}`, `pending@${shaP}`, `success@${shaP}`]);
   });
 
   test('runMerge accepts the success record for P and refuses it for F', () => {

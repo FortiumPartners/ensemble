@@ -4,7 +4,7 @@
 
 Contract version: `1.0`
 
-The `tracker` category defines 13 capabilities: 4 required and 9 optional. An adapter implementing this category must provide every required capability; a command that needs an optional capability the resolved adapter lacks uses the capability's fallback when one is named.
+The `tracker` category defines 17 capabilities: 4 required and 13 optional. An adapter implementing this category must provide every required capability; a command that needs an optional capability the resolved adapter lacks uses the capability's fallback when one is named.
 
 ## Capabilities
 
@@ -23,6 +23,10 @@ The `tracker` category defines 13 capabilities: 4 required and 9 optional. An ad
 | `tracker.set-status` | optional | yes | `id`, `status` | `id`, `status` | - | - | Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed). |
 | `tracker.sync` | optional | yes | `scope` | `status` | - | - | Flush pending local tracker state to durable storage. |
 | `tracker.stage-export` | optional | no | `scope` | `text`, `status` | `full-export-unscoped` | - | Return export text for the tracked file, or an unavailable status when the resolved adapter has none. |
+| `tracker.create-detailed` | optional | yes | `title`, `description`, `type`, `labels`, `priority`, `externalKey` | `id` | `skip-finding-beads` | - | Create a work item with labels, a priority and an external dedupe key in one call. |
+| `tracker.find-by-key` | optional | no | `key` | `items` | `skip-finding-beads` | - | List the work items of the whole tracker, closed ones included and NOT limited to one label (an external dedupe key is unique tracker-wide), so the caller can select the one whose external dedupe key equals `key` (exact match; zero, one or many) and read its labels. |
+| `tracker.update-detailed` | optional | yes | `id`, `title`, `description`, `priority`, `notes` | `id` | `skip-finding-beads` | - | Rewrite a work item's title, description and priority and append a note, without touching its labels or status. |
+| `tracker.close-with-reason` | optional | yes | `id`, `reason`, `commit` | `id`, `status` | `skip-finding-beads` | - | Close a work item recording why it was closed and the commit that resolved it. |
 
 ## Details
 
@@ -155,3 +159,43 @@ Return export text for the tracked file, or an unavailable status when the resol
 - Inputs: `scope`
 - Outputs: `text`, `status`
 - Fallback: `full-export-unscoped`
+
+### tracker.create-detailed
+
+Create a work item with labels, a priority and an external dedupe key in one call.
+
+- Status: optional
+- Side effect: yes
+- Inputs: `title`, `description`, `type`, `labels`, `priority`, `externalKey`
+- Outputs: `id`
+- Fallback: `skip-finding-beads`
+
+### tracker.find-by-key
+
+List the work items of the whole tracker, closed ones included and NOT limited to one label (an external dedupe key is unique tracker-wide), so the caller can select the one whose external dedupe key equals `key` (exact match; zero, one or many) and read its labels.
+
+- Status: optional
+- Side effect: no
+- Inputs: `key`
+- Outputs: `items`
+- Fallback: `skip-finding-beads`
+
+### tracker.update-detailed
+
+Rewrite a work item's title, description and priority and append a note, without touching its labels or status.
+
+- Status: optional
+- Side effect: yes
+- Inputs: `id`, `title`, `description`, `priority`, `notes`
+- Outputs: `id`
+- Fallback: `skip-finding-beads`
+
+### tracker.close-with-reason
+
+Close a work item recording why it was closed and the commit that resolved it.
+
+- Status: optional
+- Side effect: yes
+- Inputs: `id`, `reason`, `commit`
+- Outputs: `id`, `status`
+- Fallback: `skip-finding-beads`

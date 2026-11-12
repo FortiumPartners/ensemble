@@ -20,7 +20,7 @@
 const yaml = require('js-yaml');
 
 const TOP_REQUIRED = ['workflows', 'steps', 'status_context'];
-const TOP_ALLOWED = ['workflows', 'steps', 'excluded', 'excluded_steps', 'equivalents', 'secret_names', 'output_paths', 'status_context', 'bot_reviewers'];
+const TOP_ALLOWED = ['workflows', 'steps', 'excluded', 'excluded_steps', 'equivalents', 'secret_names', 'output_paths', 'status_context', 'bot_reviewers', 'hosted_reuse'];
 
 function isObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -239,6 +239,40 @@ function validateBots(value, problems) {
   return { skipped: logins.length === 0, logins };
 }
 
+/**
+ * Opt-in to accepting hosted CI results instead of re-running the commands locally (see local-ci-hosted.js).
+ * `covers` names the local `steps` that hosted CI is declared to run; EVERY step must be named, so a step added to
+ * `steps` without a hosted counterpart switches reuse off. `extra_workflows` (same shape as `workflows`) lists hosted
+ * jobs beyond the approval set that must also be green. Absent -> null: never reuse hosted results.
+ */
+function validateHostedReuse(value, steps, problems) {
+  if (value === undefined || value === null) return null;
+  if (!isObject(value)) {
+    problems.push('hosted_reuse: must be a mapping');
+    return null;
+  }
+  checkKeys(value, ['covers', 'extra_workflows'], ['covers'], 'hosted_reuse', problems);
+  const stepNames = steps.map((s) => s.name);
+  const covers = [];
+  if ('covers' in value) {
+    if (!Array.isArray(value.covers) || value.covers.length === 0) {
+      problems.push('hosted_reuse.covers: must be a non-empty list of step names');
+    } else {
+      value.covers.forEach((name, i) => {
+        if (!isText(name)) problems.push(`hosted_reuse.covers[${i}]: must be non-empty text`);
+        else if (!stepNames.includes(name)) problems.push(`hosted_reuse.covers[${i}]: "${name}" is not a step in steps`);
+        else if (covers.includes(name)) problems.push(`hosted_reuse.covers[${i}]: duplicate step "${name}"`);
+        else covers.push(name);
+      });
+      for (const name of stepNames) {
+        if (!covers.includes(name)) problems.push(`hosted_reuse.covers: step "${name}" is not declared as run by hosted CI; list it or remove hosted_reuse`);
+      }
+    }
+  }
+  const extraWorkflows = 'extra_workflows' in value ? validateWorkflows(value.extra_workflows, problems) : [];
+  return { covers, extraWorkflows };
+}
+
 function validateConfig(source) {
   if (source === undefined || source === null || (typeof source === 'string' && source.trim() === '')) {
     return {
@@ -284,6 +318,7 @@ function validateConfig(source) {
   const botReview = validateBots(config.bot_reviewers, problems);
   const secretNames = validateSecretNames(config.secret_names, problems);
   const outputPaths = validateOutputPaths(config.output_paths, problems);
+  const hostedReuseDecl = validateHostedReuse(config.hosted_reuse, steps, problems);
 
   for (const ex of excluded) {
     const wf = workflows.find((w) => w.file === ex.workflow);
@@ -294,14 +329,20 @@ function validateConfig(source) {
 
   if (problems.length > 0) return { ok: false, problems };
 
-  const checks = [];
-  for (const wf of workflows) {
-    for (const job of wf.jobs) {
-      for (const matrix of expandMatrix(job.matrix)) {
-        checks.push({ workflow: wf.file, job: job.id, matrix });
+  const expandChecks = (list) => {
+    const out = [];
+    for (const wf of list) {
+      for (const job of wf.jobs) {
+        for (const matrix of expandMatrix(job.matrix)) out.push({ workflow: wf.file, job: job.id, matrix });
       }
     }
-  }
+    return out;
+  };
+  const checks = expandChecks(workflows);
+  // Hosted jobs the reuse path must see green: the approval set plus any extra workflows. Never fed to the runner.
+  const hostedReuse = hostedReuseDecl
+    ? { covers: hostedReuseDecl.covers, checks: [...checks, ...expandChecks(hostedReuseDecl.extraWorkflows)] }
+    : null;
 
   return {
     ok: true,
@@ -317,6 +358,7 @@ function validateConfig(source) {
       outputPaths,
       statusContext: config.status_context.trim(),
       botReview,
+      hostedReuse,
     },
   };
 }

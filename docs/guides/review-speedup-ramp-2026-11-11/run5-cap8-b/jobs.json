@@ -1,0 +1,572 @@
+{
+ "reviewer-s1-a": {
+  "id": "RunRamp.Rc8bReviewerS1A",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429456820,
+   "durationMs": 635203,
+   "requests": 27,
+   "cost": 1.8394770000000003,
+   "contextTokens": 211429,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429458822,
+   "status": "completed",
+   "durationMs": 636675,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS1A\" agent=\"task\" status=\"completed\" duration=\"10m36s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s1-b": {
+  "id": "RunRamp.Rc8bReviewerS1B",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429408727,
+   "durationMs": 587111,
+   "requests": 20,
+   "cost": 1.6641822999999998,
+   "contextTokens": 215451,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429410731,
+   "status": "completed",
+   "durationMs": 588747,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS1B\" agent=\"task\" status=\"completed\" duration=\"9m48s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s2-a": {
+  "id": "RunRamp.Rc8bReviewerS2A",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429564991,
+   "durationMs": 743374,
+   "requests": 17,
+   "cost": 1.8707628,
+   "contextTokens": 216351,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429566994,
+   "status": "completed",
+   "durationMs": 744345,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS2A\" agent=\"task\" status=\"completed\" duration=\"12m24s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s2-b": {
+  "id": "RunRamp.Rc8bReviewerS2B",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429502901,
+   "durationMs": 681284,
+   "requests": 19,
+   "cost": 1.749415,
+   "contextTokens": 209195,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429504903,
+   "status": "completed",
+   "durationMs": 682993,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS2B\" agent=\"task\" status=\"completed\" duration=\"11m22s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s3-a": {
+  "id": "RunRamp.Rc8bReviewerS3A",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429452813,
+   "durationMs": 631196,
+   "requests": 19,
+   "cost": 1.7298686,
+   "contextTokens": 205905,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429454815,
+   "status": "completed",
+   "durationMs": 631980,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS3A\" agent=\"task\" status=\"completed\" duration=\"10m31s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s3-b": {
+  "id": "RunRamp.Rc8bReviewerS3B",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429432770,
+   "durationMs": 611155,
+   "requests": 22,
+   "cost": 1.8100644000000001,
+   "contextTokens": 223666,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429434774,
+   "status": "completed",
+   "durationMs": 612724,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerS3B\" agent=\"task\" status=\"completed\" duration=\"10m12s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-range": {
+  "id": "RunRamp.Rc8bReviewerRange",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429673287,
+   "durationMs": 851670,
+   "requests": 20,
+   "cost": 2.2924188,
+   "contextTokens": 263589,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429675289,
+   "status": "completed",
+   "durationMs": 853575,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bReviewerRange\" agent=\"task\" status=\"completed\" duration=\"14m13s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "security-lane": {
+  "id": "RunRamp.Rc8bSecurityLane",
+  "role": "security",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "dispatchedMs": 1794428821619,
+  "lastRunning": {
+   "t": 1794429162336,
+   "durationMs": 340720,
+   "requests": 23,
+   "cost": 1.2118576,
+   "contextTokens": 179255,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429164339,
+   "status": "completed",
+   "durationMs": 342058,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bSecurityLane\" agent=\"task\" status=\"completed\" duration=\"5m42s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-1": {
+  "id": "RunRamp.Rc8bVerifier1",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794429810994,
+   "durationMs": 134293,
+   "requests": 6,
+   "cost": 0.40585400000000005,
+   "contextTokens": 102899,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429812997,
+   "status": "completed",
+   "durationMs": 135133,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier1\" agent=\"task\" status=\"completed\" duration=\"2m15s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-2": {
+  "id": "RunRamp.Rc8bVerifier2",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430008513,
+   "durationMs": 331812,
+   "requests": 26,
+   "cost": 1.1454103000000002,
+   "contextTokens": 159928,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430010516,
+   "status": "completed",
+   "durationMs": 333636,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier2\" agent=\"task\" status=\"completed\" duration=\"5m33s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-3": {
+  "id": "RunRamp.Rc8bVerifier3",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430021092,
+   "durationMs": 344392,
+   "requests": 17,
+   "cost": 1.02894,
+   "contextTokens": 155378,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430023096,
+   "status": "completed",
+   "durationMs": 345358,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier3\" agent=\"task\" status=\"completed\" duration=\"5m45s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-4": {
+  "id": "RunRamp.Rc8bVerifier4",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430037736,
+   "durationMs": 361035,
+   "requests": 31,
+   "cost": 1.0956409,
+   "contextTokens": 141199,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430039738,
+   "status": "completed",
+   "durationMs": 361640,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier4\" agent=\"task\" status=\"completed\" duration=\"6m1s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-5": {
+  "id": "RunRamp.Rc8bVerifier5",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430023096,
+   "durationMs": 346394,
+   "requests": 19,
+   "cost": 1.0111111,
+   "contextTokens": 153222,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430033728,
+   "status": "completed",
+   "durationMs": 356413,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier5\" agent=\"task\" status=\"completed\" duration=\"5m56s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-6": {
+  "id": "RunRamp.Rc8bVerifier6",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430058227,
+   "durationMs": 381525,
+   "requests": 28,
+   "cost": 1.1379997,
+   "contextTokens": 148411,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430060230,
+   "status": "completed",
+   "durationMs": 382425,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier6\" agent=\"task\" status=\"completed\" duration=\"6m22s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-7": {
+  "id": "RunRamp.Rc8bVerifier7",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794429989890,
+   "durationMs": 313188,
+   "requests": 19,
+   "cost": 0.9884871000000001,
+   "contextTokens": 145312,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794429991892,
+   "status": "completed",
+   "durationMs": 314738,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier7\" agent=\"task\" status=\"completed\" duration=\"5m14s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-8": {
+  "id": "RunRamp.Rc8bVerifier8",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 2",
+  "refill": false,
+  "dispatchedMs": 1794429676704,
+  "lastRunning": {
+   "t": 1794430060230,
+   "durationMs": 383528,
+   "requests": 13,
+   "cost": 1.0015831000000002,
+   "contextTokens": 160358,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430070710,
+   "status": "completed",
+   "durationMs": 391911,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier8\" agent=\"task\" status=\"completed\" duration=\"6m31s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-9": {
+  "id": "RunRamp.Rc8bVerifier9",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "2 (rolling)",
+  "refill": true,
+  "dispatchedMs": 1794429992482,
+  "lastRunning": {
+   "t": 1794430159364,
+   "durationMs": 166884,
+   "requests": 9,
+   "cost": 0.4719406000000001,
+   "contextTokens": 104093,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430161367,
+   "status": "completed",
+   "durationMs": 168144,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier9\" agent=\"task\" status=\"completed\" duration=\"2m48s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-10": {
+  "id": "RunRamp.Rc8bVerifier10",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "2 (rolling)",
+  "refill": true,
+  "dispatchedMs": 1794429992482,
+  "lastRunning": {
+   "t": 1794430219903,
+   "durationMs": 227423,
+   "requests": 8,
+   "cost": 0.5839158,
+   "contextTokens": 109365,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430221905,
+   "status": "completed",
+   "durationMs": 228189,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier10\" agent=\"task\" status=\"completed\" duration=\"3m48s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-11": {
+  "id": "RunRamp.Rc8bVerifier11",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "3 (rolling)",
+  "refill": true,
+  "dispatchedMs": 1794430011075,
+  "lastRunning": {
+   "t": 1794430354556,
+   "durationMs": 343483,
+   "requests": 20,
+   "cost": 1.0060502,
+   "contextTokens": 147532,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794430356559,
+   "status": "completed",
+   "durationMs": 345052,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunRamp.Rc8bVerifier11\" agent=\"task\" status=\"completed\" duration=\"5m45s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ }
+}

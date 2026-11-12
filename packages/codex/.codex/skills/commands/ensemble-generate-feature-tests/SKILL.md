@@ -1,19 +1,11 @@
 ---
 name: ensemble-generate-feature-tests
-description: Generate Gherkin .feature files and a traceability manifest from a PRD's acceptance criteria (Codex skill for /ensemble:generate-feature-tests)
-user-invocable: false
-argument-hint: '[prd-path] [--out <dir>] [--dry-run]'
-model: gpt-5.1-codex
+description: "Generate Gherkin .feature files and a traceability manifest from a PRD's acceptance criteria"
+disable-model-invocation: true
+metadata:
+  version: "1.0.0"
+  category: quality
 ---
-
-# Ensemble Command: /ensemble:generate-feature-tests
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:generate-feature-tests`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from generate-feature-tests.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Generate executable-shaped Gherkin .feature files directly from a PRD's
 acceptance criteria, plus a .prd-trace.json manifest that fingerprints every
@@ -23,26 +15,37 @@ than a creative authoring step. The output is one .feature file per
 requirement (REQ-NNN), with traceability tags linking each scenario back to
 its PRD document id and AC id.
 
+## Constraints
+
+- This command ONLY generates test artifacts from an existing PRD -- it does not implement features or write step definitions
+- Parsing is deterministic via the prd-cli helper -- DO NOT hand-author or hand-edit .feature files
+- Every acceptance criterion (AC-NNN-M) maps to exactly one Gherkin Scenario; nothing is dropped
+- Acceptance criteria that are not in Given/When/Then form are emitted as @needs-clarification scenarios, never silently skipped
+- Regeneration is idempotent -- unchanged ACs produce byte-identical output
+
 ## Workflow
 
 ### Phase 1: Generate
 
-**1. Resolve the PRD path**
-   Determine which PRD to generate feature files from
+#### Step 1.1: Resolve the PRD path
+
+Determine which PRD to generate feature files from
 
 - If the user passed a PRD path argument, use it
 - Otherwise look under docs/PRD/ and ask the user which PRD to use if ambiguous
 
-**2. Run the generator**
-   Invoke the deterministic CLI to parse the PRD and write artifacts
+#### Step 1.2: Run the generator
+
+Invoke the deterministic CLI to parse the PRD and write artifacts
 
 - Resolve PRD_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/prd-cli.js, packages/product/lib/prd-cli.js. If missing, print error and HALT.
 - Run: node "$PRD_CLI" generate-features <prd-path> --json
 - Pass through --out <dir> (default: features/) and --dry-run if the user requested a preview
 - The CLI writes one <REQ-NNN>.feature per requirement plus a .prd-trace.json manifest under <out>/<prd-stem>/
 
-**3. Report results**
-   Summarize what was generated and surface gaps
+#### Step 1.3: Report results
+
+Summarize what was generated and surface gaps
 
 - Report the output directory, number of feature files, and total scenarios
 - List every AC tagged @needs-clarification (free-form or carrying a [NEEDS CLARIFICATION] marker) so the author can fix the PRD
@@ -54,11 +57,6 @@ its PRD document id and AC id.
 **Format:** Gherkin feature files + JSON manifest
 
 **Structure:**
+
 - **<out>/<prd-stem>/<REQ-NNN>.feature**: One Gherkin feature per requirement, one tagged+hashed scenario per acceptance criterion
 - **<out>/<prd-stem>/.prd-trace.json**: Manifest mapping each AC id to its requirement, content hash, feature file, and clarification flag
-
-## Usage
-
-```
-/ensemble:generate-feature-tests [prd-path] [--out <dir>] [--dry-run]
-```

@@ -1,0 +1,225 @@
+'use strict';
+// Cross-run arithmetic of the verify-concurrency ramp (kata j1wb): every figure of the report that is computed. Scratch; a copy goes into the
+// evidence directory as text. Reads the five run directories (analysis.json, jobs.json, summary.json, trace.jsonl), the two load samplers
+// (load.log: uptime, jest and node counts, full-suite lock; procs.log: CPU by process group, from run 4 on) and writes report-values.json.
+const fs = require('fs');
+const path = require('path');
+const A = require('./ramp-analyze.js');
+
+const HOME = process.env.HOME;
+const SCRATCH = path.join(HOME, '.omp', 'pr-review-speedup', 'ramp');
+const RUNS = [
+  { n: 1, dir: 'ramp1-cap8a', cap: 8, rep: 'a' },
+  { n: 2, dir: 'ramp2-cap12a', cap: 12, rep: 'a' },
+  { n: 3, dir: 'ramp3-cap17a', cap: 17, rep: 'a' },
+  { n: 4, dir: 'ramp4-cap17b', cap: 17, rep: 'b' },
+  { n: 5, dir: 'ramp5-cap8b', cap: 8, rep: 'b' },
+];
+const LOAD_LIMIT = 12; // the owner's: host load above 12 for more than 2 minutes in a run
+const STREAK = 5; // 5 consecutive 30-second samples above the limit: 2 minutes or more of samples (the 1-minute average adds its own memory)
+const r2 = A.r2;
+const mean = A.mean;
+const median = A.median;
+const pct = A.pct;
+const ts = (s) => Date.parse(s);
+
+function readLoad() {
+  const rows = [];
+  for (const line of fs.readFileSync(path.join(SCRATCH, 'load', 'load.log'), 'utf8').split('\n')) {
+    const m = /^(\S+Z) load1=([\d.]+) load5=([\d.]+) load15=([\d.]+) nodeProcs=(\d+) jestProcs=(\d+) fullsuiteLock=(\d)/.exec(line);
+    if (m) rows.push({ t: ts(m[1]), l1: Number(m[2]), l5: Number(m[3]), node: Number(m[5]), jest: Number(m[6]), lock: Number(m[7]) });
+  }
+  return rows;
+}
+function readProcs() {
+  const rows = [];
+  const file = path.join(SCRATCH, 'load', 'procs.log');
+  if (!fs.existsSync(file)) return rows;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const m = /^(\S+Z) cpuAll=(\d+) procs=(\d+) \| gate n=(\d+) cpu=(\d+) jest=(\d+) \| ramp n=(\d+) cpu=(\d+) jest=(\d+) \| otherEnsemble n=(\d+) cpu=(\d+) jest=(\d+) \| other n=(\d+) cpu=(\d+) \| top (.*)$/.exec(line);
+    if (m) rows.push({ t: ts(m[1]), all: Number(m[2]), gate: Number(m[5]), gateJest: Number(m[6]), ramp: Number(m[8]), otherEns: Number(m[11]), otherEnsJest: Number(m[12]), other: Number(m[14]), top: m[15].trim() });
+  }
+  return rows;
+}
+
+/** Streaks of consecutive samples above `limit` inside [from, to]; `t0` makes offsets in minutes. */
+function streaks(samples, from, to, limit, t0) {
+  const inWin = samples.filter((s) => s.t >= from && s.t <= to);
+  const out = [];
+  let cur = null;
+  for (const s of inWin) {
+    if (s.l1 > limit) { if (!cur) cur = { from: s.t, to: s.t, n: 0, max: 0, sum: 0 }; cur.to = s.t; cur.n += 1; cur.max = Math.max(cur.max, s.l1); cur.sum += s.l1; }
+    else if (cur) { out.push(cur); cur = null; }
+  }
+  if (cur) out.push(cur);
+  return {
+    samples: inWin.length,
+    above: inWin.filter((s) => s.l1 > limit).length,
+    mean: r2(mean(inWin.map((s) => s.l1))), max: inWin.length ? Math.max(...inWin.map((s) => s.l1)) : null,
+    streaks: out.map((c) => ({ fromMin: r2((c.from - t0) / 60000), toMin: r2((c.to - t0) / 60000), samples: c.n, maxLoad1: c.max, meanLoad1: r2(c.sum / c.n) })),
+    longestStreakSamples: out.reduce((m, c) => Math.max(m, c.n), 0),
+  };
+}
+
+function groupShare(procs, from, to, load, limit) {
+  // over the samples of the window whose load1 is above the limit: the CPU (in %) of each process group, summed, and the other worktrees' jest count
+  const hits = load.filter((s) => s.t >= from && s.t <= to && s.l1 > limit);
+  if (!hits.length || !procs.length) return null;
+  const sums = { gate: 0, ramp: 0, otherEnsemble: 0, other: 0, all: 0 };
+  let otherJestMax = 0; let gateJestMax = 0; let n = 0;
+  const tops = {};
+  for (const h of hits) {
+    const p = procs.filter((q) => Math.abs(q.t - h.t) <= 16000).sort((a, b) => Math.abs(a.t - h.t) - Math.abs(b.t - h.t))[0];
+    if (!p) continue;
+    n += 1; sums.gate += p.gate; sums.ramp += p.ramp; sums.otherEnsemble += p.otherEns; sums.other += p.other; sums.all += p.all;
+    otherJestMax = Math.max(otherJestMax, p.otherEnsJest); gateJestMax = Math.max(gateJestMax, p.gateJest);
+    for (const tok of p.top.split(/\s+(?=\d+(?:\.\d+)?:)/).slice(0, 3)) { const name = tok.replace(/^[\d.]+:/, '').trim(); if (name) tops[name] = (tops[name] || 0) + 1; }
+  }
+  if (!n) return null;
+  return { samplesWithProcs: n, meanCpuPct: { gate: Math.round(sums.gate / n), ramp: Math.round(sums.ramp / n), otherWorktrees: Math.round(sums.otherEnsemble / n), other: Math.round(sums.other / n), all: Math.round(sums.all / n) }, otherWorktreeJestMax: otherJestMax, gateJestMax, topProcessesByCount: Object.entries(tops).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => k + ' x' + v) };
+}
+
+function spearman(xs, ys) {
+  const rank = (a) => { const idx = a.map((v, i) => [v, i]).sort((p, q) => p[0] - q[0]); const r = new Array(a.length); let i = 0; while (i < idx.length) { let j = i; while (j + 1 < idx.length && idx[j + 1][0] === idx[i][0]) j += 1; const rk = (i + j) / 2 + 1; for (let k = i; k <= j; k += 1) r[idx[k][1]] = rk; i = j + 1; } return r; };
+  const rx = rank(xs); const ry = rank(ys); const mx = mean(rx); const my = mean(ry);
+  let num = 0; let dx = 0; let dy = 0;
+  for (let i = 0; i < rx.length; i += 1) { num += (rx[i] - mx) * (ry[i] - my); dx += (rx[i] - mx) ** 2; dy += (ry[i] - my) ** 2; }
+  return dx && dy ? num / Math.sqrt(dx * dy) : null;
+}
+const binom = (n, k) => { let r = 1; for (let i = 1; i <= k; i += 1) r = (r * (n - k + i)) / i; return r; };
+/** One-sided Clopper-Pearson 95% upper bound for k events in n trials (bisection on P(X <= k | p) = 0.05). */
+function cpUpper(k, n) {
+  let lo = 0; let hi = 1;
+  for (let i = 0; i < 80; i += 1) { const p = (lo + hi) / 2; let c = 0; for (let j = 0; j <= k; j += 1) c += binom(n, j) * p ** j * (1 - p) ** (n - j); if (c > 0.05) lo = p; else hi = p; }
+  return (lo + hi) / 2;
+}
+
+function main() {
+  const load = readLoad();
+  const procs = readProcs();
+  const out = { loadLimit: LOAD_LIMIT, streakSamples: STREAK, runs: {} };
+  const dirOf = (r) => path.join(SCRATCH, 'runs', r.dir);
+  for (const r of RUNS) {
+    const a = JSON.parse(fs.readFileSync(path.join(dirOf(r), 'analysis.json'), 'utf8'));
+    const jobs = JSON.parse(fs.readFileSync(path.join(dirOf(r), 'jobs.json'), 'utf8'));
+    const sum = JSON.parse(fs.readFileSync(path.join(dirOf(r), 'summary.json'), 'utf8'));
+    const t0 = a.window.startMs; const tEnd = a.window.endMs;
+    const vFrom = ts(a.verify.startedAtIso); const vTo = vFrom + a.verify.stageSec * 1000;
+    const g = a.gate || {};
+    const gFrom = g.startedAt ? ts(g.startedAt) : null; const gTo = g.finishedAt ? ts(g.finishedAt) : null;
+    const whole = streaks(load, t0, tEnd, LOAD_LIMIT, t0);
+    const verify = streaks(load, vFrom, vTo, LOAD_LIMIT, t0);
+    const outsideGate = gFrom === null ? whole : streaks(load.filter((s) => s.t < gFrom || s.t > gTo), t0, tEnd, LOAD_LIMIT, t0);
+    const ver = {
+      fromMin: r2((vFrom - t0) / 60000), toMin: r2((vTo - t0) / 60000), ...verify,
+      fractionAbove: verify.samples ? r2(verify.above / verify.samples) : null,
+      jestSamplesMax: Math.max(0, ...load.filter((s) => s.t >= vFrom && s.t <= vTo).map((s) => s.jest)),
+      fullSuiteLockSamples: load.filter((s) => s.t >= vFrom && s.t <= vTo && s.lock === 1).length,
+      attribution: groupShare(procs, vFrom, vTo, load, LOAD_LIMIT),
+    };
+    const R1 = ver.longestStreakSamples >= STREAK; // strict: 5 or more consecutive samples above 12 inside the verify stage
+    const R2 = ver.mean > LOAD_LIMIT || ver.fractionAbove >= 0.5; // broad: mean above 12 or half of the stage's samples above 12
+    // per-verifier: duration against the mean load1 during its life
+    const vs = Object.entries(jobs).filter(([, j]) => j.role === 'verifier');
+    const spans = A.readTrace(path.join(dirOf(r), 'trace.jsonl')).filter((s) => s.name === 'review.verifier');
+    const lifeLoad = []; const durs = []; const reqs = [];
+    for (const s of spans) {
+      const fin = s.endAttrs.last_message_ts ? ts(s.endAttrs.last_message_ts) : null;
+      if (fin === null) continue;
+      const w = load.filter((x) => x.t >= s.start && x.t <= fin);
+      if (!w.length) continue;
+      lifeLoad.push(mean(w.map((x) => x.l1))); durs.push((fin - s.start) / 1000);
+      const j = jobs[s.attrs.agent]; reqs.push(j && j.lastRunning ? j.lastRunning.requests : null);
+    }
+    const reqPairs = durs.map((d, i) => [d, reqs[i]]).filter((p) => p[1]);
+    out.runs[r.n] = {
+      run: r.n, runId: a.runId, cap: r.cap, rep: r.rep,
+      wallMin: a.wallMin, reviewStageMin: a.firstDispatchToReviewEndMin, slowestReviewerMin: a.reviewers.slowestMin, handoffSec: a.handoffToVerifySec,
+      verifyStageMin: a.verify.stageMin, verifyStartMin: a.verify.startedOffsetMin, verifiers: a.verify.count, arrived: a.verify.arrived, expired: a.verify.expired, expiredNames: a.verify.expiredNames,
+      waves: a.verify.waves, firstWave: a.verify.firstWaveSize, peakVerifierOverlap: a.verify.peakVerifierOverlap,
+      slowestMin: a.verify.slowestMin, slowestArrivedMin: a.verify.slowestArrivedMin, medianMin: a.verify.medianMin, p75Min: a.verify.p75Min, p90Min: a.verify.p90Min, meanMin: a.verify.meanMin, sumAgentMin: a.verify.sumAgentMin,
+      replayMin: a.verify.replayMin, stageMinusOwnCapReplay: r2(a.verify.stageMin - a.verify.replayMin[r.cap]),
+      candidates: a.ledger.candidates, present: a.ledger.present, unverified: a.ledger.unverified,
+      gate: { action: g.action, ok: g.ok, durationMin: g.durationMin, finishedMin: g.finishedOffsetMin, verifyStartMinusGateEndMin: g.verifyStartMinusGateEndMin, afterGate: g.verificationStartedAfterGateFinished },
+      guard: a.recallGuard, flags: a.flags, harness: a.harness, capProofAgree: a.capProofAllAgree,
+      jobs: a.jobs,
+      load: {
+        whole: { samples: whole.samples, above12: whole.above, mean: whole.mean, max: whole.max, longestStreakSamples: whole.longestStreakSamples, streaks: whole.streaks },
+        wholeOutsideGate: { above12: outsideGate.above, longestStreakSamples: outsideGate.longestStreakSamples, streaks: outsideGate.streaks },
+        verify: ver,
+        gateWindowMin: gFrom === null ? null : [r2((gFrom - t0) / 60000), r2((gTo - t0) / 60000)],
+        ruleR1StrictStreak: R1, ruleR2Broad: R2,
+        wholeRunAttribution: groupShare(procs, t0, tEnd, load, LOAD_LIMIT),
+      },
+      verifierDurationVsLifeLoad: { n: durs.length, spearman: durs.length > 3 ? r2(spearman(durs, lifeLoad)) : null },
+      secondsPerRequest: reqPairs.length ? r2(reqPairs.reduce((s, p) => s + p[0], 0) / reqPairs.reduce((s, p) => s + p[1], 0)) : null,
+      verifierRequestsMean: reqPairs.length ? r2(mean(reqPairs.map((p) => p[1]))) : null,
+      durationsSec: a.verify.durationsSec,
+    };
+  }
+  // pooled per cap
+  const pooled = {};
+  for (const cap of [8, 12, 17]) {
+    const rs = RUNS.filter((r) => r.cap === cap).map((r) => out.runs[r.n]);
+    const arrivedDurs = rs.flatMap((x) => { const a = JSON.parse(fs.readFileSync(path.join(dirOf(RUNS[x.run - 1]), 'analysis.json'), 'utf8')); return a.verify.durationsSec.filter((d, i) => true).map((d) => d); });
+    // durationsSec holds every verifier (a stopped one at its censored deadline); split them using the trace
+    const arrived = []; let stopped = 0;
+    for (const x of rs) {
+      const spans = A.readTrace(path.join(dirOf(RUNS[x.run - 1]), 'trace.jsonl')).filter((s) => s.name === 'review.verifier');
+      for (const s of spans) { if (s.endAttrs.last_message_ts) arrived.push((ts(s.endAttrs.last_message_ts) - s.start) / 60000); else stopped += 1; }
+    }
+    pooled[cap] = { runs: rs.map((x) => x.run), verifiers: arrived.length + stopped, arrived: arrived.length, stopped, medianMin: r2(median(arrived)), p75Min: r2(pct(arrived, 75)), p90Min: r2(pct(arrived, 90)), maxArrivedMin: r2(Math.max(...arrived)), meanMin: r2(mean(arrived)), arrivedSortedMin: arrived.map(r2).sort((p, q) => p - q) };
+    void arrivedDurs;
+  }
+  out.pooledByCap = pooled;
+  // controls and deltas
+  const R = out.runs;
+  const delta = (x, y) => r2(x - y);
+  const ctl = { both: [1, 5], run1Only: [1], run5Only: [5] };
+  const pick = (ns, key) => ns.map((n) => R[n][key]);
+  const cmp = {};
+  const treat = { cap12: [2], cap17both: [3, 4], cap17run3: [3], cap17run4: [4] };
+  for (const [cn, cns] of Object.entries(ctl)) {
+    const cw = mean(pick(cns, 'wallMin')); const cv = mean(pick(cns, 'verifyStageMin'));
+    cmp[cn] = { controlWallMean: r2(cw), controlWallMedian: r2(median(pick(cns, 'wallMin'))), controlVerifyMean: r2(cv), controlVerifyMedian: r2(median(pick(cns, 'verifyStageMin'))), controlVerifiers: pick(cns, 'verifiers'), controlReplay8: pick(cns, 'replayMin').map((x) => x[8]) };
+    for (const [tn, tns] of Object.entries(treat)) {
+      const tw = mean(pick(tns, 'wallMin')); const tv = mean(pick(tns, 'verifyStageMin'));
+      const own = tns[0] === undefined ? [] : tns.map((n) => R[n].cap);
+      const predicted = mean(tns.map((n) => R[n].replayMin[R[n].cap] - R[n].replayMin[8])); // replay at the run's own cap minus replay at cap 8, same durations
+      cmp[cn][tn] = { wallMean: r2(tw), verifyMean: r2(tv), wallDelta: delta(tw, cw), verifyDelta: delta(tv, cv), replayPredictedVerifyDelta: r2(predicted), caps: own };
+    }
+  }
+  out.comparisons = cmp;
+  // review-stage spread (cap independent: 8 agents fit every cap)
+  out.reviewStage = { minutes: RUNS.map((r) => R[r.n].reviewStageMin), range: r2(Math.max(...RUNS.map((r) => R[r.n].reviewStageMin)) - Math.min(...RUNS.map((r) => R[r.n].reviewStageMin))) };
+  out.spreads = {
+    cap8Wall: [R[1].wallMin, R[5].wallMin, delta(R[5].wallMin, R[1].wallMin)],
+    cap8Verify: [R[1].verifyStageMin, R[5].verifyStageMin, delta(R[5].verifyStageMin, R[1].verifyStageMin)],
+    cap17Wall: [R[3].wallMin, R[4].wallMin, delta(R[4].wallMin, R[3].wallMin)],
+    cap17Verify: [R[3].verifyStageMin, R[4].verifyStageMin, delta(R[4].verifyStageMin, R[3].verifyStageMin)],
+    cap8Median: [R[1].medianMin, R[5].medianMin], cap17Median: [R[3].medianMin, R[4].medianMin],
+  };
+  // stops
+  const lo = [1, 2, 5].reduce((s, n) => s + R[n].verifiers, 0); const hi = [3, 4].reduce((s, n) => s + R[n].verifiers, 0);
+  out.stops = { atCapAtMost12: { stopped: 0, verifiers: lo }, atCap17: { stopped: 1, verifiers: hi }, fisherP: r2(hi / (hi + lo)), upper95Cap17: r2(cpUpper(1, hi)), upper95AtMost12: r2(cpUpper(0, lo)), earlierR3Cap8: { stopped: 9, verifiers: 111, rate: r2(9 / 111) } };
+  // the replay curve per run: the lowest cap whose replayed stage is within 10% of the whole-pool gain
+  const curves = {};
+  for (const r of RUNS) {
+    const durs = R[r.n].durationsSec;
+    const base = A.replay(durs, 8); const pool = Math.max(...durs);
+    const rows = [];
+    for (let c = 8; c <= 24; c += 1) { const st = A.replay(durs, c); rows.push([c, r2(st / 60), r2((base - st) / (base - pool || 1))]); }
+    const need = rows.find((x) => x[2] >= 0.9);
+    curves[r.n] = { cap8Min: r2(base / 60), poolMin: r2(pool / 60), lowestCapFor90pct: need ? need[0] : null, at12: rows.find((x) => x[0] === 12), at16: rows.find((x) => x[0] === 16), at17: rows.find((x) => x[0] === 17) };
+  }
+  out.replayCurves = curves;
+  fs.writeFileSync(path.join(SCRATCH, 'analysis', 'report-values.json'), JSON.stringify(out, null, 1));
+  return out;
+}
+module.exports = { main, streaks, spearman, cpUpper };
+if (require.main === module) {
+  const o = main();
+  const line = (s) => console.log(s);
+  line('run | cap | wall | review | verify stage | verifiers (arr/exp) | waves | med | p75 | slowest | replay8 | replayOwn | gate | R1 | R2');
+  for (const n of [1, 2, 3, 4, 5]) { const x = o.runs[n]; line([n, x.cap + x.rep, x.wallMin, x.reviewStageMin, x.verifyStageMin, x.verifiers + ' (' + x.arrived + '/' + x.expired + ')', x.waves, x.medianMin, x.p75Min, x.slowestMin, x.replayMin[8], x.replayMin[x.cap], x.gate.action + ' ' + x.gate.durationMin + ' ' + x.gate.verifyStartMinusGateEndMin, x.load.ruleR1StrictStreak, x.load.ruleR2Broad].join(' | ')); }
+}

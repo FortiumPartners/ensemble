@@ -377,7 +377,7 @@ describe('CLI errors exit 2 and print nothing on stdout', () => {
 });
 
 describe('detector names equal skill names', () => {
-  /** Skill names as the skill-copier and Claude Code see them under packages/<pkg>/skills. */
+  /** Skill names as Claude Code sees them under packages/<pkg>/skills: one directory per skill. */
   function collectSkillNames() {
     const found = new Set();
     for (const pkg of fs.readdirSync(PACKAGES_DIR, { withFileTypes: true })) {
@@ -385,13 +385,6 @@ describe('detector names equal skill names', () => {
       const skillsDir = path.join(PACKAGES_DIR, pkg.name, 'skills');
       if (!fs.existsSync(skillsDir)) continue;
 
-      // top-level layout (framework packages): frontmatter name
-      const topLevel = path.join(skillsDir, 'SKILL.md');
-      if (fs.existsSync(topLevel)) {
-        const match = /^name:\s*(\S+)/m.exec(fs.readFileSync(topLevel, 'utf8'));
-        if (match) found.add(match[1]);
-      }
-      // subdirectory layout: the directory name
       for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
         if (entry.isDirectory() && fs.existsSync(path.join(skillsDir, entry.name, 'SKILL.md'))) {
           found.add(entry.name);

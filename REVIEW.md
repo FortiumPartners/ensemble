@@ -110,6 +110,7 @@ logins).
     "packages/**/commands/ensemble/pr-merge.md",
     "packages/**/ensemble-pr-merge.md",
     "packages/**/ensemble-pr-merge/SKILL.md",
+    "packages/**/ensemble-pr-merge/**",
     "packages/full/commands/git"
   ],
   "highPaths": [
@@ -132,7 +133,14 @@ logins).
 | `highPaths` | Areas that start at the High risk tier. |
 | `lowWaiverEnabled` | Whether a Low-risk PR may waive review with evidence (off here). |
 | `soloMaintainer` | With exactly one maintainer login: a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. If that maintainer is not the PR's author they must have approved the current head on the host; if they are the author (an agent PR committed under their own login, which the host will not let them approve) the discount rests on their own credit as author-as-director and the gate result carries the warning `solo-maintainer-self-credit`. A PR whose author cannot be read keeps two humans, and a `Directed by:` line alone never lowers the requirement for any other author. The security lane still blocks High. Sensitive-path PRs keep two humans. |
-| `sliceThreshold` | Changed-line count above which a PR is reviewed in slices. |
+| `sliceThreshold` | Changed-line count above which `planSlices` splits a PR area by area. The review runner does not use it to decide whether to slice: it cuts every PR by size (`sliceMaxFiles`, `sliceTargetLines`) and the threshold only names the one slice. |
+| `sliceMaxFiles` | Most paths in one reviewer's slice (default 8, derived from the one real full-mode run, kata `sfpb`). |
+| `sliceTargetLines` | Changed lines to aim for in one reviewer's slice (default 612). |
+| `deadlineHeadroom` | Times the modelled time to read its work an agent's deadline allows (1-10, default 2: a judgement, not a measurement). |
+| `reviewerToolCalls` | Most tool calls one reviewer may spend (10-200, default 40). More buys deeper reading and costs time and tokens per reviewer; raise `deadlineMinutes.reviewer` with it; a reviewer that stops with unread paths leaves coverage incomplete, which stops the gate. Advisory: the runner sizes deadlines from paths and lines only and does not check it. |
+| `reviewerSnippets` | Most throwaway read-only snippets one reviewer may run to settle a claim about what code does (1-10, below `reviewerToolCalls` because snippets count toward it; default 3: a judgement, not a measurement). |
+| `quorumFirstVerification` | Boolean, off unless `true` (default `false`; `"yes"` and `1` do not turn it on; not set here). On: the review runner dispatches only the first strict majority of each candidate's verifiers (2 of 3, 3 of 5) and the rest only for a candidate whose first votes are not all `real` (a not-real, an abstain or a missing vote). The electorate and the vote rule are unchanged, so the outcome is the full electorate's (kata `3ezq`; owner decision D4: "3 verifiers per finding" means deciding, not dispatched). A candidate its first votes settle is `quorum-settled`: never carried into a re-review, and its tally has no not-real count to show because the verifiers not asked never voted; a missing first vote costs a second dispatch. See `docs/guides/pr-review-run.md`. |
+| `deadlineMinutes` | Per-agent deadline base in minutes (reviewer 15, verifier 5, security 15). The review runner raises a reviewer's and the security lane's above it by what they have to read, at most 60 minutes, and never gives them less than a fixed-cost floor of 22 minutes (measured: a reviewer's time on a small slice does not follow its size): a value the policy sets below 22 (15 included) is overridden and the run's sizing warnings say so; an unset value is raised without a warning (the manifest marks the agent `deadlineFloored`). A verifier is not sized and is never given less than its own fixed-cost floor of 8 minutes (measured: 9 of 60 verifiers were stopped at the old flat 5, and their time does not follow their claims): a value the policy sets below 8 (5 included) is overridden and named the same way. |
 
 ## Ownership
 

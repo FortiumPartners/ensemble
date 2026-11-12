@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "Validation failed: label: invalid characters (only alphanumeric, hyphen, underscore, colon allowed)",
+    "hint": null,
+    "retryable": true,
+    "context": {
+      "field": "label",
+      "reason": "invalid characters (only alphanumeric, hyphen, underscore, colon allowed)"
+    }
+  }
+}

@@ -14,7 +14,7 @@ const { spawnSync } = require('child_process');
 const cli = require('../lib/local-ci-cli');
 const { validateConfig } = require('../lib/local-ci-config');
 const { buildRecord, verifyRecord } = require('../lib/local-ci-record');
-const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, fakeGhDir, postedArgs, PR } = require('./helpers/local-ci-base-repo');
+const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, fakeGhDir, postedArgs, statusesApi, asGithub, PR } = require('./helpers/local-ci-base-repo');
 
 const CLI_PATH = path.join(__dirname, '..', 'lib', 'local-ci-cli.js');
 const REPO_CONFIG = path.join(__dirname, '..', '..', '..', '.ensemble', 'local-ci.yaml');
@@ -37,6 +37,7 @@ function makeDeps(overrides = {}) {
   const deps = {
     ...cli.defaultDeps(),
     postStatus: post,
+    ghApi: statusesApi([]), // GitHub lists no status of the head unless a test says so
     runGate,
     env: {},
     ...overrides,
@@ -57,7 +58,7 @@ describe('merge readiness', () => {
   const trustedBlob = fixture.git('rev-parse', `${fixture.baseRef}:.ensemble/local-ci.yaml`);
   const record = buildRecord({ runnerBlobSha: trustedBlob, workflowSet: WORKFLOW_SET, log: 'run' });
   const status = (over = {}) => ({ context: CONTEXT, state: 'success', description: record.description, sha: HEAD, ...over });
-  const merge = (statuses, extra = {}) => cli.runMerge({ headSha: HEAD, statuses, repoRoot: fixture.dir, baseRef: fixture.baseRef, repo: 'owner/name', pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(fixture) });
+  const merge = (statuses, extra = {}) => cli.runMerge({ headSha: HEAD, statuses, repoRoot: fixture.dir, baseRef: fixture.baseRef, repo: 'owner/name', pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(fixture), ghApi: statusesApi(asGithub(statuses)) });
 
   it('passing run merges: a verified status bound to the exact head is ready without hosted CI', () => {
     const r = merge([status()]);
@@ -156,13 +157,30 @@ describe('gate flow', () => {
     expect(post.calls).toHaveLength(0);
   });
 
-  it('gh could not publish: nothing published, merge refused', async () => {
+  it('gh could not publish the pending: the gate does not run, nothing else is posted, merge refused', async () => {
     const repo = repoWith();
-    const { deps, post } = makeDeps({ postStatus: fakePostStatus({ fail: 'gh not logged in' }), prInfo: prInfoFor(repo) });
+    const refusing = fakePostStatus({ fail: 'gh not logged in' });
+    const { deps, runGate } = makeDeps({ postStatus: refusing, prInfo: prInfoFor(repo) });
     const r = await cli.runGateFlow(gatePayload(repo), deps);
-    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: false, cannotAttest: true });
+    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: false, stage: 'pending' });
+    expect(r.error).toContain('cannot record that a local run is starting');
+    expect(r.error).toContain('gh not logged in');
+    expect(runGate).not.toHaveBeenCalled();
+    expect(refusing.calls).toHaveLength(1); // the pending, once; nothing after it
+  });
+
+  it('gh could not publish the success (the pending went out): nothing attested, merge refused, the pending remains', async () => {
+    const repo = repoWith();
+    const sent = [];
+    const postStatus = (req) => {
+      sent.push(req.state);
+      return req.state === 'pending' ? { published: true, id: 1 } : { published: false, reason: 'gh not logged in' };
+    };
+    const { deps } = makeDeps({ postStatus, prInfo: prInfoFor(repo) });
+    const r = await cli.runGateFlow(gatePayload(repo), deps);
+    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: false, cannotAttest: true, pendingRemains: true });
     expect(r.error).toContain('cannot attest');
-    expect(post.calls).toHaveLength(0);
+    expect(sent).toEqual(['pending', 'success']);
   });
 
   it('a passing run posts one success status on the exact head that then verifies as merge-ready', async () => {
@@ -176,12 +194,12 @@ describe('gate flow', () => {
     expect(r).toMatchObject({ ok: true, posted: true, mergeReady: true });
 
     const posted = post.statuses();
-    expect(posted).toHaveLength(1);
-    expect(posted[0].sha).toBe(repo.sha);
-    expect(posted[0].body).toMatchObject({ state: 'success', context: CONTEXT });
+    expect(posted.map((p) => p.body.state)).toEqual(['pending', 'success']);
+    expect(posted.every((p) => p.sha === repo.sha)).toBe(true);
+    expect(posted[1].body).toMatchObject({ state: 'success', context: CONTEXT });
 
     const ready = cli.runMerge(
-      { headSha: repo.sha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: 'owner/name', pr: PR, statuses: [{ context: CONTEXT, state: 'success', description: posted[0].body.description, sha: repo.sha }] },
+      { headSha: repo.sha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: 'owner/name', pr: PR, statuses: [{ context: CONTEXT, state: 'success', description: posted[1].body.description, sha: repo.sha }] },
       deps
     );
     expect(ready.mergeReady).toBe(true);
@@ -191,7 +209,7 @@ describe('gate flow', () => {
     repo.git('commit', '-qm', 'head moves');
     const movedHead = repo.git('rev-parse', 'HEAD');
     const moved = cli.runMerge(
-      { headSha: movedHead, repoRoot: repo.dir, baseRef: repo.baseRef, repo: 'owner/name', pr: PR, statuses: [{ context: CONTEXT, state: 'success', description: posted[0].body.description, sha: repo.sha }] },
+      { headSha: movedHead, repoRoot: repo.dir, baseRef: repo.baseRef, repo: 'owner/name', pr: PR, statuses: [{ context: CONTEXT, state: 'success', description: posted[1].body.description, sha: repo.sha }] },
       { ...deps, prInfo: prInfoFor(repo, { headRefOid: movedHead }) }
     );
     expect(moved.mergeReady).toBe(false);
@@ -215,8 +233,8 @@ describe('gate flow', () => {
     expect(r.failures[0]).toMatchObject({ step: 'test', sha: repo.sha, job: 'node 22' });
     expect(r.failures[0].workflow).toBeTruthy();
     const posted = post.statuses();
-    expect(posted.map((p) => p.body.state)).toEqual(['failure']);
-    expect(posted[0].body.description).toContain('test');
+    expect(posted.map((p) => p.body.state)).toEqual(['pending', 'failure']);
+    expect(posted[1].body.description).toContain('test');
   });
 
   it('an unsupported step names workflow, job, step and SHA and never becomes success', async () => {
@@ -238,14 +256,26 @@ describe('gate flow', () => {
   it.each([
     ['unfetchable head', { kind: 'unfetchable-head', message: 'cannot fetch' }],
     ['unprovidable Node', { kind: 'node-version', message: 'required Node 22 cannot be provided' }],
-    ['runner error', { kind: 'runner-error', message: 'boom' }],
-  ])('runner failure (%s) never becomes success and posts nothing', async (_n, failure) => {
+    ['secrets', { kind: 'secrets', message: 'secrets file unreadable' }],
+  ])('transient runner failure (%s) never becomes success and publishes nothing but the pending (which stays and vetoes)', async (_n, failure) => {
     const repo = repoWith();
     const runGate = jest.fn(() => ({ ok: false, sha: repo.sha, error: failure.message, failures: [{ ...failure, step: null, node: null, sha: repo.sha }], unmirrored: [], nodes: [] }));
     const { deps, post } = makeDeps({ runGate, prInfo: prInfoFor(repo) });
     const r = await cli.runGateFlow(gatePayload(repo), deps);
-    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: false });
-    expect(post.calls).toHaveLength(0);
+    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: false, pendingRemains: true });
+    expect(post.statuses().map((p) => p.body.state)).toEqual(['pending']);
+  });
+
+  // Replaces the old 'runner error posts nothing' case: a runner-error is HEAD-BOUND (D1), so it is published as a failure
+  // status, which is what lets it veto green hosted CI; it still never becomes success.
+  it('a runner error never becomes success; it posts the pending and then exactly one failure status', async () => {
+    const repo = repoWith();
+    const runGate = jest.fn(() => ({ ok: false, sha: repo.sha, error: 'boom', failures: [{ kind: 'runner-error', message: 'boom', step: null, node: null, sha: repo.sha }], unmirrored: [], nodes: [] }));
+    const { deps, post } = makeDeps({ runGate, prInfo: prInfoFor(repo) });
+    const r = await cli.runGateFlow(gatePayload(repo), deps);
+    expect(r).toMatchObject({ ok: false, mergeReady: false, posted: true });
+    expect(post.statuses().map((p) => p.body.state)).toEqual(['pending', 'failure']);
+    expect(post.statuses()[1].body.description).toBe(`ci-local refused (runner-error): clean clone @ ${repo.sha.slice(0, 8)}`);
   });
 
   it('a runner claiming ok with zero nodes or failures present is not success', async () => {
@@ -291,10 +321,11 @@ describe('CLI boundary and output', () => {
     const fx = repoWith();
     const blob = fx.git('rev-parse', `${fx.baseRef}:.ensemble/local-ci.yaml`);
     const record = buildRecord({ runnerBlobSha: blob, workflowSet: WORKFLOW_SET, log: 'run' });
-    const fakeDir = fakeGhDir({ baseRefName: 'trusted-base', headRefOid: fx.sha, state: 'OPEN' });
+    const verifiedStatus = { context: CONTEXT, state: 'success', description: record.description, sha: fx.sha };
+    const fakeDir = fakeGhDir({ baseRefName: 'trusted-base', headRefOid: fx.sha, state: 'OPEN' }, { statuses: asGithub([verifiedStatus]) });
     const env = { ...process.env, PATH: fakeDir + path.delimiter + process.env.PATH };
     const runGh = (args, input) => spawnSync(process.execPath, [CLI_PATH, ...args], { input, encoding: 'utf8', env });
-    const ok = runGh(['merge'], JSON.stringify({ headSha: fx.sha, repoRoot: fx.dir, baseRef: fx.baseRef, repo: 'owner/name', pr: PR, statuses: [{ context: CONTEXT, state: 'success', description: record.description, sha: fx.sha }] }));
+    const ok = runGh(['merge'], JSON.stringify({ headSha: fx.sha, repoRoot: fx.dir, baseRef: fx.baseRef, repo: 'owner/name', pr: PR, statuses: [verifiedStatus] }));
     expect(ok.status).toBe(0);
     expect(JSON.parse(ok.stdout).mergeReady).toBe(true);
     const no = runGh(['merge'], JSON.stringify({ headSha: fx.sha, repoRoot: fx.dir, baseRef: fx.baseRef, repo: 'owner/name', pr: PR, statuses: [] }));
@@ -322,9 +353,9 @@ describe('CLI boundary and output', () => {
   });
 
   it('delegating subcommands return the module verdicts verbatim', async () => {
-    const call = async (sub, payload) => {
+    const call = async (sub, payload, injected = {}) => {
       let out = '';
-      const code = await cli.main([sub], { ...cli.defaultDeps(), io: { readJson: () => payload, write: (s) => (out += s) } });
+      const code = await cli.main([sub], { ...cli.defaultDeps(), ...injected, io: { readJson: () => payload, write: (s) => (out += s) } });
       return { code, body: JSON.parse(out) };
     };
     const fx = repoWith();
@@ -334,7 +365,26 @@ describe('CLI boundary and output', () => {
     expect((await call('record', { action: 'parse', input: built.body.description })).body.fields).toEqual(built.body.fields);
     expect((await call('record', { action: 'parse', input: 'garbage' })).code).toBe(1);
     expect((await call('review', { action: 'decide', reviews: 'nope' })).body.blocked).toBe(true);
-    expect((await call('sweep', { facts: { findings: [{ prNumber: 1, commentId: 2 }], failures: [] }, trackedKeys: [] })).body.findings).toHaveLength(1);
+    // `sweep` records what the tracker does not hold: the dedupe set comes from the tracker, never from the payload.
+    const sweepFx = repoWith();
+    sweepFx.git('checkout', '-q', '--detach', sweepFx.baseSha); // the primary checkout sits on the base, as a maintainer's does
+    sweepFx.git('remote', 'add', 'origin', 'https://github.com/owner/name.git'); // the checkout is the repository the sweep names
+    const issues = [];
+    const tracker = {
+      run: (capability, args) =>
+        capability === 'tracker.find-by-key'
+          ? { ok: true, data: JSON.stringify({ issues }) }
+          : (issues.push({ id: 'bd-1', external_ref: args.externalKey, status: 'open' }), { ok: true, data: { id: 'bd-1' } }),
+    };
+    const hostSays = () => ({ ok: true, isCrossRepository: false, headRefOid: sweepFx.sha, baseRefName: 'trusted-base', baseRefOid: sweepFx.baseSha, state: 'OPEN' });
+    const sweepPayload = { facts: { findings: [{ prNumber: 1, commentId: 2 }], failures: [] }, repoRoot: sweepFx.dir, repo: 'owner/name', pr: PR, headSha: sweepFx.sha, baseSha: sweepFx.baseSha };
+    const swept = await call('sweep', sweepPayload, { readPr: hostSays, trackerFor: () => tracker });
+    expect(swept.code).toBe(0);
+    expect(swept.body).toMatchObject({ ok: true, status: 'RECORDED', counts: { create: 1 }, beads: { 'finding:pr1:comment2': { action: 'create', beadId: 'bd-1' } } });
+    expect((await call('sweep', sweepPayload, { readPr: hostSays, trackerFor: () => tracker })).body.counts).toEqual({ create: 0, skip: 1, error: 0 });
+    const oldStyle = await call('sweep', { facts: sweepPayload.facts, trackedKeys: [] });
+    expect(oldStyle.code).toBe(1);
+    expect(oldStyle.body.error).toContain('trackedKeys');
     expect((await call('timing', { action: 'verdict', input: { localMs: 10, hostedMs: 20, toleranceMs: 1 } })).body.verdict).toBe('faster');
     expect((await call('timing', { action: 'ready', input: { note: '' } })).code).toBe(1);
     expect((await call('record', { action: 'constructor', input: {} })).code).toBe(1);

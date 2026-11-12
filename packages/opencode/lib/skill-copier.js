@@ -1,7 +1,7 @@
 // SkillCopier - Discovers and copies SKILL.md files to OpenCode paths
 //
 // Responsibilities:
-//   - Discover all SKILL.md files across packages/[pkg]/skills/
+//   - Discover each package's framework skill (packages/[pkg]/skills/[pkg]/) and its adapters
 //   - Inject frontmatter (name, description) for OpenCode discovery
 //   - Convert REFERENCE.md to SKILL.md format where needed
 //   - Copy validated skills to dist/opencode/.opencode/skill/[framework]/
@@ -171,6 +171,42 @@ function extractDescription(content) {
   return 'Ensemble skill documentation';
 }
 
+/** The subdirectory of a skill that holds its extra documents (the Agent Skills layout). */
+const SKILL_REFERENCES_DIR = 'references';
+
+/**
+ * Every file below `dir`, as `/`-separated paths relative to it, in name order. A symlink is followed
+ * (a link to a file ships as that file; a link to nowhere throws). A name that starts with a dot
+ * (`.DS_Store` and the like) is skipped, as the Pi skill copier skips it: such a file is one machine's
+ * leftover, and generated output must not differ from one machine to the next.
+ */
+function filesBelow(dir) {
+  const files = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (name.startsWith('.')) continue;
+    const entry = path.join(dir, name);
+    const stat = fs.statSync(entry);
+    if (stat.isDirectory()) {
+      for (const rel of filesBelow(entry)) files.push(`${name}/${rel}`);
+    } else if (stat.isFile()) {
+      files.push(name);
+    }
+  }
+  return files;
+}
+
+/**
+ * The files of a skill's `references/` directory (none when it has none), as `/`-separated paths
+ * relative to that directory. It is what ships beside the SKILL.md of a command skill, because the
+ * SKILL.md names those files by paths relative to itself.
+ * @param {string} skillPath - The skill's source directory
+ * @returns {string[]}
+ */
+function listSkillReferenceFiles(skillPath) {
+  const referencesDir = path.join(skillPath, SKILL_REFERENCES_DIR);
+  return fs.existsSync(referencesDir) && fs.statSync(referencesDir).isDirectory() ? filesBelow(referencesDir) : [];
+}
+
 class SkillCopier {
   /**
    * @param {object} options
@@ -179,6 +215,11 @@ class SkillCopier {
    * @param {boolean} [options.injectFrontmatter=true] - Whether to add frontmatter
    * @param {boolean} [options.dryRun=false] - If true, don't write files
    * @param {boolean} [options.verbose=false] - If true, log progress
+   * @param {Array<{name: string, skillPath: string}>} [options.commandSkills] - The skills that
+   *   skill-backed commands ship (a command YAML's top-level `skill`): each is the command's one
+   *   skill, copied to `<outputDir>/<name>/` together with its `references/` directory, which the
+   *   SKILL.md names its files by (see _copyCommandSkillReferences). A manifest names it, so the
+   *   directory layout cannot reveal it and the caller, which reads the manifests, hands it over.
    */
   constructor(options) {
     this.packagesDir = options.packagesDir;
@@ -187,6 +228,7 @@ class SkillCopier {
       options.injectFrontmatter !== undefined ? options.injectFrontmatter : true;
     this.dryRun = options.dryRun || false;
     this.verbose = options.verbose || false;
+    this.commandSkills = options.commandSkills || [];
   }
 
   /**
@@ -231,12 +273,41 @@ class SkillCopier {
           'monorepo because OpenCode output is keyed by the adapter directory\'s own name.',
       });
     }
+
+    // Step 1c: A command skill is keyed by its own directory name too, so it must not share that
+    // name with a framework skill, an adapter or another package's command skill: one would
+    // silently overwrite the other. Fail loudly, naming every source, and write none of the
+    // colliding command skills (the framework skill or adapter they collide with is untouched).
+    const sourcesByName = new Map();
+    for (const entry of packageDirs) {
+      const sources = sourcesByName.get(entry.packageName) || [];
+      sources.push(entry.skillPath);
+      sourcesByName.set(entry.packageName, sources);
+    }
+    const collidingCommandSkills = new Set();
+    const reportedCommandSkillNames = new Set();
+    for (const entry of packageDirs) {
+      const sources = sourcesByName.get(entry.packageName);
+      if (!entry.isCommandSkill || sources.length <= 1) continue;
+      collidingCommandSkills.add(entry);
+      if (reportedCommandSkillNames.has(entry.packageName)) continue;
+      reportedCommandSkillNames.add(entry.packageName);
+      errors.push({
+        file: entry.packageName,
+        error:
+          `Command skill name collision: "${entry.packageName}" is shipped by multiple sources ` +
+          `(${sources.join(', ')}); a command skill's name must be unique across the monorepo ` +
+          'because OpenCode output is keyed by the skill directory\'s own name.',
+      });
+    }
     const processablePackageDirs = packageDirs.filter(
-      (entry) => !(entry.isAdapter && collidingAdapterNames.has(entry.packageName))
+      (entry) =>
+        !(entry.isAdapter && collidingAdapterNames.has(entry.packageName)) &&
+        !collidingCommandSkills.has(entry)
     );
 
     // Step 2: Process SKILL.md files
-    for (const { packageName, skillPath, isAdapter } of processablePackageDirs) {
+    for (const { packageName, skillPath, isAdapter, isCommandSkill } of processablePackageDirs) {
       const skillFile = path.join(skillPath, 'SKILL.md');
       if (fs.existsSync(skillFile)) {
         try {
@@ -244,6 +315,9 @@ class SkillCopier {
           skillsCopied++;
           if (isAdapter) {
             this._copyAdapterManifest(packageName, skillPath);
+          }
+          if (isCommandSkill) {
+            this._copyCommandSkillReferences(packageName, skillPath);
           }
         } catch (err) {
           errors.push({
@@ -265,8 +339,11 @@ class SkillCopier {
     // than pruned, since Step 1b already refused to write them this run.
     const prunedAdapters = [];
     if (!this.dryRun && fs.existsSync(this.outputDir)) {
+      // A command skill may itself be named adapter-*; pruning must leave it alone
       const validAdapterNames = new Set(
-        processablePackageDirs.filter((entry) => entry.isAdapter).map((entry) => entry.packageName)
+        processablePackageDirs
+          .filter((entry) => entry.isAdapter || entry.isCommandSkill)
+          .map((entry) => entry.packageName)
       );
       for (const entry of fs.readdirSync(this.outputDir, { withFileTypes: true })) {
         if (!entry.isDirectory() || !entry.name.startsWith('adapter-')) continue;
@@ -308,14 +385,17 @@ class SkillCopier {
   }
 
   /**
-   * Discover all packages that have a skills/ directory, plus every
+   * Discover every skill to copy: each package's framework skill, the skill named after the
+   * package at `skills/<pkg>/` (react, jest, reqnroll, ...), plus every
    * `skills/adapter-NAME` subdirectory (TRD-020, PRD REQ-021): an adapter directory ships a
    * SKILL.md describing it plus an adapter.yaml manifest the toolchain resolver reads, and is
    * keyed by its OWN directory name (not the owning package name) so two adapters shipped
    * from the same package never collide. Two DIFFERENT packages shipping an adapter directory
    * with the same basename is detected and reported as a hard error by execute() (see the
    * adapter-name collision check there), not a silent last-writer-wins overwrite.
-   * @returns {Array<{packageName: string, skillPath: string, isAdapter?: boolean}>}
+   * Command skills (skills a skill-backed command ships, see the `commandSkills` option) are added
+   * last, keyed by their own directory name.
+   * @returns {Array<{packageName: string, skillPath: string, isAdapter?: boolean, isCommandSkill?: boolean}>}
    */
   _discoverPackages() {
     const results = [];
@@ -329,32 +409,39 @@ class SkillCopier {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const skillPath = path.join(this.packagesDir, entry.name, 'skills');
-      if (fs.existsSync(skillPath) && fs.statSync(skillPath).isDirectory()) {
-        // Check if there's a SKILL.md or REFERENCE.md
-        const hasSkill = fs.existsSync(path.join(skillPath, 'SKILL.md'));
-        const hasRef = fs.existsSync(path.join(skillPath, 'REFERENCE.md'));
+      const skillsPath = path.join(this.packagesDir, entry.name, 'skills');
+      if (!fs.existsSync(skillsPath) || !fs.statSync(skillsPath).isDirectory()) continue;
 
-        if (hasSkill || hasRef) {
-          results.push({
-            packageName: entry.name,
-            skillPath,
-          });
-        }
+      // Framework skill: packages/<pkg>/skills/<pkg>/ holding a SKILL.md or REFERENCE.md
+      const frameworkPath = path.join(skillsPath, entry.name);
+      if (
+        fs.existsSync(path.join(frameworkPath, 'SKILL.md')) ||
+        fs.existsSync(path.join(frameworkPath, 'REFERENCE.md'))
+      ) {
+        results.push({
+          packageName: entry.name,
+          skillPath: frameworkPath,
+        });
+      }
 
-        if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
-          for (const sub of fs.readdirSync(skillPath, { withFileTypes: true })) {
-            if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
-            const adapterPath = path.join(skillPath, sub.name);
-            if (fs.existsSync(path.join(adapterPath, 'SKILL.md'))) {
-              results.push({
-                packageName: sub.name,
-                skillPath: adapterPath,
-                isAdapter: true,
-              });
-            }
+      if (!ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(entry.name)) {
+        for (const sub of fs.readdirSync(skillsPath, { withFileTypes: true })) {
+          if (!sub.isDirectory() || !sub.name.startsWith('adapter-')) continue;
+          const adapterPath = path.join(skillsPath, sub.name);
+          if (fs.existsSync(path.join(adapterPath, 'SKILL.md'))) {
+            results.push({
+              packageName: sub.name,
+              skillPath: adapterPath,
+              isAdapter: true,
+            });
           }
         }
+      }
+    }
+
+    for (const { name, skillPath } of this.commandSkills) {
+      if (fs.existsSync(path.join(skillPath, 'SKILL.md'))) {
+        results.push({ packageName: name, skillPath, isCommandSkill: true });
       }
     }
 
@@ -403,6 +490,39 @@ class SkillCopier {
 
     if (this.verbose) {
       console.log(`  [ADAPTER] ${packageName}/adapter.yaml -> ${packageName}/adapter.yaml`);
+    }
+  }
+
+  /**
+   * Copy the `references/` directory of a command skill (a skill that a skill-backed command ships)
+   * beside its already-copied SKILL.md: every file below it, at the same relative path and byte for
+   * byte, so the paths its SKILL.md names (`references/phase-1-intake.md`) resolve from the skill's
+   * output directory as they do from the source. Nothing else beside the SKILL.md ships (scripts,
+   * notes, a README), and no framework skill or adapter gets this. OpenCode finds a skill by its
+   * SKILL.md alone, so a reference is never taken for one.
+   *
+   * The output `references/` is replaced, not merged into: SkillCopier has no wipe-first step, and a
+   * reference removed from the source must not linger beside the skill that no longer has it. A dry
+   * run neither writes nor removes anything.
+   */
+  _copyCommandSkillReferences(packageName, skillPath) {
+    const files = listSkillReferenceFiles(skillPath);
+    const outDir = path.join(this.outputDir, packageName, SKILL_REFERENCES_DIR);
+
+    if (!this.dryRun) {
+      fs.rmSync(outDir, { recursive: true, force: true });
+      for (const rel of files) {
+        const segments = rel.split('/');
+        const destFile = path.join(outDir, ...segments);
+        fs.mkdirSync(path.dirname(destFile), { recursive: true });
+        fs.copyFileSync(path.join(skillPath, SKILL_REFERENCES_DIR, ...segments), destFile);
+      }
+    }
+
+    if (this.verbose) {
+      for (const rel of files) {
+        console.log(`  [REFERENCES] ${packageName}/${SKILL_REFERENCES_DIR}/${rel}`);
+      }
     }
   }
 
@@ -506,4 +626,4 @@ class SkillCopier {
   }
 }
 
-module.exports = { SkillCopier, parseFrontmatter, stringifyFrontmatter, normalizeLineEndings };
+module.exports = { SkillCopier, parseFrontmatter, stringifyFrontmatter, normalizeLineEndings, listSkillReferenceFiles };

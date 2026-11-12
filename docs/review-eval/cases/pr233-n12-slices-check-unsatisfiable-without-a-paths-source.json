@@ -1,0 +1,13 @@
+{
+  "id": "pr233-n12-slices-check-unsatisfiable-without-a-paths-source",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/233 head 86a8c9b553857fea292811af8ec115550125b6de",
+  "bug": "The Step 1c slices paths have no stated source and git's default numstat writes a move as {old => new} and quotes odd names, so the coverage check reports the real paths uncovered after every slice was reviewed and the check can never be satisfied.",
+  "location": {
+    "path": "packages/development/skills/pr-review-cycle/reference/scope-guidance-depth.md",
+    "startLine": 217,
+    "endLine": 231
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

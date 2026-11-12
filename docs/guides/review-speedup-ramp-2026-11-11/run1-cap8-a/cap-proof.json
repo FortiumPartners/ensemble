@@ -1,0 +1,99 @@
+{
+ "runId": "ramp1-cap8a",
+ "capRequested": 8,
+ "prepareAnswerMaxConcurrentAgents": 8,
+ "runJsonMaxConcurrentAgents": 8,
+ "runJsonPolicyMaxConcurrentAgents": 8,
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": "severity-section-missing",
+ "runJsonBaseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "runJsonBaseRefName": "feature/e2e-evidence-screenshots",
+ "runJsonHeadSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 3,
+  "slicesWanted": 3
+ },
+ "sizingWarnings": [
+  {
+   "code": "severity-guide-fallback",
+   "message": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)"
+  }
+ ],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 8,
+   "refill": false
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 8,
+   "refill": false
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 2,
+   "refill": true
+  },
+  {
+   "round": "verify",
+   "wave": 3,
+   "agents": 1,
+   "refill": true
+  }
+ ],
+ "verifierSpansByWave": {
+  "1": 8,
+  "2": 2,
+  "3": 1
+ },
+ "refillSpanCaps": [
+  {
+   "agent": "verifier-9",
+   "cap": 8,
+   "running": 6
+  },
+  {
+   "agent": "verifier-10",
+   "cap": 8,
+   "running": 6
+  },
+  {
+   "agent": "verifier-11",
+   "cap": 8,
+   "running": 7
+  }
+ ],
+ "rootSpanMaxConcurrentAgents": [
+  8
+ ],
+ "refillSpanCapsAllEqualRequested": true,
+ "allCapsAgree": true,
+ "seam": {
+  "cap": 8,
+  "scratchReviewMdBlob": "512ee46fbd7dbe657f0e37886ded14ffc462928a",
+  "scratchReviewMdSha256": "3adf23ddc333333cf6f0edc12344752b2ab02d88376d758f692ca873bb655444",
+  "served": [
+   {
+    "call": "ls-tree",
+    "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45"
+   },
+   {
+    "call": "cat-file",
+    "blob": "512ee46fbd7dbe657f0e37886ded14ffc462928a"
+   }
+  ]
+ }
+}

@@ -1,0 +1,63 @@
+### Phase 3: Execute Stage
+
+Run the eligible stage's skill in-session, then checkpoint through RunIndexStore.
+
+#### Step 3.1: Load and Execute the Stage's Existing Skill Body
+
+Each document-producing stage wraps an unmodified standalone skill.
+
+- Dispatch ELIGIBLE_STAGE to its skill in-session, as it runs standalone: prd_create -> ensemble-create-prd, input = the run's `idea`; prd_refine -> ensemble-refine-prd, input = the PRD artifacts[] entry `prd_create` (or the latest `prd_refine`) recorded; trd_create -> ensemble-create-trd, input = the PRD artifacts[] entry `prd_refine` recorded; trd_refine -> ensemble-refine-trd, input = the TRD artifacts[] entry `trd_create` recorded; beads_plan -> ensemble-implement-trd-beads --plan, input = the TRD artifacts[] entry `trd_refine` recorded.
+- Always pass the exact `path` from the named artifacts[] entry, never a globbed or recalled path. `--plan` is load-bearing: it stops after the beads-build Scaffold phase, since implementation is not yet approved.
+- Foreman mode: when FOREMAN == true, append `--foreman` to the dispatched skill: ensemble-create-prd --foreman, ensemble-refine-prd --foreman, ensemble-create-trd --foreman, ensemble-refine-trd --foreman, ensemble-implement-trd-beads --plan --foreman. This command does not set or reinterpret FOREMAN_* environment variables (FOREMAN_TASK_TITLE, FOREMAN_ARTIFACT_PATH, ...); each stage skill keeps its own contract. When FOREMAN is not true, no `--foreman` is added.
+
+#### Step 3.2: Record the Stage Outcome
+
+Checkpoint success, decline, or failure through RunIndexStore as soon as the stage returns.
+
+- Skill completed with a real, saved output artifact (PRD/TRD file, or a scaffolded bead epic for beads_plan): call RunIndexStore.mutate() once to append { type, path, documentId, version, producingStage, recordedAt } to artifacts[] (never overwrite a prior entry on revision), set stageOutcome to { kind: "success", recordedAt: now() }, and advance stage to the next STAGE_ORDER entry.
+- User declines the output: mutate() stageOutcome to { kind: "decline", detail: <reason>, recordedAt: now() }; stage does not advance; artifacts[] unchanged. Ask the user for the correction needed; do not silently retry with no new input.
+- User asks for an edit/regenerate: append the new version's artifacts[] entry, but do NOT advance `stage` or set stageOutcome.kind to "success" until the user explicitly accepts it; no dependent stage runs meanwhile.
+- Foreman mode: when FOREMAN == true nothing is asked: a stage that completed with a real saved artifact is recorded as success without asking for acceptance, and the decline and edit paths never apply. A stage-skill hard HALT (readiness gate FAIL, constitution violation) is still a failure recorded by step 3.
+
+#### Step 3.3: Handle Stage Failure
+
+A failure pauses the run at the failed stage; no auto-retry within the invocation.
+
+- If the stage throws or reports a failure: call RunIndexStore.mutate() setting stageOutcome to { kind: "failure", detail: <error message>, recordedAt: now() } at the CURRENT stage (do not advance `stage`); leave artifacts[] as it was before this invocation. Print the error and the stage name.
+- Do not advance, do not retry, do not re-dispatch any stage within this invocation -- the run ends here. A later bare invocation leaves stage/stageOutcome/revision unchanged; Entry Point Resolution step 4 defines what an explicit retry looks like.
+
+#### Step 3.4: Explicit-Retry-Only Resume of a Failed Stage
+
+A failed stage is re-run only after Entry Point Resolution step 4's explicit 'yes'.
+
+- Re-execute step 1 for the parked stage (Stage Resolution pins ELIGIBLE_STAGE to it) with the same or user-edited input. On success only that stage's artifact/outcome changes; earlier stages' artifacts[] entries are never re-executed or re-derived by a retry. Stages after the parked one remain blocked until the retry succeeds.
+
+#### Step 3.5: Implementation Approval Checkpoint
+
+Human checkpoint; nothing past it runs without a recorded approval timestamp.
+
+- Present the accepted PRD/TRD references (artifacts[] from prd_refine/trd_refine) and the bead plan (beadRefs[]) via AskUserQuestion, exactly as recorded in the run, and wait for explicit approval.
+- On explicit approval: call RunIndexStore.mutate() setting implementationApprovedAt = now() and advancing stage to "implementation" in the same call.
+- On absent or declined approval: make no mutate() call -- the run stays parked at implementation_approval with implementationApprovedAt null.
+- Foreman mode: when FOREMAN == true, ask nothing (no question, no prompt) -- the Foreman dispatch is the approval. Grant it in a single mutate() call setting implementationApprovedAt = now(), advancing stage to "implementation", and setting stageOutcome to { kind: "approval_wait", detail: "implementation approval granted by --foreman policy (no human present)", recordedAt: now() }. `--status` prints that detail, so an auto-grant is never mistaken for a human approval.
+
+#### Step 3.6: PR Approval Checkpoint
+
+Optional; requires an approval distinct from implementation_approval's.
+
+- Enter only if the user opts in after implementation completes. Declining makes no PrProvider call at all.
+- On opt-in: construct a GhCliPrProvider and call isAvailable(). If false: create no PR, mutate() to record stageOutcome detail "no PR provider available", and advance stage to "done".
+- If isAvailable() === true: present the target repo/branch/title/body (repo/branch from the run's recorded references, title/body proposed from the accepted PRD/TRD) via AskUserQuestion and require a separate, immediate explicit approval before createPullRequest().
+- On absent/declined approval: create no PR and advance stage to "done".
+- On explicit approval: call RunIndexStore.mutate() setting prApprovedAt = now() and advancing stage to "pr_create" immediately before the create call -- never in the same mutate() call as implementationApprovedAt.
+- Foreman mode: when FOREMAN == true, do not ask for the opt-in or present repo/branch/title/body (no question, no prompt) -- treat the opt-in as yes. Call RunIndexStore.mutate() setting prApprovedAt = now(), advancing stage to "pr_create", and setting stageOutcome detail to "PR approval granted by --foreman policy (no human present)" -- never in the same mutate() call as implementationApprovedAt.
+- Foreman mode: when FOREMAN == true and isAvailable() is false, the rule above applies unchanged: create no PR, record stageOutcome detail "no PR provider available", and advance stage to "done".
+
+#### Step 3.7: Execute Stage: PR Creation
+
+Only reached when prApprovedAt is already set by the PR Approval Checkpoint.
+
+- Before createPullRequest(), read RunIndexStore.loadRun()'s current prApprovedAt directly; a null prApprovedAt denies the call, whatever conversational text claims.
+- Call GhCliPrProvider.createPullRequest() with the exact repo/branch/title/body approved at the checkpoint.
+- On success: mutate() to append `pr:<url>` (the returned { url }, prefixed) as a beadRefs[] entry -- beadRefs[] also holds plain bead IDs, so the "pr:" prefix is how a PR reference is told apart -- and advance stage to "done" with stageOutcome { kind: "success", recordedAt: now() }.
+- On failure (createPullRequest() throws): mutate() stageOutcome to { kind: "failure", detail: <error message>, recordedAt: now() } at pr_create -- do not advance stage or fabricate a PR URL; steps 3/4 apply.

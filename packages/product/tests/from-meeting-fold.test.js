@@ -4,15 +4,19 @@
 // flag on create-prd and refine-prd, and the two variant commands were removed
 // (docs/plans/ensemble-surface-consolidation-plan.md, C-C). A fold only holds if
 // the variants' distinct behavior now lives in the base commands, so these tests
-// pin that behavior in the source YAML and in the markdown the Claude Code
-// generator renders from it. They read the YAML, never the generated files, so
-// they hold before and after regeneration.
+// pin that behavior where each base command keeps its prompt: refine-prd in its
+// source YAML and in the markdown the Claude Code generator renders from it,
+// create-prd -- a skill-backed command -- in its skill: the SKILL.md and the phase files
+// under its references/. They read those sources, never the generated files, so they hold
+// before and after regeneration.
 
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const { transformCommandToMarkdown } = require('../../../scripts/lib/command-transformer');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
+const { readSkill, section, parseWorkflow } = require('./helpers/skill-prompt');
+const { parseSubcommands } = require('./helpers/skill-subcommands');
 
 const PACKAGES_DIR = path.join(__dirname, '..', '..');
 const COMMANDS_DIR = path.join(__dirname, '..', 'commands');
@@ -62,23 +66,22 @@ function stepText(s) {
   return collapse(collectStrings(s).join('\n'));
 }
 
-function render(slug, commandPathsByRef = new Map()) {
-  return collapse(transformCommandToMarkdown(load(slug), commandPath(slug), commandPathsByRef));
-}
-
 describe('the meeting-sourced variants are gone', () => {
   test.each(['create-prd-meeting', 'refine-prd-meeting'])('%s has no command source', (slug) => {
     expect(fs.existsSync(commandPath(slug))).toBe(false);
   });
 
-  test('no command YAML in any package still names a removed variant', () => {
+  test('no command in any package, YAML or skill, still names a removed variant', () => {
     const offenders = [];
     for (const pkg of fs.readdirSync(PACKAGES_DIR)) {
       const dir = path.join(PACKAGES_DIR, pkg, 'commands');
       if (!fs.existsSync(dir)) continue;
       for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.yaml'))) {
-        const text = fs.readFileSync(path.join(dir, file), 'utf8');
-        if (/(create|refine)-prd-meeting/.test(text)) offenders.push(`${pkg}/commands/${file}`);
+        const yamlPath = path.join(dir, file);
+        const raw = fs.readFileSync(yamlPath, 'utf8');
+        // A skill-backed command's prompt is its skill, so that is the text that can name a variant.
+        const prose = readCommandProse(yamlPath, yaml.load(raw), raw);
+        if (/(create|refine)-prd-meeting/.test(prose)) offenders.push(`${pkg}/commands/${file}`);
       }
     }
     expect(offenders).toEqual([]);
@@ -86,10 +89,14 @@ describe('the meeting-sourced variants are gone', () => {
 });
 
 describe('prd dispatcher', () => {
+  // prd is a skill-backed dispatcher: its YAML holds metadata + `skill`, and its routing table
+  // is the `## Subcommands` section of its SKILL.md.
   const doc = load('prd');
+  const prdSkill = readSkill(doc.skill);
+  const subcommands = parseSubcommands(prdSkill);
 
   test('routes only create and refine; meeting work is a flag on them', () => {
-    expect(doc.dispatch.subcommands.map((s) => [s.keyword, s.ref])).toEqual([
+    expect(subcommands.map((s) => [s.keyword, s.ref])).toEqual([
       ['create', 'create-prd'],
       ['refine', 'refine-prd'],
     ]);
@@ -97,34 +104,37 @@ describe('prd dispatcher', () => {
   });
 
   test.each(['create', 'refine'])('the %s keyword points at --from-meeting', (keyword) => {
-    const sub = doc.dispatch.subcommands.find((s) => s.keyword === keyword);
+    const sub = subcommands.find((s) => s.keyword === keyword);
     expect(sub.description).toContain('--from-meeting');
   });
 
-  test('the rendered keyword table lists only create and refine', () => {
-    const md = render(
-      'prd',
-      new Map([
-        ['create-prd', path.join(COMMANDS_DIR, 'ensemble', 'create-prd.md')],
-        ['refine-prd', path.join(COMMANDS_DIR, 'ensemble', 'refine-prd.md')],
-      ]),
-    );
-    expect(md).toContain('**`create`**');
-    expect(md).toContain('**`refine`**');
-    expect(md).not.toMatch(/(create|refine)-meeting|prd-meeting/);
+  test('the keyword table lists only create and refine, each pointing at its sibling skill', () => {
+    const table = collapse(section(prdSkill.body, 'Subcommands'));
+    expect(table).toContain('**`create`**');
+    expect(table).toContain('**`refine`**');
+    expect(table).not.toMatch(/(create|refine)-meeting|prd-meeting/);
+    expect(subcommands.map((s) => s.skillPath)).toEqual(['../ensemble-create-prd/SKILL.md', '../ensemble-refine-prd/SKILL.md']);
+    expect(collapse(prdSkill.body)).not.toMatch(/(create|refine)-meeting|prd-meeting/);
   });
 });
 
 describe('create-prd --from-meeting', () => {
-  const doc = load('create-prd');
-  const text = allText(doc);
+  // create-prd is skill-backed: its YAML holds only metadata, and its constraints and arguments
+  // are its SKILL.md while each phase of its workflow is a file under references/. The
+  // assertions below read the whole prompt (skill.prompt: the SKILL.md body, then every
+  // reference); parseWorkflow reads the phase files back into the phases/steps/actions the
+  // YAML used to hold, so they are the ones that were written against the YAML.
+  const manifest = load('create-prd');
+  const skill = readSkill(manifest.skill);
+  const doc = { workflow: { phases: parseWorkflow(skill) } };
+  const text = collapse(skill.prompt);
 
-  test('is a boolean parameter, advertised in the argument hint and description', () => {
-    const param = doc.parameters.find((p) => p.name === 'from-meeting');
-    expect(param).toMatchObject({ type: 'boolean', default: false });
-    expect(doc.metadata.argument_hint).toContain('--from-meeting');
-    expect(doc.metadata.description).toContain('--from-meeting');
-    expect(doc.metadata.description.length).toBeLessThanOrEqual(200);
+  test('is a boolean flag, advertised in the argument hint and descriptions', () => {
+    expect(section(skill.body, 'Arguments')).toContain('- **`from-meeting`** (boolean, optional, default: `false`)');
+    expect(manifest.metadata.argument_hint).toContain('--from-meeting');
+    expect(manifest.metadata.description).toContain('--from-meeting');
+    expect(manifest.metadata.description.length).toBeLessThanOrEqual(200);
+    expect(skill.frontmatter.description).toContain('--from-meeting');
   });
 
   test('has a delimited intake phase right after the interview phase, with sequential phase numbers', () => {
@@ -165,7 +175,7 @@ describe('create-prd --from-meeting', () => {
     expect(first).toContain('--from-meeting');
     expect(first).toContain('--foreman');
     expect(first).toContain('HALT immediately');
-    expect(doc.constraints.join('\n')).toContain('--from-meeting cannot be combined with --foreman');
+    expect(section(skill.body, 'Constraints')).toContain('--from-meeting cannot be combined with --foreman');
   });
 
   test('the readiness exception is read before the hard FAIL gate it overrides', () => {
@@ -225,32 +235,23 @@ describe('create-prd --from-meeting', () => {
   ])('carries the removed command behavior: %s', (phrase) => {
     expect(text).toContain(phrase);
   });
-
-  test('the rendered Claude command shows the mode gates, not only the unrendered constraints', () => {
-    const md = render('create-prd');
-    for (const phrase of [
-      'Meeting Summary Intake (--from-meeting only)',
-      'Runs only when --from-meeting is present in $ARGUMENTS',
-      'the CONCERNS and FAIL branches below do NOT apply',
-      'Do NOT invoke AskUserQuestion for this branch',
-      'draw requirements only from the Meeting Summary Intake phase',
-      '**`from-meeting`** (boolean, optional, default: `false`)',
-    ]) {
-      expect(md).toContain(phrase);
-    }
-  });
 });
 
 describe('refine-prd --from-meeting', () => {
-  const doc = load('refine-prd');
-  const text = allText(doc);
+  // refine-prd is skill-backed too: constraints and arguments are its SKILL.md, each workflow
+  // phase a file under references/. parseWorkflow reads the phase files back into the
+  // phases/steps/actions the YAML used to hold.
+  const manifest = load('refine-prd');
+  const skill = readSkill(manifest.skill);
+  const doc = { workflow: { phases: parseWorkflow(skill) } };
+  const text = collapse(skill.prompt);
 
   test('is a boolean parameter, advertised in the argument hint and description', () => {
-    const param = doc.parameters.find((p) => p.name === 'from-meeting');
-    expect(param).toMatchObject({ type: 'boolean', default: false });
-    expect(doc.metadata.argument_hint).toContain('--from-meeting');
-    expect(doc.metadata.description).toContain('--from-meeting');
-    expect(doc.metadata.description.length).toBeLessThanOrEqual(200);
+    expect(section(skill.body, 'Arguments')).toContain('- **`from-meeting`** (boolean, optional, default: `false`)');
+    expect(manifest.metadata.argument_hint).toContain('--from-meeting');
+    expect(manifest.metadata.description).toContain('--from-meeting');
+    expect(manifest.metadata.description.length).toBeLessThanOrEqual(200);
+    expect(skill.frontmatter.description).toContain('--from-meeting');
   });
 
   test('has a delimited meeting phase after PRD Review, with sequential phase numbers', () => {
@@ -292,7 +293,7 @@ describe('refine-prd --from-meeting', () => {
     for (const flag of ['`--from-meeting`', '`--collab`', '`--long-lived`', '`--foreman`']) {
       expect(second.slice(0, second.indexOf('GUARD:'))).toContain(flag);
     }
-    expect(doc.constraints.join('\n')).toContain('--from-meeting cannot be combined with --collab, --long-lived or --foreman');
+    expect(section(skill.body, 'Constraints')).toContain('--from-meeting cannot be combined with --collab, --long-lived or --foreman');
   });
 
   test('a meeting-sourced pass never locks the PRD or changes its Status', () => {
@@ -331,8 +332,8 @@ describe('refine-prd --from-meeting', () => {
     expect(text).toContain(phrase);
   });
 
-  test('the rendered Claude command shows the mode gates, not only the unrendered constraints', () => {
-    const md = render('refine-prd');
+  test('the skill prompt carries the mode gates, not only the constraints', () => {
+    const md = text;
     for (const phrase of [
       'Meeting-Sourced Review (--from-meeting only)',
       'SECOND HALT CHECK',
@@ -343,39 +344,5 @@ describe('refine-prd --from-meeting', () => {
     ]) {
       expect(md).toContain(phrase);
     }
-  });
-});
-
-// An unquoted ': ' inside a YAML list item turns it into a one-key mapping instead of a
-// string. The Claude generator ignores `constraints`, so nothing there notices, but the Pi
-// generator calls .trim() on each one and fails. Pin that every slot a generator renders
-// is still a string after the --from-meeting additions.
-describe('every rendered slot of the folded commands is a string', () => {
-  function nonStringSlots(doc) {
-    const bad = [];
-    const expectString = (label, value) => {
-      if (typeof value !== 'string') bad.push(`${label} -> ${JSON.stringify(value)}`);
-    };
-    (doc.constraints || []).forEach((c, i) => expectString(`constraints[${i}]`, c));
-    (doc.parameters || []).forEach((p) => expectString(`parameters.${p.name}.description`, p.description));
-    doc.workflow.phases.forEach((p) => {
-      expectString(`phase ${p.order} name`, p.name);
-      (p.steps || []).forEach((s) => {
-        const where = `phase ${p.order} step ${s.order}`;
-        expectString(`${where} title`, s.title);
-        if (s.description !== undefined) expectString(`${where} description`, s.description);
-        (s.actions || []).forEach((a, i) => expectString(`${where} actions[${i}]`, a));
-      });
-    });
-    ((doc.expectedOutput || {}).structure || []).forEach((o) => {
-      expectString(`expectedOutput ${o.name}`, o.name);
-      expectString(`expectedOutput ${o.name} description`, o.description);
-    });
-    ((doc.dispatch || {}).subcommands || []).forEach((s) => expectString(`dispatch ${s.keyword} description`, s.description));
-    return bad;
-  }
-
-  test.each(['create-prd', 'refine-prd', 'prd'])('%s', (slug) => {
-    expect(nonStringSlots(load(slug))).toEqual([]);
   });
 });

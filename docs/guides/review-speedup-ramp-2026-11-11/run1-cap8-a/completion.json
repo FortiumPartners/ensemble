@@ -1,0 +1,173 @@
+[
+ {
+  "agent": "security-lane",
+  "role": "security",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:47:45.787Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:47:40.049Z"
+ },
+ {
+  "agent": "reviewer-s2-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:51:42.241Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:51:40.194Z"
+ },
+ {
+  "agent": "reviewer-s1-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:51:48.259Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:51:46.224Z"
+ },
+ {
+  "agent": "reviewer-s3-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:52:14.306Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:52:07.396Z"
+ },
+ {
+  "agent": "reviewer-s3-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:52:26.324Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:52:24.263Z"
+ },
+ {
+  "agent": "reviewer-s2-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:53:08.386Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:53:01.225Z"
+ },
+ {
+  "agent": "reviewer-s1-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:53:18.397Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:53:10.319Z"
+ },
+ {
+  "agent": "reviewer-range",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:54:50.539Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:54:43.888Z"
+ },
+ {
+  "agent": "verifier-2",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:57:33.819Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:57:30.317Z"
+ },
+ {
+  "agent": "verifier-4",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:57:54.393Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:57:51.693Z"
+ },
+ {
+  "agent": "verifier-7",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:58:41.053Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:58:37.436Z"
+ },
+ {
+  "agent": "verifier-5",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:59:09.541Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:59:06.629Z"
+ },
+ {
+  "agent": "verifier-1",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:59:32.100Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:59:25.650Z"
+ },
+ {
+  "agent": "verifier-8",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:59:42.680Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:59:34.122Z"
+ },
+ {
+  "agent": "verifier-3",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T18:59:59.341Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T18:59:54.468Z"
+ },
+ {
+  "agent": "verifier-6",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T19:00:41.923Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T19:00:37.753Z"
+ },
+ {
+  "agent": "verifier-10",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T19:00:52.634Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T19:00:42.262Z"
+ },
+ {
+  "agent": "verifier-11",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T19:04:05.596Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T19:04:01.293Z"
+ },
+ {
+  "agent": "verifier-9",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-11T19:04:44.409Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-11T19:04:41.097Z"
+ }
+]

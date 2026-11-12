@@ -72,6 +72,7 @@ describe('TRD-006-TEST: status through the real CLI returns the contract', () =>
       headSha: HEAD_SHA,
       reviewedHeadSha: HEAD_SHA,
       findingCounts: { total: 3, actionable: 1, deferred: 2 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
     };
@@ -178,6 +179,7 @@ describe('fail-closed grading through the real CLI', () => {
     headSha: HEAD_SHA,
     reviewedHeadSha: HEAD_SHA,
     findingCounts: { total: 0, actionable: 0, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false, command: 'npm test' },
     remotePhase: 'REMOTE_REVIEW_COMPLETE',
   });
@@ -439,6 +441,7 @@ describe('local -> publish -> remote through the real CLI: a published commit ho
       reviewedHeadSha: SNAPSHOT,
       reviewedTreeSha: TREE,
       findingCounts: { total: 1, actionable: 0, deferred: 1 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       ...overrides,
     };
@@ -461,6 +464,7 @@ describe('local -> publish -> remote through the real CLI: a published commit ho
         reviewedHeadSha: recorded.reviewedHeadSha,
         reviewedTreeSha: recorded.reviewedTreeSha,
         findingCounts: recorded.findingCounts,
+        coverage: recorded.coverage,
         tests: recorded.tests,
         remotePhase: 'REMOTE_REVIEW_COMPLETE',
       })
@@ -499,6 +503,7 @@ describe('local -> publish -> remote through the real CLI: a published commit ho
         reviewedTreeSha: TREE,
         headTreeSha: TREE,
         findingCounts: { total: 0, actionable: 0, deferred: 0 },
+        coverage: { status: 'complete', gaps: [] },
         tests: { exitCode: 0, skipped: false, command: 'npm test' },
         remotePhase: 'REMOTE_REVIEW_COMPLETE',
       })
@@ -523,6 +528,7 @@ describe('local -> publish -> remote through the real CLI: a published commit ho
         reviewedHeadSha: local.reviewedHeadSha,
         reviewedTreeSha: local.reviewedTreeSha,
         findingCounts: local.findingCounts,
+        coverage: local.coverage,
         tests: local.tests,
         remotePhase: 'REMOTE_REVIEW_COMPLETE',
       })
@@ -575,6 +581,7 @@ describe('local -> publish -> remote through the real CLI: a published commit ho
       headSha: PUBLISHED,
       reviewedHeadSha: SNAPSHOT,
       findingCounts: { total: 0, actionable: 0, deferred: 0 },
+      coverage: { status: 'complete', gaps: [] },
       tests: { exitCode: 0, skipped: false, command: 'npm test' },
       remotePhase: 'REMOTE_REVIEW_COMPLETE',
       ...overrides,

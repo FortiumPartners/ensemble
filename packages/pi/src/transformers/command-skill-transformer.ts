@@ -9,6 +9,10 @@
  * hardcoded allowlist, so a new command prompt gets a SKILL.md wrapper
  * automatically with no source change required.
  *
+ * The prompt of a skill-backed command (a manifest YAML naming its skill) is a stub, and it gets
+ * no wrapper: the skill it points at is the command's own skill and ships as it is, so a wrapper
+ * would only overwrite it whenever that skill is named `ensemble-<cmd>` (see skillOfPrompt).
+ *
  * @module ensemble-pi/transformers/command-skill-transformer
  */
 
@@ -16,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
 import { TransformResult } from '../types';
-import { COMMAND_HEADER_PREFIX } from '../generated-marker';
+import { COMMAND_HEADER_PREFIX, skillOfPrompt } from '../generated-marker';
 import matter from 'gray-matter';
 
 /**
@@ -27,6 +31,34 @@ import matter from 'gray-matter';
  */
 function stripHeader(content: string): string {
   return content.replace(/^<!--[\s\S]*?-->\n*/m, '');
+}
+
+/** Agent Skills spec limit for a SKILL.md `description` (https://agentskills.io/specification). */
+export const MAX_DESCRIPTION_LENGTH = 1024;
+
+/**
+ * Cap `description` at MAX_DESCRIPTION_LENGTH characters. A description already within
+ * the limit is returned unchanged. Otherwise it is cut after the last sentence end
+ * (`.`, `!` or `?` followed by whitespace) that fits, else at the last word boundary,
+ * else hard at the limit. The wrapper body still carries the complete command text.
+ */
+export function capDescription(description: string): string {
+  if (description.length <= MAX_DESCRIPTION_LENGTH) return description;
+
+  // One extra character so a sentence ending exactly at the limit is recognised.
+  const window = description.slice(0, MAX_DESCRIPTION_LENGTH + 1);
+
+  let sentenceEnd = -1;
+  for (const m of window.matchAll(/[.!?](?=\s)/g)) {
+    const end = (m.index ?? 0) + 1;
+    if (end <= MAX_DESCRIPTION_LENGTH) sentenceEnd = end;
+  }
+  if (sentenceEnd > 0) return description.slice(0, sentenceEnd);
+
+  const wordEnd = window.search(/\s\S*$/);
+  if (wordEnd > 0) return description.slice(0, wordEnd).trimEnd();
+
+  return description.slice(0, MAX_DESCRIPTION_LENGTH);
 }
 
 /**
@@ -74,7 +106,7 @@ export function commandSkillPath(outputRoot: string, promptPath: string): string
 }
 
 /**
- * Generate SKILL.md wrappers for every command prompt.
+ * Generate SKILL.md wrappers for every command prompt except the stubs of skill-backed commands.
  *
  * Discovers every prompts/*.md file dynamically and writes a SKILL.md with
  * the full command body embedded directly so each skill is self-contained.
@@ -123,7 +155,17 @@ export async function generateCommandSkills(
       continue;
     }
 
-    const description = extractDescription(promptContent, skillName);
+    // A stub prompt has no wrapper: the skill it names is the command's one skill (see above).
+    const stubOf = skillOfPrompt(promptContent);
+    if (stubOf !== undefined) {
+      if (verbose) {
+        process.stdout.write(`  command-skill: ${promptPath} is the stub of skill ${stubOf}, no wrapper\n`);
+      }
+      continue;
+    }
+
+    // The spec caps `description` at 1024 chars; the full Mission text stays in the body.
+    const description = capDescription(extractDescription(promptContent, skillName));
     const promptBody = stripHeader(promptContent);
 
     // Build SKILL.md with frontmatter + embedded prompt body.

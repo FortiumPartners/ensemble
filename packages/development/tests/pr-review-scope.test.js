@@ -329,6 +329,7 @@ describe('pr-review-scope and pr-review-status never disagree about what a SHA i
     headSha: HEAD,
     reviewedHeadSha: HEAD,
     findingCounts: { total: 0, actionable: 0, deferred: 0 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false },
     remotePhase: 'REMOTE_REVIEW_COMPLETE',
     roundsUsed: 0,

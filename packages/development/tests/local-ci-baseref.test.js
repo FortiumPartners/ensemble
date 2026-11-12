@@ -12,7 +12,7 @@ const { spawnSync } = require('child_process');
 
 const cli = require('../lib/local-ci-cli');
 const { buildRecord } = require('../lib/local-ci-record');
-const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, REPO, PR } = require('./helpers/local-ci-base-repo');
+const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, statusesApi, asGithub, REPO, PR } = require('./helpers/local-ci-base-repo');
 
 afterAll(cleanupBaseRepos);
 
@@ -56,7 +56,7 @@ describe('(a) a head that rewrites its own config is graded by the BASE config, 
     );
     expect(JSON.stringify(runGate.mock.calls[0][0].approvalSet.steps)).not.toContain('"true"');
     expect(r.ok).toBe(true);
-    const desc = poster.statuses()[0].body.description;
+    const desc = poster.statuses().find((p) => p.body.state === 'success').body.description;
     expect(desc.startsWith(`ci-local ${blobAt(repo, repo.baseRef).slice(0, 12)} `)).toBe(true);
     expect(desc.startsWith(`ci-local ${blobAt(repo, 'HEAD').slice(0, 12)} `)).toBe(false);
   });
@@ -190,7 +190,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     expect(g.error).toContain(repo.headSha);
     expect(runGate).not.toHaveBeenCalled();
     expect(poster.calls).toHaveLength(0);
-    expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/pr-self' }, d).ok).toBe(false);
+    expect((await cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/pr-self' }, d)).ok).toBe(false);
     const m = cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: 'origin/pr-self', repo: REPO, pr: PR, statuses: [] }, { ...cli.defaultDeps(), prInfo });
     expect(m.mergeReady).toBe(false);
     expect(m.reason).toMatch(/own base/);
@@ -210,7 +210,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     const base = { repoRoot: repo.dir, headSha: repo.headSha, baseRef: 'origin/attacker-main' };
     const prInfo = prInfoFor(repo, { baseRefName: 'attacker-main' });
     const { d, runGate } = deps(repo, { prInfo });
-    const run = cli.runRun(base, d);
+    const run = await cli.runRun(base, d);
     expect(run.ok).toBe(false);
     expect(JSON.stringify(run)).toMatch(/descendant of the PR head/);
     expect(runGate).not.toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe('(d) the head is not its own base, and a descendant of the head is not 
     repo.git('commit', '-qm', 'base advanced');
     repo.git('update-ref', `refs/remotes/${repo.baseRef}`, repo.git('rev-parse', 'HEAD'));
     repo.git('checkout', '-q', repo.headSha);
-    const c = cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: repo.baseRef }, deps(repo).d);
+    const c = await cli.runRun({ repoRoot: repo.dir, headSha: repo.headSha, baseRef: repo.baseRef }, deps(repo).d);
     expect(JSON.stringify(c)).not.toMatch(/descendant|own base|shares no history/);
   });
 });
@@ -266,8 +266,10 @@ describe('(f) a status produced under a different config blob is refused by merg
     const trusted = blobAt(repo, repo.baseRef);
     const foreign = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
     const mk = (blob) => buildRecord({ runnerBlobSha: blob, workflowSet: ['.github/workflows/ci.yml'], log: 'x' }).description;
-    const merge = (blob) =>
-      cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: REPO, pr: PR, statuses: [{ context: CTX, state: 'success', description: mk(blob), sha: repo.headSha }] }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo) });
+    const merge = (blob) => {
+      const status = { context: CTX, state: 'success', description: mk(blob), sha: repo.headSha };
+      return cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: REPO, pr: PR, statuses: [status] }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo), ghApi: statusesApi(asGithub([status])) });
+    };
     const bad = merge(foreign);
     expect(bad.mergeReady).toBe(false);
     expect(bad.reason).toContain('deadbeef');
@@ -282,11 +284,11 @@ describe('(g) gate -> merge round trip', () => {
     const { d, poster } = deps(repo);
     const r = await cli.runGateFlow(payload(repo), d);
     expect(r).toMatchObject({ ok: true, posted: true, mergeReady: true });
-    const post = poster.statuses()[0];
+    const post = poster.statuses().find((p) => p.body.state === 'success');
     expect(post.sha).toBe(repo.headSha);
     expect(post.body.description.startsWith(`ci-local ${blobAt(repo, repo.baseRef).slice(0, 12)} `)).toBe(true);
     const status = { context: CTX, state: 'success', description: post.body.description, sha: repo.headSha };
-    const merge = () => cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: REPO, pr: PR, statuses: [status] }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo) });
+    const merge = () => cli.runMerge({ headSha: repo.headSha, repoRoot: repo.dir, baseRef: repo.baseRef, repo: REPO, pr: PR, statuses: [status] }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo), ghApi: statusesApi(asGithub([status])) });
     expect(merge().mergeReady).toBe(true);
 
     // the base branch's config changes (a different blob), and a fetch moves the remote-tracking ref to it: the old

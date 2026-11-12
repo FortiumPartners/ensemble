@@ -20,6 +20,13 @@ const BASE_REF = `origin/${BASE_BRANCH}`;
 const CONFIG_PATH = '.ensemble/local-ci.yaml';
 const roots = [];
 
+// Every test that imports this helper drives `gate`. Keep them off the machine's real gate lock (~/.ensemble/locks):
+// a maintainer's running gate must not stall the test run, and tests must not write into the home directory. Spawned
+// CLI processes inherit this. A test that wants a specific lock directory sets its own.
+if (!process.env.ENSEMBLE_LOCAL_CI_LOCK_DIR) {
+  process.env.ENSEMBLE_LOCAL_CI_LOCK_DIR = path.join(os.tmpdir(), `ensemble-test-gate-locks-${process.pid}`);
+}
+
 function makeBaseRepo({ config, files = {}, headFiles = {}, baseRef = BASE_REF } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'local-ci-base-'));
   roots.push(dir);
@@ -90,17 +97,21 @@ function fakePostStatus({ fail } = {}) {
 
 /**
  * A real `gh` executable in a temp dir, for tests that spawn the CLI as a process. It answers `gh pr view` with the
- * given JSON, answers `gh api -X POST repos/<repo>/statuses/<sha> -f k=v ...` (recording the argv, one arg per line, to
- * `<dir>/posted.txt`, and replying with an id) unless `postFails` is set, in which case it fails like a 403, and exits
- * non-zero for anything else. Returns the directory to put first on PATH; read `<dir>/posted.txt` for what was posted.
+ * given JSON, answers `gh api repos/<repo>/commits/<sha>/statuses?per_page=100` with `statuses` (a list in GitHub's
+ * shape, newest first; default none), answers `gh api -X POST repos/<repo>/statuses/<sha> -f k=v ...` (recording the
+ * argv, one arg per line, to `<dir>/posted.txt`, and replying with an id) unless `postFails` is set, in which case it
+ * fails like a 403, and exits non-zero for anything else. Returns the directory to put first on PATH; read
+ * `<dir>/posted.txt` for what was posted.
  */
-function fakeGhDir(info, { postFails = false } = {}) {
+function fakeGhDir(info, { postFails = false, statuses = [] } = {}) {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'local-ci-fakegh-'));
   roots.push(d);
   const post = postFails
     ? `echo "gh: HTTP 403: Resource not accessible" >&2; exit 1`
     : `for a in "$@"; do printf '%s\\n' "$a" >> '${path.join(d, 'posted.txt')}'; done; printf '%s' '{"id":99}'; exit 0`;
-  const script = `#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then printf '%s' '${JSON.stringify(info)}'; exit 0; fi\nif [ "$1" = "api" ] && [ "$2" = "-X" ] && [ "$3" = "POST" ]; then ${post}; fi\necho "unexpected gh call: $*" >&2\nexit 2\n`;
+  fs.writeFileSync(path.join(d, 'statuses.json'), JSON.stringify(statuses));
+  const list = `if [ "$1" = "api" ] && [ "$#" -eq 2 ]; then case "$2" in repos/*/commits/*/statuses?per_page=100) cat '${path.join(d, 'statuses.json')}'; exit 0;; esac; fi`;
+  const script = `#!/bin/sh\nif [ "$1" = "pr" ] && [ "$2" = "view" ]; then printf '%s' '${JSON.stringify(info)}'; exit 0; fi\n${list}\nif [ "$1" = "api" ] && [ "$2" = "-X" ] && [ "$3" = "POST" ]; then ${post}; fi\necho "unexpected gh call: $*" >&2\nexit 2\n`;
   fs.writeFileSync(path.join(d, 'gh'), script, { mode: 0o755 });
   return d;
 }
@@ -111,4 +122,31 @@ function postedArgs(ghDir) {
   return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').split('\n').filter(Boolean) : [];
 }
 
-module.exports = { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, fakeGhDir, postedArgs, PR, REPO, BASE_REF, BASE_BRANCH, CONFIG_PATH };
+/**
+ * A `ghApi` dependency for tests whose `merge` (or hosted `gate`) now reads the head's commit statuses from GitHub: it
+ * answers ONLY `repos/<repo>/commits/<sha>/statuses?per_page=100` (with `statuses`, a list in GitHub's shape, NEWEST
+ * FIRST, or a function of the path) and refuses every other lookup, so a test can never reach the network. `calls`
+ * records every path asked.
+ */
+function statusesApi(statuses = []) {
+  const calls = [];
+  const ghApi = (apiPath) => {
+    calls.push(apiPath);
+    if (/^repos\/[^/]+\/[^/]+\/commits\/[0-9a-fA-F]{40}\/statuses\?per_page=100$/.test(apiPath)) {
+      return { ok: true, json: typeof statuses === 'function' ? statuses(apiPath) : statuses.slice() };
+    }
+    return { ok: false, error: `unexpected lookup: ${apiPath}` };
+  };
+  ghApi.calls = calls;
+  return ghApi;
+}
+
+/**
+ * A scenario's statuses (`[{context, state, description, sha}]`, newest first) in the shape GitHub lists them: no `sha`
+ * on an entry (the list belongs to one commit), an increasing integer `id` (so the newest entry has the largest).
+ */
+function asGithub(statuses) {
+  return statuses.map(({ sha: _sha, ...rest }, i) => ({ id: 1000 + statuses.length - i, ...rest }));
+}
+
+module.exports = { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, fakeGhDir, postedArgs, statusesApi, asGithub, PR, REPO, BASE_REF, BASE_BRANCH, CONFIG_PATH };

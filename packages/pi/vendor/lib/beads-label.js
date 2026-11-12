@@ -40,7 +40,7 @@ function resolveTrackerAdapter() {
   const projectRoot = process.cwd();
   const env = process.env;
   const resolved = resolveCategory('tracker', { projectRoot, env, detect: detectAdapter });
-  const loaded = loadAdapter(resolved.value, { projectRoot, env, interactive: false });
+  const loaded = loadAdapter(resolved.value, { projectRoot, env, category: 'tracker', interactive: false });
   return { manifest: loaded.manifest };
 }
 

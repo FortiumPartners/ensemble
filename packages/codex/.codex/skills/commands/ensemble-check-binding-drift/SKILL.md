@@ -1,19 +1,11 @@
 ---
 name: ensemble-check-binding-drift
-description: Detect drift between a PRD's acceptance-criteria steps and the Reqnroll step bindings on disk (Codex skill for /ensemble:check-binding-drift)
-user-invocable: false
-argument-hint: '[prd-path] [--out <dir>]'
-model: gpt-5.1-codex
+description: "Detect drift between a PRD's acceptance-criteria steps and the Reqnroll step bindings on disk"
+disable-model-invocation: true
+metadata:
+  version: "1.0.0"
+  category: testing
 ---
-
-# Ensemble Command: /ensemble:check-binding-drift
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:check-binding-drift`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from check-binding-drift.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Re-derive the step inventory from a PRD's current acceptance criteria and
 compare it against the [Given/When/Then(@"...")] attributes actually present in
@@ -23,25 +15,34 @@ the second tier of requirement traceability: /ensemble:reqnroll feature-drift
 covers PRD vs .feature, this covers .feature vs the step bindings. The CLI exit
 code (0 in-sync, 2 drift) lets the same check gate CI or a pre-commit hook.
 
+## Constraints
+
+- This command is READ-ONLY -- it reports drift and never rewrites .cs, .feature, or project files
+- Comparison runs through the reqnroll-cli helper against the step .cs files -- DO NOT eyeball-diff
+- Matching identity is the normalized step text; a reworded acceptance criterion surfaces as both UNBOUND (new text) and ORPHANED (old text)
+
 ## Workflow
 
 ### Phase 1: Check
 
-**1. Resolve PRD and project**
-   Determine the PRD and the test project whose bindings to audit
+#### Step 1.1: Resolve PRD and project
+
+Determine the PRD and the test project whose bindings to audit
 
 - If the user passed a PRD path, use it; otherwise look under docs/PRD/ and ask which to check
 - Pass through --out <dir> (default: tests/) so the correct Steps/ directory is located
 
-**2. Run the drift check**
-   Invoke the deterministic CLI to diff PRD steps against the bindings
+#### Step 1.2: Run the drift check
+
+Invoke the deterministic CLI to diff PRD steps against the bindings
 
 - Resolve REQNROLL_CLI to first existing path among: ${CLAUDE_PLUGIN_ROOT}/lib/reqnroll-cli.js, packages/product/lib/reqnroll-cli.js. If missing, print error and HALT.
 - Run: node "$REQNROLL_CLI" check-binding-drift <prd-path> --json
 - Interpret exit code: 0 = IN_SYNC, 2 = drift detected, 1 = no bindings generated yet
 
-**3. Report and recommend**
-   Explain the drift and how to resolve it
+#### Step 1.3: Report and recommend
+
+Explain the drift and how to resolve it
 
 - If IN_SYNC: confirm the bindings cover the PRD's steps
 - If UNBOUND: list the steps needing new bindings -- re-run /ensemble:reqnroll bindings to add stubs (write-once preserves filled bodies)
@@ -53,10 +54,5 @@ code (0 in-sync, 2 drift) lets the same check gate CI or a pre-commit hook.
 **Format:** Binding drift report
 
 **Structure:**
+
 - **Drift status**: IN_SYNC, or the lists of UNBOUND (PRD step, no binding) and ORPHANED (binding, no PRD step) entries
-
-## Usage
-
-```
-/ensemble:check-binding-drift [prd-path] [--out <dir>]
-```

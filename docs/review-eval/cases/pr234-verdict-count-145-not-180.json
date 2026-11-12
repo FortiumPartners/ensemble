@@ -1,0 +1,13 @@
+{
+  "id": "pr234-verdict-count-145-not-180",
+  "change": "https://github.com/Sunstone-Partners/ensemble/pull/234 commit c700622b6b2f5067c549bb5966c6f9316d629154",
+  "bug": "The plan says 180 of 225 verifier verdicts re-confirmed already-settled results; the true count is 145 (29 carried-over candidates times 5 verifiers), with 80 new (16 times 5).",
+  "location": {
+    "path": "docs/plans/pr-review-speedup-plan.md",
+    "startLine": 26,
+    "endLine": 26
+  },
+  "confirmedBy": "ldangelo",
+  "rulesFile": "REVIEW.md",
+  "rulesHash": "e1fc183ef7383c82e9fd7274dc17677b8a509636"
+}

@@ -1,7 +1,6 @@
 ---
 name: adapter-package-runner-npm
 description: npm `package-runner` toolchain adapter (TRD-2026-8d825f54 TRD-044). Loaded by the toolchain resolver, not invoked directly by name. Shipped default package-runner adapter.
-user-invocable: true
 ---
 
 # npm Package-Runner Adapter

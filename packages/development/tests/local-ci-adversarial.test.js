@@ -253,9 +253,11 @@ describe('secrets and environment', () => {
     const r = gate(head, approvalFor([dump]), { env });
     expect(r.ok).toBe(true);
     const seen = JSON.parse(fs.readFileSync(out, 'utf8'));
-    const allowed = new Set(['CI', 'HOME', 'LANG', 'NODE_OPTIONS', 'PATH', 'TERM', 'npm_config_cache']);
+    // Replaced pin (R-1 step-environment isolation, kata ehsm): the closed list now also holds the scratch gh/XDG/TMPDIR dirs, the empty git config and the run marker. Exact names only, never a pattern.
+    const allowed = new Set(['CI', 'ENSEMBLE_LOCAL_CI_RUN', 'GH_CONFIG_DIR', 'GH_NO_UPDATE_NOTIFIER', 'GH_PROMPT_DISABLED', 'GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_SYSTEM', 'GIT_TERMINAL_PROMPT', 'HOME', 'LANG', 'NODE_OPTIONS', 'PATH', 'TERM', 'TMPDIR', 'XDG_CACHE_HOME', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'npm_config_cache']);
     const addedByBash = new Set(['PWD', 'OLDPWD', 'SHLVL', '_', '__CF_USER_TEXT_ENCODING']);
     expect(Object.keys(seen).filter((k) => !allowed.has(k) && !addedByBash.has(k))).toEqual([]);
+    expect(Object.keys(seen).filter((k) => /TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|AUTH/i.test(k))).toEqual([]); // no credential-bearing name at all (GH_TOKEN, SSH_AUTH_SOCK, *_KEY ...), whatever the list above says
     for (const k of allowed) expect(seen).toHaveProperty(k);
     for (const k of ['MY_SECRET', 'GITHUB_TOKEN', 'DEPLOY_KEY', 'UNRELATED']) expect(seen).not.toHaveProperty(k);
     expect(seen.CI).toBe('true');
@@ -355,7 +357,7 @@ describe('secrets and environment', () => {
         }
       );
       expect(report.ok).toBe(false);
-      expect(poster.statuses().map((p) => p.body.state)).toEqual(['failure']);
+      expect(poster.statuses().map((p) => p.body.state)).toEqual(['pending', 'failure']);
       expect(JSON.stringify(report)).not.toContain(SECRET);
       expect(JSON.stringify(poster.calls)).not.toContain(SECRET);
       expect(JSON.stringify(report)).toContain('[REDACTED]');

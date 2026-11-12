@@ -22,6 +22,8 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const glob = require('glob');
+const { MIRROR_PACKAGES, owningPackage } = require('../../lib/mirror-packages');
+const { isSkillBacked, resolveSkillFile } = require('../../lib/skill-backed-command');
 
 // ---------------------------------------------------------------------------
 // Known argument placeholder mappings per command name.
@@ -141,6 +143,26 @@ function renderArguments(parameters) {
   return lines.join('\n');
 }
 
+/**
+ * Render the "## Capabilities" section of a command that declares any, as lines; nothing for an
+ * absent or empty declaration.
+ */
+function renderCapabilities(capabilities) {
+  const lines = [];
+  if (capabilities && ((capabilities.required && capabilities.required.length > 0) || (capabilities.optional && capabilities.optional.length > 0))) {
+    lines.push('## Capabilities');
+    lines.push('');
+    if (capabilities.required && capabilities.required.length > 0) {
+      lines.push(`**Required:** ${capabilities.required.join(', ')}`);
+    }
+    if (capabilities.optional && capabilities.optional.length > 0) {
+      lines.push(`**Optional:** ${capabilities.optional.join(', ')}`);
+    }
+    lines.push('');
+  }
+  return lines;
+}
+
 // ---------------------------------------------------------------------------
 // CommandTranslator class
 // ---------------------------------------------------------------------------
@@ -174,10 +196,20 @@ class CommandTranslator {
     }
     const content = fs.readFileSync(filePath, 'utf-8');
     const parsed = yaml.load(content);
-    if (!parsed || !parsed.metadata || !parsed.workflow) {
+    // A skill-backed command is a manifest (metadata and skill): the skill carries the prompt, so
+    // it has no workflow, and the skill it names must exist in its own package.
+    const skillBacked = isSkillBacked(parsed);
+    if (!parsed || !parsed.metadata || (!skillBacked && !parsed.workflow)) {
       throw new Error(
         `Invalid command YAML (missing metadata or workflow): ${filePath}`
       );
+    }
+    if (skillBacked) {
+      try {
+        resolveSkillFile(filePath, parsed.skill);
+      } catch (err) {
+        throw new Error(`${filePath}: ${err.message}`, { cause: err });
+      }
     }
     return parsed;
   }
@@ -194,6 +226,11 @@ class CommandTranslator {
   translateToMarkdown(parsed, commandFilesByBaseName = new Map()) {
     const lines = [];
     const placeholder = getPlaceholder(parsed);
+
+    // A skill-backed command points at its skill and renders no prompt of its own
+    if (isSkillBacked(parsed)) {
+      return this.translateSkillStubToMarkdown(parsed, placeholder);
+    }
 
     // --- Title (CMD-002) ---
     const slug = stripNamespace(parsed.metadata.name);
@@ -232,18 +269,7 @@ class CommandTranslator {
     }
 
     // --- Capabilities (optional) ---
-    const capabilities = parsed.metadata.capabilities;
-    if (capabilities && ((capabilities.required && capabilities.required.length > 0) || (capabilities.optional && capabilities.optional.length > 0))) {
-      lines.push('## Capabilities');
-      lines.push('');
-      if (capabilities.required && capabilities.required.length > 0) {
-        lines.push(`**Required:** ${capabilities.required.join(', ')}`);
-      }
-      if (capabilities.optional && capabilities.optional.length > 0) {
-        lines.push(`**Optional:** ${capabilities.optional.join(', ')}`);
-      }
-      lines.push('');
-    }
+    lines.push(...renderCapabilities(parsed.metadata.capabilities));
 
     // --- Arguments ---
     if (parsed.parameters && Array.isArray(parsed.parameters) && parsed.parameters.length > 0) {
@@ -340,6 +366,44 @@ class CommandTranslator {
       .concat('\n');
   }
 
+  /**
+   * Translate a skill-backed command (a manifest naming its skill) to its OpenCode entry point: the
+   * title and description, the capabilities it declares, and a pointer that tells the agent to load
+   * the skill with OpenCode's skill tool. The skill itself (copied to .opencode/skill/<skill>/ by the
+   * SkillCopier) carries the whole prompt, so none of it is rendered here. The arguments placeholder
+   * is the one every other command uses; the skill refers to $ARGUMENTS, so the stub hands the value over.
+   * A skill split into a references/ directory names those files by paths relative to itself, and an
+   * agent left alone resolves a bare relative path against its working directory, so the stub says what
+   * the paths are relative to. OpenCode expands `$`, `@file` and `!` plus backtick in a command template,
+   * so that sentence uses none of them.
+   * @param {object} parsed - Parsed manifest
+   * @param {string} placeholder - From getPlaceholder; empty when OpenCode's own $ARGUMENTS applies
+   * @returns {string} Generated Markdown content
+   */
+  translateSkillStubToMarkdown(parsed, placeholder) {
+    const title = toTitleCase(stripNamespace(parsed.metadata.name));
+    const lines = [placeholder ? `# ${title} ${placeholder}` : `# ${title}`, ''];
+
+    if (parsed.metadata.description) {
+      lines.push(replaceArguments(parsed.metadata.description.trim(), placeholder), '');
+    }
+
+    lines.push(...renderCapabilities(parsed.metadata.capabilities));
+    lines.push(
+      `Load the \`${parsed.skill}\` skill with the skill tool and follow its instructions exactly.`,
+      '',
+      'The skill names some files by paths relative to its own directory (the files of its `references/` directory, for example). Resolve those paths against the base directory that the skill tool reports for the skill, never against your working directory or the workspace root.',
+      '',
+      `Wherever the skill refers to its ARGUMENTS, use this value (empty if none were given): ${placeholder || '$ARGUMENTS'}`
+    );
+
+    return lines
+      .map((line) => line.trimEnd())
+      .join('\n')
+      .trimEnd()
+      .concat('\n');
+  }
+
   // -------------------------------------------------------------------------
   // OC-S1-CMD-008: Generate JSON command config entry
   // -------------------------------------------------------------------------
@@ -372,7 +436,7 @@ class CommandTranslator {
    */
   discoverCommandFiles() {
     const pattern = path.join(this.packagesDir, '*/commands/*.yaml');
-    const files = glob.sync(pattern);
+    const files = glob.sync(pattern).filter((file) => !MIRROR_PACKAGES.has(owningPackage(file, this.packagesDir)));
     return files.sort();
   }
 

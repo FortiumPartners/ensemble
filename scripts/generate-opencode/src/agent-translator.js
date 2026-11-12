@@ -21,6 +21,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const glob = require('glob');
+const { MIRROR_PACKAGES, owningPackage } = require('../../lib/mirror-packages');
 
 // ---------------------------------------------------------------------------
 // Tool permission mapping table (OC-S2-AGT-002)
@@ -142,7 +143,7 @@ class AgentTranslator {
    */
   discoverAgentFiles() {
     const pattern = path.join(this.packagesDir, '*/agents/*.yaml');
-    const files = glob.sync(pattern);
+    const files = glob.sync(pattern).filter((file) => !MIRROR_PACKAGES.has(owningPackage(file, this.packagesDir)));
     return files.sort();
   }
 

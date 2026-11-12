@@ -9,6 +9,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const yaml = require('js-yaml');
 const { glob } = require('glob');
+const { isSkillBacked, resolveSkillFile } = require('./skill-backed-command');
 
 // glob (node-glob) requires forward-slash patterns even on Windows —
 // path.join() produces backslashes there, which glob treats as escape chars.
@@ -231,9 +232,13 @@ function getOutputPath(yamlPath, metadata = {}) {
 
 /**
  * Build a map from bare command name (metadata.name with "ensemble:"
- * stripped) to that command's own resolved Markdown output path. Used to
- * render dispatcher commands' "read and follow <path>" instructions without
- * guessing at another command's output location.
+ * stripped) to the file a dispatcher should send the model to for that command.
+ * That is the command's own resolved Markdown output path, except for a
+ * skill-backed command (a manifest with a `skill:` key): its generated Markdown is a
+ * stub that relies on Claude Code substituting ${CLAUDE_PLUGIN_ROOT} when the command is
+ * LOADED, which does not happen when a dispatcher has the model Read the file by path, so
+ * its entry points at the skill's SKILL.md instead. Used to render dispatcher commands'
+ * "read and follow <path>" instructions without guessing at another command's output location.
  * @param {string[]} commandYamlPaths - Paths to all command YAML files
  * @returns {Promise<Map<string, string>>}
  */
@@ -246,7 +251,10 @@ async function buildCommandPathMap(commandYamlPaths) {
       const data = yaml.load(content);
       if (data?.metadata?.name) {
         const ref = data.metadata.name.replace(/^ensemble:/, '');
-        pathsByRef.set(ref, getOutputPath(yamlPath, data.metadata));
+        pathsByRef.set(
+          ref,
+          isSkillBacked(data) ? resolveSkillFile(yamlPath, data.skill) : getOutputPath(yamlPath, data.metadata)
+        );
       }
     } catch (error) {
       // Skip files that can't be parsed (will be caught in main validation)

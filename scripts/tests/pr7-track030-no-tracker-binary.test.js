@@ -26,6 +26,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const yaml = require('js-yaml');
+const { readCommandProse } = require('../lib/skill-backed-command');
+const { readDevelopmentSkill, parseWorkflow } = require('../../packages/development/tests/helpers/skill-workflow');
 const { validateCommandSchema } = require('../lib/schema-validator');
 const { loadValidCapabilityIds, checkCapabilityIds } = require('../lib/capability-ids-check');
 const { validateCapabilityIds } = require('../validate-all');
@@ -40,6 +42,18 @@ const SKILL_PATH = path.join(
   'implement-trd-beads-reference',
   'SKILL.md'
 );
+
+// beads-build is a skill-backed command: the YAML is a manifest (metadata + `skill`) and the
+// prompt lives in its skill (SKILL.md + references/*.md). PROSE is what these checks scan:
+// the manifest plus the whole skill. PHASES reads the skill's workflow back as
+// `[{order, name, steps: [{title, actions, order}]}]`.
+const MANIFEST_TEXT = fs.readFileSync(COMMAND_PATH, 'utf8');
+const MANIFEST = yaml.load(MANIFEST_TEXT);
+const PROSE = readCommandProse(COMMAND_PATH, MANIFEST, MANIFEST_TEXT);
+const PHASES = parseWorkflow(readDevelopmentSkill(MANIFEST.skill)).map((phase) => ({
+  ...phase,
+  steps: phase.steps.map((step, index) => ({ ...step, order: index + 1 })),
+}));
 
 // Same pattern as the AC-1 grep: a bare `br` or `bv` word followed by a space -- i.e. an
 // invocation like `br list` or `bv --robot-plan`, not incidental prose like `br/bv`.
@@ -57,12 +71,12 @@ function findMatchLines(contents, pattern) {
 
 describe('PR7 Track030: no literal br/bv tracker-binary invocation in beads-build.yaml or its reference skill', () => {
   test('beads-build.yaml contains zero br/bv invocations (broad sweep)', () => {
-    const contents = fs.readFileSync(COMMAND_PATH, 'utf8');
+    const contents = PROSE;
     expect(findMatchLines(contents, TRACKER_BINARY_INVOCATION)).toEqual([]);
   });
 
   test('beads-build.yaml contains zero matches for the literal AC-1 grep pattern', () => {
-    const contents = fs.readFileSync(COMMAND_PATH, 'utf8');
+    const contents = PROSE;
     expect(findMatchLines(contents, AC1_PATTERN)).toEqual([]);
   });
 
@@ -72,37 +86,28 @@ describe('PR7 Track030: no literal br/bv tracker-binary invocation in beads-buil
     expect(hits).toEqual([]);
   });
 
-  test('mutation proof: reintroducing a literal br/bv invocation in a /tmp copy of beads-build.yaml is caught', () => {
-    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'track030-mutation-'));
-    try {
-      const copyPath = path.join(tmpDir, 'beads-build.yaml');
-      const original = fs.readFileSync(COMMAND_PATH, 'utf8');
-      fs.writeFileSync(copyPath, original, 'utf8');
+  test('mutation proof: reintroducing a literal br/bv invocation into the beads-build prose is caught', () => {
+    const original = PROSE;
 
-      // Sanity: the unmutated copy has no invocations (proves the detector isn't vacuously
-      // true before we assert it catches the reintroduced one).
-      expect(findMatchLines(fs.readFileSync(copyPath, 'utf8'), TRACKER_BINARY_INVOCATION)).toEqual([]);
-      expect(findMatchLines(fs.readFileSync(copyPath, 'utf8'), AC1_PATTERN)).toEqual([]);
+    // Sanity: the unmutated prose has no invocations (proves the detector isn't vacuously
+    // true before we assert it catches the reintroduced one).
+    expect(findMatchLines(original, TRACKER_BINARY_INVOCATION)).toEqual([]);
+    expect(findMatchLines(original, AC1_PATTERN)).toEqual([]);
 
-      const needle = 'node "$TOOLCHAIN_CLI" run tracker.sync';
-      expect(original).toContain(needle);
-      const mutated = original.replace(needle, 'br sync --flush-only');
-      expect(mutated).not.toBe(original);
-      fs.writeFileSync(copyPath, mutated, 'utf8');
+    const needle = 'node "$TOOLCHAIN_CLI" run tracker.sync';
+    expect(original).toContain(needle);
+    const mutated = original.replace(needle, 'br sync --flush-only');
+    expect(mutated).not.toBe(original);
 
-      const mutatedContents = fs.readFileSync(copyPath, 'utf8');
-      const hitsBroad = findMatchLines(mutatedContents, TRACKER_BINARY_INVOCATION);
-      const hitsAc1 = findMatchLines(mutatedContents, AC1_PATTERN);
-      expect(hitsBroad.length).toBeGreaterThan(0);
-      expect(hitsAc1.length).toBeGreaterThan(0);
-      expect(hitsBroad[0].line).toContain('br sync --flush-only');
+    const hitsBroad = findMatchLines(mutated, TRACKER_BINARY_INVOCATION);
+    const hitsAc1 = findMatchLines(mutated, AC1_PATTERN);
+    expect(hitsBroad.length).toBeGreaterThan(0);
+    expect(hitsAc1.length).toBeGreaterThan(0);
+    expect(hitsBroad[0].line).toContain('br sync --flush-only');
 
-      // Confirm again against the real, unmutated source: still zero.
-      expect(findMatchLines(fs.readFileSync(COMMAND_PATH, 'utf8'), TRACKER_BINARY_INVOCATION)).toEqual([]);
-      expect(findMatchLines(fs.readFileSync(COMMAND_PATH, 'utf8'), AC1_PATTERN)).toEqual([]);
-    } finally {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    }
+    // Confirm again against the real, unmutated prose: still zero.
+    expect(findMatchLines(PROSE, TRACKER_BINARY_INVOCATION)).toEqual([]);
+    expect(findMatchLines(PROSE, AC1_PATTERN)).toEqual([]);
   });
 
   test('beads-build.yaml declares the exact TRD-030 capabilities block', () => {
@@ -115,7 +120,7 @@ describe('PR7 Track030: no literal br/bv tracker-binary invocation in beads-buil
   });
 
   test('Plan Mode path prints the ordering source from data.orderingSource (AC-2)', () => {
-    const contents = fs.readFileSync(COMMAND_PATH, 'utf8');
+    const contents = PROSE;
     expect(contents).toContain('ORDERING_SOURCE=data.orderingSource');
     expect(contents).toContain('ordering source: <ORDERING_SOURCE>');
   });
@@ -170,7 +175,7 @@ describe('PR7 Track030: no literal br/bv tracker-binary invocation in beads-buil
   });
 
   test('beads-build.yaml opens with a preflight listing exactly its required capabilities, and confirm-status precedes the Execute phase first capability write (AC-4)', () => {
-    const data = yaml.load(fs.readFileSync(COMMAND_PATH, 'utf8'));
+    const data = { metadata: MANIFEST.metadata, workflow: { phases: PHASES } };
     const requiredCapabilities = data.metadata.capabilities.required;
 
     const preflightPhase = data.workflow.phases.find((p) => p.name === 'Preflight');

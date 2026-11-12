@@ -1,19 +1,11 @@
 ---
 name: ensemble-inject-standards
-description: Selectively inject relevant standards from standards/index.yml into agent context based on current task (Codex skill for /ensemble:inject-standards)
-user-invocable: false
-argument-hint: <task-description>
-model: gpt-5.1-codex
+description: "Selectively inject relevant standards from standards/index.yml into agent context based on current task"
+disable-model-invocation: true
+metadata:
+  version: "1.0.0"
+  category: implementation
 ---
-
-# Ensemble Command: /ensemble:inject-standards
-
-This Codex skill mirrors the Ensemble slash command `/ensemble:inject-standards`.
-Follow the workflow below, adapt to the current repository, and keep outputs structured.
-
-<!-- DO NOT EDIT - Generated from inject-standards.yaml -->
-<!-- To modify this file, edit the YAML source and run: npm run generate -->
-
 
 Read the project standards index and emit a compact, task-relevant subset of coding
 conventions to stdout for immediate use by the current agent context. Rather than
@@ -21,20 +13,28 @@ loading all standards every session, this command scores each rule against the p
 task description and selects the top 5-8 most applicable rules -- keeping token cost
 minimal while ensuring the right conventions are surfaced at the right time.
 
+## Constraints
+
+- DO NOT implement, build, or execute any application code
+- This command ONLY reads standards/index.yml and outputs a filtered summary to stdout
+- Never modify the standards index
+
 ## Workflow
 
 ### Phase 1: Standards Loading
 
-**1. Standards Discovery**
-   Verify the standards index exists before proceeding
+#### Step 1.1: Standards Discovery
+
+Verify the standards index exists before proceeding
 
 - Check if standards/index.yml exists in the project root
 - If standards/index.yml does not exist: print "ERROR: No standards index found. Run /ensemble:standards discover first." and stop
 - If the file exists, read standards/index.yml fully into memory
 - Note the stack metadata (language, framework) and the full list of categories and rules
 
-**2. Task Analysis**
-   Parse the task description and extract keyword signals for relevance matching
+#### Step 1.2: Task Analysis
+
+Parse the task description and extract keyword signals for relevance matching
 
 - Read $ARGUMENTS as TASK_DESCRIPTION
 - If TASK_DESCRIPTION is empty: print "ERROR: Provide a task description, e.g., /ensemble:standards inject 'implement user authentication endpoint'" and stop
@@ -45,8 +45,9 @@ minimal while ensuring the right conventions are surfaced at the right time.
 
 ### Phase 2: Relevance Matching
 
-**1. Category Scoring**
-   Score each standards category against the extracted task keywords
+#### Step 2.1: Category Scoring
+
+Score each standards category against the extracted task keywords
 
 - Assign a base score of 0 to each category (naming, testing, imports, error_handling, git, api)
 - Always boost naming by +10 -- naming conventions apply to every coding task
@@ -57,8 +58,9 @@ minimal while ensuring the right conventions are surfaced at the right time.
 - Boost imports by +5 if TASK_DESCRIPTION contains: import, require, module, dependency, package, library
 - Rank categories by final score descending
 
-**2. Rule Selection**
-   Choose the top 5-8 individual rules most relevant to the task
+#### Step 2.2: Rule Selection
+
+Choose the top 5-8 individual rules most relevant to the task
 
 - Always include all naming rules (naming conventions are universal)
 - Always include all git rules (commit and branch conventions are universal)
@@ -69,8 +71,9 @@ minimal while ensuring the right conventions are surfaced at the right time.
 
 ### Phase 3: Context Injection
 
-**1. Standards Summary Output**
-   Print a compact, agent-consumable standards block to stdout
+#### Step 3.1: Standards Summary Output
+
+Print a compact, agent-consumable standards block to stdout
 
 - Print header: "=== RELEVANT STANDARDS FOR: <TASK_DESCRIPTION> ==="
 - Print stack line: "Stack: <language> + <framework>"
@@ -80,8 +83,9 @@ minimal while ensuring the right conventions are surfaced at the right time.
 - Print footer: "Full index: standards/index.yml"
 - Print closing line: "====================================="
 
-**2. Handoff Note**
-   Print instructions for the agent to proceed with the injected context
+#### Step 3.2: Handoff Note
+
+Print instructions for the agent to proceed with the injected context
 
 - Print: "Standards injected. Proceed with task using the above conventions."
 - Print: "Run /ensemble:standards discover to refresh the index if the codebase has changed."
@@ -91,11 +95,6 @@ minimal while ensuring the right conventions are surfaced at the right time.
 **Format:** Stdout block containing filtered standards relevant to the provided task description
 
 **Structure:**
+
 - **Standards Block**: Compact formatted output listing stack, selected rules grouped by category, and path to full index
 - **Handoff Note**: One-line instruction confirming standards are injected and advising how to refresh the index
-
-## Usage
-
-```
-/ensemble:inject-standards <task-description>
-```

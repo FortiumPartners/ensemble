@@ -17,8 +17,7 @@ This skill owns editable prose only (Rule 8); every judgement that grades a
 claim is made by `pr-review-cli.js` (Rule 7). Resolve `PR_REVIEW_CLI` for
 `packages/development/lib/pr-review-cli.js` per the tool-path-resolution skill
 (`packages/development/skills/tool-path-resolution/SKILL.md`) before running any
-command below. Recurrence is the host repository's (Rule 4): this skill holds no
-timer, no schedule and no watcher.
+command below.
 
 Detail (field table, hash snippet, case example, verification command,
 compare/stale commands): `reference/eval-details.md`, read when a step names it.
@@ -113,9 +112,8 @@ file you named — a mismatched hash makes every later staleness answer a lie.
 
 Write `<evalCasesDir>/<id>.json` with exactly the keys `id`, `change`, `bug`,
 `location {path,startLine,endLine}`, `confirmedBy`, `rulesFile`, `rulesHash`
-(example in the reference). `packages/development/skills/pr-review-eval/case-template.json`
-is that shape with every field empty; copy it rather than writing one from
-memory.
+(example in the reference); copy `packages/development/skills/pr-review-eval/case-template.json`
+(that shape, fields empty), do not write one from memory.
 
 - The file name is `<id>.json` directly under `evalCasesDir`. A case written
   anywhere else is not loaded (`case-outside-eval-dir`), and a file whose name
@@ -185,6 +183,10 @@ A `regression` is a result, not a crash: report it and stop. This skill
 does not re-run the eval to get a better number, does not retune a prompt to
 clear the regression, and does not edit a case to match what the reviewer
 found — each would make the eval unable to fail.
+
+### Step R3a — Guard
+
+Before a pipeline-changing PR lands, run `review-eval-guard.js --base "$BASE_SHA"` (`reference/eval-details.md`). It matches by location and severity, not by what a finding says; exit 1: a lost Important finding or unproven input.
 
 ### Step R4 — Recurrence belongs to the host repository
 

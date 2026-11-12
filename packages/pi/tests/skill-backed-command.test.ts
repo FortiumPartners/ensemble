@@ -1,0 +1,914 @@
+/**
+ * Skill-backed commands: "commands invoke skills".
+ *
+ * A command YAML with a top-level `skill` is a manifest (its metadata plus the name of the skill that
+ * carries the whole prompt). In Pi:
+ *
+ *   - its prompt is a stub that tells the agent to load the skill (command-transformer.ts), and
+ *   - it gets NO command-wrapper skill: the source skill is the command's one skill, shipped as it is
+ *     by skill-copier (or in place in a self-contained package), and a wrapper would land on the very
+ *     same path whenever the skill is named `ensemble-<cmd>`.
+ *
+ * Every case that expects something of a skill-backed command also runs an ordinary command beside it,
+ * so a generator that stubs everything, or nothing, fails. Layers: the transformer, the wrapper
+ * generator, the whole generator on a throwaway monorepo (including pruning, the migration of an
+ * existing command and dry-run/real-run agreement), self-contained packages, and the committed
+ * output of the real repository.
+ */
+
+jest.setTimeout(60_000);
+
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as yaml from 'js-yaml';
+import matter from 'gray-matter';
+import { generate, generateAll, listGeneratedFiles, promptOutputPath } from '../src/generator';
+import { generatedMarker, hasGeneratedMarker, skillOfPrompt } from '../src/generated-marker';
+import { SELF_CONTAINED_PI_PACKAGES } from '../src/self-contained-packages';
+import { generateCommandSkills, isCommandWrapperSkill } from '../src/transformers/command-skill-transformer';
+import { transformCommand } from '../src/transformers/command-transformer';
+import { CommandYaml, GeneratorOptions } from '../src/types';
+
+// ---------------------------------------------------------------------------
+// Fixtures
+// ---------------------------------------------------------------------------
+
+/** A skill-backed command's YAML: metadata plus `skill`, nothing else. */
+function manifestYaml(name: string, skill: string, metadataExtra: string[] = []): string {
+  return [
+    'metadata:',
+    `  name: "ensemble:${name}"`,
+    `  description: "The ${name} command"`,
+    '  version: "2.0.0"',
+    ...metadataExtra,
+    `skill: ${skill}`,
+    '',
+  ].join('\n');
+}
+
+/** An ordinary command: mission and one phase. */
+function plainYaml(name: string): string {
+  return [
+    'metadata:',
+    `  name: "ensemble:${name}"`,
+    `  description: "The ${name} command"`,
+    '  version: "1.0.0"',
+    'mission:',
+    `  summary: "Summary of ${name}"`,
+    'workflow:',
+    '  phases:',
+    '    - name: "Do it"',
+    '      order: 1',
+    '      steps:',
+    '        - order: 1',
+    '          title: "Step"',
+    '          description: "Do the thing"',
+    '',
+  ].join('\n');
+}
+
+const SKILL_BODY = 'Make the thing described by $ARGUMENTS.\n\nWhen done, suggest /ensemble:other-command.\n';
+
+/** A source skill written the way the real ones are: quoted description, a host flag, nested metadata. */
+function skillMd(name: string): string {
+  return [
+    '---',
+    `name: ${name}`,
+    'description: "Make a thing, with \\"quoted\\" words. Use when the user asks for a thing."',
+    'disable-model-invocation: true',
+    'metadata:',
+    '  version: "2.0.0"',
+    '  category: planning',
+    '---',
+    '',
+    SKILL_BODY,
+  ].join('\n');
+}
+
+/** Every file under `dir` as a sorted list of paths relative to it, with forward slashes. */
+function walk(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) =>
+      entry.isDirectory()
+        ? walk(path.join(dir, entry.name)).map((file) => `${entry.name}/${file}`)
+        : [entry.name]
+    )
+    .sort();
+}
+
+/** Every file under `dir` with its content, to prove a run changed nothing. */
+function snapshot(dir: string): Record<string, string> {
+  return Object.fromEntries(walk(dir).map((file) => [file, fs.readFileSync(path.join(dir, file), 'utf-8')]));
+}
+
+// ---------------------------------------------------------------------------
+// 1. The transformer: the stub prompt
+// ---------------------------------------------------------------------------
+
+describe('transformCommand: the prompt of a skill-backed command', () => {
+  const SOURCE = '/w/packages/p/commands/make-thing.yaml';
+  const MANIFEST: CommandYaml = {
+    metadata: { name: 'ensemble:make-thing', description: 'Make a thing', version: '2.0.0' },
+    skill: 'ensemble-make-thing',
+  };
+  const PLAIN: CommandYaml = {
+    metadata: { name: 'ensemble:make-thing', description: 'Make a thing', version: '1.0.0' },
+    mission: { summary: 'Make it.' },
+    workflow: { phases: [{ id: 1, name: 'Do it', steps: [{ id: 1, title: 'Step', description: 'Do the thing' }] }] },
+  };
+
+  it('keeps the generated header and adds a Skill line right after the Command line', () => {
+    const lines = transformCommand(MANIFEST, SOURCE, {}).split('\n');
+    expect(lines.slice(0, 6)).toEqual([
+      '<!-- Generated by ensemble-pi generator v1.0.0 | Source: make-thing.yaml -->',
+      '<!-- Command: ensemble-make-thing | Version: 2.0.0 -->',
+      '<!-- Skill: ensemble-make-thing -->',
+      '<!-- Description: Make a thing -->',
+      '',
+      '# ensemble-make-thing',
+    ]);
+  });
+
+  it('tells the agent to load the skill, by name or from its file, and passes the arguments on once', () => {
+    const output = transformCommand(MANIFEST, SOURCE, {});
+    expect(output).toContain('the `ensemble-make-thing` skill carries its complete instructions');
+    expect(output).toContain('skill://ensemble-make-thing');
+    expect(output).toContain('read its `SKILL.md` file yourself (it ships under `skills/ensemble-make-thing/` in this package)');
+    // The template engine expands $ARGUMENTS wherever it appears: written twice, the sentence that
+    // explains it would be replaced by the user's text too. The one placeholder is the value.
+    expect(output.match(/\$ARGUMENTS/g)).toHaveLength(1);
+    expect(output).toMatch(/use this value \(empty if none were given\): \$ARGUMENTS\n$/);
+  });
+
+  it('says what the relative paths of the skill are relative to: its own directory, never the working directory', () => {
+    const output = transformCommand(MANIFEST, SOURCE, {});
+    expect(output).toContain('by paths relative to its own directory');
+    expect(output).toContain('Resolve those paths against that directory, `skills/ensemble-make-thing/` in this package');
+    expect(output).toContain('`skill://ensemble-make-thing/<path>`');
+    expect(output).toContain('never against your working directory');
+    expect(output.match(/\$ARGUMENTS/g)).toHaveLength(1); // the new sentence must not add a second placeholder
+  });
+
+  it('renders no prompt of its own: no mission, constraints, arguments, subcommands or phases', () => {
+    const output = transformCommand(MANIFEST, SOURCE, {});
+    expect(output).not.toMatch(/^## /m);
+    expect(output).not.toContain('> **');
+    // Even a manifest that still carries that content renders exactly the same stub: the skill wins
+    const stale: CommandYaml = {
+      ...PLAIN,
+      ...MANIFEST,
+      constraints: ['A constraint'],
+      parameters: [{ name: 'flag', type: 'boolean' }],
+      dispatch: { subcommands: [{ keyword: 'go', ref: 'elsewhere' }] },
+    };
+    expect(transformCommand(stale, SOURCE, {})).toBe(
+      transformCommand({ ...MANIFEST, metadata: { ...PLAIN.metadata, ...MANIFEST.metadata } }, SOURCE, {})
+    );
+  });
+
+  it('keeps the capabilities line, after the description, as for any command', () => {
+    const withCapabilities: CommandYaml = {
+      ...MANIFEST,
+      metadata: { ...MANIFEST.metadata, capabilities: { required: ['tracker.show'], optional: [] } },
+    };
+    const lines = transformCommand(withCapabilities, SOURCE, {}).split('\n');
+    expect(lines.slice(3, 5)).toEqual([
+      '<!-- Description: Make a thing -->',
+      '<!-- Capabilities: required=[tracker.show], optional=[] -->',
+    ]);
+  });
+
+  it('applies the same command-name and tool-name rewrites to the header as to any command', () => {
+    const output = transformCommand(
+      { ...MANIFEST, metadata: { ...MANIFEST.metadata, description: 'Runs ensemble:other-thing, asks via AskUserQuestion' } },
+      SOURCE,
+      {}
+    );
+    expect(output).toContain('<!-- Description: Runs ensemble-other-thing, asks via ask -->');
+  });
+
+  it('leaves an ordinary command exactly as it was: same header, no Skill line, its own phases', () => {
+    expect(transformCommand(PLAIN, SOURCE, {})).toBe(
+      [
+        '<!-- Generated by ensemble-pi generator v1.0.0 | Source: make-thing.yaml -->',
+        '<!-- Command: ensemble-make-thing | Version: 1.0.0 -->',
+        '<!-- Description: Make a thing -->',
+        '',
+        '# ensemble-make-thing',
+        '',
+        '> **Mission:** Make it.',
+        '',
+        '## Phase 1: Do it',
+        '',
+        '### Step 1: Step',
+        '',
+        'Do the thing',
+        '',
+      ].join('\n')
+    );
+  });
+});
+
+describe('skillOfPrompt: recognizing the stub of a skill-backed command', () => {
+  const stub = transformCommand(
+    { metadata: { name: 'ensemble:make-thing', description: 'Make a thing', version: '2.0.0' }, skill: 'ensemble-make-thing' },
+    '/w/make-thing.yaml',
+    {}
+  );
+  const plain = transformCommand(
+    { metadata: { name: 'ensemble:make-thing', description: 'Make a thing', version: '1.0.0' }, workflow: { phases: [] } },
+    '/w/make-thing.yaml',
+    {}
+  );
+
+  it('names the skill of a stub and nothing for an ordinary prompt', () => {
+    expect(skillOfPrompt(stub)).toBe('ensemble-make-thing');
+    expect(skillOfPrompt(plain)).toBeUndefined();
+  });
+
+  it('still recognizes a stub whose line endings were converted (a Windows checkout)', () => {
+    expect(skillOfPrompt(stub.replace(/\n/g, '\r\n'))).toBe('ensemble-make-thing');
+  });
+
+  it('does not take a hand-authored prompt for a stub, however it quotes the header', () => {
+    const skillLine = '<!-- Skill: ensemble-make-thing -->';
+    expect(skillOfPrompt(`${skillLine}\n\n# hand written\n`)).toBeUndefined();
+    expect(skillOfPrompt(`# hand written\n\n${stub}`)).toBeUndefined();
+    // The generated header with its Skill line moved away from the third line is not the stub shape
+    expect(skillOfPrompt(stub.replace(skillLine + '\n', '').replace('\n\n# ', `\n${skillLine}\n\n# `))).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2. The wrapper generator skips stubs
+// ---------------------------------------------------------------------------
+
+describe('generateCommandSkills: no wrapper for a stub', () => {
+  let out: string;
+
+  beforeEach(() => {
+    out = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-skillbacked-wrap-'));
+    fs.mkdirSync(path.join(out, 'prompts'), { recursive: true });
+  });
+
+  afterEach(() => {
+    fs.rmSync(out, { recursive: true, force: true });
+  });
+
+  it('wraps ordinary prompts, including one that quotes a Skill line, and skips the stub', async () => {
+    const stubText = transformCommand(
+      { metadata: { name: 'ensemble:stub', description: 'A stub', version: '2.0.0' }, skill: 'ensemble-stub' },
+      '/w/stub.yaml',
+      {}
+    );
+    const plainText = transformCommand(
+      { metadata: { name: 'ensemble:plain', description: 'Plain', version: '1.0.0' }, workflow: { phases: [] } },
+      '/w/plain.yaml',
+      {}
+    );
+    fs.writeFileSync(path.join(out, 'prompts', 'ensemble-plain.md'), plainText);
+    fs.writeFileSync(path.join(out, 'prompts', 'ensemble-stub.md'), stubText);
+    // Hand-authored, and quoting the stub header in its body: still an ordinary prompt
+    fs.writeFileSync(path.join(out, 'prompts', 'ensemble-quoting.md'), `# ensemble-quoting\n\n${stubText}`);
+
+    const results = await generateCommandSkills(out, { dryRun: true });
+    expect(results.map((r) => path.basename(path.dirname(r.outputPath)))).toEqual([
+      'ensemble-plain',
+      'ensemble-quoting',
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. The generator on a throwaway monorepo
+// ---------------------------------------------------------------------------
+
+describe('Pi generator: skill-backed commands', () => {
+  let src: string;
+  let out: string;
+
+  const options = (overrides: Partial<GeneratorOptions> = {}): GeneratorOptions => ({
+    dryRun: false,
+    verbose: false,
+    validate: false,
+    sourceRoot: src,
+    outputRoot: out,
+    ...overrides,
+  });
+  const gen = (overrides: Partial<GeneratorOptions> = {}) => generate(options(overrides));
+
+  const source = (file: string, content: string): void => {
+    const target = path.join(src, 'packages', 'fake', file);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content, 'utf-8');
+  };
+  const removeSource = (file: string): void =>
+    fs.rmSync(path.join(src, 'packages', 'fake', file), { recursive: true, force: true });
+  const exists = (file: string): boolean => fs.existsSync(path.join(out, file));
+  const read = (file: string): string => fs.readFileSync(path.join(out, file), 'utf-8');
+  const relative = (files: string[]): string[] =>
+    files.map((file) => path.relative(out, file).split(path.sep).join('/'));
+
+  const addSkillBacked = (name: string, skill = `ensemble-${name}`, metadataExtra: string[] = []): void => {
+    source(`commands/${name}.yaml`, manifestYaml(name, skill, metadataExtra));
+    source(`skills/${skill}/SKILL.md`, skillMd(skill));
+  };
+  const addPlain = (name: string): void => source(`commands/${name}.yaml`, plainYaml(name));
+
+  beforeEach(() => {
+    // The fixture has no packages/development/lib, so lib-bundler warns about every vendored file
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    src = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-skillbacked-src-'));
+    out = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-skillbacked-out-'));
+    fs.writeFileSync(path.join(src, 'CLAUDE.md'), '## Agent Mesh\n\nContent.\n', 'utf-8');
+    // A source skill that no command claims: it keeps the 'skill' kind from being skipped for lack of sources
+    source('skills/keep-skill/SKILL.md', '---\nname: keep-skill\ndescription: "A control skill"\n---\n\n# keep-skill\n');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    fs.rmSync(src, { recursive: true, force: true });
+    fs.rmSync(out, { recursive: true, force: true });
+  });
+
+  describe('output', () => {
+    beforeEach(async () => {
+      addSkillBacked('make-thing');
+      addPlain('plain');
+      await gen();
+    });
+
+    it('writes a stub prompt for the skill-backed command and a full prompt for the ordinary one', () => {
+      const stub = read('prompts/ensemble-make-thing.md');
+      expect(skillOfPrompt(stub)).toBe('ensemble-make-thing');
+      expect(stub).toContain('skill://ensemble-make-thing');
+      expect(stub).not.toContain('## Phase');
+      expect(stub).not.toContain('Make the thing described by'); // it points at the skill, it does not inline it
+
+      expect(skillOfPrompt(read('prompts/ensemble-plain.md'))).toBeUndefined();
+      expect(read('prompts/ensemble-plain.md')).toContain('## Phase 1: Do it');
+    });
+
+    it('ships the source skill as the command\'s one skill, and no wrapper', () => {
+      expect(fs.readdirSync(path.join(out, 'skills')).sort()).toEqual([
+        'ensemble-make-thing',
+        'ensemble-plain',
+        'keep-skill',
+      ]);
+      expect(walk(path.join(out, 'skills/ensemble-make-thing'))).toEqual(['SKILL.md']);
+
+      const shipped = read('skills/ensemble-make-thing/SKILL.md');
+      expect(isCommandWrapperSkill('ensemble-make-thing', shipped)).toBe(false);
+      expect(shipped).not.toContain('<!-- Command: ensemble-make-thing');
+      // The source skill, frontmatter intact (the host flag and the nested metadata included) ...
+      expect(matter(shipped).data).toEqual(matter(skillMd('ensemble-make-thing')).data);
+      expect(matter(shipped).data['disable-model-invocation']).toBe(true);
+      // ... and its body, with the command references rewritten as for every copied skill
+      expect(matter(shipped).content).toContain('Make the thing described by $ARGUMENTS.');
+      expect(matter(shipped).content).toContain('/ensemble-other-command');
+
+      // The control: the ordinary command is still wrapped
+      expect(isCommandWrapperSkill('ensemble-plain', read('skills/ensemble-plain/SKILL.md'))).toBe(true);
+    });
+
+    it('proves the files for pruning the way each kind is proven: the skill is a copied skill, never a wrapper', () => {
+      expect(relative(listGeneratedFiles(out, 'wrapper'))).toEqual(['skills/ensemble-plain/SKILL.md']);
+      expect(relative(listGeneratedFiles(out, 'skill'))).toEqual([
+        'skills/ensemble-make-thing/SKILL.md',
+        'skills/keep-skill/SKILL.md',
+      ]);
+      expect(relative(listGeneratedFiles(out, 'prompt'))).toEqual([
+        'prompts/ensemble-make-thing.md',
+        'prompts/ensemble-plain.md',
+      ]);
+    });
+
+    it('converges: a second run prunes nothing and leaves the source skill untouched', async () => {
+      const before = snapshot(out);
+      expect((await gen()).pruned).toEqual([]);
+      expect(snapshot(out)).toEqual(before);
+    });
+
+    it('passes --validate', async () => {
+      await expect(gen({ validate: true })).resolves.toEqual({ pruned: [] });
+    });
+  });
+
+  it('ships a skill that is not named after the command, and leaves no wrapper under the command\'s name', async () => {
+    addSkillBacked('renamed', 'other-skill-name');
+    addPlain('plain');
+    await gen();
+
+    expect(skillOfPrompt(read('prompts/ensemble-renamed.md'))).toBe('other-skill-name');
+    expect(read('prompts/ensemble-renamed.md')).toContain('skill://other-skill-name');
+    expect(exists('skills/other-skill-name/SKILL.md')).toBe(true);
+    expect(exists('skills/ensemble-renamed')).toBe(false);
+    expect(exists('skills/ensemble-plain/SKILL.md')).toBe(true);
+  });
+
+  it('puts the stub of a hidden skill-backed command under prompts/_hidden/ and still ships its skill', async () => {
+    addSkillBacked('secret', 'ensemble-secret', ['  visibility: hidden']);
+    addPlain('plain');
+    await gen();
+
+    expect(skillOfPrompt(read('prompts/_hidden/ensemble-secret.md'))).toBe('ensemble-secret');
+    expect(exists('prompts/ensemble-secret.md')).toBe(false);
+    expect(isCommandWrapperSkill('ensemble-secret', read('skills/ensemble-secret/SKILL.md'))).toBe(false);
+    expect(exists('skills/ensemble-plain/SKILL.md')).toBe(true);
+  });
+
+  describe('pruning', () => {
+    it('prunes the stub and the copied skill when both sources are removed, and nothing else', async () => {
+      addSkillBacked('make-thing');
+      addPlain('plain');
+      await gen();
+
+      removeSource('commands/make-thing.yaml');
+      removeSource('skills/ensemble-make-thing');
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual([
+        'prompts/ensemble-make-thing.md',
+        'skills/ensemble-make-thing/SKILL.md',
+      ]);
+      expect(exists('skills/ensemble-make-thing')).toBe(false);
+      expect(exists('prompts/ensemble-plain.md')).toBe(true);
+      expect(exists('skills/ensemble-plain/SKILL.md')).toBe(true);
+      expect(exists('skills/keep-skill/SKILL.md')).toBe(true);
+    });
+
+    it('prunes only the stub when just the manifest is removed: the skill is still a source skill', async () => {
+      addSkillBacked('make-thing');
+      addPlain('plain');
+      await gen();
+
+      removeSource('commands/make-thing.yaml');
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual(['prompts/ensemble-make-thing.md']);
+      expect(isCommandWrapperSkill('ensemble-make-thing', read('skills/ensemble-make-thing/SKILL.md'))).toBe(false);
+      expect(exists('skills/ensemble-make-thing/SKILL.md')).toBe(true);
+    });
+  });
+
+  describe('a skill split into references/', () => {
+    const SPLIT = 'ensemble-split';
+    const REFS = ['references/phase-1-first.md', 'references/phase-2-second.md'];
+    const REF_ONE = '# Phase 1\n\nHand off to /ensemble:other-command.\n';
+    const REF_TWO = '# Phase 2\r\nCRLF in the source.\r\n';
+    const ROWS = ['| 1. First | `references/phase-1-first.md` |', '| 2. Second | `references/phase-2-second.md` |'];
+
+    /** An index SKILL.md: it names each phase file by its path from the skill root, in a table. */
+    const splitSkillMd = (rows: string[]): string =>
+      [
+        skillMd(SPLIT),
+        '## Workflow',
+        '',
+        'Read the file of each phase when you reach it. Paths are relative to this SKILL.md.',
+        '',
+        '| Phase | Instructions |',
+        '|---|---|',
+        ...rows,
+        '',
+      ].join('\n');
+
+    const addSplitSkill = (): void => {
+      source('commands/split.yaml', manifestYaml('split', SPLIT));
+      source(`skills/${SPLIT}/SKILL.md`, splitSkillMd(ROWS));
+      source(`skills/${SPLIT}/${REFS[0]}`, REF_ONE);
+      source(`skills/${SPLIT}/${REFS[1]}`, REF_TWO);
+      // Files nothing names stay out of the install, in references/ or beside the SKILL.md
+      source(`skills/${SPLIT}/references/unnamed.md`, '# named nowhere\n');
+      source(`skills/${SPLIT}/notes.txt`, 'authoring notes\n');
+    };
+
+    it('ships the files the SKILL.md names beside it, each with the generated marker, and nothing else of the skill', async () => {
+      addSplitSkill();
+      addPlain('plain');
+      await gen();
+
+      expect(walk(path.join(out, 'skills', SPLIT))).toEqual(['SKILL.md', ...REFS]);
+      for (const ref of REFS) {
+        expect(hasGeneratedMarker(read(`skills/${SPLIT}/${ref}`))).toBe(true);
+        expect(read(`skills/${SPLIT}/${ref}`).split('\n')[0]).toBe(generatedMarker(`packages/fake/skills/${SPLIT}/${ref}`));
+      }
+      // As for every copied markdown file: command references are rewritten and CRLF is normalized
+      expect(read(`skills/${SPLIT}/${REFS[0]}`)).toContain('Hand off to /ensemble-other-command.');
+      expect(read(`skills/${SPLIT}/${REFS[1]}`)).not.toContain('\r');
+      // The SKILL.md is still the command's one skill, and the stub still points at it
+      expect(isCommandWrapperSkill(SPLIT, read(`skills/${SPLIT}/SKILL.md`))).toBe(false);
+      expect(skillOfPrompt(read('prompts/ensemble-split.md'))).toBe(SPLIT);
+      expect(exists('skills/ensemble-plain/SKILL.md')).toBe(true);
+    });
+
+    it('maps AskUserQuestion to ask in a command skill and its references, as its prompt did, and leaves any other skill as written', async () => {
+      source('commands/split.yaml', manifestYaml('split', SPLIT));
+      source(`skills/${SPLIT}/SKILL.md`, `${splitSkillMd(ROWS)}\nAsk with AskUserQuestion.\n`);
+      source(`skills/${SPLIT}/${REFS[0]}`, '# Phase 1\n\nCall AskUserQuestion with a choice.\n');
+      source(`skills/${SPLIT}/${REFS[1]}`, REF_TWO);
+      source('skills/other-skill/SKILL.md', `${skillMd('other-skill')}\nUse AskUserQuestion here.\n`);
+      addPlain('plain');
+      await gen();
+
+      expect(read(`skills/${SPLIT}/SKILL.md`)).toContain('Ask with ask.');
+      expect(read(`skills/${SPLIT}/SKILL.md`)).not.toContain('AskUserQuestion');
+      expect(read(`skills/${SPLIT}/${REFS[0]}`)).toContain('Call ask with a choice.');
+      expect(read(`skills/${SPLIT}/${REFS[0]}`)).not.toContain('AskUserQuestion');
+      expect(read('skills/other-skill/SKILL.md')).toContain('Use AskUserQuestion here.');
+    });
+
+    it('proves the references for pruning the way it proves the SKILL.md of their skill', async () => {
+      addSplitSkill();
+      addPlain('plain');
+      await gen();
+
+      expect(relative(listGeneratedFiles(out, 'skill')).sort()).toEqual([
+        `skills/${SPLIT}/SKILL.md`,
+        `skills/${SPLIT}/${REFS[0]}`,
+        `skills/${SPLIT}/${REFS[1]}`,
+        'skills/keep-skill/SKILL.md',
+      ]);
+    });
+
+    it.each([
+      ['the file is deleted from the source', (): void => removeSource(`skills/${SPLIT}/${REFS[1]}`)],
+      ['the SKILL.md stops naming it', (): void => source(`skills/${SPLIT}/SKILL.md`, splitSkillMd(ROWS.slice(0, 1)))],
+    ])('prunes a reference when %s, that file only, and reports it on a dry run without removing it', async (_label, change) => {
+      addSplitSkill();
+      addPlain('plain');
+      await gen();
+
+      change();
+      const dry = await gen({ dryRun: true });
+      expect(exists(`skills/${SPLIT}/${REFS[1]}`)).toBe(true);
+      const real = await gen();
+
+      expect(relative(real.pruned)).toEqual([`skills/${SPLIT}/${REFS[1]}`]);
+      expect(relative(dry.pruned)).toEqual(relative(real.pruned));
+      expect(walk(path.join(out, 'skills', SPLIT))).toEqual(['SKILL.md', REFS[0]]);
+      expect((await gen()).pruned).toEqual([]); // converged
+    });
+
+    it('prunes the references with their skill and its stub, leaving no directory behind', async () => {
+      addSplitSkill();
+      addPlain('plain');
+      await gen();
+
+      removeSource('commands/split.yaml');
+      removeSource(`skills/${SPLIT}`);
+      const result = await gen();
+
+      expect(relative(result.pruned)).toEqual([
+        'prompts/ensemble-split.md',
+        `skills/${SPLIT}/SKILL.md`,
+        `skills/${SPLIT}/${REFS[0]}`,
+        `skills/${SPLIT}/${REFS[1]}`,
+      ]);
+      expect(exists(`skills/${SPLIT}`)).toBe(false);
+      expect(exists('skills/keep-skill/SKILL.md')).toBe(true);
+      expect(exists('skills/ensemble-plain/SKILL.md')).toBe(true);
+    });
+  });
+
+  describe('turning an existing command into a skill-backed one', () => {
+    it('replaces the old wrapper with the source skill when the skill has the wrapper\'s name, and prunes nothing', async () => {
+      addPlain('make-thing');
+      await gen();
+      expect(isCommandWrapperSkill('ensemble-make-thing', read('skills/ensemble-make-thing/SKILL.md'))).toBe(true);
+
+      addSkillBacked('make-thing');
+      const before = snapshot(out);
+      const dry = await gen({ dryRun: true });
+      expect(snapshot(out)).toEqual(before); // a dry run changes nothing
+      const real = await gen();
+
+      expect(isCommandWrapperSkill('ensemble-make-thing', read('skills/ensemble-make-thing/SKILL.md'))).toBe(false);
+      expect(matter(read('skills/ensemble-make-thing/SKILL.md')).data).toEqual(matter(skillMd('ensemble-make-thing')).data);
+      expect(skillOfPrompt(read('prompts/ensemble-make-thing.md'))).toBe('ensemble-make-thing');
+      expect(real.pruned).toEqual([]);
+      expect(relative(dry.pruned)).toEqual(relative(real.pruned)); // the dry run reports what the real run does
+    });
+
+    it('prunes the old wrapper, which the command\'s skill no longer replaces, when the skill is named otherwise', async () => {
+      addPlain('renamed');
+      await gen();
+      expect(isCommandWrapperSkill('ensemble-renamed', read('skills/ensemble-renamed/SKILL.md'))).toBe(true);
+
+      addSkillBacked('renamed', 'other-skill-name');
+      const before = snapshot(out);
+      const dry = await gen({ dryRun: true });
+      expect(snapshot(out)).toEqual(before);
+      const real = await gen();
+
+      expect(relative(real.pruned)).toEqual(['skills/ensemble-renamed/SKILL.md']);
+      expect(relative(dry.pruned)).toEqual(relative(real.pruned));
+      expect(exists('skills/ensemble-renamed')).toBe(false);
+      expect(exists('skills/other-skill-name/SKILL.md')).toBe(true);
+    });
+  });
+
+  describe('a manifest that cannot ship', () => {
+    const generating = async (): Promise<Error | undefined> => {
+      try {
+        await gen();
+      } catch (err) {
+        return err as Error;
+      }
+      return undefined;
+    };
+
+    it('fails naming the file and the skill path when the skill does not exist', async () => {
+      source('commands/make-thing.yaml', manifestYaml('make-thing', 'ensemble-make-thing'));
+      const error = await generating();
+      expect(error?.message).toMatch(/^Missing skill: .*make-thing\.yaml names skill 'ensemble-make-thing', but .*skills.ensemble-make-thing.SKILL\.md does not exist$/);
+      expect(exists('prompts')).toBe(false); // nothing was written
+    });
+
+    it('fails when the skill is in another package: it must be in the command\'s own', async () => {
+      source('commands/make-thing.yaml', manifestYaml('make-thing', 'ensemble-make-thing'));
+      fs.mkdirSync(path.join(src, 'packages', 'other', 'skills', 'ensemble-make-thing'), { recursive: true });
+      fs.writeFileSync(path.join(src, 'packages', 'other', 'skills', 'ensemble-make-thing', 'SKILL.md'), skillMd('ensemble-make-thing'));
+      expect((await generating())?.message).toMatch(/^Missing skill: /);
+    });
+
+    it.each([
+      ['an upper-case name', 'Ensemble-Make'],
+      ['a path', '../elsewhere'],
+      ['a name with an underscore', 'make_thing'],
+      ['an empty value', '""'],
+      ['a list', '[ensemble-make-thing]'],
+      ['a null value', 'null'],
+      ['a name over 64 characters', 'a'.repeat(65)],
+    ])('fails when skill is %s', async (_label, value) => {
+      source('commands/make-thing.yaml', manifestYaml('make-thing', value));
+      expect((await generating())?.message).toMatch(/^Invalid field: skill must be a skill directory name .* in .*make-thing\.yaml$/);
+    });
+
+    it('still requires a name and a version of a manifest, and workflow.phases of anything that is not one', async () => {
+      source('commands/make-thing.yaml', 'skill: ensemble-make-thing\n');
+      expect((await generating())?.message).toMatch(/Missing required field: metadata\.name/);
+
+      source('commands/make-thing.yaml', 'metadata:\n  name: "ensemble:make-thing"\n  version: "1.0.0"\n');
+      expect((await generating())?.message).toMatch(/Missing required field: workflow\.phases/);
+    });
+  });
+
+  describe('a wrapper can never land on a shipped skill', () => {
+    const generating = async (overrides: Partial<GeneratorOptions> = {}): Promise<Error | undefined> => {
+      try {
+        await gen(overrides);
+      } catch (err) {
+        return err as Error;
+      }
+      return undefined;
+    };
+
+    it('fails, before any prompt is written, when another command\'s wrapper would overwrite the skill of a manifest', async () => {
+      addSkillBacked('make-thing', 'ensemble-bar');
+      addPlain('bar'); // its wrapper would be skills/ensemble-bar/SKILL.md, the skill make-thing ships
+      const error = await generating();
+
+      expect(error?.message).toMatch(/bar\.yaml would overwrite the skill .*skills.ensemble-bar.SKILL\.md \((named by|copied from) /);
+      expect(exists('prompts')).toBe(false);
+    });
+
+    it('fails likewise on a dry run, which must not report a state a real run refuses', async () => {
+      addSkillBacked('make-thing', 'ensemble-bar');
+      addPlain('bar');
+      expect((await generating({ dryRun: true }))?.message).toMatch(/would overwrite the skill/);
+    });
+
+    it('fails when an ordinary command is named like a source skill nothing claims, which a wrapper would replace', async () => {
+      // The state before a command is migrated: the skill exists, the command's YAML is not yet a manifest
+      source('skills/ensemble-bar/SKILL.md', skillMd('ensemble-bar'));
+      addPlain('bar');
+      const error = await generating();
+
+      expect(error?.message).toMatch(/bar\.yaml would overwrite the skill .*skills.ensemble-bar.SKILL\.md \(copied from .*skills.ensemble-bar.SKILL\.md\)/);
+      expect(exists('prompts')).toBe(false);
+    });
+
+    it('does not mind a skill-backed command of the same name: its stub gets no wrapper', async () => {
+      addSkillBacked('bar');
+      await expect(gen()).resolves.toEqual({ pruned: [] });
+    });
+
+    it('does not mind a hidden ordinary command named like a skill: a hidden prompt gets no wrapper', async () => {
+      source('skills/ensemble-bar/SKILL.md', skillMd('ensemble-bar'));
+      source('commands/bar.yaml', plainYaml('bar').replace('  version: "1.0.0"', '  version: "1.0.0"\n  visibility: hidden'));
+      await expect(gen()).resolves.toEqual({ pruned: [] });
+      expect(exists('prompts/_hidden/ensemble-bar.md')).toBe(true);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Self-contained packages ship the skill in place
+// ---------------------------------------------------------------------------
+
+describe('Pi generator: skill-backed commands of a self-contained package', () => {
+  const PKG = 'assessment'; // a member of SELF_CONTAINED_PI_PACKAGES
+  let src: string;
+  let piRoot: string;
+
+  const options = (): GeneratorOptions => ({
+    dryRun: false,
+    verbose: false,
+    validate: false,
+    sourceRoot: src,
+    outputRoot: piRoot,
+  });
+  const inPkg = (...p: string[]) => path.join(src, 'packages', PKG, ...p);
+  const put = (file: string, content: string): void => {
+    fs.mkdirSync(path.dirname(inPkg(file)), { recursive: true });
+    fs.writeFileSync(inPkg(file), content, 'utf-8');
+  };
+
+  /** A hand-authored source skill that opens exactly like a generated command wrapper. */
+  const LOOKALIKE = [
+    '---',
+    'name: ensemble-assess-x',
+    'description: "Hand-authored source skill"',
+    'disable-model-invocation: true',
+    '---',
+    '<!-- Command: ensemble-assess-x | Version: 1.0.0 -->',
+    '',
+    '# Hand-authored, though it opens like a wrapper',
+    '',
+  ].join('\n');
+
+  beforeEach(() => {
+    jest.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    src = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-skillbacked-selfc-'));
+    piRoot = path.join(src, 'packages', 'pi');
+    fs.writeFileSync(path.join(src, 'CLAUDE.md'), '## Agent Mesh\n\nContent.\n', 'utf-8');
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    fs.rmSync(src, { recursive: true, force: true });
+  });
+
+  it('is a precondition that the fixture package is self-contained', () => {
+    expect(Object.keys(SELF_CONTAINED_PI_PACKAGES)).toContain(PKG);
+  });
+
+  it('writes the stub into the package, leaves the skill in place byte for byte, and wraps an ordinary command', async () => {
+    put('commands/assess-x.yaml', manifestYaml('assess-x', 'ensemble-assess-x'));
+    put('skills/ensemble-assess-x/SKILL.md', LOOKALIKE);
+    put('commands/assess-plain.yaml', plainYaml('assess-plain'));
+    const result = await generateAll(options());
+
+    expect(skillOfPrompt(fs.readFileSync(inPkg('prompts', 'ensemble-assess-x.md'), 'utf-8'))).toBe('ensemble-assess-x');
+    // The skill the stub names is the command's skill. Never pruned as the wrapper it looks like, and
+    // never rewritten:
+    expect(fs.readFileSync(inPkg('skills', 'ensemble-assess-x', 'SKILL.md'), 'utf-8')).toBe(LOOKALIKE);
+    expect(result.pruned).toEqual([]);
+    expect(fs.existsSync(path.join(piRoot, 'prompts', 'ensemble-assess-x.md'))).toBe(false);
+    expect(fs.existsSync(path.join(piRoot, 'skills', 'ensemble-assess-x'))).toBe(false);
+
+    // The control: an ordinary command of the package is wrapped, hidden from Claude Code
+    const wrapper = fs.readFileSync(inPkg('skills', 'ensemble-assess-plain', 'SKILL.md'), 'utf-8');
+    expect(isCommandWrapperSkill('ensemble-assess-plain', wrapper)).toBe(true);
+    expect(matter(wrapper).data['user-invocable']).toBe(false);
+  });
+
+  it('survives a second run unchanged', async () => {
+    put('commands/assess-x.yaml', manifestYaml('assess-x', 'ensemble-assess-x'));
+    put('skills/ensemble-assess-x/SKILL.md', LOOKALIKE);
+    await generateAll(options());
+    const before = snapshot(inPkg());
+    expect((await generateAll(options())).pruned).toEqual([]);
+    expect(snapshot(inPkg())).toEqual(before);
+  });
+
+  it('prunes the wrapper an earlier run left under the command\'s name when its skill is named otherwise', async () => {
+    put('commands/assess-x.yaml', plainYaml('assess-x'));
+    await generateAll(options());
+    expect(isCommandWrapperSkill('ensemble-assess-x', fs.readFileSync(inPkg('skills', 'ensemble-assess-x', 'SKILL.md'), 'utf-8'))).toBe(true);
+
+    put('commands/assess-x.yaml', manifestYaml('assess-x', 'other-skill-name'));
+    put('skills/other-skill-name/SKILL.md', skillMd('other-skill-name'));
+    const result = await generateAll(options());
+
+    expect(result.pruned.map((file) => path.relative(inPkg(), file).split(path.sep).join('/'))).toEqual([
+      'skills/ensemble-assess-x/SKILL.md',
+    ]);
+    expect(fs.existsSync(inPkg('skills', 'ensemble-assess-x'))).toBe(false);
+    expect(fs.existsSync(inPkg('skills', 'other-skill-name', 'SKILL.md'))).toBe(true);
+  });
+
+  it('fails when the wrapper of another command of the package would overwrite the skill', async () => {
+    put('commands/assess-x.yaml', manifestYaml('assess-x', 'ensemble-assess-bar'));
+    put('skills/ensemble-assess-bar/SKILL.md', skillMd('ensemble-assess-bar'));
+    put('commands/assess-bar.yaml', plainYaml('assess-bar'));
+
+    await expect(generateAll(options())).rejects.toThrow(/assess-bar\.yaml would overwrite the skill .*ensemble-assess-bar.SKILL\.md \(named by .*assess-x\.yaml\)/);
+    expect(fs.existsSync(inPkg('prompts'))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. The real sources of the repository, through the generator
+// ---------------------------------------------------------------------------
+
+describe('Pi generator on the real sources: every skill-backed command of the repository', () => {
+  const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+  let out: string;
+
+  interface Manifest {
+    file: string;
+    pkg: string;
+    name: string;
+    hidden: boolean;
+    skill: string;
+  }
+
+  // The manifests of the packages ensemble-pi is generated from. A self-contained package is left
+  // out: generateSelfContainedPackages writes into the package of the source tree, never to a
+  // scratch output root, so a test cannot run it on the real repository.
+  function manifests(): Manifest[] {
+    const found: Manifest[] = [];
+    const packagesDir = path.join(REPO_ROOT, 'packages');
+    for (const pkg of fs.readdirSync(packagesDir).sort()) {
+      if (Object.prototype.hasOwnProperty.call(SELF_CONTAINED_PI_PACKAGES, pkg)) continue;
+      const dir = path.join(packagesDir, pkg, 'commands');
+      if (!fs.existsSync(dir)) continue;
+      for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.yaml')).sort()) {
+        const data = yaml.load(fs.readFileSync(path.join(dir, file), 'utf-8')) as
+          | { metadata?: { name?: string; visibility?: string }; skill?: unknown }
+          | undefined;
+        if (typeof data?.skill === 'string' && typeof data.metadata?.name === 'string') {
+          found.push({
+            file: path.join('packages', pkg, 'commands', file),
+            pkg,
+            name: data.metadata.name,
+            hidden: data.metadata.visibility === 'hidden',
+            skill: data.skill,
+          });
+        }
+      }
+    }
+    return found;
+  }
+
+  beforeAll(async () => {
+    out = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-skillbacked-real-'));
+    // Resolving at all is already a check: every real command YAML, manifests included, is accepted,
+    // and --validate parses what came out.
+    await generate({ dryRun: false, verbose: false, validate: true, sourceRoot: REPO_ROOT, outputRoot: out });
+  });
+
+  afterAll(() => {
+    fs.rmSync(out, { recursive: true, force: true });
+  });
+
+  // Quantified over the manifests that exist: with none, nothing is held to the contract below.
+  it('gets a stub prompt and the one source skill, never a wrapper', () => {
+    for (const m of manifests()) {
+      const promptPath = promptOutputPath(out, m.name, m.hidden);
+      const where = `${m.file} -> ${path.relative(out, promptPath)}`;
+
+      expect({ where, skill: skillOfPrompt(fs.readFileSync(promptPath, 'utf-8')) }).toEqual({ where, skill: m.skill });
+
+      const skillFile = path.join(out, 'skills', m.skill, 'SKILL.md');
+      expect({ where, shipped: fs.existsSync(skillFile) }).toEqual({ where, shipped: true });
+      const shipped = fs.readFileSync(skillFile, 'utf-8');
+      expect({ where, wrapper: isCommandWrapperSkill(m.skill, shipped) }).toEqual({ where, wrapper: false });
+
+      // The source skill, frontmatter intact (the copier forces name to the directory name, as here)
+      const source = fs.readFileSync(path.join(REPO_ROOT, 'packages', m.pkg, 'skills', m.skill, 'SKILL.md'), 'utf-8');
+      expect({ where, frontmatter: matter(shipped).data }).toEqual({
+        where,
+        frontmatter: { ...matter(source).data, name: m.skill },
+      });
+
+      // One skill for the command: no wrapper beside it under the command's own name
+      const wrapperDir = path.join(out, 'skills', m.name.replace(/^ensemble:/, 'ensemble-'));
+      if (path.basename(wrapperDir) !== m.skill) {
+        expect({ where, wrapperDir: fs.existsSync(wrapperDir) }).toEqual({ where, wrapperDir: false });
+      }
+    }
+  });
+
+  // The SKILL.md of a split skill names its phase files by path, and the copier ships what a shipped
+  // file names: a reference that no SKILL.md row names is silently left out of the Pi install.
+  it('ships every file of the references/ directory of each source skill, stamped with the marker', () => {
+    for (const m of manifests()) {
+      const referencesDir = path.join(REPO_ROOT, 'packages', m.pkg, 'skills', m.skill, 'references');
+      if (!fs.existsSync(referencesDir)) continue;
+      const files = walk(referencesDir).filter((file) => !file.split('/').some((segment) => segment.startsWith('.')));
+      for (const rel of files) {
+        const where = `${m.file} -> skills/${m.skill}/references/${rel}`;
+        const shippedPath = path.join(out, 'skills', m.skill, 'references', ...rel.split('/'));
+        expect({ where, shipped: fs.existsSync(shippedPath) }).toEqual({ where, shipped: true });
+        if (rel.endsWith('.md')) {
+          expect({ where, marked: hasGeneratedMarker(fs.readFileSync(shippedPath, 'utf-8')) }).toEqual({ where, marked: true });
+        }
+      }
+    }
+  });
+});

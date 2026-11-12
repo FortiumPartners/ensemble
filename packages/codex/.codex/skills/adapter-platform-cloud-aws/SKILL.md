@@ -1,7 +1,6 @@
 ---
 name: adapter-platform-cloud-aws
 description: AWS CLI `platform-cloud` toolchain adapter (TRD-2026-8d825f54 TRD-044). Loaded by the toolchain resolver, not invoked directly by name. Shipped default platform-cloud adapter.
-user-invocable: true
 ---
 
 # AWS CLI Platform-Cloud Adapter

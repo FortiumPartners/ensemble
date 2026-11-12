@@ -17,7 +17,7 @@ const path = require('path');
 const cli = require('../lib/local-ci-cli');
 const { validateConfig } = require('../lib/local-ci-config');
 const { buildRecord } = require('../lib/local-ci-record');
-const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, PR, REPO, CONFIG_PATH } = require('./helpers/local-ci-base-repo');
+const { makeBaseRepo, cleanupBaseRepos, prInfoFor, fakePostStatus, statusesApi, asGithub, PR, REPO, CONFIG_PATH } = require('./helpers/local-ci-base-repo');
 
 const REPO_CONFIG = path.join(__dirname, '..', '..', '..', '.ensemble', 'local-ci.yaml');
 const TRUSTED_TEXT = fs.readFileSync(REPO_CONFIG, 'utf8');
@@ -132,7 +132,7 @@ describe('merge: payload cannot carry config', () => {
   const record = buildRecord({ runnerBlobSha: repo.short, workflowSet: WORKFLOW_SET, log: 'run' });
   const status = (over = {}) => ({ context: CONTEXT, state: 'success', description: record.description, sha: repo.sha, ...over });
   const merge = (extra = {}, over = {}) =>
-    cli.runMerge({ headSha: repo.sha, baseRef: repo.baseRef, statuses: [status()], repoRoot: repo.dir, repo: REPO, pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo, prAnswer(extra)), ...over });
+    cli.runMerge({ headSha: repo.sha, baseRef: repo.baseRef, statuses: [status()], repoRoot: repo.dir, repo: REPO, pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo, prAnswer(extra)), ghApi: statusesApi(asGithub([status()])), ...over });
 
   it('control: a status carrying the base config hash is merge-ready', () => {
     expect(merge()).toMatchObject({ ok: true, mergeReady: true });
@@ -204,26 +204,26 @@ describe('merge: payload cannot carry config', () => {
 });
 
 describe('run and config subcommands', () => {
-  it('run accepts only repoRoot, headSha and baseRef and builds the runner options from the base-committed file', () => {
+  it('run accepts only repoRoot, headSha and baseRef and builds the runner options from the base-committed file', async () => {
     const repo = maintainer();
     const { deps, runGate } = makeDeps(undefined, repo);
-    cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef }, deps);
+    await cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef }, deps);
     expect(runGate.mock.calls[0][0].approvalSet).toEqual(TRUSTED.approvalSet);
     for (const bad of [{ options: { nodeVersions: [1] } }, { config: TRUSTED_TEXT }, { remote: 'x' }, { keep: true }, { env: {} }]) {
-      expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef, ...bad }, deps)).toThrow(/unknown payload key/);
+      await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef, ...bad }, deps)).rejects.toThrow(/unknown payload key/);
     }
     expect(runGate).toHaveBeenCalledTimes(1);
   });
 
-  it('run requires baseRef and refuses a base equal to the head without running', () => {
+  it('run requires baseRef and refuses a base equal to the head without running', async () => {
     const repo = maintainer();
     const { deps, runGate } = makeDeps(undefined, repo);
-    expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha }, deps)).toThrow(/baseRef/);
+    await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha }, deps)).rejects.toThrow(/baseRef/);
     repo.git('update-ref', 'refs/remotes/origin/pr-self', repo.sha);
-    const r = cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: 'origin/pr-self' }, deps);
+    const r = await cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: 'origin/pr-self' }, deps);
     expect(r.ok).toBe(false);
     expect(JSON.stringify(r)).toMatch(/own base/);
-    expect(() => cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.sha }, deps)).toThrow(/baseRef/);
+    await expect(cli.runRun({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.sha }, deps)).rejects.toThrow(/baseRef/);
     expect(runGate).not.toHaveBeenCalled();
   });
 
@@ -246,7 +246,7 @@ describe('merge through the CLI: reviews and context matching', () => {
   const HEAD = repo.sha;
   const record = buildRecord({ runnerBlobSha: repo.short, workflowSet: WORKFLOW_SET, log: 'run' });
   const status = (over = {}) => ({ context: CONTEXT, state: 'success', description: record.description, sha: HEAD, ...over });
-  const merge = (extra = {}, statuses = [status()]) => cli.runMerge({ headSha: HEAD, baseRef: repo.baseRef, statuses, repoRoot: repo.dir, repo: REPO, pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo) });
+  const merge = (extra = {}, statuses = [status()]) => cli.runMerge({ headSha: HEAD, baseRef: repo.baseRef, statuses, repoRoot: repo.dir, repo: REPO, pr: PR, ...extra }, { ...cli.defaultDeps(), prInfo: prInfoFor(repo), ghApi: statusesApi(asGithub(statuses)) });
   const review = (login, type, state, submittedAt) => ({ author: { login, type }, state, submittedAt });
 
   it('a human reviewer whose latest decisive review is CHANGES_REQUESTED blocks the merge', () => {
@@ -312,7 +312,8 @@ describe('gate through the CLI: a pass needs ok, no failures, no unmirrored step
     const { deps, post } = makeDeps(undefined, repo);
     const r = await cli.runGateFlow({ repoRoot: repo.dir, headSha: repo.sha, baseRef: repo.baseRef, repo: REPO, pr: PR }, deps);
     expect(r).toMatchObject({ ok: true, posted: true, mergeReady: true });
-    expect(post.statuses()[0].body).toMatchObject({ state: 'success', context: CONTEXT });
+    expect(post.statuses().map((p) => p.body.state)).toEqual(['pending', 'success']);
+    expect(post.statuses()[1].body).toMatchObject({ state: 'success', context: CONTEXT });
   });
 
   it('ok:true with a recorded failure is NOT success', async () => {
@@ -347,7 +348,7 @@ describe('gate through the CLI: a pass needs ok, no failures, no unmirrored step
     expect(headBlob).not.toBe(baseBlob);
     expect(r.record.runner).toBe(baseBlob.slice(0, 12));
     expect(r.record.runner).not.toBe(headBlob.slice(0, 12));
-    expect(post.statuses()[0].body.description).toContain(`ci-local ${baseBlob.slice(0, 12)}`);
+    expect(post.statuses()[1].body.description).toContain(`ci-local ${baseBlob.slice(0, 12)}`);
   });
 
   it('a base ref that is the head, or does not resolve, posts nothing and runs nothing', async () => {

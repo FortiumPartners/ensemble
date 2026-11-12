@@ -96,6 +96,8 @@ function blocked(reason) {
   };
 }
 
+const UNTRUSTED_WARNING = 'policy-untrusted-all-high:';
+
 /**
  * Reads the path classification: either a `classifyPaths` result or a plain
  * `{ sensitive, high }`. Returns null when it cannot be read, and `blocked`
@@ -133,6 +135,11 @@ function readPaths(value, warnings) {
     sensitive: value.sensitive === undefined ? [] : value.sensitive.slice(),
     high: value.high === undefined ? [] : value.high.slice(),
     declarationChanged: typeof value.declarationChanged === 'boolean' ? value.declarationChanged : null,
+    // Why every path is High when the base policy could not be trusted (kata vhpf); a tier REASON, never a warning, because
+    // a tier warning reads as an ambiguity to the mode selector.
+    policyUntrusted: Array.isArray(value.warnings)
+      ? (value.warnings.find((w) => typeof w === 'string' && w.startsWith(UNTRUSTED_WARNING)) || '').slice(UNTRUSTED_WARNING.length) || null
+      : null,
     changedPaths,
     changedPathsReadable,
   };
@@ -224,6 +231,7 @@ function assignTier(input) {
   if (classification.high.length > 0) {
     floor = 'high';
     reasons.push('owner-high-path');
+    if (classification.policyUntrusted !== null) reasons.push(`policy-untrusted:${classification.policyUntrusted}`);
   }
 
   let tier = floor === null ? baseTier : higher(baseTier, floor);

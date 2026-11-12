@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
+
 /**
  * br-rt4: beads-build.yaml dispatched Task(subagent_type=beads-build-wave) and
  * implement-trd.yaml dispatched Task(subagent_type=implement-trd-task), but
@@ -34,7 +36,10 @@ describe('every subagent_type dispatched by a command resolves to a real agent',
     .readdirSync(commandsDir)
     .filter((f) => f.endsWith('.yaml'))
     .flatMap((file) => {
-      const text = fs.readFileSync(path.join(commandsDir, file), 'utf8');
+      // skill-backed commands keep their prompt in the skill (SKILL.md + references/)
+      const yamlPath = path.join(commandsDir, file);
+      const raw = fs.readFileSync(yamlPath, 'utf8');
+      const text = readCommandProse(yamlPath, require('js-yaml').load(raw), raw);
       const matches = text.match(/subagent_type=(?:"|')?([^,)"'\s]*)/g) || [];
       return matches.map((m) => ({
         file,
@@ -87,7 +92,10 @@ describe('every subagent_type dispatched by a command resolves to a real agent',
   test.each(['beads-build.yaml', 'implement-trd-beads.yaml'])(
     '%s halts early when beads-build-wave is not registered',
     (file) => {
-      const text = fs.readFileSync(path.join(commandsDir, file), 'utf8');
+      // skill-backed commands keep their prompt in the skill (SKILL.md + references/)
+      const yamlPath = path.join(commandsDir, file);
+      const raw = fs.readFileSync(yamlPath, 'utf8');
+      const text = readCommandProse(yamlPath, require('js-yaml').load(raw), raw);
       expect(text).toMatch(/agent beads-build-wave is not registered in this session/);
       expect(text).toMatch(/\/ensemble:reinstall-plugins/);
     }

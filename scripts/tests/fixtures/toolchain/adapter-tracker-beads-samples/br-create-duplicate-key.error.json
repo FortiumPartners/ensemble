@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "CONFIG_ERROR",
+    "message": "Configuration error: External reference 'dk:acme/repo:src/c.js:relabelled' already exists on issue ws-pdi",
+    "hint": null,
+    "retryable": false,
+    "context": null
+  }
+}

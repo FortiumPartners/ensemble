@@ -24,7 +24,7 @@ A specialist agent for .NET backend development. Invoke it when you need to:
 - Design Entity Framework Core schemas and migrations
 
 The agent automatically loads the `dotnet` skill from
-`packages/dotnet/skills/SKILL.md` at task start.
+`packages/dotnet/skills/dotnet/SKILL.md` at task start.
 
 **Delegation boundaries:**
 - Blazor/frontend work → `dotnet-blazor-expert` (future agent)
@@ -34,7 +34,7 @@ The agent automatically loads the `dotnet` skill from
 
 ## Skills
 
-The shared `.NET` skill documentation lives in `packages/dotnet/skills/` and covers:
+The shared `.NET` skill documentation lives in `packages/dotnet/skills/dotnet/` and covers:
 
 - ASP.NET Core controller and Minimal API patterns
 - Wolverine CQRS command/query handlers and sagas

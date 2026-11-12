@@ -83,6 +83,31 @@ excluded_steps:
     step: Upload coverage
     reason: Uploads coverage to codecov.io (external service) and only on Node 24; it informs nothing about whether the change is correct.
 
+# Hosted CI reuse: when GitHub Actions already ran the jobs below to success on the PR's exact head, `gate` and `merge`
+# accept them instead of repeating the commands locally (packages/development/lib/local-ci-hosted.js: the jobs are read
+# from the Actions API, the workflow files must be unchanged by the PR, names come from this file and the base workflow).
+# `covers` is THIS file's declaration of which local steps hosted CI runs; every step above must be listed, so a step
+# added without a hosted counterpart switches reuse off. Declared fidelity gaps, accepted: hosted `validate` and `drift`
+# run on Node 24 only (the local gate also runs them on 22); `generate-validate` (`npm run generate:validate`) is not a
+# hosted step, it is declared covered by `npm run generate`, which hosted `validate` and `drift` both run and which
+# validates the same YAML. To refuse reuse for any of these, delete that name from `covers`: reuse then turns off
+# entirely and the gate runs locally.
+hosted_reuse:
+  covers:
+    - install
+    - scripts-tests
+    - validate
+    - generate-validate
+    - generated-drift
+    - test
+    - reject-windows-invalid-filenames
+    - check-package-json-consistency
+    - validate-opencode-plugin-json
+  extra_workflows:
+    - file: .github/workflows/generated-drift.yml
+      jobs:
+        - id: drift
+
 # Name of the commit status the gate posts on the PR head.
 status_context: ensemble/local-ci
 

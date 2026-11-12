@@ -159,6 +159,49 @@ function splitFrontmatter(md) {
   return { frontmatter, body };
 }
 
+/**
+ * Parse a markdown file that may have a title or comment (an H1, an HTML comment) before the
+ * frontmatter block, which splitFrontmatter does not accept: several TRDs in docs/TRD/ are laid out
+ * that way. Strategy:
+ * 1. Find first `---` on its own line → frontmatter start
+ * 2. Find second `---` on its own line → frontmatter end
+ * 3. If yaml is available, use it; otherwise fall back to parseSimpleFrontmatter
+ * Returns { frontmatter, body, yamlFailed } where yamlFailed=true when the
+ * yaml parser threw (indicating the frontmatter uses non-standard syntax
+ * such as bold-keyed lines).
+ *
+ * @param {string} md
+ * @returns {{frontmatter: Object|null, body: string, yamlFailed: boolean}}
+ */
+function scanFrontmatter(md) {
+  const lines = md.split('\n');
+  let start = -1;
+  let end = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      if (start === -1) start = i;
+      else if (start !== -1 && end === -1) { end = i; break; }
+    }
+  }
+  if (start === -1 || end === -1) {
+    return { frontmatter: null, body: md, yamlFailed: false };
+  }
+  const raw = lines.slice(start + 1, end).join('\n');
+  let frontmatter = null;
+  let yamlFailed = false;
+  if (yaml) {
+    try {
+      const loaded = yaml.load(raw);
+      if (loaded && typeof loaded === 'object') frontmatter = loaded;
+    } catch {
+      yamlFailed = true;
+    }
+  }
+  if (!frontmatter) { frontmatter = parseSimpleFrontmatter(raw); yamlFailed = true; }
+  const body = lines.slice(end + 1).join('\n');
+  return { frontmatter, body, yamlFailed };
+}
+
 /** Frontmatter keys that carry the PRD a TRD was derived from, in priority order. */
 const PRD_REFERENCE_KEYS = ['prd_reference', 'prd', 'source_prd'];
 /**
@@ -1086,6 +1129,7 @@ function parseTRD(markdownString) {
 module.exports = {
   parseTRD,
   normalizeLineEndings,
+  scanFrontmatter,
   extractDesignReadinessScore,
   getFrontmatterField,
   PRD_REFERENCE_KEYS,

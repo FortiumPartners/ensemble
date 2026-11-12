@@ -624,7 +624,10 @@ function detectAdapter(category, ctx = {}) {
   for (const name of candidateNames) {
     let loaded;
     try {
-      loaded = loadAdapter(name, ctx);
+      // Keyed on (id, category): an id declared by two directories, one category each, used to
+      // load whichever sorted first and then be dropped by the category check below, so it
+      // could never be a candidate for the other category at all (#146).
+      loaded = loadAdapter(name, { ...ctx, category });
     } catch {
       // Not installed anymore (discovery/load race), untrusted repo-local adapter, or an
       // invalid user toolchain.yaml encountered during the trust lookup: exclude this
@@ -636,6 +639,9 @@ function detectAdapter(category, ctx = {}) {
     }
 
     const manifest = loaded.manifest;
+    // The `categories.includes(category)` half is now implied by the keyed load above (that is
+    // the fix), and is kept because it is what makes the keyed load's effect visible here: a
+    // candidate reaching this line without the category means the pass-through was dropped.
     if (!manifest || !Array.isArray(manifest.categories) || !manifest.categories.includes(category)) {
       continue;
     }

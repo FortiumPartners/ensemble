@@ -11,19 +11,21 @@ const { globSync } = require('glob');
 // as orphaned.
 const { toGlobPattern } = require('../lib/file-discovery');
 const { vendorToolchainLibrary } = require('../lib/toolchain-vendor');
+const { MIRROR_PACKAGES, owningPackage } = require('../lib/mirror-packages');
+const { isSkillBacked, resolveSkillFile } = require('../lib/skill-backed-command');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const PACKAGES_DIR = path.join(ROOT, 'packages');
-// Packages that MIRROR every other package's skills/adapter-* directories (packages/pi's own
-// generator output, packages/full's curated symlink tree -- see
-// packages/pi/src/transformers/skill-copier.ts's own EXCLUDED_PACKAGES for the same rule on
-// the Pi side) must never be treated as a SECOND, independent adapter source: TRD-024 is the
-// first real adapter this monorepo ships, and it exposed a latent gap here -- `packages/pi`'s
-// generated `packages/pi/skills/adapter-tracker-beads/` otherwise collides with the real
-// source at `packages/development/skills/adapter-tracker-beads/`, a false positive this
-// generator's own collision check (below) would wrongly treat as two different packages
-// shipping the same adapter name.
-const ADAPTER_SOURCE_EXCLUDED_PACKAGES = new Set(['pi', 'full']);
+// A mirror package must never be treated as a SECOND, independent adapter source: TRD-024
+// is the first real adapter this monorepo ships, and it exposed a latent gap here --
+// `packages/pi`'s generated `packages/pi/skills/adapter-tracker-beads/` otherwise collides
+// with the real source at `packages/development/skills/adapter-tracker-beads/`, a false
+// positive this generator's own collision check (below) would wrongly treat as two
+// different packages shipping the same adapter name. The same exclusion applies to this
+// generator's agent and command globs -- see scripts/lib/mirror-packages.js, which both
+// JS generators now share, and packages/pi/src/self-contained-packages.ts for the Pi side.
+const ADAPTER_SOURCE_EXCLUDED_PACKAGES = MIRROR_PACKAGES;
+
 const CODEX_PACKAGE_DIR = path.join(PACKAGES_DIR, 'codex');
 const OUTPUT_DIR = path.join(CODEX_PACKAGE_DIR, '.codex');
 const AGENTS_OUTPUT = path.join(CODEX_PACKAGE_DIR, 'AGENTS.md');
@@ -43,6 +45,10 @@ const FRAMEWORK_SKILL_REWRITES = [
   [/(?<![\w./-])skills\/(react|nestjs|rails|phoenix|blazor|dotnet|jest|pytest|rspec|xunit|exunit)\//g, '.codex/skills/$1/'],
   [/skills\/\{framework\}\//g, '.codex/skills/<framework>/'],
 ];
+
+// Framework skills ship to Codex lean: SKILL.md only (packages/codex/tests/package-structure.test.js
+// pins that for react). These also carry their REFERENCE.md.
+const FRAMEWORK_SKILLS_WITH_REFERENCE = new Set(['reqnroll']);
 
 function parseArgs(argv) {
   return {
@@ -244,46 +250,40 @@ function detectAgentSkills(name, content) {
   return Array.from(skills).filter((skill) => AVAILABLE_SKILLS.has(skill)).sort();
 }
 
+/**
+ * An ordinary (non command-wrapper) skill keeps the frontmatter its source declares and gains no
+ * host keys: `user-invocable` belongs to the `ensemble-*` wrapper skills alone. A source with no
+ * frontmatter gets a name and a description synthesized from its body.
+ */
+function skillFrontmatter(parsed, name) {
+  return Object.keys(parsed.data).length > 0
+    ? parsed.data
+    : { name, description: firstMeaningfulLine(parsed.content) };
+}
+
+/**
+ * Copy the framework skills (react, jest, reqnroll, ...). Each is a skill named after the
+ * package that owns it, at `packages/<pkg>/skills/<pkg>/SKILL.md`, and lands at
+ * `.codex/skills/<pkg>/SKILL.md`.
+ */
 function copyFrameworkSkills({ dryRun, verbose }) {
-  const skillFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/skills/SKILL.md'))).sort();
+  const packageNames = fs.readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
   let count = 0;
 
-  for (const skillFile of skillFiles) {
-    const packageName = path.basename(path.dirname(path.dirname(skillFile)));
+  for (const packageName of packageNames) {
+    const skillDir = path.join(PACKAGES_DIR, packageName, 'skills', packageName);
+    const skillFile = path.join(skillDir, 'SKILL.md');
+    if (!fs.existsSync(skillFile)) continue;
+
     const dest = path.join(OUTPUT_DIR, 'skills', packageName, 'SKILL.md');
-    const raw = readFile(skillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: packageName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
+    const parsed = parseFrontmatter(readFile(skillFile));
+    writeFile(dest, `${yamlFrontmatter(skillFrontmatter(parsed, packageName))}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
 
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
-    count += 1;
-  }
-
-
-  const reqnrollSkillFile = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'SKILL.md');
-  if (fs.existsSync(reqnrollSkillFile)) {
-    const packageName = 'reqnroll';
-    const dest = path.join(OUTPUT_DIR, 'skills', packageName, 'SKILL.md');
-    const raw = readFile(reqnrollSkillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: packageName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
-
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
-
-    const referencePath = path.join(PACKAGES_DIR, 'reqnroll', 'skills', 'reqnroll', 'REFERENCE.md');
-    if (fs.existsSync(referencePath)) {
+    const referencePath = path.join(skillDir, 'REFERENCE.md');
+    if (FRAMEWORK_SKILLS_WITH_REFERENCE.has(packageName) && fs.existsSync(referencePath)) {
       writeFile(path.join(OUTPUT_DIR, 'skills', packageName, 'REFERENCE.md'), `${normalizeSkillBody(readFile(referencePath))}\n`, dryRun, verbose);
     }
     count += 1;
@@ -308,7 +308,7 @@ function copyFrameworkSkills({ dryRun, verbose }) {
  */
 function copyAdapterSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, outputDir = OUTPUT_DIR }) {
   const adapterSkillFiles = globSync(toGlobPattern(path.join(packagesDir, '*/skills/adapter-*/SKILL.md')))
-    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(path.basename(path.dirname(path.dirname(path.dirname(file))))))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, packagesDir)))
     .sort();
 
   // Detect adapter directory-name collisions (TRD-020 P2 fix). Output is keyed purely by the
@@ -339,17 +339,9 @@ function copyAdapterSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, output
     const adapterDir = path.dirname(skillFile);
     const adapterName = path.basename(adapterDir);
     const dest = path.join(outputDir, 'skills', adapterName, 'SKILL.md');
-    const raw = readFile(skillFile);
-    const parsed = parseFrontmatter(raw);
-    const frontmatter = Object.keys(parsed.data).length > 0
-      ? { ...parsed.data, 'user-invocable': parsed.data['user-invocable'] ?? true }
-      : {
-          name: adapterName,
-          description: firstMeaningfulLine(parsed.content),
-          'user-invocable': true,
-        };
+    const parsed = parseFrontmatter(readFile(skillFile));
 
-    writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
+    writeFile(dest, `${yamlFrontmatter(skillFrontmatter(parsed, adapterName))}\n${normalizeSkillBody(parsed.content)}\n`, dryRun, verbose);
     count += 1;
 
     const adapterYaml = path.join(adapterDir, 'adapter.yaml');
@@ -395,9 +387,12 @@ function vendorCodexToolchain({ dryRun, verbose, outputDir = OUTPUT_DIR }) {
  * @param {string} [overrides.rootDir] - defaults to ROOT; must be the ancestor `outputDir` sits
  *   under so the rendered path (e.g. `packages/codex/.codex/skills/commands/...`) stays
  *   structurally correct even when both are overridden to a temp root.
+ * @param {Map<string, string>} [overrides.skillNameByRef] - bare command name -> the skill its Codex
+ *   output carries, for the skill-backed commands, whose skill need not be named `ensemble-<command>`;
+ *   a ref missing from it is named `ensemble-<ref>`.
  * @returns {string}
  */
-function generateCodexSubcommandsSection(subcommands, baseNameToYamlFile, sourceYamlPath, { outputDir = OUTPUT_DIR, rootDir = ROOT } = {}) {
+function generateCodexSubcommandsSection(subcommands, baseNameToYamlFile, sourceYamlPath, { outputDir = OUTPUT_DIR, rootDir = ROOT, skillNameByRef = new Map() } = {}) {
   const repoRoot = rootDir;
   const lines = ['## Subcommands', ''];
 
@@ -405,7 +400,7 @@ function generateCodexSubcommandsSection(subcommands, baseNameToYamlFile, source
     if (!baseNameToYamlFile.has(sub.ref)) {
       throw new Error(`dispatch.subcommands references unknown command '${sub.ref}' (${sourceYamlPath})`);
     }
-    const codexSkillName = `ensemble-${sub.ref}`;
+    const codexSkillName = skillNameByRef.get(sub.ref) ?? `ensemble-${sub.ref}`;
     const outputPath = path.join(outputDir, 'skills', 'commands', codexSkillName, 'SKILL.md');
     const relPath = path.relative(repoRoot, outputPath);
     const description = sub.description ? sub.description.trim().replace(/\s+/g, ' ') : '';
@@ -417,14 +412,148 @@ function generateCodexSubcommandsSection(subcommands, baseNameToYamlFile, source
   return lines.join('\n');
 }
 
+/** The subdirectory of a skill that holds its extra documents (the Agent Skills layout). */
+const SKILL_REFERENCES_DIR = 'references';
+
+/**
+ * Every file below `dir`, as `/`-separated paths relative to it, in name order. A symlink is followed
+ * (a link to a file ships as that file; a link to nowhere throws). A name that starts with a dot
+ * (`.DS_Store` and the like) is skipped, as the Pi skill copier skips it: such a file is one machine's
+ * leftover, and committed output must not differ from one machine to the next.
+ */
+function filesBelow(dir) {
+  const files = [];
+  for (const name of fs.readdirSync(dir).sort()) {
+    if (name.startsWith('.')) continue;
+    const entry = path.join(dir, name);
+    const stat = fs.statSync(entry);
+    if (stat.isDirectory()) {
+      for (const rel of filesBelow(entry)) files.push(`${name}/${rel}`);
+    } else if (stat.isFile()) {
+      files.push(name);
+    }
+  }
+  return files;
+}
+
+/**
+ * The files of a skill's `references/` directory (none when it has none), relative to that directory.
+ * It is the one thing that ships beside a command skill's SKILL.md, because the SKILL.md names those
+ * files by paths relative to itself. The skill's other files (scripts, notes, a README) are authoring
+ * material that the lean Codex bundle leaves out.
+ */
+function skillReferenceFiles(skillDir) {
+  const referencesDir = path.join(skillDir, SKILL_REFERENCES_DIR);
+  return fs.existsSync(referencesDir) && fs.statSync(referencesDir).isDirectory() ? filesBelow(referencesDir) : [];
+}
+
+/** Where a skill keeps its Codex-only machine config (Codex skill-creator layout), relative to the skill. */
+const OPENAI_YAML_PATH = path.join('agents', 'openai.yaml');
+
+/**
+ * Codex does not read `disable-model-invocation`; it reads `agents/openai.yaml`. This is that file for
+ * a skill that must not be injected into the model context by default (still invocable as `$skill`).
+ * Strings would be quoted and keys are not, per the Codex reference; this has neither.
+ */
+const OPENAI_YAML_NO_IMPLICIT = 'policy:\n  allow_implicit_invocation: false\n';
+
+/**
+ * Write `agents/openai.yaml` beside a shipped command skill when its source SKILL.md frontmatter has
+ * `disable-model-invocation: true`; otherwise remove one a previous run left, so dropping the key in
+ * the source drops the file on regeneration. The `agents/` directory goes with it when that empties it.
+ */
+function syncOpenAiPolicy(skillFile, destDir, dryRun, verbose) {
+  const destFile = path.join(destDir, OPENAI_YAML_PATH);
+  const { data } = parseFrontmatter(readFile(skillFile));
+  if (data['disable-model-invocation'] === true) {
+    writeFile(destFile, OPENAI_YAML_NO_IMPLICIT, dryRun, verbose);
+    return;
+  }
+  if (dryRun) return;
+  fs.rmSync(destFile, { force: true });
+  const agentsDir = path.dirname(destFile);
+  if (fs.existsSync(agentsDir) && fs.readdirSync(agentsDir).length === 0) fs.rmdirSync(agentsDir);
+}
+
+/**
+ * Write one Codex skill per command, `<outputDir>/skills/commands/<skill>/SKILL.md`, and return how
+ * many skills that is (distinct skill directories, not the files in them nor the commands).
+ *
+ * An ordinary command gets a wrapper skill, `ensemble-<command>`, rendered from its prompt. A
+ * skill-backed command (its YAML is a manifest with a top-level `skill`, see
+ * scripts/lib/skill-backed-command.js) gets no wrapper: the skill it names is the command's one skill
+ * and is copied verbatim, frontmatter and body, so the bundle carries the single source of truth and
+ * not a rendering of it. The `references/` directory of that skill ships with it, every file below it
+ * at the same relative path and byte for byte, so the paths its SKILL.md names stay valid; no other
+ * file beside the SKILL.md does. Claude's generated command .md, which is only a stub pointing at that
+ * skill, is never read for it, and `user-invocable` is not injected: the skill declares its own
+ * frontmatter.
+ *
+ * Two commands may not claim one output file from different sources (a skill-backed command whose
+ * skill is named like another command's wrapper); that throws instead of the last writer winning, and
+ * so does a manifest whose skill does not exist, before anything is written.
+ */
 function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, outputDir = OUTPUT_DIR, rootDir = ROOT }) {
-  const commandYamlFiles = globSync(toGlobPattern(path.join(packagesDir, '*/commands/*.yaml'))).sort();
+  const commandYamlFiles = globSync(toGlobPattern(path.join(packagesDir, '*/commands/*.yaml')))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, packagesDir)))
+    .sort();
   // Resolves each dispatch.subcommands[].ref to its sibling's own YAML path,
   // so we can validate the ref and derive that sibling's Codex output path.
   const baseNameToYamlFile = new Map(commandYamlFiles.map((f) => [path.basename(f, '.yaml'), f]));
-  let count = 0;
+
+  // Every command's raw YAML, read once: whether a command is skill-backed decides which skill a
+  // dispatcher that refers to it must name, before that command's own turn comes.
+  const yamlByFile = new Map(commandYamlFiles.map((f) => [f, yaml.load(normalizeLineEndings(readFile(f))) || {}]));
+  const skillFileByYaml = new Map(); // a skill-backed command's YAML -> the SKILL.md it ships
+  const skillNameByRef = new Map(); // its bare command name -> that skill's name
+  for (const yamlFile of commandYamlFiles) {
+    const manifest = yamlByFile.get(yamlFile);
+    if (!isSkillBacked(manifest)) continue;
+    try {
+      skillFileByYaml.set(yamlFile, resolveSkillFile(yamlFile, manifest.skill));
+    } catch (err) {
+      throw new Error(`${path.relative(rootDir, yamlFile)}: ${err.message}`, { cause: err });
+    }
+    skillNameByRef.set(path.basename(yamlFile, '.yaml'), manifest.skill);
+  }
+
+  const claimed = new Map(); // every output file -> the file its content comes from
+  const claim = (dest, from) => {
+    const other = claimed.get(dest);
+    if (other !== undefined && other !== from) {
+      throw new Error(
+        `Codex command skill collision: ${path.relative(rootDir, dest)} would come from both ` +
+          `${path.relative(rootDir, other)} and ${path.relative(rootDir, from)}`
+      );
+    }
+    claimed.set(dest, from);
+  };
+  const skillFiles = new Set(); // the output SKILL.md files, one per skill: what the return value counts
+  const claimSkill = (dest, from) => {
+    claim(dest, from);
+    skillFiles.add(dest);
+  };
+  const shippedSkills = new Set(); // the SKILL.md files already copied: two manifests naming one skill ship it once
 
   for (const yamlFile of commandYamlFiles) {
+    const skillFile = skillFileByYaml.get(yamlFile);
+    if (skillFile !== undefined) {
+      if (shippedSkills.has(skillFile)) continue;
+      shippedSkills.add(skillFile);
+      const sourceDir = path.dirname(skillFile);
+      const destDir = path.join(outputDir, 'skills', 'commands', yamlByFile.get(yamlFile).skill);
+      claimSkill(path.join(destDir, 'SKILL.md'), skillFile);
+      copyFile(skillFile, path.join(destDir, 'SKILL.md'), dryRun, verbose);
+      for (const rel of skillReferenceFiles(sourceDir)) {
+        const from = path.join(sourceDir, SKILL_REFERENCES_DIR, ...rel.split('/'));
+        const dest = path.join(destDir, SKILL_REFERENCES_DIR, ...rel.split('/'));
+        claim(dest, from);
+        copyFile(from, dest, dryRun, verbose);
+      }
+      syncOpenAiPolicy(skillFile, destDir, dryRun, verbose);
+      continue;
+    }
+
     const packageDir = path.dirname(path.dirname(yamlFile));
     const baseName = path.basename(yamlFile, '.yaml');
     const markdownPath = path.join(packageDir, 'commands', 'ensemble', `${baseName}.md`);
@@ -432,6 +561,7 @@ function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, ou
     const { data, content } = parseFrontmatter(raw);
     const codexSkillName = `ensemble-${baseName}`;
     const dest = path.join(outputDir, 'skills', 'commands', codexSkillName, 'SKILL.md');
+    claimSkill(dest, yamlFile);
     const description = data.description || `Run Ensemble command /ensemble:${baseName}`;
     const commandName = data.name || `ensemble:${baseName}`;
 
@@ -440,10 +570,10 @@ function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, ou
     // its frontmatter -- Claude's frontmatter is name/description/version/
     // category/last-updated/allowed-tools/argument-hint/model only, so a
     // dispatcher's subcommand table is invisible unless we additionally read
-    // the raw YAML directly.
-    const yamlData = yaml.load(normalizeLineEndings(readFile(yamlFile))) || {};
+    // the raw YAML directly (yamlData, parsed above).
+    const yamlData = yamlByFile.get(yamlFile);
     const subcommandsSection = yamlData.dispatch?.subcommands
-      ? generateCodexSubcommandsSection(yamlData.dispatch.subcommands, baseNameToYamlFile, yamlFile, { outputDir, rootDir })
+      ? generateCodexSubcommandsSection(yamlData.dispatch.subcommands, baseNameToYamlFile, yamlFile, { outputDir, rootDir, skillNameByRef })
       : null;
 
     // When `content` is mirrored from Claude's already-generated .md, a
@@ -493,10 +623,9 @@ function generateCommandSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, ou
     ].join('\n');
 
     writeFile(dest, `${yamlFrontmatter(frontmatter)}\n${body}`, dryRun, verbose);
-    count += 1;
   }
 
-  return count;
+  return skillFiles.size;
 }
 
 /** The Codex sandbox an agent's file declares: read-only for READ_ONLY_AGENTS, workspace-write otherwise. */
@@ -505,7 +634,9 @@ function sandboxModeFor(agentName) {
 }
 
 function generateAgents({ dryRun, verbose }) {
-  const agentYamlFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/agents/*.yaml'))).sort();
+  const agentYamlFiles = globSync(toGlobPattern(path.join(PACKAGES_DIR, '*/agents/*.yaml')))
+    .filter((file) => !ADAPTER_SOURCE_EXCLUDED_PACKAGES.has(owningPackage(file, PACKAGES_DIR)))
+    .sort();
   const agents = [];
 
   for (const yamlFile of agentYamlFiles) {

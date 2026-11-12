@@ -13,8 +13,8 @@ const skillMetadata = {
   name: 'pytest Test Framework',
   description: 'Execute and generate pytest tests for Python projects with fixtures, parametrization, and mocking support',
   version: '1.0.0',
-  skillFile: path.join(__dirname, '../skills/SKILL.md'),
-  referenceFile: path.join(__dirname, '../skills/REFERENCE.md'),
+  skillFile: path.join(__dirname, '../skills/pytest/SKILL.md'),
+  referenceFile: path.join(__dirname, '../skills/pytest/REFERENCE.md'),
   tools: {
     generateTest: path.join(__dirname, 'generate-test.py'),
     runTest: path.join(__dirname, 'run-test.py')

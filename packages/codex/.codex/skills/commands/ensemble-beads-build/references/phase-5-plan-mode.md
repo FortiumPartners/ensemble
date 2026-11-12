@@ -1,0 +1,10 @@
+### Phase 5: Plan Mode
+
+#### Step 5.1: Read-only Plan (only when PLAN_ONLY=true)
+
+Print the scope summary and the next wave plan, then exit. Creates, closes, labels, commits and stages nothing.
+
+- Resolve ROOT_EPIC_ID and EPIC_SLUG exactly as Epic Discovery does (tracker.show for an id, else slug match over tracker.list filtered to status=="open"; zero or multiple matches -> print the error and HALT). Do not run the resume, clean-tree or label-backfill actions.
+- Run: node "$TOOLCHAIN_CLI" run tracker.sync. Then node "$TOOLCHAIN_CLI" run tracker.list (issue list per Preflight step 4's tracker.list note; filter client-side by LABEL when set, else EPIC_SLUG). Count open, in_progress and closed beads from that filtered set and print: "=== EPIC SCOPE: <EPIC_SLUG> (bead: <ROOT_EPIC_ID>) === Open: <n> | In-progress: <n> | Closed: <n>".
+- Run: node "$TOOLCHAIN_CLI" run work-graph.ready; parse WORK_GRAPH_RESULT. {ok:false, unavailable:true} -> print "work-graph.ready unavailable - showing the scope above only" and skip the track breakdown. {ok:true} -> READY_ITEMS=data.items, ORDERING_SOURCE=data.orderingSource (print "unknown" when unset), DEPENDENCY_AWARE=data.dependencyAware. Also run work-graph.plan (optional) the same way for the track breakdown when available; skip silently on {unavailable:true}. Print: "=== PLAN: ordering source: <ORDERING_SOURCE> (dependency-aware: <DEPENDENCY_AWARE>) ===" then the ready items/tracks, recommendations, quick wins and blockers.
+- Print: "Run /ensemble:beads-build <ROOT_EPIC_ID> to execute. For TRD-driven work run /ensemble:implement-trd-beads <trd-path>." Then exit.

@@ -10,6 +10,7 @@ const { checkFrontmatter } = require('./lib/frontmatter-check');
 const promptBudget = require('./lib/prompt-budget');
 const { checkStepKeys } = require('./lib/step-keys-check');
 const { loadValidCapabilityIds, checkCapabilityIds, checkCapabilityInvocationDrift } = require('./lib/capability-ids-check');
+const { readCommandProse } = require('./lib/skill-backed-command');
 const { checkDefaultOnly, RESTRICTED_CATEGORIES } = require('./lib/default-only-check');
 const { checkVendored } = require('./vendor-bundle-deps');
 const yamlLib = require('js-yaml');
@@ -222,6 +223,169 @@ function specifierPackage(specifier) {
 }
 
 /**
+ * Every executable file under `dir`, with node_modules and test trees left out.
+ *
+ * `statSync` and not `dirent.isDirectory()`: packages/full is assembled out of symlinks,
+ * and the dirent of a symlinked directory is a link, not a directory.
+ *
+ * @param {string} dir Directory to walk
+ * @returns {string[]} Absolute paths
+ */
+function bundleCodeFiles(dir) {
+  const files = [];
+  const walk = current => {
+    let entries;
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
+      const entryPath = path.join(current, entry.name);
+      let stat;
+      try {
+        stat = fs.statSync(entryPath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) walk(entryPath);
+      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
+        files.push(entryPath);
+      }
+    }
+  };
+  walk(dir);
+  return files;
+}
+
+/**
+ * The literal segment lists of every `path.join(__dirname, ...)` / `path.resolve(__dirname, ...)`
+ * in `source` whose arguments are all string literals.
+ *
+ * A call carrying a variable is skipped rather than guessed at: there is no honest static
+ * answer for `path.join(__dirname, category + '.yaml')`, and reporting a guess as a
+ * missing file would fail `npm run validate` on a correct bundle. The count of skipped
+ * calls is printed so the gap is visible.
+ *
+ * @param {string} source File contents
+ * @returns {{segments: string[], line: number}[]} One entry per fully-literal call
+ */
+function dirnamePaths(source) {
+  const code = stripComments(source);
+  const out = [];
+  // `path.join(` / `path.resolve(`, `__dirname`, then only quoted literals to the close
+  // paren. Newlines are allowed between arguments: four of the six call sites in the
+  // bundle today are one-liners and the shape should not decide whether a path is checked.
+  const re = /path\.(?:join|resolve)\(\s*__dirname\s*((?:,\s*(?:'[^'\n]*'|"[^"\n]*")\s*)+)\)/g;
+  let match;
+  while ((match = re.exec(code)) !== null) {
+    const segments = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map(m => m[1]);
+    if (segments.length > 0) {
+      out.push({ segments, line: code.slice(0, match.index).split('\n').length });
+    }
+  }
+  return out;
+}
+
+/**
+ * Ensure every file and directory the bundle's code reaches by a `__dirname`-relative
+ * path is actually in the bundle.
+ *
+ * The third member of the family, after validateFullBundleRequires (does a RELATIVE
+ * REQUIRE resolve once the install flattens the symlinks) and validateBundleBareRequires
+ * (is the PACKAGE present at all). Both of those read module specifiers, so neither can
+ * see a DATA path, and 8.1.0 shipped three of them broken:
+ *
+ * - `lib/toolchain/config.js` -> `../../toolchain/toolchain.default.yaml`
+ * - `lib/toolchain/contracts.js` -> `../../toolchain/categories`
+ * - `lib/toolchain/runner.js` -> `../../toolchain/schemas/normalized`
+ * - `lib/team-defaults.js` -> `../commands/configure-team.yaml`
+ * - `lib/index.js` -> `../agents/documentation-specialist.yaml`
+ *
+ * packages/full carried no `toolchain/` directory at all, and its `commands/` and
+ * `agents/` mirror the source packages' SUBDIRECTORIES, so neither top-level yaml file
+ * was there either. In a checkout every one of those resolves, because `lib/` is a
+ * directory of symlinks and Node and fs alike answer from the realpath inside
+ * packages/development. In an install they are real files under packages/full and the
+ * targets are absent: `toolchain-cli resolve` and `resolveCategory()` threw ENOENT,
+ * `loadTeamConfiguration()` and `inferBuilderAgents()` threw ENOENT, and `lib/index.js`
+ * silently loaded no agent config because its read is guarded by `existsSync`.
+ *
+ * So the resolution here is deliberately done against the file's BUNDLE path and never
+ * its realpath — the same distinction `bundleRequireResolves` draws, for the same reason.
+ * Resolving against the realpath answers the checkout's question, which is the one that
+ * was already passing while the install was broken.
+ *
+ * `fullDir` is an argument only so a test can point it at a fixture bundle; every caller
+ * in the repo takes the default, which is the real one.
+ *
+ * @param {string} [fullDir] The bundle directory to check
+ * @returns {string[]} One message per unreachable or escaping path
+ */
+function validateBundleDataPaths(fullDir = path.join(PACKAGES_DIR, 'full')) {
+  const failures = [];
+  if (!fs.existsSync(fullDir)) {
+    return failures;
+  }
+
+  const boundary = fullDir + path.sep;
+  let checked = 0;
+  let skipped = 0;
+
+  // lib/ and hooks/ only, matching validateBundleBareRequires' blocking scope: that is
+  // the code a command runs. A skill that reads its own data file is not an entry point.
+  for (const dir of [path.join(fullDir, 'lib'), path.join(fullDir, 'hooks')]) {
+    for (const file of bundleCodeFiles(dir)) {
+      let source;
+      try {
+        source = fs.readFileSync(file, 'utf8');
+      } catch {
+        continue;
+      }
+      skipped += (stripComments(source).match(/path\.(?:join|resolve)\(\s*__dirname/g) || []).length;
+      for (const { segments, line } of dirnamePaths(source)) {
+        skipped--;
+        const where = `${path.relative(fullDir, file)}:${line}`;
+        const asked = ['__dirname', ...segments].join(', ');
+        const target = path.join(path.dirname(file), ...segments);
+
+        // A path that leaves the bundle cannot exist in an install whatever is on this
+        // disk, so it fails here rather than being checked for existence.
+        if (!target.startsWith(boundary)) {
+          failures.push(
+            `${where} builds path.join(${asked}), which resolves outside the bundle - ` +
+            `the install copies only the bundle, so that path exists on no installed plugin`
+          );
+          continue;
+        }
+        checked++;
+        if (!fs.existsSync(target)) {
+          failures.push(
+            `${where} reads ${path.relative(fullDir, target)}, which the bundle does not ` +
+            `carry - it resolves in this checkout through lib/'s symlinks and not in an ` +
+            `install, so mirror it into packages/full the way lib/ and skills/ are mirrored`
+          );
+        }
+      }
+    }
+  }
+
+  console.log(
+    `  ${failures.length === 0 ? '✓' : '✗'} ${checked} __dirname-relative data path(s) in ` +
+    `lib/ and hooks/ resolve inside the bundle`
+  );
+  if (skipped > 0) {
+    // Stated, not blocking, for the reason dirnamePaths' doc comment gives.
+    console.log(
+      `  i ${skipped} __dirname path(s) built with a non-literal segment, not checked ` +
+      `(there is no static answer for a computed filename)`
+    );
+  }
+  return failures;
+}
+
+/**
  * Ensure every bare dependency the bundle requires is vendored beside it.
  *
  * The sibling of validateFullBundleRequires below, for the other half of the same
@@ -278,30 +442,7 @@ function validateBundleBareRequires() {
       : []
   );
 
-  const files = [];
-  const walk = dir => {
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'tests') continue;
-      const entryPath = path.join(dir, entry.name);
-      let stat;
-      try {
-        stat = fs.statSync(entryPath);
-      } catch {
-        continue;
-      }
-      if (stat.isDirectory()) walk(entryPath);
-      else if (BUNDLE_CODE_EXTENSIONS.has(path.extname(entry.name)) && !/\.test\.[cm]?js$/.test(entry.name)) {
-        files.push(entryPath);
-      }
-    }
-  };
-  walk(fullDir);
+  const files = bundleCodeFiles(fullDir);
 
   // The load-time graph: what a command pulls in before it does anything. A missing
   // package here is a dead entry point, which is the defect. Everything else is
@@ -548,8 +689,7 @@ function validateFullSkillsMirror() {
 
     for (const skillEntry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
       if (!skillEntry.isDirectory() && !skillEntry.isSymbolicLink()) continue;
-      // Only real skills (a SKILL.md of their own) count — excludes asset
-      // subdirectories like a top-level-layout skill's examples/ or templates/.
+      // Only real skills (a SKILL.md of their own) count.
       if (!fs.existsSync(path.join(skillsDir, skillEntry.name, 'SKILL.md'))) continue;
       total++;
       const skillName = skillEntry.name;
@@ -719,27 +859,103 @@ function validateDefaultOnly() {
 }
 
 /**
- * Every command YAML's body prose (`run <id>`, `preflight --require <id>`, `confirm-status
- * <id>`) must only reference capability ids that file's own `metadata.capabilities.{required,
- * optional}` declares (PR 7 independent review item 7). Source packages only: pi/codex/
- * opencode are generated output and would only reflect the same drift their source already
- * has.
+ * No two shipped adapter directories may declare the same `adapter` id FOR THE SAME category.
  *
- * @returns {string[]} One message per invoked-but-undeclared capability id
+ * One id across several directories, one category each, is legitimate and shipped:
+ * `adapter-workflow-plain-git` and `adapter-worktree-plain-git` both declare
+ * `adapter: plain-git`, kept apart so each carries only the allowlist its own category needs.
+ * Resolution is keyed on (id, category) to make both halves reachable (#146), which leaves a
+ * duplicate PAIR as the thing that cannot be resolved: two directories declaring the same id
+ * and the same category differ only by sort order, and the loser's capabilities are silently
+ * unreachable with nothing reported -- exactly the failure #146 was, one level down. This
+ * check turns that into a validation error at authoring time.
+ *
+ * Source packages only: pi/codex/opencode are generated output and full/ mirrors the sources,
+ * so including any of them would report every real adapter as its own duplicate.
+ *
+ * @param {string} [packagesDir] the packages root to scan; defaults to this repo's own, and is
+ *   a parameter for the same reason `checkDefaultOnly(categoriesDir, PACKAGES_DIR)` takes one:
+ *   so a test can plant a real duplicate pair in a temp tree and prove this check fails on it
+ *   without writing a second adapter into the shipped packages.
+ * @returns {string[]} One message per (id, category) pair declared by more than one directory
  */
-function validateCapabilityInvocationDrift() {
+function validateAdapterIdCategoryUniqueness(packagesDir = PACKAGES_DIR) {
+  const seen = new Map();
   const failures = [];
   let checked = 0;
-  for (const pkg of fs.readdirSync(PACKAGES_DIR)) {
+
+  for (const pkg of fs.readdirSync(packagesDir)) {
+    if (pkg === 'pi' || pkg === 'codex' || pkg === 'opencode' || pkg === 'full') continue;
+    const skillsDir = path.join(packagesDir, pkg, 'skills');
+    if (!fs.existsSync(skillsDir)) continue;
+    for (const entry of fs.readdirSync(skillsDir)) {
+      const manifestPath = path.join(skillsDir, entry, 'adapter.yaml');
+      if (!fs.existsSync(manifestPath)) continue;
+      let manifest;
+      try {
+        manifest = yamlLib.load(fs.readFileSync(manifestPath, 'utf8'));
+      } catch (error) {
+        failures.push(`packages/${pkg}/skills/${entry}/adapter.yaml: cannot be parsed (${error.message})`);
+        continue;
+      }
+      checked++;
+      const id = manifest && manifest.adapter;
+      const categories = manifest && Array.isArray(manifest.categories) ? manifest.categories : [];
+      if (typeof id !== 'string') continue;
+      for (const category of categories) {
+        const key = `${id}\u0000${category}`;
+        const rel = path.join('packages', pkg, 'skills', entry);
+        if (seen.has(key)) {
+          failures.push(
+            `adapter id '${id}' is declared for category '${category}' by two directories ` +
+              `(${seen.get(key)} and ${rel}); one of them is unreachable, since resolution ` +
+              `returns a single directory per (id, category) pair`
+          );
+          continue;
+        }
+        seen.set(key, rel);
+      }
+    }
+  }
+
+  if (failures.length === 0) {
+    console.log(`  ✓ ${checked} adapter manifest(s) declare a unique (id, category) pair each`);
+  }
+  return failures;
+}
+
+/**
+ * Every command's body prose (`run <id>`, `preflight --require <id>`, `confirm-status
+ * <id>`) must only reference capability ids that file's own `metadata.capabilities.{required,
+ * optional}` declares (PR 7 independent review item 7). A skill-backed command's prose is its
+ * skill -- the SKILL.md and the `references/*.md` files beside it -- so all of that gets
+ * scanned for it. Source packages only: pi/codex/opencode are generated output and would
+ * only reflect the same drift their source already has.
+ *
+ * @param {string} [packagesDir] The packages/ directory to scan (defaults to the repo's own)
+ * @returns {string[]} One message per invoked-but-undeclared capability id
+ */
+function validateCapabilityInvocationDrift(packagesDir = PACKAGES_DIR) {
+  const failures = [];
+  let checked = 0;
+  for (const pkg of fs.readdirSync(packagesDir)) {
     if (pkg === 'pi' || pkg === 'codex' || pkg === 'opencode') continue;
-    const dir = path.join(PACKAGES_DIR, pkg, 'commands');
+    const dir = path.join(packagesDir, pkg, 'commands');
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.yaml'))) {
       const rel = path.join('packages', pkg, 'commands', file);
-      const rawText = fs.readFileSync(path.join(dir, file), 'utf8');
+      const yamlPath = path.join(dir, file);
+      const rawText = fs.readFileSync(yamlPath, 'utf8');
       const commandData = yamlLib.load(rawText);
-      failures.push(...checkCapabilityInvocationDrift(commandData, rel, rawText));
       checked++;
+      let prose;
+      try {
+        prose = readCommandProse(yamlPath, commandData, rawText);
+      } catch (error) {
+        failures.push(`${rel}: cannot scan for capability drift: ${error.message}`);
+        continue;
+      }
+      failures.push(...checkCapabilityInvocationDrift(commandData, rel, prose));
     }
   }
   console.log(`  ✓ ${checked} command YAML file(s) checked for capability declaration/invocation drift`);
@@ -912,6 +1128,14 @@ function main() {
     errors++;
   });
 
+  // ...and it must carry the data files its code reaches by path, which no module check sees
+  console.log('\nValidating packages/full/ __dirname-relative data paths resolve in the bundle...');
+  const dataPathFailures = validateBundleDataPaths();
+  dataPathFailures.forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // ...and it must carry the packages it requires, because the install never fetches them
   console.log('\nValidating packages/full/ bare dependencies are vendored with the bundle...');
   const bareRequireFailures = validateBundleBareRequires();
@@ -990,6 +1214,12 @@ function main() {
     errors++;
   });
 
+  console.log('\nValidating adapter (id, category) uniqueness...');
+  validateAdapterIdCategoryUniqueness().forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // Prompt word-budget ratchet (see scripts/lib/prompt-budget.js)
   console.log('\nValidating prompt word budgets...');
   const sizes = promptBudget.collectSizes(PACKAGES_DIR);
@@ -1035,8 +1265,12 @@ module.exports = {
   validateBundleBareRequires,
   bareSpecifiers,
   specifierPackage,
+  bundleCodeFiles,
+  dirnamePaths,
+  validateBundleDataPaths,
   validateStepKeys,
   validateCapabilityIds,
   validateCapabilityInvocationDrift,
   validateDefaultOnly,
+  validateAdapterIdCategoryUniqueness,
 };
