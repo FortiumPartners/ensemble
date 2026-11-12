@@ -76,7 +76,7 @@
     },
     {
       "name": "ensemble-development",
-      "version": "7.0.3",
+      "version": "7.0.4",
       "source": "./packages/development",
       "description": "Development workflow orchestration and best practices",
       "category": "workflow",
@@ -471,7 +471,7 @@
     },
     {
       "name": "ensemble-pi",
-      "version": "1.6.21",
+      "version": "1.6.22",
       "source": "./packages/pi",
       "description": "Pi runtime support — translates ensemble artifacts for Pi coding agent",
       "category": "core",
@@ -488,7 +488,7 @@
     },
     {
       "name": "ensemble-codex",
-      "version": "6.0.3",
+      "version": "6.0.4",
       "source": "./packages/codex",
       "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
       "category": "core",
