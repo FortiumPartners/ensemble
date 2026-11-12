@@ -357,7 +357,10 @@ The run is checkpointed. `/ensemble:issue resume`, `/ensemble:issue status` and 
 /ensemble:feature abandon "scope moved to Q3"
 ```
 
-The dispatcher forwards to `/ensemble:new-feature` (`--idea`, `--status`, `--abandon`, or no flags to resume). The stage order is fixed: `prd_create`, `prd_refine`, `trd_create`, `trd_refine`, `beads_plan`, `implementation_approval`, `implementation`, `pr_approval`, `pr_create`, `done`. A checkpoint store, not file presence, decides which stage runs next. Implementation and PR creation each wait for an explicit approval; a PR is optional and finishing without one is a valid end state. Only one run can be active per project. `new-feature` also accepts a `path` argument naming an indexed or readable PRD to resume from, and `--foreman` for non-interactive operation.
+The dispatcher forwards to `/ensemble:new-feature` (`--idea`, `--status`, `--abandon`, or no flags to resume).
+
+**`feature` versus `new-feature`.** They are two layers of one workflow, so keep both. `new-feature` is the engine: it holds the stage machine, the run state under `.ensemble/new-feature/` and the concurrency refusal (`RUN_ALREADY_ACTIVE`), and it takes flags. `feature` is the front door: it only validates the keyword (an unknown keyword, or text after `resume` or `status`, prints the keyword table and stops), moves a leading `--foreman` into place, rewrites the keyword into the matching `new-feature` flags, and follows `new-feature`'s skill. It has no stage logic of its own and halts if `new-feature` is not installed. Use `feature` day to day; call `new-feature` directly only for a flag the keywords don't cover. The same split applies to `issue` and `fix-issue`.
+ The stage order is fixed: `prd_create`, `prd_refine`, `trd_create`, `trd_refine`, `beads_plan`, `implementation_approval`, `implementation`, `pr_approval`, `pr_create`, `done`. A checkpoint store, not file presence, decides which stage runs next. Implementation and PR creation each wait for an explicit approval; a PR is optional and finishing without one is a valid end state. Only one run can be active per project. `new-feature` also accepts a `path` argument naming an indexed or readable PRD to resume from, and `--foreman` for non-interactive operation.
 
 ### Acceptance tests from a PRD: `/ensemble:reqnroll`
 
@@ -523,7 +526,6 @@ The Package column names the marketplace plugin that ships the command. Argument
 | `/ensemble:implement-trd-beads` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]` | Implement a TRD through a persistent bead hierarchy | `ensemble-development` |
 | `/ensemble:implement-bead` | `<bead-id>` | Implement one bead through analysis, implementation and PR | `ensemble-development` |
 | `/ensemble:beads-build` | `[epic-id\|slug-pattern] [--trd trd-path] [--strategy tdd\|characterization\|bug-fix\|refactor\|test-after\|flexible] [--label <label>] [max parallel N]` | Drive an existing bead hierarchy to completion | `ensemble-development` |
-| `/ensemble:refine-beads` | `[epic-id\|release-train-id\|slug] [--scope project]` | Approval-gated bead graph refinement before execution | `ensemble-development` |
 | `/ensemble:feature` | `<new\|resume\|status\|abandon> [args...]` | Dispatcher: feature lifecycle | `ensemble-development` |
 | `/ensemble:new-feature` | `[--idea "<text>"] [path] [--status] [--abandon [reason]] [--foreman]` | Resumable idea to PRD to TRD to beads to implementation to PR run | `ensemble-development` |
 | `/ensemble:issue` | `<fix\|list\|resume\|status\|abandon> [args...]` | Dispatcher: issue workflows | `ensemble-development` |

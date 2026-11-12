@@ -1,7 +1,7 @@
 'use strict';
 /**
- * Regression test for PR7 br-ewy9 (TRD-029): the three command YAMLs this task refactored
- * (refine-beads, implement-bead, beads-build-wave) must never regain a literal `br `/`bv `
+ * Regression test for PR7 br-ewy9 (TRD-029): the command YAMLs this task refactored
+ * (implement-bead, beads-build-wave) must never regain a literal `br `/`bv `
  * tracker-binary invocation -- all tracker/scheduling access now goes through
  * `toolchain-cli run tracker.*`/`work-graph.*`. This mirrors the exact AC-1 grep
  * (`grep -nE '\b(br|bv) (show|list|update|close|comment|comments|dep|sync|ready)|--robot-' ...`)
@@ -22,7 +22,7 @@ const { readCommandProse } = require('../lib/skill-backed-command');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const COMMANDS_DIR = path.join(REPO_ROOT, 'packages', 'development', 'commands');
-const TARGET_FILES = ['refine-beads.yaml', 'implement-bead.yaml', 'beads-build-wave.yaml'];
+const TARGET_FILES = ['implement-bead.yaml', 'beads-build-wave.yaml'];
 
 // Same pattern as the AC-1 grep: a bare `br` or `bv` word followed by a space -- i.e. an
 // invocation like `br list` or `bv --robot-plan`, not incidental prose like `br/bv` or
@@ -44,7 +44,7 @@ function findInvocationLines(contents, pattern) {
     .filter(({ line }) => pattern.test(line));
 }
 
-// refine-beads and implement-bead are skill-backed: their YAML is a manifest (metadata +
+// implement-bead is skill-backed: its YAML is a manifest (metadata +
 // `skill`) and the prompt lives in the skill (SKILL.md + references/*.md). proseOf gives the
 // text these checks scan: the YAML for a plain command, manifest + whole skill for a skill-backed one.
 function proseOf(file) {
@@ -121,35 +121,6 @@ describe('PR7 Track029: no literal br/bv tracker-binary invocation in refactored
   });
 });
 
-describe('PR7 Track029 scenario 3: refine-beads.yaml repair-plan entries name a tracker capability, never a literal br/bv command', () => {
-  // Every narrative line about the repair plan (title/description/action), matching both the
-  // prose phrase "repair plan" and the REPAIR_PLAN variable name, case-insensitively.
-  const REPAIR_PLAN_LINE_PATTERN = /repair[ _]plan/i;
-
-  test('every repair-plan line in refine-beads.yaml is free of literal br/bv tracker-binary invocations', () => {
-    const contents = proseOf('refine-beads.yaml');
-    const repairPlanLines = findInvocationLines(contents, REPAIR_PLAN_LINE_PATTERN);
-    expect(repairPlanLines.length).toBeGreaterThan(0);
-
-    for (const { line } of repairPlanLines) {
-      expect(TRACKER_BINARY_INVOCATION.test(line)).toBe(false);
-      expect(AC1_PATTERN.test(line)).toBe(false);
-    }
-  });
-
-  test('the repair-plan execution step names a tracker.* capability id invoked with --arg, not a bare command', () => {
-    const contents = proseOf('refine-beads.yaml');
-    const repairPlanLines = findInvocationLines(contents, REPAIR_PLAN_LINE_PATTERN);
-
-    const executionLine = repairPlanLines.find(
-      ({ line }) => /--arg\b/.test(line) && /tracker\.(?:comment|update|dep-add|dep-remove)/.test(line)
-    );
-    expect(executionLine).toBeTruthy();
-    expect(executionLine.line).toContain('run <capability>');
-    expect(executionLine.line).not.toMatch(TRACKER_BINARY_INVOCATION);
-  });
-});
-
 describe('PR7 Track029 scenario 4: command preamble lists exactly its required capabilities and gates the first tracker write behind confirm-status', () => {
   function extractRequiredFromPreflightLine(contents) {
     const preflightLine = contents.split('\n').find((line) => /\bpreflight\b.*--require/.test(line));
@@ -187,20 +158,20 @@ describe('PR7 Track029 scenario 4: command preamble lists exactly its required c
   }
 
   test('mutation proof: a preflight --require set drifting from metadata.capabilities.required is caught', () => {
-    const original = proseOf('refine-beads.yaml');
+    const original = proseOf('implement-bead.yaml');
 
     // Sanity: the unmutated prose's preflight --require set matches metadata exactly (proves
     // the detector isn't vacuously true before we assert it catches a drift).
-    expect(extractRequiredFromPreflightLine(original)).toEqual(metadataRequired('refine-beads.yaml'));
+    expect(extractRequiredFromPreflightLine(original)).toEqual(metadataRequired('implement-bead.yaml'));
 
-    const needle = '--require tracker.comment --json';
+    const needle = ' --require tracker.comment';
     expect(original).toContain(needle);
     const mutated = original.replace(needle, '--json');
     expect(mutated).not.toBe(original);
 
-    expect(extractRequiredFromPreflightLine(mutated)).not.toEqual(metadataRequired('refine-beads.yaml'));
+    expect(extractRequiredFromPreflightLine(mutated)).not.toEqual(metadataRequired('implement-bead.yaml'));
 
     // Confirm again against the real, unmutated prose: still matches.
-    expect(extractRequiredFromPreflightLine(proseOf('refine-beads.yaml'))).toEqual(metadataRequired('refine-beads.yaml'));
+    expect(extractRequiredFromPreflightLine(proseOf('implement-bead.yaml'))).toEqual(metadataRequired('implement-bead.yaml'));
   });
 });

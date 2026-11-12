@@ -4,6 +4,10 @@
 
 Multi-runtime SDLC framework: Claude Code plugins under `packages/` (agents, commands, skills, hooks), plus generated Pi, Codex and OpenCode output. Package list, agent/command/skill inventory: see `packages/`.
 
+## Command names
+
+`ensemble-full` ships skills only (no command stubs), so in Claude Code its commands are `/ensemble-full:ensemble-<name>`. `/ensemble:<name>` is the form for standalone plugins and the Pi, Codex and OpenCode runtimes.
+
 ## Source of truth vs generated
 
 - Edit `packages/*/agents/*.yaml`, `packages/*/commands/*.yaml`, and source `SKILL.md` files. The `.md` beside a YAML file is generated (`DO NOT EDIT`).

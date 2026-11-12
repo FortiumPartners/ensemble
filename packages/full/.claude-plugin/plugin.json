@@ -1,6 +1,6 @@
 {
   "name": "ensemble-full",
-  "version": "8.1.0",
+  "version": "9.0.0",
   "description": "Complete ensemble ecosystem (meta-package with all plugins)",
   "author": {
     "name": "Sunstone Partners",
@@ -14,14 +14,6 @@
     "complete",
     "meta",
     "ensemble"
-  ],
-  "commands": [
-    "./commands/core",
-    "./commands/product",
-    "./commands/development",
-    "./commands/git",
-    "./commands/e2e-testing",
-    "./commands/assessment"
   ],
   "skills": "./skills",
   "agents": [

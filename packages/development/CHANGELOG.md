@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- the `refine-beads` command and skill (`commands/refine-beads.yaml`, `skills/ensemble-refine-beads`), their generated Pi and Codex copies, and their tests and default-equivalence fixture. The `beads-scope`, `beads-repair-plan` and `beads-refine-cli` libs are kept.
+
 ### Added
 
 - the local CI gate report says when a failure may be staleness (kata `w6tn`). The gate grades the PR head while hosted CI grades the merge ref, so a head based before the last main release can fail here (the pi version-bump hook in `generate:pi`, then generated drift) while hosted CI passes. When a `run` or `gate` fails and `git merge-base --is-ancestor <base> <head>` says the head lacks the base, the report gains `notes: [{kind: 'head-behind-base', behind: N, baseRef, message}]` telling the operator to update the branch and re-run before treating it as a defect. Advisory only: `ok`, `mergeReady`, `failures` and the posted status are unchanged, nothing is added on a pass or when the head contains the base, and a git error means no note. Documented in `skills/local-ci-gate` (SKILL.md, RUNBOOK.md); grading the merge ref or refusing stale heads is deliberately not done.

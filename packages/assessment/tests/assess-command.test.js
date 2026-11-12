@@ -209,17 +209,12 @@ describe('/ensemble:assess generated artifacts and wiring', () => {
     );
   });
 
-  test('ensemble-full mirrors the command directory and lists it in its plugin.json', () => {
-    const mirror = path.join(PACKAGES_DIR, 'full', 'commands', 'assessment');
-    const stat = fs.lstatSync(mirror);
-    // A checkout without core.symlinks stores a link as a small file holding the target.
-    const target = stat.isSymbolicLink() ? fs.readlinkSync(mirror) : fs.readFileSync(mirror, 'utf8').trim();
-    expect(target.split(path.sep).join('/')).toBe('../../assessment/commands/ensemble');
-    if (stat.isSymbolicLink()) {
-      expect(fs.existsSync(path.join(mirror, 'assess.md'))).toBe(true);
-    }
+  test('ensemble-full ships assess through the skill, not a mirrored command directory', () => {
+    // Skill-backed commands are not mirrored into the bundle: the skill is the single entry point there.
+    expect(fs.existsSync(path.join(PACKAGES_DIR, 'full', 'commands', 'assessment'))).toBe(false);
 
     const full = readJson(path.join(PACKAGES_DIR, 'full', '.claude-plugin', 'plugin.json'));
-    expect(full.commands).toContain('./commands/assessment');
+    expect(full.commands).toBeUndefined();
+    expect(fs.existsSync(path.join(PACKAGES_DIR, 'full', 'skills', 'assessment'))).toBe(true);
   });
 });

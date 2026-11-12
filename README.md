@@ -36,13 +36,15 @@ In Claude Code:
 Then, in a project:
 
 ```text
-/ensemble:create-prd "short product description"
-/ensemble:create-trd <prd-path>
-/ensemble:implement-trd-beads <trd-path> --plan
-/ensemble:implement-trd-beads <trd-path> --execute
+/ensemble-full:ensemble-create-prd "short product description"
+/ensemble-full:ensemble-create-trd <prd-path>
+/ensemble-full:ensemble-implement-trd-beads <trd-path> --plan
+/ensemble-full:ensemble-implement-trd-beads <trd-path> --execute
 ```
 
-`/ensemble:feature new <idea>` runs the same idea-to-PR flow as one resumable, checkpointed run. For a read-only look at a repository, run `/ensemble:assess repo`.
+`/ensemble-full:ensemble-feature new <idea>` runs the same idea-to-PR flow as one resumable, checkpointed run. For a read-only look at a repository, run `/ensemble-full:ensemble-assess repo`.
+
+> **Command names.** `ensemble-full` ships skills only, so in Claude Code its commands are `/ensemble-full:ensemble-<name>`. The `/ensemble:<name>` form used elsewhere in this document is what the standalone plugins (for example `ensemble-development`) and the Pi, Codex and OpenCode runtimes use.
 
 The full workflow needs the `br` (beads_rust) and `bv` (beads_viewer) CLIs on `PATH`. Walkthroughs live in the [user guide](docs/guides/user-guide.md).
 
@@ -167,7 +169,7 @@ Versions below are taken from each package's `package.json`.
 
 ## Commands
 
-Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 41 command definitions (`packages/*/commands/*.yaml`), all of them skill-backed manifests. **33 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+Commands are invoked as `/ensemble:<name>` when installed through a standalone plugin, and as `/ensemble-full:ensemble-<name>` through the `ensemble-full` bundle (which ships the skills without the command stubs). The tree contains 41 command definitions (`packages/*/commands/*.yaml`), all of them skill-backed manifests. **33 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
 
 A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`, plus `references/` for long phases), and the command itself is a thin entry point per runtime: a stub that reads the skill in Claude Code, a stub prompt in Pi, the skill itself in Codex, and a stub in OpenCode. To change what a command does, edit its skill, not its YAML. The six dispatchers (`prd`, `trd`, `issue`, `feature`, `reqnroll`, `standards`) are manifests like every other command; their routing table is the `## Subcommands` section of their `SKILL.md` (keyword, description, `/ensemble:<ref>` and the sibling path `../ensemble-<ref>/SKILL.md`), which the Pi extension reads for tab completion.
 
@@ -201,7 +203,6 @@ A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKIL
 |---------|-----------|---------|---------|
 | `/ensemble:implement-trd-beads` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman]`, or `<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]` | development | TRD implementation on a persistent bead hierarchy |
 | `/ensemble:beads-build` | `[epic-id\|slug-pattern] [--trd trd-path] [--strategy <name>] [--label <label>] [max parallel N]` | development | Drive an existing hierarchy to completion through builder, review and close |
-| `/ensemble:refine-beads` | `[epic-id\|release-train-id\|slug] [--scope project]` | development | Approval-gated Beads graph refinement before execution |
 | `/ensemble:implement-bead` | `<bead-id>` | development | Implement one bead through analysis, implementation and PR |
 | `/ensemble:list-issue` | `[--ranked \| --robot-triage]` | development | List open Beads issues for triage |
 
@@ -211,10 +212,12 @@ A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKIL
 
 | Command | Arguments | Package | Purpose |
 |---------|-----------|---------|---------|
-| `/ensemble:feature` | `new`, `resume`, `status`, `abandon` plus args | development | Dispatcher for the resumable idea-to-PR workflow |
-| `/ensemble:new-feature` | none | development | The checkpointed workflow `feature` forwards to (idea, PRD, TRD, beads, implementation, optional PR) |
+| `/ensemble:feature` | `new`, `resume`, `status`, `abandon` plus args | development | Front door: use this one. A keyword dispatcher over `new-feature` |
+| `/ensemble:new-feature` | `--idea`, `--status`, `--abandon`, `--foreman` | development | The engine: the checkpointed idea-to-PR workflow that `feature` forwards to (PRD, TRD, beads, implementation, optional PR) |
 | `/ensemble:issue` | `fix`, `list`, `resume`, `status`, `abandon` plus args | development | Dispatcher for issue work |
 | `/ensemble:fix-issue` | none | development | Lightweight bug-fix workflow |
+
+`feature` and `new-feature` are two layers of one workflow, not alternatives. `new-feature` owns the stage machine and run state (`.ensemble/new-feature/`) and takes flags. `feature` owns only the keyword UX: it validates the keyword, rewrites it into the matching `new-feature` flags (`new <idea>` becomes `--idea "<idea>"`, `status` becomes `--status`), and then follows `new-feature`'s skill, so it cannot work without it. Start with `feature`; call `new-feature` directly only to pass flags the keywords don't cover. `issue` and `fix-issue` follow the same pattern.
 
 ### Git, testing and delivery
 

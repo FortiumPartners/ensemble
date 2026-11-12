@@ -60,7 +60,6 @@ const SPECIALIST_COMMANDS = [
   ['verify-requirements', DEV_COMMANDS_DIR],
   ['requirement-status', DEV_COMMANDS_DIR],
   ['trd-dependency-graph', DEV_COMMANDS_DIR],
-  ['refine-beads', DEV_COMMANDS_DIR],
   ['beads-build', DEV_COMMANDS_DIR],
   ['beads-build-wave', DEV_COMMANDS_DIR],
   ['prd', PRODUCT_COMMANDS_DIR],
@@ -173,7 +172,6 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
       const readme = fs.readFileSync(path.join(REPO_ROOT, 'packages', 'development', 'README.md'), 'utf8');
       for (const name of [
         '/ensemble:implement-trd-beads',
-        '/ensemble:refine-beads',
         '/ensemble:create-trd',
         '/ensemble:refine-trd',
       ]) {

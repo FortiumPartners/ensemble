@@ -84,8 +84,6 @@ integrationProtocols:
   receivesWorkFrom:
     - name: implement-trd-beads scaffold phase
       contextRequired: TRD/workstream path, parsed scaffold plan, existing bead map, PRD reference, execution mode
-    - name: refine-beads
-      contextRequired: target epic/release-train/scope and graph findings
   handsOffTo:
     - name: backend-developer/frontend-developer/infrastructure-developer/test-runner
       contextProvided: scaffolded ready task beads, dependencies, provenance comments, AC/XC evidence expectations

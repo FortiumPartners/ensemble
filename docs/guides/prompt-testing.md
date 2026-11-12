@@ -57,7 +57,6 @@ Each hit was opened and classified. Counts are `toContain`/`toMatch` calls in th
 | other | verify-requirements-command.test.js | commands/verify-requirements.yaml | 72 |
 | other | `packages/product/tests/create-prd-command.test.js` | commands/create-prd.yaml | 46 (mixed) |
 | other | `packages/product/tests/refine-prd-command.test.js` | commands/refine-prd.yaml | 12 |
-| other | refine-beads-command.test.js | commands/refine-beads.yaml | 17 |
 | other | pr-review-cycle-skill.test.js | skills/pr-review-cycle SKILL.md | 44 (mixed) |
 | other | `packages/e2e-testing/tests/author-playwright-tests-workflow.test.js` | commands/author-playwright-tests.yaml | 13 |
 | other | specialist-command-regression.test.js, product-action-list-invariant-audit.test.js | feature/issue/prd/trd command action lists | 3 + 3 |

@@ -145,6 +145,30 @@ describe('start and end', () => {
   });
 });
 
+describe('plugin-namespaced command names', () => {
+  beforeEach(() => { writeHooks(); trust(); });
+
+  test.each([
+    '/ensemble-full:ensemble-fix-issue the build is broken',
+    '/ensemble-development:ensemble:fix-issue the build is broken',
+  ])('%s starts the command', (prompt) => {
+    run(submit(prompt));
+    expect(logLines()[0]).toMatchObject({ event: 'command.start', command: 'ensemble:fix-issue', arguments: 'the build is broken' });
+  });
+
+  test('a bundle dispatcher resolves to its target command', () => {
+    fs.writeFileSync(path.join(proj, '.ensemble', 'hooks.yaml'), fs.readFileSync(path.join(proj, '.ensemble', 'hooks.yaml'), 'utf8').replace('ensemble:fix-issue', 'ensemble:create-prd'));
+    trust();
+    run(submit('/ensemble-full:ensemble-prd create a thing'));
+    expect(logLines()[0]).toMatchObject({ command: 'ensemble:create-prd', arguments: 'a thing' });
+  });
+
+  test.each(['/ensemble-fix-issue', '/ensemble-full:fix-issue', '/other-plugin:ensemble-fix-issue'])('%s is not a command start', (prompt) => {
+    run(submit(prompt));
+    expect(logLines()).toHaveLength(0);
+  });
+});
+
 describe('opt-in and trust', () => {
   test('no hooks file: nothing runs, nothing printed, no state written', () => {
     const r = run(submit('/ensemble:fix-issue x'));

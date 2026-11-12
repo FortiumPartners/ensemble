@@ -82,8 +82,8 @@ const BASELINE_REL = 'scripts/lint-provider-refs.baseline.json';
  * converted named command is named too: converting a command must not lift its zero tolerance.
  */
 const NAMED_SOURCE_PATTERNS = [
-  /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\.(?:yaml|md)$/,
-  /^packages\/development\/skills\/ensemble-(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\//,
+  /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|fix-issue)\.(?:yaml|md)$/,
+  /^packages\/development\/skills\/ensemble-(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|fix-issue)\//,
   /^packages\/git\/commands\/(?:ensemble\/)?pr-merge\.(?:yaml|md)$/,
   /^packages\/git\/skills\/ensemble-pr-merge\//,
   /^packages\/git\/skills\/git-town\//,

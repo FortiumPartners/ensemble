@@ -39,7 +39,6 @@ const COVERED = [
   { name: 'analyze-complexity', path: `${DEV_COMMANDS}/analyze-complexity.yaml`, trd: 'TRD-028' },
   { name: 'onboard', path: `${DEV_COMMANDS}/onboard.yaml`, trd: 'TRD-028' },
   { name: 'retro', path: `${DEV_COMMANDS}/retro.yaml`, trd: 'TRD-028' },
-  { name: 'refine-beads', path: `${DEV_COMMANDS}/refine-beads.yaml`, trd: 'TRD-029' },
   { name: 'implement-bead', path: `${DEV_COMMANDS}/implement-bead.yaml`, trd: 'TRD-029/TRD-039' },
   { name: 'beads-build-wave', path: `${DEV_COMMANDS}/beads-build-wave.yaml`, trd: 'TRD-029' },
   { name: 'beads-build', path: `${DEV_COMMANDS}/beads-build.yaml`, trd: 'TRD-030' },

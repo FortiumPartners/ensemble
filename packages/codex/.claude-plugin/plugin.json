@@ -1,6 +1,6 @@
 {
   "name": "ensemble-codex",
-  "version": "6.0.4",
+  "version": "6.0.5",
   "description": "Codex CLI runtime support - translates ensemble artifacts into Codex-compatible agents and skills",
   "author": {
     "name": "Sunstone Partners",

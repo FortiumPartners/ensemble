@@ -426,7 +426,7 @@ Install the `ensemble-lifecycle` plugin (`packages/lifecycle-claude`) and a proj
 
 | Claude Code event | What the plugin does |
 | --- | --- |
-| `UserPromptSubmit` | A prompt that starts with `/ensemble:<name>` is a command start. Dispatchers such as `/ensemble:prd create foo` resolve to their target, as in Pi. The `start` handlers run before Claude sees the prompt |
+| `UserPromptSubmit` | A prompt that starts with `/ensemble:<name>` is a command start, as is its plugin-namespaced form: `/ensemble-full:ensemble-<name>` (the bundle) or `/ensemble-<plugin>:ensemble:<name>` (a standalone plugin). Dispatchers such as `/ensemble:prd create foo` resolve to their target, as in Pi. The `start` handlers run before Claude sees the prompt |
 | `Stop` | Ends the run in flight for the session as `succeeded`; the `end` handlers run once |
 | `StopFailure` | Ends it as `failed` |
 | `SessionEnd` | Ends a run still in flight as `cancelled` |
