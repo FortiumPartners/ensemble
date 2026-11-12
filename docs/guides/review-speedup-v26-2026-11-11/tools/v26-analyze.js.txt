@@ -1,0 +1,244 @@
+'use strict';
+// Per-run analysis of the V2-6 paired measurement (kata 1yjx). Scratch; a copy goes into the evidence directory as text. It descends from the ramp's
+// analysis (ramp/tools/ramp-analyze.js, kata j1wb) and adds the quorum-first columns: first-wave and second-wave verifiers, the full-electorate plan
+// the same candidates would have drawn (counterfactual, from the committed planner), the candidates settled by their first quorum and the second-wave
+// rate. Inputs per run directory: trace.jsonl (the timing source), summary.json, timing.json, jobs.json, completion.json, concurrency.json,
+// dispatch.log.jsonl, arm-proof.json, run-extract.json, the session load log and the per-run committed load samples. Nothing here opens an agent
+// session or transcript.
+//
+// Definitions (the plan's S01 script, plan2/01_verifiers.py, and the earlier reports):
+//   verifier duration  = dispatch (span start) -> result arrival (`last_message_ts` of the span end); a verifier stopped at its deadline has
+//                        no arrival and is censored at (collected - dispatch), flagged expired
+//   verify stage       = first verifier dispatch -> last verifier finish (the critical path's verifier step of `pr-review-cli timing`)
+//   review round       = first review dispatch -> last review agent finish
+const fs = require('fs');
+const path = require('path');
+
+const ts = (s) => Date.parse(s);
+const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+const pct = (xs, q) => { const s = [...xs].sort((a, b) => a - b); if (!s.length) return null; return s[Math.max(1, Math.ceil((q / 100) * s.length)) - 1]; };
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); if (!s.length) return null; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const r2 = (x) => (x === null || x === undefined ? null : Math.round(x * 100) / 100);
+
+function readTrace(file) {
+  const spans = new Map();
+  const order = [];
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    const e = JSON.parse(line);
+    if (e.type === 'span_start') { spans.set(e.span_id, { name: e.name, start: ts(e.start_ts), attrs: e.attrs || {} }); order.push(e.span_id); }
+    else if (e.type === 'span_end') { const s = spans.get(e.span_id); if (s) { s.end = ts(e.end_ts); s.status = e.status; s.endAttrs = e.attrs || {}; } }
+  }
+  return order.map((id) => spans.get(id));
+}
+
+/** S01's replay: `durs` (seconds) in dispatch order through `cap` slots; a freed slot starts the next verifier at once. */
+function replay(durs, cap) {
+  const n = durs.length;
+  if (!n) return 0;
+  if (cap >= n) return Math.max(...durs);
+  const heap = durs.slice(0, cap).map((d) => d).sort((a, b) => a - b);
+  for (let i = cap; i < n; i += 1) {
+    const t = heap.shift();
+    const f = t + durs[i];
+    let lo = 0; let hi = heap.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (heap[mid] < f) lo = mid + 1; else hi = mid; }
+    heap.splice(lo, 0, f);
+  }
+  return Math.max(...heap);
+}
+
+/** The rule of the ramp report (section 3), applied to load samples alone: above 12 in 5+ consecutive samples, or a mean above 12, or half the samples above 12. */
+function classify(l1) {
+  if (!l1.length) return null;
+  let streak = 0; let longest = 0;
+  for (const x of l1) { if (x > 12) { streak += 1; if (streak > longest) longest = streak; } else streak = 0; }
+  const above = l1.filter((x) => x > 12).length;
+  const m = mean(l1);
+  return { samples: l1.length, load1Mean: r2(m), load1Max: Math.max(...l1), load1Min: Math.min(...l1), above12: above, longestStreakAbove12: longest, above20: l1.filter((x) => x > 20).length, disturbed: longest >= 5 || m > 12 || above * 2 >= l1.length };
+}
+
+function sessionLoadRows(loadLog) {
+  if (!fs.existsSync(loadLog)) return [];
+  const rows = [];
+  for (const line of fs.readFileSync(loadLog, 'utf8').split('\n')) {
+    const m = /^(\S+Z) load1=([\d.]+) load5=([\d.]+) load15=([\d.]+) nodeProcs=(\d+) jestProcs=(\d+) fullsuiteLock=(\d)/.exec(line);
+    if (m) rows.push({ t: ts(m[1]), load1: Number(m[2]), load5: Number(m[3]), node: Number(m[5]), jest: Number(m[6]), lock: Number(m[7]) });
+  }
+  return rows;
+}
+function runLoadRows(file) {
+  if (!file || !fs.existsSync(file)) return [];
+  const rows = [];
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim()) continue;
+    try { const o = JSON.parse(line); rows.push({ t: ts(o.ts), load1: o.load1, load5: o.load5 }); } catch (e) { /* skipped */ }
+  }
+  return rows;
+}
+function windowStats(rows, fromMs, toMs) {
+  const w = rows.filter((r) => r.t >= fromMs && r.t <= toMs);
+  if (!w.length) return { samples: 0 };
+  const c = classify(w.map((r) => r.load1));
+  const extra = w[0].jest !== undefined ? { jestProcsMax: Math.max(...w.map((r) => r.jest)), samplesWithJest: w.filter((r) => r.jest > 0).length, samplesWithFullSuiteLock: w.filter((r) => r.lock === 1).length } : {};
+  return { ...c, ...extra };
+}
+
+/** CPU by process group (procsample.sh lines) over a window: mean CPU and the share of samples with jest in a group. */
+function procWindow(procsLog, fromMs, toMs) {
+  if (!procsLog || !fs.existsSync(procsLog)) return null;
+  const rows = [];
+  for (const line of fs.readFileSync(procsLog, 'utf8').split('\n')) {
+    const m = /^(\S+Z) cpuAll=(\d+) procs=(\d+) \| gate n=(\d+) cpu=(\d+) jest=(\d+) \| pipeline n=(\d+) cpu=(\d+) jest=(\d+) \| otherEnsemble n=(\d+) cpu=(\d+) jest=(\d+) \| other n=(\d+) cpu=(\d+) \| top (.*)$/.exec(line);
+    if (!m) continue;
+    const t = ts(m[1]);
+    if (t < fromMs || t > toMs) continue;
+    rows.push({ t, cpuAll: +m[2], gate: +m[5], gateJest: +m[6], pipeline: +m[8], pipelineJest: +m[9], otherEnsemble: +m[11], otherJest: +m[12], other: +m[14], top: m[15].trim() });
+  }
+  if (!rows.length) return { samples: 0 };
+  const mn = (k) => r2(mean(rows.map((r) => r[k])));
+  return { samples: rows.length, meanCpuPct: { all: mn('cpuAll'), gate: mn('gate'), pipeline: mn('pipeline'), otherEnsemble: mn('otherEnsemble'), other: mn('other') }, samplesWithOtherEnsembleJest: rows.filter((r) => r.otherJest > 0).length, samplesWithGateJest: rows.filter((r) => r.gateJest > 0).length, maxOtherEnsembleCpuPct: Math.max(...rows.map((r) => r.otherEnsemble)), maxOtherCpuPct: Math.max(...rows.map((r) => r.other)) };
+}
+
+function analyzeRun(dir, { loadLog, procsLog, caps = [8] } = {}) {
+  const spans = readTrace(path.join(dir, 'trace.jsonl'));
+  const root = spans.find((s) => s.name === 'review');
+  const t0 = root.start;
+  const tEnd = root.end;
+  const agents = spans.filter((s) => ['review.reviewer', 'review.security-lane', 'review.verifier'].includes(s.name)).map((s) => {
+    const arrived = s.endAttrs.last_message_ts !== undefined;
+    const finish = arrived ? ts(s.endAttrs.last_message_ts) : null;
+    return { name: s.attrs.agent, role: s.attrs.role, wave: s.attrs.wave, refill: s.attrs.refill === true, cap: s.attrs.cap, running: s.attrs.running, start: s.start, collected: s.end, state: s.endAttrs.state, arrived, finish, endStatus: s.status, dur: arrived ? (finish - s.start) / 1000 : null, censored: arrived ? null : (s.end - s.start) / 1000 };
+  });
+  const reviewAgents = agents.filter((a) => a.role !== 'verifier');
+  const verifiers = agents.filter((a) => a.role === 'verifier').sort((a, b) => (a.start - b.start) || (Number(a.name.split('-')[1]) - Number(b.name.split('-')[1])));
+  const arrivedV = verifiers.filter((v) => v.arrived);
+  const expiredV = verifiers.filter((v) => !v.arrived);
+  const durOf = (v) => (v.arrived ? v.dur : v.censored);
+  const vDurs = verifiers.map(durOf);
+  const firstV = verifiers.length ? Math.min(...verifiers.map((v) => v.start)) : null;
+  const lastVFinish = verifiers.length ? Math.max(...verifiers.map((v) => (v.arrived ? v.finish : v.collected))) : null;
+  const lastReviewFinish = reviewAgents.length ? Math.max(...reviewAgents.map((a) => (a.arrived ? a.finish : a.collected))) : null;
+  const reviewers = reviewAgents.filter((a) => a.role === 'reviewer');
+  const slowestReviewer = reviewers.filter((a) => a.arrived).sort((a, b) => b.dur - a.dur)[0] || null;
+  const lane = reviewAgents.find((a) => a.role === 'security') || null;
+  const overlap = (list) => {
+    const ev = [];
+    for (const a of list) { ev.push([a.start, 1]); ev.push([a.arrived ? a.finish : a.collected, -1]); }
+    ev.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    let cur = 0; let peak = 0;
+    for (const [, d] of ev) { cur += d; if (cur > peak) peak = cur; }
+    return peak;
+  };
+  const arrivedDurs = arrivedV.map((v) => v.dur);
+  const rec = {
+    dir: path.basename(dir),
+    wallMin: r2((tEnd - t0) / 60000),
+    window: { startMs: t0, endMs: tEnd, startIso: new Date(t0).toISOString(), endIso: new Date(tEnd).toISOString() },
+    rootMaxConcurrentAgents: root.endAttrs.max_concurrent_agents,
+    reviewers: { count: reviewers.length, slowestName: slowestReviewer && slowestReviewer.name, slowestMin: slowestReviewer && r2(slowestReviewer.dur / 60), laneMin: lane && lane.dur !== null ? r2(lane.dur / 60) : null, expired: reviewAgents.filter((a) => !a.arrived).map((a) => a.name) },
+    reviewRoundMin: r2((lastReviewFinish - Math.min(...reviewAgents.map((a) => a.start))) / 60000),
+    handoffToVerifySec: firstV !== null ? r2((firstV - lastReviewFinish) / 1000) : null,
+    verify: verifiers.length === 0 ? null : {
+      count: verifiers.length, arrived: arrivedV.length, expired: expiredV.length, expiredNames: expiredV.map((v) => v.name),
+      waves: [...new Set(verifiers.map((v) => v.wave))].length, refills: [...new Set(verifiers.filter((v) => v.refill).map((v) => v.wave))].length,
+      stageMin: r2((lastVFinish - firstV) / 60000), stageSec: r2((lastVFinish - firstV) / 1000),
+      startedAtIso: new Date(firstV).toISOString(), startedOffsetMin: r2((firstV - t0) / 60000), endedOffsetMin: r2((lastVFinish - t0) / 60000),
+      slowestMin: r2(Math.max(...vDurs) / 60), slowestArrivedMin: arrivedDurs.length ? r2(Math.max(...arrivedDurs) / 60) : null,
+      medianMin: r2(median(arrivedDurs) / 60), meanMin: r2(mean(arrivedDurs) / 60), p75Min: r2(pct(arrivedDurs, 75) / 60), p90Min: r2(pct(arrivedDurs, 90) / 60), minMin: r2(Math.min(...arrivedDurs) / 60),
+      sumAgentMin: r2(vDurs.reduce((a, b) => a + b, 0) / 60),
+      peakVerifierOverlap: overlap(verifiers), peakAnyAgentOverlap: overlap(agents),
+      lastStartOffsetMin: r2((Math.max(...verifiers.map((v) => v.start)) - firstV) / 60000),
+      durationsSec: vDurs.map((d) => r2(d)),
+      replayAtCap8Min: r2(replay(vDurs, 8) / 60),
+    },
+  };
+  // the dispatch log (my driver's record of every manifest): first-wave and second-wave verifiers, per manifest
+  let manifests = [];
+  try { manifests = fs.readFileSync(path.join(dir, 'dispatch.log.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l)); } catch (e) { /* none */ }
+  const verifyManifests = manifests.filter((m) => m.round === 'verify');
+  const vAgentsLogged = verifyManifests.flatMap((m) => m.agents.filter((a) => a.role === 'verifier').map((a) => ({ ...a, wave: m.wave, refill: m.refill, afterMs: m.afterMs })));
+  const secondNames = new Set(vAgentsLogged.filter((x) => x.secondWave).map((x) => x.name));
+  if (rec.verify && secondNames.size) {
+    const first = verifiers.filter((x) => !secondNames.has(x.name));
+    const second = verifiers.filter((x) => secondNames.has(x.name));
+    const lastFirst = first.length ? Math.max(...first.map((x) => (x.arrived ? x.finish : x.collected))) : null;
+    const firstSecondStart = second.length ? Math.min(...second.map((x) => x.start)) : null;
+    rec.verify.firstWaveEndedOffsetMin = lastFirst !== null ? r2((lastFirst - t0) / 60000) : null;
+    rec.verify.firstWaveStageMin = lastFirst !== null ? r2((lastFirst - firstV) / 60000) : null;
+    rec.verify.secondWaveStartedOffsetMin = firstSecondStart !== null ? r2((firstSecondStart - t0) / 60000) : null;
+    rec.verify.secondWaveTailMin = lastFirst !== null ? r2((lastVFinish - lastFirst) / 60000) : null;
+    rec.verify.secondWaveDurationsSec = second.map((x) => r2(durOf(x)));
+    rec.verify.firstWaveDurationsSec = first.map((x) => r2(durOf(x)));
+  } else if (rec.verify) {
+    rec.verify.firstWaveStageMin = rec.verify.stageMin; rec.verify.secondWaveTailMin = 0;
+    rec.verify.firstWaveDurationsSec = vDurs.map((x) => r2(x)); rec.verify.secondWaveDurationsSec = [];
+  }
+  rec.verifiers = {
+    dispatchedTotal: vAgentsLogged.length,
+    secondWave: vAgentsLogged.filter((a) => a.secondWave).length,
+    firstWave: vAgentsLogged.filter((a) => !a.secondWave).length,
+    manifests: verifyManifests.length,
+  };
+  // run.json: the plan, the quorum record, the candidates; and the full-electorate plan the same candidates would have drawn (committed planner)
+  let runExtract = null; try { runExtract = JSON.parse(fs.readFileSync(path.join(dir, 'run-extract.json'), 'utf8')); } catch (e) { /* none */ }
+  if (runExtract) {
+    rec.quorum = runExtract.quorum;
+    rec.verifiers.plannedFullElectorate = runExtract.plannedFullElectorate;
+    rec.verifiers.plannedByRunner = runExtract.plannedByRunner;
+    rec.verifiers.candidatesVerified = runExtract.candidatesVerified;
+    rec.verifiers.mode = runExtract.mode; rec.verifiers.electorate = runExtract.electorate;
+    if (runExtract.quorum && runExtract.quorum.applied === true) {
+      const second = runExtract.quorum.secondWave || [];
+      rec.verifiers.candidatesGivenTheRest = second.length;
+      rec.verifiers.secondWaveRate = runExtract.candidatesVerified ? r2(second.length / runExtract.candidatesVerified) : null;
+      rec.verifiers.secondWaveReasons = second.reduce((a, s) => { for (const r of s.reasons || []) a[r] = (a[r] || 0) + 1; return a; }, {});
+    }
+  }
+  // the gate and verification
+  let sum = null; try { sum = JSON.parse(fs.readFileSync(path.join(dir, 'summary.json'), 'utf8')); } catch (e) { /* none */ }
+  if (sum) {
+    const g = sum.localCiGate || {};
+    const gStart = g.startedAt ? ts(g.startedAt) : null;
+    const gEnd = g.finishedAt ? ts(g.finishedAt) : null;
+    rec.gate = { action: g.action, reason: g.reason, ok: g.ok, durationMin: g.durationMin, startedAt: g.startedAt, finishedAt: g.finishedAt, failures: g.failures, startedOffsetSec: gStart !== null ? r2((gStart - t0) / 1000) : null, finishedOffsetMin: gEnd !== null ? r2((gEnd - t0) / 60000) : null, verificationStartedAfterGateFinished: gEnd !== null && firstV !== null ? firstV >= gEnd : null, verifyStartMinusGateEndMin: gEnd !== null && firstV !== null ? r2((firstV - gEnd) / 60000) : null };
+    rec.ledger = { candidates: sum.ledger.total, bySeverity: sum.ledger.bySeverity, present: sum.ledger.present, presentOnMajority: sum.ledger.presentOnMajority, quorumSettled: sum.ledger.quorumSettled, unverified: sum.ledger.unverified, other: sum.ledger.other };
+    rec.flags = { rereadResults: sum.flags.rereadResults.length, restated: sum.flags.restated.length, changedResults: sum.flags.changedResults.length, warnings: sum.flags.warnings.length };
+    rec.stoppedAtDeadline = sum.stoppedAtDeadline; rec.incompleteVerifiers = sum.incompleteVerifiers;
+    rec.orchestratorOnlySec = sum.timing.orchestratorOnly && sum.timing.orchestratorOnly.ms / 1000; rec.beforeFirstDispatchSec = sum.timing.beforeFirstDispatch / 1000;
+    rec.criticalPath = sum.timing.criticalPath && { ms: sum.timing.criticalPath.ms, steps: (sum.timing.criticalPath.rounds || []).flatMap((r) => (r.steps || []).map((x) => ({ stage: x.stage, ms: x.ms, name: x.name, waves: x.waves }))) };
+    rec.metricsAgents = sum.metrics && sum.metrics.agentsByRole;
+    rec.agentsTotal = sum.metrics && sum.metrics.agentsDispatched;
+    rec.reReview = sum.reReview; rec.carry = sum.carry; rec.mode = sum.mode; rec.depth = sum.depth;
+    rec.gateBlockers = sum.gateBlockers; rec.mergeable = sum.mergeable;
+  }
+  // the harness job status (never a session file): statuses, model, thinking level, requests, cost
+  let jobs = null; try { jobs = JSON.parse(fs.readFileSync(path.join(dir, 'jobs.json'), 'utf8')); } catch (e) { /* none */ }
+  if (jobs) {
+    const list = Object.entries(jobs).map(([name, j]) => ({ name, role: j.role, round: j.round, final: j.final, last: j.lastRunning, states: j.statesSeen }));
+    const byRole = {};
+    for (const j of list) {
+      const b = (byRole[j.role] = byRole[j.role] || { n: 0, requests: 0, cost: 0, ctx: [], harnessDurSec: [], statuses: {}, notes: 0, models: {} });
+      b.n += 1; if (j.last) { b.requests += j.last.requests || 0; b.cost += j.last.cost || 0; if (j.last.contextTokens) b.ctx.push(j.last.contextTokens); }
+      if (j.final) { const sk = j.final.status + (j.final.killedAtDeadline ? '(killed)' : ''); b.statuses[sk] = (b.statuses[sk] || 0) + 1; if (j.final.envelopeNote) b.notes += 1; if (j.final.durationMs) b.harnessDurSec.push(j.final.durationMs / 1000); const mk = (j.final.model || '?') + '|' + (j.final.thinking || '?'); b.models[mk] = (b.models[mk] || 0) + 1; }
+    }
+    rec.jobs = Object.fromEntries(Object.entries(byRole).map(([role, b]) => [role, { n: b.n, requestsTotal: b.requests, requestsMean: r2(b.requests / b.n), costTotalUsd: r2(b.cost), contextTokensMax: b.ctx.length ? Math.max(...b.ctx) : null, harnessDurMedianSec: r2(median(b.harnessDurSec)), harnessDurMaxSec: b.harnessDurSec.length ? r2(Math.max(...b.harnessDurSec)) : null, statuses: b.statuses, envelopeNotes: b.notes, modelsAndThinking: b.models }]));
+    rec.harness = { agentsWithEnvelopeNote: list.filter((j) => j.final && j.final.envelopeNote).map((j) => j.name + ':' + j.final.envelopeNote), nonCompleted: list.filter((j) => j.final && j.final.status !== 'completed' && !j.final.killedAtDeadline).map((j) => j.name + ':' + j.final.status), killedAtDeadline: list.filter((j) => j.final && j.final.killedAtDeadline).map((j) => j.name), unusualWidgetStates: list.filter((j) => j.states.some((s) => s !== 'fallback')).map((j) => j.name + ':' + j.states.join('/')) };
+  }
+  let conc = null; try { conc = JSON.parse(fs.readFileSync(path.join(dir, 'concurrency.json'), 'utf8')); } catch (e) { /* none */ }
+  if (conc) rec.driverPeakTrackedActive = conc.peakTrackedActive;
+  let guard = null; try { guard = JSON.parse(fs.readFileSync(path.join(dir, 'recall-guard.json'), 'utf8')); } catch (e) { /* none */ }
+  if (guard && guard.items) rec.recallGuard = { falseNegativeRate: guard.falseNegativeRate, notRaisedRate: guard.notRaisedRate, found: guard.items.filter((i) => i.status === 'found').map((i) => i.id), downgraded: guard.items.filter((i) => i.status === 'downgraded').map((i) => i.id), notRaised: guard.items.filter((i) => i.status === 'not-raised').map((i) => i.id), unmatchedImportant: (guard.unmatchedImportant || []).map((x) => x.id || x) };
+  // host load: the session log (the ramp's source) and this run's own committed-sampler file; the rule is applied to load samples alone
+  const stage = firstV !== null ? [firstV, lastVFinish] : null;
+  const own = runLoadRows(path.join(dir, 'load-samples.jsonl'));
+  const sess = sessionLoadRows(loadLog);
+  rec.load = {
+    sessionLog: { run: windowStats(sess, t0, tEnd), verifyStage: stage ? windowStats(sess, stage[0], stage[1]) : null, first5min: windowStats(sess, t0, t0 + 5 * 60000), beforeRun15min: windowStats(sess, t0 - 15 * 60000, t0) },
+    runSampler: { run: windowStats(own, t0, tEnd), verifyStage: stage ? windowStats(own, stage[0], stage[1]) : null },
+    procs: { run: procWindow(procsLog, t0, tEnd), verifyStage: stage ? procWindow(procsLog, stage[0], stage[1]) : null, first5min: procWindow(procsLog, t0, t0 + 5 * 60000) },
+  };
+  return rec;
+}
+
+module.exports = { analyzeRun, replay, readTrace, classify, sessionLoadRows, windowStats, procWindow, median, mean, pct, r2 };

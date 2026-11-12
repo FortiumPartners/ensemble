@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "row": {
+  "id": "pr314-first-v26-08-pr314-new-first-redo4",
+  "pr": 314,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 28.407,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-08-pr314-new-first-redo4",
+  "run_id": "v26-08-pr314-new-first-redo4"
+ }
+}

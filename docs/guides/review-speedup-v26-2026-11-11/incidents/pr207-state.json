@@ -1,0 +1,36 @@
+{
+ "number": 207,
+ "state": "MERGED",
+ "head": "562ded7dd65c0221481af21d416a5ea9edfc70ef",
+ "base": "dev",
+ "draft": false,
+ "mergedAt": "2026-11-12T02:43:03Z",
+ "mergeCommit": "32aa75c8ab9e22faa95e32ba447038eabe2c7cc4",
+ "mergedBy": "ldangelo",
+ "closedAt": "2026-11-12T02:43:03Z",
+ "labels": [],
+ "comments": [
+  {
+   "author": "ldangelo",
+   "createdAt": "2026-10-30T14:04:54Z",
+   "excerpt": "## Review notes for `48c862c` Automated multi-reviewer pass (2 reviewers, 5 independent verifiers per candidate; run by @ldangelo's tooling, not a human line-by-line read). **This is a comment, not an approval or a change request.** This PR"
+  },
+  {
+   "author": "ldangelo",
+   "createdAt": "2026-11-03T18:25:15Z",
+   "excerpt": "**Review: approve once #205 lands** (read-only review; tests not run) - Correct: `framework` defaults to nunit; xunit requires `testBody`, `collection`, `fixtureType`; appending infers framework and refuses a mismatch; identifier regexes gu"
+  },
+  {
+   "author": "ldangelo",
+   "createdAt": "2026-11-12T02:43:00Z",
+   "excerpt": "Hi @michaeldevenney: this PR was stacked on #205, which has since landed as a squash, so its base branch was stale and the PR showed as conflicting. I merged `dev` into your branch, retargeted the PR to `dev` and merged it. Nothing was reba"
+  }
+ ],
+ "reviews": [
+  {
+   "author": "github-advanced-security",
+   "state": "COMMENTED",
+   "submittedAt": "2026-11-12T02:27:37Z"
+  }
+ ]
+}

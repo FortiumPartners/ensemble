@@ -1,0 +1,71 @@
+{
+ "label": "v26-04-pr319-new-first",
+ "limit": 6,
+ "waitedMs": 60194,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-11T23:53:39.422Z",
+   "load1": 7.07,
+   "load5": 16.48,
+   "top": [
+    "123.6 16860       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2B --entity-type file --p",
+    " 52.9 50405    03:10:41 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 49.7 69118 02-03:02:11 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 49.0   868 02-07:06:54 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 21.5   456 02-07:06:58 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 18.4 12851 02-07:04:12 omp --resume=/Users/ldangelo/.omp/agent/sessions/-Development-Sunstone-ensemble.local-ci/2026-11-06T18-28-41-764Z_01a1b21e-bea4-72f4-a793-bc849a47"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:53:54.470Z",
+   "load1": 6.49,
+   "load5": 15.9,
+   "top": [
+    "148.8 17636       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS3A --entity-type file --p",
+    " 53.4 31623    07:57:21 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 52.3 69118 02-03:02:26 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 48.3 50405    03:10:56 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 43.2   868 02-07:07:09 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 19.1   456 02-07:07:13 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:54:09.516Z",
+   "load1": 6.42,
+   "load5": 15.42,
+   "top": [
+    "118.9 18128       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2B --entity-type file --p",
+    " 73.5 23334 01-00:02:25 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 62.6 31623    07:57:36 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 50.9 50405    03:11:11 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 44.7 69118 02-03:02:41 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 43.1   868 02-07:07:24 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:54:24.566Z",
+   "load1": 6.36,
+   "load5": 14.96,
+   "top": [
+    "68.8 31623    07:57:51 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 55.6 69118 02-03:02:56 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 46.9 50405    03:11:26 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 41.3   868 02-07:07:39 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 28.6 23334 01-00:02:40 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 27.5   456 02-07:07:43 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:54:39.615Z",
+   "load1": 5.61,
+   "load5": 14.37
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.61,
+  "load5": 14.37,
+  "load15": 21.47
+ }
+}

@@ -1,0 +1,16 @@
+{
+ "n": 5,
+ "pr": 319,
+ "tier": "medium",
+ "arm": "old",
+ "round": "first",
+ "runId": "v26-05-pr319-old-first",
+ "prefix": "R05o",
+ "prevDir": "/Users/ldangelo/.omp/pr-review-speedup/v26/runs/v26-04-pr319-new-first",
+ "recall": false,
+ "expectHeadSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "expectBaseSha": "306934f5425206485d262ed3aa2db3a11c078b92",
+ "note": "scratch re-creation of #205 at its measured head",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-12T00:38:23.716Z"
+}

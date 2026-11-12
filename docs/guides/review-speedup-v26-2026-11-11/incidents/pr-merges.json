@@ -1,0 +1,101 @@
+[
+ {
+  "number": 202,
+  "title": "feat(development): add an opt-out for BDD/Reqnroll in create-trd and implement-trd-beads (on by default)",
+  "state": "MERGED",
+  "createdAt": "2026-10-27T00:31:45Z",
+  "mergedAt": "2026-11-11T23:38:48Z",
+  "mergeCommit": "4598b400505f678afd4c29015e56304443214eef",
+  "mergedBy": "ldangelo",
+  "headRefOid": "c0f43ba1c5bb845f680e1077ee3da0ee92ef6036",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 205,
+  "title": "feat(e2e-testing): capture an end-state screenshot for every authored Playwright test",
+  "state": "MERGED",
+  "createdAt": "2026-10-28T01:16:21Z",
+  "mergedAt": "2026-11-11T23:38:30Z",
+  "mergeCommit": "bb246b58527a69526af9a1cc60d0573ed62840e3",
+  "mergedBy": "ldangelo",
+  "headRefOid": "693d4126a8fc91da0917b415db93348da0bf7d77",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 207,
+  "title": "feat(e2e-testing): author-playwright-tests writes xUnit tests as well as NUnit (stacked on #205)",
+  "state": "MERGED",
+  "createdAt": "2026-10-28T11:13:50Z",
+  "mergedAt": "2026-11-12T02:43:03Z",
+  "mergeCommit": "32aa75c8ab9e22faa95e32ba447038eabe2c7cc4",
+  "mergedBy": "ldangelo",
+  "headRefOid": "562ded7dd65c0221481af21d416a5ea9edfc70ef",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 225,
+  "title": "fix(development): beads-build-wave filters out-of-label beads instead of refusing the wave",
+  "state": "MERGED",
+  "createdAt": "2026-11-01T13:34:28Z",
+  "mergedAt": "2026-11-11T23:38:13Z",
+  "mergeCommit": "5edf9a3a4115e6535a21c43541f373483a913336",
+  "mergedBy": "ldangelo",
+  "headRefOid": "a28be0881e97edf022504241941f2a6f5daa3d01",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 228,
+  "title": "fix(full): ship the data files the bundle's code reaches by path",
+  "state": "MERGED",
+  "createdAt": "2026-11-02T17:40:27Z",
+  "mergedAt": "2026-11-11T23:37:55Z",
+  "mergeCommit": "da03808560b05f12866715cf7de546772a8f23db",
+  "mergedBy": "ldangelo",
+  "headRefOid": "ef50a57eebd0abe55dc20a7e9942da34434e1922",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 229,
+  "title": "fix(toolchain): descend one level into grouped adapter directories",
+  "state": "MERGED",
+  "createdAt": "2026-11-03T13:58:45Z",
+  "mergedAt": "2026-11-12T02:33:41Z",
+  "mergeCommit": "f26b928d43426d1bcd3aad3dc0ec161fc5651d9f",
+  "mergedBy": "ldangelo",
+  "headRefOid": "d77f4914628441f3a854fcf169b6bf39a0233467",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 233,
+  "title": "feat(review): soloMaintainer policy key; fix inert REVIEW.md policy block",
+  "state": "MERGED",
+  "createdAt": "2026-11-04T17:57:09Z",
+  "mergedAt": "2026-11-05T01:01:48Z",
+  "mergeCommit": "ae45f10d0b3c08a26f1ca822ce7236a0b304764a",
+  "mergedBy": "ldangelo",
+  "headRefOid": "67764f654fe23e487e08685e6b4725dcb7b3daec",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 297,
+  "title": "feat(development): the local CI gate reuses hosted CI results verified on the exact head (kata fwj0, ehsm)",
+  "state": "MERGED",
+  "createdAt": "2026-11-11T01:07:04Z",
+  "mergedAt": "2026-11-12T01:54:51Z",
+  "mergeCommit": "74a04d5a6df6af03c37628a1b645fe3a15d6f022",
+  "mergedBy": "ldangelo",
+  "headRefOid": "3336692fdd1d419b60cf8edb54489839c0a2ae6f",
+  "baseRefName": "dev"
+ },
+ {
+  "number": 312,
+  "title": "feat(commands): make the six dispatchers skill-backed",
+  "state": "MERGED",
+  "createdAt": "2026-11-11T20:14:18Z",
+  "mergedAt": "2026-11-11T21:41:25Z",
+  "mergeCommit": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "mergedBy": "ldangelo",
+  "headRefOid": "02e3b5f88c1a61cc6ff37599a431ae2b3aad64ad",
+  "baseRefName": "dev"
+ }
+]

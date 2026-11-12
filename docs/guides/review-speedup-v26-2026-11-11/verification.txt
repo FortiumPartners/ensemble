@@ -1,0 +1,137 @@
+OK   v26-01-pr207-old-first wall (min, from the trace's first start to last end): 31.26
+OK   v26-01-pr207-old-first review round (min): 15.46
+OK   v26-01-pr207-old-first verify stage (min): 15.37
+OK   v26-01-pr207-old-first verify-stage load1 mean / max (session load.log): 6.56 / 10.4
+INFO v26-01-pr207-old-first own sampler stage load1 mean / max: 6.56 / 10.4 (31 samples; session log 31)
+OK   v26-01-pr207-old-first verifiers dispatched (first + second wave): 18 (18 + 0)
+OK   v26-01-pr207-old-first verifiers stopped at the deadline: 0
+OK   v26-01-pr207-old-first candidates: 18 (
+OK   v26-01-pr207-old-first verifier agent-minutes: 92.16
+OK   v26-02-pr207-new-first wall (min, from the trace's first start to last end): 22.09
+OK   v26-02-pr207-new-first review round (min): 15.14
+OK   v26-02-pr207-new-first verify stage (min): 6.56
+OK   v26-02-pr207-new-first verify-stage load1 mean / max (session load.log): 43.37 / 60.8
+INFO v26-02-pr207-new-first own sampler stage load1 mean / max: 42.16 / 60.8 (14 samples; session log 13)
+OK   v26-02-pr207-new-first verifiers dispatched (first + second wave): 8 (8 + 0)
+OK   v26-02-pr207-new-first verifiers stopped at the deadline: 0
+OK   v26-02-pr207-new-first candidates: 11 (
+OK   v26-02-pr207-new-first verifier agent-minutes: 42.78
+OK   v26-03-pr207-new-first-rep wall (min, from the trace's first start to last end): 22.34
+OK   v26-03-pr207-new-first-rep review round (min): 13.92
+OK   v26-03-pr207-new-first-rep verify stage (min): 8.06
+OK   v26-03-pr207-new-first-rep verify-stage load1 mean / max (session load.log): 48.15 / 93.4
+INFO v26-03-pr207-new-first-rep own sampler stage load1 mean / max: 48.15 / 93.4 (16 samples; session log 16)
+OK   v26-03-pr207-new-first-rep verifiers dispatched (first + second wave): 10 (10 + 0)
+OK   v26-03-pr207-new-first-rep verifiers stopped at the deadline: 0
+OK   v26-03-pr207-new-first-rep candidates: 15 (
+OK   v26-03-pr207-new-first-rep verifier agent-minutes: 45.52
+OK   v26-04-pr319-new-first wall (min, from the trace's first start to last end): 34.06
+OK   v26-04-pr319-new-first review round (min): 16.42
+OK   v26-04-pr319-new-first verify stage (min): 17.19
+OK   v26-04-pr319-new-first verify-stage load1 mean / max (session load.log): 6.43 / 8.6
+INFO v26-04-pr319-new-first own sampler stage load1 mean / max: 6.43 / 8.6 (34 samples; session log 34)
+OK   v26-04-pr319-new-first verifiers dispatched (first + second wave): 16 (15 + 1)
+OK   v26-04-pr319-new-first verifiers stopped at the deadline: 1
+OK   v26-04-pr319-new-first candidates: 22 (
+OK   v26-04-pr319-new-first verifier agent-minutes: 68.21
+OK   v26-05-pr319-old-first wall (min, from the trace's first start to last end): 39.11
+OK   v26-05-pr319-old-first review round (min): 16.72
+OK   v26-05-pr319-old-first verify stage (min): 22.04
+OK   v26-05-pr319-old-first verify-stage load1 mean / max (session load.log): 4.80 / 6.6
+INFO v26-05-pr319-old-first own sampler stage load1 mean / max: 4.69 / 6.3 (44 samples; session log 44)
+OK   v26-05-pr319-old-first verifiers dispatched (first + second wave): 25 (25 + 0)
+OK   v26-05-pr319-old-first verifiers stopped at the deadline: 1
+OK   v26-05-pr319-old-first candidates: 25 (
+OK   v26-05-pr319-old-first verifier agent-minutes: 134.54
+OK   v26-06-pr314-old-first wall (min, from the trace's first start to last end): 18.76
+OK   v26-06-pr314-old-first review round (min): 11.66
+OK   v26-06-pr314-old-first verify stage (min): 6.71
+OK   v26-06-pr314-old-first verify-stage load1 mean / max (session load.log): 5.52 / 8.3
+INFO v26-06-pr314-old-first own sampler stage load1 mean / max: 5.50 / 8.6 (14 samples; session log 14)
+OK   v26-06-pr314-old-first verifiers dispatched (first + second wave): 6 (6 + 0)
+OK   v26-06-pr314-old-first verifiers stopped at the deadline: 0
+OK   v26-06-pr314-old-first candidates: 6 (
+OK   v26-06-pr314-old-first verifier agent-minutes: 36.42
+OK   v26-08-pr314-new-first-redo4 wall (min, from the trace's first start to last end): 28.41
+OK   v26-08-pr314-new-first-redo4 review round (min): 12.12
+OK   v26-08-pr314-new-first-redo4 verify stage (min): 16.03
+OK   v26-08-pr314-new-first-redo4 verify-stage load1 mean / max (session load.log): 4.32 / 6.1
+INFO v26-08-pr314-new-first-redo4 own sampler stage load1 mean / max: 4.40 / 6.2 (32 samples; session log 32)
+OK   v26-08-pr314-new-first-redo4 verifiers dispatched (first + second wave): 5 (4 + 1)
+OK   v26-08-pr314-new-first-redo4 verifiers stopped at the deadline: 3
+OK   v26-08-pr314-new-first-redo4 candidates: 5 (
+OK   v26-08-pr314-new-first-redo4 verifier agent-minutes: 37.95
+OK   v26-09-pr315-new-first wall (min, from the trace's first start to last end): 31.81
+OK   v26-09-pr315-new-first review round (min): 15.44
+OK   v26-09-pr315-new-first verify stage (min): 16.02
+OK   v26-09-pr315-new-first verify-stage load1 mean / max (session load.log): 4.80 / 8.5
+INFO v26-09-pr315-new-first own sampler stage load1 mean / max: 4.90 / 9.8 (32 samples; session log 32)
+OK   v26-09-pr315-new-first verifiers dispatched (first + second wave): 10 (7 + 3)
+OK   v26-09-pr315-new-first verifiers stopped at the deadline: 4
+OK   v26-09-pr315-new-first candidates: 7 (
+OK   v26-09-pr315-new-first verifier agent-minutes: 64.90
+OK   v26-10-pr315-old-first wall (min, from the trace's first start to last end): 28.02
+OK   v26-10-pr315-old-first review round (min): 14.81
+OK   v26-10-pr315-old-first verify stage (min): 12.87
+OK   v26-10-pr315-old-first verify-stage load1 mean / max (session load.log): 4.61 / 6.4
+INFO v26-10-pr315-old-first own sampler stage load1 mean / max: 4.61 / 6.3 (26 samples; session log 26)
+OK   v26-10-pr315-old-first verifiers dispatched (first + second wave): 10 (10 + 0)
+OK   v26-10-pr315-old-first verifiers stopped at the deadline: 2
+OK   v26-10-pr315-old-first candidates: 6 (
+OK   v26-10-pr315-old-first verifier agent-minutes: 64.92
+INFO unverified candidates by run: v26-01=0 v26-02=0 v26-03=0 v26-04=0 v26-05=0 v26-06=0 v26-08=3 v26-09=3 v26-10=0
+OK   unverified: 3 of 5 (run 8), 3 of 7 (run 9), none in the other seven runs
+OK   v26-04-pr319-new-first first-wave stage: 10.75
+OK   v26-04-pr319-new-first second-wave tail: 6.45
+OK   v26-08-pr314-new-first-redo4 first-wave stage: 8.01
+OK   v26-08-pr314-new-first-redo4 second-wave tail: 8.02
+OK   v26-09-pr315-new-first first-wave stage: 7.99
+OK   v26-09-pr315-new-first second-wave tail: 8.03
+OK   v26-04-pr319-new-first minus v26-05-pr319-old-first: wall difference (of the two-decimal figures): -5.05 min (-12.9%)
+INFO unrounded wall difference -5.044 min (-12.90%)
+OK   v26-08-pr314-new-first-redo4 minus v26-06-pr314-old-first: wall difference (of the two-decimal figures): +9.65 min (+51.4%)
+INFO unrounded wall difference 9.649 min (51.44%)
+OK   v26-09-pr315-new-first minus v26-10-pr315-old-first: wall difference (of the two-decimal figures): +3.79 min (+13.5%)
+INFO unrounded wall difference 3.788 min (13.52%)
+OK   sum of the three NEW walls: 94.28
+OK   sum of the three OLD walls: 85.89
+OK   mean paired difference: +2.80 min
+OK   stops table, OLD row: | OLD | 1, 5, 6, 10 | 59 | 3 (5.1%) |
+OK   stops table, NEW row: | NEW (all five runs) | 2, 3, 4, 8, 9 | 49 | 8 (16.3%) |
+INFO stops: OLD 3 of 59, NEW 8 of 49
+OK   stops: OLD 3 of 59, NEW 8 of 49
+OK   votes recorded: 285 votes, 282 `real`, 3 `not-real`
+OK   harness jobs completed / not completed: 160 agents: 149 `completed`, 11 `cancelled`
+OK   evidence traces are byte-identical to the run directories
+INFO walltime row v26-01-pr207-old-first: wall_min 31.261 (trace-derived 31.261)
+INFO walltime row v26-02-pr207-new-first: wall_min 22.085 (trace-derived 22.085)
+INFO walltime row v26-03-pr207-new-first-rep: wall_min 22.337 (trace-derived 22.337)
+INFO walltime row v26-04-pr319-new-first: wall_min 34.064 (trace-derived 34.064)
+INFO walltime row v26-05-pr319-old-first: wall_min 39.107 (trace-derived 39.108)
+INFO walltime row v26-06-pr314-old-first: wall_min 18.758 (trace-derived 18.759)
+INFO walltime row v26-08-pr314-new-first-redo4: wall_min 28.407 (trace-derived 28.407)
+INFO walltime row v26-09-pr315-new-first: wall_min 31.811 (trace-derived 31.812)
+INFO walltime row v26-10-pr315-old-first: wall_min 28.024 (trace-derived 28.024)
+OK   verify stage ended at a stopped verifier: (runs 5, 8, 9, 10: the last verifier to finish was a stopped one, 8.01 to 8.03 min after its own dispatch): OLD 2 of 4, NEW 2 of 5
+OK   #319 agent-minutes: #319 134.54 (OLD) against 68.21 (NEW), -49.3%
+OK   #314 agent-minutes: #314: 36.42 against 37.95, +4.2%
+OK   #315 agent-minutes: #315: 64.92 against 64.90, 0.0%
+OK   own sampler vs session log, eight runs: within 0.12 of them for eight runs
+OK   own sampler vs session log, run 2: it gives 42.16 over 14 samples where the session log gives 43.37 over 13
+OK   run 1 preceding burst: `load1` 19.7 to 73.9 in every sample from the sampler's start at 21:55:50Z to 22:09:22Z; 5.32 at the start, `load5` 17.47
+OK   run 1 start sample 22:12:53Z load1 5.32 load5 17.47 (run 1 started 2026-11-11T22:12:56.586Z)
+OK   #314: OLD base dev, NEW base scratch/v26-base, both at 63da19f
+OK   run 8: f1 important, 0 votes, unverified; f2 important, 2/0/0 present, same line (packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21); gate blockers list both
+OK   merge batch #228 #225 #205 #202: 23:37:55 to 23:38:48Z
+OK   #205 merge time: 23:38:30
+OK   #205 merge commit: bb246b5
+OK   #205 head: 693d412
+OK   #297 merge time: 01:54:51
+OK   #297 merge commit: 74a04d5
+OK   #207 merge time: 02:43:03
+OK   #207 merge commit: 32aa75c
+OK   #319 created: 23:53:01Z
+OK   #207 third comment: 02:43:00Z
+OK   closed times of the five scratch PRs: (01:55:35, 01:55:54, 01:55:59, 01:56:05, 01:56:10)
+OK   reopened times: reopened at 02:04:34 to 02:04:42Z
+OK   base-changed times: 02:08:04 to 02:08:12Z

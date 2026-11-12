@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+'use strict';
+// Scratch, NOT committed (kata 1yjx, plan v2 V2-6, the paired measurement of quorum-first verification).
+//
+// `review-run-cli prepare`, run in-process by the real node, with exactly ONE seam, the one the verify-concurrency ramp used (kata j1wb): the
+// runner takes its policy only from REVIEW.md at the PR's merge base (`readBaseText` -> `loadPolicy({text, baseSha, sourceSha: baseSha})`), no
+// environment variable overrides it, and a REVIEW.md edit on dev can never reach a PR whose merge base has none (#207, #205) or an inert one
+// (the #233 re-creation). The two git reads of that file at the base (`git ls-tree -z <base> -- REVIEW.md`, then `git cat-file blob <blob>`)
+// are answered here from a scratch file whose text the driver builds per arm; everything else is the committed code, unmodified: `readBaseText`,
+// `loadPolicy`, `prepareRun`, the run state. No tracked REVIEW.md is edited anywhere.
+//
+// The seam is the documented injection point: `execute(command, { readJson, prepareReview })` of review-run-cli.js and
+// `prepareReview(options, { git })` of pr-review-prepare.js ("`{ git, run }` replacements (see defaultDeps)").
+//
+// env: V26_REPO_ROOT (the worktree holding the committed code), V26_REVIEW_MD_FILE (the text served as REVIEW.md at the base),
+//      V26_SEAM_OUT (a file for the record of what was served)
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+const ROOT = process.env.V26_REPO_ROOT;
+const TEXT_FILE = process.env.V26_REVIEW_MD_FILE;
+if (!ROOT || !path.isAbsolute(ROOT) || !TEXT_FILE) {
+  process.stderr.write('V26_REPO_ROOT (absolute) and V26_REVIEW_MD_FILE are required\n');
+  process.exit(2);
+}
+const lib = path.join(ROOT, 'packages', 'development', 'lib');
+const { main } = require(path.join(lib, 'review-run-cli.js'));
+const { prepareReview, defaultDeps } = require(path.join(lib, 'pr-review-prepare.js'));
+
+const TEXT = fs.readFileSync(TEXT_FILE, 'utf8');
+const BLOB = crypto.createHash('sha1').update(`blob ${Buffer.byteLength(TEXT)}\0`).update(TEXT).digest('hex');
+
+const realGit = defaultDeps().git;
+const served = [];
+function git(args, opts) {
+  // 1. the listing of REVIEW.md in the base tree (`readBaseText`: git ls-tree -z <baseSha> -- REVIEW.md)
+  if (args[0] === 'ls-tree' && args.includes('-z') && args[args.length - 2] === '--' && args[args.length - 1] === 'REVIEW.md') {
+    served.push({ call: 'ls-tree', baseSha: args[args.length - 3] });
+    return { status: 0, stdout: `100644 blob ${BLOB}\tREVIEW.md\0`, stderr: '' };
+  }
+  // 2. the blob it names
+  if (args[0] === 'cat-file' && args[1] === 'blob' && args[2] === BLOB) {
+    served.push({ call: 'cat-file', blob: BLOB });
+    const bytes = Buffer.from(TEXT, 'utf8');
+    return { status: 0, stdout: opts && opts.buffer ? bytes : TEXT, stderr: '' };
+  }
+  return realGit(args, opts);
+}
+
+let payload;
+try {
+  payload = JSON.parse(fs.readFileSync(0, 'utf8'));
+} catch (error) {
+  process.stdout.write(`${JSON.stringify({ ok: false, error: `cannot read the payload: ${error.message}` })}\n`);
+  process.exit(1);
+}
+
+const injected = { readJson: () => payload, prepareReview: (options) => prepareReview(options, { git }) };
+
+main(['prepare'], injected).then((code) => {
+  if (process.env.V26_SEAM_OUT) {
+    const baseSha = (served.find((s) => s.call === 'ls-tree') || {}).baseSha || null;
+    let realBlobAtBase = null;
+    if (baseSha) { const r = realGit(['rev-parse', `${baseSha}:REVIEW.md`], { cwd: ROOT }); realBlobAtBase = r && r.status === 0 ? String(r.stdout).trim() : null; }
+    fs.writeFileSync(process.env.V26_SEAM_OUT, `${JSON.stringify({
+      seam: true, reviewMdFile: TEXT_FILE, servedText: TEXT, servedBlob: BLOB, servedSha256: crypto.createHash('sha256').update(TEXT).digest('hex'),
+      baseSha, realBlobAtBase, servedEqualsRealBlobAtBase: realBlobAtBase !== null ? realBlobAtBase === BLOB : null, served,
+    }, null, 1)}\n`);
+  }
+  process.exit(code);
+});

@@ -1,0 +1,62 @@
+[
+ {
+  "at": "2026-11-12T02:08:57.102Z",
+  "phase": "before-prepare",
+  "load": 5.18,
+  "procs": [
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T02:09:08.823Z",
+  "phase": "review-dispatch",
+  "load": 5.18,
+  "procs": [
+   "RunV26.R08nReviewerS1A [task] running up 3ms",
+   "RunV26.R08nReviewerS1B [task] running up 3ms",
+   "RunV26.R08nSecurityLane [task] running up 3ms",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T02:19:40.727Z",
+  "phase": "drive-end",
+  "load": 21.62,
+  "procs": [
+   "RunV26.R08nReviewerS1A [task] cancelled in 10m31s — RunV26.R08nReviewerS1A",
+   "RunV26.R08nReviewerS1B [task] cancelled in 10m31s — RunV26.R08nReviewerS1B",
+   "RunV26.R08nSecurityLane [task] completed in 5m48s — RunV26.R08nSecurityLane",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ }
+]

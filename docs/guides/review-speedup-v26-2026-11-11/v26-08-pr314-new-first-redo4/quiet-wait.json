@@ -1,0 +1,19 @@
+{
+ "label": "v26-08-pr314-new-first-redo4",
+ "limit": 6,
+ "waitedMs": 2,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-12T02:44:24.839Z",
+   "load1": 6,
+   "load5": 5.17
+  }
+ ],
+ "loadAtStart": {
+  "load1": 6,
+  "load5": 5.17,
+  "load15": 9.45
+ }
+}

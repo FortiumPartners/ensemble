@@ -1,0 +1,17 @@
+'use strict';
+// Scratch: recompute analysis.json of every run directory with the current analyzer (the per-run record written at run time is the same code at that
+// time); keeps the run-level fields the runner adds.
+const fs = require('fs'); const path = require('path');
+const A = require('./v26-analyze.js'); const L = require('./v26-lib.js');
+const PROCSLOG = path.join(L.SCRATCH, 'load', 'procs.log');
+const only = process.argv.slice(2);
+for (const id of fs.readdirSync(path.join(L.SCRATCH, 'runs')).sort()) {
+  if (id.startsWith('_') || (only.length && !only.includes(id))) continue;
+  const dir = path.join(L.SCRATCH, 'runs', id);
+  const old = (() => { try { return JSON.parse(fs.readFileSync(dir + '/analysis.json', 'utf8')); } catch (e) { return null; } })();
+  if (!old) continue;
+  const rec = A.analyzeRun(dir, { loadLog: L.LOADLOG, procsLog: PROCSLOG });
+  for (const k of ['arm', 'order', 'runId', 'pr', 'tier', 'round', 'armProofAllAgree', 'quiet', 'recallGuardExitDefaultThreshold']) if (old[k] !== undefined) rec[k] = old[k];
+  fs.writeFileSync(dir + '/analysis.json', JSON.stringify(rec, null, 1));
+  console.log('reanalyzed', id);
+}

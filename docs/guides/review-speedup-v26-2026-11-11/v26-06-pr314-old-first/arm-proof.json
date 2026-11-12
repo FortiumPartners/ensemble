@@ -1,0 +1,93 @@
+{
+ "runId": "v26-06-pr314-old-first",
+ "arm": "old",
+ "requestedQuorumFirstVerification": null,
+ "capRequested": 8,
+ "reviewMd": {
+  "kind": "dev-review-md",
+  "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "file": "review-md-served.md",
+  "sha256": "4a4b10f8e215dc7fb25637fcedb6333b4b9ebcd8138a1cd813cd1438c8a015e8",
+  "servedBlob": "d819a3b7f3781c1f9e8d5e835cb2c950afcde153",
+  "realBlobAtBase": "d819a3b7f3781c1f9e8d5e835cb2c950afcde153",
+  "servedEqualsRealBlobAtBase": true,
+  "seamCalls": [
+   {
+    "call": "ls-tree",
+    "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe"
+   },
+   {
+    "call": "cat-file",
+    "blob": "d819a3b7f3781c1f9e8d5e835cb2c950afcde153"
+   }
+  ]
+ },
+ "prepareAnswerMaxConcurrentAgents": 8,
+ "runJsonMaxConcurrentAgents": 8,
+ "runJsonPolicyMaxConcurrentAgents": 8,
+ "runJsonPolicyQuorumFirstVerification": false,
+ "runJsonQuorum": null,
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": null,
+ "runJsonBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "runJsonBaseRefName": "dev",
+ "runJsonHeadSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "runJsonTier": {
+  "tier": "medium",
+  "effectiveTier": "medium"
+ },
+ "runJsonMode": "light",
+ "runJsonDepth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3
+ },
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 3,
+  "slicesWanted": 1
+ },
+ "sizingWarnings": [],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 3,
+   "refill": false,
+   "secondWave": 0
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 6,
+   "refill": false,
+   "secondWave": 0
+  }
+ ],
+ "verifyManifests": [
+  {
+   "wave": "1 of 1",
+   "refill": false,
+   "quorumFirst": null,
+   "agents": 6,
+   "secondWave": 0
+  }
+ ],
+ "refillSpanCaps": [],
+ "rootSpanMaxConcurrentAgents": [
+  8
+ ],
+ "refillSpanCapsAllEqual8": true,
+ "capsAgree": true,
+ "quorumApplied": null,
+ "quorumManifestApplied": false,
+ "quorumArmAgrees": true,
+ "allAgree": true
+}

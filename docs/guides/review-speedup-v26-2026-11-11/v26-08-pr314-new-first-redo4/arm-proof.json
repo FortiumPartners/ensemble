@@ -1,0 +1,154 @@
+{
+ "runId": "v26-08-pr314-new-first-redo4",
+ "arm": "new",
+ "requestedQuorumFirstVerification": true,
+ "capRequested": 8,
+ "reviewMd": {
+  "kind": "dev-review-md",
+  "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "file": "review-md-served.md",
+  "sha256": "40fb5154d11a761f9ba1bc2b0572cb441b1f182c3d9bab1509721191559f6f77",
+  "servedBlob": "a6336484872c092b3172e250e6e8109324ae4bfb",
+  "realBlobAtBase": "d819a3b7f3781c1f9e8d5e835cb2c950afcde153",
+  "servedEqualsRealBlobAtBase": false,
+  "seamCalls": [
+   {
+    "call": "ls-tree",
+    "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe"
+   },
+   {
+    "call": "cat-file",
+    "blob": "a6336484872c092b3172e250e6e8109324ae4bfb"
+   }
+  ]
+ },
+ "prepareAnswerMaxConcurrentAgents": 8,
+ "runJsonMaxConcurrentAgents": 8,
+ "runJsonPolicyMaxConcurrentAgents": 8,
+ "runJsonPolicyQuorumFirstVerification": true,
+ "runJsonQuorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 6,
+  "secondWave": [
+   {
+    "id": "f1",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f6",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   }
+  ],
+  "skipped": []
+ },
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": null,
+ "runJsonBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "runJsonBaseRefName": "scratch/v26-base",
+ "runJsonHeadSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "runJsonTier": {
+  "tier": "medium",
+  "effectiveTier": "medium"
+ },
+ "runJsonMode": "light",
+ "runJsonDepth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3
+ },
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 3,
+  "slicesWanted": 1
+ },
+ "sizingWarnings": [],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 3,
+   "refill": false,
+   "secondWave": 0
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 4,
+   "refill": false,
+   "secondWave": 0
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 1,
+   "refill": false,
+   "secondWave": 1
+  }
+ ],
+ "verifyManifests": [
+  {
+   "wave": "1 of 1",
+   "refill": false,
+   "quorumFirst": {
+    "expected": 3,
+    "needed": 2,
+    "secondWave": false
+   },
+   "agents": 4,
+   "secondWave": 0
+  },
+  {
+   "wave": "2 (rolling)",
+   "refill": false,
+   "quorumFirst": {
+    "expected": 3,
+    "needed": 2,
+    "secondWave": true
+   },
+   "agents": 1,
+   "secondWave": 1
+  }
+ ],
+ "refillSpanCaps": [],
+ "rootSpanMaxConcurrentAgents": [
+  8
+ ],
+ "refillSpanCapsAllEqual8": true,
+ "capsAgree": true,
+ "quorumApplied": true,
+ "quorumManifestApplied": true,
+ "quorumArmAgrees": true,
+ "allAgree": true
+}

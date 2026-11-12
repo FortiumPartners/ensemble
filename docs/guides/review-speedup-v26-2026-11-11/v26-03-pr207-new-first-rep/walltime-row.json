@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "row": {
+  "id": "pr207-first-v26-03-pr207-new-first-rep",
+  "pr": 207,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 22.337,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-03-pr207-new-first-rep",
+  "run_id": "v26-03-pr207-new-first-rep"
+ }
+}

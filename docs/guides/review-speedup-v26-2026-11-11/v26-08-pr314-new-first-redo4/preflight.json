@@ -1,0 +1,11 @@
+{
+ "ok": true,
+ "problems": [],
+ "seen": {
+  "state": "OPEN",
+  "head": "444af69c2b63023c882d57834dd543689d5062ae",
+  "baseRefName": "scratch/v26-base",
+  "mergeBase": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "isDraft": true
+ }
+}

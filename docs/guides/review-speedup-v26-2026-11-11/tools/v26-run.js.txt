@@ -1,0 +1,146 @@
+'use strict';
+// One measured run, start to finish (kata 1yjx, V2-6). Scratch; a copy goes into the evidence directory as text.
+const fs = require('fs');
+const path = require('path');
+const L = require('./v26-lib.js');
+const A = require('./v26-analyze.js');
+const S = require(path.join(L.REPO_ROOT, 'packages', 'development', 'lib', 'pr-review-run-support.js'));
+
+const PROCSLOG = path.join(L.SCRATCH, 'load', 'procs.log');
+
+/** What the analysis needs from run.json: the quorum record, the plan, and the full-electorate plan the same candidates would have drawn (counterfactual). */
+function runExtract(runId, dir) {
+  const run = L.runJsonOf(runId);
+  const assigned = new Set((run.assignment || []).map((e) => String(e.id)));
+  const cands = (run.candidates || []).filter((c) => assigned.has(String(c.id)));
+  const mode = run.depth && run.depth.mode;
+  const k = run.depth && run.depth.verifiersPerCandidate;
+  let full = null;
+  try {
+    const plan = S.planVerifierPool({ candidates: cands.map((c) => ({ id: c.id, source: c.source, severity: c.severity })), mode, k });
+    full = plan.ok === true ? plan.agents.length : { refused: plan.reason };
+  } catch (e) { full = { error: String(e).slice(0, 120) }; }
+  const x = {
+    runId, repo: run.repo, pr: run.pr, headSha: run.headSha, baseSha: run.baseSha, baseRefName: run.baseRefName, round: run.round, lastReviewedSha: run.lastReviewedSha || null,
+    policy: { maxConcurrentAgents: run.policy && run.policy.maxConcurrentAgents, quorumFirstVerification: run.policy && run.policy.quorumFirstVerification, roundCap: run.policy && run.policy.roundCap, sliceThreshold: run.policy && run.policy.sliceThreshold },
+    policyExplicit: run.policyExplicit, policyStatus: run.policyStatus, severityGuideProblem: run.severityGuideProblem,
+    tier: run.tier && { tier: run.tier.tier, effectiveTier: run.tier.effectiveTier }, mode: mode, electorate: k, depthMode: mode,
+    quorum: run.quorum === undefined ? null : run.quorum,
+    plannedByRunner: (run.verifyAgents || []).length, plannedFullElectorate: full, candidatesVerified: assigned.size,
+    candidates: (run.candidates || []).map((c) => ({ id: c.id, source: c.source, severity: c.severity, loc: c.locationOrLink })),
+    assignment: (run.assignment || []).map((e) => ({ id: e.id, verifiers: e.verifiers, unasked: e.unasked || 0 })),
+    verifyAgents: (run.verifyAgents || []).map((a) => ({ name: a.name, candidateIds: a.candidateIds, secondWave: a.secondWave === true })),
+    waves: (run.waves || []).map((w) => ({ round: w.round, wave: w.wave, agents: w.agents.length, refill: w.refill === true, status: w.status })),
+    slices: (run.slices || []).map((s) => ({ id: s.id, paths: (s.paths || []).length, lines: s.work && s.work.lines })),
+    sizingWarnings: run.sizing && run.sizing.warnings, reReview: run.reReview || null, carry: run.carry ? { carriedIds: run.carry.carriedIds, reasons: run.carry.reasons } : null,
+  };
+  fs.writeFileSync(path.join(dir, 'run-extract.json'), JSON.stringify(x, null, 1));
+  return x;
+}
+
+/** The PR is OPEN, its head is `expectHeadSha` and the merge base of its (freshly fetched) base branch and head is `expectBaseSha`. */
+function preflight(spec) {
+  const { spawnSync } = require('child_process');
+  const git = (args) => spawnSync('git', args, { cwd: L.REPO_ROOT, encoding: 'utf8' });
+  git(['fetch', '-q', 'origin']);
+  const gh = spawnSync('gh', ['pr', 'view', String(spec.pr), '--repo', L.REPO, '--json', 'state,headRefOid,baseRefName,isDraft'], { encoding: 'utf8' });
+  let pr = null; try { pr = JSON.parse(gh.stdout); } catch (e) { return { ok: false, problems: ['gh pr view failed: ' + String(gh.stderr).slice(0, 200)], seen: null }; }
+  const mb = git(['merge-base', 'refs/remotes/origin/' + pr.baseRefName, pr.headRefOid]).stdout.trim();
+  const problems = [];
+  if (pr.state !== 'OPEN') problems.push('state ' + pr.state);
+  if (spec.expectHeadSha && pr.headRefOid !== spec.expectHeadSha) problems.push('head ' + pr.headRefOid + ' != expected ' + spec.expectHeadSha);
+  if (spec.expectBaseSha && mb !== spec.expectBaseSha) problems.push('merge base ' + mb + ' != expected ' + spec.expectBaseSha);
+  return { ok: problems.length === 0, problems, seen: { state: pr.state, head: pr.headRefOid, baseRefName: pr.baseRefName, mergeBase: mb, isDraft: pr.isDraft } };
+}
+
+/**
+ * spec: { n, pr, tier ('medium'|'high'), arm ('old'|'new'), round ('first'|'re-review'), runId, prefix, prevDir (archive of the previous run's gate state on this PR),
+ *         lastReviewedSha?, restoreStateFrom?, saveStateTo?, recall? }
+ */
+async function runOne(tool, spec) {
+  const { n, pr, tier: expectTier, arm, round, runId, prefix, prevDir, lastReviewedSha, restoreStateFrom, saveStateTo, recall = false } = spec;
+  const dir = path.join(L.SCRATCH, 'runs', runId);
+  if (fs.existsSync(dir)) throw new Error(`run directory exists, refusing to overwrite: ${dir}`);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(dir + '/spec.json', JSON.stringify({ ...spec, devSha: L.DEV_SHA, startedAt: L.iso(Date.now()) }, null, 1));
+  // preflight, before `prepare` starts a gate: the PR is open and its head and merge base are the ones this measurement is about (a real PR can move under it)
+  const pf = preflight(spec);
+  fs.writeFileSync(dir + '/preflight.json', JSON.stringify(pf, null, 1));
+  if (!pf.ok) return { runId, failed: 'preflight', problems: pf.problems, seen: pf.seen };
+  // the quiet-machine wait ran in its own cell before this one (L.waitQuiet(runId) -> quiet/<runId>.json); here only the load at the start is recorded
+  let quiet = null;
+  try { quiet = JSON.parse(fs.readFileSync(path.join(L.SCRATCH, 'quiet', runId + '.json'), 'utf8')); } catch (e) { quiet = { waitedMs: 0, quiet: null, note: 'no separate wait record' }; }
+  quiet.loadAtStart = L.loadNow();
+  fs.writeFileSync(dir + '/quiet-wait.json', JSON.stringify(quiet, null, 1));
+  // the text the seam serves as REVIEW.md at the base: the arms differ in ONE policy key
+  const reviewMd = L.Policy.reviewTextFor({ pr, arm, devSha: L.DEV_SHA, repoRoot: L.REPO_ROOT });
+  reviewMd.file = path.join(dir, 'review-md-served.md');
+  fs.writeFileSync(reviewMd.file, reviewMd.text);
+  const clearedGateState = L.clearGateState(pr, prevDir);
+  fs.writeFileSync(dir + '/gate-state-cleared.json', JSON.stringify({ clearedBeforeThisRun: clearedGateState, archivedIn: prevDir || null }, null, 1));
+  if (restoreStateFrom) L.restoreState(pr, restoreStateFrom);
+  const sampler = L.startRunSampler(runId);
+  const snaps = [];
+  const snap = async (phase) => {
+    snaps.push({ at: L.iso(Date.now()), phase, load: L.loadSamples(1)[0] === undefined ? null : L.loadSamples(1)[0], procs: await L.procSnapshot(tool) });
+    fs.writeFileSync(dir + '/procs.json', JSON.stringify(snaps, null, 1));
+  };
+  try {
+    const payload = { repo: L.REPO, pr, repoRoot: L.REPO_ROOT, runId, dryRun: true, nodeModules: L.REPO_ROOT + '/node_modules', ...(lastReviewedSha ? { lastReviewedSha } : {}) };
+    fs.writeFileSync(dir + '/prepare.json', JSON.stringify(payload, null, 1));
+    await snap('before-prepare');
+    const startedMs = Date.now();
+    const p = L.prepareCall(payload, reviewMd.file, dir + '/prepare.out');
+    if (!(p.answer.ok === true && p.answer.status === 'DISPATCH')) return { runId, failed: 'prepare', status: p.answer.status, error: L.clip(JSON.stringify(p.answer), 800) };
+    const g = (p.answer.precheck && p.answer.precheck.gate) || {};
+    const tierGot = p.answer.tier && p.answer.tier.tier;
+    fs.writeFileSync(dir + '/prepare-check.json', JSON.stringify({ tierExpected: expectTier, tierGot, gateAction: g.action, mode: p.answer.mode && p.answer.mode.mode, cap: p.answer.maxConcurrentAgents, reReview: p.answer.reReview || null, quiet: { waitedMs: quiet.waitedMs, quiet: quiet.quiet } }, null, 1));
+    if (tierGot !== expectTier) return { runId, failed: 'tier-mismatch', tierExpected: expectTier, tierGot, status: p.answer.status };
+    if (g.action !== 'started') return { runId, failed: 'gate-not-started', gate: g };
+    if (round === 're-review' && !(p.answer.reReview && p.answer.reReview.scope)) return { runId, failed: 're-review-not-planned', reReview: p.answer.reReview || null };
+    const hooks = { onDispatch: async (a) => { if (a.round === 'review') await snap('review-dispatch'); else if (a.round === 'verify' && !a.refill) await snap('verify-dispatch'); } };
+    const d = await L.drive(tool, { runId, dir, prefix, answer: p.answer, startedMs, hooks, ...(spec.budgetMs ? { budgetMs: spec.budgetMs } : {}) });
+    await snap('drive-end');
+    if (d.aborted) return { runId, aborted: d.aborted, stopCampaign: d.stopCampaign === true, log: d.log.slice(-6) };
+    let a = d.answer;
+    if (a.status === 'ADJUDICATE') {
+      const adj = L.autoAdjudicate(a, dir, runId);
+      if (adj.manual) return { runId, failed: 'manual-adjudication', manual: adj.manual };
+      a = adj.answer;
+    }
+    if (a.status !== 'DONE') return { runId, failed: 'not-done', status: a.status, error: L.clip(JSON.stringify(a), 800) };
+    const extra = { arm, order: n, driverPeakTrackedActive: d.peak, highLoadSeen: d.highLoadSeen, startedMs, endedMs: Date.now(), triageByRule: d.triage };
+    const summary = L.finishRun({ runId, pr, tier: expectTier, round, dir, answer: a, prepareAnswer: p.answer, extra });
+    fs.copyFileSync(path.join(L.REPO_ROOT, '.ensemble', 'state', 'toolchain', 'trace-' + runId + '.jsonl'), dir + '/trace.jsonl');
+    const ex = runExtract(runId, dir);
+    const proof = L.armProof({ runId, arm, dir, prepareAnswer: p.answer, reviewMd });
+    let guard = null;
+    if (recall) guard = L.recallGuard(a, dir);
+    L.stopRunSampler(sampler);
+    await L.sleep(500);
+    const ownLoad = path.join(L.REPO_ROOT, '.ensemble', 'state', 'toolchain', 'load-' + runId + '.jsonl');
+    if (fs.existsSync(ownLoad)) fs.copyFileSync(ownLoad, dir + '/load-samples.jsonl');
+    const rec = A.analyzeRun(dir, { loadLog: L.LOADLOG, procsLog: PROCSLOG });
+    rec.arm = arm; rec.order = n; rec.runId = runId; rec.pr = pr; rec.tier = expectTier; rec.round = round; rec.armProofAllAgree = proof.allAgree; rec.quiet = { waitedMs: quiet.waitedMs, quiet: quiet.quiet };
+    if (guard) rec.recallGuardExitDefaultThreshold = guard.exitDefaultThreshold;
+    fs.writeFileSync(dir + '/analysis.json', JSON.stringify(rec, null, 1));
+    if (saveStateTo) L.saveState(pr, saveStateTo);
+    return { runId, ok: true, rec, summaryStatus: summary.status, endedAt: L.iso(Date.now()), extractMatches: ex.plannedByRunner };
+  } finally {
+    L.stopRunSampler(sampler);
+  }
+}
+
+/** One compact line per run, for the log of the campaign. */
+function brief(rec) {
+  const v = rec.verify || {};
+  const vv = rec.verifiers || {};
+  const g = rec.gate || {};
+  const ld = rec.load && rec.load.sessionLog;
+  const lr = ld && ld.run; const ls = ld && ld.verifyStage;
+  return [`${rec.runId} PR ${rec.pr} ${rec.tier}/${rec.round} arm ${rec.arm}: wall ${rec.wallMin} min | orch-only ${rec.orchestratorOnlySec && rec.orchestratorOnlySec.toFixed(1)} s | review round ${rec.reviewRoundMin} (slowest ${rec.reviewers && rec.reviewers.slowestName} ${rec.reviewers && rec.reviewers.slowestMin}) | verify stage ${v.stageMin} (start ${v.startedOffsetMin}, slowest ${v.slowestMin}, median ${v.medianMin}) | verifiers dispatched ${vv.dispatchedTotal} (first ${vv.firstWave}, second ${vv.secondWave}; full-electorate plan ${vv.plannedFullElectorate}; arrived ${v.arrived}, expired ${v.expired}; waves ${v.waves}) | candidates ${rec.ledger && rec.ledger.candidates} present ${rec.ledger && rec.ledger.present} quorum ${rec.ledger && rec.ledger.quorumSettled} majority ${rec.ledger && rec.ledger.presentOnMajority} unverified ${rec.ledger && rec.ledger.unverified} | 2nd-wave rate ${vv.secondWaveRate === undefined ? 'n/a' : vv.secondWaveRate} ${JSON.stringify(vv.secondWaveReasons || {})}`,
+    `  agents ${rec.agentsTotal} ${JSON.stringify(rec.metricsAgents)} | gate ${g.action} ${g.durationMin} min ok=${g.ok} verifyStartMinusGateEnd ${g.verifyStartMinusGateEndMin} | flags ${JSON.stringify(rec.flags)} | stopped ${JSON.stringify(rec.stoppedAtDeadline)} | harness nonCompleted ${JSON.stringify(rec.harness && rec.harness.nonCompleted)} notes ${JSON.stringify(rec.harness && rec.harness.agentsWithEnvelopeNote)} | armProof ${rec.armProofAllAgree}`,
+    `  load run mean ${lr && lr.load1Mean} max ${lr && lr.load1Max} (n ${lr && lr.samples}, above12 ${lr && lr.above12}) | verify stage mean ${ls && ls.load1Mean} max ${ls && ls.load1Max} (n ${ls && ls.samples}, streak>12 ${ls && ls.longestStreakAbove12}) disturbed(stage)=${ls && ls.disturbed} | reReview ${rec.reReview ? JSON.stringify({ scope: rec.reReview.scope, applied: rec.reReview.appliedRange, reasons: rec.reReview.reasons }) : 'n/a'} carry ${JSON.stringify(rec.carry)}`].join('\n');
+}
+
+module.exports = { runOne, brief, runExtract, preflight, PROCSLOG };

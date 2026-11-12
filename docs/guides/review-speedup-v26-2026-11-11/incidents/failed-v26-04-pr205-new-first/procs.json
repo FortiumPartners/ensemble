@@ -1,0 +1,20 @@
+[
+ {
+  "at": "2026-11-11T23:52:00.634Z",
+  "phase": "before-prepare",
+  "load": 7.11,
+  "procs": [
+   "omp.lsp.mux [service] — ready — up 2d2h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ }
+]

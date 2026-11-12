@@ -1,0 +1,65 @@
+'use strict';
+// V2-6: assemble the evidence directory of the report from the scratch campaign directory. Scratch; a copy goes into the evidence directory as text.
+// Copies per-run records (never the collect answers, the agents' result files or the driver's internal state), the failed/aborted attempts, the incident
+// evidence, the load logs and the scratch tools. The repository ignores *.log, so logs carry a .txt suffix; served REVIEW.md copies carry .txt too.
+const fs = require('fs');
+const path = require('path');
+const HOME = process.env.HOME;
+const V26 = path.join(HOME, '.omp/pr-review-speedup/v26');
+const WT = '/Users/ldangelo/Development/Sunstone/ensemble.prs-v26';
+const EV = path.join(WT, 'docs/guides/review-speedup-v26-2026-11-11');
+const OUT = path.join(V26, 'final', 'out');
+const RUNS = path.join(V26, 'runs');
+
+fs.rmSync(EV, { recursive: true, force: true });
+fs.mkdirSync(EV, { recursive: true });
+
+const RENAME = { 'driver.log': 'driver.log.txt', 'gate.log': 'gate.log.txt', 'review-md-served.md': 'review-md-served.txt', 'FAILED.md': 'FAILED.txt' };
+const RUN_FILES = ['spec.json', 'preflight.json', 'quiet-wait.json', 'prepare-check.json', 'prepare.json', 'prepare.out.calls.jsonl', 'prepare.out.seam.json', 'review-md-served.md', 'arm-proof.json', 'run-extract.json', 'summary.json', 'analysis.json', 'timing.json', 'walltime-row.json', 'trace.jsonl', 'jobs.json', 'completion.json', 'concurrency.json', 'dispatch.log.jsonl', 'driver.log', 'gate.log', 'gate-state-cleared.json', 'procs.json', 'load-samples.jsonl', 'pr-states.json', 'adjudications.json', 'recall-guard.json', 'recall-guard-default-threshold.json', 'ledger-for-guard.json'];
+const INCIDENT_FILES = RUN_FILES.concat(['prepare.out', 'FAILED.md', 'run.partial.json', 'trace.partial.jsonl', 'collect-1.out', 'collect-2.out']);
+const copied = [];
+function copyFile(src, dst) { fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.copyFileSync(src, dst); fs.chmodSync(dst, 0o644); copied.push(path.relative(EV, dst)); }
+function copyDir(srcDir, dstDir, files) {
+  for (const f of files) {
+    const src = path.join(srcDir, f);
+    if (!fs.existsSync(src)) continue;
+    copyFile(src, path.join(dstDir, RENAME[f] || f));
+  }
+  const gs = path.join(srcDir, 'gate-state');
+  if (fs.existsSync(gs) && fs.statSync(gs).isDirectory()) {
+    for (const f of fs.readdirSync(gs).sort()) copyFile(path.join(gs, f), path.join(dstDir, 'gate-state', f.endsWith('.log') ? `${f}.txt` : f));
+  }
+}
+
+const valid = fs.readdirSync(RUNS).filter((n) => !n.startsWith('_')).sort();
+for (const id of valid) {
+  copyDir(path.join(RUNS, id), path.join(EV, id), RUN_FILES);
+  const regen = path.join(OUT, `walltime-row-regenerated-${id}.json`);
+  if (fs.existsSync(regen)) copyFile(regen, path.join(EV, id, 'walltime-row-regenerated.json'));
+}
+const attempts = fs.readdirSync(RUNS).filter((n) => n.startsWith('_')).sort();
+for (const id of attempts) copyDir(path.join(RUNS, id), path.join(EV, 'incidents', id.replace(/^_/, '')), INCIDENT_FILES);
+
+// incident evidence gathered from GitHub (read-only calls) and the load logs
+const inc = path.join(V26, 'final', 'incident');
+for (const f of fs.readdirSync(inc).sort()) {
+  if (f.endsWith('.err')) { if (fs.statSync(path.join(inc, f)).size === 0) continue; }
+  copyFile(path.join(inc, f), path.join(EV, 'incidents', f.endsWith('-events.json') ? path.join('pr-events', f) : f));
+}
+copyFile(path.join(V26, 'load', 'load.log'), path.join(EV, 'load.log.txt'));
+copyFile(path.join(V26, 'load', 'procs.log'), path.join(EV, 'procs.log.txt'));
+copyFile(path.join(V26, 'load', 'prstate.log'), path.join(EV, 'prstate.log.txt'));
+
+// computed values and the walltime compare attempt
+for (const f of ['report-values.json', 'cohort-old.json', 'cohort-newChosen.json', 'cohort-newCleanOnly.json', 'walltime-compare-old.json', 'walltime-compare-newChosen.json', 'walltime-compare-newCleanOnly.json']) {
+  const dstName = f.replace('newChosen', 'new-chosen').replace('newCleanOnly', 'new-clean-only');
+  copyFile(path.join(OUT, f), path.join(EV, dstName));
+}
+
+// the scratch tools, as text
+const tools = path.join(V26, 'tools');
+for (const f of fs.readdirSync(tools).sort()) copyFile(path.join(tools, f), path.join(EV, 'tools', `${f}.txt`));
+for (const f of ['v26-final.js', 'collect-evidence.js', 'build-report.js', 'verify-report.js']) copyFile(path.join(V26, 'final', f), path.join(EV, 'tools', `${f}.txt`));
+if (fs.existsSync(path.join(OUT, 'verification.txt'))) copyFile(path.join(OUT, 'verification.txt'), path.join(EV, 'verification.txt'));
+fs.writeFileSync(path.join(OUT, 'evidence-files.txt'), copied.join('\n') + '\n');
+console.log('copied', copied.length, 'files into', EV);

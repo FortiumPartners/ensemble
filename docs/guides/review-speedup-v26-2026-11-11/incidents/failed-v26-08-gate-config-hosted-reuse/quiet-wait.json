@@ -1,0 +1,58 @@
+{
+ "label": "v26-08-pr314-new-first-redo",
+ "limit": 6,
+ "waitedMs": 45154,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-12T02:05:35.998Z",
+   "load1": 7.32,
+   "load5": 11.88,
+   "top": [
+    "114.7 71518       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R04nVerifier14 --entity-type file --pl",
+    " 91.5 69118 02-05:14:08 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 61.1 31623    10:09:03 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 17.2 12839 02-09:16:09 omp --resume=/Users/ldangelo/.omp/agent/sessions/-Development-Fortium-foreman/2026-11-08T16-11-16-865Z_01a1bbed-a801-71f9-8214-d68f6536be18.jsonl",
+    " 11.4   456 02-09:18:55 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    "  8.4  8872 02-09:16:12 /opt/homebrew/bin/herdr server"
+   ]
+  },
+  {
+   "at": "2026-11-12T02:05:51.057Z",
+   "load1": 6.86,
+   "load5": 11.55,
+   "top": [
+    "227.0  1482 02-09:18:58 /Applications/Microsoft Teams.app/Contents/Helpers/Microsoft Teams WebView.app/Contents/Frameworks/Microsoft Edge Framework.framework/Versions/156",
+    " 63.8 69118 02-05:14:23 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 46.3 72413       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R04nVerifier11 --entity-type file --pl",
+    " 16.2   456 02-09:19:10 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 13.4  8872 02-09:16:27 /opt/homebrew/bin/herdr server",
+    "  6.8  7380 02-09:16:51 /Applications/WezTerm.app/Contents/MacOS/wezterm-gui"
+   ]
+  },
+  {
+   "at": "2026-11-12T02:06:06.102Z",
+   "load1": 6.12,
+   "load5": 11.17,
+   "top": [
+    "151.2 72857       00:02 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R04nVerifier12 --entity-type file --pl",
+    " 70.8 69118 02-05:14:38 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 22.4 23334 01-02:14:22 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 22.3 23398 01-02:14:17 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 16.8   456 02-09:19:25 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 12.0  8872 02-09:16:42 /opt/homebrew/bin/herdr server"
+   ]
+  },
+  {
+   "at": "2026-11-12T02:06:21.150Z",
+   "load1": 5.56,
+   "load5": 10.8
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.52,
+  "load5": 10.7,
+  "load15": 10.03
+ }
+}

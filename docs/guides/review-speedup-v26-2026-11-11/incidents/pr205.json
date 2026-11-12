@@ -1,0 +1,1 @@
+{"baseRefName":"dev","headRefOid":"693d4126a8fc91da0917b415db93348da0bf7d77","mergeCommit":{"oid":"bb246b58527a69526af9a1cc60d0573ed62840e3"},"mergedAt":"2026-11-11T23:38:30Z","number":205,"state":"MERGED","title":"feat(e2e-testing): capture an end-state screenshot for every authored Playwright test"}

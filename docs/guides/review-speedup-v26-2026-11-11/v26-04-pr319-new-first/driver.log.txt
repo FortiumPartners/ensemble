@@ -1,0 +1,23 @@
+2026-11-11T23:54:56.687Z dispatched review wave 1 of 1: 8 agents at 2026-11-11T23:54:56.685Z cap 8
+2026-11-12T00:01:58.257Z LOAD: load1 above 20 in the last 5 samples
+2026-11-12T00:11:28.265Z collect#1 -> DISPATCH verify wave 1 of 2 at 2026-11-12T00:11:27.266Z (998 ms)
+2026-11-12T00:11:28.276Z dispatched verify wave 1 of 2 quorumFirst {"expected":3,"needed":2,"secondWave":false}: 8 agents at 2026-11-12T00:11:28.274Z cap 8
+2026-11-12T00:14:01.360Z collect#2 -> PENDING verify wave 1 of 2 at 2026-11-12T00:14:00.639Z (720 ms)
+2026-11-12T00:14:11.951Z collect#3 -> DISPATCH verify wave 2 (rolling) refill at 2026-11-12T00:14:11.363Z (588 ms)
+2026-11-12T00:14:11.957Z dispatched verify wave 2 (rolling) (refill; still running 5) quorumFirst {"expected":3,"needed":2,"secondWave":false}: 3 agents at 2026-11-12T00:14:11.957Z cap 8
+2026-11-12T00:15:42.687Z collect#4 -> PENDING verify wave 1 of 2 at 2026-11-12T00:15:42.120Z (566 ms)
+2026-11-12T00:16:23.349Z collect#5 -> DISPATCH verify wave 3 (rolling) refill at 2026-11-12T00:16:22.736Z (613 ms)
+2026-11-12T00:16:23.355Z dispatched verify wave 3 (rolling) (refill; still running 6) quorumFirst {"expected":3,"needed":2,"secondWave":false}: 2 agents at 2026-11-12T00:16:23.355Z cap 8
+2026-11-12T00:16:27.863Z collect#6 -> PENDING verify wave 1 of 2 at 2026-11-12T00:16:27.364Z (498 ms)
+2026-11-12T00:16:48.453Z collect#7 -> DISPATCH verify wave 4 (rolling) refill at 2026-11-12T00:16:47.883Z (570 ms)
+2026-11-12T00:16:48.457Z dispatched verify wave 4 (rolling) (refill; still running 6) quorumFirst {"expected":3,"needed":2,"secondWave":false}: 2 agents at 2026-11-12T00:16:48.457Z cap 8
+2026-11-12T00:17:19.040Z collect#8 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:17:18.509Z (531 ms)
+2026-11-12T00:18:53.653Z collect#9 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:18:53.179Z (473 ms)
+2026-11-12T00:19:04.266Z collect#10 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:19:03.656Z (610 ms)
+2026-11-12T00:19:24.885Z collect#11 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:19:24.279Z (605 ms)
+2026-11-12T00:19:49.542Z collect#12 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:19:48.906Z (635 ms)
+2026-11-12T00:21:38.246Z collect#13 -> PENDING verify wave 2 (rolling) at 2026-11-12T00:21:37.693Z (552 ms)
+2026-11-12T00:22:12.289Z stopped at its deadline: verifier-9 2026-11-12T00:22:12.289Z
+2026-11-12T00:22:12.993Z collect#14 -> DISPATCH verify wave 5 (rolling) at 2026-11-12T00:22:12.292Z (701 ms)
+2026-11-12T00:22:13.000Z dispatched verify wave 5 (rolling) quorumFirst {"expected":3,"needed":2,"secondWave":true}: 1 agents (1 second-wave) at 2026-11-12T00:22:12.998Z cap 8
+2026-11-12T00:28:45.401Z collect#15 -> ADJUDICATE at 2026-11-12T00:28:43.523Z (1877 ms)

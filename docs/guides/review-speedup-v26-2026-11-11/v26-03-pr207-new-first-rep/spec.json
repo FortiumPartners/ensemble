@@ -1,0 +1,14 @@
+{
+ "n": 3,
+ "pr": 207,
+ "tier": "medium",
+ "arm": "new",
+ "round": "first",
+ "runId": "v26-03-pr207-new-first-rep",
+ "prefix": "R03n",
+ "prevDir": "/Users/ldangelo/.omp/pr-review-speedup/v26/runs/v26-02-pr207-new-first",
+ "recall": true,
+ "note": "repeat of run 2 (disturbed)",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-11T23:22:07.299Z"
+}

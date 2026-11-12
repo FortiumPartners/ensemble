@@ -1,0 +1,623 @@
+{
+ "runId": "v26-09-pr315-new-first",
+ "pr": 315,
+ "tier": "high",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0",
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 7,
+  "recorded": 0
+ },
+ "metrics": {
+  "wallMs": 1910740,
+  "runnerCalls": 12,
+  "dispatchRounds": 3,
+  "agentsDispatched": 13,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 10
+  },
+  "turnsAtLeast": 15
+ },
+ "triage": {
+  "turns": 1,
+  "requested": 0,
+  "additionalCandidateIds": [],
+  "mergedIntoExisting": 0,
+  "at": "2026-11-12T03:28:44.704Z"
+ },
+ "stoppedAtDeadline": [
+  "verifier-6(verifier)",
+  "verifier-7(verifier)",
+  "verifier-8(verifier)",
+  "verifier-9(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-6:f2/f5/f9",
+  "verifier-7:f3/f5/f9",
+  "verifier-8:f2/f3/f9",
+  "verifier-9:f2/f5/f9"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "reducedReview": "verification partial: some-verifiers-did-not-return\nSETTLED ON A MAJORITY, verifiers missing (a strict majority of the expected verifiers voted each of these real, so no vote still missing could change its outcome; notReviewed.incompleteVerifiers names them): f3 (3 of 5 real; verifier-7, verifier-8 did not return)\nQUORUM-FIRST verification (policy quorumFirstVerification; the electorate stays 5 and the vote rule is unchanged): the first 3 verifiers of each candidate were asked and the rest only when one of those did not vote real. Settled by their first 3 real votes: f1, f4, f6 (no verifier is missing for them: the ones not asked were never expected to vote, the round is not partial on their account, and a delta verifies them again because they are never carried). Given the rest of their electorate: f2 (missing; asked verifier-8, verifier-9), f3 (missing; asked verifier-10, verifier-8), f5 (missing; asked verifier-9, verifier-10), f9 (missing; asked verifier-8, verifier-9)\ntests: the baseline ran the relevant test files only (exit 0), not the full suite",
+ "votes": {
+  "verification": "partial",
+  "reason": "some-verifiers-did-not-return",
+  "quorumFirst": {
+   "applied": true,
+   "expected": 5,
+   "needed": 3,
+   "settled": [
+    "f1",
+    "f4",
+    "f6"
+   ],
+   "secondWave": [
+    {
+     "id": "f2",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-8",
+      "verifier-9"
+     ]
+    },
+    {
+     "id": "f3",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-10",
+      "verifier-8"
+     ]
+    },
+    {
+     "id": "f5",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-9",
+      "verifier-10"
+     ]
+    },
+    {
+     "id": "f9",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-8",
+      "verifier-9"
+     ]
+    }
+   ]
+  },
+  "outcomes": [
+   {
+    "id": "f1",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 2
+   },
+   {
+    "id": "f2",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f3",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": true,
+    "missing": [
+     "verifier-7",
+     "verifier-8"
+    ],
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f4",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 2
+   },
+   {
+    "id": "f5",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f6",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 2
+   },
+   {
+    "id": "f9",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 1,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 5,
+     "needed": 3
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   }
+  ]
+ },
+ "ledger": {
+  "total": 7,
+  "bySeverity": {
+   "important/fix": 1,
+   "nit/fix": 4,
+   "pre-existing/deferred": 1,
+   "nit/deferred": 1
+  },
+  "present": 0,
+  "presentOnMajority": 1,
+  "quorumSettled": 3,
+  "unverified": 3,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "scripts/tests/toolchain-adapters.test.js:704-722",
+    "claim": "The test 'a group directory that declares its own adapter.yaml is that adapter, and its children are not also scanned' still passes if the `continue;` that follows `found.push` in discoverAdapters (adapters.js:487) is de...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 2,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-3"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/lib/toolchain/adapters.js:661-662",
+    "claim": "The NOT_INSTALLED message now says each listed location is searched as '<root>/<dir>/adapter.yaml, or <root>/<group>/<dir>/adapter.yaml one level in', but that parenthetical follows a list that also names the repo-local ...",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-6:expired:deadline-passed",
+     "verifier-8:expired:deadline-passed",
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-4",
+     "verifier-5",
+     "verifier-6",
+     "verifier-8",
+     "verifier-9"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f3",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "scripts/tests/toolchain-adapters.test.js:658-660",
+    "claim": "In the test named for the shipped bundle resolving workflow:plain-git, the loadAdapter('plain-git', ctx) assertions on origin and realpath hold with or without the nested scan, because the in-process adapters.js already ...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-7:expired:deadline-passed",
+     "verifier-8:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-7",
+     "verifier-1",
+     "verifier-2",
+     "verifier-10",
+     "verifier-8"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f4",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "scripts/tests/toolchain-adapters.test.js:569-635",
+    "claim": "Every test of the nested scan puts its group under a directory literally named 'git' (the plain-group, symlinked-group, depth and shipped-bundle tests, and the positive control in the SKILL.md test), so a discoverAdapter...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 2,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4",
+     "verifier-5"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f5",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/lib/toolchain/adapters.js:575-581",
+    "claim": "loadAdapter selects by the `adapter` id alone, and two shipped adapters declare `adapter: plain-git` (adapter-workflow-plain-git for category workflow, adapter-worktree-plain-git for category worktree), so loadAdapter('p...",
+    "disposition": "deferred",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-6:expired:deadline-passed",
+     "verifier-7:expired:deadline-passed",
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-6",
+     "verifier-7",
+     "verifier-1",
+     "verifier-9",
+     "verifier-10"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/lib/toolchain/adapters.js:18-28",
+    "claim": "The module header (lines 18-28, and still 69-75 for installedRoots), the `discoverAdapters` JSDoc (a directory without a valid adapter.yaml is 'silently skipped') and the NOT_INSTALLED hint built in `loadAdapter` ('<root...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 2,
+    "incomplete": [],
+    "assigned": [
+     "verifier-2",
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f9",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/lib/toolchain/adapters.js:481-511",
+    "claim": "The new one-level descent in the installed-roots loop of `discoverAdapters` is another way to reach adapter manifests under <projectRoot>/packages/*/skills, which `untrustedProjectRoot` exists to keep out of an explicitl...",
+    "disposition": "deferred",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 1,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-6:expired:deadline-passed",
+     "verifier-7:expired:deadline-passed",
+     "verifier-8:expired:deadline-passed",
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-5",
+     "verifier-6",
+     "verifier-7",
+     "verifier-8",
+     "verifier-9"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 58417,
+  "startedAt": "2026-11-12T03:13:00.851Z",
+  "reason": null,
+  "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-315-a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0.dry.gate.log",
+  "finishedAt": "2026-11-12T03:21:06.522Z",
+  "durationMin": 8.09,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 31.8113,
+  "window": [
+   "2026-11-12T03:12:59.523Z",
+   "2026-11-12T03:44:48.201Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 20569,
+   "missing": false,
+   "pct": 1
+  },
+  "beforeFirstDispatch": 14867,
+  "activeMs": 1888109,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 926677,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 479686,
+       "missing": false,
+       "name": "verifier-6",
+       "wave": 1
+      },
+      {
+       "stage": "verifier",
+       "ms": 481746,
+       "missing": false,
+       "name": "verifier-9",
+       "wave": 2
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    8
+   ],
+   "review.gate": [
+    2,
+    1203
+   ],
+   "review.verdict": [
+    2,
+    22
+   ],
+   "review.security-lane": [
+    1,
+    379959
+   ],
+   "review.reviewer": [
+    2,
+    926677
+   ],
+   "review.verifier": [
+    10,
+    481746
+   ]
+  },
+  "hostLoad": {
+   "missing": false,
+   "scope": "orchestrator window",
+   "samples": 63,
+   "load1": {
+    "min": 3.26,
+    "mean": 7.6,
+    "max": 22.69
+   },
+   "cpus": 18,
+   "intervalMs": 30002
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr315-first-v26-09-pr315-new-first",
+  "pr": 315,
+  "tier": "high",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 31.811,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-09-pr315-new-first",
+  "run_id": "v26-09-pr315-new-first"
+ },
+ "arm": "new",
+ "order": 9,
+ "driverPeakTrackedActive": 7,
+ "highLoadSeen": false,
+ "startedMs": 1794453179045,
+ "endedMs": 1794455089890,
+ "triageByRule": [
+  {
+   "seenAt": "2026-11-12T03:28:44.620Z",
+   "answeredAt": "2026-11-12T03:28:45.530Z",
+   "answerMs": 910,
+   "candidates": 7,
+   "coverage": true,
+   "next": "DISPATCH"
+  }
+ ]
+}

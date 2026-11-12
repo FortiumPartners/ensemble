@@ -1,0 +1,308 @@
+{
+ "runId": "v26-09-pr315-new-first",
+ "repo": "Sunstone-Partners/ensemble",
+ "pr": 315,
+ "headSha": "a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0",
+ "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "baseRefName": "scratch/v26-base",
+ "round": 1,
+ "lastReviewedSha": null,
+ "policy": {
+  "maxConcurrentAgents": 8,
+  "quorumFirstVerification": true,
+  "roundCap": 3,
+  "sliceThreshold": 1500
+ },
+ "policyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "policyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "severityGuideProblem": null,
+ "tier": {
+  "tier": "high",
+  "effectiveTier": "high"
+ },
+ "mode": "deep",
+ "electorate": 5,
+ "depthMode": "deep",
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 5,
+  "needed": 3,
+  "nextVerifier": 11,
+  "secondWave": [
+   {
+    "id": "f2",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-10",
+     "verifier-8"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f5",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-9",
+     "verifier-10"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f9",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   }
+  ],
+  "skipped": []
+ },
+ "plannedByRunner": 7,
+ "plannedFullElectorate": 12,
+ "candidatesVerified": 7,
+ "candidates": [
+  {
+   "id": "f1",
+   "source": "reviewer-s1-a",
+   "severity": "important",
+   "loc": "scripts/tests/toolchain-adapters.test.js:704-722"
+  },
+  {
+   "id": "f2",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "packages/development/lib/toolchain/adapters.js:661-662"
+  },
+  {
+   "id": "f3",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "scripts/tests/toolchain-adapters.test.js:658-660"
+  },
+  {
+   "id": "f4",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "scripts/tests/toolchain-adapters.test.js:569-635"
+  },
+  {
+   "id": "f5",
+   "source": "reviewer-s1-a",
+   "severity": "pre-existing",
+   "loc": "packages/development/lib/toolchain/adapters.js:575-581"
+  },
+  {
+   "id": "f6",
+   "source": "reviewer-s1-b",
+   "severity": "nit",
+   "loc": "packages/development/lib/toolchain/adapters.js:18-28"
+  },
+  {
+   "id": "f9",
+   "source": "reviewer-s1-b",
+   "severity": "nit",
+   "loc": "packages/development/lib/toolchain/adapters.js:481-511"
+  }
+ ],
+ "assignment": [
+  {
+   "id": "f1",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2",
+    "verifier-3"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f2",
+   "verifiers": [
+    "verifier-4",
+    "verifier-5",
+    "verifier-6",
+    "verifier-8",
+    "verifier-9"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f3",
+   "verifiers": [
+    "verifier-7",
+    "verifier-1",
+    "verifier-2",
+    "verifier-10",
+    "verifier-8"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f4",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4",
+    "verifier-5"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f5",
+   "verifiers": [
+    "verifier-6",
+    "verifier-7",
+    "verifier-1",
+    "verifier-9",
+    "verifier-10"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f6",
+   "verifiers": [
+    "verifier-2",
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f9",
+   "verifiers": [
+    "verifier-5",
+    "verifier-6",
+    "verifier-7",
+    "verifier-8",
+    "verifier-9"
+   ],
+   "unasked": 0
+  }
+ ],
+ "verifyAgents": [
+  {
+   "name": "verifier-1",
+   "candidateIds": [
+    "f1",
+    "f3",
+    "f5"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-2",
+   "candidateIds": [
+    "f1",
+    "f3",
+    "f6"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-3",
+   "candidateIds": [
+    "f1",
+    "f4",
+    "f6"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-4",
+   "candidateIds": [
+    "f2",
+    "f4",
+    "f6"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-5",
+   "candidateIds": [
+    "f2",
+    "f4",
+    "f9"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-6",
+   "candidateIds": [
+    "f2",
+    "f5",
+    "f9"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-7",
+   "candidateIds": [
+    "f3",
+    "f5",
+    "f9"
+   ],
+   "secondWave": false
+  }
+ ],
+ "waves": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 3,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 7,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 3,
+   "refill": false,
+   "status": "collected"
+  }
+ ],
+ "slices": [
+  {
+   "id": "whole-pr",
+   "paths": 4
+  }
+ ],
+ "sizingWarnings": [],
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": null
+}

@@ -1,0 +1,299 @@
+[
+ {
+  "agent": "security-lane",
+  "role": "security",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:51:32.861Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:51:27.570Z"
+ },
+ {
+  "agent": "reviewer-s2-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:51:38.878Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:51:24.753Z"
+ },
+ {
+  "agent": "reviewer-s2-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:51:54.908Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:51:39.691Z"
+ },
+ {
+  "agent": "reviewer-s1-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:52:28.964Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:52:17.817Z"
+ },
+ {
+  "agent": "reviewer-range",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:53:05.024Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:52:59.518Z"
+ },
+ {
+  "agent": "reviewer-s1-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:53:33.062Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:53:30.505Z"
+ },
+ {
+  "agent": "reviewer-s3-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:53:47.080Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:53:35.804Z"
+ },
+ {
+  "agent": "reviewer-s3-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:55:27.214Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:55:22.433Z"
+ },
+ {
+  "agent": "verifier-2",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:57:52.454Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:57:50.131Z"
+ },
+ {
+  "agent": "verifier-1",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:58:40.969Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:58:38.077Z"
+ },
+ {
+  "agent": "verifier-3",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:59:11.631Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:59:06.906Z"
+ },
+ {
+  "agent": "verifier-6",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T00:59:24.187Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T00:59:20.458Z"
+ },
+ {
+  "agent": "verifier-7",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:00:42.822Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:00:40.864Z"
+ },
+ {
+  "agent": "verifier-5",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:01:05.518Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:01:03.981Z"
+ },
+ {
+  "agent": "verifier-8",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:01:42.161Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:01:38.602Z"
+ },
+ {
+  "agent": "verifier-4",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:02:44.835Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:02:39.377Z"
+ },
+ {
+  "agent": "verifier-9",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:03:45.563Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:03:42.867Z"
+ },
+ {
+  "agent": "verifier-12",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:04:58.312Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:04:51.145Z"
+ },
+ {
+  "agent": "verifier-14",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:05:36.878Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:05:32.655Z"
+ },
+ {
+  "agent": "verifier-10",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:06:25.532Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:06:23.737Z"
+ },
+ {
+  "agent": "verifier-11",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:06:46.315Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:06:42.768Z"
+ },
+ {
+  "agent": "verifier-15",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:06:56.906Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:06:45.038Z"
+ },
+ {
+  "agent": "verifier-13",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:07:29.450Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:07:26.998Z"
+ },
+ {
+  "agent": "verifier-16",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:09:28.293Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:09:23.523Z"
+ },
+ {
+  "agent": "verifier-18",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:09:46.868Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:09:43.301Z"
+ },
+ {
+  "agent": "verifier-17",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:10:09.473Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:10:03.871Z"
+ },
+ {
+  "agent": "verifier-19",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:11:04.168Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:10:58.818Z"
+ },
+ {
+  "agent": "verifier-21",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:11:42.852Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:11:39.810Z"
+ },
+ {
+  "agent": "verifier-22",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:12:37.504Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:12:32.578Z"
+ },
+ {
+  "agent": "verifier-20",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:12:50.040Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:12:46.951Z"
+ },
+ {
+  "agent": "verifier-23",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:13:58.623Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:13:53.860Z"
+ },
+ {
+  "agent": "verifier-25",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:16:27.300Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:16:21.223Z"
+ },
+ {
+  "agent": "verifier-24",
+  "role": "verifier",
+  "round": "verify",
+  "how": "killed-at-deadline",
+  "detectedAt": "2026-11-12T01:17:29.957Z",
+  "fileExists": false,
+  "fileMtime": null
+ }
+]

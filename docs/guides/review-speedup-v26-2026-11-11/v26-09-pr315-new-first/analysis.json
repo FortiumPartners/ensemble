@@ -1,0 +1,453 @@
+{
+ "dir": "v26-09-pr315-new-first",
+ "wallMin": 31.81,
+ "window": {
+  "startMs": 1794453179523,
+  "endMs": 1794455088227,
+  "startIso": "2026-11-12T03:12:59.523Z",
+  "endIso": "2026-11-12T03:44:48.227Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 2,
+  "slowestName": "reviewer-s1-a",
+  "slowestMin": 15.44,
+  "laneMin": 6.33,
+  "expired": []
+ },
+ "reviewRoundMin": 15.44,
+ "handoffToVerifySec": 4.45,
+ "verify": {
+  "count": 10,
+  "arrived": 6,
+  "expired": 4,
+  "expiredNames": [
+   "verifier-6",
+   "verifier-7",
+   "verifier-8",
+   "verifier-9"
+  ],
+  "waves": 2,
+  "refills": 0,
+  "stageMin": 16.02,
+  "stageSec": 961.47,
+  "startedAtIso": "2026-11-12T03:28:45.518Z",
+  "startedOffsetMin": 15.77,
+  "endedOffsetMin": 31.79,
+  "slowestMin": 8.03,
+  "slowestArrivedMin": 6.96,
+  "medianMin": 5.64,
+  "meanMin": 5.48,
+  "p75Min": 6.23,
+  "p90Min": 6.96,
+  "minMin": 3.71,
+  "sumAgentMin": 64.9,
+  "peakVerifierOverlap": 7,
+  "peakAnyAgentOverlap": 7,
+  "lastStartOffsetMin": 8,
+  "durationsSec": [
+   222.88,
+   353.22,
+   373.52,
+   417.45,
+   280.9,
+   479.69,
+   479.69,
+   481.75,
+   481.75,
+   323.04
+  ],
+  "replayAtCap8Min": 11.74,
+  "firstWaveEndedOffsetMin": 23.76,
+  "firstWaveStageMin": 7.99,
+  "secondWaveStartedOffsetMin": 23.76,
+  "secondWaveTailMin": 8.03,
+  "secondWaveDurationsSec": [
+   481.75,
+   481.75,
+   323.04
+  ],
+  "firstWaveDurationsSec": [
+   222.88,
+   353.22,
+   373.52,
+   417.45,
+   280.9,
+   479.69,
+   479.69
+  ]
+ },
+ "verifiers": {
+  "dispatchedTotal": 10,
+  "secondWave": 3,
+  "firstWave": 7,
+  "manifests": 2,
+  "plannedFullElectorate": 12,
+  "plannedByRunner": 7,
+  "candidatesVerified": 7,
+  "mode": "deep",
+  "electorate": 5,
+  "candidatesGivenTheRest": 4,
+  "secondWaveRate": 0.57,
+  "secondWaveReasons": {
+   "missing": 4
+  }
+ },
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 5,
+  "needed": 3,
+  "nextVerifier": 11,
+  "secondWave": [
+   {
+    "id": "f2",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-10",
+     "verifier-8"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f5",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-9",
+     "verifier-10"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f9",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   }
+  ],
+  "skipped": []
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 8.09,
+  "startedAt": "2026-11-12T03:13:00.851Z",
+  "finishedAt": "2026-11-12T03:21:06.522Z",
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ],
+  "startedOffsetSec": 1.33,
+  "finishedOffsetMin": 8.12,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 7.65
+ },
+ "ledger": {
+  "candidates": 7,
+  "bySeverity": {
+   "important/fix": 1,
+   "nit/fix": 4,
+   "pre-existing/deferred": 1,
+   "nit/deferred": 1
+  },
+  "present": 0,
+  "presentOnMajority": 1,
+  "quorumSettled": 3,
+  "unverified": 3,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [
+  "verifier-6(verifier)",
+  "verifier-7(verifier)",
+  "verifier-8(verifier)",
+  "verifier-9(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-6:f2/f5/f9",
+  "verifier-7:f3/f5/f9",
+  "verifier-8:f2/f3/f9",
+  "verifier-9:f2/f5/f9"
+ ],
+ "orchestratorOnlySec": 20.569,
+ "beforeFirstDispatchSec": 14.867,
+ "criticalPath": {
+  "ms": null,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 926677,
+    "name": "reviewer-s1-a"
+   },
+   {
+    "stage": "verifier",
+    "ms": 479686,
+    "name": "verifier-6"
+   },
+   {
+    "stage": "verifier",
+    "ms": 481746,
+    "name": "verifier-9"
+   },
+   {
+    "stage": "verdict",
+    "ms": null
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 2,
+  "security": 1,
+  "verifier": 10
+ },
+ "agentsTotal": 13,
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 7,
+  "recorded": 0
+ },
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 2,
+   "requestsTotal": 46,
+   "requestsMean": 23,
+   "costTotalUsd": 4.72,
+   "contextTokensMax": 262373,
+   "harnessDurMedianSec": 906.54,
+   "harnessDurMaxSec": 929.33,
+   "statuses": {
+    "completed": 2
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 2
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 23,
+   "requestsMean": 23,
+   "costTotalUsd": 1.28,
+   "contextTokensMax": 182934,
+   "harnessDurMedianSec": 383.16,
+   "harnessDurMaxSec": 383.16,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 10,
+   "requestsTotal": 186,
+   "requestsMean": 18.6,
+   "costTotalUsd": 11.63,
+   "contextTokensMax": 193014,
+   "harnessDurMedianSec": 398.59,
+   "harnessDurMaxSec": 481.24,
+   "statuses": {
+    "completed": 6,
+    "cancelled(killed)": 4
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 10
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [
+   "verifier-6",
+   "verifier-7",
+   "verifier-8",
+   "verifier-9"
+  ],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 7,
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 64,
+    "load1Mean": 7.38,
+    "load1Max": 21.19,
+    "load1Min": 2.99,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 2,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 14,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 32,
+    "load1Mean": 4.8,
+    "load1Max": 8.54,
+    "load1Min": 2.99,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 1,
+    "samplesWithJest": 1,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 11.85,
+    "load1Max": 20.75,
+    "load1Min": 3.87,
+    "above12": 6,
+    "longestStreakAbove12": 6,
+    "above20": 1,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 7,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 4.33,
+    "load1Max": 6.13,
+    "load1Min": 2.49,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 63,
+    "load1Mean": 7.6,
+    "load1Max": 22.69,
+    "load1Min": 3.26,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 2,
+    "disturbed": true
+   },
+   "verifyStage": {
+    "samples": 32,
+    "load1Mean": 4.9,
+    "load1Max": 9.83,
+    "load1Min": 3.26,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 64,
+    "meanCpuPct": {
+     "all": 424.14,
+     "gate": 2,
+     "pipeline": 76.7,
+     "otherEnsemble": 99.72,
+     "other": 245.72
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 4,
+    "maxOtherEnsembleCpuPct": 154,
+    "maxOtherCpuPct": 547
+   },
+   "verifyStage": {
+    "samples": 32,
+    "meanCpuPct": {
+     "all": 306.06,
+     "gate": 0,
+     "pipeline": 3.53,
+     "otherEnsemble": 105,
+     "other": 197.44
+    },
+    "samplesWithOtherEnsembleJest": 0,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 154,
+    "maxOtherCpuPct": 450
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 858.6,
+     "gate": 4.5,
+     "pipeline": 419.2,
+     "otherEnsemble": 109.6,
+     "other": 325.3
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 3,
+    "maxOtherEnsembleCpuPct": 150,
+    "maxOtherCpuPct": 547
+   }
+  }
+ },
+ "arm": "new",
+ "order": 9,
+ "runId": "v26-09-pr315-new-first",
+ "pr": 315,
+ "tier": "high",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ }
+}

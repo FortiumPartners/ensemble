@@ -1,0 +1,1 @@
+{"baseRefName":"dev","mergeCommit":{"oid":"74a04d5a6df6af03c37628a1b645fe3a15d6f022"},"mergedAt":"2026-11-12T01:54:51Z","number":297,"state":"MERGED","title":"feat(development): the local CI gate reuses hosted CI results verified on the exact head (kata fwj0, ehsm)"}

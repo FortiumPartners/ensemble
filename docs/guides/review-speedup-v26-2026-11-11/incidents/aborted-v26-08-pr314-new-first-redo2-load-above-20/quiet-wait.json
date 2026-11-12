@@ -1,0 +1,32 @@
+{
+ "label": "v26-08-pr314-new-first-redo2",
+ "limit": 6,
+ "waitedMs": 15047,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-12T02:08:40.709Z",
+   "load1": 6.08,
+   "load5": 8.94,
+   "top": [
+    "126.4 85588       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R04nVerifier15 --entity-type file --pl",
+    " 55.0 69118 02-05:17:12 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 16.5   456 02-09:21:59 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 12.6  8872 02-09:19:16 /opt/homebrew/bin/herdr server",
+    "  6.8  8871 02-09:19:16 herdr",
+    "  6.6  7380 02-09:19:40 /Applications/WezTerm.app/Contents/MacOS/wezterm-gui"
+   ]
+  },
+  {
+   "at": "2026-11-12T02:08:55.754Z",
+   "load1": 5.18,
+   "load5": 8.6
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.08,
+  "load5": 8.53,
+  "load15": 9.24
+ }
+}

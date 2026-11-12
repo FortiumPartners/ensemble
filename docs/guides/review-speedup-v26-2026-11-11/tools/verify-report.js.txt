@@ -1,0 +1,160 @@
+'use strict';
+// V2-6: independent spot-check of the report's numbers. It does NOT use the analyzers (v26-analyze.js, v26-report.js): every figure below is recomputed
+// from the raw run files (trace.jsonl, summary.json, dispatch.log.jsonl, load-samples.jsonl, the stored walltime rows) and then looked up in the report
+// text (in the row of the run, for per-run figures). Prints one line per check and exits 1 on any mismatch. Nothing here opens a session or transcript.
+const fs = require('fs');
+const path = require('path');
+const HOME = process.env.HOME;
+const RUNS = path.join(HOME, '.omp/pr-review-speedup/v26/runs');
+const SESSION = fs.readFileSync(path.join(HOME, '.omp/pr-review-speedup/v26/load/load.log'), 'utf8').split('\n').map((l) => /^(\S+Z) load1=([\d.]+)/.exec(l)).filter(Boolean).map((m) => ({ t: Date.parse(m[1]), load1: Number(m[2]) }));
+const REPORT = fs.readFileSync('/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/docs/guides/review-speedup-v26-2026-11-11.md', 'utf8');
+const EVID = '/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/docs/guides/review-speedup-v26-2026-11-11';
+const lines = REPORT.split('\n');
+const rd = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+const f2 = (x) => (Math.round(x * 100) / 100).toFixed(2);
+const f1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
+const IDS = ['v26-01-pr207-old-first', 'v26-02-pr207-new-first', 'v26-03-pr207-new-first-rep', 'v26-04-pr319-new-first', 'v26-05-pr319-old-first', 'v26-06-pr314-old-first', 'v26-08-pr314-new-first-redo4', 'v26-09-pr315-new-first', 'v26-10-pr315-old-first'];
+
+function readTrace(dir) {
+  const spans = new Map();
+  for (const l of fs.readFileSync(path.join(dir, 'trace.jsonl'), 'utf8').split('\n')) {
+    if (!l.trim()) continue;
+    const e = JSON.parse(l);
+    if (e.type === 'span_start') spans.set(e.span_id, { name: e.name, start: Date.parse(e.start_ts), attrs: e.attrs || {} });
+    else if (e.type === 'span_end') { const s = spans.get(e.span_id); if (s) { s.end = Date.parse(e.end_ts); s.status = e.status; const lm = e.attrs && e.attrs.last_message_ts; s.iend = lm ? Date.parse(lm) : s.end; } }
+  }
+  return [...spans.values()];
+}
+function rowOf(id) { return lines.find((l) => l.startsWith('|') && l.includes(`\`${id}\``) && /\|\s*\d+\s*\|/.test(l)); }
+function rowsOf(id) { return lines.filter((l) => l.startsWith('|') && l.includes(`\`${id}\``)); }
+let bad = 0; const out = [];
+function check(label, value, where) {
+  const text = where === undefined ? REPORT : where;
+  const ok = text.includes(String(value));
+  if (!ok) bad += 1;
+  out.push(`${ok ? 'OK  ' : 'FAIL'} ${label}: ${value}`);
+}
+
+const raw = {};
+for (const id of IDS) {
+  const dir = path.join(RUNS, id);
+  const spans = readTrace(dir);
+  const root = spans.find((s) => s.name === 'review' && !s.attrs.parent);
+  const ends = spans.filter((s) => s.iend).map((s) => s.iend); const starts = spans.map((s) => s.start);
+  const roots = spans.filter((s) => s.name === 'review'); if (roots.length !== 1) throw new Error('expected one root review span in ' + id); const wallMin = (roots[0].end - roots[0].start) / 60000;
+  const ver = spans.filter((s) => s.name === 'review.verifier');
+  const verStart = Math.min(...ver.map((s) => s.start)); const verEnd = Math.max(...ver.map((s) => s.iend));
+  const stopped = ver.filter((s) => s.status === 'expired');
+  const rev = spans.filter((s) => s.name === 'review.reviewer' || s.name === 'review.security-lane');
+  const reviewRoundMin = (Math.max(...rev.map((s) => s.iend)) - Math.min(...rev.map((s) => s.start))) / 60000;
+  const summary = rd(path.join(dir, 'summary.json'));
+  const cands = summary.ledger.candidates;
+  const unverified = cands.filter((c) => c.outcome === 'unverified').length;
+  const dispatch = fs.readFileSync(path.join(dir, 'dispatch.log.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const verAgents = dispatch.flatMap((d) => (d.agents || []).filter((a) => a.role === 'verifier'));
+  const firstWave = verAgents.filter((a) => !a.secondWave).length; const secondWave = verAgents.filter((a) => a.secondWave).length;
+  const samples = SESSION.filter((x) => x.t >= verStart && x.t <= verEnd).map((x) => ({ ts: new Date(x.t).toISOString(), load1: x.load1 })); const own = fs.readFileSync(path.join(dir, 'load-samples.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => Date.parse(x.ts) >= verStart && Date.parse(x.ts) <= verEnd);
+  const stage = samples; const ownMean = own.reduce((a, x) => a + x.load1, 0) / own.length; const ownMax = Math.max(...own.map((x) => x.load1));
+  const stageMean = stage.reduce((a, s) => a + s.load1, 0) / stage.length;
+  const stageMax = Math.max(...stage.map((s) => s.load1));
+  const agentMin = ver.reduce((a, s) => a + (s.iend - s.start), 0) / 60000;
+  raw[id] = { wallMin, reviewRoundMin, stageMin: (verEnd - verStart) / 60000, ver: ver.length, stopped: stopped.length, cands: cands.length, unverified, firstWave, secondWave, stageMean, stageMax, stageSamples: stage.length, ownMean, ownMax, ownN: own.length, agentMin, startedAt: new Date(Math.min(...starts)).toISOString() };
+}
+
+// per-run table rows: wall, review round, verify stage, stage load mean / max
+for (const id of IDS) {
+  const r = raw[id]; const row = rowsOf(id).join('\n');
+  check(`${id} wall (min, from the trace's first start to last end)`, f2(r.wallMin), row);
+  check(`${id} review round (min)`, f2(r.reviewRoundMin), row);
+  check(`${id} verify stage (min)`, f2(r.stageMin), row);
+  check(`${id} verify-stage load1 mean / max (session load.log)`, `${f2(r.stageMean)} / ${f1(r.stageMax)}`, rowsOf(id).find((l) => /\| #\d+ \| (OLD|NEW) \|/.test(l))); out.push(`INFO ${id} own sampler stage load1 mean / max: ${f2(r.ownMean)} / ${f1(r.ownMax)} (${r.ownN} samples; session log ${r.stageSamples})`);
+  check(`${id} verifiers dispatched (first + second wave)`, `${r.ver} (${r.firstWave} + ${r.secondWave})`, row);
+  check(`${id} verifiers stopped at the deadline`, `${r.stopped}`, row);
+  check(`${id} candidates`, `${r.cands} (`, row);
+  check(`${id} verifier agent-minutes`, f2(r.agentMin), row);
+}
+// unverified counts and second-wave tails
+const un = (id) => raw[id].unverified;
+out.push(`INFO unverified candidates by run: ${IDS.map((i) => `${i.slice(0, 6)}=${un(i)}`).join(' ')}`);
+if (un('v26-08-pr314-new-first-redo4') !== 3 || un('v26-09-pr315-new-first') !== 3 || IDS.filter((i) => /old/.test(i)).some((i) => un(i) !== 0) || un('v26-04-pr319-new-first') !== 0) { bad += 1; out.push('FAIL unverified counts differ from the report (3, 3, and none elsewhere)'); } else out.push('OK   unverified: 3 of 5 (run 8), 3 of 7 (run 9), none in the other seven runs');
+// second-wave tails: first-wave end to last verifier end
+for (const id of ['v26-04-pr319-new-first', 'v26-08-pr314-new-first-redo4', 'v26-09-pr315-new-first']) {
+  const spans = readTrace(path.join(RUNS, id)).filter((s) => s.name === 'review.verifier').sort((a, b) => a.start - b.start);
+  const dispatch = fs.readFileSync(path.join(RUNS, id, 'dispatch.log.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const sw = dispatch.flatMap((d) => (d.agents || []).filter((a) => a.role === 'verifier' && a.secondWave).map((a) => a.name));
+  const firstEnd = Math.max(...spans.filter((s) => !sw.includes(s.attrs.agent)).map((s) => s.iend)); const lastEnd = Math.max(...spans.map((s) => s.iend)); const start0 = Math.min(...spans.map((s) => s.start));
+  const tail = (lastEnd - firstEnd) / 60000; const firstStage = (firstEnd - start0) / 60000;
+  check(`${id} first-wave stage`, f2(firstStage)); check(`${id} second-wave tail`, f2(tail));
+}
+// pairs: wall differences and percentages
+const pairs = [['v26-05-pr319-old-first', 'v26-04-pr319-new-first'], ['v26-06-pr314-old-first', 'v26-08-pr314-new-first-redo4'], ['v26-10-pr315-old-first', 'v26-09-pr315-new-first']];
+for (const [o, n] of pairs) {
+  const dRounded = Number(f2(raw[n].wallMin)) - Number(f2(raw[o].wallMin)); const d = raw[n].wallMin - raw[o].wallMin; const pct = 100 * dRounded / Number(f2(raw[o].wallMin));
+  check(`${n} minus ${o}: wall difference (of the two-decimal figures)`, `${dRounded > 0 ? '+' : ''}${f2(dRounded)} min (${pct > 0 ? '+' : ''}${f1(pct)}%)`);
+  out.push(`INFO unrounded wall difference ${d.toFixed(3)} min (${(100 * d / raw[o].wallMin).toFixed(2)}%)`); if (Math.abs(d - dRounded) > 0.011) { bad += 1; out.push('FAIL unrounded and displayed differences disagree by more than 0.011 min'); }
+}
+const sumNew = pairs.reduce((a, [, n]) => a + raw[n].wallMin, 0); const sumOld = pairs.reduce((a, [o]) => a + raw[o].wallMin, 0);
+check('sum of the three NEW walls', f2(sumNew)); check('sum of the three OLD walls', f2(sumOld));
+check('mean paired difference', `+${f2((sumNew - sumOld) / 3)} min`);
+// verifier totals and stops by arm
+const sumBy = (arm, k) => IDS.filter((i) => (arm === 'old' ? /-old-/.test(i) : /-new-/.test(i))).reduce((a, i) => a + raw[i][k], 0);
+check('stops table, OLD row', `| OLD | 1, 5, 6, 10 | ${sumBy('old', 'ver')} | ${sumBy('old', 'stopped')} (${f1(100 * sumBy('old', 'stopped') / sumBy('old', 'ver'))}%) |`); check('stops table, NEW row', `| NEW (all five runs) | 2, 3, 4, 8, 9 | ${sumBy('new', 'ver')} | ${sumBy('new', 'stopped')} (${f1(100 * sumBy('new', 'stopped') / sumBy('new', 'ver'))}%) |`);
+out.push(`INFO stops: OLD ${sumBy('old', 'stopped')} of ${sumBy('old', 'ver')}, NEW ${sumBy('new', 'stopped')} of ${sumBy('new', 'ver')}`);
+if (sumBy('old', 'stopped') !== 3 || sumBy('new', 'stopped') !== 8 || sumBy('old', 'ver') !== 59 || sumBy('new', 'ver') !== 49) { bad += 1; out.push('FAIL stop totals differ from the report'); } else out.push('OK   stops: OLD 3 of 59, NEW 8 of 49');
+// votes
+let real = 0; let notReal = 0; let abst = 0;
+for (const id of IDS) for (const c of rd(path.join(RUNS, id, 'summary.json')).ledger.candidates) { real += c.real; notReal += c.notReal; abst += c.abstain; }
+check('votes recorded', `${real + notReal + abst} votes, ${real} \`real\`, ${notReal} \`not-real\``);
+// harness statuses
+let completed = 0; let cancelled = 0;
+for (const id of IDS) for (const a of Object.values(rd(path.join(RUNS, id, 'jobs.json')))) { const s = a.final && a.final.status; if (s === 'completed') completed += 1; else cancelled += 1; }
+check('harness jobs completed / not completed', `160 agents: ${completed} \`completed\`, ${cancelled} \`cancelled\``);
+// evidence trace identical to the repository copy
+for (const id of IDS) { const a = fs.readFileSync(path.join(RUNS, id, 'trace.jsonl')); const b = fs.readFileSync(path.join(EVID, id, 'trace.jsonl')); if (!a.equals(b)) { bad += 1; out.push(`FAIL evidence trace differs: ${id}`); } }
+out.push('OK   evidence traces are byte-identical to the run directories');
+// stored walltime rows
+for (const id of IDS) { const row = rd(path.join(EVID, id, 'walltime-row.json')); const r = row.row || row; out.push(`INFO walltime row ${id}: wall_min ${r.wall_min} (trace-derived ${raw[id].wallMin.toFixed(3)})`); if (Math.abs(r.wall_min - raw[id].wallMin) > 0.0015) { bad += 1; out.push(`FAIL walltime row differs for ${id}`); } }
+// ---- QA round 2: stage ends, agent-minutes, sampler comparison, run 1 burst, the #314 pair's base branches, GitHub facts from the evidence files
+{
+  const RUNNO = [1, 2, 3, 4, 5, 6, 8, 9, 10];
+  const hms = (iso) => iso.slice(11, 19);
+  const endedByStop = []; const durs = [];
+  IDS.forEach((id, i) => { const vs = readTrace(path.join(RUNS, id)).filter((s) => s.name === 'review.verifier'); const last = vs.reduce((b, s) => (s.iend > b.iend ? s : b), vs[0]); if (last.status === 'expired') { endedByStop.push(RUNNO[i]); durs.push((last.iend - last.start) / 60000); } });
+  check('verify stage ended at a stopped verifier', `(runs ${endedByStop.join(', ')}: the last verifier to finish was a stopped one, ${f2(Math.min(...durs))} to ${f2(Math.max(...durs))} min after its own dispatch): OLD 2 of 4, NEW 2 of 5`);
+  if (endedByStop.filter((n) => [1, 5, 6, 10].includes(n)).length !== 2 || endedByStop.filter((n) => [2, 3, 4, 8, 9].includes(n)).length !== 2) { bad += 1; out.push('FAIL OLD/NEW split of stage ends at a stop is not 2 and 2'); }
+  const [o319, n319, o314, n314, o315, n315] = ['v26-05-pr319-old-first', 'v26-04-pr319-new-first', 'v26-06-pr314-old-first', 'v26-08-pr314-new-first-redo4', 'v26-10-pr315-old-first', 'v26-09-pr315-new-first'];
+  const pc = (a, b) => 100 * (raw[b].agentMin - raw[a].agentMin) / raw[a].agentMin;
+  check('#319 agent-minutes', `#319 ${f2(raw[o319].agentMin)} (OLD) against ${f2(raw[n319].agentMin)} (NEW), ${pc(o319, n319).toFixed(1)}%`);
+  check('#314 agent-minutes', `#314: ${f2(raw[o314].agentMin)} against ${f2(raw[n314].agentMin)}, +${pc(o314, n314).toFixed(1)}%`);
+  check('#315 agent-minutes', `#315: ${f2(raw[o315].agentMin)} against ${f2(raw[n315].agentMin)}, 0.0%`);
+  if (Math.abs(pc(o315, n315)) >= 0.05) { bad += 1; out.push('FAIL #315 agent-minutes differ by 0.05% or more'); }
+  const diffs = IDS.map((id, i) => ({ no: RUNNO[i], d: Math.abs(raw[id].ownMean - raw[id].stageMean) }));
+  check('own sampler vs session log, eight runs', `within ${f2(Math.max(...diffs.filter((x) => x.no !== 2).map((x) => x.d)))} of them for eight runs`);
+  check('own sampler vs session log, run 2', `it gives ${f2(raw[IDS[1]].ownMean)} over ${raw[IDS[1]].ownN} samples where the session log gives ${f2(raw[IDS[1]].stageMean)} over ${raw[IDS[1]].stageSamples}`);
+  const sessText = fs.readFileSync(path.join(HOME, '.omp/pr-review-speedup/v26/load/load.log'), 'utf8').split('\n');
+  const burst = SESSION.filter((x) => x.t >= Date.parse('2026-11-11T21:55:50Z') && x.t <= Date.parse('2026-11-11T22:09:22Z')).map((x) => x.load1);
+  check('run 1 preceding burst', `\`load1\` ${f1(Math.min(...burst))} to ${f1(Math.max(...burst))} in every sample from the sampler's start at 21:55:50Z to 22:09:22Z; 5.32 at the start, \`load5\` 17.47`);
+  const startLine = sessText.find((l) => l.startsWith('2026-11-11T22:12:53Z')); const mm = /load1=([\d.]+) load5=([\d.]+)/.exec(startLine);
+  if (!mm || Number(mm[1]) !== 5.32 || Number(mm[2]) !== 17.47) { bad += 1; out.push('FAIL run 1 start sample is not load1 5.32 / load5 17.47'); } else out.push('OK   run 1 start sample 22:12:53Z load1 5.32 load5 17.47 (run 1 started ' + raw[IDS[0]].startedAt + ')');
+  const ap = (id) => rd(path.join(RUNS, id, 'arm-proof.json'));
+  if (!(ap(o314).runJsonBaseRefName === 'dev' && ap(n314).runJsonBaseRefName === 'scratch/v26-base' && ap(o314).runJsonBaseSha.startsWith('63da19f') && ap(n314).runJsonBaseSha.startsWith('63da19f'))) { bad += 1; out.push('FAIL #314 base branches differ from the report'); } else out.push('OK   #314: OLD base dev, NEW base scratch/v26-base, both at 63da19f');
+  const s8 = rd(path.join(RUNS, n314, 'summary.json')); const gb = s8.gateBlockers; const c8 = s8.ledger.candidates; const f1c = c8.find((c) => c.id === 'f1'); const f2c = c8.find((c) => c.id === 'f2');
+  if (!(gb.includes('open-important-finding:f1') && gb.includes('open-important-finding:f2') && f1c.severity === 'important' && f1c.real + f1c.notReal + f1c.abstain === 0 && f1c.outcome === 'unverified' && f2c.severity === 'important' && f2c.real === 2 && f2c.notReal === 0 && f2c.outcome === 'present' && f1c.loc === f2c.loc)) { bad += 1; out.push('FAIL run 8 f1/f2 and gate blockers differ from the report'); } else out.push(`OK   run 8: f1 important, 0 votes, unverified; f2 important, 2/0/0 present, same line (${f1c.loc}); gate blockers list both`);
+  const merges = rd(path.join(EVID, 'incidents', 'pr-merges.json')); const mg = (n) => merges.find((x) => x.number === n);
+  const batch = [228, 225, 205, 202].map((n) => mg(n).mergedAt).sort();
+  check('merge batch #228 #225 #205 #202', `${hms(batch[0])} to ${hms(batch[3])}Z`);
+  check('#205 merge time', `${hms(mg(205).mergedAt)}`); check('#205 merge commit', mg(205).mergeCommit.slice(0, 7)); check('#205 head', mg(205).headRefOid.slice(0, 7));
+  check('#297 merge time', `${hms(mg(297).mergedAt)}`); check('#297 merge commit', mg(297).mergeCommit.slice(0, 7));
+  check('#207 merge time', `${hms(mg(207).mergedAt)}`); check('#207 merge commit', mg(207).mergeCommit.slice(0, 7));
+  const sc = rd(path.join(EVID, 'incidents', 'scratch-prs.json')); check('#319 created', `${hms(sc.find((x) => x.number === 319).createdAt)}Z`);
+  const p207 = rd(path.join(EVID, 'incidents', 'pr207-state.json')); check('#207 third comment', `${hms(p207.comments[2].createdAt)}Z`);
+  const evOf = (n) => JSON.parse(fs.readFileSync(path.join(EVID, 'incidents', 'pr-events', `pr${n}-events.json`), 'utf8'));
+  const times = (kind) => [314, 315, 316, 317, 319].map((n) => hms(evOf(n).find((e) => e.event === kind).created_at)).sort();
+  check('closed times of the five scratch PRs', `(${times('closed').join(', ')})`);
+  check('reopened times', `reopened at ${times('reopened')[0]} to ${times('reopened')[4]}Z`);
+  check('base-changed times', `${times('base_ref_changed')[0]} to ${times('base_ref_changed')[4]}Z`);
+}
+fs.writeFileSync(path.join(HOME, '.omp/pr-review-speedup/v26/final/out/verification.txt'), out.join('\n') + '\n');
+console.log(out.join('\n'));
+console.log(bad ? `\n${bad} MISMATCH(ES)` : '\nALL CHECKS PASSED');
+process.exit(bad ? 1 : 0);

@@ -1,0 +1,31 @@
+'use strict';
+// Scratch: classify candidate changed-path lists with the committed classifier against the policy of dev's REVIEW.md.
+const fs = require('fs'); const path = require('path'); const cp = require('child_process');
+const ROOT = '/Users/ldangelo/Development/Sunstone/ensemble.prs-v26';
+const lib = path.join(ROOT, 'packages/development/lib');
+const { loadPolicy } = require(path.join(lib, 'pr-review-policy.js'));
+const { classifyPaths } = require(path.join(lib, 'pr-review-paths.js'));
+const { assignTier, effectiveTier } = require(path.join(lib, 'pr-review-tier.js'));
+const S = require(path.join(lib, 'pr-review-run-support.js'));
+const baseSha = cp.execSync('git rev-parse origin/dev', { cwd: ROOT, encoding: 'utf8' }).trim();
+const text = cp.execSync(`git show ${baseSha}:REVIEW.md`, { cwd: ROOT, encoding: 'utf8' });
+const codeowners = cp.execSync(`git show ${baseSha}:.github/CODEOWNERS`, { cwd: ROOT, encoding: 'utf8' });
+const policy = loadPolicy({ text, baseSha, sourceSha: baseSha });
+function tierOf(changedPaths) {
+  const declaration = { sourceSha: baseSha, sensitive: policy.policy.sensitivePaths, high: policy.policy.highPaths };
+  const classification = classifyPaths({ changedPaths, declaration, codeowners, baseSha, ...(policy.ok === false ? { policyUntrusted: policy.reason || 'policy-untrusted' } : {}) });
+  const assignment = assignTier({ paths: classification, kinds: S.deriveKinds(changedPaths) });
+  return { tier: assignment.tier, reasons: assignment.reasons, sensitive: classification.sensitive, high: classification.high };
+}
+module.exports = { tierOf, policy, baseSha };
+if (require.main === module) {
+  const d = JSON.parse(fs.readFileSync(process.env.HOME + '/.omp/pr-review-speedup/v26/probe/merged-prs.json', 'utf8'));
+  console.log('policy ok', policy.ok, 'base', baseSha.slice(0, 7));
+  const lo = Number(process.argv[2] || 80), hi = Number(process.argv[3] || 220);
+  for (const p of d) {
+    const n = p.additions + p.deletions;
+    if (p.isCrossRepository || n < lo || n > hi || p.changedFiles < 3) continue;
+    const t = tierOf((p.files || []).map((f) => f.path));
+    console.log(p.number, n, p.changedFiles, p.baseRefName, p.mergedAt.slice(0, 10), t.tier, t.reasons.join(','), '|', p.title.slice(0, 60));
+  }
+}

@@ -1,0 +1,5 @@
+Run v26-07-pr314-new-first (scratch #314, NEW arm, order 7) was lost to an external event, not a pipeline fault.
+- Review round dispatched 01:38:26Z, verify wave 1 dispatched 01:53:04Z (quorum-first: 4 verifiers, expected 3 needed 2, no second wave yet).
+- Scratch PRs #314, #315, #316, #317 and #319 were all closed by account ldangelo at 01:55:35Z-01:56:10Z (19:55-19:56 CST) by a session that is not this one (the shared gh credential cannot tell who).
+- The harness re-checks the PR state on every collect: collect#2 at 01:59:37Z answered RUN_FAILED (pr-not-open, the pull request is CLOSED).
+- No wall, stage or outcome is taken from this run. The partial files are kept as evidence.

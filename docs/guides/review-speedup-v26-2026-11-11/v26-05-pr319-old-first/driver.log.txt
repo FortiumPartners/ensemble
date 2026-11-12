@@ -1,0 +1,38 @@
+2026-11-12T00:38:39.388Z dispatched review wave 1 of 1: 8 agents at 2026-11-12T00:38:39.386Z cap 8
+2026-11-12T00:55:28.203Z collect#1 -> DISPATCH verify wave 1 of 4 at 2026-11-12T00:55:27.215Z (988 ms)
+2026-11-12T00:55:28.212Z dispatched verify wave 1 of 4: 8 agents at 2026-11-12T00:55:28.210Z cap 8
+2026-11-12T00:57:52.907Z collect#2 -> PENDING verify wave 1 of 4 at 2026-11-12T00:57:52.457Z (450 ms)
+2026-11-12T00:58:41.576Z collect#3 -> DISPATCH verify wave 2 (rolling) refill at 2026-11-12T00:58:40.972Z (604 ms)
+2026-11-12T00:58:41.581Z dispatched verify wave 2 (rolling) (refill; still running 6): 2 agents at 2026-11-12T00:58:41.580Z cap 8
+2026-11-12T00:59:12.184Z collect#4 -> PENDING verify wave 1 of 4 at 2026-11-12T00:59:11.634Z (549 ms)
+2026-11-12T00:59:24.668Z collect#5 -> DISPATCH verify wave 3 (rolling) refill at 2026-11-12T00:59:24.189Z (478 ms)
+2026-11-12T00:59:24.672Z dispatched verify wave 3 (rolling) (refill; still running 6): 2 agents at 2026-11-12T00:59:24.672Z cap 8
+2026-11-12T01:00:43.499Z collect#6 -> PENDING verify wave 1 of 4 at 2026-11-12T01:00:42.830Z (669 ms)
+2026-11-12T01:01:06.096Z collect#7 -> DISPATCH verify wave 4 (rolling) refill at 2026-11-12T01:01:05.520Z (575 ms)
+2026-11-12T01:01:06.100Z dispatched verify wave 4 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:01:06.100Z cap 8
+2026-11-12T01:01:42.748Z collect#8 -> PENDING verify wave 1 of 4 at 2026-11-12T01:01:42.165Z (583 ms)
+2026-11-12T01:02:45.457Z collect#9 -> DISPATCH verify wave 5 (rolling) refill at 2026-11-12T01:02:44.837Z (620 ms)
+2026-11-12T01:02:45.462Z dispatched verify wave 5 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:02:45.462Z cap 8
+2026-11-12T01:03:46.208Z collect#10 -> PENDING verify wave 2 (rolling) at 2026-11-12T01:03:45.566Z (642 ms)
+2026-11-12T01:04:58.808Z collect#11 -> DISPATCH verify wave 6 (rolling) refill at 2026-11-12T01:04:58.315Z (493 ms)
+2026-11-12T01:04:58.813Z dispatched verify wave 6 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:04:58.813Z cap 8
+2026-11-12T01:05:37.463Z collect#12 -> PENDING verify wave 2 (rolling) at 2026-11-12T01:05:36.880Z (583 ms)
+2026-11-12T01:06:26.279Z collect#13 -> DISPATCH verify wave 7 (rolling) refill at 2026-11-12T01:06:25.534Z (745 ms)
+2026-11-12T01:06:26.284Z dispatched verify wave 7 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:06:26.284Z cap 8
+2026-11-12T01:06:46.904Z collect#14 -> PENDING verify wave 4 (rolling) at 2026-11-12T01:06:46.318Z (586 ms)
+2026-11-12T01:06:57.394Z collect#15 -> DISPATCH verify wave 8 (rolling) refill at 2026-11-12T01:06:56.908Z (486 ms)
+2026-11-12T01:06:57.398Z dispatched verify wave 8 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:06:57.398Z cap 8
+2026-11-12T01:07:30.032Z collect#16 -> PENDING verify wave 5 (rolling) at 2026-11-12T01:07:29.453Z (579 ms)
+2026-11-12T01:09:28.835Z collect#17 -> DISPATCH verify wave 9 (rolling) refill at 2026-11-12T01:09:28.296Z (539 ms)
+2026-11-12T01:09:28.840Z dispatched verify wave 9 (rolling) (refill; still running 6): 2 agents at 2026-11-12T01:09:28.840Z cap 8
+2026-11-12T01:09:47.435Z collect#18 -> DISPATCH verify wave 10 (rolling) refill at 2026-11-12T01:09:46.871Z (564 ms)
+2026-11-12T01:09:47.439Z dispatched verify wave 10 (rolling) (refill; still running 7): 1 agents at 2026-11-12T01:09:47.439Z cap 8
+2026-11-12T01:10:10.095Z collect#19 -> PENDING verify wave 7 (rolling) at 2026-11-12T01:10:09.519Z (576 ms)
+2026-11-12T01:11:04.802Z collect#20 -> PENDING verify wave 7 (rolling) at 2026-11-12T01:11:04.246Z (556 ms)
+2026-11-12T01:11:43.440Z collect#21 -> PENDING verify wave 7 (rolling) at 2026-11-12T01:11:42.854Z (586 ms)
+2026-11-12T01:12:38.037Z collect#22 -> PENDING verify wave 7 (rolling) at 2026-11-12T01:12:37.506Z (530 ms)
+2026-11-12T01:12:50.552Z collect#23 -> PENDING verify wave 9 (rolling) at 2026-11-12T01:12:50.042Z (510 ms)
+2026-11-12T01:13:59.107Z collect#24 -> PENDING verify wave 9 (rolling) at 2026-11-12T01:13:58.625Z (482 ms)
+2026-11-12T01:16:27.884Z collect#25 -> PENDING verify wave 9 (rolling) at 2026-11-12T01:16:27.302Z (581 ms)
+2026-11-12T01:17:29.957Z stopped at its deadline: verifier-24 2026-11-12T01:17:29.957Z
+2026-11-12T01:17:31.832Z collect#26 -> ADJUDICATE at 2026-11-12T01:17:29.960Z (1872 ms)

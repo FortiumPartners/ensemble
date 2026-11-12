@@ -1,0 +1,685 @@
+{
+ "runId": "v26-02-pr207-new-first",
+ "pr": 207,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 11,
+  "recorded": 0
+ },
+ "metrics": {
+  "wallMs": 1327300,
+  "runnerCalls": 10,
+  "dispatchRounds": 2,
+  "agentsDispatched": 16,
+  "agentsByRole": {
+   "reviewer": 7,
+   "security": 1,
+   "verifier": 8
+  },
+  "turnsAtLeast": 12
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "open-important-finding:f3",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "security-finding-open:s1"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "reducedReview": "plan severity-guide-fallback: REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)\ncross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane and by one whole-range reader (reviewer-range: one pass under one lens, with no second reader of the whole diff)\nsecurity lane findings\nQUORUM-FIRST verification (policy quorumFirstVerification; the electorate stays 3 and the vote rule is unchanged): the first 2 verifiers of each candidate were asked and the rest only when one of those did not vote real. Settled by their first 2 real votes: f1, f2, f3, f4, f5, f6, f8, f9, f11, f12, f13 (no verifier is missing for them: the ones not asked were never expected to vote, the round is not partial on their account, and a delta verifies them again because they are never carried). Given the rest of their electorate: none\ntests: the baseline ran the relevant test files only (exit 0), not the full suite",
+ "votes": {
+  "verification": "performed",
+  "quorumFirst": {
+   "applied": true,
+   "expected": 3,
+   "needed": 2,
+   "settled": [
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+    "f8",
+    "f9",
+    "f11",
+    "f12",
+    "f13"
+   ],
+   "secondWave": []
+  },
+  "outcomes": [
+   {
+    "id": "f1",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f2",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f3",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f4",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f5",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f6",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f8",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f9",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f11",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f12",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f13",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   }
+  ]
+ },
+ "ledger": {
+  "total": 11,
+  "bySeverity": {
+   "important/fix": 3,
+   "nit/fix": 4,
+   "nit/deferred": 4
+  },
+  "present": 0,
+  "presentOnMajority": 0,
+  "quorumSettled": 11,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:151",
+    "claim": "Phase 2 step 4 of the author-playwright-tests command says to carry the framework forward as the string nunit when detectE2eFrameworkInDir returns null (no recognised test package in the .csproj files under the project d...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f2",
+    "severity": "important",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:217-251",
+    "claim": "scaffoldXunitFile writes the new xUnit class with a fixed fixture field named _fixture and only the using lines System.Threading.Tasks, Microsoft.Playwright and Xunit plus whatever the optional usings array holds, but th...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/e2e-framework.js:24-25",
+    "claim": "detectE2eFramework treats a package as a framework marker when its lower-cased id merely starts with nunit or xunit, so framework-agnostic test loggers such as NunitXml.TestLogger or XunitXml.TestLogger set the other fra...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f4",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68",
+    "claim": "The loop that checks every $E2E_LIB/<module>.js the command names exists in lib/ builds its module list with the pattern /\\$E2E_LIB\\/([a-z-]+)\\.js/g. The character class has no digits, so a name such as e2e-framework (th...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-7",
+     "verifier-8"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f5",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250",
+    "claim": "The inferFramework case labelled 'only in a string' feeds the source var s = \"using Xunit;\"; and expects null, but it passes whether or not string literals are masked: the using pattern in inferFramework is anchored to a...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/lib/e2e-framework.js:25",
+    "claim": "detectE2eFramework counts the Microsoft.Playwright.Xunit package as xunit (pinned by the test at e2e-framework.test.js line 30), but the xunit mode serves only one project shape. spec-writer.js scaffoldXunitFile always e...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f8",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:198-201",
+    "claim": "In the test 'infers xunit from the file, so a caller that forgot the framework cannot append a NUnit attribute', the last assertion is expect(appendTestMethod(EXISTING, details)).toContain('[Fact]'), but EXISTING already...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f9",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:181",
+    "claim": "The xUnit wording added to the Land step, and to the authoring agent text, leaves out part of the contract between the authored test and the generated class. The step says a new xunit file needs {collection, fixtureType}...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-7",
+     "verifier-8"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f11",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:138",
+    "claim": "The refusal table labels the fixtureType value 'Fixture<int>' as 'a fixtureType that is not a type name', but a generic instantiation is a valid C# type name; scaffoldXunitFile rejects it only because its fixtureType che...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f12",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:151",
+    "claim": "When detectE2eFramework cannot decide (it returns null if the PackageReference names match both frameworks or neither, and it matches by name prefix, so any package whose name merely starts with nunit or xunit counts), t...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f13",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/spec-writer.js:217-251",
+    "claim": "scaffoldXunitFile writes a new xUnit file with only System.Threading.Tasks, Microsoft.Playwright and Xunit as usings; another namespace can be added only through the usings field it reads from specDetails. Neither the co...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 63885,
+  "startedAt": "2026-11-11T22:45:04.089Z",
+  "reason": null,
+  "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-207-48c862c416af218bc1fa32305493fb8855602b31.dry.gate.log",
+  "finishedAt": "2026-11-11T22:50:29.316Z",
+  "durationMin": 5.42,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 22.084933333333332,
+  "window": [
+   "2026-11-11T22:45:02.836Z",
+   "2026-11-11T23:07:07.932Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 23002,
+   "missing": false,
+   "pct": 2
+  },
+  "beforeFirstDispatch": 14163,
+  "activeMs": 1302088,
+  "criticalPath": {
+   "ms": 1302090,
+   "missing": false,
+   "lowerBound": true,
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 908455,
+       "missing": false,
+       "name": "reviewer-range"
+      },
+      {
+       "stage": "verifier",
+       "ms": 393629,
+       "missing": false,
+       "name": "verifier-4"
+      },
+      {
+       "stage": "verdict",
+       "ms": 6,
+       "missing": false,
+       "lowerBound": true,
+       "clippedMs": 17
+      }
+     ],
+     "ms": 1302090,
+     "missing": false,
+     "lowerBound": true
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    26
+   ],
+   "review.gate": [
+    2,
+    1246
+   ],
+   "review.verdict": [
+    2,
+    23
+   ],
+   "review.security-lane": [
+    1,
+    542577
+   ],
+   "review.reviewer": [
+    7,
+    908455
+   ],
+   "review.verifier": [
+    8,
+    393629
+   ]
+  },
+  "hostLoad": {
+   "missing": false,
+   "scope": "orchestrator window",
+   "samples": 44,
+   "load1": {
+    "min": 4.91,
+    "mean": 22.61,
+    "max": 60.82
+   },
+   "cpus": 18,
+   "intervalMs": 30001
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr207-first-v26-02-pr207-new-first",
+  "pr": 207,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 22.085,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-02-pr207-new-first",
+  "run_id": "v26-02-pr207-new-first"
+ },
+ "arm": "new",
+ "order": 2,
+ "driverPeakTrackedActive": 8,
+ "highLoadSeen": true,
+ "startedMs": 1794437102367,
+ "endedMs": 1794438429774,
+ "triageByRule": []
+}

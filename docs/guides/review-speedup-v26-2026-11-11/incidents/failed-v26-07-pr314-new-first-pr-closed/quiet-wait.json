@@ -1,0 +1,19 @@
+{
+ "label": "v26-07-pr314-new-first",
+ "limit": 6,
+ "waitedMs": 1,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-12T01:38:09.257Z",
+   "load1": 3.95,
+   "load5": 5.85
+  }
+ ],
+ "loadAtStart": {
+  "load1": 3.95,
+  "load5": 5.85,
+  "load15": 6.92
+ }
+}

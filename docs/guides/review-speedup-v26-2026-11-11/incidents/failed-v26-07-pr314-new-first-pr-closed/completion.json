@@ -1,0 +1,38 @@
+[
+ {
+  "agent": "security-lane",
+  "role": "security",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:43:32.826Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:43:22.334Z"
+ },
+ {
+  "agent": "reviewer-s1-a",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:52:15.709Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:52:04.595Z"
+ },
+ {
+  "agent": "reviewer-s1-b",
+  "role": "reviewer",
+  "round": "review",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:53:03.775Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:53:01.176Z"
+ },
+ {
+  "agent": "verifier-1",
+  "role": "verifier",
+  "round": "verify",
+  "how": "proc:completed",
+  "detectedAt": "2026-11-12T01:59:37.230Z",
+  "fileExists": true,
+  "fileMtime": "2026-11-12T01:59:32.316Z"
+ }
+]

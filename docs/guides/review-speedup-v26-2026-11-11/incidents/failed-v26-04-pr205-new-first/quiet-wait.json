@@ -1,0 +1,165 @@
+{
+ "label": "v26-04-pr205-new-first",
+ "limit": 6,
+ "waitedMs": 301004,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-11T23:46:59.628Z",
+   "load1": 24.35,
+   "load5": 37.67,
+   "top": [
+    "169.8   598 02-07:00:16 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+    "136.7  3368       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2A --entity-type file --p",
+    " 66.1 69118 02-02:55:31 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 53.6 50405    03:04:01 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 52.7 23334    23:55:15 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 48.2   411 02-07:00:18 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:47:14.678Z",
+   "load1": 28.11,
+   "load5": 37.85,
+   "top": [
+    "149.4  4025       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS3B --entity-type file --p",
+    "119.6 69118 02-02:55:46 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 58.6 50405    03:04:16 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 41.3   868 02-07:00:29 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 39.0   411 02-07:00:33 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds",
+    " 22.4  2131       00:48 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared -s mdworker -c MDSIm"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:47:29.726Z",
+   "load1": 29.21,
+   "load5": 37.57,
+   "top": [
+    "115.1   598 02-07:00:46 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+    "114.7 69118 02-02:56:01 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 60.3 31623    07:50:56 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 53.9 50405    03:04:31 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 42.9   868 02-07:00:44 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 22.8   411 02-07:00:48 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:47:44.782Z",
+   "load1": 32.71,
+   "load5": 37.93,
+   "top": [
+    "202.2   598 02-07:01:01 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+    "128.8  5068       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS3B --entity-type file --p",
+    " 67.2 31623    07:51:11 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 53.3 69118 02-02:56:16 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 52.8 50405    03:04:46 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 42.6   868 02-07:00:59 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:47:59.840Z",
+   "load1": 28.11,
+   "load5": 36.68,
+   "top": [
+    "211.2   598 02-07:01:16 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+    " 84.4 69118 02-02:56:31 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 55.1 50405    03:05:01 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 51.3   868 02-07:01:14 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 43.7  5463       00:00 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2A --entity-type file --p",
+    " 24.5   456 02-07:01:18 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:48:14.886Z",
+   "load1": 24.05,
+   "load5": 35.35,
+   "top": [
+    "284.9   598 02-07:01:31 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mds_stores",
+    " 93.9 69118 02-02:56:46 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 51.1 50405    03:05:16 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 49.3   868 02-07:01:29 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 25.4   456 02-07:01:33 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 13.6  8872 02-06:58:50 /opt/homebrew/bin/herdr server"
+   ]
+  },
+  {
+   "elided": 9
+  },
+  {
+   "at": "2026-11-11T23:50:45.384Z",
+   "load1": 7.33,
+   "load5": 24.33,
+   "top": [
+    "145.8 10807       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2B --entity-type file --p",
+    " 67.7 69118 02-02:59:17 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 62.6 10813       00:00 /usr/bin/top -l 2 -o power -stats pid,power",
+    " 51.6   868 02-07:04:00 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 50.0 50405    03:07:47 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 20.3   456 02-07:04:04 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:51:00.429Z",
+   "load1": 7.32,
+   "load5": 23.5,
+   "top": [
+    "162.3 11144       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS3A --entity-type file --p",
+    " 65.8 31623    07:54:27 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 63.5 69118 02-02:59:32 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 47.3 50405    03:08:02 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 40.4   868 02-07:04:15 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 26.0   456 02-07:04:19 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:51:15.477Z",
+   "load1": 7.08,
+   "load5": 22.65,
+   "top": [
+    "152.6 11746       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS2B --entity-type file --p",
+    " 76.5 11762       00:00 /usr/bin/top -l 2 -o power -stats pid,power",
+    " 63.3 31623    07:54:42 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 52.6 69118 02-02:59:47 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 47.2 50405    03:08:17 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 40.6 23334    23:59:31 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:51:30.527Z",
+   "load1": 7.29,
+   "load5": 21.95,
+   "top": [
+    "76.0 12265       00:00 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerS1A --entity-type file --p",
+    " 64.6 69118 02-03:00:02 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 50.9 50405    03:08:32 /Applications/zoom.us.app/Contents/MacOS/zoom.us",
+    " 46.4   868 02-07:04:45 /Library/SystemExtensions/32213A25-8CDE-4A75-8F51-0E6AE01B75B4/com.insta360.linkcontroller.camera-extension.systemextension/Contents/MacOS/com.ins",
+    " 21.2   456 02-07:04:49 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 12.8  8872 02-07:02:06 /opt/homebrew/bin/herdr server"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:51:45.579Z",
+   "load1": 6.63,
+   "load5": 21.09,
+   "top": [
+    "138.2 12716       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunV26.R03nReviewerRange --entity-type file -",
+    " 85.2 12720       00:00 /usr/bin/top -l 2 -o power -stats pid,power",
+    " 82.9 69118 02-03:00:17 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 59.3 23334 01-00:00:01 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 57.1 23398    23:59:56 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 50.7 50405    03:08:47 /Applications/zoom.us.app/Contents/MacOS/zoom.us"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:52:00.631Z",
+   "load1": 5.94,
+   "load5": 20.23
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.94,
+  "load5": 20.23,
+  "load15": 24.64
+ }
+}

@@ -1,0 +1,391 @@
+{
+ "dir": "v26-02-pr207-new-first",
+ "wallMin": 22.09,
+ "window": {
+  "startMs": 1794437102836,
+  "endMs": 1794438427949,
+  "startIso": "2026-11-11T22:45:02.836Z",
+  "endIso": "2026-11-11T23:07:07.949Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-range",
+  "slowestMin": 15.14,
+  "laneMin": 9.04,
+  "expired": []
+ },
+ "reviewRoundMin": 15.14,
+ "handoffToVerifySec": 4.98,
+ "verify": {
+  "count": 8,
+  "arrived": 8,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 1,
+  "refills": 0,
+  "stageMin": 6.56,
+  "stageSec": 393.63,
+  "startedAtIso": "2026-11-11T23:00:30.437Z",
+  "startedOffsetMin": 15.46,
+  "endedOffsetMin": 22.02,
+  "slowestMin": 6.56,
+  "slowestArrivedMin": 6.56,
+  "medianMin": 5.56,
+  "meanMin": 5.35,
+  "p75Min": 5.88,
+  "p90Min": 6.56,
+  "minMin": 3.65,
+  "sumAgentMin": 42.78,
+  "peakVerifierOverlap": 8,
+  "peakAnyAgentOverlap": 8,
+  "lastStartOffsetMin": 0,
+  "durationsSec": [
+   361.95,
+   348.81,
+   312.32,
+   393.63,
+   260.61,
+   219.14,
+   352.55,
+   318.06
+  ],
+  "replayAtCap8Min": 6.56,
+  "firstWaveStageMin": 6.56,
+  "secondWaveTailMin": 0,
+  "firstWaveDurationsSec": [
+   361.95,
+   348.81,
+   312.32,
+   393.63,
+   260.61,
+   219.14,
+   352.55,
+   318.06
+  ],
+  "secondWaveDurationsSec": []
+ },
+ "verifiers": {
+  "dispatchedTotal": 8,
+  "secondWave": 0,
+  "firstWave": 8,
+  "manifests": 1,
+  "plannedFullElectorate": 11,
+  "plannedByRunner": 8,
+  "candidatesVerified": 11,
+  "mode": "standard",
+  "electorate": 3,
+  "candidatesGivenTheRest": 0,
+  "secondWaveRate": 0,
+  "secondWaveReasons": {}
+ },
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 9,
+  "secondWave": [],
+  "skipped": []
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 5.42,
+  "startedAt": "2026-11-11T22:45:04.089Z",
+  "finishedAt": "2026-11-11T22:50:29.316Z",
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.25,
+  "finishedOffsetMin": 5.44,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 10.02
+ },
+ "ledger": {
+  "candidates": 11,
+  "bySeverity": {
+   "important/fix": 3,
+   "nit/fix": 4,
+   "nit/deferred": 4
+  },
+  "present": 0,
+  "presentOnMajority": 0,
+  "quorumSettled": 11,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 23.002,
+ "beforeFirstDispatchSec": 14.163,
+ "criticalPath": {
+  "ms": 1302090,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 908455,
+    "name": "reviewer-range"
+   },
+   {
+    "stage": "verifier",
+    "ms": 393629,
+    "name": "verifier-4"
+   },
+   {
+    "stage": "verdict",
+    "ms": 6
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 8
+ },
+ "agentsTotal": 16,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 11,
+  "recorded": 0
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "open-important-finding:f3",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "security-finding-open:s1"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 150,
+   "requestsMean": 21.43,
+   "costTotalUsd": 13.39,
+   "contextTokensMax": 284286,
+   "harnessDurMedianSec": 716.62,
+   "harnessDurMaxSec": 910.56,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 29,
+   "requestsMean": 29,
+   "costTotalUsd": 1.75,
+   "contextTokensMax": 219109,
+   "harnessDurMedianSec": 549.81,
+   "harnessDurMaxSec": 549.81,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 8,
+   "requestsTotal": 131,
+   "requestsMean": 16.38,
+   "costTotalUsd": 7.15,
+   "contextTokensMax": 161095,
+   "harnessDurMedianSec": 335.56,
+   "harnessDurMaxSec": 394.83,
+   "statuses": {
+    "completed": 8
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 8
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 8,
+ "recallGuard": {
+  "falseNegativeRate": 0.6666666666666666,
+  "notRaisedRate": 0.6666666666666666,
+  "found": [
+   "E1",
+   "E4"
+  ],
+  "downgraded": [],
+  "notRaised": [
+   "E2",
+   "E3",
+   "E5",
+   "E6"
+  ],
+  "unmatchedImportant": [
+   "f1"
+  ]
+ },
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 44,
+    "load1Mean": 22.61,
+    "load1Max": 60.82,
+    "load1Min": 4.91,
+    "above12": 32,
+    "longestStreakAbove12": 15,
+    "above20": 19,
+    "disturbed": true,
+    "jestProcsMax": 40,
+    "samplesWithJest": 23,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 13,
+    "load1Mean": 43.37,
+    "load1Max": 60.82,
+    "load1Min": 27.99,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 13,
+    "disturbed": true,
+    "jestProcsMax": 40,
+    "samplesWithJest": 13,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 12.58,
+    "load1Max": 16.97,
+    "load1Min": 5.18,
+    "above12": 6,
+    "longestStreakAbove12": 5,
+    "above20": 0,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 8,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 6.67,
+    "load1Max": 10.38,
+    "load1Min": 4.43,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 1,
+    "samplesWithJest": 1,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 44,
+    "load1Mean": 22.61,
+    "load1Max": 60.82,
+    "load1Min": 4.91,
+    "above12": 32,
+    "longestStreakAbove12": 15,
+    "above20": 19,
+    "disturbed": true
+   },
+   "verifyStage": {
+    "samples": 14,
+    "load1Mean": 42.16,
+    "load1Max": 60.82,
+    "load1Min": 26.39,
+    "above12": 14,
+    "longestStreakAbove12": 14,
+    "above20": 14,
+    "disturbed": true
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 44,
+    "meanCpuPct": {
+     "all": 770.57,
+     "gate": 0,
+     "pipeline": 56.68,
+     "otherEnsemble": 225.3,
+     "other": 488.59
+    },
+    "samplesWithOtherEnsembleJest": 18,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 1301,
+    "maxOtherCpuPct": 1147
+   },
+   "verifyStage": {
+    "samples": 13,
+    "meanCpuPct": {
+     "all": 934.15,
+     "gate": 0,
+     "pipeline": 0,
+     "otherEnsemble": 385.92,
+     "other": 548
+    },
+    "samplesWithOtherEnsembleJest": 13,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 1299,
+    "maxOtherCpuPct": 736
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 732.8,
+     "gate": 0,
+     "pipeline": 248.5,
+     "otherEnsemble": 126,
+     "other": 358.5
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 165,
+    "maxOtherCpuPct": 849
+   }
+  }
+ },
+ "arm": "new",
+ "order": 2,
+ "runId": "v26-02-pr207-new-first",
+ "pr": 207,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ },
+ "recallGuardExitDefaultThreshold": 1
+}
