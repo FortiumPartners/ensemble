@@ -350,7 +350,9 @@ async function runRun(payload, deps) {
   const options = runnerOptions(repoRoot, headSha, cfg);
   const held = await underGateLock(deps, cfg, options, () => deps.runGate(options, deps.runnerDeps));
   if (held.refusal) return { ok: false, stage: 'lock', error: held.refusal.error, ...held.refusal.fields };
-  return isObject(held.value) ? { ...held.value, queued_ms: held.queuedMs } : held.value;
+  if (!isObject(held.value)) return held.value;
+  const notes = held.value.ok === true ? [] : headBehindBaseNotes(deps, repoRoot, baseRef, cfg.baseSha, headSha);
+  return { ...held.value, ...(notes.length ? { notes } : {}), queued_ms: held.queuedMs };
 }
 
 async function runPost(payload, deps) {
@@ -622,6 +624,34 @@ function preflight(repoRoot, deps) {
   return { ok: true };
 }
 
+/**
+ * Staleness note (kata w6tn). The gate grades the PR HEAD; hosted CI grades the merge ref. A head that does not contain
+ * the base can fail here (typically the pi version-bump hook or generated drift after a main release) while hosted CI
+ * passes. For a FAILED run only, name that as a report note: `notes: [{kind:'head-behind-base', behind, baseRef, ...}]`.
+ * Advisory, never a verdict: callers add it beside `ok`/`mergeReady`/`failures` and change none of them. Fails safe:
+ * any git error, or a head that does contain the base, yields no note.
+ */
+function headBehindBaseNotes(deps, repoRoot, baseRef, baseSha, headSha) {
+  try {
+    const cwd = path.resolve(repoRoot);
+    const anc = deps.git(['merge-base', '--is-ancestor', baseSha, headSha], cwd);
+    if (!anc || anc.status !== 1) return []; // 0: head contains base; anything else: could not tell
+    const count = deps.git(['rev-list', '--count', `${headSha}..${baseSha}`], cwd);
+    const behind = count && count.status === 0 ? Number(String(count.stdout).trim()) : NaN;
+    if (!Number.isInteger(behind) || behind < 1) return [];
+    return [
+      {
+        kind: 'head-behind-base',
+        behind,
+        baseRef,
+        message: `the head is behind ${baseRef} by ${behind} commit${behind === 1 ? '' : 's'}; hosted CI grades the merge ref, so a failure here may be staleness (typically the pi version-bump hook or generated drift): update the branch onto ${baseRef} and re-run before treating it as a defect`,
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
 /** Failures the report must name: workflow, job, step, head SHA. */
 function describeFailures(result, equivalents) {
   const sha = result.sha;
@@ -772,6 +802,8 @@ async function runGateFlow(payload, deps) {
   if (!passed) {
     report.failures = describeFailures(result, cfg.approvalSet.equivalents);
     report.error = result.error || 'local CI did not pass';
+    const notes = headBehindBaseNotes(deps, repoRoot, baseRef, cfg.baseSha, headSha);
+    if (notes.length) report.notes = notes;
     if (!dryRun) {
       const headBound = report.failures.filter((f) => !TRANSIENT_KINDS.has(f.kind));
       if (headBound.length > 0) {
