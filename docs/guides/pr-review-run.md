@@ -721,7 +721,7 @@ record from the stored run, `lib/pr-review-coverage.js`: `{ status: 'complete' |
   output, so it stops there too.
 - **The operator's way out is the existing one.** Run the review again on this head (a gap that was read is gone), or decide the
   gap: the decision list shows it in its own `Not reviewed` group with Accept as its only choice and a reason of its own, and
-  the answer is the same `ledger resolve` record as for a finding (`{ reason, by, headSha, at }`, this head, a person), graded by the
+  the answer is the same `ledger resolve` record as for a finding (`{ decision: 'accept', reason, by, headSha, at }`, this head, a person; only `accept` closes a gap), graded by the
   same rule; `cleared`, a deferral and a decision for another head close nothing. An accepted gap is reported as
   `coverage-gap-accepted` and written into the bead the recorder makes for it. An agent never decides it.
 - **Each path.** Light and full runs build it the same way and a Quick run follows the same rule. A finished run replays its stored

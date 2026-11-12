@@ -39,7 +39,7 @@ function finding(overrides = {}) {
   };
 }
 
-const decision = (overrides = {}) => ({ reason: 'accepted: low risk', by: 'ldangelo', at: AT, headSha: HEAD, ...overrides });
+const decision = (overrides = {}) => ({ decision: 'accept', reason: 'accepted: low risk', by: 'ldangelo', at: AT, headSha: HEAD, ...overrides });
 /** A finding closed with a resolution carrying full provenance for HEAD. */
 const decided = (base, overrides) => ({ ...base, disposition: 'resolved', resolution: decision(overrides) });
 const lane = (...findings) => ({ status: 'findings', findings });
@@ -106,6 +106,13 @@ const SHAPES = [
   // The shapes around them.
   ['an open Important finding', { ledger: [finding()] }],
   ['an Important finding closed with full provenance', { ledger: [decided(finding())] }],
+  ['an Important finding closed with follow-on (cannot unblock the gate)', { ledger: [decided(finding(), { decision: 'follow-on' })] }],
+  ['an Important finding closed without a decision', { ledger: [decided(finding(), { decision: undefined })] }],
+  ['an Important finding closed with a decision in the wrong case', { ledger: [decided(finding(), { decision: 'ACCEPT' })] }],
+  ['a Pre-existing lane finding closed with follow-on', { security: lane(decided(finding({ id: 'S-1', severity: 'pre-existing' }), { decision: 'follow-on' })) }],
+  ['a Pre-existing lane finding closed without a decision', { security: lane(decided(finding({ id: 'S-1', severity: 'pre-existing' }), { decision: undefined })) }],
+  ['a Nit closed with follow-on', { ledger: [decided(finding({ severity: 'nit' }), { decision: 'follow-on' })] }],
+  ['a Nit closed without a decision', { ledger: [decided(finding({ severity: 'nit' }), { decision: undefined })] }],
   ['an Important finding closed by a bare reason', { ledger: [{ ...finding(), resolution: { reason: 'ok' } }] }],
   ['an Important finding closed for another head', { ledger: [decided(finding(), { headSha: OLD_HEAD })] }],
   ['a cleared Important finding', { ledger: [finding({ cleared: true })] }],

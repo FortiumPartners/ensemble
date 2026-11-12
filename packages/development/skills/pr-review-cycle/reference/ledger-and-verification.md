@@ -9,20 +9,21 @@ names one `action` and carries that action's keys. Every key is required: an
 absent or misspelt one is a CLI error (non-zero exit), never an empty default.
 
 * `validate` -- `{ action, findings }`
-* `isActionable` -- `{ action, finding }`
+* `isActionable` -- `{ action, finding }`: the ledger's RAW reading of one finding (a recorded reason reads as closed, whoever wrote it, on whatever head, with or without a `decision`). The merge gate and the run's status counts are the authority: they drop a resolution that has no valid `decision`, names another head or comes from a refused login before asking. Do not read this answer as 'closed'
 * `dedupe` -- `{ action, findings }`
 * `merge` -- `{ action, existingLedger, incomingFindings, headSha }`
 * `scopeViolations` -- `{ action, changedFiles, scope, ledger }`
 * `recordRound` -- `{ action, ledger, incoming, round }` (TRD-013)
-* `resolve` -- `{ action, finding, resolution }`, plus an optional `policy` -- records a decision on one finding (see below)
+* `resolve` -- `{ action, finding, resolution }`, plus optional `policy` and `lane` (`true` for a security-lane entry) -- records a decision on one finding (see below)
 
-`resolve` takes `resolution: { reason, by, headSha, at }` and refuses (CLI error)
-anything short of all four: `by` is the deciding login, `headSha` the head the
+`resolve` takes `resolution: { decision, reason, by, headSha, at }` and refuses (CLI error)
+anything short of all five: `decision` is exactly `accept` or `follow-on` (a "Fix on this PR" answer is a
+`FIX_SELECTION`, not a resolution, and is refused; only `accept` closes a blocking finding, a security-lane entry (`lane: true`) or a coverage gap, because a follow-on PR cannot unblock the gate, so `follow-on` is for a Nit or Pre-existing finding), `by` is the deciding login, `headSha` the head the
 decision was made against, `at` an ISO-8601 timestamp with a zone. Pass the Step 1b
 `policy` block as `policy` (the one key that may be left out): `by` must then not be one of its `botLogins` and, when it
 names `maintainerLogins`, must be one of them (without it the login is checked for
-shape only). Use it only with an answer the operator gave you for that finding; the
-merge gate ignores an Important or security resolution that lacks any of the four,
+shape only). The recorder acts on the finding payload you pass (its `severity`, and `lane`), while the gate acts on the STORED record: pass the finding as the stored state report holds it (severity and lane read from there, not from memory) and splice only the returned `resolution` onto the stored finding looked up by id, never a payload-supplied finding; a mislabelled payload can make a `follow-on` record that the gate then ignores (it fails closed, never closes). Use it only with an answer the operator gave you for that finding; the
+merge gate ignores an Important or security resolution that lacks any of the five (or says `follow-on`),
 names another head or comes from a login the policy refuses, and the CLI cannot tell
 whether the operator or this session wrote the words, so you never write them for the
 operator. Splice the returned `finding` back into the ledger before `state-write`.

@@ -167,7 +167,7 @@ const { planSlices, verifyCoverage } = require('./pr-review-depth');
 const { reviewDeadlines, toVotesInput, floorOverrideMessage } = require('./pr-review-results');
 const { DEFAULT_POLICY, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
 const SZ = require('./pr-review-sizing');
-const { dedupeFindings, isActionable, normalizeSeverity, validateLedger } = require('./pr-review-ledger');
+const { dedupeFindings, isActionable, normalizeSeverity, validateLedger, withoutRefusedResolution } = require('./pr-review-ledger');
 const { tallyVotes, quorumFirstWave } = require('./pr-review-votes');
 const { evaluateApprovals } = require('./pr-review-approvals');
 const { checkDescription } = require('./pr-review-description');
@@ -1776,8 +1776,11 @@ async function gateStage(run, built, deps, tracer) {
   let reviewStatus;
   let tests;
   try {
-    const actionable = built.ledger.filter((entry) => isActionable(entry)).length;
-    const deferred = built.ledger.filter((entry) => !isActionable(entry) && entry.disposition === 'deferred').length;
+    // Counted as the gate reads each entry at this head: a resolution the gate would not honour (no `decision`, another head,
+    // a login the policy refuses) closes nothing here either (`withoutRefusedResolution`).
+    const asGateReads = built.ledger.map((entry) => withoutRefusedResolution(entry, run.headSha, false, policy).entry);
+    const actionable = asGateReads.filter((entry) => isActionable(entry)).length;
+    const deferred = asGateReads.filter((entry) => !isActionable(entry) && entry.disposition === 'deferred').length;
     tests = testsFact(run.baseline);
     reviewStatus = deriveStatus({
       baseSha: run.baseSha,

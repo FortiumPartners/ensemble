@@ -2579,6 +2579,43 @@ describe('the gate stage', () => {
   });
 });
 
+describe('the status counts a prior finding as the gate reads it (kata 785h)', () => {
+  const PRIOR_HEAD = 'b'.repeat(40);
+  const important = { id: 'f9', source: 'reviewer-1', locationOrLink: 'src/a.js:3', severity: 'important', failureMode: 'unchecked input', disposition: 'fix', evidence: 'line 3', originalTextOrLink: 'https://example.invalid/r/9' };
+  const operator = { decision: 'accept', reason: 'the operator decided', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: HEAD };
+
+  // A re-review inherits the prior round's ledger, operator resolutions included: they reach the status through the run record.
+  async function roundWith(resolution) {
+    const h = harness();
+    const manifest = await h.prepare();
+    expect(manifest.status).toBe('DISPATCH');
+    const run = h.readRun();
+    const ledger = [resolution === null ? important : { ...important, disposition: 'resolved', resolution }];
+    fs.writeFileSync(path.join(h.runDir(), 'run.json'), JSON.stringify({ ...run, priorRound: { lastReviewedSha: PRIOR_HEAD, baseSha: run.baseSha, runId: 'prior', ledger, verdicts: [] }, reReview: { appliedRange: 'delta', delta: { limits: {} } } }));
+    answerReview(manifest, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+    return h.collect();
+  }
+
+  test('a resolution that carries accept for this head closes the finding: nothing is actionable', async () => {
+    const out = await roundWith(operator);
+
+    expect(out.reviewStatus.findingCounts).toMatchObject({ total: 1, actionable: 0 });
+  });
+
+  test.each([
+    ['no decision', { ...operator, decision: undefined }],
+    ['follow-on, which cannot unblock the gate', { ...operator, decision: 'follow-on' }],
+    ['an earlier head', { ...operator, headSha: PRIOR_HEAD }],
+  ])('a resolution with %s closes nothing: the finding is actionable, the gate is not mergeable and the local phase is not complete', async (_name, resolution) => {
+    const out = await roundWith(resolution);
+
+    expect(out.reviewStatus.findingCounts).toMatchObject({ total: 1, actionable: 1 });
+    expect(out.gate.mergeable).toBe(false);
+    expect(out.gate.blockers.map((b) => b.code)).toContain('open-important-finding');
+    expect(out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+  });
+});
+
 describe('adjudication re-entry', () => {
   async function uncertainRun(severity = 'important') {
     const h = harness();

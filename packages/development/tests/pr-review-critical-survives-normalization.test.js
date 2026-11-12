@@ -57,7 +57,7 @@ const {
 const CLI_PATH = path.join(__dirname, '..', 'lib', 'pr-review-cli.js');
 const HEAD = 'a'.repeat(40);
 const OLD_HEAD = 'b'.repeat(40);
-const DECISION = { by: 'ldangelo', at: '2026-11-10T10:00:00Z', headSha: HEAD };
+const DECISION = { decision: 'accept', by: 'ldangelo', at: '2026-11-10T10:00:00Z', headSha: HEAD };
 
 function finding(overrides = {}) {
   return {
@@ -849,8 +849,8 @@ describe('the merge gate refuses a deferred Critical, names it, and lets the ope
 
     test.each([
       ['a bare reason', {}],
-      ['no deciding login', { at: DECISION.at, headSha: HEAD }],
-      ['no timestamp', { by: DECISION.by, headSha: HEAD }],
+      ['no deciding login', { decision: 'accept', at: DECISION.at, headSha: HEAD }],
+      ['no timestamp', { decision: 'accept', by: DECISION.by, headSha: HEAD }],
       ['an earlier head', { ...DECISION, headSha: OLD_HEAD }],
     ])('%s still blocks, and the blocker says the resolution does not count', (_name, decision) => {
       const verdict = evaluateGate(gateInput({ ledger: [accepted(decision)] }));
@@ -868,7 +868,7 @@ describe('the merge gate refuses a deferred Critical, names it, and lets the ope
     });
 
     test.each(RUNNERS)('`ledger resolve` refuses a decision with no login, and the Critical stays blocked (%s)', (_name, run) => {
-      expect(() => run('ledger', { action: 'resolve', finding: deferredCritical(), resolution: { reason: 'accepted', headSha: HEAD, at: DECISION.at } })).toThrow();
+      expect(() => run('ledger', { action: 'resolve', finding: deferredCritical(), resolution: { decision: 'accept', reason: 'accepted', headSha: HEAD, at: DECISION.at } })).toThrow();
     });
   });
 });

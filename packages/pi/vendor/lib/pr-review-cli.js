@@ -33,8 +33,8 @@
  *   recordRound      { ledger, incoming, round } -- suppresses repeats, attaches
  *                    class instances to their one class finding and reports
  *                    both (AC-010-2, AC-011-1, AC-011-2)
- *   resolve          { finding, resolution:{ reason, by, headSha, at }, policy? } -- records a decision on a
- *                    finding (`recordOperatorResolution`): all four resolution keys are required, `by` is a login,
+ *   resolve          { finding, resolution:{ decision, reason, by, headSha, at }, policy?, lane? } -- records a decision on a
+ *                    finding (`recordOperatorResolution`): all five resolution keys are required, `decision` is exactly `accept` or `follow-on` (a "fix on this PR" answer is a FIX_SELECTION and is refused here; only `accept` closes a blocking finding, a security-lane entry -- pass `lane: true` -- or a coverage gap, `follow-on` is for a Nit or Pre-existing finding), `by` is a login,
  *                    `headSha` the head the decision was made against, `at` an ISO-8601 timestamp with a zone. Given
  *                    `policy` (the base-branch policy block) `by` must also be a login it lets decide: not one of its
  *                    `botLogins`, and one of its `maintainerLogins` when it names any. Answers `{ finding }` on
@@ -238,7 +238,7 @@
  *              `coverage` (kata k48x) is REQUIRED, like `security`: the review's coverage record (the state report's `coverage`
  *              for this head, or the `slices` answer's). Absent or `unavailable` is `review-data-unavailable`; an open gap is a
  *              `review-coverage-incomplete` blocker naming the slice and paths; an operator's decision on a gap (`ledger resolve`,
- *              the same four-key resolution as for a finding, spliced into `coverage.gaps`) closes it only on this head. The
+ *              the same five-key resolution as for a finding, spliced into `coverage.gaps`) closes it only on this head. The
  *              decision list carries each open gap in its own `coverage` group (Accept is its only choice).
  *
  *   carry      { action, ... } -- (lib/pr-review-carry.js) settled verification verdicts across heads. One `action` per call.
@@ -361,6 +361,7 @@ const isObject = (value) => value !== null && typeof value === 'object' && !Arra
 const ARRAY = { check: Array.isArray, describe: 'an array' };
 const OBJECT = { check: isObject, describe: 'an object' };
 const TEXT = { check: (value) => typeof value === 'string' && value.trim() !== '', describe: 'a non-empty string' };
+const BOOLEAN = { check: (value) => typeof value === 'boolean', describe: 'true or false' };
 const INTEGER = { check: (value) => Number.isInteger(value), describe: 'an integer' };
 
 /**
@@ -440,9 +441,9 @@ const LEDGER_ACTIONS = Object.freeze({
   },
   resolve: {
     keys: { finding: OBJECT, resolution: OBJECT },
-    optional: { policy: OBJECT },
+    optional: { policy: OBJECT, lane: BOOLEAN },
     run: (p) => {
-      const result = recordOperatorResolution(p.finding, p.resolution, p.policy);
+      const result = recordOperatorResolution(p.finding, p.resolution, p.policy, p.lane === true);
       if (!result.ok) throw new Error(result.reason);
       return { finding: result.finding };
     },

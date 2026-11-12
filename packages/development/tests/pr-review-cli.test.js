@@ -428,7 +428,7 @@ const LEDGER_PAYLOADS = {
   resolve: {
     action: 'resolve',
     finding: makeFinding(),
-    resolution: { reason: 'validated upstream', by: 'ldangelo', headSha: 'h1', at: '2026-11-06T10:00:00Z' },
+    resolution: { decision: 'accept', reason: 'validated upstream', by: 'ldangelo', headSha: 'h1', at: '2026-11-06T10:00:00Z' },
   },
 };
 const KEY_KINDS = {

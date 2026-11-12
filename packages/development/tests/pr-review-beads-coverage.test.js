@@ -82,7 +82,7 @@ describe('the plan records one bead per open gap', () => {
 
   test('the operator\'s decision is written into the bead, so an accepted gap is tracked with who accepted it and why', () => {
     const record = gapsFor();
-    const decided = { ...record, gaps: record.gaps.map((gap) => recordOperatorResolution(gap, { reason: 'generated output nobody reads', by: 'ldangelo', headSha: HEAD, at: AT }).finding) };
+    const decided = { ...record, gaps: record.gaps.map((gap) => recordOperatorResolution(gap, { reason: 'generated output nobody reads', decision: 'accept', by: 'ldangelo', headSha: HEAD, at: AT }).finding) };
     const inp = input({ coverage: decided });
     const [create] = creates(planBeads(inp, empty(inp)));
     expect(create.create.description).toContain('Operator decision: accepted by ldangelo');

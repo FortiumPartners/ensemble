@@ -41,7 +41,7 @@
  * REQUIRED fact: the record `pr-review-coverage.js` builds (`{ status, gaps[] }`; the runner and the CLI `slices` answer one).
  * Absent, unreadable or `unavailable` is a missing fact (LOCAL_REVIEW_BLOCKED, naming it); `incomplete` with a gap nobody has
  * decided is LOCAL_REVIEW_PENDING (`next: complete-review-coverage`) and can never be LOCAL_REVIEW_COMPLETE. A gap stops counting
- * only through the operator's recorded decision on it (a `resolution` with a reason, a login, a timestamp and THIS head: the gate's
+ * only through the operator's recorded decision on it (a `resolution` with a `decision` of `accept`, a reason, a login, a timestamp and THIS head: the gate's
  * own check, `facts.policy` adds who may decide). The record is echoed as `coverage`, so the report the status is written
  * to carries what the gate reads later.
  *

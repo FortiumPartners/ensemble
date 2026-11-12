@@ -6,6 +6,7 @@ Companion to `SKILL.md`; every rule here is normative.
 ### Step 4 -- Triage all findings before any edit
 
 Classify every **presented** ledger entry from Step 3b with `isActionable`
+(the ledger's raw reading: the gate and the run's status are the authority on whether a recorded decision counts)
 **before making any code change**. An unresolved thread or an Important
 finding is actionable unless the stopping rule (top of this skill) lets the
 triager defer it as non-blocking: `blocking: false` with a recorded reason, and
@@ -32,7 +33,7 @@ runs in exactly two cases:
    `id` not in the ledger (the one `state-read` returns for `HEAD_SHA`), or has a `headSha` other than `HEAD_SHA` (the head moved: ask again). The
    selection is never recorded with `ledger` `resolve` -- a resolution closes a
    finding at the gate, so a Fix on this PR answer written there would let the merge
-   pass without the fix.
+   pass without the fix (`resolve` refuses any `decision` but `accept` or `follow-on`).
 2. **A pre-publication snapshot** -- `MODE=local`, no `PR_URL`, no `PR_NUMBER`, no
    `REVIEW_ONLY`: the author revising its own unpublished work. No PR, gate or operator
    list exists, and this skill never pushes (PR Creation does).

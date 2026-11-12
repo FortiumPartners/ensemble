@@ -402,6 +402,7 @@ describe('AC-025-1 / AC-025-2: the blocking security lane', () => {
         failureMode: 'token logged in plaintext',
         disposition: 'resolved',
         resolution: {
+          decision: 'accept',
           reason: 'false positive: the logger redacts the token before write (src/log.js:40)',
           by: 'maintainer-m',
           headSha: HEAD,
@@ -475,6 +476,7 @@ describe('AC-025-1 / AC-025-2: the finding-answered merge block', () => {
       id: 'F-9',
       disposition: 'resolved',
       resolution: {
+        decision: 'accept',
         reason: 'intentional: the retry is bounded by the caller',
         by: 'maintainer-m',
         headSha: HEAD,

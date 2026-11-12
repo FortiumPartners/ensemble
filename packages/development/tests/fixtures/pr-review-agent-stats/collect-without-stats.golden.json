@@ -412,7 +412,7 @@
           {
             "code": "open-important-finding",
             "message": "Important finding f1 (src/a.js:3) is still open",
-            "nextAction": "fix it, or have the operator record the decision on the current head with their login, a timestamp and a reason (ledger resolve)",
+            "nextAction": "fix it, or have the operator record the decision on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)",
             "findingId": "f1",
             "locationOrLink": "src/a.js:3",
             "severity": "important"

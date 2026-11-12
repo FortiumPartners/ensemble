@@ -117,7 +117,7 @@ describe('the operator chooses, and a Fix on this PR answer is never a resolutio
     expect(INPUTS).toContain('Never written with `ledger` `resolve`, which would close the finding at the gate without the fix.');
   });
 
-  test('the premise is true: the gate reads any resolution with provenance as the finding closed, whatever its reason', () => {
+  test('the premise is false now: a Fix on this PR answer is refused as a resolution, only accept closes, and a decision-less resolution closes nothing', () => {
     const head = 'a'.repeat(40);
     const important = {
       id: 'F-1',
@@ -141,10 +141,36 @@ describe('the operator chooses, and a Fix on this PR answer is never a resolutio
       });
 
     expect(gateFor([important]).mergeable).toBe(false);
-    const recorded = recordOperatorResolution(important, { reason: 'Fix on this PR', by: 'ldangelo', headSha: head, at: '2026-11-07T10:00:00Z' });
-    expect(recorded.ok).toBe(true);
-    // Recording the selection would have passed the gate with no fix: why the skill must not.
-    expect(gateFor([recorded.finding]).mergeable).toBe(true);
+    const at = '2026-11-07T10:00:00Z';
+    const base = { reason: 'Fix on this PR', by: 'ldangelo', headSha: head, at };
+
+    // The fix answer is refused with a reason naming FIX_SELECTION; the finding is unchanged and still blocks.
+    const fixHere = recordOperatorResolution(important, { ...base, decision: 'fix-here' });
+    expect(fixHere.ok).toBe(false);
+    expect(fixHere.reason).toContain('FIX_SELECTION');
+    expect(gateFor([fixHere.finding]).mergeable).toBe(false);
+
+    // A record with no decision is refused.
+    const bare = recordOperatorResolution(important, base);
+    expect(bare.ok).toBe(false);
+    expect(gateFor([bare.finding]).mergeable).toBe(false);
+
+    // A hand-written resolution without decision is ignored by the gate, which says why.
+    const handWritten = gateFor([{ ...important, disposition: 'resolved', resolution: base }]);
+    expect(handWritten.mergeable).toBe(false);
+    const blocker = handWritten.blockers.find((entry) => entry.resolutionRejected);
+    expect(blocker.resolutionRejected).toContain('decision');
+
+    // follow-on cannot unblock the gate.
+    const followOn = recordOperatorResolution(important, { ...base, reason: 'operator decided', decision: 'follow-on' });
+    expect(followOn.ok).toBe(false);
+    expect(gateFor([{ ...important, disposition: 'resolved', resolution: { ...base, decision: 'follow-on' } }]).mergeable).toBe(false);
+
+    // accept closes it.
+    const accepted = recordOperatorResolution(important, { ...base, reason: 'operator decided', decision: 'accept' });
+    expect(accepted.ok).toBe(true);
+    expect(accepted.finding.resolution.decision).toBe('accept');
+    expect(gateFor([accepted.finding]).mergeable).toBe(true);
   });
 
   test('the decision list the skill shows says the head moves and approvals reset, and lets a blocking finding be fixed or accepted only', () => {

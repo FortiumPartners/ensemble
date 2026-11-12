@@ -21,7 +21,7 @@
  *
  * A GAP is shaped like a ledger finding (the fields `validateLedger` requires, `kind: 'coverage-gap'`,
  * `source: 'review-coverage'`) so the operator's decision on it travels the path every other decision travels: the
- * disposition list shows it, `ledger resolve` stamps `{ reason, by, at, headSha }` on it, and the gate honours that exactly
+ * disposition list shows it, `ledger resolve` stamps `{ decision, reason, by, at, headSha }` on it, and the gate honours that exactly
  * as it honours one on an Important or security finding (`resolutionProvenanceProblem`). It is NOT a ledger entry: it lives
  * in the record (the state report's `coverage`), as the security lane's findings live in `security`, so verification, the
  * ledger's dedupe and repeat suppression, the carry candidates and the fix run never treat it as a finding about the code.
@@ -46,7 +46,7 @@
  * GRADING (`gradeCoverage`) fails closed. A record that is not an object, whose status is not one of the three, that says
  * `unavailable`, that says `complete` and lists gaps, that says `incomplete` and names none, or whose gaps are not
  * finding-shaped, with a duplicate id or with no path is UNREADABLE: the caller reports it as missing data, never as a pass.
- * A gap stays OPEN until it carries a `resolution` with provenance (a reason, a login the policy lets decide, an ISO-8601
+ * A gap stays OPEN until it carries a `resolution` with provenance (a `decision` of exactly `accept` -- `follow-on` cannot unblock the gate -- a reason, a login the policy lets decide, an ISO-8601
  * timestamp with a zone, and a `headSha` equal to the head asked about). `cleared`, `blocking:false` and a deferral decide
  * nothing here. HONEST LIMIT, the same as every decision in this cycle: that proves a reason is present, a login is named and
  * the head is bound; it cannot prove a human typed it.

@@ -389,7 +389,7 @@ function buildDispositionChoices(input) {
 
     if (blocking === null) {
       if (finding.cleared === true) continue;
-      const decided = hasResolutionProvenance(finding, headSha, policy);
+      const decided = hasResolutionProvenance(finding, headSha, policy, fromSecurity === true);
       // The gate no longer holds it open. A finding the operator had to answer was closed by a decision it takes.
       if (fromSecurity || (canonical !== 'nit' && canonical !== 'pre-existing')) {
         if (decided) {

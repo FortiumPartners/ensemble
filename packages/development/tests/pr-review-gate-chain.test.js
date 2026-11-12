@@ -182,7 +182,7 @@ const DECIDED_AT = '2026-11-07T10:00:00Z';
  * decide, a time, and the head it was decided against (`headSha`, which must be the head the gate is asked about).
  */
 function decide(target, headSha = HEAD_A, overrides = {}) {
-  const decision = { reason: 'accepted: the caller validates', by: 'maintainer-m', headSha, at: DECIDED_AT, ...overrides };
+  const decision = { decision: 'accept', reason: 'accepted: the caller validates', by: 'maintainer-m', headSha, at: DECIDED_AT, ...overrides };
   const recorded = recordOperatorResolution(target, decision, POLICY);
   expect(recorded.ok).toBe(true);
   return recorded.finding;
@@ -418,32 +418,32 @@ const CHAINS = [
         label: 'open Important; a blank reason records nothing',
         mergeable: false,
         codes: ['open-important-finding'],
-        check: () => expect(recordOperatorResolution(finding(), { reason: '   ', by: 'maintainer-m', headSha: HEAD_A, at: DECIDED_AT }, POLICY).ok).toBe(false),
+        check: () => expect(recordOperatorResolution(finding(), { decision: 'accept', reason: '   ', by: 'maintainer-m', headSha: HEAD_A, at: DECIDED_AT }, POLICY).ok).toBe(false),
       },
       {
         label: 'a reason and a login, but no time and no head',
-        apply: (pr) => { pr.ledger = [recordResolution(finding(), { reason: 'intentional: caller validates', by: 'maintainer-m' }).finding]; },
+        apply: (pr) => { pr.ledger = [recordResolution(finding(), { decision: 'accept', reason: 'intentional: caller validates', by: 'maintainer-m' }).finding]; },
         mergeable: false,
         codes: ['open-important-finding'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('timestamp'),
       },
       {
         label: 'complete, but decided against another head',
-        apply: (pr) => { pr.ledger = [recordResolution(finding(), { reason: 'intentional: caller validates', by: 'maintainer-m', at: DECIDED_AT, headSha: HEAD_B }).finding]; },
+        apply: (pr) => { pr.ledger = [recordResolution(finding(), { decision: 'accept', reason: 'intentional: caller validates', by: 'maintainer-m', at: DECIDED_AT, headSha: HEAD_B }).finding]; },
         mergeable: false,
         codes: ['open-important-finding'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('not the current head'),
       },
       {
         label: 'complete, but by a login the policy does not let decide',
-        apply: (pr) => { pr.ledger = [recordResolution(finding(), { reason: 'intentional: caller validates', by: 'author-a', at: DECIDED_AT, headSha: HEAD_A }).finding]; },
+        apply: (pr) => { pr.ledger = [recordResolution(finding(), { decision: 'accept', reason: 'intentional: caller validates', by: 'author-a', at: DECIDED_AT, headSha: HEAD_A }).finding]; },
         mergeable: false,
         codes: ['open-important-finding'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('maintainerLogins'),
       },
       {
         label: 'complete, but by a bot login',
-        apply: (pr) => { pr.ledger = [recordResolution(finding(), { reason: 'intentional: caller validates', by: 'coderabbitai', at: DECIDED_AT, headSha: HEAD_A }).finding]; },
+        apply: (pr) => { pr.ledger = [recordResolution(finding(), { decision: 'accept', reason: 'intentional: caller validates', by: 'coderabbitai', at: DECIDED_AT, headSha: HEAD_A }).finding]; },
         mergeable: false,
         codes: ['open-important-finding'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('bot login'),
@@ -537,24 +537,24 @@ const CHAINS = [
     pr: () => makePr({ security: { status: 'findings', findings: [securityFinding({ disposition: 'resolved' })] } }),
     steps: [
       { label: 'resolved disposition, no reason', mergeable: false, codes: ['security-finding-open'], check: ({ gate }) => expect(gate.securityLane.resolved).toEqual([]) },
-      { label: 'blank reason object', apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { reason: '  ' } })] }; }, mergeable: false, codes: ['security-finding-open'] },
+      { label: 'blank reason object', apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { decision: 'accept', reason: '  ' } })] }; }, mergeable: false, codes: ['security-finding-open'] },
       {
         label: 'a real reason, but no deciding login, time or head',
-        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { reason: 'accepted risk, see ADR-4' } })] }; },
+        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { decision: 'accept', reason: 'accepted risk, see ADR-4' } })] }; },
         mergeable: false,
         codes: ['security-finding-open'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('deciding login'),
       },
       {
         label: 'complete, but by a login the policy does not let decide',
-        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { reason: 'accepted risk, see ADR-4', by: 'author-a', at: DECIDED_AT, headSha: HEAD_A } })] }; },
+        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { decision: 'accept', reason: 'accepted risk, see ADR-4', by: 'author-a', at: DECIDED_AT, headSha: HEAD_A } })] }; },
         mergeable: false,
         codes: ['security-finding-open'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('maintainerLogins'),
       },
       {
         label: 'complete, but decided against another head',
-        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { reason: 'accepted risk, see ADR-4', by: 'maintainer-m', at: DECIDED_AT, headSha: HEAD_B } })] }; },
+        apply: (pr) => { pr.security = { status: 'findings', findings: [securityFinding({ resolution: { decision: 'accept', reason: 'accepted risk, see ADR-4', by: 'maintainer-m', at: DECIDED_AT, headSha: HEAD_B } })] }; },
         mergeable: false,
         codes: ['security-finding-open'],
         check: ({ gate }) => expect(gate.blockers[0].resolutionRejected).toContain('not the current head'),

@@ -23,7 +23,7 @@ const CHANGED = ['src/a.js', 'src/b.js', 'src/c.js'];
 
 const build = (over = {}) => buildCoverage({ changedPaths: CHANGED, slices: SLICES, ...over });
 const unreadS2 = (over = {}) => build({ unreviewedSlices: ['s2'], uncovered: ['src/c.js'], ...over });
-const decision = (over = {}) => ({ reason: 'the other lens read it; accepted', by: 'ldangelo', headSha: HEAD, at: AT, ...over });
+const decision = (over = {}) => ({ decision: 'accept', reason: 'the other lens read it; accepted', by: 'ldangelo', headSha: HEAD, at: AT, ...over });
 const decided = (record, over) => ({ ...record, gaps: record.gaps.map((gap) => ({ ...gap, disposition: 'resolved', resolution: decision(over) })) });
 
 describe('buildCoverage', () => {

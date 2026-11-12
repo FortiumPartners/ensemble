@@ -205,6 +205,10 @@ function claimsStoppingRuleDeferral(finding) {
 /**
  * Whether a finding still blocks.
  *
+ * THE LEDGER'S RAW READING. A recorded resolution reason closes a finding here whoever wrote it, on whatever head, with or without
+ * a `decision` (AC-008-2 pins that). The merge gate and the run's status counts are the authority on whether a resolution counts:
+ * they first drop one the gate would not honour (`withoutRefusedResolution`, which asks `resolutionProvenanceProblem`).
+ *
  * Pre-existing never blocks (AC-007-1): it names a problem the PR did not
  * introduce, is reported in its own bucket and is not the author's to answer.
  * Everything else blocks until it is answered: an Important finding always, a
@@ -732,9 +736,13 @@ function partitionFindings(findings) {
 
 /**
  * Records the author's answer to a finding (AC-008-2): the reason is stored on
- * the finding, the disposition becomes `resolved` and the finding stops
- * blocking -- unless its thread is still open, which isActionable keeps
- * actionable until the thread is closed.
+ * the finding, the disposition becomes `resolved` and `isActionable` reads the
+ * finding as closed -- unless its thread is still open, which keeps it
+ * actionable until the thread is closed. This is the provenance-free recorder:
+ * a `decision` is OPTIONAL here but, when present, must be `accept` or `follow-on`
+ * (anything else is refused). The merge gate counts a resolution only with a
+ * valid `decision` and the rest of its provenance (`resolutionProvenanceProblem`);
+ * `recordOperatorResolution` is the one that demands them.
  *
  * Fail closed: a resolution with no text reason is REFUSED and the finding is
  * returned unchanged, still blocking. "Closed with no reason" is not a thing
@@ -746,7 +754,7 @@ function partitionFindings(findings) {
  * that would otherwise bypass every redaction on the success path.
  *
  * @param {Object} finding
- * @param {{reason:string, by?:string, at?:string}} resolution
+ * @param {{reason:string, decision?:'accept'|'follow-on', by?:string, at?:string}} resolution
  * @returns {{ok:true, finding:Object}|{ok:false, reason:string, finding:Object}}
  */
 function recordResolution(finding, resolution) {
@@ -755,7 +763,12 @@ function recordResolution(finding, resolution) {
     return { ok: false, reason: 'a resolution needs a text reason', finding: redact(finding) };
   }
 
+  if (resolution.decision !== undefined && !isResolutionDecision(resolution.decision)) {
+    return { ok: false, reason: `a resolution's decision is refused: ${decisionProblem(resolution.decision, true)}`, finding: redact(finding) };
+  }
+
   const record = { reason: redact(resolution.reason.trim()) };
+  if (resolution.decision !== undefined) record.decision = resolution.decision;
   if (isText(resolution.by)) record.by = redact(resolution.by.trim());
   if (isText(resolution.at)) record.at = resolution.at.trim();
   if (isText(resolution.headSha)) record.headSha = resolution.headSha.trim();
@@ -820,17 +833,61 @@ function decidingLoginProblem(by, policy) {
 }
 
 /**
+ * The typed decisions a resolution may carry: `accept` (the operator takes the risk; the only decision that closes a BLOCKING
+ * finding, a security-lane entry or a coverage gap) and `follow-on` (the work moves to a follow-on PR; it closes only a finding
+ * that never blocked, a Nit or Pre-existing one, because a follow-on PR cannot unblock the gate). "Fix on this PR" is neither: it
+ * is a fix selection (`FIX_SELECTION`), which runs a fix agent and closes nothing by being said. Matched exactly, in lower case.
+ */
+const RESOLUTION_DECISIONS = Object.freeze(['accept', 'follow-on']);
+
+const isResolutionDecision = (value) => typeof value === 'string' && RESOLUTION_DECISIONS.includes(value);
+
+/**
+ * Whether closing this finding is closing a BLOCKING one: the merge gate's own class. An Important or unrecognised-severity
+ * finding, a Critical, a security-lane entry (`lane`: only the caller knows which list an entry came from) and a coverage gap (written as
+ * Important) block; a Nit or Pre-existing finding never does. Only `accept` closes a blocking finding: a follow-on PR cannot
+ * unblock the gate. The gate, the disposition list, coverage-gap closure and `recordOperatorResolution` all ask THIS.
+ *
+ * @param {Object} finding
+ * @param {boolean} [lane] True for a security-lane entry.
+ * @returns {boolean}
+ */
+function closesBlockingFinding(finding, lane = false) {
+  if (lane === true) return true;
+  if (!isObject(finding)) return true;
+  const severity = normalizeSeverity(finding.severity);
+  return severity !== 'pre-existing' && severity !== 'nit';
+}
+
+/** Why `decision` cannot close a finding of this class, as a sentence with the next step. */
+function decisionProblem(decision, blocking) {
+  const shown = typeof decision === 'string' ? JSON.stringify(decision) : decision === undefined ? 'missing' : `not text (${typeof decision})`;
+  const allowed = RESOLUTION_DECISIONS.map((d) => `'${d}'`).join(' or ');
+  if (decision === 'follow-on' && blocking) {
+    return "the resolution's decision is 'follow-on', and a follow-on PR cannot unblock the gate: accept it with a reason, or fix it";
+  }
+  const fixAnswer = typeof decision === 'string' && /fix/i.test(decision);
+  const next = fixAnswer
+    ? 'a "fix on this PR" answer is a fix selection (FIX_SELECTION), not a recorded resolution: fix the finding'
+    : blocking
+      ? "fix the finding, or record 'accept' with a reason once the operator has decided"
+      : "record 'accept' or 'follow-on' once the operator has decided";
+  return `the resolution has no valid decision (decision is ${shown}; it must be exactly one of ${allowed}); ${next}`;
+}
+
+/**
  * Whether a finding's recorded resolution carries the provenance the merge
- * gate requires of an Important or security closure: a stated reason, the
+ * gate requires of an Important or security closure: a `decision` (`accept`; `follow-on` is valid only for a finding that
+ * never blocked, see `closesBlockingFinding`), a stated reason, the
  * login of whoever decided (`by`), an ISO-8601 timestamp (`at`) and the head
  * commit the decision was made against (`headSha`, equal to `headSha`, the
  * commit the gate is being asked about). Given the repository's `policy`, `by`
  * must also be a login the policy lets decide (`decidingLoginProblem`).
  *
- * HONEST LIMIT: this proves a reason is present, a login of the right shape
+ * HONEST LIMIT: this proves a typed decision and a reason are present, a login of the right shape
  * is attached (a bot or a stranger is refused only when a policy says so) and
  * the decision is bound to THIS head. It cannot prove a human typed it: an
- * agent that writes a permitted login into `by` passes this check. The binding
+ * agent that writes a permitted login into `by`, or types `accept`, passes this check. The binding
  * to the head and the named login make a claim attributable and stale on the
  * next push; they do not authenticate it.
  *
@@ -839,10 +896,11 @@ function decidingLoginProblem(by, policy) {
  * @param {Object} finding
  * @param {string} headSha The commit the gate is evaluating.
  * @param {Object} [policy] The policy block, to check who may decide.
+ * @param {boolean} [lane] True for a security-lane entry.
  * @returns {boolean}
  */
-function hasResolutionProvenance(finding, headSha, policy) {
-  return resolutionProvenanceProblem(finding, headSha, policy) === null;
+function hasResolutionProvenance(finding, headSha, policy, lane = false) {
+  return resolutionProvenanceProblem(finding, headSha, policy, lane) === null;
 }
 
 /**
@@ -852,13 +910,16 @@ function hasResolutionProvenance(finding, headSha, policy) {
  * @param {Object} finding
  * @param {string} headSha
  * @param {Object} [policy]
+ * @param {boolean} [lane] True for a security-lane entry (its class is blocking whatever its severity).
  * @returns {string|null}
  */
-function resolutionProvenanceProblem(finding, headSha, policy) {
+function resolutionProvenanceProblem(finding, headSha, policy, lane = false) {
   if (!isObject(finding) || !isObject(finding.resolution)) return 'it has no recorded resolution';
   if (!isText(headSha)) return 'the gate was given no head commit to bind it to';
-  const { reason, by, at, headSha: decidedAt } = finding.resolution;
+  const { reason, by, at, headSha: decidedAt, decision } = finding.resolution;
   if (!isText(reason)) return 'the resolution states no reason';
+  const blocking = closesBlockingFinding(finding, lane);
+  if (!isResolutionDecision(decision) || (blocking && decision !== 'accept')) return decisionProblem(decision, blocking);
   if (!isText(by) || !LOGIN_PATTERN.test(by.trim())) return 'the resolution names no deciding login (by)';
   const notAllowed = decidingLoginProblem(by, policy);
   if (notAllowed !== null) return notAllowed;
@@ -872,7 +933,7 @@ function resolutionProvenanceProblem(finding, headSha, policy) {
 
 /**
  * Records a decision on a finding with the provenance the merge gate demands
- * of one: `recordResolution` plus `by` (a login), `headSha` (the head the
+ * of one: `recordResolution` plus `decision` (`accept`, or `follow-on` for a Nit or Pre-existing finding only), `by` (a login), `headSha` (the head the
  * decision was made against) and `at` (an ISO-8601 timestamp with a zone), all
  * REQUIRED. A decision missing any of them, or one the gate would ignore (a
  * login the policy refuses, a policy that cannot be read), is refused and the
@@ -885,12 +946,19 @@ function resolutionProvenanceProblem(finding, headSha, policy) {
  * session that wrote a login there, is the skill's rule; see
  * `hasResolutionProvenance` for what is and is not proven.
  *
+ * HONEST LIMIT of THIS recorder: it acts on the finding payload the caller passes (its `severity`, and the optional `lane`),
+ * whereas the gate acts on the STORED record and is independent of it. A relabelled or lane-omitted payload can make this return
+ * `ok:true` for a `follow-on` the gate then ignores: the finding stays open (it fails closed, it never closes). So the caller
+ * splices only the returned `resolution` onto the STORED finding it looked up by id, never a payload-supplied finding, and reads
+ * `severity` and `lane` from the stored state report.
+ *
  * @param {Object} finding
- * @param {{reason:string, by:string, headSha:string, at:string}} decision
+ * @param {{decision:'accept'|'follow-on', reason:string, by:string, headSha:string, at:string}} decision
  * @param {Object} [policy] The policy block, to check who may decide.
+ * @param {boolean} [lane] True when the finding is a security-lane entry (blocking whatever its severity: only `accept` closes it).
  * @returns {{ok:true, finding:Object}|{ok:false, reason:string, finding:Object}}
  */
-function recordOperatorResolution(finding, decision, policy) {
+function recordOperatorResolution(finding, decision, policy, lane = false) {
   if (!isObject(finding)) return { ok: false, reason: 'a resolution needs a finding object', finding: redact(finding) };
   if (!isObject(decision)) return { ok: false, reason: 'a resolution needs a decision object', finding: redact(finding) };
   for (const key of ['reason', 'by', 'headSha', 'at']) {
@@ -898,11 +966,34 @@ function recordOperatorResolution(finding, decision, policy) {
       return { ok: false, reason: `an operator resolution needs '${key}' as non-empty text`, finding: redact(finding) };
     }
   }
-  const problem = resolutionProvenanceProblem({ resolution: decision }, decision.headSha, policy);
+  const problem = resolutionProvenanceProblem({ ...finding, resolution: decision }, decision.headSha, policy, lane === true);
   if (problem !== null) {
     return { ok: false, reason: `the gate would not honour this decision: ${problem}`, finding: redact(finding) };
   }
   return recordResolution(finding, decision);
+}
+
+/**
+ * The finding as the gate and the status count read it: a resolution that does not count (`resolutionProvenanceProblem`, with
+ * `headSha` and `policy`) is dropped, so `isActionable` is asked about what the gate would ask. A finding that needs no
+ * operator answer (a Nit or Pre-existing ledger finding) or that a later head cleared is returned as written. What is shared is exactly this
+ * strip of a refused resolution: the gate (`applyProvenance`) and the run's status counts both use it. What is NOT shared is
+ * the gate's further strip of an Important finding's `blocking:false` deferral (`withoutDeferral`): the status counts do not do
+ * it, a difference that predates the typed decision and is tracked in its own kata issue.
+ *
+ * @param {Object} entry
+ * @param {string|null} headSha
+ * @param {boolean} [lane] True for a security-lane entry.
+ * @param {Object} [policy]
+ * @returns {{entry:Object, refusal:string|null}} `refusal` is why a recorded resolution was dropped, else null.
+ */
+function withoutRefusedResolution(entry, headSha, lane, policy) {
+  if (!isObject(entry) || entry.cleared === true || !closesBlockingFinding(entry, lane === true)) return { entry, refusal: null };
+  if (!isObject(entry.resolution)) return { entry, refusal: null };
+  const refusal = resolutionProvenanceProblem(entry, headSha, policy, lane === true);
+  if (refusal === null) return { entry, refusal: null };
+  const { resolution, ...rest } = entry;
+  return { entry: rest, refusal };
 }
 
 /** One changed location: `'path'`, `'path:line'`, or `{ path, lines?: number[] }`. `lines: null` means the whole file. */
@@ -1108,7 +1199,7 @@ function classFindings(ledger) {
  *
  * A decision is about a finding AS IT WAS GRADED: an operator who accepted a Major was not asked about the Critical it became,
  * and a reason written for a Nit does not answer an Important finding. Left on the record it would close the escalated finding
- * (`isActionable`; the merge gate asks for a reason, a login, a time and this head, and nothing about what the decision was
+ * (`isActionable`; the merge gate asks for a decision, a reason, a login, a time and this head, and nothing about what the decision was
  * about) and the escalation would change a word and nothing else.
  * So the escalation CLEARS it: the finding is open again and the operator decides it anew, with a reason of their own and on
  * the current head. The decision is not lost: `supersededResolutions` keeps each one with the severity it was taken for and the
@@ -1293,6 +1384,9 @@ module.exports = {
   recordOperatorResolution,
   hasResolutionProvenance,
   resolutionProvenanceProblem,
+  withoutRefusedResolution,
+  closesBlockingFinding,
+  RESOLUTION_DECISIONS,
   clearFixedFindings,
   fingerprintFinding,
   fingerprintPath,

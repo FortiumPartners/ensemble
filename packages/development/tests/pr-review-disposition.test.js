@@ -31,7 +31,7 @@ function build(ledger, extra = {}) {
 }
 
 function resolution(overrides = {}) {
-  return { reason: 'accepted: low risk', by: 'octocat', at: '2026-01-01T00:00:00Z', headSha: HEAD, ...overrides };
+  return { decision: 'accept', reason: 'accepted: low risk', by: 'octocat', at: '2026-01-01T00:00:00Z', headSha: HEAD, ...overrides };
 }
 
 function acceptChoice(entry) {
@@ -143,6 +143,22 @@ describe('buildDispositionChoices', () => {
     expect(result.dispositionChoices.every((e) => e.staleResolution === true)).toBe(true);
     expect(result.mergeConfirmation.acceptedBlocking).toEqual([]);
     expect(result.mergeConfirmation.staleResolutions).toEqual(['F-1', 'F-2']);
+  });
+
+  test('a blocking finding closed with follow-on or without a decision is listed again as staleResolution: only accept closes it', () => {
+    const result = build([
+      finding({ id: 'F-1', resolution: resolution({ decision: 'follow-on' }) }),
+      finding({ id: 'F-2', resolution: resolution({ decision: undefined }) }),
+    ]);
+    expect(result.dispositionChoices.map((e) => e.id)).toEqual(['F-1', 'F-2']);
+    expect(result.dispositionChoices.every((e) => e.staleResolution === true)).toBe(true);
+    expect(result.mergeConfirmation.acceptedBlocking).toEqual([]);
+  });
+
+  test('a Nit closed with accept or follow-on is decided and not listed; one without a decision is still listed', () => {
+    const nit = (id, over) => finding({ id, severity: 'nit', disposition: 'resolved', resolution: resolution(over) });
+    const result = build([nit('N-1', { decision: 'accept' }), nit('N-2', { decision: 'follow-on' }), nit('N-3', { decision: undefined }), nit('N-4', { decision: 'FOLLOW-ON' })]);
+    expect(result.dispositionChoices.map((e) => e.id)).toEqual(['N-3', 'N-4']);
   });
 
   test('cleared findings are not listed', () => {

@@ -30,10 +30,11 @@
  *
  * An Important, unrecognised-severity or security-lane finding is closed only
  * by a later head that cleared it or by the operator's recorded decision: a
- * resolution with provenance -- a reason, the login that decided (one the
- * policy lets decide), a timestamp and the head commit it was decided against,
+ * resolution with provenance -- a `decision` that is exactly `accept` (`follow-on` closes only a
+ * finding that never blocked: a follow-on PR cannot unblock the gate), a reason, the login that
+ * decided (one the policy lets decide), a timestamp and the head commit it was decided against,
  * equal to this gate's `headSha` (see `applyProvenance`). The review's own
- * deferral of a non-blocking Major, and a reason nobody put a login, a time
+ * deferral of a non-blocking Major, and a reason nobody put a decision, a login, a time
  * and a head to, close nothing. That is attribution and head-binding, not
  * authentication: it cannot show a human typed it.
  *
@@ -58,7 +59,7 @@ const {
   isCritical,
   claimsStoppingRuleDeferral,
   normalizeSeverity,
-  resolutionProvenanceProblem,
+  withoutRefusedResolution,
 } = require('./pr-review-ledger');
 const { gradeCoverage } = require('./pr-review-coverage');
 const { TIERS, HUMANS_REQUIRED } = require('./pr-review-tier');
@@ -156,7 +157,8 @@ function refusalNote(rejectedBecause, deferralRejected) {
  * blocks while any entry is open). Of the closures an agent can write for
  * itself the gate takes none:
  *
- *   - a recorded resolution counts only with provenance: a stated reason, the
+ *   - a recorded resolution counts only with provenance: a `decision` (only `accept` closes a
+ *     blocking finding: `follow-on` does not), a stated reason, the
  *     login that decided (`by`, one the policy lets decide), an ISO-8601
  *     timestamp (`at`) and the head commit it was decided against, equal to
  *     the head this gate is asked about (`resolutionProvenanceProblem`). One
@@ -200,7 +202,7 @@ function applyProvenance(entry, headSha, lane, policy) {
     const { blocking, ...rest } = candidate;
     return rest;
   };
-  const refusal = isObject(resolution) ? resolutionProvenanceProblem(entry, headSha, policy) : null;
+  const refusal = isObject(resolution) ? withoutRefusedResolution(entry, headSha, lane, policy).refusal : null;
 
   let reading = refusal === null ? entry : withoutResolution;
   if (severity === 'important') reading = withoutDeferral(reading);
@@ -301,8 +303,8 @@ function gradeSecurityLane(lane, tier, headSha, policy) {
           ? `the security review found ${nameOf(entry)} and it is still open`
           : `the security review found ${nameOf(entry)} and it is still open: its recorded resolution does not count (${rejectedBecause})`,
         rejectedBecause === null
-          ? 'fix it, or have the operator record the decision on the current head with their login, a timestamp and a reason (ledger resolve)'
-          : 'fix it, or have the operator record the decision again on the current head with their login, a timestamp and a reason (ledger resolve)',
+          ? 'fix it, or have the operator record the decision on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)'
+          : 'fix it, or have the operator record the decision again on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)',
         {
           findingId: id,
           locationOrLink: entry.locationOrLink || null,
@@ -323,7 +325,7 @@ function coverageBlocker({ gap, rejectedBecause }) {
   return blocker(
     BLOCKER_CODES.COVERAGE_INCOMPLETE,
     rejectedBecause === null ? String(gap.failureMode) : `${String(gap.failureMode)}: its recorded decision does not count (${rejectedBecause})`,
-    'run the review again on this head so these paths are read, or have the operator accept the gap on the current head with their login, a timestamp and a reason (ledger resolve)',
+    'run the review again on this head so these paths are read, or have the operator accept the gap on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)',
     {
       gapId: String(gap.id),
       gapType: isText(gap.gapType) ? gap.gapType : null,
@@ -402,10 +404,10 @@ function evaluateGate(input) {
                 ? `finding ${nameOf(entry)} carries a severity this gate cannot read ('${String(entry.severity)}'), so it is treated as Important and is still open`
                 : `${critical ? 'Critical' : 'Important'} finding ${nameOf(entry)} is still open`) + refusalNote(rejectedBecause, deferralRejected),
               rejectedBecause !== null
-                ? 'fix it, or have the operator record the decision again on the current head with their login, a timestamp and a reason (ledger resolve)'
+                ? 'fix it, or have the operator record the decision again on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)'
                 : unrecognised
                   ? 'retag it with Important, Nit or Pre-existing, then fix it or have the operator record the decision (ledger resolve)'
-                  : 'fix it, or have the operator record the decision on the current head with their login, a timestamp and a reason (ledger resolve)',
+                  : 'fix it, or have the operator record the decision on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)',
               {
                 findingId: id,
                 locationOrLink: entry.locationOrLink || null,

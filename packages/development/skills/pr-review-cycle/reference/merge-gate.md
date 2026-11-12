@@ -217,9 +217,11 @@ the CLI's result. Return the whole result object unchanged, including
 **Closing an Important or security finding (provenance).** The gate honours a
 recorded `resolution` on an Important finding, an unrecognised-severity finding
 or a security-lane finding of any severity (a Pre-existing lane entry too) only
-when it carries all four of `reason`, `by` (the deciding login), `at` (an
-ISO-8601 timestamp with a zone) and `headSha` (equal to the `headSha` the gate
-is asked about) and, given `policy`, `by` is not one of its `botLogins` and is
+when it carries all five of `decision`, `reason`, `by` (the deciding login),
+`at` (an ISO-8601 timestamp with a zone) and `headSha` (equal to the `headSha` the gate
+is asked about). `accept` is the only decision that closes a blocking finding (Important,
+Critical, unrecognised severity, a security-lane finding, a coverage gap); `follow-on` closes
+only a Nit or Pre-existing finding, because a follow-on PR cannot unblock the gate; and, given `policy`, `by` is not one of its `botLogins` and is
 one of its `maintainerLogins` when it names any. Anything less is ignored: the
 finding stays open and its blocker carries `resolutionRejected` saying why. The
 review's own deferral of an Important finding (`blocking: false`,
@@ -228,14 +230,19 @@ skill) is not a decision either: the gate ignores it, and the finding stays open
 its blocker carrying `deferralRejected`, until it is fixed or the operator
 records a decision. Record a decision only with `node "$PR_REVIEW_CLI"
 ledger` action `resolve`
-(`{ action, finding, resolution:{ reason, by, headSha, at }, policy }`, the same
-`policy`), and only from the operator's own answer: never type a reason, a
-login or a decision on the operator's behalf. A new push moves the head, so a
+(`{ action, finding, resolution:{ decision, reason, by, headSha, at }, policy }`, the same
+`policy`; `decision` is exactly `accept` or `follow-on`, the operator's closing choice, and anything else is refused: a
+"Fix on this PR" answer is a `FIX_SELECTION`, never a recorded resolution), and only from the operator's own answer: never type a reason, a
+login or a decision on the operator's behalf. Read the finding's `severity` and whether it is a
+security-lane entry (`lane: true`) from the STORED state report, never from memory, and splice only
+the returned `resolution` onto the stored finding looked up by id (the recorder acts on the payload
+you pass; the gate acts on the stored record and ignores a `follow-on` it should not have). A new push moves the head, so a
 decision made on an earlier head stops counting and is asked again. **What this
-proves and what it does not:** a reason is present, it names a login (a bot or a
+proves and what it does not:** a `decision` (`accept` or `follow-on`) and a reason are present, it names a login (a bot or a
 stranger is refused only when `policy` says so) and it is bound to this head; it
 cannot prove a human typed it, and a session that writes a permitted login into
-`by` defeats it. A `cleared: true` flag is likewise taken at its word: the skill's only
+`by`, or types `accept`, defeats it: the typed `decision` makes the closing choice explicit and refuses a fix
+answer, it does not authenticate the operator. A `cleared: true` flag is likewise taken at its word: the skill's only
 writer of it is `PR_REVIEW_CLEAR_CLI`, which derives it from git (Step 6); `carry reconcile`
 writes none. A flag written any other way is outside this rule. The control against that is
 this rule, not the code.
@@ -396,11 +403,15 @@ and any approvals reset. It is the operator's own answer that gets recorded; an 
 chooses for the operator, applies a `default`, or types a login or reason.
 
 * **Fix in a follow-on PR** and **Accept without fixing**: `ledger` `resolve` with the
-  operator's login, this head and a timestamp. A follow-on reason names the bead when
+  operator's login, this head, a timestamp, a reason and the typed `decision`
+  (`'follow-on'` or `'accept'`). Only `accept` closes a blocking or security finding or a coverage
+  gap (a follow-on PR cannot unblock the gate, so `resolve` refuses `follow-on` there); `follow-on`
+  is for a Nit or Pre-existing finding. A follow-on reason names the bead when
   one was recorded (`follow-on: <bead id>`), an accept carries the reason the operator gave.
 * **Fix on this PR: never `ledger` `resolve`.** The gate reads a resolution with
-  provenance as the finding closed, whatever its reason says, so recording this answer
-  there would let the merge pass with no fix. The selection (`{ id, by, at, headSha }`
+  provenance as the finding closed, so recording this answer
+  there would let the merge pass with no fix; `resolve` refuses it (`decision` must be `accept` or
+  `follow-on`, and a fix answer is neither). The selection (`{ id, by, at, headSha }`
   per finding: the operator's login, the time and the head) is the `FIX_SELECTION` of a
   separate fix run (`SKILL.md`, Step 5), which sends all of it to ONE fix agent and ONE
   push. The push moves the head, so approvals and every earlier decision stop counting;
@@ -460,7 +471,8 @@ own remediation subagents.
    security finding is never batched). Only a non-security Nit or Pre-existing group gets
    follow-on: ONE single-choice question, follow-on (recommended) or Accept, with one typed
    reason for the group when `dispositionGroups` lists `accept` as a batch choice. Record each
-   through `ledger` `resolve` (a collapsed `file:<path>` entry expands to its members first).
+   through `ledger` `resolve` with `decision: 'accept'` (`'follow-on'` for a Nit or Pre-existing
+   follow-on; `lane: true` for a security-lane entry) (a collapsed `file:<path>` entry expands to its members first).
    The reason of a follow-on is `follow-on: <bead id>`, or `follow-on` when the entry has no
    bead.
    A coverage entry offers Accept only as well: one at a time, for a reason the operator types, through `ledger` `resolve`

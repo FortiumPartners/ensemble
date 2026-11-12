@@ -327,7 +327,7 @@ describe('TRD-027: the security lane runs in gate mode and blocks what it should
     expect(deferred.mergeable).toBe(false);
     expect(deferred.blockers.find((entry) => entry.code === BLOCKER_CODES.OPEN_IMPORTANT_FINDING).deferralRejected).toEqual(expect.any(String));
 
-    const byBot = { ...finding, disposition: 'resolved', resolution: { reason: 'ok', by: '@coderabbitai', at: '2026-11-06T10:00:00Z', headSha: base.headSha } };
+    const byBot = { ...finding, disposition: 'resolved', resolution: { decision: 'accept', reason: 'ok', by: '@coderabbitai', at: '2026-11-06T10:00:00Z', headSha: base.headSha } };
     expect(evaluateGate({ ...base, ledger: [byBot] }).mergeable).toBe(true);
     expect(evaluateGate({ ...base, policy: { botLogins: ['@coderabbitai'] }, ledger: [byBot] }).mergeable).toBe(false);
   });

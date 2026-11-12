@@ -26,6 +26,7 @@ const { spawnSync } = require('child_process');
 const { COMMAND, SKILL_REL, SKILL_TEXT } = require('./helpers/pr-merge-skill');
 
 const { BLOCKER_CODES } = require('../lib/pr-review-gate');
+const { recordOperatorResolution } = require('../lib/pr-review-ledger');
 const { COLLAPSE_THRESHOLD } = require('../lib/pr-review-disposition');
 const { CEILINGS, countWords, loadBaseline } = require('../../../scripts/lib/prompt-budget');
 const { readSkillReference } = require('./helpers/pr-review-cycle-skill');
@@ -206,13 +207,20 @@ describe('AC2: --foreman records nothing as decided, runs no fix agent, and the 
     expect(runGate(gateInput({ ledger: [importantFinding()] })).mergeable).toBe(false);
   });
 
-  test('a Fix on this PR answer recorded as a resolution would pass the finding with no fix: the prose must not resolve it', () => {
-    const closedByFixAnswer = {
+  test('an operator accept closes the finding whatever its reason text says, and a Fix on this PR answer cannot be recorded as a resolution: the prose must not resolve it', () => {
+    const at = '2026-11-07T10:00:00Z';
+    const closedByAccept = {
       ...importantFinding(),
       disposition: 'resolved',
-      resolution: { reason: 'fix on this PR', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: HEAD },
+      resolution: { decision: 'accept', reason: 'fix on this PR', by: 'ldangelo', at, headSha: HEAD },
     };
-    expect(runGate(gateInput({ ledger: [closedByFixAnswer] })).mergeable).toBe(true);
+    expect(runGate(gateInput({ ledger: [closedByAccept] })).mergeable).toBe(true);
+    for (const answer of ['fix-here', 'Fix on this PR']) {
+      const refused = recordOperatorResolution(importantFinding(), { decision: answer, reason: 'fix on this PR', by: 'ldangelo', at, headSha: HEAD });
+      expect(refused.ok).toBe(false);
+      expect(refused.reason).toContain('FIX_SELECTION');
+      expect(runGate(gateInput({ ledger: [refused.finding] })).mergeable).toBe(false);
+    }
     const fix = sentencesOf(interactiveAction()).find((s) => /FIX_SELECTION/.test(s));
     expect(fix).toMatch(/Fix on this PR: ONE pr-review-cycle MODE=local fix run with FIX_SELECTION \(never ledger resolve\)/);
   });

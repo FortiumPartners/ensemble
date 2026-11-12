@@ -120,7 +120,7 @@ describe('TRD-025 AC-1: mergeable only when findings, approvals and description 
     const answered = finding({
       id: 'F-7',
       disposition: 'resolved',
-      resolution: { reason: 'intentional, documented in REVIEW.md', by: 'maintainer-m', headSha: HEAD, at: '2026-11-06T10:00:00Z' },
+      resolution: { decision: 'accept', reason: 'intentional, documented in REVIEW.md', by: 'maintainer-m', headSha: HEAD, at: '2026-11-06T10:00:00Z' },
     });
     const result = evaluateGate(cleanInput({ ledger: [answered] }));
 
@@ -212,6 +212,7 @@ describe('TRD-025 AC-3: the security lane blocks, clears and records its reasons
     const closed = securityFinding({
       disposition: 'resolved',
       resolution: {
+        decision: 'accept',
         reason: 'false positive: the token never leaves the process',
         by: 'maintainer-m',
         headSha: HEAD,
@@ -227,7 +228,7 @@ describe('TRD-025 AC-3: the security lane blocks, clears and records its reasons
   });
 
   test('a security finding closed with no stated reason still blocks', () => {
-    const unreasoned = securityFinding({ disposition: 'resolved', resolution: { reason: '   ' } });
+    const unreasoned = securityFinding({ disposition: 'resolved', resolution: { decision: 'accept', reason: '   ' } });
     const result = evaluateGate(cleanInput({ security: { status: 'findings', findings: [unreasoned] } }));
 
     expect(result.mergeable).toBe(false);

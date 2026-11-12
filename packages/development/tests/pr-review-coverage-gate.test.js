@@ -41,7 +41,7 @@ const READER_LOST = { unreviewedSlices: ['whole-range'], uncovered: [], detail: 
 
 /** What the operator's `ledger resolve` answer does to every gap: the decision shape (`{ reason, by, headSha, at }`). */
 function accepted(record, over = {}) {
-  const decision = { reason: 'nobody read src/c.js; it is generated output', by: 'ldangelo', headSha: HEAD, at: AT, ...over };
+  const decision = { decision: 'accept', reason: 'nobody read src/c.js; it is generated output', by: 'ldangelo', headSha: HEAD, at: AT, ...over };
   return {
     ...record,
     gaps: record.gaps.map((gap) => {
@@ -169,9 +169,23 @@ describe('the gate: an unread path is not mergeable', () => {
 
     test('a resolution typed without a login, a timestamp or a head is not a decision', () => {
       const record = incomplete();
-      for (const resolution of [{ reason: 'fine' }, { reason: 'fine', by: 'ldangelo' }, { reason: 'fine', by: 'ldangelo', at: AT }, { reason: 'fine', by: 'ldangelo', headSha: HEAD }]) {
+      for (const resolution of [{ decision: 'accept', reason: 'fine' }, { decision: 'accept', reason: 'fine', by: 'ldangelo' }, { decision: 'accept', reason: 'fine', by: 'ldangelo', at: AT }, { decision: 'accept', reason: 'fine', by: 'ldangelo', headSha: HEAD }]) {
         const verdict = evaluateGate(gateInput({ coverage: { ...record, gaps: record.gaps.map((gap) => ({ ...gap, disposition: 'resolved', resolution })) } }));
         expect([JSON.stringify(resolution), verdict.mergeable]).toEqual([JSON.stringify(resolution), false]);
+      }
+    });
+
+    test('a gap resolution without a decision, with follow-on, or with another word is not a decision: the gap stays open at the gate and in the list', () => {
+      const record = incomplete();
+      const full = { reason: 'fine', by: 'ldangelo', at: AT, headSha: HEAD };
+      for (const resolution of [full, { ...full, decision: 'follow-on' }, { ...full, decision: 'ACCEPT' }, { ...full, decision: 'fix-here' }, { ...full, decision: 1 }]) {
+        const coverage = { ...record, gaps: record.gaps.map((gap) => ({ ...gap, disposition: 'resolved', resolution })) };
+        const verdict = evaluateGate(gateInput({ coverage }));
+        expect([JSON.stringify(resolution), verdict.mergeable]).toEqual([JSON.stringify(resolution), false]);
+        expect(verdict.blockers[0].resolutionRejected).toContain('decision');
+        const listed = buildDispositionChoices({ ledger: [], security: { status: 'clean', findings: [] }, headSha: HEAD, coverage });
+        expect(listed.dispositionChoices.map((entry) => entry.id)).toEqual(['coverage:slice:s2']);
+        expect(listed.mergeConfirmation.acceptedCoverage).toEqual([]);
       }
     });
 
@@ -276,7 +290,7 @@ describe('the status: an unread path is never a complete review', () => {
   });
 
   test('the gate and the status agree on every shape: open for one is open for the other', () => {
-    const sentenceLogin = (record) => ({ ...record, gaps: record.gaps.map((gap) => ({ ...gap, disposition: 'resolved', resolution: { reason: 'fine', by: 'a sentence with spaces', headSha: HEAD, at: AT } })) });
+    const sentenceLogin = (record) => ({ ...record, gaps: record.gaps.map((gap) => ({ ...gap, disposition: 'resolved', resolution: { decision: 'accept', reason: 'fine', by: 'a sentence with spaces', headSha: HEAD, at: AT } })) });
     const shapes = [incomplete(), accepted(incomplete()), accepted(incomplete(), { headSha: OLD_HEAD }), sentenceLogin(incomplete()), incomplete(READER_LOST), COMPLETE];
     for (const coverage of shapes) {
       const gateOpen = evaluateGate(gateInput({ coverage })).blockers.some((blocker) => blocker.code === 'review-coverage-incomplete');
