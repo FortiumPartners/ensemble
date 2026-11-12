@@ -5,13 +5,12 @@ Companion to `SKILL.md`; every rule here is normative.
 
 ### Step 4 -- Triage all findings before any edit
 
-Classify every **presented** ledger entry from Step 3b with `isActionable`
-(the ledger's raw reading: the gate and the run's status are the authority on whether a recorded decision counts)
-**before making any code change**. An unresolved thread or an Important
-finding is actionable unless the stopping rule (top of this skill) lets the
-triager defer it as non-blocking: `blocking: false` with a recorded reason, and
-never a finding at the top legacy severity; a
-Nit finding may be `deferred` only with a recorded reason; a `Pre-existing`
+Classify every **presented** ledger entry from Step 3b with `isActionable`, passing
+`headSha` (the head under review), `policy` (the Step 1b block) and `lane: true` for a security-lane entry, so it
+answers as the gate reads the finding (`reading: 'gate'`); without `headSha` it is the ledger's raw reading, which is not
+whether a finding still blocks. **Before making any code change.** An unresolved thread or an Important
+finding is actionable: the gate holds an Important finding open whatever its own `blocking: false`
+deferral and reason say, and it closes only on a fix or the operator's recorded decision. A Nit finding may be `deferred` only with a recorded reason; a `Pre-existing`
 finding is reported separately and never blocks; an
 uncertain finding is `adjudicate` and is never dropped. A `filtered` finding
 is not triaged and not fixed -- it was already answered by verification --

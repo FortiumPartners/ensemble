@@ -721,7 +721,7 @@ record from the stored run, `lib/pr-review-coverage.js`: `{ status: 'complete' |
   output, so it stops there too.
 - **The operator's way out is the existing one.** Run the review again on this head (a gap that was read is gone), or decide the
   gap: the decision list shows it in its own `Not reviewed` group with Accept as its only choice and a reason of its own, and
-  the answer is the same `ledger resolve` record as for a finding (`{ decision: 'accept', reason, by, headSha, at }`, this head, a person; only `accept` closes a gap), graded by the
+  the answer is the same `ledger resolve` record as for a finding (`{ id, resolution: { decision: 'accept', reason, by, headSha, at }, ledger, security, coverage }`: the gap's `id` looked up in the stored `coverage.gaps`, this head, a person; only `accept` closes a gap). `resolve` takes no `finding` from the caller: it finds the finding BY `id` in the state the caller passes (the CLI is stateless and never reads the persisted report, so the gate stays the authority) and reads its class from the entry found; a `severity` or `lane` the caller states must MATCH it, or the decision is refused (BREAKING, kata 0465), graded by the
   same rule; `cleared`, a deferral and a decision for another head close nothing. An accepted gap is reported as
   `coverage-gap-accepted` and written into the bead the recorder makes for it. An agent never decides it.
 - **Each path.** Light and full runs build it the same way and a Quick run follows the same rule. A finished run replays its stored
@@ -868,6 +868,7 @@ answer is not returned; nothing is recorded, so it is that commit's answer again
   Nit stays in the ledger but never makes `mergeable` false. That is the effect `pre-existing` had before it was checked.
   The narrated flow shares the exemption. Closing it (a verifier vote on Nits, a severity floor, or no exemption in light
   mode) changes the shared gate's contract, so it is an owner decision and is not made here.
+- The run's status counts read each finding as the gate does (`findingAsGateReads`, the gate's own function, also behind `ledger isActionable` when it is given a `headSha`): a resolution the gate would not honour and an Important finding's `blocking: false` deferral close nothing, so a deferred Important finding is `actionable`, not `LOCAL_REVIEW_COMPLETE`. `findingCounts.awaitingDecision` counts the Nit and Pre-existing findings the disposition list still asks about, by the one predicate both share (`isNonBlockingDecided`); it moves no verdict and no phase (kata rsja, 0465).
 - `collect` takes no lock: call it one at a time per run. Two overlapping calls can each emit the next wave.
 - A finished run's stored answer is as of its finalise: replaying it re-reads only the head and the PR's open state, so
   the approvals, branch protection and `mergeable` it holds can be out of date. Start a new run for a current verdict.

@@ -16,7 +16,7 @@
  *                          a FRESH review (see FRESHNESS below), roundsUsed a
  *                          non-negative integer, findingCounts.total/deferred/
  *                          actionable non-negative integers with total >=
- *                          actionable + deferred and actionable equal to 0,
+ *                          actionable + deferred and actionable equal to 0 (`awaitingDecision`, when echoed, is not read),
  *                          tests recorded with boolean flags and passed or
  *                          explicitly skipped, access not failed, and a review
  *                          coverage with no gap left open (COVERAGE below).
@@ -152,7 +152,8 @@ function deriveCiTests(raw, headSha, reviewOnly) {
  *   null means not supplied -- but one that is supplied must be a full object id or it is a missing fact. Tree equivalence
  *   needs BOTH; head equality alone is enough without them.
  * @param {{total:number, actionable:number, deferred:number}} facts.findingCounts  REQUIRED. All three counts must be
- *   non-negative integers, and `total` must be at least `actionable + deferred`.
+ *   non-negative integers, and `total` must be at least `actionable + deferred`. A fourth key, `awaitingDecision` (what
+ *   `review-run` adds: Nits and Pre-existing findings still awaiting the operator's decision), is informational: echoed, never read.
  * @param {{status:string, gaps?:Object[], reason?:string}} facts.coverage  REQUIRED. The review's coverage record
  *   (pr-review-coverage.js). Not an object, an unreadable one or `unavailable` is a missing fact; an open gap is PENDING.
  * @param {Object} [facts.policy]  The base-branch policy block (`botLogins`, `maintainerLogins`): a coverage gap's decision counts

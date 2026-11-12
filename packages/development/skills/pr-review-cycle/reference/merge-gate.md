@@ -230,13 +230,12 @@ skill) is not a decision either: the gate ignores it, and the finding stays open
 its blocker carrying `deferralRejected`, until it is fixed or the operator
 records a decision. Record a decision only with `node "$PR_REVIEW_CLI"
 ledger` action `resolve`
-(`{ action, finding, resolution:{ decision, reason, by, headSha, at }, policy }`, the same
+(`{ action, id, resolution:{ decision, reason, by, headSha, at }, ledger, security, coverage, policy }`: the finding's `id`, the STORED `ledger`, `security` and `coverage` from `state-read`, and the same
 `policy`; `decision` is exactly `accept` or `follow-on`, the operator's closing choice, and anything else is refused: a
 "Fix on this PR" answer is a `FIX_SELECTION`, never a recorded resolution), and only from the operator's own answer: never type a reason, a
-login or a decision on the operator's behalf. Read the finding's `severity` and whether it is a
-security-lane entry (`lane: true`) from the STORED state report, never from memory, and splice only
-the returned `resolution` onto the stored finding looked up by id (the recorder acts on the payload
-you pass; the gate acts on the stored record and ignores a `follow-on` it should not have). A new push moves the head, so a
+login or a decision on the operator's behalf. `severity` and `lane` need not be passed (one you pass must match): the recorder looks the finding up BY `id` in the `ledger`, `security` and `coverage` you hand it and takes its severity and lane from the entry found (a finding in `security.findings` is a lane entry), as the gate does. An unknown
+`id` is refused, and so is a `severity` or `lane` that differs from the one found. The CLI never reads the persisted report, so a relabelled copy of the state can still get `ok` for a decision the gate (the authority) then ignores. Splice the returned `finding` (the
+found entry with the resolution attached) back where it came from. A new push moves the head, so a
 decision made on an earlier head stops counting and is asked again. **What this
 proves and what it does not:** a `decision` (`accept` or `follow-on`) and a reason are present, it names a login (a bot or a
 stranger is refused only when `policy` says so) and it is bound to this head; it
@@ -284,7 +283,7 @@ makes one `review-coverage-incomplete` blocker of every slice, whole-range read 
 `dispositionChoices` entry in the `Not reviewed` (`coverage`) group: `id` `coverage:...`, a `coverage` block (`gapType`,
 `sliceId`, `paths`, `reasons`), `choices` Accept only, never batched, `requiresReason`, no `default`. Two ways out, and an
 agent takes neither: re-run the review on this head so the path is read, or the operator accepts it as not reviewed. Accepting is
-`ledger` `resolve` on the gap (the object of that `id` in the record's `gaps`, not in the ledger) with the operator's login,
+`ledger` `resolve` on the gap (its `id` and the stored `coverage` record, whose `gaps` it is looked up in, not the ledger) with the operator's login,
 this head and a timestamp, the same provenance as a finding's and graded by the same code; put the answer's `finding` back in
 that gap's place in the state report's `coverage.gaps` (`state-write`), as a resolved finding goes back into the ledger. The gate
 then warns `coverage-gap-accepted` and the gap's bead says who accepted it and why.
@@ -472,7 +471,7 @@ own remediation subagents.
    follow-on: ONE single-choice question, follow-on (recommended) or Accept, with one typed
    reason for the group when `dispositionGroups` lists `accept` as a batch choice. Record each
    through `ledger` `resolve` with `decision: 'accept'` (`'follow-on'` for a Nit or Pre-existing
-   follow-on; `lane: true` for a security-lane entry) (a collapsed `file:<path>` entry expands to its members first).
+   follow-on; a security-lane entry is recognised by `resolve` from the `security` findings you pass, not by a flag) (a collapsed `file:<path>` entry expands to its members first).
    The reason of a follow-on is `follow-on: <bead id>`, or `follow-on` when the entry has no
    bead.
    A coverage entry offers Accept only as well: one at a time, for a reason the operator types, through `ledger` `resolve`

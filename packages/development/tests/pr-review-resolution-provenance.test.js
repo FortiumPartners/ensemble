@@ -70,6 +70,9 @@ function gateInput(overrides = {}) {
 const decision = (overrides = {}) => ({ decision: 'accept', reason: 'the caller validates it upstream', by: 'ldangelo', headSha: HEAD, at: AT, ...overrides });
 const resolved = (base, overrides) => ({ ...base, disposition: 'resolved', resolution: decision(overrides) });
 
+/** The STORED state `ledger resolve` reads a finding from: its id, and the ledger that holds it (kata 0465). */
+const stored = (entry) => ({ id: entry.id, ledger: [entry] });
+
 describe('recordOperatorResolution refuses a decision that lacks provenance', () => {
   test.each([
     ['reason', { reason: '   ' }],
@@ -594,7 +597,7 @@ describe('AC4: `ledger resolve` through the real CLI round-trips through state a
   test('resolve -> state-write -> state-read -> gate: the recorded decision unblocks only the head it was made on', () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-review-resolution-'));
     try {
-      const resolveRun = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision() });
+      const resolveRun = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision() });
       expect(resolveRun.status).toBe(0);
       const recorded = resolveRun.out.finding;
       expect(recorded.resolution).toEqual(decision());
@@ -620,7 +623,7 @@ describe('AC4: `ledger resolve` through the real CLI round-trips through state a
   });
 
   test('resolve with a missing `by` is refused with exit 1 and no finding comes back', () => {
-    const run = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision({ by: undefined }) });
+    const run = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision({ by: undefined }) });
 
     expect(run.status).toBe(1);
     expect(run.out.error).toContain("'by'");
@@ -630,23 +633,23 @@ describe('AC4: `ledger resolve` through the real CLI round-trips through state a
   test('resolve with the policy refuses a bot or a stranger with exit 1, and records a named maintainer', () => {
     const policy = { botLogins: ['@coderabbitai'], maintainerLogins: ['@ldangelo'] };
 
-    const bot = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision({ by: '@coderabbitai' }), policy });
+    const bot = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision({ by: '@coderabbitai' }), policy });
     expect(bot.status).toBe(1);
     expect(bot.out.error).toMatch(/bot login/);
     expect(bot.out.finding).toBeUndefined();
 
-    const stranger = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision({ by: 'random-user' }), policy });
+    const stranger = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision({ by: 'random-user' }), policy });
     expect(stranger.status).toBe(1);
     expect(stranger.out.error).toMatch(/maintainerLogins/);
 
-    const maintainer = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision({ by: '@ldangelo' }), policy });
+    const maintainer = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision({ by: '@ldangelo' }), policy });
     expect(maintainer.status).toBe(0);
     expect(maintainer.out.finding.resolution.by).toBe('@ldangelo');
   });
 
   test('a policy that is not an object is a CLI error, never read as no policy', () => {
     for (const policy of ['strict', null, [], 7]) {
-      const run = runCli(['ledger'], { action: 'resolve', finding: finding(), resolution: decision(), policy });
+      const run = runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution: decision(), policy });
       expect([policy, run.status]).toEqual([policy, 1]);
       expect(run.out.error).toContain("'policy'");
     }
@@ -656,7 +659,7 @@ describe('AC4: `ledger resolve` through the real CLI round-trips through state a
     const policy = { botLogins: ['@coderabbitai'] };
     const resolution = decision({ by: '@coderabbitai' });
 
-    expect(runCli(['ledger'], { action: 'resolve', finding: finding(), resolution, policy }).status).toBe(1);
+    expect(runCli(['ledger'], { action: 'resolve', ...stored(finding()), resolution, policy }).status).toBe(1);
     const gate = runCli(['gate'], gateInput({ policy, ledger: [{ ...finding(), disposition: 'resolved', resolution }] }));
     expect(gate.out.mergeable).toBe(false);
     expect(gate.out.findings.open).toEqual(['F-1']);

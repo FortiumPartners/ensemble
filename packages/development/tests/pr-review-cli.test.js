@@ -427,13 +427,15 @@ const LEDGER_PAYLOADS = {
   recordRound: { action: 'recordRound', ledger: [], incoming: [makeFinding()], round: 1 },
   resolve: {
     action: 'resolve',
-    finding: makeFinding(),
+    id: 'f1',
+    ledger: [makeFinding()],
     resolution: { decision: 'accept', reason: 'validated upstream', by: 'ldangelo', headSha: 'h1', at: '2026-11-06T10:00:00Z' },
   },
 };
 const KEY_KINDS = {
   findings: 'array',
   finding: 'object',
+  id: 'text',
   existingLedger: 'array',
   incomingFindings: 'array',
   headSha: 'text',

@@ -113,6 +113,9 @@ const blockersOf = (verdict, code = BLOCKER_CODES.OPEN_IMPORTANT_FINDING) => ver
 const FAILING_FIRST = ' (FAILING FIRST)';
 
 // ---------------------------------------------------------------------------------------------------------------------
+/** The STORED state `ledger resolve` reads a finding from: its id, and the ledger that holds it (kata 0465). */
+const stored = (entry) => ({ id: entry.id, ledger: [entry] });
+
 describe('reading a finding into the taxonomy changes no blocking outcome (REVIEW.md: nothing is lost)', () => {
   const WORDS = ['critical', 'Critical', 'CRITICAL', 'major', 'Major', 'minor', 'nitpick', 'important', 'Important', 'nit', 'pre-existing', 'spicy'];
   const SHAPES = [
@@ -365,7 +368,7 @@ describe.each(RUNNERS)('a re-report that outranks a recorded finding clears the 
   const reported = (overrides) => finding({ id: 'M', source: 'reviewer-a', severity: 'major', ...overrides });
   const worse = (overrides) => finding({ id: 'C', source: 'security-reviewer', severity: 'critical', ...overrides });
   /** The operator's decision on a recorded finding, as `ledger resolve` writes it: a reason, their login, a time and this head. */
-  const decide = (entry, reason = 'the caller validates it upstream') => run('ledger', { action: 'resolve', finding: entry, resolution: { reason, ...DECISION } }).finding;
+  const decide = (entry, reason = 'the caller validates it upstream') => run('ledger', { action: 'resolve', ...stored(entry), resolution: { reason, ...DECISION } }).finding;
   const gateOn = (ledger) => run('gate', gateInput({ ledger }));
   const isOpen = (entry) => run('ledger', { action: 'isActionable', finding: entry }).actionable;
   /** Round 1 records the finding and the operator accepts it; round 2 reports it again as `second`. */
@@ -703,19 +706,27 @@ describe('the merge gate refuses a deferred Critical, names it, and lets the ope
   });
 
   describe('the Critical stays refused on the ledger rule alone: the gate as it was before #253, with no deferral stripped', () => {
-    // #253 made `applyProvenance` strip `blocking` from every Important finding, which refuses the repro for a reason of the
-    // gate's own. This compiles the REAL gate with that one line removed (an anchor that stops matching is an error, never a
-    // silent pass; the way pr-review-vote-gate-scenarios compiles a mutant of the vote tally), so the refusal of a Critical is
-    // shown to rest on `isActionable` and not on the line above it.
-    const STRIP = "if (severity === 'important') reading = withoutDeferral(reading);";
+    // #253 made the gate strip `blocking` from every Important finding, which refuses the repro for a reason of the gate's own. That
+    // strip now lives in the one shared reading (`findingAsGateReads`, kata rsja). This compiles the REAL ledger with that one line
+    // removed and hands it to the REAL gate (an anchor that stops matching is an error, never a silent pass; the way
+    // pr-review-vote-gate-scenarios compiles a mutant of the vote tally), so the refusal of a Critical is shown to rest on
+    // `isActionable` and not on the line above it.
+    const STRIP = 'return { entry: withoutDeferral(kept), refusal };';
+    const LEDGER_PATH = path.join(__dirname, '..', 'lib', 'pr-review-ledger.js');
     const GATE_PATH = path.join(__dirname, '..', 'lib', 'pr-review-gate.js');
-    const gateWithoutStrip = () => {
-      const source = fs.readFileSync(GATE_PATH, 'utf8');
-      expect(source).toContain(STRIP);
+    const compile = (file, source, requireFn) => {
       const mod = { exports: {} };
-      const wrapper = vm.runInThisContext(`(function (exports, module, require, __filename, __dirname) {${source.replace(STRIP, '')}\n})`, { filename: `${GATE_PATH}#no-strip` });
-      wrapper(mod.exports, mod, createRequire(GATE_PATH), GATE_PATH, path.dirname(GATE_PATH));
-      return mod.exports.evaluateGate;
+      const wrapper = vm.runInThisContext(`(function (exports, module, require, __filename, __dirname) {${source}\n})`, { filename: `${file}#no-strip` });
+      wrapper(mod.exports, mod, requireFn, file, path.dirname(file));
+      return mod.exports;
+    };
+    const gateWithoutStrip = () => {
+      const ledgerSource = fs.readFileSync(LEDGER_PATH, 'utf8');
+      expect(ledgerSource).toContain(STRIP);
+      const mutantLedger = compile(LEDGER_PATH, ledgerSource.replace(STRIP, 'return { entry: kept, refusal };'), createRequire(LEDGER_PATH));
+      const real = createRequire(GATE_PATH);
+      const gate = compile(GATE_PATH, fs.readFileSync(GATE_PATH, 'utf8'), (id) => (id === './pr-review-ledger' ? mutantLedger : real(id)));
+      return gate.evaluateGate;
     };
 
     test.each(['critical', 'Critical'])('a deferred non-blocking %s: not mergeable, as written and as read into the taxonomy (FAILING FIRST: without the strip the gate answered mergeable:true for the one read into the taxonomy)', (severity) => {
@@ -860,7 +871,7 @@ describe('the merge gate refuses a deferred Critical, names it, and lets the ope
     });
 
     test.each(RUNNERS)('`ledger resolve` records the decision on a Critical and the gate takes it (%s)', (_name, run) => {
-      const { finding: resolved } = run('ledger', { action: 'resolve', finding: deferredCritical(), resolution: { reason: 'the caller validates it upstream', ...DECISION } });
+      const { finding: resolved } = run('ledger', { action: 'resolve', ...stored(deferredCritical()), resolution: { reason: 'the caller validates it upstream', ...DECISION } });
 
       expect(resolved).toMatchObject({ disposition: 'resolved', severity: 'important', originalSeverity: 'critical' });
       expect(run('ledger', { action: 'isActionable', finding: resolved })).toEqual({ actionable: false });
@@ -868,7 +879,7 @@ describe('the merge gate refuses a deferred Critical, names it, and lets the ope
     });
 
     test.each(RUNNERS)('`ledger resolve` refuses a decision with no login, and the Critical stays blocked (%s)', (_name, run) => {
-      expect(() => run('ledger', { action: 'resolve', finding: deferredCritical(), resolution: { decision: 'accept', reason: 'accepted', headSha: HEAD, at: DECISION.at } })).toThrow();
+      expect(() => run('ledger', { action: 'resolve', ...stored(deferredCritical()), resolution: { decision: 'accept', reason: 'accepted', headSha: HEAD, at: DECISION.at } })).toThrow();
     });
   });
 });
@@ -899,7 +910,7 @@ describe.each(RUNNERS)('the real gate action over a ledger the CLI wrote: %s', (
   });
 
   test('a Critical the operator accepted with a full decision, carried through `recordRound`, lets the gate pass and is still listed as a security acceptance (FAILING FIRST for the listing)', () => {
-    const { finding: resolved } = run('ledger', { action: 'resolve', finding: deferredCritical(), resolution: { reason: 'the caller validates it upstream', ...DECISION } });
+    const { finding: resolved } = run('ledger', { action: 'resolve', ...stored(deferredCritical()), resolution: { reason: 'the caller validates it upstream', ...DECISION } });
     const { findings } = recorded(run, resolved);
     const answer = run('gate', gateInput({ ledger: findings }));
 

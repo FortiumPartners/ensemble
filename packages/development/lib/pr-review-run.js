@@ -167,7 +167,7 @@ const { planSlices, verifyCoverage } = require('./pr-review-depth');
 const { reviewDeadlines, toVotesInput, floorOverrideMessage } = require('./pr-review-results');
 const { DEFAULT_POLICY, DEADLINE_MINUTES_MAX } = require('./pr-review-policy');
 const SZ = require('./pr-review-sizing');
-const { dedupeFindings, isActionable, normalizeSeverity, validateLedger, withoutRefusedResolution } = require('./pr-review-ledger');
+const { dedupeFindings, isActionable, normalizeSeverity, validateLedger, findingAsGateReads, isNonBlockingDecided } = require('./pr-review-ledger');
 const { tallyVotes, quorumFirstWave } = require('./pr-review-votes');
 const { evaluateApprovals } = require('./pr-review-approvals');
 const { checkDescription } = require('./pr-review-description');
@@ -1776,18 +1776,26 @@ async function gateStage(run, built, deps, tracer) {
   let reviewStatus;
   let tests;
   try {
-    // Counted as the gate reads each entry at this head: a resolution the gate would not honour (no `decision`, another head,
-    // a login the policy refuses) closes nothing here either (`withoutRefusedResolution`).
-    const asGateReads = built.ledger.map((entry) => withoutRefusedResolution(entry, run.headSha, false, policy).entry);
+    // Counted as the gate reads each entry at this head (`findingAsGateReads`, the gate's own reading): a resolution the gate
+    // would not honour (no `decision`, another head, a login the policy refuses) closes nothing here either, and an Important
+    // finding's `blocking:false` deferral is no answer here as it is none at the gate.
+    const asGateReads = built.ledger.map((entry) => findingAsGateReads(entry, run.headSha, false, policy).entry);
     const actionable = asGateReads.filter((entry) => isActionable(entry)).length;
     const deferred = asGateReads.filter((entry) => !isActionable(entry) && entry.disposition === 'deferred').length;
+    // Nits and Pre-existing findings still waiting for the operator's recorded decision: the disposition list's own predicate
+    // (`isNonBlockingDecided`, and a verifier-filtered Nit is not presented). Informational: no verdict and no phase reads it.
+    const notPresented = new Set(((built.tally && built.tally.findings) || []).filter((vote) => vote && vote.presented === false).map((vote) => String(vote.id)));
+    const awaitingDecision = built.ledger.filter((entry) => {
+      const class_ = normalizeSeverity(entry.severity);
+      return (class_ === 'nit' || class_ === 'pre-existing') && !isNonBlockingDecided(entry, run.headSha, policy) && !notPresented.has(String(entry.id));
+    }).length;
     tests = testsFact(run.baseline);
     reviewStatus = deriveStatus({
       baseSha: run.baseSha,
       headSha: run.headSha,
       reviewedHeadSha: run.headSha,
       ...(headTreeSha === undefined ? {} : { reviewedTreeSha: headTreeSha, headTreeSha }),
-      findingCounts: { total: built.ledger.length, actionable, deferred },
+      findingCounts: { total: built.ledger.length, actionable, deferred, awaitingDecision },
       // An incomplete coverage is not a complete review: the status is given the same record the gate was (and the policy that
       // says who may decide a gap), so the local phase that publication is gated on can never rest on paths nobody read.
       coverage,

@@ -11,7 +11,7 @@ findingCounts:{total, actionable, deferred}, coverage:{status, gaps}, tests:{exi
 remotePhase, roundsUsed, roundCap, access, prUrl, reportPath, reviewOnly }`. `baseSha`, `headSha` and
 `reviewedHeadSha` (full 40- or 64-hex
 object ids, never a bare ref), `findingCounts` (`total`, `actionable` and
-`deferred`: non-negative integers with `total >= actionable + deferred`) and
+`deferred`: non-negative integers with `total >= actionable + deferred`; `review-run` also echoes an informational `awaitingDecision`, the Nits and Pre-existing findings awaiting the operator's decision, which `status` ignores) and
 `coverage` (below) are required, `roundsUsed`, when given, is a non-negative integer, `roundCap`,
 when given, is the policy's integer 1-5 (absent means the strict default of
 3, and a value outside the range is refused with the default applied), and
@@ -34,7 +34,7 @@ path no slice held and per path read under too few lenses; the status is then
 `LOCAL_REVIEW_PENDING` with `next: complete-review-coverage` and every gap in `reasons`,
 whatever else is complete (a review that did not read everything cannot say what is left to
 fix). Read it again (re-run the review on this head), or the operator decides the gap through
-the existing path: `ledger` `resolve` on the gap (Step 10's decision list, `Accept` with a
+the existing path: `ledger` `resolve` on the gap (its `id` and the stored `coverage` record; Step 10's decision list, `Accept` with a
 reason) records `{ decision, reason, by, headSha, at }`, graded by the same rules as a finding's
 resolution, so `cleared`, a deferral and a decision for another head close nothing. Pass the Step
 10 `policy` result as `policy` when there is one: it names who may decide. A missing,

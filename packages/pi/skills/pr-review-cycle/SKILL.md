@@ -203,11 +203,10 @@ no subagent capability: single-pass review, `verificationCapability: false` and 
 ### Step 4 -- Triage all findings before any edit
 
 Detail: `reference/triage-fix-reverify.md`. Classify every **presented** entry with
-`isActionable` before any code change. Unresolved threads and Important findings are
-actionable unless the stopping rule defers them (`blocking: false`, recorded reason,
-never at the top legacy severity); Nit may be `deferred` only with a reason;
-`Pre-existing` is reported separately and never blocks; uncertain is `adjudicate`, never
-dropped; `filtered` is never triaged, fixed or deleted.
+`isActionable` given `headSha` and `policy` (the gate's reading) before any code change. Unresolved threads
+and Important findings are actionable (the gate ignores a `blocking: false` deferral of an Important finding); Nit may be
+`deferred` only with a reason; `Pre-existing` never blocks; uncertain is `adjudicate`; `filtered` is
+never triaged, fixed or deleted.
 
 ### Step 5 -- Batch fix (delegate to `pr-review-remediation`)
 

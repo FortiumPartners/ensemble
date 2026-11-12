@@ -2441,7 +2441,7 @@ describe('the gate stage', () => {
     expect(next.status).toBe('DONE');
     // no findings, clean lane, tests passed, fresh head: every fact the runner supplies is "good"
     expect(next.reviewStatus.tests.passed).toBe(true);
-    expect(next.reviewStatus.findingCounts).toEqual({ total: 0, actionable: 0, deferred: 0 });
+    expect(next.reviewStatus.findingCounts).toEqual({ total: 0, actionable: 0, deferred: 0, awaitingDecision: 0 });
     // ... and approvals are short (a Medium PR needs one human), so the gate blocks
     expect(next.gate.mergeable).toBe(false);
     expect(next.gate.blockers.map((b) => b.code)).toContain('approvals-unsatisfied');
@@ -2585,12 +2585,12 @@ describe('the status counts a prior finding as the gate reads it (kata 785h)', (
   const operator = { decision: 'accept', reason: 'the operator decided', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: HEAD };
 
   // A re-review inherits the prior round's ledger, operator resolutions included: they reach the status through the run record.
-  async function roundWith(resolution) {
+  async function roundWith(resolution, base = important) {
     const h = harness();
     const manifest = await h.prepare();
     expect(manifest.status).toBe('DISPATCH');
     const run = h.readRun();
-    const ledger = [resolution === null ? important : { ...important, disposition: 'resolved', resolution }];
+    const ledger = [resolution === null ? base : { ...base, disposition: 'resolved', resolution }];
     fs.writeFileSync(path.join(h.runDir(), 'run.json'), JSON.stringify({ ...run, priorRound: { lastReviewedSha: PRIOR_HEAD, baseSha: run.baseSha, runId: 'prior', ledger, verdicts: [] }, reReview: { appliedRange: 'delta', delta: { limits: {} } } }));
     answerReview(manifest, { lane: { findings: [], pathsReviewed: allPaths(h) } });
     return h.collect();
@@ -2613,6 +2613,54 @@ describe('the status counts a prior finding as the gate reads it (kata 785h)', (
     expect(out.gate.mergeable).toBe(false);
     expect(out.gate.blockers.map((b) => b.code)).toContain('open-important-finding');
     expect(out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+  });
+});
+
+describe('the status reads a finding exactly as the gate does (kata rsja, 0465)', () => {
+  const important = { id: 'f9', source: 'reviewer-1', locationOrLink: 'src/a.js:3', severity: 'important', failureMode: 'unchecked input', disposition: 'fix', evidence: 'line 3', originalTextOrLink: 'https://example.invalid/f9' };
+  const deferredImportant = { ...important, blocking: false, disposition: 'deferred', reason: 'the stopping rule: not worth another round' };
+  const nit = { ...important, id: 'n1', severity: 'nit', failureMode: 'naming' };
+
+  async function roundOf(finding) {
+    const h = harness();
+    const manifest = await h.prepare();
+    const run = h.readRun();
+    fs.writeFileSync(path.join(h.runDir(), 'run.json'), JSON.stringify({ ...run, priorRound: { lastReviewedSha: 'b'.repeat(40), baseSha: run.baseSha, runId: 'prior', ledger: [finding], verdicts: [] }, reReview: { appliedRange: 'delta', delta: { limits: {} } } }));
+    answerReview(manifest, { lane: { findings: [], pathsReviewed: allPaths(h) } });
+    return h.collect();
+  }
+
+  test('an Important finding the triager deferred (blocking:false, a reason) is open for the gate AND for the status: actionable, not complete', async () => {
+    const out = await roundOf(deferredImportant);
+
+    expect(out.gate.mergeable).toBe(false);
+    expect(out.gate.blockers.map((b) => b.code)).toContain('open-important-finding');
+    expect(out.reviewStatus.findingCounts).toMatchObject({ total: 1, actionable: 1, deferred: 0 });
+    expect(out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+    expect(out.reviewStatus.reasons).toContain('unresolved actionable finding');
+    expect(out.reviewStatus.next).toBe('run-fix-round');
+  });
+
+  test('a deferred Important finding whose resolution carries no decision, or one for an earlier head, reads open in both places', async () => {
+    for (const resolution of [{ reason: 'fine', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: HEAD }, { decision: 'accept', reason: 'fine', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: 'b'.repeat(40) }]) {
+      const out = await roundOf({ ...deferredImportant, resolution });
+      expect(out.gate.mergeable).toBe(false);
+      expect(out.reviewStatus.findingCounts.actionable).toBe(1);
+      expect(out.reviewStatus.localPhase).not.toBe('LOCAL_REVIEW_COMPLETE');
+    }
+  });
+
+  test('a reason-only Nit: closed for the gate and the status (no fix round), undecided for the list AND for the status count; a recorded decision decides it in both', async () => {
+    const reasonOnly = { ...nit, resolution: { reason: 'fine' } };
+    const open = await roundOf(reasonOnly);
+    expect(open.gate.findings.open).toEqual([]);
+    expect(open.reviewStatus.findingCounts).toMatchObject({ total: 1, actionable: 0, awaitingDecision: 1 });
+    expect(open.gate.dispositionChoices.map((c) => c.id)).toContain('n1');
+
+    const decided = await roundOf({ ...nit, resolution: { decision: 'follow-on', reason: 'later', by: 'ldangelo', at: '2026-11-07T10:00:00Z', headSha: HEAD } });
+    expect(decided.gate.findings.open).toEqual([]);
+    expect(decided.reviewStatus.findingCounts).toMatchObject({ total: 1, actionable: 0, awaitingDecision: 0 });
+    expect(decided.gate.dispositionChoices.map((c) => c.id)).not.toContain('n1');
   });
 });
 

@@ -218,6 +218,7 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
     // ledger
     findings: () => [finding()],
     finding: () => finding(),
+    id: () => 'f1',
     existingLedger: () => [],
     incomingFindings: () => [finding({ headSha: HEAD_SHA })],
     headSha: () => HEAD_SHA,
@@ -316,7 +317,8 @@ describe('pr-review-cycle SKILL.md: every CLI call it documents is accepted by t
     const keys = documentedLedgerActions()[action];
     const payloadWithout = (omitted) => {
       const payload = { action };
-      for (const key of keys) if (key !== omitted) payload[key] = sampleFor(key);
+      // `resolve` looks the finding up by id in the stored ledger, so its `ledger` sample holds the finding `id` names.
+      for (const key of keys) if (key !== omitted) payload[key] = action === 'resolve' && key === 'ledger' ? [finding()] : sampleFor(key);
       return payload;
     };
 

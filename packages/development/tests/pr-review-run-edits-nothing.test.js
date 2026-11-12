@@ -158,6 +158,9 @@ function reviewPath() {
   ];
 }
 
+/** The STORED state `ledger resolve` reads a finding from: its id, and the ledger that holds it (kata 0465). */
+const stored = (entry) => ({ id: entry.id, ledger: [entry] });
+
 describe('a review run edits no file and pushes nothing', () => {
   test('the review path through the real CLI leaves the tree, refs, commits and origin untouched and writes only the gitignored state report', () => {
     const before = repoState(repo, origin);
@@ -196,7 +199,7 @@ describe('a review run edits no file and pushes nothing', () => {
     expect(subcommands.length).toBeGreaterThan(10);
 
     const before = repoState(repo, origin);
-    const garbage = [{}, { action: 'resolve', finding: finding(), resolution: { reason: 'r', by: 'someone', headSha, at: ISO } }];
+    const garbage = [{}, { action: 'resolve', ...stored(finding()), resolution: { reason: 'r', by: 'someone', headSha, at: ISO } }];
     for (const sub of subcommands) {
       // state-write is the one subcommand allowed to write, and only the report: covered above.
       if (sub === 'state-write') continue;

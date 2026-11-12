@@ -54,6 +54,7 @@ const {
   normalizeSeverity,
   anchorOf,
   hasResolutionProvenance,
+  isNonBlockingDecided,
   isCritical,
 } = require('./pr-review-ledger');
 const { findingsHeldOpen, coverageHeldOpen } = require('./pr-review-gate');
@@ -399,7 +400,7 @@ function buildDispositionChoices(input) {
         continue;
       }
       // A Nit or Pre-existing ledger finding never blocks: it is listed until the operator's decision is recorded on it.
-      if (decided) continue;
+      if (isNonBlockingDecided(finding, headSha, policy)) continue;
       const vote = votesById.get(keyOf(finding.id));
       if (vote !== undefined && vote.presented === false) continue;
       group = canonical === 'pre-existing' ? 'pre-existing' : 'nit';

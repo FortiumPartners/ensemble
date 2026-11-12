@@ -552,7 +552,8 @@
         "findingCounts": {
           "total": 1,
           "actionable": 1,
-          "deferred": 0
+          "deferred": 0,
+          "awaitingDecision": 0
         },
         "coverage": {
           "status": "complete",
