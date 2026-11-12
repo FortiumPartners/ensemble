@@ -1,6 +1,6 @@
 {
   "name": "ensemble-opencode",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "description": "OpenCode runtime support - translates ensemble artifacts to OpenCode-compatible formats",
   "author": {
     "name": "Sunstone Partners",

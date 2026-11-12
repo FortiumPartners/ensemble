@@ -43,7 +43,7 @@
   "plugins": [
     {
       "name": "ensemble-core",
-      "version": "6.1.1",
+      "version": "6.1.2",
       "source": "./packages/core",
       "description": "Core utilities including framework detection and XDG-compliant configuration",
       "category": "core",
@@ -59,7 +59,7 @@
     },
     {
       "name": "ensemble-product",
-      "version": "7.0.1",
+      "version": "7.0.2",
       "source": "./packages/product",
       "description": "Product management workflows - PRD and TRD creation",
       "category": "workflow",
@@ -108,7 +108,7 @@
     },
     {
       "name": "ensemble-infrastructure",
-      "version": "6.1.1",
+      "version": "6.1.2",
       "source": "./packages/infrastructure",
       "description": "Infrastructure and DevOps workflows",
       "category": "workflow",
@@ -124,7 +124,7 @@
     },
     {
       "name": "ensemble-git",
-      "version": "6.1.1",
+      "version": "6.1.2",
       "source": "./packages/git",
       "description": "Git workflow automation and best practices",
       "category": "workflow",
@@ -140,7 +140,7 @@
     },
     {
       "name": "ensemble-e2e-testing",
-      "version": "6.1.1",
+      "version": "6.1.2",
       "source": "./packages/e2e-testing",
       "description": "End-to-end testing workflows with Playwright",
       "category": "testing",
@@ -156,7 +156,7 @@
     },
     {
       "name": "ensemble-react",
-      "version": "7.0.1",
+      "version": "7.0.2",
       "source": "./packages/react",
       "description": "React framework skills and patterns",
       "category": "frameworks",
@@ -172,7 +172,7 @@
     },
     {
       "name": "ensemble-nestjs",
-      "version": "6.0.1",
+      "version": "6.0.2",
       "source": "./packages/nestjs",
       "description": "NestJS backend framework skills",
       "category": "frameworks",
@@ -188,7 +188,7 @@
     },
     {
       "name": "ensemble-rails",
-      "version": "6.0.1",
+      "version": "6.0.2",
       "source": "./packages/rails",
       "description": "Ruby on Rails framework skills",
       "category": "frameworks",
@@ -204,7 +204,7 @@
     },
     {
       "name": "ensemble-phoenix",
-      "version": "6.0.1",
+      "version": "6.0.2",
       "source": "./packages/phoenix",
       "description": "Phoenix/Elixir framework skills",
       "category": "frameworks",
@@ -220,7 +220,7 @@
     },
     {
       "name": "ensemble-blazor",
-      "version": "7.0.1",
+      "version": "7.0.2",
       "source": "./packages/blazor",
       "description": "Blazor frontend skills: Server and WebAssembly components, Razor, Fluent UI",
       "category": "frameworks",
@@ -236,7 +236,7 @@
     },
     {
       "name": "ensemble-dotnet",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "source": "./packages/dotnet",
       "description": ".NET backend agents and skills (ASP.NET Core, Wolverine, MartenDB)",
       "category": "frameworks",
@@ -253,7 +253,7 @@
     },
     {
       "name": "ensemble-jest",
-      "version": "5.1.3",
+      "version": "5.1.4",
       "source": "./packages/jest",
       "description": "Jest testing framework skills",
       "category": "testing",
@@ -269,7 +269,7 @@
     },
     {
       "name": "ensemble-pytest",
-      "version": "5.2.1",
+      "version": "5.2.2",
       "source": "./packages/pytest",
       "description": "Pytest testing framework skills",
       "category": "testing",
@@ -285,7 +285,7 @@
     },
     {
       "name": "ensemble-rspec",
-      "version": "5.2.1",
+      "version": "5.2.2",
       "source": "./packages/rspec",
       "description": "RSpec testing framework skills",
       "category": "testing",
@@ -301,7 +301,7 @@
     },
     {
       "name": "ensemble-xunit",
-      "version": "5.2.1",
+      "version": "5.2.2",
       "source": "./packages/xunit",
       "description": "xUnit testing framework skills for .NET",
       "category": "testing",
@@ -317,7 +317,7 @@
     },
     {
       "name": "ensemble-reqnroll",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "source": "./packages/reqnroll",
       "description": "Reqnroll + xUnit BDD bindings: fill PRD-generated step definitions test-first",
       "category": "testing",
@@ -335,7 +335,7 @@
     },
     {
       "name": "ensemble-exunit",
-      "version": "5.1.2",
+      "version": "5.1.3",
       "source": "./packages/exunit",
       "description": "ExUnit testing framework skills for Elixir",
       "category": "testing",
@@ -454,7 +454,7 @@
     },
     {
       "name": "ensemble-opencode",
-      "version": "5.4.1",
+      "version": "5.4.2",
       "source": "./packages/opencode",
       "description": "OpenCode runtime support - translates ensemble artifacts to OpenCode-compatible formats",
       "category": "core",

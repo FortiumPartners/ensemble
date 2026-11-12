@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-blazor",
-  "version": "7.0.1",
+  "version": "7.0.2",
   "description": "Blazor frontend skills: Server and WebAssembly components, Razor, Fluent UI",
   "main": "lib/index.js",
   "scripts": {

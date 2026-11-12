@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-exunit",
-  "version": "5.1.2",
+  "version": "5.1.3",
   "description": "ExUnit testing framework integration for Elixir",
   "main": "lib/index.js",
   "scripts": {

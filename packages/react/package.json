@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-react",
-  "version": "7.0.1",
+  "version": "7.0.2",
   "description": "React framework skills and component development",
   "main": "lib/index.js",
   "scripts": {

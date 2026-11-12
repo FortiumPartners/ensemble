@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-dotnet",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": ".NET backend development agents and skills (ASP.NET Core, Wolverine, MartenDB, CQRS/Event Sourcing)",
   "main": "lib/index.js",
   "scripts": {

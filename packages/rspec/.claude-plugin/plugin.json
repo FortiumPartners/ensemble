@@ -1,6 +1,6 @@
 {
   "name": "ensemble-rspec",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "RSpec testing framework integration",
   "author": {
     "name": "Sunstone Partners",

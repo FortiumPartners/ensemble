@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-opencode",
-  "version": "5.4.1",
+  "version": "5.4.2",
   "description": "Ensemble agent mesh for OpenCode - 28 agents, 15 commands, 10 framework skills",
   "main": "src/index.js",
   "types": "src/index.ts",

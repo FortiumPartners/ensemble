@@ -1,6 +1,6 @@
 {
   "name": "ensemble-pytest",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "Pytest testing framework integration - Execute and generate Python tests with fixtures, parametrization, and mocking support",
   "author": {
     "name": "Sunstone Partners",
