@@ -1,7 +1,7 @@
 metadata:
   name: ensemble:author-playwright-tests
   description: Interactive, post-implementation Playwright test-authoring session grounded in shipped code and PRD acceptance criteria
-  version: 2.6.0
+  version: 2.7.0
   lastUpdated: "2026-08-27"
   category: testing
   output_path: ensemble/author-playwright-tests.md

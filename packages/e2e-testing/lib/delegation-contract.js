@@ -47,6 +47,9 @@
  *   grounding this AC in the real implementing diff, not PRD prose alone
  * @property {string} [acId] - this AC's id. When present, the proposed test must open an EvidenceCapture
  *   scope for it (evidence-capture.js's hasEvidenceCapture), or the response is rejected.
+ * @property {'nunit'|'xunit'} [framework] - the consuming project's test framework (e2e-framework.js), so the
+ *   authored body fits it: NUnit tests use the PageTest `Page`; xUnit tests build their own page the way the
+ *   project's sibling tests do. Omit when unknown (NUnit).
  */
 
 /**
@@ -156,6 +159,9 @@ function validateProposalRequest(req) {
   }
   if (req.groundingDiff === undefined || req.groundingDiff === null) {
     errors.push('groundingDiff is required (pass the implementation-grounding.js result, including its gap shape)');
+  }
+  if (req.framework !== undefined && req.framework !== 'nunit' && req.framework !== 'xunit') {
+    errors.push("framework must be 'nunit' or 'xunit' when present");
   }
 
   return assertNoErrors('proposal request', errors);

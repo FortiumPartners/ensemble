@@ -93,7 +93,7 @@ describe('the helper is in place before the first Run', () => {
 describe('every proposal and every run carries the screenshot requirement', () => {
   test('the proposal request carries acId, the scope is required, and a test without it is re-delegated', () => {
     const text = actions('REQ Batching and Delegation', 'Delegate the Proposal (Ground + Author, No Run) to @playwright-tester');
-    expect(text).toContain('{acText, groundingDiff, acId}');
+    expect(text).toContain('{acText, groundingDiff, acId');
     expect(text).toContain('await using var evidence = EvidenceCapture.For(page, acId);');
     expect(text).toContain('validateProposalResponse(res, req)');
     expect(text).toMatch(/re-delegate once with that error/);
@@ -147,7 +147,7 @@ describe('the playwright-tester agent knows how to produce the screenshot', () =
 
   test('the proposal stage opens the scope and the contract shapes name the new fields', () => {
     expect(agent).toContain('await using var evidence = EvidenceCapture.For(page, acId)');
-    expect(agent).toContain('Request {acText, groundingDiff, acId?}');
+    expect(agent).toContain('Request {acText, groundingDiff, acId?');
     expect(agent).toContain('slowMoMs?, acId?, evidenceDir?}');
     expect(agent).toContain('groundedMarkersChecked?, evidencePath?}');
   });

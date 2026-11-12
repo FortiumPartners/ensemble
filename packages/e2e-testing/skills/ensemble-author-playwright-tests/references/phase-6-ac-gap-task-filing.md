@@ -3,10 +3,8 @@
 #### Step 6.1: File One ADO Task Per Confirmed Gap
 
 TRD-029 (satisfies REQ-010): fires as soon as Phase 1's gap review
-resolves "confirmed" for an AC — do not batch every gap to the
-end of the session; AC-010-2 requires one Task per gap, never
-bundled, and this module's own shape enforces that (no batching
-parameter exists).
+resolves "confirmed" for an AC, not batched to the end of the
+session; AC-010-2 requires one Task per gap.
 
 - For each AC whose Phase 1 resolveGapReview() call resolved to "gap-confirmed": call resolveImplementingAuthor(groundingResult.files) from $E2E_LIB/ac-gap-task-filer.js (never throws — an unresolved author still proceeds, unassigned)
 - Resolve that git identity to an Azure DevOps identity via the MCP server's core_get_identity_ids-equivalent tool, then call planGapTaskFiling({acId, reqId, gapReason, storyWorkItemId, author}) to shape the Task request

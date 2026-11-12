@@ -32,6 +32,12 @@
  * of it should be corrected alongside the architecture diagram, not silently
  * left implying TypeScript.
  *
+ * Framework: NUnit (above) is the default and its output is unchanged. `specDetails.framework: 'xunit'` emits
+ * `[Fact]`/`[Trait("Category", ...)]` instead, for projects (e.g. xUnit on core Microsoft.Playwright) where each test
+ * builds its own page from a `[Collection]` fixture. e2e-framework.js detects which one a project uses. A new xUnit
+ * file needs the project's own `collection` and `fixtureType` (and a `testBody`: there is no safe default body);
+ * appending to an existing file infers the framework from the file and refuses a mismatch.
+ *
  * Scope (Implementation AC for TRD-014):
  *   - AC-006-1: a new file uses AuthenticatedPageTest or PageTest (caller's
  *     choice -- this module does not guess from AC text), carries
@@ -58,10 +64,13 @@
 const fs = require('fs');
 
 const VALID_BASE_CLASSES = ['AuthenticatedPageTest', 'PageTest'];
+const VALID_FRAMEWORKS = ['nunit', 'xunit'];
 const TEST_CATEGORY = 'E2E';
 const DEFAULT_NAMESPACE = 'Application.E2E.Tests';
 const DEFAULT_TEST_BODY = 'await Page.GotoAsync(TestConfiguration.QaBaseUrl);';
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const DOTTED_IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/;
+const COLLECTION_NAME_RE = /^[A-Za-z0-9_. -]+$/;
 
 /** Throw a clear error if `value` isn't a valid, non-empty C# identifier. */
 function assertIdentifier(label, value) {
@@ -78,6 +87,29 @@ function assertBaseClass(baseClass) {
         'this module never guesses; the caller decides based on whether the AC needs an authenticated session.'
     );
   }
+}
+
+/** 'nunit' when the caller gave no framework (the shape this module has always emitted); otherwise the validated choice. */
+function resolveFramework(specDetails) {
+  const framework = specDetails && specDetails.framework;
+  if (framework === undefined) return 'nunit';
+  if (!VALID_FRAMEWORKS.includes(framework)) {
+    throw new Error(`framework must be one of ${VALID_FRAMEWORKS.map((f) => `'${f}'`).join(' or ')} (got: ${JSON.stringify(framework)})`);
+  }
+  return framework;
+}
+
+/**
+ * Which framework does this existing spec file already use? 'xunit' / 'nunit' from its usings or attributes
+ * (comments and string literals ignored), or null when it shows neither or both.
+ */
+function inferFramework(source) {
+  if (typeof source !== 'string') return null;
+  const masked = maskLiteralsAndComments(source);
+  const xunit = /^[ \t]*(?:global\s+)?using\s+Xunit\s*;/m.test(masked) || /\[\s*(?:Fact|Theory)\s*[\](]/.test(masked);
+  const nunit = /^[ \t]*(?:global\s+)?using\s+NUnit\.Framework\s*;/m.test(masked) || /\[\s*(?:Test|TestFixture)\s*[\](]/.test(masked);
+  if (xunit === nunit) return null;
+  return xunit ? 'xunit' : 'nunit';
 }
 
 /**
@@ -104,17 +136,27 @@ function indentBlock(text, indent) {
  */
 function renderTestMethodBlock(specDetails, indent) {
   const { acId, testName, testBody, testCategory } = specDetails || {};
+  const framework = resolveFramework(specDetails);
   assertIdentifier('testName', testName);
 
   const category =
     typeof testCategory === 'string' && testCategory.trim() !== '' ? testCategory.trim() : TEST_CATEGORY;
-  const body = typeof testBody === 'string' && testBody.trim() !== '' ? testBody.trim() : DEFAULT_TEST_BODY;
+  const hasBody = typeof testBody === 'string' && testBody.trim() !== '';
+  if (framework === 'xunit' && !hasBody) {
+    throw new Error(
+      'testBody is required for xunit: the fixture a test builds its page from is project-specific, so there is no safe default body.'
+    );
+  }
+  const body = hasBody ? testBody.trim() : DEFAULT_TEST_BODY;
   const bodyIndent = indent + '    ';
   const acComment = acId ? `${bodyIndent}// ${acId}\n` : '';
+  const attributes =
+    framework === 'xunit'
+      ? `${indent}[Fact]\n${indent}[Trait("Category", "${category}")]\n`
+      : `${indent}[Test]\n${indent}[TestCategory("${category}")]\n`;
 
   return (
-    `${indent}[Test]\n` +
-    `${indent}[TestCategory("${category}")]\n` +
+    attributes +
     `${indent}public async Task ${testName}()\n` +
     `${indent}{\n` +
     acComment +
@@ -141,11 +183,14 @@ function renderTestMethodBlock(specDetails, indent) {
  */
 function scaffoldNewSpecFile(specDetails = {}) {
   const { className, baseClass, namespace } = specDetails;
+  const framework = resolveFramework(specDetails);
   assertIdentifier('className', className);
-  assertBaseClass(baseClass);
+  if (framework === 'nunit') assertBaseClass(baseClass);
   const ns = typeof namespace === 'string' && namespace.trim() !== '' ? namespace.trim() : DEFAULT_NAMESPACE;
 
   const methodBlock = renderTestMethodBlock(specDetails, '        '); // 8 spaces: namespace(0) + class(4) + member(8)
+
+  if (framework === 'xunit') return scaffoldXunitFile({ ...specDetails, className, ns }, methodBlock);
 
   return (
     'using System.Threading.Tasks;\n' +
@@ -158,6 +203,47 @@ function scaffoldNewSpecFile(specDetails = {}) {
     `    [TestCategory("${TEST_CATEGORY}")]\n` +
     `    public class ${className} : ${baseClass}\n` +
     '    {\n' +
+    methodBlock +
+    '    }\n' +
+    '}\n'
+  );
+}
+
+/**
+ * A new xUnit class in the shape a Playwright xUnit suite uses: a `[Collection]` shared fixture injected
+ * through the constructor (xUnit has no base class to inherit a page from). The collection name and fixture
+ * type are the project's own, so the caller must supply them (the command copies them from a sibling spec).
+ */
+function scaffoldXunitFile({ className, ns, collection, fixtureType, usings }, methodBlock) {
+  if (typeof collection !== 'string' || !COLLECTION_NAME_RE.test(collection.trim())) {
+    throw new Error(`collection must be the project's xUnit collection name (got: ${JSON.stringify(collection)}) -- copy it from a sibling spec class.`);
+  }
+  if (typeof fixtureType !== 'string' || !DOTTED_IDENTIFIER_RE.test(fixtureType)) {
+    throw new Error(`fixtureType must be the project's fixture class name (got: ${JSON.stringify(fixtureType)}) -- copy it from a sibling spec class.`);
+  }
+  const extra = [...new Set(Array.isArray(usings) ? usings : [])];
+  for (const u of extra) {
+    if (typeof u !== 'string' || !DOTTED_IDENTIFIER_RE.test(u)) throw new Error(`usings entries must be namespaces (got: ${JSON.stringify(u)})`);
+  }
+  const baseUsings = ['System.Threading.Tasks', 'Microsoft.Playwright', 'Xunit'];
+  const usingLines = [...baseUsings, ...extra.filter((u) => !baseUsings.includes(u))].map((u) => `using ${u};\n`).join('');
+
+  return (
+    usingLines +
+    '\n' +
+    `namespace ${ns}\n` +
+    '{\n' +
+    `    [Collection("${collection.trim()}")]\n` +
+    `    [Trait("Category", "${TEST_CATEGORY}")]\n` +
+    `    public class ${className}\n` +
+    '    {\n' +
+    `        private readonly ${fixtureType} _fixture;\n` +
+    '\n' +
+    `        public ${className}(${fixtureType} fixture)\n` +
+    '        {\n' +
+    '            _fixture = fixture;\n' +
+    '        }\n' +
+    '\n' +
     methodBlock +
     '    }\n' +
     '}\n'
@@ -329,13 +415,21 @@ function appendTestMethod(existingContent, specDetails = {}) {
 
   const { closeBraceIndex } = findClassBodyRange(existingContent);
 
+  // An existing file already says which framework its tests use; never append the other one's attribute to it.
+  const requested = specDetails.framework === undefined ? undefined : resolveFramework(specDetails);
+  const inferred = inferFramework(existingContent);
+  if (requested && inferred && requested !== inferred) {
+    throw new Error(`framework mismatch: the existing file uses ${inferred} but framework '${requested}' was requested.`);
+  }
+  const framework = requested || inferred || 'nunit';
+
   // Indentation of the line the class's own closing brace sits on; new
   // members go one level (4 spaces) deeper than that.
   const lineStart = existingContent.lastIndexOf('\n', closeBraceIndex - 1) + 1;
   const braceLineIndent = (existingContent.slice(lineStart, closeBraceIndex).match(/^[ \t]*/) || [''])[0];
   const methodIndent = braceLineIndent + '    ';
 
-  const methodBlock = renderTestMethodBlock(specDetails, methodIndent);
+  const methodBlock = renderTestMethodBlock({ ...specDetails, framework }, methodIndent);
 
   const before = existingContent.slice(0, closeBraceIndex).replace(/[ \t\r\n]+$/, '');
   const after = existingContent.slice(closeBraceIndex); // starts at the class's own closing '}'
@@ -388,6 +482,8 @@ function writeOrAppendSpecFile(filePath, specDetails = {}, opts = {}) {
 
 module.exports = {
   VALID_BASE_CLASSES,
+  VALID_FRAMEWORKS,
+  inferFramework,
   scaffoldNewSpecFile,
   appendTestMethod,
   writeOrAppendSpec,

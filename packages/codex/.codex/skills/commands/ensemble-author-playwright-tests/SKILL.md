@@ -3,7 +3,7 @@ name: ensemble-author-playwright-tests
 description: "Interactive, post-implementation Playwright test-authoring session grounded in shipped code and PRD acceptance criteria"
 disable-model-invocation: true
 metadata:
-  version: "2.6.0"
+  version: "2.7.0"
   category: testing
 ---
 

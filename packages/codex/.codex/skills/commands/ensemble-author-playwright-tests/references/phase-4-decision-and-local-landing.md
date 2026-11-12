@@ -34,6 +34,6 @@ TRD-027 (satisfies REQ-006, REQ-014): write/append the test file
 and apply its traceability tag — AC-006-2's existing-file append
 must be checked before scaffolding a redundant new one.
 
-- Determine whether an existing spec file in the consuming application's E2E test project already covers this AC's REQ (e.g. from Phase 1's resume-scan); call writeOrAppendSpecFile(filePath, specDetails) from $E2E_LIB/spec-writer.js — it scaffolds a new file when none exists, or appends a [Test] method to the existing one, never both
+- Determine whether an existing spec file in the consuming application's E2E test project already covers this AC's REQ (e.g. from Phase 1's resume-scan); call writeOrAppendSpecFile(filePath, specDetails) from $E2E_LIB/spec-writer.js with specDetails.framework — it scaffolds a new file when none exists, or appends a [Test] (nunit) or [Fact] (xunit) method to the existing one, never both. A new xunit file also needs {collection, fixtureType} copied from a sibling spec class; it refuses without them, and refuses to append the wrong framework to an existing file
 - Call tagTestMethod(fileContent, {acId, acText, reqId, documentId}) from $E2E_LIB/traceability-tagger.js to turn spec-writer.js's plain anchor comment into the full `@hash:`/doc-id/`@REQ` traceability tag
 - Log via logAction({type: "test-written", acId, testName, filePath, mode: "created"|"appended"}) from $E2E_LIB/session-logger.js

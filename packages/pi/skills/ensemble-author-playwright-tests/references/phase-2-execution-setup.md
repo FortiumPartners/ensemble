@@ -3,13 +3,9 @@
 
 #### Step 2.1: Ask Headed or Headless — Once Per Session
 
-REQ-013: before running the first test in the session, ask the QA
-engineer (in conversation — this session is interactive via Claude
-Code, so "asking" means posing the question directly, not a GUI
-dialog) whether they want to watch the browser run (headed) or let
-it run independently and report status back (headless). This is a
-single, one-time choice for the whole session, made once here
-before the first test run — do not re-ask per AC.
+REQ-013: before the first test runs, ask the QA engineer directly
+in conversation whether to watch the browser (headed) or run
+independently (headless): one choice for the whole session.
 
 - Before running the first test this session, ask the QA engineer: "Would you like to watch these tests run (headed), or should I run them independently and report status back (headless)?"
 - If they do not specify a preference, default to headed — this session is interactive by default
@@ -36,8 +32,7 @@ A headed run at full speed is hard to follow, so the QA engineer can
 ask for a pause after each browser action: Playwright's own `SlowMo`
 launch option (the Run request's `slowMoMs`, resolved by
 test-runner-mode.js's resolveRunConfig), never text inserted into
-the test source. Asked after the QA environment is verified, so a
-session that halts there never prompts for it.
+the test source. Asked after the QA environment is verified.
 
 - If the mode recorded in step 1 is headless: skip this step entirely — no human is watching, so never ask and never set slowMoMs (validateRunRequest and resolveRunConfig both reject it in headless mode)
 - If the mode is headed, ask once: "Add a 1-second pause after each browser action so you can follow along? (yes / no / or a different pause, e.g. 2s or 500ms)"
@@ -50,3 +45,4 @@ Every confirmed test opens an EvidenceCapture scope, so its end state is screens
 
 - Call resolveEvidenceDir(process.env) from $E2E_LIB/evidence-capture.js; carry it forward as evidenceDir for every Run request
 - If the consuming E2E test project has no EvidenceCapture.cs, write renderEvidenceHelper({namespace}) from the same module into it and tell the QA engineer it lands in this PR — confirmed tests call it, so it must exist before the first Run
+- Call detectE2eFrameworkInDir(<that project's directory>) from $E2E_LIB/e2e-framework.js; carry the result forward as framework ("nunit" when it returns null)
