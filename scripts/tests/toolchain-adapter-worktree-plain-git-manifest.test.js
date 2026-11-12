@@ -213,6 +213,15 @@ describe('#146: the shipped worktree default satisfies a worktree.* requirement 
   // requested in ONE call so the workflow half's own requirement is proven still satisfied by
   // the same resolution pass: a fix that merely swapped which half wins would fail here.
   test('runPreflight over workflow and worktree together satisfies workflow.status and worktree.create', async () => {
+    // The project root is a throwaway git repository, never this checkout: `runPreflight` writes
+    // its state file under `<projectRoot>/.ensemble/state/toolchain/`, and a test that wrote it
+    // into the checkout left that file behind in the local CI gate's clean clone, where the
+    // runner refuses any leftover file outside its output paths (`unexpected-output`) and so
+    // did not count a run whose every step had passed. A bare repo with no config has every
+    // category on its shipped default, which is what this test is about.
+    const projectRoot = mkTempDir('worktree-preflight-146-');
+    const init = spawnSync('git', ['init', '--quiet'], { cwd: projectRoot, encoding: 'utf8' });
+    expect(init.status).toBe(0);
     const result = await runPreflight(
       {
         categories: ['workflow', 'worktree'],
@@ -220,7 +229,7 @@ describe('#146: the shipped worktree default satisfies a worktree.* requirement 
         runId: `plain-git-146-${process.pid}`,
         nonInteractive: true
       },
-      { projectRoot: REPO_ROOT, env: { PATH: process.env.PATH } }
+      { projectRoot, env: { PATH: process.env.PATH } }
     );
 
     // Asserted as the whole envelope: a bare `expect(result.ok).toBe(true)` reports "false"
@@ -228,7 +237,7 @@ describe('#146: the shipped worktree default satisfies a worktree.* requirement 
     expect(result.error).toBeUndefined();
     expect(result.ok).toBe(true);
     expect(result.categories).toEqual(['workflow', 'worktree']);
-    // Two real subprocesses (`git --version`, `git worktree list`) against this checkout, so
+    // Two real subprocesses (`git --version`, `git worktree list`) against that repository, so
     // the default 5000ms is not enough on a cold filesystem cache; the same per-test timeout
     // convention scripts/tests/toolchain-preflight.test.js already uses for its real-process
     // cases.
