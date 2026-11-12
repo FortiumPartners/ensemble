@@ -1,0 +1,446 @@
+---
+name: xunit
+description: Execute and generate xUnit tests for C#/.NET projects with FluentAssertions and Moq support
+metadata:
+  version: "1.0.0"
+---
+
+# xUnit Test Framework
+
+## Purpose
+
+Provide xUnit.net (v2) test execution and generation for C#/.NET projects, supporting:
+- Test file scaffolding from bug reports (`generate-test.cs`)
+- Test execution through `dotnet test` with structured JSON output (`run-test.sh`)
+- `[Fact]`/`[Theory]` tests, fixtures, collections, and parallelism control
+- FluentAssertions and Moq for readable assertions and mocking
+
+## Usage
+
+### Generate Test File
+
+Create a test-class scaffold from a bug report or feature description (requires the .NET 10 SDK or newer, which runs a single `.cs` file directly):
+
+```bash
+dotnet run generate-test.cs -- \
+  --source=src/Calculator.cs \
+  --output=tests/CalculatorTests.cs \
+  --description="Division by zero" \
+  --namespace=MyApp.Tests
+```
+
+The generated `[Fact]` ends in `Assert.Fail(...)`; the scaffold fails until you replace it with a real Arrange/Act/Assert that reproduces the bug.
+
+### Execute Tests
+
+Run the tests and return structured results:
+
+```bash
+./run-test.sh --file=tests/CalculatorTests.cs
+./run-test.sh --file=tests/MyApp.Tests.csproj --filter="Category=Unit"
+```
+
+## Command Line Options
+
+### generate-test.cs
+
+- `--source <path>` - Source file under test (required; its file name gives the class name, `Calculator.cs` -> `CalculatorTests`)
+- `--output <path>` - Output test file path (required)
+- `--description <text>` - Bug description or test purpose (becomes the test method name; default: `basic test`)
+- `--namespace <name>` - Namespace of the generated class (default: `Tests`)
+
+Both `--name=value` and `--name value` forms are accepted.
+
+### run-test.sh
+
+- `--file <path>` - A `*.cs` test file (the nearest enclosing `.csproj` is tested, filtered to the class named after the file), or a `.csproj`/`.sln`/directory (default: `.`)
+- `--filter <expr>` - `dotnet test --filter` expression; overrides the filter derived from a `.cs` file
+- `--coverage` - Collect coverage with coverlet (`--collect:"XPlat Code Coverage"`)
+
+Requires the `dotnet` SDK and `node` (used to turn the TRX report into JSON).
+
+## Output Format
+
+### Test Generation
+
+```json
+{
+  "success": true,
+  "testFile": "tests/CalculatorTests.cs",
+  "testCount": 1,
+  "template": "unit-test"
+}
+```
+
+### Test Execution
+
+```json
+{
+  "success": false,
+  "passed": 2,
+  "failed": 1,
+  "skipped": 0,
+  "total": 3,
+  "duration": 0.234,
+  "failures": [
+    {
+      "test": "Demo.Tests.CalculatorTests.Divide_ByZero_Throws",
+      "error": "Assert.Throws() Failure: No exception was thrown",
+      "file": "/repo/tests/CalculatorTests.cs",
+      "line": 15
+    }
+  ]
+}
+```
+
+`duration` is in seconds. `success` is true only when at least one test ran, none failed, and `dotnet test` exited 0. A build or restore failure returns `{"success": false, "error": "...", "output": "<last lines of dotnet output>"}`.
+
+## xUnit Test Structure
+
+### Facts and Theories
+
+```csharp
+using Xunit;
+
+namespace Demo.Tests;
+
+public class CalculatorTests
+{
+    private readonly Calculator _sut = new();   // new instance per test
+
+    [Fact]
+    public void Add_TwoNumbers_ReturnsSum()
+    {
+        Assert.Equal(3, _sut.Add(1, 2));
+    }
+
+    [Fact]
+    public void Divide_ByZero_Throws()
+    {
+        var ex = Assert.Throws<DivideByZeroException>(() => _sut.Divide(1, 0));
+        Assert.Equal("Divisor must not be zero", ex.Message);
+    }
+
+    [Theory]
+    [InlineData(1, 2, 3)]
+    [InlineData(-1, -2, -3)]
+    public void Add_Theory(int a, int b, int expected) => Assert.Equal(expected, _sut.Add(a, b));
+}
+```
+
+### Theory Data Sources
+
+```csharp
+// [MemberData]: static property, field, or method on the class (or another type via MemberType =)
+public static TheoryData<int, int, int> DivideCases => new()
+{
+    { 8, 2, 4 },
+    { 10, 5, 2 },
+};
+
+[Theory]
+[MemberData(nameof(DivideCases))]
+public void Divide_MemberData(int a, int b, int expected) => Assert.Equal(expected, _sut.Divide(a, b));
+
+// [ClassData]: reusable data in its own class (IEnumerable<object[]> or TheoryData<...>)
+public class AddCases : TheoryData<int, int, int>
+{
+    public AddCases() { Add(1, 1, 2); Add(10, -4, 6); }
+}
+
+[Theory]
+[ClassData(typeof(AddCases))]
+public void Add_ClassData(int a, int b, int expected) => Assert.Equal(expected, _sut.Add(a, b));
+```
+
+`IEnumerable<object[]>` also works for `[MemberData]`, but `TheoryData<>` is type-checked at compile time.
+
+### Setup and Teardown
+
+xUnit creates a **new instance of the test class for every test**: the constructor is setup, `IDisposable.Dispose` is teardown, and instance fields are never shared between tests.
+
+```csharp
+public class OrderTests : IDisposable
+{
+    private readonly ITestOutputHelper _output;
+
+    public OrderTests(ITestOutputHelper output)   // xUnit injects ITestOutputHelper
+    {
+        _output = output;
+    }
+
+    [Fact]
+    public void Writes_Diagnostics() => _output.WriteLine("shown by the detailed logger");  // Console.WriteLine is NOT captured
+
+    public void Dispose() { /* cleanup after each test */ }
+}
+
+// Async setup/teardown: InitializeAsync runs after the constructor, DisposeAsync before Dispose
+public class AsyncOrderTests : IAsyncLifetime
+{
+    private string? _data;
+    public async Task InitializeAsync() { await Task.Delay(1); _data = "loaded"; }
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    [Fact]
+    public async Task Uses_Initialized_Data()
+    {
+        await Task.Yield();
+        Assert.Equal("loaded", _data);
+    }
+}
+```
+
+### Shared Context: Class and Collection Fixtures
+
+```csharp
+public class DatabaseFixture : IDisposable      // created once, disposed after the last test
+{
+    public string ConnectionString { get; } = "Data Source=:memory:";
+    public void Dispose() { }
+}
+
+// One instance per test class
+public class UsesClassFixture : IClassFixture<DatabaseFixture>
+{
+    private readonly DatabaseFixture _db;
+    public UsesClassFixture(DatabaseFixture db) => _db = db;   // injected via constructor
+
+    [Fact]
+    public void Fixture_Is_Injected() => Assert.NotEmpty(_db.ConnectionString);
+}
+
+// One instance shared across several classes
+[CollectionDefinition("Database")]
+public class DatabaseCollection : ICollectionFixture<DatabaseFixture> { }   // marker only, never instantiated
+
+[Collection("Database")]
+public class CollectionTestsA
+{
+    public CollectionTestsA(DatabaseFixture db) { }
+}
+
+[Collection("Database")]
+public class CollectionTestsB
+{
+    public CollectionTestsB(DatabaseFixture db) { }
+}
+```
+
+Fixtures may implement `IAsyncLifetime` for async setup.
+
+### Common xUnit Assertions
+
+- `Assert.Equal(expected, actual)` / `Assert.NotEqual` - Equality (arrays and collections compare element-wise; `precision:` for doubles, `ignoreCase: true` for strings)
+- `Assert.True(expr)` / `Assert.False(expr)` - Boolean checks
+- `Assert.Null(x)` / `Assert.NotNull(x)` - Null checks
+- `Assert.Same(a, b)` - Reference equality
+- `Assert.Contains` / `Assert.DoesNotContain` - Substring or collection membership
+- `Assert.StartsWith` / `Assert.EndsWith` / `Assert.Matches(regex, s)` - String checks
+- `Assert.Empty` / `Assert.NotEmpty` / `Assert.Single` - Collection size checks
+- `Assert.All(items, n => ...)` / `Assert.Collection(items, first => ..., second => ...)` - Per-element checks
+- `Assert.InRange(actual, low, high)` - Range check
+- `Assert.IsType<T>(x)` (exact type, returns the cast value) / `Assert.IsAssignableFrom<T>(x)` (base type or interface)
+- `Assert.Throws<T>(action)` (exact type) / `Assert.ThrowsAny<T>(action)` (derived allowed) - Exceptions
+- `await Assert.ThrowsAsync<T>(async () => ...)` - Async exceptions (`Assert.Throws` with an async lambda is a compile error)
+- `Assert.Raises<TArgs>(attach, detach, action)` - Events
+- `Assert.Fail("reason")` - Explicit failure (xUnit 2.5+)
+
+### FluentAssertions
+
+```csharp
+using FluentAssertions;
+
+calc.Add(2, 3).Should().Be(5);
+"Hello".Should().StartWith("He").And.EndWith("lo").And.HaveLength(5);
+new[] { 1, 2, 3 }.Should().Contain(2).And.HaveCount(3).And.BeInAscendingOrder();
+
+var act = () => calc.Divide(1, 0);
+act.Should().Throw<DivideByZeroException>().WithMessage("*zero*");
+
+Func<Task> asyncAct = async () => { await Task.Delay(1); throw new InvalidOperationException(); };
+await asyncAct.Should().ThrowAsync<InvalidOperationException>();
+
+actual.Should().BeEquivalentTo(expected);   // structural comparison
+```
+
+FluentAssertions 8.0 and later moved to a commercial license (Xceed) for commercial use; 7.x and earlier (e.g. `6.12.2`) are Apache-2.0. Pin the version your organization has cleared.
+
+### Mocking with Moq
+
+```csharp
+using Moq;
+
+var mailer = new Mock<IMailer>();
+mailer.Setup(m => m.SendAsync("ann@example.com", It.IsAny<string>())).ReturnsAsync(true);
+
+var clock = new Mock<IClock>();
+clock.SetupGet(c => c.UtcNow).Returns(new DateTime(2024, 1, 2, 0, 0, 0, DateTimeKind.Utc));
+
+var sut = new Greeter(mailer.Object, clock.Object);   // .Object is the mock instance
+var ok = await sut.GreetAsync("ann@example.com");
+
+mailer.Verify(m => m.SendAsync("ann@example.com", "Hello at 2024-01-02"), Times.Once);
+mailer.Verify(m => m.Log(It.Is<string>(s => s.Contains("ann"))), Times.Once);
+mailer.VerifyNoOtherCalls();
+```
+
+Moq mocks interfaces and virtual/abstract members; non-virtual members cannot be mocked, so extract an interface instead.
+
+### Async Tests
+
+Return `Task` (or `ValueTask`), never `async void`:
+
+```csharp
+[Fact]
+public async Task GetUser_Missing_ThrowsNotFound()
+{
+    await Assert.ThrowsAsync<KeyNotFoundException>(() => _service.GetUserAsync(42));
+}
+```
+
+### Skipping, Traits, and Display Names
+
+```csharp
+[Fact(Skip = "Blocked by issue #123")]            // reported as Skipped, with the reason
+public void Not_Yet_Handled() { }
+
+[Fact(DisplayName = "Readable name shown in reports")]
+public void Named() { }
+
+[Fact]
+[Trait("Category", "Unit")]                       // filter with --filter "Category=Unit"
+[Trait("Priority", "1")]
+public void Tagged() { }
+
+[Trait("Category", "Integration")]                // a class-level trait applies to every test in it
+public class IntegrationTests { }
+```
+
+xUnit v2 has no runtime skip. Use the `Xunit.SkippableFact` package (`[SkippableFact]` plus `Skip.If(condition, reason)` / `Skip.IfNot(...)`) to skip based on environment.
+
+### Parallelism
+
+- Each test class is its own collection by default.
+- Different collections run in parallel; tests inside one collection run sequentially.
+- Classes marked `[Collection("Name")]` with the same name share a collection and never run in parallel with each other (use this for tests sharing a database, file, or static state).
+- Turn parallelism off for the whole assembly:
+
+```csharp
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+```
+
+- Or tune it with `xunit.runner.json` (copy to the output directory in the `.csproj` with `<None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />`):
+
+```json
+{
+  "$schema": "https://xunit.net/schema/current/xunit.runner.schema.json",
+  "parallelizeTestCollections": true,
+  "maxParallelThreads": 4
+}
+```
+
+## Running Tests with dotnet
+
+```bash
+dotnet test                                                  # all tests in the project/solution
+dotnet test tests/MyApp.Tests.csproj                         # one project
+dotnet test --filter "FullyQualifiedName~CalculatorTests"    # class (or namespace) by substring
+dotnet test --filter "FullyQualifiedName=Demo.Tests.CalculatorTests.Add_TwoNumbers_ReturnsSum"
+dotnet test --filter "Category=Unit"                         # by [Trait("Category", "Unit")]
+dotnet test --filter "Category=Unit&Priority=1"              # & = and, | = or, != = not
+dotnet test --logger "console;verbosity=detailed"            # show ITestOutputHelper output and per-test results
+dotnet test --logger trx --results-directory ./TestResults   # machine-readable TRX report
+dotnet test --collect:"XPlat Code Coverage"                  # coverage via coverlet.collector
+dotnet test --list-tests                                     # list discovered tests without running
+dotnet test --no-build                                       # reuse the previous build
+```
+
+Coverage is written to `TestResults/<guid>/coverage.cobertura.xml`; the `coverlet.collector` package is included by the `dotnet new xunit` template.
+
+## Integration with deep-debugger
+
+The deep-debugger agent uses this skill for C#/.NET projects:
+
+1. **Test Recreation**: Generate a failing test from the bug report
+2. **Test Validation**: Execute the test to verify it fails consistently
+3. **Fix Verification**: Re-run the test after the fix to ensure it passes
+
+Example workflow:
+
+```markdown
+1. deep-debugger receives bug report for .NET project
+2. Invokes detect-stack (test axis) to identify xUnit
+3. Invokes xunit-test/generate-test.cs to create failing test
+4. Fills in the Arrange/Act/Assert body so it reproduces the bug
+5. Invokes xunit-test/run-test.sh to validate test fails
+6. Delegates fix to appropriate specialist agent
+7. Invokes xunit-test/run-test.sh to verify fix
+```
+
+## Dependencies
+
+Requires the .NET SDK and a test project referencing xUnit (`dotnet new xunit` creates one):
+
+```xml
+<ItemGroup>
+  <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+  <PackageReference Include="xunit" Version="2.9.3" />
+  <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  <PackageReference Include="coverlet.collector" Version="6.0.4" />
+  <!-- Optional -->
+  <PackageReference Include="FluentAssertions" Version="6.12.2" />
+  <PackageReference Include="Moq" Version="4.20.72" />
+</ItemGroup>
+```
+
+```bash
+dotnet --version   # run-test.sh needs the SDK; generate-test.cs needs .NET 10 or newer
+```
+
+xUnit.net v3 (`xunit.v3` package) differs from the v2 patterns above: test projects are executables (`<OutputType>Exe</OutputType>`), `ITestOutputHelper` lives in the `Xunit` namespace (there is no `Xunit.Abstractions`), and `IAsyncLifetime` members return `ValueTask`. The examples in this skill target v2 and have not been run against v3.
+
+## File Naming Conventions
+
+- Test classes end in `Tests` (`CalculatorTests`), one class per file, same name as the file
+- Mirror the source layout in a separate `*.Tests` project: `src/MyApp/Calculator.cs` -> `tests/MyApp.Tests/CalculatorTests.cs`
+- Test method names: `Method_Scenario_ExpectedResult`
+- xUnit discovers tests by attribute, not by name; the `Tests` suffix is only a convention. Keep test classes `public`
+
+## Error Handling
+
+### Test Generation Errors
+
+```json
+{
+  "success": false,
+  "error": "--source and --output are required"
+}
+```
+
+### Test Execution Errors
+
+```json
+{
+  "success": false,
+  "error": "No .csproj found above the test file",
+  "file": "tests/CalculatorTests.cs"
+}
+```
+
+```json
+{
+  "success": false,
+  "error": "dotnet test produced no results (build or restore failed?)",
+  "output": "...error CS1002: ; expected..."
+}
+```
+
+## See Also
+
+- [xUnit.net Documentation](https://xunit.net/docs/getting-started/v2/getting-started)
+- [Shared Context between Tests](https://xunit.net/docs/shared-context)
+- [Running Tests in Parallel](https://xunit.net/docs/running-tests-in-parallel)
+- [dotnet test filter options](https://learn.microsoft.com/dotnet/core/testing/selective-unit-tests)
+- [FluentAssertions](https://fluentassertions.com/introduction)
+- [Moq Quickstart](https://github.com/devlooped/moq/wiki/Quickstart)

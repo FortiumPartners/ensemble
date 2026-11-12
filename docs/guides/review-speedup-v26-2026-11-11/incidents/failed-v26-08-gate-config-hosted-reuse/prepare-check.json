@@ -1,0 +1,12 @@
+{
+ "tierExpected": "medium",
+ "tierGot": "medium",
+ "gateAction": "not-started",
+ "mode": "light",
+ "cap": 8,
+ "reReview": null,
+ "quiet": {
+  "waitedMs": 45154,
+  "quiet": true
+ }
+}

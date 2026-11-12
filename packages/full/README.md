@@ -18,7 +18,7 @@ Part of the ensemble plugin ecosystem for Claude Code. This plugin provides comp
 
 ## Usage
 
-After installation, this plugin's agents, commands, and skills will be automatically available in Claude Code.
+After installation, this plugin's agents and skills are available in Claude Code. It ships no command stubs: every command is a skill, invoked as `/ensemble-full:ensemble-<name>` (for example `/ensemble-full:ensemble-refine-prd`). The `/ensemble:<name>` form belongs to the standalone plugins and the Pi, Codex and OpenCode runtimes.
 
 ## Documentation
 

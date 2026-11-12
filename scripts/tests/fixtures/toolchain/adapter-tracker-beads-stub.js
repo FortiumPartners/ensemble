@@ -123,7 +123,10 @@ if (argv[0] === '--version') {
     out(listShape === 'bare' ? issues : { issues, total: issues.length, limit: 0, offset: 0, has_more: false });
   }
 } else if (argv[0] === 'create') {
-  out([{ id: 'br-created-1', title: 'Stub created', status: 'open' }]);
+  // Matches the REAL br create --json shape (captured live, br 0.6.0): a BARE issue object,
+  // never array-wrapped like show/update/close (the earlier array-wrapped stub here was an
+  // inference that hid a real $[0]-root BAD_OUTPUT bug in the adapter's tracker.create).
+  out({ id: 'br-created-1', title: 'Stub created', status: 'open' });
 } else if (argv[0] === 'update') {
   out([{ id: argv[1], status: 'open' }]);
 } else if (argv[0] === 'close') {
@@ -139,9 +142,11 @@ if (argv[0] === '--version') {
 } else if (argv[0] === 'comments' && argv[1] === 'list') {
   out(errorEnvelope ? ERROR_ENVELOPE : [{ author: 'stub', text: 'a stub comment' }]);
 } else if (argv[0] === 'dep' && argv[1] === 'add') {
-  out([{ id: argv[2] }]);
+  // Real shape captured live (br 0.6.0, br-dep-add/-remove samples): a bare object keyed by
+  // issue_id, no id field, no array wrapper.
+  out({ status: 'ok', issue_id: argv[2], depends_on_id: argv[3], type: 'blocks', action: 'added' });
 } else if (argv[0] === 'dep' && argv[1] === 'remove') {
-  out([{ id: argv[2] }]);
+  out({ status: 'ok', issue_id: argv[2], depends_on_id: argv[3], type: 'blocks', action: 'removed' });
 } else if (argv[0] === 'label' && argv[1] === 'add') {
   out(errorEnvelope ? ERROR_ENVELOPE : { ids: [argv[2]], labels: ['stub-label'] });
 } else if (argv[0] === 'sync') {

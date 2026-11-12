@@ -37,13 +37,11 @@
  * Each scenario carries a negative control, so an implementation that
  * answered "sensitive" (or "not sensitive") to everything would fail here.
  *
- * One property of the shipped policy loader is characterized rather than
- * asserted as desirable: `sourceSha` must equal the review's base commit
- * exactly. The adopting team's refresh step (`git rev-parse HEAD` after the
- * block lands, as the command and REVIEW.md both instruct) is therefore
- * applied by `refreshSourceSha` below against the base commit under review;
- * `staleSourceSha` covers the un-refreshed case and shows the fallback is the
- * strict defaults, which is the safe direction.
+ * One property of the shipped policy loader is worth stating: the policy
+ * block's identity is the commit the caller read it from. The caller passes
+ * `sourceSha` = `baseSha`, and a block never declares a `sourceSha` of its
+ * own (a commit cannot name itself). A text read from any other commit gets
+ * the strict defaults, which is the safe direction.
  */
 
 const crypto = require('crypto');
@@ -199,16 +197,6 @@ function withPolicyBlock(text, policy) {
   return text.replace(POLICY_BLOCK, `\`\`\`ensemble-review-policy\n${JSON.stringify(policy, null, 2)}\n\`\`\``);
 }
 
-/**
- * The refresh the command and REVIEW.md both instruct ("keep `sourceSha`
- * pointing at the commit this policy takes effect from -- refresh it with
- * `git rev-parse HEAD` after the change lands"), applied to the base commit
- * the review is actually running against.
- */
-const refreshSourceSha = (text, baseSha) => withPolicyBlock(
-  text, { ...policyBlockOf(text), sourceSha: baseSha },
-);
-
 /** One CLI call: a fresh process, one JSON payload in, one JSON object out. */
 function cli(subcommand, payload) {
   const res = spawnSync('node', [CLI, subcommand], {
@@ -237,15 +225,14 @@ function ruleFilesAt(repo, sha, rulesFileName = 'REVIEW.md') {
  * Resolves the guidance for one review of `changedPaths` against `baseSha`,
  * running the real CLI in the documented order (policy, then rules, then
  * paths -- `paths` consumes what `policy` returned -- then description).
- *
- * `refresh` false leaves the declared `sourceSha` as it was committed, which
- * is how a team that never ran the refresh step is reviewed.
+ * The policy text is read from the base commit and the caller names that
+ * commit as `sourceSha`, exactly as the skill does.
  */
-function reviewAt(repo, baseSha, { changedPaths, body, agentAuthored = false, refresh = true } = {}) {
+function reviewAt(repo, baseSha, { changedPaths, body, agentAuthored = false } = {}) {
   const rulesFileName = 'REVIEW.md';
   const rootText = showAt(repo, baseSha, rulesFileName);
   const codeowners = showAt(repo, baseSha, '.github/CODEOWNERS');
-  const text = rootText !== null && refresh ? refreshSourceSha(rootText, baseSha) : rootText;
+  const text = rootText;
 
   const policy = cli('policy', { text, baseSha, sourceSha: baseSha });
   const rules = cli('rules', {
@@ -543,31 +530,33 @@ describe('AC-003-1: an owner-declared sensitive path is sensitive everywhere', (
     expect(review.paths.declarationChanged).toBe(true);
 
     // Reviewing the head's own copy instead would be the relaxed answer the
-    // base-commit rule exists to prevent: it is never what a review loads.
-    const headPolicy = cli('policy', { text: headText, baseSha, sourceSha: baseSha });
+    // base-commit rule exists to prevent: the caller names the commit it read
+    // the text from, and the head commit is not the base.
+    const headSha = git(repo, ['rev-parse', 'HEAD']).trim();
+    const headPolicy = cli('policy', { text: headText, baseSha, sourceSha: headSha });
     expect(headPolicy.ok).toBe(false);
     expect(headPolicy.reason).toBe('policy-not-from-base');
   });
 
-  test('an un-refreshed sourceSha falls back to the strict defaults, never to a relaxed policy', () => {
+  test('text read from a commit other than the base falls back to the strict defaults, never to a relaxed policy', () => {
     const { repo, sha } = repoWithDeclaration();
 
-    // The team never ran `git rev-parse HEAD` to point sourceSha at the base.
-    const stale = reviewAt(repo, sha, {
-      changedPaths: ['services/billing/charge.js'],
-      refresh: false,
-    });
-    expect(stale.policy.ok).toBe(false);
-    expect(stale.policy.reason).toBe('policy-not-from-base');
-    expect(stale.policy.policy).toEqual(DEFAULT_POLICY);
-    expect(stale.policy.policy.sensitivePaths).toEqual([]);
+    // The caller read the policy text from another commit than the review's base.
+    const otherCommit = 'f'.repeat(40);
+    const rootText = showAt(repo, sha, 'REVIEW.md');
+    const stale = cli('policy', { text: rootText, baseSha: sha, sourceSha: otherCommit });
+    expect(stale.ok).toBe(false);
+    expect(stale.reason).toBe('policy-not-from-base');
+    expect(stale.policy).toEqual(DEFAULT_POLICY);
+    expect(stale.policy.sensitivePaths).toEqual([]);
 
     // The fallback is the cautious one: the built-in floor still applies.
-    const floor = reviewAt(repo, sha, {
+    const floor = cli('paths', {
       changedPaths: ['.github/workflows/release.yml'],
-      refresh: false,
+      declaration: { sourceSha: sha, sensitive: stale.policy.sensitivePaths, high: stale.policy.highPaths },
+      baseSha: sha,
     });
-    expect(floor.paths.prSensitive).toBe(true);
+    expect(floor.prSensitive).toBe(true);
   });
 });
 

@@ -1,0 +1,31 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26",
+ "runId": "v26-03-pr207-new-first-rep",
+ "adjudications": [
+  {
+   "id": "f3",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f7",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f8",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f9",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f16",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  }
+ ]
+}

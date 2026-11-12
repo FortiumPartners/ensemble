@@ -94,3 +94,44 @@ capabilities:
     required: false
     sideEffect: false
     fallback: full-export-unscoped
+
+  # Findings-as-beads capabilities (plan docs/plans/pr-review-speedup-plan.md section 3H item 1,
+  # kata yfbg). All four are OPTIONAL and carry a `fallback`: runner.js#lookupCapability only
+  # returns the structured `UNAVAILABLE` envelope (never a throw, never NOT_ALLOWED) for an
+  # adapter that omits an optional capability when the contract declares a `fallback` id, so a
+  # repository whose tracker lacks these degrades to "skip the beads, still show the findings
+  # list" instead of failing. They are separate capabilities, not extra inputs on
+  # tracker.create/update/close, because an adapter's `run[]` is one fixed argv template: every
+  # `${placeholder}` in it is mandatory per call (runner.js#resolveArg), so adding labels/
+  # priority/key to tracker.create would break every existing caller that omits them.
+  tracker.create-detailed:
+    description: Create a work item with labels, a priority and an external dedupe key in one call.
+    inputs: [title, description, type, labels, priority, externalKey]
+    outputs: [id]
+    required: false
+    sideEffect: true
+    fallback: skip-finding-beads
+
+  tracker.find-by-key:
+    description: List the work items of the whole tracker, closed ones included and NOT limited to one label (an external dedupe key is unique tracker-wide), so the caller can select the one whose external dedupe key equals `key` (exact match; zero, one or many) and read its labels.
+    inputs: [key]
+    outputs: [items]
+    required: false
+    sideEffect: false
+    fallback: skip-finding-beads
+
+  tracker.update-detailed:
+    description: Rewrite a work item's title, description and priority and append a note, without touching its labels or status.
+    inputs: [id, title, description, priority, notes]
+    outputs: [id]
+    required: false
+    sideEffect: true
+    fallback: skip-finding-beads
+
+  tracker.close-with-reason:
+    description: Close a work item recording why it was closed and the commit that resolved it.
+    inputs: [id, reason, commit]
+    outputs: [id, status]
+    required: false
+    sideEffect: true
+    fallback: skip-finding-beads

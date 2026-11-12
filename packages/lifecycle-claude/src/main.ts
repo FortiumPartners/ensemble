@@ -48,14 +48,19 @@ interface HookInput {
   prompt?: unknown;
 }
 
-const COLON_FORM = /^\s*\/ensemble:([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/;
+// `/ensemble:<name>`, plus the plugin-namespaced forms Claude Code produces: `/ensemble-full:ensemble-<name>`
+// (the bundle ships skills only) and `/ensemble-<plugin>:ensemble:<name>` (a standalone plugin's command).
+const COLON_FORM =
+  /^\s*\/(?:ensemble:|ensemble-[a-z0-9]+(?:-[a-z0-9]+)*:ensemble[:-])([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/;
 const PROMPT_UNSUPPORTED = "prompt handlers need a model call, which a Claude Code hook cannot make; they run only in Pi";
 
-/** `/ensemble:<name> args` -> the command a hooks file names; dispatchers resolve to their target. */
+/** `/ensemble:<name> args` (or a plugin-namespaced form of it) -> the command a hooks file names; dispatchers resolve to their target. */
 export function resolveClaudeCommand(prompt: string): { command: string; arguments: string } | undefined {
   const match = COLON_FORM.exec(prompt);
   if (!match) return undefined;
-  if (Object.hasOwn(DISPATCHER_TARGETS, `ensemble-${match[1]}`)) return resolveCommand(prompt);
+  if (Object.hasOwn(DISPATCHER_TARGETS, `ensemble-${match[1]}`)) {
+    return resolveCommand(`/ensemble:${match[1]}${match[2] === undefined ? "" : ` ${match[2]}`}`);
+  }
   return { command: `ensemble:${match[1]}`, arguments: (match[2] ?? "").trim() };
 }
 

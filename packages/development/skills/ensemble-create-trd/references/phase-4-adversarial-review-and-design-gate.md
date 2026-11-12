@@ -1,0 +1,39 @@
+### Phase 4: Adversarial Review and Design Gate
+
+#### Step 4.1: Architecture Self-Critique
+
+Find real architecture gaps
+
+- If $ARGUMENTS contains '--parser-tables': skip this step and every other step of this phase -- Foreman table mode omits the adversarial review (no Architecture Self-Critique, Task Coverage Analysis, Dependency and Estimate Review, Testability Review or Design Readiness Gate) and continues with the Constitution Gate phase.
+- Look for components that must communicate but lack an interface or protocol/data format, missing error/failure-recovery paths, and decisions without rationale. Record issues found with resolutions and fix them in the draft; if there are none, say so.
+
+#### Step 4.2: Task Coverage Analysis
+
+Verify PRD requirement coverage and PR shippability
+
+- If $ARGUMENTS contains '--parser-tables': skip this step.
+- Check every PRD REQ-NNN has a task with [satisfies REQ-NNN] and a test task, that no task cites a nonexistent REQ-NNN, and every `### PR N:` has a meaningful `**Shippable State:**`.
+- Write the draft Master Task List to a scratch file (session scratchpad, NOT docs/TRD/) and run: node "$TRD_CLI" parse <scratch-path>. Parse {ok, trd:{tasksById, warnings}}.
+- If ok is false, tasksById is missing an intended task, or warnings contains 'No tasks found in the TRD', report a Task Coverage issue naming the offending lines (a missing checkbox prefix) before presenting the Design Readiness score.
+
+#### Step 4.3: Dependency and Estimate Review
+
+Check dependency risks and estimate confidence
+
+- If $ARGUMENTS contains '--parser-tables': skip this step.
+- Check for dependency chains deeper than 3, circular or implicit dependencies, inconsistent or optimistic estimates; report real issues with resolutions.
+
+#### Step 4.4: Testability Review
+
+Verify acceptance criteria can be objectively verified
+
+- If $ARGUMENTS contains '--parser-tables': skip this step.
+- Check Implementation ACs have specific pass/fail criteria (no unmeasured 'fast', 'good'), and that every TRD-NNN-TEST `Test AC:` has one `- [ ] Scenario:` item per AC-NNN-M in its Validates PRD ACs with none unlinked.
+
+#### Step 4.5: Design Readiness Gate
+
+Score the TRD and determine readiness
+
+- If $ARGUMENTS contains '--parser-tables': skip this step.
+- Score 1-5: architecture completeness, task coverage (REQ -> implementation + test tasks), dependency clarity, estimate confidence. Overall = average. Present the Design Readiness Scorecard.
+- PASS (4.0+): continue. CONCERNS (3.0-3.9): list concerns and ask whether to proceed or loop back (--foreman: log and proceed). FAIL (<3.0): fix the weakest dimensions before output (unaffected by --foreman).

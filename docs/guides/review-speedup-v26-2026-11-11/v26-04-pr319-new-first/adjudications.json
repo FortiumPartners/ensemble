@@ -1,0 +1,46 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26",
+ "runId": "v26-04-pr319-new-first",
+ "adjudications": [
+  {
+   "id": "f5",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled on a majority with a verifier missing). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f9",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f10",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f12",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f21",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f24",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f25",
+   "disposition": "deferred",
+   "reason": "Nit; 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it."
+  },
+  {
+   "id": "f26",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 2 real, 0 not-real and 0 abstaining of 3 expected verifiers (present, settled by its first quorum). Needs a fix on the PR or an operator decision; the review does not fix it."
+  }
+ ]
+}

@@ -1,0 +1,297 @@
+'use strict';
+// V2-6 final analysis (kata 1yjx): recompute every figure of the report from the run directories, regenerate the walltime rows with `walltime row`,
+// attempt `walltime compare`, and write the values + markdown tables the report quotes. Scratch; a copy goes into the evidence directory as text.
+// Usage: node final/v26-final.js   (after `node tools/reanalyze.js`). Reads ~/.omp/pr-review-speedup/v26/runs/<runId>/ and the committed trace files of
+// the worktree; writes final/out/*. Nothing here opens an agent session or transcript (owner decision D8).
+const fs = require('fs');
+const path = require('path');
+const HOME = process.env.HOME;
+const T = path.join(HOME, '.omp/pr-review-speedup/v26/tools');
+const R = require(path.join(T, 'v26-report.js'));
+const A = require(path.join(T, 'v26-analyze.js'));
+const L = require(path.join(T, 'v26-lib.js'));
+const C = require(path.join(T, 'v26-compare.js'));
+const OUT = path.join(L.SCRATCH, 'final', 'out');
+fs.mkdirSync(OUT, { recursive: true });
+const wr = (n, o) => fs.writeFileSync(path.join(OUT, n), typeof o === 'string' ? o : JSON.stringify(o, null, 1));
+const r2 = A.r2;
+const f2 = (x) => (x === null || x === undefined || Number.isNaN(x) ? 'n/a' : Number(x).toFixed(2));
+const f1 = (x) => (x === null || x === undefined || Number.isNaN(x) ? 'n/a' : Number(x).toFixed(1));
+const sgn = (x, d = 2) => { if (x === null || x === undefined) return 'n/a'; const v = Number(Number(x).toFixed(d)); return v > 0 ? `+${v.toFixed(d)}` : v.toFixed(d).replace(/^-(0\.0+)$/, '$1'); };
+const rd = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+
+// ---------- load and derive -----------------------------------------------------------------------------------------
+const runs = R.loadRuns();
+const ids = Object.keys(runs).filter((i) => !runs[i].incomplete);
+const ds = ids.map((i) => R.derive(runs[i]));
+const by = Object.fromEntries(ds.map((d) => [d.id, d]));
+const ARM = (a) => (a === 'old' ? 'OLD' : 'NEW');
+const clean = ds.filter((d) => !d.disturbed);
+const values = { generatedAt: new Date().toISOString(), code: '7f75b07', runsAnalysed: ids };
+
+// ---------- per-run records ------------------------------------------------------------------------------------------
+values.runs = ds.map((d) => ({
+  n: d.order, id: d.id, pr: d.pr, tier: d.tier, round: d.round, arm: d.arm, disturbed: d.disturbed,
+  startedAt: d.startedAt, endedAt: d.endedAt,
+  wallMin: d.wallMin, orchSec: d.orchSec, beforeFirstDispatchSec: d.beforeFirstDispatchSec, reviewRoundMin: d.reviewRoundMin, afterReviewMin: d.afterReviewMin,
+  verifyStartMin: d.verifyStartMin, verifyStageMin: d.verifyStageMin, firstWaveStageMin: d.firstWaveStageMin, secondWaveTailMin: d.secondWaveTailMin,
+  verifiersTotal: d.verifiersTotal, verifiersFirstWave: d.verifiersFirstWave, verifiersSecondWave: d.verifiersSecondWave, verifiersPlannedFull: d.verifiersPlannedFull,
+  firstWaveSavingPct: d.firstWaveSavingPct, netSavingPct: d.verifierSavingPct,
+  candidates: d.candidates, importantCount: d.importantCount, bySeverity: d.bySeverity, present: d.present, quorumSettled: d.quorumSettled, settledOnMajority: d.settledOnMajority, unverified: d.unverified, otherOutcomes: d.otherOutcomes,
+  secondWaveCandidates: d.secondWaveCandidates, secondWaveRate: d.secondWaveRate, secondWaveReasons: d.secondWaveReasons,
+  stopped: d.stoppedAtDeadline, verifiersExpired: d.verifiersExpired, verifierSlowestMin: d.verifierSlowestMin, verifierMedianMin: d.verifierMedianMin, agentsTotal: d.agentsTotal, agentsByRole: d.agentsByRole,
+  gateMin: d.gateMin, gateOk: d.gateOk, gateVerifyMinusEndMin: d.gateVerifyMinusEndMin, gateEndedBeforeVerify: d.gateEndedBeforeVerify,
+  load: d.load, quietWaitedMin: d.quietWaitedMin, flags: d.flags, harnessNonCompleted: d.harnessNonCompleted, harnessEnvelopeNotes: d.harnessEnvelopeNotes,
+  mode: d.mode, depth: d.depth, recall: d.recall,
+}));
+
+// ---------- pairs ---------------------------------------------------------------------------------------------------
+const pairsAll = R.buildPairs(ds);
+const pairRows = pairsAll.map((p) => {
+  const o = by[p.old]; const n = by[p.new];
+  const w = R.diffRow(o, n, 'wallMin'); const rr = R.diffRow(o, n, 'reviewRoundMin'); const vs = R.diffRow(o, n, 'verifyStageMin'); const ar = R.diffRow(o, n, 'afterReviewMin');
+  const sp = R.insideSpread(o.wallMin, w.diff);
+  const eq = R.outcomeEquality(o, n);
+  const verdictBoth = eq.matched.filter((m) => m.oldFinal.split('|')[0] === 'present' && m.newFinal.split('|')[0] === 'present').length;
+  const newUnvOldPresent = eq.matched.filter((m) => m.oldFinal.startsWith('present') && m.newFinal.startsWith('unverified')).length;
+  return {
+    pr: p.pr, tier: p.tier, round: p.round, old: p.old, new: p.new, oldRuns: p.oldRuns, newRuns: p.newRuns, bothClean: p.bothClean,
+    wall: w, reviewRound: rr, verifyStage: vs, afterReview: ar, spread: sp,
+    verifiers: { old: o.verifiersTotal, new: n.verifiersTotal }, candidates: { old: o.candidates, new: n.candidates }, important: { old: o.importantCount, new: n.importantCount },
+    unverified: { old: o.unverified, new: n.unverified }, stopped: { old: o.stoppedAtDeadline, new: n.stoppedAtDeadline },
+    outcome: { matched: eq.matchedCount, sameFinalIncludingLabels: eq.sameFinal, verdictPresentInBoth: verdictBoth, newUnverifiedWhereOldPresent: newUnvOldPresent, onlyOld: eq.onlyOld.length, onlyNew: eq.onlyNew.length, matchedRows: eq.matched },
+  };
+});
+values.pairs = pairRows;
+const cleanPairs = pairRows.filter((p) => p.bothClean);
+values.pairedSummary = {
+  nCleanPairs: cleanPairs.length,
+  wallDiffsMin: cleanPairs.map((p) => ({ pr: p.pr, diff: p.wall.diff, pct: p.wall.pctOfOld })),
+  meanWallDiffMin: r2(A.mean(cleanPairs.map((p) => p.wall.diff))),
+  medianWallDiffMin: r2(A.median(cleanPairs.map((p) => p.wall.diff))),
+  sumOldWall: r2(cleanPairs.reduce((s, p) => s + p.wall.old, 0)),
+  sumNewWall: r2(cleanPairs.reduce((s, p) => s + p.wall.new, 0)),
+  stageDiffsMin: cleanPairs.map((p) => ({ pr: p.pr, diff: p.verifyStage.diff, pct: p.verifyStage.pctOfOld })),
+  reviewRoundDiffsMin: cleanPairs.map((p) => ({ pr: p.pr, diff: p.reviewRound.diff })),
+  reference: R.SPREAD,
+};
+values.pairedSummary.sumDiff = r2(values.pairedSummary.sumNewWall - values.pairedSummary.sumOldWall);
+values.pairedSummary.sumDiffPct = r2(100 * values.pairedSummary.sumDiff / values.pairedSummary.sumOldWall);
+
+// ---------- quorum-first findings (NEW runs) -------------------------------------------------------------------------
+const newRuns = ds.filter((d) => d.arm === 'new');
+const stoppedWave = (d) => {
+  const st = (d.stoppedAtDeadline || []).map((s) => Number(/verifier-(\d+)/.exec(s)[1]));
+  const firstWaveN = d.verifiersFirstWave;
+  return { firstWave: st.filter((k) => k <= firstWaveN).length, secondWave: st.filter((k) => k > firstWaveN).length };
+};
+values.quorum = newRuns.map((d) => {
+  const sw = stoppedWave(d);
+  return {
+    id: d.id, n: d.order, pr: d.pr, disturbed: d.disturbed, candidates: d.candidates, electorate: d.depth && d.depth.verifiersPerCandidate,
+    plannedFull: d.verifiersPlannedFull, firstWave: d.verifiersFirstWave, firstWaveSavingPct: d.firstWaveSavingPct,
+    secondWaveVerifiers: d.verifiersSecondWave, total: d.verifiersTotal, netSavingPct: d.verifierSavingPct,
+    secondWaveCandidates: d.secondWaveCandidates, secondWaveRate: d.secondWaveRate, secondWaveReasons: d.secondWaveReasons,
+    stoppedFirstWave: sw.firstWave, stoppedSecondWave: sw.secondWave, firstWaveStageMin: d.firstWaveStageMin, secondWaveTailMin: d.secondWaveTailMin, verifyStageMin: d.verifyStageMin,
+    quorumSettled: d.quorumSettled, settledOnMajority: d.settledOnMajority, unverified: d.unverified,
+  };
+});
+values.quorumRange = {
+  firstWaveSavingPct: [Math.min(...newRuns.map((d) => d.firstWaveSavingPct)), Math.max(...newRuns.map((d) => d.firstWaveSavingPct))],
+  netSavingPctSorted: newRuns.map((d) => d.verifierSavingPct).sort((a, b) => b - a),
+  secondWaveRateSorted: newRuns.map((d) => d.secondWaveRate).sort((a, b) => a - b),
+  secondWaveTailMin: newRuns.filter((d) => d.verifiersSecondWave).map((d) => d.secondWaveTailMin),
+  plannerSavingPct: 'docs/guides/pr-review-run.md: -29.4% (#207), -30% (#205), -33.3% (#294), -40.7% (#293) at Deep',
+};
+
+// ---------- second-wave reasons: from run.json via arm-proof ---------------------------------------------------------
+values.secondWaveCauses = newRuns.filter((d) => d.verifiersSecondWave > 0).map((d) => {
+  const proof = runs[d.id].proof; const q = (proof && proof.runJsonQuorum) || {};
+  const sum = runs[d.id].sum;
+  const stoppedNames = (d.stoppedAtDeadline || []).map((s) => /verifier-\d+/.exec(s)[0]);
+  const secondWave = (q.secondWave || []).map((s) => ({ id: s.id, reasons: s.reasons, secondWaveVerifiers: s.verifiers }));
+  const cand = sum.ledger.candidates;
+  const detail = secondWave.map((s) => {
+    const c = cand.find((x) => x.id === s.id);
+    const firstWaveSeats = (c.assigned || []).filter((v) => Number(/\d+/.exec(v)[0]) <= d.verifiersFirstWave);
+    return { id: s.id, reasons: s.reasons, firstWaveSeats, firstWaveSeatsStopped: firstWaveSeats.filter((v) => stoppedNames.includes(v)), secondWaveVerifiers: s.secondWaveVerifiers, secondWaveVerifiersStopped: s.secondWaveVerifiers.filter((v) => stoppedNames.includes(v)), finalVotes: `${c.real}/${c.notReal}/${c.abstain}`, finalOutcome: `${c.outcome}${c.settledOnMajority ? ' (majority)' : ''}`, severity: `${c.severity}/${c.disposition}` };
+  });
+  return { id: d.id, stoppedNames, secondWaveCandidates: secondWave.length, allReasonsMissing: secondWave.every((s) => s.reasons.every((r) => r === 'missing')), allFirstWaveSeatsOfTheSecondWaveHadAStoppedVerifier: detail.every((x) => x.firstWaveSeatsStopped.length > 0), detail };
+});
+
+// ---------- votes: unanimity ----------------------------------------------------------------------------------------
+values.votes = ds.map((d) => {
+  const c = runs[d.id].sum.ledger.candidates;
+  const split = c.filter((x) => x.notReal > 0 || x.abstain > 0);
+  return { id: d.id, arm: d.arm, candidates: c.length, withNotRealOrAbstain: split.length, splitDetail: split.map((x) => ({ id: x.id, loc: x.loc, votes: `${x.real}/${x.notReal}/${x.abstain}`, outcome: x.outcome })), realVotes: c.reduce((s, x) => s + x.real, 0), notRealVotes: c.reduce((s, x) => s + x.notReal, 0), abstainVotes: c.reduce((s, x) => s + x.abstain, 0) };
+});
+
+// ---------- stops by arm -------------------------------------------------------------------------------------------
+const lf = [0]; for (let i = 1; i <= 400; i += 1) lf[i] = lf[i - 1] + Math.log(i);
+const logC = (n, k) => lf[n] - lf[k] - lf[n - k];
+function fisher(a, b, c, d) { // 2x2 [[a,b],[c,d]], two-sided (sum of probabilities not above the observed), exact
+  const n = a + b + c + d; const r1 = a + b; const c1 = a + c;
+  const p = (x) => Math.exp(logC(r1, x) + logC(n - r1, c1 - x) - logC(n, c1));
+  const obs = p(a); let tot = 0; let one = 0;
+  for (let x = Math.max(0, c1 - (n - r1)); x <= Math.min(r1, c1); x += 1) { const px = p(x); if (px <= obs + 1e-12) tot += px; if (x >= a) one += px; }
+  return { twoSided: r2(tot * 1000) / 1000, oneSidedGE: r2(one * 1000) / 1000 };
+}
+const sum = (xs, f) => xs.reduce((s, x) => s + f(x), 0);
+const oldAll = ds.filter((d) => d.arm === 'old'); const newAll = ds.filter((d) => d.arm === 'new'); const newClean = newAll.filter((d) => !d.disturbed);
+const stopStats = (set) => ({ runs: set.map((d) => d.order), verifiers: sum(set, (d) => d.verifiersTotal), stopped: sum(set, (d) => (d.stoppedAtDeadline || []).length), firstWave: sum(set, (d) => d.verifiersFirstWave), stoppedFirstWave: sum(set, (d) => stoppedWave(d).firstWave), secondWave: sum(set, (d) => d.verifiersSecondWave), stoppedSecondWave: sum(set, (d) => stoppedWave(d).secondWave) });
+values.stops = { old: stopStats(oldAll), newAll: stopStats(newAll), newClean: stopStats(newClean) };
+for (const k of ['newAll', 'newClean']) { const s = values.stops[k]; const o = values.stops.old; values.stops[k].fisherVsOld = fisher(s.stopped, s.verifiers - s.stopped, o.stopped, o.verifiers - o.stopped); }
+values.stops.firstWaveOnly = { new: { n: values.stops.newAll.firstWave, stopped: values.stops.newAll.stoppedFirstWave }, old: { n: values.stops.old.verifiers, stopped: values.stops.old.stopped } };
+values.stops.firstWaveOnly.fisher = fisher(values.stops.firstWaveOnly.new.stopped, values.stops.firstWaveOnly.new.n - values.stops.firstWaveOnly.new.stopped, values.stops.firstWaveOnly.old.stopped, values.stops.firstWaveOnly.old.n - values.stops.firstWaveOnly.old.stopped);
+values.stops.reference = 'R3 (kata dx53): 9 of 111 verifiers (8.1%) stopped at the 8-min floor at cap 8; ramp (j1wb): 1 of 65 (all caps)';
+
+// the last verifier to finish: stopped at the deadline, or arrived? (a stopped verifier that is not the last to finish only delays what follows it)
+values.stageEnd = ds.map((d) => {
+  const vs = A.readTrace(path.join(L.SCRATCH, 'runs', d.id, 'trace.jsonl')).filter((s) => s.name === 'review.verifier');
+  const tms = (x) => (typeof x === 'number' ? x : Date.parse(x));
+  const fin = (s) => { const lm = s.endAttrs && s.endAttrs.last_message_ts; return lm ? Date.parse(lm) : tms(s.end); };
+  const last = vs.reduce((b, s) => (fin(s) > fin(b) ? s : b), vs[0]);
+  const t0 = Math.min(...vs.map((s) => tms(s.start)));
+  return { id: d.id, arm: d.arm, stageMin: d.verifyStageMin, slowestMin: d.verifierSlowestMin, expired: d.verifiersExpired, lastToFinish: last.attrs.agent, lastToFinishStatus: last.status, lastToFinishDispatchedMin: r2((tms(last.start) - t0) / 60000), lastToFinishDurationMin: r2((fin(last) - tms(last.start)) / 60000), stageSetByDeadline: last.status === 'expired' };
+});
+values.stageSetByDeadline = { runs: values.stageEnd.filter((s) => s.stageSetByDeadline).map((s) => by[s.id].order), old: values.stageEnd.filter((s) => s.stageSetByDeadline && s.arm === 'old').length, new: values.stageEnd.filter((s) => s.stageSetByDeadline && s.arm === 'new').length, of: values.stageEnd.length };
+
+// ---------- harness statuses ---------------------------------------------------------------------------------------
+values.harness = ds.map((d) => {
+  const j = runs[d.id].an.jobs || {};
+  const status = {}; const models = {};
+  for (const role of Object.values(j)) { for (const [s, n] of Object.entries(role.statuses || {})) status[s] = (status[s] || 0) + n; for (const [m, n] of Object.entries(role.modelsAndThinking || {})) models[m] = (models[m] || 0) + n; }
+  return { id: d.id, agents: d.agentsTotal, statuses: status, models, nonCompleted: d.harnessNonCompleted, envelopeNotes: d.harnessEnvelopeNotes };
+});
+{
+  const tot = {}; const mod = {};
+  for (const h of values.harness) { for (const [s, n] of Object.entries(h.statuses)) tot[s] = (tot[s] || 0) + n; for (const [m, n] of Object.entries(h.models)) mod[m] = (mod[m] || 0) + n; }
+  values.harnessTotals = { statuses: tot, models: mod, agents: sum(values.harness, (h) => h.agents) };
+}
+
+// ---------- plan targets -------------------------------------------------------------------------------------------
+const TARGETS = C.TARGETS;
+function strat(set) {
+  const out = {};
+  for (const d of set) { const k = `${d.tier}/${d.round}`; (out[k] = out[k] || []).push(d); }
+  return Object.fromEntries(Object.entries(out).map(([k, list]) => {
+    const walls = list.map((d) => d.wallMin); const med = A.median(walls); const p75 = A.pct(walls, 75); const t = TARGETS[k];
+    return [k, { n: list.length, runs: list.map((d) => d.order), walls, median: r2(med), p75: r2(p75), target: t, medianMet: t ? med <= t.median : null, p75Met: t ? p75 <= t.p75 : null }];
+  }));
+}
+const chosenOld = pairsAll.map((p) => by[p.old]).filter(Boolean);
+const chosenNew = pairsAll.map((p) => by[p.new]).filter(Boolean);
+values.planTargets = { old: strat(chosenOld), newChosen: strat(chosenNew), newCleanOnly: strat(chosenNew.filter((d) => !d.disturbed)), oldCleanOnly: strat(chosenOld.filter((d) => !d.disturbed)), targets: TARGETS };
+
+// ---------- recall guard (#207) ------------------------------------------------------------------------------------
+values.recall = ds.filter((d) => d.recall).map((d) => {
+  const g = runs[d.id].guard; const gd = runs[d.id].guardDefault;
+  return { n: d.order, id: d.id, arm: d.arm, disturbed: d.disturbed, found: d.recall.found, downgraded: d.recall.downgraded, notRaised: d.recall.notRaised, falseNegativeRate: r2(d.recall.falseNegativeRate), keys: Object.keys(g || {}), exitDefault: runs[d.id].an.recallGuardExitDefaultThreshold !== undefined ? runs[d.id].an.recallGuardExitDefaultThreshold : null, defaultKeys: Object.keys(gd || {}) };
+});
+
+// ---------- load ------------------------------------------------------------------------------------------------------
+values.load = ds.map((d) => ({ n: d.order, id: d.id, arm: d.arm, disturbed: d.disturbed, ...d.load, procs: runs[d.id].an.load && runs[d.id].an.load.procs }));
+const LOADLOG = L.LOADLOG; const PROCSLOG = path.join(L.SCRATCH, 'load', 'procs.log');
+const loadRows = A.sessionLoadRows(LOADLOG);
+function windowLoad(fromIso, toIso) {
+  const f = Date.parse(fromIso); const t = Date.parse(toIso);
+  const w = A.windowStats(loadRows, f, t);
+  const rows = loadRows.filter((r) => r.t >= f && r.t <= t);
+  return { from: fromIso, to: toIso, ...w, jestProcsMean: rows.length ? r2(A.mean(rows.map((r) => r.jest))) : null, nodeProcsMax: rows.length ? Math.max(...rows.map((r) => r.node)) : null, procs: A.procWindow(PROCSLOG, f, t) };
+}
+values.incidentWindows = {
+  abortedRedo2: windowLoad('2026-11-12T02:09:08Z', '2026-11-12T02:19:40Z'),
+  beforeRedo4: windowLoad('2026-11-12T02:30:00Z', '2026-11-12T02:44:24Z'),
+  closureWindow: windowLoad('2026-11-12T01:50:00Z', '2026-11-12T02:00:00Z'),
+};
+
+// ---------- counterfactual replays (estimates) ---------------------------------------------------------------------
+values.counterfactual = newRuns.map((d) => {
+  const durs = (d.firstWaveDurationsSec || []).slice();
+  const n = d.verifiersPlannedFull;
+  const rep = A.replay(durs, 8) / 60;
+  const boot = (typeof n === 'number' && n >= durs.length && durs.length) ? R.bootstrapStage(durs, n, 8) : null;
+  return { id: d.id, n: d.order, disturbed: d.disturbed, firstWaveDispatched: durs.length, plannedFull: n, measuredStageMin: d.verifyStageMin, firstWaveStageMin: d.firstWaveStageMin, replayFirstWaveAtCap8Min: r2(rep), fullElectorateBootstrapAtCap8: boot };
+});
+
+// ---------- walltime rows, compare attempt -----------------------------------------------------------------------------
+const rowCheck = [];
+const regenRows = {};
+for (const d of ds) {
+  const row = C.regenRow(d); regenRows[d.id] = row;
+  const stored = d.walltimeRow || {};
+  rowCheck.push({ id: d.id, storedWallMin: stored.wall_min, regeneratedWallMin: row.wall_min, equal: stored.wall_min === row.wall_min, tier: row.tier, round: row.round, origin: row.origin, gate_runs: row.gate_runs, review_gate_spans: row.review_gate_spans });
+}
+values.walltimeRows = rowCheck;
+const idsOf = (arr) => arr.map((d) => d.id);
+const cohortDocs = {
+  old: C.cohort(ds, idsOf(chosenOld)),
+  newChosen: C.cohort(ds, idsOf(chosenNew)),
+  newCleanOnly: C.cohort(ds, idsOf(chosenNew.filter((d) => !d.disturbed))),
+};
+const compareOut = {};
+for (const [k, doc] of Object.entries(cohortDocs)) { compareOut[k] = C.compare(doc); wr(`cohort-${k}.json`, doc); wr(`walltime-compare-${k}.json`, compareOut[k]); }
+values.compare = Object.fromEntries(Object.entries(compareOut).map(([k, o]) => [k, {
+  ok: o.ok, tracesChecked: o.attestation && o.attestation.tracesChecked, rowsWithoutTraceCheck: o.attestation && o.attestation.rowsWithoutTraceCheck, excluded: o.excluded, warnings: o.warnings,
+  strata: Object.fromEntries(Object.entries(o.strata || {}).map(([s, v]) => [s, { baselinePrs: v.baseline && v.baseline.prs, baselineMedian: v.baseline && v.baseline.median, currentPrs: v.current && v.current.prs, currentMedian: v.current && v.current.median, currentP75: v.current && v.current.p75, target: v.target, status: v.status, reasons: v.reasons }])),
+  fiveX: o.fiveX, keys: Object.keys(o),
+}]));
+for (const [id, row] of Object.entries(regenRows)) wr(`walltime-row-regenerated-${id}.json`, row);
+
+// ---------- values quoted in running text (the template's {{value:name}} placeholders) --------------------------------
+{
+  const tms = (x) => (typeof x === 'number' ? x : Date.parse(x));
+  const finOf = (s) => { const lm = s.endAttrs && s.endAttrs.last_message_ts; return lm ? Date.parse(lm) : tms(s.end); };
+  const sess = fs.readFileSync(path.join(L.SCRATCH, 'load', 'load.log'), 'utf8').split('\n').map((l) => /^(\S+Z) load1=([\d.]+)/.exec(l)).filter(Boolean).map((m) => ({ t: Date.parse(m[1]), load1: Number(m[2]) }));
+  const meanOf = (xs) => xs.reduce((s, x) => s + x, 0) / xs.length;
+  const cmp = {};
+  for (const d of ds) {
+    const vs = A.readTrace(path.join(L.SCRATCH, 'runs', d.id, 'trace.jsonl')).filter((s) => s.name === 'review.verifier');
+    const a = Math.min(...vs.map((s) => tms(s.start))); const b = Math.max(...vs.map(finOf));
+    const ss = sess.filter((x) => x.t >= a && x.t <= b).map((x) => x.load1);
+    const os = fs.readFileSync(path.join(L.SCRATCH, 'runs', d.id, 'load-samples.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((x) => Date.parse(x.ts) >= a && Date.parse(x.ts) <= b).map((x) => x.load1);
+    cmp[d.order] = { sessionMean: r2(meanOf(ss)), sessionSamples: ss.length, ownMean: r2(meanOf(os)), ownSamples: os.length, absDiff: Math.abs(meanOf(os) - meanOf(ss)) };
+  }
+  values.samplerComparison = cmp;
+  const durs = values.stageEnd.filter((s) => s.stageSetByDeadline).map((s) => s.lastToFinishDurationMin);
+  const rowsAll = cleanPairs.flatMap((p) => p.outcome.matchedRows);
+  values.textValues = {
+    lastStopRange: `${f2(Math.min(...durs))} to ${f2(Math.max(...durs))}`,
+    weakMatches: String(rowsAll.filter((m) => m.jaccard < 0.4).length),
+    minJaccard: String(Math.min(...rowsAll.map((m) => m.jaccard))),
+    samplerMaxDiff: f2(Math.max(...Object.entries(cmp).filter(([k]) => k !== '2').map(([, v]) => v.absDiff))),
+    run2Own: f2(cmp[2].ownMean),
+  };
+}
+
+// ---------- tables ---------------------------------------------------------------------------------------------------
+const sevT = (bySev) => { const t = { important: 0, nit: 0, 'pre-existing': 0 }; for (const [k, v] of Object.entries(bySev || {})) { const s = k.split('/')[0]; t[s] = (t[s] || 0) + v; } return `${t.important}/${t.nit}/${t['pre-existing']}`; };
+const md = {};
+const stageProcs = (l) => (l.procs && l.procs.verifyStage && l.procs.verifyStage.meanCpuPct) || null;
+const quietOf = (id) => { try { return rd(path.join(runs[id].dir, 'quiet-wait.json')); } catch (e) { return null; } };
+md.runs1 = ['| # | Run | PR | Arm | Started (UTC) | Wall | Review round | Verify stage (starts at) | First wave + second-wave tail | Gate (min) | Verify-stage `load1` mean / max | Disturbed |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(ds.map((d) => `| ${d.order} | \`${d.id}\` | #${d.pr} | ${ARM(d.arm)} | ${d.startedAt.slice(5, 16).replace('T', ' ')} | ${f2(d.wallMin)} | ${f2(d.reviewRoundMin)} | ${f2(d.verifyStageMin)} (${f2(d.verifyStartMin)}) | ${d.verifiersSecondWave ? `${f2(d.firstWaveStageMin)} + ${f2(d.secondWaveTailMin)}` : f2(d.verifyStageMin)} | ${f2(d.gateMin)} | ${f2(d.load.stageMean)} / ${f1(d.load.stageMax)} | ${d.disturbed ? '**yes**' : 'no'} |`)).join('\n');
+md.runs2 = ['| # | Run | Verifiers dispatched (first + second wave) / the full electorate would have drawn | Dispatch saving: first wave / net | Candidates (Important / Nit / Pre-existing) | Settled: first quorum (NEW) or every seat (OLD) / on a majority (a seat stopped) / unverified | Stopped at the 8-min deadline | Verifier agent-minutes | Agents (reviewers + security + verifiers) |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(ds.map((d) => `| ${d.order} | \`${d.id}\` | ${d.verifiersTotal} (${d.verifiersFirstWave} + ${d.verifiersSecondWave}) / ${d.verifiersPlannedFull} | ${d.arm === 'new' ? `${f1(d.firstWaveSavingPct)}% / ${f1(d.verifierSavingPct)}%` : 'n/a (full electorate)'} | ${d.candidates} (${sevT(d.bySeverity)}) | ${d.arm === 'new' ? `${d.quorumSettled} / ${d.settledOnMajority} / ${d.unverified}` : `${d.present} / ${d.settledOnMajority} / ${d.unverified}${d.otherOutcomes && d.otherOutcomes.filtered ? ` (+${d.otherOutcomes.filtered} filtered)` : ''}`} | ${(d.stoppedAtDeadline || []).length}${(d.stoppedAtDeadline || []).length ? ` (${d.stoppedAtDeadline.map((s) => s.replace('(verifier)', '').replace('verifier-', 'v')).join(', ')})` : ''} | ${f2(d.verifierSumAgentMin)} | ${d.agentsTotal} (${d.agentsByRole.reviewer} + ${d.agentsByRole.security || 0} + ${d.agentsByRole.verifier}) |`)).join('\n');
+md.pairs = ['| PR (tier) | OLD run (#) / NEW run (#) | Wall OLD / NEW | Difference (% of OLD) | Review round OLD / NEW (difference) | Verify stage OLD / NEW (difference) | Verifier agent-minutes OLD / NEW (difference) | Verifiers OLD / NEW | Candidates OLD / NEW | Inside the spread? |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(pairRows.map((p) => {
+    const am = R.diffRow(by[p.old], by[p.new], 'verifierSumAgentMin');
+    if (!p.bothClean) return `| #${p.pr} (${p.tier}) | \`${p.old}\` (${by[p.old].order}) / \`${p.new}\` (${by[p.new].order}) | ${f2(p.wall.old)} / ${f2(p.wall.new)} | not a paired difference: the NEW run is disturbed | ${f2(p.reviewRound.old)} / ${f2(p.reviewRound.new)} | ${f2(p.verifyStage.old)} / ${f2(p.verifyStage.new)} | ${f2(am.old)} / ${f2(am.new)} | ${p.verifiers.old} / ${p.verifiers.new} | ${p.candidates.old} / ${p.candidates.new} | not usable |`;
+    const inside = p.spread.insideRampPair ? 'inside even the ramp pair (4.9%)' : p.spread.insideLowerEarlier ? 'inside the earlier spread (10.1%)' : p.spread.insideEarlier10to19 ? 'inside the earlier spread (10.1% to 18.7%)' : '**OUTSIDE** the earlier spread (above 18.7%)';
+    return `| #${p.pr} (${p.tier}) | \`${p.old}\` (${by[p.old].order}) / \`${p.new}\` (${by[p.new].order}) | ${f2(p.wall.old)} / ${f2(p.wall.new)} | ${sgn(p.wall.diff)} min (${sgn(p.wall.pctOfOld, 1)}%) | ${f2(p.reviewRound.old)} / ${f2(p.reviewRound.new)} (${sgn(p.reviewRound.diff)}) | ${f2(p.verifyStage.old)} / ${f2(p.verifyStage.new)} (${sgn(p.verifyStage.diff)}) | ${f2(am.old)} / ${f2(am.new)} (${sgn(am.diff)}) | ${p.verifiers.old} / ${p.verifiers.new} | ${p.candidates.old} / ${p.candidates.new} | ${inside} |`;
+  })).join('\n');
+md.quorum = ['| # | Run | Candidates | Electorate (needed) | First wave / full plan | First-wave saving | Second wave: verifiers (candidates, rate) | Net saving | Stopped: first wave / second wave | First wave + tail = stage | Left unverified |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(values.quorum.map((q) => `| ${q.n} | \`${q.id}\`${q.disturbed ? ' (disturbed)' : ''} | ${q.candidates} | ${q.electorate} (${q.electorate === 5 ? 3 : 2}) | ${q.firstWave} / ${q.plannedFull} | ${f1(q.firstWaveSavingPct)}% | ${q.secondWaveVerifiers} (${q.secondWaveCandidates === null ? 0 : q.secondWaveCandidates}, ${f2(q.secondWaveRate)}) | ${f1(q.netSavingPct)}% | ${q.stoppedFirstWave} / ${q.stoppedSecondWave} | ${q.secondWaveVerifiers ? `${f2(q.firstWaveStageMin)} + ${f2(q.secondWaveTailMin)} = ${f2(q.verifyStageMin)}` : f2(q.verifyStageMin)} | ${q.unverified} |`)).join('\n');
+md.counterfactual = ['| # | Run | Measured stage | First wave alone (its durations replayed at cap 8) | Estimate for the full electorate on this run\'s own first-wave durations at cap 8: mean (5th to 95th percentile) | Measured minus the estimate\'s mean |', '| --- | --- | --- | --- | --- | --- |']
+  .concat(values.counterfactual.map((c) => `| ${c.n} | \`${c.id}\`${c.disturbed ? ' (disturbed)' : ''} | ${f2(c.measuredStageMin)} | ${f2(c.replayFirstWaveAtCap8Min)} | ${c.fullElectorateBootstrapAtCap8 ? `${f2(c.fullElectorateBootstrapAtCap8.mean)} (${f2(c.fullElectorateBootstrapAtCap8.p05)} to ${f2(c.fullElectorateBootstrapAtCap8.p95)}), ${c.plannedFull} verifiers` : 'n/a'} | ${c.fullElectorateBootstrapAtCap8 ? sgn(r2(c.measuredStageMin - c.fullElectorateBootstrapAtCap8.mean)) : 'n/a'} |`)).join('\n');
+md.stops = ['| Arm | Runs | Verifiers dispatched | Stopped at the 8-min deadline | First wave: stopped / dispatched | Second wave: stopped / dispatched |', '| --- | --- | --- | --- | --- | --- |']
+  .concat([['OLD', values.stops.old], ['NEW (all five runs)', values.stops.newAll], ['NEW (clean runs 4, 8, 9)', values.stops.newClean]].map(([n, s]) => `| ${n} | ${s.runs.join(', ')} | ${s.verifiers} | ${s.stopped} (${f1(100 * s.stopped / s.verifiers)}%) | ${s.stoppedFirstWave} / ${s.firstWave} | ${s.secondWave ? `${s.stoppedSecondWave} / ${s.secondWave}` : 'none'} |`)).join('\n');
+md.armproof = ['| # | Run | Arm | Requested: `quorumFirstVerification`, cap | `prepare` answer / `run.json` / policy cap | `run.json` `policy.quorumFirstVerification` | Quorum applied (expected, needed) | Root-span cap / refill-span caps | `REVIEW.md` served to `prepare` (sha-256 prefix; equals the base\'s blob?) | PR base branch at the run @ the base sha `run.json` records (the merge base) | All agree |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(ds.map((d) => { const p = runs[d.id].proof; const q = p.runJsonQuorum; const rb = p.reviewMd.servedEqualsRealBlobAtBase; return `| ${d.order} | \`${d.id}\` | ${ARM(d.arm)} | ${p.requestedQuorumFirstVerification === true ? 'true' : 'unset'}, ${p.capRequested} | ${p.prepareAnswerMaxConcurrentAgents} / ${p.runJsonMaxConcurrentAgents} / ${p.runJsonPolicyMaxConcurrentAgents} | ${p.runJsonPolicyQuorumFirstVerification} | ${q && q.applied ? `applied (${q.expected}, ${q.needed})` : 'not applied (key off)'} | ${p.rootSpanMaxConcurrentAgents} / ${p.refillSpanCapsAllEqual8 ? 'all 8' : 'MISMATCH'} | ${p.reviewMd.kind === 'minimal-scratch' ? 'minimal scratch policy' : 'dev\'s REVIEW.md'} (\`${p.reviewMd.sha256.slice(0, 8)}\`; ${rb === true ? 'yes' : rb === false ? 'no: one added line' : 'the base has none'}) | ${p.runJsonBaseRefName} @ \`${p.runJsonBaseSha.slice(0, 7)}\` | ${p.allAgree ? 'yes' : 'NO'} |`; })).join('\n');
+md.load = ['| # | Run | Start: waited for quiet (min), `load1` / `load5` | Whole run `load1` mean / max (samples above 12 of n) | First 5 min mean | Verify stage mean / max (above 12 of n, longest streak) | Disturbed | Stage CPU %: all / other worktrees / everything else | Samples with another worktree\'s jest in the stage (`procs.log.txt` samples) |', '| --- | --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(values.load.map((l) => { const q = quietOf(l.id); const sp = stageProcs(l); return `| ${l.n} | \`${l.id}\` | ${q ? `${f2(q.waitedMs / 60000)}, ${q.loadAtStart.load1} / ${q.loadAtStart.load5}` : 'n/a'} | ${f2(l.runMean)} / ${f1(l.runMax)} (${l.runAbove12} of ${l.runSamples}) | ${f1(l.first5Mean)} | ${f2(l.stageMean)} / ${f1(l.stageMax)} (${l.stageAbove12} of ${l.stageSamples}, ${l.stageStreak}) | ${l.disturbed ? '**yes**' : 'no'} | ${sp ? `${Math.round(sp.all)} / ${Math.round(sp.otherEnsemble)} / ${Math.round(sp.other)}` : 'n/a'} | ${l.procs && l.procs.verifyStage ? `${l.procs.verifyStage.samplesWithOtherEnsembleJest} of ${l.procs.verifyStage.samples}` : 'n/a'} |`; })).join('\n');
+md.outcome = ['| PR | OLD: settled every seat / majority / unverified | NEW: first quorum / majority / unverified | Matched candidates | Same verdict (present in both) | NEW unverified where OLD confirmed | Severity or disposition label differs | Unmatched OLD / NEW |', '| --- | --- | --- | --- | --- | --- | --- | --- |']
+  .concat(pairRows.filter((p) => p.bothClean).map((p) => { const o = by[p.old]; const n = by[p.new]; const sameBoth = p.outcome.matchedRows.filter((m) => m.oldFinal.startsWith('present') && m.newFinal.startsWith('present') && m.same).length; return `| #${p.pr} | ${o.present} / ${o.settledOnMajority} / ${o.unverified} of ${o.candidates} | ${n.quorumSettled} / ${n.settledOnMajority} / ${n.unverified} of ${n.candidates} | ${p.outcome.matched} | ${p.outcome.verdictPresentInBoth} | ${p.outcome.newUnverifiedWhereOldPresent} | ${p.outcome.verdictPresentInBoth - sameBoth} | ${p.outcome.onlyOld} / ${p.outcome.onlyNew} |`; })).join('\n');
+wr('tables.md', Object.entries(md).map(([k, v]) => `<!-- ${k} -->\n${v}\n`).join('\n'));
+wr('report-values.json', values);
+console.log('written', OUT, Object.keys(values).join(','));

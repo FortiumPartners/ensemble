@@ -1,7 +1,6 @@
 ---
 name: adapter-host-github
 description: GitHub `host` toolchain adapter (TRD-2026-8d825f54 TRD-036, PRD REQ-006, REQ-024). Loaded by the toolchain resolver, not invoked directly by name.
-user-invocable: true
 ---
 
 # GitHub Host Adapter

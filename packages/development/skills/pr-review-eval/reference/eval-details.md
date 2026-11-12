@@ -64,3 +64,33 @@ jq -n --slurpfile cases /tmp/eval-cases.json \
   --argjson hashes "$(jq -n '{}')" '{cases: $cases[0], rulesHashes: $hashes}' \
   | node "$PR_REVIEW_CLI" eval-stale
 ```
+
+## R3a -- The quality guard
+
+A change to how the review runs (the runner, verifier assignment, sharding, carried verdicts) is a regression if a real Important finding stops being reported, however much wall time it saves. Before such a change lands, run the pipeline's output for the committed cases (`docs/review-eval/cases`: the #228, #233 and #234 findings, each pinned to the commit it was found at) through the guard:
+
+```bash
+PR_REVIEW_EVAL_GUARD_CLI="$(dirname "$PR_REVIEW_CLI")/review-eval-guard.js"
+node "$PR_REVIEW_EVAL_GUARD_CLI" --base "$BASE_SHA" --findings "$PIPELINE_FINDINGS" \
+  --history docs/review-eval/history.jsonl --reviewer "$REVIEWER"
+```
+
+`$BASE_SHA` is the PR's base commit, the one Step R3.1 reads CODEOWNERS from, and `--base` is required. The guard reads the cases, `.github/CODEOWNERS`, the rules files and the previous history entry from that commit, never from the checkout under test, so a change cannot make its own run easier by deleting a case, editing CODEOWNERS or removing the history. A case a change adds is graded once it is on the base; to try a new case first, commit it and pass `--base HEAD`, which grades the change against its own copy. `$PIPELINE_FINDINGS` is `{ "findingsByCase": { "<case id>": [ findings ] } }`, as collected in Step R2, each finding anchored `file:line` (a range anchor such as `file:12-20` is not read).
+
+**What exit 0 means.** Every case at the base has an Important finding anchored in its file at a line inside its range, and no check the guard ran was left incomplete. The match is by location and severity, not by what a finding says: its text is not compared with the case, so any Important finding in the range satisfies it. A pass is "no expected location lost its Important finding", not "the same defect was found again".
+
+**Exit 1** (`pass:false`, with `problems` on stdout, or `reason` when the run is blocked) on:
+
+- a lost Important finding (`missed`, `falseNegativeRate`);
+- a base that does not resolve, or has no CODEOWNERS or no cases, an unloadable or unconfirmed case, an unreadable findings file;
+- a case with no pinned commit, or whose file is absent or shorter than `endLine` at it. A pin proves only that: the commit exists, holds the file, and the file has that many lines. It does not read the recorded lines;
+- a pinned commit this checkout lacks (`pin-unverifiable`, the commits listed in `unverifiableCommits`): fetch those commits from origin by SHA, or pass `--allow-unverifiable-pins` to report them as an advisory instead;
+- a history that is missing, has no entries or is unreadable at the base, and a regression against its last entry, which includes a case dropped from the set.
+
+Stale cases (the rules file changed on the base since the owner confirmed the case) are an advisory: listed in `stale` and `advisories` for owner re-review. They fail the run only with `--fail-on-stale`.
+
+Each run that reaches scoring appends its false-negative rate and the base commit to the working-tree history, failures included. A run blocked before scoring, or whose base history is missing or unreadable, appends nothing. A corrupt last history line at the base fails every run until a reviewed change repairs it there.
+
+A new case's `change` must carry the 40-hex commit its location is pinned to (`https://.../pull/N head <sha>`); the guard refuses a case without one.
+
+Do not edit a case, delete one or trim the findings file to turn the guard green. The reconstructed baseline and its provenance are in `docs/review-eval/README.md`.

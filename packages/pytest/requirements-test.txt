@@ -1,4 +1,4 @@
-# Test-only Python dependencies for packages/pytest/skills/run-test.py's own regression test
+# Test-only Python dependencies for packages/pytest/skills/pytest/run-test.py's own regression test
 # (packages/pytest/tests/run-test.test.js, TRD-2026-8d825f54 TRD-043).
 #
 # This repo has no other Python dependency manifest (it is a Node/JS monorepo; `pytest` is one

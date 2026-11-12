@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { findUntracked, findingKey, failureKey } = require('../lib/local-ci-sweep');
+const { findUntracked, findingKey, failureKey, isId, isCount } = require('../lib/local-ci-sweep');
 
 const finding = { prNumber: 12, commentId: 345, body: 'nit' };
 const failure = { checkRunId: 999, sha: 'abc' };
@@ -70,6 +70,46 @@ describe('local-ci-sweep findUntracked', () => {
     expect(() => findUntracked(null, [])).toThrow(TypeError);
     expect(() => findUntracked({ findings: [], failures: 'x' }, [])).toThrow(TypeError);
     expect(() => findUntracked({ findings: [], failures: [] }, 'x')).toThrow(TypeError);
+  });
+});
+
+describe('local-ci-sweep id shapes (kata mdfr review round 2)', () => {
+  const credentialShaped = [
+    ['sk', 'live', 'A1b2C3d4E5f6G7h8I9j0K1'].join('_'),
+    ['glpat', 'A1b2C3d4E5f6G7h8I9j0K1'].join('-'),
+    ['eyJhbGciOiJIUzI1NiJ9', 'eyJzdWIiOiJ4In0', 'abc123_-DEF456xyz'].join('.'),
+    `AIza${'A1b2C3d4E5'.repeat(3)}f6G7h`,
+    ['ghp', 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'].join('_'),
+  ];
+
+  test.each([[345], ['345'], [0], ['IC_kwDOA1b2C3d4'], ['PRRC_kwDOA1b2C3d4e5']])('%p is a comment or check run id and becomes part of the key as written', (id) => {
+    expect(isId(id)).toBe(true);
+    expect(findingKey(12, id)).toBe(`finding:pr12:comment${id}`);
+    expect(failureKey(id)).toBe(`ci-failure:checkrun${id}`);
+  });
+
+  test.each([
+    ...credentialShaped.map((value) => [value]),
+    [''], ['bad id'], ['ic_kwDOabcdef'], ['IC_short'], ['1'.repeat(19)], [-1], [1.5], [null], [{}], ['../x'], ['12\n34'],
+  ])('%p is not an id: no key is built from it', (value) => {
+    expect(isId(value)).toBe(false);
+    expect(findingKey(12, value)).toBeNull();
+    expect(failureKey(value)).toBeNull();
+  });
+
+  test('a pull request number is a number or its digits: a node id is not one', () => {
+    expect(isCount(12)).toBe(true);
+    expect(isCount('12')).toBe(true);
+    expect(isCount('IC_kwDOA1b2C3d4')).toBe(false);
+    expect(findingKey('IC_kwDOA1b2C3d4', 345)).toBeNull();
+    expect(findingKey('12', 345)).toBe('finding:pr12:comment345');
+  });
+
+  test('an invalid entry carries its kind and its position in its own list', () => {
+    const r = findUntracked({ findings: [finding, { prNumber: 1 }, null], failures: [failure, { checkRunId: credentialShaped[0] }] }, []);
+    expect(r.invalid.map(({ kind, index }) => [kind, index])).toEqual([['finding', 1], ['finding', 2], ['failure', 1]]);
+    expect(r.findings).toHaveLength(1);
+    expect(r.failures).toHaveLength(1);
   });
 });
 

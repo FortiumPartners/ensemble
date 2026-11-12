@@ -1,0 +1,13 @@
+#!/bin/bash
+# Scratch: one line every 30 s into $1: UTC time, 1/5/15-minute load average, node and jest process counts, whether the shared
+# full-suite lock directory exists (a full packages/development suite is running under it), then `uptime` verbatim.
+OUT="$1"
+mkdir -p "$(dirname "$OUT")"
+while :; do
+  read -r _ L1 L5 L15 _ <<<"$(sysctl -n vm.loadavg)"
+  NODEP=$(pgrep -x node | wc -l | tr -d ' ')
+  JESTP=$(pgrep -f 'jest' | wc -l | tr -d ' ')
+  LOCK=0; [ -d "$HOME/.omp/pr-review-speedup/fullsuite.lock" ] && LOCK=1
+  echo "$(date -u +%FT%TZ) load1=$L1 load5=$L5 load15=$L15 nodeProcs=$NODEP jestProcs=$JESTP fullsuiteLock=$LOCK | $(uptime | sed 's/^ *//')" | tee -a "$OUT"
+  sleep 30
+done

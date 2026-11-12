@@ -112,14 +112,14 @@ exactly as it is in `pr-review-cycle`: re-plan and call again until it is
 empty, and never dispatch a plan the CLI refused.
 
 Run `slices` over the sweep set (`lines` per file; no diff) with the rules and
-sensitive areas and the policy's threshold, then re-run it with `reviewed` and
-`changedPaths` to prove coverage: an `uncovered` path is reported as unswept,
-never as clean. Shapes: reference, "Step 4".
+sensitive areas, the policy's threshold and `depth`'s `mode`; its `reviewerAssignments`
+are the plan. Then re-run it with `reviewedBy` and `changedPaths` to prove coverage:
+an `uncovered` or `underReviewed` path is reported as unswept, never as clean. Shapes: reference, "Step 4".
 
 ### Step 5 -- Review with the same reviewers (fresh context, read-only)
 
-Dispatch the reviewers `depth` allows -- at Standard or Deep **at least two**,
-each a **fresh-context, read-only** subagent -- over the sweep set, slice by
+Dispatch one reviewer per `reviewerAssignments` entry -- at Standard or Deep **at least two** per slice,
+each a **fresh-context, read-only** subagent under its `lens` -- over the sweep set, slice by
 slice, in the Step 3 order. Each gets only its slice's whole files at
 `SWEEP_SHA`, the rules `applied` with policy and sensitivity facts, and the
 repository guidance -- never the authoring conversation, this session or an

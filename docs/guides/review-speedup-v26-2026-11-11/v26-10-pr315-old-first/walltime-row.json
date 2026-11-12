@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "row": {
+  "id": "pr315-first-v26-10-pr315-old-first",
+  "pr": 315,
+  "tier": "high",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 28.024,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 1,
+  "source": "pr-review-cli timing on run v26-10-pr315-old-first",
+  "run_id": "v26-10-pr315-old-first"
+ }
+}

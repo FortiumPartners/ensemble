@@ -99,6 +99,21 @@ describe('lintRoot: BINARY_IN_* detection', () => {
     expect(lintRoot(root)).toEqual([]);
   });
 
+  test('a hardcoded binary inside a skill\'s references/ file is a BINARY_IN_SKILL violation naming that file and line', () => {
+    const root = trackedRoot('lint-skill-reference-');
+    seedInventory(root, { host: ['gh'] });
+    writeFile(root, 'packages/x/skills/ensemble-s/SKILL.md', '# S\n\nFollow references/phase-1.md.\n');
+    const file = writeFile(root, 'packages/x/skills/ensemble-s/references/phase-1.md', [
+      '# Phase 1',
+      '',
+      '```bash',
+      'gh pr create',
+      '```',
+    ].join('\n') + '\n');
+
+    expect(lintRoot(root)).toEqual([{ file, line: 4, binary: 'gh', class: 'BINARY_IN_SKILL' }]);
+  });
+
   test('a binary mentioned only as bare prose (no fence, no inline code span) is not flagged', () => {
     const binaries = new Set(['gh']);
     const violations = findViolations('gh is the GitHub CLI; it is not invoked here.', binaries);
@@ -236,6 +251,63 @@ describe('checkCommandStructure: MISSING_PREFLIGHT / MISSING_BASH_GRANT', () => 
   test('a command with no capabilities.required at all is not this check\'s concern', () => {
     const content = 'metadata:\n  name: cmd-f\n  allowed_tools:\n    - Read\n';
     expect(checkCommandStructure(content)).toEqual([]);
+  });
+});
+
+describe('checkCommandStructure: skill-backed manifests', () => {
+  // A manifest keeps metadata (capabilities, allowed_tools) but holds no prose: the preflight
+  // line, like the rest of the prompt, lives in the skill it points at.
+  const manifest = (allowedTools = ['Read', 'Bash']) => [
+    'metadata:',
+    '  name: cmd-s',
+    '  capabilities:',
+    '    required:',
+    '      - tracker.show',
+    '  allowed_tools:',
+    ...allowedTools.map(tool => `    - ${tool}`),
+    'skill: ensemble-s',
+    ''
+  ].join('\n');
+  const skillWithPreflight = '# S\n\n```bash\ntoolchain-cli preflight --require tracker.show --json\n```\n';
+  const skillWithoutPreflight = '# S\n\nNothing is preflighted here.\n';
+
+  test('finds the preflight line in the skill, not in the manifest', () => {
+    expect(checkCommandStructure(manifest(), () => skillWithPreflight)).toEqual([]);
+  });
+
+  test('a skill without the preflight line -> MISSING_PREFLIGHT', () => {
+    expect(checkCommandStructure(manifest(), () => skillWithoutPreflight).map(v => v.class)).toEqual(['MISSING_PREFLIGHT']);
+  });
+
+  test('a skill that cannot be read counts as having no preflight line (the check fails closed)', () => {
+    expect(checkCommandStructure(manifest(), () => null).map(v => v.class)).toEqual(['MISSING_PREFLIGHT']);
+    expect(checkCommandStructure(manifest()).map(v => v.class)).toEqual(['MISSING_PREFLIGHT']);
+  });
+
+  test('MISSING_BASH_GRANT is still judged from the manifest metadata', () => {
+    expect(checkCommandStructure(manifest(['Read']), () => skillWithPreflight).map(v => v.class)).toEqual(['MISSING_BASH_GRANT']);
+  });
+
+  test('lintRoot reads the skill from the skills/ directory of the manifest\'s own package', () => {
+    const root = trackedRoot('lint-skill-backed-');
+    seedInventory(root);
+    writeFile(root, 'packages/x/commands/y.yaml', manifest());
+    writeFile(root, 'packages/x/skills/ensemble-s/SKILL.md', skillWithPreflight);
+    expect(lintRoot(root)).toEqual([]);
+
+    writeFile(root, 'packages/x/skills/ensemble-s/SKILL.md', skillWithoutPreflight);
+    expect(lintRoot(root).map(v => v.class)).toEqual(['MISSING_PREFLIGHT']);
+  });
+
+  test('lintRoot reads the skill\'s references too: a preflight line that lives only in a reference satisfies the check', () => {
+    const root = trackedRoot('lint-skill-references-');
+    seedInventory(root);
+    writeFile(root, 'packages/x/commands/y.yaml', manifest());
+    writeFile(root, 'packages/x/skills/ensemble-s/SKILL.md', skillWithoutPreflight);
+    expect(lintRoot(root).map(v => v.class)).toEqual(['MISSING_PREFLIGHT']);
+
+    writeFile(root, 'packages/x/skills/ensemble-s/references/phase-1.md', skillWithPreflight);
+    expect(lintRoot(root)).toEqual([]);
   });
 });
 
@@ -415,12 +487,11 @@ describe('ratchet baseline', () => {
     expect(lintRoot(root)).toHaveLength(1);
   });
 
-  test('isNamedSource covers the nine named sources and their generated md', () => {
+  test('isNamedSource covers the eight named sources and their generated md', () => {
     for (const rel of [
       'packages/development/commands/implement-trd-beads.yaml',
       'packages/development/commands/ensemble/beads-build-wave.md',
       'packages/development/commands/implement-bead.yaml',
-      'packages/development/commands/ensemble/refine-beads.md',
       'packages/development/commands/fix-issue.yaml',
       'packages/git/commands/pr-merge.yaml',
       'packages/git/commands/ensemble/pr-merge.md',
@@ -428,6 +499,18 @@ describe('ratchet baseline', () => {
       'packages/development/skills/pr-review-cycle/SKILL.md'
     ]) expect(isNamedSource(rel)).toBe(true);
     expect(isNamedSource('packages/development/commands/ensemble/retro.md')).toBe(false);
+  });
+
+  test('isNamedSource keeps the zero tolerance after a named command becomes skill-backed: its skill and references are named', () => {
+    for (const cmd of ['implement-trd-beads', 'beads-build', 'beads-build-wave', 'implement-bead', 'fix-issue']) {
+      expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/SKILL.md`)).toBe(true);
+      expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/references/phase-1-x.md`)).toBe(true);
+    }
+    expect(isNamedSource('packages/development/skills/ensemble-retro/SKILL.md')).toBe(false);
+    // pr-merge (a named command in packages/git) is skill-backed too: its skill directory is named.
+    expect(isNamedSource('packages/git/skills/ensemble-pr-merge/SKILL.md')).toBe(true);
+    expect(isNamedSource('packages/git/skills/ensemble-pr-merge/references/phase-1-x.md')).toBe(true);
+    expect(isNamedSource('packages/git/skills/ensemble-release/SKILL.md')).toBe(false);
   });
 
   test('--update-baseline writes the baseline from the tree', () => {

@@ -79,7 +79,7 @@ import { TransformResult } from '../types';
 const LIB_DIR = 'packages/development/lib';
 
 /** Entry-point .js modules, relative to LIB_DIR — seeds for require-closure walking. */
-const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'local-ci-cli.js', 'toolchain-cli.js'];
+const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'pr-review-prepare-cli.js', 'pr-review-beads-cli.js', 'pr-review-clear-cli.js', 'pr-review-carry-hash-cli.js', 'review-run-cli.js', 'local-ci-cli.js', 'toolchain-cli.js', 'review-eval-guard.js'];
 
 /**
  * Data directory (relative to sourceRoot) the vendored toolchain modules read at runtime via

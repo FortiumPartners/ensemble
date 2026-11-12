@@ -1,0 +1,352 @@
+{
+ "dir": "v26-06-pr314-old-first",
+ "wallMin": 18.76,
+ "window": {
+  "startMs": 1794446268752,
+  "endMs": 1794447394271,
+  "startIso": "2026-11-12T01:17:48.752Z",
+  "endIso": "2026-11-12T01:36:34.271Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 2,
+  "slowestName": "reviewer-s1-a",
+  "slowestMin": 11.66,
+  "laneMin": 4.42,
+  "expired": []
+ },
+ "reviewRoundMin": 11.66,
+ "handoffToVerifySec": 4.45,
+ "verify": {
+  "count": 6,
+  "arrived": 6,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 1,
+  "refills": 0,
+  "stageMin": 6.71,
+  "stageSec": 402.88,
+  "startedAtIso": "2026-11-12T01:29:47.384Z",
+  "startedOffsetMin": 11.98,
+  "endedOffsetMin": 18.69,
+  "slowestMin": 6.71,
+  "slowestArrivedMin": 6.71,
+  "medianMin": 6.15,
+  "meanMin": 6.07,
+  "p75Min": 6.37,
+  "p90Min": 6.71,
+  "minMin": 5.3,
+  "sumAgentMin": 36.42,
+  "peakVerifierOverlap": 6,
+  "peakAnyAgentOverlap": 6,
+  "lastStartOffsetMin": 0,
+  "durationsSec": [
+   317.78,
+   402.88,
+   382.11,
+   381.17,
+   357.42,
+   343.55
+  ],
+  "replayAtCap8Min": 6.71,
+  "firstWaveStageMin": 6.71,
+  "secondWaveTailMin": 0,
+  "firstWaveDurationsSec": [
+   317.78,
+   402.88,
+   382.11,
+   381.17,
+   357.42,
+   343.55
+  ],
+  "secondWaveDurationsSec": []
+ },
+ "verifiers": {
+  "dispatchedTotal": 6,
+  "secondWave": 0,
+  "firstWave": 6,
+  "manifests": 1,
+  "plannedFullElectorate": 6,
+  "plannedByRunner": 6,
+  "candidatesVerified": 6,
+  "mode": "standard",
+  "electorate": 3
+ },
+ "quorum": null,
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 8.17,
+  "startedAt": "2026-11-12T01:17:49.948Z",
+  "finishedAt": "2026-11-12T01:26:00.363Z",
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ],
+  "startedOffsetSec": 1.2,
+  "finishedOffsetMin": 8.19,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 3.78
+ },
+ "ledger": {
+  "candidates": 6,
+  "bySeverity": {
+   "important/fix": 3,
+   "pre-existing/deferred": 1,
+   "nit/fix": 2
+  },
+  "present": 6,
+  "presentOnMajority": 0,
+  "quorumSettled": 0,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 22.78,
+ "beforeFirstDispatchSec": 14.341,
+ "criticalPath": {
+  "ms": 1102725,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 699845,
+    "name": "reviewer-s1-a"
+   },
+   {
+    "stage": "verifier",
+    "ms": 402877,
+    "name": "verifier-2"
+   },
+   {
+    "stage": "verdict",
+    "ms": 3
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 2,
+  "security": 1,
+  "verifier": 6
+ },
+ "agentsTotal": 9,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 6,
+  "recorded": 6
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f3",
+  "open-important-finding:f5",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 2,
+   "requestsTotal": 41,
+   "requestsMean": 20.5,
+   "costTotalUsd": 3.63,
+   "contextTokensMax": 219202,
+   "harnessDurMedianSec": 692.23,
+   "harnessDurMaxSec": 701.91,
+   "statuses": {
+    "completed": 2
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 2
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 21,
+   "requestsMean": 21,
+   "costTotalUsd": 0.95,
+   "contextTokensMax": 150201,
+   "harnessDurMedianSec": 266.87,
+   "harnessDurMaxSec": 266.87,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 6,
+   "requestsTotal": 140,
+   "requestsMean": 23.33,
+   "costTotalUsd": 7.06,
+   "contextTokensMax": 186036,
+   "harnessDurMedianSec": 370.69,
+   "harnessDurMaxSec": 404.32,
+   "statuses": {
+    "completed": 6
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 6
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 6,
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 38,
+    "load1Mean": 9.42,
+    "load1Max": 23.21,
+    "load1Min": 3.52,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 3,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 13,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 14,
+    "load1Mean": 5.52,
+    "load1Max": 8.27,
+    "load1Min": 3.75,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 11.69,
+    "load1Max": 20.98,
+    "load1Min": 3.52,
+    "above12": 6,
+    "longestStreakAbove12": 6,
+    "above20": 1,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 7,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 29,
+    "load1Mean": 4.56,
+    "load1Max": 5.67,
+    "load1Min": 3.8,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 37,
+    "load1Mean": 9.63,
+    "load1Max": 23.21,
+    "load1Min": 3.78,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 3,
+    "disturbed": true
+   },
+   "verifyStage": {
+    "samples": 14,
+    "load1Mean": 5.5,
+    "load1Max": 8.55,
+    "load1Min": 3.78,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 37,
+    "meanCpuPct": {
+     "all": 439.7,
+     "gate": 4.03,
+     "pipeline": 61.05,
+     "otherEnsemble": 92.03,
+     "other": 282.49
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 3,
+    "maxOtherEnsembleCpuPct": 149,
+    "maxOtherCpuPct": 574
+   },
+   "verifyStage": {
+    "samples": 13,
+    "meanCpuPct": {
+     "all": 287,
+     "gate": 0,
+     "pipeline": 0,
+     "otherEnsemble": 87.85,
+     "other": 199.15
+    },
+    "samplesWithOtherEnsembleJest": 0,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 148,
+    "maxOtherCpuPct": 253
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 650.9,
+     "gate": 8.9,
+     "pipeline": 169.7,
+     "otherEnsemble": 106.5,
+     "other": 365.6
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 2,
+    "maxOtherEnsembleCpuPct": 149,
+    "maxOtherCpuPct": 566
+   }
+  }
+ },
+ "arm": "old",
+ "order": 6,
+ "runId": "v26-06-pr314-old-first",
+ "pr": 314,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 1,
+  "quiet": true
+ }
+}

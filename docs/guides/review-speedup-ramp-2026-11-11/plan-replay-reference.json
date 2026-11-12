@@ -1,0 +1,31 @@
+{
+ "source": "plan v2 appendix script S01 (plan2/01_verifiers.py) output 01_verifiers_replay.json, seconds; the committed traces of review-speedup-measurement-2026-11-10-final",
+ "m2-pr207-first": {
+  "n": 17,
+  "stage_s": 728.7599999904633,
+  "longest_s": 400.9800000190735,
+  "sum_s": 4402.409999847412,
+  "util_cap8": 0.7551199983370765,
+  "cap8_ideal_s": 723.9009997844696,
+  "cap8_batch2_s": 723.9009997844696,
+  "cap12_s": 534.2129998207092,
+  "cap16_s": 451.54499983787537,
+  "cap24_s": 400.9800000190735,
+  "inf_s": 400.9800000190735,
+  "censored": 0
+ },
+ "m2-pr205-first": {
+  "n": 20,
+  "stage_s": 651.0749998092651,
+  "longest_s": 391.95499992370605,
+  "sum_s": 4508.394999265671,
+  "util_cap8": 0.8655675230554126,
+  "cap8_ideal_s": 640.0479996204376,
+  "cap8_batch2_s": 640.0479996204376,
+  "cap12_s": 474.62299966812134,
+  "cap16_s": 436.01999974250793,
+  "cap24_s": 391.95499992370605,
+  "inf_s": 391.95499992370605,
+  "censored": 0
+ }
+}

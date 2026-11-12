@@ -1,7 +1,6 @@
 ---
 name: adapter-lint-reviewdog
 description: Reviewdog `lint` toolchain adapter (TRD-2026-8d825f54 TRD-043, PRD REQ-006). Loaded by the toolchain resolver, not invoked directly by name. Shipped default lint adapter.
-user-invocable: true
 ---
 
 # Reviewdog Lint Adapter

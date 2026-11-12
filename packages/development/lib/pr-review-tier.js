@@ -17,9 +17,16 @@
  *     with `ok:false`;
  *   - a missing, unknown or uncited kind is `other`, which is Medium: a
  *     classifier that says nothing cannot buy a cheaper review;
- *   - a second assessment that is not exactly `false` raises the tier;
+ *   - a second assessment that is not exactly `false` raises the tier; one
+ *     nobody gave (omitted or null) cannot say "no" either, so it raises
+ *     nothing but demands another person, which keeps the solo-maintainer
+ *     discount off;
  *   - a proposal may raise a tier; lowering one needs a CODEOWNERS-checked
- *     owner decision, and nothing lowers it below the sensitive floor.
+ *     owner decision, and nothing lowers it below the sensitive floor;
+ *   - the solo-maintainer discount leans on a changed-path list it can trust:
+ *     present, non-empty and made of verbatim names. A list that is missing,
+ *     or holds a name git quoted, or one with a control character or a line or
+ *     paragraph separator in it, cannot vouch that no sensitive path changed.
  *
  * The Low WAIVER and the effective tier it produces are TRD-041's: this
  * function answers the assigned tier and the facts behind it.
@@ -37,6 +44,29 @@ const LOW_KINDS = Object.freeze(['docs', 'copy', 'additive-behind-flag']);
 const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = (value) => typeof value === 'string' && value.trim() !== '';
 const isPathList = (value) => Array.isArray(value) && value.every((entry) => isText(entry));
+
+/**
+ * The characters no verbatim name holds: the control characters (C0, DEL and
+ * C1, which has NEL, U+0085) and the Unicode line and paragraph separators
+ * (U+2028, U+2029).
+ */
+const NOT_VERBATIM = /[\p{Cc}\p{Zl}\p{Zp}]/u;
+
+/**
+ * Whether `name` is a verbatim path. Git prints a name in double quotes, with
+ * C escapes (`".github/workflows/\303\251.yml"`), when it holds a non-ASCII
+ * byte, a control character, `"` or `\` -- unless the listing is
+ * NUL-delimited (`-z`), when it prints every name as it is. A quoted name
+ * matches no sensitive pattern, and neither does one with a tab or newline
+ * left in it by a `--name-status` or newline-split listing, so an entry like
+ * either means the list was not produced the documented way. Even `-z` leaves
+ * a name holding a control character or a line or paragraph separator (git
+ * prints U+2028 and U+2029 raw) as a name no pattern can be trusted to read, so
+ * such a name fails closed too: it is no evidence that nothing sensitive changed.
+ */
+function isVerbatimName(name) {
+  return !name.startsWith('"') && !NOT_VERBATIM.test(name);
+}
 
 /** A word from a closed set, compared on letter case only -- a padded word is not the word. */
 function fromSet(value, set) {
@@ -66,6 +96,8 @@ function blocked(reason) {
   };
 }
 
+const UNTRUSTED_WARNING = 'policy-untrusted-all-high:';
+
 /**
  * Reads the path classification: either a `classifyPaths` result or a plain
  * `{ sensitive, high }`. Returns null when it cannot be read, and `blocked`
@@ -89,11 +121,27 @@ function readPaths(value, warnings) {
     }
   }
 
+  // The list can vouch for what the classification says about it only when it
+  // is there, names something, and names it verbatim.
+  let changedPathsReadable = false;
+  if (changedPaths !== null) {
+    const verbatim = changedPaths.every(isVerbatimName);
+    if (!verbatim) warnings.push('non-verbatim-changed-path');
+    changedPathsReadable = verbatim && changedPaths.length > 0;
+  }
+
   return {
     blocked: false,
     sensitive: value.sensitive === undefined ? [] : value.sensitive.slice(),
     high: value.high === undefined ? [] : value.high.slice(),
+    declarationChanged: typeof value.declarationChanged === 'boolean' ? value.declarationChanged : null,
+    // Why every path is High when the base policy could not be trusted (kata vhpf); a tier REASON, never a warning, because
+    // a tier warning reads as an ambiguity to the mode selector.
+    policyUntrusted: Array.isArray(value.warnings)
+      ? (value.warnings.find((w) => typeof w === 'string' && w.startsWith(UNTRUSTED_WARNING)) || '').slice(UNTRUSTED_WARNING.length) || null
+      : null,
     changedPaths,
+    changedPathsReadable,
   };
 }
 
@@ -183,11 +231,18 @@ function assignTier(input) {
   if (classification.high.length > 0) {
     floor = 'high';
     reasons.push('owner-high-path');
+    if (classification.policyUntrusted !== null) reasons.push(`policy-untrusted:${classification.policyUntrusted}`);
   }
 
   let tier = floor === null ? baseTier : higher(baseTier, floor);
 
   // --- The second assessment (AC-012-3) -----------------------------------
+  // An assessment that did not say "no" demands another person. So does one
+  // nobody gave: a subagent that failed, timed out or was skipped leaves the
+  // key out, and an absence cannot be read as "no". Nothing is raised for it
+  // (a PR no one assessed keeps the tier its change earns); `peerDemanded`
+  // keeps the solo-maintainer discount off.
+  let peerDemanded = false;
   const assessment = input.secondAssessment;
   if (assessment !== undefined && assessment !== null) {
     let needsAnotherPerson;
@@ -203,11 +258,15 @@ function assignTier(input) {
     }
 
     if (needsAnotherPerson !== false) {
+      peerDemanded = true;
       if (needsAnotherPerson !== true) reason = 'second-assessment-unreadable';
       const next = raiseOne(tier);
       if (next !== tier) raised.push({ from: tier, to: next, reason });
       tier = next;
     }
+  } else {
+    peerDemanded = true;
+    reasons.push('second-assessment-missing');
   }
 
   // --- The proposal: raise-only (AC-013-2) --------------------------------
@@ -215,6 +274,8 @@ function assignTier(input) {
     const proposed = fromSet(input.proposedTier, TIERS);
     const by = isObject(input.proposedBy) && isText(input.proposedBy.login) ? input.proposedBy.login : null;
     const isCodeOwner = isObject(input.proposedBy) && input.proposedBy.isCodeOwner === true;
+
+    if (proposed === 'high') peerDemanded = true;
 
     if (proposed === null) {
       warnings.push('unknown-proposed-tier');
@@ -244,7 +305,19 @@ function assignTier(input) {
     // The paths that drove the floor, kept so the recorded decision can name
     // them (TRD-041, AC-015-1) rather than make the reader re-derive them.
     sensitivePaths: classification.sensitive.slice(),
+    // Whether the PR edits the review declaration itself (a policy change
+    // with no listed sensitive path still counts). `null` = not stated.
+    declarationChanged: classification.declarationChanged,
     highPaths: classification.high.slice(),
+    // Whether the changed-path list those facts were computed from can be
+    // trusted: present, non-empty and made of verbatim names. The solo-
+    // maintainer discount leans on `sensitivePaths` and `declarationChanged`,
+    // which say nothing about a path the list does not name as it is.
+    changedPathsReadable: classification.changedPathsReadable,
+    // An "another person must look at this" signal: a second assessment that
+    // did not say no (one nobody gave included) or a proposal of High, kept
+    // even when the tier was already High and nothing rose.
+    peerDemanded,
     uncitedPaths,
     reasons,
     raised,
@@ -264,6 +337,44 @@ const WAIVER_EVIDENCE_MINIMUMS = Object.freeze({ lowPrs: 20, days: 30, maxRevert
 /** Humans required by effective tier: an effective-Low PR needs none, Medium one, High two. */
 const HUMANS_REQUIRED = Object.freeze({ low: 0, medium: 1, high: 2 });
 
+const SOLO_NOT_ELIGIBLE = Object.freeze({ eligible: false, login: null });
+
+/**
+ * Whether the solo-maintainer rule MAY relax a High PR from two humans to one
+ * (policy `soloMaintainer: true`). Eligible only when every fact is readable
+ * and holds: the policy names exactly one maintainer, the tier is High, the
+ * changed-path list can be trusted, and the PR touches no sensitive path (the
+ * guards guard themselves: CI, release gates, the review policy and review
+ * code always keep two humans). Whether the sole maintainer actually directed
+ * the PR, did not write it and approved its head is checked by the approvals
+ * evaluator, which sees the reviews; the gate checks both agree.
+ *
+ * @returns {{eligible:boolean, login:string|null}}
+ */
+function soloEligibility(tier, policy, assignment) {
+  if (tier !== 'high' || policy === null || policy.soloMaintainer !== true) return SOLO_NOT_ELIGIBLE;
+  if (!Array.isArray(policy.maintainerLogins)) return SOLO_NOT_ELIGIBLE;
+  const logins = new Set(
+    policy.maintainerLogins.filter(isText).map((login) => login.trim().replace(/^@/, '').toLowerCase())
+  );
+  if (logins.size !== 1) return SOLO_NOT_ELIGIBLE;
+  // `declarationChanged` and `sensitivePaths` are only as good as the list they
+  // came from: one that is missing, empty or holds a name that is not verbatim
+  // (quoted by git, or holding a control character or a line or paragraph
+  // separator) cannot vouch that no sensitive path changed.
+  if (assignment.changedPathsReadable !== true) return SOLO_NOT_ELIGIBLE;
+  if (assignment.declarationChanged !== false) return SOLO_NOT_ELIGIBLE;
+  if (!Array.isArray(assignment.sensitivePaths) || assignment.sensitivePaths.length !== 0) return SOLO_NOT_ELIGIBLE;
+  // A tier that was RAISED (a second assessment or a proposal) reached High
+  // precisely to demand another person; the solo rule must not cancel that.
+  if (!Array.isArray(assignment.raised) || assignment.raised.length !== 0) return SOLO_NOT_ELIGIBLE;
+  // The same demand when the tier was ALREADY High and so nothing rose: a
+  // second assessment that did not say no (one nobody gave included), or a
+  // proposal of High.
+  if (assignment.peerDemanded !== false) return SOLO_NOT_ELIGIBLE;
+  return { eligible: true, login: [...logins][0] };
+}
+
 /** The fail-closed effective tier: High, two humans, no waiver, the reason named. */
 function blockedEffective(reason) {
   return {
@@ -271,6 +382,7 @@ function blockedEffective(reason) {
     tier: 'high',
     effectiveTier: 'high',
     humansRequired: HUMANS_REQUIRED.high,
+    soloMaintainer: SOLO_NOT_ELIGIBLE,
     waiver: { applies: false, reason, evidence: null, enabledBy: null },
     refusals: [],
     reasons: [reason],
@@ -357,6 +469,7 @@ function effectiveTier(input) {
       tier,
       effectiveTier: tier === 'low' ? 'medium' : tier,
       humansRequired: HUMANS_REQUIRED[tier === 'low' ? 'medium' : tier],
+      soloMaintainer: soloEligibility(tier, policy, assignment),
       waiver: { applies: false, reason, evidence: null, enabledBy: enabledByLogin },
       refusals,
       reasons,
@@ -391,6 +504,7 @@ function effectiveTier(input) {
     tier,
     effectiveTier: 'low',
     humansRequired: HUMANS_REQUIRED.low,
+    soloMaintainer: SOLO_NOT_ELIGIBLE,
     waiver: { applies: true, reason: 'low-waiver-applied', evidence: evidence.evidence, enabledBy: enabledByLogin },
     refusals,
     reasons,
@@ -414,6 +528,7 @@ function blockedRecord(reason) {
     lowered: [],
     ignored: [],
     waiver: { applies: false, reason, evidence: null, enabledBy: null },
+    soloMaintainer: { ...SOLO_NOT_ELIGIBLE },
     refusals: [],
     assignedBy: null,
     warnings: [reason],
@@ -465,6 +580,9 @@ function tierRecord(input) {
     lowered: Array.isArray(assignment.lowered) ? assignment.lowered.map((entry) => ({ ...entry })) : [],
     ignored: Array.isArray(assignment.ignored) ? assignment.ignored.map((entry) => ({ ...entry })) : [],
     waiver: isObject(effective.waiver) ? { ...effective.waiver } : { applies: false, reason: 'no-waiver-record', evidence: null, enabledBy: null },
+    soloMaintainer: isObject(effective.soloMaintainer) && effective.soloMaintainer.eligible === true && isText(effective.soloMaintainer.login)
+      ? { eligible: true, login: effective.soloMaintainer.login }
+      : { ...SOLO_NOT_ELIGIBLE },
     refusals: Array.isArray(effective.refusals) ? effective.refusals.map((entry) => ({ ...entry })) : [],
     assignedBy: isText(input.assignedBy) ? input.assignedBy.trim() : null,
     warnings: [...(Array.isArray(assignment.warnings) ? assignment.warnings : []), ...(Array.isArray(effective.warnings) ? effective.warnings : [])],

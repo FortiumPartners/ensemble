@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the bundle no longer ships the skill-backed command stubs (`commands/{core,product,development,git,e2e-testing,assessment}` and the `commands` list in `plugin.json`), which duplicated each skill in the slash menu. Invoke commands as `/ensemble-full:ensemble-<name>` instead of `/ensemble:<name>`.
+
 ### Added
 
 - Mirror the `pr-review-*.js` libraries (`pr-review-policy`, `pr-review-rules`, `pr-review-paths`, `pr-review-description`, `pr-review-scope`, `pr-review-state`, `pr-review-status`, `pr-review-ledger`, `pr-review-remote`, `pr-review-cli`) under `packages/full/lib/`, matching `packages/development/lib/`, so the `pr-review-cycle` skill resolves its libraries from the `ensemble-full` install.

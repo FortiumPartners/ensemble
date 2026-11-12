@@ -1,0 +1,195 @@
+{
+ "reviewer-s1-a": {
+  "id": "RunV26.R07nReviewerS1A",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794447506236,
+  "lastRunning": {
+   "t": 1794448333705,
+   "durationMs": 827470,
+   "requests": 21,
+   "cost": 2.1519579,
+   "contextTokens": 235023,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794448335709,
+   "status": "completed",
+   "durationMs": 829338,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunV26.R07nReviewerS1A\" agent=\"task\" status=\"completed\" duration=\"13m49s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "reviewer-s1-b": {
+  "id": "RunV26.R07nReviewerS1B",
+  "role": "reviewer",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794447506236,
+  "lastRunning": {
+   "t": 1794448381772,
+   "durationMs": 875537,
+   "requests": 23,
+   "cost": 2.1615401999999997,
+   "contextTokens": 237012,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794448383775,
+   "status": "completed",
+   "durationMs": 877429,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunV26.R07nReviewerS1B\" agent=\"task\" status=\"completed\" duration=\"14m37s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "security-lane": {
+  "id": "RunV26.R07nSecurityLane",
+  "role": "security",
+  "round": "review",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794447506236,
+  "lastRunning": {
+   "t": 1794447810819,
+   "durationMs": 304585,
+   "requests": 22,
+   "cost": 1.0289592,
+   "contextTokens": 157129,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794447812826,
+   "status": "completed",
+   "durationMs": 304843,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunV26.R07nSecurityLane\" agent=\"task\" status=\"completed\" duration=\"5m4s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-1": {
+  "id": "RunV26.R07nVerifier1",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794448384657,
+  "lastRunning": {
+   "t": 1794448775227,
+   "durationMs": 390572,
+   "requests": 35,
+   "cost": 1.3364216000000002,
+   "contextTokens": 169764,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": {
+   "t": 1794448777230,
+   "status": "completed",
+   "durationMs": 392147,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max",
+   "tag": "<task-result id=\"RunV26.R07nVerifier1\" agent=\"task\" status=\"completed\" duration=\"6m32s\">",
+   "envelopeNote": null
+  },
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-2": {
+  "id": "RunV26.R07nVerifier2",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794448384657,
+  "lastRunning": {
+   "t": 1794448777230,
+   "durationMs": 392575,
+   "requests": 25,
+   "cost": 1.2312221,
+   "contextTokens": 178787,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": null,
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-3": {
+  "id": "RunV26.R07nVerifier3",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794448384657,
+  "lastRunning": {
+   "t": 1794448777230,
+   "durationMs": 392576,
+   "requests": 18,
+   "cost": 0.9399594,
+   "contextTokens": 145772,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": null,
+  "statesSeen": [
+   "fallback"
+  ]
+ },
+ "verifier-4": {
+  "id": "RunV26.R07nVerifier4",
+  "role": "verifier",
+  "round": "verify",
+  "wave": "1 of 1",
+  "refill": false,
+  "secondWave": false,
+  "dispatchedMs": 1794448384657,
+  "lastRunning": {
+   "t": 1794448777230,
+   "durationMs": 392576,
+   "requests": 26,
+   "cost": 1.1482750000000002,
+   "contextTokens": 155135,
+   "contextWindow": 1000000,
+   "model": "anthropic/claude-sonnet-5-5:max",
+   "thinking": "max"
+  },
+  "final": null,
+  "statesSeen": [
+   "fallback"
+  ]
+ }
+}

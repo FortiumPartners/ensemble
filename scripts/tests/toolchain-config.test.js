@@ -10,7 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { resolveCategory } = require('../../packages/development/lib/toolchain/config');
+const { resolveCategory, parseToolchainConfigText, loadToolchainConfigFile } = require('../../packages/development/lib/toolchain/config');
 const { getUserToolchainConfigPath } = require('../../packages/development/lib/toolchain/config-path');
 
 const tempDirs = [];
@@ -118,6 +118,53 @@ describe('resolveCategory precedence', () => {
 
     expect(result).toEqual({ value: 'detected-tracker', source: 'detection' });
     expect(detect).toHaveBeenCalledWith('tracker', expect.objectContaining({ projectRoot: tmpEmptyDir }));
+  });
+});
+
+describe('resolveCategory: a supplied project config replaces the tree\'s own toolchain.yaml', () => {
+  const isolatedEnv = () => {
+    const xdg = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-toolchain-supplied-xdg-'));
+    tempDirs.push(xdg);
+    return { XDG_CONFIG_HOME: xdg };
+  };
+  const tree = (yamlContents) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-toolchain-supplied-tree-'));
+    tempDirs.push(dir);
+    mkProjectConfig(dir, yamlContents);
+    return dir;
+  };
+
+  test('control: with no projectConfig the tree\'s file is read, exactly as before', () => {
+    expect(resolveCategory('tracker', { projectRoot: tree('tracker: from-tree\n'), env: isolatedEnv() })).toEqual({ value: 'from-tree', source: 'project' });
+  });
+
+  test('a supplied config wins over the tree\'s file, which is not consulted at all', () => {
+    const projectRoot = tree('tracker: from-tree\n');
+    const result = resolveCategory('tracker', { projectRoot, env: isolatedEnv(), projectConfig: parseToolchainConfigText('tracker: from-base\n', 'base') });
+    expect(result).toEqual({ value: 'from-base', source: 'project' });
+    // Even a tree whose file would throw is never read.
+    const broken = tree('not-a-category: x\n');
+    expect(resolveCategory('tracker', { projectRoot: broken, env: isolatedEnv(), projectConfig: { tracker: 'from-base' } })).toEqual({ value: 'from-base', source: 'project' });
+  });
+
+  test('a supplied null means "the base has none": the tree\'s file is ignored and the user config, then the default, decide', () => {
+    const projectRoot = tree('tracker: from-tree\n');
+    expect(resolveCategory('tracker', { projectRoot, env: isolatedEnv(), projectConfig: null })).toEqual({ value: 'beads', source: 'default' });
+    const env = isolatedEnv();
+    mkUserConfig(env.XDG_CONFIG_HOME, 'tracker: from-user\n');
+    expect(resolveCategory('tracker', { projectRoot, env, projectConfig: null })).toEqual({ value: 'from-user', source: 'user' });
+  });
+
+  test('a supplied config that does not name the category falls through to the user config and the default, not to the tree', () => {
+    const projectRoot = tree('tracker: from-tree\n');
+    expect(resolveCategory('tracker', { projectRoot, env: isolatedEnv(), projectConfig: { host: 'github' } })).toEqual({ value: 'beads', source: 'default' });
+  });
+
+  test('parseToolchainConfigText validates like the file loader and names what it parsed', () => {
+    expect(parseToolchainConfigText('', 'empty')).toEqual({});
+    expect(parseToolchainConfigText('tracker: beads\n', 'x')).toEqual({ tracker: 'beads' });
+    expect(() => parseToolchainConfigText('not-a-category: x\n', 'abc123:.ensemble/toolchain.yaml')).toThrow(/abc123:\.ensemble\/toolchain\.yaml: invalid toolchain config \(not-a-category\)/);
+    expect(() => loadToolchainConfigFile(path.join(tree('not-a-category: x\n'), '.ensemble', 'toolchain.yaml'))).toThrow(/invalid toolchain config \(not-a-category\)/);
   });
 });
 

@@ -119,6 +119,46 @@ describe('transformAgent', () => {
       const output = transformAgent(TOP_LEVEL_AGENT, SOURCE_PATH, {});
       expect(output).not.toContain('model:');
     });
+
+    describe('model tiers', () => {
+      const modelOf = (agent: Record<string, unknown>): unknown =>
+        matter(transformAgent(agent, SOURCE_PATH, {})).data.model;
+
+      it.each(['high', 'medium'])('emits the role alias @%s with an @default fallback for the bare tier word', (tier) => {
+        expect(modelOf({ ...MODEL_AGENT, model: tier })).toBe(`@${tier},@default`);
+      });
+
+      it('quotes the selector list so the frontmatter parses (a bare leading @ is invalid YAML)', () => {
+        const output = transformAgent({ ...MODEL_AGENT, model: 'high' }, SOURCE_PATH, {});
+        expect(output).toContain('model: "@high,@default"');
+      });
+
+      it('maps a tier word given in the nested metadata layout', () => {
+        const output = transformAgent({
+          metadata: { name: 'reviewer', description: 'Reviews code', tools: ['Read'], model: 'medium' },
+        }, SOURCE_PATH, {});
+        expect(matter(output).data.model).toBe('@medium,@default');
+      });
+
+      it('passes a concrete provider/id model through unchanged', () => {
+        expect(modelOf({ ...MODEL_AGENT, model: 'anthropic/claude-opus-4' })).toBe('anthropic/claude-opus-4');
+      });
+
+      it('passes an existing @role alias through unchanged', () => {
+        expect(modelOf({ ...MODEL_AGENT, model: '@review' })).toBe('@review');
+        expect(modelOf({ ...MODEL_AGENT, model: '@high' })).toBe('@high');
+      });
+
+      it('passes a non-tier bare word through unchanged', () => {
+        expect(modelOf({ ...MODEL_AGENT, model: 'sonnet' })).toBe('sonnet');
+        expect(modelOf({ ...MODEL_AGENT, model: 'constructor' })).toBe('constructor');
+      });
+
+      it('emits no model line when the agent declares no model', () => {
+        const output = transformAgent(TOP_LEVEL_AGENT, SOURCE_PATH, {});
+        expect(matter(output).data).not.toHaveProperty('model');
+      });
+    });
   });
 
   describe('tool filtering and native delegation', () => {

@@ -227,6 +227,7 @@ describe('Scenario AC-009-1: at the round cap the loop stops and asks the author
     headSha: HEAD_R1,
     reviewedHeadSha: HEAD_R1,
     findingCounts: { total: 2, actionable: 1, deferred: 1 },
+    coverage: { status: 'complete', gaps: [] },
     tests: { exitCode: 0, skipped: false, command: 'npm test' },
     roundsUsed,
     roundCap,

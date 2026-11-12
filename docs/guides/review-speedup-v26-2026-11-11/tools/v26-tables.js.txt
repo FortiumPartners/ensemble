@@ -1,0 +1,38 @@
+'use strict';
+// Markdown tables of the V2-6 report, generated from the run records (v26-report.js). Scratch; a copy goes into the evidence directory as text.
+const R = require('./v26-report.js');
+const f = (x, d = 2) => (x === null || x === undefined || Number.isNaN(x) ? 'n/a' : (typeof x === 'number' ? (Number.isInteger(x) && d === 0 ? String(x) : x.toFixed(d)) : String(x)));
+const sev = (bySev) => {
+  if (!bySev) return 'n/a';
+  const t = { important: 0, nit: 0, 'pre-existing': 0 };
+  for (const [k, v] of Object.entries(bySev)) { const s = k.split('/')[0]; t[s] = (t[s] || 0) + v; }
+  return `${t.important}/${t.nit}/${t['pre-existing']}`;
+};
+const armName = (a) => (a === 'old' ? 'OLD' : 'NEW');
+const tierName = (t) => t;
+
+function perRunTable(ds) {
+  const rows = ['| # | Run | PR | Tier / round | Arm | Wall | Orch. only (s) | Review round | Verify stage (start) | First wave + 2nd-wave tail | Verifiers dispatched (1st + 2nd) / full plan | Saved | Settled: quorum / majority / unverified | Expired (stopped) | Candidates (Imp/Nit/Pre) | 2nd-wave candidates (rate) | Agents | Gate (min, ended before verify) | Verify-stage load mean / max, disturbed |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'];
+  for (const d of ds) {
+    rows.push(`| ${d.order} | \`${d.id}\` | ${d.pr} | ${d.tier} / ${d.round} | ${armName(d.arm)} | ${f(d.wallMin)} | ${f(d.orchSec, 1)} | ${f(d.reviewRoundMin)} | ${f(d.verifyStageMin)} (${f(d.verifyStartMin)}) | ${d.verifiersSecondWave ? `${f(d.firstWaveStageMin)} + ${f(d.secondWaveTailMin)}` : f(d.verifyStageMin)} | ${d.verifiersTotal} (${d.verifiersFirstWave} + ${d.verifiersSecondWave}) / ${f(d.verifiersPlannedFull, 0)} | ${d.arm === 'new' ? f(d.verifierSavingPct, 1) + '%' : 'n/a'} | ${d.quorumSettled || 0} / ${d.settledOnMajority || 0} / ${d.unverified || 0} | ${d.verifiersExpired || 0} (${(d.stoppedAtDeadline || []).length}) | ${d.candidates} (${sev(d.bySeverity)}) | ${d.secondWaveCandidates === null ? 'n/a' : `${d.secondWaveCandidates} (${f(d.secondWaveRate)})`} | ${d.agentsTotal} | ${f(d.gateMin)}, ${d.gateEndedBeforeVerify === null ? 'n/a' : d.gateEndedBeforeVerify ? 'yes' : 'no'} | ${f(d.load.stageMean, 1)} / ${f(d.load.stageMax, 1)}, ${d.disturbed ? '**yes**' : 'no'} |`);
+  }
+  return rows.join('\n');
+}
+
+function pairsTable(ds, pairs) {
+  const by = Object.fromEntries(ds.map((d) => [d.id, d]));
+  const rows = ['| PR | Tier / round | OLD run (order) | NEW run (order) | Both clean | Wall OLD / NEW (diff, % of OLD) | Review round OLD / NEW (diff) | Verify stage OLD / NEW (diff) | After-review OLD / NEW (diff) | Verifiers OLD / NEW | Inside the spread? |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'];
+  for (const p of pairs) {
+    const o = by[p.old]; const n = by[p.new];
+    if (!o || !n) { rows.push(`| ${p.pr} | ${p.tier} / ${p.round} | ${p.old || 'none'} | ${p.new || 'none'} | no | not paired | | | | | |`); continue; }
+    const w = R.diffRow(o, n, 'wallMin'); const rr = R.diffRow(o, n, 'reviewRoundMin'); const vs = R.diffRow(o, n, 'verifyStageMin'); const ar = R.diffRow(o, n, 'afterReviewMin');
+    const sp = R.insideSpread(o.wallMin, w.diff);
+    const inside = !p.bothClean ? 'not usable: a run is disturbed' : sp.insideRampPair ? 'inside even the ramp pair (4.9%)' : sp.insideLowerEarlier ? 'inside the earlier spread (10.1%)' : sp.insideEarlier10to19 ? 'inside the earlier spread (10.1% to 18.7%)' : 'OUTSIDE the earlier spread (> 18.7%)';
+    rows.push(`| ${p.pr} | ${p.tier} / ${p.round} | \`${o.id}\` (${o.order}) | \`${n.id}\` (${n.order}) | ${p.bothClean ? 'yes' : 'no'} | ${f(w.old)} / ${f(w.new)} (${f(w.diff)}, ${f(w.pctOfOld, 1)}%) | ${f(rr.old)} / ${f(rr.new)} (${f(rr.diff)}) | ${f(vs.old)} / ${f(vs.new)} (${f(vs.diff)}) | ${f(ar.old)} / ${f(ar.new)} (${f(ar.diff)}) | ${o.verifiersTotal} / ${n.verifiersTotal} (candidates ${o.candidates} / ${n.candidates}) | ${inside} |`);
+  }
+  return rows.join('\n');
+}
+
+module.exports = { perRunTable, pairsTable, f, sev };

@@ -1,0 +1,13 @@
+#!/bin/bash
+# Polls the five scratch PR states every 120 s (kata 1yjx recovery after the 19:55 CST closures). Writes $V26/load/prstate.log; creates PR_CLOSED.flag on the first non-OPEN state.
+V=$HOME/.omp/pr-review-speedup/v26
+while true; do
+  line="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  for n in 314 315 316 317 319; do
+    s="$(gh pr view $n --repo Sunstone-Partners/ensemble --json state,isDraft --jq '.state+"/"+(if .isDraft then "draft" else "ready" end)' 2>/dev/null || echo ERR)"
+    line="$line $n=$s"
+    case "$s" in OPEN/*) ;; ERR) ;; *) echo "$line" >> $V/load/PR_CLOSED.flag;; esac
+  done
+  echo "$line" >> $V/load/prstate.log
+  sleep 120
+done

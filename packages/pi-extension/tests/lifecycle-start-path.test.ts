@@ -950,8 +950,8 @@ describe("a dispatcher invocation", () => {
 
   it("starts exactly one run, for the target, in this repository's layout, where the dispatcher is an extension command", async () => {
     const project = auditOnCreate();
-    mkdirSync(join(project.root, "packages/product/commands"), { recursive: true });
-    copyFileSync(join(REPO_ROOT, "packages/product/commands/prd.yaml"), join(project.root, "packages/product/commands/prd.yaml"));
+    mkdirSync(join(project.root, "packages/product/skills/ensemble-prd"), { recursive: true });
+    copyFileSync(join(REPO_ROOT, "packages/product/skills/ensemble-prd/SKILL.md"), join(project.root, "packages/product/skills/ensemble-prd/SKILL.md"));
     const defaultStore = defaultTrustStorePath();
     expect(defaultStore.startsWith(tempHome)).toBe(true); // never trust a project in the real home
     trust(project, defaultStore);

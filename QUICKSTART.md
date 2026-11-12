@@ -14,12 +14,14 @@ Local development: `claude --plugin-dir ./ensemble/packages/core`.
 ## Build a feature
 
 ```text
-/ensemble:new-feature --idea "add CSV export to reports"
+/ensemble-full:ensemble-feature new "add CSV export to reports"
 ```
 
-This drives the feature lifecycle (PRD, TRD, implementation) and pauses at gates for your approval. Individual steps are also available: `/ensemble:create-prd`, `/ensemble:create-trd`.
+This drives the feature lifecycle (PRD, TRD, implementation) and pauses at gates for your approval. Individual steps are also available: `/ensemble-full:ensemble-create-prd`, `/ensemble-full:ensemble-create-trd`.
 
-Prefer the dispatcher form: `/ensemble:feature new <idea>`.
+`feature` is the front door to `ensemble-new-feature`, the engine that holds the run state: it turns `new`, `resume`, `status` and `abandon` into the engine's `--idea`, `--status` and `--abandon` flags. You only need `ensemble-new-feature` directly for a flag the keywords don't cover.
+
+> With the `ensemble-full` bundle, Claude Code commands are `/ensemble-full:ensemble-<name>`. The `/ensemble:<name>` form applies to standalone plugins and the Pi, Codex and OpenCode runtimes.
 
 ## Where artifacts land
 
@@ -30,9 +32,9 @@ Prefer the dispatcher form: `/ensemble:feature new <idea>`.
 ## Resume / status / abandon
 
 ```text
-/ensemble:feature resume
-/ensemble:feature status
-/ensemble:feature abandon [reason]
+/ensemble-full:ensemble-feature resume
+/ensemble-full:ensemble-feature status
+/ensemble-full:ensemble-feature abandon [reason]
 ```
 
 `resume` continues the active or paused run from its last checkpoint.

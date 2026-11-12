@@ -1,0 +1,21 @@
+{
+ "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26",
+ "runId": "v26-06-pr314-old-first",
+ "adjudications": [
+  {
+   "id": "f1",
+   "disposition": "fix",
+   "reason": "Important finding (the reviewer marked it uncertain); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  },
+  {
+   "id": "f2",
+   "disposition": "deferred",
+   "reason": "Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Deferred to a follow-up bead; the review does not fix it."
+  },
+  {
+   "id": "f5",
+   "disposition": "fix",
+   "reason": "Important finding; 3 real, 0 not-real and 0 abstaining of 3 expected verifiers (present). Needs a fix on the PR or an operator decision; the review does not fix it."
+  }
+ ]
+}

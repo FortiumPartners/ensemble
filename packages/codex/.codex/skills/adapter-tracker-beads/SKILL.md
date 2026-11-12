@@ -1,7 +1,6 @@
 ---
 name: adapter-tracker-beads
 description: Default `tracker`+`work-graph` toolchain adapter for the `br`/`bv` beads issue tracker (TRD-2026-8d825f54 TRD-024, PRD REQ-006/REQ-020). Loaded by the toolchain resolver, not invoked directly by name.
-user-invocable: true
 ---
 
 # Beads Tracker Adapter
@@ -25,7 +24,13 @@ neither needs network access or a credential.
 - `tracker.show`: read a single beads issue by id (`br show <id> --json`)
 - `tracker.list`: list beads issues (`br list --all --limit 0 --json`)
 - `tracker.create`: create a new beads issue (`br create --title ... --type ... -d ...`)
-- `tracker.update`: append free-form notes to an existing issue (`br update <id> --notes ...`)
+- `tracker.create-detailed`: create with labels, priority and external dedupe key in one call
+  (optional)
+- `tracker.find-by-key`: list every issue, not label-scoped; `lib/tracker-findings.js` picks the
+  exact `external_ref` match (optional)
+- `tracker.update`: REPLACE the issue's notes (`br update <id> --notes ...`; see "Known limits")
+- `tracker.update-detailed`: rewrite title/description/priority, APPEND a note (optional)
+- `tracker.close-with-reason`: close with a reason and resolving commit (optional)
 - `tracker.set-status`: set an issue's status to one of the canonical open/in_progress/closed
   values (`br update <id> --status open|in_progress --json`, or `br close <id> --json` for
   closed -- `br update --status closed` is refused; see `adapter.yaml`'s own comment on this
@@ -112,15 +117,23 @@ separately), matching `validate.js`'s own documented limit.
   this dependency-aware"; this adapter omits both rather than fabricate a value
   through a path that does not mean that (normalized-output fields are legitimately
   optional, and `work-graph` has no Ajv schema gate at all, unlike `tracker`).
-- **`tracker.create`/`update`/`close`/`comment`/`dep-add`/`dep-remove`'s exact JSON
-  shapes are inferred, not independently captured live.** These are mutating `br`
-  commands this task may not invoke for real against a live workspace. `br schema
-  commands` (a read-only, machine-readable envelope-shape command) documents every
-  single-entity `br` command it does cover (`show`, `dep tree`, `label list`,
-  `comments list`, `stale`, `ready`) as `shape: "array"`; `tracker.show`'s own `root:
-  "$[0]"` is independently confirmed live. The mutating capabilities above reuse that
-  same `root: "$[0]"` array-of-one convention by inference from this documented
-  pattern, not a captured live sample.
+- **Mutating-command shapes are captured live (br 0.6.0)**, in
+  `scripts/tests/fixtures/toolchain/adapter-tracker-beads-samples/`, replayed through this
+  manifest by `scripts/tests/tracker-findings.test.js`. The earlier inference was wrong for
+  two: `br create --json` prints a bare issue object (`tracker.create` used `$[0]` and failed
+  BAD_OUTPUT after creating the bead), and `br dep add/remove --json` prints a bare
+  `{status, issue_id, ...}` with no `id` (both now map `$.issue_id`).
+- **`tracker.update` REPLACES notes (`--notes`), it does not append** (captured live). Kept
+  because `refine-beads` calls it as shipped; use `tracker.update-detailed` or
+  `tracker.comment` to keep history.
+- **`br` rejects a duplicate `--external-ref` workspace-wide** (`CONFIG_ERROR ... already
+  exists`, any labels): `tracker.find-by-key` is therefore not label-scoped, and `findByKey`'s
+  `AMBIGUOUS_KEY` guards data that bypassed it. A deleted (`tombstone`) bead keeps its key,
+  unlisted by `br list --all`. `br update --add-label` rejects a comma list and fails the whole
+  update, so `tracker.update-detailed` leaves labels to `tracker.label`.
+- **`br`'s own error reaches `TOOL_FAILED`.** `br` prints its JSON error on stdout; with empty
+  stderr the runner reports it. `lib/tracker-findings.js` still decides "unavailable" before
+  spawning (no adapter, `.beads` directory or executable `br`), never from that text.
 - **`toolchain.default.yaml`'s `work-graph: auto` does not yet resolve to any
   adapter.** No shipped task implements the TRD's own `auto`-sentinel selection
   algorithm (use the resolved tracker adapter's own work-graph capabilities when

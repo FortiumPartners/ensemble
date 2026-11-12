@@ -7,6 +7,7 @@
 
 const yaml = require('js-yaml');
 const fs = require('fs').promises;
+const { isSkillBacked } = require('./skill-backed-command');
 const { ValidationError } = require('./error-handler');
 
 /**
@@ -53,6 +54,11 @@ async function parseYamlFile(filePath) {
  * @throws {ValidationError} If type cannot be determined
  */
 function detectYamlType(yamlData, filePath = 'unknown') {
+  // Skill-backed manifests (metadata + skill) carry no workflow: the skill holds the prompt.
+  if (isSkillBacked(yamlData)) {
+    return 'command';
+  }
+
   // Commands have 'workflow' field with phases
   if (yamlData.workflow && yamlData.workflow.phases) {
     return 'command';
@@ -80,7 +86,7 @@ function detectYamlType(yamlData, filePath = 'unknown') {
   throw new ValidationError(
     filePath,
     'type',
-    'Cannot determine YAML type: missing workflow.phases (command) or responsibilities (agent)'
+    'Cannot determine YAML type: missing workflow.phases or skill (command) or responsibilities (agent)'
   );
 }
 

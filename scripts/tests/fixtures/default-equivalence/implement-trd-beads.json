@@ -96,7 +96,7 @@
     ],
     [
       "node",
-      "packages/jest/skills/run-test.js"
+      "packages/jest/skills/jest/run-test.js"
     ],
     [
       "br",
@@ -173,11 +173,11 @@
       "steps": [
         [
           "node",
-          "packages/jest/skills/run-test.js"
+          "packages/jest/skills/jest/run-test.js"
         ]
       ],
       "trd": "TRD-045",
-      "justification": "The pre-refactor phase test step delegated to @test-runner with no literal command; TRD-045 makes it `toolchain-cli run test-runner.run`, whose default adapter template is `node packages/jest/skills/run-test.js` (the per-language runner script the agent resolved before)."
+      "justification": "The pre-refactor phase test step delegated to @test-runner with no literal command; TRD-045 makes it `toolchain-cli run test-runner.run`, whose default adapter template is `node packages/jest/skills/jest/run-test.js` (the per-language runner script the agent resolved before)."
     },
     {
       "type": "reordered",

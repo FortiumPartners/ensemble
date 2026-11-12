@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-xunit",
-  "version": "5.2.1",
+  "version": "5.2.2",
   "description": "xUnit testing framework integration for .NET",
   "main": "lib/index.js",
   "scripts": {

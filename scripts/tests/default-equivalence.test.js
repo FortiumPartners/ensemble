@@ -23,6 +23,7 @@ const {
   gitShow,
   preSequence,
   postSequence,
+  readPostSource,
   accountDeviations,
   diffSequences,
   loadGolden
@@ -42,7 +43,8 @@ const key = (s) => `${s[0]} ${s[1]}`;
 function compareUnit(unitDef, templates) {
   const golden = loadGolden(unitDef.name);
   const expected = golden.expectedPost || golden.sequence;
-  const post = postSequence(fs.readFileSync(path.join(ROOT, unitDef.path), 'utf8'), unitDef.path, templates);
+  const source = readPostSource(unitDef.path);
+  const post = postSequence(source.text, unitDef.path, templates, source.kind);
   const problems = post.unresolved.map((id) => `${unitDef.name}: unresolvable capability call ${id}`);
   const unresolvedPre = post.preflight.filter((s) => s[0] === '<unresolved>');
   for (const s of unresolvedPre) problems.push(`${unitDef.name}: unresolvable preflight capability ${s[1]}`);
@@ -82,7 +84,7 @@ describe('default-equivalence fixtures (TRD-049)', () => {
 
   it('covers every command the TRD-049 task names', () => {
     const named = [
-      'list-issue', 'requirement-status', 'analyze-complexity', 'onboard', 'retro', 'refine-beads',
+      'list-issue', 'requirement-status', 'analyze-complexity', 'onboard', 'retro',
       'implement-bead', 'beads-build-wave', 'beads-build', 'implement-trd-beads', 'pr-merge', 'fix-issue'
     ];
     const names = COVERED.map((u) => u.name);
@@ -158,7 +160,8 @@ describe('Scenario: Opening a change request yields the same default-host sequen
   const ghSteps = (seq) => seq.filter((s) => s[0] === 'gh').map(key);
   const postOf = (name) => {
     const u = unit(name);
-    return postSequence(fs.readFileSync(path.join(ROOT, u.path), 'utf8'), u.path, templates).sequence;
+    const source = readPostSource(u.path);
+    return postSequence(source.text, u.path, templates, source.kind).sequence;
   };
   const preOf = (name) => loadGolden(name).sequence;
 
@@ -198,8 +201,8 @@ describe('Scenario: Opening a change request yields the same default-host sequen
   it('every command that opens a change request resolves it through the default host adapter', () => {
     for (const name of ['implement-bead', 'fix-issue', 'beads-build']) {
       const u = unit(name);
-      const text = fs.readFileSync(path.join(ROOT, u.path), 'utf8');
-      const steps = postSequence(text, u.path, templates).sequence;
+      const { text, kind } = readPostSource(u.path);
+      const steps = postSequence(text, u.path, templates, kind).sequence;
       expect(ghSteps(steps)).toContain('gh pr create');
       expect(text).toMatch(/run\s+host\.change-request-create/);
     }

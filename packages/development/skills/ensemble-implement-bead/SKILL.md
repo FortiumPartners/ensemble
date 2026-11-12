@@ -1,0 +1,70 @@
+---
+name: ensemble-implement-bead
+description: "Implement one bead by ID on a feature branch using the same branching and commit policy as beads-build and implement-trd-beads, opening its change request through the configured host adapter"
+disable-model-invocation: true
+metadata:
+  version: "2.3.0"
+  category: implementation
+---
+
+Single-bead entry to the beads execution engine. It runs exactly one bead as a
+one-bead track: the same tech-lead-orchestrator quality loop and Commit Gate
+that /ensemble:beads-build uses for an epic; branching and the change request
+go through the workflow.*/host.* toolchain capabilities (see Preflight) rather
+than beads-build's own resolve-sdlc branching/PR_BACKEND policy. Use
+/ensemble:beads-build for an epic or any multi-bead scope and
+/ensemble:implement-trd-beads for a TRD.
+
+Rules shared with the other engines: all bead reads/writes go through the tracker.*
+toolchain capabilities (resolved via toolchain-cli; never a direct tracker-binary
+invocation); never stage broadly (no blanket, whole-directory or `.beads/` stage, no
+commit that auto-stages tracked files); stage explicit paths only; `.beads/` is the tracker adapter's own state
+(docs/guides/beads-tracked-export.md); the bead is closed only after its work is
+committed.
+
+## Capabilities
+
+**Required:** tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push
+**Optional:** tracker.sync
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| 1. Preflight | `references/phase-1-preflight.md` | Arguments and Toolchain Preflight; Branch and Working Tree |
+| 2. Execute | `references/phase-2-execute.md` | Run the Bead as a One-Bead Track; Commit Gate and Close |
+| 3. Pull Request | `references/phase-3-pull-request.md` | Open the Change Request |
+
+## Expected Output
+
+**Format:** Pull Request
+
+**Structure:**
+
+- **Git Branch**: Feature branch (bead/<ID>-<slug> when created from the default branch)
+- **Code Changes**: Implementation of the bead with test coverage, committed by explicit pathspec
+- **Closed Bead**: Bead closed with completion comments
+- **Pull Request**: PR created via the configured host adapter (manual fallback when none resolves)
+
+## Expected Input
+
+- **format**: A single bead ID
+- **examples**:
+  - /ensemble:implement-bead beads-042
+  - /ensemble:implement-bead 42
+
+## Validation
+
+- **required_tools**:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Task
+- **required_external**:
+  - toolchain-cli (packages/development/lib/toolchain-cli.js; resolves the tracker, host and workflow adapters internally)
+  - git (version 2.0+)

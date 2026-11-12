@@ -1,0 +1,168 @@
+{
+ "runId": "v26-09-pr315-new-first",
+ "arm": "new",
+ "requestedQuorumFirstVerification": true,
+ "capRequested": 8,
+ "reviewMd": {
+  "kind": "dev-review-md",
+  "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "file": "review-md-served.md",
+  "sha256": "40fb5154d11a761f9ba1bc2b0572cb441b1f182c3d9bab1509721191559f6f77",
+  "servedBlob": "a6336484872c092b3172e250e6e8109324ae4bfb",
+  "realBlobAtBase": "d819a3b7f3781c1f9e8d5e835cb2c950afcde153",
+  "servedEqualsRealBlobAtBase": false,
+  "seamCalls": [
+   {
+    "call": "ls-tree",
+    "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe"
+   },
+   {
+    "call": "cat-file",
+    "blob": "a6336484872c092b3172e250e6e8109324ae4bfb"
+   }
+  ]
+ },
+ "prepareAnswerMaxConcurrentAgents": 8,
+ "runJsonMaxConcurrentAgents": 8,
+ "runJsonPolicyMaxConcurrentAgents": 8,
+ "runJsonPolicyQuorumFirstVerification": true,
+ "runJsonQuorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 5,
+  "needed": 3,
+  "nextVerifier": 11,
+  "secondWave": [
+   {
+    "id": "f2",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-10",
+     "verifier-8"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f5",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-9",
+     "verifier-10"
+    ],
+    "at": 1794454604831
+   },
+   {
+    "id": "f9",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-8",
+     "verifier-9"
+    ],
+    "at": 1794454604831
+   }
+  ],
+  "skipped": []
+ },
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": null,
+ "runJsonBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "runJsonBaseRefName": "scratch/v26-base",
+ "runJsonHeadSha": "a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0",
+ "runJsonTier": {
+  "tier": "high",
+  "effectiveTier": "high"
+ },
+ "runJsonMode": "full",
+ "runJsonDepth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5
+ },
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 3,
+  "slicesWanted": 1
+ },
+ "sizingWarnings": [],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 3,
+   "refill": false,
+   "secondWave": 0
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 7,
+   "refill": false,
+   "secondWave": 0
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 3,
+   "refill": false,
+   "secondWave": 3
+  }
+ ],
+ "verifyManifests": [
+  {
+   "wave": "1 of 1",
+   "refill": false,
+   "quorumFirst": {
+    "expected": 5,
+    "needed": 3,
+    "secondWave": false
+   },
+   "agents": 7,
+   "secondWave": 0
+  },
+  {
+   "wave": "2 (rolling)",
+   "refill": false,
+   "quorumFirst": {
+    "expected": 5,
+    "needed": 3,
+    "secondWave": true
+   },
+   "agents": 3,
+   "secondWave": 3
+  }
+ ],
+ "refillSpanCaps": [],
+ "rootSpanMaxConcurrentAgents": [
+  8
+ ],
+ "refillSpanCapsAllEqual8": true,
+ "capsAgree": true,
+ "quorumApplied": true,
+ "quorumManifestApplied": true,
+ "quorumArmAgrees": true,
+ "allAgree": true
+}

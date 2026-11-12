@@ -84,6 +84,10 @@ const COMPLEXITY_ANALYZER = path.join(DEV_LIB, 'complexity-analyzer.js');
 const JIRA_ADAPTER_DIR = path.join(REPO_ROOT, 'packages', 'infrastructure', 'skills', 'adapter-tracker-jira');
 const AZURE_ADAPTER_DIR = path.join(REPO_ROOT, 'packages', 'infrastructure', 'skills', 'adapter-tracker-azure-boards');
 const BEADS_WAVE_YAML = path.join(REPO_ROOT, 'packages', 'development', 'commands', 'beads-build-wave.yaml');
+// beads-build-wave is skill-backed: the YAML is a manifest, the claim-step prose lives in its skill
+// (SKILL.md + references/). The static assertions below read that prose.
+const BEADS_WAVE_SKILL = path.join(REPO_ROOT, 'packages', 'development', 'skills', 'ensemble-beads-build-wave', 'SKILL.md');
+const readBeadsWaveProse = () => require('../lib/skill-backed-command').readSkillProse(BEADS_WAVE_SKILL);
 
 const SLUG = 'trd-2026-tracker-swap-demo';
 
@@ -279,7 +283,8 @@ function brStubSource({ createdId = 'BR-100' } = {}) {
     "if (argv[0] === '--version') {",
     "  process.stdout.write('br stub 1.0.0\\n');",
     "} else if (argv[0] === 'create') {",
-    `  out([{ id: ${JSON.stringify(createdId)} }]);`,
+    // Real br create --json prints a BARE issue object (captured live, br 0.6.0), not array-of-one.
+    `  out({ id: ${JSON.stringify(createdId)} });`,
     "} else if (argv[0] === 'update') {",
     "  const statusIdx = argv.indexOf('--status');",
     "  const status = statusIdx === -1 ? undefined : argv[statusIdx + 1];",
@@ -618,7 +623,7 @@ describe('AC3: beads-build-wave.yaml claim-step reaches the Azure Boards adapter
     // entry point this test can spawn directly (see this file's header finding list) -- this
     // raw-text assertion mirrors the idiom packages/development/tests/implement-trd-beads-
     // command.test.js already uses for the same family of command YAML files.
-    const text = fs.readFileSync(BEADS_WAVE_YAML, 'utf8');
+    const text = readBeadsWaveProse();
     expect(text).toContain('tracker.set-status --run-id <RUN_ID> --arg id=<BEAD_ID> --arg status=in_progress');
     expect(text).not.toContain('tracker.update --run-id <RUN_ID> --arg id=<BEAD_ID> --arg fields={"status":"in_progress"}');
   });
@@ -978,7 +983,7 @@ describe('Item D: shipped command YAMLs -- derived preflight lists pass for ever
     });
 
     test('reverting beads-build-wave.yaml\'s claim step to the old tracker.update/JSON-fields literal fails the FIXED-argv static assertion (reproduces P1 finding 1 textually)', () => {
-      const text = fs.readFileSync(BEADS_WAVE_YAML, 'utf8');
+      const text = readBeadsWaveProse();
       const FIXED_NEEDLE = 'tracker.set-status --run-id <RUN_ID> --arg id=<BEAD_ID> --arg status=in_progress';
       expect(text).toContain(FIXED_NEEDLE); // the real, unmutated source passes
 

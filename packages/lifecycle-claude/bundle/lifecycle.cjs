@@ -4396,14 +4396,15 @@ function evaluateHooksGate(input) {
 var PROCESS_SESSION_ID = import_node_crypto.randomUUID();
 
 // src/main.ts
-var COLON_FORM = /^\s*\/ensemble:([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/;
+var COLON_FORM = /^\s*\/(?:ensemble:|ensemble-[a-z0-9]+(?:-[a-z0-9]+)*:ensemble[:-])([a-z0-9][a-z0-9-]*)(?:\s+([\s\S]*))?$/;
 var PROMPT_UNSUPPORTED = "prompt handlers need a model call, which a Claude Code hook cannot make; they run only in Pi";
 function resolveClaudeCommand(prompt) {
   const match = COLON_FORM.exec(prompt);
   if (!match)
     return;
-  if (Object.hasOwn(DISPATCHER_TARGETS, `ensemble-${match[1]}`))
-    return resolveCommand(prompt);
+  if (Object.hasOwn(DISPATCHER_TARGETS, `ensemble-${match[1]}`)) {
+    return resolveCommand(`/ensemble:${match[1]}${match[2] === undefined ? "" : ` ${match[2]}`}`);
+  }
   return { command: `ensemble:${match[1]}`, arguments: (match[2] ?? "").trim() };
 }
 function stateFile(projectRoot, sessionId) {

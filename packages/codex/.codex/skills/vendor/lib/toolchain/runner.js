@@ -239,8 +239,10 @@
  *   "Timeout containment" above). The message names the adapter, the capability and the
  *   configured timeout.
  * - `TOOL_FAILED`: any other `execFile` callback error (binary not found, non-zero exit, and so
- *   on). The message names the adapter and the capability and includes the child's stderr (or
- *   the raw error message when stderr is empty), passed through `redactSecrets` (same function
+ *   on). The message names the adapter and the capability and includes the child's stderr (or,
+ *   when stderr is empty, the tool's own JSON error envelope printed on stdout -- `br` prints
+ *   `{error:{code,message,hint}}` there -- and failing that the raw error message), with every
+ *   string leaf of that envelope redacted before serialization, passed through `redactSecrets` (same function
  *   `ledger.js`/`preflight.js` use for their own on-disk records) and truncated to
  *   `MAX_TOOL_FAILED_DETAIL_LENGTH` characters before it ever leaves this function -- a failing
  *   tool's stderr is attacker- or misconfiguration-influenced input the CLI prints verbatim, so
@@ -1031,21 +1033,48 @@ function redactAndBound(rawDetail) {
 }
 
 /**
- * Zero exit, but stdout is itself an error envelope (some `br` subcommands this adapter wraps
- * report failure this way, e.g. `sync`/`comments list`/`label add` -- TRD-024 reviewer round 2,
- * P1): a top-level JSON OBJECT with its own `error` property that is itself an object. A
- * top-level JSON ARRAY (e.g. `br show`'s `[{...}]`) is never touched here and still reaches
- * `BAD_OUTPUT`/the normal mapping path. Runs for EVERY capability, parse-declaring or not,
- * BEFORE any `parse` handling -- shared between `runCapability` and `runCapabilitySync` so
- * this fail-closed check can never silently apply to only one of them.
+ * Redact every string leaf of a decoded error envelope with `redactSecrets` BEFORE it is
+ * serialized. Redacting the `JSON.stringify` output instead misses a double-quoted value such
+ * as `password="..."`: JSON escapes the embedded quotes to `\"`, which the key-value-secret
+ * pattern (an optional quote directly after the separator, then non-space non-quote
+ * characters) no longer matches, so the secret would reach the caller verbatim while the same
+ * text on stderr is redacted.
  *
- * @param {string} adapterId
- * @param {string} capability
- * @param {string} stdout raw child stdout
- * @returns {{ok:false, error:{code:'TOOL_FAILED', message:string}} | null} the envelope when
- *   stdout is an error envelope, else `null`
+ * @param {unknown} value
+ * @returns {unknown} a structural copy with every string leaf redacted
  */
-function checkZeroExitErrorEnvelope(adapterId, capability, stdout) {
+function redactEnvelopeLeaves(value) {
+  if (typeof value === 'string') return redactSecrets(value).text;
+  if (Array.isArray(value)) return value.map(redactEnvelopeLeaves);
+  if (value !== null && typeof value === 'object') {
+    const copy = {};
+    for (const [key, leaf] of Object.entries(value)) copy[key] = redactEnvelopeLeaves(leaf);
+    return copy;
+  }
+  return value;
+}
+
+/**
+ * The serialized, leaf-redacted text of a stdout error envelope's `error` object -- the one
+ * helper behind both the zero-exit check and the non-zero-exit detail. The caller still
+ * length-bounds the final message with `redactAndBound`.
+ *
+ * @param {object} envelopeError
+ * @returns {string}
+ */
+function serializeEnvelopeError(envelopeError) {
+  return JSON.stringify(redactEnvelopeLeaves(envelopeError));
+}
+
+/**
+ * Parse `stdout` as a tool error envelope: a top-level JSON OBJECT with its own `error`
+ * property that is itself an object. A top-level JSON ARRAY (e.g. `br show`'s `[{...}]`) is
+ * never an envelope. Shared by the zero-exit check and the non-zero-exit detail fallback.
+ *
+ * @param {string|Buffer|undefined} stdout raw child stdout
+ * @returns {object|null} the `error` object, else `null`
+ */
+function extractStdoutErrorEnvelope(stdout) {
   const trimmedStdout = stdout ? String(stdout).trim() : '';
   if (!trimmedStdout) return null;
 
@@ -1064,19 +1093,62 @@ function checkZeroExitErrorEnvelope(adapterId, capability, stdout) {
     parsedStdout.error !== null &&
     typeof parsedStdout.error === 'object'
   ) {
-    const boundedDetail = redactAndBound(JSON.stringify(parsedStdout.error));
-    return {
-      ok: false,
-      error: {
-        code: 'TOOL_FAILED',
-        message:
-          `${adapterId}: capability '${capability}' failed: tool reported an error ` +
-          `envelope on stdout despite a zero exit (${boundedDetail})`
-      }
-    };
+    return parsedStdout.error;
   }
 
   return null;
+}
+
+/**
+ * Zero exit, but stdout is itself an error envelope (some `br` subcommands this adapter wraps
+ * report failure this way, e.g. `sync`/`comments list`/`label add` -- TRD-024 reviewer round 2,
+ * P1). Runs for EVERY capability, parse-declaring or not, BEFORE any `parse` handling -- shared
+ * between `runCapability` and `runCapabilitySync` so this fail-closed check can never silently
+ * apply to only one of them.
+ *
+ * @param {string} adapterId
+ * @param {string} capability
+ * @param {string} stdout raw child stdout
+ * @returns {{ok:false, error:{code:'TOOL_FAILED', message:string}} | null} the envelope when
+ *   stdout is an error envelope, else `null`
+ */
+function checkZeroExitErrorEnvelope(adapterId, capability, stdout) {
+  const envelopeError = extractStdoutErrorEnvelope(stdout);
+  if (envelopeError === null) return null;
+
+  const boundedDetail = redactAndBound(serializeEnvelopeError(envelopeError));
+  return {
+    ok: false,
+    error: {
+      code: 'TOOL_FAILED',
+      message:
+        `${adapterId}: capability '${capability}' failed: tool reported an error ` +
+        `envelope on stdout despite a zero exit (${boundedDetail})`
+    }
+  };
+}
+
+/**
+ * The raw (pre-`redactAndBound`) detail for a NON-ZERO exit's `TOOL_FAILED` message, shared by
+ * `runCapability` and `runCapabilitySync`: the child's stderr when it has any; otherwise the
+ * tool's own JSON error envelope on stdout (`br` prints `{error:{code,message,hint}}` on
+ * STDOUT and exits non-zero, leaving stderr empty, so without this the caller sees only
+ * "Command failed: br ..." and never br's own code, e.g. NOT_INITIALIZED); otherwise Node's
+ * own `error.message`. The caller still passes the result through `redactAndBound`.
+ *
+ * @param {string|Buffer|undefined} stderr
+ * @param {string|Buffer|undefined} stdout
+ * @param {string} fallbackMessage Node's `error.message`
+ * @returns {string}
+ */
+function nonZeroExitDetail(stderr, stdout, fallbackMessage) {
+  const trimmedStderr = stderr ? String(stderr).trim() : '';
+  if (trimmedStderr) return trimmedStderr;
+  const envelopeError = extractStdoutErrorEnvelope(stdout);
+  if (envelopeError !== null) {
+    return `tool reported an error envelope on stdout (${serializeEnvelopeError(envelopeError)})`;
+  }
+  return fallbackMessage;
 }
 
 /**
@@ -1291,7 +1363,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
               exitCode !== null && successExitCodes !== null && successExitCodes.includes(exitCode);
 
             if (!toleratedExit) {
-              const rawDetail = (stderr && String(stderr).trim()) || error.message;
+              const rawDetail = nonZeroExitDetail(stderr, stdout, error.message);
               resolve({
                 ok: false,
                 error: {
@@ -1503,7 +1575,7 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
         }
       };
     }
-    const rawDetail = (error.stderr && String(error.stderr).trim()) || error.message;
+    const rawDetail = nonZeroExitDetail(error.stderr, error.stdout, error.message);
     return {
       ok: false,
       error: {

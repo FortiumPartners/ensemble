@@ -1,0 +1,136 @@
+{
+ "label": "v26-03-pr207-new-first-rep",
+ "limit": 6,
+ "waitedMs": 135417,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-11T23:19:51.884Z",
+   "load1": 7.25,
+   "load5": 14.58,
+   "top": [
+    "127.4 22183       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier7 --entity-type file --pl",
+    " 48.9 69118 02-02:28:23 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 22.8 90810       05:07 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 13.9   456 02-06:33:10 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 10.6 23334    23:28:07 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    "  9.7   386 02-06:33:10 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/FSEvents.framework/Versions/A/Support/fseventsd"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:20:06.928Z",
+   "load1": 6.38,
+   "load5": 14.02,
+   "top": [
+    "80.9 69118 02-02:28:38 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 64.7 23836       00:00 pi  ",
+    " 14.8   456 02-06:33:25 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 11.9  8872 02-06:30:42 /opt/homebrew/bin/herdr server",
+    "  7.7 90810       05:22 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    "  6.3  8871 02-06:30:42 herdr"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:20:21.976Z",
+   "load1": 6.74,
+   "load5": 13.73,
+   "top": [
+    "96.7 69118 02-02:28:54 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 87.4 25027       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier1 --entity-type file --pl",
+    " 28.4 69059 02-02:28:55 /Applications/Docker.app/Contents/MacOS/com.docker.backend services",
+    " 28.1 90810       05:38 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 21.2 25034       00:01 (node)",
+    " 16.6   456 02-06:33:41 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:20:37.022Z",
+   "load1": 8.19,
+   "load5": 13.7,
+   "top": [
+    "119.3 26305       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier3 --entity-type file --pl",
+    " 76.4 69118 02-02:29:09 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 38.3 90810       05:53 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 33.4 23398    23:28:48 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 15.1   456 02-06:33:56 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 15.0 69059 02-02:29:10 /Applications/Docker.app/Contents/MacOS/com.docker.backend services"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:20:52.070Z",
+   "load1": 6.97,
+   "load5": 13.16,
+   "top": [
+    "161.0 27669       00:02 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier6 --entity-type file --pl",
+    " 89.8 69118 02-02:29:24 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 38.3 90810       06:08 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 22.9   962 02-06:34:06 /System/Library/PrivateFrameworks/MediaAnalysis.framework/Versions/A/mediaanalysisd",
+    " 17.2   456 02-06:34:11 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 13.6 27706       00:01 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Support/mdworker_shared -s mdworker -c MDSIm"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:21:07.115Z",
+   "load1": 7.53,
+   "load5": 13,
+   "top": [
+    "89.4 31319       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier7 --entity-type file --pl",
+    " 65.9 69118 02-02:29:39 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 16.5   456 02-06:34:26 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 11.0 12851 02-06:31:40 omp --resume=/Users/ldangelo/.omp/agent/sessions/-Development-Sunstone-ensemble.local-ci/2026-11-06T18-28-41-764Z_01a1b21e-bea4-72f4-a793-bc849a47",
+    "  8.5  8872 02-06:31:43 /opt/homebrew/bin/herdr server",
+    "  7.8 90810       06:23 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:21:22.159Z",
+   "load1": 6.82,
+   "load5": 12.57,
+   "top": [
+    "72.5 69118 02-02:29:54 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 16.1   456 02-06:34:41 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    " 14.7 90810       06:38 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 10.1 23334    23:29:38 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    "  7.7  8872 02-06:31:58 /opt/homebrew/bin/herdr server",
+    "  7.5   600 02-06:34:39 /usr/sbin/coreaudiod"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:21:37.205Z",
+   "load1": 6.58,
+   "load5": 12.23,
+   "top": [
+    "151.1 69118 02-02:30:09 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    "116.9 33335       00:01 /opt/homebrew/bin/wakatime-cli --entity /Users/ldangelo/Development/Sunstone/ensemble.local-ci/proc:/RunRamp.Rc8bVerifier6 --entity-type file --pl",
+    " 56.7 23334    23:29:53 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 39.6 69059 02-02:30:10 /Applications/Docker.app/Contents/MacOS/com.docker.backend services",
+    " 37.5 90810       06:53 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 23.1   456 02-06:34:56 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:21:52.249Z",
+   "load1": 6.09,
+   "load5": 11.84,
+   "top": [
+    "320.5 90810       07:08 /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkjy5p4-erlang-28.5.0.5/lib/erlang/erts-16.4.0.5/bin/beam.smp -- -root /nix/store/jqc5i31qvkl45xf0xn4mhzmbdvkj",
+    " 82.4 69118 02-02:30:24 /System/Library/Frameworks/Virtualization.framework/Versions/A/XPCServices/com.apple.Virtualization.VirtualMachine.xpc/Contents/MacOS/com.apple.Vi",
+    " 47.8 23334    23:30:08 /Applications/TradingView.app/Contents/Frameworks/TradingView Helper (Renderer).app/Contents/MacOS/TradingView Helper (Renderer) --type=renderer -",
+    " 34.3 31623    07:25:19 /Applications/Jump Desktop.app/Contents/MacOS/Jump Desktop",
+    " 17.9   456 02-06:35:11 /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer -daemon",
+    "  9.3  8872 02-06:32:28 /opt/homebrew/bin/herdr server"
+   ]
+  },
+  {
+   "at": "2026-11-11T23:22:07.299Z",
+   "load1": 5.75,
+   "load5": 11.49
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.75,
+  "load5": 11.49,
+  "load15": 17.45
+ }
+}

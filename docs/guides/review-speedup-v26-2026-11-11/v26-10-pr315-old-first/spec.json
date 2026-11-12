@@ -1,0 +1,17 @@
+{
+ "n": 10,
+ "pr": 315,
+ "tier": "high",
+ "arm": "old",
+ "round": "first",
+ "runId": "v26-10-pr315-old-first",
+ "prefix": "R10o",
+ "prevDir": "/Users/ldangelo/.omp/pr-review-speedup/v26/runs/v26-09-pr315-new-first",
+ "recall": false,
+ "expectHeadSha": "a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0",
+ "expectBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "saveStateTo": "/Users/ldangelo/.omp/pr-review-speedup/v26/state/pr315-old-first.json",
+ "note": "scratch re-creation of the #229 diff at 5351850; base scratch/v26-base",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-12T03:44:54.184Z"
+}

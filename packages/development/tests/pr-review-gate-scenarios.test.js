@@ -126,6 +126,7 @@ function mergeAttempt(overrides = {}) {
     tier,
     description: checkDescription({ body: FULL_DESCRIPTION, agentAuthored: false }),
     security: { status: 'clean', findings: [] },
+    coverage: { status: 'complete', gaps: [] },
     ...overrides,
   };
 }
@@ -152,8 +153,11 @@ describe('Scenario AC-008-1: an open Important finding refuses the merge and nam
 
   test('the same PR once that finding is answered with a recorded reason: it merges', () => {
     const answered = recordResolution(finding({ id: 'F-7' }), {
+      decision: 'accept',
       reason: 'intentional: the caller validates the payload, see REVIEW.md',
       by: 'author-a',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
     expect(answered.ok).toBe(true);
 
@@ -164,7 +168,7 @@ describe('Scenario AC-008-1: an open Important finding refuses the merge and nam
   });
 
   test('a finding "closed" with no stated reason is NOT an answer: the merge is still refused', () => {
-    const noReason = recordResolution(finding({ id: 'F-7' }), { by: 'author-a' });
+    const noReason = recordResolution(finding({ id: 'F-7' }), { decision: 'accept', by: 'author-a' });
     expect(noReason.ok).toBe(false);
 
     const result = evaluateGate(mergeAttempt({ ledger: [noReason.finding] }));
@@ -275,6 +279,7 @@ describe('Scenario AC-017-1: the security lane blocks the merge until the issue 
         tier,
         description: checkDescription({ body: FULL_DESCRIPTION, agentAuthored: false }),
         security: { status: 'findings', findings: ledger },
+        coverage: { status: 'complete', gaps: [] },
       };
     };
 
@@ -316,8 +321,11 @@ describe('Scenario AC-017-1: the security lane blocks the merge until the issue 
   describe('Scenario AC-017-3: a false positive closed with a reason is recorded in the ledger', () => {
     test('the author closes it with a stated reason: the reason is recorded and the merge proceeds', () => {
       const closed = recordResolution(securityFinding(), {
+        decision: 'accept',
         reason: 'false positive: the logger redacts this value before writing',
         by: 'author-a',
+        headSha: HEAD,
+        at: '2026-11-06T10:00:00Z',
       });
       expect(closed.ok).toBe(true);
       expect(closed.finding.resolution.reason).toContain('false positive');
@@ -333,7 +341,7 @@ describe('Scenario AC-017-1: the security lane blocks the merge until the issue 
     });
 
     test('the author closes it with no reason: nothing is recorded and the merge is still refused', () => {
-      const closed = recordResolution(securityFinding(), { reason: '   ' });
+      const closed = recordResolution(securityFinding(), { decision: 'accept', reason: '   ' });
       expect(closed.ok).toBe(false);
 
       const result = evaluateGate(

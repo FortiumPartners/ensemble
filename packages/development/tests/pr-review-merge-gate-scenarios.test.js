@@ -136,6 +136,7 @@ function runGate(options = {}) {
     reviews = [{ author: 'human-a', state: 'APPROVED', commitSha: HEAD, treeSha: TREE }],
     ledger = [],
     security = { status: 'clean', findings: [] },
+    coverage = { status: 'complete', gaps: [] },
     description = agentAuthored && directedBy !== undefined ? directedDescription(directedBy) : FULL_DESCRIPTION,
   } = options;
 
@@ -157,6 +158,7 @@ function runGate(options = {}) {
     tier,
     description: checkDescription({ body: description, agentAuthored }),
     security,
+    coverage,
     headSha: HEAD,
   });
 
@@ -428,8 +430,11 @@ describe('Scenario AC-017-1: a security finding blocks the merge until it is fix
 
   test('closed with a stated reason: the reason is recorded and the merge proceeds', () => {
     const resolved = recordResolution(securityFinding, {
+      decision: 'accept',
       reason: 'the value logged is the request id, not the token; renamed to make that plain',
       by: 'owner-o',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
     expect(resolved.ok).toBe(true);
 
@@ -439,7 +444,7 @@ describe('Scenario AC-017-1: a security finding blocks the merge until it is fix
   });
 
   test('"closed" with NO stated reason records nothing, and the merge is still refused', () => {
-    const refused = recordResolution(securityFinding, { reason: '   ' });
+    const refused = recordResolution(securityFinding, { decision: 'accept', reason: '   ' });
     expect(refused.ok).toBe(false);
 
     const { gate } = runGate({ security: { status: 'findings', findings: [securityFinding] } });
@@ -478,8 +483,11 @@ describe('Scenario AC-008-1: an open Important finding refuses the merge and nam
 
   test('the same PR once that finding is answered with a recorded reason: it merges', () => {
     const answered = recordResolution(finding({ id: 'F-OPEN' }), {
+      decision: 'accept',
       reason: 'validated at the call site in the same commit',
       by: 'author-a',
+      headSha: HEAD,
+      at: '2026-11-06T10:00:00Z',
     });
 
     const { gate } = runGate({ ledger: [answered.finding] });

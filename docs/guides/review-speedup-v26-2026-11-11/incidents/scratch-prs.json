@@ -1,0 +1,62 @@
+[
+ {
+  "baseRefName": "scratch/v26-base",
+  "closedAt": "2026-11-12T05:05:45Z",
+  "createdAt": "2026-11-11T21:49:47Z",
+  "headRefName": "scratch/v26-medium-225",
+  "headRefOid": "444af69c2b63023c882d57834dd543689d5062ae",
+  "isDraft": true,
+  "mergedAt": null,
+  "number": 314,
+  "state": "CLOSED",
+  "title": "[scratch measurement, do not merge] V2-6: re-creation of #225 (label-scoped beads-build-wave) on dev"
+ },
+ {
+  "baseRefName": "scratch/v26-base",
+  "closedAt": "2026-11-12T05:05:46Z",
+  "createdAt": "2026-11-11T21:49:50Z",
+  "headRefName": "scratch/v26-229",
+  "headRefOid": "a9f7cc6f4b59d3fdde6ab08bebcaf93c17609bf0",
+  "isDraft": true,
+  "mergedAt": null,
+  "number": 315,
+  "state": "CLOSED",
+  "title": "[scratch measurement, do not merge] V2-6: re-creation of the #229 diff at 5351850 on dev"
+ },
+ {
+  "baseRefName": "scratch/v26-base",
+  "closedAt": "2026-11-12T05:05:48Z",
+  "createdAt": "2026-11-11T21:49:52Z",
+  "headRefName": "scratch/v26-228",
+  "headRefOid": "ad472b928f113703a96857e622c744d46ec3d48d",
+  "isDraft": true,
+  "mergedAt": null,
+  "number": 316,
+  "state": "CLOSED",
+  "title": "[scratch measurement, do not merge] V2-6: re-creation of the #228 diff at 7d4d9d2 on dev"
+ },
+ {
+  "baseRefName": "scratch/v26-base",
+  "closedAt": "2026-11-12T05:05:49Z",
+  "createdAt": "2026-11-11T21:49:54Z",
+  "headRefName": "scratch/v26-233",
+  "headRefOid": "c4dcf12be1ab6c13b18e888694431585039edbd7",
+  "isDraft": true,
+  "mergedAt": null,
+  "number": 317,
+  "state": "CLOSED",
+  "title": "[scratch measurement, do not merge] V2-6: re-creation of merged #233 on its first parent"
+ },
+ {
+  "baseRefName": "scratch/v26-base",
+  "closedAt": "2026-11-12T05:05:51Z",
+  "createdAt": "2026-11-11T23:53:01Z",
+  "headRefName": "scratch/v26-205",
+  "headRefOid": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+  "isDraft": true,
+  "mergedAt": null,
+  "number": 319,
+  "state": "CLOSED",
+  "title": "[scratch measurement, do not merge] V2-6: re-creation of #205 at its measured head cca69fe (merged since)"
+ }
+]

@@ -46,7 +46,8 @@ that request, PRs and local changes alike, in the `PLAN_ONLY` call and in the
 real one. The cycle takes 2 to 4 and refuses anything else as `REVIEW_BLOCKED`
 at the plan, before any reviewer runs: report that and let the person ask
 again. Quick keeps its one reviewer and a policy minimum above the count raises
-it, which the table shows. Asking for more reviewers is asking for the review
+it, which the table shows. The count is spent as distinct lenses per slice,
+not as duplicate passes over the same range. Asking for more reviewers is asking for the review
 to be redone, so `REUSE_RECORDED` stays unset for that request. Nothing else
 changes: the depth, the verifier count and the rule that only a Deep plan asks
 first are the cycle's.

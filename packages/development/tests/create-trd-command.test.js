@@ -4,16 +4,31 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 
-const sourcePath = path.join(__dirname, '../commands/create-trd.yaml');
-const generatedPath = path.join(__dirname, '../commands/ensemble/create-trd.md');
+const { transformCommandToMarkdown } = require('../../../scripts/lib/command-transformer');
+const { readCommandProse } = require('../../../scripts/lib/skill-backed-command');
+const { readDevelopmentSkill, parseWorkflow, parseParameters } = require('./helpers/skill-workflow');
 
-function read(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
+const manifestPath = path.join(__dirname, '../commands/create-trd.yaml');
+const manifest = yaml.load(fs.readFileSync(manifestPath, 'utf8'));
+
+// create-trd is a skill-backed command: its YAML is a manifest (metadata + skill) and the
+// prompt is its skill -- the SKILL.md and the phase files under references/ -- the single
+// source of truth. The contract below is pinned against the whole prompt (skill.prompt: the
+// SKILL.md body, then every reference); the Claude Code command is only a stub that points
+// at it.
+const skill = readDevelopmentSkill(manifest.skill);
+const skillText = skill.prompt;
+
+// Index of the `#### Step N.M: <title>` heading whose title starts with `title`.
+function stepStart(text, title) {
+  const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^#### Step [\\d.]+: ${escaped}`, 'm').exec(text);
+  return match ? match.index : -1;
 }
 
 describe('create-trd command document ids', () => {
   test('reuses source PRD micro UUID instead of allocating a new sequence', () => {
-    const text = read(sourcePath);
+    const text = skillText;
     expect(text).toContain('PRD-YYYY-<micro_uuid>');
     expect(text).toContain('TRD_MICRO_UUID');
     expect(text).toContain('docs/TRD/TRD-YYYY-<TRD_MICRO_UUID>-<slug>.md');
@@ -24,27 +39,28 @@ describe('create-trd command document ids', () => {
     ['Master Task List Generation', 'Test Task Generation', 'Every task line MUST begin with a GitHub checkbox'],
     ['Test Task Generation', 'Dependency Mapping and PR Boundary Design', 'Every TRD-NNN-TEST line MUST begin with the same checkbox-prefix requirement as implementation tasks'],
   ])('%s requires the checkbox prefix that TASK_LINE_RE parses', (title, nextTitle, phrase) => {
-    const text = read(sourcePath);
-    const start = text.indexOf(`title: ${title}`);
-    const next = text.indexOf(`title: ${nextTitle}`);
+    const text = skillText;
+    const start = stepStart(text, title);
+    const next = stepStart(text, nextTitle);
     expect(start).toBeGreaterThan(-1);
     expect(next).toBeGreaterThan(start);
     expect(text.slice(start, next)).toContain(phrase);
   });
 
-  test('Task Coverage Analysis self-checks the draft Master Task List via trd-cli.js parse', () => {
-    const text = read(sourcePath);
-    const start = text.indexOf('title: Task Coverage Analysis');
-    const next = text.indexOf('title: Dependency and Estimate Review');
-    expect(start).toBeGreaterThan(-1);
+  test('TRD_CLI is resolved once, early, and Task Coverage Analysis self-checks the draft Master Task List via trd-cli.js parse', () => {
+    const text = skillText;
+    const resolve = text.indexOf('Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js');
+    const start = stepStart(text, 'Task Coverage Analysis');
+    const next = stepStart(text, 'Dependency and Estimate Review');
+    expect(resolve).toBeGreaterThan(-1);
+    expect(text.indexOf('Resolve TRD_CLI per the tool-path-resolution skill', resolve + 1)).toBe(-1);
+    expect(start).toBeGreaterThan(resolve);
     expect(next).toBeGreaterThan(start);
-    const scoped = text.slice(start, next);
-    expect(scoped).toContain('Resolve TRD_CLI per the tool-path-resolution skill (packages/development/skills/tool-path-resolution/SKILL.md) for packages/development/lib/trd-cli.js');
-    expect(scoped).toContain('node \\"$TRD_CLI\\" parse');
+    expect(text.slice(start, next)).toContain('node "$TRD_CLI" parse');
   });
 
   test('keeps the companion artifact output contract', () => {
-    const text = read(sourcePath);
+    const text = skillText;
     expect(text).toContain('COMPANION_DOMAINS');
     expect(text).toContain('`<trd-stem>-data-model.md`');
     expect(text).toContain('`<trd-stem>-research.md`');
@@ -54,13 +70,13 @@ describe('create-trd command document ids', () => {
   });
 
   test('has no phantom MCP phase or mcp_integration block', () => {
-    const text = read(sourcePath);
+    const text = skillText;
     expect(text).not.toContain('mcp_integration');
     expect(text).not.toContain('inject_checkpoints');
   });
 
   test('records the Constitution Gate result in frontmatter and blocks save on violation', () => {
-    const text = read(sourcePath);
+    const text = skillText;
     expect(text).toContain('docs/standards/constitution.md');
     expect(text).toContain('Constitution compliance: passed');
   });
@@ -76,17 +92,14 @@ describe('create-trd command document ids', () => {
 // ---------------------------------------------------------------------------
 describe('create-trd hands off to refine-trd, not to implementation', () => {
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s suggests refine-trd as the next step', (_label, filePath) => {
-    expect(read(filePath)).toContain("Suggest: '/ensemble:refine-trd");
+    ['skill prompt', skillText],
+  ])('%s suggests refine-trd as the next step', (_label, text) => {
+    expect(text).toContain("Suggest: '/ensemble:refine-trd");
   });
 
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s never suggests an implement or configure-team next step', (_label, filePath) => {
-    const text = read(filePath);
+    ['skill prompt', skillText],
+  ])('%s never suggests an implement or configure-team next step', (_label, text) => {
     expect(text).not.toContain("Suggest: '/ensemble:implement-trd-beads");
     expect(text).not.toContain("Suggest: '/ensemble:implement-trd ");
     expect(text).not.toContain("Suggest: '/ensemble:configure-team");
@@ -96,10 +109,8 @@ describe('create-trd hands off to refine-trd, not to implementation', () => {
   });
 
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s warns when the source PRD was never refined', (_label, filePath) => {
-    const text = read(filePath);
+    ['skill prompt', skillText],
+  ])('%s warns when the source PRD was never refined', (_label, text) => {
     expect(text).toContain('REFINE CHECK');
     // refine-prd is the only writer of a PRD changelog, which is what makes
     // its absence a usable signal that the PRD was never reviewed.
@@ -108,10 +119,8 @@ describe('create-trd hands off to refine-trd, not to implementation', () => {
   });
 
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s re-creates rather than refines when the PRD moved', (_label, filePath) => {
-    const text = read(filePath);
+    ['skill prompt', skillText],
+  ])('%s re-creates rather than refines when the PRD moved', (_label, text) => {
     expect(text).toContain('PRD-CHANGED CHECK');
     expect(text).toContain('NOT to run /ensemble:refine-trd on the existing one');
   });
@@ -128,17 +137,14 @@ describe('create-trd hands off to refine-trd, not to implementation', () => {
 // ---------------------------------------------------------------------------
 describe('create-trd pins the PRD reference key and its value shape', () => {
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s names the exact frontmatter key', (_label, filePath) => {
-    expect(read(filePath)).toContain('`prd_reference`');
+    ['skill prompt', skillText],
+  ])('%s names the exact frontmatter key', (_label, text) => {
+    expect(text).toContain('`prd_reference`');
   });
 
   test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s requires a path value, not a document id', (_label, filePath) => {
-    const text = read(filePath);
+    ['skill prompt', skillText],
+  ])('%s requires a path value, not a document id', (_label, text) => {
     expect(text).toContain("VALUE IS THE PRD'S FILE PATH");
     expect(text).toContain('prd_reference: docs/PRD/PRD-YYYY-<micro_uuid>-<slug>.md');
     expect(text).toContain('It is not the PRD');
@@ -158,7 +164,11 @@ describe('create-trd pins the PRD reference key and its value shape', () => {
 // must still be true of `create-trd <prd> --parser-tables`.
 // ---------------------------------------------------------------------------
 describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', () => {
-  const doc = yaml.load(read(sourcePath));
+  const doc = {
+    metadata: manifest.metadata,
+    parameters: parseParameters(skill.body),
+    workflow: { phases: parseWorkflow(skill) },
+  };
   const MODE_FLAG = "$ARGUMENTS contains '--parser-tables'";
   const phase = (name) => doc.workflow.phases.find((p) => p.name === name);
   const step = (phaseName, title) => phase(phaseName).steps.find((s) => s.title === title);
@@ -176,7 +186,7 @@ describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', 
   // [phase, title] of every standard step that table mode replaces or omits.
   const REPLACED_STEPS = [
     ['Task Breakdown and Planning', 'Master Task List Generation'],
-    ['Task Breakdown and Planning', 'Test Task Generation (BDD)'],
+    ['Task Breakdown and Planning', 'Test Task Generation'],
     ['Task Breakdown and Planning', 'Dependency Mapping and PR Boundary Design'],
     ['Adversarial Review and Design Gate', 'Architecture Self-Critique'],
     ['Adversarial Review and Design Gate', 'Task Coverage Analysis'],
@@ -294,11 +304,8 @@ describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', 
     );
   });
 
-  test.each([
-    ['source YAML', sourcePath],
-    ['generated command markdown', generatedPath],
-  ])('%s keeps the constitution gate non-bypassable in table mode and withholds the foreman sling prd step on violation', (_label, filePath) => {
-    const text = read(filePath);
+  test('keeps the constitution gate non-bypassable in table mode and withholds the foreman sling prd step on violation', () => {
+    const text = skillText;
     const start = text.indexOf('there is no Design Readiness Gate in this mode');
     expect(start).toBeGreaterThan(-1);
     const contract = text.slice(start, start + 700);
@@ -309,13 +316,76 @@ describe('create-trd --parser-tables mode (folded in from create-trd-foreman)', 
     expect(contract).toContain('do not print the foreman sling prd next-step output');
   });
 
-  test('generated command markdown renders the flag, the mode steps and the foreman sling prd next step', () => {
-    const md = read(generatedPath);
-    expect(md).toContain('argument-hint: "[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables]"');
-    expect(md).toContain('- **`parser-tables`** (boolean, optional, default: `false`)');
+  test('the manifest advertises the flag, and the skill carries the flag, the mode steps and the foreman sling prd next step', () => {
+    expect(manifest.metadata.argument_hint).toBe('[prd-path] [--team] [--foundational] [--list] [--foreman] [--parser-tables] [--bdd | --no-bdd]');
+    expect(skill.body).toContain('- **`parser-tables`** (boolean, optional, default: `false`)');
     for (const [, title] of MODE_STEPS) {
-      expect(md).toContain(title);
+      expect(skillText).toContain(title);
     }
-    expect(md).toContain('explicit next step `foreman sling prd <original-prd-path>` only after constitution compliance passes');
+    expect(skillText).toContain('explicit next step `foreman sling prd <original-prd-path>` only after constitution compliance passes');
+  });
+});
+
+describe('create-trd is a skill-backed command', () => {
+  const referenceNamed = (name) => skill.references.find((reference) => path.basename(reference.file) === name);
+
+  test('its YAML is a manifest -- metadata and a skill, no prompt of its own', () => {
+    expect(Object.keys(manifest).sort()).toEqual(['metadata', 'skill']);
+    expect(manifest.skill).toBe('ensemble-create-trd');
+    expect(path.basename(path.dirname(skill.file))).toBe(manifest.skill);
+    expect(skill.frontmatter.name).toBe(manifest.skill);
+  });
+
+  test('SKILL.md indexes every phase file by its relative path, and every indexed file exists', () => {
+    const indexed = [...skill.body.matchAll(/`(references\/[^`]+\.md)`/g)].map((match) => match[1]).sort();
+    const present = skill.references.map((reference) => `references/${path.basename(reference.file)}`);
+    expect(present).toHaveLength(6);
+    expect(indexed).toEqual(present);
+  });
+
+  // One phrase per phase that is in that phase's file and nowhere else, so a phase body
+  // deleted from references/ -- or pasted back into SKILL.md -- fails here.
+  test.each([
+    ['phase-1-prd-ingestion-and-validation.md', 'REFINE CHECK'],
+    ['phase-2-architecture-design.md', 'keep the Dependencies column local-only'],
+    ['phase-3-task-breakdown-and-planning.md', 'Every task line MUST begin with a GitHub checkbox'],
+    ['phase-4-adversarial-review-and-design-gate.md', 'node "$TRD_CLI" parse'],
+    ['phase-5-constitution-gate.md', 'Constitution compliance: passed'],
+    ['phase-6-output-management.md', 'Do NOT print /ensemble:implement-trd-beads'],
+  ])('%s holds its phase, which SKILL.md does not repeat: %s', (name, phrase) => {
+    const reference = referenceNamed(name);
+    expect(reference).toBeDefined();
+    expect(reference.text).toContain(phrase);
+    expect(skill.body).not.toContain(phrase);
+    expect(skillText).toContain(phrase);
+  });
+
+  test('the prose the gates scan for this command is its SKILL.md and every phase file', () => {
+    const prose = readCommandProse(manifestPath, manifest, fs.readFileSync(manifestPath, 'utf8'));
+    expect(prose).toContain(skill.body);
+    for (const reference of skill.references) {
+      expect(prose).toContain(reference.text);
+    }
+  });
+
+  test('the Expected Input section carries the PRD sections the command reads', () => {
+    expect(skill.body).toContain('## Expected Input');
+    expect(skill.body).toContain('format: Product Requirements Document (PRD)');
+    expect(skill.body).toContain('Given/When/Then AC-NNN-M sub-items');
+  });
+});
+
+describe('create-trd Claude Code stub', () => {
+  const stubBody = transformCommandToMarkdown(manifest, manifestPath).replace(/^---\n[\s\S]*?\n---\n/, '');
+
+  test('tells Claude to read the skill, resolve its relative paths and passes $ARGUMENTS through; it carries no prompt text', () => {
+    expect(stubBody).toBe(
+      '<!-- DO NOT EDIT - Generated from create-trd.yaml -->\n' +
+      '<!-- To modify this file, edit the YAML source and run: npm run generate -->\n' +
+      '\n' +
+      'Read the file ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-create-trd/SKILL.md and follow its instructions exactly; ' +
+      'resolve any relative paths in it against ${CLAUDE_PLUGIN_ROOT}/skills/ensemble-create-trd/. ' +
+      'Wherever that file refers to its ARGUMENTS, use this value: $ARGUMENTS\n'
+    );
   });
 });

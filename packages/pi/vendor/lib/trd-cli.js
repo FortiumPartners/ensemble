@@ -31,6 +31,7 @@
  *   beads-stage --match <title-substring> [--label <l>] [--check] [--dry-run]
  *   quickstart <trd-path> --out <path> [--json]
  *   resolve-sdlc --git-town-exit-code <0-4> --remote-url <url>
+ *   resolve-bdd  [--bdd | --no-bdd] [--trd <path>]   (create-trd and implement-trd-beads: is the Reqnroll/BDD path on? --trd must be a readable file, as given or under the repo root; otherwise {error}, never the default)
  *   validate     <trd-path> [--prd path]
  *   analyze      <trd-path> [--prd path]
  *   req-status   <trd-path> [--prd path] [--issues-json file] [--verified REQ-001,...] [--comments-json file]
@@ -41,13 +42,11 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-let yaml = null;
-try { yaml = require('js-yaml'); } catch { yaml = null; }
-
 const { extractPrdContext } = require('./prd-parser');
 
 const {
   parseTRD,
+  scanFrontmatter,
   extractDesignReadinessScore,
   getFrontmatterField,
   PRD_REFERENCE_KEYS,
@@ -85,6 +84,7 @@ const { stageBeadsExport, checkStagedExport } = require('./beads-stage');
 const { resolveCategory } = require('./toolchain/config');
 const { loadAdapter } = require('./toolchain/adapters');
 const { detectAdapter } = require('./toolchain/detect');
+const { resolveBdd } = require('./bdd-mode');
 const { runCapabilitySync } = require('./toolchain/runner');
 
 // ---------------------------------------------------------------------------
@@ -328,7 +328,7 @@ function resolveTrackerAdapter() {
   const projectRoot = process.cwd();
   const env = process.env;
   const resolved = resolveCategory('tracker', { projectRoot, env, detect: detectAdapter });
-  const loaded = loadAdapter(resolved.value, { projectRoot, env, interactive: false });
+  const loaded = loadAdapter(resolved.value, { projectRoot, env, category: 'tracker', interactive: false });
   return { manifest: loaded.manifest, source: resolved.source };
 }
 
@@ -719,6 +719,70 @@ function runResolveSdlc(argv, env) {
   };
 }
 
+/**
+ * Resolve an explicit `--trd <path>` to a readable file. A relative path is tried as given (from the cwd,
+ * where `parse`, `validate` and every other subcommand read the same string) and then under the repo root,
+ * because the commands pass repo-root-relative paths (`docs/TRD/<file>.md`) from whatever directory the
+ * shell is in. Throws when neither is a readable file: the caller named a TRD, and carrying on without it
+ * would run the default test approach on a TRD that may have opted out.
+ *
+ * @param {string} given
+ * @returns {string} `given` when it is readable as written, else the absolute path under the repo root
+ */
+function resolveTrdArg(given) {
+  const candidates = [given];
+  if (!path.isAbsolute(given)) {
+    const underRoot = path.resolve(repoRoot(), given);
+    if (underRoot !== path.resolve(given)) candidates.push(underRoot); // the cwd is not the repo root
+  }
+  let reason;
+  for (const candidate of candidates) {
+    try {
+      fs.accessSync(candidate, fs.constants.R_OK);
+      if (fs.statSync(candidate).isFile()) return candidate;
+      reason = reason || 'not a file';
+    } catch (err) {
+      reason = reason || err.message;
+    }
+  }
+  const alsoTried = candidates.length > 1 ? ` (also tried ${candidates[1]})` : '';
+  throw new Error(`Cannot read TRD file '${given}': ${reason}${alsoTried}`);
+}
+
+/**
+ * `resolve-bdd [--bdd | --no-bdd] [--trd <path>]`
+ *   -> { ok:true, enabled, source, evidence?, warning?, message }
+ *
+ * Thin CLI adapter over bdd-mode.js's resolveBdd (precedence: flag, ENSEMBLE_BDD, the TRD's
+ * `test_approach` frontmatter, on). BDD stays on by default; these are the ways to opt out. Run by both
+ * `create-trd` and `implement-trd-beads` so the two commands agree on whether Reqnroll is in play.
+ * Reads ENSEMBLE_BDD from the `env` param rather than process.env directly, like runResolveSdlc.
+ *
+ * `--trd` is an explicit request to consult that TRD, so it must name a readable file (see resolveTrdArg).
+ * An unreadable path, or `--trd` with no path, throws: main() prints `{error}` and exits 1, which the
+ * commands HALT on. It is never answered with the default, which would run BDD on for a TRD that opted out.
+ * That holds whichever source would have decided, so `--no-bdd` or ENSEMBLE_BDD cannot hide a bad path.
+ */
+function runResolveBdd(argv, env) {
+  const { positionals, flags } = parseArgs(argv, new Set(['trd']));
+  // Anything else (`--trd=<path>`, a bare path, a typo) would be dropped and answered with the default, which is
+  // BDD on for a TRD that may have opted out. Refuse it like an unreadable --trd.
+  const unknown = [...positionals, ...Object.keys(flags).filter((k) => !['bdd', 'no-bdd', 'trd'].includes(k)).map((k) => `--${k}`)];
+  if (unknown.length) {
+    throw new Error(`resolve-bdd takes only --bdd, --no-bdd and --trd <path> (got: ${unknown.join(' ')})`);
+  }
+  if (flags.bdd === true && flags['no-bdd'] === true) {
+    throw new Error('--bdd and --no-bdd are mutually exclusive');
+  }
+  const flag = flags.bdd === true ? 'bdd' : flags['no-bdd'] === true ? 'no-bdd' : undefined;
+  let trdPath;
+  if ('trd' in flags) {
+    if (flags.trd === '') throw new Error('--trd requires a TRD path');
+    trdPath = resolveTrdArg(flags.trd);
+  }
+  return { ok: true, ...resolveBdd({ flag, env: env || {}, trdPath }) };
+}
+
 /** Load all TRD paths for combined workstream helpers. */
 function loadWorkstreamItems(trdPaths) {
   const paths = Array.isArray(trdPaths) ? trdPaths : [];
@@ -812,76 +876,6 @@ function runWorkstreamStatus(argv) {
   }
   return summarizeWorkstream(issuesInput, { workstreamSlug: flags.workstream || null });
 }
-// ---------------------------------------------------------------------------
-// Frontmatter scanner — handles H1-then-frontmatter layout used by TRD/PRDs
-// ---------------------------------------------------------------------------
-
-/**
- * Parse a markdown file that may have a title/H1 before the frontmatter block.
- * Strategy:
- * 1. Find first `---` on its own line → frontmatter start
- * 2. Find second `---` on its own line → frontmatter end
- * 3. If yaml is available, use it; otherwise fall back to parseSimpleFrontmatter
- * Returns { frontmatter, body, yamlFailed } where yamlFailed=true when the
- * yaml parser threw (indicating the frontmatter uses non-standard syntax
- * such as bold-keyed lines).
- *
- * @param {string} md
- * @returns {{frontmatter: Object|null, body: string, yamlFailed: boolean}}
- */
-function scanFrontmatter(md) {
-  const lines = md.split('\n');
-  let start = -1;
-  let end = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === '---') {
-      if (start === -1) start = i;
-      else if (start !== -1 && end === -1) { end = i; break; }
-    }
-  }
-  if (start === -1 || end === -1) {
-    return { frontmatter: null, body: md, yamlFailed: false };
-  }
-  const raw = lines.slice(start + 1, end).join('\n');
-  let frontmatter = null;
-  let yamlFailed = false;
-  if (yaml) {
-    try {
-      const loaded = yaml.load(raw);
-      if (loaded && typeof loaded === 'object') frontmatter = loaded;
-    } catch {
-      yamlFailed = true;
-    }
-  }
-  if (!frontmatter) { frontmatter = parseSimpleFrontmatter(raw); yamlFailed = true; }
-  const body = lines.slice(end + 1).join('\n');
-  return { frontmatter, body, yamlFailed };
-}
-
-/** Minimal key:value parser used as fallback when yaml is unavailable. */
-function parseSimpleFrontmatter(raw) {
-  const out = {};
-  for (const line of String(raw || '').split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const m = trimmed.match(/^([^:]+):\s*(.*)$/);
-    if (!m) continue;
-    const key = m[1].trim();
-    let value = m[2].trim();
-    const commentIndex = value.search(/\s+#/);
-    if (commentIndex !== -1) value = value.slice(0, commentIndex).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    } else if (/^-?\d+(?:\.\d+)?$/.test(value)) {
-      value = Number(value);
-    } else if (/^(true|false)$/i.test(value)) {
-      value = /^true$/i.test(value);
-    }
-    out[key] = value;
-  }
-  return Object.keys(out).length ? out : null;
-}
-
 // ---------------------------------------------------------------------------
 // Registry subcommands — list, status, migrate-frontmatter
 // ---------------------------------------------------------------------------
@@ -1555,6 +1549,7 @@ const HANDLERS = {
   'next-task': (argv) => runNextTask(argv, process.env),
   'pr-plan': (argv) => runPrPlan(argv, process.env),
   'resolve-sdlc': (argv) => runResolveSdlc(argv, process.env),
+  'resolve-bdd': (argv) => runResolveBdd(argv, process.env),
   'validate-workstream': (argv) => runValidateWorkstream(argv),
   'create-workstream-trd': (argv) => runCreateWorkstreamTrd(argv),
   'workstream-plan': (argv) => runWorkstreamPlan(argv, process.env),
@@ -1590,7 +1585,7 @@ function main(argv) {
     process.stdout.write(
       JSON.stringify({
         error:
-          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|bead-context|phase-status|next-task|pr-plan|resolve-sdlc|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|beads-stage|quickstart|list|status|migrate-frontmatter|choices-read|choices-write|validate|analyze|req-status|verify> <trd-path> [...]   (bead-context takes --bead <id> [--trd <path>] [--issue-json <file>] instead of <trd-path>)',
+          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|bead-context|phase-status|next-task|pr-plan|resolve-sdlc|resolve-bdd|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|beads-stage|quickstart|list|status|migrate-frontmatter|choices-read|choices-write|validate|analyze|req-status|verify> <trd-path> [...]   (bead-context takes --bead <id> [--trd <path>] [--issue-json <file>] instead of <trd-path>)',
       }) + '\n'
     );
     return 1;
@@ -1630,6 +1625,7 @@ module.exports = {
   runNextTask,
   runPrPlan,
   runResolveSdlc,
+  runResolveBdd,
   runQuickstart,
   runValidateWorkstream,
   runCreateWorkstreamTrd,
@@ -1654,6 +1650,11 @@ module.exports = {
 };
 
 if (require.main === module) {
-  const code = main(process.argv.slice(2));
-  process.exit(code);
+  // `process.exit()` discards whatever is still sitting in stdout's buffer. When stdout is
+  // a pipe Node writes it asynchronously, so anything past the 64 KiB (65536-byte) pipe
+  // buffer - which is every large TRD's `parse`/`scaffold-plan` JSON - was silently truncated:
+  // the consumer saw invalid JSON cut at position 65536. Setting `process.exitCode` instead
+  // lets the event loop drain stdout and exit naturally with the same code, so piping and
+  // redirecting produce byte-identical output.
+  process.exitCode = main(process.argv.slice(2));
 }

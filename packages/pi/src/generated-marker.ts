@@ -37,6 +37,54 @@ export function commandHeaderLine(name: string, version: string): string {
 }
 
 /**
+ * What an Agent Skills `name`, and so a skill directory, may be: lowercase letters, digits and
+ * single hyphens, at most 64 characters. isValidSkillName mirrors scripts/lib/skill-backed-command.js,
+ * which the Claude, Codex and OpenCode generators use and this standalone package cannot import.
+ */
+const SKILL_NAME_CORE = '[a-z0-9]+(?:-[a-z0-9]+)*';
+const SKILL_NAME = new RegExp(`^${SKILL_NAME_CORE}$`);
+const SKILL_NAME_MAX_LENGTH = 64;
+
+export function isValidSkillName(name: unknown): name is string {
+  return typeof name === 'string' && name.length <= SKILL_NAME_MAX_LENGTH && SKILL_NAME.test(name);
+}
+
+/**
+ * Third line of the prompt header of a skill-backed command, a command whose YAML is a manifest
+ * naming the skill that carries its whole prompt (CommandYaml.skill). The prompt of such a command
+ * is a stub that points the agent at that skill, and the skill is shipped as it is (skill-copier,
+ * or in place in a self-contained package), so it is the command's one skill: no command-wrapper
+ * skill is generated for the stub (generateCommandSkills), which would otherwise land on the very
+ * path of the skill whenever that is named `ensemble-<cmd>`.
+ */
+export const SKILL_HEADER_PREFIX = '<!-- Skill: ';
+
+/** The `Skill:` header line of the stub prompt of a command backed by skill `skill`. */
+export function skillHeaderLine(skill: string): string {
+  return `${SKILL_HEADER_PREFIX}${skill} -->`;
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * The generated header a skill-backed command's prompt opens with: the marker line, the `Command:`
+ * line, then the `Skill:` line (its skill name captured). Strict like isCommandWrapperSkill: a
+ * hand-authored prompt, or one that merely quotes such a line deeper in its text, does not match.
+ */
+const SKILL_BACKED_PROMPT_HEADER = new RegExp(
+  `^${escapeRegExp(GENERATED_MARKER_PREFIX)}[^\\r\\n]*-->\\r?\\n` +
+    `${escapeRegExp(COMMAND_HEADER_PREFIX)}[^\\r\\n]*-->\\r?\\n` +
+    `${escapeRegExp(SKILL_HEADER_PREFIX)}(${SKILL_NAME_CORE}) -->(?:\\r?\\n|$)`
+);
+
+/** The skill a generated prompt is the stub of, or undefined when it is not a skill-backed command's. */
+export function skillOfPrompt(content: string): string | undefined {
+  return SKILL_BACKED_PROMPT_HEADER.exec(content)?.[1];
+}
+
+/**
  * Leading YAML frontmatter block: `---`, optional lines, `---`. Matches the delimiters only, with
  * no YAML parsing, so a hand-authored file with malformed frontmatter can still be inspected
  * (and is then simply not recognised as generated).

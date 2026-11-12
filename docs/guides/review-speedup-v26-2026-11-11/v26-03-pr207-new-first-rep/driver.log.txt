@@ -1,0 +1,15 @@
+2026-11-11T23:22:22.139Z dispatched review wave 1 of 1: 8 agents at 2026-11-11T23:22:22.135Z cap 8
+2026-11-11T23:26:22.815Z LOAD: load1 above 20 in the last 5 samples
+2026-11-11T23:36:20.663Z collect#1 -> DISPATCH verify wave 1 of 2 at 2026-11-11T23:36:19.748Z (915 ms)
+2026-11-11T23:36:20.672Z dispatched verify wave 1 of 2 quorumFirst {"expected":3,"needed":2,"secondWave":false}: 8 agents at 2026-11-11T23:36:20.669Z cap 8
+2026-11-11T23:39:07.512Z collect#2 -> PENDING verify wave 1 of 2 at 2026-11-11T23:39:07.050Z (462 ms)
+2026-11-11T23:39:30.099Z collect#3 -> DISPATCH verify wave 2 (rolling) refill at 2026-11-11T23:39:29.534Z (565 ms)
+2026-11-11T23:39:30.104Z dispatched verify wave 2 (rolling) (refill; still running 6) quorumFirst {"expected":3,"needed":2,"secondWave":false}: 2 agents at 2026-11-11T23:39:30.104Z cap 8
+2026-11-11T23:39:42.778Z collect#4 -> PENDING verify wave 1 of 2 at 2026-11-11T23:39:42.180Z (597 ms)
+2026-11-11T23:40:39.817Z collect#5 -> PENDING verify wave 1 of 2 at 2026-11-11T23:40:38.987Z (829 ms)
+2026-11-11T23:41:12.749Z collect#6 -> PENDING verify wave 1 of 2 at 2026-11-11T23:41:12.017Z (731 ms)
+2026-11-11T23:42:09.718Z collect#7 -> PENDING verify wave 1 of 2 at 2026-11-11T23:42:08.957Z (760 ms)
+2026-11-11T23:42:26.443Z collect#8 -> PENDING verify wave 1 of 2 at 2026-11-11T23:42:25.740Z (702 ms)
+2026-11-11T23:42:37.184Z collect#9 -> PENDING verify wave 2 (rolling) at 2026-11-11T23:42:36.450Z (734 ms)
+2026-11-11T23:44:02.045Z collect#10 -> PENDING verify wave 2 (rolling) at 2026-11-11T23:44:01.457Z (588 ms)
+2026-11-11T23:44:28.027Z collect#11 -> ADJUDICATE at 2026-11-11T23:44:26.079Z (1947 ms)

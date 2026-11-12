@@ -9,11 +9,24 @@ names one `action` and carries that action's keys. Every key is required: an
 absent or misspelt one is a CLI error (non-zero exit), never an empty default.
 
 * `validate` -- `{ action, findings }`
-* `isActionable` -- `{ action, finding }`
+* `isActionable` -- `{ action, finding }`, plus optional `headSha`, `policy` and `lane`. With `headSha` it answers `reading: 'gate'` (pass `lane: true` for a security-lane entry: a lane Nit with a `follow-on` reads as not actionable without it and actionable with it, as at the gate): the finding AS THE MERGE GATE READS IT at that head and policy (a resolution with no valid `decision`, another head or a refused login is dropped, and so is an Important finding's `blocking: false` deferral), the same reading the gate and the run's status counts use. Without `headSha` it answers `{ actionable }` alone (no `reading` key): the ledger's RAW reading of the finding as written (a recorded reason reads as closed, whoever wrote it, on whatever head, with or without a `decision`), which is NOT whether the finding still blocks. Triage (Step 4) always passes `headSha` and `policy`.
 * `dedupe` -- `{ action, findings }`
 * `merge` -- `{ action, existingLedger, incomingFindings, headSha }`
 * `scopeViolations` -- `{ action, changedFiles, scope, ledger }`
 * `recordRound` -- `{ action, ledger, incoming, round }` (TRD-013)
+* `resolve` -- `{ action, id, resolution, ledger }`, plus `security` (the stored security record), `coverage` (the stored coverage record, for a gap) and `policy` -- records a decision on one finding found by `id` in the state you pass (see below). BREAKING: the old `{ finding, resolution, policy?, lane? }` payload is refused
+
+`resolve` takes `resolution: { decision, reason, by, headSha, at }` and refuses (CLI error)
+anything short of all five: `decision` is exactly `accept` or `follow-on` (a "Fix on this PR" answer is a
+`FIX_SELECTION`, not a resolution, and is refused; only `accept` closes a blocking finding, a security-lane entry (`lane: true`) or a coverage gap, because a follow-on PR cannot unblock the gate, so `follow-on` is for a Nit or Pre-existing finding), `by` is the deciding login, `headSha` the head the
+decision was made against, `at` an ISO-8601 timestamp with a zone. Pass the Step 1b
+`policy` block as `policy` (the one key that may be left out): `by` must then not be one of its `botLogins` and, when it
+names `maintainerLogins`, must be one of them (without it the login is checked for
+shape only). The recorder takes the class from the entry it finds BY `id` in the state you pass: the `ledger`, `security` and `coverage` from `state-read` (a finding in `security.findings` is a lane entry; a gap in `coverage.gaps` is blocking). You need not pass `severity` or `lane`; one you do pass must match the found entry, and an unknown `id` or an unknown key (a misspelt `policy`) is refused. The CLI is stateless and never reads the persisted report, so a relabelled copy of the state can still get `ok` for a decision the GATE, which acts on the persisted record and is the authority, then ignores (it fails closed). It returns that entry with the resolution attached. Use it only with an answer the operator gave you for that finding; the
+merge gate ignores an Important or security resolution that lacks any of the five (or says `follow-on`),
+names another head or comes from a login the policy refuses, and the CLI cannot tell
+whether the operator or this session wrote the words, so you never write them for the
+operator. Splice the returned `finding` back where it came from (its `source` says: `ledger`, `security` or `coverage`) before `state-write`.
 
 A finding missing a required field is rejected and must be completed, not
 dropped. Duplicates found within the same round's own findings are merged
@@ -42,13 +55,20 @@ to the findings carried over in the review-state report (empty on round 1),
 current round number. Its result names three outcomes per incoming finding:
 a `repeat` (the same path, failure mode and class already recorded -- the
 first record stands and only gains the round it was seen again in; it is
-never presented twice), an `attached` instance of a class already flagged
+never presented twice unless it is worse than the record, see below), an `attached` instance of a class already flagged
 (joins that one class finding instead of opening a new one), or a `new`
 finding. Report `repeats` as suppressed by name (not silently dropped) and
 `classes` by naming the class and listing every instance found so the batch
 fix in Step 5 covers all of them, not just the one just reported. Carry
 `findings` forward into the next round's `ledger` in the state report
 (Step 9).
+
+A repeat that is **worse** than the first record (`reason: severity-escalated`: a Critical report of a recorded Major,
+an Important one of a Nit) is an escalation, not noise. The record's severity rises and it is presented again, and a
+decision recorded on it is **cleared**, because nobody was asked about the worse finding: the repeat says
+`resolutionCleared: true`, the finding is open again, the operator decides it anew with a reason of their own on the
+current head, and the old decision stays on the record in `supersededResolutions`. Name each escalation, and each
+cleared decision, in the report. A repeat that is no worse leaves the record, and its decision, alone.
 
 **Ingesting CodeRabbit and other review-bot findings (REQ-005, AC-005-3).**
 A finding posted by CodeRabbit (or any login in `BOT_LOGINS`) on this PR is
@@ -65,8 +85,8 @@ minimise, hide, delete or `@coderabbitai resolve` a CodeRabbit comment, and
 never push a commit whose purpose is to make one disappear. The bot's thread
 is the evidence a reader checks the ledger against; suppressing it would
 destroy the only independent record that a finding was ever raised. Answer it
-in the normal way -- fix it, or reply with the recorded reason it is deferred
--- and leave the thread exactly as the bot left it. (Collecting these
+in the normal way -- a fix run the operator selects fixes it, or a reply gives the
+recorded reason it is deferred -- and leave the thread exactly as the bot left it. (Collecting these
 comments is Step 7's job in `MODE=remote`; this paragraph says what happens
 to them once collected, in either mode.)
 
@@ -82,52 +102,108 @@ Step 1c (`bounds.verifiers`: Quick none, Standard 3, Deep 5), each a
 **fresh-context subagent** given the diff, the candidate and the applied
 rules -- never the authoring conversation and never the reviewer's reasoning
 for raising it. **A verifier never votes on a finding it produced itself**:
-each candidate records the `reviewer` that raised it, and that reviewer is
-excluded from that finding's verifier set. When the dispatch cannot exclude
+each candidate records the `reviewer` that raised it (a ledger candidate's
+`source`, and each `mergedFrom[].source` of a merged finding, count the same),
+and that reviewer is excluded from that finding's verifier set. When the dispatch cannot exclude
 them (a single reviewer and a single verifier are the same agent), that
 finding has no usable verifier -- record it in `incompleteVerifiers` rather
 than letting the author of the finding confirm their own finding. A verifier
 meets the same agent requirement as a reviewer (Step 1c, "Which agent").
+
+**Who verifies what.** Every candidate gets K verifiers, but no verifier is
+handed every candidate. Plan the split with
+`node "$PR_REVIEW_CLI" verify-assign` and
+`{ candidates, depth, verifierPool | verifierCount, expectedVerifiers,
+maxCandidatesPerVerifier, allowShortPool }` (`candidates` are the Step 3
+ledger findings, each with its `id` and its `source`; a merged finding's
+`mergedFrom[].source` counts too, and a candidate naming no raiser is
+refused). It returns `assignments` -- per candidate, K **distinct**
+verifiers, spread evenly and never anyone who raised the candidate (`source`,
+`reviewer`, merged sources) -- and `agents`, per verifier agent, the
+candidates it is briefed
+on (one or a few: 5 to 15 tool calls, 2 to 5 minutes). Dispatch one agent per
+`agents` entry, in parallel (at most 32 at once), each briefed on its own
+candidates only: no verifier sees another's vote. A pool that cannot give
+every candidate K verifiers comes back `ok: false`, `reason:
+verifier-pool-too-small`, naming the candidates and how many verifiers each
+could have: enlarge the pool, or re-run with `allowShortPool: true`. Then
+each short candidate is planned with every verifier it can have and flagged
+`incomplete: true` (the result reads `complete: false`, with the
+`shortfalls`), `votes` accepts that entry and records the one finding
+`unverified` / `verifier-incomplete` (an `(unassigned)` entry in its
+`incompleteVerifiers`), and every other finding stays under the structural
+check. Never run a candidate with fewer than K by any other route, and never
+drop `assignment` for the round to get around a short pool.
+A round with no candidates is an `ok: true` plan with `candidates: 0`: there
+is nothing to dispatch; see `depth` below for grading it.
 
 Each verifier returns, per candidate, exactly one verdict: `real`,
 `not-real` or `abstain`. Anything else is not a vote and is ignored as one.
 
 **The verifier brief.** This is where the checks a reviewer may not run
 belong, on named findings only. With the diff, the findings it is to settle
-and the applied rules, every verifier is given the text below, word for word;
-like the reviewer brief it is editable policy, and until a maintainer edits it
-the limits bind.
+and the applied rules, every verifier is given the brief rendered from
+`templates/verifier-brief.md`, word for word; like the reviewer brief it is
+editable policy -- tune the wording and the numbers in that file, never in the
+CLI -- and until a maintainer edits it the limits bind.
 
-> You are verifying findings that someone else raised: decide, for each one
-> you are given, whether it is real. You are told each finding's file, line,
-> failure mode and evidence, and nothing about who raised it or why.
->
-> Settle each finding with the narrowest check that bears on it and on no
-> other finding: read the code, run one snippet, or run the ONE test file
-> that exercises the claim. Never run a whole test suite, a build or a
-> generator. When a finding says that a test or a guard would not catch a
-> defect, you may prove it with ONE mutation: in your own throwaway copy of
-> the snapshot, change the one line, run that one test, then discard the
-> copy. Never change the shared working tree, the PR's branch or the snapshot
-> itself.
->
-> Use at most 20 tool calls per finding. Return exactly one verdict per
-> finding -- `real`, `not-real` or `abstain` -- with the evidence for it. If
-> you reach the cap or your timebox before you have a verdict on a finding,
-> return NO verdict for it rather than guess: the cycle records you as
-> incomplete for that finding, which is the honest answer.
+Render one brief per finding with `node "$PR_REVIEW_CLI" brief` and
+`{ role: "verifier", vars: { claim, location, paths, snapshotDir } }`: `claim`
+is the finding's failure mode and evidence as the ledger entry records them,
+`location` its cited `file:line`, `paths` the files to read and `snapshotDir`
+the frozen snapshot. Those four are ALL a verifier brief accepts, so another
+verifier's vote, a verdict, the reviewer that raised the finding and anything
+the orchestrator concluded have no field of the brief to arrive in. Every one
+of the four except `claim` is a token the renderer checks against a strict
+grammar: `location` and each entry of `paths` are repository-relative paths
+(letters, digits and `. _ @ + ~ = [ ] -` in `/`-separated segments, no
+whitespace, parentheses or `..`), `location` followed by `:line` or
+`:start-end`, and `snapshotDir` is such a path, optionally starting with `/`,
+so a note cannot ride in them: it is refused, and so is a path outside that
+grammar. `claim` is the one free-text input and is screened only by a word
+list: a `claim` containing a word such as vote, verdict, orchestrator,
+conclusion or "another verifier" is refused, and one that avoids those words
+is not checked at all, so write it as the finding's own failure mode and
+evidence. A refusal exits non-zero; fix the input, never route around
+it with a hand-written brief. A dispatch that settles several findings is given
+each finding's rendered brief in turn.
 
 **Tallying.** Run `node "$PR_REVIEW_CLI" votes` with
-`{ findings, depth, expectedVerifiers, verificationCapability }`:
+`{ findings, depth, assignment, expectedVerifiers, verificationCapability }`:
 
 * `findings` are the candidates from Step 3, each
-  `{ id, severity, kind, security, reviewer, votes: [{ verifier, verdict }],
+  `{ id, severity, kind, security, source, mergedFrom, votes: [{ verifier, verdict }],
   incompleteVerifiers }`;
 * `depth` is the `mode` Step 1c resolved;
+* `assignment` is the `assignments` array `verify-assign` returned, unchanged.
+  It makes the tally structural: every finding must have exactly one entry
+  naming exactly K distinct verifiers (none of them who raised it: its
+  `source`, `reviewer` or a merged source; an entry flagged `incomplete` may
+  name fewer, and that finding alone is `unverified`), or the round
+  comes back `verification: blocked` with the reason (a wrong plan, not a
+  quiet verifier); a vote from someone not assigned to that finding is
+  ignored (`not-assigned`); and an assigned verifier with no counted vote --
+  none returned, or an unreadable verdict -- is named in that finding's
+  `incompleteVerifiers`
+  (reason `no-vote`) by `votes` itself, so you do not have to track who
+  stayed silent. One voter missing from a finding of K makes that finding
+  `unverified` / `verifier-incomplete`, never `present` on the strength of
+  the others;
 * `expectedVerifiers` is given only when the policy's bounds override the
   mode's count -- leave it out otherwise, so the denominator stays the count
-  the depth **expects**, never the number of votes that happened to arrive;
+  the depth **expects**, never the number of votes that happened to arrive.
+  Pass the same value to `verify-assign`;
 * `verificationCapability` is `false` only in the degraded case below.
+
+To grade the plan against the depth's bounds, send `depth` the assignment
+itself as `planned.verifiers` (or `used.verifiers`) with the plan's
+`candidates` count as `planned.candidates`: the bounds mean K distinct
+verifiers **per candidate**, graded as the weakest candidate, not the count
+of agents dispatched (11 groups of 3 is 3 verifiers, not 33). A plan for
+`candidates: 0` has nothing to verify, so its verifier floor is vacuous; an
+empty list that does not say it was planned for zero candidates (a refused
+plan) still fails the floor, and so does a list naming fewer candidates than
+`candidates`.
 
 **What the author is asked to answer.** Present exactly `presented[]` --
 the `present`, `disputed` and `unverified` findings -- and nothing else. A

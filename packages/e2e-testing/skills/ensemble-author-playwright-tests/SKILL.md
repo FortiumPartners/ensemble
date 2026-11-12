@@ -1,0 +1,47 @@
+---
+name: ensemble-author-playwright-tests
+description: "Interactive, post-implementation Playwright test-authoring session grounded in shipped code and PRD acceptance criteria"
+disable-model-invocation: true
+metadata:
+  version: "2.7.0"
+  category: testing
+---
+
+Walk a story's PRD acceptance criteria one at a time with a QA engineer after
+implement-trd-beads has shipped a PR boundary, grounding each proposed Playwright
+test in the real implementing code rather than PRD prose alone, running it against
+the target application's QA environment, and syncing confirmed tests to an Azure
+DevOps Test Case/Suite as plain-English steps.
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| 1. Scaffold | `references/phase-1-scaffold.md` | Trigger Check; Parse PRD, Ground Every REQ, Flag Gaps, and Resume-Scan; Full-Session Idempotence Short-Circuit |
+| 2. Execution Setup | `references/phase-2-execution-setup.md` | Ask Headed or Headless; Resolve and Verify the QA Environment; Offer a Follow-Along Pause (Headed Only); Ensure the Screenshot Helper |
+| 3. REQ Batching and Delegation | `references/phase-3-req-batching-and-delegation.md` | Batch by REQ, Skip Already-Complete REQs; Delegate the Proposal (Ground + Author, No Run) to @playwright-tester |
+| 4. Decision and Local Landing | `references/phase-4-decision-and-local-landing.md` | Present the Plain-English Summary and Record the QA Engineer's Pre-Run Decision; Run the Confirmed Test; Land the Confirmed, Passed Test |
+| 5. Azure DevOps Test Plan Sync | `references/phase-5-azure-devops-test-plan-sync.md` | Resolve or Confirm the Project's Test Plan; Resolve or Confirm the Story's Test Suite; Sync Each Landed Test's Steps as a Test Case |
+| 6. AC-Gap Task Filing | `references/phase-6-ac-gap-task-filing.md` | File One ADO Task Per Confirmed Gap |
+| 7. Checkpoints and Session Summary | `references/phase-7-checkpoints-and-session-summary.md` | Per-REQ Checkpoint; Final Session Summary |
+
+## Expected Output
+
+**Format:** Confirmed Playwright tests synced to Azure DevOps
+
+**Structure:**
+
+- **Test Files**: Playwright test specs landed for confirmed acceptance criteria
+- **Azure DevOps Test Cases**: Plain-English steps synced to the target ADO Test Case/Suite
+- **AC-Gap Tasks**: One ADO Task per confirmed implementation gap, filed on the referenced Story
+- **Session/Checkpoint Summaries**: Human-readable counts of tests written/confirmed/manual/synced/gap-filed, printed after each REQ and at session end
+
+## Expected Input
+
+- **description**: Story or PR reference identifying the shipped PR boundary to author tests against
+- **formats**:
+  - Story ID or branch name with an open PR
+- **examples**:
+  - /ensemble:author-playwright-tests STORY-123

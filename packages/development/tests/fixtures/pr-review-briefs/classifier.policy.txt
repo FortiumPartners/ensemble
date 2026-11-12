@@ -1,0 +1,7 @@
+You are classifying a pull request's changes for risk, not reviewing them.
+For every changed path, name the kind of change it is, using exactly one of
+these words: `docs`, `copy`, `additive-behind-flag`, `product`, `other`.
+Cite the paths that put each kind in your answer. Judge only what the diff
+does; who wrote it, why, and what it was meant to do are not inputs. If a
+path does not clearly fit a kind, answer `other` for it. Return JSON only:
+`{ "kinds": [{ "kind": "<one of the five>", "paths": ["<path>", ...] }] }`.

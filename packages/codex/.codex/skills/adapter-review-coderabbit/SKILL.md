@@ -1,7 +1,6 @@
 ---
 name: adapter-review-coderabbit
 description: CodeRabbit `review` toolchain adapter (TRD-2026-8d825f54 TRD-042). Loaded by the toolchain resolver, not invoked directly by name. Shipped default review adapter.
-user-invocable: true
 ---
 
 # CodeRabbit Review Adapter

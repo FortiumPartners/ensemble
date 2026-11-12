@@ -1,0 +1,45 @@
+'use strict';
+// Cohort documents per arm and `walltime compare` against the committed baseline (kata 1yjx). Scratch; a copy goes into the evidence directory as text.
+const fs = require('fs');
+const path = require('path');
+const L = require('./v26-lib.js');
+const R = require('./v26-report.js');
+
+const BASELINE = path.join(L.REPO_ROOT, 'docs', 'guides', 'review-walltime-baseline-2026-11-07.json');
+const TARGETS = { 'medium/first': { median: 25, p75: 26 }, 'high/first': { median: 24, p75: 29 }, 'high/re-review': { median: 17, p75: 21 } };
+
+/** A row regenerated with `walltime row` from the run's trace (never the row written at run time). */
+function regenRow(d) {
+  const out = L.cliCall('walltime', { action: 'row', pr: d.pr, tier: d.tier, round: d.round, origin: 'real', runId: d.id, cwd: L.REPO_ROOT });
+  return out.row || out;
+}
+
+/** `chosen`: runIds of one run per (PR, round) for the arm. */
+function cohort(ds, ids) {
+  const by = Object.fromEntries(ds.map((d) => [d.id, d]));
+  return { schema: 'review-walltime-cohort/1', runs: ids.map((id) => regenRow(by[id])) };
+}
+
+function compare(cohortDoc, targetFactors) {
+  const baseline = JSON.parse(fs.readFileSync(BASELINE, 'utf8'));
+  return L.cliCall('walltime', { action: 'compare', baseline, current: cohortDoc, cwd: L.REPO_ROOT, ...(targetFactors ? { targetFactors } : {}) });
+}
+
+const pct = (xs, q) => { const s = [...xs].sort((a, b) => a - b); if (!s.length) return null; return s[Math.max(1, Math.ceil((q / 100) * s.length)) - 1]; };
+
+/** Median and nearest-rank p75 of the chosen runs of each stratum, against the plan's re-based absolute targets. */
+function planTargets(ds, ids) {
+  const by = Object.fromEntries(ds.map((d) => [d.id, d]));
+  const strata = {};
+  for (const id of ids) { const d = by[id]; const k = `${d.tier}/${d.round}`; (strata[k] = strata[k] || []).push(d); }
+  const out = {};
+  for (const [k, list] of Object.entries(strata)) {
+    const walls = list.map((d) => d.wallMin);
+    const med = R.median(walls); const p75 = pct(walls, 75);
+    const t = TARGETS[k];
+    out[k] = { n: list.length, runs: list.map((d) => d.id), walls, median: R.r2(med), p75: R.r2(p75), target: t || null, medianMet: t ? med <= t.median : null, p75Met: t ? p75 <= t.p75 : null, anyDisturbed: list.some((d) => d.disturbed) };
+  }
+  return out;
+}
+
+module.exports = { BASELINE, TARGETS, regenRow, cohort, compare, planTargets, pct };

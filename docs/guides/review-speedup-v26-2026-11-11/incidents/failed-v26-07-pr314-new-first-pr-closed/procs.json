@@ -1,0 +1,93 @@
+[
+ {
+  "at": "2026-11-12T01:38:10.834Z",
+  "phase": "before-prepare",
+  "load": 4.79,
+  "procs": [
+   "RunV26.R06oVerifier1 [task] completed in 5m19s — RunV26.R06oVerifier1",
+   "RunV26.R06oVerifier2 [task] completed in 6m44s — RunV26.R06oVerifier2",
+   "RunV26.R06oVerifier3 [task] completed in 6m23s — RunV26.R06oVerifier3",
+   "RunV26.R06oVerifier4 [task] completed in 6m22s — RunV26.R06oVerifier4",
+   "RunV26.R06oVerifier5 [task] completed in 5m58s — RunV26.R06oVerifier5",
+   "RunV26.R06oVerifier6 [task] completed in 5m46s — RunV26.R06oVerifier6",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T01:38:26.237Z",
+  "phase": "review-dispatch",
+  "load": 4.88,
+  "procs": [
+   "RunV26.R07nReviewerS1A [task] running up 1ms",
+   "RunV26.R07nReviewerS1B [task] running up 1ms",
+   "RunV26.R07nSecurityLane [task] running up 1ms",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T01:53:04.657Z",
+  "phase": "verify-dispatch",
+  "load": 4.2,
+  "procs": [
+   "RunV26.R07nReviewerS1A [task] completed in 13m49s — RunV26.R07nReviewerS1A",
+   "RunV26.R07nReviewerS1B [task] completed in 14m37s — RunV26.R07nReviewerS1B",
+   "RunV26.R07nVerifier1 [task] running up 2ms",
+   "RunV26.R07nVerifier2 [task] running up 2ms",
+   "RunV26.R07nVerifier3 [task] running up 2ms",
+   "RunV26.R07nVerifier4 [task] running up 2ms",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T01:59:37.700Z",
+  "phase": "drive-end",
+  "load": 16.95,
+  "procs": [
+   "RunV26.R07nVerifier1 [task] completed in 6m32s — RunV26.R07nVerifier1",
+   "RunV26.R07nVerifier2 [task] running up 6m33s",
+   "RunV26.R07nVerifier3 [task] running up 6m33s",
+   "RunV26.R07nVerifier4 [task] running up 6m33s",
+   "omp.lsp.mux [service] — ready — up 2d4h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ }
+]

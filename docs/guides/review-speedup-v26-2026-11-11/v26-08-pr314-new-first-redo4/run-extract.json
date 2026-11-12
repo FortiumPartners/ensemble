@@ -1,0 +1,219 @@
+{
+ "runId": "v26-08-pr314-new-first-redo4",
+ "repo": "Sunstone-Partners/ensemble",
+ "pr": 314,
+ "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "baseRefName": "scratch/v26-base",
+ "round": 1,
+ "lastReviewedSha": null,
+ "policy": {
+  "maxConcurrentAgents": 8,
+  "quorumFirstVerification": true,
+  "roundCap": 3,
+  "sliceThreshold": 1500
+ },
+ "policyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "policyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "severityGuideProblem": null,
+ "tier": {
+  "tier": "medium",
+  "effectiveTier": "medium"
+ },
+ "mode": "standard",
+ "electorate": 3,
+ "depthMode": "standard",
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 6,
+  "secondWave": [
+   {
+    "id": "f1",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f6",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   }
+  ],
+  "skipped": []
+ },
+ "plannedByRunner": 4,
+ "plannedFullElectorate": 5,
+ "candidatesVerified": 5,
+ "candidates": [
+  {
+   "id": "f1",
+   "source": "reviewer-s1-a",
+   "severity": "important",
+   "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+  },
+  {
+   "id": "f2",
+   "source": "reviewer-s1-a",
+   "severity": "important",
+   "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+  },
+  {
+   "id": "f3",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "packages/development/tests/beads-build-label-scoping.test.js:99-170"
+  },
+  {
+   "id": "f5",
+   "source": "reviewer-s1-b",
+   "severity": "pre-existing",
+   "loc": "packages/development/skills/ensemble-beads-build/references/phase-1-preflight.md:60"
+  },
+  {
+   "id": "f6",
+   "source": "reviewer-s1-b",
+   "severity": "nit",
+   "loc": "packages/development/tests/beads-build-label-scoping.test.js:27"
+  }
+ ],
+ "assignment": [
+  {
+   "id": "f1",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2",
+    "verifier-5"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f2",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f3",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2",
+    "verifier-5"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f5",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f6",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2",
+    "verifier-5"
+   ],
+   "unasked": 0
+  }
+ ],
+ "verifyAgents": [
+  {
+   "name": "verifier-1",
+   "candidateIds": [
+    "f1",
+    "f3",
+    "f6"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-2",
+   "candidateIds": [
+    "f1",
+    "f3",
+    "f6"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-3",
+   "candidateIds": [
+    "f2",
+    "f5"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-4",
+   "candidateIds": [
+    "f2",
+    "f5"
+   ],
+   "secondWave": false
+  }
+ ],
+ "waves": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 3,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 4,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 1,
+   "refill": false,
+   "status": "collected"
+  }
+ ],
+ "slices": [
+  {
+   "id": "whole-pr",
+   "paths": 7
+  }
+ ],
+ "sizingWarnings": [],
+ "reReview": null,
+ "carry": null
+}

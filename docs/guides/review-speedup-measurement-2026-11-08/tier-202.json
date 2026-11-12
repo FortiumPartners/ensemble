@@ -1,0 +1,42 @@
+{
+ "baseRef": "origin/dev",
+ "headRef": "origin/feature/optional-bdd-in-trd-commands",
+ "baseSha": "a1b8e6cdf326ef8b15f603b5170959cc5167d953",
+ "headSha": "26ea8608340f0340ac0929c541aea40a3b798703",
+ "reviewMdAtBase": true,
+ "policyOk": false,
+ "policyReason": "policy-not-from-base",
+ "policyNotes": [
+  "policy-not-from-base"
+ ],
+ "sensitiveDeclared": 0,
+ "highDeclared": [],
+ "changedPaths": 32,
+ "changedLines": 1499,
+ "classification": {
+  "sensitive": [],
+  "high": []
+ },
+ "tier": {
+  "tier": "medium",
+  "effectiveTier": "medium",
+  "humansRequired": 1,
+  "reasons": [
+   "product-change",
+   "second-assessment-missing",
+   "not-low-tier"
+  ]
+ },
+ "mode": {
+  "mode": "light",
+  "reasons": [
+   "medium-tier"
+  ],
+  "requires": {
+   "depth": "standard",
+   "minReviewers": 2,
+   "verifiersPerFinding": 3
+  },
+  "securityLane": true
+ }
+}

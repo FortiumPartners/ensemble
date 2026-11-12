@@ -1,0 +1,16 @@
+{
+ "n": 6,
+ "pr": 314,
+ "tier": "medium",
+ "arm": "old",
+ "round": "first",
+ "runId": "v26-06-pr314-old-first",
+ "prefix": "R06o",
+ "prevDir": null,
+ "recall": false,
+ "expectHeadSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "expectBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "note": "scratch re-creation of #225 (adapted)",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-12T01:17:46.775Z"
+}

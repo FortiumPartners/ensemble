@@ -36,13 +36,15 @@ In Claude Code:
 Then, in a project:
 
 ```text
-/ensemble:create-prd "short product description"
-/ensemble:create-trd <prd-path>
-/ensemble:implement-trd-beads <trd-path> --plan
-/ensemble:implement-trd-beads <trd-path> --execute
+/ensemble-full:ensemble-create-prd "short product description"
+/ensemble-full:ensemble-create-trd <prd-path>
+/ensemble-full:ensemble-implement-trd-beads <trd-path> --plan
+/ensemble-full:ensemble-implement-trd-beads <trd-path> --execute
 ```
 
-`/ensemble:feature new <idea>` runs the same idea-to-PR flow as one resumable, checkpointed run. For a read-only look at a repository, run `/ensemble:assess repo`.
+`/ensemble-full:ensemble-feature new <idea>` runs the same idea-to-PR flow as one resumable, checkpointed run. For a read-only look at a repository, run `/ensemble-full:ensemble-assess repo`.
+
+> **Command names.** `ensemble-full` ships skills only, so in Claude Code its commands are `/ensemble-full:ensemble-<name>`. The `/ensemble:<name>` form used elsewhere in this document is what the standalone plugins (for example `ensemble-development`) and the Pi, Codex and OpenCode runtimes use.
 
 The full workflow needs the `br` (beads_rust) and `bv` (beads_viewer) CLIs on `PATH`. Walkthroughs live in the [user guide](docs/guides/user-guide.md).
 
@@ -158,7 +160,7 @@ Versions below are taken from each package's `package.json`.
 | `ensemble-reqnroll` | 1.0.2 | `reqnroll` skill; `reqnroll-binding-specialist` agent |
 | `ensemble-permitter` | 5.2.3 | Permission-expansion hook with allowlist (opt out with `ENSEMBLE_PERMITTER_DISABLE=1`) |
 | `ensemble-opencode` | 5.4.1 | OpenCode runtime translation layer |
-| `ensemble-pi` | 1.6.19 | Pi runtime translation layer (own version line) |
+| `ensemble-pi` | 1.6.20 | Pi runtime translation layer (own version line) |
 | `ensemble-codex` | 6.0.2 | Codex CLI runtime translation layer |
 | `ensemble-agent-core` | 0.1.2 | Shared run-index I/O primitives for the `new-feature` and `fix-issue` workflows (library) |
 | `ensemble-pi-extension` | 0.1.2 | Pi extension providing native command completion for the dispatcher commands (no marketplace entry; installed from a checkout) |
@@ -167,7 +169,9 @@ Versions below are taken from each package's `package.json`.
 
 ## Commands
 
-Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 40 command definitions (`packages/*/commands/*.yaml`); **32 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+Commands are invoked as `/ensemble:<name>` when installed through a standalone plugin, and as `/ensemble-full:ensemble-<name>` through the `ensemble-full` bundle (which ships the skills without the command stubs). The tree contains 41 command definitions (`packages/*/commands/*.yaml`), all of them skill-backed manifests. **33 are typable** and 8 are hidden behind a dispatcher or the wave runner (see [Hidden commands](#hidden-commands)). One more typable command, `/ensemble:init-project`, is hand-authored Markdown in `packages/core/commands/ensemble/` with no YAML source, so it is outside those counts and is not generated for Pi.
+
+A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`, plus `references/` for long phases), and the command itself is a thin entry point per runtime: a stub that reads the skill in Claude Code, a stub prompt in Pi, the skill itself in Codex, and a stub in OpenCode. To change what a command does, edit its skill, not its YAML. The six dispatchers (`prd`, `trd`, `issue`, `feature`, `reqnroll`, `standards`) are manifests like every other command; their routing table is the `## Subcommands` section of their `SKILL.md` (keyword, description, `/ensemble:<ref>` and the sibling path `../ensemble-<ref>/SKILL.md`), which the Pi extension reads for tab completion.
 
 ### Product and requirements
 
@@ -199,7 +203,6 @@ Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 40 
 |---------|-----------|---------|---------|
 | `/ensemble:implement-trd-beads` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman]`, or `<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]` | development | TRD implementation on a persistent bead hierarchy |
 | `/ensemble:beads-build` | `[epic-id\|slug-pattern] [--trd trd-path] [--strategy <name>] [--label <label>] [max parallel N]` | development | Drive an existing hierarchy to completion through builder, review and close |
-| `/ensemble:refine-beads` | `[epic-id\|release-train-id\|slug] [--scope project]` | development | Approval-gated Beads graph refinement before execution |
 | `/ensemble:implement-bead` | `<bead-id>` | development | Implement one bead through analysis, implementation and PR |
 | `/ensemble:list-issue` | `[--ranked \| --robot-triage]` | development | List open Beads issues for triage |
 
@@ -209,10 +212,12 @@ Commands are invoked as `/ensemble:<name>` in Claude Code. The tree contains 40 
 
 | Command | Arguments | Package | Purpose |
 |---------|-----------|---------|---------|
-| `/ensemble:feature` | `new`, `resume`, `status`, `abandon` plus args | development | Dispatcher for the resumable idea-to-PR workflow |
-| `/ensemble:new-feature` | none | development | The checkpointed workflow `feature` forwards to (idea, PRD, TRD, beads, implementation, optional PR) |
+| `/ensemble:feature` | `new`, `resume`, `status`, `abandon` plus args | development | Front door: use this one. A keyword dispatcher over `new-feature` |
+| `/ensemble:new-feature` | `--idea`, `--status`, `--abandon`, `--foreman` | development | The engine: the checkpointed idea-to-PR workflow that `feature` forwards to (PRD, TRD, beads, implementation, optional PR) |
 | `/ensemble:issue` | `fix`, `list`, `resume`, `status`, `abandon` plus args | development | Dispatcher for issue work |
 | `/ensemble:fix-issue` | none | development | Lightweight bug-fix workflow |
+
+`feature` and `new-feature` are two layers of one workflow, not alternatives. `new-feature` owns the stage machine and run state (`.ensemble/new-feature/`) and takes flags. `feature` owns only the keyword UX: it validates the keyword, rewrites it into the matching `new-feature` flags (`new <idea>` becomes `--idea "<idea>"`, `status` becomes `--status`), and then follows `new-feature`'s skill, so it cannot work without it. Start with `feature`; call `new-feature` directly only to pass flags the keywords don't cover. `issue` and `fix-issue` follow the same pattern.
 
 ### Git, testing and delivery
 
@@ -274,6 +279,7 @@ no dashboard, no scheduler, no new dependency:
 |---|---|
 | `metrics` | Per-cohort human approvals per PR (median and p95), human comments, wait-on-human hours, rounds-to-pass, the share of PRs needing five or more rounds, and the noise rate. Bot reviewers are never counted. |
 | `metrics-compare` | A post-change cohort against the committed baseline: every target graded relative to baseline, plus a revert/incident guardrail that fails the cohort on its own. |
+| `walltime` | Review wall time by tier against the committed wall-time baseline (`docs/guides/review-walltime-baseline-<date>.json`): median and p75 per tier and round, gate runs and review chains per PR, and whether the 5x claim may be made. A tier with fewer than three PRs on either side is `unknown`, never `met`, and the claim is withheld unless a real re-review that carried verdicts is in the data. See [docs/guides/pr-review-walltime.md](docs/guides/pr-review-walltime.md). |
 | `eval-score` | Whether the reviewer found the bug in each eval case (a PR that caused an incident or a revert, confirmed by the code owner of the affected area). |
 | `eval-compare` | This eval run against the previous one, naming regressions. |
 | `eval-stale` | Which cases need re-review because their area's review rules changed. |
@@ -314,7 +320,10 @@ assigned tier still does not bypass the Low-waiver rule above.
 **Approvals are bound to a commit and to a person.** An approval counts only when it is bound to
 the commit (or tree) under review, so a push invalidates it. Bot approvals never count. Where an
 agent authored the PR on a person's instruction, the `Directed by:` line in the PR body makes that
-person count as one of the required reviewers, as if they had written the code themselves.
+person count as one of the required reviewers, as if they had written the code themselves. It is a
+line the PR's author writes, so it never lowers a requirement on its own: the `soloMaintainer`
+discount below needs that person's own approval of the head unless they are the PR's author, in
+which case it rests on their own credit as author-as-director.
 
 Policy keys live in the fenced `ensemble-review-policy` block of the **root `REVIEW.md` on the base
 branch** — never the PR head, so a PR cannot loosen its own review:
@@ -323,6 +332,7 @@ branch** — never the PR head, so a PR cannot loosen its own review:
 |---|---|---|
 | `roundCap` | Shared review-round cap before escalating to the author | `3` (valid 1–5) |
 | `lowWaiverEnabled` | Whether a Low-tier PR may merge with no human approval | `false` |
+| `soloMaintainer` | With exactly one maintainer login, a High PR that touches no sensitive path and was directed by that maintainer needs one human instead of two. A maintainer who is not the PR's author must have approved the current head on the host; a maintainer who is the author (an agent PR under their own login) is credited on their own word as author-as-director, with the warning `solo-maintainer-self-credit` in the result (a `Directed by:` line alone never lowers it for anyone else); the security lane still blocks | `false` |
 | `botLogins` | Logins whose approvals are never counted | empty |
 | `maintainerLogins` | Logins eligible to enable the Low waiver | empty |
 | `sensitivePaths` / `highPaths` | Globs that floor the tier at Medium / High | empty |
@@ -377,7 +387,7 @@ Passing two or more TRD paths directly now halts with an error. Generate one nor
 
 ### Reqnroll acceptance tests
 
-For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `implement-trd-beads` also routes `-TEST` tasks through the Reqnroll path and delegates step bodies to `reqnroll-binding-specialist`.
+For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `create-trd` and `implement-trd-beads` use the Reqnroll path (`-TEST` tasks scaffolded as features, step bodies delegated to `reqnroll-binding-specialist`) by default, as before; a repo that does not use Reqnroll opts out with `--no-bdd` or `ENSEMBLE_BDD=0` and gets the repo's own test framework. See [Optional BDD](packages/development/README.md#optional-bdd-reqnroll).
 
 ## Assessment
 
@@ -412,7 +422,7 @@ Other options: `--framework=<name>`, `--provider=<name>`, `--tools=<comma-separa
 
 ## Skills
 
-Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`, plus the single-skill framework packages).
+Skill directories use the bare technology name. The tree has 58 source skill directories (`packages/*/skills/<name>/`).
 
 | Package | Skills |
 |---------|--------|

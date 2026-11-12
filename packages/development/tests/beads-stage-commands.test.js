@@ -15,16 +15,21 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+const { readDevelopmentSkill } = require('./helpers/skill-workflow');
+
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+// implement-trd-beads, beads-build and beads-build-wave are skill-backed: the prompt is the skill (SKILL.md +
+// references/), the YAML only a manifest.
+const skillProse = (skill) => readDevelopmentSkill(skill).prompt;
 const lines = (text) => text.split('\n');
 
 const COMMANDS = {
   // the dirty-tree status capture lives in the on-demand reference skill, not the command body
   'implement-trd-beads.yaml':
-    read('commands/implement-trd-beads.yaml') + '\n' + read('skills/implement-trd-beads-reference/SKILL.md'),
-  'beads-build.yaml': read('commands/beads-build.yaml'),
-  'beads-build-wave.yaml': read('commands/beads-build-wave.yaml'),
+    skillProse('ensemble-implement-trd-beads') + '\n' + read('skills/implement-trd-beads-reference/SKILL.md'),
+  'beads-build.yaml': skillProse('ensemble-beads-build'),
+  'beads-build-wave.yaml': skillProse('ensemble-beads-build-wave'),
 };
 const GATES = ['implement-trd-beads.yaml', 'beads-build.yaml', 'beads-build-wave.yaml'];
 const STAGERS = ['implement-trd-beads.yaml', 'beads-build.yaml'];

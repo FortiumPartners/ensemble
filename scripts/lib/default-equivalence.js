@@ -26,6 +26,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const { extractSteps, loadDefaultTemplates } = require('./instruction-sequence');
+const { isSkillBacked, resolveSkillFile, listSkillReferences } = require('./skill-backed-command');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const FIXTURE_DIR = path.join(ROOT, 'scripts', 'tests', 'fixtures', 'default-equivalence');
@@ -38,7 +39,6 @@ const COVERED = [
   { name: 'analyze-complexity', path: `${DEV_COMMANDS}/analyze-complexity.yaml`, trd: 'TRD-028' },
   { name: 'onboard', path: `${DEV_COMMANDS}/onboard.yaml`, trd: 'TRD-028' },
   { name: 'retro', path: `${DEV_COMMANDS}/retro.yaml`, trd: 'TRD-028' },
-  { name: 'refine-beads', path: `${DEV_COMMANDS}/refine-beads.yaml`, trd: 'TRD-029' },
   { name: 'implement-bead', path: `${DEV_COMMANDS}/implement-bead.yaml`, trd: 'TRD-029/TRD-039' },
   { name: 'beads-build-wave', path: `${DEV_COMMANDS}/beads-build-wave.yaml`, trd: 'TRD-029' },
   { name: 'beads-build', path: `${DEV_COMMANDS}/beads-build.yaml`, trd: 'TRD-030' },
@@ -78,6 +78,31 @@ function gitShow(baseRef, file, cwd = ROOT) {
   }
 }
 
+/**
+ * The post-refactor body of a covered file: what the executor reads. A skill-backed command's
+ * YAML is a manifest with no prose, so its body is its skill (SKILL.md plus references/*.md),
+ * read as markdown; every other file is its own text, kind by extension. A skill split into
+ * references/ keeps its workflow phases there and its shared rules in SKILL.md, so the references
+ * come first and SKILL.md after: the same "workflow steps first, shared rules appended" order the
+ * sequence extraction applies to a YAML's `workflow` block versus its other blocks.
+ * @param {string} file Repo-relative path
+ * @returns {{text:string, kind:'yaml'|'markdown'}}
+ */
+function readPostSource(file, root = ROOT) {
+  const abs = path.join(root, file);
+  const text = fs.readFileSync(abs, 'utf8');
+  if (file.endsWith('.yaml')) {
+    const data = require('js-yaml').load(text);
+    if (isSkillBacked(data)) {
+      const skillFile = resolveSkillFile(abs, data.skill);
+      const read = (file) => fs.readFileSync(file, 'utf8');
+      const text = [...listSkillReferences(skillFile).map(read), read(skillFile).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '')].join('\n');
+      return { text, kind: 'markdown' };
+    }
+  }
+  return { text, kind: kindOf(file) };
+}
+
 /** Distinct `[binary, subcommand]` steps in order of first appearance; preflight steps excluded. */
 function dedupeSequence(steps) {
   const seen = new Set();
@@ -100,8 +125,8 @@ function preSequence(text, file) {
  * Post-refactor result for one source text: the comparable sequence plus the preflight steps
  * (resolved through the same default manifests) and any capability id that did not resolve.
  */
-function postSequence(text, file, templates) {
-  const steps = extractSteps(text, { kind: kindOf(file), templates });
+function postSequence(text, file, templates, kind = kindOf(file)) {
+  const steps = extractSteps(text, { kind, templates });
   return {
     sequence: dedupeSequence(steps),
     preflight: steps.filter((s) => s.source === 'preflight').map((s) => [s.binary, s.sub]),
@@ -221,6 +246,7 @@ module.exports = {
   dedupeSequence,
   preSequence,
   postSequence,
+  readPostSource,
   accountDeviations,
   diffSequences,
   loadGolden,

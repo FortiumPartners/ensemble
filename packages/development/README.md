@@ -23,8 +23,8 @@ Part of the ensemble plugin ecosystem for Claude Code. This plugin provides deve
 | `/ensemble:feature` | Canonical front door for the feature lifecycle — `new`/`resume`/`status`/`abandon`, forwarding into `new-feature`'s existing idea-to-PR resumable workflow. A leading `--foreman` after the keyword (e.g. `new --foreman <idea>`) runs it non-interactively for Foreman dispatch, forwarding `--foreman` to every stage skill |
 | `/ensemble:issue` | Canonical front door for issue work — `fix`/`list`/`resume`/`status`/`abandon`, forwarding into `fix-issue`/`list-issue` |
 | `/ensemble:trd` | Canonical front door for TRD authoring, analysis, and implementation by keyword (`create`/`refine`/`implement`/`analyze`/`complexity`/`validate`/`verify`/`status`/`graph`); command variants are flags on their base command (`create --parser-tables`, `implement --workstream [--generate-only]`), not keywords |
+| `/ensemble:new-feature` | The engine behind `feature`: the resumable, checkpointed idea-to-PR workflow (`--idea`, `--status`, `--abandon`, `--foreman`). Prefer `/ensemble:feature`; call this directly only for a flag the keywords don't cover |
 | `/ensemble:implement-trd-beads` | TRD implementation with persistent beads project management — epic/story/task hierarchy, `bd ready` execution loop, cross-session resumability; `--workstream <trd1> <trd2> ...` generates one normalized workstream TRD from several source TRDs and implements it, and `--workstream --generate-only` only generates it |
-| `/ensemble:refine-beads` | Approval-gated Beads graph refinement before execution — detects dependency, hierarchy, PR-boundary, traceability, and duplicate-task gaps; applies approved `br` repairs and revalidates with `bv --robot-*` |
 | `/ensemble:create-trd` | Create a Technical Requirements Document from a PRD; `--parser-tables` produces a Foreman-native structured TRD (parser-compatible sprint/story tables, no adversarial review phase) that `foreman sling prd` can consume |
 | `/ensemble:refine-trd` | Refine and improve an existing TRD |
 | `/ensemble:fix-issue` | Lightweight bug fix workflow (analysis to PR) |
@@ -37,11 +37,26 @@ After installation, this plugin's agents, commands, and skills will be automatic
 
 `/ensemble:implement-trd-beads` does not generate a `quickstart.md` validation runbook in v1. No standalone command currently generates this artifact.
 
-### BDD Scenario Generation (Reqnroll)
+### Optional BDD (Reqnroll)
 
-`/ensemble:create-trd` requires >=3 Given/When/Then scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist (`- [ ] Scenario: <title> -- Given ..., When ..., Then ...`, indented deeper than the `Test AC:` label so the TRD/beads parsers pick it up).
+BDD/Reqnroll stays **on by default**, exactly as before; a repo that does not use it can opt out. `/ensemble:create-trd` and `/ensemble:implement-trd-beads` both ask `node trd-cli.js resolve-bdd` whether it is on, so they always agree. First match wins:
 
-`/ensemble:implement-trd-beads` routes any task whose id matches `-TEST` through the Reqnroll BDD path: resolve `reqnroll-cli`, resolve the target `.csproj`, run `generate-bindings` to scaffold `.feature` files and `Pending()` step stubs, confirm RED, delegate `reqnroll-binding-specialist` to fill step bodies test-first, then re-confirm RED before handing off to GREEN implementation. It carries the same `Test AC:`/`validatesAcs` content verbatim into each TRD-NNN-TEST bead's description via `scaffold-planner.js`, so the contract holds regardless of which specialist later executes the bead.
+| Order | Source | Result |
+| --- | --- | --- |
+| 1 | `--bdd` / `--no-bdd` (`create-trd` only) | on / off |
+| 2 | `ENSEMBLE_BDD` environment variable | `1`, `true`, `on`, `yes` / `0`, `false`, `off`, `no` |
+| 3 | `test_approach:` in the TRD frontmatter (`implement-trd-beads` reads it; `create-trd` writes it unless the answer was only the default) | `bdd-reqnroll` / `standard` |
+| 4 | none of the above | **on** |
+
+Nothing changes for a repo that uses Reqnroll: with nothing set, the commands behave as they always did. A repo that does not use it (a Playwright + xUnit repo, a Node or Rails repo) opts out once, by setting `ENSEMBLE_BDD=0` in the environment or passing `--no-bdd` to `create-trd`; either way the TRD records `test_approach: standard`, so `implement-trd-beads` follows it. `create-trd` records `test_approach` only for an explicit choice (a flag or the environment variable), so a TRD written on the default carries none. `--bdd` or `ENSEMBLE_BDD=1` overrides a stamped `standard`. The stamp is read wherever the TRD puts its frontmatter, including under an H1 or an HTML comment. An unrecognised `ENSEMBLE_BDD` or `test_approach` value is ignored with a warning, whichever source then decides (BDD stays on if none does); the warning is always printed.
+
+`implement-trd-beads` asks about the TRD it is about to implement with `resolve-bdd --trd <path>`. A relative path is read as given and then from the repo root, and a path that cannot be read, or `--trd` with no path, is an `error` (exit 1, so the command HALTs) rather than a silent fall back to the default: BDD would otherwise run on for a TRD that opted out.
+
+**BDD off.** The `-TEST` task pairing and one `Test AC:` item per AC-NNN-M are unchanged, because `validate`, `analyze`, `req-status` and the `req-verified` evidence tokens depend on them. There is no minimum scenario count: a functional REQ with fewer than 3 ACs is listed as a coverage note in the readiness scorecard, which never blocks and never lowers the score. `-TEST` beads are implemented in the repo's own test framework from their `Test AC:` items, confirmed RED, and run through the `test-runner.run` capability. Nothing is scaffolded through `reqnroll-cli` and no `reqnroll-binding-specialist` is involved.
+
+**BDD on.** `/ensemble:create-trd` requires >=3 Given/When/Then scenarios (happy path, edge case, error/negative case) per functional REQ-NNN's acceptance criteria, authored under each TRD-NNN-TEST task's `Test AC:` checklist (`- [ ] Scenario: <title> -- Given ..., When ..., Then ...`, indented deeper than the `Test AC:` label so the TRD/beads parsers pick it up).
+
+`/ensemble:implement-trd-beads` then routes any task whose id matches `-TEST` through the Reqnroll BDD path: resolve `reqnroll-cli`, resolve the target `.csproj`, run `generate-bindings` to scaffold `.feature` files and `Pending()` step stubs, confirm RED, delegate `reqnroll-binding-specialist` to fill step bodies test-first, then re-confirm RED before handing off to GREEN implementation. It carries the same `Test AC:`/`validatesAcs` content verbatim into each TRD-NNN-TEST bead's description via `scaffold-planner.js`, so the contract holds regardless of which specialist later executes the bead.
 
 ### Foreman Table Mode (`create-trd --parser-tables`)
 
@@ -103,30 +118,6 @@ If stacked PR support is enabled with `ENSEMBLE_USE_STACKED_PRS=true`, combined 
 
 `--generate-only` requires `--workstream` and cannot be combined with `--plan`, `--execute`, `--status`, `--reset-task`, `--list`, `--branch` or `--use-current-branch`. Without it, `--allow-invalid` and `--out` are not used.
 
-### Refine Beads Graphs
-
-Use `/ensemble:refine-beads` before execution when a Beads scaffold needs graph cleanup:
-
-```bash
-/ensemble:refine-beads ensemble-abc1
-/ensemble:refine-beads trd-2026-024-refine-beads
-/ensemble:refine-beads --scope project
-```
-
-The command:
-
-- runs read-only analysis before any mutation;
-- uses `br` for all approved updates;
-- uses only `bv --robot-*` graph analysis, never bare interactive `bv`;
-- reports cycles, orphan tasks, stale/missing blockers, PR-boundary gaps, missing requirement/AC traceability, duplicates, and priority/order mismatches;
-- requires explicit user approval before applying fixes;
-- requires separate confirmation for dependency updates;
-- verifies each `br` command before continuing;
-- stops on failure and offers retry, skip, inverse commands, cancel remaining, or abort;
-- never starts builders, tests, branches, commits, PRs, or implementation loops.
-
-After refinement, continue with `/ensemble:beads-build <scope> --plan` or `/ensemble:beads-build`.
-
 ### PR Review Cycle
 
 `/ensemble:fix-issue` and `/ensemble:implement-trd-beads` publish PRs through one shared review procedure, the `pr-review-cycle` skill (`skills/pr-review-cycle/SKILL.md`). It resolves the exact base and head of the diff, runs one independent local review before anything is published, triages every finding together, fixes them as a single batch by delegating to the `pr-review-remediation` skill (package `ensemble-quality`), verifies once, and after publication evaluates the *head-bound* remote CodeRabbit review.
@@ -147,6 +138,8 @@ The review loop is bounded by **one shared round cap**: `roundCap` in the `ensem
 **More reviewers, fewer duplicates.** A review can ask for 3 or 4 reviewers instead of the mode's minimum (`REVIEWER_COUNT`, 2 to 4; the `pr-review-request` router sets it only when the person asks for more reviewers). `depth` grades that plan like any other, so `violations` stays binding and Quick keeps its one reviewer; the verifier count and every bound stay as the mode set them. Reviewers and verifiers must be agents that follow the output contract their brief asks for, can read files and run read-only commands, and impose no findings format or depth of their own; a runtime with none runs its general-purpose agent and the report says the assurance is reduced. Within a round, `pr-review-cli.js ledger dedupe` also merges findings that different reviewers very probably wrote up as one defect (the same file, overlapping or neighbouring lines, a matching description; `lib/pr-review-ledger.js`), listing them in `mergedFrom`. Anything not clearly the same defect stays separate, and `recordRound` still suppresses only an exact repeat.
 
 **Verification before posting.** Nothing a reviewer raises reaches the author unverified. Every candidate -- from every reviewer, every local tool and every review bot, CodeRabbit included -- enters the same ledger and is voted on by fresh-context verifiers that did not produce it (`pr-review-cli.js votes`, `lib/pr-review-votes.js`). A finding is **presented only on a strict majority of the verifiers the depth expects**: **2 of 3** at Standard, **3 of 5** at Deep. The denominator is the expected count, never the votes that happened to arrive, so a verifier that timed out can never be read as agreement. A finding the majority rejected is labelled "verifier disagrees" and stays in the ledger with its tally; a critical or security-relevant finding the verifiers split on or reject is `disputed` and goes to a person, because a vote does not close one. Nothing is ever dropped: a finding whose verifiers were incomplete comes back `unverified` and is still presented, and on a runtime with no subagent capability a single-pass review runs and the report and the state report carry a visible reduced-review notice rather than reporting a reduced review as a clean one.
+
+**Verification per candidate.** `pr-review-cli.js verify-assign` (`lib/pr-review-verify-assign.js`) plans which verifiers settle which candidate: every candidate gets exactly K **distinct** verifiers (K = 3 Standard, 5 Deep), never anyone who raised it (its `reviewer`, its ledger `source` and each `mergedFrom[].source`; a candidate that names no raiser is refused), spread evenly, so each verifier agent is briefed on one or a few candidates instead of all of them and the round takes the time of the slowest small agent. A pool that cannot give every candidate K verifiers is an explicit error (`verifier-pool-too-small`, naming the candidates), never a candidate quietly verified by fewer; with `allowShortPool: true` the short candidate is instead planned with every verifier it can have and flagged `incomplete`, and the rest of the round stays structural. Passing the plan to `votes` as `assignment` makes the tally structural: a plan that does not give each finding exactly K distinct verifiers (bar an `incomplete` entry) blocks the round, a vote from someone not assigned to a finding is ignored, and an assigned verifier with no counted vote is named in that finding's `incompleteVerifiers`, so a finding that lost one of its K verifiers is `unverified`, never confirmed by the others. `depth` grades `planned.verifiers` / `used.verifiers` as distinct verifiers **per candidate** (it also accepts the assignment itself, graded as its weakest candidate), so 11 candidates x 3 verifiers dispatched as 33 agents is 3, not 33. A round with no candidates is an `ok` plan that returns `candidates: 0`; pass that count to `depth` as `planned.candidates` and the verifier floor is vacuous, while an empty list from a refused plan still fails it.
 
 ## Documentation
 

@@ -19,7 +19,8 @@
  *     `skills/` respectively.
  *   - `MISSING_PREFLIGHT`: a command YAML declares a non-empty `metadata.capabilities.required`
  *     but its body has no single `toolchain-cli preflight --require` line listing every one
- *     of those ids.
+ *     of those ids. A skill-backed command's body is its skill: its SKILL.md and the
+ *     `references/*.md` files beside it (the manifest holds none).
  *   - `MISSING_BASH_GRANT`: a command YAML declares capabilities but its `metadata.allowed_tools`
  *     array is present and does not include `Bash`.
  *
@@ -61,6 +62,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const { discoverShippedAdapters } = require('./lib/default-only-check');
+const { resolveSkillFile, isSkillBacked, readSkillProse } = require('./lib/skill-backed-command');
 
 /** Generated/vendor package trees never scanned -- see module doc above. */
 const EXCLUDED_PACKAGES = new Set(['pi', 'full', 'codex', 'opencode']);
@@ -75,11 +77,15 @@ const BASELINE_REL = 'scripts/lint-provider-refs.baseline.json';
 
 /**
  * NAMED sources: zero violations regardless of baseline. Matches the source file and its
- * generated `commands/ensemble/*.md` counterpart (root-relative POSIX paths).
+ * generated `commands/ensemble/*.md` counterpart (root-relative POSIX paths). A skill-backed
+ * command's prose lives in its skill (SKILL.md and references/), so the skill directory of each
+ * converted named command is named too: converting a command must not lift its zero tolerance.
  */
 const NAMED_SOURCE_PATTERNS = [
-  /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|refine-beads|fix-issue)\.(?:yaml|md)$/,
+  /^packages\/development\/commands\/(?:ensemble\/)?(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|fix-issue)\.(?:yaml|md)$/,
+  /^packages\/development\/skills\/ensemble-(?:implement-trd-beads|beads-build|beads-build-wave|implement-bead|fix-issue)\//,
   /^packages\/git\/commands\/(?:ensemble\/)?pr-merge\.(?:yaml|md)$/,
+  /^packages\/git\/skills\/ensemble-pr-merge\//,
   /^packages\/git\/skills\/git-town\//,
   /^packages\/development\/skills\/pr-review-cycle\//
 ];
@@ -245,8 +251,17 @@ function capabilitiesAnchorLine(lines) {
  * sometimes entirely absent (e.g. `fix-issue.yaml`), in which case `MISSING_BASH_GRANT`
  * does not fire (the AC only requires flagging an explicit grant list missing `Bash`, not
  * the absence of the key).
+ *
+ * A skill-backed manifest (`skill:` key) keeps `metadata` but holds no prose, so the
+ * preflight line is looked for in the skill prose `readSkillText(skill)` returns (its
+ * SKILL.md and `references/*.md`). A skill that cannot be read counts as having no preflight
+ * line: the check fails closed.
+ *
+ * @param {string} content Full text of one command YAML
+ * @param {(skill: string) => (string|null)} [readSkillText] Prose of a skill-backed
+ *   command's skill (SKILL.md plus its references), or null when it cannot be read
  */
-function checkCommandStructure(content) {
+function checkCommandStructure(content, readSkillText) {
   let doc;
   try {
     doc = yaml.load(content);
@@ -266,7 +281,13 @@ function checkCommandStructure(content) {
   const lines = content.split('\n');
   const anchorLine = capabilitiesAnchorLine(lines);
 
-  const hasCompletePreflightLine = lines.some(line => {
+  // A skill-backed manifest holds no prose, so the preflight line is in its skill. A skill
+  // that cannot be read has none: fail closed rather than skip the check.
+  const bodyLines = isSkillBacked(doc)
+    ? String((readSkillText && readSkillText(doc.skill)) || '').split('\n')
+    : lines;
+
+  const hasCompletePreflightLine = bodyLines.some(line => {
     if (!/(?:toolchain-cli|TOOLCHAIN_CLI\}?(?:\\?["'])?)\s+preflight\b/i.test(line) || !line.includes('--require')) return false;
     const idsOnLine = extractRequireIds(line);
     return required.every(id => idsOnLine.includes(id));
@@ -411,7 +432,15 @@ function scanRoot(root) {
     }
 
     if (kind === 'COMMAND' && file.endsWith('.yaml')) {
-      for (const v of checkCommandStructure(content)) {
+      // A skill-backed manifest's prose is its skill, in the same package: SKILL.md plus its references.
+      const readSkillText = (skill) => {
+        try {
+          return readSkillProse(resolveSkillFile(file, skill));
+        } catch {
+          return null;
+        }
+      };
+      for (const v of checkCommandStructure(content, readSkillText)) {
         results.push({ file, rel, named, line: v.line, binary: v.binary, class: v.class });
       }
     }

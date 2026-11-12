@@ -271,7 +271,11 @@ describe('TRD-023: tracker and work-graph contracts v1', () => {
       'tracker.dep-add',
       'tracker.dep-remove',
       'tracker.label',
-      'tracker.sync'
+      'tracker.sync',
+      // Findings-as-beads capabilities (kata yfbg); tracker.find-by-key is read-only.
+      'tracker.create-detailed',
+      'tracker.update-detailed',
+      'tracker.close-with-reason'
     ].sort();
 
     const actualSideEffecting = Object.entries(contract.capabilities)

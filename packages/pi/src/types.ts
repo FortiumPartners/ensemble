@@ -66,7 +66,14 @@ export interface CommandYaml {
       optional?: string[];
     };
   };
-  workflow: {
+  /**
+   * Skill-backed command: the name of the skill (a directory of the same package's `skills/`)
+   * whose SKILL.md carries the command's whole prompt. Such a command is a manifest, its metadata
+   * plus this key, so it has no workflow; its Pi prompt is a stub that points at the skill.
+   */
+  skill?: string;
+  /** Absent on a skill-backed command. */
+  workflow?: {
     phases: Phase[];
   };
   constraints?: string[];

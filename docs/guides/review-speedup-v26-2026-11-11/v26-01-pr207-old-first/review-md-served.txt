@@ -1,0 +1,9 @@
+# REVIEW.md: scratch policy of the quorum-first measurement (kata 1yjx)
+
+Served to `prepare` in place of the base commit's REVIEW.md (the base has none). It sets the cap (8, the default) and, in the NEW arm only, one more key.
+
+```ensemble-review-policy
+{
+  "maxConcurrentAgents": 8
+}
+```

@@ -1,0 +1,461 @@
+{
+ "runId": "m2-pr293-first",
+ "pr": 293,
+ "tier": "high",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "9e7566c6e4b1366e581d53523a611f9aa6293fe9",
+ "mode": "full",
+ "depth": {
+  "mode": "deep",
+  "verifiersPerCandidate": 5,
+  "reviewersPerSlice": 2
+ },
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 16,
+  "recorded": 3
+ },
+ "metrics": {
+  "wallMs": 2217004,
+  "runnerCalls": 30,
+  "dispatchRounds": 11,
+  "agentsDispatched": 34,
+  "agentsByRole": {
+   "reviewer": 6,
+   "security": 1,
+   "verifier": 27
+  },
+  "turnsAtLeast": 41
+ },
+ "triage": {
+  "turns": 1,
+  "requested": 0,
+  "additionalCandidateIds": [],
+  "mergedIntoExisting": 0,
+  "at": "2026-11-10T22:42:57.064Z"
+ },
+ "stoppedAtDeadline": [
+  "verifier-22(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-22:f5/f10/f18"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f7",
+  "open-important-finding:f8",
+  "open-important-finding:f9",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "ledger": {
+  "total": 16,
+  "bySeverity": {
+   "nit/fix": 8,
+   "pre-existing/deferred": 2,
+   "nit/deferred": 3,
+   "important/fix": 3
+  },
+  "present": 13,
+  "presentOnMajority": 3,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "scripts/validate-all.js:787",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "scripts/validate-all.js:803",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f3",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "scripts/lib/file-discovery.js:218",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f4",
+    "severity": "pre-existing",
+    "source": "reviewer-s2-a",
+    "loc": "scripts/generate-opencode/index.js:340-357",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f5",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/pi/src/self-contained-packages.ts:51",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 4,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "incomplete": [
+     "verifier-22:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "scripts/lib/mirror-packages.js:21",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f7",
+    "severity": "important",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:284",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f8",
+    "severity": "important",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:354",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f9",
+    "severity": "important",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/tests/validate-bundle-data-paths.test.js:213-216",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f10",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:274",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 4,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "incomplete": [
+     "verifier-22:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   },
+   {
+    "id": "f11",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:557-582",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f12",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:277-278",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f13",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "scripts/validate-all.js:361",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f16",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "scripts/validate-all.js:297",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f17",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "scripts/validate-all.js:345",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 5,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": false,
+    "incomplete": [],
+    "fromLastRound": false
+   },
+   {
+    "id": "f18",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "scripts/tests/generator-mirror-package-exclusion.test.js:87",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 4,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 5,
+    "settledOnMajority": true,
+    "incomplete": [
+     "verifier-22:expired:deadline-passed"
+    ],
+    "fromLastRound": false
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 60040,
+  "startedAt": "2026-11-10T22:23:19.780Z",
+  "reason": null,
+  "finishedAt": "2026-11-10T22:31:01.500Z",
+  "durationMin": 7.7,
+  "ok": true,
+  "stage": "attest",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": true
+   },
+   {
+    "node": 24,
+    "ok": true
+   }
+  ],
+  "failures": []
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 36.91116666666667,
+  "window": [
+   "2026-11-10T22:23:18.649Z",
+   "2026-11-10T23:00:13.319Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 355957,
+   "missing": false,
+   "pct": 16
+  },
+  "beforeFirstDispatch": 14657,
+  "activeMs": 1858713,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 830101,
+       "missing": false,
+       "name": "reviewer-s2-b"
+      },
+      {
+       "stage": "verifier",
+       "ms": 1028612,
+       "missing": false,
+       "rolling": true,
+       "waves": 10
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    6
+   ],
+   "review.gate": [
+    2,
+    1380
+   ],
+   "review.verdict": [
+    2,
+    24
+   ],
+   "review.security-lane": [
+    1,
+    471744
+   ],
+   "review.reviewer": [
+    6,
+    830101
+   ],
+   "review.verifier": [
+    27,
+    480489
+   ]
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr293-first-m2-pr293-first",
+  "pr": 293,
+  "tier": "high",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 36.911,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run m2-pr293-first",
+  "run_id": "m2-pr293-first"
+ }
+}

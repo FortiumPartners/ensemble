@@ -1,0 +1,20 @@
+{
+ "seam": true,
+ "reviewMdFile": "/Users/ldangelo/.omp/pr-review-speedup/v26/runs/v26-04-pr319-new-first/review-md-served.md",
+ "servedText": "# REVIEW.md: scratch policy of the quorum-first measurement (kata 1yjx)\n\nServed to `prepare` in place of the base commit's REVIEW.md (the base has none). It sets the cap (8, the default) and, in the NEW arm only, one more key.\n\n```ensemble-review-policy\n{\n  \"maxConcurrentAgents\": 8,\n  \"quorumFirstVerification\": true\n}\n```\n",
+ "servedBlob": "809abe5cb631d2ed72b8aa9f478d16ed7e07b713",
+ "servedSha256": "2ab7a9907e41d42fb890dedc7e81e8fc183cd4e79a9e34633aedd3de34dd6e73",
+ "baseSha": "306934f5425206485d262ed3aa2db3a11c078b92",
+ "realBlobAtBase": null,
+ "servedEqualsRealBlobAtBase": null,
+ "served": [
+  {
+   "call": "ls-tree",
+   "baseSha": "306934f5425206485d262ed3aa2db3a11c078b92"
+  },
+  {
+   "call": "cat-file",
+   "blob": "809abe5cb631d2ed72b8aa9f478d16ed7e07b713"
+  }
+ ]
+}

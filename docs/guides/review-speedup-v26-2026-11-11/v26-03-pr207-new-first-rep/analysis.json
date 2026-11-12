@@ -1,0 +1,393 @@
+{
+ "dir": "v26-03-pr207-new-first-rep",
+ "wallMin": 22.34,
+ "window": {
+  "startMs": 1794439327775,
+  "endMs": 1794440668022,
+  "startIso": "2026-11-11T23:22:07.775Z",
+  "endIso": "2026-11-11T23:44:28.022Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-range",
+  "slowestMin": 13.92,
+  "laneMin": 6.03,
+  "expired": []
+ },
+ "reviewRoundMin": 13.92,
+ "handoffToVerifySec": 3.16,
+ "verify": {
+  "count": 10,
+  "arrived": 10,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 2,
+  "refills": 1,
+  "stageMin": 8.06,
+  "stageSec": 483.43,
+  "startedAtIso": "2026-11-11T23:36:20.652Z",
+  "startedOffsetMin": 14.21,
+  "endedOffsetMin": 22.27,
+  "slowestMin": 6.14,
+  "slowestArrivedMin": 6.14,
+  "medianMin": 4.64,
+  "meanMin": 4.55,
+  "p75Min": 5.74,
+  "p90Min": 6.04,
+  "minMin": 2.74,
+  "sumAgentMin": 45.52,
+  "peakVerifierOverlap": 8,
+  "peakAnyAgentOverlap": 8,
+  "lastStartOffsetMin": 3.16,
+  "durationsSec": [
+   164.21,
+   186.19,
+   344.65,
+   368.19,
+   255.24,
+   288.45,
+   199.38,
+   362.18,
+   268.79,
+   293.99
+  ],
+  "replayAtCap8Min": 8,
+  "firstWaveStageMin": 8.06,
+  "secondWaveTailMin": 0,
+  "firstWaveDurationsSec": [
+   164.21,
+   186.19,
+   344.65,
+   368.19,
+   255.24,
+   288.45,
+   199.38,
+   362.18,
+   268.79,
+   293.99
+  ],
+  "secondWaveDurationsSec": []
+ },
+ "verifiers": {
+  "dispatchedTotal": 10,
+  "secondWave": 0,
+  "firstWave": 10,
+  "manifests": 2,
+  "plannedFullElectorate": 15,
+  "plannedByRunner": 10,
+  "candidatesVerified": 15,
+  "mode": "standard",
+  "electorate": 3,
+  "candidatesGivenTheRest": 0,
+  "secondWaveRate": 0,
+  "secondWaveReasons": {}
+ },
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 11,
+  "secondWave": [],
+  "skipped": []
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 5.94,
+  "startedAt": "2026-11-11T23:22:09.123Z",
+  "finishedAt": "2026-11-11T23:28:05.667Z",
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.35,
+  "finishedOffsetMin": 5.96,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 8.25
+ },
+ "ledger": {
+  "candidates": 15,
+  "bySeverity": {
+   "important/fix": 2,
+   "nit/fix": 8,
+   "nit/deferred": 3,
+   "pre-existing/deferred": 2
+  },
+  "present": 0,
+  "presentOnMajority": 0,
+  "quorumSettled": 15,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 21.399,
+ "beforeFirstDispatchSec": 14.322,
+ "criticalPath": {
+  "ms": 1318828,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 835393,
+    "name": "reviewer-range"
+   },
+   {
+    "stage": "verifier",
+    "ms": 483429,
+    "waves": 2
+   },
+   {
+    "stage": "verdict",
+    "ms": 6
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 10
+ },
+ "agentsTotal": 18,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 15,
+  "recorded": 0
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f6",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 154,
+   "requestsMean": 22,
+   "costTotalUsd": 13.06,
+   "contextTokensMax": 272103,
+   "harnessDurMedianSec": 707.02,
+   "harnessDurMaxSec": 837.58,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 18,
+   "requestsMean": 18,
+   "costTotalUsd": 1.1,
+   "contextTokensMax": 162293,
+   "harnessDurMedianSec": 368.02,
+   "harnessDurMaxSec": 368.02,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 10,
+   "requestsTotal": 152,
+   "requestsMean": 15.2,
+   "costTotalUsd": 8.34,
+   "contextTokensMax": 155404,
+   "harnessDurMedianSec": 280.25,
+   "harnessDurMaxSec": 370.11,
+   "statuses": {
+    "completed": 10
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 10
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 8,
+ "recallGuard": {
+  "falseNegativeRate": 0.8333333333333334,
+  "notRaisedRate": 0.5,
+  "found": [
+   "E1"
+  ],
+  "downgraded": [
+   "E3",
+   "E4"
+  ],
+  "notRaised": [
+   "E2",
+   "E5",
+   "E6"
+  ],
+  "unmatchedImportant": []
+ },
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 44,
+    "load1Mean": 26.02,
+    "load1Max": 93.38,
+    "load1Min": 4.99,
+    "above12": 24,
+    "longestStreakAbove12": 14,
+    "above20": 18,
+    "disturbed": true,
+    "jestProcsMax": 39,
+    "samplesWithJest": 23,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 16,
+    "load1Mean": 48.15,
+    "load1Max": 93.38,
+    "load1Min": 5.62,
+    "above12": 14,
+    "longestStreakAbove12": 14,
+    "above20": 13,
+    "disturbed": true,
+    "jestProcsMax": 39,
+    "samplesWithJest": 14,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 23.36,
+    "load1Max": 44.91,
+    "load1Min": 9.31,
+    "above12": 9,
+    "longestStreakAbove12": 9,
+    "above20": 5,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 8,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 17.9,
+    "load1Max": 49.61,
+    "load1Min": 5.5,
+    "above12": 18,
+    "longestStreakAbove12": 18,
+    "above20": 10,
+    "disturbed": true,
+    "jestProcsMax": 39,
+    "samplesWithJest": 9,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 44,
+    "load1Mean": 26.02,
+    "load1Max": 93.38,
+    "load1Min": 4.99,
+    "above12": 24,
+    "longestStreakAbove12": 14,
+    "above20": 18,
+    "disturbed": true
+   },
+   "verifyStage": {
+    "samples": 16,
+    "load1Mean": 48.15,
+    "load1Max": 93.38,
+    "load1Min": 5.62,
+    "above12": 14,
+    "longestStreakAbove12": 14,
+    "above20": 13,
+    "disturbed": true
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 45,
+    "meanCpuPct": {
+     "all": 672.76,
+     "gate": 1.64,
+     "pipeline": 62.27,
+     "otherEnsemble": 166.87,
+     "other": 441.98
+    },
+    "samplesWithOtherEnsembleJest": 16,
+    "samplesWithGateJest": 1,
+    "maxOtherEnsembleCpuPct": 567,
+    "maxOtherCpuPct": 1233
+   },
+   "verifyStage": {
+    "samples": 16,
+    "meanCpuPct": {
+     "all": 874.25,
+     "gate": 0,
+     "pipeline": 7.19,
+     "otherEnsemble": 294.25,
+     "other": 572.69
+    },
+    "samplesWithOtherEnsembleJest": 14,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 567,
+    "maxOtherCpuPct": 771
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 800.9,
+     "gate": 7.4,
+     "pipeline": 132.4,
+     "otherEnsemble": 93.7,
+     "other": 567.6
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 1,
+    "maxOtherEnsembleCpuPct": 139,
+    "maxOtherCpuPct": 1233
+   }
+  }
+ },
+ "arm": "new",
+ "order": 3,
+ "runId": "v26-03-pr207-new-first-rep",
+ "pr": 207,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 135417,
+  "quiet": true
+ },
+ "recallGuardExitDefaultThreshold": 1
+}

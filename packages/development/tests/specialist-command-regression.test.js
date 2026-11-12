@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { readSkill } = require('../../product/tests/helpers/skill-prompt');
+const { parseSubcommands } = require('../../product/tests/helpers/skill-subcommands');
 
 // TRD-011 "Specialist command regression suite" / TRD-011-TEST "Specialist
 // commands unchanged"
@@ -15,12 +17,14 @@ const yaml = require('js-yaml');
 //
 // The list below was confirmed by listing packages/development/commands/*.yaml
 // and packages/product/commands/*.yaml directly rather than assumed:
-//  - trd.yaml itself, plus every ref in its own dispatch.subcommands[] (9: the Foreman
+//  - trd itself, plus every ref in its own `## Subcommands` section (9: the Foreman
 //    table-mode and workstream-generation variants are `create-trd --parser-tables` and
 //    `implement-trd-beads --workstream --generate-only` flags, not separate commands)
-//  - prd.yaml itself, plus every ref in its own dispatch.subcommands[] (2:
+//  - prd itself, plus every ref in its own `## Subcommands` section (2:
 //    create-prd and refine-prd; the meeting-sourced variants are
 //    `--from-meeting` flags on those two, not separate commands)
+// trd and prd are skill-backed dispatchers: their routing table is the skill's
+// `## Subcommands` section (packages/<pkg>/skills/ensemble-<name>/SKILL.md).
 //  - the 3 standalone beads-* command YAMLs that actually exist as commands:
 //    refine-beads, beads-build, beads-build-wave.
 // beads-scaffold-specialist (an agent:
@@ -56,7 +60,6 @@ const SPECIALIST_COMMANDS = [
   ['verify-requirements', DEV_COMMANDS_DIR],
   ['requirement-status', DEV_COMMANDS_DIR],
   ['trd-dependency-graph', DEV_COMMANDS_DIR],
-  ['refine-beads', DEV_COMMANDS_DIR],
   ['beads-build', DEV_COMMANDS_DIR],
   ['beads-build-wave', DEV_COMMANDS_DIR],
   ['prd', PRODUCT_COMMANDS_DIR],
@@ -64,7 +67,7 @@ const SPECIALIST_COMMANDS = [
   ['refine-prd', PRODUCT_COMMANDS_DIR],
 ];
 
-// dispatch.subcommands[].ref values that would silently route a specialist
+// Subcommand refs that would silently route a specialist
 // into one of the two task-oriented lifecycles instead of its own behavior.
 const TASK_LIFECYCLE_REFS = new Set(['new-feature', 'feature', 'issue', 'fix-issue', 'list-issue']);
 
@@ -79,6 +82,22 @@ function readGeneratedMarkdown(dir, slug) {
 function parseFrontmatter(mdText) {
   const match = mdText.match(/^---\n([\s\S]*?)\n---/);
   return match ? yaml.load(match[1]) : null;
+}
+
+/** The specialist's skill (a skill-backed command's source of truth), or null for a full YAML command. */
+function readCommandSkill(dir, slug) {
+  const command = readYaml(dir, slug);
+  return command.skill ? readSkill(command.skill, path.dirname(dir)) : null;
+}
+
+/** The `{keyword, description, ref}` rows a dispatcher routes: its skill's Subcommands section, else its YAML dispatch table. */
+function readSubcommands(dir, slug) {
+  const skill = readCommandSkill(dir, slug);
+  if (skill) {
+    return skill.body.includes('\n## Subcommands\n') ? parseSubcommands(skill) : [];
+  }
+  const command = readYaml(dir, slug);
+  return (command.dispatch && command.dispatch.subcommands) || [];
 }
 
 describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
@@ -112,9 +131,7 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
 
   describe('no silent redirection', () => {
     test.each(SPECIALIST_COMMANDS)('%s has no dispatch entry pointing at the feature or issue task-oriented lifecycles', (slug, dir) => {
-      const command = readYaml(dir, slug);
-      const subcommands = (command.dispatch && command.dispatch.subcommands) || [];
-      const redirecting = subcommands.filter((sub) => TASK_LIFECYCLE_REFS.has(sub.ref));
+      const redirecting = readSubcommands(dir, slug).filter((sub) => TASK_LIFECYCLE_REFS.has(sub.ref));
       expect(redirecting).toEqual([]);
     });
   });
@@ -134,22 +151,20 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
     const EXPECTED_PRD_SUBCOMMAND_REFS = ['create-prd', 'refine-prd'];
 
     test('ensemble:trd dispatch table still routes every TRD specialist, documented as the direct way to use it', () => {
-      const command = readYaml(DEV_COMMANDS_DIR, 'trd');
-      const refs = command.dispatch.subcommands.map((sub) => sub.ref);
+      const refs = readSubcommands(DEV_COMMANDS_DIR, 'trd').map((sub) => sub.ref);
       expect(refs.sort()).toEqual([...EXPECTED_TRD_SUBCOMMAND_REFS].sort());
-      const mdText = readGeneratedMarkdown(DEV_COMMANDS_DIR, 'trd');
+      const skillText = readCommandSkill(DEV_COMMANDS_DIR, 'trd').body;
       for (const ref of EXPECTED_TRD_SUBCOMMAND_REFS) {
-        expect(mdText).toContain(`/ensemble:${ref}\` directly`);
+        expect(skillText).toContain(`/ensemble:${ref}\` directly`);
       }
     });
 
     test('ensemble:prd dispatch table still routes every PRD specialist, documented as the direct way to use it', () => {
-      const command = readYaml(PRODUCT_COMMANDS_DIR, 'prd');
-      const refs = command.dispatch.subcommands.map((sub) => sub.ref);
+      const refs = readSubcommands(PRODUCT_COMMANDS_DIR, 'prd').map((sub) => sub.ref);
       expect(refs.sort()).toEqual([...EXPECTED_PRD_SUBCOMMAND_REFS].sort());
-      const mdText = readGeneratedMarkdown(PRODUCT_COMMANDS_DIR, 'prd');
+      const skillText = readCommandSkill(PRODUCT_COMMANDS_DIR, 'prd').body;
       for (const ref of EXPECTED_PRD_SUBCOMMAND_REFS) {
-        expect(mdText).toContain(`/ensemble:${ref}\` directly`);
+        expect(skillText).toContain(`/ensemble:${ref}\` directly`);
       }
     });
 
@@ -157,7 +172,6 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
       const readme = fs.readFileSync(path.join(REPO_ROOT, 'packages', 'development', 'README.md'), 'utf8');
       for (const name of [
         '/ensemble:implement-trd-beads',
-        '/ensemble:refine-beads',
         '/ensemble:create-trd',
         '/ensemble:refine-trd',
       ]) {
@@ -169,11 +183,11 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
       for (const slug of ['create-trd-foreman', 'create-workstream-trd']) {
         expect(fs.existsSync(path.join(DEV_COMMANDS_DIR, `${slug}.yaml`))).toBe(false);
       }
-      const trd = readYaml(DEV_COMMANDS_DIR, 'trd');
-      const keywords = trd.dispatch.subcommands.map((sub) => sub.keyword);
+      const subcommands = readSubcommands(DEV_COMMANDS_DIR, 'trd');
+      const keywords = subcommands.map((sub) => sub.keyword);
       expect(keywords).not.toContain('foreman');
       expect(keywords).not.toContain('workstream');
-      const byKeyword = Object.fromEntries(trd.dispatch.subcommands.map((sub) => [sub.keyword, sub]));
+      const byKeyword = Object.fromEntries(subcommands.map((sub) => [sub.keyword, sub]));
       expect(byKeyword.create.description).toContain('--parser-tables');
       expect(byKeyword.implement.description).toContain('--workstream --generate-only');
       // The base commands carry the flags the variants became.

@@ -32,7 +32,8 @@ const { spawnSync } = require('child_process');
 const yaml = require('js-yaml');
 
 const { validateAdapterDir, checkVocabularyBlock } = require('../../packages/development/lib/toolchain/validate');
-const { discoverAdapters } = require('../../packages/development/lib/toolchain/adapters');
+const { discoverAdapters, loadAdapter } = require('../../packages/development/lib/toolchain/adapters');
+const { runPreflight } = require('../../packages/development/lib/toolchain/preflight');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const ADAPTER_DIR = path.join(REPO_ROOT, 'packages', 'git', 'skills', 'adapter-worktree-plain-git');
@@ -171,13 +172,12 @@ describe('TRD-042-TEST: adapter-worktree-plain-git manifest passes every static 
 
 describe('TRD-042-TEST: the toolchain resolver actually discovers the worktree adapter-plain-git skill directory (no NOT_INSTALLED)', () => {
   // `adapter-workflow-plain-git` (TRD-036) and `adapter-worktree-plain-git` (TRD-042) both
-  // declare `adapter: plain-git` -- distinct categories, same id -- so a bare
-  // `loadAdapter('plain-git', ctx)` is ambiguous between the two installed skill directories
-  // and picks whichever `discoverAdapters` happens to enumerate first (not a worktree-specific
-  // lookup). This test instead calls the same `discoverAdapters` the resolver uses and asserts
-  // this adapter's directory is genuinely discoverable as an `installed`, `plain-git`-named,
-  // `worktree`-category manifest -- the real question TRD-042-TEST's AC asks (the adapter is
-  // loadable / "no NOT_INSTALLED"), independent of the separate id-collision tie-break.
+  // declare `adapter: plain-git` -- distinct categories, same id. A bare
+  // `loadAdapter('plain-git', ctx)` is still ambiguous between the two and returns whichever
+  // directory sorts first (the workflow half), which is why this file used to assert through
+  // `discoverAdapters` instead. #146 made resolution keyed on (id, category), so the
+  // worktree half is now reachable through the real entry point and this asserts that
+  // directly.
   test('discoverAdapters() enumerates ADAPTER_DIR as an installed "plain-git" adapter whose manifest declares the worktree category', () => {
     const candidates = discoverAdapters({ projectRoot: REPO_ROOT }).filter(
       (entry) => entry.name === 'plain-git' && entry.origin === 'installed'
@@ -189,6 +189,59 @@ describe('TRD-042-TEST: the toolchain resolver actually discovers the worktree a
     expect(manifest.adapter).toBe('plain-git');
     expect(manifest.categories).toEqual(['worktree']);
   });
+
+  test('#146: loadAdapter("plain-git", {category: "worktree"}) resolves THIS directory, not the workflow half', () => {
+    const loaded = loadAdapter('plain-git', { projectRoot: REPO_ROOT, category: 'worktree' });
+    expect(fs.realpathSync(loaded.dir)).toBe(fs.realpathSync(ADAPTER_DIR));
+    expect(loaded.manifest.categories).toEqual(['worktree']);
+    expect(loaded.manifest.capabilities['worktree.create']).toBeDefined();
+
+    // The control that makes the assertion above mean something: the same id with the other
+    // category resolves to the other directory, so this is category keying rather than a
+    // changed sort order.
+    const workflow = loadAdapter('plain-git', { projectRoot: REPO_ROOT, category: 'workflow' });
+    expect(fs.realpathSync(workflow.dir)).not.toBe(fs.realpathSync(ADAPTER_DIR));
+    expect(workflow.manifest.categories).toEqual(['workflow']);
+  });
+});
+
+describe('#146: the shipped worktree default satisfies a worktree.* requirement end to end', () => {
+  // The user-visible failure this fixes, reported from a real run: `worktree: plain-git` is the
+  // shipped default and `runPreflight` could not satisfy `worktree.create` against it --
+  // `{"code":"UNAVAILABLE","message":"adapter 'plain-git' does not declare required capability
+  // 'worktree.create'"}` -- because preflight loaded the workflow half. Both categories are
+  // requested in ONE call so the workflow half's own requirement is proven still satisfied by
+  // the same resolution pass: a fix that merely swapped which half wins would fail here.
+  test('runPreflight over workflow and worktree together satisfies workflow.status and worktree.create', async () => {
+    // The project root is a throwaway git repository, never this checkout: `runPreflight` writes
+    // its state file under `<projectRoot>/.ensemble/state/toolchain/`, and a test that wrote it
+    // into the checkout left that file behind in the local CI gate's clean clone, where the
+    // runner refuses any leftover file outside its output paths (`unexpected-output`) and so
+    // did not count a run whose every step had passed. A bare repo with no config has every
+    // category on its shipped default, which is what this test is about.
+    const projectRoot = mkTempDir('worktree-preflight-146-');
+    const init = spawnSync('git', ['init', '--quiet'], { cwd: projectRoot, encoding: 'utf8' });
+    expect(init.status).toBe(0);
+    const result = await runPreflight(
+      {
+        categories: ['workflow', 'worktree'],
+        requires: ['workflow.status', 'worktree.create'],
+        runId: `plain-git-146-${process.pid}`,
+        nonInteractive: true
+      },
+      { projectRoot, env: { PATH: process.env.PATH } }
+    );
+
+    // Asserted as the whole envelope: a bare `expect(result.ok).toBe(true)` reports "false"
+    // and hides the code and message that say which half failed and why.
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(result.categories).toEqual(['workflow', 'worktree']);
+    // Two real subprocesses (`git --version`, `git worktree list`) against that repository, so
+    // the default 5000ms is not enough on a cold filesystem cache; the same per-test timeout
+    // convention scripts/tests/toolchain-preflight.test.js already uses for its real-process
+    // cases.
+  }, 30000);
 });
 
 describe('TRD-042-TEST: Scenario -- `toolchain-cli explain --json` names "plain-git" as the shipped worktree default', () => {

@@ -1,9 +1,11 @@
 /**
  * pr-merge x local-ci gate integration (TRD-009-TEST)
  *
- * Reads the pr-merge YAML source with js-yaml and the four GENERATED outputs
- * from disk. Structure is asserted (phase order, which refusal conditions
- * exist, preserved constraints equal to their pre-change text); regenerate
+ * Reads the pr-merge prompt from its skill (packages/git/skills/ensemble-pr-merge/SKILL.md; the
+ * command YAML is a manifest with no prompt) and the GENERATED copies of that skill from disk. The Claude
+ * command and the pi prompt are stubs that point at the skill, so they carry no prose to assert on and the
+ * prose assertions run on the skill and its pi and Codex copies instead. Structure is asserted (phase order,
+ * which refusal conditions exist, preserved constraints equal to their pre-change text); regenerate
  * (npm run generate && generate:pi && generate:codex) after editing the source,
  * this test fails on stale output.
  *
@@ -15,13 +17,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const { COMMAND } = require('./helpers/pr-merge-skill');
 const yaml = require('js-yaml');
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
-const SOURCE_REL = 'packages/git/commands/pr-merge.yaml';
+const SOURCE_REL = 'packages/git/skills/ensemble-pr-merge/SKILL.md';
 const GENERATED_REL = {
-  markdown: 'packages/git/commands/ensemble/pr-merge.md',
-  piPrompt: 'packages/pi/prompts/ensemble-pr-merge.md',
+  skill: SOURCE_REL,
   piSkill: 'packages/pi/skills/ensemble-pr-merge/SKILL.md',
   codexSkill: 'packages/codex/.codex/skills/commands/ensemble-pr-merge/SKILL.md',
 };
@@ -34,7 +36,7 @@ const FIXTURES = path.join(__dirname, 'fixtures', 'pr-merge');
 // touched it). The test compares the new source against this to prove safety constraints were preserved.
 const PRE_CHANGE_FIXTURE = path.join(FIXTURES, 'pr-merge.before-local-ci.yaml');
 
-const source = yaml.load(read(SOURCE_REL));
+const source = COMMAND;
 const committed = yaml.load(fs.readFileSync(PRE_CHANGE_FIXTURE, 'utf8'));
 const generated = Object.fromEntries(Object.entries(GENERATED_REL).map(([k, rel]) => [k, flat(read(rel))]));
 
@@ -142,7 +144,11 @@ describe('safety constraints preserved', () => {
   });
 
   test('--dry-run behaviour and parameter unchanged', () => {
-    const dryAction = (src) => actionsOf(src.workflow.phases.find((p) => p.name === 'Merge and Report')).find((a) => /--dry-run/.test(a));
+    // The Merge step's own dry-run stop. The Operator Disposition step (kata 6k8d) sits before it in the same phase and
+    // also names --dry-run (it prints the list and stops before any question), so the first match in the whole phase is
+    // no longer this action; the assertion is unchanged for the step the local-ci change touched.
+    const dryAction = (src) =>
+      src.workflow.phases.find((p) => p.name === 'Merge and Report').steps.find((s) => s.title === 'Merge').actions.find((a) => /--dry-run/.test(a));
     expect(dryAction(source)).toBe(dryAction(committed));
     const param = (src) => src.expectedInput.sections.find((s) => s.name === 'Dry Run');
     expect(param(source)).toEqual(param(committed));
@@ -158,7 +164,7 @@ describe('safety constraints preserved', () => {
 
   test('Pi outputs carry the preserved constraints verbatim', () => {
     for (const c of source.constraints) {
-      expect(generated.piPrompt).toContain(flat(c));
+      expect(generated.skill).toContain(flat(c));
       expect(generated.piSkill).toContain(flat(c));
     }
   });
@@ -219,7 +225,7 @@ describe('runtimes agree on gate and review rules', () => {
   const ruleActions = () =>
     phases.flatMap((p) => actionsOf(p)).filter((a) => /local-ci-gate|CHANGES_REQUESTED|sweep/.test(a));
 
-  test('every gate/review/sweep action appears in all four generated outputs', () => {
+  test('every gate/review/sweep action appears in the skill and both generated copies of it', () => {
     const rules = ruleActions();
     expect(rules.length).toBeGreaterThanOrEqual(6);
     for (const [name, text] of Object.entries(generated)) {
@@ -229,9 +235,9 @@ describe('runtimes agree on gate and review rules', () => {
     }
   });
 
-  test('the gate refusal constraint reaches both Pi outputs', () => {
+  test('the gate refusal constraint reaches the skill and its pi copy', () => {
     const rule = flat(source.constraints.find((c) => /local-ci-gate/.test(c)));
-    expect(generated.piPrompt).toContain(rule);
+    expect(generated.skill).toContain(rule);
     expect(generated.piSkill).toContain(rule);
   });
 

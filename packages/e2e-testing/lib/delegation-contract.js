@@ -45,6 +45,11 @@
  * @property {string} acText - the PRD acceptance-criterion text to author a test for
  * @property {*} groundingDiff - the implementation-grounding.js result (or its `gap` shape)
  *   grounding this AC in the real implementing diff, not PRD prose alone
+ * @property {string} [acId] - this AC's id. When present, the proposed test must open an EvidenceCapture
+ *   scope for it (evidence-capture.js's hasEvidenceCapture), or the response is rejected.
+ * @property {'nunit'|'xunit'} [framework] - the consuming project's test framework (e2e-framework.js), so the
+ *   authored body fits it: NUnit tests use the PageTest `Page`; xUnit tests build their own page the way the
+ *   project's sibling tests do. Omit when unknown (NUnit).
  */
 
 /**
@@ -89,6 +94,10 @@
  * @property {number} [slowMoMs] - optional follow-along pause in ms (headed only), applied as
  *   Playwright's `SlowMo` launch option so the QA engineer can watch the run. A launch option, never
  *   injected into proposedTest — nothing to strip before the test lands. Omit for no pause.
+ * @property {string} [acId] - the AC this test covers; required with evidenceDir (names the screenshot file)
+ * @property {string} [evidenceDir] - where the test's EvidenceCapture scope writes its end-state screenshot
+ *   (evidence-capture.js's resolveEvidenceDir). When present the response must carry runResult.evidencePath,
+ *   for a pass and for a fail; a run with no screenshot is not accepted.
  */
 
 /**
@@ -105,6 +114,8 @@
  * @property {string[]} [groundedMarkersChecked] - the candidate markers
  *   (grounded-marker-checker.js's extractGroundedMarkers() output) that were looked for on
  *   the live page when the test failed
+ * @property {string} [evidencePath] - the end-state screenshot the run wrote; required when the request
+ *   carried evidenceDir, and it must be <evidenceDir>/<AC id>.png
  */
 
 /**
@@ -112,6 +123,10 @@
  * @property {RunResult} runResult - always present; authoring already succeeded in the
  *   Proposal stage, so a Run response is always a pass/fail outcome, never an authoring failure
  */
+
+const fs = require('fs');
+const path = require('path');
+const { evidenceFileName, hasEvidenceCapture } = require('./evidence-capture');
 
 /** Throw a single clear error listing every problem found, or return true. */
 function assertNoErrors(label, errors) {
@@ -145,6 +160,9 @@ function validateProposalRequest(req) {
   if (req.groundingDiff === undefined || req.groundingDiff === null) {
     errors.push('groundingDiff is required (pass the implementation-grounding.js result, including its gap shape)');
   }
+  if (req.framework !== undefined && req.framework !== 'nunit' && req.framework !== 'xunit') {
+    errors.push("framework must be 'nunit' or 'xunit' when present");
+  }
 
   return assertNoErrors('proposal request', errors);
 }
@@ -154,10 +172,11 @@ function validateProposalRequest(req) {
  * orchestrator presents it to the QA engineer.
  *
  * @param {ProposalResponse|AuthoringFailure} res
+ * @param {ProposalRequest} [req] - when it carries an acId, proposedTest must open that AC's EvidenceCapture scope
  * @returns {true} when valid
  * @throws {Error} listing every missing/invalid field, when invalid
  */
-function validateProposalResponse(res) {
+function validateProposalResponse(res, req) {
   const errors = [];
 
   if (!res || typeof res !== 'object') {
@@ -173,6 +192,11 @@ function validateProposalResponse(res) {
 
   if (!isNonEmptyString(res.proposedTest)) {
     errors.push('proposedTest must be a non-empty string');
+  } else if (req && isNonEmptyString(req.acId) && !hasEvidenceCapture(res.proposedTest, req.acId)) {
+    errors.push(
+      `proposedTest must open \`await using var evidence = EvidenceCapture.For(page, "${req.acId}");\` ` +
+        'so its end state is screenshotted on a pass and on a failure'
+    );
   }
   if (!Array.isArray(res.selectorsUsed)) {
     errors.push('selectorsUsed must be an array (may be empty, but must be present)');
@@ -225,6 +249,13 @@ function validateRunRequest(req) {
       errors.push('slowMoMs only applies to headed mode — no human is watching a headless run');
     }
   }
+  if (req.evidenceDir !== undefined) {
+    if (!isNonEmptyString(req.evidenceDir)) {
+      errors.push('evidenceDir must be a non-empty string when present');
+    } else if (!isNonEmptyString(req.acId)) {
+      errors.push('acId is required with evidenceDir (it names the screenshot file)');
+    }
+  }
 
   return assertNoErrors('run request', errors);
 }
@@ -234,10 +265,13 @@ function validateRunRequest(req) {
  * acts on it.
  *
  * @param {RunResponse} res
+ * @param {RunRequest} [req] - when it carries evidenceDir, runResult.evidencePath must be the screenshot
+ *   <evidenceDir>/<AC id>.png and that file must exist: a run that left no end-state screenshot is not accepted
+ * @param {{existsSync?: (p: string) => boolean}} [opts] - injectable fs, as in spec-writer.js
  * @returns {true} when valid
  * @throws {Error} listing every missing/invalid field, when invalid
  */
-function validateRunResponse(res) {
+function validateRunResponse(res, req, opts = {}) {
   const errors = [];
 
   if (!res || typeof res !== 'object') {
@@ -261,6 +295,17 @@ function validateRunResponse(res) {
     }
     if (res.runResult.environmentMismatchSuspected === true && res.runResult.passed !== false) {
       errors.push('runResult.environmentMismatchSuspected may only be true when passed is false');
+    }
+    if (req && isNonEmptyString(req.evidenceDir) && isNonEmptyString(req.acId)) {
+      const expected = path.resolve(req.evidenceDir, evidenceFileName(req.acId));
+      const existsSync = opts.existsSync || fs.existsSync;
+      if (!isNonEmptyString(res.runResult.evidencePath)) {
+        errors.push(`runResult.evidencePath is required: expected the end-state screenshot at ${expected}`);
+      } else if (path.resolve(res.runResult.evidencePath) !== expected) {
+        errors.push(`runResult.evidencePath must be ${expected} (got ${res.runResult.evidencePath})`);
+      } else if (!existsSync(expected)) {
+        errors.push(`no screenshot exists at ${expected}: the test did not reach its EvidenceCapture scope`);
+      }
     }
   }
 

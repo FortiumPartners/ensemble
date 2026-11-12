@@ -1,0 +1,14 @@
+'use strict';
+// Scratch: `prepare` through the seam for a PR and an arm with skipPrecheck (no gate), to read what the real classifier and planner say.
+const fs = require('fs'); const path = require('path');
+const L = require('./v26-lib.js');
+const [pr, arm, tag] = [Number(process.argv[2]), process.argv[3], process.argv[4] || 'p1'];
+const runId = `probe-${pr}-${arm}-${tag}`;
+const dir = path.join(L.SCRATCH, 'probe', runId); fs.mkdirSync(dir, { recursive: true });
+const rm = L.Policy.reviewTextFor({ pr, arm, devSha: L.DEV_SHA, repoRoot: L.REPO_ROOT }); const file = path.join(dir, 'review-md-served.md'); fs.writeFileSync(file, rm.text);
+const payload = { repo: L.REPO, pr, repoRoot: L.REPO_ROOT, runId, dryRun: true, skipPrecheck: true, nodeModules: L.REPO_ROOT + '/node_modules' };
+const t0 = Date.now(); const p = L.prepareCall(payload, file, path.join(dir, 'prepare.out')); const a = p.answer;
+const seam = JSON.parse(fs.readFileSync(path.join(dir, 'prepare.out.seam.json'), 'utf8'));
+const run = L.runJsonOf(runId);
+const out = { runId, ms: Date.now() - t0, ok: a.ok, status: a.status, reason: a.reason, tier: a.tier && a.tier.tier, mode: a.mode && a.mode.mode, depth: a.depth && a.depth.mode, cap: a.maxConcurrentAgents, nAgents: (a.agents || []).length, agents: (a.agents || []).map((x) => x.name.replace('reviewer-', 'r-').replace('security-lane', 'lane') + ':' + x.deadlineMinutes).join(' '), head: a.headSha && a.headSha.slice(0, 7), base: run.baseSha && run.baseSha.slice(0, 7), baseRef: run.baseRefName, changed: (run.changedPaths || []).length, warn: (run.sizing && run.sizing.warnings || []).map((w) => w.code).join(','), polOk: run.policyStatus && run.policyStatus.ok, polReason: run.policyStatus && run.policyStatus.reason, explicit: JSON.stringify(run.policyExplicit), quorumKey: run.policy && run.policy.quorumFirstVerification, sevProblem: run.severityGuideProblem, seamKind: rm.kind, seamEqualsReal: seam.servedEqualsRealBlobAtBase, reReview: a.reReview ? JSON.stringify({ scope: a.reReview.scope, reasons: a.reReview.reasons }) : null, error: a.error ? String(a.error).slice(0, 200) : undefined };
+console.log(Object.entries(out).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => k + '=' + v).join(' | '));

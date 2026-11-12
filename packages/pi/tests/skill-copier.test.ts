@@ -8,6 +8,7 @@
  * 4. Dry-run mode: returns results but writes no files
  * 5. Result shape: type === 'skill', sourcePath, outputPath, content
  * 6. SKILL.md frontmatter normalisation (name + description fields)
+ * 7. Layout: only packages/<pkg>/skills/<name>/SKILL.md is discovered
  */
 
 import * as fs from 'fs';
@@ -36,32 +37,34 @@ function rmrf(dir: string): void {
  *     packages/
  *       alpha/
  *         skills/
- *           SKILL.md          ← top-level layout
- *           REFERENCE.md
+ *           alpha/
+ *             SKILL.md        ← the skill is named after its package
+ *             REFERENCE.md
  *       beta/
  *         skills/
  *           my-skill/
- *             SKILL.md        ← subdirectory layout
+ *             SKILL.md        ← the skill has a name of its own
  *       pi/
  *         skills/
- *           SKILL.md          ← should be skipped (self-referential)
+ *           pi/
+ *             SKILL.md        ← should be skipped (self-referential)
  */
 function buildFakeMonorepo(root: string): void {
-  // alpha — top-level skill files
-  const alphaSkills = path.join(root, 'packages', 'alpha', 'skills');
-  fs.mkdirSync(alphaSkills, { recursive: true });
+  // alpha — a skill named after its package, with a REFERENCE.md
+  const alphaSkill = path.join(root, 'packages', 'alpha', 'skills', 'alpha');
+  fs.mkdirSync(alphaSkill, { recursive: true });
   fs.writeFileSync(
-    path.join(alphaSkills, 'SKILL.md'),
+    path.join(alphaSkill, 'SKILL.md'),
     '# Alpha Skill\nContent here.\n\nSee REFERENCE.md.\n',
     'utf-8'
   );
   fs.writeFileSync(
-    path.join(alphaSkills, 'REFERENCE.md'),
+    path.join(alphaSkill, 'REFERENCE.md'),
     '# Alpha Reference\nRef content.\n',
     'utf-8'
   );
 
-  // beta — subdirectory skill layout
+  // beta — a skill with a name of its own
   const betaSubSkill = path.join(root, 'packages', 'beta', 'skills', 'my-skill');
   fs.mkdirSync(betaSubSkill, { recursive: true });
   fs.writeFileSync(
@@ -71,9 +74,9 @@ function buildFakeMonorepo(root: string): void {
   );
 
   // pi — should be excluded
-  const piSkills = path.join(root, 'packages', 'pi', 'skills');
-  fs.mkdirSync(piSkills, { recursive: true });
-  fs.writeFileSync(path.join(piSkills, 'SKILL.md'), '# Pi Skill — should be skipped\n', 'utf-8');
+  const piSkill = path.join(root, 'packages', 'pi', 'skills', 'pi');
+  fs.mkdirSync(piSkill, { recursive: true });
+  fs.writeFileSync(path.join(piSkill, 'SKILL.md'), '# Pi Skill — should be skipped\n', 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -102,7 +105,7 @@ describe('copySkills', () => {
     const results = await copySkills(sourceRoot, outputRoot, {});
 
     const skillFiles = results.filter((r) => r.outputPath.endsWith('SKILL.md'));
-    // alpha (top-level) + beta/my-skill (subdirectory)
+    // alpha/alpha + beta/my-skill
     expect(skillFiles.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -155,8 +158,8 @@ describe('copySkills', () => {
   it('stamps every copied file with a marker naming its source by path from the monorepo root', async () => {
     const results = await copySkills(sourceRoot, outputRoot, {});
     const expectedSource: Record<string, string> = {
-      'alpha/SKILL.md': 'packages/alpha/skills/SKILL.md',
-      'alpha/REFERENCE.md': 'packages/alpha/skills/REFERENCE.md',
+      'alpha/SKILL.md': 'packages/alpha/skills/alpha/SKILL.md',
+      'alpha/REFERENCE.md': 'packages/alpha/skills/alpha/REFERENCE.md',
       'my-skill/SKILL.md': 'packages/beta/skills/my-skill/SKILL.md',
     };
     expect(results).toHaveLength(Object.keys(expectedSource).length);
@@ -177,7 +180,7 @@ describe('copySkills', () => {
 
     expect(alpha!.content.startsWith('---\n')).toBe(true);
     const body = matter(alpha!.content).content;
-    expect(body).toBe(`${generatedMarker('packages/alpha/skills/SKILL.md')}\n# Alpha Skill\nContent here.\n\nSee REFERENCE.md.\n`);
+    expect(body).toBe(`${generatedMarker('packages/alpha/skills/alpha/SKILL.md')}\n# Alpha Skill\nContent here.\n\nSee REFERENCE.md.\n`);
   });
 
   it('does not let the marker become the description of a skill that has none', async () => {
@@ -244,7 +247,7 @@ describe('copySkills', () => {
     // Create a second package that symlinks to alpha's skills directory
     const gammaSkills = path.join(sourceRoot, 'packages', 'gamma', 'skills');
     fs.mkdirSync(path.dirname(gammaSkills), { recursive: true });
-    const alphaSkillFile = path.join(sourceRoot, 'packages', 'alpha', 'skills', 'SKILL.md');
+    const alphaSkillFile = path.join(sourceRoot, 'packages', 'alpha', 'skills', 'alpha', 'SKILL.md');
     // Symlink the gamma skills directory to alpha's skills directory
     fs.symlinkSync(path.join(sourceRoot, 'packages', 'alpha', 'skills'), gammaSkills);
 
@@ -328,6 +331,17 @@ describe('copySkills', () => {
     fs.writeFileSync(path.join(noSkillPkg, 'package.json'), '{}', 'utf-8');
 
     await expect(copySkills(sourceRoot, outputRoot, {})).resolves.toBeDefined();
+  });
+
+  it('does not ship a flat skills/SKILL.md: a skill is a directory named after the skill', async () => {
+    const flatSkills = path.join(sourceRoot, 'packages', 'flat', 'skills');
+    fs.mkdirSync(flatSkills, { recursive: true });
+    fs.writeFileSync(path.join(flatSkills, 'SKILL.md'), '# Flat Skill\nNot discovered.\n', 'utf-8');
+
+    const results = await copySkills(sourceRoot, outputRoot, {});
+
+    expect(results.some((r) => r.sourcePath.startsWith(path.join(sourceRoot, 'packages', 'flat')))).toBe(false);
+    expect(fs.existsSync(path.join(outputRoot, 'skills', 'flat'))).toBe(false);
   });
 
   // -------------------------------------------------------------------------

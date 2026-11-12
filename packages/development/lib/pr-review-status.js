@@ -16,9 +16,10 @@
  *                          a FRESH review (see FRESHNESS below), roundsUsed a
  *                          non-negative integer, findingCounts.total/deferred/
  *                          actionable non-negative integers with total >=
- *                          actionable + deferred and actionable equal to 0,
+ *                          actionable + deferred and actionable equal to 0 (`awaitingDecision`, when echoed, is not read),
  *                          tests recorded with boolean flags and passed or
- *                          explicitly skipped, access not failed.
+ *                          explicitly skipped, access not failed, and a review
+ *                          coverage with no gap left open (COVERAGE below).
  *   LOCAL_REVIEW_BLOCKED   the local loop cannot proceed without a human or an
  *                          input: access unavailable, a required fact missing
  *                          or invalid, or the round limit hit with actionable
@@ -35,6 +36,14 @@
  * is published. A different tree, or a tree on one side only, never makes a
  * different head fresh. A tree fact that was supplied but is not a full object
  * id is a missing fact: never ignored, and never equal to anything.
+ *
+ * COVERAGE (kata k48x). A review that left a changed path unread is not complete, whatever else it found. `facts.coverage` is a
+ * REQUIRED fact: the record `pr-review-coverage.js` builds (`{ status, gaps[] }`; the runner and the CLI `slices` answer one).
+ * Absent, unreadable or `unavailable` is a missing fact (LOCAL_REVIEW_BLOCKED, naming it); `incomplete` with a gap nobody has
+ * decided is LOCAL_REVIEW_PENDING (`next: complete-review-coverage`) and can never be LOCAL_REVIEW_COMPLETE. A gap stops counting
+ * only through the operator's recorded decision on it (a `resolution` with a `decision` of `accept`, a reason, a login, a timestamp and THIS head: the gate's
+ * own check, `facts.policy` adds who may decide). The record is echoed as `coverage`, so the report the status is written
+ * to carries what the gate reads later.
  *
  * REVIEW-ONLY. A review of someone else's PR runs no fix, no verification pass and no re-review, so it is a report and not
  * a verdict. `reviewOnly: true` therefore pins the result: the status is REVIEW_PENDING, with a reason that says so, and the
@@ -56,6 +65,7 @@
 const { isObjectId } = require('./pr-review-scope');
 const { DEFAULT_ROUND_CAP, ROUND_CAP_MIN, ROUND_CAP_MAX } = require('./pr-review-policy');
 const { evaluateCiTests } = require('./pr-review-ci-tests');
+const { gradeCoverage, summarizeOpen } = require('./pr-review-coverage');
 
 /**
  * ONE round cap for every review procedure (REQ-009, AC-009-3). The number
@@ -142,7 +152,13 @@ function deriveCiTests(raw, headSha, reviewOnly) {
  *   null means not supplied -- but one that is supplied must be a full object id or it is a missing fact. Tree equivalence
  *   needs BOTH; head equality alone is enough without them.
  * @param {{total:number, actionable:number, deferred:number}} facts.findingCounts  REQUIRED. All three counts must be
- *   non-negative integers, and `total` must be at least `actionable + deferred`.
+ *   non-negative integers, and `total` must be at least `actionable + deferred`. A fourth key, `awaitingDecision` (what
+ *   `review-run` adds: Nits and Pre-existing findings still awaiting the operator's decision), is informational: echoed, never read.
+ * @param {{status:string, gaps?:Object[], reason?:string}} facts.coverage  REQUIRED. The review's coverage record
+ *   (pr-review-coverage.js). Not an object, an unreadable one or `unavailable` is a missing fact; an open gap is PENDING.
+ * @param {Object} [facts.policy]  The base-branch policy block (`botLogins`, `maintainerLogins`): a coverage gap's decision counts
+ *   only from a login it lets decide. Absent: the login is checked for shape alone. Anything else that is not an object refuses
+ *   every decision.
  * @param {{exitCode:number, skipped:boolean, command:string}|{source:'ci', checkRuns:Array, totalCount:number, command:string}}
  *   [facts.tests]  Absent (or null) means the tests never ran. A local run is an object with an integer `exitCode` (REQUIRED
  *   unless `skipped` is true); `passed` is derived (exitCode 0) and a caller-supplied `passed` that disagrees is refused. A
@@ -163,7 +179,7 @@ function deriveCiTests(raw, headSha, reviewOnly) {
  * @param {boolean} [facts.override]  Caller-supplied completion override -- NEVER relabels an incomplete result.
  * @returns {{status:string, localPhase:string, remotePhase:string, reasons:string[], next:string, contract:Object,
  *   baseSha:?string, headSha:?string, reviewedHeadSha:?string, reviewedTreeSha:?string, headTreeSha:?string,
- *   prUrl:?string, rounds:{used:number,max:number}, findingCounts:?Object, tests:Object, reviewOnly:boolean, reportPath:?string}}
+ *   prUrl:?string, rounds:{used:number,max:number}, findingCounts:?Object, coverage:?Object, tests:Object, reviewOnly:boolean, reportPath:?string}}
  *   The heads and trees graded are echoed so the report recorded from this result says what was reviewed; a tree that is
  *   not a full object id is echoed as null (and named in `reasons`), so a blocked result can still be recorded.
  *   `status`, `localPhase` and `remotePhase` are always members of STATUSES, LOCAL_PHASES and REMOTE_PHASES.
@@ -183,6 +199,10 @@ function deriveStatus(facts = {}) {
   } = input;
   // Echoed as supplied: a missing findingCounts is reported as null, never as fabricated zero counts.
   const findingCounts = input.findingCounts === undefined ? null : input.findingCounts;
+  // The coverage record is echoed as supplied, like the finding counts: the report recorded from this result carries it, and the
+  // merge gate reads it from there. One that is not an object is reported as null, never fabricated.
+  const coverage = isObject(input.coverage) ? input.coverage : null;
+  const coverageGrade = gradeCoverage(input.coverage, { headSha, policy: input.policy });
   // Only an explicit true is a review-only run; a value that is neither absent nor boolean is unreadable and blocks below.
   const reviewOnly = input.reviewOnly === true;
   // Tests nobody recorded are tests that never ran.
@@ -210,6 +230,7 @@ function deriveStatus(facts = {}) {
     prUrl,
     rounds: { used: roundsUsed, max: roundCap },
     findingCounts,
+    coverage,
     tests,
     reportPath,
     contract,
@@ -244,6 +265,7 @@ function deriveStatus(facts = {}) {
   if (isCount(counts.actionable) && isCount(counts.total) && isCount(counts.deferred) && counts.total < counts.actionable + counts.deferred) {
     missingFacts.push('findingCounts.total (below actionable + deferred)');
   }
+  if (coverageGrade.missing.length > 0) missingFacts.push(`coverage (${coverageGrade.missing.join('; ')})`);
   if (access !== undefined && access !== null && !(isObject(access) && typeof access.ok === 'boolean')) {
     missingFacts.push('access');
   }
@@ -297,6 +319,7 @@ function deriveStatus(facts = {}) {
   const reasons = [...capReasons];
   if (reviewOnly) reasons.push('review-only: no fix or re-review ran, so this run can never be REVIEW_COMPLETE');
   const actionableCount = findingCounts.actionable;
+  const coverageOpen = coverageGrade.open.length;
   // Fresh when the reviewed head IS the head, or when both trees were supplied and are the identical tree (past the gate
   // above a supplied tree is a full object id). A tree on one side only establishes nothing, and equality is as strict
   // as the head's: no case folding.
@@ -307,12 +330,13 @@ function deriveStatus(facts = {}) {
   const roundLimitReached = actionableCount > 0 && roundsUsed >= roundCap;
 
   if (actionableCount > 0) reasons.push('unresolved actionable finding');
+  if (coverageOpen > 0) reasons.push(`incomplete review coverage: ${summarizeOpen(coverageGrade.open)}`);
   if (isStale) reasons.push('stale reviewedHeadSha');
 
   let localPhase;
   if (roundLimitReached) {
     localPhase = 'LOCAL_REVIEW_BLOCKED';
-  } else if (actionableCount === 0 && !isStale && testsSettled && !reviewOnly) {
+  } else if (actionableCount === 0 && coverageOpen === 0 && !isStale && testsSettled && !reviewOnly) {
     localPhase = 'LOCAL_REVIEW_COMPLETE';
   } else {
     localPhase = 'LOCAL_REVIEW_PENDING';
@@ -349,11 +373,17 @@ function deriveStatus(facts = {}) {
     status = 'REVIEW_PENDING';
     if (isStale) {
       next = 're-run-review-for-current-head';
+    } else if (coverageOpen > 0) {
+      next = 'complete-review-coverage';
     } else if (tests.passed !== true) {
       next = runTests;
     } else {
       next = 'report-to-author';
     }
+  } else if (coverageOpen > 0) {
+    // A review that did not read everything cannot say what is left to fix: read it, or have the operator decide the gap, first.
+    status = 'REVIEW_PENDING';
+    next = 'complete-review-coverage';
   } else if (actionableCount > 0) {
     status = 'REVIEW_PENDING';
     next = 'run-fix-round';

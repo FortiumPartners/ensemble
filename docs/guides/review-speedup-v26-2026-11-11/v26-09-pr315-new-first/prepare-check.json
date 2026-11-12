@@ -1,0 +1,18 @@
+{
+ "tierExpected": "high",
+ "tierGot": "high",
+ "gateAction": "started",
+ "mode": "full",
+ "cap": 8,
+ "reReview": {
+  "scope": "first-review",
+  "reasons": [
+   "no-previous-head"
+  ],
+  "appliedRange": "full-range"
+ },
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ }
+}

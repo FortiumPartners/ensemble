@@ -39,7 +39,7 @@ Existing violations that have not been migrated yet are recorded in `scripts/lin
 
 - The lint fails when a key's count is higher than its baseline count, or when a key is not in the baseline. A new violation in an already grandfathered file therefore fails.
 - When a count drops, the lint prints `baseline can shrink` for that entry. Run `node scripts/lint-provider-refs.js --update-baseline` to rewrite the file and commit the result. The flag is never run automatically.
-- Named sources must have zero violations regardless of the baseline, and `--update-baseline` refuses to run while one has a violation. They are the commands `implement-trd-beads`, `beads-build`, `beads-build-wave`, `implement-bead`, `refine-beads`, `fix-issue` and `pr-merge` (source `.yaml` and generated `commands/ensemble/*.md`) and the skills `git-town` and `pr-review-cycle`.
+- Named sources must have zero violations regardless of the baseline, and `--update-baseline` refuses to run while one has a violation. They are the commands `implement-trd-beads`, `beads-build`, `beads-build-wave`, `implement-bead`, `fix-issue` and `pr-merge` (source `.yaml` and generated `commands/ensemble/*.md`) and the skills `git-town` and `pr-review-cycle`.
 
 The ratchet only goes down. Migrating a file means fixing its violations, then shrinking the baseline in the same change.
 

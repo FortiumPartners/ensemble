@@ -10,13 +10,14 @@
  * action, timestamp-free (a live-watching human already has wall-clock
  * context; nothing here consumes these lines programmatically).
  *
- * Five action types, one per this TRD's earlier-built module whose output it
+ * Six action types, one per this TRD's earlier-built module whose output it
  * renders (see each format* function below for the exact shape read):
  *   - 'test-written'     <- spec-writer.js (scaffoldNewSpecFile/appendTestMethod's specDetails + which one ran)
  *   - 'run-result'       <- test-runner-mode.js (resolveRunConfig's mode) + delegation-contract.js (RunResult/AuthoringFailure)
  *   - 'sync-result'      <- ado-test-case-sync.js (recordSyncedTestCase) / ado-sync-resilience.js (recordSyncAttempt / flagUnsynced)
  *   - 'gap-task-filed'   <- ac-gap-task-filer.js (recordFiledGapTask)
  *   - 'manual-ac-marked' <- manual-ac-tracker.js (markManual)
+ *   - 'evidence-attach'  <- evidence-capture.js (resolveAttachCommand): whether an AC's screenshot reached its ADO Test Case
  *
  * Convention: plain functions over plain data, matching this package's other
  * modules -- but the split here is `formatActionLog` (pure string-in,
@@ -46,6 +47,7 @@ const KNOWN_TYPES = Object.freeze([
   'sync-result',
   'gap-task-filed',
   'manual-ac-marked',
+  'evidence-attach',
 ]);
 
 /** Fallback for a missing/blank string field -- keeps every formatter typo-proof. */
@@ -85,12 +87,13 @@ function formatRunResult(details) {
   if (runResult.authoringFailure === true) {
     return `[run-result] ${acId}: AUTHORING FAILURE (${mode}) - ${orPlaceholder(runResult.reason, 'no reason given')}`;
   }
+  const evidence = typeof runResult.evidencePath === 'string' && runResult.evidencePath.trim() !== '' ? ` [screenshot: ${runResult.evidencePath.trim()}]` : '';
   if (runResult.passed === true) {
-    return `[run-result] ${acId}: PASSED (${mode})`;
+    return `[run-result] ${acId}: PASSED (${mode})${evidence}`;
   }
   if (runResult.passed === false) {
     const detail = typeof runResult.details === 'string' && runResult.details.trim() !== '' ? ` - ${runResult.details.trim()}` : '';
-    return `[run-result] ${acId}: FAILED (${mode})${detail}`;
+    return `[run-result] ${acId}: FAILED (${mode})${detail}${evidence}`;
   }
   return `[run-result] ${acId}: UNKNOWN OUTCOME (${mode})`;
 }
@@ -133,12 +136,26 @@ function formatManualAcMarked(details) {
   return `[manual-ac-marked] ${acId}: marked manual-only${reason}`;
 }
 
+/** 'evidence-attach' <- evidence-capture.js's resolveAttachCommand: how (or whether) an AC's screenshot reached its Test Case. */
+function formatEvidenceAttach(details) {
+  const acId = orPlaceholder(details.acId);
+  const testCase = details.testCaseId !== undefined ? ` ADO Test Case ${orId(details.testCaseId)}` : ' its ADO Test Case';
+  if (details.method === 'none') {
+    return `[evidence-attach] ${acId}: NOT attached (${orPlaceholder(details.reason, 'no attachment capability')}); screenshot kept at ${orPlaceholder(details.path, 'its evidence path')}`;
+  }
+  if (details.ok === false) {
+    return `[evidence-attach] ${acId}: attach to${testCase} FAILED via ${orPlaceholder(details.method, 'unknown method')} - ${orPlaceholder(details.error, 'unknown error')}; screenshot kept at ${orPlaceholder(details.path, 'its evidence path')}`;
+  }
+  return `[evidence-attach] ${acId}: attached to${testCase} via ${orPlaceholder(details.method, 'unknown method')}`;
+}
+
 const FORMATTERS = {
   'test-written': formatTestWritten,
   'run-result': formatRunResult,
   'sync-result': formatSyncResult,
   'gap-task-filed': formatGapTaskFiled,
   'manual-ac-marked': formatManualAcMarked,
+  'evidence-attach': formatEvidenceAttach,
 };
 
 /**
@@ -298,7 +315,7 @@ if (require.main === module) {
   assert.match(formatActionLog(evilAction), /^\[log-error\] failed to format action: evil getter$/);
 
   // --- KNOWN_TYPES matches exactly the five FORMATTERS keys, in AC-016-1's own order ---
-  assert.deepStrictEqual(KNOWN_TYPES, ['test-written', 'run-result', 'sync-result', 'gap-task-filed', 'manual-ac-marked']);
+  assert.deepStrictEqual(KNOWN_TYPES, ['test-written', 'run-result', 'sync-result', 'gap-task-filed', 'manual-ac-marked', 'evidence-attach']);
   assert.deepStrictEqual(Object.keys(FORMATTERS).sort(), [...KNOWN_TYPES].sort());
 
   // --- logAction: thin console.log wrapper over formatActionLog, nothing more ---

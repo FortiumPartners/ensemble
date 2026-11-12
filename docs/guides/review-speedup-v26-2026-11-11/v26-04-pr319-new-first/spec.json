@@ -1,0 +1,16 @@
+{
+ "n": 4,
+ "pr": 319,
+ "tier": "medium",
+ "arm": "new",
+ "round": "first",
+ "runId": "v26-04-pr319-new-first",
+ "prefix": "R04n",
+ "prevDir": null,
+ "recall": false,
+ "expectHeadSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "expectBaseSha": "306934f5425206485d262ed3aa2db3a11c078b92",
+ "note": "scratch re-creation of #205 at its measured head",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-11T23:54:39.616Z"
+}

@@ -45,7 +45,7 @@ Existing fields: `id`, `source`, `locationOrLink`, `severity`, `failureMode`, `d
 | `class` | `{ classId, instances[] }` \| null | Class-of-bug record |
 | `votes` | `[{ verifier, verdict }]` | `real` \| `not-real` \| `abstain` |
 | `outcome` | `present` \| `filtered` \| `disputed` \| `unverified` | From `tallyVotes` |
-| `resolution` | `{ reason, by, at }` \| null | Required to close without a fix |
+| `resolution` | `{ decision, reason, by, at, headSha }` \| null | Required to close without a fix |
 | `reviewer` | string | Excluded from its own verifier set |
 
 ### Review-state report (extends the 82b6a138 report)

@@ -379,13 +379,13 @@ test('capture console', async ({ page }) => {
 });
 ```
 
-### Screenshots on Failure
+### Screenshots of Every Test (Pass or Fail)
 
 ```typescript
 // playwright.config.ts
 export default defineConfig({
   use: {
-    screenshot: 'only-on-failure',
+    screenshot: 'on', // end state of every test, pass or fail
     video: 'retain-on-failure',
   },
 });

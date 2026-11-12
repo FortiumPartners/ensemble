@@ -1,0 +1,463 @@
+{
+ "runId": "v26-06-pr314-old-first",
+ "pr": 314,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 6,
+  "recorded": 6
+ },
+ "metrics": {
+  "wallMs": 1128094,
+  "runnerCalls": 8,
+  "dispatchRounds": 2,
+  "agentsDispatched": 9,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 6
+  },
+  "turnsAtLeast": 10
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f3",
+  "open-important-finding:f5",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "reducedReview": "tests: the baseline ran the relevant test files only (exit 0), not the full suite",
+ "votes": {
+  "verification": "performed",
+  "quorumFirst": null,
+  "outcomes": [
+   {
+    "id": "f1",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f2",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f3",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f4",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f5",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f8",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 3,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   }
+  ]
+ },
+ "ledger": {
+  "total": 6,
+  "bySeverity": {
+   "important/fix": 3,
+   "pre-existing/deferred": 1,
+   "nit/fix": 2
+  },
+  "present": 6,
+  "presentOnMajority": 0,
+  "quorumSettled": 0,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+    "claim": "Step 3b truncates every plan track at its first ID outside LABEL_IDS and drops all later IDs, because 'a later in-label bead may depend on it', but the shipped beads adapter returns only bv's plan.tracks[0].items for bot...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-3"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f2",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/skills/adapter-tracker-beads/adapter.yaml:408",
+    "claim": "work-graph.plan and work-graph.ready map only root $.plan.tracks[0].items, that is bv's first track, so a label-scoped wave never sees in-label beads that bv placed in later tracks; when the first track holds only other ...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-4",
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f3",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+    "claim": "The change adds about twenty toMatch / not.toMatch assertions that only check that sentences exist in the wave skill text, which CONTRIBUTING.md 'Prompt Tests' forbids ('Do not write tests that pin prompt wording'); none...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-3"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f4",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/tests/beads-build-label-scoping.test.js:27",
+    "claim": "The test header says Step 3b 'drops the out-of-label ids and dispatches what remains', but the rule it documents truncates each track at its first out-of-label ID and also drops the in-label IDs after it (the test at lin...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-4",
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f5",
+    "severity": "important",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+    "claim": "Step 3b truncates every track at its first bead outside the label, on the ground that a later in-label bead may depend on it, but the default beads adapter's work-graph.plan and work-graph.ready return only the already-u...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-3"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f8",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "CHANGELOG.md:8",
+    "claim": "The change alters what a labelled beads-build wave does with out-of-label beads (it used to HALT, it now drops them and may end blocked), but the [Unreleased] section of CHANGELOG.md has no entry for it, although the pul...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 3,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [],
+    "assigned": [
+     "verifier-4",
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 27628,
+  "startedAt": "2026-11-12T01:17:49.948Z",
+  "reason": null,
+  "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-314-444af69c2b63023c882d57834dd543689d5062ae.dry.gate.log",
+  "finishedAt": "2026-11-12T01:26:00.363Z",
+  "durationMin": 8.17,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 18.758416666666665,
+  "window": [
+   "2026-11-12T01:17:48.752Z",
+   "2026-11-12T01:36:34.257Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 22780,
+   "missing": false,
+   "pct": 2
+  },
+  "beforeFirstDispatch": 14341,
+  "activeMs": 1102722,
+  "criticalPath": {
+   "ms": 1102725,
+   "missing": false,
+   "lowerBound": true,
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 699845,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 402877,
+       "missing": false,
+       "name": "verifier-2"
+      },
+      {
+       "stage": "verdict",
+       "ms": 3,
+       "missing": false,
+       "lowerBound": true,
+       "clippedMs": 14
+      }
+     ],
+     "ms": 1102725,
+     "missing": false,
+     "lowerBound": true
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    7
+   ],
+   "review.gate": [
+    2,
+    1525
+   ],
+   "review.verdict": [
+    2,
+    18
+   ],
+   "review.security-lane": [
+    1,
+    265490
+   ],
+   "review.reviewer": [
+    2,
+    699845
+   ],
+   "review.verifier": [
+    6,
+    402877
+   ]
+  },
+  "hostLoad": {
+   "missing": false,
+   "scope": "orchestrator window",
+   "samples": 37,
+   "load1": {
+    "min": 3.78,
+    "mean": 9.63,
+    "max": 23.21
+   },
+   "cpus": 18,
+   "intervalMs": 30002
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr314-first-v26-06-pr314-old-first",
+  "pr": 314,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 18.758,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-06-pr314-old-first",
+  "run_id": "v26-06-pr314-old-first"
+ },
+ "arm": "old",
+ "order": 6,
+ "driverPeakTrackedActive": 6,
+ "highLoadSeen": false,
+ "startedMs": 1794446267989,
+ "endedMs": 1794447396191,
+ "triageByRule": []
+}

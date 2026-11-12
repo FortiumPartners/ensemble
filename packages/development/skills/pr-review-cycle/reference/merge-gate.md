@@ -20,15 +20,18 @@ exists to prevent.
 
 **10a -- Classify the change (fresh-context subagent).** Dispatch one
 **fresh-context** subagent with the diff for `range` and this prompt, which is
-editable policy -- tune the wording here, never in the CLI:
+editable policy -- tune the wording here, never in the CLI. The prompt is
+`templates/classifier-brief.md`; render it with `node "$PR_REVIEW_CLI" brief`
+and `{ role: "classifier", vars: { range, diffPath } }` and send the `brief` it
+returns unedited.
 
-> You are classifying a pull request's changes for risk, not reviewing them.
-> For every changed path, name the kind of change it is, using exactly one of
-> these words: `docs`, `copy`, `additive-behind-flag`, `product`, `other`.
-> Cite the paths that put each kind in your answer. Judge only what the diff
-> does; who wrote it, why, and what it was meant to do are not inputs. If a
-> path does not clearly fit a kind, answer `other` for it. Return JSON only:
-> `{ "kinds": [{ "kind": "<one of the five>", "paths": ["<path>", ...] }] }`.
+Every gate brief takes tokens, not prose: `range` is `<baseSha>..<headSha>`,
+each a full 40 or 64 digit hexadecimal object id, `diffPath` and `snapshotDir`
+are paths, and `ruleFiles` and `sensitivePaths` are lists of repository-relative
+paths (letters, digits and `. _ @ + ~ = [ ] -` in `/`-separated segments; no
+whitespace, parentheses or `..`). A note about who wrote the change or why does
+not fit any of them: the renderer refuses it, and refuses a path outside the
+grammar.
 
 It returns exactly the contract `assignTier` expects: `kinds` is an array of
 `{ kind, paths[] }`, `kind` drawn from the closed set above and every kind
@@ -42,16 +45,10 @@ is a reading this step cannot use: carry it as `classifier` in `unavailable`
 subagent).** Dispatch a second **fresh-context** subagent -- not the
 classifier, and not a reviewer from an earlier step -- with the diff, the
 rules `applied` and the sensitivity `paths` from Step 1b, and this editable
-prompt:
-
-> You are deciding one thing about this pull request: does it need another
-> person to look at it, beyond what its size and file kinds would suggest?
-> Say yes when the change is subtle, crosses trust or ownership boundaries,
-> touches money, data loss, auth or privacy, is hard to reverse, or carries a
-> risk its diff does not show on its face. Cite the paths your reason rests
-> on. Return JSON only:
-> `{ "needsAnotherPerson": true|false, "reason": "<one sentence>",
-> "evidencePaths": ["<path>", ...] }`.
+prompt, `templates/second-assessor-brief.md`: render it with
+`node "$PR_REVIEW_CLI" brief` and
+`{ role: "second-assessor", vars: { range, diffPath, ruleFiles, sensitivePaths } }`
+and send the `brief` it returns unedited.
 
 It returns exactly `{ needsAnotherPerson, reason, evidencePaths[] }`. Pass it
 to `tier` as `secondAssessment`. Exactly `false` leaves the tier alone;
@@ -59,30 +56,41 @@ exactly `true` raises it one level (AC-012-3); **any other value is read as
 `true`** -- the fail-toward-more-review direction -- and again the module, not
 this prose, applies that rule.
 
+**An assessment nobody gave is not a `false`.** A subagent that failed, timed
+out, was skipped or answered something unparseable gave no reading, and the
+only honest payload is none: leave `secondAssessment` out of the `tier`
+payload (or pass what came back, `null` included) and never write
+`{ "needsAnotherPerson": false }` yourself. The tier module reads an absent
+or `null` assessment as *another person is demanded*: it raises nothing, so a
+Medium PR stays Medium, but the solo-maintainer discount is withheld and a
+High PR keeps two humans. There is no `unavailable` entry for this step: a
+missing assessment withholds that discount and changes nothing else (the Low
+waiver, off unless the policy turns it on, does not treat it as a demand),
+and a `false` typed in to fill the gap is what would grant the discount.
+
 **10c -- The security lane (fresh-context reviewer).** Dispatch a
 **fresh-context, read-only** security reviewer over the same `range`, with the
-sensitive `paths` Step 1b reported and this editable prompt:
-
-> Review this diff for security defects only: injection, authentication and
-> authorization gaps, secret or credential exposure, unsafe deserialization,
-> path traversal, SSRF, unsafe shell or SQL construction, missing input
-> validation at a trust boundary, and weakened cryptography. Report what the
-> diff does, not what it fails to add elsewhere. Record each finding with its
-> file and line, its failure mode and the evidence. Change nothing.
+sensitive `paths` Step 1b reported and this editable prompt,
+`templates/security-lane-brief.md`: render it with `node "$PR_REVIEW_CLI" brief`
+and `{ role: "security-lane", vars: { range, diffPath, snapshotDir, sensitivePaths } }`
+and send the `brief` it returns unedited.
 
 Shape its result as the lane record `gate` grades: `{ status, findings }`,
 where `status` is `clean` (ran, found nothing), `findings` (ran, found these),
 `not-run` or `unavailable`. Every entry in `findings` is a **full ledger
 entry** -- the same fields Step 3 requires (`id`, `source`, `locationOrLink`,
-`severity`, `failureMode`, `disposition`, `evidence`, `originalTextOrLink`),
-plus `resolution: { reason }` when it was closed with a stated reason and
-`cleared: true` when a later head fixed it. A lane finding missing one of
-those fields is unreadable, and the gate answers `review-data-unavailable`
-naming it rather than passing: an unreadable security finding is never an
-absent one. **An open security finding blocks the merge** until it is fixed or
-closed with a stated `resolution.reason` (AC-017-1), and a lane that did not
-run blocks Medium and High on its own. Never downgrade a security finding to
-make the gate pass, and never report `clean` for a lane that did not run.
+`severity`, `failureMode`, `disposition`, `evidence`, `originalTextOrLink`).
+**The lane reports and never closes.** It sets no `resolution` and no
+`cleared` flag: a closure the lane (or this session) wrote for itself is not
+the operator's decision, and the gate ignores a `resolution` without the
+provenance under *Closing an Important or security finding* below. A lane
+finding missing one of those fields is unreadable, and the gate answers
+`review-data-unavailable` naming it rather than passing: an unreadable
+security finding is never an absent one. **An open security finding blocks the
+merge** until it is fixed or the operator's own recorded decision closes it
+(`ledger` `resolve`, below), and a lane that did not run blocks Medium and
+High on its own. Never downgrade a security finding to make the gate pass, and
+never report `clean` for a lane that did not run.
 
 **10d -- Read approvals, reviews and protection from the host.** Read, in this
 run:
@@ -129,8 +137,10 @@ subcommands in this order, each one JSON payload in, one JSON object out:
 2. `node "$PR_REVIEW_CLI" approvals` with
    `{ reviews, headSha, headTreeSha, tier, policy, author, directedBy,
    agentAuthored }` -- `reviews` exactly as `gh` returned them (each with its
-   `author`, `state` and `commitSha`), `tier` the `tier` result's effective
-   tier. A bot approval never counts, an approval bound to another commit
+   `author`, `state` and `commitSha`), `tier` the WHOLE `tier` result object,
+   not just its effective-tier word (the solo-maintainer relaxation reads
+   `soloMaintainer` from it, and an evaluator handed only a word answers
+   `invalid-tier`). A bot approval never counts, an approval bound to another commit
    never counts, and on an agent-authored PR the `directedBy` person counts as
    one of the required reviewers (AC-014-3). `headTreeSha` is `git rev-parse
    <headSha>^{tree}` and any review `treeSha` is `git rev-parse
@@ -139,12 +149,37 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    A review without a `treeSha` is counted only when its `commitSha` is the
    head itself; the host supplies no tree, so an unverified claim never vouches
    for an older commit.
+
+   **The solo-maintainer discount is the one place a `directedBy` line is not
+   enough.** `approvals` lowers High from two humans to one only when the
+   `tier` record names exactly one eligible maintainer and that person is the
+   `directedBy` of an agent-authored PR and `author` is known (the PR author's
+   login as the host reports it in 10d, never a name taken from the PR body
+   or a commit; with `author` missing the discount is refused). Then one of
+   two things must hold. If the director is **not** `author`, they must have
+   an `APPROVED` review bound to the head in `reviews` -- the same binding as
+   any approval, so a stale, withdrawn or automated review gives nothing. A
+   `Directed by:` line alone never lowers the floor. If the director **is**
+   `author` (an agent PR committed under the maintainer's own login), the
+   host refuses an author approving their own PR, so no approval is required
+   and none is looked for: the one human is the author-as-director, the
+   discount rests on their own credit, and `approvals.warnings` carries the
+   non-blocking `solo-maintainer-self-credit`. Report it: the discount rested
+   on self-credit, with no independent approval. Every other condition holds
+   in both cases (eligible tier record, no sensitive path, no raise, no peer
+   demand, a trustworthy path list, a non-bot director, the security lane).
+   When the discount is refused, `approvals.warnings` names the fact that
+   failed (`solo-maintainer-director-not-approved` or
+   `solo-maintainer-author-unknown`): report it, and the PR needs two humans.
 3. `node "$PR_REVIEW_CLI" gate` with
-   `{ ledger, approvals, tier, description, security, headSha, unavailable }`
+   `{ ledger, approvals, tier, description, security, coverage, headSha, policy, unavailable }`
    -- `ledger` the findings carried in the review-state report for this head
    (Step 9), `description` the Step 1b `description` result, `security` the
-   lane from 10c, and `unavailable` the names of every read that failed twice
-   in 10d.
+   lane from 10c, `coverage` the review's coverage record (the report's
+   `coverage` for this head, below), `policy` the Step 1b policy block (the one
+   `approvals` takes: it names the bot and maintainer logins a decision is
+   checked against), and `unavailable` the names of every read that failed
+   twice in 10d.
 
    **A missing ledger is unavailable, never empty.** When `state-read` finds
    no report for this head, or discards the one it found (it was written for
@@ -155,6 +190,17 @@ subcommands in this order, each one JSON payload in, one JSON object out:
    `MODE=local` / `MODE=remote` for this head first. Pass `[]` only when a
    report for this exact head was read and it recorded no findings.
 
+   **A missing coverage is unavailable, never complete.** `coverage` is the
+   record the review wrote into the same report (`{ status, gaps[] }`: the
+   runner's, or the `slices` answer's `coverage`): `complete`, `incomplete` with
+   one gap per slice, whole-range read or path nobody read, or `unavailable`.
+   Pass the report's `coverage` as it stands, with any operator decision
+   spliced into its `gaps` (below). A report with no `coverage` (one written
+   before the coverage existed), or no report, has none to pass: omit it and the
+   gate answers `review-data-unavailable` naming `coverage`; run `MODE=local`
+   for this head again. Never write `{ "status": "complete" }` yourself: an
+   unread path reported as read is the false pass this gate exists to refuse.
+
 **What this step returns.** The `gate` result verbatim: `mergeable`,
 `blockers[]` (each with its `code`, `message` and `nextAction`), `warnings`,
 `findings`, `securityLane`, `approvals`, `tier` and `reasons`. `mergeable` is
@@ -164,7 +210,282 @@ approvals say how many of how many are bound to the current commit, an open
 security finding is named, and `review-data-unavailable` names exactly what
 could not be read. Never summarise a blocker away, never re-grade a
 `mergeable:false` into a pass, and never answer this step from anything but
-the CLI's result.
+the CLI's result. Return the whole result object unchanged, including
+`dispositionChoices`, `dispositionGroups`, `mergeConfirmation` and
+`dispositionReason` (set only when the decision list could not be built).
+
+**Closing an Important or security finding (provenance).** The gate honours a
+recorded `resolution` on an Important finding, an unrecognised-severity finding
+or a security-lane finding of any severity (a Pre-existing lane entry too) only
+when it carries all five of `decision`, `reason`, `by` (the deciding login),
+`at` (an ISO-8601 timestamp with a zone) and `headSha` (equal to the `headSha` the gate
+is asked about). `accept` is the only decision that closes a blocking finding (Important,
+Critical, unrecognised severity, a security-lane finding, a coverage gap); `follow-on` closes
+only a Nit or Pre-existing finding, because a follow-on PR cannot unblock the gate; and, given `policy`, `by` is not one of its `botLogins` and is
+one of its `maintainerLogins` when it names any. Anything less is ignored: the
+finding stays open and its blocker carries `resolutionRejected` saying why. The
+review's own deferral of an Important finding (`blocking: false`,
+`disposition: 'deferred'`, a `reason`: the stopping rule at the top of this
+skill) is not a decision either: the gate ignores it, and the finding stays open,
+its blocker carrying `deferralRejected`, until it is fixed or the operator
+records a decision. Record a decision only with `node "$PR_REVIEW_CLI"
+ledger` action `resolve`
+(`{ action, id, resolution:{ decision, reason, by, headSha, at }, ledger, security, coverage, policy }`: the finding's `id`, the STORED `ledger`, `security` and `coverage` from `state-read`, and the same
+`policy`; `decision` is exactly `accept` or `follow-on`, the operator's closing choice, and anything else is refused: a
+"Fix on this PR" answer is a `FIX_SELECTION`, never a recorded resolution), and only from the operator's own answer: never type a reason, a
+login or a decision on the operator's behalf. `severity` and `lane` need not be passed (one you pass must match): the recorder looks the finding up BY `id` in the `ledger`, `security` and `coverage` you hand it and takes its severity and lane from the entry found (a finding in `security.findings` is a lane entry), as the gate does. An unknown
+`id` is refused, and so is a `severity` or `lane` that differs from the one found. The CLI never reads the persisted report, so a relabelled copy of the state can still get `ok` for a decision the gate (the authority) then ignores. Splice the returned `finding` (the
+found entry with the resolution attached) back where it came from. A new push moves the head, so a
+decision made on an earlier head stops counting and is asked again. **What this
+proves and what it does not:** a `decision` (`accept` or `follow-on`) and a reason are present, it names a login (a bot or a
+stranger is refused only when `policy` says so) and it is bound to this head; it
+cannot prove a human typed it, and a session that writes a permitted login into
+`by`, or types `accept`, defeats it: the typed `decision` makes the closing choice explicit and refuses a fix
+answer, it does not authenticate the operator. A `cleared: true` flag is likewise taken at its word: the skill's only
+writer of it is `PR_REVIEW_CLEAR_CLI`, which derives it from git (Step 6); `carry reconcile`
+writes none. A flag written any other way is outside this rule. The control against that is
+this rule, not the code.
+
+**The operator's decision list.** Beside the verdict, `gate` returns
+`dispositionChoices` (one entry per undecided finding: `id`, `severity`,
+`locationOrLink`, `votes`, `verification` (when its outcome is `unverified`),
+`beadId`, `group`, `choices[]`, `default`, `requiresReason`),
+`dispositionGroups` (what may be answered for a whole group
+at once) and `mergeConfirmation` (what the merge question must show: open beads,
+blocking findings accepted and why, blocking findings still undecided). Pass the
+Step 3b `votes` result as `votes` to include each finding's tally, and the same
+`policy`. The list asks the gate which findings block, so it cannot disagree
+with the verdict: a verifier-filtered Important finding is still listed while
+the gate blocks on it (its tally shows why), and a Pre-existing security-lane
+finding is a blocking entry. A finding whose outcome is `unverified` (its claim is
+one the verifier brief refuses, kata `0g9n`, or its verifiers did not all answer)
+carries `verification` (`outcome: "unverified"`, `reason`, and for a refused claim
+`unbriefable` with its `kind`, `input` and the renderer's reason): show it as not
+verified with that reason, never as a tally. A refused claim has `votes` null
+because nobody was asked. With no `votes` input (this `MODE=gate` path reads the
+recorded ledger) `verification` is read from the ledger finding's own record and
+`votes` stays null; a person decides it with no verifier's help. The list is
+ordered blocking Important and security findings first, then Nits, then
+Pre-existing, and many Nits in one file collapse into one entry (its id,
+`file:<path>`, is not a ledger id: expand it to its `members` before `ledger`
+`resolve`). Rules the list
+enforces and the skill must not undo: a blocking finding is offered Fix on this PR
+or Accept only and never defaults to Accept; Nits and Pre-existing default to
+Fix in a follow-on PR; accepting a security finding has no default, is never
+pre-selected or batched, and needs a reason the operator gives for that finding.
+`default` only pre-selects a choice in an interactive prompt: a non-interactive
+(`FOREMAN`) run never applies it and never fixes.
+The list never changes `mergeable`.
+
+**A review that did not read everything is on the list too (kata `k48x`).** The gate input `coverage` (the record `slices`
+with `reviewedBy`, a `review-run` state report or `carry` `coverage` answers; missing or unreadable is `review-data-unavailable`)
+makes one `review-coverage-incomplete` blocker of every slice, whole-range read or path nobody read. Each is also a
+`dispositionChoices` entry in the `Not reviewed` (`coverage`) group: `id` `coverage:...`, a `coverage` block (`gapType`,
+`sliceId`, `paths`, `reasons`), `choices` Accept only, never batched, `requiresReason`, no `default`. Two ways out, and an
+agent takes neither: re-run the review on this head so the path is read, or the operator accepts it as not reviewed. Accepting is
+`ledger` `resolve` on the gap (its `id` and the stored `coverage` record, whose `gaps` it is looked up in, not the ledger) with the operator's login,
+this head and a timestamp, the same provenance as a finding's and graded by the same code; put the answer's `finding` back in
+that gap's place in the state report's `coverage.gaps` (`state-write`), as a resolved finding goes back into the ledger. The gate
+then warns `coverage-gap-accepted` and the gap's bead says who accepted it and why.
+
+**The review never fixes -- record, ask, then record who decided.** A review run edits no
+tracked file, commits nothing and pushes nothing (it writes only the gitignored state
+report). **Every presented finding is recorded as a bead** by `node "$PR_REVIEW_BEADS_CLI"`
+(kata `n350`; `PR_REVIEW_BEADS_CLI` is `pr-review-beads-cli.js` in the same directory as
+`PR_REVIEW_CLI`), run BEFORE `gate` so the list can show each finding's bead. Payload
+`{ repoRoot, baseSha, repo, prNumber, headSha, ledger, security?, votes?, followOnIds? }` (the
+keys are documented in that file's header): `repo` is `owner/name`, `ledger` the ledger as it
+stands, `votes` the Step 3b result, `baseSha` the base Step 1 resolved. **`repoRoot` (the
+repository under review: a git root, or a linked worktree of it) and `baseSha` are required**:
+the recorder never assumes the current directory, and a payload without either is `FAILED` with
+nothing read or written. Put each `beads[<finding id>].beadId` from the answer on that ledger
+entry as `beadId` before `gate`, and each `closedBeadId` as `closedBeadId`: `beadId` is only ever
+an OPEN bead, so a live finding whose bead is closed carries `closedBeadId` and the list shows
+it as its own state, never counted among the open beads.
+
+**Light mode does not call it yet.** When `selectMode` answers `light`, the runner
+(`reference/review-run.md`) builds the gate and the decision list itself and nothing in that
+none. The same holds for coverage gaps (kata `k48x`): the recorder reads a `coverage` input, but a light-mode run never calls
+it, so its gaps get no bead (the decision list still shows each one, and a gap accepted there is recorded only in the state
+report). Wiring the recorder into the runner is not part of this change.
+
+**What the head under review cannot control.** First the recorder binds the checkout to the pull
+request's repository (`repo`), before the host or the tracker is asked anything: the repository's
+PRIMARY checkout (`repoRoot` may be a linked worktree of it, whose own remote configuration is
+never consulted) must have an `origin` remote, every fetch and push URL of it, that names `repo`
+(`owner/name`, any case; https, ssh and scp-like URLs). An `origin` that names another repository
+(a fork checkout, whatever other remote names `repo`) is refused `repository-mismatch`; no `origin`,
+URLs that name no `owner/name`, or a git that cannot list them is refused `repository-unknown`:
+beads never land in another repository's tracker (a repository with no primary checkout is
+`no-primary-worktree`; the merge sweep makes the same check, one function for both). Then, before
+it reads or writes the tracker, the recorder asks the HOST (its pull-request view) about the pull
+request and refuses, by name, a head on a
+fork (`cross-repository-head`), a head whose repository the host did not state
+(`head-repository-unknown`) and a pull request it could not read (`pr-unreadable`), as the
+precheck and the review runner do. It also binds itself to what the host reports: `headSha` must
+be the pull request's current head (`head-not-pr-head`; `head-unverified` when the host stated
+none) and `baseSha` must be on the host's base branch (`base-not-on-base-branch`;
+`base-unverified` when the host stated no tip, `base-tip-unavailable` when that tip is not in
+the repository, so fetch it): a commit the pull request does not hold, or one it authored and
+named as the base, is not the review's, and its own `.ensemble/toolchain.yaml` would choose the
+tracker. It runs the tracker in the repository's PRIMARY checkout,
+never in the head's worktree or a clone of it, and refuses a primary checkout that holds the head
+or work built on it (`head-checked-out`; also `no-primary-worktree`, `head-checkout-unknown`):
+that checkout's `.beads` would be the head's own. It reads which tracker to use from
+`.ensemble/toolchain.yaml` AS COMMITTED AT `baseSha`, then the user's config, then the default --
+never from the tree and never by detection against it (`base-unavailable` and
+`base-config-unreadable` refuse when the base cannot be read). So a head that names another
+tracker, or none, cannot switch its own findings' recording off. A refusal is `status: REFUSED`
+(exit 0; `code` and `reason` say why): no bead was recorded, say so and still show the list.
+
+One bead per finding, labelled `pr-review`, holding severity, `file:line`, the claim, the
+verifier votes, the state report path (relative to the repository), the PR and the head.
+**Identity, with its limits:** the key is repository + file + the claim with case, punctuation
+and spacing normalized (not the line, the head or the PR). A REWORDED claim is another key and so
+a second bead: the recorder does not guess that two sentences mean one defect, and a person
+closes the stale one. A second PR raising the same claim in the same file updates the first PR's
+bead (its description then names the later PR and the update note names the record it replaced),
+and a bead already labelled `follow-on` stays so. A later head UPDATES the bead: it rewrites the
+title, description and priority from the review (a manual re-prioritisation of a recorded bead is
+overwritten) and appends ONE note per head; the same head reviewed again writes nothing.
+
+**A fix closes a bead, and only a fix does.** After a later head has been reviewed, run
+`node "$PR_REVIEW_CLEAR_CLI"` (`reference/triage-fix-reverify.md`: it derives the `cleared`
+marks from git, needs `incoming` (every finding the round presented), and is run at every head in order) and pass the ledger it
+returns on. A finding marked `cleared` (the diff since the prior round's reviewed head changed
+the file and line it cites, and no reviewer raised it again) closes its bead with that commit,
+but only when the recorder itself checks with git that `clearedBy` is a commit on the PR (an
+ancestor of `headSha`, not of `baseSha`): a mark naming any other commit closes nothing and is
+listed under `unverifiedFixes`. **That check is of the commit, not of how the mark was made:**
+a `cleared` mark written by hand that names a commit on the PR still closes the bead. The
+procedure's only writer of the mark is `PR_REVIEW_CLEAR_CLI` (`carry reconcile` writes none);
+the control against a hand-written one is that rule, not code.
+
+**A bead is closed only by the pull request that last recorded it.** The bead's key has no pull
+request in it, so two pull requests that raise one claim in one file share one bead, and the
+later one to record it owns it: its description's `Last confirmed: <repo> PR #<n> at head <sha>`
+footer names that pull request. A fix from any other pull request leaves the bead open
+(`skip` / `recorded-by-other-pr`, with `recordedBy {repo, prNumber}`, in the answer) because the
+other pull request still raises the claim, and a footer the recorder cannot read fails closed
+(`recorded-pr-unknown`). The same pull request at any of its earlier heads still closes it.
+A finding that is merely missing from the next review leaves its bead open, so after a
+force-push no bead is orphaned (they are found by key, not by commit, and a rewritten history
+clears nothing) and a person closes the ones whose finding is gone. A live finding whose bead
+this recorder closed as a fix is a regression: the bead is reopened, rewritten and noted. **The
+recorder recognises its own close by the shape of the close reason** (`Fixed: ... changed at
+<sha> and was not reported again at <sha> (<repo> PR #<n>).`), so a person who pastes a reason
+of that shape gets the bead reopened by the next live finding; a plain close records `done` and
+stays closed. A bead anyone else closed stays closed and is reported as `closedBeadId`.
+
+More Nits (or Pre-existing findings) in one file than the decision list's collapse threshold
+become ONE bead for that file, counted over the findings that have no bead yet: a finding that
+already has its own bead keeps it (only a fix closes a bead), so Nits that arrive a few reviews at
+a time can leave a file with more beads than the threshold. A collapsed bead is made only for
+more than the threshold, but once a file has one, later findings join it even if the count has
+dropped (the choice is sticky, so a count moving around the threshold cannot flip a file between
+one bead and many): a collapsed bead can therefore come to hold a single member, and its title
+then reads `1 Nit finding`, without `(collapsed)`. Important and security findings are never
+collapsed. `followOnIds` carries the
+findings the OPERATOR chose to defer (their beads get the `follow-on` label, also after the beads
+exist); an agent never fills it.
+
+`status: UNAVAILABLE` (the repository has no tracker, or its adapter lacks a capability) and
+`REFUSED` mean no bead was recorded: say so and still show the list. `PARTIAL` or `FAILED`
+(exit 1) means some findings have no bead: name them and still show the list. A bead the tracker
+deleted (rather than closed) leaves a tombstone that still holds its key but is not listed, so recording that
+finding is `PARTIAL` on every later head until the tombstone is purged. A bead failure never
+changes the gate. The recorder only records: it never writes a `resolution` or a `cleared` mark
+and never fixes, so it runs the same way under `--foreman`. The caller shows the list,
+asks about it, and only then asks the merge question (`mergeConfirmation` is what that
+question displays). Each finding's **Fix on this PR** option states that the head moves
+and any approvals reset. It is the operator's own answer that gets recorded; an agent never
+chooses for the operator, applies a `default`, or types a login or reason.
+
+* **Fix in a follow-on PR** and **Accept without fixing**: `ledger` `resolve` with the
+  operator's login, this head, a timestamp, a reason and the typed `decision`
+  (`'follow-on'` or `'accept'`). Only `accept` closes a blocking or security finding or a coverage
+  gap (a follow-on PR cannot unblock the gate, so `resolve` refuses `follow-on` there); `follow-on`
+  is for a Nit or Pre-existing finding. A follow-on reason names the bead when
+  one was recorded (`follow-on: <bead id>`), an accept carries the reason the operator gave.
+* **Fix on this PR: never `ledger` `resolve`.** The gate reads a resolution with
+  provenance as the finding closed, so recording this answer
+  there would let the merge pass with no fix; `resolve` refuses it (`decision` must be `accept` or
+  `follow-on`, and a fix answer is neither). The selection (`{ id, by, at, headSha }`
+  per finding: the operator's login, the time and the head) is the `FIX_SELECTION` of a
+  separate fix run (`SKILL.md`, Step 5), which sends all of it to ONE fix agent and ONE
+  push. The push moves the head, so approvals and every earlier decision stop counting;
+  re-run `MODE=local` (a delta re-review of the new head) and then `MODE=gate`. The
+  finding closes when that review no longer raises it, never because it was selected.
+* **`--foreman`**: the list is logged and nothing is recorded as decided: no `resolve`,
+  no fix run, no waiver. A blocking finding keeps `mergeable:false` until a person
+  answers. Beads are recorded exactly as in an interactive run (see above).
+* **Nothing here edits a file, commits or pushes.** `MODE=gate` and the review runs that
+  feed it only read, grade and report.
+* **Pre-publication is not a PR review.** A `MODE=local` run with no `PR_URL`, no
+  `PR_NUMBER` and no `REVIEW_ONLY` reviews the author's own unpublished snapshot: no PR, no
+  gate, no operator list and no push by this skill, so Step 5 there is the author revising
+  its own working tree. Any other run never enters Step 5 by itself.
+
+**Driving the list from `/ensemble:pr-merge` (Operator Disposition).** The command runs this
+after every `MODE=gate` and before any merge-confirmation question, on every path that reaches
+the merge (including the one that skips remediation). It never sends a review finding to its
+own remediation subagents.
+
+1. **Unbuildable list.** `dispositionReason` set, or no `dispositionChoices` array: print the
+   reason, ask no merge question, merge nothing, halt `disposition-unavailable`.
+2. **Show.** Print `dispositionChoices` as one numbered list in the order returned, under the
+   `dispositionGroups` labels: number, severity, `locationOrLink`, votes (an entry with
+   `verification` is printed as "not verified" and its reason, in place of votes), `beadId` or
+   "no bead"; a collapsed entry shows its member count. Beads are only those the result shows.
+3. **`--dry-run`.** Print the list and the gate's `mergeable` and blockers, then stop with the
+   merge-readiness report: no question, no `resolve`, no fix run and no push. A dry run never
+   answers for the operator and never moves the head.
+4. **`--foreman`.** Log the list. Ask nothing, `resolve` nothing, run no fix agent, apply no
+   `default`, waive nothing. `mergeable:false` halts `findings-need-operator`.
+5. **Who decides.** Ask once, as free text, which GitHub login the operator is deciding as, and
+   use only that as `by`. Never infer one, never the PR author's or a bot's.
+6. **One multi-select question per group**, in `dispositionGroups` order: the group's numbered
+   findings are the options, a selected finding is **Fix on this PR**, and the text says the
+   head moves and approvals reset. A collapsed `file:<path>` entry is not a ledger id, and a
+   fix run refuses an id the ledger lacks, so offer its `members` (each a ledger id) as the
+   options instead of the entry. Nothing is pre-selected, no `default` is applied; a runtime
+   that caps options per question pages the same question over the group. A multi-select
+   cannot carry three choices per finding, so this question carries Fix only; follow-on and
+   Accept are asked after it, in step 8.
+   A group whose entries offer no `fix-here` (the `coverage` group) gets no such question.
+7. **Any Fix on this PR selected:** ask nothing more and `resolve` nothing (every decision is
+   bound to the head the fix moves). Run, in this order: (a) ONE `MODE=local` fix run with
+   `FIX_SELECTION` (`[{ id, by, at, headSha }]`, each `id` a ledger id), which pushes once and
+   re-reviews nothing; (b) a delta re-review of the NEW head: `MODE=local` of this PR (set
+   `PR_NUMBER`, `PR_URL` and `PR_ID`, give no `FIX_SELECTION`; without a PR identity it would
+   be a pre-publication snapshot), which records the review the gate reads, because a gate on
+   a head with no recorded review blocks `review-data-unavailable`; (c) `MODE=gate` for that
+   head and this procedure again, so the unfixed findings are asked again. (a) to (c) are ONE
+   round against the round cap: at the cap start no new fix run, halt and escalate as the
+   command's round loop does (the final report lists every still-open finding; ask the author
+   to reconsider the approach).
+8. **Nothing selected for fixing.** Decide every finding with only the choices its entry
+   allows. A blocking or security finding offers Accept only (it has no follow-on), asked one
+   finding at a time for a reason the operator types (no reason leaves it undecided; a
+   security finding is never batched). Only a non-security Nit or Pre-existing group gets
+   follow-on: ONE single-choice question, follow-on (recommended) or Accept, with one typed
+   reason for the group when `dispositionGroups` lists `accept` as a batch choice. Record each
+   through `ledger` `resolve` with `decision: 'accept'` (`'follow-on'` for a Nit or Pre-existing
+   follow-on; a security-lane entry is recognised by `resolve` from the `security` findings you pass, not by a flag) (a collapsed `file:<path>` entry expands to its members first).
+   The reason of a follow-on is `follow-on: <bead id>`, or `follow-on` when the entry has no
+   bead.
+   A coverage entry offers Accept only as well: one at a time, for a reason the operator types, through `ledger` `resolve`
+   on its gap (above); re-running the review is the other way out.
+9. **Re-gate.** Re-read the head and run `MODE=gate` for the same head with fresh state: the
+   gate reads the recorded decisions, they are never assumed. An entry still listed, or a
+   review-finding blocker still open, is asked again; unanswered, halt `disposition-incomplete`.
+   A decision the gate rejects (`resolutionRejected`) is reported and the finding stays open.
+   `mergeable:false` with only approvals, description, security-review or review-data blockers
+   halts `gate-blocked`: nothing here clears them.
+10. **Merge summary.** Print `mergeConfirmation.summary`, `openBeads` and each
+    `acceptedBlocking` finding with its reason and login before the Merge step, whether or not
+    a confirmation is asked; the merge-confirmation question carries them too and is asked only
+    after this procedure has finished on this head.
 
 A caller reaches all of this through this skill. `pr-merge` and every other
 command invoke `MODE=gate`; none of them runs `pr-review-cli.js` itself.

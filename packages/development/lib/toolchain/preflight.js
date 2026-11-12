@@ -19,6 +19,13 @@
  * check id (and containing the literal text "timed out" when the failure was a timeout) and
  * writes no record at all.
  *
+ * Every health check runs with `cwd` set to `ctx.projectRoot` (kata vsg4 review round 1: they
+ * used to inherit the CLI process's own cwd, so under `toolchain-cli.js --project-root <path>`
+ * the health gate for the tree named by the flag was certified by a command that had run in a
+ * different repository -- while the passing record `run` gates on was still written into the
+ * flagged tree). This is the same directory `toolchain-cli.js`'s `run` hands every capability
+ * as its `cwd`, so a health check observes exactly the tree its capability will act on.
+ *
  * For every non-`work-graph` category, the resolved value is also checked by
  * `./resolve-guard.js#assertKnownAdapter` (TRD-046) BEFORE `loadAdapter` runs (PR 10 fix round,
  * item 2a): an explicit project-/user-config selection naming an adapter id that does not
@@ -129,14 +136,18 @@ function preflightRecordPath(projectRoot, runId) {
  * -- by presenting it as a synthetic single-capability view of the real adapter manifest (same
  * `adapter`/`binaries`/`allowlist`, `capabilities` replaced with just this check keyed by its
  * own `id`), so the runtime allowlist check still denies a health check that calls an
- * undeclared binary or subcommand exactly as it would for an ordinary capability.
+ * undeclared binary or subcommand exactly as it would for an ordinary capability. The check
+ * runs with `cwd = projectRoot` (see this file's header); `runCapability` applies its own
+ * `env`/`timeout`/`killSignal`/`shell` after `execFileOptions`, so passing `cwd` here cannot
+ * widen any of those.
  *
  * @param {string} adapterId
  * @param {object} manifest the adapter's parsed manifest
  * @param {{id: string, run: string[], timeoutMs?: number}} check
+ * @param {string} projectRoot directory the check runs in (`ctx.projectRoot`)
  * @returns {Promise<{ok:true}|{ok:false, error:{code:'HEALTH_FAILED', message:string}}>}
  */
-async function runHealthCheck(adapterId, manifest, check) {
+async function runHealthCheck(adapterId, manifest, check, projectRoot) {
   const timeoutMs =
     Number.isInteger(check && check.timeoutMs) && check.timeoutMs > 0
       ? check.timeoutMs
@@ -148,7 +159,12 @@ async function runHealthCheck(adapterId, manifest, check) {
     capabilities: { [check.id]: { run: check.run } }
   };
 
-  const result = await runCapability(syntheticAdapter, check.id, {}, { timeoutMs });
+  const result = await runCapability(
+    syntheticAdapter,
+    check.id,
+    {},
+    { timeoutMs, execFileOptions: { cwd: projectRoot } }
+  );
 
   if (result.ok) {
     return { ok: true };
@@ -253,6 +269,11 @@ async function runPreflight(input = {}, ctx = {}) {
           ...ctx,
           projectRoot,
           env,
+          // Resolution is keyed on (id, category), not the id alone: an id split across two
+          // directories by category (the shipped `plain-git`) otherwise resolves to whichever
+          // sorted first and `requireCapabilities` below then fails for every capability of
+          // the half that lost (#146).
+          category,
           interactive: !isNonInteractive({ nonInteractive, env })
         });
       } catch (error) {
@@ -284,7 +305,7 @@ async function runPreflight(input = {}, ctx = {}) {
   }
 
   const results = await Promise.all(
-    checkTasks.map((task) => runHealthCheck(task.adapterId, task.manifest, task.check))
+    checkTasks.map((task) => runHealthCheck(task.adapterId, task.manifest, task.check, projectRoot))
   );
 
   const firstFailure = results.find((result) => !result.ok);

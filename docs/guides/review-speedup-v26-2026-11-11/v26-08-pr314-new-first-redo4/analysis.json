@@ -1,0 +1,418 @@
+{
+ "dir": "v26-08-pr314-new-first-redo4",
+ "wallMin": 28.41,
+ "window": {
+  "startMs": 1794451466530,
+  "endMs": 1794453170963,
+  "startIso": "2026-11-12T02:44:26.530Z",
+  "endIso": "2026-11-12T03:12:50.963Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 2,
+  "slowestName": "reviewer-s1-a",
+  "slowestMin": 12.12,
+  "laneMin": 3.81,
+  "expired": []
+ },
+ "reviewRoundMin": 12.12,
+ "handoffToVerifySec": 3.12,
+ "verify": {
+  "count": 5,
+  "arrived": 2,
+  "expired": 3,
+  "expiredNames": [
+   "verifier-1",
+   "verifier-2",
+   "verifier-5"
+  ],
+  "waves": 2,
+  "refills": 0,
+  "stageMin": 16.03,
+  "stageSec": 961.63,
+  "startedAtIso": "2026-11-12T02:56:47.968Z",
+  "startedOffsetMin": 12.36,
+  "endedOffsetMin": 28.38,
+  "slowestMin": 8.02,
+  "slowestArrivedMin": 7.05,
+  "medianMin": 6.96,
+  "meanMin": 6.96,
+  "p75Min": 7.05,
+  "p90Min": 7.05,
+  "minMin": 6.87,
+  "sumAgentMin": 37.95,
+  "peakVerifierOverlap": 4,
+  "peakAnyAgentOverlap": 4,
+  "lastStartOffsetMin": 8.01,
+  "durationsSec": [
+   480.32,
+   480.32,
+   412.38,
+   422.7,
+   481.29
+  ],
+  "replayAtCap8Min": 8.02,
+  "firstWaveEndedOffsetMin": 20.36,
+  "firstWaveStageMin": 8.01,
+  "secondWaveStartedOffsetMin": 20.36,
+  "secondWaveTailMin": 8.02,
+  "secondWaveDurationsSec": [
+   481.29
+  ],
+  "firstWaveDurationsSec": [
+   480.32,
+   480.32,
+   412.38,
+   422.7
+  ]
+ },
+ "verifiers": {
+  "dispatchedTotal": 5,
+  "secondWave": 1,
+  "firstWave": 4,
+  "manifests": 2,
+  "plannedFullElectorate": 5,
+  "plannedByRunner": 4,
+  "candidatesVerified": 5,
+  "mode": "standard",
+  "electorate": 3,
+  "candidatesGivenTheRest": 3,
+  "secondWaveRate": 0.6,
+  "secondWaveReasons": {
+   "missing": 3
+  }
+ },
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 6,
+  "secondWave": [
+   {
+    "id": "f1",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f3",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   },
+   {
+    "id": "f6",
+    "reasons": [
+     "missing"
+    ],
+    "verifiers": [
+     "verifier-5"
+    ],
+    "at": 1794452687848
+   }
+  ],
+  "skipped": []
+ },
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 7.94,
+  "startedAt": "2026-11-12T02:44:27.661Z",
+  "finishedAt": "2026-11-12T02:52:23.900Z",
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ],
+  "startedOffsetSec": 1.13,
+  "finishedOffsetMin": 7.96,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 4.4
+ },
+ "ledger": {
+  "candidates": 5,
+  "bySeverity": {
+   "important/fix": 2,
+   "nit/fix": 2,
+   "pre-existing/deferred": 1
+  },
+  "present": 0,
+  "presentOnMajority": 0,
+  "quorumSettled": 2,
+  "unverified": 3,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [
+  "verifier-1(verifier)",
+  "verifier-2(verifier)",
+  "verifier-5(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-1:f1/f3/f6",
+  "verifier-2:f1/f3/f6",
+  "verifier-5:f1/f3/f6"
+ ],
+ "orchestratorOnlySec": 15.78,
+ "beforeFirstDispatchSec": 11.289,
+ "criticalPath": {
+  "ms": null,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 727032,
+    "name": "reviewer-s1-a"
+   },
+   {
+    "stage": "verifier",
+    "ms": 480318,
+    "name": "verifier-2"
+   },
+   {
+    "stage": "verifier",
+    "ms": 481281,
+    "name": "verifier-5"
+   },
+   {
+    "stage": "verdict",
+    "ms": null
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 2,
+  "security": 1,
+  "verifier": 5
+ },
+ "agentsTotal": 8,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 5,
+  "recorded": 0
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 2,
+   "requestsTotal": 35,
+   "requestsMean": 17.5,
+   "costTotalUsd": 3.51,
+   "contextTokensMax": 225568,
+   "harnessDurMedianSec": 692.69,
+   "harnessDurMaxSec": 729.19,
+   "statuses": {
+    "completed": 2
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 2
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 14,
+   "requestsMean": 14,
+   "costTotalUsd": 0.75,
+   "contextTokensMax": 132331,
+   "harnessDurMedianSec": 230.55,
+   "harnessDurMaxSec": 230.55,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 5,
+   "requestsTotal": 119,
+   "requestsMean": 23.8,
+   "costTotalUsd": 6.8,
+   "contextTokensMax": 204813,
+   "harnessDurMedianSec": 479.77,
+   "harnessDurMaxSec": 480.66,
+   "statuses": {
+    "cancelled(killed)": 3,
+    "completed": 2
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 5
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [
+   "verifier-1",
+   "verifier-2",
+   "verifier-5"
+  ],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 4,
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 57,
+    "load1Mean": 7.72,
+    "load1Max": 25.32,
+    "load1Min": 2.49,
+    "above12": 12,
+    "longestStreakAbove12": 12,
+    "above20": 2,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 12,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 32,
+    "load1Mean": 4.32,
+    "load1Max": 6.13,
+    "load1Min": 2.49,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 13.76,
+    "load1Max": 22.14,
+    "load1Min": 5.92,
+    "above12": 6,
+    "longestStreakAbove12": 6,
+    "above20": 1,
+    "disturbed": true,
+    "jestProcsMax": 19,
+    "samplesWithJest": 7,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 4.85,
+    "load1Max": 6.83,
+    "load1Min": 3.6,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 56,
+    "load1Mean": 7.9,
+    "load1Max": 24.45,
+    "load1Min": 2.57,
+    "above12": 13,
+    "longestStreakAbove12": 13,
+    "above20": 3,
+    "disturbed": true
+   },
+   "verifyStage": {
+    "samples": 32,
+    "load1Mean": 4.4,
+    "load1Max": 6.21,
+    "load1Min": 2.57,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 57,
+    "meanCpuPct": {
+     "all": 409.54,
+     "gate": 2.25,
+     "pipeline": 78.98,
+     "otherEnsemble": 94.54,
+     "other": 233.74
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 4,
+    "maxOtherEnsembleCpuPct": 164,
+    "maxOtherCpuPct": 584
+   },
+   "verifyStage": {
+    "samples": 32,
+    "meanCpuPct": {
+     "all": 262.41,
+     "gate": 0,
+     "pipeline": 0,
+     "otherEnsemble": 95.47,
+     "other": 166.81
+    },
+    "samplesWithOtherEnsembleJest": 0,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 164,
+    "maxOtherCpuPct": 238
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 836.2,
+     "gate": 5.9,
+     "pipeline": 362.2,
+     "otherEnsemble": 89,
+     "other": 379.2
+    },
+    "samplesWithOtherEnsembleJest": 2,
+    "samplesWithGateJest": 2,
+    "maxOtherEnsembleCpuPct": 145,
+    "maxOtherCpuPct": 584
+   }
+  }
+ },
+ "arm": "new",
+ "order": 8,
+ "runId": "v26-08-pr314-new-first-redo4",
+ "pr": 314,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ }
+}

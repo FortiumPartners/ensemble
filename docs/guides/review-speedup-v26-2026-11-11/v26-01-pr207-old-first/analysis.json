@@ -1,0 +1,407 @@
+{
+ "dir": "v26-01-pr207-old-first",
+ "wallMin": 31.26,
+ "window": {
+  "startMs": 1794435176586,
+  "endMs": 1794437052271,
+  "startIso": "2026-11-11T22:12:56.586Z",
+  "endIso": "2026-11-11T22:44:12.271Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-range",
+  "slowestMin": 15.46,
+  "laneMin": 7.08,
+  "expired": []
+ },
+ "reviewRoundMin": 15.46,
+ "handoffToVerifySec": 7.22,
+ "verify": {
+  "count": 18,
+  "arrived": 18,
+  "expired": 0,
+  "expiredNames": [],
+  "waves": 5,
+  "refills": 4,
+  "stageMin": 15.37,
+  "stageSec": 922.44,
+  "startedAtIso": "2026-11-11T22:28:45.068Z",
+  "startedOffsetMin": 15.81,
+  "endedOffsetMin": 31.18,
+  "slowestMin": 6.86,
+  "slowestArrivedMin": 6.86,
+  "medianMin": 4.98,
+  "meanMin": 5.12,
+  "p75Min": 6.01,
+  "p90Min": 6.3,
+  "minMin": 3.23,
+  "sumAgentMin": 92.16,
+  "peakVerifierOverlap": 8,
+  "peakAnyAgentOverlap": 8,
+  "lastStartOffsetMin": 9.07,
+  "durationsSec": [
+   287.83,
+   330.3,
+   291.41,
+   366.36,
+   333.16,
+   366.03,
+   299.32,
+   334.93,
+   280.19,
+   411.84,
+   193.64,
+   298.33,
+   249.31,
+   203.05,
+   283.12,
+   360.88,
+   261.72,
+   378.02
+  ],
+  "replayAtCap8Min": 15.27,
+  "firstWaveStageMin": 15.37,
+  "secondWaveTailMin": 0,
+  "firstWaveDurationsSec": [
+   287.83,
+   330.3,
+   291.41,
+   366.36,
+   333.16,
+   366.03,
+   299.32,
+   334.93,
+   280.19,
+   411.84,
+   193.64,
+   298.33,
+   249.31,
+   203.05,
+   283.12,
+   360.88,
+   261.72,
+   378.02
+  ],
+  "secondWaveDurationsSec": []
+ },
+ "verifiers": {
+  "dispatchedTotal": 18,
+  "secondWave": 0,
+  "firstWave": 18,
+  "manifests": 5,
+  "plannedFullElectorate": 18,
+  "plannedByRunner": 18,
+  "candidatesVerified": 18,
+  "mode": "standard",
+  "electorate": 3
+ },
+ "quorum": null,
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 5.52,
+  "startedAt": "2026-11-11T22:12:58.066Z",
+  "finishedAt": "2026-11-11T22:18:29.448Z",
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.48,
+  "finishedOffsetMin": 5.55,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 10.26
+ },
+ "ledger": {
+  "candidates": 18,
+  "bySeverity": {
+   "nit/deferred": 2,
+   "pre-existing/deferred": 2,
+   "important/fix": 8,
+   "nit/fix": 5,
+   "pre-existing/fix": 1
+  },
+  "present": 17,
+  "presentOnMajority": 0,
+  "quorumSettled": 0,
+  "unverified": 0,
+  "other": {
+   "filtered": 1
+  }
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [],
+ "incompleteVerifiers": [],
+ "orchestratorOnlySec": 25.833,
+ "beforeFirstDispatchSec": 13.875,
+ "criticalPath": {
+  "ms": null,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 927392,
+    "name": "reviewer-range"
+   },
+   {
+    "stage": "verifier",
+    "ms": 922435,
+    "waves": 5
+   },
+   {
+    "stage": "verdict",
+    "ms": null
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 18
+ },
+ "agentsTotal": 26,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 18,
+  "recorded": 18
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f3",
+  "open-important-finding:f18",
+  "open-important-finding:f8",
+  "open-important-finding:f9",
+  "open-important-finding:f12",
+  "open-important-finding:f15",
+  "open-important-finding:f16",
+  "open-important-finding:f19",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 163,
+   "requestsMean": 23.29,
+   "costTotalUsd": 15.96,
+   "contextTokensMax": 280507,
+   "harnessDurMedianSec": 730.72,
+   "harnessDurMaxSec": 932.41,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 24,
+   "requestsMean": 24,
+   "costTotalUsd": 1.67,
+   "contextTokensMax": 205661,
+   "harnessDurMedianSec": 431.32,
+   "harnessDurMaxSec": 431.32,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 18,
+   "requestsTotal": 315,
+   "requestsMean": 17.5,
+   "costTotalUsd": 16.33,
+   "contextTokensMax": 173900,
+   "harnessDurMedianSec": 299.98,
+   "harnessDurMaxSec": 413.87,
+   "statuses": {
+    "completed": 18
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 18
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 8,
+ "recallGuard": {
+  "falseNegativeRate": 0.6666666666666666,
+  "notRaisedRate": 0.5,
+  "found": [
+   "E1",
+   "E4"
+  ],
+  "downgraded": [
+   "E2"
+  ],
+  "notRaised": [
+   "E3",
+   "E5",
+   "E6"
+  ],
+  "unmatchedImportant": []
+ },
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 62,
+    "load1Mean": 6.88,
+    "load1Max": 15.03,
+    "load1Min": 3.28,
+    "above12": 3,
+    "longestStreakAbove12": 2,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 19,
+    "samplesWithJest": 8,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 31,
+    "load1Mean": 6.56,
+    "load1Max": 10.38,
+    "load1Min": 4.29,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 1,
+    "samplesWithJest": 1,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 10.7,
+    "load1Max": 15.03,
+    "load1Min": 5.94,
+    "above12": 3,
+    "longestStreakAbove12": 2,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 19,
+    "samplesWithJest": 7,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 28.09,
+    "load1Max": 64.93,
+    "load1Min": 5.32,
+    "above12": 24,
+    "longestStreakAbove12": 24,
+    "above20": 22,
+    "disturbed": true,
+    "jestProcsMax": 37,
+    "samplesWithJest": 14,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 62,
+    "load1Mean": 6.88,
+    "load1Max": 15.03,
+    "load1Min": 3.28,
+    "above12": 3,
+    "longestStreakAbove12": 2,
+    "above20": 0,
+    "disturbed": false
+   },
+   "verifyStage": {
+    "samples": 31,
+    "load1Mean": 6.56,
+    "load1Max": 10.38,
+    "load1Min": 4.29,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 62,
+    "meanCpuPct": {
+     "all": 368.84,
+     "gate": 0.21,
+     "pipeline": 35.87,
+     "otherEnsemble": 97.11,
+     "other": 235.55
+    },
+    "samplesWithOtherEnsembleJest": 1,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 178,
+    "maxOtherCpuPct": 612
+   },
+   "verifyStage": {
+    "samples": 31,
+    "meanCpuPct": {
+     "all": 338.39,
+     "gate": 0,
+     "pipeline": 1.65,
+     "otherEnsemble": 88.48,
+     "other": 248.23
+    },
+    "samplesWithOtherEnsembleJest": 0,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 163,
+    "maxOtherCpuPct": 612
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 528.6,
+     "gate": 1.3,
+     "pipeline": 195.7,
+     "otherEnsemble": 95.1,
+     "other": 236.4
+    },
+    "samplesWithOtherEnsembleJest": 1,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 178,
+    "maxOtherCpuPct": 414
+   }
+  }
+ },
+ "arm": "old",
+ "order": 1,
+ "runId": "v26-01-pr207-old-first",
+ "pr": 207,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ },
+ "recallGuardExitDefaultThreshold": 1
+}

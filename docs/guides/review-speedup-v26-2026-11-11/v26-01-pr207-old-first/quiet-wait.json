@@ -1,0 +1,19 @@
+{
+ "label": "v26-01-pr207-old-first",
+ "limit": 6,
+ "waitedMs": 2,
+ "quiet": true,
+ "proceededBusy": false,
+ "polls": [
+  {
+   "at": "2026-11-11T22:12:50.126Z",
+   "load1": 5.35,
+   "load5": 17.68
+  }
+ ],
+ "loadAtStart": {
+  "load1": 5.32,
+  "load5": 17.47,
+  "load15": 24.07
+ }
+}

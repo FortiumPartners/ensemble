@@ -1,7 +1,8 @@
 ---
 name: git-town
 description: Use when creating feature branches, stacked branches, syncing, proposing PRs, or shipping with the git-town CLI. Covers the commands Ensemble workflows call and repo conventions.
-version: 2.0.0
+metadata:
+  version: "2.0.0"
 ---
 
 # Git Town

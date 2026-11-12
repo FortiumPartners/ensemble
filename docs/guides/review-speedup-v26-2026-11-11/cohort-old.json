@@ -1,0 +1,61 @@
+{
+ "schema": "review-walltime-cohort/1",
+ "runs": [
+  {
+   "id": "pr207-first-v26-01-pr207-old-first",
+   "pr": 207,
+   "tier": "medium",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 31.261,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run v26-01-pr207-old-first",
+   "run_id": "v26-01-pr207-old-first"
+  },
+  {
+   "id": "pr319-first-v26-05-pr319-old-first",
+   "pr": 319,
+   "tier": "medium",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 39.107,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run v26-05-pr319-old-first",
+   "run_id": "v26-05-pr319-old-first"
+  },
+  {
+   "id": "pr314-first-v26-06-pr314-old-first",
+   "pr": 314,
+   "tier": "medium",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 18.758,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 2,
+   "source": "pr-review-cli timing on run v26-06-pr314-old-first",
+   "run_id": "v26-06-pr314-old-first"
+  },
+  {
+   "id": "pr315-first-v26-10-pr315-old-first",
+   "pr": 315,
+   "tier": "high",
+   "round": "first",
+   "origin": "real",
+   "wall_min": 28.024,
+   "chains": 1,
+   "gate_runs": null,
+   "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+   "review_gate_spans": 1,
+   "source": "pr-review-cli timing on run v26-10-pr315-old-first",
+   "run_id": "v26-10-pr315-old-first"
+  }
+ ]
+}

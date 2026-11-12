@@ -1,0 +1,14 @@
+'use strict';
+// Build the V2-6 report: substitute {{table:name}} placeholders of report.template.md with the tables v26-final.js generated (out/tables.md).
+const fs = require('fs'); const path = require('path');
+const D = path.join(process.env.HOME, '.omp/pr-review-speedup/v26/final');
+const WT = '/Users/ldangelo/Development/Sunstone/ensemble.prs-v26';
+const tpl = fs.readFileSync(path.join(D, 'report.template.md'), 'utf8');
+const tables = {};
+for (const m of fs.readFileSync(path.join(D, 'out', 'tables.md'), 'utf8').matchAll(/<!-- (\w+) -->\n([\s\S]*?)(?=\n<!-- |\n*$)/g)) tables[m[1]] = m[2].trim();
+let missing = [];
+const textValues = JSON.parse(fs.readFileSync(path.join(D, 'out', 'report-values.json'), 'utf8')).textValues || {};
+const out = tpl.replace(/\{\{table:(\w+)\}\}/g, (_, n) => { if (!tables[n]) { missing.push(n); return _; } return tables[n]; }).replace(/\{\{value:(\w+)\}\}/g, (_, n) => { if (textValues[n] === undefined) { missing.push('value:' + n); return _; } return textValues[n]; });
+if (missing.length) { console.error('missing tables', missing); process.exit(1); }
+fs.writeFileSync(path.join(WT, 'docs/guides/review-speedup-v26-2026-11-11.md'), out);
+console.log('built', out.split('\n').length, 'lines', Object.keys(tables).join(','));

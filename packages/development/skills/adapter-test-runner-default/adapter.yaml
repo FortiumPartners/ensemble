@@ -8,11 +8,11 @@ contract:
   test-runner: "1.0"
 
 # One interpreter per shipped per-language runner script (TRD-2026-8d825f54 TRD-043):
-# packages/jest/skills/run-test.js (node), packages/pytest/skills/run-test.py (python3),
-# packages/exunit/skills/run-test.exs (elixir, per its own `#!/usr/bin/env elixir` shebang --
-# NOT mix/dotnet), packages/xunit/skills/run-test.sh (bash, per its own `#!/usr/bin/env bash`
+# packages/jest/skills/jest/run-test.js (node), packages/pytest/skills/pytest/run-test.py (python3),
+# packages/exunit/skills/exunit/run-test.exs (elixir, per its own `#!/usr/bin/env elixir` shebang --
+# NOT mix/dotnet), packages/xunit/skills/xunit/run-test.sh (bash, per its own `#!/usr/bin/env bash`
 # shebang -- it shells out to `dotnet`/`node` itself, internal to the script, not part of this
-# adapter's own argv), packages/rspec/skills/run-test.rb (ruby).
+# adapter's own argv), packages/rspec/skills/rspec/run-test.rb (ruby).
 binaries:
   - node
   - python3
@@ -23,23 +23,23 @@ binaries:
 allowlist:
   - bin: node
     sub:
-      - "packages/jest/skills/run-test.js"
+      - "packages/jest/skills/jest/run-test.js"
       - "--version"
   - bin: python3
     sub:
-      - "packages/pytest/skills/run-test.py"
+      - "packages/pytest/skills/pytest/run-test.py"
       - "--version"
   - bin: elixir
     sub:
-      - "packages/exunit/skills/run-test.exs"
+      - "packages/exunit/skills/exunit/run-test.exs"
       - "--version"
   - bin: bash
     sub:
-      - "packages/xunit/skills/run-test.sh"
+      - "packages/xunit/skills/xunit/run-test.sh"
       - "--version"
   - bin: ruby
     sub:
-      - "packages/rspec/skills/run-test.rb"
+      - "packages/rspec/skills/rspec/run-test.rb"
       - "--version"
 
 env: []
@@ -103,7 +103,7 @@ capabilities:
   # `mapOutput` throws `BAD_OUTPUT` when a mapped path is absent from the actual JSON
   # (`mapping.js`'s own documented "every path must resolve to a present value" rule).
   # `skipped` is declared as a category-contract output but is NEVER populated by
-  # `packages/jest/skills/run-test.js` or `packages/exunit/skills/run-test.exs` (neither
+  # `packages/jest/skills/jest/run-test.js` or `packages/exunit/skills/exunit/run-test.exs` (neither
   # script's own result object has a `skipped` key at all) -- mapping it here would throw
   # `BAD_OUTPUT` on every jest/exunit call, so it is left unmapped for all five variants rather
   # than mapped for only some -- see SKILL.md "Known limits".
@@ -111,31 +111,31 @@ capabilities:
     successExitCodes: [0, 1]
     run:
       - node
-      - packages/jest/skills/run-test.js
+      - packages/jest/skills/jest/run-test.js
       - "--file"
       - "${file}"
     variants:
       framework:
         jest:
           - node
-          - packages/jest/skills/run-test.js
+          - packages/jest/skills/jest/run-test.js
           - "--file"
           - "${file}"
         pytest:
           - python3
-          - packages/pytest/skills/run-test.py
+          - packages/pytest/skills/pytest/run-test.py
           - "--file=${file}"
         exunit:
           - elixir
-          - packages/exunit/skills/run-test.exs
+          - packages/exunit/skills/exunit/run-test.exs
           - "--file=${file}"
         xunit:
           - bash
-          - packages/xunit/skills/run-test.sh
+          - packages/xunit/skills/xunit/run-test.sh
           - "--file=${file}"
         rspec:
           - ruby
-          - packages/rspec/skills/run-test.rb
+          - packages/rspec/skills/rspec/run-test.rb
           - "--file=${file}"
     parse:
       format: json

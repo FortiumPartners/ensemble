@@ -1,0 +1,56 @@
+'use strict';
+// Scratch (kata 1yjx, V2-6): the REVIEW.md text the seam serves to `prepare`, per PR and arm. Arms differ in ONE policy key.
+//   PRs whose merge base has no REVIEW.md (#207, #205): the ramp's minimal scratch file (kata j1wb), cap written out as 8 in both arms.
+//   scratch PRs: the REVIEW.md of dev at DEV_SHA (the commit the scratch branches were cut from, which carries a valid policy block); for #233's
+//   re-creation (merge base d2f58fb, whose block is inert) this is what makes the policy trusted, in both arms.
+// OLD: the key is not set (dev's default, false). NEW: `"quorumFirstVerification": true` added to the policy block, nothing else changed.
+const { spawnSync } = require('child_process');
+const FENCE = /```ensemble-review-policy\n([\s\S]*?)\n```/;
+
+function devReviewText(devSha, repoRoot) {
+  const r = spawnSync('git', ['show', `${devSha}:REVIEW.md`], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 1 << 24 });
+  if (r.status !== 0) throw new Error(`cannot read REVIEW.md at ${devSha}: ${r.stderr}`);
+  return r.stdout;
+}
+
+/** `text` with `quorumFirstVerification: true` added to its policy block as ONE new first line; every other byte unchanged. */
+function withQuorum(text) {
+  const m = FENCE.exec(text);
+  if (!m) throw new Error('no ensemble-review-policy block');
+  const obj = JSON.parse(m[1]);
+  if (Object.prototype.hasOwnProperty.call(obj, 'quorumFirstVerification')) throw new Error('the block already sets quorumFirstVerification');
+  if (!m[1].startsWith('{\n')) throw new Error('the policy block does not open with "{" on its own line');
+  const block = '```ensemble-review-policy\n{\n  "quorumFirstVerification": true,\n' + m[1].slice(2) + '\n```';
+  const out = text.slice(0, m.index) + block + text.slice(m.index + m[0].length);
+  const check = JSON.parse(FENCE.exec(out)[1]);
+  if (JSON.stringify(check) !== JSON.stringify({ quorumFirstVerification: true, ...obj })) throw new Error('the edited block differs from the original beyond the one key');
+  return out;
+}
+
+function minimalText(quorum) {
+  const obj = { maxConcurrentAgents: 8 };
+  if (quorum) obj.quorumFirstVerification = true;
+  return [
+    '# REVIEW.md: scratch policy of the quorum-first measurement (kata 1yjx)',
+    '',
+    'Served to `prepare` in place of the base commit\'s REVIEW.md (the base has none). It sets the cap (8, the default) and, in the NEW arm only, one more key.',
+    '',
+    '```ensemble-review-policy',
+    JSON.stringify(obj, null, 2),
+    '```',
+    '',
+  ].join('\n');
+}
+
+// PRs whose merge base has no REVIEW.md: #207; #319 is the re-creation of #205 at its measured head cca69fe (merge base 306934f, none either)
+const NO_BASE_FILE = new Set([207, 205, 319]);
+
+function reviewTextFor({ pr, arm, devSha, repoRoot }) {
+  const quorum = arm === 'new';
+  if (arm !== 'new' && arm !== 'old') throw new Error(`arm must be old or new, not ${arm}`);
+  if (NO_BASE_FILE.has(pr)) return { kind: 'minimal-scratch', text: minimalText(quorum) };
+  const dev = devReviewText(devSha, repoRoot);
+  return { kind: 'dev-review-md', devSha, text: quorum ? withQuorum(dev) : dev };
+}
+
+module.exports = { reviewTextFor, withQuorum, minimalText, devReviewText, NO_BASE_FILE };

@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-product",
-  "version": "7.0.1",
+  "version": "7.0.2",
   "description": "Product management agents and workflows (PRD creation, analysis)",
   "main": "lib/index.js",
   "scripts": {

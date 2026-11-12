@@ -1,11 +1,11 @@
 ---
 document_id: PRD-2026-4dec59b8
 label: prd-local-ci-pr-approval
-version: 1.0.4
+version: 1.0.6
 status: Locked
 date: 2026-10-22
 scale_depth: STANDARD
-total_requirements: 17
+total_requirements: 18
 readiness_score: 4.5
 design_readiness_score: null
 ---
@@ -14,8 +14,8 @@ design_readiness_score: null
 
 ## PRD Health Summary
 
-- **Risk flags:** REQ-003, REQ-004, REQ-005, REQ-008
-- **Dependencies:** 21 cross-requirement dependencies (see Dependency Map)
+- **Risk flags:** REQ-003, REQ-004, REQ-005, REQ-008, REQ-019
+- **Dependencies:** 24 cross-requirement dependencies (see Dependency Map)
 - **Unresolved clarification markers:** 0
 - **Constitution compliance:** passed (`docs/standards/constitution.md`, Non-Negotiable Rules 1-9)
 
@@ -43,12 +43,14 @@ design_readiness_score: null
 
 **Trust model and limits:** The status is written with the maintainer's own `gh` login, and a required check that is not pinned to a source accepts a status for that name from any source. Anyone with write access to the repository (a maintainer, a collaborator, a script holding a personal token) can therefore post a status under the agreed name. The merge flow accepts such a status only if its run record verifies against the PR's current head SHA, the configured workflow set and the runner's identity, and only if no human reviewer has requested changes. What the gate prevents: accidents (a stale, wrong-commit or partial run approving a PR), and agents merging unverified work. What it does not prevent: a person with write access deliberately forging a status and a plausible run record, and nothing proves the CI steps actually ran. A team that needs forge-resistance can later add a pinned GitHub App as a separate piece of work; that is out of scope here.
 
+**Trust model extension (1.0.5, hosted reuse):** where hosted results stand in for the local run (REQ-019), the merge flow believes only jobs the GitHub Actions service itself records for the PR's exact head SHA, from workflow files that are byte-identical to the base branch's, with the opt-in and job names taken from the base-ref configuration. It still does not know who triggered the run or that the workflow's steps are honest beyond that file equality, and a `pull_request` run executes on the merge commit rather than the bare head. Commit statuses and check runs are not used for this, because a head-supplied workflow or anyone with write access can post them.
+
 **Out of scope (Won't, this release):** Replacing CodeRabbit with another review provider; changing CodeRabbit's review profile; changes to Foreman's own workflow definitions (adopting the shared merge command in the Foreman repository is a separate rollout there); HerdR changes; a general PR dashboard; remote or self-hosted CI runners; weakening any test, assertion or required check to make a local run pass; cryptographic proof that the local CI steps actually ran; a pinned, forge-resistant identity such as a maintainer-owned GitHub App (a possible later, separate piece of work).
 
 ## Approvals and Decision Ownership
 
 - **Approver:** Each adopting repository's owner approves that repository's branch-protection change. The Ensemble repository owner approves the shared merge command, skill and gate design.
-- **Acceptance criteria the approver judges against:** REQ-001 through REQ-017 below; in particular that a PR can land on local evidence alone (REQ-001, REQ-002), that the evidence cannot be reused across commits and is verified against the head SHA and run record (REQ-003, REQ-004), and that the gate demonstrably fails when it should (REQ-005).
+- **Acceptance criteria the approver judges against:** REQ-001 through REQ-017 and REQ-019 below (REQ-018 was deleted in 1.0.4 and its id is not reused); in particular that a PR can land on local evidence alone (REQ-001, REQ-002), that the evidence cannot be reused across commits and is verified against the head SHA and run record (REQ-003, REQ-004), that the gate demonstrably fails when it should (REQ-005), and that hosted results are reused only under the same head-SHA binding and base-ref grading (REQ-019).
 
 ## Entry and Exit Criteria
 
@@ -75,7 +77,7 @@ design_readiness_score: null
 A maintainer can land a PR when the repository's CI workflows have passed in a local run for that PR's current head commit, without waiting for hosted CI or remote review to complete.
 
 - AC-001-1: Given an open PR whose head commit has a passing local run, when the maintainer invokes the supported merge flow, then the PR is merged without waiting for hosted CI or CodeRabbit.
-- AC-001-2: Given an open PR whose head commit has no local run, when the maintainer invokes the supported merge flow, then the merge is refused and the missing local run is reported.
+- AC-001-2: Given an open PR whose head commit has no local run, when the maintainer invokes the supported merge flow, then the merge is refused and the missing local run is reported, unless the base config opts in to hosted reuse (REQ-019).
 
 ### REQ-002: The merge command is the entry point (Must)
 
@@ -99,7 +101,7 @@ The local run's result is published to GitHub as a commit status on the head com
 
 - AC-004-1: Given a passing local run, when its result is published, then the head commit shows a success status under the agreed name, posted with the maintainer's `gh` login.
 - AC-004-2: Given a failing local run, when its result is published, then the head commit shows a failure status and the PR cannot be merged by the supported flow.
-- AC-004-3: Given branch protection on the target branch may require the local-run status by name (not pinned to any source), when a PR has only a hosted-CI success and no local status, then it cannot merge by the supported flow; and when it has a passing local status whose run record verifies, then it can.
+- AC-004-3: Given branch protection on the target branch may require the local-run status by name (not pinned to any source), when a PR has only a hosted-CI success and no local status, then it cannot merge by the supported flow, unless the base config opts in to hosted reuse (REQ-019); and when it has a passing local status whose run record verifies, then it can.
 - AC-004-4: Given a passing status for the agreed name posted by any identity with write access (for example a personal token or another tool), when merge readiness is evaluated, then it is accepted if and only if its run record verifies (AC-004-6). This is a deliberate limit, stated in "Trust model and limits": trust is honest-actor, and the gate prevents accidents and unverified agent merges, not deliberate forgery by someone with write access.
 - AC-004-5: Given a published status, when its description is read, then it carries the run record: the runner identity, a hash of the workflow set run, and a digest of the run log, and the head SHA is established by the commit the status is posted on.
 - AC-004-6: Given a status whose run record does not match the PR's current head SHA or the repository's configured workflow set, when the merge flow evaluates it, then the merge is refused and the mismatch is reported.
@@ -143,7 +145,7 @@ Hosted CI continues to run on every push and on the base branch, but is not requ
 
 The local run executes the same workflows and jobs that hosted CI would, so a local pass is a meaningful predictor of a hosted pass.
 
-- AC-009-1: Given the repository's test workflow with its Node version matrix, when the local run executes, then every matrix entry that is a required gate today is run locally, which for this repository means `validate` and `test` on Node 22 and Node 24.
+- AC-009-1: Given the repository's test workflow with its Node version matrix, when the local run executes, then every matrix entry that is a required gate today is run locally, which for this repository means `validate` and `test` on Node 22 and Node 24, unless the base config opts in to hosted reuse (REQ-019). Under REQ-019 the Node 22 run of `validate` and `drift` is not made (hosted CI runs `validate` and `drift` on Node 24 only); that is the declared, accepted gap.
 - AC-009-2: Given a required workflow step that the local CI runner cannot run or does not mirror (an unsupported action, a missing runner feature, or a step absent from the configured list), when the local run encounters it, then the run fails, the failing step is named, and the PR is not approved on the strength of a partial run.
 - AC-009-3: Given a job that cannot be represented locally (for example one that only uploads coverage to an external service), when the approval set is defined, then such jobs are explicitly excluded and the exclusion is recorded.
 
@@ -204,6 +206,21 @@ What the gate runs, which statuses branch protection pins, and where tracked wor
 - AC-017-2: Given a repository with no CodeRabbit or other bot reviewers, when the merge flow runs there, then review handling is skipped without error and the local gate alone decides.
 - AC-017-3: Given a repository with no configuration, when the merge flow is invoked, then it stops and names the missing configuration rather than assuming defaults from another repository.
 
+### Reusing hosted results
+
+### REQ-019: Reuse hosted CI results for the same head instead of re-running them (Should) [RISK: accepting a hosted result that the PR head could have forged or rewritten would approve unreviewed code with no local run]
+
+When hosted CI has already passed, on the PR's exact head commit, the jobs the gate would run, the gate accepts those results instead of repeating the work in a clean clone, without weakening the head-SHA binding, the base-ref grading of the configuration, or the rule that nothing the PR head supplies is believed. Rationale and baseline: see changelog 1.0.5.
+
+- AC-019-1: Given a repository whose base-ref configuration opts in to hosted reuse and every required hosted job has completed successfully on the PR's exact head commit, when readiness is evaluated or the gate is run, then the PR is reported merge-ready from the hosted results, no local run is made and no status is posted.
+- AC-019-2: Given a required hosted job that is missing, still running, failed, cancelled or skipped, or a hosted result for a different commit, when the gate is run, then reuse is refused with the reason and the gate runs locally as before; when readiness is only evaluated, the merge is refused with the reason.
+- AC-019-3: Given a PR that changes a workflow file the hosted jobs come from, when reuse is evaluated, then reuse is refused and the PR is graded locally, because hosted CI ran the head's own workflow.
+- AC-019-4: Given a repository whose base-ref configuration does not opt in, or whose local steps are not all declared as run by hosted CI, when the gate or merge flow runs, then behaviour is exactly as before this requirement. The opt-in is read only from the base-ref configuration, never from the PR head, the working tree or the caller's payload.
+- AC-019-5: Given a hosted-looking result that is only a commit status or a check run, when reuse is evaluated, then it is not accepted: only jobs the GitHub Actions service itself records for the head commit count.
+- AC-019-6: Given the maintainer wants the local run regardless, when the gate is run with `forceLocal`, then the hosted shortcut is skipped and the run is local.
+
+**Non-goals of REQ-019:** no change to branch protection, from code or from skills; no trust in who triggered a hosted run or that its steps are honest beyond the workflow file being identical to the base's; no change to the local run, the run record or the status the gate posts.
+
 ## Dependency Map
 
 | REQ | Depends On | Blocked By | Notes |
@@ -225,6 +242,7 @@ What the gate runs, which statuses branch protection pins, and where tracked wor
 | REQ-015 | REQ-001, REQ-009 | - | Failure UX |
 | REQ-016 | REQ-001, REQ-004 | - | Optional earlier application |
 | REQ-017 | REQ-009 | - | Makes the approval set and tracker per-repository |
+| REQ-019 | REQ-003, REQ-009, REQ-017 | - | Hosted results stand in for the local run only under the same head binding and base-ref configuration |
 
 **Implementation clusters:** (REQ-003, REQ-004, REQ-005) must land together before REQ-001 is enabled; (REQ-006, REQ-007, REQ-008) must land together so removing a gate never ships without its compensating follow-up.
 
@@ -267,3 +285,5 @@ What the gate runs, which statuses branch protection pins, and where tracked wor
 | 2026-10-21 | 1.0.2 | Wording-only change, no requirement added, removed or re-prioritised: replaced `act` and "container runtime" with runner-neutral terms ("local CI runner", "the repository's local CI entry point") in the Solution, decisions, Entry criteria, AC-004-5, AC-009-2, AC-015-2, the readiness note and the residual-risk note. Reason: `dev` already ships a tested clean-clone runner (`npm run ci:local`, PR #184) and the user chose to wrap it instead of building an `act` runner, so a PRD naming `act` contradicted the implementation and the beads that quote these criteria. AC-004-5 now names the runner identity instead of an `act` version. The user's original request ("using act") is kept as history in the self-critique. Requirement and AC counts are unchanged (18 and 47). |
 | 2026-10-21 | 1.0.3 | Baseline recorded per AC-013-3; no requirement added, removed or re-prioritised. Measured on this repository over its last 30 PRs merged to `dev` (2026-10-12 to 2026-10-21): open-to-merge median 105.9 min and p75 683.5 min; hosted CI wait median 2.6 min (about 2.5% of the median); CodeRabbit left no review on any of the 30, so bot-review wait is unmeasurable here. **Decision (maintainer): no numeric target and no minimum post-change cohort is set for this repository.** The data leaves nothing material to reduce here, so a target would be unfalsifiable; status stays `unproven` by design (AC-013-2). The target, minimum cohort size and duration are to be set per adopting repository, from a baseline captured there with `packages/development/skills/local-ci-gate/BASELINE.md`'s procedure, before that repository enables the gate. Figures are reproducible from `baseline-cohort.json`. |
 | 2026-10-22 | 1.0.4 | **User decision: the maintainer-owned GitHub App is removed.** Why: the App was a barrier to entry (creating, installing and holding a private key for it before anyone could adopt the gate). Consequence: the status is posted with the maintainer's own `gh` login, branch protection may require the check by name but unpinned, and trust is **honest-actor**, stated plainly under "Trust model and limits". A status for the agreed name from any identity with write access is accepted if its run record verifies. Changes: REQ-004 retitled and reworded; AC-004-4 (other identity does not satisfy) replaced by the opposite, explicit honest limit; new AC-004-7 (no `gh` login or failed post means no attestation, merge refused) carries the meaning of the removed AC-018-2; AC-004-3 now says unpinned. **REQ-018 (app credential protected) deleted with AC-018-1/2/3**: there is no App private key, no rotation, and REQ-010 (AC-010-1/2) already requires that no token or secret value is committed, published or logged, which covers the maintainer's `gh` token. Cross-references updated (risk flags, dependency map, clusters, approvals, self-critique, readiness). Requirements 18 to 17; acceptance criteria 47 to 45 (REQ-018's 3 removed, AC-004-7 added). Supersedes the App pin in 1.0.1 (evidence posted by a maintainer-owned GitHub App; REQ-018) and the AC-004-4 and "verified against GitHub documentation" App-pin claims. |
+| 2026-11-06 | 1.0.5 | Hosted-result reuse added: new REQ-019 with AC-019-1 to AC-019-6 (REQ-018 was deleted in 1.0.4 and its id is not reused; REQ-001 to REQ-017 unchanged; the trust model and limits above are extended, not changed). **Baseline (1.0.3 measurement):** hosted CI wait median 2.6 min, about 2.5% of the 105.9 min median open-to-merge; no reduction target was set and none is set now. **Observation:** on this repository the local gate re-ran the work hosted CI had already done on the same head (`validate`, `test (22)`, `test (24)` and the generated-drift check), an estimated 10 to 20 minutes of duplicate work under load; on PR #245 all 15 hosted checks were green and the merge was still blocked until the local gate posted its status. **Branch protection:** on 2026-11-06 protection on `dev` was rolled back to require the hosted checks `validate`, `test (22)` and `test (24)` (the rollback procedure of REQ-014). **Requirement:** reuse the hosted results for the same head SHA, without weakening head-SHA binding (REQ-003), base-ref grading of the configuration, or the rule that nothing the PR head supplies is believed. **Non-goals:** no branch-protection change from code or from skills; no claim about who triggered a hosted run. Requirements 17 to 18. The design is in TRD 1.0.13 (TRD-015). |
+| 2026-11-10 | 1.0.6 | Wording amendment after the independent review of the hosted-reuse change (REQ-019); no requirement added, removed or re-prioritised, status unchanged. AC-001-2, AC-004-3 and AC-009-1 now carry "unless the base config opts in to hosted reuse (REQ-019)", because for an opted-in repository a head whose required hosted jobs verify is merge-ready with no local run and no status. For AC-009-1 the Node 22 run of `validate` and `drift` is the declared, accepted gap under REQ-019 (hosted CI runs those two on Node 24 only). Behaviour for a repository that does not opt in is unchanged. |

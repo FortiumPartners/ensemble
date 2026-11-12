@@ -1,0 +1,96 @@
+[
+ {
+  "at": "2026-11-12T03:44:55.332Z",
+  "phase": "before-prepare",
+  "load": 5.29,
+  "procs": [
+   "RunV26.R09nVerifier8 [task] cancelled in 8m1s — RunV26.R09nVerifier8",
+   "RunV26.R09nVerifier9 [task] cancelled in 8m1s — RunV26.R09nVerifier9",
+   "RunV26.R09nVerifier10 [task] completed in 5m24s — RunV26.R09nVerifier10",
+   "omp.lsp.mux [service] — ready — up 2d6h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T03:45:10.155Z",
+  "phase": "review-dispatch",
+  "load": 5.29,
+  "procs": [
+   "RunV26.R09nVerifier8 [task] cancelled in 8m1s — RunV26.R09nVerifier8",
+   "RunV26.R09nVerifier9 [task] cancelled in 8m1s — RunV26.R09nVerifier9",
+   "RunV26.R09nVerifier10 [task] completed in 5m24s — RunV26.R09nVerifier10",
+   "RunV26.R10oReviewerS1A [task] running up 2ms",
+   "RunV26.R10oReviewerS1B [task] running up 1ms",
+   "RunV26.R10oSecurityLane [task] running up 1ms",
+   "omp.lsp.mux [service] — ready — up 2d6h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T04:00:03.332Z",
+  "phase": "verify-dispatch",
+  "load": 5.8,
+  "procs": [
+   "RunV26.R10oReviewerS1A [task] completed in 14m49s — RunV26.R10oReviewerS1A",
+   "RunV26.R10oReviewerS1B [task] completed in 10m3s — RunV26.R10oReviewerS1B",
+   "RunV26.R10oVerifier1 [task] running up 2ms",
+   "RunV26.R10oVerifier2 [task] running up 2ms",
+   "RunV26.R10oVerifier3 [task] running up 2ms",
+   "RunV26.R10oVerifier4 [task] running up 2ms",
+   "RunV26.R10oVerifier5 [task] running up 2ms",
+   "RunV26.R10oVerifier6 [task] running up 2ms",
+   "RunV26.R10oVerifier7 [task] running up 2ms",
+   "RunV26.R10oVerifier8 [task] running up 2ms",
+   "omp.lsp.mux [service] — ready — up 2d6h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ },
+ {
+  "at": "2026-11-12T04:12:57.244Z",
+  "phase": "drive-end",
+  "load": 2.88,
+  "procs": [
+   "RunV26.R10oVerifier6 [task] cancelled in 8m — RunV26.R10oVerifier6",
+   "RunV26.R10oVerifier9 [task] completed in 7m56s — RunV26.R10oVerifier9",
+   "RunV26.R10oVerifier10 [task] cancelled in 8m — RunV26.R10oVerifier10",
+   "omp.lsp.mux [service] — ready — up 2d6h — pid 76637",
+   "ramp-proc-sampler [service] — exited — up 1h16m",
+   "ramp-load-sampler [service] — exited — up 2h39m",
+   "load-sampler-m1 [service] — failed — up 1h14m",
+   "load-sampler-run1 [service] — failed — up 40.2s",
+   "mutate_provided [service] — exited — up 1m",
+   "ci254 [service] — exited — up 2m37s",
+   "bundler249 [service] — exited — up 2.3s",
+   "mutant249 [service] — exited — up 26.0s",
+   "jest-votes-suite [service] — exited — up 1.9s",
+   "jest249prepare [service] — exited — up 19.6s"
+  ]
+ }
+]

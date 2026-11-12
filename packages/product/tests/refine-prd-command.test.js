@@ -7,18 +7,21 @@
 
 const fs = require('fs');
 const path = require('path');
+const yaml = require('js-yaml');
 
-const sourcePath = path.join(__dirname, '../commands/refine-prd.yaml');
-const generatedPath = path.join(__dirname, '../commands/ensemble/refine-prd.md');
+const { readSkill } = require('./helpers/skill-prompt');
 
-function read(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
+// refine-prd is skill-backed: its YAML is a manifest, and its prompt is the skill -- the
+// SKILL.md plus the phase files under references/. Every assertion reads that whole prompt
+// (the generated Claude command is only a stub that points at the skill).
+const manifest = yaml.load(fs.readFileSync(path.join(__dirname, '../commands/refine-prd.yaml'), 'utf8'));
+const skillPrompt = readSkill(manifest.skill).prompt;
+
+function read() {
+  return skillPrompt;
 }
 
-const bothForms = [
-  ['source YAML', sourcePath],
-  ['generated command markdown', generatedPath],
-];
+const bothForms = [['skill prompt', null]];
 
 describe('refine-prd closes with a lock decision', () => {
   test.each(bothForms)('%s has a PRD Lock step', (_label, filePath) => {

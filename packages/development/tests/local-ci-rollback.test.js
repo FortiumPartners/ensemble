@@ -252,16 +252,23 @@ describe('scenario: PR born approved (optional pre-PR gate step)', () => {
 
   function fakeGithubStatuses() {
     const poster = fakePostStatus();
-    const bySha = new Proxy({}, {
-      get: (_t, sha) => poster.calls.filter((c) => c.sha === sha).map((c) => ({ context: c.context, state: c.state, description: c.description, sha: c.sha })),
-    });
-    return { postStatus: poster, bySha };
+    const listed = (sha) => poster.calls.filter((c) => c.sha === sha).map((c) => ({ context: c.context, state: c.state, description: c.description, sha: c.sha }));
+    const bySha = new Proxy({}, { get: (_t, sha) => listed(sha) });
+    // what GitHub lists for a head: every post it accepted, NEWEST FIRST, with ids and without a per-status sha
+    const ghApi = (apiPath) => {
+      const m = /^repos\/[^/]+\/[^/]+\/commits\/([0-9a-f]{40})\/statuses\?per_page=100$/.exec(apiPath);
+      if (!m) return { ok: false, error: `unexpected lookup: ${apiPath}` };
+      const all = listed(m[1]);
+      return { ok: true, json: all.map(({ sha: _sha, ...rest }, i) => ({ id: i + 1, ...rest })).reverse() };
+    };
+    return { postStatus: poster, bySha, ghApi };
   }
 
   async function gateThenOpenPr(repo, gh) {
     const deps = {
       ...cli.defaultDeps(),
       postStatus: gh.postStatus,
+      ghApi: gh.ghApi,
       runGate: (o) => ({ ok: true, sha: o.headSha, failures: [], unmirrored: [], nodes: [{ node: 22, ok: true, steps: [] }] }),
       env: {},
       prInfo: prInfoFor(repo),
@@ -300,6 +307,7 @@ describe('scenario: PR born approved (optional pre-PR gate step)', () => {
     const deps = {
       ...cli.defaultDeps(),
       postStatus: gh.postStatus,
+      ghApi: gh.ghApi,
       runGate: (o) => ({ ok: false, sha: o.headSha, failures: [{ workflow: 'ci.yml', job: 'test', step: 'x', node: 22, message: 'boom' }], unmirrored: [], nodes: [] }),
       env: {},
       prInfo: prInfoFor(repo),

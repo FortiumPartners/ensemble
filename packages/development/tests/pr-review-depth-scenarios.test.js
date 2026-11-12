@@ -38,13 +38,14 @@ const { resolveDepth, checkBounds, planSlices, verifyCoverage } = require('../li
 const { assignTier, effectiveTier } = require('../lib/pr-review-tier');
 const { loadPolicy } = require('../lib/pr-review-policy');
 const { sortFindings } = require('../lib/pr-review-ledger');
+const { reviewedByOf } = require('./helpers/pr-review-reviewed-by');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 /** The repository's own policy block, read from its own REVIEW.md. */
 function repositoryPolicy() {
   const text = fs.readFileSync(path.join(REPO_ROOT, 'REVIEW.md'), 'utf8');
-  const sourceSha = /"sourceSha":\s*"([0-9a-f]{40})"/.exec(text)[1];
+  const sourceSha = 'd'.repeat(40);
   const loaded = loadPolicy({ text, sourceSha, baseSha: sourceSha });
   expect(loaded.ok).toBe(true);
   return loaded.policy;
@@ -224,20 +225,23 @@ describe('AC-018-2: sliced findings are combined and the reviewed slices are nam
     expect(combined.map((entry) => entry.id)).toEqual(['S2', 'S1']);
   });
 
-  test('when every slice was reviewed, coverage is complete and the reviewed slices are named', () => {
-    const coverage = verifyCoverage({ slices: plan.slices, reviewed: plan.slices.map((slice) => slice.id) });
+  test('when every assigned reviewer reported, coverage is complete and the reviewed slices are named', () => {
+    // The reviewer plan IS `reviewerAssignments`; every one arriving is what `collect` reports as `reviewedBy`.
+    const coverage = verifyCoverage({ slices: plan.slices, reviewedBy: reviewedByOf(plan), mode: 'standard' });
 
     expect(coverage.ok).toBe(true);
     expect(coverage.covered).toBe(true);
     expect(coverage.reviewedSlices.sort()).toEqual(plan.slices.map((slice) => slice.id).sort());
     expect(coverage.uncovered).toEqual([]);
+    expect(coverage.underReviewed).toEqual([]);
   });
 
   test('a slice nobody reviewed is named, with every path it would have covered', () => {
     const skipped = plan.slices[0];
     const coverage = verifyCoverage({
       slices: plan.slices,
-      reviewed: plan.slices.slice(1).map((slice) => slice.id),
+      reviewedBy: reviewedByOf(plan, plan.reviewerAssignments.filter((entry) => entry.sliceId !== skipped.id)),
+      mode: 'standard',
     });
 
     expect(coverage.covered).toBe(false);
@@ -248,11 +252,77 @@ describe('AC-018-2: sliced findings are combined and the reviewed slices are nam
   test('a changed path that no slice covers is reported, not assumed reviewed', () => {
     const coverage = verifyCoverage({
       slices: plan.slices,
-      reviewed: plan.slices.map((slice) => slice.id),
+      reviewedBy: reviewedByOf(plan),
+      mode: 'standard',
       changedPaths: [...changed.map((entry) => entry.path), 'packages/git/commands/pr-merge.yaml'],
     });
 
     expect(coverage.covered).toBe(false);
     expect(coverage.uncovered).toEqual(['packages/git/commands/pr-merge.yaml']);
+  });
+});
+
+describe('AC-018-2: every path is read under at least two DISTINCT lenses at Standard/Deep', () => {
+  const policy = repositoryPolicy();
+  const changed = realChangedPaths([
+    'packages/development/lib/pr-review-*.js',
+    'packages/development/tests/pr-review-*.test.js',
+    'docs/TRD/TRD-2026-70e784f2-*.md',
+  ]);
+  const areas = ['packages/development/lib', 'packages/development/tests', 'docs/TRD'];
+  const plan = planSlices({ paths: changed, areas, threshold: policy.sliceThreshold, targetLines: 600, mode: 'standard' });
+
+  /** The distinct lenses assigned to a slice. */
+  const lensesOf = (sliceId) => plan.reviewerAssignments.filter((entry) => entry.sliceId === sliceId).map((entry) => entry.lens);
+
+  test('the fixture is a real PR above the slice threshold, cut by size into several slices', () => {
+    expect(changed.reduce((sum, entry) => sum + entry.lines, 0)).toBeGreaterThan(policy.sliceThreshold);
+    expect(plan.ok).toBe(true);
+    expect(plan.slices.length).toBeGreaterThan(1);
+  });
+
+  test('every slice gets at least two distinct lenses through reviewerAssignments', () => {
+    for (const slice of plan.slices) {
+      expect(new Set(lensesOf(slice.id)).size).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test('verifyCoverage over the full assignments is covered, every path under >= 2 lenses', () => {
+    const coverage = verifyCoverage({ slices: plan.slices, reviewedBy: reviewedByOf(plan), mode: 'standard' });
+
+    expect(coverage.requiredLenses).toBe(2);
+    expect(coverage.covered).toBe(true);
+    expect(coverage.underReviewed).toEqual([]);
+    expect(coverage.uncovered).toEqual([]);
+  });
+
+  test('dropping the second lens of one slice makes exactly that slice\'s paths underReviewed', () => {
+    const target = plan.slices[0];
+    const kept = reviewedByOf(plan, plan.reviewerAssignments.filter((entry) => entry.sliceId !== target.id));
+    const [first] = reviewedByOf(plan, [plan.reviewerAssignments.find((entry) => entry.sliceId === target.id)]);
+    const coverage = verifyCoverage({ slices: plan.slices, reviewedBy: [...kept, first], mode: 'standard' });
+
+    expect(coverage.covered).toBe(false);
+    expect(coverage.uncovered).toEqual([]);
+    expect(coverage.underReviewed.map((entry) => entry.path).sort()).toEqual(target.paths.slice().sort());
+    expect(coverage.underReviewed.every((entry) => entry.lenses.length === 1)).toBe(true);
+  });
+
+  test('two reviewers with the SAME lens on a slice do not satisfy the floor', () => {
+    const target = plan.slices[0];
+    const kept = reviewedByOf(plan, plan.reviewerAssignments.filter((entry) => entry.sliceId !== target.id));
+    const [first] = reviewedByOf(plan, [plan.reviewerAssignments.find((entry) => entry.sliceId === target.id)]);
+    const twin = { ...first, reviewer: `${first.reviewer}-twin` };
+    const coverage = verifyCoverage({ slices: plan.slices, reviewedBy: [...kept, first, twin], mode: 'standard' });
+
+    expect(coverage.covered).toBe(false);
+    expect(coverage.underReviewed.map((entry) => entry.path).sort()).toEqual(target.paths.slice().sort());
+  });
+
+  test('a PR under the threshold is still one slice with two lenses', () => {
+    const small = planSlices({ paths: changed.slice(0, 1).map((entry) => ({ ...entry, lines: 12 })), areas, threshold: policy.sliceThreshold, mode: 'standard' });
+
+    expect(small.slices).toHaveLength(1);
+    expect(small.reviewerAssignments).toHaveLength(2);
   });
 });

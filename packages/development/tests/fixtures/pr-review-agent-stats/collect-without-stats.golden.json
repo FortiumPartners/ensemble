@@ -1,0 +1,928 @@
+{
+  "answers": [
+    {
+      "ok": true,
+      "status": "DISPATCH",
+      "runId": "run1",
+      "round": "review",
+      "wave": "1 of 1",
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mode": {
+        "ok": true,
+        "mode": "light",
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "securityLane": true,
+        "requires": {
+          "depth": "standard",
+          "minReviewers": 2,
+          "verifiersPerFinding": 3
+        },
+        "reasons": [
+          "medium-tier"
+        ]
+      },
+      "tier": {
+        "ok": true,
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "humansRequired": 1,
+        "originalTier": "medium",
+        "finalTier": "medium",
+        "characteristics": [
+          {
+            "kind": "product",
+            "paths": [
+              "src/a.js"
+            ]
+          }
+        ],
+        "paths": {
+          "sensitive": [],
+          "high": [],
+          "uncited": []
+        },
+        "reasons": [
+          "product-change",
+          "second-assessment-missing",
+          "not-low-tier"
+        ],
+        "raised": [],
+        "lowered": [],
+        "ignored": [],
+        "waiver": {
+          "applies": false,
+          "reason": "not-low-tier",
+          "evidence": null,
+          "enabledBy": null
+        },
+        "soloMaintainer": {
+          "eligible": false,
+          "login": null
+        },
+        "refusals": [],
+        "assignedBy": "review-run (changed paths only)",
+        "warnings": [],
+        "at": "2026-11-11T12:00:00.000Z"
+      },
+      "depth": {
+        "mode": "standard",
+        "reviewersPerSlice": 2,
+        "verifiersPerCandidate": 3,
+        "bounds": {
+          "reviewers": {
+            "min": 2,
+            "max": null
+          },
+          "verifiers": {
+            "min": 3,
+            "max": null
+          }
+        }
+      },
+      "maxConcurrentAgents": 8,
+      "sizing": {
+        "model": {
+          "minutesPerFile": 0.934,
+          "minutesPer100Lines": 1.224,
+          "headroom": 2,
+          "maxMinutes": 60,
+          "derivedFrom": "real271",
+          "fixedCostFloorMinutes": 22,
+          "verifierFloorMinutes": 8,
+          "policyDeadlineMinutes": {
+            "reviewer": null,
+            "verifier": null,
+            "security": null
+          }
+        },
+        "limits": {
+          "sliceMaxFiles": 8,
+          "sliceTargetLines": 612,
+          "slicesAllowed": 3,
+          "slicesWanted": 1
+        },
+        "work": {
+          "files": 1,
+          "lines": 12
+        },
+        "slices": [
+          {
+            "id": "whole-pr",
+            "files": 1,
+            "lines": 12,
+            "overLimit": false,
+            "diff": "whole-range"
+          }
+        ],
+        "wholeRangeReader": false,
+        "warnings": []
+      },
+      "agents": [
+        {
+          "name": "reviewer-s1-a",
+          "role": "reviewer",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/reviewer-s1-a.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-reviewer-s1-a.json",
+          "prompt": "You are the reviewer agent \"reviewer-s1-a\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/reviewer-s1-a.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-reviewer-s1-a.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:22:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794399720000,
+          "deadlineAtIso": "2026-11-11T12:22:00.000Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "work": {
+            "files": 1,
+            "lines": 12
+          },
+          "sliceId": "whole-pr",
+          "paths": [
+            "src/a.js"
+          ]
+        },
+        {
+          "name": "reviewer-s1-b",
+          "role": "reviewer",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/reviewer-s1-b.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-reviewer-s1-b.json",
+          "prompt": "You are the reviewer agent \"reviewer-s1-b\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/reviewer-s1-b.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-reviewer-s1-b.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:22:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794399720000,
+          "deadlineAtIso": "2026-11-11T12:22:00.000Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "work": {
+            "files": 1,
+            "lines": 12
+          },
+          "sliceId": "whole-pr",
+          "paths": [
+            "src/a.js"
+          ]
+        },
+        {
+          "name": "security-lane",
+          "role": "security",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/security-lane.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-security-lane.json",
+          "prompt": "You are the security agent \"security-lane\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/security-lane.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/review/out-security-lane.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:22:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794399720000,
+          "deadlineAtIso": "2026-11-11T12:22:00.000Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "work": {
+            "files": 1,
+            "lines": 12
+          }
+        }
+      ],
+      "next": "node review-run-cli.js collect  (payload {\"repoRoot\": \"<ROOT>/repo\", \"runId\": \"run1\"})",
+      "rules": [
+        "Start exactly the agents of `agents`, in fresh contexts with READ-ONLY access, and pass each `prompt` through unedited; compose nothing yourself.",
+        "Never run more agents at once than `maxConcurrentAgents`. The runner records the cap and cannot enforce it: the dispatcher must.",
+        "A DISPATCH with `refill: true` lists only NEW verifiers: start exactly those, and keep waiting for the agents in `stillRunning`, which are still running (the cap counts both).",
+        "Stop every agent at its `deadlineAtIso`. The runner records the deadline and cannot stop an agent: the dispatcher must. A result written later is not read.",
+        "Call `collect` only when the agents have FINISHED (their processes ended) or have been stopped at their deadlines, never on the first sight of a result file: the runner cannot tell that an agent is done. A result file an agent rewrites after the runner read it is re-read only while the results of its round are not yet used; after that it is flagged `result-changed-after-read` and the review is not mergeable until the operator decides it. Never read a result file, tally votes or decide a gate yourself.",
+        "On ADJUDICATE decide only the findings listed, with a reason, and call `collect` with `adjudications`.",
+        "Coverage is self-reported: the runner counts a slice as reviewed when the agent lists its paths in `pathsReviewed`, and cannot tell a read from a claim. Read-only access is an instruction in the prompt that the runner cannot enforce: the dispatcher must."
+      ],
+      "precheck": {
+        "ok": true,
+        "blockers": [],
+        "comment": {
+          "action": "created",
+          "id": 1
+        }
+      },
+      "prState": "OPEN"
+    },
+    {
+      "ok": true,
+      "status": "DISPATCH",
+      "runId": "run1",
+      "round": "verify",
+      "wave": "1 of 1",
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mode": {
+        "ok": true,
+        "mode": "light",
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "securityLane": true,
+        "requires": {
+          "depth": "standard",
+          "minReviewers": 2,
+          "verifiersPerFinding": 3
+        },
+        "reasons": [
+          "medium-tier"
+        ]
+      },
+      "tier": {
+        "ok": true,
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "humansRequired": 1,
+        "originalTier": "medium",
+        "finalTier": "medium",
+        "characteristics": [
+          {
+            "kind": "product",
+            "paths": [
+              "src/a.js"
+            ]
+          }
+        ],
+        "paths": {
+          "sensitive": [],
+          "high": [],
+          "uncited": []
+        },
+        "reasons": [
+          "product-change",
+          "second-assessment-missing",
+          "not-low-tier"
+        ],
+        "raised": [],
+        "lowered": [],
+        "ignored": [],
+        "waiver": {
+          "applies": false,
+          "reason": "not-low-tier",
+          "evidence": null,
+          "enabledBy": null
+        },
+        "soloMaintainer": {
+          "eligible": false,
+          "login": null
+        },
+        "refusals": [],
+        "assignedBy": "review-run (changed paths only)",
+        "warnings": [],
+        "at": "2026-11-11T12:00:00.000Z"
+      },
+      "depth": {
+        "mode": "standard",
+        "reviewersPerSlice": 2,
+        "verifiersPerCandidate": 3,
+        "bounds": {
+          "reviewers": {
+            "min": 2,
+            "max": null
+          },
+          "verifiers": {
+            "min": 3,
+            "max": null
+          }
+        }
+      },
+      "maxConcurrentAgents": 8,
+      "agents": [
+        {
+          "name": "verifier-1",
+          "role": "verifier",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-1.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-1.json",
+          "prompt": "You are the verifier agent \"verifier-1\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-1.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-1.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:08:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794398880000,
+          "deadlineAtIso": "2026-11-11T12:08:00.000Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "candidateIds": [
+            "f1"
+          ]
+        },
+        {
+          "name": "verifier-2",
+          "role": "verifier",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-2.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-2.json",
+          "prompt": "You are the verifier agent \"verifier-2\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-2.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-2.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:08:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794398880000,
+          "deadlineAtIso": "2026-11-11T12:08:00.000Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "candidateIds": [
+            "f1"
+          ]
+        },
+        {
+          "name": "verifier-3",
+          "role": "verifier",
+          "briefPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-3.md",
+          "outPath": "<ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-3.json",
+          "prompt": "You are the verifier agent \"verifier-3\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at <ROOT>/repo/.ensemble/pr-review/run/run1/briefs/verifier-3.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to <ROOT>/repo/.ensemble/pr-review/run/run1/results/verify/out-verifier-3.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-11T12:08:00.000Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "dispatchedAt": 1794398400000,
+          "deadlineAt": 1794398880000,
+          "deadlineAtIso": "2026-11-11T12:08:00.000Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "candidateIds": [
+            "f1"
+          ]
+        }
+      ],
+      "next": "node review-run-cli.js collect  (payload {\"repoRoot\": \"<ROOT>/repo\", \"runId\": \"run1\"})",
+      "rules": [
+        "Start exactly the agents of `agents`, in fresh contexts with READ-ONLY access, and pass each `prompt` through unedited; compose nothing yourself.",
+        "Never run more agents at once than `maxConcurrentAgents`. The runner records the cap and cannot enforce it: the dispatcher must.",
+        "A DISPATCH with `refill: true` lists only NEW verifiers: start exactly those, and keep waiting for the agents in `stillRunning`, which are still running (the cap counts both).",
+        "Stop every agent at its `deadlineAtIso`. The runner records the deadline and cannot stop an agent: the dispatcher must. A result written later is not read.",
+        "Call `collect` only when the agents have FINISHED (their processes ended) or have been stopped at their deadlines, never on the first sight of a result file: the runner cannot tell that an agent is done. A result file an agent rewrites after the runner read it is re-read only while the results of its round are not yet used; after that it is flagged `result-changed-after-read` and the review is not mergeable until the operator decides it. Never read a result file, tally votes or decide a gate yourself.",
+        "On ADJUDICATE decide only the findings listed, with a reason, and call `collect` with `adjudications`.",
+        "Coverage is self-reported: the runner counts a slice as reviewed when the agent lists its paths in `pathsReviewed`, and cannot tell a read from a claim. Read-only access is an instruction in the prompt that the runner cannot enforce: the dispatcher must."
+      ]
+    },
+    {
+      "ok": true,
+      "status": "DONE",
+      "runId": "run1",
+      "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "prState": "OPEN",
+      "mode": {
+        "ok": true,
+        "mode": "light",
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "securityLane": true,
+        "requires": {
+          "depth": "standard",
+          "minReviewers": 2,
+          "verifiersPerFinding": 3
+        },
+        "reasons": [
+          "medium-tier"
+        ]
+      },
+      "tier": {
+        "ok": true,
+        "tier": "medium",
+        "effectiveTier": "medium",
+        "humansRequired": 1,
+        "originalTier": "medium",
+        "finalTier": "medium",
+        "characteristics": [
+          {
+            "kind": "product",
+            "paths": [
+              "src/a.js"
+            ]
+          }
+        ],
+        "paths": {
+          "sensitive": [],
+          "high": [],
+          "uncited": []
+        },
+        "reasons": [
+          "product-change",
+          "second-assessment-missing",
+          "not-low-tier"
+        ],
+        "raised": [],
+        "lowered": [],
+        "ignored": [],
+        "waiver": {
+          "applies": false,
+          "reason": "not-low-tier",
+          "evidence": null,
+          "enabledBy": null
+        },
+        "soloMaintainer": {
+          "eligible": false,
+          "login": null
+        },
+        "refusals": [],
+        "assignedBy": "review-run (changed paths only)",
+        "warnings": [],
+        "at": "2026-11-11T12:00:00.000Z"
+      },
+      "depth": {
+        "mode": "standard",
+        "verifiersPerCandidate": 3,
+        "reviewersPerSlice": 2
+      },
+      "gate": {
+        "ok": true,
+        "mergeable": false,
+        "blockers": [
+          {
+            "code": "open-important-finding",
+            "message": "Important finding f1 (src/a.js:3) is still open",
+            "nextAction": "fix it, or have the operator record the decision on the current head with their login, a timestamp, a reason and a decision, accept or follow-on (ledger resolve)",
+            "findingId": "f1",
+            "locationOrLink": "src/a.js:3",
+            "severity": "important"
+          },
+          {
+            "code": "approvals-unsatisfied",
+            "message": "0 of 1 required human approval(s) are bound to the current commit",
+            "nextAction": "request review from a person who has not approved this head, then re-run the gate once they approve",
+            "reason": "insufficient-human-approvals",
+            "humansRequired": 1,
+            "humansCounted": 0
+          }
+        ],
+        "warnings": [],
+        "findings": {
+          "important": 1,
+          "nits": 0,
+          "preExisting": 0,
+          "unrecognised": 0,
+          "open": [
+            "f1"
+          ]
+        },
+        "securityLane": {
+          "status": "clean",
+          "open": [],
+          "cleared": [],
+          "resolved": []
+        },
+        "coverage": {
+          "status": "complete",
+          "open": [],
+          "decided": [],
+          "unreadable": []
+        },
+        "approvals": {
+          "ok": true,
+          "satisfied": false,
+          "reason": "insufficient-human-approvals",
+          "tier": "medium",
+          "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "humansRequired": 1,
+          "soloMaintainer": false,
+          "humansCounted": 0,
+          "approvedBy": [],
+          "directedBy": null,
+          "ignored": [],
+          "refusals": [],
+          "reasons": [
+            "insufficient-human-approvals"
+          ],
+          "warnings": []
+        },
+        "tier": "medium",
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reasons": [
+          "open-important-finding",
+          "approvals-unsatisfied"
+        ],
+        "dispositionChoices": [
+          {
+            "id": "f1",
+            "severity": "important",
+            "locationOrLink": "src/a.js:3",
+            "votes": {
+              "real": 3,
+              "notReal": 0,
+              "abstain": 0,
+              "expected": 3
+            },
+            "beadId": null,
+            "closedBeadId": null,
+            "group": "blocking",
+            "security": false,
+            "choices": [
+              {
+                "id": "fix-here",
+                "label": "Fix on this PR",
+                "requiresReason": false,
+                "batchable": true,
+                "default": true,
+                "note": "Queued: one fix agent, one push. The head moves and any approvals reset."
+              },
+              {
+                "id": "accept",
+                "label": "Accept without fixing",
+                "requiresReason": true,
+                "batchable": false,
+                "default": false
+              }
+            ],
+            "default": "fix-here",
+            "requiresReason": true
+          }
+        ],
+        "dispositionGroups": [
+          {
+            "group": "blocking",
+            "label": "Blocking",
+            "ids": [
+              "f1"
+            ],
+            "batchChoices": [
+              "fix-here"
+            ]
+          }
+        ],
+        "mergeConfirmation": {
+          "undecided": [
+            "f1"
+          ],
+          "undecidedBlocking": [
+            "f1"
+          ],
+          "openBeads": 0,
+          "findingsWithoutBead": 1,
+          "findingsWithClosedBead": [],
+          "acceptedBlocking": [],
+          "staleResolutions": [],
+          "undecidedCoverage": [],
+          "acceptedCoverage": [],
+          "summary": "0 open bead(s); 0 blocking findings accepted; 1 blocking finding(s) undecided"
+        }
+      },
+      "reviewStatus": {
+        "baseSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reviewedHeadSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reviewedTreeSha": "cccccccccccccccccccccccccccccccccccccccc",
+        "headTreeSha": "cccccccccccccccccccccccccccccccccccccccc",
+        "reviewOnly": false,
+        "prUrl": null,
+        "rounds": {
+          "used": 0,
+          "max": 3
+        },
+        "findingCounts": {
+          "total": 1,
+          "actionable": 1,
+          "deferred": 0,
+          "awaitingDecision": 0
+        },
+        "coverage": {
+          "status": "complete",
+          "gaps": []
+        },
+        "tests": {
+          "skipped": true,
+          "command": "none: the baseline run produced no usable result (no relevant test files, a timed-out run or no run)",
+          "passed": false
+        },
+        "reportPath": "<ROOT>/repo/.ensemble/pr-review/pr-7.json",
+        "contract": {
+          "statuses": [
+            "REVIEW_COMPLETE",
+            "REVIEW_PENDING",
+            "REVIEW_BLOCKED"
+          ],
+          "roundCap": 3,
+          "requiresForComplete": [
+            "LOCAL_REVIEW_COMPLETE",
+            "REMOTE_REVIEW_COMPLETE"
+          ]
+        },
+        "status": "REVIEW_PENDING",
+        "localPhase": "LOCAL_REVIEW_PENDING",
+        "remotePhase": "REMOTE_REVIEW_PENDING",
+        "reasons": [
+          "unresolved actionable finding",
+          "pending remote review",
+          "tests skipped"
+        ],
+        "next": "run-fix-round"
+      },
+      "ledger": [
+        {
+          "id": "f1",
+          "source": "reviewer-s1-a",
+          "locationOrLink": "src/a.js:3",
+          "severity": "important",
+          "failureMode": "the loop reads past the end of the list",
+          "disposition": "fix",
+          "evidence": "src/a.js line 3 indexes list[list.length]",
+          "originalTextOrLink": "src/a.js:3",
+          "verification": {
+            "outcome": "present",
+            "reason": "verifier-majority",
+            "presented": true,
+            "tally": {
+              "real": 3,
+              "notReal": 0,
+              "abstain": 0,
+              "expected": 3,
+              "needed": 2
+            },
+            "assigned": [
+              "verifier-1",
+              "verifier-2",
+              "verifier-3"
+            ],
+            "incompleteVerifiers": [],
+            "ignoredVotes": []
+          }
+        }
+      ],
+      "carry": {
+        "appliedRange": "full-range",
+        "carried": 0,
+        "reverified": 1,
+        "recorded": 0,
+        "skipped": [
+          {
+            "id": "f1",
+            "reason": "no-hash"
+          }
+        ]
+      },
+      "votes": {
+        "verification": "performed",
+        "outcomes": [
+          {
+            "id": "f1",
+            "outcome": "present",
+            "reason": "verifier-majority",
+            "tally": {
+              "real": 3,
+              "notReal": 0,
+              "abstain": 0,
+              "expected": 3,
+              "needed": 2
+            }
+          }
+        ]
+      },
+      "security": {
+        "status": "clean",
+        "findings": []
+      },
+      "coverage": {
+        "complete": true,
+        "unreviewedSlices": [],
+        "uncovered": []
+      },
+      "notReviewed": {
+        "unreviewedSlices": [],
+        "unreviewedPaths": [],
+        "underReviewedPaths": [],
+        "incompleteVerifiers": [],
+        "unbriefable": [],
+        "expiredAgents": [],
+        "changedResults": []
+      },
+      "approvals": {
+        "ok": true,
+        "satisfied": false,
+        "reason": "insufficient-human-approvals",
+        "tier": "medium",
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "humansRequired": 1,
+        "soloMaintainer": false,
+        "humansCounted": 0,
+        "approvedBy": [],
+        "directedBy": null,
+        "ignored": [],
+        "refusals": [],
+        "reasons": [
+          "insufficient-human-approvals"
+        ],
+        "warnings": []
+      },
+      "protection": {
+        "state": "absent",
+        "baseRefName": "main",
+        "needed": 1,
+        "requiredReviews": 0
+      },
+      "precheck": {
+        "ok": true,
+        "blockers": [],
+        "comment": {
+          "action": "created",
+          "id": 1
+        }
+      },
+      "unavailable": [],
+      "warnings": [
+        "agent-authored-unverified: the caller stated agentAuthored:false, so no \"Directed by:\" line was required and nobody was credited as the director; the runner cannot verify who wrote this pull request"
+      ],
+      "reducedReview": "tests not shown: no baseline run, a timed-out one, or no relevant test files",
+      "statePath": "<ROOT>/repo/.ensemble/pr-review/pr-7.json",
+      "metrics": {
+        "wallMs": 0,
+        "runnerCalls": 3,
+        "dispatchRounds": 2,
+        "agentsDispatched": 6,
+        "agentsByRole": {
+          "reviewer": 2,
+          "security": 1,
+          "verifier": 3
+        },
+        "adjudicationCalls": 0,
+        "orchestratorTurns": {
+          "atLeast": 5,
+          "basis": "one model turn per runner call plus one per dispatch round (the model starts that round's agents): the turns this protocol itself requires. A lower bound, not a measurement of the model: the runner cannot see the dispatcher's transcript, so turns spent outside the protocol (reading the skill, retries, the final report) are not counted, and re-reading a finished run is not counted either."
+        },
+        "runnerMs": 0,
+        "agentActiveMs": 0,
+        "orchestratorOnlyMs": 0
+      }
+    }
+  ],
+  "spans": [
+    {
+      "type": "start",
+      "id": 1,
+      "name": "review",
+      "kind": "phase",
+      "attrs": {
+        "pr": 7,
+        "round": 1,
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "type": "start",
+      "id": 2,
+      "name": "review.head-read",
+      "kind": "io",
+      "attrs": {
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "round": 1
+      }
+    },
+    {
+      "type": "end",
+      "id": 2,
+      "status": "ok",
+      "attrs": {}
+    },
+    {
+      "type": "start",
+      "id": 3,
+      "name": "review.reviewer",
+      "kind": "agent",
+      "attrs": {
+        "agent": "reviewer-s1-a",
+        "role": "reviewer",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "start",
+      "id": 4,
+      "name": "review.reviewer",
+      "kind": "agent",
+      "attrs": {
+        "agent": "reviewer-s1-b",
+        "role": "reviewer",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "start",
+      "id": 5,
+      "name": "review.security-lane",
+      "kind": "agent",
+      "attrs": {
+        "agent": "security-lane",
+        "role": "security",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "end",
+      "id": 3,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "end",
+      "id": 4,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "end",
+      "id": 5,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "start",
+      "id": 6,
+      "name": "review.verifier",
+      "kind": "agent",
+      "attrs": {
+        "agent": "verifier-1",
+        "role": "verifier",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "start",
+      "id": 7,
+      "name": "review.verifier",
+      "kind": "agent",
+      "attrs": {
+        "agent": "verifier-2",
+        "role": "verifier",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "start",
+      "id": 8,
+      "name": "review.verifier",
+      "kind": "agent",
+      "attrs": {
+        "agent": "verifier-3",
+        "role": "verifier",
+        "round": 1,
+        "wave": 1
+      }
+    },
+    {
+      "type": "end",
+      "id": 6,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "end",
+      "id": 7,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "end",
+      "id": 8,
+      "status": "ok",
+      "attrs": {
+        "state": "arrived",
+        "last_message_ts": "2026-11-11T12:00:00.000Z"
+      }
+    },
+    {
+      "type": "start",
+      "id": 9,
+      "name": "review.gate",
+      "kind": "gate",
+      "attrs": {
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "round": 1
+      }
+    },
+    {
+      "type": "end",
+      "id": 9,
+      "status": "blocked",
+      "attrs": {
+        "mergeable": false,
+        "blockers": 2
+      }
+    },
+    {
+      "type": "start",
+      "id": 10,
+      "name": "review.verdict",
+      "kind": "phase",
+      "attrs": {
+        "headSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "round": 1
+      }
+    },
+    {
+      "type": "end",
+      "id": 10,
+      "status": "ok",
+      "attrs": {
+        "status": "REVIEW_PENDING"
+      }
+    },
+    {
+      "type": "end",
+      "id": 1,
+      "status": "ok",
+      "attrs": {
+        "phase": "done",
+        "max_concurrent_agents": 8
+      }
+    }
+  ]
+}

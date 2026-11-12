@@ -159,8 +159,57 @@ function splitFrontmatter(md) {
   return { frontmatter, body };
 }
 
+/**
+ * Parse a markdown file that may have a title or comment (an H1, an HTML comment) before the
+ * frontmatter block, which splitFrontmatter does not accept: several TRDs in docs/TRD/ are laid out
+ * that way. Strategy:
+ * 1. Find first `---` on its own line → frontmatter start
+ * 2. Find second `---` on its own line → frontmatter end
+ * 3. If yaml is available, use it; otherwise fall back to parseSimpleFrontmatter
+ * Returns { frontmatter, body, yamlFailed } where yamlFailed=true when the
+ * yaml parser threw (indicating the frontmatter uses non-standard syntax
+ * such as bold-keyed lines).
+ *
+ * @param {string} md
+ * @returns {{frontmatter: Object|null, body: string, yamlFailed: boolean}}
+ */
+function scanFrontmatter(md) {
+  const lines = md.split('\n');
+  let start = -1;
+  let end = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      if (start === -1) start = i;
+      else if (start !== -1 && end === -1) { end = i; break; }
+    }
+  }
+  if (start === -1 || end === -1) {
+    return { frontmatter: null, body: md, yamlFailed: false };
+  }
+  const raw = lines.slice(start + 1, end).join('\n');
+  let frontmatter = null;
+  let yamlFailed = false;
+  if (yaml) {
+    try {
+      const loaded = yaml.load(raw);
+      if (loaded && typeof loaded === 'object') frontmatter = loaded;
+    } catch {
+      yamlFailed = true;
+    }
+  }
+  if (!frontmatter) { frontmatter = parseSimpleFrontmatter(raw); yamlFailed = true; }
+  const body = lines.slice(end + 1).join('\n');
+  return { frontmatter, body, yamlFailed };
+}
+
 /** Frontmatter keys that carry the PRD a TRD was derived from, in priority order. */
 const PRD_REFERENCE_KEYS = ['prd_reference', 'prd', 'source_prd'];
+/**
+ * Frontmatter key carrying the source PRD's file path for TRDs whose
+ * `prd_reference` holds a document id instead of a path. Looked up with the
+ * same case/spacing tolerance as PRD_REFERENCE_KEYS.
+ */
+const PRD_PATH_KEYS = ['prd_path'];
 
 const normalizeKey = (k) => String(k).trim().toLowerCase().replace(/[\s_-]+/g, '_');
 
@@ -340,6 +389,15 @@ function looksLikePath(s) {
  *   (1) docs/PRD/*.md markdown link or bare path anywhere
  *   (2) "Based on PRD: <path>"
  *   (3) "PRD: <path>"
+ *   (4) frontmatter prd_reference / prd / source_prd, when path-shaped
+ *   (5) frontmatter prd_path
+ *
+ * (5) exists because a TRD may record its source PRD as a document id in
+ * `prd_reference` (`PRD-2026-<uuid>`) and the actual path in a sibling
+ * `prd_path`. looksLikePath() rejects the bare id, so without this fallback
+ * such a TRD silently parses as "no PRD linked" and PRD-cross-checking
+ * callers (completion-verification Step 3, `trd-cli verify`) skip it.
+ * Body references keep winning, so an in-document path stays authoritative.
  */
 function extractPrdReference(body, frontmatter) {
   // Priority 1: docs/PRD/*.md path (markdown link target or bare).
@@ -364,6 +422,13 @@ function extractPrdReference(body, frontmatter) {
   const fmRef = getFrontmatterField(frontmatter, ...PRD_REFERENCE_KEYS);
   if (fmRef && looksLikePath(String(fmRef))) {
     return String(fmRef);
+  }
+
+  // prd_reference may hold the PRD's document id rather than a path; the path
+  // then lives in the sibling prd_path key.
+  const fmPath = getFrontmatterField(frontmatter, ...PRD_PATH_KEYS);
+  if (fmPath && looksLikePath(String(fmPath))) {
+    return String(fmPath);
   }
 
   return null;
@@ -1064,7 +1129,9 @@ function parseTRD(markdownString) {
 module.exports = {
   parseTRD,
   normalizeLineEndings,
+  scanFrontmatter,
   extractDesignReadinessScore,
   getFrontmatterField,
   PRD_REFERENCE_KEYS,
+  PRD_PATH_KEYS,
 };

@@ -1,0 +1,509 @@
+'use strict';
+// Driver library for the V2-6 paired measurement of quorum-first verification (kata 1yjx, plan v2 V2-6). Scratch, NOT committed to the repository's
+// code; a copy goes into the evidence directory as text. It descends from the verify-concurrency ramp's driver (ramp/tools/ramp-lib.js, kata j1wb),
+// which descends from the earlier measurement driver (measure2/tools/orch3.js): same rules.
+//
+// It composes no brief, computes no vote, sets no status and writes no ledger field. It starts exactly the agents a DISPATCH manifest names (prompts
+// unedited, through the session's `task` tool, effort hi, one shared short context) and calls `collect` ONLY after the dispatched agents have
+// FINISHED (their job is no longer running, read from proc://<id>) or have been stopped at their own deadline. It never collects on the first sight
+// of a result file: a result file of an agent that is still running holds the collect back. It reads from an agent only what the harness job status
+// exposes (status, duration, model, thinking level, requests, cost, context tokens, the task-result envelope outside its <output> block). It never
+// opens a session file or a transcript (owner decision D8).
+//
+// What is new against the ramp: a TRIAGE stop (full mode) is answered by RULE, at once (an empty `triage`, the answer every earlier measurement gave:
+// the driver adds no candidate), so no human pause enters a run; one committed host-load sampler per run (lib/pr-review-load.js) beside the
+// session-long ones; a quiet-machine wait before each run; per-PR gate-claim clearing; saving and restoring a PR's state report so a re-review follows
+// ITS OWN arm's first review; the arm proof (requested = seam text = prepare = run.json policy = manifest = trace).
+const fs = require('fs');
+const path = require('path');
+const { spawnSync, spawn } = require('child_process');
+const Policy = require('./v26-policy.js');
+
+const HOME = process.env.HOME;
+const SCRATCH = path.join(HOME, '.omp', 'pr-review-speedup', 'v26');
+const REPO_ROOT = '/Users/ldangelo/Development/Sunstone/ensemble.prs-v26';
+const NODE = '/opt/homebrew/bin/node';
+const LIB = path.join(REPO_ROOT, 'packages', 'development', 'lib');
+const RUNNER = path.join(LIB, 'review-run-cli.js');
+const PRCLI = path.join(LIB, 'pr-review-cli.js');
+const GUARD = path.join(LIB, 'review-recall-guard.js');
+const LOADLIB = path.join(LIB, 'pr-review-load.js');
+const PREPARE = path.join(SCRATCH, 'tools', 'v26-prepare.js');
+const REFERENCE = path.join(REPO_ROOT, 'docs', 'review-eval', 'recall', 'pr207-48c862c.json');
+const LOADLOG = path.join(SCRATCH, 'load', 'load.log');
+const ME = 'RunV26';
+const REPO = 'Sunstone-Partners/ensemble';
+const DEV_SHA = spawnSync('git', ['rev-parse', '63da19f'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.trim();
+const CONTEXT = '# Goal\nOne agent of an automated, independent pull-request review. The task text is complete and self-contained: follow it exactly.';
+const SOLUTION_SPACE = {
+  reviewer: 'open: what a reviewer finds in the assigned paths is not known in advance',
+  security: 'open: what a security reviewer finds in the assigned paths is not known in advance',
+  verifier: 'one claim per assignment to settle; the code and the check decide, no design choice',
+};
+const RUN_BUDGET_MS = 57 * 60 * 1000; // owner budget guard: a run over 60 minutes stops the campaign; this one stops the run at 57
+const LOAD_LIMIT = 20;
+const LOAD_SAMPLES_HIGH = 5; // 5 consecutive 30-second samples above the limit: noted
+const LOAD_SAMPLES_STOP = 20; // 20 consecutive samples (10 minutes) above the limit: the campaign stops (owner rule)
+const QUIET_LOAD1 = 6;
+const QUIET_WAIT_MS = 15 * 60 * 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const iso = (ms) => new Date(ms).toISOString();
+const clip = (s, n) => { s = String(s); return s.length > n ? s.slice(0, n) + '...' : s; };
+const camel = (prefix, name) => prefix + name.split(/[^A-Za-z0-9]+/).filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join('');
+const childEnv = (extra = {}) => ({ ...process.env, PATH: '/opt/homebrew/bin:' + (process.env.PATH || ''), TMPDIR: path.join(SCRATCH, 'tmp'), ...extra });
+
+/** `collect` of the committed runner CLI (real node, run in the worktree). */
+function runnerCall(cmd, payload, outFile) {
+  const t0 = Date.now();
+  const r = spawnSync(NODE, [RUNNER, cmd], { cwd: REPO_ROOT, input: JSON.stringify(payload), env: childEnv(), encoding: 'utf8', maxBuffer: 1 << 28 });
+  const t1 = Date.now();
+  fs.writeFileSync(outFile, r.stdout);
+  if (r.stderr) fs.writeFileSync(outFile + '.err', r.stderr);
+  fs.appendFileSync(outFile + '.calls.jsonl', JSON.stringify({ cmd, exit: r.status, startedMs: t0, endedMs: t1, durMs: t1 - t0 }) + '\n');
+  let answer;
+  try { answer = JSON.parse(r.stdout); } catch (e) { answer = { ok: false, status: 'UNPARSEABLE', error: String(e), stdout: (r.stdout || '').slice(0, 500) }; }
+  return { exit: r.status, answer, t0, t1 };
+}
+
+/** `prepare` through the scratch wrapper: the committed code with the one REVIEW.md seam of v26-prepare.js, serving `reviewMdFile`. */
+function prepareCall(payload, reviewMdFile, outFile) {
+  const t0 = Date.now();
+  const r = spawnSync(NODE, [PREPARE], { cwd: REPO_ROOT, input: JSON.stringify(payload), env: childEnv({ V26_REPO_ROOT: REPO_ROOT, V26_REVIEW_MD_FILE: reviewMdFile, V26_SEAM_OUT: outFile + '.seam.json' }), encoding: 'utf8', maxBuffer: 1 << 28 });
+  const t1 = Date.now();
+  fs.writeFileSync(outFile, r.stdout);
+  if (r.stderr) fs.writeFileSync(outFile + '.err', r.stderr);
+  fs.appendFileSync(outFile + '.calls.jsonl', JSON.stringify({ cmd: 'prepare', exit: r.status, startedMs: t0, endedMs: t1, durMs: t1 - t0 }) + '\n');
+  let answer;
+  try { answer = JSON.parse(r.stdout); } catch (e) { answer = { ok: false, status: 'UNPARSEABLE', error: String(e), stdout: (r.stdout || '').slice(0, 500) }; }
+  return { exit: r.status, answer, t0, t1 };
+}
+
+function cliCall(cmd, payload) {
+  const r = spawnSync(NODE, [PRCLI, cmd], { cwd: REPO_ROOT, input: JSON.stringify(payload), env: childEnv(), encoding: 'utf8', maxBuffer: 1 << 28 });
+  try { return JSON.parse(r.stdout); } catch (e) { return { ok: false, error: String(e), stdout: (r.stdout || '').slice(0, 300), stderr: (r.stderr || '').slice(0, 300) }; }
+}
+
+const nextIndex = (dir) => fs.readdirSync(dir).filter((f) => /^collect-\d+\.out$/.test(f)).length + 1;
+
+async function dispatch(tool, manifest, { prefix, effort, logFile }) {
+  const tasks = manifest.agents.map((a) => ({
+    name: camel(prefix, a.name),
+    task: a.prompt,
+    solutionSpace: SOLUTION_SPACE[a.role] || SOLUTION_SPACE.reviewer,
+    ...(effort ? { effort } : {}),
+  }));
+  const before = Date.now();
+  const res = await tool.task({ i: 'Dispatching ' + manifest.round + ' wave ' + manifest.wave, context: CONTEXT, tasks });
+  const after = Date.now();
+  fs.appendFileSync(logFile, JSON.stringify({ runId: manifest.runId, round: manifest.round, wave: manifest.wave, refill: manifest.refill === true, beforeMs: before, afterMs: after, effort: effort || null,
+    cap: manifest.maxConcurrentAgents, stillRunning: Array.isArray(manifest.stillRunning) ? manifest.stillRunning.length : 0, quorumFirst: manifest.quorumFirst || null,
+    spawned: res && res.text ? String(res.text).split('\n').length : null,
+    agents: manifest.agents.map((a, i) => ({ name: a.name, task: tasks[i].name, role: a.role, deadlineAt: a.deadlineAt, deadlineMinutes: a.deadlineMinutes, secondWave: a.secondWave === true, candidateIds: a.candidateIds || null })) }) + '\n');
+  return { before, after };
+}
+
+// What an agent's harness job exposes. Only these fields are kept; the <output> block of a finished agent is never stored.
+const ACTIVE = new Set(['running', 'queued', 'pending', 'starting', 'unknown']);
+const NOTE_RE = /\b429\b|rate[- ]?limit|too many requests|overloaded|throttl|quota|capacity|retry|retrying|timed? ?out/i;
+async function pollAgent(tool, id) {
+  try {
+    const r = await tool.read({ path: 'proc://' + id, i: 'Reading agent status' });
+    const job = r && r.details && r.details.proc && r.details.proc.job;
+    if (!job) {
+      const t = typeof r === 'string' ? r : (r && r.text) || '';
+      const m = t.match(/\[task\] \S+ — (\w+)/);
+      return { status: m ? m[1] : 'unknown', job: null, log: '' };
+    }
+    return { status: String(job.status), job, log: (r.details.proc && r.details.proc.log) || '' };
+  } catch (e) { return { status: 'notfound', job: null, log: '', error: clip(e, 120) }; }
+}
+
+function loadSamples(n = 12) {
+  try {
+    return fs.readFileSync(LOADLOG, 'utf8').trim().split('\n').slice(-n).map((l) => { const m = / load1=([\d.]+)/.exec(l); return m ? Number(m[1]) : null; }).filter((x) => x !== null);
+  } catch (e) { return []; }
+}
+const sustainedHighLoad = (n = LOAD_SAMPLES_HIGH) => { const s = loadSamples(n); return s.length >= n && s.slice(-n).every((x) => x > LOAD_LIMIT); };
+
+/** The machine's 1-minute load average now (`sysctl vm.loadavg`), or null. */
+function loadNow() {
+  const r = spawnSync('sysctl', ['-n', 'vm.loadavg'], { encoding: 'utf8' });
+  const m = /\{\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(r.stdout || '');
+  return m ? { load1: Number(m[1]), load5: Number(m[2]), load15: Number(m[3]) } : null;
+}
+function topProcesses(n = 6) {
+  const r = spawnSync('bash', ['-c', `ps -Ao pcpu=,pid=,etime=,command= -r | head -${n} | cut -c1-170`], { encoding: 'utf8' });
+  return (r.stdout || '').trim().split('\n');
+}
+
+/**
+ * The owner's quiet-machine rule: before a run, if load1 is above QUIET_LOAD1, wait (polling every 15 s) up to QUIET_WAIT_MS and note why (the busiest
+ * processes at each poll). It proceeds after the wait even if the machine is still busy, and says so.
+ */
+async function waitQuiet(label) {
+  const dir = path.join(SCRATCH, 'quiet'); fs.mkdirSync(dir, { recursive: true });
+  const t0 = Date.now();
+  const polls = [];
+  let quietAt = null;
+  for (;;) {
+    const l = loadNow();
+    const entry = { at: iso(Date.now()), load1: l && l.load1, load5: l && l.load5 };
+    if (l && l.load1 <= QUIET_LOAD1) { polls.push(entry); quietAt = Date.now(); break; }
+    entry.top = topProcesses(6);
+    polls.push(entry);
+    if (Date.now() - t0 >= QUIET_WAIT_MS) break;
+    await sleep(15000);
+  }
+  const rec = { label, limit: QUIET_LOAD1, waitedMs: Date.now() - t0, quiet: quietAt !== null, proceededBusy: quietAt === null, polls: polls.length > 12 ? [...polls.slice(0, 6), { elided: polls.length - 12 }, ...polls.slice(-6)] : polls };
+  fs.writeFileSync(path.join(dir, label + '.json'), JSON.stringify(rec, null, 1));
+  return rec;
+}
+
+/** Start the committed per-run load sampler (lib/pr-review-load.js) in the background; returns the child. */
+function startRunSampler(runId) {
+  const child = spawn(NODE, [LOADLIB, 'sample', '--run-id', runId, '--cwd', REPO_ROOT, '--interval-sec', '30', '--max-minutes', '110'], { stdio: 'ignore', detached: false, env: childEnv() });
+  return child;
+}
+function stopRunSampler(child) { try { child.kill('SIGTERM'); } catch (e) { /* already gone */ } }
+
+/**
+ * The gate of a (PR, head) is claimed once by a marker file under .ensemble/pr-review/, so a second run on the same head in the same worktree answers
+ * `already-started` and starts none (the ramp's run 2 found this). Every run must start its own gate, as a real review does: the previous gate's state
+ * files of this PR are copied into `archiveDir` and removed, after checking that its process is gone.
+ */
+function clearGateState(pr, archiveDir) {
+  const d = path.join(REPO_ROOT, '.ensemble', 'pr-review');
+  if (!fs.existsSync(d)) return [];
+  const re = new RegExp(`^precheck-pr-${pr}-[0-9a-f]{40}\\.dry\\.gate(-input)?\\.(json|log)$`);
+  const files = fs.readdirSync(d).filter((f) => re.test(f));
+  let alive = false;
+  for (const f of files) {
+    if (!/\.dry\.gate\.json$/.test(f)) continue;
+    let pid = null;
+    try { pid = JSON.parse(fs.readFileSync(path.join(d, f), 'utf8')).pid; } catch (e) { /* unreadable */ }
+    if (Number.isInteger(pid)) { try { process.kill(pid, 0); alive = true; } catch (e) { if (e.code === 'EPERM') alive = true; } }
+  }
+  if (alive) throw new Error('the previous gate (pid) is still running: not starting the next run');
+  if (files.length && archiveDir) {
+    fs.mkdirSync(path.join(archiveDir, 'gate-state'), { recursive: true });
+    for (const f of files) fs.copyFileSync(path.join(d, f), path.join(archiveDir, 'gate-state', f));
+  }
+  for (const f of files) fs.unlinkSync(path.join(d, f));
+  return files;
+}
+
+/** A PR's state report (one file per PR in this worktree: the latest finished run's), saved after a first review and restored before its re-review. */
+const stateFile = (pr) => path.join(REPO_ROOT, '.ensemble', 'pr-review', `pr-${pr}.json`);
+function saveState(pr, dest) { fs.copyFileSync(stateFile(pr), dest); return dest; }
+function restoreState(pr, src) { fs.copyFileSync(src, stateFile(pr)); }
+
+/**
+ * Drives one run's agents from `answer` (a DISPATCH) to the first answer that is not DISPATCH, PENDING or TRIAGE (ADJUDICATE, DONE, a failure). A TRIAGE
+ * stop is answered at once with an empty `triage` (by rule). Collect rules as in the earlier drivers (review round: every dispatched agent finished or
+ * stopped; rolling verify round: at least one agent newly finished and no still-running agent already has a result file).
+ */
+async function drive(tool, { runId, dir, prefix, effort = 'hi', answer, maxSteps = 2000, pollMs = 2000, startedMs = Date.now(), hooks = {}, budgetMs = RUN_BUDGET_MS }) {
+  let a = answer;
+  let dispatched = false;
+  const log = [];
+  const tracked = new Map();
+  const completion = [];
+  const jobs = {};
+  const series = []; // [epoch ms, agents running at once as this driver tracks them]
+  let peak = 0;
+  let lastN = -1;
+  let aborted = null;
+  let highLoadSeen = false;
+  let stopCampaign = false;
+  const triageRecords = [];
+  const note = (m) => { log.push(m); fs.appendFileSync(dir + '/driver.log', iso(Date.now()) + ' ' + m + '\n'); };
+  const saveDriverState = () => fs.writeFileSync(dir + '/driver-state.json', JSON.stringify({ at: iso(Date.now()), runId, prefix, lastStatus: a && a.status, tracked: [...tracked.values()], completion, jobs, peak, aborted, triage: triageRecords }, null, 1));
+  const collect = (extra = {}) => {
+    const n = nextIndex(dir);
+    const runningWithFile = [...tracked.values()].filter((t) => t.state === 'active' && fs.existsSync(t.outPath)).map((t) => t.name);
+    const c = runnerCall('collect', { repoRoot: REPO_ROOT, runId, ...extra }, dir + '/collect-' + n + '.out');
+    const x = c.answer;
+    for (const t of tracked.values()) if (t.state !== 'active') t.collected = true;
+    note('collect#' + n + ' -> ' + x.status + (x.round ? ' ' + x.round : '') + (x.wave ? ' wave ' + x.wave : '') + (x.refill ? ' refill' : '') + ' at ' + iso(c.t0) + ' (' + (c.t1 - c.t0) + ' ms)' + (runningWithFile.length ? ' RUNNING-WITH-FILE:' + runningWithFile.join(',') : ''));
+    return x;
+  };
+  for (let step = 0; step < maxSteps; step += 1) {
+    if (a.status === 'TRIAGE') {
+      // full mode: the review round is collected and the runner dispatched nothing. By rule: the driver adds no candidate (an empty triage).
+      const seenAt = Date.now();
+      const cand = (a.candidates || []).map((c) => c.id + ' ' + c.severity + ' ' + c.source + ' ' + c.locationOrLink + (c.unbriefable ? ' UNBRIEFABLE' : '') + (c.fromLastRound ? ' fromLastRound' : ''));
+      const digest = ['reReview ' + clip(JSON.stringify(a.reReview), 700), 'coverage ' + clip(JSON.stringify(a.coverage), 300), 'security ' + clip(JSON.stringify(a.security && { status: a.security.status, n: (a.security.findings || []).length }), 160), ...cand].join('\n');
+      fs.writeFileSync(dir + '/triage-digest.txt', digest + '\n');
+      fs.writeFileSync(dir + '/triage.json', JSON.stringify({ additionalCandidates: [] }) + '\n');
+      const x = collect({ triage: { additionalCandidates: [] } });
+      triageRecords.push({ seenAt: iso(seenAt), answeredAt: iso(Date.now()), answerMs: Date.now() - seenAt, candidates: cand.length, coverage: a.coverage && (a.coverage.complete === undefined ? null : a.coverage.complete), next: x.status });
+      note('TRIAGE answered by rule (empty) in ' + (Date.now() - seenAt) + ' ms -> ' + x.status);
+      a = x;
+      saveDriverState();
+      continue;
+    }
+    if (a.status === 'DISPATCH') {
+      if (!dispatched) await dispatch(tool, a, { prefix, effort, logFile: dir + '/dispatch.log.jsonl' });
+      dispatched = false;
+      if (!a.refill) tracked.clear();
+      const nowMs = Date.now();
+      for (const x of a.agents) {
+        tracked.set(x.name, { name: x.name, id: ME + '.' + camel(prefix, x.name), role: x.role, round: a.round, outPath: x.outPath, deadlineAt: x.deadlineAt, state: 'active', seenActive: false, dispatchedMs: nowMs, collected: false, how: null, finishedMs: null, secondWave: x.secondWave === true });
+        jobs[x.name] = { id: ME + '.' + camel(prefix, x.name), role: x.role, round: a.round, wave: a.wave, refill: a.refill === true, secondWave: x.secondWave === true, dispatchedMs: nowMs, lastRunning: null, final: null, statesSeen: [] };
+      }
+      if (hooks.onDispatch) { try { await hooks.onDispatch(a); } catch (e) { note('hook failed: ' + clip(e, 100)); } }
+      note('dispatched ' + a.round + ' wave ' + a.wave + (a.refill ? ' (refill; still running ' + (a.stillRunning || []).length + ')' : '') + (a.quorumFirst ? ' quorumFirst ' + JSON.stringify(a.quorumFirst) : '') + ': ' + a.agents.length + ' agents' + (a.agents.some((x) => x.secondWave) ? ' (' + a.agents.filter((x) => x.secondWave).length + ' second-wave)' : '') + ' at ' + iso(nowMs) + ' cap ' + a.maxConcurrentAgents);
+    } else if (a.status === 'PENDING') {
+      await sleep(Math.min(Math.max(a.retryAfterMs || 3000, 2000), 10000));
+    } else break;
+    const rolling = [...tracked.values()].some((t) => t.round === 'verify');
+    let lastLoadCheck = 0;
+    for (;;) {
+      const now = Date.now();
+      const act = [...tracked.values()].filter((t) => t.state === 'active');
+      const polled = await Promise.all(act.map((t) => pollAgent(tool, t.id)));
+      for (let i = 0; i < act.length; i += 1) {
+        const t = act[i];
+        const p = polled[i];
+        const st = p.status;
+        const jr = jobs[t.name];
+        if (p.job) {
+          const w = p.job.widget && p.job.widget.state;
+          if (w && !jr.statesSeen.includes(w)) jr.statesSeen.push(w);
+          if (st === 'running') jr.lastRunning = { t: now, durationMs: p.job.durationMs, requests: p.job.requests, cost: p.job.cost, contextTokens: p.job.contextTokens, contextWindow: p.job.contextWindow, model: p.job.resolvedModel, thinking: p.job.resolvedThinkingLevel };
+        }
+        if (ACTIVE.has(st)) { if (st === 'running') t.seenActive = true; }
+        else if (st === 'notfound') { if (t.seenActive || now - t.dispatchedMs > 30000) { t.state = 'finished'; t.how = 'proc-notfound'; t.finishedMs = now; } }
+        else {
+          t.state = 'finished'; t.how = 'proc:' + st; t.finishedMs = now;
+          const outside = String(p.log || '').replace(/<output>[\s\S]*?<\/output>/g, '<output/>');
+          const tag = (String(p.log || '').match(/<task-result [^>]*>/) || [''])[0];
+          const hit = NOTE_RE.exec(outside);
+          jr.final = { t: now, status: st, durationMs: p.job ? p.job.durationMs : null, model: p.job ? p.job.resolvedModel : null, thinking: p.job ? p.job.resolvedThinkingLevel : null, tag, envelopeNote: hit ? hit[0] : null };
+        }
+        if (t.state === 'finished') completion.push({ agent: t.name, role: t.role, round: t.round, how: t.how, detectedAt: iso(now), fileExists: fs.existsSync(t.outPath), fileMtime: fs.existsSync(t.outPath) ? iso(fs.statSync(t.outPath).mtimeMs) : null });
+      }
+      for (const t of tracked.values()) {
+        if (t.state === 'active' && Date.now() >= t.deadlineAt) {
+          try { await tool.write({ path: 'proc://' + t.id + '/kill', i: 'Stopping an agent at its deadline' }); note('stopped at its deadline: ' + t.name + ' ' + iso(Date.now())); }
+          catch (e) { note('stop failed ' + t.name + ': ' + clip(e, 100)); }
+          t.state = 'stopped'; t.how = 'killed-at-deadline'; t.finishedMs = Date.now();
+          completion.push({ agent: t.name, role: t.role, round: t.round, how: t.how, detectedAt: iso(t.finishedMs), fileExists: fs.existsSync(t.outPath), fileMtime: null });
+          const kp = await pollAgent(tool, t.id);
+          jobs[t.name].final = { t: Date.now(), status: kp.status, killedAtDeadline: true, durationMs: kp.job ? kp.job.durationMs : null, model: kp.job ? kp.job.resolvedModel : null, thinking: kp.job ? kp.job.resolvedThinkingLevel : null, tag: '', envelopeNote: null };
+        }
+      }
+      const all = [...tracked.values()];
+      const active = all.filter((t) => t.state === 'active');
+      const fresh = all.filter((t) => t.state !== 'active' && !t.collected);
+      if (active.length !== lastN) { lastN = active.length; series.push([Date.now(), active.length]); if (active.length > peak) peak = active.length; }
+      if (Date.now() - startedMs > budgetMs) {
+        aborted = 'run-budget-' + Math.round(budgetMs / 60000) + 'min';
+        note('BUDGET: the run passed ' + Math.round(budgetMs / 60000) + ' minutes; stopping the active agents');
+        for (const t of active) { try { await tool.write({ path: 'proc://' + t.id + '/kill', i: 'Stopping an agent: run budget' }); } catch (e) { /* best effort */ } t.state = 'stopped'; t.how = 'killed-at-budget'; t.finishedMs = Date.now(); }
+        break;
+      }
+      if (Date.now() - lastLoadCheck > 30000) {
+        lastLoadCheck = Date.now();
+        if (sustainedHighLoad() && !highLoadSeen) { highLoadSeen = true; note('LOAD: load1 above ' + LOAD_LIMIT + ' in the last ' + LOAD_SAMPLES_HIGH + ' samples'); }
+        if (sustainedHighLoad(LOAD_SAMPLES_STOP)) {
+          aborted = 'load-above-20-for-10-minutes'; stopCampaign = true;
+          note('LOAD: load1 above ' + LOAD_LIMIT + ' for ' + LOAD_SAMPLES_STOP + ' samples (10 minutes): stopping the active agents and the campaign (owner rule)');
+          for (const t of active) { try { await tool.write({ path: 'proc://' + t.id + '/kill', i: 'Stopping an agent: sustained host load' }); } catch (e) { /* best effort */ } t.state = 'stopped'; t.how = 'killed-at-load-stop'; t.finishedMs = Date.now(); }
+          break;
+        }
+      }
+      if (active.length === 0) break;
+      if (rolling && fresh.length > 0 && !active.some((t) => fs.existsSync(t.outPath))) break;
+      saveDriverState();
+      await sleep(pollMs);
+    }
+    if (aborted) break;
+    a = collect();
+    saveDriverState();
+  }
+  fs.writeFileSync(dir + '/completion.json', JSON.stringify(completion, null, 1));
+  fs.writeFileSync(dir + '/jobs.json', JSON.stringify(jobs, null, 1));
+  fs.writeFileSync(dir + '/concurrency.json', JSON.stringify({ peakTrackedActive: peak, series, highLoadSeen }, null, 1));
+  saveDriverState();
+  return { answer: a, log, completion, jobs, peak, aborted, highLoadSeen, stopCampaign, triage: triageRecords };
+}
+
+function adjudicationFor(e) {
+  const v = e.verification || {};
+  const t = v.tally || {};
+  const maj = v.settledOnMajority === true || (v.outcome === 'present' && Array.isArray(v.incompleteVerifiers) && v.incompleteVerifiers.length > 0);
+  const tally = t.real + ' real, ' + t.notReal + ' not-real and ' + t.abstain + ' abstaining of ' + t.expected + ' expected verifiers (' + v.outcome + (maj ? ', settled on a majority with a verifier missing' : '') + (v.quorumSettled ? ', settled by its first quorum' : '') + ')';
+  if (e.severity === 'important') return { id: e.id, disposition: 'fix', reason: 'Important finding' + (e.uncertain ? ' (the reviewer marked it uncertain)' : '') + '; ' + tally + '. Needs a fix on the PR or an operator decision; the review does not fix it.' };
+  if (e.severity === 'pre-existing') return { id: e.id, disposition: 'deferred', reason: 'Pre-existing: the cited lines lie outside every hunk of this diff (the runner checked); ' + tally + '. Deferred to a follow-up bead; the review does not fix it.' };
+  if (e.severity === 'nit') return { id: e.id, disposition: 'deferred', reason: 'Nit; ' + tally + '. Nothing default-on breaks. Deferred to a follow-up bead under the stopping rule; the review does not fix it.' };
+  return null;
+}
+
+/** Adjudicate every listed item by a fixed rule (Important -> fix, Nit and Pre-existing -> deferred); stop on anything else. */
+function autoAdjudicate(a, dir, runId) {
+  const byId = Object.fromEntries((a.ledger || []).map((e) => [e.id, e]));
+  const adjudications = [];
+  const manual = [];
+  for (const it of a.adjudicate || []) {
+    const e = byId[it.id];
+    const adj = e && adjudicationFor(e);
+    if (adj) adjudications.push(adj); else manual.push(it.id);
+  }
+  if (manual.length) return { manual };
+  fs.writeFileSync(dir + '/adjudications.json', JSON.stringify({ repoRoot: REPO_ROOT, runId, adjudications }, null, 1));
+  const n = nextIndex(dir);
+  const c = runnerCall('collect', { repoRoot: REPO_ROOT, runId, adjudications }, dir + '/collect-' + n + '.out');
+  return { answer: c.answer, at: iso(c.t0), n, count: adjudications.length };
+}
+
+/** Per-candidate record of the ledger: what is needed to compare outcomes between arms and to count quorum-settled candidates. */
+function ledgerStats(a) {
+  const L = a.ledger || [];
+  const o = { total: L.length, bySeverity: {}, present: 0, presentOnMajority: 0, quorumSettled: 0, unverified: 0, other: {}, candidates: [] };
+  for (const e of L) {
+    const v = e.verification || {};
+    const t = v.tally || {};
+    const key = e.severity + '/' + e.disposition + (e.cleared ? '/cleared' : '');
+    o.bySeverity[key] = (o.bySeverity[key] || 0) + 1;
+    const maj = v.settledOnMajority === true || (v.outcome === 'present' && Array.isArray(v.incompleteVerifiers) && v.incompleteVerifiers.length > 0);
+    const q = v.quorumSettled === true;
+    if (v.outcome === 'present' && q) o.quorumSettled += 1;
+    else if (v.outcome === 'present' && !maj) o.present += 1;
+    else if (v.outcome === 'present') o.presentOnMajority += 1;
+    else if (v.outcome === 'unverified') o.unverified += 1;
+    else o.other[v.outcome || 'none'] = (o.other[v.outcome || 'none'] || 0) + 1;
+    o.candidates.push({ id: e.id, severity: e.severity, source: e.source, loc: e.locationOrLink, claim: clip(e.failureMode || e.claim || '', 220), disposition: e.disposition, outcome: v.outcome, reason: v.reason, real: t.real, notReal: t.notReal, abstain: t.abstain, expected: t.expected, settledOnMajority: maj, quorumSettled: q, unasked: v.unaskedVerifiers || null, incomplete: (v.incompleteVerifiers || []).map((x) => x.verifier + ':' + x.reason), assigned: v.assigned || null, fromLastRound: e.fromLastRound === true, cleared: e.cleared === true, raisedBy: e.raisedBy || e.reviewers || null });
+  }
+  return o;
+}
+
+function flagsOf(dir) {
+  const flags = { rereadResults: [], restated: [], changedResults: [], warnings: [] };
+  for (const fn of fs.readdirSync(dir).filter((n) => /^collect-\d+\.out$/.test(n)).sort()) {
+    let x; try { x = JSON.parse(fs.readFileSync(path.join(dir, fn), 'utf8')); } catch (e) { continue; }
+    if (x.rereadResults && (!Array.isArray(x.rereadResults) || x.rereadResults.length)) flags.rereadResults.push({ at: fn, v: x.rereadResults });
+    if (x.restated) flags.restated.push({ at: fn, v: x.restated });
+    const cr = x.notReviewed && x.notReviewed.changedResults;
+    if (Array.isArray(cr) && cr.length) flags.changedResults.push({ at: fn, v: cr });
+    for (const w of x.warnings || []) { const s = typeof w === 'string' ? w : JSON.stringify(w); if (/reread|changed-after-read|result-removed|result-changed|collect-refused/i.test(s)) flags.warnings.push({ at: fn, w: clip(s, 240) }); }
+  }
+  return flags;
+}
+
+function gateSummary(prepareAnswer, dir) {
+  const g = (prepareAnswer.precheck && prepareAnswer.precheck.gate) || {};
+  const out = { action: g.action, pid: g.pid, startedAt: g.startedAt || null, reason: g.reason || null, logPath: g.logPath || null };
+  if (g.logPath && fs.existsSync(g.logPath)) {
+    try {
+      fs.copyFileSync(g.logPath, dir + '/gate.log');
+      const log = JSON.parse(fs.readFileSync(g.logPath, 'utf8'));
+      const fin = fs.statSync(g.logPath).mtime;
+      Object.assign(out, { finishedAt: fin.toISOString(), durationMin: g.startedAt ? Math.round((fin - new Date(g.startedAt)) / 600) / 100 : null, ok: log.ok, stage: log.stage, nodes: log.nodes, failures: (log.failures || []).map((f) => f.kind + ':' + (f.step || '') + ':' + (f.job || '')) });
+    } catch (e) { out.state = 'gate log unreadable or still being written'; }
+  } else out.state = 'no gate log';
+  return out;
+}
+
+const runJsonOf = (runId) => JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '.ensemble', 'pr-review', 'run', runId, 'run.json'), 'utf8'));
+
+function finishRun({ runId, pr, tier, round, dir, answer, prepareAnswer, extra = {} }) {
+  const timing = cliCall('timing', { runId, cwd: REPO_ROOT });
+  fs.writeFileSync(dir + '/timing.json', JSON.stringify(timing, null, 1));
+  const row = cliCall('walltime', { action: 'row', pr, tier, round, origin: 'real', runId, cwd: REPO_ROOT });
+  fs.writeFileSync(dir + '/walltime-row.json', JSON.stringify(row, null, 1));
+  const ls = ledgerStats(answer);
+  const flags = flagsOf(dir);
+  const gate = gateSummary(prepareAnswer, dir);
+  const comp = fs.existsSync(dir + '/completion.json') ? JSON.parse(fs.readFileSync(dir + '/completion.json', 'utf8')) : [];
+  const stopped = comp.filter((c) => c.how === 'killed-at-deadline').map((c) => c.agent + '(' + c.role + ')');
+  const rr = answer.reReview;
+  const votes = answer.votes && { verification: answer.votes.verification, reason: answer.votes.reason, quorumFirst: answer.votes.quorumFirst || null, outcomes: (answer.votes.outcomes || []).map((o) => ({ id: o.id, outcome: o.outcome, reason: o.reason, tally: o.tally, settledOnMajority: o.settledOnMajority === true, missing: o.missing || null, quorumSettled: o.quorumSettled === true, unaskedVerifiers: o.unaskedVerifiers || null })) };
+  const summary = {
+    runId, pr, tier, round, status: answer.status, headSha: answer.headSha,
+    mode: answer.mode && (answer.mode.mode || answer.mode), depth: answer.depth && (answer.depth.depth || answer.depth),
+    maxConcurrentAgents: answer.maxConcurrentAgents,
+    reReview: rr, carry: answer.carry && { appliedRange: answer.carry.appliedRange, carried: answer.carry.carried, reverified: answer.carry.reverified, recorded: answer.carry.recorded, unverifiedFromLastRound: answer.carry.unverifiedFromLastRound },
+    metrics: answer.metrics && { wallMs: answer.metrics.wallMs, runnerCalls: answer.metrics.runnerCalls, dispatchRounds: answer.metrics.dispatchRounds, agentsDispatched: answer.metrics.agentsDispatched, agentsByRole: answer.metrics.agentsByRole, turnsAtLeast: answer.metrics.orchestratorTurns && answer.metrics.orchestratorTurns.atLeast },
+    triage: answer.triage, stoppedAtDeadline: stopped, incompleteVerifiers: ((answer.notReviewed && answer.notReviewed.incompleteVerifiers) || []).map((v) => v.verifier + ':' + (v.candidateIds || []).join('/')),
+    gateBlockers: ((answer.gate && answer.gate.blockers) || []).map((b) => b.code + (b.findingId ? ':' + b.findingId : '')), mergeable: answer.gate && answer.gate.mergeable,
+    reviewStatus: answer.reviewStatus && { status: answer.reviewStatus.status, localPhase: answer.reviewStatus.localPhase, coverage: answer.reviewStatus.coverage && answer.reviewStatus.coverage.status, verification: answer.reviewStatus.verification },
+    reducedReview: answer.reducedReview || (answer.reviewStatus && answer.reviewStatus.reducedReview) || null,
+    votes, ledger: ls, flags, localCiGate: gate,
+    timing: { ok: timing.ok, wallMin: timing.wall && timing.wall.ms / 60000, window: timing.wall && [timing.wall.start, timing.wall.end], orchestratorOnly: timing.orchestratorOnly, beforeFirstDispatch: timing.beforeFirstDispatch && timing.beforeFirstDispatch.ms, activeMs: timing.activeMs && timing.activeMs.ms, criticalPath: timing.criticalPath, stages: timing.stages && Object.fromEntries(Object.entries(timing.stages).filter(([, v]) => v && v.count > 0).map(([k, v]) => [k, [v.count, v.ms]])), hostLoad: timing.hostLoad || null, warnings: timing.warnings },
+    row: row.row || row, ...extra,
+  };
+  fs.writeFileSync(dir + '/summary.json', JSON.stringify(summary, null, 1));
+  return summary;
+}
+
+/** The recall guard of the committed code against the committed #207 reference (#207 only), once at its default threshold and once with a threshold that cannot fail. */
+function recallGuard(answer, dir) {
+  const findings = dir + '/ledger-for-guard.json';
+  fs.writeFileSync(findings, JSON.stringify({ ledger: answer.ledger || [] }, null, 1));
+  const run = (extra) => spawnSync(NODE, [GUARD, '--reference', REFERENCE, '--findings', findings, ...extra], { cwd: REPO_ROOT, env: childEnv(), encoding: 'utf8', maxBuffer: 1 << 26 });
+  const d = run([]);
+  const m = run(['--max-false-negative', '1']);
+  fs.writeFileSync(dir + '/recall-guard-default-threshold.json', d.stdout || '{}');
+  fs.writeFileSync(dir + '/recall-guard.json', m.stdout || '{}');
+  let parsed = null; try { parsed = JSON.parse(m.stdout); } catch (e) { /* keep null */ }
+  return { exitDefaultThreshold: d.status, parsed };
+}
+
+/**
+ * The arm proof and the cap proof of one run: the value requested for the arm (`quorumFirstVerification` true for NEW, unset for OLD), the text the seam
+ * served (and whether it is byte-identical to the real REVIEW.md blob at the base), what `prepare` answered, what run.json holds (policy, policyExplicit,
+ * quorum), what the verify manifests said (`quorumFirst`) and what the trace recorded (root span cap, refill spans). The cap stays 8 in both arms.
+ */
+function armProof({ runId, arm, dir, prepareAnswer, reviewMd }) {
+  const runJson = runJsonOf(runId);
+  let seam = null; try { seam = JSON.parse(fs.readFileSync(dir + '/prepare.out.seam.json', 'utf8')); } catch (e) { /* none */ }
+  const trace = fs.readFileSync(path.join(REPO_ROOT, '.ensemble', 'state', 'toolchain', 'trace-' + runId + '.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const rootEnd = trace.filter((e) => e.type === 'span_end' && e.attrs && e.attrs.max_concurrent_agents !== undefined).map((e) => e.attrs.max_concurrent_agents);
+  const refillCaps = trace.filter((e) => e.type === 'span_start' && e.attrs && e.attrs.refill === true).map((e) => ({ agent: e.attrs.agent, cap: e.attrs.cap, running: e.attrs.running }));
+  const verifyManifests = [];
+  try {
+    for (const l of fs.readFileSync(dir + '/dispatch.log.jsonl', 'utf8').trim().split('\n')) { const m = JSON.parse(l); if (m.round === 'verify') verifyManifests.push({ wave: m.wave, refill: m.refill, quorumFirst: m.quorumFirst, agents: m.agents.length, secondWave: m.agents.filter((x) => x.secondWave).length }); }
+  } catch (e) { /* no verify round */ }
+  const requested = arm === 'new' ? true : null; // OLD: the key is not set anywhere
+  const policyKey = runJson.policy ? runJson.policy.quorumFirstVerification : undefined;
+  const explicitKey = runJson.policyExplicit ? runJson.policyExplicit.quorumFirstVerification : undefined;
+  const manifestApplied = verifyManifests.some((m) => m.quorumFirst !== null && m.quorumFirst !== undefined);
+  const expectedOn = arm === 'new';
+  const proof = {
+    runId, arm, requestedQuorumFirstVerification: requested, capRequested: 8,
+    reviewMd: { kind: reviewMd.kind, devSha: reviewMd.devSha || null, file: path.basename(reviewMd.file), sha256: seam && seam.servedSha256, servedBlob: seam && seam.servedBlob, realBlobAtBase: seam && seam.realBlobAtBase, servedEqualsRealBlobAtBase: seam && seam.servedEqualsRealBlobAtBase, seamCalls: seam && seam.served },
+    prepareAnswerMaxConcurrentAgents: prepareAnswer.maxConcurrentAgents,
+    runJsonMaxConcurrentAgents: runJson.maxConcurrentAgents,
+    runJsonPolicyMaxConcurrentAgents: runJson.policy && runJson.policy.maxConcurrentAgents,
+    runJsonPolicyQuorumFirstVerification: policyKey, runJsonPolicyExplicitQuorumFirstVerification: explicitKey,
+    runJsonQuorum: runJson.quorum === undefined ? null : runJson.quorum,
+    runJsonPolicyStatus: runJson.policyStatus, runJsonPolicyExplicit: runJson.policyExplicit, runJsonPolicyRejected: runJson.policyRejected,
+    runJsonSeverityGuideProblem: runJson.severityGuideProblem,
+    runJsonBaseSha: runJson.baseSha, runJsonBaseRefName: runJson.baseRefName, runJsonHeadSha: runJson.headSha, runJsonTier: runJson.tier && { tier: runJson.tier.tier, effectiveTier: runJson.tier.effectiveTier }, runJsonMode: runJson.mode && runJson.mode.mode, runJsonDepth: runJson.depth && { mode: runJson.depth.mode, verifiersPerCandidate: runJson.depth.verifiersPerCandidate },
+    sizingLimits: runJson.sizing && runJson.sizing.limits, sizingWarnings: runJson.sizing && runJson.sizing.warnings,
+    wavesPlanned: runJson.waves.map((w) => ({ round: w.round, wave: w.wave, agents: w.agents.length, refill: w.refill === true, secondWave: w.agents.filter((x) => x.secondWave === true).length })),
+    verifyManifests, refillSpanCaps: refillCaps, rootSpanMaxConcurrentAgents: rootEnd,
+    refillSpanCapsAllEqual8: refillCaps.every((x) => x.cap === 8),
+    capsAgree: prepareAnswer.maxConcurrentAgents === 8 && runJson.maxConcurrentAgents === 8 && runJson.policy.maxConcurrentAgents === 8 && rootEnd.every((x) => x === 8) && rootEnd.length >= 1 && refillCaps.every((x) => x.cap === 8),
+    quorumApplied: runJson.quorum ? runJson.quorum.applied === true : null,
+    quorumManifestApplied: manifestApplied,
+    quorumArmAgrees: expectedOn
+      ? (policyKey === true && (verifyManifests.length === 0 || (runJson.quorum && runJson.quorum.requested === true && runJson.quorum.applied === true && manifestApplied)))
+      : (policyKey === false && runJson.quorum === undefined && !manifestApplied),
+  };
+  proof.allAgree = proof.capsAgree && proof.quorumArmAgrees && (reviewMd.kind !== 'dev-review-md' || arm === 'new' || proof.reviewMd.servedEqualsRealBlobAtBase === true || proof.reviewMd.realBlobAtBase === null);
+  fs.writeFileSync(dir + '/arm-proof.json', JSON.stringify(proof, null, 1));
+  return proof;
+}
+
+/** The job list, reduced to name, kind, state and uptime: who else is running beside the measurement (the descriptions after the dash are dropped). */
+async function procSnapshot(tool) {
+  try {
+    const r = await tool.read({ path: 'proc://', i: 'Listing jobs' });
+    const text = typeof r === 'string' ? r : (r && r.text) || '';
+    return text.split('\n').filter((l) => /\[(task|service)\]/.test(l)).map((l) => l.replace(/^(\S+ \[task\] \S+ up \S+) — .*$/, '$1'));
+  } catch (e) { return ['unavailable: ' + clip(e, 80)]; }
+}
+
+module.exports = { SCRATCH, REPO_ROOT, NODE, ME, REPO, DEV_SHA, LOADLOG, runnerCall, prepareCall, cliCall, nextIndex, dispatch, drive, autoAdjudicate, ledgerStats, flagsOf, gateSummary, finishRun, recallGuard, armProof, runJsonOf, loadSamples, sustainedHighLoad, loadNow, topProcesses, waitQuiet, startRunSampler, stopRunSampler, clearGateState, stateFile, saveState, restoreState, camel, sleep, clip, iso, pollAgent, childEnv, procSnapshot, RUN_BUDGET_MS, LOAD_LIMIT, QUIET_LOAD1, Policy };

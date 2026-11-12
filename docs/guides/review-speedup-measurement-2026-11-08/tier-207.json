@@ -1,0 +1,42 @@
+{
+ "baseRef": "origin/feature/e2e-evidence-screenshots",
+ "headRef": "origin/feature/e2e-xunit-spec-writer",
+ "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "reviewMdAtBase": false,
+ "policyOk": true,
+ "policyReason": null,
+ "policyNotes": [
+  "no-policy-file"
+ ],
+ "sensitiveDeclared": 0,
+ "highDeclared": [],
+ "changedPaths": 18,
+ "changedLines": 727,
+ "classification": {
+  "sensitive": [],
+  "high": []
+ },
+ "tier": {
+  "tier": "medium",
+  "effectiveTier": "medium",
+  "humansRequired": 1,
+  "reasons": [
+   "product-change",
+   "second-assessment-missing",
+   "not-low-tier"
+  ]
+ },
+ "mode": {
+  "mode": "light",
+  "reasons": [
+   "medium-tier"
+  ],
+  "requires": {
+   "depth": "standard",
+   "minReviewers": 2,
+   "verifiersPerFinding": 3
+  },
+  "securityLane": true
+ }
+}

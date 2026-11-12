@@ -1,0 +1,394 @@
+{
+ "runId": "v26-03-pr207-new-first-rep",
+ "repo": "Sunstone-Partners/ensemble",
+ "pr": 207,
+ "headSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "baseRefName": "feature/e2e-evidence-screenshots",
+ "round": 1,
+ "lastReviewedSha": null,
+ "policy": {
+  "maxConcurrentAgents": 8,
+  "quorumFirstVerification": true,
+  "roundCap": 3,
+  "sliceThreshold": 1500
+ },
+ "policyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "policyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "severityGuideProblem": "severity-section-missing",
+ "tier": {
+  "tier": "medium",
+  "effectiveTier": "medium"
+ },
+ "mode": "standard",
+ "electorate": 3,
+ "depthMode": "standard",
+ "quorum": {
+  "requested": true,
+  "applied": true,
+  "expected": 3,
+  "needed": 2,
+  "nextVerifier": 11,
+  "secondWave": [],
+  "skipped": []
+ },
+ "plannedByRunner": 10,
+ "plannedFullElectorate": 15,
+ "candidatesVerified": 15,
+ "candidates": [
+  {
+   "id": "f1",
+   "source": "reviewer-s1-a",
+   "severity": "important",
+   "loc": "packages/e2e-testing/agents/playwright-tester.yaml:61"
+  },
+  {
+   "id": "f2",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:151"
+  },
+  {
+   "id": "f3",
+   "source": "reviewer-s1-a",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:226"
+  },
+  {
+   "id": "f6",
+   "source": "reviewer-s2-b",
+   "severity": "important",
+   "loc": "packages/e2e-testing/lib/e2e-framework.js:24-25"
+  },
+  {
+   "id": "f5",
+   "source": "reviewer-s2-a",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68"
+  },
+  {
+   "id": "f7",
+   "source": "reviewer-s2-b",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/tests/author-playwright-tests-framework.test.js:25"
+  },
+  {
+   "id": "f8",
+   "source": "reviewer-s2-b",
+   "severity": "pre-existing",
+   "loc": "packages/e2e-testing/tests/author-playwright-tests-evidence.test.js:68"
+  },
+  {
+   "id": "f9",
+   "source": "reviewer-s2-b",
+   "severity": "pre-existing",
+   "loc": "packages/e2e-testing/lib/spec-writer.js:381"
+  },
+  {
+   "id": "f10",
+   "source": "reviewer-s3-a",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:250"
+  },
+  {
+   "id": "f11",
+   "source": "reviewer-s3-a",
+   "severity": "nit",
+   "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:181"
+  },
+  {
+   "id": "f12",
+   "source": "reviewer-s3-b",
+   "severity": "nit",
+   "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:114"
+  },
+  {
+   "id": "f14",
+   "source": "reviewer-s3-b",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/tests/spec-writer-xunit.test.js:200"
+  },
+  {
+   "id": "f16",
+   "source": "reviewer-range",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/lib/e2e-framework.js:25"
+  },
+  {
+   "id": "f17",
+   "source": "reviewer-range",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/lib/spec-writer.js:224-229"
+  },
+  {
+   "id": "f18",
+   "source": "reviewer-range",
+   "severity": "nit",
+   "loc": "packages/e2e-testing/lib/spec-writer.js:155"
+  }
+ ],
+ "assignment": [
+  {
+   "id": "f1",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f2",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f3",
+   "verifiers": [
+    "verifier-5",
+    "verifier-6"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f6",
+   "verifiers": [
+    "verifier-7",
+    "verifier-8"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f5",
+   "verifiers": [
+    "verifier-9",
+    "verifier-10"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f7",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f8",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f9",
+   "verifiers": [
+    "verifier-5",
+    "verifier-6"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f10",
+   "verifiers": [
+    "verifier-7",
+    "verifier-8"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f11",
+   "verifiers": [
+    "verifier-9",
+    "verifier-10"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f12",
+   "verifiers": [
+    "verifier-1",
+    "verifier-2"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f14",
+   "verifiers": [
+    "verifier-3",
+    "verifier-4"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f16",
+   "verifiers": [
+    "verifier-5",
+    "verifier-6"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f17",
+   "verifiers": [
+    "verifier-7",
+    "verifier-8"
+   ],
+   "unasked": 0
+  },
+  {
+   "id": "f18",
+   "verifiers": [
+    "verifier-9",
+    "verifier-10"
+   ],
+   "unasked": 0
+  }
+ ],
+ "verifyAgents": [
+  {
+   "name": "verifier-1",
+   "candidateIds": [
+    "f1",
+    "f7",
+    "f12"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-2",
+   "candidateIds": [
+    "f1",
+    "f7",
+    "f12"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-3",
+   "candidateIds": [
+    "f2",
+    "f8",
+    "f14"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-4",
+   "candidateIds": [
+    "f2",
+    "f8",
+    "f14"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-5",
+   "candidateIds": [
+    "f3",
+    "f9",
+    "f16"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-6",
+   "candidateIds": [
+    "f3",
+    "f9",
+    "f16"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-7",
+   "candidateIds": [
+    "f6",
+    "f10",
+    "f17"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-8",
+   "candidateIds": [
+    "f6",
+    "f10",
+    "f17"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-9",
+   "candidateIds": [
+    "f5",
+    "f11",
+    "f18"
+   ],
+   "secondWave": false
+  },
+  {
+   "name": "verifier-10",
+   "candidateIds": [
+    "f5",
+    "f11",
+    "f18"
+   ],
+   "secondWave": false
+  }
+ ],
+ "waves": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 8,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 8,
+   "refill": false,
+   "status": "collected"
+  },
+  {
+   "round": "verify",
+   "wave": 2,
+   "agents": 2,
+   "refill": true,
+   "status": "collected"
+  }
+ ],
+ "slices": [
+  {
+   "id": "whole-pr~1",
+   "paths": 8
+  },
+  {
+   "id": "whole-pr~2",
+   "paths": 6
+  },
+  {
+   "id": "whole-pr~3",
+   "paths": 4
+  }
+ ],
+ "sizingWarnings": [
+  {
+   "code": "severity-guide-fallback",
+   "message": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)"
+  }
+ ],
+ "reReview": null,
+ "carry": null
+}

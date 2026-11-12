@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-phoenix",
-  "version": "6.0.1",
+  "version": "6.0.2",
   "description": "Phoenix LiveView framework skills",
   "main": "lib/index.js",
   "scripts": {

@@ -1,0 +1,1112 @@
+{
+ "ok": true,
+ "runId": "v26-01-pr207-old-first",
+ "wall": {
+  "ms": 1875660,
+  "missing": false,
+  "start": "2026-11-11T22:12:56.586Z",
+  "end": "2026-11-11T22:44:12.246Z"
+ },
+ "turns": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record turns"
+ },
+ "toolCalls": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record tool_calls"
+ },
+ "agents": {
+  "count": 26,
+  "lingerMs": 2852880,
+  "unusable": [],
+  "byRole": {
+   "classifier": {
+    "count": 0,
+    "slowest": {
+     "stage": "classifier",
+     "ms": null,
+     "missing": true,
+     "reason": "no classifier span recorded"
+    }
+   },
+   "second-assessor": {
+    "count": 0,
+    "slowest": {
+     "stage": "second-assessor",
+     "ms": null,
+     "missing": true,
+     "reason": "no second-assessor span recorded"
+    }
+   },
+   "security-lane": {
+    "count": 1,
+    "slowest": {
+     "stage": "security-lane",
+     "ms": 424971,
+     "missing": false,
+     "name": "security-lane"
+    }
+   },
+   "reviewer": {
+    "count": 7,
+    "slowest": {
+     "stage": "reviewer",
+     "ms": 927392,
+     "missing": false,
+     "name": "reviewer-range"
+    }
+   },
+   "verifier": {
+    "count": 18,
+    "slowest": {
+     "stage": "verifier",
+     "ms": 411844,
+     "missing": false,
+     "name": "verifier-10"
+    }
+   }
+  }
+ },
+ "activeMs": {
+  "ms": 1849827,
+  "missing": false
+ },
+ "orchestratorOnly": {
+  "ms": 25833,
+  "missing": false,
+  "pct": 1
+ },
+ "beforeFirstDispatch": {
+  "ms": 13875,
+  "missing": false
+ },
+ "criticalPath": {
+  "ms": null,
+  "missing": true,
+  "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+  "rounds": [
+   {
+    "round": 1,
+    "steps": [
+     {
+      "stage": "reviewer",
+      "ms": 927392,
+      "missing": false,
+      "name": "reviewer-range"
+     },
+     {
+      "stage": "verifier",
+      "ms": 922435,
+      "missing": false,
+      "rolling": true,
+      "waves": 5
+     },
+     {
+      "stage": "verdict",
+      "ms": null,
+      "missing": true,
+      "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+     }
+    ],
+    "ms": null,
+    "missing": true,
+    "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+   }
+  ]
+ },
+ "stages": {
+  "review.head-read": {
+   "count": 1,
+   "ms": 26,
+   "missing": false
+  },
+  "review.gate": {
+   "count": 2,
+   "ms": 1371,
+   "missing": false
+  },
+  "review.verdict": {
+   "count": 2,
+   "ms": 25,
+   "missing": false
+  },
+  "review.classifier": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.second-assessor": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.security-lane": {
+   "count": 1,
+   "ms": 424971,
+   "missing": false
+  },
+  "review.reviewer": {
+   "count": 7,
+   "ms": 927392,
+   "missing": false
+  },
+  "review.verifier": {
+   "count": 18,
+   "ms": 411844,
+   "missing": false
+  }
+ },
+ "warnings": [],
+ "hostLoad": {
+  "missing": false,
+  "scope": "orchestrator window",
+  "samples": 62,
+  "load1": {
+   "min": 3.28,
+   "mean": 6.88,
+   "max": 15.03
+  },
+  "cpus": 18,
+  "intervalMs": 30001
+ },
+ "agentStats": {
+  "byRole": {
+   "classifier": {
+    "count": 0,
+    "toolCalls": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "turns": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "effort": {
+     "values": {},
+     "missing": 0
+    },
+    "model": {
+     "values": {},
+     "missing": 0
+    },
+    "retries": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "rateLimits": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "without": []
+   },
+   "second-assessor": {
+    "count": 0,
+    "toolCalls": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "turns": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "effort": {
+     "values": {},
+     "missing": 0
+    },
+    "model": {
+     "values": {},
+     "missing": 0
+    },
+    "retries": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "rateLimits": {
+     "known": 0,
+     "missing": 0,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "no agent of this role was recorded"
+    },
+    "without": []
+   },
+   "security-lane": {
+    "count": 1,
+    "toolCalls": {
+     "known": 0,
+     "missing": 1,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 1 security-lane agent(s) has a tool_calls figure"
+    },
+    "turns": {
+     "known": 0,
+     "missing": 1,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 1 security-lane agent(s) has a turns figure"
+    },
+    "effort": {
+     "values": {},
+     "missing": 1
+    },
+    "model": {
+     "values": {},
+     "missing": 1
+    },
+    "retries": {
+     "known": 0,
+     "missing": 1,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 1 security-lane agent(s) has a retries figure"
+    },
+    "rateLimits": {
+     "known": 0,
+     "missing": 1,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 1 security-lane agent(s) has a rate_limits figure"
+    },
+    "without": [
+     {
+      "figure": "toolCalls",
+      "reason": "the dispatcher supplied no tool_calls for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     },
+     {
+      "figure": "turns",
+      "reason": "the dispatcher supplied no turns for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     },
+     {
+      "figure": "effort",
+      "reason": "the dispatcher supplied no effort for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     },
+     {
+      "figure": "model",
+      "reason": "the dispatcher supplied no model for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     },
+     {
+      "figure": "retries",
+      "reason": "the dispatcher supplied no retries for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     },
+     {
+      "figure": "rateLimits",
+      "reason": "the dispatcher supplied no rate_limits for this agent at collect",
+      "agents": [
+       "security-lane"
+      ]
+     }
+    ]
+   },
+   "reviewer": {
+    "count": 7,
+    "toolCalls": {
+     "known": 0,
+     "missing": 7,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 7 reviewer agent(s) has a tool_calls figure"
+    },
+    "turns": {
+     "known": 0,
+     "missing": 7,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 7 reviewer agent(s) has a turns figure"
+    },
+    "effort": {
+     "values": {},
+     "missing": 7
+    },
+    "model": {
+     "values": {},
+     "missing": 7
+    },
+    "retries": {
+     "known": 0,
+     "missing": 7,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 7 reviewer agent(s) has a retries figure"
+    },
+    "rateLimits": {
+     "known": 0,
+     "missing": 7,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 7 reviewer agent(s) has a rate_limits figure"
+    },
+    "without": [
+     {
+      "figure": "toolCalls",
+      "reason": "the dispatcher supplied no tool_calls for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     },
+     {
+      "figure": "turns",
+      "reason": "the dispatcher supplied no turns for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     },
+     {
+      "figure": "effort",
+      "reason": "the dispatcher supplied no effort for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     },
+     {
+      "figure": "model",
+      "reason": "the dispatcher supplied no model for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     },
+     {
+      "figure": "retries",
+      "reason": "the dispatcher supplied no retries for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     },
+     {
+      "figure": "rateLimits",
+      "reason": "the dispatcher supplied no rate_limits for this agent at collect",
+      "agents": [
+       "reviewer-s1-a",
+       "reviewer-s1-b",
+       "reviewer-s2-a",
+       "reviewer-s2-b",
+       "reviewer-s3-a",
+       "reviewer-s3-b",
+       "reviewer-range"
+      ]
+     }
+    ]
+   },
+   "verifier": {
+    "count": 18,
+    "toolCalls": {
+     "known": 0,
+     "missing": 18,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 18 verifier agent(s) has a tool_calls figure"
+    },
+    "turns": {
+     "known": 0,
+     "missing": 18,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 18 verifier agent(s) has a turns figure"
+    },
+    "effort": {
+     "values": {},
+     "missing": 18
+    },
+    "model": {
+     "values": {},
+     "missing": 18
+    },
+    "retries": {
+     "known": 0,
+     "missing": 18,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 18 verifier agent(s) has a retries figure"
+    },
+    "rateLimits": {
+     "known": 0,
+     "missing": 18,
+     "total": null,
+     "min": null,
+     "max": null,
+     "reason": "none of the 18 verifier agent(s) has a rate_limits figure"
+    },
+    "without": [
+     {
+      "figure": "toolCalls",
+      "reason": "the dispatcher supplied no tool_calls for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     },
+     {
+      "figure": "turns",
+      "reason": "the dispatcher supplied no turns for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     },
+     {
+      "figure": "effort",
+      "reason": "the dispatcher supplied no effort for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     },
+     {
+      "figure": "model",
+      "reason": "the dispatcher supplied no model for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     },
+     {
+      "figure": "retries",
+      "reason": "the dispatcher supplied no retries for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     },
+     {
+      "figure": "rateLimits",
+      "reason": "the dispatcher supplied no rate_limits for this agent at collect",
+      "agents": [
+       "verifier-1",
+       "verifier-2",
+       "verifier-3",
+       "verifier-4",
+       "verifier-5",
+       "verifier-6",
+       "verifier-7",
+       "verifier-8",
+       "verifier-9",
+       "verifier-10",
+       "verifier-11",
+       "verifier-12",
+       "verifier-13",
+       "verifier-14",
+       "verifier-15",
+       "verifier-16",
+       "verifier-17",
+       "verifier-18"
+      ]
+     }
+    ]
+   }
+  },
+  "agents": [
+   {
+    "role": "reviewer",
+    "name": "reviewer-s1-a",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 704181,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 23,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-s1-b",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 621553,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 21,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-s2-a",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 819636,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 27,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-s2-b",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 782860,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 26,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-s3-a",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 688830,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 23,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-s3-b",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 729244,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 24,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "reviewer",
+    "name": "reviewer-range",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 927392,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 31,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "security-lane",
+    "name": "security-lane",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 424971,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 14,
+     "load1Max": 15.03
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-1",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 287829,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-2",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 330300,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 11,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-3",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 291406,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-4",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 366356,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 12,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-5",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 333159,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 11,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-6",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 366026,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 12,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-7",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 299320,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-8",
+    "round": 1,
+    "wave": 1,
+    "durationMs": 334932,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 11,
+     "load1Max": 8.36
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-9",
+    "round": 1,
+    "wave": 2,
+    "durationMs": 280188,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 9.13
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-10",
+    "round": 1,
+    "wave": 2,
+    "durationMs": 411844,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 14,
+     "load1Max": 10.38
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-11",
+    "round": 1,
+    "wave": 2,
+    "durationMs": 193636,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 7,
+     "load1Max": 9.13
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-12",
+    "round": 1,
+    "wave": 3,
+    "durationMs": 298334,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 10.38
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-13",
+    "round": 1,
+    "wave": 3,
+    "durationMs": 249305,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 9,
+     "load1Max": 9.13
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-14",
+    "round": 1,
+    "wave": 3,
+    "durationMs": 203048,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 7,
+     "load1Max": 9.13
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-15",
+    "round": 1,
+    "wave": 4,
+    "durationMs": 283124,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 10,
+     "load1Max": 10.38
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-16",
+    "round": 1,
+    "wave": 4,
+    "durationMs": 360884,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 13,
+     "load1Max": 10.38
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-17",
+    "round": 1,
+    "wave": 5,
+    "durationMs": 261721,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 9,
+     "load1Max": 10.38
+    }
+   },
+   {
+    "role": "verifier",
+    "name": "verifier-18",
+    "round": 1,
+    "wave": 5,
+    "durationMs": 378020,
+    "toolCalls": null,
+    "turns": null,
+    "effort": null,
+    "model": null,
+    "retries": null,
+    "rateLimits": null,
+    "hostLoad": {
+     "samples": 13,
+     "load1Max": 10.38
+    }
+   }
+  ]
+ },
+ "tracePath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/state/toolchain/trace-v26-01-pr207-old-first.jsonl"
+}

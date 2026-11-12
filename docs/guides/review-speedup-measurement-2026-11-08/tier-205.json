@@ -1,0 +1,42 @@
+{
+ "baseRef": "origin/dev",
+ "headRef": "origin/feature/e2e-evidence-screenshots",
+ "baseSha": "306934f5425206485d262ed3aa2db3a11c078b92",
+ "headSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "reviewMdAtBase": false,
+ "policyOk": true,
+ "policyReason": null,
+ "policyNotes": [
+  "no-policy-file"
+ ],
+ "sensitiveDeclared": 0,
+ "highDeclared": [],
+ "changedPaths": 23,
+ "changedLines": 1295,
+ "classification": {
+  "sensitive": [],
+  "high": []
+ },
+ "tier": {
+  "tier": "medium",
+  "effectiveTier": "medium",
+  "humansRequired": 1,
+  "reasons": [
+   "product-change",
+   "second-assessment-missing",
+   "not-low-tier"
+  ]
+ },
+ "mode": {
+  "mode": "light",
+  "reasons": [
+   "medium-tier"
+  ],
+  "requires": {
+   "depth": "standard",
+   "minReviewers": 2,
+   "verifiersPerFinding": 3
+  },
+  "securityLane": true
+ }
+}

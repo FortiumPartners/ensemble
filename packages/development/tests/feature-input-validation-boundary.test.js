@@ -2,15 +2,13 @@
  * Unit tests for TRD-005 / TRD-005-TEST (REQ-015): command input validation
  * at the boundary.
  *
- * `ensemble:feature`'s dispatch step rejects an unknown action or an
+ * The feature skill's (skills/ensemble-feature/SKILL.md) dispatch step rejects an unknown action or an
  * unsupported flag before any run state is created or read (no RunIndexStore
  * access, no forward invocation constructed), showing the supported action
  * list instead.
  */
 
-const fs = require('fs');
-const path = require('path');
-const yaml = require('js-yaml');
+const { readFeature } = require('./helpers/feature-skill');
 
 function actionsText(step) {
   return (step.actions || []).join('\n');
@@ -19,15 +17,12 @@ function actionsText(step) {
 describe('Feature command input validation at the boundary (TRD-005)', () => {
   let dispatchStep;
 
-  const yamlPath = path.join(__dirname, '..', 'commands', 'feature.yaml');
-
   beforeAll(() => {
-    const commandYaml = yaml.load(fs.readFileSync(yamlPath, 'utf-8'));
-    const dispatchPhase = commandYaml.workflow.phases.find((p) => p.name === 'Dispatch');
+    const dispatchPhase = readFeature().workflow.phases.find((p) => p.name === 'Dispatch');
     dispatchStep = dispatchPhase.steps.find((s) => s.order === 1);
   });
 
-  test('the REQ-015 validation action runs before any per-keyword routing action in the actions[] array', () => {
+  test('the REQ-015 validation action runs before any per-keyword routing action in the step\'s action bullets', () => {
     const indexOfValidation = dispatchStep.actions.findIndex((a) => a.includes('Command input validation at the boundary (REQ-015)'));
     const indexOfNewKeyword = dispatchStep.actions.findIndex((a) => a.startsWith('keyword `new`:'));
     expect(indexOfValidation).toBeGreaterThan(-1);

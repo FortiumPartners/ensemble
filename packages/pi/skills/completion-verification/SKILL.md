@@ -139,25 +139,16 @@ closed is `GAP: class=TEST-GAP, task=<task.id>, testTask=<task.id>-TEST`.
 
 ### Step 3 — Requirement Coverage Cross-Check
 
-Skipped entirely if `trd.prdReference` is empty/null (no PRD linked — nothing
-to cross-check).
+Skipped if `trd.prdReference` is empty/null (no PRD to cross-check).
 
-1. Resolve the PRD path the same way `trd-cli.js`'s internal `resolvePrd()`
-   does: try `trd.prdReference` as-given from cwd, then relative to
-   `TRD_FILE_PATH`'s directory. If neither resolves to a readable file: GAP:
-   class=REQ-UNSATISFIED, reason="PRD reference '<trd.prdReference>' could not
-   be resolved to a file" — record one gap, do not attempt further REQ checks.
+1. Resolve the PRD path as `trd-cli.js`'s internal `resolvePrd()` does: try
+   `trd.prdReference` as-given from cwd, then relative to `TRD_FILE_PATH`'s
+   directory. If neither resolves to a readable file, record one gap
+   (`class=REQ-UNSATISFIED`, `reason="PRD reference '<trd.prdReference>' could
+   not be resolved to a file"`) and skip the rest of this step.
 
-2. Extract REQ-NNN ids and MoSCoW priority from the PRD. There is no existing
-   reusable extractor in this package that both (a) matches the real-world
-   `### REQ-NNN:` / `#### REQ-NNN:` heading style used by `create-trd`-authored
-   PRDs and (b) reads the `**Priority:** Must|Should|Could|Won't` line — the
-   existing `packages/development/lib/prd-parser.js#extractPrdContext` uses a
-   different heading shape (`# REQ-NNN — Title`, em/en-dash separator) and
-   does not read priority at all, so it does not fire on this repo's actual
-   PRDs. `extractReqPriorities()` was added to that same file (kept minimal —
-   a heading regex plus a priority-line regex, not a full parser) specifically
-   to close this gap:
+2. Extract REQ-NNN ids and MoSCoW priorities with
+   `packages/development/lib/prd-parser.js#extractReqPriorities` (read-only):
 
    ```bash
    node -e '
@@ -167,10 +158,8 @@ to cross-check).
    ' "<dir of $TRD_CLI>/prd-parser.js" "<resolved PRD path>"
    ```
 
-   Returns `[{id: "REQ-011", priority: "Must"}, ...]`. A REQ heading with no
-   `**Priority:**` line resolves to `priority: null` and is treated as
-   informational-only (excluded from the Must/Should gate below) since it
-   cannot be classified.
+   Returns `[{id: "REQ-011", priority: "Must"}, ...]`; a REQ with no readable
+   priority is `null` (items 3-4).
 
 3. For every REQ-NNN with `priority` in `{Must, Should}`: confirm at least one
    task in the inventory has `task.satisfies` containing that REQ-NNN
@@ -183,8 +172,16 @@ to cross-check).
        GAP: class=REQ-UNSATISFIED, req=<REQ-NNN>, priority=<Must|Should>
    ```
 
-Could/Won't-priority and unclassified REQs are reported in the Requirement
-Coverage table (Step 5) for visibility but never generate a gap.
+4. Coverage sanity check. A PRD whose REQs all lack a priority was never checked.
+
+   ```
+   IF item 2 returned 0 REQs, OR every parsed REQ has priority === null:
+       GAP: class=REQ-PRIORITY-UNPARSED,
+            reason="<resolved PRD path>: <N> REQ(s), none with a MoSCoW priority"
+   ```
+
+   The gap forces `INCOMPLETE`: the Must/Should gate in item 3 had nothing to
+   check. Partially unclassified is not a gap: classified REQs gate in item 3.
 
 ---
 
@@ -254,6 +251,9 @@ Total gaps: <N>
 
 ### PARSE-FAILURE (<count>)
 - <reason>
+
+### REQ-PRIORITY-UNPARSED (<count>)
+- <reason> (no REQ priority classifiable)
 
 ### TASK-OPEN (<count>)
 - TRD-NNN: still open
@@ -330,11 +330,12 @@ example) could inflate `INDEPENDENT_COUNT` and trigger a false-positive
 report + a confirmation prompt, whereas the false negative this skill exists
 to prevent (silently trusting a zero-task parse) is the actual reported bug.
 
-**REQ priority extraction only recognizes the `**Priority:** Must|Should|Could|Won't`
-line convention.** A PRD authored with inline `[Must]` tags in the heading
-(the alternate convention supported by `packages/product/lib/prd-parser.js`)
-is not read by `extractReqPriorities()`; such REQs resolve to `priority: null`
-and are treated as informational-only rather than gating. If this repo
-standardizes on inline heading tags in the future, `extractReqPriorities()`
-should be extended to match — kept out of scope here per the instruction to
-keep this extractor minimal.
+**`extractReqPriorities()` reads two MoSCoW conventions, not every PRD style.**
+Priority is a bracketed tag ending a `###`/`####`
+`REQ-NNN:` heading (`(Must)`, `[Should]`, a trailing `[RISK: ...]` allowed) or a
+`**Priority:**` line in that heading's scope; both case-insensitive and
+canonicalized, so `(must)` yields `'Must'`. A REQ with neither is `null`. When
+*every* REQ is null, or the PRD uses only the `# REQ-NNN — Title` style
+`extractPrdContext` matches (0 REQs), item 3 is vacuous - item 4 files a gap.
+Re-author such headings as `### REQ-NNN: Title (Must)`.
+

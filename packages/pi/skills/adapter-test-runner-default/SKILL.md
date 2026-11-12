@@ -20,11 +20,11 @@ Backing tool: none of its own -- it dispatches, via the `framework` input
 (`runner.js#selectTemplate`'s `variants` mechanism), to one of the five already-shipped
 per-language test runner scripts:
 
-- `packages/jest/skills/run-test.js` (`node`)
-- `packages/pytest/skills/run-test.py` (`python3`)
-- `packages/exunit/skills/run-test.exs` (`elixir`, per its own `#!/usr/bin/env elixir` shebang)
-- `packages/xunit/skills/run-test.sh` (`bash`, per its own `#!/usr/bin/env bash` shebang)
-- `packages/rspec/skills/run-test.rb` (`ruby`)
+- `packages/jest/skills/jest/run-test.js` (`node`)
+- `packages/pytest/skills/pytest/run-test.py` (`python3`)
+- `packages/exunit/skills/exunit/run-test.exs` (`elixir`, per its own `#!/usr/bin/env elixir` shebang)
+- `packages/xunit/skills/xunit/run-test.sh` (`bash`, per its own `#!/usr/bin/env bash` shebang)
+- `packages/rspec/skills/rspec/run-test.rb` (`ruby`)
 
 ## Vocabulary
 
@@ -60,7 +60,7 @@ runCapability(adapter, 'test-runner.run', { file: 'x', framework: 'not-a-real-fr
 ```
 
 A `framework: 'pytest'` call selects the `python3` variant (`python3
-packages/pytest/skills/run-test.py --file=<file>`), confirmed the same way.
+packages/pytest/skills/pytest/run-test.py --file=<file>`), confirmed the same way.
 
 ## Known limits
 
@@ -74,7 +74,7 @@ packages/pytest/skills/run-test.py --file=<file>`), confirmed the same way.
   same disclosed gap `adapter-host-github`'s `host.change-request-list` `filter` input has.
 - **`skipped` (a declared `test-runner.yaml` output) is never populated.** `parse` is one block
   shared across every `variants` entry (the adapter manifest schema has no per-variant
-  `parse`), and `packages/jest/skills/run-test.js`/`packages/exunit/skills/run-test.exs`'s own
+  `parse`), and `packages/jest/skills/jest/run-test.js`/`packages/exunit/skills/exunit/run-test.exs`'s own
   result objects have no `skipped` key at all -- mapping it would throw `BAD_OUTPUT` (`mapping
   .js`: "every path must resolve to a present value") on every jest/exunit call. `success`,
   `passed`, `failed`, `total`, `duration` and `failures` are the only fields every one of the
@@ -90,11 +90,11 @@ packages/pytest/skills/run-test.py --file=<file>`), confirmed the same way.
   whether the suite passed. An exit code OUTSIDE `[0, 1]` (a real crash: wrong interpreter, a
   missing dependency, an uncaught exception before JSON is ever printed), a signal, a timeout,
   or stdout that does not even parse as JSON still resolves `TOOL_FAILED` exactly as before.
-- **`packages/xunit/skills/run-test.sh` shells out to `dotnet`/`node` internally.** Those
+- **`packages/xunit/skills/xunit/run-test.sh` shells out to `dotnet`/`node` internally.** Those
   subprocess calls are inside the script, not part of this adapter's own argv, so they are
   outside this manifest's `binaries`/`allowlist` scope (the same convention
   `adapter-tracker-beads`'s `tracker.stage-export` uses for `cat`'s target file).
 - **Never executed live end-to-end through `toolchain-cli run`** (this bead did not have a
-  configured target project with all five frameworks installed); `packages/pytest/skills/
-  run-test.py --file=<fixture>` was live-verified directly (not through the adapter/runner
+  configured target project with all five frameworks installed);
+  `packages/pytest/skills/pytest/run-test.py --file=<fixture>` was live-verified directly (not through the adapter/runner
   layer) against a real 2-pass/1-fail fixture, see `packages/pytest/tests/run-test.test.js`.

@@ -1,0 +1,14 @@
+{
+ "id": "pr319-first-v26-05-pr319-old-first",
+ "pr": 319,
+ "tier": "medium",
+ "round": "first",
+ "origin": "real",
+ "wall_min": 39.107,
+ "chains": 1,
+ "gate_runs": null,
+ "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+ "review_gate_spans": 2,
+ "source": "pr-review-cli timing on run v26-05-pr319-old-first",
+ "run_id": "v26-05-pr319-old-first"
+}

@@ -1,0 +1,16 @@
+{
+ "n": 8,
+ "pr": 314,
+ "tier": "medium",
+ "arm": "new",
+ "round": "first",
+ "runId": "v26-08-pr314-new-first-redo3",
+ "prefix": "R08c",
+ "prevDir": "/Users/ldangelo/.omp/pr-review-speedup/v26/runs/v26-06-pr314-old-first",
+ "recall": false,
+ "expectHeadSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "expectBaseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "note": "scratch re-creation of #225 (adapted); redo of lost run 7; base branch scratch/v26-base (frozen at 63da19f) since dev gained local-ci hosted_reuse (#297)",
+ "devSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+ "startedAt": "2026-11-12T02:43:42.945Z"
+}

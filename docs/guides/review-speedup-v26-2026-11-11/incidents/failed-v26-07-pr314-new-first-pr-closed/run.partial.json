@@ -1,0 +1,1061 @@
+{
+  "schema": 1,
+  "runId": "v26-07-pr314-new-first",
+  "traceRunId": "v26-07-pr314-new-first",
+  "round": 1,
+  "repo": "Sunstone-Partners/ensemble",
+  "pr": 314,
+  "repoRoot": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26",
+  "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+  "baseSha": "63da19f1ec330ef2503a479b74fd11c53443cdfe",
+  "baseRefName": "dev",
+  "author": "ldangelo",
+  "prState": "OPEN",
+  "dryRun": true,
+  "precheck": {
+    "ok": true,
+    "blockers": [
+      {
+        "code": "description-section-missing",
+        "subject": "description",
+        "sections": [
+          "testing",
+          "risk",
+          "how-to-revert"
+        ],
+        "message": "PR description is missing: testing, risk, how-to-revert."
+      }
+    ],
+    "notEstablished": [
+      {
+        "subject": "approvals",
+        "message": "Approvals: not established. The review tier is not assigned yet, so how many human approvals this PR needs is not known: 1 is only a lower bound (the Low waiver is not enabled in this repository, so every PR needs at least one human approval) and a High PR needs 2. 1 counted on this head (counting the `Directed by: @ldangelo` credit, which the gate gives when an agent wrote this PR; if a person wrote it, that credit does not apply)."
+      }
+    ],
+    "approvals": {
+      "state": "not-established",
+      "reason": "The review tier is not assigned yet, so how many human approvals this PR needs is not known: 1 is only a lower bound (the Low waiver is not enabled in this repository, so every PR needs at least one human approval) and a High PR needs 2. 1 counted on this head (counting the `Directed by: @ldangelo` credit, which the gate gives when an agent wrote this PR; if a person wrote it, that credit does not apply)",
+      "lowerBound": true,
+      "tierKnown": false,
+      "tier": null,
+      "required": 1,
+      "counted": 1,
+      "approvedBy": [
+        "ldangelo"
+      ],
+      "shortfall": 0,
+      "ignored": [],
+      "basis": "the Low waiver is not enabled in this repository, so every PR needs at least one human approval",
+      "headTreeKnown": true,
+      "directedBy": "ldangelo"
+    },
+    "description": {
+      "state": "missing",
+      "missing": [
+        "testing",
+        "risk",
+        "how-to-revert"
+      ],
+      "directedByMissing": false,
+      "directedBy": "ldangelo"
+    },
+    "protection": {
+      "state": "absent",
+      "baseRefName": "dev",
+      "needed": 1,
+      "requiredReviews": 0
+    },
+    "gate": {
+      "action": "started",
+      "statusContext": "ensemble/local-ci",
+      "dryRun": true,
+      "pid": 32282,
+      "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-314-444af69c2b63023c882d57834dd543689d5062ae.dry.gate.log",
+      "startedAt": "2026-11-12T01:38:12.473Z"
+    },
+    "comment": {
+      "action": "dry-run"
+    }
+  },
+  "prepared": {
+    "dir": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/prepare/v26-07-pr314-new-first/444af69c2b63023c882d57834dd543689d5062ae/70fde17458532378",
+    "reused": false,
+    "manifestPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/prepare/v26-07-pr314-new-first/444af69c2b63023c882d57834dd543689d5062ae/70fde17458532378/manifest.json",
+    "rangeDiff": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/prepare/v26-07-pr314-new-first/444af69c2b63023c882d57834dd543689d5062ae/70fde17458532378/range.diff",
+    "snapshotDir": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/prepare/v26-07-pr314-new-first/444af69c2b63023c882d57834dd543689d5062ae/70fde17458532378/snapshot",
+    "factsPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/prepare/v26-07-pr314-new-first/444af69c2b63023c882d57834dd543689d5062ae/70fde17458532378/facts.json",
+    "mode": "full",
+    "absent": {
+      "delta.diff": "first-round"
+    }
+  },
+  "baseline": {
+    "ran": true,
+    "exitCode": 0,
+    "timedOut": false,
+    "reason": null,
+    "command": [
+      "/opt/homebrew/Cellar/node/26.13.0_2/bin/node",
+      "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/node_modules/jest/bin/jest.js",
+      "--ci",
+      "--runTestsByPath"
+    ],
+    "files": [
+      "packages/development/tests/beads-build-label-scoping.test.js"
+    ]
+  },
+  "changedPaths": [
+    "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+    "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+    "packages/development/tests/beads-build-label-scoping.test.js",
+    "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+  ],
+  "numstat": [
+    {
+      "path": "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+      "added": 1,
+      "deleted": 1,
+      "binary": false
+    },
+    {
+      "path": "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "added": 3,
+      "deleted": 3,
+      "binary": false
+    },
+    {
+      "path": "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+      "added": 1,
+      "deleted": 1,
+      "binary": false
+    },
+    {
+      "path": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "added": 3,
+      "deleted": 3,
+      "binary": false
+    },
+    {
+      "path": "packages/development/tests/beads-build-label-scoping.test.js",
+      "added": 86,
+      "deleted": 5,
+      "binary": false
+    },
+    {
+      "path": "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+      "added": 1,
+      "deleted": 1,
+      "binary": false
+    },
+    {
+      "path": "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "added": 3,
+      "deleted": 3,
+      "binary": false
+    }
+  ],
+  "policy": {
+    "roundCap": 3,
+    "depth": {
+      "quick": {
+        "reviewers": 1,
+        "verifiers": 0
+      },
+      "standard": {
+        "reviewers": 2,
+        "verifiers": 1
+      },
+      "deep": {
+        "reviewers": 3,
+        "verifiers": 3
+      }
+    },
+    "botLogins": [
+      "@coderabbitai",
+      "@claude",
+      "@github-actions"
+    ],
+    "maintainerLogins": [
+      "@ldangelo"
+    ],
+    "sensitivePaths": [
+      ".github/workflows/**",
+      ".github/actions/**",
+      "scripts/validate-*",
+      "scripts/publish-*",
+      "scripts/release-*",
+      "scripts/install-*",
+      "scripts/generate-*",
+      "scripts/generate-*/**",
+      "docs/standards/constitution.md",
+      "REVIEW.md",
+      ".github/CODEOWNERS",
+      ".github/pull_request_template.md",
+      "packages/**/lib/pr-review-*",
+      "packages/**/lib/local-ci-*",
+      ".ensemble/local-ci.yaml",
+      "scripts/ci-local.js",
+      "packages/**/skills/pr-review-cycle",
+      "packages/**/skills/pr-review-cycle/**",
+      "packages/git/commands/pr-merge.yaml",
+      "packages/**/commands/ensemble/pr-merge.md",
+      "packages/**/ensemble-pr-merge.md",
+      "packages/**/ensemble-pr-merge/SKILL.md",
+      "packages/**/ensemble-pr-merge/**",
+      "packages/full/commands/git"
+    ],
+    "highPaths": [
+      "packages/development/lib/**",
+      "packages/agent-core/**",
+      "packages/pi-extension/**"
+    ],
+    "lowWaiverEnabled": false,
+    "soloMaintainer": true,
+    "sliceThreshold": 1500,
+    "sliceMaxFiles": 8,
+    "sliceTargetLines": 612,
+    "deadlineHeadroom": 2,
+    "evalCasesDir": "docs/review-eval/cases",
+    "deadlineMinutes": {
+      "reviewer": 15,
+      "verifier": 5,
+      "security": 15
+    },
+    "maxConcurrentAgents": 8,
+    "reviewerToolCalls": 40,
+    "reviewerSnippets": 3,
+    "quorumFirstVerification": true
+  },
+  "policyStatus": {
+    "ok": true,
+    "reason": null
+  },
+  "policyRejected": [],
+  "policyExplicit": {
+    "deadlineMinutes": {}
+  },
+  "severityGuide": "- **Important** — the change is wrong, unsafe or unproven: a defect a user or another agent would hit, a security or secret exposure, a gate that cannot fail, a claim with no command behind it, or a generated artifact that no longer matches its source. An Important finding must be answered before merge.\n- **Nit** — a preference that does not change behaviour: naming, wording, ordering, formatting, a comment that could be clearer. A Nit never blocks a merge and is never worth a review round on its own.\n- **Pre-existing** — a real defect in code this pull request did not introduce. It is reported separately, never blocks this PR, and belongs in an issue rather than this review.",
+  "severityGuideProblem": null,
+  "sensitivePaths": [],
+  "phase": "verify-dispatched",
+  "waves": [
+    {
+      "round": "review",
+      "wave": 1,
+      "of": 1,
+      "status": "collected",
+      "agents": [
+        {
+          "name": "reviewer-s1-a",
+          "role": "reviewer",
+          "sliceId": "whole-pr",
+          "lens": "correctness",
+          "paths": [
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/tests/beads-build-label-scoping.test.js",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+          ],
+          "work": {
+            "files": 7,
+            "lines": 115
+          },
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/reviewer-s1-a.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-reviewer-s1-a.json",
+          "dispatchedAt": 1794447506213,
+          "deadlineAt": 1794448826213,
+          "deadlineAtIso": "2026-11-12T02:00:26.213Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "prompt": "You are the reviewer agent \"reviewer-s1-a\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/reviewer-s1-a.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-reviewer-s1-a.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:00:26.213Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "d93f64306fb6",
+          "read": {
+            "size": 7956,
+            "mtimeMs": 1794448324595.2932,
+            "ctimeMs": 1794448331792.479,
+            "sha256": "37740ff6d3860bb902f7b058aa74469f42bdb893e61539dfe93c861b7ac3377a"
+          },
+          "state": "arrived",
+          "arrivedAt": 1794448331792
+        },
+        {
+          "name": "reviewer-s1-b",
+          "role": "reviewer",
+          "sliceId": "whole-pr",
+          "lens": "security",
+          "paths": [
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/tests/beads-build-label-scoping.test.js",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+          ],
+          "work": {
+            "files": 7,
+            "lines": 115
+          },
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/reviewer-s1-b.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-reviewer-s1-b.json",
+          "dispatchedAt": 1794447506213,
+          "deadlineAt": 1794448826213,
+          "deadlineAtIso": "2026-11-12T02:00:26.213Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "prompt": "You are the reviewer agent \"reviewer-s1-b\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/reviewer-s1-b.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-reviewer-s1-b.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:00:26.213Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "c28943b9de0e",
+          "read": {
+            "size": 9813,
+            "mtimeMs": 1794448381176.14,
+            "ctimeMs": 1794448381176.2253,
+            "sha256": "89c05bbb6e7d4a806cd32ec6fad43e12139be3b05b474e62830656187953e795"
+          },
+          "state": "arrived",
+          "arrivedAt": 1794448381176
+        },
+        {
+          "name": "security-lane",
+          "role": "security",
+          "sliceId": "security-lane-coverage",
+          "lens": "security",
+          "paths": [
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+            "packages/development/tests/beads-build-label-scoping.test.js",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+            "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+          ],
+          "work": {
+            "files": 7,
+            "lines": 115
+          },
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/security-lane.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-security-lane.json",
+          "dispatchedAt": 1794447506213,
+          "deadlineAt": 1794448826213,
+          "deadlineAtIso": "2026-11-12T02:00:26.213Z",
+          "deadlineMinutes": 22,
+          "deadlineFloored": true,
+          "prompt": "You are the security agent \"security-lane\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/security-lane.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/review/out-security-lane.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:00:26.213Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "24ee32922b60",
+          "read": {
+            "size": 668,
+            "mtimeMs": 1794447802334.3733,
+            "ctimeMs": 1794447805025.8577,
+            "sha256": "18bca53dd7df2f0a194cd38167c125190f3862d7187c03f3b838c3e043508136"
+          },
+          "state": "arrived",
+          "arrivedAt": 1794447805026
+        }
+      ],
+      "dispatchedAt": 1794447506213,
+      "collectedAt": 1794448383874,
+      "result": {
+        "findings": [
+          {
+            "id": "f1",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "severity": "important",
+            "failureMode": "Step 3b assumes the plan covers the whole repository ('the plan is repo-wide, Step 2') and sends an emptied plan to Step 7, which reports terminal_state blocked so that beads-build halts with 'EXECUTION BLOCKED - manual intervention required'; but the beads adapter's work-graph.plan and work-graph.ready both map root $.plan.tracks[0].items, i.e. only bv's first track (adapter-tracker-beads/adapter.yaml), so in-label beads that are ready in any other track are never examined, 'open scoped beads with no actionable tracks' is then untrue, and the only trace of the cause is a 'log dropped IDs' line that the locked Step 8 summary has no field for, leaving the operator unable to tell a scope-filter starvation from a real dependency block (the replaced Step 3b at least stopped with an error naming the label scope).",
+            "disposition": "adjudicate",
+            "evidence": "Read phase-2-execute.md (development copy; the codex copy is byte-identical and the pi copy differs only by its generated header and the 'ask' wording in Step 1, checked with diff): Step 3b (line 21) ends 'No survivor -> Step 7' and says 'the plan is repo-wide, Step 2'; Step 7 (line 36) classifies a wave with zero actionable tracks as blocked when open scoped beads exist; Step 8 (lines 37-39) makes the JSON summary the only output. packages/development/skills/adapter-tracker-beads/adapter.yaml lines 351-361 say the capability 'surfaces plan.tracks[0].items (bv's own highest-impact track...)' and that a caller wanting every actionable item across every track must run bv directly; lines 393 and 408 give root '$.plan.tracks[0].items' for work-graph.ready and work-graph.plan. packages/development/skills/ensemble-beads-build/references/phase-2-execute.md line 21 halts with 'EXECUTION BLOCKED - manual intervention required' on terminal_state blocked. The test header (beads-build-label-scoping.test.js lines 28-29) states that a plan with nothing left in-label 'is zero actionable tracks, which Step 7 already reports as blocked'. The first-track-only view predates this change, but the new 'blocked, not HALT' outcome for an emptied plan is introduced here. Nothing was run for this finding.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "reviewer": "reviewer-s1-a"
+          },
+          {
+            "id": "f2",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:20-21",
+            "severity": "important",
+            "uncertain": true,
+            "failureMode": "Step 3b cuts every track at its first ID not in LABEL_IDS and drops all later IDs on the ground that a later in-label bead may depend on the dropped one, but the shipped schedulers return the plan as one flat list rather than dependency chains (the beads adapter surfaces only bv's plan.tracks[0].items, which adapter-tracker-beads/adapter.yaml says holds only unblocked beads, so no listed bead depends on another; the builtin fallback returns one repo-wide dependency-ordered list), and Step 3 never says how such a list becomes tracks while Step 2 says a successful work-graph.plan result is used as-is; if the list is treated as one track, every in-label bead listed after the first out-of-label bead is discarded and, when the first listed bead is out-of-label, the whole plan is emptied, so a labelled wave in a repo with other actionable work (the #127 case, 5 of 8 planned beads outside the label) is still not dispatched.",
+            "disposition": "adjudicate",
+            "evidence": "Read packages/development/skills/adapter-tracker-beads/adapter.yaml lines 351-361 (items 'already containing only actionable (unblocked) items', first track only) and lines 393/408; packages/development/lib/toolchain/builtin/work-graph-links-fallback.js lines 232-258 and 315-322 (plan = one flat topologically ordered list of every non-closed bead, blocked ones included; ready = flat list); phase-2-execute.md line 19 ('If the work-graph.plan result is {ok:true}, use it as-is') and line 20 ('Each track is an ordered list of bead IDs'): nothing says how a flat items list is cut into tracks. packages/development/skills/ensemble-beads-build/SKILL.md lines 22-25 describe single-bead tracks unless data.orderingSource is 'tracker-links', and the beads adapter leaves orderingSource unmapped, so a per-bead reading is also possible; under it the rule degrades to a plain per-bead filter and the harm does not arise. I could not settle from the files how the runner forms tracks, so this is marked uncertain. Nothing was run for this finding.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "reviewer": "reviewer-s1-a"
+          },
+          {
+            "id": "f3",
+            "locationOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+            "severity": "nit",
+            "failureMode": "The new Step 3b tests in beads-build-label-scoping.test.js (about twenty toMatch, not.toMatch and indexOf checks on the wave skill text) only pin sentences of the prompt: none runs the truncate-at-first-out-of-label rule or the filter-before-MAX_PARALLEL order on a plan, so a runner that applies the rule wrongly still passes while a rewording fails; CONTRIBUTING.md 'Prompt Tests' says not to pin prompt wording, and the inventory row for this file in docs/guides/prompt-testing.md still states 18 pins.",
+            "disposition": "adjudicate",
+            "evidence": "Counted the added assertions in the diff: nine new or rewritten test blocks in describe('beads-build-wave') add 21 text assertions (18 toMatch/not.toMatch plus an indexOf order check and a match-count check) and remove 2. CONTRIBUTING.md lines 313-317: 'Do not write tests that pin prompt wording (toContain/toMatch on command, agent or SKILL text)... use evals/ for model behavior'. docs/guides/prompt-testing.md line 53: row 'beads-build-label-scoping.test.js ... 18 (mixed)'. A grep of scripts/ and packages/development/tests for the inventory found no check that enforces the row count, so the stale count is documentation only. Regexes were compared by eye with the Step 2/3/3b text of the development reference and each matches it.",
+            "originalTextOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+            "reviewer": "reviewer-s1-a"
+          },
+          {
+            "id": "f4",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/SKILL.md:36",
+            "severity": "nit",
+            "failureMode": "The wave skill's phase table still lists Step 3b as 'scope check', while the reference this change edited now names it 'scope filter' and no longer fails on out-of-label beads, so the step list and the step it points to use different names for the same step.",
+            "disposition": "fix",
+            "evidence": "SKILL.md line 36: 'Single-Wave Dispatch (sync, plan, parse tracks, scope check, track payload, ...)'; references/phase-2-execute.md line 21 now begins 'Step 3b (scope filter, only when LABEL is set; narrows the plan, not the scheduler)'. SKILL.md is not in the diff.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/SKILL.md:36",
+            "reviewer": "reviewer-s1-a"
+          },
+          {
+            "id": "f1",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "severity": "important",
+            "failureMode": "Step 3b truncates every track at its first ID outside LABEL_IDS and drops all IDs after it, on the stated ground that a later in-label bead may depend on the dropped one. With the shipped beads adapter that ground cannot occur: work-graph.plan and work-graph.ready return only bv's plan.tracks[0].items, a single flat ordered list that the adapter documents as already containing only actionable (unblocked) items, so no listed bead waits on another listed bead. Step 3 turns data.items into tracks defined as ordered lists of bead IDs, so this one list is the track the rule is applied to: every ready in-label bead listed after the first out-of-label bead is discarded, and when the first listed bead is out-of-label nothing survives. 'No survivor -> Step 7' then reports the wave as blocked, and the caller (ensemble-beads-build/references/phase-2-execute.md line 21) halts with 'EXECUTION BLOCKED - manual intervention required' while in-label beads are ready. The labeled-wave refusal this change is meant to remove (other actionable beads in the repo, FortiumPartners/ensemble#127) therefore still stops the run whenever bv lists an out-of-label bead ahead of the in-label ones.",
+            "disposition": "fix",
+            "evidence": "Read, not run (bv is an external binary; no snippet was spent on this). packages/development/skills/adapter-tracker-beads/adapter.yaml:351-358 says bv --robot-plan tracks are 'already containing only actionable (unblocked) items' and that 'blocked work never appears in tracks', and that the capability surfaces plan.tracks[0].items; lines 389-394 (work-graph.ready, root at 393) and 404-409 (work-graph.plan, root at 408) both use root $.plan.tracks[0].items with map items: '$'. packages/development/toolchain/categories/work-graph.yaml defines the plan/ready output as one flat items list ('Order work items for sequential pickup'). Step 3 (phase-2-execute.md:20): 'Each track is an ordered list of bead IDs'. The test header, beads-build-label-scoping.test.js:107-109, states the case the rule guards: [A (out-of-label), B (in-label)] where B depends on A; an actionable-only list cannot contain such a pair, so the truncation protects nothing here while dropping ready beads. A per-ID filter (keep only IDs in LABEL_IDS) loses none of them. Caller halts on terminal_state == 'blocked': packages/development/skills/ensemble-beads-build/references/phase-2-execute.md:21.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "reviewer": "reviewer-s1-b"
+          },
+          {
+            "id": "f2",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "severity": "important",
+            "failureMode": "Step 3b says out-of-label beads are expected because 'the plan is repo-wide', and Step 2 and the test header build on that, but the shipped beads adapter does not return a repo-wide plan: work-graph.plan and work-graph.ready both map $.plan.tracks[0].items, only bv's single highest-impact track, and the adapter's own comment says a caller that wants every actionable item must run bv directly and flatten plan.tracks[].items[] itself. Step 3b therefore filters a one-track slice of the work. In-label beads that sit in any other bv track are never examined, and when the first track holds no in-label bead the filter empties it, 'No survivor -> Step 7' reports blocked, and the caller halts with 'EXECUTION BLOCKED' while ready in-label beads exist in the other tracks. The statement that a plan with nothing left in-label is zero actionable tracks, which Step 7 already reports as blocked, does not hold for this adapter, because what the scheduler returned was never the whole actionable set.",
+            "disposition": "fix",
+            "evidence": "Read, not run (bv was not executed; the adapter comments record a live check with bv v0.25.2). packages/development/skills/adapter-tracker-beads/adapter.yaml:356-361 ('this capability surfaces plan.tracks[0].items (bv's own highest-impact track ...) ... A caller wanting every actionable item across every track should run bv --robot-plan --format json directly and flatten plan.tracks[].items[] itself'); :393 and :408 root: $.plan.tracks[0].items for work-graph.ready and work-graph.plan. Step 3b text in phase-2-execute.md:21 ('the plan is repo-wide, Step 2'); test header beads-build-label-scoping.test.js:17-19 and :25-29 ('A plan with nothing left in-label is zero actionable tracks, which Step 7 already reports as blocked'); caller halt at packages/development/skills/ensemble-beads-build/references/phase-2-execute.md:21.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+            "reviewer": "reviewer-s1-b"
+          },
+          {
+            "id": "f3",
+            "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:29-30",
+            "severity": "pre-existing",
+            "failureMode": "The context_contract and commit-gate steps put text taken from tracker and TRD data into double-quoted shell arguments with no escaping rule: --arg text=\"blocked:missing-references <missing joined by '; '>\" and --arg text=\"context-read: trd=<references.trd> task=<references.trdTask> ...\" at line 30, and --arg message=\"<conventional message referencing the bead/TRD task>\" at line 29. The missing entries are raw strings: trd-cli bead-context builds one as \"bead has no ## References block and its title has no [trd:<slug>...] prefix: '<bead title>'\" (trd-cli.js line 417), and others embed err.message, TRD paths and task ids. A bead title containing $(...), backticks or a double quote is expanded or ends the quoting when the runner pastes it into the shell command, so text from a bead (anyone who can create or sync beads) can run commands in the developer's shell or corrupt the tracker comment.",
+            "disposition": "adjudicate",
+            "evidence": "Read, not run. phase-2-execute.md:29-30 (lines this change did not touch) show the double-quoted --arg text= and --arg message= forms; packages/development/lib/trd-cli.js:417 (bead title embedded verbatim in missing), :382 (err.message), :440 and :447 (TRD path and task id from the bead's References block), :503, :520. Line 30 tells the runner to parse the bead-context JSON and paste 'missing joined by ; ' into the command. A search of the wave skill, ensemble-beads-build and ensemble-implement-trd-beads skills and agents/beads-build-wave.yaml for backtick, shell-escape, single-quote, command-substitution or stdin guidance found no match. Not exercised: the text is prose the model turns into a command, so whether a given run escapes correctly was not tested.",
+            "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:30",
+            "reviewer": "reviewer-s1-b"
+          },
+          {
+            "id": "f4",
+            "locationOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+            "severity": "nit",
+            "failureMode": "The change adds 19 toMatch and not.toMatch assertions (five of them not.toMatch guards) that pin the wording of the wave skill text, which the repository's written policy forbids (CONTRIBUTING.md 'Prompt Tests' and docs/guides/prompt-testing.md: do not pin prompt wording, '.not.toContain guards on removed phrases count as wording pins', model behavior belongs in evals/). Nothing here runs or evaluates the truncate-at-first-out-of-label filter or the filter-before-cut order on a plan, so these assertions pass while the filter over-drops beads as described for Step 3b. Two of the new guards, not.toMatch on 'bv returned beads outside label' and on 'DROP every ID not in LABEL_IDS from every track', match wording that is in neither the removed nor the added skill text, so they cannot fail. The inventory row for this file in docs/guides/prompt-testing.md still lists 18 assertions.",
+            "disposition": "adjudicate",
+            "evidence": "Read CONTRIBUTING.md:313-317 and docs/guides/prompt-testing.md (Policy section; Inventory method paragraph; row at line 53: 'beads-build-label-scoping.test.js ... 18 (mixed)'). Counted the added assertions in the diff of the test file: 19 toMatch/not.toMatch (not.toMatch: DROP every ID, scheduling source returned, bv returned, any bead ID in the tracks, to extract the tracks (up to MAX_PARALLEL)) plus 2 structural index/count expects. The removed Step 2/3/3b lines (range.diff:22-24) contain 'the scheduling source returned beads outside label', 'any bead ID in the tracks is not in LABEL_IDS' and '(up to MAX_PARALLEL)' but neither 'bv returned beads outside label' nor 'DROP every ID not in LABEL_IDS from every track'; a search for 'outside label' under packages finds only the test file. A search of scripts/, .github/, package.json and the policy file itself for 'prompt-testing' found nothing, so the inventory is not enforced by a gate.",
+            "originalTextOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+            "reviewer": "reviewer-s1-b"
+          }
+        ],
+        "votes": [],
+        "incompleteVerifiers": [],
+        "reviewedSlices": [
+          "whole-pr",
+          "security-lane-coverage"
+        ],
+        "unreviewedDetail": [],
+        "warnings": []
+      }
+    },
+    {
+      "round": "verify",
+      "wave": 1,
+      "of": 1,
+      "status": "dispatched",
+      "agents": [
+        {
+          "name": "verifier-1",
+          "role": "verifier",
+          "candidateIds": [
+            "f1",
+            "f3",
+            "f5"
+          ],
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-1.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-1.json",
+          "dispatchedAt": 1794448383874,
+          "deadlineAt": 1794448863874,
+          "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "prompt": "You are the verifier agent \"verifier-1\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-1.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-1.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "4ad790127498"
+        },
+        {
+          "name": "verifier-2",
+          "role": "verifier",
+          "candidateIds": [
+            "f1",
+            "f3",
+            "f5"
+          ],
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-2.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-2.json",
+          "dispatchedAt": 1794448383874,
+          "deadlineAt": 1794448863874,
+          "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "prompt": "You are the verifier agent \"verifier-2\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-2.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-2.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "9d69cd45b579"
+        },
+        {
+          "name": "verifier-3",
+          "role": "verifier",
+          "candidateIds": [
+            "f2",
+            "f4",
+            "f7"
+          ],
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-3.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-3.json",
+          "dispatchedAt": 1794448383874,
+          "deadlineAt": 1794448863874,
+          "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "prompt": "You are the verifier agent \"verifier-3\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-3.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-3.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "b4f61cff0796"
+        },
+        {
+          "name": "verifier-4",
+          "role": "verifier",
+          "candidateIds": [
+            "f2",
+            "f4",
+            "f7"
+          ],
+          "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-4.md",
+          "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-4.json",
+          "dispatchedAt": 1794448383874,
+          "deadlineAt": 1794448863874,
+          "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+          "deadlineMinutes": 8,
+          "deadlineFloored": true,
+          "prompt": "You are the verifier agent \"verifier-4\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-4.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-4.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+          "spanId": "a35bc9824322"
+        }
+      ],
+      "dispatchedAt": 1794448383874
+    }
+  ],
+  "calls": [
+    {
+      "call": "prepare",
+      "startedAt": 1794447490926,
+      "endedAt": 1794447506214
+    },
+    {
+      "call": "collect",
+      "startedAt": 1794448383874,
+      "endedAt": 1794448384642
+    }
+  ],
+  "createdAt": 1794447490926,
+  "tier": {
+    "ok": true,
+    "tier": "medium",
+    "effectiveTier": "medium",
+    "humansRequired": 1,
+    "originalTier": "medium",
+    "finalTier": "medium",
+    "characteristics": [
+      {
+        "kind": "docs",
+        "paths": [
+          "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+          "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+          "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+          "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+          "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+          "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+        ]
+      },
+      {
+        "kind": "product",
+        "paths": [
+          "packages/development/tests/beads-build-label-scoping.test.js"
+        ]
+      }
+    ],
+    "paths": {
+      "sensitive": [],
+      "high": [],
+      "uncited": []
+    },
+    "reasons": [
+      "product-change",
+      "second-assessment-missing",
+      "not-low-tier"
+    ],
+    "raised": [],
+    "lowered": [],
+    "ignored": [],
+    "waiver": {
+      "applies": false,
+      "reason": "not-low-tier",
+      "evidence": null,
+      "enabledBy": null
+    },
+    "soloMaintainer": {
+      "eligible": false,
+      "login": null
+    },
+    "refusals": [],
+    "assignedBy": "review-run (changed paths only)",
+    "warnings": [],
+    "at": "2026-11-12T01:38:10.926Z"
+  },
+  "mode": {
+    "ok": true,
+    "mode": "light",
+    "tier": "medium",
+    "effectiveTier": "medium",
+    "securityLane": true,
+    "requires": {
+      "depth": "standard",
+      "minReviewers": 2,
+      "verifiersPerFinding": 3
+    },
+    "reasons": [
+      "medium-tier"
+    ]
+  },
+  "allChangedPaths": [
+    "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+    "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+    "packages/development/tests/beads-build-label-scoping.test.js",
+    "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+    "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+  ],
+  "depth": {
+    "mode": "standard",
+    "tier": "medium",
+    "source": "tier",
+    "reasons": [],
+    "bounds": {
+      "reviewers": {
+        "min": 2,
+        "max": null
+      },
+      "verifiers": {
+        "min": 3,
+        "max": null
+      }
+    },
+    "reviewersPerSlice": 2,
+    "verifiersPerCandidate": 3,
+    "replanned": 0
+  },
+  "securityLane": true,
+  "maxConcurrentAgents": 8,
+  "slices": [
+    {
+      "id": "whole-pr",
+      "area": "",
+      "paths": [
+        "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-1-preflight.md",
+        "packages/codex/.codex/skills/commands/ensemble-beads-build-wave/references/phase-2-execute.md",
+        "packages/development/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+        "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+        "packages/development/tests/beads-build-label-scoping.test.js",
+        "packages/pi/skills/ensemble-beads-build-wave/references/phase-1-preflight.md",
+        "packages/pi/skills/ensemble-beads-build-wave/references/phase-2-execute.md"
+      ],
+      "lines": 115
+    }
+  ],
+  "assignments": [
+    {
+      "reviewer": "s1-correctness",
+      "sliceId": "whole-pr",
+      "lens": "correctness"
+    },
+    {
+      "reviewer": "s1-security",
+      "sliceId": "whole-pr",
+      "lens": "security"
+    }
+  ],
+  "sliced": false,
+  "sizing": {
+    "model": {
+      "minutesPerFile": 0.934,
+      "minutesPer100Lines": 1.224,
+      "headroom": 2,
+      "maxMinutes": 60,
+      "derivedFrom": "real271",
+      "fixedCostFloorMinutes": 22,
+      "verifierFloorMinutes": 8,
+      "policyDeadlineMinutes": {
+        "reviewer": null,
+        "verifier": null,
+        "security": null
+      }
+    },
+    "limits": {
+      "sliceMaxFiles": 8,
+      "sliceTargetLines": 612,
+      "slicesAllowed": 3,
+      "slicesWanted": 1
+    },
+    "work": {
+      "files": 7,
+      "lines": 115
+    },
+    "slices": [
+      {
+        "id": "whole-pr",
+        "files": 7,
+        "lines": 115,
+        "overLimit": false,
+        "diff": "whole-range"
+      }
+    ],
+    "wholeRangeReader": false,
+    "warnings": []
+  },
+  "rootSpanId": "1c5d035f133c",
+  "candidates": [
+    {
+      "id": "f1",
+      "source": "reviewer-s1-a",
+      "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+      "severity": "important",
+      "failureMode": "Step 3b assumes the plan covers the whole repository ('the plan is repo-wide, Step 2') and sends an emptied plan to Step 7, which reports terminal_state blocked so that beads-build halts with 'EXECUTION BLOCKED - manual intervention required'; but the beads adapter's work-graph.plan and work-graph.ready both map root $.plan.tracks[0].items, i.e. only bv's first track (adapter-tracker-beads/adapter.yaml), so in-label beads that are ready in any other track are never examined, 'open scoped beads with no actionable tracks' is then untrue, and the only trace of the cause is a 'log dropped IDs' line that the locked Step 8 summary has no field for, leaving the operator unable to tell a scope-filter starvation from a real dependency block (the replaced Step 3b at least stopped with an error naming the label scope).",
+      "disposition": "adjudicate",
+      "evidence": "Read phase-2-execute.md (development copy; the codex copy is byte-identical and the pi copy differs only by its generated header and the 'ask' wording in Step 1, checked with diff): Step 3b (line 21) ends 'No survivor -> Step 7' and says 'the plan is repo-wide, Step 2'; Step 7 (line 36) classifies a wave with zero actionable tracks as blocked when open scoped beads exist; Step 8 (lines 37-39) makes the JSON summary the only output. packages/development/skills/adapter-tracker-beads/adapter.yaml lines 351-361 say the capability 'surfaces plan.tracks[0].items (bv's own highest-impact track...)' and that a caller wanting every actionable item across every track must run bv directly; lines 393 and 408 give root '$.plan.tracks[0].items' for work-graph.ready and work-graph.plan. packages/development/skills/ensemble-beads-build/references/phase-2-execute.md line 21 halts with 'EXECUTION BLOCKED - manual intervention required' on terminal_state blocked. The test header (beads-build-label-scoping.test.js lines 28-29) states that a plan with nothing left in-label 'is zero actionable tracks, which Step 7 already reports as blocked'. The first-track-only view predates this change, but the new 'blocked, not HALT' outcome for an emptied plan is introduced here. Nothing was run for this finding.",
+      "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+      "fixId": "f1",
+      "originalLinks": [
+        "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+        "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+      ],
+      "mergedFrom": [
+        {
+          "id": "f1",
+          "source": "reviewer-s1-a",
+          "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+        },
+        {
+          "id": "f6",
+          "source": "reviewer-s1-b",
+          "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+        }
+      ]
+    },
+    {
+      "id": "f2",
+      "source": "reviewer-s1-a",
+      "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:20-21",
+      "severity": "important",
+      "failureMode": "Step 3b cuts every track at its first ID not in LABEL_IDS and drops all later IDs on the ground that a later in-label bead may depend on the dropped one, but the shipped schedulers return the plan as one flat list rather than dependency chains (the beads adapter surfaces only bv's plan.tracks[0].items, which adapter-tracker-beads/adapter.yaml says holds only unblocked beads, so no listed bead depends on another; the builtin fallback returns one repo-wide dependency-ordered list), and Step 3 never says how such a list becomes tracks while Step 2 says a successful work-graph.plan result is used as-is; if the list is treated as one track, every in-label bead listed after the first out-of-label bead is discarded and, when the first listed bead is out-of-label, the whole plan is emptied, so a labelled wave in a repo with other actionable work (the #127 case, 5 of 8 planned beads outside the label) is still not dispatched.",
+      "disposition": "adjudicate",
+      "evidence": "Read packages/development/skills/adapter-tracker-beads/adapter.yaml lines 351-361 (items 'already containing only actionable (unblocked) items', first track only) and lines 393/408; packages/development/lib/toolchain/builtin/work-graph-links-fallback.js lines 232-258 and 315-322 (plan = one flat topologically ordered list of every non-closed bead, blocked ones included; ready = flat list); phase-2-execute.md line 19 ('If the work-graph.plan result is {ok:true}, use it as-is') and line 20 ('Each track is an ordered list of bead IDs'): nothing says how a flat items list is cut into tracks. packages/development/skills/ensemble-beads-build/SKILL.md lines 22-25 describe single-bead tracks unless data.orderingSource is 'tracker-links', and the beads adapter leaves orderingSource unmapped, so a per-bead reading is also possible; under it the rule degrades to a plain per-bead filter and the harm does not arise. I could not settle from the files how the runner forms tracks, so this is marked uncertain. Nothing was run for this finding.",
+      "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+      "uncertain": true
+    },
+    {
+      "id": "f3",
+      "source": "reviewer-s1-a",
+      "locationOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+      "severity": "nit",
+      "failureMode": "The new Step 3b tests in beads-build-label-scoping.test.js (about twenty toMatch, not.toMatch and indexOf checks on the wave skill text) only pin sentences of the prompt: none runs the truncate-at-first-out-of-label rule or the filter-before-MAX_PARALLEL order on a plan, so a runner that applies the rule wrongly still passes while a rewording fails; CONTRIBUTING.md 'Prompt Tests' says not to pin prompt wording, and the inventory row for this file in docs/guides/prompt-testing.md still states 18 pins.",
+      "disposition": "adjudicate",
+      "evidence": "Counted the added assertions in the diff: nine new or rewritten test blocks in describe('beads-build-wave') add 21 text assertions (18 toMatch/not.toMatch plus an indexOf order check and a match-count check) and remove 2. CONTRIBUTING.md lines 313-317: 'Do not write tests that pin prompt wording (toContain/toMatch on command, agent or SKILL text)... use evals/ for model behavior'. docs/guides/prompt-testing.md line 53: row 'beads-build-label-scoping.test.js ... 18 (mixed)'. A grep of scripts/ and packages/development/tests for the inventory found no check that enforces the row count, so the stale count is documentation only. Regexes were compared by eye with the Step 2/3/3b text of the development reference and each matches it.",
+      "originalTextOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+      "fixId": "f3",
+      "originalLinks": [
+        "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+        "packages/development/tests/beads-build-label-scoping.test.js:99-170"
+      ],
+      "mergedFrom": [
+        {
+          "id": "f3",
+          "source": "reviewer-s1-a",
+          "locationOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170"
+        },
+        {
+          "id": "f8",
+          "source": "reviewer-s1-b",
+          "locationOrLink": "packages/development/tests/beads-build-label-scoping.test.js:99-170"
+        }
+      ]
+    },
+    {
+      "id": "f4",
+      "source": "reviewer-s1-a",
+      "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/SKILL.md:36",
+      "severity": "nit",
+      "failureMode": "The wave skill's phase table still lists Step 3b as 'scope check', while the reference this change edited now names it 'scope filter' and no longer fails on out-of-label beads, so the step list and the step it points to use different names for the same step.",
+      "disposition": "fix",
+      "evidence": "SKILL.md line 36: 'Single-Wave Dispatch (sync, plan, parse tracks, scope check, track payload, ...)'; references/phase-2-execute.md line 21 now begins 'Step 3b (scope filter, only when LABEL is set; narrows the plan, not the scheduler)'. SKILL.md is not in the diff.",
+      "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/SKILL.md:36"
+    },
+    {
+      "id": "f5",
+      "source": "reviewer-s1-b",
+      "reportedId": "f1",
+      "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+      "severity": "important",
+      "failureMode": "Step 3b truncates every track at its first ID outside LABEL_IDS and drops all IDs after it, on the stated ground that a later in-label bead may depend on the dropped one. With the shipped beads adapter that ground cannot occur: work-graph.plan and work-graph.ready return only bv's plan.tracks[0].items, a single flat ordered list that the adapter documents as already containing only actionable (unblocked) items, so no listed bead waits on another listed bead. Step 3 turns data.items into tracks defined as ordered lists of bead IDs, so this one list is the track the rule is applied to: every ready in-label bead listed after the first out-of-label bead is discarded, and when the first listed bead is out-of-label nothing survives. 'No survivor -> Step 7' then reports the wave as blocked, and the caller (ensemble-beads-build/references/phase-2-execute.md line 21) halts with 'EXECUTION BLOCKED - manual intervention required' while in-label beads are ready. The labeled-wave refusal this change is meant to remove (other actionable beads in the repo, FortiumPartners/ensemble#127) therefore still stops the run whenever bv lists an out-of-label bead ahead of the in-label ones.",
+      "disposition": "fix",
+      "evidence": "Read, not run (bv is an external binary; no snippet was spent on this). packages/development/skills/adapter-tracker-beads/adapter.yaml:351-358 says bv --robot-plan tracks are 'already containing only actionable (unblocked) items' and that 'blocked work never appears in tracks', and that the capability surfaces plan.tracks[0].items; lines 389-394 (work-graph.ready, root at 393) and 404-409 (work-graph.plan, root at 408) both use root $.plan.tracks[0].items with map items: '$'. packages/development/toolchain/categories/work-graph.yaml defines the plan/ready output as one flat items list ('Order work items for sequential pickup'). Step 3 (phase-2-execute.md:20): 'Each track is an ordered list of bead IDs'. The test header, beads-build-label-scoping.test.js:107-109, states the case the rule guards: [A (out-of-label), B (in-label)] where B depends on A; an actionable-only list cannot contain such a pair, so the truncation protects nothing here while dropping ready beads. A per-ID filter (keep only IDs in LABEL_IDS) loses none of them. Caller halts on terminal_state == 'blocked': packages/development/skills/ensemble-beads-build/references/phase-2-execute.md:21.",
+      "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21"
+    },
+    {
+      "id": "f7",
+      "source": "reviewer-s1-b",
+      "reportedId": "f3",
+      "locationOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:29-30",
+      "severity": "pre-existing",
+      "failureMode": "The context_contract and commit-gate steps put text taken from tracker and TRD data into double-quoted shell arguments with no escaping rule: --arg text=\"blocked:missing-references <missing joined by '; '>\" and --arg text=\"context-read: trd=<references.trd> task=<references.trdTask> ...\" at line 30, and --arg message=\"<conventional message referencing the bead/TRD task>\" at line 29. The missing entries are raw strings: trd-cli bead-context builds one as \"bead has no ## References block and its title has no [trd:<slug>...] prefix: '<bead title>'\" (trd-cli.js line 417), and others embed err.message, TRD paths and task ids. A bead title containing $(...), backticks or a double quote is expanded or ends the quoting when the runner pastes it into the shell command, so text from a bead (anyone who can create or sync beads) can run commands in the developer's shell or corrupt the tracker comment.",
+      "disposition": "adjudicate",
+      "evidence": "Read, not run. phase-2-execute.md:29-30 (lines this change did not touch) show the double-quoted --arg text= and --arg message= forms; packages/development/lib/trd-cli.js:417 (bead title embedded verbatim in missing), :382 (err.message), :440 and :447 (TRD path and task id from the bead's References block), :503, :520. Line 30 tells the runner to parse the bead-context JSON and paste 'missing joined by ; ' into the command. A search of the wave skill, ensemble-beads-build and ensemble-implement-trd-beads skills and agents/beads-build-wave.yaml for backtick, shell-escape, single-quote, command-substitution or stdin guidance found no match. Not exercised: the text is prose the model turns into a command, so whether a given run escapes correctly was not tested.",
+      "originalTextOrLink": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:30"
+    }
+  ],
+  "coverage": {
+    "ok": true,
+    "complete": true,
+    "reviewedSlices": [
+      "whole-pr"
+    ],
+    "unreviewedSlices": [],
+    "uncovered": [],
+    "underReviewed": [],
+    "requiredLenses": 2,
+    "detail": []
+  },
+  "security": {
+    "status": "clean",
+    "findings": []
+  },
+  "hashed": [
+    {
+      "id": "f1",
+      "file": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "line": 21,
+      "claim": "Step 3b assumes the plan covers the whole repository ('the plan is repo-wide, Step 2') and sends an emptied plan to Step 7, which reports terminal_state blocked so that beads-build halts with 'EXECUTION BLOCKED - manual intervention required'; but the beads adapter's work-graph.plan and work-graph.ready both map root $.plan.tracks[0].items, i.e. only bv's first track (adapter-tracker-beads/adapter.yaml), so in-label beads that are ready in any other track are never examined, 'open scoped beads with no actionable tracks' is then untrue, and the only trace of the cause is a 'log dropped IDs' line that the locked Step 8 summary has no field for, leaving the operator unable to tell a scope-filter starvation from a real dependency block (the replaced Step 3b at least stopped with an error naming the label scope).",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "eff9e028de8c1658ddbd840752ab12eb05b808613234bd03f5e47bdc28d56eab",
+      "depHashes": {},
+      "dependents": []
+    },
+    {
+      "id": "f2",
+      "file": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "lines": [
+        20,
+        21
+      ],
+      "claim": "Step 3b cuts every track at its first ID not in LABEL_IDS and drops all later IDs on the ground that a later in-label bead may depend on the dropped one, but the shipped schedulers return the plan as one flat list rather than dependency chains (the beads adapter surfaces only bv's plan.tracks[0].items, which adapter-tracker-beads/adapter.yaml says holds only unblocked beads, so no listed bead depends on another; the builtin fallback returns one repo-wide dependency-ordered list), and Step 3 never says how such a list becomes tracks while Step 2 says a successful work-graph.plan result is used as-is; if the list is treated as one track, every in-label bead listed after the first out-of-label bead is discarded and, when the first listed bead is out-of-label, the whole plan is emptied, so a labelled wave in a repo with other actionable work (the #127 case, 5 of 8 planned beads outside the label) is still not dispatched.",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "a0440e1aa19208a0a100553401e6c1cf8ac9dd8f109c5bc2d63e69edecc0a7c3",
+      "depHashes": {},
+      "dependents": []
+    },
+    {
+      "id": "f3",
+      "file": "packages/development/tests/beads-build-label-scoping.test.js",
+      "lines": [
+        99,
+        170
+      ],
+      "claim": "The new Step 3b tests in beads-build-label-scoping.test.js (about twenty toMatch, not.toMatch and indexOf checks on the wave skill text) only pin sentences of the prompt: none runs the truncate-at-first-out-of-label rule or the filter-before-MAX_PARALLEL order on a plan, so a runner that applies the rule wrongly still passes while a rewording fails; CONTRIBUTING.md 'Prompt Tests' says not to pin prompt wording, and the inventory row for this file in docs/guides/prompt-testing.md still states 18 pins.",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "ec58cff24fcea66d9aba5588059170bb9698949eef55efc3802212324f4a5d67",
+      "depHashes": {
+        "packages/development": "5ad38304b535c2987dbd24657c1a11b884984ff600d9f389deb0d4e634fee792",
+        "packages/development/tests": "5ad38304b535c2987dbd24657c1a11b884984ff600d9f389deb0d4e634fee792",
+        "packages/development/tests/helpers/skill-workflow.js": "f5dd4b703f5e61d43a17c78db2329a906af3ce14666523f5097a14725e8f5833",
+        "packages/product/tests": "5ad38304b535c2987dbd24657c1a11b884984ff600d9f389deb0d4e634fee792",
+        "packages/product/tests/helpers/skill-prompt.js": "4fa139d7dc0bc8767b6584a2d714fed728e1ddea6fa944ea939190acd45bf4aa",
+        "scripts": "5ad38304b535c2987dbd24657c1a11b884984ff600d9f389deb0d4e634fee792",
+        "scripts/lib/skill-backed-command.js": "855767a56839e8847eea3be8240958f4af56065d9fcf1a15b5918cbe0cbe3bdd"
+      },
+      "dependents": []
+    },
+    {
+      "id": "f4",
+      "file": "packages/development/skills/ensemble-beads-build-wave/SKILL.md",
+      "line": 36,
+      "claim": "The wave skill's phase table still lists Step 3b as 'scope check', while the reference this change edited now names it 'scope filter' and no longer fails on out-of-label beads, so the step list and the step it points to use different names for the same step.",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "4f54917261d9ebb162358be8b546ef9c96bc22b32af95fc55b0dc9fadd18507b",
+      "depHashes": {},
+      "dependents": [
+        "packages/development/tests/beads-label-default-run.test.js",
+        "packages/development/tests/beads-stage-tracker-capability.test.js",
+        "packages/development/tests/pr-review-never-fixes-skill.test.js",
+        "packages/development/tests/pr-review-pr4-packaging.test.js",
+        "packages/development/tests/pr-review-reachability-repo.test.js",
+        "packages/development/tests/pr-review-run.test.js",
+        "packages/development/tests/pr-review-verification-dispatch-scenarios.test.js",
+        "packages/development/tests/toolchain-cli.test.js",
+        "packages/development/tests/trd-007-adoption-flow.test.js",
+        "packages/opencode/tests/generator-cli.test.js",
+        "packages/opencode/tests/skill-copier.test.js",
+        "packages/pi-extension/tests/lifecycle-entrypoint.test.ts",
+        "scripts/tests/default-only-check.test.js",
+        "scripts/tests/lint-provider-refs.test.js",
+        "scripts/tests/pr7-track030-no-tracker-binary.test.js",
+        "scripts/tests/taxonomy-coverage.test.js",
+        "scripts/tests/toolchain-adapters.test.js",
+        "scripts/tests/toolchain-detect.test.js",
+        "scripts/tests/validate-skills.test.js",
+        "scripts/validate-all.js"
+      ]
+    },
+    {
+      "id": "f5",
+      "file": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "line": 21,
+      "claim": "Step 3b truncates every track at its first ID outside LABEL_IDS and drops all IDs after it, on the stated ground that a later in-label bead may depend on the dropped one. With the shipped beads adapter that ground cannot occur: work-graph.plan and work-graph.ready return only bv's plan.tracks[0].items, a single flat ordered list that the adapter documents as already containing only actionable (unblocked) items, so no listed bead waits on another listed bead. Step 3 turns data.items into tracks defined as ordered lists of bead IDs, so this one list is the track the rule is applied to: every ready in-label bead listed after the first out-of-label bead is discarded, and when the first listed bead is out-of-label nothing survives. 'No survivor -> Step 7' then reports the wave as blocked, and the caller (ensemble-beads-build/references/phase-2-execute.md line 21) halts with 'EXECUTION BLOCKED - manual intervention required' while in-label beads are ready. The labeled-wave refusal this change is meant to remove (other actionable beads in the repo, FortiumPartners/ensemble#127) therefore still stops the run whenever bv lists an out-of-label bead ahead of the in-label ones.",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "eff9e028de8c1658ddbd840752ab12eb05b808613234bd03f5e47bdc28d56eab",
+      "depHashes": {},
+      "dependents": []
+    },
+    {
+      "id": "f7",
+      "file": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md",
+      "lines": [
+        29,
+        30
+      ],
+      "claim": "The context_contract and commit-gate steps put text taken from tracker and TRD data into double-quoted shell arguments with no escaping rule: --arg text=\"blocked:missing-references <missing joined by '; '>\" and --arg text=\"context-read: trd=<references.trd> task=<references.trdTask> ...\" at line 30, and --arg message=\"<conventional message referencing the bead/TRD task>\" at line 29. The missing entries are raw strings: trd-cli bead-context builds one as \"bead has no ## References block and its title has no [trd:<slug>...] prefix: '<bead title>'\" (trd-cli.js line 417), and others embed err.message, TRD paths and task ids. A bead title containing $(...), backticks or a double quote is expanded or ends the quoting when the runner pastes it into the shell command, so text from a bead (anyone who can create or sync beads) can run commands in the developer's shell or corrupt the tracker comment.",
+      "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+      "hunkHash": "7beb5c2755b7f8c008a193fc60957feff9574e2223d28c92249c8aec3053ea68",
+      "depHashes": {},
+      "dependents": []
+    }
+  ],
+  "carry": null,
+  "unbriefable": [],
+  "verifyAgents": [
+    {
+      "name": "verifier-1",
+      "role": "verifier",
+      "candidateIds": [
+        "f1",
+        "f3",
+        "f5"
+      ],
+      "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-1.md",
+      "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-1.json",
+      "dispatchedAt": 1794448383874,
+      "deadlineAt": 1794448863874,
+      "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+      "deadlineMinutes": 8,
+      "deadlineFloored": true,
+      "prompt": "You are the verifier agent \"verifier-1\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-1.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-1.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+      "spanId": "4ad790127498"
+    },
+    {
+      "name": "verifier-2",
+      "role": "verifier",
+      "candidateIds": [
+        "f1",
+        "f3",
+        "f5"
+      ],
+      "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-2.md",
+      "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-2.json",
+      "dispatchedAt": 1794448383874,
+      "deadlineAt": 1794448863874,
+      "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+      "deadlineMinutes": 8,
+      "deadlineFloored": true,
+      "prompt": "You are the verifier agent \"verifier-2\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-2.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-2.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+      "spanId": "9d69cd45b579"
+    },
+    {
+      "name": "verifier-3",
+      "role": "verifier",
+      "candidateIds": [
+        "f2",
+        "f4",
+        "f7"
+      ],
+      "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-3.md",
+      "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-3.json",
+      "dispatchedAt": 1794448383874,
+      "deadlineAt": 1794448863874,
+      "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+      "deadlineMinutes": 8,
+      "deadlineFloored": true,
+      "prompt": "You are the verifier agent \"verifier-3\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-3.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-3.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+      "spanId": "b4f61cff0796"
+    },
+    {
+      "name": "verifier-4",
+      "role": "verifier",
+      "candidateIds": [
+        "f2",
+        "f4",
+        "f7"
+      ],
+      "briefPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-4.md",
+      "outPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-4.json",
+      "dispatchedAt": 1794448383874,
+      "deadlineAt": 1794448863874,
+      "deadlineAtIso": "2026-11-12T02:01:03.874Z",
+      "deadlineMinutes": 8,
+      "deadlineFloored": true,
+      "prompt": "You are the verifier agent \"verifier-4\" of an automated pull-request review. You start with a fresh context and have READ-ONLY access: change no file in the repository, the snapshot or anywhere else, except your one result file.\n1. Read the brief at /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/briefs/verifier-4.md and follow it exactly.\n2. Write your JSON result atomically (a temp file in the same directory, then rename) to /Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/run/v26-07-pr314-new-first/results/verify/out-verifier-4.json, ONCE, when you are completely finished: it is read when the dispatcher collects, after you have finished. A later version counts only until the review of your results starts (until the verdict, for a verifier); a rewrite after that is reported as changed and holds the review open.\n3. Finish before 2026-11-12T02:01:03.874Z. A result that arrives after that is not read and you are recorded as not having reviewed.\nDo not add, edit or interpret anything the brief does not ask for.",
+      "spanId": "a35bc9824322"
+    }
+  ],
+  "quorum": {
+    "requested": true,
+    "applied": true,
+    "expected": 3,
+    "needed": 2,
+    "nextVerifier": 5,
+    "secondWave": [],
+    "skipped": []
+  },
+  "assignment": [
+    {
+      "id": "f1",
+      "verifiers": [
+        "verifier-1",
+        "verifier-2"
+      ]
+    },
+    {
+      "id": "f2",
+      "verifiers": [
+        "verifier-3",
+        "verifier-4"
+      ]
+    },
+    {
+      "id": "f3",
+      "verifiers": [
+        "verifier-1",
+        "verifier-2"
+      ]
+    },
+    {
+      "id": "f4",
+      "verifiers": [
+        "verifier-3",
+        "verifier-4"
+      ]
+    },
+    {
+      "id": "f5",
+      "verifiers": [
+        "verifier-1",
+        "verifier-2"
+      ]
+    },
+    {
+      "id": "f7",
+      "verifiers": [
+        "verifier-3",
+        "verifier-4"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+'use strict';
+// Runs a list of run specs back to back with the recovery guards of kata 1yjx: scratch PR states (OPEN, draft) before and after each run, the prwatch flag, sustained-quiet wait, stop at the first failure. Scratch; a copy goes into the evidence directory as text.
+const fs = require('fs'); const { execSync } = require('child_process');
+const V = process.env.HOME + '/.omp/pr-review-speedup/v26';
+const L = require('./v26-lib.js'); const R = require('./v26-run.js');
+const PRS = [314, 315, 316, 317, 319];
+const prStates = () => Object.fromEntries(PRS.map((n) => { try { return [n, JSON.parse(execSync('gh pr view ' + n + ' --repo Sunstone-Partners/ensemble --json state,isDraft,headRefOid,baseRefName', { encoding: 'utf8' }))]; } catch (e) { return [n, { error: String(e.message).slice(0, 120) }]; } }));
+const flag = () => (fs.existsSync(V + '/load/PR_CLOSED.flag') ? fs.readFileSync(V + '/load/PR_CLOSED.flag', 'utf8').trim() : null);
+const stateOk = (st) => Object.values(st).every((s) => s.state === 'OPEN' && s.isDraft === true);
+async function chain(tool, specs, results) {
+  const done = [];
+  for (const spec of specs) {
+    if (flag()) { console.log('ABORT before', spec.runId, 'PR_CLOSED.flag:', flag()); return { aborted: 'flag', done }; }
+    const before = prStates();
+    if (!stateOk(before)) { console.log('ABORT before', spec.runId, 'a scratch PR is not OPEN/draft', JSON.stringify(before)); return { aborted: 'state', done }; }
+    const q = await L.waitQuiet(spec.runId);
+    console.log(spec.runId, 'quiet', q.quiet, 'waitedMin', Math.round(q.waitedMs / 600) / 100, 'load1', JSON.stringify(q.polls.map((p) => p.load1)));
+    if (!q.quiet) { console.log('NOT QUIET; stopping the chain'); return { aborted: 'not-quiet', done }; }
+    let out;
+    try { out = await R.runOne(tool, spec); } catch (e) { out = { runId: spec.runId, exception: String(e && e.stack || e).slice(0, 1500) }; }
+    if (results) results[spec.runId] = out;
+    const after = prStates();
+    try { fs.writeFileSync(V + '/runs/' + spec.runId + '/pr-states.json', JSON.stringify({ before, after, watcherFlag: flag(), watcherLogTail: execSync('tail -n 80 ' + V + '/load/prstate.log', { encoding: 'utf8' }).split('\n') }, null, 1)); } catch (e) { console.log('pr-states write failed', e.message); }
+    console.log(out.ok ? R.brief(out.rec) : JSON.stringify(out).slice(0, 1500));
+    done.push(spec.runId);
+    if (!out.ok) { console.log('RUN NOT OK; stopping the chain'); return { aborted: 'run-failed', done }; }
+    if (flag() || !stateOk(after)) { console.log('ABORT after', spec.runId, 'a scratch PR was closed during the run', JSON.stringify(after), flag()); return { aborted: 'closed-during-run', done }; }
+  }
+  return { aborted: null, done };
+}
+module.exports = { chain, prStates, flag, stateOk };

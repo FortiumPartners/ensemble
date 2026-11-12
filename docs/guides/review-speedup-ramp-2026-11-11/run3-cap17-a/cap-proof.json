@@ -1,0 +1,69 @@
+{
+ "runId": "ramp3-cap17a",
+ "capRequested": 17,
+ "prepareAnswerMaxConcurrentAgents": 17,
+ "runJsonMaxConcurrentAgents": 17,
+ "runJsonPolicyMaxConcurrentAgents": 17,
+ "runJsonPolicyStatus": {
+  "ok": true,
+  "reason": null
+ },
+ "runJsonPolicyExplicit": {
+  "deadlineMinutes": {}
+ },
+ "runJsonPolicyRejected": [],
+ "runJsonSeverityGuideProblem": "severity-section-missing",
+ "runJsonBaseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "runJsonBaseRefName": "feature/e2e-evidence-screenshots",
+ "runJsonHeadSha": "48c862c416af218bc1fa32305493fb8855602b31",
+ "sizingLimits": {
+  "sliceMaxFiles": 8,
+  "sliceTargetLines": 612,
+  "slicesAllowed": 8,
+  "slicesWanted": 3
+ },
+ "sizingWarnings": [
+  {
+   "code": "severity-guide-fallback",
+   "message": "REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)"
+  }
+ ],
+ "wavesPlanned": [
+  {
+   "round": "review",
+   "wave": 1,
+   "agents": 8,
+   "refill": false
+  },
+  {
+   "round": "verify",
+   "wave": 1,
+   "agents": 15,
+   "refill": false
+  }
+ ],
+ "verifierSpansByWave": {
+  "1": 15
+ },
+ "refillSpanCaps": [],
+ "rootSpanMaxConcurrentAgents": [
+  17
+ ],
+ "refillSpanCapsAllEqualRequested": true,
+ "allCapsAgree": true,
+ "seam": {
+  "cap": 17,
+  "scratchReviewMdBlob": "3d78d60ed49eeb684147f9396960c23d143eab48",
+  "scratchReviewMdSha256": "447e6ec807a21128c7a885f42841c0dcd2134a623e153f8318bc53b426eaf56f",
+  "served": [
+   {
+    "call": "ls-tree",
+    "baseSha": "cca69fed1f51ba07f89cde58c5352157e2228d45"
+   },
+   {
+    "call": "cat-file",
+    "blob": "3d78d60ed49eeb684147f9396960c23d143eab48"
+   }
+  ]
+ }
+}

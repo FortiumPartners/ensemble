@@ -1,8 +1,8 @@
 ---
 name: rails
 description: Use when working in a Ruby on Rails 7+ app (Gemfile with rails, app/ layout, Active Record, jobs); not for non-Rails Ruby or Sinatra.
-version: 2.0.0
-user-invocable: true
+metadata:
+  version: 2.0.0
 ---
 
 # Rails conventions

@@ -1,0 +1,166 @@
+{
+ "ok": true,
+ "runId": "ramp5-cap8b",
+ "wall": {
+  "ms": 1551578,
+  "missing": false,
+  "start": "2026-11-11T20:26:47.120Z",
+  "end": "2026-11-11T20:52:38.698Z"
+ },
+ "turns": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record turns"
+ },
+ "toolCalls": {
+  "ms": null,
+  "missing": true,
+  "reason": "the review span does not record tool_calls"
+ },
+ "agents": {
+  "count": 19,
+  "lingerMs": 2393312,
+  "unusable": [],
+  "byRole": {
+   "classifier": {
+    "count": 0,
+    "slowest": {
+     "stage": "classifier",
+     "ms": null,
+     "missing": true,
+     "reason": "no classifier span recorded"
+    }
+   },
+   "second-assessor": {
+    "count": 0,
+    "slowest": {
+     "stage": "second-assessor",
+     "ms": null,
+     "missing": true,
+     "reason": "no second-assessor span recorded"
+    }
+   },
+   "security-lane": {
+    "count": 1,
+    "slowest": {
+     "stage": "security-lane",
+     "ms": 341073,
+     "missing": false,
+     "name": "security-lane"
+    }
+   },
+   "reviewer": {
+    "count": 7,
+    "slowest": {
+     "stage": "reviewer",
+     "ms": 850474,
+     "missing": false,
+     "name": "reviewer-range"
+    }
+   },
+   "verifier": {
+    "count": 11,
+    "slowest": {
+     "stage": "verifier",
+     "ms": 390525,
+     "missing": false,
+     "name": "verifier-8"
+    }
+   }
+  }
+ },
+ "activeMs": {
+  "ms": 1528124,
+  "missing": false
+ },
+ "orchestratorOnly": {
+  "ms": 23453,
+  "missing": false,
+  "pct": 2
+ },
+ "beforeFirstDispatch": {
+  "ms": 14481,
+  "missing": false
+ },
+ "criticalPath": {
+  "ms": 1528125,
+  "missing": false,
+  "lowerBound": true,
+  "rounds": [
+   {
+    "round": 1,
+    "steps": [
+     {
+      "stage": "reviewer",
+      "ms": 850474,
+      "missing": false,
+      "name": "reviewer-range"
+     },
+     {
+      "stage": "verifier",
+      "ms": 677650,
+      "missing": false,
+      "rolling": true,
+      "waves": 3
+     },
+     {
+      "stage": "verdict",
+      "ms": 1,
+      "missing": false,
+      "lowerBound": true,
+      "clippedMs": 24
+     }
+    ],
+    "ms": 1528125,
+    "missing": false,
+    "lowerBound": true
+   }
+  ]
+ },
+ "stages": {
+  "review.head-read": {
+   "count": 1,
+   "ms": 7,
+   "missing": false
+  },
+  "review.gate": {
+   "count": 2,
+   "ms": 1549,
+   "missing": false
+  },
+  "review.verdict": {
+   "count": 2,
+   "ms": 28,
+   "missing": false
+  },
+  "review.classifier": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.second-assessor": {
+   "count": 0,
+   "ms": null,
+   "missing": true,
+   "reason": "no span recorded"
+  },
+  "review.security-lane": {
+   "count": 1,
+   "ms": 341073,
+   "missing": false
+  },
+  "review.reviewer": {
+   "count": 7,
+   "ms": 850474,
+   "missing": false
+  },
+  "review.verifier": {
+   "count": 11,
+   "ms": 390525,
+   "missing": false
+  }
+ },
+ "warnings": [],
+ "tracePath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-ramp/.ensemble/state/toolchain/trace-ramp5-cap8b.jsonl"
+}

@@ -1,276 +1,207 @@
 ---
 name: ensemble-release
-description: >-
-  This command orchestrates the complete release workflow from quality gates
-  through deployment and verification. It orchestrates the workflow directly,
-  coordinating with specialized agents (code-reviewer, test-runner,
-  playwright-tester, deployment-orchestrator) to ensure safe, reliable releases
-  with comprehensive smoke test coverage and automated rollback.
+description: >
+  Automated release workflow orchestration with quality gates, smoke test
+  integration,
+
+  and deployment coordination. Supports standard, hotfix, and rollback release
+  types.
 disable-model-invocation: true
+metadata:
+  version: 1.0.0
+  category: deployment
 ---
-<!-- Command: ensemble-release | Version: 1.0.0 -->
-<!-- Description: Automated release workflow orchestration with quality gates, smoke test integration,
-and deployment coordination. Supports standard, hotfix, and rollback release types.
- -->
-
-# ensemble-release
-
-> **Mission:** This command orchestrates the complete release workflow from quality gates through deployment and verification. It orchestrates the workflow directly, coordinating with specialized agents (code-reviewer, test-runner, playwright-tester, deployment-orchestrator) to ensure safe, reliable releases with comprehensive smoke test coverage and automated rollback.
-
-## Phase 1: Release Initialization
-
-### Step 1: Version Validation
-
-Validate semantic version format (X.Y.Z)
-
-**Actions:**
-1. Parse --version argument
-2. Validate semantic versioning format
-3. Check for version conflicts (tag/branch exists)
-
-### Step 2: Release Type Validation
-
-Validate release type and workflow selection
-
-**Actions:**
-1. Parse --type argument (standard, hotfix, rollback)
-2. Determine base branch (main, develop, production)
-3. Determine target branch (release/vX.Y.Z, hotfix/vX.Y.Z)
-4. Validate branch arguments if provided
-
-### Step 3: Release Branch Creation
-
-Create release branch via git-workflow
-
-**Actions:**
-1. Create release branch from base
-2. Push to remote
-3. Verify branch created successfully
-
-### Step 4: Changelog Generation
-
-Generate changelog from git history (use the changelog-generator skill)
-
-**Actions:**
-1. Parse commits since last release
-2. Categorize changes (breaking, new, enhancement, bugfix)
-3. Generate markdown formatted changelog
-4. Add changelog to release branch
-
-## Phase 2: Quality Gates
-
-### Step 1: Security Scan
-
-Execute security vulnerability scan via code-reviewer
-
-**Actions:**
-1. Scan for OWASP Top 10 vulnerabilities
-2. Check for critical and high-severity issues
-3. Generate security report
-4. Block on critical/high issues
-
-### Step 2: Definition of Done Validation
-
-Validate all DoD categories via code-reviewer
-
-**Actions:**
-1. Validate all 8 DoD categories
-2. Check test coverage targets (unit ≥80%, integration ≥70%)
-3. Verify documentation updated
-4. Block on any category failure
-
-### Step 3: Unit Test Execution
-
-Execute unit test suite via test-runner
-
-**Actions:**
-1. Run unit test suite with coverage
-2. Require ≥80% coverage
-3. Provide intelligent failure triage
-4. Block on failures or coverage below threshold
-
-### Step 4: Integration Test Execution
-
-Execute integration test suite via test-runner
-
-**Actions:**
-1. Run integration test suite with coverage
-2. Require ≥70% coverage
-3. Provide intelligent failure triage
-4. Block on failures or coverage below threshold
-
-### Step 5: Pre-Release Smoke Tests
-
-Execute smoke test suite before deployment (use the smoke-test-runner skill)
-
-**Actions:**
-1. Execute 5-category smoke test suite against the project's smoke-tests.json (up to 15 minutes)
-2. Proceed only when the runner verdict is passed; failed or incomplete (a required category NOT CONFIGURED) blocks - API Health - Database connectivity - External services - Authentication - Critical paths
-3. Use pre-release environment configuration
-4. Block on any smoke test failure
-
-### Step 6: E2E Test Execution
-
-Execute critical user journeys via playwright-tester
-
-**Actions:**
-1. Execute critical user journey tests
-2. Capture trace artifacts for all journeys
-3. Capture screenshots on failures
-4. Block on any journey failure
-
-## Phase 3: Staging Deployment
-
-### Step 1: Deploy to Staging
-
-Deploy release to staging environment
-
-**Actions:**
-1. Execute blue-green or rolling deployment
-2. Verify health checks
-3. Route traffic to new version
-
-### Step 2: Post-Staging Smoke Tests
-
-Verify staging deployment with smoke tests (use the smoke-test-runner skill)
-
-**Actions:**
-1. Execute full 5-category smoke test suite
-2. Use staging-specific configuration
-3. Proceed only when the runner verdict is passed (every required category executed and passed)
-4. Block on a failed or incomplete verdict (a required category NOT CONFIGURED is a block, not a pass)
-
-## Phase 4: Production Deployment
-
-### Step 1: Deploy to Production (Canary)
-
-Deploy to production using canary strategy
-
-**Actions:**
-1. Deploy to canary infrastructure
-2. Route 5% traffic to canary
-3. Execute canary smoke tests (smoke-test-runner skill); promote only on a passed verdict
-4. Monitor error rate for 2 minutes
-5. If pass: Route 25% traffic, execute smoke tests
-6. If pass: Route 100% traffic, execute final smoke tests
-7. If fail at any stage: Trigger automated rollback
-
-### Step 2: Post-Production Smoke Tests
-
-Final verification of production deployment (use the smoke-test-runner skill)
-
-**Actions:**
-1. Execute full 5-category smoke test suite
-2. Use production-specific configuration
-3. Monitor error rate for 5 minutes
-4. Trigger rollback on a failed or incomplete smoke verdict or error rate >5%
-
-## Phase 5: Release Completion
-
-### Step 1: Create Pull Request
-
-Create release PR via git-workflow
-
-**Actions:**
-1. Create PR with changelog in description
-2. Add labels (release, version)
-3. Request reviews from tech-lead
-4. Link to release artifacts
-
-### Step 2: Create GitHub Release
-
-Publish GitHub release with notes
-
-**Actions:**
-1. Create GitHub release with tag
-2. Attach release notes
-3. Mark as draft if --draft flag provided
-
-### Step 3: Generate Release Report
-
-Create comprehensive release report
-
-**Actions:**
-1. Compile test execution history
-2. Include smoke test results
-3. Add deployment timeline
-4. Summarize quality gate metrics
-
-### Step 4: Append Audit Log
-
-Record release in audit log
-
-**Actions:**
-1. Append audit log entry with test tracking
-2. Include approval history
-3. Record deployment events
-4. Add release artifacts links
-
-### Step 5: Update Tickets
-
-Update Linear/Jira tickets with release info
-
-**Actions:**
-1. Update ticket status to deployed
-2. Attach release report
-3. Link to PR and GitHub release
-4. Add deployment timestamp
-
-## Phase 6: Rollback (On Failure)
-
-### Step 1: Trigger Rollback
-
-Initiate automated rollback workflow
-
-**Actions:**
-1. Detect failure condition (smoke test, error rate, health check)
-2. Alert on-call engineer
-3. Capture rollback trigger context
-
-### Step 2: Revert Traffic
-
-Route traffic to previous version
-
-**Actions:**
-1. Route all traffic to previous version
-2. Verify previous version health checks
-3. Capture traffic reversion metrics
-
-### Step 3: Post-Rollback Smoke Tests
-
-Verify rollback success with smoke tests (use the smoke-test-runner skill)
-
-**Actions:**
-1. Execute full 5-category smoke test suite
-2. Verify error rate normalized
-3. Confirm system stability
-4. Escalate on smoke test failure
-
-### Step 4: Health Validation
-
-Monitor system health post-rollback
-
-**Actions:**
-1. Monitor error rate (<1% target)
-2. Verify all health checks passing
-3. Confirm no degradation
-4. Escalate on health check failure
-
-### Step 5: Create Git Revert
-
-Create revert commit in git
-
-**Actions:**
-1. Create revert commit
-2. Tag rollback version (vX.Y.Z-rollback)
-3. Update changelog with rollback entry
-
-### Step 6: Update Tickets
-
-Document rollback in tickets
-
-**Actions:**
-1. Update ticket status to rolled-back
-2. Add rollback reason
-3. Link to rollback artifacts
-4. Schedule post-mortem
+<!-- Generated by ensemble-pi generator v1.0.0 | Source: packages/git/skills/ensemble-release/SKILL.md -->
+
+This command orchestrates the complete release workflow from quality gates through deployment
+and verification. It orchestrates the workflow directly, coordinating with
+specialized agents (code-reviewer, test-runner, playwright-tester, deployment-orchestrator)
+to ensure safe, reliable releases with comprehensive smoke test coverage and automated rollback.
+
+## Workflow
+
+Work through the phases in numbered order. Each phase's full instructions are in its own file under `references/`, in this skill's directory: open the file with your file-reading tool (not a shell command) when you reach that phase and follow it exactly. Resolve the paths below relative to this SKILL.md.
+
+| Phase | Instructions | Steps |
+|---|---|---|
+| Phase 1: Release Initialization | `references/phase-1-release-initialization.md` | Version Validation; Release Type Validation; Release Branch Creation; Changelog Generation |
+| Phase 2: Quality Gates | `references/phase-2-quality-gates.md` | Security Scan; Definition of Done Validation; Unit Test Execution; Integration Test Execution; Pre-Release Smoke Tests; E2E Test Execution |
+| Phase 3: Staging Deployment | `references/phase-3-staging-deployment.md` | Deploy to Staging; Post-Staging Smoke Tests |
+| Phase 4: Production Deployment | `references/phase-4-production-deployment.md` | Deploy to Production (Canary); Post-Production Smoke Tests |
+| Phase 5: Release Completion | `references/phase-5-release-completion.md` | Create Pull Request; Create GitHub Release; Generate Release Report; Append Audit Log; Update Tickets |
+| Phase 6: Rollback (On Failure) | `references/phase-6-rollback.md` | Trigger Rollback; Revert Traffic; Post-Rollback Smoke Tests; Health Validation; Create Git Revert; Update Tickets |
+
+## Expected Output
+
+**Format:** Release workflow results
+
+**Structure:**
+
+- **Quality Gate Results**: Security scan, DoD validation, test results (unit, integration, smoke, E2E)
+- **Deployment Results**: Staging deployment, production deployment (canary progression), smoke test results
+- **Release Artifacts**: Pull request URL, GitHub release URL, release report, audit log
+- **Rollback Results**: (If triggered) Traffic reversion, post-rollback smoke tests, health validation
+
+## Arguments
+
+```yaml
+required:
+  - name: '--version'
+    type: string
+    format: X.Y.Z
+    description: Semantic version for the release (e.g., 2.1.0)
+    validation:
+      - Matches semantic versioning format (X.Y.Z)
+      - No conflicts with existing tags/branches
+    example: '--version 2.1.0'
+optional:
+  - name: '--type'
+    type: enum
+    values:
+      - standard
+      - hotfix
+      - rollback
+    default: standard
+    description: Release type (standard, hotfix, rollback)
+    example: '--type hotfix'
+  - name: '--from'
+    type: string
+    description: Base branch for release (overrides default)
+    default: main (standard), production (hotfix)
+    example: '--from develop'
+  - name: '--to'
+    type: string
+    description: Target branch for release (overrides default)
+    default: release/vX.Y.Z (standard), hotfix/vX.Y.Z (hotfix)
+    example: '--to release/v2.1.0'
+  - name: '--base'
+    type: string
+    description: Alias for --from (base branch)
+    example: '--base main'
+  - name: '--target'
+    type: string
+    description: Alias for --to (target branch)
+    example: '--target release/v2.1.0'
+  - name: '--rollback'
+    type: boolean
+    description: Trigger manual rollback (equivalent to --type rollback)
+    example: '--rollback'
+  - name: '--draft'
+    type: boolean
+    description: Create GitHub release as draft
+    example: '--draft'
+  - name: '--dry-run'
+    type: boolean
+    description: Simulate release workflow without mutations (future enhancement)
+    example: '--dry-run'
+```
+
+## Expected Input
+
+- **format**: Command arguments
+- **required**:
+  - Release version (semantic versioning X.Y.Z)
+- **optional**:
+  - Release type (standard, hotfix, rollback)
+  - Base branch (main, develop, production)
+  - Target branch (release/vX.Y.Z, hotfix/vX.Y.Z)
+  - Draft mode flag
+  - Dry-run flag (future)
+
+## Usage Examples
+
+- **name**: Standard Release
+  - **command**: /release --version 2.1.0
+  - **description**: Execute standard release workflow with full quality gates and staging deployment
+- **name**: Hotfix Release
+  - **command**: /release --version 2.1.1 --type hotfix
+  - **description**: Execute fast-track hotfix workflow with canary deployment (skips staging)
+- **name**: Manual Rollback
+  - **command**: /release --version 2.1.0 --rollback
+  - **description**: Manually trigger rollback to previous version
+- **name**: Custom Branches
+  - **command**: /release --version 2.1.0 --from develop --to release/v2.1.0
+  - **description**: Release from custom base branch to custom target branch
+- **name**: Draft Release
+  - **command**: /release --version 2.1.0 --draft
+  - **description**: Create release as draft for review before publishing
+
+## Timing Budget
+
+- **standardRelease**:
+  - **qualityGates**: 20 minutes excluding smoke run
+  - **stagingDeployment**: 5 minutes
+  - **productionDeployment**: 5 minutes
+  - **total**: 30 minutes excluding smoke runs (each smoke run is up to 15 minutes)
+- **hotfixRelease**:
+  - **fastTrackGates**: 10 minutes
+  - **canaryDeployment**: 10 minutes
+  - **total**: 20 minutes
+- **rollback**:
+  - **trafficReversion**: 2 minutes
+  - **smokeTestVerification**: up to 15 minutes
+  - **healthMonitoring**: 5 minutes
+  - **total**: 10 minutes
+
+## Quality Gates
+
+```yaml
+required:
+  - name: Security Scan
+    target: Zero critical/high severity issues
+    timeout: 10 minutes
+  - name: DoD Validation
+    target: All 8 categories pass
+    timeout: 10 minutes
+  - name: Unit Tests
+    target: ≥80% coverage, 0 failures
+    timeout: 15 minutes
+  - name: Integration Tests
+    target: ≥70% coverage, 0 failures
+    timeout: 15 minutes
+  - name: Smoke Tests
+    target: 'Runner verdict is passed: every required category executed and passed (a NOT CONFIGURED required category blocks the release)'
+    timeout: 15 minutes
+  - name: E2E Tests
+    target: All critical journeys pass
+    timeout: 10 minutes
+deployment:
+  - name: Staging Deployment
+    target: ≤5 minutes excluding smoke run (2min deploy)
+    timeout: 15 minutes
+  - name: Production Deployment
+    target: ≤5 minutes excluding smoke runs (canary progression)
+    timeout: 15 minutes
+  - name: Rollback
+    target: ≤7 minutes excluding smoke run (2min revert + 5min health)
+    timeout: 15 minutes
+```
+
+## Success Criteria
+
+- All quality gates pass
+- Staging deployment successful with smoke tests passing
+- Production deployment successful with canary progression
+- Post-production smoke tests passing
+- Error rate <1% for 5 minutes post-deployment
+- Release artifacts created (PR, GitHub release, report, audit log)
+- Tickets updated with release information
+
+## Failure Criteria
+
+- Any quality gate fails
+- Staging deployment or smoke tests fail
+- Production smoke test failure
+- Error rate >5% for 2 minutes
+- Health check failure (3 consecutive)
+- Rollback triggered
+
+## Rollback Triggers
+
+- **automatic**:
+  - Production smoke test failure (any category)
+  - Error rate >5% for 2 minutes
+  - Health check failure (3 consecutive checks)
+- **manual**:
+  - On-call engineer initiated rollback (--rollback flag)
+  - Critical production issue detected

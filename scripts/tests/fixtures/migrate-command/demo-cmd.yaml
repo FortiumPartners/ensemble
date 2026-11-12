@@ -1,0 +1,81 @@
+metadata:
+  name: ensemble:demo-cmd
+  description: Synthetic fixture command used by the migrate-command-to-skill tests only
+  version: 1.4.2
+  lastUpdated: "2026-10-18"
+  category: planning
+  output_path: ensemble/demo-cmd.md
+  source: sunstone
+  model: medium
+  argument_hint: "[topic] [--fast]"
+  visibility: hidden
+  allowed_tools:
+    - Read
+    - Grep
+    - mcp__demo__lookup
+  capabilities:
+    required:
+      - tracker.show
+    optional:
+      - work-graph.ready
+
+mission:
+  summary: |
+    Produce a short demo report about the topic in $ARGUMENTS. Gather the facts first.
+    Then summarize them for a reviewer who has not seen the source material.
+
+constraints:
+  - NEVER modify any file outside the report directory.
+  - Stop and ask when the topic is empty; do not guess a subject.
+  - "Format: the report is plain Markdown without front matter."
+
+parameters:
+  - name: topic
+    type: string
+    required: true
+    description: The topic the report covers.
+  - name: fast
+    type: boolean
+    default: false
+    description: Skip the review phase when set.
+
+workflow:
+  phases:
+    - order: 1
+      name: Gather
+      description: Collect every fact the report needs before writing anything.
+      steps:
+        - order: 1
+          title: Read sources
+          description: Open each source listed in the topic and note its claims.
+          actions:
+            - List the sources named in $ARGUMENTS.
+            - "Quote: copy each claim verbatim with its source."
+          mcp_tool:
+            name: mcp__demo__lookup
+            usage: Call the lookup tool once per source to fetch its metadata.
+            fallback: Read the source file directly when the lookup tool is unavailable.
+        - order: 2
+          title: Delegate fact check
+          actions:
+            - Hand the claims to the checker.
+          delegation:
+            agent: code-reviewer
+            context: Verify each claim against its quoted source and report mismatches.
+    - order: 2
+      name: Write
+      description: Turn the verified facts into the report.
+      steps:
+        - order: 1
+          title: Draft the report
+          actions:
+            - Write one paragraph per verified claim.
+            - End with a one-line conclusion.
+
+expectedOutput:
+  format: Markdown report
+  structure:
+    - name: Summary
+      description: One paragraph overview of the topic.
+    - name: Claims
+      description: The verified claims with their sources.

@@ -1,0 +1,1193 @@
+{
+ "runId": "v26-04-pr319-new-first",
+ "pr": 319,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "cca69fed1f51ba07f89cde58c5352157e2228d45",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 22,
+  "recorded": 0
+ },
+ "metrics": {
+  "wallMs": 2046252,
+  "runnerCalls": 17,
+  "dispatchRounds": 6,
+  "agentsDispatched": 24,
+  "agentsByRole": {
+   "reviewer": 7,
+   "security": 1,
+   "verifier": 16
+  },
+  "turnsAtLeast": 23
+ },
+ "stoppedAtDeadline": [
+  "verifier-9(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-9:f5/f18/f28"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f4",
+  "open-important-finding:f5",
+  "open-important-finding:f26",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "security-finding-open:s1",
+  "security-finding-open:s2"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "reducedReview": "plan severity-guide-fallback: REVIEW.md at the base has no readable Severity section (severity-section-missing), so the reviewers are given the built-in copy of the severity words, not your edit; fix the section (a \"## Severity\" heading with one \"- **Important** ...\", \"- **Nit** ...\" and \"- **Pre-existing** ...\" bullet, under 2000 characters)\ncross-slice: 3 of 3 slices were each reviewed on their own slice's diff, so an interaction between slices was read as a whole only by the security lane and by one whole-range reader (reviewer-range: one pass under one lens, with no second reader of the whole diff)\nsecurity lane findings\nverification partial: some-verifiers-did-not-return\nSETTLED ON A MAJORITY, verifiers missing (a strict majority of the expected verifiers voted each of these real, so no vote still missing could change its outcome; notReviewed.incompleteVerifiers names them): f5 (2 of 3 real; verifier-9 did not return), f18 (2 of 3 real; verifier-9 did not return), f28 (2 of 3 real; verifier-9 did not return)\nQUORUM-FIRST verification (policy quorumFirstVerification; the electorate stays 3 and the vote rule is unchanged): the first 2 verifiers of each candidate were asked and the rest only when one of those did not vote real. Settled by their first 2 real votes: f1, f2, f3, f4, f6, f9, f10, f11, f12, f14, f19, f20, f21, f23, f24, f25, f26, f29, f31 (no verifier is missing for them: the ones not asked were never expected to vote, the round is not partial on their account, and a delta verifies them again because they are never carried). Given the rest of their electorate: f5 (missing; asked verifier-16), f18 (missing; asked verifier-16), f28 (missing; asked verifier-16)\ntests: the baseline ran the relevant test files only (exit 0), not the full suite",
+ "votes": {
+  "verification": "partial",
+  "reason": "some-verifiers-did-not-return",
+  "quorumFirst": {
+   "applied": true,
+   "expected": 3,
+   "needed": 2,
+   "settled": [
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f6",
+    "f9",
+    "f10",
+    "f11",
+    "f12",
+    "f14",
+    "f19",
+    "f20",
+    "f21",
+    "f23",
+    "f24",
+    "f25",
+    "f26",
+    "f29",
+    "f31"
+   ],
+   "secondWave": [
+    {
+     "id": "f5",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-16"
+     ]
+    },
+    {
+     "id": "f18",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-16"
+     ]
+    },
+    {
+     "id": "f28",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-16"
+     ]
+    }
+   ]
+  },
+  "outcomes": [
+   {
+    "id": "f1",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f2",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f3",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f4",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f5",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": true,
+    "missing": [
+     "verifier-9"
+    ],
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f6",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f9",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f10",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f11",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f12",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f14",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f18",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": true,
+    "missing": [
+     "verifier-9"
+    ],
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f19",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f20",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f21",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f23",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f24",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f25",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f26",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f28",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": true,
+    "missing": [
+     "verifier-9"
+    ],
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f29",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f31",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   }
+  ]
+ },
+ "ledger": {
+  "total": 22,
+  "bySeverity": {
+   "important/fix": 4,
+   "nit/fix": 12,
+   "nit/deferred": 6
+  },
+  "present": 0,
+  "presentOnMajority": 3,
+  "quorumSettled": 19,
+  "unverified": 0,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/e2e-testing/lib/delegation-contract.js:300",
+    "claim": "validateRunResponse accepts any file that already exists at the fixed path <evidenceDir>/<AC id>.png as the run's screenshot: its only check on that path is existsSync, with no comparison against the run's start time and...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f2",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/e2e-testing/CHANGELOG.md:27",
+    "claim": "The package CHANGELOG entry says the prompt trimming left no step, action or rule changed, but the same change also deletes the playwright-tester responsibility titled Artifact Capture (Generate traces, screenshots, and ...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f3",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "docs/guides/environment-variables.md:23",
+    "claim": "The example for E2E_EVIDENCE_ATTACH_CMD is written as an unquoted NAME=value assignment whose value contains spaces and a single-quoted argument; typed into bash or zsh it is parsed as a one-command environment prefix fo...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f4",
+    "severity": "important",
+    "source": "reviewer-s1-b",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:217",
+    "claim": "The Run-response step relies on validateRunResponse (packages/e2e-testing/lib/delegation-contract.js:294-301) to reject a run that left no screenshot, but that function only checks that a file exists at <evidenceDir>/<AC...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-7",
+     "verifier-8"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f5",
+    "severity": "important",
+    "source": "reviewer-s1-b",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:272",
+    "claim": "The Phase 5 attach step tells the session to run, with its shell tool, a command string built from the E2E_EVIDENCE_ATTACH_CMD environment variable (resolveAttachCommand then buildAttachCommand) whenever the Azure DevOps...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": true,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-9",
+     "verifier-10",
+     "verifier-16"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "docs/guides/environment-variables.md:22",
+    "claim": "When E2E_EVIDENCE_DIR is unset, the generated EvidenceCapture helper writes full-page screenshots of the authenticated QA session (every test, pass or fail) into Path.GetTempPath()/e2e-evidence, a fixed, predictable name...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-11",
+     "verifier-12"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f9",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/commands/ensemble/author-playwright-tests.md:145",
+    "claim": "The Proposal step says to re-delegate once when validateProposalResponse rejects a test that lacks its EvidenceCapture scope, but defines nothing for a second rejection (the next bullet covers only an authoringFailure, w...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-13",
+     "verifier-14"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f10",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/commands/ensemble/author-playwright-tests.md:144",
+    "claim": "The proposal instruction tells the author to open `await using var evidence = EvidenceCapture.For(page, acId);` where acId is a placeholder, but hasEvidenceCapture accepts the call only when the statement contains the AC...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-15",
+     "verifier-1"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f11",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/session-logger.js:317",
+    "claim": "The self-check comments still say KNOWN_TYPES matches exactly the five FORMATTERS keys (line 317) and that the check exercises all five action types (line 199), although KNOWN_TYPES and FORMATTERS now hold six entries in...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-2",
+     "verifier-3"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f12",
+    "severity": "nit",
+    "source": "reviewer-s2-a",
+    "loc": "packages/e2e-testing/lib/evidence-capture.js:146-156",
+    "claim": "buildAttachCommand accepts a path that ends in a backslash (SAFE_PATH_RE allows the backslash) and then wraps it in double quotes, so the closing quote ends up escaped and the quoting of the rest of the command breaks, a...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-4",
+     "verifier-5"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f14",
+    "severity": "nit",
+    "source": "reviewer-s2-b",
+    "loc": "packages/e2e-testing/lib/session-logger.js:146-149",
+    "claim": "formatEvidenceAttach returns '[evidence-attach] <AC>: attached to ADO Test Case <id> via <method>' for every input that is not method 'none' and not ok === false, so a log call that leaves out ok (or sets error without o...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-6",
+     "verifier-7"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f18",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:142",
+    "claim": "Phase 3 step 2 item 3 says a proposal rejected for lacking its EvidenceCapture scope is re-delegated once with the error, but gives no outcome when the second proposal is also rejected; the Run-stage counterpart (Phase 4...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": true,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-8",
+     "verifier-9",
+     "verifier-16"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f19",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:141",
+    "claim": "The authoring instruction shows the required scope as await using var evidence = EvidenceCapture.For(page, acId); with a bare acId identifier (the same example is in the agent authoring responsibility), but hasEvidenceCa...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-10",
+     "verifier-11"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f20",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:264",
+    "claim": "The final-summary step still lists five action types that must already have been logged (test-written, run-result, sync-result, gap-task-filed, manual-ac-marked), but this change adds a sixth, evidence-attach (KNOWN_TYPE...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-12",
+     "verifier-13"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f21",
+    "severity": "nit",
+    "source": "reviewer-s3-a",
+    "loc": "packages/pi/agents/playwright-tester.md:46-48",
+    "claim": "The change replaces the agent's Artifact Capture responsibility (generate traces, screenshots and videos for debugging) with the end-state screenshot one, so nothing instructs the agent to produce traces or videos for fa...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-14",
+     "verifier-15"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f23",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:225-227",
+    "claim": "In Phase 5's per-test sync actions the new step 4 (attach runResult.evidencePath to 'that Test Case') sits between step 3 ('On success') and step 5 ('On failure'), so it reads as an unconditional next action even though ...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-1",
+     "verifier-2"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f24",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/agents/playwright-tester.md:46-48",
+    "claim": "The playwright-tester responsibility 'Artifact Capture (medium): Generate traces, screenshots, and videos for debugging' was removed and replaced by the screenshot-only 'End-State Screenshot Evidence (high)', while the a...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f25",
+    "severity": "nit",
+    "source": "reviewer-s3-b",
+    "loc": "packages/pi/prompts/ensemble-author-playwright-tests.md:140",
+    "claim": "Phase 3 step 2 has the agent build the Proposal request with an acId and check it with validateProposalRequest, and step 3 says a test without its EvidenceCapture scope is rejected by validateProposalResponse(res, req); ...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-5",
+     "verifier-6"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f26",
+    "severity": "important",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:272",
+    "claim": "Phase 5 step 3 of author-playwright-tests.yaml now tells the session that, when the Azure DevOps MCP server has no attachment tool, it must run a shell command read from E2E_EVIDENCE_ATTACH_CMD (the docs example is a pws...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-7",
+     "verifier-8"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f28",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/commands/author-playwright-tests.yaml:185",
+    "claim": "The Proposal-stage instruction (and the matching text in playwright-tester.yaml and the generated mirrors) tells the author to open the test with EvidenceCapture.For(page, acId), but validateProposalResponse only accepts...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": true,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-9:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-9",
+     "verifier-10",
+     "verifier-16"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f29",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/session-logger.js:199",
+    "claim": "The change adds a sixth action type, evidence-attach, to KNOWN_TYPES and FORMATTERS, but the session-logger.js self-check comments still describe five (line 199 'exercises all five action types', line 317 'matches exactl...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-11",
+     "verifier-12"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f31",
+    "severity": "nit",
+    "source": "reviewer-range",
+    "loc": "packages/e2e-testing/lib/evidence-capture.js:152",
+    "claim": "buildAttachCommand refuses any screenshot path with a character outside the ASCII set in SAFE_PATH_RE, but resolveEvidenceDir and validateRunResponse accept any directory, and the default directory sits under the user's ...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-13",
+     "verifier-14"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 19520,
+  "startedAt": "2026-11-11T23:54:42.883Z",
+  "reason": null,
+  "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-319-cca69fed1f51ba07f89cde58c5352157e2228d45.dry.gate.log",
+  "finishedAt": "2026-11-12T00:01:51.439Z",
+  "durationMin": 7.14,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "step-failed:generated-drift:node 24",
+   "step-failed:test:node 24",
+   "clone-tampered::"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 34.06368333333333,
+  "window": [
+   "2026-11-11T23:54:41.545Z",
+   "2026-11-12T00:28:45.366Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 26767,
+   "missing": false,
+   "pct": 1
+  },
+  "beforeFirstDispatch": 15113,
+  "activeMs": 2017054,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 985473,
+       "missing": false,
+       "name": "reviewer-range"
+      },
+      {
+       "stage": "verifier",
+       "ms": 1031580,
+       "missing": false,
+       "rolling": true,
+       "waves": 5
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    25
+   ],
+   "review.gate": [
+    2,
+    1344
+   ],
+   "review.verdict": [
+    2,
+    25
+   ],
+   "review.security-lane": [
+    1,
+    878204
+   ],
+   "review.reviewer": [
+    7,
+    985473
+   ],
+   "review.verifier": [
+    16,
+    481018
+   ]
+  },
+  "hostLoad": {
+   "missing": false,
+   "scope": "orchestrator window",
+   "samples": 68,
+   "load1": {
+    "min": 4.57,
+    "mean": 13.38,
+    "max": 93.66
+   },
+   "cpus": 18,
+   "intervalMs": 30002
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr319-first-v26-04-pr319-new-first",
+  "pr": 319,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 34.064,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-04-pr319-new-first",
+  "run_id": "v26-04-pr319-new-first"
+ },
+ "arm": "new",
+ "order": 4,
+ "driverPeakTrackedActive": 8,
+ "highLoadSeen": true,
+ "startedMs": 1794441281029,
+ "endedMs": 1794443327396,
+ "triageByRule": []
+}

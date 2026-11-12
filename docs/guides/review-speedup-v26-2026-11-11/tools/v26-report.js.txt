@@ -1,0 +1,152 @@
+'use strict';
+// Cross-run analysis of the V2-6 paired measurement (kata 1yjx). Scratch; a copy goes into the evidence directory as text.
+// Reads every run directory under runs/ (analysis.json, summary.json, timing.json, arm-proof.json, run-extract.json, walltime-row.json) and computes:
+// the per-run table, the pairs (PR, round) with one chosen run per arm (a run whose verify stage is DISTURBED by the ramp report's rule, applied to load
+// samples alone, is never the chosen run while a clean one exists), the paired differences with the spread seen earlier on identical work, the
+// counterfactual replays (the verify stage the same candidates would have had under the other arm: an estimate, assumptions stated), the candidate
+// matching between arms (same outcome?), and the cohort documents for `walltime compare`.
+const fs = require('fs');
+const path = require('path');
+const A = require('./v26-analyze.js');
+const L = require('./v26-lib.js');
+const S = require(path.join(L.REPO_ROOT, 'packages', 'development', 'lib', 'pr-review-run-support.js'));
+
+const RUNS = path.join(L.SCRATCH, 'runs');
+const r2 = A.r2;
+const median = A.median;
+const rd = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+const tryRd = (f) => { try { return rd(f); } catch (e) { return null; } };
+
+/** The spread seen earlier on identical work (kata 889r/w6w5/j1wb): the same #207 head 26.83, 22.13, 26.45 min (18.7% of the mean) and the same #229 diff 20.81, 18.79, 20.68 (10.1%); the ramp's cap-8 pair 24.62, 25.86 (4.9%). */
+const SPREAD = { earlierSessionsPct: [10.1, 18.7], rampSameSessionPairPct: 4.9, rampSameSessionPairMin: 1.24, rampStagePairMin: 1.46 };
+
+function loadRuns() {
+  const out = {};
+  for (const id of fs.readdirSync(RUNS).sort()) {
+    if (id.startsWith('_')) continue; // an attempt that never started (kept as evidence)
+    const dir = path.join(RUNS, id);
+    const an = tryRd(path.join(dir, 'analysis.json'));
+    if (!an) { out[id] = { id, dir, incomplete: true, spec: tryRd(path.join(dir, 'spec.json')) }; continue; }
+    out[id] = { id, dir, spec: tryRd(path.join(dir, 'spec.json')), an, sum: tryRd(path.join(dir, 'summary.json')), timing: tryRd(path.join(dir, 'timing.json')), proof: tryRd(path.join(dir, 'arm-proof.json')), ex: tryRd(path.join(dir, 'run-extract.json')), row: tryRd(path.join(dir, 'walltime-row.json')), jobs: tryRd(path.join(dir, 'jobs.json')), guard: tryRd(path.join(dir, 'recall-guard.json')), guardDefault: tryRd(path.join(dir, 'recall-guard-default-threshold.json')) };
+  }
+  return out;
+}
+
+function derive(run) {
+  const { an, sum, ex } = run;
+  const v = an.verify || {};
+  const vv = an.verifiers || {};
+  const sl = an.load && an.load.sessionLog;
+  const rs = an.load && an.load.runSampler;
+  const wallMin = an.wallMin;
+  const beforeFirstMin = (an.beforeFirstDispatchSec || 0) / 60;
+  const afterReviewMin = r2(wallMin - beforeFirstMin - an.reviewRoundMin);
+  const agentMin = r2(((an.verify && an.verify.sumAgentMin) || 0));
+  const ledgerC = (sum && sum.ledger && sum.ledger.candidates) || [];
+  const impt = ledgerC.filter((c) => c.severity === 'important');
+  const d = {
+    id: run.id, pr: run.spec.pr, tier: run.spec.tier, arm: run.spec.arm, round: run.spec.round, order: run.spec.n, note: run.spec.note || null,
+    wallMin, orchSec: r2(an.orchestratorOnlySec), beforeFirstDispatchSec: r2(an.beforeFirstDispatchSec), reviewRoundMin: an.reviewRoundMin, slowestReviewerMin: an.reviewers && an.reviewers.slowestMin,
+    verifyStartMin: v.startedOffsetMin, verifyStageMin: v.stageMin, afterReviewMin, handoffSec: an.handoffToVerifySec,
+    verifiersTotal: vv.dispatchedTotal, verifiersFirstWave: vv.firstWave, verifiersSecondWave: vv.secondWave, verifiersPlannedFull: vv.plannedFullElectorate, verifiersPlannedByRunner: vv.plannedByRunner,
+    verifierSavingPct: (typeof vv.plannedFullElectorate === 'number' && vv.dispatchedTotal !== undefined) ? r2(100 * (1 - vv.dispatchedTotal / vv.plannedFullElectorate)) : null,
+    firstWaveSavingPct: (typeof vv.plannedFullElectorate === 'number' && vv.firstWave !== undefined) ? r2(100 * (1 - vv.firstWave / vv.plannedFullElectorate)) : null,
+    firstWaveStageMin: v.firstWaveStageMin, secondWaveTailMin: v.secondWaveTailMin, secondWaveDurationsSec: v.secondWaveDurationsSec, firstWaveDurationsSec: v.firstWaveDurationsSec,
+    verifierWaves: v.waves, verifierPeak: v.peakVerifierOverlap, verifierSlowestMin: v.slowestMin, verifierMedianMin: v.medianMin, verifierP75Min: v.p75Min, verifiersArrived: v.arrived, verifiersExpired: v.expired, verifierSumAgentMin: v.sumAgentMin,
+    candidates: an.ledger && an.ledger.candidates, candidateList: ledgerC, bySeverity: an.ledger && an.ledger.bySeverity, importantCount: impt.length,
+    present: an.ledger && an.ledger.present, quorumSettled: an.ledger && an.ledger.quorumSettled, settledOnMajority: an.ledger && an.ledger.presentOnMajority, unverified: an.ledger && an.ledger.unverified, otherOutcomes: an.ledger && an.ledger.other,
+    secondWaveCandidates: vv.candidatesGivenTheRest === undefined ? null : vv.candidatesGivenTheRest, secondWaveRate: vv.secondWaveRate === undefined ? null : vv.secondWaveRate, secondWaveReasons: vv.secondWaveReasons || null,
+    agentsTotal: an.agentsTotal, agentsByRole: an.metricsAgents,
+    gateAction: an.gate && an.gate.action, gateMin: an.gate && an.gate.durationMin, gateOk: an.gate && an.gate.ok, gateEndOffsetMin: an.gate && an.gate.finishedOffsetMin, gateEndedBeforeVerify: an.gate && an.gate.verificationStartedAfterGateFinished, gateVerifyMinusEndMin: an.gate && an.gate.verifyStartMinusGateEndMin,
+    stoppedAtDeadline: an.stoppedAtDeadline, reviewersExpired: an.reviewers && an.reviewers.expired,
+    flags: an.flags, harnessNonCompleted: an.harness && an.harness.nonCompleted, harnessEnvelopeNotes: an.harness && an.harness.agentsWithEnvelopeNote,
+    armProofAllAgree: run.proof && run.proof.allAgree, quorumApplied: run.proof && run.proof.quorumApplied,
+    mode: an.mode, depth: an.depth, reReview: an.reReview || null, carry: an.carry || null,
+    load: { runMean: sl && sl.run && sl.run.load1Mean, runMax: sl && sl.run && sl.run.load1Max, runAbove12: sl && sl.run && sl.run.above12, runSamples: sl && sl.run && sl.run.samples, stageMean: sl && sl.verifyStage && sl.verifyStage.load1Mean, stageMax: sl && sl.verifyStage && sl.verifyStage.load1Max, stageSamples: sl && sl.verifyStage && sl.verifyStage.samples, stageAbove12: sl && sl.verifyStage && sl.verifyStage.above12, stageStreak: sl && sl.verifyStage && sl.verifyStage.longestStreakAbove12, stageDisturbed: sl && sl.verifyStage ? sl.verifyStage.disturbed : null, runDisturbed: sl && sl.run ? sl.run.disturbed : null, first5Mean: sl && sl.first5min && sl.first5min.load1Mean, ownSamplerStageMean: rs && rs.verifyStage && rs.verifyStage.load1Mean, ownSamplerStageDisturbed: rs && rs.verifyStage ? rs.verifyStage.disturbed : null, otherEnsembleJestSamplesInStage: an.load && an.load.procs && an.load.procs.verifyStage && an.load.procs.verifyStage.samplesWithOtherEnsembleJest, otherEnsembleCpuStage: an.load && an.load.procs && an.load.procs.verifyStage && an.load.procs.verifyStage.meanCpuPct && an.load.procs.verifyStage.meanCpuPct.otherEnsemble, otherEnsembleJestSamplesInRun: an.load && an.load.procs && an.load.procs.run && an.load.procs.run.samplesWithOtherEnsembleJest },
+    quietWaitedMin: run.spec && tryRd(path.join(run.dir, 'quiet-wait.json')) ? r2(tryRd(path.join(run.dir, 'quiet-wait.json')).waitedMs / 60000) : null,
+    startedAt: an.window.startIso, endedAt: an.window.endIso,
+    recall: an.recallGuard ? { found: an.recallGuard.found, downgraded: an.recallGuard.downgraded, notRaised: an.recallGuard.notRaised, falseNegativeRate: an.recallGuard.falseNegativeRate } : null,
+    walltimeRow: run.row && (run.row.row || run.row),
+  };
+  d.disturbed = d.load.stageDisturbed === true;
+  return d;
+}
+
+/** Counterfactual verify stage: the verifier durations of `obs` (first-wave arrivals, seconds) extended to `n` verifiers by drawing the missing ones from them, replayed at cap 8. */
+function bootstrapStage(obs, n, cap = 8, draws = 4000, seed = 12345) {
+  if (!obs.length || n < obs.length) return null;
+  let s = seed >>> 0;
+  const rnd = () => { s = (1664525 * s + 1013904223) >>> 0; return s / 4294967296; };
+  const res = [];
+  for (let i = 0; i < draws; i += 1) {
+    const durs = obs.slice();
+    for (let k = obs.length; k < n; k += 1) durs.push(obs[Math.floor(rnd() * obs.length)]);
+    res.push(A.replay(durs, cap) / 60);
+  }
+  res.sort((a, b) => a - b);
+  const q = (p) => res[Math.min(res.length - 1, Math.floor(p * res.length))];
+  return { n, draws, mean: r2(A.mean(res)), p05: r2(q(0.05)), p50: r2(q(0.5)), p95: r2(q(0.95)) };
+}
+
+/** Parse `path[:a[-b]]` of a candidate location. */
+function parseLoc(loc) {
+  const m = /^(.*?)(?::(\d+)(?:-(\d+))?)?$/.exec(String(loc || '').trim());
+  const a = m && m[2] ? Number(m[2]) : null;
+  return { file: m ? m[1] : String(loc), a, b: m && m[3] ? Number(m[3]) : a };
+}
+const tokens = (t) => new Set(String(t || '').toLowerCase().split(/[^a-z0-9_$]+/).filter((w) => w.length > 3));
+const jaccard = (x, y) => { let i = 0; for (const w of x) if (y.has(w)) i += 1; const u = x.size + y.size - i; return u ? i / u : 0; };
+
+/** Match the candidates of two runs of the same head: same file and nearby lines (or the same file and a similar claim), greedily by score. */
+function matchCandidates(oldC, newC) {
+  const pairs = [];
+  for (const o of oldC) for (const n of newC) {
+    const po = parseLoc(o.loc); const pn = parseLoc(n.loc);
+    if (po.file !== pn.file) continue;
+    let near = false;
+    if (po.a !== null && pn.a !== null) near = Math.max(po.a, pn.a) <= Math.min(po.b, pn.b) + 6;
+    const j = jaccard(tokens(o.claim), tokens(n.claim));
+    const score = (near ? 1 : 0) + j;
+    if ((near && j >= 0.12) || j >= 0.3) pairs.push({ o, n, score, near, jaccard: r2(j) });
+  }
+  pairs.sort((a, b) => b.score - a.score);
+  const usedO = new Set(); const usedN = new Set(); const matched = [];
+  for (const p of pairs) { if (usedO.has(p.o.id) || usedN.has(p.n.id)) continue; usedO.add(p.o.id); usedN.add(p.n.id); matched.push(p); }
+  return { matched, onlyOld: oldC.filter((c) => !usedO.has(c.id)), onlyNew: newC.filter((c) => !usedN.has(c.id)) };
+}
+
+function pairKey(d) { return `${d.pr}|${d.round}`; }
+
+function buildPairs(ds) {
+  const groups = {};
+  for (const d of ds) (groups[pairKey(d)] = groups[pairKey(d)] || { pr: d.pr, round: d.round, tier: d.tier, old: [], new: [] })[d.arm].push(d);
+  const pairs = [];
+  for (const g of Object.values(groups)) {
+    const choose = (list) => { if (!list.length) return null; const clean = list.filter((x) => !x.disturbed); return clean.length ? clean[clean.length - 1] : list[list.length - 1]; };
+    const o = choose(g.old); const n = choose(g.new);
+    pairs.push({ pr: g.pr, round: g.round, tier: g.tier, old: o && o.id, new: n && n.id, oldRuns: g.old.map((x) => x.id), newRuns: g.new.map((x) => x.id), bothClean: !!(o && n && !o.disturbed && !n.disturbed), oldDisturbed: o ? o.disturbed : null, newDisturbed: n ? n.disturbed : null });
+  }
+  return pairs;
+}
+
+function diffRow(o, n, key) {
+  const a = o[key]; const b = n[key];
+  if (typeof a !== 'number' || typeof b !== 'number') return null;
+  return { old: a, new: b, diff: r2(b - a), pctOfOld: a ? r2(100 * (b - a) / a) : null };
+}
+
+function insideSpread(oldWall, diffMin) {
+  const pct = oldWall ? Math.abs(100 * diffMin / oldWall) : null;
+  return { pct: pct === null ? null : r2(pct), insideEarlier10to19: pct !== null && pct <= SPREAD.earlierSessionsPct[1], insideRampPair: pct !== null && pct <= SPREAD.rampSameSessionPairPct, insideLowerEarlier: pct !== null && pct <= SPREAD.earlierSessionsPct[0] };
+}
+
+/** Same-outcome check of two runs of one head: match the candidates, then compare the FINAL ledger outcome of each matched pair (outcome, severity, disposition). Unmatched candidates are listed per side with their final outcome. */
+function outcomeEquality(o, n) {
+  const m = matchCandidates(o.candidateList || [], n.candidateList || []);
+  const fin = (c) => `${c.outcome}|${c.severity}/${c.disposition}`;
+  const rows = m.matched.map((p) => ({ old: p.o.id, new: p.n.id, loc: p.o.loc, oldFinal: fin(p.o), newFinal: fin(p.n), same: fin(p.o) === fin(p.n), oldVotes: `${p.o.real}/${p.o.notReal}/${p.o.abstain}`, newVotes: `${p.n.real}/${p.n.notReal}/${p.n.abstain}`, newSettled: p.n.quorumSettled ? 'quorum' : (p.n.settledOnMajority ? 'majority' : 'full'), oldSettled: p.o.settledOnMajority ? 'majority' : 'full', score: p.score, jaccard: p.jaccard }));
+  const only = (list) => list.map((c) => ({ id: c.id, loc: c.loc, final: fin(c), votes: `${c.real}/${c.notReal}/${c.abstain}`, settled: c.quorumSettled ? 'quorum' : (c.settledOnMajority ? 'majority' : 'full') }));
+  return { matched: rows, matchedCount: rows.length, sameFinal: rows.filter((r) => r.same).length, differentFinal: rows.filter((r) => !r.same), onlyOld: only(m.onlyOld), onlyNew: only(m.onlyNew) };
+}
+
+module.exports = { RUNS, SPREAD, loadRuns, derive, bootstrapStage, parseLoc, matchCandidates, outcomeEquality, buildPairs, diffRow, insideSpread, median, r2, tryRd, rd };

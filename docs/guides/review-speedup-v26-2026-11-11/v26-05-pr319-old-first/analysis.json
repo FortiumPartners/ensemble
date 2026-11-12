@@ -1,0 +1,411 @@
+{
+ "dir": "v26-05-pr319-old-first",
+ "wallMin": 39.11,
+ "window": {
+  "startMs": 1794443905351,
+  "endMs": 1794446251827,
+  "startIso": "2026-11-12T00:38:25.351Z",
+  "endIso": "2026-11-12T01:17:31.827Z"
+ },
+ "rootMaxConcurrentAgents": 8,
+ "reviewers": {
+  "count": 7,
+  "slowestName": "reviewer-s3-b",
+  "slowestMin": 16.72,
+  "laneMin": 12.8,
+  "expired": []
+ },
+ "reviewRoundMin": 16.72,
+ "handoffToVerifySec": 5.76,
+ "verify": {
+  "count": 25,
+  "arrived": 24,
+  "expired": 1,
+  "expiredNames": [
+   "verifier-24"
+  ],
+  "waves": 10,
+  "refills": 9,
+  "stageMin": 22.04,
+  "stageSec": 1322.32,
+  "startedAtIso": "2026-11-12T00:55:28.191Z",
+  "startedOffsetMin": 17.05,
+  "endedOffsetMin": 39.09,
+  "slowestMin": 8.03,
+  "slowestArrivedMin": 7.7,
+  "medianMin": 5.17,
+  "meanMin": 5.27,
+  "p75Min": 6.34,
+  "p90Min": 7.23,
+  "minMin": 2.37,
+  "sumAgentMin": 134.54,
+  "peakVerifierOverlap": 8,
+  "peakAnyAgentOverlap": 8,
+  "lastStartOffsetMin": 14.32,
+  "durationsSec": [
+   189.89,
+   141.94,
+   221.74,
+   433.77,
+   335.79,
+   232.27,
+   312.68,
+   370.41,
+   301.31,
+   462.18,
+   438.12,
+   328.96,
+   380.92,
+   268.72,
+   242.08,
+   398.08,
+   308.2,
+   284.59,
+   275.93,
+   380.69,
+   282.44,
+   337.74,
+   265.04,
+   481.69,
+   397.21
+  ],
+  "replayAtCap8Min": 20.55,
+  "firstWaveStageMin": 22.04,
+  "secondWaveTailMin": 0,
+  "firstWaveDurationsSec": [
+   189.89,
+   141.94,
+   221.74,
+   433.77,
+   335.79,
+   232.27,
+   312.68,
+   370.41,
+   301.31,
+   462.18,
+   438.12,
+   328.96,
+   380.92,
+   268.72,
+   242.08,
+   398.08,
+   308.2,
+   284.59,
+   275.93,
+   380.69,
+   282.44,
+   337.74,
+   265.04,
+   481.69,
+   397.21
+  ],
+  "secondWaveDurationsSec": []
+ },
+ "verifiers": {
+  "dispatchedTotal": 25,
+  "secondWave": 0,
+  "firstWave": 25,
+  "manifests": 10,
+  "plannedFullElectorate": 25,
+  "plannedByRunner": 25,
+  "candidatesVerified": 25,
+  "mode": "standard",
+  "electorate": 3
+ },
+ "quorum": null,
+ "gate": {
+  "action": "started",
+  "reason": null,
+  "ok": false,
+  "durationMin": 3.15,
+  "startedAt": "2026-11-12T00:38:26.475Z",
+  "finishedAt": "2026-11-12T00:41:35.385Z",
+  "failures": [
+   "step-failed:generated-drift:node 22",
+   "step-failed:test:node 22",
+   "node-version::node 24",
+   "clone-tampered::"
+  ],
+  "startedOffsetSec": 1.12,
+  "finishedOffsetMin": 3.17,
+  "verificationStartedAfterGateFinished": true,
+  "verifyStartMinusGateEndMin": 13.88
+ },
+ "ledger": {
+  "candidates": 25,
+  "bySeverity": {
+   "important/fix": 10,
+   "nit/fix": 12,
+   "nit/deferred": 3
+  },
+  "present": 22,
+  "presentOnMajority": 3,
+  "quorumSettled": 0,
+  "unverified": 0,
+  "other": {}
+ },
+ "flags": {
+  "rereadResults": 0,
+  "restated": 0,
+  "changedResults": 0,
+  "warnings": 0
+ },
+ "stoppedAtDeadline": [
+  "verifier-24(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-24:f10/f21/f31"
+ ],
+ "orchestratorOnlySec": 21.052,
+ "beforeFirstDispatchSec": 14.009,
+ "criticalPath": {
+  "ms": null,
+  "steps": [
+   {
+    "stage": "reviewer",
+    "ms": 1003074,
+    "name": "reviewer-s3-b"
+   },
+   {
+    "stage": "verifier",
+    "ms": 1322317,
+    "waves": 10
+   },
+   {
+    "stage": "verdict",
+    "ms": null
+   }
+  ]
+ },
+ "metricsAgents": {
+  "reviewer": 7,
+  "security": 1,
+  "verifier": 25
+ },
+ "agentsTotal": 33,
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 25,
+  "recorded": 22
+ },
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "open-important-finding:f3",
+  "open-important-finding:f4",
+  "open-important-finding:f7",
+  "open-important-finding:f19",
+  "open-important-finding:f20",
+  "open-important-finding:f21",
+  "open-important-finding:f26",
+  "open-important-finding:f31",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing",
+  "security-finding-open:s1",
+  "security-finding-open:s2",
+  "security-finding-open:s3"
+ ],
+ "mergeable": false,
+ "jobs": {
+  "reviewer": {
+   "n": 7,
+   "requestsTotal": 133,
+   "requestsMean": 19,
+   "costTotalUsd": 16.2,
+   "contextTokensMax": 303435,
+   "harnessDurMedianSec": 865.27,
+   "harnessDurMaxSec": 1006.79,
+   "statuses": {
+    "completed": 7
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 7
+   }
+  },
+  "security": {
+   "n": 1,
+   "requestsTotal": 28,
+   "requestsMean": 28,
+   "costTotalUsd": 2.22,
+   "contextTokensMax": 260201,
+   "harnessDurMedianSec": 773.13,
+   "harnessDurMaxSec": 773.13,
+   "statuses": {
+    "completed": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 1
+   }
+  },
+  "verifier": {
+   "n": 25,
+   "requestsTotal": 401,
+   "requestsMean": 16.04,
+   "costTotalUsd": 24.11,
+   "contextTokensMax": 193904,
+   "harnessDurMedianSec": 314.27,
+   "harnessDurMaxSec": 481.12,
+   "statuses": {
+    "completed": 24,
+    "cancelled(killed)": 1
+   },
+   "envelopeNotes": 0,
+   "modelsAndThinking": {
+    "anthropic/claude-sonnet-5-5:max|max": 25
+   }
+  }
+ },
+ "harness": {
+  "agentsWithEnvelopeNote": [],
+  "nonCompleted": [],
+  "killedAtDeadline": [
+   "verifier-24"
+  ],
+  "unusualWidgetStates": []
+ },
+ "driverPeakTrackedActive": 8,
+ "load": {
+  "sessionLog": {
+   "run": {
+    "samples": 78,
+    "load1Mean": 5.26,
+    "load1Max": 12.65,
+    "load1Min": 3.8,
+    "above12": 1,
+    "longestStreakAbove12": 1,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 19,
+    "samplesWithJest": 5,
+    "samplesWithFullSuiteLock": 0
+   },
+   "verifyStage": {
+    "samples": 44,
+    "load1Mean": 4.8,
+    "load1Max": 6.64,
+    "load1Min": 3.8,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   },
+   "first5min": {
+    "samples": 10,
+    "load1Mean": 8.34,
+    "load1Max": 12.65,
+    "load1Min": 4.41,
+    "above12": 1,
+    "longestStreakAbove12": 1,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 19,
+    "samplesWithJest": 5,
+    "samplesWithFullSuiteLock": 0
+   },
+   "beforeRun15min": {
+    "samples": 30,
+    "load1Mean": 5.65,
+    "load1Max": 8.12,
+    "load1Min": 3.17,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false,
+    "jestProcsMax": 0,
+    "samplesWithJest": 0,
+    "samplesWithFullSuiteLock": 0
+   }
+  },
+  "runSampler": {
+   "run": {
+    "samples": 78,
+    "load1Mean": 5.13,
+    "load1Max": 11.32,
+    "load1Min": 3.38,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   },
+   "verifyStage": {
+    "samples": 44,
+    "load1Mean": 4.69,
+    "load1Max": 6.3,
+    "load1Min": 3.75,
+    "above12": 0,
+    "longestStreakAbove12": 0,
+    "above20": 0,
+    "disturbed": false
+   }
+  },
+  "procs": {
+   "run": {
+    "samples": 78,
+    "meanCpuPct": {
+     "all": 320.29,
+     "gate": 0.13,
+     "pipeline": 14.68,
+     "otherEnsemble": 92.82,
+     "other": 212.59
+    },
+    "samplesWithOtherEnsembleJest": 1,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 171,
+    "maxOtherCpuPct": 412
+   },
+   "verifyStage": {
+    "samples": 44,
+    "meanCpuPct": {
+     "all": 307.34,
+     "gate": 0,
+     "pipeline": 3.43,
+     "otherEnsemble": 99.05,
+     "other": 204.8
+    },
+    "samplesWithOtherEnsembleJest": 0,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 171,
+    "maxOtherCpuPct": 363
+   },
+   "first5min": {
+    "samples": 10,
+    "meanCpuPct": {
+     "all": 410.5,
+     "gate": 1,
+     "pipeline": 99.4,
+     "otherEnsemble": 70.4,
+     "other": 239.3
+    },
+    "samplesWithOtherEnsembleJest": 1,
+    "samplesWithGateJest": 0,
+    "maxOtherEnsembleCpuPct": 151,
+    "maxOtherCpuPct": 317
+   }
+  }
+ },
+ "arm": "old",
+ "order": 5,
+ "runId": "v26-05-pr319-old-first",
+ "pr": 319,
+ "tier": "medium",
+ "round": "first",
+ "armProofAllAgree": true,
+ "quiet": {
+  "waitedMs": 2,
+  "quiet": true
+ }
+}

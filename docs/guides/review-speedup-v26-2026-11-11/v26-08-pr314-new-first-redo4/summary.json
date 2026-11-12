@@ -1,0 +1,483 @@
+{
+ "runId": "v26-08-pr314-new-first-redo4",
+ "pr": 314,
+ "tier": "medium",
+ "round": "first",
+ "status": "DONE",
+ "headSha": "444af69c2b63023c882d57834dd543689d5062ae",
+ "mode": "light",
+ "depth": {
+  "mode": "standard",
+  "verifiersPerCandidate": 3,
+  "reviewersPerSlice": 2
+ },
+ "carry": {
+  "appliedRange": "full-range",
+  "carried": 0,
+  "reverified": 5,
+  "recorded": 0
+ },
+ "metrics": {
+  "wallMs": 1706565,
+  "runnerCalls": 7,
+  "dispatchRounds": 3,
+  "agentsDispatched": 8,
+  "agentsByRole": {
+   "reviewer": 2,
+   "security": 1,
+   "verifier": 5
+  },
+  "turnsAtLeast": 10
+ },
+ "stoppedAtDeadline": [
+  "verifier-1(verifier)",
+  "verifier-2(verifier)",
+  "verifier-5(verifier)"
+ ],
+ "incompleteVerifiers": [
+  "verifier-1:f1/f3/f6",
+  "verifier-2:f1/f3/f6",
+  "verifier-5:f1/f3/f6"
+ ],
+ "gateBlockers": [
+  "open-important-finding:f1",
+  "open-important-finding:f2",
+  "approvals-unsatisfied",
+  "description-section-missing",
+  "description-section-missing",
+  "description-section-missing"
+ ],
+ "mergeable": false,
+ "reviewStatus": {
+  "status": "REVIEW_PENDING",
+  "localPhase": "LOCAL_REVIEW_PENDING",
+  "coverage": "complete"
+ },
+ "reducedReview": "verification partial: some-verifiers-did-not-return\nQUORUM-FIRST verification (policy quorumFirstVerification; the electorate stays 3 and the vote rule is unchanged): the first 2 verifiers of each candidate were asked and the rest only when one of those did not vote real. Settled by their first 2 real votes: f2, f5 (no verifier is missing for them: the ones not asked were never expected to vote, the round is not partial on their account, and a delta verifies them again because they are never carried). Given the rest of their electorate: f1 (missing; asked verifier-5), f3 (missing; asked verifier-5), f6 (missing; asked verifier-5)\ntests: the baseline ran the relevant test files only (exit 0), not the full suite",
+ "votes": {
+  "verification": "partial",
+  "reason": "some-verifiers-did-not-return",
+  "quorumFirst": {
+   "applied": true,
+   "expected": 3,
+   "needed": 2,
+   "settled": [
+    "f2",
+    "f5"
+   ],
+   "secondWave": [
+    {
+     "id": "f1",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-5"
+     ]
+    },
+    {
+     "id": "f3",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-5"
+     ]
+    },
+    {
+     "id": "f6",
+     "reasons": [
+      "missing"
+     ],
+     "verifiers": [
+      "verifier-5"
+     ]
+    }
+   ]
+  },
+  "outcomes": [
+   {
+    "id": "f1",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 0,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f2",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f3",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 0,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   },
+   {
+    "id": "f5",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "tally": {
+     "real": 2,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": true,
+    "unaskedVerifiers": 1
+   },
+   {
+    "id": "f6",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "tally": {
+     "real": 0,
+     "notReal": 0,
+     "abstain": 0,
+     "expected": 3,
+     "needed": 2
+    },
+    "settledOnMajority": false,
+    "missing": null,
+    "quorumSettled": false,
+    "unaskedVerifiers": null
+   }
+  ]
+ },
+ "ledger": {
+  "total": 5,
+  "bySeverity": {
+   "important/fix": 2,
+   "nit/fix": 2,
+   "pre-existing/deferred": 1
+  },
+  "present": 0,
+  "presentOnMajority": 0,
+  "quorumSettled": 2,
+  "unverified": 3,
+  "other": {},
+  "candidates": [
+   {
+    "id": "f1",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+    "claim": "Step 3b cuts every track at its first ID outside LABEL_IDS and drops all IDs after it, on the premise that a later in-label bead may depend on the dropped one; but with the shipped beads adapter Step 3 receives one flat ...",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-5:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-5"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f2",
+    "severity": "important",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/skills/ensemble-beads-build-wave/references/phase-2-execute.md:21",
+    "claim": "Step 3b filters only the tracks that Step 3 parsed, and with the shipped beads adapter both work-graph.plan and work-graph.ready return only the items of bv's first track (root $.plan.tracks[0].items), so when that track...",
+    "disposition": "fix",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f3",
+    "severity": "nit",
+    "source": "reviewer-s1-a",
+    "loc": "packages/development/tests/beads-build-label-scoping.test.js:99-170",
+    "claim": "The new tests only check that sentences exist in the wave prompt (toMatch and not.toMatch against the skill text, including guards on wording that was removed or never shipped), a form docs/guides/prompt-testing.md rules...",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-5:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-5"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f5",
+    "severity": "pre-existing",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/skills/ensemble-beads-build/references/phase-1-preflight.md:60",
+    "claim": "When no --label is passed and the root epic does not carry exactly one label, the caller leaves LABEL unset, and the wave then applies no scope filter at all: Step 3b runs only when LABEL is set, and no other wave step u...",
+    "disposition": "deferred",
+    "outcome": "present",
+    "reason": "verifier-majority",
+    "real": 2,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": true,
+    "unasked": 1,
+    "incomplete": [],
+    "assigned": [
+     "verifier-3",
+     "verifier-4"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   },
+   {
+    "id": "f6",
+    "severity": "nit",
+    "source": "reviewer-s1-b",
+    "loc": "packages/development/tests/beads-build-label-scoping.test.js:27",
+    "claim": "The file header says Step 3b 'drops the out-of-label ids and dispatches what remains', which reads as dropping only the out-of-label IDs, but the rule in phase-2-execute.md Step 3b truncates each track at its first out-o...",
+    "disposition": "fix",
+    "outcome": "unverified",
+    "reason": "verifier-incomplete",
+    "real": 0,
+    "notReal": 0,
+    "abstain": 0,
+    "expected": 3,
+    "settledOnMajority": false,
+    "quorumSettled": false,
+    "unasked": null,
+    "incomplete": [
+     "verifier-1:expired:deadline-passed",
+     "verifier-2:expired:deadline-passed",
+     "verifier-5:expired:deadline-passed"
+    ],
+    "assigned": [
+     "verifier-1",
+     "verifier-2",
+     "verifier-5"
+    ],
+    "fromLastRound": false,
+    "cleared": false,
+    "raisedBy": null
+   }
+  ]
+ },
+ "flags": {
+  "rereadResults": [],
+  "restated": [],
+  "changedResults": [],
+  "warnings": []
+ },
+ "localCiGate": {
+  "action": "started",
+  "pid": 42220,
+  "startedAt": "2026-11-12T02:44:27.661Z",
+  "reason": null,
+  "logPath": "/Users/ldangelo/Development/Sunstone/ensemble.prs-v26/.ensemble/pr-review/precheck-pr-314-444af69c2b63023c882d57834dd543689d5062ae.dry.gate.log",
+  "finishedAt": "2026-11-12T02:52:23.900Z",
+  "durationMin": 7.94,
+  "ok": false,
+  "stage": "run",
+  "nodes": [
+   {
+    "node": 22,
+    "ok": false
+   },
+   {
+    "node": 24,
+    "ok": false
+   }
+  ],
+  "failures": [
+   "step-failed:test:node 22",
+   "step-failed:test:node 24"
+  ]
+ },
+ "timing": {
+  "ok": true,
+  "wallMin": 28.40685,
+  "window": [
+   "2026-11-12T02:44:26.530Z",
+   "2026-11-12T03:12:50.941Z"
+  ],
+  "orchestratorOnly": {
+   "ms": 15780,
+   "missing": false,
+   "pct": 1
+  },
+  "beforeFirstDispatch": 11289,
+  "activeMs": 1688631,
+  "criticalPath": {
+   "ms": null,
+   "missing": true,
+   "reason": "round 1: verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)",
+   "rounds": [
+    {
+     "round": 1,
+     "steps": [
+      {
+       "stage": "reviewer",
+       "ms": 727032,
+       "missing": false,
+       "name": "reviewer-s1-a"
+      },
+      {
+       "stage": "verifier",
+       "ms": 480318,
+       "missing": false,
+       "name": "verifier-2",
+       "wave": 1
+      },
+      {
+       "stage": "verifier",
+       "ms": 481281,
+       "missing": false,
+       "name": "verifier-5",
+       "wave": 2
+      },
+      {
+       "stage": "verdict",
+       "ms": null,
+       "missing": true,
+       "reason": "every verdict span is unusable (unfinished, inconsistent or outside the window)"
+      }
+     ],
+     "ms": null,
+     "missing": true,
+     "reason": "verdict: every verdict span is unusable (unfinished, inconsistent or outside the window)"
+    }
+   ]
+  },
+  "stages": {
+   "review.head-read": [
+    1,
+    7
+   ],
+   "review.gate": [
+    2,
+    1333
+   ],
+   "review.verdict": [
+    2,
+    19
+   ],
+   "review.security-lane": [
+    1,
+    228534
+   ],
+   "review.reviewer": [
+    2,
+    727032
+   ],
+   "review.verifier": [
+    5,
+    481281
+   ]
+  },
+  "hostLoad": {
+   "missing": false,
+   "scope": "orchestrator window",
+   "samples": 56,
+   "load1": {
+    "min": 2.57,
+    "mean": 7.9,
+    "max": 24.45
+   },
+   "cpus": 18,
+   "intervalMs": 30002
+  },
+  "warnings": []
+ },
+ "row": {
+  "id": "pr314-first-v26-08-pr314-new-first-redo4",
+  "pr": 314,
+  "tier": "medium",
+  "round": "first",
+  "origin": "real",
+  "wall_min": 28.407,
+  "chains": 1,
+  "gate_runs": null,
+  "gate_runs_reason": "a review trace records no local-CI gate starts (its 'review.gate' spans are merge-gate evaluations, see review_gate_spans)",
+  "review_gate_spans": 2,
+  "source": "pr-review-cli timing on run v26-08-pr314-new-first-redo4",
+  "run_id": "v26-08-pr314-new-first-redo4"
+ },
+ "arm": "new",
+ "order": 8,
+ "driverPeakTrackedActive": 4,
+ "highLoadSeen": false,
+ "startedMs": 1794451466051,
+ "endedMs": 1794453172715,
+ "triageByRule": []
+}

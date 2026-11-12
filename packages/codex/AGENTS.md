@@ -1,6 +1,6 @@
 # Ensemble for Codex
 
-Use this bundle to bring Ensemble into Codex CLI. It provides 24 custom agents, 41 command skills, and 29 framework/testing skills.
+Use this bundle to bring Ensemble into Codex CLI. It provides 24 custom agents, 40 command skills, and 29 framework/testing skills.
 
 ## What Codex Should Know
 
