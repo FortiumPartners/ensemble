@@ -479,17 +479,62 @@ function worstCaseMs(approvalSet, options) {
 
 /* --------------------------------------------------------------- reporting */
 
-function tail(text) {
-  const t = String(text || '').trim();
+function tail(text, secretValues) {
+  // Redact BEFORE cutting: a secret that straddles the cut point would otherwise leave a prefix or suffix of itself.
+  const t = redact(String(text || ''), secretValues || []).trim();
   return t.length > OUTPUT_TAIL ? `...${t.slice(-OUTPUT_TAIL)}` : t;
+}
+
+/**
+ * Failing-test evidence for the head of a step-failure report. The tail alone can be all noise (hundreds of warnings
+ * from passing tests), so for jest output lead with the distinct `FAIL <path>` lines (at most EVIDENCE_MAX_FAILS shown,
+ * each cut for display at EVIDENCE_LINE_MAX chars, then `... and N more`) and the first `●` failure block (at most
+ * EVIDENCE_BLOCK_MAX chars; jest's `● Console` headers, printed by passing suites that log, are not failure blocks and
+ * are skipped). Other tools: ''. Dedupe is on the full line with a Set and only the shown lines are kept, so cost is
+ * linear in the output. The input must already be redacted (see failureReport). Best-effort: it never throws and never
+ * touches a verdict. Size is bounded by construction: 10 x 201 + one "more" line + 400 + headers, plus the tail.
+ */
+const EVIDENCE_MAX_FAILS = 10;
+const EVIDENCE_LINE_MAX = 200;
+const EVIDENCE_BLOCK_MAX = 400;
+
+function failureEvidence(text) {
+  try {
+    const src = String(text || '').replace(/\u001b\[[0-9;]*m/g, '');
+    const seen = new Set();
+    const shown = [];
+    for (const m of src.matchAll(/^[ \t]*FAIL[ \t]+(\S.*)$/gm)) {
+      const full = m[1].trim();
+      if (seen.has(full)) continue;
+      seen.add(full);
+      if (shown.length < EVIDENCE_MAX_FAILS) shown.push(`FAIL ${full}`.slice(0, EVIDENCE_LINE_MAX));
+    }
+    const bullet = /^[ \t]*●(?! Console\b).*$/m.exec(src);
+    if (seen.size === 0 && !bullet) return '';
+    const parts = [];
+    if (seen.size) {
+      if (seen.size > shown.length) shown.push(`... and ${seen.size - shown.length} more FAIL line(s)`);
+      parts.push(shown.join('\n'));
+    }
+    if (bullet) parts.push(src.slice(bullet.index).trim().slice(0, EVIDENCE_BLOCK_MAX));
+    return `failing tests (extracted):\n${parts.join('\n\n')}\n--- output tail ---\n`;
+  } catch {
+    return '';
+  }
+}
+
+/** The report text for a failed step: redact once, then the extracted evidence, then the tail. */
+function failureReport(stdout, stderr, secretValues) {
+  const clean = redact(`${stdout}\n${stderr}`, secretValues);
+  return `${failureEvidence(clean)}${tail(clean)}`;
 }
 
 /** A failing step's retained output is capped: a runaway test must not fill the disk. */
 const FAILURE_LOG_MAX = 2 * 1024 * 1024;
 
 /**
- * Keep the FULL output of a failing step so the cause can be read later; the report itself keeps only a short tail, which
- * for a long test run is just the last passing lines. The file name is built from the commit SHA, an integer Node major and
+ * Keep the FULL output of a failing step so the cause can be read later; the report itself leads with the extracted failing tests and then
+ * a short tail, which for a long test run is just the last passing lines. The file name is built from the commit SHA, an integer Node major and
  * the step name reduced to [A-Za-z0-9._-], never from anything else the head controls. The text is run through the same
  * redaction as the report (with the secret values known NOW), capped, and written owner-only. Writing a log must never
  * change a verdict, so any problem returns null instead of throwing.
@@ -803,7 +848,7 @@ function runGate(options, injected) {
   // Prerequisite: git.
   const gv = deps.git(['--version'], { cwd: repoRoot });
   if (gv.status !== 0) {
-    result.error = `prerequisite missing: git is unavailable (${tail(gv.stderr)})`;
+    result.error = `prerequisite missing: git is unavailable (${tail(gv.stderr, secretValues)})`;
     fail('prerequisite', 'git', undefined, result.error);
     return finish();
   }
@@ -930,7 +975,7 @@ function runGate(options, injected) {
         const ver = runCmd('node --version', { cwd: dir, env: stepEnv });
         const reported = ver.status === 0 ? /^v(\d+)\./.exec(ver.stdout.trim()) : null;
         if (!reported || Number(reported[1]) !== major) {
-          fail('node-version', null, major, `required Node ${major} is not what ran (got ${tail(ver.stdout) || 'no version'}); not counting it`);
+          fail('node-version', null, major, `required Node ${major} is not what ran (got ${tail(ver.stdout, secretValues) || 'no version'}); not counting it`);
           continue;
         }
 
@@ -947,7 +992,7 @@ function runGate(options, injected) {
             const why = r.timedOut
               ? `step ${s.name} timed out after ${Math.round((opts.stepTimeoutMs || DEFAULT_STEP_TIMEOUT_MS) / 1000)}s (hung?)`
               : `step "${s.name}" failed on Node ${major} at ${sha} (exit ${r.status})`;
-            fail('step-failed', s.name, major, `${why}${logFile ? `; full output: ${logFile}` : ''}: ${tail(`${r.stdout}\n${r.stderr}`)}`);
+            fail('step-failed', s.name, major, `${why}${logFile ? `; full output: ${logFile}` : ''}: ${failureReport(r.stdout, r.stderr, secretValues)}`);
           }
           // After EVERY step, whether it passed or not: a step may only leave untracked files under the base config's
           // output_paths. Anything else is a file the next command (or this step's own test) could read as permission.
@@ -964,7 +1009,7 @@ function runGate(options, injected) {
       // The attestation is bound to `sha`: a step that moved the clone's HEAD voids the run.
       const head = deps.git(['rev-parse', 'HEAD'], { cwd: dir });
       if (head.status !== 0 || head.stdout.trim() !== sha) {
-        fail('clone-moved', null, undefined, `the clean clone no longer sits at ${sha} after the steps ran (got ${tail(head.stdout) || 'no HEAD'}); not counting the run`);
+        fail('clone-moved', null, undefined, `the clean clone no longer sits at ${sha} after the steps ran (got ${tail(head.stdout, secretValues) || 'no HEAD'}); not counting the run`);
       }
 
       // The steps must not have rewritten what they claim to have tested: tracked content is compared by hash against the

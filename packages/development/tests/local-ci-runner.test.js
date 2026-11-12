@@ -568,7 +568,7 @@ describe('local-ci-runner: failure log retention', () => {
     const flood = 'PASS tests/a-passing-suite.test.js\n'.repeat(400); // far longer than the report's short tail
     const r = gate({ failureLogDir: logDir }, fakeDeps({ onCmd: failing('test', { stdout: `${head}\n${flood}` }) }));
     const f = r.failures.find((x) => x.kind === 'step-failed' && x.node === 22);
-    expect(f.message).not.toContain('the-real-culprit'); // the tail alone loses the cause: this is the gap
+    expect(f.message).toContain('the-real-culprit'); // kata ce0c: the report leads with the extracted failing test
     const file = files().find((n) => n.includes('node22') && n.includes('test'));
     expect(file).toBeDefined();
     expect(f.message).toContain(path.join(logDir, file));
@@ -576,6 +576,120 @@ describe('local-ci-runner: failure log retention', () => {
     expect(text).toContain('the-real-culprit.test.js');
     expect(text).toContain('exit: 1');
     expect(text).toContain(shaB);
+  });
+
+  // kata ce0c: what a failed step's report text leads with. `msg` is the step-failed message of the Node 22 run.
+  const ENV = { PATH: '/usr/bin', LOG_TOKEN: SECRET };
+  const msg = (stdout, stderr = '') => {
+    const r = gate({ secretNames: ['LOG_TOKEN'], env: ENV }, fakeDeps({ onCmd: failing('test', { stdout, stderr }) }));
+    expect(r.ok).toBe(false);
+    return r.failures.find((x) => x.kind === 'step-failed' && x.node === 22).message;
+  };
+  const MARK = '\n--- output tail ---\n';
+  const evidence = (m) => m.split('failing tests (extracted):\n')[1].split(MARK)[0];
+  const tailOf = (m) => m.split(MARK)[1];
+
+  test('kata ce0c: a flood of warnings after a jest FAIL + block does not hide the failure; bounded', () => {
+    const block = 'FAIL tests/x.test.js\n  ● x › explodes\n\n    expected 1 to be 2\n\n      at tests/x.test.js:3:1';
+    const flood = 'lib-bundler: warning - cannot read /some/where/missing.md\n'.repeat(600);
+    const m = msg(`${block}\n${flood}`);
+    expect(m).toContain('failing tests (extracted):\nFAIL tests/x.test.js\n\n● x › explodes');
+    expect(evidence(m)).toContain('expected 1 to be 2');
+    expect(m.length).toBeLessThan(4000 + 2600 + 400); // tail + evidence caps + prefix, never the whole 600-line flood
+  });
+
+  test('kata ce0c: the extracted evidence comes BEFORE the output tail', () => {
+    const m = msg(`FAIL tests/x.test.js\n${'noise\n'.repeat(900)}`);
+    expect(m).toMatch(/\(exit 1\): failing tests \(extracted\):\nFAIL tests\/x\.test\.js/); // right after the step/exit prefix
+    expect(m.indexOf('FAIL tests/x.test.js')).toBeLessThan(m.indexOf('--- output tail ---'));
+    expect(tailOf(m)).not.toContain('FAIL tests/x.test.js');
+  });
+
+  test('kata ce0c: FAIL lines are deduplicated, capped at 10 and the rest counted', () => {
+    const lines = Array.from({ length: 25 }, (_, i) => `FAIL tests/t${i}.test.js`);
+    const m = msg(`${lines.flatMap((l) => [l, l]).join('\n')}\n${lines.join('\n')}\n`); // jest prints each more than once
+    const ev = evidence(m).split('\n');
+    expect(ev.filter((l) => l.startsWith('FAIL '))).toEqual(lines.slice(0, 10));
+    expect(ev).toContain('... and 15 more FAIL line(s)');
+  });
+
+  test('kata ce0c: a FAIL line over 200 chars is cut for display; two paths sharing 250 chars are both counted', () => {
+    const common = `tests/${'d'.repeat(250)}`;
+    const m = msg(`FAIL ${common}-one.test.js\nFAIL ${common}-two.test.js\n`);
+    const shown = evidence(m).split('\n').filter((l) => l.startsWith('FAIL '));
+    expect(shown).toHaveLength(2);
+    for (const l of shown) expect(l.length).toBe(200);
+  });
+
+  test('kata ce0c: ANSI-wrapped FAIL and ● lines are still found, without the escape codes in the evidence', () => {
+    const m = msg('\u001b[0m\u001b[7m\u001b[1m\u001b[31m FAIL \u001b[39m\u001b[22m\u001b[27m\u001b[0m tests/ansi.test.js\n\u001b[1m\u001b[31m  \u001b[1m● ansi › breaks\u001b[22m\n\n    boom\n');
+    expect(evidence(m)).toContain('FAIL tests/ansi.test.js');
+    expect(evidence(m)).toContain('● ansi › breaks');
+    expect(evidence(m)).not.toContain('\u001b');
+  });
+
+  test('kata ce0c: a passing suite that logs (● Console) before the failing suite does not hide the failure block', () => {
+    const out = [
+      'PASS tests/a-logs.test.js',
+      '  ● Console',
+      '',
+      '    console.warn',
+      '      noisy but passing',
+      '',
+      'FAIL tests/b-fails.test.js',
+      '  ● the suite › explodes with the real culprit',
+      '',
+      '    expected 1 to be 2',
+    ].join('\n');
+    const ev = evidence(msg(out));
+    expect(ev).toContain('● the suite › explodes with the real culprit');
+    expect(ev).not.toContain('● Console');
+    expect(ev).not.toContain('noisy but passing');
+  });
+
+  test('kata ce0c: the failing block is capped at 400 chars', () => {
+    const ev = evidence(msg(`FAIL tests/x.test.js\n  ● x › y\n${'z'.repeat(2000)}`));
+    expect(ev.split('\n\n')[1].length).toBe(400);
+  });
+
+  test('kata ce0c: output with no jest markers keeps the plain tail', () => {
+    const m = msg('plain tool failure: boom');
+    expect(m).toMatch(/: plain tool failure: boom$/);
+    expect(m).not.toContain('extracted');
+  });
+
+  test('kata ce0c: a secret straddling the FAIL cut, the block cut or the tail start never appears, even in part', () => {
+    const noLeak = (m) => {
+      expect(m).not.toContain('logsecret');
+      expect(m).not.toContain('VALUE-4471');
+      expect(m).not.toContain('secret-');
+    };
+    // starts at index 190 of the 200-char FAIL display, so a cut-then-redact leaves 'logsecret-'
+    const failLine = `FAIL ${'a'.repeat(185)}${SECRET}.test.js`;
+    const mFail = msg(`${failLine}\n`);
+    expect(evidence(mFail).split('\n')[0].length).toBe(200);
+    noLeak(mFail);
+    // starts at index 394 of the 400-char block
+    const blockLine = `  ● ${'b'.repeat(392)}${SECRET}`;
+    const mBlock = msg(`FAIL tests/x.test.js\n${blockLine}\n`);
+    expect(evidence(mBlock).split('\n\n')[1].length).toBe(400);
+    noLeak(mBlock);
+    // the secret straddles the start of the 4000-char tail (10 chars in)
+    const mTail = msg(`head\n${SECRET}${'c'.repeat(3990)}`);
+    expect(tailOf(mTail) ?? mTail).toContain('c'.repeat(100));
+    noLeak(mTail);
+    // stderr side too
+    noLeak(msg('x', `${'d'.repeat(5)}${SECRET}${'e'.repeat(3990)}`));
+  });
+
+  test('kata ce0c: 2 MiB of distinct FAIL lines is processed in linear time and counted correctly', () => {
+    const n = 100000;
+    const out = Array.from({ length: n }, (_, i) => `FAIL t${i}.test.js`).join('\n');
+    expect(out.length).toBeGreaterThan(1.5 * 1024 * 1024);
+    const t0 = Date.now();
+    const m = msg(out);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(evidence(m).split('\n')).toContain(`... and ${n - 10} more FAIL line(s)`);
   });
 
   test('a secret in a failing step output never reaches the log file or the report', () => {
