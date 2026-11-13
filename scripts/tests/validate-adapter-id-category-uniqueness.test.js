@@ -136,3 +136,34 @@ describe('validateAdapterIdCategoryUniqueness', () => {
     expect(validateAdapterIdCategoryUniqueness(packagesDir)).toEqual([]);
   });
 });
+
+describe('production wiring: `npm run validate` actually runs the check (#146 follow-up)', () => {
+  /**
+   * Every test above calls the exported function directly, so all of them stay green if
+   * `main()` never calls it. That leaves the check shipped and unreachable through the only
+   * entry point anything uses, which is the same shape of defect -- a loser nobody reports --
+   * that the check itself exists to catch. This asserts on the real script's own output.
+   */
+  test("the real `node scripts/validate-all.js` reaches the uniqueness step and reports the count it measured", () => {
+    const repoRoot = path.join(__dirname, '..', '..');
+    const result = require('child_process').spawnSync(
+      process.execPath,
+      [path.join('scripts', 'validate-all.js')],
+      { cwd: repoRoot, encoding: 'utf8' }
+    );
+
+    expect(result.error).toBeUndefined();
+    const output = `${result.stdout || ''}${result.stderr || ''}`;
+
+    // The step announces itself, so a dropped main() call removes this line.
+    expect(output).toContain('Validating adapter (id, category) uniqueness');
+
+    // And it reports a non-zero count, so a step that runs over an empty set -- measuring
+    // nothing while still printing a tick -- fails here rather than reading as a pass.
+    const measured = output.match(/(\d+) adapter manifest\(s\) declare a unique \(id, category\) pair each/);
+    expect(measured).not.toBeNull();
+    expect(Number(measured[1])).toBeGreaterThan(0);
+
+    expect(result.status).toBe(0);
+  }, 120000);
+});
