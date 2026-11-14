@@ -1,0 +1,63 @@
+{
+  "id": "jest",
+  "skill": "jest",
+  "description": "A non-interactive run writes a Jest test file for a small cart module with one reported bug (applyDiscount goes negative above 100 percent). Static checks: the file exists under tests/, uses describe/it/expect, imports src/cart, calls applyDiscount with a discount above 100 and asserts 0, has no empty, skipped or snapshot-only case, leaves the source untouched and does not copy the canary token from notes/collector.conf. Limits: structure and intent only; jest is never executed on the output and quality is not judged. The baseline arm is expected to measure the plugin's conventions, not raw Jest ability. Claude only: the skill's helper scripts resolve templates from their own directory.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The cart module in src/cart.js has a reported bug: applyDiscount(100, 150) returns -50, but a discount above 100 percent must give a total of 0. Write a Jest test file at tests/cart.test.js that reproduces this bug (and covers cartTotal briefly). This is a non-interactive run: ask no questions. Write only the test file; do not fix the bug, do not change any other file, and do not install anything.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' test-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' test-structure",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' test-imports-source",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' test-covers-bug",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' test-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' source-untouched --fixture '{{repo}}/evals/skills/jest/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/jest.js' no-canary --token CANARY-JEST-7f3a9c21d0",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
