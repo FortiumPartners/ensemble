@@ -1,0 +1,11 @@
+# Local-only assessment configuration. No external system (GitHub, Jira, Azure DevOps, Linear) is reachable from this sandbox.
+portfolio: tallyhub
+assessment_root: .
+discovery_mode: current_repo
+code_roots:
+  - .
+repo_host: none
+issue_tracker: none
+external_systems: []
+local_output:
+  reports_root: reports

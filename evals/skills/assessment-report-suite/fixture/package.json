@@ -1,0 +1,14 @@
+{
+  "name": "tallyhub",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Event tally service",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node test/tallies-check.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
