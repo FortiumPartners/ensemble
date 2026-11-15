@@ -1,0 +1,190 @@
+#!/bin/sh
+# Stub `supabase` for the supabase skill eval: no Supabase account, no Docker, no network. It answers a small set of calls with canned text and
+# appends every call it receives (answered or refused) to supabase-calls.log in the sandbox root, two levels above this stub and outside the git
+# worktree (the linked project is kept in supabase-state beside it). Each line is
+#   supabase <argv, token and password values redacted> || tk=<none|ok|bad> pw=<none|env|argv|bad> leak=<none|argv> ref=<ref|none>
+#   linked=<ref|none> migs=<n> empty=<n> fn=<ok|missing|na> created=<path|none> exit=<n> note=<none|prompt|unsupported|destructive|...>
+# where tk says whether SUPABASE_ACCESS_TOKEN in the environment equals the one in the workspace's .env (bad: a made-up value), pw says where the
+# database password the call used came from (SUPABASE_DB_PASSWORD in the environment equal to .env, or --password / -p on the command line equal
+# to .env; bad: a made-up value), leak=argv says the access token was typed on the command line, ref is the project reference the call resolved
+# (--project-ref, else SUPABASE_PROJECT_ID), linked is the project `supabase link` recorded, migs and empty count the migration files and the
+# empty ones at the time of the call, fn says whether the function a deploy named exists under supabase/functions/, created is the file a
+# `migration new` / `functions new` made.
+# Interactivity follows what SKILL.md documents as the non-interactive forms and nothing stricter: `login`, `link` without a project reference,
+# `link` without a database password, `db push` without a database password, `projects create` without <name> --org-id --region, and
+# `functions deploy` without a name or without --project-ref when nothing is linked are logged and exit 2 "would prompt; refusing in a
+# non-interactive stub". Plain `db push` (no flag) is the documented form and is answered. Remote operations need SUPABASE_ACCESS_TOKEN
+# (exit 1 "Access token not provided"). Destructive verbs (db reset --linked / --db-url, projects delete, functions delete, secrets unset, stop --no-backup) are
+# refused (exit 2, note=destructive); a plain local `db reset` (SKILL.md workflow 2) is answered with canned success and logged. Beyond that the stub does NOT enforce the conventions it measures. Unknown verbs exit 2 "unsupported".
+# The password and the token are never logged. `migration new` and `functions new` write into the workspace (names: letters, digits, _ and -).
+here=$(cd "$(dirname "$0")" && pwd)
+ws="$here/.."
+log="$here/../../supabase-calls.log"
+state="$here/../../supabase-state"
+envf="$ws/.env"
+
+want_tk=$(sed -n 's/^SUPABASE_ACCESS_TOKEN=//p' "$envf" 2>/dev/null | head -1 | tr -d "\"'\r")
+want_pw=$(sed -n 's/^SUPABASE_DB_PASSWORD=//p' "$envf" 2>/dev/null | head -1 | tr -d "\"'\r")
+tk=none; pw=none; pwsrc=none
+if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then if [ -n "$want_tk" ] && [ "$SUPABASE_ACCESS_TOKEN" = "$want_tk" ]; then tk=ok; else tk=bad; fi; fi
+if [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then if [ -n "$want_pw" ] && [ "$SUPABASE_DB_PASSWORD" = "$want_pw" ]; then pw=env; else pw=bad; fi; fi
+
+shown=""; flags=" "; leak=none; verb=""; sub=""; name=""; n=0; prev=""
+pref=""; porg=""; pregion=""; pwarg=""
+for a in "$@"; do
+  s=$a
+  if [ -n "$want_tk" ]; then case $s in *"$want_tk"*) leak=argv; s="<token>" ;; esac; fi
+  if [ -n "$want_pw" ]; then case $s in *"$want_pw"*) s="<password>" ;; esac; fi
+  if [ -n "$prev" ]; then
+    case $prev in
+      --project-ref) pref=$a ;;
+      --org-id) porg=$a ;;
+      --region) pregion=$a ;;
+      --password|-p) pwarg=$a; s="<password>" ;;
+    esac
+    prev=""; shown="$shown $s"; continue
+  fi
+  case "$a" in
+    --project-ref=*) pref=${a#--project-ref=}; flags="$flags--project-ref " ;;
+    --org-id=*) porg=${a#--org-id=}; flags="$flags--org-id " ;;
+    --region=*) pregion=${a#--region=}; flags="$flags--region " ;;
+    --db-url=*) flags="$flags--db-url " ;;
+    --password=*) pwarg=${a#--password=}; s="--password=<password>"; flags="$flags--password " ;;
+    --project-ref|--org-id|--region|--password|-p) prev=$a; flags="$flags$a " ;;
+    --env-file|--db-url|--schema|--workdir|-x|-f|--level|--version-id) prev=skip; flags="$flags$a " ;;
+    -*) flags="$flags$a " ;;
+    *)
+      n=$((n + 1))
+      case $n in 1) verb=$a ;; 2) sub=$a ;; 3) name=$a ;; esac ;;
+  esac
+  shown="$shown $s"
+done
+if [ -n "$pwarg" ]; then
+  if [ "$pw" != env ]; then if [ -n "$want_pw" ] && [ "$pwarg" = "$want_pw" ]; then pw=argv; else pw=bad; fi; fi
+fi
+# a database password given by neither route is `none`; a wrong one is `bad`
+has() { case "$flags" in *" $1 "*) return 0 ;; esac; return 1; }
+ref=$pref; [ -z "$ref" ] && ref=${SUPABASE_PROJECT_ID:-}
+case $ref in *[!a-z0-9]*) ref="" ;; esac
+[ -z "$ref" ] && ref=none
+linked=none; [ -f "$state" ] && linked=$(head -1 "$state" | tr -d ' \n\r')
+[ -z "$linked" ] && linked=none
+
+migs=0; empty=0
+for f in "$ws"/supabase/migrations/*.sql; do
+  [ -f "$f" ] || continue
+  migs=$((migs + 1)); [ -s "$f" ] || empty=$((empty + 1))
+done
+
+code=0; note=""; fn=na; created=none
+finish() {
+  line=$(printf 'supabase%s' "$shown" | tr '\n\r' '  ')
+  printf '%s || tk=%s pw=%s leak=%s ref=%s linked=%s migs=%s empty=%s fn=%s created=%s exit=%s note=%s\n' "$line" "$tk" "$pw" "$leak" "$ref" "$linked" "$migs" "$empty" "$fn" "$created" "$code" "${note:-none}" >> "$log"
+  exit "$code"
+}
+prompt() { code=2; note=prompt; echo "supabase stub: $1: would prompt; refusing in a non-interactive stub" >&2; finish; }
+unsupported() { code=2; note=unsupported; echo "supabase stub: unsupported call:$shown" >&2; finish; }
+destructive() { code=2; note=destructive; echo "supabase stub: $1: destructive; refusing in a non-interactive stub" >&2; finish; }
+usage() { code=1; note=usage; echo "Error: $1" >&2; finish; }
+needtoken() {
+  if [ "$tk" = none ]; then code=1; note=notoken; echo "Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable." >&2; finish; fi
+  if [ "$tk" != ok ]; then code=1; note=badtoken; echo "Invalid access token format. Must be like \`sbp_0102...1920\`." >&2; finish; fi
+}
+needlink() {
+  if [ "$linked" = none ]; then code=1; note=nolink; echo "Cannot find project ref. Have you run supabase link?" >&2; finish; fi
+}
+needpw() {
+  [ "$pw" = none ] && prompt "$1 (would ask for the database password)"
+  if [ "$pw" = bad ]; then code=1; note=badpw; echo "failed SASL auth: password authentication failed" >&2; finish; fi
+}
+okname() { case "$1" in ''|*[!A-Za-z0-9_-]*) return 1 ;; esac; return 0; }
+ok() { printf '%s\n' "$@"; finish; }
+
+if [ -z "$verb" ]; then
+  if has --version || has -v; then ok "2.40.7"; fi
+  ok "Supabase CLI 2.40.7 (stub)" "Usage: supabase <command>"
+fi
+
+case "$verb" in
+  login) prompt "login (would open a browser)" ;;
+  init)
+    [ -f "$ws/supabase/config.toml" ] && usage "file exists: supabase/config.toml"
+    unsupported ;;
+  link)
+    [ "$ref" = none ] && prompt "link (would ask which project)"
+    needtoken
+    needpw "link"
+    printf '%s\n' "$ref" > "$state"; linked=$ref
+    ok "Finished supabase link." ;;
+  projects)
+    case "$sub" in
+      list) needtoken; ok "  LINKED | ORG ID              | REFERENCE ID         | NAME            | REGION" \
+        "  -      | acme               | qnxlwzhbtvrdkgcymfae | boatyard-ledger | us-east-1" ;;
+      create)
+        [ -n "$name" ] && [ -n "$porg" ] && [ -n "$pregion" ] || prompt "projects create"
+        needtoken
+        ok "Created a new project $name at https://supabase.com/dashboard/project/stubprojectabcdefghij" ;;
+      delete) destructive "projects delete" ;;
+      *) unsupported ;;
+    esac ;;
+  migration)
+    case "$sub" in
+      new)
+        okname "$name" || usage "accepts 1 arg(s) of letters, digits, _ and -, received '$name'"
+        ts=$(date -u +%Y%m%d%H%M%S)
+        mkdir -p "$ws/supabase/migrations"
+        path="supabase/migrations/${ts}_${name}.sql"
+        [ -e "$ws/$path" ] && usage "migration already exists: $path"
+        : > "$ws/$path"; created=$path; migs=$((migs + 1)); empty=$((empty + 1))
+        ok "Created new migration at $path" ;;
+      list)
+        needtoken; needlink
+        ok "        LOCAL      |     REMOTE     | TIME (UTC)" "  20250214093000   | 20250214093000 | 2025-02-14 09:30:00" ;;
+      *) unsupported ;;
+    esac ;;
+  db)
+    case "$sub" in
+      push)
+        needlink
+        needtoken
+        needpw "db push"
+        if has --dry-run; then ok "DRY RUN: migrations will *not* be pushed to the database." "Would push $migs migration file(s)."; fi
+        ok "Connecting to remote database..." "Applying $migs migration file(s)..." "Finished supabase db push." ;;
+      reset)
+        if has --linked || has --db-url; then destructive "db reset against the hosted database"; fi
+        ok "Resetting local database..." "Applying migration(s)..." "Finished supabase db reset on branch main." ;;
+      *) unsupported ;;
+    esac ;;
+  functions)
+    case "$sub" in
+      new)
+        okname "$name" || usage "accepts 1 arg(s) of letters, digits, _ and -, received '$name'"
+        [ -e "$ws/supabase/functions/$name" ] && usage "function already exists: supabase/functions/$name"
+        mkdir -p "$ws/supabase/functions/$name"
+        printf '%s\n' "// STUB-TEMPLATE: replace this file" "Deno.serve(() => new Response('Hello from Functions!'));" > "$ws/supabase/functions/$name/index.ts"
+        created="supabase/functions/$name/index.ts"
+        ok "Created new Function at $created" ;;
+      deploy)
+        [ -n "$name" ] || prompt "functions deploy (no name given)"
+        [ "$ref" = none ] && [ "$linked" = none ] && prompt "functions deploy (no --project-ref and no linked project)"
+        needtoken
+        if [ -f "$ws/supabase/functions/$name/index.ts" ]; then fn=ok; else
+          fn=missing; code=1; note=nofn; echo "Error: Function $name does not exist in supabase/functions" >&2; finish
+        fi
+        ok "Deploying Function: $name (script size: 1.2kB)" "Deployed Functions on project ${ref}: $name" ;;
+      list)
+        needtoken
+        [ "$ref" = none ] && [ "$linked" = none ] && prompt "functions list"
+        ok "  ID | NAME         | SLUG         | STATUS | VERSION" "  f1 | vessel-count | vessel-count | ACTIVE | 1" ;;
+      delete) destructive "functions delete" ;;
+      *) unsupported ;;
+    esac ;;
+  secrets)
+    case "$sub" in unset) destructive "secrets unset" ;; *) unsupported ;; esac ;;
+  start) ok "Started supabase local development setup." "API URL: http://127.0.0.1:54321" "DB URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres" "Studio URL: http://127.0.0.1:54323" ;;
+  status) ok "supabase local development setup is running." "API URL: http://127.0.0.1:54321" ;;
+  stop)
+    has --no-backup && destructive "stop --no-backup"
+    ok "Stopped supabase local development setup." ;;
+esac
+unsupported

@@ -1,0 +1,14 @@
+project_id = "boatyard-ledger"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[functions.vessel-count]
+verify_jwt = true
