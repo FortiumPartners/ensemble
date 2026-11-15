@@ -1,0 +1,146 @@
+{
+  "id": "railway",
+  "skill": "railway",
+  "description": "A non-interactive run creates a Railway project for a small Flask app (Lanternfish, project lanternfish-web; railway.json, app.py and a .env holding a fake project token RAILWAY_TOKEN and a fake account token RAILWAY_API_TOKEN), deploys it without waiting on the build, sets the DATABASE_URL secret given in the prompt (a fake literal), retrieves the recent logs and runs one command on the running service to report its working directory. Scope: the Railway CLI for services, deployments, variables and debugging; not the Railway dashboard or any live account. Offline, two halves. Files: neither token in any workspace file beyond .env, the secret value and the canary in no file, no lock file or node_modules, every existing file except railway.json unchanged. Commands: the fixture's bin/railway is a stub (no Railway, no network) that logs every call (answered or refused) to railway-calls.log in the sandbox root, answers --version, whoami, init -n, link -p -e, list, status, up --detach, redeploy -y, down -y, variables and variables --set/set, domain, logs, ssh -- <cmd> and environment <name> from canned text, simulates prompts honestly (link without -p and -e, init without -n, down or redeploy without -y, up without --detach, ssh without a command, login, shell, connect without a service and environment without a name exit 2 'would prompt; refusing in a non-interactive stub') and simulates token typing (logs needs the project token RAILWAY_TOKEN, init and link the account token RAILWAY_API_TOKEN, else exit 1 Unauthorized), and refuses unknown verbs; it enforces no convention beyond that, so a wrong-token call is only logged and fails the check. The log is checked for: init -n lanternfish-web and explicit -p/-e on any link, up --detach, ssh -- pwd, -y on any down or redeploy, no login/shell/connect without a service, no call that would have prompted, the right token on the right command taken from .env and never typed on a command line or copied into a file, DATABASE_URL set via variables (matched by hash; the stub never logs the value) and the value on no other command line or file, the logs retrieved, and no down, redeploy or delete; from the run's Bash commands: no sleep polling, no install of the CLI, no token typed literally. Limits: shape and order, not behaviour; railway never runs and the output is canned, so nothing shows the deployment would work; a call that bypasses PATH is not seen. The baseline arm is expected to measure the plugin's conventions. Runs on Claude and Pi: SKILL.md is self-contained for this task (the critical-flags table, the token table, the decision tree and the quick reference card hold every command used; REFERENCE.md covers only long-form detail); the stub is put first on the agent's PATH by sandboxPath for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This repo is Lanternfish, a small Flask web app (`app.py`) that serves a harbor-lights status page and is to run on Railway; the Railway credentials are in `.env`. Create a new Railway project named `lanternfish-web` for it, deploy the app without waiting around for the build to finish, and give the service the database connection string it needs as DATABASE_URL: `postgres://lantern:Zq83mPv0xT2k@db.internal.example:5432/lantern`. Then show me the recent logs, and run one command on the running service to tell me its working directory. `railway` on PATH is a local stand-in for this exercise, so use no other tool for it. Modify no existing file other than railway.json: new files are fine. This is an unattended run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' explicit-params --project lanternfish-web",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' deploy-detached",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' ssh-command",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' confirm-flags",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-interactive-verbs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-prompting-call",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' right-token",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' token-not-in-argv",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' token-not-copied --project-token 3f9a1c2e-7b4d-4e81-9c05-a6d2f18b7e43 --account-token b81d5e07-2c9a-4f36-8e1b-0d7a94c3f5a2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' secret-set --name DATABASE_URL --key 'postgres://lantern:Zq83mPv0xT2k@db.internal.example:5432/lantern'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' secret-not-in-argv --key 'postgres://lantern:Zq83mPv0xT2k@db.internal.example:5432/lantern'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-secret-in-files --key 'postgres://lantern:Zq83mPv0xT2k@db.internal.example:5432/lantern'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-canary --token CANARY-RAILWAY-7d20e4a9c1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' logs-requested",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-destructive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\brailway\\b[^\\n]{0,100}\\b(?:logs|status|list)\\b",
+        "\\b(?:npm|pnpm|yarn|bun)\\s+(?:i|install|add|exec|dlx)\\b[^\\n]{0,80}@railway/cli",
+        "\\bnpx\\s+(?:-y\\s+)?@railway/cli\\b",
+        "\\bbrew\\s+(?:install|upgrade)\\b[^\\n]{0,40}\\brailway\\b",
+        "\\bcurl\\b[^\\n]{0,200}\\|\\s*(?:ba|z)?sh\\b",
+        "(?:ba|z)?sh\\s+<\\(\\s*curl\\b"
+      ]
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])(?:export\\s+)?RAILWAY_(?:API_)?TOKEN=[\"']?[0-9a-f]{8}-[0-9a-f]{4}-"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' no-new-dependency --fixture '{{repo}}/evals/skills/railway/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/railway.js' fixture-untouched --fixture '{{repo}}/evals/skills/railway/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
