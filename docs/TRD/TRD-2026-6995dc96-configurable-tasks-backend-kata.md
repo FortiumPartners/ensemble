@@ -7,9 +7,9 @@ version: 1.0.0
 status: Draft
 date: 2026-11-13
 kind: trd
-design_readiness_score: 3.25
+design_readiness_score: 3.5
 design_readiness_verdict: CONCERNS
-totalTasks: 59
+totalTasks: 67
 totalPrs: 6
 totalRequirements: 18
 totalAcceptanceCriteria: 58
@@ -30,7 +30,7 @@ of them as already delivered.
 
 PRD: docs/PRD/PRD-2026-6995dc96-configurable-tasks-backend-kata.md
 
-**Design readiness: 3.25 - CONCERNS.** Estimate confidence rose from 2 to 3 after a live write-side kata capture on 2026-11-14 confirmed the response shapes the estimates assume. Two gates remain unresolved and are recorded under Open Questions for the PRD: the multi-id `tracker.label` mapping, which the capture shows kata's CLI cannot express, and four tested behaviours with no owning task.
+**Design readiness: 3.50 - CONCERNS.** Estimate confidence rose from 2 to 3 after a live write-side kata capture on 2026-11-14 confirmed the response shapes the estimates assume, and task coverage rose from 3 to 4 once TRD-031 through TRD-034 gave the four tested behaviours an owner. Two gates still hold the score below PASS and are recorded under Open Questions for the PRD: the multi-id `tracker.label` mapping, which A1 resolves to a new `tracker.label-one` capability that needs a tracker contract amendment before TRD-012 can be built, and the graph-health semantics for trackers that expose no dependency data.
 
 ## Capability Reuse Check
 <!-- gate:capability-reuse -->
@@ -198,11 +198,11 @@ Notes:
 
 ### Kata Declared Capability Set
 
-Twenty capabilities. Every required capability and every capability whose contract entry names a fallback is declared (AC-001-4).
+Twenty-one capabilities. Every required capability and every capability whose contract entry names a fallback is declared (AC-001-4).
 
-- Native `run[]`: `tracker.show`, `tracker.list`, `tracker.create`, `tracker.create-detailed`, `tracker.update`, `tracker.update-detailed`, `tracker.close`, `tracker.close-with-reason`, `tracker.close-with-evidence` (NEW), `tracker.comment`, `tracker.comments`, `tracker.dep-add`, `tracker.dep-remove`, `tracker.label`, `tracker.set-status`, `tracker.find-by-key`, `work-graph.ready`.
+- Native `run[]`: `tracker.show`, `tracker.list`, `tracker.create`, `tracker.create-detailed`, `tracker.update`, `tracker.update-detailed`, `tracker.close`, `tracker.close-with-reason`, `tracker.close-with-evidence` (NEW), `tracker.comment`, `tracker.comments`, `tracker.dep-add`, `tracker.dep-remove`, `tracker.label`, `tracker.label-one` (NEW, blocked on the tracker 1.1 amendment), `tracker.set-status`, `tracker.find-by-key`, `work-graph.ready`.
 - In-process `provider: work-graph-analyzer`: `work-graph.plan`, `work-graph.graph-health`.
-- Declared pending Open Question 8: `tracker.stage-export`.
+- Declared pending Open Question 8: `tracker.stage-export`. Two entries above are not yet in the shipped contract documents and both are gated on the same PRD amendment: `tracker.close-with-evidence` (NEW, tracker 1.1) and `tracker.label-one` (NEW, tracker 1.1, per A1). Neither is `required`, so `validate.js` raises nothing for either, either direction: its only missing-capability message fires for contract capabilities carrying `required: true`, and an adapter capability the contract does not declare is skipped outright. `checkCompat` treats a minor-version difference as compatible and merely reports the extra ids as unavailable, so a manifest targeting 1.1 against the shipped 1.0 validates clean. Nothing forces this amendment to land; it is the architecture owner's PRD decision that does, and TRD-015 supplies the check that can fail — it fails when a required or fallback-bearing capability is dropped from the manifest, not when a new optional one is added ahead of the contract. `scripts/tests/fixtures/toolchain/` carries a 1.1 contract fixture so TRD-015 and TRD-016 can run against it.
 - Omitted: `tracker.sync` (optional, no fallback). Kata writes persist through the daemon, and no flush command exists (`kata --help`).
 
 ### New and Amended Capabilities
@@ -211,6 +211,7 @@ Within a major: no capability is removed or renamed, no `required` flag changes,
 
 | Capability | Change | Inputs | Outputs | Required | sideEffect | fallback | addedInMinor |
 |---|---|---|---|---|---|---|---|
+| `tracker.label-one` | NEW, tracker 1.1 | `id`, `label` | `id`, `labels` | false | true | none | 1 |
 | `tracker.close-with-evidence` | NEW, tracker 1.1 | `id`, `reason`, `evidence` | `id`, `status` | false | true | none | 1 |
 | `tracker.show` | AMENDED, output added | `id` | `id`, `title`, `description`, `type`, `status`, `priority`, `labels`, `owner` | true | false | none | n/a |
 | `work-graph.plan` | AMENDED, output added | `scope` | `items`, `orderingSource`, `dependencyAware`, `findings` | false | false | `work-graph-links-fallback` | n/a |
@@ -218,6 +219,7 @@ Within a major: no capability is removed or renamed, no `required` flag changes,
 
 Semantics:
 
+- **`tracker.label-one`.** Maps to `kata label add <ref> <label>`, with `kata label rm` the detach direction; both are single-item, and the label is positional (`kata label --help`, and `kata quickstart` uses `kata label add abc4 safari`). Inputs are one `id` and one `label`; one argv template per call, so labelling several items is an adapter-side sweep rather than a composed invocation. The A1 composed operations reach their semantics through this per-id capability: labels directly, and in-progress once `owner` is read from `tracker.show`. Without it the sweep cannot be expressed and those operations stay design-blocked.
 - **`tracker.close-with-evidence`.** Maps to `kata close <id> --done -m <reason> --evidence <evidence>`. `reason` is the closing message; kata requires at least 40 characters for `done` (`kata close --help`). `evidence` takes one typed value: `commit:<sha>`, `pr:<url>`, or `test:<command>` (`kata close --help`). The kata reason is fixed to `done`. Adapters without it return `NOT_ALLOWED`, so callers check availability first. Required for REQ-003 AC-003-3, because `tracker.close-with-reason` accepts only `commit` (`tracker.yaml:131-137`). It overlaps `tracker.close-with-reason`; the two stay separate because the additive rules forbid changing that capability's inputs.
 - **`work-graph.plan` `findings`.** A list of `{kind, ids}`, where `kind` is `cycle` or `dangling-edge`. Unorderable items appear in `findings` and are omitted from `items`.
 - **`work-graph.graph-health`.** `status` is `ok` or `findings`. Finding kinds: `cycle`; `dangling-edge` (a dependency naming an id the listing never returns); `stale-blocker` (an open item whose blocker is closed, so the link is inert). `dependencyAware` is true when edges were read.
@@ -263,10 +265,10 @@ These shape the mapping without changing the contract.
 
 Each item names a PRD assertion and what shipped code or the backing tool shows. Tables above reference these numbers.
 
-1. **Contract bumps (Technical Constraints, "either contract version is a requirements change to this PRD").** This design bumps tracker 1.0 to 1.1 and work-graph 2.0 to 2.1. The PRD states that any bump to either contract is a requirements change. Decide whether the PRD records the bump before this TRD is approved.
+1. **Contract bumps (Technical Constraints, "either contract version is a requirements change to this PRD") — decided by the architecture owner, awaiting the PRD record.** This design bumps tracker 1.0 to 1.1 and work-graph 2.0 to 2.1. The PRD states that any bump to either contract is a requirements change, so the PRD owns recording them; A1 folds both into a single amendment covering `tracker.label-one` and the `owner` field. Until that amendment lands, the shipped contract documents stay at 1.0 and 2.0, and the kata manifest declares the versions it was actually tested against.
 2. **The deletion and "no adapter interface" assertions are not in v1.2.0.** A grep for "delet" finds only AC-013-3 ("Given a kata project, when its toolchain configuration is deleted") and the `PRD-2026-87e64cc6` precedent row in Relationship to Existing PRDs. No assertion says no adapter interface exists; line 33 credits PRD-2026-8d825f54 with the capability-contract layer. The decision to drop the deletion therefore has no PRD text to change. Record that decision in the Relationship to Existing PRDs table, beside the `PRD-2026-87e64cc6` row.
 3. **REQ-001 "a configuration act and nothing else".** Selecting kata needs engine edits: the resolver's capability test and source fix (`work-graph-resolve.js:77-84`), provider dispatch, the analyzer's graph-health, and preflight ordering. Restate REQ-001 to include these, or accept them as part of the adapter's delivery.
-4. **REQ-004 clarification, `pending` and `done` (REQ-004 "Clarification (resolved 2026-11-13)").** The clarification maps `pending` and `done` to open and closed. The normalized status enum is open, in_progress, closed (`work-item.json:29`; `tracker.yaml:77`). Remove the sentence, or define where those values originate.
+4. **REQ-004 clarification, `pending` and `done` (REQ-004 "Clarification (resolved 2026-11-13)").** The clarification maps `pending` and `done` to open and closed, and the normalized status enum is open, in_progress, closed (`work-item.json:29`; `tracker.yaml:77`). Remove the sentence, or define where those values originate. Kata adds a further wrinkle here: `in_progress` is ownership-derived rather than a kata status (TRD-012), so the derived reading is what AC-004-2 is written against.
 5. **REQ-004 AC-004-2 and the normalized status.** An owned, open item is the PRD's in-progress state. `statusMap` reads only the raw `status`, so `tracker.show` reports `open` for a claimed item, and `tracker.set-status` to in_progress returns `status: open`. Setting `open` is `kata unassign`, which clears any owner. The PRD should state the in_progress return value, and whether resetting to open refuses to clear another actor's claim.
 6. **REQ-003 AC-003-2 against AC-004-3.** AC-003-2 refuses a close without a reason. AC-004-3 expects `tracker.set-status` to closed to read back closed. Kata closes only with a reason and evidence, and set-status carries neither. This design returns `NOT_ALLOWED`. AC-004-3 needs rewording.
 7. **Required `tracker.close` (REQ-001, AC-001-4).** It is required, takes `id` only (`tracker.yaml:33-38`), and cannot succeed on kata without evidence. Decide whether a declared, always-refused required capability satisfies REQ-001, or whether required closure is exempt.
@@ -274,7 +276,7 @@ Each item names a PRD assertion and what shipped code or the backing tool shows.
 9. **Graph answers are computed, not native.** Kata has no plan or graph-health command. REQ-007 and AC-006-1 say "from the adapter". This design computes both in the shared analyzer over kata's edges and names kata in the envelope's `adapter`. AC-007-4 asks that the "reported ordering source names the kata adapter", but `orderingSource` keeps its method values. Decide whether AC-007-4 means the envelope's `adapter`, or whether `orderingSource` changes value. Separately, `work-graph.yaml:21-27` names `work-graph-links-fallback` for graph-health, while that fallback returns `NOT_ALLOWED` (`builtin/work-graph-links-fallback.js:279-287`). The contract is inconsistent with the PRD's accurate REQ-007 clarification ("ready-listing and planning only").
 10. **REQ-002 "Kata's own dedupe mechanism".** Kata has no dedupe-key field on the issue. `--idempotency-key` is a seven-day create-retry guard: the same key with identical fields returns the original issue with `reused: true`; the same key with different fields fails with exit 5 `idempotency_mismatch`, and the error payload names the existing issue (`data.short_id`, `data.qualified_id`). Identity lookup therefore relies on the `ensemble_external_key` metadata, which `list --meta ensemble_external_key=<key>` filters exactly (capture, 2026-11-14). `kata search` matches words, not keys. The PRD should name the metadata key it relies on.
 11. **AC-008-2 (`type` and `priority`).** Kata has no type field (`kata create --help`, `kata edit --help`). Priority is numeric 0 to 4 in the help text, while `work-item.json:32-34` requires a string, and the mapping engine cannot cast types. Beads already leaves priority unmapped for this reason. As written, AC-008-2 cannot be met for these two fields on kata.
-12. **AC-004-1 (labels on several items) and multi-label creation.** Shipped `tracker.label` takes `ids` (`tracker.yaml:68-74`). Kata labels one ref per call, and the runner has no loop. Either callers iterate, or a single-item capability is added as a new capability, since `tracker.label` cannot change its inputs within 1.x. `tracker.create-detailed` takes `labels` in one call, which kata cannot express for more than one label.
+12. **AC-004-1 (labels on several items) and multi-label creation — decided (A1).** Shipped `tracker.label` takes `ids` (`tracker.yaml:68-74`). Kata labels one ref per call and the runner has no loop, so the architecture owner chose the second option: add a single-item `tracker.label-one` capability to tracker contract 1.1 and have callers iterate per id, rather than change `tracker.label` inputs, which 1.x cannot do. `tracker.create-detailed` takes `labels` in one call, which kata still cannot express for more than one label; that remains open and is not solved by this decision.
 13. **Goal 5 against jira.** Goal 5 ("A project that never hears about the new backend sees zero behavior change") says a project that never hears about kata sees zero behavior change. Under this design, a jira project's `work-graph.graph-health` changes from `NOT_ALLOWED` to a computed result with `dependencyAware: false`, because the built-in analyzer gains graph-health. The non-goal at line 278 says jira stays off the graph path. Decide whether the built-in keeps refusing when the tracker supplies no dependency data, or amend Goal 5 and the non-goal.
 14. **List class (REQ-017) and truncation (REQ-016).** The REQ-017 bound text ("The bound is per capability, not one global figure") holds "listing" to the short bound. Kata's list reads the whole backlog (`--limit 0`), and `kata ready` has no cap, so the class for list needs a decision. REQ-016 has no truncation AC; the rule lives only implicitly in REQ-017 AC-017-3. State it as an AC.
 15. **Preflight mechanics (AC-018-2, AC-001-2).** AC-018-2 requires that no call the old version cannot serve be made, but shipped health checks run concurrently (`preflight.js:184-186`). AC-001-2 requires preflight to report the backing tool's version, but `runPreflight` returns no version (`preflight.js:196-197`). Both are new mechanics in this design, not shipped behavior.
@@ -386,6 +388,38 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given kata is absent and a kata project, when preflight runs, then it fails naming the kata adapter and the missing binary.
     - [ ] Edge: Given a kata project whose binary was present at selection and is removed before preflight, when preflight runs, then the run fails with the missing-binary diagnosis and no beads work item is created.
 
+- [ ] **TRD-031** Resolver reports the project-config source on a tracker-supplied work-graph path (3h) [satisfies REQ-001] [depends: TRD-002]
+  **Validates PRD ACs:** AC-001-1
+  - Target Files: `packages/development/lib/toolchain/work-graph-resolve.js`
+  - Implementation AC:
+    - [ ] Given a project config that selects `tracker: kata` and supplies no explicit `work-graph`, when `resolveWorkGraphAdapter` runs, then it returns the resolved adapter and its `source` reports the tracker-supplied origin instead of the literal `default` that resolution reports today.
+    - [ ] Given a project config with an explicit `work-graph` value, when `resolveWorkGraphAdapter` runs, then `source` reports the project-config origin and the explicit value wins.
+    - [ ] Given neither a tracker selection nor an explicit `work-graph`, when `resolveWorkGraphAdapter` runs, then `source` reports the builtin fallback and behavior is unchanged from shipped.
+
+- [ ] **TRD-031-TEST** Verify resolver source reporting for tracker-supplied, explicit, and fallback paths (3h) [verifies TRD-031] [satisfies REQ-001] [depends: TRD-031]
+  **Validates PRD ACs:** AC-001-1
+  - Target Files: `packages/development/tests/toolchain-work-graph-resolve.test.js`
+  - Test AC:
+    - [ ] Happy: Given `tracker: kata` with no explicit `work-graph`, when the resolver runs, then `source` reports the tracker-supplied origin rather than the literal `default`.
+    - [ ] Edge: Given an explicit `work-graph` in project config, when the resolver runs, then `source` is the project-config value.
+    - [ ] Edge: Given neither tracker nor explicit selection, when the resolver runs, then `source` is `builtin-fallback`.
+
+- [ ] **TRD-032** Resolver gates on declared capabilities and diagnoses a cross-backend work-graph mismatch (3h) [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-002]
+  **Validates PRD ACs:** AC-001-1, AC-012-1
+  - Target Files: `packages/development/lib/toolchain/work-graph-resolve.js`
+  - Implementation AC:
+    - [ ] Given a tracker manifest that declares the `work-graph` category but omits any one of `work-graph.ready`, `work-graph.plan`, or `work-graph.graph-health` from `manifest.capabilities`, when the resolver runs, then the tracker does not claim the category and the builtin fallback applies.
+    - [ ] Given project config with `tracker: kata` and an explicit `work-graph: beads`, when the resolver runs, then it emits a named diagnostic for the cross-backend mismatch instead of resolving silently.
+    - [ ] Given a tracker manifest declaring all three `work-graph.*` capabilities, when the resolver runs, then the tracker claims the category and no diagnostic is emitted.
+
+- [ ] **TRD-032-TEST** Verify the capability gate and the explicit-mismatch diagnostic (3h) [verifies TRD-032] [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-032]
+  **Validates PRD ACs:** AC-001-1, AC-012-1
+  - Target Files: `packages/development/tests/toolchain-work-graph-resolve.test.js`
+  - Test AC:
+    - [ ] Happy: Given a manifest declaring all three `work-graph.*` capabilities, when the resolver runs, then the tracker claims the category.
+    - [ ] Edge: Given a manifest declaring the category while omitting `work-graph.graph-health`, when the resolver runs, then the category is not claimed.
+    - [ ] Edge: Given `tracker: kata` with `work-graph: beads`, when the resolver runs, then a named mismatch diagnostic is emitted and no beads binary is invoked against the kata project.
+
 ### PR 2: Kata work items: read, write, dedupe, close with evidence, label, status, and link
 
 **Shippable State:** A user on a kata project runs `toolchain-cli run` for tracker.create-detailed, tracker.find-by-key, tracker.close-with-reason, tracker.label, tracker.set-status and tracker.dep-add, and sees each item, label, owner, evidence and blocking edge in `kata show`, with no call falling back to a beads or links path and the coverage check passing.
@@ -434,7 +468,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Happy: Given a created item, when it is read back, then its title and description match the create input.
     - [ ] Edge: Given an update carrying only a priority field, when the item is read back, then its title and body are unchanged.
 
-- [ ] **TRD-010** Dedupe identity: create-detailed records the external key durably, and find-by-key searches the whole project including closed items (5h) [satisfies REQ-002] [depends: TRD-002]
+- [ ] **TRD-010** Dedupe identity: `create-detailed` records the external key durably, and `find-by-key` searches the whole project including closed items (5h) [satisfies REQ-002] [depends: TRD-002] [depends: TRD-033]
   **Validates PRD ACs:** AC-002-1, AC-002-2, AC-002-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -449,6 +483,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Happy: Given an item created with key K, when find-by-key runs with K, then the single matching item is returned and no other.
     - [ ] Edge: Given a key that matches nothing, when find-by-key runs, then the result is an empty list and not an error.
     - [ ] Edge: Given two items with keys K1 and K2, when find-by-key runs with K1, then only the K1 item is returned.
+    - [ ] Note: this file asserts the lookup result only; whether `find-by-key` output validates against a list schema is asserted by TRD-033-TEST, which owns the schema entries.
 
 - [ ] **TRD-011** Close with reason and evidence: close-with-reason records both, and a bare close never closes silently (4h) [satisfies REQ-003] [depends: TRD-002]
   **Validates PRD ACs:** AC-003-1, AC-003-2, AC-003-3
@@ -467,11 +502,11 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an open item and no reason, when a close is requested, then the call fails observably and the item remains open.
     - [ ] Edge: Given a test command as evidence, when the item is read back, then the evidence names that command.
 
-- [ ] **TRD-012** Labels and lifecycle status, with in-progress derived from ownership through one narrow mapping rule (5h) [satisfies REQ-004] [depends: TRD-002]
+- [ ] **TRD-012** Labels one id per call through `tracker.label-one`, and derives lifecycle status and in-progress ownership from the `owner` field (5h) [satisfies REQ-004] [depends: TRD-002] [depends: TRD-033]
   **Validates PRD ACs:** AC-004-1, AC-004-2, AC-004-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/lib/toolchain/mapping.js`
   - Implementation AC:
-    - [ ] Given items sharing a title prefix, when tracker.label runs by id, then kata label add attaches the label to each id, and removal uses kata label rm.
+    - [ ] Given three items sharing a title prefix, when `tracker.label-one` is called once per id, then kata `label add` attaches the label to each id, and removal uses kata `label rm`.
     - [ ] Given an open unowned item, when tracker.set-status sets in_progress, then kata claim runs and the item reads back owned and open with its owner reported.
     - [ ] Given a claimed item, when status is set back to open, then kata unassign clears the owner so the item reads open and unowned.
     - [ ] Given an open item with no recorded reason and evidence, when tracker.set-status sets closed, then the call is refused naming tracker.close-with-reason, as AC-004-3 is amended by TRD-027.
@@ -481,9 +516,10 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
   **Validates PRD ACs:** AC-004-1, AC-004-2, AC-004-3
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
-    - [ ] Happy: Given three items sharing a title prefix, when a label is applied to all three by id, then reading each back shows the label.
+    - [ ] Happy: Given three items sharing a title prefix, when `tracker.label-one` is applied to each of the three ids in turn, then reading each item back shows the label.
     - [ ] Edge: Given an open unowned item, when status is set to in_progress, then it reads back as owned and open and its owner is reported.
     - [ ] Edge: Given an open item with no reason and no evidence, when status is set to closed through the status capability, then the call is refused and the item stays open, as amended AC-004-3 requires.
+    - [ ] Note: the `owner` field's presence in the normalized shape is asserted by TRD-034-TEST, which owns that field; this file reads it.
 
 - [ ] **TRD-013** Dependency links through kata's blocked-by edge, with non-gating link kinds refused (3h) [satisfies REQ-005] [depends: TRD-002]
   **Validates PRD ACs:** AC-005-1, AC-005-2, AC-005-3
@@ -529,6 +565,38 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
   - Test AC:
     - [ ] Happy: Given the shipped kata manifest, when coverage is compared to the tracker and work-graph contracts, then no required capability is missing.
     - [ ] Edge: Given a mutated copy of the manifest with one required capability removed, when coverage is compared, then the assertion fails naming that capability.
+
+- [ ] **TRD-033** Normalized schema entries for the non-entity kata capabilities (3h) [satisfies REQ-008] [depends: TRD-002]
+  **Validates PRD ACs:** AC-008-1
+  - Target Files: `packages/development/lib/toolchain/contracts.js`, `scripts/tests/fixtures/toolchain/adapter-tracker-kata-samples/`
+  - Implementation AC:
+    - [ ] Given `tracker.find-by-key`, when its output is validated, then a list schema is declared for it rather than falling back to the work-item entity schema.
+    - [ ] Given `tracker.label` or `tracker.label-one`, when its output is validated, then a non-entity result schema applies and the run is not rejected as `BAD_OUTPUT` for lacking entity fields.
+    - [ ] Given a recorded kata fixture for each newly declared capability, when the adapter's normalizer runs against the fixture, then the result validates against the declared schema.
+
+- [ ] **TRD-033-TEST** Verify schema selection for every declared kata capability (3h) [verifies TRD-033] [satisfies REQ-008] [depends: TRD-033]
+  **Validates PRD ACs:** AC-008-1
+  - Target Files: `packages/development/tests/toolchain-contracts.test.js`
+  - Test AC:
+    - [ ] Happy: Given the kata manifest's declared capability set, when the contract validator runs, then every capability resolves to a normalized schema and none falls back to the entity schema unannounced.
+    - [ ] Edge: Given `tracker.find-by-key` returning a captured list envelope, when the normalizer runs, then it validates and does not report `BAD_OUTPUT`.
+    - [ ] Edge: Given a declared capability with no schema entry, when the validator runs, then it reports the missing entry by capability name.
+
+- [ ] **TRD-034** Name `owner` in the normalized work-item shape (3h) [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-002]
+  **Validates PRD ACs:** AC-004-2, AC-008-2
+  - Target Files: `scripts/tests/fixtures/toolchain/work-item.json`, `packages/development/lib/toolchain/mapping.js`
+  - Implementation AC:
+    - [ ] Given the normalized work-item schema, when it is read, then it declares an `owner` property rather than admitting one only through `additionalProperties`.
+    - [ ] Given a kata item carrying a claim, when `tracker.show` normalizes it, then `owner` carries the claiming identity and `tracker.set-status` reports the same value.
+    - [ ] Given an unowned open kata item, when `tracker.show` normalizes it, then `owner` is absent and the status reads `open`.
+
+- [ ] **TRD-034-TEST** Verify `owner` is a declared field and reads back through both paths (3h) [verifies TRD-034] [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-034]
+  **Validates PRD ACs:** AC-004-2, AC-008-2
+  - Target Files: `packages/development/tests/toolchain-normalized-item.test.js`
+  - Test AC:
+    - [ ] Happy: Given an item fixture carrying an owner, when it validates, then `owner` is recognized as a declared property.
+    - [ ] Edge: Given a normalized item with no `owner` property at all, when it validates, then validation still passes, so absence is not an error.
+    - [ ] Edge: Given the schema file, when it is inspected, then `owner` appears under `properties` and not solely through `additionalProperties`.
 
 ### PR 3: Dependency-aware pickup on kata
 
@@ -791,24 +859,24 @@ that data. Each AC is listed under the requirement its identifier names (`AC-NNN
 
 | Requirement | Implementation Tasks | Test Tasks | Acceptance Criteria |
 |---|---|---|---|
-| REQ-001 | TRD-002 — Kata adapter manifest: tracker and work-graph categories, contract versions, binary, allowlist, env names, health probe, and no detection<br>TRD-003 — Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution<br>TRD-006 — Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection<br>TRD-009 — Required create and update mappings returning the kata short id<br>TRD-015 — Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts | TRD-002-TEST-TEST<br>TRD-003-TEST-TEST<br>TRD-006-TEST-TEST<br>TRD-009-TEST-TEST<br>TRD-015-TEST-TEST | AC-001-1, AC-001-2, AC-001-3, AC-001-4 | |
-| REQ-002 | TRD-010 — Dedupe identity: create-detailed records the external key durably, and find-by-key searches the whole project including closed items | TRD-010-TEST-TEST | AC-002-1, AC-002-2, AC-002-3 | |
-| REQ-003 | TRD-011 — Close with reason and evidence: close-with-reason records both, and a bare close never closes silently | TRD-011-TEST-TEST | AC-003-1, AC-003-2, AC-003-3 | |
-| REQ-004 | TRD-012 — Labels and lifecycle status, with in-progress derived from ownership through one narrow mapping rule | TRD-012-TEST-TEST | AC-004-1, AC-004-2, AC-004-3 | |
-| REQ-005 | TRD-013 — Dependency links through kata's blocked-by edge, with non-gating link kinds refused | TRD-013-TEST-TEST | AC-005-1, AC-005-2, AC-005-3 | |
-| REQ-006 | TRD-014 — Native answers for update-detailed, stage-export and sync, so no fallback fires for kata | TRD-014-TEST-TEST<br>TRD-016-TEST-TEST | AC-006-1, AC-006-2 | |
-| REQ-007 | TRD-016 — Dispatch for work-graph capabilities computed in-process, through one resolver-owned path<br>TRD-017 — Kata edge export and ready-work listing from kata's own ready command<br>TRD-018 — Shared pure edge scan: dependency-first order, cycle findings, and dangling-edge findings<br>TRD-019 — Kata work-graph plan and graph-health built on the shared scan, reporting kata as source | TRD-016-TEST-TEST<br>TRD-017-TEST-TEST<br>TRD-018-TEST-TEST<br>TRD-019-TEST-TEST | AC-007-1, AC-007-2, AC-007-3, AC-007-4, AC-007-5 | |
-| REQ-008 | TRD-007 — Kata read mappings: show returns the normalized item and list honors its open filter without truncation<br>TRD-008 — Comment append and comment listing in the order the comments were written | TRD-007-TEST-TEST<br>TRD-008-TEST-TEST | AC-008-1, AC-008-2, AC-008-3 | |
-| REQ-009 | TRD-020 — Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command<br>TRD-021 — Dispatcher routes the implement keyword to the new command and rejects the retired name with its replacement named<br>TRD-022 — Scaffold routing through toolchain capabilities so a kata run never invokes br or bv<br>TRD-023 — Retired-name sweep across command, agent and skill sources and generated mirrors, excluding archived and historical documents | TRD-020-TEST-TEST<br>TRD-021-TEST-TEST<br>TRD-022-TEST-TEST<br>TRD-023-TEST-TEST | AC-009-1, AC-009-2, AC-009-3, AC-009-4 | |
-| REQ-010 | TRD-020 — Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command | TRD-020-TEST-TEST | AC-010-1, AC-010-2, AC-010-3 | |
-| REQ-011 | TRD-024 — Neutral shared prose: tracker work goes through capability calls, with no tracker binary or storage path outside beads-scoped text | TRD-024-TEST-TEST | AC-011-1, AC-011-2, AC-011-3 | |
-| REQ-012 | TRD-001 — Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard<br>TRD-006 — Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection | TRD-001-TEST-TEST<br>TRD-006-TEST-TEST | AC-012-1, AC-012-2, AC-012-3 | |
-| REQ-013 | TRD-005 — Keep kata out of detection and default selection | TRD-005-TEST-TEST | AC-013-1, AC-013-2, AC-013-3, AC-013-4 | |
-| REQ-014 | TRD-025 — Kata starting-point documentation: prerequisites, the binding step, a fresh-project walkthrough, and the documented unbound message | TRD-025-TEST-TEST | AC-014-1, AC-014-2, AC-014-3 | |
-| REQ-015 | TRD-015 — Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts<br>TRD-026 — Coverage disclosure: generated contract docs and explain output show native versus fallback per backend, the docs check catches drift, and the builtin graph-health fallback becomes truthful | TRD-015-TEST-TEST<br>TRD-026-TEST-TEST | AC-015-1, AC-015-2, AC-015-3 | |
-| REQ-016 | TRD-001 — Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard<br>TRD-030 — Repo-wide skip guard for every kata-dependent check, and a CI leg without kata that asserts a nonzero kata skip count | TRD-001-TEST-TEST<br>TRD-030-TEST-TEST | AC-016-1, AC-016-2, AC-016-3 | |
-| REQ-017 | TRD-028 — Per-class timeout bounds: capabilities declare short or long, bounds are set per adapter and per project, and every timeout names the class and bound<br>TRD-029 — Named failures and truncation-safe reads: stderr passes through, kata exit codes map to named errors, and partial output is refused | TRD-028-TEST-TEST<br>TRD-029-TEST-TEST | AC-017-1, AC-017-2, AC-017-3 | |
-| REQ-018 | TRD-003 — Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution<br>TRD-004 — Preflight binding gate: an unbound workspace stops before any work item is written, and capabilities not reported by preflight are refused | TRD-003-TEST-TEST<br>TRD-004-TEST-TEST | AC-018-1, AC-018-2, AC-018-3 | |
+| REQ-001 | **TRD-002** — Kata adapter manifest: tracker and work-graph categories, contract versions, binary, allowlist, env names, health probe, and no detection<br>**TRD-003** — Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution<br>**TRD-006** — Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection<br>**TRD-009** — Required create and update mappings returning the kata short id<br>**TRD-015** — Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts<br>**TRD-031** — Resolver reports the project-config source on a tracker-supplied work-graph path<br>**TRD-032** — Resolver gates on declared capabilities and diagnoses a cross-backend work-graph mismatch | TRD-002-TEST<br>TRD-003-TEST<br>TRD-006-TEST<br>TRD-009-TEST<br>TRD-015-TEST<br>TRD-031-TEST<br>TRD-032-TEST | AC-001-1, AC-001-2, AC-001-3, AC-001-4 | |
+| REQ-002 | TRD-010 — Dedupe identity: create-detailed records the external key durably, and find-by-key searches the whole project including closed items | TRD-010-TEST | AC-002-1, AC-002-2, AC-002-3 | |
+| REQ-003 | TRD-011 — Close with reason and evidence: close-with-reason records both, and a bare close never closes silently | TRD-011-TEST | AC-003-1, AC-003-2, AC-003-3 | |
+| REQ-004 | **TRD-012** — Labels one id per call through `tracker.label-one`, and derives lifecycle status and in-progress ownership from the `owner` field<br>**TRD-034** — Name `owner` in the normalized work-item shape | TRD-012-TEST<br>TRD-034-TEST | AC-004-1, AC-004-2, AC-004-3 | |
+| REQ-005 | TRD-013 — Dependency links through kata's blocked-by edge, with non-gating link kinds refused | TRD-013-TEST | AC-005-1, AC-005-2, AC-005-3 | |
+| REQ-006 | TRD-014 — Native answers for update-detailed, stage-export and sync, so no fallback fires for kata | TRD-014-TEST<br>TRD-016-TEST | AC-006-1, AC-006-2 | |
+| REQ-007 | TRD-016 — Dispatch for work-graph capabilities computed in-process, through one resolver-owned path<br>TRD-017 — Kata edge export and ready-work listing from kata's own ready command<br>TRD-018 — Shared pure edge scan: dependency-first order, cycle findings, and dangling-edge findings<br>TRD-019 — Kata work-graph plan and graph-health built on the shared scan, reporting kata as source | TRD-016-TEST<br>TRD-017-TEST<br>TRD-018-TEST<br>TRD-019-TEST | AC-007-1, AC-007-2, AC-007-3, AC-007-4, AC-007-5 | |
+| REQ-008 | **TRD-007** — Kata read mappings: show returns the normalized item and list honors its open filter without truncation<br>**TRD-008** — Comment append and comment listing in the order the comments were written<br>**TRD-033** — Normalized schema entries for the non-entity kata capabilities<br>**TRD-034** — Name `owner` in the normalized work-item shape | TRD-007-TEST<br>TRD-008-TEST<br>TRD-033-TEST<br>TRD-034-TEST | AC-008-1, AC-008-2, AC-008-3 | |
+| REQ-009 | TRD-020 — Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command<br>TRD-021 — Dispatcher routes the implement keyword to the new command and rejects the retired name with its replacement named<br>TRD-022 — Scaffold routing through toolchain capabilities so a kata run never invokes br or bv<br>TRD-023 — Retired-name sweep across command, agent and skill sources and generated mirrors, excluding archived and historical documents | TRD-020-TEST<br>TRD-021-TEST<br>TRD-022-TEST<br>TRD-023-TEST | AC-009-1, AC-009-2, AC-009-3, AC-009-4 | |
+| REQ-010 | TRD-020 — Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command | TRD-020-TEST | AC-010-1, AC-010-2, AC-010-3 | |
+| REQ-011 | TRD-024 — Neutral shared prose: tracker work goes through capability calls, with no tracker binary or storage path outside beads-scoped text | TRD-024-TEST | AC-011-1, AC-011-2, AC-011-3 | |
+| REQ-012 | **TRD-001** — Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard<br>**TRD-006** — Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection<br>**TRD-032** — Resolver gates on declared capabilities and diagnoses a cross-backend work-graph mismatch | TRD-001-TEST<br>TRD-006-TEST<br>TRD-032-TEST | AC-012-1, AC-012-2, AC-012-3 | |
+| REQ-013 | TRD-005 — Keep kata out of detection and default selection | TRD-005-TEST | AC-013-1, AC-013-2, AC-013-3, AC-013-4 | |
+| REQ-014 | TRD-025 — Kata starting-point documentation: prerequisites, the binding step, a fresh-project walkthrough, and the documented unbound message | TRD-025-TEST | AC-014-1, AC-014-2, AC-014-3 | |
+| REQ-015 | TRD-015 — Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts<br>TRD-026 — Coverage disclosure: generated contract docs and explain output show native versus fallback per backend, the docs check catches drift, and the builtin graph-health fallback becomes truthful | TRD-015-TEST<br>TRD-026-TEST | AC-015-1, AC-015-2, AC-015-3 | |
+| REQ-016 | TRD-001 — Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard<br>TRD-030 — Repo-wide skip guard for every kata-dependent check, and a CI leg without kata that asserts a nonzero kata skip count | TRD-001-TEST<br>TRD-030-TEST | AC-016-1, AC-016-2, AC-016-3 | |
+| REQ-017 | TRD-028 — Per-class timeout bounds: capabilities declare short or long, bounds are set per adapter and per project, and every timeout names the class and bound<br>TRD-029 — Named failures and truncation-safe reads: stderr passes through, kata exit codes map to named errors, and partial output is refused | TRD-028-TEST<br>TRD-029-TEST | AC-017-1, AC-017-2, AC-017-3 | |
+| REQ-018 | TRD-003 — Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution<br>TRD-004 — Preflight binding gate: an unbound workspace stops before any work item is written, and capabilities not reported by preflight are refused | TRD-003-TEST<br>TRD-004-TEST | AC-018-1, AC-018-2, AC-018-3 | |
 
 ## Requirements Traceability Summary
 
@@ -817,16 +885,16 @@ that data. Each AC is listed under the requirement its identifier names (`AC-NNN
 - **Reused at requirement level:** 0
 - **Uncovered:** 0
 - **Acceptance criteria:** 58 distinct
-- **Tasks:** 30 implementation + 29 test, across 6 PRs
-- **Estimates:** implementation 124h (max 6h), test 80h (max 4h)
+- **Tasks:** 34 implementation + 33 test, across 6 PRs
+- **Estimates:** implementation 136h (max 6h), test 92h (max 4h)
 
 `TRD-027` (the documentation and prose sweep) is the single unpaired implementation task: it is
 the documentation consequence of the rename owned by `TRD-020` and the neutralization owned by
 `TRD-024`, it is reached through their dependency edges, and it satisfies `ARCH` rather than a PRD
 requirement. It carries no `-TEST` task because a prose sweep has no behaviour to assert — its
 completion criterion is that the named PRD passages read correctly, which `TRD-027`'s own acceptance
-criteria state directly. It is also the only task mapping to no `REQ-NNN`, so requirement coverage
-is 18/18 across the remaining 29 implementation tasks, of which all 29 are test-paired.
+criteria state directly. It is the only task that maps to no `REQ-NNN`, since it satisfies `ARCH`;
+requirement coverage is therefore 18/18 across the other 33 implementation tasks, all test-paired.
 
 Reuse is a machinery boundary, not a per-requirement flag. The toolchain engine, contract
 loader, resolver, preflight, runner and beads adapter are consumed unchanged and own no task;
@@ -867,17 +935,19 @@ Evidence: the PRD, `tracker.yaml` (17 capabilities), `work-graph.yaml` (v2.0, th
 
 Reuse is at the machinery level, not the requirement level. No 6995dc96 requirement is satisfied by shipped code.
 
-### A1. The declarative runner cannot express kata's composed operations (blocking)
+### A1. The declarative runner cannot express kata's composed operations (RESOLVED for labels)
 
-- **Evidence:** A manifest capability is one `run[]` argv template (`runner.js#buildArgv`, `selectTemplate`). `mapping.js` `statusMap` looks up only the raw `result.status` string. Kata needs multiple calls in four places:
+- **Evidence:** A manifest capability is one `run[]` argv template (`runner.js#buildArgv`, `selectTemplate`). `mapping.js#statusMap` looks up only the raw `result.status` string. Kata needs multiple calls in four places:
   - **In-progress.** Ownership is the in-progress state (PRD REQ-004). `kata show`'s "by" line is the author, not the owner. Owner comes from `kata status`, per its own help text.
   - **Labels.** `kata label add <ref> <label>` takes one label on one item. `tracker.label` takes `ids[]` and `labels[]`. Replacement needs `label rm` plus `add`.
   - **Notes.** `tracker.update-detailed` must append. Kata's append is `kata comment`. `kata edit --body` replaces.
   - **Graph-health.** A scan over N items (A5).
-- **Problem:** Each either fails silently, reports a wrong status (in-progress would read as `open`), or needs a mechanism the engine does not have.
-- **Resolution:** Decide one mechanism before wave 1 is scoped. Preferred: an in-process capability hook following the `work-graph-links-fallback` precedent. Rejected: a `steps[]` manifest form, which widens the audited envelope for every adapter; and a helper script, which needs a `node` sub-argument allowlist.
-- **Status after the final task list:** Partly resolved. TRD-016 adopts the in-process hook, confined to the work-graph category, and TRD-018 and TRD-019 build graph-health on it. TRD-012 handles in-progress with a claim variant plus one narrow mapping rule. Still open: `tracker.label` with multiple ids (see Open Questions).
-- **Effort:** Medium (1–2d), already spent in the list.
+- **Why one call cannot address many ids.** `runner.js` states the substitution contract directly: a `{name}` placeholder is replaced by a plain string replace that "never splits one template element into multiple argv elements." That prohibition is load-bearing, not incidental — it is what keeps a value such as `a; rm -rf /` inside a single argv element uninterpreted as shell syntax (PRD REQ-023). So `["kata","label","add","{ids}","{label}"]` can only ever address one item, and no manifest can express it otherwise. A runner-level fan-out over list-typed arguments was considered and rejected for the same reason any change to that substitution rule is risky: `buildArgv` is the single audited chokepoint every adapter passes through, and fanning one call into N turns one envelope into N, which breaks the bounded-envelope rule that `docs/toolchain/index.md` and REQ-017 impose on a capability invocation.
+- **Problem:** Each composed operation either fails silently, reports a wrong status (in-progress would read as `open`), or needs a mechanism the engine does not have.
+- **Resolution (labels decided 2026-11-14 by the architecture owner).** Extend the tracker contract to **1.1** with a new single-item capability, `tracker.label-one`, declared inputs `id` plus `label`, one argv template per call, with `docs/toolchain/contracts/tracker.md` as the normative text. A caller holding N ids issues N calls; callers loop, not the runner. AC-004-1's "applied … id" wording is read per-id, which is what kata natively provides. For the other three composed operations the mechanism is the in-process capability hook following the `work-graph-links-fallback` precedent, adopted by TRD-016 and built on by TRD-018 and TRD-019. Rejected: a `steps[]` manifest form, which widens the audited envelope for every adapter; and a helper script, which needs a `node` sub-argument allowlist.
+- **Consequence of the bump (this is a requirements change).** PRD-2026-6995dc96 states under Technical Constraints that "either contract version is a requirements change to this PRD." Bumping `tracker` 1.0 to 1.1 reopens that PRD, and the same rule binds `work-graph` 2.0 to 2.1, which this design already raises for `work-graph.ready`. Both bumps become a single PRD amendment owned by the architecture owner; this TRD does not bump either contract number on its own authority. The shipped contract documents stay at `1.0` (`docs/toolchain/contracts/tracker.md`) and `2.0` (`docs/toolchain/contracts/work-graph.md`) until that amendment lands, and the kata manifest declares the version it was tested against.
+- **Status after the final task list:** Resolved for labels. `tracker.label-one` is a declared kata capability; TRD-012 owns the per-id sweep, and TRD-034 owns `owner` in the normalized shape that the sweep reads. What remains open is the contract-version amendment above, which is a PRD decision rather than a missing task.
+- **Effort:** Medium (1–2d), already spent in the list; no further implementation task beyond TRD-031..034 added for C4.
 
 ### A2. The builtin `work-graph-links-fallback` is not dependency-aware under any shipped tracker
 
@@ -892,7 +962,7 @@ Reuse is at the machinery level, not the requirement level. No 6995dc96 requirem
 - **Evidence:** `work-graph-resolve.js#resolveWorkGraphAdapter` returns `source: resolved.source` on both the `tracker-capabilities` and `builtin-fallback` branches. `resolved` is the `work-graph` tier, which is `'default'` whenever `work-graph: auto` comes from `toolchain.default.yaml` (`config.js` L173). `tests/toolchain-cli.test.js` `buildExpectedData` pins `work-graph.source = 'default'`.
 - **Problem:** A kata project with only `tracker: kata` set reports work-graph source `default`. AC-001-1 (PRD L60) requires "a config source, not the shipped default".
 - **Resolution:** On `autoVia === 'tracker-capabilities'`, report `trackerResolved.source`. Keep `'default'` for `builtin-fallback`. Update the pinned expectation for that branch only.
-- **Status after the final task list:** Unowned. TRD-002-TEST asserts the corrected source, but no implementation task changes `work-graph-resolve.js` source reporting. TRD-016 lists that file as a target, but its acceptance criteria do not cover source. A test will fail with no task to fix it.
+- **Status after the final task list:** Owned by TRD-031. TRD-031 changes `work-graph-resolve.js` source reporting and TRD-031-TEST asserts it, so the assertion TRD-002-TEST makes now has an implementation task behind it. TRD-016 still lists that file as a target without covering source, which is why the fix is a separate task rather than folded into TRD-016.
 - **Effort:** Quick.
 
 ### A4. The resolver gates on `manifest.categories`, not capabilities, and permits cross-backend mixes
@@ -900,7 +970,7 @@ Reuse is at the machinery level, not the requirement level. No 6995dc96 requirem
 - **Evidence:** `trackerProvidesWorkGraph` checks only `manifest.categories.includes('work-graph')`. The jira manifest header records the incident: a `work-graph` category with no `work-graph.*` capability was selected, and preflight failed `UNAVAILABLE`. Jira was fixed by removing the category.
 - **Problem:** A kata manifest that declares the category but omits one of `work-graph.ready|plan|graph-health` would be captured and then fail, because the resolver never falls back. Separately, `tracker: kata` with an explicit `work-graph: beads` is accepted silently, so `bv` would read `.beads/` inside a kata project.
 - **Resolution:** Require all three `work-graph.*` entries in `manifest.capabilities` before a tracker claims `work-graph`. Emit a diagnostic when `work-graph` is explicitly a different tracker than `tracker`. Test both.
-- **Status after the final task list:** Partly owned. TRD-015 checks manifest coverage against the contract, which covers the missing-capability case for the kata manifest. The resolver-side capability gate and the explicit-mismatch diagnostic have no task.
+- **Status after the final task list:** Owned by TRD-032. TRD-015 checks manifest coverage against the contract, which still only covers the missing-capability case for the kata manifest. TRD-032 adds the resolver-side capability gate and the explicit mismatch diagnostic, with TRD-032-TEST asserting both, so the resolver no longer silently accepts a tracker that lacks the required capability.
 - **Effort:** Quick.
 
 ### A5. `graph-health` returns NOT_ALLOWED despite the contract naming the builtin as its fallback
@@ -929,7 +999,7 @@ Reuse is at the machinery level, not the requirement level. No 6995dc96 requirem
   - `create` soft-blocks look-alike titles with exit 5 unless `--force-new` is passed.
 - **Problem:** PRD REQ-002 says dedupe "works natively". It does not. It must be a metadata convention. `type` and `owner` need a named place in the normalized shape, or AC-004-2 and AC-008-2 cannot be checked.
 - **Resolution:** Define namespaced metadata keys for the external key and type. Name `owner` in the normalized output, additively. Pass `--force-new` only on an explicit caller flag.
-- **Status after the final task list:** Partly resolved. TRD-010 stores the external key as metadata `ext_key` and uses it as the idempotency key. TRD-007 reads `type` from metadata with a default of `task`. TRD-012 and TRD-007-TEST rely on `owner`, but no task names `owner` in the normalized shape or adds it to any schema.
+- **Status after the final task list:** Partly resolved; the `owner` gap is closed by TRD-034. TRD-010 stores the external key in metadata as `ext_key` and uses it as the idempotency key, and TRD-007 reads `type` from metadata with a default of `task`. TRD-012 and TRD-007-TEST rely on `owner`, and TRD-034 now names `owner` in the normalized shape and adds it to the schema, with TRD-034-TEST asserting it.
 - **Effort:** Short.
 
 ### A8. Required `tracker.close` cannot meet kata's close policy
@@ -945,12 +1015,12 @@ Reuse is at the machinery level, not the requirement level. No 6995dc96 requirem
 - **Evidence:** The beads manifest comments on `tracker.list`, `tracker.comments`, `tracker.label`, `tracker.sync` and `tracker.stage-export` say a list cannot carry `parse`. That is out of date. `runner.js` `CAPABILITY_NORMALIZED_SCHEMA` maps `tracker.list` to `work-item-list.json` and `tracker.comments` to `comment-list.json`, and jira uses `parse` on `tracker.list`. But `CAPABILITY_NORMALIZED_SCHEMA` has no entry for `tracker.find-by-key`, `tracker.label`, `tracker.sync` or `tracker.comment`. Those fall through to `CATEGORY_NORMALIZED_SCHEMA` (`work-item.json`, requires `id`).
 - **Problem:** A kata `tracker.find-by-key` returning `{items}` through `parse` fails `BAD_OUTPUT`. So does a `tracker.label` mapping of `{ids, labels}`.
 - **Resolution:** Add explicit `CAPABILITY_NORMALIZED_SCHEMA` entries for each non-entity kata capability, each with a test. Correct the stale beads comments as a no-behaviour change.
-- **Status after the final task list:** Unowned. The task list contains no `CAPABILITY_NORMALIZED_SCHEMA` change. TRD-010 maps find-by-key output, so the failure will surface when that task is built.
+- **Status after the final task list:** Owned by TRD-033 for the capabilities that block this TRD. TRD-033 declares `CAPABILITY_NORMALIZED_SCHEMA` entries for `tracker.find-by-key`, `tracker.label` and `tracker.label-one`, each asserted against a recorded kata fixture by TRD-033-TEST, so those outputs stop falling through to the work-item entity schema and failing `BAD_OUTPUT`. `tracker.sync` and `tracker.comment` are not declared and are not reached by any task here, so the fall-through for those two remains as described above.
 - **Effort:** Quick per entry.
 
 ## Task Coverage Analysis
 
-Basis: the final task list at `~/.omp/trd-6995dc96/tasks-scratch.md` (30 implementation tasks, 29 `-TEST` tasks, 6 PRs). I checked it directly.
+Basis: the task list at `~/.omp/trd-6995dc96/tasks-scratch.md` (30 implementation tasks, 29 `-TEST` tasks, 6 PRs at the time of that check). TRD-031 through TRD-034 and their test partners were added afterwards, so the list this document now ships is 34 implementation and 33 `-TEST` tasks. I confirmed the counts in both directly.
 
 ### C1. Requirement-namespace trap (resolved in the list, must stay visible)
 
@@ -966,16 +1036,18 @@ Required control, unchanged: coverage is asserted per 6995dc96 REQ id. Any docum
 
 ### C3. Work items above 8h
 
-None. The maximum task estimate is 6h (TRD-016, TRD-022, TRD-023, TRD-028). Three tasks sit at the cap and are the most likely to split on build: TRD-022 (routing through capabilities, with four dependencies), TRD-023 (retired-name sweep across manifests and generated mirrors), and TRD-016 (in-process dispatch with confinement).
+None. The maximum task estimate is 6h, held by six tasks: TRD-016, TRD-022, TRD-023, TRD-024, TRD-026 and TRD-028. Three of those six are the most likely to split on build: TRD-022 (routing through capabilities, with four dependencies), TRD-023 (retired-name sweep across manifests and generated mirrors), and TRD-016 (in-process dispatch with confinement).
 
-### C4. Implementation behaviours with no owning task
+### C4. Implementation behaviours with no owning task (RESOLVED 2026-11-14)
 
-Each of these is asserted by a PRD AC or by a task test, but no implementation task changes the code:
+Each of these was asserted by a PRD AC or by a task test with no implementation task changing the code. All four now have an owning task, each paired with its own `-TEST` task per Rule 3, placed in the PR that already owns the file it touches:
 
-1. **Resolver source reporting (A3).** TRD-002-TEST expects project-config source. No task changes `work-graph-resolve.js` source.
-2. **Resolver capability gate and explicit-mismatch diagnostic (A4).** No task.
-3. **Normalized schema entries for non-entity kata capabilities (A9).** No task, although TRD-010 depends on find-by-key output.
-4. **`owner` in the normalized shape (A7).** TRD-007-TEST and TRD-012 rely on it. No task names it.
+1. **Resolver source reporting (A3).** Was: `TRD-002-TEST` expects project-config source, and no task changed `work-graph-resolve.js`. Now owned by **TRD-031** (PR 1, `work-graph-resolve.js`), verified by **TRD-031-TEST**.
+2. **Resolver capability gate and explicit-mismatch diagnostic (A4).** Was: no task. Now owned by **TRD-032** (PR 1, `work-graph-resolve.js`), verified by **TRD-032-TEST**.
+3. **Normalized schema entries for non-entity kata capabilities (A9).** Was: no task, although TRD-010 depends on `find-by-key` output. Now owned by **TRD-033** (PR 2, `contracts.js` and the kata fixtures directory), verified by **TRD-033-TEST**.
+4. **`owner` in the normalized shape (A7).** Was: `TRD-007-TEST` and TRD-012 rely on it with no task naming it. Now owned by **TRD-034** (PR 2, `work-item.json`), verified by **TRD-034-TEST**.
+
+Three of the four overlap earlier tasks, so TRD-007, TRD-010 and TRD-012 are scoped in this same pass to keep exactly one owner per behaviour, each with a note recording where a moved assertion now lives: TRD-007 owns `show` normalization and the open filter, while TRD-034 owns the `owner` field its read mappings consume; TRD-010 owns the dedupe lookup result, while TRD-033 owns the schema entry that validates `find-by-key` output — a schema-selection concern, not a runtime ordering one, so no dependency edge is added between them; TRD-012 owns the label sweep and the in-progress derivation rule, calling `tracker.label-one` per A1 and reading `owner` from the shape TRD-034 defines, and takes a dependency on TRD-033 because the capability it calls is one of the capabilities TRD-033 declares. TRD-002 needed no narrowing: its acceptance criteria cover manifest fields only, and resolver source reporting was never asserted there, only by TRD-002-TEST.
 
 ### C5. Shippable-state rules
 
@@ -983,10 +1055,9 @@ All six PR shippable states describe user-observable capabilities. Enabler work 
 
 ### C6. Missing or weak coverage
 
-- **~~Write-side live capture missing~~ — RESOLVED 2026-11-14.** An earlier draft of this section recorded that no write-side JSON envelope existed and that the scratch `kata-*.txt` files held only help text, which was true at the time. That gap is closed: write-side and read-side envelopes were captured live against kata v0.23.0 in a scratch project under an isolated `KATA_HOME` (`~/.omp/trd-6995dc96/capture/`, summary `kata-envelope-facts.md`). TRD-001 still owns recording these as in-repo fixtures, because the capture lives outside the repository and later mapping tasks must read committed fixtures rather than a home-directory note.
-- **Builtin graph-health truthfulness (TRD-026).** The Implementation AC makes the builtin answer from the shared scan. For a tracker with no dependency data (for example jira), that scan has no edges and would return an empty, clean finding set. That is the "unlisted gap indistinguishable from an intentional fallback" risk the PRD flags under REQ-015. No task distinguishes "no dependency data" from "healthy".
-- **Whole-capability timeout (A6).** Not tasked.
-- **Contract escalation for `tracker.close` (A8).** Not tasked.
+- **Builtin graph-health truthfulness (TRD-026).** Tasked, but the semantics are undecided: the Implementation AC makes the builtin answer from the shared scan, and for a tracker with no dependency data (for example jira) that scan has no edges and would return an empty, clean finding set — the "unlisted gap indistinguishable from an intentional fallback" risk the PRD flags under REQ-015. Open Question 1 for the PRD.
+- **Whole-capability timeout (A6).** Not tasked. The PRD leaves the seconds to the TRD and no task sets kata's short or long defaults. Open Question 8 for the PRD.
+- **Contract escalation for `tracker.close` (A8).** Not tasked. Open Question 3 for the PRD.
 
 ## Dependency and Estimate Review
 
@@ -997,7 +1068,7 @@ All six PR shippable states describe user-observable capabilities. Enabler work 
 
 ### D2. Chain depth at task level
 
-I computed the longest chains over the task edges. The maximum depth is 3 (for example TRD-002 → TRD-016 → TRD-022 → TRD-022-TEST, and TRD-020 → TRD-021 → TRD-024 → TRD-024-TEST). This matches the trd-cli report. At the REQ level, the PRD chain REQ-001 → REQ-009 → REQ-010 → REQ-014 → REQ-018 has four edges. Task-level depth is within the limit; the REQ-level chain is a PRD-level fact and stays flagged.
+I computed the longest chains over task edges and re-ran the graph after the final task list. Depth is counted in tasks, so a chain of five tasks has depth 5 and four edges. Maximum depth is 5, reached by four chains: TRD-015-TEST, TRD-022-TEST, TRD-025-TEST and TRD-026-TEST. The deepest, TRD-015-TEST, runs TRD-002 → TRD-033 → TRD-010 → TRD-015 → TRD-015-TEST (5 tasks, 4 edges). Depth was 4 before TRD-033 was added (longest then: TRD-002 → TRD-007 → TRD-015 → TRD-015-TEST); TRD-033 sits between TRD-002 and TRD-010, lengthening every chain that passes through TRD-010. The graph is still acyclic and every edge resolves to a defined task. At REQ level, the PRD chain REQ-001 → REQ-009 → REQ-010 → REQ-014 → REQ-018 is 5 requirements over 4 edges. Task-level depth is within limit; the REQ-level chain is a PRD-level fact and stays flagged.
 
 ### D3. Shared-engine dependency
 
@@ -1005,12 +1076,12 @@ The engine decisions (A1 mechanism, A3, A4, A6, A9) are now tasks, and TRD-016 i
 
 ### D4. Estimate consistency against the final list
 
-The list holds 30 implementation tasks summing to 124h and 29 test tasks summing to 80h, 204h in total. The maximum single task is 6h. Checked against the rules:
+The list holds 34 implementation tasks summing to 136h and 33 test tasks summing to 92h, 228h in total. The maximum single task is 6h. Checked against the rules:
 
 - **Paired operations within 1.5×: pass.** `create` (TRD-009, 4h) and `create-detailed` (TRD-010, 5h) are 1.25×. `dep-add` and `dep-remove` share TRD-013 (3h). `comment` and `comments` share TRD-008 (2h). `close` and `close-with-reason` share TRD-011 (4h).
 - **No task at 8h or more: pass.**
 - **Live capture before estimate: pass.** Read-side and write-side envelopes were both captured live before the estimates were finalized (TRD-009, TRD-010, TRD-011, TRD-012, TRD-013, TRD-014). The shapes they assume are observed, not inferred, so no write-side estimate rests on an undocumented response.
-- **Composed operations still design-blocked: fail.** The in-progress rule (TRD-012) and the in-process graph path (TRD-016) are designed. `tracker.label` with multiple ids is not, and the capture sharpens why: kata has no bulk, batch, or multi-id form at all, the response carries a singular `label` key, and a declarative `run[]` cannot loop. TRD-012 (5h) therefore bundles a decision that has not been made and should be expected to split.
+- **Composed operations still design-blocked: fail.** The in-progress rule (TRD-012) and the in-process graph path (TRD-016) are designed. `tracker.label` with multiple ids is decided now but not yet expressible: kata has no bulk, batch, or multi-id form at all and a declarative `run[]` cannot loop, so A1 routes it through a new single-id `tracker.label-one` capability that the tracker contract does not define until the amendment lands. TRD-012 (5h) depends on TRD-033 for that capability declaration and should be expected to split.
 - **Shared-engine entries at least 1h each: pass in aggregate.** The engine work is inside TRD-016, TRD-028 and TRD-029, which are 6h, 6h and 5h.
 
 ## Testability Review
@@ -1033,14 +1104,14 @@ Restated observables, and where the final list owns each:
 
 | AC | Issue | Restated observable | Owned by |
 |---|---|---|---|
-| AC-001-1 | Requires resolver source fix (A3), which has no owner. | `toolchain resolve --json` reports `work-graph` source ≠ `default` when `tracker: kata` is set. | TRD-002-TEST asserts it; no implementation task (gap) |
+| AC-001-1 | Requires the resolver source fix (A3), now owned by TRD-031. | `toolchain resolve --json` reports `work-graph` source ≠ `default` when `tracker: kata` is set. | TRD-031 implements it; TRD-031-TEST and TRD-002-TEST assert it |
 | AC-002-1 | "Same workspace" is undefined: kata binds per project. | "Same bound project." | TRD-010-TEST |
 | AC-003-2 | **Subjective**: "an outcome the caller can observe." | `ok:false` with `error.code` and a message naming the missing reason. | TRD-011-TEST |
-| AC-004-2 | "Its owner is reported" names no field. Depends on A7. | Normalized output contains `owner` and `status: in_progress`. | TRD-012-TEST (owner unnamed in schema, gap) |
+| AC-004-2 | "Its owner is reported" names no field; the field is `owner`, now defined by TRD-034. | Normalized output contains `owner` and `status: in_progress`. | TRD-034 defines the field; TRD-012-TEST and TRD-034-TEST assert it |
 | AC-005-3 | **Subjective**: "a kind the backend has no equivalent for." | A link kind other than blocking returns a refusal with a reason. Add: a `parent-child` add must not silently replace an existing parent. | TRD-013-TEST covers `related`; the parent case is untested |
 | AC-007-1 | The oracle "the backing tracker's own listing order" is unnamed. | Sequence equals `kata ready --json` order on an unchanged snapshot. | TRD-017-TEST |
 | AC-008-1 | Checkable, but no shipped adapter honours `filter`. | Keep. Test explicitly. | TRD-007-TEST |
-| AC-008-2 | **Subjective**: "populated." | Each of title, status, priority, labels, type is present when set on the item. | TRD-007-TEST (owner gap, see A7) |
+| AC-008-2 | **Subjective**: "populated." | Each of title, status, priority, labels, type is present when set on the item. | TRD-007-TEST; `owner` itself is owned by TRD-034 (see A7) |
 | AC-009-4 | **Subjective**: "no longer states … beads project management." | The `implement` route resolves to the neutral command, and its text contains none of `br`, `bv`, `.beads`. | TRD-021-TEST checks routing only; the text check is untested |
 | AC-010-1 | **Subjective**: "reaches the same handling." | Each listed phase is accepted with the pre-rename flags and returns the same exit status and phase name. | TRD-020-TEST |
 | AC-011-1 | **Subjective**: "explicitly scoped to describing one backend." No scoping marker exists. | Define a named scoping heading. Check: no `br`, `bv`, `.beads` token outside it. | TRD-024-TEST (the heading is not defined in the task) |
@@ -1067,37 +1138,37 @@ Re-scored against the final task list. Supersedes the earlier scorecard in full.
 
 | Dimension | Score (1–5) | Basis |
 |---|---|---|
-| Architecture completeness | **3** | The list chooses a mechanism for the graph paths (TRD-016 in-process confinement, TRD-018 shared scan, TRD-019 kata source), and in-progress is designed (TRD-012). The earlier FAIL-band reading was wrong to say no task list could resolve A1: the list resolves it for graph and in-progress paths. Still open: `tracker.label` with multiple ids (A1), the resolver gaps (A3, A4), the whole-capability timeout (A6), the close contract (A8), and the list-shape schema entries (A9). |
-| Task coverage | **3** | All 18 REQs and 58 ACs are referenced by tasks, and no reused row has a duplicate task. But four implementation behaviours that tests or ACs rely on have no owning task: resolver source (A3), resolver capability gate and mismatch diagnostic (A4), normalized schema entries (A9), and `owner` in the normalized shape (A7). The builtin graph-health change (TRD-026) can report a clean result for trackers with no dependency data. |
-| Dependency clarity | **4** | Task-level edges are explicit. Maximum depth is 3. The REQ-018 split is applied in the graph, and the REQ-009 wave-3 claim is honoured by TRD-020 having no dependencies. Deducted because the PRD Dependency Map text still contradicts the graph and TRD-027 does not correct it. |
-| Estimate confidence | **3** | Estimates exist and pass the paired-operation, no-8h and aggregate rules, and the live-capture-first rule now passes: every write-side and read-side shape was observed against v0.23.0 before the estimates were set. Held at 3, not higher, by the rule that still fails — composed-operations-design-blocked: multi-id `tracker.label` has no design, confirmed by capture to be unrepresentable in kata's CLI, and TRD-012 bundles it. |
-| **Overall (arithmetic mean)** | **3.25** | (3 + 3 + 4 + 3) / 4 = 3.25. |
+| Architecture completeness | **3** | The list chooses a mechanism for the graph paths (TRD-016 in-process confinement, TRD-018 shared scan, TRD-019 kata source), and in-progress is designed (TRD-012). The earlier FAIL-band reading was wrong to say no task list could resolve A1: the list resolves it for the graph and in-progress paths, and A1 now has a decided answer for labels too, `tracker.label-one` behind a tracker contract amendment. Still open: that amendment (A1), the whole-capability timeout (A6), the close contract (A8), and graph-health truthfulness (TRD-026). |
+| Task coverage | **4** | All 18 REQs and 58 ACs are referenced by tasks, and no reused row has a duplicate task. The four implementation behaviours that tests or ACs relied on without an owner now have one each — resolver source (A3, TRD-031), the resolver capability gate and mismatch diagnostic (A4, TRD-032), normalized schema entries (A9, TRD-033) and `owner` in the normalized shape (A7, TRD-034) — each paired with its own test task. This is 4 and not 5 because one behaviour is still unowned and one rests on a ratified decision rather than a task: TRD-028 bounds each operation but nothing bounds a whole capability across its operations (A6), and the `tracker.close` refusal (A8) is covered only by TRD-011 plus the ratified open-question-3 decision that the tracker contract stays at 1.0. |
+| Dependency clarity | **4** | Task-level edges are explicit and acyclic. Depth is counted in tasks (see D2): maximum depth is 5, up from 4 before TRD-033 was added, because TRD-033 sits between TRD-002 and TRD-010 so every chain through TRD-010 grew by one. Four chains now reach depth 5 (TRD-015-TEST, TRD-022-TEST, TRD-025-TEST, TRD-026-TEST). Still deducted because the PRD Dependency Map text contradicts the graph and TRD-027 does not correct it. |
+| Estimate confidence | **3** | Estimates exist and pass the paired-operation, no-8h and aggregate rules, and the live-capture-first rule now passes: every write-side and read-side shape was observed against v0.23.0 before the estimates were set. Held at 3, not higher, by the rule that still fails — composed-operations-design-blocked: `tracker.label` for multiple ids has a decision (A1, `tracker.label-one`) but no expressible design until tracker contract 1.1 defines it, and TRD-012 depends on it. |
+| **Overall (arithmetic mean)** | **3.5** | (3 + 4 + 4 + 3) / 4 = 3.5. |
 
-**Verdict: CONCERNS** (overall 3.25, within the 3.0–3.9 band; PASS requires at least 4.0).
+**Verdict: CONCERNS** (overall 3.5, within the 3.0–3.9 band; PASS requires at least 4.0).
 
-Not provisional: the task list, and now the write-side shapes, both rest on evidence. The two things keeping this below PASS are design decisions that have not been made — multi-id labelling (A1) and four behaviours with no owning task (A3, A4, A7, A9) — not missing information.
+Not provisional: the requirements trace and the task list, now that write-side shapes are settled, both rest on evidence. The two things keeping this below PASS are design decisions that are not made yet — the tracker contract amendment that makes `tracker.label-one` buildable, and graph-health truthfulness for trackers with no dependency data (A3, A4, A7 and A9 are now owned by TRD-031 through TRD-034) — not missing information.
 
 What would move the score most:
 
 1. ~~Capture JSON envelopes for every write-side kata command~~ — done 2026-11-14; estimate confidence moved 2 → 3.
-2. Decide the multi-id label mapping (A1), and split TRD-012 to match (architecture completeness toward 4).
-3. Own the four unowned behaviours in C4, and decide TRD-026's behaviour for trackers with no dependency data (task coverage toward 4).
+2. ~~Own the four unowned behaviours in C4~~ — done 2026-11-14 by TRD-031 through TRD-034; task coverage moved 3 → 4. What is left for task coverage to reach 5 is deciding TRD-026's behaviour for trackers with no dependency data.
+3. Land the tracker contract amendment adding `tracker.label-one` (A1) and ratify `owner` in the normalized shape (A7), then split TRD-012 to match. That is what moves architecture completeness and estimate confidence toward 4.
 
-**What changed and why:** Architecture completeness rose from 2 to 3 because the final list chooses the graph mechanism and designs in-progress. Task coverage stays at 3, because the list maps every requirement but leaves four tested behaviours unowned. Dependency clarity rose from 3 to 4 on task-level evidence. Estimate confidence rose from 2 to 3 on 2026-11-14, when the write-side capture closed the live-capture-first rule; it does not go higher while multi-id labelling remains undesigned. Overall moved 3.0 → 3.25, still inside the CONCERNS band.
+**What changed and why:** Architecture completeness rose from 2 to 3 because the final list chooses the graph mechanism and designs in-progress; it holds at 3 because the label mechanism, though decided in A1, is not implementable until tracker contract 1.1 defines `tracker.label-one`. Task coverage rose from 3 to 4 because TRD-031 through TRD-034 now own the four behaviours that previously had tests without owners. Dependency clarity rose from 3 to 4 on task-level evidence. Estimate confidence rose from 2 to 3 on 2026-11-14, when the write-side capture closed the live-capture-first rule; it does not go higher while `tracker.label-one` remains an undescribed contract capability. Overall moved 3.25 → 3.50, still inside the CONCERNS band.
 
 ### Open Questions for the PRD
 
 1. **Graph-health for trackers without dependency data (TRD-026, AC-007-5, AC-015-1).** Should the builtin fallback report a clean result or "unknown" when a tracker exposes no dependency links? A clean result hides the gap REQ-015 is meant to disclose.
 2. **AC-004-3 amendment (TRD-027).** Should `set-status closed` refuse without a reason and evidence? TRD-027 says yes. Confirm with the architecture owner.
 3. **`tracker.close` contract (A8).** The contract declares inputs `[id]`, while kata requires reason and evidence. Amend the contract (a requirements change), or keep the refusal-by-placeholder in TRD-011? Either needs an owner decision.
-4. **Multi-id labelling (AC-004-1, A1).** Does "applied … by id" mean one id per call or many? A declarative `run[]` cannot loop over ids. If many, the mechanism must change.
-5. **Name of the owner field (AC-004-2, AC-008-2, A7).** The PRD says "owner is reported" without a field name. Name it in the normalized output, or accept `owner` as a TRD convention.
+4. **Multi-id labelling (AC-004-1, A1) — decided, awaiting a contract amendment.** AC-004-1 means one id per call: the architecture owner chose to add `tracker.label-one` to tracker contract 1.1, with callers looping per id, rather than loop the declarative runner. Confirm the tracker contract 1.0 to 1.1 and work-graph 2.0 to 2.1 bumps, which the PRD treats as requirements changes and therefore owns.
+5. **Name of the owner field (AC-004-2, AC-008-2, A7) — decided, awaiting a contract amendment.** TRD-034 names it `owner` and makes it a declared property of the normalized work-item shape rather than an `additionalProperties` survivor. The normalized shape is part of tracker contract 1.0 and is not TRD-only, so the amendment must ratify the field.
 6. **Dependency Map text (D1).** The PRD still states REQ-018 depends on REQ-014 and REQ-009 on REQ-001. The task graph does otherwise. Approve a PRD correction, or accept that the TRD is authoritative for scheduling.
 7. **Idempotency key reuse (TRD-010).** kata's idempotency key fails with a conflict when the same key carries different fields. Creating with the external key as the idempotency key may refuse a legitimate re-create after an edit. REQ-002 is silent. Accept the behaviour, or specify it.
 8. **Kata timeout values (REQ-017, TRD-028).** The PRD leaves seconds to the TRD, but no task sets kata's short or long defaults. Who sets them, and from what measured latency (TRD-001's fixtures are read-only)?
 9. **Ordering oracle (AC-007-1).** `kata ready` orders by most-recently-updated, so a sequence changes under unrelated edits. Is that acceptable as the oracle for "stable"?
 
-10. **Remote-gateway authentication is not covered by any requirement — resolved by scoping this TRD to locally-spawned kata daemons.** The PRD's 18 requirements stop at "a Kata project" and never mention a gateway, yet the adapter `env` block names `KATA_SERVER` and `KATA_AUTH_TOKEN`, and TRD-023 / AC-016-5 assume an auth-failure envelope. A live probe against a gateway showed the remote path is refused outright without a valid browser session token (`web_session_required`, `kind: internal`, `exit_code: 1`), plus a second refusal mode (`origin_forbidden`, from an `Origin` header the CLI controls) that no design mentions. Both fall outside the 2/3/4/5/7 exit-code taxonomy the error mapping assumes, and `origin_forbidden` in particular is decided by the gateway, so an adapter cannot work around it by setting headers itself: `KATA_AUTH_TOKEN` is a hard prerequisite for the remote path rather than an optional enhancement, and the 401/403 auth envelope TRD-023 and AC-016-5 assume has never been captured. **Decision (architecture owner, 2026-11-14):** delivery is scoped to locally-spawned kata daemons; the remote kata gateway is out of scope for this TRD, and no task here is expected to reach or test it. What remains open is only whether a future gateway-backed delivery adds its own requirement covering gateway auth and captures that failure envelope.
+10. **Remote-gateway authentication is not covered by any requirement — resolved by scoping this TRD to locally-spawned kata daemons.** The PRD's 18 requirements stop at "a Kata project" and never mention a gateway, yet the adapter `env` block names `KATA_SERVER` and `KATA_AUTH_TOKEN`, and the error-mapping design assumes an auth-failure envelope. A live probe against a gateway showed the remote path is refused outright without a valid browser session token (`web_session_required`, `kind: internal`, `exit_code: 1`), plus a second refusal mode (`origin_forbidden`, from an `Origin` header the CLI controls) that no design mentions. Both fall outside the 2/3/4/5/7 exit-code taxonomy the error mapping assumes, and `origin_forbidden` in particular is decided by the gateway, so an adapter cannot work around it by setting headers itself: `KATA_AUTH_TOKEN` is a hard prerequisite for the remote path rather than an optional enhancement, and the 401/403 auth envelope that the error mapping assumes has never been captured. **Decision (architecture owner, 2026-11-14):** delivery is scoped to locally-spawned kata daemons; the remote kata gateway is out of scope for this TRD, and no task here is expected to reach or test it. What remains open is only whether a future gateway-backed delivery adds its own requirement covering gateway auth and captures that failure envelope.
 
 _Merged from the architecture review and the readiness gate; numbering is per source._
 
