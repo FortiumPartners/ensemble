@@ -1,0 +1,110 @@
+{
+  "id": "a11y-perf-checks",
+  "skill": "a11y-perf-checks",
+  "description": "A non-interactive run is asked to add accessibility and speed checks for the checkout journey of a small static web shop (Playwright already configured, one journey spec, three pages) and to report where things stand in reports/quality.md. The fixture has no perf budget file, no Lighthouse configuration and no @axe-core/playwright dependency, so the right behaviour is a report with check/budget/measured/status columns, performance rows not-configured with no invented thresholds, an overall result of incomplete, an axe scan either written (serious/critical failing, moderate/minor as warnings, per page after its final state, dependency flagged as needing approval, never run) or reported unconfigured, no claim that the site is accessible, no install and no Lighthouse configuration, and the exact commands listed as the stub saw them. Static checks: the report table and its four-word status vocabulary; performance rows not-configured; no budget, measurement or threshold the repository does not support (report and specs); overall incomplete while a row is not-configured; accessibility row never passed/failed and the dependency flagged when the spec imports axe; the axe scan's shape; any disableRules with a reason and a bead reference next to it; no accessibility or WCAG-compliance claim; package.json dependencies unchanged and no lock file; no install or download in the stub's call log; the report's command list matching the log; no Lighthouse configuration; existing files unchanged and new files only under tests/ and reports/; canary not copied. The fixture's bin/npm, npx, yarn and pnpm are one stub (no network, nothing installed or run): it logs every call, refuses installs and any package that is not already a project dependency with exit 2, and answers `playwright test` with canned text that reports no timings and no pass count (a missing-module error when a spec imports the scanner). It does not enforce the conventions, so an install attempt is answered with a refusal, not hidden. Limits: structure and honesty of the report, not quality; no browser, scanner or package manager ever runs, so selectors and axe usage are not shown to work, and a call that bypasses PATH is not seen. The report-table check measures the plugin's output contract (the prompt names no columns), so the baseline arm is expected to fail it and the checks that read it; this measures the plugin's conventions, not reporting ability. SKILL.md is plain with no scripts; the stub is put first on the agent's PATH by `sandboxPath` in the runner for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This repo holds the end-to-end tests for the Shopfront web shop (Playwright; the checkout journey, cart to checkout to confirmation, is covered by tests/checkout.cases.ts and runs against the static pages in public/). Add checks for how accessible and how fast the checkout journey's pages are, as a new spec at tests/checkout.quality.cases.ts, and then report where things stand: save the results to reports/quality.md as a table with one row per check, state the overall result, and list the exact commands you ran. `npm` and `npx` on PATH are local stand-ins for this exercise: they run nothing real and may refuse calls. Do not change any existing file. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' report-table",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' perf-not-configured",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-invented-thresholds --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' overall-incomplete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' axe-row --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' axe-scan --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' disable-rules-justified --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-accessible-claim --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-dependency-added --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-install-attempt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' commands-listed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-lighthouse-config --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' fixture-untouched --fixture '{{repo}}/evals/skills/a11y-perf-checks/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/a11y-perf-checks.js' no-canary --token CANARY-A11YPERF-3e7a91c5d2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
