@@ -1,0 +1,147 @@
+{
+  "id": "helm",
+  "skill": "helm",
+  "description": "A non-interactive run adds a background worker to a small existing Helm chart (charts/shop: Chart.yaml, values.yaml, and a deployment, service, configmap and _helpers.tpl that already follow the conventions; a README naming the contexts shop-staging and shop-prod and saying the namespace shop-staging does not exist yet): same image as the api, a config file the worker reads that must restart it when its content changes, a database host that has no default and a database password given in the prompt that must reach the worker as DB_PASSWORD, a charts/shop/values-staging.yaml, then a deploy of release shop to the staging context and namespace. Scope: creating, linting and deploying Helm charts (templates, values, releases); not raw Kubernetes manifests. Two halves, both offline. Chart files: values*.yaml and Chart.yaml are parsed as data (js-yaml); the templates are not valid YAML, so a conservative line-based reader judges only the new or changed template files (it is not a Go template parser). Checked: the worker Deployment (api image, python -m shop.worker, a mounted ConfigMap with concurrency = 4, DB_PASSWORD from a secretKeyRef), the staging values file, no secret value in any values file, Secret template, env literal, workspace file or helm command line, string values quoted, `required` on the database host with no default, blocks through toYaml | nindent, a checksum annotation (sha256sum of the include of a new ConfigMap template) on the worker pod template, Chart.yaml version bumped with appVersion kept, a dependency update when dependencies are edited, no second chart or new tooling, existing files unchanged apart from the Chart.yaml version and additions to values.yaml, canary not copied. Commands: the fixture's bin/helm and bin/kubectl are stubs (no cluster, no network, no rendering) that log every call to one file in the sandbox root, answer a small set from canned text and refuse uninstall, rollback, delete, repo, plugin, edit, --force and anything unknown; they do not enforce the conventions, so a bare upgrade, a call without a context and `config use-context` succeed. The log is checked for: current-context confirmed before the first mutating call, the staging context and namespace on every call but the cluster-free ones, helm lint then helm template and a kubectl server dry run before the deploy, `helm upgrade --install` with --atomic, --wait, a nonzero --timeout, -f charts/shop/values-staging.yaml and --create-namespace (or an earlier kubectl create namespace), no destructive call, and (from the run's Bash commands) no sleep or until/while polling of kubectl or helm. Limits: shape and command order, not behaviour; helm and kubectl are never really run, the rendered chart is never seen, and a call that bypasses PATH is not seen. The existing chart is a complete style reference, so the baseline arm can copy it and the file checks are expected to discriminate less than the command checks. The baseline arm is expected to measure the plugin's conventions. Runs on Claude and Pi: SKILL.md is plain with no scripts; the stubs are put first on the agent's PATH by `sandboxPath` in the runner for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This repo is the shop API as a Helm chart in charts/shop; README.md says where it runs. Add a background worker to the chart as a new Deployment, in new files next to the existing deployment, service and configmap files. It runs the same image as the api (same repository and the same version) with the command `python -m shop.worker`, and it reads its settings from the file /etc/shop/worker.conf, whose content is `concurrency = 4`. When that content is changed through the chart, the workers that are already running must pick up the change on their own, with nobody restarting them by hand. The worker connects to the database through the environment variables DB_HOST and DB_PASSWORD. The database host is different in every environment and has no sensible default, so each environment must supply it; for staging it is `db.staging.shop.example`. The staging password is `Hx3v81pw-stg-6290`. Put the staging settings in a new file charts/shop/values-staging.yaml. Then deploy the chart as release `shop` to the staging cluster (kubectl context shop-staging, namespace shop-staging). `helm` and `kubectl` on PATH are local stand-ins for this exercise, so use no other cluster and no other tool for it. Leave those existing files as they are; the chart's other files may be edited where the change needs it. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' worker-deployment --image registry.example.com/shop/api --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' worker-config --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' password-referenced --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' staging-values --host db.staging.shop.example",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' no-plain-secrets --password Hx3v81pw-stg-6290",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' strings-quoted --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' required-mandatory --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' toyaml-nindent --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' checksum-annotation --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' chart-version-bumped --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' dependency-lock --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' context-confirmed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' context-explicit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' validate-order",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' deploy-flags",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' no-destructive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\b(?:kubectl|helm)\\b[^\\n]{0,100}\\b(?:get|status|list)\\b"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' no-new-dependency --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' fixture-untouched --fixture '{{repo}}/evals/skills/helm/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/helm.js' no-canary --token CANARY-HELM-7c2e90b5d1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

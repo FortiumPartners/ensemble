@@ -1,0 +1,22 @@
+# Default values for the shop chart.
+replicaCount: 2
+
+image:
+  repository: registry.example.com/shop/api
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+
+config:
+  logLevel: info
+
+podAnnotations: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
