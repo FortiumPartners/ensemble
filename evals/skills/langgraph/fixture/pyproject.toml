@@ -1,0 +1,16 @@
+[project]
+name = "shop-support"
+version = "0.3.0"
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph==0.6.7",
+  "langchain-core==0.3.74",
+  "pydantic==2.11.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.1"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
