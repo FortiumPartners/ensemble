@@ -1,0 +1,116 @@
+{
+  "id": "ensemble-reinstall-plugins",
+  "skill": "ensemble-reinstall-plugins",
+  "description": "Claude Code only. /ensemble-core:ensemble:reinstall-plugins runs against a local sandbox: `claude` in bin/ is a stub (no real Claude Code, no network) that answers `claude plugin list --json` from canned JSON (two third-party plugins; ensemble-core, ensemble-development, ensemble-git and ensemble-product at user scope; ensemble-infrastructure at project scope; ensemble-jest at user scope but DISABLED), `plugin marketplace update`, `plugin uninstall`, `plugin install` and `plugin disable` from canned success text, fails the install of ensemble-git (exit 1) so the stop-on-failure rule can be observed, and refuses `plugin update`, any auto-approval flag and every other verb with exit 2. It logs every call, answered or refused, to plugin-calls.log in the sandbox root, and enforces no convention (a missing -s, a wrong scope and a third-party plugin are all answered). The prompt states that the user has already approved the reinstall (the skill's AskUserQuestion step cannot be answered non-interactively) and gives the filter `ensemble` as the command argument, which selects the same set as the default. Checked from the log: the installed plugins read with `plugin list --json` first; only ensemble- plugins touched; `plugin marketplace update` (no name) before the first uninstall; each target uninstalled then installed, one at a time, in list order; every change with -s and the recorded scope; no `plugin update`; the disabled plugin disabled again at its scope right after its reinstall; nothing touched after the failing install and no retry; no auto-approval flag. Checked from report.md: the failing plugin named as uninstalled with the exact restoring command, a line per plugin with its before and after version, a new session needed. Also: only report.md added, existing files unchanged, no dependency manifest. Limits: shape and order of the commands, not behaviour; the real `claude plugin` is never run, so the stub's output formats and exit codes are assumptions; a call that bypasses PATH is not seen; report wording varies, so the report checks are marked flaky in the check script; the --all and other-filter branches, a failing marketplace refresh and a confirmation prompt that cannot be shown are not exercised. The skill is command-driven (disable-model-invocation) and Pi has no package commands, so runtimes is claude only. The baseline arm (no plugin, no command, the same prompt) is expected to measure the plugin's conventions (the recorded scope, no plugin update, the stop rule, re-disabling), not skill against a well-written prompt.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "ensemble\n\nRefresh my installed ensemble plugins so that they pick up the latest content from their marketplace, then tell me what happened to each of them. This is a non-interactive run against a local sandbox: `claude` on PATH is a local stand-in that answers from canned data, so use no other way of managing plugins and no network. I have already approved reinstalling these plugins, so ask no questions and go ahead. When you have printed your final report, also save it, exactly as printed, to report.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-core:ensemble:reinstall-plugins",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' inventory-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' ensemble-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' marketplace-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' sequential-pairs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' targets-reinstalled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' scope-recorded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' no-plugin-update",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' disabled-restored",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' stop-on-failure",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' no-auto-approve",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' failure-reported",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' report-versions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' report-new-session",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' workspace-untouched --fixture '{{repo}}/evals/skills/ensemble-reinstall-plugins/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-reinstall-plugins.js' no-new-dependency",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
