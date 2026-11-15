@@ -1,0 +1,245 @@
+#!/usr/bin/env node
+'use strict';
+// Stub `act` for the act-local-ci skill eval: no Docker, no network, no containers. It reads .github/workflows/*.yml in the current
+// directory (a line-based reader for the small subset those files use), answers `act -l`, previews (-n/--dryrun) and runs with canned
+// output, and appends every call (answered or refused) to act-calls.log in the sandbox root, two levels above this stub and outside
+// the git worktree. One log line per call: `act <argv> ## secrets=NAME:source,... ## actrc=<flags read from .actrc> ## exit=N`.
+// Secret VALUES are never logged: `-s NAME=value` is logged as `-s NAME=<argv:len=N>`, a value read from a file or the environment
+// only as a name and its source (argv | file | env | actrc). Everything else on the command line is logged as typed.
+// Behaviour: `-j <unknown job>` exits 1; a job that references `${{ secrets.NAME }}` fails (exit 1) when it is actually run and NAME
+// was supplied by none of -s NAME=value, -s NAME (from the environment), --secret-file, .secrets or an .actrc entry (a preview only
+// warns); an unknown flag or event exits 2. The stub does NOT enforce the conventions it is used to measure: a run without -j, without
+// --matrix or with --reuse succeeds.
+const fs = require('fs');
+const path = require('path');
+
+const LOG = path.resolve(__dirname, '../../act-calls.log');
+const EVENTS = new Set(['push', 'pull_request', 'workflow_dispatch', 'release', 'schedule', 'pull_request_target']);
+// flag -> takes a value
+const FLAGS = {
+  '-l': false, '--list': false, '-n': false, '--dryrun': false, '-v': false, '--verbose': false, '-q': false, '--quiet': false,
+  '-r': false, '--reuse': false, '--pull': false, '--rm': false, '-b': false, '--bind': false, '--json': false, '--version': false, '-h': false, '--help': false,
+  '-j': true, '--job': true, '-W': true, '--workflows': true, '-P': true, '--platform': true, '-s': true, '--secret': true, '--secret-file': true,
+  '--matrix': true, '--env': true, '--env-file': true, '-e': true, '--eventpath': true, '--container-architecture': true, '-C': true, '--directory': true,
+};
+const ALIAS = { '--list': '-l', '--dryrun': '-n', '--verbose': '-v', '--quiet': '-q', '--reuse': '-r', '--job': '-j', '--workflows': '-W', '--platform': '-P', '--secret': '-s', '--eventpath': '-e', '--directory': '-C', '--bind': '-b', '--help': '-h' };
+
+const read = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+const indentOf = (l) => /^ */.exec(l)[0].length;
+const clean = (s) => String(s).replace(/[\u0000-\u001f\u007f]/g, ' ');
+
+/** { name, file, events, jobs: [{ id, name, needs, matrix: {key: [values]}, secrets: [names] }] } from one workflow file's text. */
+function parseWorkflow(file, text) {
+  const lines = text.split('\n').filter((l) => !/^\s*(?:#.*)?$/.test(l));
+  const wf = { file, name: path.basename(file), events: [], jobs: [] };
+  let section = '';
+  let job = null;
+  let inMatrix = false;
+  let matrixIndent = 0;
+  for (const line of lines) {
+    const ind = indentOf(line);
+    const body = line.trim();
+    if (ind === 0) {
+      section = body.replace(/:.*$/, '');
+      job = null;
+      inMatrix = false;
+      let m = /^name:\s*(.+)$/.exec(body);
+      if (m) wf.name = m[1].replace(/^['"]|['"]$/g, '');
+      m = /^(?:on|"on"|'on'):\s*(.+)$/.exec(body);
+      if (m) wf.events = m[1].replace(/[[\]]/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+      continue;
+    }
+    if (section === 'on' && ind === 2) {
+      const m = /^([\w]+):/.exec(body);
+      if (m) wf.events.push(m[1]);
+    }
+    if (section !== 'jobs') continue;
+    if (ind === 2) {
+      const m = /^([\w-]+):\s*$/.exec(body);
+      if (m) { job = { id: m[1], name: m[1], needs: [], matrix: {}, secrets: [] }; wf.jobs.push(job); inMatrix = false; }
+      continue;
+    }
+    if (!job) continue;
+    for (const m of body.matchAll(/secrets\.([A-Za-z_][A-Za-z0-9_]*)/g)) if (!job.secrets.includes(m[1])) job.secrets.push(m[1]);
+    if (ind === 4) {
+      inMatrix = false;
+      const n = /^name:\s*(.+)$/.exec(body);
+      if (n) job.name = n[1].replace(/^['"]|['"]$/g, '');
+      const nd = /^needs:\s*(.*)$/.exec(body);
+      if (nd) job.needs = nd[1].replace(/[[\]]/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (/^matrix:\s*$/.test(body)) { inMatrix = true; matrixIndent = ind; continue; }
+    if (inMatrix && ind > matrixIndent) {
+      const m = /^([\w-]+):\s*\[(.*)\]\s*$/.exec(body);
+      if (m) job.matrix[m[1]] = m[2].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+    } else if (inMatrix && ind <= matrixIndent) inMatrix = false;
+  }
+  return wf;
+}
+
+function workflows(only) {
+  const dir = '.github/workflows';
+  let files;
+  if (only) files = [only];
+  else { try { files = fs.readdirSync(dir).filter((f) => /\.ya?ml$/.test(f)).sort().map((f) => `${dir}/${f}`); } catch { files = []; } }
+  const out = [];
+  for (const f of files) {
+    const t = read(f);
+    if (t === null) return { error: `workflow file not found: ${clean(f)}` };
+    out.push(parseWorkflow(f, t));
+  }
+  return { list: out };
+}
+
+const stage = (wf, job, seen = new Set()) => {
+  if (seen.has(job.id)) return 0;
+  seen.add(job.id);
+  return job.needs.reduce((max, n) => { const j = wf.jobs.find((x) => x.id === n); return j ? Math.max(max, 1 + stage(wf, j, seen)) : max; }, 0);
+};
+
+function combos(matrix, filters) {
+  let cs = [{}];
+  for (const [k, vals] of Object.entries(matrix)) cs = cs.flatMap((c) => vals.map((v) => ({ ...c, [k]: v })));
+  return cs.filter((c) => filters.every(([k, v]) => !(k in c) || String(c[k]) === v));
+}
+
+/** Parse argv (already merged with .actrc) into options; returns { error } for an unknown flag or event. */
+function parse(args) {
+  const o = { list: false, dry: false, jobs: [], file: null, event: null, matrix: [], secrets: [], secretFiles: [], reuse: false, verbose: false, help: false, version: false };
+  for (let i = 0; i < args.length; i += 1) {
+    let a = args[i];
+    let val = null;
+    const eq = a.indexOf('=');
+    if (a.startsWith('--') && eq > 0) { val = a.slice(eq + 1); a = a.slice(0, eq); }
+    if (a.startsWith('-')) {
+      if (!Object.prototype.hasOwnProperty.call(FLAGS, a)) return { error: `unknown flag: ${clean(a)}` };
+      const key = ALIAS[a] || a;
+      if (FLAGS[a] && val === null) { val = args[i + 1]; i += 1; if (val === undefined) return { error: `flag needs an argument: ${clean(a)}` }; }
+      if (key === '-l') o.list = true;
+      else if (key === '-n') o.dry = true;
+      else if (key === '-v') o.verbose = true;
+      else if (key === '-r') o.reuse = true;
+      else if (key === '-h') o.help = true;
+      else if (a === '--version') o.version = true;
+      else if (key === '-j') o.jobs.push(val);
+      else if (key === '-W') o.file = val;
+      else if (key === '-s') o.secrets.push(val);
+      else if (a === '--secret-file') o.secretFiles.push(val);
+      else if (a === '--matrix') {
+        const m = /^([^:]+):(.+)$/.exec(val);
+        if (!m) return { error: `--matrix must be key:value, got: ${clean(val)}`, code: 1 };
+        o.matrix.push([m[1], m[2]]);
+      }
+      continue;
+    }
+    if (!EVENTS.has(a)) return { error: `unknown event or argument: ${clean(a)}` };
+    o.event = a;
+  }
+  return o;
+}
+
+function secretFileNames(f) {
+  const t = read(f);
+  if (t === null) return null;
+  return t.split('\n').map((l) => /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*$/.exec(l)).filter(Boolean).map((m) => ({ name: m[1], len: m[2].length }));
+}
+
+function main(argv, out) {
+  const actrc = (read('.actrc') || '').split('\n').flatMap((l) => l.trim()).filter((l) => l && !l.startsWith('#')).flatMap((l) => {
+    const m = /^(\S+)\s+(.+)$/.exec(l);
+    return m ? [m[1], m[2]] : [l];
+  });
+  const o = parse([...actrc, ...argv]);
+  const secretInfo = [];
+  const result = { code: 0 };
+  const say = (s) => out.push(s);
+  if (o.error) { say(`act stub: ${o.error}`); return { code: o.code || 2, secretInfo, actrc }; }
+  if (o.version) { say('act version 0.2.0 (stub)'); return { code: 0, secretInfo, actrc }; }
+  if (o.help) { say('Usage: act [event name to run] [flags]  (stub)'); return { code: 0, secretInfo, actrc }; }
+
+  // supplied secrets: name -> source
+  const supplied = new Map();
+  const note = (name, source) => { if (!supplied.has(name)) supplied.set(name, source); secretInfo.push(`${name}:${source}`); };
+  const fromRc = new Set();
+  for (let i = 0; i < actrc.length; i += 1) if (actrc[i] === '-s' || actrc[i] === '--secret') fromRc.add(actrc[i + 1]);
+  for (const s of o.secrets) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)(?:=(.*))?$/.exec(s);
+    if (!m) { say(`act stub: bad secret: ${clean(s.split('=')[0])}`); return { code: 1, secretInfo, actrc }; }
+    if (m[2] !== undefined) note(m[1], fromRc.has(s) ? 'actrc' : 'argv');
+    else if (process.env[m[1]]) note(m[1], 'env');
+  }
+  const files = o.secretFiles.length ? o.secretFiles : ['.secrets'];
+  for (const f of files) {
+    const names = secretFileNames(f);
+    if (names === null) { if (o.secretFiles.length) { say(`Error: secret file not found: ${clean(f)}`); return { code: 1, secretInfo, actrc }; } continue; }
+    for (const n of names) note(n.name, 'file');
+  }
+  o.supplied = supplied;
+
+  const wfs = workflows(o.file);
+  if (wfs.error) { say(`Error: ${wfs.error}`); return { code: 1, secretInfo, actrc }; }
+  if (wfs.list.length === 0) { say('Error: no workflows found in .github/workflows'); return { code: 1, secretInfo, actrc }; }
+
+  if (o.list) {
+    const rows = [['Stage', 'Job ID', 'Job name', 'Workflow name', 'Workflow file', 'Events']];
+    for (const wf of wfs.list) for (const j of wf.jobs) rows.push([String(stage(wf, j)), j.id, j.name, wf.name, path.basename(wf.file), wf.events.join(',')]);
+    const w = rows[0].map((_, c) => Math.max(...rows.map((r) => r[c].length)));
+    for (const r of rows) say(r.map((cell, c) => cell.padEnd(w[c])).join('  ').trimEnd());
+    return { code: 0, secretInfo, actrc };
+  }
+
+  const event = o.event || 'push';
+  const known = wfs.list.flatMap((wf) => wf.jobs.map((j) => j.id));
+  for (const j of o.jobs) {
+    if (!known.includes(j)) { say(`Error: Job '${clean(j)}' doesn't exist in any workflow (see the job ids with the list flag)`); return { code: 1, secretInfo, actrc }; }
+  }
+  const picked = [];
+  for (const wf of wfs.list) {
+    if (!wf.events.includes(event)) continue;
+    for (const j of wf.jobs) if (!o.jobs.length || o.jobs.includes(j.id)) picked.push({ wf, job: j });
+  }
+  if (picked.length === 0) { say(`Error: Could not find any stages to run for the ${event} event. View the valid jobs with the list flag.`); return { code: 1, secretInfo, actrc }; }
+
+  for (const { wf, job } of picked) {
+    const cs = combos(job.matrix, o.matrix);
+    const labels = Object.keys(job.matrix).length ? cs : [{}];
+    labels.forEach((c, i) => {
+      const tag = `[${wf.name}/${job.name}${Object.keys(c).length ? `-${i + 1}` : ''}]`;
+      const desc = Object.keys(c).length ? ` matrix: ${JSON.stringify(c)}` : '';
+      if (c.os && /^(?:windows|macos)/.test(String(c.os))) { say(`${tag} Skipping unsupported platform${desc}`); return; }
+      if (o.dry) { say(`${tag} *DRYRUN* Job ${job.id}${desc}`); return; }
+      say(`${tag} Start (stub, no container started)${desc}`);
+      const missing = job.secrets.filter((n) => n !== 'GITHUB_TOKEN' && !o.supplied.has(n));
+      if (missing.length) { say(`${tag} Failure - secret ${missing.join(', ')} was not provided`); result.code = 1; return; }
+      say(`${tag} Job succeeded`);
+    });
+    if (o.dry) {
+      const missing = job.secrets.filter((n) => n !== 'GITHUB_TOKEN' && !o.supplied.has(n));
+      if (missing.length) say(`Warning: job ${job.id} references secret ${missing.join(', ')}, which was not provided`);
+    }
+  }
+  return { ...result, secretInfo, actrc };
+}
+
+/** argv as logged: secret values redacted, everything else as typed. */
+function logged(argv) {
+  const red = (v) => { const m = /^([^=]*)=(.*)$/s.exec(v); return m ? `${m[1]}=<argv:len=${m[2].length}>` : `${v}=<env>`; };
+  const out = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if ((a === '-s' || a === '--secret') && argv[i + 1] !== undefined) { out.push(a, red(argv[i + 1])); i += 1; } else if (a.startsWith('--secret=')) out.push(`--secret=${red(a.slice(9))}`);
+    else out.push(a);
+  }
+  return out.join(' ');
+}
+
+const argv = process.argv.slice(2);
+const lines = [];
+let r;
+try { r = main(argv, lines); } catch (e) { lines.push(`act stub: internal error: ${clean(e.message)}`); r = { code: 2, secretInfo: [], actrc: [] }; }
+const rc = r.actrc && r.actrc.length ? ` ## actrc=${clean(logged(r.actrc))}` : '';
+try {
+  fs.appendFileSync(LOG, `act ${clean(logged(argv))} ## secrets=${r.secretInfo.join(',')}${rc} ## exit=${r.code}\n`);
+} catch { /* the log is best effort */ }
+if (lines.length) (r.code === 2 ? process.stderr : process.stdout).write(`${lines.join('\n')}\n`);
+process.exitCode = r.code;

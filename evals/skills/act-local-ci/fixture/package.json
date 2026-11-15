@@ -1,0 +1,10 @@
+{
+  "name": "widgetlog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tiny widget changelog formatter",
+  "scripts": {
+    "lint": "sh scripts/lint.sh",
+    "test": "sh tests/format.cases.sh"
+  }
+}

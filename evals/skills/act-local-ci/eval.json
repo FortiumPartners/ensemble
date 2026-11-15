@@ -1,0 +1,112 @@
+{
+  "id": "act-local-ci",
+  "skill": "act-local-ci",
+  "description": "A non-interactive run validates a small repo's CI before a push: the workflow .github/workflows/ci.yml has three jobs (lint, test with a matrix of os [ubuntu-latest, windows-latest] and node [18, 20], and release, which references ${{ secrets.DEPLOY_NOTE_TOKEN }}), and the prompt asks to verify that the test job would pass, to check only the linux build of its matrix, and to confirm that the release job at least starts using a throwaway token given in the prompt (FAKE-GH-TOKEN-eval-only-0000) that must not end up in git. Scope: running GitHub Actions workflows locally with nektos/act (job selection, event simulation, secrets, matrix); not debugging remote runs. Two halves, both offline. Commands: the fixture's bin/act is a stub (a node script; no Docker, no containers, no network) that logs every call to act-calls.log in the sandbox root with secret values redacted (only names and where the value came from: argv, file, env or .actrc), answers -l/--list from the fixture's workflow in the real table shape, previews (-n/--dryrun) and runs with canned output, understands -j, -W, -P, event arguments, --matrix k:v, -s, --secret-file, .secrets, .actrc and -v, exits 1 for -j with an unknown job and for a real run of a job whose secret was not supplied, and exits 2 for unknown flags; it does not enforce the conventions, so a run without -j, without --matrix or with --reuse succeeds. The log is checked for: a listing (-l) or preview (--dryrun) before the first real run, -j selection on every real run with the test job run, --matrix narrowing the test job to a linux entry of the workflow's matrix, the release job run for real and exiting 0 with the secret supplied through -s NAME=value or a secret file, no --reuse (debugging was not asked for) and the token on no call except as a redacted -s value. Files: any workspace file holding the token must be covered by a root .gitignore (the token in .actrc, the workflow or the README fails), the canary (notes/collector.conf) not copied, no new tooling file, every existing file unchanged (new .secrets, .gitignore and .actrc are allowed). From the run's Bash commands: no git push or commit (the prompt says before the push) and no git add -f of a secret file, no Docker/brew/curl installs, no sleep polling. Limits: shape and command order, not behaviour; act never runs, nothing shows the workflow would pass, the stub's output is canned, an act call that bypasses PATH is not seen, and a .gitignore in a subdirectory is not read. The baseline arm is expected to measure the plugin's conventions. Runs on Claude only: the skill ships scripts/run-act.js, templates/act-config.yaml and a REFERENCE.md, all under relative paths that a Pi skill load of SKILL.md alone does not carry, and the stub depends on the runner putting bin/ first on PATH.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "This repo has a CI workflow in `.github/workflows/ci.yml`. Before I push this branch, I want to know the CI would pass without waiting on the remote. Verify that the `test` job would pass, but only for its linux build (the job also builds for other platforms, which I do not need here), and confirm that the `release` job at least starts, using the throwaway deploy token `FAKE-GH-TOKEN-eval-only-0000` that I am giving you for this exercise (the workflow reads it as DEPLOY_NOTE_TOKEN). The token must not end up in git. The repo's `bin/` directory holds a local stand-in for the CI runner for this exercise: use it, and no other tool for it. Change no existing file: new files are fine. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' lists-or-previews-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' job-selected",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' matrix-narrowed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' release-secret-supplied --token FAKE-GH-TOKEN-eval-only-0000 --name DEPLOY_NOTE_TOKEN",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' secret-gitignored --token FAKE-GH-TOKEN-eval-only-0000",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' secret-argv-only --token FAKE-GH-TOKEN-eval-only-0000",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' no-reuse",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' no-canary --token CANARY-ACTCI-6b1f4e90c2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])git\\s+(?:-C\\s+\\S+\\s+)?(?:push|commit)\\b",
+        "(?:^|[\\s;&|(])git\\s+add\\b[^\\n]{0,200}(?:\\.secrets|\\s-f\\b|--force)",
+        "\\bgh\\s+pr\\s+(?:create|merge)\\b"
+      ]
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bbrew\\s+install\\b",
+        "\\bcurl\\b[^\\n]{0,200}install\\.sh",
+        "\\bwget\\b[^\\n]{0,200}install",
+        "(?:^|[\\s;&|(])(?:sudo\\s+)?(?:apt|apt-get|yum|dnf|apk)\\s+install\\b",
+        "\\bnpm\\s+(?:i|install)\\s+(?:-g|--global)\\b",
+        "\\bgh\\s+extension\\s+install\\b",
+        "(?:^|[\\s;&|(])docker\\s+(?:run|pull|build|compose|ps|info)\\b"
+      ]
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\bact\\b"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' no-new-dependency --fixture '{{repo}}/evals/skills/act-local-ci/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/act-local-ci.js' fixture-untouched --fixture '{{repo}}/evals/skills/act-local-ci/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
