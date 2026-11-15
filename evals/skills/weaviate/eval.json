@@ -1,0 +1,118 @@
+{
+  "id": "weaviate",
+  "skill": "weaviate",
+  "description": "A non-interactive run builds a documentation search service for several customers on the Weaviate vector database, in a small Python project (pyproject pins weaviate-client; src/config.py reads the database address and key and the embedding model and its key from the environment; src/articles.py reads an article export; one existing test; data/articles.jsonl is a sample export). The run saves src/docs_search.py (create the store, load a few thousand articles from a file and report the ones that did not load, keep each customer's data separate, return the best matches for a query, searching by meaning and by keywords together) and tests/test_docs_search.py (a stand-in for the database client, no network, no server); src/config.py may only grow. Scope: building semantic, hybrid or RAG search on Weaviate with the v4 Python client; not other vector stores. Static checks only; Python is never run and the output is read as text by a comment- and string-aware scanner: the v4 client (weaviate.connect_to_*), not the v3 weaviate.Client; the client is always closed (with block or close() in a finally); the collection is created explicitly with a vectorizer config and the embedding model name comes from config, never a literal; the hybrid query sets alpha explicitly as a named setting or argument, not left default and not an inline number; inserts go through the batch context manager and the failed objects or error count are read after the block, never one insert per object; multi-tenancy is enabled when the collection is created, a tenant is created, and every data, query and batch call goes through with_tenant(<customer>), not a property filter or a constant tenant; the database address, key and provider key come from settings or the environment, never literals and never logged; at least two tests with real assertions that stand in for the client; no new dependency, no changed existing file (config.py additions only), and the canary in notes/collector.conf is not copied. Limits: shape, not behaviour or retrieval quality; the server-version gotcha is not checked; code built in a way the text scan cannot follow (a client or collection handed through several helpers, tenant scoping in another module) may fail with a message saying so or pass unseen. The baseline arm is expected to measure the plugin's conventions: a model without the skill may use the v3 client, leak the connection, let the default vectorizer pick the model, leave alpha at its default or hard-code it inline, insert one object at a time or ignore failed objects, separate customers with a property filter, hard-code the credentials or the model name; that gap, not the absolute pass count, is the uplift. Pi runs it too: SKILL.md is plain with no scripts.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is the search tooling for a documentation site (Python). src/articles.py has read_articles(path), which yields (line_number, article) for each readable line of an article export (a JSON object per line with a title and a body); data/articles.jsonl is a small sample. src/config.py reads the deployment settings from the environment (the address and key of the database, which embedding model to use, and the key for the embedding provider). The documentation is searched through the Weaviate vector database; the weaviate-client library is pinned in pyproject.toml. Build a search service for several customers in src/docs_search.py. Articles are stored so they can be searched by meaning and by keywords together; the embedding model is the one configured for the deployment. Each customer's articles must stay separate: a search for one customer never returns another customer's article. src/docs_search.py exports create_store(), which sets the store up (safe to call again); load_articles(customer_id, path), which loads the articles of an export file for one customer (the file can hold a few thousand articles, and a customer's first load makes their space) and returns the articles that did not load, empty when all did; and search(customer_id, query, limit=5), which returns the best matches for the query for that customer, as a list of dicts with the title, the body and a score. Also write tests/test_docs_search.py: a pytest file that stands in for the database client (no network, no server, no key) and makes real assertions about what the code does. You may add other files under src/ and tests/; the only existing file you may change is src/config.py, to add settings: keep every line that is already there. Do not add or fetch any dependency and do not run python, pip or pytest. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' v4-client",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' client-closed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' collection-explicit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' model-from-config",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' hybrid-alpha",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' batch-with-errors",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' multi-tenancy",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' tenant-on-every-call",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' credentials-from-env",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' secrets-not-logged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' test-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' test-mocks-client",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' no-new-dependency --fixture '{{repo}}/evals/skills/weaviate/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' fixture-untouched --fixture '{{repo}}/evals/skills/weaviate/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/weaviate.js' no-canary --token CANARY-WEAVIATE-5e1b7d94a3",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
