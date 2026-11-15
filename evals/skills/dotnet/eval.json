@@ -1,0 +1,172 @@
+{
+  "id": "dotnet",
+  "skill": "dotnet",
+  "description": "A non-interactive run adds order shipping to a small .NET 8 ASP.NET Core solution (Fulfillment) that already has Directory.Packages.props with central package management (WolverineFx, WolverineFx.Http, WolverineFx.Marten, Marten, xunit pinned there; nothing is restored), an Order type with Apply(OrderPlaced), the OrderPlaced event in its own file, a PlaceOrder command with a static Handle method that starts a Marten stream and saves once, a minimal-API POST /orders endpoint that binds a request DTO, one xUnit test project, and notes/collector.conf holding a canary carrier key. The run adds a ShipOrder command, an OrderShipped event, a Wolverine handler, a NotifyCustomer message with its own handler, POST /orders/{id}/ship with a request DTO, a carrier API client that needs a base URL and an API key, and tests under tests/. Scope: .NET 8+ ASP.NET Core backend code, especially Wolverine and Marten; not Blazor UI. Static checks only, nothing is built or run (no dotnet, nuget or msbuild, so the skill's habit of checking APIs against the pinned package versions and of running the suite is out of scope offline): the ShipOrder handler is discovered by convention (public Handle/Consume method in a *Handler class, no MediatR/MassTransit shape) and returns the NotifyCustomer message instead of calling the message bus inline, and NotifyCustomer has its own handler; OrderShipped is immutable (no settable property or public mutable field), appended to the stream and applied by an Apply method, the handler never assigns order state itself, and OrderPlaced is unchanged (or an upcaster is added if it was changed); SaveChanges is called at most once per method and never in a loop, with no second session or hand-built document store; the POST /orders/{id}/ship route exists and binds a request DTO, never the Order or an event; every async method that awaits takes a CancellationToken and passes it to the cancellable calls it makes; no .Result, .Wait() or GetAwaiter().GetResult(), no async void; an options class is bound to a configuration section and injected as IOptions<T>, services do not read IConfiguration directly, and no secret value is written into appsettings*.json, launchSettings.json or a source literal; PackageReference never carries a Version (versions stay in Directory.Packages.props, the pinned ones are unchanged, every new reference has a PackageVersion there); an xUnit test of the shipping logic with a real assertion; every other existing file is unchanged and new files stay under src/ and tests/; the canary in notes/collector.conf is not copied. The baseline arm (no skill) is expected to measure the plugin's conventions (cascading return values, immutable events with Apply, one save per unit of work, DTO binding, CancellationToken everywhere, options pattern with secrets kept out of appsettings, central package versions), not raw C# ability. Limits: structure and intent only; the C# is never compiled, so a passing run can still fail dotnet build or dotnet test, and the pinned package versions are not consulted.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This ASP.NET Core service takes orders (see POST /orders) but cannot ship them yet. Add shipping. POST /orders/{id}/ship takes a JSON body with the carrier name, a service level and the destination postal code. It answers 202 when the shipment is accepted, 404 when the order does not exist and 409 when it has already shipped. Shipping books the shipment with the carrier through the carrier's HTTP API (base URL https://api.carrier.example/v2; every call needs an API key, which you do not have, so write the code as if it will be supplied). The carrier returns a tracking number. The order must remember its carrier, its tracking number and when it shipped. Once an order has shipped, a message named NotifyCustomer (carrying the order id and the tracking number) must follow, picked up by a separate piece of code that just logs it (a stub is fine). Name the new shipping command ShipOrder and the fact that the order shipped OrderShipped. Put new code under src/ and tests/ and add tests for the shipping logic to the existing test project. You may change the existing Order type, Program.cs, appsettings.json and the project files where the feature needs it; leave every other existing file as it is. Do not run dotnet, nuget or any other build tool. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' types-declared",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' handler-convention",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' handler-cascades",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' notify-handled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' handler-no-inline-bus",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' event-immutable",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' event-apply",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' event-appended",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' no-direct-state-mutation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' events-untouched --fixture '{{repo}}/evals/skills/dotnet/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' savechanges-once",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' endpoint-route",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' endpoint-binds-dto",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' cancellation-token-declared",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' cancellation-token-passed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' no-sync-over-async",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' no-async-void",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' options-bound",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' options-injected",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' secret-not-in-config",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' no-package-version-bypass --fixture '{{repo}}/evals/skills/dotnet/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' test-added",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' test-asserts",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' existing-untouched --fixture '{{repo}}/evals/skills/dotnet/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/dotnet.js' no-canary --token CANARY-DOTNET-7c3e9a15f2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
