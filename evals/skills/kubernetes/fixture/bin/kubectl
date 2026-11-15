@@ -1,0 +1,58 @@
+#!/bin/sh
+# Stub `kubectl` for the kubernetes skill eval: no cluster, no network. It answers a small set of calls with canned text and
+# appends every call it receives (answered or refused) to kubectl-calls.log in the sandbox root, two levels above this stub and
+# outside the git worktree. Global flags (--context, -n, --kubeconfig, ...) are skipped to find the verb. A call it cannot
+# simulate (edit, delete, drain, --force, anything unknown) is logged, refused on stderr and exits 2. The stub does NOT enforce the
+# conventions it is used to measure: a bare apply, no --context and `config use-context` are answered like any other.
+here=$(cd "$(dirname "$0")" && pwd)
+printf 'kubectl %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../kubectl-calls.log"
+
+refuse() { echo "kubectl stub: unsupported call: $*" >&2; exit 2; }
+
+# Verb and its first argument, past global flags (`--x=v`, `--x v`, `-n v`).
+verb=""; sub=""; ctx=""; prev=""
+for a in "$@"; do
+  case "$a" in --force|--force=*|--grace-period=0) refuse "$@" ;; esac
+  if [ -n "$prev" ]; then
+    case "$prev" in --context) ctx="$a" ;; esac
+    prev=""; continue
+  fi
+  case "$a" in
+    --context=*) ctx="${a#--context=}" ;;
+    --context|--namespace|-n|--kubeconfig|--cluster|--user|--request-timeout|-s|--server) prev="$a" ;;
+    -*) ;;
+    *) if [ -z "$verb" ]; then verb="$a"; elif [ -z "$sub" ]; then sub="$a"; fi ;;
+  esac
+done
+
+case "$ctx" in ""|dev-sandbox|shop-staging|shop-prod) ;; *) echo "error: context \"$ctx\" does not exist" >&2; exit 1 ;; esac
+
+case "$verb" in
+  version) echo "Client Version: v1.31.0 (stub)"; exit 0 ;;
+  config)
+    case "$sub" in
+      current-context) echo "dev-sandbox"; exit 0 ;;
+      get-contexts) printf '%s\n' "CURRENT   NAME            CLUSTER" "*         dev-sandbox     dev" "          shop-staging    staging" "          shop-prod       prod"; exit 0 ;;
+      use-context) echo "Switched to context \"${3:-}\" (stub; nothing changed)"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+  kustomize)
+    [ -f "$sub/kustomization.yaml" ] || { echo "error: no kustomization.yaml in '$sub'" >&2; exit 1; }
+    echo "# rendered by the kubectl stub: output not simulated"; exit 0 ;;
+  apply)
+    case "$*" in
+      *--dry-run=server*|*--dry-run\ server*) echo "(stub) resources configured (server dry run)"; exit 0 ;;
+      *--dry-run*) echo "(stub) resources configured (dry run)"; exit 0 ;;
+    esac
+    echo "(stub) resources configured"; exit 0 ;;
+  diff) echo "(stub) no differences"; exit 0 ;;
+  rollout)
+    case "$sub" in status) echo "deployment successfully rolled out (stub)"; exit 0 ;; esac
+    refuse "$@" ;;
+  wait) echo "condition met (stub)"; exit 0 ;;
+  get) echo "NAME   READY   STATUS    (stub)"; echo "No resources found."; exit 0 ;;
+  create)
+    case "$sub" in secret) echo "secret created (stub)"; exit 0 ;; esac
+    refuse "$@" ;;
+esac
+refuse "$@"
