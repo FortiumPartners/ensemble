@@ -24,6 +24,10 @@ The ensemble repo has a GitHub wiki at `https://github.com/Sunstone-Partners/ens
 - For command/agent/skill markdown generated from YAML or other sources, update the source file first, then run the repo's documented generation step so derived artifacts stay in sync.
 - Only touch generated artifacts directly when the user explicitly asks for that generated file itself to be edited or when no source file exists.
 
+## Agent Instructions
+
+- When you need to get feedback and/or ask me a question *always* use the 'ask' tool.
+
 ## Beads Workflow Integration
 
 This project uses [beads_rust](https://github.com/Dicklesworthstone/beads_rust) (`br`) for issue tracking and [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) (`bv`) for graph-aware triage. Issues are stored in `.beads/` and tracked in git. Current `br` workspaces normally export `.beads/issues.jsonl`; older `bd`/legacy workspaces may use `.beads/beads.jsonl`. `bv` auto-discovers the supported JSONL files, so agents should use `br`/`bv` commands instead of hard-coding a single filename.

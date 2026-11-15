@@ -1,7 +1,7 @@
 ---
 documentId: PRD-2026-6995dc96
 label: prd-configurable-tasks-backend-kata
-version: 1.2.0
+version: 1.3.0
 status: Draft
 date: 2026-11-13
 scaleDepth: STANDARD
@@ -326,10 +326,10 @@ architecture owner who signs the adapter shape: no requirement here is approved 
 - The tool stays an optional dependency: no constraint here may make its absence fail
   installation, generation, or a test run. *(REQ-012, REQ-016)*
 - Adapter coverage is asserted against the versioned contract documents —
-  `docs/toolchain/contracts/tracker.md` (contract version `1.0`) and
-  `docs/toolchain/contracts/work-graph.md` (contract version `2.0`) — so "the required set" in
-  REQ-001 AC-001-4 and REQ-015 AC-015-2 has a dated referent rather than a moving one. A bump to
-  either contract version is a requirements change to this PRD, not an implementation detail.
+  `docs/toolchain/contracts/tracker.md` (contract version `1.1` as amended 2026-11-14, previously
+  `1.0`) and `docs/toolchain/contracts/work-graph.md` (contract version `2.0`) — so "the required
+  set" in REQ-001 AC-001-4 and REQ-015 AC-015-2 has a dated referent rather than a moving one. A
+  bump of either contract version is a requirements change to this PRD, not an implementation detail.
 - Beads remains the shipped default; nothing here licenses selecting the new backend by inference.
   *(REQ-013)*
 - **Delivery is against locally-spawned kata daemons.** This effort configures, exercises and tests
@@ -341,7 +341,7 @@ architecture owner who signs the adapter shape: no requirement here is approved 
 | Document | Role here | Enforced by |
 |---|---|---|
 | `PRD-2026-8d825f54-tool-abstraction-layer` (Locked) | Parent contract; its capability definitions and exit criterion are what this PRD satisfies | REQ-001 AC-001-4, REQ-015 AC-015-2 |
-| `docs/toolchain/contracts/tracker.md` (contract version `1.0`), `work-graph.md` (contract version `2.0`) | The required-plus-fallback-bearing capability set | REQ-001 AC-001-4, REQ-015 AC-015-1 |
+| `docs/toolchain/contracts/tracker.md` (contract version `1.1`, amended 2026-11-14), `work-graph.md` (contract version `2.0`) | The required-plus-fallback-bearing capability set | REQ-001 AC-001-4, REQ-015 AC-015-1 |
 | `PRD-2026-b6939c7c-config-driven-tools` | Foundation: project-local configuration, provider-neutral prose, CI enforcement of no hardcoded backend references | REQ-011 |
 | `PRD-2026-87e64cc6-command-surface-consolidation` | Retirement precedent — outright removal, no compatibility window | REQ-009 |
 | `PRD-2026-023-multi-trd-beads-workstream` | Behavior carried forward in beads terms, re-expressed here rather than reopened there | REQ-007, REQ-008 |
@@ -434,6 +434,17 @@ because a skip guarantee has nothing to skip until a kata-dependent check exists
   than signalling that TRDs must be re-created.
 
 ## Changelog
+
+### v1.3.0 — 2026-11-14
+
+Amendment recording the `tracker` contract bump that `TRD-2026-6995dc96` deferred to this PRD. Readiness 4.7 unchanged; requirements unchanged at 18; ACs unchanged at 58; ambiguity markers remain 0. **`status` stays `Draft`** — this document was already `Draft` after the v1.2.0 reopen, so recording a contract change here is not a lock transition.
+
+- **The rule this enacts.** *Technical Constraints* states that a bump of either contract version "is a requirements change to this PRD, not an implementation detail," and *Open Question 12* records the labels decision as adding `tracker.label-one` to tracker contract **1.1** while deferring the bump itself: "Both bumps become a single PRD amendment owned by the architecture owner; this TRD does not bump either contract number on its own authority." This is that amendment, applied on the architecture owner's instruction.
+- **What landed.** `packages/development/toolchain/categories/tracker.yaml` gains optional `tracker.label-one` (`inputs: [id, label]`, `outputs: [id, labels]`, `addedInMinor: 1`) and moves `1.0` → `1.1`. The *Technical Constraints* bullet and the *Dependency Map* row naming `docs/toolchain/contracts/tracker.md` now cite contract version `1.1`, keeping AC-001-4 and AC-015-1 pointed at a referent that matches the shipped contract rather than a superseded one.
+- **Why a minor bump, and why it breaks nothing.** Adding an optional capability is additive, which `lib/toolchain/contracts.js#checkAdditiveOnly` permits within a major version; a major bump would be required only for a removal, a `required` flip, or a required addition. Compatibility is major-only, so the shipped beads adapter stays conformant at its unchanged `contract: tracker: "1.0"` pin, and `addedInMinor: 1` puts `tracker.label-one` in `checkCompat`'s `unavailableCapabilities` for it — beads cannot declare a capability it cannot honour.
+- **Scope of the bump.** `tracker` only. The `work-graph` `2.0` → `2.1` bump the design also anticipates is **not** taken here: its motivation is additive *output* fields — `findings` on `work-graph.plan` and `dependencyAware` on `work-graph.graph-health`, per option C and the *Target Files* row "Work-graph contract amendment (AMENDED, additive)", to satisfy REQ-007 AC-007-3 and AC-007-4 — and those fields are produced by the shared analyzer work in TRD-016 and TRD-011, not by this change. `work-graph` therefore stays at `2.0` and this PRD's referent for it is unchanged.
+- **Downstream consequence, discharged rather than noted.** The rule attached to *Lock history* says a requirements change here obliges `TRD-2026-6995dc96` to be re-created or explicitly re-confirmed. **Re-confirmed rather than re-created**, on the narrow ground that the only requirement touched is a referent version, not a behaviour: requirements, ACs, and the readiness gate are untouched, and the TRD's `tracker.label-one` design (TRD-012, TRD-033) anticipated exactly this contract shape. What must now change downstream is narrower and is recorded in the TRD, not here: statements asserting the shipped contract is still `1.0` and the amendment is pending are now false.
+- **Citation-safety convention respected.** This entry cites constraints, dependency rows and Open Questions by quoted anchor. The PRD was previously edited using `PRD line NNN` citations in `TRD-2026-6995dc96`, which silently broke eight of them; this pass introduces none, and the two regions edited above the changelog are above the TRD's remaining PRD-line citation, so no anchor could drift.
 
 ### v1.2.0 — 2026-11-13
 
