@@ -1,0 +1,88 @@
+{
+  "id": "architecture-overview-report",
+  "skill": "architecture-overview-report",
+  "description": "Given per-repo architecture files for a five-repo portfolio (two linked apps, a shared contracts package, a standalone billing system, and a structural-only inventory repo) under docs/assessment/, a plain-language request for a portfolio architecture overview saves docs/assessment/architecture-overview-<date>.md with a dated Sources line naming every input, a structurally well-formed graph TB context diagram showing the documented edges, a per-platform layered diagram, the standalone product left unconnected and called isolated, the structural-only repo marked lower-confidence, a four-column integration-points table with file:line evidence, and 5-8 ranked risks. Limits: no network, so the skill's mermaid-cli render step cannot run and the checks only lint Mermaid structure (a pass is not proof it renders); nothing here judges whether the prose is accurate or well argued, and a node-naming-based check may be too strict. The baseline arm gets the same prompt without the plugin, so it is expected to measure the plugin's conventions (file name, section layout, evidence tiers, table columns), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The per-repo architecture assessments for our portfolio are in docs/assessment/ (with the manifest and normalized findings). Produce the portfolio-level architectural overview from them, with Mermaid diagrams showing how the systems integrate and depend on each other, and save it under docs/assessment/.\n\nThis is a non-interactive run: ask no questions and choose the recommended option for anything unclear. There is no network access, so if you cannot render a diagram, say so in the document instead of claiming it was validated. Write only the overview document (plus any scratch diagram files). Do not investigate the repositories again and do not change the existing assessment files.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' overview-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' sources-listed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' mermaid-wellformed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' context-edges --edges 'console~bff,console~keycloak,bff~keycloak,console~contracts,bff~contracts'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' isolated-not-merged --isolated 'billing' --others 'console|bff|contracts|keycloak|inventory|postgres'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' lower-confidence-marked --weak 'inventory'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' diagram-grounded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' platform-diagram --layers 'controller,service,repositor'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' integration-table --require 'keycloak,contracts'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' risks-ranked --terms 'console,bff,contracts?,billing,inventory,keycloak,F-00' --wide 'contract' --narrow 'billing'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/architecture-overview-report.js' only-assessment-docs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
