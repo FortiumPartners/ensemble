@@ -1,0 +1,9 @@
+{
+  "id": "2026-09-tax-rounding",
+  "change": "https://github.com/acme-shop/storefront/pull/287",
+  "bug": "Tax was computed with Math.floor on the product of cents and basis points, so every invoice under-collected tax by up to one cent.",
+  "location": { "path": "src/billing/tax.js", "startLine": 5, "endLine": 5 },
+  "confirmedBy": "alice-dev",
+  "rulesFile": "src/billing/REVIEW.md",
+  "rulesHash": "27a5ab3f519938f158a878583975845b9aa7c2ae"
+}
