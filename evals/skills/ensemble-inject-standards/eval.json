@@ -1,0 +1,76 @@
+{
+  "id": "ensemble-inject-standards",
+  "skill": "ensemble-inject-standards",
+  "description": "A non-interactive /ensemble-core:ensemble:inject-standards run on a seeded standards/index.yml (TypeScript + NestJS; 14 rules in six categories) for a REST-endpoint task that also mentions a module import. The skill's output is stdout only, so the prompt asks the agent to also save the printed block to standards-context.txt, which the checks read. They cover: the block was saved; header and 'Stack: language + framework' line; all naming and git rules (universal) and all api rules (top-scoring category) present; no testing or error_handling rule (score 0 for this task) injected; 5-8 rule bullets; inline [example: ...]; footer and handoff note; standards/index.yml unchanged; no other file written. Not checked: whether the optional second category (imports, score 5) was included, or the wording of any rule beyond a distinctive phrase. Limits: header-stack, example-inline, rule-count and footer-handoff are format-sensitive and may fail a faithful paraphrase. The baseline arm (no plugin, same prompt) is expected to measure the plugin's conventions: it has no command to follow and must guess which rules apply, so the uplift is the command's, not general ability. Claude Code only: the skill is command-driven (disable-model-invocation) and the command comes from packages/core.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Implement a REST endpoint that lists a user's orders, adding the module import it needs.\n\nThis is a non-interactive run: ask no questions. Do not write or run any code and change no existing file. Save the standards block you print, exactly as printed, to standards-context.txt in the repository root.",
+  "invocation": "explicit",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 20,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' context-saved --file standards-context.txt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' header-stack --file standards-context.txt --task-word orders --lang TypeScript --framework NestJS",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' rules-present --file standards-context.txt --must 'camelCase,kebab-case,conventional commit,feat/,envelope,plural nouns'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' rules-absent --file standards-context.txt --none '*.spec.ts,network boundary,assertion topic,AppError,swallow,Log errors once'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' rule-count --file standards-context.txt --min 5 --max 8",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' example-inline --file standards-context.txt --rules 'camelCase,envelope'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' footer-handoff --file standards-context.txt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' index-unchanged --sha 6adea1390ed5145421c974c2d6cf6484f0ee162ede2e8d88757e7e704f7bf163",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-inject-standards.js' only-expected-files --allow standards-context.txt,standards/index.yml",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ],
+  "command": "/ensemble-core:ensemble:inject-standards",
+  "timeoutSec": 300
+}
