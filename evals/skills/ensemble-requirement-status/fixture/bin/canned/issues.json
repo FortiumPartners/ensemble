@@ -1,0 +1,12 @@
+{
+  "issues": [
+    { "id": "br-epic", "title": "[trd:inventory-sync] Inventory Sync", "status": "in_progress", "issue_type": "epic" },
+    { "id": "br-a", "title": "[trd:inventory-sync:task:TRD-001-TEST] Test the import", "status": "closed", "issue_type": "task" },
+    { "id": "br-b", "title": "[trd:inventory-sync:task:TRD-002-TEST] Test the export", "status": "closed", "issue_type": "task" },
+    { "id": "br-c", "title": "[trd:inventory-sync:task:TRD-003-TEST] Test the alerts", "status": "open", "issue_type": "task" }
+  ],
+  "total": 4,
+  "limit": 0,
+  "offset": 0,
+  "has_more": false
+}

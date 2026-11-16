@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stub `bv` for the ensemble-requirement-status eval: only `--version`, which the beads adapter's preflight health check runs.
+case "$1" in
+  --version) echo "bv 0.1.0 (stub)"; exit 0 ;;
+esac
+echo "bv stub: unsupported call: $*" >&2
+exit 2
