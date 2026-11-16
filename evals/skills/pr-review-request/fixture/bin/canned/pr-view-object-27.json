@@ -1,0 +1,14 @@
+{
+  "number": 27,
+  "title": "Drop unused helper",
+  "url": "https://github.com/example/shopcart/pull/27",
+  "state": "OPEN",
+  "baseRefName": "main",
+  "headRefName": "chore/drop-helper",
+  "isDraft": false,
+  "author": {
+    "login": "kim"
+  },
+  "body": "Proposed change: Drop unused helper.",
+  "statusCheckRollup": []
+}
