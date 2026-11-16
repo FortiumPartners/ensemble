@@ -1,0 +1,9 @@
+{
+  "name": "shopcart",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cart pricing library with a dependency-free test runner",
+  "scripts": {
+    "test": "node scripts/run-tests.js"
+  }
+}

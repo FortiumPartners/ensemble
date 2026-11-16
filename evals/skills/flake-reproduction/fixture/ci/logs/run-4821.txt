@@ -1,0 +1,16 @@
+2026-11-12T09:14:02Z run 4821  job unit  commit 9c1e5b7a02d84f3e6b15c7a0d93e48f2a61b07cd  branch main
+2026-11-12T09:14:03Z step checkout ... ok
+2026-11-12T09:14:09Z step npm test
+runner: seed=3318402
+runner: order=promo.cases.js,checkout.cases.js,inventory.cases.js
+ok - promo: promo applies a 20 percent discount
+ok - promo: promo discount scales with quantity
+not ok - checkout: checkout charges the list price without a promotion
+  AssertionError: Expected values to be strictly equal:
+not ok - checkout: checkout multiplies by quantity
+  AssertionError: Expected values to be strictly equal:
+ok - inventory: inventory reports stock
+ok - inventory: inventory reserves units
+runner: 2 failed
+2026-11-12T09:14:10Z step npm test exit 1
+2026-11-12T09:14:10Z run 4821 FAILED (required job unit)
