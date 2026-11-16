@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-01-01T00:00:00Z",
+  "output_format": "json",
+  "version": "v0.25.2",
+  "plan": {
+    "tracks": [
+      {
+        "track_id": "track-A",
+        "items": [
+          {
+            "id": "bb-t07",
+            "title": "billing-export: add csv writer",
+            "priority": 2,
+            "status": "open",
+            "unblocks": [
+              "bb-t10"
+            ]
+          },
+          {
+            "id": "bb-t08",
+            "title": "billing-export: add json writer",
+            "priority": 2,
+            "status": "open",
+            "unblocks": [
+              "bb-t10"
+            ]
+          }
+        ],
+        "reason": "Unblocks the export endpoint"
+      },
+      {
+        "track_id": "track-B",
+        "items": [
+          {
+            "id": "bb-t09",
+            "title": "billing-export: write docs page",
+            "priority": 2,
+            "status": "open",
+            "unblocks": []
+          }
+        ],
+        "reason": "Independent work stream"
+      },
+      {
+        "track_id": "track-C",
+        "items": [
+          {
+            "id": "bb-p05",
+            "title": "payments-gateway: retry queue",
+            "priority": 2,
+            "status": "open",
+            "unblocks": [
+              "bb-p06"
+            ]
+          }
+        ],
+        "reason": "Independent work stream"
+      }
+    ],
+    "total_actionable": 4,
+    "total_blocked": 2,
+    "summary": {
+      "highest_impact": "bb-t07",
+      "impact_reason": "Unblocks multiple tasks",
+      "unblocks_count": 1
+    }
+  }
+}
