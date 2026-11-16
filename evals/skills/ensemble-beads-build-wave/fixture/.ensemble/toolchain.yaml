@@ -1,0 +1,4 @@
+# Pin the adapters so the sandbox needs no detection (the sandbox has no origin remote). The `br` and `bv` on PATH are stubs (bin/)
+# answering from bin/canned/.
+tracker: beads
+workflow: plain-git
