@@ -20,6 +20,8 @@ const { runProcess } = require('../exec');
 const envlib = require('../env');
 
 const RUNTIME = 'claude';
+const BIN_NAME = 'claude';
+const BIN_ENV = 'EVALS_CLAUDE_BIN';
 
 /** Resolve the claude binary: EVALS_CLAUDE_BIN override, else search PATH. Returns path or null. */
 function findClaude(env = process.env) {
@@ -150,4 +152,4 @@ async function run(job, opts = {}) {
   };
 }
 
-module.exports = { RUNTIME, findClaude, buildArgs, summarizeTranscript, createStreamScanner, analyzeTranscript, run };
+module.exports = { RUNTIME, BIN_NAME, BIN_ENV, find: findClaude, findClaude, buildArgs, summarizeTranscript, createStreamScanner, analyzeTranscript, run };

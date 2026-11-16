@@ -16,11 +16,13 @@ const REDACTED = '[REDACTED]';
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * Credential names from the allowlist file plus `extra`. Only the default file may be absent (then the built-in
+ * Credential names from the allowlist file plus `extra`. The file's optional `runtimes` map ({ "pi": [names] }) adds
+ * names only when that runtime is in play, so a Claude run never receives Pi's provider keys. Only the default file may be absent (then the built-in
  * default applies); a `file` that was asked for explicitly must exist.
  */
-function loadCredentialNames({ file, extra = [] } = {}) {
+function loadCredentialNames({ file, extra = [], runtime } = {}) {
   let names = DEFAULT_CREDENTIALS;
+  let runtimeNames = [];
   const explicit = file !== undefined && file !== null;
   const target = explicit ? file : ALLOWLIST_FILE;
   if (explicit && !fs.existsSync(target)) throw new Error(`env allowlist ${target} does not exist`);
@@ -30,8 +32,14 @@ function loadCredentialNames({ file, extra = [] } = {}) {
     try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { throw new Error(`env allowlist ${file} is not valid JSON: ${e.message}`); }
     if (!parsed || !Array.isArray(parsed.credentials)) throw new Error(`env allowlist ${file} must be { "credentials": [names] }`);
     names = parsed.credentials;
+    if (parsed.runtimes !== undefined) {
+      if (!parsed.runtimes || typeof parsed.runtimes !== 'object' || Array.isArray(parsed.runtimes) || !Object.values(parsed.runtimes).every(Array.isArray)) {
+        throw new Error(`env allowlist ${file}: "runtimes" must be { "<runtime>": [names] }`);
+      }
+      runtimeNames = Object.prototype.hasOwnProperty.call(parsed.runtimes, runtime) ? parsed.runtimes[runtime] : [];
+    }
   }
-  const all = [...names, ...extra];
+  const all = [...names, ...runtimeNames, ...extra];
   for (const n of all) if (typeof n !== 'string' || !NAME_RE.test(n)) throw new Error(`invalid environment variable name on allowlist: ${JSON.stringify(n)}`);
   return [...new Set(all)];
 }

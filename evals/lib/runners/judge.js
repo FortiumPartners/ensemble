@@ -9,6 +9,8 @@ const { runProcess } = require('../exec');
 
 /** Compare-form of a model name: `sonnet`, `claude-sonnet-5-5` and `claude-sonnet-4-20250514` all become `sonnet`. */
 const norm = (m) => String(m || '').trim().toLowerCase()
+  .replace(/^.*\//, '') // Pi's provider/id form, however many segments (openrouter/anthropic/claude-sonnet-4)
+  .replace(/:[a-z]+$/, '') // Pi's :thinking suffix
   .replace(/\[.*\]$/, '')
   .replace(/^claude-/, '')
   .replace(/^(\d+-)+/, '')
@@ -75,10 +77,10 @@ function jsonObjects(text) {
 }
 
 /** Run the judge model via the claude CLI. Returns { score, reason, costUsd } or { error, costUsd }. */
-async function runJudge(bin, { model, rubric, transcript, cwd, env, timeoutMs = 120000 }) {
+async function runJudge(bin, { model, rubric, transcript, cwd, env, timeoutMs = 120000, secrets = [] }) {
   const args = ['-p', judgePrompt(rubric, transcript), '--output-format', 'json', '--no-session-persistence',
     '--max-turns', '1', '--permission-mode', 'plan', '--model', model];
-  const r = await runProcess(bin, args, { cwd, env, timeoutMs });
+  const r = await runProcess(bin, args, { cwd, env, timeoutMs, secrets });
   if (r.timedOut || r.exitCode !== 0) return { error: `judge call failed: ${r.timedOut ? 'timed out' : `exit ${r.exitCode}${r.stderr ? `: ${r.stderr.slice(-200)}` : ''}`}`, costUsd: null };
   let text = r.transcript || '';
   let costUsd = null;
@@ -91,4 +93,4 @@ async function runJudge(bin, { model, rubric, transcript, cwd, env, timeoutMs = 
   return parsed ? { ...parsed, costUsd } : { error: 'judge reply had no JSON score between 0 and 1', costUsd };
 }
 
-module.exports = { resolveJudge, runJudge, parseScore, judgePrompt };
+module.exports = { norm, resolveJudge, runJudge, parseScore, judgePrompt };

@@ -56,13 +56,12 @@ describe('review fixes', () => {
     expect(rejection('demo-skill').error.part).toBe('placeholder');
   });
 
-  test('accepted-but-unused fields produce one warning line and no exit-code change', () => {
+  test('no field is accepted-but-ignored any more: runtimes acts since PR 4, so no warning line', () => {
     writeEval('demo-skill', { ...valid(), skill: 'ensemble-create-prd', repeats: 3, bar: 2, runtimes: ['claude'] });
     const r = runDry([]);
     const lines = r.stderr.split('\n').filter((l) => /^WARNING eval "demo-skill"/.test(l));
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/`runtimes` accepted but not yet acted on/);
-    expect(lines[0]).not.toMatch(/repeats|bar|expectInvoked/); // acted on since PR 3
+    expect(lines).toHaveLength(0);
+    expect(r.stderr).not.toMatch(/accepted but not yet acted on/);
     expect(r.status).toBe(0);
   });
 

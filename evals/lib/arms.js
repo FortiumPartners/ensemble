@@ -14,6 +14,9 @@ const exec = require('./exec');
 const results = require('./results');
 const claude = require('./runners/claude');
 
+// `loadedSource` values that mean the runtime's own skill listing was read (an empty list is then a verified empty list).
+const VERIFIED_SOURCES = new Set(['startup-event', 'system-prompt']);
+
 const ARMS = ['with-skill', 'baseline'];
 
 /** How each runtime's uplift is to be read (TRD design decision: the Claude arm loads a whole package). */
@@ -35,17 +38,20 @@ function scenarioJob(scenario, { repoRoot, model, maxUsd, workspace, env, timeou
 /**
  * Job for one arm of a skill eval `ev` (as loaded by eval-def). ctx: { repoRoot, runtime, model, workspace, env,
  * timeoutMs, maxUsd }. The with-skill job carries the shipped package directory in `pluginDirs` and the skill
- * directory in `skillPaths`; the baseline carries neither.
+ * directory in `skillPaths`; the baseline carries neither. Pi gets `skillPaths` only (its unit is the single skill).
  */
 function buildJob(ev, arm, ctx) {
   if (!ARMS.includes(arm)) throw new Error(`unknown arm "${arm}"`);
   const { repoRoot, runtime = 'claude', model, workspace, env, timeoutMs, maxUsd } = ctx;
   const withSkill = arm === 'with-skill';
   const task = expandRepo(ev.prompt, repoRoot);
+  // Explicit invocation: Claude's slash command (`ev.command`), or Pi's `/skill:<name>` (Pi has no package commands).
+  const explicit = runtime === 'pi' ? `/skill:${ev.skill}` : ev.command;
   return {
     evalId: ev.id, skill: ev.skill, arm, runtime, model, workspace, env, timeoutMs, maxUsd,
-    prompt: withSkill && ev.invocation === 'explicit' ? `${ev.command} ${task}` : task,
-    pluginDirs: withSkill ? [path.join(repoRoot, 'packages', ev.package)] : [],
+    prompt: withSkill && ev.invocation === 'explicit' ? `${explicit} ${task}` : task,
+    // Pi loads the single skill directory (`skillPaths`); no package is passed to it.
+    pluginDirs: withSkill && runtime !== 'pi' ? [path.join(repoRoot, 'packages', ev.package)] : [],
     skillPaths: withSkill ? [path.join(repoRoot, 'packages', ev.package, 'skills', ev.skill)] : [],
     maxTurns: ev.maxTurns, allowedTools: ev.allowedTools, permissionMode: undefined,
     invocationMode: ev.invocation,
@@ -71,8 +77,8 @@ const UNVERIFIABLE_NAME = 'baseline isolation unverifiable: no startup skill lis
 /**
  * Isolation verdict for a baseline run. Returns null when verified clean, else { kind, message }:
  *   'leak'               the skill under test is loaded (startup event), invoked (transcript) or its package is a loaded plugin
- *   'unverifiable-abort' the run completed normally (not timed out, exit 0) but the stream had no startup skill list
- *                        (`loadedSource !== 'startup-event'`): absence of evidence is not isolation; the eval aborts
+ *   'unverifiable-abort' the run completed normally (not timed out, exit 0) but the stream had no skill list
+ *                        (`loadedSource` neither 'startup-event' (Claude) nor 'system-prompt' (Pi)): absence of evidence is not isolation; the eval aborts
  *   'unverifiable-run'   the run crashed or timed out before any startup event: that run is not counted as a clean baseline
  * A leak outranks everything else. Missing evidence is never read as clean.
  */
@@ -85,13 +91,16 @@ function checkBaseline(ev, result, { repoRoot }) {
   const pkgDir = canonical(path.resolve(repoRoot, 'packages', ev.package));
   const plugin = (result.loadedPlugins || []).find((p) => p && typeof p.path === 'string' && canonical(p.path) === pkgDir);
   if (plugin) how.push(`its package ${ev.package} was loaded as plugin ${plugin.name}`);
+  // Pi's baseline runs under `--no-skills`: it must list no skill at all, not merely not the one under test.
+  const others = result.runtime === 'pi' ? (result.loadedSkills || []).filter((s) => !skillMatches(s, ev.skill)) : [];
+  if (others.length) how.push(`skills were loaded under --no-skills (${others.join(', ')})`);
   if (how.length) {
     return { kind: 'leak', message: `eval "${ev.id}": baseline arm leaked the skill under test "${ev.skill}": ${how.join('; ')}; eval aborted, baseline not scored` };
   }
-  if (result.loadedSource === 'startup-event') return null;
+  if (VERIFIED_SOURCES.has(result.loadedSource)) return null;
   const code = result.exitCode !== undefined ? result.exitCode : result.claudeExitCode;
   if (!result.timedOut && code === 0) {
-    return { kind: 'unverifiable-abort', message: `eval "${ev.id}": ${UNVERIFIABLE_NAME}; the stream carried no init skills list, so a clean baseline cannot be told from a leaked one; eval aborted, baseline not scored` };
+    return { kind: 'unverifiable-abort', message: `eval "${ev.id}": ${UNVERIFIABLE_NAME}; the stream carried no skills list (init event or system prompt), so a clean baseline cannot be told from a leaked one; eval aborted, baseline not scored` };
   }
   return { kind: 'unverifiable-run', message: `eval "${ev.id}": baseline run ${result.timedOut ? 'timed out' : 'crashed'} before any startup event; isolation unverifiable, run not counted in the baseline score` };
 }

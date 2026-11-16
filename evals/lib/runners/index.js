@@ -6,12 +6,13 @@
  *           pluginDirs[] | skillPaths[], maxTurns?, allowedTools?, permissionMode? }
  *   run(job) -> { transcript, exitCode, timedOut, costUsd, loadedSkills, runtime }  (plus optional extras)
  * `pluginDirs` is a list (Claude: one `--plugin-dir` each); `skillPaths` is for runtimes that load one skill.
- * The Pi adapter (a later PR) registers here.
+ * Each runner module also exports `RUNTIME`, `BIN_NAME`, `BIN_ENV` and `find()` (the binary lookup, honouring the override variable).
  */
 
 const claude = require('./claude');
+const pi = require('./pi');
 
-const RUNNERS = { [claude.RUNTIME]: claude };
+const RUNNERS = { [claude.RUNTIME]: claude, [pi.RUNTIME]: pi };
 
 /** Runtimes this build can run. */
 const supportedRuntimes = () => Object.keys(RUNNERS);

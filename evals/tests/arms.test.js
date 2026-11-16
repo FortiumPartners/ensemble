@@ -304,13 +304,13 @@ describe('TRD-010 repeats and reliability', () => {
     expect(bad.stderr).toMatch(/exceeds repeats 2/);
   });
 
-  test('the default repeats and bar are data in limits.json; a runtime other than claude is a usage error', () => {
+  test('the default repeats and bar are data in limits.json; a runtime other than claude or pi is a usage error', () => {
     const limits = exec.loadLimits();
     expect(limits).toMatchObject({ repeats: 5, bar: 4 });
     const s = stub({ withLines: WITH_OK, baseLines: BASE_OK });
-    const r = runEvals({}, s, ['--runtime', 'pi']);
+    const r = runEvals({}, s, ['--runtime', 'codex']);
     expect(r.status).toBe(2);
-    expect(r.stderr).toMatch(/unsupported --runtime "pi"/);
+    expect(r.stderr).toMatch(/unsupported --runtime "codex": not supported in this release/);
     expect(r.calls).toHaveLength(0);
   });
 });

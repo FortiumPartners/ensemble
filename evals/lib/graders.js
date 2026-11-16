@@ -10,7 +10,8 @@
  *   transcript raw claude stream-json output (string; '' for non-agent scenarios); may be truncated
  *   transcriptTruncated / commands / commandsIncomplete  from runProcess: Bash commands scanned while streaming
  *   env        environment for checks that run agent-written code or commands: NO credentials
- *   judgeEnv   environment for the judge call (credentials included); falls back to `env`
+ *   judgeEnv   environment for the judge call (base credentials only, never a runtime's provider keys); falls back to `env`
+ *   secrets    credential values (all, runtime keys included) redacted from the judge process's output and stderr
  *   judge      { bin, model, refusal } for judged checks (see runners/judge.js); absent when unconfigured
  * }
  * Graders that run a process (trdParses, testsPass, commandOutputMatches, judge) are async so a slow command
@@ -170,7 +171,7 @@ function noForbiddenCommand(ctx, args) {
 async function judge(ctx, args) {
   const refusal = !ctx.judge ? 'no judge model configured' : ctx.judge.refusal;
   if (refusal) return { pass: false, judged: true, refused: true, score: null, judgeModel: (ctx.judge && ctx.judge.model) || null, detail: `judged check refused: ${refusal}` };
-  const r = await runJudge(ctx.judge.bin, { model: ctx.judge.model, rubric: args.rubric, transcript: ctx.transcript, cwd: ctx.dir, env: ctx.judgeEnv || ctx.env });
+  const r = await runJudge(ctx.judge.bin, { model: ctx.judge.model, rubric: args.rubric, transcript: ctx.transcript, cwd: ctx.dir, env: ctx.judgeEnv || ctx.env, secrets: ctx.secrets || [] });
   if (r.error) return { pass: false, judged: true, score: null, judgeModel: ctx.judge.model, costUsd: r.costUsd, detail: r.error };
   const threshold = args.passScore === undefined ? 0.5 : args.passScore;
   return {

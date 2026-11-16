@@ -5,8 +5,9 @@
  * Headless behavioral eval runner.
  * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run]
  *   [--max-usd N] [--timeout SEC] [--concurrency N] [--keep-workspace] [--allow-env NAME]... [--env-allowlist FILE]
- *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude]
- * Exit: 0 all pass, 1 an eval failed or timed out, 2 usage/rejected definition, 3 claude missing, 4 incomplete evals (1 outranks 4).
+ *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi]
+ * Exit: 0 all pass, 1 an eval failed or timed out, 2 usage/rejected definition (including an unsupported runtime, or a --scenario/--skill selection that the runtime filter empties),
+ *   3 the runtime's CLI missing, 4 incomplete evals or an unfiltered run that executed zero evals (1 outranks 4).
  * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
 
@@ -79,23 +80,29 @@ function loadScenarios(dir = SCENARIOS_DIR) {
  * Only the agent and the judge get the allowlisted credentials; checks that execute agent-written code
  * (testsPass, commandOutputMatches, trdParses) get an environment with none. The transcript is redacted before
  * it reaches checks or the judge prompt.
- * run: { bin, model, runUsd, judgeUsd, timeoutMs, repoRoot, judge, workdir, credentials, secrets, parentEnv, keepWorkspace,
+ * run: { bin (the runtime's CLI), judgeBin (the claude CLI, which runs the judge), model, runUsd, judgeUsd, timeoutMs, repoRoot, judge, workdir, credentials, judgeCredentials (base names + --allow-env, never a runtime's provider keys; defaults to credentials), secrets (all credential values, redacted from every process's output), parentEnv, keepWorkspace,
  *        arm, ev, runtime, runner }
  * With `run.arm` ('with-skill' | 'baseline') and `run.ev` the job is built from the skill eval by arms.buildJob;
  * otherwise from the legacy scenario. `run.runner` replaces the runtime's adapter (tests).
  */
 async function runScenario(scenario, run) {
-  const { bin, model, runUsd, judgeUsd = 0, timeoutMs, repoRoot, judge, workdir, credentials, secrets = [], parentEnv = process.env, keepWorkspace } = run;
+  const { bin, judgeBin = bin, model, runUsd, judgeUsd = 0, timeoutMs, repoRoot, judge, workdir, credentials, judgeCredentials = credentials, secrets = [], parentEnv = process.env, keepWorkspace } = run;
   const sb = sandbox.createSandbox(scenario.scenarioDir, scenario, { workdir });
   let ciHome = null;
   let checkHome = null;
+  let agentHome = null;
   const started = Date.now();
   try {
     if (envlib.isCI(parentEnv)) ciHome = envlib.makeCiHome(workdir);
-    const env = envlib.buildEnv({ parent: parentEnv, credentials, home: ciHome || undefined });
+    // A Pi run gets a throwaway empty HOME like the checks do (probed: Pi still authenticates from its provider key in the
+    // environment); Pi's own auth files under the real HOME are then not reachable. Claude keeps the passthrough HOME for its login.
+    if (!ciHome && (run.runtime || 'claude') === 'pi' && scenario.type === 'agent') agentHome = envlib.makeCiHome(workdir);
+    const env = envlib.buildEnv({ parent: parentEnv, credentials, home: ciHome || agentHome || undefined });
     // Checks run agent-written code: always a throwaway empty HOME, never the real one.
     checkHome = ciHome || envlib.makeCiHome(workdir);
     const checkEnv = envlib.buildEnv({ parent: parentEnv, credentials: [], home: checkHome });
+    // The judge is a claude process: it never sees the runtime-scoped (Pi provider) keys.
+    const judgeEnv = envlib.buildEnv({ parent: parentEnv, credentials: judgeCredentials, home: ciHome || undefined });
     let transcript = '';
     let proc = { exitCode: 0, stderr: '', timedOut: false, transcriptTruncated: false, commands: [], commandsIncomplete: false };
     let armInfo = {};
@@ -115,11 +122,13 @@ async function runScenario(scenario, run) {
     }
     const summary = sandbox.summarizeTranscript(transcript);
     if (proc.costUsd !== undefined) summary.costUsd = proc.costUsd;
+    if (proc.turns !== undefined && proc.turns !== null) summary.turns = proc.turns;
     // An agent run with no reported cost (timeout, crash) is charged its full per-run budget, flagged costEstimated.
     const agentUnknown = scenario.type === 'agent' && summary.costUsd === null;
     const agentCost = agentUnknown ? runUsd : summary.costUsd;
     const base = {
       id: scenario.id, type: scenario.type, skill: scenario.skill,
+      runtime: scenario.type === 'agent' ? (run.runtime || 'claude') : null,
       ...armInfo,
       turns: summary.turns, claudeExitCode: proc.exitCode, timedOut: proc.timedOut, stderr: proc.stderr || undefined,
     };
@@ -132,7 +141,7 @@ async function runScenario(scenario, run) {
       };
     }
     const commands = Array.isArray(proc.commands) ? proc.commands.map((c) => envlib.redactText(c, secrets)) : undefined;
-    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, transcriptTruncated: proc.transcriptTruncated, commands, commandsIncomplete: proc.commandsIncomplete, env: checkEnv, judgeEnv: env, judge: judge ? { ...judge, bin } : undefined };
+    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, transcriptTruncated: proc.transcriptTruncated, commands, commandsIncomplete: proc.commandsIncomplete, env: checkEnv, judgeEnv, secrets, judge: judge ? { ...judge, bin: judgeBin } : undefined };
     // Judged checks read only the with-skill arm (judgedScore), so the baseline arm skips them: no judge spend is wasted.
     const specs = (scenario.graders || []).filter((g) => !(run.arm === 'baseline' && g.type === 'judge'));
     const graders = await runGraders(specs, ctx);
@@ -159,16 +168,22 @@ async function runScenario(scenario, run) {
     else sb.cleanup();
     if (ciHome) fs.rmSync(ciHome, { recursive: true, force: true });
     if (checkHome && checkHome !== ciHome) fs.rmSync(checkHome, { recursive: true, force: true });
+    if (agentHome) fs.rmSync(agentHome, { recursive: true, force: true });
   }
 }
 
 async function main(argv = process.argv.slice(2)) {
   const opts = parseArgs(argv);
-  const credentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv });
+  const credentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv, runtime: opts.runtime });
+  const judgeCredentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv });
   const secrets = envlib.secretValues(process.env, credentials);
   activeSecrets = secrets;
   const out = (text) => console.log(envlib.redactText(text, secrets));
   const err = (text) => console.error(envlib.redactText(text, secrets));
+  if (!supportedRuntimes().includes(opts.runtime)) {
+    err(`unsupported --runtime "${String(opts.runtime).slice(0, 80)}": not supported in this release (supported: ${supportedRuntimes().join(', ')}); nothing was run`);
+    return 2;
+  }
   const defs = loadEvalDefs({ skillsDir: EVAL_SKILLS_DIR, repoRoot: REPO_ROOT });
   const legacy = loadScenarios();
   const legacyIds = new Set(legacy.map((s) => s.id));
@@ -200,13 +215,30 @@ async function main(argv = process.argv.slice(2)) {
     if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill) || !ev.unactedFields.length) continue;
     err(`WARNING eval "${ev.id}": ${ev.unactedFields.map((f) => `\`${f}\``).join(', ')} accepted but not yet acted on (lands in a later PR)`);
   }
-  if (!supportedRuntimes().includes(opts.runtime)) {
-    err(`unsupported --runtime "${opts.runtime}" (supported: ${supportedRuntimes().join(', ')})`);
+  // `runtimes` acts: an eval runs only under a runtime it lists; legacy agent scenarios are Claude-only.
+  const selected = scenarios;
+  scenarios = scenarios.filter((s) => {
+    const ev = skillEvals.find((e) => e.id === s.id && e.skill === s.skill);
+    const ok = ev ? ev.runtimes.includes(opts.runtime) : s.type !== 'agent' || opts.runtime === 'claude';
+    if (!ok) err(`SKIP ${s.id}: not run under --runtime ${opts.runtime} (${ev ? `its \`runtimes\` is ${JSON.stringify(ev.runtimes)}` : 'a legacy agent scenario is Claude-only'})`);
+    return ok;
+  });
+  if ((opts.scenario || opts.skill) && selected.length && !scenarios.length) {
+    err(`nothing to run: the selected eval(s) (${selected.map((s) => s.id).join(', ')}) are not run under --runtime ${opts.runtime}`);
     return 2;
   }
+  if (opts.runtime === 'pi') {
+    for (const ev of skillEvals) {
+      if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill)) continue;
+      const dropped = [ev.allowedTools && ev.allowedTools.length ? '`allowedTools`' : null, ev.maxTurns !== undefined ? '`maxTurns`' : null].filter(Boolean);
+      if (dropped.length) err(`WARNING eval "${ev.id}": ${dropped.join(' and ')} not applied under --runtime pi (Pi runs with its default tools and no turn limit)`);
+    }
+  }
+  const runner = getRunner(opts.runtime);
   const evById = new Map(skillEvals.map((ev) => [ev.id, ev]));
-  const bin = sandbox.findClaude();
-  const needsClaude = scenarios.some((s) => s.type === 'agent');
+  const bin = runner.find();
+  const claudeBin = sandbox.findClaude(); // the judge always runs through claude
+  const needsBin = scenarios.some((s) => s.type === 'agent');
   const limits = loadLimits();
   // Repeats and bar per skill eval: --repeats over the eval's value over limits.json; the bar is the eval's or the default.
   const plans = new Map();
@@ -218,6 +250,7 @@ async function main(argv = process.argv.slice(2)) {
 
   // Judged checks run only with a judge model that differs from the model under test; otherwise they are refused.
   const judge = resolveJudge({ judgeModel: opts.judgeModel, model: opts.model });
+  if (!claudeBin && !judge.refusal) judge.refusal = 'the `claude` CLI that runs the judge was not found (set EVALS_CLAUDE_BIN)';
   const judgedIds = scenarios.filter((s) => (s.graders || []).some((g) => g.type === 'judge')).map((s) => s.id);
   if (judgedIds.length && judge.refusal) {
     err(`REFUSED judged checks (${judgedIds.join(', ')}): ${judge.refusal}; deterministic checks still run`);
@@ -231,11 +264,15 @@ async function main(argv = process.argv.slice(2)) {
       const plan = plans.get(s.id);
       if (plan) out(`      arms: with-skill + baseline, repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource})`);
     }
-    if (needsClaude && !bin) out('SKIP: `claude` CLI not found on PATH; agent scenarios would not run.');
+    if (needsBin && !bin) out(`SKIP: \`${runner.BIN_NAME}\` CLI not found on PATH; agent scenarios would not run.`);
     return rejected.length ? 2 : 0;
   }
-  if (needsClaude && !bin) {
-    err('SKIP: `claude` CLI not found on PATH (set EVALS_CLAUDE_BIN to override); cannot run agent scenarios.');
+  if (!scenarios.length) {
+    out(`0 evals ran under runtime ${opts.runtime}`);
+    return rejected.length ? 2 : 4;
+  }
+  if (needsBin && !bin) {
+    err(`SKIP: \`${runner.BIN_NAME}\` CLI not found on PATH (set ${runner.BIN_ENV} to override); cannot run agent scenarios.`);
     return 3;
   }
 
@@ -261,8 +298,8 @@ async function main(argv = process.argv.slice(2)) {
     for (const g of r.graders) out(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
   };
   const runOpts = (s) => ({
-    bin, model: opts.model, runUsd: runUsdFor(), judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd), timeoutMs: timeoutMsFor(s), repoRoot: REPO_ROOT, judge,
-    workdir, credentials, secrets, keepWorkspace: opts.keepWorkspace, runtime: opts.runtime,
+    bin, judgeBin: claudeBin, model: opts.model, runUsd: runUsdFor(), judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd), timeoutMs: timeoutMsFor(s), repoRoot: REPO_ROOT, judge,
+    workdir, credentials, judgeCredentials, secrets, keepWorkspace: opts.keepWorkspace, runtime: opts.runtime,
   });
   const scenarioOf = new Map(scenarios.map((s) => [s.id, s]));
   const aborts = new Map(); // eval id -> leak message: the rest of that eval's runs are skipped
@@ -277,6 +314,7 @@ async function main(argv = process.argv.slice(2)) {
       } catch (e) {
         r = { id: s.id, type: s.type, skill: s.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
       }
+      r = { ...r, runtime: s.type === 'agent' ? opts.runtime : null };
       r = envlib.redactDeep(r, secrets);
       show(r);
       return r;
@@ -324,7 +362,7 @@ async function main(argv = process.argv.slice(2)) {
   for (const s of scenarios) {
     const ev = evById.get(s.id);
     if (!ev) {
-      const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [] };
+      const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [], runtime: s.type === 'agent' ? opts.runtime : null };
       results.push(r);
       continue;
     }
@@ -367,7 +405,7 @@ async function main(argv = process.argv.slice(2)) {
     concurrency,
     totalCostUsd: suite.spent,
     peakCommittedUsd: suite.peakCommitted,
-    env: { allowlisted: [...envlib.BASE_NAMES, 'HOME', ...credentials], homeMode: envlib.isCI(process.env) ? 'ci-temp' : 'passthrough' },
+    env: { allowlisted: [...envlib.BASE_NAMES, 'HOME', ...credentials], homeMode: envlib.isCI(process.env) || opts.runtime === 'pi' ? 'ci-temp' : 'passthrough' },
     passed: results.filter((r) => r.outcome === 'pass').length,
     failed: results.filter((r) => r.outcome === 'fail' || r.outcome === 'timed_out').length,
     incomplete: incomplete.length,
