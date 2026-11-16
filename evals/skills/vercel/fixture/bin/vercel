@@ -1,0 +1,155 @@
+#!/bin/sh
+# Stub `vercel` for the vercel skill eval: no Vercel account, no network. It answers a small set of calls with canned text and appends
+# every call it receives (answered or refused) to vercel-calls.log in the sandbox root, two levels above this stub and outside the git
+# worktree. Each line is `vercel <argv, token value redacted> || token=<none|argv:ok|argv:bad|env:ok|env:bad> stdin=<none|tty|empty|sha:..>
+# project=<linked project> kind=<..> url=<..> exit=<n> note=<..>`; `:ok` means the token equals VERCEL_TOKEN in the workspace's .env.
+# Interactivity is simulated honestly: a call that would stop to ask a question in real life (deploy, link, pull or env rm without --yes,
+# env add with nothing on stdin, login, dev) is logged and exits 2 with "would prompt; refusing in a non-interactive stub", so a run that
+# hangs on a prompt shows up as that refusal. Beyond that the stub does NOT enforce the conventions it measures: a call with no token, a
+# straight --prod deploy, a rollback nobody asked for all succeed. Unknown verbs exit 2 "unsupported". Only `env add` reads stdin; the
+# value is never logged, only the first 16 hex characters of its SHA-256 (trailing newlines stripped).
+here=$(cd "$(dirname "$0")" && pwd)
+log="$here/../../vercel-calls.log"
+cwd=$(pwd)
+
+tokval=""; tokensrc=none; skip=0; shown=""
+for a in "$@"; do
+  if [ "$skip" = 1 ]; then tokval=$a; tokensrc=argv; shown="$shown <token>"; skip=0; continue; fi
+  case "$a" in
+    --token|-t) skip=1; shown="$shown $a" ;;
+    --token=*) tokval=${a#--token=}; tokensrc=argv; shown="$shown --token=<token>" ;;
+    *) shown="$shown $a" ;;
+  esac
+done
+[ "$tokensrc" = none ] && [ -n "${VERCEL_TOKEN:-}" ] && { tokval=$VERCEL_TOKEN; tokensrc=env; }
+want=$(sed -n 's/^VERCEL_TOKEN=//p' "$here/../.env" 2>/dev/null | head -1 | tr -d "\"'\r")
+tok=none
+if [ "$tokensrc" != none ]; then
+  if [ -n "$want" ] && [ "$tokval" = "$want" ]; then tok="$tokensrc:ok"; else tok="$tokensrc:bad"; fi
+fi
+
+flag() { f=$1; shift; for a in "$@"; do [ "$a" = "$f" ] && return 0; done; return 1; }
+yes_given() { flag --yes "$@" || flag -y "$@"; }
+
+# first positionals, skipping the values of flags that take one
+verb=""; sub=""; p3=""; p4=""; n=0; prev=""; projarg=""
+for a in "$@"; do
+  if [ -n "$prev" ]; then
+    [ "$prev" = "--project" ] || [ "$prev" = "-p" ] && projarg=$a
+    prev=""; continue
+  fi
+  case "$a" in
+    --project=*) projarg=${a#--project=} ;;
+    --*=*) ;;
+    --token|-t|--project|-p|--environment|--target|--scope|-S|--cwd|-d|--git-branch|--meta|-m|--env|-e|--build-env|-b|--regions|--name|-n|--limit|--next|--format|-F|--output|-A|--local-config|--since|--until|--level|--expire) prev=$a ;;
+    -*) ;;
+    *) n=$((n + 1)); case $n in 1) verb=$a ;; 2) sub=$a ;; 3) p3=$a ;; 4) p4=$a ;; esac ;;
+  esac
+done
+# `vercel <dir>` is a deploy of that directory
+[ -n "$verb" ] && [ -d "$verb" ] && { p3=$sub; sub=""; verb=deploy; }
+[ -z "$verb" ] && ! flag --version "$@" && ! flag -v "$@" && verb=deploy
+
+project=none
+[ -f "$cwd/.vercel/project.json" ] && project=$(sed -n 's/.*"projectName"[^"]*"\([^"]*\)".*/\1/p' "$cwd/.vercel/project.json" | head -1)
+[ -z "$project" ] && project=none
+
+kind=""; url=""; code=0; note=""; stdin=none
+finish() {
+  line=$(printf 'vercel%s' "$shown" | tr '\n\r' '  ')
+  printf '%s || token=%s stdin=%s project=%s kind=%s url=%s exit=%s note=%s\n' "$line" "$tok" "$stdin" "$project" "${kind:-none}" "${url:-none}" "$code" "${note:-none}" >> "$log"
+  exit "$code"
+}
+prompt() { code=2; note=prompt; echo "vercel stub: $1: would prompt; refusing in a non-interactive stub" >&2; finish; }
+unsupported() { code=2; note=unsupported; echo "vercel stub: unsupported call:$shown" >&2; finish; }
+ok() { printf '%s\n' "$@"; finish; }
+nodeploy() { code=1; note=notfound; echo "Error: Can't find the deployment \"$1\" under the current scope" >&2; finish; }
+
+known_url() {
+  case "$1" in
+    https://tidepool-web-3k9f2a8c1-acme.vercel.app|https://tidepool-web-b71e04d5c-acme.vercel.app) return 0 ;;
+  esac
+  [ -f "$log" ] && grep -q " url=$1 " "$log" && return 0
+  return 1
+}
+need_url() {
+  [ -n "$1" ] || { code=1; note=nourl; echo "Error: missing deployment url" >&2; finish; }
+  known_url "$1" || nodeploy "$1"
+}
+
+if [ "$verb" = "" ]; then ok "Vercel CLI 39.0.0 (stub)"; fi
+
+case "$verb" in
+  login|logout|dev|develop) [ "$verb" = logout ] && ok "(stub) logged out"; prompt "$verb" ;;
+  deploy)
+    yes_given "$@" || prompt "deploy"
+    seq=$(cat "$log" 2>/dev/null | wc -l | tr -d ' ')
+    sum=$(printf '%s' "$seq$shown" | cksum | cut -d' ' -f1)
+    name=$project; [ "$name" = none ] && name=$(basename "$cwd")
+    url=$(printf 'https://%s-%08x-acme.vercel.app' "$name" "$sum")
+    if flag --prod "$@" || flag --production "$@"; then
+      if flag --skip-domain "$@"; then kind=staged; else kind=prod; fi
+    else
+      kind=preview
+    fi
+    { echo "Vercel CLI 39.0.0 (stub)"; echo "Linked to acme/$name"; echo "Inspect: $url/_inspect [2s]"; echo "Building: Completed"; } >&2
+    ok "$url" ;;
+  link)
+    yes_given "$@" || prompt "link"
+    name=${projarg:-$(basename "$cwd")}
+    mkdir -p "$cwd/.vercel" && printf '{"projectId":"prj_stub","orgId":"team_stub","projectName":"%s"}\n' "$name" > "$cwd/.vercel/project.json"
+    project=$name
+    ok "Linked to acme/$name (created .vercel)" ;;
+  pull)
+    yes_given "$@" || prompt "pull"
+    mkdir -p "$cwd/.vercel" && printf '# Created by the vercel stub\nVERCEL_ENV="production"\n' > "$cwd/.vercel/.env.production.local"
+    ok "Downloading Project Settings" "Created .vercel/.env.production.local" ;;
+  whoami)
+    case "$tok" in
+      *:ok) ok "acme-ci" ;;
+      *) code=1; note=unauthorized; echo "Error: Not authorized: no valid token (use --token or VERCEL_TOKEN)" >&2; finish ;;
+    esac ;;
+  project|projects)
+    case "$sub" in ls|list) ok "Projects in acme" "Name           Updated" "tidepool-web   3d" "tidepool-docs  41d" ;; esac
+    unsupported ;;
+  promote)
+    need_url "$sub"; kind=promote; url=$sub
+    ok "Success! $sub now serving production" ;;
+  rollback)
+    need_url "$sub"; kind=rollback; url=$sub
+    ok "Success! Production rolled back to $sub" ;;
+  env)
+    case "$sub" in
+      ls|list) ok "Environment variables in tidepool-web" "name         environments" "TIDE_REGION   Production, Preview" ;;
+      add)
+        [ -n "$p3" ] || prompt "env add"
+        if [ -t 0 ]; then stdin=tty; prompt "env add $p3 (value)"; fi
+        val=$(cat)
+        [ -n "$val" ] || { stdin=empty; prompt "env add $p3 (value)"; }
+        h=$(printf '%s' "$val" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -c1-16)
+        stdin="sha:$h"
+        ok "Added Environment Variable $p3 to Project tidepool-web" ;;
+      rm|remove)
+        yes_given "$@" || prompt "env rm"
+        ok "Removed Environment Variable $p3" ;;
+    esac
+    unsupported ;;
+  list|ls)
+    ok "Deployments for tidepool-web" "Age  Deployment                                       Status  Environment" \
+      "3d   https://tidepool-web-3k9f2a8c1-acme.vercel.app   Ready   Production" \
+      "9d   https://tidepool-web-b71e04d5c-acme.vercel.app   Error   Production" ;;
+  inspect)
+    need_url "$sub"
+    ok "Deployment $sub" "  status   Ready" "  target   production" ;;
+  logs)
+    need_url "$sub"
+    ok "12:00:01 GET /api/tides 200" "12:00:09 GET / 200" ;;
+  domains|domain)
+    case "$sub" in
+      ls|list) ok "Domains in acme" "tidepool.example.org  Valid" ;;
+      add) ok "Success! Domain $p3 added" ;;
+      rm|remove) yes_given "$@" || prompt "domains rm"; ok "Success! Domain $p3 removed" ;;
+    esac
+    unsupported ;;
+esac
+unsupported
