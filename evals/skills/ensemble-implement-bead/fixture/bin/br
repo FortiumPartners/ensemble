@@ -1,0 +1,99 @@
+#!/bin/sh
+# Stub `br` (beads CLI) for the ensemble-implement-bead eval. A STATEFUL copy of the stub documented in evals/skills/ensemble-beads-build/
+# README.md (feature/skills-eval-ensemble-beads-build): it answers the calls the beads tracker adapter makes, with no workspace database
+# and no network, remembers a bead's status and comments, and refuses everything else. Plain POSIX sh, mode 755.
+#
+#   BR_STUB_CANNED   directory of canned files (default: canned/ next to this script)
+#   BR_STUB_LOG      file every call is appended to (default: br-calls.log in the sandbox root, two levels above this script and outside
+#                    the git worktree); state lives in br-state/ beside it
+#
+# Verbs (anything else: UNSUPPORTED, message on stderr, exit 2, nothing changed):
+#   --version                          "br 0.6.0 (stub)"
+#   show <id>                          canned/show-<id>.json with the remembered status; an unknown id: ISSUE_NOT_FOUND, exit 3
+#   list ...                           canned/issues.json with the remembered status
+#   update <id> --status open|in_progress [--json]    remembers the status, prints [{"id":..,"status":..}]
+#   close <id> [--json]                remembers closed, prints [{"id":..,"status":"closed"}]
+#   comments add <id> <text> [--json]  appends the text to br-state/comments-<id>.txt, prints {"id":..,"status":"ok"}
+#   sync --flush-only [--json]         {"status":"ok"}
+# Every WRITE (update, close, comments add, sync) also appends a record to .beads/issues.jsonl in the workspace, as the real br does when
+# it exports its database: that file is tracked, so a write leaves it modified and a broad stage or a `commit -a` would sweep it in.
+# Log line: `<OK|UNSUPPORTED> <argv folded to one line>` then a TAB and `head=<sha>`: the commit HEAD pointed at when the call was made,
+# read from .git/HEAD and the ref file (never by running git), so a check can tell what had been committed at the time of a write.
+here=$(cd "$(dirname "$0")" && pwd)
+ws="$here/.."
+canned="${BR_STUB_CANNED:-$here/canned}"
+log="${BR_STUB_LOG:-$here/../../br-calls.log}"
+state="$(dirname "$log")/br-state"
+mkdir -p "$state"
+line=$(printf '%s' "$*" | tr '\n\r\t' '   ')
+
+head=none
+h=$(cat "$ws/.git/HEAD" 2>/dev/null)
+case "$h" in
+  "ref: "*) head=$(cat "$ws/.git/${h#ref: }" 2>/dev/null || echo unreadable) ;;
+  ?*) head="$h" ;;
+esac
+logit() { printf '%s %s\thead=%s\n' "$1" "$line" "$head" >> "$log"; }
+safe() { case "$1" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac; return 0; }
+status_of() { if [ -f "$state/status-$1" ]; then cat "$state/status-$1"; else echo open; fi; }
+export_to_beads() { printf '{"id":"%s","event":"%s","status":"%s"}\n' "$1" "$2" "$(status_of "$1")" >> "$ws/.beads/issues.jsonl"; }
+unsupported() { logit UNSUPPORTED; echo "br stub: unsupported call: $*" >&2; exit 2; }
+
+case "$1" in
+  --version) logit OK; echo "br 0.6.0 (stub)"; exit 0 ;;
+  list)
+    logit OK
+    # the remembered status, as show reports it (the one issue in the canned list)
+    st=$(status_of gt-4k2)
+    sed "s/\"status\": \"open\"/\"status\": \"$st\"/" "$canned/issues.json"
+    exit 0 ;;
+  show)
+    if safe "$2" && [ -f "$canned/show-$2.json" ]; then
+      logit OK
+      st=$(status_of "$2")
+      sed "s/\"status\": \"open\"/\"status\": \"$st\"/" "$canned/show-$2.json"
+      exit 0
+    fi
+    logit OK
+    echo '{"error":{"code":"ISSUE_NOT_FOUND","message":"Issue not found","retryable":false}}' >&2
+    exit 3 ;;
+  update)
+    if safe "$2" && [ -f "$canned/show-$2.json" ] && [ "$3" = "--status" ]; then
+      case "$4" in
+        open|in_progress)
+          logit OK
+          printf '%s\n' "$4" > "$state/status-$2"
+          export_to_beads "$2" update
+          printf '[{"id":"%s","status":"%s"}]\n' "$2" "$4"
+          exit 0 ;;
+      esac
+    fi
+    unsupported "$@" ;;
+  close)
+    if safe "$2" && [ -f "$canned/show-$2.json" ]; then
+      logit OK
+      printf 'closed\n' > "$state/status-$2"
+      export_to_beads "$2" close
+      printf '[{"id":"%s","status":"closed"}]\n' "$2"
+      exit 0
+    fi
+    unsupported "$@" ;;
+  comments)
+    if [ "$2" = "add" ] && safe "$3" && [ -f "$canned/show-$3.json" ] && [ -n "$4" ]; then
+      logit OK
+      printf '%s\n' "$4" | tr '\n\r' '  ' >> "$state/comments-$3.txt"
+      export_to_beads "$3" comment
+      printf '{"id":"%s","status":"ok"}\n' "$3"
+      exit 0
+    fi
+    unsupported "$@" ;;
+  sync)
+    if [ "$2" = "--flush-only" ]; then
+      logit OK
+      export_to_beads gt-4k2 sync
+      echo '{"status":"ok"}'
+      exit 0
+    fi
+    unsupported "$@" ;;
+esac
+unsupported "$@"
