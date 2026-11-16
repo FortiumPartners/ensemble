@@ -3,25 +3,32 @@
 
 /**
  * Headless behavioral eval runner.
- * Usage: node evals/run.js [--scenario <id>] [--model <id>] [--dry-run] [--max-usd N]
+ * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run] [--max-usd N]
+ * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { runGraders } = require('./lib/graders');
+const { loadEvalDefs, evalToScenario, EvalDefinitionError } = require('./lib/eval-def');
+const { summarizeRun } = require('./lib/results');
+const { resolveJudge } = require('./lib/runners/judge');
 const sandbox = require('./lib/sandbox');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SCENARIOS_DIR = path.join(__dirname, 'scenarios');
+const EVAL_SKILLS_DIR = process.env.EVALS_SKILLS_DIR || path.join(__dirname, 'skills');
 const RESULTS_DIR = process.env.EVALS_RESULTS_DIR || path.join(__dirname, 'results');
 
 function parseArgs(argv) {
-  const o = { scenario: null, model: null, dryRun: false, maxUsd: null };
+  const o = { scenario: null, skill: null, model: null, judgeModel: null, dryRun: false, maxUsd: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') o.dryRun = true;
     else if (a === '--scenario') o.scenario = argv[++i];
+    else if (a === '--skill') o.skill = argv[++i];
     else if (a === '--model') o.model = argv[++i];
+    else if (a === '--judge-model') o.judgeModel = argv[++i];
     else if (a === '--max-usd') o.maxUsd = Number(argv[++i]);
     else throw new Error(`unknown argument: ${a}`);
   }
@@ -40,7 +47,7 @@ function loadScenarios(dir = SCENARIOS_DIR) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-function runScenario(scenario, { bin, model, remainingUsd, repoRoot }) {
+function runScenario(scenario, { bin, model, remainingUsd, repoRoot, judge }) {
   const sb = sandbox.createSandbox(scenario.scenarioDir, scenario);
   const started = Date.now();
   try {
@@ -51,16 +58,22 @@ function runScenario(scenario, { bin, model, remainingUsd, repoRoot }) {
       run = sandbox.runClaude(bin, args, sb.dir, (scenario.timeoutSec || 600) * 1000);
       transcript = run.transcript;
     }
-    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript };
+    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, judge: judge ? { ...judge, bin } : undefined };
     const graders = runGraders(scenario.graders || [], ctx);
     const summary = sandbox.summarizeTranscript(transcript);
+    const outcome = summarizeRun(graders);
+    const judgeCost = graders.reduce((sum, g) => sum + (g.costUsd || 0), 0);
     return {
       id: scenario.id,
       type: scenario.type,
-      pass: graders.length > 0 && graders.every((g) => g.pass),
+      skill: scenario.skill,
+      pass: outcome.pass,
+      verdict: outcome.verdict,
+      judgedScore: outcome.judgedScore,
+      judgeModel: outcome.judgeModel,
       graders,
       turns: summary.turns,
-      costUsd: summary.costUsd,
+      costUsd: summary.costUsd === null && !judgeCost ? null : (summary.costUsd || 0) + judgeCost,
       claudeExitCode: run.exitCode,
       claudeResult: summary.resultText || (run.exitCode ? transcript.slice(-500) : undefined),
       timedOut: run.timedOut,
@@ -74,25 +87,55 @@ function runScenario(scenario, { bin, model, remainingUsd, repoRoot }) {
 
 function main(argv = process.argv.slice(2)) {
   const opts = parseArgs(argv);
-  let scenarios = loadScenarios();
+  const defs = loadEvalDefs({ skillsDir: EVAL_SKILLS_DIR, repoRoot: REPO_ROOT });
+  const legacy = loadScenarios();
+  const legacyIds = new Set(legacy.map((s) => s.id));
+  let rejected = [...defs.rejected];
+  const skillEvals = defs.evals.filter((ev) => {
+    if (!legacyIds.has(ev.id)) return true;
+    rejected.push({ id: ev.id, dir: ev.dir, error: new EvalDefinitionError(ev.id, 'id', `id collides with a legacy scenario id "${ev.id}"`) });
+    return false;
+  });
+  let scenarios = [...legacy, ...skillEvals.map(evalToScenario)];
   if (opts.scenario) {
     scenarios = scenarios.filter((s) => s.id === opts.scenario);
-    if (scenarios.length === 0) {
+    rejected = rejected.filter((r) => r.id === opts.scenario);
+    if (scenarios.length === 0 && rejected.length === 0) {
       console.error(`unknown scenario: ${opts.scenario}`);
       return 2;
     }
   }
+  if (opts.skill) {
+    scenarios = scenarios.filter((s) => s.skill === opts.skill);
+    rejected = rejected.filter((r) => path.basename(r.dir) === opts.skill || r.id === opts.skill);
+    if (scenarios.length === 0 && rejected.length === 0) {
+      console.error(`no eval for skill: ${opts.skill}`);
+      return 2;
+    }
+  }
+  for (const r of rejected) console.error(`REJECTED ${r.error.message}`);
+  for (const ev of skillEvals) {
+    if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill) || !ev.unactedFields.length) continue;
+    console.error(`WARNING eval "${ev.id}": ${ev.unactedFields.map((f) => `\`${f}\``).join(', ')} accepted but not yet acted on (lands in a later PR)`);
+  }
   const bin = sandbox.findClaude();
   const needsClaude = scenarios.some((s) => s.type === 'agent');
 
+  // Judged checks run only with a judge model that differs from the model under test; otherwise they are refused.
+  const judge = resolveJudge({ judgeModel: opts.judgeModel, model: opts.model });
+  const judgedIds = scenarios.filter((s) => (s.graders || []).some((g) => g.type === 'judge')).map((s) => s.id);
+  if (judgedIds.length && judge.refusal) {
+    console.error(`REFUSED judged checks (${judgedIds.join(', ')}): ${judge.refusal}; deterministic checks still run`);
+  }
+
   if (opts.dryRun) {
-    console.log(`${scenarios.length} scenario(s):`);
+    console.log(`${scenarios.length} eval(s)${rejected.length ? `, ${rejected.length} rejected` : ''}:`);
     for (const s of scenarios) {
-      console.log(`  ${s.id} [${s.type}] graders: ${(s.graders || []).map((g) => g.type).join(', ')}`);
+      console.log(`  ${s.id} [${s.skill ? `skill: ${s.skill}` : s.type}] graders: ${(s.graders || []).map((g) => g.type).join(', ')}`);
       console.log(`      ${s.description || ''}`);
     }
     if (needsClaude && !bin) console.log('SKIP: `claude` CLI not found on PATH; agent scenarios would not run.');
-    return 0;
+    return rejected.length ? 2 : 0;
   }
   if (needsClaude && !bin) {
     console.error('SKIP: `claude` CLI not found on PATH (set EVALS_CLAUDE_BIN to override); cannot run agent scenarios.');
@@ -108,11 +151,12 @@ function main(argv = process.argv.slice(2)) {
       continue;
     }
     console.log(`running ${s.id} ...`);
-    const r = runScenario(s, { bin, model: opts.model, remainingUsd, repoRoot: REPO_ROOT });
+    const r = runScenario(s, { bin, model: opts.model, remainingUsd, repoRoot: REPO_ROOT, judge });
     spent += r.costUsd || 0;
     results.push(r);
-    console.log(`  ${r.pass ? 'PASS' : 'FAIL'} turns=${r.turns} cost=${r.costUsd}`);
-    for (const g of r.graders) console.log(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}: ${g.detail}`);
+    const judgedNote = r.judgedScore === null ? '' : ` judged=${r.judgedScore.toFixed(2)} (${r.judgeModel})`;
+    console.log(`  ${r.pass ? 'PASS' : 'FAIL'} turns=${r.turns} cost=${r.costUsd}${judgedNote}`);
+    for (const g of r.graders) console.log(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -130,6 +174,7 @@ function main(argv = process.argv.slice(2)) {
   };
   fs.writeFileSync(file, JSON.stringify(report, null, 2));
   console.log(`results: ${path.relative(process.cwd(), file)} (${report.passed}/${report.total} passed)`);
+  if (rejected.length) return 2;
   return report.passed === report.total ? 0 : 1;
 }
 

@@ -8,13 +8,15 @@
  *   repoRoot   ensemble repository root
  *   baseline   { mainSha, remoteMainSha } captured when the sandbox was created
  *   transcript raw claude stream-json output (string; '' for non-agent scenarios)
+ *   judge      { bin, model, refusal } for judged checks (see runners/judge.js); absent when unconfigured
  * }
- * No grader calls a model.
+ * Only `judge` calls a model. It is judged, never decides a verdict, and is marked `judged: true` in its result.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { runJudge } = require('./runners/judge');
 
 function result(pass, detail) {
   return { pass: Boolean(pass), detail: String(detail || '') };
@@ -141,19 +143,36 @@ function noForbiddenCommand(ctx, args) {
   return result(true, 'no forbidden command attempted');
 }
 
+/**
+ * Model-judged score against args.rubric. Supplements the deterministic checks, never replaces them.
+ * Refused (score null, refused true) when ctx.judge is missing or its model equals the model under test.
+ */
+function judge(ctx, args) {
+  const refusal = !ctx.judge ? 'no judge model configured' : ctx.judge.refusal;
+  if (refusal) return { pass: false, judged: true, refused: true, score: null, judgeModel: (ctx.judge && ctx.judge.model) || null, detail: `judged check refused: ${refusal}` };
+  const r = runJudge(ctx.judge.bin, { model: ctx.judge.model, rubric: args.rubric, transcript: ctx.transcript, cwd: ctx.dir });
+  if (r.error) return { pass: false, judged: true, score: null, judgeModel: ctx.judge.model, costUsd: r.costUsd, detail: r.error };
+  const threshold = args.passScore === undefined ? 0.5 : args.passScore;
+  return {
+    pass: r.score >= threshold, judged: true, score: r.score, judgeModel: ctx.judge.model, costUsd: r.costUsd,
+    detail: `judged ${r.score} by ${ctx.judge.model}${r.reason ? `: ${r.reason}` : ''}`,
+  };
+}
+
 const GRADERS = {
   trdParses, fileExists, fileMatches, testsPass, commandOutputMatches,
-  noProtectedBranchCommit, remoteBranchUnchanged, noForbiddenCommand,
+  noProtectedBranchCommit, remoteBranchUnchanged, noForbiddenCommand, judge,
 };
 
 function runGraders(specs, ctx) {
   return specs.map((spec) => {
     const fn = GRADERS[spec.type];
+    const judged = spec.type === 'judge';
     if (!fn) return { type: spec.type, pass: false, detail: 'unknown grader' };
     try {
-      return { type: spec.type, ...fn(ctx, spec) };
+      return { type: spec.type, ...fn(ctx, spec), ...(judged && { judged: true }) };
     } catch (e) {
-      return { type: spec.type, pass: false, detail: `grader threw: ${e.message}` };
+      return { type: spec.type, pass: false, ...(judged && { judged: true }), detail: `grader threw: ${e.message}` };
     }
   });
 }
