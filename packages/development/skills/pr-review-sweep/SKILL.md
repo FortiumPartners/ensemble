@@ -18,9 +18,8 @@ and a sweep starts with the sensitive areas (REQ-003).
 
 This skill owns editable prose only (Rule 8). Every judgement that grades a
 claim -- sensitivity, rules, depth, slice coverage, ledger validity, the
-verification vote -- is made by `pr-review-cli.js` (Rule 7), the same binaries
-`pr-review-cycle` uses, so a sweep finding meets the standard a PR finding does.
-Payload shapes, the inputs table and report contents: `reference/sweep-details.md`.
+verification vote -- is made by `pr-review-cli.js` (Rule 7), as in
+`pr-review-cycle`. Payload shapes, inputs and report contents: `reference/sweep-details.md`.
 
 ---
 
@@ -30,15 +29,17 @@ Payload shapes, the inputs table and report contents: `reference/sweep-details.m
 unreadable is an error, never "everything by default"), `SWEEP_SHA` (a full 40-
 or 64-hex commit id, never a bare ref; guidance is read from THIS commit,
 REQ-024), `REQUESTED_BY` (recorded only), optional `TIER` (absent means `high`),
-optional `MAX_PATHS` (a truncated sweep is never reported as complete), optional
+optional `MAX_PATHS` (truncation gives `SWEEP_PARTIAL`), optional
 `TEST_COMMAND` (reproduction notes; a sweep runs no tests). Table: reference.
 
 ## Outputs
 
 Exactly one of:
 
-- **`SWEEP_COMPLETE`** -- paths examined, slices reviewed, verified findings
-  (all tagged Pre-existing) and what was left for a next run.
+- **`SWEEP_COMPLETE`** -- every path examined and every slice covered; paths
+  examined, slices reviewed, verified findings (all tagged Pre-existing).
+- **`SWEEP_PARTIAL`** -- `MAX_PATHS` truncation or an `uncovered` /
+  `underReviewed` slice left paths unswept: the same report plus those paths.
 - **`SWEEP_BLOCKED`** -- what could not be read or graded, and no findings list.
   A sweep that could not resolve its scope, guidance or verification reports
   that; it never reports a clean repository.
@@ -74,7 +75,8 @@ found, never silently dropped.
 
 Read the guidance a PR review reads, from `SWEEP_SHA`: `policy` with `text` set
 to the content of `REVIEW.md` at `SWEEP_SHA` (`null` when none -- the CLI then
-answers with the strict defaults, which is not the same as no policy); `rules`
+answers with the strict defaults, which is not the same as no policy) and
+`baseSha` and `sourceSha` both `SWEEP_SHA`; `rules`
 over the sweep set with every `REVIEW.md` at `SWEEP_SHA` (`baseSha` and
 `sourceSha` both `SWEEP_SHA`); and `paths` with `declaration`
 is `{ sourceSha: <SWEEP_SHA>, sensitive, high }` (from the policy) and
@@ -94,8 +96,8 @@ Sweep in this order, and report each finding's band:
 
 When `MAX_PATHS` truncates the run, it truncates from the **end** of that
 order: sensitive bands are swept first and completely, and the report names the
-paths left. A sweep that skipped a sensitive path reports
-itself as incomplete, whatever else it found.
+paths left. A sweep that skipped a sensitive path is
+`SWEEP_PARTIAL`.
 
 ### Step 4 -- Depth and slices (CLI `depth`, `slices`)
 
@@ -107,7 +109,7 @@ empty, and never dispatch a plan the CLI refused.
 Run `slices` over the sweep set (`lines` per file; no diff) with the rules and
 sensitive areas, the policy's threshold and `depth`'s `mode`; its `reviewerAssignments`
 are the plan. Then re-run it with `reviewedBy` and `changedPaths` to prove coverage:
-an `uncovered` or `underReviewed` path is reported as unswept, never as clean. Shapes: reference, "Step 4".
+an `uncovered` or `underReviewed` path is reported as unswept (`SWEEP_PARTIAL`), never as clean. Shapes: reference, "Step 4".
 
 ### Step 5 -- Review with the same reviewers (fresh context, read-only)
 
@@ -160,8 +162,7 @@ single-pass review, `verificationCapability: false`, every finding
 
 Report in one place the requester, `SWEEP_SHA`, scope, paths examined in band
 order, slices reviewed, every verified finding (band, path:line, severity,
-`authorLabel`, **Pre-existing** tag), what was left for the next run, and the
-reduced-review notice when verification did not run (reference, "Step 7").
+`authorLabel`, **Pre-existing** tag), what was left for the next run, and the reduced-review notice when verification did not run (reference, "Step 7").
 
 Findings are **not** filed as PRs, commits or issues by this skill; the
 maintainer or host automation decides what becomes work.
@@ -185,7 +186,7 @@ Ensemble ships no `schedule:` trigger of its own (Rule 4).
   records `preExisting: true` for it; untagged, it would read as a fresh
   regression and count as an open Important finding at the merge gate.
 - Sensitive areas are swept first and completely; a truncated run names what it
-  left and never reports itself as complete.
+  left and is `SWEEP_PARTIAL`, never `SWEEP_COMPLETE`.
 - Verification is not optional: an unverified candidate is reported as
   `unverified`, never as a defect the repository must fix, and never dropped.
 - Guidance is the swept commit's copy, read from `SWEEP_SHA` itself, never the

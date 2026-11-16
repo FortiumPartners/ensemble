@@ -44,10 +44,10 @@ compare/stale commands): `reference/eval-details.md`, read when a step names it.
 `evalCasesDir` is **not** an input: read it from the repository policy.
 
 ```bash
-# The policy block of the root REVIEW.md, read from the base commit (REQ-024).
+# Root REVIEW.md policy block from the base commit (REQ-024); sourceSha is that commit.
 node "$PR_REVIEW_CLI" policy <<< "$(jq -n \
   --arg text "$(git show "$BASE_SHA:REVIEW.md" 2>/dev/null)" --arg base "$BASE_SHA" \
-  '{text: $text, baseSha: $base}')"
+  '{text: $text, baseSha: $base, sourceSha: $base}')"
 ```
 
 Use `.policy.evalCasesDir`. When the policy cannot be read the CLI answers with

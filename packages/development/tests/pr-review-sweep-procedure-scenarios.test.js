@@ -263,8 +263,10 @@ function sweep({ repo, sweepSha, scope = ['.'], tier, maxPaths, requestedBy = 'd
   });
 
   // --- Step 7: report ------------------------------------------------------
+  const unswept = coverage.uncovered === undefined ? [] : coverage.uncovered;
   return {
-    outcome: 'SWEEP_COMPLETE',
+    // SKILL.md Outputs: COMPLETE only when nothing was left; truncation or an unswept slice is PARTIAL.
+    outcome: leftForNextRun.length === 0 && unswept.length === 0 ? 'SWEEP_COMPLETE' : 'SWEEP_PARTIAL',
     requestedBy,
     sweepSha: sha,
     scope,
@@ -283,7 +285,7 @@ function sweep({ repo, sweepSha, scope = ['.'], tier, maxPaths, requestedBy = 'd
     depth,
     plan,
     coverage,
-    unswept: coverage.uncovered === undefined ? [] : coverage.uncovered,
+    unswept,
     validated,
     ledger: recorded.findings,
     verification: votes.verification,
@@ -610,6 +612,7 @@ describe('Scenario AC-021-2: sensitive areas (REQ-003) are swept first', () => {
     expect(truncated.examined).toEqual(full.order.slice(0, sensitiveCount));
     expect(truncated.sensitiveSkipped).toEqual([]);
     expect(truncated.complete).toBe(false);
+    expect(truncated.outcome).toBe('SWEEP_PARTIAL');
     expect(truncated.leftForNextRun.length).toBeGreaterThan(0);
     // What was left is named path by path, not summarised as a count.
     for (const left of truncated.leftForNextRun) expect(full.order).toContain(left);
@@ -624,7 +627,7 @@ describe('Scenario AC-021-2: sensitive areas (REQ-003) are swept first', () => {
     expect(truncated.complete).toBe(false);
     expect(truncated.sensitiveSkipped).toContain('packages/payments/lib/refund.js');
     expect(truncated.findings[0].preExisting).toBe(true);
-    expect(SKILL_FLAT).toContain('A sweep that skipped a sensitive path reports itself as incomplete, whatever else it found');
+    expect(SKILL_FLAT).toContain('A sweep that skipped a sensitive path is `SWEEP_PARTIAL`');
   });
 });
 
