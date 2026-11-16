@@ -1,0 +1,46 @@
+#!/bin/sh
+# Stub `helm` for the helm skill eval: no cluster, no network, no chart rendering. It answers a small set of calls with canned
+# text and appends every call it receives (answered or refused) to tool-calls.log in the sandbox root, two levels above this stub and
+# outside the git worktree (the stub kubectl writes to the same file, so the order of helm and kubectl calls is kept). Global flags
+# (--kube-context, -n, -f, --timeout, ...) are skipped to find the verb. A call it cannot simulate (uninstall, rollback, delete,
+# repo, plugin, anything unknown) is logged, refused on stderr and exits 2. The stub does NOT enforce the conventions it is used to
+# measure: no --kube-context, no --atomic and no values file are answered like any other call. It writes no Chart.lock.
+here=$(cd "$(dirname "$0")" && pwd)
+printf 'helm %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../tool-calls.log"
+
+refuse() { echo "helm stub: unsupported call: $*" >&2; exit 2; }
+
+# Verb, then the positional arguments after it; value flags (`--x v`, `-n v`) are skipped, `--x=v` is one token.
+verb=""; p1=""; p2=""; ctx=""; prev=""; dry=""
+for a in "$@"; do
+  if [ -n "$prev" ]; then
+    case "$prev" in --kube-context) ctx="$a" ;; esac
+    prev=""; continue
+  fi
+  case "$a" in
+    --kube-context=*) ctx="${a#--kube-context=}" ;;
+    --dry-run|--dry-run=*) dry=1 ;;
+    --kube-context|--namespace|-n|-f|--values|--set|--set-string|--set-file|--set-json|--timeout|--version|--kubeconfig|--repo|--description|--post-renderer|--post-renderer-args|-o|--output|--kube-apiserver|--kube-as-user|--kube-as-group|--kube-token|--kube-ca-file|--registry-config|--repository-cache|--repository-config|--burst-limit|--api-versions|-a|--kube-version|--name-template|--output-dir|--show-only|-s|--labels|--max-history|--history-max|--set-literal|--username|--password|--cert-file|--key-file|--keyring|--ca-file) prev="$a" ;;
+    -*) ;;
+    *) if [ -z "$verb" ]; then verb="$a"; elif [ -z "$p1" ]; then p1="$a"; elif [ -z "$p2" ]; then p2="$a"; fi ;;
+  esac
+done
+
+case "$ctx" in ""|dev-sandbox|shop-staging|shop-prod) ;; *) echo "Error: context \"$ctx\" does not exist" >&2; exit 1 ;; esac
+
+chart_ok() { [ -f "$1/Chart.yaml" ] || { echo "Error: path \"$1\" not found (no Chart.yaml)" >&2; exit 1; }; }
+
+case "$verb" in
+  version) echo 'version.BuildInfo{Version:"v3.16.0 (stub)"}'; exit 0 ;;
+  lint) chart_ok "${p1:-.}"; echo "==> Linting ${p1:-.}"; echo "1 chart(s) linted, 0 chart(s) failed"; exit 0 ;;
+  template) chart_ok "${p2:-$p1}"; echo "# rendered by the helm stub: output not simulated"; exit 0 ;;
+  upgrade|install)
+    chart_ok "$p2"
+    if [ -n "$dry" ]; then echo "(stub) dry run: release \"$p1\" not changed"; exit 0; fi
+    echo "Release \"$p1\" has been installed (stub; nothing deployed)."; exit 0 ;;
+  dependency|dep) case "$p1" in update|up|build|list) chart_ok "${p2:-.}"; echo "(stub) dependencies handled; no Chart.lock is written"; exit 0 ;; esac; refuse "$@" ;;
+  list|ls) echo "NAME   NAMESPACE   REVISION   STATUS   (stub)"; exit 0 ;;
+  status) echo "Error: release: not found" >&2; exit 1 ;;
+  history) echo "Error: release: not found" >&2; exit 1 ;;
+esac
+refuse "$@"
