@@ -11,8 +11,18 @@ node evals/run.js --max-usd 5                   # all scenarios
 node evals/run.js --concurrency 2 --timeout 600 --keep-workspace
 node evals/run.js --skill <skill> --runtime claude --repeats 3   # with-skill and baseline arms, repeated
 node evals/run.js --skill <skill> --model <id> --refresh         # ignore stored results, run fresh
+npm run evals:coverage                                           # which shipped skills have an eval (same report the workflow uploads)
 npm run evals:compare                                            # newest results log vs the committed baselines (read-only)
+npm run evals:compare -- --skill <skill>                         # only that skill
 ```
+
+## CI (on demand, advisory)
+
+`.github/workflows/evals.yml` is `workflow_dispatch` only: a maintainer runs it from the Actions tab with the inputs `skill` (blank = the full suite), `runtime` (`claude` or `pi`), `model` and `max_usd` (plus the legacy `scenario`). There is no `push`, `pull_request` or `schedule` trigger, so a change to a skill or an eval never runs it on its own. Its steps are the same entry points a maintainer runs locally with the same arguments: `npm run evals -- --runtime <runtime> --model <model> --max-usd <usd> [--skill <skill>]`, then `npm run evals:coverage`, then `npm run evals:compare [-- --skill <skill>]`. `evals/results/` (the log and the report) is uploaded as the `eval-results` artifact.
+
+- **Advisory.** A regression makes the `Regression check` step fail (exit 1, naming skill and eval) and the run shows red, but the regression check is advisory: the evals workflow is not a required status check on any protected branch and blocks no merge. Do not add it as one.
+- **Credential guard.** Inputs reach the shell only as environment variables (`EVAL_SKILL`, `EVAL_RUNTIME`, `EVAL_MODEL`, `EVAL_MAX_USD`), never expanded inside a script body. The job and the step that reads `secrets.ANTHROPIC_API_KEY` run only when `github.repository` is this repository and `github.ref` is `refs/heads/main` or `refs/heads/dev`; a fork's dispatch, a tag, a pull ref and an unmerged feature branch get no secrets (a dispatch runs the code at its ref with the key). `.github/CODEOWNERS` has an explicit `/evals/` owner so an eval or fixture change is reviewed like code when proposed for those branches. Permissions are `contents: read`.
+- **The gate can fail.** `evals/tests/regression-gate.test.js` copies a skill package, breaks one instruction, runs a content-sensitive stub against a reliable baseline and requires the check to fail (and to pass again once the defect is removed).
 
 Agent scenarios shell out to `claude -p` through the Claude adapter (`lib/runners/claude.js`: stream-json, `--setting-sources project`, `--plugin-dir packages/<pkg>`, `--max-turns`, `--allowedTools`, `--permission-mode`) inside a throwaway git repo built from the scenario fixture under `EVALS_WORKDIR`. `cli` scenarios run no model.
 

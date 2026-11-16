@@ -43,9 +43,10 @@ function createSuite() {
 
   /**
    * One run.js invocation. opts: { model (id the stub reports; null = none), pass (with-skill arm writes SUMMARY.md), leak (the baseline arm lists the
-   * skill), die (every call exits 1 after being logged: "fails if called"), env }.
+   * skill), die (every call exits 1 after being logged: "fails if called"), requireInSkill (a content-sensitive with-skill arm: SUMMARY.md is written only when
+   * the SKILL.md under the --plugin-dir it was given contains this text), env }.
    */
-  function run(args = ['--repeats', '2', '--concurrency', '1', '--model', 'claude-stub-1'], { model = 'claude-stub-1', pass = true, leak = false, die = false, hang = false, passSeq = null, env = {}, scenario = true } = {}) {
+  function run(args = ['--repeats', '2', '--concurrency', '1', '--model', 'claude-stub-1'], { model = 'claude-stub-1', pass = true, leak = false, die = false, hang = false, passSeq = null, requireInSkill = null, env = {}, scenario = true } = {}) {
     fs.mkdirSync(sub('bin'), { recursive: true });
     fs.rmSync(sub('seq.count'), { force: true });
     const emit = (lines) => lines.map((l) => `echo '${l.replace(/'/g, "'\\''")}'`).join('\n');
@@ -55,7 +56,8 @@ function createSuite() {
 case "$*" in *--plugin-dir*) echo with-skill >> '${sub('calls.log')}';; *) echo baseline >> '${sub('calls.log')}';; esac
 ${die ? 'exit 1' : ''}
 ${hang ? 'sleep 30' : ''}
-case "$*" in *--plugin-dir*) ${passSeq ? `n=$(cat '${sub('seq.count')}' 2>/dev/null || echo 0); n=$((n+1)); echo $n > '${sub('seq.count')}'
+case "$*" in *--plugin-dir*) ${requireInSkill ? `d=''; prev=''; for a in "$@"; do if [ "$prev" = --plugin-dir ]; then d="$a"; fi; prev="$a"; done
+if grep -q -F -e '${requireInSkill.replace(/'/g, "'\\''")}' "$d/skills/${SKILL}/SKILL.md" 2>/dev/null; then echo ok > SUMMARY.md; fi` : passSeq ? `n=$(cat '${sub('seq.count')}' 2>/dev/null || echo 0); n=$((n+1)); echo $n > '${sub('seq.count')}'
 case "$n" in ${passSeq.map((ok, i) => (ok ? i + 1 : null)).filter(Boolean).join('|') || 'none'}) echo ok > SUMMARY.md;; esac` : pass ? 'echo ok > SUMMARY.md' : ':'}
 ${emit(withLines)};;
 *) ${emit(baseLines)};;
