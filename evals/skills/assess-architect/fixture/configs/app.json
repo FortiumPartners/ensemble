@@ -1,0 +1,6 @@
+{
+  "port": 3000,
+  "database": { "url": "postgres://orderdesk@localhost:5432/orderdesk", "poolMax": 5 },
+  "cache": { "url": "redis://localhost:6379", "ttlSeconds": 60 },
+  "queue": { "name": "order-emails", "concurrency": 1 }
+}
