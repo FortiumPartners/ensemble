@@ -1,0 +1,77 @@
+{
+  "id": "incident-triage",
+  "skill": "incident-triage",
+  "description": "A non-interactive triage of a reported production incident (checkout 503s after a release; the fixture's ops/ files hold the deploy log, alerts and the cause's config change) leaves a blameless postmortem at docs/postmortems/<YYYY-MM-DD>-<slug>.md with the template's sections, a UTC timeline taken from the supplied records, unknowns marked unknown, a root cause with a confidence word, no recovery claim without a rollback and smoke test, proposed action items with no bead created, and no production code changed. Limits: the checks assert structure and a few planted facts, not the quality of the diagnosis; no gh, release-agent or smoke-test-runner is available in the sandbox, so stabilisation (rollback, approval) is not exercised; the git history is the fixture's single commit, so the timeline can only come from the ops/ files. The skill is plain (found by the model, no command), so the with-skill arm loads packages/quality; the baseline arm gets a plain prompt without the plugin's conventions (file location, template sections, blameless rule, bead rule), so the uplift measures those conventions. Claude only: the skill reads a sibling template through skill://, which Pi loading a single SKILL.md may not resolve (unproven).",
+  "runtimes": ["claude"],
+  "prompt": "Production incident: customers report checkout failures (503s) since the afternoon release on 2026-11-10, and it is still failing. The on-call notes and records are in ops/ (start with ops/incident-report.md). Triage it and write up the incident.\n\nThis is a non-interactive run: ask no questions, there is no one to approve anything, so make no production change and create no tickets or issues (list proposed follow-up actions in the write-up instead). There is no network and no gh. Change no source code. Save the write-up under docs/postmortems/.",
+  "invocation": "plain",
+  "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+  "maxTurns": 30,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' postmortem-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' postmortem-sections",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' timeline-from-records --times 14:02,14:09",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' unknowns-marked",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' root-cause --evidence pool",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' blameless --people dana,whitfield,tomas,okafor",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' recovery-not-overclaimed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' actions-proposed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' no-beads-created",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": ["\\b(?:br|bd)\\s+create\\b(?!\\s+(?:--help|-h)\\b)"]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/incident-triage.js' no-production-change --file src/db.js --contains 'POOL_SIZE = 5;' --seeded README.md,ops/README.md,ops/incident-report.md,ops/deploy-log.txt,ops/alerts.log,src/db.js",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
