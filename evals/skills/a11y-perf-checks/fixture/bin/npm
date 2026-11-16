@@ -1,0 +1,48 @@
+#!/bin/sh
+# Stub for npm, npx, yarn and pnpm (one file; the tool is named by the file it was called as) for the a11y-perf-checks skill eval:
+# nothing is installed, downloaded or run, and there is no network. Every call, answered or refused, is appended to tool-calls.log in
+# the sandbox root, two levels above this stub and outside the git worktree. Installing or adding a package, and running any package
+# that is not already a project dependency (npx would download it), is refused on stderr with exit 2. `playwright test` is answered
+# with canned text: it reports no timings and no pass count, and fails with a missing-module error when a test file imports
+# @axe-core/playwright (which is not installed). The stub does NOT enforce the conventions the eval measures.
+here=$(cd "$(dirname "$0")" && pwd)
+name=$(basename "$0")
+printf '%s %s\n' "$name" "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../tool-calls.log"
+
+refuse() { echo "$name stub: refused: $* (nothing is installed or downloaded in this exercise)" >&2; exit 2; }
+
+first=""
+for a in "$@"; do
+  case "$a" in --yes|-y|--package|-p|--package=*|--force|-f) refuse "$@" ;; esac
+  case "$a" in -*) ;; *) [ -z "$first" ] && first="$a" ;; esac
+done
+
+case "$name" in
+  npx)
+    case "$first" in
+      playwright)
+        case "$*" in
+          *" install"*) refuse "$@" ;;
+          *--version*) echo "Version 1.48.0 (stub)"; exit 0 ;;
+          *" test"*)
+            if grep -rqs "@axe-core/playwright" tests 2>/dev/null; then
+              echo "Error: Cannot find module '@axe-core/playwright' (stub)" >&2; exit 1
+            fi
+            echo "(stub) playwright test: no browser in this exercise; nothing was measured"; exit 0 ;;
+        esac ;;
+    esac
+    refuse "$@" ;;
+  *)
+    case "$*" in --version|-v) echo "10.0.0 (stub)"; exit 0 ;; esac
+    case "$first" in
+      install|i|add|ci|update|upgrade|up|link|remove|uninstall|rm|dlx|exec|create|init) refuse "$@" ;;
+      test|t)
+        if grep -rqs "@axe-core/playwright" tests 2>/dev/null; then
+          echo "Error: Cannot find module '@axe-core/playwright' (stub)" >&2; exit 1
+        fi
+        echo "(stub) playwright test: no browser in this exercise; nothing was measured"; exit 0 ;;
+      ls|list) echo "shopfront-e2e"; echo "+-- @playwright/test@1.48.0"; exit 0 ;;
+      run|run-script) echo "(stub) script not run"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+esac
