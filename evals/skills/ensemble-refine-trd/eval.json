@@ -1,0 +1,100 @@
+{
+  "id": "ensemble-refine-trd",
+  "skill": "ensemble-refine-trd",
+  "description": "A non-interactive refine-trd run (--foreman, explicit TRD path) on a seeded PR-format slugify TRD that has deliberate defects (a task with no [satisfies], a task with no paired TRD-NNN-TEST, a ### PR heading with no Shippable State line, a stale traceability matrix, no Design Readiness score) refines the TRD in place: version 1.0.0 becomes 1.0.1, Document ID and Label are unchanged, the changelog gains an entry and keeps the old one, no task is removed and every task keeps its checkbox prefix, each seeded defect is fixed, and the PRD and the source tree are untouched. trd-cli must still parse the TRD. The fixture carries a minimal docs/standards/constitution.md and the locked PRD the TRD cites. Claude only: the skill resolves trd-cli through the tool-path-resolution tiers, which fail on Pi in a sandbox without an ensemble-pi bundle. The checks cover structure and preservation, not whether the chosen defaults are good, and the skill's closing go/no-go and printed summary are not checked. Command-driven (explicit invocation), so the uplift measures the plugin's conventions as much as the skill: the baseline arm is expected to measure the plugin's conventions (version bump, changelog, Shippable State), which it is not told.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/TRD/TRD-2026-c3d4e5f6-slugify.md --foreman\n\nThis is a non-interactive run: ask no questions, apply the best default for every gap you find (or leave a [NEEDS CLARIFICATION] marker where no safe default exists), and update the TRD in place. Change only the TRD. Do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:refine-trd",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 60,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "trdParses",
+      "path": "docs/TRD"
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' refine-in-place --name TRD-2026-c3d4e5f6-slugify.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' refine-identity --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --doc-id TRD-2026-c3d4e5f6 --label trd-slugify",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' refine-version --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --from 1.0.0 --to 1.0.1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' refine-changelog --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --from 1.0.0 --to 1.0.1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' tasks-kept --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --tasks TRD-001,TRD-001-TEST,TRD-002,TRD-003,TRD-003-TEST",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' task-links --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --reqs REQ-001,REQ-002,REQ-003 --task TRD-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' test-paired --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --task TRD-002",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' shippable --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' traceability --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md --reqs REQ-001,REQ-002,REQ-003 --ids TRD-002-TEST",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' readiness --file docs/TRD/TRD-2026-c3d4e5f6-slugify.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' prd-untouched --file docs/PRD/PRD-2026-b2c3d4e5-slugify.md --version 1.0.1 --status Locked",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-refine-trd.js' no-impl-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
