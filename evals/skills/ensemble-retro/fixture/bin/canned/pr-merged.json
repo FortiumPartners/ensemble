@@ -1,0 +1,9 @@
+[
+  {"number": 10, "title": "Release v1.0.0", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/10", "baseRefName": "main", "headRefName": "release/v1.0.0", "mergedAt": "2026-09-30T12:00:00Z"},
+  {"number": 11, "title": "Baseline invoice report", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/11", "baseRefName": "main", "headRefName": "feature/baseline-report", "mergedAt": "2026-09-20T10:00:00Z"},
+  {"number": 12, "title": "Add CSV export", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/12", "baseRefName": "main", "headRefName": "feature/csv-export", "mergedAt": "2026-10-02T09:00:00Z"},
+  {"number": 13, "title": "Escape quotes in CSV cells", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/13", "baseRefName": "main", "headRefName": "fix/csv-quotes", "mergedAt": "2026-10-05T13:00:00Z"},
+  {"number": 14, "title": "Add JSON export", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/14", "baseRefName": "main", "headRefName": "feature/json-export", "mergedAt": "2026-10-07T12:00:00Z"},
+  {"number": 15, "title": "Streaming writer and pagination", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/15", "baseRefName": "main", "headRefName": "feature/streaming", "mergedAt": "2026-10-12T00:00:00Z"},
+  {"number": 16, "title": "Hotfix timezone in the CSV header", "state": "MERGED", "url": "https://github.com/example-org/export-service/pull/16", "baseRefName": "main", "headRefName": "fix/csv-timezone", "mergedAt": "2026-10-18T02:00:00Z"}
+]
