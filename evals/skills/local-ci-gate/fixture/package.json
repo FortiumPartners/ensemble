@@ -1,0 +1,8 @@
+{
+  "name": "shopcart",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "ci:local": "node tests/cart.cases.js"
+  }
+}

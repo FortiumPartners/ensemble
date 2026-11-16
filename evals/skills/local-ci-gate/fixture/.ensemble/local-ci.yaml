@@ -1,0 +1,13 @@
+# Approval set for the local CI gate of this repository (eval fixture).
+workflows:
+  - file: .github/workflows/ci.yml
+    jobs:
+      - id: test
+        matrix:
+          node-version: [22]
+
+steps:
+  - name: smoke
+    cmd: "true"
+
+status_context: ensemble/local-ci
