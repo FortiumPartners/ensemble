@@ -1,0 +1,126 @@
+#!/bin/sh
+# Stub `gh` for the pr-review-cycle eval: ONE open pull request (31 on example/shopcart, head feat/shipping-threshold, base main,
+# author ada-dev), answered locally with no network and no GitHub. Read verbs answer; every verb that would change a pull request, a
+# comment, a review or the repository is REFUSED (exit 2); any read this stub has no answer for is UNSUPPORTED (exit 2). The head
+# SHA is whatever the local branch feat/shipping-threshold points at, read with `git rev-parse` at call time (the harness's setup
+# step makes that branch; this stub changes no ref). Every call is appended to gh-calls.log in the sandbox root (two levels above
+# this stub, outside the git worktree), prefixed `OK` when answered, `REFUSED` when it would change something, `UNSUPPORTED` for any
+# other call. Arguments are folded to one line so a crafted one cannot fake another call.
+here=$(cd "$(dirname "$0")" && pwd)
+canned="$here/canned"
+proj="$here/.."
+log="$here/../../gh-calls.log"
+line=$(printf '%s' "$*" | tr '\n\r' '  ')
+branch=feat/shipping-threshold
+repo=example/shopcart
+
+refuse() {
+  case "$1 $2" in
+    "pr review"|"pr comment"|"pr merge"|"pr edit"|"pr close"|"pr reopen"|"pr ready"|"pr create"|"pr checkout"|"pr lock"|"pr unlock"|"pr update-branch"|"issue "*|"release "*|"label "*|"repo edit"|"repo delete"|"repo create"|"workflow run")
+      printf 'REFUSED %s\n' "$line" >> "$log" ;;
+    "api "*)
+      case "$*" in
+        *-X*|*--method*|*POST*|*PATCH*|*PUT*|*DELETE*|*mutation*|*" -f "*|*" -F "*|*--field*|*--raw-field*|*--input*) printf 'REFUSED %s\n' "$line" >> "$log" ;;
+        *) printf 'UNSUPPORTED %s\n' "$line" >> "$log" ;;
+      esac ;;
+    *) printf 'UNSUPPORTED %s\n' "$line" >> "$log" ;;
+  esac
+  echo "gh stub: refused or unsupported call: $*" >&2
+  exit 2
+}
+ok() { printf 'OK %s\n' "$line" >> "$log"; }
+
+head_sha() { git -C "$proj" rev-parse --verify --quiet "refs/heads/$branch" 2>/dev/null; }
+
+case "$*" in *--jq*|*" -q "*) has_jq=1 ;; *) has_jq=0 ;; esac
+case "$*" in *--json*) has_json=1 ;; *) has_json=0 ;; esac
+case "$*" in *--slurp*) slurp=1 ;; *) slurp=0 ;; esac
+
+# the whole pull request object; a caller asking for some fields gets all of them, a superset
+pr_object() {
+  sha=$(head_sha)
+  [ -n "$sha" ] || { echo "gh stub: no head for the pull request" >&2; exit 1; }
+  printf '{"number":31,"title":"Add a free-shipping threshold and a price formatter","state":"OPEN","isDraft":false,"isCrossRepository":false,"baseRefName":"main","headRefName":"%s","headRefOid":"%s","url":"https://github.com/%s/pull/31","author":{"login":"ada-dev"},"body":"Adds a free-shipping threshold to the cart helpers and a formatCents helper for display.\\n\\nTesting: npm test.","reviews":[],"comments":[],"reviewDecision":"","statusCheckRollup":[],"files":[{"path":"src/cart.js"},{"path":"src/format.js"}],"mergeable":"MERGEABLE"}\n' "$branch" "$sha" "$repo"
+}
+
+case "$1" in
+  --version) ok; echo "gh version 2.103.2 (stub)"; exit 0 ;;
+  auth)
+    case "$2" in status) ok; echo "github.com: Logged in as stub-viewer (stub)"; exit 0 ;; esac
+    refuse "$@" ;;
+  repo)
+    case "$2" in
+      view)
+        if [ "$has_jq" = 1 ]; then
+          case "$*" in
+            *".nameWithOwner"*) ok; echo "$repo"; exit 0 ;;
+            *".defaultBranchRef.name"*) ok; echo main; exit 0 ;;
+          esac
+          refuse "$@"
+        fi
+        ok; cat "$canned/repo-view.json"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+  pr)
+    case "$2" in
+      list)
+        case "$*" in *--state*closed*|*--state*merged*|*--draft*) refuse "$@" ;; esac
+        [ "$has_jq" = 1 ] && refuse "$@"
+        ok
+        if [ "$has_json" = 1 ]; then printf '['; pr_object | tr -d '\n'; printf ']\n'; else printf '31\tAdd a free-shipping threshold and a price formatter\tfeat/shipping-threshold\tOPEN\n'; fi
+        exit 0 ;;
+      view)
+        n=
+        for a in "$@"; do case "$a" in ''|*[!0-9]*) ;; *) n=$a; break ;; esac; done
+        [ "$n" = 31 ] || refuse "$@"
+        if [ "$has_jq" = 1 ]; then
+          case "$*" in
+            *"[(.number|tostring), .url, .state, .baseRefName, .headRefName, .statusCheckRollup]"*) ok; printf '["31","https://github.com/%s/pull/31","OPEN","main","%s",[]]\n' "$repo" "$branch"; exit 0 ;;
+            *".headRefOid"*) ok; head_sha; exit 0 ;;
+            *".baseRefName"*) ok; echo main; exit 0 ;;
+            *".state"*) ok; echo OPEN; exit 0 ;;
+            *".headRefName"*) ok; echo "$branch"; exit 0 ;;
+            *".title"*) ok; echo "Add a free-shipping threshold and a price formatter"; exit 0 ;;
+          esac
+          refuse "$@"
+        fi
+        ok
+        if [ "$has_json" = 1 ]; then pr_object; else printf 'title:\tAdd a free-shipping threshold and a price formatter\nstate:\tOPEN\nauthor:\tada-dev\nbase:\tmain\nhead:\t%s\n' "$branch"; fi
+        exit 0 ;;
+      diff)
+        n=
+        for a in "$@"; do case "$a" in ''|*[!0-9]*) ;; *) n=$a; break ;; esac; done
+        [ "$n" = 31 ] || refuse "$@"
+        ok
+        case "$*" in
+          *--name-only*) git -C "$proj" diff --name-only "main...$branch" ;;
+          *) git -C "$proj" diff "main...$branch" ;;
+        esac
+        exit 0 ;;
+      checks)
+        ok
+        if [ "$has_json" = 1 ]; then echo '[]'; else echo "no checks reported on the '$branch' branch" >&2; exit 1; fi
+        exit 0 ;;
+      status) ok; echo "no checks reported on the '$branch' branch" >&2; exit 1 ;;
+    esac
+    refuse "$@" ;;
+  api)
+    case "$*" in
+      *-X*|*--method*|*POST*|*PATCH*|*PUT*|*DELETE*|*mutation*|*" -f "*|*" -F "*|*--field*|*--raw-field*|*--input*) refuse "$@" ;;
+    esac
+    case "$*" in
+      *"/branches/main/protection"*) ok; echo '{"message":"Branch not protected","status":"404"}'; echo 'gh: Branch not protected (HTTP 404)' >&2; exit 1 ;;
+      *"/pulls/31/reviews"*|*"/pulls/31/comments"*|*"/issues/31/comments"*|*"/commits/"*"/statuses"*)
+        ok; if [ "$slurp" = 1 ]; then echo '[[]]'; else echo '[]'; fi; exit 0 ;;
+      *"/commits/"*"/check-runs"*) ok; echo '{"total_count":0,"check_runs":[]}'; exit 0 ;;
+      *"/git/commits/"*)
+        sha=
+        for a in "$@"; do case "$a" in */git/commits/*) sha=${a##*/git/commits/} ;; esac; done
+        tree=$(git -C "$proj" rev-parse --verify --quiet "$sha^{tree}" 2>/dev/null) || refuse "$@"
+        ok; printf '{"sha":"%s","tree":{"sha":"%s"}}\n' "$sha" "$tree"; exit 0 ;;
+      *"/pulls/31") ok; pr_object; exit 0 ;;
+      "api user"|"api user "*) ok; echo '{"login":"stub-viewer","type":"User"}'; exit 0 ;;
+    esac
+    refuse "$@" ;;
+esac
+refuse "$@"
