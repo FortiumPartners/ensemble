@@ -1,0 +1,8 @@
+{
+  "name": "slugify",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "sh scripts/test.sh"
+  }
+}

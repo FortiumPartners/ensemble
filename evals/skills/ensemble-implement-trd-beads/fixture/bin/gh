@@ -1,0 +1,28 @@
+#!/bin/sh
+# Stub `gh` for the ensemble-implement-trd-beads plan-scope eval. No network, no GitHub. Phase 1 (preflight) only needs the host
+# adapter's health checks (`--version`, `auth status`) and, at most, a read of the repo or an empty PR list; Phase 2 makes no gh call.
+# Every call is appended to gh-calls.log in the sandbox root, two levels above this stub and outside the git worktree. Any call this stub
+# does not know FAILS CLOSED: message on stderr, exit 2 (and it is still logged, so a check can see the attempt). `pr create` is deliberately
+# NOT answered: nothing is to be published at plan scope.
+here=$(cd "$(dirname "$0")" && pwd)
+# One line per call: the full argv, with any newline or carriage return folded to a space (a multi-line argument cannot fake another call).
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../gh-calls.log"
+
+unsupported() {
+  echo "gh stub: unsupported call: $*" >&2
+  exit 2
+}
+
+case "$1" in
+  --version) echo "gh version 2.103.2 (stub)"; exit 0 ;;
+  auth)
+    case "$2" in status) echo "github.com: Logged in as stub (stub)"; exit 0 ;; esac
+    unsupported "$@" ;;
+  repo)
+    case "$2" in view) echo '{"nameWithOwner":"example/slugify","name":"slugify","owner":{"login":"example"},"defaultBranchRef":{"name":"main"}}'; exit 0 ;; esac
+    unsupported "$@" ;;
+  pr)
+    case "$2" in list) echo '[]'; exit 0 ;; esac
+    unsupported "$@" ;;
+esac
+unsupported "$@"
