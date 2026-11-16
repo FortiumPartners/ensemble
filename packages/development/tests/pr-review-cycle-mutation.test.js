@@ -694,7 +694,7 @@ describe('Guard 5: Foreman artifact written before the HALT (fix-issue skill)', 
 });
 
 // ---------------------------------------------------------------------------
-// Guard 7 -- the ensemble-implement-trd-beads skill (the command is skill-backed; its prompt is
+// Guard 7 -- the ensemble-implement-trd-tasks skill (the command is skill-backed; its prompt is
 // SKILL.md plus one references/phase-N-*.md per phase):
 //   7a) the stacked-story `br close` is deferred until after the PR Review
 //       Gate returns LOCAL_REVIEW_COMPLETE.
@@ -704,24 +704,24 @@ describe('Guard 5: Foreman artifact written before the HALT (fix-issue skill)', 
 
 // The manifest, the whole skill (SKILL.md + references/), the contract test and its helpers.
 const IMPLEMENT_TRD_BEADS_FILES = [
-  'commands/implement-trd-beads.yaml',
-  'skills/ensemble-implement-trd-beads',
-  'skills/implement-trd-beads-reference',
-  'tests/implement-trd-beads-command.test.js',
+  'commands/implement-trd-tasks.yaml',
+  'skills/ensemble-implement-trd-tasks',
+  'skills/implement-trd-tasks-reference',
+  'tests/implement-trd-tasks-command.test.js',
   'tests/helpers/skill-workflow.js',
   'lib',
 ];
-const IMPLEMENT_TRD_BEADS_PHASE_4 = 'skills/ensemble-implement-trd-beads/references/phase-4-quality-gate.md';
-const IMPLEMENT_TRD_BEADS_PHASE_5 = 'skills/ensemble-implement-trd-beads/references/phase-5-completion.md';
+const IMPLEMENT_TRD_BEADS_PHASE_4 = 'skills/ensemble-implement-trd-tasks/references/phase-4-quality-gate.md';
+const IMPLEMENT_TRD_BEADS_PHASE_5 = 'skills/ensemble-implement-trd-tasks/references/phase-5-completion.md';
 
-describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement-trd-beads skill)', () => {
+describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement-trd-tasks skill)', () => {
   proveGuardMutationIsCaught({
     id: 'Guard 7a',
     label:
       'Scenario 7a: swapping which branch runs the deferred story close -- "a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE" fails against the mutant',
     files: IMPLEMENT_TRD_BEADS_FILES,
     targetRel: IMPLEMENT_TRD_BEADS_PHASE_4,
-    testFileRel: 'tests/implement-trd-beads-command.test.js',
+    testFileRel: 'tests/implement-trd-tasks-command.test.js',
     testTitle: 'a stacked story is not closed until its PR review gate returns LOCAL_REVIEW_COMPLETE',
     // Swap just the two branch labels in place: the deferred `br close` prose now hangs off the BLOCKED branch and
     // the stays-OPEN prose now hangs off the COMPLETE branch -- the story closes exactly when it must stay open.
@@ -735,7 +735,7 @@ describe('Guard 7: stacked-close deferral and single-PR gate ordering (implement
       'Scenario 7b: swapping the Epic Closure and PR Review Completion Check step titles -- "completion-verification stays authoritative" fails against the mutant',
     files: IMPLEMENT_TRD_BEADS_FILES,
     targetRel: IMPLEMENT_TRD_BEADS_PHASE_5,
-    testFileRel: 'tests/implement-trd-beads-command.test.js',
+    testFileRel: 'tests/implement-trd-tasks-command.test.js',
     testTitle: 'completion-verification stays authoritative',
     // Swap just the two step headings in place (the reference file's `#### Step N.M: <title>` lines): the Completion phase's step order now reads ['Completion Verification',
     // 'Epic Closure', 'PR Review Completion Check', ...] -- the whole-branch local gate no longer precedes epic closure.

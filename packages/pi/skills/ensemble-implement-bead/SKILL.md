@@ -2,7 +2,7 @@
 name: ensemble-implement-bead
 description: >-
   Implement one bead by ID on a feature branch using the same branching and
-  commit policy as beads-build and implement-trd-beads, opening its change
+  commit policy as beads-build and implement-trd-tasks, opening its change
   request through the configured host adapter
 disable-model-invocation: true
 metadata:
@@ -17,7 +17,7 @@ that /ensemble-beads-build uses for an epic; branching and the change request
 go through the workflow.*/host.* toolchain capabilities (see Preflight) rather
 than beads-build's own resolve-sdlc branching/PR_BACKEND policy. Use
 /ensemble-beads-build for an epic or any multi-bead scope and
-/ensemble-implement-trd-beads for a TRD.
+/ensemble-implement-trd-tasks for a TRD.
 
 Rules shared with the other engines: all bead reads/writes go through the tracker.*
 toolchain capabilities (resolved via toolchain-cli; never a direct tracker-binary

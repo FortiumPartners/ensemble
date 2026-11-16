@@ -78,7 +78,7 @@ describe('opting out', () => {
     ['standard', false],
     ['  BDD-Reqnroll ', true],
     ['STANDARD', false],
-  ])('TRD test_approach %j -> %s, with no flag or env needed (implement-trd-beads honours create-trd\'s opt-out)', (stamp, enabled) => {
+  ])('TRD test_approach %j -> %s, with no flag or env needed (implement-trd-tasks honours create-trd\'s opt-out)', (stamp, enabled) => {
     const trd = trdWith(tmp(), stamp);
     expect(resolveBdd({ env: {}, trdPath: trd })).toMatchObject({ enabled, source: 'trd', evidence: trd.split(path.sep).join('/') });
   });

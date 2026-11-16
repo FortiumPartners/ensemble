@@ -3,7 +3,7 @@
 // TRD-021-TEST: Jest coverage for ac-gap-task-filer.js's implementing-author
 // resolution and confirmed-AC-gap Task filing (REQ-010). AC references:
 //   - AC-010-1: a filed Task's description carries the confirmed gap AND the
-//     refine-trd -> implement-trd-beads resolution suggestion.
+//     refine-trd -> implement-trd-tasks resolution suggestion.
 //   - AC-010-2: two gaps confirmed in one session produce two
 //     independently-tracked Tasks -- never bundled into one.
 
@@ -139,7 +139,7 @@ describe('planGapTaskFiling', () => {
         'Playwright test authoring for AC-009-1 (REQ-009) found a confirmed implementation gap:\n\n' +
         'handler is a 501 stub; described validation logic does not exist yet\n\n' +
         'Suggested resolution: run `refine-trd` to update the TRD so this gap is captured as a task, ' +
-        'then `implement-trd-beads` to implement the fix (a `refine-trd` -> `implement-trd-beads` cycle).',
+        'then `implement-trd-tasks` to implement the fix (a `refine-trd` -> `implement-trd-tasks` cycle).',
       assignedTo: { resolved: true, name: 'Ada Lovelace', email: 'ada@example.com' },
       parentWorkItemId: '4821',
       acId: 'AC-009-1',
@@ -151,7 +151,7 @@ describe('planGapTaskFiling', () => {
     }
   });
 
-  test('AC-010-1: description carries the refine-trd -> implement-trd-beads suggestion, in that order', () => {
+  test('AC-010-1: description carries the refine-trd -> implement-trd-tasks suggestion, in that order', () => {
     const filed = planGapTaskFiling({
       acId: 'AC-009-1',
       reqId: 'REQ-009',
@@ -161,9 +161,9 @@ describe('planGapTaskFiling', () => {
     });
 
     expect(filed.description).toMatch(/run `refine-trd` to update the TRD/);
-    expect(filed.description).toMatch(/then `implement-trd-beads` to implement the fix/);
-    expect(filed.description).toMatch(/`refine-trd` -> `implement-trd-beads` cycle/);
-    expect(filed.description.indexOf('refine-trd')).toBeLessThan(filed.description.indexOf('implement-trd-beads'));
+    expect(filed.description).toMatch(/then `implement-trd-tasks` to implement the fix/);
+    expect(filed.description).toMatch(/`refine-trd` -> `implement-trd-tasks` cycle/);
+    expect(filed.description.indexOf('refine-trd')).toBeLessThan(filed.description.indexOf('implement-trd-tasks'));
   });
 
   test('resolved author -> assignedTo carries name/email as-is', () => {

@@ -3,7 +3,7 @@
  *
  * The parser processes the `team:` section from a command YAML file and
  * returns a normalized team configuration object used to drive TEAM_MODE
- * execution in the implement-trd-beads workflow.
+ * execution in the implement-trd-tasks workflow.
  */
 
 'use strict';

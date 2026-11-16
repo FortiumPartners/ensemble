@@ -6,7 +6,7 @@
  * Verifies TRD-037. Satisfies REQ-023, REQ-024.
  * Validates PRD ACs: AC-023-1, AC-023-2, AC-023-3, AC-024-2.
  *
- *   - AC-023-1 Given `fix-issue`, `implement-trd-beads` or `pr-merge` reaches
+ *   - AC-023-1 Given `fix-issue`, `implement-trd-tasks` or `pr-merge` reaches
  *     its review step, when it runs, then it exercises the verified-findings,
  *     convergence and tier behaviour (not just unit-tested code that nothing
  *     calls).

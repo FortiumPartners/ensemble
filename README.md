@@ -38,8 +38,8 @@ Then, in a project:
 ```text
 /ensemble-full:ensemble-create-prd "short product description"
 /ensemble-full:ensemble-create-trd <prd-path>
-/ensemble-full:ensemble-implement-trd-beads <trd-path> --plan
-/ensemble-full:ensemble-implement-trd-beads <trd-path> --execute
+/ensemble-full:ensemble-implement-trd-tasks <trd-path> --plan
+/ensemble-full:ensemble-implement-trd-tasks <trd-path> --execute
 ```
 
 `/ensemble-full:ensemble-feature new <idea>` runs the same idea-to-PR flow as one resumable, checkpointed run. For a read-only look at a repository, run `/ensemble-full:ensemble-assess repo`.
@@ -201,7 +201,7 @@ A command's prompt lives in a skill (`packages/<pkg>/skills/ensemble-<name>/SKIL
 
 | Command | Arguments | Package | Purpose |
 |---------|-----------|---------|---------|
-| `/ensemble:implement-trd-beads` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman]`, or `<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]` | development | TRD implementation on a persistent bead hierarchy |
+| `/ensemble:implement-trd-tasks` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman]`, or `<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]` | development | TRD implementation on a persistent bead hierarchy |
 | `/ensemble:beads-build` | `[epic-id\|slug-pattern] [--trd trd-path] [--strategy <name>] [--label <label>] [max parallel N]` | development | Drive an existing hierarchy to completion through builder, review and close |
 | `/ensemble:implement-bead` | `<bead-id>` | development | Implement one bead through analysis, implementation and PR |
 | `/ensemble:list-issue` | `[--ranked \| --robot-triage]` | development | List open Beads issues for triage |
@@ -348,7 +348,7 @@ branch** — never the PR head, so a PR cannot loosen its own review:
 ## The PRD to TRD to Beads to implementation workflow
 
 ```text
-create-prd  ->  create-trd  ->  (validate/analyze)  ->  implement-trd-beads  ->  PR
+create-prd  ->  create-trd  ->  (validate/analyze)  ->  implement-trd-tasks  ->  PR
  PRD             TRD with REQ/AC      gates              bead hierarchy,        pr-merge
                  and task list                           builder + review
 ```
@@ -356,7 +356,7 @@ create-prd  ->  create-trd  ->  (validate/analyze)  ->  implement-trd-beads  -> 
 1. **PRD**: `/ensemble:create-prd` elicits requirements and runs an adversarial review and the Constitution Gate. Refine with `/ensemble:refine-prd`.
 2. **TRD**: `/ensemble:create-trd <prd-path>` designs architecture and a Master Task List with test tasks and acceptance criteria. Refine with `/ensemble:refine-trd`.
 3. **Gates** (optional): `/ensemble:validate-requirements` and `/ensemble:analyze-requirements` check REQ coverage, TEST pairing and PRD/TRD/beads alignment before coding.
-4. **Beads**: `/ensemble:implement-trd-beads <trd-path> --plan` scaffolds an epic, stories and tasks with `br`, validated with `bv --robot-*`. `--execute` runs the dependency-aware build loop.
+4. **Beads**: `/ensemble:implement-trd-tasks <trd-path> --plan` scaffolds an epic, stories and tasks with `br`, validated with `bv --robot-*`. `--execute` runs the dependency-aware build loop.
 5. **Verify**: `/ensemble:verify-requirements --trd <trd-path>` and `/ensemble:requirement-status` report traceability.
 6. **Land**: `/ensemble:pr-merge` drives the PR to green.
 
@@ -372,11 +372,11 @@ Passing two or more TRD paths directly now halts with an error. Generate one nor
 
 ```bash
 # Generate only (no beads, branches, commits or PRs), then implement the result
-/ensemble:implement-trd-beads --workstream --generate-only docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md
-/ensemble:implement-trd-beads docs/TRD/workstreams/<generated-file>.md --plan --use-current-branch
+/ensemble:implement-trd-tasks --workstream --generate-only docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md
+/ensemble:implement-trd-tasks docs/TRD/workstreams/<generated-file>.md --plan --use-current-branch
 
 # Or generate and implement in one step
-/ensemble:implement-trd-beads docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --workstream
+/ensemble:implement-trd-tasks docs/TRD/TRD-2026-001-api.md docs/TRD/TRD-2026-002-ui.md --workstream
 ```
 
 `--generate-only` requires `--workstream` and cannot be combined with `--plan`, `--execute`, `--status`, `--reset-task`, `--list`, `--branch` or `--use-current-branch`. `--out <path>` and `--allow-invalid` (write the workstream file even when source TRD validation fails) are only used together with `--generate-only`. The default output path is `docs/TRD/workstreams/TRD-YYYY-<micro_uuid>-workstream-<slug>.md`. More in [packages/development/README.md](packages/development/README.md).
@@ -387,7 +387,7 @@ Passing two or more TRD paths directly now halts with an error. Generate one nor
 
 ### Reqnroll acceptance tests
 
-For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `create-trd` and `implement-trd-beads` use the Reqnroll path (`-TEST` tasks scaffolded as features, step bodies delegated to `reqnroll-binding-specialist`) by default, as before; a repo that does not use Reqnroll opts out with `--no-bdd` or `ENSEMBLE_BDD=0` and gets the repo's own test framework. See [Optional BDD](packages/development/README.md#optional-bdd-reqnroll).
+For .NET projects, `/ensemble:reqnroll` turns PRD acceptance criteria into Gherkin features, step bindings and a test-first loop, with drift checks (`features`, `feature-drift`, `bindings`, `binding-drift`, `tdd`). `create-trd` and `implement-trd-tasks` use the Reqnroll path (`-TEST` tasks scaffolded as features, step bodies delegated to `reqnroll-binding-specialist`) by default, as before; a repo that does not use Reqnroll opts out with `--no-bdd` or `ENSEMBLE_BDD=0` and gets the repo's own test framework. See [Optional BDD](packages/development/README.md#optional-bdd-reqnroll).
 
 ## Assessment
 
@@ -531,7 +531,7 @@ Anything that loads a skill by name must use the new name.
 | `/ensemble:create-prd-meeting` | `/ensemble:create-prd --from-meeting` |
 | `/ensemble:refine-prd-meeting` | `/ensemble:refine-prd --from-meeting` |
 | `/ensemble:create-trd-foreman` | `/ensemble:create-trd --parser-tables` |
-| `/ensemble:create-workstream-trd` | `/ensemble:implement-trd-beads <trd> <trd> --workstream --generate-only` |
+| `/ensemble:create-workstream-trd` | `/ensemble:implement-trd-tasks <trd> <trd> --workstream --generate-only` |
 | `/ensemble:generate-feature-tests`, `check-feature-drift`, `generate-reqnroll-bindings`, `check-binding-drift`, `reqnroll-tdd` | `/ensemble:reqnroll features`, `feature-drift`, `bindings`, `binding-drift`, `tdd` |
 | `/ensemble:discover-standards`, `inject-standards` | `/ensemble:standards discover`, `inject` |
 | `assess-repo` / `assess-team` / `assess-config` / report skills invoked directly | `/ensemble:assess repo`, `team`, `config`, `report` (leaf skills remain invocable) |
@@ -559,7 +559,7 @@ The `trd` dispatcher no longer has `foreman` or `workstream` keywords, and the `
 - `rspec` and `xunit` skills are now full skills with working helper scripts (`generate-test.rb` and `run-test.rb` for RSpec; `generate-test.cs` and `run-test.sh` for xUnit), located directly in the skill directory. The generated placeholder test is no longer a passing test (`skip` for RSpec, `Assert.Fail` for xUnit), so a scaffold cannot be mistaken for coverage. `xunit/generate-test.cs` needs the .NET 10 SDK (`dotnet run generate-test.cs`).
 - `ensemble-assessment` is Pi-installable on its own and is no longer bundled into `ensemble-pi`; install both if you want both.
 - `ensemble-infrastructure` and `ensemble-quality` now declare `ensemble-core` as a dependency (Claude Code installs it; Pi and Codex do not).
-- Direct multi-TRD invocation of `implement-trd-beads` is rejected; use `--workstream`.
+- Direct multi-TRD invocation of `implement-trd-tasks` is rejected; use `--workstream`.
 - Package versions moved to new majors for packages whose surface changed: `ensemble-ai`, `ensemble-blazor`, `ensemble-codex`, `ensemble-core`, `ensemble-e2e-testing`, `ensemble-git`, `ensemble-infrastructure`, `ensemble-product`, `ensemble-quality`, `ensemble-react` are 6.0.0; `ensemble-development` and `ensemble-full` are 7.0.0. Dependency ranges (`^6.0.0`, `^7.0.0` for development) were updated accordingly.
 
 After upgrading, refresh installed plugins with `/ensemble:reinstall-plugins`.

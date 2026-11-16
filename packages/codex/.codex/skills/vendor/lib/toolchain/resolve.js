@@ -67,7 +67,7 @@
  * validator/generator wiring, ships with TRD-022 (PR 5, which depends on TRD-013, this file's
  * own task) -- TRD-022 does NOT wire a runtime caller. The command-preamble refactor that
  * actually inserts a `toolchain-cli preflight --require <ids from capabilities.required>` call
- * into each refactored command's body (`implement-trd-beads.yaml`, `pr-review-cycle/SKILL.md`,
+ * into each refactored command's body (`implement-trd-tasks.yaml`, `pr-review-cycle/SKILL.md`,
  * `pr-review-remediation/SKILL.md`, `act-local-ci/SKILL.md`) is TRD-045 (PR 10: Long-tail
  * categories, depends on TRD-022/TRD-042/TRD-043/TRD-036); TRD-047 (PR 11: Lint, equivalence,
  * documentation)'s `lint-provider-refs.js` then enforces the pattern with a `MISSING_PREFLIGHT`

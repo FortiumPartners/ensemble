@@ -5,7 +5,7 @@
  *
  * `packages/product/commands/feature.yaml` used to hold the old, superseded
  * 5-step linear pipeline (Argument Parsing + create-prd/refine-prd/create-trd/
- * refine-trd/implement-trd-beads orchestration). Both it and
+ * refine-trd/implement-trd-tasks orchestration). Both it and
  * `packages/development/commands/feature.yaml` (TRD-002's canonical
  * dispatcher) declared `metadata.name: ensemble:feature`, and
  * scripts/generate-codex/index.js derives both its generated skill name and

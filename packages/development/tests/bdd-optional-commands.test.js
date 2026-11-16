@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * The TRD commands must not hard-code Reqnroll/BDD. create-trd and implement-trd-beads resolve
+ * The TRD commands must not hard-code Reqnroll/BDD. create-trd and implement-trd-tasks resolve
  * one BDD_MODE through `trd-cli resolve-bdd` (lib/bdd-mode.js); every mention of Reqnroll in them
  * has to sit behind that mode. The other TRD commands never mention it.
  */
@@ -36,7 +36,7 @@ const actions = (doc, phaseName, title) => step(doc, phaseName, title).actions.m
 const stepIndex = (doc, phaseName, title) => doc.workflow.phases.find((p) => p.name === phaseName).steps.findIndex((s) => s.title === title);
 
 describe('Reqnroll is gated on BDD_MODE in the commands that mention it', () => {
-  test.each(['create-trd.yaml', 'implement-trd-beads.yaml'])('every Reqnroll mention in %s is tied to BDD_MODE', (file) => {
+  test.each(['create-trd.yaml', 'implement-trd-tasks.yaml'])('every Reqnroll mention in %s is tied to BDD_MODE', (file) => {
     expect(ungatedReqnrollLines(read(file))).toEqual([]);
   });
 
@@ -56,9 +56,9 @@ describe('Reqnroll is gated on BDD_MODE in the commands that mention it', () => 
 
   test('MUTATION PROOF: the gate check fails on the unconditional wording this change removed', () => {
     // The 7.0.0 wording, and the real files with every gate token stripped, must both be caught.
-    const unconditional = '- "implement-trd-beads routes any task whose id matches `-TEST` through the reqnroll BDD path."';
+    const unconditional = '- "implement-trd-tasks routes any task whose id matches `-TEST` through the reqnroll BDD path."';
     expect(ungatedReqnrollLines(unconditional)).toHaveLength(1);
-    for (const file of ['create-trd.yaml', 'implement-trd-beads.yaml']) {
+    for (const file of ['create-trd.yaml', 'implement-trd-tasks.yaml']) {
       const original = read(file);
       const mentions = original.split('\n').filter((l) => /reqnroll/i.test(l)).length;
       expect(mentions).toBeGreaterThan(0);
@@ -126,8 +126,8 @@ describe('create-trd resolves the test approach once, before it needs it', () =>
   });
 });
 
-describe('implement-trd-beads routes -TEST beads by BDD_MODE', () => {
-  const doc = load('implement-trd-beads.yaml');
+describe('implement-trd-tasks routes -TEST beads by BDD_MODE', () => {
+  const doc = load('implement-trd-tasks.yaml');
 
   test('resolves BDD_MODE from the TRD in Preflight, before any bead or git side effect', () => {
     const text = actions(doc, 'Preflight', 'TRD selection and validation');
@@ -157,12 +157,12 @@ describe('the BDD-on procedure lives in the reqnroll skill, and both commands po
     expect(section).toContain('create-trd');
     expect(section).toContain('at least 3 AC-NNN-M');
     expect(section).toContain('test_approach: bdd-reqnroll');
-    expect(section).toContain('implement-trd-beads');
+    expect(section).toContain('implement-trd-tasks');
     expect(section).toContain('generate-bindings <PRD_PATH> --out tests --sut <SUT_CSPROJ>');
     expect(section).toMatch(/confirm \*\*red\*\*[\s\S]*re-confirm \*\*red\*\*/);
   });
 
-  test.each(['create-trd.yaml', 'implement-trd-beads.yaml'])('%s points at that section', (file) => {
+  test.each(['create-trd.yaml', 'implement-trd-tasks.yaml'])('%s points at that section', (file) => {
     // skill prose: the quotes around TRD commands are plain here (escaped in the YAML scalar this was written against)
     expect(read(file)).toMatch(/TRD commands\\?" in `packages\/reqnroll\/skills\/reqnroll\/SKILL\.md`/);
   });

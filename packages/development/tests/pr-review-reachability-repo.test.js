@@ -10,7 +10,7 @@
  * checkout, not a claim about it.
  *
  * Implementation AC (REQ-023, REQ-024):
- *   1. AC-023-1 fix-issue, implement-trd-beads and pr-merge each reach the
+ *   1. AC-023-1 fix-issue, implement-trd-tasks and pr-merge each reach the
  *      verified-findings, convergence and tier behaviour THROUGH the skill;
  *   2. AC-023-2 Claude, Pi, Codex and OpenCode carry the same procedures and
  *      subcommands, or the report states what is reduced;
@@ -40,7 +40,7 @@ const exists = (relative) => fs.existsSync(path.join(REPO_ROOT, relative));
 /** The three real entry points REQ-023 names, and where their text lives. */
 const ENTRY_POINTS = [
   { id: 'fix-issue', file: 'packages/development/commands/fix-issue.yaml' },
-  { id: 'implement-trd-beads', file: 'packages/development/commands/implement-trd-beads.yaml' },
+  { id: 'implement-trd-tasks', file: 'packages/development/commands/implement-trd-tasks.yaml' },
   { id: 'pr-merge', file: 'packages/git/commands/pr-merge.yaml' },
 ];
 
@@ -59,7 +59,7 @@ const skillRecords = (base) =>
 // ---------------------------------------------------------------------------
 
 describe('TRD-037 AC-023-1: the real entry points reach the real behaviour', () => {
-  // fix-issue and implement-trd-beads are skill-backed: the entry point's text is its manifest plus
+  // fix-issue and implement-trd-tasks are skill-backed: the entry point's text is its manifest plus
   // its skill prose (SKILL.md + references/*.md); pr-merge is a plain command (its own YAML text).
   const entryText = (entry) => {
     const yamlText = read(entry.file);

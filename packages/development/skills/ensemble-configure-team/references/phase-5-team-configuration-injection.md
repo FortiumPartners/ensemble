@@ -5,7 +5,7 @@
 Build the Team Configuration YAML block for injection into the TRD
 
 - Build TEAM_CONFIG_HEADER with blockquote notice and complexity metrics (task count, hours, domain count, domains, cross-cutting count, dependency depth, tier)
-- Build TEAM_CONFIG_YAML conforming to the implement-trd-beads team roles schema
+- Build TEAM_CONFIG_YAML conforming to the implement-trd-tasks team roles schema
 - Always include lead role: agent: tech-lead-orchestrator, owns: [task-selection, architecture-review, final-approval]
 - Always include builder role: agents from BUILDER_AGENTS list, owns: [implementation]
 - If Complex: include reviewer role (code-reviewer) and qa role (test-runner)
@@ -126,4 +126,4 @@ Print configuration summary and suggest next command
 - List all assigned agents by role (lead, builders, reviewer, qa)
 - List any marketplace plugins that were installed
 - Print: 'Review the ## Team Configuration section and edit agent assignments if needed'
-- Suggest: '/ensemble:implement-trd-beads docs/TRD/TRD-YYYY-NNN-slug.md'
+- Suggest: '/ensemble:implement-trd-tasks docs/TRD/TRD-YYYY-NNN-slug.md'

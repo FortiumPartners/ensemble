@@ -4,7 +4,7 @@
  * bdd-mode.js — decide whether a TRD run uses the Reqnroll/BDD test path.
  *
  * BDD stays ON by default, exactly as before this was configurable; this only gives a repo a way to
- * opt out (a Playwright + xUnit repo, a Node or Rails repo). `create-trd` and `implement-trd-beads`
+ * opt out (a Playwright + xUnit repo, a Node or Rails repo). `create-trd` and `implement-trd-tasks`
  * both call `trd-cli resolve-bdd`, which wraps `resolveBdd` below, so the two commands always agree.
  * First match wins:
  *
@@ -12,7 +12,7 @@
  *   2. `env`      — ENSEMBLE_BDD = 1|true|on|yes (on) or 0|false|off|no (off)
  *   3. `trd`      — the TRD's `test_approach` frontmatter (`bdd-reqnroll` | `standard`), which
  *                   create-trd writes when the choice was explicit (flag or env) so the TRD stays
- *                   self-describing and implement-trd-beads honours an opt-out without the env var
+ *                   self-describing and implement-trd-tasks honours an opt-out without the env var
  *   4. `default`  — on
  *
  * Whichever source decides, nothing found on the way is dropped: an unrecognised ENSEMBLE_BDD or
@@ -76,7 +76,7 @@ function decide(enabled, source, evidence, warnings) {
   const out = { enabled, source };
   if (evidence) out.evidence = evidence;
   if (warnings.length) out.warning = warnings.join('\n');
-  // implement-trd-beads has no --no-bdd flag, so the hint names the one opt-out both commands share.
+  // implement-trd-tasks has no --no-bdd flag, so the hint names the one opt-out both commands share.
   const where = source === 'default' ? 'default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd' : source;
   out.message = `${warnings.map((w) => `Warning: ${w}\n`).join('')}Test approach: ${enabled ? 'BDD (Reqnroll)' : 'standard'} [${where}]`;
   return out;

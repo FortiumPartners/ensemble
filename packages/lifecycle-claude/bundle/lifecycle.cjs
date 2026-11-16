@@ -4293,7 +4293,7 @@ var DISPATCHER_TARGETS = {
   "ensemble-trd": {
     create: "create-trd",
     refine: "refine-trd",
-    implement: "implement-trd-beads",
+    implement: "implement-trd-tasks",
     analyze: "analyze-requirements",
     complexity: "analyze-complexity",
     validate: "validate-requirements",

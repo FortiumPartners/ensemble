@@ -1,0 +1,42 @@
+{
+  "exitCode": 0,
+  "json": {
+    "ok": true,
+    "type": "trd",
+    "slug": "trd-2026-6995dc96-configurable-tasks-backend-kata",
+    "file": "<REPO_ROOT>/docs/TRD/TRD-2026-6995dc96-configurable-tasks-backend-kata.md",
+    "status": "Draft",
+    "design_readiness_score": 3.5,
+    "completion_pct": 0,
+    "staleness_days": 0,
+    "version": "1.0.0",
+    "prd_reference": "docs/PRD/PRD-2026-6995dc96-configurable-tasks-backend-kata.md",
+    "bead_counts": {
+      "total": 73,
+      "open": 73,
+      "in_progress": 0,
+      "closed": 0
+    },
+    "frontmatter": {
+      "document_id": "TRD-2026-6995dc96",
+      "label": "trd-configurable-tasks-backend-kata",
+      "title": "Configurable Tasks Backend - Kata Adapter",
+      "prd_reference": "docs/PRD/PRD-2026-6995dc96-configurable-tasks-backend-kata.md",
+      "version": "1.0.0",
+      "status": "Draft",
+      "date": "2026-11-13T00:00:00.000Z",
+      "kind": "trd",
+      "design_readiness_score": 3.5,
+      "design_readiness_verdict": "CONCERNS",
+      "totalTasks": 67,
+      "totalPrs": 6,
+      "totalRequirements": 18,
+      "totalAcceptanceCriteria": 58,
+      "reuse_target": "TRD-2026-8d825f54",
+      "Constitution compliance": "passed",
+      "related": [
+        "docs/TRD/TRD-2026-8d825f54-tool-abstraction-layer.md"
+      ]
+    }
+  }
+}

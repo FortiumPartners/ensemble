@@ -489,7 +489,7 @@ describe('ratchet baseline', () => {
 
   test('isNamedSource covers the eight named sources and their generated md', () => {
     for (const rel of [
-      'packages/development/commands/implement-trd-beads.yaml',
+      'packages/development/commands/implement-trd-tasks.yaml',
       'packages/development/commands/ensemble/beads-build-wave.md',
       'packages/development/commands/implement-bead.yaml',
       'packages/development/commands/fix-issue.yaml',
@@ -502,7 +502,7 @@ describe('ratchet baseline', () => {
   });
 
   test('isNamedSource keeps the zero tolerance after a named command becomes skill-backed: its skill and references are named', () => {
-    for (const cmd of ['implement-trd-beads', 'beads-build', 'beads-build-wave', 'implement-bead', 'fix-issue']) {
+    for (const cmd of ['implement-trd-tasks', 'beads-build', 'beads-build-wave', 'implement-bead', 'fix-issue']) {
       expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/SKILL.md`)).toBe(true);
       expect(isNamedSource(`packages/development/skills/ensemble-${cmd}/references/phase-1-x.md`)).toBe(true);
     }

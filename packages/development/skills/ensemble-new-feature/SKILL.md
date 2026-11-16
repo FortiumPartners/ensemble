@@ -8,7 +8,7 @@ metadata:
 ---
 
 Chain create-prd, refine-prd, create-trd, refine-trd and bead planning
-(implement-trd-beads --plan) into one resumable run. Each stage's skill
+(implement-trd-tasks --plan) into one resumable run. Each stage's skill
 executes in-session, never as a subprocess; RunIndexStore records the stage,
 its outcome, and the artifacts each stage produced. implementation_approval
 and pr_approval are human checkpoints: nothing past them runs without a

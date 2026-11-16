@@ -28,7 +28,7 @@
 
 **Philosophy:** Full-lifecycle orchestration platform with specialized agent mesh and persistent task state.
 
-Ensemble is a Claude Code plugin ecosystem organized into 4 tiers across 24 npm packages. It provides 38 specialized agents orchestrated through YAML-defined workflow commands. The primary pipeline: `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd-beads`, driven by persistent beads (`br`/`bv`) task management with cross-session resumability and dependency-aware triage.
+Ensemble is a Claude Code plugin ecosystem organized into 4 tiers across 24 npm packages. It provides 38 specialized agents orchestrated through YAML-defined workflow commands. The primary pipeline: `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd-tasks`, driven by persistent beads (`br`/`bv`) task management with cross-session resumability and dependency-aware triage.
 
 Key architectural elements:
 - **Plugin tiers:** Core → Workflow → Framework Skills → Test Frameworks
@@ -162,7 +162,7 @@ Spec-Kit is a Python CLI providing 30+ agent support and core SDD process: Const
 - Complete operational breadth (git, CI/CD, release, metrics, testing, security)
 - Multi-runtime support (Claude Code, Codex, OpenCode, Pi, OMP — 5 runtimes)
 - Standalone `research.md` and `data-model.md` companion artifacts when domains detected
-- Quickstart validation runbook: `implement-trd` generates `quickstart.md` smoke-test runbook from acceptance criteria; `implement-trd-beads` routes to `implement-trd` for v1
+- Quickstart validation runbook: `implement-trd` generates `quickstart.md` smoke-test runbook from acceptance criteria; `implement-trd-tasks` routes to `implement-trd` for v1
 - Hard-gate constitution enforcement in create-prd/create-trd (matching Spec-Kit's rigor)
 
 **Cons:**

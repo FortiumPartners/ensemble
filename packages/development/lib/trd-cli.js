@@ -4,7 +4,7 @@
 /**
  * trd-cli.js — JSON CLI wrapper over the four committed pure TRD libs.
  *
- * Invoked by the `implement-trd-beads` command prose via `node` to obtain
+ * Invoked by the `implement-trd-tasks` command prose via `node` to obtain
  * deterministic, structured (JSON) output instead of prose-parsing markdown.
  *
  * Contract:
@@ -24,14 +24,14 @@
  *   next-task    <trd-path> --ready a,b [--closed a,b] [--max N]
  *   pr-plan      <trd-path> [--stacked]
  *   validate-workstream <trd-path...>
- *   create-workstream-trd <trd-path...> [--out path] [--allow-invalid]   (run by /ensemble:implement-trd-beads --workstream)
+ *   create-workstream-trd <trd-path...> [--out path] [--allow-invalid]   (run by /ensemble:implement-trd-tasks --workstream)
  *   workstream-plan <trd-path...> [--stacked]
  *   workstream-status [--workstream slug] [--issues-json path]
  *   beads-label --label <l> --match <title-substring>
  *   beads-stage --match <title-substring> [--label <l>] [--check] [--dry-run]
  *   quickstart <trd-path> --out <path> [--json]
  *   resolve-sdlc --git-town-exit-code <0-4> --remote-url <url>
- *   resolve-bdd  [--bdd | --no-bdd] [--trd <path>]   (create-trd and implement-trd-beads: is the Reqnroll/BDD path on? --trd must be a readable file, as given or under the repo root; otherwise {error}, never the default)
+ *   resolve-bdd  [--bdd | --no-bdd] [--trd <path>]   (create-trd and implement-trd-tasks: is the Reqnroll/BDD path on? --trd must be a readable file, as given or under the repo root; otherwise {error}, never the default)
  *   validate     <trd-path> [--prd path]
  *   analyze      <trd-path> [--prd path]
  *   req-status   <trd-path> [--prd path] [--issues-json file] [--verified REQ-001,...] [--comments-json file]
@@ -102,7 +102,7 @@ function slugify(s) {
 /**
  * Derive a stable TRD slug from the FILENAME ONLY.
  *
- * This MUST match the `implement-trd-beads` command's Preflight "TRD Selection
+ * This MUST match the `implement-trd-tasks` command's Preflight "TRD Selection
  * and Validation" step exactly: take the TRD filename (basename, minus the
  * extension), lowercase it, replace every run of non-alphanumerics with a
  * single hyphen, and strip leading/trailing hyphens.
@@ -755,7 +755,7 @@ function resolveTrdArg(given) {
  *
  * Thin CLI adapter over bdd-mode.js's resolveBdd (precedence: flag, ENSEMBLE_BDD, the TRD's
  * `test_approach` frontmatter, on). BDD stays on by default; these are the ways to opt out. Run by both
- * `create-trd` and `implement-trd-beads` so the two commands agree on whether Reqnroll is in play.
+ * `create-trd` and `implement-trd-tasks` so the two commands agree on whether Reqnroll is in play.
  * Reads ENSEMBLE_BDD from the `env` param rather than process.env directly, like runResolveSdlc.
  *
  * `--trd` is an explicit request to consult that TRD, so it must name a readable file (see resolveTrdArg).
@@ -802,7 +802,7 @@ function runValidateWorkstream(argv) {
   return validateWorkstream(items);
 }
 
-/** `create-workstream-trd <trd-path...> [--out path] [--allow-invalid]` -> write normalized executable TRD. Run by `/ensemble:implement-trd-beads --workstream`; with `--generate-only` the command stops after this call. */
+/** `create-workstream-trd <trd-path...> [--out path] [--allow-invalid]` -> write normalized executable TRD. Run by `/ensemble:implement-trd-tasks --workstream`; with `--generate-only` the command stops after this call. */
 function runCreateWorkstreamTrd(argv) {
   const { positionals, flags } = parseArgs(argv, new Set(['out']));
   if (positionals.length < 2) {

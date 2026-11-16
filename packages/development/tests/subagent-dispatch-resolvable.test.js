@@ -89,7 +89,7 @@ describe('every subagent_type dispatched by a command resolves to a real agent',
 
   // br-hn0: a session that loaded an older plugin must fail at the start, naming the
   // fix, instead of after preflight when the dispatch finds nothing to call.
-  test.each(['beads-build.yaml', 'implement-trd-beads.yaml'])(
+  test.each(['beads-build.yaml', 'implement-trd-tasks.yaml'])(
     '%s halts early when beads-build-wave is not registered',
     (file) => {
       // skill-backed commands keep their prompt in the skill (SKILL.md + references/)

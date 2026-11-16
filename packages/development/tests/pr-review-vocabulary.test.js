@@ -5,7 +5,7 @@
  *
  * lib/pr-review-status.js is the single source of truth for the review words:
  * STATUSES, LOCAL_PHASES and REMOTE_PHASES. The commands and skills that
- * consume a review result (fix-issue, implement-trd-beads,
+ * consume a review result (fix-issue, implement-trd-tasks,
  * pr-review-cycle) name those words in YAML and prose. A caller that tests for
  * a word the grader can never emit -- or that tests for one specific BAD word
  * instead of requiring the one GOOD word -- fails OPEN: every other or missing
@@ -31,7 +31,7 @@ const { readCommandProse } = require('../../../scripts/lib/skill-backed-command'
 const DEV_ROOT = path.join(__dirname, '..');
 const SCANNED = [
   'commands/fix-issue.yaml',
-  'commands/implement-trd-beads.yaml',
+  'commands/implement-trd-tasks.yaml',
   'skills/pr-review-cycle/SKILL.md',
 ];
 
@@ -54,7 +54,7 @@ const badPhaseComparisons = (text) =>
 /** Members of `vocabulary` that none of `emitted` ever produced. */
 const unreachable = (vocabulary, emitted) => vocabulary.filter((word) => !emitted.has(word));
 
-// fix-issue and implement-trd-beads are skill-backed: their YAML is a manifest, the review words
+// fix-issue and implement-trd-tasks are skill-backed: their YAML is a manifest, the review words
 // live in the skill (SKILL.md + references/*.md), so scan manifest + skill prose.
 const readScanned = (rel) => {
   const file = path.join(DEV_ROOT, rel);
@@ -126,7 +126,7 @@ describe('PR-review status vocabulary (anti-drift)', () => {
   });
 
   test('the scan sees the comparisons it is meant to police', () => {
-    // At least the three gates (fix-issue, implement-trd-beads) compare the raw field.
+    // At least the three gates (fix-issue, implement-trd-tasks) compare the raw field.
     const total = SCANNED.map((rel) => [...readScanned(rel).matchAll(RAW_PHASE_COMPARISON)].length).reduce((a, b) => a + b, 0);
 
     expect(total).toBeGreaterThanOrEqual(3);

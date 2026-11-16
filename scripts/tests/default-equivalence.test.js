@@ -85,7 +85,7 @@ describe('default-equivalence fixtures (TRD-049)', () => {
   it('covers every command the TRD-049 task names', () => {
     const named = [
       'list-issue', 'requirement-status', 'analyze-complexity', 'onboard', 'retro',
-      'implement-bead', 'beads-build-wave', 'beads-build', 'implement-trd-beads', 'pr-merge', 'fix-issue'
+      'implement-bead', 'beads-build-wave', 'beads-build', 'implement-trd-tasks', 'pr-merge', 'fix-issue'
     ];
     const names = COVERED.map((u) => u.name);
     for (const n of named) expect(names).toContain(n);

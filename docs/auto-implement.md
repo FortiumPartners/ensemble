@@ -11,7 +11,7 @@ This workflow uses the **full Ensemble pipeline** rather than invoking Claude Co
 3. **Phase 1: PRD** — `/ensemble:create-prd` generates a Product Requirements Document from the issue
 4. **Phase 2: TRD** — `/ensemble:create-trd` converts the PRD into a Technical Requirements Document
 5. The PRD + TRD docs are committed to a `feat/issue-{number}` branch
-6. A PR is created linking back to the original issue, with a note to run `/ensemble:implement-trd-beads` against the TRD as a manual follow-up
+6. A PR is created linking back to the original issue, with a note to run `/ensemble:implement-trd-tasks` against the TRD as a manual follow-up
 7. A comment is posted on the issue with the PR link
 
 ### Why the Pipeline?

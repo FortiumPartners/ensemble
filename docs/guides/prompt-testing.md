@@ -26,11 +26,11 @@ Each hit was opened and classified. Counts are `toContain`/`toMatch` calls in th
 
 | Rewrite target | Test file (`packages/development/tests/` unless noted) | Pins | Assertions |
 |---|---|---|---|
-| implement-trd-beads | implement-trd-beads-command.test.js | commands/implement-trd-beads.yaml | 173 |
-| implement-trd-beads | implement-trd-beads-generated-parity.test.js | implement-trd-beads.yaml + generated skill/md | 12 (mixed) |
-| implement-trd-beads | beads-stage-commands.test.js | implement-trd-beads, beads-build, beads-build-wave (staging/gate lines) | 17 |
-| implement-trd-beads | beads-scaffold-specialist.test.js | agents/beads-scaffold-specialist.yaml, implement-trd-beads.yaml | 7 (mixed) |
-| implement-trd-beads, beads-build | subagent-dispatch-resolvable.test.js | beads-build.yaml, implement-trd-beads.yaml | 5 |
+| implement-trd-tasks | implement-trd-tasks-command.test.js | commands/implement-trd-tasks.yaml | 173 |
+| implement-trd-tasks | implement-trd-tasks-generated-parity.test.js | implement-trd-tasks.yaml + generated skill/md | 12 (mixed) |
+| implement-trd-tasks | beads-stage-commands.test.js | implement-trd-tasks, beads-build, beads-build-wave (staging/gate lines) | 17 |
+| implement-trd-tasks | beads-scaffold-specialist.test.js | agents/beads-scaffold-specialist.yaml, implement-trd-tasks.yaml | 7 (mixed) |
+| implement-trd-tasks, beads-build | subagent-dispatch-resolvable.test.js | beads-build.yaml, implement-trd-tasks.yaml | 5 |
 | create-trd | create-trd-command.test.js | commands/create-trd.yaml | 99 |
 | refine-trd | refine-trd-command.test.js | commands/refine-trd.yaml | 19 |
 | new-feature / feature | new-feature-command.test.js | commands/new-feature.yaml (+ md, pi output) | 78 (mixed) |
@@ -50,8 +50,8 @@ Each hit was opened and classified. Counts are `toContain`/`toMatch` calls in th
 | tech-lead-orchestrator | tech-lead-orchestrator.test.js | agents/tech-lead-orchestrator.yaml | 7 |
 | beads-build | beads-build-command.test.js | commands/beads-build.yaml | 59 |
 | beads-build | beads-build-wave-command.test.js | commands/beads-build-wave.yaml | 55 |
-| beads-build | beads-build-label-scoping.test.js | beads-build(-wave), implement-trd-beads | 18 (mixed) |
-| beads-build | beads-build-arguments.test.js | beads-build.yaml, implement-trd-beads.yaml | 10 (mixed) |
+| beads-build | beads-build-label-scoping.test.js | beads-build(-wave), implement-trd-tasks | 18 (mixed) |
+| beads-build | beads-build-arguments.test.js | beads-build.yaml, implement-trd-tasks.yaml | 10 (mixed) |
 | framework skills, core agents | none found (agent/skill transformer tests use fixtures: BEHAVIOR) | | 0 |
 | other | configure-team-command.test.js | commands/configure-team.yaml | 100 |
 | other | verify-requirements-command.test.js | commands/verify-requirements.yaml | 72 |

@@ -1,5 +1,5 @@
 /**
- * Tests for the configure-team and implement-trd-beads command prompts
+ * Tests for the configure-team and implement-trd-tasks command prompts
  * ensuring agent discovery consults the runtime-visible Task agent registry
  * (i.e. plugins installed under the OMP plugins node_modules directory),
  * not only source packages vendored in the consumer repo at packages/agents.
@@ -23,8 +23,8 @@ const { readSkillProse } = require('../../../scripts/lib/skill-backed-command');
 const CONFIGURE_TEAM_MANIFEST = path.join(__dirname, '../commands/configure-team.yaml');
 const CONFIGURE_TEAM_SKILL = path.join(__dirname, '../skills/ensemble-configure-team/SKILL.md');
 const readConfigureTeamProse = () => readSkillProse(CONFIGURE_TEAM_SKILL);
-// implement-trd-beads is skill-backed too: its prompt is the skill's SKILL.md plus references/*.md.
-const IMPLEMENT_TRD_BEADS_SKILL = path.join(__dirname, '../skills/ensemble-implement-trd-beads/SKILL.md');
+// implement-trd-tasks is skill-backed too: its prompt is the skill's SKILL.md plus references/*.md.
+const IMPLEMENT_TRD_BEADS_SKILL = path.join(__dirname, '../skills/ensemble-implement-trd-tasks/SKILL.md');
 
 describe('configure-team command agent discovery', () => {
   test('Phase 3 Step 1 includes runtime plugin agent fallback (REQUIRED)', () => {
@@ -103,7 +103,7 @@ describe('configure-team command agent discovery', () => {
 });
 
 
-describe('implement-trd-beads command agent registry build', () => {
+describe('implement-trd-tasks command agent registry build', () => {
   // beads-build resolves the wave-runner through AGENT_ALIAS_MAP, which this command builds.
   test('builds AGENT_ALIAS_MAP from source packages and both runtime plugin agent globs', () => {
     const text = readSkillProse(IMPLEMENT_TRD_BEADS_SKILL);

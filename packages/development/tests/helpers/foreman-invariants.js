@@ -11,7 +11,7 @@ const FOREMAN_RE = /FOREMAN|--foreman/;
 const ASK_RE = /AskUserQuestion|\bask(?:s|ed)? the user\b|explicit (?:approval|confirmation)|\bvia ask\b/i;
 // Says that no question is put to the user.
 const NO_PROMPT_RE = /without asking|asks? nothing|no (?:question|prompt)|never asks?|not asked|is not asked/i;
-const STAGE_SKILLS = ['create-prd', 'refine-prd', 'create-trd', 'refine-trd', 'implement-trd-beads'];
+const STAGE_SKILLS = ['create-prd', 'refine-prd', 'create-trd', 'refine-trd', 'implement-trd-tasks'];
 
 function step(doc, phaseName, order) {
   const phase = (doc.workflow.phases || []).find((p) => p.name === phaseName);
@@ -51,7 +51,7 @@ function checkNewFeature(doc) {
     v('forwarding', fwd.some((a) => new RegExp(`${skill}(?: --plan)? --foreman\\b`).test(a)),
       `Execute Stage 1 must forward --foreman to ${skill} under FOREMAN`);
   }
-  v('forwarding', fwd.some((a) => /--plan/.test(a)), 'forwarding to implement-trd-beads must keep --plan');
+  v('forwarding', fwd.some((a) => /--plan/.test(a)), 'forwarding to implement-trd-tasks must keep --plan');
   v('forwarding', fwd.some((a) => /not (?:true|set|present)|absent|otherwise/i.test(a)),
     'forwarding must state --foreman is not added when FOREMAN is not true');
   v('forwarding', fwd.some((a) => /FOREMAN_\*|FOREMAN_TASK_TITLE/.test(a)),

@@ -1,7 +1,7 @@
 'use strict';
 /**
  * Regression test for PR7 br-96hk (TRD-030): `packages/development/commands/beads-build.yaml`
- * and the skill `packages/development/skills/implement-trd-beads-reference/SKILL.md` must never
+ * and the skill `packages/development/skills/implement-trd-tasks-reference/SKILL.md` must never
  * regain a literal `br `/`bv ` tracker-binary invocation or `--robot-` flag -- all tracker/
  * scheduling access now goes through `toolchain-cli run tracker.*`/`work-graph.*`. This mirrors
  * the exact AC-1 grep (`grep -noE '\bbr\b|\bbv\b|--robot-[a-z]+' <file>`) as a Jest assertion,
@@ -39,7 +39,7 @@ const SKILL_PATH = path.join(
   'packages',
   'development',
   'skills',
-  'implement-trd-beads-reference',
+  'implement-trd-tasks-reference',
   'SKILL.md'
 );
 

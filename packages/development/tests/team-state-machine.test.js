@@ -2,7 +2,7 @@
  * TRD-010: Unit tests for state machine transitions
  *
  * Validates the transition table and validator function used by the
- * implement-trd-beads workflow. Covers all 8 valid transitions, invalid
+ * implement-trd-tasks workflow. Covers all 8 valid transitions, invalid
  * transitions, rejection cycle counting, escalation thresholds, and skip paths.
  */
 

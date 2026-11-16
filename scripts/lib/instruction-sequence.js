@@ -308,8 +308,15 @@ function loadDefaultTemplates(root, opts = {}) {
     const candidates = loaded.filter(
       ({ doc }) => doc && Array.isArray(doc.categories) && doc.categories.includes(category)
     );
-    const chosen = candidates.filter(({ doc }) => adapterName === 'auto' || doc.adapter === adapterName);
+    // `auto` mirrors production `work-graph-resolve.js#resolveWorkGraphAdapter`: the provider is
+    // the ALREADY-RESOLVED tracker adapter's own manifest, never "every adapter that declares
+    // this category". Without that, shipping a second work-graph-declaring tracker
+    // (adapter-tracker-kata) let readdir order decide whose `work-graph.*` templates won below.
+    const chosen = candidates.filter(({ doc }) =>
+      adapterName === 'auto' ? doc.adapter === defaults.tracker : doc.adapter === adapterName
+    );
     if (chosen.length === 0) {
+      if (adapterName === 'auto') continue; // production falls back to the builtin adapter, which ships no `run` templates
       throw new Error(`default adapter "${adapterName}" for category "${category}" has no source manifest`);
     }
     for (const { doc } of chosen) {

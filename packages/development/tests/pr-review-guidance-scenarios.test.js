@@ -21,7 +21,7 @@
  *     PROCESS, the shipped surface the skill calls. Nothing under test is
  *     stubbed;
  *   - the PR bodies are the REAL ones: this repository's own PR template (the
- *     human path) and the bodies `fix-issue.yaml` and `implement-trd-beads.yaml`
+ *     human path) and the bodies `fix-issue.yaml` and `implement-trd-tasks.yaml`
  *     publish (the agent path), graded by the real `description` checker.
  *
  * Adversarial by construction: every rules file, the policy block, the changed

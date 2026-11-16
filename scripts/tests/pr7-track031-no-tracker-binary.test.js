@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Regression test for PR7 br-5eh0 (TRD-031): `packages/development/commands/implement-trd-beads.yaml`
+ * Regression test for PR7 br-5eh0 (TRD-031): `packages/development/commands/implement-trd-tasks.yaml`
  * must never regain a literal `br `/`bv ` tracker-binary invocation or `--robot-` flag -- all
  * tracker/scheduling access now goes through `toolchain-cli run tracker.*`/`work-graph.*`. This
  * mirrors the exact AC-1 grep (`grep -noE '\bbr\b|\bbv\b|--robot-[a-z]+' <file>`) as a Jest
@@ -32,9 +32,9 @@ const { loadValidCapabilityIds, checkCapabilityIds } = require('../lib/capabilit
 const { validateCapabilityIds } = require('../validate-all');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
-const COMMAND_PATH = path.join(REPO_ROOT, 'packages', 'development', 'commands', 'implement-trd-beads.yaml');
+const COMMAND_PATH = path.join(REPO_ROOT, 'packages', 'development', 'commands', 'implement-trd-tasks.yaml');
 
-// implement-trd-beads is a skill-backed command: the YAML is a manifest (metadata + `skill`)
+// implement-trd-tasks is a skill-backed command: the YAML is a manifest (metadata + `skill`)
 // and the prompt lives in its skill (SKILL.md + references/*.md). The prose these checks scan
 // is the manifest plus the whole skill, exactly what readCommandProse gives every other lint.
 const { readCommandProse } = require('../lib/skill-backed-command');
@@ -64,18 +64,18 @@ function findMatchLines(contents, pattern) {
     .filter(({ line }) => pattern.test(line));
 }
 
-describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-trd-beads (manifest + skill prose)', () => {
-  test('implement-trd-beads.yaml contains zero br/bv invocations (broad sweep)', () => {
+describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-trd-tasks (manifest + skill prose)', () => {
+  test('implement-trd-tasks.yaml contains zero br/bv invocations (broad sweep)', () => {
     const contents = PROSE;
     expect(findMatchLines(contents, TRACKER_BINARY_INVOCATION)).toEqual([]);
   });
 
-  test('implement-trd-beads.yaml contains zero matches for the literal AC-1 grep pattern', () => {
+  test('implement-trd-tasks.yaml contains zero matches for the literal AC-1 grep pattern', () => {
     const contents = PROSE;
     expect(findMatchLines(contents, AC1_PATTERN)).toEqual([]);
   });
 
-  test('mutation proof: reintroducing a literal br/bv invocation into the implement-trd-beads prose is caught', () => {
+  test('mutation proof: reintroducing a literal br/bv invocation into the implement-trd-tasks prose is caught', () => {
     // Sanity: the unmutated prose has no invocations (proves the detector isn't vacuously
     // true before we assert it catches the reintroduced one).
     expect(findMatchLines(PROSE, TRACKER_BINARY_INVOCATION)).toEqual([]);
@@ -97,7 +97,7 @@ describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-
     expect(findMatchLines(PROSE, AC1_PATTERN)).toEqual([]);
   });
 
-  test('implement-trd-beads.yaml declares the exact TRD-031 capabilities block', () => {
+  test('implement-trd-tasks.yaml declares the exact TRD-031 capabilities block', () => {
     const contents = fs.readFileSync(COMMAND_PATH, 'utf8');
     const required = ['tracker.list', 'tracker.create', 'tracker.dep-add', 'tracker.comment', 'tracker.close', 'tracker.sync'];
     for (const id of required) {
@@ -130,7 +130,7 @@ describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-
     expect(depAddAction).toContain('plan.deps');
   });
 
-  test('implement-trd-beads.yaml capabilities block passes real schema and capability-id validation (AC-3)', () => {
+  test('implement-trd-tasks.yaml capabilities block passes real schema and capability-id validation (AC-3)', () => {
     // Real production validators, not a hand-rolled check: validateCommandSchema is the exact
     // function generate-markdown.js --validate (npm run generate:validate) runs against every
     // command YAML (AJV against schemas/command-yaml-schema.json, whose own description says
@@ -141,14 +141,14 @@ describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-
     const data = yaml.load(fs.readFileSync(COMMAND_PATH, 'utf8'));
     expect(() => validateCommandSchema(data, COMMAND_PATH)).not.toThrow();
 
-    const failures = validateCapabilityIds().filter((message) => message.includes('implement-trd-beads.yaml'));
+    const failures = validateCapabilityIds().filter((message) => message.includes('implement-trd-tasks.yaml'));
     expect(failures).toEqual([]);
   });
 
-  test('mutation proof: an unknown capability id reintroduced in a /tmp copy of implement-trd-beads.yaml is caught by the real capability-id validator', () => {
+  test('mutation proof: an unknown capability id reintroduced in a /tmp copy of implement-trd-tasks.yaml is caught by the real capability-id validator', () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'track031-capability-mutation-'));
     try {
-      const copyPath = path.join(tmpDir, 'implement-trd-beads.yaml');
+      const copyPath = path.join(tmpDir, 'implement-trd-tasks.yaml');
       const original = fs.readFileSync(COMMAND_PATH, 'utf8');
       fs.writeFileSync(copyPath, original, 'utf8');
 
@@ -179,7 +179,7 @@ describe('PR7 Track031: no literal br/bv tracker-binary invocation in implement-
     }
   });
 
-  test('implement-trd-beads.yaml opens with a preflight listing exactly its required capabilities, and confirm-status precedes the first tracker write anywhere in the command (AC-4)', () => {
+  test('implement-trd-tasks.yaml opens with a preflight listing exactly its required capabilities, and confirm-status precedes the first tracker write anywhere in the command (AC-4)', () => {
     const data = { metadata: MANIFEST.metadata, workflow: { phases: PHASES } };
     const requiredCapabilities = data.metadata.capabilities.required;
 

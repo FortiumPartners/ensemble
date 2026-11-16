@@ -4,7 +4,7 @@
  * TRD-037: the cross-runtime reachability and no-new-secrets proof.
  *
  * Implementation AC (REQ-023, REQ-024):
- *   1. `fix-issue`, `implement-trd-beads` and `pr-merge`, traced from their
+ *   1. `fix-issue`, `implement-trd-tasks` and `pr-merge`, traced from their
  *      entry command TEXT through the skill to the CLI subcommands, reach the
  *      verified-findings, convergence and tier behaviour -- asserted THROUGH
  *      the entry point, never around it;

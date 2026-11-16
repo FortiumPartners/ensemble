@@ -1,8 +1,8 @@
-# Stacked PRs with implement-trd-beads
+# Stacked PRs with implement-trd-tasks
 
-`implement-trd-beads` turns `### PR N:` sections in the TRD Master Task List into a git-town stacked PR chain. Each PR section becomes its own feature branch; branches are stacked so each PR targets the previous one, and git-town automatically retargets child PRs as the stack merges bottom-up into main. This guide walks through TRD structure, the full workflow, branch naming, merge order, cross-session resume, and common mistakes with fixes.
+`implement-trd-tasks` turns `### PR N:` sections in the TRD Master Task List into a git-town stacked PR chain. Each PR section becomes its own feature branch; branches are stacked so each PR targets the previous one, and git-town automatically retargets child PRs as the stack merges bottom-up into main. This guide walks through TRD structure, the full workflow, branch naming, merge order, cross-session resume, and common mistakes with fixes.
 
-**Stacked PRs are opt-in.** Set `ENSEMBLE_USE_STACKED_PRS=true` in your environment to enable the per-PR stacked workflow described in this guide. Without it (the default), `implement-trd-beads` implements all PR sections on a single branch and opens ONE pull request for the whole TRD. Phase ordering is preserved either way.
+**Stacked PRs are opt-in.** Set `ENSEMBLE_USE_STACKED_PRS=true` in your environment to enable the per-PR stacked workflow described in this guide. Without it (the default), `implement-trd-tasks` implements all PR sections on a single branch and opens ONE pull request for the whole TRD. Phase ordering is preserved either way.
 
 ## When to stack vs split
 
@@ -57,7 +57,7 @@ Rules for the Shippable State line:
 ### Step 1 — Plan (scaffold beads and create first branch)
 
 ```bash
-/ensemble:implement-trd-beads docs/TRD/my-trd.md --plan
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md --plan
 ```
 
 - Creates the full beads hierarchy (epic → stories → tasks)
@@ -67,7 +67,7 @@ Rules for the Shippable State line:
 ### Step 2 — Execute (implement tasks and create PRs)
 
 ```bash
-/ensemble:implement-trd-beads docs/TRD/my-trd.md --execute
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md --execute
 ```
 
 - Drives implementation via `bv --robot-next` / `br ready`
@@ -79,7 +79,7 @@ Rules for the Shippable State line:
 ### Or run both in one command
 
 ```bash
-/ensemble:implement-trd-beads docs/TRD/my-trd.md
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md
 ```
 
 Scaffolds and executes in sequence. On cross-session resume it auto-detects the existing scaffold and skips directly to execute.
@@ -153,7 +153,7 @@ The bead hierarchy persists across sessions. On any subsequent invocation:
 To check status at any time:
 
 ```bash
-/ensemble:implement-trd-beads docs/TRD/my-trd.md --status
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md --status
 # or
 br list --status=in_progress
 ```
@@ -164,7 +164,7 @@ br list --status=in_progress
 
 ```bash
 # TRD-scoped progress
-/ensemble:implement-trd-beads docs/TRD/my-trd.md --status
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md --status
 
 # Raw bead state
 br list --status=open
@@ -200,7 +200,7 @@ Right:
   - [ ] **TRD-001**: ...
 ```
 
-A missing or infrastructure-only Shippable State will be flagged by `/ensemble:refine-trd`. Fix it in the TRD before running `implement-trd-beads`.
+A missing or infrastructure-only Shippable State will be flagged by `/ensemble:refine-trd`. Fix it in the TRD before running `implement-trd-tasks`.
 
 ### Mistake 3 — Merging out of order
 
@@ -213,7 +213,7 @@ Merging out of order causes unexpected merge conflicts and breaks the retargetin
 
 ### Mistake 4 — Running without git-town
 
-When git-town is unavailable, `implement-trd-beads` falls back to `git switch -c` for branch creation. This creates branches but does not establish git-town's parent tracking, so:
+When git-town is unavailable, `implement-trd-tasks` falls back to `git switch -c` for branch creation. This creates branches but does not establish git-town's parent tracking, so:
 
 - PRs will not retarget automatically after merges
 - You will need to manually update each PR's base branch after the parent merges
@@ -230,7 +230,7 @@ Fix failing tests and re-run the quality gate to retry.
 The pre-PR test gate runs `npm run test --workspaces --if-present` before every `git town propose`. Fix the failing tests, then re-run:
 
 ```bash
-/ensemble:implement-trd-beads docs/TRD/my-trd.md --execute
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md --execute
 ```
 
 The bead state is preserved — execution resumes from the failed quality gate.
@@ -245,7 +245,7 @@ The staleness gate fires on first invocation only, before the feature branch is 
 
 ```bash
 /ensemble:refine-trd docs/TRD/my-trd.md
-/ensemble:implement-trd-beads docs/TRD/my-trd.md
+/ensemble:implement-trd-tasks docs/TRD/my-trd.md
 ```
 
 ---

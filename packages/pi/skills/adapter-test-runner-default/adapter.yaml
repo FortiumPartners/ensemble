@@ -93,7 +93,7 @@ capabilities:
   # opt-in, `runner.js#runCapability` mapped ANY non-zero exit to `TOOL_FAILED` before ever
   # parsing stdout, so a failing suite could never surface the normalized `{success:false,
   # passed, failed, failures[]}` this capability's own category contract promises; callers
-  # (for example `implement-trd-beads.yaml`'s test step) must read `data.success`, not the
+  # (for example `implement-trd-tasks.yaml`'s test step) must read `data.success`, not the
   # envelope's `ok` field, to learn whether the suite passed. An exit code outside `[0, 1]`, a
   # signal, a timeout, or stdout that fails to parse as JSON at all still resolves
   # `TOOL_FAILED` exactly as before (`runner.js`'s own header documents the full distinction).

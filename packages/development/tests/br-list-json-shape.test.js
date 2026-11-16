@@ -58,7 +58,7 @@ describe('trd-cli getBeadCounts (used by list and status)', () => {
 });
 
 describe('command prose does not assume a bare array', () => {
-  const FILES = ['implement-trd-beads', 'beads-build', 'requirement-status', 'verify-requirements'];
+  const FILES = ['implement-trd-tasks', 'beads-build', 'requirement-status', 'verify-requirements'];
 
   test.each(FILES)('%s.yaml never tells the reader to parse a "JSON array"', (name) => {
     expect(read(`${name}.yaml`)).not.toMatch(/parse (a )?json array/i);

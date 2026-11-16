@@ -1,5 +1,5 @@
 /**
- * One beads execution engine: implement-trd-beads (TRD orchestrator) -> beads-build
+ * One beads execution engine: implement-trd-tasks (TRD orchestrator) -> beads-build
  * (wave loop) -> beads-build-wave command (one wave, loaded by the thin beads-build-wave agent). implement-bead is a thin
  * single-bead entry that follows the same commit policy, but opens its branch/change-request
  * through the workflow.branch-create/host.change-request-create toolchain capabilities instead
@@ -18,11 +18,11 @@ const { readDevelopmentSkill, parseWorkflow } = require('./helpers/skill-workflo
 const ROOT = path.join(__dirname, '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
-// implement-trd-beads, beads-build, implement-bead and beads-build-wave are skill-backed: their YAML is a manifest
+// implement-trd-tasks, beads-build, implement-bead and beads-build-wave are skill-backed: their YAML is a manifest
 // (metadata + skill) and the prompt is the skill (SKILL.md + references/). `prose` returns the
 // prompt for those and the source text for the rest.
 const SKILL_BACKED = {
-  'commands/implement-trd-beads.yaml': 'ensemble-implement-trd-beads',
+  'commands/implement-trd-tasks.yaml': 'ensemble-implement-trd-tasks',
   'commands/beads-build.yaml': 'ensemble-beads-build',
   'commands/implement-bead.yaml': 'ensemble-implement-bead',
   'commands/beads-build-wave.yaml': 'ensemble-beads-build-wave',
@@ -31,7 +31,7 @@ const prose = (rel) => (SKILL_BACKED[rel] ? readDevelopmentSkill(SKILL_BACKED[re
 const manifest = (rel) => yaml.load(read(rel));
 
 const ENGINE_FILES = [
-  'commands/implement-trd-beads.yaml',
+  'commands/implement-trd-tasks.yaml',
   'commands/beads-build.yaml',
   'commands/implement-bead.yaml',
   'commands/beads-build-wave.yaml',
@@ -66,7 +66,7 @@ describe('beads engine sources', () => {
     const build = manifest('commands/beads-build.yaml');
     expect(build.metadata.capabilities.required).toContain('work-graph.ready');
     expect(build.metadata.capabilities.optional).toContain('work-graph.plan');
-    expect(prose('commands/implement-trd-beads.yaml')).toMatch(/work-graph\.ready \(graph-aware parallel tracks[^)]*\) or plan order when that is unavailable/);
+    expect(prose('commands/implement-trd-tasks.yaml')).toMatch(/work-graph\.ready \(graph-aware parallel tracks[^)]*\) or plan order when that is unavailable/);
   });
 });
 

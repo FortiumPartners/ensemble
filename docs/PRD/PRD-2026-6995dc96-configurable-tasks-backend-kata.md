@@ -1,7 +1,7 @@
 ---
 documentId: PRD-2026-6995dc96
 label: prd-configurable-tasks-backend-kata
-version: 1.3.0
+version: 1.3.1
 status: Draft
 date: 2026-11-13
 scaleDepth: STANDARD
@@ -93,7 +93,7 @@ unowned.
 
 - AC-004-1: Given items whose titles share a prefix, when a label is applied to them by id, then reading each item back shows that label.
 - AC-004-2: Given an open unowned item, when status is set to in-progress, then the item reads back as owned and open, and its owner is reported.
-- AC-004-3: Given an item, when its status is set to closed through the status capability, then reading it back reports closed.
+- AC-004-3: Given an item, when its status is set to closed through the status capability with a recorded reason and evidence, then reading it back reports closed; when either the reason or the evidence is absent, then the call is refused with an outcome the caller can observe rather than closing the item silently, consistent with REQ-003 and AC-003-2.
 
 Clarification (resolved 2026-11-13): the tracker contract's normalized status set includes an
 in-progress value, and the backing tool exposes only open/closed on the status field itself.
@@ -284,7 +284,7 @@ creates, edits, or closes anything.
 ## Relationship to Existing PRDs
 
 Ratified in this run: this PRD **extends** the toolchain line of work rather than superseding
-it. The three documents below carry amendment notes at their next edit; none is reopened.
+it. The four documents below carry amendment notes at their next edit; none is reopened.
 
 | Document | Standing | Relationship |
 |---|---|---|
@@ -434,6 +434,15 @@ because a skip guarantee has nothing to skip until a kata-dependent check exists
   than signalling that TRDs must be re-created.
 
 ## Changelog
+
+### v1.3.1 — 2026-11-15
+
+TRD-authority refine pass (TRD-027). **`status` stays `Draft`.** Requirements unchanged at 18; ACs unchanged at 58; ambiguity markers remain 0; readiness unchanged at 4.7. Both changes remove a contradiction already present in the document rather than adding scope.
+
+- **AC-004-3 amended to match REQ-003.** AC-004-3 previously required only that a status set to `closed` read back `closed`, so it could be satisfied by a silent close — the outcome REQ-003 and AC-003-2 exist to forbid. It now requires a recorded reason and evidence, and an observable refusal when either is absent. No requirement, tier, or AC count changes: this narrows an acceptance criterion to its own requirement.
+- **Amendment-note count corrected:** "The three documents below carry amendment notes" → "four". The *Relationship to Existing PRDs* table lists four rows (`PRD-2026-8d825f54`, `PRD-2026-b6939c7c`, `PRD-2026-023-multi-trd-beads-workstream`, `PRD-2026-87e64cc6-command-surface-consolidation`); the sentence above it said three. Corrected to the count the table shows.
+- **`PRD-2026-8d825f54-tool-abstraction-layer` disposition recorded explicitly:** Locked 2026-10-21, retained, tracked in git, **no deletion planned**. No task in `TRD-2026-6995dc96` edits that document.
+- **Citation-safety:** no `PRD line NNN` citation in `TRD-2026-6995dc96` points into this file — verified 0 occurrences — so the line-count change introduced by this entry moves no cited passage.
 
 ### v1.3.0 — 2026-11-14
 

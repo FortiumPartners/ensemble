@@ -2,7 +2,7 @@
 
 /**
  * br-0wx / br-r62: execution was scoped only by a title-substring match, and
- * implement-trd-beads passed `--label <TRD_LABEL>` to beads-build, which never parsed it
+ * implement-trd-tasks passed `--label <TRD_LABEL>` to beads-build, which never parsed it
  * (and TRD_LABEL was never defined there). A repo with several active epics could get a
  * plan that starved, or mixed in, another TRD's beads.
  *
@@ -35,15 +35,15 @@ const path = require('path');
 const { readDevelopmentSkill } = require('./helpers/skill-workflow');
 
 const read = (rel) => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
-// beads-build and implement-trd-beads are skill-backed: the prompt is the skill (SKILL.md +
+// beads-build and implement-trd-tasks are skill-backed: the prompt is the skill (SKILL.md +
 // references/); the manifest YAML keeps only metadata such as argument_hint.
-const itb = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+const itb = readDevelopmentSkill('ensemble-implement-trd-tasks').prompt;
 const build = readDevelopmentSkill('ensemble-beads-build').prompt;
 const buildManifest = read('commands/beads-build.yaml');
 const wave = readDevelopmentSkill('ensemble-beads-build-wave').prompt;
 const waveAgent = read('agents/beads-build-wave.yaml');
 
-describe('implement-trd-beads labels the beads it scaffolds', () => {
+describe('implement-trd-tasks labels the beads it scaffolds', () => {
   test('tracker.create has no labels arg; every bead kind gets labeled via the beads-label backfill instead', () => {
     expect(itb).toMatch(/run tracker\.create --arg title=\\?"<title>\\?" --arg type=<type> --arg description=\\?"<description>\\?"/);
     expect(itb).toMatch(/no priority\/labels\/externalRef arg[^)]*labels backfilled later/);
