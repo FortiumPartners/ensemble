@@ -121,6 +121,8 @@ describe('TRD-036-TEST: adapter-workflow-git-town manifest passes every static v
     // workflow.commit/workflow.push resolve through the generic `git` binary, not `git-town`.
     expect(manifest.capabilities['workflow.commit'].run[0]).toBe('git');
     expect(manifest.capabilities['workflow.push'].run[0]).toBe('git');
+    // A bare `git push` fails on a branch with no upstream; the template must set it, and must carry no force flag.
+    expect(manifest.capabilities['workflow.push'].run).toEqual(['git', 'push', '-u', 'origin', 'HEAD']);
     // workflow.status deliberately uses `git status --porcelain`, NOT `git-town status`.
     expect(manifest.capabilities['workflow.status'].run).toEqual(['git', 'status', '--porcelain']);
   });
