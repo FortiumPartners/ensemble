@@ -41,13 +41,32 @@ const SKILLS_DIR = path.join(__dirname, '../skills');
 const NON_SOURCE_PACKAGES = new Set(['full', 'pi', 'codex', 'opencode']);
 // Validated and documented, but not yet acted on by the runner (none now: `runtimes` acts since PR 4).
 const UNACTED_FIELDS = [];
-const INVOCATIONS = ['plain', 'explicit'];
+// `explicit-both`: the command prefixes the prompt in BOTH arms (the command lives in a package both arms load, see `sharedPackages`).
+const INVOCATIONS = ['plain', 'explicit', 'explicit-both'];
 const KNOWN_KEYS = new Set([
   'id', 'skill', 'description', 'runtimes', 'prompt', 'invocation', 'command', 'allowedTools',
   'maxTurns', 'timeoutSec', 'repeats', 'bar', 'expectInvoked', 'checks',
+  'sharedPackages', 'sandboxPath', 'remote', 'branch',
 ]);
 
 /** A rejected definition. `part` names what is wrong (task, workspace, skill, checks, or a field). */
+/**
+ * The one validation of `sandboxPath` (fixture directories put first on the agent's PATH), shared by skill evals and legacy scenarios:
+ * a non-empty array of relative directories that exist inside `fixtureDir` (no absolute path, `..`, backslash, colon or control
+ * character, no link). Returns the normalized entries; throws an Error with the message to show.
+ */
+function checkSandboxPath(sp, fixtureDir) {
+  if (!(Array.isArray(sp) && sp.length > 0 && sp.every(isNonEmptyString))) throw new Error('`sandboxPath` must be a non-empty array of fixture directories');
+  for (const d of sp) {
+    const norm = path.posix.normalize(d);
+    // eslint-disable-next-line no-control-regex
+    if (path.isAbsolute(d) || d.includes('\\') || /[:\x00-\x1f]/.test(d) || norm.startsWith('..') || norm === '.') throw new Error(`\`sandboxPath\` entry ${JSON.stringify(d)} must be a relative directory inside the fixture`);
+    const st = fs.lstatSync(path.join(fixtureDir, norm), { throwIfNoEntry: false });
+    if (!st || !st.isDirectory()) throw new Error(`\`sandboxPath\` entry ${JSON.stringify(d)} is not a directory in the fixture`);
+  }
+  return sp.map((d) => path.posix.normalize(d));
+}
+
 class EvalDefinitionError extends Error {
   constructor(evalId, part, message) {
     super(`eval "${evalId}": ${message}`);
@@ -136,8 +155,8 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   if (invocation === 'plain' && raw.prompt.trim().startsWith('/')) {
     fail('prompt', 'prompt must be plain language, not a slash command; use `invocation: "explicit"` with `command`');
   }
-  if (invocation === 'explicit' && !isNonEmptyString(raw.command)) {
-    fail('command', 'invocation "explicit" requires `command` (for example "/ensemble:create-prd")');
+  if (invocation !== 'plain' && !isNonEmptyString(raw.command)) {
+    fail('command', `invocation "${invocation}" requires \`command\` (the name Claude Code registers for a --plugin-dir command, /<plugin>:ensemble:<command>, for example "/ensemble-product:ensemble:create-prd")`);
   }
   if (raw.command !== undefined && !isNonEmptyString(raw.command)) fail('command', '`command` must be a non-empty string');
   if (isNonEmptyString(raw.command) && /^\s*-/.test(raw.command)) fail('command', '`command` must not begin with "-"');
@@ -158,6 +177,32 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   // where resolveRepeats rejects a bar that cannot be met.
   if (raw.bar !== undefined && raw.repeats !== undefined && raw.bar > raw.repeats) fail('bar', '`bar` cannot exceed `repeats`');
   if (raw.expectInvoked !== undefined && typeof raw.expectInvoked !== 'boolean') fail('expectInvoked', '`expectInvoked` must be true or false');
+
+  // Packages loaded in BOTH arms (a command the eval drives lives there), by name. The with-skill arm loads them plus the
+  // skill's own package; the baseline arm loads only them. Claude-only: Pi loads a single skill and has no package commands.
+  let sharedPackages = [];
+  if (raw.sharedPackages !== undefined) {
+    const sp = raw.sharedPackages;
+    if (!(Array.isArray(sp) && sp.length > 0 && sp.every(isSkillName))) fail('sharedPackages', '`sharedPackages` must be a non-empty array of package names');
+    const bad = sp.find((n) => NON_SOURCE_PACKAGES.has(n) || !fs.existsSync(path.join(repoRoot, 'packages', n, 'package.json')));
+    if (bad !== undefined) fail('sharedPackages', `\`sharedPackages\` entry "${bad}" is not a source package under packages/`);
+    if (new Set(sp).size !== sp.length) fail('sharedPackages', '`sharedPackages` must not repeat a package');
+    if (sp.includes(packages[0])) fail('sharedPackages', `\`sharedPackages\` must not include "${packages[0]}", the package that ships the skill under test: it would load the skill in the baseline arm`);
+    if (!(Array.isArray(raw.runtimes) && raw.runtimes.length === 1 && raw.runtimes[0] === 'claude')) fail('sharedPackages', '`sharedPackages` requires `"runtimes": ["claude"]` (Pi loads one skill and has no package commands)');
+    sharedPackages = sp;
+  }
+  if (invocation === 'explicit-both' && !(Array.isArray(raw.runtimes) && raw.runtimes.length === 1 && raw.runtimes[0] === 'claude')) {
+    fail('invocation', 'invocation "explicit-both" requires `"runtimes": ["claude"]` (Pi has no package commands)');
+  }
+  // Directories of the fixture put first on the AGENT's PATH (a stub binary the scenario needs). Never on the checks' PATH.
+  let sandboxPath = [];
+  if (raw.sandboxPath !== undefined) {
+    try { sandboxPath = checkSandboxPath(raw.sandboxPath, fixtureDir); } catch (e) { fail('sandboxPath', e.message); }
+  }
+  if (raw.remote !== undefined && typeof raw.remote !== 'boolean') fail('remote', '`remote` must be true or false');
+  if (raw.branch !== undefined && !(typeof raw.branch === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(raw.branch) && !raw.branch.includes('..') && raw.branch !== 'main')) {
+    fail('branch', '`branch` must be a branch name other than main (letters, digits, ".", "_", "-" and "/")');
+  }
 
   const rubricFile = path.join(dir, 'rubric.md');
   const checks = raw.checks.map((check, i) => {
@@ -181,6 +226,10 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
     id,
     skill: raw.skill,
     package: packages[0],
+    sharedPackages,
+    sandboxPath,
+    remote: raw.remote === true,
+    branch: raw.branch,
     description: raw.description || '',
     runtimes: raw.runtimes || ['claude'],
     prompt: raw.prompt,
@@ -243,8 +292,11 @@ function evalToScenario(ev) {
     type: 'agent',
     skill: ev.skill,
     description: ev.description,
-    prompt: ev.invocation === 'explicit' ? `${ev.command} ${ev.prompt}` : ev.prompt,
-    plugins: [ev.package],
+    prompt: ev.invocation !== 'plain' ? `${ev.command} ${ev.prompt}` : ev.prompt,
+    plugins: [...(ev.sharedPackages || []), ev.package],
+    remote: ev.remote === true,
+    branch: ev.branch,
+    sandboxPath: ev.sandboxPath || [],
     allowedTools: ev.allowedTools,
     maxTurns: ev.maxTurns,
     timeoutSec: ev.timeoutSec,
@@ -255,5 +307,5 @@ function evalToScenario(ev) {
 
 module.exports = {
   readDefinitionFile,
-  EvalDefinitionError, validateEvalDef, loadEvalDefs, findSkillPackages, evalToScenario, isJudged, SKILLS_DIR, NON_SOURCE_PACKAGES,
+  EvalDefinitionError, validateEvalDef, checkSandboxPath, loadEvalDefs, findSkillPackages, evalToScenario, isJudged, SKILLS_DIR, NON_SOURCE_PACKAGES,
 };

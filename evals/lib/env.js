@@ -118,6 +118,17 @@ function redactText(text, secrets) {
   return out;
 }
 
+const MAX_REASON = 160;
+
+/**
+ * A short, single-line, printable form of provider/runtime error text for a record or a printed line: secrets redacted first
+ * (so a key is never cut in half), control characters removed, whitespace collapsed, at most MAX_REASON characters.
+ */
+function shortReason(text, secrets = []) {
+  const clean = redactText(text, secrets).replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return clean.length > MAX_REASON ? `${clean.slice(0, MAX_REASON - 3)}...` : clean;
+}
+
 /** Deep copy of `value` with secrets removed from every string, key included. */
 function redactDeep(value, secrets) {
   if (typeof value === 'string') return redactText(value, secrets);
@@ -130,5 +141,5 @@ function redactDeep(value, secrets) {
 
 module.exports = {
   BASE_NAMES, DEFAULT_CREDENTIALS, ALLOWLIST_FILE, REDACTED,
-  loadCredentialNames, isCI, buildEnv, makeCiHome, GIT_HARDEN, gitEnv, secretValues, redactText, redactDeep,
+  loadCredentialNames, isCI, buildEnv, makeCiHome, GIT_HARDEN, gitEnv, secretValues, redactText, redactDeep, shortReason, MAX_REASON,
 };

@@ -1,0 +1,64 @@
+{
+  "id": "pr-merge-trace",
+  "skill": "pr-merge-trace",
+  "description": "Claude Code only. /ensemble-git:ensemble:pr-merge runs against a local sandbox (bare origin, stub gh in bin/ answering from canned JSON, no network) on a PR that must not merge (a human reviewer requests changes, one unresolved thread). With the skill the run leaves a trace file with a span per step and embeds trace_summary in its final report, and the merge decision is the same as without it: not merged. Both arms load packages/git (the command); only with-skill adds packages/development, which holds the skill and the toolchain-cli it uses. NOT SKILL-ATTRIBUTABLE until a trial shows otherwise: step 1.1 of the command resolves toolchain-cli through the tool-path-resolution tiers, which fail in the sandbox for the baseline arm (packages/git only), so the baseline CERTAINLY halts before any gh call; whether the with-skill arm resolves it depends on ${CLAUDE_PLUGIN_ROOT} substitution, which is unproven. Uplift here may therefore reflect the package being present, not the skill. The pilot does not count until a maintainer-run trial (real run, no stub model, one repeat) shows the with-skill arm gets past step 1.1.",
+  "runtimes": [
+    "claude"
+  ],
+  "sharedPackages": [
+    "git"
+  ],
+  "prompt": "7 --foreman --max-rounds=1\n\nThis is a non-interactive run against a local sandbox: `gh` on PATH is a local stub that answers from canned data, so use no other GitHub access and no network. When you have printed your final report, also save its JSON object, exactly as printed, to report.json in the repository root.",
+  "invocation": "explicit-both",
+  "command": "/ensemble-git:ensemble:pr-merge",
+  "sandboxPath": [
+    "bin"
+  ],
+  "remote": true,
+  "branch": "fix/slugify-trim",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 80,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' gh-no-merge",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' trace-spans --spans preflight,pr-discovery,round,manifest",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' report-trace-summary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' report-not-merged --pr 7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "remoteBranchUnchanged",
+      "branch": "main"
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    }
+  ]
+}

@@ -5,8 +5,9 @@
  *
  * Arguments: `claude -p <prompt> --output-format stream-json --verbose --no-session-persistence
  * --setting-sources project ...`. Both arms get `--setting-sources project`, so user-level and synced plugins
- * cannot leak into either arm. The with-skill arm gets one `--plugin-dir <dir>` per entry of `job.pluginDirs`:
- * the shipped package directory itself, never a copy.
+ * cannot leak into either arm. A job gets one `--plugin-dir <dir>` per entry of `job.pluginDirs`: the shipped package directory
+ * itself, never a copy. For the with-skill arm that is the skill's package (after any `sharedPackages` of the eval); the baseline
+ * gets only the `sharedPackages`, and none when the eval names none.
  *
  * Loaded skills come from the stream's own events (see docs/guides/skills-eval.md, "Claude Code startup events"):
  * the `system`/`init` event lists every available skill (`skills`, namespaced `<plugin>:<skill>`) and plugin
@@ -18,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const { runProcess } = require('../exec');
 const envlib = require('../env');
+const { isProviderErrorText } = require('./provider-error');
 
 const RUNTIME = 'claude';
 const BIN_NAME = 'claude';
@@ -65,6 +67,44 @@ function summarizeTranscript(transcript) {
     }
   }
   return summary;
+}
+
+// A result that stopped the agent on purpose (turn or budget limit, or the run crashing mid-work) is an agent outcome, never a provider error.
+const AGENT_STOP_SUBTYPE_RE = /max_turns|max_budget|during_execution/;
+
+/**
+ * Infrastructure-error rule for a Claude stream: the final `result` line says the run failed (is_error true, or an error
+ * subtype) with the API/auth error text, and it is not a deliberate stop. Returns the raw error text, or null.
+ */
+function providerErrorOf(transcript, secrets = []) {
+  let last = null;
+  for (const line of String(transcript).split('\n')) {
+    if (!line.startsWith('{') || !line.includes('"result"')) continue;
+    let o;
+    try { o = JSON.parse(line); } catch { continue; }
+    if (o && o.type === 'result') last = o;
+  }
+  if (!last || typeof last.result !== 'string') return null;
+  const failed = last.is_error === true || (typeof last.subtype === 'string' && last.subtype.startsWith('error'));
+  if (!failed || AGENT_STOP_SUBTYPE_RE.test(String(last.subtype || ''))) return null;
+  if (!isProviderErrorText(last.result)) return null;
+  return envlib.shortReason(last.result, secrets) || 'API error';
+}
+
+/**
+ * Whether a run got as far as paid work: a final `num_turns` above 1, or an assistant tool call. A first call that failed
+ * (a 401) made none, so its zero cost is right; a failure after several turns with no reported figure is unknown spend.
+ */
+function providerProgressOf(transcript) {
+  for (const line of String(transcript).split('\n')) {
+    if (!line.startsWith('{')) continue;
+    let o;
+    try { o = JSON.parse(line); } catch { continue; }
+    if (!o) continue;
+    if (o.type === 'result' && typeof o.num_turns === 'number' && o.num_turns > 1) return true;
+    if (o.type === 'assistant' && o.message && Array.isArray(o.message.content) && o.message.content.some((b) => b && b.type === 'tool_use')) return true;
+  }
+  return false;
 }
 
 const MAX_INVOKED = 500;
@@ -146,6 +186,8 @@ async function run(job, opts = {}) {
     exitCode: proc.exitCode,
     timedOut: proc.timedOut,
     costUsd: summarizeTranscript(transcript).costUsd,
+    providerError: proc.timedOut ? null : providerErrorOf(transcript, secrets),
+    providerProgress: providerProgressOf(transcript),
     ...scanner.result(),
     runtime: RUNTIME,
     stderr: envlib.redactText(proc.stderr, secrets),
@@ -155,4 +197,4 @@ async function run(job, opts = {}) {
   };
 }
 
-module.exports = { RUNTIME, BIN_NAME, BIN_ENV, find: findClaude, findClaude, buildArgs, summarizeTranscript, createStreamScanner, analyzeTranscript, run };
+module.exports = { RUNTIME, BIN_NAME, BIN_ENV, find: findClaude, findClaude, buildArgs, summarizeTranscript, providerErrorOf, providerProgressOf, createStreamScanner, analyzeTranscript, run };

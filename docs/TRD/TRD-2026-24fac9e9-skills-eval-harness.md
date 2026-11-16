@@ -113,7 +113,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** A maintainer can scaffold an eval for any skill as plain files, run `node evals/run.js --dry-run` and see it accepted or rejected with a message naming the eval and the problem; the five existing scenarios still run unchanged.
 
-- [ ] **TRD-001** Skill-keyed eval format, discovery and validation (`evals/lib/eval-def.js`, `evals/skills/`, `run.js` loading) [satisfies REQ-001] [satisfies REQ-002] (4h)
+- [x] **TRD-001** Skill-keyed eval format, discovery and validation (`evals/lib/eval-def.js`, `evals/skills/`, `run.js` loading) [satisfies REQ-001] [satisfies REQ-002] (4h)
   - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-002-3
   - Implementation AC:
     - [ ] Given an eval directory `evals/skills/<skill>/eval.json`, when `run.js` starts, then it is discovered and loaded with no build step and no registration elsewhere
@@ -123,7 +123,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a definition, when loaded, then `prompt` is plain language, `invocation` is `plain` unless set to `explicit`, and `explicit` requires a `command`
     - [ ] Given legacy `evals/scenarios/*`, when loaded, then they still load and run as single-arm evals excluded from skill coverage
 
-- [ ] **TRD-001-TEST** Eval definition loading and validation [verifies TRD-001] [satisfies REQ-001] [satisfies REQ-002] [depends: TRD-001] (3h)
+- [x] **TRD-001-TEST** Eval definition loading and validation [verifies TRD-001] [satisfies REQ-001] [satisfies REQ-002] [depends: TRD-001] (3h)
   - Validates PRD ACs: AC-001-1, AC-001-2, AC-002-1, AC-002-2, AC-002-3
   - Test AC:
     - [ ] Scenario: edit takes effect -- Given an eval whose prompt is edited on disk, When the loader runs again with no build, Then the loaded prompt is the edited one
@@ -132,7 +132,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: missing part rejected -- Given definitions each missing one required part, When loaded, Then each is rejected with the eval id and the part named and no run starts
     - [ ] Scenario: unknown skill rejected -- Given a definition naming a skill that does not exist, When loaded, Then it is rejected naming that skill
 
-- [ ] **TRD-002** Deterministic-first check rules (`evals/lib/eval-def.js`, `evals/lib/graders.js`, `evals/lib/results.js`) [satisfies REQ-003] [satisfies REQ-004] [depends: TRD-001] (3h)
+- [x] **TRD-002** Deterministic-first check rules (`evals/lib/eval-def.js`, `evals/lib/graders.js`, `evals/lib/results.js`) [satisfies REQ-003] [satisfies REQ-004] [depends: TRD-001] (3h)
   - Validates PRD ACs: AC-003-1, AC-003-2, AC-004-1, AC-004-2
   - Implementation AC:
     - [ ] Given an eval with deterministic checks, when a run finishes, then the verdict is computed from deterministic checks only
@@ -140,7 +140,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a judged check, when loaded, then it must carry a written rubric and its result is marked `judged`
     - [ ] Given a finished run, when reported, then the deterministic verdict and the judged score are shown in separate fields
 
-- [ ] **TRD-002-TEST** Check classification behavior [verifies TRD-002] [satisfies REQ-003] [satisfies REQ-004] [depends: TRD-002] (3h)
+- [x] **TRD-002-TEST** Check classification behavior [verifies TRD-002] [satisfies REQ-003] [satisfies REQ-004] [depends: TRD-002] (3h)
   - Validates PRD ACs: AC-003-1, AC-003-2, AC-004-1, AC-004-2
   - Test AC:
     - [ ] Scenario: verdict from deterministic checks -- Given a run with passing deterministic checks and a failing judged check, When the verdict is computed, Then it is pass
@@ -148,7 +148,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: rubric required and marked -- Given a judged check without a rubric and one with a rubric, When loaded, Then the first is rejected and the second's result is marked judged
     - [ ] Scenario: separate reporting -- Given a finished run with a judged check, When the report is built, Then the verdict and the judged score are separate fields
 
-- [ ] **TRD-003** Judge grader with model separation (`evals/lib/graders.js`, standalone `evals/lib/runners/judge.js`, created here in PR 1 with no dependency on the Claude adapter, which TRD-008 adds beside it) [satisfies REQ-004] [depends: TRD-002] (3h)
+- [x] **TRD-003** Judge grader with model separation (`evals/lib/graders.js`, standalone `evals/lib/runners/judge.js`, created here in PR 1 with no dependency on the Claude adapter, which TRD-008 adds beside it) [satisfies REQ-004] [depends: TRD-002] (3h)
   - Validates PRD ACs: AC-004-3, AC-004-4
   - Implementation AC:
     - [ ] Given a judged check, when it runs, then the judging model (`--judge-model` or `EVALS_JUDGE_MODEL`) differs from the model under test and is recorded in the result
@@ -156,20 +156,20 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given the judge refusal, when other checks exist, then the eval still runs on its deterministic checks and reports the judged check as refused
     - [ ] Given a judge call that reports cost, when the result is built, then that cost is added to the run's `costUsd` so that TRD-007's suite cap and reservation count it (the judge module is standalone and created in this PR; it does not use `lib/runners`)
 
-- [ ] **TRD-003-TEST** Judge model separation [verifies TRD-003] [satisfies REQ-004] [depends: TRD-003] (2h)
+- [x] **TRD-003-TEST** Judge model separation [verifies TRD-003] [satisfies REQ-004] [depends: TRD-003] (2h)
   - Validates PRD ACs: AC-004-3, AC-004-4
   - Test AC:
     - [ ] Scenario: different judge recorded -- Given a stub judge model different from the run model, When a judged check runs, Then the result records the judge model
     - [ ] Scenario: same model refused -- Given a judge equal to the run model, When the harness starts, Then the judged check is refused with the conflict named and deterministic checks still run
     - [ ] Scenario: judge cost counted -- Given a stub judge reporting $0.50 and a run reporting $1.00, When the result is built, Then `costUsd` is 1.50
 
-- [ ] **TRD-004** Eval scaffold command (`evals/new.js`, template under `evals/templates/`) [satisfies REQ-005] [depends: TRD-001] (2h)
+- [x] **TRD-004** Eval scaffold command (`evals/new.js`, template under `evals/templates/`) [satisfies REQ-005] [depends: TRD-001] (2h)
   - Validates PRD ACs: AC-005-1
   - Implementation AC:
     - [ ] Given `node evals/new.js <skill>`, when run, then a skeleton `evals/skills/<skill>/eval.json` and `fixture/` are written with every required field present as a placeholder
     - [ ] Given the skeleton with its placeholders filled in, when loaded, then it passes the loading checks
 
-- [ ] **TRD-004-TEST** Scaffold behavior [verifies TRD-004] [satisfies REQ-005] [depends: TRD-004] (2h)
+- [x] **TRD-004-TEST** Scaffold behavior [verifies TRD-004] [satisfies REQ-005] [depends: TRD-004] (2h)
   - Validates PRD ACs: AC-005-1
   - Test AC:
     - [ ] Scenario: scaffold loads once filled -- Given a scaffolded eval with placeholders replaced, When loaded, Then it passes validation
@@ -178,7 +178,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** Existing scenarios and new evals run in an isolated workspace outside the repository with an allowlisted environment and credential-free stored output; a suite stops at the cost cap, reports unfinished evals as incomplete and exits non-zero, and defaults to $50 per suite and 900 s per run.
 
-- [ ] **TRD-005** Environment allowlist and redaction (`evals/lib/env.js`, `evals/lib/sandbox.js`) [satisfies REQ-009] [satisfies REQ-020] (4h)
+- [x] **TRD-005** Environment allowlist and redaction (`evals/lib/env.js`, `evals/lib/sandbox.js`) [satisfies REQ-009] [satisfies REQ-020] (4h)
   - Validates PRD ACs: AC-009-1, AC-009-2, AC-009-3, AC-020-1, AC-020-2
   - Implementation AC:
     - [ ] Given a run, when the agent process starts, then its environment is built from an allowlist (`PATH`, `LANG`, `TERM`, `TMPDIR`, `HOME` as set by the next criterion, and the credential names listed in the allowlist) and nothing else is inherited
@@ -188,7 +188,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given any stored result, log or report, when it is written, then every value of an allowlisted credential is replaced by `[REDACTED]`
     - [ ] Given a stored result, when inspected, then it holds only non-secret allowlisted values
 
-- [ ] **TRD-005-TEST** Environment and redaction behavior [verifies TRD-005] [satisfies REQ-009] [satisfies REQ-020] [depends: TRD-005] (4h)
+- [x] **TRD-005-TEST** Environment and redaction behavior [verifies TRD-005] [satisfies REQ-009] [satisfies REQ-020] [depends: TRD-005] (4h)
   - Validates PRD ACs: AC-009-1, AC-009-2, AC-009-3, AC-020-1, AC-020-2
   - Test AC:
     - [ ] Scenario: only allowlisted variables visible -- Given a stub runner that prints its environment, When a run starts, Then only allowlisted names appear
@@ -198,20 +198,20 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: secret never stored -- Given a stub that prints the allowlisted credential, When results and logs are written, Then the value is absent from them
     - [ ] Scenario: stored result carries no secret env -- Given a stored result, When its keys and values are scanned, Then it holds no environment values beyond allowlisted non-secret ones
 
-- [ ] **TRD-006** Workspace isolation outside the repository (`evals/lib/sandbox.js`) [satisfies REQ-008] (3h)
+- [x] **TRD-006** Workspace isolation outside the repository (`evals/lib/sandbox.js`) [satisfies REQ-008] (3h)
   - Validates PRD ACs: AC-008-1, AC-008-2
   - Implementation AC:
     - [ ] Given a run, when it starts, then it works in a fresh copy of the eval fixture under `EVALS_WORKDIR` (default `~/.omp/evals-work/`, never `/tmp`), not inside the repository
     - [ ] Given a run that modifies or deletes files, when it finishes, then a before-and-after check shows the real repository unchanged
     - [ ] Given a finished run, when `--keep-workspace` is absent, then the workspace is removed; when present, it is kept and its path printed
 
-- [ ] **TRD-006-TEST** Workspace isolation behavior [verifies TRD-006] [satisfies REQ-008] [depends: TRD-006] (3h)
+- [x] **TRD-006-TEST** Workspace isolation behavior [verifies TRD-006] [satisfies REQ-008] [depends: TRD-006] (3h)
   - Validates PRD ACs: AC-008-1, AC-008-2
   - Test AC:
     - [ ] Scenario: fresh isolated copy -- Given a stub run, When it starts, Then its working directory is outside the repository and holds a fresh fixture copy
     - [ ] Scenario: repository untouched and workspace removed -- Given a stub that deletes files and writes to the workspace, When the run finishes, Then the repository tree hash is unchanged and the workspace is gone unless `--keep-workspace` was passed
 
-- [ ] **TRD-007** Cost cap, timeout and incomplete status (`evals/lib/exec.js`, `evals/run.js`) [satisfies REQ-010] [depends: TRD-006] (4h)
+- [x] **TRD-007** Cost cap, timeout and incomplete status (`evals/lib/exec.js`, `evals/run.js`) [satisfies REQ-010] [depends: TRD-006] (4h)
   - Validates PRD ACs: AC-010-1, AC-010-2, AC-010-3, AC-010-4
   - Implementation AC:
     - [ ] Given a suite cost cap, when spend plus in-flight reservations would exceed it, then no new run starts, finished evals keep their results and unfinished ones are marked `incomplete`
@@ -221,7 +221,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given judge-call cost, when the cap and reservations are computed, then judge cost counts toward both (see TRD-003)
     - [ ] Given both a failed eval and incomplete evals in one suite, when the suite ends, then the exit status is `1`, not `4`
 
-- [ ] **TRD-007-TEST** Budget and timeout behavior [verifies TRD-007] [satisfies REQ-010] [depends: TRD-007] (4h)
+- [x] **TRD-007-TEST** Budget and timeout behavior [verifies TRD-007] [satisfies REQ-010] [depends: TRD-007] (4h)
   - Validates PRD ACs: AC-010-1, AC-010-2, AC-010-3, AC-010-4
   - Test AC:
     - [ ] Scenario: cap stops new runs -- Given a stub reporting $2 per run and a $5 cap, When a suite of 5 runs executes, Then no run starts past the cap and finished runs keep their results
@@ -237,7 +237,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** `node evals/run.js --skill <skill> --runtime claude` runs the skill's eval with the skill and without it, repeated, and prints each run's outcome and the eval's reliability and whether the skill was actually invoked.
 
-- [ ] **TRD-008** Runner interface and Claude Code adapter (`evals/lib/runners/index.js`, `claude.js`; refactor of `sandbox.js` claude helpers; creates `docs/guides/skills-eval.md`) [satisfies REQ-012] [depends: TRD-005] [depends: TRD-006] (5h)
+- [x] **TRD-008** Runner interface and Claude Code adapter (`evals/lib/runners/index.js`, `claude.js`; refactor of `sandbox.js` claude helpers; creates `docs/guides/skills-eval.md`) [satisfies REQ-012] [depends: TRD-005] [depends: TRD-006] (5h)
   - Validates PRD ACs: AC-012-1
   - Implementation AC:
     - [ ] Given the interface `run(job)`, when the Claude adapter runs, then it returns `{ transcript, exitCode, timedOut, costUsd, loadedSkills, runtime }` and existing scenarios behave as before
@@ -246,7 +246,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given one short real Claude run with a plugin loaded and one without, when the stream-json startup events are inspected, then whether they list loaded skills is recorded in `docs/guides/skills-eval.md` with the event shape
     - [ ] Given the startup events do not list loaded skills, when `loadedSkills` is built, then it is derived from the transcript's skill-invocation events and the leak check uses that scan instead
 
-- [ ] **TRD-008-TEST** Runner interface and as-shipped loading [verifies TRD-008] [satisfies REQ-012] [depends: TRD-008] (3h)
+- [x] **TRD-008-TEST** Runner interface and as-shipped loading [verifies TRD-008] [satisfies REQ-012] [depends: TRD-008] (3h)
   - Validates PRD ACs: AC-012-1
   - Test AC:
     - [ ] Scenario: skill loaded as shipped -- Given a stub `claude` that records its arguments, When a with-skill arm runs, Then `--plugin-dir` points at the shipped package directory and no copy of the skill exists in the workspace
@@ -254,7 +254,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: loaded skills from the transcript scan -- Given a stub stream with no startup skill list and a skill-invocation event later in the stream, When the adapter returns, Then `loadedSkills` is derived from the invocation events and the leak check uses it
     - [ ] Scenario: existing scenarios unchanged -- Given the existing scenarios and the stub `claude`, When they run through the adapter, Then they behave as before (same args shape, outcome and cost reading)
 
-- [ ] **TRD-009** With-skill and baseline arms with leak check (`evals/lib/arms.js`) [satisfies REQ-006] [depends: TRD-008] [depends: TRD-001] (5h)
+- [x] **TRD-009** With-skill and baseline arms with leak check (`evals/lib/arms.js`) [satisfies REQ-006] [depends: TRD-008] [depends: TRD-001] (5h)
   - Validates PRD ACs: AC-006-1, AC-006-2, AC-006-3, AC-006-4
   - Implementation AC:
     - [ ] Given an eval, when it runs, then a with-skill arm and a baseline arm run on identical fresh workspaces with the same task and settings
@@ -263,7 +263,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a baseline arm whose runtime reports the skill under test as loaded, or whose transcript invokes it, when detected, then that eval aborts with a message naming the leak and the arm is not scored
     - [ ] Given a skill the agent may already know, when its baseline runs, then the baseline is the same agent with the skill unavailable and a near-zero uplift is reported as a valid result
 
-- [ ] **TRD-009-TEST** Arm construction and leak detection [verifies TRD-009] [satisfies REQ-006] [depends: TRD-009] (4h)
+- [x] **TRD-009-TEST** Arm construction and leak detection [verifies TRD-009] [satisfies REQ-006] [depends: TRD-009] (4h)
   - Validates PRD ACs: AC-006-1, AC-006-2, AC-006-3, AC-006-4
   - Test AC:
     - [ ] Scenario: arms identical except the skill -- Given a stub runner recording jobs, When a plain eval and an explicit eval run, Then both arms receive the same workspace content, prompt text and settings and differ only in the plugin/skill set loaded, and in explicit mode only by the command prefix on the with-skill arm
@@ -271,27 +271,27 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: leak aborts the eval -- Given a stub whose baseline reports the skill as loaded, When the eval runs, Then it aborts naming the leak and records no baseline score
     - [ ] Scenario: near-zero uplift is valid -- Given stub arms with equal pass rates, When results are computed, Then uplift is 0 and the eval is not an error
 
-- [ ] **TRD-010** Repeats, concurrency and reliability (`evals/lib/exec.js`) [satisfies REQ-007] [depends: TRD-009] [depends: TRD-007] (3h)
+- [x] **TRD-010** Repeats, concurrency and reliability (`evals/lib/exec.js`) [satisfies REQ-007] [depends: TRD-009] [depends: TRD-007] (3h)
   - Validates PRD ACs: AC-007-1, AC-007-2, AC-007-3
   - Implementation AC:
     - [ ] Given default settings, when an eval runs, then each arm executes 5 times, up to `--concurrency` (default 4) at once, with budget reserved per in-flight run
     - [ ] Given an arm where 4 of 5 runs pass, when results are computed, then the eval is reliable; given 3 of 5, it is not reliable
     - [ ] Given `repeats` or `bar` set in an eval, when it runs, then those values are used and the report states them
 
-- [ ] **TRD-010-TEST** Repeats and reliability behavior [verifies TRD-010] [satisfies REQ-007] [depends: TRD-010] (3h)
+- [x] **TRD-010-TEST** Repeats and reliability behavior [verifies TRD-010] [satisfies REQ-007] [depends: TRD-010] (3h)
   - Validates PRD ACs: AC-007-1, AC-007-2, AC-007-3
   - Test AC:
     - [ ] Scenario: five runs per arm -- Given a counting stub and default settings, When an eval runs, Then each arm is executed 5 times
     - [ ] Scenario: bar boundary -- Given stubs passing 4 of 5 and 3 of 5, When reliability is computed, Then the first is reliable and the second is not
     - [ ] Scenario: per-eval override reported -- Given `repeats: 3` and `bar: 3` in an eval, When it runs and is reported, Then 3 runs execute and the report states 3 and 3
 
-- [ ] **TRD-011** Skill-invoked detection and evaluated-copy report (`evals/lib/runners/claude.js`, `evals/lib/results.js`) [satisfies REQ-012] [depends: TRD-008] (4h)
+- [x] **TRD-011** Skill-invoked detection and evaluated-copy report (`evals/lib/runners/claude.js`, `evals/lib/results.js`) [satisfies REQ-012] [depends: TRD-008] (4h)
   - Validates PRD ACs: AC-012-2, AC-012-3
   - Implementation AC:
     - [ ] Given an eval with `expectInvoked`, when the with-skill arm runs, then the result records whether the skill was actually invoked, read from the transcript's skill invocation events
     - [ ] Given any run, when it is reported, then it states which copy was evaluated (package path, skill hash, and whether the working tree differs from the installed or committed copy)
 
-- [ ] **TRD-011-TEST** Invocation detection and evaluated-copy report [verifies TRD-011] [satisfies REQ-012] [depends: TRD-011] (3h)
+- [x] **TRD-011-TEST** Invocation detection and evaluated-copy report [verifies TRD-011] [satisfies REQ-012] [depends: TRD-011] (3h)
   - Validates PRD ACs: AC-012-2, AC-012-3
   - Test AC:
     - [ ] Scenario: invoked recorded -- Given stub transcripts with and without a skill invocation, When results are built, Then `invoked` is true and false respectively
@@ -301,20 +301,20 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** `--runtime pi` runs the same evals through Pi, results record the runtime, and an unsupported runtime is rejected with a clear message.
 
-- [ ] **TRD-012** Spike: Pi headless skill loading, cost reporting and baseline switching (findings appended to `docs/guides/skills-eval.md`, created in TRD-008; throwaway scripts outside the repository) [satisfies REQ-012] [depends: TRD-008] (3h)
+- [x] **TRD-012** Spike: Pi headless skill loading, cost reporting and baseline switching (findings appended to `docs/guides/skills-eval.md`, created in TRD-008; throwaway scripts outside the repository) [satisfies REQ-012] [depends: TRD-008] (3h)
   - Implementation AC:
     - [ ] Given Pi run headless (`--print --mode json`), when a skill is passed with `--skill` and when `--no-skills` is passed, then the recorded behavior shows how loaded skills can be read from output in each case
     - [ ] Given a headless Pi run, when it finishes, then whether it reports token usage or cost is recorded, with the field names
     - [ ] Given the findings, when TRD-013 is started, then its cost accounting uses reported cost if present, otherwise a documented per-run ceiling counted against the suite cap
 
-- [ ] **TRD-013** Pi adapter (`evals/lib/runners/pi.js`) [satisfies REQ-012] [depends: TRD-012] [depends: TRD-008] [depends: TRD-005] (5h)
+- [x] **TRD-013** Pi adapter (`evals/lib/runners/pi.js`) [satisfies REQ-012] [depends: TRD-012] [depends: TRD-008] [depends: TRD-005] (5h)
   - Validates PRD ACs: AC-012-4, AC-012-5
   - Implementation AC:
     - [ ] Given a pilot skill and `--runtime pi`, when it runs, then the with-skill arm passes the skill via `--skill`, the baseline passes `--no-skills`, and each result records the runtime
     - [ ] Given a runtime other than `claude` or `pi`, when requested, then the harness reports it is not supported in this release and runs nothing
     - [ ] Given Pi, when a run completes, then cost is taken from reported usage or from the documented ceiling, and counts against the suite cap
 
-- [ ] **TRD-013-TEST** Pi adapter and runtime selection [verifies TRD-013] [satisfies REQ-012] [depends: TRD-013] (3h)
+- [x] **TRD-013-TEST** Pi adapter and runtime selection [verifies TRD-013] [satisfies REQ-012] [depends: TRD-013] (3h)
   - Validates PRD ACs: AC-012-4, AC-012-5
   - Test AC:
     - [ ] Scenario: both runtimes evaluated, runtime recorded -- Given stub `claude` and `pi` binaries, When a pilot eval runs for both runtimes, Then each result records its runtime and the Pi jobs use `--skill` and `--no-skills` for the two arms
@@ -324,33 +324,33 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** After a run, a maintainer sees each skill's with-skill and baseline pass rates, uplift and reliability, and a coverage report listing every skill as evaluated, exempt (with reason) or missing; a per-skill baseline summary is written for committing.
 
-- [ ] **TRD-014** Result schema and version recording (`evals/lib/results.js`, `evals/lib/hash.js`) [satisfies REQ-013] [depends: TRD-010] (4h)
+- [x] **TRD-014** Result schema and version recording (`evals/lib/results.js`, `evals/lib/hash.js`) [satisfies REQ-013] [depends: TRD-010] (4h)
   - Validates PRD ACs: AC-013-1, AC-013-2
   - Implementation AC:
     - [ ] Given a completed run, when its result is stored, then it records model id, skill version, skill hash, eval version, arm, runtime, run outcome, cost and the judge model when used
     - [ ] Given a stored result, when read later, then every field a comparison needs is present, and a result missing one is rejected on read with the field named
 
-- [ ] **TRD-014-TEST** Result schema behavior [verifies TRD-014] [satisfies REQ-013] [depends: TRD-014] (3h)
+- [x] **TRD-014-TEST** Result schema behavior [verifies TRD-014] [satisfies REQ-013] [depends: TRD-014] (3h)
   - Validates PRD ACs: AC-013-1, AC-013-2
   - Test AC:
     - [ ] Scenario: result records what it ran against -- Given a stub run, When its result is stored, Then model, skill version, eval version, arm, runtime, outcome and cost are present
     - [ ] Scenario: incomplete stored result rejected -- Given a stored result with the eval version removed, When read, Then it is rejected naming the missing field
 
-- [ ] **TRD-015** Committed baseline summaries and CI log artifacts (`evals/lib/results.js`, `evals/baselines/`, `.github/workflows/evals.yml`) [satisfies REQ-013] [depends: TRD-014] (3h)
+- [x] **TRD-015** Committed baseline summaries and CI log artifacts (`evals/lib/results.js`, `evals/baselines/`, `.github/workflows/evals.yml`) [satisfies REQ-013] [depends: TRD-014] (3h)
   - Validates PRD ACs: AC-013-3, AC-013-4
   - Implementation AC:
     - [ ] Given a finished suite, when results are stored, then a small summary is written to `evals/baselines/<runtime>/<skill>.json` for committing and full run logs stay in `evals/results/` (gitignored) and are uploaded as a CI artifact
     - [ ] Given a committed baseline summary, when a regression check runs locally or in CI, then it compares against that committed summary
     - [ ] Given a baseline summary, when written, then it records the uplift granularity (`package` for the Claude runtime, `skill` for Pi)
 
-- [ ] **TRD-015-TEST** Baseline summary storage [verifies TRD-015] [satisfies REQ-013] [depends: TRD-015] (3h)
+- [x] **TRD-015-TEST** Baseline summary storage [verifies TRD-015] [satisfies REQ-013] [depends: TRD-015] (3h)
   - Validates PRD ACs: AC-013-3, AC-013-4
   - Test AC:
     - [ ] Scenario: summary written, logs kept out of the repo -- Given a finished stub suite, When results are stored, Then a baseline summary exists under `evals/baselines/` and full logs exist only under the gitignored `evals/results/`
     - [ ] Scenario: check reads the committed summary -- Given a committed summary and a new result, When the regression check runs, Then it compares against the committed file
     - [ ] Scenario: granularity recorded -- Given stub Claude and Pi results, When baseline summaries are written, Then the Claude summary records `granularity: package` and the Pi summary `granularity: skill`
 
-- [ ] **TRD-016** Per-skill report (`evals/lib/report.js`) [satisfies REQ-014] [depends: TRD-014] (4h)
+- [x] **TRD-016** Per-skill report (`evals/lib/report.js`) [satisfies REQ-014] [depends: TRD-014] (4h)
   - Validates PRD ACs: AC-014-1, AC-014-2, AC-014-3
   - Implementation AC:
     - [ ] Given a finished suite, when the report is produced, then each evaluated skill shows with-skill pass rate, baseline pass rate, their difference and its reliability verdict
@@ -358,7 +358,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a skill with incomplete evals, when reported, then it is marked incomplete and given no score
     - [ ] Given a Claude Code uplift figure, when reported, then it is labelled "package-level (skills share a package)", and a Pi uplift figure is labelled "skill-level"
 
-- [ ] **TRD-016-TEST** Per-skill report behavior [verifies TRD-016] [satisfies REQ-014] [depends: TRD-016] (3h)
+- [x] **TRD-016-TEST** Per-skill report behavior [verifies TRD-016] [satisfies REQ-014] [depends: TRD-016] (3h)
   - Validates PRD ACs: AC-014-1, AC-014-2, AC-014-3
   - Test AC:
     - [ ] Scenario: report shows rates, difference and verdict -- Given stub results, When the report is built, Then each skill row has both pass rates, the difference and the reliability verdict
@@ -366,7 +366,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: incomplete skill unscored -- Given a skill with an incomplete eval, When reported, Then it is marked incomplete with no score
     - [ ] Scenario: uplift granularity labelled -- Given stub Claude and Pi results, When the report is built, Then the Claude row says "package-level (skills share a package)" and the Pi row says "skill-level"
 
-- [ ] **TRD-017** Coverage report and exemptions (`evals/coverage.js`, `evals/lib/coverage.js`, `evals/exemptions.json`) [satisfies REQ-015] [depends: TRD-001] (4h)
+- [x] **TRD-017** Coverage report and exemptions (`evals/coverage.js`, `evals/lib/coverage.js`, `evals/exemptions.json`) [satisfies REQ-015] [depends: TRD-001] (4h)
   - Validates PRD ACs: AC-015-1, AC-015-2, AC-015-3
   - Implementation AC:
     - [ ] Given the shipped skills (source skills under `packages/*/skills`, excluding the `packages/full` symlink farm), when the coverage report runs, then every skill appears exactly once as evaluated, exempt or missing
@@ -374,7 +374,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a new skill with no eval and no exemption, when reported, then it is listed missing
     - [ ] Given the initial `exemptions.json`, when committed, then it lists the adapter-loaded skills with their reason
 
-- [ ] **TRD-017-TEST** Coverage report behavior [verifies TRD-017] [satisfies REQ-015] [depends: TRD-017] (3h)
+- [x] **TRD-017-TEST** Coverage report behavior [verifies TRD-017] [satisfies REQ-015] [depends: TRD-017] (3h)
   - Validates PRD ACs: AC-015-1, AC-015-2, AC-015-3
   - Test AC:
     - [ ] Scenario: every skill once, one status -- Given a fixture tree of skills with evals and exemptions, When coverage runs, Then each skill appears exactly once with one of the three statuses
@@ -385,21 +385,21 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** Unchanged skill, eval, model and runtime combinations reuse stored results with no new model spend; a previously reliable eval that now falls below the bar is reported as a regression against the committed baseline; every failing run prints a command that replays it.
 
-- [ ] **TRD-018** Result cache (`evals/lib/cache.js`) [satisfies REQ-011] [depends: TRD-014] (4h)
+- [x] **TRD-018** Result cache (`evals/lib/cache.js`) [satisfies REQ-011] [depends: TRD-014] (4h)
   - Validates PRD ACs: AC-011-1, AC-011-2, AC-011-3
   - Implementation AC:
     - [ ] Given a skill hash, eval version, model, runtime and arm that match a stored result, when the suite runs, then the stored result is reused and no model call is made
     - [ ] Given any of those changed, when the suite runs, then the affected eval runs again
     - [ ] Given a stored result of any age with matching inputs, when the suite runs, then it is reused, and `--refresh` forces a fresh run
 
-- [ ] **TRD-018-TEST** Cache behavior [verifies TRD-018] [satisfies REQ-011] [depends: TRD-018] (3h)
+- [x] **TRD-018-TEST** Cache behavior [verifies TRD-018] [satisfies REQ-011] [depends: TRD-018] (3h)
   - Validates PRD ACs: AC-011-1, AC-011-2, AC-011-3
   - Test AC:
     - [ ] Scenario: unchanged inputs reuse the result -- Given a stored result and a stub that fails if called, When the suite runs, Then the stub is never called
     - [ ] Scenario: changed input reruns -- Given an edited skill file, When the suite runs, Then the affected eval runs again
     - [ ] Scenario: no age limit, refresh forces -- Given a stored result dated a year old, When the suite runs, Then it is reused, and with `--refresh` it runs fresh
 
-- [ ] **TRD-019** Like-for-like comparison and regression detection (`evals/compare.js`, `evals/lib/compare.js`) [satisfies REQ-016] [satisfies REQ-018] [depends: TRD-015] [depends: TRD-016] (4h)
+- [x] **TRD-019** Like-for-like comparison and regression detection (`evals/compare.js`, `evals/lib/compare.js`) [satisfies REQ-016] [satisfies REQ-018] [depends: TRD-015] [depends: TRD-016] (4h)
   - Validates PRD ACs: AC-016-1, AC-016-2, AC-018-1, AC-018-3
   - Implementation AC:
     - [ ] Given a stored baseline with the same model, runtime and eval version, when a new result is produced, then the report shows the change in score
@@ -407,7 +407,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a baseline in which an eval was reliable, when the new result is not reliable, then the check fails and names the skill and eval
     - [ ] Given incomplete or not-comparable results, when the check runs, then it does not pass silently: it exits `4` for incomplete and prints a not-comparable notice
 
-- [ ] **TRD-019-TEST** Comparison and regression behavior [verifies TRD-019] [satisfies REQ-016] [satisfies REQ-018] [depends: TRD-019] (4h)
+- [x] **TRD-019-TEST** Comparison and regression behavior [verifies TRD-019] [satisfies REQ-016] [satisfies REQ-018] [depends: TRD-019] (4h)
   - Validates PRD ACs: AC-016-1, AC-016-2, AC-018-1, AC-018-3
   - Test AC:
     - [ ] Scenario: score change shown -- Given a baseline and a new result with matching model, runtime and eval version, When compared, Then the change in score is reported
@@ -415,12 +415,12 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: reliable to unreliable fails -- Given a reliable baseline and a 3-of-5 result, When the check runs, Then it fails naming the skill and eval
     - [ ] Scenario: incomplete and not-comparable do not pass silently -- Given an incomplete result and a not-comparable result, When the check runs, Then the first exits 4 and the second prints a not-comparable notice
 
-- [ ] **TRD-020** Replay handle for failing runs (`evals/lib/results.js`, `evals/run.js`) [satisfies REQ-021] [depends: TRD-014] (2h)
+- [x] **TRD-020** Replay handle for failing runs (`evals/lib/results.js`, `evals/run.js`) [satisfies REQ-021] [depends: TRD-014] (2h)
   - Validates PRD ACs: AC-021-1
   - Implementation AC:
     - [ ] Given a failing run, when the report is produced, then it prints a command that reruns that run with the same eval, arm, runtime, model, repeat index and settings
 
-- [ ] **TRD-020-TEST** Replay handle [verifies TRD-020] [satisfies REQ-021] [depends: TRD-020] (2h)
+- [x] **TRD-020-TEST** Replay handle [verifies TRD-020] [satisfies REQ-021] [depends: TRD-020] (2h)
   - Validates PRD ACs: AC-021-1
   - Test AC:
     - [ ] Scenario: replay command reproduces the run -- Given a failing stub run, When its replay command is parsed and executed with the same stub, Then it runs the same eval, arm, runtime, model and repeat index
@@ -429,7 +429,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** A maintainer triggers the evals from the Actions tab choosing skill and runtime, gets the per-skill report and an advisory regression result, and a test proves the regression check fails when a defect is introduced; nothing runs automatically on a change.
 
-- [ ] **TRD-021** Local and CI parity, on-demand workflow, advisory check (`.github/workflows/evals.yml`, `package.json` scripts, `evals/README.md`, `docs/guides/skills-eval.md`) [satisfies REQ-017] [satisfies REQ-018] [depends: TRD-016] [depends: TRD-019] (3h)
+- [x] **TRD-021** Local and CI parity, on-demand workflow, advisory check (`.github/workflows/evals.yml`, `package.json` scripts, `evals/README.md`, `docs/guides/skills-eval.md`) [satisfies REQ-017] [satisfies REQ-018] [depends: TRD-016] [depends: TRD-019] (3h)
   - Validates PRD ACs: AC-017-1, AC-017-2, AC-017-3, AC-018-4
   - Implementation AC:
     - [ ] Given the new flags, scripts and eval format, when documented, then `evals/README.md` and `docs/guides/skills-eval.md` describe them
@@ -438,7 +438,7 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Given a change touching a skill or an eval, when no maintainer triggered a run, then the workflow does not run (no `push` or `pull_request` trigger)
     - [ ] Given a failed regression check, when the workflow ends, then the step reports failure, the workflow is not a required status check on any protected branch, and `docs/guides/skills-eval.md` says so
 
-- [ ] **TRD-021-TEST** CI parity and trigger rules [verifies TRD-021] [satisfies REQ-017] [satisfies REQ-018] [depends: TRD-021] (3h)
+- [x] **TRD-021-TEST** CI parity and trigger rules [verifies TRD-021] [satisfies REQ-017] [satisfies REQ-018] [depends: TRD-021] (3h)
   - Validates PRD ACs: AC-017-1, AC-017-2, AC-017-3, AC-018-4
   - Test AC:
     - [ ] Scenario: same reports locally and in CI -- Given the workflow's run steps, When compared with the npm scripts, Then they invoke the same entry points with the same arguments
@@ -446,24 +446,24 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
     - [ ] Scenario: no automatic trigger -- Given the workflow file, When parsed, Then it has no `push`, `pull_request` or `schedule` trigger
     - [ ] Scenario: advisory, not required -- Given `docs/guides/skills-eval.md`, When read, Then it states the regression check is advisory and the evals workflow is not a required status check
 
-- [ ] **TRD-022** Proof that the regression check can fail (`evals/tests/regression-gate.test.js`) [satisfies REQ-018] [depends: TRD-019] (3h)
+- [x] **TRD-022** Proof that the regression check can fail (`evals/tests/regression-gate.test.js`) [satisfies REQ-018] [depends: TRD-019] (3h)
   - Validates PRD ACs: AC-018-2
   - Implementation AC:
     - [ ] Given a copy of a pilot skill with a known defect introduced and a stub runner that behaves per the skill's content, when the harness runs against a reliable committed baseline, then the regression check fails
     - [ ] Given the same copy with the defect removed, when it runs, then the check passes
 
-- [ ] **TRD-022-TEST** Mutation proof [verifies TRD-022] [satisfies REQ-018] [depends: TRD-022] (2h)
+- [x] **TRD-022-TEST** Mutation proof [verifies TRD-022] [satisfies REQ-018] [depends: TRD-022] (2h)
   - Validates PRD ACs: AC-018-2
   - Test AC:
     - [ ] Scenario: introduced defect makes the check fail -- Given a pilot skill copy with a deliberately broken instruction and a content-sensitive stub, When the regression check runs, Then it fails, and with the defect removed it passes
 
-- [ ] **TRD-023** Credential guard for CI and eval review rule (`.github/workflows/evals.yml`, `.github/CODEOWNERS`) [satisfies REQ-009] [depends: TRD-005] [depends: TRD-021] (2h)
+- [x] **TRD-023** Credential guard for CI and eval review rule (`.github/workflows/evals.yml`, `.github/CODEOWNERS`) [satisfies REQ-009] [depends: TRD-005] [depends: TRD-021] (2h)
   - Validates PRD ACs: AC-009-4
   - Implementation AC:
     - [ ] Given an eval or fixture change from a contributor, when it is proposed, then `.github/CODEOWNERS` names an explicit `/evals/` owner entry beside the other sensitive paths (the `*` default already covers it) so it is reviewed like code before it runs with any credential
     - [ ] Given a workflow run, when its ref is not a branch of this repository, then the job does not receive secrets (dispatch is restricted to the repository's own refs and the workflow refuses a fork ref)
 
-- [ ] **TRD-023-TEST** Credential guard [verifies TRD-023] [satisfies REQ-009] [depends: TRD-023] (2h)
+- [x] **TRD-023-TEST** Credential guard [verifies TRD-023] [satisfies REQ-009] [depends: TRD-023] (2h)
   - Validates PRD ACs: AC-009-4
   - Test AC:
     - [ ] Scenario: evals reviewed and secrets withheld from untrusted refs -- Given CODEOWNERS and the workflow file, When parsed, Then `/evals/` has an explicit owner entry and the secrets step is guarded by a same-repository ref condition
@@ -472,47 +472,47 @@ A rejected definition runs nothing for that eval and names the eval and the fiel
 
 **Shippable State:** The four pilot skills have evals, and their with-skill versus baseline results and reliability, measured in Claude Code and Pi within the cost cap and time target, are committed as baselines with a per-skill report.
 
-- [ ] **TRD-024** Pilot eval: `ensemble-create-prd` (`evals/skills/ensemble-create-prd/`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (5h)
+- [x] **TRD-024** Pilot eval: `ensemble-create-prd` (`evals/skills/ensemble-create-prd/`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (5h)
   - Validates PRD ACs: AC-019-1
   - Implementation AC:
     - [ ] Given a seeded product description and `--foreman`-style non-interactive instructions, when the with-skill arm runs, then deterministic checks assert a PRD file exists under `docs/PRD/`, has `REQ-NNN` headings, Given/When/Then ACs, `Constitution compliance: passed` and no implementation files
     - [ ] Given the eval fixture, when the sandbox is built, then it includes a minimal `docs/standards/constitution.md`, because the Constitution Gate halts with `CONSTITUTION_CONFIG_ERROR` without one
 
-- [ ] **TRD-024-TEST** Pilot eval `ensemble-create-prd` can fail [verifies TRD-024] [satisfies REQ-019] [depends: TRD-024] (2h)
+- [x] **TRD-024-TEST** Pilot eval `ensemble-create-prd` can fail [verifies TRD-024] [satisfies REQ-019] [depends: TRD-024] (2h)
   - Validates PRD ACs: AC-019-1
   - Test AC:
     - [ ] Scenario: eval passes on good output and fails on bad -- Given a stub producing a conforming PRD and a stub producing a PRD without ACs, When the eval's checks run, Then the first passes and the second fails, and the fixture contains a constitution file
 
-- [ ] **TRD-025** Pilot eval: `ensemble-refine-prd` (`evals/skills/ensemble-refine-prd/`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (4h)
+- [x] **TRD-025** Pilot eval: `ensemble-refine-prd` (`evals/skills/ensemble-refine-prd/`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (4h)
   - Validates PRD ACs: AC-019-1
   - Implementation AC:
     - [ ] Given a seeded PRD with open clarification markers, when the with-skill arm runs non-interactively, then deterministic checks assert the version is bumped by a patch, the Document ID and Label are unchanged, a changelog entry exists and no requirement was removed
     - [ ] Given the eval fixture, when the sandbox is built, then it includes a minimal `docs/standards/constitution.md` where the skill reads one
 
-- [ ] **TRD-025-TEST** Pilot eval `ensemble-refine-prd` can fail [verifies TRD-025] [satisfies REQ-019] [depends: TRD-025] (2h)
+- [x] **TRD-025-TEST** Pilot eval `ensemble-refine-prd` can fail [verifies TRD-025] [satisfies REQ-019] [depends: TRD-025] (2h)
   - Validates PRD ACs: AC-019-1
   - Test AC:
     - [ ] Scenario: eval passes on good output and fails on bad -- Given a stub refining correctly and a stub that changes the Document ID, When the checks run, Then the first passes and the second fails
 
-- [ ] **TRD-026** Pilot eval: `ensemble-create-trd` (`evals/skills/ensemble-create-trd/`, extends the existing `create-trd` scenario) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (4h)
+- [x] **TRD-026** Pilot eval: `ensemble-create-trd` (`evals/skills/ensemble-create-trd/`, extends the existing `create-trd` scenario) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (4h)
   - Validates PRD ACs: AC-019-1
   - Implementation AC:
     - [ ] Given the seeded PRD fixture, when the with-skill arm runs non-interactively, then deterministic checks assert the TRD parses with at least one task (existing `trdParses` grader), every REQ has a task, and `main` was not committed to
     - [ ] Given the fixture, when the sandbox is built, then it includes a minimal `docs/standards/constitution.md`, and the existing `evals/scenarios/create-trd` fixture gets the same file, since without one its Constitution Gate halts
 
-- [ ] **TRD-026-TEST** Pilot eval `ensemble-create-trd` can fail [verifies TRD-026] [satisfies REQ-019] [depends: TRD-026] (2h)
+- [x] **TRD-026-TEST** Pilot eval `ensemble-create-trd` can fail [verifies TRD-026] [satisfies REQ-019] [depends: TRD-026] (2h)
   - Validates PRD ACs: AC-019-1
   - Test AC:
     - [ ] Scenario: eval passes on good output and fails on bad -- Given a stub writing a parseable TRD and a stub writing none, When the checks run, Then the first passes and the second fails, and both the new and the existing create-trd fixtures contain a constitution file
 
-- [ ] **TRD-027** Pilot eval: `pr-merge-trace` (`evals/skills/pr-merge-trace/`, `fixture/bin/gh`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (5h)
+- [x] **TRD-027** Pilot eval: `pr-merge-trace` (`evals/skills/pr-merge-trace/`, `fixture/bin/gh`) [satisfies REQ-019] [depends: TRD-009] [depends: TRD-002] [depends: TRD-004] (5h)
   - Validates PRD ACs: AC-019-1
   - Implementation AC:
     - [ ] Given that the skill lives in `packages/development` but the command it records (`/ensemble:pr-merge`) lives in `packages/git`, when the eval's jobs are built, then each job carries `pluginDirs` (plural): the baseline arm loads `packages/git` only (the command is available, the skill is not) and the with-skill arm loads `packages/git` plus `packages/development`; the `toolchain-cli` the skill uses comes from `packages/development`, so the baseline lacks it by design and the eval's definition states this
     - [ ] Given a fixture `bin/gh` that answers the `gh` calls the merge command makes from canned JSON, when the sandbox PATH includes it (and no real `gh` or network is used), then the merge scenario runs without GitHub
     - [ ] Given a seeded merge scenario in a local sandbox with a bare origin and the stub `gh`, when the with-skill arm runs, then deterministic checks assert a trace file with a span per step and an embedded `trace_summary` exists and the merge decision is unchanged by the trace
 
-- [ ] **TRD-027-TEST** Pilot eval `pr-merge-trace` can fail [verifies TRD-027] [satisfies REQ-019] [depends: TRD-027] (2h)
+- [x] **TRD-027-TEST** Pilot eval `pr-merge-trace` can fail [verifies TRD-027] [satisfies REQ-019] [depends: TRD-027] (2h)
   - Validates PRD ACs: AC-019-1
   - Test AC:
     - [ ] Scenario: eval passes on good output and fails on bad -- Given a stub writing a trace with `trace_summary` and a stub writing none, When the checks run, Then the first passes and the second fails, and the sandbox PATH resolves `gh` to the fixture stub

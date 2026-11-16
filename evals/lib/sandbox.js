@@ -51,6 +51,8 @@ function git(cwd, args) {
  * Create a throwaway git repo from scenarios/<id>/fixture on branch `main`, as a fresh copy under `workdir`
  * (default: EVALS_WORKDIR), never inside the repository.
  * With scenario.remote === true, also creates a bare `origin` and pushes main.
+ * With scenario.branch (a name), then checks that branch out at the fixture commit and, with a remote, pushes it too (a scenario about a
+ * pull request needs its head branch to exist; main stays where it is).
  * Returns { dir, root, baseline, skipped, cleanup } (`skipped`: fixture entries not copied).
  */
 function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() } = {}) {
@@ -79,6 +81,12 @@ function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() 
     git(dir, ['push', '-q', 'origin', 'main']);
     remotePath = bare;
     remoteMainSha = git(bare, ['--git-dir', bare, 'rev-parse', 'refs/heads/main']);
+  }
+
+  if (scenario.branch) {
+    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(scenario.branch) || scenario.branch.includes('..') || scenario.branch === 'main') throw new Error(`invalid scenario branch: ${scenario.branch}`);
+    git(dir, ['checkout', '-q', '-b', scenario.branch]);
+    if (scenario.remote) git(dir, ['push', '-q', 'origin', scenario.branch]);
   }
 
   return {

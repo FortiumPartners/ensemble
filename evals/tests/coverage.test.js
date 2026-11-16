@@ -115,7 +115,7 @@ describe('TRD-017 coverage', () => {
     // the CLI reads the real repository: it reports and exits 0, --strict follows the real missing count
     const plain = cli();
     expect(plain.status).toBe(0);
-    expect(plain.stdout).toMatch(/^EVALUATED: \d+\nEXEMPT: \d+/);
+    expect(plain.stdout).toMatch(/^EVALUATED: \d+\n(?: {2}.*\n)*EXEMPT: \d+/);
     expect(cli('--strict').status).toBe(plain.stdout.match(/(\d+) missing/)[1] === '0' ? 0 : 1);
     expect(cli('--bogus').status).toBe(2);
     expect(JSON.parse(cli('--json').stdout).counts.total).toBeGreaterThan(0);

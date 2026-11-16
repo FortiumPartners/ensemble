@@ -1,0 +1,23 @@
+{
+  "skill": "ensemble-create-trd",
+  "skillVersion": "3.6.0",
+  "skillHash": "0df3441f73544d2016f8437ad6ae5ee9965409c2aafff0b6f6c805eb9c00f76d",
+  "packageHash": "3a9ce948e41ace325c68c90c7601e45f803a0de9ec0e74baaeab3603cd3fe449",
+  "evalVersion": "1bc71e99ee2dd348ce9f70ee5dc369d367f9de857c5ebd912896d5333a93d69e",
+  "model": "claude-opus-5-5",
+  "runtime": "claude",
+  "granularity": "package",
+  "repeats": 5,
+  "bar": 4,
+  "withSkill": {
+    "passes": 5,
+    "runs": 5
+  },
+  "baseline": {
+    "passes": 0,
+    "runs": 5
+  },
+  "reliable": true,
+  "uplift": 1,
+  "recordedAt": "2026-11-13T20:00:53.211Z"
+}

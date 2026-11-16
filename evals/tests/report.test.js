@@ -91,3 +91,27 @@ describe('TRD-016 per-skill report', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('uplift label when the with-skill arm adds a package (sharedPackages)', () => {
+  const shared = (skill, runtime = 'claude') => arms.summarizeEval({ id: `${skill}-eval`, skill, package: 'development', sharedPackages: ['git'], invocation: 'explicit-both' }, { repeats: 5, bar: 4, repeatsSource: 't', barSource: 't' },
+    { 'with-skill': mkRuns('with-skill', runtime, [P, P, P, P, P]), baseline: mkRuns('baseline', runtime, [F, F, F, F, F]) }, { runtime });
+  test('the report row and text say what the with-skill arm adds; an eval without sharedPackages keeps the plain label', () => {
+    const e = shared('trace');
+    expect(e.upliftLabel).toBe('package-level (with-skill adds development)');
+    expect(report.buildReport([e]).rows[0].label).toBe('package-level (with-skill adds development)');
+    expect(text([e])).toMatch(/uplift \+1\.00 \(package-level \(with-skill adds development\)\)/);
+    expect(text([ev('plain', 'claude', [P, P, P, P, P], [F, F, F, F, F])])).toMatch(/\(package-level \(skills share a package\)\)/);
+  });
+  test('a committed baseline keeps the label: withSkillAdds is stored, validated, and reported', () => {
+    const ctx = { skillHash: 'h', packageHash: 'p', skillVersion: null, evalVersion: 'v', model: 'm' };
+    const b = results.toBaselineSummary(shared('trace'), ctx);
+    expect(b.withSkillAdds).toEqual(['development']);
+    expect(report.rowFromBaseline(b).label).toBe('package-level (with-skill adds development)');
+    expect(() => results.validateBaseline({ ...b, withSkillAdds: ['../x'] }, 't')).toThrow(/withSkillAdds/);
+    expect(() => results.validateBaseline({ ...b, withSkillAdds: [] }, 't')).toThrow(/withSkillAdds/);
+    const plain = results.toBaselineSummary(ev('plain', 'claude', [P, P, P, P, P], [F, F, F, F, F]), ctx);
+    expect(plain).not.toHaveProperty('withSkillAdds');
+    expect(report.rowFromBaseline(plain).label).toBe('package-level (skills share a package)');
+  });
+});
+

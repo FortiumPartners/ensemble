@@ -2,8 +2,8 @@
 
 /**
  * With-skill and baseline arms. One eval definition yields two jobs that differ only in what is loaded:
- *   with-skill: the package that ships the skill, as shipped (`pluginDirs`, never a copy)
- *   baseline:   nothing for the skill under test
+ *   with-skill: the package that ships the skill, as shipped (`pluginDirs`, never a copy), after any `sharedPackages`
+ *   baseline:   nothing for the skill under test (only the eval's `sharedPackages`, when it names any)
  * Same prompt text, workspace content, tools and settings in both arms; `invocation: explicit` prefixes the
  * command on the with-skill arm only. A baseline that has the skill loaded or invoked is a leak: the eval aborts.
  */
@@ -21,7 +21,7 @@ const ARMS = ['with-skill', 'baseline'];
 
 /** How each runtime's uplift is to be read (TRD design decision: the Claude arm loads a whole package). */
 const UPLIFT_LABELS = results.UPLIFT_LABELS;
-const upliftLabel = (runtime) => UPLIFT_LABELS[runtime] || 'unknown granularity';
+const upliftLabel = (runtime, withSkillAdds) => results.upliftLabelFor(runtime, withSkillAdds);
 
 const expandRepo = (text, repoRoot) => String(text).split('{{repo}}').join(repoRoot);
 
@@ -45,13 +45,16 @@ function buildJob(ev, arm, ctx) {
   const { repoRoot, runtime = 'claude', model, workspace, env, timeoutMs, maxUsd } = ctx;
   const withSkill = arm === 'with-skill';
   const task = expandRepo(ev.prompt, repoRoot);
+  // `sharedPackages`: packages that hold a command the eval drives, loaded in both arms (Claude only; Pi never gets package dirs).
+  const shared = (ev.sharedPackages || []).map((pkg) => path.join(repoRoot, 'packages', pkg));
   // Explicit invocation: Claude's slash command (`ev.command`), or Pi's `/skill:<name>` (Pi has no package commands).
   const explicit = runtime === 'pi' ? `/skill:${ev.skill}` : ev.command;
   return {
     evalId: ev.id, skill: ev.skill, arm, runtime, model, workspace, env, timeoutMs, maxUsd,
-    prompt: withSkill && ev.invocation === 'explicit' ? `${explicit} ${task}` : task,
+    // `explicit-both` prefixes the command in both arms: the command comes from a shared package, the skill under test only from the with-skill arm's own package.
+    prompt: (withSkill && ev.invocation === 'explicit') || ev.invocation === 'explicit-both' ? `${explicit} ${task}` : task,
     // Pi loads the single skill directory (`skillPaths`); no package is passed to it.
-    pluginDirs: withSkill && runtime !== 'pi' ? [path.join(repoRoot, 'packages', ev.package)] : [],
+    pluginDirs: runtime === 'pi' ? [] : [...shared, ...(withSkill ? [path.join(repoRoot, 'packages', ev.package)] : [])],
     skillPaths: withSkill ? [path.join(repoRoot, 'packages', ev.package, 'skills', ev.skill)] : [],
     maxTurns: ev.maxTurns, allowedTools: ev.allowedTools, permissionMode: undefined,
     invocationMode: ev.invocation,
@@ -134,15 +137,21 @@ function summarizeEval(ev, plan, runs, { runtime = 'claude', abort = null, copy 
   const cost = all.reduce((sum, r) => sum + (r.costUsd || 0), 0);
   const invokedRuns = withRuns.filter((r) => r.invoked).length;
   const judged = withRuns.map((r) => r.judgedScore).filter((x) => typeof x === 'number');
+  // A provider error leaves a run unmeasured and never counts. The verdict derives from with-skill reliability alone: already decided
+  // (reached the bar, or can no longer reach it) it stands; only an undecided one is `incomplete`. A baseline-arm error never changes it.
+  // Whatever the verdict, the arms did not both run `repeats` times: no baseline summary, and the uplift is undetermined.
+  const providerErrors = withStats.providerErrors + (baseStats ? baseStats.providerErrors : 0);
   const outcome = reliable === true ? 'pass' : reliable === false ? 'fail' : 'incomplete';
   return {
     id: ev.id, type: 'agent', skill: ev.skill, runtime, arms: true,
-    outcome, pass: reliable === null ? null : reliable, verdict: reliable === true ? 'pass' : reliable === false ? 'fail' : null,
+    outcome, pass: outcome === 'incomplete' ? null : reliable, verdict: outcome === 'incomplete' ? null : reliable ? 'pass' : 'fail',
     repeats: plan.repeats, repeatsSource: plan.repeatsSource, bar: plan.bar, barSource: plan.barSource,
     reliable, invocationMode: ev.invocation,
     withSkill: withStats, baseline: baseStats,
-    uplift: abort ? null : uplift(withStats, baseStats),
-    upliftLabel: upliftLabel(runtime),
+    providerErrors,
+    uplift: abort || providerErrors > 0 ? null : uplift(withStats, baseStats),
+    withSkillAdds: (ev.sharedPackages || []).length > 0 ? [ev.package] : [],
+    upliftLabel: upliftLabel(runtime, (ev.sharedPackages || []).length > 0 ? [ev.package] : []),
     expectInvoked: ev.expectInvoked === undefined ? null : ev.expectInvoked,
     invokedRuns,
     invokedAsExpected: ev.expectInvoked === undefined || !withRuns.length ? null : (ev.expectInvoked ? invokedRuns === withRuns.length : invokedRuns === 0),

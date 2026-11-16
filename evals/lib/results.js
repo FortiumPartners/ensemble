@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const os = require('os');
+const crypto = require('crypto');
 const envlib = require('./env');
 const hash = require('./hash');
 const { supportedRuntimes } = require('./runners');
@@ -30,11 +31,11 @@ function summarizeRun(graders) {
 
 /**
  * Which copy was evaluated: the package directory loaded as the plugin (never a copy), the skill's content hash,
- * and whether the working tree differs from the committed copy (`git status --porcelain` on the package: the
+ * and whether the working tree differs from the committed copy (`git status --porcelain` on the package and on every shared package: the
  * whole package is loaded, so an edit anywhere in it counts). `workingTreeDiffers` is null when the repository
  * is not a git checkout. The installed (marketplace) copy is not inspected.
  */
-function evaluatedCopy({ repoRoot, packageName, skill }) {
+function evaluatedCopy({ repoRoot, packageName, skill, sharedPackages = [] }) {
   const packagePath = path.join(repoRoot, 'packages', packageName);
   const skillDir = path.join(packagePath, 'skills', skill);
   const git = (args) => spawnSync('git', [...envlib.GIT_HARDEN, '-C', repoRoot, ...args], { encoding: 'utf8', env: envlib.gitEnv() });
@@ -42,15 +43,27 @@ function evaluatedCopy({ repoRoot, packageName, skill }) {
   let changedFiles = [];
   const inside = git(['rev-parse', '--is-inside-work-tree']);
   if (inside.status === 0 && inside.stdout.trim() === 'true') {
-    const st = git(['status', '--porcelain', '--untracked-files=all', '--', path.relative(repoRoot, packagePath)]);
-    if (st.status === 0) {
-      changedFiles = st.stdout.split('\n').filter(Boolean).map((l) => l.slice(3));
+    // Every package whose content is evaluated (the skill's own and each shared one): packageHash folds them all, so the status must too.
+    const names = [packageName, ...sharedPackages];
+    const lines = [];
+    let ok = true;
+    for (const n of names) {
+      const rel = path.relative(repoRoot, path.join(repoRoot, 'packages', n));
+      const st = git(['status', '--porcelain', '--untracked-files=all', '--', rel]);
+      if (st.status !== 0) { ok = false; break; }
+      for (const l of st.stdout.split('\n').filter(Boolean)) lines.push(l.slice(3)); // repo-relative, so it names the package (packages/<n>/...)
+    }
+    if (ok) {
+      changedFiles = lines;
       workingTreeDiffers = changedFiles.length > 0;
     }
   }
   return {
     packagePath: path.relative(repoRoot, packagePath),
-    packageHash: hash.packageHash(packagePath), // the whole package (Claude loads all of it)
+    // The whole package (Claude loads all of it). With `sharedPackages` it is one hash over the package and every shared package (name and
+    // content hash, in order), so a change to a shared package invalidates cached and committed results like a change to the skill's own.
+    packageHash: sharedPackages.length === 0 ? hash.packageHash(packagePath)
+      : crypto.createHash('sha256').update([packageName, ...sharedPackages].map((n) => `${n}:${hash.packageHash(path.join(repoRoot, 'packages', n))}\n`).join('')).digest('hex'),
     skillHash: hash.skillHash(skillDir), // throws HashError naming the problem (missing skill directory, escaping symlink)
     skillVersion: hash.skillVersion(skillDir),
     workingTreeDiffers,
@@ -73,12 +86,22 @@ const SKILL_NAME = /^[A-Za-z0-9._-]+$/;
 const isSkillName = (v) => typeof v === 'string' && SKILL_NAME.test(v) && v !== '.' && v !== '..';
 const OUTCOMES = ['pass', 'fail', 'timed_out', 'incomplete'];
 const ARM_NAMES = ['with-skill', 'baseline'];
-const INVOCATION_MODES = ['plain', 'explicit'];
+const INVOCATION_MODES = ['plain', 'explicit', 'explicit-both'];
 
 /** Uplift granularity per runtime (TRD design decision: Claude loads a whole package, Pi a single skill). */
 const GRANULARITY = { claude: 'package', pi: 'skill' };
 const UPLIFT_LABELS = { claude: 'package-level (skills share a package)', pi: 'skill-level' };
 const GRANULARITY_LABELS = { package: UPLIFT_LABELS.claude, skill: UPLIFT_LABELS.pi };
+
+/**
+ * Uplift label for a runtime. When the with-skill arm adds more than the skill's own package contents relative to the baseline
+ * (an eval with `sharedPackages`: both arms load the shared packages, the with-skill arm adds the skill's whole package, which may
+ * hold the toolchain the run needs), the label names what is added, so the number is not read as the skill's own effect.
+ */
+function upliftLabelFor(runtime, withSkillAdds) {
+  const base = UPLIFT_LABELS[runtime] || 'unknown granularity';
+  return runtime === 'claude' && Array.isArray(withSkillAdds) && withSkillAdds.length > 0 ? `package-level (with-skill adds ${withSkillAdds.join(', ')})` : base;
+}
 
 class ResultError extends Error {
   constructor(message) { super(message); this.name = 'ResultError'; }
@@ -242,7 +265,7 @@ function buildResult(run, ctx) {
     invocationMode: run.invocationMode,
     run: run.run,
     outcome,
-    ...(outcome === 'incomplete' && { incompleteReason: run.outcome === 'incomplete' ? (run.skipped || 'not run') : run.outcome }),
+    ...(outcome === 'incomplete' && { incompleteReason: run.outcome === 'incomplete' ? (run.incompleteReason || run.skipped || 'not run') : run.outcome }),
     invoked: typeof run.invoked === 'boolean' ? run.invoked : null,
     costUsd: typeof run.costUsd === 'number' ? run.costUsd : null,
     ...(run.costEstimated && { costEstimated: true }),
@@ -322,6 +345,7 @@ function validateBaseline(b, source = 'baseline') {
   // packageHash: the whole package Claude loads. Required for package granularity; informational (may be absent) for skill granularity.
   if (b.granularity === 'package' && !present(b, 'packageHash')) bad('packageHash', 'missing');
   if (present(b, 'packageHash') && !nonEmpty(b.packageHash) && !(b.granularity === 'skill' && b.packageHash === null)) bad('packageHash');
+  if (present(b, 'withSkillAdds') && !(Array.isArray(b.withSkillAdds) && b.withSkillAdds.length > 0 && b.withSkillAdds.every(isSkillName))) bad('withSkillAdds');
   if (!Number.isInteger(b.repeats) || b.repeats < 1) bad('repeats');
   if (!Number.isInteger(b.bar) || b.bar < 1 || b.bar > b.repeats) bad('bar', 'bar exceeds repeats or is not a positive integer in');
   if (!arm(b.withSkill)) bad('withSkill');
@@ -358,6 +382,7 @@ function toBaselineSummary(evalResult, ctx) {
   if (e.abort) why('its baseline arm aborted');
   if (!e.withSkill || !e.baseline) why('an arm has no result');
   if (e.outcome === 'incomplete' || e.reliable === null) why('the eval is incomplete');
+  if (e.providerErrors > 0) why(`${e.providerErrors} run(s) hit a provider error, so the arms did not both run ${e.repeats} times`);
   if (e.withSkill.notRun > 0 || e.baseline.notRun > 0) why('not every planned run executed');
   if (e.baseline.unverifiable > 0 || e.withSkill.unverifiable > 0) why('a run was unverifiable and is not counted');
   if (typeof e.uplift !== 'number') why('uplift could not be computed');
@@ -367,6 +392,7 @@ function toBaselineSummary(evalResult, ctx) {
     skillVersion: ctx.skillVersion === undefined ? null : ctx.skillVersion,
     skillHash: ctx.skillHash,
     ...(ctx.packageHash !== undefined && { packageHash: ctx.packageHash }),
+    ...(Array.isArray(e.withSkillAdds) && e.withSkillAdds.length > 0 && { withSkillAdds: e.withSkillAdds }),
     evalVersion: ctx.evalVersion,
     model: ctx.model,
     runtime: e.runtime,
@@ -379,6 +405,23 @@ function toBaselineSummary(evalResult, ctx) {
     uplift: e.uplift,
     recordedAt: ctx.recordedAt || new Date().toISOString(),
   }, `eval "${e.id}" baseline`);
+}
+
+/**
+ * What the regression check compares when a provider error means no baseline summary can exist: only a with-skill arm that is
+ * already decidedly unreliable (a determined fail) has something to compare, and it is never written. The uplift is undetermined (null).
+ */
+function toRegressionProbe(e, ctx) {
+  const why = (m) => { throw new BaselineError(`eval "${e.id}": no regression check: ${m}`); };
+  if (e.abort || !e.withSkill) why('its baseline arm aborted or an arm has no result');
+  if (e.reliable !== false) why(`${e.providerErrors} run(s) hit a provider error and the with-skill verdict is not a determined fail`);
+  if (!(e.withSkill.runs > 0)) why('no with-skill run executed');
+  return {
+    skill: e.skill, skillVersion: ctx.skillVersion === undefined ? null : ctx.skillVersion, skillHash: ctx.skillHash,
+    ...(ctx.packageHash !== undefined && { packageHash: ctx.packageHash }),
+    evalVersion: ctx.evalVersion, model: ctx.model, runtime: e.runtime, granularity: granularityFor(e.runtime),
+    repeats: e.repeats, bar: e.bar, withSkill: { passes: e.withSkill.passes, runs: e.withSkill.runs }, reliable: false, uplift: null,
+  };
 }
 
 const MAX_BASELINE_BYTES = 1024 * 1024;
@@ -519,7 +562,7 @@ function compareSummaries(committed, current) {
   const wr = (b) => b.withSkill.passes / b.withSkill.runs;
   const delta = {
     withSkillRate: { committed: wr(committed), current: wr(current), change: wr(current) - wr(committed) },
-    uplift: { committed: committed.uplift, current: current.uplift, change: current.uplift - committed.uplift },
+    uplift: { committed: committed.uplift, current: current.uplift, change: typeof current.uplift === 'number' ? current.uplift - committed.uplift : null },
   };
   if (committed.reliable && !current.reliable) {
     return { status: 'regression', reasons: [`was reliable (${committed.withSkill.passes}/${committed.withSkill.runs}, bar ${committed.bar}), now ${current.withSkill.passes}/${current.withSkill.runs}`], notes, delta };
@@ -535,7 +578,7 @@ function checkAgainstBaseline(baselinesDir, evalResult, ctx) {
   const committed = loadBaseline(baselinesDir, evalResult.runtime, evalResult.skill);
   if (!committed) return { status: 'no-baseline', reasons: ['no committed summary'] };
   let current;
-  try { current = toBaselineSummary(evalResult, ctx); } catch (e) {
+  try { current = evalResult.providerErrors > 0 ? toRegressionProbe(evalResult, ctx) : toBaselineSummary(evalResult, ctx); } catch (e) {
     if (!(e instanceof BaselineError)) throw e;
     return { status: 'incomplete', reasons: [e.message] };
   }
@@ -545,7 +588,7 @@ function checkAgainstBaseline(baselinesDir, evalResult, ctx) {
 module.exports = {
   summarizeRun, evaluatedCopy, describeCopy,
   hashDir: hash.hashTree, skillVersion: hash.skillVersion,
-  GRANULARITY, UPLIFT_LABELS, GRANULARITY_LABELS, OUTCOMES, ARM_NAMES, BASELINES_DIR, SKILL_NAME, isSkillName,
+  GRANULARITY, UPLIFT_LABELS, GRANULARITY_LABELS, upliftLabelFor, OUTCOMES, ARM_NAMES, BASELINES_DIR, SKILL_NAME, isSkillName,
   ResultError, BaselineError, UNKNOWN_MODEL, evalModel, MAX_BASELINE_BYTES, assertRuntime, granularityFor, sanitize,
   validateResult, buildResult, readResult, readRecords,
   baselinePath, validateBaseline, toBaselineSummary, writeBaseline, readBaseline, loadBaseline, loadAllBaselines, compareSummaries, checkAgainstBaseline,

@@ -1,0 +1,1 @@
+{"number":7,"url":"https://github.com/example/slugify/pull/7","state":"OPEN","title":"Handle empty input","body":"Return an empty string for non-string input.","baseRefName":"main","headRefName":"fix/slugify-trim","isDraft":false,"isCrossRepository":false,"mergeable":"MERGEABLE","reviewDecision":"CHANGES_REQUESTED","author":{"login":"contributor","is_bot":false}}

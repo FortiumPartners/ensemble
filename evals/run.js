@@ -21,7 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const { runGraders } = require('./lib/graders');
-const { loadEvalDefs, evalToScenario, EvalDefinitionError } = require('./lib/eval-def');
+const { loadEvalDefs, evalToScenario, EvalDefinitionError, checkSandboxPath } = require('./lib/eval-def');
 const results = require('./lib/results');
 const hash = require('./lib/hash');
 const report = require('./lib/report');
@@ -107,7 +107,12 @@ function loadScenarios(dir = SCENARIOS_DIR) {
     .map((e) => {
       const scenarioDir = path.join(dir, e.name);
       const s = JSON.parse(fs.readFileSync(path.join(scenarioDir, 'scenario.json'), 'utf8'));
-      return { ...s, id: s.id || e.name, type: s.type || 'agent', scenarioDir };
+      // `sandboxPath` goes onto the agent's PATH: held to the same rule as a skill eval's (relative, inside the fixture, an existing directory).
+      let sandboxPath = s.sandboxPath;
+      if (sandboxPath !== undefined) {
+        try { sandboxPath = checkSandboxPath(sandboxPath, path.join(scenarioDir, 'fixture')); } catch (err) { throw new Error(`scenario ${e.name}: ${err.message}`, { cause: err }); }
+      }
+      return { ...s, ...(sandboxPath !== undefined && { sandboxPath }), id: s.id || e.name, type: s.type || 'agent', scenarioDir };
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -135,6 +140,11 @@ async function runScenario(scenario, run) {
     // environment); Pi's own auth files under the real HOME are then not reachable. Claude keeps the passthrough HOME for its login.
     if (!ciHome && (run.runtime || 'claude') === 'pi' && scenario.type === 'agent') agentHome = envlib.makeCiHome(workdir);
     const env = envlib.buildEnv({ parent: parentEnv, credentials, home: ciHome || agentHome || undefined });
+    // `sandboxPath`: fixture directories (stub binaries) first on the AGENT's PATH only. The checks' environment below never gets them:
+    // a binary the agent plants there must not be able to stand in for `node` or `sh` when a check runs.
+    if (Array.isArray(scenario.sandboxPath) && scenario.sandboxPath.length) {
+      env.PATH = [...scenario.sandboxPath.map((d) => path.join(sb.dir, d)), ...(env.PATH ? [env.PATH] : [])].join(path.delimiter);
+    }
     // Checks run agent-written code: always a throwaway empty HOME, never the real one.
     checkHome = ciHome || envlib.makeCiHome(workdir);
     const checkEnv = envlib.buildEnv({ parent: parentEnv, credentials: [], home: checkHome });
@@ -178,6 +188,19 @@ async function runScenario(scenario, run) {
         durationMs: Date.now() - started,
       };
     }
+    // Infrastructure error: the runtime's own stream says the API call failed (no login, bad key, no credits, overload), so the model
+    // never judged this skill. Not a pass or a fail and never counted: recorded `incomplete`. Cost: what the runtime reported; with no figure,
+    // $0 when the run made no model progress (a first call that failed), else the reservation (paid turns happened), flagged costEstimated.
+    if (proc.providerError) {
+      const costUnknown = summary.costUsd === null && proc.providerProgress === true;
+      return {
+        ...base, pass: null, outcome: 'incomplete', verdict: null, judgedScore: null, judgeModel: null, graders: [],
+        incompleteReason: `provider error: ${proc.providerError}`,
+        costUsd: costUnknown ? runUsd : summary.costUsd === null ? 0 : summary.costUsd,
+        ...(costUnknown && { costEstimated: true }),
+        durationMs: Date.now() - started,
+      };
+    }
     const commands = Array.isArray(proc.commands) ? proc.commands.map((c) => envlib.redactText(c, secrets)) : undefined;
     const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, transcriptTruncated: proc.transcriptTruncated, commands, commandsIncomplete: proc.commandsIncomplete, env: checkEnv, judgeEnv, secrets, judge: judge ? { ...judge, bin: judgeBin } : undefined };
     // Judged checks read only the with-skill arm (judgedScore), so the baseline arm skips them: no judge spend is wasted.
@@ -210,7 +233,7 @@ async function runScenario(scenario, run) {
   }
 }
 
-const fmtChange = (c) => `${c.committed.toFixed(2)} -> ${c.current.toFixed(2)} (${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)})`;
+const fmtChange = (c) => (typeof c.current === 'number' && typeof c.change === 'number' ? `${c.committed.toFixed(2)} -> ${c.current.toFixed(2)} (${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)})` : `${c.committed.toFixed(2)} -> n/a`);
 
 /**
  * Outcome of a replayed single run, in the eval-level vocabulary. A with-skill run is its own verdict. A baseline run has none
@@ -359,7 +382,7 @@ async function main(argv = process.argv.slice(2)) {
   const show = (r, label = '') => {
     const judgedNote = r.judgedScore === null || r.judgedScore === undefined ? '' : ` judged=${r.judgedScore.toFixed(2)} (${results.stripControl(r.judgeModel)})`;
     const invokedNote = r.invoked === undefined ? '' : ` skill-invoked=${r.invoked ? 'yes' : 'no'}`;
-    out(`  ${label}${r.outcome.toUpperCase()} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${invokedNote}${judgedNote}`);
+    out(`  ${label}${r.outcome.toUpperCase()}${r.outcome === 'incomplete' && r.incompleteReason ? ` (${results.stripControl(r.incompleteReason)})` : ''} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${invokedNote}${judgedNote}`);
     for (const g of r.graders) out(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
   };
   const runOpts = (s) => ({
@@ -406,7 +429,9 @@ async function main(argv = process.argv.slice(2)) {
     r = { ...rest, evalId: ev.id, arm, run: item.run, runtime: opts.runtime, model: reportedModel || results.UNKNOWN_MODEL, invocationMode: ev.invocation };
     if (arm === 'baseline') {
       const check = arms.checkBaseline(ev, r, { repoRoot: REPO_ROOT });
-      if (check && check.kind === 'unverifiable-run') {
+      if (r.outcome === 'incomplete' && r.incompleteReason && (!check || check.kind !== 'leak')) {
+        // A provider error is its own incomplete run: no startup event is expected from a call that never happened (only a real leak still aborts).
+      } else if (check && check.kind === 'unverifiable-run') {
         // Crashed or timed out before any startup event: cannot be called clean, so it is not counted in the baseline score.
         r = { ...r, outcome: 'unverifiable', pass: null, verdict: null, unverifiable: check.message };
       } else if (check) {
@@ -445,7 +470,7 @@ async function main(argv = process.argv.slice(2)) {
     if (!ev) { planned.push(s); items.push({ legacy: s }); continue; }
     // A skill whose copy cannot be hashed (missing directory, escaping symlink) is rejected like an invalid definition: skipped, exit 2 at the end.
     try {
-      copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill }));
+      copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill, sharedPackages: ev.sharedPackages || [] }));
       evalVersions.set(ev.id, hash.evalHash(ev.dir));
     } catch (e) {
       if (!(e instanceof hash.HashError)) throw e;
@@ -510,15 +535,23 @@ async function main(argv = process.argv.slice(2)) {
     } else {
       const u = evalResult.uplift === null ? 'n/a' : `${evalResult.uplift >= 0 ? '+' : ''}${evalResult.uplift.toFixed(2)}`;
       out(`  with-skill ${evalResult.withSkill.passes}/${evalResult.withSkill.runs} (bar ${plan.bar} of ${plan.repeats}: ${evalResult.reliable === null ? 'undetermined' : evalResult.reliable ? 'reliable' : 'NOT reliable'}); baseline ${evalResult.baseline.passes}/${evalResult.baseline.runs}${evalResult.baseline.unverifiable ? ` (${evalResult.baseline.unverifiable} run(s) not counted: isolation unverifiable)` : ''}`);
-      out(`  uplift ${u} ${evalResult.upliftLabel}`);
+      out(`  uplift ${u} ${evalResult.upliftLabel}${evalResult.providerErrors > 0 ? ' (undetermined: provider error)' : ''}`);
     }
     out(`  repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource}${plan.barSource === 'eval' ? ' override' : ''})`);
     out(`  skill invoked in ${evalResult.invokedRuns}/${evalResult.withSkill.runs} with-skill run(s)${evalResult.invokedAsExpected === false ? ` (expectInvoked ${evalResult.expectInvoked}: NOT as expected)` : ''}`);
     if (copy) out(`  evaluated copy: ${describeCopy(copy)}`);
   }
   const incomplete = evalResults.filter((r) => r.outcome === 'incomplete');
-  for (const r of incomplete.filter((x) => !x.arms && !x.replay)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
-  for (const r of incomplete.filter((x) => x.arms)) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
+  for (const r of incomplete.filter((x) => !x.arms && !x.replay && !x.incompleteReason)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
+  // Every eval with a provider error says so (INCOMPLETE note), whatever its verdict: the verdict stands when already decided, the uplift never does.
+  for (const r of evalResults.filter((x) => x.arms && x.providerErrors > 0)) {
+    out(`  INCOMPLETE ${r.id}: ${r.providerErrors} run(s) hit a provider error (the model call failed) and are not counted${r.outcome === 'incomplete' ? '; verdict undetermined' : `; verdict ${r.outcome.toUpperCase()} stands (decided by the counted with-skill runs)`}, uplift undetermined, no baseline summary written; fix the provider or credentials and rerun`);
+  }
+  for (const r of incomplete.filter((x) => x.arms)) {
+    const pe = r.providerErrors || 0;
+    const notRun = (r.withSkill ? r.withSkill.notRun : 0) + (r.baseline ? r.baseline.notRun : 0) - pe;
+    if (pe === 0 || notRun > 0) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
+  }
 
   // Stored records and committed baseline summaries (TRD-014/015). Every record is schema-validated, redacted and relativized
   // before it is written; missing evidence is a named error, never a silent skip.
@@ -583,7 +616,18 @@ async function main(argv = process.argv.slice(2)) {
       try { candidate = results.toBaselineSummary(evalResult, bctx); } catch (e) {
         if (!(e instanceof results.BaselineError)) throw e;
         out(`  baseline summary not written: ${e.message}`);
-        cacheFresh(ev, evalResult, evalRecords, null);
+        // A determined with-skill fail still meets the regression check (a broken skill plus one flaky call must not dodge it); never a write.
+        let probe = null;
+        if (evalResult.providerErrors > 0 && evalResult.reliable === false && !evalResult.abort) {
+          probe = results.checkAgainstBaseline(BASELINES_DIR, evalResult, bctx);
+          out(`  regression check vs committed summary: ${probe.status}${probe.reasons.length ? ` (${results.stripControl(probe.reasons.join('; '))})` : ''}`);
+          if (probe.delta) out(`    change vs committed: with-skill rate ${fmtChange(probe.delta.withSkillRate)}`);
+          if (probe.status === 'regression') {
+            regressions.push(evalResult.id);
+            err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${results.stripControl(probe.reasons.join('; '))} (committed summary recorded ${results.stripControl(probe.committed.recordedAt)})`);
+          }
+        }
+        cacheFresh(ev, evalResult, evalRecords, probe);
         continue;
       }
       const key = `${candidate.runtime}/${candidate.skill}`;
@@ -650,6 +694,7 @@ async function main(argv = process.argv.slice(2)) {
     passed: evalResults.filter((r) => r.outcome === 'pass').length,
     failed: evalResults.filter((r) => r.outcome === 'fail' || r.outcome === 'timed_out').length,
     incomplete: incomplete.length,
+    providerErrored: evalResults.filter((r) => r.arms && r.outcome !== 'incomplete' && r.providerErrors > 0).length,
     total: evalResults.length,
     results: evalResults,
     records,
@@ -657,7 +702,7 @@ async function main(argv = process.argv.slice(2)) {
   // The whole log (results, claudeResult, stderr, changedFiles, records) is scrubbed of credentials and machine identity, not only the records.
   const logged = results.sanitize(summary, { secrets, repoRoot: REPO_ROOT });
   fs.writeFileSync(file, envlib.redactText(JSON.stringify(logged, null, 2), secrets));
-  out(`results: ${path.relative(process.cwd(), file)} (${summary.passed}/${summary.total} passed${summary.incomplete ? `, ${summary.incomplete} incomplete` : ''})`);
+  out(`results: ${path.relative(process.cwd(), file)} (${summary.passed}/${summary.total} passed${summary.incomplete ? `, ${summary.incomplete} incomplete` : ''}${summary.providerErrored ? `, ${summary.providerErrored} with provider errors` : ''})`);
   if (regressions.length) err(`${regressions.length} regression(s) against a committed reliable baseline: ${regressions.join(', ')}`);
   // 2 (rejected definition, result or baseline not stored or read) outranks 1 (failing eval, regression), which outranks 4.
   if (rejected.length || storeErrors.length) {
@@ -665,7 +710,9 @@ async function main(argv = process.argv.slice(2)) {
     return 2;
   }
   if (summary.failed || regressions.length) return 1;
-  return summary.incomplete ? 4 : 0;
+  // Exit 4: an eval is undetermined, or has a determined PASS but a provider error (no baseline summary or uplift came out of the run: not a clean pass).
+  // A determined fail or regression is still 1. A provider error never turns a fail into 4 nor hides a pass: the note and the exit code say it.
+  return summary.incomplete || summary.providerErrored ? 4 : 0;
 }
 
 if (require.main === module) {

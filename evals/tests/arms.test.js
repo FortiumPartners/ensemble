@@ -380,6 +380,28 @@ describe('TRD-011 invocation detection and evaluated copy', () => {
       expect(describeCopy(c)).toMatch(/unknown/);
     });
 
+    test('an uncommitted edit to a shared package is reported (packageHash folds it, so the status must too); the file names its package', () => {
+      const dir = repo();
+      fs.mkdirSync(path.join(dir, 'packages/sh/commands'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'packages/sh/commands/cmd.yaml'), 'a: 1\n');
+      git(dir, 'add', '-A');
+      git(dir, 'commit', '-qm', 'shared');
+      const copy = () => evaluatedCopy({ repoRoot: dir, packageName: 'x', skill: 'y', sharedPackages: ['sh'] });
+      expect(copy()).toMatchObject({ workingTreeDiffers: false, changedFiles: [] });
+      expect(describeCopy(copy())).toMatch(/matches the committed copy/);
+      fs.appendFileSync(path.join(dir, 'packages/sh/commands/cmd.yaml'), 'b: 2\n');
+      fs.writeFileSync(path.join(dir, 'packages/sh/new.txt'), 'n');
+      const dirty = copy();
+      expect(dirty.workingTreeDiffers).toBe(true);
+      expect(dirty.changedFiles.sort()).toEqual([path.join('packages', 'sh', 'commands', 'cmd.yaml'), path.join('packages', 'sh', 'new.txt')]);
+      expect(describeCopy(dirty)).toMatch(/DIFFERS/);
+      // without naming the shared package the shared edit is (correctly) outside the evaluated set
+      expect(evaluatedCopy({ repoRoot: dir, packageName: 'x', skill: 'y' }).workingTreeDiffers).toBe(false);
+      // the own package still counts alongside it
+      fs.appendFileSync(path.join(dir, 'packages/x/skills/y/SKILL.md'), 'e\n');
+      expect(copy().changedFiles).toHaveLength(3);
+    });
+
     test('every eval result and the console state the evaluated copy', () => {
       const s = stub({ withLines: WITH_OK, baseLines: BASE_OK });
       const r = runEvals({}, s, ['--repeats', '1', '--concurrency', '1']);

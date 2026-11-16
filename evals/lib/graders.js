@@ -104,11 +104,13 @@ async function commandOutputMatches(ctx, args) {
   const command = args.command.split('{{repo}}').join(ctx.repoRoot);
   const r = await runShell(ctx, command, { timeoutMs: 60000, input: args.stdin || '' });
   if (r.timedOut) return result(false, 'timed out');
+  // On a failure the command's own first line says why (the pilot checks print `FAIL: <reason>`); control characters never reach a console.
+  const said = () => (r.transcript || '').split('\n')[0].replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '?').slice(0, 200);
   if (args.exitCode !== undefined && r.exitCode !== args.exitCode) {
-    return result(false, `exit ${r.exitCode}, wanted ${args.exitCode}`);
+    return result(false, `exit ${r.exitCode}, wanted ${args.exitCode}${said() ? `: ${said()}` : ''}`);
   }
   const ok = new RegExp(args.pattern, args.flags || '').test(r.transcript || '');
-  return result(ok, `stdout ${ok ? 'matches' : 'does not match'} /${args.pattern}/`);
+  return result(ok, `stdout ${ok ? 'matches' : 'does not match'} /${args.pattern}/${ok || !said() ? '' : `: ${said()}`}`);
 }
 
 /** The protected branch tip is unchanged since sandbox creation. */

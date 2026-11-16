@@ -221,6 +221,8 @@ describe('TRD-014 result schema', () => {
 
 describe('TRD-015 baseline summaries', () => {
   test('Scenario: summary written, logs kept out of the repo', () => {
+    const repoBaseline = path.join(REPO_ROOT, 'evals/baselines', 'claude', `${SKILL}.json`);
+    const before = fs.existsSync(repoBaseline) ? fs.readFileSync(repoBaseline, 'utf8') : null; // the repo may hold a real committed baseline
     const r = runSuite();
     expect(r.status).toBe(0);
     const file = sub('baselines', 'claude', `${SKILL}.json`);
@@ -233,7 +235,7 @@ describe('TRD-015 baseline summaries', () => {
     expect(r.logs).toHaveLength(1);
     expect(fs.readdirSync(sub('baselines', 'claude'))).toEqual([`${SKILL}.json`]);
     expect(fs.readFileSync(path.join(REPO_ROOT, 'evals/.gitignore'), 'utf8')).toMatch(/^results\/$/m);
-    expect(fs.existsSync(path.join(REPO_ROOT, 'evals/baselines', 'claude', `${SKILL}.json`))).toBe(false); // nothing leaked into the repo
+    expect(fs.existsSync(repoBaseline) ? fs.readFileSync(repoBaseline, 'utf8') : null).toBe(before); // the stub run left the repo's baseline as it was
   });
 
   test('a stub suite run with only EVALS_RESULTS_DIR set keeps its baselines beside the results, not in the repository', () => {

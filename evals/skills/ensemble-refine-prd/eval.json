@@ -1,0 +1,55 @@
+{
+  "id": "ensemble-refine-prd",
+  "skill": "ensemble-refine-prd",
+  "description": "A non-interactive refine-prd run on a seeded PRD with open [NEEDS CLARIFICATION] markers edits it in place: version 1.0.0 becomes 1.0.1, Document ID and Label are unchanged, the changelog gains an entry and no requirement is removed. The fixture carries a minimal docs/standards/constitution.md (the PRD it refines records constitution compliance).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "docs/PRD/PRD-2026-a1b2c3d4-csv2json.md --foreman\n\nThis is a non-interactive run: ask no questions, resolve the open clarification markers with the most reasonable default (or leave a marker where no safe default exists), and update the PRD in place. Change only the PRD. Do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:refine-prd",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' refine-identity --file docs/PRD/PRD-2026-a1b2c3d4-csv2json.md --doc-id PRD-2026-a1b2c3d4 --label prd-csv2json",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' refine-version --file docs/PRD/PRD-2026-a1b2c3d4-csv2json.md --from 1.0.0 --to 1.0.1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' refine-changelog --file docs/PRD/PRD-2026-a1b2c3d4-csv2json.md --from 1.0.0 --to 1.0.1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' refine-reqs --file docs/PRD/PRD-2026-a1b2c3d4-csv2json.md --reqs REQ-001,REQ-002,REQ-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' no-impl-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

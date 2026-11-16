@@ -180,6 +180,28 @@ describe('loading (TRD-001)', () => {
   });
 });
 
+describe('legacy scenario sandboxPath (same validation as skill evals)', () => {
+  const { loadScenarios } = require('../run');
+  const make = (sandboxPath, dirs = ['bin']) => {
+    const base = path.join(tmp, 'scn');
+    fs.mkdirSync(path.join(base, 'one/fixture'), { recursive: true });
+    for (const d of dirs) fs.mkdirSync(path.join(base, 'one/fixture', d), { recursive: true });
+    fs.writeFileSync(path.join(base, 'one/scenario.json'), JSON.stringify({ prompt: 'x', checks: [], ...(sandboxPath !== undefined && { sandboxPath }) }));
+    return () => loadScenarios(base);
+  };
+  test('a relative directory in the fixture is accepted and normalized', () => {
+    expect(make(['./bin'])()[0].sandboxPath).toEqual(['bin']);
+    expect(make(undefined)()[0]).not.toHaveProperty('sandboxPath');
+  });
+  test.each([['/usr/bin'], ['..'], ['../x'], ['a/../../x'], ['.'], ['bin\\x'], ['a:b'], [''], ['missing']])('%j is rejected', (bad) => {
+    expect(make([bad])).toThrow(/scenario one: `sandboxPath`/);
+  });
+  test('a non-array or empty sandboxPath is rejected', () => {
+    expect(make('bin')).toThrow(/non-empty array/);
+    expect(make([])).toThrow(/non-empty array/);
+  });
+});
+
 describe('check classification (TRD-002)', () => {
   test('verdict comes from deterministic checks; a failing judged check does not change it', () => {
     const graders = [{ type: 'fileExists', pass: true }, { type: 'judge', judged: true, pass: false, score: 0.1, judgeModel: 'j' }];

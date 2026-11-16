@@ -35,6 +35,7 @@ function incompleteReasons(e) {
   for (const [name, a] of [['with-skill', e.withSkill], ['baseline', e.baseline]]) {
     if (!a) continue;
     if (a.notRun > 0) why.push(`${name}: ${a.notRun} planned run(s) did not execute`);
+    if (a.providerErrors > 0) why.push(`${name}: ${a.providerErrors} run(s) hit a provider error (the model call failed) and are not counted`);
     if (a.unverifiable > 0) why.push(`${name}: ${a.unverifiable} run(s) unverifiable (isolation could not be confirmed)`);
     if (!(a.runs > 0)) why.push(`${name}: no executed run`);
   }
@@ -46,7 +47,7 @@ function rowFromEval(e) {
   const granularity = results.granularityFor(e.runtime); // unknown runtime: named error
   const reasons = incompleteReasons(e);
   const base = {
-    skill: e.skill, evalId: e.id, runtime: e.runtime, granularity, label: results.GRANULARITY_LABELS[granularity],
+    skill: e.skill, evalId: e.id, runtime: e.runtime, granularity, label: results.upliftLabelFor(e.runtime, e.withSkillAdds),
     repeats: e.repeats, bar: e.bar,
     executed: { withSkill: armRow(e.withSkill), baseline: armRow(e.baseline) },
   };
@@ -64,7 +65,7 @@ function rowFromEval(e) {
 /** One report row from a committed baseline summary (always complete: an incomplete eval is never stored). */
 function rowFromBaseline(b) {
   return {
-    skill: b.skill, evalId: null, runtime: b.runtime, granularity: b.granularity, label: results.GRANULARITY_LABELS[b.granularity],
+    skill: b.skill, evalId: null, runtime: b.runtime, granularity: b.granularity, label: results.upliftLabelFor(b.runtime, b.withSkillAdds),
     repeats: b.repeats, bar: b.bar, status: 'complete', reasons: [], source: 'committed baseline', recordedAt: b.recordedAt,
     executed: { withSkill: armRow(b.withSkill), baseline: armRow(b.baseline) },
     withSkill: armRow(b.withSkill), baseline: armRow(b.baseline),

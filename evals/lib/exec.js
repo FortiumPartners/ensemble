@@ -282,6 +282,7 @@ function armStats(runs, planned) {
     runs: executed.length,
     timedOut: executed.filter((r) => r.outcome === 'timed_out').length,
     unverifiable: runs.filter((r) => r.outcome === 'unverifiable').length,
+    providerErrors: runs.filter((r) => r.outcome === 'incomplete' && typeof r.incompleteReason === 'string' && r.incompleteReason.startsWith('provider error')).length,
     notRun: Math.max(0, planned - executed.length),
   };
 }
