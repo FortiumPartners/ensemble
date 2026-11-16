@@ -1,0 +1,66 @@
+{
+  "id": "ensemble-new-feature",
+  "skill": "ensemble-new-feature",
+  "description": "Claude Code only. Resumes a seeded new-feature run that is parked at the implementation_approval checkpoint (PRD and TRD refined, three beads planned, no approval yet) by the path of its indexed TRD plus --foreman (the resume-by-artifact entry; a prompt may not start with `--`, so the bare --foreman resume is not used). Scope: the checkpoint record only, not the document-producing stages, not the PR stages and not --status or --abandon, and not the adopt-an-unindexed-PRD path. With the skill the run record must show one recorded grant (implementationApprovedAt set, stage implementation, an approval_wait outcome whose detail says the grant came from foreman policy, revision +1), no PR approval and no pr: reference, artifacts and beadRefs unchanged, the same single run and lock, and no documents or code written. Limits: the checks read the run file the agent leaves (.ensemble/new-feature/<runId>.json) and say nothing about what it printed; the skill names RunIndexStore (TypeScript in packages/agent-core), which the sandbox does not provide, so a run may hand-edit the JSON. The baseline arm gets no skill and no description of the checkpoint contract, so it is expected to measure the plugin's conventions (single mutate, foreman-labelled grant, lineage kept) rather than prove the model cannot approve a run.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/TRD/TRD-2026-5c0de1a7-slugify.md --foreman\n\nThis is a non-interactive run in a project that has one feature run in progress, recorded under .ensemble/new-feature/; the path above is a document that run produced. Pick the run up and take it as far as it may go without a person present, recording what you do in the run's own record. Ask no questions. Do not create new documents and do not write any code.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:new-feature",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' approval-recorded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' approval-labelled-foreman",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' single-mutation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' no-pr-approval",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' lineage-intact",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' one-run-and-lock",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-new-feature.js' nothing-else-written",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
