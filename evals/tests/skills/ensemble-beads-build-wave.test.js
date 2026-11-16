@@ -4,7 +4,7 @@
  * Proof that the checks of the `ensemble-beads-build-wave` eval can pass and can fail (kit: evals/tests/skill-eval-kit.js). The model is
  * faked: each stub agent writes last-line.json, the br and bv stubs' call logs and the git state a good or a bad run would leave. No
  * model, no network, no real br or bv. Also proves the stubs, the canned data the checks assume, and that the real toolchain-cli reads
- * them in the sandbox (clean tree after preflight, an ok empty plan, and the adapter limit on a plan with no tracks).
+ * them in the sandbox (clean tree after preflight with no fixture .gitignore, an ok empty plan for `tracks: []`, and BAD_OUTPUT for malformed plans).
  */
 
 const fs = require('fs');
@@ -57,11 +57,12 @@ describe(ID, () => {
     expect(ev.invocation).toBe('explicit');
     expect(ev.command).toBe('/ensemble-development:ensemble:beads-build-wave');
     expect(ev.branch).toBe(BRANCH);
-    for (const f of ['bin/br', 'bin/bv', 'bin/canned/issues.json', 'bin/canned/bv-plan.json', 'bin/canned/show-lr-e1.json', '.ensemble/toolchain.yaml', '.gitignore', 'notes/collector.conf']) {
+    for (const f of ['bin/br', 'bin/bv', 'bin/canned/issues.json', 'bin/canned/bv-plan.json', 'bin/canned/show-lr-e1.json', '.ensemble/toolchain.yaml', 'notes/collector.conf']) {
       expect(fs.existsSync(path.join(ev.fixtureDir, f))).toBe(true);
     }
     for (const f of ['bin/br', 'bin/bv']) expect(fs.statSync(path.join(ev.fixtureDir, f)).mode & 0o755).toBe(0o755);
-    expect(fs.readFileSync(path.join(ev.fixtureDir, '.gitignore'), 'utf8')).toBe('.ensemble/state/\n');
+    // No fixture .gitignore: the toolchain's own .ensemble/state/.gitignore (`*`) keeps its state out of the clean-tree check (asserted below against the real CLI).
+    expect(fs.existsSync(path.join(ev.fixtureDir, '.gitignore'))).toBe(false);
   });
 
   test('the prompt is functional: arguments and a file name, none of the skill\'s own output words or convention names', () => {
@@ -256,7 +257,7 @@ describe(ID, () => {
   test('anything staged fails git-state: a new file, an edit, a removal; unstaged edits do not', async () => {
     const n = fs.readdirSync(kit.loadsClean(ID).fixtureDir).length; // keeps the test honest about the file count below
     expect(n).toBeGreaterThan(0);
-    const seeded = 9;
+    const seeded = 8;
     kit.expectFails(await kit.runEval(ID, run(GOOD, { extra: (ws) => git(ws, 'add', 'last-line.json') })), 'git-state', new RegExp(`the index holds ${seeded + 1} files, the fixture has ${seeded}`), { only: true });
     kit.expectFails(await kit.runEval(ID, run(GOOD, { extra: (ws) => { ws.write('README.md', 'changed\n'); git(ws, 'add', 'README.md'); ws.write('README.md', fs.readFileSync(path.join(kit.loadsClean(ID).fixtureDir, 'README.md'), 'utf8')); } })), 'git-state', /README\.md is staged with other contents/, { only: true });
     kit.expectFails(await kit.runEval(ID, run(GOOD, { extra: (ws) => { git(ws, 'rm', '-q', '--cached', 'README.md'); } })), 'git-state', new RegExp(`the index holds ${seeded - 1} files, the fixture has ${seeded}`));
@@ -309,7 +310,7 @@ describe(ID, () => {
       expect(call('bv', ['--version']).out).toMatch(/stub/);
       const plan = call('bv', ['--robot-plan', '--format', 'json']);
       expect(plan.status).toBe(0);
-      expect(JSON.parse(plan.out).plan.tracks.map((t) => t.items)).toEqual([[]]);
+      expect(JSON.parse(plan.out).plan.tracks).toEqual([]); // what bv really emits when nothing is actionable
       for (const args of [['--robot-triage'], ['--robot-insights'], []]) {
         const r = call('bv', args);
         expect(r.status).toBe(2);
@@ -330,7 +331,7 @@ describe(ID, () => {
     });
   });
 
-  test('the real toolchain-cli in the sandbox: preflight passes, the tree stays clean after it, the plan and ready are ok with no item, sync is the flush form; a plan with NO track fails (adapter limit)', async () => {
+  test('the real toolchain-cli in the sandbox: preflight passes, the tree stays clean after it, the plan (tracks: []) and ready are ok with no item, sync is the flush form; a plan with one empty track is ok too; a plan with no tracks key or a non-array tracks is still BAD_OUTPUT', async () => {
     const seen = {};
     await kit.runEval(ID, (ws) => {
       const env = { ...process.env, PATH: `${path.join(ws.dir, 'bin')}${path.delimiter}${process.env.PATH}` };
@@ -345,13 +346,19 @@ describe(ID, () => {
       seen.plan = go(env, 'work-graph.plan');
       seen.ready = go(env, 'work-graph.ready');
       seen.calls = fs.readFileSync(path.join(ws.root, 'br-calls.log'), 'utf8');
-      // The adapter reads plan.tracks[0].items: a plan with `tracks: []` is BAD_OUTPUT for both capabilities.
+      // The fixture plan is what bv emits for nothing actionable (`tracks: []`; the adapter's emptyWhen maps it to an empty list). Malformed plans stay errors.
       const planFile = path.join(ws.dir, 'bin', 'canned', 'bv-plan.json');
       const plan = JSON.parse(fs.readFileSync(planFile, 'utf8'));
-      plan.plan.tracks = [];
-      fs.writeFileSync(planFile, JSON.stringify(plan));
-      seen.planNone = go(env, 'work-graph.plan');
-      seen.readyNone = go(env, 'work-graph.ready');
+      const variant = (mutate) => {
+        const q = JSON.parse(JSON.stringify(plan));
+        mutate(q);
+        fs.writeFileSync(planFile, JSON.stringify(q));
+        return { plan: go(env, 'work-graph.plan'), ready: go(env, 'work-graph.ready') };
+      };
+      seen.oneEmpty = variant((q) => { q.plan.tracks = [{ track_id: 'track-A', items: [] }]; });
+      seen.noKey = variant((q) => { delete q.plan.tracks; });
+      seen.notArray = variant((q) => { q.plan.tracks = 'x'; });
+      seen.noPlan = variant((q) => { delete q.plan; });
       seen.headLog = git(ws, 'reflog', 'show', 'HEAD').split('\n').filter(Boolean).length;
     });
     expect(seen.pre.ok).toBe(true);
@@ -361,9 +368,10 @@ describe(ID, () => {
     expect(seen.plan).toMatchObject({ ok: true, data: { items: [] } });
     expect(seen.ready).toMatchObject({ ok: true, data: { items: [] } });
     expect(seen.calls).toMatch(/^sync --flush-only --json$/m);
-    expect(seen.planNone.ok).toBe(false);
-    expect(seen.readyNone.ok).toBe(false);
-    expect(seen.planNone.error.code).toBe('BAD_OUTPUT');
+    for (const k of ['plan', 'ready']) expect(seen.oneEmpty[k]).toMatchObject({ ok: true, data: { items: [] } });
+    // an absent `tracks` key is the same empty case (emptyWhen: empty, null or absent); a non-array tracks or a missing plan is not
+    for (const k of ['plan', 'ready']) expect(seen.noKey[k]).toMatchObject({ ok: true, data: { items: [] } });
+    for (const v of [seen.notArray, seen.noPlan]) for (const k of ['plan', 'ready']) { expect(v[k].ok).toBe(false); expect(v[k].error.code).toBe('BAD_OUTPUT'); }
     expect(seen.headLog).toBe(2); // HEAD_LOG of the check: the fixture commit and the checkout -b
   });
 

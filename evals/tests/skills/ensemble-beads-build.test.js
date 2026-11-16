@@ -25,7 +25,7 @@ const GOOD = `=== EPIC SCOPE: billing-export (bead: bb-e1) === Open: 5 | In-prog
 Track A (ready): bb-t07 billing-export: add csv writer, bb-t08 billing-export: add json writer
 Track B (ready): bb-t09 billing-export: write docs page
 Blocked: bb-t10 billing-export: wire export endpoint (waits on bb-t07, bb-t08)
-Run /ensemble:beads-build bb-e1 to execute. For TRD-driven work run /ensemble:implement-trd-beads <trd-path>.
+Run /ensemble:beads-build bb-e1 to execute. For TRD-driven work run /ensemble:implement-trd-tasks <trd-path>.
 `;
 const BR = ['--version', '--version', '--version', 'sync --flush-only --json', 'list --all --limit 0 --json', 'show billing-export --json'];
 const BV = ['--version', '--robot-plan --format json'];
@@ -66,7 +66,7 @@ describe(ID, () => {
   test('the prompt is functional: it names the epic and the mode, and none of the skill\'s own output words or convention names', () => {
     const { prompt } = kit.loadsClean(ID);
     expect(prompt.startsWith('billing-export --plan\n')).toBe(true);
-    for (const cue of [/EPIC SCOPE/i, /in-progress/i, /ordering source/i, /beads-build/i, /implement-trd-beads/i, /\bRun \/ensemble/i, /\btracks?\b/i, /\bready\b/i, /\bblocked\b/i, /toolchain/i, /\bsync\b/i]) {
+    for (const cue of [/EPIC SCOPE/i, /in-progress/i, /ordering source/i, /beads-build/i, /implement-trd-tasks/i, /\bRun \/ensemble/i, /\btracks?\b/i, /\bready\b/i, /\bblocked\b/i, /toolchain/i, /\bsync\b/i]) {
       expect(prompt).not.toMatch(cue);
     }
   });
@@ -98,7 +98,7 @@ describe(ID, () => {
 
 Not yet ready: bb-t10 (blocked by the writers).
 
-Next: /ensemble:beads-build bb-e1 to execute (TRD-driven work: /ensemble:implement-trd-beads)
+Next: /ensemble:beads-build bb-e1 to execute (TRD-driven work: /ensemble:implement-trd-tasks)
 `;
     kit.expectAllPass(await kit.runEval(ID, run(alt)));
     const table = `# billing-export (bb-e1)
@@ -114,7 +114,7 @@ Next: /ensemble:beads-build bb-e1 to execute (TRD-driven work: /ensemble:impleme
 | track-A | bb-t07, bb-t08 |
 | track-B | bb-t09 |
 
-Run /ensemble:beads-build bb-e1 to execute. For TRD work: /ensemble:implement-trd-beads.
+Run /ensemble:beads-build bb-e1 to execute. For TRD work: /ensemble:implement-trd-tasks.
 `;
     kit.expectAllPass(await kit.runEval(ID, run(table)));
   });
@@ -171,7 +171,7 @@ Run /ensemble:beads-build bb-e1 to execute. For TRD work: /ensemble:implement-tr
   });
 
   test('a track-labelled section that lacks the first id fails track-breakdown by name', async () => {
-    const t = `# billing-export (bb-e1)\n\nOpen: 5, In-progress: 2, Closed: 4\n\nReady also: bb-t07\n\nTrack A: bb-t08\n\nRun /ensemble:beads-build bb-e1 (TRD: /ensemble:implement-trd-beads)\n`;
+    const t = `# billing-export (bb-e1)\n\nOpen: 5, In-progress: 2, Closed: 4\n\nReady also: bb-t07\n\nTrack A: bb-t08\n\nRun /ensemble:beads-build bb-e1 (TRD: /ensemble:implement-trd-tasks)\n`;
     kit.expectFails(await kit.runEval(ID, run(t)), 'track-breakdown', /bb-t07 is in no track-labelled section/, { only: true });
   });
 
@@ -183,15 +183,15 @@ Run /ensemble:beads-build bb-e1 to execute. For TRD work: /ensemble:implement-tr
   });
 
   test('a grouping that stops at a heading: ids under a later heading are not in the track', async () => {
-    const t = `# billing-export (bb-e1)\n\nOpen: 5, In-progress: 2, Closed: 4\n\n## Track A\nbb-t07\n\n## Others\nbb-t08\n\nRun /ensemble:beads-build bb-e1 (TRD: /ensemble:implement-trd-beads)\n`;
+    const t = `# billing-export (bb-e1)\n\nOpen: 5, In-progress: 2, Closed: 4\n\n## Track A\nbb-t07\n\n## Others\nbb-t08\n\nRun /ensemble:beads-build bb-e1 (TRD: /ensemble:implement-trd-tasks)\n`;
     kit.expectFails(await kit.runEval(ID, run(t)), 'track-breakdown', /bb-t08 not in the same track as bb-t07/, { only: true });
   });
 
-  test('a missing hint, a hint for another epic, a hint without implement-trd-beads, or a hint buried mid-report fails final-hint', async () => {
-    const hint = 'Run /ensemble:beads-build bb-e1 to execute. For TRD-driven work run /ensemble:implement-trd-beads <trd-path>.\n';
+  test('a missing hint, a hint for another epic, a hint without implement-trd-tasks, or a hint buried mid-report fails final-hint', async () => {
+    const hint = 'Run /ensemble:beads-build bb-e1 to execute. For TRD-driven work run /ensemble:implement-trd-tasks <trd-path>.\n';
     kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, ''))), 'final-hint', /no hint line/, { only: true });
-    kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, 'Run /ensemble:beads-build bb-e2 to execute. For TRD-driven work run /ensemble:implement-trd-beads <trd-path>.\n'))), 'final-hint', /no hint line running beads-build bb-e1/, { only: true });
-    kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, 'Run /ensemble:beads-build bb-e1 to execute.\n'))), 'final-hint', /does not mention implement-trd-beads/, { only: true });
+    kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, 'Run /ensemble:beads-build bb-e2 to execute. For TRD-driven work run /ensemble:implement-trd-tasks <trd-path>.\n'))), 'final-hint', /no hint line running beads-build bb-e1/, { only: true });
+    kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, 'Run /ensemble:beads-build bb-e1 to execute.\n'))), 'final-hint', /does not mention implement-trd-tasks/, { only: true });
     kit.expectFails(await kit.runEval(ID, run(swap(GOOD, hint, `${hint}${'Starting the build now.\n'.repeat(7)}`))), 'final-hint', /followed by 7 more lines/, { only: true });
     kit.expectAllPass(await kit.runEval(ID, run(swap(GOOD, hint, `${hint}\nSaved.\n`))));
   });

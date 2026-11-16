@@ -45,12 +45,12 @@ and `pr-review-cli.js` returns the same directory, owners and `no-important-find
 
 ## Known limits
 
-- **A defect in the skill's policy snippet.** Step "Inputs" passes `{text, baseSha}` to `pr-review-cli.js policy`, with no `sourceSha`. The
-  CLI then answers `ok:false`, `policy-not-from-base` and the default `docs/review-eval/cases` (the test shows this against the seeded
-  REVIEW.md); only a call that also passes `sourceSha` (equal to `baseSha`) reads the block. The skill says "when the policy cannot be read
-  the CLI answers with the strict defaults, and the default is docs/review-eval/cases". A with-skill run that follows the snippet
-  literally and ignores `ok:false` writes to the default directory and fails `case-written`. The eval is right and the snippet is not: it
-  was not worked around, and `packages/` was not touched.
+- **The policy call now carries `sourceSha`.** The skill's inputs step passes `{text, baseSha, sourceSha: <base>}` to `pr-review-cli.js policy`
+  (an earlier version omitted `sourceSha`, which the CLI answers with `ok:false`, `policy-not-from-base` and the default
+  `docs/review-eval/cases`; that defect is fixed). The test runs the documented shape against the seeded REVIEW.md and gets
+  `qa/reviewer-cases`; it also shows the CLI still fails closed without `sourceSha`. A run that drops `sourceSha` or ignores an
+  `ok:false` still writes to the default directory and fails `case-written`: the check can fail, and the eval no longer holds the skill's
+  own snippet responsible for it.
 - `pr-review-cli.js` is found through the tool-path-resolution tiers. In the sandbox the checkout tiers miss (the repo root is the
   sandbox) and the plugin-root tier depends on `CLAUDE_PLUGIN_ROOT` reaching Bash; the with-skill arm may halt on it (unproven, as for
   `ensemble-requirement-status`). Hence `runtimes: ["claude"]`: Pi's tier needs an installed ensemble-pi bundle, not shown here.
@@ -64,8 +64,8 @@ and `pr-review-cli.js` returns the same directory, owners and `no-important-find
 
 ## What a real trial must settle
 
-Whether the with-skill arm resolves `pr-review-cli.js` in the sandbox at all; whether it notices `policy-not-from-base` and passes
-`sourceSha` (or reads the policy block itself) or writes to the default directory; whether it resolves the area rules file rather than the
+Whether the with-skill arm resolves `pr-review-cli.js` in the sandbox at all; whether it passes `sourceSha` as the skill's snippet does
+(and notices an `ok:false` if it does not) or writes to the default directory; whether it resolves the area rules file rather than the
 root one and hashes the file it names; whether it records the escaping change's lines and the signer rather than the fix's lines or the
 operator; whether the baseline arm gets any of this right unaided; whether either arm leaves scratch files. No measured results are
 recorded here.

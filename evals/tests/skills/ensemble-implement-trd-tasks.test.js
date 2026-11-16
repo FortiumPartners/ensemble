@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Kit test for `ensemble-implement-trd-beads-plan` (plan-only scope: Phases 1 and 2). The stub "agent" is a function that does what a
+ * Kit test for `ensemble-implement-trd-tasks-plan` (plan-only scope: Phases 1 and 2). The stub "agent" is a function that does what a
  * good run leaves behind, using the REAL `br` in the sandbox's br workspace (the one `setup: br init --prefix itb` made) and real
  * `git` for the branch: so the bead export the checks read is the genuine `.beads/issues.jsonl` br writes. HOME for those calls is a throwaway
  * directory under the sandbox root. Needs `br` and `git` on PATH (`which br`); no model, no network, no real gh.
@@ -11,9 +11,9 @@ const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const kit = require('../skill-eval-kit');
-const { expected } = require('../../checks/ensemble-implement-trd-beads');
+const { expected } = require('../../checks/ensemble-implement-trd-tasks');
 
-const ID = 'ensemble-implement-trd-beads-plan';
+const ID = 'ensemble-implement-trd-tasks-plan';
 const CHECK_IDS = [
   'preflight-artifact', 'bead-hierarchy', 'bead-types', 'bead-edges', 'beads-untouched', 'foreman-tags', 'feature-branch',
   'no-product-code', 'gh-readonly', 'nothing-pushed', 'noProtectedBranchCommit', 'remoteBranchUnchanged',
@@ -106,7 +106,7 @@ describe(`${ID} (plan scope)`, () => {
     expect(ev.env).toEqual({ ENSEMBLE_NON_INTERACTIVE: '1' });
     expect(ev.setup).toEqual([['br', 'init', '--prefix', 'itb']]);
     expect(ev.prompt).toMatch(/--plan --foreman/);
-    expect(ev.command).toBe('/ensemble-development:ensemble:implement-trd-beads');
+    expect(ev.command).toBe('/ensemble-development:ensemble:implement-trd-tasks');
     expect(ev.description).toMatch(/PLAN ONLY/);
     expect(ev.description).toMatch(/MEANINGLESS BY CONSTRUCTION/);
     const exp = expected();
@@ -270,7 +270,7 @@ const fs = require('fs'); const path = require('path');
 const argv = process.argv.slice(2);
 const plugins = []; argv.forEach((a, i) => { if (argv[i - 1] === '--plugin-dir') plugins.push(a); });
 fs.appendFileSync(path.join(__dirname, 'calls.jsonl'), JSON.stringify({ argv, plugins, cwd: process.cwd() }) + '\\n');
-const skills = plugins.length ? ['ensemble-development:ensemble-implement-trd-beads'] : ['verify'];
+const skills = plugins.length ? ['ensemble-development:ensemble-implement-trd-tasks'] : ['verify'];
 console.log(JSON.stringify({ type: 'system', subtype: 'init', skills, plugins: plugins.map((p) => ({ name: 'ensemble-' + path.basename(p), path: p })), model: 'claude-stub-1' }));
 console.log(JSON.stringify({ type: 'result', num_turns: 1, total_cost_usd: 0.01 }));
 `;
@@ -292,7 +292,7 @@ console.log(JSON.stringify({ type: 'result', num_turns: 1, total_cost_usd: 0.01 
       expect(promptOf(withSkill)).toBe(`${ev.command} ${ev.prompt}`);
       expect(promptOf(baseline)).toBe(ev.prompt);
       expect(promptOf(baseline)).not.toMatch(/^\//);
-      expect(promptOf(withSkill).startsWith('/ensemble-development:ensemble:implement-trd-beads docs/TRD/TRD-2026-b1c2d3e4-slugify.md --plan --foreman')).toBe(true);
+      expect(promptOf(withSkill).startsWith('/ensemble-development:ensemble:implement-trd-tasks docs/TRD/TRD-2026-b1c2d3e4-slugify.md --plan --foreman')).toBe(true);
       for (const c of calls) expect(c.cwd.startsWith(path.join(t, 'work'))).toBe(true);
       // the agent env carries the non-interactive switch only through eval.env (asserted on the definition above), and the PATH gets the stub bin
       expect(ev.sandboxPath).toEqual(['bin']);

@@ -3,13 +3,7 @@
   "output_format": "json",
   "version": "v0.25.2",
   "plan": {
-    "tracks": [
-      {
-        "track_id": "track-A",
-        "items": [],
-        "reason": "No actionable work"
-      }
-    ],
+    "tracks": [],
     "total_actionable": 0,
     "total_blocked": 3,
     "summary": {

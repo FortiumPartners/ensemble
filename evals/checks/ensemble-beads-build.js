@@ -182,7 +182,7 @@ const CHECKS = {
     return `${group.join(', ')} grouped in one track${apart.length ? `, apart from ${apart.join(', ')}` : ''}`;
   },
 
-  // FLAKY (layout): the closing hint names beads-build with the epic id on one line, mentions implement-trd-beads for TRD-driven work, and
+  // FLAKY (layout): the closing hint names beads-build with the epic id on one line, mentions implement-trd-tasks for TRD-driven work, and
   // is among the last lines (nothing substantive follows it).
   'final-hint': (o) => {
     const epic = need(o, 'epic').replace(/[^\w-]/g, '');
@@ -190,7 +190,7 @@ const CHECKS = {
     const ls = lines(t).filter((l) => l.trim() !== '');
     const at = ls.findIndex((l) => new RegExp(`beads-build\\s+${epic}(?![\\w-])`, 'i').test(l));
     if (at < 0) fail(`no hint line running beads-build ${epic}`);
-    if (!/implement-trd-beads/i.test(t)) fail('the hint does not mention implement-trd-beads');
+    if (!/implement-trd-tasks/i.test(t)) fail('the hint does not mention implement-trd-tasks');
     if (at < ls.length - 5) fail(`the hint is followed by ${ls.length - 1 - at} more lines; it should end the report`);
     return 'closing hint present and last';
   },

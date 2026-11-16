@@ -13,6 +13,7 @@
   "adapter-tracker-azure-boards": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
   "adapter-tracker-beads": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
   "adapter-tracker-jira": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-tracker-kata": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
   "adapter-workflow-git-town": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
   "adapter-workflow-plain-git": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
   "adapter-worktree-plain-git": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
@@ -26,6 +27,6 @@
   "ensemble-reqnroll-tdd": "Its core is a red-then-green gate that builds and runs a .NET xUnit project (dotnet restore needs the NuGet network) while delegating to two other agents, so nothing offline and deterministic remains to check beyond what the ensemble-generate-reqnroll-bindings and reqnroll evals already cover.",
   "ensemble-standards": "Pure keyword dispatcher (discover, inject, fold) that hands off to the sibling standards commands and re-implements none of their phases; the targets have or need their own evals and the only own behaviour is a keyword-table print on no match.",
   "ensemble-trd": "Pure keyword dispatcher over the TRD-adjacent commands (create, refine, implement, analyze, complexity, validate, verify, status, graph) that forwards to the sibling SKILL.md and re-implements none of it; each target has or needs its own eval and the only own behaviour is a keyword-table print on no match.",
-  "implement-trd-beads-reference": "On-demand reference (sections 1-7) that /ensemble:implement-trd-beads reads on pointer, explicitly 'not a standalone workflow', so it has no behaviour of its own to run; its rules are exercised only through the commands that read it.",
+  "implement-trd-tasks-reference": "On-demand reference (sections 1-7) that /ensemble:implement-trd-tasks reads on pointer, explicitly 'not a standalone workflow', so it has no behaviour of its own to run; its rules are exercised only through the commands that read it.",
   "staleness-gate": "Procedural gate whose outcome depends on wall-clock file mtimes (a TRD older than 24h or source files newer than it) and on the exit status of the model-driven /ensemble:refine-trd command, and which writes no artifact, so a deterministic offline eval cannot honestly set up or check it."
 }

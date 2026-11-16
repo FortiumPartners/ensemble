@@ -426,6 +426,26 @@ describe(`${ID}`, () => {
     kit.expectFails(res, 'run-index', /stageOutcome/, { only: true });
   });
 
+  test('the run record the real issue-run-index-cli writes (create, then mutate to validation_delivery with the PR ref) passes run-index; completing it fails', async () => {
+    const CLI = path.join(kit.REPO_ROOT, 'packages/development/lib/issue-run-index-cli.js');
+    const viaCli = (ws, sub, payload) => {
+      const r = spawnSync('node', [CLI, sub], { cwd: ws.dir, input: JSON.stringify(payload), encoding: 'utf8' });
+      const out = JSON.parse(r.stdout);
+      expect(out.ok).toBe(true);
+      return out.run;
+    };
+    const drive = (complete) => (ws) => {
+      const run = viaCli(ws, 'create', { issueDescription: 'Fix GitHub issue 42' });
+      const patch = [{ op: 'setStage', stage: 'validation_delivery' }, { op: 'setStageOutcome', kind: 'approval_wait', detail: 'REVIEW_PENDING' },
+        { op: 'appendBeadRef', ref: 'pr:https://github.com/example-org/shopcart/pull/57' }];
+      viaCli(ws, 'mutate', { runId: run.runId, expectedRevision: run.revision, patch });
+      if (complete) viaCli(ws, 'complete', { runId: run.runId });
+    };
+    kit.expectAllPass(await kit.runEval(ID, agent({ record: null, extra: drive(false) })));
+    const res = await kit.runEval(ID, agent({ record: null, extra: drive(true) }));
+    kit.expectFails(res, 'run-index', /completed/, { only: true });
+  });
+
   test('a report that is missing, near empty or without the PR URL fails report-saved', async () => {
     let res = await kit.runEval(ID, agent({ report: null }));
     kit.expectFails(res, ['report-saved', 'not-reported-success'], /not written/, { only: true });

@@ -235,8 +235,8 @@ const CHECKS = {
     return 'no gh call that changes anything was attempted';
   },
 
-  // The run index of the skill was written in its documented shape and is not completed (the remote review is not a pass). (soft: the skill calls a
-  // TypeScript API with no JS entry point in the packages, so a run may have no way to write it; a hand-written record of that shape counts.)
+  // The run index of the skill was written in its documented shape and is not completed (the remote review is not a pass). (soft: the skill writes it
+  // through issue-run-index-cli.js; the check reads the JSON file only, so a hand-written record of that shape also counts.)
   'run-index': () => {
     worked();
     let names;
