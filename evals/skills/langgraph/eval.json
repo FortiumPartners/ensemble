@@ -1,0 +1,124 @@
+{
+  "id": "langgraph",
+  "skill": "langgraph",
+  "description": "A non-interactive run builds a refund-request workflow for a small Python support project (pyproject pins langgraph; src/config.py reads the model name and refund limit from the environment; src/llm.py, src/payments.py and src/mail.py are the model, refund and email helpers; one existing test). The run saves src/refund_flow.py (classify a request, draft a reply, review it and revise until approved or a few attempts are used, pause for a person to approve a refund above the limit and continue after the answer, remember each customer's conversation across calls, keep the whole message list) and tests/test_refund_flow.py (stand-in for the model, no network); src/config.py may only grow. Scope: building stateful LangGraph workflows (state schema, conditional edges and loops, checkpointing, human-in-the-loop); not single model calls or simple chains. Static checks only; Python is never run and the output is read as text by a comment- and string-aware scanner: a typed state schema with a reducer on the list that accumulates; nodes return partial updates and do not mutate their input; every loop has a conditional exit bounded by a counter or limit; recursion_limit is set in the run config; the graph is compiled with a checkpointer and thread_id (per customer, not constant or random) is passed in config under configurable; the approval pauses with interrupt() and is resumed with Command(resume=...), never input() or a polling loop; no side effect (send, refund, write) runs before interrupt() in the same node, because the node re-runs on resume; the model name is never hard-coded; at least one test calls a node as a plain function with a real assertion; no new dependency, no changed existing file (config.py additions only), and the canary in notes/collector.conf is not copied. Limits: shape, not behaviour; a graph built in a way the text scan cannot follow (loop edges not resolvable to node names, nodes created as closures) fails with a message saying so. The baseline arm is expected to measure the plugin's conventions: a model without the skill may let messages overwrite each other, return or mutate the whole state, leave the revise loop unbounded, skip the recursion limit, use input() or polling for the approval, issue the refund before the pause, use a random or constant thread id or hard-code the model name; that gap, not the absolute pass count, is the uplift. Pi runs it too: SKILL.md is plain with no scripts.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is the support tooling for a web shop (Python). src/llm.py has complete(model, prompt), the helper that asks the language model; src/payments.py issues refunds; src/mail.py sends replies to customers; src/config.py reads the deployment settings (which model to use and the refund limit). Build the refund-request workflow with LangGraph in src/refund_flow.py. A request is a customer's free-text message about an order, with the order id and the amount at stake. The workflow classifies the request (refund, question or other); drafts a reply; has a reviewer step judge the draft and, when the reviewer does not approve, revises the draft and has it reviewed again, until the reviewer approves or a few attempts have been used (then the latest draft goes out anyway); when the request is a refund above the refund limit, stops and waits for a person to approve or decline it, and carries on once that answer arrives (approved: issue the refund, then send the reply; declined: send the reply without a refund); a refund at or under the limit is issued without waiting; sends the reply to the customer; remembers each customer's conversation, so a later request from the same customer continues it; and keeps the whole list of messages exchanged. src/refund_flow.py exports build_workflow(), which takes no arguments and returns the runnable workflow (it asks the model through llm.complete, with the model configured for the deployment); run_request(workflow, customer_id, text, order_id, amount), which runs one request and returns what the workflow produced, or what shows it is waiting for the person; and resume_request(workflow, customer_id, approved), which continues a waiting request with the person's answer (True or False) and returns the result. Also write tests/test_refund_flow.py: a pytest file that stands in for the model (no network, no key) and makes real assertions about what the code does. You may add other files under src/ and tests/; the only existing file you may change is src/config.py, to add settings: keep every line that is already there. Do not add or fetch any dependency and do not run python, pip or pytest. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' state-schema-reducer",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' nodes-partial-update",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' nodes-no-mutation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' cycle-has-exit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' recursion-limit-set",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' checkpointer-compiled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' thread-id-per-customer",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' approval-uses-interrupt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' resume-with-command",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' side-effects-before-interrupt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' model-from-config",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' test-nodes-direct",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' test-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' no-new-dependency --fixture '{{repo}}/evals/skills/langgraph/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' fixture-untouched --fixture '{{repo}}/evals/skills/langgraph/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/langgraph.js' no-canary --token CANARY-LANGGRAPH-7c3a9e52d1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
