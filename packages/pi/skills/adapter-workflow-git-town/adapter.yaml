@@ -156,10 +156,12 @@ capabilities:
       - "-m"
       - "${message}"
 
-  # git push: the generic primitive `validateConformance` requires every `workflow`-category
-  # adapter to implement; git-town has no standalone `push` subcommand (pushing happens only as
-  # a side effect inside `hack`/`append`/`sync`/`ship`). `branch` is unreferenced (pushes
-  # whatever the current branch's configured upstream is). No `parse` block: `git push` on
+  # git push -u origin HEAD: the generic primitive `validateConformance` requires every
+  # `workflow`-category adapter to implement; git-town has no standalone `push` subcommand
+  # (pushing happens only as a side effect inside `hack`/`append`/`sync`/`ship`). Same template
+  # as plain-git's `workflow.push` (see its comment): a bare `git push` fails on a branch with no
+  # upstream, `HEAD` keeps a caller `branch` value from ever reaching git (no `+refspec` force
+  # push), and `branch` is unreferenced. No `parse` block: `git push` on
   # success prints almost nothing to stdout (its real output, including any host-provided
   # "create a pull request" hint, goes to stderr, which `mapOutput` never sees) -- `branch` is
   # left unmapped.
@@ -167,3 +169,6 @@ capabilities:
     run:
       - git
       - push
+      - "-u"
+      - origin
+      - HEAD

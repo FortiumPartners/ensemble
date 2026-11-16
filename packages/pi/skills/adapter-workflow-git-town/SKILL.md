@@ -29,7 +29,7 @@ against this repository.
 - `workflow.ship`: ship into parent (`git town ship --non-interactive`)
 - `workflow.status`: working tree clean/dirty + changed files (`git status --porcelain`, NOT `git town status` -- see "Known limits")
 - `workflow.commit`: commit staged changes (`git commit -m <message>`)
-- `workflow.push`: push the current branch (`git push`)
+- `workflow.push`: push the current branch and set its upstream (`git push -u origin HEAD`)
 
 `workflow.log`/`workflow.diff`/`workflow.merge-base`/`workflow.remote-url` (all optional) are
 not implemented by this adapter: TRD-036's own directed git-town allowlist names only `hack`,
@@ -74,6 +74,7 @@ subcommand at all -- pushing only ever happens as a side effect inside `hack`/`a
   `[branch <short-sha>] <message>` summary) has no regex/string-split primitive in
   `mapping.js`'s dotted-path grammar to extract the SHA; no `parse` block is declared at all, so
   the raw commit summary is returned as `data` instead.
+- **`workflow.push` ignores its `branch` input and always pushes the current branch (`HEAD`) to `origin`**, setting the upstream (a bare `git push` fails on a branch with no upstream).
 - **`workflow.push`'s `branch` output is never populated.** `git push`'s real output (including
   any host-provided "create a pull request" hint) goes to stderr, which `mapOutput` never sees
   on a successful (zero-exit) invocation; no `parse` block is declared.
