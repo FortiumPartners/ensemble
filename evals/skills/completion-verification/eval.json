@@ -1,0 +1,76 @@
+{
+  "id": "completion-verification",
+  "skill": "completion-verification",
+  "description": "A non-interactive completion-verification run on a seeded TRD (checkbox tracking, three tasks with test pairs, a linked PRD) must refuse to call it done: TRD-003 is open, TRD-002 is closed without TRD-002-TEST, so the Should requirement REQ-003 has no closed satisfying task, and the workspace test suite passes. The checks read the dated report it writes under docs/reports/: INCOMPLETE verdict as the last line with 3 gaps, the three gap classes naming the right ids and no gap for the finished work, the task inventory and requirement coverage tables, the suite result, and that the TRD, PRD and code were left as seeded. They check the report's content and shape, not the quality of its reasoning, nor that the suite or the trd-cli parser was actually run (a transcript is not checked). The skill is normally called by implement-trd-beads, so the plain prompt asks for the verification directly; the baseline arm has no skill and is expected to measure the plugin's conventions (report path, gap class names, verdict line), so part of the uplift is format knowledge. Beads mode and the parse-failure cross-check are not covered. Claude only: the skill resolves a plugin CLI.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Before we call docs/TRD/slugify.md done, independently verify that it is really complete against the checkboxes, the linked PRD and the test suite. Tracking mode is checkbox, the TRD slug is slugify. This is a non-interactive run: ask no questions. Write the verification report to docs/reports/ and tell me the verdict. Do not edit the TRD, the PRD or any code, and do not tick any checkbox.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' report-saved --slug slugify",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' verdict-incomplete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' gap-count --gaps 3",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' gap-classes --expect TASK-OPEN:TRD-003,TEST-GAP:TRD-002,REQ-UNSATISFIED:REQ-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' no-false-gaps --clean TRD-001,REQ-001,REQ-002",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' inventory --closed TRD-001,TRD-001-TEST,TRD-002 --open TRD-002-TEST,TRD-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' coverage --satisfied REQ-001,REQ-002 --unsatisfied REQ-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' suite-result --result PASS",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/completion-verification.js' source-untouched",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
