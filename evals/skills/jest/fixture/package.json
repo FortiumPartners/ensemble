@@ -1,0 +1,7 @@
+{
+  "name": "cart-tools",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": { "test": "jest" },
+  "devDependencies": { "jest": "^29.0.0" }
+}
