@@ -1,0 +1,23 @@
+{
+  "required": ["api", "database", "externalServices", "criticalPaths"],
+  "api": {
+    "baseUrl": "http://127.0.0.1:1",
+    "retries": 1,
+    "retryDelay": 100,
+    "endpoints": [{ "path": "/health", "method": "GET", "expectedStatus": 200, "sla": 500 }]
+  },
+  "database": {
+    "checks": [
+      {
+        "name": "orders-db",
+        "command": "DB_URL='postgres://smoke:FAKE-DB-PASSWORD-eval-only-0000@127.0.0.1:1/orders' sh ./scripts/db-ping.sh",
+        "expectOutput": "pong"
+      }
+    ]
+  },
+  "criticalPaths": {
+    "journeys": [
+      { "name": "checkout", "steps": [{ "command": "sh ./scripts/journey-step.sh", "expectOutput": "order placed" }] }
+    ]
+  }
+}
