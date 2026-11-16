@@ -1,7 +1,9 @@
 {
   "maxUsdPerSuite": 50,
   "timeoutSec": 900,
+  "maxTimeoutSec": 7200,
   "runReserveUsd": 5,
+  "maxRunUsd": 40,
   "judgeReserveUsd": 0.5,
   "concurrency": 4,
   "repeats": 5,

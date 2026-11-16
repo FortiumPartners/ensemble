@@ -139,7 +139,87 @@ function redactDeep(value, secrets) {
   return value;
 }
 
+
+// ---- Eval `env`: non-secret variables for the AGENT's environment only ---------------------------------------------
+
+const AGENT_ENV_NAME_RE = /^[A-Z][A-Z0-9_]*$/;
+const MAX_AGENT_ENV_VARS = 32;
+const MAX_AGENT_ENV_VALUE = 200;
+// Names that change how a process is loaded or reaches the network, or that name the harness's own inputs. Exact names, then prefixes.
+const DENIED_ENV_NAMES = new Set([
+  'PATH', 'HOME', 'LANG', 'TERM', 'TMPDIR', 'TMP', 'TEMP', 'SHELL', 'USER', 'LOGNAME', 'PWD', 'IFS', 'ENV', 'BASH_ENV',
+  'NODE_OPTIONS', 'NODE_PATH', 'NODE_EXTRA_CA_CERTS', 'NODE_TLS_REJECT_UNAUTHORIZED', 'PYTHONPATH', 'PYTHONSTARTUP', 'PYTHONHOME',
+  'RUBYOPT', 'RUBYLIB', 'PERL5OPT', 'PERL5LIB', 'SSH_AUTH_SOCK', 'CLAUDE_CONFIG_DIR',
+]);
+// Provider prefixes: a name here could redirect or reconfigure a provider client that holds a real key (AWS_ENDPOINT_URL, GOOGLE_API_BASE, ...).
+const DENIED_ENV_PREFIXES = ['LD_', 'DYLD_', 'GIT_', 'ANTHROPIC_', 'EVALS_', 'NPM_CONFIG_', 'OPENAI_', 'GEMINI_', 'OPENROUTER_', 'AWS_', 'GOOGLE_', 'AZURE_'];
+// Names that point a client at another server, whatever the provider (substring match, deliberately broad).
+const ENDPOINT_LIKE_RE = /BASE_URL|_ENDPOINT|ENDPOINT_|API_BASE|API_URL|_URL$|_HOST$/;
+// Credential-like names (substring match, deliberately broad).
+const CREDENTIAL_LIKE_RE = /KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|PROXY/;
+
+/** Every credential name the harness knows of: the built-in default plus the allowlist file's names and every runtime's names. */
+function allKnownCredentialNames(file = ALLOWLIST_FILE) {
+  const names = new Set(DEFAULT_CREDENTIALS);
+  if (!fs.existsSync(file)) return names;
+  let parsed;
+  try { parsed = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { throw new Error(`env allowlist ${file} is not valid JSON: ${e.message}`); }
+  if (parsed && Array.isArray(parsed.credentials)) for (const n of parsed.credentials) names.add(n);
+  if (parsed && parsed.runtimes && typeof parsed.runtimes === 'object') for (const list of Object.values(parsed.runtimes)) if (Array.isArray(list)) for (const n of list) names.add(n);
+  return names;
+}
+
+/** Why `name` may not be set by an eval's `env`, or null when it may. `credentialNames`: names to refuse in addition to the built-in rules. */
+function deniedAgentEnvName(name, credentialNames = allKnownCredentialNames()) {
+  if (DENIED_ENV_NAMES.has(name)) return 'it is a name the harness controls';
+  const prefix = DENIED_ENV_PREFIXES.find((p) => name.startsWith(p));
+  if (prefix) return `names starting with ${prefix} are not allowed`;
+  if (ENDPOINT_LIKE_RE.test(name)) return 'it looks like an endpoint or base URL (BASE_URL, _ENDPOINT, API_BASE, _URL, _HOST); `env` may not redirect a provider client';
+  if (CREDENTIAL_LIKE_RE.test(name)) return 'it looks like a credential (KEY, TOKEN, SECRET, PASSWORD, ...); `env` holds non-secret values only';
+  if (credentialNames.has(name)) return 'it is on the credential allowlist';
+  return null;
+}
+
+/**
+ * Validate an eval's `env` map (NAME -> string). Returns a plain copy; throws an Error whose message names the problem.
+ * Values are not secrets and are never redacted from transcripts.
+ */
+function validateAgentEnv(map, credentialNames = allKnownCredentialNames()) {
+  if (!map || typeof map !== 'object' || Array.isArray(map)) throw new Error('`env` must be an object of NAME -> string');
+  const names = Object.keys(map);
+  if (names.length === 0) throw new Error('`env` must not be empty (omit it instead)');
+  if (names.length > MAX_AGENT_ENV_VARS) throw new Error(`\`env\` may hold at most ${MAX_AGENT_ENV_VARS} variables`);
+  const out = {};
+  for (const name of names) {
+    if (!AGENT_ENV_NAME_RE.test(name)) throw new Error(`\`env\` name ${JSON.stringify(name.slice(0, 60))} must match ${AGENT_ENV_NAME_RE}`);
+    const why = deniedAgentEnvName(name, credentialNames);
+    if (why) throw new Error(`\`env\` name ${name} is not allowed: ${why}`);
+    const v = map[name];
+    if (typeof v !== 'string') throw new Error(`\`env\` value of ${name} must be a string`);
+    if (v.length > MAX_AGENT_ENV_VALUE) throw new Error(`\`env\` value of ${name} is longer than ${MAX_AGENT_ENV_VALUE} characters`);
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f-\u009f]/.test(v)) throw new Error(`\`env\` value of ${name} contains a control character`);
+    out[name] = v;
+  }
+  return out;
+}
+
+/**
+ * Put an eval's `env` into the agent environment `env`. Refuses (throws) a name that is a credential of this run (for example one
+ * named by --allow-env) or that the agent environment already carries: an eval can never overwrite a credential or a base variable.
+ */
+function applyAgentEnv(env, map, credentials = []) {
+  for (const [name, value] of Object.entries(map || {})) {
+    if (Object.prototype.hasOwnProperty.call(env, name) || deniedAgentEnvName(name, new Set(credentials))) {
+      throw new Error(`eval \`env\` name ${name} is a credential or a variable the harness sets; refusing to override it`);
+    }
+    env[name] = value;
+  }
+  return env;
+}
+
 module.exports = {
+  AGENT_ENV_NAME_RE, allKnownCredentialNames, deniedAgentEnvName, validateAgentEnv, applyAgentEnv,
   BASE_NAMES, DEFAULT_CREDENTIALS, ALLOWLIST_FILE, REDACTED,
   loadCredentialNames, isCI, buildEnv, makeCiHome, GIT_HARDEN, gitEnv, secretValues, redactText, redactDeep, shortReason, MAX_REASON,
 };

@@ -382,7 +382,7 @@ function toBaselineSummary(evalResult, ctx) {
   if (e.abort) why('its baseline arm aborted');
   if (!e.withSkill || !e.baseline) why('an arm has no result');
   if (e.outcome === 'incomplete' || e.reliable === null) why('the eval is incomplete');
-  if (e.providerErrors > 0) why(`${e.providerErrors} run(s) hit a provider error, so the arms did not both run ${e.repeats} times`);
+  if (e.providerErrors > 0) why(`${e.providerErrors} run(s) hit a provider error or a setup failure, so the arms did not both run ${e.repeats} times`);
   if (e.withSkill.notRun > 0 || e.baseline.notRun > 0) why('not every planned run executed');
   if (e.baseline.unverifiable > 0 || e.withSkill.unverifiable > 0) why('a run was unverifiable and is not counted');
   if (typeof e.uplift !== 'number') why('uplift could not be computed');

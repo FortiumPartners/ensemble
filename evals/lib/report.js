@@ -35,7 +35,9 @@ function incompleteReasons(e) {
   for (const [name, a] of [['with-skill', e.withSkill], ['baseline', e.baseline]]) {
     if (!a) continue;
     if (a.notRun > 0) why.push(`${name}: ${a.notRun} planned run(s) did not execute`);
-    if (a.providerErrors > 0) why.push(`${name}: ${a.providerErrors} run(s) hit a provider error (the model call failed) and are not counted`);
+    const pe = a.providerErrors - (a.setupFailures || 0);
+    if (pe > 0) why.push(`${name}: ${pe} run(s) hit a provider error (the model call failed) and are not counted`);
+    if (a.setupFailures > 0) why.push(`${name}: ${a.setupFailures} run(s) failed in setup (the agent never started) and are not counted`);
     if (a.unverifiable > 0) why.push(`${name}: ${a.unverifiable} run(s) unverifiable (isolation could not be confirmed)`);
     if (!(a.runs > 0)) why.push(`${name}: no executed run`);
   }

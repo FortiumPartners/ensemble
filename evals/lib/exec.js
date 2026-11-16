@@ -12,7 +12,7 @@ const { spawn } = require('child_process');
 const { redactText } = require('./env');
 
 const LIMITS_FILE = path.join(__dirname, '..', 'limits.json');
-const FALLBACK_LIMITS = { maxUsdPerSuite: 50, timeoutSec: 900, runReserveUsd: 5, judgeReserveUsd: 0.5, concurrency: 4, repeats: 5, bar: 4 };
+const FALLBACK_LIMITS = { maxUsdPerSuite: 50, timeoutSec: 900, maxTimeoutSec: 900, runReserveUsd: 5, maxRunUsd: 5, judgeReserveUsd: 0.5, concurrency: 4, repeats: 5, bar: 4 };
 const EPS = 1e-9;
 
 /** Defaults from limits.json (fallback constants when the file is absent). */
@@ -27,6 +27,9 @@ function loadLimits(file = LIMITS_FILE) {
   if (!(limits.maxUsdPerSuite > 0) || !(limits.timeoutSec > 0) || !(limits.concurrency >= 1)) {
     throw new Error(`limits file ${file}: maxUsdPerSuite, timeoutSec and concurrency must be positive`);
   }
+  // Ceilings an eval may raise its own `timeoutSec` / `runUsd` to; never below the default they raise.
+  if (!(limits.maxTimeoutSec >= limits.timeoutSec)) throw new Error(`limits file ${file}: "maxTimeoutSec" must be at least "timeoutSec"`);
+  if (!(limits.maxRunUsd >= limits.runReserveUsd)) throw new Error(`limits file ${file}: "maxRunUsd" must be at least "runReserveUsd"`);
   for (const k of ['repeats', 'bar']) {
     if (!Number.isInteger(limits[k]) || limits[k] < 1) throw new Error(`limits file ${file}: "${k}" must be a positive integer`);
   }
@@ -282,7 +285,10 @@ function armStats(runs, planned) {
     runs: executed.length,
     timedOut: executed.filter((r) => r.outcome === 'timed_out').length,
     unverifiable: runs.filter((r) => r.outcome === 'unverifiable').length,
-    providerErrors: runs.filter((r) => r.outcome === 'incomplete' && typeof r.incompleteReason === 'string' && r.incompleteReason.startsWith('provider error')).length,
+    // A run that never reached the agent because `setup` failed (a flaky git lock, a late write) is as unmeasured as a provider error and is
+    // counted with it: the eval is incomplete (exit 4, no baseline summary), never a clean pass that merely ran fewer times.
+    providerErrors: runs.filter((r) => r.outcome === 'incomplete' && typeof r.incompleteReason === 'string' && (r.incompleteReason.startsWith('provider error') || r.incompleteReason.startsWith('setup failed'))).length,
+    setupFailures: runs.filter((r) => r.outcome === 'incomplete' && typeof r.incompleteReason === 'string' && r.incompleteReason.startsWith('setup failed')).length,
     notRun: Math.max(0, planned - executed.length),
   };
 }

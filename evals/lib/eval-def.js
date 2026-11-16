@@ -12,6 +12,9 @@ const fs = require('fs');
 const path = require('path');
 const { GRADERS } = require('./graders');
 const { scanFixture } = require('./fixture');
+const { loadLimits } = require('./exec');
+const envlib = require('./env');
+const setupLib = require('./setup');
 
 const MAX_DEF_BYTES = 1024 * 1024;
 
@@ -46,7 +49,7 @@ const INVOCATIONS = ['plain', 'explicit', 'explicit-both'];
 const KNOWN_KEYS = new Set([
   'id', 'skill', 'description', 'runtimes', 'prompt', 'invocation', 'command', 'allowedTools',
   'maxTurns', 'timeoutSec', 'repeats', 'bar', 'expectInvoked', 'checks',
-  'sharedPackages', 'sandboxPath', 'remote', 'branch',
+  'sharedPackages', 'sandboxPath', 'remote', 'branch', 'env', 'setup', 'runUsd',
 ]);
 
 /** A rejected definition. `part` names what is wrong (task, workspace, skill, checks, or a field). */
@@ -118,7 +121,7 @@ function readRubric(file, fail) {
   try { return readDefinitionFile(file, 'rubric.md'); } catch (e) { return fail('rubric', e.message); }
 }
 
-function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
+function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT, limits = loadLimits() } = {}) {
   const dirName = path.basename(dir);
   const id = raw && isNonEmptyString(raw.id) ? raw.id : dirName;
   const fail = (part, message) => { throw new EvalDefinitionError(id, part, message); };
@@ -173,6 +176,14 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   for (const key of ['maxTurns', 'timeoutSec', 'repeats', 'bar']) {
     if (raw[key] !== undefined && !isPositiveInt(raw[key])) fail(key, `\`${key}\` must be a positive integer`);
   }
+  // Ceilings from evals/limits.json: an eval may raise its own time limit and per-run budget up to them, never above.
+  if (raw.timeoutSec !== undefined && raw.timeoutSec > limits.maxTimeoutSec) {
+    fail('timeoutSec', `\`timeoutSec\` ${raw.timeoutSec} exceeds the ceiling maxTimeoutSec ${limits.maxTimeoutSec} in evals/limits.json`);
+  }
+  if (raw.runUsd !== undefined) {
+    if (typeof raw.runUsd !== 'number' || !Number.isFinite(raw.runUsd) || raw.runUsd <= 0) fail('runUsd', '`runUsd` must be a positive number of US dollars');
+    if (raw.runUsd > limits.maxRunUsd) fail('runUsd', `\`runUsd\` ${raw.runUsd} exceeds the ceiling maxRunUsd ${limits.maxRunUsd} in evals/limits.json`);
+  }
   // Only when both are set here: with `repeats` unset the count comes from --repeats or limits.json at run time,
   // where resolveRepeats rejects a bar that cannot be met.
   if (raw.bar !== undefined && raw.repeats !== undefined && raw.bar > raw.repeats) fail('bar', '`bar` cannot exceed `repeats`');
@@ -204,6 +215,16 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
     fail('branch', '`branch` must be a branch name other than main (letters, digits, ".", "_", "-" and "/")');
   }
 
+  // `env`: non-secret variables for the agent's environment only. `setup`: argv arrays run in the sandbox before the agent starts.
+  let agentEnv;
+  if (raw.env !== undefined) {
+    try { agentEnv = envlib.validateAgentEnv(raw.env); } catch (e) { fail('env', e.message); }
+  }
+  let setup;
+  if (raw.setup !== undefined) {
+    try { setup = setupLib.validateSetup(raw.setup); } catch (e) { fail('setup', e.message); }
+  }
+
   const rubricFile = path.join(dir, 'rubric.md');
   const checks = raw.checks.map((check, i) => {
     const where = `checks[${i}]`;
@@ -230,6 +251,9 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
     sandboxPath,
     remote: raw.remote === true,
     branch: raw.branch,
+    env: agentEnv,
+    setup,
+    runUsd: raw.runUsd,
     description: raw.description || '',
     runtimes: raw.runtimes || ['claude'],
     prompt: raw.prompt,
@@ -252,7 +276,8 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
  * Discover and validate every `<skillsDir>/<name>/eval.json`.
  * Returns { evals, rejected }; a rejected definition is { id, dir, error } and nothing runs for it.
  */
-function loadEvalDefs({ skillsDir = SKILLS_DIR, repoRoot = REPO_ROOT } = {}) {
+function loadEvalDefs({ skillsDir = SKILLS_DIR, repoRoot = REPO_ROOT, limits } = {}) {
+  limits = limits || loadLimits();
   const evals = [];
   const rejected = [];
   if (!fs.existsSync(skillsDir)) return { evals, rejected };
@@ -268,7 +293,7 @@ function loadEvalDefs({ skillsDir = SKILLS_DIR, repoRoot = REPO_ROOT } = {}) {
       } catch (err) {
         throw new EvalDefinitionError(e.name, 'eval.json', /^(eval\.json) (is|cannot|is larger)/.test(err.message) ? err.message : `eval.json is not valid JSON: ${err.message}`);
       }
-      evals.push(validateEvalDef(raw, dir, { repoRoot }));
+      evals.push(validateEvalDef(raw, dir, { repoRoot, limits }));
     } catch (err) {
       if (!(err instanceof EvalDefinitionError)) throw err;
       rejected.push({ id: err.evalId, dir, error: err });
@@ -300,6 +325,9 @@ function evalToScenario(ev) {
     allowedTools: ev.allowedTools,
     maxTurns: ev.maxTurns,
     timeoutSec: ev.timeoutSec,
+    env: ev.env,
+    setup: ev.setup,
+    runUsd: ev.runUsd,
     graders: ev.checks,
     scenarioDir: ev.dir,
   };

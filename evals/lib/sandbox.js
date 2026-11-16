@@ -8,6 +8,7 @@ const envlib = require('./env');
 const claude = require('./runners/claude');
 const arms = require('./arms');
 const { copyFixture } = require('./fixture');
+const setupLib = require('./setup');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const DEFAULT_WORKDIR = path.join(os.homedir(), '.omp', 'evals-work');
@@ -53,49 +54,76 @@ function git(cwd, args) {
  * With scenario.remote === true, also creates a bare `origin` and pushes main.
  * With scenario.branch (a name), then checks that branch out at the fixture commit and, with a remote, pushes it too (a scenario about a
  * pull request needs its head branch to exist; main stays where it is).
- * Returns { dir, root, baseline, skipped, cleanup } (`skipped`: fixture entries not copied).
+ * With scenario.setup (argv arrays, see lib/setup.js) runs them between the fixture commit and the baseline; with scenario.remote the sandbox git
+ * config also gets push.autoSetupRemote=true.
+ * Returns { dir, root, baseline, skipped, setupError (null, or the named reason a setup command failed), configBefore (the git config bytes before setup, for the late re-scan; null without setup), cleanup } (`skipped`: fixture entries not copied).
  */
-function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() } = {}) {
+function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir(), setupTimeoutMs, setupTotalMs, parentEnv = process.env, _setupUnsafeAllowAny = false } = {}) {
   fs.mkdirSync(workdir, { recursive: true });
   const root = fs.mkdtempSync(path.join(workdir, 'ensemble-eval-'));
   const dir = path.join(root, 'project');
-  fs.mkdirSync(dir);
-  const fixture = path.join(scenarioDir, 'fixture');
-  // Defensive copy: agent/git configuration and symlinks pointing outside the fixture are never copied (see lib/fixture.js).
-  const skipped = fs.existsSync(fixture) ? copyFixture(fixture, dir) : [];
+  const cleanup = () => fs.rmSync(root, { recursive: true, force: true });
+  try {
+    fs.mkdirSync(dir);
+    const fixture = path.join(scenarioDir, 'fixture');
+    // Defensive copy: agent/git configuration and symlinks pointing outside the fixture are never copied (see lib/fixture.js).
+    const skipped = fs.existsSync(fixture) ? copyFixture(fixture, dir) : [];
 
-  git(dir, ['init', '-q', '-b', 'main']);
-  git(dir, ['config', 'user.email', 'eval@example.invalid']);
-  git(dir, ['config', 'user.name', 'eval']);
-  git(dir, ['config', 'commit.gpgsign', 'false']);
-  git(dir, ['add', '-A']);
-  git(dir, ['commit', '-q', '--allow-empty', '-m', 'fixture']);
-  const mainSha = git(dir, ['rev-parse', 'main']);
+    git(dir, ['init', '-q', '-b', 'main']);
+    git(dir, ['config', 'user.email', 'eval@example.invalid']);
+    git(dir, ['config', 'user.name', 'eval']);
+    git(dir, ['config', 'commit.gpgsign', 'false']);
+    // Sandbox-local only (never the maintainer's global config): a bare `git push` of a new branch must work against the sandbox origin.
+    if (scenario.remote) git(dir, ['config', 'push.autoSetupRemote', 'true']);
+    git(dir, ['add', '-A']);
+    git(dir, ['commit', '-q', '--allow-empty', '-m', 'fixture']);
 
-  let remoteMainSha = null;
-  let remotePath = null;
-  if (scenario.remote) {
-    const bare = path.join(root, 'origin.git');
-    git(root, ['init', '-q', '--bare', '-b', 'main', bare]);
-    git(dir, ['remote', 'add', 'origin', bare]);
-    git(dir, ['push', '-q', 'origin', 'main']);
-    remotePath = bare;
-    remoteMainSha = git(bare, ['--git-dir', bare, 'rev-parse', 'refs/heads/main']);
+    let configBefore = null;
+    let remotePath = null;
+    if (scenario.remote) {
+      const bare = path.join(root, 'origin.git');
+      git(root, ['init', '-q', '--bare', '-b', 'main', bare]);
+      git(dir, ['remote', 'add', 'origin', bare]);
+      remotePath = bare;
+    }
+
+    // Setup runs after the fixture commit and before the baseline is taken, so a setup that commits (git add -A; git commit) moves the
+    // baseline with it. A setup failure does not throw: the caller records an incomplete run with the named reason.
+    if (Array.isArray(scenario.setup) && scenario.setup.length) {
+      configBefore = fs.readFileSync(path.join(dir, '.git', 'config'));
+      let failure = setupLib.runSetup(scenario.setup, { dir, home: path.join(root, 'setup-home'), parentEnv, timeoutMs: setupTimeoutMs, totalMs: setupTotalMs, _unsafeAllowAny: _setupUnsafeAllowAny });
+      if (!failure) failure = setupLib.checkAfterSetup(dir, configBefore);
+      if (failure) {
+        return { dir, root, baseline: { mainSha: null, remoteMainSha: null, remotePath }, skipped, setupError: failure, configBefore, cleanup };
+      }
+    }
+
+    const mainSha = git(dir, ['rev-parse', 'main']);
+    let remoteMainSha = null;
+    if (scenario.remote) {
+      git(dir, ['push', '-q', 'origin', 'main']);
+      remoteMainSha = git(remotePath, ['--git-dir', remotePath, 'rev-parse', 'refs/heads/main']);
+    }
+
+    if (scenario.branch) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(scenario.branch) || scenario.branch.includes('..') || scenario.branch === 'main') throw new Error(`invalid scenario branch: ${scenario.branch}`);
+      git(dir, ['checkout', '-q', '-b', scenario.branch]);
+      if (scenario.remote) git(dir, ['push', '-q', 'origin', scenario.branch]);
+    }
+
+    return {
+      dir,
+      root,
+      baseline: { mainSha, remoteMainSha, remotePath },
+      skipped,
+      setupError: null,
+      configBefore,
+      cleanup,
+    };
+  } catch (e) {
+    cleanup();
+    throw e;
   }
-
-  if (scenario.branch) {
-    if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(scenario.branch) || scenario.branch.includes('..') || scenario.branch === 'main') throw new Error(`invalid scenario branch: ${scenario.branch}`);
-    git(dir, ['checkout', '-q', '-b', scenario.branch]);
-    if (scenario.remote) git(dir, ['push', '-q', 'origin', scenario.branch]);
-  }
-
-  return {
-    dir,
-    root,
-    baseline: { mainSha, remoteMainSha, remotePath },
-    skipped,
-    cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
-  };
 }
 
 /**

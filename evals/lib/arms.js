@@ -141,6 +141,7 @@ function summarizeEval(ev, plan, runs, { runtime = 'claude', abort = null, copy 
   // (reached the bar, or can no longer reach it) it stands; only an undecided one is `incomplete`. A baseline-arm error never changes it.
   // Whatever the verdict, the arms did not both run `repeats` times: no baseline summary, and the uplift is undetermined.
   const providerErrors = withStats.providerErrors + (baseStats ? baseStats.providerErrors : 0);
+  const setupFailures = withStats.setupFailures + (baseStats ? baseStats.setupFailures : 0); // included in providerErrors
   const outcome = reliable === true ? 'pass' : reliable === false ? 'fail' : 'incomplete';
   return {
     id: ev.id, type: 'agent', skill: ev.skill, runtime, arms: true,
@@ -149,6 +150,7 @@ function summarizeEval(ev, plan, runs, { runtime = 'claude', abort = null, copy 
     reliable, invocationMode: ev.invocation,
     withSkill: withStats, baseline: baseStats,
     providerErrors,
+    setupFailures,
     uplift: abort || providerErrors > 0 ? null : uplift(withStats, baseStats),
     withSkillAdds: (ev.sharedPackages || []).length > 0 ? [ev.package] : [],
     upliftLabel: upliftLabel(runtime, (ev.sharedPackages || []).length > 0 ? [ev.package] : []),
