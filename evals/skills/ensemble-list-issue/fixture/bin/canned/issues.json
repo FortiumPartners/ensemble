@@ -1,0 +1,12 @@
+{
+  "issues": [
+    { "id": "br-3k1", "title": "Fix login redirect loop", "status": "open", "issue_type": "bug", "priority": 1 },
+    { "id": "br-2z8", "title": "Remove legacy cookie banner", "status": "closed", "issue_type": "task", "priority": 3 },
+    { "id": "br-7m2", "title": "Add CSV export for reports", "status": "open", "issue_type": "feature", "priority": 2 },
+    { "id": "br-9q4", "title": "Document the retry policy", "status": "open", "issue_type": "task", "priority": 3 }
+  ],
+  "total": 4,
+  "limit": 0,
+  "offset": 0,
+  "has_more": false
+}

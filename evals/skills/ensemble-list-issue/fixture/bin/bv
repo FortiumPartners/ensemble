@@ -1,0 +1,11 @@
+#!/bin/sh
+# Stub `bv` for the ensemble-list-issue eval: only `--version`, which the beads adapter's preflight health check runs. Any other call
+# (for example `--robot-plan`, the ranked work-graph.plan capability) is refused with exit 2, so the skill's documented fallback to the
+# flat tracker.list applies. Every call is appended to bv-calls.log in the sandbox root, outside the git worktree.
+here=$(cd "$(dirname "$0")" && pwd)
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../bv-calls.log"
+case "$1" in
+  --version) echo "bv 0.1.0 (stub)"; exit 0 ;;
+esac
+echo "bv stub: unsupported call: $*" >&2
+exit 2
