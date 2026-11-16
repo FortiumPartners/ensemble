@@ -1,0 +1,8 @@
+{
+  "name": "greeter",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/greet.cases.js"
+  }
+}
