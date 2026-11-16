@@ -1,0 +1,15 @@
+version: 1
+generated: 2026-01-15
+stack:
+  language: JavaScript
+  framework: none
+  test_framework: node:test
+  linter: eslint
+standards:
+  naming:
+    - id: naming-001
+      rule: Source files use kebab-case names
+      example: line-item.js
+  testing:
+    - id: testing-001
+      rule: Prefer table-driven tests: loop over cases calling test() once per case

@@ -1,0 +1,72 @@
+{
+  "id": "ensemble-discover-standards",
+  "skill": "ensemble-discover-standards",
+  "description": "On a small JavaScript library (node:test, eslint, kebab-case files, camelCase functions, a ValidationError class, *-test.js tests) that already has a standards/index.yml with two seeded rules and a CLAUDE.md with no standards pointer, a non-interactive discover-standards run merges into the existing index: version/generated/stack/standards keys, a stack that matches the fixture, well-formed rules (id category-NNN, rule under 80 characters, example under 60, at least 6 rules over 3 categories), the two seeded rules kept with new ids continuing after them, rules grounded in the codebase's real conventions, an expanded standards/<category>.md for any category over 3 rules, exactly one standards pointer appended to CLAUDE.md, and nothing written outside standards/ and CLAUDE.md. The checks cover structure and grounding, not whether the rules are good or complete. The fixture is a one-commit repository, so the git-commit-style rules cannot be checked against history. The skill and its command (/ensemble-core:ensemble:discover-standards) live in packages/core; the baseline arm has no plugin and is expected to measure what the plugin's conventions (index.yml format, merge-first, CLAUDE.md pointer) add to a plain 'extract our coding standards' request; the baseline gets the same prompt and no command. Uncertain until a trial: the command manifest is marked user-invocable: false and the skill disable-model-invocation: true, so whether the typed command runs in the with-skill arm is unproven.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "Analyze this codebase and record its coding conventions as project standards in a standards/ directory with a machine-readable standards/index.yml. A standards/index.yml already exists: keep what it says and add to it, do not start over. Add a short pointer to the standards to CLAUDE.md if it has none. This is a non-interactive run: ask no questions and choose the recommended option for anything unclear. Write only under standards/ and to CLAUDE.md. Do not change source code, run the tests or install anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-core:ensemble:discover-standards",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' index-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' index-stack",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' rules-wellformed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' merge-preserved --keep naming-001:kebab,testing-001:table-driven",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' rules-grounded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' category-docs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' claude-pointer --original \"before committing.\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-discover-standards.js' scope-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
