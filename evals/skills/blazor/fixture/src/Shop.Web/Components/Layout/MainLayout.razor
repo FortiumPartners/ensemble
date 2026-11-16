@@ -1,0 +1,13 @@
+@inherits LayoutComponentBase
+
+<FluentLayout>
+    <FluentHeader>Shop admin</FluentHeader>
+    <FluentStack Class="main" Orientation="Orientation.Horizontal" Width="100%">
+        <FluentNavMenu Width="200">
+            <FluentNavLink Href="/" Match="NavLinkMatch.All">Orders</FluentNavLink>
+        </FluentNavMenu>
+        <FluentBodyContent Class="body-content">
+            @Body
+        </FluentBodyContent>
+    </FluentStack>
+</FluentLayout>

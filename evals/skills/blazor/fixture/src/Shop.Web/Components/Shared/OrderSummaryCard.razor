@@ -1,0 +1,10 @@
+<FluentCard Width="320px">
+    <FluentLabel Typo="Typography.H3">@Order.Customer</FluentLabel>
+    <FluentLabel>@Order.Status</FluentLabel>
+    <FluentLabel Typo="Typography.Body">Order @Order.Id</FluentLabel>
+</FluentCard>
+
+@code {
+    [Parameter, EditorRequired]
+    public Order Order { get; set; } = default!;
+}
