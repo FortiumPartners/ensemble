@@ -1,0 +1,77 @@
+{
+  "id": "ensemble-analyze-requirements",
+  "skill": "ensemble-analyze-requirements",
+  "description": "A non-interactive analyze-requirements run on a seeded PRD and TRD (a report-export feature) with planted problems: a TRD task depending on an undefined task (an error, so the verdict is NOT READY whatever the contradiction count), two PRD requirements no task satisfies, one task with no estimate and no test pair, and a synchronous-2-second PRD requirement contradicted by an asynchronous 30-second queued TRD task. The skill only prints its report; the prompt asks the run to also save it to docs/analysis/readiness-report.md so a script can read it (the skill does not name that file; a run that declines to save fails every report check, a trial risk). Checks: the report is saved; it states the verdict NOT READY (the skill's four-level ladder, which the prompt does not name, so the baseline arm is expected to measure the plugin's conventions here); it flags the uncovered requirements, the undefined dependency, the missing estimate and test pair; the phase statistics from trd-cli analyze are quoted (flaky: format dependent); the sync-versus-async contradiction is reported citing both sides; the PRD and TRD are unchanged and nothing is written outside docs/. Limits: structure and planted facts, not quality; a report that merely lists the planted ids passes the finding checks. Claude only: the skill resolves trd-cli through the tool-path-resolution tiers, which fail on Pi in a sandbox without an ensemble-pi bundle. The command pins model: medium; a trial must request the model that resolves to, or the arms differ in model as well as skill. The uplift is the package's (the command drives the run). The fixture has no constitution file: the skill does not read one.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-c3d4e5f6-report-export.md docs/TRD/TRD-report-export.md\n\nThis is a non-interactive run: ask no questions. Before any coding starts, check whether the TRD is consistent with the PRD (the PRD is the first path, the TRD the second) and whether the work is ready to implement, and give me a readiness report. After you have printed the report, also save it to docs/analysis/readiness-report.md. Change no other file. Do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:analyze-requirements",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' verdict-not-ready",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' finding-uncovered",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' finding-dependency",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' finding-estimate-and-test-pair",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' phase-stats",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' contradiction-found",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' inputs-unchanged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-requirements.js' no-impl-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
