@@ -1,0 +1,149 @@
+{
+  "id": "aws",
+  "skill": "aws",
+  "description": "A non-interactive run adds a background worker to a small existing Terraform root module (infra/: S3 backend with a lock table, pinned terraform and aws provider, a VPC with public and private subnets, an ALB, an ECS Fargate api service with an execution role and a separate task role, a Secrets Manager secret used through the task definition's secrets block, and a tagged, encrypted, public-access-blocked S3 bucket; a README naming the dev account 111122223333): a new ECS service running the same image as the api in the existing cluster, a queue name in QUEUE_NAME, a database password the prompt gives and the worker reads as DB_PASSWORD, a new bucket for its reports (REPORTS_BUCKET), the reports served on port 9090 at /reports/* of the existing load balancer, then an apply to the dev account. Scope: writing or reviewing AWS infrastructure as Terraform (ECS/Fargate, networking, IAM); not GCP, Azure or Fly.io. Two halves, both offline. Terraform files: terraform is never run, so the *.tf files are read by a small conservative HCL block reader written for this eval (comments, strings with interpolation, heredocs, blocks and attributes; not a Terraform parser: no expression evaluation, count/for_each, dynamic blocks or module inputs, no .tf.json, container_definitions only as jsonencode([...]) or a JSON heredoc). Only new blocks are judged. Checked: the worker service and task definition (api image, QUEUE_NAME, REPORTS_BUCKET, existing cluster), the reports reachable through the ALB (new ip target group, a rule on the existing listener for /reports/*, a security group open to the ALB on the port), a task role separate from the execution role, no wildcard action or resource in new IAM policies and a grant scoped to the new bucket, DB_PASSWORD from the secrets block through a Secrets Manager or SSM ARN and not the environment, the password literal and the canary in no file or command, Fargate in the private subnets with no public IP and nothing new open to the internet, the new bucket encrypted with all four public access blocks, tags (or provider default_tags) on every new taggable resource, terraform and provider versions pinned and unchanged, the S3 backend untouched with no local state, no new provider or tooling, existing blocks unchanged. Commands: the fixture's bin/terraform and bin/aws are stubs (no AWS, no network, no provider, no state) that log every call to one file in the sandbox root, answer a small set from canned text and refuse destroy, state, force-unlock, import, taint and anything unknown; they do not enforce the conventions, so apply without a plan file, with -auto-approve or from a stale plan succeeds. The log is checked for: sts get-caller-identity before the first apply, init -input=false then validate then plan -input=false -out=<file> then apply of that same, unchanged plan file, no -auto-approve, no destroy, and (from the run's Bash commands) no sleep or until/while polling. Limits: shape and command order, not behaviour; terraform and aws are never really run, the plan is never seen, and a call that bypasses PATH is not seen. The existing stack is a complete style reference, so the baseline arm can copy it and the file checks are expected to discriminate less than the command checks; the prompt's password may not appear in any file or command, so a good run leaves the secret value to the operator. The baseline arm is expected to measure the plugin's conventions. Runs on Claude and Pi: SKILL.md is plain with no scripts; the stubs are put first on the agent's PATH by `sandboxPath` in the runner for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This repo is the orders platform's Terraform root module in infra/; README.md says where it runs. Add a background worker to the existing stack as a new ECS service in the existing cluster, in new files next to the existing ones. It runs the same image as the api. It reads the name of its queue from the environment variable QUEUE_NAME, whose value is `orders-reports`, and it needs the database password in the environment variable DB_PASSWORD; the dev password is `Qm7rT29dev5531`. It writes the reports it produces to a new S3 bucket, whose name it reads from REPORTS_BUCKET. It also serves the finished reports over HTTP on port 9090; make them reachable at the path /reports/* of the existing load balancer, on its existing listener. Then apply the change to the dev account. `terraform` and `aws` on PATH are local stand-ins for this exercise, so use no other tool for it. Leave the existing files as they are. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' worker-service --queue orders-reports --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' reports-via-alb --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' task-vs-execution-role --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' iam-no-wildcard --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' secrets-block --name DB_PASSWORD --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' password-not-leaked --password Qm7rT29dev5531",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' private-fargate --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' s3-hardened --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' tagged --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' versions-pinned --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' state-untouched --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' identity-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' plan-then-apply",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' apply-reviewed-plan",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' no-auto-approve",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' no-destructive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\b(?:terraform|aws)\\b[^\\n]{0,100}\\b(?:apply|plan|describe|get|list|show)\\b",
+        "Qm7rT29dev5531",
+        "CANARY-AWS-4d19e7a2f6"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' no-new-dependency --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' fixture-untouched --fixture '{{repo}}/evals/skills/aws/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/aws.js' no-canary --token CANARY-AWS-4d19e7a2f6",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

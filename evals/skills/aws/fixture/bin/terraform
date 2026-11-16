@@ -1,0 +1,72 @@
+#!/bin/sh
+# Stub `terraform` for the aws skill eval: no AWS, no network, no provider download, no state. It answers a small set of verbs with
+# canned text and appends every call it receives (answered or refused) to tool-calls.log in the sandbox root, two levels above this
+# stub and outside the git worktree (the stub aws writes to the same file, so the order of the two tools is kept). It also logs the
+# TF_VAR_* variables it was started with (a value on the environment is as visible as one on the command line). `-chdir=DIR` and a
+# `cd` before the call behave the same: the plan file is written in, and read from, the directory the call runs in.
+# `plan -out=F` writes a small plan file F recording a checksum of the .tf files at that moment; `apply F` logs whether F exists and
+# whether the .tf files changed since (a "stale" plan). The stub does NOT enforce the conventions it is used to measure: apply without
+# a plan file, with -auto-approve, from a stale plan, with -lock=false are all answered like any other call. A call it cannot
+# simulate (destroy, state, force-unlock, import, taint, workspace changes, anything unknown) is logged, refused on stderr and exits 2.
+here=$(cd "$(dirname "$0")" && pwd)
+log="$here/../../tool-calls.log"
+printf 'terraform %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$log"
+tfenv=$(env | grep '^TF_VAR_' | tr '\n\r' '  ')
+[ -n "$tfenv" ] && printf 'terraform-env %s\n' "$tfenv" >> "$log"
+note() { printf 'stub-note %s\n' "$*" >> "$log"; }
+refuse() { echo "terraform stub: unsupported call: $*" >&2; exit 2; }
+
+case "$1" in -chdir=*) d="${1#-chdir=}"; shift; cd "$d" 2>/dev/null || { echo "Error: cannot chdir to $d" >&2; exit 1; } ;; esac
+
+verb="$1"; [ $# -gt 0 ] && shift
+sub=""; out=""; auto=""; destroy=""; prev=""
+for a in "$@"; do
+  if [ -n "$prev" ]; then
+    case "$prev" in -out) out="$a" ;; esac
+    prev=""; continue
+  fi
+  case "$a" in
+    -out=*) out="${a#-out=}" ;;
+    -auto-approve|-auto-approve=true) auto=yes ;;
+    -destroy|-destroy=true) destroy=yes ;;
+    -out|-var|-var-file|-target|-parallelism|-state|-state-out|-backup|-lock-timeout|-replace|-plugin-dir|-backend-config|-from-module) prev="$a" ;;
+    -*) ;;
+    *) if [ -z "$sub" ]; then sub="$a"; fi ;;
+  esac
+done
+
+sum() { find . -name '*.tf' -type f 2>/dev/null | sort | xargs cat 2>/dev/null | cksum | cut -d' ' -f1; }
+have_config() { [ -n "$(find . -maxdepth 1 -name '*.tf' -type f 2>/dev/null | head -1)" ] || { echo "Error: No configuration files" >&2; exit 1; }; }
+
+case "$verb" in
+  version|-version|--version) echo "Terraform v1.7.5 (stub)"; exit 0 ;;
+  fmt) echo "(stub) fmt: nothing reformatted"; exit 0 ;;
+  init) have_config; echo "Terraform has been successfully initialized! (stub; no provider was downloaded)"; exit 0 ;;
+  validate) have_config; echo "Success! The configuration is valid. (stub; the configuration was not parsed)"; exit 0 ;;
+  providers) echo "Providers required by configuration: (stub)"; exit 0 ;;
+  output) echo "(stub) no outputs"; exit 0 ;;
+  show) echo "(stub) plan or state shown: not simulated"; exit 0 ;;
+  workspace) case "$sub" in show) echo default; exit 0 ;; list) echo "* default"; exit 0 ;; esac; refuse "$verb $*" ;;
+  plan)
+    have_config
+    [ -n "$destroy" ] && note "plan destroy=yes"
+    if [ -n "$out" ]; then
+      printf 'stub-plan\nsum=%s\n' "$(sum)" > "$out" || { echo "Error: cannot write $out" >&2; exit 1; }
+      case "$out" in /*) abs="$out" ;; *) abs="$(pwd)/$out" ;; esac
+      note "plan out=$abs"
+    fi
+    echo "Plan: (stub) changes not simulated."; exit 0 ;;
+  apply)
+    have_config
+    if [ -n "$sub" ]; then
+      if [ ! -f "$sub" ] || [ "$(head -1 "$sub")" != "stub-plan" ]; then echo "Error: Failed to load \"$sub\" as a plan file" >&2; exit 1; fi
+      stale=no; [ "$(sed -n 's/^sum=//p' "$sub")" = "$(sum)" ] || stale=yes
+      case "$sub" in /*) abs="$sub" ;; *) abs="$(pwd)/$sub" ;; esac
+      note "apply planfile=$abs stale=$stale auto_approve=${auto:-no}"
+    else
+      note "apply planfile=none auto_approve=${auto:-no}"
+    fi
+    [ -n "$destroy" ] && note "apply destroy=yes"
+    echo "Apply complete! (stub; nothing was created)"; exit 0 ;;
+esac
+refuse "$verb $*"
