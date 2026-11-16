@@ -55,6 +55,7 @@ const { redactSecrets } = require('../complexity-analyzer');
 const { runCapability } = require('./runner');
 const { loadContracts } = require('./contracts');
 const { isValidRunId, invalidRunIdMessage } = require('./run-id');
+const { ensureStateDir } = require('./state-dir');
 
 /**
  * Validate a run id is safe to interpolate into a path under the state directory, using the
@@ -114,7 +115,7 @@ function recordSideEffect(runId, entry, ctx = {}) {
   assertValidRunId(runId);
   const projectRoot = ctx.projectRoot || process.cwd();
   const dir = stateDir(projectRoot);
-  fs.mkdirSync(dir, { recursive: true });
+  ensureStateDir(projectRoot, dir);
   const filePath = ledgerPath(projectRoot, runId);
   fs.appendFileSync(filePath, `${JSON.stringify(redactRecord(entry))}\n`);
   return filePath;
@@ -182,7 +183,7 @@ function recordFailure(runId, details, ctx = {}) {
   const projectRoot = ctx.projectRoot || process.cwd();
   const env = ctx.env || process.env;
   const dir = stateDir(projectRoot);
-  fs.mkdirSync(dir, { recursive: true });
+  ensureStateDir(projectRoot, dir);
 
   const record = redactRecord({
     adapter: details.adapter,
