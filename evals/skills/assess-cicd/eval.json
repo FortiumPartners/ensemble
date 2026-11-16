@@ -1,0 +1,100 @@
+{
+  "id": "assess-cicd",
+  "skill": "assess-cicd",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to assess the CI/CD pipeline and deployment automation of a small seeded Node service (shipit: one GitHub Actions workflow build -> test -> deploy-staging -> deploy-prod, scripts/deploy.sh, a Dockerfile, Terraform in infra/main.tf; no GitLab, Jenkins, Azure DevOps or CircleCI config) with the report saved to docs/assessment/cicd.md. The fixture plants three problems: a plaintext REGISTRY_PASSWORD in the workflow env block, a production deploy with no approval gate or environment protection, and no rollback anywhere. Deterministic checks cover: the report is saved with the 'CI/CD Analysis' title; all seven sections of the skill's Output Format appear in order; the Score is `<1.0-5.0> / <Letter>` with the letter derived from the shared scale; the Pipeline Discovery table finds GitHub Actions and not GitLab CI, Jenkins or Azure DevOps; the stages table has build, test and deploy and the report names the test command and the triggers; the Deployment Strategy table shows production without approval or rollback (flaky); the plaintext credential is cited at its real line and called hard-coded (flaky); the production deploy job is cited as ungated (flaky); the missing rollback is reported (flaky); Terraform in infra/main.tf is identified; every file:line citation resolves to a real file and line (flaky); Strengths, Weaknesses and Recommendations have enough numbered items with citations; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the analysis is insightful, that the score is deserved, or that the workflow was read correctly beyond the planted facts. The skill saves a report only when given a path, so the prompt supplies one; the REPORT_PREFIX path and the summary-only return are not exercised. The baseline arm gets the same prompt without the plugin and is expected to produce a CI/CD report too, so the uplift measures the plugin's conventions (section layout, discovery table, numeric/letter score, file:line citations), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Assess the CI/CD pipeline and deployment automation of this repository: which CI systems it uses, how the pipeline is structured (triggers, build, test and deploy stages), how releases reach staging and production and whether approval and rollback exist, how secrets are handled in CI, and whether the infrastructure is managed as code. Cite the file and line for findings, and give an overall score.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/cicd.md. Write only that report; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' discovery-correct",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' stages-identified",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' deploy-table",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' plaintext-secret",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' prod-gate",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' rollback-gap",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' iac-identified",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' weaknesses-recommendations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-cicd.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
