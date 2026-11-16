@@ -1,0 +1,147 @@
+{
+  "id": "flyio",
+  "skill": "flyio",
+  "description": "A non-interactive run deploys a small containerized web app (Dockerfile and server.py, which reads HOST, PORT, DATA_DIR and API_KEY from the environment; the repo's existing fly.toml belongs to a different, older app and is a style reference only) as a new Fly app named inkpad-stg in region ams, with a persistent data directory and an API key given in the prompt (flk_live_Qm7x92kd4471zz, read by the app as API_KEY), then confirms it is up. Scope: deploying and configuring containerized apps on Fly.io with fly.toml and flyctl (regions, volumes, secrets); not Kubernetes or AWS. Two halves, both offline. Files: the fly config is parsed as data (a small TOML reader; the config of the new app is the fly*.toml naming it, else the only one), with internal_port equal to the listen port read from server.py, the app reachable on all interfaces (server.py defaults to 127.0.0.1, so [env] HOST must change it), a health check on the listen port, a [mounts] entry whose source is the created volume and whose destination is the data directory, the region agreeing across primary_region, launch and the volume, and the API key in no workspace file or [env] entry; no new tooling file, existing files other than fly.toml unchanged, canary not copied. Commands: the fixture's bin/fly and bin/flyctl are one stub script (no Fly, no network) that logs every call to fly-calls.log in the sandbox root, answers status, apps list, launch, deploy, secrets set, volumes create/list, scale and tokens create from canned text and refuses auth login, apps destroy, volume deletion, --strategy immediate and anything unknown; it does not enforce the conventions, so a call without -a, a plain launch and a deploy without --remote-only succeed. The log is checked for: -a naming the app on every app-scoped call, no fly auth login, launch --no-deploy --copy-config before the first deploy, deploy --remote-only, the key set through fly secrets set API_KEY=<key> and appearing on no other call, a volume created (valid name, region ams) before the first deploy, --ha=false (or scale count 1, never above) for the single-volume app, fly status after the deploy, no destroy or --strategy immediate, and (from the run's Bash commands) no sleep or until/while fly polling. Limits: shape and command order, not behaviour; flyctl never runs and the stub's output is canned, so nothing shows the config would deploy, and a fly call that bypasses PATH is not seen. The baseline arm is expected to measure the plugin's conventions. Runs on Claude and Pi: SKILL.md is plain with no scripts; the stub is put first on the agent's PATH by `sandboxPath` in the runner for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This repo holds Inkpad, a small notes web service that is already containerized (Dockerfile, server.py). The fly.toml in it belongs to an older deployment of a different service. Deploy Inkpad as a new Fly app named `inkpad-stg` in region `ams`. The service keeps its notes in a data directory that must survive restarts and redeploys, and it will not start without an API key: the key for this environment is `flk_live_Qm7x92kd4471zz`, and the service reads it as API_KEY. Make the service reachable over HTTPS, then confirm it is up. `fly` (also installed as `flyctl`) on PATH is a local stand-in for this exercise, so use no other tool for it. Change no existing file other than fly.toml: new files are fine. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' app-explicit --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-auth-login",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' launch-no-deploy",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' deploy-remote-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' secret-set --key flk_live_Qm7x92kd4471zz",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-secret-in-argv --key flk_live_Qm7x92kd4471zz",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-secret-in-files --key flk_live_Qm7x92kd4471zz",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' volume-created --region ams",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' volume-mounted --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' region-consistent --app inkpad-stg --region ams",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' single-volume-ha",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' internal-port --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' binds-all-interfaces --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' health-check --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' status-after-deploy --app inkpad-stg",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-destructive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\b(?:fly|flyctl)\\b[^\\n]{0,100}\\b(?:status|checks|machines?)\\b"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-new-dependency --fixture '{{repo}}/evals/skills/flyio/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' fixture-untouched --fixture '{{repo}}/evals/skills/flyio/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/flyio.js' no-canary --token CANARY-FLYIO-3c9e72b1d4",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
