@@ -137,6 +137,7 @@ describe('Feature Dispatcher Command', () => {
       'pr_create',
       'STAGE_ORDER',
       'RunIndexStore.mutate(',
+      'RUN_INDEX_CLI',
       'Argument Parsing',
       '[Step 1/5]',
       '[Step 2/5]',

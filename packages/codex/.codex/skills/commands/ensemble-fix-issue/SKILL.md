@@ -8,19 +8,20 @@ metadata:
 ---
 
 Orchestrate a bug fix workflow from analysis to PR, delegating to specialized agents.
-Resumable and checkpointed: a run's stage and outcome are recorded via issue-run-index.ts after each of the 3 named phases, so a later invocation can resume, report status, or abandon it.
+Resumable and checkpointed: a run's stage and outcome are recorded via ISSUE_RUN_INDEX_CLI after each of the 3 named phases, so a later invocation can resume, report status, or abandon it.
 
 ## Constraints
 
 - GitHub only (no GitLab/Bitbucket); GitHub CLI (gh) must be installed and authenticated
-- Tests must pass unless --skip-tests is used; at most 2 auto-fix attempts for test failures
 - Interview limited to 5 questions, one at a time, and never when --foreman is set
-- Branch naming follows the fix/ convention unless --branch is given
-- --foreman runs fully non-interactively; PR creation proceeds without pausing for confirmation (--draft-pr is independent of --foreman)
 
 ## Capabilities
 
 **Required:** host.change-request-create, host.change-request-view, host.change-request-list, workflow.branch-create, workflow.merge-base, workflow.commit, workflow.push
+
+## Run Index CLI
+
+Resolve ISSUE_RUN_INDEX_CLI (RELATIVE_PATH packages/development/lib/issue-run-index-cli.js) via tool-path-resolution before the first call (a resume resolves it first). `node "$ISSUE_RUN_INDEX_CLI" <subcommand>` takes one JSON payload on stdin and prints `{ok:true, run}` (`run` null if none) or `{ok:false, code, message}` (halts the step unless a step handles the code). Subcommands: create {issueDescription}; find-active; load {runId}; abandon {runId, reason}; complete {runId}; mutate {runId, expectedRevision, patch}. A patch is an ordered op list applied in ONE revision-checked call, timestamps stamped by the CLI: setStage {stage}; setStageOutcome {kind?, detail?}; appendArtifact {type, path}; appendBeadRef {ref}; setPrApprovedAt {value} (value is "now" or null). expectedRevision is the latest result's `revision`; a stale one returns REVISION_CONFLICT.
 
 ## Arguments
 

@@ -625,7 +625,17 @@ describe('Guard 3c/3d: cross-round repeat suppression (pr-review-ledger.js)', ()
 // ---------------------------------------------------------------------------
 
 // fix-issue is skill-backed: the manifest, its whole skill (SKILL.md + references/), the review skill it calls.
-const FIX_ISSUE_FILES = ['commands/fix-issue.yaml', 'skills/ensemble-fix-issue', 'skills/pr-review-cycle', 'tests/fix-issue-command.test.js'];
+// The test also reads the run-index CLI and its generated store, and the tool-path-resolution cheat sheet.
+const FIX_ISSUE_FILES = [
+  'commands/fix-issue.yaml',
+  'skills/ensemble-fix-issue',
+  'skills/pr-review-cycle',
+  'skills/tool-path-resolution',
+  'lib/issue-run-index-cli.js',
+  'lib/run-index-cli-core.js',
+  'lib/run-index',
+  'tests/fix-issue-command.test.js',
+];
 const FIX_ISSUE_PHASE_4 = 'skills/ensemble-fix-issue/references/phase-4-validation-and-delivery.md';
 
 describe('Guard 4: review-before-publication ordering (fix-issue skill)', () => {

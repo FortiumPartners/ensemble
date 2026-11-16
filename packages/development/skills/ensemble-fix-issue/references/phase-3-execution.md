@@ -17,4 +17,4 @@ For each task set TodoWrite status "in_progress", delegate via Task (backend to 
 
 #### Step 3.4: Record Stage Checkpoint
 
-Persist this phase's outcome and advance the run via issue-run-index.ts: IssueRunIndexStore.mutate(projectRoot, runId, revision, (record) => { record.stage = "validation_delivery"; record.stageOutcome = { kind: "success", recordedAt: now() }; }). On a thrown error halt; never proceed unrecorded.
+Persist this phase's outcome and advance the run via ISSUE_RUN_INDEX_CLI: mutate with patch [setStage validation_delivery, setStageOutcome kind success]. On a not-ok result halt; never proceed unrecorded.

@@ -16,4 +16,4 @@ Only when the description is ambiguous (under 20 words, vague terms such as "doe
 
 #### Step 2.4: Record Stage Checkpoint
 
-Persist this phase's outcome and advance the run via issue-run-index.ts: ONE call IssueRunIndexStore.mutate(projectRoot, runId, revision, (record) => { record.artifacts.push({ type: "fix-plan", path: <fix plan output path>, recordedAt: now() }); record.stage = "execution"; record.stageOutcome = { kind: "success", recordedAt: now() }; }). A second mutate() with the same `revision` throws REVISION_CONFLICT, so batch. On a thrown error halt; never proceed unrecorded.
+Persist this phase's outcome and advance the run via ISSUE_RUN_INDEX_CLI: ONE mutate with patch [appendArtifact type "fix-plan" path <fix plan output path>, setStage execution, setStageOutcome kind success]. A second mutate with the same `revision` returns REVISION_CONFLICT, so batch. On a not-ok result halt; never proceed unrecorded.

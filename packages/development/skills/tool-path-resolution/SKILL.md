@@ -70,6 +70,8 @@ follow-on behavior (smoke-checks, HALT wording, etc.) stays with the caller.
 | `PRD_CLI`               | `packages/development/lib/prd-cli.js` | `vendor/lib/prd-cli.js` |
 | `VALIDATE_GIT_TOWN_SH`  | `packages/git/skills/git-town/scripts/validate-git-town.sh` | `vendor/scripts/validate-git-town.sh` |
 | `TOOLCHAIN_CLI`         | `packages/development/lib/toolchain-cli.js` | `vendor/lib/toolchain-cli.js` |
+| `ISSUE_RUN_INDEX_CLI`   | `packages/development/lib/issue-run-index-cli.js` | `vendor/lib/issue-run-index-cli.js` |
+| `RUN_INDEX_CLI`         | `packages/development/lib/run-index-cli.js` | `vendor/lib/run-index-cli.js` |
 
 `VALIDATE_GIT_TOWN_SH`'s Claude Code plugin root path is nested:
 `${CLAUDE_PLUGIN_ROOT}/skills/git/git-town/scripts/validate-git-town.sh`.
