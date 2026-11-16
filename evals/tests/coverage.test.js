@@ -137,7 +137,13 @@ describe('TRD-017 committed exemptions.json', () => {
       expect(r.status).toBe('exempt');
       expect(r.reason.length).toBeGreaterThan(10);
     }
-    expect(c.rows.filter((r) => r.status === 'exempt').map((r) => r.skill)).toEqual(adapters.map((r) => r.skill));
+    // Non-adapter skills may also be exempt (dispatchers, interactive or live-service skills), but each needs a one-sentence reason.
+    const exempt = c.rows.filter((r) => r.status === 'exempt');
+    for (const r of exempt) {
+      expect(r.reason.length).toBeGreaterThan(10);
+      expect(r.reason).not.toMatch(/\n/);
+    }
+    expect(exempt.map((r) => r.skill)).toEqual(expect.arrayContaining(adapters.map((r) => r.skill)));
   });
 
   test('the real report lists each shipped skill once', () => {
