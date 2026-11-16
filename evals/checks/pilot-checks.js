@@ -14,66 +14,10 @@
  * following symlinks, at most MAX_BYTES each, and everything printed has control characters stripped.
  */
 
-const fs = require('fs');
 const path = require('path');
-
-const MAX_BYTES = 1024 * 1024;
-const MAX_FILES = 2000;
-// eslint-disable-next-line no-control-regex
-const clean = (s) => String(s).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '?').slice(0, 300);
-
-class Fail extends Error {}
-const fail = (msg) => { throw new Fail(msg); };
-
-/** Text of a regular file, never through a symlink; null when absent. */
-function readText(file) {
-  let fd;
-  try {
-    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-  } catch (e) {
-    if (e.code === 'ENOENT') return null;
-    return fail(`cannot read ${path.basename(file)} (${e.code || e.message}); symlinks are not followed`);
-  }
-  try {
-    const st = fs.fstatSync(fd);
-    if (!st.isFile()) return fail(`${path.basename(file)} is not a regular file`);
-    if (st.size > MAX_BYTES) return fail(`${path.basename(file)} is larger than ${MAX_BYTES} bytes`);
-    return fs.readFileSync(fd, 'utf8');
-  } finally { fs.closeSync(fd); }
-}
-
-/** Names of the regular files directly in `dir` that match `re`, sorted. A missing directory is an empty list. */
-function listFiles(dir, re) {
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
-  return entries.filter((e) => (e.isFile() || e.isSymbolicLink()) && re.test(e.name)).map((e) => e.name).sort();
-}
-
-/** Every file path (relative, '/'-separated) under `root`, links and `.git` not followed. */
-function walk(root) {
-  const out = [];
-  const visit = (dir) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (e.name === '.git') continue;
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) visit(full);
-      else if (out.push(path.relative(root, full).split(path.sep).join('/')) > MAX_FILES) fail(`more than ${MAX_FILES} files in the workspace`);
-    }
-  };
-  visit(root);
-  return out;
-}
-
-function parseArgs(argv) {
-  const o = {};
-  for (let i = 0; i < argv.length; i += 2) {
-    if (!argv[i].startsWith('--') || argv[i + 1] === undefined) fail(`bad arguments near ${clean(argv[i])}`);
-    o[argv[i].slice(2)] = argv[i + 1];
-  }
-  return o;
-}
-const need = (o, k) => (o[k] === undefined ? fail(`missing --${k}`) : o[k]);
-const list = (v) => String(v).split(',').map((x) => x.trim()).filter(Boolean);
+const {
+  clean, fail, readText, listFiles, walk, need, list, run, frontmatter, section, reqSections, acBlocks, isGwt,
+} = require('./lib');
 
 /** The one PRD the skill saved: a PRD-*.md under docs/PRD/ that is not one of `--seeded` (comma-separated names). */
 function newPrd(o) {
@@ -82,62 +26,6 @@ function newPrd(o) {
   if (files.length === 0) fail('no new PRD-*.md under docs/PRD/');
   if (files.length > 1) fail(`expected one new PRD under docs/PRD/, found ${files.length}: ${files.join(', ')}`);
   return { name: files[0], text: readText(path.join('docs/PRD', files[0])) };
-}
-
-/** Sections of a markdown document that start at a REQ-NNN heading: [{ id, level, body }]. */
-function reqSections(text) {
-  const lines = text.split('\n');
-  const sections = [];
-  let cur = null;
-  for (const line of lines) {
-    const h = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (h) {
-      const req = /^\*{0,2}(REQ-\d{3,})\b/.exec(h[2]);
-      if (req) { cur = { id: req[1], level: h[1].length, body: [] }; sections.push(cur); continue; }
-      if (cur && h[1].length <= cur.level) cur = null;
-    }
-    if (cur) cur.body.push(line);
-  }
-  return sections.map((s) => ({ ...s, body: s.body.join('\n') }));
-}
-
-const AC_LINE = /^(\s*)(?:[-*]|\d+\.)\s*(?:\*\*)?AC-\d{3,}-\d+/;
-const GWT = /\bgiven\b[\s\S]+\bwhen\b[\s\S]+\bthen\b/i;
-
-/**
- * The acceptance criteria in a section body as text blocks: an `AC-NNN-M` list item plus what continues it (lines indented deeper,
- * or plain wrapped lines), up to a blank line or the next list item or heading at the same depth or shallower. The prescribed form is
- * one line, `- AC-NNN-M: Given ..., when ..., then ...`; wrapped and sub-bulleted Given/When/Then is accepted too.
- */
-function acBlocks(body) {
-  const lines = body.split('\n');
-  const blocks = [];
-  for (let i = 0; i < lines.length; i += 1) {
-    const m = AC_LINE.exec(lines[i]);
-    if (!m) continue;
-    const parts = [lines[i]];
-    while (i + 1 < lines.length && lines[i + 1].trim() !== '') {
-      const next = lines[i + 1];
-      const indent = /^\s*/.exec(next)[0].length;
-      if (indent <= m[1].length && /^\s*(?:[-*]|\d+\.|#)/.test(next)) break;
-      parts.push(next);
-      i += 1;
-    }
-    blocks.push(parts.join(' '));
-  }
-  return blocks;
-}
-
-/** Frontmatter keys of a `---` block at the top of the text. */
-function frontmatter(text) {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
-  const out = {};
-  if (!m) return out;
-  for (const line of m[1].split('\n')) {
-    const kv = /^([A-Za-z_][\w -]*):\s*(.*?)\s*$/.exec(line);
-    if (kv) out[kv[1].toLowerCase().replace(/[ -]/g, '_')] = kv[2].replace(/^["']|["']$/g, '');
-  }
-  return out;
 }
 
 const CHECKS = {
@@ -154,7 +42,7 @@ const CHECKS = {
     for (const r of reqs) {
       const acs = acBlocks(r.body);
       if (acs.length === 0) fail(`${r.id} has no AC-NNN-M acceptance criterion`);
-      const bad = acs.find((l) => !GWT.test(l));
+      const bad = acs.find((l) => !isGwt(l));
       if (bad) fail(`${r.id}: acceptance criterion is not Given/When/Then: ${clean(bad.trim())}`);
     }
     return `every one of ${reqs.length} requirements has Given/When/Then ACs`;
@@ -191,9 +79,9 @@ const CHECKS = {
   'refine-changelog': (o) => {
     const text = readText(need(o, 'file'));
     if (text === null) fail(`${clean(o.file)} is missing`);
-    const m = /^#{1,6}\s+(?:Changelog|Version History)\b.*$([\s\S]*)/im.exec(text);
+    const m = section(text, /^(?:Changelog|Version History)\b/i, { toEnd: true });
     if (!m) fail('no Changelog section');
-    const entries = m[1].split('\n').filter((l) => /^\s*(?:[-*]|\d+\.|\|)/.test(l));
+    const entries = m.body.split('\n').filter((l) => /^\s*(?:[-*]|\d+\.|\|)/.test(l));
     if (!entries.some((l) => l.includes(need(o, 'to')))) fail(`no changelog entry for ${o.to}`);
     if (!entries.some((l) => l.includes(need(o, 'from')))) fail(`the earlier changelog entry for ${o.from} was removed`);
     return `changelog has entries for ${o.from} and ${o.to}`;
@@ -280,19 +168,9 @@ const CHECKS = {
   },
 };
 
-function main(argv) {
-  const [name, ...rest] = argv;
-  const check = Object.prototype.hasOwnProperty.call(CHECKS, name) ? CHECKS[name] : null;
-  if (!check) { console.log(`FAIL: unknown check ${clean(name)}`); return 1; }
-  try {
-    console.log(`PASS: ${clean(check(parseArgs(rest)))}`);
-    return 0;
-  } catch (e) {
-    console.log(`FAIL: ${e instanceof Fail ? clean(e.message) : `check threw: ${clean(e.message)}`}`);
-    return 1;
-  }
-}
+/** Run the check named by argv[0] (no node/script prefix); returns the exit code. */
+const main = (argv) => run(CHECKS, [null, null, ...argv]);
 
-if (require.main === module) process.exitCode = main(process.argv.slice(2));
+if (require.main === module) process.exitCode = run(CHECKS);
 
 module.exports = { CHECKS, main, reqSections, acBlocks, frontmatter };

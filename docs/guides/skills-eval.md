@@ -199,3 +199,80 @@ The pilot ran on 13 November 2026 through a local LiteLLM proxy with `claude-opu
 - **One model, one runtime, five repeats.** Nothing here says how the skills behave on another model.
 - **Found by the pilot.** The first real runs showed that `/ensemble:<name>` is not the command name when a package is loaded with `--plugin-dir` (it is `/<plugin>:ensemble:<name>`), and that a provider or auth failure was being counted as a skill failure; both are fixed (the second by marking such a run `incomplete`).
 - **Not investigated.** The legacy `create-trd` scenario failed in the first pass; it predates this work and its cause was not examined.
+
+## Adding an eval for a skill (kit)
+
+About 70 skills still have no eval. Each gets its own PR, and each PR adds **only new files** and edits no shared file, so the PRs never conflict:
+
+| File | What it is |
+|---|---|
+| `evals/skills/<skill>/eval.json` and `fixture/` | the definition and the starting workspace (scaffolded) |
+| `evals/checks/<skill>.js` | the deterministic checks, built on `evals/checks/lib.js` |
+| `evals/tests/skills/<skill>.test.js` | the proof that the checks pass on good output and fail on bad output, built on `evals/tests/skill-eval-kit.js` |
+
+Nothing else changes: not `evals/checks/lib.js`, not the kit, not `pilot-checks.js`, not `jest.config.js` (`npx jest evals` already picks up `evals/tests/skills/*.test.js`), not `evals/exemptions.json` (see "When to propose an exemption"). A need the kit does not meet is a separate PR to the kit, not a local patch in the skill's PR. `evals/tests/skills/kit-example.test.js` is the template to copy.
+
+### The recipe
+
+1. **Scaffold.** `node evals/new.js <skill>` writes `evals/skills/<skill>/eval.json` (from `evals/templates/eval.json`) and `fixture/`. Replace every `TODO:`.
+2. **Fixture.** It is the workspace the agent starts in, committed on `main` in a throwaway git repo. It needs:
+   - `docs/standards/constitution.md` with `## Article I` and following article headings, when the skill reads a constitution (the Constitution Gate of the product, development and review skills halts without one). Copy the pilots' file.
+   - whatever input the skill transforms (a seeded PRD, source files), as small as will do.
+   - **no** `.claude/`, `.mcp.json`, `.gitconfig`, `.gitmodules`, `.gitattributes` or `.git`: the loader rejects them and the sandbox never copies them. No symlink pointing outside the fixture.
+3. **Prompt.** What a user would type, non-interactive and foreman-style: pass `--foreman` where the skill has the flag, say "this is a non-interactive run: ask no questions, choose the recommended option", say where to save output, and say what not to do ("write only the PRD, implement nothing"). The prompt is identical in both arms and must not name the skill's job in a way that hands the baseline the answer.
+4. **Invocation.** A skill the model finds by itself is `plain`. A skill driven by a command is `explicit` with `command` set to the registered name, `/<plugin>:ensemble:<command>` (for example `/ensemble-product:ensemble:create-prd`; `/ensemble:<name>` is not the name when a package is loaded with `--plugin-dir`). The command is typed first in the with-skill arm only. When the command lives in a package that both arms must load (the skill under test is a different, lower-level skill that the command calls), use `invocation: explicit-both` and `sharedPackages: ["<package>"]`: both arms get the command and the shared package, and only with-skill adds the skill's own package. That changes what the uplift measures (the skill, not the package); say so in `description`, as `pr-merge-trace` does. `sandboxPath: ["bin"]` puts fixture directories first on the agent's PATH (never on the checks' PATH), for a stub binary such as `gh`; `remote: true` adds a bare `origin`, `branch: "<name>"` checks out a head branch (pushed too with a remote). The stub binary must answer from canned files and make no network call.
+5. **Checks.** Write `evals/checks/<skill>.js` (below) and list each check in `eval.json` as `{ "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/<skill>.js' <name> [--arg value]", "pattern": "^PASS:", "exitCode": 0 }`. The check's first line says why it failed (`FAIL: <reason>`) and the reason is stored with the result. Built-in graders (`fileExists`, `fileMatches`, `trdParses`, `noProtectedBranchCommit`, `remoteBranchUnchanged`, `noForbiddenCommand`) are fine where they say what you mean.
+6. **Test.** Write `evals/tests/skills/<skill>.test.js` with the kit (below).
+7. **Check it.** `node evals/run.js --dry-run --skill <skill>`, `npx jest evals/tests/skills/<skill>.test.js`, `npx eslint evals`, `node evals/coverage.js` (the skill is listed as evaluated). No real run is part of the PR.
+
+### Check scripts: `evals/checks/lib.js`
+
+A check script is a table of named checks and one call:
+
+```js
+#!/usr/bin/env node
+'use strict';
+const { fail, readText, listFiles, walk, need, list, clean, frontmatter, section, reqSections, acBlocks, isGwt, run } = require('./lib');
+
+const CHECKS = {
+  'report-saved': () => { const t = readText('docs/report.md'); if (t === null) fail('docs/report.md was not written'); return 'saved docs/report.md'; },
+};
+
+if (require.main === module) process.exitCode = run(CHECKS);
+module.exports = { CHECKS };
+```
+
+The working directory is the agent's workspace; the script lives in the repository. Helpers: `readText(file)` (null when absent; never through a symlink; regular file; at most 1 MiB), `readRequired(file, what)`, `listFiles(dir, re)`, `walk(root)` (no `.git`, no symlinked directories, at most 2000 files), `parseArgs`, `need(o, k)`, `list(csv)`, `clean(s)` (control characters stripped; use it on anything from the workspace that you print), `fail(reason)`, `frontmatter(text)`, `headings(text)`, `section(text, match, { toEnd })`, `reqSections(text)`, `acBlocks(body)`, `isGwt(text)`, and `run(CHECKS)` (argv[2] is the check name; prints one `PASS: ...` or `FAIL: ...` line; exit 0 or 1; an unknown name or an exception fails). Files are agent-written, so treat them as hostile: bounded reads, no regular expression with nested quantifiers over file text, no git and no workspace-supplied program.
+
+### Tests: `evals/tests/skill-eval-kit.js`
+
+```js
+const kit = require('../skill-eval-kit');
+kit.loadsClean(id);                                   // the eval loads; fixture has no agent or git configuration; returns the eval
+const res = await kit.runEval(id, (ws) => { ws.write('docs/x.md', GOOD); });   // { checkId: { pass, detail } }
+kit.expectAllPass(res);
+kit.expectFails(res, 'check-id', /why/, { only: true });                       // id or ids; optional detail RegExp; only = nothing else failed
+const { baseline, withSkill } = await kit.armsFor(id); // argv of both arms through run.js and a stub claude
+```
+
+`runEval` loads the real `eval.json`, builds the real sandbox from the fixture (with `remote`, `branch`), runs your function (the stub agent: `ws.write/read/exists/remove`, `ws.dir`, `ws.root`, `ws.sb`; it may return `{ transcript, commands }`), then runs every deterministic check through the real grader code with the harness's check environment (no credentials, throwaway HOME). Check ids are the check script's argument (`prd-saved`); a repeated id gets `#2`. Judged checks are not run. Scratch is under `~/.omp/trd-skills-eval/jest` and removed afterwards. A skill's test is about 40 lines: `loadsClean`; a good-output writer that passes with `expectAllPass`; one bad-output writer for each check, each failing the named check with `expectFails`; a writer that does nothing (the seeded fixture alone must not pass the checks about the skill's output); `armsFor` for the loading and the prompt prefix.
+
+### Rules for honest checks
+
+- **Deterministic only.** A pattern, a count, a parse, a file's presence or content. No model call, no judge in a kit PR.
+- **Every check must be able to fail** (constitution rule 7): the test must contain a plausible wrong output that fails it, not only an empty one. If the fixture alone satisfies the check, it proves nothing.
+- **Calibrate against shipped artifacts.** Run the check on real files of that kind in the repository (`docs/PRD/`, `docs/TRD/`, other skills' output) and on the shapes the skill's own template prescribes; a check stricter than the skill's own output fails every real run. Do not read the numbers of a run into the check afterwards.
+- **No network, no real tools.** A check or stub that needs `gh`, a cloud API or a package install is not hermetic: stub it from the fixture or propose an exemption.
+- **Behaviour in editable files** (constitution rule 8): the prompt, fixture and checks are plain files; nothing is generated, nothing is hidden in the test.
+- **Say what it cannot show** in `description`: checks of structure do not show quality, and an uplift for a command-driven skill is the package's.
+
+### When to propose an exemption instead
+
+Add an entry to `evals/exemptions.json` (a flat `{ "<skill>": "<reason>" }` object, kept in alphabetical order) when no honest deterministic eval can exist:
+
+- it needs a live external service (a real tracker, cloud account, browser against a live site);
+- it is destructive (deletes, force-pushes, deploys, spends money) and cannot be sandboxed;
+- it is interactive-only (it cannot run without a human answering);
+- it is a pure dispatcher or reference with no model-driven behaviour of its own (it only routes to another skill, or only lists information).
+
+The reason is one sentence in the style of the existing entries: what the skill is, then why it has nothing to eval, for example `"Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own."` or `"Needs a live <service> account; every behaviour is a call to it, which an eval cannot run without network access."`. An empty reason counts as missing; a skill that is both evaluated and exempt is an error. The file is shared, so an exemption is its own small PR (one added line), never bundled into an eval PR. A reviewer decides; do not exempt a skill only because its eval is hard to write.

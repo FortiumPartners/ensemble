@@ -116,6 +116,10 @@ The fixtures carry a minimal `docs/standards/constitution.md` (the Constitution 
 
 `gh-no-merge` fails on `gh pr merge` and on an `api graphql` call carrying a `mergePullRequest` or `enablePullRequestAutoMerge` mutation (any case); the PR counts as read only when a call's first words are `pr view`. The stub logs one line per call (newlines inside an argument are folded to spaces).
 
+## Adding an eval for a skill (kit)
+
+One skill per PR, new files only: `evals/skills/<skill>/` (scaffold with `node evals/new.js <skill>`), `evals/checks/<skill>.js` (built on `evals/checks/lib.js`) and `evals/tests/skills/<skill>.test.js` (built on `evals/tests/skill-eval-kit.js`; copy `evals/tests/skills/kit-example.test.js`). No shared file is edited. The recipe, the rules for honest checks and when to propose an exemption instead: "Adding an eval for a skill (kit)" in `docs/guides/skills-eval.md`.
+
 ## Add a scenario (legacy)
 
 1. `evals/scenarios/<id>/scenario.json`: `type` (`agent`|`cli`), `prompt`, `plugins`, `allowedTools`, `permissionMode`, `maxTurns`, `timeoutSec`, optional `remote: true` (bare `origin`), and `graders`. `{{repo}}` expands to the repo root.
