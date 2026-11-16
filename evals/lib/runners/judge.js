@@ -5,7 +5,7 @@
  * The judging model must differ from the model under test (resolveJudge refuses otherwise).
  */
 
-const { spawnSync } = require('child_process');
+const { runProcess } = require('../exec');
 
 /** Compare-form of a model name: `sonnet`, `claude-sonnet-5-5` and `claude-sonnet-4-20250514` all become `sonnet`. */
 const norm = (m) => String(m || '').trim().toLowerCase()
@@ -75,12 +75,12 @@ function jsonObjects(text) {
 }
 
 /** Run the judge model via the claude CLI. Returns { score, reason, costUsd } or { error, costUsd }. */
-function runJudge(bin, { model, rubric, transcript, cwd, timeoutMs = 120000 }) {
+async function runJudge(bin, { model, rubric, transcript, cwd, env, timeoutMs = 120000 }) {
   const args = ['-p', judgePrompt(rubric, transcript), '--output-format', 'json', '--no-session-persistence',
     '--max-turns', '1', '--permission-mode', 'plan', '--model', model];
-  const r = spawnSync(bin, args, { cwd, encoding: 'utf8', timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'] });
-  if (r.error || r.status !== 0) return { error: `judge call failed: ${(r.error && r.error.message) || `exit ${r.status}`}`, costUsd: null };
-  let text = r.stdout || '';
+  const r = await runProcess(bin, args, { cwd, env, timeoutMs });
+  if (r.timedOut || r.exitCode !== 0) return { error: `judge call failed: ${r.timedOut ? 'timed out' : `exit ${r.exitCode}${r.stderr ? `: ${r.stderr.slice(-200)}` : ''}`}`, costUsd: null };
+  let text = r.transcript || '';
   let costUsd = null;
   try {
     const o = JSON.parse(text);

@@ -8,19 +8,30 @@ Headless harness that checks what models *do* with Ensemble instructions. Determ
 npm run evals -- --dry-run                      # list scenarios
 node evals/run.js --scenario fix-issue --model sonnet --max-usd 1
 node evals/run.js --max-usd 5                   # all scenarios
+node evals/run.js --concurrency 2 --timeout 600 --keep-workspace
 ```
 
-Agent scenarios shell out to `claude -p` (stream-json, `--plugin-dir packages/<pkg>`, `--max-turns`, `--allowedTools`, `--permission-mode`) inside a throwaway git repo built from the scenario fixture. `cli` scenarios run no model.
+Agent scenarios shell out to `claude -p` (stream-json, `--plugin-dir packages/<pkg>`, `--max-turns`, `--allowedTools`, `--permission-mode`) inside a throwaway git repo built from the scenario fixture under `EVALS_WORKDIR`. `cli` scenarios run no model.
 
-Without the `claude` CLI (override path with `EVALS_CLAUDE_BIN`): `--dry-run` prints a skip message and exits 0 (2 if a skill eval definition was rejected); a real run exits 3.
+Without the `claude` CLI (override path with `EVALS_CLAUDE_BIN`): `--dry-run` prints a skip message and exits 0 (2 if a skill eval definition was rejected); a real run exits 3. Test hooks: `EVALS_SCENARIOS_DIR`, `EVALS_SKILLS_DIR`, `EVALS_RESULTS_DIR`.
 
-## Cost cap
+## Safe execution
 
-`--max-usd N` is the total budget. Each scenario gets the remainder as `--max-budget-usd`; once spent, later agent scenarios are skipped as `budget exhausted`. Always set it.
+Each run works in its own throwaway directory, is budgeted, and its stored output is stripped of credential values. This is a directory sandbox, not an OS jail: the agent runs as you and can reach anything your user can, including files under the real `HOME` when it is passed through (see Environment).
+
+- **Workspace.** Each run works in a fresh copy of the fixture under `EVALS_WORKDIR` (default `~/.omp/evals-work/`; `/tmp`, `$TMPDIR`, `/var/folders` and anything inside the repository are refused, after resolving symlinks). The repository is never touched. The workspace is removed afterwards; `--keep-workspace` keeps it and prints `workspace kept: <path>`.
+- **Environment.** The agent and the judge call see only `PATH`, `LANG`, `TERM`, `TMPDIR`, `HOME` and the named credentials; nothing else is inherited. The checks that execute agent-written code or commands (`testsPass`, `commandOutputMatches`, `trdParses`) get the same environment with **no credentials**; only the agent and the judge get those. `HOME` passes through to the agent on a maintainer's machine so the CLI's own login works, which means the agent can read and write files under your real home directory; with `CI=true` or `GITHUB_ACTIONS=true` it is a fresh per-run directory under `EVALS_WORKDIR`, removed afterwards. The credential-free checks never get your real `HOME`: they always run with a throwaway empty `HOME` under `EVALS_WORKDIR` (in CI, the same per-run directory). Credential names live in `evals/env-allowlist.json` (`{"credentials": ["ANTHROPIC_API_KEY"]}`); add names per run with `--allow-env NAME` (repeatable) or use another file with `--env-allowlist FILE` (the file must exist). A credential reaches the agent from the local environment, or from CI secrets exported by the workflow. The harness's own `git` calls in the workspace use a sanitized environment (no `GIT_*`, no system or global config) with `core.fsmonitor`, `core.hooksPath`, `core.pager`, `core.gitProxy` and `protocol.ext.allow` neutralised (and `core.sshCommand` overridden by `GIT_SSH_COMMAND`). Those are the only keys covered; in particular `remote.<name>.uploadpack` and `receivepack` cannot be overridden from the command line, so the harness never runs `ls-remote`, `fetch` or `push` against a workspace remote name. The remote-branch check never contacts a remote by name: it reads the harness-created bare repository at the path recorded when the sandbox was created. Bash commands are also collected while the agent's output streams (up to 5000), so the forbidden-command check still sees early commands when the in-memory transcript is truncated; if the list itself is incomplete the check fails rather than passes.
+- **Redaction.** Every allowlisted credential value present in the environment is replaced by `[REDACTED]` (raw, JSON-escaped, URL-encoded and base64 forms) in the agent transcript before it reaches the checks or the judge prompt, and in the stored report and every console line, including errors. Other encodings (hex, split or transformed values) are not detected. The report lists allowlisted variable names only, never environment values.
+- **Cost cap.** `--max-usd N` per suite, default $50 (`evals/limits.json`). Each in-flight run reserves `--run-usd` (default $5, also passed to `claude --max-budget-usd`) plus `--judge-usd` (default $0.50) when the eval has an active judged check. A run starts only when spend plus all in-flight reservations plus its own reservation fit under the cap, so under `--concurrency N` (default 4) the total never exceeds it. Judge-call cost counts in the eval's `costUsd` and in spend. A run whose cost is unknown (timeout, crash, failed judge call: no reported figure) is charged its full reservation and marked `costEstimated: true`, so failing runs still consume the cap. Evals that never start are `incomplete` (`pass: null`, neither pass nor fail).
+- **Timeout.** `--timeout SEC` per run, default 900 (a scenario's `timeoutSec` can only lower it; `--timeout` above the `limits.json` value is an error). The run is started in its own process group; on timeout the group (the agent and its child processes) is killed and the run is recorded `timed_out`, which counts as a failure. A descendant that deliberately leaves the process group (for example with `setsid`) is not killed, but cannot delay the result by more than about a second. Check commands and the judge call run under the same group kill and timeout, without blocking other runs.
+
+`outcome` per eval is `pass`, `fail`, `timed_out` or `incomplete`. The report carries `passed`, `failed` (fail plus timed_out), `incomplete`, `totalCostUsd` and `peakCommittedUsd` (highest spend plus reservations seen).
+
+Limits and defaults are plain data in `evals/limits.json`; flags override them.
 
 ## Results
 
-`evals/results/<model>-<timestamp>.json` (gitignored): per eval: `pass`, `verdict` (from deterministic checks only), `judgedScore` and `judgeModel` (judged checks only, `null` when none ran), `skill`, per-grader results (judged graders carry `judged: true`, and `refused: true` when the judge was refused), turns, cost. Exit code is 1 if any scenario fails.
+`evals/results/<model>-<timestamp>.json` (gitignored): per eval: `pass`, `verdict` (from deterministic checks only), `judgedScore` and `judgeModel` (judged checks only, `null` when none ran), `skill`, per-grader results (judged graders carry `judged: true`, and `refused: true` when the judge was refused), turns, cost. See exit codes below.
 
 ## Skill evals
 
@@ -44,7 +55,7 @@ A definition is rejected, and nothing runs for it, when it lacks a task, a `fixt
 
 Checks are the graders below. A `{ "type": "judge", "rubric": "..." }` check is judged: it needs a rubric (inline or `rubric.md`), is marked `judged` in results, and is reported as `judgedScore` apart from `verdict`. The judge model comes from `--judge-model` or `EVALS_JUDGE_MODEL` and must differ from `--model` (names are compared after normalising, so `sonnet` and `claude-sonnet-5-5` are the same model); without `--model` there is nothing to compare against, so the judged check is refused as well. A refused judged check names the conflict and the deterministic checks still decide the eval.
 
-Currently a skill eval runs one arm (with the skill loaded from its package). `evals/scenarios/` stays as legacy single-arm scenarios, not counted as skills. A skill eval whose id matches a legacy scenario id is rejected. Exit codes: 0 all pass, 1 an eval failed, 2 usage error or rejected definition (also under `--dry-run`), 3 `claude` missing.
+Currently a skill eval runs one arm (with the skill loaded from its package). `evals/scenarios/` stays as legacy single-arm scenarios, not counted as skills. A skill eval whose id matches a legacy scenario id is rejected. Exit codes: 0 all pass, 1 an eval failed or timed out, 2 usage error or rejected definition (also under `--dry-run`), 3 `claude` missing, 4 the suite finished with incomplete evals. When several apply, 2 comes first (a rejected definition), then 1 over 4, and 4 over 0.
 
 ## Add a scenario (legacy)
 

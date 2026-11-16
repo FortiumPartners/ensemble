@@ -211,9 +211,9 @@ describe('check classification (TRD-002)', () => {
     expect(rejection('mislabelled').error.message).toMatch(/type must be "judge"/);
   });
 
-  test('a judged result is marked judged by runGraders and reported apart from the verdict', () => {
+  test('a judged result is marked judged by runGraders and reported apart from the verdict', async () => {
     const ctx = { dir: tmp, repoRoot: repo, baseline: {}, transcript: '', judge: { bin: 'x', model: 'j', refusal: 'conflict' } };
-    const results = runGraders([{ type: 'fileExists', path: 'repo' }, { type: 'judge', rubric: 'r' }], ctx);
+    const results = await runGraders([{ type: 'fileExists', path: 'repo' }, { type: 'judge', rubric: 'r' }], ctx);
     expect(results[0].judged).toBeUndefined();
     expect(results[1].judged).toBe(true);
     const run = summarizeRun(results);

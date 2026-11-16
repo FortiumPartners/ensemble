@@ -4,20 +4,55 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const envlib = require('./env');
+
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const DEFAULT_WORKDIR = path.join(os.homedir(), '.omp', 'evals-work');
+const FORBIDDEN_ROOTS = ['/tmp', '/private/tmp', '/var/tmp', '/private/var/tmp', '/var/folders', '/private/var/folders'];
+
+const within = (child, parent) => child === parent || child.startsWith(parent + path.sep);
+
+/** realpath of the longest existing ancestor of `p`, with the missing remainder re-appended (so symlinks cannot hide a target). */
+function realish(p) {
+  const rest = [];
+  let cur = path.resolve(p);
+  for (;;) {
+    try { return path.join(fs.realpathSync(cur), ...rest.reverse()); } catch { /* climb */ }
+    const up = path.dirname(cur);
+    if (up === cur) return path.join(cur, ...rest.reverse());
+    rest.push(path.basename(cur));
+    cur = up;
+  }
+}
+
+/**
+ * Directory under which every workspace and per-run CI HOME is created: EVALS_WORKDIR, default ~/.omp/evals-work/.
+ * Symlinks are resolved first. Refuses /tmp, /var/tmp, /var/folders and $TMPDIR (wiped on reboot) and anything
+ * inside the repository.
+ */
+function resolveWorkdir(env = process.env, repoRoot = REPO_ROOT) {
+  const dir = realish(env.EVALS_WORKDIR || DEFAULT_WORKDIR);
+  const temps = [...FORBIDDEN_ROOTS, os.tmpdir(), env.TMPDIR].filter(Boolean).flatMap((r) => [path.resolve(r), realish(r)]);
+  if (temps.some((r) => within(dir, r))) throw new Error(`EVALS_WORKDIR must not be under /tmp or the temp directory: ${dir}`);
+  if (within(dir, realish(repoRoot))) throw new Error(`EVALS_WORKDIR must be outside the repository: ${dir}`);
+  return dir;
+}
 
 function git(cwd, args) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  const r = spawnSync('git', [...envlib.GIT_HARDEN, ...args], { cwd, encoding: 'utf8', env: envlib.gitEnv() });
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr}`);
   return r.stdout.trim();
 }
 
 /**
- * Create a throwaway git repo from scenarios/<id>/fixture on branch `main`.
+ * Create a throwaway git repo from scenarios/<id>/fixture on branch `main`, as a fresh copy under `workdir`
+ * (default: EVALS_WORKDIR), never inside the repository.
  * With scenario.remote === true, also creates a bare `origin` and pushes main.
  * Returns { dir, root, baseline, cleanup }.
  */
-function createSandbox(scenarioDir, scenario = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ensemble-eval-'));
+function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() } = {}) {
+  fs.mkdirSync(workdir, { recursive: true });
+  const root = fs.mkdtempSync(path.join(workdir, 'ensemble-eval-'));
   const dir = path.join(root, 'project');
   fs.mkdirSync(dir);
   const fixture = path.join(scenarioDir, 'fixture');
@@ -32,18 +67,20 @@ function createSandbox(scenarioDir, scenario = {}) {
   const mainSha = git(dir, ['rev-parse', 'main']);
 
   let remoteMainSha = null;
+  let remotePath = null;
   if (scenario.remote) {
     const bare = path.join(root, 'origin.git');
     git(root, ['init', '-q', '--bare', '-b', 'main', bare]);
     git(dir, ['remote', 'add', 'origin', bare]);
     git(dir, ['push', '-q', 'origin', 'main']);
-    remoteMainSha = git(dir, ['ls-remote', 'origin', 'refs/heads/main']).split(/\s+/)[0];
+    remotePath = bare;
+    remoteMainSha = git(bare, ['--git-dir', bare, 'rev-parse', 'refs/heads/main']);
   }
 
   return {
     dir,
     root,
-    baseline: { mainSha, remoteMainSha },
+    baseline: { mainSha, remoteMainSha, remotePath },
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
 }
@@ -71,17 +108,6 @@ function buildClaudeArgs(scenario, { repoRoot, model, maxUsd }) {
   return args;
 }
 
-/** Run claude in the sandbox; returns { transcript, exitCode, timedOut }. */
-function runClaude(bin, args, cwd, timeoutMs = 600000) {
-  const r = spawnSync(bin, args, { cwd, encoding: 'utf8', timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 * 1024 * 1024 });
-  return {
-    transcript: r.stdout || '',
-    stderr: (r.stderr || '').slice(-2000),
-    exitCode: r.status,
-    timedOut: Boolean(r.error && r.error.code === 'ETIMEDOUT'),
-  };
-}
-
 /** Pull turns / cost from the final `result` line of a stream-json transcript. */
 function summarizeTranscript(transcript) {
   let summary = { turns: null, costUsd: null, isError: null, resultText: null };
@@ -100,4 +126,4 @@ function summarizeTranscript(transcript) {
   return summary;
 }
 
-module.exports = { createSandbox, findClaude, buildClaudeArgs, runClaude, summarizeTranscript };
+module.exports = { createSandbox, resolveWorkdir, findClaude, buildClaudeArgs, summarizeTranscript, DEFAULT_WORKDIR };

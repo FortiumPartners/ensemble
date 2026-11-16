@@ -78,15 +78,15 @@ describe('resolveJudge', () => {
 });
 
 describe('judge grader', () => {
-  test('a stub judge different from the run model scores and records the judge model', () => {
-    const r = judge({ dir: tmp, transcript: 't', judge: { bin: path.join(bin, 'claude'), model: 'opus', refusal: null } }, { rubric: 'Is it clear?' });
+  test('a stub judge different from the run model scores and records the judge model', async () => {
+    const r = await judge({ dir: tmp, transcript: 't', judge: { bin: path.join(bin, 'claude'), model: 'opus', refusal: null } }, { rubric: 'Is it clear?' });
     expect(r).toMatchObject({ judged: true, score: 0.8, judgeModel: 'opus', pass: true, costUsd: 0.01 });
     const call = fs.readFileSync(path.join(tmp, 'calls.txt'), 'utf8');
     expect(call).toMatch(/--model opus/);
     expect(call).toContain('Is it clear?');
   });
-  test('a refusal makes no model call', () => {
-    const r = judge({ dir: tmp, transcript: '', judge: { bin: path.join(bin, 'claude'), model: 'x', refusal: 'conflict' } }, { rubric: 'r' });
+  test('a refusal makes no model call', async () => {
+    const r = await judge({ dir: tmp, transcript: '', judge: { bin: path.join(bin, 'claude'), model: 'x', refusal: 'conflict' } }, { rubric: 'r' });
     expect(r).toMatchObject({ judged: true, refused: true, score: null, pass: false });
     expect(r.detail).toMatch(/refused: conflict/);
     expect(fs.existsSync(path.join(tmp, 'calls.txt'))).toBe(false);
