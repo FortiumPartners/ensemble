@@ -1,0 +1,7 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/main/.schema/devbox.schema.json",
+  "packages": ["elixir@1.17", "erlang@27", "postgresql@16"],
+  "shell": {
+    "init_hook": ["echo 'tasker devbox'"]
+  }
+}
