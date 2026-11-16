@@ -13,6 +13,28 @@ const path = require('path');
 const { GRADERS } = require('./graders');
 const { scanFixture } = require('./fixture');
 
+const MAX_DEF_BYTES = 1024 * 1024;
+
+/**
+ * Text of a definition file (eval.json, rubric.md, exemptions.json): opened without following a symlink and without
+ * blocking on a FIFO, a regular file under 1 MiB only. Throws an Error whose message names `what` and never quotes content.
+ */
+function readDefinitionFile(file, what) {
+  let fd;
+  try {
+    fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  } catch (e) {
+    throw new Error(e.code === 'ELOOP' ? `${what} is a symlink; symlinks are never followed` : `cannot read ${what} (${e.code || e.message})`);
+  }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) throw new Error(`${what} is not a regular file`);
+    if (st.size > MAX_DEF_BYTES) throw new Error(`${what} is larger than ${MAX_DEF_BYTES} bytes`);
+    return fs.readFileSync(fd, 'utf8');
+  } finally { fs.closeSync(fd); }
+}
+
+
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SKILLS_DIR = path.join(__dirname, '../skills');
 // Generated or aggregate packages hold copies or symlinks of skills; the source package is the one evaluated.
@@ -73,6 +95,10 @@ function isJudged(check) {
  * Loaded: { id, skill, package, description, runtimes, prompt, invocation, command, allowedTools, maxTurns,
  *           timeoutSec, repeats, bar, expectInvoked, checks, unactedFields, dir, fixtureDir }
  */
+function readRubric(file, fail) {
+  try { return readDefinitionFile(file, 'rubric.md'); } catch (e) { return fail('rubric', e.message); }
+}
+
 function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   const dirName = path.basename(dir);
   const id = raw && isNonEmptyString(raw.id) ? raw.id : dirName;
@@ -140,7 +166,7 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
     if (isJudged(check)) {
       if (check.type !== 'judge') fail('checks', `${where} is judged: its type must be "judge", not "${check.type}"`);
       const rubric = isNonEmptyString(check.rubric) ? check.rubric
-        : (fs.existsSync(rubricFile) ? fs.readFileSync(rubricFile, 'utf8') : '');
+        : (fs.existsSync(rubricFile) ? readRubric(rubricFile, fail) : '');
       if (!isNonEmptyString(rubric)) fail('rubric', `${where} is judged and needs a written rubric (\`rubric\` or rubric.md)`);
       return { ...check, judged: true, rubric };
     }
@@ -189,9 +215,9 @@ function loadEvalDefs({ skillsDir = SKILLS_DIR, repoRoot = REPO_ROOT } = {}) {
     try {
       let raw;
       try {
-        raw = JSON.parse(fs.readFileSync(path.join(dir, 'eval.json'), 'utf8'));
+        raw = JSON.parse(readDefinitionFile(path.join(dir, 'eval.json'), 'eval.json'));
       } catch (err) {
-        throw new EvalDefinitionError(e.name, 'eval.json', `eval.json is not valid JSON: ${err.message}`);
+        throw new EvalDefinitionError(e.name, 'eval.json', /^(eval\.json) (is|cannot|is larger)/.test(err.message) ? err.message : `eval.json is not valid JSON: ${err.message}`);
       }
       evals.push(validateEvalDef(raw, dir, { repoRoot }));
     } catch (err) {
@@ -228,5 +254,6 @@ function evalToScenario(ev) {
 }
 
 module.exports = {
-  EvalDefinitionError, validateEvalDef, loadEvalDefs, findSkillPackages, evalToScenario, isJudged, SKILLS_DIR,
+  readDefinitionFile,
+  EvalDefinitionError, validateEvalDef, loadEvalDefs, findSkillPackages, evalToScenario, isJudged, SKILLS_DIR, NON_SOURCE_PACKAGES,
 };

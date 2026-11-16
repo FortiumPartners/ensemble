@@ -1,0 +1,19 @@
+{
+  "adapter-ci-local-act": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-container-deploy-docker-kubectl": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-e2e-quality-playwright": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-host-azure-devops": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-host-github": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-iac-terraform": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-lint-reviewdog": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-package-runner-npm": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-platform-cloud-aws": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-review-coderabbit": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-test-runner-default": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-tracker-azure-boards": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-tracker-beads": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-tracker-jira": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-workflow-git-town": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-workflow-plain-git": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own.",
+  "adapter-worktree-plain-git": "Toolchain/workflow adapter loaded by the resolver (adapter.yaml capabilities), not invoked by name; it has no model-driven behavior to eval on its own."
+}

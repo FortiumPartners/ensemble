@@ -78,6 +78,7 @@ function createStreamScanner() {
   let startupSkills = null; // union over every init event; null until one carries a skills array
   const loadedPlugins = [];
   const invoked = [];
+  let model = null; // the model id the startup event reported
   return {
     feed(line) {
       if (!line.includes('"init"') && !line.includes('"Skill"')) return;
@@ -85,6 +86,7 @@ function createStreamScanner() {
       try { o = JSON.parse(line); } catch { return; }
       if (!o || typeof o !== 'object') return;
       if (o.type === 'system' && o.subtype === 'init') {
+        if (model === null && typeof o.model === 'string' && o.model.trim() && o.model.length <= 200) model = o.model.trim();
         // A later init event adds to what earlier ones reported; it can never hide an earlier match.
         if (Array.isArray(o.skills)) startupSkills = [...new Set([...(startupSkills || []), ...o.skills.filter((s) => typeof s === 'string')])];
         if (Array.isArray(o.plugins)) {
@@ -109,6 +111,7 @@ function createStreamScanner() {
         invokedSkills,
         loadedPlugins,
         loadedSource: startupSkills ? 'startup-event' : 'transcript-scan',
+        model,
       };
     },
   };

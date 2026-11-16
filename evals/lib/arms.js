@@ -20,7 +20,7 @@ const VERIFIED_SOURCES = new Set(['startup-event', 'system-prompt']);
 const ARMS = ['with-skill', 'baseline'];
 
 /** How each runtime's uplift is to be read (TRD design decision: the Claude arm loads a whole package). */
-const UPLIFT_LABELS = { claude: 'package-level (skills share a package)', pi: 'skill-level' };
+const UPLIFT_LABELS = results.UPLIFT_LABELS;
 const upliftLabel = (runtime) => UPLIFT_LABELS[runtime] || 'unknown granularity';
 
 const expandRepo = (text, repoRoot) => String(text).split('{{repo}}').join(repoRoot);

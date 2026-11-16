@@ -142,6 +142,7 @@ function createStreamScanner() {
   let turns = 0;
   let cost = 0;
   let assistantMessages = 0;
+  let model = null; // `provider/model` (or the model alone) of the first assistant message that names one
   const addInvoked = (n) => { if (typeof n === 'string' && n && invoked.length < MAX_INVOKED) invoked.push(n); };
   return {
     feed(line) {
@@ -161,6 +162,9 @@ function createStreamScanner() {
       const content = Array.isArray(m.content) ? m.content : [];
       if (m.role === 'assistant') {
         assistantMessages += 1;
+        if (model === null && typeof m.model === 'string' && m.model.trim() && m.model.length <= 200) {
+          model = typeof m.provider === 'string' && m.provider.trim() && !m.model.includes('/') ? `${m.provider.trim()}/${m.model.trim()}` : m.model.trim();
+        }
         const total = m.usage && m.usage.cost && m.usage.cost.total;
         if (typeof total === 'number' && Number.isFinite(total) && total > 0) cost += total;
         for (const b of content) {
@@ -183,6 +187,7 @@ function createStreamScanner() {
         loadedPlugins: [],
         loadedSource: systemSeen ? 'system-prompt' : 'transcript-scan',
         turns,
+        model,
         // 0 means unpriced (Pi reports total 0 for a model without prices), which is unknown, not free.
         reportedCostUsd: assistantMessages > 0 && cost > 0 ? cost : null,
       };

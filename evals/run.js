@@ -5,9 +5,13 @@
  * Headless behavioral eval runner.
  * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run]
  *   [--max-usd N] [--timeout SEC] [--concurrency N] [--keep-workspace] [--allow-env NAME]... [--env-allowlist FILE]
- *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi]
- * Exit: 0 all pass, 1 an eval failed or timed out, 2 usage/rejected definition (including an unsupported runtime, or a --scenario/--skill selection that the runtime filter empties),
+ *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi] [--update-baselines]
+ * Exit: 0 all pass, 1 an eval failed or timed out or a regression against a committed reliable baseline was detected,
+ *   2 usage/rejected definition (including an unsupported runtime, or a --scenario/--skill selection that the runtime filter empties)
+ *   or a result/baseline that could not be stored or read (2 outranks 1),
  *   3 the runtime's CLI missing, 4 incomplete evals or an unfiltered run that executed zero evals (1 outranks 4).
+ * Baselines: a summary is written only when the check says `no-baseline` or `ok` and the model is known; a `regression`,
+ *   a `not-comparable` result or an `unknown` model never overwrites the committed file unless --update-baselines is given.
  * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
 
@@ -15,7 +19,10 @@ const fs = require('fs');
 const path = require('path');
 const { runGraders } = require('./lib/graders');
 const { loadEvalDefs, evalToScenario, EvalDefinitionError } = require('./lib/eval-def');
-const { summarizeRun } = require('./lib/results');
+const results = require('./lib/results');
+const hash = require('./lib/hash');
+const report = require('./lib/report');
+const { summarizeRun } = results;
 const { resolveJudge } = require('./lib/runners/judge');
 const sandbox = require('./lib/sandbox');
 const envlib = require('./lib/env');
@@ -28,6 +35,8 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const SCENARIOS_DIR = process.env.EVALS_SCENARIOS_DIR || path.join(__dirname, 'scenarios');
 const EVAL_SKILLS_DIR = process.env.EVALS_SKILLS_DIR || path.join(__dirname, 'skills');
 const RESULTS_DIR = process.env.EVALS_RESULTS_DIR || path.join(__dirname, 'results');
+// Committed baseline summaries. Overridable; when only EVALS_RESULTS_DIR is overridden (tests) they go beside it, never into the repository.
+const BASELINES_DIR = process.env.EVALS_BASELINES_DIR || (process.env.EVALS_RESULTS_DIR ? path.join(path.dirname(process.env.EVALS_RESULTS_DIR), 'baselines') : results.BASELINES_DIR);
 
 let activeSecrets = []; // credential values in play; the top-level error handler redacts with these
 
@@ -35,7 +44,7 @@ function parseArgs(argv) {
   const o = {
     scenario: null, skill: null, model: null, judgeModel: null, dryRun: false, maxUsd: null,
     timeoutSec: null, concurrency: null, keepWorkspace: false, allowEnv: [], envAllowlist: null, runUsd: null, judgeUsd: null,
-    repeats: null, runtime: 'claude',
+    repeats: null, runtime: 'claude', updateBaselines: false,
   };
   const num = (flag, v, { int = false } = {}) => {
     const n = Number(v);
@@ -46,6 +55,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === '--dry-run') o.dryRun = true;
     else if (a === '--keep-workspace') o.keepWorkspace = true;
+    else if (a === '--update-baselines') o.updateBaselines = true;
     else if (a === '--scenario') o.scenario = argv[++i];
     else if (a === '--skill') o.skill = argv[++i];
     else if (a === '--model') o.model = argv[++i];
@@ -114,6 +124,7 @@ async function runScenario(scenario, run) {
       transcript = envlib.redactText(proc.transcript, secrets);
       if (run.arm) {
         armInfo = {
+          reportedModel: typeof proc.model === 'string' && proc.model ? proc.model : null,
           invoked: arms.wasInvoked(run.ev.skill, proc),
           loadedSkills: proc.loadedSkills || [], invokedSkills: proc.invokedSkills || [], loadedPlugins: proc.loadedPlugins || [],
           loadedSource: proc.loadedSource,
@@ -330,7 +341,9 @@ async function main(argv = process.argv.slice(2)) {
     } catch (e) {
       r = { id: ev.id, type: 'agent', skill: ev.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
     }
-    r = { ...r, evalId: ev.id, arm, run: item.run, runtime: opts.runtime, model: opts.model || 'default', invocationMode: ev.invocation };
+    // The model is what the runtime reported it ran, never the requested flag ('default' when omitted would defeat comparability).
+    const { reportedModel, ...rest } = r;
+    r = { ...rest, evalId: ev.id, arm, run: item.run, runtime: opts.runtime, model: reportedModel || results.UNKNOWN_MODEL, invocationMode: ev.invocation };
     if (arm === 'baseline') {
       const check = arms.checkBaseline(ev, r, { repoRoot: REPO_ROOT });
       if (check && check.kind === 'unverifiable-run') {
@@ -347,23 +360,36 @@ async function main(argv = process.argv.slice(2)) {
   };
 
   const copies = new Map();
+  const evalVersions = new Map();
   const items = [];
+  const planned = [];
   for (const s of scenarios) {
     const ev = evById.get(s.id);
-    if (!ev) { items.push({ legacy: s }); continue; }
-    copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill }));
+    if (!ev) { planned.push(s); items.push({ legacy: s }); continue; }
+    // A skill whose copy cannot be hashed (missing directory, escaping symlink) is rejected like an invalid definition: skipped, exit 2 at the end.
+    try {
+      copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill }));
+      evalVersions.set(ev.id, hash.evalHash(ev.dir));
+    } catch (e) {
+      if (!(e instanceof hash.HashError)) throw e;
+      rejected.push({ id: ev.id, dir: ev.dir, error: new EvalDefinitionError(ev.id, 'evaluated copy', e.message) });
+      err(`REJECTED ${rejected[rejected.length - 1].error.message}`);
+      continue;
+    }
+    planned.push(s);
     items.push(...expandRuns(ev, plans.get(ev.id).repeats));
   }
+  scenarios = planned;
   const reserveItem = (item) => reservationOf(item.ev ? scenarioOf.get(item.ev.id) : item.legacy, item.arm);
   const suite = await runSuite(items, { concurrency, capUsd, reserve: reserveItem, run: exec });
   const byItem = new Map(suite.done.map((d) => [d.item, d.result]));
 
-  const results = [];
+  const evalResults = [];
   for (const s of scenarios) {
     const ev = evById.get(s.id);
     if (!ev) {
       const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [], runtime: s.type === 'agent' ? opts.runtime : null };
-      results.push(r);
+      evalResults.push(r);
       continue;
     }
     const plan = plans.get(ev.id);
@@ -374,7 +400,7 @@ async function main(argv = process.argv.slice(2)) {
     }
     const copy = copies.get(ev.id);
     const evalResult = envlib.redactDeep(arms.summarizeEval(ev, plan, runs, { runtime: opts.runtime, abort: aborts.get(ev.id) || null, copy }), secrets);
-    results.push(evalResult);
+    evalResults.push(evalResult);
     out(`eval ${ev.id}: ${evalResult.outcome.toUpperCase()}`);
     if (evalResult.abort) {
       err(`ABORTED ${evalResult.abort}`);
@@ -388,15 +414,63 @@ async function main(argv = process.argv.slice(2)) {
     out(`  skill invoked in ${evalResult.invokedRuns}/${evalResult.withSkill.runs} with-skill run(s)${evalResult.invokedAsExpected === false ? ` (expectInvoked ${evalResult.expectInvoked}: NOT as expected)` : ''}`);
     if (copy) out(`  evaluated copy: ${describeCopy(copy)}`);
   }
-  const incomplete = results.filter((r) => r.outcome === 'incomplete');
+  const incomplete = evalResults.filter((r) => r.outcome === 'incomplete');
   for (const r of incomplete.filter((x) => !x.arms)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
   for (const r of incomplete.filter((x) => x.arms)) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
+
+  // Stored records and committed baseline summaries (TRD-014/015). Every record is schema-validated, redacted and relativized
+  // before it is written; missing evidence is a named error, never a silent skip.
+  const records = [];
+  const storeErrors = [];
+  const regressions = [];
+  const writtenBaselines = new Set();
+  for (const evalResult of evalResults.filter((r) => r.arms)) {
+    const ev = evById.get(evalResult.id);
+    try {
+      const copy = copies.get(ev.id);
+      const ctx = { skill: ev.skill, skillHash: copy.skillHash, packageHash: copy.packageHash, skillVersion: copy.skillVersion, evalVersion: evalVersions.get(ev.id) };
+      // Build this eval's records in a local array and append only when every one built: no partial records.
+      const evalRecords = evalResult.runs.map((r) => results.sanitize(results.buildResult(r, ctx), { secrets, repoRoot: REPO_ROOT }));
+      records.push(...evalRecords);
+      const bctx = { ...ctx, model: results.evalModel(evalResult.runs) };
+      let candidate;
+      try { candidate = results.toBaselineSummary(evalResult, bctx); } catch (e) {
+        if (!(e instanceof results.BaselineError)) throw e;
+        out(`  baseline summary not written: ${e.message}`);
+        continue;
+      }
+      const key = `${candidate.runtime}/${candidate.skill}`;
+      if (writtenBaselines.has(key)) throw new Error(`two evals in this suite name skill "${candidate.skill}" under ${candidate.runtime}; they would overwrite one baseline file`);
+      const check = results.checkAgainstBaseline(BASELINES_DIR, evalResult, bctx);
+      out(`  regression check vs committed summary: ${check.status}${check.reasons.length ? ` (${check.reasons.join('; ')})` : ''}`);
+      if (check.status === 'regression') {
+        regressions.push(evalResult.id);
+        err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${check.reasons.join('; ')} (committed summary recorded ${check.committed.recordedAt})`);
+      }
+      const unknownModel = candidate.model === results.UNKNOWN_MODEL;
+      const mayWrite = opts.updateBaselines || (!unknownModel && (check.status === 'no-baseline' || check.status === 'ok'));
+      if (!mayWrite) {
+        const why = unknownModel ? 'the runtime reported no (or no single) model id, recorded as "unknown"' : check.status === 'regression' ? 'a regression against a reliable committed summary' : `the result is ${check.status}`;
+        out(`  baseline summary NOT written (${why}); the committed file is unchanged. Pass --update-baselines to replace it deliberately.`);
+        continue;
+      }
+      const written = results.writeBaseline(BASELINES_DIR, candidate, { secrets, repoRoot: REPO_ROOT });
+      writtenBaselines.add(key);
+      out(`  baseline summary: ${path.relative(process.cwd(), written)}${opts.updateBaselines && check.status !== 'no-baseline' && check.status !== 'ok' ? ' (replaced by --update-baselines)' : ''}`);
+    } catch (e) {
+      storeErrors.push(e.message);
+      err(`RESULT NOT STORED for eval "${evalResult.id}": ${e.message}`);
+    }
+  }
+  const perSkill = report.formatReport(report.buildReport(evalResults));
+  if (perSkill) out(`\nper-skill report:\n${perSkill}`);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const modelTag = (opts.model || 'default').replace(/[^A-Za-z0-9._-]/g, '_');
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
   const file = path.join(RESULTS_DIR, `${modelTag}-${stamp}.json`);
-  const report = {
+  const summary = {
+    requestedModel: opts.model || null,
     model: opts.model || 'default',
     runtime: opts.runtime,
     startedAt: new Date().toISOString(),
@@ -406,17 +480,25 @@ async function main(argv = process.argv.slice(2)) {
     totalCostUsd: suite.spent,
     peakCommittedUsd: suite.peakCommitted,
     env: { allowlisted: [...envlib.BASE_NAMES, 'HOME', ...credentials], homeMode: envlib.isCI(process.env) || opts.runtime === 'pi' ? 'ci-temp' : 'passthrough' },
-    passed: results.filter((r) => r.outcome === 'pass').length,
-    failed: results.filter((r) => r.outcome === 'fail' || r.outcome === 'timed_out').length,
+    passed: evalResults.filter((r) => r.outcome === 'pass').length,
+    failed: evalResults.filter((r) => r.outcome === 'fail' || r.outcome === 'timed_out').length,
     incomplete: incomplete.length,
-    total: results.length,
-    results,
+    total: evalResults.length,
+    results: evalResults,
+    records,
   };
-  fs.writeFileSync(file, envlib.redactText(JSON.stringify(report, null, 2), secrets));
-  out(`results: ${path.relative(process.cwd(), file)} (${report.passed}/${report.total} passed${report.incomplete ? `, ${report.incomplete} incomplete` : ''})`);
-  if (rejected.length) return 2;
-  if (report.failed) return 1;
-  return report.incomplete ? 4 : 0;
+  // The whole log (results, claudeResult, stderr, changedFiles, records) is scrubbed of credentials and machine identity, not only the records.
+  const logged = results.sanitize(summary, { secrets, repoRoot: REPO_ROOT });
+  fs.writeFileSync(file, envlib.redactText(JSON.stringify(logged, null, 2), secrets));
+  out(`results: ${path.relative(process.cwd(), file)} (${summary.passed}/${summary.total} passed${summary.incomplete ? `, ${summary.incomplete} incomplete` : ''})`);
+  if (regressions.length) err(`${regressions.length} regression(s) against a committed reliable baseline: ${regressions.join(', ')}`);
+  // 2 (rejected definition, result or baseline not stored or read) outranks 1 (failing eval, regression), which outranks 4.
+  if (rejected.length || storeErrors.length) {
+    if (summary.failed || regressions.length) err(`also: ${summary.failed} failing eval(s), ${regressions.length} regression(s) (exit 2 outranks exit 1)`);
+    return 2;
+  }
+  if (summary.failed || regressions.length) return 1;
+  return summary.incomplete ? 4 : 0;
 }
 
 if (require.main === module) {

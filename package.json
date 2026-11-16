@@ -34,6 +34,7 @@
     "release-notes:codex": "node scripts/generate-codex-release-notes.js",
     "publish:changed": "node scripts/publish-plugin.js",
     "evals": "node evals/run.js",
+    "evals:coverage": "node evals/coverage.js",
     "ci:local": "node scripts/ci-local.js"
   },
   "devDependencies": {
