@@ -1,0 +1,25 @@
+{
+  "name": "support-desk-anthropic-fixture",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "^5.5.0"
+  },
+  "jest": {
+    "rootDir": ".",
+    "testRegex": ".*\\.(test|cases)\\.ts$",
+    "transform": { "^.+\\.ts$": "ts-jest" },
+    "testEnvironment": "node"
+  }
+}
