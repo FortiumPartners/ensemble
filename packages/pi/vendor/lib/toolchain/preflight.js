@@ -89,6 +89,7 @@ const { loadAdapter } = require('./adapters');
 const { runCapability } = require('./runner');
 const { redactSecrets } = require('../complexity-analyzer');
 const { isValidRunId, invalidRunIdMessage } = require('./run-id');
+const { ensureStateDir } = require('./state-dir');
 const { isNonInteractive } = require('./confirm');
 const { requireCapabilities } = require('./resolve');
 const { resolveWorkGraphAdapter } = require('./work-graph-resolve');
@@ -317,7 +318,7 @@ async function runPreflight(input = {}, ctx = {}) {
   const record = { ok: true, runId, categories: categoryList, checkedAt };
   const targetPath = preflightRecordPath(projectRoot, runId);
   const targetDir = path.dirname(targetPath);
-  fs.mkdirSync(targetDir, { recursive: true });
+  ensureStateDir(projectRoot, targetDir);
   const tmpPath = path.join(
     targetDir,
     `.tmp-${path.basename(targetPath)}-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`

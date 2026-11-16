@@ -50,6 +50,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { isValidRunId, invalidRunIdMessage } = require('./toolchain/run-id');
+const { ensureStateDir } = require('./toolchain/state-dir');
 
 const KINDS = ['phase', 'io', 'agent', 'gate', 'human-wait'];
 const MONO_WALL_SLACK_MS = 5000;
@@ -119,7 +120,7 @@ function createTracer({ runId, projectRoot, clock = defaultClock, onUnavailable 
     if (!file) return false;
     try {
       if (!dirReady) {
-        fs.mkdirSync(path.dirname(file), { recursive: true });
+        ensureStateDir(projectRoot, path.dirname(file));
         dirReady = true;
       }
       fs.appendFileSync(file, JSON.stringify(record) + '\n');

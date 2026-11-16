@@ -59,7 +59,9 @@ function controlFilePath(binDir) {
  * (`fs.rmSync(dir, {recursive: true, force: true})`).
  * @param {string} binDir the same directory passed to `writeBeadsStubs`
  * @param {{brShowStatus?: string, brListShape?: 'wrapped'|'bare', brListLargeIssueCount?: number,
- *   brErrorEnvelope?: boolean, bvItemIds?: string[]}} [overrides]
+ *   brErrorEnvelope?: boolean, bvItemIds?: string[], bvPlan?: object}} [overrides] (`bvPlan`
+ * replaces the whole `plan` value of the `--robot-plan` document, to emit real bv shapes such
+ * as the empty `{"tracks": []}` plan or a malformed one)
  */
 function writeStubControl(binDir, overrides = {}) {
   fs.writeFileSync(controlFilePath(binDir), JSON.stringify(overrides));
@@ -182,7 +184,7 @@ if (argv.includes('--version')) {
 } else if (argv.includes('--robot-plan')) {
   const items = ids.map((id, i) => ({ id, title: 'Stub ' + id, priority: i, status: 'open', unblocks: [] }));
   out({
-    plan: {
+    plan: control.bvPlan !== undefined ? control.bvPlan : {
       tracks: [
         { track_id: 'track-A', items, reason: 'Independent work stream' },
         { track_id: 'track-B', items: [{ id: 'br-other-track', title: 'x', priority: 0, status: 'open', unblocks: [] }], reason: 'Independent work stream' }
