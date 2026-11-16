@@ -1,0 +1,112 @@
+{
+  "id": "assess-security",
+  "skill": "assess-security",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to assess the security posture of a small seeded Node API (vaultly: login, users, search, card on file) with the report saved to docs/assessment/security.md. The fixture plants known facts: three hardcoded fake canary secrets (a JWT secret in src/auth.js, an API key and a database password inside a connection string in src/config.js); JWT authentication with a 30-day lifetime and no OAuth; an admin DELETE route in src/routes.js with no authentication middleware; SQL built by string concatenation from a query parameter; a plain-text ssn and date of birth in src/users.js next to a card number that is encrypted in src/payments.js; and old pinned dependencies (lodash 4.17.4, minimist 0.0.8, jsonwebtoken 8.0.0, express 4.16.0). Deterministic checks cover: the report is saved with the 'Security Analysis' title; all nine sections of the skill's Output Format appear in order; the Score is `<1.0-5.0> / <Letter>` with the letter derived from the shared scale; no canary secret value (whole or in recognisable part) appears in any file under docs/assessment/; presence of the hardcoded secrets is reported with their real file:line; JWT is found and cited and OAuth is not claimed (flaky); the unprotected admin route is cited and called out; the SQL injection is cited and rated HIGH in a Vulnerabilities table whose rows all carry a severity and a file:line; the plain-text ssn and the encrypted card are both found (flaky); a pinned old dependency is named with its version (flaky); every file:line citation resolves to a real file and line (flaky); Key Findings carry severities and Recommendations are numbered; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the analysis is complete or insightful, that the score is deserved, or that the severity ratings are right; the secret-leak check only catches the three canaries and cannot see the chat transcript. The baseline arm gets the same prompt without the plugin and is expected to produce a security report too, so the uplift measures the plugin's conventions (section layout, numeric/letter score, presence-only secret reporting, citations), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Assess the security posture of this repository: authentication, authorization, how secrets are managed, input validation, how sensitive personal and payment data is handled, vulnerabilities with a severity and location, and the dependencies, with an overall score and recommendations. Cite the file and line for every finding.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/security.md. Write only that report; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' no-secret-values",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' secrets-reported",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' auth-jwt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' oauth-absent",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' authz-gap",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' sql-injection",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' vuln-table",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' sensitive-data",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' dependencies-noted",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' findings-recommendations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-security.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
