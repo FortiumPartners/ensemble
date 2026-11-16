@@ -1,0 +1,5 @@
+export-bench v1.1.0 (staging, 10000 invoices, CSV)
+runs: 50
+p50: 0.9 s
+p95: 1.4 s
+p99: 1.9 s

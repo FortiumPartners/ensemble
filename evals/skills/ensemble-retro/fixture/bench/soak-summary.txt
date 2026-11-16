@@ -1,0 +1,4 @@
+export soak v1.1.0 (staging, 7 days)
+runs: 400
+failed: 12
+failure rate: 3.0 percent

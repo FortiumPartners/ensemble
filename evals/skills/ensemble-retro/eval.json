@@ -1,0 +1,254 @@
+{
+  "id": "ensemble-retro",
+  "skill": "ensemble-retro",
+  "description": "Claude Code only. /ensemble-development:ensemble:retro for release v1.1.0 of a small export service, in a sandbox with real git history built by `setup` (tags v0.9.0, v1.0.0, v1.1.0 and v1.2.0, squash-style `(#N)` commits carrying bead ids, author dates fixed; no merge commits, `git merge` is not on the setup allowlist) and stub `br`, `bv` and `gh` in bin/ answering from canned data (the bead list with estimates and timestamps, merged and open pull requests; the issue search is DOWN on purpose, no network). The correct range is v1.0.0..v1.1.0 (four PRs #12-#15, beads rt-1..rt-6, with decoys before the previous tag, after the release, and open); the estimate figures for the shipped set are count 5, median ratio 2, p90 ratio 24, one bead without an estimate, rt-5 the outlier; the PRD has three success metrics (one met, one not met, one with no evidence) and the incident source is unavailable. Graded: the retrospective at docs/retros/2026-10-14-v1.1.0.md with its five sections, the range and what it lists, the estimate figures and the wall-clock caveat, the per-metric status with its evidence and no figure for the metric with none, the unavailable issue search and the unqueried error tracker reported as such, no invented PR, bead or release, follow-ups proposed and none created, the tracker read, no br/bv/gh mutation, git refs unchanged (read from .git), seeded files unchanged, a report.md naming the retrospective, the canary copied nowhere. The prompt tells the run to take dates from commit author dates, because the sandbox can fix author dates but not committer or tagger dates (`setup` has no way to set GIT_COMMITTER_DATE), so the tag dates all read as the build time; the skill's own wording is `the release date is the tag date`. KNOWN CONFOUNDS AND LIMITS: that hint makes the release date and the bead window deterministic but is itself a nudge; the skill resolves toolchain-cli and estimate-actual by path (tool-path-resolution), unproven in a sandbox; the host adapter's `host.change-request-list` takes no filter and no --state, so through it only OPEN PRs are listed (the skill's `merged since` filter is ignored): a run gets the merged PRs from the commit subjects or a direct `gh pr list --state merged`, the stub answers both; the tracker export reaches the run as a JSON string inside the toolchain's envelope; the prompt asks for report.md; several checks read free-form report text (marked soft). NOT COVERED: --since mode, a missing or unresolved range, a PRD that is absent, follow-up creation after approval (tracker.create), a real merge commit history, a reachable issue search. The baseline arm is expected to measure the plugin's conventions (the documented path and sections, the library's ratio statistics, metric statuses, saying what is unavailable), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "sharedPackages": [
+    "git"
+  ],
+  "prompt": "Write the retrospective for release v1.1.0 of this service.\n\nThis is a non-interactive run against a local sandbox: `br`, `bv` and `gh` on PATH are local stubs that answer from canned data, so use no other tracker or GitHub access and no network. Nobody is available to answer questions or to approve anything during the run, so ask none. The sandbox clock is not real: its tags and committer dates only record when it was built, so take every date (the release date, the start of the range) from commit author dates, for example `git log -1 --format=%aI <tag>`. Measurement outputs for the release (benchmarks, soak results) are under bench/. Change nothing in the repository except what the retrospective itself needs, and keep scratch files outside the repository. When you have finished, also save a short note to report.md in the repository root: where the retrospective is and anything you could not obtain.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:retro",
+  "sandboxPath": [
+    "bin"
+  ],
+  "env": {
+    "ENSEMBLE_NON_INTERACTIVE": "1"
+  },
+  "setup": [
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "chore: first public cut (#1)",
+      "--date=2026-08-20T12:00:00Z"
+    ],
+    [
+      "git",
+      "tag",
+      "v0.9.0"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "feat: baseline invoice report (#11) rt-0",
+      "--date=2026-09-20T10:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "release: v1.0.0 (#10)",
+      "--date=2026-09-30T12:00:00Z"
+    ],
+    [
+      "git",
+      "tag",
+      "v1.0.0"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "feat: add CSV export (#12) rt-1",
+      "--date=2026-10-02T09:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "fix: escape quotes in CSV cells (#13) rt-2",
+      "--date=2026-10-05T13:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "feat: add JSON export (#14) rt-3",
+      "--date=2026-10-07T12:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "docs: update the export guide rt-4",
+      "--date=2026-10-08T10:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "feat: streaming writer and pagination (#15) rt-5 rt-6",
+      "--date=2026-10-12T00:00:00Z"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "release: v1.1.0",
+      "--date=2026-10-14T12:00:00Z"
+    ],
+    [
+      "git",
+      "tag",
+      "v1.1.0"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "fix: hotfix timezone in the CSV header (#16) rt-7",
+      "--date=2026-10-18T02:00:00Z"
+    ],
+    [
+      "git",
+      "tag",
+      "v1.2.0"
+    ]
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "Skill"
+  ],
+  "maxTurns": 60,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' retro-path",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' retro-sections",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' range-correct",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' estimate-numbers",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' effort-caveat",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' success-metrics",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' incidents-unavailable",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' error-tracker-noted",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' no-invented-refs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' follow-ups",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' tracker-read",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' no-mutation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' git-state",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' files-unchanged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-retro.js' no-canary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bgit\\s+(?:(?:-[Cc]\\s+\\S+|--?[A-Za-z][^\\s=]*(?:=\\S+)?)\\s+)*(?:commit|push|merge|rebase|reset|stash|am|cherry-pick|revert|checkout|switch|restore|clean|add)\\b",
+        "\\bgit\\s+(?:(?:-[Cc]\\s+\\S+|--?[A-Za-z][^\\s=]*(?:=\\S+)?)\\s+)*tag\\s+-[adf]\\b",
+        "\\bbr\\s+(?:create|q|update|close|reopen|dep|label|delete|defer|undefer|epic|sync|import|init)\\b",
+        "\\brun\\s+tracker\\.(?:create|update|close|comment|add-label|sync)\\b",
+        "\\bgh\\b[^\\n]*\\bpr\\s+(?:create|merge|review|comment|edit|close|reopen|ready)\\b",
+        "\\bgh\\b[^\\n]*\\bissue\\s+(?:close|edit|comment|reopen|create|delete|transfer|lock|develop)\\b",
+        "\\bgh\\b[^\\n]*\\bapi\\b[^\\n]*(?:-X|--method)"
+      ]
+    }
+  ]
+}
