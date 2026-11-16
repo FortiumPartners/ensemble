@@ -144,8 +144,49 @@ function sanitize(value, { secrets = [], repoRoot } = {}) {
   return walk(envlib.redactDeep(value, secrets));
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Replay handle (TRD-020)
+// ---------------------------------------------------------------------------------------------------------------
+
+const REPLAY_PREFIX = 'node evals/run.js';
+// What may appear in a replay value: ids, model names (`provider/id`, `id[1m]`, `id:thinking`) and numbers. Quoted anyway.
+const REPLAY_VALUE = /^[A-Za-z0-9._:/@+=[\]-]{1,200}$/;
+
+/** POSIX single-quote quoting: the value is one literal word whatever it contains. */
+function shellQuote(v) {
+  return `'${String(v).replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * The command that reruns exactly one run: same eval, runtime, model (as requested), arm, repeat index and settings
+ * (repeats, timeout, per-run budget, judge). Every value is validated against REPLAY_VALUE and single-quoted; a value
+ * that does not validate gives `null` (no command rather than an unsafe one). Relative to the repository root, no environment
+ * variables, no machine paths, no credentials. `--run-index` makes run.js run only that run, fresh, without cache reuse or
+ * a baseline write; `--refresh` is printed too so the intent is visible.
+ * spec: { evalId, runtime, model?, arm?, run?, repeats?, timeoutSec?, runUsd?, judgeModel?, judgeUsd? }
+ */
+function replayCommand(spec) {
+  const flags = [['--scenario', spec.evalId], ['--runtime', spec.runtime]];
+  if (spec.model) flags.push(['--model', spec.model]);
+  if (spec.arm) flags.push(['--arm', spec.arm], ['--run-index', spec.run], ['--repeats', spec.repeats]);
+  if (spec.timeoutSec !== undefined && spec.timeoutSec !== null) flags.push(['--timeout', spec.timeoutSec]);
+  if (spec.runUsd !== undefined && spec.runUsd !== null) flags.push(['--run-usd', spec.runUsd]);
+  if (spec.judgeModel) flags.push(['--judge-model', spec.judgeModel]);
+  if (spec.judgeUsd !== undefined && spec.judgeUsd !== null) flags.push(['--judge-usd', spec.judgeUsd]);
+  for (const [, v] of flags) if (v === undefined || v === null || !REPLAY_VALUE.test(String(v))) return null;
+  return `${REPLAY_PREFIX} ${flags.map(([f, v]) => `${f} ${shellQuote(v)}`).join(' ')} --refresh`;
+}
+
 const present = (o, k) => Object.prototype.hasOwnProperty.call(o, k) && o[k] !== undefined;
 const nonEmpty = (v) => typeof v === 'string' && v.trim() !== '';
+// Terminal control characters (C0 except tab/newline, DEL, C1): an escape sequence in a stored value would be printed to a console.
+const CONTROL_ANY_RE = /[\u0000-\u001f\u007f-\u009f]/;
+const stripControl = (t) => String(t).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
+/** A non-empty string with no control character at all (identifiers printed on a console: model, eval version, eval id, judge model). */
+const cleanId = (v) => nonEmpty(v) && !CONTROL_ANY_RE.test(v);
+/** ISO-8601 UTC timestamp as `Date#toISOString` writes it; anything else (including text Date.parse tolerates) is refused. */
+const ISO_UTC_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const isIsoTimestamp = (v) => typeof v === 'string' && ISO_UTC_RE.test(v) && !Number.isNaN(Date.parse(v));
 
 /**
  * Validate a stored per-run record. Throws ResultError naming `source` and the first missing or malformed field.
@@ -157,13 +198,13 @@ function validateResult(r, source = 'result') {
   for (const k of ['evalId', 'skill', 'skillVersion', 'skillHash', 'evalVersion', 'runtime', 'model', 'arm', 'invocationMode', 'run', 'outcome', 'invoked', 'costUsd', 'durationMs', 'graders', 'replay', 'judgeModel']) {
     if (!present(r, k)) bad(k, 'missing');
   }
-  if (!nonEmpty(r.evalId)) bad('evalId', 'invalid');
+  if (!cleanId(r.evalId)) bad('evalId', 'invalid');
   if (!isSkillName(r.skill)) bad('skill', 'invalid');
   if (r.skillVersion !== null && !nonEmpty(r.skillVersion)) bad('skillVersion', 'invalid');
   if (!nonEmpty(r.skillHash)) bad('skillHash', 'invalid');
-  if (!nonEmpty(r.evalVersion)) bad('evalVersion', 'invalid');
+  if (!cleanId(r.evalVersion)) bad('evalVersion', 'invalid');
   if (!supportedRuntimes().includes(r.runtime)) bad('runtime', 'unknown value in');
-  if (!nonEmpty(r.model)) bad('model', 'invalid');
+  if (!cleanId(r.model)) bad('model', 'invalid');
   if (!ARM_NAMES.includes(r.arm)) bad('arm', 'invalid');
   if (!INVOCATION_MODES.includes(r.invocationMode)) bad('invocationMode', 'invalid');
   if (!Number.isInteger(r.run) || r.run < 1) bad('run', 'invalid');
@@ -173,7 +214,9 @@ function validateResult(r, source = 'result') {
   if (r.durationMs !== null && !(typeof r.durationMs === 'number' && Number.isFinite(r.durationMs) && r.durationMs >= 0)) bad('durationMs', 'invalid');
   if (!Array.isArray(r.graders)) bad('graders', 'invalid');
   if (r.replay !== null && (typeof r.replay !== 'object' || Array.isArray(r.replay))) bad('replay', 'invalid');
-  if (r.judgeModel !== null && !nonEmpty(r.judgeModel)) bad('judgeModel', 'invalid');
+  if (r.replay && present(r.replay, 'command') && !(typeof r.replay.command === 'string' && r.replay.command.length <= 2000 && r.replay.command.startsWith(`${REPLAY_PREFIX} `))) bad('replay.command', 'invalid');
+  if (present(r, 'cached') && typeof r.cached !== 'boolean') bad('cached', 'invalid');
+  if (r.judgeModel !== null && !cleanId(r.judgeModel)) bad('judgeModel', 'invalid');
   return r;
 }
 
@@ -206,8 +249,14 @@ function buildResult(run, ctx) {
     durationMs: typeof run.durationMs === 'number' ? run.durationMs : null,
     graders: (run.graders || []).map((g) => ({ type: g.type, pass: g.pass, ...(g.judged && { judged: true }), ...(g.score !== undefined && { score: g.score }), detail: g.detail })),
     judgeModel: run.judgeModel || null,
-    // The rerun command is TRD-020; until then the handle names the run, nothing more.
-    replay: { evalId: run.evalId, skill: ctx.skill, runtime: run.runtime, model: run.model, arm: run.arm, run: run.run },
+    // `ctx.replay` = the run-independent part of the replay spec (requested model, settings); the command is built per run.
+    replay: (() => {
+      const handle = { evalId: run.evalId, skill: ctx.skill, runtime: run.runtime, model: run.model, arm: run.arm, run: run.run };
+      if (!ctx.replay) return handle;
+      const command = replayCommand({ ...ctx.replay, evalId: run.evalId, runtime: run.runtime, arm: run.arm, run: run.run });
+      return { ...handle, requestedModel: ctx.replay.model || null, settings: ctx.replay.settings || null, ...(command && { command }) };
+    })(),
+    ...(run.cached && { cached: true }),
   };
   return validateResult(rec, `run ${run.evalId} ${run.arm} #${run.run}`);
 }
@@ -266,8 +315,8 @@ function validateBaseline(b, source = 'baseline') {
   if (!isSkillName(b.skill)) bad('skill');
   if (b.skillVersion !== null && !nonEmpty(b.skillVersion)) bad('skillVersion');
   if (!nonEmpty(b.skillHash)) bad('skillHash');
-  if (!nonEmpty(b.evalVersion)) bad('evalVersion');
-  if (!nonEmpty(b.model)) bad('model');
+  if (!cleanId(b.evalVersion)) bad('evalVersion');
+  if (!cleanId(b.model)) bad('model');
   if (!supportedRuntimes().includes(b.runtime)) bad('runtime', 'unknown value in');
   if (b.granularity !== GRANULARITY[b.runtime]) bad('granularity', `granularity "${String(b.granularity)}" does not match runtime ${b.runtime} (expected ${GRANULARITY[b.runtime]}) in`);
   // packageHash: the whole package Claude loads. Required for package granularity; informational (may be absent) for skill granularity.
@@ -284,7 +333,7 @@ function validateBaseline(b, source = 'baseline') {
   if (!(typeof b.uplift === 'number' && Number.isFinite(b.uplift))) bad('uplift');
   const expected = b.withSkill.passes / b.withSkill.runs - b.baseline.passes / b.baseline.runs;
   if (Math.abs(b.uplift - expected) > 1e-9) bad('uplift', `value ${b.uplift} contradicts the arm counts (expected ${expected}) in`);
-  if (!nonEmpty(b.recordedAt) || Number.isNaN(Date.parse(b.recordedAt))) bad('recordedAt');
+  if (!isIsoTimestamp(b.recordedAt)) bad('recordedAt');
   return b;
 }
 
@@ -338,28 +387,59 @@ const MAX_BASELINE_BYTES = 1024 * 1024;
  * lstat a baselines directory (the root or a runtime directory). Returns false when it does not exist; a symlink or a
  * non-directory is a named BaselineError (a symlinked directory could redirect a write outside the baselines tree).
  */
-function checkDir(dir, what) {
+function checkDir(dir, what, Err = BaselineError) {
   let st;
   try { st = fs.lstatSync(dir); } catch (e) {
     if (e.code === 'ENOENT') return false;
-    throw new BaselineError(`${what}: cannot inspect (${e.code || e.message})`);
+    throw new Err(`${what}: cannot inspect (${e.code || e.message})`);
   }
-  if (st.isSymbolicLink()) throw new BaselineError(`${what} is a symlink: refusing to follow it`);
-  if (!st.isDirectory()) throw new BaselineError(`${what} is not a directory`);
+  if (st.isSymbolicLink()) throw new Err(`${what} is a symlink: refusing to follow it`);
+  if (!st.isDirectory()) throw new Err(`${what} is not a directory`);
   return true;
 }
 
 /** lstat a baseline file: false when absent; a symlink or non-regular file (FIFO, device, directory) or one over the size cap is a named error. */
-function checkFile(file) {
+function checkFile(file, Err = BaselineError, maxBytes = MAX_BASELINE_BYTES) {
   let st;
   try { st = fs.lstatSync(file); } catch (e) {
     if (e.code === 'ENOENT') return false;
-    throw new BaselineError(`${path.basename(file)}: cannot inspect (${e.code || e.message})`);
+    throw new Err(`${path.basename(file)}: cannot inspect (${e.code || e.message})`);
   }
-  if (st.isSymbolicLink()) throw new BaselineError(`${path.basename(file)} is a symlink: refusing to follow it`);
-  if (!st.isFile()) throw new BaselineError(`${path.basename(file)} is not a regular file`);
-  if (st.size > MAX_BASELINE_BYTES) throw new BaselineError(`${path.basename(file)} is larger than ${MAX_BASELINE_BYTES} bytes: not a baseline summary`);
+  if (st.isSymbolicLink()) throw new Err(`${path.basename(file)} is a symlink: refusing to follow it`);
+  if (!st.isFile()) throw new Err(`${path.basename(file)} is not a regular file`);
+  if (st.size > maxBytes) throw new Err(`${path.basename(file)} is larger than ${maxBytes} bytes: refusing to read it`);
   return true;
+}
+
+/**
+ * Text of a regular file within the size cap, opened without following a link and without blocking on a FIFO
+ * (O_NOFOLLOW | O_NONBLOCK, then fstat on the descriptor). Every failure is an `Err` naming the file.
+ */
+function readStoreText(file, Err = BaselineError, maxBytes = MAX_BASELINE_BYTES) {
+  try {
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0));
+    try {
+      const st = fs.fstatSync(fd);
+      if (!st.isFile() || st.size > maxBytes) throw new Err(`${path.basename(file)} is not a regular file within the size cap`);
+      return fs.readFileSync(fd, 'utf8');
+    } finally { fs.closeSync(fd); }
+  } catch (e) {
+    if (e instanceof Err) throw e;
+    throw new Err(`${path.basename(file)}: cannot read (${e.code || e.message})`);
+  }
+}
+
+/** Write `text` to `file` through an exclusive-create temp file in the same (already verified) directory, then an atomic rename. */
+function atomicWrite(file, text, tmpTag) {
+  const tmp = path.join(path.dirname(file), `.${tmpTag}.${process.pid}.${Date.now()}.tmp`);
+  try {
+    const fd = fs.openSync(tmp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o644);
+    try { fs.writeFileSync(fd, text); } finally { fs.closeSync(fd); }
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
+    throw e;
+  }
 }
 
 /** Write the summary to `<baselinesDir>/<runtime>/<skill>.json` (sanitized first); returns the file path. */
@@ -375,34 +455,14 @@ function writeBaseline(baselinesDir, summary, { secrets = [], repoRoot } = {}) {
   if (!checkDir(dir, `baselines ${summary.runtime} directory`)) fs.mkdirSync(dir);
   checkDir(dir, `baselines ${summary.runtime} directory`);
   checkFile(file);
-  // Temp file in the verified directory (exclusive create, never following a link), then an atomic rename over the target.
-  const tmp = path.join(dir, `.${summary.skill}.${process.pid}.${Date.now()}.tmp`);
-  try {
-    const fd = fs.openSync(tmp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL, 0o644);
-    try { fs.writeFileSync(fd, text); } finally { fs.closeSync(fd); }
-    fs.renameSync(tmp, file);
-  } catch (e) {
-    try { fs.unlinkSync(tmp); } catch { /* already gone */ }
-    throw e;
-  }
+  atomicWrite(file, text, summary.skill);
   return file;
 }
 
 /** Read and validate one baseline summary file (never through a symlink; regular files up to a size cap); a mismatch with its path is an error. */
 function readBaseline(file) {
   if (!checkFile(file)) throw new BaselineError(`${path.basename(file)}: cannot read (ENOENT)`);
-  let text;
-  try {
-    const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0) | (fs.constants.O_NONBLOCK || 0));
-    try {
-      const st = fs.fstatSync(fd);
-      if (!st.isFile() || st.size > MAX_BASELINE_BYTES) throw new BaselineError(`${path.basename(file)} is not a regular file within the size cap`);
-      text = fs.readFileSync(fd, 'utf8');
-    } finally { fs.closeSync(fd); }
-  } catch (e) {
-    if (e instanceof BaselineError) throw e;
-    throw new BaselineError(`${path.basename(file)}: cannot read (${e.code || e.message})`);
-  }
+  const text = readStoreText(file);
   let doc;
   try { doc = JSON.parse(text); } catch (e) { throw new BaselineError(`${path.basename(file)}: not valid JSON (${e.message})`); }
   const b = validateBaseline(doc, path.basename(file));
@@ -438,24 +498,33 @@ function loadAllBaselines(baselinesDir) {
 }
 
 /**
- * Compare a fresh summary with the committed one. status: `not-comparable` (model, runtime, eval version, repeats or, for package
- * granularity, package hash differ, or either model is `unknown`:
- * said, never passed), `regression` (the committed summary was reliable and the new one is not), else `ok`.
+ * Compare a fresh summary with the committed one. status: `not-comparable` (runtime, model, eval version or repeats differ, or either
+ * model is `unknown`: said, never passed), `regression` (the committed summary was reliable and the new one is not), else `ok`.
+ * Like-for-like is TRD-019's key: same runtime, model and eval version (and repeats, which the bar depends on). A changed skill
+ * or package content is NOT a reason to refuse the comparison: the skill changing is exactly what a regression check is for
+ * (a deliberately broken skill must be able to fail the gate, AC-018-2). The change is reported in `notes` instead.
+ * Comparable results (`ok`, `regression`) carry `delta`: the with-skill rate and the uplift, committed and now.
  */
 function compareSummaries(committed, current) {
   const reasons = [];
-  const keys = ['runtime', 'model', 'evalVersion', 'repeats'];
-  // The whole package is loaded only under package granularity; for skill-level (Pi) packageHash is informational and not compared.
-  if (committed.granularity === 'package' && current.granularity === 'package') keys.push('packageHash');
-  for (const k of keys) {
+  for (const k of ['runtime', 'model', 'evalVersion', 'repeats']) {
     if (committed[k] !== current[k]) reasons.push(`${k} differs (committed ${committed[k]}, now ${current[k]})`);
   }
   if (committed.model === UNKNOWN_MODEL || current.model === UNKNOWN_MODEL) reasons.push('model is unknown: an unknown model is not comparable to anything, itself included');
   if (reasons.length) return { status: 'not-comparable', reasons };
+  const notes = [];
+  if (committed.skillHash !== current.skillHash) notes.push('skill content changed since the committed summary');
+  if (committed.granularity === 'package' && current.granularity === 'package' && committed.packageHash !== current.packageHash) notes.push('package content changed since the committed summary');
+  if (committed.skillVersion !== current.skillVersion) notes.push(`skill version differs (committed ${committed.skillVersion}, now ${current.skillVersion})`);
+  const wr = (b) => b.withSkill.passes / b.withSkill.runs;
+  const delta = {
+    withSkillRate: { committed: wr(committed), current: wr(current), change: wr(current) - wr(committed) },
+    uplift: { committed: committed.uplift, current: current.uplift, change: current.uplift - committed.uplift },
+  };
   if (committed.reliable && !current.reliable) {
-    return { status: 'regression', reasons: [`was reliable (${committed.withSkill.passes}/${committed.withSkill.runs}, bar ${committed.bar}), now ${current.withSkill.passes}/${current.withSkill.runs}`] };
+    return { status: 'regression', reasons: [`was reliable (${committed.withSkill.passes}/${committed.withSkill.runs}, bar ${committed.bar}), now ${current.withSkill.passes}/${current.withSkill.runs}`], notes, delta };
   }
-  return { status: 'ok', reasons: [] };
+  return { status: 'ok', reasons: [], notes, delta };
 }
 
 /**
@@ -480,5 +549,6 @@ module.exports = {
   ResultError, BaselineError, UNKNOWN_MODEL, evalModel, MAX_BASELINE_BYTES, assertRuntime, granularityFor, sanitize,
   validateResult, buildResult, readResult, readRecords,
   baselinePath, validateBaseline, toBaselineSummary, writeBaseline, readBaseline, loadBaseline, loadAllBaselines, compareSummaries, checkAgainstBaseline,
+  stripControl, cleanId, isIsoTimestamp, checkDir, checkFile, readStoreText, atomicWrite, replayCommand, shellQuote,
 };
 

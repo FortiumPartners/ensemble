@@ -158,6 +158,6 @@ function summarizeEval(ev, plan, runs, { runtime = 'claude', abort = null, copy 
 }
 
 module.exports = {
-  ARMS, UPLIFT_LABELS, upliftLabel, scenarioJob, buildJob, skillMatches, wasInvoked, detectLeak, checkBaseline, UNVERIFIABLE_NAME, uplift, summarizeEval,
+  VERIFIED_SOURCES, ARMS, UPLIFT_LABELS, upliftLabel, scenarioJob, buildJob, skillMatches, wasInvoked, detectLeak, checkBaseline, UNVERIFIABLE_NAME, uplift, summarizeEval,
   evaluatedCopy: results.evaluatedCopy,
 };

@@ -10,6 +10,7 @@
  */
 
 const { computeCoverage, formatCoverage } = require('./lib/coverage');
+const { stripControl } = require('./lib/results');
 
 function main(argv = process.argv.slice(2), opts = {}) {
   const flags = new Set();
@@ -18,8 +19,8 @@ function main(argv = process.argv.slice(2), opts = {}) {
     flags.add(a);
   }
   let cov;
-  try { cov = computeCoverage(opts); } catch (e) { console.error(e.message); return 2; }
-  console.log(flags.has('--json') ? JSON.stringify(cov, null, 2) : formatCoverage(cov));
+  try { cov = computeCoverage(opts); } catch (e) { console.error(stripControl(e.message)); return 2; }
+  console.log(flags.has('--json') ? JSON.stringify(cov, null, 2) : stripControl(formatCoverage(cov)));
   if (cov.errors.length) return 2;
   return flags.has('--strict') && cov.counts.missing > 0 ? 1 : 0;
 }

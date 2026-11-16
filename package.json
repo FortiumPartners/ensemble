@@ -35,6 +35,7 @@
     "publish:changed": "node scripts/publish-plugin.js",
     "evals": "node evals/run.js",
     "evals:coverage": "node evals/coverage.js",
+    "evals:compare": "node evals/compare.js",
     "ci:local": "node scripts/ci-local.js"
   },
   "devDependencies": {

@@ -213,13 +213,15 @@ describe('S2 recorded model', () => {
 });
 
 describe('packageHash', () => {
-  test('a changed packageHash is not-comparable for package granularity; informational for skill-level Pi', () => {
+  test('a changed packageHash or skillHash is a note, not a reason to refuse the comparison (TRD-019: runtime, model, eval version); a below-bar result is then a regression', () => {
     const committed = goodSummary();
     expect(committed.packageHash).toBe('d'.repeat(64));
-    const changed = { ...committed, packageHash: 'e'.repeat(64) };
-    expect(results.compareSummaries(committed, changed)).toMatchObject({ status: 'not-comparable', reasons: [expect.stringContaining('packageHash differs')] });
+    const changed = { ...committed, packageHash: 'e'.repeat(64), skillHash: 'f'.repeat(64) };
+    expect(results.compareSummaries(committed, changed)).toMatchObject({ status: 'ok', notes: ['skill content changed since the committed summary', 'package content changed since the committed summary'] });
+    const worse = { ...changed, withSkill: { passes: 1, runs: 3 }, reliable: false, uplift: 1 / 3 - 1 / 3 };
+    expect(results.compareSummaries(committed, worse)).toMatchObject({ status: 'regression', notes: expect.any(Array), delta: { withSkillRate: { committed: 2 / 3, current: 1 / 3 } } });
     const piA = results.toBaselineSummary(evalResult('pi', ['pass', 'pass'], ['fail', 'fail']), CTX);
-    expect(results.compareSummaries(piA, { ...piA, packageHash: 'e'.repeat(64) }).status).toBe('ok');
+    expect(results.compareSummaries(piA, { ...piA, packageHash: 'e'.repeat(64) })).toMatchObject({ status: 'ok', notes: [] });
   });
 
   test('a package-level summary without packageHash is invalid; evaluatedCopy computes it over the whole package', () => {

@@ -5,13 +5,16 @@
  * Headless behavioral eval runner.
  * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run]
  *   [--max-usd N] [--timeout SEC] [--concurrency N] [--keep-workspace] [--allow-env NAME]... [--env-allowlist FILE]
- *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi] [--update-baselines]
+ *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi] [--update-baselines] [--refresh]
+ *   [--scenario <id> --arm with-skill|baseline --run-index N]   (replay exactly one run: always fresh, no cache, no baseline write)
  * Exit: 0 all pass, 1 an eval failed or timed out or a regression against a committed reliable baseline was detected,
  *   2 usage/rejected definition (including an unsupported runtime, or a --scenario/--skill selection that the runtime filter empties)
  *   or a result/baseline that could not be stored or read (2 outranks 1),
  *   3 the runtime's CLI missing, 4 incomplete evals or an unfiltered run that executed zero evals (1 outranks 4).
  * Baselines: a summary is written only when the check says `no-baseline` or `ok` and the model is known; a `regression`,
  *   a `not-comparable` result or an `unknown` model never overwrites the committed file unless --update-baselines is given.
+ * Cache: a finished run is reused (no model call, no cost) when its skill/package hash, eval version, requested --model, runtime, arm and
+ *   settings all match a stored entry (evals/lib/cache.js); --refresh forces fresh runs. Without --model nothing is reused or stored.
  * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
 
@@ -30,12 +33,30 @@ const { loadLimits, reservationFor, runSuite, resolveRepeats, expandRuns } = req
 const arms = require('./lib/arms');
 const { describeCopy } = require('./lib/results');
 const { getRunner, supportedRuntimes } = require('./lib/runners');
+const cache = require('./lib/cache');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
+/**
+ * The repository the skill packages are read from. Test hook: EVALS_REPO_ROOT points at a scratch copy (it must be an existing directory that
+ * contains `packages/`); it is read once, here. Unset: this checkout.
+ */
+function resolveRepoRoot() {
+  const given = process.env.EVALS_REPO_ROOT;
+  if (given === undefined || given === '') return path.resolve(__dirname, '..');
+  const root = path.resolve(given);
+  const isDir = (d) => { try { return fs.statSync(d).isDirectory(); } catch { return false; } };
+  const ok = isDir(root) && isDir(path.join(root, 'packages'));
+  if (!ok) {
+    console.error(`EVALS_REPO_ROOT must be an existing directory containing packages/: ${results.stripControl(given).slice(0, 200)}`);
+    process.exit(2);
+  }
+  return root;
+}
+const REPO_ROOT = resolveRepoRoot();
 const SCENARIOS_DIR = process.env.EVALS_SCENARIOS_DIR || path.join(__dirname, 'scenarios');
 const EVAL_SKILLS_DIR = process.env.EVALS_SKILLS_DIR || path.join(__dirname, 'skills');
 const RESULTS_DIR = process.env.EVALS_RESULTS_DIR || path.join(__dirname, 'results');
 // Committed baseline summaries. Overridable; when only EVALS_RESULTS_DIR is overridden (tests) they go beside it, never into the repository.
+const CACHE_DIR = process.env.EVALS_CACHE_DIR || (process.env.EVALS_RESULTS_DIR ? path.join(path.dirname(process.env.EVALS_RESULTS_DIR), 'cache') : path.join(__dirname, 'cache'));
 const BASELINES_DIR = process.env.EVALS_BASELINES_DIR || (process.env.EVALS_RESULTS_DIR ? path.join(path.dirname(process.env.EVALS_RESULTS_DIR), 'baselines') : results.BASELINES_DIR);
 
 let activeSecrets = []; // credential values in play; the top-level error handler redacts with these
@@ -44,7 +65,7 @@ function parseArgs(argv) {
   const o = {
     scenario: null, skill: null, model: null, judgeModel: null, dryRun: false, maxUsd: null,
     timeoutSec: null, concurrency: null, keepWorkspace: false, allowEnv: [], envAllowlist: null, runUsd: null, judgeUsd: null,
-    repeats: null, runtime: 'claude', updateBaselines: false,
+    repeats: null, runtime: 'claude', updateBaselines: false, refresh: false, arm: null, runIndex: null,
   };
   const num = (flag, v, { int = false } = {}) => {
     const n = Number(v);
@@ -56,6 +77,9 @@ function parseArgs(argv) {
     if (a === '--dry-run') o.dryRun = true;
     else if (a === '--keep-workspace') o.keepWorkspace = true;
     else if (a === '--update-baselines') o.updateBaselines = true;
+    else if (a === '--refresh') o.refresh = true;
+    else if (a === '--arm') o.arm = argv[++i];
+    else if (a === '--run-index') o.runIndex = num(a, argv[++i], { int: true });
     else if (a === '--scenario') o.scenario = argv[++i];
     else if (a === '--skill') o.skill = argv[++i];
     else if (a === '--model') o.model = argv[++i];
@@ -71,6 +95,9 @@ function parseArgs(argv) {
     else if (a === '--env-allowlist') o.envAllowlist = argv[++i];
     else throw new Error(`unknown argument: ${a}`);
   }
+  if ((o.arm !== null) !== (o.runIndex !== null)) throw new Error('--arm and --run-index go together (they select the one run to replay)');
+  if (o.arm !== null && !arms.ARMS.includes(o.arm)) throw new Error(`--arm must be one of ${arms.ARMS.join(', ')}`);
+  if (o.arm !== null && !o.scenario) throw new Error('--arm and --run-index need --scenario <eval id>');
   return o;
 }
 
@@ -175,12 +202,29 @@ async function runScenario(scenario, run) {
       durationMs: Date.now() - started,
     };
   } finally {
-    if (keepWorkspace) console.log(envlib.redactText(`workspace kept: ${sb.dir}`, secrets));
+    if (keepWorkspace) console.log(results.stripControl(envlib.redactText(`workspace kept: ${sb.dir}`, secrets)));
     else sb.cleanup();
     if (ciHome) fs.rmSync(ciHome, { recursive: true, force: true });
     if (checkHome && checkHome !== ciHome) fs.rmSync(checkHome, { recursive: true, force: true });
     if (agentHome) fs.rmSync(agentHome, { recursive: true, force: true });
   }
+}
+
+const fmtChange = (c) => `${c.committed.toFixed(2)} -> ${c.current.toFixed(2)} (${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)})`;
+
+/**
+ * Outcome of a replayed single run, in the eval-level vocabulary. A with-skill run is its own verdict. A baseline run has none
+ * (it is a measurement): pass and fail both read `pass`; a timeout is `timed_out`, a leak `fail`, an unverifiable one `incomplete`.
+ * A run that never started is `incomplete`.
+ */
+function replayOutcome(arm, r) {
+  if (!r || r.error) return 'incomplete';
+  if (r.outcome === 'timed_out') return 'timed_out';
+  if (arm === 'baseline') {
+    if (r.outcome === 'pass' || r.outcome === 'fail') return 'pass';
+    return r.outcome === 'aborted' && r.leak ? 'fail' : 'incomplete';
+  }
+  return r.outcome === 'pass' || r.outcome === 'fail' ? r.outcome : 'incomplete';
 }
 
 async function main(argv = process.argv.slice(2)) {
@@ -189,8 +233,8 @@ async function main(argv = process.argv.slice(2)) {
   const judgeCredentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv });
   const secrets = envlib.secretValues(process.env, credentials);
   activeSecrets = secrets;
-  const out = (text) => console.log(envlib.redactText(text, secrets));
-  const err = (text) => console.error(envlib.redactText(text, secrets));
+  const out = (text) => console.log(results.stripControl(envlib.redactText(text, secrets)));
+  const err = (text) => console.error(results.stripControl(envlib.redactText(text, secrets)));
   if (!supportedRuntimes().includes(opts.runtime)) {
     err(`unsupported --runtime "${String(opts.runtime).slice(0, 80)}": not supported in this release (supported: ${supportedRuntimes().join(', ')}); nothing was run`);
     return 2;
@@ -259,6 +303,16 @@ async function main(argv = process.argv.slice(2)) {
     try { plans.set(ev.id, resolveRepeats(ev, { flagRepeats: opts.repeats, limits })); } catch (e) { err(e.message); return 2; }
   }
 
+  const replay = opts.arm !== null;
+  if (replay) {
+    if (scenarios.length !== 1 || !evById.has(scenarios[0].id)) {
+      err(`replay (--arm/--run-index) needs exactly one skill eval selected by --scenario${scenarios.length === 1 ? `; "${scenarios[0].id}" is a legacy scenario with no arms` : ''}`);
+      return 2;
+    }
+    const rp = plans.get(scenarios[0].id);
+    if (opts.runIndex > rp.repeats) { err(`--run-index ${opts.runIndex} exceeds the eval's repeats (${rp.repeats}); pass the same --repeats as the original run`); return 2; }
+  }
+
   // Judged checks run only with a judge model that differs from the model under test; otherwise they are refused.
   const judge = resolveJudge({ judgeModel: opts.judgeModel, model: opts.model });
   if (!claudeBin && !judge.refusal) judge.refusal = 'the `claude` CLI that runs the judge was not found (set EVALS_CLAUDE_BIN)';
@@ -303,7 +357,7 @@ async function main(argv = process.argv.slice(2)) {
   const timeoutMsFor = (s) => 1000 * (opts.timeoutSec || Math.min(s.timeoutSec || limits.timeoutSec, limits.timeoutSec));
 
   const show = (r, label = '') => {
-    const judgedNote = r.judgedScore === null || r.judgedScore === undefined ? '' : ` judged=${r.judgedScore.toFixed(2)} (${r.judgeModel})`;
+    const judgedNote = r.judgedScore === null || r.judgedScore === undefined ? '' : ` judged=${r.judgedScore.toFixed(2)} (${results.stripControl(r.judgeModel)})`;
     const invokedNote = r.invoked === undefined ? '' : ` skill-invoked=${r.invoked ? 'yes' : 'no'}`;
     out(`  ${label}${r.outcome.toUpperCase()} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${invokedNote}${judgedNote}`);
     for (const g of r.graders) out(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
@@ -334,6 +388,12 @@ async function main(argv = process.argv.slice(2)) {
     const plan = plans.get(ev.id);
     const label = `[${arm} ${item.run}/${plan.repeats}] `;
     if (aborts.has(ev.id)) return { outcome: 'aborted', graders: [], costUsd: 0, arm, run: item.run, evalId: ev.id };
+    if (hits.has(item)) {
+      const cached = envlib.redactDeep(hits.get(item), secrets);
+      out(`reusing stored result for ${ev.id} ${label.trim()} (stored ${results.stripControl(cached.cachedAt)}; no model call, no cost)`);
+      show(cached, label);
+      return cached;
+    }
     out(`running ${ev.id} ${label.trim()} ...`);
     let r;
     try {
@@ -361,6 +421,23 @@ async function main(argv = process.argv.slice(2)) {
 
   const copies = new Map();
   const evalVersions = new Map();
+  const hits = new Map(); // item -> reused run result (filled below, before anything is scheduled)
+  // The cache is used only when the requested model is known (the default model can change silently) and never for a replay.
+  const cacheOn = !replay && Boolean(opts.model);
+  const cacheStats = { reused: 0, executed: 0, stored: 0, enabled: cacheOn };
+  if (!replay && !opts.model && scenarios.some((s) => evById.has(s.id))) out('cache: not used (no --model given: the model a default run uses can change, so nothing is reused or stored)');
+  if (cacheOn) {
+    try { cache.checkStore(CACHE_DIR, opts.runtime); } catch (e) {
+      if (!(e instanceof cache.CacheError)) throw e;
+      err(`cache store problem, nothing was run: ${e.message}`);
+      return 2;
+    }
+  }
+  const judgeModelKey = judgeActive ? judge.model : null;
+  const cacheInputs = (ev, arm, run, s) => cache.keyInputs({
+    ev, arm, run, runtime: opts.runtime, requestedModel: opts.model, copy: copies.get(ev.id), evalVersion: evalVersions.get(ev.id),
+    timeoutMs: timeoutMsFor(s), runUsd: runUsdFor(), judgeModel: judgeModelKey,
+  });
   const items = [];
   const planned = [];
   for (const s of scenarios) {
@@ -377,16 +454,41 @@ async function main(argv = process.argv.slice(2)) {
       continue;
     }
     planned.push(s);
-    items.push(...expandRuns(ev, plans.get(ev.id).repeats));
+    items.push(...expandRuns(ev, plans.get(ev.id).repeats).filter((i) => !replay || (i.arm === opts.arm && i.run === opts.runIndex)));
   }
   scenarios = planned;
-  const reserveItem = (item) => reservationOf(item.ev ? scenarioOf.get(item.ev.id) : item.legacy, item.arm);
+  if (cacheOn && !opts.refresh) {
+    try {
+      for (const item of items) {
+        if (!item.ev) continue;
+        const found = cache.lookup(CACHE_DIR, cacheInputs(item.ev, item.arm, item.run, scenarioOf.get(item.ev.id)), item.ev);
+        if (found.warning) err(`WARNING ${found.warning}`);
+        if (found.hit) hits.set(item, found.hit);
+      }
+    } catch (e) {
+      if (!(e instanceof cache.CacheError)) throw e;
+      err(`cache store problem, nothing was run: ${e.message}`);
+      return 2;
+    }
+  }
+  const reserveItem = (item) => (hits.has(item) ? 0 : reservationOf(item.ev ? scenarioOf.get(item.ev.id) : item.legacy, item.arm)); // a reused result spends nothing
   const suite = await runSuite(items, { concurrency, capUsd, reserve: reserveItem, run: exec });
   const byItem = new Map(suite.done.map((d) => [d.item, d.result]));
 
   const evalResults = [];
+  // Replay: one run, reported as itself. No eval-level score, no regression check, no baseline or cache write.
+  const replayRuns = [];
   for (const s of scenarios) {
     const ev = evById.get(s.id);
+    if (replay) {
+      const item = items.find((i) => i.ev === ev);
+      const r = byItem.get(item);
+      const outcome = replayOutcome(opts.arm, r);
+      if (r && !r.error) replayRuns.push({ ev, r });
+      out(`replay ${ev.id} [${opts.arm} ${opts.runIndex}]: ${outcome.toUpperCase()}${r && r.outcome !== outcome ? ` (run outcome ${r.outcome}${opts.arm === 'baseline' && (r.outcome === 'pass' || r.outcome === 'fail') ? '; a baseline run has no verdict of its own' : ''})` : ''}`);
+      evalResults.push({ id: ev.id, type: 'agent', skill: ev.skill, runtime: opts.runtime, replay: true, outcome, pass: outcome === 'pass', costUsd: r ? r.costUsd : 0, arm: opts.arm, run: opts.runIndex, runs: r ? [r] : [] });
+      continue;
+    }
     if (!ev) {
       const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [], runtime: s.type === 'agent' ? opts.runtime : null };
       evalResults.push(r);
@@ -415,7 +517,7 @@ async function main(argv = process.argv.slice(2)) {
     if (copy) out(`  evaluated copy: ${describeCopy(copy)}`);
   }
   const incomplete = evalResults.filter((r) => r.outcome === 'incomplete');
-  for (const r of incomplete.filter((x) => !x.arms)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
+  for (const r of incomplete.filter((x) => !x.arms && !x.replay)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
   for (const r of incomplete.filter((x) => x.arms)) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
 
   // Stored records and committed baseline summaries (TRD-014/015). Every record is schema-validated, redacted and relativized
@@ -424,28 +526,76 @@ async function main(argv = process.argv.slice(2)) {
   const storeErrors = [];
   const regressions = [];
   const writtenBaselines = new Set();
+  // Fresh runs of this eval go to the cache once its verdict is known: never for an aborted (leaked) eval, never for a regression
+  // unless --update-baselines accepts it, and only runs the cache's own rules allow (a completed pass or fail, known model, verified isolation).
+  const cacheFresh = (ev, evalResult, evalRecords, check) => {
+    if (!cacheOn || evalResult.abort) return;
+    if (check && check.status === 'regression' && !opts.updateBaselines) { out('  cache: results of this eval not stored (a regression is not locked in as the reusable answer)'); return; }
+    evalResult.runs.forEach((r, i) => {
+      if (r.cached || !r.arm) return;
+      const why = cache.uncacheableReason(r, evalRecords[i], ev, opts.runtime, { repoRoot: REPO_ROOT });
+      if (why) return;
+      try {
+        cache.store(CACHE_DIR, cache.buildEntry(cacheInputs(ev, r.arm, r.run, scenarioOf.get(ev.id)), evalRecords[i], r));
+        cacheStats.stored += 1;
+      } catch (e) {
+        storeErrors.push(`cache: ${e.message}`);
+        err(`CACHE NOT WRITTEN for eval "${ev.id}" ${r.arm} #${r.run}: ${e.message}`);
+      }
+    });
+  };
+  const replayBases = new Map();
+  const replayBaseFor = (ev) => {
+    if (!replayBases.has(ev.id)) {
+      const s = scenarioOf.get(ev.id);
+      replayBases.set(ev.id, {
+        model: opts.model || null, repeats: plans.get(ev.id).repeats, timeoutSec: timeoutMsFor(s) / 1000, runUsd: runUsdFor(),
+        ...(judgeActive && { judgeModel: judge.model, judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd) }),
+        settings: { maxTurns: ev.maxTurns === undefined ? null : ev.maxTurns, allowedTools: ev.allowedTools === undefined ? null : ev.allowedTools, timeoutSec: timeoutMsFor(s) / 1000, runUsd: runUsdFor() },
+      });
+    }
+    return replayBases.get(ev.id);
+  };
+  const ctxFor = (ev) => {
+    const copy = copies.get(ev.id);
+    return { skill: ev.skill, skillHash: copy.skillHash, packageHash: copy.packageHash, skillVersion: copy.skillVersion, evalVersion: evalVersions.get(ev.id), replay: replayBaseFor(ev) };
+  };
+  const failingRuns = []; // { label, command | null } for the replay section of the report
+  for (const { ev, r } of replayRuns) {
+    try { records.push(results.sanitize(results.buildResult(r, ctxFor(ev)), { secrets, repoRoot: REPO_ROOT })); } catch (e) {
+      storeErrors.push(e.message);
+      err(`RESULT NOT STORED for eval "${ev.id}": ${e.message}`);
+    }
+  }
   for (const evalResult of evalResults.filter((r) => r.arms)) {
     const ev = evById.get(evalResult.id);
     try {
-      const copy = copies.get(ev.id);
-      const ctx = { skill: ev.skill, skillHash: copy.skillHash, packageHash: copy.packageHash, skillVersion: copy.skillVersion, evalVersion: evalVersions.get(ev.id) };
+      const ctx = ctxFor(ev);
       // Build this eval's records in a local array and append only when every one built: no partial records.
       const evalRecords = evalResult.runs.map((r) => results.sanitize(results.buildResult(r, ctx), { secrets, repoRoot: REPO_ROOT }));
       records.push(...evalRecords);
+      evalResult.runs.forEach((r, i) => {
+        const failing = r.arm === 'with-skill' ? (r.outcome === 'fail' || r.outcome === 'timed_out') : (r.outcome === 'timed_out' || r.outcome === 'unverifiable' || (r.outcome === 'aborted' && r.leak));
+        if (failing) failingRuns.push({ label: `${ev.id} [${r.arm} run ${r.run}/${plans.get(ev.id).repeats}]: ${r.outcome}`, command: evalRecords[i].replay.command || null });
+      });
       const bctx = { ...ctx, model: results.evalModel(evalResult.runs) };
       let candidate;
       try { candidate = results.toBaselineSummary(evalResult, bctx); } catch (e) {
         if (!(e instanceof results.BaselineError)) throw e;
         out(`  baseline summary not written: ${e.message}`);
+        cacheFresh(ev, evalResult, evalRecords, null);
         continue;
       }
       const key = `${candidate.runtime}/${candidate.skill}`;
       if (writtenBaselines.has(key)) throw new Error(`two evals in this suite name skill "${candidate.skill}" under ${candidate.runtime}; they would overwrite one baseline file`);
       const check = results.checkAgainstBaseline(BASELINES_DIR, evalResult, bctx);
-      out(`  regression check vs committed summary: ${check.status}${check.reasons.length ? ` (${check.reasons.join('; ')})` : ''}`);
+      out(`  regression check vs committed summary: ${check.status}${check.reasons.length ? ` (${results.stripControl(check.reasons.join('; '))})` : ''}`);
+      for (const n of check.notes || []) out(`    note: ${results.stripControl(n)}`);
+      if (check.delta) out(`    change vs committed: with-skill rate ${fmtChange(check.delta.withSkillRate)}, uplift ${fmtChange(check.delta.uplift)}`);
+      cacheFresh(ev, evalResult, evalRecords, check);
       if (check.status === 'regression') {
         regressions.push(evalResult.id);
-        err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${check.reasons.join('; ')} (committed summary recorded ${check.committed.recordedAt})`);
+        err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${results.stripControl(check.reasons.join('; '))} (committed summary recorded ${results.stripControl(check.committed.recordedAt)})`);
       }
       const unknownModel = candidate.model === results.UNKNOWN_MODEL;
       const mayWrite = opts.updateBaselines || (!unknownModel && (check.status === 'no-baseline' || check.status === 'ok'));
@@ -464,6 +614,21 @@ async function main(argv = process.argv.slice(2)) {
   }
   const perSkill = report.formatReport(report.buildReport(evalResults));
   if (perSkill) out(`\nper-skill report:\n${perSkill}`);
+  // Legacy single-run scenarios that failed: the replay is the scenario itself (no arm, no repeat index).
+  for (const r of evalResults.filter((x) => !x.arms && !x.replay && (x.outcome === 'fail' || x.outcome === 'timed_out'))) {
+    const s = scenarioOf.get(r.id);
+    failingRuns.push({ label: `${r.id}: ${r.outcome}`, command: results.replayCommand({ evalId: r.id, runtime: s && s.type === 'agent' ? opts.runtime : (r.runtime || 'claude'), model: opts.model || null, timeoutSec: s ? timeoutMsFor(s) / 1000 : undefined, runUsd: runUsdFor() }) });
+  }
+  if (failingRuns.length) {
+    out('\nfailing runs (replay: run the command from the repository root; it reruns exactly that run fresh):');
+    for (const f of failingRuns) {
+      out(`  ${f.label}`);
+      out(f.command ? `    replay: ${f.command}` : '    replay: unavailable (a value of this run is not safe to put in a command)');
+    }
+  }
+  cacheStats.reused = hits.size;
+  cacheStats.executed = suite.done.filter((d) => d.item.ev && !(d.result && d.result.cached)).length;
+  if (cacheOn) out(`cache: ${cacheStats.reused} run(s) reused, ${cacheStats.executed} executed${opts.refresh ? ' (--refresh: stored results ignored)' : ''}, ${cacheStats.stored} stored`);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const modelTag = (opts.model || 'default').replace(/[^A-Za-z0-9._-]/g, '_');
@@ -475,6 +640,8 @@ async function main(argv = process.argv.slice(2)) {
     runtime: opts.runtime,
     startedAt: new Date().toISOString(),
     maxUsd: capUsd,
+    cache: cacheStats,
+    replay: replay ? { scenario: opts.scenario, arm: opts.arm, runIndex: opts.runIndex } : null,
     timeoutSec: opts.timeoutSec || limits.timeoutSec,
     concurrency,
     totalCostUsd: suite.spent,
@@ -504,7 +671,7 @@ async function main(argv = process.argv.slice(2)) {
 if (require.main === module) {
   main().then((code) => { process.exitCode = code; }, (e) => {
     const known = [...new Set([...activeSecrets, ...envlib.secretValues(process.env, envlib.DEFAULT_CREDENTIALS)])];
-    console.error(envlib.redactText(e.message, known));
+    console.error(results.stripControl(envlib.redactText(e.message, known)));
     process.exitCode = 2;
   });
 }
