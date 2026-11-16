@@ -74,10 +74,10 @@ function checkNewFeature(doc) {
 
   // REQ-004 implementation approval
   const x5 = step(doc, 'Execute Stage', 5);
-  const grant = first(foremanActions(x5), /implementationApprovedAt/);
+  const grant = first(foremanActions(x5), /implementationApprovedAt/i);
   v('implApproval', !!grant && NO_PROMPT_RE.test(grant), 'implementation approval must be granted without asking under FOREMAN');
-  v('implApproval', !!grant && /(?:single|one|same)[^.]*mutate\(\)/i.test(grant),
-    'implementationApprovedAt and the stage advance must be one mutate() call');
+  v('implApproval', !!grant && /(?:single|one|same)[^.]*mutate\b/i.test(grant),
+    'implementationApprovedAt and the stage advance must be one mutate call');
   v('implApproval', !!grant && /--foreman policy/.test(grant) && /approval_wait/.test(grant),
     'the grant must be recorded with a --foreman policy detail and kind approval_wait');
   v('implApproval', actions(x5).some((a) => ASK_RE.test(a) && !FOREMAN_RE.test(a)),
@@ -88,7 +88,7 @@ function checkNewFeature(doc) {
 
   // REQ-005 PR approval
   const x6 = step(doc, 'Execute Stage', 6);
-  const pr = first(foremanActions(x6), /prApprovedAt/);
+  const pr = first(foremanActions(x6), /prApprovedAt/i);
   v('prApproval', !!pr && NO_PROMPT_RE.test(pr) && /pr_create/.test(pr), 'PR approval must be granted without asking and advance to pr_create');
   v('prApproval', !!pr && /never in the same[^.]*implementationApprovedAt/i.test(pr),
     'prApprovedAt must be set in a call distinct from implementationApprovedAt');
@@ -100,8 +100,8 @@ function checkNewFeature(doc) {
 
   // REQ-006 abandon
   const e6 = step(doc, 'Entry Point Resolution', 6);
-  const ab = first(foremanActions(e6), /abandon\(/);
-  v('abandon', !!ab && NO_PROMPT_RE.test(ab), 'Entry Step 6 must call abandon() without asking under FOREMAN');
+  const ab = first(foremanActions(e6), /\babandon\b/);
+  v('abandon', !!ab && NO_PROMPT_RE.test(ab), 'Entry Step 6 must call abandon without asking under FOREMAN');
   v('abandon', actions(e6).some((a) => ASK_RE.test(a) && !FOREMAN_RE.test(a)),
     'the abandon confirmation must remain for FOREMAN != true');
   v('abandon', actions(e6).some((a) => /nothing to abandon/.test(a) && !FOREMAN_RE.test(a)),

@@ -32,7 +32,7 @@ describe('new-feature --foreman', () => {
     ['forwarding', 'REQ-002: --foreman is forwarded to every stage skill, only under FOREMAN'],
     ['autoAccept', 'REQ-002: stage output is accepted without a prompt'],
     ['retry', 'REQ-003: a failed stage is retried once without asking, and never in a loop'],
-    ['implApproval', 'REQ-004: implementation approval auto-grants in one recorded mutate()'],
+    ['implApproval', 'REQ-004: implementation approval auto-grants in one recorded mutate'],
     ['prApproval', 'REQ-005: PR approval auto-grants separately; the store precondition is untouched'],
     ['abandon', 'REQ-006: abandon needs no confirmation under FOREMAN'],
     ['event', 'REQ-007: an event payload is never auto-approved'],

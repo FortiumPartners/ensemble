@@ -111,7 +111,7 @@ describe('New-Feature Command', () => {
   });
 
   describe('AC-002-3: no skip-ahead on stray files', () => {
-    test('Load Current Checkpoint step derives the eligible stage from RunIndexStore state, and explicitly forbids consulting the filesystem', () => {
+    test('Load Current Checkpoint step derives the eligible stage from run-index state, and explicitly forbids consulting the filesystem', () => {
       const phase = commandYaml.workflow.phases.find((p) => p.name === 'Stage Resolution');
       const loadStep = phase.steps.find((s) => s.title === 'Load Current Checkpoint');
       expect(loadStep).toBeDefined();
@@ -156,15 +156,15 @@ describe('New-Feature Command', () => {
       expect(entryPhase.order).toBeLessThan(stagePhase.order);
     });
 
-    test('AC-001-1: idea input creates exactly one run via RunIndexStore.createRun and prints its identifier', () => {
+    test('AC-001-1: idea input creates exactly one run via RUN_INDEX_CLI create and prints its identifier', () => {
       const step = entryPhase.steps.find((s) => s.title === 'Idea Input -- Start a New Run');
       expect(step).toBeDefined();
-      expect(actionsText(step)).toMatch(/RunIndexStore\.createRun\(projectRoot, idea\)/);
+      expect(actionsText(step)).toMatch(/RUN_INDEX_CLI create with `idea`/);
       expect(actionsText(step)).toMatch(/print the new run's identifier/);
       expect(actionsText(step)).toMatch(/prd_create/);
     });
 
-    test('AC-008-1: createRun() rejection (RUN_ALREADY_ACTIVE) is handled without creating a second run', () => {
+    test('AC-008-1: create rejection (RUN_ALREADY_ACTIVE) is handled without creating a second run', () => {
       const step = entryPhase.steps.find((s) => s.title === 'Idea Input -- Start a New Run');
       expect(actionsText(step)).toMatch(/RUN_ALREADY_ACTIVE/);
       expect(actionsText(step)).toMatch(/no new run is created/);
@@ -173,7 +173,7 @@ describe('New-Feature Command', () => {
     test('AC-001-2: a matched artifact path resumes that run at its recorded stage', () => {
       const step = entryPhase.steps.find((s) => s.title === 'Artifact-Path Input -- Resume an Indexed Run, or Adopt an Unindexed PRD');
       expect(step).toBeDefined();
-      expect(actionsText(step)).toMatch(/RunIndexStore\.resolveByArtifact\(projectRoot, path\)/);
+      expect(actionsText(step)).toMatch(/RUN_INDEX_CLI resolve-by-artifact with `path`/);
       expect(actionsText(step)).toMatch(/Found:.*run's recorded stage/s);
     });
 
@@ -184,17 +184,17 @@ describe('New-Feature Command', () => {
       expect(text).toMatch(/Not found,.*Create no run; advance nothing/s);
     });
 
-    // The following three tests cover createRunFromArtifact-based PRD adoption,
+    // The following three tests cover create-from-artifact PRD adoption,
     // added as a documented extension of REQ-001/AC-001 beyond TRD-2026-d6bbf322's
     // original scope. No AC-NNN/REQ-NNN number has been assigned to this behavior
     // in the PRD/TRD yet -- flagged, not fabricated, pending a traceability update.
 
-    test('unindexed-but-readable-PRD path is adopted via RunIndexStore.createRunFromArtifact, entering at prd_refine', () => {
+    test('unindexed-but-readable-PRD path is adopted via RUN_INDEX_CLI create-from-artifact, entering at prd_refine', () => {
       const step = entryPhase.steps.find((s) => s.title === 'Artifact-Path Input -- Resume an Indexed Run, or Adopt an Unindexed PRD');
       const text = actionsText(step);
       expect(text).toMatch(/document_id` matching `PRD-\*`: adopt it/);
-      expect(text).toMatch(/RunIndexStore\.createRunFromArtifact\(projectRoot,/);
-      expect(text).toMatch(/'prd_refine'\)/);
+      expect(text).toMatch(/RUN_INDEX_CLI create-from-artifact with idea = /);
+      expect(text).toMatch(/startStage 'prd_refine'/);
       expect(text).toMatch(/enters at prd_refine, not prd_create/);
     });
 
@@ -207,10 +207,10 @@ describe('New-Feature Command', () => {
       expect(text).toMatch(/Create no run; advance nothing/);
     });
 
-    test('adopted-artifact exclusivity: createRunFromArtifact enforces the same RUN_ALREADY_ACTIVE rejection as createRun', () => {
+    test('adopted-artifact exclusivity: create-from-artifact enforces the same RUN_ALREADY_ACTIVE rejection as create', () => {
       const step = entryPhase.steps.find((s) => s.title === 'Artifact-Path Input -- Resume an Indexed Run, or Adopt an Unindexed PRD');
       const text = actionsText(step);
-      expect(text).toMatch(/createRunFromArtifact\(\) enforces the same single-active-run exclusivity as createRun\(\)/);
+      expect(text).toMatch(/create-from-artifact enforces the same single-active-run exclusivity as create/);
       expect(text).toMatch(/RUN_ALREADY_ACTIVE/);
     });
   });
@@ -225,7 +225,7 @@ describe('New-Feature Command', () => {
       expect(actionsText(step)).toMatch(/refine-prd/);
       expect(actionsText(step)).toMatch(/refine-trd/);
       expect(actionsText(step)).toMatch(/unmodified/);
-      // This check must run first (order: 1), before createRun/resolveByArtifact steps.
+      // This check must run first (order: 1), before create/resolve-by-artifact steps.
       expect(step.order).toBe(1);
     });
   });
@@ -244,7 +244,7 @@ describe('New-Feature Command', () => {
       expect(step).toBeDefined();
       expect(actionsText(step)).toMatch(/stageOutcome\.kind is "failure"/);
       expect(actionsText(step)).toMatch(/do NOT proceed to Stage Resolution on a\s+bare invocation alone/);
-      expect(actionsText(step)).toMatch(/no mutate\(\)\s+call is made merely by viewing this prompt/);
+      expect(actionsText(step)).toMatch(/no mutate\s+call is made merely by viewing this prompt/);
     });
 
     test('AC-006-2: retry re-executes only the parked stage; earlier stages are never re-executed or re-derived', () => {
@@ -272,14 +272,14 @@ describe('New-Feature Command', () => {
     });
 
     test('AC-007-1: a decline keeps the run at the current stage and asks for the needed correction', () => {
-      expect(actionsText(recordStep)).toMatch(/stageOutcome to \{ kind: "decline"/);
+      expect(actionsText(recordStep)).toMatch(/mutate with setStageOutcome kind decline/);
       expect(actionsText(recordStep)).toMatch(/stage does not advance/);
       expect(actionsText(recordStep)).toMatch(/Ask the user for the correction needed/);
     });
 
     test('AC-007-2: an edit/regenerate request preserves the prior artifact and blocks dependent stages until acceptance', () => {
       expect(actionsText(recordStep)).toMatch(/edit\/regenerate/);
-      expect(actionsText(recordStep)).toMatch(/never overwrite a prior entry/);
+      expect(actionsText(recordStep)).toMatch(/append the new version's artifacts\[\] entry/);
       expect(actionsText(recordStep)).toMatch(/do NOT advance `stage` or set stageOutcome\.kind to "success"/);
       expect(actionsText(recordStep)).toMatch(/no dependent stage runs/);
     });
@@ -295,7 +295,7 @@ describe('New-Feature Command', () => {
 
     test('AC-012-1: --status is read-only and always prints the five required fields', () => {
       expect(actionsText(statusStep)).toMatch(/If `status` is true/);
-      expect(actionsText(statusStep)).toMatch(/No stage executes and no mutate\(\) call is made/);
+      expect(actionsText(statusStep)).toMatch(/No stage executes and no mutate call is made/);
       expect(actionsText(statusStep)).toMatch(/run identifier, current stage, last\s+stageOutcome\.kind/);
       expect(actionsText(statusStep)).toMatch(/every recorded artifacts\[\] and\s+beadRefs\[\] reference/);
       expect(actionsText(statusStep)).toMatch(/status is always\s+read-only and never proceeds to Stage Resolution/);
@@ -331,24 +331,24 @@ describe('New-Feature Command', () => {
       expect(param.description).toMatch(/idea.*or.*path.*is also given, that takes\s+precedence/);
     });
 
-    test('AC-007-3: a confirmation is asked before RunIndexStore.abandon() is called', () => {
+    test('AC-007-3: a confirmation is asked before RUN_INDEX_CLI abandon is called', () => {
       expect(abandonStep).toBeDefined();
       expect(actionsText(abandonStep)).toMatch(/Found: ask the user for explicit confirmation/);
-      expect(actionsText(abandonStep)).toMatch(/before calling RunIndexStore\.abandon\(\)/);
+      expect(actionsText(abandonStep)).toMatch(/before calling RUN_INDEX_CLI abandon/);
     });
 
-    test('AC-007-3: a decline leaves the run untouched -- no mutate()/abandon() call, no state change', () => {
-      expect(actionsText(abandonStep)).toMatch(/Declined or no response: make no\s+mutate\(\)\/abandon\(\) call/);
+    test('AC-007-3: a decline leaves the run untouched -- no mutate/abandon call, no state change', () => {
+      expect(actionsText(abandonStep)).toMatch(/Declined or no response: make no\s+mutate\/abandon call/);
       expect(actionsText(abandonStep)).toMatch(/the run is left untouched/);
     });
 
     test('AC-007-3: no active run exists -- reports nothing to abandon, makes no state change', () => {
       expect(actionsText(abandonStep)).toMatch(/Not found: print 'No active run exists/);
-      expect(actionsText(abandonStep)).toMatch(/no mutate\(\)\/abandon\(\) call is made, no state is touched/);
+      expect(actionsText(abandonStep)).toMatch(/no mutate\/abandon call is made, no state is touched/);
     });
 
-    test('a confirmed abandon calls RunIndexStore.abandon() with the given reason and retains history', () => {
-      expect(actionsText(abandonStep)).toMatch(/call RunIndexStore\.abandon\(projectRoot, runId, reason\)/);
+    test('a confirmed abandon calls RUN_INDEX_CLI abandon with the given reason and retains history', () => {
+      expect(actionsText(abandonStep)).toMatch(/call RUN_INDEX_CLI abandon with runId and reason/);
       expect(actionsText(abandonStep)).toMatch(/sets status to "abandoned"/);
       expect(actionsText(abandonStep)).toMatch(/artifacts and history are retained/);
     });
@@ -397,3 +397,68 @@ describe('New-Feature Command', () => {
   });
 });
 
+
+describe('new-feature prose matches the run-index CLI it calls (RUN_INDEX_CLI)', () => {
+  const cli = require('../lib/run-index-cli');
+  const { STAGE_ORDER } = require('../lib/run-index/new-feature/types');
+  const feature = readNewFeature();
+  const prompt = [feature.body, ...feature.references.map((r) => r.text)].join('\n');
+  const contract = prompt.slice(prompt.indexOf('## Run Index CLI'), prompt.indexOf('## Arguments'));
+
+  /** Entries of a `name {a, b?}; name; ...` list, as { name: [keys] } with optional markers dropped. */
+  const parseEntries = (text) =>
+    Object.fromEntries(
+      text.split(';').map((entry) => {
+        const m = /^\s*([A-Za-z][\w-]*)(?: \{([^}]*)\})?\.?\s*$/.exec(entry);
+        if (!m) throw new Error(`unparseable contract entry: ${entry}`);
+        return [m[1], m[2] ? m[2].split(',').map((k) => k.trim().replace(/\?$/, '')) : []];
+      })
+    );
+
+  test('every subcommand the steps call is a real subcommand, and every real subcommand is called', () => {
+    const called = [...prompt.matchAll(/RUN_INDEX_CLI ([a-z][a-z-]*)(?=[ ;,.])/g)].map((m) => m[1]).filter((w) => w !== 'as');
+    const named = new Set(called);
+    named.forEach((sub) => expect({ sub, real: cli.SUBCOMMANDS.includes(sub) }).toEqual({ sub, real: true }));
+    // `complete` is the store's terminal call; the steps never make it (a run ends at stage "done"
+    // or by abandon), so it is the one subcommand exposed but not called.
+    expect(cli.SUBCOMMANDS.filter((s) => !named.has(s))).toEqual(['complete']);
+  });
+
+  test('the contract section lists the CLI\'s subcommands with exactly the payload keys it accepts', () => {
+    const listed = parseEntries(/Subcommands: (.*?)\. A patch/s.exec(contract)[1]);
+    expect(listed).toEqual(cli.PAYLOAD_KEYS);
+  });
+
+  test('the contract section lists the CLI\'s patch ops with exactly the fields each accepts', () => {
+    const listed = parseEntries(/timestamps stamped by the CLI: (.*?) \(value is "now" or null\)\. A stale/s.exec(contract)[1]);
+    expect(listed).toEqual(cli.OP_FIELDS);
+    expect(Object.keys(listed).sort()).toEqual([...cli.PATCH_OPS].sort());
+  });
+
+  test('every patch op a step names is a real op, every stage a setStage names is a real stage', () => {
+    const ops = new Set(prompt.match(/\b(?:set|append)[A-Z]\w*/g));
+    ops.forEach((op) => expect({ op, real: cli.PATCH_OPS.includes(op) }).toEqual({ op, real: true }));
+    expect([...ops].sort()).toEqual([...cli.PATCH_OPS].sort());
+    for (const [, stage] of prompt.matchAll(/setStage ([a-z_]+)/g)) expect(STAGE_ORDER).toContain(stage);
+    for (const [, kind] of prompt.matchAll(/setStageOutcome kind (\w+)/g)) {
+      expect(['success', 'decline', 'failure', 'approval_wait']).toContain(kind);
+    }
+  });
+
+  test('the revision-conflict code the contract names is the one the CLI returns', () => {
+    expect(contract).toContain('REVISION_CONFLICT');
+    expect(fs.readFileSync(path.join(__dirname, '../lib/run-index/new-feature/run-index.js'), 'utf8')).toContain('REVISION_CONFLICT');
+  });
+
+  test('RUN_INDEX_CLI is resolved through tool-path-resolution, whose cheat sheet lists it with its vendor suffix', () => {
+    expect(contract).toContain('RUN_INDEX_CLI (RELATIVE_PATH packages/development/lib/run-index-cli.js) via tool-path-resolution');
+    const sheet = fs.readFileSync(path.join(__dirname, '../skills/tool-path-resolution/SKILL.md'), 'utf8');
+    expect(sheet).toContain('| `RUN_INDEX_CLI`');
+    expect(sheet).toContain('`packages/development/lib/run-index-cli.js` | `vendor/lib/run-index-cli.js`');
+    expect(fs.existsSync(path.join(__dirname, '..', 'lib', 'run-index-cli.js'))).toBe(true);
+  });
+
+  test('no step still names the unreachable TypeScript store API', () => {
+    expect(prompt).not.toMatch(/RunIndexStore|run-index\.ts|agent-core\/src\/new-feature\/run-index/);
+  });
+});
