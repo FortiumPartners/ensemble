@@ -1,0 +1,23 @@
+{
+  "name": "ledger-api",
+  "version": "0.4.2",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/bundle.js",
+    "start": "node src/server.js",
+    "worker": "node src/worker.js",
+    "migrate": "node db/migrate.js",
+    "lint:strict": "eslint src --max-warnings 0",
+    "test:unit": "jest --runInBand test"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "pg": "^8.11.0",
+    "redis": "^4.6.0",
+    "stripe": "^14.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0"
+  }
+}

@@ -1,0 +1,102 @@
+{
+  "id": "ensemble-onboard",
+  "skill": "ensemble-onboard",
+  "description": "On a small brownfield service (ledger-api: Express, Postgres, Redis, Stripe, Docker, GitHub Actions, a Makefile), a non-interactive onboard run writes docs/architecture/overview.md with the nine prescribed sections, the exact build/test/lint commands copied verbatim (the fixture's are deliberately non-default: `npm run lint:strict`, `npm run test:unit`, `make check`), no command the repository does not have, the real entry points, modules, data stores, integrations (credential variable NAMES, never values), deployment shape, real hotspot files and listed unknowns; and it changes nothing else (no CLAUDE.md/AGENTS.md, no beads, no edits). Limits: the sandbox git history is a single commit, so churn cannot rank the hotspots and the checks test that they are real files, not that the ranking is right; the debt-backlog and CLAUDE.md proposals are interactive and only their absence is checked; idempotent update of an existing overview is not covered. The baseline arm is expected to measure the plugin's conventions (the nine-section layout, verbatim commands, unknowns), since any capable model can describe a small repository. Claude only: Step 1.1 resolves toolchain-cli through the tool-path-resolution tiers, which fail on Pi in a sandbox without an installed bundle.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "I am new to this codebase. Get me oriented on it and save the result under docs/architecture/. --foreman\n\nThis is a non-interactive run: ask no questions, choose the recommended option for anything unclear, and answer no to every follow-up proposal (do not touch CLAUDE.md or AGENTS.md, create no beads). Change nothing in the repository except that one document.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:onboard",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 60,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-sections",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-commands --commands 'make check,npm run lint:strict,npm run test:unit,npm run build'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-no-invented-commands --scripts build,start,worker,migrate,lint:strict,test:unit --targets check,docker",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-entrypoints --entries src/server.js,src/worker.js",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-modules --modules src/routes,src/db,src/integrations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-stores --stores postgres,redis",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-integrations --integrations stripe --env STRIPE_API_KEY",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-no-secrets --secrets sk_test_FIXTURE0123456789,ledger:ledger@",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-deployment --terms docker,github",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-hotspots --min 3",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' overview-unknowns",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-onboard.js' read-only --allow src/server.js,src/worker.js,src/routes/invoices.js,src/db/pool.js,src/integrations/stripe.js,db/migrate.js,db/migrations/001_init.sql,scripts/bundle.js,test/invoices.test.js,package.json,Makefile,Dockerfile,.github/workflows/ci.yml,.env.example --scripts build,start,worker,migrate,lint:strict,test:unit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
