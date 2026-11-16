@@ -1,10 +1,12 @@
-# ensemble-implement-trd-beads eval (plan scope)
+# ensemble-implement-trd-tasks eval (plan scope)
 
-Eval id `ensemble-implement-trd-beads-plan`. This file is documentation for maintainers; it is not part of `fixture/` and is never copied into a sandbox. It states no measured result: no real run has been made.
+Eval id `ensemble-implement-trd-tasks-plan`. This file is documentation for maintainers; it is not part of `fixture/` and is never copied into a sandbox. It states no measured result: no real run has been made.
+
+The skill and command were renamed from `ensemble-implement-trd-beads` / `/ensemble:implement-trd-beads` to `ensemble-implement-trd-tasks` / `/ensemble:implement-trd-tasks` (kata PR #420); this eval, its check and test follow the new names. The eval id is now `ensemble-implement-trd-tasks-plan`.
 
 ## Scope
 
-Covered: Phase 1 (preflight) and Phase 2 (scaffold) of `/ensemble-development:ensemble:implement-trd-beads`, run with `--plan --foreman`.
+Covered: Phase 1 (preflight) and Phase 2 (scaffold) of `/ensemble-development:ensemble:implement-trd-tasks`, run with `--plan --foreman`.
 
 Not covered: Phase 3 (beads-build execution), Phase 4 (quality gates, PR creation), Phase 5 (completion, epic closure). They need a separate eval; the design memo (`~/.omp/trd-skills-eval/itb-design.md`) lists the harness and fixture needs.
 
@@ -16,7 +18,7 @@ The skill has its own switch: `--plan` sets `PLAN_ONLY` (Step 1.1), and Step 2.2
 
 A 2-PR, 6-task slugify TRD (`docs/TRD/TRD-2026-b1c2d3e4-slugify.md`) whose frontmatter requests stacked PRs and a proposed first branch, so branch intent resolves without a question. `trd-cli validate` reports no error and no warning. `.ensemble/toolchain.yaml` pins host `github`, workflow `plain-git`, tracker `beads`, test-runner `default`, package-runner `npm` (a local bare origin matches no host, and other trackers are co-installed). `.gitignore` covers `.ensemble/state/` and `.beads/` so the tree stays clean for the clean-tree gate. The br workspace is created by `setup: [["br","init","--prefix","itb"]]` (allowlisted). `bin/gh` is a stub (`sandboxPath: ["bin"]`): it answers `--version`, `auth status`, `repo view`, `pr list`, logs every call to `../gh-calls.log` and fails closed (exit 2) on anything else, including `pr create`.
 
-## Checks (`evals/checks/ensemble-implement-trd-beads.js`)
+## Checks (`evals/checks/ensemble-implement-trd-tasks.js`)
 
 Labels are deliberately not checked: step 2.1 creates beads without labels and Phase 3 backfills them (`beads-label`), outside this scope. The one check that touches labels is `foreman-tags` (`foreman-exec`, task beads only).
 

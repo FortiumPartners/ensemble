@@ -2,13 +2,13 @@
 'use strict';
 
 /**
- * Deterministic checks for the `ensemble-implement-trd-beads-plan` eval (PLAN-ONLY scope: Phase 1 preflight and Phase 2 scaffold of
- * `/ensemble-development:ensemble:implement-trd-beads <trd> --plan --foreman`; execution, quality gates and completion are NOT evaluated).
+ * Deterministic checks for the `ensemble-implement-trd-tasks-plan` eval (PLAN-ONLY scope: Phase 1 preflight and Phase 2 scaffold of
+ * `/ensemble-development:ensemble:implement-trd-tasks <trd> --plan --foreman`; execution, quality gates and completion are NOT evaluated).
  * Built on ./lib (fs and path only for everything read from the workspace). Run from the agent's workspace; the sandbox root above it holds
  * `origin.git` and `gh-calls.log` (written by the fixture's stub gh).
  *
  * WHERE THE EXPECTATIONS COME FROM. Never hard-coded: `expected()` runs the repo's own trd-cli (`runScaffoldPlan`, `runPrPlan`, called
- * in-process; repo code, not workspace code; its one `git` spawn is disabled, see expected()) on the PRISTINE fixture TRD under evals/skills/ensemble-implement-trd-beads/fixture/, not on the workspace
+ * in-process; repo code, not workspace code; its one `git` spawn is disabled, see expected()) on the PRISTINE fixture TRD under evals/skills/ensemble-implement-trd-tasks/fixture/, not on the workspace
  * copy the agent could have edited. The skill itself says the scaffold-plan is authoritative and never re-derived, so the plan is the
  * ground truth for bead titles, types and edges.
  *
@@ -34,7 +34,7 @@ const path = require('path');
 const { fail, readText, walk, run } = require('./lib');
 
 const REPO = path.resolve(__dirname, '../..');
-const FIXTURE = path.join(REPO, 'evals', 'skills', 'ensemble-implement-trd-beads', 'fixture');
+const FIXTURE = path.join(REPO, 'evals', 'skills', 'ensemble-implement-trd-tasks', 'fixture');
 const TRD_REL = 'docs/TRD/TRD-2026-b1c2d3e4-slugify.md';
 const SOURCE_DIRS = ['bin', 'scripts', 'src']; // must be byte-identical to the fixture
 const SOURCE_FILES = ['package.json', 'README.md', '.gitignore'];

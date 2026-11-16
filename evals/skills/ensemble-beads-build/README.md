@@ -26,7 +26,7 @@ The `bv` plan: `track-A` = `bb-t07`, `bb-t08` (both unblock `bb-t10`), `track-B`
 | `scope-counts` | open / in-progress / closed counts are the epic's (first count printed per label; label-first or number-first; Open 4 or 5) |
 | `ready-items` | the track-A ready beads are named on a line that is not about blocking; blocked, in-progress and closed beads are not offered as ready |
 | `track-breakdown` | `bb-t07` and `bb-t08` sit in one track-labelled section, apart from `bb-t09` |
-| `final-hint` | a line runs `beads-build bb-e1`, `implement-trd-beads` is mentioned, and the hint is among the last lines |
+| `final-hint` | a line runs `beads-build bb-e1`, `implement-trd-tasks` is mentioned, and the hint is among the last lines |
 | `graph-read` | the stubs saw a `br list` and a `bv --robot-plan` (the figures came from the tracker, not a guess) |
 | `tracker-read-only` | no `br` call but `--version`, `list`, `show`, `comments list` and `sync --flush-only`; no `bv` call but `--version`, `--robot-plan`, `--robot-insights` |
 | `files-unchanged` | every seeded file has its original bytes; nothing new but `report.md` and `.ensemble/` |

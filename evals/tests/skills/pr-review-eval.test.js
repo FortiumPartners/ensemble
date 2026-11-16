@@ -278,14 +278,15 @@ describe(ID, () => {
     const base = 'a'.repeat(40);
     const text = fs.readFileSync(path.join(FIXTURE, 'REVIEW.md'), 'utf8');
     const codeowners = fs.readFileSync(path.join(FIXTURE, 'CODEOWNERS'), 'utf8');
-    // The skill's own snippet passes no sourceSha: the CLI then answers policy-not-from-base with the DEFAULT directory.
-    const literal = cli('policy', { text, baseSha: base });
-    expect(literal.ok).toBe(false);
-    expect(literal.reason).toBe('policy-not-from-base');
-    expect(literal.policy.evalCasesDir).toBe('docs/review-eval/cases');
+    // The skill's documented call is { text, baseSha, sourceSha: <base> }: the CLI reads the policy block and answers the seeded directory.
     const policy = cli('policy', { text, baseSha: base, sourceSha: base });
     expect(policy.ok).toBe(true);
     expect(policy.policy.evalCasesDir).toBe('qa/reviewer-cases');
+    // The CLI still fails closed when the source commit is not given (policy-not-from-base, the default directory): a run that drops sourceSha lands on the default.
+    const noSource = cli('policy', { text, baseSha: base });
+    expect(noSource.ok).toBe(false);
+    expect(noSource.reason).toBe('policy-not-from-base');
+    expect(noSource.policy.evalCasesDir).toBe('docs/review-eval/cases');
     const owners = (p) => cli('paths', { changedPaths: [p], codeowners, baseSha: base }).paths[0].owners;
     expect(owners('src/billing/invoice.js')).toEqual(['@Alice-Dev', '@acme-shop/payments']);
     expect(owners('src/platform/queue.js')).toEqual(['@acme-shop/platform']);

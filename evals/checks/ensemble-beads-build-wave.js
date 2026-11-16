@@ -6,9 +6,9 @@
  * one wave run, not a dispatching wave. The sandbox is a git repo on branch feature/ledger-rollup (no remote) with stub `br` and `bv`
  * (fixture bin/, canned data in bin/canned/): epic lr-e1 `Ledger Rollup Guard` has 2 closed tasks (lr-t01, lr-t02) and 2 open tasks
  * (lr-t03, lr-t04) that wait on lr-p01, an in-progress bead of ANOTHER epic (lr-e2 `Audit Trail Export`, which also has an open bead
- * lr-p02 waiting on lr-p01 and a closed one). The plan has one empty track (adapter limit: the beads adapter reads plan.tracks[0].items,
- * so a plan with `tracks: []` fails its mapping with BAD_OUTPUT for both work-graph.plan and work-graph.ready). The scheduler therefore
- * returns zero actionable items; the epic still has open scoped beads, so the skill's Step 7 requires terminal_state `blocked` (not
+ * lr-p02 waiting on lr-p01 and a closed one). The canned bv plan is `"tracks": []`, which is what bv really emits when nothing is actionable (the
+ * beads adapter's `parse.emptyWhen` maps it to an empty item list, so work-graph.plan and work-graph.ready answer ok with no item). The
+ * scheduler therefore returns zero actionable items; the epic still has open scoped beads, so the skill's Step 7 requires terminal_state `blocked` (not
  * `complete`), and nothing is dispatched. The run prints the single-line JSON summary last and the prompt has it saved to last-line.json
  * (no grader reads the final message). Scope facts: epic-scoped open = 2 (3 when the epic bead itself counts), in progress = 0
  * (repo-wide there is 1: the trap), closed 2.

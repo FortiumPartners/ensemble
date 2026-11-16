@@ -46,7 +46,7 @@ the requester's, so a model that reads it back puts the right login on the `Dire
 | `pr-directed-by` | `Directed by: @mara-quill`: the requester, not the agent or anyone else | |
 | `issue-read` | the stub saw `gh issue view 42` | |
 | `gh-no-writes` | no gh call that would change an issue, a PR or the repository | the stub refuses and logs them |
-| `run-index` | one `.ensemble/fix-issue/<runId>.json` in the documented `IssueRunRecord` shape, a valid stage, any `pr:` ref a real PR URL, and **not** completed | (soft, confounded: see below) |
+| `run-index` | one `.ensemble/fix-issue/<runId>.json` in the documented `IssueRunRecord` shape, a valid stage, any `pr:` ref a real PR URL, and **not** completed | (soft: shape and wording, see below) |
 | `report-saved` | `report.md` exists and gives the PR URL | |
 | `not-reported-success` | the report claims no `REVIEW_COMPLETE`, merge, landing or passed review | (soft) wording |
 | `no-unrelated-edits` | only `src/discount.js`, files under `tests/`, `report.md`, `.ensemble/` and `docs/` differ from the fixture | other seeded files byte-identical |
@@ -85,11 +85,16 @@ the requester's, so a model that reads it back puts the right login on the `Dire
   keeps no reflog, so a force push to the new branch cannot be proven after the fact, only a moved `main` and a wrong tip are caught.
 - The body's own required sections come from the `pr-review-cycle` body gate, which is not re-run; this eval checks the five sections the skill names
   in its template and the closing and `Directed by` lines.
-- `run-index` is **confounded**: the skill tells the run to call `IssueRunIndexStore` (`packages/agent-core/src/fix-issue/issue-run-index.ts`, TypeScript,
-  no `dist/`) and no package ships a JS or CLI entry point for it. A run that follows the skill as far as it can may have no way to write the record,
-  so it can fail for a reason that is not the run's. A hand-written record in the documented shape is accepted. Reported as a skill gap, not fixed.
-- `workflow.push` in the plain-git adapter is a bare `git push`; for a new branch with no upstream it fails (`has no upstream branch`; verified).
-  A faithful run must push by another command. The skill passes `--arg branch=...` which the adapter does not use. Reported as a skill gap, not fixed.
+- `run-index` reads the record the skill writes through `packages/development/lib/issue-run-index-cli.js` (generated from
+  `IssueRunIndexStore` in agent-core; `node "$ISSUE_RUN_INDEX_CLI" create|mutate|complete ...`, one JSON payload on stdin). The run index used to be
+  unreachable from a package (TypeScript only, no entry point), which confounded this check; that is fixed. A test now drives the real CLI
+  (`create`, then `mutate` to `validation_delivery` with the PR ref) and shows the record it writes passes `run-index`, and that `complete` makes
+  it fail. The check is still static (it parses the JSON file, and does not run the store), and it still accepts any record of the documented shape,
+  hand-written or not, so a run that writes the file itself passes: the check proves the shape and that the run is not completed, not that the CLI
+  produced it. A run that never resolves `ISSUE_RUN_INDEX_CLI` (tool-path resolution unproven in a sandbox) fails it for that reason.
+- `workflow.push` in the plain-git adapter is now `git push -u origin HEAD` (the `branch` argument the skill passes is ignored; the current branch is
+  pushed and gets its upstream), so a faithful run pushes the new branch through the toolchain without a recovery command. `branch-pushed` still reads
+  the bare origin, so a run that never pushes fails it. (An earlier bare `git push` failed on a new branch; fixed.)
 - The baseline is expected to measure the plugin's conventions (branch name `fix/issue-N-slug`, the PR body template, the run record, the
   `Directed by` line, the toolchain), not general ability. A baseline that fixes the bug and opens a PR with a free-form body fails the body checks.
 
@@ -100,7 +105,7 @@ the requester's, so a model that reads it back puts the right login on the `Dire
    before the commit, so every PR check fails for a reason that is the review's, not the fix's. The review needs reviewer subagents, a snapshot
    commit and the cycle's CLI, none of which this eval provides or verifies.
 2. Whether tool-path resolution (`toolchain-cli`, `pr-review-cycle`) works in a sandbox with `--plugin-dir` (as in `pr-merge-trace` and `pr-review-request`).
-3. Whether the run index can be written at all, and whether `run-index` should then be a hard requirement or be dropped.
+3. Whether the with-skill run resolves `issue-run-index-cli.js` and writes the record in the documented shape (the CLI exists and its output passes the check; reaching it from the sandbox is unproven), and whether `run-index` should be a hard requirement.
 4. Whether the time and turn caps are enough, and whether the 1800 s cap hides a hang.
 5. Whether the prompt's login and report wording make a baseline land on the `Directed by` line or the report on its own (a high baseline pass rate would
    make those checks non-discriminating).

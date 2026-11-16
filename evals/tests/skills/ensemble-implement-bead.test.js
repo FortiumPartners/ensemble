@@ -94,6 +94,7 @@ describe(ID, () => {
     }
     for (const f of ['bin/br', 'bin/bv', 'bin/gh']) expect(fs.statSync(path.join(ev.fixtureDir, f)).mode & 0o111).not.toBe(0);
     const gi = fs.readFileSync(path.join(ev.fixtureDir, '.gitignore'), 'utf8');
+    expect(gi).not.toMatch(/\.ensemble\/state/); // the toolchain's own state dir ignores itself; the fixture must not hide it for the skill's clean-tree gate
     expect(gi).not.toMatch(/\.beads/); // the tracker export must stay visible to a blanket stage
     expect(fs.readFileSync(path.join(ev.fixtureDir, '.ensemble/toolchain.yaml'), 'utf8')).toMatch(/^host: github$/m);
   });
@@ -537,7 +538,7 @@ describe(ID, () => {
     });
   });
 
-  test('the real toolchain-cli carries the skill\'s calls through the stubs (preflight, show, branch, status, set-status, comment, commit, close, push failure, change request)', async () => {
+  test('the real toolchain-cli carries the skill\'s calls through the stubs (preflight, show, branch, status, set-status, comment, commit, close, push, change request)', async () => {
     const res = await kit.runEval(ID, (ws) => {
       const env = { ...process.env, PATH: `${path.join(ws.dir, 'bin')}${path.delimiter}${process.env.PATH}`, HOME: '/nonexistent', GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
       const tc = (...a) => { const r = spawnSync('node', [TOOLCHAIN, ...a, '--json', '--non-interactive'], { cwd: ws.dir, encoding: 'utf8', env }); return { ...r, json: (() => { try { return JSON.parse(r.stdout.split('\n').filter((l) => l.startsWith('{')).pop()); } catch { return null; } })() }; };
@@ -559,10 +560,10 @@ describe(ID, () => {
       spawnSync('git', ['add', 'src/greet.js', 'tests/greet.cases.js'], { cwd: ws.dir, env });
       expect(run('workflow.commit', '--arg', `message=${MSG}`).json.ok).toBe(true);
       expect(run('tracker.close', '--arg', `id=${BEAD}`).json.data).toMatchObject({ id: BEAD, status: 'closed' });
+      // `git push -u origin HEAD`: pushes the current branch and sets its upstream, with no global push.autoSetupRemote (GIT_CONFIG_GLOBAL is /dev/null here); the branch arg is ignored
       const push = run('workflow.push', '--arg', `branch=${BRANCH}`);
-      expect(push.json.ok).toBe(false); // the plain-git adapter's bare `git push` has no upstream on a new branch: see the README
-      expect(push.json.error.message).toMatch(/no upstream branch/);
-      spawnSync('git', ['push', '-q', '-u', 'origin', BRANCH], { cwd: ws.dir, env });
+      expect(push.json.ok).toBe(true);
+      expect(spawnSync('git', ['rev-parse', '--abbrev-ref', '@{upstream}'], { cwd: ws.dir, encoding: 'utf8', env }).stdout.trim()).toBe(`origin/${BRANCH}`);
       const cr = run('host.change-request-create', '--arg', 'baseBranch=main', '--arg', `headBranch=${BRANCH}`, '--arg', `title=${TITLE}`, '--arg', `description=${GOOD_BODY}`);
       expect(cr.json.data.url).toBe('https://github.com/example/greeter/pull/1');
       ws.write('report.md', REPORT);

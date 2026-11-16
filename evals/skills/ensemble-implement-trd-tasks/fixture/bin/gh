@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stub `gh` for the ensemble-implement-trd-beads plan-scope eval. No network, no GitHub. Phase 1 (preflight) only needs the host
+# Stub `gh` for the ensemble-implement-trd-tasks plan-scope eval. No network, no GitHub. Phase 1 (preflight) only needs the host
 # adapter's health checks (`--version`, `auth status`) and, at most, a read of the repo or an empty PR list; Phase 2 makes no gh call.
 # Every call is appended to gh-calls.log in the sandbox root, two levels above this stub and outside the git worktree. Any call this stub
 # does not know FAILS CLOSED: message on stderr, exit 2 (and it is still logged, so a check can see the attempt). `pr create` is deliberately

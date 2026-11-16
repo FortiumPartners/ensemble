@@ -106,6 +106,12 @@ describe(`${ID} eval`, () => {
     kit.expectAllPass(res);
   });
 
+  test('a report that opens with the SWEEP_PARTIAL status passes, and one that is SWEEP_BLOCKED and not SWEEP_COMPLETE is read as blocked', async () => {
+    kit.expectAllPass(await kit.runEval(ID, saves((s) => sweptReport(s).replace('# Sweep report', '# Sweep report\n\nSWEEP_PARTIAL'))));
+    // the status token alone is not enough: a SWEEP_PARTIAL report that never names the left paths still fails left-paths-named
+    kit.expectFails(await kit.runEval(ID, saves((s) => `# Sweep report\n\nSWEEP_PARTIAL\n\nsam-ops, src/, ${s}\n\n1. src/session/tokens.js (high)\n2. src/cache/lru.js (sensitive)\n\nPartial: the cap stopped the sweep.\n`)), 'left-paths-named');
+  });
+
   test('a good report with a table layout and no finding passes (sweep with nothing verified)', async () => {
     const res = await kit.runEval(ID, saves((s) => `# Report\n\nsam-ops asked for src/ at ${s}.\n\n| Order | Path | Band |\n|---|---|---|\n| 1 | src/session/tokens.js | high |\n| 2 | src/cache/lru.js | sensitive |\n\nNo verified defects in the two files examined. Not examined (limit reached): src/api/handlers.js, src/legacy/export.js, src/payments/refund.js.\n`));
     kit.expectAllPass(res);

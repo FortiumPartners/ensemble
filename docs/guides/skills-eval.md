@@ -230,7 +230,7 @@ These fields exist for an eval that drives one long command (many tool calls, su
 
 ### Remote evals
 
-With `remote: true` the sandbox's own git config (not your global config) also gets `push.autoSetupRemote=true`, so a bare `git push` of a fresh branch (the plain-git adapter's `workflow.push`) sets its upstream on the sandbox `origin`.
+With `remote: true` the sandbox's own git config (not your global config) also gets `push.autoSetupRemote=true`, so a bare `git push` of a fresh branch sets its upstream on the sandbox `origin`. (The plain-git adapter's `workflow.push` no longer depends on it: it is `git push -u origin HEAD`.)
 
 ### Ceilings: `maxTimeoutSec`, `maxRunUsd`
 
