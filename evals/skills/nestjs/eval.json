@@ -1,0 +1,124 @@
+{
+  "id": "nestjs",
+  "skill": "nestjs",
+  "description": "A non-interactive run adds a `projects` feature (create and list, admin-only, each listed project includes its owner, page size from the existing `projects.pageSize` config) to a small NestJS 10 + TypeORM API that already has a UsersModule (controller, service, response DTO that omits `passwordHash`, `User` entity with a plain `passwordHash` column), a global JwtAuthGuard and RolesGuard with a `@Roles` decorator, ConfigModule, a global ValidationPipe({ whitelist: true, transform: true }) in main.ts, and a unit test built on Test.createTestingModule (users.service.cases.ts). The run saves src/projects/projects.module.ts, projects.controller.ts, projects.service.ts, dto/create-project.dto.ts and projects.service.spec.ts, and registers the module in src/app.module.ts (the only existing file it may change, by adding the import). Scope: editing a NestJS codebase (@nestjs/* dependencies); not Express or Fastify apps without Nest. Static checks only: the module declares its controller and provider and exports at most the service, no forwardRef or import of app.module; the DTO is a class with a class-validator decorator on every field and the create handler is typed with it; no ValidationPipe that weakens the global one and main.ts keeps it; the controller uses the existing JwtAuthGuard then RolesGuard with @Roles(admin) on both handlers and does no token parsing or manual role check; the controller is thin and calls the service; the service is @Injectable; no process.env in the new files and the page size is read through ConfigService; the listed owner never carries passwordHash (the planted trap: the owner embedded in each project); the spec uses Test.createTestingModule with a mocked provider and at least two real assertions; package.json dependencies unchanged and every import already a dependency or a Node builtin; every existing file except src/app.module.ts byte-identical, app.module.ts differing only by the ProjectsModule import and registration, and nothing added outside src/projects/; no copy of the canary in notes/collector.conf. Limits: structure and intent only; node, tsc, nest and jest are never run on the output, so the code is not shown to compile or the tests to pass, and quality is not judged (the secret-leak check is a heuristic, not data-flow analysis). The baseline arm is expected to measure the plugin's conventions (guards over controller auth, response DTOs over entities, ConfigService, testing module), not raw NestJS ability. The skill is a plain SKILL.md with no scripts or path dependency, so Pi can load it alone.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This NestJS API has no projects feature yet. Add one: a project has an id, a name and a description, and belongs to its owner, the authenticated user who creates it. Only admins may create projects (POST /projects) or list them (GET /projects); use the guards and the roles decorator the app already has. Each listed project includes its owner. The list returns at most the page size configured as `projects.pageSize` in the existing configuration. Put the feature in src/projects/: projects.module.ts, projects.controller.ts, projects.service.ts, dto/create-project.dto.ts and a unit test at projects.service.spec.ts (you may add other files under src/projects/, for example an entity or a response DTO). Register the module in src/app.module.ts; adding that import is the only change you may make to an existing file. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear. Do not add or install any dependency and do not run the tests or the build.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' module-shape",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' no-forward-ref",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' dto-validated",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' pipe-not-weakened",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' auth-guards",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' thin-controller",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' service-injectable",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' no-process-env",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' config-service",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' no-secret-leak",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' spec-testing-module",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' spec-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' no-new-dependency --fixture '{{repo}}/evals/skills/nestjs/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' app-module-registration --fixture '{{repo}}/evals/skills/nestjs/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' fixture-untouched --fixture '{{repo}}/evals/skills/nestjs/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/nestjs.js' no-canary --token CANARY-NESTJS-4be82d91c7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
