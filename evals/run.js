@@ -5,7 +5,7 @@
  * Headless behavioral eval runner.
  * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run]
  *   [--max-usd N] [--timeout SEC] [--concurrency N] [--keep-workspace] [--allow-env NAME]... [--env-allowlist FILE]
- *   [--run-usd N] [--judge-usd N]
+ *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude]
  * Exit: 0 all pass, 1 an eval failed or timed out, 2 usage/rejected definition, 3 claude missing, 4 incomplete evals (1 outranks 4).
  * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
@@ -18,7 +18,10 @@ const { summarizeRun } = require('./lib/results');
 const { resolveJudge } = require('./lib/runners/judge');
 const sandbox = require('./lib/sandbox');
 const envlib = require('./lib/env');
-const { loadLimits, runProcess, reservationFor, runSuite } = require('./lib/exec');
+const { loadLimits, reservationFor, runSuite, resolveRepeats, expandRuns } = require('./lib/exec');
+const arms = require('./lib/arms');
+const { describeCopy } = require('./lib/results');
+const { getRunner, supportedRuntimes } = require('./lib/runners');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SCENARIOS_DIR = process.env.EVALS_SCENARIOS_DIR || path.join(__dirname, 'scenarios');
@@ -31,6 +34,7 @@ function parseArgs(argv) {
   const o = {
     scenario: null, skill: null, model: null, judgeModel: null, dryRun: false, maxUsd: null,
     timeoutSec: null, concurrency: null, keepWorkspace: false, allowEnv: [], envAllowlist: null, runUsd: null, judgeUsd: null,
+    repeats: null, runtime: 'claude',
   };
   const num = (flag, v, { int = false } = {}) => {
     const n = Number(v);
@@ -48,6 +52,8 @@ function parseArgs(argv) {
     else if (a === '--max-usd') o.maxUsd = num(a, argv[++i]);
     else if (a === '--timeout') o.timeoutSec = num(a, argv[++i]);
     else if (a === '--concurrency') o.concurrency = num(a, argv[++i], { int: true });
+    else if (a === '--repeats') o.repeats = num(a, argv[++i], { int: true });
+    else if (a === '--runtime') o.runtime = argv[++i];
     else if (a === '--run-usd') o.runUsd = num(a, argv[++i]);
     else if (a === '--judge-usd') o.judgeUsd = num(a, argv[++i]);
     else if (a === '--allow-env') o.allowEnv.push(argv[++i]);
@@ -73,7 +79,10 @@ function loadScenarios(dir = SCENARIOS_DIR) {
  * Only the agent and the judge get the allowlisted credentials; checks that execute agent-written code
  * (testsPass, commandOutputMatches, trdParses) get an environment with none. The transcript is redacted before
  * it reaches checks or the judge prompt.
- * run: { bin, model, runUsd, judgeUsd, timeoutMs, repoRoot, judge, workdir, credentials, secrets, parentEnv, keepWorkspace }
+ * run: { bin, model, runUsd, judgeUsd, timeoutMs, repoRoot, judge, workdir, credentials, secrets, parentEnv, keepWorkspace,
+ *        arm, ev, runtime, runner }
+ * With `run.arm` ('with-skill' | 'baseline') and `run.ev` the job is built from the skill eval by arms.buildJob;
+ * otherwise from the legacy scenario. `run.runner` replaces the runtime's adapter (tests).
  */
 async function runScenario(scenario, run) {
   const { bin, model, runUsd, judgeUsd = 0, timeoutMs, repoRoot, judge, workdir, credentials, secrets = [], parentEnv = process.env, keepWorkspace } = run;
@@ -89,17 +98,29 @@ async function runScenario(scenario, run) {
     const checkEnv = envlib.buildEnv({ parent: parentEnv, credentials: [], home: checkHome });
     let transcript = '';
     let proc = { exitCode: 0, stderr: '', timedOut: false, transcriptTruncated: false, commands: [], commandsIncomplete: false };
+    let armInfo = {};
     if (scenario.type === 'agent') {
-      const args = sandbox.buildClaudeArgs(scenario, { repoRoot, model, maxUsd: runUsd });
-      proc = await runProcess(bin, args, { cwd: sb.dir, env, timeoutMs });
+      const runtime = run.runtime || 'claude';
+      const jobCtx = { repoRoot, runtime, model, workspace: sb.dir, env, timeoutMs, maxUsd: runUsd };
+      const job = run.arm ? arms.buildJob(run.ev, run.arm, jobCtx) : arms.scenarioJob(scenario, jobCtx);
+      proc = await (run.runner || getRunner(runtime)).run(job, { bin, secrets });
       transcript = envlib.redactText(proc.transcript, secrets);
+      if (run.arm) {
+        armInfo = {
+          invoked: arms.wasInvoked(run.ev.skill, proc),
+          loadedSkills: proc.loadedSkills || [], invokedSkills: proc.invokedSkills || [], loadedPlugins: proc.loadedPlugins || [],
+          loadedSource: proc.loadedSource,
+        };
+      }
     }
     const summary = sandbox.summarizeTranscript(transcript);
+    if (proc.costUsd !== undefined) summary.costUsd = proc.costUsd;
     // An agent run with no reported cost (timeout, crash) is charged its full per-run budget, flagged costEstimated.
     const agentUnknown = scenario.type === 'agent' && summary.costUsd === null;
     const agentCost = agentUnknown ? runUsd : summary.costUsd;
     const base = {
       id: scenario.id, type: scenario.type, skill: scenario.skill,
+      ...armInfo,
       turns: summary.turns, claudeExitCode: proc.exitCode, timedOut: proc.timedOut, stderr: proc.stderr || undefined,
     };
     if (proc.timedOut) {
@@ -110,9 +131,11 @@ async function runScenario(scenario, run) {
         durationMs: Date.now() - started,
       };
     }
-    const commands = proc.commands.map((c) => envlib.redactText(c, secrets));
+    const commands = Array.isArray(proc.commands) ? proc.commands.map((c) => envlib.redactText(c, secrets)) : undefined;
     const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, transcriptTruncated: proc.transcriptTruncated, commands, commandsIncomplete: proc.commandsIncomplete, env: checkEnv, judgeEnv: env, judge: judge ? { ...judge, bin } : undefined };
-    const graders = await runGraders(scenario.graders || [], ctx);
+    // Judged checks read only the with-skill arm (judgedScore), so the baseline arm skips them: no judge spend is wasted.
+    const specs = (scenario.graders || []).filter((g) => !(run.arm === 'baseline' && g.type === 'judge'));
+    const graders = await runGraders(specs, ctx);
     const outcome = summarizeRun(graders);
     // A judge call that ran but reported no cost (failed or timed out) is charged the judge allowance.
     const judgeUnknown = graders.filter((g) => g.judged && !g.refused && (g.costUsd === null || g.costUsd === undefined)).length;
@@ -177,8 +200,21 @@ async function main(argv = process.argv.slice(2)) {
     if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill) || !ev.unactedFields.length) continue;
     err(`WARNING eval "${ev.id}": ${ev.unactedFields.map((f) => `\`${f}\``).join(', ')} accepted but not yet acted on (lands in a later PR)`);
   }
+  if (!supportedRuntimes().includes(opts.runtime)) {
+    err(`unsupported --runtime "${opts.runtime}" (supported: ${supportedRuntimes().join(', ')})`);
+    return 2;
+  }
+  const evById = new Map(skillEvals.map((ev) => [ev.id, ev]));
   const bin = sandbox.findClaude();
   const needsClaude = scenarios.some((s) => s.type === 'agent');
+  const limits = loadLimits();
+  // Repeats and bar per skill eval: --repeats over the eval's value over limits.json; the bar is the eval's or the default.
+  const plans = new Map();
+  for (const s of scenarios) {
+    const ev = evById.get(s.id);
+    if (!ev) continue;
+    try { plans.set(ev.id, resolveRepeats(ev, { flagRepeats: opts.repeats, limits })); } catch (e) { err(e.message); return 2; }
+  }
 
   // Judged checks run only with a judge model that differs from the model under test; otherwise they are refused.
   const judge = resolveJudge({ judgeModel: opts.judgeModel, model: opts.model });
@@ -192,6 +228,8 @@ async function main(argv = process.argv.slice(2)) {
     for (const s of scenarios) {
       out(`  ${s.id} [${s.skill ? `skill: ${s.skill}` : s.type}] graders: ${(s.graders || []).map((g) => g.type).join(', ')}`);
       out(`      ${s.description || ''}`);
+      const plan = plans.get(s.id);
+      if (plan) out(`      arms: with-skill + baseline, repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource})`);
     }
     if (needsClaude && !bin) out('SKIP: `claude` CLI not found on PATH; agent scenarios would not run.');
     return rejected.length ? 2 : 0;
@@ -201,7 +239,6 @@ async function main(argv = process.argv.slice(2)) {
     return 3;
   }
 
-  const limits = loadLimits();
   if (opts.timeoutSec && opts.timeoutSec > limits.timeoutSec) {
     err(`--timeout ${opts.timeoutSec} exceeds the limit of ${limits.timeoutSec}s in evals/limits.json`);
     return 2;
@@ -210,41 +247,112 @@ async function main(argv = process.argv.slice(2)) {
   const concurrency = opts.concurrency || limits.concurrency;
   const workdir = sandbox.resolveWorkdir();
   const judgeActive = Boolean(judge && !judge.refusal);
-  const reservationOf = (s) => reservationFor(
-    { model: s.type === 'agent', judged: judgeActive && (s.graders || []).some((g) => g.type === 'judge') },
+  const reservationOf = (s, arm) => reservationFor(
+    { model: s.type === 'agent', judged: arm !== 'baseline' && judgeActive && (s.graders || []).some((g) => g.type === 'judge') },
     { runReserveUsd: opts.runUsd || limits.runReserveUsd, judgeReserveUsd: opts.judgeUsd || limits.judgeReserveUsd, capUsd },
   );
   const runUsdFor = () => Math.min(opts.runUsd || limits.runReserveUsd, capUsd);
   const timeoutMsFor = (s) => 1000 * (opts.timeoutSec || Math.min(s.timeoutSec || limits.timeoutSec, limits.timeoutSec));
 
-  const show = (r) => {
+  const show = (r, label = '') => {
     const judgedNote = r.judgedScore === null || r.judgedScore === undefined ? '' : ` judged=${r.judgedScore.toFixed(2)} (${r.judgeModel})`;
-    out(`  ${r.outcome.toUpperCase()} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${judgedNote}`);
+    const invokedNote = r.invoked === undefined ? '' : ` skill-invoked=${r.invoked ? 'yes' : 'no'}`;
+    out(`  ${label}${r.outcome.toUpperCase()} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${invokedNote}${judgedNote}`);
     for (const g of r.graders) out(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
   };
-  const exec = async (s) => {
-    out(`running ${s.id} ...`);
+  const runOpts = (s) => ({
+    bin, model: opts.model, runUsd: runUsdFor(), judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd), timeoutMs: timeoutMsFor(s), repoRoot: REPO_ROOT, judge,
+    workdir, credentials, secrets, keepWorkspace: opts.keepWorkspace, runtime: opts.runtime,
+  });
+  const scenarioOf = new Map(scenarios.map((s) => [s.id, s]));
+  const aborts = new Map(); // eval id -> leak message: the rest of that eval's runs are skipped
+  const exec = async (item) => {
+    const { ev, arm } = item;
+    if (!ev) {
+      const s = item.legacy;
+      out(`running ${s.id} ...`);
+      let r;
+      try {
+        r = await runScenario(s, runOpts(s));
+      } catch (e) {
+        r = { id: s.id, type: s.type, skill: s.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
+      }
+      r = envlib.redactDeep(r, secrets);
+      show(r);
+      return r;
+    }
+    const s = scenarioOf.get(ev.id);
+    const plan = plans.get(ev.id);
+    const label = `[${arm} ${item.run}/${plan.repeats}] `;
+    if (aborts.has(ev.id)) return { outcome: 'aborted', graders: [], costUsd: 0, arm, run: item.run, evalId: ev.id };
+    out(`running ${ev.id} ${label.trim()} ...`);
     let r;
     try {
-      r = await runScenario(s, {
-        bin, model: opts.model, runUsd: runUsdFor(), judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd), timeoutMs: timeoutMsFor(s), repoRoot: REPO_ROOT, judge,
-        workdir, credentials, secrets, keepWorkspace: opts.keepWorkspace,
-      });
+      r = await runScenario(s, { ...runOpts(s), arm, ev });
     } catch (e) {
-      r = { id: s.id, type: s.type, skill: s.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
+      r = { id: ev.id, type: 'agent', skill: ev.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
+    }
+    r = { ...r, evalId: ev.id, arm, run: item.run, runtime: opts.runtime, model: opts.model || 'default', invocationMode: ev.invocation };
+    if (arm === 'baseline') {
+      const check = arms.checkBaseline(ev, r, { repoRoot: REPO_ROOT });
+      if (check && check.kind === 'unverifiable-run') {
+        // Crashed or timed out before any startup event: cannot be called clean, so it is not counted in the baseline score.
+        r = { ...r, outcome: 'unverifiable', pass: null, verdict: null, unverifiable: check.message };
+      } else if (check) {
+        aborts.set(ev.id, check.message);
+        r = { ...r, outcome: 'aborted', pass: null, verdict: null, leak: check.message };
+      }
     }
     r = envlib.redactDeep(r, secrets);
-    show(r);
+    show(r, label);
     return r;
   };
 
-  const suite = await runSuite(scenarios, { concurrency, capUsd, reserve: reservationOf, run: exec });
-  const byId = new Map(suite.done.map((d) => [d.item.id, d.result]));
-  const results = scenarios.map((s) => byId.get(s.id) || {
-    id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [],
-  });
+  const copies = new Map();
+  const items = [];
+  for (const s of scenarios) {
+    const ev = evById.get(s.id);
+    if (!ev) { items.push({ legacy: s }); continue; }
+    copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill }));
+    items.push(...expandRuns(ev, plans.get(ev.id).repeats));
+  }
+  const reserveItem = (item) => reservationOf(item.ev ? scenarioOf.get(item.ev.id) : item.legacy, item.arm);
+  const suite = await runSuite(items, { concurrency, capUsd, reserve: reserveItem, run: exec });
+  const byItem = new Map(suite.done.map((d) => [d.item, d.result]));
+
+  const results = [];
+  for (const s of scenarios) {
+    const ev = evById.get(s.id);
+    if (!ev) {
+      const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [] };
+      results.push(r);
+      continue;
+    }
+    const plan = plans.get(ev.id);
+    const runs = { 'with-skill': [], baseline: [] };
+    for (const item of items.filter((i) => i.ev === ev)) {
+      const r = byItem.get(item);
+      if (r && (r.outcome !== 'aborted' || r.leak)) runs[item.arm].push(r); // skipped-after-abort placeholders are dropped
+    }
+    const copy = copies.get(ev.id);
+    const evalResult = envlib.redactDeep(arms.summarizeEval(ev, plan, runs, { runtime: opts.runtime, abort: aborts.get(ev.id) || null, copy }), secrets);
+    results.push(evalResult);
+    out(`eval ${ev.id}: ${evalResult.outcome.toUpperCase()}`);
+    if (evalResult.abort) {
+      err(`ABORTED ${evalResult.abort}`);
+      out(`  with-skill ${evalResult.withSkill.passes}/${evalResult.withSkill.runs} (not scored: baseline aborted)`);
+    } else {
+      const u = evalResult.uplift === null ? 'n/a' : `${evalResult.uplift >= 0 ? '+' : ''}${evalResult.uplift.toFixed(2)}`;
+      out(`  with-skill ${evalResult.withSkill.passes}/${evalResult.withSkill.runs} (bar ${plan.bar} of ${plan.repeats}: ${evalResult.reliable === null ? 'undetermined' : evalResult.reliable ? 'reliable' : 'NOT reliable'}); baseline ${evalResult.baseline.passes}/${evalResult.baseline.runs}${evalResult.baseline.unverifiable ? ` (${evalResult.baseline.unverifiable} run(s) not counted: isolation unverifiable)` : ''}`);
+      out(`  uplift ${u} ${evalResult.upliftLabel}`);
+    }
+    out(`  repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource}${plan.barSource === 'eval' ? ' override' : ''})`);
+    out(`  skill invoked in ${evalResult.invokedRuns}/${evalResult.withSkill.runs} with-skill run(s)${evalResult.invokedAsExpected === false ? ` (expectInvoked ${evalResult.expectInvoked}: NOT as expected)` : ''}`);
+    if (copy) out(`  evaluated copy: ${describeCopy(copy)}`);
+  }
   const incomplete = results.filter((r) => r.outcome === 'incomplete');
-  for (const r of incomplete) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
+  for (const r of incomplete.filter((x) => !x.arms)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
+  for (const r of incomplete.filter((x) => x.arms)) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const modelTag = (opts.model || 'default').replace(/[^A-Za-z0-9._-]/g, '_');
@@ -252,6 +360,7 @@ async function main(argv = process.argv.slice(2)) {
   const file = path.join(RESULTS_DIR, `${modelTag}-${stamp}.json`);
   const report = {
     model: opts.model || 'default',
+    runtime: opts.runtime,
     startedAt: new Date().toISOString(),
     maxUsd: capUsd,
     timeoutSec: opts.timeoutSec || limits.timeoutSec,

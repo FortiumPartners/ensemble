@@ -3,5 +3,7 @@
   "timeoutSec": 900,
   "runReserveUsd": 5,
   "judgeReserveUsd": 0.5,
-  "concurrency": 4
+  "concurrency": 4,
+  "repeats": 5,
+  "bar": 4
 }

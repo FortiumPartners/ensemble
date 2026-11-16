@@ -5,6 +5,9 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const envlib = require('./env');
+const claude = require('./runners/claude');
+const arms = require('./arms');
+const { copyFixture } = require('./fixture');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const DEFAULT_WORKDIR = path.join(os.homedir(), '.omp', 'evals-work');
@@ -48,7 +51,7 @@ function git(cwd, args) {
  * Create a throwaway git repo from scenarios/<id>/fixture on branch `main`, as a fresh copy under `workdir`
  * (default: EVALS_WORKDIR), never inside the repository.
  * With scenario.remote === true, also creates a bare `origin` and pushes main.
- * Returns { dir, root, baseline, cleanup }.
+ * Returns { dir, root, baseline, skipped, cleanup } (`skipped`: fixture entries not copied).
  */
 function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() } = {}) {
   fs.mkdirSync(workdir, { recursive: true });
@@ -56,7 +59,8 @@ function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() 
   const dir = path.join(root, 'project');
   fs.mkdirSync(dir);
   const fixture = path.join(scenarioDir, 'fixture');
-  if (fs.existsSync(fixture)) fs.cpSync(fixture, dir, { recursive: true });
+  // Defensive copy: agent/git configuration and symlinks pointing outside the fixture are never copied (see lib/fixture.js).
+  const skipped = fs.existsSync(fixture) ? copyFixture(fixture, dir) : [];
 
   git(dir, ['init', '-q', '-b', 'main']);
   git(dir, ['config', 'user.email', 'eval@example.invalid']);
@@ -81,49 +85,19 @@ function createSandbox(scenarioDir, scenario = {}, { workdir = resolveWorkdir() 
     dir,
     root,
     baseline: { mainSha, remoteMainSha, remotePath },
+    skipped,
     cleanup: () => fs.rmSync(root, { recursive: true, force: true }),
   };
 }
 
-/** Resolve the claude binary: EVALS_CLAUDE_BIN override, else search PATH. Returns path or null. */
-function findClaude(env = process.env) {
-  if (env.EVALS_CLAUDE_BIN) return fs.existsSync(env.EVALS_CLAUDE_BIN) ? env.EVALS_CLAUDE_BIN : null;
-  for (const d of (env.PATH || '').split(path.delimiter)) {
-    const p = path.join(d, 'claude');
-    try { fs.accessSync(p, fs.constants.X_OK); return p; } catch { /* next */ }
-  }
-  return null;
-}
-
-/** Build claude CLI argv for a scenario. */
+/**
+ * Compatibility wrappers: the claude invocation lives in runners/claude.js behind the runner interface.
+ * `buildClaudeArgs` builds argv for a legacy scenario (same shape as before, plus --setting-sources project).
+ */
 function buildClaudeArgs(scenario, { repoRoot, model, maxUsd }) {
-  const prompt = scenario.prompt.split('{{repo}}').join(repoRoot);
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--no-session-persistence',
-    '--permission-mode', scenario.permissionMode || 'acceptEdits',
-    '--max-turns', String(scenario.maxTurns || 25)];
-  if (maxUsd) args.push('--max-budget-usd', String(maxUsd));
-  if (model) args.push('--model', model);
-  if (scenario.allowedTools && scenario.allowedTools.length) args.push('--allowedTools', scenario.allowedTools.join(','));
-  for (const pkg of scenario.plugins || []) args.push('--plugin-dir', path.join(repoRoot, 'packages', pkg));
-  return args;
+  return claude.buildArgs(arms.scenarioJob(scenario, { repoRoot, model, maxUsd }));
 }
 
-/** Pull turns / cost from the final `result` line of a stream-json transcript. */
-function summarizeTranscript(transcript) {
-  let summary = { turns: null, costUsd: null, isError: null, resultText: null };
-  for (const line of String(transcript).split('\n')) {
-    let o;
-    try { o = JSON.parse(line); } catch { continue; }
-    if (o && o.type === 'result') {
-      summary = {
-        turns: o.num_turns ?? null,
-        costUsd: o.total_cost_usd ?? o.cost_usd ?? null,
-        isError: o.is_error ?? null,
-        resultText: typeof o.result === 'string' ? o.result.slice(0, 500) : null,
-      };
-    }
-  }
-  return summary;
-}
-
-module.exports = { createSandbox, resolveWorkdir, findClaude, buildClaudeArgs, summarizeTranscript, DEFAULT_WORKDIR };
+module.exports = {
+  createSandbox, resolveWorkdir, findClaude: claude.findClaude, buildClaudeArgs, summarizeTranscript: claude.summarizeTranscript, DEFAULT_WORKDIR,
+};

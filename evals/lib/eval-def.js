@@ -11,13 +11,14 @@
 const fs = require('fs');
 const path = require('path');
 const { GRADERS } = require('./graders');
+const { scanFixture } = require('./fixture');
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const SKILLS_DIR = path.join(__dirname, '../skills');
 // Generated or aggregate packages hold copies or symlinks of skills; the source package is the one evaluated.
 const NON_SOURCE_PACKAGES = new Set(['full', 'pi', 'codex', 'opencode']);
 // Validated and documented, but not yet acted on by the runner (later PRs).
-const UNACTED_FIELDS = ['runtimes', 'repeats', 'bar', 'expectInvoked'];
+const UNACTED_FIELDS = ['runtimes'];
 const INVOCATIONS = ['plain', 'explicit'];
 const KNOWN_KEYS = new Set([
   'id', 'skill', 'description', 'runtimes', 'prompt', 'invocation', 'command', 'allowedTools',
@@ -34,17 +35,24 @@ class EvalDefinitionError extends Error {
   }
 }
 
+const SKILL_NAME = /^[A-Za-z0-9._-]+$/;
+const isSkillName = (v) => typeof v === 'string' && SKILL_NAME.test(v) && v !== '.' && v !== '..';
 const isNonEmptyString = (v) => typeof v === 'string' && v.trim() !== '';
 const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
 
 /** Packages (source only) that ship a skill named `skill`, i.e. have packages/<pkg>/skills/<skill>/SKILL.md. */
 function findSkillPackages(skill, repoRoot = REPO_ROOT) {
+  if (!isSkillName(skill)) return [];
   const packagesDir = path.join(repoRoot, 'packages');
   if (!fs.existsSync(packagesDir)) return [];
   return fs.readdirSync(packagesDir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && !NON_SOURCE_PACKAGES.has(e.name))
     .map((e) => e.name)
-    .filter((pkg) => fs.existsSync(path.join(packagesDir, pkg, 'skills', skill, 'SKILL.md')))
+    .filter((pkg) => {
+      const skillsRoot = path.resolve(packagesDir, pkg, 'skills');
+      const dir = path.resolve(skillsRoot, skill);
+      return dir.startsWith(skillsRoot + path.sep) && fs.existsSync(path.join(dir, 'SKILL.md'));
+    })
     .sort();
 }
 
@@ -85,12 +93,19 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   }
   if (!isNonEmptyString(raw.skill)) fail('skill', 'missing skill: `skill` is required');
   if (!Array.isArray(raw.checks) || raw.checks.length === 0) fail('checks', 'missing checks: `checks` must be a non-empty array');
+  if (!isSkillName(raw.skill)) fail('skill', `invalid skill "${raw.skill}": a skill name may only contain letters, digits, ".", "_" and "-"`);
+  if (fs.lstatSync(fixtureDir).isSymbolicLink()) fail('workspace', 'unsafe fixture: `fixture` must be a directory, not a symlink');
+  const unsafe = scanFixture(fixtureDir);
+  if (unsafe.length) {
+    fail('workspace', `unsafe fixture: ${unsafe.map((u) => `${path.join('fixture', u.file)} (${u.reason})`).join('; ')}`);
+  }
 
   const packages = findSkillPackages(raw.skill, repoRoot);
   if (packages.length === 0) fail('skill', `unknown skill "${raw.skill}": no SKILL.md at packages/*/skills/${raw.skill}`);
 
   const invocation = raw.invocation === undefined ? 'plain' : raw.invocation;
   if (!INVOCATIONS.includes(invocation)) fail('invocation', `invocation must be one of ${INVOCATIONS.join(', ')}`);
+  if (/^\s*-/.test(raw.prompt)) fail('prompt', 'prompt must not begin with "-": it would be read as a command-line option');
   if (invocation === 'plain' && raw.prompt.trim().startsWith('/')) {
     fail('prompt', 'prompt must be plain language, not a slash command; use `invocation: "explicit"` with `command`');
   }
@@ -98,6 +113,7 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
     fail('command', 'invocation "explicit" requires `command` (for example "/ensemble:create-prd")');
   }
   if (raw.command !== undefined && !isNonEmptyString(raw.command)) fail('command', '`command` must be a non-empty string');
+  if (isNonEmptyString(raw.command) && /^\s*-/.test(raw.command)) fail('command', '`command` must not begin with "-"');
 
   if (raw.runtimes !== undefined && !(Array.isArray(raw.runtimes) && raw.runtimes.length > 0 && raw.runtimes.every(isNonEmptyString))) {
     fail('runtimes', '`runtimes` must be a non-empty array of runtime names');
@@ -105,10 +121,15 @@ function validateEvalDef(raw, dir, { repoRoot = REPO_ROOT } = {}) {
   if (raw.allowedTools !== undefined && !(Array.isArray(raw.allowedTools) && raw.allowedTools.every(isNonEmptyString))) {
     fail('allowedTools', '`allowedTools` must be an array of tool names');
   }
+  // Entries are joined with commas into one argv element (no shell), so only a comma, a control character or edge whitespace is ambiguous; scoped patterns like `Bash(git status:*)` are valid.
+  const badTool = (raw.allowedTools || []).find((t) => /[,\x00-\x1f]/.test(t) || t !== t.trim());
+  if (badTool !== undefined) fail('allowedTools', `\`allowedTools\` entry ${JSON.stringify(badTool)} contains a comma, a control character or leading/trailing whitespace (entries are joined with commas on the command line)`);
   for (const key of ['maxTurns', 'timeoutSec', 'repeats', 'bar']) {
     if (raw[key] !== undefined && !isPositiveInt(raw[key])) fail(key, `\`${key}\` must be a positive integer`);
   }
-  if (raw.bar !== undefined && raw.bar > (raw.repeats || 5)) fail('bar', '`bar` cannot exceed `repeats`');
+  // Only when both are set here: with `repeats` unset the count comes from --repeats or limits.json at run time,
+  // where resolveRepeats rejects a bar that cannot be met.
+  if (raw.bar !== undefined && raw.repeats !== undefined && raw.bar > raw.repeats) fail('bar', '`bar` cannot exceed `repeats`');
   if (raw.expectInvoked !== undefined && typeof raw.expectInvoked !== 'boolean') fail('expectInvoked', '`expectInvoked` must be true or false');
 
   const rubricFile = path.join(dir, 'rubric.md');

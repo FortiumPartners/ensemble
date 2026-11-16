@@ -26,6 +26,7 @@ JSON
     ;;
   *)
     echo done > SUMMARY.md
+    echo '{"type":"system","subtype":"init","skills":["verify"],"plugins":[]}'
     echo '{"type":"result","num_turns":1,"total_cost_usd":0.02,"is_error":false}'
     ;;
 esac
@@ -41,7 +42,7 @@ esac
 afterEach(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 function runEvals(args, env = {}) {
-  const r = spawnSync('node', [RUN, '--skill', 'ensemble-create-prd', ...args], {
+  const r = spawnSync('node', [RUN, '--skill', 'ensemble-create-prd', '--repeats', '1', ...args], {
     encoding: 'utf8',
     env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, EVALS_SKILLS_DIR: skillsDir, EVALS_RESULTS_DIR: path.join(tmp, 'results'), EVALS_JUDGE_MODEL: '', ...env },
   });
@@ -93,13 +94,22 @@ describe('judge grader', () => {
   });
 });
 
+// A skill eval now runs two arms; its per-run graders and costs live under results[0].runs (PR 3).
+const withSkillRun = (rep) => rep.results[0].runs.find((r) => r.arm === 'with-skill');
+
 describe('run with a judged check', () => {
   test('different judge: verdict from deterministic check, judged score and judge model reported apart', () => {
     const r = runEvals(['--model', 'sonnet', '--judge-model', 'opus']);
     expect(r.status).toBe(0);
     expect(r.rep.results[0]).toMatchObject({ verdict: 'pass', pass: true, judgedScore: 0.8, judgeModel: 'opus' });
-    expect(r.rep.results[0].graders.find((g) => g.type === 'judge')).toMatchObject({ judged: true, judgeModel: 'opus', score: 0.8 });
-    expect(r.rep.results[0].costUsd).toBeCloseTo(0.03);
+    expect(withSkillRun(r.rep).graders.find((g) => g.type === 'judge')).toMatchObject({ judged: true, judgeModel: 'opus', score: 0.8 });
+    expect(withSkillRun(r.rep).costUsd).toBeCloseTo(0.03);
+    // The baseline arm skips judged checks (judgedScore reads only with-skill): no judge spend there.
+    const base = r.rep.results[0].runs.find((x) => x.arm === 'baseline');
+    expect(base.graders.map((g) => g.type)).toEqual(['fileExists']);
+    expect(base.costUsd).toBeCloseTo(0.02);
+    expect(r.rep.results[0].costUsd).toBeCloseTo(0.05);
+    expect(fs.readFileSync(path.join(tmp, 'calls.txt'), 'utf8').split('You are grading').length - 1).toBe(1); // one judge call, with-skill only
     expect(r.stderr).not.toMatch(/REFUSED/);
   });
 
@@ -109,8 +119,8 @@ describe('run with a judged check', () => {
     expect(r.status).toBe(0); // the deterministic check passed, so the eval passes
     const res = r.rep.results[0];
     expect(res).toMatchObject({ verdict: 'pass', judgedScore: null });
-    expect(res.graders.find((g) => g.type === 'fileExists').pass).toBe(true);
-    expect(res.graders.find((g) => g.type === 'judge')).toMatchObject({ judged: true, refused: true, score: null });
+    expect(withSkillRun(r.rep).graders.find((g) => g.type === 'fileExists').pass).toBe(true);
+    expect(withSkillRun(r.rep).graders.find((g) => g.type === 'judge')).toMatchObject({ judged: true, refused: true, score: null });
     // the judge model was never called
     expect(fs.readFileSync(path.join(tmp, 'calls.txt'), 'utf8')).not.toContain('You are grading');
   });
@@ -119,7 +129,7 @@ describe('run with a judged check', () => {
     const r = runEvals(['--judge-model', 'opus']);
     expect(r.stderr).toMatch(/REFUSED judged checks .*pass --model so the judge can be compared/);
     expect(r.status).toBe(0);
-    expect(r.rep.results[0].graders.find((g) => g.type === 'judge')).toMatchObject({ refused: true });
+    expect(withSkillRun(r.rep).graders.find((g) => g.type === 'judge')).toMatchObject({ refused: true });
   });
 
   test('no judge configured is refused too; EVALS_JUDGE_MODEL is honoured', () => {

@@ -9,9 +9,10 @@ npm run evals -- --dry-run                      # list scenarios
 node evals/run.js --scenario fix-issue --model sonnet --max-usd 1
 node evals/run.js --max-usd 5                   # all scenarios
 node evals/run.js --concurrency 2 --timeout 600 --keep-workspace
+node evals/run.js --skill <skill> --runtime claude --repeats 3   # with-skill and baseline arms, repeated
 ```
 
-Agent scenarios shell out to `claude -p` (stream-json, `--plugin-dir packages/<pkg>`, `--max-turns`, `--allowedTools`, `--permission-mode`) inside a throwaway git repo built from the scenario fixture under `EVALS_WORKDIR`. `cli` scenarios run no model.
+Agent scenarios shell out to `claude -p` through the Claude adapter (`lib/runners/claude.js`: stream-json, `--setting-sources project`, `--plugin-dir packages/<pkg>`, `--max-turns`, `--allowedTools`, `--permission-mode`) inside a throwaway git repo built from the scenario fixture under `EVALS_WORKDIR`. `cli` scenarios run no model.
 
 Without the `claude` CLI (override path with `EVALS_CLAUDE_BIN`): `--dry-run` prints a skip message and exits 0 (2 if a skill eval definition was rejected); a real run exits 3. Test hooks: `EVALS_SCENARIOS_DIR`, `EVALS_SKILLS_DIR`, `EVALS_RESULTS_DIR`.
 
@@ -49,13 +50,25 @@ node evals/run.js --dry-run [--skill <skill>] # list evals; rejected ones are na
 node evals/run.js --skill <skill> --model sonnet --judge-model opus --max-usd 1
 ```
 
-`eval.json` fields: `skill`, `prompt` (plain language, the task as a user would ask it), `checks` (required); `id` (defaults to the directory name), `description`, `runtimes` (default `["claude"]`), `invocation` (`plain` default, or `explicit` with a `command` such as `/ensemble:create-prd`, prefixed to the prompt), `allowedTools`, `maxTurns`, `timeoutSec`, `repeats`, `bar`, `expectInvoked`. Unknown fields and unfilled `TODO:` placeholders are rejected. `runtimes`, `repeats`, `bar` and `expectInvoked` are validated but not yet acted on (they land in later PRs): each run and dry-run prints a warning line naming them, with no change to the exit code.
+`eval.json` fields: `skill`, `prompt` (plain language, the task as a user would ask it), `checks` (required); `id` (defaults to the directory name), `description`, `runtimes` (default `["claude"]`), `invocation` (`plain` default, or `explicit` with a `command` such as `/ensemble:create-prd`, prefixed to the prompt), `allowedTools`, `maxTurns`, `timeoutSec`, `repeats`, `bar`, `expectInvoked`. Unknown fields and unfilled `TODO:` placeholders are rejected. `repeats`, `bar` and `expectInvoked` act since PR 3 (see Arms and repeats). `runtimes` is validated but not yet acted on (it lands with the Pi adapter): each run and dry-run prints a warning line naming it, with no change to the exit code.
 
 A definition is rejected, and nothing runs for it, when it lacks a task, a `fixture/` directory, a skill or checks; names a skill with no `SKILL.md` under `packages/*/skills`; has only judged checks; or has a judged check with no rubric. Other evals still run.
 
 Checks are the graders below. A `{ "type": "judge", "rubric": "..." }` check is judged: it needs a rubric (inline or `rubric.md`), is marked `judged` in results, and is reported as `judgedScore` apart from `verdict`. The judge model comes from `--judge-model` or `EVALS_JUDGE_MODEL` and must differ from `--model` (names are compared after normalising, so `sonnet` and `claude-sonnet-5-5` are the same model); without `--model` there is nothing to compare against, so the judged check is refused as well. A refused judged check names the conflict and the deterministic checks still decide the eval.
 
-Currently a skill eval runs one arm (with the skill loaded from its package). `evals/scenarios/` stays as legacy single-arm scenarios, not counted as skills. A skill eval whose id matches a legacy scenario id is rejected. Exit codes: 0 all pass, 1 an eval failed or timed out, 2 usage error or rejected definition (also under `--dry-run`), 3 `claude` missing, 4 the suite finished with incomplete evals. When several apply, 2 comes first (a rejected definition), then 1 over 4, and 4 over 0.
+`evals/scenarios/` stays as legacy single-arm scenarios, not counted as skills. A skill eval whose id matches a legacy scenario id is rejected. Exit codes: 0 all pass, 1 an eval failed or timed out, 2 usage error or rejected definition (also under `--dry-run`), 3 `claude` missing, 4 the suite finished with incomplete evals. When several apply, 2 comes first (a rejected definition), then 1 over 4, and 4 over 0.
+
+## Arms and repeats
+
+A skill eval runs two arms on identical fresh workspaces: **with-skill** (`--plugin-dir packages/<pkg>`, the package as shipped, never a copy) and **baseline** (no plugin for the skill under test). Both get `--setting-sources project`. The prompt is the same plain text in both; `invocation: explicit` prefixes `command` on the with-skill arm only. Each arm runs 5 times by default (`repeats` and `bar` in `limits.json`: 4 of 5 must pass for the with-skill arm to be reliable). Details, the startup-event findings and the Claude/Pi uplift distinction: `docs/guides/skills-eval.md`.
+
+- `--repeats N` overrides the eval's `repeats`; `bar` in `eval.json` overrides the default bar, otherwise the default bar scales with `--repeats`. A bar above the repeats is a usage error (exit 2). The report states repeats, bar and where each came from.
+- `--runtime claude` (the default, the only runtime so far; anything else exits 2).
+- Uplift is labelled **package-level (skills share a package)** for Claude: the whole package is loaded, not only the skill.
+- A baseline that has the skill loaded or invoked aborts that eval, naming the leak (exit 1, no baseline score; runs not yet started are skipped). A baseline that completed with no startup skill list aborts the same way as `baseline isolation unverifiable: no startup skill list`; a baseline that crashed or timed out before any init event is not counted toward the baseline score.
+- A fixture containing `.claude/`, `.mcp.json`, `.git`, `.gitmodules`-style config or a symlink pointing outside it is rejected (the sandbox copy also skips them). Judged checks run on the with-skill arm only.
+- Each result records `invoked` (from the transcript's `Skill` events) and the evaluated copy (package path, skill hash, whether the working tree differs from the committed copy). `expectInvoked` is report-only.
+- Results: a skill eval is one entry in `results` with `withSkill`/`baseline` counts, `reliable`, `uplift` and the per-run results under `runs` (graders and cost per run). Budget reservation is per in-flight run, so at most `--concurrency` runs are reserved at once.
 
 ## Add a scenario (legacy)
 
