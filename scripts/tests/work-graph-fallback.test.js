@@ -12,12 +12,11 @@
  *  2. A tracker adapter with neither `work-graph.ready` nor dependency data: `work-graph.plan`
  *     returns items in the supplied plan order with `orderingSource: 'plan-order'` and
  *     `dependencyAware: false`.
- *  3. A command declares a capability as required that neither the resolved tracker NOR the
- *     built-in fallback implements (`work-graph.graph-health` -- this fallback's own scope is
- *     only `work-graph.ready`/`work-graph.plan`, per TRD-027's own text, so the fallback is
- *     genuinely "absent from the registry" for this one capability, the real, reachable
- *     instance of AC 3's "fallback also absent" branch): the runner halts with `UNAVAILABLE`
- *     before any side effect (no health check spawned, no preflight record written).
+ *  3. A command declares a capability as required (`work-graph.graph-health`) that the resolved
+ *     tracker does not implement: the built-in fallback now answers it from the shared scan
+ *     (TRD-026), so the preflight gate passes, resolves to the fallback and writes its record.
+ *     (The old refusal branch is still reachable only through the mutation proof in
+ *     `packages/development/tests/toolchain-cli.test.js`.)
  *
  * `runWorkGraphCapability` is exercised directly against a real, file-based stub tracker binary
  * (`./fixtures/toolchain/work-graph-fallback-tracker-stub.js` -- never an inline `-e` script
@@ -162,7 +161,7 @@ describe('AC 2: neither work-graph.ready on the tracker nor dependency data -> w
   });
 });
 
-describe('AC 3: a required capability neither the tracker nor the built-in fallback implements -> UNAVAILABLE before any side effect', () => {
+describe('AC 3: a required work-graph.graph-health the tracker lacks is answered by the built-in fallback (TRD-026)', () => {
   function mkProjectConfig(projectRoot, categoryToAdapter) {
     const ensembleDir = path.join(projectRoot, '.ensemble');
     fs.mkdirSync(ensembleDir, { recursive: true });
@@ -182,7 +181,7 @@ describe('AC 3: a required capability neither the tracker nor the built-in fallb
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), `# ${adapterId}\n## Vocabulary\nstub\n`);
   }
 
-  test("preflight --require work-graph.graph-health: tracker lacks work-graph, built-in fallback also lacks graph-health -> UNAVAILABLE naming both, no preflight record written", async () => {
+  test('preflight --require work-graph.graph-health: tracker lacks work-graph, built-in fallback answers it -> ok:true and a preflight record IS written', async () => {
     const projectRoot = mkTempDir('wg-fallback-ac3-project-');
     const binDir = mkTempDir('wg-fallback-ac3-bin-');
     const binPath = writeNoWorkGraphTrackerStub(binDir);
@@ -198,16 +197,14 @@ describe('AC 3: a required capability neither the tracker nor the built-in fallb
       { projectRoot, env: { PATH: process.env.PATH } }
     );
 
-    expect(result.ok).toBe(false);
-    expect(result.error.code).toBe('UNAVAILABLE');
-    expect(result.error.message).toContain('work-graph.graph-health');
-    expect(result.error.message).toContain('work-graph-links-fallback');
+    expect(result.ok).toBe(true);
+    expect(result.runId).toBe(runId);
 
     const recordPath = path.join(projectRoot, '.ensemble', 'state', 'toolchain', `preflight-${runId}.json`);
-    expect(fs.existsSync(recordPath)).toBe(false);
+    expect(fs.existsSync(recordPath)).toBe(true);
   });
 
-  test('work-graph.ready itself stays available on the built-in fallback (sanity: AC 3 is about graph-health, not ready/plan)', async () => {
+  test('work-graph.ready itself stays available on the built-in fallback (sanity: ready/plan are unaffected by graph-health)', async () => {
     const projectRoot = mkTempDir('wg-fallback-ac3-sanity-project-');
     const binDir = mkTempDir('wg-fallback-ac3-sanity-bin-');
     const binPath = writeNoWorkGraphTrackerStub(binDir);

@@ -12,7 +12,7 @@
 # subdirectory's index.js -- see that file's own header for why).
 #
 # This manifest is deliberately NOT discovered through the normal 3-tier `skills/` search
-# (packages/development/lib/toolchain/adapters.js#loadAdapter) and its two capabilities are
+# (packages/development/lib/toolchain/adapters.js#loadAdapter) and its capabilities are
 # never spawned as a subprocess through packages/development/lib/toolchain/runner.js -- they
 # are executed in-process by the module above
 # (#loadBuiltinWorkGraphAdapter / #runWorkGraphCapability), which itself calls
@@ -30,11 +30,11 @@ categories:
 contract:
   work-graph: "2.0"
 # Listed for identity/display purposes (the module above reads this to report
-# `categories`/`adapter` to `resolveAll`/`preflight`'s `requireCapabilities` gate) --
-# `work-graph.graph-health` is
-# deliberately absent: this fallback only implements `work-graph.ready`/`work-graph.plan`
-# (TRD-027's own scope), so a caller that `--require`s `work-graph.graph-health` against this
-# adapter correctly fails `UNAVAILABLE` (PRD AC-004-1) rather than silently succeeding.
+# `categories`/`adapter` to `resolveAll`/`preflight`'s `requireCapabilities` gate). All three
+# work-graph capabilities are declared: `work-graph.graph-health` is answered from the shared
+# scan (packages/development/lib/toolchain/work-graph-scan.js), so the category contract's claim
+# that this adapter is its fallback is true (TRD-026).
 capabilities:
   work-graph.ready: {}
   work-graph.plan: {}
+  work-graph.graph-health: {}

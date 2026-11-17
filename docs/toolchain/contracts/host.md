@@ -20,6 +20,22 @@ The `host` category defines 9 capabilities: 6 required and 3 optional. An adapte
 | `host.change-request-merge` | required | yes | `id`, `method` | `id`, `state` | - | - | Merge a change request once its checks pass. `method` (optional, TRD-2026-8d825f54 PR 9 fix round, item 2) selects the normalized merge strategy (squash\|merge\|rebase); omitted defaults to `squash`, preserving behavior from before this input existed. Not every adapter supports every method -- an adapter without a given method declared in its own `variants.method` fails the call closed with `NOT_ALLOWED`, never silently falling back to a different strategy or passing the caller's value through unvalidated. Adding this as an optional input to an EXISTING capability (not a new capability) needs no contract version bump: `checkCompat`/`checkAdditiveOnly` (`contracts.js`) gate capability-level `required`/removal/addition only, never a capability's own `inputs` list. |
 | `host.change-request-link-work-item` | optional | yes | `id`, `workItemId` | `id`, `workItemId` | - | - | Link a change request to a tracker work item. Optional: GitHub has no native work-item-linking capability (only Azure DevOps' `az repos pr work-item add` does, TRD-040/TRD-041), and there is no generic cross-tool fallback, so this carries no `fallback` field. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | azure-devops | github |
+| --- | --- | --- |
+| `host.auth-status` | native | native |
+| `host.change-request-create` | native | native |
+| `host.change-request-view` | native | native |
+| `host.change-request-list` | native | native |
+| `host.change-request-checks` | native | native |
+| `host.change-request-threads` | unavailable | native |
+| `host.change-request-reviews` | unavailable | native |
+| `host.change-request-merge` | native | native |
+| `host.change-request-link-work-item` | native | unavailable |
+
 ## Details
 
 ### host.auth-status

@@ -12,6 +12,14 @@ The `test-runner` category defines 1 capabilities: 1 required and 0 optional. An
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `test-runner.run` | required | no | `file`, `framework`, `config`, `coverage` | `success`, `passed`, `failed`, `skipped`, `total`, `duration`, `failures` | - | - | Run the project's unit/integration test suite for one framework. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | default |
+| --- | --- |
+| `test-runner.run` | native |
+
 ## Details
 
 ### test-runner.run

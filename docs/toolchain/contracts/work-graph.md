@@ -14,6 +14,16 @@ The `work-graph` category defines 3 capabilities: 0 required and 3 optional. An 
 | `work-graph.plan` | optional | no | `scope` | `items`, `orderingSource`, `dependencyAware` | `work-graph-links-fallback` | - | Order work items for sequential pickup, using dependency links when available. |
 | `work-graph.graph-health` | optional | no | `scope` | `status`, `findings` | `work-graph-links-fallback` | - | Report dependency-graph health signals (for example cycles, stale blockers). |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | beads | kata | work-graph-links-fallback |
+| --- | --- | --- | --- |
+| `work-graph.ready` | native | native | native |
+| `work-graph.plan` | native | fallback | native |
+| `work-graph.graph-health` | native | fallback | native |
+
 ## Details
 
 ### work-graph.ready

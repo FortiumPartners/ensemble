@@ -14,6 +14,16 @@ The `review` category defines 3 capabilities: 2 required and 1 optional. An adap
 | `review.list-open-threads` | required | no | `id` | `id`, `threads` | - | - | List currently open (unresolved) automated review comment threads on a change request. |
 | `review.request-review` | optional | yes | `id` | `id` | - | - | Request a new automated review pass on a change request. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | coderabbit |
+| --- | --- |
+| `review.get-review-state` | native |
+| `review.list-open-threads` | native |
+| `review.request-review` | unavailable |
+
 ## Details
 
 ### review.get-review-state

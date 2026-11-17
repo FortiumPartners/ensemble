@@ -14,6 +14,16 @@ The `iac` category defines 3 capabilities: 1 required and 2 optional. An adapter
 | `iac.apply` | optional | yes | `workspace` | `status` | - | - | Apply a previously computed infrastructure change plan. |
 | `iac.destroy` | optional | yes | `workspace` | `status` | - | - | Tear down previously applied infrastructure in a workspace. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | terraform |
+| --- | --- |
+| `iac.plan` | native |
+| `iac.apply` | native |
+| `iac.destroy` | native |
+
 ## Details
 
 ### iac.plan

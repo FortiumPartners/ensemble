@@ -29,6 +29,31 @@ The `tracker` category defines 18 capabilities: 4 required and 14 optional. An a
 | `tracker.update-detailed` | optional | yes | `id`, `title`, `description`, `priority`, `notes` | `id` | `skip-finding-beads` | - | Rewrite a work item's title, description and priority and append a note, without touching its labels or status. |
 | `tracker.close-with-reason` | optional | yes | `id`, `reason`, `commit` | `id`, `status` | `skip-finding-beads` | - | Close a work item recording why it was closed and the commit that resolved it. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | azure-boards | beads | jira | kata |
+| --- | --- | --- | --- | --- |
+| `tracker.show` | native | native | native | native |
+| `tracker.list` | native | native | native | native |
+| `tracker.create` | native | native | native | native |
+| `tracker.update` | native | native | native | native |
+| `tracker.close` | native | native | native | native |
+| `tracker.comment` | native | native | native | native |
+| `tracker.comments` | unavailable | native | native | native |
+| `tracker.dep-add` | native | native | unavailable | native |
+| `tracker.dep-remove` | unavailable | native | unavailable | native |
+| `tracker.label` | fallback | native | fallback | native |
+| `tracker.label-one` | unavailable | unavailable | unavailable | unavailable |
+| `tracker.set-status` | native | native | native | native |
+| `tracker.sync` | unavailable | native | unavailable | native |
+| `tracker.stage-export` | fallback | native | fallback | native |
+| `tracker.create-detailed` | fallback | native | fallback | native |
+| `tracker.find-by-key` | fallback | native | fallback | native |
+| `tracker.update-detailed` | fallback | native | fallback | native |
+| `tracker.close-with-reason` | fallback | native | fallback | native |
+
 ## Details
 
 ### tracker.show

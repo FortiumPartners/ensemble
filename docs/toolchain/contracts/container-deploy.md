@@ -13,6 +13,15 @@ The `container-deploy` category defines 2 capabilities: 1 required and 1 optiona
 | `container-deploy.deploy` | required | yes | `target`, `image` | `status`, `url` | - | - | Build and deploy a container workload to its target environment. |
 | `container-deploy.build-image` | optional | yes | `context`, `tag` | `status`, `image` | - | - | Build a container image from the project's build context (and optionally push it to a registry). A real side effect: disk writes to the local image store, and possibly a network push to a remote registry. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | docker-kubectl |
+| --- | --- |
+| `container-deploy.deploy` | native |
+| `container-deploy.build-image` | native |
+
 ## Details
 
 ### container-deploy.deploy

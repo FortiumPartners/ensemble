@@ -13,6 +13,15 @@ The `package-runner` category defines 2 capabilities: 1 required and 1 optional.
 | `package-runner.run-script` | required | no | `script`, `args` | `status`, `output` | - | - | Run a package/build-tool script (for example an npm/yarn/pnpm script). |
 | `package-runner.install` | optional | no | `args` | `status`, `output` | - | - | Install the project's declared dependencies. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | npm |
+| --- | --- |
+| `package-runner.run-script` | native |
+| `package-runner.install` | native |
+
 ## Details
 
 ### package-runner.run-script

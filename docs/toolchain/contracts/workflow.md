@@ -22,6 +22,24 @@ The `workflow` category defines 11 capabilities: 5 required and 6 optional. An a
 | `workflow.merge-base` | optional | no | `refA`, `refB` | `sha` | - | - | Find the common ancestor commit of two refs. |
 | `workflow.remote-url` | optional | no | `remote` | `url` | - | - | Read the URL of a configured remote. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | git-town | plain-git |
+| --- | --- | --- |
+| `workflow.branch-create` | native | native |
+| `workflow.sync` | native | unavailable |
+| `workflow.propose` | native | native |
+| `workflow.ship` | native | unavailable |
+| `workflow.status` | native | native |
+| `workflow.commit` | native | native |
+| `workflow.push` | native | native |
+| `workflow.log` | unavailable | native |
+| `workflow.diff` | unavailable | native |
+| `workflow.merge-base` | unavailable | native |
+| `workflow.remote-url` | unavailable | native |
+
 ## Details
 
 ### workflow.branch-create

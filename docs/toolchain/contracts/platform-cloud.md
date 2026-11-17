@@ -13,6 +13,15 @@ The `platform-cloud` category defines 2 capabilities: 1 required and 1 optional.
 | `platform-cloud.get-resource` | required | no | `resource` | `status` | - | - | Read the status/details of a resource hosted on the platform/cloud provider. |
 | `platform-cloud.deploy-service` | optional | yes | `service`, `image` | `status` | - | - | Deploy or update a service on the platform/cloud provider. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | aws |
+| --- | --- |
+| `platform-cloud.get-resource` | native |
+| `platform-cloud.deploy-service` | native |
+
 ## Details
 
 ### platform-cloud.get-resource

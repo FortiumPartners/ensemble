@@ -14,6 +14,16 @@ The `e2e-quality` category defines 3 capabilities: 1 required and 2 optional. An
 | `e2e-quality.audit-performance` | optional | no | `target` | `status`, `report` | - | - | Measure and report performance budget compliance for a target. |
 | `e2e-quality.audit-accessibility` | optional | no | `target` | `status`, `report` | - | - | Scan a target for accessibility violations. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | playwright |
+| --- | --- |
+| `e2e-quality.run-e2e` | native |
+| `e2e-quality.audit-performance` | native |
+| `e2e-quality.audit-accessibility` | native |
+
 ## Details
 
 ### e2e-quality.run-e2e

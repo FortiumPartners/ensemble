@@ -4,7 +4,8 @@
  * Built-in `work-graph-links-fallback` adapter (TRD-027, br-jo8y; PRD REQ-016/AC-016-3,
  * REQ-020/AC-020-2/AC-020-3, REQ-004/AC-004-1/AC-004-2; TRD interpretation I7).
  *
- * Implements `work-graph.ready` and `work-graph.plan` for a tracker adapter whose own manifest
+ * Implements `work-graph.ready`, `work-graph.plan` and `work-graph.graph-health` (TRD-026: the last
+ * answers from the shared scan, `../work-graph-scan.js`) for a tracker adapter whose own manifest
  * does not declare the `work-graph` category (`../work-graph-resolve.js#resolveWorkGraphAdapter`
  * is the only caller that selects this adapter, and only when the resolved tracker's manifest
  * `categories[]` omits `'work-graph'`).
@@ -51,7 +52,7 @@
  * This module DOES still call `../runner.js#runCapability` -- twice, against the resolved
  * TRACKER adapter's own manifest (`tracker.list`, then `tracker.show` once per listed item) --
  * exactly as the TRD requires ("it calls tracker.list and tracker.show through the runner").
- * Only this fallback's OWN two capabilities bypass `runCapability`; the tracker calls it makes
+ * Only this fallback's OWN three capabilities bypass `runCapability`; the tracker calls it makes
  * use the real, unmodified runner execution/allowlist/timeout/error-taxonomy path.
  *
  * ## Dependency data shape
@@ -74,7 +75,7 @@
  *    the tracker adapter simply does not expose this data), `orderingSource: 'plan-order'`,
  *    `dependencyAware: false` -- items are reported in the order `tracker.list` returned them,
  *    unfiltered by status (TRD Implementation AC 2: "items return in the supplied plan order").
- * Both capabilities' results carry `orderingSource`/`dependencyAware` (TRD: "Every result
+ * All three capabilities' results carry `orderingSource`/`dependencyAware` (TRD: "Every result
  * carries orderingSource so commands print it" -- not just `work-graph.plan`, whose category
  * contract happens to be the one that names the field in its declared `outputs`).
  */
@@ -84,6 +85,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const { runCapability } = require('../runner');
+const { scanWorkGraph, isGraphHealthy } = require('../work-graph-scan');
 
 const ADAPTER_ID = 'work-graph-links-fallback';
 const MANIFEST_PATH = path.join(
@@ -258,13 +260,13 @@ function topoOrderByDependencies(detailed) {
 }
 
 /**
- * Execute `work-graph.ready` or `work-graph.plan` in-process against the resolved TRACKER
+ * Execute `work-graph.ready`, `work-graph.plan` or `work-graph.graph-health` in-process against the resolved TRACKER
  * adapter's manifest, calling `tracker.list`/`tracker.show` through the real runner
  * (`../runner.js#runCapability`). Never spawns a process itself; every subprocess this
  * function's execution causes is a `tracker.*` capability of `trackerManifest`, run exactly as
  * `runCapability` would run it for any other caller.
  *
- * @param {string} capability `work-graph.ready` | `work-graph.plan`
+ * @param {string} capability `work-graph.ready` | `work-graph.plan` | `work-graph.graph-health`
  * @param {object} trackerManifest the resolved tracker adapter's parsed, validated manifest
  * @param {Record<string, unknown>} [args] accepted for signature parity with `runCapability`;
  *   the category contract's `scope` input has no defined filtering semantics yet (not exercised
@@ -276,7 +278,11 @@ function topoOrderByDependencies(detailed) {
  *   {ok:false, error:{code:string, message:string}}>}
  */
 async function runWorkGraphCapability(capability, trackerManifest, args = {}, opts = {}) {
-  if (capability !== 'work-graph.ready' && capability !== 'work-graph.plan') {
+  if (
+    capability !== 'work-graph.ready' &&
+    capability !== 'work-graph.plan' &&
+    capability !== 'work-graph.graph-health'
+  ) {
     return {
       ok: false,
       error: {
@@ -311,6 +317,19 @@ async function runWorkGraphCapability(capability, trackerManifest, args = {}, op
   const hasDependencyData = detailed.some((item) => Array.isArray(item.dependencies));
   const orderingSource = hasDependencyData ? 'tracker-links' : 'plan-order';
   const dependencyAware = hasDependencyData;
+
+  if (capability === 'work-graph.graph-health') {
+    // Answers from the shared scan. A tracker that gives no dependency data yields no findings,
+    // and `dependencyAware:false` / `orderingSource:'plan-order'` say nothing was checked.
+    const { status, findings } = isGraphHealthy(scanWorkGraph(detailed));
+    return {
+      ok: true,
+      capability,
+      adapter: ADAPTER_ID,
+      source: opts.source ?? null,
+      data: { status, findings, orderingSource, dependencyAware }
+    };
+  }
 
   let resultItems;
   if (capability === 'work-graph.ready') {
