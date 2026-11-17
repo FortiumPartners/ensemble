@@ -360,9 +360,10 @@ describe('runPreflight: real process spawning, not a scripted mock (TRD-014-TEST
     const result = await runPreflight({ categories: ['tracker'], runId: 'real-r1' }, ctx);
 
     expect(result.ok).toBe(false);
-    expect(result.error.code).toBe('HEALTH_FAILED');
+    // TRD-006: a spawn ENOENT is a named missing-binary failure, not the generic HEALTH_FAILED.
+    expect(result.error.code).toBe('MISSING_BINARY');
     expect(result.error.message).toMatch(
-      /^real-missing-tool-tracker: health check 'version' failed \(TOOL_FAILED\):/
+      /^real-missing-tool-tracker: required binary 'definitely-not-a-real-toolchain-binary-9f3c' was not found on PATH \(health check 'version'\)/
     );
     expect(fs.existsSync(preflightRecordPath(projectRoot, 'real-r1'))).toBe(false);
     expect(execFile).toHaveBeenCalledTimes(1);

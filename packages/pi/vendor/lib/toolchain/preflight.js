@@ -101,6 +101,16 @@
  * resolved adapter declares `jsonAssert`, and `preflightGatesCapability` is `false` for any other
  * category or a record without the flag, so ungated adapters (beads) keep their prior behaviour.
  *
+ * ## Missing binary (TRD-2026-6995dc96 TRD-006, PRD AC-001-3, AC-012-2, AC-012-3)
+ *
+ * When a selected adapter's health check cannot spawn its binary at all (`runner.js` marks a
+ * spawn ENOENT with `error.missingBinary`), preflight fails `{code:'MISSING_BINARY'}` naming the
+ * adapter and the binary and telling the user to install it / put it on PATH (or select another
+ * adapter) -- never the generic `HEALTH_FAILED`/`TOOL_FAILED` text. Only adapters actually
+ * selected for the requested categories are health-checked, so a project that did not select
+ * kata never sees a kata failure; and there is no fallback: the failure stops preflight, no
+ * record is written and no other adapter (beads) is ever tried in place of the selected one.
+ *
  * ## Known limits
  *
  * - A health check's `timeoutMs` comes straight from the adapter manifest's `health[]` entry.
@@ -211,6 +221,20 @@ async function runHealthCheck(adapterId, manifest, check, projectRoot) {
 
   if (result.ok) {
     return { ok: true, stdout: typeof result.data === 'string' ? result.data : '' };
+  }
+
+  if (result.error.missingBinary) {
+    const binary = path.basename(String(result.error.missingBinary));
+    return {
+      ok: false,
+      error: {
+        code: 'MISSING_BINARY',
+        message: redactSecrets(
+          `${adapterId}: required binary '${binary}' was not found on PATH (health check '${check.id}'); ` +
+            `install ${binary} and make sure it is on PATH, or select a different adapter for this project`
+        ).text
+      }
+    };
   }
 
   const isTimeout = result.error.code === 'TIMEOUT';
