@@ -270,3 +270,68 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     expect(kata.calls().some((c) => c.startsWith('create'))).toBe(false);
   });
 });
+
+/**
+ * TRD-006-TEST (TRD-2026-6995dc96; PRD REQ-001 AC-001-3, REQ-012 AC-012-2/3): missing-binary
+ * diagnosis for kata, silence for non-kata projects. PATH holds scratch stub dirs only. Fuller
+ * coverage lives in kata-missing-binary-preflight.test.js.
+ */
+describe('kata missing-binary diagnosis (TRD-006-TEST)', () => {
+  function stubBin(name, body) {
+    const dir = mk(`bin-${name}`);
+    const log = path.join(dir, 'calls.log');
+    fs.writeFileSync(path.join(dir, name), ['#!/bin/sh', `echo "$*" >> "${log}"`, body, ''].join('\n'), { mode: 0o755 });
+    return { dir, calls: () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean) : []) };
+  }
+  const kataBody = [
+    'if [ "$1" = "--version" ]; then echo "kata v0.23.0"; exit 0; fi',
+    'echo \'{"checks":[{"id":"config.workspace","status":"ok"}]}\''
+  ].join('\n');
+  const recordFile = (root, id) => path.join(root, '.ensemble', 'state', 'toolchain', `preflight-${id}.json`);
+
+  test('Happy: kata absent and a beads project reports no kata-related failure', async () => {
+    const br = stubBin('br', 'echo "br 0.1.0"');
+    const bv = stubBin('bv', 'echo "bv v0.26.0"');
+    process.env.PATH = `${br.dir}${path.delimiter}${bv.dir}`;
+    const projectRoot = mk('beads-proj');
+    fs.mkdirSync(path.join(projectRoot, '.ensemble'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, '.ensemble', 'toolchain.yaml'), 'tracker: beads\n');
+    const result = await runPreflight(
+      { categories: ['tracker'], runId: 'beads' },
+      { projectRoot, env: { XDG_CONFIG_HOME: path.join(projectRoot, 'xdg') } }
+    );
+    expect(result.ok).toBe(true);
+    expect(JSON.stringify(result)).not.toMatch(/kata/i);
+    const record = recordFile(projectRoot, 'beads');
+    expect(fs.existsSync(record)).toBe(true);
+    expect(fs.readFileSync(record, 'utf8')).not.toMatch(/kata/i);
+  });
+
+  test('Edge: kata absent and a kata project fails naming the kata adapter and the missing binary', async () => {
+    process.env.PATH = mk('empty');
+    const { projectRoot, ctx } = project();
+    const result = await runPreflight({ categories: ['tracker'], runId: 'absent' }, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe('MISSING_BINARY');
+    expect(result.error.message).toMatch(/kata/);
+    expect(result.error.message).toMatch(/PATH/);
+    expect(fs.existsSync(recordFile(projectRoot, 'absent'))).toBe(false);
+  });
+
+  test('Edge: binary present at selection then removed fails with MISSING_BINARY and creates no beads item', async () => {
+    const kata = stubBin('kata', kataBody);
+    const br = stubBin('br', 'echo "br 0.1.0"');
+    process.env.PATH = `${kata.dir}${path.delimiter}${br.dir}`;
+    const { projectRoot, ctx } = project();
+    expect((await runPreflight({ categories: ['tracker'], runId: 'pre' }, ctx)).ok).toBe(true);
+
+    fs.rmSync(path.join(kata.dir, 'kata'));
+    const result = await runPreflight({ categories: ['tracker'], runId: 'post' }, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.error.code).toBe('MISSING_BINARY');
+    expect(result.error.message).toContain('kata');
+    expect(result.error.message).not.toMatch(/beads|\bbr\b/i);
+    expect(fs.existsSync(recordFile(projectRoot, 'post'))).toBe(false);
+    expect(br.calls()).toEqual([]);
+  });
+});
