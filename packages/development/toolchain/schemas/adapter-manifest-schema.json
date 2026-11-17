@@ -132,6 +132,12 @@
           "signal": {
             "type": "string",
             "enum": ["remote_url_matches", "file_exists", "dir_exists", "git_config_set"]
+    "exitCodeNames": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[1-9][0-9]{0,2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "Optional map of the tool's non-zero exit codes to names (TRD-2026-6995dc96 TRD-029, PRD AC-017-2). A failing capability whose exit code is listed resolves TOOL_FAILED with 'exit <n> (<name>)' in the message and exitCode/exitName on the error, ahead of the tool's own stderr or stdout error envelope. Unlisted codes and adapters without this key behave exactly as before. Never makes any exit code a success."
+    },
           }
         }
       },
@@ -160,7 +166,10 @@
               "format": { "type": "string" },
               "root": { "type": "string" },
               "map": { "type": "object" },
-              "statusMap": { "type": "object" }
+              "statusMap": { "type": "object" },
+              "countFrom": { "type": "string", "description": "Dotted path of the total the tool reports for a list read; the mapped item count must equal it or mapOutput throws BAD_OUTPUT naming truncation (TRD-029)." },
+              "completeFrom": { "type": "string", "description": "Dotted path of the tool's own 'complete' boolean; anything but true is refused as BAD_OUTPUT (TRD-029)." },
+              "truncatedFrom": { "type": "string", "description": "Dotted path of the tool's own 'truncated' boolean; anything but false is refused as BAD_OUTPUT (TRD-029)." }
             },
             "description": "Output-mapping block: how the capability's stdout is parsed and projected to the category's normalized output shape."
           },

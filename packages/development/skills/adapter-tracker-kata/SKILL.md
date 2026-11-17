@@ -24,7 +24,7 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 | Capability | Command |
 | --- | --- |
 | `tracker.show` | `kata show ${id} --json`, mapped to the normalized item |
-| `tracker.list` | `kata list --status <filter, default open> --limit 0 --json` |
+| `tracker.list` | `kata list --status <filter> --limit 0 --include-total --json` |
 | `tracker.create` | `kata create ${title} --body ${description} --json` |
 | `tracker.create-detailed` | `kata create ${title} --body ${description} --priority ${priority} --meta ext_key=${externalKey} --idempotency-key ${externalKey} --json` |
 | `tracker.find-by-key` | `kata list --status all --limit 0 --meta ext_key=${key} --json` |
