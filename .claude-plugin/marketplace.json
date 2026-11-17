@@ -506,7 +506,7 @@
     },
     {
       "name": "ensemble-assessment",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "source": "./packages/assessment",
       "description": "Repository, team, and AI-readiness assessment and diagnostic reporting skills",
       "category": "assessment",

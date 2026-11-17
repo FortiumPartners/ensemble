@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `ensemble-assess` no longer sets `user-invocable: false`. With `disable-model-invocation: true` as well, neither the model nor a user could invoke it, so in the `ensemble-full` bundle (which ships skills only, no command stubs) `/ensemble-full:ensemble-assess` could not be typed. The standalone plugin kept working through `commands/ensemble/assess.md`. It now matches the other 39 `ensemble-*` command skills.
+
 ### Added
 
 - Pi/OMP installability: `pi-package` keyword and `pi` manifest in `package.json`. Install `@sunstone-partners/ensemble-assessment` together with `@sunstone-partners/ensemble-pi`; there is no dependency between them.
