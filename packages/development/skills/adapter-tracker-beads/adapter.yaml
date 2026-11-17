@@ -394,6 +394,11 @@ capabilities:
     run: ["cat", ".beads/issues.jsonl"]
   work-graph.ready:
     run: ["bv", "--robot-plan", "--format", "json"]
+    # `scope` is a bead label: when supplied, bv plans only that label\'s subgraph (a repo-wide
+    # plan reads tracks[0], which can belong to another TRD). `*` is the runner\'s catch-all variant.
+    variants:
+      scope:
+        "*": ["bv", "--robot-plan", "--label", "${scope}", "--format", "json"]
     parse:
       format: json
       root: "$.plan.tracks[0].items"
@@ -410,6 +415,11 @@ capabilities:
   # work-graph has no Ajv schema gate at all, unlike tracker).
   work-graph.plan:
     run: ["bv", "--robot-plan", "--format", "json"]
+    # `scope` is a bead label: when supplied, bv plans only that label\'s subgraph (a repo-wide
+    # plan reads tracks[0], which can belong to another TRD). `*` is the runner\'s catch-all variant.
+    variants:
+      scope:
+        "*": ["bv", "--robot-plan", "--label", "${scope}", "--format", "json"]
     parse:
       format: json
       root: "$.plan.tracks[0].items"

@@ -8,11 +8,10 @@
  *
  * Contract pinned here: beads are created with the TRD slug as a label; beads-build and
  * the wave runner accept --label and pass it through (scope/LABEL/ROOT_EPIC_ID fields in the
- * track payload), but do NOT pass it as `--arg scope=` to the work-graph.plan/work-graph.ready
- * capability calls: no shipped adapter path (the real beads adapter's run template, nor
- * TRD-027's builtin link-based fallback) honors a scope input, so passing it would be a pure
- * no-op dead argument (PR 7 independent review item 3). Instead, when --label is set, the wave
- * runner scopes the plan itself (Step 3b, via tracker.list).
+ * track payload) and pass it as `--arg scope=<LABEL>` to work-graph.plan/work-graph.ready: the
+ * beads adapter then plans only that label's subgraph (a repo-wide `bv --robot-plan` reads only
+ * its first track, which can belong to another TRD), and adapters without a scope path ignore
+ * the argument. Step 3b still filters the plan by label via tracker.list.
  *
  * Step 3b FILTERS, it does not refuse. Because no capability path honors a scope input, the
  * plan is repo-wide by construction, and a beads scheduler additionally returns beads that
@@ -92,8 +91,9 @@ describe('beads-build', () => {
 });
 
 describe('beads-build-wave', () => {
-  test('does not pass --arg scope= to work-graph.plan: no adapter path honors it, so it would be a dead no-op argument (PR 7 item 3)', () => {
-    expect(wave).not.toMatch(/run work-graph\.plan --run-id "\$RUN_ID" --arg scope=/);
+  test('passes --arg scope=<LABEL> to work-graph.plan and work-graph.ready when LABEL is set: the beads adapter plans that label subgraph, a repo-wide plan reads only a foreign first track', () => {
+    expect(wave).toMatch(/pass `--arg scope=<LABEL>` to work-graph\.plan and work-graph\.ready/);
+    expect(wave).toMatch(/never `--arg limit=`/);
   });
 
   test('drops out-of-label beads from the tracks instead of refusing the whole plan', () => {
@@ -173,8 +173,8 @@ describe('beads-build-wave', () => {
     expect(wave).toMatch(/scope: \{ ROOT_EPIC_ID, EPIC_SLUG, LABEL \(or null\),/);
   });
 
-  test('does not pass --arg scope= to work-graph.ready either, for the same reason', () => {
-    expect(wave).not.toMatch(/run work-graph\.ready --run-id "\$RUN_ID" --arg scope=/);
+  test('never passes --arg limit= to the work-graph capabilities', () => {
+    expect(wave).not.toMatch(/work-graph\.(plan|ready)[^\n]*--arg limit=[^`\s]/);
   });
 
   test('the runner agent maps the payload LABEL to --label', () => {

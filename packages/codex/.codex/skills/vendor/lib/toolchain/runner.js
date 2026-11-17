@@ -439,6 +439,12 @@ function selectTemplate(runTemplate, args, variants, inputs = {}) {
 
     const variantMap = variants[selectorArgName];
     const key = String(selectedValue);
+    // A literal key wins; otherwise a `*` key is the catch-all for open-ended selector values
+    // (a label, a scope) that cannot be enumerated. Its template substitutes the value itself.
+    if (!Object.prototype.hasOwnProperty.call(variantMap, key) && Object.prototype.hasOwnProperty.call(variantMap, '*')) {
+      effectiveTemplate = variantMap['*'];
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(variantMap, key)) {
       const error = new Error(
         `${selectorArgName}: '${key}' is not an allowed variant (expected one of: ` +
