@@ -14,11 +14,10 @@ const yaml = require('js-yaml');
 const { listSkillReferences } = require('../../../scripts/lib/skill-backed-command');
 
 const COMMAND_PATH = path.join(__dirname, '../commands/fix-issue.yaml');
-const STORE_SRC = fs.readFileSync(
-  path.join(__dirname, '../../agent-core/src/fix-issue/issue-run-index.ts'),
-  'utf-8'
-);
-const TYPES_SRC = fs.readFileSync(path.join(__dirname, '../../agent-core/src/fix-issue/types.ts'), 'utf-8');
+// The workflow reaches the run index through this CLI; the prose is checked against its real surface.
+const CLI = require('../lib/issue-run-index-cli');
+const { ISSUE_STAGE_ORDER } = require('../lib/run-index/fix-issue/types');
+const CORE_JS = fs.readFileSync(path.join(__dirname, '../lib/run-index/run-index-core.js'), 'utf-8');
 const SKILL_SRC = fs.readFileSync(path.join(__dirname, '../skills/pr-review-cycle/SKILL.md'), 'utf-8');
 
 const unique = (list) => [...new Set(list)];
@@ -184,38 +183,78 @@ describe('Fix-Issue Command', () => {
   });
 
   describe('store contract', () => {
-    test('every IssueRunIndexStore method the workflow calls is exported by the store', () => {
-      const called = unique([...allText().matchAll(/IssueRunIndexStore\.(\w+)\(/g)].map((m) => m[1]));
-      expect(called.sort()).toEqual(['abandon', 'complete', 'createRun', 'findActive', 'loadRun', 'mutate']);
-      called.forEach((method) =>
-        expect({ method, exported: new RegExp(`export function ${method}\\(`).test(STORE_SRC) }).toEqual({ method, exported: true })
+    test('every ISSUE_RUN_INDEX_CLI subcommand the workflow calls is a real subcommand, and every real one is called', () => {
+      const called = unique([...allText().matchAll(/ISSUE_RUN_INDEX_CLI ([a-z][a-z-]*)(?=[ ;,.])/g)].map((m) => m[1]));
+      expect(called.sort()).toEqual(['abandon', 'complete', 'create', 'find-active', 'load', 'mutate']);
+      called.forEach((sub) => expect({ sub, real: CLI.SUBCOMMANDS.includes(sub) }).toEqual({ sub, real: true }));
+      expect([...CLI.SUBCOMMANDS].sort()).toEqual(called);
+    });
+
+    // SKILL.md's `## Run Index CLI` section is what the model reads to build payloads.
+    const contract = () => skill.body.slice(skill.body.indexOf('## Run Index CLI'), skill.body.indexOf('## Arguments'));
+    const parseEntries = (text) =>
+      Object.fromEntries(
+        text.split(';').map((entry) => {
+          const m = /^\s*([A-Za-z][\w-]*)(?: \{([^}]*)\})?\.?\s*$/.exec(entry);
+          if (!m) throw new Error(`unparseable contract entry: ${entry}`);
+          return [m[1], m[2] ? m[2].split(',').map((k) => k.trim().replace(/\?$/, '')) : []];
+        })
       );
+
+    test('the Run Index CLI section lists the CLI subcommands with exactly the payload keys it accepts', () => {
+      expect(parseEntries(/Subcommands: (.*?)\. A patch/s.exec(contract())[1])).toEqual(CLI.PAYLOAD_KEYS);
+    });
+
+    test('the Run Index CLI section lists the CLI patch ops with exactly the fields each accepts', () => {
+      const listed = parseEntries(/timestamps stamped by the CLI: (.*?) \(value is "now" or null\)\. expectedRevision/s.exec(contract())[1]);
+      expect(listed).toEqual(CLI.OP_FIELDS);
+    });
+
+    test('every patch op a step names is a real op of this CLI, and every real op is named', () => {
+      const ops = unique(allText().match(/\b(?:set|append)[A-Z]\w*/g));
+      ops.forEach((op) => expect({ op, real: CLI.PATCH_OPS.includes(op) }).toEqual({ op, real: true }));
+      // setPrApprovedAt, setStage, setStageOutcome, appendArtifact and appendBeadRef are each used by a step.
+      expect(ops.sort()).toEqual([...CLI.PATCH_OPS].sort());
+      expect(CLI.PATCH_OPS).not.toContain('setImplementationApprovedAt');
+      for (const [, kind] of allText().matchAll(/setStageOutcome kind (\w+)/g)) {
+        expect(['success', 'decline', 'failure', 'approval_wait']).toContain(kind);
+      }
+    });
+
+    test('ISSUE_RUN_INDEX_CLI is resolved through tool-path-resolution, whose cheat sheet lists it with its vendor suffix', () => {
+      expect(contract()).toContain('ISSUE_RUN_INDEX_CLI (RELATIVE_PATH packages/development/lib/issue-run-index-cli.js) via tool-path-resolution');
+      const sheet = fs.readFileSync(path.join(__dirname, '../skills/tool-path-resolution/SKILL.md'), 'utf-8');
+      expect(sheet).toContain('`packages/development/lib/issue-run-index-cli.js` | `vendor/lib/issue-run-index-cli.js`');
+    });
+
+    test('no step still names the unreachable TypeScript store API', () => {
+      expect(allText() + skill.body).not.toMatch(/IssueRunIndexStore|issue-run-index\.ts|record\.(stage|artifacts|beadRefs)/);
     });
 
     test('every stage the workflow records or reads is a real stage, and checkpoints advance in the fixed order', () => {
-      const real = TYPES_SRC.match(/ISSUE_STAGE_ORDER[^=]*=\s*\[([^\]]*)\]/)[1].match(/"(\w+)"/g).map((s) => s.slice(1, -1));
+      const real = [...ISSUE_STAGE_ORDER];
       const named = unique(allText().match(/\b(?:analysis_planning|execution|validation_delivery|done)\b/g));
       named.forEach((stage) => expect(real).toContain(stage));
 
       const checkpoints = steps.filter((s) => s.title === 'Record Stage Checkpoint').map((s) => s.description);
       expect(checkpoints).toHaveLength(3);
-      expect(checkpoints[0]).toContain('record.stage = "execution"');
-      expect(checkpoints[1]).toContain('record.stage = "validation_delivery"');
-      expect(checkpoints[2]).toContain('IssueRunIndexStore.complete(');
+      expect(checkpoints[0]).toContain('setStage execution');
+      expect(checkpoints[1]).toContain('setStage validation_delivery');
+      expect(checkpoints[2]).toContain('ISSUE_RUN_INDEX_CLI complete');
     });
 
     test('every checkpoint mutate sets stage and outcome in ONE call (a second mutate on one revision conflicts)', () => {
       const [plan, execution] = steps.filter((s) => s.title === 'Record Stage Checkpoint');
       [plan, execution].forEach((s) => {
-        expect(s.description.match(/IssueRunIndexStore\.mutate\(/g)).toHaveLength(1);
-        expect(s.description).toContain('record.stageOutcome');
+        expect(s.description.match(/\bmutate with patch\b/g)).toHaveLength(1);
+        expect(s.description).toContain('setStageOutcome');
       });
       expect(plan.description).toContain('REVISION_CONFLICT');
     });
 
-    test('createRun failure code the workflow handles is the one the store throws', () => {
+    test('create failure code the workflow handles is the one the store throws', () => {
       expect(descriptionOf('Start New Run or Resume Active Run')).toContain('RUN_ALREADY_ACTIVE');
-      expect(STORE_SRC + fs.readFileSync(path.join(__dirname, '../../agent-core/src/run-index-core.ts'), 'utf-8')).toContain('RUN_ALREADY_ACTIVE');
+      expect(CORE_JS).toContain('RUN_ALREADY_ACTIVE');
     });
   });
 
@@ -234,13 +273,13 @@ describe('Fix-Issue Command', () => {
     });
 
     test('prApprovedAt is set in exactly one step (local review), keyed on LOCAL_REVIEW_COMPLETE, and read by PR Creation', () => {
-      const setters = steps.filter((s) => /prApprovedAt\s*=\s*now\(\)/.test(s.description));
+      const setters = steps.filter((s) => /setPrApprovedAt now/.test(s.description));
       expect(setters.map((s) => s.title)).toEqual(['Local Review and Batch Fix']);
       const local = setters[0].description;
-      expect(local.indexOf('LOCAL_REVIEW_COMPLETE')).toBeLessThan(local.indexOf('prApprovedAt = now()'));
+      expect(local.indexOf('LOCAL_REVIEW_COMPLETE')).toBeLessThan(local.indexOf('setPrApprovedAt now'));
       const pr = descriptionOf('PR Creation');
       expect(pr).toContain('prApprovedAt');
-      expect(pr).toContain('loadRun');
+      expect(pr).toContain('ISSUE_RUN_INDEX_CLI load');
     });
 
     test('PR Creation body carries the graded Testing, Risk and How to revert sections and a body gate (REQ-002)', () => {
@@ -263,7 +302,7 @@ describe('Fix-Issue Command', () => {
 
     test('every approval_wait detail the remote step records carries the REVIEW_ prefix the resume gate matches on', () => {
       const remote = descriptionOf('Remote Review Disposition');
-      expect(remote).toMatch(/kind: "approval_wait", detail: `\$\{HALT_STATUS\}:/);
+      expect(remote).toMatch(/setStageOutcome kind approval_wait, detail `\$\{HALT_STATUS\}:/);
       expect(remote).toMatch(/HALT_STATUS is REVIEW_STATUS when exactly REVIEW_PENDING or REVIEW_BLOCKED, else REVIEW_BLOCKED/);
       const entry = descriptionOf('Start New Run or Resume Active Run');
       expect(entry).toContain('starts with "REVIEW_"');
@@ -306,7 +345,7 @@ describe('Fix-Issue Command', () => {
     test('the Foreman artifact is written before the pending/blocked halt in Remote Review Disposition', () => {
       const remote = descriptionOf('Remote Review Disposition');
       const artifactAt = remote.search(/write \{ status: REVIEW_STATUS, headSha, ledger \}/);
-      const haltAt = remote.indexOf('kind: "approval_wait"');
+      const haltAt = remote.indexOf('kind approval_wait');
       expect(artifactAt).toBeGreaterThan(-1);
       expect(haltAt).toBeGreaterThan(-1);
       expect(artifactAt).toBeLessThan(haltAt);

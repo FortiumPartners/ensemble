@@ -17,9 +17,9 @@ describe('beads-scaffold-specialist agent', () => {
     expect(yaml).toContain('Cross-Cutting Requirement Coverage');
   });
 
-  test('implement-trd-beads reserves scaffold work for the scaffold specialist', () => {
-    // implement-trd-beads is skill-backed: its prompt is the skill (SKILL.md + references/)
-    const prose = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+  test('implement-trd-tasks reserves scaffold work for the scaffold specialist', () => {
+    // implement-trd-tasks is skill-backed: its prompt is the skill (SKILL.md + references/)
+    const prose = readDevelopmentSkill('ensemble-implement-trd-tasks').prompt;
     expect(prose).toContain('beads-scaffold-specialist');
     expect(prose).toMatch(/never backend-developer/);
   });

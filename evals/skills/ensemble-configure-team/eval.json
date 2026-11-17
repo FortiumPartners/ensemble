@@ -1,0 +1,84 @@
+{
+  "id": "ensemble-configure-team",
+  "skill": "ensemble-configure-team",
+  "description": "A non-interactive configure-team run on a seeded TRD (12 tasks in two task shapes, 72 estimated hours, backend, frontend and database work) injects one `## 4.1 Team Configuration` section between the Master Task List and Quality Requirements: metrics (12 tasks, 72 hours, Complex tier, 3 or more domains, dependency depth), a yaml team block with the tech-lead-orchestrator lead, two or more real builder agents, a code-reviewer and a test-runner qa role, the rest of the TRD unchanged (whitespace-normalised) and no other file written. Scope and limits: the checks test the structure and the numbers derived from the fixture, not whether the chosen agents are the best fit; the marketplace phase runs only with --team, which the prompt does not pass, so it is not covered; the Simple-tier skip, --team/--no-team and replacing a stale block are not covered. The baseline arm is expected to measure the plugin's conventions (section heading and position, yaml role schema, Complex roles, preservation), which a model without the skill may or may not reproduce, and the difference is the uplift. Claude only: the skill reads packages/*/agents and ~/.omp plugin directories, so a Pi arm would depend on the host install.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/TRD/TRD-2026-c0ffee01-notes-api.md --foreman\n\nThis is a non-interactive run: ask no questions and choose the recommended option. Analyze the TRD's complexity and configure the team for it, saving the result in the TRD itself. Change nothing else in the TRD and do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:configure-team",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' section-injected",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' metrics-counts",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' tier-complex",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' domains",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' depth",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' lead-role",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' builders",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' complex-roles",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' trd-preserved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-configure-team.js' no-stray-files --allow docs/TRD/TRD-2026-c0ffee01-notes-api.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

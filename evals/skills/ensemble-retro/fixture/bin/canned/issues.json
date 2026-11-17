@@ -1,0 +1,13 @@
+{
+  "issues": [
+    {"id": "rt-0", "title": "Baseline invoice report (20h)", "description": "", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-09-20T08:00:00Z", "closed_at": "2026-09-20T10:00:00Z"},
+    {"id": "rt-1", "title": "Add CSV writer (4h)", "description": "Part of the export release.", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-01T09:00:00Z", "closed_at": "2026-10-02T09:00:00Z"},
+    {"id": "rt-2", "title": "Escape quotes in CSV cells (2h)", "description": "", "status": "closed", "issue_type": "bug", "labels": ["export"], "created_at": "2026-10-05T09:00:00Z", "closed_at": "2026-10-05T13:00:00Z"},
+    {"id": "rt-3", "title": "Add JSON writer", "description": "Includes schema docs (Est: 8h).", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-07T08:00:00Z", "closed_at": "2026-10-07T12:00:00Z"},
+    {"id": "rt-4", "title": "Update the export guide", "description": "", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-07T13:00:00Z", "closed_at": "2026-10-08T10:00:00Z"},
+    {"id": "rt-5", "title": "Streaming writer for large exports (10h)", "description": "", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-02T00:00:00Z", "closed_at": "2026-10-12T00:00:00Z"},
+    {"id": "rt-6", "title": "Paginate the export query (6h)", "description": "", "status": "closed", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-08T08:00:00Z", "closed_at": "2026-10-08T14:00:00Z"},
+    {"id": "rt-7", "title": "Fix timezone in the CSV header (8h)", "description": "", "status": "closed", "issue_type": "bug", "labels": ["export"], "created_at": "2026-10-18T00:00:00Z", "closed_at": "2026-10-18T02:00:00Z"},
+    {"id": "rt-8", "title": "Add XLSX writer (5h)", "description": "", "status": "open", "issue_type": "task", "labels": ["export"], "created_at": "2026-10-16T09:00:00Z", "closed_at": null}
+  ]
+}

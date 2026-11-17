@@ -1,0 +1,100 @@
+{
+  "id": "assess-code-quality",
+  "skill": "assess-code-quality",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to assess the code quality and technical debt of a small seeded Node library (ledgerly: invoicing, customers, reports) with the report saved to docs/assessment/code-quality.md. The fixture plants known facts: src/billing.js is over 300 lines with one oversized function (buildStatement); TODO, FIXME and HACK comments whose exact counts are computed from the fixture; a class and a function that break the naming convention (customer_store, Get_Customer); the same try/catch block repeated in three files; and an empty catch that swallows an error in src/reports.js. Deterministic checks cover: the report is saved with the 'Code Quality Analysis' title; all ten sections of the skill's Output Format appear in order; the Score is `<1.0-5.0> / <Letter>` with the letter derived from the shared scale; the largest file is listed first with a size near the real one; the TODO and FIXME counts equal the real counts; a naming violation is cited at its real line; the repeated try/catch is found (flaky); the empty catch is cited and called out; the complexity section finds buildStatement; a before/after code example is given; every file:line citation resolves to a real file and line (flaky); Key Findings and Recommendations have enough numbered items with citations; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the analysis is insightful, that the score is deserved, or that the suggested refactorings are sound. The baseline arm gets the same prompt without the plugin and is expected to produce a code-quality report too, so the uplift measures the plugin's conventions (section layout, numeric/letter score, citations), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Assess the code quality of this repository: the largest files, technical debt markers, naming problems, duplicated code, how errors are handled and where the complexity is, with before/after refactoring examples and an overall score. Cite the file and line for every finding, and count the debt markers.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/code-quality.md. Write only that report; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' largest-file",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' debt-counts",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' naming-violations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' duplication-found",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' swallowed-error",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' complexity-hotspot",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' before-after",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' findings-recommendations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-code-quality.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

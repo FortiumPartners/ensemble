@@ -5,7 +5,7 @@
  *
  * Extracts Scaffold Steps 3-6 (epic / story / task / synthesized-test / and
  * dependency edge construction) from
- * packages/development/commands/implement-trd-beads.yaml into a pure,
+ * packages/development/commands/implement-trd-tasks.yaml into a pure,
  * tested function.
  *
  * IMPORTANT: this module has NO side effects. It does NOT call `br`, git, or
@@ -190,7 +190,7 @@ function taskReferencesBlock(task, opts, extra) {
 
 /**
  * Build the structured description for an implementation task bead.
- * Ports implement-trd-beads.yaml Step 5 line ~517, including the Sub-items and
+ * Ports implement-trd-tasks.yaml Step 5 line ~517, including the Sub-items and
  * Embedded-tests additions.
  */
 function buildImplTaskDescription(task, opts) {
@@ -243,7 +243,7 @@ function buildImplTaskDescription(task, opts) {
 
 /**
  * Build the structured description for a test task bead.
- * Ports implement-trd-beads.yaml Step 5 line ~518.
+ * Ports implement-trd-tasks.yaml Step 5 line ~518.
  */
 function buildTestTaskDescription(task, opts) {
   const { prdContext, architectureDecision, keyTechnicalDecisions } = opts;
@@ -290,7 +290,7 @@ function buildTestTaskDescription(task, opts) {
 
 /**
  * Build the description for a synthesized test bead derived from a nested test
- * sub-item. Ports implement-trd-beads.yaml Step 6 line ~535.
+ * sub-item. Ports implement-trd-tasks.yaml Step 6 line ~535.
  */
 function buildSynthTestDescription(synthId, parentTask, subitemText, opts) {
   const sections = [];

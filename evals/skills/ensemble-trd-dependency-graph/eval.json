@@ -1,0 +1,72 @@
+{
+  "id": "ensemble-trd-dependency-graph",
+  "skill": "ensemble-trd-dependency-graph",
+  "description": "Claude Code only. Given four seeded TRDs under docs/TRD (checkout and promotions each depend on the foundational inventory TRD; checkout and promotions both target src/Pricing.js; reports carries one dangling cross-TRD reference to checkout#TRD-009), a non-interactive /ensemble-development:ensemble:trd-dependency-graph run saves a report to docs/trd-graph-report.md that draws exactly the two valid edges (dependent --> dependency), reports the checkout/promotions overlap on src/Pricing.js with an extract-into-a-foundational-TRD suggestion, surfaces the unresolved reference as a warning, and leaves the TRDs unmodified. The skill only prints, so the prompt asks for the file so a script can read it. Checks are textual (arrows, names, words in a passage); they do not show that the graph was built by trd-graph-cli rather than by hand, nor the quality of the advice. The baseline arm gets the same prompt without the plugin and is expected to measure the plugin's conventions (arrow direction, the unresolved-reference warning, the extract-and-reference advice), not only whether the TRDs can be read; the uplift is the package's, since the command and the skill are in packages/development. NOT SKILL-ATTRIBUTABLE until a trial shows the with-skill arm resolves trd-graph-cli: step 1.2 tries the git top level, ${CLAUDE_PLUGIN_ROOT}, a CWD-relative path and a Pi bundle, and in the sandbox only ${CLAUDE_PLUGIN_ROOT} substitution can succeed (unproven); if it halts, the with-skill arm fails every check but trds-untouched. Pi is excluded for the same resolution reason. No constitution file: this skill has no Constitution Gate.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/TRD --format mermaid\n\nThis is a non-interactive run: ask no questions. Map the dependencies between the TRDs in docs/TRD as a Mermaid graph, report any TRDs that duplicate each other's work and any problems with the references between them, and save the full report (graph, findings and warnings) to docs/trd-graph-report.md. Do not modify any TRD or write any other file.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:trd-dependency-graph",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' graph-edges",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' graph-edges-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' overlap-reported",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' overlap-only-pair",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' extract-suggested",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' warning-surfaced",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-trd-dependency-graph.js' trds-untouched",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

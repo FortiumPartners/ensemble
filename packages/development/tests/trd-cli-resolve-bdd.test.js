@@ -2,7 +2,7 @@
 
 /**
  * Tests for `trd-cli resolve-bdd` (lib/trd-cli.js), the subcommand create-trd and
- * implement-trd-beads run to learn whether the Reqnroll/BDD path is on. It is on unless opted out.
+ * implement-trd-tasks run to learn whether the Reqnroll/BDD path is on. It is on unless opted out.
  */
 
 const fs = require('fs');

@@ -1,0 +1,13 @@
+{
+  "exitCode": 0,
+  "json": {
+    "ok": true,
+    "tracked": true,
+    "file": ".beads/issues.jsonl",
+    "dryRun": false,
+    "replaced": 0,
+    "added": 0,
+    "foreignDropped": 0,
+    "unchanged": true
+  }
+}

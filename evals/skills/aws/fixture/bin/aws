@@ -1,0 +1,28 @@
+#!/bin/sh
+# Stub `aws` for the aws skill eval: never talks to AWS. It answers `sts get-caller-identity` with the sandbox account 111122223333, a
+# few harmless calls with canned text, and appends every call (answered or refused) to tool-calls.log in the sandbox root, two levels
+# above this stub and outside the git worktree (the stub terraform writes to the same file). Global flags (--profile, --region,
+# --output, --query, ...) are skipped to find the service and operation. Anything else exits 2. It does NOT enforce conventions.
+here=$(cd "$(dirname "$0")" && pwd)
+printf 'aws %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../tool-calls.log"
+unsupported() { echo "aws stub: unsupported call: $*" >&2; exit 2; }
+
+svc=""; op=""; prev=""
+for a in "$@"; do
+  if [ -n "$prev" ]; then prev=""; continue; fi
+  case "$a" in
+    --profile|--region|--output|--query|--endpoint-url|--color|--ca-bundle|--cli-read-timeout|--cli-connect-timeout) prev="$a" ;;
+    --profile=*|--region=*|--output=*|--query=*|--no-cli-pager|--no-paginate|--debug|--no-sign-request) ;;
+    --version) echo "aws-cli/2.15.0 (stub)"; exit 0 ;;
+    -*) ;;
+    *) if [ -z "$svc" ]; then svc="$a"; elif [ -z "$op" ]; then op="$a"; fi ;;
+  esac
+done
+
+case "$svc $op" in
+  "sts get-caller-identity") printf '{\n    "UserId": "AIDASTUBSANDBOX",\n    "Account": "111122223333",\n    "Arn": "arn:aws:iam::111122223333:user/sandbox"\n}\n'; exit 0 ;;
+  "configure list") echo "      profile                <not set>             None    None"; exit 0 ;;
+  "secretsmanager list-secrets") echo '{"SecretList": []}'; exit 0 ;;
+  "secretsmanager describe-secret"|"secretsmanager create-secret"|"secretsmanager put-secret-value") echo '{"Name": "stub", "ARN": "arn:aws:secretsmanager:us-east-1:111122223333:secret:stub-AbCdEf"}'; exit 0 ;;
+esac
+unsupported "$@"

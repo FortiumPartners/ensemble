@@ -1,0 +1,5 @@
+12	Add coupon codes	feat/coupons	OPEN	2026-11-10T09:00:00Z
+15	Round totals to cents	fix/rounding	OPEN	2026-11-10T09:00:00Z
+18	Cache subtotal	perf/cache-subtotal	OPEN	2026-11-10T09:00:00Z
+21	Guest checkout	feat/guest-checkout	OPEN	2026-11-10T09:00:00Z
+27	Drop unused helper	chore/drop-helper	OPEN	2026-11-10T09:00:00Z

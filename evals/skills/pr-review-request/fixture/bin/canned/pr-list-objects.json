@@ -1,0 +1,62 @@
+[
+  {
+    "number": 12,
+    "title": "Add coupon codes",
+    "url": "https://github.com/example/shopcart/pull/12",
+    "state": "OPEN",
+    "baseRefName": "main",
+    "headRefName": "feat/coupons",
+    "isDraft": false,
+    "author": {
+      "login": "dana"
+    }
+  },
+  {
+    "number": 15,
+    "title": "Round totals to cents",
+    "url": "https://github.com/example/shopcart/pull/15",
+    "state": "OPEN",
+    "baseRefName": "main",
+    "headRefName": "fix/rounding",
+    "isDraft": false,
+    "author": {
+      "login": "lee"
+    }
+  },
+  {
+    "number": 18,
+    "title": "Cache subtotal",
+    "url": "https://github.com/example/shopcart/pull/18",
+    "state": "OPEN",
+    "baseRefName": "main",
+    "headRefName": "perf/cache-subtotal",
+    "isDraft": false,
+    "author": {
+      "login": "sam"
+    }
+  },
+  {
+    "number": 21,
+    "title": "Guest checkout",
+    "url": "https://github.com/example/shopcart/pull/21",
+    "state": "OPEN",
+    "baseRefName": "main",
+    "headRefName": "feat/guest-checkout",
+    "isDraft": false,
+    "author": {
+      "login": "dana"
+    }
+  },
+  {
+    "number": 27,
+    "title": "Drop unused helper",
+    "url": "https://github.com/example/shopcart/pull/27",
+    "state": "OPEN",
+    "baseRefName": "main",
+    "headRefName": "chore/drop-helper",
+    "isDraft": false,
+    "author": {
+      "login": "kim"
+    }
+  }
+]

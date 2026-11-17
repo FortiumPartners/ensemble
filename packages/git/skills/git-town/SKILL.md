@@ -15,7 +15,7 @@ git-town is also the **workflow** adapter named git-town in the capability toolc
 
 ## Preflight
 
-`scripts/validate-git-town.sh` checks install, version and that the cwd is a git repo. Exit codes: 0 ok, 1 not installed, 2 not configured (non-fatal: git-town falls back to the git main branch), 3 version < 14, 4 not a git repo. `implement-trd-beads`, `beads-build` and `implement-bead` feed the code to `trd-cli resolve-sdlc`, which falls back to the plain-git `workflow` adapter when git-town is unavailable.
+`scripts/validate-git-town.sh` checks install, version and that the cwd is a git repo. Exit codes: 0 ok, 1 not installed, 2 not configured (non-fatal: git-town falls back to the git main branch), 3 version < 14, 4 not a git repo. `implement-trd-tasks`, `beads-build` and `implement-bead` feed the code to `trd-cli resolve-sdlc`, which falls back to the plain-git `workflow` adapter when git-town is unavailable.
 
 ## Capabilities used by Ensemble
 

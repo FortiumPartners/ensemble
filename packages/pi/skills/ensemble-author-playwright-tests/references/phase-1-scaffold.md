@@ -3,7 +3,7 @@
 
 #### Step 1.1: Trigger Check — Open PR Required
 
-REQ-001: this session may only start once implement-trd-beads has
+REQ-001: this session may only start once implement-trd-tasks has
 shipped a PR boundary for the target branch. TRD-031: the target
 repo may be hosted on GitHub or Azure DevOps Repos — detect which
 before checking, never assume gh/GitHub.
@@ -14,7 +14,7 @@ before checking, never assume gh/GitHub.
 - Call detectRepoHost() from $E2E_LIB/pr-state.js
 - If host is "github" or "unknown": call checkPrState(branch) from the same module (via host.change-request-list, TRD-038)
 - If host is "azure-devops": call the Azure DevOps MCP server's PR-list tool (e.g. repo_list_pull_requests_by_repo_or_project) with detectRepoHost()'s resolved organization/project/repository, then call checkPrStateAdo(branch, prs) from the same module to get the normalized result
-- If hasOpenPr is false: halt the session and print pr-state.js's NO_OPEN_PR_MESSAGE (run /ensemble-implement-trd-beads first) — do not proceed to grounding, execution, or sync
+- If hasOpenPr is false: halt the session and print pr-state.js's NO_OPEN_PR_MESSAGE (run /ensemble-implement-trd-tasks first) — do not proceed to grounding, execution, or sync
 - If hasOpenPr is true: proceed with the session on that same branch/PR — all authored test commits land there
 - Carry the result's baseBranch (the PR's real target branch, e.g. "integration" on some repos) forward as the session's resolved base branch — every groundImplementation() call in the next step passes it as opts.baseBranch, never letting that module fall back to guessing main/origin-main
 

@@ -21,12 +21,12 @@ Resolve toolchain-cli and verify tracker/work-graph capability health before any
 
 #### Step 1.3: Working Directory and Branch Verification
 
-Confirm clean working directory AND that the caller already switched off the repository default branch; branch creation itself is still owned by the caller (beads-build.yaml or implement-trd-beads.yaml Feature Branch Creation) -- this step only verifies the precondition, it never creates or switches branches.
+Confirm clean working directory AND that the caller already switched off the repository default branch; branch creation itself is still owned by the caller (beads-build.yaml or implement-trd-tasks.yaml Feature Branch Creation) -- this step only verifies the precondition, it never creates or switches branches.
 
-- Run: node "$TOOLCHAIN_CLI" run workflow.status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present]; HALT if any changed path outside .beads/ (the tracker adapter's own state) remains (dirty working directory).
+- Run: node "$TOOLCHAIN_CLI" run workflow.status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present]; HALT if any changed path outside .beads/ (the tracker adapter's own state) remains (dirty working directory). Toolchain state under .ensemble/state/ is self-ignoring (lib/toolchain/state-dir.js), so Step 1.2's preflight record never appears.
 - CURRENT_BRANCH = the current branch name (HALT immediately with "ERROR: detached HEAD -- create or switch to a feature branch before dispatching a wave." if this fails/empty, i.e. detached HEAD).
 - DEFAULT_BRANCH = the remote's default branch without the origin/ prefix; if empty (no origin configured) fall back to DEFAULT_BRANCH=main.
-- HARD PRECONDITION: if CURRENT_BRANCH == DEFAULT_BRANCH, print "ERROR: beads-build-wave refuses to dispatch on the repository default branch (<DEFAULT_BRANCH>). Run implement-trd-beads.yaml Feature Branch Creation (Preflight Step 10) first, or manually create/switch to a feature branch, then retry." and HALT. Do not implement work directly on <DEFAULT_BRANCH>.
+- HARD PRECONDITION: if CURRENT_BRANCH == DEFAULT_BRANCH, print "ERROR: beads-build-wave refuses to dispatch on the repository default branch (<DEFAULT_BRANCH>). Run implement-trd-tasks.yaml Feature Branch Creation (Preflight Step 10) first, or manually create/switch to a feature branch, then retry." and HALT. Do not implement work directly on <DEFAULT_BRANCH>.
 - Note: this command does NOT create or switch branches itself; it only verifies the caller already did. This file remains branch-mutation-free.
 
 #### Step 1.4: Epic and TRD Resolution

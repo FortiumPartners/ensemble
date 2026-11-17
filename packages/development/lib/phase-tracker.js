@@ -4,7 +4,7 @@
  * Phase-completion detection + phase-strict task selection.
  *
  * Extracts the phase-tracking logic from
- * packages/development/commands/implement-trd-beads.yaml into pure, tested
+ * packages/development/commands/implement-trd-tasks.yaml into pure, tested
  * functions. NO side effects, NO shell, NO br/git/bv calls.
  *
  * ## The bug this replaces

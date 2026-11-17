@@ -1,0 +1,158 @@
+#!/bin/sh
+# Stub `railway` for the railway skill eval: no Railway account, no network. It answers a small set of calls with canned text and appends
+# every call it receives (answered or refused) to railway-calls.log in the sandbox root, two levels above this stub and outside the git
+# worktree (the linked project is kept in railway-state beside it). Each line is
+#   railway <argv, token values and set values redacted> || rt=<none|ok|bad> at=<none|ok|bad> leak=<none|argv> set=<none|KEY:sha:16hex,..>
+#   project=<linked project|none> exit=<n> note=<none|prompt|unsupported|unauthorized|nolink>
+# where rt / at say whether RAILWAY_TOKEN / RAILWAY_API_TOKEN in the environment equals the same variable in the workspace's .env, and leak=argv
+# says a .env token value was typed on the command line. Interactivity is simulated honestly: a call that would stop to ask a question or
+# stream forever (link without -p and -e, init without -n, down or redeploy without -y, up without --detach, ssh without `-- <cmd>`, login,
+# shell, connect without a service, environment without a name) is logged and exits 2 with "would prompt; refusing in a non-interactive
+# stub". Token typing is simulated: `logs` needs RAILWAY_TOKEN (a project token), `init` and `link` need RAILWAY_API_TOKEN (an account
+# token), `whoami` either, else exit 1 "Unauthorized". Calls that need a project need a linked one or a valid project token (exit 1).
+# Beyond that the stub does NOT enforce the conventions it measures. Unknown verbs exit 2 "unsupported". The value of a variable that is
+# set is never logged, only KEY and the first 16 hex characters of the SHA-256 of the value.
+here=$(cd "$(dirname "$0")" && pwd)
+log="$here/../../railway-calls.log"
+state="$here/../../railway-state"
+envf="$here/../.env"
+
+want_rt=$(sed -n 's/^RAILWAY_TOKEN=//p' "$envf" 2>/dev/null | head -1 | tr -d "\"'\r")
+want_at=$(sed -n 's/^RAILWAY_API_TOKEN=//p' "$envf" 2>/dev/null | head -1 | tr -d "\"'\r")
+rt=none; at=none
+if [ -n "${RAILWAY_TOKEN:-}" ]; then if [ -n "$want_rt" ] && [ "$RAILWAY_TOKEN" = "$want_rt" ]; then rt=ok; else rt=bad; fi; fi
+if [ -n "${RAILWAY_API_TOKEN:-}" ]; then if [ -n "$want_at" ] && [ "$RAILWAY_API_TOKEN" = "$want_at" ]; then at=ok; else at=bad; fi; fi
+
+sha16() { printf '%s' "$1" | { shasum -a 256 2>/dev/null || sha256sum; } | cut -c1-16; }
+
+shown=""; flags=" "; leak=none; setlist=""; dd=0; cmd=""
+verb=""; sub=""; n=0; prev=""; prevset=0; pname=""; pproj=""; penv=""; skey=""
+for a in "$@"; do
+  s=$a
+  for w in "$want_rt" "$want_at"; do
+    if [ -n "$w" ]; then case $s in *"$w"*) leak=argv; s="<token>" ;; esac; fi
+  done
+  if [ "$dd" = 1 ]; then cmd="$cmd $a"; shown="$shown $s"; continue; fi
+  if [ "$a" = "--" ]; then dd=1; shown="$shown --"; continue; fi
+  if [ "$prevset" = 1 ]; then
+    prevset=0; k=${a%%=*}; v=${a#*=}; setlist="$setlist,$k:sha:$(sha16 "$v")"; shown="$shown $k=<value>"; continue
+  fi
+  if [ -n "$prev" ]; then
+    case $prev in -n|--name) pname=$a ;; -p|--project) pproj=$a ;; -e|--environment) penv=$a ;; esac
+    prev=""; shown="$shown $s"; continue
+  fi
+  case "$a" in
+    --set) prevset=1; shown="$shown --set"; continue ;;
+    --set=*) rest=${a#--set=}; k=${rest%%=*}; v=${rest#*=}; setlist="$setlist,$k:sha:$(sha16 "$v")"; shown="$shown --set=$k=<value>"; continue ;;
+    --name=*) pname=${a#--name=}; flags="$flags--name " ;;
+    --project=*) pproj=${a#--project=}; flags="$flags--project " ;;
+    --environment=*) penv=${a#--environment=}; flags="$flags--environment " ;;
+    -n|--name|-p|--project|-e|--environment|-s|--service) prev=$a; flags="$flags$a " ;;
+    -d) case $verb in logs|environment) prev=$a ;; esac; flags="$flags-d " ;;
+    -*) flags="$flags$a " ;;
+    *)
+      n=$((n + 1))
+      case $n in 1) verb=$a ;; 2) sub=$a ;; esac
+      if [ "$verb" = variables ] || [ "$verb" = variable ] || [ "$verb" = vars ]; then
+        if [ "$sub" = set ] && [ "$n" -ge 3 ]; then
+          if [ "$n" = 3 ]; then
+            case $a in
+              *=*) k=${a%%=*}; v=${a#*=}; setlist="$setlist,$k:sha:$(sha16 "$v")"; s="$k=<value>" ;;
+              *) skey=$a ;;
+            esac
+          elif [ "$n" = 4 ] && [ -n "$skey" ]; then setlist="$setlist,$skey:sha:$(sha16 "$a")"; s="<value>"; fi
+        fi
+      fi ;;
+  esac
+  shown="$shown $s"
+done
+setmeta=none; [ -n "$setlist" ] && setmeta=${setlist#,}
+case $verb in variable|vars) verb=variables ;; env) verb=environment ;; ls) verb=list ;; esac
+has() { case "$flags" in *" $1 "*) return 0 ;; esac; return 1; }
+yes_given() { has -y || has --yes; }
+detached() { has --detach || has -d; }
+
+project=none; [ -f "$state" ] && project=$(head -1 "$state" | tr -d ' \n\r')
+[ -z "$project" ] && project=none
+
+code=0; note=""
+finish() {
+  line=$(printf 'railway%s' "$shown" | tr '\n\r' '  ')
+  printf '%s || rt=%s at=%s leak=%s set=%s project=%s exit=%s note=%s\n' "$line" "$rt" "$at" "$leak" "$setmeta" "$project" "$code" "${note:-none}" >> "$log"
+  exit "$code"
+}
+prompt() { code=2; note=prompt; echo "railway stub: $1: would prompt; refusing in a non-interactive stub" >&2; finish; }
+unsupported() { code=2; note=unsupported; echo "railway stub: unsupported call:$shown" >&2; finish; }
+unauthorized() { code=1; note=unauthorized; echo "Unauthorized. Please check that your $1 is valid and has access to the resource" >&2; finish; }
+ok() { printf '%s\n' "$@"; finish; }
+needproject() {
+  if [ "$project" = none ] && [ "$rt" != ok ]; then code=1; note=nolink; echo "No linked project found. Run railway link to connect to a project" >&2; finish; fi
+}
+
+if [ -z "$verb" ]; then
+  if has --version || has -V || has -v; then ok "railway 3.5.0 (stub)"; fi
+  ok "Railway CLI 3.5.0 (stub)" "Usage: railway <command>"
+fi
+
+case "$verb" in
+  login|shell) prompt "$verb" ;;
+  whoami)
+    if [ "$rt" = ok ] || [ "$at" = ok ]; then ok "Logged in as ci@acme.example (stub)"; fi
+    unauthorized "token" ;;
+  init)
+    [ -n "$pname" ] || prompt "init"
+    [ "$at" = ok ] || unauthorized "RAILWAY_API_TOKEN (an account token)"
+    project=$pname; printf '%s\n' "$pname" > "$state"
+    ok "Created project $pname on acme" "https://railway.com/project/stub-$pname" ;;
+  link)
+    [ -n "$pproj" ] && [ -n "$penv" ] || prompt "link"
+    [ "$at" = ok ] || unauthorized "RAILWAY_API_TOKEN (an account token)"
+    project=$pproj; printf '%s\n' "$pproj" > "$state"
+    ok "Project $pproj linked (environment $penv)" ;;
+  list)
+    [ "$at" = ok ] || [ "$rt" = ok ] || unauthorized "token"
+    ok "acme" "  harbor-docs" "  old-sandbox" ;;
+  status)
+    needproject
+    ok "Project: $project" "Environment: production" "Service: web" ;;
+  up)
+    detached || prompt "up (would stream the build until it ends)"
+    needproject
+    ok "Indexing..." "Uploading..." "  Build Logs: https://railway.com/project/stub-$project/service/web?id=dep-0001" ;;
+  redeploy)
+    yes_given || prompt "redeploy"
+    needproject
+    ok "Redeploying the latest deployment of web" ;;
+  down)
+    yes_given || prompt "down"
+    needproject
+    ok "Removed the latest deployment of web" ;;
+  variables)
+    needproject
+    if [ -n "$setlist" ]; then ok "Set variables for web: $(printf '%s' "$setmeta" | sed 's/:sha:[0-9a-f]*//g; s/,/, /g')"; fi
+    [ "$sub" = set ] && prompt "variables set (no KEY=value given)"
+    ok "PORT=8080" "RAILWAY_ENVIRONMENT=production" "RAILWAY_PUBLIC_DOMAIN=<redacted>" ;;
+  domain)
+    needproject
+    ok "Service Domain created: https://web-production-1a2b.up.railway.app" ;;
+  logs)
+    [ "$rt" = ok ] || unauthorized "RAILWAY_TOKEN (a project token)"
+    needproject
+    ok "2026-01-05T12:00:01Z [web] Starting gunicorn 22.0.0" "2026-01-05T12:00:02Z [web] Listening at: http://[::]:8080" "2026-01-05T12:00:09Z [web] GET /health 200" ;;
+  ssh)
+    [ -n "$cmd" ] || prompt "ssh"
+    needproject
+    case "$cmd" in
+      " pwd"|" pwd "*) ok "/app" ;;
+      *) ok "(stub) ran:$cmd" ;;
+    esac ;;
+  connect)
+    [ -n "$sub" ] || prompt "connect"
+    unsupported ;;
+  environment)
+    [ -n "$sub" ] || prompt "environment"
+    case "$sub" in new|delete|rm|remove) unsupported ;; esac
+    needproject
+    ok "Activated environment $sub" ;;
+esac
+unsupported

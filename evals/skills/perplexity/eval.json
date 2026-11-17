@@ -1,0 +1,112 @@
+{
+  "id": "perplexity",
+  "skill": "perplexity",
+  "description": "A non-interactive run extends a small TypeScript helper library for a newsroom desk (Node) that already shortens a text through an OpenAI client (src/summarize.ts, whose client uses the default OpenAI endpoint and key), with a config module that reads the environment (src/config.ts), one existing test and a package.json that already declares openai (nothing is installed or run). The run saves src/research.ts (a production client for Perplexity; ask for an answer with the web pages it came from; a multi-turn follow-up; a streamed answer; a display text that shows the sources) and test/research.test.ts (a stand-in client, no network); src/config.ts may only gain lines. Scope: calling the Perplexity Sonar API for search-grounded answers with citations; not general LLM chat or non-search use. Static checks only, nothing is run (no node, npm, tsc or jest, no network): the OpenAI SDK is reused with a custom baseURL of https://api.perplexity.ai (no raw HTTP, no new dependency, not the existing OpenAI client); the key is read from PERPLEXITY_API_KEY and is never a literal or logged; no model id or default is hard-coded (the model comes from config); the sources are read from the response's citations/search_results field and not from the message text; formatAnswer lists them with a 1-based number in the API order so the [n] markers map; the request carries no tools (no home-made tool loop around search); every request passes search_domain_filter and search_recency_filter; earlier turns are built as user then assistant messages after one system message; streaming never renders or accumulates sources per chunk and uses them only after the stream ends; formatAnswer marks the answer as search-derived and to be verified; the test uses a stand-in client with a citations field and real assertions; package.json, the other fixture files and the canary are untouched. The checks read code as text, so they show shape, not that the code compiles or behaves, and a request built by a helper function they cannot read is judged leniently or fails with a message saying so. The baseline arm is expected to measure the plugin's conventions: a model without the skill may default to the OpenAI key and endpoint, hard-code a model id, pull URLs out of the answer text or drop the sources, wrap search in a tool loop, forget the domain and recency fields, send consecutive messages with the same role, render sources per streamed chunk, or present the answer as authoritative, and that gap, not the absolute pass count, is the uplift.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is a small helper library for a newsroom desk (TypeScript on Node). src/summarize.ts already shortens a text with one model call, and src/config.ts reads the process settings. Add a research helper that uses Perplexity to answer questions with up-to-date information from the web. Create src/research.ts exporting: createResearchClient(), which builds the client the app uses in production; ask(client, question, filters), which resolves with { answer, sources } where answer is the text of the reply and sources is the list of web pages the facts came from; converse(client, turns, question, filters), where turns is the list of earlier exchanges as { question, answer } pairs, which resolves with { answer, sources } for a follow-up question that is answered in the context of that conversation; streamAnswer(client, question, filters, onText), which calls onText with each piece of the answer text as it arrives instead of waiting for the whole reply and resolves with { answer, sources } at the end; and formatAnswer(result), which returns the text shown to a person for an answer, so it has to make clear where the facts came from. The filters argument is { domains: string[]; recent?: string }: domains is a short list of trusted sites the search is limited to, and recent, when given, limits the results to the last day, week or month. Every function takes the client as an argument so a test can pass in a stand-in. Also create test/research.test.ts, a jest test that uses a stand-in client (no network, no key) and makes real assertions about what the code does. You may add other files under src/; the only existing file you may change is src/config.ts, to add settings: keep every line that is already there, and change nothing else. Do not add or fetch any dependency, and do not run npm, npx, node, tsc or jest. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' perplexity-via-openai-sdk",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' api-key-from-env",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' model-not-hardcoded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' citations-from-response-field",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' sources-numbered-and-shown",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' no-search-tool-loop",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' filters-passed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' roles-alternate",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' stream-sources-after-end",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' answers-flagged-search-derived",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' test-mocked-client",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' no-new-dependency --fixture '{{repo}}/evals/skills/perplexity/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' fixture-untouched --fixture '{{repo}}/evals/skills/perplexity/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/perplexity.js' no-canary --token CANARY-PERPLEXITY-7c1e53b0f2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

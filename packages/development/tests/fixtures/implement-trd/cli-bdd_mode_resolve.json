@@ -1,0 +1,9 @@
+{
+  "exitCode": 0,
+  "json": {
+    "ok": true,
+    "enabled": true,
+    "source": "default",
+    "message": "Test approach: BDD (Reqnroll) [default; opt out with ENSEMBLE_BDD=0, or --no-bdd on create-trd]"
+  }
+}

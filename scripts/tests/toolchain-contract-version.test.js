@@ -209,6 +209,14 @@ describe('TRD-002-TEST: additive-only contract versioning behavior', () => {
     // minor, adding ONE new capability on top of the untouched real ones.
     const bumpedContract = JSON.parse(JSON.stringify(realTracker));
     bumpedContract.version = '1.1';
+    // This scenario's premise is that the real contract is at 1.0 and the clone adds its one
+    // capability at minor 1. tracker.label-one is genuinely shipped with addedInMinor: 1, so
+    // carrying it into the clone would make a real capability unavailable at the 1.0 pin and
+    // collide with the "every real capability survives" loop below. Strip the marker from the
+    // cloned real capabilities; the scenario then has exactly one addition, tracker.search.
+    for (const capability of Object.values(bumpedContract.capabilities)) {
+      delete capability.addedInMinor;
+    }
     bumpedContract.capabilities['tracker.search'] = {
       inputs: ['query'],
       outputs: ['ids'],

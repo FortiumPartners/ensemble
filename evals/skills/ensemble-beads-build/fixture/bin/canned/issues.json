@@ -1,0 +1,134 @@
+{
+  "issues": [
+    {
+      "id": "bb-e1",
+      "title": "billing-export",
+      "status": "open",
+      "issue_type": "epic",
+      "labels": []
+    },
+    {
+      "id": "bb-t01",
+      "title": "billing-export: define export schema",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t02",
+      "title": "billing-export: add auth guard",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t03",
+      "title": "billing-export: add pagination helper",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t04",
+      "title": "billing-export: seed fixture data",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t05",
+      "title": "billing-export: add retry logic",
+      "status": "in_progress",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t06",
+      "title": "billing-export: add rate limiting",
+      "status": "in_progress",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t07",
+      "title": "billing-export: add csv writer",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t08",
+      "title": "billing-export: add json writer",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t09",
+      "title": "billing-export: write docs page",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-t10",
+      "title": "billing-export: wire export endpoint",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-e2",
+      "title": "payments-gateway",
+      "status": "open",
+      "issue_type": "epic",
+      "labels": []
+    },
+    {
+      "id": "bb-p01",
+      "title": "payments-gateway: card tokenizer",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-p02",
+      "title": "payments-gateway: webhook signer",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-p03",
+      "title": "payments-gateway: refund flow",
+      "status": "closed",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-p04",
+      "title": "payments-gateway: ledger writer",
+      "status": "in_progress",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-p05",
+      "title": "payments-gateway: retry queue",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    },
+    {
+      "id": "bb-p06",
+      "title": "payments-gateway: settlement report",
+      "status": "open",
+      "issue_type": "task",
+      "labels": []
+    }
+  ],
+  "total": 18,
+  "limit": 0,
+  "offset": 0,
+  "has_more": false
+}

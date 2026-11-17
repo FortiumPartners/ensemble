@@ -1,0 +1,100 @@
+{
+  "id": "threat-model",
+  "skill": "threat-model",
+  "description": "Positive case only: a seeded TRD (account service: password sign-in with JWT, a profile holding email and phone, an avatar upload to S3, a third-party email API) touches authentication, PII and file upload, so the skill should add one level-2 `## Threat Model` section (Assets, Trust Boundaries, a STRIDE table, Residual Risks) in place, with every mitigation mapped to a task ID that exists in the Master Task List and no checkbox lines inside the section. The checks are structural and bookkeeping (and two soft wording checks); they cannot judge whether a threat is credible. The no-op case (a TRD touching none of the trigger areas gets no section) is not covered: one prompt per eval. The baseline arm is expected to measure the plugin's conventions (section layout, the task-ID mapping, no checkbox lines in the section), not whether a model can threat-model at all. Pi loads the skill alone; it names no CLI or path.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "Add a threat model for this design to the TRD at docs/TRD/TRD-2026-d4e5f6a7-account-service.md.\n\nThis is a non-interactive run: ask no questions and choose the recommended option. Edit that TRD in place and change nothing else. Do not implement anything.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' trd-intact --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md --tasks TRD-001,TRD-002,TRD-003,TRD-004,TRD-005,TRD-006,TRD-007",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "trdParses",
+      "path": "docs/TRD",
+      "minTasks": 7
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' section-shape --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' assets-boundaries --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' threat-table --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' mitigations-concrete --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' mitigation-tasks --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' no-task-checkboxes --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' new-tasks-grammar --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md --tasks TRD-001,TRD-002,TRD-003,TRD-004,TRD-005,TRD-006,TRD-007",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' real-names --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md --components AuthController,TokenService,ProfileService,AvatarUploadHandler,EmailClient --min 3",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' covers-areas --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md --areas \"authentication=password,login,credential,jwt,token;pii=email,phone,personal,pii;upload=upload,avatar,s3\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/threat-model.js' residual-risks --file docs/TRD/TRD-2026-d4e5f6a7-account-service.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' no-impl-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

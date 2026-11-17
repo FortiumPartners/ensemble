@@ -1,0 +1,75 @@
+#!/bin/sh
+# Stub `git-town` for the git-town skill eval: no real git-town, no network. It changes the sandbox repository only through plain `git`
+# (branch creation and `git-town-branch.<b>.parent` in the repository's git config), so a check can read the branch parentage from the
+# config file. Every call, answered or refused, is appended to git-town-calls.log in the sandbox root, two levels above this stub and
+# outside the git worktree; a line is the current branch, then each argument, separated by tabs (tabs and newlines folded to spaces).
+# Answered: --version (24.0.0), hack, append, sync (canned), propose (log only), ship (direct child of main, or --to-parent; log only),
+# set-parent, config get-parent, status, continue, undo. Refused with exit 2 and a message on stderr: init (interactive), ship of a
+# branch that is not a direct child of main without --to-parent, unknown verbs, unknown flags. The stub enforces no other convention:
+# `hack` for a second branch simply records main as its parent, which the check reads.
+here=$(cd "$(dirname "$0")" && pwd)
+log="$here/../../git-town-calls.log"
+tab=$(printf '\t')
+cur=$(git symbolic-ref --short -q HEAD 2>/dev/null || echo "(none)")
+line=$cur
+for a in "$@"; do
+  a=$(printf '%s' "$a" | tr '\t\n\r' '   ')
+  line="$line$tab$a"
+done
+printf '%s\n' "$line" >> "$log"
+
+refuse() { echo "git-town stub: $*" >&2; exit 2; }
+
+verb=""; first=""; want=""; to_parent=0; none=0
+for a in "$@"; do
+  if [ -n "$want" ]; then want=""; continue; fi
+  case "$a" in
+    --title|--body|-m|--message|--strategy) want=1 ;;
+    --title=*|--body=*|--message=*|--strategy=*) ;;
+    --non-interactive|--no-browser|--prototype|--no-sync|--propose|--stash|--no-stash|--stack|--dry-run|--verbose|-v|--pending) ;;
+    --to-parent) to_parent=1 ;;
+    --none) none=1 ;;
+    --version) echo "git-town version 24.0.0 (stub)"; exit 0 ;;
+    -h|--help) echo "git-town (stub): hack append sync propose ship set-parent config status continue undo"; exit 0 ;;
+    -*) refuse "unknown flag: $a" ;;
+    *) if [ -z "$verb" ]; then verb=$a; elif [ -z "$first" ]; then first=$a; fi ;;
+  esac
+done
+
+mainb=$(git config --get git-town.main-branch 2>/dev/null || echo main)
+
+case "$verb" in
+  hack|append)
+    [ -n "$first" ] || refuse "$verb needs a branch name"
+    if [ "$verb" = hack ]; then
+      parent=$mainb
+      git checkout -q -b "$first" "$mainb" || exit 1
+    else
+      parent=$cur
+      git checkout -q -b "$first" || exit 1
+    fi
+    git config "git-town-branch.$first.parent" "$parent" || exit 1
+    echo "[$first] created from $parent (stub)"; exit 0 ;;
+  sync) echo "[$cur] synced with its parent and remote (stub)"; exit 0 ;;
+  propose) echo "[$cur] pull request prepared against its parent (stub; nothing was opened)"; exit 0 ;;
+  ship)
+    parent=$(git config --get "git-town-branch.$cur.parent" 2>/dev/null || echo "")
+    if [ "$parent" != "$mainb" ] && [ "$to_parent" -eq 0 ]; then refuse "cannot ship $cur: its parent is not $mainb (use --to-parent)"; fi
+    echo "[$cur] shipped (stub; nothing changed)"; exit 0 ;;
+  set-parent)
+    [ "$cur" != "(none)" ] || refuse "set-parent needs a checked-out branch"
+    if [ "$none" -eq 1 ]; then git config --unset "git-town-branch.$cur.parent" 2>/dev/null; echo "[$cur] now perennial (stub)"; exit 0; fi
+    [ -n "$first" ] || refuse "set-parent needs a parent branch"
+    git config "git-town-branch.$cur.parent" "$first" || exit 1
+    echo "[$cur] parent set to $first (stub)"; exit 0 ;;
+  config)
+    case "$first" in
+      get-parent) git config --get "git-town-branch.$cur.parent" 2>/dev/null || echo ""; exit 0 ;;
+      "") echo "main branch: $mainb (stub)"; exit 0 ;;
+    esac
+    refuse "unsupported config call: $*" ;;
+  status|continue|undo) echo "(stub) no suspended command"; exit 0 ;;
+  init) refuse "init is interactive and is not available here; set the git-town.* keys with git config" ;;
+  "") echo "git-town (stub): hack append sync propose ship set-parent config status continue undo"; exit 0 ;;
+esac
+refuse "unsupported call: $*"

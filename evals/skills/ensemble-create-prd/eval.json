@@ -1,0 +1,55 @@
+{
+  "id": "ensemble-create-prd",
+  "skill": "ensemble-create-prd",
+  "description": "From a one-paragraph product description, a non-interactive create-prd run saves a PRD under docs/PRD/ with REQ-NNN headings, Given/When/Then acceptance criteria and `Constitution compliance: passed`, and writes no implementation files. The fixture carries a minimal docs/standards/constitution.md because the Constitution Gate halts without one.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "csv2json: a small command-line tool that converts a CSV file into a JSON array of objects, for data analysts who currently do this by hand. --foreman\n\nThis is a non-interactive run: ask no questions, choose the recommended option for anything unclear, and save the PRD under docs/PRD/. Write only the PRD. Do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:create-prd",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' prd-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' prd-reqs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' prd-gwt",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' prd-constitution",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' no-impl-files --allow README.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -23,7 +23,7 @@ describe('checkPrState (AC-038-3: explicit error, not silently conflated with "n
   });
 
   test('NO_OPEN_PR_MESSAGE documents the halt instruction', () => {
-    expect(NO_OPEN_PR_MESSAGE).toMatch(/implement-trd-beads/);
+    expect(NO_OPEN_PR_MESSAGE).toMatch(/implement-trd-tasks/);
     expect(NO_OPEN_PR_MESSAGE).toMatch(/No open PR/i);
   });
 

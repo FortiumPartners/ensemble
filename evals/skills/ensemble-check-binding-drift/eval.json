@@ -1,0 +1,54 @@
+{
+  "id": "ensemble-check-binding-drift",
+  "skill": "ensemble-check-binding-drift",
+  "description": "Claude Code only. /ensemble-product:ensemble:check-binding-drift on a seeded PRD whose Reqnroll step bindings have drifted (four PRD steps with no binding, one binding whose acceptance criterion was reworded, eight steps in sync) reports exactly that drift, as UNBOUND and ORPHANED lists, and changes no .cs, .feature or PRD file. The run is asked to save its report to drift-report.md. Limits: the with-skill arm needs the skill's reqnroll-cli.js helper through ${CLAUDE_PLUGIN_ROOT} (or packages/product/lib, which the sandbox does not have), and whether that resolves in a sandbox is unproven until a trial; the baseline arm has no helper and must diff the steps by reading, so it is expected to measure the plugin's conventions (the UNBOUND/ORPHANED vocabulary and the CLI's normalization) rather than a pure skill effect. The report checks are phrasing-dependent: a step is assigned to a section by the line that introduces it (UNBOUND or ORPHANED). The exit code (0, 1, 2) and use of the CLI are not checked. The skill reads no constitution, so the fixture has none.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-b7c8d9e0-csv2json.md\n\nThis is a non-interactive run: ask no questions and choose the recommended option. Audit the step bindings under tests/ against this PRD and report the drift. Report only: change no .cs, .feature or PRD file and generate nothing. When you have the result, save your report, as you would print it, to drift-report.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:check-binding-drift",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-check-binding-drift.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-check-binding-drift.js' report-unbound --steps 'the tool prints an empty JSON array,a CSV file that does not exist,the analyst names a missing file,it exits non-zero and names the missing file'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-check-binding-drift.js' report-orphaned --steps 'the tool prints an empty array'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-check-binding-drift.js' report-precision --bound 'a CSV file with a header row,an empty CSV file,a CSV row with more fields than the header,the analyst runs the tool,the tool prints a JSON array with one object per data row,it exits non-zero and names the row number' --unbound 'the tool prints an empty JSON array,a CSV file that does not exist,the analyst names a missing file,it exits non-zero and names the missing file' --orphaned 'the tool prints an empty array'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-check-binding-drift.js' bindings-untouched --tree tests/PRD-2026-b7c8d9e0-csv2json --files Features/REQ-001.feature,Features/REQ-002.feature,Steps/REQ-001.Steps.cs,Steps/REQ-002.Steps.cs --steps-dir tests/PRD-2026-b7c8d9e0-csv2json/Steps --kept 'the tool prints an empty array' --absent 'the tool prints an empty JSON array,a CSV file that does not exist,the analyst names a missing file,it exits non-zero and names the missing file' --prd docs/PRD/PRD-2026-b7c8d9e0-csv2json.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

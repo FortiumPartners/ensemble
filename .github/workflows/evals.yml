@@ -1,12 +1,23 @@
 name: Evals
 
+# On-demand only (Actions tab -> Evals -> Run workflow). There is deliberately no push, pull_request or schedule trigger:
+# a change to a skill or an eval never runs this by itself. The regression check is ADVISORY: this workflow must not be
+# added as a required status check on any protected branch (see docs/guides/skills-eval.md).
 on:
   workflow_dispatch:
     inputs:
-      scenario:
-        description: Scenario id (blank = all)
+      skill:
+        description: Skill name (blank = the full suite)
         required: false
         default: ''
+      runtime:
+        description: Runtime to evaluate
+        required: false
+        type: choice
+        default: claude
+        options:
+          - claude
+          - pi
       model:
         description: Model id
         required: false
@@ -15,9 +26,18 @@ on:
         description: Total spend cap in USD
         required: false
         default: '3'
+      scenario:
+        description: Legacy scenario id (blank = all)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
 
 jobs:
   evals:
+    # Credential guard (TRD-023): secrets exist only for the repository's long-lived branches (main, dev), whose contents went through code-owner review. A fork's dispatch, a tag, a pull ref and an unreviewed feature branch are refused: a dispatch runs the code at the dispatched ref with the key.
+    if: github.repository == 'Sunstone-Partners/ensemble' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -28,16 +48,34 @@ jobs:
       - run: npm ci
       - run: npm install -g @anthropic-ai/claude-code
       - run: npx jest evals
+      # Workflow inputs reach the shell only through env: and are only ever expanded by the shell as quoted "$VARS".
       - name: Run evals
+        if: github.repository == 'Sunstone-Partners/ensemble' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_SKILL: ${{ inputs.skill }}
+          EVAL_RUNTIME: ${{ inputs.runtime }}
           EVAL_MODEL: ${{ inputs.model }}
           EVAL_MAX_USD: ${{ inputs.max_usd }}
           EVAL_SCENARIO: ${{ inputs.scenario }}
         run: |
-          ARGS=(--model "$EVAL_MODEL" --max-usd "$EVAL_MAX_USD")
+          ARGS=(--runtime "$EVAL_RUNTIME" --model "$EVAL_MODEL" --max-usd "$EVAL_MAX_USD")
+          if [ -n "$EVAL_SKILL" ]; then ARGS+=(--skill "$EVAL_SKILL"); fi
           if [ -n "$EVAL_SCENARIO" ]; then ARGS+=(--scenario "$EVAL_SCENARIO"); fi
-          node evals/run.js "${ARGS[@]}"
+          npm run evals -- "${ARGS[@]}"
+      - name: Coverage report
+        if: ${{ !cancelled() }}
+        run: npm run evals:coverage
+      # Advisory regression check: a regression fails this step (exit 1; `evals/run.js` also exits 1 for it); it blocks no merge. The step also fails (exit 4) when nothing was compared and (exit 2) on a store error.
+      - name: Regression check against the committed baselines
+        # The legacy scenario input produces no skill evals, so there is nothing to compare (compare exits 4 then).
+        if: ${{ !cancelled() && inputs.scenario == '' }}
+        env:
+          EVAL_SKILL: ${{ inputs.skill }}
+        run: |
+          ARGS=()
+          if [ -n "$EVAL_SKILL" ]; then ARGS+=(--skill "$EVAL_SKILL"); fi
+          npm run evals:compare -- "${ARGS[@]}"
       - uses: actions/upload-artifact@v6
         if: always()
         with:

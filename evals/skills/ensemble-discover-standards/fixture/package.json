@@ -1,0 +1,8 @@
+{
+  "name": "order-utils",
+  "version": "1.0.0",
+  "description": "Small library that totals customer orders",
+  "main": "src/index.js",
+  "scripts": { "test": "node --test test/", "lint": "eslint src test" },
+  "devDependencies": { "eslint": "^8.57.0" }
+}

@@ -1,0 +1,65 @@
+{
+  "id": "ensemble-validate-requirements",
+  "skill": "ensemble-validate-requirements",
+  "description": "Given a seeded PRD (REQ-001 to REQ-003) and a TRD with a known set of defects (a task satisfying REQ-009, which the PRD lacks; REQ-003 with no task; TRD-002 and TRD-003 with no -TEST pair; a heading-style TRD-004 that is not a task), a non-interactive validate-requirements run reports what `trd-cli validate` finds. The skill prints a report and sets an exit code and writes no file, so the prompt (identical in both arms) asks the run to save its report to docs/validation/requirements-report.md and the checks read that file: stats (4 tasks, not 5: the heading-style id is not counted; 3 PRD requirements), the orphaned REQ-009 error, the uncovered REQ-003 and the two missing TEST pairs (and not TRD-001, which has one), a failed verdict, the PRD and TRD byte-identical to the fixture, and no file written outside docs/. Not shown: the exit code 1 and `VALIDATION_FAILED` on stderr (a workspace file does not show them), the SKIPPED-versus-PASSED labelling (nothing is skipped when a PRD is given) and report quality. Invoked by command because the skill sets disable-model-invocation (a plain prompt never loads it). The baseline arm gets the same prompt without the command and is expected to measure the plugin's conventions (the trd-cli stats and ids, the task grammar), not skill-versus-a-well-written-prompt. Claude only: trd-cli is resolved through the tool-path-resolution tiers, which fail on Pi in a sandbox without an ensemble-pi bundle. The command pins model: medium; what that resolves to was not looked up, so a trial must pass the matching --model.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-b2c3d4e5-slugify.md docs/TRD/TRD-2026-c3d4e5f6-slugify.md\n\nThis is a non-interactive run: ask no questions. Validate the TRD against the PRD (requirement coverage and test-task pairing), and save the complete validation report to docs/validation/requirements-report.md. Do not edit the PRD or the TRD and do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:validate-requirements",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' report-saved --file docs/validation/requirements-report.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' report-stats --file docs/validation/requirements-report.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' report-errors --file docs/validation/requirements-report.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' report-warnings --file docs/validation/requirements-report.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' report-verdict --file docs/validation/requirements-report.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' docs-unchanged --fixture '{{repo}}/evals/skills/ensemble-validate-requirements/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-validate-requirements.js' no-impl-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "number": 21,
+  "title": "Guest checkout",
+  "url": "https://github.com/example/shopcart/pull/21",
+  "state": "OPEN",
+  "baseRefName": "main",
+  "headRefName": "feat/guest-checkout",
+  "isDraft": false,
+  "author": {
+    "login": "dana"
+  },
+  "body": "Proposed change: Guest checkout.",
+  "statusCheckRollup": []
+}

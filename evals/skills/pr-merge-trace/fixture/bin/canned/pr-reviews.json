@@ -1,0 +1,1 @@
+["7","CHANGES_REQUESTED","MERGEABLE","BLOCKED",[["maintainer","User","CHANGES_REQUESTED"]],[["src/slugify.js","Please trim leading and trailing dashes; `slugify(\"-a-\")` should return `a`."]]]

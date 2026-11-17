@@ -1,0 +1,82 @@
+{
+  "id": "ensemble-beads-build",
+  "skill": "ensemble-beads-build",
+  "description": "Claude Code only. SCOPE: the documented `--plan` mode (Phase 5) of /ensemble-development:ensemble:beads-build against a seeded epic; the wave loop, builder/code-review/close pipeline, quality gates, completion and the TRD mode are NOT evaluated, and neither are the negative paths (zero or multiple slug matches -> ERROR and HALT), which need their own fixtures. The sandbox has no git remote and stub `br` and `bv` in bin/ (answering from canned JSON in bin/canned/, no network, writes refused, every call logged): epic bb-e1 `billing-export` with 10 tasks (4 closed, 2 in progress, 4 open; the epic bead is open too) and a second epic `payments-gateway` as the scoping trap; the plan has track-A = bb-t07, bb-t08, track-B = bb-t09, track-C = another epic's bead, and bb-t10 blocked. The run prints a report and saves it to report.md. Checks: the epic is named; the three counts are the epic's (the epic bead may or may not be counted, so Open is 4 or 5); the track-A ready items are named and bb-t10 is not offered as ready; bb-t07 and bb-t08 share a track apart from bb-t09; the closing hint runs beads-build for the epic id and names implement-trd-tasks; the stubs saw a `br list` and a `bv --robot-plan`; no br write verb (only `sync --flush-only`, which the skill's own plan mode runs, is tolerated); seeded files unchanged; no commit, branch or staged change (read from .git, no git run). Limits: through toolchain-cli the adapter surfaces only track-A, so the other tracks are optional and the breakdown check shows grouping, not completeness; the count, ready, track and hint checks parse free-form text and are marked flaky in the check script; the scope filter of the skill (EPIC_SLUG prefix) is loose, so the fixture uses epic and task titles that match it under every reading. The skill resolves toolchain-cli through the tool-path-resolution tiers and its plan mode still preflights the workflow adapters (plain-git lives in packages/git, found as a sibling package of the loaded packages/development); the with-skill arm may halt there in the sandbox (unproven): a trial must show it gets past preflight. The baseline arm is expected to measure the plugin's conventions (the printed scope line, the plan line, the closing hint, no mutation), not skill against a well-written prompt.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "billing-export --plan\n\nThis is a non-interactive run against a local sandbox: `br` and `bv` on PATH are local stubs that answer from canned data, so use no other tracker access and no network. Ask no questions. Change nothing in the repository except one new file: when you have printed your final report, also save it, exactly as printed, to report.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:beads-build",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "Skill"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' report-saved --epic bb-e1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' scope-counts --open 4,5 --in-progress 2 --closed 4",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' ready-items --ready bb-t07,bb-t08 --not-ready bb-t10,bb-t05,bb-t06,bb-t01",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' track-breakdown --track bb-t07+bb-t08 --apart bb-t09",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' final-hint --epic bb-e1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' graph-read",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' tracker-read-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' files-unchanged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build.js' git-state",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

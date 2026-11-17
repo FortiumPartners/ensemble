@@ -88,7 +88,7 @@ describe('TRD-035: a sweep reviews existing code, sensitive areas first', () => 
     expect(FLAT).toContain('2. every path in `paths.sensitive` not already swept;');
     expect(FLAT).toContain('3. everything else in the sweep set.');
     expect(FLAT).toContain('it truncates from the **end** of that order');
-    expect(FLAT).toContain('A sweep that skipped a sensitive path reports itself as incomplete');
+    expect(FLAT).toContain('A sweep that skipped a sensitive path is `SWEEP_PARTIAL`');
   });
 
   test('guidance is read from the swept commit, never from the working tree', () => {

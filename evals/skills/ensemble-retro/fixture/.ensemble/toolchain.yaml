@@ -1,0 +1,5 @@
+# Pin the adapters so the sandbox needs no detection (the sandbox origin is a local path, not a host URL). The `br`, `bv` and `gh` on PATH
+# are stubs (bin/) answering from bin/canned/.
+tracker: beads
+workflow: plain-git
+host: github

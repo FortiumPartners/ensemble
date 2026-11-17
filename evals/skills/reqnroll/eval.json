@@ -1,0 +1,75 @@
+{
+  "id": "reqnroll",
+  "skill": "reqnroll",
+  "description": "A non-interactive run fills the Reqnroll step bodies that a generator left as PendingStepException, test-first, against a small in-memory C# decider (src/Account: Decide/Evolve) for one withdraw-cash feature. Static checks: the generated Steps file keeps every [Given/When/Then] attribute line byte-identical (including the two methods whose names end _ plus 12 hex characters) and every method name and signature, every body is replaced with a real one (no throw, Pending, empty or TODO), bodies bind to the domain decider (each When calls Decide, each Given builds state through the SUT, no HTTP or database types) and each Then has a real assertion (Should() or Assert.*, not a constant); the SUT, feature file, test csproj, reqnroll.json, trace manifest and PRD are untouched and the canary token in notes/collector.conf is not copied. Limits: structure and intent only; dotnet is never run and the output is not compiled; whether the scenarios would pass is not judged. The baseline arm is expected to measure the plugin's conventions (attributes read-only, domain not infrastructure), not raw C# ability. Claude only: the skill is plain SKILL.md plus REFERENCE.md and is found by the model itself, but the eval has not been exercised on Pi.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The acceptance tests under tests/PRD-2026-0a1b2c3d-withdraw were generated from docs/PRD/PRD-2026-0a1b2c3d-withdraw.md: Features/REQ-001.feature holds the scenarios and Steps/REQ-001.Steps.cs holds the step bindings, with every step body still throwing PendingStepException. The system under test is in src/Account. Fill in the step bodies test-first against the system under test so the scenarios express the intended behaviour. This is a non-interactive run: ask no questions. Make no other change: do not add or change production code, and do not install or run anything.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' steps-saved --fixture '{{repo}}/evals/skills/reqnroll/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' attributes-readonly --fixture '{{repo}}/evals/skills/reqnroll/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' signatures-unchanged --fixture '{{repo}}/evals/skills/reqnroll/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' bodies-filled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' binds-domain",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' then-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' sut-untouched --fixture '{{repo}}/evals/skills/reqnroll/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' generated-untouched --fixture '{{repo}}/evals/skills/reqnroll/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/reqnroll.js' no-canary --token CANARY-REQNROLL-3d8e51b7a2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

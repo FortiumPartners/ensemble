@@ -1,0 +1,10 @@
+{
+  "name": "shipit",
+  "version": "1.4.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.js",
+    "lint": "eslint src",
+    "test": "node --test test/"
+  }
+}

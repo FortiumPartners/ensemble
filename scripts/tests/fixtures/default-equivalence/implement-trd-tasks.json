@@ -1,0 +1,238 @@
+{
+  "command": "implement-trd-tasks",
+  "path": "packages/development/commands/implement-trd-tasks.yaml",
+  "baseRef": "881381c6119176c48d44e0fc91c90d5cec8d02b1",
+  "refactoredBy": "TRD-031/TRD-045",
+  "sequence": [
+    [
+      "br",
+      "list"
+    ],
+    [
+      "br",
+      "sync"
+    ],
+    [
+      "br",
+      "create"
+    ],
+    [
+      "br",
+      "dep add"
+    ],
+    [
+      "bv",
+      "--robot-plan"
+    ],
+    [
+      "bv",
+      "--robot-insights"
+    ],
+    [
+      "bv",
+      "--robot-triage"
+    ],
+    [
+      "br",
+      "comments add"
+    ],
+    [
+      "br",
+      "close"
+    ],
+    [
+      "git",
+      "commit"
+    ],
+    [
+      "npm",
+      "run"
+    ],
+    [
+      "git",
+      "merge-base"
+    ],
+    [
+      "git",
+      "rev-parse"
+    ],
+    [
+      "git",
+      "symbolic-ref"
+    ],
+    [
+      "git",
+      "add"
+    ],
+    [
+      "br",
+      "comments list"
+    ]
+  ],
+  "expectedPost": [
+    [
+      "br",
+      "list"
+    ],
+    [
+      "br",
+      "sync"
+    ],
+    [
+      "br",
+      "create"
+    ],
+    [
+      "br",
+      "dep add"
+    ],
+    [
+      "bv",
+      "--robot-plan"
+    ],
+    [
+      "bv",
+      "--robot-insights"
+    ],
+    [
+      "node",
+      "packages/jest/skills/jest/run-test.js"
+    ],
+    [
+      "br",
+      "comments add"
+    ],
+    [
+      "br",
+      "close"
+    ],
+    [
+      "git",
+      "commit"
+    ],
+    [
+      "git",
+      "merge-base"
+    ],
+    [
+      "br",
+      "comments list"
+    ],
+    [
+      "npm",
+      "run"
+    ]
+  ],
+  "deviations": [
+    {
+      "type": "removed",
+      "steps": [
+        [
+          "bv",
+          "--robot-triage"
+        ]
+      ],
+      "trd": "TRD-031",
+      "justification": "TRD-031 replaces `bv --robot-plan/--robot-insights/--robot-triage` with optional work-graph.plan and work-graph.graph-health; there is no triage capability and its summary folds into graph-health findings."
+    },
+    {
+      "type": "removed",
+      "steps": [
+        [
+          "git",
+          "rev-parse"
+        ]
+      ],
+      "trd": "TRD-039",
+      "justification": "Reads of repository state (current branch, default branch, repo toplevel, remote URL, branch existence) are reworded to state their intent without a literal git command because no workflow.* capability exposes them; for the backend/remote the TRD-039 resolver detection (`toolchain-cli explain`/`resolve`) is the source."
+    },
+    {
+      "type": "removed",
+      "steps": [
+        [
+          "git",
+          "symbolic-ref"
+        ]
+      ],
+      "trd": "TRD-039",
+      "justification": "Reads of repository state (current branch, default branch, repo toplevel, remote URL, branch existence) are reworded to state their intent without a literal git command because no workflow.* capability exposes them; for the backend/remote the TRD-039 resolver detection (`toolchain-cli explain`/`resolve`) is the source."
+    },
+    {
+      "type": "removed",
+      "steps": [
+        [
+          "git",
+          "add"
+        ]
+      ],
+      "trd": "TRD-047 lint contract (I1)",
+      "justification": "No workflow.* capability stages files (plain-git workflow.commit is `git commit -m` only), so the source now states the staging intent (\"stage exactly that path\") without a literal `git add`; the agent still stages the same explicit paths before workflow.commit."
+    },
+    {
+      "type": "added",
+      "steps": [
+        [
+          "node",
+          "packages/jest/skills/jest/run-test.js"
+        ]
+      ],
+      "trd": "TRD-045",
+      "justification": "The pre-refactor phase test step delegated to @test-runner with no literal command; TRD-045 makes it `toolchain-cli run test-runner.run`, whose default adapter template is `node packages/jest/skills/jest/run-test.js` (the per-language runner script the agent resolved before)."
+    },
+    {
+      "type": "reordered",
+      "steps": [
+        [
+          "br",
+          "list"
+        ],
+        [
+          "br",
+          "sync"
+        ],
+        [
+          "br",
+          "create"
+        ],
+        [
+          "br",
+          "dep add"
+        ],
+        [
+          "bv",
+          "--robot-plan"
+        ],
+        [
+          "bv",
+          "--robot-insights"
+        ],
+        [
+          "br",
+          "comments add"
+        ],
+        [
+          "br",
+          "close"
+        ],
+        [
+          "git",
+          "commit"
+        ],
+        [
+          "git",
+          "merge-base"
+        ],
+        [
+          "br",
+          "comments list"
+        ],
+        [
+          "npm",
+          "run"
+        ]
+      ],
+      "trd": "TRD-045",
+      "justification": "The pre-refactor `npm run test` full-suite gate was inlined in the workflow steps; the refactor defines it once as FULL_TEST_COMMAND (package-runner.run-script, default `npm run`) in the mission block that follows the workflow steps, and the gate steps reference the variable. The gate is performed at the same workflow points."
+    }
+  ]
+}

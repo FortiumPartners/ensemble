@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-git",
-  "version": "6.1.2",
+  "version": "6.1.3",
   "description": "Git workflow automation and conventional commits",
   "main": "lib/index.js",
   "scripts": {

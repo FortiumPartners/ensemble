@@ -2,7 +2,7 @@
  * TRD-032: Parallel builder execution tests
  *
  * Validates the parallel builder dispatch specification from
- * packages/development/commands/implement-trd-beads.yaml sections
+ * packages/development/commands/implement-trd-tasks.yaml sections
  * TRD-025 (Parallel Builder Execution), TRD-026 (Sequential Commit Ordering),
  * and TRD-027 (Parallel Builder Failure Isolation).
  *

@@ -1,0 +1,37 @@
+{
+  "kata_api_version": 1,
+  "issues": [
+    {
+      "web_url": "http://127.0.0.1:50279/kata?issue=01M7GC8ZHW00QQTNB2G1HV7ZZG#direct=1",
+      "source_actor": "ldangelo",
+      "verification": "legacy",
+      "id": 2,
+      "uid": "01M7GC8ZHW00QQTNB2G1HV7ZZG",
+      "project_id": 2,
+      "project_uid": "01M7GC8ZE07GWSVQGXWES86G5J",
+      "short_id": "7zzg",
+      "title": "Scratch probe beta",
+      "body": "second open item, blocks alpha",
+      "status": "open",
+      "priority": 3,
+      "author": "ldangelo",
+      "metadata": {},
+      "revision": 1,
+      "created_at": "2026-11-15T19:52:16.188Z",
+      "updated_at": "2026-11-15T19:52:16.188Z",
+      "qualified_id": "trd-kata-scratch#7zzg",
+      "labels": [
+        "probe"
+      ],
+      "blocks": [
+        {
+          "uid": "01M7GC8ZFQYA8DD1CK4K88JFH4",
+          "short_id": "jfh4",
+          "project": "trd-kata-scratch",
+          "qualified_id": "trd-kata-scratch#jfh4",
+          "status": "open"
+        }
+      ]
+    }
+  ]
+}

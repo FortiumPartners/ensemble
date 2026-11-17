@@ -1,0 +1,157 @@
+#!/bin/sh
+# Stub `gh` for the ensemble-implement-bead eval. No network, no GitHub. It answers what the toolchain's github host adapter and a
+# hand-driven run need to open ONE pull request, and refuses everything else; every call is appended to gh-calls.log in the sandbox root
+# (two levels above this stub, outside the git worktree) as `<STATUS> <argv folded to one line>` then a TAB and `head=<sha>`, the commit
+# HEAD pointed at (read from .git/HEAD and the ref file, never by running git).
+#   OK           answered
+#   FAILED       a real-gh-style error for a call that cannot succeed (`pr create` with no branch on origin, or no commits on it)
+#   REFUSED      a verb that would change something other than the one pull request this eval expects (merge, review, edit, close, ...)
+#   UNSUPPORTED  a call this stub does not know
+# Answered: --version; auth status; repo view; pr list [--head B] [--json f] (the open PRs this stub accepted; `--jq` is UNSUPPORTED);
+# pr view N [--json f] (number, url, state, baseRefName, headRefName, title, statusCheckRollup=[]; a number it never accepted: FAILED, exit 1).
+# `pr create --base B --head H --title T --body BODY` (also -B -H -t -b and --flag=value forms) succeeds when H exists on the bare origin
+# (<sandbox root>/origin.git), differs from B there and has no PR yet, as real gh does; it prints a URL and writes the pull request to
+# gh-state/pr-<n>.txt (base=, head=, title=, then `body:` and the body) for the checks. Another `pr create` flag is UNSUPPORTED.
+here=$(cd "$(dirname "$0")" && pwd)
+ws="$here/.."
+root="$here/../.."
+log="$root/gh-calls.log"
+line=$(printf '%s' "$*" | tr '\n\r\t' '   ')
+head=none
+h=$(cat "$ws/.git/HEAD" 2>/dev/null)
+case "$h" in
+  "ref: "*) head=$(cat "$ws/.git/${h#ref: }" 2>/dev/null || echo unreadable) ;;
+  ?*) head="$h" ;;
+esac
+logit() { printf '%s %s\thead=%s\n' "$1" "$line" "$head" >> "$log"; }
+deny() { logit "$1"; echo "gh stub: $1 call: $*" >&2; exit 2; }
+origin_sha() {
+  case "$1" in ''|*..*|*[!A-Za-z0-9._/-]*) return 1 ;; esac
+  if [ -f "$root/origin.git/refs/heads/$1" ]; then cat "$root/origin.git/refs/heads/$1"; return 0; fi
+  sed -n "s|^\([0-9a-f]\{40,64\}\) refs/heads/$1\$|\1|p" "$root/origin.git/packed-refs" 2>/dev/null | head -n 1
+}
+
+case "$1" in
+  --version) logit OK; echo "gh version 2.103.2 (stub)"; exit 0 ;;
+  auth)
+    case "$2" in status) logit OK; echo "github.com: Logged in as stub (stub)"; exit 0 ;; esac
+    deny REFUSED ;;
+  repo)
+    case "$2" in view) logit OK; echo '{"nameWithOwner":"example/greeter","name":"greeter","owner":{"login":"example"},"defaultBranchRef":{"name":"main"}}'; exit 0 ;; esac
+    deny REFUSED ;;
+  pr)
+    case "$2" in
+      list)
+        shift 2
+        want=''; json=0; unsup=0; state=open
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --head|-H) want=$2; shift 2 ;;
+            --head=*) want=${1#--head=}; shift ;;
+            --json) json=1; shift 2 ;;
+            --json=*) json=1; shift ;;
+            --state|-s) state=$2; shift 2 ;;
+            --state=*) state=${1#--state=}; shift ;;
+            --limit|-L|--base|-B) shift 2 ;;
+            *) unsup=1; shift ;;
+          esac
+        done
+        if [ "$unsup" = 1 ]; then deny UNSUPPORTED; fi
+        logit OK
+        case "$state" in closed|merged) state_empty=1 ;; *) state_empty=0 ;; esac
+        first=1
+        if [ "$json" = 1 ]; then printf '['; fi
+        if [ "$state_empty" = 0 ]; then
+          for f in "$root"/gh-state/pr-*.txt; do
+            [ -f "$f" ] || continue
+            n=${f##*/pr-}; n=${n%.txt}
+            hb=$(sed -n 's/^head=//p' "$f"); bb=$(sed -n 's/^base=//p' "$f"); tt=$(sed -n 's/^title=//p' "$f")
+            if [ -n "$want" ] && [ "$hb" != "$want" ]; then continue; fi
+            if [ "$json" = 1 ]; then
+              [ "$first" = 1 ] || printf ','
+              printf '{"number":%s,"url":"https://github.com/example/greeter/pull/%s","state":"OPEN","baseRefName":"%s","headRefName":"%s","title":"%s"}' "$n" "$n" "$bb" "$hb" "$(printf '%s' "$tt" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+            else
+              printf '%s\t%s\t%s\tOPEN\n' "$n" "$tt" "$hb"
+            fi
+            first=0
+          done
+        fi
+        if [ "$json" = 1 ]; then printf ']\n'; fi
+        exit 0 ;;
+      view)
+        n=$3
+        shift 3
+        json=0; unsup=0
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --json) json=1; shift 2 ;;
+            --json=*) json=1; shift ;;
+            *) unsup=1; shift ;;
+          esac
+        done
+        if [ "$unsup" = 1 ]; then deny UNSUPPORTED; fi
+        case "$n" in ''|*[!0-9]*) deny UNSUPPORTED ;; esac
+        f="$root/gh-state/pr-$n.txt"
+        if [ ! -f "$f" ]; then logit FAILED; echo "no pull requests found for number $n" >&2; exit 1; fi
+        logit OK
+        hb=$(sed -n 's/^head=//p' "$f"); bb=$(sed -n 's/^base=//p' "$f"); tt=$(sed -n 's/^title=//p' "$f")
+        if [ "$json" = 1 ]; then
+          printf '{"number":%s,"url":"https://github.com/example/greeter/pull/%s","state":"OPEN","baseRefName":"%s","headRefName":"%s","title":"%s","statusCheckRollup":[]}\n' "$n" "$n" "$bb" "$hb" "$(printf '%s' "$tt" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+        else
+          printf 'title:\t%s\nstate:\tOPEN\nurl:\thttps://github.com/example/greeter/pull/%s\n' "$tt" "$n"
+        fi
+        exit 0 ;;
+      create)
+        shift 2
+        base=''; headb=''; title=''; body=''; unknown=0
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --base|-B) base=$2; shift 2 ;;
+            --base=*) base=${1#--base=}; shift ;;
+            --head|-H) headb=$2; shift 2 ;;
+            --head=*) headb=${1#--head=}; shift ;;
+            --title|-t) title=$2; shift 2 ;;
+            --title=*) title=${1#--title=}; shift ;;
+            --body|-b) body=$2; shift 2 ;;
+            --body=*) body=${1#--body=}; shift ;;
+            *) unknown=1; shift ;;
+          esac
+        done
+        if [ "$unknown" = 1 ]; then deny UNSUPPORTED; fi
+        if [ -z "$base" ] || [ -z "$headb" ] || [ -z "$title" ] || [ -z "$body" ]; then
+          logit FAILED; echo "gh stub: pr create needs --base, --head, --title and --body in a non-interactive run" >&2; exit 1
+        fi
+        hs=$(origin_sha "$headb"); bs=$(origin_sha "$base")
+        if [ -z "$hs" ]; then
+          logit FAILED; echo "pull request create failed: head branch \"$headb\" was not found on origin (push it first)" >&2; exit 1
+        fi
+        if [ -n "$bs" ] && [ "$hs" = "$bs" ]; then
+          logit FAILED; echo "pull request create failed: no commits between $base and $headb" >&2; exit 1
+        fi
+        for f in "$root"/gh-state/pr-*.txt; do
+          if [ -f "$f" ] && [ "$(sed -n 's/^head=//p' "$f")" = "$headb" ]; then
+            logit FAILED; echo "a pull request for branch \"$headb\" already exists" >&2; exit 1
+          fi
+        done
+        mkdir -p "$root/gh-state"
+        n=$(( $(ls "$root/gh-state" 2>/dev/null | wc -l) + 1 ))
+        {
+          printf 'base=%s\n' "$base"
+          printf 'head=%s\n' "$headb"
+          printf 'title=%s\n' "$(printf '%s' "$title" | tr '\n\r' '  ')"
+          printf 'body:\n%s\n' "$body"
+        } > "$root/gh-state/pr-$n.txt"
+        logit OK
+        echo "https://github.com/example/greeter/pull/$n"
+        exit 0 ;;
+      merge|review|comment|edit|close|reopen|ready|checkout|lock|unlock|update-branch) deny REFUSED ;;
+    esac
+    deny UNSUPPORTED ;;
+  issue|release|label|workflow) deny REFUSED ;;
+  api)
+    case "$*" in
+      *-X*|*--method*|*POST*|*PATCH*|*PUT*|*DELETE*|*mutation*|*" -f "*|*" -F "*|*--field*|*--raw-field*|*--input*) deny REFUSED ;;
+    esac
+    deny UNSUPPORTED ;;
+esac
+deny UNSUPPORTED

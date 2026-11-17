@@ -1,0 +1,106 @@
+{
+  "id": "assess-testing",
+  "skill": "assess-testing",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to assess test coverage and quality of a small seeded Node service (ledgerly: six modules in src/, two Jest test files in test/, a Jest config with a coverageThreshold in package.json, one GitHub Actions workflow) with the report saved to docs/assessment/testing.md. The fixture plants: payments.js and auth.js (and db.js, server.js) with no test, tax.js and invoice.js tested, a test with no assertion and a skipped test in test/invoice-check.js, unit tests only (no integration or end-to-end test), and a CI test step with continue-on-error: true that lets failing tests through. Deterministic checks cover: the report is saved with the 'Testing Analysis' title; all eight sections of the skill's Output Format appear in order; the Score is `<1.0-5.0> / <Letter>` with the letter derived from the shared scale; the Test Projects table names Jest and no other framework; the Coverage Summary gives the four estimates plausibly and says they are estimates (flaky); Coverage Gaps reports payments and auth as untested (flaky) and does not list the tested modules as untested (flaky); the assertion-free test and the skipped test are reported (flaky); Test Strategy says there are no integration or end-to-end tests (flaky); the non-blocking CI test step is reported (flaky); every file:line citation resolves to a real file and line (flaky); Key Findings and Recommendations have enough numbered items with citations; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the analysis is insightful, that the score is deserved, or that the coverage estimates are right beyond the plausibility bounds (nothing runs the tests or measures coverage). The skill saves a report only when given a path, so the prompt supplies one; the REPORT_PREFIX path and the summary-only return are not exercised. The baseline arm gets the same prompt without the plugin and is expected to produce a testing report too, so the uplift measures the plugin's conventions (section layout, project table, numeric/letter score, file:line citations), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Assess the test coverage and test quality of this repository: which test frameworks and test projects it has, how well the code is covered (an estimate is fine; do not run anything), the quality of the tests (naming, assertions, fixtures, isolation), the testing strategy (kinds of tests, mocks, organization), which modules have no tests, and how tests run in CI. Cite the file and line for findings, and give an overall score.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/testing.md. Write only that report; do not change any other file, and do not add or fix tests.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' projects-table",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' coverage-summary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' gaps-found",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' no-false-gaps",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' quality-no-assertion",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' quality-skipped",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' strategy-gaps",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' ci-nonblocking",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' findings-recommendations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-testing.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

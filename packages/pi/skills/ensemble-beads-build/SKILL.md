@@ -12,7 +12,7 @@ metadata:
 
 Drive an existing bead hierarchy (epic -> stories -> tasks) to completion through
 the full builder -> code-review -> close pipeline. This is the canonical build
-engine — works for raw beads with no TRD required. implement-trd-beads and
+engine — works for raw beads with no TRD required. implement-trd-tasks and
 implement-bead delegate to it; --plan prints the analysis without executing.
 Loop: the parent (this command) checks bead-graph state via the tracker/work-graph
 capabilities (through toolchain-cli; see metadata.capabilities) and dispatches a

@@ -1,0 +1,184 @@
+{
+  "id": "rails",
+  "skill": "rails",
+  "description": "A non-interactive run adds a `Project` feature to a small Rails 7.1 API app (Planner) that already has User and Account models, a thin UsersController that calls a Users::Register service object, ApplicationJob, a UserMailer, one request spec with a FactoryBot factory, two shipped migrations, strong_migrations configured, a Gemfile and Gemfile.lock (rspec-rails, factory_bot_rails, sidekiq, strong_migrations; nothing is installed). The run saves db/migrate/20240201000000_create_projects.rb, app/models/project.rb, app/controllers/projects_controller.rb (GET /projects lists every project with its owner's name, POST /projects creates one), app/jobs/project_digest_job.rb (emails a project summary to its owner; its mailer and view go under app/), spec/requests/projects_spec.rb and spec/factories/projects.rb; config/routes.rb is the only existing file it may change, by gaining the projects route. Scope: a Rails 7+ app (Gemfile with rails, app/ layout, Active Record, jobs); not non-Rails Ruby or Sinatra. Static checks only, nothing is run (no ruby, bundle, rails, rspec or rubocop, so the skill's final run-the-suite step is out of scope offline): the migration is new, versioned and reversible, creates the table with a unique index over the owner column and name and a foreign key to users, and does not edit a shipped migration or break the strong_migrations rules; the model belongs_to its owner and validates name uniqueness scoped to the owner, and that validation covers the same columns as the database index (the validation alone is not a substitute for the constraint); the controller is thin (no query logic, no per-row work), uses strong parameters with no permit!, and index loads the owner with includes/preload (no N+1, no per-row user lookup in a loop or a view); the job takes ids, not records, loads the project nil-safely, guards a second run with a sent-at style column that a migration adds, and delivers a mail to the owner's address through a mailer that has a view; the spec is a request spec that uses the factories, does a GET and a POST and makes at least two real expectations; no controller spec; routes.rb gains only the projects route; Gemfile and Gemfile.lock and every other existing file are unchanged; the canary in notes/collector.conf is not copied. The baseline arm (no skill) is expected to measure the plugin's conventions (DB constraints behind validations, safe reversible migrations, eager loading, idempotent id-taking jobs, request specs with factories), not raw Rails ability. Limits: structure and intent only; the Ruby is never loaded, so a passing run can still fail bundle exec rspec.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This Rails app has no projects yet. Add them. A project has a name and belongs to a user, its owner. A project name is unique per owner. GET /projects returns every project as JSON, each listed with its owner's name. POST /projects takes a project name and the owner's user id, answers 201 with the new project, or 422 with the errors. Also add a nightly digest: a background job that, for a given project, emails a summary of it (its name and its owner's name) to the owner. Scheduling is handled outside this repository, so add no scheduler and no gem. Create these files: db/migrate/20240201000000_create_projects.rb (the migration creating the projects table), app/models/project.rb, app/controllers/projects_controller.rb, app/jobs/project_digest_job.rb, spec/requests/projects_spec.rb (a test for the endpoints) and spec/factories/projects.rb. You may add anything else the feature needs, but only under app/, db/migrate/ and spec/. The one existing file you may change is config/routes.rb, to add the route. Do not add or fetch any dependency, and do not run bundle, rails, rake, rspec or rubocop. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' migration-file --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' migration-shipped-untouched --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' migration-reversible --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' migration-unique-index --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' migration-foreign-key --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' strong-migrations-safe --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' model-shape",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' uniqueness-validation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' uniqueness-matches-index --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' controller-thin",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' strong-params",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' index-eager-load",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' no-n-plus-one",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' routes-only-projects --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' job-takes-id",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' job-nil-safe-load",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' job-resend-guard",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' job-marker-column --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' job-sends-mail",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' spec-request",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' spec-factory",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' spec-expectations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' no-controller-spec",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' no-new-dependency --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' fixture-untouched --fixture '{{repo}}/evals/skills/rails/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/rails.js' no-canary --token CANARY-RAILS-4b8f2c91d7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 /**
  * The PR bodies the guidance callers build, extracted from the command source.
  *
- * `fix-issue.yaml` and `implement-trd-beads.yaml` are the two callers TRD-006
+ * `fix-issue.yaml` and `implement-trd-tasks.yaml` are the two callers TRD-006
  * wired to the `pr-review-cycle` skill. Neither renders its body with code: the
  * body is a template inside the command document that an executor writes out.
  * Both the TRD-006 integration test and the TRD-006-TEST PRD scenarios grade
@@ -20,16 +20,16 @@ const DEV_ROOT = path.join(__dirname, '..', '..');
 
 /**
  * Where a caller's PR body templates live when the command defers them: the
- * thin `implement-trd-beads.yaml` orchestrator points at "reference section 3"
- * of the `implement-trd-beads-reference` skill (SKILL.md plus its
+ * thin `implement-trd-tasks.yaml` orchestrator points at "reference section 3"
+ * of the `implement-trd-tasks-reference` skill (SKILL.md plus its
  * `reference/pr-bodies.md`), which owns the phase and completion body templates;
  * `fix-issue.yaml` points at the pr-review-cycle skill's
  * `reference/fix-issue-pr-body.md`.
  */
 const BODY_COMPANIONS = Object.freeze({
-  'implement-trd-beads.yaml': [
-    path.join(DEV_ROOT, 'skills', 'implement-trd-beads-reference', 'SKILL.md'),
-    path.join(DEV_ROOT, 'skills', 'implement-trd-beads-reference', 'reference', 'pr-bodies.md'),
+  'implement-trd-tasks.yaml': [
+    path.join(DEV_ROOT, 'skills', 'implement-trd-tasks-reference', 'SKILL.md'),
+    path.join(DEV_ROOT, 'skills', 'implement-trd-tasks-reference', 'reference', 'pr-bodies.md'),
   ],
   'fix-issue.yaml': [
     path.join(DEV_ROOT, 'skills', 'pr-review-cycle', 'reference', 'fix-issue-pr-body.md'),
@@ -39,17 +39,17 @@ const BODY_COMPANIONS = Object.freeze({
 /** The command documents that publish a PR body (TRD-006). */
 const CALLER_PATHS = Object.freeze({
   'fix-issue.yaml': path.join(DEV_ROOT, 'commands', 'fix-issue.yaml'),
-  'implement-trd-beads.yaml': path.join(DEV_ROOT, 'commands', 'implement-trd-beads.yaml'),
+  'implement-trd-tasks.yaml': path.join(DEV_ROOT, 'commands', 'implement-trd-tasks.yaml'),
 });
 
 /**
  * How many bodies each caller can publish: fix-issue has one template,
- * implement-trd-beads builds a phase body and a completion body. An extraction
+ * implement-trd-tasks builds a phase body and a completion body. An extraction
  * that found fewer would grade less than it claims, so callers assert this.
  */
 const EXPECTED_BODY_COUNT = Object.freeze({
   'fix-issue.yaml': 1,
-  'implement-trd-beads.yaml': 2,
+  'implement-trd-tasks.yaml': 2,
 });
 
 /** A YAML block scalar indents its content; a body an executor writes out does not. */
@@ -87,7 +87,7 @@ const bodiesInText = (text) => {
   for (const [, fenced] of text.matchAll(/```markdown\n([\s\S]*?)\n *```/g)) {
     if (/directed[\s-]*by/i.test(fenced)) bodies.push(dedent(fenced));
   }
-  // implement-trd-beads: PR_BODY / COMPLETION_BODY = '...' with \n escapes.
+  // implement-trd-tasks: PR_BODY / COMPLETION_BODY = '...' with \n escapes.
   for (const [, assigned] of text.matchAll(
     /(?:PR_BODY|COMPLETION_BODY) = '([\s\S]*?Directed by: @<[^<>]*>)>?'/g
   )) {
@@ -102,7 +102,7 @@ const callerText = (name) => {
   const file = CALLER_PATHS[name];
   if (file === undefined) throw new Error(`unknown caller: ${name}`);
   const companions = (BODY_COMPANIONS[name] || []).map((f) => fs.readFileSync(f, 'utf8'));
-  // fix-issue and implement-trd-beads are skill-backed: the manifest holds no prose, so the command's
+  // fix-issue and implement-trd-tasks are skill-backed: the manifest holds no prose, so the command's
   // text is its manifest plus its skill (SKILL.md + references/*.md), then the body companions.
   const manifest = fs.readFileSync(file, 'utf8');
   const commandProse = readCommandProse(file, yaml.load(manifest), manifest);

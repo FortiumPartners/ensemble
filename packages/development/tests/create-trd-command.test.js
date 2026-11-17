@@ -85,7 +85,7 @@ describe('create-trd command document ids', () => {
 // ---------------------------------------------------------------------------
 // PRD -> refine -> TRD -> refine -> implement routing.
 //
-// create-trd used to print implement-trd-beads and configure-team as its next
+// create-trd used to print implement-trd-tasks and configure-team as its next
 // steps, which walked a session straight past its own review. The next step is
 // now refine-trd and nothing else; implementation is offered by refine-trd's
 // closing go/no-go once the TRD has actually been refined.
@@ -100,12 +100,12 @@ describe('create-trd hands off to refine-trd, not to implementation', () => {
   test.each([
     ['skill prompt', skillText],
   ])('%s never suggests an implement or configure-team next step', (_label, text) => {
-    expect(text).not.toContain("Suggest: '/ensemble:implement-trd-beads");
+    expect(text).not.toContain("Suggest: '/ensemble:implement-trd-tasks");
     expect(text).not.toContain("Suggest: '/ensemble:implement-trd ");
     expect(text).not.toContain("Suggest: '/ensemble:configure-team");
     // The prohibition is stated, not merely absent, so a later edit that
     // re-adds the suggestion has to delete this line to do it.
-    expect(text).toContain('Do NOT print /ensemble:implement-trd-beads');
+    expect(text).toContain('Do NOT print /ensemble:implement-trd-tasks');
   });
 
   test.each([
@@ -351,7 +351,7 @@ describe('create-trd is a skill-backed command', () => {
     ['phase-3-task-breakdown-and-planning.md', 'Every task line MUST begin with a GitHub checkbox'],
     ['phase-4-adversarial-review-and-design-gate.md', 'node "$TRD_CLI" parse'],
     ['phase-5-constitution-gate.md', 'Constitution compliance: passed'],
-    ['phase-6-output-management.md', 'Do NOT print /ensemble:implement-trd-beads'],
+    ['phase-6-output-management.md', 'Do NOT print /ensemble:implement-trd-tasks'],
   ])('%s holds its phase, which SKILL.md does not repeat: %s', (name, phrase) => {
     const reference = referenceNamed(name);
     expect(reference).toBeDefined();

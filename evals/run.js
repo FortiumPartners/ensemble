@@ -3,29 +3,102 @@
 
 /**
  * Headless behavioral eval runner.
- * Usage: node evals/run.js [--scenario <id>] [--model <id>] [--dry-run] [--max-usd N]
+ * Usage: node evals/run.js [--scenario <id>] [--skill <name>] [--model <id>] [--judge-model <id>] [--dry-run]
+ *   [--max-usd N] [--timeout SEC] [--concurrency N] [--keep-workspace] [--allow-env NAME]... [--env-allowlist FILE]
+ *   [--run-usd N] [--judge-usd N] [--repeats N] [--runtime claude|pi] [--update-baselines] [--refresh]
+ *   [--scenario <id> --arm with-skill|baseline --run-index N]   (replay exactly one run: always fresh, no cache, no baseline write)
+ * Exit: 0 all pass, 1 an eval failed or timed out or a regression against a committed reliable baseline was detected,
+ *   2 usage/rejected definition (including an unsupported runtime, or a --scenario/--skill selection that the runtime filter empties)
+ *   or a result/baseline that could not be stored or read (2 outranks 1),
+ *   3 the runtime's CLI missing, 4 incomplete evals or an unfiltered run that executed zero evals (1 outranks 4).
+ * Baselines: a summary is written only when the check says `no-baseline` or `ok` and the model is known; a `regression`,
+ *   a `not-comparable` result or an `unknown` model never overwrites the committed file unless --update-baselines is given.
+ * Cache: a finished run is reused (no model call, no cost) when its skill/package hash, eval version, requested --model, runtime, arm and
+ *   settings all match a stored entry (evals/lib/cache.js); --refresh forces fresh runs. Without --model nothing is reused or stored.
+ * Targets: skill-keyed evals in evals/skills/<skill>/eval.json, plus legacy single-arm evals/scenarios/*.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { runGraders } = require('./lib/graders');
+const { loadEvalDefs, evalToScenario, EvalDefinitionError, checkSandboxPath } = require('./lib/eval-def');
+const results = require('./lib/results');
+const hash = require('./lib/hash');
+const report = require('./lib/report');
+const { summarizeRun } = results;
+const { resolveJudge } = require('./lib/runners/judge');
 const sandbox = require('./lib/sandbox');
+const setupLib = require('./lib/setup');
+const envlib = require('./lib/env');
+const { loadLimits, reservationFor, runSuite, resolveRepeats, expandRuns } = require('./lib/exec');
+const arms = require('./lib/arms');
+const { describeCopy } = require('./lib/results');
+const { getRunner, supportedRuntimes } = require('./lib/runners');
+const cache = require('./lib/cache');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
-const SCENARIOS_DIR = path.join(__dirname, 'scenarios');
+/**
+ * The repository the skill packages are read from. Test hook: EVALS_REPO_ROOT points at a scratch copy (it must be an existing directory that
+ * contains `packages/`); it is read once, here. Unset: this checkout.
+ */
+function resolveRepoRoot() {
+  const given = process.env.EVALS_REPO_ROOT;
+  if (given === undefined || given === '') return path.resolve(__dirname, '..');
+  const root = path.resolve(given);
+  const isDir = (d) => { try { return fs.statSync(d).isDirectory(); } catch { return false; } };
+  const ok = isDir(root) && isDir(path.join(root, 'packages'));
+  if (!ok) {
+    console.error(`EVALS_REPO_ROOT must be an existing directory containing packages/: ${results.stripControl(given).slice(0, 200)}`);
+    process.exit(2);
+  }
+  return root;
+}
+const REPO_ROOT = resolveRepoRoot();
+const SCENARIOS_DIR = process.env.EVALS_SCENARIOS_DIR || path.join(__dirname, 'scenarios');
+const EVAL_SKILLS_DIR = process.env.EVALS_SKILLS_DIR || path.join(__dirname, 'skills');
 const RESULTS_DIR = process.env.EVALS_RESULTS_DIR || path.join(__dirname, 'results');
+// Committed baseline summaries. Overridable; when only EVALS_RESULTS_DIR is overridden (tests) they go beside it, never into the repository.
+const CACHE_DIR = process.env.EVALS_CACHE_DIR || (process.env.EVALS_RESULTS_DIR ? path.join(path.dirname(process.env.EVALS_RESULTS_DIR), 'cache') : path.join(__dirname, 'cache'));
+const BASELINES_DIR = process.env.EVALS_BASELINES_DIR || (process.env.EVALS_RESULTS_DIR ? path.join(path.dirname(process.env.EVALS_RESULTS_DIR), 'baselines') : results.BASELINES_DIR);
+
+let activeSecrets = []; // credential values in play; the top-level error handler redacts with these
 
 function parseArgs(argv) {
-  const o = { scenario: null, model: null, dryRun: false, maxUsd: null };
+  const o = {
+    scenario: null, skill: null, model: null, judgeModel: null, dryRun: false, maxUsd: null,
+    timeoutSec: null, concurrency: null, keepWorkspace: false, allowEnv: [], envAllowlist: null, runUsd: null, judgeUsd: null,
+    repeats: null, runtime: 'claude', updateBaselines: false, refresh: false, arm: null, runIndex: null,
+  };
+  const num = (flag, v, { int = false } = {}) => {
+    const n = Number(v);
+    if (v === undefined || !(n > 0) || (int && !Number.isInteger(n))) throw new Error(`${flag} must be a positive ${int ? 'integer' : 'number'}`);
+    return n;
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') o.dryRun = true;
+    else if (a === '--keep-workspace') o.keepWorkspace = true;
+    else if (a === '--update-baselines') o.updateBaselines = true;
+    else if (a === '--refresh') o.refresh = true;
+    else if (a === '--arm') o.arm = argv[++i];
+    else if (a === '--run-index') o.runIndex = num(a, argv[++i], { int: true });
     else if (a === '--scenario') o.scenario = argv[++i];
+    else if (a === '--skill') o.skill = argv[++i];
     else if (a === '--model') o.model = argv[++i];
-    else if (a === '--max-usd') o.maxUsd = Number(argv[++i]);
+    else if (a === '--judge-model') o.judgeModel = argv[++i];
+    else if (a === '--max-usd') o.maxUsd = num(a, argv[++i]);
+    else if (a === '--timeout') o.timeoutSec = num(a, argv[++i]);
+    else if (a === '--concurrency') o.concurrency = num(a, argv[++i], { int: true });
+    else if (a === '--repeats') o.repeats = num(a, argv[++i], { int: true });
+    else if (a === '--runtime') o.runtime = argv[++i];
+    else if (a === '--run-usd') o.runUsd = num(a, argv[++i]);
+    else if (a === '--judge-usd') o.judgeUsd = num(a, argv[++i]);
+    else if (a === '--allow-env') o.allowEnv.push(argv[++i]);
+    else if (a === '--env-allowlist') o.envAllowlist = argv[++i];
     else throw new Error(`unknown argument: ${a}`);
   }
-  if (o.maxUsd !== null && !(o.maxUsd > 0)) throw new Error('--max-usd must be a positive number');
+  if ((o.arm !== null) !== (o.runIndex !== null)) throw new Error('--arm and --run-index go together (they select the one run to replay)');
+  if (o.arm !== null && !arms.ARMS.includes(o.arm)) throw new Error(`--arm must be one of ${arms.ARMS.join(', ')}`);
+  if (o.arm !== null && !o.scenario) throw new Error('--arm and --run-index need --scenario <eval id>');
   return o;
 }
 
@@ -35,111 +108,659 @@ function loadScenarios(dir = SCENARIOS_DIR) {
     .map((e) => {
       const scenarioDir = path.join(dir, e.name);
       const s = JSON.parse(fs.readFileSync(path.join(scenarioDir, 'scenario.json'), 'utf8'));
-      return { ...s, id: s.id || e.name, type: s.type || 'agent', scenarioDir };
+      // `sandboxPath` goes onto the agent's PATH: held to the same rule as a skill eval's (relative, inside the fixture, an existing directory).
+      let sandboxPath = s.sandboxPath;
+      if (sandboxPath !== undefined) {
+        try { sandboxPath = checkSandboxPath(sandboxPath, path.join(scenarioDir, 'fixture')); } catch (err) { throw new Error(`scenario ${e.name}: ${err.message}`, { cause: err }); }
+      }
+      // `env`, `setup` and `runUsd` are skill-eval fields, validated by eval-def; a legacy scenario.json is not, so it may not carry them.
+      const skillOnly = ['env', 'setup', 'runUsd'].find((k) => s[k] !== undefined);
+      if (skillOnly) throw new Error(`scenario ${e.name}: \`${skillOnly}\` is a skill eval field (evals/skills/<skill>/eval.json); a legacy scenario.json may not set it`);
+      return { ...s, ...(sandboxPath !== undefined && { sandboxPath }), id: s.id || e.name, type: s.type || 'agent', scenarioDir };
     })
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-function runScenario(scenario, { bin, model, remainingUsd, repoRoot }) {
-  const sb = sandbox.createSandbox(scenario.scenarioDir, scenario);
+/**
+ * Run one eval in a fresh workspace under `workdir`.
+ * Only the agent and the judge get the allowlisted credentials; checks that execute agent-written code
+ * (testsPass, commandOutputMatches, trdParses) get an environment with none. The transcript is redacted before
+ * it reaches checks or the judge prompt.
+ * run: { bin (the runtime's CLI), judgeBin (the claude CLI, which runs the judge), model, runUsd, judgeUsd, timeoutMs, repoRoot, judge, workdir, credentials, judgeCredentials (base names + --allow-env, never a runtime's provider keys; defaults to credentials), secrets (all credential values, redacted from every process's output), parentEnv, keepWorkspace,
+ *        arm, ev, runtime, runner }
+ * With `run.arm` ('with-skill' | 'baseline') and `run.ev` the job is built from the skill eval by arms.buildJob;
+ * otherwise from the legacy scenario. `run.runner` replaces the runtime's adapter (tests).
+ */
+async function runScenario(scenario, run) {
+  const { bin, judgeBin = bin, model, runUsd, judgeUsd = 0, timeoutMs, repoRoot, judge, workdir, credentials, judgeCredentials = credentials, secrets = [], parentEnv = process.env, keepWorkspace } = run;
+  const sb = sandbox.createSandbox(scenario.scenarioDir, scenario, { workdir, parentEnv });
+  let ciHome = null;
+  let checkHome = null;
+  let agentHome = null;
   const started = Date.now();
   try {
-    let transcript = '';
-    let run = { exitCode: 0, stderr: '', timedOut: false };
-    if (scenario.type === 'agent') {
-      const args = sandbox.buildClaudeArgs(scenario, { repoRoot, model, maxUsd: remainingUsd });
-      run = sandbox.runClaude(bin, args, sb.dir, (scenario.timeoutSec || 600) * 1000);
-      transcript = run.transcript;
+    // A failed `setup` command (or a rejected tree after it) is an incomplete run with a named reason: never a pass, a fail or a silent skip.
+    if (sb.setupError) {
+      return {
+        id: scenario.id, type: scenario.type, skill: scenario.skill, runtime: scenario.type === 'agent' ? (run.runtime || 'claude') : null,
+        turns: null, claudeExitCode: null, timedOut: false,
+        pass: null, outcome: 'incomplete', verdict: null, judgedScore: null, judgeModel: null, graders: [],
+        incompleteReason: `setup failed: ${envlib.shortReason(sb.setupError, secrets)}`, costUsd: 0, durationMs: Date.now() - started,
+      };
     }
-    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript };
-    const graders = runGraders(scenario.graders || [], ctx);
+    if (envlib.isCI(parentEnv)) ciHome = envlib.makeCiHome(workdir);
+    // A Pi run gets a throwaway empty HOME like the checks do (probed: Pi still authenticates from its provider key in the
+    // environment); Pi's own auth files under the real HOME are then not reachable. Claude keeps the passthrough HOME for its login.
+    if (!ciHome && (run.runtime || 'claude') === 'pi' && scenario.type === 'agent') agentHome = envlib.makeCiHome(workdir);
+    const env = envlib.buildEnv({ parent: parentEnv, credentials, home: ciHome || agentHome || undefined });
+    // `sandboxPath`: fixture directories (stub binaries) first on the AGENT's PATH only. The checks' environment below never gets them:
+    // a binary the agent plants there must not be able to stand in for `node` or `sh` when a check runs.
+    if (Array.isArray(scenario.sandboxPath) && scenario.sandboxPath.length) {
+      env.PATH = [...scenario.sandboxPath.map((d) => path.join(sb.dir, d)), ...(env.PATH ? [env.PATH] : [])].join(path.delimiter);
+    }
+    // The eval's non-secret `env` goes to the AGENT only (not the checks, not the judge), after the PATH edit above; values are never redacted.
+    if (scenario.env) envlib.applyAgentEnv(env, scenario.env, credentials);
+    // Checks run agent-written code: always a throwaway empty HOME, never the real one.
+    checkHome = ciHome || envlib.makeCiHome(workdir);
+    const checkEnv = envlib.buildEnv({ parent: parentEnv, credentials: [], home: checkHome });
+    // The judge is a claude process: it never sees the runtime-scoped (Pi provider) keys.
+    const judgeEnv = envlib.buildEnv({ parent: parentEnv, credentials: judgeCredentials, home: ciHome || undefined });
+    // Late re-scan, immediately before the agent starts: a setup command's detached process (killed with its group, but a late write could
+    // still have landed between the first scan and here) must not have planted .claude/, .mcp.json, a git hook or a git config change.
+    if (Array.isArray(scenario.setup) && scenario.setup.length && sb.configBefore) {
+      const late = setupLib.checkAfterSetup(sb.dir, sb.configBefore);
+      if (late) {
+        return {
+          id: scenario.id, type: scenario.type, skill: scenario.skill, runtime: scenario.type === 'agent' ? (run.runtime || 'claude') : null,
+          turns: null, claudeExitCode: null, timedOut: false,
+          pass: null, outcome: 'incomplete', verdict: null, judgedScore: null, judgeModel: null, graders: [],
+          incompleteReason: `setup failed: late re-scan before the agent started: ${envlib.shortReason(late, secrets)}`, costUsd: 0, durationMs: Date.now() - started,
+        };
+      }
+    }
+    let transcript = '';
+    let proc = { exitCode: 0, stderr: '', timedOut: false, transcriptTruncated: false, commands: [], commandsIncomplete: false };
+    let armInfo = {};
+    if (scenario.type === 'agent') {
+      const runtime = run.runtime || 'claude';
+      const jobCtx = { repoRoot, runtime, model, workspace: sb.dir, env, timeoutMs, maxUsd: runUsd };
+      const job = run.arm ? arms.buildJob(run.ev, run.arm, jobCtx) : arms.scenarioJob(scenario, jobCtx);
+      proc = await (run.runner || getRunner(runtime)).run(job, { bin, secrets });
+      transcript = envlib.redactText(proc.transcript, secrets);
+      if (run.arm) {
+        armInfo = {
+          reportedModel: typeof proc.model === 'string' && proc.model ? proc.model : null,
+          invoked: arms.wasInvoked(run.ev.skill, proc),
+          loadedSkills: proc.loadedSkills || [], invokedSkills: proc.invokedSkills || [], loadedPlugins: proc.loadedPlugins || [],
+          loadedSource: proc.loadedSource,
+        };
+      }
+    }
     const summary = sandbox.summarizeTranscript(transcript);
+    if (proc.costUsd !== undefined) summary.costUsd = proc.costUsd;
+    if (proc.turns !== undefined && proc.turns !== null) summary.turns = proc.turns;
+    // An agent run with no reported cost (timeout, crash) is charged its full per-run budget, flagged costEstimated.
+    const agentUnknown = scenario.type === 'agent' && summary.costUsd === null;
+    const agentCost = agentUnknown ? runUsd : summary.costUsd;
+    const base = {
+      id: scenario.id, type: scenario.type, skill: scenario.skill,
+      runtime: scenario.type === 'agent' ? (run.runtime || 'claude') : null,
+      ...armInfo,
+      turns: summary.turns, claudeExitCode: proc.exitCode, timedOut: proc.timedOut, stderr: proc.stderr || undefined,
+    };
+    if (proc.timedOut) {
+      return {
+        ...base, pass: false, outcome: 'timed_out', verdict: 'fail', judgedScore: null, judgeModel: null, graders: [],
+        costUsd: agentCost, ...(agentUnknown && { costEstimated: true }),
+        claudeResult: `timed out after ${Math.round(timeoutMs / 1000)}s; run and child processes killed`,
+        durationMs: Date.now() - started,
+      };
+    }
+    // Infrastructure error: the runtime's own stream says the API call failed (no login, bad key, no credits, overload), so the model
+    // never judged this skill. Not a pass or a fail and never counted: recorded `incomplete`. Cost: what the runtime reported; with no figure,
+    // $0 when the run made no model progress (a first call that failed), else the reservation (paid turns happened), flagged costEstimated.
+    if (proc.providerError) {
+      const costUnknown = summary.costUsd === null && proc.providerProgress === true;
+      return {
+        ...base, pass: null, outcome: 'incomplete', verdict: null, judgedScore: null, judgeModel: null, graders: [],
+        incompleteReason: `provider error: ${proc.providerError}`,
+        costUsd: costUnknown ? runUsd : summary.costUsd === null ? 0 : summary.costUsd,
+        ...(costUnknown && { costEstimated: true }),
+        durationMs: Date.now() - started,
+      };
+    }
+    const commands = Array.isArray(proc.commands) ? proc.commands.map((c) => envlib.redactText(c, secrets)) : undefined;
+    const ctx = { dir: sb.dir, repoRoot, baseline: sb.baseline, transcript, transcriptTruncated: proc.transcriptTruncated, commands, commandsIncomplete: proc.commandsIncomplete, env: checkEnv, judgeEnv, secrets, judge: judge ? { ...judge, bin: judgeBin } : undefined };
+    // Judged checks read only the with-skill arm (judgedScore), so the baseline arm skips them: no judge spend is wasted.
+    const specs = (scenario.graders || []).filter((g) => !(run.arm === 'baseline' && g.type === 'judge'));
+    const graders = await runGraders(specs, ctx);
+    const outcome = summarizeRun(graders);
+    // A judge call that ran but reported no cost (failed or timed out) is charged the judge allowance.
+    const judgeUnknown = graders.filter((g) => g.judged && !g.refused && (g.costUsd === null || g.costUsd === undefined)).length;
+    const judgeCost = graders.reduce((sum, g) => sum + (g.costUsd || 0), 0) + judgeUnknown * judgeUsd;
+    const known = agentCost !== null || judgeCost > 0;
     return {
-      id: scenario.id,
-      type: scenario.type,
-      pass: graders.length > 0 && graders.every((g) => g.pass),
+      ...base,
+      pass: outcome.pass,
+      outcome: outcome.pass ? 'pass' : 'fail',
+      verdict: outcome.verdict,
+      judgedScore: outcome.judgedScore,
+      judgeModel: outcome.judgeModel,
       graders,
-      turns: summary.turns,
-      costUsd: summary.costUsd,
-      claudeExitCode: run.exitCode,
-      claudeResult: summary.resultText || (run.exitCode ? transcript.slice(-500) : undefined),
-      timedOut: run.timedOut,
-      stderr: run.stderr || undefined,
+      costUsd: known ? (agentCost || 0) + judgeCost : null,
+      ...((agentUnknown || (judgeUnknown && judgeUsd > 0)) && { costEstimated: true }),
+      claudeResult: summary.resultText || (proc.exitCode ? transcript.slice(-500) : undefined),
       durationMs: Date.now() - started,
     };
   } finally {
-    sb.cleanup();
+    if (keepWorkspace) console.log(results.stripControl(envlib.redactText(`workspace kept: ${sb.dir}`, secrets)));
+    else sb.cleanup();
+    if (ciHome) fs.rmSync(ciHome, { recursive: true, force: true });
+    if (checkHome && checkHome !== ciHome) fs.rmSync(checkHome, { recursive: true, force: true });
+    if (agentHome) fs.rmSync(agentHome, { recursive: true, force: true });
   }
 }
 
-function main(argv = process.argv.slice(2)) {
+const fmtChange = (c) => (typeof c.current === 'number' && typeof c.change === 'number' ? `${c.committed.toFixed(2)} -> ${c.current.toFixed(2)} (${c.change >= 0 ? '+' : ''}${c.change.toFixed(2)})` : `${c.committed.toFixed(2)} -> n/a`);
+
+/**
+ * Outcome of a replayed single run, in the eval-level vocabulary. A with-skill run is its own verdict. A baseline run has none
+ * (it is a measurement): pass and fail both read `pass`; a timeout is `timed_out`, a leak `fail`, an unverifiable one `incomplete`.
+ * A run that never started is `incomplete`.
+ */
+function replayOutcome(arm, r) {
+  if (!r || r.error) return 'incomplete';
+  if (r.outcome === 'timed_out') return 'timed_out';
+  if (arm === 'baseline') {
+    if (r.outcome === 'pass' || r.outcome === 'fail') return 'pass';
+    return r.outcome === 'aborted' && r.leak ? 'fail' : 'incomplete';
+  }
+  return r.outcome === 'pass' || r.outcome === 'fail' ? r.outcome : 'incomplete';
+}
+
+async function main(argv = process.argv.slice(2)) {
   const opts = parseArgs(argv);
-  let scenarios = loadScenarios();
+  const credentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv, runtime: opts.runtime });
+  const judgeCredentials = envlib.loadCredentialNames({ file: opts.envAllowlist || undefined, extra: opts.allowEnv });
+  const secrets = envlib.secretValues(process.env, credentials);
+  activeSecrets = secrets;
+  const out = (text) => console.log(results.stripControl(envlib.redactText(text, secrets)));
+  const err = (text) => console.error(results.stripControl(envlib.redactText(text, secrets)));
+  if (!supportedRuntimes().includes(opts.runtime)) {
+    err(`unsupported --runtime "${String(opts.runtime).slice(0, 80)}": not supported in this release (supported: ${supportedRuntimes().join(', ')}); nothing was run`);
+    return 2;
+  }
+  const defs = loadEvalDefs({ skillsDir: EVAL_SKILLS_DIR, repoRoot: REPO_ROOT });
+  const legacy = loadScenarios();
+  const legacyIds = new Set(legacy.map((s) => s.id));
+  let rejected = [...defs.rejected];
+  const skillEvals = defs.evals.filter((ev) => {
+    // An eval's `env` may not name a credential of THIS run (--allow-env can add one the definition could not know about).
+    const clash = Object.keys(ev.env || {}).find((n) => credentials.includes(n) || judgeCredentials.includes(n));
+    if (clash !== undefined) {
+      rejected.push({ id: ev.id, dir: ev.dir, error: new EvalDefinitionError(ev.id, 'env', `\`env\` name ${clash} is a credential of this run (allowlist or --allow-env)`) });
+      return false;
+    }
+    if (!legacyIds.has(ev.id)) return true;
+    rejected.push({ id: ev.id, dir: ev.dir, error: new EvalDefinitionError(ev.id, 'id', `id collides with a legacy scenario id "${ev.id}"`) });
+    return false;
+  });
+  let scenarios = [...legacy, ...skillEvals.map(evalToScenario)];
   if (opts.scenario) {
     scenarios = scenarios.filter((s) => s.id === opts.scenario);
-    if (scenarios.length === 0) {
-      console.error(`unknown scenario: ${opts.scenario}`);
+    rejected = rejected.filter((r) => r.id === opts.scenario);
+    if (scenarios.length === 0 && rejected.length === 0) {
+      err(`unknown scenario: ${opts.scenario}`);
       return 2;
     }
   }
-  const bin = sandbox.findClaude();
-  const needsClaude = scenarios.some((s) => s.type === 'agent');
+  if (opts.skill) {
+    scenarios = scenarios.filter((s) => s.skill === opts.skill);
+    rejected = rejected.filter((r) => path.basename(r.dir) === opts.skill || r.id === opts.skill);
+    if (scenarios.length === 0 && rejected.length === 0) {
+      err(`no eval for skill: ${opts.skill}`);
+      return 2;
+    }
+  }
+  for (const r of rejected) err(`REJECTED ${r.error.message}`);
+  for (const ev of skillEvals) {
+    if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill) || !ev.unactedFields.length) continue;
+    err(`WARNING eval "${ev.id}": ${ev.unactedFields.map((f) => `\`${f}\``).join(', ')} accepted but not yet acted on (lands in a later PR)`);
+  }
+  // `runtimes` acts: an eval runs only under a runtime it lists; legacy agent scenarios are Claude-only.
+  const selected = scenarios;
+  scenarios = scenarios.filter((s) => {
+    const ev = skillEvals.find((e) => e.id === s.id && e.skill === s.skill);
+    const ok = ev ? ev.runtimes.includes(opts.runtime) : s.type !== 'agent' || opts.runtime === 'claude';
+    if (!ok) err(`SKIP ${s.id}: not run under --runtime ${opts.runtime} (${ev ? `its \`runtimes\` is ${JSON.stringify(ev.runtimes)}` : 'a legacy agent scenario is Claude-only'})`);
+    return ok;
+  });
+  if ((opts.scenario || opts.skill) && selected.length && !scenarios.length) {
+    err(`nothing to run: the selected eval(s) (${selected.map((s) => s.id).join(', ')}) are not run under --runtime ${opts.runtime}`);
+    return 2;
+  }
+  if (opts.runtime === 'pi') {
+    for (const ev of skillEvals) {
+      if (!scenarios.some((s) => s.id === ev.id && s.skill === ev.skill)) continue;
+      const dropped = [ev.allowedTools && ev.allowedTools.length ? '`allowedTools`' : null, ev.maxTurns !== undefined ? '`maxTurns`' : null].filter(Boolean);
+      if (dropped.length) err(`WARNING eval "${ev.id}": ${dropped.join(' and ')} not applied under --runtime pi (Pi runs with its default tools and no turn limit)`);
+    }
+  }
+  const runner = getRunner(opts.runtime);
+  const evById = new Map(skillEvals.map((ev) => [ev.id, ev]));
+  const bin = runner.find();
+  const claudeBin = sandbox.findClaude(); // the judge always runs through claude
+  const needsBin = scenarios.some((s) => s.type === 'agent');
+  const limits = loadLimits();
+  // Repeats and bar per skill eval: --repeats over the eval's value over limits.json; the bar is the eval's or the default.
+  const plans = new Map();
+  for (const s of scenarios) {
+    const ev = evById.get(s.id);
+    if (!ev) continue;
+    try { plans.set(ev.id, resolveRepeats(ev, { flagRepeats: opts.repeats, limits })); } catch (e) { err(e.message); return 2; }
+  }
+
+  const replay = opts.arm !== null;
+  if (replay) {
+    if (scenarios.length !== 1 || !evById.has(scenarios[0].id)) {
+      err(`replay (--arm/--run-index) needs exactly one skill eval selected by --scenario${scenarios.length === 1 ? `; "${scenarios[0].id}" is a legacy scenario with no arms` : ''}`);
+      return 2;
+    }
+    const rp = plans.get(scenarios[0].id);
+    if (opts.runIndex > rp.repeats) { err(`--run-index ${opts.runIndex} exceeds the eval's repeats (${rp.repeats}); pass the same --repeats as the original run`); return 2; }
+  }
+
+  // Judged checks run only with a judge model that differs from the model under test; otherwise they are refused.
+  const judge = resolveJudge({ judgeModel: opts.judgeModel, model: opts.model });
+  if (!claudeBin && !judge.refusal) judge.refusal = 'the `claude` CLI that runs the judge was not found (set EVALS_CLAUDE_BIN)';
+  const judgedIds = scenarios.filter((s) => (s.graders || []).some((g) => g.type === 'judge')).map((s) => s.id);
+  if (judgedIds.length && judge.refusal) {
+    err(`REFUSED judged checks (${judgedIds.join(', ')}): ${judge.refusal}; deterministic checks still run`);
+  }
 
   if (opts.dryRun) {
-    console.log(`${scenarios.length} scenario(s):`);
+    out(`${scenarios.length} eval(s)${rejected.length ? `, ${rejected.length} rejected` : ''}:`);
     for (const s of scenarios) {
-      console.log(`  ${s.id} [${s.type}] graders: ${(s.graders || []).map((g) => g.type).join(', ')}`);
-      console.log(`      ${s.description || ''}`);
+      out(`  ${s.id} [${s.skill ? `skill: ${s.skill}` : s.type}] graders: ${(s.graders || []).map((g) => g.type).join(', ')}`);
+      out(`      ${s.description || ''}`);
+      const plan = plans.get(s.id);
+      if (plan) out(`      arms: with-skill + baseline, repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource})`);
     }
-    if (needsClaude && !bin) console.log('SKIP: `claude` CLI not found on PATH; agent scenarios would not run.');
-    return 0;
+    if (needsBin && !bin) out(`SKIP: \`${runner.BIN_NAME}\` CLI not found on PATH; agent scenarios would not run.`);
+    return rejected.length ? 2 : 0;
   }
-  if (needsClaude && !bin) {
-    console.error('SKIP: `claude` CLI not found on PATH (set EVALS_CLAUDE_BIN to override); cannot run agent scenarios.');
+  if (!scenarios.length) {
+    out(`0 evals ran under runtime ${opts.runtime}`);
+    return rejected.length ? 2 : 4;
+  }
+  if (needsBin && !bin) {
+    err(`SKIP: \`${runner.BIN_NAME}\` CLI not found on PATH (set ${runner.BIN_ENV} to override); cannot run agent scenarios.`);
     return 3;
   }
 
-  const results = [];
-  let spent = 0;
+  if (opts.timeoutSec && opts.timeoutSec > limits.maxTimeoutSec) {
+    err(`--timeout ${opts.timeoutSec} exceeds the limit of ${limits.maxTimeoutSec}s (maxTimeoutSec) in evals/limits.json`);
+    return 2;
+  }
+  const capUsd = opts.maxUsd || limits.maxUsdPerSuite;
+  const concurrency = opts.concurrency || limits.concurrency;
+  const workdir = sandbox.resolveWorkdir();
+  const judgeActive = Boolean(judge && !judge.refusal);
+  const reservationOf = (s, arm) => reservationFor(
+    { model: s.type === 'agent', judged: arm !== 'baseline' && judgeActive && (s.graders || []).some((g) => g.type === 'judge') },
+    { runReserveUsd: runUsdFor(s), judgeReserveUsd: opts.judgeUsd || limits.judgeReserveUsd, capUsd },
+  );
+  // Per-run budget (the claude --max-budget-usd): --run-usd, else the eval's own `runUsd` (validated against maxRunUsd at load), else runReserveUsd; never above the suite cap.
+  // `s` is the scenario shaped from an eval (evalToScenario carries `runUsd`); a legacy scenario has none.
+  const runUsdFor = (s) => Math.min(opts.runUsd || (s && s.runUsd) || limits.runReserveUsd, capUsd);
+  // Time limit: --timeout, else the eval's own `timeoutSec` (validated against maxTimeoutSec at load), else the timeoutSec default.
+  // Only a skill eval (validated against the ceiling at load) may go above the default; a legacy scenario stays capped at `timeoutSec`.
+  const timeoutMsFor = (s) => 1000 * (opts.timeoutSec || Math.min(s.timeoutSec || limits.timeoutSec, evById.has(s.id) ? limits.maxTimeoutSec : limits.timeoutSec));
+
+  const show = (r, label = '') => {
+    const judgedNote = r.judgedScore === null || r.judgedScore === undefined ? '' : ` judged=${r.judgedScore.toFixed(2)} (${results.stripControl(r.judgeModel)})`;
+    const invokedNote = r.invoked === undefined ? '' : ` skill-invoked=${r.invoked ? 'yes' : 'no'}`;
+    out(`  ${label}${r.outcome.toUpperCase()}${r.outcome === 'incomplete' && r.incompleteReason ? ` (${results.stripControl(r.incompleteReason)})` : ''} turns=${r.turns} cost=${r.costUsd}${r.costEstimated ? ' (estimated)' : ''}${invokedNote}${judgedNote}`);
+    for (const g of r.graders) out(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}${g.judged ? ' [judged]' : ''}: ${g.detail}`);
+  };
+  const runOpts = (s) => ({
+    bin, judgeBin: claudeBin, model: opts.model, runUsd: runUsdFor(s), judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd), timeoutMs: timeoutMsFor(s), repoRoot: REPO_ROOT, judge,
+    workdir, credentials, judgeCredentials, secrets, keepWorkspace: opts.keepWorkspace, runtime: opts.runtime,
+  });
+  const scenarioOf = new Map(scenarios.map((s) => [s.id, s]));
+  const aborts = new Map(); // eval id -> leak message: the rest of that eval's runs are skipped
+  const exec = async (item) => {
+    const { ev, arm } = item;
+    if (!ev) {
+      const s = item.legacy;
+      out(`running ${s.id} ...`);
+      let r;
+      try {
+        r = await runScenario(s, runOpts(s));
+      } catch (e) {
+        r = { id: s.id, type: s.type, skill: s.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
+      }
+      r = { ...r, runtime: s.type === 'agent' ? opts.runtime : null };
+      r = envlib.redactDeep(r, secrets);
+      show(r);
+      return r;
+    }
+    const s = scenarioOf.get(ev.id);
+    const plan = plans.get(ev.id);
+    const label = `[${arm} ${item.run}/${plan.repeats}] `;
+    if (aborts.has(ev.id)) return { outcome: 'aborted', graders: [], costUsd: 0, arm, run: item.run, evalId: ev.id };
+    if (hits.has(item)) {
+      const cached = envlib.redactDeep(hits.get(item), secrets);
+      out(`reusing stored result for ${ev.id} ${label.trim()} (stored ${results.stripControl(cached.cachedAt)}; no model call, no cost)`);
+      show(cached, label);
+      return cached;
+    }
+    out(`running ${ev.id} ${label.trim()} ...`);
+    let r;
+    try {
+      r = await runScenario(s, { ...runOpts(s), arm, ev });
+    } catch (e) {
+      r = { id: ev.id, type: 'agent', skill: ev.skill, pass: false, outcome: 'fail', verdict: 'fail', graders: [], costUsd: null, claudeResult: `runner error: ${e.message}` };
+    }
+    // The model is what the runtime reported it ran, never the requested flag ('default' when omitted would defeat comparability).
+    const { reportedModel, ...rest } = r;
+    r = { ...rest, evalId: ev.id, arm, run: item.run, runtime: opts.runtime, model: reportedModel || results.UNKNOWN_MODEL, invocationMode: ev.invocation };
+    if (arm === 'baseline') {
+      const check = arms.checkBaseline(ev, r, { repoRoot: REPO_ROOT });
+      if (r.outcome === 'incomplete' && r.incompleteReason && (!check || check.kind !== 'leak')) {
+        // A provider error is its own incomplete run: no startup event is expected from a call that never happened (only a real leak still aborts).
+      } else if (check && check.kind === 'unverifiable-run') {
+        // Crashed or timed out before any startup event: cannot be called clean, so it is not counted in the baseline score.
+        r = { ...r, outcome: 'unverifiable', pass: null, verdict: null, unverifiable: check.message };
+      } else if (check) {
+        aborts.set(ev.id, check.message);
+        r = { ...r, outcome: 'aborted', pass: null, verdict: null, leak: check.message };
+      }
+    }
+    r = envlib.redactDeep(r, secrets);
+    show(r, label);
+    return r;
+  };
+
+  const copies = new Map();
+  const evalVersions = new Map();
+  const hits = new Map(); // item -> reused run result (filled below, before anything is scheduled)
+  // The cache is used only when the requested model is known (the default model can change silently) and never for a replay.
+  const cacheOn = !replay && Boolean(opts.model);
+  const cacheStats = { reused: 0, executed: 0, stored: 0, enabled: cacheOn };
+  if (!replay && !opts.model && scenarios.some((s) => evById.has(s.id))) out('cache: not used (no --model given: the model a default run uses can change, so nothing is reused or stored)');
+  if (cacheOn) {
+    try { cache.checkStore(CACHE_DIR, opts.runtime); } catch (e) {
+      if (!(e instanceof cache.CacheError)) throw e;
+      err(`cache store problem, nothing was run: ${e.message}`);
+      return 2;
+    }
+  }
+  const judgeModelKey = judgeActive ? judge.model : null;
+  const cacheInputs = (ev, arm, run, s) => cache.keyInputs({
+    ev, arm, run, runtime: opts.runtime, requestedModel: opts.model, copy: copies.get(ev.id), evalVersion: evalVersions.get(ev.id),
+    timeoutMs: timeoutMsFor(s), runUsd: runUsdFor(s), judgeModel: judgeModelKey,
+  });
+  const items = [];
+  const planned = [];
   for (const s of scenarios) {
-    const remainingUsd = opts.maxUsd ? Math.max(opts.maxUsd - spent, 0) : null;
-    if (opts.maxUsd && s.type === 'agent' && remainingUsd <= 0) {
-      results.push({ id: s.id, type: s.type, pass: false, skipped: 'budget exhausted', graders: [] });
+    const ev = evById.get(s.id);
+    if (!ev) { planned.push(s); items.push({ legacy: s }); continue; }
+    // A skill whose copy cannot be hashed (missing directory, escaping symlink) is rejected like an invalid definition: skipped, exit 2 at the end.
+    try {
+      copies.set(ev.id, arms.evaluatedCopy({ repoRoot: REPO_ROOT, packageName: ev.package, skill: ev.skill, sharedPackages: ev.sharedPackages || [] }));
+      evalVersions.set(ev.id, hash.evalHash(ev.dir));
+    } catch (e) {
+      if (!(e instanceof hash.HashError)) throw e;
+      rejected.push({ id: ev.id, dir: ev.dir, error: new EvalDefinitionError(ev.id, 'evaluated copy', e.message) });
+      err(`REJECTED ${rejected[rejected.length - 1].error.message}`);
       continue;
     }
-    console.log(`running ${s.id} ...`);
-    const r = runScenario(s, { bin, model: opts.model, remainingUsd, repoRoot: REPO_ROOT });
-    spent += r.costUsd || 0;
-    results.push(r);
-    console.log(`  ${r.pass ? 'PASS' : 'FAIL'} turns=${r.turns} cost=${r.costUsd}`);
-    for (const g of r.graders) console.log(`    ${g.pass ? 'ok  ' : 'FAIL'} ${g.type}: ${g.detail}`);
+    planned.push(s);
+    items.push(...expandRuns(ev, plans.get(ev.id).repeats).filter((i) => !replay || (i.arm === opts.arm && i.run === opts.runIndex)));
   }
+  scenarios = planned;
+  if (cacheOn && !opts.refresh) {
+    try {
+      for (const item of items) {
+        if (!item.ev) continue;
+        const found = cache.lookup(CACHE_DIR, cacheInputs(item.ev, item.arm, item.run, scenarioOf.get(item.ev.id)), item.ev);
+        if (found.warning) err(`WARNING ${found.warning}`);
+        if (found.hit) hits.set(item, found.hit);
+      }
+    } catch (e) {
+      if (!(e instanceof cache.CacheError)) throw e;
+      err(`cache store problem, nothing was run: ${e.message}`);
+      return 2;
+    }
+  }
+  const reserveItem = (item) => (hits.has(item) ? 0 : reservationOf(item.ev ? scenarioOf.get(item.ev.id) : item.legacy, item.arm)); // a reused result spends nothing
+  const suite = await runSuite(items, { concurrency, capUsd, reserve: reserveItem, run: exec });
+  const byItem = new Map(suite.done.map((d) => [d.item, d.result]));
+
+  const evalResults = [];
+  // Replay: one run, reported as itself. No eval-level score, no regression check, no baseline or cache write.
+  const replayRuns = [];
+  for (const s of scenarios) {
+    const ev = evById.get(s.id);
+    if (replay) {
+      const item = items.find((i) => i.ev === ev);
+      const r = byItem.get(item);
+      const outcome = replayOutcome(opts.arm, r);
+      if (r && !r.error) replayRuns.push({ ev, r });
+      out(`replay ${ev.id} [${opts.arm} ${opts.runIndex}]: ${outcome.toUpperCase()}${r && r.outcome !== outcome ? ` (run outcome ${r.outcome}${opts.arm === 'baseline' && (r.outcome === 'pass' || r.outcome === 'fail') ? '; a baseline run has no verdict of its own' : ''})` : ''}`);
+      evalResults.push({ id: ev.id, type: 'agent', skill: ev.skill, runtime: opts.runtime, replay: true, outcome, pass: outcome === 'pass', costUsd: r ? r.costUsd : 0, arm: opts.arm, run: opts.runIndex, runs: r ? [r] : [] });
+      continue;
+    }
+    if (!ev) {
+      const r = byItem.get(items.find((i) => i.legacy === s)) || { id: s.id, type: s.type, skill: s.skill, pass: null, outcome: 'incomplete', skipped: 'budget exhausted', graders: [], runtime: s.type === 'agent' ? opts.runtime : null };
+      evalResults.push(r);
+      continue;
+    }
+    const plan = plans.get(ev.id);
+    const runs = { 'with-skill': [], baseline: [] };
+    for (const item of items.filter((i) => i.ev === ev)) {
+      const r = byItem.get(item);
+      if (r && (r.outcome !== 'aborted' || r.leak)) runs[item.arm].push(r); // skipped-after-abort placeholders are dropped
+    }
+    const copy = copies.get(ev.id);
+    const evalResult = envlib.redactDeep(arms.summarizeEval(ev, plan, runs, { runtime: opts.runtime, abort: aborts.get(ev.id) || null, copy }), secrets);
+    evalResults.push(evalResult);
+    out(`eval ${ev.id}: ${evalResult.outcome.toUpperCase()}`);
+    if (evalResult.abort) {
+      err(`ABORTED ${evalResult.abort}`);
+      out(`  with-skill ${evalResult.withSkill.passes}/${evalResult.withSkill.runs} (not scored: baseline aborted)`);
+    } else {
+      const u = evalResult.uplift === null ? 'n/a' : `${evalResult.uplift >= 0 ? '+' : ''}${evalResult.uplift.toFixed(2)}`;
+      out(`  with-skill ${evalResult.withSkill.passes}/${evalResult.withSkill.runs} (bar ${plan.bar} of ${plan.repeats}: ${evalResult.reliable === null ? 'undetermined' : evalResult.reliable ? 'reliable' : 'NOT reliable'}); baseline ${evalResult.baseline.passes}/${evalResult.baseline.runs}${evalResult.baseline.unverifiable ? ` (${evalResult.baseline.unverifiable} run(s) not counted: isolation unverifiable)` : ''}`);
+      out(`  uplift ${u} ${evalResult.upliftLabel}${evalResult.providerErrors > 0 ? ` (undetermined: ${evalResult.setupFailures > 0 ? 'setup failure or provider error' : 'provider error'})` : ''}`);
+    }
+    out(`  repeats ${plan.repeats} (${plan.repeatsSource}), bar ${plan.bar} (${plan.barSource}${plan.barSource === 'eval' ? ' override' : ''})`);
+    out(`  skill invoked in ${evalResult.invokedRuns}/${evalResult.withSkill.runs} with-skill run(s)${evalResult.invokedAsExpected === false ? ` (expectInvoked ${evalResult.expectInvoked}: NOT as expected)` : ''}`);
+    if (copy) out(`  evaluated copy: ${describeCopy(copy)}`);
+  }
+  const incomplete = evalResults.filter((r) => r.outcome === 'incomplete');
+  for (const r of incomplete.filter((x) => !x.arms && !x.replay && !x.incompleteReason)) out(`running ${r.id} ...\n  INCOMPLETE not started: cost cap $${capUsd} reached (spend plus in-flight reservations)`);
+  // Every eval with a provider error says so (INCOMPLETE note), whatever its verdict: the verdict stands when already decided, the uplift never does.
+  for (const r of evalResults.filter((x) => x.arms && x.providerErrors > 0)) {
+    const sf = r.setupFailures || 0;
+    const what = [r.providerErrors - sf > 0 && `${r.providerErrors - sf} run(s) hit a provider error (the model call failed)`, sf > 0 && `${sf} run(s) failed in setup (the agent never started; see incompleteReason)`].filter(Boolean).join(' and ');
+    out(`  INCOMPLETE ${r.id}: ${what} and are not counted${r.outcome === 'incomplete' ? '; verdict undetermined' : `; verdict ${r.outcome.toUpperCase()} stands (decided by the counted with-skill runs)`}, uplift undetermined, no baseline summary written; fix the provider, credentials or setup and rerun`);
+  }
+  for (const r of incomplete.filter((x) => x.arms)) {
+    const pe = r.providerErrors || 0;
+    const notRun = (r.withSkill ? r.withSkill.notRun : 0) + (r.baseline ? r.baseline.notRun : 0) - pe;
+    if (pe === 0 || notRun > 0) out(`  INCOMPLETE ${r.id}: cost cap $${capUsd} reached before every run started (spend plus in-flight reservations)`);
+  }
+
+  // Stored records and committed baseline summaries (TRD-014/015). Every record is schema-validated, redacted and relativized
+  // before it is written; missing evidence is a named error, never a silent skip.
+  const records = [];
+  const storeErrors = [];
+  const regressions = [];
+  const writtenBaselines = new Set();
+  // Fresh runs of this eval go to the cache once its verdict is known: never for an aborted (leaked) eval, never for a regression
+  // unless --update-baselines accepts it, and only runs the cache's own rules allow (a completed pass or fail, known model, verified isolation).
+  const cacheFresh = (ev, evalResult, evalRecords, check) => {
+    if (!cacheOn || evalResult.abort) return;
+    if (check && check.status === 'regression' && !opts.updateBaselines) { out('  cache: results of this eval not stored (a regression is not locked in as the reusable answer)'); return; }
+    evalResult.runs.forEach((r, i) => {
+      if (r.cached || !r.arm) return;
+      const why = cache.uncacheableReason(r, evalRecords[i], ev, opts.runtime, { repoRoot: REPO_ROOT });
+      if (why) return;
+      try {
+        cache.store(CACHE_DIR, cache.buildEntry(cacheInputs(ev, r.arm, r.run, scenarioOf.get(ev.id)), evalRecords[i], r));
+        cacheStats.stored += 1;
+      } catch (e) {
+        storeErrors.push(`cache: ${e.message}`);
+        err(`CACHE NOT WRITTEN for eval "${ev.id}" ${r.arm} #${r.run}: ${e.message}`);
+      }
+    });
+  };
+  const replayBases = new Map();
+  const replayBaseFor = (ev) => {
+    if (!replayBases.has(ev.id)) {
+      const s = scenarioOf.get(ev.id);
+      replayBases.set(ev.id, {
+        model: opts.model || null, repeats: plans.get(ev.id).repeats, timeoutSec: timeoutMsFor(s) / 1000, runUsd: runUsdFor(s),
+        ...(judgeActive && { judgeModel: judge.model, judgeUsd: Math.min(opts.judgeUsd || limits.judgeReserveUsd, capUsd) }),
+        settings: { maxTurns: ev.maxTurns === undefined ? null : ev.maxTurns, allowedTools: ev.allowedTools === undefined ? null : ev.allowedTools, timeoutSec: timeoutMsFor(s) / 1000, runUsd: runUsdFor(s) },
+      });
+    }
+    return replayBases.get(ev.id);
+  };
+  const ctxFor = (ev) => {
+    const copy = copies.get(ev.id);
+    return { skill: ev.skill, skillHash: copy.skillHash, packageHash: copy.packageHash, skillVersion: copy.skillVersion, evalVersion: evalVersions.get(ev.id), replay: replayBaseFor(ev) };
+  };
+  const failingRuns = []; // { label, command | null } for the replay section of the report
+  for (const { ev, r } of replayRuns) {
+    try { records.push(results.sanitize(results.buildResult(r, ctxFor(ev)), { secrets, repoRoot: REPO_ROOT })); } catch (e) {
+      storeErrors.push(e.message);
+      err(`RESULT NOT STORED for eval "${ev.id}": ${e.message}`);
+    }
+  }
+  for (const evalResult of evalResults.filter((r) => r.arms)) {
+    const ev = evById.get(evalResult.id);
+    try {
+      const ctx = ctxFor(ev);
+      // Build this eval's records in a local array and append only when every one built: no partial records.
+      const evalRecords = evalResult.runs.map((r) => results.sanitize(results.buildResult(r, ctx), { secrets, repoRoot: REPO_ROOT }));
+      records.push(...evalRecords);
+      evalResult.runs.forEach((r, i) => {
+        const failing = r.arm === 'with-skill' ? (r.outcome === 'fail' || r.outcome === 'timed_out') : (r.outcome === 'timed_out' || r.outcome === 'unverifiable' || (r.outcome === 'aborted' && r.leak));
+        if (failing) failingRuns.push({ label: `${ev.id} [${r.arm} run ${r.run}/${plans.get(ev.id).repeats}]: ${r.outcome}`, command: evalRecords[i].replay.command || null });
+      });
+      const bctx = { ...ctx, model: results.evalModel(evalResult.runs) };
+      let candidate;
+      try { candidate = results.toBaselineSummary(evalResult, bctx); } catch (e) {
+        if (!(e instanceof results.BaselineError)) throw e;
+        out(`  baseline summary not written: ${e.message}`);
+        // A determined with-skill fail still meets the regression check (a broken skill plus one flaky call must not dodge it); never a write.
+        let probe = null;
+        if (evalResult.providerErrors > 0 && evalResult.reliable === false && !evalResult.abort) {
+          probe = results.checkAgainstBaseline(BASELINES_DIR, evalResult, bctx);
+          out(`  regression check vs committed summary: ${probe.status}${probe.reasons.length ? ` (${results.stripControl(probe.reasons.join('; '))})` : ''}`);
+          if (probe.delta) out(`    change vs committed: with-skill rate ${fmtChange(probe.delta.withSkillRate)}`);
+          if (probe.status === 'regression') {
+            regressions.push(evalResult.id);
+            err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${results.stripControl(probe.reasons.join('; '))} (committed summary recorded ${results.stripControl(probe.committed.recordedAt)})`);
+          }
+        }
+        cacheFresh(ev, evalResult, evalRecords, probe);
+        continue;
+      }
+      const key = `${candidate.runtime}/${candidate.skill}`;
+      if (writtenBaselines.has(key)) throw new Error(`two evals in this suite name skill "${candidate.skill}" under ${candidate.runtime}; they would overwrite one baseline file`);
+      const check = results.checkAgainstBaseline(BASELINES_DIR, evalResult, bctx);
+      out(`  regression check vs committed summary: ${check.status}${check.reasons.length ? ` (${results.stripControl(check.reasons.join('; '))})` : ''}`);
+      for (const n of check.notes || []) out(`    note: ${results.stripControl(n)}`);
+      if (check.delta) out(`    change vs committed: with-skill rate ${fmtChange(check.delta.withSkillRate)}, uplift ${fmtChange(check.delta.uplift)}`);
+      cacheFresh(ev, evalResult, evalRecords, check);
+      if (check.status === 'regression') {
+        regressions.push(evalResult.id);
+        err(`REGRESSION ${evalResult.id} [${evalResult.runtime}]: ${results.stripControl(check.reasons.join('; '))} (committed summary recorded ${results.stripControl(check.committed.recordedAt)})`);
+      }
+      const unknownModel = candidate.model === results.UNKNOWN_MODEL;
+      const mayWrite = opts.updateBaselines || (!unknownModel && (check.status === 'no-baseline' || check.status === 'ok'));
+      if (!mayWrite) {
+        const why = unknownModel ? 'the runtime reported no (or no single) model id, recorded as "unknown"' : check.status === 'regression' ? 'a regression against a reliable committed summary' : `the result is ${check.status}`;
+        out(`  baseline summary NOT written (${why}); the committed file is unchanged. Pass --update-baselines to replace it deliberately.`);
+        continue;
+      }
+      const written = results.writeBaseline(BASELINES_DIR, candidate, { secrets, repoRoot: REPO_ROOT });
+      writtenBaselines.add(key);
+      out(`  baseline summary: ${path.relative(process.cwd(), written)}${opts.updateBaselines && check.status !== 'no-baseline' && check.status !== 'ok' ? ' (replaced by --update-baselines)' : ''}`);
+    } catch (e) {
+      storeErrors.push(e.message);
+      err(`RESULT NOT STORED for eval "${evalResult.id}": ${e.message}`);
+    }
+  }
+  const perSkill = report.formatReport(report.buildReport(evalResults));
+  if (perSkill) out(`\nper-skill report:\n${perSkill}`);
+  // Legacy single-run scenarios that failed: the replay is the scenario itself (no arm, no repeat index).
+  for (const r of evalResults.filter((x) => !x.arms && !x.replay && (x.outcome === 'fail' || x.outcome === 'timed_out'))) {
+    const s = scenarioOf.get(r.id);
+    failingRuns.push({ label: `${r.id}: ${r.outcome}`, command: results.replayCommand({ evalId: r.id, runtime: s && s.type === 'agent' ? opts.runtime : (r.runtime || 'claude'), model: opts.model || null, timeoutSec: s ? timeoutMsFor(s) / 1000 : undefined, runUsd: runUsdFor(s) }) });
+  }
+  if (failingRuns.length) {
+    out('\nfailing runs (replay: run the command from the repository root; it reruns exactly that run fresh):');
+    for (const f of failingRuns) {
+      out(`  ${f.label}`);
+      out(f.command ? `    replay: ${f.command}` : '    replay: unavailable (a value of this run is not safe to put in a command)');
+    }
+  }
+  cacheStats.reused = hits.size;
+  cacheStats.executed = suite.done.filter((d) => d.item.ev && !(d.result && d.result.cached)).length;
+  if (cacheOn) out(`cache: ${cacheStats.reused} run(s) reused, ${cacheStats.executed} executed${opts.refresh ? ' (--refresh: stored results ignored)' : ''}, ${cacheStats.stored} stored`);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const modelTag = (opts.model || 'default').replace(/[^A-Za-z0-9._-]/g, '_');
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
   const file = path.join(RESULTS_DIR, `${modelTag}-${stamp}.json`);
-  const report = {
+  const summary = {
+    requestedModel: opts.model || null,
     model: opts.model || 'default',
+    runtime: opts.runtime,
     startedAt: new Date().toISOString(),
-    maxUsd: opts.maxUsd,
-    totalCostUsd: spent,
-    passed: results.filter((r) => r.pass).length,
-    total: results.length,
-    results,
+    maxUsd: capUsd,
+    cache: cacheStats,
+    replay: replay ? { scenario: opts.scenario, arm: opts.arm, runIndex: opts.runIndex } : null,
+    timeoutSec: opts.timeoutSec || limits.timeoutSec,
+    concurrency,
+    totalCostUsd: suite.spent,
+    peakCommittedUsd: suite.peakCommitted,
+    env: { allowlisted: [...envlib.BASE_NAMES, 'HOME', ...credentials], homeMode: envlib.isCI(process.env) || opts.runtime === 'pi' ? 'ci-temp' : 'passthrough' },
+    passed: evalResults.filter((r) => r.outcome === 'pass').length,
+    failed: evalResults.filter((r) => r.outcome === 'fail' || r.outcome === 'timed_out').length,
+    incomplete: incomplete.length,
+    providerErrored: evalResults.filter((r) => r.arms && r.outcome !== 'incomplete' && r.providerErrors > 0).length,
+    total: evalResults.length,
+    results: evalResults,
+    records,
   };
-  fs.writeFileSync(file, JSON.stringify(report, null, 2));
-  console.log(`results: ${path.relative(process.cwd(), file)} (${report.passed}/${report.total} passed)`);
-  return report.passed === report.total ? 0 : 1;
+  // The whole log (results, claudeResult, stderr, changedFiles, records) is scrubbed of credentials and machine identity, not only the records.
+  const logged = results.sanitize(summary, { secrets, repoRoot: REPO_ROOT });
+  fs.writeFileSync(file, envlib.redactText(JSON.stringify(logged, null, 2), secrets));
+  out(`results: ${path.relative(process.cwd(), file)} (${summary.passed}/${summary.total} passed${summary.incomplete ? `, ${summary.incomplete} incomplete` : ''}${summary.providerErrored ? `, ${summary.providerErrored} with provider errors` : ''})`);
+  if (regressions.length) err(`${regressions.length} regression(s) against a committed reliable baseline: ${regressions.join(', ')}`);
+  // 2 (rejected definition, result or baseline not stored or read) outranks 1 (failing eval, regression), which outranks 4.
+  if (rejected.length || storeErrors.length) {
+    if (summary.failed || regressions.length) err(`also: ${summary.failed} failing eval(s), ${regressions.length} regression(s) (exit 2 outranks exit 1)`);
+    return 2;
+  }
+  if (summary.failed || regressions.length) return 1;
+  // Exit 4: an eval is undetermined, or has a determined PASS but a provider error (no baseline summary or uplift came out of the run: not a clean pass).
+  // A determined fail or regression is still 1. A provider error never turns a fail into 4 nor hides a pass: the note and the exit code say it.
+  return summary.incomplete || summary.providerErrored ? 4 : 0;
 }
 
 if (require.main === module) {
-  try {
-    process.exitCode = main();
-  } catch (e) {
-    console.error(e.message);
+  main().then((code) => { process.exitCode = code; }, (e) => {
+    const known = [...new Set([...activeSecrets, ...envlib.secretValues(process.env, envlib.DEFAULT_CREDENTIALS)])];
+    console.error(results.stripControl(envlib.redactText(e.message, known)));
     process.exitCode = 2;
-  }
+  });
 }
 
 module.exports = { parseArgs, loadScenarios, runScenario, main };

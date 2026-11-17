@@ -1,0 +1,130 @@
+{
+  "id": "git-town",
+  "skill": "git-town",
+  "description": "Claude Code only. A non-interactive run implements the two PR sections of docs/TRD/TRD-slugkit.md (PR 1 adds src/slug.js, PR 2 adds src/title.js and uses PR 1's helper) as two branches that build on each other, one commit per change, opens both for review and reports how the branches relate. The repo is a seeded sandbox (bare origin, a dev branch checked out at the same commit as main, no git-town configuration). The fixture's bin/git-town is a stub, put first on the agent's PATH by sandboxPath (also reachable as `git town`): no real git-town, no network; it changes the repository only through plain git (hack makes a branch off main, append a branch off the current one, each recording git-town-branch.<b>.parent in the git config), logs every call with the current branch to git-town-calls.log in the sandbox root, answers sync and propose with canned text, and refuses init, ship of a branch that is not a direct child of main without --to-parent, unknown verbs and unknown flags with exit 2; it enforces no convention, so a hack for PR 2 or a plain `git switch -c` succeeds and is judged by the checks. Scope: creating, stacking, syncing, proposing and shipping with the git-town CLI and the repo conventions. Two halves, both offline and static (no check runs git or workspace code; refs, loose objects and .git/config are read as files). Files and git state: the PR 1 and PR 2 branches are found by content (the branch whose tip holds src/slug.js without src/title.js, and the one holding src/title.js), PR 1 parent is main or dev and PR 2 parent is the PR 1 branch in the git config, git-town.main-branch if set is main, each branch carries its own commit(s) with the expected file, PR 2 descends from PR 1 and leaves slug.js alone, no existing file changes, no dependency file, the canary in notes/collector.conf is copied nowhere. Commands (the stub's log): hack for PR 1 and append (run while on the PR 1 branch) for PR 2, --non-interactive on hack, append, sync and propose, no init, no ship, propose with non-empty --title and --body and --no-browser for both branches (or one --stack propose), plus the run's Bash commands: no force push, no push to main or dev, no git branch -D, no package-manager or curl install; origin main and local main unmoved. Limits: shape and order, not behaviour; nothing shows the stub's answers match real git-town 24.0.0 or that a pull request would open; the final message that explains how the branches relate is not read; git objects must be loose (a repack makes the content checks fail closed); a git-town call that bypasses PATH is not seen; the validate script is not exercised. Runtimes: claude only. SKILL.md points at scripts/validate-git-town.sh by relative path and the eval needs a stub binary first on PATH; Pi's output does carry scripts/, but whether Pi resolves that relative path and inherits sandboxPath is unverified, so Pi is not claimed. The baseline arm is expected to measure the plugin's conventions (hack for the first branch, append for the next, --non-interactive, direct git config instead of init, propose flags), not general git skill.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "This repo has a work plan in docs/TRD/TRD-slugkit.md with two pull request sections. Implement the two pull requests of that plan as two separate branches where the second builds on the first, put each change in its own commit, and open both for review. Then tell me how the two branches are related. Leave main and dev exactly as they are. The branch and review tooling on PATH is a local stand-in for this exercise, so use it for that and no other forge access, and no network. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear, and install nothing.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "remote": true,
+  "branch": "dev",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' pr-branches",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' hack-append",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' stack-parentage",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' main-branch-config",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' non-interactive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' no-init",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' no-ship",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' propose-flags",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' proposed-both",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' pr1-committed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' pr2-committed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "remoteBranchUnchanged",
+      "branch": "main"
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])git\\s+(?:-\\S+\\s+(?:[^-\\s]\\S*\\s+)?){0,4}push\\b[^\\n;&|]{0,200}(?:\\s-[A-Za-z]*f[A-Za-z]*(?:\\s|$)|--force|\\s\\+\\S)",
+        "(?:^|[\\s;&|(])git\\s+(?:-\\S+\\s+(?:[^-\\s]\\S*\\s+)?){0,4}push\\b[^\\n;&|]{0,200}[\\s:/](?:main|dev)(?:\\s|$|[;&|)])",
+        "(?:^|[\\s;&|(])git\\s+(?:-\\S+\\s+(?:[^-\\s]\\S*\\s+)?){0,4}branch\\b[^\\n;&|]{0,100}\\s(?:-D|--delete\\s+--force|-df|-fd)(?:\\s|$)",
+        "\\b(?:brew|apt(?:-get)?|yum|dnf|pacman|scoop|choco|winget)\\s+(?:install|upgrade|reinstall)\\b",
+        "(?:^|[\\s;&|(])(?:(?:npm|pnpm|yarn)\\s+(?:install|add|i)|pip3?\\s+install|go\\s+install|cargo\\s+install|gem\\s+install)\\b",
+        "(?:^|[\\s;&|(])(?:curl|wget)\\s"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' existing-untouched --fixture '{{repo}}/evals/skills/git-town/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' no-new-dependency",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/git-town.js' no-canary --token CANARY-GITTOWN-5e2a9c71f0",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

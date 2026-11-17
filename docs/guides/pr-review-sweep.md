@@ -44,8 +44,9 @@ TIER         = high                                     # optional; absent means
 MAX_PATHS    = 200                                      # optional
 ```
 
-It answers `SWEEP_COMPLETE` (paths examined, slices reviewed, verified findings with their
-Pre-existing tag, what was left for the next run) or `SWEEP_BLOCKED` (what could not be read or
+It answers `SWEEP_COMPLETE` (every path examined, slices reviewed, verified findings with their
+Pre-existing tag), `SWEEP_PARTIAL` (the same, but `MAX_PATHS` truncation or an uncovered slice
+left paths for the next run, which it names) or `SWEEP_BLOCKED` (what could not be read or
 graded — never a clean bill of health it could not justify).
 
 The sweep **reports**. It writes no code, opens no PR, pushes nothing and resolves nobody's

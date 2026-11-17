@@ -1,0 +1,1 @@
+applyDiscount returns the discount amount, not the discounted price

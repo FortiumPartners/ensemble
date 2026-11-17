@@ -1,0 +1,65 @@
+{
+  "kata_api_version": 1,
+  "web_url": "http://127.0.0.1:50279/kata?issue=01M7GC8ZFQYA8DD1CK4K88JFH4#direct=1",
+  "issue": {
+    "source_actor": "ldangelo",
+    "verification": "legacy",
+    "id": 1,
+    "uid": "01M7GC8ZFQYA8DD1CK4K88JFH4",
+    "project_id": 2,
+    "project_uid": "01M7GC8ZE07GWSVQGXWES86G5J",
+    "short_id": "jfh4",
+    "title": "Scratch probe alpha",
+    "body": "open item carrying two labels",
+    "status": "open",
+    "owner": "bot:probe",
+    "priority": 2,
+    "author": "ldangelo",
+    "metadata": {},
+    "revision": 2,
+    "created_at": "2026-11-15T19:52:16.119Z",
+    "updated_at": "2026-11-15T19:52:16.314Z",
+    "labels": [
+      "probe",
+      "seed"
+    ]
+  },
+  "comments": [],
+  "comments_truncated": false,
+  "links": [
+    {
+      "id": 1,
+      "from": {
+        "uid": "01M7GC8ZHW00QQTNB2G1HV7ZZG",
+        "short_id": "7zzg",
+        "project": "trd-kata-scratch",
+        "qualified_id": "trd-kata-scratch#7zzg",
+        "status": "open"
+      },
+      "to": {
+        "uid": "01M7GC8ZFQYA8DD1CK4K88JFH4",
+        "short_id": "jfh4",
+        "project": "trd-kata-scratch",
+        "qualified_id": "trd-kata-scratch#jfh4",
+        "status": "open"
+      },
+      "type": "blocks",
+      "author": "ldangelo",
+      "created_at": "2026-11-15T19:52:16.314Z"
+    }
+  ],
+  "labels": [
+    {
+      "issue_id": 1,
+      "label": "probe",
+      "author": "ldangelo",
+      "created_at": "2026-11-15T19:52:16.119Z"
+    },
+    {
+      "issue_id": 1,
+      "label": "seed",
+      "author": "ldangelo",
+      "created_at": "2026-11-15T19:52:16.12Z"
+    }
+  ]
+}

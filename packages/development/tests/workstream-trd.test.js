@@ -12,7 +12,7 @@ function trd(title, n, ac) {
 }
 
 // The trd-cli `create-workstream-trd` subcommand is the engine behind
-// `/ensemble:implement-trd-beads --workstream` (and, with --generate-only, the
+// `/ensemble:implement-trd-tasks --workstream` (and, with --generate-only, the
 // replacement for the removed /ensemble:create-workstream-trd command).
 describe('create-workstream-trd', () => {
   test('writes a single executable workstream TRD with provenance and AC validation tasks', () => {
@@ -41,7 +41,7 @@ describe('create-workstream-trd', () => {
     expect(md).toContain('Source Task Markdown (verbatim):');
     expect(md).toContain('>     2. Preserve nuanced source detail');
     expect(md).toContain('>     - Do not flatten this note away');
-    expect(md).toContain('/ensemble:implement-trd-beads');
+    expect(md).toContain('/ensemble:implement-trd-tasks');
 
     const parsed = parseTRD(md);
     expect(Object.keys(parsed.tasksById)).toEqual(expect.arrayContaining([

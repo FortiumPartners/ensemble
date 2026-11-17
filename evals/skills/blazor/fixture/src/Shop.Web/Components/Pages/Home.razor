@@ -1,0 +1,29 @@
+@page "/"
+@inject IOrderService Orders
+
+<PageTitle>Orders</PageTitle>
+
+<h1>Orders</h1>
+
+@if (orders is null)
+{
+    <FluentProgressRing />
+}
+else
+{
+    <FluentStack Orientation="Orientation.Vertical">
+        @foreach (var order in orders)
+        {
+            <OrderSummaryCard Order="order" />
+        }
+    </FluentStack>
+}
+
+@code {
+    private IReadOnlyList<Order>? orders;
+
+    protected override async Task OnInitializedAsync()
+    {
+        orders = await Orders.GetOrdersAsync();
+    }
+}

@@ -1,0 +1,148 @@
+{
+  "id": "openai",
+  "skill": "openai",
+  "description": "A non-interactive run extends a small TypeScript support bot (Node) that already answers a plain question through Chat Completions (src/bot.ts) and has a Ticket type, an order-status lookup (src/orders.ts, which throws on a malformed id), a short FAQ (src/faq.ts), a config module that reads the environment (src/config.ts), one existing test and a package.json that already declares openai and zod (nothing is installed or run). The run saves src/assistant.ts (a production client; an order-aware answer that offers the lookup to the model as a tool and streams the reply; ticket triage as a typed object; FAQ made searchable by meaning with embeddings) and test/assistant.test.ts (a stand-in client, no network); src/bot.ts may change, src/config.ts only by additions. Scope: integrating the OpenAI API/SDK (Chat Completions, Responses, embeddings, tool calling, streaming) into application code; not Anthropic, Perplexity or other providers. Static checks only, nothing is run (no node, npm, tsc or jest, no network): no model id, token limit, context size or price is hard-coded (no model default either); the API key is never a literal or logged; the existing Chat Completions flow is kept and no Responses call is mixed in; the existing lookup is the tool; every tool call id gets a tool message with that id, built in a loop; tool arguments are JSON.parse-d inside a try (or checked by a validator) and a failing tool is reported back to the model; the triage uses a strict json_schema response_format (or the zod helper) and not text parsing; embeddings use one model constant everywhere and one batched call with an array input, never one call per item in a loop; streamed tool-call fragments are added up by index and parsed only after the stream (or the SDK helper assembles them); 429 is handled by a client maxRetries or a hand-written exponential backoff that reads Retry-After, and a timeout is set; the test uses a stand-in client with real assertions; package.json, the other fixture files and the canary are untouched and no dependency is added. The checks read code as text, so they show shape, not that the code compiles or behaves, and a request built by a helper function they cannot read fails with a message saying so. The baseline arm is expected to measure the plugin's conventions: a model without the skill may hard-code a model id or token limit, move the tool flow to the Responses API, answer only the first tool call, parse tool arguments without a guard, parse streamed fragments per chunk, embed one FAQ entry per request, use different embedding models for the FAQ and the query, or leave retries and timeouts at their defaults, and that gap, not the absolute pass count, is the uplift.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is a small support bot for a web shop (TypeScript on Node) built on OpenAI. src/bot.ts already answers a plain question with a single model call, and src/faq.ts holds the shop's FAQ. Extend the bot. Create src/assistant.ts exporting: createClient(), which builds the client the app uses in production (the app handles many questions at once and the provider is sometimes slow or busy, so the client has to cope with that); answerWithOrders(client, question, onText), which answers a customer's question, checking the real status of any order the customer mentions with the existing lookupOrderStatus in src/orders.ts when the model asks for it (a question may mention several orders, and the lookup throws on a malformed id), and resolves with the full reply text, calling onText with each piece of text as it arrives instead of waiting for the whole reply; triageTicket(client, ticket), which resolves with { category, priority, needsHuman } for a Ticket from src/tickets.ts, where category is one of billing, shipping, product or other, priority is low, normal or high and needsHuman is a boolean, as a typed object the rest of the app can rely on; prepareFaq(client, entries), which makes the FAQ entries searchable by meaning using the provider's embeddings and resolves with whatever findFaq needs; and findFaq(client, prepared, query), which resolves with the FAQ entry that best matches a query. Every function takes the client as an argument so a test can pass in a stand-in. Also create test/assistant.test.ts, a jest test that uses a stand-in client (no network, no key) and makes real assertions about what the code does. You may add other files under src/ and change src/bot.ts; the only other existing file you may change is src/config.ts, to add settings: keep every line that is already there, and change nothing else. Do not add or fetch any dependency, and do not run npm, npx, node, tsc or jest. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' uses-sdk",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' model-not-hardcoded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' no-hardcoded-limits-prices",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' api-key-from-env",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' key-not-logged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' chat-completions-kept",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' tool-uses-existing-lookup",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' tool-message-every-id",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' tool-args-validated",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' tool-failure-reported",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' structured-output-schema",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' embeddings-one-model",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' embeddings-batched",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' streaming-accumulates-by-index",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' rate-limit-handled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' timeout-set",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' test-mocked-client",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' no-new-dependency --fixture '{{repo}}/evals/skills/openai/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' fixture-untouched --fixture '{{repo}}/evals/skills/openai/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/openai.js' no-canary --token CANARY-OPENAI-4d8b21e9a6",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

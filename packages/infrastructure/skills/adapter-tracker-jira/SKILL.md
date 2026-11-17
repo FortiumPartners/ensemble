@@ -67,7 +67,7 @@ Jira CLI vocabulary this adapter is built from (`packages/infrastructure/skills/
 SKILL.md`, this adapter's own `fixtures/jira-help.txt`) has no link/relate/dependency
 subcommand at all, so implementing one would be fabricating a capability the real tool's
 documented surface does not support -- it stays `UNAVAILABLE`, and
-`implement-trd-beads.yaml`'s own dependency-wiring step is optional with documented
+`implement-trd-tasks.yaml`'s own dependency-wiring step is optional with documented
 graceful degradation for exactly this adapter.
 
 `detect: []` -- Jira Cloud has no repo-local signal (no file, directory or git remote pattern

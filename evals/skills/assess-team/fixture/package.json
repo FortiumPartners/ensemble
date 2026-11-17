@@ -1,0 +1,7 @@
+{
+  "name": "tallyboard",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Order handling services for a small shop (seeded eval fixture)",
+  "scripts": { "test": "node tests/orders-check.js && node tests/util-check.js" }
+}

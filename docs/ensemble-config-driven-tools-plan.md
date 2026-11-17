@@ -77,8 +77,8 @@ Agents don't just hold tool grants — their prose drives specific development t
 | Assumption | Hardcoded in | Examples |
 |---|---|---|
 | GitHub + `gh` CLI | 17 YAML sources mention GitHub; 11 files invoke `gh pr/issue/api/run` | `fix-issue`, `beads-build`, `implement-bead`, `release`, `create-prd`, `code-reviewer`, `deep-debugger`, `github-specialist` |
-| git-town | 7 YAML sources | `ensemble-orchestrator`, `git-workflow`, `implement-trd`, `implement-trd-beads`, `refine-trd`, `beads-build`, `implement-bead` |
-| Beads (`br`/`bv`) | 16 YAML sources canonical source format | the whole `implement-trd-beads` pipeline |
+| git-town | 7 YAML sources | `ensemble-orchestrator`, `git-workflow`, `implement-trd`, `implement-trd-tasks`, `refine-trd`, `beads-build`, `implement-bead` |
+| Beads (`br`/`bv`) | 16 YAML sources canonical source format | the whole `implement-trd-tasks` pipeline |
 | Runtime = Claude Code | 16 YAML sources canonical source format | OpenCode/Codex/Pi are downstream translations |
 
 A team on GitLab or Azure DevOps gets agents that speak the wrong CLI, the wrong terminology (PR vs MR vs pull request into Azure Repos), and the wrong SDLC linkage (issues vs work items). Today their only option is forking plugin content.
@@ -141,7 +141,7 @@ Content refactor — the sweep that makes it real: the ~20 YAML sources that har
 
 Enforcement — `scripts/lint-provider-refs.js` (modeled on the existing `scripts/lint-model-ids.js`): CI fails if shared agent/command sources reference a provider binary (`gh`, `glab`, `git town`, `az repos`) outside provider skills. This is what stops the hardcoding from creeping back.
 
-What stays put: Beads remains the execution layer for `implement-trd-beads` (dependency graph, ready-work queue). The tracker axis governs the system of record the workflow links to and reports into — mirroring the "Beads executes, the tracker records" split that ensemble-based teams already run.
+What stays put: Beads remains the execution layer for `implement-trd-tasks` (dependency graph, ready-work queue). The tracker axis governs the system of record the workflow links to and reports into — mirroring the "Beads executes, the tracker records" split that ensemble-based teams already run.
 
 ## Why this is one major version
 

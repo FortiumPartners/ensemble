@@ -152,6 +152,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { ensureStateDir } = require('./state-dir');
 
 const MAX_SESSION_KEY_LENGTH = 512;
 
@@ -437,7 +438,7 @@ function recordConfirmation(category, ctx = {}) {
   const hash = configHash(ctx.adapter, ctx.source);
   const targetPath = confirmationRecordPath(projectRoot, sessionKey, category, ctx.adapter, hash);
   const targetDir = path.dirname(targetPath);
-  fs.mkdirSync(targetDir, { recursive: true });
+  ensureStateDir(projectRoot, targetDir);
 
   const record = {
     category,

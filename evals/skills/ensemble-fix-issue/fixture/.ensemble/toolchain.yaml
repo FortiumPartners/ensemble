@@ -1,0 +1,2 @@
+# The origin remote of an eval sandbox is a local bare repository, so detection cannot pick a host from its URL: pin it.
+host: github

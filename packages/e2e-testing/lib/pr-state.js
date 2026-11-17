@@ -3,7 +3,7 @@
 /**
  * REQ-001 trigger check for /ensemble:author-playwright-tests.
  *
- * A test-authoring session may only start once implement-trd-beads has
+ * A test-authoring session may only start once implement-trd-tasks has
  * shipped a PR boundary for the target branch. TRD-003's original
  * `checkPrState()` shelled out directly to the `gh` (GitHub CLI) binary --
  * fine for a GitHub-hosted repo, but this TRD's own consuming application is
@@ -77,7 +77,7 @@ const os = require('os');
 const path = require('path');
 
 const NO_OPEN_PR_MESSAGE =
-  'No open PR found for this branch. Run `/ensemble:implement-trd-beads` first ' +
+  'No open PR found for this branch. Run `/ensemble:implement-trd-tasks` first ' +
   'to ship a PR boundary before starting an author-playwright-tests session.';
 
 const TOOLCHAIN_CLI_RELATIVE_PATH = 'packages/development/lib/toolchain-cli.js';

@@ -1,0 +1,117 @@
+{
+  "id": "assess-config",
+  "skill": "assess-config",
+  "description": "Claude Code only (the skill names skill://ai-readiness-diagnostic-report, skill://assessment-report-suite and a repo CLI path, so it is not a self-contained single SKILL.md for Pi). A foreman-style request that answers every setup question of the assess-config skill up front for a small seeded portfolio (Northwind: services/billing and services/web, no .assessment/ yet): explicit_paths discovery, GitHub owner northwind-eng with token env var NORTHWIND_GITHUB_TOKEN, Jira at https://northwind.atlassian.net with keys NW and OPS and two env vars, a local ignored secrets file, no identity map, and two local_output paths. The prompt pastes one obviously fake canary token (CANARY-ghp-7f3a9c1e5b2d4086-NOT-REAL) and asks for it to be stored in the local secrets file only. Deterministic checks cover: .assessment/external-systems.yaml parses and names the portfolio; none of the schema's ExampleCo template values were copied; code roots and exclusions; the GitHub host entry; the Jira tracker entry; systems the user did not use are omitted; local_output paths; the yaml holds env var names and no secret values; .assessment/.gitignore ignores the skill's ten minimum rule patterns; .git/info/exclude ignores the secrets file; secrets.env holds the canary under NORTHWIND_GITHUB_TOKEN and placeholders for the Jira variables (flaky); the secrets file was not staged; the canary appears in no other workspace file; no fixture file was changed and nothing was written outside .assessment/; and no network, host-CLI or git-mutating command was run. Limits: the final chat response is not checked (the canary could be echoed there; the check graders read the workspace only), no credential validation or git check-ignore run is exercised, and the interactive question flow (the ask tool) is replaced by the prompt's answers. The baseline arm gets the same prompt without the plugin and is expected to produce a config too, so the uplift measures the plugin's conventions (schema layout, env-var-only references, the ignore-rule set, the git exclude), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Set up the assessment configuration for this portfolio so that assess-team and assess-repo can use it. These are my answers to the setup questions:\n\n- Portfolio name: Northwind. The current directory is the portfolio root.\n- Code location: two project folders, services/billing and services/web. Use explicit paths. Exclude docs/assessment output, node_modules, vendor and dist.\n- Pull requests live on GitHub, owner northwind-eng, public github.com (not Enterprise). Token env var: NORTHWIND_GITHUB_TOKEN. No other repository host.\n- Tickets live in Jira at https://northwind.atlassian.net, project keys NW and OPS. Env vars: NORTHWIND_ATLASSIAN_AUTH_TOKEN and NORTHWIND_ATLASSIAN_CLOUD_ID. No other ticket tracker.\n- Credential storage: a local ignored secrets file. I already have a GitHub token; store it as the value of NORTHWIND_GITHUB_TOKEN in that file: CANARY-ghp-7f3a9c1e5b2d4086-NOT-REAL. I do not have the Jira values yet, so leave placeholders for them.\n- No identity map.\n- Local output: template_path /srv/northwind/templates and reports_root /srv/northwind/reports.\n\nThis is a non-interactive run: ask no questions, call no external API, do not validate credentials, and do not commit anything. Write only the assessment configuration under .assessment/ (and the local git exclude file that keeps the secrets out of git).",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' config-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' not-template",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' code-roots",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' github-host",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' jira-tracker",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' unused-omitted",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' local-output",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' env-refs-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' gitignore-rules",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' git-exclude",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' secrets-file",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' secrets-not-staged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' canary-contained",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-config.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bcurl\\b",
+        "\\bwget\\b",
+        "\\bgh\\s+(?:api|auth|pr|issue|repo)\\b",
+        "(?:^|[;&|(]\\s*)(?:jira|linearis)\\s",
+        "toolchain-cli",
+        "\\bgit\\s+(?:-\\S+\\s+)*(?:add|commit|push|stash|reset|rm)\\b"
+      ]
+    }
+  ]
+}

@@ -165,6 +165,105 @@ describe('TRD-036-TEST: Scenario "Manifests validate and defaults are named" -- 
   });
 });
 
+describe('workflow.push really pushes a brand-new branch (real git, bare origin, no push.autoSetupRemote)', () => {
+  // Scratch lives under ~/.omp/trd-skills-eval/ (never the OS temp dir). HOME and git's global/
+  // system config are neutralised so a developer's own `push.autoSetupRemote=true` cannot hide
+  // the no-upstream failure this guards.
+  const SCRATCH_ROOT = path.join(os.homedir(), '.omp', 'trd-skills-eval', 'plain-git-push');
+  const GIT_ENV = (home) => ({
+    ...process.env,
+    HOME: home,
+    GIT_CONFIG_GLOBAL: '/dev/null',
+    GIT_CONFIG_SYSTEM: '/dev/null',
+    GIT_AUTHOR_NAME: 't',
+    GIT_AUTHOR_EMAIL: 't@example.com',
+    GIT_COMMITTER_NAME: 't',
+    GIT_COMMITTER_EMAIL: 't@example.com'
+  });
+
+  function git(cwd, env, ...args) {
+    const proc = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+    if (proc.status !== 0) throw new Error(`git ${args.join(' ')}: ${proc.stderr}`);
+    return proc.stdout.trim();
+  }
+
+  // A work tree on a new branch `bead/x` (one commit ahead of main, no upstream) with a bare origin.
+  function mkSandbox() {
+    fs.mkdirSync(SCRATCH_ROOT, { recursive: true });
+    const base = fs.mkdtempSync(path.join(SCRATCH_ROOT, 'run-'));
+    tempDirs.push(base);
+    const home = path.join(base, 'home');
+    fs.mkdirSync(home);
+    const env = GIT_ENV(home);
+    const origin = path.join(base, 'origin.git');
+    const work = path.join(base, 'work');
+    git(base, env, 'init', '-q', '--bare', origin);
+    git(base, env, 'init', '-q', '-b', 'main', work);
+    git(work, env, 'commit', '-q', '--allow-empty', '-m', 'init');
+    git(work, env, 'remote', 'add', 'origin', origin);
+    git(work, env, 'push', '-q', 'origin', 'main');
+    git(work, env, 'switch', '-q', '-c', 'bead/x');
+    git(work, env, 'commit', '-q', '--allow-empty', '-m', 'work');
+    return { work, origin, env };
+  }
+
+  function toolchain(sandbox, subcommand, extra) {
+    const proc = spawnSync(
+      process.execPath,
+      [CLI_PATH, subcommand, ...extra, '--run-id', 'push-test', '--non-interactive', '--json'],
+      { cwd: sandbox.work, env: sandbox.env, encoding: 'utf8' }
+    );
+    const lastJsonLine = proc.stdout.trim().split('\n').filter((l) => l.startsWith('{')).pop();
+    return JSON.parse(lastJsonLine);
+  }
+
+  function pushViaToolchain(sandbox, branchArg) {
+    expect(toolchain(sandbox, 'preflight', ['--require', 'workflow.push']).ok).toBe(true);
+    return toolchain(sandbox, 'run', ['workflow.push', ...(branchArg === undefined ? [] : ['--arg', `branch=${branchArg}`])]);
+  }
+
+  test('with --arg branch=<new branch>, the push succeeds, creates the remote branch and sets its upstream', () => {
+    const sandbox = mkSandbox();
+    const result = pushViaToolchain(sandbox, 'bead/x');
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(git(sandbox.origin, sandbox.env, 'rev-parse', 'bead/x')).toBe(git(sandbox.work, sandbox.env, 'rev-parse', 'HEAD'));
+    expect(git(sandbox.work, sandbox.env, 'rev-parse', '--abbrev-ref', 'bead/x@{upstream}')).toBe('origin/bead/x');
+  });
+
+  test('with no branch argument it still pushes the current branch', () => {
+    const sandbox = mkSandbox();
+    const result = pushViaToolchain(sandbox, undefined);
+    expect(result.error).toBeUndefined();
+    expect(result.ok).toBe(true);
+    expect(git(sandbox.origin, sandbox.env, 'rev-parse', 'bead/x')).toBe(git(sandbox.work, sandbox.env, 'rev-parse', 'HEAD'));
+  });
+
+  test('force-pushing is impossible: a "+refspec" or "--force" branch arg cannot rewrite a diverged remote branch', () => {
+    const sandbox = mkSandbox();
+    expect(pushViaToolchain(sandbox, 'bead/x').ok).toBe(true);
+    const remoteTip = git(sandbox.origin, sandbox.env, 'rev-parse', 'bead/x');
+    // Rewrite the local branch so it diverges from the remote tip (a push now needs force).
+    git(sandbox.work, sandbox.env, 'reset', '-q', '--hard', 'main');
+    git(sandbox.work, sandbox.env, 'commit', '-q', '--allow-empty', '-m', 'rewritten');
+    for (const evil of ['+bead/x', '+HEAD:bead/x', '--force']) {
+      const result = pushViaToolchain(sandbox, evil);
+      expect(result.ok).toBe(false);
+      expect(git(sandbox.origin, sandbox.env, 'rev-parse', 'bead/x')).toBe(remoteTip);
+    }
+  });
+
+  test('the push template carries no force flag or "+" refspec, and the allowlist still lists only `push` for it', () => {
+    const manifest = yaml.load(fs.readFileSync(path.join(ADAPTER_DIR, 'adapter.yaml'), 'utf8'));
+    const run = manifest.capabilities['workflow.push'].run;
+    expect(run.slice(0, 2)).toEqual(['git', 'push']);
+    for (const element of run) {
+      expect(element).not.toMatch(/^--force|^--mirror|^--delete|^\+|^-f$/);
+    }
+    expect(run).toEqual(expect.arrayContaining(['-u', 'origin']));
+  });
+});
+
 describe('TRD-036-TEST: mutation check proves the validators are capable of failing', () => {
   test('removing "switch" from the allowlist makes validateAdapterDir fail, naming workflow.branch-create', () => {
     const dir = mkMutableAdapterCopy();

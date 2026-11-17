@@ -5,7 +5,7 @@
  *
  * Extracts the branch-naming + stacked-vs-single PR sequencing + the
  * ENSEMBLE_USE_STACKED_PRS toggle from
- * packages/development/commands/implement-trd-beads.yaml into pure,
+ * packages/development/commands/implement-trd-tasks.yaml into pure,
  * tested functions. NO side effects, NO shell, NO br/git calls.
  *
  * @typedef {Object} Phase

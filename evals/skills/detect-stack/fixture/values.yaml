@@ -1,0 +1,2 @@
+replicaCount: 2
+image: storefront:0.3.0

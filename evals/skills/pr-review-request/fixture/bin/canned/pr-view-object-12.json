@@ -1,0 +1,14 @@
+{
+  "number": 12,
+  "title": "Add coupon codes",
+  "url": "https://github.com/example/shopcart/pull/12",
+  "state": "OPEN",
+  "baseRefName": "main",
+  "headRefName": "feat/coupons",
+  "isDraft": false,
+  "author": {
+    "login": "dana"
+  },
+  "body": "Proposed change: Add coupon codes.",
+  "statusCheckRollup": []
+}

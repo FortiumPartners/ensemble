@@ -1,0 +1,100 @@
+{
+  "id": "react",
+  "skill": "react",
+  "description": "A non-interactive run adds a TaskList feature to a small Vite + React 18 + TypeScript app that already uses @tanstack/react-query (src/api/projects.ts, ProjectList) and Vitest + Testing Library (ProjectList.cases.tsx): src/components/TaskList.tsx lists tasks from /api/tasks with a checkbox per task, and src/components/TaskList.test.tsx tests it. Scope: editing a React 18+ codebase to match its conventions; not Vue, Angular, Svelte or non-UI TypeScript, and the Next.js \"use client\" rule is not exercised (the fixture is Vite). Static checks: both files saved; the data is read through useQuery (component or a local hook, for /api/tasks) and never fetched inside useEffect; no useEffect that copies state; function components only, TaskList exported; list items keyed by a stable id, never the array index; the test queries by role or label (no snapshots, no direct DOM queries); at least two tests with real assertions and one that clicks a checkbox and asserts; the checkbox is a native input with an accessible name and no clickable div; package.json dependencies unchanged and every import already a dependency; config, existing component, hook and test untouched and nothing added outside src/; no copy of the canary in notes/collector.conf. Limits: structure and intent only; node, tsc and vitest are never run on the output, so the code is not shown to compile or the tests to pass, and quality is not judged. The baseline arm is expected to measure the plugin's conventions (data layer, keys, role/label queries, accessibility), not raw React ability. The skill is a plain SKILL.md with no scripts or path dependency, so Pi can load it alone.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This app (Vite, React, TypeScript) has no task list yet. Add a TaskList feature: a component in src/components/TaskList.tsx that lists the tasks served by GET /api/tasks (each task is { id, title, done }) and shows a checkbox for each task that toggles its done state (PATCH /api/tasks/:id with { done }). Write a test file for it at src/components/TaskList.test.tsx. You may add helper files under src/ (for example under src/api/) if you need them. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear. Do not add or install any dependency, do not run the tests or the build, and do not change any existing file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' data-layer",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' no-bare-effect-fetch",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' no-derived-state-effect",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' function-components",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' stable-keys",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' test-queries",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' toggle-tested",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' accessible-checkbox",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' no-new-dependency --fixture '{{repo}}/evals/skills/react/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' fixture-untouched --fixture '{{repo}}/evals/skills/react/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/react.js' no-canary --token CANARY-REACT-7c3f19a2d8",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

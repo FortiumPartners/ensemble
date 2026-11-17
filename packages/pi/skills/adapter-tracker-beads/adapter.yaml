@@ -360,6 +360,12 @@ capabilities:
   # and flatten `plan.tracks[].items[]` itself (bv's own `usage_hints` documents the
   # equivalent jq filter).
   #
+  # Empty plan: confirmed live (bv v0.26.0, scratch .beads fixture) an epic with nothing
+  # actionable (all closed, or only blocked work) emits `"tracks": []` with total_actionable 0.
+  # `emptyWhen` maps an empty/null/absent `plan.tracks` to `items: []` (ok:true) so the caller
+  # reaches its own empty-plan handling; a missing `plan`, a non-array `tracks` or a track
+  # without `items` is still BAD_OUTPUT.
+  #
   # The category contract's `scope` input (work-graph.yaml) is NOT substituted into this run
   # template: it has no `${scope}` placeholder, so a caller-supplied `scope` value is simply
   # never passed to `bv`. Confirmed live: `bv --robot-plan --scope <value>` errors "unknown
@@ -391,6 +397,7 @@ capabilities:
     parse:
       format: json
       root: "$.plan.tracks[0].items"
+      emptyWhen: "$.plan.tracks"
       map:
         items: "$"
 
@@ -406,6 +413,7 @@ capabilities:
     parse:
       format: json
       root: "$.plan.tracks[0].items"
+      emptyWhen: "$.plan.tracks"
       map:
         items: "$"
 

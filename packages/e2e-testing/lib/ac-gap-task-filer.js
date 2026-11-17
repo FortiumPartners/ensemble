@@ -171,7 +171,7 @@ function resolveImplementingAuthor(targetFiles, opts = {}) {
 
 const REFINE_CYCLE_SUGGESTION =
   'Suggested resolution: run `refine-trd` to update the TRD so this gap is captured as a task, ' +
-  'then `implement-trd-beads` to implement the fix (a `refine-trd` -> `implement-trd-beads` cycle).';
+  'then `implement-trd-tasks` to implement the fix (a `refine-trd` -> `implement-trd-tasks` cycle).';
 
 /** Deterministic Task title for a confirmed AC gap. */
 function buildGapTaskTitle(acId, reqId) {
@@ -385,7 +385,7 @@ if (require.main === module) {
     reqId: 'REQ-009',
   });
   assert.match(filed.description, /refine-trd/);
-  assert.match(filed.description, /implement-trd-beads/);
+  assert.match(filed.description, /implement-trd-tasks/);
 
   // --- planGapTaskFiling: unresolved author -> explicit unassigned note, not silently dropped ---
   const unresolvedAuthor = { resolved: false, reason: 'no commit history for src/gone.js' };

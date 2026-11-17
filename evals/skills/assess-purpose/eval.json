@@ -1,0 +1,112 @@
+{
+  "id": "assess-purpose",
+  "skill": "assess-purpose",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to work out what a repository is for, with the report saved to docs/assessment/purpose.md. The seeded workspace is pawdesk, a small Node/Express/SQLite service for a veterinary clinic (patients and owners, appointments with a clash check, vaccinations, daily SMS vaccination reminders through Twilio, invoices) with no real documentation; its only doc, README.md, is stale and describes an unrelated bakery, so a correct report infers the clinic purpose from the code. Deterministic checks cover: the report is saved with the Repository Purpose Analysis title; the seven sections of the skill Output Format appear in order; Tech Stack names Node, Express, SQLite and most of the declared dependencies; Inferred Purpose has the four labelled fields and 3-5 capabilities; the domain and primary function identify a veterinary clinic; the stale bakery README is not taken as the purpose; target users are clinic staff; capabilities cover at least three of the four real ones (flaky); file:line citations resolve to real files and lines (flaky) and at least one lands on a domain-bearing source line (flaky); the Confidence Assessment rates Purpose, Domain and Users; Unknowns has at least two items; the Score is <1.0-5.0> / <Letter> with the letter derived from the shared scale; Recommendations name documents; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the inference is insightful, that the confidence ratings or score are deserved, or that the capability list is complete. The baseline arm gets the same prompt without the plugin and is expected to infer the purpose too, so the uplift measures the plugin conventions (section layout, confidence table, numeric/letter score, file:line evidence, documentation recommendations), not the ability to read code.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Work out what this codebase is for, using only the code (assume nothing you read in a document is current): what the software does, which domain it serves, who the target users are, the tech stack and the key capabilities. Back each conclusion with file and line evidence, say how confident you are and what you could not determine, and give an overall score for how well the code alone explains itself.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/purpose.md. Write only that report; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' tech-stack",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' purpose-fields",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' domain-inferred",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' stale-readme-not-trusted",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' users-inferred",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' capabilities-cover",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' evidence-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' evidence-domain-lines",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' confidence-assessment",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' unknowns-listed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' recommendations-docs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-purpose.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

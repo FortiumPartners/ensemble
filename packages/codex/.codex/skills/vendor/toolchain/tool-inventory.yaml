@@ -26,10 +26,14 @@ workflow:
 # worktree operations are served by `git` (listed under workflow); no distinct binary.
 worktree: []
 
+# Issue-tracker CLIs. `kata` also serves the `work-graph` category, but a binary maps to one
+# category and the tracker use is primary: the adapter is selected as `tracker: kata`, and the
+# `work-graph: auto` default resolves to that same adapter's work-graph capabilities.
 tracker:
   - br
   - jira
   - linearis
+  - kata
 
 work-graph:
   - bv

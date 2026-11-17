@@ -1,0 +1,18 @@
+{
+  "Test Coverage & Automation": {
+    "dimension": "Test Coverage & Automation",
+    "proposed_score": 2.5,
+    "final_score": 1.8,
+    "caps_applied": ["no automated tests in the only active repo"],
+    "confidence": "HIGH",
+    "coverage": "complete"
+  },
+  "Application & Code Security": {
+    "dimension": "Application & Code Security",
+    "proposed_score": 2.5,
+    "final_score": 2.0,
+    "caps_applied": ["hard-coded credential; no secret scanning"],
+    "confidence": "HIGH",
+    "coverage": "complete"
+  }
+}

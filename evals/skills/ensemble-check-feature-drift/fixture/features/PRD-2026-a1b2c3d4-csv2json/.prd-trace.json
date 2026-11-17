@@ -1,0 +1,46 @@
+{
+  "prd": {
+    "document_id": "PRD-2026-a1b2c3d4",
+    "label": "prd-csv2json",
+    "version": "1.0.0",
+    "path": "docs/PRD/PRD-2026-a1b2c3d4-csv2json.md"
+  },
+  "acs": {
+    "AC-001-1": {
+      "req": "REQ-001",
+      "hash": "60272d24fe24",
+      "feature_file": "REQ-001.feature",
+      "needs_clarification": false
+    },
+    "AC-001-2": {
+      "req": "REQ-001",
+      "hash": "54858e8aeae3",
+      "feature_file": "REQ-001.feature",
+      "needs_clarification": false
+    },
+    "AC-001-3": {
+      "req": "REQ-001",
+      "hash": "152613d536d5",
+      "feature_file": "REQ-001.feature",
+      "needs_clarification": false
+    },
+    "AC-002-1": {
+      "req": "REQ-002",
+      "hash": "b07a7d78f120",
+      "feature_file": "REQ-002.feature",
+      "needs_clarification": false
+    },
+    "AC-002-2": {
+      "req": "REQ-002",
+      "hash": "3d954850e536",
+      "feature_file": "REQ-002.feature",
+      "needs_clarification": false
+    },
+    "AC-003-1": {
+      "req": "REQ-003",
+      "hash": "6471e7b038d6",
+      "feature_file": "REQ-003.feature",
+      "needs_clarification": false
+    }
+  }
+}

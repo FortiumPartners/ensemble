@@ -295,7 +295,7 @@ jobs:
           1. **PRD** — `/ensemble:create-prd` → `docs/PRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md`
           2. **TRD** — `/ensemble:create-trd` → `docs/TRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md`
 
-          Implementation is a manual follow-up: run `/ensemble:implement-trd-beads docs/TRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md` once the PRD/TRD are approved.
+          Implementation is a manual follow-up: run `/ensemble:implement-trd-tasks docs/TRD/issue-$ISSUE_NUMBER_PLACEHOLDER.md` once the PRD/TRD are approved.
 
           ### Source Issue
           Relates to #$ISSUE_NUMBER_PLACEHOLDER (not closed — implementation is still a manual follow-up)
@@ -347,7 +347,7 @@ jobs:
           1. PRD created
           2. TRD created
 
-          Implementation is a manual next step — run `/ensemble:implement-trd-beads` against the TRD once reviewed.
+          Implementation is a manual next step — run `/ensemble:implement-trd-tasks` against the TRD once reviewed.
 
           PR: ${{ env.PR_URL }}
 

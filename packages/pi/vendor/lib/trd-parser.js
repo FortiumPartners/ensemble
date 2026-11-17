@@ -4,7 +4,7 @@
  * Deterministic TRD parser.
  *
  * Extracts the "Scaffold Pass 1-7 + 4b/4c" parsing logic from
- * packages/development/commands/implement-trd-beads.yaml into a pure,
+ * packages/development/commands/implement-trd-tasks.yaml into a pure,
  * tested function. NO side effects, NO shell, NO br/git calls.
  *
  * The only external dependency is js-yaml, used solely to parse the
@@ -76,7 +76,7 @@ const SPRINT_HEADING_RE = /^###\s+Sprint\s+(\d+)\s*:?\s*(.*)$/i;
 
 // Test keyword detection for sub-items. Intentionally BROAD: recall over
 // precision. A false-positive synthesized test bead is cheaper to close than
-// a missed test. (See Pass 4c prose in implement-trd-beads.yaml.)
+// a missed test. (See Pass 4c prose in implement-trd-tasks.yaml.)
 const TEST_KEYWORDS = [
   'integration test',
   'unit test',

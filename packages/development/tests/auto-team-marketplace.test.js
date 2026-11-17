@@ -1,7 +1,7 @@
 /**
  * Tests for the marketplace gap analysis and suggestion flow defined in
  * packages/development/commands/create-trd.yaml Phase 4 Step 4 and
- * packages/development/commands/implement-trd-beads.yaml Preflight step 9.
+ * packages/development/commands/implement-trd-tasks.yaml Preflight step 9.
  *
  * Covers TRD-042 (gap analysis logic) and TRD-043 (preflight check behavior).
  */
@@ -72,7 +72,7 @@ function analyzeMarketplaceGaps(trdDomains, installedPlugins, marketplaceCatalog
 /**
  * Context-aware testing framework keyword matching.
  *
- * Rule (from implement-trd-beads.yaml Preflight step 9, Step 4):
+ * Rule (from implement-trd-tasks.yaml Preflight step 9, Step 4):
  *   Generic 'test' keyword alone MUST NOT trigger testing framework suggestions.
  *   Framework-specific keywords (jest, pytest, rspec, playwright, vitest, exunit)
  *   are required for plugin suggestions to fire.

@@ -91,16 +91,28 @@ capabilities:
       - "-m"
       - "${message}"
 
-  # git push: the category contract's one required generic push primitive. `branch` is
-  # unreferenced (pushes whatever the current branch's configured upstream is). No `parse`
-  # block: `git push`'s real output (including any host-provided "create a pull request" hint)
-  # goes to stderr, which `mapOutput` never sees on a successful invocation.
+  # git push -u origin HEAD: the category contract's one required generic push primitive. A
+  # bare `git push` fails on a brand-new branch (`fatal: The current branch X has no upstream
+  # branch`), which is exactly what every caller pushes first, so the template names the remote
+  # and sets the upstream. `HEAD` (the current branch, the category's documented meaning of
+  # "push the current branch") is used rather than `${branch}`: it works when the caller passes
+  # no `branch` (a referenced placeholder with no value is `INVALID_ARG`, and no manifest-level
+  # default is possible, see `workflow.log`), and since the caller's `branch` value never
+  # reaches git, no arg can smuggle in a `+refspec` (a force push; `resolveArg` rejects only a
+  # leading `-`). `branch` is therefore unreferenced. No `--force`/`+` anywhere in the template.
+  # `-u`/`origin`/`HEAD` are flags and positionals after the allowlisted `push` subcommand, so
+  # the allowlist is unchanged. No `parse` block: `git push`'s real output (including any
+  # host-provided "create a pull request" hint) goes to stderr, which `mapOutput` never sees on
+  # a successful invocation.
   workflow.push:
     run:
       - git
       - push
+      - "-u"
+      - origin
+      - HEAD
 
-  # git push: plain git has NO native "open a change request" concept at all (unlike git-town's
+  # git push -u origin HEAD: plain git has NO native "open a change request" concept at all (unlike git-town's
   # `propose`, which delegates to a configured host CLI/API) -- the real, honest prerequisite
   # action a plain-git workflow performs before a human or a `host.change-request-create` call
   # opens the actual pull request is pushing the branch. This capability is therefore a
@@ -111,6 +123,9 @@ capabilities:
     run:
       - git
       - push
+      - "-u"
+      - origin
+      - HEAD
 
   # git log --oneline -n <limit> <ref>: real, documented `git log` flags. Both `${ref}` and
   # `${limit}` must always be supplied (optional category input, but `runner.js#

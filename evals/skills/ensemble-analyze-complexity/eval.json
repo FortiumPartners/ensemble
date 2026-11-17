@@ -1,0 +1,72 @@
+{
+  "id": "ensemble-analyze-complexity",
+  "skill": "ensemble-analyze-complexity",
+  "description": "Claude Code only. A non-interactive /ensemble-development:ensemble:analyze-complexity run on a described migration that names two fixture files in two packages, carries a fake API key and mentions rollback and production. The run must save the report to docs/complexity.md: a score from 1 to 10 whose band matches the recommended route, route complex for this input, the key redacted outside the route plan, the four-command complex route plan ending at an approval stop, repository facts (named paths, the fan-in of session.js) cited, team size listed as a missing input, and nothing implemented. The fixture is a tiny git repository (committed on main by the sandbox) because the analyzer resolves named paths with git. Limits: checks of structure and of numbers the analyzer prints, not of the quality of the wording; it does not cover --bead, --route, --no-adaptive-planning, FOREMAN_ARTIFACT_PATH or the sidecar (the environment cannot be set from a prompt). The baseline arm loads no plugin and is expected to measure the plugin's conventions (the redaction marker, the route plan commands, the Missing Inputs section, the repository citations), not a general ability to judge complexity. The with-skill arm needs the command to resolve complexity-analyzer.js through the tool-path-resolution tiers, which depends on ${CLAUDE_PLUGIN_ROOT} substitution in a sandbox repository: unproven until a trial, so an uplift is the package's, not necessarily the skill's.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Migrate session token handling in packages/auth/src/session.js and packages/billing/src/invoice.js to the new identity provider API, with a rollback plan for the production rollout. Staging uses API_KEY=sk_live_abcdef1234567890. --foreman\n\nThis is a non-interactive run: ask no questions, choose the recommended option for anything unclear. Save the complexity report you print to docs/complexity.md. Write only that report: do not plan further and do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:analyze-complexity",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' score-route-consistent",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' expected-complex",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' secret-redacted",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' route-plan",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' repo-facts-cited",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' missing-inputs",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-analyze-complexity.js' no-implementation",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

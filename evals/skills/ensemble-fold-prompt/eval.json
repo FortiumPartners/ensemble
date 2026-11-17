@@ -1,0 +1,84 @@
+{
+  "id": "ensemble-fold-prompt",
+  "skill": "ensemble-fold-prompt",
+  "description": "A non-interactive fold-prompt run on a small Express project whose CLAUDE.md is bloated (long prose paragraphs, a duplicated test command, a deleted file path, a 2025 TODO, a 40-line inlined Express pattern reference) rewrites CLAUDE.md with a Quick Reference in the first 20 lines (stack and the test command), a Coding Standards section grounded in the code (AppError, kebab-case files), no prose paragraph over 3 lines, every named path resolving, framework patterns moved to .claude/patterns/ behind a pointer, a Context Notes section of at most 5 bullets at the bottom, a .claude/standards-index.yml, and a core file under about 2000 tokens (8000 characters); it changes no source file. The checks assert structure and measurable limits, not whether the standards are right or the prose is good. The fixture has no constitution file because the skill does not read one. The command lives in packages/core, so the baseline arm (no plugin, a plain request to optimize CLAUDE.md) is expected to measure the plugin's conventions (index file, Context Notes wording, patterns directory), which a model may meet in part unprompted.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Optimize this project's CLAUDE.md for token efficiency, discover the coding standards used in the codebase and add them, and move reference material out of CLAUDE.md into files it points to.\n\nThis is a non-interactive run: ask no questions, choose the recommended option for anything ambiguous, and do not run npm install. Change only CLAUDE.md and files under .claude/. Do not modify any source file.",
+  "invocation": "explicit",
+  "command": "/ensemble-core:ensemble:fold-prompt",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' quick-reference --test-cmd \"npm test\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' size-budget --max-chars 8000",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' no-long-prose",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' standards-section --require \"AppError,kebab|hyphen\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' paths-resolve",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' progressive-disclosure",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' context-notes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' standards-index --min 3",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' stale-removed --gone \"2025-01-10\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fold-prompt.js' sources-untouched --fixture '{{repo}}/evals/skills/ensemble-fold-prompt/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

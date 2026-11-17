@@ -11,7 +11,7 @@ const FOREMAN_RE = /FOREMAN|--foreman/;
 const ASK_RE = /AskUserQuestion|\bask(?:s|ed)? the user\b|explicit (?:approval|confirmation)|\bvia ask\b/i;
 // Says that no question is put to the user.
 const NO_PROMPT_RE = /without asking|asks? nothing|no (?:question|prompt)|never asks?|not asked|is not asked/i;
-const STAGE_SKILLS = ['create-prd', 'refine-prd', 'create-trd', 'refine-trd', 'implement-trd-beads'];
+const STAGE_SKILLS = ['create-prd', 'refine-prd', 'create-trd', 'refine-trd', 'implement-trd-tasks'];
 
 function step(doc, phaseName, order) {
   const phase = (doc.workflow.phases || []).find((p) => p.name === phaseName);
@@ -51,7 +51,7 @@ function checkNewFeature(doc) {
     v('forwarding', fwd.some((a) => new RegExp(`${skill}(?: --plan)? --foreman\\b`).test(a)),
       `Execute Stage 1 must forward --foreman to ${skill} under FOREMAN`);
   }
-  v('forwarding', fwd.some((a) => /--plan/.test(a)), 'forwarding to implement-trd-beads must keep --plan');
+  v('forwarding', fwd.some((a) => /--plan/.test(a)), 'forwarding to implement-trd-tasks must keep --plan');
   v('forwarding', fwd.some((a) => /not (?:true|set|present)|absent|otherwise/i.test(a)),
     'forwarding must state --foreman is not added when FOREMAN is not true');
   v('forwarding', fwd.some((a) => /FOREMAN_\*|FOREMAN_TASK_TITLE/.test(a)),
@@ -74,10 +74,10 @@ function checkNewFeature(doc) {
 
   // REQ-004 implementation approval
   const x5 = step(doc, 'Execute Stage', 5);
-  const grant = first(foremanActions(x5), /implementationApprovedAt/);
+  const grant = first(foremanActions(x5), /implementationApprovedAt/i);
   v('implApproval', !!grant && NO_PROMPT_RE.test(grant), 'implementation approval must be granted without asking under FOREMAN');
-  v('implApproval', !!grant && /(?:single|one|same)[^.]*mutate\(\)/i.test(grant),
-    'implementationApprovedAt and the stage advance must be one mutate() call');
+  v('implApproval', !!grant && /(?:single|one|same)[^.]*mutate\b/i.test(grant),
+    'implementationApprovedAt and the stage advance must be one mutate call');
   v('implApproval', !!grant && /--foreman policy/.test(grant) && /approval_wait/.test(grant),
     'the grant must be recorded with a --foreman policy detail and kind approval_wait');
   v('implApproval', actions(x5).some((a) => ASK_RE.test(a) && !FOREMAN_RE.test(a)),
@@ -88,7 +88,7 @@ function checkNewFeature(doc) {
 
   // REQ-005 PR approval
   const x6 = step(doc, 'Execute Stage', 6);
-  const pr = first(foremanActions(x6), /prApprovedAt/);
+  const pr = first(foremanActions(x6), /prApprovedAt/i);
   v('prApproval', !!pr && NO_PROMPT_RE.test(pr) && /pr_create/.test(pr), 'PR approval must be granted without asking and advance to pr_create');
   v('prApproval', !!pr && /never in the same[^.]*implementationApprovedAt/i.test(pr),
     'prApprovedAt must be set in a call distinct from implementationApprovedAt');
@@ -100,8 +100,8 @@ function checkNewFeature(doc) {
 
   // REQ-006 abandon
   const e6 = step(doc, 'Entry Point Resolution', 6);
-  const ab = first(foremanActions(e6), /abandon\(/);
-  v('abandon', !!ab && NO_PROMPT_RE.test(ab), 'Entry Step 6 must call abandon() without asking under FOREMAN');
+  const ab = first(foremanActions(e6), /\babandon\b/);
+  v('abandon', !!ab && NO_PROMPT_RE.test(ab), 'Entry Step 6 must call abandon without asking under FOREMAN');
   v('abandon', actions(e6).some((a) => ASK_RE.test(a) && !FOREMAN_RE.test(a)),
     'the abandon confirmation must remain for FOREMAN != true');
   v('abandon', actions(e6).some((a) => /nothing to abandon/.test(a) && !FOREMAN_RE.test(a)),

@@ -28,7 +28,7 @@
  *      either fails to resolve at all, or -- when a `br` stub is reachable -- visibly redirects
  *      a `tracker.create` call to it, while the real, unmutated CLI still routes to the
  *      configured alternative adapter.
- *   8. Item D -- every shipped command YAML's (beads-build/-wave, implement-trd-beads,
+ *   8. Item D -- every shipped command YAML's (beads-build/-wave, implement-trd-tasks,
  *      implement-bead) OWN `tracker.*` `--require` list, derived from the real source,
  *      preflights `ok:true` against both alternative adapters; three mutation proofs confirm
  *      the derivation and the claim-step argv both actually discriminate a regression.
@@ -621,8 +621,9 @@ describe('AC3: beads-build-wave.yaml claim-step reaches the Azure Boards adapter
   test('(a) static: the lifecycle_contract literally documents the tracker.set-status claim argv, never the old tracker.update/JSON-fields literal', () => {
     // beads-build-wave.yaml is agent-orchestration prose read by an LLM, not an executable
     // entry point this test can spawn directly (see this file's header finding list) -- this
-    // raw-text assertion mirrors the idiom packages/development/tests/implement-trd-beads-
-    // command.test.js already uses for the same family of command YAML files.
+    // raw-text assertion mirrors the idiom
+    // packages/development/tests/implement-trd-tasks-command.test.js already uses for the same
+    // family of command YAML files.
     const text = readBeadsWaveProse();
     expect(text).toContain('tracker.set-status --run-id <RUN_ID> --arg id=<BEAD_ID> --arg status=in_progress');
     expect(text).not.toContain('tracker.update --run-id <RUN_ID> --arg id=<BEAD_ID> --arg fields={"status":"in_progress"}');
@@ -895,13 +896,13 @@ describe('AC6: swap-consistency -- trd-cli bead-context, complexity-analyzer and
 //    list, DERIVED from the real source (never hand-copied), preflights ok:true against both
 //    alternative tracker adapters -- AC1/AC3 above already prove tracker.set-status itself
 //    routes correctly in isolation; this proves the SHIPPED commands' own preflight gates
-//    (beads-build/-wave/implement-trd-beads/implement-bead) actually pass, end to end, the
+//    (beads-build/-wave/implement-trd-tasks/implement-bead) actually pass, end to end, the
 //    moment an operator points .ensemble/toolchain.yaml at jira or azure-boards -- including
 //    work-graph.ready, which resolves through the builtin plan-order fallback now that jira's
 //    manifest no longer falsely claims the work-graph category (PR 8 finding 2).
 // ---------------------------------------------------------------------------
 
-const SHIPPED_COMMAND_YAMLS = ['beads-build.yaml', 'beads-build-wave.yaml', 'implement-trd-beads.yaml', 'implement-bead.yaml'];
+const SHIPPED_COMMAND_YAMLS = ['beads-build.yaml', 'beads-build-wave.yaml', 'implement-trd-tasks.yaml', 'implement-bead.yaml'];
 const COMMANDS_DIR = path.join(REPO_ROOT, 'packages', 'development', 'commands');
 
 /** `metadata.capabilities.required`, read fresh off the real source YAML every call -- never

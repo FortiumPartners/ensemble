@@ -1,0 +1,5 @@
+{
+  "name": "slugify-fixture",
+  "private": true,
+  "workspaces": ["packages/*"]
+}

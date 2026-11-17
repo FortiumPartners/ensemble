@@ -1,0 +1,7 @@
+{
+  "name": "slugify",
+  "version": "0.1.0",
+  "private": true,
+  "main": "slugify.js",
+  "scripts": { "test": "node suite.js" }
+}

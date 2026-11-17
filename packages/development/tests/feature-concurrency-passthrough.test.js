@@ -43,6 +43,8 @@ describe('Feature dispatcher concurrency pass-through (TRD-013)', () => {
     // sentence above, naming new-feature's own code -- the skill must
     // not define any additional active-run bookkeeping fields/constraints.
     expect(feature.prompt).not.toMatch(/RunIndexStore\.(createRun|mutate|findActive)/);
+    // The same holds for the CLIs the stores are reached through now: the dispatcher never calls them.
+    expect(feature.prompt).not.toMatch(/RUN_INDEX_CLI|run-index-cli/);
     expect(feature.prompt).not.toMatch(/active\.lock/);
     expect(feature.body).not.toMatch(/^## Constraints$/m);
     // The manifest itself is only metadata + skill: it carries no constraints either.

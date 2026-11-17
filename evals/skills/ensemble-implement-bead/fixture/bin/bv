@@ -1,0 +1,11 @@
+#!/bin/sh
+# Stub `bv` (beads viewer): the beads adapter's health check runs `bv --version`; nothing else is answered (this skill reads no graph).
+# Every call is logged to bv-calls.log in the sandbox root (BV_STUB_LOG overrides).
+here=$(cd "$(dirname "$0")" && pwd)
+log="${BV_STUB_LOG:-$here/../../bv-calls.log}"
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r\t' '   ')" >> "$log"
+case "$1" in
+  --version) echo "bv 0.1.0 (stub)"; exit 0 ;;
+esac
+echo "bv stub: unsupported call: $*" >&2
+exit 2

@@ -95,7 +95,7 @@ function generateWorkstreamTrd(items, opts = {}) {
   lines.push('');
   lines.push('This workstream decomposes every `Validates PRD ACs:` reference into AC-level implementation, executable test, and validation tasks so Beads scaffolding is not limited to coarse MTL granularity.');
   lines.push('');
-  lines.push('Next step: `/ensemble:implement-trd-beads <this-workstream-trd-path>`.');
+  lines.push('Next step: `/ensemble:implement-trd-tasks <this-workstream-trd-path>`.');
   lines.push('');
   if (sourcePrds[0]) lines.push(`Based on PRD: ${sourcePrds[0]}`);
   lines.push('');

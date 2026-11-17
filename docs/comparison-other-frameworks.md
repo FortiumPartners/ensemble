@@ -28,7 +28,7 @@
 
 **Philosophy:** Full-lifecycle orchestration platform with a specialized agent mesh.
 
-Ensemble is a Claude Code plugin ecosystem organized into 4 tiers across 24 npm packages. It provides 38 specialized agents (backend-developer, frontend-developer, code-reviewer, test-runner, etc.) orchestrated through YAML-defined workflow commands. The primary pipeline: `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd-beads`, driven by persistent beads (`br`/`bv`) task management with cross-session resumability.
+Ensemble is a Claude Code plugin ecosystem organized into 4 tiers across 24 npm packages. It provides 38 specialized agents (backend-developer, frontend-developer, code-reviewer, test-runner, etc.) orchestrated through YAML-defined workflow commands. The primary pipeline: `create-prd` → `refine-prd` → `create-trd` → `refine-trd` → `implement-trd-tasks`, driven by persistent beads (`br`/`bv`) task management with cross-session resumability.
 
 Key architectural elements:
 - **Plugin tiers:** Core (ensemble-core) → Workflow (product, development, quality, infrastructure) → Framework Skills (React, NestJS, Rails, Phoenix, Blazor) → Test Frameworks (Jest, Pytest, RSpec, xUnit, ExUnit)
@@ -92,7 +92,7 @@ Key architectural elements:
 
 ### 1. Orchestration Model
 
-**Ensemble** uses a YAML-defined workflow command system where each command (`create-prd`, `implement-trd-beads`, etc.) is a declarative specification of phases, steps, actions, and constraints. Commands orchestrate sub-agents via the `Task()` tool, with an agent alias resolution layer (`AGENT_ALIAS_MAP`) that maps shorthand names to installed plugin identifiers. The Foreman runtime provides fully automated dispatch pipelines with artifact contracts and hard/soft HALT gates.
+**Ensemble** uses a YAML-defined workflow command system where each command (`create-prd`, `implement-trd-tasks`, etc.) is a declarative specification of phases, steps, actions, and constraints. Commands orchestrate sub-agents via the `Task()` tool, with an agent alias resolution layer (`AGENT_ALIAS_MAP`) that maps shorthand names to installed plugin identifiers. The Foreman runtime provides fully automated dispatch pipelines with artifact contracts and hard/soft HALT gates.
 
 **Spec-Kit** uses a state machine orchestrator that drives a PM agent and a developer agent through the SDD phases. The PM agent handles clarification interviews and prioritization; the developer agent produces three intermediate artifacts (SPEC.md, PLAN.md, TASKS.md) before code generation. Workflows are defined in YAML and support pausing at human review gates.
 
@@ -116,7 +116,7 @@ Key architectural elements:
 
 ### 4. Multi-Agent and Team Coordination
 
-**Ensemble** auto-detects complexity and generates a YAML team configuration. `implement-trd-beads` drives a role-based state machine: `open → in_progress → in_design → in_review → in_advisory → in_qa → closed`, with rejection loops back to the builder. Six specialized orchestrators (ensemble, tech-lead, product-management, QA, infrastructure, deployment) coordinate across domains. Concurrent execution via `bv --robot-plan` partitions tracks and dispatches them in parallel.
+**Ensemble** auto-detects complexity and generates a YAML team configuration. `implement-trd-tasks` drives a role-based state machine: `open → in_progress → in_design → in_review → in_advisory → in_qa → closed`, with rejection loops back to the builder. Six specialized orchestrators (ensemble, tech-lead, product-management, QA, infrastructure, deployment) coordinate across domains. Concurrent execution via `bv --robot-plan` partitions tracks and dispatches them in parallel.
 
 **Spec-Kit** operates with a single developer agent (guided by a PM agent for clarification). No builder/reviewer/QA chain, no parallel execution, no team mode.
 
@@ -180,7 +180,7 @@ Key architectural elements:
 - Persistent cross-session task state via beads — resumable across sessions, crashes, and team member handoffs
 - Real multi-agent team orchestration with role-based state machine and parallel execution
 - Dependency-aware execution via `bv --robot-plan` with graph-aware triage (PageRank, critical path)
-- Full pipeline in one command: `/ensemble:feature` or `implement-trd-beads`
+- Full pipeline in one command: `/ensemble:feature` or `implement-trd-tasks`
 - Framework-specific skills for React, NestJS, Rails, Phoenix, Blazor, Jest, Pytest, RSpec, xUnit, ExUnit
 - Operational breadth: release orchestration, conventional commits, CI/CD templates, E2E testing, security scanning
 - MCP server integration for optional TRD workflow enhancement
@@ -188,7 +188,7 @@ Key architectural elements:
 - Collaborative PRD/TRD review via `--collab` browser UI
 - Hard-gate constitution enforcement: violations in `create-prd`/`create-trd` block phase with no override path (PR #59)
 - Standalone `research.md` and `data-model.md` companion artifacts generated when domains detected (PR #60)
-- Quickstart validation artifact: `implement-trd` generates `quickstart.md` smoke-test runbook after completion verification passes; `implement-trd-beads` routes to `implement-trd` for v1 (PR #61)
+- Quickstart validation artifact: `implement-trd` generates `quickstart.md` smoke-test runbook after completion verification passes; `implement-trd-tasks` routes to `implement-trd` for v1 (PR #61)
 
 **Cons:**
 - No mandatory `[NEEDS CLARIFICATION]` discipline during spec generation (though create-prd does mark ambiguities)
@@ -270,7 +270,7 @@ Is fast onboarding with minimal setup a priority?
 - **Install beads:** `cargo install beads_rust beads_viewer` (or use nix/homebrew)
 - **Migrate specs:** Convert SPEC.md/PROPLAN.md/TASKS.md artifacts to PRD/TRD format; assign REQ-NNN IDs
 - **Migrate state:** Transcribe Markdown checkboxes to `br` bead hierarchy
-- **New commands:** Use `create-prd` instead of `specify`; `implement-trd-beads` instead of `implement`
+- **New commands:** Use `create-prd` instead of `specify`; `implement-trd-tasks` instead of `implement`
 - **Lost in migration:** Multi-runtime support, community extensions, presets
 
 ### Moving from Ensemble to Spec-Kit
@@ -278,7 +278,7 @@ Is fast onboarding with minimal setup a priority?
 - **Install:** `pip install spec-kit` or `uv tool install spec-kit`
 - **Migrate specs:** Convert PRD/TRD to SPEC.md/PROPLAN.md/TASKS.md
 - **Migrate state:** Implement-trd-beads tasks → Markdown TASKS.md checkboxes
-- **New commands:** Use `specify` instead of `create-prd`; sequential `implement` instead of `implement-trd-beads`
+- **New commands:** Use `specify` instead of `create-prd`; sequential `implement` instead of `implement-trd-tasks`
 - **Lost in migration:** Beads persistence, parallel execution, requirement IDs, framework skills, team orchestration
 
 ## Opportunities for Ensemble
@@ -291,7 +291,7 @@ Ensemble already implements most capabilities. Genuine opportunities to increase
 | High | **Standalone `research.md` and `data-model.md`** | `create-trd` generates standalone companion artifacts when database or research domains are detected; linked from TRD body | **Implemented (PR #60)** |
 | Medium | **Multi-AI-agent support** | Generate command files for Gemini/Copilot/Cursor from same YAML source via `npm run generate` | Gap |
 | Medium | **Community plugin catalog** | Open submission mechanism beyond Sunstone-authored plugins | Gap |
-| Low | **`quickstart.md` validation artifact** | `implement-trd` generates quickstart.md smoke-test runbook from TRD acceptance criteria; implement-trd-beads routes to implement-trd for v1 | **Implemented (PR #61)** |
+| Low | **`quickstart.md` validation artifact** | `implement-trd` generates quickstart.md smoke-test runbook from TRD acceptance criteria; implement-trd-tasks routes to implement-trd for v1 | **Implemented (PR #61)** |
 
 ### Already Implemented (no action needed)
 
@@ -301,11 +301,11 @@ These capabilities were proposed as opportunities but already exist in Ensemble:
 
 - ✓ **Hard-gate constitution enforcement** — `create-prd` and `create-trd` now hard-HALT on constitution violations with no override path (PR #59)
 - ✓ **Standalone `research.md` and `data-model.md`** — `create-trd` generates companion artifacts when database or research domains are detected (PR #60)
-- ✓ **Quickstart validation artifact** — `implement-trd` generates `quickstart.md` smoke-test runbook from acceptance criteria after completion verification; `implement-trd-beads` routes to `implement-trd` for v1 (PR #61)
+- ✓ **Quickstart validation artifact** — `implement-trd` generates `quickstart.md` smoke-test runbook from acceptance criteria after completion verification; `implement-trd-tasks` routes to `implement-trd` for v1 (PR #61)
 - ✓ **Quick-fix workflow** — `ensemble:fix-issue` for lightweight bug fixes (no PRD/TRD overhead)
 - ✓ **Cross-artifact requirement analysis** — `ensemble:analyze-requirements` validates PRD↔TRD↔beads alignment
 - ✓ **Clarification enforcement** — `ensemble:refine-prd`, `refine-trd`, `refine-prd --from-meeting` surface ambiguities
-- ✓ **Feature branching & stacked PRs** — `ensemble:implement-trd` (git-town workflow) and `ensemble:implement-trd-beads` (--branch option, stacked PR support)
+- ✓ **Feature branching & stacked PRs** — `ensemble:implement-trd` (git-town workflow) and `ensemble:implement-trd-tasks` (--branch option, stacked PR support)
 
 ---
 
@@ -321,7 +321,7 @@ All numeric and capability claims in this document have been verified against au
 
 **False positives removed during audit:**
 - `configure-team`: Does NOT provide named governance presets; performs auto-sizing by task count
-- `create-prd`: Does NOT support branching (create-prd has zero branching code); feature branching is provided by `implement-trd` and `implement-trd-beads`
+- `create-prd`: Does NOT support branching (create-prd has zero branching code); feature branching is provided by `implement-trd` and `implement-trd-tasks`
 
 **Lessons learned:** Keyword substring matching on command names is insufficient for capability verification. Each claim requires reading the actual command description and workflow definition.
 
@@ -333,7 +333,7 @@ All numeric and capability claims in this document have been verified against au
 - Competitive landscape (Ensemble, AgentOS, GSD, Superpowers, BMAD): `docs/research/competitive-analysis-2026-03-28.md`
 - Ensemble README: `README.md`
 - Ensemble commands: `packages/development/commands/`
-- Ensemble beads workflow: `packages/development/commands/implement-trd-beads.yaml`
+- Ensemble beads workflow: `packages/development/commands/implement-trd-tasks.yaml`
 
 ---
 

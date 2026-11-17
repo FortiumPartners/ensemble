@@ -1,0 +1,66 @@
+{
+  "prd": {
+    "document_id": "PRD-2026-0a1b2c3d",
+    "version": "1.0.0",
+    "path": "docs/PRD/PRD-2026-0a1b2c3d-withdraw.md"
+  },
+  "sut_csproj": "../../src/Account/Account.csproj",
+  "steps": [
+    {
+      "keyword": "Given",
+      "text": "an open account with a balance of 100",
+      "method": "GivenAnOpenAccountWithABalanceOf100",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "0196bb653666"
+    },
+    {
+      "keyword": "When",
+      "text": "the owner withdraws 30",
+      "method": "WhenTheOwnerWithdraws30",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "bda4da535b04"
+    },
+    {
+      "keyword": "Then",
+      "text": "the balance is 70",
+      "method": "ThenTheBalanceIs70",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "46c3ed8575a2"
+    },
+    {
+      "keyword": "Given",
+      "text": "an open account with a balance of 20",
+      "method": "GivenAnOpenAccountWithABalanceOf20",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "4aea27138e9b"
+    },
+    {
+      "keyword": "When",
+      "text": "the owner withdraws 50",
+      "method": "WhenTheOwnerWithdraws50",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "18cb8c6f8ceb"
+    },
+    {
+      "keyword": "Then",
+      "text": "the account is still open!",
+      "method": "ThenTheAccountIsStillOpen_af21b4171b17",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "af21b4171b17"
+    },
+    {
+      "keyword": "Given",
+      "text": "an open account with a balance of 50",
+      "method": "GivenAnOpenAccountWithABalanceOf50",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "9192accebe93"
+    },
+    {
+      "keyword": "Then",
+      "text": "the account is still open?",
+      "method": "ThenTheAccountIsStillOpen_a8b327db63b5",
+      "file": "Steps/REQ-001.Steps.cs",
+      "hash": "a8b327db63b5"
+    }
+  ]
+}

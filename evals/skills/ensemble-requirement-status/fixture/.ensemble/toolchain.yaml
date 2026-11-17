@@ -1,0 +1,2 @@
+# Pin the tracker so the sandbox needs no detection. The `br` and `bv` on PATH are stubs (bin/) answering from bin/canned/.
+tracker: beads

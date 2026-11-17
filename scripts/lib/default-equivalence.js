@@ -42,7 +42,7 @@ const COVERED = [
   { name: 'implement-bead', path: `${DEV_COMMANDS}/implement-bead.yaml`, trd: 'TRD-029/TRD-039' },
   { name: 'beads-build-wave', path: `${DEV_COMMANDS}/beads-build-wave.yaml`, trd: 'TRD-029' },
   { name: 'beads-build', path: `${DEV_COMMANDS}/beads-build.yaml`, trd: 'TRD-030' },
-  { name: 'implement-trd-beads', path: `${DEV_COMMANDS}/implement-trd-beads.yaml`, trd: 'TRD-031/TRD-045' },
+  { name: 'implement-trd-tasks', path: `${DEV_COMMANDS}/implement-trd-tasks.yaml`, trd: 'TRD-031/TRD-045' },
   { name: 'pr-merge', path: 'packages/git/commands/pr-merge.yaml', trd: 'TRD-039' },
   { name: 'fix-issue', path: `${DEV_COMMANDS}/fix-issue.yaml`, trd: 'TRD-039' },
   { name: 'pr-review-cycle', path: 'packages/development/skills/pr-review-cycle/SKILL.md', trd: 'TRD-045' },

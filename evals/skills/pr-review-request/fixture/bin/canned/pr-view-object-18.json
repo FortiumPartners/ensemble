@@ -1,0 +1,14 @@
+{
+  "number": 18,
+  "title": "Cache subtotal",
+  "url": "https://github.com/example/shopcart/pull/18",
+  "state": "OPEN",
+  "baseRefName": "main",
+  "headRefName": "perf/cache-subtotal",
+  "isDraft": false,
+  "author": {
+    "login": "sam"
+  },
+  "body": "Proposed change: Cache subtotal.",
+  "statusCheckRollup": []
+}

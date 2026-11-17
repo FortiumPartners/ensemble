@@ -1,0 +1,223 @@
+#!/bin/sh
+# Stub `gh` for the ensemble-fix-issue eval. No network, no GitHub. One open issue (42) is answered from canned files in bin/canned/;
+# pull requests live only in the stub's own state files in the sandbox root (two levels above this stub, outside the git worktree):
+#   gh-calls.log       every call, one line, `OK|REFUSED|UNSUPPORTED|ERROR <argv folded to one line>` (a newline in an argument is
+#                      folded to a space, so a crafted argument cannot fake another call)
+#   gh-pr-state.txt    the created PR: number=, head=, base=, title=, draft=
+#   gh-pr-body.md      the body of the created PR, verbatim (newlines kept)
+# `pr create` behaves like the real CLI where it matters: it needs --title and a body (--body, -b, --body-file, -F), a head branch that
+# exists on origin (`git push` first), and a second create for the same head fails with exit 1. It prints the PR URL. Reads answer
+# before the create (no PR) and after it (the created PR, no checks, no reviews). Anything that would change a pull request, an issue
+# or the repository (merge, review, comment, edit, close, issue writes, an api mutation or write method) is REFUSED with exit 2; a call
+# this stub has no answer for is UNSUPPORTED, exit 2. The fake login of the person at the keyboard is mara-quill.
+here=$(cd "$(dirname "$0")" && pwd)
+canned="$here/canned"
+root="$here/../.."
+log="$root/gh-calls.log"
+state="$root/gh-pr-state.txt"
+bodyfile="$root/gh-pr-body.md"
+origin="$root/origin.git"
+LOGIN=mara-quill
+REPO=example-org/shopcart
+PRNUM=57
+URL="https://github.com/$REPO/pull/$PRNUM"
+line=$(printf '%s' "$*" | tr '\n\r' '  ' | cut -c1-4000)
+
+note() { printf '%s %s\n' "$1" "$line" >> "$log"; }
+refuse() { note REFUSED; echo "gh stub: refused (would change something): $*" >&2; exit 2; }
+unsupported() { note UNSUPPORTED; echo "gh stub: unsupported call: $*" >&2; exit 2; }
+ok() { note OK; }
+contains() { case "$all" in *"$1"*) return 0 ;; esac; return 1; }
+all="$*"
+jesc() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n' ' '; }
+sval() { sed -n "s/^$1=//p" "$state" 2>/dev/null | head -n 1; }
+created() { [ -f "$state" ]; }
+
+case "$all" in *--jq*) has_jq=1 ;; *) has_jq=0 ;; esac
+case "$all" in *--json*) has_json=1 ;; *) has_json=0 ;; esac
+
+issue_obj() {
+  t=$(jesc "$(cat "$canned/issue-42-title.txt")")
+  b=$(jesc "$(cat "$canned/issue-42-body.txt")")
+  printf '{"number":42,"title":"%s","body":"%s","state":"OPEN","author":{"login":"%s"},"labels":[],"assignees":[],"comments":[],"url":"https://github.com/%s/issues/42"}\n' "$t" "$b" "$LOGIN" "$REPO"
+}
+
+pr_obj() {
+  head=$(sval head); base=$(sval base); title=$(jesc "$(sval title)")
+  printf '{"number":%s,"url":"%s","state":"OPEN","title":"%s","baseRefName":"%s","headRefName":"%s","statusCheckRollup":[],"comments":[],"reviews":[],"reviewDecision":""}\n' "$PRNUM" "$URL" "$title" "$base" "$head"
+}
+
+# a PR selector (a number, a URL or a branch name) matches the created PR
+pr_matches() {
+  [ -n "$1" ] || return 1
+  created || return 1
+  case "$1" in "$PRNUM"|"$URL"|"#$PRNUM") return 0 ;; esac
+  [ "$1" = "$(sval head)" ]
+}
+
+case "$1" in
+  --version) ok; echo "gh version 2.103.2 (stub)"; exit 0 ;;
+
+  auth)
+    case "$2" in
+      status)
+        ok
+        if [ "$has_jq" = 1 ]; then echo true; exit 0; fi
+        printf 'github.com\n  Logged in to github.com account %s (stub)\n' "$LOGIN"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+
+  repo)
+    case "$2" in
+      view)
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in
+            *"--jq .nameWithOwner"*|*"--jq '.nameWithOwner'"*) ok; echo "$REPO"; exit 0 ;;
+            *"--jq .defaultBranchRef.name"*|*"--jq '.defaultBranchRef.name'"*) ok; echo main; exit 0 ;;
+          esac
+          unsupported "$@"
+        fi
+        ok; cat "$canned/repo-view.json"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+
+  issue)
+    case "$2" in
+      view)
+        n=$3
+        case "$n" in
+          42|"#42"|"https://github.com/$REPO/issues/42") ;;
+          "") unsupported "$@" ;;
+          *) note ERROR; echo "GraphQL: Could not resolve to an Issue with the number of $n. (repository.issue)" >&2; exit 1 ;;
+        esac
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in
+            *"--jq .body"|*"--jq '.body'"*) ok; cat "$canned/issue-42-body.txt"; exit 0 ;;
+            *"--jq .title"|*"--jq '.title'"*) ok; cat "$canned/issue-42-title.txt"; echo; exit 0 ;;
+            *"--jq .author.login"|*"--jq '.author.login'"*) ok; echo "$LOGIN"; exit 0 ;;
+            *"--jq .number"|*"--jq '.number'"*) ok; echo 42; exit 0 ;;
+            *"--jq .state"|*"--jq '.state'"*) ok; echo OPEN; exit 0 ;;
+          esac
+          unsupported "$@"
+        fi
+        ok
+        if [ "$has_json" = 1 ]; then issue_obj; exit 0; fi
+        printf 'title:\t%s\nstate:\tOPEN\nauthor:\t%s\nlabels:\t\nnumber:\t42\n--\n' "$(cat "$canned/issue-42-title.txt")" "$LOGIN"
+        cat "$canned/issue-42-body.txt"
+        exit 0 ;;
+      list)
+        case "$all" in *"--state closed"*|*"--state all"*|*"-s closed"*|*"-s all"*) ok; if [ "$has_json" = 1 ]; then echo '[]'; fi; exit 0 ;; esac
+        if [ "$has_jq" = 1 ]; then unsupported "$@"; fi
+        ok
+        if [ "$has_json" = 1 ]; then printf '['; issue_obj | tr -d '\n'; printf ']\n'; else printf '42\tOPEN\t%s\n' "$(cat "$canned/issue-42-title.txt")"; fi
+        exit 0 ;;
+    esac
+    refuse "$@" ;;
+
+  pr)
+    case "$2" in
+      create)
+        shift 2
+        title=""; body=""; has_body=0; bf=""; base=""; head=""; draft=0
+        while [ $# -gt 0 ]; do
+          case "$1" in
+            --title|-t) [ $# -ge 2 ] || break; title=$2; shift 2 ;;
+            --title=*) title=${1#--title=}; shift ;;
+            --body|-b) [ $# -ge 2 ] || break; body=$2; has_body=1; shift 2 ;;
+            --body=*) body=${1#--body=}; has_body=1; shift ;;
+            --body-file|-F) [ $# -ge 2 ] || break; bf=$2; has_body=1; shift 2 ;;
+            --base|-B) [ $# -ge 2 ] || break; base=$2; shift 2 ;;
+            --base=*) base=${1#--base=}; shift ;;
+            --head|-H) [ $# -ge 2 ] || break; head=$2; shift 2 ;;
+            --head=*) head=${1#--head=}; shift ;;
+            --draft|-d) draft=1; shift ;;
+            *) unsupported pr create "$@" ;;
+          esac
+        done
+        if [ -n "$bf" ]; then
+          if [ "$bf" = "-" ]; then body=$(cat); else body=$(cat "$bf" 2>/dev/null) || { note ERROR; echo "open $bf: no such file or directory" >&2; exit 1; }; fi
+        fi
+        [ -n "$title" ] && [ "$has_body" = 1 ] || { note ERROR; echo "must provide --title and --body (or --fill) when not running interactively" >&2; exit 1; }
+        [ -n "$base" ] || base=main
+        [ -n "$head" ] || head=$(git symbolic-ref --short HEAD 2>/dev/null)
+        [ -n "$head" ] || { note ERROR; echo "could not determine the head branch" >&2; exit 1; }
+        if created && [ "$(sval head)" = "$head" ]; then
+          note ERROR; echo "a pull request for branch \"$head\" into branch \"$base\" already exists: $URL" >&2; exit 1
+        fi
+        if ! git --git-dir="$origin" rev-parse --verify -q "refs/heads/$head" >/dev/null 2>&1; then
+          note ERROR; echo "aborted: you must first push the current branch to a remote, or use the --head flag" >&2; exit 1
+        fi
+        printf '%s' "$body" > "$bodyfile"
+        printf 'number=%s\nhead=%s\nbase=%s\ntitle=%s\ndraft=%s\n' "$PRNUM" "$head" "$base" "$(printf '%s' "$title" | tr '\n\r' '  ')" "$draft" > "$state"
+        line=$(printf 'pr create --base %s --head %s --title %s --body <%s bytes, saved to gh-pr-body.md>' "$base" "$head" "$(printf '%s' "$title" | tr '\n\r' '  ')" "$(printf '%s' "$body" | wc -c | tr -d ' ')")
+        ok; echo "$URL"; exit 0 ;;
+
+      list)
+        case "$all" in *"--state closed"*|*"--state merged"*|*"-s closed"*|*"-s merged"*) ok; if [ "$has_json" = 1 ]; then echo '[]'; fi; exit 0 ;; esac
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in
+            *"[.[] | [(.number|tostring), .url, .state, .baseRefName, .headRefName]]"*)
+              ok
+              if created; then printf '[["%s","%s","OPEN","%s","%s"]]\n' "$PRNUM" "$URL" "$(sval base)" "$(sval head)"; else echo '[]'; fi
+              exit 0 ;;
+          esac
+          unsupported "$@"
+        fi
+        ok
+        if [ "$has_json" = 1 ]; then if created; then printf '['; pr_obj | tr -d '\n'; printf ']\n'; else echo '[]'; fi
+        else if created; then printf '%s\t%s\tOPEN\n' "$PRNUM" "$(sval title)"; fi; fi
+        exit 0 ;;
+
+      view)
+        sel=$3
+        pr_matches "$sel" || { note ERROR; echo "no pull requests found for branch \"${sel:-current}\"" >&2; exit 1; }
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in
+            *"[(.number|tostring), .url, .state, .baseRefName, .headRefName, .statusCheckRollup]"*)
+              ok; printf '["%s","%s","OPEN","%s","%s",[]]\n' "$PRNUM" "$URL" "$(sval base)" "$(sval head)"; exit 0 ;;
+            *"[(.number|tostring), .comments]"*) ok; printf '["%s",[]]\n' "$PRNUM"; exit 0 ;;
+            *"--jq .url"|*"--jq '.url'"*) ok; echo "$URL"; exit 0 ;;
+            *"--jq .state"|*"--jq '.state'"*) ok; echo OPEN; exit 0 ;;
+          esac
+          unsupported "$@"
+        fi
+        ok
+        if [ "$has_json" = 1 ]; then pr_obj; else printf 'title:\t%s\nstate:\tOPEN\nurl:\t%s\n' "$(sval title)" "$URL"; fi
+        exit 0 ;;
+
+      checks)
+        sel=$3
+        pr_matches "$sel" || { note ERROR; echo "no pull requests found for branch \"${sel:-current}\"" >&2; exit 1; }
+        ok
+        if [ "$has_json" = 1 ]; then echo '[]'; exit 0; fi
+        echo "no checks reported on the '$(sval head)' branch" >&2; exit 1 ;;
+
+      diff|status) unsupported "$@" ;;
+    esac
+    refuse "$@" ;;
+
+  api)
+    case "$all" in
+      *mutation*|*" -X "*|*"--method"*|*" POST"*|*" PATCH"*|*" PUT"*|*" DELETE"*|*"--input"*) refuse "$@" ;;
+    esac
+    case "$2" in
+      graphql)
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in
+            *".data.repository.pullRequest | [(.number|tostring), .reviewDecision"*) ok; printf '["%s","","MERGEABLE","CLEAN",[],[]]\n' "$PRNUM"; exit 0 ;;
+          esac
+          unsupported "$@"
+        fi
+        ok
+        printf '{"data":{"repository":{"pullRequest":{"number":%s,"reviewDecision":"","mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","latestOpinionatedReviews":{"nodes":[]},"reviewThreads":{"nodes":[]}}}}}\n' "$PRNUM"
+        exit 0 ;;
+      user)
+        if [ "$has_jq" = 1 ]; then
+          case "$all" in *"--jq .login"*|*"--jq '.login'"*) ok; echo "$LOGIN"; exit 0 ;; esac
+          unsupported "$@"
+        fi
+        ok; printf '{"login":"%s"}\n' "$LOGIN"; exit 0 ;;
+    esac
+    unsupported "$@" ;;
+esac
+refuse "$@"

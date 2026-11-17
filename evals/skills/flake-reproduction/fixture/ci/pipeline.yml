@@ -1,0 +1,9 @@
+# CI for shopcart. The required job is `unit`.
+jobs:
+  unit:
+    runs-on: linux
+    timeoutMs: 2000          # per-test budget
+    retries: 0               # the runner can re-run failing tests (--retries N); policy is none
+    steps:
+      - checkout
+      - run: npm test        # prints `runner: seed=<n>`; replay with: node scripts/run-tests.js --seed <n>

@@ -1,5 +1,5 @@
 category: tracker
-version: "1.0"
+version: "1.1"
 
 capabilities:
   tracker.show:
@@ -72,6 +72,21 @@ capabilities:
     required: false
     sideEffect: true
     fallback: title-prefix-scoping
+
+  # Single-item labelling, split out of tracker.label because no tracker can attach more than one
+  # label to one item in a single call: the runner substitutes each `${placeholder}` in an
+  # adapter's one fixed argv template exactly once (runner.js#resolveArg), so `labels` can never
+  # fan out to repeated arguments. A caller holding N labels issues N calls; the loop lives in the
+  # caller, not the runner. Declared `required: false`, which is what contracts.js#checkAdditiveOnly
+  # permits inside a major version (it refuses removals, `required` flips and required-additions but
+  # allows optional additions), so this lands as 1.1 rather than 2.0.
+  tracker.label-one:
+    description: Attach one label to exactly one work item. Adapters whose tool attaches labels one at a time MUST declare this rather than tracker.label.
+    inputs: [id, label]
+    outputs: [id, labels]
+    required: false
+    sideEffect: true
+    addedInMinor: 1
 
   tracker.set-status:
     description: Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed).

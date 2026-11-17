@@ -1,0 +1,100 @@
+{
+  "id": "assess-architect",
+  "skill": "assess-architect",
+  "description": "Claude Code only (the skill defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained single SKILL.md for Pi). A plain-language request to analyse the architecture of a small seeded Node service (orderdesk: controllers, services, repositories, shared cache and logger, a BullMQ worker, Postgres and Redis configured in configs/app.json) with the report saved to docs/assessment/architecture.md. The fixture plants two dependency problems at known lines: the repository imports the controller (an upward dependency and a cycle) and the controller imports the repository directly (it skips the service layer). Deterministic checks cover: the report is saved with the 'Architecture Analysis' title; all nine sections of the skill's Output Format appear in order; the Score is `<1.0-5.0> / <Letter>` with the letter derived from the shared scale; a structurally sound Mermaid graph shows the entry point, the three layers and an external dependency; the Layering Assessment names the layers; the upward import is cited at its real line and described as a violation (the skip import is cited too, flaky); every file:line citation resolves to a real file and line; Integration Patterns names Postgres, Redis and the queue; Scalability Constraints covers at least two of database connections, cache and background jobs; Key Issues and Recommendations have enough numbered items with citations; and the run changed no fixture file and wrote nothing outside docs/assessment/. Limits: these are structure and fixture-fact checks and do not show that the analysis is insightful, that the score is right, or that the diagram renders (nothing renders Mermaid offline). The baseline arm gets the same prompt without the plugin and is expected to produce an architecture report too, so the uplift measures the plugin's conventions (section layout, numeric/letter score, file:line citations, Mermaid diagram), not the ability to analyse architecture.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Analyse the architecture of this repository: how the code is structured and layered, which way the dependencies run and whether any break the layering, how it integrates with external systems, what limits its scalability, and a diagram of the whole. Cite the file and line for every finding, and give an overall score.\n\nThis is a non-interactive run: ask no questions. Save the full report to docs/assessment/architecture.md. Write only that report; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' score-format",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' diagram-valid",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' diagram-components",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' layers-identified",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' violation-upward",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' violation-skip",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' integrations-named",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' scalability-constraints",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' key-issues-recommendations",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-architect.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "{{skill}}",
+  "skill": "{{skill}}",
+  "description": "TODO: one line on what this eval proves about the skill",
+  "runtimes": ["claude"],
+  "prompt": "TODO: the task, in plain language, exactly as a user would ask it",
+  "invocation": "plain",
+  "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
+  "maxTurns": 25,
+  "checks": [
+    { "type": "fileExists", "path": "TODO: a file the skill should create in the workspace" }
+  ]
+}

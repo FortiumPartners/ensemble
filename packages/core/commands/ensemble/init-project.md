@@ -30,7 +30,7 @@ Examples:
 - Set up `docs/PRD/` and `docs/TRD/` directories
 - Configure `.gitignore` for state files
 - Scaffold the review files every PR review reads (PR template, `REVIEW.md`, `CODEOWNERS`)
-- Provide foundation for `/ensemble:create-prd`, `/ensemble:create-trd`, and `/ensemble:implement-trd-beads` workflows
+- Provide foundation for `/ensemble:create-prd`, `/ensemble:create-trd`, and `/ensemble:implement-trd-tasks` workflows
 
 ---
 
@@ -472,7 +472,7 @@ Next steps:
   2. List your maintainers in the REVIEW.md policy block
   3. Create a PRD with /ensemble:create-prd for new features
   4. Generate TRD with /ensemble:create-trd from approved PRD
-  5. Implement with /ensemble:implement-trd-beads
+  5. Implement with /ensemble:implement-trd-tasks
 
 Tech stack detected:
   [summary of detected stack]

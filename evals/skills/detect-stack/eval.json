@@ -1,0 +1,64 @@
+{
+  "id": "detect-stack",
+  "skill": "detect-stack",
+  "description": "A non-interactive stack-detection run on a small seeded project (a React app with Jest tests, a Helm chart and AWS Terraform/SDK usage; bare tests/ directory and no pytest or xunit evidence) must save docs/stack.json naming exactly one framework (react), one test runner (jest), the tooling (helm only: no kubernetes, kustomize, argocd or flyio, which the project has no evidence for) and the cloud provider (aws), and write no project file. The expected answers are what the skill's own detector reports on the fixture (the kit test runs it). Plain invocation: the model finds the skill itself, so the baseline arm is expected to measure the plugin's conventions (one primary per axis, evidence-based tooling, lowercase detector names) rather than ability, since an agent can read the project files unaided. The checks cover the answer's content only: not whether the agent ran the detector or cited its confidence and signals, not the quality of any explanation, and not behaviour on other stacks. Claude only: the skill drives a node script under the plugin's skill directory, a path dependency Pi cannot resolve.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Work out which technology stack this project uses: its application framework, its test runner, its infrastructure tooling and its cloud provider. This is a non-interactive run: ask no questions. Save the answer as JSON to docs/stack.json in this shape: {\"framework\": \"<name>\", \"test\": \"<name>\", \"tooling\": [\"<name>\"], \"cloud\": \"<name or null>\"}. Use the lowercase technology name (for example django, not Django 4), one framework and one test runner, list only tools the project actually shows evidence for (an empty list when none), and null for the cloud when none. Write only that file; change nothing else in the project.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' stack-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' stack-framework --expect react",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' stack-test --expect jest",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' tooling-detected --expect helm",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' tooling-no-extras --expect helm",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' stack-cloud --expect aws",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/detect-stack.js' no-stray-files --allow .helmignore,Chart.yaml,deploy.sh,infra/main.tf,jest.config.js,package.json,src/App.jsx,templates/deployment.yaml,tests/counter.test.js,values.yaml",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

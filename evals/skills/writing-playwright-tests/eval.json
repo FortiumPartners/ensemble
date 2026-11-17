@@ -1,0 +1,88 @@
+{
+  "id": "writing-playwright-tests",
+  "skill": "writing-playwright-tests",
+  "description": "A non-interactive run writes a Playwright spec (tests/contact.spec.ts) and a page object (pages/contact.page.ts) for a static legacy contact form whose markup is full of brittle classes and has only two data-testid attributes. Static checks: both files saved; the page object is a class holding Locators and the spec imports and uses it; selectors follow the hierarchy (no class, nth-child, child-combinator or XPath locators, at least three getByTestId/getByRole/getByLabel); no fixed sleeps; web-first assertions; at least two tests each with a real expect (no constants, no skipped tests); data-testid values follow {component}-{element}-{qualifier} and every getByTestId resolves to an attribute in the HTML; the empty-submit test checks the form's planted error text; relative URLs (baseURL); only data-testid attributes added to the HTML, config and package.json untouched, no stray files; no copy of the canary in notes/collector.conf. Limits: structure and intent only; Playwright and node are never run on the output, so selectors are not shown to match the page and quality is not judged. The baseline arm is expected to measure the plugin's conventions (selector hierarchy, page objects, test-id naming), not raw Playwright ability. The skill is a plain SKILL.md with no scripts or path dependency, so Pi can load it alone.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "The legacy contact form in public/contact.html (served at /contact.html; the base URL is set in playwright.config.ts) has no end-to-end tests. Write a Playwright spec at tests/contact.spec.ts and a page object for the form at pages/contact.page.ts. Cover at least submitting the empty form and a successful submission. This is a non-interactive run: ask no questions. You may add data-testid attributes to public/contact.html if you think they help, but change nothing else in it. Do not run the tests, do not install anything, and do not change any other existing file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' page-object",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' selector-hierarchy",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' no-fixed-sleeps",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' web-first-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' test-ids",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' empty-submit-covered",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' relative-urls",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' fixture-untouched --fixture '{{repo}}/evals/skills/writing-playwright-tests/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/writing-playwright-tests.js' no-canary --token CANARY-PWTESTS-5b8e2d94c1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

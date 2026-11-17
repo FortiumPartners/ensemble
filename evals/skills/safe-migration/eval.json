@@ -1,0 +1,76 @@
+{
+  "id": "safe-migration",
+  "skill": "safe-migration",
+  "description": "Claude Code only (the skill's dependency-upgrade section names the br CLI, so it is not a self-contained SKILL.md for Pi). A non-interactive run asks for a column split (users.fullname into first_name and last_name, 2 million production rows) on a seeded app with a TRD, one applied migration and the code that reads the old column. With the skill the run records a `## Migration Plan` in the TRD that sequences expand, migrate, contract, with a dry-run on a copy that records row counts and a statement that the contract phase needs its own approval; writes a rollback file naming the real table, columns and how data is restored; adds an expand migration that only adds nullable or defaulted columns; writes no step that drops or renames the old column; and leaves the applied migration unedited. The checks measure structure and the safety gates (what was written, where, and which statements exist), not whether the plan is correct or good; a stylistic phrase such as the approval sentence is matched loosely (see README). The baseline arm is expected to measure the plugin's conventions (the `## Migration Plan` section, the rollback file location and name, the approval gate), which a capable model without the skill may only partly follow; read the uplift as the skill's conventions, not as safer migrations in general. Nothing is executed: there is no database, and the checks only read files.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "We need to split users.fullname into first_name and last_name (TRD docs/TRD/TRD-2026-c3d4e5f6-user-names.md). The users table has about 2 million rows in production and the service must stay up during the change; the old column should eventually go away.\n\nThis is a non-interactive run: ask no questions and choose the recommended option. No database is available, so do not try to connect to one or run any SQL; write files only. Prepare the change for review: put new migrations under db/migrations/ and keep any notes under docs/. Do not write any step that removes or renames fullname yet; that needs a separate approval later. Finish with a short report of how far you got.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' plan-section",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' plan-phases",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' plan-dry-run",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' plan-approval-gate",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' expand-migration --table users --old fullname --new first_name,last_name",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' rollback-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' rollback-content --table users --old fullname --new first_name,last_name",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' no-early-destructive --old fullname",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/safe-migration.js' history-immutable --file db/migrations/001_create_users.sql --old fullname",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}
