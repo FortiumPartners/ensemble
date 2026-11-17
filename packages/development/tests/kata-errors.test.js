@@ -31,7 +31,7 @@ const FIXTURES = path.join(__dirname, 'fixtures', 'kata');
 const LIST_OK = fs.readFileSync(path.join(FIXTURES, 'list-total.json'), 'utf8');
 const LIST_TRUNCATED = fs.readFileSync(path.join(FIXTURES, 'list-total-truncated.json'), 'utf8');
 
-const SCRATCH = path.join(os.homedir(), '.omp', 'br-08qsx', 'jest-fake-kata');
+const SCRATCH = path.join(os.homedir(), '.omp', 'kata-errors-jest', `fake-kata-${process.pid}`);
 let behaviourFile;
 let opts;
 
@@ -245,16 +245,27 @@ describe('TRD-029 mapOutput parse.countFrom unit', () => {
   });
 
   test('fewer rows than total throws BAD_OUTPUT naming truncation', () => {
-    expect(() => mapOutput(doc(1, 2), { ...base, countFrom: '$.total' })).toThrow(/truncat/i);
+    let err;
     try {
       mapOutput(doc(1, 2), { ...base, countFrom: '$.total' });
     } catch (e) {
-      expect(e.code).toBe('BAD_OUTPUT');
+      err = e;
     }
+    expect(err).toBeDefined();
+    expect(err.code).toBe('BAD_OUTPUT');
+    expect(err.message).toMatch(/truncat/i);
   });
 
   test('more rows than total also throws', () => {
-    expect(() => mapOutput(doc(3, 2), { ...base, countFrom: '$.total' })).toThrow(/BAD_OUTPUT|truncat|disagree/i);
+    let err;
+    try {
+      mapOutput(doc(3, 2), { ...base, countFrom: '$.total' });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeDefined();
+    expect(err.code).toBe('BAD_OUTPUT');
+    expect(err.message).toMatch(/BAD_OUTPUT|truncat|disagree/i);
   });
 
   test('a missing or non-integer total throws', () => {
