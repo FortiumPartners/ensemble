@@ -1,7 +1,6 @@
 ---
 name: ensemble-beads-build
 description: "Drive an existing bead hierarchy to completion through the full builder, code-review, and close pipeline"
-disable-model-invocation: true
 metadata:
   version: "1.4.0"
   category: implementation
