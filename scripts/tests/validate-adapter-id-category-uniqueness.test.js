@@ -136,3 +136,40 @@ describe('validateAdapterIdCategoryUniqueness', () => {
     expect(validateAdapterIdCategoryUniqueness(packagesDir)).toEqual([]);
   });
 });
+
+describe('production wiring: `npm run validate` actually runs the check (#146 follow-up)', () => {
+  /**
+   * Every test above calls the exported function directly, so all of them stay green if
+   * `main()` never calls it. That leaves the check shipped and unreachable through the only
+   * entry point anything uses, which is the same shape of defect -- a loser nobody reports --
+   * that the check itself exists to catch. This asserts on the real script's own output.
+   */
+  test("the real `node scripts/validate-all.js` reaches the uniqueness step and reports the count it measured", () => {
+    const repoRoot = path.join(__dirname, '..', '..');
+    const result = require('child_process').spawnSync(
+      process.execPath,
+      [path.join('scripts', 'validate-all.js')],
+      { cwd: repoRoot, encoding: 'utf8' }
+    );
+
+    expect(result.error).toBeUndefined();
+    const output = `${result.stdout || ''}${result.stderr || ''}`;
+
+    // The step announces itself, so a dropped main() call removes this line.
+    expect(output).toContain('Validating adapter (id, category) uniqueness');
+
+    // And it reports a non-zero count. That line is printed only when `failures.length === 0`
+    // (validate-all.js), so this one assertion covers three things: the step ran, it ran over
+    // a non-empty set -- a step measuring nothing while still printing a tick fails here --
+    // and it passed.
+    const measured = output.match(/(\d+) adapter manifest\(s\) declare a unique \(id, category\) pair each/);
+    expect(measured).not.toBeNull();
+    expect(Number(measured[1])).toBeGreaterThan(0);
+
+    // The script's own exit code is deliberately NOT asserted. It is the AND of every
+    // validator in the file, so an unrelated one failing -- the vendored-tree check, which
+    // goes red in a worktree whose sibling builds `~/.npmrc` `ignore-scripts` skipped --
+    // would fail this test and point a reader at the wrong check. The two assertions above
+    // prove the wiring this test exists for without that coupling.
+  }, 120000);
+});
