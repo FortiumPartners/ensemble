@@ -1,0 +1,21 @@
+{
+  "id": "ensemble-check-feature-drift",
+  "skill": "ensemble-check-feature-drift",
+  "description": "Claude Code only. /ensemble-product:ensemble:check-feature-drift on a seeded PRD whose generated Gherkin features (features/<slug>/ with its .prd-trace.json manifest, built by the real prd-cli) are out of date: AC-003-2 was added, AC-002-1 removed and AC-001-3 materially reworded, while AC-001-2 had only a cosmetic edit (casing, spacing) and must not count as drift. A passing run saves a drift report that lists exactly those ids under ADDED, REMOVED and CHANGED, does not flag the cosmetic edit, recommends re-running /ensemble:reqnroll features, and leaves the PRD, the feature files and the manifest untouched (the skill is read-only). The checks read only the saved report and the files, so they do not show that the run used the prd-cli helper rather than comparing by eye, nor the quality of the explanation. The baseline arm gets the same task without the command and is expected to measure the plugin's conventions (the .prd-trace.json manifest, AC-id identity, a hash that ignores cosmetic edits, the reqnroll resync step), not skill versus a well-written prompt; the with-skill arm loads the whole product package, so the uplift is the package's. The fixture carries a minimal docs/standards/constitution.md.",
+  "runtimes": ["claude"],
+  "prompt": "docs/PRD/PRD-2026-a1b2c3d4-csv2json.md\n\nThis is a non-interactive run: ask no questions. Check whether the generated feature files under features/ still match this PRD's acceptance criteria, and report which acceptance criteria have drifted. Change nothing: do not edit the PRD, any feature file or the manifest. When you have printed the report, also save it to drift-report.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:check-feature-drift",
+  "allowedTools": ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "Task"],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' report-saved", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' drift-added --ids AC-003-2", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' drift-removed --ids AC-002-1", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' drift-changed --ids AC-001-3", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' cosmetic-ignored --ids AC-001-2,AC-001-1,AC-002-2,AC-003-1", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' resync-advised", "pattern": "^PASS:", "exitCode": 0 },
+    { "type": "commandOutputMatches", "command": "node '{{repo}}/evals/checks/ensemble-check-feature-drift.js' read-only", "pattern": "^PASS:", "exitCode": 0 }
+  ]
+}

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `workflow.push` (`adapter-workflow-plain-git` and `adapter-workflow-git-town`) is now `git push -u origin HEAD`, not a bare `git push`. A bare push fails with `fatal: The current branch X has no upstream branch` on a new branch, so every caller that runs `ok:false -> HALT` (`ensemble-implement-bead` Phase 3, `ensemble-fix-issue`, `beads-build`) halted on the first push, unless the machine set `push.autoSetupRemote`. The `branch` input is ignored (the current branch is pushed), so no caller value can become a `+refspec` force push. `workflow.propose` (plain-git alias) changes with it.
+
 ### Added
 
 - `/ensemble:pr-merge` 2.4.1 (kata `mdfr`): both sweeps (just before the merge, and just after it before the source branch is deleted) now record the unresolved bot findings and failed hosted-CI runs they are given as beads, through `local-ci-cli.js sweep` (`skills/local-ci-gate/SWEEP.md`: payload, the shape of the facts, answers). Before, the command held one line of prose telling the model to record them through `br`, and nothing built the set of keys already tracked or created a bead. The sweep dedupes by key against the tracker (a second sweep of the same facts writes nothing), writes only into the tracker of the repository being merged under the PR-review recorder's trust checks (a refusal, an unavailable tracker or a partial run is reported, never silent), passes `dryRun` under `--dry-run` so a dry run writes no bead, and never blocks or authorizes the merge.

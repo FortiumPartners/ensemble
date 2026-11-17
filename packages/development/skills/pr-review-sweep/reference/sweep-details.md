@@ -10,7 +10,7 @@ Companion to `SKILL.md`. Read the section a step points to; every normative rule
 | `SWEEP_SHA` | string | The commit being swept -- a full 40- or 64-hex object id (the HEAD commit id of the branch under review), never a bare ref. Guidance is read from THIS commit: a sweep reviews merged code, so the merged tree is also the guidance in force (REQ-024). |
 | `REQUESTED_BY` | string | A maintainer's login, or the host automation's identity (for example `github-actions[bot]`). Recorded in the report; it never changes what is reviewed. |
 | `TIER` | `'low'` \| `'medium'` \| `'high'` (optional) | Absent means `high` -- a sweep nobody bounded gets the deepest review, never the cheapest. |
-| `MAX_PATHS` | number (optional) | Ceiling on paths examined, so a large repository can be swept in parts. The report names what was left; a truncated sweep is never reported as complete. |
+| `MAX_PATHS` | number (optional) | Ceiling on paths examined, so a large repository can be swept in parts. The report names what was left; a truncated sweep is reported `SWEEP_PARTIAL`, never `SWEEP_COMPLETE`. |
 | `TEST_COMMAND` | string (optional) | Recorded for reproduction instructions only. A sweep runs no tests and changes nothing. |
 
 ## Step 1 -- the sweep set
@@ -19,7 +19,7 @@ List files under `SCOPE` at `SWEEP_SHA` from that commit's tree listing (paths, 
 
 ## Step 2 -- guidance payloads
 
-- `policy` with `{ text, baseSha }`; `text` is the `REVIEW.md` content at `SWEEP_SHA` (`null` when there is none -- the CLI then answers with the strict defaults, which is not the same as no policy).
+- `policy` with `{ text, baseSha, sourceSha }`; `baseSha` and `sourceSha` are both `SWEEP_SHA` (a `policy` call without `sourceSha` is `policy-not-from-base`); `text` is the `REVIEW.md` content at `SWEEP_SHA` (`null` when there is none -- the CLI then answers with the strict defaults, which is not the same as no policy).
 - `rules` with `{ changedPaths, ruleFiles, rulesFileName, baseSha, sourceSha }`: `changedPaths` is the sweep set, `ruleFiles` every `REVIEW.md` present at `SWEEP_SHA` (from its tree listing), `baseSha` and `sourceSha` both `SWEEP_SHA`.
 - `paths` with `{ changedPaths, declaration, codeowners, baseSha }`: `declaration` is `{ sourceSha: <SWEEP_SHA>, sensitive: <policy.sensitivePaths>, high: <policy.highPaths> }` (from the `policy` result) and `codeowners` is the CODEOWNERS text at `SWEEP_SHA`.
 
@@ -46,7 +46,7 @@ A sweep still says how bad each finding is: carry the reviewer's own severity ju
 
 ## Step 7 -- report contents
 
-`REQUESTED_BY`, `SWEEP_SHA` and the scope as given; the paths examined in band order and the slices reviewed; every verified finding with its band, path and line, severity, `authorLabel` and the **Pre-existing** tag; what was left for the next run (`MAX_PATHS` truncation, uncovered slices, paths not found); the reduced-review notice when verification did not run.
+`REQUESTED_BY`, `SWEEP_SHA` and the scope as given; the paths examined in band order and the slices reviewed; every verified finding with its band, path and line, severity, `authorLabel` and the **Pre-existing** tag; what was left for the next run (`MAX_PATHS` truncation, uncovered slices, paths not found); the outcome is `SWEEP_PARTIAL` when truncation or an uncovered slice left anything unswept, else `SWEEP_COMPLETE` (the CLI has no sweep status: this is the skill's own report vocabulary); the reduced-review notice when verification did not run.
 
 ## Recurrence -- the host's template
 

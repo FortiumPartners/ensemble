@@ -1,0 +1,14 @@
+{
+  "number": 15,
+  "title": "Round totals to cents",
+  "url": "https://github.com/example/shopcart/pull/15",
+  "state": "OPEN",
+  "baseRefName": "main",
+  "headRefName": "fix/rounding",
+  "isDraft": false,
+  "author": {
+    "login": "lee"
+  },
+  "body": "Proposed change: Round totals to cents.",
+  "statusCheckRollup": []
+}

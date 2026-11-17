@@ -99,10 +99,10 @@ describe('beads-build Preflight resolve-sdlc rewiring (TRD-013)', () => {
     expect(stepBlock).toMatch(/INTERACTIVE=false, or INTERACTIVE detection is itself uncertain[\s\S]*HALT/);
   });
 
-  test('beads-build and the implement-trd-beads reference skill consume the same resolve-sdlc contract', () => {
+  test('beads-build and the implement-trd-tasks reference skill consume the same resolve-sdlc contract', () => {
     const beadsBuildText = skillText;
     const implText = fs.readFileSync(
-      path.join(__dirname, '../skills/implement-trd-beads-reference/SKILL.md'),
+      path.join(__dirname, '../skills/implement-trd-tasks-reference/SKILL.md'),
       'utf8'
     );
     const beadsBuildStep = beadsBuildText

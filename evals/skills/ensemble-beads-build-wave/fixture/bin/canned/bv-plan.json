@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-01-01T00:00:00Z",
+  "output_format": "json",
+  "version": "v0.25.2",
+  "plan": {
+    "tracks": [],
+    "total_actionable": 0,
+    "total_blocked": 3,
+    "summary": {
+      "highest_impact": "",
+      "impact_reason": "",
+      "unblocks_count": 0
+    }
+  }
+}

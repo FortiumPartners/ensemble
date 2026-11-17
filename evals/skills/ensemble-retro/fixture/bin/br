@@ -1,0 +1,40 @@
+#!/bin/sh
+# Stub `br` (beads CLI) for skill evals. Answers the calls the beads tracker adapter makes from canned JSON, with no workspace and no
+# network, and refuses everything else. Copied from the ensemble-beads-build eval; points at its own data with the two
+# environment variables below.
+#
+#   BR_STUB_CANNED   directory holding the canned files (default: canned/ next to this script)
+#   BR_STUB_LOG      file every call is appended to (default: br-calls.log in the sandbox root, two levels above this script and
+#                    outside the git worktree, so `git add -A` and `git clean` cannot touch it)
+#
+# Verbs answered (anything else: message on stderr, exit 2, nothing changed):
+#   --version                       "br 0.6.0 (stub)"
+#   list ...                        canned/issues.json, whatever the filters (the caller filters)
+#   show <id> ...                   canned/show-<id>.json (a one-element array); an id without a file: ISSUE_NOT_FOUND on stderr, exit 3
+#   comments list <id> ...          canned/comments-<id>.json, else []
+#   sync --flush-only ...           {"status":"ok"}, a no-op. Any other sync form is refused.
+# Every call is logged as one line holding its full argv (a newline or carriage return inside an argument is folded to a space).
+here=$(cd "$(dirname "$0")" && pwd)
+canned="${BR_STUB_CANNED:-$here/canned}"
+log="${BR_STUB_LOG:-$here/../../br-calls.log}"
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$log"
+
+safe() { case "$1" in ''|*[!A-Za-z0-9._-]*) return 1 ;; esac; return 0; }
+
+case "$1" in
+  --version) echo "br 0.6.0 (stub)"; exit 0 ;;
+  list) cat "$canned/issues.json"; exit 0 ;;
+  show)
+    if safe "$2" && [ -f "$canned/show-$2.json" ]; then cat "$canned/show-$2.json"; exit 0; fi
+    echo '{"error":{"code":"ISSUE_NOT_FOUND","message":"Issue not found","retryable":false}}' >&2
+    exit 3 ;;
+  comments)
+    if [ "$2" = "list" ]; then
+      if safe "$3" && [ -f "$canned/comments-$3.json" ]; then cat "$canned/comments-$3.json"; else echo '[]'; fi
+      exit 0
+    fi ;;
+  sync)
+    if [ "$2" = "--flush-only" ]; then echo '{"status":"ok"}'; exit 0; fi ;;
+esac
+echo "br stub: unsupported call: $*" >&2
+exit 2

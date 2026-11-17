@@ -1,0 +1,47 @@
+#!/bin/sh
+# Stub `gh` for the pr-merge-trace eval: answers the calls /ensemble:pr-merge makes from canned JSON in bin/canned/, with no
+# network and no GitHub. It prints the shape `gh` itself prints AFTER applying `--jq`, so the filters are never evaluated here.
+# Every call is appended to gh-calls.log in the sandbox root, two levels above this stub and outside the git worktree (the eval checks
+# that a merge was never attempted; a `git add -A` or `git clean` in the project cannot capture or delete the log). Any call this stub does not
+# know fails closed: message on stderr, exit 2.
+here=$(cd "$(dirname "$0")" && pwd)
+canned="$here/canned"
+# One line per call: the full argv, with any newline or carriage return inside an argument folded to a space, so a multi-line GraphQL
+# query or a crafted argument cannot split a call into several lines or fake the start of another.
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../gh-calls.log"
+
+unsupported() {
+  echo "gh stub: unsupported call: $*" >&2
+  exit 2
+}
+
+case "$1" in
+  --version) echo "gh version 2.103.2 (stub)"; exit 0 ;;
+  auth)
+    case "$2" in status) echo "github.com: Logged in as stub (stub)"; exit 0 ;; esac
+    unsupported "$@" ;;
+  repo)
+    case "$2" in view) cat "$canned/repo-view.json"; exit 0 ;; esac
+    unsupported "$@" ;;
+  pr)
+    case "$2" in
+      view)
+        case "$*" in
+          *"statusCheckRollup --jq"*) cat "$canned/pr-view.json"; exit 0 ;;
+          *"number,comments --jq"*) cat "$canned/pr-threads.json"; exit 0 ;;
+          *--jq*) unsupported "$@" ;;
+          *--json*) cat "$canned/pr-view-object.json"; exit 0 ;;
+        esac
+        unsupported "$@" ;;
+      checks) cat "$canned/pr-checks.json"; exit 0 ;;
+      merge) echo "Squashed and merged pull request #7 (stub)"; exit 0 ;;
+    esac
+    unsupported "$@" ;;
+  api)
+    case "$2" in
+      graphql) cat "$canned/pr-reviews.json"; exit 0 ;;
+      repos/*/commits/*/status) cat "$canned/commit-status.json"; exit 0 ;;
+    esac
+    unsupported "$@" ;;
+esac
+unsupported "$@"

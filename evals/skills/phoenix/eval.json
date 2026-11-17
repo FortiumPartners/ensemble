@@ -1,0 +1,142 @@
+{
+  "id": "phoenix",
+  "skill": "phoenix",
+  "description": "A non-interactive run adds a `Projects` feature to a small Phoenix 1.7 app (Tasker) that already has an Accounts context with a User schema and changeset, a Repo, a controller that calls the context, one LiveView (StatusLive.Index) with its LiveViewTest, a router, AGENTS.md and devbox.json (mix is meant to be run through devbox). The run saves lib/tasker/projects.ex (create_project, list_projects with the owner included, transfer_project that updates the project and writes an audit row), lib/tasker/projects/project.ex (schema and changeset, a project name unique per owner), lib/tasker/projects/project_audit.ex, a migration with the unique index, lib/tasker_web/live/project_live/index.ex (a LiveView at /projects with live updates), its LiveViewTest and notes/RUNNING.md (the migrate and test commands); lib/tasker_web/router.ex is the only existing file it may change, by gaining the route. Scope: a Phoenix project (mix.exs with :phoenix: contexts, Ecto, LiveView); not non-Phoenix Elixir libraries or other web frameworks. Static checks only, nothing is compiled or run: the web layer never touches Repo or Ecto and calls only the Projects context; the changeset lives in the schema module and its unique_constraint resolves to the migration's unique index (the planted trap: the index is per owner and name, so unique_constraint(:name) alone does not match); the migration creates the tables, the foreign key and the unique index; list_projects preloads the owner for the whole list (no per-row query); transfer_project uses Ecto.Multi run by Repo.transaction; mount loads nothing (the data comes from handle_params or assign_async); the PubSub subscription is under connected?(socket) and wired to a broadcast and a handle_info; the LiveViewTest uses Phoenix.LiveViewTest with at least two real assertions and no snapshot compare; every mix command written in notes goes through `devbox run`; mix.exs and every existing file except router.ex are unchanged, no dependency is added; the canary in notes/collector.conf is not copied. The baseline arm (no skill) is expected to measure the plugin's conventions (context boundaries, async loading, guarded subscriptions, Multi, constraints, devbox), not raw Phoenix ability. Limits: structure and intent only; the code is not compiled, so a passing run can still fail mix compile or mix test.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This Phoenix app has no projects feature yet. Add one. A project has a name and belongs to its owner, an existing user. A project name is unique per owner, and the database must enforce that too. Create these files and no others except tests and the one route: (1) lib/tasker/projects.ex, module Tasker.Projects, with create_project(owner, attrs), list_projects() returning every project with its owner included, and transfer_project(project, new_owner), which changes the project's owner and records an audit entry (the project, the old owner, the new owner) so that either both happen or neither does; (2) lib/tasker/projects/project.ex, the Project schema and its changeset; (3) lib/tasker/projects/project_audit.ex, the audit entry schema (table project_audits); (4) a migration at priv/repo/migrations/20240201000000_create_projects.exs creating both tables; (5) lib/tasker_web/live/project_live/index.ex, module TaskerWeb.ProjectLive.Index, a LiveView that lists the projects with their owners' names and updates live on every browser that has the page open when a project is created; (6) a route live \"/projects\", ProjectLive.Index in lib/tasker_web/router.ex, the only existing file you may change; (7) test/tasker_web/live/project_live_test.exs, a test for the LiveView; (8) notes/RUNNING.md with the exact commands to run the migration and the tests in this repository. Do not add or fetch any dependency, and do not run mix, the build or the tests. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' web-boundary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' context-api",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' changeset-in-schema",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' migration-tables",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' migration-unique-index",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' unique-constraint-match",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' fk-constraint",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' list-preloads",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' transfer-multi",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' mount-not-blocking",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' pubsub-guarded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' pubsub-wired",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' liveview-test",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' test-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' devbox-commands",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' router-route --fixture '{{repo}}/evals/skills/phoenix/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' no-new-dependency --fixture '{{repo}}/evals/skills/phoenix/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' fixture-untouched --fixture '{{repo}}/evals/skills/phoenix/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/phoenix.js' no-canary --token CANARY-PHOENIX-7d3e9a41b6",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

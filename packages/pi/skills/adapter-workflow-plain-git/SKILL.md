@@ -24,8 +24,8 @@ below was live-verified against this repository's own real, clean working tree.
 - `workflow.branch-create`: create and check out a new branch off the current HEAD (`git switch -c <name>`)
 - `workflow.status`: working tree clean/dirty + changed files (`git status --porcelain`)
 - `workflow.commit`: commit staged changes (`git commit -m <message>`)
-- `workflow.push`: push the current branch (`git push`)
-- `workflow.propose`: pushes the branch (`git push`) -- NOT a real "open a pull request" call, see "Known limits"
+- `workflow.push`: push the current branch and set its upstream (`git push -u origin HEAD`)
+- `workflow.propose`: pushes the branch (`git push -u origin HEAD`) -- NOT a real "open a pull request" call, see "Known limits"
 - `workflow.log`: commit log entries (`git log --oneline -n <limit> <ref>`)
 - `workflow.diff`: diff against a ref (`git diff <ref>`)
 - `workflow.merge-base`: common ancestor of two refs (`git merge-base <refA> <refB>`)
@@ -73,6 +73,7 @@ capability here, reserved for a future capability (e.g. enumerating local branch
   `[branch <short-sha>] <message>` summary) has no regex/string-split primitive in
   `mapping.js`'s dotted-path grammar to extract the SHA; no `parse` block is declared, so the raw
   commit summary is returned as `data` instead.
+- **`workflow.push` ignores its `branch` input and always pushes the current branch (`HEAD`) to `origin`.** The caller must be on the branch it wants pushed. This is deliberate: a bare `git push` fails on a brand-new branch with no upstream, `HEAD` needs no caller value, and a caller-supplied value can never become a `+refspec` force push. The remote is fixed to `origin`.
 - **`workflow.push`'s `branch` output is never populated.** `git push`'s real output (including
   any host-provided "create a pull request" hint) goes to stderr, which `mapOutput` never sees
   on a successful (zero-exit) invocation; no `parse` block is declared.

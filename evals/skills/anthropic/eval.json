@@ -1,0 +1,166 @@
+{
+  "id": "anthropic",
+  "skill": "anthropic",
+  "description": "A non-interactive run adds a Claude-backed support-ticket assistant to a small TypeScript support-desk app (Node) that already has a Ticket type, an order-status lookup (src/orders.ts, which throws on a malformed id), a config module that reads the environment (src/config.ts), a long fixed refund policy (docs/refund-policy.md, about 6 KB), one existing test and a package.json that already declares @anthropic-ai/sdk (nothing is installed or run). The run saves src/assistant.ts (summarize a ticket; answer a ticket with the order lookup offered as a tool, streamed to the caller, the policy reused across requests, extended reasoning on escalated tickets) and test/assistant.test.ts (a stand-in client, no network); src/config.ts is the only existing file it may change, by additions. Scope: integrating the Claude API/SDK (Messages, tool use, streaming, prompt caching, extended thinking) into application code; not OpenAI, Perplexity or non-Claude providers. Static checks only, nothing is run (no node, npm, tsc or jest, no network): the model id, context size and prices are not hard-coded (no model default either); the API key is never a literal or logged; every messages.create/stream call sets max_tokens and the code handles the stop reasons max_tokens, tool_use and refusal; every tool_use id gets a tool_result with that id, in order, in one user message, with is_error on a failing tool; the assistant turn is passed back unchanged and budget_tokens is below max_tokens; cache_control sits on the fixed policy/tools and not on the ticket turn; the answer streams through the SDK helpers; no retry layer of its own stacks on the SDK; the test uses a stand-in client with real assertions; package.json, the other fixture files and the canary are untouched and no dependency is added. The checks read code as text, so they show shape, not that the code compiles or behaves, and a request built by a helper function they cannot read fails with a message saying so. The baseline arm is expected to measure the plugin's conventions: a model without the skill may hard-code a model id, omit max_tokens or the stop reasons, answer only the first tool call, drop thinking blocks, cache the wrong block or add its own retry loop, and that gap, not the absolute pass count, is the uplift.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is a small support-desk app (TypeScript on Node). Add a ticket assistant that uses Claude. Create src/assistant.ts exporting: createClient(), which builds the client the app uses in production; summarizeTicket(client, ticket), which resolves with a one-sentence summary of the ticket; and answerTicket(client, ticket, onText), which writes the customer's reply to the ticket and resolves with the full reply text. The reply must reach the caller as it is being written: call onText with each piece of text as it arrives, instead of waiting for the whole reply. When the ticket asks about an order, the assistant must check the order's real status with the existing lookupOrderStatus in src/orders.ts (a ticket may mention more than one order, and the lookup throws on a malformed id), and base the reply on what it finds. Every reply must follow the refund policy in docs/refund-policy.md. It is long, identical for every ticket and read from that file, not copied into code, and the desk answers many tickets a minute, so requests should not pay again for processing that policy each time. Tickets with escalated: true are the hard ones: the assistant should reason carefully before answering those, while other tickets get a quick answer. The code that talks to Claude takes the client as an argument, so a test can pass in a stand-in. Also create test/assistant.test.ts, a jest test that uses a stand-in client (no network, no key) and makes real assertions about what the assistant does. You may add other files under src/. The one existing file you may change is src/config.ts, to add settings; keep every line that is already there, and change nothing else. Do not add or fetch any dependency, and do not run npm, npx, node, tsc or jest. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' files-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' uses-sdk",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' model-not-hardcoded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' no-hardcoded-limits-prices",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' api-key-from-env",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' key-not-logged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' max-tokens-every-call",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' stop-reason-handled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' streams-answer",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' tool-uses-existing-lookup",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' tool-results-every-id",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' tool-error-flagged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' thinking-for-hard",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' thinking-budget-below-max",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' assistant-turn-verbatim",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' cache-control-present",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' cache-on-stable-prefix",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' cache-not-on-volatile",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' policy-doc-loaded --fixture '{{repo}}/evals/skills/anthropic/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' no-custom-retry",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' test-mocked-client",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' no-new-dependency --fixture '{{repo}}/evals/skills/anthropic/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' fixture-untouched --fixture '{{repo}}/evals/skills/anthropic/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/anthropic.js' no-canary --token CANARY-ANTHROPIC-7c1e5a93b2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

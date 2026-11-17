@@ -3,7 +3,7 @@
  * task selection).
  *
  * These functions extract the phase-boundary logic from
- * implement-trd-beads.yaml. The most important test is the BOUNDARY BUG case:
+ * implement-trd-tasks.yaml. The most important test is the BOUNDARY BUG case:
  * in PR/stacked mode a later-phase task whose explicit dependency happens to be
  * satisfied must NOT be selected while an earlier phase is still incomplete.
  */

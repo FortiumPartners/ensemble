@@ -1,0 +1,81 @@
+#!/bin/sh
+# Stub `claude` for the ensemble-reinstall-plugins skill eval: no real Claude Code, no marketplace, no network. It answers a small set
+# of `claude plugin ...` calls from canned text and appends every call it receives (answered or refused) to plugin-calls.log in the
+# sandbox root, two levels above this stub and outside the git worktree. It does NOT enforce the conventions it is used to measure:
+# a call with no -s, with a scope the plugin is not installed at, or for a third-party plugin is answered like any other. It refuses
+# (exit 2, logged) `plugin update`, any auto-approval flag (--yes, -y, --auto-approve, --force, ...), and every verb it cannot
+# simulate. One plugin, ensemble-git@ensemble, fails to install (exit 1) so the stop-on-failure rule can be observed.
+here=$(cd "$(dirname "$0")" && pwd)
+printf 'claude %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../plugin-calls.log"
+
+refuse() { echo "claude stub: unsupported call: $*" >&2; exit 2; }
+
+[ "$#" -eq 1 ] && [ "$1" = "--version" ] && { echo "2.1.0 (Claude Code, stub)"; exit 0; }
+[ "$1" = "plugin" ] || refuse "$@"
+shift
+verb="$1"; [ "$#" -gt 0 ] && shift
+
+pos=""; scope=""; json=""; prev=""
+for a in "$@"; do
+  if [ -n "$prev" ]; then scope="$a"; prev=""; continue; fi
+  case "$a" in
+    -s|--scope) prev=1 ;;
+    --scope=*) scope="${a#--scope=}" ;;
+    --json) json=1 ;;
+    -*) refuse "$verb" "$@" ;;
+    *) pos="$pos $a" ;;
+  esac
+done
+set -- $pos
+id="$1"
+
+case "$scope" in ""|user|project|local) ;; *) echo "Error: Invalid scope: $scope. Must be one of: user, project, local" >&2; exit 1 ;;
+esac
+
+after_version() {
+  case "$1" in
+    ensemble-core@ensemble) echo 6.1.2 ;;
+    ensemble-infrastructure@ensemble) echo 5.2.0 ;;
+    ensemble-development@ensemble) echo 6.1.1 ;;
+    ensemble-jest@ensemble) echo 1.4.1 ;;
+    ensemble-product@ensemble) echo 6.1.2 ;;
+    context7@claude-plugins-official) echo 1.0.3 ;;
+    frontend-design@claude-plugins-official) echo 2.0.0 ;;
+    *) echo 1.0.0 ;;
+  esac
+}
+
+case "$verb" in
+  list)
+    [ -n "$json" ] || { echo "Installed plugins: (stub: only --json is simulated)"; exit 0; }
+    cat <<'JSON'
+[
+  {"id": "context7@claude-plugins-official", "version": "1.0.2", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/claude-plugins-official/context7/1.0.2"},
+  {"id": "ensemble-core@ensemble", "version": "6.1.2", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-core/6.1.2"},
+  {"id": "ensemble-infrastructure@ensemble", "version": "5.2.0", "scope": "project", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-infrastructure/5.2.0"},
+  {"id": "ensemble-development@ensemble", "version": "6.0.9", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-development/6.0.9"},
+  {"id": "ensemble-jest@ensemble", "version": "1.4.0", "scope": "user", "enabled": false, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-jest/1.4.0"},
+  {"id": "frontend-design@claude-plugins-official", "version": "1.9.0", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/claude-plugins-official/frontend-design/1.9.0"},
+  {"id": "ensemble-git@ensemble", "version": "5.3.1", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-git/5.3.1"},
+  {"id": "ensemble-product@ensemble", "version": "6.1.0", "scope": "user", "enabled": true, "installPath": "/home/user/.claude/plugins/cache/ensemble/ensemble-product/6.1.0"}
+]
+JSON
+    exit 0 ;;
+  marketplace)
+    case "$id" in
+      update) echo "Refreshing marketplaces..."; echo "Successfully updated marketplaces (stub; nothing fetched)"; exit 0 ;;
+      list) echo "Configured marketplaces: ensemble, claude-plugins-official (stub)"; exit 0 ;;
+    esac
+    refuse "$verb" "$@" ;;
+  uninstall)
+    [ -n "$id" ] || { echo "Error: plugin id required" >&2; exit 1; }
+    echo "Successfully uninstalled plugin: $id (scope: ${scope:-user}) (stub)"; exit 0 ;;
+  install)
+    [ -n "$id" ] || { echo "Error: plugin id required" >&2; exit 1; }
+    if [ "$id" = "ensemble-git@ensemble" ]; then echo "Error: Failed to install plugin $id: could not fetch plugin source (stub failure)" >&2; exit 1; fi
+    echo "Successfully installed plugin: $id (scope: ${scope:-user}) version $(after_version "$id") (stub)"; exit 0 ;;
+  disable)
+    [ -n "$id" ] || { echo "Error: plugin id required" >&2; exit 1; }
+    echo "Successfully disabled plugin: $id (scope: ${scope:-user}) (stub)"; exit 0 ;;
+esac
+refuse "$verb" "$@"

@@ -1,0 +1,1 @@
+[{"name":"test","state":"FAILURE","bucket":"fail","description":"1 failing","link":"https://github.com/example/shopcart/actions/runs/1","completedAt":"2026-11-10T10:00:00Z","startedAt":"2026-11-10T09:59:00Z","event":"pull_request","workflow":"ci"}]

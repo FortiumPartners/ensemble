@@ -3,7 +3,7 @@
 /**
  * REGRESSION (br-kzn, br-s7k): a marketplace-cache install of ensemble-development
  * has no node_modules (nothing runs `npm install` there), and team-defaults.js did a
- * bare `require('js-yaml')` at module scope, so implement-trd-beads' Team
+ * bare `require('js-yaml')` at module scope, so implement-trd-tasks' Team
  * Configuration Detection step crashed the moment the module loaded.
  *
  * These tests load the module with js-yaml unresolvable and require the roster to

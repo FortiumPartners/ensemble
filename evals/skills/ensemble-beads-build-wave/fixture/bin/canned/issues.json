@@ -1,0 +1,98 @@
+{
+  "issues": [
+    {
+      "id": "lr-e1",
+      "title": "Ledger Rollup Guard",
+      "status": "open",
+      "issue_type": "epic",
+      "description": "Epic Ledger Rollup Guard",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-t01",
+      "title": "Ledger Rollup Guard: define rollup schema",
+      "status": "closed",
+      "issue_type": "task",
+      "description": "Task of epic lr-e1 (Ledger Rollup Guard).",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-t02",
+      "title": "Ledger Rollup Guard: add period validator",
+      "status": "closed",
+      "issue_type": "task",
+      "description": "Task of epic lr-e1 (Ledger Rollup Guard).",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-t03",
+      "title": "Ledger Rollup Guard: write rollup job",
+      "status": "open",
+      "issue_type": "task",
+      "description": "Task of epic lr-e1 (Ledger Rollup Guard).",
+      "labels": [],
+      "dependency_count": 1,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-t04",
+      "title": "Ledger Rollup Guard: add rollup report",
+      "status": "open",
+      "issue_type": "task",
+      "description": "Task of epic lr-e1 (Ledger Rollup Guard).",
+      "labels": [],
+      "dependency_count": 1,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-e2",
+      "title": "Audit Trail Export",
+      "status": "open",
+      "issue_type": "epic",
+      "description": "Epic Audit Trail Export",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-p01",
+      "title": "Audit Trail Export: choose storage format",
+      "status": "in_progress",
+      "issue_type": "task",
+      "description": "Task of epic lr-e2 (Audit Trail Export).",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 1
+    },
+    {
+      "id": "lr-p02",
+      "title": "Audit Trail Export: write exporter",
+      "status": "open",
+      "issue_type": "task",
+      "description": "Task of epic lr-e2 (Audit Trail Export).",
+      "labels": [],
+      "dependency_count": 1,
+      "dependent_count": 0
+    },
+    {
+      "id": "lr-p03",
+      "title": "Audit Trail Export: add retention job",
+      "status": "closed",
+      "issue_type": "task",
+      "description": "Task of epic lr-e2 (Audit Trail Export).",
+      "labels": [],
+      "dependency_count": 0,
+      "dependent_count": 0
+    }
+  ],
+  "total": 9,
+  "limit": 0,
+  "offset": 0,
+  "has_more": false
+}

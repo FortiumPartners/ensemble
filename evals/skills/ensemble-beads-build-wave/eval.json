@@ -1,0 +1,95 @@
+{
+  "id": "ensemble-beads-build-wave",
+  "skill": "ensemble-beads-build-wave",
+  "description": "Claude Code only (Pi has no package commands). SCOPE: the GUARD/EDGE path of one /ensemble-development:ensemble:beads-build-wave run against an epic whose open work is all blocked, so the scheduler returns no actionable track and nothing is dispatched: the run must report that state in the skill's single-line JSON summary (last line of output, saved by the prompt to last-line.json). Not evaluated: a wave that dispatches tracks (concurrent Task() to tech-lead-orchestrator, barrier, the commit gate, close), --max-parallel, --label scoping, --trd, strategy detection, and the other edges (on the default branch -> refuse; dirty tree, detached HEAD, missing --epic, unknown epic, toolchain preflight failure -> ERROR and HALT), which need other fixtures. The sandbox is a git repo on branch feature/ledger-rollup (no remote) with stub `br` and `bv` in bin/ (canned JSON in bin/canned/, no network, writes refused, every call logged): epic lr-e1 `Ledger Rollup Guard` has 2 closed tasks and 2 open tasks that wait on a bead of another epic (lr-e2 `Audit Trail Export`, whose own bead lr-p01 is in progress, the scoping trap: repo-wide there is one in-progress bead, in the epic none); bv returns a plan with `tracks: []` (what bv emits for nothing actionable; the beads adapter maps it to an empty list). Checks on the saved line: exactly one line of valid JSON with exactly the twelve keys of the locked schema and the types the skill states; root_epic_id lr-e1 and epic_slug ledger-rollup-guard (derived from the title); nothing dispatched, succeeded, failed or closed (all zero) and nothing scoped in progress; remaining_scoped_count 2 or 3 (the epic bead may or may not be counted); terminal_state blocked paired with next_action_hint stop_blocked (not complete). Plus: the stubs saw a `br list` and a `bv --robot-plan`; no br write verb (only `sync --flush-only`, which the skill's own Step 1 runs, is tolerated); seeded files unchanged; no commit, stage, branch or checkout (git read from .git, no git run); the canary in notes/collector.conf not copied. The fixture has no .gitignore: the toolchain's own preflight writes .ensemble/state/, which now ignores itself, so the skill's clean-tree check passes without one. Limits: this does not show that a wave dispatches or settles; whether Task() was used is not observable from files (a dispatch for this epic would have nothing to dispatch and the zero counts would expose it). The command is hidden (user-invocable false in its generated stub): whether typing it works in a headless run is unproven and a trial must show it. wave_number and elapsed_seconds are only range-checked. The baseline arm is expected to measure the plugin's conventions (the exact schema, the single last line, the blocked-versus-complete distinction, no mutation), not skill against a well-written prompt.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Arguments: --epic lr-e1 --foreman\n\nThis is a non-interactive run against a local sandbox: `br` and `bv` on PATH are local stubs that answer from canned data, so use no other tracker access and no network. Ask no questions. Change nothing in the repository except one new file: after you have printed your final output, save its last line, exactly as printed, to last-line.json in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:beads-build-wave",
+  "branch": "feature/ledger-rollup",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "Skill"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-schema",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-identity --epic lr-e1 --slug ledger-rollup-guard",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-no-dispatch",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-counts --remaining 2,3 --in-progress 0",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' summary-state --state blocked --hint stop_blocked",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' graph-read",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' tracker-read-only",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' files-unchanged",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' git-state --branch feature/ledger-rollup",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-beads-build-wave.js' no-canary --token CANARY-LEDGER-WAVE-5d2b8e61f0",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -162,7 +162,7 @@ Verify: check that `.codex/skills/commands/ensemble-standards/SKILL.md` exists i
 
 ### Tools the workflows expect
 
-`implement-trd-beads`, `beads-build` and related commands drive the Beads CLIs `br` (beads_rust) and `bv` (beads_viewer); `bv` is a hard requirement with no fallback. PR-producing commands use the GitHub CLI `gh`. `git-town` is used when installed and configured, otherwise plain git (see `ENSEMBLE_BRANCHING_STRATEGY` in section 8).
+`implement-trd-tasks`, `beads-build` and related commands drive the Beads CLIs `br` (beads_rust) and `bv` (beads_viewer); `bv` is a hard requirement with no fallback. PR-producing commands use the GitHub CLI `gh`. `git-town` is used when installed and configured, otherwise plain git (see `ENSEMBLE_BRANCHING_STRATEGY` in section 8).
 
 ## 3. Quick start: idea to merged PR
 
@@ -200,12 +200,12 @@ The TRD gets architecture alternatives, a Master Task List with traceability to 
 /ensemble:refine-trd docs/TRD/TRD-2026-1a2b3c4d-password-reset.md
 ```
 
-The close-out asks for a go decision, warns if the source PRD is not locked, and on GO prints `/ensemble:implement-trd-beads <trd path>`.
+The close-out asks for a go decision, warns if the source PRD is not locked, and on GO prints `/ensemble:implement-trd-tasks <trd path>`.
 
 ### Step 5: implement with Beads
 
 ```text
-/ensemble:implement-trd-beads docs/TRD/TRD-2026-1a2b3c4d-password-reset.md
+/ensemble:implement-trd-tasks docs/TRD/TRD-2026-1a2b3c4d-password-reset.md
 ```
 
 Phases, in order:
@@ -290,25 +290,25 @@ Expected behavior:
 When several TRDs should be built as one body of work, merge them into a single normalized workstream TRD:
 
 ```text
-/ensemble:implement-trd-beads docs/TRD/TRD-2026-aaaa1111-auth.md docs/TRD/TRD-2026-bbbb2222-billing.md --workstream --generate-only
+/ensemble:implement-trd-tasks docs/TRD/TRD-2026-aaaa1111-auth.md docs/TRD/TRD-2026-bbbb2222-billing.md --workstream --generate-only
 ```
 
 Expected behavior:
 
 - It generates `docs/TRD/workstreams/TRD-YYYY-<micro_uuid>-workstream-<slug>.md` containing a Source TRD Manifest, a normalized Master Task List, source provenance, the source task markdown verbatim, and AC-level implementation, test and validation tasks.
-- It prints the path, workstream slug, source TRD count and the next step `/ensemble:implement-trd-beads <generated-path>`, then exits. No beads, branches, commits or PRs are created.
+- It prints the path, workstream slug, source TRD count and the next step `/ensemble:implement-trd-tasks <generated-path>`, then exits. No beads, branches, commits or PRs are created.
 - Source TRDs stay canonical.
 
 Then implement the generated file:
 
 ```text
-/ensemble:implement-trd-beads docs/TRD/workstreams/TRD-2026-aaaa1111-workstream-auth-billing.md
+/ensemble:implement-trd-tasks docs/TRD/workstreams/TRD-2026-aaaa1111-workstream-auth-billing.md
 ```
 
 Or generate and implement in one step by omitting `--generate-only`:
 
 ```text
-/ensemble:implement-trd-beads docs/TRD/TRD-2026-aaaa1111-auth.md docs/TRD/TRD-2026-bbbb2222-billing.md --workstream
+/ensemble:implement-trd-tasks docs/TRD/TRD-2026-aaaa1111-auth.md docs/TRD/TRD-2026-bbbb2222-billing.md --workstream
 ```
 
 Options that apply with `--generate-only`:
@@ -523,7 +523,7 @@ The Package column names the marketplace plugin that ships the command. Argument
 | `/ensemble:verify-requirements` | `--trd <trd-path> [--prd <prd-path>] [--mode auto\|beads\|checkbox\|both] [--report-path <path>] [--no-write-report] [--run-tests]` | Post-implementation REQ to AC to code traceability proof report | `ensemble-development` |
 | `/ensemble:requirement-status` | `[trd-path-or-slug]` | On-demand requirement satisfaction report from bead comments | `ensemble-development` |
 | `/ensemble:trd-dependency-graph` | `[trd-dir\|paths...] [--format json\|mermaid\|dot] [--overlap]` | Dependency graph across TRDs and likely-duplicate work | `ensemble-development` |
-| `/ensemble:implement-trd-beads` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]` | Implement a TRD through a persistent bead hierarchy | `ensemble-development` |
+| `/ensemble:implement-trd-tasks` | `[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]` | Implement a TRD through a persistent bead hierarchy | `ensemble-development` |
 | `/ensemble:implement-bead` | `<bead-id>` | Implement one bead through analysis, implementation and PR | `ensemble-development` |
 | `/ensemble:beads-build` | `[epic-id\|slug-pattern] [--trd trd-path] [--strategy tdd\|characterization\|bug-fix\|refactor\|test-after\|flexible] [--label <label>] [max parallel N]` | Drive an existing bead hierarchy to completion | `ensemble-development` |
 | `/ensemble:feature` | `<new\|resume\|status\|abandon> [args...]` | Dispatcher: feature lifecycle | `ensemble-development` |
@@ -700,7 +700,7 @@ Ensemble reads user-level configuration from `$XDG_CONFIG_HOME/ensemble/` (defau
 
 | Variable | Effect |
 | --- | --- |
-| `ENSEMBLE_USE_STACKED_PRS` | When `true`, `implement-trd-beads` creates one stacked PR per `### PR N:` section; otherwise one PR for the whole TRD. See [stacked-prs](stacked-prs.md) |
+| `ENSEMBLE_USE_STACKED_PRS` | When `true`, `implement-trd-tasks` creates one stacked PR per `### PR N:` section; otherwise one PR for the whole TRD. See [stacked-prs](stacked-prs.md) |
 | `ENSEMBLE_BRANCHING_STRATEGY` | Force `git-town` or `plain-git` instead of auto-detection |
 | `ENSEMBLE_PR_BACKEND` | `gh` (default), `ado` or `manual` |
 | `CLOUDFLARED_PATH` | Location of `cloudflared`, used by `refine-prd --collab --tunnel=quick` |
@@ -767,7 +767,7 @@ Exit code 2 with a message on stderr indicates a usage or runtime error; exit co
 
 It is honored only with `--workstream --generate-only`. See the workstream recipe.
 
-### `implement-trd-beads` halts early
+### `implement-trd-tasks` halts early
 
 Common causes: `bv` or `br` missing (no fallback exists); a Design Readiness score below 3.0 (run `/ensemble:refine-trd`); two or more TRD paths without `--workstream`; `--plan` together with `--execute`; `--execute` with no existing scaffold (run with `--plan` first); an unresolved branch or PR backend in non-interactive mode (set `--branch=<name>` or `--use-current-branch`, and `ENSEMBLE_PR_BACKEND`).
 
@@ -782,7 +782,7 @@ Common causes: `bv` or `br` missing (no fallback exists); a Design Readiness sco
 | `create-prd-meeting` | `/ensemble:create-prd --from-meeting <summary-or-path>` (now runs the Constitution Gate; mutually exclusive with `--foreman`) |
 | `refine-prd-meeting` | `/ensemble:refine-prd <prd-path> --from-meeting <summary-or-path>` |
 | `create-trd-foreman` | `/ensemble:create-trd --parser-tables` |
-| `create-workstream-trd` | `/ensemble:implement-trd-beads <trd> <trd>... --workstream --generate-only` |
+| `create-workstream-trd` | `/ensemble:implement-trd-tasks <trd> <trd>... --workstream --generate-only` |
 | `generate-feature-tests` | `/ensemble:reqnroll features` |
 | `check-feature-drift` | `/ensemble:reqnroll feature-drift` |
 | `generate-reqnroll-bindings` | `/ensemble:reqnroll bindings` |
@@ -829,7 +829,7 @@ The `release-agent` and `test-reader-agent` agents were removed. Use `/ensemble:
 
 ## 11. Code review process
 
-Ensemble reviews a pull request in one place: the `pr-review-cycle` skill. `/ensemble:fix-issue`, `/ensemble:implement-trd-beads` and `/ensemble:pr-merge` all reach the review through that skill, so the behaviour described here is the behaviour you get from any of them.
+Ensemble reviews a pull request in one place: the `pr-review-cycle` skill. `/ensemble:fix-issue`, `/ensemble:implement-trd-tasks` and `/ensemble:pr-merge` all reach the review through that skill, so the behaviour described here is the behaviour you get from any of them.
 
 The split to keep in mind: **what a review values is yours to edit in Markdown; what a review is allowed to conclude is graded by code.** Prose a model can misread cannot be a guarantee, so the vote threshold, the risk tier, the approval count and the merge gate are deterministic modules, reached as subcommands of `pr-review-cli.js`.
 

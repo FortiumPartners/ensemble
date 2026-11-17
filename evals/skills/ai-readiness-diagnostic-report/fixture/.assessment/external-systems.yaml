@@ -1,0 +1,3 @@
+# Local-only assessment configuration (no external systems are reachable from this sandbox).
+local_output:
+  reports_root: reports

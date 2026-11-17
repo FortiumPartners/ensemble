@@ -27,13 +27,13 @@ run by hand (or from a throwaway script) against the GitHub API through the alre
 
 The pilot compares how long PRs take to go from open to merged, and how review happens along the
 way, **before** the `pr-review-cycle` gate existed (baseline) and **after** it is live in both
-`fix-issue` and `implement-trd-beads` (post-change). It covers only PRs created by those two
+`fix-issue` and `implement-trd-tasks` (post-change). It covers only PRs created by those two
 commands; manually opened PRs, dependency-bot PRs, and PRs from other automation are out of scope
 because they never went through the gate being measured.
 
 ## 2. Baseline and post-change cohorts
 
-A cohort is the set of PRs created by `fix-issue` or `implement-trd-beads` in a given window.
+A cohort is the set of PRs created by `fix-issue` or `implement-trd-tasks` in a given window.
 **Both** of the following must hold before a cohort is considered large enough to report on —
 this is an AND, not an OR:
 
@@ -44,7 +44,7 @@ Collection continues until **whichever of the two thresholds is reached later**.
 accumulate in 10 days, keep collecting until day 30. If 30 days pass with only 12 PRs, keep
 collecting until the 20th PR lands. A cohort that satisfies only one threshold is not reportable.
 
-- **Baseline cohort:** PRs created by `fix-issue` or `implement-trd-beads` **before** PR 2/PR 3 of
+- **Baseline cohort:** PRs created by `fix-issue` or `implement-trd-tasks` **before** PR 2/PR 3 of
   this TRD ship the local/remote review gates, satisfying both thresholds above.
 - **Post-change cohort:** PRs created by the same two commands **after** the gates are live,
   satisfying the same two thresholds, measured independently (not blended with baseline data).
@@ -55,7 +55,7 @@ Neither command currently tags its PRs with a label, so cohort membership is det
 PR body text each command already writes:
 
 - `fix-issue.yaml` always appends `Generated with [Ensemble Fix-Issue]` to the PR body.
-- `implement-trd-beads.yaml` writes one of two PR bodies. A stacked phase PR (`PR_BODY`) has a line
+- `implement-trd-tasks.yaml` writes one of two PR bodies. A stacked phase PR (`PR_BODY`) has a line
   ending `<N> of TRD <TRD_SLUG>.` directly followed by a `**Shippable:**` line. The single completion
   PR (`COMPLETION_BODY`) reads `Implements TRD <TRD_SLUG>. Strategy: ... <phase_count> phases,
   <task_count> tasks — all complete. Bead: <ROOT_EPIC_ID>.` and does **not** contain `of TRD`, so a
@@ -79,14 +79,14 @@ gh pr list --repo "$REPO" --state merged --limit "$LIMIT" \
 jq 'map(select((.body // "") | contains("Generated with [Ensemble Fix-Issue]")) | del(.body))' \
   /tmp/candidates-fix-issue.json > /tmp/cohort-fix-issue.json
 
-# implement-trd-beads stacked phase PRs ("<N> of TRD <slug>." then a "**Shippable:**" line)
+# implement-trd-tasks stacked phase PRs ("<N> of TRD <slug>." then a "**Shippable:**" line)
 gh pr list --repo "$REPO" --state merged --limit "$LIMIT" \
   --search "\"of TRD\" in:body created:$WINDOW" \
   --json number,url,createdAt,mergedAt,body > /tmp/candidates-trd-phase.json
 jq 'map(select((.body // "") | test("[0-9]+ of TRD [^*]{1,200}\\*\\*Shippable:\\*\\*")) | del(.body))' \
   /tmp/candidates-trd-phase.json > /tmp/cohort-trd-phase.json
 
-# implement-trd-beads single completion PRs ("Implements TRD <slug>. ... <N> phases, <M> tasks")
+# implement-trd-tasks single completion PRs ("Implements TRD <slug>. ... <N> phases, <M> tasks")
 gh pr list --repo "$REPO" --state merged --limit "$LIMIT" \
   --search "\"Implements TRD\" in:body created:$WINDOW" \
   --json number,url,createdAt,mergedAt,body > /tmp/candidates-trd-completion.json
@@ -320,7 +320,7 @@ days** (earliest to latest `createdAt`). This is the same AND rule as §2. The c
 both checks (`cohort.meets_min_prs`, `cohort.meets_min_span_days`) and the committed file must record
 the cohort definition actually used, the PR count and the date range.
 
-If the §2 marker-defined cohort (`fix-issue` / `implement-trd-beads` PRs) is too small, the cohort
+If the §2 marker-defined cohort (`fix-issue` / `implement-trd-tasks` PRs) is too small, the cohort
 may be widened (for example to all merged PRs) **only** by recording that decision and an explicit
 note in the result file's `cohort.note`; a widened cohort is not the marker-defined cohort and must
 not be compared with one as if it were.

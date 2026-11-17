@@ -1,1 +1,4 @@
 results/
+cache/
+# fixtures may carry a cache/ directory (pr-review-sweep: src/cache/lru.js)
+!skills/*/fixture/**/cache/

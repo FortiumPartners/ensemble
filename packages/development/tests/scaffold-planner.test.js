@@ -2,7 +2,7 @@
  * Unit tests for the pure scaffold planner (lib/scaffold-planner.js).
  *
  * The planner ports Scaffold Steps 3-6 (epic / story / task / synthesized-test /
- * dependency edges) from implement-trd-beads.yaml into a pure function that
+ * dependency edges) from implement-trd-tasks.yaml into a pure function that
  * returns a PLAN (data) with no side effects. These tests pin the plan shape
  * and the dependency-edge semantics that the executor depends on.
  */

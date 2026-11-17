@@ -1,0 +1,23 @@
+{
+  "skill": "ensemble-create-prd",
+  "skillVersion": "2.7.0",
+  "skillHash": "28ad39346ead122285785d3236d7a7a2e8ce02b1ada10a1fc7683c5ae959fa34",
+  "packageHash": "c789547cc9885b6ba1b235d33400dcece13300707b69c56f1d8951f160546005",
+  "evalVersion": "0d1c87122839fa0d2a40455a1f3aaed5cdb7e1e553a15b28619c5ca2416d65f0",
+  "model": "claude-opus-5-5",
+  "runtime": "claude",
+  "granularity": "package",
+  "repeats": 5,
+  "bar": 4,
+  "withSkill": {
+    "passes": 5,
+    "runs": 5
+  },
+  "baseline": {
+    "passes": 0,
+    "runs": 5
+  },
+  "reliable": true,
+  "uplift": 1,
+  "recordedAt": "2026-11-13T19:53:56.023Z"
+}

@@ -1,0 +1,8 @@
+Taking a percentage off a price gives back the amount taken off instead of what is left to pay.
+
+Steps: call `applyDiscount(8000, 25)` from `src/discount.js` (80.00 with 25 percent off).
+
+Expected: 6000 (60.00 left to pay).
+Actual: 2000 (the 20.00 that was taken off).
+
+Zero percent is wrong too: `applyDiscount(10000, 0)` returns 0 instead of 10000, and `npm test` fails on it.

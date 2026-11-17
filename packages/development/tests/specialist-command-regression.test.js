@@ -19,7 +19,7 @@ const { parseSubcommands } = require('../../product/tests/helpers/skill-subcomma
 // and packages/product/commands/*.yaml directly rather than assumed:
 //  - trd itself, plus every ref in its own `## Subcommands` section (9: the Foreman
 //    table-mode and workstream-generation variants are `create-trd --parser-tables` and
-//    `implement-trd-beads --workstream --generate-only` flags, not separate commands)
+//    `implement-trd-tasks --workstream --generate-only` flags, not separate commands)
 //  - prd itself, plus every ref in its own `## Subcommands` section (2:
 //    create-prd and refine-prd; the meeting-sourced variants are
 //    `--from-meeting` flags on those two, not separate commands)
@@ -53,7 +53,7 @@ const SPECIALIST_COMMANDS = [
   ['trd', DEV_COMMANDS_DIR],
   ['create-trd', DEV_COMMANDS_DIR],
   ['refine-trd', DEV_COMMANDS_DIR],
-  ['implement-trd-beads', DEV_COMMANDS_DIR],
+  ['implement-trd-tasks', DEV_COMMANDS_DIR],
   ['analyze-requirements', DEV_COMMANDS_DIR],
   ['analyze-complexity', DEV_COMMANDS_DIR],
   ['validate-requirements', DEV_COMMANDS_DIR],
@@ -140,7 +140,7 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
     const EXPECTED_TRD_SUBCOMMAND_REFS = [
       'create-trd',
       'refine-trd',
-      'implement-trd-beads',
+      'implement-trd-tasks',
       'analyze-requirements',
       'analyze-complexity',
       'validate-requirements',
@@ -171,7 +171,7 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
     test('packages/development/README.md command index still lists the specialists it already documents', () => {
       const readme = fs.readFileSync(path.join(REPO_ROOT, 'packages', 'development', 'README.md'), 'utf8');
       for (const name of [
-        '/ensemble:implement-trd-beads',
+        '/ensemble:implement-trd-tasks',
         '/ensemble:create-trd',
         '/ensemble:refine-trd',
       ]) {
@@ -192,7 +192,7 @@ describe('Specialist command regression suite (TRD-011 / TRD-011-TEST)', () => {
       expect(byKeyword.implement.description).toContain('--workstream --generate-only');
       // The base commands carry the flags the variants became.
       expect(readYaml(DEV_COMMANDS_DIR, 'create-trd').metadata.argument_hint).toContain('--parser-tables');
-      expect(readYaml(DEV_COMMANDS_DIR, 'implement-trd-beads').metadata.argument_hint).toContain('--generate-only');
+      expect(readYaml(DEV_COMMANDS_DIR, 'implement-trd-tasks').metadata.argument_hint).toContain('--generate-only');
     });
 
     test('packages/development/README.md documents the flags that replaced the removed variants', () => {

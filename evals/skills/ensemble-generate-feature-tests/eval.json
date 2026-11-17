@@ -1,0 +1,78 @@
+{
+  "id": "ensemble-generate-feature-tests",
+  "skill": "ensemble-generate-feature-tests",
+  "description": "On a seeded PRD with four requirements and five acceptance criteria (three Given/When/Then, one carrying a [NEEDS CLARIFICATION] marker, one free-form), a non-interactive generate-feature-tests run writes features/<prd-stem>/REQ-NNN.feature (one per requirement, one tagged and hashed Scenario per AC, flagged ACs tagged @needs-clarification with no invented steps) and a .prd-trace.json manifest whose hashes equal the generator's fingerprint, and leaves the PRD and the rest of the workspace untouched. Claude only: the skill runs the prd-cli.js helper from its plugin (${CLAUDE_PLUGIN_ROOT}), so Pi cannot load it alone. The baseline arm has no helper and no conventions to follow, so it is expected to measure the plugin's conventions (output layout, tags, the hash fingerprint, the manifest), not general Gherkin ability; a baseline pass-rate on hashes-match and manifest is not a defect of the checks. No constitution file: the skill does not read one.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-a1b2c3d4-csv2json.md\n\nThis is a non-interactive run: ask no questions. Generate Gherkin feature files from the acceptance criteria of this PRD, with a traceability manifest, and save them under features/. Change nothing else: do not edit the PRD, write no step definitions and implement nothing.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:generate-feature-tests",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' features-saved --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' scenario-per-ac --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004 --acs AC-001-1,AC-001-2,AC-002-1,AC-003-1,AC-004-1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' gwt-steps --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004 --acs AC-001-1,AC-001-2,AC-002-1,AC-003-1,AC-004-1 --flagged AC-003-1,AC-004-1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' needs-clarification --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004 --acs AC-001-1,AC-001-2,AC-002-1,AC-003-1,AC-004-1 --flagged AC-003-1,AC-004-1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' trace-tags --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' manifest --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --reqs REQ-001,REQ-002,REQ-003,REQ-004 --acs AC-001-1,AC-001-2,AC-002-1,AC-003-1,AC-004-1 --flagged AC-003-1,AC-004-1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' hashes-match --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4 --prd docs/PRD/PRD-2026-a1b2c3d4-csv2json.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' prd-unchanged --prd docs/PRD/PRD-2026-a1b2c3d4-csv2json.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-feature-tests.js' no-impl-files --out features/PRD-2026-a1b2c3d4-csv2json --doc-id PRD-2026-a1b2c3d4",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

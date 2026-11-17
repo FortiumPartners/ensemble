@@ -10,6 +10,9 @@
 /.github/workflows/ @ldangelo
 /scripts/ @ldangelo
 
+# Evals and their fixtures run with model credentials: a change is reviewed like code before it reaches main or dev, the only branches the Evals workflow gives the key to (see docs/guides/skills-eval.md).
+/evals/ @ldangelo
+
 # Review behaviour itself: policy, rules and the libraries that grade them.
 /REVIEW.md @ldangelo
 /.github/CODEOWNERS @ldangelo

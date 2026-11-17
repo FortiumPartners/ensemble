@@ -60,10 +60,10 @@ describe('refine-trd closes with a go/no-go', () => {
     expect(text).toContain('a refined copy of the wrong document');
   });
 
-  // implement-trd-beads and implement-trd are separate commands, not a flag.
+  // implement-trd-tasks and implement-trd are separate commands, not a flag.
   // Plain implement-trd makes no beads calls and cannot resume across sessions.
-  test.each(bothForms)('%s prefers implement-trd-beads and says why', (_label, text) => {
-    expect(text).toContain('Prefer implement-trd-beads over implement-trd');
+  test.each(bothForms)('%s prefers implement-trd-tasks and says why', (_label, text) => {
+    expect(text).toContain('Prefer implement-trd-tasks over implement-trd');
     expect(text).toContain('separate commands, not a flag');
   });
 

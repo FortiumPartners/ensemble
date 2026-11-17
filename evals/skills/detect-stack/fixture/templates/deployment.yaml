@@ -1,0 +1,3 @@
+# rendered by helm; see values.yaml
+name: {{ .Chart.Name }}
+replicas: {{ .Values.replicaCount }}

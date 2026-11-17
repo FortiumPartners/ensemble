@@ -1,0 +1,55 @@
+{
+  "runId": "7f3a9c1e5b2d4086",
+  "projectRoot": ".",
+  "idea": "A slugify helper that turns text into a URL slug.",
+  "status": "active",
+  "stage": "implementation_approval",
+  "stageOutcome": {
+    "kind": "approval_wait",
+    "recordedAt": "2026-10-06T14:50:00.000Z"
+  },
+  "artifacts": [
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-5c0de1a7-slugify.md",
+      "documentId": "PRD-2026-5c0de1a7",
+      "version": "1.0.0",
+      "producingStage": "prd_create",
+      "recordedAt": "2026-10-06T08:00:00.000Z"
+    },
+    {
+      "type": "prd",
+      "path": "docs/PRD/PRD-2026-5c0de1a7-slugify.md",
+      "documentId": "PRD-2026-5c0de1a7",
+      "version": "1.0.1",
+      "producingStage": "prd_refine",
+      "recordedAt": "2026-10-06T09:00:00.000Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-5c0de1a7-slugify.md",
+      "documentId": "TRD-2026-5c0de1a7",
+      "version": "1.0.0",
+      "producingStage": "trd_create",
+      "recordedAt": "2026-10-06T10:00:00.000Z"
+    },
+    {
+      "type": "trd",
+      "path": "docs/TRD/TRD-2026-5c0de1a7-slugify.md",
+      "documentId": "TRD-2026-5c0de1a7",
+      "version": "1.0.1",
+      "producingStage": "trd_refine",
+      "recordedAt": "2026-10-06T11:00:00.000Z"
+    }
+  ],
+  "beadRefs": [
+    "br-s1a1",
+    "br-s1a2",
+    "br-s1a3"
+  ],
+  "implementationApprovedAt": null,
+  "prApprovedAt": null,
+  "revision": 9,
+  "createdAt": "2026-10-06T07:46:58.754Z",
+  "updatedAt": "2026-10-06T14:50:00.000Z"
+}

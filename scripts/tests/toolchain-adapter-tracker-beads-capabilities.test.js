@@ -252,6 +252,52 @@ describe('TRD-024-TEST: work-graph capabilities, real runCapability() (the "work
     expect(result.data.items.map((item) => item.id)).toEqual(['br-3', 'br-1', 'br-2']);
   });
 
+  // Real bv v0.26.0 (`bv --robot-plan --format json`, scratch .beads fixture) emits
+  // `"plan":{"tracks":[],"total_actionable":0,"total_blocked":N,...}` for an epic with nothing
+  // actionable (everything closed, or only blocked work). That is a valid EMPTY plan, which
+  // beads-build-wave Step 7 reports as complete/blocked; it must not be BAD_OUTPUT.
+  describe.each(['work-graph.ready', 'work-graph.plan'])('%s: a plan with nothing actionable', (capability) => {
+    const run = (bvPlan) => {
+      const binDir = mkStubBinDir();
+      writeStubControl(binDir, { bvPlan });
+      return runCapability(REAL_MANIFEST, capability, {}, {
+        parentEnv: { ...process.env, PATH: `${binDir}:${process.env.PATH}` },
+        timeoutMs: 10000
+      });
+    };
+    const summary = { highest_impact: '', impact_reason: '', unblocks_count: 0 };
+
+    test('"tracks": [] (real bv output) is ok with no items', async () => {
+      const result = await run({ tracks: [], total_actionable: 0, total_blocked: 2, summary });
+      expect(result.ok).toBe(true);
+      expect(result.data.items).toEqual([]);
+    });
+
+    test('an absent or null "tracks" is also an empty plan', async () => {
+      for (const plan of [{ total_actionable: 0, summary }, { tracks: null, total_actionable: 0, summary }]) {
+        const result = await run(plan);
+        expect(result.ok).toBe(true);
+        expect(result.data.items).toEqual([]);
+      }
+    });
+
+    test('genuinely malformed plans are still BAD_OUTPUT', async () => {
+      const malformed = [
+        { tracks: 'nope' },
+        { tracks: {} },
+        { tracks: [{ track_id: 'track-A' }] }
+      ];
+      for (const plan of malformed) {
+        const result = await run(plan);
+        expect(result.ok).toBe(false);
+        expect(result.error).toEqual(expect.objectContaining({ code: 'BAD_OUTPUT' }));
+      }
+      const noPlan = await run('not-an-object');
+      expect(noPlan.ok).toBe(false);
+      expect(noPlan.error).toEqual(expect.objectContaining({ code: 'BAD_OUTPUT' }));
+    });
+  });
+
   test('work-graph.graph-health: status and findings map from bv --robot-insights', async () => {
     const binDir = mkStubBinDir();
     const result = await runCapability(REAL_MANIFEST, 'work-graph.graph-health', {}, {

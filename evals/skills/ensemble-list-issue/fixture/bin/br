@@ -1,0 +1,15 @@
+#!/bin/sh
+# Stub `br` for the ensemble-list-issue eval: answers the read calls the beads tracker adapter makes (`--version`, `list`) from canned
+# JSON in bin/canned/, with no workspace and no network. Every call is appended to br-calls.log in the sandbox root, two levels above
+# this stub and outside the git worktree. Any other call (a write such as create, update, close, comment, dep, label or sync) is
+# refused: message on stderr, exit 2, so a run that tries to change an issue leaves a record and no effect.
+here=$(cd "$(dirname "$0")" && pwd)
+canned="$here/canned"
+printf '%s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../br-calls.log"
+
+case "$1" in
+  --version) echo "br 0.6.0 (stub)"; exit 0 ;;
+  list) cat "$canned/issues.json"; exit 0 ;;
+esac
+echo "br stub: unsupported call: $*" >&2
+exit 2

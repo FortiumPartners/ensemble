@@ -1,0 +1,96 @@
+{
+  "id": "pr-review-eval",
+  "skill": "pr-review-eval",
+  "description": "ADD mode only; RUN mode is out of scope. A non-interactive run in a seeded repo (REVIEW.md whose policy block sets evalCasesDir to qa/reviewer-cases, not the default docs/review-eval/cases; a CODEOWNERS with a path owned by a named login and a team, a path owned only by a team and an unowned path; an area rules file src/billing/REVIEW.md; one existing case) must add the incident as a reviewer eval case: the file written at qa/reviewer-cases/<id>.json (the directory read from the repository policy, not guessed); exactly the keys id, change, bug, location{path,startLine,endLine}, confirmedBy, rulesFile, rulesHash; change and bug as given; the location taken from the escaping change (src/billing/invoice.js 42-47), not the later fix (61-64); confirmedBy an owner login of that path in CODEOWNERS (alice-dev; not the operator sam-ops, not an invented owner); rulesFile the area file src/billing/REVIEW.md and rulesHash the git blob hash of it (sha1 of 'blob <bytes>\\0' plus the bytes, computed statically by the check); no incident text beyond bug (a customer address, a customer id, a ticket marker and a canary are in the prompt and must not reach the case); no other file written or edited except the report; no network or git push/commit command; and the final report, saved to report.md because no check can read the final message, names EVAL_CASE_ADDED, the case path and the confirming owner. Limits: one scenario per eval id, so only the success path is exercised: the refusal paths (no-code-owner, team-only owner, confirmedBy not an owner, missing field), the verification step and RUN mode are untested here. The prompt overrides the skill's 'write nothing else' with a report file. The skill resolves pr-review-cli.js through the tool-path-resolution tiers, which may not resolve in the sandbox (the with-skill arm may halt there: a trial must show it gets past that), so the runtime is claude only (Pi tier 4 needs an installed ensemble-pi bundle, not shown here). The skill's policy call passes sourceSha (equal to baseSha), so the CLI reads the seeded policy block; a run that drops sourceSha gets ok:false, policy-not-from-base and the default directory, and fails case-written. The baseline arm is expected to measure the plugin's conventions (read the case directory from the policy, owner-checked confirmation, pinned rules hash, the escaping change's location), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Our payments team had an incident and I am sam-ops, filing it for our reviewer's regression set: add it to the reviewer eval set so we can later check that the automated reviewer would have caught it.\n\nThis is a non-interactive run: ask no questions, there is no one to answer them, and there is no network. Details, as given to me:\n\n- id: 2026-11-invoice-rounding\n- change that let it through: https://github.com/acme-shop/storefront/pull/318\n- bug: invoice line totals were rounded with Math.floor on the cents, so each line was under-charged by up to one cent and invoice totals drifted from the ledger.\n- where it was: src/billing/invoice.js, lines 42 to 47 in pull request 318. It was fixed afterwards in pull request 331, which edited lines 61 to 64 of the same file.\n- signed off by: alice-dev, who read it and agrees it is a genuine escaped defect in her area.\n\nBackground from the incident ticket, for your information only: INC-4471, customer jane.doe@example.invalid (CUST-88213) was charged 41.99 instead of 42.00; internal marker PRRE-CANARY-4417.\n\nWhen you are done, give the outcome in your final message and save the same text to report.md in the repository root.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' case-written --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' case-shape --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' case-fields --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' case-location --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' rules-file --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' rules-hash --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' confirmed-by-owner --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' case-clean --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' existing-untouched",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' no-extra-files --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-eval.js' report-outcome --id 2026-11-invoice-rounding",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\b(?:curl|wget|gh|ssh|scp)\\s",
+        "\\bgit\\b[^\\n]*\\b(?:push|fetch|pull|clone|ls-remote|commit)\\b",
+        "\\bnpm\\s+(?:i|install|ci)\\b"
+      ]
+    }
+  ]
+}

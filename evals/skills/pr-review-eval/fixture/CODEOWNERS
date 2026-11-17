@@ -1,0 +1,3 @@
+# Who answers for which part of the code.
+/src/billing/   @Alice-Dev @acme-shop/payments
+/src/platform/  @acme-shop/platform

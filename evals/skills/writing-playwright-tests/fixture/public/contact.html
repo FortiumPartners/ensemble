@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Contact us - Acme Legacy Portal</title>
+  <link rel="stylesheet" href="/css/legacy.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr"><h1 class="pg-title">Contact us</h1></div>
+    <div class="box">
+      <div id="form-error" class="err-msg alert alert-danger" role="alert" data-testid="contact-form-error" style="display:none">Please fill in all required fields.</div>
+      <div id="form-ok" class="alert alert-success" role="status" style="display:none">Thank you, your message has been sent.</div>
+      <form id="contact" class="frm frm-contact" novalidate>
+        <div class="row"><div class="col"><label for="f-name">Name</label><input id="f-name" class="fld fld-text" type="text" name="name"></div></div>
+        <div class="row"><div class="col"><label for="f-email">Email address</label><input id="f-email" class="fld fld-text" type="email" name="email"></div></div>
+        <div class="row"><div class="col"><label for="f-msg">Message</label><textarea id="f-msg" class="fld fld-area" name="message"></textarea></div></div>
+        <div class="row"><div class="col"><button type="submit" class="btn btn-primary submit-form" data-testid="contact-form-submit">Send message</button></div></div>
+      </form>
+    </div>
+  </div>
+  <script>
+    document.getElementById('contact').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = e.target;
+      var ok = f.name.value.trim() && f.email.value.trim() && f.message.value.trim();
+      document.getElementById('form-error').style.display = ok ? 'none' : 'block';
+      document.getElementById('form-ok').style.display = ok ? 'block' : 'none';
+    });
+  </script>
+</body>
+</html>

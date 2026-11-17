@@ -13,13 +13,7 @@ the parent dispatches every track concurrently to tech-lead-orchestrator via
 Task(), the parent waits for the barrier, and a structured JSON summary is
 emitted so the caller can decide whether to dispatch another wave.
 
-This command is intentionally non-recursive: at no point does this command
-call itself or any sibling subagent. The loop lives in the caller
-(beads-build.yaml Execute phase), which checks the summary
-`remaining_scoped_count` and dispatches another wave-runner if non-zero.
-That two-tier shape respects Codex max_depth=1 and works across claude/pi/codex/opencode via the universal Task() primitive.
-Invoked standalone, it still exits with a JSON summary once the barrier settles;
-callers re-invoke it themselves.
+This command is intentionally non-recursive: it never calls itself or any sibling subagent. The loop lives in the caller (beads-build.yaml Execute phase), which checks the summary `remaining_scoped_count` and dispatches another wave-runner if non-zero. That two-tier shape respects Codex max_depth=1 across claude/pi/codex/opencode via the universal Task() primitive. Invoked standalone, it still exits with a JSON summary once the barrier settles.
 
 ## Capabilities
 

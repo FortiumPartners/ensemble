@@ -1,0 +1,66 @@
+{
+  "id": "ensemble-generate-reqnroll-bindings",
+  "skill": "ensemble-generate-reqnroll-bindings",
+  "description": "Claude Code only. /ensemble-product:ensemble:generate-reqnroll-bindings scaffolds a Reqnroll + xUnit project under tests/ from a seeded three-criterion PRD (with --sut): a feature and a step class per requirement with the PRD's Given/When/Then wording verbatim, Pending bodies, a Reqnroll.xUnit .csproj referencing the SUT, reqnroll.json, and a .reqnroll-trace.json whose step hashes are the generator's. The trace-manifest and matches-generator checks compare with what packages/product/lib/reqnroll-gen.js emits (step hashes, then every file byte-for-byte), so a hand-authored scaffold fails them. Limits: it checks the scaffold's shape and that the deterministic CLI was effectively used, not that the C# builds (no dotnet, no restore, no network) or that a generated step is sensible. The baseline arm has no CLI and is expected to measure the plugin's conventions (exact attribute escaping, hash fingerprints, file layout), not general ability to write Gherkin; its uplift is the package's. Whether the CLI resolves through ${CLAUDE_PLUGIN_ROOT} in the sandbox is unproven until a trial.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-0a1b2c3d-csv2json.md --out tests --sut src/Csv2Json/Csv2Json.csproj --foreman\n\nThis is a non-interactive run: ask no questions. Scaffold a runnable Reqnroll + xUnit acceptance-test project (features, step stubs with Pending bodies, project files) from that PRD under tests/, referencing the system under test src/Csv2Json/Csv2Json.csproj. Scaffold only: do not fill in step bodies, do not implement the tool, and do not edit the PRD.",
+  "invocation": "explicit",
+  "command": "/ensemble-product:ensemble:generate-reqnroll-bindings",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' scaffold-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' feature-scenarios",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' step-bindings",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' csproj-wired --sut src/Csv2Json/Csv2Json.csproj",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' trace-manifest --sut src/Csv2Json/Csv2Json.csproj",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' matches-generator --sut src/Csv2Json/Csv2Json.csproj",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-generate-reqnroll-bindings.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

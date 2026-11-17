@@ -77,7 +77,7 @@ function normalizeGraph(input) {
       const id = depId(dep);
       if (!id) continue;
       const depType = String(dep.dependency_type || dep.type || '').toLowerCase();
-      // br show represents blockers in `dependencies`; implement-trd-beads uses
+      // br show represents blockers in `dependencies`; implement-trd-tasks uses
       // story/task blocks parent, so parent-child style edges are inferred from
       // hierarchy title prefixes and explicit dependency type when available.
       if (depType === 'parent-child') {

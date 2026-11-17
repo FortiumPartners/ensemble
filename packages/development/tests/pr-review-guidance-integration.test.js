@@ -14,7 +14,7 @@
  *      a stale one or a payload the CLI would refuse fails here instead of
  *      sending an agent down a path that cannot work.
  *
- *   2. `fix-issue.yaml` and `implement-trd-beads.yaml` -- the PR bodies they
+ *   2. `fix-issue.yaml` and `implement-trd-tasks.yaml` -- the PR bodies they
  *      build are extracted from the command source and run through the real
  *      `description` checker, so "it has a Testing section" is proven by the
  *      checker that will grade it, never by a substring the generator might
@@ -262,7 +262,7 @@ describe.each(Object.keys(CALLERS))('%s builds a PR body the real checker accept
   const manifestText = fs.readFileSync(CALLERS[name], 'utf8');
   const text = readCommandProse(CALLERS[name], require('js-yaml').load(manifestText), manifestText);
 
-  // Every body a caller can publish: fix-issue has one template, implement-trd-beads builds a
+  // Every body a caller can publish: fix-issue has one template, implement-trd-tasks builds a
   // phase body and a completion body. A regex that found fewer would grade less than it claims.
   const EXPECTED_BODIES = EXPECTED_BODY_COUNT;
 

@@ -1,0 +1,131 @@
+{
+  "id": "blazor",
+  "skill": "blazor",
+  "description": "A non-interactive run adds an order status page to a small .NET 8 Blazor Web App (Shop.Web, interactive server render mode with prerendering on by default, nothing is restored or built) that already has central package management (Directory.Packages.props pins Fluent UI Blazor, bUnit and xunit), a home page that loads orders in OnInitializedAsync, a display-only child component, an order service, an order-change notifier that raises its event from a timer callback, an audit log that writes one entry per call, one bUnit test project, and notes/collector.conf holding a canary key. The run adds a page at /orders/status that lists orders on load, shows a ticking last-updated line, refreshes when the notifier fires, takes its orders through a new child component that reports the clicked order upward, has a form to add a note with two required fields and a length limit, records the view once, links from the menu and is tested. Scope: Blazor Server/Web App components on .NET 8+; not ASP.NET Core APIs or Wolverine/Marten backends. Static checks only, nothing is built or run (no dotnet, nuget or msbuild): the orders are loaded by awaiting the service from OnInitializedAsync (not from a constructor or the synchronous OnInitialized); the audit call, which writes on every call, is not made in an OnInitialized*/OnParametersSet* method (it runs twice with prerendering) unless PersistentComponentState is used or prerendering is turned off, and in OnAfterRender only behind firstRender; the page subscribes to OrderChanged, reloads from it and has a tick source; a component that subscribes or runs a timer, PeriodicTimer or CancellationTokenSource implements IDisposable or IAsyncDisposable and its Dispose removes the subscription with -= of the same named method (not an inline lambda) and disposes or cancels the resource; StateHasChanged reached from an off-thread callback (an event handler attached with +=, a System.Threading.Timer callback, a Task.Run body) goes through InvokeAsync; the form is an EditForm with a Model, a DataAnnotationsValidator, validation messages and OnValidSubmit, over a model with two [Required] members and a [StringLength]/[MaxLength] bound; the child the page uses takes parameters one way (no Action/Func callback parameter, no assignment to its own [Parameter] unless it is the @bind pair) and reports upward with an EventCallback that it invokes and the page handles; the new markup uses Fluent UI components and no raw HTML control or built-in Input* component, and no second UI library or non-test package is added; code that runs in the browser (an InteractiveWebAssembly/InteractiveAuto render mode or a .Client project) holds no database access or secret literal (a server-only run passes this trivially); no .Result, .Wait() or GetAwaiter().GetResult(); a bUnit test renders the new page or a new component with a real assertion; every other existing file is unchanged (only Program.cs, MainLayout.razor, _Imports.razor, the project files and HomeTests.cs may change, by addition), PackageReference never carries a Version, and the canary in notes/collector.conf is not copied. The baseline arm (no skill) is expected to measure the plugin's conventions (awaited load in OnInitializedAsync, no repeated side effect under prerendering, disposal of subscriptions and timers, InvokeAsync before StateHasChanged, EditForm with data annotations, one-way parameters with EventCallback, the project's UI library, bUnit tests), not raw C# or Razor ability. Limits: structure and intent only; Razor and C# are never compiled, so a passing run can still fail dotnet build or dotnet test; no Razor file in this repository was available to calibrate the Razor reading against.",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This Blazor app lists orders on its home page. Add an order status panel as a new page at /orders/status.\n\n- When the page opens it lists the current orders (customer and status), loaded through IOrderService.GetOrdersAsync.\n- It shows a line \"Last updated N seconds ago\" that counts up every second and goes back to 0 whenever the list is refreshed.\n- IOrderChangeNotifier raises OrderChanged when an order changes. When that happens the list must refresh by itself.\n- The orders are shown by a new, separate component that is given the orders and tells the page which order the user clicked. The page then shows that order's customer and status in a details area.\n- Below the details, a form adds a note to the selected order: an author name (required) and the note text (required, at most 200 characters). Show what is wrong next to the fields when the input is not acceptable. When it is acceptable, call IOrderService.AddNoteAsync and clear the form.\n- Record that the panel was viewed with IAuditLog.RecordViewAsync, once per visit (the log keeps one entry for every call).\n- Keep the look of the existing pages. Add a link to the new page to the navigation menu. Add tests for the new page to the existing test project.\n\nPut new code under src/ and tests/. You may change Program.cs, MainLayout.razor and the project files where the feature needs it; leave every other existing file as it is. Do not run dotnet, nuget or any other build tool. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' page-routed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' loads-in-oninitializedasync",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' no-side-effects-in-init",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' live-updates",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' disposes-subscriptions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' statehaschanged-marshalled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' form-validated",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' model-annotated",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' child-one-way",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' ui-library",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' no-secrets-or-db-in-wasm",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' no-sync-over-async",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' test-added --fixture '{{repo}}/evals/skills/blazor/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' test-asserts --fixture '{{repo}}/evals/skills/blazor/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' existing-untouched --fixture '{{repo}}/evals/skills/blazor/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' packages-central --fixture '{{repo}}/evals/skills/blazor/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' no-new-ui-package --fixture '{{repo}}/evals/skills/blazor/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/blazor.js' no-canary --token CANARY-BLAZOR-4d8b21e9a7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

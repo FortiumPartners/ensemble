@@ -1,0 +1,76 @@
+{
+  "id": "changelog-generator",
+  "skill": "changelog-generator",
+  "description": "A non-interactive run in a repository tagged v1.0.0 whose history since that tag is created by tools/seed-history.sh (eight conventional commits: two features, two fixes of which one carries a BREAKING CHANGE footer, a perf, a docs, a refactor with the ! marker and a chore). The agent writes CHANGELOG.md. Checks: the history was really seeded (the v1.0.0 tag exists), a Breaking Changes section holds both breaking commits (the ! form and the footer form) and no feature, each commit sits in its section (Features, Bug Fixes, Performance, Documentation), names its scope and carries a commit hash, Breaking Changes precede Features, the chore is excluded, and the suggested release is the major bump 2.0.0. Limits: structure only, not wording; a fabricated but well-formed hash passes (no check runs git); the skill is a script plus conventions and the skill's script path may not resolve in the sandbox, so the with-skill arm may follow SKILL.md by hand. The baseline arm gets a plain prompt and is expected to measure the plugin's conventions (category names and order, hashes, breaking-change handling, chore exclusion), not skill versus a well-written prompt. Claude only: the skill's script needs a path the Pi loader does not provide.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "This repository's last release is v1.0.0 and its history since then does not exist yet: run `sh tools/seed-history.sh` first to create it. Then write the release notes for the commits since v1.0.0 to CHANGELOG.md and state the next version number you suggest. This is a non-interactive run: ask no questions. Write only CHANGELOG.md; change nothing else and do not tag or push.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 30,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' history-seeded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' changelog-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' breaking-section",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' categories",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' scopes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' hashes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' breaking-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' chore-excluded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/changelog-generator.js' version-bump",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ],
+  "timeoutSec": 600
+}

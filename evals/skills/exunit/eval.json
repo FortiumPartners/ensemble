@@ -1,0 +1,63 @@
+{
+  "id": "exunit",
+  "skill": "exunit",
+  "description": "A non-interactive run writes an ExUnit test file for a small Elixir cart module with one reported bug (apply_discount goes negative above 100 percent). Static checks: test/cart_test.exs exists, has `use ExUnit.Case`, at least two test blocks with assert/refute calls, references the Cart module, calls apply_discount with a literal discount above 100 and expects 0, has no @tag :skip, empty test or assert true, leaves lib/cart.ex, mix.exs and test/test_helper.exs untouched and does not copy the canary token from notes/collector.conf. Limits: structure and intent only; mix and elixir are never run and the output is not compiled; quality is not judged; describe blocks are not required. The baseline arm is expected to measure the plugin's conventions, not raw ExUnit ability. Claude only: the skill's helper scripts (generate-test.exs, run-test.exs) are invoked by relative path and so depend on the skill directory.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The cart module in lib/cart.ex has a reported bug: Cart.apply_discount(100, 150) returns -50, but a discount above 100 percent must give a total of 0. Write an ExUnit test file at test/cart_test.exs that reproduces this bug (and covers Cart.cart_total briefly). This is a non-interactive run: ask no questions. Write only the test file; do not fix the bug, do not change any other file, and do not install or run anything.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' test-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' test-structure",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' test-references-source",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' test-covers-bug",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' test-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' source-untouched --fixture '{{repo}}/evals/skills/exunit/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/exunit.js' no-canary --token CANARY-EXUNIT-5d83b6e0a1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

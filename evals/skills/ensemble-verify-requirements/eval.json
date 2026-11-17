@@ -1,0 +1,76 @@
+{
+  "id": "ensemble-verify-requirements",
+  "skill": "ensemble-verify-requirements",
+  "description": "Claude Code only. /ensemble-development:ensemble:verify-requirements on a seeded PRD (three REQs) and TRD (REQ-001 tasks checked, REQ-002 tasks unchecked, REQ-003 has no task) in --mode checkbox without --run-tests. Offline: no beads, no network, the fixture repo has no task commits. The skill (via trd-cli verify) must save the traceability report at docs/req-traceability/<trd-slug>-<date>.md with the derived statuses (REQ-001 PARTIAL, REQ-002 IN PROGRESS, REQ-003 NOT PLANNED, overall PARTIAL; never COMPLETE or VERIFIED, since tests were not run), the REQ -> impl task -> -TEST task -> file chain and a Summary block, and must change nothing else (no task closed, nothing implemented, no commit). Checks cover report location, header, statuses, chain, summary counts and read-only behaviour; they do not show that an agent without the plugin could not reach the same table, and the baseline arm is expected to measure the plugin's conventions (report path and name, status vocabulary, evidence rules) rather than a capability gap. The skill resolves trd-cli through the tool-path-resolution tiers (packages/development/lib/trd-cli.js), so Pi is not enabled: without a plugin root those tiers fail in a sandbox and the with-skill Pi arm would halt. Fixture and checks were calibrated by running trd-cli verify on the fixture, not by a model run.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The TRD is: --trd docs/TRD/TRD-2026-b2c3d4e5-slugify.md --mode checkbox --foreman\n\nThis is a non-interactive run: ask no questions and choose the recommended options. Do not run the project's tests, and use no network or issue tracker. Verify the implementation against the requirements and save the traceability report. Change nothing else: do not modify code, tick or close tasks, or commit.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:verify-requirements",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-saved --slug trd-2026-b2c3d4e5-slugify",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-header --slug trd-2026-b2c3d4e5-slugify --mode checkbox --prd docs/PRD/PRD-2026-b2c3d4e5-slugify.md",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-verdict --slug trd-2026-b2c3d4e5-slugify --verdict PARTIAL",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-rows --slug trd-2026-b2c3d4e5-slugify --reqs 'REQ-001=PARTIAL,REQ-002=IN PROGRESS,REQ-003=NOT PLANNED'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-chain --slug trd-2026-b2c3d4e5-slugify --req REQ-001 --impl TRD-001 --test TRD-001-TEST --files 1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' report-summary --slug trd-2026-b2c3d4e5-slugify --summary total=3,partial=1,in_progress=1,not_planned=1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' read-only --trd docs/TRD/TRD-2026-b2c3d4e5-slugify.md --checked TRD-001,TRD-001-TEST --unchecked TRD-002,TRD-002-TEST --absent src/trim.js,test/trim.test.js --present src/slugify.js,test/slugify.test.js",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-verify-requirements.js' code-untouched --file src/slugify.js --contains \"module.exports = { slugify };\"",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    }
+  ]
+}

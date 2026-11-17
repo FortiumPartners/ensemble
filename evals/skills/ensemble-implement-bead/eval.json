@@ -1,0 +1,117 @@
+{
+  "id": "ensemble-implement-bead",
+  "skill": "ensemble-implement-bead",
+  "description": "Claude Code only (Pi has no package commands, and the skill resolves toolchain-cli and the workflow/host adapters by path). SCOPE: the happy path of /ensemble-development:ensemble:implement-bead with --foreman against ONE canned bead, gt-4k2 `greet with hello instead of hi`: a one-line change in src/greet.js plus its test, with a `## References` block pointing at a TRD task and a PRD requirement, no labels. The run goes preflight, branch from main, in_progress, context read, implementation through the orchestrator, commit, close, push, pull request, report. The sandbox has a bare origin (remote: true), `.ensemble/toolchain.yaml` pinning host github / workflow plain-git / tracker beads, and stubs in bin/ on PATH: a STATEFUL `br` (remembers status and comments, rewrites the tracked .beads/issues.jsonl on every write as br's export does, logs every call with the commit HEAD pointed at), a `bv` that answers --version only, and a `gh` that accepts one `pr create` for a branch that exists on origin and refuses every other mutating verb. Checks (static; git is read as files, never run): the report names the bead; a bead/<ID>-<title words> branch runs straight from the seed commit and main did not move; the change and its test are in a commit whose message ends [bead:<ID>]; no commit touches .beads/, bin/ or .ensemble/ (explicit-path staging: a blanket stage or `commit -a` carries the rewritten .beads/issues.jsonl in); the tracker saw in_progress, one close and the closing comment; the close happened with HEAD already at a commit that holds the change; the context-read comment was recorded before any commit; the branch is on origin; one pull request with base main, head the bead branch, the bead's title and a body naming the bead; no refused host call; only the bead's files changed on disk; no broad stage, no `commit -a`, no force push, no push to main, main (local and origin) unmoved. NOT COVERED: the already-closed-bead HALT, the dirty-tree HALT (no mutation), the missing-References HALT, a bead with labels (beads-stage and a `chore: beads sync` commit), a failing test (HALT, no close), the manual fallback when no host resolves, the interactive confirm gates, and the tech-lead-orchestrator quality loop's internals (the checks see the committed result only). PUSH: workflow.push in the plain-git adapter is `git push -u origin HEAD` (the branch argument is ignored; the current branch is pushed and gets its upstream), so a run that follows the skill pushes the new branch and can open the pull request; the stub gh refuses a pull request for a branch that is not on origin, so skipping the push fails branch-pushed and pr-created. The prompt does not mention pushing. The baseline arm (no development package; only packages/git, which holds the adapters) is expected to measure the plugin's conventions (branch name, commit message tag, explicit-path staging, close-after-commit order, the lifecycle comments), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "sharedPackages": [
+    "git"
+  ],
+  "prompt": "gt-4k2 --foreman\n\nThis is a non-interactive run against a local sandbox: ask no questions and choose the recommended option. `br`, `bv` and `gh` on PATH are local stubs that answer from canned data, so use no other tracker or GitHub access and no network. Agent types in this environment are named `ensemble-development:<name>`. Implement the issue gt-4k2 from the tracker and get it up for review as a pull request. As your very last step, after the pull request exists (or after you have stopped), write a short report to report.md in the repository root: the issue id, the branch, the pull request URL or why there is none, and what changed. Print the same text as your final message.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:implement-bead",
+  "sandboxPath": [
+    "bin"
+  ],
+  "remote": true,
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "Agent",
+    "Skill"
+  ],
+  "maxTurns": 150,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' branch-created",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' change-committed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' commit-scope",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' tracker-lifecycle",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' close-after-commit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' context-read-recorded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' branch-pushed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' pr-created",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' host-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-implement-bead.js' workspace-scope",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    },
+    {
+      "type": "remoteBranchUnchanged",
+      "branch": "main"
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bgit\\b[^\\n&;|]*\\badd\\b[^\\n&;|]*(?:\\s(?:-A|--all|-u|--update|\\.|:/|\\*)(?:\\s|$|;|&|\\|)|\\.beads|\\s[\\w./-]*/(?:\\s|$|;|&|\\|))",
+        "\\bgit\\b[^\\n&;|]*\\bcommit\\b[^\\n&;|]*\\s(?:-[A-Za-z]*a[A-Za-z]*|--all)(?:\\s|$)",
+        "\\bgit\\b[^\\n&;|]*\\bpush\\b[^\\n&;|]*(?:\\s-[A-Za-z]*f[A-Za-z]*(?:\\s|$)|\\s--force(?:-with-lease|-if-includes)?(?:=\\S*)?(?:\\s|$)|\\s\\+\\S)",
+        "\\bgit\\b[^\\n&;|]*\\bpush\\b[^\\n&;|]*(?:\\s|:|/)main(?:\\s|$|;|&|\\|)",
+        "\\bworkflow\\.push\\b[^\\n&;|]*branch=main\\b"
+      ]
+    }
+  ]
+}

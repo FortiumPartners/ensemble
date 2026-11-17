@@ -19,11 +19,12 @@
     "check:taxonomy": "node scripts/check-taxonomy-coverage.js",
     "docs:contracts": "node scripts/generate-contract-docs.js",
     "docs:contracts:check": "node scripts/generate-contract-docs.js --check",
-    "generate": "node scripts/generate-markdown.js",
+    "generate": "node scripts/generate-markdown.js && node scripts/generate-run-index-lib.js",
+    "generate:run-index": "node scripts/generate-run-index-lib.js",
     "generate:commands": "node scripts/generate-markdown.js --type commands",
     "generate:agents": "node scripts/generate-markdown.js --type agents",
     "generate:watch": "node scripts/generate-markdown.js --watch",
-    "generate:validate": "node scripts/generate-markdown.js --validate",
+    "generate:validate": "node scripts/generate-markdown.js --validate && node scripts/generate-run-index-lib.js --check",
     "generate:opencode": "node scripts/generate-opencode/index.js",
     "generate:pi": "npm run generate --workspace=packages/pi",
     "postgenerate:pi": "node scripts/bump-pi-version-if-changed.js",
@@ -34,6 +35,8 @@
     "release-notes:codex": "node scripts/generate-codex-release-notes.js",
     "publish:changed": "node scripts/publish-plugin.js",
     "evals": "node evals/run.js",
+    "evals:coverage": "node evals/coverage.js",
+    "evals:compare": "node evals/compare.js",
     "ci:local": "node scripts/ci-local.js"
   },
   "devDependencies": {

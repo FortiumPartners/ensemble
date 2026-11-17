@@ -1,0 +1,38 @@
+{
+  "id": "ensemble-create-trd",
+  "skill": "ensemble-create-trd",
+  "description": "From a seeded locked PRD, a non-interactive create-trd run writes a TRD under docs/TRD/ that trd-cli parses with at least one task, gives every REQ a task and commits nothing to main. Extends the legacy create-trd scenario (same task, a REQ-NNN PRD and a constitution file in the fixture, since the Constitution Gate halts without one). Claude only: on Pi (`--no-skills --skill <dir>`, no plugin dirs, no CLAUDE_PLUGIN_ROOT) Step 1.2 resolves trd-cli through the tool-path-resolution tiers, which fail in a sandbox unless an ensemble-pi bundle is installed (tier 4: ENSEMBLE_PI_INSTALL_ROOT, ~/.omp/plugins), so the with-skill Pi arm would halt and show a spurious negative uplift. Re-enable pi once a Pi trial on a host with the bundle shows the skill runs.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "docs/PRD/PRD-2026-b2c3d4e5-slugify.md --foreman\n\nThis is a non-interactive run: do not ask questions, choose recommended options, and write the TRD under docs/TRD/. Do not implement anything.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:create-trd",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 60,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "trdParses",
+      "path": "docs/TRD"
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pilot-checks.js' trd-covers-reqs --reqs REQ-001,REQ-002,REQ-003",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    }
+  ]
+}

@@ -19,6 +19,7 @@
  * parse = {
  *   format: 'json' | 'lines' | 'text',
  *   root?: string,                    // dotted path, json format only; default '$'
+ *   emptyWhen?: string,               // dotted path to an optional list, json format only (below)
  *   map?: { <outKey>: <dottedPath> }, // field projection against the (root-projected) value
  *   trimPrefix?: { <outKey>: <prefix> }, // TRD-040: strip a literal prefix off a map-built field
  *   statusMap?: { <rawValue>: <normalizedValue> }, // translates result.status, else result.state
@@ -31,6 +32,13 @@
  *   }
  * }
  * ```
+ *
+ * `emptyWhen` (json only) declares that `<path>` names a LIST that a tool legitimately leaves
+ * empty, null or absent (bv's `plan.tracks` is `[]` for an epic with nothing actionable). When
+ * its final named property is an empty array, `null` or missing from its parent object, the
+ * root-projected value is `[]` and `root` is not resolved, so a `map` of `"$"` yields `[]`. The
+ * parent must still resolve to a plain object and a present non-empty value still goes through
+ * `root`, so a malformed document stays `BAD_OUTPUT`.
  *
  * ## Format handling
  *
@@ -451,6 +459,26 @@ function applyArrayMapEntry(baseValue, outKey, spec) {
 }
 
 /**
+ * Whether the optional list at `listPath` (`$.<parent...>.<name>`) is empty, null or absent.
+ * The parent must resolve to a plain object (else `BAD_OUTPUT` via `resolvePath`/here).
+ *
+ * @param {unknown} parsed the parsed JSON document
+ * @param {string} listPath validated `emptyWhen` path
+ * @returns {boolean}
+ */
+function isEmptyList(parsed, listPath) {
+  const cut = listPath.lastIndexOf('.');
+  const parentPath = listPath.slice(0, cut);
+  const name = listPath.slice(cut + 1);
+  const parent = resolvePath(parsed, parentPath);
+  if (parent === null || typeof parent !== 'object' || Array.isArray(parent)) {
+    throw badOutputError(`mapOutput: '${parentPath}' is ${describeType(parent)}, not an object holding '${name}'`);
+  }
+  const value = Object.prototype.hasOwnProperty.call(parent, name) ? parent[name] : undefined;
+  return value === undefined || value === null || (Array.isArray(value) && value.length === 0);
+}
+
+/**
  * Map one tool invocation's raw stdout into a plain value, per `parse` (see module header).
  *
  * @param {string} stdout raw stdout captured from the executed tool
@@ -465,12 +493,15 @@ function mapOutput(stdout, parse) {
   if (!parse || typeof parse !== 'object') {
     throw badOutputError(`mapOutput: 'parse' must be an object, got ${describeType(parse)}`);
   }
-  const { format, root, map, statusMap, arrayMap, trimPrefix } = parse;
+  const { format, root, emptyWhen, map, statusMap, arrayMap, trimPrefix } = parse;
   if (format !== 'json' && format !== 'lines' && format !== 'text') {
     throw badOutputError(`mapOutput: parse.format must be one of 'json'|'lines'|'text', got ${JSON.stringify(format)}`);
   }
   if (root !== undefined && typeof root !== 'string') {
     throw badOutputError(`mapOutput: parse.root must be a string when present, got ${describeType(root)}`);
+  }
+  if (emptyWhen !== undefined && (typeof emptyWhen !== 'string' || !/^\$\.(?:[^.[\]|]+\.)*[^.[\]|]+$/.test(emptyWhen))) {
+    throw badOutputError(`mapOutput: parse.emptyWhen must be a dotted path to a named property ('$.a.b'), got ${JSON.stringify(emptyWhen)}`);
   }
   if (map !== undefined && (typeof map !== 'object' || map === null || Array.isArray(map))) {
     throw badOutputError(`mapOutput: parse.map must be an object when present, got ${describeType(map)}`);
@@ -496,7 +527,9 @@ function mapOutput(stdout, parse) {
     } catch (err) {
       throw badOutputError(`mapOutput: malformed JSON stdout (${err.message})`);
     }
-    baseValue = resolvePath(parsed, root === undefined ? '$' : root);
+    baseValue = emptyWhen !== undefined && isEmptyList(parsed, emptyWhen)
+      ? []
+      : resolvePath(parsed, root === undefined ? '$' : root);
   } else if (format === 'lines') {
     const rawLines = String(stdout).split('\n');
     if (rawLines.length > 0 && rawLines[rawLines.length - 1] === '') {

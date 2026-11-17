@@ -1,0 +1,57 @@
+{
+  "id": "ensemble-list-issue",
+  "skill": "ensemble-list-issue",
+  "description": "Claude Code only. /ensemble-development:ensemble:list-issue (flat form, no arguments) lists the open issues of a local sandbox tracker: `br` and `bv` in bin/ are stubs answering from canned JSON (3 open issues and 1 closed one), no network; the skill reads them through toolchain-cli (tracker.list), and the stub bv refuses work-graph.plan, so the flat listing is the only path. The listing the skill prints is also saved to listing.md (the skill itself only prints it). The checks: listing.md names exactly the three open issues with their ids and titles, none of the closed one and no invented id; the br stub was asked for a list; no call to br or bv was anything but a read; nothing was written outside listing.md. Limits: the beads adapter maps no orderingSource for work-graph.plan and the stub refuses it, so the ranked form (data.orderingSource, data.dependencyAware) and the order of the flat listing are not checked; the id and title checks read free-form Markdown and are marked flaky in the check script. The skill is command-driven and resolves toolchain-cli through the tool-path-resolution tiers, so the with-skill arm may halt there in the sandbox (unproven, as for pr-merge-trace and requirement-status): a trial must show it gets past that step. The baseline arm is expected to measure the plugin's conventions (the open filter, the unmodified listing, no writes), not skill against a well-written prompt.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "This is a non-interactive run against a local sandbox: list the open issues of the tracker for triage, in the flat form (no ranking). `br` and `bv` on PATH are local stubs that answer from canned data, so use no other tracker access and no network. Ask no questions. Do not create, modify or close any issue. Change nothing in the repository except one new file: when you have printed the listing, also save it, exactly as printed, to listing.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:list-issue",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 30,
+  "timeoutSec": 400,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-list-issue.js' listing-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-list-issue.js' open-issues --open 'br-3k1=Fix login redirect loop,br-7m2=Add CSV export for reports,br-9q4=Document the retry policy'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-list-issue.js' no-closed --closed 'br-2z8=Remove legacy cookie banner'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-list-issue.js' tracker-read",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-list-issue.js' read-only --issues 4",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

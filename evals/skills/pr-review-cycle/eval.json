@@ -1,0 +1,167 @@
+{
+  "id": "pr-review-cycle",
+  "skill": "pr-review-cycle",
+  "description": "Claude Code only. A read-only review of a colleague's pull request: PR 31 of example/shopcart, served by a stub gh in bin/ (canned answers, no network). The PR head is a SECOND commit on the local branch feat/shipping-threshold, ahead of main, built by the eval's `setup` (amend main to drop a staging directory, checkout -b, cp the head files over src/, commit, checkout main), so head != base and the review has a real diff; it changes src/cart.js and adds src/format.js, and seeds ONE defect: shipping() returns the flat fee at or above the free-shipping threshold and nothing below it (src/cart.js line 13, the reverse of its doc comment). The fixture REVIEW.md (base policy, severity words) has no highPaths or sensitivePaths, so the runner assigns tier Medium and runs light mode: two reviewers, a security lane, three verifiers per finding. The prompt says whose PR it is, that nothing is to be fixed, pushed or posted, and asks for the final status and the report path in review-result.txt (no grader can read the final message). Checks (static): result-saved; never-complete (a review of someone else's PR is never REVIEW_COMPLETE and its local phase never LOCAL_REVIEW_COMPLETE); report-written (untracked .ensemble/pr-review/pr-<id>.json bound to the PR's real head and base, status equal to the result file's, or an honest REVIEW_BLOCKED that names a real runner reason with evidence the runner ran); ledger-valid (all eight required fields, known severity and disposition, unique ids, located); seeded-finding-recorded (an Important ledger entry at src/cart.js in the shipping function); finding-describes-defect (soft, wording); gh-no-writes (the stub saw the PR read and refused nothing: no comment, review, api write); workspace-untouched (seeded files byte-identical, only the result file and review state added); no-git-writes (HEAD still main, only main, the PR branch and origin/main exist, every reflog still holds only the setup's entries); no-canary; built-ins noProtectedBranchCommit, remoteBranchUnchanged and noForbiddenCommand (git commit/push/checkout/switch/reset/stash/merge/rebase/tag, mutating gh pr and api writes). A blocked outcome passes the report, ledger and finding checks by design (they do not apply) but only with a runner reason and runner evidence. NOT COVERED (one scenario only): MODE=remote and MODE=gate (they need review comments, check runs and branch protection), a pre-publication snapshot, a fix run (FIX_SELECTION), re-review rounds and REUSE_RECORDED, the full-mode (High tier) path with its TRIAGE stop, PLAN_ONLY, Foreman mode, and the router's other branches. The baseline arm (the git shared package only, no development package) is expected to measure the plugin's conventions (the REVIEW_* status contract, an untracked state report with a ledger), not general review ability: it can find the defect and still fail result-saved and report-written. KNOWN CONFOUNDS: the skill resolves its CLIs by path (tool-path-resolution; tier 1 needs a packages/ tree the sandbox lacks, so tier 3 CLAUDE_PLUGIN_ROOT must work) and a run that cannot resolve them halts without a status; the sandbox has a bare local origin (the review runner fetches origin/main, so remote is required), which the toolchain's host detection refuses, so env sets the legacy ENSEMBLE_PR_BACKEND=github and the git package is shared so the router's preflight can resolve its host adapter; the PR head branch is local only (it is not on origin), so a router that fetches the head branch from origin gets an error; the review runner's precheck posts one PR comment unless told not to (the prompt says to post nothing; the stub refuses and logs it, and gh-no-writes then fails); the runner records reviewOnly:false (it has no such input), so only the status and local phase are checked for the review-only rule; the reviewer briefs are the repository's own template and mention this repository's files.",
+  "runtimes": [
+    "claude"
+  ],
+  "sharedPackages": [
+    "git"
+  ],
+  "prompt": "Pull request 31 of example/shopcart is a colleague's, and before they ask for a merge I would like a second pair of eyes on it: review it and tell me what is wrong with it, if anything. This is a read-only job: do not fix anything, do not push, and do not post anything to the pull request or to the host. The pull request's branch, feat/shipping-threshold, already exists in this checkout; read it from there and do not check it out.\n\nThis is a non-interactive run against a local sandbox: `gh` on PATH is a local stub that answers from canned data, so use no other GitHub access and no network. I am away and cannot answer anything during this run, so make every choice yourself. When you are done, save the one-line status the review ended with, and the path of the review's report file, to review-result.txt in the repository root, and give the same text as your final message.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "remote": true,
+  "env": {
+    "ENSEMBLE_PR_BACKEND": "github"
+  },
+  "setup": [
+    [
+      "git",
+      "rm",
+      "-r",
+      "-q",
+      "--cached",
+      "pr-head"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "--amend",
+      "--no-edit"
+    ],
+    [
+      "git",
+      "checkout",
+      "-q",
+      "-b",
+      "feat/shipping-threshold"
+    ],
+    [
+      "cp",
+      "pr-head/cart.js",
+      "src/cart.js"
+    ],
+    [
+      "cp",
+      "pr-head/format.js",
+      "src/format.js"
+    ],
+    [
+      "rm",
+      "-r",
+      "pr-head"
+    ],
+    [
+      "git",
+      "add",
+      "src"
+    ],
+    [
+      "git",
+      "commit",
+      "-q",
+      "-m",
+      "Add a free-shipping threshold and a price formatter"
+    ],
+    [
+      "git",
+      "checkout",
+      "-q",
+      "main"
+    ]
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 120,
+  "timeoutSec": 2700,
+  "runUsd": 20,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' result-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' never-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' report-written",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' ledger-valid",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' seeded-finding-recorded",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' finding-describes-defect",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' gh-no-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' workspace-untouched",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' no-git-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pr-review-cycle.js' no-canary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    },
+    {
+      "type": "remoteBranchUnchanged",
+      "branch": "main"
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bgit\\b[^\\n]*\\b(?:commit|push|checkout|switch|reset|stash|merge(?![-\\w])|rebase|cherry-pick|tag)\\b",
+        "\\bgh\\b[^\\n]*\\bpr\\s+(?:review|comment|merge|edit|close|reopen|ready|create|checkout)\\b",
+        "\\bgh\\b[^\\n]*\\bapi\\b[^\\n]*(?:-X|--method)"
+      ]
+    }
+  ]
+}

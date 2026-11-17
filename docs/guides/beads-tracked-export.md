@@ -16,9 +16,9 @@ It also makes the working tree look dirty right after Scaffold, because the expo
 
 ## What the commands do
 
-- Every bead `implement-trd-beads` creates carries a **label** equal to its TRD slug.
+- Every bead `implement-trd-tasks` creates carries a **label** equal to its TRD slug.
   `beads-build` passes it to `bv --robot-plan --label`, so a plan never includes another TRD's beads.
-- `git status --porcelain` checks in `implement-trd-beads`, `beads-build` and `beads-build-wave`
+- `git status --porcelain` checks in `implement-trd-tasks`, `beads-build` and `beads-build-wave`
   ignore `.beads/`, which is `br`'s own state, so the command no longer halts on the export it just wrote.
 - Checkpoint commits, the checkbox-sync commit and the closing reminder stage the export with
   `trd-cli beads-stage`, never `git add .beads/` or `git commit -a`.

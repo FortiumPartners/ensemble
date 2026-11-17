@@ -1,0 +1,45 @@
+version: 1
+generated: "2026-03-29"
+stack:
+  language: TypeScript
+  framework: NestJS
+  test_framework: jest
+  linter: eslint
+standards:
+  naming:
+    - id: naming-001
+      rule: Use camelCase for variables and functions
+      example: orderTotal, fetchOrders
+    - id: naming-002
+      rule: Name source files in kebab-case
+  testing:
+    - id: testing-001
+      rule: Name test files with the *.spec.ts suffix
+    - id: testing-002
+      rule: Mock only at the network boundary
+    - id: testing-003
+      rule: One assertion topic per case
+  imports:
+    - id: imports-001
+      rule: Group imports as builtins, packages, then local files
+    - id: imports-002
+      rule: Prefer the @/ alias over deep relative paths
+  error_handling:
+    - id: error_handling-001
+      rule: Throw typed AppError subclasses
+    - id: error_handling-002
+      rule: Never swallow exceptions silently
+    - id: error_handling-003
+      rule: Log errors once at the service boundary
+  git:
+    - id: git-001
+      rule: Use conventional commit messages
+      example: "feat(orders): add list"
+    - id: git-002
+      rule: Start branch names with feat/ or fix/
+  api:
+    - id: api-001
+      rule: Wrap responses in a data and meta envelope
+      example: '{ "data": [], "meta": {} }'
+    - id: api-002
+      rule: Use plural nouns for resource paths

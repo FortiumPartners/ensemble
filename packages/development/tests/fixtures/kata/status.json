@@ -1,0 +1,13 @@
+{
+  "kata_api_version": 1,
+  "issue": "jfh4",
+  "project": "trd-kata-scratch",
+  "issue_status": "open",
+  "revision": 2,
+  "actor": "ldangelo",
+  "actor_source": "user",
+  "auth": "none",
+  "instance": "01M7GC8ZBN3N3BQXRX1A2ZCSR4",
+  "owner": "bot:probe",
+  "hold": "assigned"
+}

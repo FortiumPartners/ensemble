@@ -58,7 +58,7 @@ function expectJsonSerializable(value) {
 describe('deriveSlug', () => {
   test('filename-only: lowercases, hyphenates non-alphanumerics, strips edges', () => {
     // Slug comes PURELY from the filename basename (extension dropped),
-    // matching the implement-trd-beads command's Preflight derivation.
+    // matching the implement-trd-tasks command's Preflight derivation.
     expect(deriveSlug('/a/b/My_File.Name.md')).toBe('my-file-name');
     expect(deriveSlug('---weird--.md')).toBe('weird');
     expect(deriveSlug('/docs/TRD-2026-023-trd-staleness-gate.md')).toBe(

@@ -1,0 +1,11 @@
+{
+  "date": "2026-03-12",
+  "scope": "portfolio",
+  "repos": [
+    { "name": "acme-console", "evidence": "deep-dive", "architecture": "acme-console-2026-03-12-architecture.md" },
+    { "name": "acme-bff", "evidence": "deep-dive", "architecture": "acme-bff-2026-03-12-architecture.md" },
+    { "name": "acme-contracts", "evidence": "deep-dive", "architecture": "acme-contracts-2026-03-12-architecture.md" },
+    { "name": "legacy-billing", "evidence": "deep-dive", "architecture": "legacy-billing-2026-03-12-architecture.md" },
+    { "name": "ops-inventory", "evidence": "structural-only", "architecture": "ops-inventory-2026-03-12-architecture.md" }
+  ]
+}

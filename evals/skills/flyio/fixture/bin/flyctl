@@ -1,0 +1,51 @@
+#!/bin/sh
+# Stub `fly` (also installed as `flyctl`) for the flyio skill eval: no Fly account, no network. It answers a small set of calls with
+# canned text and appends every call it receives (answered or refused) to fly-calls.log in the sandbox root, two levels above this
+# stub and outside the git worktree. Flags are skipped to find the verb. `auth login`, `apps destroy`, volume deletion,
+# `--strategy immediate` and anything unknown are logged, refused on stderr and exit 2. The stub does NOT enforce the conventions it
+# is used to measure: a call without -a, a plain `launch`, a `deploy` without --remote-only all succeed.
+here=$(cd "$(dirname "$0")" && pwd)
+printf 'fly %s\n' "$(printf '%s' "$*" | tr '\n\r' '  ')" >> "$here/../../fly-calls.log"
+
+refuse() { echo "fly stub: unsupported call: $*" >&2; exit 2; }
+
+verb=""; sub=""; prev=""
+for a in "$@"; do
+  case "$a" in --strategy=immediate) refuse "$@" ;; esac
+  if [ -n "$prev" ]; then
+    [ "$prev" = "--strategy" ] && [ "$a" = "immediate" ] && refuse "$@"
+    prev=""; continue
+  fi
+  case "$a" in
+    --*=*) ;;
+    -a|--app|-r|--region|--name|-c|--config|--strategy|-s|--size|--org|-o|--image|-i|--dockerfile|--regions|--expires|--env|-e|--vm-size|--vm-memory|--build-arg|--count) prev="$a" ;;
+    -*) ;;
+    *) if [ -z "$verb" ]; then verb="$a"; elif [ -z "$sub" ]; then sub="$a"; fi ;;
+  esac
+done
+
+case "$verb" in
+  version) echo "fly v0.3.0 (stub)"; exit 0 ;;
+  status) printf '%s\n' "App" "  Name     = (stub)" "  Hostname = (stub).fly.dev" "" "Machines" "ID            STATE     REGION" "e286501a7d3e08  started   (stub)"; exit 0 ;;
+  apps)
+    case "$sub" in list) printf '%s\n' "NAME           OWNER     STATUS" "notes-legacy   personal  deployed"; exit 0 ;; esac
+    refuse "$@" ;;
+  launch) echo "(stub) app configured; not deployed"; exit 0 ;;
+  deploy) echo "(stub) deployed; visit https://(stub).fly.dev/"; exit 0 ;;
+  secrets)
+    case "$sub" in set) echo "(stub) secrets set"; exit 0 ;; esac
+    refuse "$@" ;;
+  volumes|volume|vol)
+    case "$sub" in
+      create) echo "(stub) volume created"; exit 0 ;;
+      list) printf '%s\n' "ID                    STATE    NAME    SIZE  REGION" "vol_0000000000000000  created  (stub)  1GB   (stub)"; exit 0 ;;
+    esac
+    refuse "$@" ;;
+  scale)
+    case "$sub" in count|vm|show) echo "(stub) scaled"; exit 0 ;; esac
+    refuse "$@" ;;
+  tokens)
+    case "$sub" in create) echo "FlyV1 fm2_stub-token-not-real"; exit 0 ;; esac
+    refuse "$@" ;;
+esac
+refuse "$@"

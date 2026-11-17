@@ -82,7 +82,7 @@ responsibilities:
       expectations so later implementation and QA agents can prove completion.
 integrationProtocols:
   receivesWorkFrom:
-    - name: implement-trd-beads scaffold phase
+    - name: implement-trd-tasks scaffold phase
       contextRequired: TRD/workstream path, parsed scaffold plan, existing bead map, PRD reference, execution mode
   handsOffTo:
     - name: backend-developer/frontend-developer/infrastructure-developer/test-runner

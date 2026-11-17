@@ -45,7 +45,7 @@ export const DISPATCHER_TARGETS: Readonly<Record<string, Readonly<Record<string,
   "ensemble-trd": {
     create: "create-trd",
     refine: "refine-trd",
-    implement: "implement-trd-beads",
+    implement: "implement-trd-tasks",
     analyze: "analyze-requirements",
     complexity: "analyze-complexity",
     validate: "validate-requirements",

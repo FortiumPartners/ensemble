@@ -11,7 +11,7 @@ messaging and require an explicit user override before proceeding.
 
 ## Motivation
 
-A TRD was reported "complete" via `/ensemble:implement-trd-beads`, but manual
+A TRD was reported "complete" via `/ensemble:implement-trd-tasks`, but manual
 inspection found large swaths of missing functionality. The root cause: the
 existing completion logic trusts *self-reported* state — bead status set by
 whichever agent closed a task, checkbox ticks, and `req-verified:` comment
@@ -46,7 +46,7 @@ gates the *end* of implementation on independently-verified completion.
 ### Step 1 — Deterministic Task Inventory
 
 Resolve `$TRD_CLI` using the same resolution chain already established in
-`implement-trd-beads.yaml` (Preflight step 3, Tool Availability Check): first
+`implement-trd-tasks.yaml` (Preflight step 3, Tool Availability Check): first
 try the canonical monorepo root via `git rev-parse --show-toplevel 2>/dev/null`
 + `/packages/development/lib/trd-cli.js`; if that fails, fall back to the
 legacy CWD-relative `packages/development/lib/trd-cli.js` for backward

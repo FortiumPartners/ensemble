@@ -1,0 +1,153 @@
+{
+  "id": "kubernetes",
+  "skill": "kubernetes",
+  "description": "A non-interactive run adds a background worker to a small kustomize deploy repo (base/ with an api Deployment and Service that already follow the conventions, overlays/production, a README naming the contexts shop-staging and shop-prod): same image as the api, WORKER_CONCURRENCY=4, a database password given in the prompt that must reach the worker as DB_PASSWORD, metrics port 9102 behind a Service, a staging overlay (namespace shop-staging) that includes the worker while production does not, then a rollout to the staging context. Scope: authoring, reviewing and applying Kubernetes manifests and kustomize overlays with kubectl; not Helm chart templating or non-Kubernetes deploys. Two halves, both offline. Manifests are parsed as data (js-yaml): requests and limits, readiness and liveness probes, non-root securityContext without privilege escalation, pinned image tags or digests, no plaintext secret (a Secret with values, a secret-like ConfigMap key or env literal, a secretGenerator, or the prompt's password anywhere in the workspace), the password read through a Secret reference, the staging overlay's resources resolve and render the worker, production does not render it, no Helm chart or new tooling, existing files unchanged, canary not copied. Commands: the fixture's bin/kubectl is a stub (no cluster, no network) that logs every call, answers a small set from canned text and refuses edit, delete, drain, --force and anything unknown; it does not enforce the conventions, so a bare apply, a call without --context and `config use-context` succeed. The log is checked for: current-context confirmed before the first mutating call, --context shop-staging and -n shop-staging on every call, a server dry run or diff before the first apply, rollout status for the new Deployment with a --timeout, no edit or destructive call, and (from the run's Bash commands) no sleep or until/while kubectl get polling. Limits: shape and command order, not behaviour; kustomize is not run, the stub's output is canned, and a kubectl call that bypasses PATH is not seen. The existing Deployment is a complete style reference, so the baseline arm can copy it and the manifest checks are expected to discriminate less than the command checks. The baseline arm is expected to measure the plugin's conventions. Runs on Claude and Pi: SKILL.md is plain with no scripts; the stub is put first on the agent's PATH by `sandboxPath` in the runner for both runtimes (Pi's inheritance of that PATH is unverified).",
+  "runtimes": [
+    "claude",
+    "pi"
+  ],
+  "prompt": "This is the deploy repo for the shop API (Kubernetes, kustomize): base/ holds the api Deployment and Service, overlays/production the production variant, README.md names the two clusters. Add a background worker that runs the same image as the api (same registry image and version) with the command `python -m shop.worker`. It reads one setting, WORKER_CONCURRENCY, which should be 4, and it connects to the database with a password: for staging the password is `Qm7x92kd-stg-4471`, and the worker gets it as DB_PASSWORD. It serves Prometheus metrics on port 9102, and other workloads in the cluster must be able to reach that port by a stable name. The worker goes live in staging first: add a staging overlay at overlays/staging (namespace shop-staging) that deploys the api and the worker, and production must not get the worker yet. Then roll it out to the staging cluster (kubectl context shop-staging, namespace shop-staging). `kubectl` on PATH is a local stand-in for this exercise, so use no other cluster and no other tool for it. Add new files only: do not change any existing file. This is a non-interactive run: ask no questions, choose the recommended option for anything unclear.",
+  "invocation": "plain",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 900,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' worker-deployment --image registry.example.com/shop/api --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' worker-config --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' metrics-exposed --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' staging-overlay --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' worker-not-in-production --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' resources-set",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' probes-set",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' security-context",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' images-pinned",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' no-plain-secrets --password Qm7x92kd-stg-4471",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' password-referenced --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' context-confirmed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' context-explicit",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' validate-before-apply",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' rolled-out --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' rollout-timeout",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' no-edit-or-destructive",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "(?:^|[\\s;&|(])sleep\\s+[0-9]",
+        "\\b(?:until|while)\\b[^\\n]{0,200}\\bkubectl\\b[^\\n]{0,100}\\bget\\b"
+      ]
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' no-new-dependency --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' fixture-untouched --fixture '{{repo}}/evals/skills/kubernetes/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/kubernetes.js' no-canary --token CANARY-KUBERNETES-5d8b1f40a7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

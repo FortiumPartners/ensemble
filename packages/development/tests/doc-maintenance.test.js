@@ -125,6 +125,6 @@ describe('quickstart artifact docs', () => {
     expect(combined).toContain('quickstart path');
     expect(combined).toContain('coverage summary');
     expect(combined).toContain('quickstart generation is explicitly unsupported in v1');
-    expect(readme).toContain('/ensemble:implement-trd-beads` does not generate a `quickstart.md` validation runbook in v1');
+    expect(readme).toContain('/ensemble:implement-trd-tasks` does not generate a `quickstart.md` validation runbook in v1');
   });
 });

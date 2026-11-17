@@ -1,0 +1,102 @@
+{
+  "id": "assess-repo",
+  "skill": "assess-repo",
+  "description": "Claude Code only (the skill is an orchestrator that dispatches assess-purpose and six specialist skills and defers its scoring scale to skill://assessment-report-suite, so it is not a self-contained SKILL.md for Pi). A plain-language request for a comprehensive repository assessment with the reports saved under docs/assessment/. The seeded workspace is parcelbox, a tiny Node/Express parcel-locker booking service with one test, a one-job CI workflow, no coverage report and a fake API key hard-coded in src/config.js. Only what the orchestrator does itself is checked, not the per-dimension findings (the assess-* evals do that): the rollup is saved as docs/assessment/<repo-name>-<YYYY-MM-DD>.md with the Repository Assessment Report title and header fields; the nineteen sections of the Output Format appear in order; the Overall and AI Readiness scores and the ten Findings Summary scores are numeric first with the letter derived from the shared scale; Overall lies within the range of the dimension scores; the seven specialist files <prefix>-<name>.md exist next to the rollup with content and citations and the rollup links them; the rollup's scores agree with the specialist files (flaky); its file:line citations resolve (flaky); the planted key value is not written out; missing data is stated as 'No evidence found in local git' with a MEDIUM confidence tag (flaky); the purpose file is written before the other specialists' (flaky, file times); and nothing outside docs/assessment/ changed. Limits: structure and consistency checks do not show that any analysis is correct or insightful; the skill has no stated behaviour for a missing configuration or a failing specialist, so none is checked; whether specialists really ran as parallel subagents is not observable from files. The prompt asks for reports under docs/assessment/ without giving the file names, so the file naming is the plugin's convention. The baseline arm gets the same prompt without the plugin and is expected to measure the plugin's conventions (file names, section layout, score format, links), not general ability.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "Run a comprehensive assessment of this repository: what it is for, its architecture, code quality, testing, security, CI/CD and how ready it is for AI-assisted development, with an overall score and a final report that pulls the analyses together. Cite the file and line for findings, and do not print any secret value you come across, only that one is present.\n\nThis is a non-interactive run: ask no questions. Save the final report and the detailed findings of each analysis under docs/assessment/. Write only those reports; do not change any other file.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "Agent"
+  ],
+  "maxTurns": 60,
+  "timeoutSec": 1200,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' sections-complete",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' overall-scores",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' findings-summary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' overall-rollup",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' specialist-files",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' agent-links",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' rollup-matches-specialists",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' citations-real",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' secret-not-leaked",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' no-evidence-labelled",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' purpose-first",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/assess-repo.js' no-stray-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

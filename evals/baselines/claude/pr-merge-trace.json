@@ -1,0 +1,26 @@
+{
+  "skill": "pr-merge-trace",
+  "skillVersion": null,
+  "skillHash": "b2b7497e7f6e7ae73a72db68403281f0476f7f2c36dc42dad9aae3ab7a924914",
+  "packageHash": "ba1ca8a9b89c9373cd911eef0603bf29d5ec8bd083e502dfcbf2223fc71e0db8",
+  "withSkillAdds": [
+    "development"
+  ],
+  "evalVersion": "302bd84ce5fb11e57688aed4f6a92a8aefc8f40e60d4c9c5ea234600df7c5785",
+  "model": "claude-opus-5-5",
+  "runtime": "claude",
+  "granularity": "package",
+  "repeats": 5,
+  "bar": 4,
+  "withSkill": {
+    "passes": 5,
+    "runs": 5
+  },
+  "baseline": {
+    "passes": 1,
+    "runs": 5
+  },
+  "reliable": true,
+  "uplift": 0.8,
+  "recordedAt": "2026-11-13T19:47:09.803Z"
+}

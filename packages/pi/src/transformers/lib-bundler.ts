@@ -3,7 +3,7 @@
  *
  * Copies the monorepo lib/script files that command prose in packages/pi
  * shells out to (trd-cli.js, trd-graph-cli.js, prd-cli.js, pr-review-cli.js,
- * toolchain-cli.js, validate-git-town.sh) into packages/pi/vendor/, so the
+ * toolchain-cli.js, issue-run-index-cli.js, run-index-cli.js, validate-git-town.sh) into packages/pi/vendor/, so the
  * Pi/OMP runtime has them available when only `@sunstone-partners/ensemble-pi`
  * is installed (no ensemble source checkout, no Claude Code plugin, no
  * packages/full symlink layer to fall back on).
@@ -79,7 +79,7 @@ import { TransformResult } from '../types';
 const LIB_DIR = 'packages/development/lib';
 
 /** Entry-point .js modules, relative to LIB_DIR — seeds for require-closure walking. */
-const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'pr-review-prepare-cli.js', 'pr-review-beads-cli.js', 'pr-review-clear-cli.js', 'pr-review-carry-hash-cli.js', 'review-run-cli.js', 'local-ci-cli.js', 'toolchain-cli.js', 'review-eval-guard.js'];
+const ENTRY_FILES = ['trd-cli.js', 'trd-graph-cli.js', 'prd-cli.js', 'pr-review-cli.js', 'pr-review-prepare-cli.js', 'pr-review-beads-cli.js', 'pr-review-clear-cli.js', 'pr-review-carry-hash-cli.js', 'review-run-cli.js', 'local-ci-cli.js', 'issue-run-index-cli.js', 'run-index-cli.js', 'toolchain-cli.js', 'review-eval-guard.js'];
 
 /**
  * Data directory (relative to sourceRoot) the vendored toolchain modules read at runtime via

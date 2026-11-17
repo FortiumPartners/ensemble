@@ -58,7 +58,7 @@ describe('resolveDefaultTeamRoles', () => {
     const beadsRoles = resolveDefaultTeamRoles({
       complexity: 'complex',
       domains: ['backend', 'frontend'],
-      caller: 'implement-trd-beads',
+      caller: 'implement-trd-tasks',
     });
 
     const otherCallerRoles = resolveDefaultTeamRoles({

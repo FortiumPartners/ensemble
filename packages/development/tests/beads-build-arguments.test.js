@@ -1,9 +1,9 @@
 const { readDevelopmentSkill, parseWorkflow } = require('./helpers/skill-workflow');
 
-// beads-build and implement-trd-beads are skill-backed commands: the prompt is the skill
+// beads-build and implement-trd-tasks are skill-backed commands: the prompt is the skill
 // (SKILL.md + references/), and the workflow is parsed back out of its phase references.
 const buildSkill = readDevelopmentSkill('ensemble-beads-build');
-const callerText = readDevelopmentSkill('ensemble-implement-trd-beads').prompt;
+const callerText = readDevelopmentSkill('ensemble-implement-trd-tasks').prompt;
 
 function stepActions(phases, phaseName, title) {
   const phase = phases.find((p) => p.name === phaseName);
@@ -29,7 +29,7 @@ describe('beads-build argument grammar matches its callers', () => {
     expect(parsing).toMatch(/--epic <value>.*RAW_INPUT=<value>/);
   });
 
-  test('every flag implement-trd-beads passes to beads-build is parsed by beads-build', () => {
+  test('every flag implement-trd-tasks passes to beads-build is parsed by beads-build', () => {
     const calls = callerText.match(/\/ensemble:beads-build <ROOT_EPIC_ID>([^`]*--defer-completion)`/);
     expect(calls).not.toBeNull();
     const passed = (calls[1].match(/--[a-z-]+/g) || []);

@@ -1,0 +1,11 @@
+{
+  "findings": [
+    { "id": "F-001", "repo": "acme-contracts", "severity": "High", "title": "No CI gate validates the schema contract before consumers upgrade" },
+    { "id": "F-002", "repo": "acme-bff", "severity": "High", "title": "Single Keycloak realm is a hard runtime dependency with no fallback" },
+    { "id": "F-003", "repo": "acme-console", "severity": "Medium", "title": "Console pins a stale contracts version" },
+    { "id": "F-004", "repo": "acme-bff", "severity": "Medium", "title": "Service layer calls the repository layer of another module directly" },
+    { "id": "F-005", "repo": "legacy-billing", "severity": "Medium", "title": "Nightly invoice job runs on a single host" },
+    { "id": "F-006", "repo": "acme-console", "severity": "Low", "title": "No bundle-size budget" },
+    { "id": "F-007", "repo": "acme-bff", "severity": "Medium", "title": "No readiness probe on the deployment" }
+  ]
+}

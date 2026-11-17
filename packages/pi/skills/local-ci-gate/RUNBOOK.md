@@ -185,9 +185,9 @@ edit another author's branch. A refusal like this is not evidence the gate is br
    `packages/git/commands/pr-merge.yaml` to merge on the gate verdict and
    regenerate; that is a separate, reviewed change.
 
-## Optional pre-PR gate step (fix-issue, implement-trd-beads)
+## Optional pre-PR gate step (fix-issue, implement-trd-tasks)
 
-`fix-issue` and `implement-trd-beads` are unchanged. A caller that wants the PR
+`fix-issue` and `implement-trd-tasks` are unchanged. A caller that wants the PR
 to open already approved runs, after the final commit and push of the branch and
 before opening the PR: resolve the branch head SHA (full 40 hex), run the gate for
 that head (`MODE=gate`, this skill), confirm `posted:true` and `mergeReady:true`,

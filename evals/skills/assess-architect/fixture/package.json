@@ -1,0 +1,8 @@
+{
+  "name": "orderdesk",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": { "start": "node src/index.js", "test": "node --test tests/" },
+  "dependencies": { "bullmq": "^5.0.0", "express": "^4.19.0", "ioredis": "^5.4.0", "pg": "^8.11.0" }
+}

@@ -1,0 +1,226 @@
+#!/bin/sh
+# Stub `jira` for the jira skill eval: no Jira site, no network, no real credentials. It is self-authenticating from the embedded fake
+# config below (a run supplies no credential) and answers a small set of calls with canned JSON. Every call it receives (answered or
+# refused) is appended to jira-calls.log in the sandbox root, two levels above this stub and outside the git worktree. Each line is
+#   jira<TAB>arg<TAB>arg... || exit=<n> note=<none|usage|notfound|transition|unsupported> created=<key|none>
+# Arguments are separated by real tab characters (a tab inside an argument is logged as a space). State (issues created, status changes,
+# assignees) is kept in jira-state in the sandbox root; a created issue gets VA-3001, VA-3002, ...
+# Refusals: a malformed form (missing title or --project, unknown option, a priority outside Highest/High/Medium/Low/Lowest, a type outside
+# Epic/Story/Task/Bug/Sub-task, stray positional arguments, `fetch` without --output) exits 1 with an `error:` line (note=usage); an unknown
+# project, issue or account id (a display name is not an account id) exits 1 (note=notfound); a status the issue cannot move to from its
+# current state exits 1 'Status not available' (note=transition); an unknown verb (there is no delete) exits 2 (note=unsupported).
+# The stub enforces no convention beyond that. POSIX sh only (no local, arrays or [[ ]]).
+here=$(cd "$(dirname "$0")" && pwd)
+log="$here/../../jira-calls.log"
+state="$here/../../jira-state"
+CONFIG_TOKEN='FAKE-JIRA-TOKEN-eval-only-0000' # embedded fake config: the CLI authenticates itself, a run never needs this value
+TAB=$(printf '\t')
+
+seen=" "; shown=""; npos=0; p1=""; p2=""; p3=""; p4=""; badopt=""; prev=""; version=0
+o_project=""; o_type=""; o_description=""; o_assignee=""; o_priority=""; o_labels=""; o_parent=""; o_status=""; o_summary=""
+o_limit=""; o_output=""; o_body=""; o_query=""
+
+setopt() {
+  case "$1" in
+    project) o_project=$2 ;; type) o_type=$2 ;; description) o_description=$2 ;; assignee) o_assignee=$2 ;;
+    priority) o_priority=$2 ;; labels) o_labels=$2 ;; parent) o_parent=$2 ;; status) o_status=$2 ;; summary) o_summary=$2 ;;
+    limit) o_limit=$2 ;; output) o_output=$2 ;; body) o_body=$2 ;; query) o_query=$2 ;;
+  esac
+  seen="$seen$1 "
+}
+
+for a in "$@"; do
+  disp=$(printf '%s' "$a" | tr '\t\n\r' '   ')
+  if [ -n "$prev" ]; then setopt "$prev" "$a"; prev=""; shown="$shown$TAB$disp"; continue; fi
+  case "$a" in
+    --version|-V) version=1 ;;
+    --project|--type|--description|--assignee|--priority|--labels|--parent|--status|--summary|--limit|--output|--body|--query) prev=${a#--} ;;
+    --project=*|--type=*|--description=*|--assignee=*|--priority=*|--labels=*|--parent=*|--status=*|--summary=*|--limit=*|--output=*|--body=*|--query=*)
+      name=${a%%=*}; setopt "${name#--}" "${a#*=}" ;;
+    -*) [ -z "$badopt" ] && badopt=$a ;;
+    *) npos=$((npos + 1)); case $npos in 1) p1=$a ;; 2) p2=$a ;; 3) p3=$a ;; 4) p4=$a ;; esac ;;
+  esac
+  shown="$shown$TAB$disp"
+done
+
+code=0; note=""; created=""
+finish() {
+  line=$(printf 'jira%s' "$shown" | tr '\n\r' '  ')
+  printf '%s || exit=%s note=%s created=%s\n' "$line" "$code" "${note:-none}" "${created:-none}" >> "$log"
+  exit "$code"
+}
+err() { code=1; note=$1; shift; echo "$*" >&2; finish; }
+usage() { err usage "error: $*"; }
+unsupported() { code=2; note=unsupported; echo "error: unknown command" >&2; finish; }
+ok() { printf '%s\n' "$1"; finish; }
+has() { case "$seen" in *" $1 "*) return 0 ;; esac; return 1; }
+allow() {
+  [ -n "$badopt" ] && usage "unknown option '$badopt'"
+  for s in $seen; do case " $1 " in *" $s "*) ;; *) usage "unknown option '--$s'" ;; esac; done
+  [ -n "$prev" ] && usage "option '--$prev <value>' argument missing"
+  return 0
+}
+maxpos() { [ "$npos" -gt "$1" ] && usage "too many arguments. Expected $(($1 - 2)) arguments but got $((npos - 2))."; return 0; }
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n\r' '  '; }
+
+users_table() {
+  cat <<'EOT'
+fake-acct-jordan-ellis-0001|Jordan Ellis|jordan.ellis@example.com
+fake-acct-jamie-cho-0002|Jamie Cho|jamie.cho@example.com
+fake-acct-priya-raman-0003|Priya Raman|priya.raman@example.com
+EOT
+}
+find_account() { users_table | awk -F'|' -v q="$1" '$1 == q { print; exit }'; }
+known_project() { case "$1" in VA|OPS) return 0 ;; esac; return 1; }
+known_issue() {
+  case "$1" in VA-2522|VA-2228|VA-2229|VA-2230|VA-2100) return 0 ;; esac
+  [ -f "$state" ] && grep -q "^created $1 " "$state"
+}
+issue_status() {
+  s=$(sed -n "s/^status $1 //p" "$state" 2>/dev/null | tail -1)
+  if [ -n "$s" ]; then printf '%s' "$s"; return; fi
+  case "$1" in VA-2228) printf 'In Progress' ;; VA-2522) printf 'In Progress' ;; VA-2100) printf 'Done' ;; *) printf 'To Do' ;; esac
+}
+issue_type() { case "$1" in VA-2522) printf 'Epic' ;; VA-2230) printf 'Bug' ;; VA-2229) printf 'Task' ;; VA-2228) printf 'Story' ;; VA-2100) printf 'Task' ;; *) sed -n "s/^type $1 //p" "$state" 2>/dev/null | head -1 ;; esac; }
+issue_title() {
+  case "$1" in
+    VA-2522) printf 'Harbor sign-in overhaul' ;; VA-2228) printf 'Back off sign-in retries' ;; VA-2229) printf 'Show a clear sign-in error page' ;;
+    VA-2230) printf 'Session cookie is not renewed' ;; VA-2100) printf 'Update the pilot portal footer' ;;
+    *) sed -n "s/^created $1 //p" "$state" 2>/dev/null | head -1 ;;
+  esac
+}
+issue_assignee() { sed -n "s/^assign $1 //p" "$state" 2>/dev/null | tail -1; }
+issue_priority() { p=$(sed -n "s/^priority $1 //p" "$state" 2>/dev/null | tail -1); printf '%s' "${p:-Medium}"; }
+issue_json() {
+  as=$(issue_assignee "$1"); if [ -n "$as" ]; then asj="\"$(esc "$as")\""; else asj=null; fi
+  printf '{"key":"%s","summary":"%s","type":"%s","status":"%s","priority":"%s","assignee":%s,"project":"VA"}' \
+    "$1" "$(esc "$(issue_title "$1")")" "$(issue_type "$1")" "$(issue_status "$1")" "$(issue_priority "$1")" "$asj"
+}
+transitions_for() {
+  case "$1" in
+    "To Do") printf 'In Progress\n' ;;
+    "In Progress") printf 'In Review\nTo Do\n' ;;
+    "In Review") printf 'Done\nIn Progress\n' ;;
+    "Done") printf 'In Progress\n' ;;
+  esac
+}
+check_priority() {
+  has priority || return 0
+  case "$o_priority" in Highest|High|Medium|Low|Lowest) ;; *) usage "option '--priority <priority>' argument '$o_priority' is invalid. Allowed values: Highest, High, Medium, Low, Lowest" ;; esac
+}
+write_issue_files() { # $1 key, $2 dir
+  printf '%s\n' "$(issue_json "$1")" > "$2/jira/$1.json"
+  printf '# %s: %s\n\nType: %s\nStatus: %s\n\nCanned description for %s.\n' "$1" "$(issue_title "$1")" "$(issue_type "$1")" "$(issue_status "$1")" "$1" > "$2/jira/$1.md"
+}
+
+if [ "$version" = 1 ] && [ "$npos" = 0 ]; then ok "1.0.0"; fi
+[ "$npos" = 0 ] && usage "missing command"
+
+case "$p1" in
+  projects)
+    [ "$p2" = list ] || unsupported
+    maxpos 2; allow ""
+    ok '[{"key":"VA","name":"Vessel Access"},{"key":"OPS","name":"Operations"}]' ;;
+  users)
+    [ "$p2" = list ] || unsupported
+    maxpos 2; allow "query"
+    if has query && [ -z "$o_query" ]; then usage "option '--query <name>' argument missing"; fi
+    out=""
+    for row in $(users_table | tr ' ' '_'); do
+      id=${row%%|*}; rest=${row#*|}; name=$(printf '%s' "${rest%%|*}" | tr '_' ' '); mail=${rest#*|}
+      if has query; then
+        printf '%s\n%s\n' "$name" "$mail" | tr 'A-Z' 'a-z' | grep -qF "$(printf '%s' "$o_query" | tr 'A-Z' 'a-z')" || continue
+      fi
+      out="$out${out:+,}{\"accountId\":\"$id\",\"displayName\":\"$name\",\"emailAddress\":\"$mail\"}"
+    done
+    ok "[$out]" ;;
+  comments)
+    case "$p2" in
+      create)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow "body"
+        has body || usage "required option '--body <body>' not specified"
+        [ -n "$o_body" ] || usage "option '--body <body>' argument missing"
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        ok "{\"id\":\"10001\",\"issue\":\"$p3\",\"body\":\"$(esc "$o_body")\"}" ;;
+      list)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow ""
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        ok '[]' ;;
+      *) unsupported ;;
+    esac ;;
+  issues)
+    case "$p2" in
+      list)
+        maxpos 2; allow "limit project"
+        if has limit; then case "$o_limit" in ''|*[!0-9]*) usage "option '--limit <limit>' argument '$o_limit' is invalid. Not a number." ;; esac; fi
+        if has project && ! known_project "$o_project"; then err notfound "Resource not found: project $o_project"; fi
+        ok "[$(issue_json VA-2230),$(issue_json VA-2229),$(issue_json VA-2228)]" ;;
+      search)
+        [ -n "$p3" ] || usage "missing required argument 'query'"
+        maxpos 3; allow "limit project"
+        ok "[$(issue_json VA-2228)]" ;;
+      read)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow ""
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        ok "$(issue_json "$p3")" ;;
+      transitions)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow ""
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        out=""; n=20
+        for t in $(transitions_for "$(issue_status "$p3")" | tr ' ' '_'); do
+          n=$((n + 1)); out="$out${out:+,}{\"id\":\"$n\",\"name\":\"$(printf '%s' "$t" | tr '_' ' ')\"}"
+        done
+        ok "[$out]" ;;
+      create)
+        [ -n "$p3" ] || usage "missing required argument 'title'"
+        maxpos 3; allow "project type description assignee priority labels parent"
+        [ -n "$o_project" ] || usage "required option '--project <key>' not specified"
+        check_priority
+        if has type; then case "$o_type" in Epic|Story|Task|Bug|Sub-task) ;; *) usage "option '--type <type>' argument '$o_type' is invalid. Allowed values: Epic, Story, Task, Bug, Sub-task" ;; esac; fi
+        known_project "$o_project" || err notfound "Resource not found: project $o_project"
+        if has parent; then known_issue "$o_parent" || err notfound "Resource not found: $o_parent"; fi
+        if has assignee; then [ -n "$(find_account "$o_assignee")" ] || err notfound "error: user not found: $o_assignee"; fi
+        n=$(grep -c '^created ' "$state" 2>/dev/null || true); n=${n:-0}
+        created="VA-$((3001 + n))"
+        printf 'created %s %s\n' "$created" "$(printf '%s' "$p3" | tr '\n\r' '  ')" >> "$state"
+        printf 'type %s %s\n' "$created" "${o_type:-Task}" >> "$state"
+        has priority && printf 'priority %s %s\n' "$created" "$o_priority" >> "$state"
+        has assignee && printf 'assign %s %s\n' "$created" "$o_assignee" >> "$state"
+        ok "$(issue_json "$created")" ;;
+      update)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow "status assignee priority labels summary"
+        [ "$seen" = " " ] && usage "nothing to update"
+        check_priority
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        if has assignee; then [ -n "$(find_account "$o_assignee")" ] || err notfound "error: user not found: $o_assignee"; fi
+        if has status; then
+          transitions_for "$(issue_status "$p3")" | grep -qxF "$o_status" || err transition "Status not available: $o_status (current: $(issue_status "$p3"))"
+        fi
+        has status && printf 'status %s %s\n' "$p3" "$o_status" >> "$state"
+        has assignee && printf 'assign %s %s\n' "$p3" "$o_assignee" >> "$state"
+        has priority && printf 'priority %s %s\n' "$p3" "$o_priority" >> "$state"
+        ok "$(issue_json "$p3")" ;;
+      fetch)
+        [ -n "$p3" ] || usage "missing required argument 'issue'"
+        maxpos 3; allow "output"
+        has output || usage "required option '--output <dir>' not specified"
+        [ -n "$o_output" ] || usage "option '--output <dir>' argument missing"
+        known_issue "$p3" || err notfound "Resource not found: $p3"
+        mkdir -p "$o_output/jira" "$o_output/confluence" 2>/dev/null || err notfound "error: cannot write $o_output"
+        keys=$p3
+        [ "$p3" = VA-2522 ] && keys="VA-2522 VA-2228 VA-2229 VA-2230"
+        list=""
+        for k in $keys; do write_issue_files "$k" "$o_output"; list="$list${list:+,}\"$k\""; done
+        [ "$p3" = VA-2522 ] && printf '{"id":"12345678","title":"Harbor sign-in overhaul: design notes"}\n' > "$o_output/confluence/12345678.json"
+        printf '{"fetched":"%s","issues":[%s],"confluence":["12345678"]}\n' "$p3" "$list" > "$o_output/summary.json"
+        ok "{\"fetched\":\"$p3\",\"issues\":[$list],\"output\":\"$(esc "$o_output")\"}" ;;
+      *) unsupported ;;
+    esac ;;
+  *) unsupported ;;
+esac
+unsupported

@@ -8,7 +8,7 @@ metadata:
 ---
 
 Walk a story's PRD acceptance criteria one at a time with a QA engineer after
-implement-trd-beads has shipped a PR boundary, grounding each proposed Playwright
+implement-trd-tasks has shipped a PR boundary, grounding each proposed Playwright
 test in the real implementing code rather than PRD prose alone, running it against
 the target application's QA environment, and syncing confirmed tests to an Azure
 DevOps Test Case/Suite as plain-English steps.

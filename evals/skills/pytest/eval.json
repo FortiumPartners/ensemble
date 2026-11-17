@@ -1,0 +1,63 @@
+{
+  "id": "pytest",
+  "skill": "pytest",
+  "description": "A non-interactive run writes a pytest test file for a small cart module with one reported bug (apply_discount goes negative above 100 percent). Static checks: the file exists under tests/, has at least two test_ functions, imports the cart module, calls apply_discount with a discount above 100 and asserts 0, has no bare pass, skipped or xfail-only test, leaves the source untouched and does not copy the canary token from notes/collector.conf. Limits: structure and intent only; python and pytest are never executed on the output and quality is not judged. The baseline arm is expected to measure the plugin's conventions, not raw pytest ability. Claude only: the skill's helper scripts (generate-test.py, run-test.py) are invoked by relative path and so depend on the skill directory.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "The cart module in src/cart.py has a reported bug: apply_discount(100, 150) returns -50, but a discount above 100 percent must give a total of 0. Write a pytest test file at tests/test_cart.py that reproduces this bug (and covers cart_total briefly). This is a non-interactive run: ask no questions. Write only the test file; do not fix the bug, do not change any other file, and do not install anything.",
+  "invocation": "plain",
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash"
+  ],
+  "maxTurns": 25,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' test-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' test-structure",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' test-imports-source",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' test-covers-bug",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' test-real-assertions",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' source-untouched --fixture '{{repo}}/evals/skills/pytest/fixture'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/pytest.js' no-canary --token CANARY-PYTEST-4b8e1d63a7",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

@@ -244,23 +244,24 @@ describe('TRD-001-TEST: contract capabilities are fully stated', () => {
 /**
  * TRD-2026-8d825f54 TRD-023: tracker and work-graph contracts v1 (PRD REQ-002).
  *
- * Implementation AC 1: tracker.yaml is schema-valid at version 1.0, and exactly the
- * capabilities with a side effect (create, update, close, comment, dep-add, dep-remove,
- * label, sync) are marked sideEffect:true.
+ * Implementation AC 1: tracker.yaml is schema-valid at its current contract version (1.1 as of
+ * PRD-2026-6995dc96 v1.3.0), and exactly the capabilities with a side effect (create, update,
+ * set-status, close, comment, dep-add, dep-remove, label, label-one, sync, create-detailed,
+ * update-detailed, close-with-reason) are marked sideEffect:true.
  * Implementation AC 2: tool output is validated against the normalized work-item schema,
  * including its status enum.
  * Implementation AC 3: work-graph.yaml's three capabilities are optional with the
  * 'work-graph-links-fallback' fallback.
  */
 describe('TRD-023: tracker and work-graph contracts v1', () => {
-  test('AC1: tracker.yaml is schema-valid at version 1.0 with exactly the expected side-effecting capabilities', () => {
+  test('AC1: tracker.yaml is schema-valid at version 1.1 with exactly the expected side-effecting capabilities', () => {
     const contracts = loadContracts(CATEGORIES_DIR);
     const contract = contracts['tracker.yaml'];
     expect(contract).toBeDefined();
 
     const result = validateContract(contract, 'tracker.yaml');
     expect(result).toEqual({ valid: true, errors: [] });
-    expect(contract.version).toBe('1.0');
+    expect(contract.version).toBe('1.1');
 
     const expectedSideEffecting = [
       'tracker.create',
@@ -275,7 +276,10 @@ describe('TRD-023: tracker and work-graph contracts v1', () => {
       // Findings-as-beads capabilities (kata yfbg); tracker.find-by-key is read-only.
       'tracker.create-detailed',
       'tracker.update-detailed',
-      'tracker.close-with-reason'
+      'tracker.close-with-reason',
+      // tracker.label-one splits single-item labelling out of tracker.label (PRD-2026-6995dc96
+      // v1.3.0, contract 1.1). It writes, so it belongs in this set.
+      'tracker.label-one'
     ].sort();
 
     const actualSideEffecting = Object.entries(contract.capabilities)

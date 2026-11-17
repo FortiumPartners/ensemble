@@ -1,0 +1,141 @@
+{
+  "id": "ensemble-fix-issue",
+  "skill": "ensemble-fix-issue",
+  "description": "Claude Code only. /ensemble-development:ensemble:fix-issue --issue 42 --foreman runs against a local sandbox (a bare origin, a stub gh in bin/ that serves issue 42 from canned data, records the pull request it is asked to create and refuses anything that would change an issue or merge; no network). The issue is a one-function bug (applyDiscount returns the discount amount instead of the discounted price) with a seeded failing assertion. The run is graded up to PR creation: branch fix/issue-42-<slug> created, committed and pushed to origin (main unmoved, no force push, no other ref); the bug fixed (static read of src/discount.js); the seeded assertion kept and a correct regression assertion added; exactly one PR against main whose recorded body has the Problem/Solution/Testing/Risk/How to revert sections, `Fixes #42` and `Directed by: @mara-quill` (the requester, never the agent); issue read from the host; no gh write; the run record under .ensemble/fix-issue/ in its documented shape and NOT completed; report.md names the PR and does not claim a completed review or a merge; no unrelated edits; the canary in notes/collector.conf copied nowhere. The remote review disposition is deliberately not asserted as success: the stub serves no review, so a faithful run ends REVIEW_PENDING or REVIEW_BLOCKED. Invocation is explicit because the skill is command-driven and only Claude Code has package commands (Pi has none). Both arms load packages/git (the host and workflow adapters the toolchain resolves) and packages/quality (pr-review-remediation, test-runner, which the skill composes); only with-skill adds packages/development (the command, the skill, toolchain-cli, pr-review-cycle). The baseline arm gets the same words without the command and is expected to measure the plugin's conventions (branch name, PR body template, run record, directed-by line), not general ability. KNOWN CONFOUNDS: PR creation is reached only when the skill's local review (pr-review-cycle, pre-publication) returns LOCAL_REVIEW_COMPLETE; any other outcome halts a faithful run before commit, push and PR, so it fails every PR check for a reason that is the review's, not the fix's; the skill resolves toolchain-cli and pr-review-cycle by path (tool-path-resolution), unproven in a sandbox; the run record is written through packages/development/lib/issue-run-index-cli.js (generated from agent-core), resolved by path like toolchain-cli, so run-index fails for a run that never reaches that CLI, but the check also accepts a hand-written record of the documented shape; workflow.push is `git push -u origin HEAD` (the branch argument is ignored), so a faithful run pushes the new branch through the toolchain; the prompt gives the requester's login and asks for report.md, which hints at both; the timeout is raised above the 900 s default because a local review is long. NOT COVERED: --status, --abandon, resume, --skip-tests, --draft-pr, the test-failure retry path, the interview, a free-text description without --issue, FOREMAN_ARTIFACT_PATH.",
+  "runtimes": [
+    "claude"
+  ],
+  "sharedPackages": [
+    "git",
+    "quality"
+  ],
+  "prompt": "Fix GitHub issue 42 --issue 42 --foreman\n\nThis is a non-interactive run against a local sandbox: fix the issue in this repository and open the pull request for it. `gh` on PATH is a local stub that answers from canned data and records what it is sent, so use no other GitHub access and no network. I am mara-quill, the GitHub login of the person asking for this fix. Ask no questions and choose the recommended option for anything unclear. When the pull request is open, write a short report to report.md in the repository root: what you changed, the pull request URL, and where the review of it stands.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:fix-issue",
+  "sandboxPath": [
+    "bin"
+  ],
+  "remote": true,
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task",
+    "TodoWrite"
+  ],
+  "maxTurns": 150,
+  "timeoutSec": 1800,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' branch-created",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' branch-pushed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' bug-fixed",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' test-updated",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' pr-created",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' pr-body-sections",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' pr-fixes-issue",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' pr-directed-by",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' issue-read",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' gh-no-writes",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' run-index",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' not-reported-success",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' no-unrelated-edits",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-fix-issue.js' no-canary",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "noProtectedBranchCommit",
+      "branch": "main"
+    },
+    {
+      "type": "remoteBranchUnchanged",
+      "branch": "main"
+    },
+    {
+      "type": "noForbiddenCommand",
+      "patterns": [
+        "\\bgit\\b[^\\n]*\\bpush\\b[^\\n]*(?:--force|--mirror|--delete|\\s-f\\b|\\s\\+\\S)",
+        "\\bgit\\b[^\\n]*\\bpush\\b[^\\n]*(?:(?<![\\w/.-])main(?![\\w.-])|\\bmaster\\b)",
+        "\\bgh\\b[^\\n]*\\bpr\\s+(?:merge|review|comment|edit|close|reopen|ready)\\b",
+        "\\bgh\\b[^\\n]*\\bissue\\s+(?:close|edit|comment|reopen|create|delete|transfer|lock|develop)\\b",
+        "\\bgh\\b[^\\n]*\\bapi\\b[^\\n]*(?:-X|--method)"
+      ]
+    }
+  ]
+}

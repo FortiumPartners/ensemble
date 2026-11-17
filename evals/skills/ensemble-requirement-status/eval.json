@@ -1,0 +1,75 @@
+{
+  "id": "ensemble-requirement-status",
+  "skill": "ensemble-requirement-status",
+  "description": "Claude Code only. /ensemble-development:ensemble:requirement-status reports each requirement of a seeded TRD (docs/TRD/inventory-sync.md, 4 requirements, 7 tasks) against a local sandbox: `br` and `bv` in bin/ are stubs answering from canned JSON (open/in-progress/closed test beads, a failed verdict on one, a req-verified token on the epic), no network. The facts the report must get right come from trd-cli: one requirement each SATISFIED, IN_PROGRESS (closed test bead whose verdict is failed, although its checkbox is ticked), PENDING and NOT_PLANNED; summary counts; checkbox rollup per phase; ACs proven only where an ac-proven token exists; evidence level verdict-verified. The report is saved to report.md (the skill itself only prints it). Limits: checks parse a Markdown table or list and the report wording varies, so the formatting-sensitive checks are marked flaky in the check script; the sandbox needs the stub br to pass the beads preflight (a real br would also pass but read no beads). The skill is command-driven and resolves trd-cli and toolchain-cli through the tool-path-resolution tiers, so the with-skill arm may halt there in the sandbox (unproven, as for pr-merge-trace): a trial must show it gets past that step. The baseline arm is expected to measure the plugin's conventions (the status vocabulary, the verdict rule, the evidence level), not skill against a well-written prompt.",
+  "runtimes": [
+    "claude"
+  ],
+  "prompt": "inventory-sync\n\nThis is a non-interactive run against a local sandbox: report the requirement status of the TRD docs/TRD/inventory-sync.md. `br` and `bv` on PATH are local stubs that answer from canned data, so use no other tracker access and no network. Ask no questions. Change nothing in the repository except one new file: when you have printed your final report, also save it, exactly as printed, to report.md in the repository root.",
+  "invocation": "explicit",
+  "command": "/ensemble-development:ensemble:requirement-status",
+  "sandboxPath": [
+    "bin"
+  ],
+  "allowedTools": [
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "Task"
+  ],
+  "maxTurns": 40,
+  "timeoutSec": 600,
+  "checks": [
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' report-saved",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' req-statuses --expect REQ-001=SATISFIED,REQ-002=IN_PROGRESS,REQ-003=PENDING,REQ-004=NOT_PLANNED",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' summary-counts --expect SATISFIED=1,IN_PROGRESS=1,PENDING=1,NOT_PLANNED=1",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' phase-rollup --p1-title 'Import and export' --p1 '4/4,4 of 4,100%' --p2-title 'Alerts and audit' --p2 '1/3,1 of 3,33.3,33%' --total '5/7,5 of 7,71.4,71%'",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' acs-proven --proven REQ-001=AC-001-1+AC-001-2 --none REQ-002,REQ-003,REQ-004",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' evidence-level --level verdict-verified",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' beads-read --ids br-a,br-b,br-c",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    },
+    {
+      "type": "commandOutputMatches",
+      "command": "node '{{repo}}/evals/checks/ensemble-requirement-status.js' read-only --trd docs/TRD/inventory-sync.md --done 5 --open 2",
+      "pattern": "^PASS:",
+      "exitCode": 0
+    }
+  ]
+}

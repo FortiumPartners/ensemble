@@ -1,0 +1,4 @@
+2026-11-10T13:41:02Z deploy orders-api v2.7.3 succeeded (run 8841)
+2026-11-10T14:02:11Z deploy orders-api v2.8.0 succeeded (run 8852) commit a1b2c3d by Dana Whitfield: "tune database connection settings"
+2026-11-10T14:02:11Z config change: DB_POOL_SIZE 50 -> 5 (part of commit a1b2c3d)
+2026-11-10T14:02:58Z smoke test against production: not run
