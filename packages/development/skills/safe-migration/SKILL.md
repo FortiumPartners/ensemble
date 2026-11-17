@@ -25,7 +25,7 @@ Destructive = `DROP`, `TRUNCATE`, column type narrowing, `DELETE`/`UPDATE` witho
 
 ## Dependency upgrades
 
-- One bead per major bump: `br create "Upgrade <pkg> X -> Y" -t task` (check `br create --help` for flags); never batch majors.
+- One work item per major bump: `node "$TOOLCHAIN_CLI" run tracker.create --run-id "$RUN_ID" --arg title="Upgrade <pkg> X -> Y" --arg type=task --arg description="<breaking changes>" --json`; never batch majors.
 - Read the changelog/release notes between the versions; list breaking changes in the bead.
 - Run the full test suite before the bump (baseline) and after; a baseline that is already red must be reported, not fixed silently.
 - Lockfile-only changes get their own commit, separate from the code adaptations they require.

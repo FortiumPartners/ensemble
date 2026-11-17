@@ -268,12 +268,6 @@
     {
       "file": "packages/development/skills/completion-verification/SKILL.md",
       "class": "BINARY_IN_SKILL",
-      "binary": "br",
-      "count": 1
-    },
-    {
-      "file": "packages/development/skills/completion-verification/SKILL.md",
-      "class": "BINARY_IN_SKILL",
       "binary": "git",
       "count": 1
     },
@@ -372,18 +366,6 @@
       "class": "BINARY_IN_SKILL",
       "binary": "git",
       "count": 3
-    },
-    {
-      "file": "packages/development/skills/safe-migration/SKILL.md",
-      "class": "BINARY_IN_SKILL",
-      "binary": "br",
-      "count": 2
-    },
-    {
-      "file": "packages/development/skills/staleness-gate/SKILL.md",
-      "class": "BINARY_IN_SKILL",
-      "binary": "br",
-      "count": 1
     },
     {
       "file": "packages/development/skills/staleness-gate/SKILL.md",
