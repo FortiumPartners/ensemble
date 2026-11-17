@@ -4,7 +4,6 @@ description: >-
   Run a single beads-build wave (one work-graph.plan/work-graph.ready schedule +
   concurrent Task() dispatch + barrier) and emit a JSON summary suitable for the
   parent loop
-disable-model-invocation: true
 metadata:
   version: 1.4.0
   category: implementation
