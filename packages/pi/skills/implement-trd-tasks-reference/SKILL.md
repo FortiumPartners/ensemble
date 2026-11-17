@@ -80,3 +80,7 @@ Artifact path rules are in the command's `foreman` parameter. Tag beads for disp
 ## 7. Bead references and context contract
 
 Every bead opens with a `## References` block (TRD, TRD Task, PRD, PRD Requirement, PRD ACs); plan `externalRef` is embedded in `tracker.create`'s description (no dedicated externalRef field exists). Executors run `node "$TRD_CLI" bead-context --bead <BEAD_ID> [--trd <path>]` (`source:"fallback"` = legacy bead); `ok:false` -> never implement, `tracker.comment` `blocked:missing-references <missing>`, reopen; `ok:true` -> `tracker.comment` `context-read: ...`, embed `bead_context`.
+
+## 8. Kata projects
+
+Prerequisites (kata 0.23.0 or later, the binding step, `tracker: kata`), the fresh-project walkthrough and the unbound-workspace message: read `reference/kata-starting-point.md` when the tracker is kata or preflight reports an unbound kata workspace.
