@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sunstonepartners.com/schemas/normalized/export-result.json",
+  "title": "Ensemble Normalized Export Result Schema",
+  "description": "Minimal schema for tracker.stage-export (contract outputs [text, status]). Selected by runner.js CAPABILITY_NORMALIZED_SCHEMA. Added by TRD-014 for the kata adapter, which answers {text:'', status:'unavailable'} in-band; TRD-033 owns the broader non-entity schema entries.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["text", "status"],
+  "properties": {
+    "text": { "type": "string", "description": "Exported tracker content; empty when no export is available." },
+    "status": { "type": "string", "minLength": 1, "description": "Export status, for example 'unavailable'." }
+  }
+}

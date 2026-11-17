@@ -79,7 +79,6 @@ allowlist:
       - "unassign"
       - "ready"
       - "next"
-      - "export"
       - "doctor"
       - "--version"
 
@@ -162,7 +161,7 @@ detect: []
 # than adding a parallel manifest: TRD-007 `tracker.show` normalization and the open filter,
 # TRD-008 comment ordering, TRD-009 create/update, TRD-010 the dedupe key and `find-by-key`,
 # TRD-011 close-with-reason and the bare-close refusal, TRD-012 status/claim ownership and
-# `tracker.label-one`, TRD-013 dependency variants, TRD-014 `update-detailed`/`stage-export`/`sync`,
+# `tracker.label-one`, TRD-013 dependency variants, TRD-014 `update-detailed`/`stage-export`/`sync` (done: native answers),
 # TRD-015 the coverage assertion, TRD-016/TRD-018 the work-graph pair, TRD-033 the normalized
 # schema entries for non-entity results, TRD-003 the minimum-version keys on `health[]`.
 #
@@ -351,9 +350,10 @@ capabilities:
   # One invocation rewrites title, body and priority and appends a note: `kata edit`'s `--comment`
   # flag adds a comment on a successful mutation (`kata edit --help`), which is the only
   # append-shaped field kata exposes, so `${notes}` maps to it rather than to a replace. `-`
-  # clears a priority; TRD-014 owns that convention and the field mapping. No `parse` block: the
-  # result is a mutation envelope (`[kata_api_version, issue, event, events, changed, changes]`),
-  # and TRD-033 owns schema entries for non-entity results.
+  # clears a priority. No label, status or owner flag is in the argv, so those stay untouched.
+  # TRD-014 (PRD AC-006-1): the contract's `outputs: [id]` is produced here from the edit
+  # envelope's `.issue.short_id`, the same mapping `tracker.update` uses, so the adapter answers
+  # and no fallback is involved. The mapped `{id}` satisfies the tracker `work-item.json` gate.
   tracker.update-detailed:
     run:
       - kata
@@ -368,6 +368,11 @@ capabilities:
       - "--comment"
       - "${notes}"
       - "--json"
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
 
   # Required capability, and it stays a refusal (PRD AC-003-2). `tracker.close`'s contract inputs
   # are `[id]` alone, while kata closes ONLY with a reason AND a substantive message: a bare
@@ -475,55 +480,53 @@ capabilities:
         in_progress: ["kata", "claim", "${id}", "--json"]
         open: ["kata", "unassign", "${id}", "--json"]
 
-  # Optional, with NO fallback in the contract -- which is why it is declared rather than omitted:
-  # an undeclared optional capability with no fallback answers `NOT_ALLOWED`, and kata genuinely
-  # can answer a version of this question. Kata keeps issue state in its daemon's database and has
-  # no flush command (`kata --help` offers `export`, a database dump, and no sync), so the closest
-  # real operation is `kata doctor --json`, the read-only "diagnose configuration and connectivity
-  # without starting the daemon or changing state" check: its `checks[]` report whether the database
-  # the client is configured to write to is reachable and healthy, which is the durable-state
-  # question the contract asks. Captured: it returns `{kata_api_version, version, checks:[...]}`
-  # and mutates nothing. TRD-014 owns this entry's final form and TRD-033 its schema entry.
+  # Optional, with NO fallback in the contract -- declared rather than omitted so kata answers it
+  # itself. TRD-014 (PRD AC-006-1): kata persists each write before its command returns, so there
+  # is nothing to flush and the honest answer is `{status: "synced"}`. The argv stays the
+  # read-only `kata doctor --json` ("diagnose configuration and connectivity without starting the
+  # daemon or changing state"), run for its exit status: a failing doctor exits non-zero, which is
+  # `TOOL_FAILED` (ok:false, never synced) -- that is the real failure signal.
+  #
+  # The `status` value is a CONSTANT by design. The mapping grammar has no constants (TRD Open
+  # Question 8), so it is expressed as a path absent from doctor's envelope (`$.sync_status`)
+  # with `default: "synced"`; the doctor body is not read. This is documented as a constant, not
+  # derived from doctor's checks. The runner's `status-result.json` schema entry for this
+  # capability is a minimal one; TRD-033 owns the broader entries for non-entity results.
   tracker.sync:
     run: ["kata", "doctor", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        status:
+          path: "$.sync_status"
+          default: "synced"
 
-  # The contract names `fallback: full-export-unscoped`, so AC-001-4 requires it be declared -- and
-  # kata's own `export` IS an unscoped full database dump ("export the kata database as JSONL",
-  # `kata export --help`), exactly what that fallback id describes. Beads maps the same capability
-  # to `cat .beads/issues.jsonl`, its own whole-file read; kata writes a file rather than printing
-  # (`--output <path>`), and refuses to read a live database without `--allow-running-daemon`
-  # (captured: exit 3, "daemon running for this database; stop it or pass --allow-running-daemon").
-  # The flag is therefore part of the argv: the whole point of the capability is a read that does
-  # not disturb a working tracker. `--project-id` is not sent, so this is the unscoped dump the
-  # fallback id names.
+  # The contract names `fallback: full-export-unscoped`; TRD-014 (PRD AC-006-1) answers it in-band
+  # so the fallback never fires. Kata has no stdout export: `kata export` writes a file (with
+  # no `--output` it litters the cwd with `kata-export-<timestamp>.jsonl`), and the contract
+  # declares `tracker.stage-export` `sideEffect: false`. So this entry does NOT run `kata export`
+  # (it is no longer allowlisted) and answers the contract's own unavailable status itself:
+  # `{text: "", status: "unavailable"}`. The in-band `status` is what `beads-stage.js`-style
+  # callers read to continue without an export; `unavailable: true`/`fallback` never appear.
   #
-  # `--output .kata-export.jsonl` is here to make the destination DETERMINISTIC and LOCAL.
-  # Captured live: with no `--output`, kata writes `kata-export-<UTC timestamp>.jsonl` into the
-  # process cwd and prints `exported <path>` (44 stdout bytes, file 21707 bytes), so every
-  # repeated call leaves one more file behind in whichever cwd the runner happens to use. With a
-  # fixed relative `--output`, the same path is rewritten in place (captured twice: same name,
-  # same byte count, rc=0), which is what a caller that must read the export back needs. It is
-  # relative to the child's cwd, which `runner.js` inherits from the caller --
-  # `beads-stage.js#stageBeadsExport` passes `{execFileOptions: {cwd: root}}`, the git root, so
-  # the file lands at `<git root>/.kata-export.jsonl` where that caller can find it.
-  # `--output -` is NOT a stdout convention here (captured: it created a file literally named
-  # `-`), and `/dev/stdout`, `/dev/fd/1` and `/dev/tty` all fail rc=1 ("atomicfile: ... is a
-  # symlink or junction" / "operation not permitted" / "no such file or directory"), because
-  # kata writes the export through an atomic temp-file rename. Stdout cannot be the destination.
-  #
-  # `--json` is deliberately ABSENT. Captured: `kata export ... --json` prints ZERO bytes to
-  # stdout while still writing the file, so the JSON flag suppresses the only thing this
-  # capability's `data` can carry -- `runner.js` returns raw stdout as `data` unless a `parse`
-  # block maps it, and a `parse` block cannot read a file off disk. Without `--json` the command
-  # prints `exported .kata-export.jsonl` and exits 0. So `data` today is that one-line
-  # confirmation, NOT the JSONL body: `tracker.stage-export` declares `outputs: [text, status]`,
-  # and the honest current state is that kata's `text` lands on disk rather than on stdout.
-  # TRD-014 owns closing that gap -- by reading `<git root>/.kata-export.jsonl` at the call site
-  # (the same file-read `beads-stage.js` already does for a non-default `file` argument) or by
-  # giving the capability a file-backed `text` source -- and TRD-033 owns the normalized-schema
-  # entry a mapped `text` result would need.
+  # The argv is the read-only `kata doctor --json`, only so the capability has a real, allowlisted,
+  # state-free command whose failure (daemon/config trouble) is still surfaced as `TOOL_FAILED`.
+  # `text` and `status` are constants by design: the mapping grammar has no constants (TRD Open
+  # Question 8), so each is a path absent from doctor's envelope with a `default`. The schema
+  # entry is a minimal `export-result.json`; TRD-033 owns the broader non-entity entries.
   tracker.stage-export:
-    run: ["kata", "export", "--allow-running-daemon", "--output", ".kata-export.jsonl"]
+    run: ["kata", "doctor", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        text:
+          path: "$.export_text"
+          default: ""
+        status:
+          path: "$.export_status"
+          default: "unavailable"
 
   # `kata ready --limit 0 --json` lists open issues nothing is blocking, in kata's own listing
   # order (most-recently-updated first), inside `{issues, kata_api_version}` -- kata's native

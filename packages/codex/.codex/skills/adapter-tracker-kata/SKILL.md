@@ -29,7 +29,7 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 | `tracker.create-detailed` | `kata create ${title} --body ${description} --priority ${priority} --meta ext_key=${externalKey} --idempotency-key ${externalKey} --json` |
 | `tracker.find-by-key` | `kata list --status all --limit 0 --meta ext_key=${key} --json` |
 | `tracker.update` | `kata edit ${id} --body ${fields} --json` |
-| `tracker.update-detailed` | `kata edit ${id} --title ${title} --body ${description} --priority ${priority} --comment ${notes} --json` |
+| `tracker.update-detailed` | `kata edit ${id} --title ${title} --body ${description} --priority ${priority} --comment ${notes} --json`, mapped to `{id}` |
 | `tracker.close` | `kata close ${id} --json` |
 | `tracker.close-with-reason` | `kata close ${id} --done -m ${reason} --commit ${commit} --json` |
 | `tracker.comment` | `kata comment ${id} -m ${text} --json` |
@@ -38,8 +38,8 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 | `tracker.dep-remove` | `kata edit ${id} --remove-blocked-by ${dependsOnId} --json` |
 | `tracker.label` | `kata label add ${ids} ${labels} --json` |
 | `tracker.set-status` | `kata claim ${id} --json` / `kata unassign ${id} --json` (`in_progress`/`open` variants) |
-| `tracker.sync` | `kata doctor --json` |
-| `tracker.stage-export` | `kata export --allow-running-daemon --output .kata-export.jsonl` |
+| `tracker.sync` | `kata doctor --json`, answered natively as `{status: synced}` |
+| `tracker.stage-export` | `kata doctor --json`, answered natively as `{text: "", status: unavailable}` (no `kata export`) |
 | `work-graph.ready` | `kata ready --limit 0 --json` |
 | `work-graph.plan` | `kata next --json` |
 | `work-graph.graph-health` | `kata ready --limit 0 --json` |
@@ -125,27 +125,25 @@ system's ids are not valid refs in the other.
   is the dependency-bearing `kata ready` listing. TRD-018 owns the computation, TRD Open Question 9
   the honest `status`/`findings` semantics for trackers exposing no dependency data.
 
-- **`tracker.sync` is not a flush.** kata keeps issue state in its daemon database and has no flush
-  command, so `kata doctor --json` stands in: read-only, no daemon start, no state change, reporting
-  database reachability. The contract declares `tracker.sync` optional with NO fallback, so an
-  adapter omitting it answers `NOT_ALLOWED`; declaring the closest real read-only check was the
-  honest option (TRD-014 owns the final form).
+- **`tracker.sync` answers `{status: synced}` natively.** kata persists each write before its command
+  returns, so there is nothing to flush. The argv stays the read-only `kata doctor --json` (no daemon
+  start, no state change); a non-zero exit is `TOOL_FAILED` (never synced), and that is the real
+  failure signal. `synced` is a constant: the mapping grammar has no constants, so it is a `default`
+  on a path absent from doctor's envelope (TRD Open Question 8). `synced` means doctor exited 0 and
+  there is nothing to flush, not that every doctor check passed (a `warn` summary still yields it).
+  No fallback fires (PRD AC-006-1).
 
-- **`tracker.stage-export` writes a file; its `text` is NOT on stdout yet.** `kata export` writes the
-  whole database as JSONL to `--output <path>` instead of printing it, and refuses a live database
-  without `--allow-running-daemon` (exit 3). No `--project-id` is sent, so this is the unscoped full
-  dump the contract's `full-export-unscoped` fallback id names. The pinned
-  `--output .kata-export.jsonl` is relative to the child cwd, which `beads-stage.js#stageBeadsExport`
-  sets to the git root, so the dump lands at `<git root>/.kata-export.jsonl`. The contract declares
-  `outputs: [text, status]` but `runner.js` returns raw stdout as `data`, so `text` is only the
-  confirmation line, not the JSONL body; `--json` is absent (ZERO stdout bytes). Stdout cannot be the
-  destination: `--output -` creates a file named `-`, and `/dev/stdout`, `/dev/fd/1`, `/dev/tty` exit 1
-  (atomic temp-file rename). TRD-014 owns closing it by reading the file at the call site; TRD-033
-  owns the schema entry a mapped `text` needs; `staged:false` is unaffected.
+- **`tracker.stage-export` answers `{text: "", status: unavailable}` natively.** kata has no stdout
+  export and `kata export` writes a file, contradicting the contract's `sideEffect: false`, so it is
+  no longer run or allowlisted. The adapter gives the contract's own in-band unavailable status
+  (via `kata doctor --json` plus the same constant-default technique) and the full-export fallback
+  never fires. It depends on doctor exiting 0, so a broken kata config is `TOOL_FAILED`, not
+  `unavailable`. Callers must read `data.status`; `beads-stage.js` does not yet (only reached when
+  kata is the tracker AND `.beads/issues.jsonl` is tracked). TRD-033 owns broader schema entries.
 
 - **`--priority` is an integer or `none`, not a letter.** `--priority p2` is rejected ("must be an
   integer or none"); callers passing the tracker contract's priority vocabulary must normalize before
-  argv is built; `-` clears a priority. TRD-014 owns that mapping.
+  argv is built; `-` clears a priority.
 
 - **`tracker.list` does not use `--all`.** For kata, `--all` widens the *scope* to every active
   project instead of the current one (`kata list --help`), reading another project's work.

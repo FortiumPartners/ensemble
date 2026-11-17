@@ -606,7 +606,12 @@ const SCHEMA_DIR = path.join(__dirname, '..', '..', 'toolchain', 'schemas', 'nor
  */
 const CAPABILITY_NORMALIZED_SCHEMA = {
   'tracker.list': 'work-item-list.json',
-  'tracker.comments': 'comment-list.json'
+  'tracker.comments': 'comment-list.json',
+  // TRD-014 (kata native answers): minimal entries so a mapped `tracker.sync` / `tracker.stage-export`
+  // result is not gated by `work-item.json`'s `required: ["id"]`. TRD-033 owns the broader
+  // non-entity schema entries and may supersede these.
+  'tracker.sync': 'status-result.json',
+  'tracker.stage-export': 'export-result.json'
 };
 
 /**
