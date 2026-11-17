@@ -11,7 +11,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { runPreflight } = require('../lib/toolchain/preflight');
+const { runPreflight, hasPassingPreflightRecord, preflightReportedCapability } = require('../lib/toolchain/preflight');
 const { kataAvailable } = require('./helpers/kata-guard');
 
 const SCRATCH_ROOT = path.join(os.homedir(), '.omp', 'br-4jh85', 'scratch');
@@ -95,5 +95,174 @@ describe('real kata (guarded)', () => {
     const result = await runPreflight({ categories: ['tracker'], runId: 'real' }, ctx);
     if (result.ok) expect(result.versions.kata).toMatch(/^\d+\.\d+\.\d+/);
     else expect(result.error.message).not.toMatch(/minimum/i);
+  });
+});
+
+/**
+ * TRD-004-TEST (TRD-2026-6995dc96; PRD REQ-018 AC-018-1, AC-018-3): the binding gate creates zero
+ * items when unbound. Stateful stub `kata`: `doctor --json` reports bound iff `.kata.toml` is in
+ * cwd (otherwise the doctor output the case supplies); `create` appends one line to an items file
+ * (the item count); every invocation is logged. Scratch under ~/.omp/br-1xi7y/scratch, never the
+ * system temp directory.
+ */
+describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)', () => {
+  const cli = require('../lib/toolchain-cli');
+  const yaml = require('js-yaml');
+  const GATE_ROOT = path.join(os.homedir(), '.omp', 'br-1xi7y', 'scratch');
+  const gateDirs = [];
+  const gateSavedPath = process.env.PATH;
+
+  // The real TRD flow's required capability list, parsed from the command source of truth.
+  const TRD_REQUIRED = yaml.load(
+    fs.readFileSync(path.join(__dirname, '..', 'commands', 'implement-trd-tasks.yaml'), 'utf8')
+  ).metadata.capabilities.required;
+  // Preflight is driven with the full required list: non-tracker capabilities resolve to their own
+  // adapters (health checks run for real); the kata stub is only consulted for tracker.*.
+
+  function gmk(label) {
+    fs.mkdirSync(GATE_ROOT, { recursive: true });
+    const d = fs.mkdtempSync(path.join(GATE_ROOT, `${label}-`));
+    gateDirs.push(d);
+    return d;
+  }
+
+  const BOUND = '{"checks":[{"id":"daemon.connection","status":"ok"},{"id":"config.workspace","status":"ok"}]}';
+
+  /** Installs the stateful stub on PATH. `unboundDoctor` is what doctor prints without .kata.toml. */
+  function statefulKata(unboundDoctor) {
+    const dir = gmk('stub');
+    const items = path.join(dir, 'items.txt');
+    const log = path.join(dir, 'calls.log');
+    fs.writeFileSync(items, '');
+    fs.writeFileSync(log, '');
+    fs.writeFileSync(path.join(dir, 'bound.json'), BOUND);
+    fs.writeFileSync(path.join(dir, 'unbound.json'), unboundDoctor || BOUND);
+    fs.writeFileSync(
+      path.join(dir, 'kata'),
+      [
+        '#!/bin/sh',
+        `echo "$*" >> "${log}"`,
+        'if [ "$1" = "--version" ]; then echo "kata v0.23.0"; exit 0; fi',
+        'if [ "$1" = "doctor" ]; then',
+        `  if [ -f .kata.toml ]; then cat "${path.join(dir, 'bound.json')}"; else cat "${path.join(dir, 'unbound.json')}"; fi; exit 0`,
+        'fi',
+        'if [ "$1" = "create" ]; then',
+        `  echo "item" >> "${items}"`,
+        '  echo \'{"issue":{"short_id":"k-1"}}\'; exit 0',
+        'fi',
+        'if [ "$1" = "list" ]; then echo \'{"issues":[{"short_id":"k-1","title":"t","status":"open"}],"total":1,"complete":true,"truncated":false}\'; exit 0; fi',
+        'echo \'{}\'',
+        ''
+      ].join('\n'),
+      { mode: 0o755 }
+    );
+    process.env.PATH = `${dir}${path.delimiter}${gateSavedPath}`;
+    return {
+      count: () => fs.readFileSync(items, 'utf8').split('\n').filter(Boolean).length,
+      calls: () => fs.readFileSync(log, 'utf8').split('\n').filter(Boolean)
+    };
+  }
+
+  function gateProject({ bound }) {
+    const projectRoot = gmk('proj');
+    fs.mkdirSync(path.join(projectRoot, '.ensemble'), { recursive: true });
+    fs.writeFileSync(path.join(projectRoot, '.ensemble', 'toolchain.yaml'), 'tracker: kata\n');
+    if (bound) fs.writeFileSync(path.join(projectRoot, '.kata.toml'), 'project = "scratch"\n');
+    return {
+      projectRoot,
+      ctx: { projectRoot, env: { XDG_CONFIG_HOME: path.join(projectRoot, 'xdg'), ENSEMBLE_NON_INTERACTIVE: '1' } }
+    };
+  }
+
+  const CREATE_ARGS = { title: 't', description: 'd' };
+
+  /** The TRD flow: preflight, then (only if it passed) create. */
+  async function trdFlow(ctx, runId, requires) {
+    const pre = await cli.preflight(ctx, [], { requires, runId, nonInteractive: true });
+    if (!pre.ok) return { pre, created: null };
+    const created = await cli.run(ctx, ['tracker.create'], { runId, nonInteractive: true, args: CREATE_ARGS });
+    return { pre, created };
+  }
+
+  afterEach(() => {
+    process.env.PATH = gateSavedPath;
+  });
+  afterAll(() => {
+    for (const d of gateDirs) fs.rmSync(d, { recursive: true, force: true });
+  });
+
+  test('Happy (stub kata): bound workspace passes preflight for every TRD required capability, reports each, and creates exactly one item', async () => {
+    expect(TRD_REQUIRED).toHaveLength(8);
+    const kata = statefulKata();
+    const { projectRoot, ctx } = gateProject({ bound: true });
+    const before = kata.count();
+    const { pre, created } = await trdFlow(ctx, 'happy', TRD_REQUIRED);
+    expect(pre.ok).toBe(true);
+    for (const cap of TRD_REQUIRED) {
+      expect(preflightReportedCapability('happy', cap, { projectRoot })).toBe(true);
+    }
+    if (!created.ok) throw new Error(JSON.stringify(created.error));
+    expect(kata.count()).toBe(before + 1);
+    // The remaining tracker capabilities the flow needs run through the same gated runner.
+    for (const [cap, args] of [
+      ['tracker.list', {}],
+      ['tracker.comment', { id: 'k-1', text: 'note' }],
+      ['tracker.close', { id: 'k-1' }]
+    ]) {
+      const r = await cli.run(ctx, [cap], { runId: 'happy', nonInteractive: true, args });
+      if (!r.ok) throw new Error(`${cap}: ${JSON.stringify(r.error)}`);
+    }
+    const calls = kata.calls();
+    expect(calls.some((c) => c.startsWith('list '))).toBe(true);
+    expect(calls.some((c) => c.startsWith('comment k-1'))).toBe(true);
+    expect(calls.some((c) => c.startsWith('close k-1'))).toBe(true);
+    expect(kata.count()).toBe(before + 1);
+  });
+
+  const UNBOUND_DOCTORS = {
+    'config.workspace status warn':
+      '{"checks":[{"id":"daemon.connection","status":"ok"},{"id":"config.workspace","status":"warn"}]}',
+    'config.workspace status fail':
+      '{"checks":[{"id":"daemon.connection","status":"ok"},{"id":"config.workspace","status":"fail"}]}',
+    'config.workspace check missing': '{"checks":[{"id":"daemon.connection","status":"ok"}]}'
+  };
+
+  test.each(Object.entries(UNBOUND_DOCTORS))(
+    'Edge (stub kata): unbound workspace (%s) stops during preflight; no kata write runs and the item count is unchanged',
+    async (_label, doctorOut) => {
+      const kata = statefulKata(doctorOut);
+      const { projectRoot, ctx } = gateProject({ bound: false });
+      const before = kata.count();
+      const { pre, created } = await trdFlow(ctx, 'unbound', TRD_REQUIRED);
+      expect(pre.ok).toBe(false);
+      expect(pre.error.code).toBe('HEALTH_FAILED');
+      expect(pre.error.message).toContain('kata init');
+      expect(created).toBeNull();
+      expect(kata.count()).toBe(before);
+      expect(hasPassingPreflightRecord('unbound', { projectRoot })).toBe(false);
+      // Even a caller that ignores the failed preflight and calls run directly creates nothing.
+      const direct = await cli.run(ctx, ['tracker.create'], { runId: 'unbound', nonInteractive: true, args: CREATE_ARGS });
+      expect(direct.ok).toBe(false);
+      expect(direct.error.code).toBe('PREFLIGHT_REQUIRED');
+      expect(kata.count()).toBe(before);
+      const calls = kata.calls();
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls.every((c) => c === '--version' || c.startsWith('doctor'))).toBe(true);
+    }
+  );
+
+  test('Edge (stub kata): a write capability preflight did not report is refused before any kata write runs', async () => {
+    const kata = statefulKata();
+    const { ctx } = gateProject({ bound: true });
+    const requires = TRD_REQUIRED.filter((c) => c !== 'tracker.create');
+    const pre = await cli.preflight(ctx, [], { requires, runId: 'unreported', nonInteractive: true });
+    expect(pre.ok).toBe(true);
+    const before = kata.count();
+    const refused = await cli.run(ctx, ['tracker.create'], { runId: 'unreported', nonInteractive: true, args: CREATE_ARGS });
+    expect(refused.ok).toBe(false);
+    expect(refused.error.code).toBe('CAPABILITY_NOT_REPORTED');
+    expect(refused.error.message).toContain('tracker.create');
+    expect(kata.count()).toBe(before);
+    expect(kata.calls().some((c) => c.startsWith('create'))).toBe(false);
   });
 });
