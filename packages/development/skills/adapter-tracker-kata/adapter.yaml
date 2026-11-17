@@ -496,14 +496,39 @@ capabilities:
   tracker.stage-export:
     run: ["kata", "export", "--allow-running-daemon", "--output", ".kata-export.jsonl"]
 
-  # `kata ready --limit 0 --json` lists open issues nothing is blocking, most-recently-updated
-  # first, inside `{issues, kata_api_version}` -- kata's native readiness vocabulary, and the one
-  # that makes REQ-005/REQ-007 real: an item marked blocked actually disappears from this listing
-  # (captured: adding a blocking edge removed the item, removing it brought it back). `--limit 0`
-  # for the same uncapped reason as `tracker.list`. No `parse` block: TRD-016/TRD-018 own the
-  # projection, the truncation bound, and the schema entry.
+  # `kata ready --limit 0 --json` lists open issues nothing is blocking, in kata's own listing
+  # order (most-recently-updated first), inside `{issues, kata_api_version}` -- kata's native
+  # readiness vocabulary, and the one that makes REQ-005/REQ-007 real: an item marked blocked
+  # actually disappears from this listing (captured: adding a blocking edge removed the item,
+  # removing it brought it back). `--limit 0` for the same uncapped reason as `tracker.list`.
+  # TRD-017 owns this entry: the `parse` block below projects `$.issues` to items the same way
+  # `tracker.list` does, never re-sorting, so two listings of an unchanged set are identical
+  # (AC-007-1). `work-graph` has no CATEGORY_NORMALIZED_SCHEMA entry, so no schema gate applies.
+  # Edges are NOT mapped here (a ready row carries only `blocks`); `work-graph-module.js` exports
+  # `normalizeReadyItems`/`normalizeEdges` for them from the list envelope's `blocked_by`/`blocks`.
   work-graph.ready:
     run: ["kata", "ready", "--limit", "0", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map: {}
+      arrayMap:
+        items:
+          source: "$.issues"
+          item:
+            id: "$.short_id"
+            title: "$.title"
+            status: "$.status"
+            labels:
+              path: "$.labels"
+              default: []
+            priority:
+              path: "$.priority"
+              asString: true
+              optional: true
+            owner:
+              path: "$.owner"
+              optional: true
 
   # Kata's sequential-pickup answer is `kata next`: the highest-priority READY issue, respecting
   # blocking edges (`kata next --help`), with `--all` widening past the current project. No
