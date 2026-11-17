@@ -17,6 +17,10 @@ reuse_target: TRD-2026-8d825f54
 Constitution compliance: passed
 related:
   - docs/TRD/TRD-2026-8d825f54-tool-abstraction-layer.md
+ensemble_implement_trd_beads:
+  branch_name: kata/trd-6995dc96-batch3
+  use_proposed: false
+  stacked_prs: false
 ---
 
 # TRD: Configurable Tasks Backend - Kata Adapter
