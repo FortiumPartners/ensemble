@@ -20,7 +20,7 @@
  *   format: 'json' | 'lines' | 'text',
  *   root?: string,                    // dotted path, json format only; default '$'
  *   emptyWhen?: string,               // dotted path to an optional list, json format only (below)
- *   map?: { <outKey>: <dottedPath> }, // field projection against the (root-projected) value
+ *   map?: { <outKey>: <dottedPath> | <fieldSpec> }, // field projection against the (root-projected) value
  *   trimPrefix?: { <outKey>: <prefix> }, // TRD-040: strip a literal prefix off a map-built field
  *   statusMap?: { <rawValue>: <normalizedValue> }, // translates result.status, else result.state
  *   arrayMap?: {                      // TRD-033: per-item array filter + reshape (see below)
@@ -68,6 +68,18 @@
  * to a present value or `mapOutput` throws a `BAD_OUTPUT`-coded error naming the path and the
  * first segment that could not be found — there is no "resolve to undefined and move on"
  * behavior, matching this module's fail-closed requirement.
+ *
+ * ## `map` field specs (TRD-2026-6995dc96 TRD-007)
+ *
+ * A `map` value may be an object instead of a bare path, for sources whose raw value is not
+ * already in the normalized shape. `{path, default?, optional?, asString?}`:
+ * - `path` (required, dotted path) is resolved like a bare-path entry. When it does NOT resolve
+ *   (a missing property, or a `null` value) and `default` is supplied, the default is used;
+ *   when it does not resolve and `optional: true` is set, `outKey` is OMITTED from the result;
+ *   with neither, the usual `BAD_OUTPUT` fail-closed error applies.
+ * - `asString: true` stringifies a resolved number (the normalized `priority` is a string while
+ *   kata reports an integer). Any other resolved type is `BAD_OUTPUT`, never silently coerced.
+ * A bare-path entry behaves exactly as before.
  *
  * ## `arrayMap` per-item array filter + reshape (TRD-2026-8d825f54 TRD-033)
  *
@@ -459,6 +471,53 @@ function applyArrayMapEntry(baseValue, outKey, spec) {
 }
 
 /**
+ * Resolve one object-form `parse.map` entry (see "`map` field specs" in the module header).
+ *
+ * @param {unknown} baseValue the root-projected base value
+ * @param {string} outKey the `map` key, for error messages
+ * @param {unknown} spec the entry value
+ * @returns {{present: boolean, value?: unknown}}
+ */
+function resolveFieldSpec(baseValue, outKey, spec) {
+  if (spec === null || typeof spec !== 'object' || Array.isArray(spec) || typeof spec.path !== 'string') {
+    throw badOutputError(
+      `mapOutput: parse.map['${outKey}'] must be a dotted-path string or an object with a string 'path', got ${describeType(spec)}`
+    );
+  }
+  let value;
+  let found = true;
+  try {
+    value = resolvePath(baseValue, spec.path);
+    if (value === null) {
+      found = false;
+    }
+  } catch (err) {
+    if (spec.default === undefined && spec.optional !== true) {
+      throw err;
+    }
+    found = false;
+  }
+  if (!found) {
+    if (spec.default !== undefined) {
+      return { present: true, value: JSON.parse(JSON.stringify(spec.default)) };
+    }
+    if (spec.optional === true) {
+      return { present: false };
+    }
+    throw badOutputError(`mapOutput: parse.map['${outKey}'] path '${spec.path}' resolved to null`);
+  }
+  if (spec.asString === true) {
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      throw badOutputError(
+        `mapOutput: parse.map['${outKey}'] asString expects a number or string at '${spec.path}', found ${describeType(value)}`
+      );
+    }
+    value = String(value);
+  }
+  return { present: true, value };
+}
+
+/**
  * Whether the optional list at `listPath` (`$.<parent...>.<name>`) is empty, null or absent.
  * The parent must resolve to a plain object (else `BAD_OUTPUT` via `resolvePath`/here).
  *
@@ -543,11 +602,15 @@ function mapOutput(stdout, parse) {
   let result;
   if (map) {
     result = {};
-    for (const [outKey, dottedPath] of Object.entries(map)) {
-      if (typeof dottedPath !== 'string') {
-        throw badOutputError(`mapOutput: parse.map['${outKey}'] must be a dotted-path string, got ${describeType(dottedPath)}`);
+    for (const [outKey, spec] of Object.entries(map)) {
+      if (typeof spec === 'string') {
+        result[outKey] = resolvePath(baseValue, spec);
+        continue;
       }
-      result[outKey] = resolvePath(baseValue, dottedPath);
+      const resolved = resolveFieldSpec(baseValue, outKey, spec);
+      if (resolved.present) {
+        result[outKey] = resolved.value;
+      }
     }
   } else if (baseValue !== null && typeof baseValue === 'object' && !Array.isArray(baseValue)) {
     result = { ...baseValue };
