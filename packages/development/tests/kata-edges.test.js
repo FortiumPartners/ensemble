@@ -132,4 +132,37 @@ describe('runCapability work-graph.ready against a stub kata on PATH', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test('end to end: 250 ready rows all returned, and two listings of an unchanged set are identical', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kata-edges-'));
+    try {
+      const rows = Array.from({ length: 250 }, (_, i) => issue(`id${i}`));
+      // Like real kata: a default cap of 100 rows unless `--limit 0` is passed.
+      fs.writeFileSync(path.join(dir, 'full.json'), JSON.stringify({ issues: rows }));
+      fs.writeFileSync(path.join(dir, 'capped.json'), JSON.stringify({ issues: rows.slice(0, 100) }));
+      fs.writeFileSync(
+        path.join(dir, 'kata'),
+        `#!/bin/sh\ncase " $* " in\n  *" --limit 0 "*) cat "${dir}/full.json" ;;\n  *) cat "${dir}/capped.json" ;;\nesac\n`,
+        { mode: 0o755 }
+      );
+      const opts = { parentEnv: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
+      const list = async (manifest) => {
+        const res = await runCapability(manifest, 'work-graph.ready', {}, opts);
+        expect(res.ok).toBe(true);
+        return (res.data || res.result || res).items.map((i) => i.id);
+      };
+      const first = await list(MANIFEST);
+      expect(first).toEqual(rows.map((i) => i.short_id));
+      expect(await list(MANIFEST)).toEqual(first);
+
+      // Permanent mutation check: without `--limit 0` the stub's cap truncates to 100.
+      const noLimit = JSON.parse(JSON.stringify(MANIFEST));
+      const run = noLimit.capabilities['work-graph.ready'].run;
+      run.splice(run.indexOf('--limit'), 2);
+      expect(run).toEqual(['kata', 'ready', '--json']);
+      expect(await list(noLimit)).toHaveLength(100);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
