@@ -36,3 +36,35 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage/coverage-final.json
+
+  # TRD-030 / PRD REQ-016: a leg that never installs kata. The runner image has no kata, and
+  # the script also hides any kata on PATH, so every kata-dependent check must be reported
+  # skipped with the reason "tool absent", the run must exit 0, and the skip count must be
+  # nonzero (a zero count would mean the skips are vacuous).
+  test-no-kata:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Confirm kata is absent
+        run: |
+          if command -v kata >/dev/null 2>&1; then
+            echo "kata unexpectedly present on this runner" >&2
+            exit 1
+          fi
+
+      - name: Run tests without kata and assert a nonzero kata skip count
+        run: node scripts/check-kata-skips.js

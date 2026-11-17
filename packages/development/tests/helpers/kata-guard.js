@@ -145,6 +145,25 @@ function clearRegisteredKataChecks() {
   kataChecks.clear();
 }
 
+/**
+ * Append one `{suite, ran, reason?, checks}` line to the file named by `KATA_SKIP_LEDGER`, when
+ * that variable is set. The CI no-kata leg (scripts/check-kata-skips.js) reads it to compare the
+ * skip list with the tests that touch kata (AC-016-2, AC-016-3). Never throws: a ledger that
+ * cannot be written must not fail a test run.
+ *
+ * @param {{suite:string, ran:boolean, reason?:string, checks:string[]}} entry
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+function recordLedger(entry, env = process.env) {
+  const file = env && env.KATA_SKIP_LEDGER;
+  if (!file) return;
+  try {
+    fs.appendFileSync(file, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // ledger is advisory
+  }
+}
+
 /** Skip announcements collected so far, oldest first: `{suite, reason, checks}`. */
 const skips = [];
 
@@ -221,6 +240,7 @@ function guardKata(suite, body, opts = {}) {
   if (kataAvailable(env)) {
     if (typeof describe === 'function') describe(suite, body);
     else body();
+    recordLedger({ suite, ran: true, checks: declared || registeredKataChecks() });
     return { ran: true, skipped: false, checks: declared || registeredKataChecks() };
   }
 
@@ -245,6 +265,7 @@ function guardKata(suite, body, opts = {}) {
   // list is the fallback for a body that registers its checks some other way.
   const checks = skippedChecks.length ? skippedChecks : (declared || registeredKataChecks());
   announceSkip(suite, checks);
+  recordLedger({ suite, ran: false, reason: SKIP_REASON, checks });
   return { ran: false, skipped: true, checks };
 }
 
