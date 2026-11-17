@@ -38,6 +38,19 @@ contract:
 binaries:
   - kata
 
+# TRD-029 (PRD AC-017-2): kata's own exit codes 3 through 8, from `kata --help`. They are not
+# runner codes -- a failing capability stays `TOOL_FAILED` (error.code), but the runner names the
+# exit in the message and on `error.exitCode`/`error.exitName` ahead of kata's own stderr or
+# stdout error envelope text, and a named exit is never a success. Codes 1 and 2 (generic failure,
+# usage) are left unnamed on purpose: they carry kata's own message and nothing extra.
+exitCodeNames:
+  "3": validation
+  "4": not_found
+  "5": conflict
+  "6": confirmation_required
+  "7": daemon_unavailable
+  "8": wait_timeout
+
 # Subcommand allowlist at binary+subcommand granularity, the only granularity
 # `validate.js#validateAllowlist` and `runner.js#denyRuntimeAllowlist` enforce (validate.js
 # documents the limit itself; beads' own SKILL.md records the same). Each `sub` entry is a kata
@@ -99,14 +112,18 @@ env:
 # preflight consumes a health check's exit status, and runner.js's `CATEGORY_NORMALIZED_SCHEMA` Ajv
 # gate applies to `tracker.*` capability output, not to health output.
 #
-# No minimum-version key is declared here, deliberately: the 0.23.0 gate is TRD-003's scope, and
-# neither `minVersion` nor `versionPattern` exists in shipped runner code or in
-# `toolchain/schemas/adapter-manifest-schema.json`, whose health items set
-# `additionalProperties: false` -- declaring either today fails schema validation.
+# TRD-003: `kata-version` declares `minVersion: "0.23.0"`, the floor this manifest was verified
+# against. Preflight runs every health check that declares `minVersion` FIRST, before any other
+# health check of any adapter, parses the version from this check's stdout (the default pattern
+# takes the first dotted x.y.z, so "kata v0.23.0\n commit: ..." reads as 0.23.0), and fails naming
+# the minimum when the reported version is older or unparsable -- so `kata doctor` below is never
+# issued against a too-old kata. On pass the reported version is recorded in the preflight record
+# (`versions.kata`, PRD AC-001-2). `versionPattern` is not needed for kata's output.
 health:
   - id: kata-version
     run: ["kata", "--version"]
     timeoutMs: 5000
+    minVersion: "0.23.0"
   - id: kata-doctor
     run: ["kata", "doctor", "--json"]
     timeoutMs: 15000
@@ -198,14 +215,47 @@ capabilities:
   #     argv runs; kata's own default is open, so the base states `--status open` too.
   #   - `--all` is NOT used: for kata it widens the SCOPE to every active project rather than
   #     widening the current one (`kata list --help`), which would read another project's work.
-  # No `parse` block, list shape.
+  # TRD-029 (AC-017-3), truncation-safe: every argv here also passes `--include-total`, which adds
+  # a top-level integer `total` to the envelope (captured on kata 0.23.0:
+  # `{kata_api_version, complete, truncated, total, issues}`; with `--limit 1` over two open items
+  # it reads `complete:false, truncated:true, total:2` and one row, see
+  # tests/fixtures/kata/list-total*.json). The `parse` block maps `issues` to the normalized
+  # `items` (`id` is `short_id`, the ref kata accepts back) and refuses the read with `BAD_OUTPUT`
+  # unless `truncated` is false, `complete` is true AND the mapped row count equals `total`, so a
+  # partial list is never returned. `id`, `title` and `status` are always emitted; `labels` (default []),
+  # `priority` and `owner` are mapped as optional because kata omits them when unset, so consumers
+  # such as beads-label's backfill still see them.
   tracker.list:
-    run: ["kata", "list", "--status", "open", "--limit", "0", "--json"]
+    run: ["kata", "list", "--status", "open", "--limit", "0", "--include-total", "--json"]
+    parse:
+      format: json
+      root: "$"
+      countFrom: "$.total"
+      completeFrom: "$.complete"
+      truncatedFrom: "$.truncated"
+      map: {}
+      arrayMap:
+        items:
+          source: "$.issues"
+          item:
+            id: "$.short_id"
+            title: "$.title"
+            status: "$.status"
+            labels:
+              path: "$.labels"
+              default: []
+            priority:
+              path: "$.priority"
+              asString: true
+              optional: true
+            owner:
+              path: "$.owner"
+              optional: true
     variants:
       filter:
-        open: ["kata", "list", "--status", "open", "--limit", "0", "--json"]
-        closed: ["kata", "list", "--status", "closed", "--limit", "0", "--json"]
-        all: ["kata", "list", "--status", "all", "--limit", "0", "--json"]
+        open: ["kata", "list", "--status", "open", "--limit", "0", "--include-total", "--json"]
+        closed: ["kata", "list", "--status", "closed", "--limit", "0", "--include-total", "--json"]
+        all: ["kata", "list", "--status", "all", "--limit", "0", "--include-total", "--json"]
 
   # `kata create <title> --body <description> --json`; the title is the only positional. Kata has
   # no issue type field at all (`kata create --help` lists no type flag), so the contract's `type`

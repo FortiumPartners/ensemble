@@ -143,6 +143,15 @@
  *   supplied without `map` or if the `map`-built result is not a plain object, so an `arrayMap`
  *   entry can never silently attach itself to an array/primitive base result.
  *
+ * ## `countFrom` / `completeFrom` / `truncatedFrom` truncation guard (TRD-2026-6995dc96 TRD-029)
+ *
+ * Optional, only with `format: json` and exactly one `arrayMap` entry (the list being guarded).
+ * `countFrom` is the dotted path of the total the tool reports (kata: `$.total`, emitted by
+ * `kata list --include-total`); the mapped item count must equal it. `truncatedFrom` /
+ * `completeFrom` name the tool's own boolean flags (kata: `$.truncated` must be `false`,
+ * `$.complete` must be `true`). Any disagreement, a non-integer total, or an absent named path
+ * throws `BAD_OUTPUT` naming the truncation, so a partial list is never returned as success.
+ *
  * ## `trimPrefix` literal prefix stripping (TRD-2026-8d825f54 TRD-040)
  *
  * Some tools report a field using the raw tool's own prefixed vocabulary where the normalized
@@ -442,6 +451,12 @@ function applyArrayMapEntry(baseValue, outKey, spec) {
             `string or an object with a string 'path', got ${describeType(itemSpec)}`
         );
       }
+      if (itemSpec.statusMap === undefined && (itemSpec.default !== undefined || itemSpec.optional === true || itemSpec.asString === true)) {
+        // Same optional/default/asString semantics as an object-form `parse.map` entry.
+        const resolved = resolveFieldSpec(item, itemOutKey, itemSpec);
+        if (resolved.present) mappedItem[itemOutKey] = resolved.value;
+        continue;
+      }
       const rawValue = resolvePath(item, itemSpec.path);
       if (itemSpec.statusMap === undefined) {
         mappedItem[itemOutKey] = rawValue;
@@ -538,6 +553,50 @@ function isEmptyList(parsed, listPath) {
 }
 
 /**
+ * Truncation guard for a list read (TRD-2026-6995dc96 TRD-029, PRD AC-017-3): refuse, with
+ * `BAD_OUTPUT`, a list the tool itself says is partial, or whose row count disagrees with the
+ * total it reports. Runs only for the paths the manifest's `parse` names, all resolved against
+ * the same root-projected value `map` paths use. `resolvePath` already throws `BAD_OUTPUT` when
+ * a named path is absent, so a missing total is refused rather than assumed complete.
+ *
+ * @param {unknown} baseValue root-projected parsed document
+ * @param {unknown[]} mappedItems the mapped list
+ * @param {{countFrom?: string, completeFrom?: string, truncatedFrom?: string}} paths
+ */
+function assertCompleteList(baseValue, mappedItems, { countFrom, completeFrom, truncatedFrom }) {
+  if (truncatedFrom !== undefined) {
+    const truncated = resolvePath(baseValue, truncatedFrom);
+    if (truncated !== false) {
+      throw badOutputError(
+        `mapOutput: the tool reported a truncated list ('${truncatedFrom}' is ${JSON.stringify(truncated)}); ` +
+          `refusing the partial result`
+      );
+    }
+  }
+  if (completeFrom !== undefined) {
+    const complete = resolvePath(baseValue, completeFrom);
+    if (complete !== true) {
+      throw badOutputError(
+        `mapOutput: the tool reported an incomplete (truncated) list ('${completeFrom}' is ` +
+          `${JSON.stringify(complete)}); refusing the partial result`
+      );
+    }
+  }
+  if (countFrom !== undefined) {
+    const total = resolvePath(baseValue, countFrom);
+    if (!Number.isInteger(total) || total < 0) {
+      throw badOutputError(`mapOutput: total at '${countFrom}' must be a non-negative integer, got ${JSON.stringify(total)}`);
+    }
+    if (mappedItems.length !== total) {
+      throw badOutputError(
+        `mapOutput: list is truncated or inconsistent: ${mappedItems.length} row(s) mapped but the tool ` +
+          `reported a total of ${total} ('${countFrom}'); refusing the partial result`
+      );
+    }
+  }
+}
+
+/**
  * Map one tool invocation's raw stdout into a plain value, per `parse` (see module header).
  *
  * @param {string} stdout raw stdout captured from the executed tool
@@ -552,7 +611,7 @@ function mapOutput(stdout, parse) {
   if (!parse || typeof parse !== 'object') {
     throw badOutputError(`mapOutput: 'parse' must be an object, got ${describeType(parse)}`);
   }
-  const { format, root, emptyWhen, map, statusMap, arrayMap, trimPrefix } = parse;
+  const { format, root, emptyWhen, map, statusMap, arrayMap, trimPrefix, countFrom, completeFrom, truncatedFrom } = parse;
   if (format !== 'json' && format !== 'lines' && format !== 'text') {
     throw badOutputError(`mapOutput: parse.format must be one of 'json'|'lines'|'text', got ${JSON.stringify(format)}`);
   }
@@ -573,6 +632,20 @@ function mapOutput(stdout, parse) {
   }
   if (trimPrefix !== undefined && (typeof trimPrefix !== 'object' || trimPrefix === null || Array.isArray(trimPrefix))) {
     throw badOutputError(`mapOutput: parse.trimPrefix must be an object when present, got ${describeType(trimPrefix)}`);
+  }
+  for (const [key, value] of [['countFrom', countFrom], ['completeFrom', completeFrom], ['truncatedFrom', truncatedFrom]]) {
+    if (value !== undefined && typeof value !== 'string') {
+      throw badOutputError(`mapOutput: parse.${key} must be a dotted-path string when present, got ${describeType(value)}`);
+    }
+  }
+  if (
+    (countFrom !== undefined || completeFrom !== undefined || truncatedFrom !== undefined) &&
+    (format !== 'json' || !arrayMap || Object.keys(arrayMap).length !== 1)
+  ) {
+    throw badOutputError(
+      `mapOutput: parse.countFrom/completeFrom/truncatedFrom need format 'json' and exactly one ` +
+        `'parse.arrayMap' entry (the list whose completeness they guard)`
+    );
   }
   if (arrayMap !== undefined && !map) {
     throw badOutputError(`mapOutput: parse.arrayMap requires 'parse.map' to also be declared (arrayMap entries are added onto the map-built result)`);
@@ -622,6 +695,7 @@ function mapOutput(stdout, parse) {
     for (const [outKey, spec] of Object.entries(arrayMap)) {
       result[outKey] = applyArrayMapEntry(baseValue, outKey, spec);
     }
+    assertCompleteList(baseValue, result[Object.keys(arrayMap)[0]], { countFrom, completeFrom, truncatedFrom });
   }
 
   if (trimPrefix) {

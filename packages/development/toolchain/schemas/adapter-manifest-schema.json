@@ -117,10 +117,26 @@
           "timeoutMs": {
             "type": "integer",
             "minimum": 1
+          },
+          "minVersion": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+){1,2}$",
+            "description": "Optional minimum tool version (dotted numeric, e.g. '0.23.0'). A check declaring it is a version probe: preflight runs it FIRST, parses the version from its stdout, fails when the reported version is older (or unparsable), and records the reported version. TRD-2026-6995dc96 TRD-003."
+          },
+          "versionPattern": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional regular expression with exactly one capture group extracting the version from the check's stdout. Defaults to the first dotted x.y.z (with optional -prerelease) found. Only meaningful alongside minVersion."
           }
         }
       },
       "description": "Health checks preflight runs before any side-effecting capability (10s default elsewhere, per-adapter override here)."
+    },
+    "exitCodeNames": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[1-9][0-9]{0,2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "Optional map of the tool's non-zero exit codes to names (TRD-2026-6995dc96 TRD-029, PRD AC-017-2). A failing capability whose exit code is listed resolves TOOL_FAILED with 'exit <n> (<name>)' in the message and exitCode/exitName on the error, ahead of the tool's own stderr or stdout error envelope. Unlisted codes and adapters without this key behave exactly as before. Never makes any exit code a success."
     },
     "detect": {
       "type": "array",
@@ -132,12 +148,6 @@
           "signal": {
             "type": "string",
             "enum": ["remote_url_matches", "file_exists", "dir_exists", "git_config_set"]
-    "exitCodeNames": {
-      "type": "object",
-      "propertyNames": { "pattern": "^[1-9][0-9]{0,2}$" },
-      "additionalProperties": { "type": "string", "minLength": 1 },
-      "description": "Optional map of the tool's non-zero exit codes to names (TRD-2026-6995dc96 TRD-029, PRD AC-017-2). A failing capability whose exit code is listed resolves TOOL_FAILED with 'exit <n> (<name>)' in the message and exitCode/exitName on the error, ahead of the tool's own stderr or stdout error envelope. Unlisted codes and adapters without this key behave exactly as before. Never makes any exit code a success."
-    },
           }
         }
       },

@@ -195,5 +195,6 @@ module.exports = {
   validateContract,
   DEFAULT_CATEGORIES_DIR,
   checkCompat,
+  parseContractVersion,
   checkAdditiveOnly
 };

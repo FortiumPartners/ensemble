@@ -1158,6 +1158,51 @@ function nonZeroExitDetail(stderr, stdout, fallbackMessage) {
 }
 
 /**
+ * The `TOOL_FAILED` envelope for a NON-ZERO exit, shared by `runCapability` and
+ * `runCapabilitySync` so the two stay in parity. When the adapter manifest declares
+ * `exitCodeNames` (TRD-2026-6995dc96 TRD-029, PRD AC-017-2: kata's exit codes 3..8) and `exitCode`
+ * has an entry, the failure is NAMED: the message reads `exit <n> (<name>)` ahead of the tool's own
+ * detail (stderr, else its stdout error envelope), and the error also carries `exitCode` and
+ * `exitName`. `error.code` stays `TOOL_FAILED` -- a named exit is never success and never a new
+ * runner code. An adapter without `exitCodeNames`, or an unlisted exit code, gets exactly the
+ * pre-existing message and no extra fields.
+ *
+ * @param {{exitCodeNames?: Record<string,string>}} adapter
+ * @param {string} adapterId
+ * @param {string} capability
+ * @param {number|null} exitCode the child's numeric exit code, or null when not an exit
+ * @param {string} rawDetail pre-redaction detail from `nonZeroExitDetail`
+ * @returns {{ok:false, error:{code:'TOOL_FAILED', message:string, exitCode?:number, exitName?:string}}}
+ */
+function nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail) {
+  const names = adapter && adapter.exitCodeNames;
+  const exitName =
+    exitCode !== null && names && typeof names === 'object' && Object.prototype.hasOwnProperty.call(names, String(exitCode))
+      ? names[String(exitCode)]
+      : null;
+  if (exitName === null) {
+    return {
+      ok: false,
+      error: {
+        code: 'TOOL_FAILED',
+        message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
+      }
+    };
+  }
+  return {
+    ok: false,
+    error: {
+      code: 'TOOL_FAILED',
+      message:
+        `${adapterId}: capability '${capability}' failed: exit ${exitCode} (${exitName}): ` +
+        `${redactAndBound(rawDetail)}`,
+      exitCode,
+      exitName
+    }
+  };
+}
+
+/**
  * Apply a capability's `parse` block (if any) to raw stdout and, for categories declaring a
  * normalized schema, Ajv-validate the mapped result -- the `mapOutput`/`BAD_OUTPUT`/schema-
  * validation portion of the runner envelope contract (TRD-012, PRD REQ-002 AC-002-2, REQ-022
@@ -1370,13 +1415,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
 
             if (!toleratedExit) {
               const rawDetail = nonZeroExitDetail(stderr, stdout, error.message);
-              resolve({
-                ok: false,
-                error: {
-                  code: 'TOOL_FAILED',
-                  message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
-                }
-              });
+              resolve(nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail));
               return;
             }
 
@@ -1582,13 +1621,8 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
       };
     }
     const rawDetail = nonZeroExitDetail(error.stderr, error.stdout, error.message);
-    return {
-      ok: false,
-      error: {
-        code: 'TOOL_FAILED',
-        message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
-      }
-    };
+    const exitCode = typeof error.status === 'number' ? error.status : null;
+    return nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail);
   }
 
   const errorEnvelope = checkZeroExitErrorEnvelope(adapterId, capability, stdout);

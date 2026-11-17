@@ -595,7 +595,7 @@ describe('preflight: requireCapabilities gating before health checks (TRD-013/TR
       });
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-b-workgraph', {
         categories: ['work-graph'],
-        contract: { 'work-graph': '1.0' },
+        contract: { 'work-graph': '2.0' },
         health: [],
         // Deliberately no 'work-graph.ready' capability.
         capabilities: {}
@@ -638,7 +638,7 @@ describe('preflight: requireCapabilities gating before health checks (TRD-013/TR
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-ok-a-tracker', { health: [] });
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-ok-b-workgraph', {
         categories: ['work-graph'],
-        contract: { 'work-graph': '1.0' },
+        contract: { 'work-graph': '2.0' },
         health: [],
         capabilities: {
           'work-graph.ready': { run: [process.execPath, '-e', 'process.stdout.write("ready")'] }

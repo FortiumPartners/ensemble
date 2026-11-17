@@ -112,14 +112,18 @@ env:
 # preflight consumes a health check's exit status, and runner.js's `CATEGORY_NORMALIZED_SCHEMA` Ajv
 # gate applies to `tracker.*` capability output, not to health output.
 #
-# No minimum-version key is declared here, deliberately: the 0.23.0 gate is TRD-003's scope, and
-# neither `minVersion` nor `versionPattern` exists in shipped runner code or in
-# `toolchain/schemas/adapter-manifest-schema.json`, whose health items set
-# `additionalProperties: false` -- declaring either today fails schema validation.
+# TRD-003: `kata-version` declares `minVersion: "0.23.0"`, the floor this manifest was verified
+# against. Preflight runs every health check that declares `minVersion` FIRST, before any other
+# health check of any adapter, parses the version from this check's stdout (the default pattern
+# takes the first dotted x.y.z, so "kata v0.23.0\n commit: ..." reads as 0.23.0), and fails naming
+# the minimum when the reported version is older or unparsable -- so `kata doctor` below is never
+# issued against a too-old kata. On pass the reported version is recorded in the preflight record
+# (`versions.kata`, PRD AC-001-2). `versionPattern` is not needed for kata's output.
 health:
   - id: kata-version
     run: ["kata", "--version"]
     timeoutMs: 5000
+    minVersion: "0.23.0"
   - id: kata-doctor
     run: ["kata", "doctor", "--json"]
     timeoutMs: 15000

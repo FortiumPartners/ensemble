@@ -161,6 +161,7 @@ const yaml = require('js-yaml');
 
 const { getUserToolchainConfigPath } = require('./config-path');
 const { loadToolchainConfigFile } = require('./config');
+const { DEFAULT_CATEGORIES_DIR, parseContractVersion } = require('./contracts');
 
 const MANIFEST_FILE = 'adapter.yaml';
 const SKILL_FILE = 'SKILL.md';
@@ -531,6 +532,58 @@ function discoverAdapters(ctx = {}) {
 }
 
 /**
+ * Contract-major check at resolution (TRD-2026-6995dc96 TRD-003, PRD AC-001-2 sibling): for each
+ * category in the winning manifest's `contract` map (only `category` when given) compare the
+ * declared MAJOR with the major of the shipped category contract
+ * (`toolchain/categories/<category>.yaml`, via `./contracts.js#parseContractVersion`) and throw
+ * `.code === 'CONTRACT_MAJOR_MISMATCH'` on a difference. Minor differences are not refused here
+ * (`contracts.js#checkCompat` handles those as unavailable capabilities). Deliberately lenient
+ * about everything that is not a clear major mismatch: a category with no shipped contract file,
+ * an unreadable/unparsable contract, or an unparsable declared version is skipped, never newly
+ * thrown (`validate.js` owns reporting those at validation time).
+ *
+ * @param {string} name adapter id
+ * @param {object|null} manifest
+ * @param {string|null} category
+ * @throws {Error} `.code === 'CONTRACT_MAJOR_MISMATCH'`
+ */
+function assertContractMajors(name, manifest, category) {
+  const declared = manifest && manifest.contract;
+  if (!declared || typeof declared !== 'object') {
+    return;
+  }
+  for (const [declaredCategory, declaredVersion] of Object.entries(declared)) {
+    if (category != null && declaredCategory !== category) {
+      continue;
+    }
+    if (!/^[a-z0-9-]+$/.test(declaredCategory)) {
+      continue;
+    }
+    let shipped;
+    let declaredMajor;
+    try {
+      const raw = fs.readFileSync(path.join(DEFAULT_CATEGORIES_DIR, `${declaredCategory}.yaml`), 'utf8');
+      const contract = yaml.load(raw);
+      shipped = parseContractVersion(contract && contract.version, 'contract.version');
+      declaredMajor = parseContractVersion(declaredVersion, 'declared contract');
+    } catch {
+      continue;
+    }
+    if (shipped.major !== declaredMajor.major) {
+      const error = new Error(
+        `adapter '${name}' declares contract ${declaredCategory}: '${declaredVersion}' but the shipped ` +
+          `'${declaredCategory}' category contract is version ${shipped.major}.${shipped.minor}; the major ` +
+          `versions differ (${declaredMajor.major} vs ${shipped.major}), so the adapter cannot be used for ` +
+          `'${declaredCategory}'. Update the adapter's \`contract\` entry (and its capabilities) to ` +
+          `major ${shipped.major}.`
+      );
+      error.code = 'CONTRACT_MAJOR_MISMATCH';
+      throw error;
+    }
+  }
+}
+
+/**
  * Resolve exactly one adapter by its manifest's own `adapter` id, searching repo-local, then
  * user, then installed locations in that order and returning the first match. When several
  * directories in the same location declare the same id, the match is whichever one
@@ -587,7 +640,11 @@ function discoverAdapters(ctx = {}) {
  *   when a repo-local match exists but the trust requirement is not met (non-interactive, or
  *   `ctx.untrustedProjectRoot` in any mode); with
  *   `.code === 'CONFIG_INVALID'` naming the user `toolchain.yaml` path when that file exists
- *   but fails schema validation during the trust lookup.
+ *   but fails schema validation during the trust lookup; with
+ *   `.code === 'CONTRACT_MAJOR_MISMATCH'` naming the adapter, the category and both versions when
+ *   the winning manifest's declared `contract` major for a category (only `ctx.category` when
+ *   given) differs from the shipped category contract's major (TRD-003; see
+ *   `assertContractMajors`).
  */
 function loadAdapter(name, ctx = {}) {
   const {
@@ -664,30 +721,36 @@ function loadAdapter(name, ctx = {}) {
         throw error;
       }
     }
+    const resolvedManifest = readManifest(repoLocalMatch.dir);
+    assertContractMajors(name, resolvedManifest, category);
     return {
       origin: 'repo-local',
       dir: repoLocalMatch.dir,
-      manifest: readManifest(repoLocalMatch.dir),
+      manifest: resolvedManifest,
       skillMd: readSkillMd(repoLocalMatch.dir)
     };
   }
 
   const userMatch = byOrigin('user');
   if (userMatch) {
+    const resolvedManifest = readManifest(userMatch.dir);
+    assertContractMajors(name, resolvedManifest, category);
     return {
       origin: 'user',
       dir: userMatch.dir,
-      manifest: readManifest(userMatch.dir),
+      manifest: resolvedManifest,
       skillMd: readSkillMd(userMatch.dir)
     };
   }
 
   const installedMatch = byOrigin('installed');
   if (installedMatch) {
+    const resolvedManifest = readManifest(installedMatch.dir);
+    assertContractMajors(name, resolvedManifest, category);
     return {
       origin: 'installed',
       dir: installedMatch.dir,
-      manifest: readManifest(installedMatch.dir),
+      manifest: resolvedManifest,
       skillMd: readSkillMd(installedMatch.dir)
     };
   }
