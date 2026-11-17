@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Regenerated `ensemble-beads-build-wave` for the switch from `disable-model-invocation: true` to `user-invocable: false`.
 - Regenerated skills and re-vendored `lib/toolchain/mapping.js` for the kata tracker `tracker.show` / `tracker.list` mapping and the capability-call prose in shared skills.
 - Re-vendored `toolchain/schemas/adapter-manifest-schema.json`: its `adapter` description said "Unique adapter id" after resolution moved to an (id, category) key, so an author reading this bundle's copy was told the shipped split of `plain-git` across two directories was an error (#146 follow-up).
 - Re-vendored `lib/toolchain/adapters.js`, `detect.js`, `preflight.js`, `work-graph-resolve.js`, `lib/toolchain-cli.js`, `beads-label.js`, `beads-stage.js`, `complexity-analyzer.js`, `tracker-findings.js` and `trd-cli.js` for the (adapter id, category) resolution fix: the shipped `worktree: plain-git` default could not satisfy a `worktree.*` requirement here either, since this bundle carries the same resolver (#146).
