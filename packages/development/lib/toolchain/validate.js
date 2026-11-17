@@ -495,6 +495,21 @@ function extractRunPlaceholders(run) {
 }
 
 /**
+ * Prefix of a deliberate refusal placeholder (TRD-2026-6995dc96 TRD-011). A required capability
+ * whose contract inputs cannot carry what the tool demands (kata's `tracker.close`: contract
+ * inputs `[id]`, the tool needs a reason and evidence) puts one mandatory `${refuse.<hint>}`
+ * placeholder in its template; no caller supplies it, so `runner.js#resolveArg` refuses the call
+ * with `INVALID_ARG` (the name embeds the capability to use) before any process starts. Such a
+ * placeholder is intentionally NOT a contract input, so `validateConformance` exempts exactly this
+ * prefix from the declared-input rule. Every other undeclared placeholder is still an error.
+ */
+const REFUSAL_PLACEHOLDER_PREFIX = 'refuse.';
+
+function isRefusalPlaceholder(name) {
+  return typeof name === 'string' && name.startsWith(REFUSAL_PLACEHOLDER_PREFIX);
+}
+
+/**
  * Check one already-parsed adapter manifest's conformance against the category contracts it
  * declares (TRD-007, PRD REQ-008, REQ-003, AC-008-1, AC-008-2, AC-008-3).
  *
@@ -513,7 +528,8 @@ function extractRunPlaceholders(run) {
  *    (AC-008-1);
  *  - for every capability id declared in both the manifest and that category's contract,
  *    every `${name}` placeholder in the manifest capability's `run` template must be one of
- *    the contract capability's declared `inputs`, and every key of `capability.parse.map`
+ *    the contract capability's declared `inputs` (or a `refuse.`-prefixed refusal placeholder, see
+ *    `REFUSAL_PLACEHOLDER_PREFIX`), and every key of `capability.parse.map`
  *    (when present) must be one of the contract capability's declared `outputs` — errors name
  *    the adapter id, the capability id and the offending input/output name.
  *
@@ -581,7 +597,7 @@ function validateConformance(adapter, contracts) {
 
       const declaredInputs = Array.isArray(declaredCapability.inputs) ? declaredCapability.inputs : [];
       for (const placeholder of extractRunPlaceholders(capability.run)) {
-        if (!declaredInputs.includes(placeholder)) {
+        if (!declaredInputs.includes(placeholder) && !isRefusalPlaceholder(placeholder)) {
           errors.push(
             `${adapterId}: capability '${capabilityId}' run template references '\${${placeholder}}' which is ` +
               `not a declared input of category '${category}'`
@@ -608,7 +624,7 @@ function validateConformance(adapter, contracts) {
           }
           for (const [variantValue, variantRun] of Object.entries(valueMap)) {
             for (const placeholder of extractRunPlaceholders(variantRun)) {
-              if (!declaredInputs.includes(placeholder)) {
+              if (!declaredInputs.includes(placeholder) && !isRefusalPlaceholder(placeholder)) {
                 errors.push(
                   `${adapterId}: capability '${capabilityId}' variants.${selectorArg}.${variantValue} run template ` +
                     `references '\${${placeholder}}' which is not a declared input of category '${category}'`

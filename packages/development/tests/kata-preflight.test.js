@@ -206,8 +206,7 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     // The remaining tracker capabilities the flow needs run through the same gated runner.
     for (const [cap, args] of [
       ['tracker.list', {}],
-      ['tracker.comment', { id: 'k-1', text: 'note' }],
-      ['tracker.close', { id: 'k-1' }]
+      ['tracker.comment', { id: 'k-1', text: 'note' }]
     ]) {
       const r = await cli.run(ctx, [cap], { runId: 'happy', nonInteractive: true, args });
       if (!r.ok) throw new Error(`${cap}: ${JSON.stringify(r.error)}`);
@@ -215,7 +214,12 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     const calls = kata.calls();
     expect(calls.some((c) => c.startsWith('list '))).toBe(true);
     expect(calls.some((c) => c.startsWith('comment k-1'))).toBe(true);
-    expect(calls.some((c) => c.startsWith('close k-1'))).toBe(true);
+    // TRD-011: a bare close is refused INVALID_ARG (naming tracker.close-with-reason), never a silent close.
+    const bare = await cli.run(ctx, ['tracker.close'], { runId: 'happy', nonInteractive: true, args: { id: 'k-1' } });
+    expect(bare.ok).toBe(false);
+    expect(bare.error.code).toBe('INVALID_ARG');
+    expect(bare.error.message).toContain('tracker.close-with-reason');
+    expect(kata.calls().some((c) => c.startsWith('close k-1'))).toBe(false);
     expect(kata.count()).toBe(before + 1);
   });
 
