@@ -1420,7 +1420,13 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
 
             if (!toleratedExit) {
               const rawDetail = nonZeroExitDetail(stderr, stdout, error.message);
-              resolve(nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail));
+              const failed = nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail);
+              // A spawn ENOENT means the binary itself is not on PATH (never a tool exit). Mark it
+              // so preflight can name the missing binary (TRD-006); `error.code` stays TOOL_FAILED.
+              if (error.code === 'ENOENT' && typeof error.syscall === 'string' && error.syscall.startsWith('spawn')) {
+                failed.error.missingBinary = typeof error.path === 'string' ? error.path : argv[0];
+              }
+              resolve(failed);
               return;
             }
 
