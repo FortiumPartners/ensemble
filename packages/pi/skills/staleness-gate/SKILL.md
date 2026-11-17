@@ -29,7 +29,7 @@ Detect whether a TRD is stale before implementation begins. If stale, invoke
 
 | Flavor | `IS_RESUME = true` when |
 |--------|------------------------|
-| `implement-trd-tasks` | `ROOT_EPIC_ID` found in `br list --json` for this TRD slug (Preflight step 7 — Resume Detection) |
+| `implement-trd-tasks` | `ROOT_EPIC_ID` found via `tracker.list` (`node "$TOOLCHAIN_CLI" run tracker.list --run-id "$RUN_ID" --json`) for this TRD slug (Preflight step 7 — Resume Detection) |
 | `beads-build --trd` | `ROOT_EPIC_ID` found in Epic Discovery step (Preflight step 4) |
 
 ---

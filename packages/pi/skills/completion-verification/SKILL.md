@@ -118,7 +118,7 @@ For every non-TEST task id in the inventory (`isTest == false`):
 ```
 IF TRACKING_MODE == 'beads':
     bead_id = TRD_TO_BEAD_MAP[task.id]
-    run: br show <bead_id> --json           # live query — never trust a cached status
+    run: node "$TOOLCHAIN_CLI" run tracker.show --run-id "$RUN_ID" --arg id=<bead_id> --json   # live query — never trust a cached status
     require: status == 'closed'
 
 IF TRACKING_MODE == 'checkbox':
@@ -231,7 +231,7 @@ durable audit trail, not just a failure notice.
 
 | ID | Description | Status | Evidence |
 |----|--------------|--------|----------|
-| TRD-001 | <description> | closed / open | br show TRD-001 bead → closed |
+| TRD-001 | <description> | closed / open | tracker.show TRD-001 work item → closed |
 | TRD-001-TEST | <description> | closed / open | TRD file checkbox `- [x]` |
 | ... | | | |
 

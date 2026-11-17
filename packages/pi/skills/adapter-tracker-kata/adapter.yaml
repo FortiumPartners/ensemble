@@ -150,20 +150,62 @@ detect: []
 capabilities:
   # `kata show <ref> --json` -> one issue with its comments, labels, links and `web_url` (captured:
   # keys are `[comments, comments_truncated, issue, kata_api_version, labels, links, web_url]`).
-  # No `parse` block: the normalized field mapping is TRD-007's, the `owner` field is TRD-034's,
-  # and mapping it today would hit the entity-schema gate above with no schema entry yet in place
-  # (TRD-033 owns that entry).
+  # TRD-007 (PRD AC-008-2): the normalized item is built from `.issue`, whose recorded keys are
+  # `short_id, title, body, status, priority, metadata, labels` (tests/fixtures/kata/show.json).
+  #   - `id` is `short_id`, the ref kata accepts back (`id` is an integer there).
+  #   - `description` is `body`.
+  #   - `type`: kata has no type field, so it is read from metadata key `type` and is `task`
+  #     whenever that key is absent -- `default` covers a missing key or an empty `metadata`.
+  #   - `priority` is a kata integer and the normalized schema wants a string, hence `asString`;
+  #     an unprioritised item carries no `priority` key at all, so it is `optional` and omitted
+  #     rather than invented.
+  #   - `labels` is the issue's own string array (the top-level `labels` are objects). Defaulted
+  #     to `[]` so an unlabelled item still maps.
+  #   - `status` is `open` or `closed` in kata; the in-progress reading is derived from `owner`,
+  #     which TRD-012/TRD-034 own, so it is deliberately not mapped here.
   tracker.show:
     run: ["kata", "show", "${id}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
+        title: "$.issue.title"
+        description: "$.issue.body"
+        type:
+          path: "$.issue.metadata.type"
+          default: "task"
+        status: "$.issue.status"
+        priority:
+          path: "$.issue.priority"
+          asString: true
+          optional: true
+        labels:
+          path: "$.issue.labels"
+          default: []
+      statusMap:
+        open: open
+        closed: closed
 
-  # `kata list --json` returns OPEN issues, most-recently-updated first, inside `{issues, complete,
-  # truncated, kata_api_version}`, capped at 200 rows. `--limit 0` lifts that cap, matching beads'
-  # own `--limit 0` on the same capability (and beads' SKILL.md records why the buffer floor that
-  # makes an uncapped listing survivable lives in the runner, not here). `--all` is NOT used: for
-  # kata it widens the SCOPE to every active project rather than widening the current one
-  # (`kata list --help`), which would read another project's work. No `parse` block, list shape.
+  # `kata list --json` returns issues most-recently-updated first inside `{issues, complete,
+  # truncated, kata_api_version}`, capped at 200 rows unless told otherwise. TRD-007:
+  #   - `--limit 0` is passed explicitly in the base and in every variant, so no row is silently
+  #     dropped (AC-008-1 / TRD-007 AC 3); it matches beads' own `--limit 0` on this capability.
+  #   - the contract's `filter` input selects the status: `open` -> `--status open`, `closed` ->
+  #     `--status closed`, `all` -> `--status all` (kata's `--status open|closed|all`). The filter is
+  #     applied rather than ignored, and any other value is refused by `selectTemplate` with
+  #     `NOT_ALLOWED` instead of silently listing everything. With no filter supplied the base
+  #     argv runs; kata's own default is open, so the base states `--status open` too.
+  #   - `--all` is NOT used: for kata it widens the SCOPE to every active project rather than
+  #     widening the current one (`kata list --help`), which would read another project's work.
+  # No `parse` block, list shape.
   tracker.list:
-    run: ["kata", "list", "--limit", "0", "--json"]
+    run: ["kata", "list", "--status", "open", "--limit", "0", "--json"]
+    variants:
+      filter:
+        open: ["kata", "list", "--status", "open", "--limit", "0", "--json"]
+        closed: ["kata", "list", "--status", "closed", "--limit", "0", "--json"]
+        all: ["kata", "list", "--status", "all", "--limit", "0", "--json"]
 
   # `kata create <title> --body <description> --json`; the title is the only positional. Kata has
   # no issue type field at all (`kata create --help` lists no type flag), so the contract's `type`
