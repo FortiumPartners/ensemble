@@ -25,8 +25,8 @@ describe('packages/full/skills: command skills are direct entries', () => {
 
   test('the real bundle has a direct entry for every command skill, the ten restored ones included', () => {
     expect(validateFullCommandSkillsDirect()).toEqual([]);
-    const full = path.join(__dirname, '..', '..', 'packages', 'full', 'skills');
-    for (const name of COMMANDS) expect(fs.existsSync(path.join(full, name, 'SKILL.md'))).toBe(true);
+    const bundleSkills = path.join(__dirname, '..', '..', 'packages', 'full', 'skills');
+    for (const name of COMMANDS) expect(fs.existsSync(path.join(bundleSkills, name, 'SKILL.md'))).toBe(true);
   });
 
   describe('against a scratch packages tree', () => {
