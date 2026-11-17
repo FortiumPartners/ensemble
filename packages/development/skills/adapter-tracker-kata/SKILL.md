@@ -23,8 +23,8 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 
 | Capability | Command |
 | --- | --- |
-| `tracker.show` | `kata show ${id} --json` |
-| `tracker.list` | `kata list --limit 0 --json` |
+| `tracker.show` | `kata show ${id} --json`, mapped to the normalized item (`type` from metadata `type`, else `task`; integer `priority` as a string) |
+| `tracker.list` | `kata list --status <open\|closed\|all from the filter input; open when none> --limit 0 --json` |
 | `tracker.create` | `kata create ${title} --body ${description} --json` |
 | `tracker.create-detailed` | `kata create ${title} --body ${description} --priority ${priority} --meta ext_key=${externalKey} --idempotency-key ${externalKey} --json` |
 | `tracker.find-by-key` | `kata list --status all --limit 0 --meta ext_key=${key} --json` |
