@@ -25,7 +25,7 @@ const KATA_USE_PATTERNS = [
  * Files that exercise the guard itself (they stage both PATH legs in child processes), so
  * they are the guard's own tests rather than kata-dependent checks.
  */
-const GUARD_SELF_TESTS = new Set(['kata-harness.test.js', 'kata-skip-coverage.test.js']);
+const GUARD_SELF_TESTS = new Set(['kata-harness.test.js', 'kata-skip-coverage.test.js', 'kata-skip-audit.test.js']);
 
 /**
  * @param {string} source test file text
