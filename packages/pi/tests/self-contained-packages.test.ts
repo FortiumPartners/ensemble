@@ -299,8 +299,10 @@ describe.each(SELF_CONTAINED)('committed output: %s', (pkg) => {
     if (fs.existsSync(visiblePrompt)) {
       const wrapper = path.join(pkgDir, 'skills', name, 'SKILL.md');
       expect(fs.existsSync(wrapper)).toBe(true);
-      // Claude Code lists this package's skills/, where /ensemble:<cmd> already is the entry point.
-      expect(matter(fs.readFileSync(wrapper, 'utf-8')).data['user-invocable']).toBe(false);
+      // The ensemble-full bundle symlinks this wrapper, and there the skill is the only way to type
+      // /ensemble-full:<cmd>, so it must stay user-invocable. The standalone plugin accepts a
+      // duplicate entry next to /ensemble:<cmd> rather than hiding it from the bundle.
+      expect(matter(fs.readFileSync(wrapper, 'utf-8')).data['user-invocable']).not.toBe(false);
     }
   });
 
