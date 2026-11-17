@@ -261,7 +261,9 @@ capabilities:
   # no issue type field at all (`kata create --help` lists no type flag), so the contract's `type`
   # input is not sent: `validateConformance` checks that every placeholder used IS a declared
   # input, never that every declared input is used, and inventing a flag would fail at runtime.
-  # The id path is captured, so this is one of the few entries with a real mapping.
+  # The id path is captured, so this is one of the few entries with a real mapping. TRD-009: the
+  # `type` input is deliberately unsent (kata has no type field; `tracker.show` reads it back from
+  # metadata key `type`, defaulting to `task`), and the returned `id` is the kata short id.
   tracker.create:
     run: ["kata", "create", "${title}", "--body", "${description}", "--json"]
     parse:
@@ -329,8 +331,21 @@ capabilities:
     run:
       - kata
       - edit
+  #
+  # TRD-009: the contract requires `outputs: [id]`, so this entry maps `id` from the edit envelope's
+  # `.issue.short_id` -- the same `{kata_api_version, issue, event, events, changed} (live-captured; `changes` appears only on some edits)`
+  # mutation envelope `kata edit --json` returns, whose `issue` is the updated item. Title and
+  # priority are therefore NOT reachable here: they are `tracker.update-detailed`'s `--title` and
+  # `--priority`. `--owner` exists on `kata edit` but no tracker contract input carries an owner
+  # (`update-detailed` is `[id, title, description, priority, notes]`), and ownership is written
+  # through `tracker.set-status` (`claim`/`unassign`); the limit is recorded in SKILL.md.
       - "${id}"
       - "--title"
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
       - "${title}"
       - "--body"
       - "${description}"

@@ -105,11 +105,13 @@ system's ids are not valid refs in the other.
   from a non-empty `owner` (TRD-012, TRD-034). `closed` is absent from the variants, so an unlisted
   `status` is rejected by `runner.js#selectTemplate` with `NOT_ALLOWED`, not a close.
 
-- **Only `tracker.create` and `tracker.create-detailed` declare a `parse` block.**
+- **`create` sends no `type`; `update` writes only the body; no `--owner` input** (`set-status`).
+
+- **`create`, `create-detailed`, `update` and the reads declare `parse`.**
   `runner.js`'s `CATEGORY_NORMALIZED_SCHEMA` Ajv-validates every *mapped* `tracker.*` result against
   the single work-item schema (`work-item.json`, `required: ["id"]`) per CATEGORY, not per
   capability, so a list, comment, label or status-shaped result mapped through it fails `BAD_OUTPUT`
-  (missing `id`) -- the failure beads documents for its own `br list` mapping. Captured shapes:
+  (missing `id`). Captured shapes:
   create `{kata_api_version, issue, event, ...}` (id at `.issue.short_id`); `list` `{issues, complete,
   truncated, kata_api_version}`; `ready` `{issues, kata_api_version}`; `show` `{issue, comments,
   comments_truncated, labels, links, web_url}`; `next` `{issue}`; `doctor` `{checks, ...}`.
