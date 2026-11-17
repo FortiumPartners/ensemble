@@ -900,7 +900,7 @@ describe('preflight + confirm-record then run: full gate satisfied across three 
 
       const preflightRes = spawnSync(
         'node',
-        [CLI, 'preflight', '--require', 'tracker.show', '--run-id', runId, '--json'],
+        [CLI, 'preflight', '--require', 'tracker.create', '--run-id', runId, '--json'],
         { cwd: projectRoot, env, encoding: 'utf8' }
       );
       expect(preflightRes.status).toBe(0);

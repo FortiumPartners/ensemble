@@ -127,6 +127,20 @@ health:
   - id: kata-doctor
     run: ["kata", "doctor", "--json"]
     timeoutMs: 15000
+    # Binding gate (TRD-004, PRD AC-018-1): `kata doctor` is read-only and never starts the daemon,
+    # and reports an unbound workspace as `warn` on `config.workspace` while exiting 0, so the
+    # status is asserted rather than the exit code. Anything but `ok` (including unparsable output)
+    # stops preflight, before any work item is written. failMessage is the documented binding
+    # prerequisite (TRD-025 documents the same text in the command docs; SKILL.md is at its word ceiling).
+    # Verified against real kata: unbound => config.workspace `warn`, bound (after `kata init`) => `ok`.
+    # This supersedes the TRD design-table line (~127) "do not gate on kata doctor": the TRD-004 AC
+    # requires the gate, and it asserts the config.workspace status, not kata doctor's exit code.
+    jsonAssert:
+      arrayPath: checks
+      match: { id: config.workspace }
+      field: status
+      allow: ["ok"]
+      failMessage: "the kata workspace is not bound. Run `kata init --project <name>` in this directory to create the kata binding file (.kata.toml), then run again."
 
 # Empty on purpose, and it must stay empty (AC 5). `detect[]` is what makes an adapter an
 # auto-selection candidate when a project's configuration names none, and kata has no honest
@@ -318,8 +332,21 @@ capabilities:
   # body -- the field every other caller reads back -- which is the same class of choice beads
   # makes with `--notes` and jira makes with `--summary`. Note that kata's `edit` REPLACES the
   # body, so a caller wanting history uses `tracker.comment` or `tracker.update-detailed`.
+  #
+  # TRD-009: the contract requires `outputs: [id]`, so this entry maps `id` from the edit envelope's
+  # `.issue.short_id` -- the same `{kata_api_version, issue, event, events, changed} (live-captured; `changes` appears only on some edits)`
+  # mutation envelope `kata edit --json` returns, whose `issue` is the updated item. Title and
+  # priority are therefore NOT reachable here: they are `tracker.update-detailed`'s `--title` and
+  # `--priority`. `--owner` exists on `kata edit` but no tracker contract input carries an owner
+  # (`update-detailed` is `[id, title, description, priority, notes]`), and ownership is written
+  # through `tracker.set-status` (`claim`/`unassign`); the limit is recorded in SKILL.md.
   tracker.update:
     run: ["kata", "edit", "${id}", "--body", "${fields}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
 
   # One invocation rewrites title, body and priority and appends a note: `kata edit`'s `--comment`
   # flag adds a comment on a successful mutation (`kata edit --help`), which is the only
@@ -331,21 +358,8 @@ capabilities:
     run:
       - kata
       - edit
-  #
-  # TRD-009: the contract requires `outputs: [id]`, so this entry maps `id` from the edit envelope's
-  # `.issue.short_id` -- the same `{kata_api_version, issue, event, events, changed} (live-captured; `changes` appears only on some edits)`
-  # mutation envelope `kata edit --json` returns, whose `issue` is the updated item. Title and
-  # priority are therefore NOT reachable here: they are `tracker.update-detailed`'s `--title` and
-  # `--priority`. `--owner` exists on `kata edit` but no tracker contract input carries an owner
-  # (`update-detailed` is `[id, title, description, priority, notes]`), and ownership is written
-  # through `tracker.set-status` (`claim`/`unassign`); the limit is recorded in SKILL.md.
       - "${id}"
       - "--title"
-    parse:
-      format: json
-      root: "$"
-      map:
-        id: "$.issue.short_id"
       - "${title}"
       - "--body"
       - "${description}"

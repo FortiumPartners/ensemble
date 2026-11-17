@@ -82,6 +82,25 @@
  * declaring a contract major that differs from the shipped category contract is refused by
  * `loadAdapter`); every other load error is still wrapped as `HEALTH_FAILED`.
  *
+ * ## Binding gate and capability report (TRD-2026-6995dc96 TRD-004, PRD AC-018-1, AC-018-3)
+ *
+ * A health check that declares `jsonAssert` ({arrayPath, match:{key:value}, field, allow[],
+ * failMessage}) parses its stdout as JSON, finds the first element of `arrayPath` whose `match`
+ * keys all equal, and requires its `field` to be one of `allow`. Anything else (unparsable
+ * output, no matching element, a field outside `allow`) fails closed as `HEALTH_FAILED` carrying
+ * `failMessage` verbatim. Kata uses it on `kata doctor --json` (read-only, never starts a daemon)
+ * so an unbound workspace stops here, before any work item is written. It runs in stage 2, after
+ * the version gate.
+ *
+ * On pass the record (written AND returned) carries `capabilities`: the `requires` list this
+ * preflight verified available (`requireCapabilities`). `preflightReportedCapability(runId, cap,
+ * ctx)` reads it back (fail closed: no record, no `capabilities` list, or a capability not in it
+ * is `false`); `toolchain-cli.js`'s `run` refuses a side-effecting capability preflight did not
+ * report with `CAPABILITY_NOT_REPORTED`, before the confirmation step and any adapter call. The
+ * refusal is scoped: the record carries `capabilityGate: true` and `gatedCategories` only when a
+ * resolved adapter declares `jsonAssert`, and `preflightGatesCapability` is `false` for any other
+ * category or a record without the flag, so ungated adapters (beads) keep their prior behaviour.
+ *
  * ## Known limits
  *
  * - A health check's `timeoutMs` comes straight from the adapter manifest's `health[]` entry.
@@ -247,6 +266,37 @@ function compareVersions(a, b) {
 const DEFAULT_VERSION_PATTERN = /(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/;
 
 /**
+ * Run one health check carrying `jsonAssert` (see "Binding gate" in the header).
+ *
+ * @returns {Promise<{ok:true}|{ok:false, error:{code:'HEALTH_FAILED', message:string}}>}
+ */
+async function runJsonAssertCheck(adapterId, manifest, check, projectRoot) {
+  const ran = await runHealthCheck(adapterId, manifest, check, projectRoot);
+  if (!ran.ok) {
+    return ran;
+  }
+  const spec = check.jsonAssert;
+  const fail = () => ({
+    ok: false,
+    error: { code: 'HEALTH_FAILED', message: redactSecrets(`${adapterId}: ${spec.failMessage}`).text }
+  });
+  let parsed;
+  try {
+    parsed = JSON.parse(ran.stdout);
+  } catch {
+    return fail();
+  }
+  const list = parsed && Array.isArray(parsed[spec.arrayPath]) ? parsed[spec.arrayPath] : [];
+  const entry = list.find(
+    (item) => item && typeof item === 'object' && Object.entries(spec.match).every(([k, v]) => item[k] === v)
+  );
+  if (!entry || !spec.allow.includes(entry[spec.field])) {
+    return fail();
+  }
+  return { ok: true };
+}
+
+/**
  * Run one `minVersion`-declaring check, parse the version from its stdout and compare it with
  * the declared minimum.
  *
@@ -305,7 +355,7 @@ async function runVersionGate(adapterId, manifest, check, projectRoot) {
  *   field neither of those two call sites explicitly destructures (for example
  *   `ctx.installedRoots`, PR 5 independent review) still reaches them (PR 4 independent review
  *   Finding 1's "no per-handler rebuilds that can drop fields" rule, applied here too).
- * @returns {Promise<{ok:true, runId:string, categories:string[], checkedAt:string, versions?:Record<string,string>} |
+ * @returns {Promise<{ok:true, runId:string, categories:string[], capabilities:string[], checkedAt:string, versions?:Record<string,string>} |
  *   {ok:false, error:{code:string, message:string}}>}
  */
 async function runPreflight(input = {}, ctx = {}) {
@@ -418,7 +468,7 @@ async function runPreflight(input = {}, ctx = {}) {
     const manifest = loaded.manifest || {};
     const healthChecks = Array.isArray(manifest.health) ? manifest.health : [];
     for (const check of healthChecks) {
-      checkTasks.push({ adapterId, manifest, check });
+      checkTasks.push({ adapterId, manifest, check, category });
     }
   }
 
@@ -449,7 +499,11 @@ async function runPreflight(input = {}, ctx = {}) {
   const results = await Promise.all(
     checkTasks
       .filter((task) => typeof task.check.minVersion !== 'string')
-      .map((task) => runHealthCheck(task.adapterId, task.manifest, task.check, projectRoot))
+      .map((task) =>
+        task.check.jsonAssert
+          ? runJsonAssertCheck(task.adapterId, task.manifest, task.check, projectRoot)
+          : runHealthCheck(task.adapterId, task.manifest, task.check, projectRoot)
+      )
   );
 
   const firstFailure = results.find((result) => !result.ok);
@@ -458,7 +512,14 @@ async function runPreflight(input = {}, ctx = {}) {
   }
 
   const checkedAt = new Date().toISOString();
-  const record = { ok: true, runId, categories: categoryList, checkedAt };
+  const record = { ok: true, runId, categories: categoryList, capabilities: [...new Set(requires)], checkedAt };
+  // Only categories whose resolved adapter declares the binding gate (jsonAssert) enforce the
+  // capability report in `run`; every other adapter (beads, ...) is unaffected.
+  const gatedCategories = [...new Set(checkTasks.filter((t) => t.check.jsonAssert).map((t) => t.category))];
+  if (gatedCategories.length > 0) {
+    record.capabilityGate = true;
+    record.gatedCategories = gatedCategories;
+  }
   if (gateTasks.length > 0) {
     record.versions = versions;
   }
@@ -510,8 +571,60 @@ function hasPassingPreflightRecord(runId, ctx = {}) {
   return Boolean(parsed) && parsed.ok === true;
 }
 
+/**
+ * Whether a passing preflight record for `runId` lists `capability` among the capabilities it
+ * verified available. Fail closed: no/unreadable/failed record, a record without a
+ * `capabilities` array, or a capability not in it all return `false`.
+ *
+ * @param {unknown} runId
+ * @param {string} capability e.g. `tracker.create`
+ * @param {{projectRoot?: string}} [ctx]
+ * @returns {boolean}
+ */
+function preflightReportedCapability(runId, capability, ctx = {}) {
+  if (!hasPassingPreflightRecord(runId, ctx)) {
+    return false;
+  }
+  const { projectRoot = process.cwd() } = ctx;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(preflightRecordPath(projectRoot, runId), 'utf8'));
+    return Array.isArray(parsed.capabilities) && parsed.capabilities.includes(capability);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether `run` must refuse `capability` when the preflight did not report it: true only when a
+ * passing record carries `capabilityGate: true` and lists the capability's category in
+ * `gatedCategories`. A record without the flag (ungated adapter, or legacy) never refuses.
+ *
+ * @param {unknown} runId
+ * @param {string} capability
+ * @param {{projectRoot?: string}} [ctx]
+ * @returns {boolean}
+ */
+function preflightGatesCapability(runId, capability, ctx = {}) {
+  if (!hasPassingPreflightRecord(runId, ctx)) {
+    return false;
+  }
+  const { projectRoot = process.cwd() } = ctx;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(preflightRecordPath(projectRoot, runId), 'utf8'));
+    return (
+      parsed.capabilityGate === true &&
+      Array.isArray(parsed.gatedCategories) &&
+      parsed.gatedCategories.includes(String(capability).split('.')[0])
+    );
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   runPreflight,
+  preflightGatesCapability,
   hasPassingPreflightRecord,
+  preflightReportedCapability,
   DEFAULT_HEALTH_TIMEOUT_MS
 };

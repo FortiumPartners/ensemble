@@ -127,6 +127,19 @@
             "type": "string",
             "minLength": 1,
             "description": "Optional regular expression with exactly one capture group extracting the version from the check's stdout. Defaults to the first dotted x.y.z (with optional -prerelease) found. Only meaningful alongside minVersion."
+          },
+          "jsonAssert": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["arrayPath", "match", "field", "allow", "failMessage"],
+            "properties": {
+              "arrayPath": { "type": "string", "minLength": 1, "description": "Top-level key of the check's JSON stdout holding an array of objects." },
+              "match": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "string" }, "description": "Key/value pairs selecting the first array element to inspect." },
+              "field": { "type": "string", "minLength": 1, "description": "Field of the selected element to test." },
+              "allow": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Values of `field` that pass; anything else (or unparsable output, or no matching element) fails closed." },
+              "failMessage": { "type": "string", "minLength": 1, "description": "Message reported verbatim on failure (the documented prerequisite)." }
+            },
+            "description": "Optional JSON assertion on the check's stdout. TRD-2026-6995dc96 TRD-004 (kata binding gate)."
           }
         }
       },

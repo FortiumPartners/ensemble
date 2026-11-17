@@ -55,7 +55,8 @@ function installKataStub(versionOutput) {
     `  cat "${payload}"`,
     '  exit 0',
     'fi',
-    'echo \'{"ok":true}\'',
+    // doctor reports a bound workspace so the TRD-004 binding gate passes.
+    'echo \'{"checks":[{"id":"config.workspace","status":"ok"}]}\'',
     'exit 0',
     ''
   ].join('\n');

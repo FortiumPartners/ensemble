@@ -596,6 +596,7 @@ describe('hasPassingPreflightRecord: fail-closed cases and the one passing case'
       ok: true,
       runId: 'empty-ok',
       categories: [],
+      capabilities: [],
       checkedAt: expect.any(String)
     });
     expect(execFile).not.toHaveBeenCalled();

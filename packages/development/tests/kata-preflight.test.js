@@ -38,7 +38,8 @@ function stubKata(versionOutput) {
       `  cat "${path.join(dir, 'version.txt')}"`,
       '  exit 0',
       'fi',
-      'echo \'{"ok":true}\'',
+      // doctor reports a bound workspace so the TRD-004 binding gate passes.
+      'echo \'{"checks":[{"id":"config.workspace","status":"ok"}]}\'',
       ''
     ].join('\n'),
     { mode: 0o755 }

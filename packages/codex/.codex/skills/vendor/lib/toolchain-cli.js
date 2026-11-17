@@ -228,7 +228,7 @@ const { resolveCategory } = require('./toolchain/config');
 const { loadAdapter } = require('./toolchain/adapters');
 const { runCapability } = require('./toolchain/runner');
 const { loadContracts } = require('./toolchain/contracts');
-const { hasPassingPreflightRecord, runPreflight } = require('./toolchain/preflight');
+const { hasPassingPreflightRecord, preflightGatesCapability, preflightReportedCapability, runPreflight } = require('./toolchain/preflight');
 const { validateAdapterDir } = require('./toolchain/validate');
 const { recordSideEffect, recordFailure, readLedgerEntries } = require('./toolchain/ledger');
 const { isValidRunId, invalidRunIdMessage } = require('./toolchain/run-id');
@@ -504,6 +504,24 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
         message:
           `capability '${capability}' is side-effecting and requires a passing preflight ` +
           `record for run id '${runId === undefined ? '(none)' : runId}'; run preflight first`
+      }
+    };
+  }
+
+  // TRD-004 (PRD AC-018-3): a passing preflight is not enough; it must have REPORTED this
+  // capability available. Refused before confirmation and before any adapter call.
+  if (
+    sideEffect &&
+    preflightGatesCapability(runId, capability, ctx) &&
+    !preflightReportedCapability(runId, capability, ctx)
+  ) {
+    return {
+      ok: false,
+      error: {
+        code: 'CAPABILITY_NOT_REPORTED',
+        message:
+          `capability '${capability}' was not reported available by the preflight for run id ` +
+          `'${runId}'; run preflight with --require ${capability} first`
       }
     };
   }
