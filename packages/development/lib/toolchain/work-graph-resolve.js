@@ -81,7 +81,10 @@ function resolveWorkGraphAdapter(ctx = {}) {
   if (trackerProvidesWorkGraph) {
     return {
       value: trackerResolved.value,
-      source: resolved.source,
+      // The work-graph value is the `auto` default, but the adapter came from the tracker
+      // selection, so report that selection's origin (TRD-031): a project that names the tracker
+      // reports `project`, and only an unconfigured tracker keeps `default`.
+      source: trackerResolved.source,
       autoVia: 'tracker-capabilities',
       ...trackerLoaded
     };
