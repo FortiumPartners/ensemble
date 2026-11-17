@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   identically. This is a clean cutover: no alias, shim, or hidden entry keeps the retired
   `/ensemble:implement-trd-beads` name invocable — update any muscle memory or script that calls it.
 
+- **`/ensemble:trd` rejects the retired `implement-trd-beads` keyword by name (`ensemble-development`,
+  TRD-021):** the `implement` keyword's description no longer names a task backend, and an unmatched
+  first token of `implement-trd-beads` now prints, alongside the keyword table, that the name is
+  retired and replaced by `/ensemble:implement-trd-tasks` (keyword `implement`). It is not an alias:
+  the retired name never resolves to a command and executes nothing. The keyword table is still
+  printed and the dispatcher still halts without side effects, so the product-wide dispatch
+  invariant is unchanged.
+
 
 ### Added
 

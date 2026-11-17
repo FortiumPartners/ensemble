@@ -442,6 +442,7 @@ module.exports = {
   READ_COMMANDS,
   SEED_ITEMS,
   CLOSE_REASON,
+  CHILD_ENV_BASE,
   SCRATCH_ROOT,
   sleep,
   run,
