@@ -8,7 +8,6 @@ description: >-
   rest of $ARGUMENTS through unchanged and does not re-implement any assessment
   logic.
 disable-model-invocation: true
-user-invocable: false
 metadata:
   version: "1.0.0"
 ---
