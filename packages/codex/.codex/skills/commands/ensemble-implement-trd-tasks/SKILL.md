@@ -15,7 +15,7 @@ with --defer-completion.
 
 Rules:
 - Never hand-parse a TRD; every parse/plan/status comes from `node "$TRD_CLI"` JSON.
-- Scheduling is delegated to beads-build, which uses work-graph.ready (graph-aware parallel tracks when the resolved tracker adapter exposes dependency links) or plan order when that is unavailable. Never read .beads/*.jsonl to schedule.
+- Scheduling is delegated to beads-build, which uses work-graph.ready (graph-aware parallel tracks when the tracker adapter exposes dependency links) or plan order when that is unavailable. Never read tracker storage to schedule.
 - Every `node "$TOOLCHAIN_CLI"` `run`/`confirm-*` call below carries `--run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json` even where not spelled out.
 - Never stage broadly (no blanket, whole-directory or auto-staging commit). Stage beads only via `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`; every commit is `node "$TOOLCHAIN_CLI" run workflow.commit --arg message="<message>"`.
 - PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md (via tool-path-resolution); every pr-review-cycle call below reads it.
