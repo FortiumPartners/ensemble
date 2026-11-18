@@ -448,17 +448,33 @@ capabilities:
       - "--json"
 
   # `kata comment <ref> -m <text>`: the ref is the only positional and kata rejects a second one
-  # ("accepts 1 arg(s), received 2"), so the body must come from `-m`. No `parse` block -- a comment
-  # is not a work item, so the entity schema gate rejects any mapping; TRD-008 owns the mapping.
+  # ("accepts 1 arg(s), received 2"), so the body must come from `-m`. TRD-008 (AC-008-3): the text
+  # is appended through `kata comment`. No `parse` block, deliberately: `tracker.comment` is
+  # CATEGORY-gated by the single work-item schema (`required: ["id"]`) and kata's comment envelope
+  # is `{issue:{short_id}, comment, changed}`, so mapping it would only be a made-up work item;
+  # the append succeeds or fails by exit status and the result stays raw stdout.
   tracker.comment:
     run: ["kata", "comment", "${id}", "-m", "${text}", "--json"]
 
   # Kata has no comment-listing subcommand, so the comments come from `kata show <ref> --json`,
   # which returns `comments` plus a `comments_truncated` flag. Same argv as `tracker.show` on
-  # purpose: it is the same read, and that truncation flag is what keeps TRD-008's ordering claim
-  # and REQ-016's truncation honesty honest. No `parse` block, list shape.
+  # purpose: it is the same read. TRD-008 (AC-008-3): `parse` maps `$.comments` to the normalized
+  # `comments` array (`comment-list.json`, selected by CAPABILITY_NORMALIZED_SCHEMA), KEEPING kata's
+  # own order -- nothing here sorts, so comments come back in the order they were written. An item
+  # with none maps to `[]`. `comments_truncated` is carried through (optional) so a cut-off
+  # history is never mistaken for a complete one (REQ-016).
   tracker.comments:
     run: ["kata", "show", "${id}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        comments:
+          path: "$.comments"
+          default: []
+        comments_truncated:
+          path: "$.comments_truncated"
+          optional: true
 
   # Dependency edges are kata's blocking edges, and the variants are keyed on the contract's own
   # `type` input so an undeclared kind is refused by `selectTemplate` with `NOT_ALLOWED` listing

@@ -47,7 +47,7 @@ capabilities:
   tracker.comments:
     description: List the comments on a work item, in source-tool order.
     inputs: [id]
-    outputs: [comments]
+    outputs: [comments, comments_truncated]
     required: false
     sideEffect: false
 

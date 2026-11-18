@@ -16,7 +16,7 @@ The `tracker` category defines 18 capabilities: 4 required and 14 optional. An a
 | `tracker.update` | required | yes | `id`, `fields` | `id` | - | - | Update fields on an existing work item. |
 | `tracker.close` | required | yes | `id` | `id`, `status` | - | - | Close a work item. |
 | `tracker.comment` | optional | yes | `id`, `text` | `id` | - | - | Add a comment to a work item. |
-| `tracker.comments` | optional | no | `id` | `comments` | - | - | List the comments on a work item, in source-tool order. |
+| `tracker.comments` | optional | no | `id` | `comments`, `comments_truncated` | - | - | List the comments on a work item, in source-tool order. |
 | `tracker.dep-add` | optional | yes | `id`, `dependsOnId`, `type` | `id` | - | - | Add a dependency link from one work item to another. |
 | `tracker.dep-remove` | optional | yes | `id`, `dependsOnId` | `id` | - | - | Remove a dependency link from one work item to another. |
 | `tracker.label` | optional | yes | `ids`, `labels` | `ids`, `labels` | `title-prefix-scoping` | - | Add or replace labels on one or more work items. |
@@ -123,7 +123,7 @@ List the comments on a work item, in source-tool order.
 - Status: optional
 - Side effect: no
 - Inputs: `id`
-- Outputs: `comments`
+- Outputs: `comments`, `comments_truncated`
 - Fallback: none
 
 ### tracker.dep-add
