@@ -11,7 +11,6 @@ const path = require('path');
 
 const FAKE_ID = 'fake-tracker';
 const ALL = ['work-graph.ready', 'work-graph.plan', 'work-graph.graph-health'];
-let fakeCaps = ALL;
 
 jest.mock('../lib/toolchain/adapters', () => {
   const actual = jest.requireActual('../lib/toolchain/adapters');

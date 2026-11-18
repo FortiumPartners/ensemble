@@ -5,10 +5,10 @@
 Run exactly one scheduling wave; the caller reads the JSON summary and decides whether to run it again.
 
 IMPORTANT -- what this command does NOT do:
-  - Does NOT loop. After one barrier, the command exits.
-  - Does NOT call itself recursively.
-  - Does NOT invoke any sibling wave-runner subagent.
-  - Does NOT pre-summary and pause; the JSON summary is the only output.
+- Does NOT loop. After one barrier, the command exits.
+- Does NOT call itself recursively.
+- Does NOT invoke any sibling wave-runner subagent.
+- Does NOT pre-summary and pause; the JSON summary is the only output.
 
 - Step 1 (sync): before this command's first tracker write run node "$TOOLCHAIN_CLI" confirm-status tracker.set-status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present] and parse as CONFIRM_STATUS. If CONFIRM_STATUS.data.required is true and CONFIRM_STATUS.data.confirmed is false: when --foreman is not present ask via AskUserQuestion "Allow the tracker adapter to write (status/close/comment) for this session? [yes/no]"; on yes run node "$TOOLCHAIN_CLI" confirm-record tracker.set-status --run-id "$RUN_ID" --json. Under --foreman never prompt (the CLI auto-confirms and logs). Then run: node "$TOOLCHAIN_CLI" run tracker.sync --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present] (optional; {ok:false} -> skip silently, never HALT).
 - Step 2 (plan): run node "$TOOLCHAIN_CLI" run work-graph.plan --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present] (optional capability). If the result is {ok:false} (UNAVAILABLE or any other error): run node "$TOOLCHAIN_CLI" run work-graph.ready --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present] (required capability) and make each returned item its own single-bead track. If the work-graph.plan result is {ok:true}, use it as-is even when data.items is an empty array (zero tracks) -- that is an EMPTY PLAN, handled at Step 3's empty-plan edge (Step 7), never a fallback trigger. With LABEL set, pass `--arg scope=<LABEL>` to work-graph.plan and work-graph.ready (beads plans just that label; others ignore it); never `--arg limit=`. MAX_PARALLEL truncation happens after Step 3b's filter, or in Step 3 when LABEL is unset. Log ORDERING_SOURCE = data.orderingSource and DEPENDENCY_AWARE = data.dependencyAware when present (not part of the JSON summary schema). SCHEDULING SOURCE LOCK: do NOT derive scheduling decisions from the .beads/*.jsonl (beads-only) directly; read the bead graph only through the work-graph.* capabilities.

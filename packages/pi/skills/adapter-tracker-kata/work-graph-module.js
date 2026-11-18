@@ -155,7 +155,6 @@ function requireToolchainLib(name) {
   ];
   for (const candidate of candidates) {
     try {
-      // eslint-disable-next-line global-require, import/no-dynamic-require
       return require(candidate);
     } catch (e) {
       // Only skip "this candidate path is absent"; a real load error inside the lib must surface.

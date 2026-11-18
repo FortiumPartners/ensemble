@@ -1,6 +1,6 @@
 # Kata starting point
 
-Shell commands are shown with a `$ ` prompt; do not type the prompt.
+Shell commands are shown with a `$` prompt; do not type the prompt.
 
 Read this when the project's tracker is kata (`tracker: kata`). It is the only place the kata prerequisites, the binding step and the unbound message are documented for this command.
 

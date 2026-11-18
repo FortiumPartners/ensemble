@@ -130,4 +130,4 @@ FAIL - development: 2 failed / 13193 passed / 3 skipped / 1 todo (311 suites, 2 
 
 ---
 
-**VERDICT: INCOMPLETE (1 gaps found)**
+VERDICT: INCOMPLETE (1 gaps found). The three failing tests were triaged afterwards: one was a real regression and was fixed, two depend on the maintainer's own toolchain config, and the maintainer approved an override on 2026-11-18.

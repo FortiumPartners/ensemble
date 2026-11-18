@@ -56,9 +56,9 @@ afterAll(() => {
   // Belt and braces: no hung stub may outlive the suite.
   try {
     for (const pid of fs.readFileSync(path.join(root, 'pids'), 'utf8').split('\n').filter(Boolean)) {
-      try { process.kill(Number(pid), 'SIGKILL'); } catch (_) { /* already gone */ }
+      try { process.kill(Number(pid), 'SIGKILL'); } catch { /* already gone */ }
     }
-  } catch (_) { /* no hang test ran */ }
+  } catch { /* no hang test ran */ }
   if (root) fs.rmSync(root, { recursive: true, force: true });
 });
 
@@ -125,7 +125,7 @@ describe('TRD-028-TEST timeouts through the kata manifest', () => {
 });
 
 describe('TRD-028-TEST hang containment and class assignment', () => {
-  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch (_) { return false; } };
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
   test('the timed-out stub process is killed, not leaked', async () => {
     const pidFile = path.join(root, 'pids');

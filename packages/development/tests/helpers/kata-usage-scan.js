@@ -50,7 +50,7 @@ function usesGuard(source) {
  */
 function unguardedKataTests(files) {
   return files
-    .filter(({ file, source }) => !GUARD_SELF_TESTS.has(path.basename(file)))
+    .filter(({ file }) => !GUARD_SELF_TESTS.has(path.basename(file)))
     .filter(({ source }) => touchesKata(source) && !usesGuard(source))
     .map(({ file }) => file);
 }

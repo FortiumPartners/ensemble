@@ -52,7 +52,7 @@ function walk(root, relDir, out) {
   let entries;
   try {
     entries = fs.readdirSync(abs, { withFileTypes: true });
-  } catch (_) {
+  } catch {
     return;
   }
   for (const e of entries) {
@@ -72,7 +72,7 @@ function checkEntry(rel, isDir, readContent) {
     let content = '';
     try {
       content = readContent(rel);
-    } catch (_) {
+    } catch {
       /* unreadable/binary: skip */
     }
     if (content.includes(RETIRED)) reasons.push('content');
@@ -148,7 +148,7 @@ describe('TRD-023-TEST retired command name sweep', () => {
       let tracked = true;
       try {
         execFileSync('git', ['ls-files', '--error-unmatch', rel], { cwd: REPO_ROOT, stdio: 'ignore' });
-      } catch (_) {
+      } catch {
         tracked = false;
       }
       if (!tracked) return; // non-git env or untracked: skip diff check
