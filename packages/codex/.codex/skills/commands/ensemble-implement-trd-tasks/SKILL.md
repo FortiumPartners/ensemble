@@ -20,7 +20,7 @@ Rules:
 - FULL_TEST_COMMAND = `node "$TOOLCHAIN_CLI" run package-runner.run-script --arg script=test --run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json`: the Pre-PR test gate (non-ok or non-zero fails) and the pr-review-cycle TEST_COMMAND.
 - In every `tracker.list` result the issue list is `data` parsed as JSON if an array, else its `.issues` array.
 - Scaffold goes only to @beads-scaffold-specialist (never backend-developer); no product code is written.
-- Kata (0.23.0+): `implement-trd-tasks-reference/reference/kata-starting-point.md`.
+- Kata (0.23.0+, `.kata.toml`): `implement-trd-tasks-reference/reference/kata-starting-point.md`.
 - Branch intent, PR creation, workstream mode, resume/recovery detail: `implement-trd-tasks-reference` skill; read the section a step names.
 
 Terminal states: HALT (error printed, nothing runs), EXIT (early exit done), COMPLETE (epic closed, reported).
