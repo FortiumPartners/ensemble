@@ -1,6 +1,6 @@
 {
   "name": "@sunstone-partners/ensemble-lifecycle",
-  "version": "7.1.0",
+  "version": "7.1.1",
   "description": "Run .ensemble/hooks.yaml command.start / command.end lifecycle hooks in Claude Code",
   "author": {
     "name": "Sunstone Partners",

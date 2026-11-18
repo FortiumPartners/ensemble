@@ -131,6 +131,18 @@ describe('TRD-024-TEST: non-side-effecting tracker capabilities, real CLI entry 
     }
   });
 
+  test('tracker.show: a bead br prints without labels or description still maps (br omits empty fields)', () => {
+    const parse = REAL_MANIFEST.capabilities['tracker.show'].parse;
+    const bare = mapOutput(
+      JSON.stringify([{ id: 'br-x', title: 'Bare', issue_type: 'epic', status: 'open' }]),
+      parse
+    );
+    expect(bare).toEqual({ id: 'br-x', title: 'Bare', type: 'epic', status: 'open', labels: [] });
+    expect(validateWorkItem(bare)).toBe(true);
+    // The id and title stay required: a document with no title is still BAD_OUTPUT.
+    expect(() => mapOutput(JSON.stringify([{ id: 'br-x', status: 'open' }]), parse)).toThrow(/title/);
+  });
+
   test('tracker.list: declares no parse block, so `data` is the raw stdout text for either br shape', async () => {
     const binDir = mkStubBinDir();
     writeStubControl(binDir, { brListShape: 'wrapped' });

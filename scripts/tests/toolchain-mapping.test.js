@@ -838,13 +838,14 @@ describe('mutation-restore proof', () => {
   });
 
   test('the map-entry dottedPath string guard actually discriminates: disabling it loses the specific map-key naming', () => {
-    const needle = "      if (typeof dottedPath !== 'string') {";
+    const needle =
+      "  if (spec === null || typeof spec !== 'object' || Array.isArray(spec) || typeof spec.path !== 'string') {";
     expect(originalSource).toContain(needle);
-    const mutated = originalSource.replace(needle, '      if (false) {');
+    const mutated = originalSource.replace(needle, '  if (false) {');
     expect(mutated).not.toBe(originalSource);
 
     const mutatedMapping = loadMutant('map-entry-dottedpath-string-guard', mutated);
-    // With the guard disabled, dottedPath=123 reaches resolvePath(baseValue, 123) directly,
+    // With the guard disabled, spec=123 reaches resolvePath(baseValue, undefined) via 123.path,
     // whose own path-validity guard throws a generic, un-key-named BAD_OUTPUT instead of the
     // "parse.map['id']" message the real test above asserts on.
     try {

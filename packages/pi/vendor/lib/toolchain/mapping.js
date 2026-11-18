@@ -82,7 +82,7 @@
  *   kata reports an integer). Any other resolved type is `BAD_OUTPUT`, never silently coerced.
  * A bare-path entry behaves exactly as before.
  *
-  * ## `arrayMap` per-item array filter + reshape (TRD-2026-8d825f54 TRD-033)
+ * ## `arrayMap` per-item array filter + reshape (TRD-2026-8d825f54 TRD-033)
  *
  * This module's base dotted-path grammar deliberately has no filter/projection operator (see
  * "Deliberately NOT supported" below) -- by design, `map` can only pick ONE value's own

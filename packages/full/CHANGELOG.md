@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Direct entries in `packages/full/skills/` for the ten command skills the bundle lost when it stopped shipping command stubs, so `/ensemble-full:ensemble-pr-merge`, `-release`, `-assess`, `-standards`, `-discover-standards`, `-inject-standards`, `-fold-prompt`, `-reinstall-plugins`, `-sessionlog` and `-author-playwright-tests` exist again. A whole-package mirror such as `git -> ../../git/skills` keeps paths resolvable but registers no skill. `npm run validate` now fails when a command skill of a source package has no direct entry.
 - Mirror the `pr-review-*.js` libraries (`pr-review-policy`, `pr-review-rules`, `pr-review-paths`, `pr-review-description`, `pr-review-scope`, `pr-review-state`, `pr-review-status`, `pr-review-ledger`, `pr-review-remote`, `pr-review-cli`) under `packages/full/lib/`, matching `packages/development/lib/`, so the `pr-review-cycle` skill resolves its libraries from the `ensemble-full` install.
 
 ## [6.9.2] - 2026-06-23

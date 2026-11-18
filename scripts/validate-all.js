@@ -709,6 +709,59 @@ function validateFullSkillsMirror() {
 }
 
 /**
+ * Every command skill (`packages/<pkg>/skills/ensemble-<name>/SKILL.md`) of a source package must be a DIRECT entry of
+ * packages/full/skills/, not only reachable underneath a whole-package mirror such as `git -> ../../git/skills`.
+ *
+ * `validateFullSkillsMirror` accepts the whole-directory shape because it keeps `${CLAUDE_PLUGIN_ROOT}/skills/...` paths
+ * resolvable, but Claude Code registers only skills that are direct children of `skills/`. Since the bundle stopped shipping
+ * command stubs (v9.0.0), `/ensemble-full:ensemble-<name>` exists only for those direct entries, so a command skill reachable
+ * only through a whole-directory mirror cannot be invoked from the bundle (this is how `ensemble-pr-merge` and nine more
+ * vanished from ensemble-full).
+ *
+ * @param {string} [packagesDir] Packages directory (default: this repository's)
+ * @returns {string[]} One message per command skill with no direct entry
+ */
+function validateFullCommandSkillsDirect(packagesDir = PACKAGES_DIR) {
+  const failures = [];
+  const fullSkillsDir = path.join(packagesDir, 'full', 'skills');
+  if (!fs.existsSync(fullSkillsDir)) return failures;
+
+  let checked = 0;
+  for (const pkgEntry of fs.readdirSync(packagesDir, { withFileTypes: true })) {
+    if (!pkgEntry.isDirectory() || ['full', 'pi', 'codex', 'opencode'].includes(pkgEntry.name)) continue;
+    const skillsDir = path.join(packagesDir, pkgEntry.name, 'skills');
+    if (!fs.existsSync(skillsDir)) continue;
+    for (const skillEntry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!/^ensemble-/.test(skillEntry.name)) continue;
+      if (!skillEntry.isDirectory() && !skillEntry.isSymbolicLink()) continue;
+      if (!fs.existsSync(path.join(skillsDir, skillEntry.name, 'SKILL.md'))) continue;
+      checked++;
+      let direct = false;
+      try {
+        // A direct entry is a per-skill link (or copy) that resolves to a SKILL.md of its own.
+        const entry = path.join(fullSkillsDir, skillEntry.name);
+        fs.lstatSync(entry);
+        // A link must resolve to THIS skill's own directory, not just to some directory holding a SKILL.md.
+        const source = fs.realpathSync(path.join(skillsDir, skillEntry.name));
+        // A checkout without symlink support holds the link as a small file naming its target: it must name this skill too.
+        const textTarget = deSymlinkedMirrorTarget(entry);
+        direct = (fs.existsSync(path.join(entry, 'SKILL.md')) && fs.realpathSync(entry) === source)
+          || (textTarget !== null && fs.realpathSync(path.resolve(path.dirname(entry), textTarget)) === source);
+      } catch { /* no entry */ }
+      if (!direct) {
+        failures.push(
+          `packages/full/skills/${skillEntry.name} is not a direct entry (command skill of packages/${pkgEntry.name}) - ` +
+          `/ensemble-full:${skillEntry.name} does not exist without it: ` +
+          `ln -s ../../${pkgEntry.name}/skills/${skillEntry.name} packages/full/skills/${skillEntry.name}`
+        );
+      }
+    }
+  }
+  console.log(`  ✓ ${checked - failures.length}/${checked} command skill(s) are direct entries of packages/full/skills/`);
+  return failures;
+}
+
+/**
  * fs.existsSync follows symlinks and returns false for broken symlinks.
  * Use lstatSync to detect the symlink/file entry itself regardless of
  * whether its target currently resolves.
@@ -1166,6 +1219,13 @@ function main() {
     errors++;
   });
 
+  // Command skills must be direct entries, or /ensemble-full:ensemble-<name> does not exist
+  console.log('\nValidating command skills are direct entries of packages/full/skills/...');
+  validateFullCommandSkillsDirect().forEach(message => {
+    console.error(`✗ ${message}`);
+    errors++;
+  });
+
   // packages/full/ is assembled entirely out of symlinks. A checkout without
   // symlink support turns every one into a small file holding the target path,
   // which every presence check above accepts as a healthy mirror. Report it
@@ -1258,6 +1318,7 @@ module.exports = {
   deSymlinkedMirrorTarget,
   findDeSymlinkedMirrors,
   validateFullSkillsMirror,
+  validateFullCommandSkillsDirect,
   validateFullLibMirror,
   validateFullBundleRequires,
   relativeSpecifiers,

@@ -1,6 +1,6 @@
 {
   "name": "ensemble-infrastructure",
-  "version": "6.1.2",
+  "version": "6.1.3",
   "description": "Infrastructure management for AWS, Kubernetes, Docker, Helm, Fly.io",
   "author": {
     "name": "Sunstone Partners",

@@ -10,7 +10,7 @@
     "adapter": {
       "type": "string",
       "minLength": 1,
-      "description": "Unique adapter id, for example 'github' or 'plain-git'."
+      "description": "The adapter id, for example 'github' or 'plain-git'. Unique per (id, category) pair, not globally: one id may be split across several directories that declare one category each, so that each carries only the allowlist its own category needs. Resolution is keyed on (id, category), and `npm run validate` rejects the same pair in two directories."
     },
     "version": {
       "type": "string",
