@@ -25,7 +25,10 @@ const MANIFEST = yaml.load(
 );
 const FIX = (n) => fs.readFileSync(path.join(__dirname, 'fixtures', 'kata', n), 'utf8');
 const SHOW = FIX('show.json');
-const STATUS = FIX('status.json');
+// `kata claim --json` / `kata unassign --json` mutation envelopes (captured, kata 0.23.0): the issue
+// is an object under `issue`, NOT the `kata status` envelope (status.json) the first cut assumed.
+const CLAIM = FIX('claim.json');
+const UNASSIGN = FIX('unassign.json');
 const WORK_ITEM_SCHEMA = JSON.parse(
   fs.readFileSync(path.join(DEV_ROOT, 'toolchain', 'schemas', 'normalized', 'work-item.json'), 'utf8')
 );
@@ -86,25 +89,31 @@ describe('TRD-034 tracker.set-status reports the same owner as show', () => {
     expect(parse).toBeDefined();
   });
 
-  test('claim envelope: owner equals show owner, in_progress, id is the short id', () => {
-    const shown = mapOutput(SHOW, MANIFEST.capabilities['tracker.show'].parse);
-    const out = mapOutput(STATUS, parse);
-    expect(out.id).toBe('jfh4');
-    expect(out.owner).toBe(shown.owner);
+  test('claim envelope: owner is the claimed owner, in_progress, id is the short id', () => {
+    const out = mapOutput(CLAIM, parse);
+    const raw = JSON.parse(CLAIM);
+    expect(out.id).toBe(raw.issue.short_id);
+    expect(out.owner).toBe(raw.issue.owner);
+    expect(out.owner).toBeTruthy();
     expect(out.status).toBe('in_progress');
     expect(validate(out)).toBe(true);
   });
 
+  test('claim owner equals what show reports for the same owner', () => {
+    const shown = mapOutput(edit(SHOW, (d) => { d.issue.owner = JSON.parse(CLAIM).issue.owner; }), MANIFEST.capabilities['tracker.show'].parse);
+    expect(mapOutput(CLAIM, parse).owner).toBe(shown.owner);
+  });
+
   test('unassign envelope: open and no owner', () => {
-    const out = mapOutput(edit(STATUS, (d) => { delete d.owner; }), parse);
-    expect(out.id).toBe('jfh4');
+    const out = mapOutput(UNASSIGN, parse);
+    expect(out.id).toBe(JSON.parse(UNASSIGN).issue.short_id);
     expect('owner' in out).toBe(false);
     expect(out.status).toBe('open');
     expect(validate(out)).toBe(true);
   });
 
   test('unassign envelope with null owner is also open and unowned', () => {
-    const out = mapOutput(edit(STATUS, (d) => { d.owner = null; }), parse);
+    const out = mapOutput(edit(UNASSIGN, (d) => { d.issue.owner = null; }), parse);
     expect('owner' in out).toBe(false);
     expect(out.status).toBe('open');
   });

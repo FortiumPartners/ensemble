@@ -45,7 +45,7 @@ One column per shipped backend. `native` = the backend answers the capability it
 | `tracker.dep-add` | native | native | unavailable | native |
 | `tracker.dep-remove` | unavailable | native | unavailable | native |
 | `tracker.label` | fallback | native | fallback | native |
-| `tracker.label-one` | unavailable | unavailable | unavailable | unavailable |
+| `tracker.label-one` | unavailable | unavailable | unavailable | native |
 | `tracker.set-status` | native | native | native | native |
 | `tracker.sync` | unavailable | native | unavailable | native |
 | `tracker.stage-export` | fallback | native | fallback | native |

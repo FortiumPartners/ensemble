@@ -16,23 +16,22 @@ categories:
   - tracker
   - work-graph
 
-# TRD-002 Implementation AC 1: `tracker: "1.0"` and `work-graph: "2.0"`, the versions this manifest
-# was written and verified against. These are what `contracts.js#checkCompat` compares, and a
-# capability is only reachable when the category resolves to this adapter, the manifest declares
+# TRD-002 Implementation AC 1 / TRD-012: `tracker: "1.1"` and `work-graph: "2.0"`, the versions this
+# manifest was written and verified against. These are what `contracts.js#checkCompat` compares, and
+# a capability is only reachable when the category resolves to this adapter, the manifest declares
 # it, and `checkCompat` leaves it available -- all three, per `runner.js#runCapability`.
 #
-# The shipped tracker contract is now "1.1"; the 1.0 -> 1.1 step added exactly one OPTIONAL
-# capability, `tracker.label-one` (`addedInMinor: 1`), which is the contract's own answer for tools
-# that can only attach one label per call -- precisely kata's shape. Pinning "1.0" therefore makes
-# `tracker.label-one` UNAVAILABLE here rather than merely undeclared, and `tracker.label` (whose
-# contract entry carries the `title-prefix-scoping` fallback) has to stand in for it with a
-# one-ref/one-label argv. TRD-012 owns raising the pin to "1.1" and declaring `tracker.label-one`;
-# until then the gap is recorded in SKILL.md's "Known limits", not hidden.
+# The shipped tracker contract is "1.1"; the 1.0 -> 1.1 step added exactly one OPTIONAL capability,
+# `tracker.label-one` (`addedInMinor: 1`), which is the contract's own answer for tools that can only
+# attach one label per call -- precisely kata's shape. TRD-012 raised the pin from "1.0" to "1.1" so
+# `tracker.label-one` is available and declared below. `tracker.label` stays declared too, because
+# its contract entry carries the `title-prefix-scoping` fallback and PRD AC-001-4 requires
+# fallback-bearing capabilities to be declared.
 #
 # `work-graph: "2.0"` is exactly the shipped `toolchain/categories/work-graph.yaml` version, so
 # nothing in that category is excluded.
 contract:
-  tracker: "1.0"
+  tracker: "1.1"
   work-graph: "2.0"
 
 binaries:
@@ -150,10 +149,9 @@ health:
 detect: []
 
 # Capability map -- which contract capabilities kata takes responsibility for, at which argv, with
-# which output mapping. It declares the same 20 capability names as
-# `adapter-tracker-beads/adapter.yaml` (17 tracker + 3 work-graph), which is the whole tracker
-# contract at the pinned 1.0 plus the whole work-graph contract at 2.0: nothing is dropped, and the
-# one capability the pin excludes (`tracker.label-one`) is recorded in SKILL.md.
+# which output mapping. It declares every capability of the tracker contract at the pinned 1.1
+# (including the 1.1 addition `tracker.label-one`) plus the whole work-graph contract at 2.0:
+# nothing is dropped and the pin excludes nothing.
 #
 # Ownership: TRD-002 owns this manifest's existence and shape -- categories, pins, binaries,
 # allowlist, env names, health, empty detect, and the complete capability list. The behaviour
@@ -552,14 +550,11 @@ capabilities:
   # rejects an invalid ref with `validation` exit 3 rather than labelling a subset, which is the
   # fail-closed behaviour we want (captured for `--blocked-by`, same ref parser).
   #
-  # The contract's own answer for one-label-at-a-time tools is `tracker.label-one`, whose description
-  # says such adapters "MUST declare this rather than tracker.label" -- but it carries
-  # `addedInMinor: 1` and this manifest pins `tracker: "1.0"`, so `checkCompat` reports it
-  # unavailable and declaring it would be a lie about the pinned surface. `tracker.label` must still
-  # be declared because its contract entry names the `title-prefix-scoping` fallback and PRD
-  # AC-001-4 requires fallback-bearing capabilities to be declared. So this entry maps the
-  # single-ref form, correct for exactly one id, and the gap is written down in SKILL.md rather
-  # than papered over. TRD-012 owns the per-id sweep together with the pin bump to 1.1.
+  # The contract's own answer for one-label-at-a-time tools is `tracker.label-one` (below), which
+  # TRD-012 declares now that the pin is 1.1. `tracker.label` must still be declared because its
+  # contract entry names the `title-prefix-scoping` fallback and PRD AC-001-4 requires
+  # fallback-bearing capabilities to be declared. This entry maps the single-ref form, correct for
+  # exactly one id; callers sweeping several ids use `tracker.label-one` once per id.
   # `${ids}`/`${labels}` are the contract's declared inputs.
   #
   # TRD-033-FU parse (captured against kata 0.23.0; `label add --json` envelope is
@@ -576,42 +571,69 @@ capabilities:
         label: "$.label.label"
     timeoutClass: long
 
+  # TRD-012 (PRD AC-004-1): attach ONE label to exactly ONE item, the contract's answer for tools
+  # that label one id at a time. The caller sweeps N ids with N calls; a sweep over three items
+  # sharing a title prefix labels each by id and reads each back (`kata show` lists the label under
+  # `issue.labels`). Removal is `kata label rm <ref> <label>` (allowlisted as "label rm"); the
+  # tracker contract declares NO label-removal capability, so removal is a native-kata operation
+  # with no capability here (adding one would be a contract change, which TRD-012 does not make).
+  # Same captured `label add --json` envelope as `tracker.label`; the result is the non-entity
+  # `{id}` validated by `label-result.json` via runner CAPABILITY_NORMALIZED_SCHEMA. Only `id` is
+  # mapped: `validate.js#validateConformance` allows `parse.map` keys only from the contract's
+  # declared outputs (`id`, `labels`), and kata's envelope carries the single applied label
+  # (`$.label.label`, a string), not a `labels` array, so `labels` is not mapped. The applied label
+  # is read back with `tracker.show` (`labels`), which is what AC-004-1 asserts.
+  tracker.label-one:
+    run: ["kata", "label", "add", "${id}", "${label}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
+    timeoutClass: long
+
   # Lifecycle status. Kata has NO in-progress status: an owned-but-open item IS in-progress (PRD
   # REQ-004), so `in_progress` maps to `kata claim` and `open` to `kata unassign` -- both captured
   # returning the mutation envelope with the issue (`kata claim --help`: refuses when already owned
   # unless `--force`; `kata unassign --help`: clears the owner). The in-progress READING is derived
   # from a non-empty `owner` (TRD-034, `inProgressWhen`), the same way `tracker.show` reads it.
   #
-  # `closed` is deliberately absent from the variants, and the base template is the `in_progress`
-  # one so a `status` value with no variant cannot fall through to a close: `selectTemplate`
-  # rejects any unlisted value with `NOT_ALLOWED` listing the allowed ones. Kata closes only with a
-  # reason and evidence that `set-status`'s `[id, status]` inputs cannot carry, so closing goes
-  # through `tracker.close-with-reason`, and TRD-012 AC 4 wants exactly that refusal (TRD Open
-  # Question 6).
+  # `closed` is a variant that REFUSES: its template carries the `refuse.` placeholder (the same
+  # convention as `tracker.close`, exempted by `validate.js#validateConformance`), which
+  # `runner.js#resolveArg` rejects with `INVALID_ARG` naming `tracker.close-with-reason` BEFORE any
+  # process is spawned. Kata closes only with a reason and evidence that `set-status`'s `[id, status]`
+  # inputs cannot carry, so closing goes through `tracker.close-with-reason` (TRD-012 AC 4, amended
+  # by TRD-027; TRD Open Question 6). The base template is the `in_progress` one so a `status` value
+  # with no variant cannot fall through to a close: any other unlisted value is `NOT_ALLOWED`.
   #
-  # TRD-034 parse: the mutation envelope is `{issue: "<short id>", issue_status, owner?, ...}` (a
-  # claim carries `owner`, an unassign omits it; tests/fixtures/kata/status.json), so the result
-  # reports `id`, the same normalized `owner` as `tracker.show`, and a `status` of `in_progress`
-  # (claimed) or `open` (unassigned).
+  # Parse (captured against kata 0.23.0): `kata claim` / `kata unassign --json` answer the MUTATION
+  # envelope `{kata_api_version, issue:{short_id, status, owner?, ...}, event, ...}` -- the same
+  # `issue` object as `create`/`show`, NOT the `kata status` envelope (tests/fixtures/kata/
+  # status.json) an earlier cut assumed, which made every real set-status BAD_OUTPUT. A claim
+  # carries `issue.owner`; an unassign omits it. The result reports `id`, the same normalized
+  # `owner` as `tracker.show`, and `status` derived by the one narrow rule `inProgressWhen`
+  # (TRD-034, mapping.js): kata status is open or closed only, an open item with a non-empty owner
+  # reads `in_progress`.
   tracker.set-status:
     run: ["kata", "claim", "${id}", "--json"]
     variants:
       status:
         in_progress: ["kata", "claim", "${id}", "--json"]
         open: ["kata", "unassign", "${id}", "--json"]
+        closed: ["kata", "close", "${id}", "${refuse.closing-needs-reason-and-evidence-use-tracker.close-with-reason}", "--json"]
     parse:
       format: json
       root: "$"
       map:
-        id: "$.issue"
-        status: "$.issue_status"
+        id: "$.issue.short_id"
+        status: "$.issue.status"
         owner:
-          path: "$.owner"
+          path: "$.issue.owner"
           optional: true
       statusMap:
         open: open
         closed: closed
-      inProgressWhen: "$.owner"
+      inProgressWhen: "$.issue.owner"
     timeoutClass: long
 
   # Optional, with NO fallback in the contract -- declared rather than omitted so kata answers it

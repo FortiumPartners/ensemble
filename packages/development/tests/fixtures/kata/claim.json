@@ -1,0 +1,60 @@
+{
+  "kata_api_version": 1,
+  "issue": {
+    "source_actor": "ldangelo",
+    "verification": "legacy",
+    "id": 1,
+    "uid": "01M7QJSAHCVD2GFGV38B2KHZ8M",
+    "project_id": 2,
+    "project_uid": "01M7QJSAFQE8RRRZ88N1SHSHND",
+    "short_id": "hz8m",
+    "title": "x",
+    "body": "",
+    "status": "open",
+    "owner": "ldangelo",
+    "author": "ldangelo",
+    "metadata": {},
+    "revision": 2,
+    "created_at": "2026-11-18T15:00:44.204Z",
+    "updated_at": "2026-11-18T15:00:44.219Z"
+  },
+  "event": {
+    "id": 3,
+    "uid": "01M7QJSAHW4G2SS92GP2ZB8KAY",
+    "origin_instance_uid": "01M7QJSADD0K83ZM4V1D5JEH65",
+    "project_id": 2,
+    "project_uid": "01M7QJSAFQE8RRRZ88N1SHSHND",
+    "project_name": "trd-kata-scratch",
+    "issue_id": 1,
+    "issue_uid": "01M7QJSAHCVD2GFGV38B2KHZ8M",
+    "issue_short_id": "hz8m",
+    "type": "issue.assigned",
+    "actor": "ldangelo",
+    "payload": "{\"owner\":\"ldangelo\",\"updated_at\":\"2026-11-18T15:00:44.219Z\"}",
+    "hlc_physical_ms": 1795014044220,
+    "hlc_counter": 0,
+    "content_hash": "1d5c9e5002196783f88088dbbe1359efe0380b1c903a260f5ffd5e332ed7de2c",
+    "created_at": "2026-11-18T15:00:44.22Z"
+  },
+  "events": [
+    {
+      "id": 3,
+      "uid": "01M7QJSAHW4G2SS92GP2ZB8KAY",
+      "origin_instance_uid": "01M7QJSADD0K83ZM4V1D5JEH65",
+      "project_id": 2,
+      "project_uid": "01M7QJSAFQE8RRRZ88N1SHSHND",
+      "project_name": "trd-kata-scratch",
+      "issue_id": 1,
+      "issue_uid": "01M7QJSAHCVD2GFGV38B2KHZ8M",
+      "issue_short_id": "hz8m",
+      "type": "issue.assigned",
+      "actor": "ldangelo",
+      "payload": "{\"owner\":\"ldangelo\",\"updated_at\":\"2026-11-18T15:00:44.219Z\"}",
+      "hlc_physical_ms": 1795014044220,
+      "hlc_counter": 0,
+      "content_hash": "1d5c9e5002196783f88088dbbe1359efe0380b1c903a260f5ffd5e332ed7de2c",
+      "created_at": "2026-11-18T15:00:44.22Z"
+    }
+  ],
+  "changed": true
+}
