@@ -48,6 +48,14 @@ health:
 
 detect: []
 
+# TRD-2026-6995dc96 TRD-028 (PRD REQ-017): per-class call bounds in ms. Read-only capabilities are
+# `timeoutClass: short`; writes and whole-backlog traversals are `long`. Both are 60000, the one
+# bound beads has always run under, so this declaration changes no effective timeout. A project's
+# `timeouts` in .ensemble/toolchain.yaml overrides either.
+timeouts:
+  short: 60000
+  long: 60000
+
 capabilities:
   # br show <id> --json: confirmed live (br 0.6.0) to print a single-element JSON array
   # (`[{...}]`), never a bare object -- `root: "$[0]"` unwraps that one element. br's own
@@ -79,6 +87,7 @@ capabilities:
         # normalizes to "in_progress".
         deferred: open
         in_review: in_progress
+    timeoutClass: short
 
   # br list --all --limit 0 --json: confirmed live (br 0.6.0) to wrap results as
   # `{issues:[...], total, limit, offset, has_more}` (matching `br schema commands`'
@@ -105,6 +114,7 @@ capabilities:
   # below (reviewer round 2, P1).
   tracker.list:
     run: ["br", "list", "--all", "--limit", "0", "--json"]
+    timeoutClass: short
 
   # Find-by-key. `br list` has NO filter on `external_ref` (captured live: `--desc-contains`
   # and `br search` do not see it), so this lists EVERY bead in the workspace (closed ones
@@ -122,6 +132,7 @@ capabilities:
   # from argv. Raw `{issues:[...]}` stdout, no `parse` block, same reason as tracker.list.
   tracker.find-by-key:
     run: ["br", "list", "--all", "--limit", "0", "--json"]
+    timeoutClass: short
 
   # br create --json: CAPTURED LIVE (br 0.6.0, scratch workspace under ~/.omp, never this
   # repo's own .beads/; stored under scripts/tests/fixtures/toolchain/adapter-tracker-beads-
@@ -136,6 +147,7 @@ capabilities:
       root: "$"
       map:
         id: "$.id"
+    timeoutClass: long
 
   # br create with labels, priority and an external dedupe key in ONE call (captured live,
   # br-create-detailed.sample.json). `-l` takes a comma-separated list, `-p` a 0-4 number,
@@ -166,6 +178,7 @@ capabilities:
       root: "$"
       map:
         id: "$.id"
+    timeoutClass: long
 
   # br update <id> --notes <fields> --json: the category contract's single "fields" input
   # is one opaque value, but br update takes one flag per field (--title/-d/-s/-p/...); this
@@ -184,6 +197,7 @@ capabilities:
       root: "$[0]"
       map:
         id: "$.id"
+    timeoutClass: long
 
   # br update <id> --status <open|in_progress> --json / br close <id> --json: confirmed LIVE
   # (br 0.6.0, disposable /tmp workspace, never this repo's own .beads/) that `br update
@@ -221,6 +235,7 @@ capabilities:
         closed: closed
         deferred: open
         in_review: in_progress
+    timeoutClass: long
 
   tracker.close:
     run: ["br", "close", "${id}", "--json"]
@@ -236,6 +251,7 @@ capabilities:
         closed: closed
         deferred: open
         in_review: in_progress
+    timeoutClass: long
 
   # br update <id> --title/--description/--priority/--append-notes --json (captured live,
   # br-update-detailed.sample.json): array-of-one `[{"id","title","status","priority",
@@ -263,6 +279,7 @@ capabilities:
       root: "$[0]"
       map:
         id: "$.id"
+    timeoutClass: long
 
   # br close <id> --reason <why> --transition-comment <text> --json (captured live,
   # br-close-with-reason.sample.json): `[{"id","title","status":"closed","closed_at",
@@ -292,6 +309,7 @@ capabilities:
         closed: closed
         deferred: open
         in_review: in_progress
+    timeoutClass: long
 
   # `br comments add <id> <text> --json` returns a bare comment object (confirmed live, `br`
   # 0.6.0: `{"id":454,"issue_id":"...","author":"...","text":"...","created_at":"..."}`) whose
@@ -307,6 +325,7 @@ capabilities:
   # shaped for a different kind of entity.
   tracker.comment:
     run: ["br", "comments", "add", "${id}", "${text}", "--json"]
+    timeoutClass: long
 
   # br comments list <id> --json: `br schema commands` documents this as shape="array",
   # items_at="." (a bare array of comment objects, empty when there are none). No `parse`
@@ -314,6 +333,7 @@ capabilities:
   # output is [comments], never "id".
   tracker.comments:
     run: ["br", "comments", "list", "${id}", "--json"]
+    timeoutClass: short
 
   # br dep add/remove --json: CAPTURED LIVE (br 0.6.0, br-dep-add.sample.json /
   # br-dep-remove.sample.json): a bare `{"status":"ok","issue_id","depends_on_id","type",
@@ -327,6 +347,7 @@ capabilities:
       root: "$"
       map:
         id: "$.issue_id"
+    timeoutClass: long
 
   tracker.dep-remove:
     run: ["br", "dep", "remove", "${id}", "${dependsOnId}", "--json"]
@@ -335,11 +356,13 @@ capabilities:
       root: "$"
       map:
         id: "$.issue_id"
+    timeoutClass: long
 
   # br label add <ids> -l <labels> --json: no `parse` block, same CATEGORY_NORMALIZED_SCHEMA
   # reason as tracker.list -- the declared output is [ids, labels], never "id".
   tracker.label:
     run: ["br", "label", "add", "${ids}", "-l", "${labels}", "--json"]
+    timeoutClass: long
 
   # br sync --flush-only --json: "Flush pending local tracker state to durable storage" is
   # exactly br sync's own --flush-only mode ("Export database to JSONL (safe by default)").
@@ -347,6 +370,7 @@ capabilities:
   # output is [status], never "id".
   tracker.sync:
     run: ["br", "sync", "--flush-only", "--json"]
+    timeoutClass: long
 
   # bv --robot-plan --format json: confirmed live (bv v0.25.2) to group ready work into
   # parallel "tracks" (`plan.tracks[].items[]`), already ordered and already containing only
@@ -392,6 +416,7 @@ capabilities:
   # `data` is therefore the raw file text, exactly as `beads-stage.js` consumed it before.
   tracker.stage-export:
     run: ["cat", ".beads/issues.jsonl"]
+    timeoutClass: long
   work-graph.ready:
     run: ["bv", "--robot-plan", "--format", "json"]
     # `scope` is a bead label: when supplied, bv plans only that label\'s subgraph (a repo-wide
@@ -405,6 +430,7 @@ capabilities:
       emptyWhen: "$.plan.tracks"
       map:
         items: "$"
+    timeoutClass: short
 
   # Same command and the same single-track limitation as work-graph.ready above.
   # orderingSource/dependencyAware are intentionally left unmapped: mapOutput's `map` values
@@ -426,6 +452,7 @@ capabilities:
       emptyWhen: "$.plan.tracks"
       map:
         items: "$"
+    timeoutClass: long
 
   # bv --robot-insights --format json: "status" is bv's own per-metric computation-status
   # object (PageRank/Betweenness/.../Cycles -> {state, ms?}); "findings" is bv's own
@@ -439,3 +466,4 @@ capabilities:
       map:
         status: "$.status"
         findings: "$.Cycles"
+    timeoutClass: long

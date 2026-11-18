@@ -177,6 +177,18 @@ detect: []
 # work-item schema (`work-item.json`, `required: ["id"]`), keyed per CATEGORY rather than per
 # capability, so a list, comment, label, or status-shaped result mapped through it always fails
 # `BAD_OUTPUT: missing required property 'id'`.
+# TRD-2026-6995dc96 TRD-028 (PRD REQ-017): per-class call bounds in ms. Read-only capabilities
+# (list, show, comments, ready) are `timeoutClass: short`; writes and whole-backlog traversals
+# (plan, graph-health, sync) are `long`, which kata gets twice the short bound. A project's
+# `timeouts` in .ensemble/toolchain.yaml overrides either.
+# NOTE: `timeoutClass` on the module-dispatched capabilities (work-graph.plan, work-graph.graph-health)
+# is declarative only. The in-process work-graph module does not enforce it as a whole-call bound;
+# its inner tracker.* calls (kata list, tracker.show) honor their own class bound, including the
+# project's `timeouts`.
+timeouts:
+  short: 60000
+  long: 120000
+
 capabilities:
   # `kata show <ref> --json` -> one issue with its comments, labels, links and `web_url` (captured:
   # keys are `[comments, comments_truncated, issue, kata_api_version, labels, links, web_url]`).
@@ -221,6 +233,7 @@ capabilities:
         open: open
         closed: closed
       inProgressWhen: "$.issue.owner"
+    timeoutClass: short
 
   # `kata list --json` returns issues most-recently-updated first inside `{issues, complete,
   # truncated, kata_api_version}`, capped at 200 rows unless told otherwise. TRD-007:
@@ -274,6 +287,7 @@ capabilities:
         open: ["kata", "list", "--status", "open", "--limit", "0", "--include-total", "--json"]
         closed: ["kata", "list", "--status", "closed", "--limit", "0", "--include-total", "--json"]
         all: ["kata", "list", "--status", "all", "--limit", "0", "--include-total", "--json"]
+    timeoutClass: short
 
   # `kata create <title> --body <description> --json`; the title is the only positional. Kata has
   # no issue type field at all (`kata create --help` lists no type flag), so the contract's `type`
@@ -289,6 +303,7 @@ capabilities:
       root: "$"
       map:
         id: "$.issue.short_id"
+    timeoutClass: long
 
   # Create with the detail fields kata can carry: `--priority` takes an INTEGER or `none` (captured:
   # `--priority p2` is rejected with "must be an integer or none"), `--meta key=value` writes
@@ -319,6 +334,7 @@ capabilities:
       root: "$"
       map:
         id: "$.issue.short_id"
+    timeoutClass: long
 
   # Dedupe lookup over the whole project, closed items included and NOT label-scoped, as the
   # contract's description demands: `kata list --status all --limit 0 --meta ext_key=${key}`.
@@ -330,6 +346,7 @@ capabilities:
   # the exact key match and reports `AMBIGUOUS_KEY` on more than one. No `parse` block, list shape.
   tracker.find-by-key:
     run: ["kata", "list", "--status", "all", "--limit", "0", "--meta", "ext_key=${key}", "--json"]
+    timeoutClass: short
 
   # The contract's single opaque `fields` input names exactly one kata field, and the shared runner
   # cannot expand one input into a set of flags (`buildArgv` fills a fixed template). It writes the
@@ -351,6 +368,7 @@ capabilities:
       root: "$"
       map:
         id: "$.issue.short_id"
+    timeoutClass: long
 
   # One invocation rewrites title, body and priority and appends a note: `kata edit`'s `--comment`
   # flag adds a comment on a successful mutation (`kata edit --help`), which is the only
@@ -378,6 +396,7 @@ capabilities:
       root: "$"
       map:
         id: "$.issue.short_id"
+    timeoutClass: long
 
   # Required capability, and it stays a refusal (PRD AC-003-2, TRD-011 AC 4). `tracker.close`'s
   # contract inputs are `[id]` alone, while kata closes ONLY with a reason AND a substantive
@@ -397,6 +416,7 @@ capabilities:
   # evidence) or `tracker.close-with-evidence` (commit, pr or test evidence).
   tracker.close:
     run: ["kata", "close", "${id}", "${refuse.reason-and-evidence-required-use-tracker.close-with-reason}", "--json"]
+    timeoutClass: long
 
   # Close recording why and what proves it (PRD AC-003-1). `--done` is the reason flag, `-m` the
   # substantive message, `--commit <sha>` sugar for `--evidence commit:<sha>` (`kata close --help`).
@@ -424,6 +444,7 @@ capabilities:
       - "--commit"
       - "${commit}"
       - "--json"
+    timeoutClass: long
 
   # NOT in the shipped tracker 1.0 contract (TRD tracker 1.1 `tracker.close-with-evidence`, PRD
   # AC-003-3): a manifest-only capability. `runner.js#runCapability` runs any capability the
@@ -446,6 +467,7 @@ capabilities:
       - "--evidence"
       - "${evidence}"
       - "--json"
+    timeoutClass: long
 
   # `kata comment <ref> -m <text>`: the ref is the only positional and kata rejects a second one
   # ("accepts 1 arg(s), received 2"), so the body must come from `-m`. TRD-008 (AC-008-3): the text
@@ -455,6 +477,7 @@ capabilities:
   # the append succeeds or fails by exit status and the result stays raw stdout.
   tracker.comment:
     run: ["kata", "comment", "${id}", "-m", "${text}", "--json"]
+    timeoutClass: long
 
   # Kata has no comment-listing subcommand, so the comments come from `kata show <ref> --json`,
   # which returns `comments` plus a `comments_truncated` flag. Same argv as `tracker.show` on
@@ -475,6 +498,7 @@ capabilities:
         comments_truncated:
           path: "$.comments_truncated"
           optional: true
+    timeoutClass: short
 
   # Dependency edges are kata's blocking edges, and the variants are keyed on the contract's own
   # `type` input so an undeclared kind is refused by `selectTemplate` with `NOT_ALLOWED` listing
@@ -489,12 +513,14 @@ capabilities:
     variants:
       type:
         blocks: ["kata", "edit", "${id}", "--blocked-by", "${dependsOnId}", "--json"]
+    timeoutClass: long
 
   # `kata edit <id> --remove-blocked-by <ref>` is idempotent -- "no error if no such link" per
   # `kata edit --help`, and confirmed by a live repeat -- which is what makes a remove safe to
   # re-run while reconciling an imported plan. Captured: the link is gone from `kata show` after it.
   tracker.dep-remove:
     run: ["kata", "edit", "${id}", "--remove-blocked-by", "${dependsOnId}", "--json"]
+    timeoutClass: long
 
   # Kata attaches exactly ONE label per call and answers with a singular `label` key, with no bulk,
   # batch, or multi-id form anywhere in the CLI (`kata label --help`; TRD Open Question 12). The
@@ -514,6 +540,7 @@ capabilities:
   # `${ids}`/`${labels}` are the contract's declared inputs; no `parse` block, label shape.
   tracker.label:
     run: ["kata", "label", "add", "${ids}", "${labels}", "--json"]
+    timeoutClass: long
 
   # Lifecycle status. Kata has NO in-progress status: an owned-but-open item IS in-progress (PRD
   # REQ-004), so `in_progress` maps to `kata claim` and `open` to `kata unassign` -- both captured
@@ -551,6 +578,7 @@ capabilities:
         open: open
         closed: closed
       inProgressWhen: "$.owner"
+    timeoutClass: long
 
   # Optional, with NO fallback in the contract -- declared rather than omitted so kata answers it
   # itself. TRD-014 (PRD AC-006-1): kata persists each write before its command returns, so there
@@ -573,6 +601,7 @@ capabilities:
         status:
           path: "$.sync_status"
           default: "synced"
+    timeoutClass: long
 
   # The contract names `fallback: full-export-unscoped`; TRD-014 (PRD AC-006-1) answers it in-band
   # so the fallback never fires. Kata has no stdout export: `kata export` writes a file (with
@@ -599,6 +628,7 @@ capabilities:
         status:
           path: "$.export_status"
           default: "unavailable"
+    timeoutClass: long
 
   # `kata ready --limit 0 --json` lists open issues nothing is blocking, in kata's own listing
   # order (most-recently-updated first), inside `{issues, kata_api_version}` -- kata's native
@@ -633,6 +663,7 @@ capabilities:
             owner:
               path: "$.owner"
               optional: true
+    timeoutClass: short
 
   # TRD-019 (PRD AC-007-2..5): `work-graph.plan` is answered in-process by `work-graph-module.js`
   # (`run`, TRD-016 confined dispatch), not by an argv. `kata next` returns ONE issue, never a
@@ -646,6 +677,7 @@ capabilities:
   work-graph.plan:
     module: work-graph-module.js
     export: run
+    timeoutClass: long
 
   # Kata has no graph-health command (`kata health` is DAEMON health), so TRD-019 computes it in
   # the same module from the same list envelope and edges `work-graph.plan` uses: cycles and
@@ -654,3 +686,4 @@ capabilities:
   work-graph.graph-health:
     module: work-graph-module.js
     export: run
+    timeoutClass: long

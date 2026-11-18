@@ -224,7 +224,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { resolveCategory } = require('./toolchain/config');
+const { resolveCategory, resolveProjectTimeouts } = require('./toolchain/config');
 const { loadAdapter } = require('./toolchain/adapters');
 const { runCapability } = require('./toolchain/runner');
 const { loadContracts } = require('./toolchain/contracts');
@@ -564,10 +564,16 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
   }
 
   const projectRoot = ctx.projectRoot || process.cwd();
+  const projectTimeouts = resolveProjectTimeouts(ctx);
   const result = resolvedWorkGraph
-    ? await dispatchWorkGraphCapability(resolvedWorkGraph, capability, args, { source, cwd: projectRoot })
+    ? await dispatchWorkGraphCapability(resolvedWorkGraph, capability, args, {
+        source,
+        cwd: projectRoot,
+        timeouts: projectTimeouts
+      })
     : await runCapability(loaded.manifest, capability, args, {
         source,
+        timeouts: projectTimeouts,
         execFileOptions: { cwd: projectRoot }
       });
 

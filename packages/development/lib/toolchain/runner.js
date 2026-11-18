@@ -234,10 +234,13 @@
  *   capability, binary or subcommand that failed.
  * - `INVALID_ARG`: bubbled up unchanged from `buildArgv`/`resolveArg` (missing/malformed
  *   argument value); never thrown past `runCapability`'s own boundary, always converted here.
- * - `TIMEOUT`: the child process exceeded `opts.timeoutMs` (default 60000ms) and was killed,
- *   together with every descendant pid this module's polling had observed by then (see
- *   "Timeout containment" above). The message names the adapter, the capability and the
- *   configured timeout.
+ * - `TIMEOUT`: the child process exceeded the bound in force and was killed, together with every
+ *   descendant pid this module's polling had observed by then (see "Timeout containment"
+ *   above). The bound comes from `resolveCapabilityTimeout` (TRD-2026-6995dc96 TRD-028, PRD
+ *   REQ-017), shared by both entry points: class = the capability's `timeoutClass` (default
+ *   `short`); bound = `opts.timeoutMs` (explicit per-call override) > `opts.timeouts[class]`
+ *   (project config) > the manifest's `timeouts[class]` > 60000ms. The message names the
+ *   adapter, the capability, the class and the bound in force.
  * - `TOOL_FAILED`: any other `execFile` callback error (binary not found, non-zero exit, and so
  *   on). The message names the adapter and the capability and includes the child's stderr (or,
  *   when stderr is empty, the tool's own JSON error envelope printed on stdout -- `br` prints
@@ -497,6 +500,32 @@ function buildArgv(runTemplate, args = {}, contract = {}) {
 
 const MANIFEST_PLACEHOLDER_PATTERN = /\$\{([^{}]+)\}/g;
 const DEFAULT_TIMEOUT_MS = 60000;
+
+/**
+ * Resolve the timeout class and bound in force for one capability (TRD-028, PRD REQ-017).
+ * Used by `runCapability` and `runCapabilitySync` alike so both report identically.
+ *
+ * Fallthrough: an invalid or non-positive value at a higher-precedence layer (`opts.timeouts`,
+ * manifest `timeouts`) is silently skipped in favor of the next layer, never thrown. Callers that
+ * need strictness validate first (`resolveProjectTimeouts` in config.js throws for project values;
+ * the manifest schema validates adapter values).
+ *
+ * `timeoutClass` on a module-dispatched capability (kata `work-graph.plan`/`graph-health`) is
+ * declarative only: this function is never called for it, so the bound is not enforced by the
+ * in-process work-graph module; its inner `tracker.*` calls honor their own class bound.
+ *
+ * @param {{timeouts?: {short?: number, long?: number}}} adapter the adapter manifest
+ * @param {{timeoutClass?: 'short'|'long'}} cap the capability entry
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}}} [opts]
+ * @returns {{timeoutClass: 'short'|'long', boundMs: number}}
+ */
+function resolveCapabilityTimeout(adapter, cap, opts) {
+  const o = opts || {};
+  const timeoutClass = cap && cap.timeoutClass === 'long' ? 'long' : 'short';
+  const pick = (t) => (t && Number.isInteger(t[timeoutClass]) && t[timeoutClass] > 0 ? t[timeoutClass] : 0);
+  const boundMs = o.timeoutMs || pick(o.timeouts) || pick(adapter && adapter.timeouts) || DEFAULT_TIMEOUT_MS;
+  return { timeoutClass, boundMs };
+}
 // See this file's header, "`opts.execFileOptions` MAY still override..." -- 64 MiB, matching
 // this repo's own sibling execFile/spawnSync callers (beads-label.js, complexity-analyzer.js);
 // strictly larger than Node's 1 MiB execFile default, so this can only turn a previously
@@ -1315,7 +1344,7 @@ function successEnvelope(capability, adapterId, source, data) {
  *   string[]>>}>}} adapter a parsed, already-validated adapter manifest
  * @param {string} capability the capability id to invoke, e.g. `tracker.show`
  * @param {Record<string, unknown>} [args] argument values keyed by placeholder name
- * @param {{timeoutMs?: number, source?: unknown, execFileOptions?: object, categoriesDir?:
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}, source?: unknown, execFileOptions?: object, categoriesDir?:
  *   string, parentEnv?: NodeJS.ProcessEnv}} [opts] `categoriesDir` is forwarded to
  *   `resolve.lookupContractCapability`'s category-contract lookup in the `!cap` branch below;
  *   defaults to that function's own default (the real
@@ -1341,7 +1370,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
 
-  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const { timeoutClass, boundMs: timeoutMs } = resolveCapabilityTimeout(adapter, cap, opts);
   const childEnv = buildChildEnv(
     adapter && adapter.env,
     opts.parentEnv || process.env,
@@ -1419,7 +1448,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
                 error: {
                   code: 'TIMEOUT',
                   message:
-                    `${adapterId}: capability '${capability}' exceeded its timeout of ` +
+                    `${adapterId}: capability '${capability}' (timeout class '${timeoutClass}') exceeded its timeout of ` +
                     `${timeoutMs}ms and was killed`
                 }
               });
@@ -1583,7 +1612,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
  *   manifest
  * @param {string} capability the capability id to invoke, e.g. `tracker.show`
  * @param {Record<string, unknown>} [args] argument values keyed by placeholder name
- * @param {{timeoutMs?: number, source?: unknown, execFileOptions?: object, categoriesDir?:
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}, source?: unknown, execFileOptions?: object, categoriesDir?:
  *   string, parentEnv?: NodeJS.ProcessEnv}} [opts] identical meaning to `runCapability`'s own
  * @returns {{ok:true, capability:string, adapter:string, source:unknown, data:(string|unknown)}|
  *   {ok:false, error:{code:string, message:string}}} the same envelope shape `runCapability`
@@ -1603,7 +1632,7 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
 
-  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const { timeoutClass, boundMs: timeoutMs } = resolveCapabilityTimeout(adapter, cap, opts);
   const childEnv = buildChildEnv(
     adapter && adapter.env,
     opts.parentEnv || process.env,
@@ -1639,7 +1668,7 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
         error: {
           code: 'TIMEOUT',
           message:
-            `${adapterId}: capability '${capability}' exceeded its timeout of ` +
+            `${adapterId}: capability '${capability}' (timeout class '${timeoutClass}') exceeded its timeout of ` +
             `${timeoutMs}ms and was killed`
         }
       };
@@ -1665,5 +1694,6 @@ module.exports = {
   collectDescendants,
   killVerifiedPidsSafe,
   runCapability,
-  runCapabilitySync
+  runCapabilitySync,
+  resolveCapabilityTimeout
 };

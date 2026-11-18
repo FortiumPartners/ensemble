@@ -166,6 +166,15 @@
       },
       "description": "Detection signals used to auto-select this adapter when configuration does not name one; may be empty for adapters with no detectable signal (TRD interpretation I2)."
     },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "short": { "type": "integer", "minimum": 1, "description": "Default bound in ms for capabilities of timeout class 'short' (read-only: list, single-item read, comment listing)." },
+        "long": { "type": "integer", "minimum": 1, "description": "Default bound in ms for capabilities of timeout class 'long' (writes to the tracker and whole-backlog traversals). A project's `timeouts` in .ensemble/toolchain.yaml overrides both (TRD-2026-6995dc96 TRD-028, PRD REQ-017)." }
+      },
+      "description": "Adapter-level per-class timeout bounds in ms. A class left unset falls back to the runner default (60000)."
+    },
     "capabilities": {
       "type": "object",
       "minProperties": 1,
@@ -174,6 +183,11 @@
         "additionalProperties": false,
         "oneOf": [{ "required": ["run"] }, { "required": ["module"] }],
         "properties": {
+          "timeoutClass": {
+            "type": "string",
+            "enum": ["short", "long"],
+            "description": "Timeout class this capability is held to (default 'short'): 'short' for read-only capabilities, 'long' for writes and whole-backlog traversals. The bound is the project's configured value for the class, else this manifest's `timeouts`, else 60000 ms; every TIMEOUT error names the class and the bound (TRD-028, PRD AC-017-1)."
+          },
           "module": {
             "type": "string",
             "minLength": 1,

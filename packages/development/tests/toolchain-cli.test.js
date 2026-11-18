@@ -1189,10 +1189,12 @@ describe('detection-selected adapter works end to end through preflight/run/conf
         const needle =
           "    : await runCapability(loaded.manifest, capability, args, {\n" +
           "        source,\n" +
+          "        timeouts: projectTimeouts,\n" +
           "        execFileOptions: { cwd: projectRoot }\n" +
           "      });";
         const replacement =
           "    : await runCapability(loaded.manifest, capability, args, {\n" +
+          "        timeouts: projectTimeouts,\n" +
           "        execFileOptions: { cwd: projectRoot }\n" +
           "      });";
         const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);

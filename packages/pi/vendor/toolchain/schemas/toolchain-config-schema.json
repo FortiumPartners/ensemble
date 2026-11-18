@@ -19,6 +19,15 @@
     "iac": { "type": "string" },
     "platform-cloud": { "type": "string" },
     "package-runner": { "type": "string" },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "short": { "type": "integer", "minimum": 1 },
+        "long": { "type": "integer", "minimum": 1 }
+      },
+      "description": "Per-project adapter call bounds in ms by timeout class (TRD-2026-6995dc96 TRD-028, PRD REQ-017). Overrides each adapter manifest's own `timeouts`."
+    },
     "trustedRepoAdapters": {
       "type": "array",
       "items": { "type": "string" }

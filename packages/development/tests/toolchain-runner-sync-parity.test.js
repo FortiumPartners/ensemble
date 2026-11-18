@@ -284,7 +284,8 @@ describe('runCapability vs runCapabilitySync: identical envelopes for every guar
         ok: false,
         error: {
           code: 'TIMEOUT',
-          message: "faketool-adapter: capability 'test.sleep' exceeded its timeout of 200ms and was killed"
+          message:
+            "faketool-adapter: capability 'test.sleep' (timeout class 'short') exceeded its timeout of 200ms and was killed"
         }
       });
     },
@@ -340,6 +341,151 @@ describe('runCapability vs runCapabilitySync: identical envelopes for every guar
       } finally {
         mutantRoot.cleanup();
       }
+    });
+  });
+});
+
+describe('TRD-028: per-class timeout bounds (PRD AC-017-1)', () => {
+  const yaml = require('js-yaml');
+  const Ajv = require('ajv');
+  const DEV = path.join(__dirname, '..');
+  const manifestSchema = require('../toolchain/schemas/adapter-manifest-schema.json');
+  const { resolveCapabilityTimeout } = require('../lib/toolchain/runner');
+  const { parseToolchainConfigText } = require('../lib/toolchain/config');
+
+  const loadYaml = (rel) => yaml.load(fs.readFileSync(path.join(DEV, rel), 'utf8'));
+
+  // A never-exiting child: a real process that keeps its event loop alive forever.
+  function hangAdapter(extra = {}, capExtra = {}) {
+    return {
+      adapter: 'faketool-adapter',
+      binaries: [bin],
+      allowlist: [{ bin, sub: ['hang'] }],
+      env: [],
+      capabilities: { 'test.hang': { run: [bin, 'hang'], ...capExtra } },
+      ...extra
+    };
+  }
+
+  beforeAll(() => {
+    const src = fs.readFileSync(bin, 'utf8');
+    fs.writeFileSync(
+      bin,
+      src.replace("if (cmd === 'echo') {", "if (cmd === 'hang') {\n  setInterval(() => {}, 1000);\n} else if (cmd === 'echo') {")
+    );
+  });
+
+  test('never-exiting tool: TIMEOUT names capability, class and bound; sync and async identical', async () => {
+    const m = hangAdapter({ timeouts: { short: 150, long: 900 } }, { timeoutClass: 'short' });
+    const a = await runCapability(m, 'test.hang', {}, {});
+    const s = runCapabilitySync(m, 'test.hang', {}, {});
+    expect(s).toEqual(a);
+    expect(a.ok).toBe(false);
+    expect(a.error.code).toBe('TIMEOUT');
+    expect(a.error.message).toBe(
+      "faketool-adapter: capability 'test.hang' (timeout class 'short') exceeded its timeout of 150ms and was killed"
+    );
+  }, 15000);
+
+  test('long class uses the long bound and names it', async () => {
+    const m = hangAdapter({ timeouts: { short: 5000, long: 200 } }, { timeoutClass: 'long' });
+    const a = await runCapability(m, 'test.hang', {}, {});
+    const s = runCapabilitySync(m, 'test.hang', {}, {});
+    expect(s).toEqual(a);
+    expect(a.error.message).toContain("(timeout class 'long') exceeded its timeout of 200ms");
+  }, 15000);
+
+  test('project timeouts beat the manifest; both entry points report the project bound', async () => {
+    const m = hangAdapter({ timeouts: { short: 5000, long: 5000 } }, { timeoutClass: 'long' });
+    const opts = { timeouts: { long: 180 } };
+    const a = await runCapability(m, 'test.hang', {}, opts);
+    const s = runCapabilitySync(m, 'test.hang', {}, opts);
+    expect(s).toEqual(a);
+    expect(a.error.message).toContain("(timeout class 'long') exceeded its timeout of 180ms");
+  }, 15000);
+
+  test('precedence: opts.timeoutMs > project > manifest > default 60000; class defaults to short', () => {
+    const cap = (c) => ({ ...(c ? { timeoutClass: c } : {}) });
+    const m = { timeouts: { short: 11, long: 22 } };
+    expect(resolveCapabilityTimeout(m, cap(), {})).toEqual({ timeoutClass: 'short', boundMs: 11 });
+    expect(resolveCapabilityTimeout(m, cap('long'), {})).toEqual({ timeoutClass: 'long', boundMs: 22 });
+    expect(resolveCapabilityTimeout(m, cap('long'), { timeouts: { long: 33 } })).toEqual({ timeoutClass: 'long', boundMs: 33 });
+    expect(resolveCapabilityTimeout(m, cap('long'), { timeouts: { short: 44 } }).boundMs).toBe(22);
+    expect(resolveCapabilityTimeout(m, cap('long'), { timeouts: { long: 33 }, timeoutMs: 55 }).boundMs).toBe(55);
+    expect(resolveCapabilityTimeout({}, cap('long'), {})).toEqual({ timeoutClass: 'long', boundMs: 60000 });
+    expect(resolveCapabilityTimeout({ timeouts: { short: 11 } }, cap('long'), {}).boundMs).toBe(60000);
+  });
+
+  test('beads effective short and long bounds are both 60000 (no behavior change)', () => {
+    const beads = loadYaml('skills/adapter-tracker-beads/adapter.yaml');
+    expect(resolveCapabilityTimeout(beads, { timeoutClass: 'short' }, {}).boundMs).toBe(60000);
+    expect(resolveCapabilityTimeout(beads, { timeoutClass: 'long' }, {}).boundMs).toBe(60000);
+    expect(beads.timeouts).toEqual({ short: 60000, long: 60000 });
+    for (const [name, cap] of Object.entries(beads.capabilities)) {
+      if (cap.run) expect([name, ['short', 'long'].includes(cap.timeoutClass)]).toEqual([name, true]);
+    }
+    expect(beads.capabilities['tracker.show'].timeoutClass).toBe('short');
+    expect(beads.capabilities['tracker.sync'].timeoutClass).toBe('long');
+  });
+
+  test('kata declares short 60000, long 120000 and classes every argv capability', () => {
+    const kata = loadYaml('skills/adapter-tracker-kata/adapter.yaml');
+    expect(kata.timeouts).toEqual({ short: 60000, long: 120000 });
+    for (const [name, cap] of Object.entries(kata.capabilities)) {
+      if (cap.run) expect([name, ['short', 'long'].includes(cap.timeoutClass)]).toEqual([name, true]);
+    }
+    expect(kata.capabilities['tracker.show'].timeoutClass).toBe('short');
+    expect(kata.capabilities['tracker.create'].timeoutClass).toBe('long');
+  });
+
+  describe('schemas', () => {
+    const validate = new Ajv({ allErrors: true, strict: false }).compile(manifestSchema);
+    const base = () => loadYaml('skills/adapter-tracker-kata/adapter.yaml');
+
+    test('shipped kata and beads manifests validate', () => {
+      expect(validate(base())).toBe(true);
+      expect(validate(loadYaml('skills/adapter-tracker-beads/adapter.yaml'))).toBe(true);
+    });
+    test('accepts valid timeouts and timeoutClass values', () => {
+      const m = base();
+      m.timeouts = { short: 1, long: 999999 };
+      m.capabilities['tracker.show'].timeoutClass = 'long';
+      expect(validate(m)).toBe(true);
+    });
+    test.each([
+      [{ short: 0, long: 1 }],
+      [{ short: 1.5 }],
+      [{ short: '60' }],
+      [{ short: 1, bogus: 2 }],
+      ['fast']
+    ])('rejects manifest timeouts %j', (bad) => {
+      const m = base();
+      m.timeouts = bad;
+      expect(validate(m)).toBe(false);
+    });
+    test('rejects an unknown timeoutClass', () => {
+      const m = base();
+      m.capabilities['tracker.show'].timeoutClass = 'medium';
+      expect(validate(m)).toBe(false);
+    });
+  });
+
+  describe('project config', () => {
+    test('accepts positive-integer short/long timeouts', () => {
+      expect(parseToolchainConfigText('timeouts:\n  short: 5000\n  long: 90000\n', 'x')).toEqual({
+        timeouts: { short: 5000, long: 90000 }
+      });
+      expect(parseToolchainConfigText('timeouts:\n  long: 90000\n', 'x').timeouts).toEqual({ long: 90000 });
+    });
+    test.each([
+      ['timeouts:\n  short: 0\n'],
+      ['timeouts:\n  long: -5\n'],
+      ['timeouts:\n  short: 1.5\n'],
+      ['timeouts:\n  short: fast\n'],
+      ['timeouts:\n  medium: 5\n'],
+      ['timeouts: 5\n']
+    ])('rejects %j naming the config', (text) => {
+      expect(() => parseToolchainConfigText(text, 'proj.yaml')).toThrow(/proj\.yaml: invalid toolchain config/);
     });
   });
 });

@@ -183,6 +183,7 @@ async function fetchListViaRunner(ctx) {
   };
   const result = await runCapability(synthetic, 'tracker.list', {}, {
     source: ctx.source,
+    timeouts: ctx.timeouts,
     execFileOptions: ctx.cwd ? { cwd: ctx.cwd } : undefined,
   });
   if (!result || result.ok !== true) return { error: (result && result.error) || { code: 'TOOL_FAILED', message: 'kata list failed' } };

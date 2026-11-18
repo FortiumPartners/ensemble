@@ -132,7 +132,7 @@ async function dispatchWorkGraphCapability(resolved, capability, args, opts = {}
       if (typeof fn !== 'function') {
         return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' does not export a function '${exportName}'` } };
       }
-      const result = await fn(capability, args, { source: opts.source, manifest, dir: resolved.dir, cwd: opts.cwd });
+      const result = await fn(capability, args, { source: opts.source, manifest, dir: resolved.dir, cwd: opts.cwd, timeouts: opts.timeouts });
       if (!result || typeof result !== 'object') {
         return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' returned a non-object result` } };
       }
@@ -146,12 +146,12 @@ async function dispatchWorkGraphCapability(resolved, capability, args, opts = {}
     const runBuiltin = opts.runBuiltinImpl || runWorkGraphCapability;
     return runBuiltin(capability, resolved.trackerManifest, args, {
       source: opts.source,
-      execOpts: { execFileOptions: { cwd: opts.cwd } }
+      execOpts: { timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } }
     });
   }
 
   const run = opts.runCapabilityImpl || runCapability;
-  return run(manifest, capability, args, { source: opts.source, execFileOptions: { cwd: opts.cwd } });
+  return run(manifest, capability, args, { source: opts.source, timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } });
 }
 
 module.exports = { resolveWorkGraphAdapter, dispatchWorkGraphCapability };
