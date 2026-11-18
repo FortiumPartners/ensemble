@@ -66,25 +66,6 @@ const currentPreflightActions = currentActionsOf('Preflight');
 const currentPreflightText = currentPreflightActions.join('\n');
 const currentParameters = parseParameters(skill.body);
 
-// TRD-022 (br-3wwul): creation and edges go through tracker.create-detailed / tracker.dep-add and
-// graph analysis adds work-graph.ready. `capturedIndices` are the captured actions rewritten; the
-// replacement actions must carry the required phrases and name no beads binary.
-const TRD022_REWRITTEN = {
-  'Scaffold / Plan and create beads': {
-    capturedIndices: [2, 3, 4],
-    replacementCount: 4,
-    required: [
-      'scaffold-calls', 'tracker.list', 'tracker.find-by-key', 'tracker.create-detailed', 'tracker.create ',
-      'tracker.dep-add', 'scaffold-dep-args', 'tracker.label', 'carries no labels or type',
-    ],
-  },
-  'Scaffold / Work-graph analysis and handoff': {
-    capturedIndices: [0],
-    replacementCount: 1,
-    required: ['work-graph.ready', 'work-graph.plan', 'work-graph.graph-health', 'never a tracker binary'],
-  },
-};
-
 describe('TRD-020-TEST: the renamed command preserves every captured phase (AC-010-1)', () => {
   test('phase order, phase names and step titles are the captured ones', () => {
     expect(workflow.map((p) => ({ order: p.order, name: p.name }))).toEqual(
@@ -103,21 +84,7 @@ describe('TRD-020-TEST: the renamed command preserves every captured phase (AC-0
         const capturedStep = capturedPhase.steps[i];
         const currentStep = currentPhase.steps[i];
         expect(undoRename(currentStep.description)).toBe(capturedStep.description);
-        // Only the two TRD-022 (br-3wwul) steps named in TRD022_REWRITTEN may differ, and only in the
-        // listed captured actions; every other captured action must survive verbatim, in order.
-        const allowed = TRD022_REWRITTEN[`${capturedPhase.name} / ${capturedStep.title}`];
-        if (!allowed) {
-          expect(currentStep.actions.map(undoRename)).toEqual(capturedStep.actions);
-        } else {
-          const kept = capturedStep.actions.filter((_, idx) => !allowed.capturedIndices.includes(idx));
-          const current = currentStep.actions.map(undoRename);
-          expect(current.filter((a) => kept.includes(a))).toEqual(kept);
-          const replacement = current.filter((a) => !kept.includes(a));
-          expect(replacement).toHaveLength(allowed.replacementCount);
-          const text = replacement.join('\n');
-          for (const phrase of allowed.required) expect(text).toContain(phrase);
-          expect(text).not.toMatch(/\bbr\b|\bbv\b|--robot-/);
-        }
+        expect(currentStep.actions.map(undoRename)).toEqual(capturedStep.actions);
         expect(currentStep.description).not.toContain(RETIRED_NAME);
         expect(currentStep.actions.join('\n')).not.toContain(RETIRED_NAME);
       }

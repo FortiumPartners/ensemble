@@ -71,9 +71,7 @@ describe('implement-trd-tasks scaffold executes the scaffold-plan PLAN', () => {
   test('creates epic, stories, tasks, synthesized tests with --labels and wires plan.deps once', () => {
     const scaffold = actions('Scaffold', 'Plan and create beads');
     expect(scaffold).toMatch(/plan\.epic`, `plan\.stories\[\]`, `plan\.tasks\[\]`, `plan\.synthesizedTests\[\]/);
-    // TRD-022: creates go through tracker.create-detailed; tracker.create is only the unavailable fallback.
-    expect(scaffold).toContain('tracker.create-detailed');
-    expect(scaffold).toContain('labels backfilled later');
+    expect(scaffold).toContain('no priority/labels/externalRef arg; externalRef folds into description, labels backfilled later');
     expect(scaffold).toContain('tracker.dep-add --arg id=<blocked_bead_id> --arg dependsOnId=<blocker_bead_id>');
     expect(scaffold).toMatch(/title prefix|titlePrefix/);
   });
