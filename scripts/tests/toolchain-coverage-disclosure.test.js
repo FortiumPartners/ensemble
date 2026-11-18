@@ -63,6 +63,20 @@ describe('classifyCapabilities (pure rule)', () => {
     });
   });
 
+  test('a declaration with a module is native even when the contract names a builtin fallback and there is no parse', () => {
+    const manifest = {
+      adapter: 'tool',
+      capabilities: {
+        'x.a': { module: 'mod.js', export: 'run' },
+        'x.d': { run: ['t'] }
+      }
+    };
+    const result = classifyCapabilities(contract, manifest, builtins);
+    expect(result['x.a']).toBe('native');
+    // beads-style: no parse, no module, builtin fallback named => still fallback
+    expect(result['x.d']).toBe('fallback');
+  });
+
   test('undeclared: named fallback => fallback, none => unavailable', () => {
     const result = classifyCapabilities(contract, { adapter: 'tool', capabilities: {} }, builtins);
     expect(result).toEqual({
@@ -87,12 +101,12 @@ describe('real shipped manifests', () => {
     expect(builtinFallbackIds()).toContain('work-graph-links-fallback');
   });
 
-  test('kata work-graph: ready native, plan fallback, graph-health fallback', () => {
+  test('kata work-graph: ready, plan and graph-health all native (module-served)', () => {
     const kata = manifestFor('packages/development/skills/adapter-tracker-kata/adapter.yaml');
     expect(classifyCapabilities(wg, kata)).toEqual({
       'work-graph.ready': 'native',
-      'work-graph.plan': 'fallback',
-      'work-graph.graph-health': 'fallback'
+      'work-graph.plan': 'native',
+      'work-graph.graph-health': 'native'
     });
   });
 
@@ -142,16 +156,16 @@ describe('generated docs', () => {
     expect(matrixRow(doc, 'tracker.stage-export')[beadsIdx]).toBe('native');
   });
 
-  test('work-graph.md names beads, kata and work-graph-links-fallback; kata plan is fallback', () => {
+  test('work-graph.md names beads, kata and work-graph-links-fallback; kata plan and graph-health are native', () => {
     const doc = read('work-graph');
     const header = matrixHeader(doc);
     expect(header).toEqual(['Capability', 'beads', 'kata', 'work-graph-links-fallback']);
     expect(matrixRow(doc, 'work-graph.ready')).toEqual(['`work-graph.ready`', 'native', 'native', 'native']);
-    expect(matrixRow(doc, 'work-graph.plan')).toEqual(['`work-graph.plan`', 'native', 'fallback', 'native']);
+    expect(matrixRow(doc, 'work-graph.plan')).toEqual(['`work-graph.plan`', 'native', 'native', 'native']);
     expect(matrixRow(doc, 'work-graph.graph-health')).toEqual([
       '`work-graph.graph-health`',
       'native',
-      'fallback',
+      'native',
       'native'
     ]);
     expect(doc).toContain('`fallback` = ');

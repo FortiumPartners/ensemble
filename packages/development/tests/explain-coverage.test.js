@@ -40,14 +40,14 @@ function captureStdout(fn) {
 }
 
 describe('explain: work-graph coverage', () => {
-  test('tracker kata: ready native, plan fallback, graph-health fallback', () => {
+  test('tracker kata: every capability native (module-served)', () => {
     const result = explain(projectWith('kata'));
     expect(result.ok).toBe(true);
     expect(result.data['work-graph'].adapter).toBe('kata');
     expect(result.data['work-graph'].capabilities).toEqual({
       'work-graph.ready': 'native',
-      'work-graph.plan': 'fallback',
-      'work-graph.graph-health': 'fallback'
+      'work-graph.plan': 'native',
+      'work-graph.graph-health': 'native'
     });
   });
 
@@ -71,7 +71,7 @@ describe('explain: work-graph coverage', () => {
     const { captured, returned } = captureStdout(() => main(['explain'], ctx));
     expect(returned).toBe(0);
     expect(captured).toMatch(/work-graph\.ready\s*:?\s*native/);
-    expect(captured).toMatch(/work-graph\.plan\s*:?\s*fallback/);
-    expect(captured).toMatch(/work-graph\.graph-health\s*:?\s*fallback/);
+    expect(captured).toMatch(/work-graph\.plan\s*:?\s*native/);
+    expect(captured).toMatch(/work-graph\.graph-health\s*:?\s*native/);
   });
 });

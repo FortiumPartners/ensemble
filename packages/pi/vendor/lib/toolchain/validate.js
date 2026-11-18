@@ -803,12 +803,67 @@ function validateAdapterDir(adapterDir, opts = {}) {
   return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
 }
 
+/**
+ * Coverage assertion (TRD-015, PRD AC-001-4 / AC-015-2). Stricter than `validateConformance`:
+ * for each category the adapter declares, every contract capability that is `required: true` OR
+ * names a `fallback`, and that `checkCompat` leaves available at the adapter's targeted contract
+ * version, must be a key of `adapter.capabilities`. Used for adapters (kata) that promise full
+ * coverage; NOT applied to adapters that legitimately omit fallback-bearing capabilities.
+ *
+ * @param {object} adapter parsed adapter manifest
+ * @param {Record<string, unknown>} contracts map returned by `loadContracts()`
+ * @returns {{ok: boolean, errors: string[]}}
+ */
+function validateCoverage(adapter, contracts) {
+  const adapterId = (adapter && adapter.adapter) || '(unknown adapter)';
+  if (!adapter || typeof adapter !== 'object') {
+    return { ok: false, errors: [`${adapterId}: manifest is missing or is not an object`] };
+  }
+  const errors = [];
+  const categories = Array.isArray(adapter.categories) ? adapter.categories : [];
+  const declared =
+    adapter.capabilities && typeof adapter.capabilities === 'object' ? adapter.capabilities : {};
+  const targets = adapter.contract && typeof adapter.contract === 'object' ? adapter.contract : {};
+  const contractsMap = contracts && typeof contracts === 'object' ? contracts : {};
+
+  for (const category of categories) {
+    const contract = contractsMap[`${category}.yaml`];
+    if (!contract || typeof contract !== 'object') {
+      errors.push(`${adapterId}: no category contract loaded for '${category}' (expected '${category}.yaml')`);
+      continue;
+    }
+    let compat;
+    try {
+      compat = checkCompat(targets[category], contract);
+    } catch (error) {
+      errors.push(`${adapterId}: cannot check contract compatibility for category '${category}' (${error.message})`);
+      continue;
+    }
+    if (!compat.ok) {
+      errors.push(...compat.errors);
+      continue;
+    }
+    const unavailable = new Set(compat.unavailableCapabilities);
+    const capabilities = contract.capabilities && typeof contract.capabilities === 'object' ? contract.capabilities : {};
+    for (const [id, cap] of Object.entries(capabilities)) {
+      if (!cap || unavailable.has(id) || Object.prototype.hasOwnProperty.call(declared, id)) continue;
+      if (cap.required) {
+        errors.push(`${adapterId}: missing required capability '${id}' for category '${category}'`);
+      } else if (cap.fallback) {
+        errors.push(`${adapterId}: missing fallback-bearing capability '${id}' for category '${category}'`);
+      }
+    }
+  }
+  return errors.length === 0 ? { ok: true, errors: [] } : { ok: false, errors };
+}
+
 module.exports = {
   validateManifest,
   checkVocabularyBlock,
   validateAllowlist,
   scanCredentials,
   validateConformance,
+  validateCoverage,
   validateAdapterDir,
   ADAPTER_MANIFEST_SCHEMA_PATH
 };

@@ -9,10 +9,13 @@
  * only, so the Pi/Codex bundler can vendor it by require-closure.
  *
  * Rule:
- *  - the manifest declares the capability => `native`, EXCEPT when the declaration has no `parse`
- *    block, the contract names a `fallback` that is a builtin adapter id, and that id is not the
- *    manifest's own adapter: the builtin analyzer computes the answer from the raw run output
- *    (today kata work-graph.plan and work-graph.graph-health) => `fallback`.
+ *  - the manifest declares the capability with a `module` (served in-process by the adapter's own
+ *    module, e.g. kata work-graph.plan and work-graph.graph-health) => `native`, whatever the
+ *    contract names as a fallback.
+ *  - the manifest declares the capability without a `module` => `native`, EXCEPT when the
+ *    declaration has no `parse` block, the contract names a `fallback` that is a builtin adapter id,
+ *    and that id is not the manifest's own adapter: the builtin analyzer computes the answer from
+ *    the raw run output (beads-style declarations) => `fallback`.
  *  - not declared: the contract names a `fallback` => `fallback`, otherwise `unavailable`.
  */
 
@@ -49,6 +52,7 @@ function classifyCapabilities(contract, manifest, builtinIds = builtinFallbackId
     const decl = declared[id];
     if (decl !== undefined && decl !== null) {
       const computedByBuiltin =
+        !decl.module &&
         !decl.parse &&
         typeof fallback === 'string' &&
         builtinIds.includes(fallback) &&

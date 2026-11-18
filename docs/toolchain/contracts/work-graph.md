@@ -21,8 +21,8 @@ One column per shipped backend. `native` = the backend answers the capability it
 | Capability | beads | kata | work-graph-links-fallback |
 | --- | --- | --- | --- |
 | `work-graph.ready` | native | native | native |
-| `work-graph.plan` | native | fallback | native |
-| `work-graph.graph-health` | native | fallback | native |
+| `work-graph.plan` | native | native | native |
+| `work-graph.graph-health` | native | native | native |
 
 ## Details
 
