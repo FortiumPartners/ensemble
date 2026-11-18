@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0] - 2026-11-17
+
+This release is major because `/ensemble:implement-trd-beads` is retired in favour of `/ensemble:implement-trd-tasks` with no alias (TRD-020, below); update any script or habit that calls the old name. It also carries the skills evaluation harness, the configurable tracker backend (kata), the full-bundle PR merge, and the fixes listed below.
+
+### Release plumbing
+
+- Release set (root, `packages/full`, the `ensemble-full` marketplace entries) is 10.0.0.
+- Patch bumps for packages whose content changed since 9.0.0 and had not been bumped: `ensemble-core` 6.1.3, `ensemble-e2e-testing` 6.1.3, `ensemble-infrastructure` 6.1.3, `ensemble-lifecycle` 7.1.1, `ensemble-reqnroll` 1.0.4.
+
 ### Changed
 
 - **`implement-trd-beads` renamed to `implement-trd-tasks` (`ensemble-development`, TRD-020):** the
