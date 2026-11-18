@@ -119,7 +119,7 @@ Total gaps: 1
 ### REQ-UNSATISFIED (0)
 
 ### TEST-SUITE-FAILURE (1)
-- `npm run test --workspaces --if-present -- --runInBand` exit 1. Failing tests (4 across 3 suites in 2 workspaces):
+- `npm run test --workspaces --if-present -- --runInBand` exit 1. Failing tests (3 across 3 suites in 2 workspaces):
   - packages/development tests/trd-cli.test.js: runResolveSdlc TRD-037 AC-2 (workflow.source is "user", expected detection/default; known environmental)
   - packages/development tests/beads-engine-unification.test.js: "the wave command and beads-build both define the work-graph.plan/work-graph.ready scheduling fallback" (known)
   - packages/pi tests/lib-bundler.test.ts: "MUTATION PROOF: the real vendored toolchain-cli.js actually executes a subcommand (resolve --json) ..." (parsed.ok false; NOT in the known-environmental list; reproduces in isolation)
@@ -130,4 +130,4 @@ FAIL - development: 2 failed / 13193 passed / 3 skipped / 1 todo (311 suites, 2 
 
 ---
 
-VERDICT: INCOMPLETE (1 gaps found). The three failing tests were triaged afterwards: one was a real regression and was fixed, two depend on the maintainer's own toolchain config, and the maintainer approved an override on 2026-11-18.
+VERDICT: INCOMPLETE (1 gaps found). The three failing tests were triaged afterwards: one was a real regression (`beads-engine-unification`, fixed in commit 941005e1) and was fixed, two (`trd-cli` TRD-037 AC-2 and the pi `lib-bundler` vendored-CLI test) depend on the maintainer's own toolchain config, and the maintainer approved an override on 2026-11-18.

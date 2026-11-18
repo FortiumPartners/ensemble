@@ -17,8 +17,8 @@ with --defer-completion.
 
 Rules:
 - Never hand-parse a TRD; parse/plan/status come only from `node "$TRD_CLI"` JSON.
-- Scheduling is delegated to beads-build (work-graph.ready (graph-aware parallel tracks when the adapter exposes dependency links) or plan order when that is unavailable).
-- Every `node "$TOOLCHAIN_CLI"` `run`/`confirm-*` call carries `--run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json` even where not spelled out.
+- Scheduling is delegated to beads-build (work-graph.ready (graph-aware parallel tracks when the adapter exposes dependency links) or plan order when that is unavailable). Never read tracker storage directly.
+- Every `node "$TOOLCHAIN_CLI"` `run`/`confirm-*` call carries `--run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json`.
 - Never stage broadly (no blanket, directory or auto-staging commit). Stage beads only via `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`; every commit is `node "$TOOLCHAIN_CLI" run workflow.commit --arg message="<message>"`.
 - PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md (via tool-path-resolution); pr-review-cycle calls read it.
 - FULL_TEST_COMMAND = `node "$TOOLCHAIN_CLI" run package-runner.run-script --arg script=test --run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json`: the Pre-PR test gate (non-ok or non-zero fails) and the pr-review-cycle TEST_COMMAND.

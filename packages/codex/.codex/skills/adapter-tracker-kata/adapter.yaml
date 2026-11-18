@@ -467,7 +467,7 @@ capabilities:
       - "--json"
     timeoutClass: long
 
-  # NOT in the shipped tracker 1.0 contract (TRD tracker 1.1 `tracker.close-with-evidence`, PRD
+  # NOT in the shipped tracker 1.1 contract (TRD tracker 1.1 `tracker.close-with-evidence`, PRD
   # AC-003-3): a manifest-only capability. `runner.js#runCapability` runs any capability the
   # manifest declares, `validateConformance` skips a capability the contract does not declare, and
   # `validateManifest` does not reject it (verified by tests/kata-close-evidence.test.js).

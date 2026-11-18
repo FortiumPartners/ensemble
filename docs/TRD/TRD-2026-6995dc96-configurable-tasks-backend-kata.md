@@ -296,6 +296,7 @@ Decisions taken while implementing this TRD. Where one conflicts with the design
 - **Contract versions (Open Question 1).** The tracker contract stays at 1.1. The additive output declarations (`comments_truncated`, the `tracker.label` outputs and `owner`) did not bump it, and `work-graph` stays at 2.0.
 - **Declared plan and graph-health.** The kata manifest serves `work-graph.plan` and `work-graph.graph-health` through `work-graph-module.js` (`module` and `export`), not through `provider: work-graph-analyzer`.
 - **Sync and stage-export (Open Question 8).** The manifest declares `tracker.sync` and `tracker.stage-export` over `kata doctor --json`. This supersedes "Omitted: `tracker.sync`" in the capability inventory.
+- **Known gap (br-bq8v2).** The Edge AC of TRD-009-TEST (a priority-only update leaves title and body unchanged) is recorded as `test.todo` in `tests/kata-writes.test.js`, not passed: kata `tracker.update-detailed` cannot express a priority-only update today and refuses it with `INVALID_ARG`. The task checkbox is ticked because the other ACs pass; this AC stays open under br-bq8v2.
 - **Beads scaffold unchanged (REQ-013).** Scaffold routing for `tracker.create-detailed` and `tracker.find-by-key` is gated on the kata adapter; the beads scaffold actions and golden are verbatim.
 
 ## Master Task List
