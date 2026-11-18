@@ -818,9 +818,9 @@ describe('AC5: missing-binary negative case -- preflight fails HEALTH_FAILED nam
     const preflight = runNode(TOOLCHAIN_CLI, ['preflight', '--require', 'tracker.show', '--json'], project.dir, { PATH });
     expect(preflight.status).not.toBe(0);
     expect(preflight.json.ok).toBe(false);
-    expect(preflight.json.error.code).toBe('HEALTH_FAILED');
+    // TRD-006: a missing binary is named MISSING_BINARY (still a refusal naming the adapter).
+    expect(preflight.json.error.code).toBe('MISSING_BINARY');
     expect(preflight.json.error.message).toContain('jira');
-    expect(preflight.json.error.message).toContain('jira-installed');
     // Not a silent fallback to the shipped default `beads` adapter: the failure names jira's
     // own health check, never beads/br/bv.
     expect(preflight.json.error.message).not.toMatch(/\bbeads\b/);

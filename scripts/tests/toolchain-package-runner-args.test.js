@@ -142,7 +142,8 @@ describe('repo-wide audit: no shipped adapter capability template references an 
     for (const element of run) {
       if (typeof element !== 'string') continue;
       let match;
-      while ((match = re.exec(element))) names.add(match[1]);
+      // `refuse.` is the refusal-by-placeholder convention `validateConformance` exempts.
+      while ((match = re.exec(element))) if (!match[1].startsWith('refuse.')) names.add(match[1]);
     }
     return [...names];
   }
@@ -166,7 +167,10 @@ describe('repo-wide audit: no shipped adapter capability template references an 
       for (const [capabilityId, cap] of Object.entries(manifest.capabilities || {})) {
         const category = capabilityId.split('.')[0];
         const contractCap = contracts[category] && contracts[category].capabilities && contracts[category].capabilities[capabilityId];
-        const declaredInputs = (contractCap && contractCap.inputs) || [];
+        // A manifest-only capability (not declared by the category contract) has no inputs to audit
+        // against; `validateConformance` skips it the same way.
+        if (!contractCap) continue;
+        const declaredInputs = contractCap.inputs || [];
 
         for (const placeholder of extractPlaceholders(cap.run)) {
           if (!declaredInputs.includes(placeholder)) {
