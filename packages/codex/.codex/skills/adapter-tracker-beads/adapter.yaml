@@ -65,10 +65,14 @@ capabilities:
       map:
         id: "$.id"
         title: "$.title"
-        description: "$.description"
+        description:
+          path: "$.description"
+          optional: true
         type: "$.issue_type"
         status: "$.status"
-        labels: "$.labels"
+        labels:
+          path: "$.labels"
+          default: []
       statusMap:
         open: open
         in_progress: in_progress

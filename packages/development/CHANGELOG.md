@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `adapter-tracker-beads` `tracker.show` maps a bead that `br` prints without `labels` or `description` (`labels` defaults to `[]`, `description` is omitted) instead of failing with `BAD_OUTPUT`, which halted `beads-build-wave` preflight on such beads (br-3jddz).
+
 ### Removed
 
 - the `refine-beads` command and skill (`commands/refine-beads.yaml`, `skills/ensemble-refine-beads`), their generated Pi and Codex copies, and their tests and default-equivalence fixture. The `beads-scope`, `beads-repair-plan` and `beads-refine-cli` libs are kept.
