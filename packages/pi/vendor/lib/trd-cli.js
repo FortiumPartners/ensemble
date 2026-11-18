@@ -19,6 +19,8 @@
  * Subcommands:
  *   parse        <trd-path>
  *   scaffold-plan <trd-path>
+ *   scaffold-calls <trd-path>
+ *   scaffold-dep-args <trd-path> --ids <json | @file>   (id-by-title-prefix map -> tracker.dep-add args)
  *   bead-context --bead <bead-id> [--trd <path>] [--issue-json <file>]   (read by the bead executors before ANY work)
  *   phase-status <trd-path> [--closed a,b,c]
  *   next-task    <trd-path> --ready a,b [--closed a,b] [--max N]
@@ -59,7 +61,7 @@ const {
 } = require('./phase-tracker');
 const { validateTrd, analyzeTrd, requirementStatus, evidenceFromComments, isChecked } = require('./trd-checks');
 const { buildChain } = require('./verify-requirements-evidence');
-const { buildScaffoldPlan } = require('./scaffold-planner');
+const { buildScaffoldPlan, buildScaffoldCalls, buildDepArgs } = require('./scaffold-planner');
 const {
   parseReferencesBlock,
   parseTitlePrefix,
@@ -308,6 +310,57 @@ function runScaffoldPlan(argv) {
     prdContext,
   });
   return { ok: true, slug, plan };
+}
+
+/**
+ * `scaffold-calls <trd-path>` -> { ok:true, slug, creates, deps }
+ *
+ * The `scaffold-plan` PLAN reduced to the backend-neutral calls the scaffold executes through
+ * `toolchain-cli run`: one `tracker.create-detailed` argument set per entry (with a deterministic
+ * whitespace-free `externalKey`) and the ordered `tracker.dep-add` edges. Pure: touches no tracker.
+ */
+function runScaffoldCalls(argv) {
+  const { positionals } = parseArgs(argv);
+  const { slug, parsed, prdContext } = loadParsed(positionals[0]);
+  const plan = buildScaffoldPlan(parsed, {
+    trdSlug: slug,
+    ...referencePaths(positionals[0], parsed),
+    prdContext,
+  });
+  return { ok: true, slug, ...buildScaffoldCalls(plan) };
+}
+
+/**
+ * `scaffold-dep-args <trd-path> --ids <json | @file>` -> { ok:true, slug, deps, unresolved }
+ *
+ * `--ids` is the `{<titlePrefix>: <created work item id>}` map the scaffold recorded. Each
+ * `scaffold-calls` edge resolves to the exact `tracker.dep-add` args (`id` blocked, `dependsOnId`
+ * blocker, `type`); edges with an endpoint missing from the map land in `unresolved`, never guessed.
+ */
+function runScaffoldDepArgs(argv) {
+  const { positionals, flags } = parseArgs(argv, new Set(['ids']));
+  const raw = typeof flags.ids === 'string' ? flags.ids : '';
+  if (!raw) throw new Error('scaffold-dep-args needs --ids <json | @file>');
+  let ids;
+  try {
+    ids = JSON.parse(raw.startsWith('@') ? fs.readFileSync(raw.slice(1), 'utf8') : raw);
+  } catch (err) {
+    throw new Error(`scaffold-dep-args: --ids is not valid JSON: ${err.message}`);
+  }
+  const { slug, parsed, prdContext } = loadParsed(positionals[0]);
+  const plan = buildScaffoldPlan(parsed, {
+    trdSlug: slug,
+    ...referencePaths(positionals[0], parsed),
+    prdContext,
+  });
+  const deps = [];
+  const unresolved = [];
+  for (const edge of buildScaffoldCalls(plan).deps) {
+    const args = buildDepArgs(edge, ids);
+    if (args) deps.push(args);
+    else unresolved.push(edge);
+  }
+  return { ok: true, slug, deps, unresolved };
 }
 
 /**
@@ -1544,6 +1597,8 @@ function renderVerifyReport(result, meta) {
 const HANDLERS = {
   parse: (argv) => runParse(argv),
   'scaffold-plan': (argv) => runScaffoldPlan(argv),
+  'scaffold-calls': (argv) => runScaffoldCalls(argv),
+  'scaffold-dep-args': (argv) => runScaffoldDepArgs(argv),
   'bead-context': (argv) => runBeadContext(argv),
   'phase-status': (argv) => runPhaseStatus(argv),
   'next-task': (argv) => runNextTask(argv, process.env),
@@ -1585,7 +1640,7 @@ function main(argv) {
     process.stdout.write(
       JSON.stringify({
         error:
-          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|bead-context|phase-status|next-task|pr-plan|resolve-sdlc|resolve-bdd|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|beads-stage|quickstart|list|status|migrate-frontmatter|choices-read|choices-write|validate|analyze|req-status|verify> <trd-path> [...]   (bead-context takes --bead <id> [--trd <path>] [--issue-json <file>] instead of <trd-path>)',
+          'Missing subcommand. Usage: trd-cli <parse|scaffold-plan|scaffold-calls|scaffold-dep-args|bead-context|phase-status|next-task|pr-plan|resolve-sdlc|resolve-bdd|validate-workstream|create-workstream-trd|workstream-plan|workstream-status|beads-label|beads-stage|quickstart|list|status|migrate-frontmatter|choices-read|choices-write|validate|analyze|req-status|verify> <trd-path> [...]   (bead-context takes --bead <id> [--trd <path>] [--issue-json <file>] instead of <trd-path>)',
       }) + '\n'
     );
     return 1;
@@ -1621,6 +1676,8 @@ module.exports = {
   runParse,
   runBeadContext,
   runScaffoldPlan,
+  runScaffoldCalls,
+  runScaffoldDepArgs,
   runPhaseStatus,
   runNextTask,
   runPrPlan,

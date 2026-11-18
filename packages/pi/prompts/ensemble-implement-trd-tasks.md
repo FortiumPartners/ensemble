@@ -2,7 +2,7 @@
 <!-- Command: ensemble-implement-trd-tasks | Version: 3.2.0 -->
 <!-- Skill: ensemble-implement-trd-tasks -->
 <!-- Description: Implement TRD with beads project management — persistent bead hierarchy, dependency-aware execution via toolchain-cli tracker/work-graph capabilities, and cross-session resumability -->
-<!-- Capabilities: required=[tracker.list, tracker.create, tracker.comment, tracker.close, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base], optional=[work-graph.plan, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason] -->
+<!-- Capabilities: required=[tracker.list, tracker.create, tracker.comment, tracker.close, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base], optional=[work-graph.plan, work-graph.ready, tracker.create-detailed, tracker.find-by-key, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason] -->
 
 # ensemble-implement-trd-tasks
 

@@ -8,8 +8,7 @@ metadata:
 ---
 
 Parse a TRD, scaffold a beads hierarchy (epic -> stories -> tasks), hand
-execution to /ensemble:beads-build, then run quality gates, PR review, completion verification and epic closure. State lives in beads; runs
-resume across sessions. This command owns closure: beads-build always runs
+execution to /ensemble:beads-build, then run quality gates, PR review, completion verification and epic closure. State lives in the tracker; runs resume across sessions. This command owns closure: beads-build always runs
 with --defer-completion.
 
 Rules:
@@ -29,7 +28,7 @@ Terminal states: HALT (error printed, nothing runs), EXIT (early exit done), COM
 ## Capabilities
 
 **Required:** tracker.list, tracker.create, tracker.comment, tracker.close, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base
-**Optional:** work-graph.plan, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason
+**Optional:** work-graph.plan, work-graph.ready, tracker.create-detailed, tracker.find-by-key, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason
 
 ## Arguments
 

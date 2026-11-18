@@ -6,7 +6,7 @@ category: "implementation"
 last-updated: "2026-10-21"
 allowed-tools: "Read, Write, Edit, Bash, Grep, Glob, Task"
 capabilities-required: "tracker.list, tracker.create, tracker.comment, tracker.close, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base"
-capabilities-optional: "work-graph.plan, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason"
+capabilities-optional: "work-graph.plan, work-graph.ready, tracker.create-detailed, tracker.find-by-key, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason"
 argument-hint: "[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]"
 model: "sonnet"
 ---

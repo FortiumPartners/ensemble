@@ -580,4 +580,57 @@ function buildScaffoldPlan(parsed, opts) {
   };
 }
 
-module.exports = { buildScaffoldPlan, clampTitle };
+/**
+ * Stable, whitespace-free external dedupe key for a plan entry: its title prefix without the
+ * brackets (`[trd:<slug>:task:TRD-001]` -> `trd:<slug>:task:TRD-001`). Deterministic, so a re-run
+ * of the scaffold names the same key for the same entry.
+ */
+function externalKeyFor(titlePrefix) {
+  return String(titlePrefix).replace(/^\[|\]$/g, '').replace(/\s+/g, '-');
+}
+
+/**
+ * Turn a PLAN into the backend-neutral call sets the scaffold executes through the toolchain:
+ * `creates[]` (one `tracker.create-detailed` argument set per entry, epic, stories, tasks, then
+ * synthesized tests) and `deps[]` (the `plan.deps` edges in order, with title-prefix endpoints).
+ * Pure: no tracker binary, shell or I/O is touched here.
+ *
+ * @param {object} plan  the `buildScaffoldPlan` result
+ * @returns {{creates: Array<{kind:string, titlePrefix:string, args:object}>, deps: Array<{type:string, blockerPrefix:string, blockedPrefix:string}>}}
+ */
+function buildScaffoldCalls(plan) {
+  const p = plan && typeof plan === 'object' ? plan : {};
+  const entry = (kind, e) => ({
+    kind,
+    titlePrefix: e.titlePrefix,
+    args: {
+      title: e.title,
+      description: e.description,
+      type: e.type,
+      labels: (Array.isArray(e.labels) ? e.labels : []).join(','),
+      priority: String(e.priority == null ? DEFAULT_PRIORITY : e.priority),
+      externalKey: externalKeyFor(e.titlePrefix),
+    },
+  });
+  const creates = [];
+  if (p.epic) creates.push(entry('epic', p.epic));
+  for (const s of p.stories || []) creates.push(entry('story', s));
+  for (const t of p.tasks || []) creates.push(entry('task', t));
+  for (const t of p.synthesizedTests || []) creates.push(entry('test', t));
+  const deps = (p.deps || []).map((d) => ({ type: d.type, blockerPrefix: d.blockerId, blockedPrefix: d.blockedId }));
+  return { creates, deps };
+}
+
+/**
+ * Resolve one `buildScaffoldCalls` edge to `tracker.dep-add` arguments (`id` is the blocked item,
+ * `dependsOnId` its blocker), or `null` when either endpoint has no created id.
+ */
+function buildDepArgs(edge, idByPrefix) {
+  const ids = idByPrefix && typeof idByPrefix === 'object' ? idByPrefix : {};
+  const blocked = ids[edge && edge.blockedPrefix];
+  const blocker = ids[edge && edge.blockerPrefix];
+  if (!blocked || !blocker) return null;
+  return { id: blocked, dependsOnId: blocker, type: 'blocks' };
+}
+
+module.exports = { buildScaffoldPlan, buildScaffoldCalls, buildDepArgs, externalKeyFor, clampTitle };

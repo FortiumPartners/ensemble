@@ -19,6 +19,9 @@ metadata:
       - workflow.merge-base
     optional:
       - work-graph.plan
+      - work-graph.ready
+      - tracker.create-detailed
+      - tracker.find-by-key
       - work-graph.graph-health
       - tracker.stage-export
       - tracker.comments
