@@ -187,7 +187,14 @@ function readItems(deps, caller, anyKey) {
     }
   }
   // `br list --json` wraps as {issues:[...]}; an older br prints a bare array.
-  const items = Array.isArray(parsed) ? parsed : parsed && Array.isArray(parsed.issues) ? parsed.issues : null;
+  // A parsed adapter (kata) answers the normalized {items:[...]} list instead.
+  const items = Array.isArray(parsed)
+    ? parsed
+    : parsed && Array.isArray(parsed.issues)
+      ? parsed.issues
+      : parsed && Array.isArray(parsed.items)
+        ? parsed.items
+        : null;
   if (!items) return failure('BAD_OUTPUT', `${caller}: tracker output has no issue list`);
   return { ok: true, items };
 }

@@ -640,7 +640,13 @@ const CAPABILITY_NORMALIZED_SCHEMA = {
   // result is not gated by `work-item.json`'s `required: ["id"]`. TRD-033 owns the broader
   // non-entity schema entries and may supersede these.
   'tracker.sync': 'status-result.json',
-  'tracker.stage-export': 'export-result.json'
+  'tracker.stage-export': 'export-result.json',
+  // TRD-033: non-entity kata capabilities. `tracker.find-by-key` answers a LIST (validated against
+  // the list schema, not work-item.json); `tracker.label` / `tracker.label-one` answer an id plus
+  // the applied label(s), validated against label-result.json instead of entity fields.
+  'tracker.find-by-key': 'work-item-list.json',
+  'tracker.label': 'label-result.json',
+  'tracker.label-one': 'label-result.json'
 };
 
 /**
@@ -1695,5 +1701,7 @@ module.exports = {
   killVerifiedPidsSafe,
   runCapability,
   runCapabilitySync,
-  resolveCapabilityTimeout
+  resolveCapabilityTimeout,
+  mapAndValidateOutput,
+  CAPABILITY_NORMALIZED_SCHEMA
 };

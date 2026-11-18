@@ -117,7 +117,7 @@ system's ids are not valid refs in the other.
   create `{kata_api_version, issue, event, ...}` (id at `.issue.short_id`); `list` `{issues, complete,
   truncated, kata_api_version}`; `ready` `{issues, kata_api_version}`; `show` `{issue, comments,
   comments_truncated, labels, links, web_url}`; `next` `{issue}`; `doctor` `{checks, ...}`.
-  Everything else keeps real argv, no `parse`, raw stdout as `data` (TRD-033 owns those schema entries).
+  `tracker.find-by-key` and `tracker.label` now carry captured-shape `parse` blocks (`{items}` list; `{id, label}`), validated by `work-item-list.json` and `label-result.json`; `tracker.label-one` gets its block when TRD-012 raises the pin. Everything else keeps real argv, no `parse`, raw stdout as `data`.
 
 - **`work-graph.plan` and `work-graph.graph-health` run in-process.** Kata has no plan or
   graph-health command, so `work-graph-module.js` reads one `kata list --json` envelope (its

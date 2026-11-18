@@ -17,22 +17,12 @@ const { mapAndValidateOutput, CAPABILITY_NORMALIZED_SCHEMA } = require(RUNNER_PA
 const FIX = path.join(__dirname, '..', '..', '..', 'scripts', 'tests', 'fixtures', 'toolchain', 'adapter-tracker-kata-samples');
 const read = (f) => fs.readFileSync(path.join(FIX, f), 'utf8');
 
-const LIST_PARSE = {
-  format: 'json',
-  root: '$',
-  map: {},
-  arrayMap: {
-    items: {
-      source: '$.issues',
-      item: { id: '$.short_id', title: '$.title', status: '$.status', labels: { path: '$.labels', default: [] } }
-    }
-  }
-};
-const LABEL_PARSE = {
-  format: 'json',
-  root: '$',
-  map: { id: '$.issue.short_id', label: '$.label.label' }
-};
+const MANIFEST = require('js-yaml').load(
+  fs.readFileSync(path.join(__dirname, '..', 'skills', 'adapter-tracker-kata', 'adapter.yaml'), 'utf8')
+);
+// The shipped manifest's own parse blocks, so drift between manifest and schema test is caught.
+const LIST_PARSE = MANIFEST.capabilities['tracker.find-by-key'].parse;
+const LABEL_PARSE = MANIFEST.capabilities['tracker.label'].parse;
 const cap = (parse) => ({ parse });
 
 describe('TRD-033 non-entity kata capability schemas', () => {
@@ -42,6 +32,13 @@ describe('TRD-033 non-entity kata capability schemas', () => {
     expect(r.envelope).toBeUndefined();
     expect(Array.isArray(r.data.items)).toBe(true);
     expect(r.data.items.length).toBe(3);
+  });
+
+  test('tracker.find-by-key keeps external_ref from metadata.ext_key on a keyed row', () => {
+    const raw = JSON.stringify({ issues: [{ short_id: 'ab3d', title: 'T', status: 'open', metadata: { ext_key: 'K-1' } }] });
+    const r = mapAndValidateOutput('kata', 'tracker.find-by-key', cap(LIST_PARSE), raw);
+    expect(r.envelope).toBeUndefined();
+    expect(r.data.items[0]).toMatchObject({ id: 'ab3d', external_ref: 'K-1', labels: [] });
   });
 
   test.each(['tracker.label', 'tracker.label-one'])('%s is not rejected BAD_OUTPUT for lacking entity fields', (c) => {

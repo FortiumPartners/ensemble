@@ -343,9 +343,32 @@ capabilities:
   # create-retry guard and not an identity field (TRD Open Question 10), so identity lives in
   # metadata. `buildArgv` substitutes a placeholder inside a larger element, so
   # `"ext_key=${key}"` arrives as one argv word. `lib/tracker-findings.js` narrows the listing to
-  # the exact key match and reports `AMBIGUOUS_KEY` on more than one. No `parse` block, list shape.
+  # the exact key match and reports `AMBIGUOUS_KEY` on more than one.
+  #
+  # TRD-033-FU parse (captured against kata 0.23.0; list envelope `{kata_api_version, complete,
+  # truncated, issues[]}`): the rows are reshaped to the normalized `{items:[...]}` list that
+  # `runner.js#CAPABILITY_NORMALIZED_SCHEMA` validates against `work-item-list.json`.
+  # `external_ref` carries the row's `metadata.ext_key` (optional: absent on unkeyed rows) so
+  # `lib/tracker-findings.js` can still select by exact key.
   tracker.find-by-key:
     run: ["kata", "list", "--status", "all", "--limit", "0", "--meta", "ext_key=${key}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map: {}
+      arrayMap:
+        items:
+          source: "$.issues"
+          item:
+            id: "$.short_id"
+            title: "$.title"
+            status: "$.status"
+            labels:
+              path: "$.labels"
+              default: []
+            external_ref:
+              path: "$.metadata.ext_key"
+              optional: true
     timeoutClass: short
 
   # The contract's single opaque `fields` input names exactly one kata field, and the shared runner
@@ -537,9 +560,20 @@ capabilities:
   # AC-001-4 requires fallback-bearing capabilities to be declared. So this entry maps the
   # single-ref form, correct for exactly one id, and the gap is written down in SKILL.md rather
   # than papered over. TRD-012 owns the per-id sweep together with the pin bump to 1.1.
-  # `${ids}`/`${labels}` are the contract's declared inputs; no `parse` block, label shape.
+  # `${ids}`/`${labels}` are the contract's declared inputs.
+  #
+  # TRD-033-FU parse (captured against kata 0.23.0; `label add --json` envelope is
+  # `{kata_api_version, issue:{short_id,...}, label:{issue_id,label,author,created_at}, event,
+  # changed}`): the result is the non-entity `{id, label}` shape that `label-result.json`
+  # validates, with `id` the labelled item's short id and `label` the label applied.
   tracker.label:
     run: ["kata", "label", "add", "${ids}", "${labels}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue.short_id"
+        label: "$.label.label"
     timeoutClass: long
 
   # Lifecycle status. Kata has NO in-progress status: an owned-but-open item IS in-progress (PRD

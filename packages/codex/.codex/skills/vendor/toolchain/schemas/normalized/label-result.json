@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://sunstonepartners.com/schemas/normalized/label-result.json",
+  "title": "Ensemble Normalized Label Result Schema",
+  "description": "Schema for a non-entity tracker capability that answers with the affected item id(s) and the label(s) applied (tracker.label, tracker.label-one). Selected by runner.js CAPABILITY_NORMALIZED_SCHEMA. Added by TRD-033.",
+  "type": "object",
+  "additionalProperties": true,
+  "anyOf": [
+    { "required": ["id"] },
+    { "required": ["ids"] }
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "description": "The labelled item's id." },
+    "ids": { "type": "array", "items": { "type": "string" }, "description": "Ids of the labelled items." },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "label": { "type": "string" }
+  }
+}
