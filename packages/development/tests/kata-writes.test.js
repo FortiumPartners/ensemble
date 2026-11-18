@@ -138,3 +138,110 @@ guardKata('TRD-011-TEST close reason and evidence (real kata)', () => {
     expect(payload.evidence).toEqual([{ type: 'test', command: TEST_COMMAND }]);
   }, 60000);
 });
+
+/**
+ * TRD-009-TEST -- verify required create and update round-trip
+ * (TRD-2026-6995dc96 TRD-009-TEST; PRD REQ-001 AC-001-4).
+ *
+ *  - Happy: tracker.create -> read back from real kata -> title and body match the create input.
+ *  - Edge:  priority-only update-detailed is refused (INVALID_ARG, item unchanged); a priority change
+ *           supplying current title/body leaves them unchanged; tracker.update changes body only.
+ *
+ * `KATA_WRITES_MANIFEST` may point at a mutated copy of the manifest for a RED demonstration.
+ */
+const CREATE_PARENT = path.join(os.homedir(), '.omp', 'br-mz17n', 'jest');
+
+guardKata('TRD-009-TEST required create and update round-trip (real kata)', () => {
+  let ws;
+  let opts;
+
+  beforeAll(() => {
+    fs.mkdirSync(CREATE_PARENT, { recursive: true });
+    ws = kataScratch({ root: CREATE_PARENT });
+    ws.init();
+    expect(ws.errors).toEqual([]);
+    opts = { parentEnv: { ...ws.env }, execFileOptions: { cwd: ws.workspace } };
+  }, 60000);
+
+  afterAll(() => {
+    if (ws) ws.cleanup();
+  });
+
+  const readIssue = (id) => parseJson(ws.runInWorkspace(['show', id, '--json']).stdout).issue;
+
+  test('AC-001-4: a created item reads back with its title and description', async () => {
+    const title = 'round trip title';
+    const description = 'round trip body with detail';
+    const res = await runCapability(MANIFEST, 'tracker.create', { title, description }, opts);
+    expect(res.ok).toBe(true);
+    const id = res.data.id;
+    expect(id).toBeTruthy();
+
+    const issue = readIssue(id);
+    expect(issue.title).toBe(title);
+    expect(issue.body).toBe(description);
+  }, 60000);
+
+  // The adapter cannot express a LITERAL priority-only update: runner.js#resolveArg throws
+  // INVALID_ARG for any placeholder with no value, and tracker.update-detailed's argv carries
+  // ${title}, ${description}, ${priority} and ${notes} together. tracker.update's only input is
+  // `fields` -> --body, so it has no priority at all. That is a follow-up gap tracked as br-bq8v2.
+  // The edge AC is therefore covered three honest ways below.
+  async function createFor(title, description) {
+    const created = await runCapability(MANIFEST, 'tracker.create', { title, description }, opts);
+    expect(created.ok).toBe(true);
+    return created.data.id;
+  }
+
+  test.todo('Edge AC (br-bq8v2): an update carrying only a priority field leaves title and body unchanged');
+
+  test('documents current limitation (br-bq8v2): a priority-only update-detailed is refused and the item is unchanged', async () => {
+    const title = 'priority only title';
+    const description = 'priority only body';
+    const id = await createFor(title, description);
+    const before = readIssue(id);
+
+    const res = await runCapability(MANIFEST, 'tracker.update-detailed', { id, priority: 2 }, opts);
+    expect(res.ok).toBe(false);
+    expect(res.error.code).toBe('INVALID_ARG');
+
+    const issue = readIssue(id);
+    expect(issue.title).toBe(title);
+    expect(issue.body).toBe(description);
+    expect(issue.priority).toBe(before.priority);
+  }, 60000);
+
+  test('AC-001-4: a priority change supplying the current title and body leaves them unchanged', async () => {
+    const title = 'priority change title';
+    const description = 'priority change body';
+    const id = await createFor(title, description);
+    const current = readIssue(id);
+
+    const res = await runCapability(
+      MANIFEST,
+      'tracker.update-detailed',
+      { id, title: current.title, description: current.body, priority: 2, notes: 'priority raised' },
+      opts
+    );
+    expect(res.ok).toBe(true);
+    expect(res.data.id).toBe(id);
+
+    const issue = readIssue(id);
+    expect(issue.priority).toBe(2);
+    expect(issue.title).toBe(title);
+    expect(issue.body).toBe(description);
+  }, 60000);
+
+  test('AC-001-4: tracker.update changes the body only, keeps the title, and returns the id', async () => {
+    const title = 'body update title';
+    const id = await createFor(title, 'original body');
+
+    const res = await runCapability(MANIFEST, 'tracker.update', { id, fields: 'replaced body' }, opts);
+    expect(res.ok).toBe(true);
+    expect(res.data.id).toBe(id);
+
+    const issue = readIssue(id);
+    expect(issue.body).toBe('replaced body');
+    expect(issue.title).toBe(title);
+  }, 60000);
+});
