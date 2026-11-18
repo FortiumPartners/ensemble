@@ -634,30 +634,23 @@ capabilities:
               path: "$.owner"
               optional: true
 
-  # Kata's sequential-pickup answer is `kata next`: the highest-priority READY issue, respecting
-  # blocking edges (`kata next --help`), with `--all` widening past the current project. No
-  # `--limit` flag -- captured: `kata next --limit 0` exits 2 with "unknown flag: --limit".
-  # Declared because the contract names a fallback, so AC-001-4 requires it.
-  #
-  # Deliberately no `parse` block, and this is the sharpest gap in the manifest: `work-graph.plan`
-  # declares `[items, orderingSource, dependencyAware]`, but kata's `next` returns ONE issue, not a
-  # plan, and the dotted-path mapping engine (`lib/toolchain/mapping.js`) has no wrap-into-array
-  # operator and no constant values, so `items` cannot be produced from it honestly. The plan is
-  # computed by the work-graph analyzer over the same blocking edges `tracker.dep-add` writes;
-  # TRD-016 and TRD-018 own that, plus `orderingSource`/`dependencyAware`. An unmapped result stays
-  # raw stdout for the analyzer instead of being forced into a shape it does not have.
+  # TRD-019 (PRD AC-007-2..5): `work-graph.plan` is answered in-process by `work-graph-module.js`
+  # (`run`, TRD-016 confined dispatch), not by an argv. `kata next` returns ONE issue, never a
+  # plan, and the dotted-path mapping engine cannot wrap into an array or emit constants, so the
+  # contract outputs `[items, orderingSource, dependencyAware]` could not be produced from it.
+  # The module reads `kata list --status open --limit 0 --include-total --json` once (that
+  # envelope already carries `blocked_by`/`blocks` per issue, so no per-item `kata show`),
+  # refuses a truncated or incomplete listing, drops closed blockers, normalizes edges
+  # (TRD-017) and orders them with the shared `scanWorkGraph` (TRD-018). `orderingSource` is this
+  # adapter's name and `dependencyAware` is true; a cycle yields `items: []` plus a cycle finding.
   work-graph.plan:
-    run: ["kata", "next", "--json"]
+    module: work-graph-module.js
+    export: run
 
-  # Kata exposes NO dependency-graph health report -- no command computes cycles or stale blockers
-  # (`kata --help`), and `kata health` is DAEMON health, not graph health, so it is deliberately not
-  # mapped here. The contract names `work-graph-links-fallback` for this capability, so AC-001-4
-  # requires the declaration; the findings are computed by the work-graph analyzer from the
-  # per-item links `kata show` returns (one read per item, under the shared deadline -- the TRD's
-  # read-cost constraint). The argv is the same dependency-bearing listing `work-graph.ready` uses,
-  # because it is the cheapest kata call that reflects the edge set the findings are derived from.
-  # TRD-018 owns the computation; TRD Open Question 9 owns the honest `status`/`findings` semantics
-  # for trackers that expose no dependency data. No `parse` block, same reasoning as
-  # `work-graph.plan`.
+  # Kata has no graph-health command (`kata health` is DAEMON health), so TRD-019 computes it in
+  # the same module from the same list envelope and edges `work-graph.plan` uses: cycles and
+  # dangling edges (a blocker the scope never returns) are `findings`, `status` is `healthy` only
+  # when there are none, and plan and health can never disagree because both call `scanWorkGraph`.
   work-graph.graph-health:
-    run: ["kata", "ready", "--limit", "0", "--json"]
+    module: work-graph-module.js
+    export: run

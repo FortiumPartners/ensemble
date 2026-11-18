@@ -46,8 +46,8 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 | `tracker.sync` | `kata doctor --json`, answered natively as `{status: synced}` |
 | `tracker.stage-export` | `kata doctor --json`, answered natively as `{text: "", status: unavailable}` (no `kata export`) |
 | `work-graph.ready` | `kata ready --limit 0 --json` |
-| `work-graph.plan` | `kata next --json` |
-| `work-graph.graph-health` | `kata ready --limit 0 --json` |
+| `work-graph.plan` | in-process `work-graph-module.js` over `kata list --json` |
+| `work-graph.graph-health` | in-process `work-graph-module.js` over `kata list --json` |
 
 Notes: `find-by-key` includes closed issues (`lib/tracker-findings.js` picks the exact match);
 `update` REPLACES the body, `update-detailed` APPENDS via `--comment`; `dep-add`/`dep-remove` are
@@ -119,16 +119,11 @@ system's ids are not valid refs in the other.
   comments_truncated, labels, links, web_url}`; `next` `{issue}`; `doctor` `{checks, ...}`.
   Everything else keeps real argv, no `parse`, raw stdout as `data` (TRD-033 owns those schema entries).
 
-- **`work-graph.plan` returns one issue, not a plan.** `kata next` answers one ready issue, while
-  the contract outputs are `[items, orderingSource, dependencyAware]` and the dotted-path engine
-  (`lib/toolchain/mapping.js`) cannot wrap into an array or emit constants. Declared because its
-  contract entry names `work-graph-links-fallback` (AC-001-4); the real plan comes from the
-  work-graph analyzer over the edges `tracker.dep-add` writes (TRD-016, TRD-018).
-
-- **`work-graph.graph-health` has no kata command.** No kata command computes cycles or stale
-  blockers; `kata health` is *daemon* health, unmapped since liveness is not graph health. The argv
-  is the dependency-bearing `kata ready` listing. TRD-018 owns the computation, TRD Open Question 9
-  the honest `status`/`findings` semantics for trackers exposing no dependency data.
+- **`work-graph.plan` and `work-graph.graph-health` run in-process.** Kata has no plan or
+  graph-health command, so `work-graph-module.js` reads one `kata list --json` envelope (its
+  `blocked_by`/`blocks` are the edges), refuses a truncated listing, ignores closed blockers, and
+  uses the shared scan. Plan reports `orderingSource: kata`, `dependencyAware: true`; a cycle empties
+  `items` and graph-health reports cycle and dangling-edge findings.
 
 - **`tracker.sync` answers `{status: synced}` natively.** kata persists each write before its command
   returns, so there is nothing to flush. The argv stays the read-only `kata doctor --json` (no daemon
