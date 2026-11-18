@@ -22,7 +22,7 @@ Close the epic only after verification and review gates held.
 
 - Proceed only if (verdict COMPLETE, or INCOMPLETE with COMPLETION_OVERRIDDEN) AND (COMPLETION_ACTION.createPr is exactly false, or COMPLETION_LOCAL_REVIEW == 'LOCAL_REVIEW_COMPLETE').
 - No open task or story bead for this TRD may remain: list open beads with `[trd:<TRD_SLUG>:task:` / `[trd:<TRD_SLUG>:story:` titles; a listing that fails or cannot be parsed counts as 'open beads remain'. If any, investigate instead of closing.
-- node "$TOOLCHAIN_CLI" run tracker.close-with-reason --arg id=<ROOT_EPIC_ID> --arg reason="<>=40-char reason>" --arg commit=<HEAD_SHA> (HEAD_SHA as in the quality gate), then tracker.sync the same way.
+- node "$TOOLCHAIN_CLI" run tracker.close-with-reason --arg id=<ROOT_EPIC_ID> --arg reason="<>=40-char reason>" --arg commit=<HEAD_SHA> (HEAD_SHA as in the quality gate) (NOT_ALLOWED: use tracker.close --arg id=<ID>), then tracker.sync the same way.
 - Sync the TRD: for each Master Task List task whose bead is closed, change `- [ ] **<id>**` to `- [x] **<id>**`; then stage <TRD_FILE_PATH> (that file only), `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`, and commit via node "$TOOLCHAIN_CLI" run workflow.commit --arg message="docs(TRD): sync checkboxes to bead closure state".
 
 #### Step 5.4: Completion report

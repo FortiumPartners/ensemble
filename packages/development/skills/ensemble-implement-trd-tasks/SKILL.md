@@ -14,13 +14,13 @@ with --defer-completion.
 
 Rules:
 - Never hand-parse a TRD; parse/plan/status come only from `node "$TRD_CLI"` JSON.
-- Scheduling is delegated to beads-build (work-graph.ready parallel tracks when the adapter exposes dependency links, else plan order). Never read tracker storage to schedule.
+- Scheduling is delegated to beads-build (work-graph.ready parallel tracks when the adapter exposes dependency links, else plan order).
 - Every `node "$TOOLCHAIN_CLI"` `run`/`confirm-*` call carries `--run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json` even where not spelled out.
 - Never stage broadly (no blanket, directory or auto-staging commit). Stage beads only via `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`; every commit is `node "$TOOLCHAIN_CLI" run workflow.commit --arg message="<message>"`.
 - PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md (via tool-path-resolution); pr-review-cycle calls read it.
 - FULL_TEST_COMMAND = `node "$TOOLCHAIN_CLI" run package-runner.run-script --arg script=test --run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json`: the Pre-PR test gate (non-ok or non-zero fails) and the pr-review-cycle TEST_COMMAND.
 - In every `tracker.list` result the issue list is `data` parsed as JSON if an array, else its `.issues` array.
-- Scaffold work goes only to @beads-scaffold-specialist (never backend-developer); no product code is written during Scaffold.
+- Scaffold goes only to @beads-scaffold-specialist (never backend-developer); no product code is written.
 - Kata (0.23.0+, `.kata.toml`): `implement-trd-tasks-reference/reference/kata-starting-point.md`.
 - Branch intent, PR creation, workstream mode, resume/recovery detail: `implement-trd-tasks-reference` skill; read only the section a step points at.
 
@@ -28,8 +28,8 @@ Terminal states: HALT (error printed, nothing runs), EXIT (early exit done), COM
 
 ## Capabilities
 
-**Required:** tracker.list, tracker.create, tracker.comment, tracker.close-with-reason, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base
-**Optional:** work-graph.plan, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync
+**Required:** tracker.list, tracker.create, tracker.comment, tracker.close, test-runner.run, package-runner.run-script, workflow.commit, workflow.merge-base
+**Optional:** work-graph.plan, work-graph.graph-health, tracker.stage-export, tracker.comments, tracker.dep-add, tracker.sync, tracker.close-with-reason
 
 ## Arguments
 

@@ -352,11 +352,17 @@ describe('TRD-024-TEST: the same prose resolves to a kata capability call on a k
     expect(kata[0]).not.toBe(beads[0]);
   });
 
-  // br-jbxpe: the shared prose closes through tracker.close-with-reason, never a bare
-  // tracker.close (which kata refuses by design).
+  // br-jbxpe: the shared prose closes through tracker.close-with-reason. A bare tracker.close
+  // (which kata refuses by design) appears only as the stated fallback for an adapter that lacks
+  // close-with-reason (jira, azure-boards), never as the primary close.
   test('prose names tracker.close-with-reason and no bare tracker.close; both close sites carry a commit and reason', () => {
     expect(named('tracker.close-with-reason')).toBe(true);
-    expect(/tracker\.close(?![\w-])/.test(proseText)).toBe(false);
+    const fallback = 'use tracker.close --arg id=<ID>';
+    expect(proseText.split(fallback).join('').split('--require tracker.close').join('')).not.toMatch(/tracker\.close(?![\w-])/);
+    for (const f of ['phase-4-quality-gate.md', 'phase-5-completion.md']) {
+      const text = fs.readFileSync(path.join(refsDir, f), 'utf8');
+      expect(text).toContain('NOT_ALLOWED: ' + fallback);
+    }
     expect(/\(no reason arg\)/.test(proseText)).toBe(false);
     for (const f of ['phase-4-quality-gate.md', 'phase-5-completion.md']) {
       const text = fs.readFileSync(path.join(refsDir, f), 'utf8');

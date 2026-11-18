@@ -12,7 +12,7 @@ metadata:
       - tracker.list
       - tracker.create
       - tracker.comment
-      - tracker.close-with-reason
+      - tracker.close
       - test-runner.run
       - package-runner.run-script
       - workflow.commit
@@ -24,6 +24,7 @@ metadata:
       - tracker.comments
       - tracker.dep-add
       - tracker.sync
+      - tracker.close-with-reason
   argument_hint: "[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]"
   allowed_tools:
     - Read
