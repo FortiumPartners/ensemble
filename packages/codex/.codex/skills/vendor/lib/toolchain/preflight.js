@@ -93,7 +93,8 @@
  * the version gate.
  *
  * On pass the record (written AND returned) carries `capabilities`: the `requires` list this
- * preflight verified available (`requireCapabilities`). `preflightReportedCapability(runId, cap,
+ * preflight verified available (`requireCapabilities`), plus, for a gated category, every capability
+ * the adapter's manifest declares. `preflightReportedCapability(runId, cap,
  * ctx)` reads it back (fail closed: no record, no `capabilities` list, or a capability not in it
  * is `false`); `toolchain-cli.js`'s `run` refuses a side-effecting capability preflight did not
  * report with `CAPABILITY_NOT_REPORTED`, before the confirmation step and any adapter call. The
@@ -543,6 +544,17 @@ async function runPreflight(input = {}, ctx = {}) {
   if (gatedCategories.length > 0) {
     record.capabilityGate = true;
     record.gatedCategories = gatedCategories;
+    // A passing preflight verified the adapter works, so every capability its manifest declares in a
+    // gated category is reported available, not only the `--require` set. The gate still refuses a
+    // capability the manifest does not declare.
+    const declared = new Set(record.capabilities);
+    for (const task of checkTasks) {
+      if (!task.check.jsonAssert) continue;
+      for (const id of Object.keys((task.manifest && task.manifest.capabilities) || {})) {
+        if (gatedCategories.includes(id.split('.')[0])) declared.add(id);
+      }
+    }
+    record.capabilities = [...declared];
   }
   if (gateTasks.length > 0) {
     record.versions = versions;

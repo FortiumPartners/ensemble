@@ -263,10 +263,16 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
 
   test('Edge (stub kata): a write capability preflight did not report is refused before any kata write runs', async () => {
     const kata = statefulKata();
-    const { ctx } = gateProject({ bound: true });
+    const { projectRoot, ctx } = gateProject({ bound: true });
     const requires = TRD_REQUIRED.filter((c) => c !== 'tracker.create');
     const pre = await cli.preflight(ctx, [], { requires, runId: 'unreported', nonInteractive: true });
     expect(pre.ok).toBe(true);
+    // Preflight reports every capability the kata manifest declares, so drop tracker.create from the
+    // written record to model a record that did not list it.
+    const recordFile = path.join(projectRoot, '.ensemble', 'state', 'toolchain', 'preflight-unreported.json');
+    const record = JSON.parse(fs.readFileSync(recordFile, 'utf8'));
+    record.capabilities = record.capabilities.filter((c) => c !== 'tracker.create');
+    fs.writeFileSync(recordFile, JSON.stringify(record));
     const before = kata.count();
     const refused = await cli.run(ctx, ['tracker.create'], { runId: 'unreported', nonInteractive: true, args: CREATE_ARGS });
     expect(refused.ok).toBe(false);

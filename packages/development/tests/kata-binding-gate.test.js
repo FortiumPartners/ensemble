@@ -130,9 +130,10 @@ describe('binding gate (TRD-004, AC-018-1)', () => {
     const requires = ['tracker.create', 'tracker.close-with-reason'];
     const result = await runPreflight({ categories: ['tracker'], runId: 'bound', requires }, ctx);
     expect(result.ok).toBe(true);
-    expect(result.capabilities).toEqual(requires);
+    // The report lists the required set plus every capability the kata manifest declares.
+    expect(result.capabilities).toEqual(expect.arrayContaining(requires));
     const rec = JSON.parse(fs.readFileSync(recordPath(projectRoot, 'bound'), 'utf8'));
-    expect(rec.capabilities).toEqual(requires);
+    expect(rec.capabilities).toEqual(expect.arrayContaining([...requires, 'tracker.dep-add', 'tracker.label', 'tracker.create-detailed']));
     expect(calls().filter(isWrite)).toEqual([]);
   });
 });
@@ -144,7 +145,9 @@ describe('capability report gate (TRD-004, AC-018-3)', () => {
     await runPreflight({ categories: ['tracker'], runId: 'rep', requires: ['tracker.create'] }, ctx);
     expect(hasPassingPreflightRecord('rep', { projectRoot })).toBe(true);
     expect(preflightReportedCapability('rep', 'tracker.create', { projectRoot })).toBe(true);
-    expect(preflightReportedCapability('rep', 'tracker.close-with-reason', { projectRoot })).toBe(false);
+    // Declared by the kata manifest, so reported without being named in `requires`.
+    expect(preflightReportedCapability('rep', 'tracker.close-with-reason', { projectRoot })).toBe(true);
+    expect(preflightReportedCapability('rep', 'tracker.not-declared', { projectRoot })).toBe(false);
     expect(preflightReportedCapability('missing', 'tracker.create', { projectRoot })).toBe(false);
     expect(preflightReportedCapability('../x', 'tracker.create', { projectRoot })).toBe(false);
     // A record with no capabilities list (legacy / hand-written) reports nothing.
@@ -152,11 +155,15 @@ describe('capability report gate (TRD-004, AC-018-3)', () => {
     expect(preflightReportedCapability('legacy', 'tracker.create', { projectRoot })).toBe(false);
   });
 
-  test('Edge: run refuses a side-effecting capability preflight did not report, before any kata write', async () => {
+  test('Edge: run refuses a side-effecting capability the record does not list, before any kata write', async () => {
     const calls = stubKata();
     const { projectRoot, ctx } = project({ bound: true });
-    const pre = await cli.preflight(ctx, [], { requires: ['tracker.create'], runId: 'gate', nonInteractive: true });
-    expect(pre.ok).toBe(true);
+    // A passing gated record that lists only tracker.create (as an older preflight wrote it).
+    fs.mkdirSync(path.dirname(recordPath(projectRoot, 'gate')), { recursive: true });
+    fs.writeFileSync(recordPath(projectRoot, 'gate'), JSON.stringify({
+      ok: true, runId: 'gate', categories: ['tracker'], capabilities: ['tracker.create'],
+      capabilityGate: true, gatedCategories: ['tracker'], checkedAt: new Date().toISOString()
+    }));
     const refused = await cli.run(ctx, ['tracker.close-with-reason'], {
       runId: 'gate',
       nonInteractive: true,
@@ -166,7 +173,17 @@ describe('capability report gate (TRD-004, AC-018-3)', () => {
     expect(refused.error.code).toBe('CAPABILITY_NOT_REPORTED');
     expect(refused.error.message).toContain('tracker.close-with-reason');
     expect(calls().filter(isWrite)).toEqual([]);
-    expect(fs.existsSync(recordPath(projectRoot, 'gate'))).toBe(true);
+  });
+
+  test('Regression: a capability the skills call but never pass to --require is reported because the manifest declares it', async () => {
+    stubKata();
+    const { ctx } = project({ bound: true });
+    const pre = await cli.preflight(ctx, [], { requires: ['tracker.show'], runId: 'declared', nonInteractive: true });
+    expect(pre.ok).toBe(true);
+    for (const capability of ['tracker.close-with-reason', 'tracker.create-detailed', 'tracker.dep-add', 'tracker.label', 'tracker.sync']) {
+      const result = await cli.run(ctx, [capability], { runId: 'declared', nonInteractive: true, args: { id: 'x', ids: 'x', title: 't', description: 'd', reason: 'r', commit: 'c', depends_on: 'y', label: 'l', labels: 'l', externalKey: 'k' } });
+      expect(result.ok === false && result.error && result.error.code).not.toBe('CAPABILITY_NOT_REPORTED');
+    }
   });
 
   test('Happy: a reported side-effecting capability is not refused by the report gate', async () => {
