@@ -35,6 +35,12 @@ const {
   runWorkGraphCapability
 } = require('./builtin/work-graph-links-fallback');
 
+const REQUIRED_WORK_GRAPH_CAPABILITIES = [
+  'work-graph.ready',
+  'work-graph.plan',
+  'work-graph.graph-health'
+];
+
 /**
  * Resolve the `work-graph` category to a real, loadable adapter, expanding the shipped default
  * `auto` per I7.
@@ -64,7 +70,27 @@ function resolveWorkGraphAdapter(ctx = {}) {
 
   if (resolved.value !== 'auto') {
     const loaded = loadAdapter(resolved.value, { ...ctx, category: 'work-graph' });
-    return { value: resolved.value, source: resolved.source, autoVia: null, ...loaded };
+    const diagnostics = [];
+    if (resolved.source !== 'default') {
+      // TRD-032: an explicit work-graph backend that differs from the tracker backend is
+      // resolved as asked, but never silently. The tracker lookup is best-effort only.
+      try {
+        const trackerResolved = resolveCategory('tracker', { ...ctx, diagnostics: [] });
+        if (trackerResolved && trackerResolved.value && trackerResolved.value !== resolved.value) {
+          const diagnostic = {
+            code: 'WORK_GRAPH_BACKEND_MISMATCH',
+            tracker: trackerResolved.value,
+            workGraph: resolved.value,
+            message: `work-graph backend '${resolved.value}' differs from tracker backend '${trackerResolved.value}'; work-graph answers will not reflect the tracker's own items`
+          };
+          diagnostics.push(diagnostic);
+          if (Array.isArray(ctx.diagnostics)) ctx.diagnostics.push(diagnostic);
+        }
+      } catch (_error) {
+        // tracker lookup failed: no diagnostic, never a throw
+      }
+    }
+    return { value: resolved.value, source: resolved.source, autoVia: null, ...loaded, diagnostics };
   }
 
   // The internal tracker lookup below is a separate category resolution purely to inspect its
@@ -77,9 +103,14 @@ function resolveWorkGraphAdapter(ctx = {}) {
   // Loaded as the tracker it is (resolution is keyed on (id, category) -- #146), then asked
   // whether that same manifest also declares `work-graph`, which is what `auto` means here.
   const trackerLoaded = loadAdapter(trackerResolved.value, { ...trackerCtx, category: 'tracker' });
+  // TRD-032: claiming the category requires the `work-graph` category AND all three declared
+  // work-graph capabilities; a tracker omitting any one falls back to the builtin.
+  const trackerManifest = trackerLoaded.manifest || {};
+  const trackerCaps = trackerManifest.capabilities || {};
   const trackerProvidesWorkGraph =
-    Array.isArray(trackerLoaded.manifest && trackerLoaded.manifest.categories) &&
-    trackerLoaded.manifest.categories.includes('work-graph');
+    Array.isArray(trackerManifest.categories) &&
+    trackerManifest.categories.includes('work-graph') &&
+    REQUIRED_WORK_GRAPH_CAPABILITIES.every((name) => Boolean(trackerCaps[name]));
 
   if (trackerProvidesWorkGraph) {
     return {
