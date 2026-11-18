@@ -190,6 +190,7 @@
               "root": { "type": "string" },
               "map": { "type": "object" },
               "statusMap": { "type": "object" },
+              "inProgressWhen": { "type": "string", "description": "Dotted path; after statusMap, a status of 'open' becomes 'in_progress' when this path resolves to a non-empty string (an owner). 'closed' never changes (TRD-034)." },
               "countFrom": { "type": "string", "description": "Dotted path of the total the tool reports for a list read; the mapped item count must equal it or mapOutput throws BAD_OUTPUT naming truncation (TRD-029)." },
               "completeFrom": { "type": "string", "description": "Dotted path of the tool's own 'complete' boolean; anything but true is refused as BAD_OUTPUT (TRD-029)." },
               "truncatedFrom": { "type": "string", "description": "Dotted path of the tool's own 'truncated' boolean; anything but false is refused as BAD_OUTPUT (TRD-029)." }

@@ -23,6 +23,7 @@
  *   map?: { <outKey>: <dottedPath> | <fieldSpec> }, // field projection against the (root-projected) value
  *   trimPrefix?: { <outKey>: <prefix> }, // TRD-040: strip a literal prefix off a map-built field
  *   statusMap?: { <rawValue>: <normalizedValue> }, // translates result.status, else result.state
+ *   inProgressWhen?: string,          // TRD-034: dotted path; owned-but-open reads in_progress (below)
  *   arrayMap?: {                      // TRD-033: per-item array filter + reshape (see below)
  *     <outKey>: {
  *       source: <dottedPath>,                      // resolved against the root-projected value
@@ -199,6 +200,16 @@
  * quietly returning the raw array as if the declared `statusMap` had been honored. A manifest
  * that needs status translation against a `'lines'`/array-shaped tool output must supply a
  * `map` that projects a `status` or `state` field first.
+ *
+ * ## `inProgressWhen` ownership-derived in-progress (TRD-2026-6995dc96 TRD-034)
+ *
+ * Some tools (kata) have no in-progress status: an owned-but-open item IS in progress. When
+ * `inProgressWhen` (a dotted path, json format) is declared, then AFTER `statusMap` has run, a
+ * `result.status` of `'open'` becomes `'in_progress'` if the path, resolved against the
+ * root-projected base value, yields a non-empty string. A path that does not resolve, or
+ * resolves to `null`, an empty string or any non-string, leaves the status unchanged (an
+ * unowned item). `'closed'` (any status other than `'open'`) never changes. A non-string
+ * `inProgressWhen` declaration is `BAD_OUTPUT`.
  *
  * ## Dotted-path grammar (`resolvePath`)
  *
@@ -611,7 +622,7 @@ function mapOutput(stdout, parse) {
   if (!parse || typeof parse !== 'object') {
     throw badOutputError(`mapOutput: 'parse' must be an object, got ${describeType(parse)}`);
   }
-  const { format, root, emptyWhen, map, statusMap, arrayMap, trimPrefix, countFrom, completeFrom, truncatedFrom } = parse;
+  const { format, root, emptyWhen, map, statusMap, arrayMap, trimPrefix, countFrom, completeFrom, truncatedFrom, inProgressWhen } = parse;
   if (format !== 'json' && format !== 'lines' && format !== 'text') {
     throw badOutputError(`mapOutput: parse.format must be one of 'json'|'lines'|'text', got ${JSON.stringify(format)}`);
   }
@@ -633,7 +644,7 @@ function mapOutput(stdout, parse) {
   if (trimPrefix !== undefined && (typeof trimPrefix !== 'object' || trimPrefix === null || Array.isArray(trimPrefix))) {
     throw badOutputError(`mapOutput: parse.trimPrefix must be an object when present, got ${describeType(trimPrefix)}`);
   }
-  for (const [key, value] of [['countFrom', countFrom], ['completeFrom', completeFrom], ['truncatedFrom', truncatedFrom]]) {
+  for (const [key, value] of [['inProgressWhen', inProgressWhen], ['countFrom', countFrom], ['completeFrom', completeFrom], ['truncatedFrom', truncatedFrom]]) {
     if (value !== undefined && typeof value !== 'string') {
       throw badOutputError(`mapOutput: parse.${key} must be a dotted-path string when present, got ${describeType(value)}`);
     }
@@ -744,6 +755,24 @@ function mapOutput(stdout, parse) {
         throw badOutputError(`mapOutput: state value ${JSON.stringify(rawState)} has no entry in parse.statusMap`);
       }
       result.state = statusMap[rawState];
+    }
+  }
+
+  if (
+    inProgressWhen !== undefined &&
+    result !== null &&
+    typeof result === 'object' &&
+    !Array.isArray(result) &&
+    result.status === 'open'
+  ) {
+    let claimant;
+    try {
+      claimant = resolvePath(baseValue, inProgressWhen);
+    } catch {
+      claimant = undefined; // no owner on this item: it stays open
+    }
+    if (typeof claimant === 'string' && claimant.length > 0) {
+      result.status = 'in_progress';
     }
   }
 

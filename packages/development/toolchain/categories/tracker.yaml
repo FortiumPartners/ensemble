@@ -5,7 +5,7 @@ capabilities:
   tracker.show:
     description: Read a single work item by id.
     inputs: [id]
-    outputs: [id, title, description, type, status, priority, labels]
+    outputs: [id, title, description, type, status, priority, labels, owner]
     required: true
     sideEffect: false
 
@@ -91,7 +91,7 @@ capabilities:
   tracker.set-status:
     description: Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed).
     inputs: [id, status]
-    outputs: [id, status]
+    outputs: [id, status, owner]
     required: false
     sideEffect: true
 

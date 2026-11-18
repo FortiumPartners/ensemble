@@ -50,7 +50,8 @@ describe('TRD-007 tracker.show normalization (AC-008-2)', () => {
     expect(item.title).toBe(raw.title);
     expect(item.description).toBe(raw.body);
     expect(item.type).toBe('task');
-    expect(item.status).toBe('open');
+    // The fixture item carries owner 'bot:probe': owned-but-open reads in_progress (TRD-034).
+    expect(item.status).toBe('in_progress');
     expect(item.priority).toBe(String(raw.priority));
     expect(item.labels).toEqual(raw.labels);
     expect(validate(item)).toBe(true);

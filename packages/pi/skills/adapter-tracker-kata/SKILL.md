@@ -103,9 +103,9 @@ system's ids are not valid refs in the other.
   `"1.1"` pin and the per-id sweep; `tracker.label` stays declared because PRD AC-001-4 requires its
   fallback.
 
-- **No capability maps to an in-progress STATUS.** kata has none: an owned-but-open item IS
+- **No kata status value is in-progress.** kata has none: an owned-but-open item IS
   in-progress, so `tracker.set-status` writes ownership (`claim`/`unassign`) and the reading derives
-  from a non-empty `owner` (TRD-012, TRD-034). `closed` is absent from the variants, so an unlisted
+  from a non-empty `owner` (`parse.inProgressWhen`, TRD-034), on `show` and `set-status`. `closed` is absent from the variants, so an unlisted
   `status` is rejected by `runner.js#selectTemplate` with `NOT_ALLOWED`, not a close.
 
 - **`create` sends no `type`; `update` writes only the body; no `--owner` input** (`set-status`).

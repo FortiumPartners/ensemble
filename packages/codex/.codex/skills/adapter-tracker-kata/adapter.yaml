@@ -191,8 +191,9 @@ capabilities:
   #     rather than invented.
   #   - `labels` is the issue's own string array (the top-level `labels` are objects). Defaulted
   #     to `[]` so an unlabelled item still maps.
-  #   - `status` is `open` or `closed` in kata; the in-progress reading is derived from `owner`,
-  #     which TRD-012/TRD-034 own, so it is deliberately not mapped here.
+  #   - `status` is `open` or `closed` in kata. TRD-034: `owner` is mapped (optional, absent for an
+  #     unowned item) and `inProgressWhen: "$.issue.owner"` turns an owned-but-open item into
+  #     `in_progress` after statusMap runs; closed never changes.
   tracker.show:
     run: ["kata", "show", "${id}", "--json"]
     parse:
@@ -206,6 +207,9 @@ capabilities:
           path: "$.issue.metadata.type"
           default: "task"
         status: "$.issue.status"
+        owner:
+          path: "$.issue.owner"
+          optional: true
         priority:
           path: "$.issue.priority"
           asString: true
@@ -216,6 +220,7 @@ capabilities:
       statusMap:
         open: open
         closed: closed
+      inProgressWhen: "$.issue.owner"
 
   # `kata list --json` returns issues most-recently-updated first inside `{issues, complete,
   # truncated, kata_api_version}`, capped at 200 rows unless told otherwise. TRD-007:
@@ -498,20 +503,38 @@ capabilities:
   # REQ-004), so `in_progress` maps to `kata claim` and `open` to `kata unassign` -- both captured
   # returning the mutation envelope with the issue (`kata claim --help`: refuses when already owned
   # unless `--force`; `kata unassign --help`: clears the owner). The in-progress READING is derived
-  # from a non-empty `owner`, which is TRD-012's and TRD-034's job.
+  # from a non-empty `owner` (TRD-034, `inProgressWhen`), the same way `tracker.show` reads it.
   #
   # `closed` is deliberately absent from the variants, and the base template is the `in_progress`
   # one so a `status` value with no variant cannot fall through to a close: `selectTemplate`
   # rejects any unlisted value with `NOT_ALLOWED` listing the allowed ones. Kata closes only with a
   # reason and evidence that `set-status`'s `[id, status]` inputs cannot carry, so closing goes
   # through `tracker.close-with-reason`, and TRD-012 AC 4 wants exactly that refusal (TRD Open
-  # Question 6). No `parse` block, status shape.
+  # Question 6).
+  #
+  # TRD-034 parse: the mutation envelope is `{issue: "<short id>", issue_status, owner?, ...}` (a
+  # claim carries `owner`, an unassign omits it; tests/fixtures/kata/status.json), so the result
+  # reports `id`, the same normalized `owner` as `tracker.show`, and a `status` of `in_progress`
+  # (claimed) or `open` (unassigned).
   tracker.set-status:
     run: ["kata", "claim", "${id}", "--json"]
     variants:
       status:
         in_progress: ["kata", "claim", "${id}", "--json"]
         open: ["kata", "unassign", "${id}", "--json"]
+    parse:
+      format: json
+      root: "$"
+      map:
+        id: "$.issue"
+        status: "$.issue_status"
+        owner:
+          path: "$.owner"
+          optional: true
+      statusMap:
+        open: open
+        closed: closed
+      inProgressWhen: "$.owner"
 
   # Optional, with NO fallback in the contract -- declared rather than omitted so kata answers it
   # itself. TRD-014 (PRD AC-006-1): kata persists each write before its command returns, so there
