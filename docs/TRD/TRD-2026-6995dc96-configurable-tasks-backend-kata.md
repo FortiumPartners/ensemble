@@ -306,7 +306,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 **Shippable State:** After this PR, a project that sets `tracker: kata` in its toolchain configuration has both the tracker and work-graph categories resolve to kata, `toolchain-cli preflight` reports the kata version, and an absent, too-old, or unbound kata stops preflight with a named message before any work item is written; projects without kata configuration see no change.
 
-- [ ] **TRD-001** Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard (3h) [satisfies REQ-016] [satisfies REQ-012]
+- [x] **TRD-001** Scratch kata workspace harness, recorded kata JSON fixtures, and a named absent-tool skip guard (3h) [satisfies REQ-016] [satisfies REQ-012]
   **Validates PRD ACs:** AC-012-1, AC-016-1, AC-016-3
   - Target Files: `packages/development/tests/helpers/kata-guard.js`, `packages/development/tests/helpers/kata-scratch.js`, `packages/development/tests/fixtures/kata/`
   - Implementation AC:
@@ -315,7 +315,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a scratch workspace with seeded items, when the harness runs list, show, ready and status, then their JSON envelopes are recorded as fixtures that every later mapping task reads.
     - [ ] Given a test finishes, when the harness tears down, then the scratch workspace and its daemon state are removed.
 
-- [ ] **TRD-001-TEST** Verify the harness skip guard and scratch isolation (2h) [verifies TRD-001] [satisfies REQ-016] [satisfies REQ-012] [depends: TRD-001]
+- [x] **TRD-001-TEST** Verify the harness skip guard and scratch isolation (2h) [verifies TRD-001] [satisfies REQ-016] [satisfies REQ-012] [depends: TRD-001]
   **Validates PRD ACs:** AC-012-1, AC-016-1, AC-016-3
   - Target Files: `packages/development/tests/kata-harness.test.js`
   - Test AC:
@@ -323,7 +323,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given kata is present, when the guarded suite runs, then no check is reported skipped and a deliberately failing kata assertion fails the run.
     - [ ] Edge: Given a guarded check has no kata behavior to assert, when the run completes, then that check is not counted as a passing kata test.
 
-- [ ] **TRD-002** Kata adapter manifest: tracker and work-graph categories, contract versions, binary, allowlist, env names, health probe, and no detection (5h) [satisfies REQ-001]
+- [x] **TRD-002** Kata adapter manifest: tracker and work-graph categories, contract versions, binary, allowlist, env names, health probe, and no detection (5h) [satisfies REQ-001]
   **Validates PRD ACs:** AC-001-1
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/skills/adapter-tracker-kata/SKILL.md`
   - Implementation AC:
@@ -333,7 +333,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given the manifest health block, when preflight runs it, then kata --version is the probe and its output is the version source.
     - [ ] Given the manifest detect block, when detection evaluates candidates, then it is empty so kata is never a detection candidate.
 
-- [ ] **TRD-002-TEST** Verify kata resolves both categories from one configuration value (3h) [verifies TRD-002] [satisfies REQ-001] [depends: TRD-002] [depends: TRD-001]
+- [x] **TRD-002-TEST** Verify kata resolves both categories from one configuration value (3h) [verifies TRD-002] [satisfies REQ-001] [depends: TRD-002] [depends: TRD-001]
   **Validates PRD ACs:** AC-001-1, AC-013-2
   - Target Files: `packages/development/tests/kata-manifest.test.js`
   - Test AC:
@@ -341,7 +341,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given the same project with work-graph set explicitly to the links fallback, when resolution runs, then work-graph resolves to the fallback and tracker still resolves to kata.
     - [ ] Happy: Given the shipped kata manifest, when its detect list is read, then it is empty, so detection can never select kata and kata is chosen only by explicit configuration.
 
-- [ ] **TRD-003** Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution (4h) [satisfies REQ-018] [satisfies REQ-001] [depends: TRD-002]
+- [x] **TRD-003** Preflight minimum-version gate at kata 0.23.0, version reporting on pass, and contract-major check on resolution (4h) [satisfies REQ-018] [satisfies REQ-001] [depends: TRD-002]
   **Validates PRD ACs:** AC-018-2, AC-001-2
   - Target Files: `packages/development/lib/toolchain/preflight.js`, `packages/development/lib/toolchain/adapters.js`, `packages/development/toolchain/schemas/adapter-manifest-schema.json`, `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -349,21 +349,21 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given kata --version reports 0.23.0 or later, when preflight passes, then its record carries the reported version.
     - [ ] Given a declared contract major for tracker or work-graph that does not match the category definition, when the adapter resolves, then resolution refuses on the major mismatch.
 
-- [ ] **TRD-003-TEST** Verify the version floor and version reporting with an old and a current binary (2h) [verifies TRD-003] [satisfies REQ-018] [satisfies REQ-001] [depends: TRD-003]
+- [x] **TRD-003-TEST** Verify the version floor and version reporting with an old and a current binary (2h) [verifies TRD-003] [satisfies REQ-018] [satisfies REQ-001] [depends: TRD-003]
   **Validates PRD ACs:** AC-018-2, AC-001-2
   - Target Files: `packages/development/tests/kata-preflight.test.js`
   - Test AC:
     - [ ] Happy: Given kata 0.23.0 on PATH, when preflight runs, then it passes and its record names the reported version.
     - [ ] Edge: Given a stub kata reporting 0.22.9, when preflight runs, then it fails naming 0.23.0 and the stub records no invocation beyond the version probe.
 
-- [ ] **TRD-004** Preflight binding gate: an unbound workspace stops before any work item is written, and capabilities not reported by preflight are refused (3h) [satisfies REQ-018] [depends: TRD-002]
+- [x] **TRD-004** Preflight binding gate: an unbound workspace stops before any work item is written, and capabilities not reported by preflight are refused (3h) [satisfies REQ-018] [depends: TRD-002]
   **Validates PRD ACs:** AC-018-1, AC-018-3
   - Target Files: `packages/development/lib/toolchain/preflight.js`, `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/lib/toolchain-cli.js`
   - Implementation AC:
     - [ ] Given the workspace has no kata binding file, when preflight runs the kata binding health check, then it reads binding status from kata doctor --json without starting a daemon and stops with the documented binding prerequisite message.
     - [ ] Given preflight passed, when the flow runs, then every capability it needs was reported available by that preflight, and a capability it did not report is refused before any write.
 
-- [ ] **TRD-004-TEST** Verify the binding gate creates zero items when unbound (3h) [verifies TRD-004] [satisfies REQ-018] [depends: TRD-004]
+- [x] **TRD-004-TEST** Verify the binding gate creates zero items when unbound (3h) [verifies TRD-004] [satisfies REQ-018] [depends: TRD-004]
   **Validates PRD ACs:** AC-018-1, AC-018-3
   - Target Files: `packages/development/tests/kata-preflight.test.js`
   - Test AC:
@@ -371,7 +371,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an unbound scratch workspace, when the TRD flow is invoked, then it stops during preflight and the item count before and after is identical.
     - [ ] Edge: Given preflight passed without reporting a write capability, when that capability is requested, then the call is refused before any kata write runs.
 
-- [ ] **TRD-005** Keep kata out of detection and default selection (2h) [satisfies REQ-013] [depends: TRD-002]
+- [x] **TRD-005** Keep kata out of detection and default selection (2h) [satisfies REQ-013] [depends: TRD-002]
   **Validates PRD ACs:** AC-013-1, AC-013-2, AC-013-3, AC-013-4
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/toolchain/toolchain.default.yaml`, `packages/development/lib/toolchain/detect.js`
   - Implementation AC:
@@ -379,7 +379,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given the shipped default configuration, when it is read, then tracker is beads and work-graph is unchanged from today.
     - [ ] Given a kata project whose toolchain configuration is deleted, when the tracker resolves, then it resolves back to beads with no further edits.
 
-- [ ] **TRD-005-TEST** Verify beads stays the default and binding files never select kata (2h) [verifies TRD-005] [satisfies REQ-013] [depends: TRD-005]
+- [x] **TRD-005-TEST** Verify beads stays the default and binding files never select kata (2h) [verifies TRD-005] [satisfies REQ-013] [depends: TRD-005]
   **Validates PRD ACs:** AC-013-1, AC-013-2, AC-013-3, AC-013-4
   - Target Files: `packages/development/tests/kata-detection.test.js`
   - Test AC:
@@ -388,7 +388,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a kata project whose configuration is deleted, when the tracker resolves, then it returns to beads without edits, and the shipped default still reads tracker beads.
     - [ ] Happy: Given the shipped kata manifest, when its detect list is read, then it is empty, so a kata binding file alone cannot make kata a detection candidate.
 
-- [ ] **TRD-006** Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection (2h) [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-002]
+- [x] **TRD-006** Named missing-binary diagnosis for kata, silence for non-kata projects, and no fallback to beads after selection (2h) [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-002]
   **Validates PRD ACs:** AC-001-3, AC-012-2, AC-012-3
   - Target Files: `packages/development/lib/toolchain/preflight.js`, `packages/development/lib/toolchain/runner.js`
   - Implementation AC:
@@ -396,7 +396,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a project that has not selected kata and kata is absent, when preflight runs, then no kata-related failure appears.
     - [ ] Given a kata project whose binary disappears after selection, when preflight runs, then it fails with the missing-binary diagnosis and never falls back to beads.
 
-- [ ] **TRD-006-TEST** Verify the missing-binary diagnosis for kata and silence for non-kata projects (2h) [verifies TRD-006] [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-006]
+- [x] **TRD-006-TEST** Verify the missing-binary diagnosis for kata and silence for non-kata projects (2h) [verifies TRD-006] [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-006]
   **Validates PRD ACs:** AC-001-3, AC-012-2, AC-012-3
   - Target Files: `packages/development/tests/kata-preflight.test.js`
   - Test AC:
@@ -404,7 +404,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given kata is absent and a kata project, when preflight runs, then it fails naming the kata adapter and the missing binary.
     - [ ] Edge: Given a kata project whose binary was present at selection and is removed before preflight, when preflight runs, then the run fails with the missing-binary diagnosis and no beads work item is created.
 
-- [ ] **TRD-031** Resolver reports the project-config source on a tracker-supplied work-graph path (3h) [satisfies REQ-001] [depends: TRD-002]
+- [x] **TRD-031** Resolver reports the project-config source on a tracker-supplied work-graph path (3h) [satisfies REQ-001] [depends: TRD-002]
   **Validates PRD ACs:** AC-001-1
   - Target Files: `packages/development/lib/toolchain/work-graph-resolve.js`
   - Implementation AC:
@@ -412,7 +412,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a project config with an explicit `work-graph` value, when `resolveWorkGraphAdapter` runs, then `source` reports the project-config origin and the explicit value wins.
     - [ ] Given neither a tracker selection nor an explicit `work-graph`, when `resolveWorkGraphAdapter` runs, then `source` reports the builtin fallback and behavior is unchanged from shipped.
 
-- [ ] **TRD-031-TEST** Verify resolver source reporting for tracker-supplied, explicit, and fallback paths (3h) [verifies TRD-031] [satisfies REQ-001] [depends: TRD-031]
+- [x] **TRD-031-TEST** Verify resolver source reporting for tracker-supplied, explicit, and fallback paths (3h) [verifies TRD-031] [satisfies REQ-001] [depends: TRD-031]
   **Validates PRD ACs:** AC-001-1
   - Target Files: `packages/development/tests/toolchain-work-graph-resolve.test.js`
   - Test AC:
@@ -420,7 +420,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an explicit `work-graph` in project config, when the resolver runs, then `source` is the project-config value.
     - [ ] Edge: Given neither tracker nor explicit selection, when the resolver runs, then `source` is `builtin-fallback`.
 
-- [ ] **TRD-032** Resolver gates on declared capabilities and diagnoses a cross-backend work-graph mismatch (3h) [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-002]
+- [x] **TRD-032** Resolver gates on declared capabilities and diagnoses a cross-backend work-graph mismatch (3h) [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-002]
   **Validates PRD ACs:** AC-001-1, AC-012-1
   - Target Files: `packages/development/lib/toolchain/work-graph-resolve.js`
   - Implementation AC:
@@ -428,7 +428,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given project config with `tracker: kata` and an explicit `work-graph: beads`, when the resolver runs, then it emits a named diagnostic for the cross-backend mismatch instead of resolving silently.
     - [ ] Given a tracker manifest declaring all three `work-graph.*` capabilities, when the resolver runs, then the tracker claims the category and no diagnostic is emitted.
 
-- [ ] **TRD-032-TEST** Verify the capability gate and the explicit-mismatch diagnostic (3h) [verifies TRD-032] [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-032]
+- [x] **TRD-032-TEST** Verify the capability gate and the explicit-mismatch diagnostic (3h) [verifies TRD-032] [satisfies REQ-001] [satisfies REQ-012] [depends: TRD-032]
   **Validates PRD ACs:** AC-001-1, AC-012-1
   - Target Files: `packages/development/tests/toolchain-work-graph-resolve.test.js`
   - Test AC:
@@ -440,7 +440,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 **Shippable State:** A user on a kata project runs `toolchain-cli run` for tracker.create-detailed, tracker.find-by-key, tracker.close-with-reason, tracker.label, tracker.set-status and tracker.dep-add, and sees each item, label, owner, evidence and blocking edge in `kata show`, with no call falling back to a beads or links path and the coverage check passing.
 
-- [ ] **TRD-007** Kata read mappings: show returns the normalized item and list honors its open filter without truncation (4h) [satisfies REQ-008] [depends: TRD-002]
+- [x] **TRD-007** Kata read mappings: show returns the normalized item and list honors its open filter without truncation (4h) [satisfies REQ-008] [depends: TRD-002]
   **Validates PRD ACs:** AC-008-1, AC-008-2
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/lib/toolchain/mapping.js`
   - Implementation AC:
@@ -448,7 +448,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given open and closed items, when tracker.list runs with an open filter, then closed items are excluded and the filter is applied rather than ignored.
     - [ ] Given more items than the default row cap, when tracker.list runs, then it passes an explicit --limit 0 so no row is silently dropped.
 
-- [ ] **TRD-007-TEST** Verify show normalization and open-filter behavior (3h) [verifies TRD-007] [satisfies REQ-008] [depends: TRD-007]
+- [x] **TRD-007-TEST** Verify show normalization and open-filter behavior (3h) [verifies TRD-007] [satisfies REQ-008] [depends: TRD-007]
   **Validates PRD ACs:** AC-008-1, AC-008-2
   - Target Files: `packages/development/tests/kata-reads.test.js`
   - Test AC:
@@ -456,35 +456,35 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given one open and one closed item, when tracker.list runs with an open filter, then only the open item is returned.
     - [ ] Edge: Given a workspace holding more items than the default row cap, when tracker.list runs, then the returned count equals the total count.
 
-- [ ] **TRD-008** Comment append and comment listing in the order the comments were written (2h) [satisfies REQ-008] [depends: TRD-002]
+- [x] **TRD-008** Comment append and comment listing in the order the comments were written (2h) [satisfies REQ-008] [depends: TRD-002]
   **Validates PRD ACs:** AC-008-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
     - [ ] Given an item, when tracker.comment runs, then the text is appended through kata comment.
     - [ ] Given an item with comments added in a known order, when tracker.comments runs, then the comments come back in that same order from the comments carried by kata show --json.
 
-- [ ] **TRD-008-TEST** Verify comment ordering and the empty case (2h) [verifies TRD-008] [satisfies REQ-008] [depends: TRD-008]
+- [x] **TRD-008-TEST** Verify comment ordering and the empty case (2h) [verifies TRD-008] [satisfies REQ-008] [depends: TRD-008]
   **Validates PRD ACs:** AC-008-3
   - Target Files: `packages/development/tests/kata-reads.test.js`
   - Test AC:
     - [ ] Happy: Given two comments added in order A then B, when tracker.comments runs, then the result lists A then B.
     - [ ] Edge: Given an item with no comments, when tracker.comments runs, then the result is an empty list and not an error.
 
-- [ ] **TRD-009** Required create and update mappings returning the kata short id (4h) [satisfies REQ-001] [depends: TRD-002]
+- [x] **TRD-009** Required create and update mappings returning the kata short id (4h) [satisfies REQ-001] [depends: TRD-002]
   **Validates PRD ACs:** AC-001-4
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
     - [ ] Given a title, description and type, when tracker.create runs, then kata create returns the new item's short id as the capability's id output.
     - [ ] Given an existing item and a set of fields, when tracker.update runs, then kata edit applies title, body, priority and owner and returns the id.
 
-- [ ] **TRD-009-TEST** Verify required create and update round-trip (2h) [verifies TRD-009] [satisfies REQ-001] [depends: TRD-009]
+- [x] **TRD-009-TEST** Verify required create and update round-trip (2h) [verifies TRD-009] [satisfies REQ-001] [depends: TRD-009]
   **Validates PRD ACs:** AC-001-4
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
     - [ ] Happy: Given a created item, when it is read back, then its title and description match the create input.
     - [ ] Edge: Given an update carrying only a priority field, when the item is read back, then its title and body are unchanged.
 
-- [ ] **TRD-010** Dedupe identity: `create-detailed` records the external key durably, and `find-by-key` searches the whole project including closed items (5h) [satisfies REQ-002] [depends: TRD-002] [depends: TRD-033]
+- [x] **TRD-010** Dedupe identity: `create-detailed` records the external key durably, and `find-by-key` searches the whole project including closed items (5h) [satisfies REQ-002] [depends: TRD-002] [depends: TRD-033]
   **Validates PRD ACs:** AC-002-1, AC-002-2, AC-002-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -492,7 +492,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given an item created with key K, when tracker.find-by-key runs with K, then kata list --status all --limit 0 --meta ext_key=K returns that one item, closed items included, with its ext_key visible so the caller selects the exact match.
     - [ ] Given a create that kata refuses with a conflict, when tracker.create-detailed runs, then the conflict is surfaced as an error and no second item is created.
 
-- [ ] **TRD-010-TEST** Verify dedupe lookup returns exactly the matching item (3h) [verifies TRD-010] [satisfies REQ-002] [depends: TRD-010]
+- [x] **TRD-010-TEST** Verify dedupe lookup returns exactly the matching item (3h) [verifies TRD-010] [satisfies REQ-002] [depends: TRD-010]
   **Validates PRD ACs:** AC-002-1, AC-002-2, AC-002-3
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
@@ -501,7 +501,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given two items with keys K1 and K2, when find-by-key runs with K1, then only the K1 item is returned.
     - [ ] Note: this file asserts the lookup result only; whether `find-by-key` output validates against a list schema is asserted by TRD-033-TEST, which owns the schema entries.
 
-- [ ] **TRD-011** Close with reason and evidence: close-with-reason records both, and a bare close never closes silently (4h) [satisfies REQ-003] [depends: TRD-002]
+- [x] **TRD-011** Close with reason and evidence: close-with-reason records both, and a bare close never closes silently (4h) [satisfies REQ-003] [depends: TRD-002]
   **Validates PRD ACs:** AC-003-1, AC-003-2, AC-003-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -510,7 +510,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a test command as proof, when the item is closed and read back, then the recorded evidence names that command.
     - [ ] Given the required tracker.close is invoked with only an id, when it runs, then its mandatory reason and evidence placeholders refuse the call with INVALID_ARG naming tracker.close-with-reason rather than closing the item.
 
-- [ ] **TRD-011-TEST** Verify reason and evidence on close, and refusal without them (3h) [verifies TRD-011] [satisfies REQ-003] [depends: TRD-011]
+- [x] **TRD-011-TEST** Verify reason and evidence on close, and refusal without them (3h) [verifies TRD-011] [satisfies REQ-003] [depends: TRD-011]
   **Validates PRD ACs:** AC-003-1, AC-003-2, AC-003-3
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
@@ -518,7 +518,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an open item and no reason, when a close is requested, then the call fails observably and the item remains open.
     - [ ] Edge: Given a test command as evidence, when the item is read back, then the evidence names that command.
 
-- [ ] **TRD-012** Labels one id per call through `tracker.label-one`, and derives lifecycle status and in-progress ownership from the `owner` field (5h) [satisfies REQ-004] [depends: TRD-002] [depends: TRD-033]
+- [x] **TRD-012** Labels one id per call through `tracker.label-one`, and derives lifecycle status and in-progress ownership from the `owner` field (5h) [satisfies REQ-004] [depends: TRD-002] [depends: TRD-033]
   **Validates PRD ACs:** AC-004-1, AC-004-2, AC-004-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/lib/toolchain/mapping.js`
   - Implementation AC:
@@ -528,7 +528,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given an open item with no recorded reason and evidence, when tracker.set-status sets closed, then the call is refused naming tracker.close-with-reason, as AC-004-3 is amended by TRD-027.
     - [ ] Given kata status carries only open or closed, when in_progress is read, then the mapping derives it from a non-empty owner on an open item through one narrow rule added to mapping.js.
 
-- [ ] **TRD-012-TEST** Verify label sweeps and the ownership-derived in-progress state (3h) [verifies TRD-012] [satisfies REQ-004] [depends: TRD-012]
+- [x] **TRD-012-TEST** Verify label sweeps and the ownership-derived in-progress state (3h) [verifies TRD-012] [satisfies REQ-004] [depends: TRD-012]
   **Validates PRD ACs:** AC-004-1, AC-004-2, AC-004-3
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
@@ -537,7 +537,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an open item with no reason and no evidence, when status is set to closed through the status capability, then the call is refused and the item stays open, as amended AC-004-3 requires.
     - [ ] Note: the `owner` field's presence in the normalized shape is asserted by TRD-034-TEST, which owns that field; this file reads it.
 
-- [ ] **TRD-013** Dependency links through kata's blocked-by edge, with non-gating link kinds refused (3h) [satisfies REQ-005] [depends: TRD-002]
+- [x] **TRD-013** Dependency links through kata's blocked-by edge, with non-gating link kinds refused (3h) [satisfies REQ-005] [depends: TRD-002]
   **Validates PRD ACs:** AC-005-1, AC-005-2, AC-005-3
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -545,7 +545,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given that link, when tracker.dep-remove runs, then kata edit A --remove-blocked-by B runs and A reappears in the ready listing.
     - [ ] Given a link kind with no blocking equivalent, such as related or parent, when tracker.dep-add is invoked with it, then the call is refused with a reason and no blocking edge is created.
 
-- [ ] **TRD-013-TEST** Verify blocking edges remove and restore readiness (3h) [verifies TRD-013] [satisfies REQ-005] [depends: TRD-013]
+- [x] **TRD-013-TEST** Verify blocking edges remove and restore readiness (3h) [verifies TRD-013] [satisfies REQ-005] [depends: TRD-013]
   **Validates PRD ACs:** AC-005-1, AC-005-2, AC-005-3
   - Target Files: `packages/development/tests/kata-writes.test.js`
   - Test AC:
@@ -553,7 +553,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Happy: Given that link, when it is removed, then A reappears in the ready listing.
     - [ ] Edge: Given a related-kind link request, when dep-add is invoked, then it is refused with a reason and the ready listing is unchanged.
 
-- [ ] **TRD-014** Native answers for update-detailed, stage-export and sync, so no fallback fires for kata (4h) [satisfies REQ-006] [depends: TRD-002]
+- [x] **TRD-014** Native answers for update-detailed, stage-export and sync, so no fallback fires for kata (4h) [satisfies REQ-006] [depends: TRD-002]
   **Validates PRD ACs:** AC-006-1
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -561,28 +561,28 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a kata project has no exported tracked file, when tracker.stage-export runs, then the adapter answers with the contract's unavailable status itself, so the full-export fallback is not reached.
     - [ ] Given kata persists each write before its command returns, when tracker.sync runs, then the adapter answers with a synced status without invoking any fallback.
 
-- [ ] **TRD-014-TEST** Verify every fallback-bearing tracker capability answers from kata (3h) [verifies TRD-014] [satisfies REQ-006] [depends: TRD-014] [depends: TRD-010] [depends: TRD-011] [depends: TRD-012]
+- [x] **TRD-014-TEST** Verify every fallback-bearing tracker capability answers from kata (3h) [verifies TRD-014] [satisfies REQ-006] [depends: TRD-014] [depends: TRD-010] [depends: TRD-011] [depends: TRD-012]
   **Validates PRD ACs:** AC-006-1
   - Target Files: `packages/development/tests/kata-fallback.test.js`
   - Test AC:
     - [ ] Happy: Given a kata project, when each optional fallback-bearing tracker capability (label, stage-export, create-detailed, find-by-key, update-detailed, close-with-reason) is invoked, then each result names kata as its source.
     - [ ] Edge: Given the links fallback and title-prefix scoping exist in the shipped contract, when a kata capability is invoked, then no call is routed to a fallback id.
 
-- [ ] **TRD-015** Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts (3h) [satisfies REQ-001] [satisfies REQ-015] [depends: TRD-002] [depends: TRD-007] [depends: TRD-008] [depends: TRD-009] [depends: TRD-010] [depends: TRD-011] [depends: TRD-012] [depends: TRD-013] [depends: TRD-014]
+- [x] **TRD-015** Coverage assertion: the kata manifest declares every required capability and every fallback-bearing capability of both contracts (3h) [satisfies REQ-001] [satisfies REQ-015] [depends: TRD-002] [depends: TRD-007] [depends: TRD-008] [depends: TRD-009] [depends: TRD-010] [depends: TRD-011] [depends: TRD-012] [depends: TRD-013] [depends: TRD-014]
   **Validates PRD ACs:** AC-001-4, AC-015-2
   - Target Files: `packages/development/lib/toolchain/validate.js`, `packages/development/tests/kata-coverage.test.js`
   - Implementation AC:
     - [ ] Given the tracker and work-graph contract files, when the kata manifest is compared, then every required capability and every capability naming a fallback is declared by kata.
     - [ ] Given a required capability is removed from the kata manifest, when the coverage check runs, then it fails naming the missing capability.
 
-- [ ] **TRD-015-TEST** Verify coverage passes for kata and fails on removal (2h) [verifies TRD-015] [satisfies REQ-001] [satisfies REQ-015] [depends: TRD-015]
+- [x] **TRD-015-TEST** Verify coverage passes for kata and fails on removal (2h) [verifies TRD-015] [satisfies REQ-001] [satisfies REQ-015] [depends: TRD-015]
   **Validates PRD ACs:** AC-001-4, AC-015-2
   - Target Files: `packages/development/tests/kata-coverage.test.js`
   - Test AC:
     - [ ] Happy: Given the shipped kata manifest, when coverage is compared to the tracker and work-graph contracts, then no required capability is missing.
     - [ ] Edge: Given a mutated copy of the manifest with one required capability removed, when coverage is compared, then the assertion fails naming that capability.
 
-- [ ] **TRD-033** Normalized schema entries for the non-entity kata capabilities (3h) [satisfies REQ-008] [depends: TRD-002]
+- [x] **TRD-033** Normalized schema entries for the non-entity kata capabilities (3h) [satisfies REQ-008] [depends: TRD-002]
   **Validates PRD ACs:** AC-008-1
   - Target Files: `packages/development/lib/toolchain/contracts.js`, `scripts/tests/fixtures/toolchain/adapter-tracker-kata-samples/`
   - Implementation AC:
@@ -590,7 +590,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given `tracker.label` or `tracker.label-one`, when its output is validated, then a non-entity result schema applies and the run is not rejected as `BAD_OUTPUT` for lacking entity fields.
     - [ ] Given a recorded kata fixture for each newly declared capability, when the adapter's normalizer runs against the fixture, then the result validates against the declared schema.
 
-- [ ] **TRD-033-TEST** Verify schema selection for every declared kata capability (3h) [verifies TRD-033] [satisfies REQ-008] [depends: TRD-033]
+- [x] **TRD-033-TEST** Verify schema selection for every declared kata capability (3h) [verifies TRD-033] [satisfies REQ-008] [depends: TRD-033]
   **Validates PRD ACs:** AC-008-1
   - Target Files: `packages/development/tests/toolchain-contracts.test.js`
   - Test AC:
@@ -598,7 +598,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given `tracker.find-by-key` returning a captured list envelope, when the normalizer runs, then it validates and does not report `BAD_OUTPUT`.
     - [ ] Edge: Given a declared capability with no schema entry, when the validator runs, then it reports the missing entry by capability name.
 
-- [ ] **TRD-034** Name `owner` in the normalized work-item shape (3h) [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-002]
+- [x] **TRD-034** Name `owner` in the normalized work-item shape (3h) [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-002]
   **Validates PRD ACs:** AC-004-2, AC-008-2
   - Target Files: `scripts/tests/fixtures/toolchain/work-item.json`, `packages/development/lib/toolchain/mapping.js`
   - Implementation AC:
@@ -606,7 +606,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a kata item carrying a claim, when `tracker.show` normalizes it, then `owner` carries the claiming identity and `tracker.set-status` reports the same value.
     - [ ] Given an unowned open kata item, when `tracker.show` normalizes it, then `owner` is absent and the status reads `open`.
 
-- [ ] **TRD-034-TEST** Verify `owner` is a declared field and reads back through both paths (3h) [verifies TRD-034] [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-034]
+- [x] **TRD-034-TEST** Verify `owner` is a declared field and reads back through both paths (3h) [verifies TRD-034] [satisfies REQ-004] [satisfies REQ-008] [depends: TRD-034]
   **Validates PRD ACs:** AC-004-2, AC-008-2
   - Target Files: `packages/development/tests/toolchain-normalized-item.test.js`
   - Test AC:
@@ -618,7 +618,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 **Shippable State:** On a kata project, `toolchain-cli run work-graph.ready`, `work-graph.plan` and `work-graph.graph-health` list unblocked work in kata's own order, put dependencies first, report cycles and dangling links as findings, and name kata as their source.
 
-- [ ] **TRD-016** Dispatch for work-graph capabilities computed in-process, through one resolver-owned path (6h) [satisfies REQ-007] [depends: TRD-002]
+- [x] **TRD-016** Dispatch for work-graph capabilities computed in-process, through one resolver-owned path (6h) [satisfies REQ-007] [depends: TRD-002]
   **Validates PRD ACs:** AC-006-2
   - Target Files: `packages/development/lib/toolchain/work-graph-resolve.js`, `packages/development/lib/toolchain-cli.js`, `packages/development/lib/toolchain/preflight.js`, `packages/development/lib/toolchain/adapters.js`, `packages/development/toolchain/schemas/adapter-manifest-schema.json`
   - Implementation AC:
@@ -626,7 +626,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a resolved work-graph adapter, when resolve, explain, run, preflight or confirm-status is invoked, then every call site dispatches through the same resolver-owned function and the builtin links path is unchanged.
     - [ ] Given a declarative capability such as work-graph.ready, when it runs, then it still goes through runCapability with the shipped allowlist, timeout and envelope unchanged.
 
-- [ ] **TRD-016-TEST** Verify module dispatch confinement and the unchanged builtin path (3h) [verifies TRD-016] [satisfies REQ-006] [satisfies REQ-007] [depends: TRD-016]
+- [x] **TRD-016-TEST** Verify module dispatch confinement and the unchanged builtin path (3h) [verifies TRD-016] [satisfies REQ-006] [satisfies REQ-007] [depends: TRD-016]
   **Validates PRD ACs:** AC-006-2
   - Target Files: `packages/development/tests/work-graph-dispatch.test.js`
   - Test AC:
@@ -634,7 +634,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a module path that escapes the adapter directory, when dispatch runs, then it is refused before any code loads.
     - [ ] Edge: Given a project on the shipped jira tracker, when work-graph resolves, then the builtin links analyzer answers exactly as before.
 
-- [ ] **TRD-017** Kata edge export and ready-work listing from kata's own ready command (4h) [satisfies REQ-007] [depends: TRD-002]
+- [x] **TRD-017** Kata edge export and ready-work listing from kata's own ready command (4h) [satisfies REQ-007] [depends: TRD-002]
   **Validates PRD ACs:** AC-007-1
   - Target Files: `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/skills/adapter-tracker-kata/work-graph-module.js`
   - Implementation AC:
@@ -642,7 +642,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given an unchanged item set, when work-graph.ready runs twice, then the two sequences are identical.
     - [ ] Given the list envelope, when edges are normalized, then each item's blocking links populate its dependencies, using per-item kata show --json only if the list envelope omits them, as the TRD-001 fixture decides.
 
-- [ ] **TRD-017-TEST** Verify ready listing excludes blocked work and is stable (3h) [verifies TRD-017] [satisfies REQ-007] [depends: TRD-017]
+- [x] **TRD-017-TEST** Verify ready listing excludes blocked work and is stable (3h) [verifies TRD-017] [satisfies REQ-007] [depends: TRD-017]
   **Validates PRD ACs:** AC-007-1
   - Target Files: `packages/development/tests/kata-edges.test.js`
   - Test AC:
@@ -650,7 +650,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an unchanged item set, when ready work is listed twice, then both results are identical.
     - [ ] Edge: Given a workspace with more ready items than the default row cap, when ready work is listed, then every ready item is returned.
 
-- [ ] **TRD-018** Shared pure edge scan: dependency-first order, cycle findings, and dangling-edge findings (4h) [satisfies REQ-007]
+- [x] **TRD-018** Shared pure edge scan: dependency-first order, cycle findings, and dangling-edge findings (4h) [satisfies REQ-007]
   **Validates PRD ACs:** AC-007-2, AC-007-3, AC-007-5
   - Target Files: `packages/development/lib/toolchain/work-graph-scan.js`
   - Implementation AC:
@@ -658,7 +658,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a cycle among items, when the scan runs, then the cycle is returned as a finding and its members are never presented as silently ordered.
     - [ ] Given a link naming an id absent from the scanned scope, when the scan runs, then that dangling edge is returned as a finding.
 
-- [ ] **TRD-018-TEST** Verify ordering, cycle findings, and dangling-edge findings on fixed graphs (2h) [verifies TRD-018] [satisfies REQ-007] [depends: TRD-018]
+- [x] **TRD-018-TEST** Verify ordering, cycle findings, and dangling-edge findings on fixed graphs (2h) [verifies TRD-018] [satisfies REQ-007] [depends: TRD-018]
   **Validates PRD ACs:** AC-007-2, AC-007-3, AC-007-5
   - Target Files: `packages/development/tests/work-graph-scan.test.js`
   - Test AC:
@@ -666,7 +666,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a two-item cycle, when the scan runs, then it reports one cycle finding naming both items.
     - [ ] Edge: Given an item depending on an id outside the scope, when the scan runs, then it reports a dangling-edge finding for that id.
 
-- [ ] **TRD-019** Kata work-graph plan and graph-health built on the shared scan, reporting kata as source (4h) [satisfies REQ-007] [depends: TRD-016] [depends: TRD-017] [depends: TRD-018]
+- [x] **TRD-019** Kata work-graph plan and graph-health built on the shared scan, reporting kata as source (4h) [satisfies REQ-007] [depends: TRD-016] [depends: TRD-017] [depends: TRD-018]
   **Validates PRD ACs:** AC-007-2, AC-007-3, AC-007-4, AC-007-5
   - Target Files: `packages/development/skills/adapter-tracker-kata/work-graph-module.js`, `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -674,7 +674,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a cycle introduced into the item set, when work-graph.graph-health runs, then the cycle is reported as a finding and plan does not order the cycle silently.
     - [ ] Given a dependency naming an item the scope never returns, when work-graph.graph-health runs, then that dangling edge is reported as a finding.
 
-- [ ] **TRD-019-TEST** Verify plan and graph-health end to end on kata (3h) [verifies TRD-019] [satisfies REQ-007] [depends: TRD-019]
+- [x] **TRD-019-TEST** Verify plan and graph-health end to end on kata (3h) [verifies TRD-019] [satisfies REQ-007] [depends: TRD-019]
   **Validates PRD ACs:** AC-007-2, AC-007-3, AC-007-4, AC-007-5
   - Target Files: `packages/development/tests/kata-work-graph.test.js`
   - Test AC:
@@ -686,7 +686,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 **Shippable State:** `ensemble:implement-trd-tasks <trd>` on a kata project scaffolds the TRD's work items in kata with dependency edges and a ready list, `ensemble:implement-trd-beads` prints a message naming the replacement, and beads runs produce the same titles, edges and phases as before.
 
-- [ ] **TRD-020** Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command (5h) [satisfies REQ-009] [satisfies REQ-010]
+- [x] **TRD-020** Rename the TRD-to-work-items command to implement-trd-tasks with every phase and argument kept, after recording golden fixtures from the current command (5h) [satisfies REQ-009] [satisfies REQ-010]
   **Validates PRD ACs:** AC-010-1, AC-010-2, AC-010-3
   - Target Files: `packages/development/commands/implement-trd-beads.yaml`, `packages/development/commands/implement-trd-tasks.yaml`, `packages/development/tests/fixtures/implement-trd/`
   - Implementation AC:
@@ -695,7 +695,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a plan-only invocation, when it completes, then the completion message names implement-trd-tasks for the execute step.
     - [ ] Given the rename, when the old command file is deleted, then no alias or hidden entry for implement-trd-beads is kept.
 
-- [ ] **TRD-020-TEST** Verify the renamed command preserves every phase against golden fixtures (4h) [verifies TRD-020] [satisfies REQ-009] [satisfies REQ-010] [depends: TRD-020]
+- [x] **TRD-020-TEST** Verify the renamed command preserves every phase against golden fixtures (4h) [verifies TRD-020] [satisfies REQ-009] [satisfies REQ-010] [depends: TRD-020]
   **Validates PRD ACs:** AC-010-1, AC-010-2, AC-010-3
   - Target Files: `packages/development/tests/implement-trd-tasks-parity.test.js`
   - Test AC:
@@ -703,21 +703,21 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a plan-only invocation, when it completes, then its completion text names implement-trd-tasks for execution.
     - [ ] Edge: Given an unrecognized phase argument, when the command is invoked, then it reports the argument as unknown instead of silently running a default phase.
 
-- [ ] **TRD-021** Dispatcher routes the implement keyword to the new command and rejects the retired name with its replacement named (3h) [satisfies REQ-009] [depends: TRD-020]
+- [x] **TRD-021** Dispatcher routes the implement keyword to the new command and rejects the retired name with its replacement named (3h) [satisfies REQ-009] [depends: TRD-020]
   **Validates PRD ACs:** AC-009-3, AC-009-4
   - Target Files: `packages/development/commands/trd.yaml`
   - Implementation AC:
     - [ ] Given a user invokes the retired implement-trd-beads name, when the dispatcher resolves it, then it prints an unrecognized-command message naming implement-trd-tasks and does not fall through to any other command.
     - [ ] Given the TRD dispatcher implement keyword, when it is dispatched, then it routes to implement-trd-tasks and its text no longer states that beads project management is in use.
 
-- [ ] **TRD-021-TEST** Verify retired-name rejection and keyword routing (2h) [verifies TRD-021] [satisfies REQ-009] [depends: TRD-021]
+- [x] **TRD-021-TEST** Verify retired-name rejection and keyword routing (2h) [verifies TRD-021] [satisfies REQ-009] [depends: TRD-021]
   **Validates PRD ACs:** AC-009-3, AC-009-4
   - Target Files: `packages/development/tests/trd-dispatcher-retired-name.test.js`
   - Test AC:
     - [ ] Happy: Given the implement keyword, when the dispatcher runs, then it reaches implement-trd-tasks.
     - [ ] Edge: Given the retired command name, when it is dispatched, then the message names implement-trd-tasks and no other command runs.
 
-- [ ] **TRD-022** Scaffold routing through toolchain capabilities so a kata run never invokes br or bv (6h) [satisfies REQ-009] [depends: TRD-020] [depends: TRD-010] [depends: TRD-013] [depends: TRD-016]
+- [x] **TRD-022** Scaffold routing through toolchain capabilities so a kata run never invokes br or bv (6h) [satisfies REQ-009] [depends: TRD-020] [depends: TRD-010] [depends: TRD-013] [depends: TRD-016]
   **Validates PRD ACs:** AC-009-1
   - Target Files: `packages/development/commands/implement-trd-tasks.yaml`, `packages/development/lib/scaffold-planner.js`, `packages/development/lib/trd-cli.js`
   - Implementation AC:
@@ -725,21 +725,21 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a kata project, when the command runs its ready and plan steps, then they call work-graph.ready and work-graph.plan through toolchain-cli.
     - [ ] Given a kata project, when the whole run completes, then no beads binary is invoked at any step.
 
-- [ ] **TRD-022-TEST** Verify a kata run scaffolds in kata and never invokes a beads binary (4h) [verifies TRD-022] [satisfies REQ-009] [depends: TRD-022]
+- [x] **TRD-022-TEST** Verify a kata run scaffolds in kata and never invokes a beads binary (4h) [verifies TRD-022] [satisfies REQ-009] [depends: TRD-022]
   **Validates PRD ACs:** AC-009-1
   - Target Files: `packages/development/tests/implement-trd-tasks-routing.test.js`
   - Test AC:
     - [ ] Happy: Given a bound scratch kata project and a TRD, when implement-trd-tasks scaffolds, then the scratch project holds the TRD's work items with their dependency edges.
     - [ ] Edge: Given br and bv deliberately broken on PATH, when the kata run completes, then it still succeeds because no beads binary is invoked.
 
-- [ ] **TRD-023** Retired-name sweep across command, agent and skill sources and generated mirrors, excluding archived and historical documents (6h) [satisfies REQ-009] [depends: TRD-021]
+- [x] **TRD-023** Retired-name sweep across command, agent and skill sources and generated mirrors, excluding archived and historical documents (6h) [satisfies REQ-009] [depends: TRD-021]
   **Validates PRD ACs:** AC-009-2
   - Target Files: `packages/development/commands/`, `packages/development/agents/`, `packages/development/skills/`, `scripts/generate-markdown.js`
   - Implementation AC:
     - [ ] Given every source manifest and generated mirror, when the sweep runs, then no entry named implement-trd-beads remains outside archived or historical documents.
     - [ ] Given the sweep changed sources, when the generate chain runs from the repository root, then generated mirrors match their sources and no mirror is edited from inside a package directory.
 
-- [ ] **TRD-023-TEST** Verify no source manifest or generated artifact names the retired command (2h) [verifies TRD-023] [satisfies REQ-009] [depends: TRD-023]
+- [x] **TRD-023-TEST** Verify no source manifest or generated artifact names the retired command (2h) [verifies TRD-023] [satisfies REQ-009] [depends: TRD-023]
   **Validates PRD ACs:** AC-009-2
   - Target Files: `packages/development/tests/retired-name-sweep.test.js`
   - Test AC:
@@ -750,7 +750,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 **Shippable State:** The shared TRD-flow prose names no tracker binary or storage path outside beads-scoped text, command docs state the kata prerequisites, and `npm run docs:contracts` shows each backend's native and fallback capabilities while explain shows the resolved split.
 
-- [ ] **TRD-024** Neutral shared prose: tracker work goes through capability calls, with no tracker binary or storage path outside beads-scoped text (6h) [satisfies REQ-011] [depends: TRD-021] [depends: TRD-020]
+- [x] **TRD-024** Neutral shared prose: tracker work goes through capability calls, with no tracker binary or storage path outside beads-scoped text (6h) [satisfies REQ-011] [depends: TRD-021] [depends: TRD-020]
   **Validates PRD ACs:** AC-011-1, AC-011-2, AC-011-3
   - Target Files: `packages/development/commands/implement-trd-tasks.yaml`, `packages/development/skills/`, `scripts/lint-provider-refs.js`, `scripts/lint-provider-refs.baseline.json`
   - Implementation AC:
@@ -758,7 +758,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a kata project and a beads project, when the prose instructs creating, linking and closing a work item, then each instruction resolves to a capability call that differs per project and reads identically in the text.
     - [ ] Given the provider-reference lint runs after the rewrite, when its baseline is compared, then the baseline shrinks and does not grow.
 
-- [ ] **TRD-024-TEST** Verify prose neutrality and unchanged beads behavior (4h) [verifies TRD-024] [satisfies REQ-011] [depends: TRD-024] [depends: TRD-020]
+- [x] **TRD-024-TEST** Verify prose neutrality and unchanged beads behavior (4h) [verifies TRD-024] [satisfies REQ-011] [depends: TRD-024] [depends: TRD-020]
   **Validates PRD ACs:** AC-011-1, AC-011-2, AC-011-3
   - Target Files: `packages/development/tests/prose-neutrality.test.js`
   - Test AC:
@@ -766,7 +766,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a beads project, when the flow runs after the prose change, then its work items match the golden fixtures recorded in TRD-020.
     - [ ] Edge: Given a kata project, when the same create, link and close instructions run, then each resolves to a kata capability call.
 
-- [ ] **TRD-025** Kata starting-point documentation: prerequisites, the binding step, a fresh-project walkthrough, and the documented unbound message (3h) [satisfies REQ-014] [depends: TRD-021] [depends: TRD-004]
+- [x] **TRD-025** Kata starting-point documentation: prerequisites, the binding step, a fresh-project walkthrough, and the documented unbound message (3h) [satisfies REQ-014] [depends: TRD-021] [depends: TRD-004]
   **Validates PRD ACs:** AC-014-1, AC-014-2, AC-014-3
   - Target Files: `packages/development/commands/implement-trd-tasks.yaml`, `docs/toolchain/contracts/README.md`
   - Implementation AC:
@@ -774,7 +774,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given a fresh kata project, when a reader follows only the documented steps, then the flow scaffolds work items in kata.
     - [ ] Given a kata project that is not bound, when the flow is invoked, then it stops with the same prerequisite message the documentation gives.
 
-- [ ] **TRD-025-TEST** Verify the documented steps scaffold a fresh kata project (3h) [verifies TRD-025] [satisfies REQ-014] [depends: TRD-025] [depends: TRD-022] [depends: TRD-004]
+- [x] **TRD-025-TEST** Verify the documented steps scaffold a fresh kata project (3h) [verifies TRD-025] [satisfies REQ-014] [depends: TRD-025] [depends: TRD-022] [depends: TRD-004]
   **Validates PRD ACs:** AC-014-1, AC-014-2, AC-014-3
   - Target Files: `packages/development/tests/kata-docs-walkthrough.test.js`
   - Test AC:
@@ -782,7 +782,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given an unbound scratch workspace, when the flow is invoked, then it stops with the documented prerequisite message and creates no items.
     - [ ] Edge: Given the command documentation, when it is read, then its prerequisites section names the binding file and the version floor.
 
-- [ ] **TRD-026** Coverage disclosure: generated contract docs and explain output show native versus fallback per backend, the docs check catches drift, and the builtin graph-health fallback becomes truthful (6h) [satisfies REQ-015] [depends: TRD-014] [depends: TRD-018]
+- [x] **TRD-026** Coverage disclosure: generated contract docs and explain output show native versus fallback per backend, the docs check catches drift, and the builtin graph-health fallback becomes truthful (6h) [satisfies REQ-015] [depends: TRD-014] [depends: TRD-018]
   **Validates PRD ACs:** AC-015-1, AC-015-3
   - Target Files: `scripts/generate-contract-docs.js`, `docs/toolchain/contracts/tracker.md`, `docs/toolchain/contracts/work-graph.md`, `packages/development/lib/toolchain-cli.js`, `packages/development/lib/toolchain/builtin/work-graph-links-fallback.js`
   - Implementation AC:
@@ -791,7 +791,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Given explain runs for a kata project, when it reports the work-graph category, then each capability shows native or fallback for the resolved adapter.
     - [ ] Given work-graph.graph-health declares the links fallback, when the builtin is asked for it, then it answers from the shared scan rather than refusing, so the contract claim is true without a version bump, and the jira manifest is unchanged.
 
-- [ ] **TRD-026-TEST** Verify generated coverage docs, docs-check drift, and truthful fallback (3h) [verifies TRD-026] [satisfies REQ-015] [depends: TRD-026] [depends: TRD-015] [depends: TRD-018]
+- [x] **TRD-026-TEST** Verify generated coverage docs, docs-check drift, and truthful fallback (3h) [verifies TRD-026] [satisfies REQ-015] [depends: TRD-026] [depends: TRD-015] [depends: TRD-018]
   **Validates PRD ACs:** AC-015-1, AC-015-3
   - Target Files: `packages/development/tests/contract-docs.test.js`
   - Test AC:
@@ -799,7 +799,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
     - [ ] Edge: Given a manifest change that moves a capability from native to fallback without regeneration, when the docs check runs, then it fails.
     - [ ] Edge: Given graph-health asked of the builtin, when it runs, then it returns findings rather than an unsupported-capability refusal.
 
-- [ ] **TRD-027** PRD refine pass on PRD-2026-6995dc96: reconcile AC-004-3 with REQ-003 and AC-003-2, correct the Relationship count, and record that PRD-2026-8d825f54 is retained (2h) [satisfies ARCH]
+- [x] **TRD-027** PRD refine pass on PRD-2026-6995dc96: reconcile AC-004-3 with REQ-003 and AC-003-2, correct the Relationship count, and record that PRD-2026-8d825f54 is retained (2h) [satisfies ARCH]
   **Validates PRD ACs:** AC-003-2, AC-004-3, AC-015-3
   - Target Files: `docs/PRD/PRD-2026-6995dc96-configurable-tasks-backend-kata.md`
   - Implementation AC:
@@ -813,7 +813,7 @@ Reuse rule: no task re-creates the toolchain abstraction; each task that extends
 
 Boundary: beads capabilities gain class defaults; effective beads behavior unchanged (both classes stay at 60000 ms).
 
-- [ ] **TRD-028** Per-class timeout bounds: capabilities declare short or long, bounds are set per adapter and per project, and every timeout names the class and bound (6h) [satisfies REQ-017] [depends: TRD-002]
+- [x] **TRD-028** Per-class timeout bounds: capabilities declare short or long, bounds are set per adapter and per project, and every timeout names the class and bound (6h) [satisfies REQ-017] [depends: TRD-002]
   **Validates PRD ACs:** AC-017-1
   - Target Files: `packages/development/lib/toolchain/runner.js`, `packages/development/lib/toolchain/config.js`, `packages/development/toolchain/schemas/toolchain-config-schema.json`, `packages/development/toolchain/schemas/adapter-manifest-schema.json`, `packages/development/skills/adapter-tracker-kata/adapter.yaml`, `packages/development/skills/adapter-tracker-beads/adapter.yaml`, `packages/development/tests/toolchain-runner-sync-parity.test.js`
   - Implementation AC:
@@ -821,7 +821,7 @@ Boundary: beads capabilities gain class defaults; effective beads behavior uncha
     - [ ] Given a beads capability invoked after this edit, when its effective short-class and long-class bounds are resolved, then each equals 60000 ms, the value shipped today, so beads' effective timeouts are unchanged: this is a no-behavior-change edit.
     - [ ] Given a backing tool that never exits, when a capability runs, then the TIMEOUT error names the capability, its class and the bound in force, and the sync and async entry points report it identically.
 
-- [ ] **TRD-028-TEST** Verify a hung read and a hung write each time out with class and bound named (3h) [verifies TRD-028] [satisfies REQ-017] [depends: TRD-028]
+- [x] **TRD-028-TEST** Verify a hung read and a hung write each time out with class and bound named (3h) [verifies TRD-028] [satisfies REQ-017] [depends: TRD-028]
   **Validates PRD ACs:** AC-017-1
   - Target Files: `packages/development/tests/kata-timeouts.test.js`
   - Test AC:
@@ -830,7 +830,7 @@ Boundary: beads capabilities gain class defaults; effective beads behavior uncha
     - [ ] Edge: Given a project configuration overriding the long bound, when a stub write hangs, then the timeout names class long and the configured value.
     - [ ] Happy: Given the beads manifest after this edit, when the effective short-class and long-class bounds are resolved for beads capabilities, then each is 60000 ms, so the no-behavior-change assertion holds and fails if a default is mistyped.
 
-- [ ] **TRD-029** Named failures and truncation-safe reads: stderr passes through, kata exit codes map to named errors, and partial output is refused (5h) [satisfies REQ-017] [depends: TRD-002] [depends: TRD-007]
+- [x] **TRD-029** Named failures and truncation-safe reads: stderr passes through, kata exit codes map to named errors, and partial output is refused (5h) [satisfies REQ-017] [depends: TRD-002] [depends: TRD-007]
   **Validates PRD ACs:** AC-017-2, AC-017-3
   - Target Files: `packages/development/lib/toolchain/mapping.js`, `packages/development/lib/toolchain/runner.js`, `packages/development/skills/adapter-tracker-kata/adapter.yaml`
   - Implementation AC:
@@ -838,7 +838,7 @@ Boundary: beads capabilities gain class defaults; effective beads behavior uncha
     - [ ] Given kata exit codes 3 through 8, when they occur, then each maps to a named adapter error and never to success.
     - [ ] Given stdout that does not parse, is truncated, or whose row count disagrees with --include-total, when a read runs, then the adapter reports a parse failure and returns no partial list.
 
-- [ ] **TRD-029-TEST** Verify stderr passthrough, named exit codes, and refusal of partial output (3h) [verifies TRD-029] [satisfies REQ-017] [depends: TRD-029] [depends: TRD-007]
+- [x] **TRD-029-TEST** Verify stderr passthrough, named exit codes, and refusal of partial output (3h) [verifies TRD-029] [satisfies REQ-017] [depends: TRD-029] [depends: TRD-007]
   **Validates PRD ACs:** AC-017-2, AC-017-3
   - Target Files: `packages/development/tests/kata-errors.test.js`
   - Test AC:
@@ -846,7 +846,7 @@ Boundary: beads capabilities gain class defaults; effective beads behavior uncha
     - [ ] Edge: Given a stub kata exiting 1 with a stderr message, when a read runs, then the error carries that stderr text.
     - [ ] Edge: Given a stub kata whose output is cut off mid-JSON, when a list runs, then the result is a parse failure and contains no items.
 
-- [ ] **TRD-030** Repo-wide skip guard for every kata-dependent check, and a CI leg without kata that asserts a nonzero kata skip count (5h) [satisfies REQ-016] [depends: TRD-001]
+- [x] **TRD-030** Repo-wide skip guard for every kata-dependent check, and a CI leg without kata that asserts a nonzero kata skip count (5h) [satisfies REQ-016] [depends: TRD-001]
   **Validates PRD ACs:** AC-016-1, AC-016-2, AC-016-3
   - Target Files: `packages/development/tests/helpers/kata-guard.js`, `.github/workflows/test.yml`
   - Implementation AC:
@@ -854,7 +854,7 @@ Boundary: beads capabilities gain class defaults; effective beads behavior uncha
     - [ ] Given a CI job that does not install kata, when it runs, then it passes and reports a nonzero skip count for the kata-dependent checks.
     - [ ] Given the skip list and the set of tests that touch kata, when they are compared, then no kata-asserting test is reported as passing on a runner without kata.
 
-- [ ] **TRD-030-TEST** Verify the repository-wide run skips honestly without kata (3h) [verifies TRD-030] [satisfies REQ-016] [depends: TRD-030]
+- [x] **TRD-030-TEST** Verify the repository-wide run skips honestly without kata (3h) [verifies TRD-030] [satisfies REQ-016] [depends: TRD-030]
   **Validates PRD ACs:** AC-016-1, AC-016-2, AC-016-3
   - Target Files: `packages/development/tests/kata-skip-audit.test.js`
   - Test AC:
