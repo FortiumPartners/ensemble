@@ -68,7 +68,9 @@ capabilities:
   tracker.label:
     description: Add or replace labels on one or more work items.
     inputs: [ids, labels]
-    outputs: [ids, labels]
+    # id/label are additive: the kata adapter emits the single-item {id,label} shape validated by
+    # toolchain/schemas/normalized/label-result.json, alongside the multi-item ids/labels.
+    outputs: [ids, labels, id, label]
     required: false
     sideEffect: true
     fallback: title-prefix-scoping

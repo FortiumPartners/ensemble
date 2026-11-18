@@ -19,7 +19,7 @@ The `tracker` category defines 18 capabilities: 4 required and 14 optional. An a
 | `tracker.comments` | optional | no | `id` | `comments`, `comments_truncated` | - | - | List the comments on a work item, in source-tool order. |
 | `tracker.dep-add` | optional | yes | `id`, `dependsOnId`, `type` | `id` | - | - | Add a dependency link from one work item to another. |
 | `tracker.dep-remove` | optional | yes | `id`, `dependsOnId` | `id` | - | - | Remove a dependency link from one work item to another. |
-| `tracker.label` | optional | yes | `ids`, `labels` | `ids`, `labels` | `title-prefix-scoping` | - | Add or replace labels on one or more work items. |
+| `tracker.label` | optional | yes | `ids`, `labels` | `ids`, `labels`, `id`, `label` | `title-prefix-scoping` | - | Add or replace labels on one or more work items. |
 | `tracker.label-one` | optional | yes | `id`, `label` | `id`, `labels` | - | 1 | Attach one label to exactly one work item. Adapters whose tool attaches labels one at a time MUST declare this rather than tracker.label. |
 | `tracker.set-status` | optional | yes | `id`, `status` | `id`, `status`, `owner` | - | - | Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed). |
 | `tracker.sync` | optional | yes | `scope` | `status` | - | - | Flush pending local tracker state to durable storage. |
@@ -153,7 +153,7 @@ Add or replace labels on one or more work items.
 - Status: optional
 - Side effect: yes
 - Inputs: `ids`, `labels`
-- Outputs: `ids`, `labels`
+- Outputs: `ids`, `labels`, `id`, `label`
 - Fallback: `title-prefix-scoping`
 
 ### tracker.label-one
