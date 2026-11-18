@@ -356,9 +356,7 @@ describe('mutation proof: an unmapped method value is never passed through as a 
       // Mutate: remove the variants NOT_ALLOWED guard inside selectTemplate so an unrecognized
       // value silently falls through to the selector arg's OWN raw value as a literal argv
       // element appended to the base template, instead of ever throwing.
-      const needle = `    const variantMap = variants[selectorArgName];
-    const key = String(selectedValue);
-    if (!Object.prototype.hasOwnProperty.call(variantMap, key)) {
+      const needle = `    if (!Object.prototype.hasOwnProperty.call(variantMap, key)) {
       const error = new Error(
         \`\${selectorArgName}: '\${key}' is not an allowed variant (expected one of: \` +
           \`\${Object.keys(variantMap).join(', ')})\`
@@ -368,9 +366,7 @@ describe('mutation proof: an unmapped method value is never passed through as a 
     }
 
     effectiveTemplate = variantMap[key];`;
-      const replacement = `    const variantMap = variants[selectorArgName];
-    const key = String(selectedValue);
-    effectiveTemplate = Object.prototype.hasOwnProperty.call(variantMap, key)
+      const replacement = `    effectiveTemplate = Object.prototype.hasOwnProperty.call(variantMap, key)
       ? variantMap[key]
       : [...runTemplate, key];`;
       mutateAndRequire(mutantRoot.runnerPath, needle, replacement);

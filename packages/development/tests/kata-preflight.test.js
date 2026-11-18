@@ -197,6 +197,7 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     const { projectRoot, ctx } = gateProject({ bound: true });
     const before = kata.count();
     const { pre, created } = await trdFlow(ctx, 'happy', TRD_REQUIRED);
+    if (!pre.ok) throw new Error(`preflight failed: ${JSON.stringify(pre.error)}`);
     expect(pre.ok).toBe(true);
     for (const cap of TRD_REQUIRED) {
       expect(preflightReportedCapability('happy', cap, { projectRoot })).toBe(true);
@@ -266,6 +267,7 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     const { projectRoot, ctx } = gateProject({ bound: true });
     const requires = TRD_REQUIRED.filter((c) => c !== 'tracker.create');
     const pre = await cli.preflight(ctx, [], { requires, runId: 'unreported', nonInteractive: true });
+    if (!pre.ok) throw new Error(`preflight failed: ${JSON.stringify(pre.error)}`);
     expect(pre.ok).toBe(true);
     // Preflight reports every capability the kata manifest declares, so drop tracker.create from the
     // written record to model a record that did not list it.
