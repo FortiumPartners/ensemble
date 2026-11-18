@@ -24,6 +24,8 @@ metadata:
       - host.change-request-create
       - workflow.push
       - workflow.diff
+      - tracker.close-with-reason
+      - workflow.merge-base
   argument_hint: "[epic-id|slug-pattern | --epic <id>] [--max-parallel N | max parallel N] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [--label <label>] [--defer-completion] [--plan]"
   allowed_tools:
     - Read

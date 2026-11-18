@@ -17,7 +17,7 @@ This command is intentionally non-recursive: it never calls itself or any siblin
 ## Capabilities
 
 **Required:** tracker.show, tracker.set-status, tracker.close, tracker.comment, work-graph.ready, workflow.status, workflow.commit
-**Optional:** work-graph.plan, tracker.list, tracker.sync
+**Optional:** work-graph.plan, tracker.list, tracker.sync, tracker.close-with-reason, workflow.merge-base
 
 ## Workflow
 

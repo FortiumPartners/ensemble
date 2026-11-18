@@ -15,8 +15,8 @@
  * Coverage limits, stated plainly:
  *   - Close (br-jbxpe, formerly an open gap): the shared prose names tracker.close-with-reason
  *     (kata's bare tracker.close is a deliberate refusal), and it resolves to `kata close` on kata
- *     and `br close --reason` on beads. The beads-named flows keep their bare tracker.close (br
- *     close needs no reason); they are out of scope for this test's close assertions.
+ *     and `br close --reason` on beads. The beads-named flows (beads-build, beads-build-wave,
+ *     implement-bead) follow the same rule since br-t15uf; see the last describe block.
  *   - AC-011-3 is covered via the TRD-020 scaffold-plan golden plus argv assertions on the beads
  *     adapter, not by running a full implement-trd flow.
  *
@@ -393,5 +393,57 @@ describe('TRD-024-TEST: the same prose resolves to a kata capability call on a k
     expect(beads.slice(0, 2)).toEqual(['br', 'close']);
     expect(beads).toEqual(expect.arrayContaining(['--reason', args.reason]));
     expect(kata[0]).not.toBe(beads[0]);
+  });
+});
+
+// ---- 4. br-t15uf: the beads-named flows close through close-with-reason --------------------
+
+describe('br-t15uf: beads-build, beads-build-wave and implement-bead close via close-with-reason', () => {
+  const FLOWS = ['beads-build', 'beads-build-wave', 'implement-bead'];
+  const FALLBACK = 'NOT_ALLOWED: use tracker.close --arg id=<ID>';
+  const read = (f) => fs.readFileSync(path.join(PROSE_ROOT, f), 'utf8');
+  const skillFiles = (flow) => walk(path.join(PROSE_ROOT, 'skills', 'ensemble-' + flow));
+  const cmdYaml = (flow) => yaml.load(read(path.join('commands', flow + '.yaml')));
+
+  test.each(FLOWS)('%s: tracker.close stays required, close-with-reason is optional (command manifest)', (flow) => {
+    const caps = cmdYaml(flow).spec ? cmdYaml(flow).spec.capabilities : cmdYaml(flow).metadata.capabilities;
+    const c = caps || {};
+    expect(c.required).toContain('tracker.close');
+    expect(c.optional).toContain('tracker.close-with-reason');
+    expect(c.required).not.toContain('tracker.close-with-reason');
+    expect(c.required).not.toContain('workflow.merge-base');
+    expect(c.optional).toContain('workflow.merge-base');
+  });
+
+  test.each(FLOWS)('%s: every close site runs close-with-reason with reason and commit, and states the NOT_ALLOWED fallback', (flow) => {
+    const sites = [];
+    for (const f of skillFiles(flow)) {
+      for (const line of fs.readFileSync(f, 'utf8').split('\n')) {
+        if (/run tracker\.close-with-reason/.test(line)) sites.push(line);
+      }
+    }
+    expect(sites.length).toBeGreaterThanOrEqual(1);
+    for (const line of sites) {
+      expect(line).toMatch(/--arg reason=/);
+      expect(line).toMatch(/--arg commit=/);
+      expect(line).toContain(FALLBACK);
+    }
+  });
+
+  test.each(FLOWS)('%s: no bare tracker.close run; it appears only as required capability or the fallback', (flow) => {
+    for (const f of skillFiles(flow)) {
+      const text = fs
+        .readFileSync(f, 'utf8')
+        .split('use tracker.close --arg id=<ID>').join('')
+        .split('--require tracker.close ').join('')
+        .replace(/\*\*Required:\*\*[^\n]*/g, '');
+      expect(text).not.toMatch(/tracker\.close(?![\w-])/);
+    }
+  });
+
+  test.each(FLOWS)('%s: skill Required line keeps tracker.close, Optional line lists close-with-reason', (flow) => {
+    const text = read(path.join('skills', 'ensemble-' + flow, 'SKILL.md'));
+    expect(text).toMatch(/\*\*Required:\*\*[^\n]*tracker\.close(,|\n)/);
+    expect(text).toMatch(/\*\*Optional:\*\*[^\n]*tracker\.close-with-reason/);
   });
 });

@@ -21,6 +21,8 @@ metadata:
       - workflow.push
     optional:
       - tracker.sync
+      - tracker.close-with-reason
+      - workflow.merge-base
   allowed_tools:
     - Read
     - Write

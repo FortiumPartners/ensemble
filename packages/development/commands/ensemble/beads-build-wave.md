@@ -7,7 +7,7 @@ category: "implementation"
 last-updated: "2026-10-23"
 allowed-tools: "Read, Write, Edit, Bash, Grep, Glob, Task"
 capabilities-required: "tracker.show, tracker.set-status, tracker.close, tracker.comment, work-graph.ready, workflow.status, workflow.commit"
-capabilities-optional: "work-graph.plan, tracker.list, tracker.sync"
+capabilities-optional: "work-graph.plan, tracker.list, tracker.sync, tracker.close-with-reason, workflow.merge-base"
 argument-hint: "--epic <id> [--max-parallel N] [--trd trd-path] [--strategy tdd|characterization|bug-fix|refactor|test-after|flexible] [--label <label>] [--team-roles <json>] [--foreman]"
 model: "sonnet"
 ---

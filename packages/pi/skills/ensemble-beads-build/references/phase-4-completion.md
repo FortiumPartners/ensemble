@@ -7,7 +7,7 @@ Close the root epic when all children are done (skipped when DEFER_COMPLETION=tr
 
 - If DEFER_COMPLETION=true: print "Epic closure: deferred to caller (--defer-completion)" and skip this step entirely; the caller closes the epic only after its own completion verification and PR gate.
 - Verify: node "$TOOLCHAIN_CLI" run tracker.list (issue list per Preflight step 4's tracker.list note), filtered to status=="open" AND (LABEL when set, else EPIC_SLUG), returns no open tasks
-- Run: node "$TOOLCHAIN_CLI" run tracker.close --arg id=<ROOT_EPIC_ID>
+- Run: node "$TOOLCHAIN_CLI" run tracker.close-with-reason --arg id=<ROOT_EPIC_ID> --arg reason="<>=40-char reason>" --arg commit=<HEAD_SHA> (HEAD_SHA per quality gate) (NOT_ALLOWED: use tracker.close --arg id=<ID>; also without HEAD_SHA)
 - Run: node "$TOOLCHAIN_CLI" run tracker.sync
 
 #### Step 4.2: TRD Checkbox Sync

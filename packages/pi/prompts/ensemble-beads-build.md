@@ -2,7 +2,7 @@
 <!-- Command: ensemble-beads-build | Version: 1.4.0 -->
 <!-- Skill: ensemble-beads-build -->
 <!-- Description: Drive an existing bead hierarchy to completion through the full builder, code-review, and close pipeline -->
-<!-- Capabilities: required=[tracker.show, tracker.list, tracker.comment, tracker.close, work-graph.ready, workflow.status, workflow.remote-url, workflow.commit], optional=[work-graph.plan, tracker.comments, tracker.sync, host.change-request-create, workflow.push, workflow.diff] -->
+<!-- Capabilities: required=[tracker.show, tracker.list, tracker.comment, tracker.close, work-graph.ready, workflow.status, workflow.remote-url, workflow.commit], optional=[work-graph.plan, tracker.comments, tracker.sync, host.change-request-create, workflow.push, workflow.diff, tracker.close-with-reason, workflow.merge-base] -->
 
 # ensemble-beads-build
 

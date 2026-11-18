@@ -2,7 +2,7 @@
 <!-- Command: ensemble-implement-bead | Version: 2.3.0 -->
 <!-- Skill: ensemble-implement-bead -->
 <!-- Description: Implement one bead by ID on a feature branch using the same branching and commit policy as beads-build and implement-trd-tasks, opening its change request through the configured host adapter -->
-<!-- Capabilities: required=[tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push], optional=[tracker.sync] -->
+<!-- Capabilities: required=[tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push], optional=[tracker.sync, tracker.close-with-reason, workflow.merge-base] -->
 
 # ensemble-implement-bead
 

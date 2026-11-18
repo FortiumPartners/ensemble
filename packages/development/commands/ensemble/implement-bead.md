@@ -6,7 +6,7 @@ category: "implementation"
 last-updated: "2026-10-23"
 allowed-tools: "Read, Write, Edit, Bash, Grep, Glob, Task"
 capabilities-required: "tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push"
-capabilities-optional: "tracker.sync"
+capabilities-optional: "tracker.sync, tracker.close-with-reason, workflow.merge-base"
 argument-hint: "<bead-id> [--foreman]"
 model: "sonnet"
 ---

@@ -29,7 +29,7 @@ committed.
 ## Capabilities
 
 **Required:** tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push
-**Optional:** tracker.sync
+**Optional:** tracker.sync, tracker.close-with-reason, workflow.merge-base
 
 ## Workflow
 
