@@ -3,7 +3,8 @@
 /**
  * TRD-011-TEST -- verify reason and evidence on close, and refusal without them
  * (TRD-2026-6995dc96 TRD-011-TEST; PRD REQ-003 AC-003-1, AC-003-2, AC-003-3).
- * The same file also carries TRD-009-TEST (create/update round-trip) and TRD-013-TEST (blocking
+ * The same file also carries TRD-010-TEST (dedupe lookup returns exactly the matching item,
+ * PRD REQ-002 AC-002-1..3), TRD-009-TEST (create/update round-trip) and TRD-013-TEST (blocking
  * edges remove and restore readiness, PRD REQ-005 AC-005-1..3) as separate real-kata describes.
  *
  * Unlike tests/kata-close-evidence.test.js (a recording stub that proves the adapter's argv),
@@ -360,4 +361,85 @@ guardKata('TRD-013-TEST blocking edges remove and restore readiness (real kata)'
     },
     60000
   );
+});
+
+/**
+ * TRD-010-TEST -- dedupe lookup returns exactly the matching item (PRD REQ-002 AC-002-1..3).
+ * Drives tracker.create-detailed then tracker.find-by-key against a REAL kata and asserts the
+ * lookup result only (`data.items`); list-schema validity is TRD-033-TEST's concern.
+ * `KATA_WRITES_MANIFEST` may point at a mutated copy of the manifest for a RED demonstration.
+ */
+const DEDUPE_PARENT = path.join(os.homedir(), '.omp', 'br-hltiu', 'jest');
+
+guardKata('TRD-010-TEST dedupe lookup returns exactly the matching item (real kata)', () => {
+  let ws;
+  let opts;
+  const run = `${process.pid}-${Date.now()}`;
+  let seq = 0;
+  const uniqueKey = (label) => `TRD010-${label}-${run}-${seq++}`;
+
+  beforeAll(() => {
+    fs.mkdirSync(DEDUPE_PARENT, { recursive: true });
+    ws = kataScratch({ root: DEDUPE_PARENT });
+    ws.init();
+    expect(ws.errors).toEqual([]);
+    opts = { parentEnv: { ...ws.env }, execFileOptions: { cwd: ws.workspace } };
+  }, 60000);
+
+  afterAll(() => {
+    if (ws) ws.cleanup();
+  });
+
+  async function createKeyed(title, key) {
+    const res = await runCapability(
+      MANIFEST,
+      'tracker.create-detailed',
+      { title, description: `body of ${title}`, priority: 2, externalKey: key },
+      opts
+    );
+    expect(res.ok).toBe(true);
+    expect(res.data.id).toBeTruthy();
+    return res.data.id;
+  }
+
+  const find = (key) => runCapability(MANIFEST, 'tracker.find-by-key', { key }, opts);
+
+  test('AC-002-1: lookup of key K returns the single item created with K and no other', async () => {
+    const decoyId = await createKeyed('decoy item', uniqueKey('decoy'));
+    const key = uniqueKey('happy');
+    const id = await createKeyed('keyed item', key);
+    const other = await createKeyed('later decoy', uniqueKey('decoy2'));
+
+    const res = await find(key);
+    expect(res.ok).toBe(true);
+    expect(res.data.items).toHaveLength(1);
+    expect(res.data.items[0].id).toBe(id);
+    const ids = res.data.items.map((i) => i.id);
+    expect(ids).not.toContain(decoyId);
+    expect(ids).not.toContain(other);
+  }, 60000);
+
+  test('AC-002-2: a key matching nothing yields an empty list, not an error', async () => {
+    await createKeyed('present item', uniqueKey('present'));
+    const res = await find(uniqueKey('absent'));
+    expect(res.ok).toBe(true);
+    expect(Array.isArray(res.data.items)).toBe(true);
+    expect(res.data.items).toEqual([]);
+  }, 60000);
+
+  test('AC-002-3: with keys K1 and K2, each lookup returns only its own item', async () => {
+    const k1 = uniqueKey('k1');
+    const k2 = uniqueKey('k2');
+    const id1 = await createKeyed('first keyed', k1);
+    const id2 = await createKeyed('second keyed', k2);
+    expect(id1).not.toBe(id2);
+
+    const r1 = await find(k1);
+    expect(r1.ok).toBe(true);
+    expect(r1.data.items.map((i) => i.id)).toEqual([id1]);
+
+    const r2 = await find(k2);
+    expect(r2.ok).toBe(true);
+    expect(r2.data.items.map((i) => i.id)).toEqual([id2]);
+  }, 60000);
 });
