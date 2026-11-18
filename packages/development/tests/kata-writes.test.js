@@ -5,7 +5,8 @@
  * (TRD-2026-6995dc96 TRD-011-TEST; PRD REQ-003 AC-003-1, AC-003-2, AC-003-3).
  * The same file also carries TRD-010-TEST (dedupe lookup returns exactly the matching item,
  * PRD REQ-002 AC-002-1..3), TRD-009-TEST (create/update round-trip) and TRD-013-TEST (blocking
- * edges remove and restore readiness, PRD REQ-005 AC-005-1..3) as separate real-kata describes.
+ * edges remove and restore readiness, PRD REQ-005 AC-005-1..3) and TRD-012-TEST (label sweeps and
+ * the ownership-derived in-progress state, PRD REQ-004 AC-004-1..3) as separate real-kata describes.
  *
  * Unlike tests/kata-close-evidence.test.js (a recording stub that proves the adapter's argv),
  * this suite drives the shipped adapter manifest through the runner against a REAL kata, in an
@@ -441,5 +442,110 @@ guardKata('TRD-010-TEST dedupe lookup returns exactly the matching item (real ka
     const r2 = await find(k2);
     expect(r2.ok).toBe(true);
     expect(r2.data.items.map((i) => i.id)).toEqual([id2]);
+  }, 60000);
+});
+
+/**
+ * TRD-012-TEST -- label sweeps and the ownership-derived in-progress state
+ * (TRD-2026-6995dc96 TRD-012-TEST; PRD REQ-004 AC-004-1, AC-004-2, amended AC-004-3).
+ *
+ *  - Happy: tracker.label-one applied to each of three same-prefix ids -> each reads back labelled.
+ *  - Edge:  set-status in_progress -> owned and open (owner reported); set-status open drops the claim.
+ *  - Edge:  set-status closed with no reason/evidence -> refused (INVALID_ARG), item stays open.
+ * The `owner` field's presence in the normalized shape is asserted by TRD-034-TEST; this reads it.
+ * `KATA_WRITES_MANIFEST` may point at a mutated copy of the manifest for a RED demonstration.
+ */
+const LABEL_PARENT = path.join(os.homedir(), '.omp', 'br-mnhr2', 'jest');
+
+guardKata('TRD-012-TEST label sweeps and ownership-derived in-progress (real kata)', () => {
+  let ws;
+  let opts;
+
+  beforeAll(() => {
+    fs.mkdirSync(LABEL_PARENT, { recursive: true });
+    ws = kataScratch({ root: LABEL_PARENT });
+    ws.init();
+    expect(ws.errors).toEqual([]);
+    opts = { parentEnv: { ...ws.env }, execFileOptions: { cwd: ws.workspace } };
+  }, 60000);
+
+  afterAll(() => {
+    if (ws) ws.cleanup();
+  });
+
+  function createItem(title) {
+    const res = ws.runInWorkspace(['create', title, '--json']);
+    const id = parseJson(res.stdout)?.issue?.short_id;
+    expect(id).toBeTruthy();
+    return id;
+  }
+
+  const readIssue = (id) => parseJson(ws.runInWorkspace(['show', id, '--json']).stdout).issue;
+
+  test('AC-004-1: a label applied to each of three same-prefix ids reads back on each, not on a decoy', async () => {
+    const label = 'sweep-trd012';
+    const ids = ['one', 'two', 'three'].map((n) => createItem(`sweep batch ${n}`));
+    const decoy = createItem('unrelated decoy');
+
+    for (const id of ids) {
+      const res = await runCapability(MANIFEST, 'tracker.label-one', { id, label }, opts);
+      expect(res.ok).toBe(true);
+    }
+
+    for (const id of ids) {
+      expect(readIssue(id).labels).toContain(label);
+      const shown = await runCapability(MANIFEST, 'tracker.show', { id }, opts);
+      expect(shown.ok).toBe(true);
+      expect(shown.data.labels).toContain(label);
+    }
+    expect(readIssue(decoy).labels || []).not.toContain(label);
+    const decoyShown = await runCapability(MANIFEST, 'tracker.show', { id: decoy }, opts);
+    expect(decoyShown.data.labels).not.toContain(label);
+  }, 90000);
+
+  test('AC-004-2: set-status in_progress on an open unowned item -> owned and open, owner reported', async () => {
+    const id = createItem('claim me');
+    expect(readIssue(id).owner || '').toBe('');
+
+    const res = await runCapability(MANIFEST, 'tracker.set-status', { id, status: 'in_progress' }, opts);
+    expect(res.ok).toBe(true);
+    expect(typeof res.data.owner).toBe('string');
+    expect(res.data.owner).not.toBe('');
+    expect(res.data.status).toBe('in_progress');
+
+    const issue = readIssue(id);
+    expect(issue.status).toBe('open');
+    expect(issue.owner).toBeTruthy();
+    expect(issue.owner).toBe(res.data.owner);
+
+    const shown = await runCapability(MANIFEST, 'tracker.show', { id }, opts);
+    expect(shown.ok).toBe(true);
+    expect(shown.data.owner).toBe(res.data.owner);
+    expect(shown.data.status).toBe('in_progress');
+  }, 60000);
+
+  test('AC-004-2: set-status open drops the claim -> open and unowned', async () => {
+    const id = createItem('claim then drop');
+    const claimed = await runCapability(MANIFEST, 'tracker.set-status', { id, status: 'in_progress' }, opts);
+    expect(claimed.ok).toBe(true);
+    expect(readIssue(id).owner).toBeTruthy();
+
+    const res = await runCapability(MANIFEST, 'tracker.set-status', { id, status: 'open' }, opts);
+    expect(res.ok).toBe(true);
+
+    const issue = readIssue(id);
+    expect(issue.status).toBe('open');
+    expect(issue.owner || '').toBe('');
+    const shown = await runCapability(MANIFEST, 'tracker.show', { id }, opts);
+    expect(shown.data.status).toBe('open');
+  }, 60000);
+
+  test('AC-004-3: set-status closed with no reason or evidence is refused, the item stays open', async () => {
+    const id = createItem('close via status');
+    const res = await runCapability(MANIFEST, 'tracker.set-status', { id, status: 'closed' }, opts);
+    expect(res.ok).toBe(false);
+    expect(res.error.code).toBe('INVALID_ARG');
+
+    expect(readIssue(id).status).toBe('open');
   }, 60000);
 });
