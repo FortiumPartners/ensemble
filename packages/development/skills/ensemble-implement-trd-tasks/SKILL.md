@@ -8,7 +8,7 @@ metadata:
 ---
 
 Parse a TRD, scaffold a beads hierarchy (epic -> stories -> tasks), delegate
-execution to /ensemble:beads-build, then run quality gates, PR review, completion verification and epic closure. State lives in the tracker; runs resume. This command owns closure: beads-build always runs
+execution to /ensemble:beads-build, then run quality gates, PR review, completion verification, epic closure. State lives in the tracker; runs resume. This command owns closure: beads-build always runs
 with --defer-completion.
 
 Rules:
@@ -16,12 +16,12 @@ Rules:
 - Scheduling is delegated to beads-build (work-graph.ready (graph-aware parallel tracks when the adapter exposes dependency links) or plan order when that is unavailable).
 - Every `node "$TOOLCHAIN_CLI"` `run`/`confirm-*` call carries `--run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json` even where not spelled out.
 - Never stage broadly (no blanket, directory or auto-staging commit). Stage beads only via `node "$TRD_CLI" beads-stage --match "[trd:<TRD_SLUG>"`; every commit is `node "$TOOLCHAIN_CLI" run workflow.commit --arg message="<message>"`.
-- PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md; pr-review-cycle reads it.
+- PR_REVIEW_SKILL = packages/development/skills/pr-review-cycle/SKILL.md (via tool-path-resolution); pr-review-cycle calls read it.
 - FULL_TEST_COMMAND = `node "$TOOLCHAIN_CLI" run package-runner.run-script --arg script=test --run-id "$RUN_ID" $NON_INTERACTIVE_ARGS --json`: the Pre-PR test gate (non-ok or non-zero fails) and the pr-review-cycle TEST_COMMAND.
 - In every `tracker.list` result the issue list is `data` parsed as JSON if an array, else its `.issues` array.
 - Scaffold goes only to @beads-scaffold-specialist (never backend-developer); no product code is written.
-- Kata (0.23.0+, `.kata.toml`): `implement-trd-tasks-reference/reference/kata-starting-point.md`.
-- Branch intent, PR creation, workstream mode, resume/recovery detail: `implement-trd-tasks-reference` skill; read only the section a step points at.
+- Kata (0.23.0+): `implement-trd-tasks-reference/reference/kata-starting-point.md`.
+- Branch intent, PR creation, workstream mode, resume/recovery detail: `implement-trd-tasks-reference` skill; read the section a step names.
 
 Terminal states: HALT (error printed, nothing runs), EXIT (early exit done), COMPLETE (epic closed, reported).
 
