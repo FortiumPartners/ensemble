@@ -912,6 +912,19 @@ function killVerifiedPidsSafe(identities, listProcessTableFn = listProcessTable)
  */
 function lookupCapability(adapter, adapterId, capability, opts) {
   const cap = adapter && adapter.capabilities && adapter.capabilities[capability];
+  if (cap && cap.module && !cap.run) {
+    return {
+      envelope: {
+        ok: false,
+        error: {
+          code: 'NOT_ALLOWED',
+          message:
+            `capability '${capability}' of adapter '${adapterId}' is an in-process module ` +
+            `capability and cannot run through the argv runner; dispatch it via the work-graph resolver`
+        }
+      }
+    };
+  }
   if (cap) return { cap };
 
   const declared = resolve.lookupContractCapability(capability, opts.categoriesDir);

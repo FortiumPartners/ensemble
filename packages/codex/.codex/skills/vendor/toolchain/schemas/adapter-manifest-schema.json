@@ -172,8 +172,18 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["run"],
+        "oneOf": [{ "required": ["run"] }, { "required": ["module"] }],
         "properties": {
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "description": "In-process alternative to 'run' (TRD-2026-6995dc96 TRD-016): a JS file path RELATIVE to the adapter's own directory, loaded in-process by the work-graph dispatcher only after realpath confinement to that directory. Not executable through the argv runner."
+          },
+          "export": {
+            "type": "string",
+            "default": "run",
+            "description": "Name of the function exported by 'module' (default 'run'); called as fn(capability, args, ctx)."
+          },
           "run": {
             "type": "array",
             "minItems": 1,

@@ -239,8 +239,10 @@ const {
   recordConfirmation,
   isNonInteractive
 } = require('./toolchain/confirm');
-const { resolveWorkGraphAdapter } = require('./toolchain/work-graph-resolve');
-const { runWorkGraphCapability } = require('./toolchain/builtin/work-graph-links-fallback');
+const {
+  resolveWorkGraphAdapter,
+  dispatchWorkGraphCapability
+} = require('./toolchain/work-graph-resolve');
 const { assertKnownAdapter } = require('./toolchain/resolve-guard');
 const runTrace = require('./run-trace');
 
@@ -476,7 +478,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
   let adapterId;
   let source;
   let loaded;
-  let workGraphTrackerManifest = null;
+  let resolvedWorkGraph = null;
   if (category === 'work-graph') {
     let resolved;
     try {
@@ -487,9 +489,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
     adapterId = resolved.value;
     source = resolved.source;
     loaded = { origin: resolved.origin, dir: resolved.dir, manifest: resolved.manifest };
-    if (resolved.autoVia === 'builtin-fallback') {
-      workGraphTrackerManifest = resolved.trackerManifest;
-    }
+    resolvedWorkGraph = resolved;
   } else {
     try {
       const resolvedCategory = resolveCategory(category, ctx);
@@ -564,11 +564,8 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
   }
 
   const projectRoot = ctx.projectRoot || process.cwd();
-  const result = workGraphTrackerManifest
-    ? await runWorkGraphCapability(capability, workGraphTrackerManifest, args, {
-        source,
-        execOpts: { execFileOptions: { cwd: projectRoot } }
-      })
+  const result = resolvedWorkGraph
+    ? await dispatchWorkGraphCapability(resolvedWorkGraph, capability, args, { source, cwd: projectRoot })
     : await runCapability(loaded.manifest, capability, args, {
         source,
         execFileOptions: { cwd: projectRoot }

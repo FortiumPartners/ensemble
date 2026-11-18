@@ -1646,9 +1646,9 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
       const mutantRoot = makeMutantToolchainRoot();
       try {
         const needle =
-          "  let workGraphTrackerManifest = null;\n" + "  if (category === 'work-graph') {";
+          "  let resolvedWorkGraph = null;\n" + "  if (category === 'work-graph') {";
         const replacement =
-          "  let workGraphTrackerManifest = null;\n" + "  if (false && category === 'work-graph') {";
+          "  let resolvedWorkGraph = null;\n" + "  if (false && category === 'work-graph') {";
         const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
 
         const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-wg-mutant-'));

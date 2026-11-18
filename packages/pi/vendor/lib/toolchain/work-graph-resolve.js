@@ -27,9 +27,12 @@
 
 const { resolveCategory } = require('./config');
 const { loadAdapter } = require('./adapters');
+const { runCapability } = require('./runner');
+const { confineModulePath } = require('./adapter-module');
 const {
   ADAPTER_ID: BUILTIN_WORK_GRAPH_ADAPTER_ID,
-  loadBuiltinWorkGraphAdapter
+  loadBuiltinWorkGraphAdapter,
+  runWorkGraphCapability
 } = require('./builtin/work-graph-links-fallback');
 
 /**
@@ -101,4 +104,54 @@ function resolveWorkGraphAdapter(ctx = {}) {
   };
 }
 
-module.exports = { resolveWorkGraphAdapter };
+/**
+ * The single resolver-owned dispatch for every work-graph capability call (TRD-016).
+ *
+ * 1. A capability declaring `module` is loaded in-process, only from inside the adapter's own
+ *    directory (confined before require()).
+ * 2. `builtin-fallback` routes to the builtin links analyzer with the tracker manifest.
+ * 3. Otherwise the declarative argv runner (`runCapability`) runs it, unchanged.
+ *
+ * @param {object} resolved result of resolveWorkGraphAdapter
+ * @param {string} capability
+ * @param {object} args
+ * @param {{source?: string, cwd?: string, runCapabilityImpl?: Function, runBuiltinImpl?: Function}} [opts]
+ */
+async function dispatchWorkGraphCapability(resolved, capability, args, opts = {}) {
+  const manifest = resolved && resolved.manifest;
+  const cap = manifest && manifest.capabilities && manifest.capabilities[capability];
+
+  if (cap && cap.module && !cap.run) {
+    const confined = confineModulePath(resolved.dir, cap.module);
+    if (!confined.ok) return confined;
+    const exportName = cap.export || 'run';
+    try {
+      // eslint-disable-next-line global-require, import/no-dynamic-require
+      const mod = require(confined.file);
+      const fn = mod && mod[exportName];
+      if (typeof fn !== 'function') {
+        return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' does not export a function '${exportName}'` } };
+      }
+      const result = await fn(capability, args, { source: opts.source, manifest, dir: resolved.dir, cwd: opts.cwd });
+      if (!result || typeof result !== 'object') {
+        return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' returned a non-object result` } };
+      }
+      return result;
+    } catch (error) {
+      return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' failed: ${error && error.message ? error.message : error}` } };
+    }
+  }
+
+  if (resolved.autoVia === 'builtin-fallback') {
+    const runBuiltin = opts.runBuiltinImpl || runWorkGraphCapability;
+    return runBuiltin(capability, resolved.trackerManifest, args, {
+      source: opts.source,
+      execOpts: { execFileOptions: { cwd: opts.cwd } }
+    });
+  }
+
+  const run = opts.runCapabilityImpl || runCapability;
+  return run(manifest, capability, args, { source: opts.source, execFileOptions: { cwd: opts.cwd } });
+}
+
+module.exports = { resolveWorkGraphAdapter, dispatchWorkGraphCapability };
