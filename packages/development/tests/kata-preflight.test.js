@@ -215,10 +215,10 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
     expect(calls.some((c) => c.startsWith('list '))).toBe(true);
     expect(calls.some((c) => c.startsWith('comment k-1'))).toBe(true);
     // TRD-011: a bare close is refused INVALID_ARG (naming tracker.close-with-reason), never a silent close.
-    // The flow now requires tracker.close-with-reason (br-jbxpe), not bare tracker.close; the bare
-    // refusal is checked under its own preflight run that reports tracker.close.
-    expect(TRD_REQUIRED).toContain('tracker.close-with-reason');
-    expect(TRD_REQUIRED).not.toContain('tracker.close');
+    // The flow requires bare tracker.close (br-t15uf decision, f0ba84c3); tracker.close-with-reason is
+    // optional with a NOT_ALLOWED fallback. The bare refusal is checked under its own preflight run.
+    expect(TRD_REQUIRED).toContain('tracker.close');
+    expect(TRD_REQUIRED).not.toContain('tracker.close-with-reason');
     const barePre = await cli.preflight(ctx, [], { requires: ['tracker.close'], runId: 'happy-bare', nonInteractive: true });
     expect(barePre.ok).toBe(true);
     const bare = await cli.run(ctx, ['tracker.close'], { runId: 'happy-bare', nonInteractive: true, args: { id: 'k-1' } });
