@@ -12,7 +12,7 @@ metadata:
       - tracker.list
       - tracker.create
       - tracker.comment
-      - tracker.close
+      - tracker.close-with-reason
       - test-runner.run
       - package-runner.run-script
       - workflow.commit

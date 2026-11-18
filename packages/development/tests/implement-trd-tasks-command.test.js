@@ -330,7 +330,7 @@ describe('implement-trd-tasks completion', () => {
   });
 
   test('closes the root epic and syncs after verification', () => {
-    expect(actions('Completion', 'Epic closure and TRD checkboxes')).toContain('node "$TOOLCHAIN_CLI" run tracker.close --arg id=<ROOT_EPIC_ID>');
+    expect(actions('Completion', 'Epic closure and TRD checkboxes')).toContain('node "$TOOLCHAIN_CLI" run tracker.close-with-reason --arg id=<ROOT_EPIC_ID>');
   });
 });
 

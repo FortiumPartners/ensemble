@@ -41,7 +41,7 @@ Verify git-town is installed and the working directory is clean; resolve branchi
 - Set BRANCHING_STRATEGY=RESOLVE_SDLC_RESULT.branchingStrategy.strategy. Both BRANCHING_STRATEGY and PR_BACKEND are re-resolved fresh on every invocation, including resumed epics, and are read by later Preflight/Execute/Quality-Gate/Completion steps in this file — never cached across sessions.
 - If RESOLVE_SDLC_RESULT.consolidatedMessage is non-null: print it. If it is null (the pure-default case — git-town configured and remote is GitHub): print nothing new at all, matching today's exact output for existing git-town+GitHub users.
 - This command never creates or switches branches (the caller or user owns that), so it issues no branching-tool command under any BRANCHING_STRATEGY.
-- Run: node "$TOOLCHAIN_CLI" run workflow.status and capture its changed-path list (data.files) minus every path under .beads/ as WORKTREE_STATUS. Do NOT decide on it here: the clean-tree gate runs in Epic Discovery (Preflight step 4), because a dirty tree is only a fault on a fresh run, not a resume. .beads/ is tracker-owned state (see docs/guides/beads-tracked-export.md).
+- Run: node "$TOOLCHAIN_CLI" run workflow.status and capture its changed-path list (data.files) minus every beads-only .beads/ path as WORKTREE_STATUS. Do NOT decide on it here: the clean-tree gate runs in Epic Discovery (Preflight step 4), because a dirty tree is only a fault on a fresh run, not a resume. .beads/ is tracker-owned state (see docs/guides/beads-tracked-export.md).
 
 #### Step 1.4: Epic Discovery
 
@@ -60,7 +60,7 @@ Locate the root epic bead using the provided ID or slug pattern, detect cross-se
 - Resolve LABEL: if LABEL is unset, run node "$TOOLCHAIN_CLI" run tracker.show --arg id=<ROOT_EPIC_ID> and, if its .data.labels has exactly one entry, set LABEL to it. Otherwise leave LABEL unset: scoping then falls back to the EPIC_SLUG title match, as before.
 - If LABEL is set and the root epic title starts with [trd:<slug>] (a TRD-generated epic): backfill with node "$TRD_CLI" beads-label --label "<LABEL>" --match "[trd:<slug>" (TRD_CLI is resolved in Preflight step 3). If it fails, print the error and HALT. This labels beads scaffolded before labels existed and is a no-op otherwise.
 - If LABEL is set: run node "$TOOLCHAIN_CLI" run tracker.list; LABEL_IDS = .id of entries (tracker.list note) whose .labels contains LABEL. Empty LABEL_IDS -> print "ERROR: no bead carries label <LABEL>; the scheduler would otherwise schedule the whole repo." and HALT.
-- Resolve STAGE_SCOPE (what to stage from a tracked .beads/issues.jsonl; see docs/guides/beads-tracked-export.md): if the root epic title starts with [trd:<slug>], STAGE_SCOPE=--match "[trd:<slug>"; otherwise, if LABEL is set, STAGE_SCOPE=--label <LABEL>; otherwise leave it unset and skip the beads-stage step wherever it appears below.
+- Resolve STAGE_SCOPE (what to stage from a beads-only .beads/issues.jsonl; see docs/guides/beads-tracked-export.md): if the root epic title starts with [trd:<slug>], STAGE_SCOPE=--match "[trd:<slug>"; otherwise, if LABEL is set, STAGE_SCOPE=--label <LABEL>; otherwise leave it unset and skip the beads-stage step wherever it appears below.
 
 #### Step 1.5: TRD Augmentation Setup
 

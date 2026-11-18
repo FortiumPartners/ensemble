@@ -40,5 +40,5 @@ Handle toolchain-cli capability-call failures during execution
 
 - After any toolchain-cli run call: if the envelope is {ok:false} AND prior toolchain-cli calls in this session succeeded -> possible adapter failure
 - Print error message with the capability that failed and its error.code/error.message (and the failure-<runId>.json path the runner writes on failure after side effects)
-- Print: check the resolved tracker adapter's health (node "$TOOLCHAIN_CLI" preflight --require tracker.show --json) and .beads/ directory integrity
+- Print: check the resolved tracker adapter's health (node "$TOOLCHAIN_CLI" preflight --require tracker.show --json) and beads-only .beads/ integrity
 - PAUSE for user decision (resume with /ensemble:beads-build <ROOT_EPIC_ID> after issue resolved)

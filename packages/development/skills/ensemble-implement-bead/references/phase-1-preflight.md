@@ -10,6 +10,6 @@
 
 #### Step 1.2: Branch and Working Tree
 
-- Run: node "$TOOLCHAIN_CLI" run workflow.status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present]; data.files lists the changed paths. Ignore every path under .beads/ (tracker-owned state). Any remaining path -> print the paths and HALT (commit, stash or revert first).
+- Run: node "$TOOLCHAIN_CLI" run workflow.status --run-id "$RUN_ID" --json [add --non-interactive when --foreman is present]; data.files lists the changed paths. Ignore every path under .beads/ (beads-only). Any remaining path -> print the paths and HALT (commit, stash or revert first).
 - CURRENT_BRANCH = the current branch name (detached HEAD -> HALT). DEFAULT_BRANCH = the remote's default branch (origin HEAD) without the origin/ prefix, else main.
 - If CURRENT_BRANCH == DEFAULT_BRANCH: BRANCH_NAME = bead/<BEAD_ID>-<kebab-case BEAD_TITLE, non-alphanumerics to hyphens>. If it already exists, switch to it. Otherwise run: node "$TOOLCHAIN_CLI" run workflow.branch-create --run-id "$RUN_ID" --arg name=<BRANCH_NAME> --arg baseBranch=<DEFAULT_BRANCH> --json [add --non-interactive when --foreman is present] (resolves to the configured workflow adapter, plain-git or git-town, internally; ok:false -> print the error and HALT). Otherwise stay on CURRENT_BRANCH.

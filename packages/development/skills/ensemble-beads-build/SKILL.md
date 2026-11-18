@@ -34,7 +34,7 @@ Key behaviors:
 - The parent loop body is mechanical: read count, dispatch wave-runner, read
   JSON summary, repeat. No narrative reasoning happens between iterations.
 - Quality gates: phase completion triggers test delegation; results recorded via tracker.comment
-- Sync: tracker.sync before work-graph.ready (optional, skips {ok:false}). Never read .beads/*.jsonl to schedule.
+- Sync: tracker.sync before work-graph.ready (optional, skips {ok:false}). Never read beads-only .beads/*.jsonl to schedule.
 - TRD mode: optional --trd flag enables traceability tokens, checkbox sync, requirement report
 
 ## Capabilities

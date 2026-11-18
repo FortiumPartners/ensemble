@@ -13,11 +13,10 @@
  *      the text, two different argv[0]. Pure argv resolution; no kata binary.
  *
  * Coverage limits, stated plainly:
- *   - AC-011-2 is only PARTIALLY covered for close. The shared prose says
- *     `run tracker.close --arg id=<..> (no reason arg)`, but kata's tracker.close is a deliberate
- *     refusal (INVALID_ARG naming tracker.close-with-reason). That is an OPEN GAP, tracked by
- *     follow-up bead br-jbxpe, and is pinned by a known-gap test below that fails once the prose
- *     is fixed. tracker.close-with-reason -> `kata close` is only supporting evidence.
+ *   - Close (br-jbxpe, formerly an open gap): the shared prose names tracker.close-with-reason
+ *     (kata's bare tracker.close is a deliberate refusal), and it resolves to `kata close` on kata
+ *     and `br close --reason` on beads. The beads-named flows keep their bare tracker.close (br
+ *     close needs no reason); they are out of scope for this test's close assertions.
  *   - AC-011-3 is covered via the TRD-020 scaffold-plan golden plus argv assertions on the beads
  *     adapter, not by running a full implement-trd flow.
  *
@@ -156,21 +155,10 @@ function scanProse(content) {
 
 // ---- 1. AC-011-1 ---------------------------------------------------------------------------
 
-// Recorded leaks, tracked by follow-up bead br-jbxpe; NOT widened scope. Exit condition: shrink
-// these ledgers as the prose is fixed (a fixed leak fails the test until its entry is removed).
-const KNOWN_CORE_LEAKS = ['skills/implement-trd-tasks-reference/SKILL.md:17'];
-const KNOWN_FLOW_LEAK_COUNTS = {
-  'skills/ensemble-beads-build-wave/references/phase-1-preflight.md': 1,
-  'skills/ensemble-beads-build-wave/references/phase-2-execute.md': 2,
-  'skills/ensemble-beads-build/SKILL.md': 1,
-  'skills/ensemble-beads-build/references/phase-1-preflight.md': 2,
-  'skills/ensemble-beads-build/references/phase-2-execute.md': 1,
-  'skills/ensemble-beads-build/references/phase-3-quality-gate.md': 1,
-  'skills/ensemble-beads-build/references/phase-4-completion.md': 1,
-  'skills/ensemble-implement-bead/SKILL.md': 2,
-  'skills/ensemble-implement-bead/references/phase-1-preflight.md': 1,
-  'skills/ensemble-implement-bead/references/phase-2-execute.md': 2,
-};
+// The leak ledgers (br-jbxpe) are empty: every `.beads/` / `issues.jsonl` mention in the prose set
+// is now neutral wording or carries an explicit beads-scope marker. A new leak fails the tests.
+const KNOWN_CORE_LEAKS = [];
+const KNOWN_FLOW_LEAK_COUNTS = {};
 
 describe('TRD-024-TEST: shared prose names no tracker binary or beads path outside beads scope (AC-011-1)', () => {
   const files = proseFiles(PROSE_ROOT);
@@ -245,7 +233,7 @@ describe('TRD-024-TEST: shared prose names no tracker binary or beads path outsi
     expect(bins).toEqual([]);
   });
 
-  test('the TRD-implementation command and its two skills hold no storage path outside beads scope, bar the recorded leak', () => {
+  test('the TRD-implementation command and its two skills hold no storage path outside beads scope', () => {
     const core = (f) =>
       f === 'commands/implement-trd-tasks.yaml' ||
       f.startsWith('skills/ensemble-implement-trd-tasks/') ||
@@ -256,11 +244,9 @@ describe('TRD-024-TEST: shared prose names no tracker binary or beads path outsi
     expect(found).toEqual(KNOWN_CORE_LEAKS);
   });
 
-  // The beads-named flows (beads-build, beads-build-wave, implement-bead) still name `.beads/`
-  // as the tracker adapter's own state. Their text does not say it is beads-scoped, so under
-  // this test's narrow definition each mention is a leak. The ledger pins the exact per-file
-  // count: a new leak fails, and fixing one fails until the ledger shrinks with it.
-  test('beads-named flow prose storage-path mentions do not exceed the recorded ledger', () => {
+  // The beads-named flows (beads-build, beads-build-wave, implement-bead) hold no unscoped
+  // `.beads/` mention either: the ledger is empty and any new leak fails.
+  test('beads-named flow prose holds no unscoped storage-path mention', () => {
     const counts = {};
     for (const [f, hits] of Object.entries(leaksByFile())) {
       if (f.startsWith('skills/ensemble-implement-trd-tasks/') || f.startsWith('skills/implement-trd-tasks-reference/')) continue;
@@ -344,7 +330,7 @@ describe('TRD-024-TEST: the same prose resolves to a kata capability call on a k
 
   test('the shared prose states the create, link and close instructions as capability calls', () => {
     expect(walk(refsDir).length).toBeGreaterThanOrEqual(5);
-    for (const cap of ['tracker.create', 'tracker.dep-add', 'tracker.close']) {
+    for (const cap of ['tracker.create', 'tracker.dep-add', 'tracker.close-with-reason']) {
       expect(named(cap)).toBe(true);
     }
   });
@@ -366,14 +352,22 @@ describe('TRD-024-TEST: the same prose resolves to a kata capability call on a k
     expect(kata[0]).not.toBe(beads[0]);
   });
 
-  // OPEN GAP (follow-up bead br-jbxpe): this does NOT prove close resolves to a kata call. The
-  // shared prose names tracker.close with no reason, which kata refuses. Written to FAIL once the
-  // prose names tracker.close-with-reason; at that point delete this test and replace it with a
-  // passing proof that close resolves to `kata close`, like the create and link tests above.
-  test('KNOWN GAP br-jbxpe: prose tracker.close (no reason) is refused on kata and prose lacks close-with-reason', () => {
-    expect(named('tracker.close')).toBe(true);
-    expect(/tracker\.close-with-reason/.test(proseText)).toBe(false);
+  // br-jbxpe: the shared prose closes through tracker.close-with-reason, never a bare
+  // tracker.close (which kata refuses by design).
+  test('prose names tracker.close-with-reason and no bare tracker.close; both close sites carry a commit and reason', () => {
+    expect(named('tracker.close-with-reason')).toBe(true);
+    expect(/tracker\.close(?![\w-])/.test(proseText)).toBe(false);
+    expect(/\(no reason arg\)/.test(proseText)).toBe(false);
+    for (const f of ['phase-4-quality-gate.md', 'phase-5-completion.md']) {
+      const text = fs.readFileSync(path.join(refsDir, f), 'utf8');
+      const line = text.split('\n').find((l) => /run tracker\.close-with-reason/.test(l));
+      expect(line).toBeDefined();
+      expect(line).toMatch(/--arg reason=/);
+      expect(line).toMatch(/--arg commit=/);
+    }
+  });
 
+  test('a bare tracker.close stays refused on kata (why the prose must not use it)', () => {
     let err;
     try {
       resolveArgv(KATA_MANIFEST, 'tracker.close', { id: 'A' });
@@ -385,14 +379,13 @@ describe('TRD-024-TEST: the same prose resolves to a kata capability call on a k
     expect(err.message).toMatch(/tracker\.close-with-reason/);
   });
 
-  // Supporting evidence only: the capability the prose should name does resolve to kata close.
-  test('supporting: tracker.close-with-reason resolves to kata close; beads close stays br', () => {
-    const withReason = resolveArgv(KATA_MANIFEST, 'tracker.close-with-reason', {
-      id: 'A',
-      reason: 'a substantive closing message of well over forty characters',
-      commit: 'abc1234',
-    });
-    expect(withReason.slice(0, 2)).toEqual(['kata', 'close']);
-    expect(resolveArgv(BEADS_MANIFEST, 'tracker.close', { id: 'A' })[0]).toBe('br');
+  test('close resolves to kata close on kata and br close on beads: one id, two argv[0]', () => {
+    const args = { id: 'A', reason: 'a substantive closing message of well over forty characters', commit: 'abc1234' };
+    const kata = resolveArgv(KATA_MANIFEST, 'tracker.close-with-reason', args);
+    const beads = resolveArgv(BEADS_MANIFEST, 'tracker.close-with-reason', args);
+    expect(kata.slice(0, 2)).toEqual(['kata', 'close']);
+    expect(beads.slice(0, 2)).toEqual(['br', 'close']);
+    expect(beads).toEqual(expect.arrayContaining(['--reason', args.reason]));
+    expect(kata[0]).not.toBe(beads[0]);
   });
 });

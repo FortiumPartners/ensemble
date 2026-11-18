@@ -22,5 +22,5 @@ Record quality gate outcome as a tracker comment and close story on pass
 
 - Run: node "$TOOLCHAIN_CLI" run tracker.comment --arg id=<STORY_BEAD_ID> --arg text="Quality gate result: <PASS|FAIL> | unit: <X%> | integration: <Y%> | strategy: <strategy>"
 - Run: node "$TOOLCHAIN_CLI" run tracker.sync
-- If gate_passed: node "$TOOLCHAIN_CLI" run tracker.close --arg id=<STORY_BEAD_ID>; node "$TOOLCHAIN_CLI" run tracker.sync; node "$TRD_CLI" beads-stage <STAGE_SCOPE> (stages only this epic's beads from a tracked export; skip when STAGE_SCOPE is unset; never stage the whole .beads/ directory and never commit a blanket auto-stage); then commit via node "$TOOLCHAIN_CLI" run workflow.commit --arg message="chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)"
+- If gate_passed: node "$TOOLCHAIN_CLI" run tracker.close --arg id=<STORY_BEAD_ID>; node "$TOOLCHAIN_CLI" run tracker.sync; node "$TRD_CLI" beads-stage <STAGE_SCOPE> (stages only this epic's beads from a tracked export; skip when STAGE_SCOPE is unset; never stage the whole beads-only .beads/ and never commit a blanket auto-stage); then commit via node "$TOOLCHAIN_CLI" run workflow.commit --arg message="chore(phase <N>): checkpoint (tests pass; unit <X%>, int <Y%>)"
 - If NOT gate_passed AND blocking strategy (tdd/refactor/bug-fix): print gate failure details; PAUSE for user: fix/skip/abort
