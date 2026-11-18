@@ -286,6 +286,18 @@ Each item names a PRD assertion and what shipped code or the backing tool shows.
 15. **Preflight mechanics (AC-018-2, AC-001-2).** AC-018-2 requires that no call the old version cannot serve be made, but shipped health checks run concurrently (`preflight.js:184-186`). AC-001-2 requires preflight to report the backing tool's version, but `runPreflight` returns no version (`preflight.js:196-197`). Both are new mechanics in this design, not shipped behavior.
 16. **REQ-009 count (RISK flag on REQ-009).** The flag says 1,114 occurrences of the beads-specific command name across 248 tracked files. `git grep` on this branch finds 1,200 occurrences in 249 files. Update the figure, or state its counting rule.
 
+### Implementation resolutions
+
+Decisions taken while implementing this TRD. Where one conflicts with the design text above, this section governs.
+
+- **Cycle plan (Open Question 9).** `work-graph.plan` on a graph containing a cycle returns no ordered `items`. The cycle is reported in `findings` and the plan never orders its members silently.
+- **Explicit fallback.** Selecting `work-graph: work-graph-links-fallback` explicitly on a kata project stays `NOT_INSTALLED`. The kata adapter does not serve the fallback by name.
+- **Required close (Open Questions 6 and 7).** `tracker.close` stays required. `tracker.close-with-reason` is optional, and callers that use it fall back to `tracker.close` on `NOT_ALLOWED`.
+- **Contract versions (Open Question 1).** The tracker contract stays at 1.1. The additive output declarations (`comments_truncated`, the `tracker.label` outputs and `owner`) did not bump it, and `work-graph` stays at 2.0.
+- **Declared plan and graph-health.** The kata manifest serves `work-graph.plan` and `work-graph.graph-health` through `work-graph-module.js` (`module` and `export`), not through `provider: work-graph-analyzer`.
+- **Sync and stage-export (Open Question 8).** The manifest declares `tracker.sync` and `tracker.stage-export` over `kata doctor --json`. This supersedes "Omitted: `tracker.sync`" in the capability inventory.
+- **Beads scaffold unchanged (REQ-013).** Scaffold routing for `tracker.create-detailed` and `tracker.find-by-key` is gated on the kata adapter; the beads scaffold actions and golden are verbatim.
+
 ## Master Task List
 
 Reuse rule: no task re-creates the toolchain abstraction; each task that extends shipped machinery names its file and narrow extension in Target Files and Implementation AC.
