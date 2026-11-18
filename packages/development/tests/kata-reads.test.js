@@ -13,6 +13,9 @@
  *  - Edge:  one open and one closed item, tracker.list with an open filter returns only the open one.
  *  - Edge:  more items than kata's default row cap (200), tracker.list returns count === total.
  *
+ * TRD-008-TEST (PRD REQ-008 AC-008-3) adds a second real-kata block: two comments added in order
+ * A then B come back from tracker.comments as A then B, and an item with none yields `[]` (ok).
+ *
  * Skipped with reason "tool absent" when kata is not on PATH (guardKata). `KATA_READS_MANIFEST`
  * lets a RED demonstration point at a mutated copy of the manifest instead of the shipped one.
  */
@@ -117,4 +120,50 @@ guardKata('TRD-007-TEST kata reads (real kata)', () => {
     expect(res.ok).toBe(true);
     expect(res.data.items.length).toBe(total);
   }, 280000);
+});
+
+const COMMENTS_SCRATCH_PARENT = path.join(os.homedir(), '.omp', 'br-8dvhm', 'jest');
+
+guardKata('TRD-008-TEST kata comments (real kata)', () => {
+  let ws;
+  let opts;
+
+  beforeAll(() => {
+    fs.mkdirSync(COMMENTS_SCRATCH_PARENT, { recursive: true });
+    ws = kataScratch({ root: COMMENTS_SCRATCH_PARENT });
+    ws.init();
+    expect(ws.errors).toEqual([]);
+    opts = { parentEnv: { ...ws.env }, execFileOptions: { cwd: ws.workspace } };
+  }, 60000);
+
+  afterAll(() => {
+    if (ws) ws.cleanup();
+  });
+
+  function create(title) {
+    const res = ws.runInWorkspace(['create', title, '--json']);
+    const id = parseJson(res.stdout)?.issue?.short_id;
+    expect(id).toBeTruthy();
+    return id;
+  }
+
+  test('AC-008-3: comments added A then B are listed A then B', async () => {
+    const id = create('item with two comments');
+    const a = await runCapability(MANIFEST, 'tracker.comment', { id, text: 'comment A first' }, opts);
+    expect(a.ok).toBe(true);
+    const b = await runCapability(MANIFEST, 'tracker.comment', { id, text: 'comment B second' }, opts);
+    expect(b.ok).toBe(true);
+
+    const res = await runCapability(MANIFEST, 'tracker.comments', { id }, opts);
+    expect(res.ok).toBe(true);
+    expect(Array.isArray(res.data.comments)).toBe(true);
+    expect(res.data.comments.map((c) => c.body)).toEqual(['comment A first', 'comment B second']);
+  }, 60000);
+
+  test('an item with no comments returns ok with an empty comments list', async () => {
+    const id = create('item without comments');
+    const res = await runCapability(MANIFEST, 'tracker.comments', { id }, opts);
+    expect(res.ok).toBe(true);
+    expect(res.data.comments).toEqual([]);
+  }, 60000);
 });
