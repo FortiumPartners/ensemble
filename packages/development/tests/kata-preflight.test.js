@@ -156,6 +156,11 @@ describe('kata binding gate (stub kata): zero items when unbound (TRD-004-TEST)'
       ].join('\n'),
       { mode: 0o755 }
     );
+    // The preflight runs the default test-runner adapter's real `--version` health checks for the
+    // non-kata capabilities; shim the language runtimes so the result does not depend on the host.
+    for (const runtime of ['elixir', 'ruby', 'python3']) {
+      fs.writeFileSync(path.join(dir, runtime), `#!/bin/sh\necho "${runtime} 0.0.0-shim"\n`, { mode: 0o755 });
+    }
     process.env.PATH = `${dir}${path.delimiter}${gateSavedPath}`;
     return {
       count: () => fs.readFileSync(items, 'utf8').split('\n').filter(Boolean).length,
