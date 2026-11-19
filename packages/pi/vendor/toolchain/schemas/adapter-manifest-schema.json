@@ -117,10 +117,39 @@
           "timeoutMs": {
             "type": "integer",
             "minimum": 1
+          },
+          "minVersion": {
+            "type": "string",
+            "pattern": "^\\d+(\\.\\d+){1,2}$",
+            "description": "Optional minimum tool version (dotted numeric, e.g. '0.23.0'). A check declaring it is a version probe: preflight runs it FIRST, parses the version from its stdout, fails when the reported version is older (or unparsable), and records the reported version. TRD-2026-6995dc96 TRD-003."
+          },
+          "versionPattern": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Optional regular expression with exactly one capture group extracting the version from the check's stdout. Defaults to the first dotted x.y.z (with optional -prerelease) found. Only meaningful alongside minVersion."
+          },
+          "jsonAssert": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["arrayPath", "match", "field", "allow", "failMessage"],
+            "properties": {
+              "arrayPath": { "type": "string", "minLength": 1, "description": "Top-level key of the check's JSON stdout holding an array of objects." },
+              "match": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "string" }, "description": "Key/value pairs selecting the first array element to inspect." },
+              "field": { "type": "string", "minLength": 1, "description": "Field of the selected element to test." },
+              "allow": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Values of `field` that pass; anything else (or unparsable output, or no matching element) fails closed." },
+              "failMessage": { "type": "string", "minLength": 1, "description": "Message reported verbatim on failure (the documented prerequisite)." }
+            },
+            "description": "Optional JSON assertion on the check's stdout. TRD-2026-6995dc96 TRD-004 (kata binding gate)."
           }
         }
       },
       "description": "Health checks preflight runs before any side-effecting capability (10s default elsewhere, per-adapter override here)."
+    },
+    "exitCodeNames": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[1-9][0-9]{0,2}$" },
+      "additionalProperties": { "type": "string", "minLength": 1 },
+      "description": "Optional map of the tool's non-zero exit codes to names (TRD-2026-6995dc96 TRD-029, PRD AC-017-2). A failing capability whose exit code is listed resolves TOOL_FAILED with 'exit <n> (<name>)' in the message and exitCode/exitName on the error, ahead of the tool's own stderr or stdout error envelope. Unlisted codes and adapters without this key behave exactly as before. Never makes any exit code a success."
     },
     "detect": {
       "type": "array",
@@ -137,14 +166,38 @@
       },
       "description": "Detection signals used to auto-select this adapter when configuration does not name one; may be empty for adapters with no detectable signal (TRD interpretation I2)."
     },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "short": { "type": "integer", "minimum": 1, "description": "Default bound in ms for capabilities of timeout class 'short' (read-only: list, single-item read, comment listing)." },
+        "long": { "type": "integer", "minimum": 1, "description": "Default bound in ms for capabilities of timeout class 'long' (writes to the tracker and whole-backlog traversals). A project's `timeouts` in .ensemble/toolchain.yaml overrides both (TRD-2026-6995dc96 TRD-028, PRD REQ-017)." }
+      },
+      "description": "Adapter-level per-class timeout bounds in ms. A class left unset falls back to the runner default (60000)."
+    },
     "capabilities": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["run"],
+        "oneOf": [{ "required": ["run"] }, { "required": ["module"] }],
         "properties": {
+          "timeoutClass": {
+            "type": "string",
+            "enum": ["short", "long"],
+            "description": "Timeout class this capability is held to (default 'short'): 'short' for read-only capabilities, 'long' for writes and whole-backlog traversals. The bound is the project's configured value for the class, else this manifest's `timeouts`, else 60000 ms; every TIMEOUT error names the class and the bound (TRD-028, PRD AC-017-1)."
+          },
+          "module": {
+            "type": "string",
+            "minLength": 1,
+            "description": "In-process alternative to 'run' (TRD-2026-6995dc96 TRD-016): a JS file path RELATIVE to the adapter's own directory, loaded in-process by the work-graph dispatcher only after realpath confinement to that directory. Not executable through the argv runner."
+          },
+          "export": {
+            "type": "string",
+            "default": "run",
+            "description": "Name of the function exported by 'module' (default 'run'); called as fn(capability, args, ctx)."
+          },
           "run": {
             "type": "array",
             "minItems": 1,
@@ -160,7 +213,11 @@
               "format": { "type": "string" },
               "root": { "type": "string" },
               "map": { "type": "object" },
-              "statusMap": { "type": "object" }
+              "statusMap": { "type": "object" },
+              "inProgressWhen": { "type": "string", "description": "Dotted path; after statusMap, a status of 'open' becomes 'in_progress' when this path resolves to a non-empty string (an owner). 'closed' never changes (TRD-034)." },
+              "countFrom": { "type": "string", "description": "Dotted path of the total the tool reports for a list read; the mapped item count must equal it or mapOutput throws BAD_OUTPUT naming truncation (TRD-029)." },
+              "completeFrom": { "type": "string", "description": "Dotted path of the tool's own 'complete' boolean; anything but true is refused as BAD_OUTPUT (TRD-029)." },
+              "truncatedFrom": { "type": "string", "description": "Dotted path of the tool's own 'truncated' boolean; anything but false is refused as BAD_OUTPUT (TRD-029)." }
             },
             "description": "Output-mapping block: how the capability's stdout is parsed and projected to the category's normalized output shape."
           },

@@ -36,3 +36,16 @@ paths = [
 regexes = [
   '''^abcdef(?:123456|0123456789)$''',
 ]
+
+# A deliberately absent dedupe key the PR 2 shippable-state test looks up to prove tracker.find-by-key returns no items
+# (the `{ key: '...' }` argument shape trips generic-api-key). Narrower than a path entry: the matched value must also be
+# this fixture string, so a real secret pasted into the test is still reported.
+[[allowlists]]
+description = "Fixture dedupe key in the kata PR 2 shippable-state test"
+condition = "AND"
+paths = [
+  '''^packages/development/tests/kata-pr2-shippable\.test\.js$''',
+]
+regexes = [
+  '''^PR2-NO-SUCH-KEY$''',
+]

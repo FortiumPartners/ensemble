@@ -12,6 +12,14 @@ The `lint` category defines 1 capabilities: 1 required and 0 optional. An adapte
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `lint.report-findings` | required | no | `files` | `status`, `findings` | - | - | Run configured lint checks against a set of files and report findings. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | reviewdog |
+| --- | --- |
+| `lint.report-findings` | native |
+
 ## Details
 
 ### lint.report-findings

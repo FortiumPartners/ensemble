@@ -89,7 +89,7 @@ describe('beads-build-wave command contract (v1.2.0 wave-runner primitive)', () 
 
   test('lifecycle_contract has a Commit Gate that blocks br close until workflow.status is clean (self-reported success is not sufficient evidence)', () => {
     expect(text).toMatch(/COMMIT GATE/);
-    expect(text).toMatch(/NEVER call tracker\.close while workflow\.status lists non-\.beads\/ paths/);
+    expect(text).toMatch(/NEVER call tracker\.close-with-reason \(or its plain-close fallback\) while workflow\.status lists non-\.beads\/ paths/);
     expect(text).toMatch(/self-reported success is NOT evidence of a commit/);
   });
 

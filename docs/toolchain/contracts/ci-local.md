@@ -13,6 +13,15 @@ The `ci-local` category defines 2 capabilities: 1 required and 1 optional. An ad
 | `ci-local.run-workflow` | required | no | `workflow` | `status`, `logs` | - | - | Run a repository's CI workflow(s) locally. |
 | `ci-local.list-jobs` | optional | no | `workflow` | `jobs` | - | - | List the jobs defined by the repository's local CI workflow(s), without running them. |
 
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | act |
+| --- | --- |
+| `ci-local.run-workflow` | native |
+| `ci-local.list-jobs` | native |
+
 ## Details
 
 ### ci-local.run-workflow

@@ -17,8 +17,7 @@ runs capabilities through `packages/development/lib/toolchain/runner.js#runCapab
 invokes `kata` through this prose; the manifest is the contract.
 
 Selection is explicit only: `toolchain.default.yaml` keeps `tracker: beads` and `detect: []` is
-empty, so kata is reachable only when a project names it. AC-001-1 is the point of the manifest --
-naming kata resolves **both** categories to it, with no beads binary and no beads fallback path.
+empty. Naming kata resolves **both** categories to it, with no beads binary or fallback (AC-001-1).
 
 Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon URL),
 `KATA_AUTH_TOKEN` (bearer token), `KATA_HOME` (local daemon state), `KATA_AUTHOR` (acting actor),
@@ -29,25 +28,26 @@ Environment (`env: []`, names only, never values): `KATA_SERVER` (remote daemon 
 | Capability | Command |
 | --- | --- |
 | `tracker.show` | `kata show ${id} --json`, mapped to the normalized item |
-| `tracker.list` | `kata list --status <filter status, default open> --limit 0 --json` |
+| `tracker.list` | `kata list --status <filter> --limit 0 --include-total --json` |
 | `tracker.create` | `kata create ${title} --body ${description} --json` |
 | `tracker.create-detailed` | `kata create ${title} --body ${description} --priority ${priority} --meta ext_key=${externalKey} --idempotency-key ${externalKey} --json` |
 | `tracker.find-by-key` | `kata list --status all --limit 0 --meta ext_key=${key} --json` |
 | `tracker.update` | `kata edit ${id} --body ${fields} --json` |
-| `tracker.update-detailed` | `kata edit ${id} --title ${title} --body ${description} --priority ${priority} --comment ${notes} --json` |
-| `tracker.close` | `kata close ${id} --json` |
+| `tracker.update-detailed` | `kata edit ${id} --title ${title} --body ${description} --priority ${priority} --comment ${notes} --json`, mapped to `{id}` |
+| `tracker.close` | refused with `INVALID_ARG` before kata runs (mandatory `refuse.` placeholder); use `tracker.close-with-reason` |
 | `tracker.close-with-reason` | `kata close ${id} --done -m ${reason} --commit ${commit} --json` |
+| `tracker.close-with-evidence` | `kata close ${id} --done -m ${reason} --evidence ${evidence} --json` (manifest-only, not in the tracker contract) |
 | `tracker.comment` | `kata comment ${id} -m ${text} --json` |
 | `tracker.comments` | `kata show ${id} --json` |
 | `tracker.dep-add` | `kata edit ${id} --blocked-by ${dependsOnId} --json` |
 | `tracker.dep-remove` | `kata edit ${id} --remove-blocked-by ${dependsOnId} --json` |
 | `tracker.label` | `kata label add ${ids} ${labels} --json` |
 | `tracker.set-status` | `kata claim ${id} --json` / `kata unassign ${id} --json` (`in_progress`/`open` variants) |
-| `tracker.sync` | `kata doctor --json` |
-| `tracker.stage-export` | `kata export --allow-running-daemon --output .kata-export.jsonl` |
+| `tracker.sync` | `kata doctor --json`, answered natively as `{status: synced}` |
+| `tracker.stage-export` | `kata doctor --json`, answered natively as `{text: "", status: unavailable}` (no `kata export`) |
 | `work-graph.ready` | `kata ready --limit 0 --json` |
-| `work-graph.plan` | `kata next --json` |
-| `work-graph.graph-health` | `kata ready --limit 0 --json` |
+| `work-graph.plan` | in-process `work-graph-module.js` over `kata list --json` |
+| `work-graph.graph-health` | in-process `work-graph-module.js` over `kata list --json` |
 
 Notes: `find-by-key` includes closed issues (`lib/tracker-findings.js` picks the exact match);
 `update` REPLACES the body, `update-detailed` APPENDS via `--comment`; `dep-add`/`dep-remove` are
@@ -61,7 +61,7 @@ variants keyed on `type`.
 (`validate.js#validateAllowlist` / `runner.js#denyRuntimeAllowlist`); it matches on subcommand words,
 so `label add` and `label rm` are each entries and bare `label` is not. No shell form anywhere.
 Health is `kata --version` (PRD AC-001-2: that probe's output is the version source preflight
-reports) plus `kata doctor --json`. `contract` pins `tracker: "1.0"` and `work-graph: "2.0"`;
+reports) plus `kata doctor --json`. `contract` pins `tracker: "1.1"` and `work-graph: "2.0"`;
 `detect: []` is empty by design. Captures quoted below are against kata 0.23.0.
 
 ## Selecting this adapter
@@ -79,76 +79,72 @@ system's ids are not valid refs in the other.
 
 ## Known limits
 
-- **`tracker.close` is a refusal, not a close.** kata closes only with a reason plus a substantive
-  message; bare `kata close <ref>` exits 2 with usage error ("close needs reason: --done (with
-  --commit/--pr/--test/--reviewed), --wontfix, --duplicate-of, --superseded-by, or --audit-no-change").
-  Contract inputs are `[id]` alone, so reason cannot be carried: `tracker.close-with-reason` closes
-  instead. TRD-011 owns the caller-side `INVALID_ARG` naming it; the existing validator is reused
-  unchanged.
+- **`tracker.close` is a refusal, not a close.** Contract inputs are `[id]`, yet kata needs a reason.
+  The template holds a mandatory `${refuse.reason-and-evidence-required-use-tracker.close-with-reason}`
+  placeholder nobody supplies: the runner answers `INVALID_ARG` naming `tracker.close-with-reason`,
+  never starts kata, and the item stays open. `validate.js#validateConformance` exempts only the
+  `refuse.` prefix from its declared-input rule.
 
-- **`tracker.close-with-reason` message length is kata's rule, not the contract's.** `--done -m
-  "short"` is refused ("message too short (need >=40 chars after normalization)") while a longer
-  message closes. The threshold is kata's and in no contract: callers must pass a real verification
-  note, not a placeholder.
+- **Closing with proof.** `tracker.close-with-reason` records a reason and one commit (7-40 hex SHA).
+  `tracker.close-with-evidence` is manifest-only (not in the shipped tracker contract): `evidence` is one typed value (`commit:<sha>`, `pr:<url>`, `test:<command>`). A missing reason
+  or evidence is `INVALID_ARG` before kata runs; a message under 40 characters is kata's refusal,
+  `TOOL_FAILED`.
 
-- **`tracker.label` labels one issue with one label.** `label add` takes exactly one ref and one
-  label and answers with a singular `label` key; no bulk form exists. Contract `ids`/`labels` inputs
-  each substitute into one argv element (`runner.js#resolveArg`), so a comma-joined list is rejected
-  whole. The contract's answer is `tracker.label-one` ("MUST declare this rather than
-  `tracker.label`"), but it carries `addedInMinor: 1` while this manifest pins `tracker: "1.0"`, so
-  `contracts.js#checkCompat` reports it unavailable. TRD-012 owns the `"1.1"` pin, the
-  `tracker.label-one` declaration, and the per-id sweep; `tracker.label` stays declared meanwhile
-  because PRD AC-001-4 requires its `title-prefix-scoping` fallback declared.
+- **Read-back is narrower than the write.** After a close, `kata show --json` has `issue.status:
+  closed` and `issue.closed_reason: done`, NOT the message or evidence. Those, including a test
+  command's text, are in the close call's own envelope (`event.payload`) and `kata events --after 0
+  --json`; `kata audit closes --json` gives the message and evidence types only.
 
-- **No capability maps to an in-progress STATUS.** kata has none: an owned-but-open item IS
+- **Labels go one id per call.** `label add` takes one ref and one label and answers with a singular
+  `label` key; a comma-joined `ids`/`labels` input is rejected whole (`runner.js#resolveArg`). The
+  manifest pins tracker `"1.1"` and declares `tracker.label-one` (`id`, `label`), so a sweep over
+  several ids is one call per id, each readable back via `kata show` (`issue.labels`).
+  `tracker.label` stays declared (one ref, one label) because PRD AC-001-4 requires its fallback.
+  Removal is `kata label rm <ref> <label>` (allowlisted); the tracker contract has no label-removal
+  capability, so there is no capability for it.
+
+- **No kata status value is in-progress.** kata has none: an owned-but-open item IS
   in-progress, so `tracker.set-status` writes ownership (`claim`/`unassign`) and the reading derives
-  from a non-empty `owner` (TRD-012, TRD-034). `closed` is absent from the variants, so an unlisted
-  `status` is rejected by `runner.js#selectTemplate` with `NOT_ALLOWED`, not a close.
+  from a non-empty `owner` (`parse.inProgressWhen`, TRD-034), on `show` and `set-status`. `closed` is a refusing variant: `set-status closed` fails `INVALID_ARG` naming
+  `tracker.close-with-reason` before kata runs; any other unlisted `status` is `NOT_ALLOWED`. The
+  `claim`/`unassign` envelope is the mutation shape (`issue.short_id`, `issue.status`, `issue.owner`).
 
-- **Only `tracker.create` and `tracker.create-detailed` declare a `parse` block.**
+- **`create` sends no `type`; `update` writes only the body; no `--owner` input** (`set-status`).
+
+- **`create`, `create-detailed`, `update` and the reads declare `parse`.**
   `runner.js`'s `CATEGORY_NORMALIZED_SCHEMA` Ajv-validates every *mapped* `tracker.*` result against
-  the single work-item schema (`work-item.json`, `required: ["id"]`) per CATEGORY, not per
-  capability, so a list, comment, label or status-shaped result mapped through it fails `BAD_OUTPUT`
-  (missing `id`) -- the failure beads documents for its own `br list` mapping. Captured shapes:
+  the one work-item schema (`required: ["id"]`), so a list, comment, label or status-shaped result
+  mapped through it fails `BAD_OUTPUT`. Captured shapes:
   create `{kata_api_version, issue, event, ...}` (id at `.issue.short_id`); `list` `{issues, complete,
   truncated, kata_api_version}`; `ready` `{issues, kata_api_version}`; `show` `{issue, comments,
   comments_truncated, labels, links, web_url}`; `next` `{issue}`; `doctor` `{checks, ...}`.
-  Everything else keeps real argv, no `parse` block, raw stdout as `data`; TRD-033 owns the schema
-  entries the non-entity results need.
+  `tracker.find-by-key` and `tracker.label` now carry captured-shape `parse` blocks (`{items}` list; `{id, label}`), validated by `work-item-list.json` and `label-result.json`; `tracker.label-one` carries the same block. Everything else keeps real argv, no `parse`, raw stdout as `data`.
 
-- **`work-graph.plan` returns one issue, not a plan.** `kata next` answers with a single
-  highest-priority ready issue; contract outputs are `[items, orderingSource, dependencyAware]` and
-  the dotted-path engine (`lib/toolchain/mapping.js`) has no wrap-into-array operator and no
-  constants, so none of the three can be produced honestly. Declared because its contract entry
-  names `work-graph-links-fallback` (AC-001-4); the real plan comes from the work-graph analyzer over
-  the blocking edges `tracker.dep-add` writes (TRD-016, TRD-018).
+- **`work-graph.plan` and `work-graph.graph-health` run in-process.** Kata has no plan or
+  graph-health command, so `work-graph-module.js` reads one `kata list --json` envelope (its
+  `blocked_by`/`blocks` are the edges), refuses a truncated listing, ignores closed blockers, and
+  uses the shared scan. Plan reports `orderingSource: kata`, `dependencyAware: true`; a cycle empties
+  `items` and graph-health reports cycle and dangling-edge findings.
 
-- **`work-graph.graph-health` has no kata command.** No kata command computes cycles or stale
-  blockers; `kata health` is *daemon* health, unmapped since liveness is not graph health. The argv
-  is the dependency-bearing `kata ready` listing. TRD-018 owns the computation, TRD Open Question 9
-  the honest `status`/`findings` semantics for trackers exposing no dependency data.
+- **`tracker.sync` answers `{status: synced}` natively.** kata persists each write before its command
+  returns, so there is nothing to flush. The argv stays the read-only `kata doctor --json` (no daemon
+  start, no state change); a non-zero exit is `TOOL_FAILED` (never synced), and that is the real
+  failure signal. `synced` is a constant: the mapping grammar has no constants, so it is a `default`
+  on a path absent from doctor's envelope (TRD Open Question 8). `synced` means doctor exited 0 and
+  there is nothing to flush, not that every doctor check passed (a `warn` summary still yields it).
+  No fallback fires (PRD AC-006-1).
 
-- **`tracker.sync` is not a flush.** kata keeps issue state in its daemon database and has no flush
-  command, so `kata doctor --json` stands in: read-only, no daemon start, no state change, reporting
-  database reachability. The contract declares `tracker.sync` optional with NO fallback, so an
-  adapter omitting it answers `NOT_ALLOWED`; declaring the closest real read-only check was the
-  honest option (TRD-014 owns the final form).
-
-- **`tracker.stage-export` writes a file; its `text` is NOT on stdout yet.** `kata export` writes the
-  whole database as JSONL to `--output <path>` instead of printing it, and refuses a live database
-  without `--allow-running-daemon` (exit 3). No `--project-id` is sent, so this is the unscoped full
-  dump the contract's `full-export-unscoped` fallback id names. The pinned
-  `--output .kata-export.jsonl` is relative to the child cwd, which `beads-stage.js#stageBeadsExport`
-  sets to the git root, so the dump lands at `<git root>/.kata-export.jsonl`. The contract declares
-  `outputs: [text, status]` but `runner.js` returns raw stdout as `data`, so `text` is only the
-  confirmation line, not the JSONL body; `--json` is absent (ZERO stdout bytes). Stdout cannot be the
-  destination: `--output -` creates a file named `-`, and `/dev/stdout`, `/dev/fd/1`, `/dev/tty` exit 1
-  (atomic temp-file rename). TRD-014 owns closing it by reading the file at the call site; TRD-033
-  owns the schema entry a mapped `text` needs; `staged:false` is unaffected.
+- **`tracker.stage-export` answers `{text: "", status: unavailable}` natively.** kata has no stdout
+  export and `kata export` writes a file, contradicting the contract's `sideEffect: false`, so it is
+  no longer run or allowlisted. The adapter gives the contract's own in-band unavailable status
+  (via `kata doctor --json` plus the same constant-default technique) and the full-export fallback
+  never fires. It depends on doctor exiting 0, so a broken kata config is `TOOL_FAILED`, not
+  `unavailable`. Callers must read `data.status`; `beads-stage.js` does not yet (only reached when
+  kata is the tracker AND `.beads/issues.jsonl` is tracked). TRD-033 owns broader schema entries.
 
 - **`--priority` is an integer or `none`, not a letter.** `--priority p2` is rejected ("must be an
   integer or none"); callers passing the tracker contract's priority vocabulary must normalize before
-  argv is built; `-` clears a priority. TRD-014 owns that mapping.
+  argv is built; `-` clears a priority.
 
 - **`tracker.list` does not use `--all`.** For kata, `--all` widens the *scope* to every active
   project instead of the current one (`kata list --help`), reading another project's work.

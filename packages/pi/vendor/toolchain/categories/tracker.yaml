@@ -5,7 +5,7 @@ capabilities:
   tracker.show:
     description: Read a single work item by id.
     inputs: [id]
-    outputs: [id, title, description, type, status, priority, labels]
+    outputs: [id, title, description, type, status, priority, labels, owner]
     required: true
     sideEffect: false
 
@@ -47,7 +47,7 @@ capabilities:
   tracker.comments:
     description: List the comments on a work item, in source-tool order.
     inputs: [id]
-    outputs: [comments]
+    outputs: [comments, comments_truncated]
     required: false
     sideEffect: false
 
@@ -68,7 +68,9 @@ capabilities:
   tracker.label:
     description: Add or replace labels on one or more work items.
     inputs: [ids, labels]
-    outputs: [ids, labels]
+    # id/label are additive: the kata adapter emits the single-item {id,label} shape validated by
+    # toolchain/schemas/normalized/label-result.json, alongside the multi-item ids/labels.
+    outputs: [ids, labels, id, label]
     required: false
     sideEffect: true
     fallback: title-prefix-scoping
@@ -91,7 +93,7 @@ capabilities:
   tracker.set-status:
     description: Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed).
     inputs: [id, status]
-    outputs: [id, status]
+    outputs: [id, status, owner]
     required: false
     sideEffect: true
 

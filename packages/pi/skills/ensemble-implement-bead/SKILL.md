@@ -21,15 +21,15 @@ than beads-build's own resolve-sdlc branching/PR_BACKEND policy. Use
 
 Rules shared with the other engines: all bead reads/writes go through the tracker.*
 toolchain capabilities (resolved via toolchain-cli; never a direct tracker-binary
-invocation); never stage broadly (no blanket, whole-directory or `.beads/` stage, no
-commit that auto-stages tracked files); stage explicit paths only; `.beads/` is the tracker adapter's own state
+invocation); never stage broadly (no blanket, whole-directory or `.beads/` stage (beads-only), no
+commit that auto-stages tracked files); stage explicit paths only; `.beads/` is beads-only tracker state
 (docs/guides/beads-tracked-export.md); the bead is closed only after its work is
 committed.
 
 ## Capabilities
 
 **Required:** tracker.show, tracker.set-status, tracker.close, tracker.comment, host.change-request-create, workflow.branch-create, workflow.status, workflow.commit, workflow.push
-**Optional:** tracker.sync
+**Optional:** tracker.sync, tracker.close-with-reason, workflow.merge-base
 
 ## Workflow
 

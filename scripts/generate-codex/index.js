@@ -348,6 +348,12 @@ function copyAdapterSkills({ dryRun, verbose, packagesDir = PACKAGES_DIR, output
     if (fs.existsSync(adapterYaml)) {
       copyFile(adapterYaml, path.join(outputDir, 'skills', adapterName, 'adapter.yaml'), dryRun, verbose);
     }
+
+    // In-process work-graph module the manifest points at (`module: work-graph-module.js`).
+    const moduleJs = path.join(adapterDir, 'work-graph-module.js');
+    if (fs.existsSync(moduleJs)) {
+      copyFile(moduleJs, path.join(outputDir, 'skills', adapterName, 'work-graph-module.js'), dryRun, verbose);
+    }
   }
 
   return count;

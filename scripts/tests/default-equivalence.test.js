@@ -256,13 +256,13 @@ describe('Scenario: a mutated default adapter template fails the comparison (TRD
     );
   });
 
-  it('fails for a mutated tracker template naming the command', () => {
+  it('fails for a mutated tracker template naming the command (the close-with-reason template implement-bead closes through)', () => {
     const manifest = mutatedManifest(
       tmpDir,
       'beads',
       'packages/development/skills/adapter-tracker-beads/adapter.yaml',
-      'run: ["br", "close", "${id}", "--json"]',
-      'run: ["br", "finish", "${id}", "--json"]'
+      /(tracker\.close-with-reason:\s*\n\s*run:\s*\n\s*- br\s*\n\s*- )close/,
+      '$1finish'
     );
     const templates = loadDefaultTemplates(ROOT, { manifestOverrides: { 'adapter-tracker-beads': manifest } });
     expect(() => assertEquivalent(unit('implement-bead'), templates)).toThrow(/implement-bead: step \d+: expected "br close" but found "br finish"/);

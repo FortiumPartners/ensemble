@@ -59,6 +59,59 @@
  * `hasPassingPreflightRecord` rejects it by returning `false`, matching its other fail-closed
  * "no record" cases.
  *
+ * ## Minimum-version gate (TRD-2026-6995dc96 TRD-003, PRD AC-018-2, AC-001-2)
+ *
+ * A health check that declares `minVersion` (optionally with `versionPattern`, one capture group)
+ * is a version probe. Every such check across every resolved adapter runs FIRST, as its own
+ * stage (deduplicated per adapter+check id, concurrently among themselves), BEFORE any other
+ * health check is issued -- so a too-old tool is never sent a second call (kata's `doctor`).
+ * It fails `HEALTH_FAILED`, naming the adapter, the check, the minimum and the reported version,
+ * when the reported version is older than `minVersion` or cannot be parsed from stdout (the
+ * message names the minimum either way); no record is written. The remaining checks (every
+ * check without `minVersion`) then run concurrently exactly as before.
+ *
+ * Version parsing: the default pattern takes the first `x.y.z` in stdout with an optional
+ * `-prerelease` suffix (`kata v0.23.0\n commit: ...` reads `0.23.0`; `v0.24.0-rc.1` reads
+ * `0.24.0-rc.1`); a `+build` suffix is ignored. Comparison is numeric per component (`0.100.0`
+ * is newer than `0.23.0`), and per semver a pre-release sorts BEFORE its own release
+ * (`0.23.0-rc.1 < 0.23.0`, `0.24.0-rc.1 > 0.23.0`). A two-component `minVersion` ("1.2") means
+ * "1.2.0". On pass the record (written AND returned) carries `versions: {<adapterId>: <reported
+ * version string>}`; the key is absent when no check declared `minVersion`.
+ *
+ * Resolution errors keep their code when it is `CONTRACT_MAJOR_MISMATCH` (TRD-003: an adapter
+ * declaring a contract major that differs from the shipped category contract is refused by
+ * `loadAdapter`); every other load error is still wrapped as `HEALTH_FAILED`.
+ *
+ * ## Binding gate and capability report (TRD-2026-6995dc96 TRD-004, PRD AC-018-1, AC-018-3)
+ *
+ * A health check that declares `jsonAssert` ({arrayPath, match:{key:value}, field, allow[],
+ * failMessage}) parses its stdout as JSON, finds the first element of `arrayPath` whose `match`
+ * keys all equal, and requires its `field` to be one of `allow`. Anything else (unparsable
+ * output, no matching element, a field outside `allow`) fails closed as `HEALTH_FAILED` carrying
+ * `failMessage` verbatim. Kata uses it on `kata doctor --json` (read-only, never starts a daemon)
+ * so an unbound workspace stops here, before any work item is written. It runs in stage 2, after
+ * the version gate.
+ *
+ * On pass the record (written AND returned) carries `capabilities`: the `requires` list this
+ * preflight verified available (`requireCapabilities`), plus, for a gated category, every capability
+ * the adapter's manifest declares. `preflightReportedCapability(runId, cap,
+ * ctx)` reads it back (fail closed: no record, no `capabilities` list, or a capability not in it
+ * is `false`); `toolchain-cli.js`'s `run` refuses a side-effecting capability preflight did not
+ * report with `CAPABILITY_NOT_REPORTED`, before the confirmation step and any adapter call. The
+ * refusal is scoped: the record carries `capabilityGate: true` and `gatedCategories` only when a
+ * resolved adapter declares `jsonAssert`, and `preflightGatesCapability` is `false` for any other
+ * category or a record without the flag, so ungated adapters (beads) keep their prior behaviour.
+ *
+ * ## Missing binary (TRD-2026-6995dc96 TRD-006, PRD AC-001-3, AC-012-2, AC-012-3)
+ *
+ * When a selected adapter's health check cannot spawn its binary at all (`runner.js` marks a
+ * spawn ENOENT with `error.missingBinary`), preflight fails `{code:'MISSING_BINARY'}` naming the
+ * adapter and the binary and telling the user to install it / put it on PATH (or select another
+ * adapter) -- never the generic `HEALTH_FAILED`/`TOOL_FAILED` text. Only adapters actually
+ * selected for the requested categories are health-checked, so a project that did not select
+ * kata never sees a kata failure; and there is no fallback: the failure stops preflight, no
+ * record is written and no other adapter (beads) is ever tried in place of the selected one.
+ *
  * ## Known limits
  *
  * - A health check's `timeoutMs` comes straight from the adapter manifest's `health[]` entry.
@@ -168,7 +221,21 @@ async function runHealthCheck(adapterId, manifest, check, projectRoot) {
   );
 
   if (result.ok) {
-    return { ok: true };
+    return { ok: true, stdout: typeof result.data === 'string' ? result.data : '' };
+  }
+
+  if (result.error.missingBinary) {
+    const binary = path.basename(String(result.error.missingBinary));
+    return {
+      ok: false,
+      error: {
+        code: 'MISSING_BINARY',
+        message: redactSecrets(
+          `${adapterId}: required binary '${binary}' was not found on PATH (health check '${check.id}'); ` +
+            `install ${binary} and make sure it is on PATH, or select a different adapter for this project`
+        ).text
+      }
+    };
   }
 
   const isTimeout = result.error.code === 'TIMEOUT';
@@ -183,6 +250,125 @@ async function runHealthCheck(adapterId, manifest, check, projectRoot) {
 }
 
 /**
+ * Parse a dotted version string into comparable parts, or `null` when it is not one.
+ * `0.23.0-rc.1+build5` -> `{core:[0,23,0], pre:'rc.1'}`; `1.2` -> `{core:[1,2,0], pre:null}`.
+ *
+ * @param {unknown} text
+ * @returns {{core: number[], pre: string|null}|null}
+ */
+function parseVersion(text) {
+  const match =
+    typeof text === 'string' ? text.trim().match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/) : null;
+  if (!match) {
+    return null;
+  }
+  return {
+    core: [Number(match[1]), Number(match[2]), Number(match[3] || 0)],
+    pre: match[4] || null
+  };
+}
+
+/**
+ * Numeric semver-style comparison: negative when `a < b`, 0 when equal, positive when `a > b`.
+ * A pre-release sorts before the release with the same core; two pre-releases compare as strings.
+ *
+ * @param {{core:number[], pre:string|null}} a
+ * @param {{core:number[], pre:string|null}} b
+ * @returns {number}
+ */
+function compareVersions(a, b) {
+  for (let i = 0; i < 3; i += 1) {
+    if (a.core[i] !== b.core[i]) {
+      return a.core[i] < b.core[i] ? -1 : 1;
+    }
+  }
+  if (a.pre === b.pre) return 0;
+  if (a.pre === null) return 1;
+  if (b.pre === null) return -1;
+  return a.pre < b.pre ? -1 : 1;
+}
+
+const DEFAULT_VERSION_PATTERN = /(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/;
+
+/**
+ * Run one health check carrying `jsonAssert` (see "Binding gate" in the header).
+ *
+ * @returns {Promise<{ok:true}|{ok:false, error:{code:'HEALTH_FAILED', message:string}}>}
+ */
+async function runJsonAssertCheck(adapterId, manifest, check, projectRoot) {
+  const ran = await runHealthCheck(adapterId, manifest, check, projectRoot);
+  if (!ran.ok) {
+    return ran;
+  }
+  const spec = check.jsonAssert;
+  const fail = () => ({
+    ok: false,
+    error: { code: 'HEALTH_FAILED', message: redactSecrets(`${adapterId}: ${spec.failMessage}`).text }
+  });
+  let parsed;
+  try {
+    parsed = JSON.parse(ran.stdout);
+  } catch {
+    return fail();
+  }
+  const list = parsed && Array.isArray(parsed[spec.arrayPath]) ? parsed[spec.arrayPath] : [];
+  const entry = list.find(
+    (item) => item && typeof item === 'object' && Object.entries(spec.match).every(([k, v]) => item[k] === v)
+  );
+  if (!entry || !spec.allow.includes(entry[spec.field])) {
+    return fail();
+  }
+  return { ok: true };
+}
+
+/**
+ * Run one `minVersion`-declaring check, parse the version from its stdout and compare it with
+ * the declared minimum.
+ *
+ * @returns {Promise<{ok:true, version:string}|{ok:false, error:{code:'HEALTH_FAILED', message:string}}>}
+ */
+async function runVersionGate(adapterId, manifest, check, projectRoot) {
+  const ran = await runHealthCheck(adapterId, manifest, check, projectRoot);
+  if (!ran.ok) {
+    return ran;
+  }
+
+  const fail = (detail) => ({
+    ok: false,
+    error: {
+      code: 'HEALTH_FAILED',
+      message: redactSecrets(
+        `${adapterId}: health check '${check.id}' requires ${adapterId} minimum version ${check.minVersion}; ${detail}`
+      ).text
+    }
+  });
+
+  const minimum = parseVersion(check.minVersion);
+  if (!minimum) {
+    return fail(`the declared minVersion '${check.minVersion}' is not a dotted numeric version`);
+  }
+
+  let pattern = DEFAULT_VERSION_PATTERN;
+  if (typeof check.versionPattern === 'string' && check.versionPattern.length > 0) {
+    try {
+      pattern = new RegExp(check.versionPattern);
+    } catch {
+      return fail(`the declared versionPattern '${check.versionPattern}' is not a valid regular expression`);
+    }
+  }
+  const matched = pattern.exec(ran.stdout);
+  const reported = matched && (matched[1] !== undefined ? matched[1] : matched[0]);
+  const parsed = parseVersion(reported);
+  if (!parsed) {
+    return fail(`could not read a version from its output, so the minimum cannot be confirmed`);
+  }
+  if (compareVersions(parsed, minimum) < 0) {
+    return fail(`it reported version ${reported}, which is older than the minimum; upgrade ${adapterId}`);
+  }
+  return { ok: true, version: reported };
+}
+
+/**
  * Run every health check declared by the adapters selected for `categories`, concurrently, and
  * on full pass write a preflight record for `runId` (TRD-014, PRD REQ-013, AC-013-1/2/3). See
  * this file's header for the full contract.
@@ -194,7 +380,7 @@ async function runHealthCheck(adapterId, manifest, check, projectRoot) {
  *   field neither of those two call sites explicitly destructures (for example
  *   `ctx.installedRoots`, PR 5 independent review) still reaches them (PR 4 independent review
  *   Finding 1's "no per-handler rebuilds that can drop fields" rule, applied here too).
- * @returns {Promise<{ok:true, runId:string, categories:string[], checkedAt:string} |
+ * @returns {Promise<{ok:true, runId:string, categories:string[], capabilities:string[], checkedAt:string, versions?:Record<string,string>} |
  *   {ok:false, error:{code:string, message:string}}>}
  */
 async function runPreflight(input = {}, ctx = {}) {
@@ -231,6 +417,9 @@ async function runPreflight(input = {}, ctx = {}) {
           interactive: !isNonInteractive({ nonInteractive, env })
         });
       } catch (error) {
+        if (error.code === 'CONTRACT_MAJOR_MISMATCH') {
+          return { ok: false, error: { code: error.code, message: error.message } };
+        }
         return {
           ok: false,
           error: {
@@ -278,6 +467,9 @@ async function runPreflight(input = {}, ctx = {}) {
           interactive: !isNonInteractive({ nonInteractive, env })
         });
       } catch (error) {
+        if (error.code === 'CONTRACT_MAJOR_MISMATCH') {
+          return { ok: false, error: { code: error.code, message: error.message } };
+        }
         return {
           ok: false,
           error: {
@@ -301,12 +493,42 @@ async function runPreflight(input = {}, ctx = {}) {
     const manifest = loaded.manifest || {};
     const healthChecks = Array.isArray(manifest.health) ? manifest.health : [];
     for (const check of healthChecks) {
-      checkTasks.push({ adapterId, manifest, check });
+      checkTasks.push({ adapterId, manifest, check, category });
     }
   }
 
+  // Stage 1: version probes (checks declaring `minVersion`), deduplicated per adapter+check id,
+  // run before ANY other health check is issued (see "Minimum-version gate" in the header).
+  const gateTasks = [];
+  const seenGates = new Set();
+  for (const task of checkTasks) {
+    if (typeof task.check.minVersion !== 'string') continue;
+    const key = `${task.adapterId}\u0000${task.check.id}`;
+    if (seenGates.has(key)) continue;
+    seenGates.add(key);
+    gateTasks.push(task);
+  }
+  const gateResults = await Promise.all(
+    gateTasks.map((task) => runVersionGate(task.adapterId, task.manifest, task.check, projectRoot))
+  );
+  const gateFailure = gateResults.find((result) => !result.ok);
+  if (gateFailure) {
+    return gateFailure;
+  }
+  const versions = {};
+  gateTasks.forEach((task, index) => {
+    versions[task.adapterId] = gateResults[index].version;
+  });
+
+  // Stage 2: every remaining check, concurrently, exactly as before.
   const results = await Promise.all(
-    checkTasks.map((task) => runHealthCheck(task.adapterId, task.manifest, task.check, projectRoot))
+    checkTasks
+      .filter((task) => typeof task.check.minVersion !== 'string')
+      .map((task) =>
+        task.check.jsonAssert
+          ? runJsonAssertCheck(task.adapterId, task.manifest, task.check, projectRoot)
+          : runHealthCheck(task.adapterId, task.manifest, task.check, projectRoot)
+      )
   );
 
   const firstFailure = results.find((result) => !result.ok);
@@ -315,7 +537,28 @@ async function runPreflight(input = {}, ctx = {}) {
   }
 
   const checkedAt = new Date().toISOString();
-  const record = { ok: true, runId, categories: categoryList, checkedAt };
+  const record = { ok: true, runId, categories: categoryList, capabilities: [...new Set(requires)], checkedAt };
+  // Only categories whose resolved adapter declares the binding gate (jsonAssert) enforce the
+  // capability report in `run`; every other adapter (beads, ...) is unaffected.
+  const gatedCategories = [...new Set(checkTasks.filter((t) => t.check.jsonAssert).map((t) => t.category))];
+  if (gatedCategories.length > 0) {
+    record.capabilityGate = true;
+    record.gatedCategories = gatedCategories;
+    // A passing preflight verified the adapter works, so every capability its manifest declares in a
+    // gated category is reported available, not only the `--require` set. The gate still refuses a
+    // capability the manifest does not declare.
+    const declared = new Set(record.capabilities);
+    for (const task of checkTasks) {
+      if (!task.check.jsonAssert) continue;
+      for (const id of Object.keys((task.manifest && task.manifest.capabilities) || {})) {
+        if (gatedCategories.includes(id.split('.')[0])) declared.add(id);
+      }
+    }
+    record.capabilities = [...declared];
+  }
+  if (gateTasks.length > 0) {
+    record.versions = versions;
+  }
   const targetPath = preflightRecordPath(projectRoot, runId);
   const targetDir = path.dirname(targetPath);
   ensureStateDir(projectRoot, targetDir);
@@ -364,8 +607,60 @@ function hasPassingPreflightRecord(runId, ctx = {}) {
   return Boolean(parsed) && parsed.ok === true;
 }
 
+/**
+ * Whether a passing preflight record for `runId` lists `capability` among the capabilities it
+ * verified available. Fail closed: no/unreadable/failed record, a record without a
+ * `capabilities` array, or a capability not in it all return `false`.
+ *
+ * @param {unknown} runId
+ * @param {string} capability e.g. `tracker.create`
+ * @param {{projectRoot?: string}} [ctx]
+ * @returns {boolean}
+ */
+function preflightReportedCapability(runId, capability, ctx = {}) {
+  if (!hasPassingPreflightRecord(runId, ctx)) {
+    return false;
+  }
+  const { projectRoot = process.cwd() } = ctx;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(preflightRecordPath(projectRoot, runId), 'utf8'));
+    return Array.isArray(parsed.capabilities) && parsed.capabilities.includes(capability);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether `run` must refuse `capability` when the preflight did not report it: true only when a
+ * passing record carries `capabilityGate: true` and lists the capability's category in
+ * `gatedCategories`. A record without the flag (ungated adapter, or legacy) never refuses.
+ *
+ * @param {unknown} runId
+ * @param {string} capability
+ * @param {{projectRoot?: string}} [ctx]
+ * @returns {boolean}
+ */
+function preflightGatesCapability(runId, capability, ctx = {}) {
+  if (!hasPassingPreflightRecord(runId, ctx)) {
+    return false;
+  }
+  const { projectRoot = process.cwd() } = ctx;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(preflightRecordPath(projectRoot, runId), 'utf8'));
+    return (
+      parsed.capabilityGate === true &&
+      Array.isArray(parsed.gatedCategories) &&
+      parsed.gatedCategories.includes(String(capability).split('.')[0])
+    );
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   runPreflight,
+  preflightGatesCapability,
   hasPassingPreflightRecord,
+  preflightReportedCapability,
   DEFAULT_HEALTH_TIMEOUT_MS
 };

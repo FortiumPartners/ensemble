@@ -10,24 +10,49 @@ The `tracker` category defines 18 capabilities: 4 required and 14 optional. An a
 
 | Capability | Required | Side effect | Inputs | Outputs | Fallback | Added in minor | Description |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `tracker.show` | required | no | `id` | `id`, `title`, `description`, `type`, `status`, `priority`, `labels` | - | - | Read a single work item by id. |
+| `tracker.show` | required | no | `id` | `id`, `title`, `description`, `type`, `status`, `priority`, `labels`, `owner` | - | - | Read a single work item by id. |
 | `tracker.list` | optional | no | `filter` | `items` | - | - | List work items, optionally filtered (for example by label or status). |
 | `tracker.create` | required | yes | `title`, `description`, `type` | `id` | - | - | Create a new work item. |
 | `tracker.update` | required | yes | `id`, `fields` | `id` | - | - | Update fields on an existing work item. |
 | `tracker.close` | required | yes | `id` | `id`, `status` | - | - | Close a work item. |
 | `tracker.comment` | optional | yes | `id`, `text` | `id` | - | - | Add a comment to a work item. |
-| `tracker.comments` | optional | no | `id` | `comments` | - | - | List the comments on a work item, in source-tool order. |
+| `tracker.comments` | optional | no | `id` | `comments`, `comments_truncated` | - | - | List the comments on a work item, in source-tool order. |
 | `tracker.dep-add` | optional | yes | `id`, `dependsOnId`, `type` | `id` | - | - | Add a dependency link from one work item to another. |
 | `tracker.dep-remove` | optional | yes | `id`, `dependsOnId` | `id` | - | - | Remove a dependency link from one work item to another. |
-| `tracker.label` | optional | yes | `ids`, `labels` | `ids`, `labels` | `title-prefix-scoping` | - | Add or replace labels on one or more work items. |
+| `tracker.label` | optional | yes | `ids`, `labels` | `ids`, `labels`, `id`, `label` | `title-prefix-scoping` | - | Add or replace labels on one or more work items. |
 | `tracker.label-one` | optional | yes | `id`, `label` | `id`, `labels` | - | 1 | Attach one label to exactly one work item. Adapters whose tool attaches labels one at a time MUST declare this rather than tracker.label. |
-| `tracker.set-status` | optional | yes | `id`, `status` | `id`, `status` | - | - | Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed). |
+| `tracker.set-status` | optional | yes | `id`, `status` | `id`, `status`, `owner` | - | - | Set a work item's lifecycle status to one of the normalized values (open, in_progress, closed). |
 | `tracker.sync` | optional | yes | `scope` | `status` | - | - | Flush pending local tracker state to durable storage. |
 | `tracker.stage-export` | optional | no | `scope` | `text`, `status` | `full-export-unscoped` | - | Return export text for the tracked file, or an unavailable status when the resolved adapter has none. |
 | `tracker.create-detailed` | optional | yes | `title`, `description`, `type`, `labels`, `priority`, `externalKey` | `id` | `skip-finding-beads` | - | Create a work item with labels, a priority and an external dedupe key in one call. |
 | `tracker.find-by-key` | optional | no | `key` | `items` | `skip-finding-beads` | - | List the work items of the whole tracker, closed ones included and NOT limited to one label (an external dedupe key is unique tracker-wide), so the caller can select the one whose external dedupe key equals `key` (exact match; zero, one or many) and read its labels. |
 | `tracker.update-detailed` | optional | yes | `id`, `title`, `description`, `priority`, `notes` | `id` | `skip-finding-beads` | - | Rewrite a work item's title, description and priority and append a note, without touching its labels or status. |
 | `tracker.close-with-reason` | optional | yes | `id`, `reason`, `commit` | `id`, `status` | `skip-finding-beads` | - | Close a work item recording why it was closed and the commit that resolved it. |
+
+## Shipped backends and coverage
+
+One column per shipped backend. `native` = the backend answers the capability itself; `fallback` = the capability is answered by the fallback named in the contract (a builtin analyzer such as work-graph-links-fallback, or a documented degraded path), not by the backend itself; `unavailable` = neither.
+
+| Capability | azure-boards | beads | jira | kata |
+| --- | --- | --- | --- | --- |
+| `tracker.show` | native | native | native | native |
+| `tracker.list` | native | native | native | native |
+| `tracker.create` | native | native | native | native |
+| `tracker.update` | native | native | native | native |
+| `tracker.close` | native | native | native | native |
+| `tracker.comment` | native | native | native | native |
+| `tracker.comments` | unavailable | native | native | native |
+| `tracker.dep-add` | native | native | unavailable | native |
+| `tracker.dep-remove` | unavailable | native | unavailable | native |
+| `tracker.label` | fallback | native | fallback | native |
+| `tracker.label-one` | unavailable | unavailable | unavailable | native |
+| `tracker.set-status` | native | native | native | native |
+| `tracker.sync` | unavailable | native | unavailable | native |
+| `tracker.stage-export` | fallback | native | fallback | native |
+| `tracker.create-detailed` | fallback | native | fallback | native |
+| `tracker.find-by-key` | fallback | native | fallback | native |
+| `tracker.update-detailed` | fallback | native | fallback | native |
+| `tracker.close-with-reason` | fallback | native | fallback | native |
 
 ## Details
 
@@ -38,7 +63,7 @@ Read a single work item by id.
 - Status: required
 - Side effect: no
 - Inputs: `id`
-- Outputs: `id`, `title`, `description`, `type`, `status`, `priority`, `labels`
+- Outputs: `id`, `title`, `description`, `type`, `status`, `priority`, `labels`, `owner`
 - Fallback: none
 
 ### tracker.list
@@ -98,7 +123,7 @@ List the comments on a work item, in source-tool order.
 - Status: optional
 - Side effect: no
 - Inputs: `id`
-- Outputs: `comments`
+- Outputs: `comments`, `comments_truncated`
 - Fallback: none
 
 ### tracker.dep-add
@@ -128,7 +153,7 @@ Add or replace labels on one or more work items.
 - Status: optional
 - Side effect: yes
 - Inputs: `ids`, `labels`
-- Outputs: `ids`, `labels`
+- Outputs: `ids`, `labels`, `id`, `label`
 - Fallback: `title-prefix-scoping`
 
 ### tracker.label-one
@@ -149,7 +174,7 @@ Set a work item's lifecycle status to one of the normalized values (open, in_pro
 - Status: optional
 - Side effect: yes
 - Inputs: `id`, `status`
-- Outputs: `id`, `status`
+- Outputs: `id`, `status`, `owner`
 - Fallback: none
 
 ### tracker.sync

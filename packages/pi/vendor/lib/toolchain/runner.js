@@ -234,10 +234,13 @@
  *   capability, binary or subcommand that failed.
  * - `INVALID_ARG`: bubbled up unchanged from `buildArgv`/`resolveArg` (missing/malformed
  *   argument value); never thrown past `runCapability`'s own boundary, always converted here.
- * - `TIMEOUT`: the child process exceeded `opts.timeoutMs` (default 60000ms) and was killed,
- *   together with every descendant pid this module's polling had observed by then (see
- *   "Timeout containment" above). The message names the adapter, the capability and the
- *   configured timeout.
+ * - `TIMEOUT`: the child process exceeded the bound in force and was killed, together with every
+ *   descendant pid this module's polling had observed by then (see "Timeout containment"
+ *   above). The bound comes from `resolveCapabilityTimeout` (TRD-2026-6995dc96 TRD-028, PRD
+ *   REQ-017), shared by both entry points: class = the capability's `timeoutClass` (default
+ *   `short`); bound = `opts.timeoutMs` (explicit per-call override) > `opts.timeouts[class]`
+ *   (project config) > the manifest's `timeouts[class]` > 60000ms. The message names the
+ *   adapter, the capability, the class and the bound in force.
  * - `TOOL_FAILED`: any other `execFile` callback error (binary not found, non-zero exit, and so
  *   on). The message names the adapter and the capability and includes the child's stderr (or,
  *   when stderr is empty, the tool's own JSON error envelope printed on stdout -- `br` prints
@@ -439,6 +442,12 @@ function selectTemplate(runTemplate, args, variants, inputs = {}) {
 
     const variantMap = variants[selectorArgName];
     const key = String(selectedValue);
+    // A literal key wins; otherwise a `*` key is the catch-all for open-ended selector values
+    // (a label, a scope) that cannot be enumerated. Its template substitutes the value itself.
+    if (!Object.prototype.hasOwnProperty.call(variantMap, key) && Object.prototype.hasOwnProperty.call(variantMap, '*')) {
+      effectiveTemplate = variantMap['*'];
+      continue;
+    }
     if (!Object.prototype.hasOwnProperty.call(variantMap, key)) {
       const error = new Error(
         `${selectorArgName}: '${key}' is not an allowed variant (expected one of: ` +
@@ -491,6 +500,32 @@ function buildArgv(runTemplate, args = {}, contract = {}) {
 
 const MANIFEST_PLACEHOLDER_PATTERN = /\$\{([^{}]+)\}/g;
 const DEFAULT_TIMEOUT_MS = 60000;
+
+/**
+ * Resolve the timeout class and bound in force for one capability (TRD-028, PRD REQ-017).
+ * Used by `runCapability` and `runCapabilitySync` alike so both report identically.
+ *
+ * Fallthrough: an invalid or non-positive value at a higher-precedence layer (`opts.timeouts`,
+ * manifest `timeouts`) is silently skipped in favor of the next layer, never thrown. Callers that
+ * need strictness validate first (`resolveProjectTimeouts` in config.js throws for project values;
+ * the manifest schema validates adapter values).
+ *
+ * `timeoutClass` on a module-dispatched capability (kata `work-graph.plan`/`graph-health`) is
+ * declarative only: this function is never called for it, so the bound is not enforced by the
+ * in-process work-graph module; its inner `tracker.*` calls honor their own class bound.
+ *
+ * @param {{timeouts?: {short?: number, long?: number}}} adapter the adapter manifest
+ * @param {{timeoutClass?: 'short'|'long'}} cap the capability entry
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}}} [opts]
+ * @returns {{timeoutClass: 'short'|'long', boundMs: number}}
+ */
+function resolveCapabilityTimeout(adapter, cap, opts) {
+  const o = opts || {};
+  const timeoutClass = cap && cap.timeoutClass === 'long' ? 'long' : 'short';
+  const pick = (t) => (t && Number.isInteger(t[timeoutClass]) && t[timeoutClass] > 0 ? t[timeoutClass] : 0);
+  const boundMs = o.timeoutMs || pick(o.timeouts) || pick(adapter && adapter.timeouts) || DEFAULT_TIMEOUT_MS;
+  return { timeoutClass, boundMs };
+}
 // See this file's header, "`opts.execFileOptions` MAY still override..." -- 64 MiB, matching
 // this repo's own sibling execFile/spawnSync callers (beads-label.js, complexity-analyzer.js);
 // strictly larger than Node's 1 MiB execFile default, so this can only turn a previously
@@ -600,7 +635,18 @@ const SCHEMA_DIR = path.join(__dirname, '..', '..', 'toolchain', 'schemas', 'nor
  */
 const CAPABILITY_NORMALIZED_SCHEMA = {
   'tracker.list': 'work-item-list.json',
-  'tracker.comments': 'comment-list.json'
+  'tracker.comments': 'comment-list.json',
+  // TRD-014 (kata native answers): minimal entries so a mapped `tracker.sync` / `tracker.stage-export`
+  // result is not gated by `work-item.json`'s `required: ["id"]`. TRD-033 owns the broader
+  // non-entity schema entries and may supersede these.
+  'tracker.sync': 'status-result.json',
+  'tracker.stage-export': 'export-result.json',
+  // TRD-033: non-entity kata capabilities. `tracker.find-by-key` answers a LIST (validated against
+  // the list schema, not work-item.json); `tracker.label` / `tracker.label-one` answer an id plus
+  // the applied label(s), validated against label-result.json instead of entity fields.
+  'tracker.find-by-key': 'work-item-list.json',
+  'tracker.label': 'label-result.json',
+  'tracker.label-one': 'label-result.json'
 };
 
 /**
@@ -901,6 +947,19 @@ function killVerifiedPidsSafe(identities, listProcessTableFn = listProcessTable)
  */
 function lookupCapability(adapter, adapterId, capability, opts) {
   const cap = adapter && adapter.capabilities && adapter.capabilities[capability];
+  if (cap && cap.module && !cap.run) {
+    return {
+      envelope: {
+        ok: false,
+        error: {
+          code: 'NOT_ALLOWED',
+          message:
+            `capability '${capability}' of adapter '${adapterId}' is an in-process module ` +
+            `capability and cannot run through the argv runner; dispatch it via the work-graph resolver`
+        }
+      }
+    };
+  }
   if (cap) return { cap };
 
   const declared = resolve.lookupContractCapability(capability, opts.categoriesDir);
@@ -1152,6 +1211,51 @@ function nonZeroExitDetail(stderr, stdout, fallbackMessage) {
 }
 
 /**
+ * The `TOOL_FAILED` envelope for a NON-ZERO exit, shared by `runCapability` and
+ * `runCapabilitySync` so the two stay in parity. When the adapter manifest declares
+ * `exitCodeNames` (TRD-2026-6995dc96 TRD-029, PRD AC-017-2: kata's exit codes 3..8) and `exitCode`
+ * has an entry, the failure is NAMED: the message reads `exit <n> (<name>)` ahead of the tool's own
+ * detail (stderr, else its stdout error envelope), and the error also carries `exitCode` and
+ * `exitName`. `error.code` stays `TOOL_FAILED` -- a named exit is never success and never a new
+ * runner code. An adapter without `exitCodeNames`, or an unlisted exit code, gets exactly the
+ * pre-existing message and no extra fields.
+ *
+ * @param {{exitCodeNames?: Record<string,string>}} adapter
+ * @param {string} adapterId
+ * @param {string} capability
+ * @param {number|null} exitCode the child's numeric exit code, or null when not an exit
+ * @param {string} rawDetail pre-redaction detail from `nonZeroExitDetail`
+ * @returns {{ok:false, error:{code:'TOOL_FAILED', message:string, exitCode?:number, exitName?:string}}}
+ */
+function nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail) {
+  const names = adapter && adapter.exitCodeNames;
+  const exitName =
+    exitCode !== null && names && typeof names === 'object' && Object.prototype.hasOwnProperty.call(names, String(exitCode))
+      ? names[String(exitCode)]
+      : null;
+  if (exitName === null) {
+    return {
+      ok: false,
+      error: {
+        code: 'TOOL_FAILED',
+        message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
+      }
+    };
+  }
+  return {
+    ok: false,
+    error: {
+      code: 'TOOL_FAILED',
+      message:
+        `${adapterId}: capability '${capability}' failed: exit ${exitCode} (${exitName}): ` +
+        `${redactAndBound(rawDetail)}`,
+      exitCode,
+      exitName
+    }
+  };
+}
+
+/**
  * Apply a capability's `parse` block (if any) to raw stdout and, for categories declaring a
  * normalized schema, Ajv-validate the mapped result -- the `mapOutput`/`BAD_OUTPUT`/schema-
  * validation portion of the runner envelope contract (TRD-012, PRD REQ-002 AC-002-2, REQ-022
@@ -1246,7 +1350,7 @@ function successEnvelope(capability, adapterId, source, data) {
  *   string[]>>}>}} adapter a parsed, already-validated adapter manifest
  * @param {string} capability the capability id to invoke, e.g. `tracker.show`
  * @param {Record<string, unknown>} [args] argument values keyed by placeholder name
- * @param {{timeoutMs?: number, source?: unknown, execFileOptions?: object, categoriesDir?:
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}, source?: unknown, execFileOptions?: object, categoriesDir?:
  *   string, parentEnv?: NodeJS.ProcessEnv}} [opts] `categoriesDir` is forwarded to
  *   `resolve.lookupContractCapability`'s category-contract lookup in the `!cap` branch below;
  *   defaults to that function's own default (the real
@@ -1272,7 +1376,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
 
-  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const { timeoutClass, boundMs: timeoutMs } = resolveCapabilityTimeout(adapter, cap, opts);
   const childEnv = buildChildEnv(
     adapter && adapter.env,
     opts.parentEnv || process.env,
@@ -1350,7 +1454,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
                 error: {
                   code: 'TIMEOUT',
                   message:
-                    `${adapterId}: capability '${capability}' exceeded its timeout of ` +
+                    `${adapterId}: capability '${capability}' (timeout class '${timeoutClass}') exceeded its timeout of ` +
                     `${timeoutMs}ms and was killed`
                 }
               });
@@ -1364,13 +1468,13 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
 
             if (!toleratedExit) {
               const rawDetail = nonZeroExitDetail(stderr, stdout, error.message);
-              resolve({
-                ok: false,
-                error: {
-                  code: 'TOOL_FAILED',
-                  message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
-                }
-              });
+              const failed = nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail);
+              // A spawn ENOENT means the binary itself is not on PATH (never a tool exit). Mark it
+              // so preflight can name the missing binary (TRD-006); `error.code` stays TOOL_FAILED.
+              if (error.code === 'ENOENT' && typeof error.syscall === 'string' && error.syscall.startsWith('spawn')) {
+                failed.error.missingBinary = typeof error.path === 'string' ? error.path : argv[0];
+              }
+              resolve(failed);
               return;
             }
 
@@ -1514,7 +1618,7 @@ async function runCapability(adapter, capability, args = {}, opts = {}) {
  *   manifest
  * @param {string} capability the capability id to invoke, e.g. `tracker.show`
  * @param {Record<string, unknown>} [args] argument values keyed by placeholder name
- * @param {{timeoutMs?: number, source?: unknown, execFileOptions?: object, categoriesDir?:
+ * @param {{timeoutMs?: number, timeouts?: {short?: number, long?: number}, source?: unknown, execFileOptions?: object, categoriesDir?:
  *   string, parentEnv?: NodeJS.ProcessEnv}} [opts] identical meaning to `runCapability`'s own
  * @returns {{ok:true, capability:string, adapter:string, source:unknown, data:(string|unknown)}|
  *   {ok:false, error:{code:string, message:string}}} the same envelope shape `runCapability`
@@ -1534,7 +1638,7 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
   const allowlistEnvelope = checkRuntimeAllowlistEnvelope(adapterId, adapter, argv);
   if (allowlistEnvelope) return allowlistEnvelope;
 
-  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const { timeoutClass, boundMs: timeoutMs } = resolveCapabilityTimeout(adapter, cap, opts);
   const childEnv = buildChildEnv(
     adapter && adapter.env,
     opts.parentEnv || process.env,
@@ -1570,19 +1674,14 @@ function runCapabilitySync(adapter, capability, args = {}, opts = {}) {
         error: {
           code: 'TIMEOUT',
           message:
-            `${adapterId}: capability '${capability}' exceeded its timeout of ` +
+            `${adapterId}: capability '${capability}' (timeout class '${timeoutClass}') exceeded its timeout of ` +
             `${timeoutMs}ms and was killed`
         }
       };
     }
     const rawDetail = nonZeroExitDetail(error.stderr, error.stdout, error.message);
-    return {
-      ok: false,
-      error: {
-        code: 'TOOL_FAILED',
-        message: `${adapterId}: capability '${capability}' failed: ${redactAndBound(rawDetail)}`
-      }
-    };
+    const exitCode = typeof error.status === 'number' ? error.status : null;
+    return nonZeroExitEnvelope(adapter, adapterId, capability, exitCode, rawDetail);
   }
 
   const errorEnvelope = checkZeroExitErrorEnvelope(adapterId, capability, stdout);
@@ -1601,5 +1700,8 @@ module.exports = {
   collectDescendants,
   killVerifiedPidsSafe,
   runCapability,
-  runCapabilitySync
+  runCapabilitySync,
+  resolveCapabilityTimeout,
+  mapAndValidateOutput,
+  CAPABILITY_NORMALIZED_SCHEMA
 };

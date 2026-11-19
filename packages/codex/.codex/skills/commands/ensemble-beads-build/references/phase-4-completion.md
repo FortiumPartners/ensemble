@@ -6,7 +6,7 @@ Close the root epic when all children are done (skipped when DEFER_COMPLETION=tr
 
 - If DEFER_COMPLETION=true: print "Epic closure: deferred to caller (--defer-completion)" and skip this step entirely; the caller closes the epic only after its own completion verification and PR gate.
 - Verify: node "$TOOLCHAIN_CLI" run tracker.list (issue list per Preflight step 4's tracker.list note), filtered to status=="open" AND (LABEL when set, else EPIC_SLUG), returns no open tasks
-- Run: node "$TOOLCHAIN_CLI" run tracker.close --arg id=<ROOT_EPIC_ID>
+- Run: node "$TOOLCHAIN_CLI" run tracker.close-with-reason --arg id=<ROOT_EPIC_ID> --arg reason="<>=40-char reason>" --arg commit=<HEAD_SHA> (HEAD_SHA per quality gate) (NOT_ALLOWED: use tracker.close --arg id=<ID>; also without HEAD_SHA)
 - Run: node "$TOOLCHAIN_CLI" run tracker.sync
 
 #### Step 4.2: TRD Checkbox Sync
@@ -40,6 +40,6 @@ Print final summary, requirement satisfaction table (if TRD_MODE), and PR remind
 - If PR_BACKEND=='gh': remind user: node "$TOOLCHAIN_CLI" run workflow.diff --arg ref=main...<branch>; then node "$TOOLCHAIN_CLI" run host.change-request-create --arg baseBranch=main --arg headBranch=<branch> --arg title="<title>" --arg description="<description>"; after merge: move any TRD file to docs/TRD/completed/
 - If PR_BACKEND=='ado': remind user: node "$TOOLCHAIN_CLI" run workflow.push --arg branch=<branch>; then node "$TOOLCHAIN_CLI" run host.change-request-create --arg baseBranch=main --arg headBranch=<branch> --arg title="<title>" --arg description="<description>" (resolves through the configured Azure DevOps host adapter; if none resolves, use the portal instead: Repos > Pull Requests > New Pull Request, source=<branch>, target=main); after merge: move any TRD file to docs/TRD/completed/
 - If PR_BACKEND=='manual': remind user: node "$TOOLCHAIN_CLI" run workflow.push --arg branch=<branch>; then node "$TOOLCHAIN_CLI" run host.change-request-create --arg baseBranch=main --arg headBranch=<branch> --arg title="<title>" --arg description="<description>" (resolves through whichever host adapter is configured; prints manual next steps itself when none resolves); after merge: move any TRD file to docs/TRD/completed/
-- Remind user: node "$TOOLCHAIN_CLI" run tracker.sync && node "$TRD_CLI" beads-stage <STAGE_SCOPE> && node "$TOOLCHAIN_CLI" run workflow.commit --arg message="chore: final beads sync" (never stage the whole .beads/ directory; see docs/guides/beads-tracked-export.md)
+- Remind user: node "$TOOLCHAIN_CLI" run tracker.sync && node "$TRD_CLI" beads-stage <STAGE_SCOPE> && node "$TOOLCHAIN_CLI" run workflow.commit --arg message="chore: final beads sync" (never stage the whole beads-only .beads/; see docs/guides/beads-tracked-export.md)
 - TIP: /ensemble:implement-trd-tasks <trd-path> drives this same engine with full scaffold, traceability validation, and the Design Readiness gate; /ensemble:beads-build <epic> --plan prints the plan without executing.
 - Do NOT auto-create PR — user must create it manually per the PR_BACKEND-specific reminder above

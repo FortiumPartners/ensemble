@@ -1,0 +1,45 @@
+{
+  "kata_api_version": 1,
+  "issue": {
+    "source_actor": "ldangelo",
+    "verification": "legacy",
+    "id": 1,
+    "uid": "01M7CNG58FXZPZDY9N2JF2CSJM",
+    "project_id": 2,
+    "project_uid": "01M7CNFTTP6FPX3XCZK1F30SVN",
+    "short_id": "csjm",
+    "title": "Envelope probe alpha",
+    "body": "first body",
+    "status": "open",
+    "author": "ldangelo",
+    "metadata": {},
+    "revision": 1,
+    "created_at": "2026-11-14T09:16:30.863Z",
+    "updated_at": "2026-11-14T09:17:02.792Z"
+  },
+  "label": {
+    "issue_id": 1,
+    "label": "blocked",
+    "author": "ldangelo",
+    "created_at": "2026-11-14T09:17:02.792Z"
+  },
+  "event": {
+    "id": 6,
+    "uid": "01M7CNH4E8C035V8FAD76XDJWC",
+    "origin_instance_uid": "01M7CNFTRMYVA7S2HYT2M99C31",
+    "project_id": 2,
+    "project_uid": "01M7CNFTTP6FPX3XCZK1F30SVN",
+    "project_name": "trd-capture-scratch",
+    "issue_id": 1,
+    "issue_uid": "01M7CNG58FXZPZDY9N2JF2CSJM",
+    "issue_short_id": "csjm",
+    "type": "issue.labeled",
+    "actor": "ldangelo",
+    "payload": "{\"issue_uid\":\"01M7CNG58FXZPZDY9N2JF2CSJM\",\"label\":\"blocked\",\"updated_at\":\"2026-11-14T09:17:02.792Z\"}",
+    "hlc_physical_ms": 1794647822792,
+    "hlc_counter": 0,
+    "content_hash": "c4de540dfbe0b60c93c5c4f793386a1968c34a2eb8652b6b5bc0d69459ce21f7",
+    "created_at": "2026-11-14T09:17:02.792Z"
+  },
+  "changed": true
+}

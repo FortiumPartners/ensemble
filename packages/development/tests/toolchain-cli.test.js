@@ -253,11 +253,27 @@ describe('explain/resolve: full five-tier precedence chain', () => {
 
   test('explain(ctx) matches the full expected map, including every default-tier category', () => {
     const result = explain(ctx);
-    expect(result.data).toEqual(EXPECTED_DATA);
+    // explain adds a per-capability native/fallback map to the work-graph row (TRD-026); resolve does not.
+    const expected = {
+      ...EXPECTED_DATA,
+      'work-graph': {
+        ...EXPECTED_DATA['work-graph'],
+        capabilities: {
+          'work-graph.ready': 'native',
+          'work-graph.plan': 'native',
+          'work-graph.graph-health': 'native'
+        }
+      }
+    };
+    expect(result.data).toEqual(expected);
   });
 
-  test('resolve(ctx) is identical to explain(ctx)', () => {
-    expect(resolve(ctx)).toEqual(explain(ctx));
+  test('resolve(ctx) equals explain(ctx) except for the explain-only work-graph capabilities map', () => {
+    expect(resolve(ctx).data).toEqual(EXPECTED_DATA);
+    const explained = explain(ctx);
+    const { capabilities, ...rest } = explained.data['work-graph'];
+    expect(capabilities).toBeDefined();
+    expect({ ...explained.data, 'work-graph': rest }).toEqual(resolve(ctx).data);
   });
 });
 
@@ -595,7 +611,7 @@ describe('preflight: requireCapabilities gating before health checks (TRD-013/TR
       });
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-b-workgraph', {
         categories: ['work-graph'],
-        contract: { 'work-graph': '1.0' },
+        contract: { 'work-graph': '2.0' },
         health: [],
         // Deliberately no 'work-graph.ready' capability.
         capabilities: {}
@@ -638,7 +654,7 @@ describe('preflight: requireCapabilities gating before health checks (TRD-013/TR
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-ok-a-tracker', { health: [] });
       mkInstalledAdapter(projectRoot, 'fixture-preflight-cat-ok-b-workgraph', {
         categories: ['work-graph'],
-        contract: { 'work-graph': '1.0' },
+        contract: { 'work-graph': '2.0' },
         health: [],
         capabilities: {
           'work-graph.ready': { run: [process.execPath, '-e', 'process.stdout.write("ready")'] }
@@ -900,7 +916,7 @@ describe('preflight + confirm-record then run: full gate satisfied across three 
 
       const preflightRes = spawnSync(
         'node',
-        [CLI, 'preflight', '--require', 'tracker.show', '--run-id', runId, '--json'],
+        [CLI, 'preflight', '--require', 'tracker.create', '--run-id', runId, '--json'],
         { cwd: projectRoot, env, encoding: 'utf8' }
       );
       expect(preflightRes.status).toBe(0);
@@ -1173,10 +1189,12 @@ describe('detection-selected adapter works end to end through preflight/run/conf
         const needle =
           "    : await runCapability(loaded.manifest, capability, args, {\n" +
           "        source,\n" +
+          "        timeouts: projectTimeouts,\n" +
           "        execFileOptions: { cwd: projectRoot }\n" +
           "      });";
         const replacement =
           "    : await runCapability(loaded.manifest, capability, args, {\n" +
+          "        timeouts: projectTimeouts,\n" +
           "        execFileOptions: { cwd: projectRoot }\n" +
           "      });";
         const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
@@ -1425,7 +1443,12 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
       expect(JSON.parse(explainRes.stdout).data['work-graph']).toEqual({
         adapter: 'beads',
         source: 'default',
-        autoVia: 'tracker-capabilities'
+        autoVia: 'tracker-capabilities',
+        capabilities: {
+          'work-graph.ready': 'native',
+          'work-graph.plan': 'native',
+          'work-graph.graph-health': 'native'
+        }
       });
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
@@ -1471,7 +1494,12 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
       expect(JSON.parse(explainRes.stdout).data['work-graph']).toEqual({
         adapter: 'work-graph-links-fallback',
         source: 'default',
-        autoVia: 'builtin-fallback'
+        autoVia: 'builtin-fallback',
+        capabilities: {
+          'work-graph.ready': 'native',
+          'work-graph.plan': 'native',
+          'work-graph.graph-health': 'native'
+        }
       });
 
       const preflightRes = spawnSync(
@@ -1534,7 +1562,7 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
     }
   });
 
-  test("branch (b), required-and-absent halt: work-graph.graph-health required by preflight, tracker lacks work-graph and the built-in fallback does not implement graph-health either -> UNAVAILABLE naming the fallback adapter, exit non-zero, no preflight record written, before any health check spawns", () => {
+  test("branch (b), graph-health: work-graph.graph-health required by preflight, tracker lacks work-graph, the built-in fallback now answers it (TRD-026) -> exit 0, ok:true, resolves to the fallback, preflight record written", () => {
     const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-wg-halt-'));
     const binDir = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-wg-halt-bin-'));
     try {
@@ -1544,10 +1572,8 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
       mkNoWorkGraphTrackerAdapter(projectRoot, 'fixture-wg-halt-tracker', binPath, {
         declareDependencies: false
       });
-      // 'work-graph' is deliberately left unset -> shipped default 'auto', which (per the
-      // branch (b) test above) expands to the built-in 'work-graph-links-fallback' adapter --
-      // whose own scope is only work-graph.ready/work-graph.plan, so work-graph.graph-health
-      // is genuinely unavailable through BOTH the tracker and the resolved fallback.
+      // 'work-graph' is deliberately left unset -> shipped default 'auto', which expands to the
+      // built-in 'work-graph-links-fallback' adapter; it implements graph-health from the shared scan.
       const env = cleanSpawnEnv();
       const runId = 'wg-halt-run';
 
@@ -1557,15 +1583,15 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
         { cwd: projectRoot, env, encoding: 'utf8' }
       );
 
-      expect(res.status).not.toBe(0);
+      expect(res.status).toBe(0);
       const parsed = JSON.parse(res.stdout);
-      expect(parsed.ok).toBe(false);
-      expect(parsed.error.code).toBe('UNAVAILABLE');
-      expect(parsed.error.message).toContain('work-graph.graph-health');
-      expect(parsed.error.message).toContain('work-graph-links-fallback');
+      expect(parsed.ok).toBe(true);
 
       const recordPath = path.join(projectRoot, '.ensemble', 'state', 'toolchain', `preflight-${runId}.json`);
-      expect(fs.existsSync(recordPath)).toBe(false);
+      expect(fs.existsSync(recordPath)).toBe(true);
+
+      const explainRes = spawnSync('node', [CLI, 'explain', '--json'], { cwd: projectRoot, env, encoding: 'utf8' });
+      expect(JSON.parse(explainRes.stdout).data['work-graph'].adapter).toBe('work-graph-links-fallback');
     } finally {
       fs.rmSync(projectRoot, { recursive: true, force: true });
       fs.rmSync(binDir, { recursive: true, force: true });
@@ -1573,7 +1599,7 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
   });
 
   describe('mutation-proof: the "auto" resolver\'s tracker-vs-fallback branch selection actually matters for which adapter a required-and-absent halt names', () => {
-    test("forcing resolveWorkGraphAdapter's 'auto' expansion to always treat the tracker as providing work-graph (skipping the real trackerProvidesWorkGraph check) makes the required-and-absent halt above wrongly name the TRACKER adapter instead of 'work-graph-links-fallback'", async () => {
+    test("forcing resolveWorkGraphAdapter's 'auto' expansion to always treat the tracker as providing work-graph (skipping the real trackerProvidesWorkGraph check) makes a graph-health requirement wrongly halt UNAVAILABLE naming the TRACKER adapter, where the real resolver (test above) resolves to 'work-graph-links-fallback' and passes", async () => {
       const mutantRoot = makeMutantToolchainRoot();
       try {
         const resolverPath = path.join(mutantRoot.toolchainLibDir, 'work-graph-resolve.js');
@@ -1604,7 +1630,7 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
           expect(parsed.error.code).toBe('UNAVAILABLE');
           // The mutated resolver now (wrongly) treats the tracker-only adapter as if it
           // provided work-graph itself, so the halt names the TRACKER adapter, never the
-          // built-in fallback -- exactly what the real (unmutated) test above disproves.
+          // built-in fallback -- exactly what the real (unmutated) test above disproves (it passes with the fallback).
           expect(parsed.error.message).toContain('fixture-wg-halt-mutant-tracker');
           expect(parsed.error.message).not.toContain('work-graph-links-fallback');
         } finally {
@@ -1622,9 +1648,9 @@ describe('work-graph auto resolution: real CLI subprocess, both branches (TRD-02
       const mutantRoot = makeMutantToolchainRoot();
       try {
         const needle =
-          "  let workGraphTrackerManifest = null;\n" + "  if (category === 'work-graph') {";
+          "  let resolvedWorkGraph = null;\n" + "  if (category === 'work-graph') {";
         const replacement =
-          "  let workGraphTrackerManifest = null;\n" + "  if (false && category === 'work-graph') {";
+          "  let resolvedWorkGraph = null;\n" + "  if (false && category === 'work-graph') {";
         const mutatedCli = mutateAndRequire(mutantRoot.cliPath, needle, replacement);
 
         const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'toolchain-cli-wg-mutant-'));

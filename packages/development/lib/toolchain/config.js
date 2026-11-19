@@ -176,8 +176,37 @@ function resolveCategory(category, ctx = {}) {
   throw new Error(`resolveCategory: unknown category '${category}' (not found in ${DEFAULT_TOOLCHAIN_PATH})`);
 }
 
+/**
+ * The project-level per-class timeout bounds (`timeouts: {short, long}`, TRD-2026-6995dc96
+ * TRD-028, PRD REQ-017) for the runner's `opts.timeouts`. Read from the same project config
+ * `resolveCategory` reads (`ctx.projectConfig` when supplied, else `.ensemble/toolchain.yaml`).
+ * Project config only: the user-level file does not set per-project bounds.
+ *
+ * @param {{projectRoot?: string, projectConfig?: object|null}} [ctx]
+ * @returns {{short?: number, long?: number}|undefined} undefined when the project sets none
+ * @throws {Error} if the project config fails schema validation, or `timeouts` has an unknown
+ *   key or a value that is not a positive integer (also for a hand-built `ctx.projectConfig`)
+ */
+function resolveProjectTimeouts(ctx = {}) {
+  const { projectRoot = process.cwd() } = ctx;
+  const projectConfig =
+    ctx.projectConfig !== undefined
+      ? ctx.projectConfig
+      : loadToolchainConfigFile(path.join(projectRoot, '.ensemble', 'toolchain.yaml'));
+  const timeouts = projectConfig && projectConfig.timeouts;
+  if (timeouts === undefined || timeouts === null) return undefined;
+  // Validate here too: a hand-built `ctx.projectConfig` never passed through the file loader, and
+  // `resolveCapabilityTimeout` silently ignores invalid values, which would hide a bad bound.
+  const validate = getValidator();
+  if (!validate({ timeouts })) {
+    throw new Error(`invalid project timeouts (${describeAjvError(validate.errors[0])})`);
+  }
+  return timeouts;
+}
+
 module.exports = {
   resolveCategory,
+  resolveProjectTimeouts,
   loadToolchainConfigFile,
   parseToolchainConfigText,
   loadDefaultToolchainConfig,

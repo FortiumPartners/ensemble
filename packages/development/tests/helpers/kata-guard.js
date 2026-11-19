@@ -145,6 +145,25 @@ function clearRegisteredKataChecks() {
   kataChecks.clear();
 }
 
+/**
+ * Append one `{suite, ran, reason?, checks}` line to the file named by `KATA_SKIP_LEDGER`, when
+ * that variable is set. The CI no-kata leg (scripts/check-kata-skips.js) reads it to compare the
+ * skip list with the tests that touch kata (AC-016-2, AC-016-3). Never throws: a ledger that
+ * cannot be written must not fail a test run.
+ *
+ * @param {{suite:string, ran:boolean, reason?:string, checks:string[]}} entry
+ * @param {NodeJS.ProcessEnv} [env]
+ */
+function recordLedger(entry, env = process.env) {
+  const file = env && env.KATA_SKIP_LEDGER;
+  if (!file) return;
+  try {
+    fs.appendFileSync(file, `${JSON.stringify(entry)}\n`);
+  } catch {
+    // ledger is advisory
+  }
+}
+
 /** Skip announcements collected so far, oldest first: `{suite, reason, checks}`. */
 const skips = [];
 
@@ -190,6 +209,18 @@ function skipOnlyTest(original, collected) {
   for (const key of ['skip', 'only', 'failing', 'concurrent', 'each', 'todo']) {
     if (typeof original[key] === 'function') wrapper[key] = original[key];
   }
+  // A todo check is named and skipped like any other, so the audit sees one status for the suite.
+  wrapper.todo = (name) => {
+    collected.push(name);
+    return original.skip(name, () => {});
+  };
+  // A table-driven check must skip too, or its real run would execute without kata.
+  if (original.skip && typeof original.skip.each === 'function') {
+    wrapper.each = (table) => (name, fn, timeout) => {
+      collected.push(name);
+      return original.skip.each(table)(name, fn, timeout);
+    };
+  }
   return wrapper;
 }
 
@@ -221,6 +252,7 @@ function guardKata(suite, body, opts = {}) {
   if (kataAvailable(env)) {
     if (typeof describe === 'function') describe(suite, body);
     else body();
+    recordLedger({ suite, ran: true, checks: declared || registeredKataChecks() });
     return { ran: true, skipped: false, checks: declared || registeredKataChecks() };
   }
 
@@ -231,10 +263,15 @@ function guardKata(suite, body, opts = {}) {
   if (typeof describe === 'function') {
     if (typeof originalTest === 'function' && typeof originalTest.skip === 'function') {
       globalThis.test = skipOnlyTest(originalTest, skippedChecks);
+      // Jest still runs a suite's hooks when it holds a `test.todo`, and these hooks need kata.
+      const hooks = ['beforeAll', 'afterAll', 'beforeEach', 'afterEach'];
+      const originalHooks = hooks.map((h) => globalThis[h]);
+      hooks.forEach((h) => { globalThis[h] = () => {}; });
       try {
         describe(suite, body);
       } finally {
         globalThis.test = originalTest;
+        hooks.forEach((h, i) => { globalThis[h] = originalHooks[i]; });
       }
     } else {
       describe.skip(suite, body);
@@ -245,6 +282,7 @@ function guardKata(suite, body, opts = {}) {
   // list is the fallback for a body that registers its checks some other way.
   const checks = skippedChecks.length ? skippedChecks : (declared || registeredKataChecks());
   announceSkip(suite, checks);
+  recordLedger({ suite, ran: false, reason: SKIP_REASON, checks });
   return { ran: false, skipped: true, checks };
 }
 

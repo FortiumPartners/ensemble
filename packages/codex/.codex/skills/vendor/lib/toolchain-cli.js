@@ -224,11 +224,12 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { resolveCategory } = require('./toolchain/config');
+const { resolveCategory, resolveProjectTimeouts } = require('./toolchain/config');
 const { loadAdapter } = require('./toolchain/adapters');
 const { runCapability } = require('./toolchain/runner');
 const { loadContracts } = require('./toolchain/contracts');
-const { hasPassingPreflightRecord, runPreflight } = require('./toolchain/preflight');
+const { classifyCapabilities } = require('./toolchain/coverage');
+const { hasPassingPreflightRecord, preflightGatesCapability, preflightReportedCapability, runPreflight } = require('./toolchain/preflight');
 const { validateAdapterDir } = require('./toolchain/validate');
 const { recordSideEffect, recordFailure, readLedgerEntries } = require('./toolchain/ledger');
 const { isValidRunId, invalidRunIdMessage } = require('./toolchain/run-id');
@@ -238,8 +239,10 @@ const {
   recordConfirmation,
   isNonInteractive
 } = require('./toolchain/confirm');
-const { resolveWorkGraphAdapter } = require('./toolchain/work-graph-resolve');
-const { runWorkGraphCapability } = require('./toolchain/builtin/work-graph-links-fallback');
+const {
+  resolveWorkGraphAdapter,
+  dispatchWorkGraphCapability
+} = require('./toolchain/work-graph-resolve');
 const { assertKnownAdapter } = require('./toolchain/resolve-guard');
 const runTrace = require('./run-trace');
 
@@ -285,11 +288,15 @@ const CATEGORIES = [
  * below and reported with that code unchanged, naming the category, the bogus id, and every
  * real adapter id shipped for it.
  *
+ * `opts.coverage` (explain only, TRD-026) adds `data['work-graph'].capabilities`, the per-capability
+ * `native`/`fallback`/`unavailable` map of the resolved work-graph adapter.
+ *
  * @param {{projectRoot?: string, env?: NodeJS.ProcessEnv, detect?: Function, installedRoots?: string[]}} [ctx]
+ * @param {{coverage?: boolean}} [opts]
  * @returns {{ok: true, data: Record<string, {adapter: string, source: string,
- *   autoVia?: string, detectionDiagnostics?: object[]}>} | {ok: false, error: {code: string, message: string}}}
+ *   autoVia?: string, capabilities?: Record<string, string>, detectionDiagnostics?: object[]}>} | {ok: false, error: {code: string, message: string}}}
  */
-function resolveAll(ctx = {}) {
+function resolveAll(ctx = {}, opts = {}) {
   const data = {};
   try {
     for (const category of CATEGORIES) {
@@ -301,6 +308,10 @@ function resolveAll(ctx = {}) {
         data[category] = { adapter: resolved.value, source: resolved.source };
         if (resolved.autoVia) {
           data[category].autoVia = resolved.autoVia;
+        }
+        if (opts.coverage) {
+          const contract = loadContracts()['work-graph.yaml'];
+          data[category].capabilities = classifyCapabilities(contract, resolved.manifest);
         }
         if (diagnostics.length > 0) {
           data[category].detectionDiagnostics = diagnostics;
@@ -331,12 +342,13 @@ function resolve(ctx = {}) {
 }
 
 /**
- * `explain` subcommand handler. Same resolution as `resolve`; this task defines no behavioral
- * difference beyond the subcommand name (both show adapter and source for every category).
+ * `explain` subcommand handler. Same resolution as `resolve`, plus (TRD-026) the work-graph row's
+ * `capabilities` map: per work-graph capability, whether the resolved adapter answers it `native`ly
+ * or it is reached by `fallback` (`./toolchain/coverage.js`). `resolve` output is unchanged.
  * @param {{projectRoot?: string, env?: NodeJS.ProcessEnv, detect?: Function, installedRoots?: string[]}} [ctx]
  */
 function explain(ctx = {}) {
-  return resolveAll(ctx);
+  return resolveAll(ctx, { coverage: true });
 }
 
 /**
@@ -466,7 +478,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
   let adapterId;
   let source;
   let loaded;
-  let workGraphTrackerManifest = null;
+  let resolvedWorkGraph = null;
   if (category === 'work-graph') {
     let resolved;
     try {
@@ -477,9 +489,7 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
     adapterId = resolved.value;
     source = resolved.source;
     loaded = { origin: resolved.origin, dir: resolved.dir, manifest: resolved.manifest };
-    if (resolved.autoVia === 'builtin-fallback') {
-      workGraphTrackerManifest = resolved.trackerManifest;
-    }
+    resolvedWorkGraph = resolved;
   } else {
     try {
       const resolvedCategory = resolveCategory(category, ctx);
@@ -504,6 +514,24 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
         message:
           `capability '${capability}' is side-effecting and requires a passing preflight ` +
           `record for run id '${runId === undefined ? '(none)' : runId}'; run preflight first`
+      }
+    };
+  }
+
+  // TRD-004 (PRD AC-018-3): a passing preflight is not enough; it must have REPORTED this
+  // capability available. Refused before confirmation and before any adapter call.
+  if (
+    sideEffect &&
+    preflightGatesCapability(runId, capability, ctx) &&
+    !preflightReportedCapability(runId, capability, ctx)
+  ) {
+    return {
+      ok: false,
+      error: {
+        code: 'CAPABILITY_NOT_REPORTED',
+        message:
+          `capability '${capability}' was not reported available by the preflight for run id ` +
+          `'${runId}'; run preflight with --require ${capability} first`
       }
     };
   }
@@ -536,13 +564,16 @@ async function run(ctx = {}, positionals = [], parsed = {}) {
   }
 
   const projectRoot = ctx.projectRoot || process.cwd();
-  const result = workGraphTrackerManifest
-    ? await runWorkGraphCapability(capability, workGraphTrackerManifest, args, {
+  const projectTimeouts = resolveProjectTimeouts(ctx);
+  const result = resolvedWorkGraph
+    ? await dispatchWorkGraphCapability(resolvedWorkGraph, capability, args, {
         source,
-        execOpts: { execFileOptions: { cwd: projectRoot } }
+        cwd: projectRoot,
+        timeouts: projectTimeouts
       })
     : await runCapability(loaded.manifest, capability, args, {
         source,
+        timeouts: projectTimeouts,
         execFileOptions: { cwd: projectRoot }
       });
 
@@ -871,7 +902,14 @@ function renderTable(data) {
     Math.max(heading.length, ...rows.map((row) => String(row[i]).length))
   );
   const formatRow = (row) => row.map((cell, i) => String(cell).padEnd(widths[i])).join('  ');
-  return [formatRow(header), ...rows.map(formatRow)].join('\n');
+  const out = [formatRow(header), ...rows.map(formatRow)];
+  const caps = data['work-graph'] && data['work-graph'].capabilities;
+  if (caps) {
+    out.push('', 'work-graph capabilities (native = answered by the adapter, fallback = built-in analyzer):');
+    const width = Math.max(...Object.keys(caps).map((id) => id.length));
+    for (const [id, how] of Object.entries(caps)) out.push(`  ${id.padEnd(width)}  ${how}`);
+  }
+  return out.join('\n');
 }
 
 /**

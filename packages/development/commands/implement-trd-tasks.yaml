@@ -19,11 +19,15 @@ metadata:
       - workflow.merge-base
     optional:
       - work-graph.plan
+      - work-graph.ready
+      - tracker.create-detailed
+      - tracker.find-by-key
       - work-graph.graph-health
       - tracker.stage-export
       - tracker.comments
       - tracker.dep-add
       - tracker.sync
+      - tracker.close-with-reason
   argument_hint: "[trd-path] [--plan] [--execute] [--branch=<name>] [--use-current-branch] [--status] [--reset-task TRD-XXX] [--list] [max parallel N] [--foreman] [<trd-path> <trd-path>... --workstream [--generate-only [--out <path>] [--allow-invalid]]]"
   allowed_tools:
     - Read

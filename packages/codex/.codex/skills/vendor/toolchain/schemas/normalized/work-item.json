@@ -29,6 +29,11 @@
       "enum": ["open", "in_progress", "closed"],
       "description": "Normalized lifecycle status; adapters translate their tool's own status strings into one of these three via a capability's parse.statusMap (TRD-012)."
     },
+    "owner": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The identity currently claiming the work item, when the source tool records one (TRD-2026-6995dc96 TRD-034, PRD REQ-004). Absent for an unowned item. For a tool whose status field has no in-progress value (kata) an owned-but-open item is the in-progress representation, which an adapter surfaces through parse.inProgressWhen."
+    },
     "priority": {
       "type": "string",
       "description": "The work item's priority as reported by its source tool, normalized to a string (this schema's own choice, not mandated by the TRD -- a union of 'string'|'number' was considered and rejected to keep the schema in Ajv strict mode without warnings). Trackers that expose a numeric priority rank are expected to stringify it (e.g. '1') before this field is populated; TRD-012 does not define a normalized priority vocabulary beyond that."

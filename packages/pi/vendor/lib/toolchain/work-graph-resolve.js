@@ -27,10 +27,19 @@
 
 const { resolveCategory } = require('./config');
 const { loadAdapter } = require('./adapters');
+const { runCapability } = require('./runner');
+const { confineModulePath } = require('./adapter-module');
 const {
   ADAPTER_ID: BUILTIN_WORK_GRAPH_ADAPTER_ID,
-  loadBuiltinWorkGraphAdapter
+  loadBuiltinWorkGraphAdapter,
+  runWorkGraphCapability
 } = require('./builtin/work-graph-links-fallback');
+
+const REQUIRED_WORK_GRAPH_CAPABILITIES = [
+  'work-graph.ready',
+  'work-graph.plan',
+  'work-graph.graph-health'
+];
 
 /**
  * Resolve the `work-graph` category to a real, loadable adapter, expanding the shipped default
@@ -61,7 +70,27 @@ function resolveWorkGraphAdapter(ctx = {}) {
 
   if (resolved.value !== 'auto') {
     const loaded = loadAdapter(resolved.value, { ...ctx, category: 'work-graph' });
-    return { value: resolved.value, source: resolved.source, autoVia: null, ...loaded };
+    const diagnostics = [];
+    if (resolved.source !== 'default') {
+      // TRD-032: an explicit work-graph backend that differs from the tracker backend is
+      // resolved as asked, but never silently. The tracker lookup is best-effort only.
+      try {
+        const trackerResolved = resolveCategory('tracker', { ...ctx, diagnostics: [] });
+        if (trackerResolved && trackerResolved.value && trackerResolved.value !== resolved.value) {
+          const diagnostic = {
+            code: 'WORK_GRAPH_BACKEND_MISMATCH',
+            tracker: trackerResolved.value,
+            workGraph: resolved.value,
+            message: `work-graph backend '${resolved.value}' differs from tracker backend '${trackerResolved.value}'; work-graph answers will not reflect the tracker's own items`
+          };
+          diagnostics.push(diagnostic);
+          if (Array.isArray(ctx.diagnostics)) ctx.diagnostics.push(diagnostic);
+        }
+      } catch (_error) {
+        // tracker lookup failed: no diagnostic, never a throw
+      }
+    }
+    return { value: resolved.value, source: resolved.source, autoVia: null, ...loaded, diagnostics };
   }
 
   // The internal tracker lookup below is a separate category resolution purely to inspect its
@@ -74,14 +103,22 @@ function resolveWorkGraphAdapter(ctx = {}) {
   // Loaded as the tracker it is (resolution is keyed on (id, category) -- #146), then asked
   // whether that same manifest also declares `work-graph`, which is what `auto` means here.
   const trackerLoaded = loadAdapter(trackerResolved.value, { ...trackerCtx, category: 'tracker' });
+  // TRD-032: claiming the category requires the `work-graph` category AND all three declared
+  // work-graph capabilities; a tracker omitting any one falls back to the builtin.
+  const trackerManifest = trackerLoaded.manifest || {};
+  const trackerCaps = trackerManifest.capabilities || {};
   const trackerProvidesWorkGraph =
-    Array.isArray(trackerLoaded.manifest && trackerLoaded.manifest.categories) &&
-    trackerLoaded.manifest.categories.includes('work-graph');
+    Array.isArray(trackerManifest.categories) &&
+    trackerManifest.categories.includes('work-graph') &&
+    REQUIRED_WORK_GRAPH_CAPABILITIES.every((name) => Boolean(trackerCaps[name]));
 
   if (trackerProvidesWorkGraph) {
     return {
       value: trackerResolved.value,
-      source: resolved.source,
+      // The work-graph value is the `auto` default, but the adapter came from the tracker
+      // selection, so report that selection's origin (TRD-031): a project that names the tracker
+      // reports `project`, and only an unconfigured tracker keeps `default`.
+      source: trackerResolved.source,
       autoVia: 'tracker-capabilities',
       ...trackerLoaded
     };
@@ -98,4 +135,54 @@ function resolveWorkGraphAdapter(ctx = {}) {
   };
 }
 
-module.exports = { resolveWorkGraphAdapter };
+/**
+ * The single resolver-owned dispatch for every work-graph capability call (TRD-016).
+ *
+ * 1. A capability declaring `module` is loaded in-process, only from inside the adapter's own
+ *    directory (confined before require()).
+ * 2. `builtin-fallback` routes to the builtin links analyzer with the tracker manifest.
+ * 3. Otherwise the declarative argv runner (`runCapability`) runs it, unchanged.
+ *
+ * @param {object} resolved result of resolveWorkGraphAdapter
+ * @param {string} capability
+ * @param {object} args
+ * @param {{source?: string, cwd?: string, runCapabilityImpl?: Function, runBuiltinImpl?: Function}} [opts]
+ */
+async function dispatchWorkGraphCapability(resolved, capability, args, opts = {}) {
+  const manifest = resolved && resolved.manifest;
+  const cap = manifest && manifest.capabilities && manifest.capabilities[capability];
+
+  if (cap && cap.module && !cap.run) {
+    const confined = confineModulePath(resolved.dir, cap.module);
+    if (!confined.ok) return confined;
+    const exportName = cap.export || 'run';
+    try {
+      // eslint-disable-next-line global-require, import/no-dynamic-require
+      const mod = require(confined.file);
+      const fn = mod && mod[exportName];
+      if (typeof fn !== 'function') {
+        return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' does not export a function '${exportName}'` } };
+      }
+      const result = await fn(capability, args, { source: opts.source, manifest, dir: resolved.dir, cwd: opts.cwd, timeouts: opts.timeouts });
+      if (!result || typeof result !== 'object') {
+        return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' returned a non-object result` } };
+      }
+      return result;
+    } catch (error) {
+      return { ok: false, error: { code: 'MODULE_FAILED', message: `adapter module '${cap.module}' failed: ${error && error.message ? error.message : error}` } };
+    }
+  }
+
+  if (resolved.autoVia === 'builtin-fallback') {
+    const runBuiltin = opts.runBuiltinImpl || runWorkGraphCapability;
+    return runBuiltin(capability, resolved.trackerManifest, args, {
+      source: opts.source,
+      execOpts: { timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } }
+    });
+  }
+
+  const run = opts.runCapabilityImpl || runCapability;
+  return run(manifest, capability, args, { source: opts.source, timeouts: opts.timeouts, execFileOptions: { cwd: opts.cwd } });
+}
+
+module.exports = { resolveWorkGraphAdapter, dispatchWorkGraphCapability };

@@ -183,6 +183,12 @@ function stageBeadsExport({ cwd = process.cwd(), file = DEFAULT_FILE, matches = 
       }
       throw new Error(`stageBeadsExport: tracker.stage-export failed: ${result.error.message}`);
     }
+    // A tracker with no file export (kata) answers in-band: `{text:'', status:'unavailable'}`.
+    // Staging that empty text would drop this TRD's beads from the index, so treat it like the
+    // runner's own unavailable status.
+    if (result.data && typeof result.data === 'object' && result.data.status === 'unavailable') {
+      return { ok: true, tracked: true, staged: false, unavailable: true, fallback: result.data.fallback, file };
+    }
     workText = result.data;
   } else {
     workText = fs.readFileSync(path.join(root, file), 'utf8');

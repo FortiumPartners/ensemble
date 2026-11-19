@@ -13,6 +13,8 @@ corresponding command printed, re-indented for review.
 | File | Command that produced it | Top-level keys |
 | --- | --- | --- |
 | `list.json` | `kata list --status all --limit 0 --json` | `kata_api_version`, `complete`, `truncated`, `issues` |
+| `list-total.json` | `kata list --status open --limit 0 --include-total --json` (TRD-029, scratch project, `KATA_HOME` under `~/.omp/br-08qsx/`) | `kata_api_version`, `complete`, `truncated`, `total`, `issues` |
+| `list-total-truncated.json` | `kata list --status open --limit 1 --include-total --json` over the same two open items: `complete:false`, `truncated:true`, `total:2`, one row | same as above |
 | `show.json` | `kata show <short_id> --json` | `kata_api_version`, `web_url`, `issue`, `comments`, `comments_truncated`, `links`, `labels` |
 | `ready.json` | `kata ready --json` | `kata_api_version`, `issues` |
 | `status.json` | `kata status <short_id> --json` | `kata_api_version`, `issue`, `project`, `issue_status`, `revision`, `actor`, `actor_source`, `auth`, `instance`, `owner`, `hold` |

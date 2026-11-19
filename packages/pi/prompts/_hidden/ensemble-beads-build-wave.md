@@ -2,7 +2,7 @@
 <!-- Command: ensemble-beads-build-wave | Version: 1.4.1 -->
 <!-- Skill: ensemble-beads-build-wave -->
 <!-- Description: Run a single beads-build wave (one work-graph.plan/work-graph.ready schedule + concurrent Task() dispatch + barrier) and emit a JSON summary suitable for the parent loop -->
-<!-- Capabilities: required=[tracker.show, tracker.set-status, tracker.close, tracker.comment, work-graph.ready, workflow.status, workflow.commit], optional=[work-graph.plan, tracker.list, tracker.sync] -->
+<!-- Capabilities: required=[tracker.show, tracker.set-status, tracker.close, tracker.comment, work-graph.ready, workflow.status, workflow.commit], optional=[work-graph.plan, tracker.list, tracker.sync, tracker.close-with-reason, workflow.merge-base] -->
 
 # ensemble-beads-build-wave
 

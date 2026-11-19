@@ -1,0 +1,39 @@
+{
+  "kata_api_version": 1,
+  "issue": {
+    "source_actor": "ldangelo",
+    "verification": "legacy",
+    "id": 1,
+    "uid": "01M7QJSAHCVD2GFGV38B2KHZ8M",
+    "project_id": 2,
+    "project_uid": "01M7QJSAFQE8RRRZ88N1SHSHND",
+    "short_id": "hz8m",
+    "title": "x",
+    "body": "",
+    "status": "open",
+    "author": "ldangelo",
+    "metadata": {},
+    "revision": 3,
+    "created_at": "2026-11-18T15:00:44.204Z",
+    "updated_at": "2026-11-18T15:00:44.235Z"
+  },
+  "event": {
+    "id": 4,
+    "uid": "01M7QJSAJB1PFVDNWTN00WWQPC",
+    "origin_instance_uid": "01M7QJSADD0K83ZM4V1D5JEH65",
+    "project_id": 2,
+    "project_uid": "01M7QJSAFQE8RRRZ88N1SHSHND",
+    "project_name": "trd-kata-scratch",
+    "issue_id": 1,
+    "issue_uid": "01M7QJSAHCVD2GFGV38B2KHZ8M",
+    "issue_short_id": "hz8m",
+    "type": "issue.unassigned",
+    "actor": "ldangelo",
+    "payload": "{\"updated_at\":\"2026-11-18T15:00:44.235Z\",\"owner\":null}",
+    "hlc_physical_ms": 1795014044235,
+    "hlc_counter": 0,
+    "content_hash": "b3cf863e6d09a6c7a41e79bdf5e11ed186795d1a976661dd0192628c37725554",
+    "created_at": "2026-11-18T15:00:44.235Z"
+  },
+  "changed": true
+}

@@ -19,7 +19,7 @@ Variable names are the command's; every `node "$TOOLCHAIN_CLI" run` below passes
 3. `REMOTE_URL` = `data.url` of `node "$TOOLCHAIN_CLI" run workflow.remote-url --arg remote=origin` (`none` if not ok/empty). Run `node "$TRD_CLI" resolve-sdlc --git-town-exit-code "$GIT_TOWN_EXIT_CODE" --remote-url "$REMOTE_URL"`. An `error` key (not `{ok:false}`) -> print and HALT. `branchingStrategy.action=='halt'` -> print its message and HALT. Set `BRANCHING_STRATEGY=branchingStrategy.strategy`.
 4. `prBackend.needsResolution==false` -> `PR_BACKEND=prBackend.backend`. If true: interactive -> AskUserQuestion `id=pr_backend` with options `ado` (azure-devops MCP, manual steps if not connected; `ENSEMBLE_PR_BACKEND=ado`), `manual` (always print manual steps; `ENSEMBLE_PR_BACKEND=manual`), `proceed with gh anyway (not recommended)` (`ENSEMBLE_PR_BACKEND=gh`), `abort` (HALT). Non-interactive -> print the three `ENSEMBLE_PR_BACKEND=<ado|manual|gh>` lines plus a hint to export one in the shell profile, and HALT.
 5. `BRANCHING_STRATEGY` and `PR_BACKEND` are re-resolved on every invocation, including resumes; they are never persisted (choices-read/write persist only `branch_name`, `use_proposed`, `stacked_prs`). Print a non-null `consolidatedMessage`; on a resume add a NOTE that earlier branches/PRs are unaffected.
-6. `WORKTREE_STATUS` = `data.files` of `node "$TOOLCHAIN_CLI" run workflow.status` minus `.beads/` paths (tracker-owned export: docs/guides/beads-tracked-export.md).
+6. `WORKTREE_STATUS` = `data.files` of `node "$TOOLCHAIN_CLI" run workflow.status` minus `.beads/` paths (beads backend only; tracker-owned export: docs/guides/beads-tracked-export.md).
 
 ## 2. Branch intent and branch creation (Preflight 6)
 
@@ -80,3 +80,7 @@ Artifact path rules are in the command's `foreman` parameter. Tag beads for disp
 ## 7. Bead references and context contract
 
 Every bead opens with a `## References` block (TRD, TRD Task, PRD, PRD Requirement, PRD ACs); plan `externalRef` is embedded in `tracker.create`'s description (no dedicated externalRef field exists). Executors run `node "$TRD_CLI" bead-context --bead <BEAD_ID> [--trd <path>]` (`source:"fallback"` = legacy bead); `ok:false` -> never implement, `tracker.comment` `blocked:missing-references <missing>`, reopen; `ok:true` -> `tracker.comment` `context-read: ...`, embed `bead_context`.
+
+## 8. Kata projects
+
+Prerequisites (kata 0.23.0 or later, the binding step, `tracker: kata`), the fresh-project walkthrough and the unbound-workspace message: read `reference/kata-starting-point.md` when the tracker is kata or preflight reports an unbound kata workspace.
