@@ -38,7 +38,7 @@ const REPO_ROOT = path.resolve(PKG_DIR, '..', '..');
 const PROSE_ROOT = process.env.PROSE_NEUTRALITY_ROOT || PKG_DIR;
 const GOLDEN_DIR = path.join(__dirname, 'fixtures', 'implement-trd');
 const TRD_CLI = path.join(PKG_DIR, 'lib', 'trd-cli.js');
-const TRD_PATH = path.join(REPO_ROOT, 'docs', 'TRD', 'TRD-2026-6995dc96-configurable-tasks-backend-kata.md');
+const TRD_PATH = path.join(REPO_ROOT, 'docs', 'TRD', 'completed', 'TRD-2026-6995dc96-configurable-tasks-backend-kata.md');
 
 const BEADS_MANIFEST = yaml.load(
   fs.readFileSync(path.join(PKG_DIR, 'skills', 'adapter-tracker-beads', 'adapter.yaml'), 'utf8')
