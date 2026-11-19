@@ -33,6 +33,9 @@ This release is major because `/ensemble:implement-trd-beads` is retired in favo
   printed and the dispatcher still halts without side effects, so the product-wide dispatch
   invariant is unchanged.
 
+### Removed
+
+- **`/ensemble:refine-beads` command and skill (`ensemble-development`):** removed in 9.0.0 (#326, "ship skills only in `ensemble-full`") and recorded only in `packages/development/CHANGELOG.md`; listed here so the root changelog is complete. The `beads-scope`, `beads-repair-plan` and `beads-refine-cli` libraries are kept.
 
 ### Added
 
