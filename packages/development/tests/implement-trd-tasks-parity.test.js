@@ -32,6 +32,7 @@ const TRD_PATH = path.join(
   REPO_ROOT,
   'docs',
   'TRD',
+  'completed',
   'TRD-2026-6995dc96-configurable-tasks-backend-kata.md'
 );
 
